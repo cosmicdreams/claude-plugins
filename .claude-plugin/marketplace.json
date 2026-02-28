@@ -1,0 +1,35 @@
+{
+  "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
+  "name": "local",
+  "version": "1.0.0",
+  "description": "Private local plugins for Chris Weber",
+  "owner": {
+    "name": "Chris Weber"
+  },
+  "plugins": [
+    {
+      "name": "sprint",
+      "description": "Team sprint execution infrastructure: agents, hooks, protocols, kanban, and retrospectives",
+      "source": "./sprint",
+      "category": "development"
+    },
+    {
+      "name": "admin",
+      "description": "Plugin, agent, and skill management tooling: bump-version, scaffold, new-agent, new-skill, optimize-agents, update-plugins",
+      "source": "./admin",
+      "category": "development"
+    },
+    {
+      "name": "drupal-lab",
+      "description": "Drupal-specific development skills and agents (DDEV, Analysis, Validation, Scaffolding)",
+      "source": "./drupal-lab",
+      "category": "development"
+    },
+    {
+      "name": "git-ops",
+      "description": "Generic Git workflow tools for worktree management and cleanup",
+      "source": "./git-ops",
+      "category": "development"
+    }
+  ]
+}

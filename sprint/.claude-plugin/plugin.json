@@ -1,0 +1,16 @@
+{
+    "name": "sprint",
+    "version": "1.3.0",
+    "description": "Team sprint execution infrastructure: agents, skills, hooks, protocols, kanban, and retrospectives.",
+    "author": {
+        "name": "Chris Weber"
+    },
+    "license": "UNLICENSED",
+    "keywords": [
+        "agents",
+        "sprint",
+        "kanban",
+        "agile",
+        "retro"
+    ]
+}

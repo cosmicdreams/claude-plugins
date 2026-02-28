@@ -1,0 +1,15 @@
+{
+    "name": "drupal-lab",
+    "version": "1.5.3",
+    "description": "Drupal-specific development skills and agents (DDEV, Analysis, Validation, Scaffolding).",
+    "author": {
+        "name": "Chris Weber"
+    },
+    "license": "UNLICENSED",
+    "keywords": [
+        "drupal",
+        "ddev",
+        "phpunit",
+        "phpcs"
+    ]
+}

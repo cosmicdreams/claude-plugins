@@ -1,0 +1,15 @@
+{
+    "name": "admin",
+    "version": "1.1.1",
+    "description": "Plugin, agent, and skill management tooling: bump-version, scaffold, new-agent, new-skill, optimize-agents, update-plugins.",
+    "author": {
+        "name": "Chris Weber"
+    },
+    "license": "UNLICENSED",
+    "keywords": [
+        "admin",
+        "plugins",
+        "scaffold",
+        "tooling"
+    ]
+}
