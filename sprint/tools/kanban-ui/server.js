@@ -2,7 +2,7 @@
 /**
  * Kanban Board UI Server
  * Zero external Node.js dependencies — built-ins only on the server.
- * marked.js loaded from CDN in the browser.
+ * marked.js served locally from marked.min.js (no CDN).
  *
  * Usage:
  *   node server.js --dir <path> [--name <string>] [--lanes <csv>] [--port <n>]
@@ -188,7 +188,6 @@ function readBoardData(lanes) {
     boardName: BOARD_NAME,
     lanes: result,
     retroDates,
-    isRetroBoard: retroDates !== null,
   };
 }
 
@@ -287,8 +286,7 @@ async function handleEdit(req, res) {
     const newTitle = title !== undefined ? title : existingTitle;
     const serialized = serializeCard({ fm: mergedFm, title: newTitle, sections: mergedSections });
     fs.writeFileSync(filePath, serialized, 'utf8');
-    const card = parseCard(filePath, lane, file);
-    jsonResponse(res, 200, { success: true, card });
+    jsonResponse(res, 200, { success: true, card: { file, lane, fm: mergedFm, title: newTitle, sections: mergedSections } });
   } catch (e) {
     jsonResponse(res, 500, { error: e.message });
   }
@@ -1206,7 +1204,7 @@ body:not([data-is-retro]) #retro-filter { display: none; }
 
     lanes.forEach((lane, laneIdx) => {
       const cards = filteredCards(lane);
-      const isLast = laneIdx === lanes.length - 1;
+
 
       const laneEl = el('div', { class: 'lane', 'data-lane-id': lane.id });
 
@@ -1240,7 +1238,7 @@ body:not([data-is-retro]) #retro-filter { display: none; }
         cardsEl.appendChild(empty);
       } else {
         cards.forEach(card => {
-          cardsEl.appendChild(buildCard(card, laneIdx, isLast));
+          cardsEl.appendChild(buildCard(card, laneIdx));
         });
       }
 
@@ -1252,7 +1250,7 @@ body:not([data-is-retro]) #retro-filter { display: none; }
     countEl.textContent = totalVisible() + ' cards';
   }
 
-  function buildCard(card, laneIdx, isLast) {
+  function buildCard(card, laneIdx) {
     const cardEl = el('div', {
       class: 'card' + (isDoneLane(card.lane) ? ' done-card' : ''),
       'data-file': card.file,
@@ -1378,18 +1376,17 @@ body:not([data-is-retro]) #retro-filter { display: none; }
 
   // ── Archive (close → changelog) ───────────────────────────────────────────
 
-  async function archiveCard(card) {
-    const label = card.title || card.file;
-    if (!confirm('Close "' + label + '"?\\n\\nThis writes the card to CHANGELOG.md and removes it from the board.')) return;
+  async function archiveViaApi(payload, confirmMsg, successMsg) {
+    if (!confirm(confirmMsg)) return;
     try {
       const res = await fetch('/archive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ file: card.file, lane: card.lane }),
+        body: JSON.stringify(payload),
       });
       const data = await res.json();
       if (data.success) {
-        toast('Closed \u2192 CHANGELOG.md');
+        toast(typeof successMsg === 'function' ? successMsg(data) : successMsg);
         await refreshWithTransition();
       } else {
         toast('Error: ' + String(data.error || 'unknown'));
@@ -1397,22 +1394,21 @@ body:not([data-is-retro]) #retro-filter { display: none; }
     } catch (e) { toast('Network error'); }
   }
 
-  async function archiveAll(laneId, count) {
-    if (!confirm('Close all ' + count + ' card' + (count === 1 ? '' : 's') + ' in Done?\\n\\nThis writes all cards to CHANGELOG.md and removes them from the board.')) return;
-    try {
-      const res = await fetch('/archive', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ lane: laneId, bulk: true }),
-      });
-      const data = await res.json();
-      if (data.success) {
-        toast('Closed ' + data.archived + ' card' + (data.archived === 1 ? '' : 's') + ' \u2192 CHANGELOG.md');
-        await refreshWithTransition();
-      } else {
-        toast('Error: ' + String(data.error || 'unknown'));
-      }
-    } catch (e) { toast('Network error'); }
+  function archiveCard(card) {
+    const label = card.title || card.file;
+    return archiveViaApi(
+      { file: card.file, lane: card.lane },
+      'Close "' + label + '"?\\n\\nThis writes the card to CHANGELOG.md and removes it from the board.',
+      'Closed \u2192 CHANGELOG.md'
+    );
+  }
+
+  function archiveAll(laneId, count) {
+    return archiveViaApi(
+      { lane: laneId, bulk: true },
+      'Close all ' + count + ' card' + (count === 1 ? '' : 's') + ' in Done?\\n\\nThis writes all cards to CHANGELOG.md and removes them from the board.',
+      data => 'Closed ' + data.archived + ' card' + (data.archived === 1 ? '' : 's') + ' \u2192 CHANGELOG.md'
+    );
   }
 
   // ── Refresh ───────────────────────────────────────────────────────────────
@@ -1435,7 +1431,7 @@ body:not([data-is-retro]) #retro-filter { display: none; }
 
   function updateRetroFilter() {
     const sel = document.getElementById('retro-filter');
-    if (!boardData || !boardData.isRetroBoard) {
+    if (!boardData || !boardData.retroDates) {
       document.body.removeAttribute('data-is-retro');
       return;
     }

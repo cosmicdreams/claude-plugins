@@ -112,12 +112,12 @@ The `annotations` field starts as an empty object. The UI will populate it with 
 Run the following to start the local UI server:
 
 ```bash
-BRAINSTORM_VERSION=$(ls ~/.claude/plugins/cache/local/brainstorm/ 2>/dev/null | sort -V | tail -1)
+BRAINSTORM_VERSION=$(ls ~/.claude/plugins/cache/local/ideate/ 2>/dev/null | sort -V | tail -1)
 if [ -z "$BRAINSTORM_VERSION" ]; then
-  echo "ERROR: brainstorm plugin not installed. Run: claude plugin install brainstorm@local --scope user"
+  echo "ERROR: ideate plugin not installed. Run: claude plugin install ideate@local --scope user"
   exit 1
 fi
-BRAINSTORM_SERVER=~/.claude/plugins/cache/local/brainstorm/$BRAINSTORM_VERSION/tools/ui/server.js
+BRAINSTORM_SERVER=~/.claude/plugins/cache/local/ideate/$BRAINSTORM_VERSION/tools/ui/server.js
 node "$BRAINSTORM_SERVER" --file "$(pwd)/.brainstorm.json" &
 echo "Server PID: $!"
 ```

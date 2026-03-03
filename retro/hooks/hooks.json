@@ -1,0 +1,16 @@
+{
+    "description": "Retro plugin hooks: SubagentStop interview capture. Intercepts each team agent's graceful shutdown to collect retrospective interview data.",
+    "hooks": {
+        "SubagentStop": [
+            {
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/subagent-stop-interview.sh",
+                        "timeout": 10
+                    }
+                ]
+            }
+        ]
+    }
+}

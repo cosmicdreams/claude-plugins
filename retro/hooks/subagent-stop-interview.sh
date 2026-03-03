@@ -1,5 +1,5 @@
 #!/bin/bash
-# subagent-stop-interview.sh — sprint plugin
+# subagent-stop-interview.sh — retro plugin
 #
 # Requires all team sprint agents to complete a graceful shutdown interview
 # before allowing them to stop. Gate = team membership, not agent type.

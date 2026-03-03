@@ -1,7 +1,7 @@
 {
     "name": "sprint",
-    "version": "1.4.0",
-    "description": "Team sprint execution infrastructure: agents, skills, hooks, protocols, kanban, and retrospectives.",
+    "version": "1.5.0",
+    "description": "Team sprint execution infrastructure: agents, skills, hooks, protocols, and kanban pipeline.",
     "author": {
         "name": "Chris Weber"
     },
@@ -10,7 +10,6 @@
         "agents",
         "sprint",
         "kanban",
-        "agile",
-        "retro"
+        "agile"
     ]
 }

@@ -21,24 +21,15 @@ for (let i = 0; i < args.length; i++) {
 const resolvedFile = path.resolve(filePath);
 
 // ---------------------------------------------------------------------------
-// Verify file exists and is readable/writable
+// Verify file is readable and contains valid JSON
 // ---------------------------------------------------------------------------
-if (!fs.existsSync(resolvedFile)) {
-  console.error(`Error: File not found: ${resolvedFile}`);
-  process.exit(1);
-}
-
-try {
-  fs.accessSync(resolvedFile, fs.constants.R_OK | fs.constants.W_OK);
-} catch (e) {
-  console.error(`Error: Cannot read/write file: ${resolvedFile}`);
-  process.exit(1);
-}
-
 try {
   JSON.parse(fs.readFileSync(resolvedFile, 'utf8'));
 } catch (e) {
-  console.error(`Error: Invalid JSON in file: ${resolvedFile}\n${e.message}`);
+  const msg = e.code === 'ENOENT' ? `File not found: ${resolvedFile}`
+            : e.code === 'EACCES' ? `Cannot read/write file: ${resolvedFile}`
+            : `Invalid JSON in file: ${resolvedFile}\n${e.message}`;
+  console.error(`Error: ${msg}`);
   process.exit(1);
 }
 
@@ -769,10 +760,13 @@ function buildHtml(data) {
   var state = ${annotationsJson};
 
   // Ensure every idea has an entry
-  IDEA_IDS.forEach(function(id) {
+  function ensureIdeaState(id) {
     if (!state[id]) state[id] = { rating: null, notes: '', combineWith: [] };
     if (!state[id].combineWith) state[id].combineWith = [];
-  });
+    return state[id];
+  }
+
+  IDEA_IDS.forEach(ensureIdeaState);
 
   // ---------------------------------------------------------------------------
   // Restore saved state on load
@@ -812,7 +806,7 @@ function buildHtml(data) {
   // Rating
   // ---------------------------------------------------------------------------
   function setRating(ideaId, rating) {
-    if (!state[ideaId]) state[ideaId] = { rating: null, notes: '', combineWith: [] };
+    ensureIdeaState(ideaId);
     // Toggle off if same rating clicked again
     if (state[ideaId].rating === rating) {
       state[ideaId].rating = null;
@@ -846,16 +840,14 @@ function buildHtml(data) {
   // Notes
   // ---------------------------------------------------------------------------
   function onNotesChange(ideaId, value) {
-    if (!state[ideaId]) state[ideaId] = { rating: null, notes: '', combineWith: [] };
-    state[ideaId].notes = value;
+    ensureIdeaState(ideaId).notes = value;
   }
 
   // ---------------------------------------------------------------------------
   // Combine with
   // ---------------------------------------------------------------------------
   function onCombineChange(ideaId, targetId, checked) {
-    if (!state[ideaId]) state[ideaId] = { rating: null, notes: '', combineWith: [] };
-    if (!state[ideaId].combineWith) state[ideaId].combineWith = [];
+    ensureIdeaState(ideaId);
     if (checked) {
       if (state[ideaId].combineWith.indexOf(targetId) === -1) {
         state[ideaId].combineWith.push(targetId);

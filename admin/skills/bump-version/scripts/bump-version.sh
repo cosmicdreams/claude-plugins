@@ -6,7 +6,7 @@
 #   bump-version.sh all <bump-type>
 #
 # Arguments:
-#   plugin     — sprint | admin | drupal-lab | git-ops | all
+#   plugin     — sprint | retro | ideate | admin | drupal-lab | all
 #   bump-type  — major | minor | patch
 #
 # What it does:
@@ -18,7 +18,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-PLUGINS=(sprint admin drupal-lab git-ops)
+PLUGINS=(sprint retro ideate admin drupal-lab)
 
 usage() {
     echo "Usage: $0 <plugin|all> <major|minor|patch>"

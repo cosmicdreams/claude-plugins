@@ -140,15 +140,15 @@ If `--focus errors` is specified, omit tool counts and messages. If `--focus mes
 
 **Example 1**: Team-lead pings after task completion
 - Ping received: `{task_id: 25, owner: "implementer-1", kanban_card_path: "kanban/sprint-run/3393916-leave-dialog-on-edit-link-click-develop.md"}`
-- Run: `/sprint:retro-transcript --teammate implementer-1 --task 25 --focus errors`
+- Run: `/retro:retro-transcript --teammate implementer-1 --task 25 --focus errors`
 - Result: Structured summary of implementer-1's session scoped to task 25, errors highlighted
 
 **Example 2**: Full review after reviewer completes
-- Run: `/sprint:retro-transcript --teammate reviewer --focus all`
+- Run: `/retro:retro-transcript --teammate reviewer --focus all`
 - Result: Complete tool call breakdown, all messages sent to team-lead, any retry loops
 
 **Example 3**: Targeted message review after communication confusion
-- Run: `/sprint:retro-transcript --teammate issue-analyzer-2 --focus messages`
+- Run: `/retro:retro-transcript --teammate issue-analyzer-2 --focus messages`
 - Result: Only the SendMessage calls — who they messaged and what, useful for routing artifact detection
 
 ## Troubleshooting

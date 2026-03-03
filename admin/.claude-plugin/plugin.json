@@ -1,7 +1,7 @@
 {
     "name": "admin",
-    "version": "1.1.1",
-    "description": "Plugin, agent, and skill management tooling: bump-version, scaffold, new-agent, new-skill, optimize-agents, update-plugins.",
+    "version": "1.2.0",
+    "description": "Plugin, agent, and skill management tooling: bump-version, scaffold, new-agent, new-skill, optimize-agents, update-plugins, create-worktree.",
     "author": {
         "name": "Chris Weber"
     },
@@ -10,6 +10,7 @@
         "admin",
         "plugins",
         "scaffold",
-        "tooling"
+        "tooling",
+        "git"
     ]
 }
