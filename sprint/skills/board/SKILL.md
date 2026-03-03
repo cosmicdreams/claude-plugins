@@ -8,6 +8,11 @@ triggers:
   - "advance sprint card"
   - "sprint board columns"
   - "add issue to sprint"
+  - "open sprint board"
+  - "launch sprint board"
+  - "show sprint kanban"
+allowed-tools:
+  - Bash
 ---
 
 # Sprint-Board — Team Sprint Board
@@ -18,6 +23,27 @@ For sprint orchestration (spawning agents, running the pipeline): read `sprint:r
 
 **Board path:** `kanban/sprint-run/`
 **Purpose:** Issues flowing through the analyze → develop → review pipeline during a team sprint.
+
+---
+
+## UI Mode
+
+Launch the sprint kanban board UI for visual management of sprint-run cards.
+
+### Launch command
+
+```bash
+SPRINT_VERSION=$(ls ~/.claude/plugins/cache/local/sprint/ 2>/dev/null | sort -V | tail -1)
+KANBAN_SERVER=~/.claude/plugins/cache/local/sprint/$SPRINT_VERSION/tools/kanban-ui/server.js
+
+BOARD_DIR="$(pwd)/kanban/sprint-run"
+
+node "$KANBAN_SERVER" \
+  --dir "$BOARD_DIR" \
+  --name "Sprint Board" \
+  --lanes "1_backlog,2_analyzing,3_developing,4_needs-review,5_reviewing,6_review-failed,7_done" \
+  --port 3748 &
+```
 
 ---
 
