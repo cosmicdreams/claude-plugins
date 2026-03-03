@@ -5,7 +5,7 @@
 #   reinstall-plugin.sh <plugin|all>
 #
 # Arguments:
-#   plugin — sprint | admin | drupal-lab | git-ops | all
+#   plugin — sprint | retro | ideate | admin | drupal-lab | all
 #
 # What it does:
 #   For each specified plugin:
@@ -26,7 +26,7 @@ set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 CACHE_BASE="$HOME/.claude/plugins/cache/local"
-PLUGINS=(sprint admin drupal-lab git-ops)
+PLUGINS=(sprint retro ideate admin drupal-lab)
 
 # --- Helpers ---
 
@@ -122,9 +122,10 @@ assert_installed() {
 
     # Assertion 4: Non-empty install — the installed dir has a meaningful number of files.
     # Catches: install command ran but copied nothing (empty or near-empty dir).
+    # Threshold is > 2: any real plugin has at least plugin.json + one content file + CHANGELOG.md.
     local file_count
     file_count=$(find "$target_dir" -type f 2>/dev/null | wc -l | tr -d ' ')
-    if [[ "$file_count" -gt 5 ]]; then
+    if [[ "$file_count" -gt 2 ]]; then
         pass "installed dir contains $file_count files"
     else
         fail "installed dir has only $file_count file(s) — possible empty install"

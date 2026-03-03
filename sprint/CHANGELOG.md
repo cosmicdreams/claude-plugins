@@ -1,5 +1,14 @@
 # Changelog
 
+## 1.5.0
+- Extract all retrospective skills and SubagentStop hook to standalone `retro` plugin — sprint is now execution-only
+- Remove sprint:retro-session, sprint:retro-kanban, sprint:retro-transcript, sprint:retro-interviews skills
+- Remove SubagentStop hook (subagent-stop-interview.sh) — now owned by retro plugin
+- Remove retro-related keywords and description references from plugin manifest
+
+## 1.4.0
+- Add kanban board UI server (kanban-ui) for visual sprint board rendering
+
 ## 1.3.0
 - Add sprint:project-notes skill — synthesizes 7_done/ cards and git log into structured RELEASE-NOTES.md entries; confirm-before-write, distinct from sprint:release-notes (plugin CHANGELOG)
 - Rewrite all 7 board scripts (view_board.sh, pipeline_status.sh, show_blocked.sh, search_by_tag.sh, search_content.sh, list_all_cards.sh, list_tags.sh) to derive status from directory name; recurse all 7 kanban subdirectories instead of reading status: frontmatter
