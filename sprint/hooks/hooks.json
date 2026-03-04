@@ -1,5 +1,5 @@
 {
-    "description": "Sprint plugin hooks: session start, pre-compact advisory, tool-use observation logging, and git guard.",
+    "description": "Sprint plugin hooks: session start, pre-compact advisory, and tool-use observation logging.",
     "hooks": {
         "SessionStart": [
             {
@@ -25,15 +25,6 @@
             }
         ],
         "PreToolUse": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/git-guard.sh",
-                        "timeout": 5
-                    }
-                ]
-            },
             {
                 "hooks": [
                     {
