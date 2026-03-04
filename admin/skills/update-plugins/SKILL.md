@@ -67,14 +67,14 @@ Compare against `BEFORE` to identify which plugins actually changed.
 For each plugin where the version changed (BEFORE ≠ AFTER), replace the old cache path version in the project's `CLAUDE.md`. Use the actual before/after versions captured in steps 1 and 3:
 
 ```bash
-# Example: sprint changed from 1.2.1 to 1.4.6
-sed -i '' "s|plugins/cache/local/sprint/1.2.1/|plugins/cache/local/sprint/1.4.6/|g" "$PWD/CLAUDE.md"
+# Example: sprint changed from 1.2.2 to 1.4.6
+sed -i '' "s|plugins/cache/local/sprint/1.2.2/|plugins/cache/local/sprint/1.4.6/|g" "$PWD/CLAUDE.md"
 
 # Example: admin changed from 1.1.1 to 1.1.1
 sed -i '' "s|plugins/cache/local/admin/1.1.1/|plugins/cache/local/admin/1.1.1/|g" "$PWD/CLAUDE.md"
 
-# Example: drupal-lab changed from 1.1.1 to 1.2.1
-sed -i '' "s|plugins/cache/local/drupal-lab/1.1.1/|plugins/cache/local/drupal-lab/1.2.1/|g" "$PWD/CLAUDE.md"
+# Example: drupal-lab changed from 1.1.1 to 1.2.2
+sed -i '' "s|plugins/cache/local/drupal-lab/1.1.1/|plugins/cache/local/drupal-lab/1.2.2/|g" "$PWD/CLAUDE.md"
 ```
 
 Only update CLAUDE.md if it exists in the current directory and contains version references. Skip silently if neither condition is met. If no plugins changed version, skip this step entirely.

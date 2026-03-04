@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.1
+- Remove git-guard PreToolUse hook — no longer needed now that co-authorship attribution is disabled natively
+
 ## 1.5.0
 - Extract all retrospective skills and SubagentStop hook to standalone `retro` plugin — sprint is now execution-only
 - Remove sprint:retro-session, sprint:retro-kanban, sprint:retro-transcript, sprint:retro-interviews skills

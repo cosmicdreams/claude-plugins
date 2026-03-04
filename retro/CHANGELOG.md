@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.0
+- Rename skill invocations: `retro:retro-session` → `retro:session`, `retro:retro-kanban` → `retro:kanban`, `retro:retro-interviews` → `retro:interviews`, `retro:retro-transcript` → `retro:transcript`
+
 ## 1.0.0
 - Initial release — extracted from sprint plugin as a standalone retrospective domain
 - Skills: session, kanban, transcript, interviews

@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.2
+- Speed up `admin:scaffold` by offloading all filesystem work to `scaffold.sh` — replaces ~17 LLM tool calls with a single bash invocation; CLAUDE.md and MEMORY.md now written from static template files
+- Remove `Write` from scaffold skill's allowed-tools (no longer needed)
+
 ## 1.2.1
 - Fix reinstall-plugin.sh: lower non-empty install assertion threshold from >5 to >2 files so small plugins like ideate pass correctly
 

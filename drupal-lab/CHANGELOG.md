@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.5.4
+- Remove git-guard PreToolUse hook — no longer needed now that co-authorship attribution is disabled natively
+
 ## 1.5.3
 - Add pattern analysis phase to fixer pre-patch investigation — find working case, read completely, list every difference, form one hypothesis before stating root cause (closes final Superpowers systematic-debugging gap)
 

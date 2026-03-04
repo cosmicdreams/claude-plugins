@@ -1,6 +1,6 @@
 {
     "name": "ideate",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Pre-work ideation with a visual decision canvas. Generates divergent ideas, launches a local web UI for human annotation, then synthesizes decisions into a concrete plan.",
     "author": {
         "name": "Chris Weber"
