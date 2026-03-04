@@ -1,16 +1,4 @@
 {
-    "description": "Drupal-lab plugin hooks: git guard prevents agents from staging, committing, or pushing changes.",
-    "hooks": {
-        "PreToolUse": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/git-guard.sh",
-                        "timeout": 5
-                    }
-                ]
-            }
-        ]
-    }
+    "description": "Drupal-lab plugin hooks.",
+    "hooks": {}
 }
