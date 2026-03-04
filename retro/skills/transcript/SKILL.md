@@ -1,5 +1,5 @@
 ---
-name: retro-transcript
+name: transcript
 description: Retrieves and summarizes a sprint agent's session transcript from the Claude Code JSONL logs. Use when a process-observer needs to review what an agent did, when team-lead pings with "task completed" and an agent name, or when asked to "read the transcript for implementer-1", "what did implementer-2 do on task 25", "show me the agent log", "retrieve agent session", or "analyze what happened during task". Accepts --teammate, --task, --focus, and --session arguments. Do NOT use for reading kanban cards or analysis reports — use Read tool directly for those.
 allowed-tools: Bash, Read, Glob, Grep
 ---
@@ -140,15 +140,15 @@ If `--focus errors` is specified, omit tool counts and messages. If `--focus mes
 
 **Example 1**: Team-lead pings after task completion
 - Ping received: `{task_id: 25, owner: "implementer-1", kanban_card_path: "kanban/sprint-run/3393916-leave-dialog-on-edit-link-click-develop.md"}`
-- Run: `/retro:retro-transcript --teammate implementer-1 --task 25 --focus errors`
+- Run: `/retro:transcript --teammate implementer-1 --task 25 --focus errors`
 - Result: Structured summary of implementer-1's session scoped to task 25, errors highlighted
 
 **Example 2**: Full review after reviewer completes
-- Run: `/retro:retro-transcript --teammate reviewer --focus all`
+- Run: `/retro:transcript --teammate reviewer --focus all`
 - Result: Complete tool call breakdown, all messages sent to team-lead, any retry loops
 
 **Example 3**: Targeted message review after communication confusion
-- Run: `/retro:retro-transcript --teammate issue-analyzer-2 --focus messages`
+- Run: `/retro:transcript --teammate issue-analyzer-2 --focus messages`
 - Result: Only the SendMessage calls — who they messaged and what, useful for routing artifact detection
 
 ## Troubleshooting

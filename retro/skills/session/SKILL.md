@@ -1,6 +1,6 @@
 ---
-name: retro-session
-description: Use at the end of a sprint after all agents are shut down, or when the user asks to run a retrospective. Invoke with /retro:retro-session. Do not invoke during active sprint work or before agents have completed their tasks.
+name: session
+description: Use at the end of a sprint after all agents are shut down, or when the user asks to run a retrospective. Invoke with /retro:session. Do not invoke during active sprint work or before agents have completed their tasks.
 triggers:
   - "run retrospective"
   - "session review"
@@ -49,7 +49,7 @@ Agent interviews are collected by the retro plugin's SubagentStop hook during ea
 - [ ] Read all files in `analysis-reports/retro-session/<YYYY-MM-DD>+<sprint-name>/interviews/`
 - [ ] For each interview file, extract based on templates at:
 - **Action Cards**: `kanban/retrospective-actions/1_backlog/`
-- **Templates**: `retro:retro-interviews` (interview-templates.md)
+- **Templates**: `retro:interviews` (interview-templates.md)
 - [ ] Cross-reference C3 answers — if 2+ agents name the same process change, flag as high-priority
 - [ ] Cross-reference D1 confidence with V2 handoff quality for calibration gaps
 - [ ] Note any missing agent types (gaps in coverage)
@@ -160,7 +160,7 @@ Generate comprehensive retrospective report (40-60 lines, see `references/report
 
 ### Phase 6: Action Card Generation (5 min)
 
-Convert findings from the report into action cards. Read `retro:retro-kanban` for the full mechanics.
+Convert findings from the report into action cards. Read `retro:kanban` for the full mechanics.
 
 **6A: Categorize findings (KEEP/IMPROVE/LEARN)**
 - **KEEP DOING** — Pattern that worked well; minimum evidence: 2+ independent sources
@@ -176,13 +176,13 @@ Convert findings from the report into action cards. Read `retro:retro-kanban` fo
 - Card ID format: `retro-YYYYMMDD-NNN`
 - Review and refine each finding before writing (merge near-duplicates, sharpen recommendations)
 
-**6E: Run scrum (dedup pass)** — see `retro:retro-kanban` for the dedup procedure
+**6E: Run scrum (dedup pass)** — see `retro:kanban` for the dedup procedure
 
 ### Phase 7: Review Proposed Action Cards with User (5–10 min)
 
 **This phase is mandatory. Do not skip it.**
 
-Read `retro:retro-kanban` for the full user review flow. Summary:
+Read `retro:kanban` for the full user review flow. Summary:
 
 - Present each card via `AskUserQuestion` with markdown preview (max 4 per call)
 - Options per card: Approve → `approved/` | Reject → delete (log rationale) | Modify → edit then `approved/`
@@ -193,34 +193,7 @@ Read `retro:retro-kanban` for the full user review flow. Summary:
 
 ---
 
-**For agent interview templates, see:** `retro:retro-interviews` (interview-templates.md)
-
----
-
-## Report Structure Guide
-
-Generate a concise report following this structure (40-60 lines target):
-
-1. **Executive Summary** — Session dates, team size, scope, quality gates pass %, first-pass rate
-2. **What Worked Well** — 3-4 successes with agent quotes or evidence
-3. **What Didn't Work** — 3-4 blockers with root causes
-4. **Code Knowledge Learned** — 3-4 technical insights (architectures, tricky APIs, test patterns, dependencies)
-5. **Start/Stop Recommendations** — 3 START + 3 STOP actions from agent feedback
-6. **Action Items** — Immediate (before next session), Next sprint, Future
-7. **MEMORY.md Updates** — Baselines, code learnings, process changes, trend analysis
-
----
-
-## Key Interview Questions (for Phase 2 - FULL MODE only)
-
-See `retro:retro-interviews` (interview-templates.md) for complete templates by agent type.
-
-**Core questions across all agents:**
-- What worked well this session? (with specific examples)
-- What blockers or inefficiencies did you hit?
-- What should we START doing to improve next session?
-- What should we STOP doing that wasted time?
-- How confident in the quality of delivered work?
+**For agent interview templates, see:** `retro:interviews` (interview-templates.md)
 
 ---
 
@@ -230,21 +203,6 @@ A good retrospective:
 - Collects feedback from ≥2 agent types
 - Identifies what worked, what didn't, and why
 - Generates actionable start/stop recommendations
-
----
-
-## Timing
-
-**Agent interviews are decoupled from the retro.** The retro plugin's SubagentStop hook captures interviews as each agent shuts down. By the time `/retro:retro-session` runs, interview files already exist. This skill works with any workflow that produces interview files at the standard path — sprint:run is not required.
-
-**Workflow:**
-1. During agent work: each agent's graceful shutdown triggers the retro SubagentStop hook → interview injected → answers captured → stored to `analysis-reports/retro-session/`
-2. After work completes: invoke `/retro:retro-session`
-3. Phase 2 reads stored interview files — no agent availability dependency
-4. Phases 3-6: Analyze data, generate report, create action cards
-5. Phase 7: Review proposed action cards with user (mandatory)
-
-**If interview files are missing**: The Graceful Shutdown Sequence was skipped during the sprint. Note this as a process gap in the report. The retro still runs with data analysis, kanban board, and JSONL mining — just without agent feedback.
 
 ---
 
@@ -289,8 +247,8 @@ A good retrospective:
 ## Cross-References & Reference Files
 
 **Related Skills:**
-- **retro:retro-interviews** — Agent shutdown interview process and templates
-- **retro:retro-kanban** — Retrospective-actions board mechanics: card creation, scrum, user review
+- **retro:interviews** — Agent shutdown interview process and templates
+- **retro:kanban** — Retrospective-actions board mechanics: card creation, scrum, user review
 - **sprint:run** — Kanban pipeline context and team coordination
 - **process-lifecycle** — DDEV instance management and resource cleanup
 - **validate-patch** — Quality gate definitions and pass/fail criteria
@@ -299,7 +257,7 @@ A good retrospective:
 - **feedback-targets.md** — Route action cards to specific targets (memory, claude-md, agent, skill, protocol, standard, future)
 - **report-structure.md** — Consistent retrospective report template for cross-session comparison
 - **metrics-baseline.md** — 5 key metrics and JSONL mining patterns for extraction
-- **action-card-template.md** — Card format and frontmatter (12 interview questions in `retro:retro-interviews` interview-templates.md)
+- **action-card-template.md** — Card format and frontmatter (12 interview questions in `retro:interviews` interview-templates.md)
 
 **Related Documentation:**
 - **decision-framework.md** — Autonomous vs. escalate decision boundaries
@@ -310,4 +268,4 @@ A good retrospective:
 
 **Kanban Locations:**
 - **`kanban/sprint-run/`** — Drupal core issue work pipeline
-- **`kanban/retrospective-actions/`** — Process improvement action cards (`retro:retro-kanban`)
+- **`kanban/retrospective-actions/`** — Process improvement action cards (`retro:kanban`)

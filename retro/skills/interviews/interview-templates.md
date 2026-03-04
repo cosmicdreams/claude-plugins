@@ -219,13 +219,6 @@ Asked only of the process-improvement agent. Uses the O-E-I-R (Observation-Evide
 
 4. **No data-computation asks**: Agents report what they OBSERVED and JUDGED, not metrics they'd need to calculate. Metric computation happens in Phase 3 from artifacts, not from agent memory.
 
-### How each question connects to KEEP/IMPROVE/LEARN
-
-The common section maps 1:1 to the three signal types (C1=KEEP, C2=LEARN, C3=IMPROVE). Role-specific questions add depth:
-- Developer questions primarily surface LEARN signals (decisions, patterns) with IMPROVE as secondary
-- Validator questions primarily surface IMPROVE signals (failure analysis, friction) with LEARN as secondary
-- Process questions surface all three signals through systemic analysis
-
 ### Why the scope is right (15-20 min total)
 
 - 12 total unique questions, but each agent answers only 6 (3 common + 3 role-specific)

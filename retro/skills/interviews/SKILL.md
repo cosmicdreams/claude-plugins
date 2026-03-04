@@ -1,5 +1,5 @@
 ---
-name: retro-interviews
+name: interviews
 description: NOT FOR MANUAL INVOCATION. Fires automatically via the SubagentStop hook as each agent exits. Read only when building or debugging the shutdown interview process, or when running a manual interview as a fallback because the hook is not active.
 triggers:
   - "verify interview coverage"
@@ -15,7 +15,7 @@ Documents the agent shutdown interview lifecycle. The primary path is fully auto
 
 **Fires:** Automatically at each agent's graceful shutdown (via SubagentStop hook)
 **Output:** `analysis-reports/retro-session/<YYYY-MM-DD>+<sprint-name>/interviews/<agent-type>.md`
-**Read by:** `/retro:retro-session` Phase 2
+**Read by:** `/retro:session` Phase 2
 
 ---
 
@@ -55,7 +55,7 @@ ls analysis-reports/retro-session/<YYYY-MM-DD>+<sprint-name>/interviews/
 
 Expected: one `.md` file per agent type that was active during the sprint.
 
-If files are missing: note the gap. `/retro:retro-session` can still proceed with partial coverage — it will flag the missing files as a process gap in the report.
+If files are missing: note the gap. `/retro:session` can still proceed with partial coverage — it will flag the missing files as a process gap in the report.
 
 ---
 
@@ -92,9 +92,9 @@ The `process-improvement` agent has its interview questions embedded in its own 
 
 ## Integration with Session-Retrospective
 
-After interviews are collected, `/retro:retro-session` Phase 2 reads them from `analysis-reports/retro-session/<sprint-name>/interviews/`. There is no agent availability dependency — the retro can run hours or days after the sprint ends.
+After interviews are collected, `/retro:session` Phase 2 reads them from `analysis-reports/retro-session/<sprint-name>/interviews/`. There is no agent availability dependency — the retro can run hours or days after the sprint ends.
 
 **Cross-references:**
 - **Interview templates:** `interview-templates.md` (this skill's directory)
-- **Reads results:** `retro:retro-session` Phase 2
+- **Reads results:** `retro:session` Phase 2
 - **Hook source:** `../hooks/subagent-stop-interview.sh`

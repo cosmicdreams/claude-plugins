@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.2.1
+- Fix reinstall-plugin.sh: lower non-empty install assertion threshold from >5 to >2 files so small plugins like ideate pass correctly
+
 ## 1.2.0
 - Absorb create-worktree skill from retired git-ops plugin — git worktree creation now lives in admin
 - Update bump-version PLUGINS array: replace git-ops with retro and ideate to reflect current plugin roster

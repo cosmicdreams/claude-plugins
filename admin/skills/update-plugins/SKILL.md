@@ -73,8 +73,8 @@ sed -i '' "s|plugins/cache/local/sprint/1.2.1/|plugins/cache/local/sprint/1.4.6/
 # Example: admin changed from 1.1.1 to 1.1.1
 sed -i '' "s|plugins/cache/local/admin/1.1.1/|plugins/cache/local/admin/1.1.1/|g" "$PWD/CLAUDE.md"
 
-# Example: drupal-lab changed from 1.1.1 to 1.2.0
-sed -i '' "s|plugins/cache/local/drupal-lab/1.1.1/|plugins/cache/local/drupal-lab/1.2.0/|g" "$PWD/CLAUDE.md"
+# Example: drupal-lab changed from 1.1.1 to 1.2.1
+sed -i '' "s|plugins/cache/local/drupal-lab/1.1.1/|plugins/cache/local/drupal-lab/1.2.1/|g" "$PWD/CLAUDE.md"
 ```
 
 Only update CLAUDE.md if it exists in the current directory and contains version references. Skip silently if neither condition is met. If no plugins changed version, skip this step entirely.
