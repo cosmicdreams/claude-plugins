@@ -1,0 +1,45 @@
+
+## Drupal Contrib Module
+
+- **Module**: MODULE_NAME
+- **Type**: contrib (uses [ddev-drupal-contrib](https://github.com/ddev/ddev-drupal-contrib) addon)
+- **DDEV naming**: `MODULE_NAME-main` (main), `MODULE_NAME-{ISSUE}` (worktrees)
+
+### Contrib vs Core Commands
+
+This is a contrib module project. When using DDEV development skills, use the
+contrib addon commands — not the Drupal core equivalents:
+
+| Task | Use this | Not this |
+|------|----------|----------|
+| Coding standards | `ddev phpcs` | `ddev exec composer phpcs --` |
+| Auto-fix | `ddev phpcbf` | `ddev exec composer phpcbf --` |
+| Static analysis | `ddev phpstan` | `ddev exec vendor/bin/phpstan analyze` |
+| Run tests | `ddev phpunit` | `ddev phpunit core/modules/...` |
+| Run tests by group | `ddev phpunit --group MODULE_NAME` | |
+| Install deps | `ddev poser` | `ddev composer install` |
+| Symlink module | `ddev symlink-project` | |
+| Switch core version | `ddev core-version` | |
+
+### drupal-lab Plugin Skills
+
+Skills are provided by the globally installed `drupal-lab` plugin — do not copy them locally.
+
+- `drupal-lab:ddev-drupal-dev` — DDEV command reference (see contrib overrides above)
+- `drupal-lab:process-lifecycle` — DDEV lifecycle; name instances `MODULE_NAME-{ISSUE}`
+- `drupal-lab:validate-patch` — Quality gates (phpcs, phpstan, phpunit)
+- `drupal-lab:analyze-issue` — Fetch and analyze drupal.org issues
+- `drupal-lab:issue-summary` — Generate drupal.org contribution comment
+
+### drupal-lab Plugin Agents
+
+Agents are provided by the globally installed plugins — do not copy them locally.
+
+- `drupal-lab:implementer` — Implements fixes, writes tests
+- `drupal-lab:reviewer` — Validates patches against quality gates
+- `drupal-lab:fixer` — Targeted surgical bug fixes
+- `drupal-lab:architect` — Read-only architecture analysis
+- `drupal-lab:advisor` — Drupal 11 expertise and guidance
+- `drupal-lab:issue-analyzer` — Analyzes drupal.org issues
+- `drupal-lab:issue-planner` — Creates implementation plans
+- `drupal-lab:test-coverage-analyst` — Test gap analysis
