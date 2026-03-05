@@ -20,8 +20,7 @@ Disable the scaffold detection prompt for the current project by writing a proje
 
 ```bash
 TARGET="${ARGUMENTS:-$PWD}"
-SKILL_DIR="${CLAUDE_PLUGIN_ROOT}/skills/scaffold-silence"
-bash "$SKILL_DIR/scaffold-silence.sh" "$TARGET"
+bash "${CLAUDE_SKILL_DIR}/scaffold-silence.sh" "$TARGET"
 ```
 
 ### 2. Confirm to the user

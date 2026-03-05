@@ -44,11 +44,10 @@ Run these checks in order via Bash; use the first match as `PROJECT_NAME`:
 
 ### 3. Run Scaffold Script
 
-The scaffold script lives alongside this skill. Find it via `${CLAUDE_PLUGIN_ROOT}`:
+The scaffold script lives alongside this skill. Find it via `${CLAUDE_SKILL_DIR}`:
 
 ```bash
-SKILL_DIR="${CLAUDE_PLUGIN_ROOT}/skills/scaffold"
-bash "$SKILL_DIR/scaffold.sh" "$TARGET" "$PROJECT_NAME"
+bash "${CLAUDE_SKILL_DIR}/scaffold.sh" "$TARGET" "$PROJECT_NAME"
 ```
 
 The script creates all directories, writes CLAUDE.md and MEMORY.md from templates (substituting `PROJECT_NAME`), and marks scaffold complete in `.claude/settings.json`. It is idempotent — existing files are skipped, not overwritten.
