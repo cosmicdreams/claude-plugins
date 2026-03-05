@@ -12,7 +12,7 @@
 #   CLAUDE_MD_UPDATED:<count>
 #   STATUS:changed|unchanged
 #
-# Must be run inside an active Claude Code session (uses claude CLI via CLAUDECODE env).
+# Works inside or outside a Claude Code session (unsets CLAUDECODE so the CLI is not blocked).
 # For a clean cache-wipe reinstall with assertions, use reinstall-plugin.sh instead.
 set -uo pipefail
 
@@ -38,7 +38,7 @@ done
 # --- Reinstall installed plugins ---
 for plugin in "${PLUGINS[@]}"; do
     if [ "${BEFORE[$plugin]}" != "not-installed" ]; then
-        claude plugin install "$plugin@local" --scope user >/dev/null 2>&1 || true
+        env -u CLAUDECODE claude plugin install "$plugin@local" --scope user >/dev/null 2>&1 || true
     fi
 done
 
