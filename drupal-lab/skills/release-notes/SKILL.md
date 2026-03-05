@@ -11,8 +11,7 @@ Read and output the drupal-lab CHANGELOG.
 ## Procedure
 
 ```bash
-SKILL_DIR="${CLAUDE_PLUGIN_ROOT}/skills/release-notes"
-bash "$SKILL_DIR/read-changelog.sh" "drupal-lab" "${CLAUDE_PLUGIN_ROOT}" "${ARGUMENTS:-}"
+bash "${CLAUDE_SKILL_DIR}/read-changelog.sh" "drupal-lab" "${CLAUDE_PLUGIN_ROOT}" "${ARGUMENTS:-}"
 ```
 
 Print the script output exactly as-is — no summarizing, no reformatting.

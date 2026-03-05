@@ -34,11 +34,10 @@ Continue with the steps below regardless of whether scaffold created or skipped 
 
 ### 2. Run Module Dev Starter Script
 
-The script handles all remaining steps. Find it via `${CLAUDE_PLUGIN_ROOT}`:
+The script handles all remaining steps. Find it via `${CLAUDE_SKILL_DIR}`:
 
 ```bash
-SKILL_DIR="${CLAUDE_PLUGIN_ROOT}/skills/module-dev-starter"
-bash "$SKILL_DIR/module-dev-starter.sh" "$TARGET"
+bash "${CLAUDE_SKILL_DIR}/module-dev-starter.sh" "$TARGET"
 ```
 
 The script performs:

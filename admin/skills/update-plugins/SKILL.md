@@ -20,8 +20,7 @@ Update all installed local marketplace plugins and fix any stale version paths i
 ### 1. Run Update Script
 
 ```bash
-SKILL_DIR="${CLAUDE_PLUGIN_ROOT}/skills/update-plugins"
-bash "$SKILL_DIR/update-plugins.sh" "$PWD/CLAUDE.md"
+bash "${CLAUDE_SKILL_DIR}/update-plugins.sh" "$PWD/CLAUDE.md"
 ```
 
 ### 2. Report
@@ -34,7 +33,7 @@ Parse the script output and present to the user:
   - If `not-installed`: skip
 - If `CLAUDE_MD_UPDATED:<n>` is > 0: show count of path references updated
 - If `STATUS:unchanged`: print `All plugins already up to date. No changes made.`
-- Always append: `⚠ Restart Claude Code to apply updated plugin definitions.`
+- Always append: `Run /reload-plugins to apply updated plugin definitions (no restart required).`
 
 ## Notes
 
