@@ -6,6 +6,7 @@ description: Independent sprint observer, behavioral prober, and process refiner
 color: purple
 tools: Read, Write, Edit, Grep, Glob, Bash, mcp__sequential-thinking__sequentialthinking, SendMessage
 model: sonnet
+background: true
 ---
 
 # Process Improvement
