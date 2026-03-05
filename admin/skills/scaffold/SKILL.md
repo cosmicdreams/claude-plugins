@@ -1,6 +1,6 @@
 ---
 name: scaffold
-description: Use when setting up a new project for multi-agent work, or when a project is missing .claude/, kanban/, or CLAUDE.md. Trigger phrases: 'scaffold this project', 'set up team sprint mode', 'initialize this project for sprint work', 'set up for multi-agent'. Do not use if the project is already scaffolded.
+description: Sets up a project directory structure for multi-agent sprint work: creates kanban/, .claude/, analysis-reports/, and CLAUDE.md. Use when a project is missing these directories, when the user wants to start using sprint or agent workflows on a new codebase, or when asked to initialize/prepare/scaffold a project for team or multi-agent use. Also use when the user says things like 'set up team sprint mode', 'get this project ready for agents', or 'I want to use sprint here'. Do not use if the project is already scaffolded, or for DDEV setup, git worktrees, or environment configuration.
 triggers:
   - "scaffold this project"
   - "set up this project for sprint or admin"
