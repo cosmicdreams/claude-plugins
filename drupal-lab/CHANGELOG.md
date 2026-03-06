@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.0
+- Rename `release-notes` skill to `changelog` — invoke as `/drupal-lab:changelog`; `/drupal-lab:release-notes` no longer works
+- Remove `protocols/IDLE-TIMEOUT.md`, `protocols/AGENT-COORDINATION.md`, `protocols/DDEV-CLEANUP.md` — unreferenced orphan docs
+
 ## 1.5.4
 - Remove git-guard PreToolUse hook — no longer needed now that co-authorship attribution is disabled natively
 

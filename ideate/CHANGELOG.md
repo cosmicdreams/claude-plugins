@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.0.0
+- Add `ideate:changelog` skill — displays ideate CHANGELOG with `--latest` and `--since X.Y.Z` filtering
+- Add trigger evals and improved description for `ideate:compare`
+
 ## 1.1.0
 - Add `ideate:diagram` skill — generate Excalidraw diagrams from natural language; produces `.excalidraw` JSON files
 - Add `ideate:reality-check` skill — adversarial scrutiny of brainstormed ideas via a hard-gate KILL funnel

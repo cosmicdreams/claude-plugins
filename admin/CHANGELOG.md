@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.0.0
+- Rename `release-notes` skill to `changelog` — invoke as `/admin:changelog`; `/admin:release-notes` no longer works
+- Remove `git-ops` plugin from source tree — fully superseded by `admin:create-worktree`
+- Remove stale `.claude/settings.json` from `admin/skills/` (leftover dev artifact)
+- Add trigger evals and improved description for `admin:new-agent`
+
 ## 1.2.2
 - Speed up `admin:scaffold` by offloading all filesystem work to `scaffold.sh` — replaces ~17 LLM tool calls with a single bash invocation; CLAUDE.md and MEMORY.md now written from static template files
 - Remove `Write` from scaffold skill's allowed-tools (no longer needed)

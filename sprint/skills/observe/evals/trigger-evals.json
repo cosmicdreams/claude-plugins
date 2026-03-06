@@ -1,0 +1,22 @@
+[
+  {"query": "You are the process-improvement agent. Take a snapshot of the current sprint state.", "should_trigger": true},
+  {"query": "Observe the sprint pipeline for gate skips", "should_trigger": true},
+  {"query": "I just received a task_completed_ping from implementer-1. What do I do?", "should_trigger": true},
+  {"query": "Check on pipeline health for this sprint", "should_trigger": true},
+  {"query": "Review what the agents are doing right now", "should_trigger": true},
+  {"query": "Watch for gate skips and interrupt if needed", "should_trigger": true},
+  {"query": "Observe team behavior patterns across this sprint", "should_trigger": true},
+  {"query": "The implementer wrote a patch before stating the root cause. Do I interrupt?", "should_trigger": true},
+  {"query": "Sprint end — write the process-improvement retrospective interview", "should_trigger": true},
+  {"query": "Document process findings from this sprint run", "should_trigger": true},
+  {"query": "run the sprint on these issues", "should_trigger": false},
+  {"query": "plan the sprint for next week", "should_trigger": false},
+  {"query": "write release notes for the completed sprint", "should_trigger": false},
+  {"query": "create a new kanban card for this feature", "should_trigger": false},
+  {"query": "run the retrospective session", "should_trigger": false},
+  {"query": "fix the bug in auth.py", "should_trigger": false},
+  {"query": "create a new agent for code review", "should_trigger": false},
+  {"query": "read the agent's session transcript", "should_trigger": false},
+  {"query": "scaffold this project for multi-agent work", "should_trigger": false},
+  {"query": "what did the implementer do on task 42?", "should_trigger": false}
+]

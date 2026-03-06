@@ -1,6 +1,13 @@
 ---
 name: new-agent
-description: Use when asked to build a new agent, add a new role to the team, or write an agent definition file. Trigger phrases: 'create an agent', 'add an agent', 'new agent for X', 'write an agent that does Y', 'make me an agent'. Do not use for editing existing agents — use Edit tool directly for that.
+description: >
+  Use when the user needs a brand-new agent written — any role, any plugin, any purpose.
+  Trigger phrases: "new agent", "add an agent", "create an agent", "make an agent",
+  "I need an agent", "add a role", "build an agent", "write an agent", "sprint agent for",
+  "agent that does X". Covers sprint team roles, standalone specialist agents, and plugin
+  agents. Runs a 4-phase workflow: requirements gathering (8 questions), standards-compliant
+  definition generation, validation, and file placement. Do NOT use for editing existing agents,
+  reviewing agent quality, listing agents, or optimizing agent definitions.
 triggers:
   - "create an agent"
   - "new agent"

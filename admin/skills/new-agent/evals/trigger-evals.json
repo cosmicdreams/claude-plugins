@@ -1,0 +1,22 @@
+[
+  {"query": "create an agent that validates code quality before merging", "should_trigger": true},
+  {"query": "add a new role to the sprint team for database migrations", "should_trigger": true},
+  {"query": "write an agent definition for a security scanner", "should_trigger": true},
+  {"query": "build an agent that handles documentation updates", "should_trigger": true},
+  {"query": "make me an agent for reviewing pull requests", "should_trigger": true},
+  {"query": "new agent for Drupal theme work", "should_trigger": true},
+  {"query": "I need a sprint agent that does performance profiling", "should_trigger": true},
+  {"query": "write an agent for triage work", "should_trigger": true},
+  {"query": "create a haiku agent for running linters and reporting output", "should_trigger": true},
+  {"query": "add a deployment agent to the plugin", "should_trigger": true},
+  {"query": "edit the implementer agent to add a new quality gate", "should_trigger": false},
+  {"query": "update the team-lead agent description", "should_trigger": false},
+  {"query": "optimize existing agents for model and size", "should_trigger": false},
+  {"query": "create a new skill for formatting git commits", "should_trigger": false},
+  {"query": "run the sprint on these issues", "should_trigger": false},
+  {"query": "fix the bug in auth.py", "should_trigger": false},
+  {"query": "scaffold this project for multi-agent work", "should_trigger": false},
+  {"query": "what agents are currently in the sprint plugin?", "should_trigger": false},
+  {"query": "list all available agent colors", "should_trigger": false},
+  {"query": "review agent definitions for quality", "should_trigger": false}
+]

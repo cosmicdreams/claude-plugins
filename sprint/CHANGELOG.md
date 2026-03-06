@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.0.0
+- Rename `release-notes` skill to `changelog` — invoke as `/sprint:changelog`; `/sprint:release-notes` no longer works
+- Remove `pre-tool-use-observe.sh` and `post-tool-use-observe.sh` hooks — observation JSONL was never consumed; process-improvement agent uses `retro:transcript` instead
+- Remove `PreToolUse` and `PostToolUse` hook registrations from `hooks.json`
+- Remove `observe-workspace/` eval artifacts from plugin source tree
+- Add trigger evals and improved description for `sprint:observe`
+
 ## 1.5.1
 - Remove git-guard PreToolUse hook — no longer needed now that co-authorship attribution is disabled natively
 

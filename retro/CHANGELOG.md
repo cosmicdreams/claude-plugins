@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.0.0
+- Add `retro:changelog` skill — displays retro CHANGELOG with `--latest` and `--since X.Y.Z` filtering
+
 ## 1.1.0
 - Rename skill invocations: `retro:retro-session` → `retro:session`, `retro:retro-kanban` → `retro:kanban`, `retro:retro-interviews` → `retro:interviews`, `retro:retro-transcript` → `retro:transcript`
 

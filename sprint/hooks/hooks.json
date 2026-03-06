@@ -1,5 +1,5 @@
 {
-    "description": "Sprint plugin hooks: session start, pre-compact advisory, and tool-use observation logging.",
+    "description": "Sprint plugin hooks: session start and pre-compact advisory.",
     "hooks": {
         "SessionStart": [
             {
@@ -20,28 +20,6 @@
                         "type": "command",
                         "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-compact.sh",
                         "timeout": 10
-                    }
-                ]
-            }
-        ],
-        "PreToolUse": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/pre-tool-use-observe.sh",
-                        "timeout": 5
-                    }
-                ]
-            }
-        ],
-        "PostToolUse": [
-            {
-                "hooks": [
-                    {
-                        "type": "command",
-                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/post-tool-use-observe.sh",
-                        "timeout": 5
                     }
                 ]
             }
