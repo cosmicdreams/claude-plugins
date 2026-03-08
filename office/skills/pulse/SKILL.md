@@ -143,19 +143,10 @@ Append one line to `~/.claude/office-pulse.state.jsonl`:
 {"ts":"{ISO_NOW}","email_last_id":"{most_recent_id}","jira_snapshots":{"{KEY}":{"comments":{N},"status":"{status}","updated":"{ts}"}}}
 ```
 
-Then trim the file to the last 7 days of entries using Python (more reliable than awk for JSON parsing):
+Then trim the file to the last 7 days of entries:
 
 ```bash
-python3 - <<'EOF'
-import json, sys
-from datetime import datetime, timedelta
-cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat()[:10]
-path = os.path.expanduser("~/.claude/office-pulse.state.jsonl")
-import os
-lines = open(path).readlines() if os.path.exists(path) else []
-kept = [l for l in lines if json.loads(l).get("ts","") >= cutoff]
-open(path, "w").writelines(kept)
-EOF
+python3 scripts/trim-state.py
 ```
 
 ## Running on a loop
