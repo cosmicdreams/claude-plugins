@@ -125,15 +125,22 @@ Invoke `office:vault-store` to save it. The full vault path uses the `OBSIDIAN_V
 VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
 VAULT_ROOT="$HOME/Vaults/$VAULT_NAME"
 
-obsidian help || { echo "Obsidian is not running. Launch Obsidian before archiving the eval record."; exit 1; }
-
-obsidian create \
-  --vault="$VAULT_NAME" \
-  --path="shared/Skill-Evals/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md" \
-  --content="..."
+if obsidian help &>/dev/null; then
+  obsidian create \
+    --vault="$VAULT_NAME" \
+    --path="shared/Skill-Evals/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md" \
+    --content="..."
+else
+  # Obsidian not running — save locally and note the path for later archiving
+  mkdir -p "$VAULT_ROOT/shared/Skill-Evals/<plugin>/<skill-name>"
+  cat > "$VAULT_ROOT/shared/Skill-Evals/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md" <<'EOF'
+<eval record content>
+EOF
+  echo "Obsidian not running. Eval record saved locally to $VAULT_ROOT/shared/Skill-Evals/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md — run office:archive to sync when Obsidian is available."
+fi
 ```
 
-If `obsidian help` fails, stop and tell the user to launch Obsidian. Do not save the eval record locally — the vault is the only accepted destination.
+Prefer the vault. Fall back to the same path structure locally (inside `$VAULT_ROOT`) so the file lands in the right place when Obsidian picks it up next time.
 
 ---
 
@@ -147,6 +154,6 @@ Before installing, check:
 - [ ] Any referenced files in `references/` actually exist
 - [ ] Unused example directories deleted
 - [ ] `${CLAUDE_PLUGIN_ROOT}` used in scripts (not hardcoded paths)
-- [ ] Eval record saved to vault at `$HOME/Vaults/$OBSIDIAN_VAULT_NAME/shared/Skill-Evals/<plugin>/<skill-name>/`
+- [ ] Eval record saved — to vault if Obsidian is running, otherwise to `$HOME/Vaults/$OBSIDIAN_VAULT_NAME/shared/Skill-Evals/<plugin>/<skill-name>/` locally
 
 See `references/conventions.md` for full naming rules.
