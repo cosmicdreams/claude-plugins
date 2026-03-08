@@ -238,3 +238,30 @@ context before generating ideas — the user does not need to re-paste the findi
 - **Seed first:** If the user has known-good URLs, add them before firing research — they anchor the research direction.
 - **Review before synthesizing:** Always show the source list and ask before running the synthesis query. The user picks and chooses which assets should inform the discussion.
 - **Save the summary as a note:** The synthesis answer goes into the notebook as a note so it's retrievable later, not just a transient chat answer.
+
+---
+
+## Obsidian Storage
+
+After producing output, optionally archive to the Neurons vault for long-term memory.
+This is non-blocking — if Obsidian isn't running, skip and continue.
+
+1. **Health check**:
+   ```bash
+   obsidian help
+   ```
+   If this fails: note "Vault storage skipped (Obsidian not running)" and finish normally.
+
+2. **Determine topic slug**: convert the research topic to kebab-case
+   (e.g. "API authentication options" → `api-authentication-options`)
+
+3. **Write to vault**:
+   ```bash
+   obsidian create \
+     --vault=Neurons \
+     --path="shared/Research/<topic>/<YYYY-MM-DD>-<topic>.md" \
+     --content="<output-content>"
+   ```
+   Where `<output-content>` is the research summary + source list.
+
+4. **Confirm**: "✅ Saved to Neurons: shared/Research/<topic>/<YYYY-MM-DD>-<topic>.md"

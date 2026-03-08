@@ -281,3 +281,30 @@ After the report and key unknowns, offer:
 **Gap works with a single option.** Gap analysis compares against a standard or best practice — it does not require a second option.
 
 **Fit needs context before dimensions.** Dimensions extracted without knowing the user's constraints may not illuminate the choice points that matter. Capture context in Phase 1.
+
+---
+
+## Obsidian Storage
+
+After producing output, optionally archive to the Neurons vault for long-term memory.
+This is non-blocking — if Obsidian isn't running, skip and continue.
+
+1. **Health check**:
+   ```bash
+   obsidian help
+   ```
+   If this fails: note "Vault storage skipped (Obsidian not running)" and finish normally.
+
+2. **Determine topic slug**: convert the comparison topic to kebab-case
+   (e.g. "API authentication options" → `api-authentication-options`)
+
+3. **Write to vault**:
+   ```bash
+   obsidian create \
+     --vault=Neurons \
+     --path="shared/Analysis/<topic>/<YYYY-MM-DD>-<comparison-name>.md" \
+     --content="<output-content>"
+   ```
+   Where `<output-content>` is the full comparison table + recommendation.
+
+4. **Confirm**: "✅ Saved to Neurons: shared/Analysis/<topic>/<YYYY-MM-DD>-<comparison-name>.md"

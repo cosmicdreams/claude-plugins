@@ -227,3 +227,30 @@ These principles govern how this skill behaves. An agent implementing this skill
 **The UI is the interaction surface.** The browser canvas is where the real thinking happens. Claude's job is to prepare good raw material (divergent ideas with honest tradeoffs) and synthesize the annotated result into a concrete plan. Claude does not mediate the annotation process.
 
 **Keep sessions tidy.** The `.brainstorm.json` file is ephemeral — it represents an in-progress session. Completed sessions live in `.brainstorm-sessions/`. Add `.brainstorm.json` to `.gitignore` if working in a git repository.
+
+---
+
+## Obsidian Storage
+
+After producing output, optionally archive to the Neurons vault for long-term memory.
+This is non-blocking — if Obsidian isn't running, skip and continue.
+
+1. **Health check**:
+   ```bash
+   obsidian help
+   ```
+   If this fails: note "Vault storage skipped (Obsidian not running)" and finish normally.
+
+2. **Determine topic slug**: convert the brainstorm topic to kebab-case
+   (e.g. "API authentication options" → `api-authentication-options`)
+
+3. **Write to vault**:
+   ```bash
+   obsidian create \
+     --vault=Neurons \
+     --path="shared/Decisions/<topic>/<YYYY-MM-DD>-<topic>.md" \
+     --content="<output-content>"
+   ```
+   Where `<output-content>` is the synthesized plan + key decisions from the canvas.
+
+4. **Confirm**: "✅ Saved to Neurons: shared/Decisions/<topic>/<YYYY-MM-DD>-<topic>.md"
