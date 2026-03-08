@@ -22,7 +22,7 @@ If not supplied in `$ARGUMENTS`, ask the user for the following fields. Gather a
 | Field | Description | Example |
 |---|---|---|
 | `title` | Short decision title | "Use Skills over MCPs for non-persistent tools" |
-| `status` | Current status | `accepted`, `superseded`, or `deprecated` |
+| `status` | Current status | `proposed`, `accepted`, `superseded`, or `deprecated` |
 | `context` | What problem or situation prompted this decision? | "MCP tools load into context on every session..." |
 | `options` | What alternatives were considered? | Option A: MCP server. Option B: Skill. |
 | `decision` | What was decided and why? | "Use Skills — zero token cost until invoked" |
@@ -47,7 +47,7 @@ Example: "Use Skills over MCPs for non-persistent tools" → `use-skills-over-mc
 title: {title}
 date: {YYYY-MM-DD}
 status: {status}
-supersedes: {supersedes, or omit if none}
+{supersedes: {old-adr-title}   ← include this line only if supersedes was provided, otherwise omit}
 ---
 
 # {title}
@@ -76,15 +76,34 @@ supersedes: {supersedes, or omit if none}
 ## Step 4: Store to Neurons vault
 
 ```bash
-obsidian create \
-  "vault=Neurons" \
-  "path=shared/Architecture/ADRs/{YYYY-MM-DD}-{slug}.md" \
-  "content={formatted ADR}"
+VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
+VAULT_ROOT="$HOME/Vaults/$VAULT_NAME"
+ADR_PATH="shared/Architecture/ADRs/{YYYY-MM-DD}-{slug}.md"
 ```
 
-**On success:** report `ADR saved: Neurons/shared/Architecture/ADRs/{YYYY-MM-DD}-{slug}.md`
+Check if Obsidian is running:
 
-**On failure:** output the formatted ADR directly in the conversation so it is not lost, then report the vault error.
+```bash
+obsidian help &>/dev/null
+```
+
+If available, write via CLI:
+```bash
+obsidian create \
+  --vault="$VAULT_NAME" \
+  --path="$ADR_PATH" \
+  --content="..."
+```
+Report: `ADR saved: $VAULT_NAME/$ADR_PATH`
+
+If Obsidian is not running, write directly to vault root:
+```bash
+mkdir -p "$VAULT_ROOT/shared/Architecture/ADRs"
+# write formatted ADR to $VAULT_ROOT/$ADR_PATH
+```
+Note: `Obsidian not running — ADR written to $VAULT_ROOT/$ADR_PATH. It will appear in Obsidian next time it opens.`
+
+**On any failure:** output the formatted ADR directly in the conversation so it is not lost, then report the error.
 
 ## Step 5: Confirm and suggest follow-up
 

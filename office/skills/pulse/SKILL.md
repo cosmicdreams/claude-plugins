@@ -1,6 +1,6 @@
 ---
 name: pulse
-description: Ambient priority watchdog — scans email and Jira for what needs your attention right now. Outputs two views: (1) top priority, (2) what changed since last broadcast. Designed to run hourly via /loop. Requires .claude/office-pulse.local.md config. Trigger phrases: "pulse check", "what needs attention", "priority check", "office:pulse".
+description: Ambient priority watchdog — scans email and Jira for what needs your attention right now. Outputs two views: (1) top priority, (2) what changed since last broadcast. Designed to run hourly via /loop. Requires ~/.claude/office-pulse.local.md config. Trigger phrases: "pulse check", "what needs attention", "priority check", "office:pulse".
 triggers:
   - "pulse check"
   - "what needs attention"
@@ -15,11 +15,13 @@ Scan email and Jira, compute what changed since last run, surface the top priori
 
 ## Step 1: Load config
 
-Read `.claude/office-pulse.local.md`. If the file does not exist, output:
+Read `~/.claude/office-pulse.local.md`. The config lives at user scope — not project-local — because pulse scans all your email and Jira regardless of which project you're in.
+
+If the file does not exist, output:
 
 ```
 office:pulse is not configured.
-Create .claude/office-pulse.local.md — see references/config-template.md for the template.
+Create ~/.claude/office-pulse.local.md — see references/config-template.md for the template.
 ```
 
 Then stop.
@@ -32,10 +34,10 @@ Parse frontmatter fields:
 
 ## Step 2: Load previous state
 
-Read the last line of `.claude/office-pulse.state.jsonl` (if it exists):
+Read the last line of `~/.claude/office-pulse.state.jsonl` (if it exists):
 
 ```bash
-tail -1 .claude/office-pulse.state.jsonl 2>/dev/null
+tail -1 ~/.claude/office-pulse.state.jsonl 2>/dev/null
 ```
 
 Parse as JSON. Fields:
@@ -80,6 +82,12 @@ jira issue view {KEY} --plain --comments 5
 ```
 
 If `jira` is not available, skip with a note: `[jira unavailable]`
+
+If both email and Jira are unavailable, output:
+```
+PULSE {HH:MM} — all sources unavailable (email: gws not found / Jira: jira not found)
+```
+Then stop — do not write state.
 
 ## Step 4: Compute deltas
 
@@ -129,20 +137,25 @@ If nothing has changed across all sources: output a single line —
 
 ## Step 7: Write new state
 
-Append one line to `.claude/office-pulse.state.jsonl`:
+Append one line to `~/.claude/office-pulse.state.jsonl`:
 
 ```json
 {"ts":"{ISO_NOW}","email_last_id":"{most_recent_id}","jira_snapshots":{"{KEY}":{"comments":{N},"status":"{status}","updated":"{ts}"}}}
 ```
 
-Then trim the file to the last 7 days of entries:
+Then trim the file to the last 7 days of entries using Python (more reliable than awk for JSON parsing):
 
 ```bash
-# Keep only lines from the last 7 days
-CUTOFF=$(date -v-7d +"%Y-%m-%d" 2>/dev/null || date -d '7 days ago' +"%Y-%m-%d")
-awk -v cutoff="$CUTOFF" 'substr($0, index($0,"\"ts\"")+6, 10) >= cutoff' \
-  .claude/office-pulse.state.jsonl > /tmp/pulse-trim.jsonl && \
-  mv /tmp/pulse-trim.jsonl .claude/office-pulse.state.jsonl
+python3 - <<'EOF'
+import json, sys
+from datetime import datetime, timedelta
+cutoff = (datetime.utcnow() - timedelta(days=7)).isoformat()[:10]
+path = os.path.expanduser("~/.claude/office-pulse.state.jsonl")
+import os
+lines = open(path).readlines() if os.path.exists(path) else []
+kept = [l for l in lines if json.loads(l).get("ts","") >= cutoff]
+open(path, "w").writelines(kept)
+EOF
 ```
 
 ## Running on a loop
