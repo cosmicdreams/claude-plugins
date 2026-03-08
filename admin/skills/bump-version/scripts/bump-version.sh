@@ -18,7 +18,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-PLUGINS=(sprint retro ideate admin drupal-lab)
+PLUGINS=(sprint retro ideate admin drupal-lab office)
 
 usage() {
     echo "Usage: $0 <plugin|all> <major|minor|patch>"

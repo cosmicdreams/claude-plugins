@@ -29,4 +29,4 @@ Print the script output exactly as-is — no summarizing, no reformatting.
 
 Use `--since <known-version>` to find what changed since a prior encounter:
 
-> `/office:changelog --since 1.0.0`
+> `/office:changelog --since 1.1.0`

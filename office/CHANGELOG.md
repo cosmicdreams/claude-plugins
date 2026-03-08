@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.0
+- Add `office:changelog` skill — displays office CHANGELOG with `--latest` and `--since X.Y.Z` filtering
+
 ## 1.0.0
 - Initial release with 8 skills: email, calendar, jira, github, archive, organize, log-analyzer, vault-store
 - `office:email` and `office:calendar` — Outlook mail and calendar via msgcli (`--no-input`)

@@ -1,10 +1,19 @@
 {
     "name": "office",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "description": "Office productivity CLI plugin: wraps msgcli (email/calendar), jira-cli, gh, and Obsidian CLI via intelligent skill routing. Provides office:email, office:calendar, office:jira, office:github, office:archive, office:organize, and office:log-analyzer skills.",
     "author": {
         "name": "Chris Weber"
     },
     "license": "UNLICENSED",
-    "keywords": ["office", "email", "calendar", "jira", "github", "obsidian", "productivity", "msgcli"]
+    "keywords": [
+        "office",
+        "email",
+        "calendar",
+        "jira",
+        "github",
+        "obsidian",
+        "productivity",
+        "msgcli"
+    ]
 }
