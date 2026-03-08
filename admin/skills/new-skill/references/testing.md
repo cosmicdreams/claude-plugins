@@ -13,11 +13,20 @@ Use evals when:
 
 Scripts run as Python modules from the skill directory:
 
+**IMPORTANT: If the skill is installed as a plugin (the normal case), you MUST pass `--plugin-skill plugin:skill-name`.** Without it, the eval runs in "command mode" — it creates a temp file and can never detect the installed skill, producing 0% recall on all true positives regardless of how good the description is. The optimization loop has the same requirement.
+
 ```bash
 SKILL_DIR="${CLAUDE_PLUGIN_ROOT}/skills/new-skill"
 
-# Test trigger accuracy (single pass)
+# Test trigger accuracy (single pass) — skill installed as plugin
 cd "$SKILL_DIR"
+python3 -m scripts.run_eval \
+  --eval-set /path/to/trigger-evals.json \
+  --skill-path /path/to/skill \
+  --plugin-skill admin:schedule \
+  --verbose
+
+# If the skill is NOT yet installed (testing before install), omit --plugin-skill:
 python3 -m scripts.run_eval \
   --eval-set /path/to/trigger-evals.json \
   --skill-path /path/to/skill \
@@ -41,6 +50,7 @@ cd "$SKILL_DIR"
 python3 -m scripts.run_loop \
   --eval-set /path/to/trigger-evals.json \
   --skill-path /path/to/skill \
+  --plugin-skill admin:schedule \
   --model claude-sonnet-4-6 \
   --max-iterations 5 \
   --verbose
@@ -53,6 +63,7 @@ Optional: save all iteration results for review. Store workspaces at the project
 python3 -m scripts.run_loop \
   --eval-set /path/to/trigger-evals.json \
   --skill-path /path/to/skill \
+  --plugin-skill admin:schedule \
   --model claude-sonnet-4-6 \
   --results-dir ~/Tools/CLAUDE-PLUGINS/skill-eval/<skill-name> \
   --verbose
