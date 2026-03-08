@@ -98,3 +98,57 @@ Run with: `ddev phpunit path/to/tests/`
 - How-to-test steps should be reproducible by someone unfamiliar with the codebase
 - If the patch is on an MR, note the MR URL at the top
 - Do not paste the full diff — link to it or reference files by name
+
+## Obsidian Storage
+
+After the contribution comment is generated, also archive it to the Neurons vault. This step is **optional and non-blocking** — skip silently if Obsidian is not running.
+
+### Project Mapping
+
+Extract the Drupal project name from the issue URL or analysis report frontmatter:
+- `https://www.drupal.org/project/drupal/issues/3345989` → project = `drupal`
+- `https://www.drupal.org/project/webform/issues/3401234` → project = `webform`
+- Drupal core issues use the `drupal` folder; contrib modules use the module's machine name.
+
+### Vault Path
+
+```
+~/Vaults/Neurons/Drupal.org/<project>/<issue-number>-contribution-comment.md
+```
+
+Examples:
+```
+Drupal.org/drupal/3345989-contribution-comment.md
+Drupal.org/webform/3401234-contribution-comment.md
+```
+
+### Archive Command
+
+```bash
+# Health check — non-blocking
+obsidian help || { echo "Vault storage skipped (Obsidian not running)"; exit 0; }
+
+# Resolve project name from issue URL
+DRUPAL_PROJECT="<extracted-from-issue-url>"
+ISSUE_NUMBER="<issue-number>"
+
+obsidian create \
+  --vault=Neurons \
+  --path="Drupal.org/${DRUPAL_PROJECT}/${ISSUE_NUMBER}-contribution-comment.md" \
+  --content="<contribution-comment-content>"
+```
+
+### YAML Frontmatter
+
+Prepend the following frontmatter to the stored document (substitute actual values):
+
+```yaml
+---
+drupal_project: drupal
+issue_number: 3345989
+date: 2026-03-07
+tags: [drupal, contribution]
+---
+```
+
+This preserves a record of what was submitted and when, enabling future reference and pattern analysis across contributions.
