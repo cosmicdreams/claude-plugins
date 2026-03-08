@@ -119,7 +119,7 @@ Compose a short eval record (Markdown) containing:
 - **Quality notes**: imperative voice pass, description length, angle bracket check
 - **Before/after diff summary**: key structural changes (for improvement passes)
 
-Invoke `office:vault-store` to save it. The full vault path uses the `OBSIDIAN_VAULT_NAME` env variable (default: `Neurons`) and the vault root at `~/Vaults/`:
+Save the eval record. The full path uses the `OBSIDIAN_VAULT_NAME` env variable (default: `Neurons`) and the vault root at `~/Vaults/`:
 
 ```bash
 VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
