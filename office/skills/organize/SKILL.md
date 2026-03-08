@@ -1,88 +1,88 @@
 ---
 name: organize
 description: >
-  Categorizes and organizes loose notes in the Obsidian vault: finds untagged or
-  root-level notes, injects YAML properties and tags, and moves files to appropriate
-  folders. Use when the user asks to organize the vault, tag notes, categorize
-  Obsidian notes, or clean up the vault. Trigger phrases: "organize my vault",
-  "tag my notes", "categorize Obsidian notes", "clean up vault", "sort my notes",
-  "find untagged notes". Requires Obsidian to be running with Local REST API enabled.
+  Categorizes and organizes loose notes in the Obsidian vault: injects YAML
+  tags, moves files to appropriate folders, and cleans up untagged or
+  root-level notes. Trigger phrases: "organize my vault", "tag my notes",
+  "categorize Obsidian notes", "clean up vault", "sort my notes", "find
+  untagged notes", "my notes are a mess", "vault needs cleanup", "organize
+  these notes", "move this note to the right folder". Do NOT trigger for
+  migrating local files into the vault (use office:archive for that). Requires
+  Obsidian to be running with Local REST API enabled.
 ---
 
 # office:organize
 
-Keeps the Obsidian vault clean by finding untagged or root-level notes, categorizing
-them intelligently, and moving them to appropriate project or shared folders.
-
 ## Prerequisites
 
-Health check — run this FIRST, every time:
+Run this health check FIRST, every time:
 ```bash
 obsidian help
 ```
 
-If that fails: same guidance as office:archive — Obsidian must be running with
-Local REST API plugin enabled.
+If it fails, stop. Obsidian must be running with Local REST API enabled (Settings → Community Plugins → Local REST API → Enable). Do not proceed without a passing health check.
 
 ## Vault configuration
 
-Default vault: `Neurons` (at `~/Vaults/Neurons`)
-
-Priority order for vault name:
+Resolve the vault name in priority order:
 1. `$OBSIDIAN_VAULT_NAME` environment variable
 2. `~/.config/office/config`
-3. Default: `Neurons`
+3. Default: `Neurons` (at `~/Vaults/Neurons`)
 
 ## Organize workflow
 
-1. **Health check**: `obsidian help` — stop if it fails
-
-2. **Find loose notes**: Search for untagged or root-level notes:
+1. **Find loose notes** — search for notes that need organizing:
    ```bash
    obsidian search "" --format=json --vault=$OBSIDIAN_VAULT_NAME
    ```
-   Filter results for notes that:
-   - Are in the vault root (no subdirectory in path)
-   - Have no YAML frontmatter tags
-   - Have no YAML frontmatter at all
+   Filter for notes that meet any of these conditions:
+   - In the vault root (no subdirectory in path)
+   - No YAML frontmatter tags
+   - No YAML frontmatter at all
 
-3. **For each loose note**:
-   a. Read the note content:
-      ```bash
-      obsidian read --vault=$OBSIDIAN_VAULT_NAME --path="<note_path>"
-      ```
-   b. Analyze the content to determine:
-      - Appropriate tags (e.g., `meeting`, `sprint`, `research`, `todo`, `report`)
-      - Target folder: `shared/` for general notes, `Projects/<name>/` for project-specific
-   c. Show your proposed categorization to the user:
-      > **<note_title>**
-      > → Move to: `Projects/MyProject/<note_title>`
-      > → Tags: `#sprint`, `#report`
+2. **Analyze each loose note** — read the content and determine:
+   ```bash
+   obsidian read --vault=$OBSIDIAN_VAULT_NAME --path="NOTE_PATH"
+   ```
+   For each note, determine:
+   - Appropriate tags (e.g., `meeting`, `sprint`, `research`, `todo`, `report`)
+   - Target folder: `shared/` for general notes, `Projects/NAME/` for project-specific
 
-4. **CONFIRM batch plan**: Show all proposed moves and tag changes at once.
-   Ask: "Apply these organizational changes? (yes/no/edit)"
+3. **Show proposed categorization** — for each note, display:
+   ```
+   NOTE_TITLE
+   → Move to: Projects/MyProject/NOTE_TITLE
+   → Tags: #sprint, #report
+   → Reasoning: contains "standup" and sprint references
+   ```
+   Surfacing reasoning lets the user correct misclassification before it's applied — categorization is a judgment call, not a lookup.
 
-5. **Apply changes** (after confirmation):
-   a. Inject YAML frontmatter tags:
-      ```bash
-      obsidian update --vault=$OBSIDIAN_VAULT_NAME --path="<note>" \
-        --property="tags" --value="[sprint, report]"
-      ```
-   b. Move to target folder:
-      ```bash
-      obsidian move --vault=$OBSIDIAN_VAULT_NAME \
-        --from="<current_path>" --to="<target_path>"
-      ```
+4. **CONFIRM batch plan** — show all proposed moves and tag changes at once. Ask:
+   > "Apply these organizational changes? (yes / no / edit)"
 
-6. **Summary**: Report how many notes were organized, moved, and tagged.
+   If the user says **"edit"**, present each proposed change individually and let them approve or modify it one at a time before moving on.
+
+5. **Apply changes** (after confirmation only):
+   ```bash
+   # Inject tags
+   obsidian update --vault=$OBSIDIAN_VAULT_NAME --path="NOTE" \
+     --property="tags" --value="[sprint, report]"
+
+   # Move to target folder
+   obsidian move --vault=$OBSIDIAN_VAULT_NAME \
+     --from="CURRENT_PATH" --to="TARGET_PATH"
+   ```
+
+6. **Summary** — report how many notes were organized, moved, and tagged.
 
 ## Categorization heuristics
 
-Use these as starting guidance:
-- Contains "sprint", "standup", "retro" → tag `meeting`, folder `Projects/<project>/Meetings/`
-- Contains "TODO", "task list", action items → tag `todo`, folder `shared/Tasks/`
-- Contains analysis, data, findings → tag `research`, folder `Projects/<project>/Research/`
-- Contains headers like "Summary" or "Report" → tag `report`, folder `Projects/<project>/Reports/`
-- Generic scratch notes → folder `shared/Notes/`
+Apply these in order of specificity — when content matches multiple heuristics, prefer the more specific one. For example, "sprint report" matches both sprint→meeting and Summary→report; choose based on the dominant theme of the note.
 
-Always show the user your reasoning and let them override.
+| Signal | Tags | Folder |
+|---|---|---|
+| "sprint", "standup", "retro" | `meeting`, `sprint` | `Projects/NAME/Meetings/` |
+| "TODO", "task list", action items | `todo` | `shared/Tasks/` |
+| Analysis, data, findings | `research` | `Projects/NAME/Research/` |
+| "Summary" or "Report" headers | `report` | `Projects/NAME/Reports/` |
+| Generic scratch notes | _(none)_ | `shared/Notes/` |
