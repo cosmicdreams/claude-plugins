@@ -1,6 +1,6 @@
 ---
 name: session
-description: Use at the end of a sprint after all agents are shut down, or when the user asks to run a retrospective. Invoke with /retro:session. Do not invoke during active sprint work or before agents have completed their tasks.
+description: Runs a structured end-of-sprint retrospective that reads stored agent interviews, mines JSONL transcripts for metrics, interviews the user, and generates a report with actionable improvement cards. Invoke when the user says "run retrospective", "session review", "what worked and what didn't", "capture learnings", or "end of sprint review". Also invoke after all agents have shut down and sprint work is complete. Do not invoke mid-sprint while agents are still active, for individual issue reviews, or for status checks — those are not retrospectives.
 triggers:
   - "run retrospective"
   - "session review"

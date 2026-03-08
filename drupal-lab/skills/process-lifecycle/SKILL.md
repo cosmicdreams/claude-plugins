@@ -1,6 +1,6 @@
 ---
 name: process-lifecycle
-description: Use when starting DDEV for a Drupal worktree (INIT), checking if the environment is ready (READY CHECK), determining if work is complete and DDEV can stop (COMPLETION), or cleaning up resources after a sprint (CLEANUP). Invoke at the start and end of every DDEV-based work session.
+description: Manage the DDEV lifecycle for Drupal worktrees -- start, ready-check, completion, and shutdown. Use when setting up DDEV in a worktree, checking environment readiness, deciding whether to stop DDEV, or cleaning up after work -- e.g. "start DDEV for this worktree", "is my environment ready", "shut down DDEV", "clean up the worktree". Do NOT use for running dev tools inside DDEV -- use drupal-lab:ddev-drupal-dev instead.
 ---
 
 # Process Lifecycle

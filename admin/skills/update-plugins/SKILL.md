@@ -1,6 +1,6 @@
 ---
 name: update-plugins
-description: Update all locally installed plugins to their latest versions and refresh any hardcoded version paths in the project's CLAUDE.md. Use when asked to "update plugins", "update my plugins", "get the latest plugins", or when a plugin author has released new versions.
+description: Reinstalls all locally installed CLAUDE-PLUGINS plugins to their latest versions and updates any hardcoded version paths in the project CLAUDE.md. Use when the user says "update plugins", "update my plugins", "get latest plugins", "refresh plugins", "plugin update", or after a plugin version bump to propagate changes. NOT for updating npm/pip/composer packages or for bumping plugin versions (use admin:bump-version for that).
 triggers:
   - "update plugins"
   - "update my plugins"

@@ -1,6 +1,6 @@
 ---
 name: create-worktree
-description: Create isolated git worktrees for Drupal issue development. Use when starting work on a new Drupal issue that requires code changes. Provides input validation, naming conventions, and git config propagation.
+description: Creates an isolated git worktree for developing a fix or feature in a separate working directory. Use when the user says "create a worktree", "set up a worktree", "new worktree for issue X", "start work on issue X", or needs an isolated branch workspace. Handles naming conventions, git config propagation, and baseline verification. NOT for creating git branches without worktrees, or for cloning repositories.
 ---
 
 # Create Worktree for Drupal Issue

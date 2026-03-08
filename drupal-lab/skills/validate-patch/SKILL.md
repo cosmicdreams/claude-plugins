@@ -1,6 +1,6 @@
 ---
 name: validate-patch
-description: Validate a Drupal patch or MR in a worktree. Use when asked to validate, test, or check a patch before submission. Runs coding standards (phpcs), static analysis (phpstan), tests (phpunit), and coverage checks via DDEV containers.
+description: Validate a Drupal patch or merge request against all quality gates. Use when asked to validate, test, review, or check a patch before submission -- e.g. "validate my patch", "run the quality gates", "check this MR", "is this patch ready to submit". Runs phpcs, phpstan, phpunit, and coverage review via DDEV. Do NOT use for browsing issues or analyzing issue context -- use drupal-lab:analyze-issue instead.
 ---
 
 # Validate Patch

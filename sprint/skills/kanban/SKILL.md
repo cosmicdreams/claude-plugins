@@ -1,6 +1,6 @@
 ---
 name: kanban
-description: Use when creating a card, moving a card between lanes, reading card frontmatter, or understanding Kanban board conventions. Always read before touching any kanban board. Trigger phrases: "work a ticket", "advance a card", "update the board", "create a card". Then read the board-specific skill (sprint:board or sprint:retro-kanban) for lane definitions.
+description: Universal kanban standards that apply to every board in this project. Use when creating a card, moving a card between lanes, reading card frontmatter, or understanding kanban conventions. This is required reading before touching any kanban board. Trigger phrases include "work a ticket", "advance a card", "update the board", "create a card", "kanban rules", "card format". After reading this, also read the board-specific skill (sprint:board for sprint-run, retro:kanban for retrospective-actions) for lane definitions. Do NOT use this as the sole reference for a specific board -- always pair with the board-specific skill.
 ---
 
 # Kanban — Universal Standards

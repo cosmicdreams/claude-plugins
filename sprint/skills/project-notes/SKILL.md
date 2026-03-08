@@ -1,6 +1,6 @@
 ---
 name: project-notes
-description: Synthesize completed sprint cards into a RELEASE-NOTES.md entry. Use when asked to "write release notes", "project release notes", "document completed cards", or "RELEASE-NOTES.md". Reads 7_done/ cards and git log, drafts a structured entry, asks for confirmation, then prepends to analysis-reports/RELEASE-NOTES.md.
+description: Synthesize completed sprint cards from kanban/sprint-run/7_done/ into a structured RELEASE-NOTES.md entry. Use when asked to "write release notes", "project release notes", "document completed cards", "summarize what we shipped", "what did the sprint accomplish", or "update RELEASE-NOTES.md". Reads done cards and git log, drafts entries, confirms with team-lead, then prepends to analysis-reports/RELEASE-NOTES.md. Do NOT confuse with sprint:release-notes (changelog) which reads the plugin CHANGELOG.md version history -- this skill documents project-level sprint outcomes, not plugin versions.
 allowed-tools: Read, Bash, Write, Edit, Glob
 ---
 

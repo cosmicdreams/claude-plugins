@@ -1,9 +1,6 @@
 ---
 name: asset-audit
-description: ON-DEMAND ONLY. Structured usage audit of sprint process assets — agents,
-  skills, hooks, and protocols. Invoke only when you are the process-improvement agent
-  running a deliberate audit, or when the user has explicitly requested one by name.
-  Do not invoke this skill as part of standard sprint workflow.
+description: Structured usage audit of sprint process assets -- agents, skills, hooks, and protocols. Analyzes session logs to classify each asset as actively-used, rarely-used, never-invoked, or trigger-failure. Use when running a deliberate asset audit, evaluating what to retire or merge, or when the user asks "audit sprint assets", "which skills are unused", "what agents are never spawned", "asset usage report". ON-DEMAND ONLY -- do not invoke as part of standard sprint workflow. Only the process-improvement agent or an explicit user request should trigger this.
 allowed-tools: Bash, Read, Grep, Glob, Write
 ---
 

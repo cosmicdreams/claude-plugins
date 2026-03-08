@@ -1,6 +1,6 @@
 ---
 name: kanban
-description: Use when creating, reviewing, approving, or moving cards in kanban/retrospective-actions/. Required reading before any operation on the retrospective board. Pair with sprint:kanban for universal rules. Use when asked to "create a retro card", "approve an action card", "move a retro card", or "work the retro backlog".
+description: Manages the retrospective-actions kanban board — creating, reviewing, approving, deduplicating, and moving improvement cards in kanban/retrospective-actions/. Invoke when asked to "create a retro card", "approve an action card", "review retro cards", "scrum retro cards", "work the retro backlog", "open retro board", or "show kanban ui". Required reading before any operation on the retrospective board. Pairs with sprint:kanban for universal rules. Do not use for sprint-run board operations — those use sprint:kanban directly.
 triggers:
   - "create action card"
   - "review retro cards"

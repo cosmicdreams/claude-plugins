@@ -1,10 +1,13 @@
 ---
 name: research
 description: >
-  Research a topic using NotebookLM before brainstorming. Creates a notebook,
-  adds seed sources, fires deep web research, and produces a summary ready to
-  chain into ideate:brainstorm. Encodes user preferences for how to work with
-  NotebookLM research.
+  Deep research on a topic using NotebookLM before brainstorming. Creates a notebook,
+  adds seed sources, fires deep web research (20+ sources), reviews sources with you,
+  and produces a structured summary that chains into ideate:brainstorm automatically.
+  Use when you need to gather evidence before ideation, not after. Say "research this",
+  "gather research on", "let's research", "find sources on", or "build a notebook on".
+  Not for quick lookups or single-source questions -- this skill runs deep mode by default
+  and takes 15-30 minutes.
 triggers:
   - "research this"
   - "gather research on"

@@ -1,6 +1,6 @@
 ---
 name: issue-summary
-description: Use after a fix is implemented and validated, when ready to post a contribution comment to drupal.org. Invoke after drupal-lab:validate-patch passes. Trigger phrases: 'write the issue summary', 'generate the drupal.org comment', 'write up the fix for posting', 'prepare the contribution comment'.
+description: Generate a drupal.org contribution comment summarizing what was fixed and how to verify it. Use after validation passes, when ready to post to drupal.org -- e.g. "write the issue summary", "generate the drupal.org comment", "write up the fix for posting", "prepare the contribution comment". Reads the analysis report and git diff to produce a structured summary. Do NOT use before validation -- run drupal-lab:validate-patch first.
 ---
 
 # Issue Summary
