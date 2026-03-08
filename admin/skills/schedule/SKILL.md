@@ -1,6 +1,6 @@
 ---
 name: schedule
-description: Manage OS-level scheduled tasks via macOS launchd. Use when creating, listing, enabling, disabling, deleting, or viewing logs for scheduled tasks. Also use to launch the schedule web UI dashboard. Subcommands: create (guided plist generation), list, show, enable, disable, delete, logs, ui. Trigger phrases: "schedule a task", "create a scheduled task", "list scheduled tasks", "show my schedule", "disable a task", "enable a task", "delete a scheduled task", "view task logs", "open schedule ui", "scheduled tasks dashboard", "/admin:schedule". NOT for npm/cron/systemd or non-macOS schedulers.
+description: Manage OS-level scheduled tasks via macOS launchd. Use when creating, listing, enabling, disabling, deleting, or viewing logs for scheduled tasks. Also use to launch the schedule web UI dashboard. Subcommands: create (guided plist generation), list, show, enable, disable, delete, logs, ui. Trigger phrases: "schedule a task", "create a scheduled task", "list scheduled tasks", "show my schedule", "disable a task", "enable a task", "delete a scheduled task", "view task logs", "open schedule ui", "scheduled tasks dashboard", "/admin:schedule". NOT for: calendar events, team meetings, Jira sprint schedules, reminders, npm/cron/systemd, or non-macOS schedulers.
 triggers:
   - "schedule a task"
   - "create a scheduled task"
