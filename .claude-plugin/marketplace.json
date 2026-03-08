@@ -36,6 +36,12 @@
       "description": "Drupal-specific development skills and agents (DDEV, Analysis, Validation, Scaffolding)",
       "source": "./drupal-lab",
       "category": "development"
+    },
+    {
+      "name": "office",
+      "description": "Office productivity skills: email, calendar, Jira, GitHub, Obsidian vault management, and log analysis",
+      "source": "./office",
+      "category": "productivity"
     }
   ]
 }
