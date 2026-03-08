@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.2.0
+- Added `admin:schedule` skill — create, list, enable, disable, delete, and view logs for macOS launchd scheduled tasks under the `com.chrisweber.*` namespace; supports prompt, skill, and script task types
+- Added `admin:schedule ui` — local web dashboard at localhost:7474 showing all scheduled tasks with status, log viewer, and enable/disable/delete actions
+- Fixed `admin:new-skill` testing reference to document `--plugin-skill` requirement when evaluating installed skills (omitting it causes 0% recall)
+
 ## 2.1.0
 - `admin:new-skill` now saves an eval record to the Neurons vault after every skill create/improve pass (`shared/Skill-Evals/<plugin>/<skill-name>/`)
 - Eval storage uses `OBSIDIAN_VAULT_NAME` env var with full absolute path; falls back to same path locally if Obsidian not running
