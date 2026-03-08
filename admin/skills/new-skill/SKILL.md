@@ -106,6 +106,30 @@ Ask Claude: *"When would you use the [skill-name] skill?"* — it quotes the des
 
 ---
 
+## Archive the eval record
+
+After testing, save an eval record to the Neurons vault. Eval records are shared knowledge — they capture quality patterns and triggering logic decisions useful across all projects.
+
+Compose a short eval record (Markdown) containing:
+- **Skill**: `<plugin>:<skill-name>`
+- **Date**: today
+- **What changed**: one paragraph summary (or "new skill" if creating)
+- **Eval prompts used**: the 2+ test phrases you ran
+- **Trigger verdict**: did the description fire correctly? Any under/over-triggering observed?
+- **Quality notes**: imperative voice pass, description length, angle bracket check
+- **Before/after diff summary**: key structural changes (for improvement passes)
+
+Then invoke `office:vault-store` to save it — or if Obsidian is not running, save locally to `skill-eval/<plugin>/<skill-name>/`:
+
+```
+Vault path: shared/Skill-Evals/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md
+Local fallback: skill-eval/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md
+```
+
+This step is non-blocking — if Obsidian is not running, save locally and move on.
+
+---
+
 ## Quick validation
 
 Before installing, check:
@@ -116,5 +140,6 @@ Before installing, check:
 - [ ] Any referenced files in `references/` actually exist
 - [ ] Unused example directories deleted
 - [ ] `${CLAUDE_PLUGIN_ROOT}` used in scripts (not hardcoded paths)
+- [ ] Eval record saved to vault (`shared/Skill-Evals/<plugin>/<skill-name>/`) or local fallback
 
 See `references/conventions.md` for full naming rules.
