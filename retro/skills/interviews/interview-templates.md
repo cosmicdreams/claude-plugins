@@ -125,6 +125,47 @@ Asked only of agents in the reviewer role. Focuses on failure analysis, develope
 
 ---
 
+## Team-Lead-Specific Section
+
+Asked only of the team-lead (main orchestrator). Focuses on coordination effectiveness, agent utilization, and pipeline decisions.
+
+### TL1. Coordination Effectiveness
+
+> What was the most effective coordination decision you made this sprint — an assignment, timing call, or routing choice that improved throughput?
+
+**Format:**
+- **Decision:** [what you chose]
+- **Alternative considered:** [what you could have done instead]
+- **Outcome:** [how it affected sprint flow]
+
+**Why this question:** Team-lead's unique contribution is pipeline orchestration. Effective routing and sequencing decisions are worth repeating; ineffective ones reveal anti-patterns to avoid.
+
+### TL2. Agent Utilization and Idle Time
+
+> Which agents were underutilized this sprint, and what caused the idle time?
+
+**Format:**
+- **Agent(s):** [role name]
+- **Idle cause:** WAITING_FOR_DEPENDENCY / BLOCKED_BY_GATE / CARD_SHORTAGE / COMMUNICATION_DELAY / OTHER
+- **Time lost:** [rough estimate]
+- **Prevention:** [what would eliminate this next sprint]
+
+**Why this question:** Team-lead can observe idle patterns that agents themselves cannot. Idle time classification feeds directly into sprint capacity planning.
+
+### TL3. Shutdown and Handoff Quality
+
+> How complete and reliable were agent handoffs and shutdowns this sprint?
+
+**Format:**
+- **Handoff quality:** CLEAN / MINOR_GAPS / SIGNIFICANT_REWORK
+- **Shutdown reliability:** All interviews collected / Some missed / Most missed
+- **Gaps found:** [any missing artifacts, unclear handoffs, or communication failures]
+- **Improvement:** [one change to handoff/shutdown process for next sprint]
+
+**Why this question:** Team-lead is the only role that observes all handoffs across the pipeline. This captures systemic handoff quality that individual agent interviews cannot.
+
+---
+
 ## Process-Improvement-Specific Section
 
 Asked only of the process-improvement agent. Uses the O-E-I-R (Observation-Evidence-Impact-Recommendation) format for structured systemic analysis.
