@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.0
+- `retro:session` archives sprint retrospective reports to `Neurons/Retrospectives/<date>+<project>+<sprint>/SESSION-RETROSPECTIVE.md`
+- `retro:interviews` archives per-agent interview files to the same vault path structure
+- Both skills require a project slug (from `OFFICE_PROJECT_NAME` env, kanban frontmatter, or user prompt) — retros are never stored without project context
+- YAML frontmatter (`project`, `sprint`, `date`, `tags`) enables cross-project Obsidian queries
+
 ## 2.0.0
 - Add `retro:changelog` skill — displays retro CHANGELOG with `--latest` and `--since X.Y.Z` filtering
 

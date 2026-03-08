@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.1.0
+- All four skills (brainstorm, diagram, compare, research) now archive output to the Neurons Obsidian vault after completing
+- Vault paths: `shared/Decisions/`, `shared/Architecture/`, `shared/Analysis/`, `shared/Research/` respectively
+- Storage is non-blocking — if Obsidian is not running, vault step is skipped cleanly
+
 ## 2.0.0
 - Add `ideate:changelog` skill — displays ideate CHANGELOG with `--latest` and `--since X.Y.Z` filtering
 - Add trigger evals and improved description for `ideate:compare`

@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.1.0
+- `drupal-lab:analyze-issue` archives issue analysis reports to `Neurons/Drupal.org/<project>/<issue-number>-<slug>.md`
+- `drupal-lab:issue-summary` archives contribution comments to the same vault namespace
+- Drupal core issues route to `Drupal.org/drupal/`; contrib modules route to `Drupal.org/<module-machine-name>/`
+- YAML frontmatter (`drupal_project`, `issue_number`, `date`, `tags`) enables cross-issue pattern queries
+
 ## 2.0.0
 - Rename `release-notes` skill to `changelog` — invoke as `/drupal-lab:changelog`; `/drupal-lab:release-notes` no longer works
 - Remove `protocols/IDLE-TIMEOUT.md`, `protocols/AGENT-COORDINATION.md`, `protocols/DDEV-CLEANUP.md` — unreferenced orphan docs
