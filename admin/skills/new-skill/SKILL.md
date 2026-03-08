@@ -119,23 +119,21 @@ Compose a short eval record (Markdown) containing:
 - **Quality notes**: imperative voice pass, description length, angle bracket check
 - **Before/after diff summary**: key structural changes (for improvement passes)
 
-Then invoke `office:vault-store` to save it. The full vault path uses the `OBSIDIAN_VAULT_NAME` env variable (default: `Neurons`) and the vault root at `~/Vaults/`:
+Invoke `office:vault-store` to save it. The full vault path uses the `OBSIDIAN_VAULT_NAME` env variable (default: `Neurons`) and the vault root at `~/Vaults/`:
 
 ```bash
 VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
 VAULT_ROOT="$HOME/Vaults/$VAULT_NAME"
-VAULT_PATH="$VAULT_ROOT/shared/Skill-Evals/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md"
 
-obsidian create --vault="$VAULT_NAME" --path="shared/Skill-Evals/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md" --content="..."
+obsidian help || { echo "Obsidian is not running. Launch Obsidian before archiving the eval record."; exit 1; }
+
+obsidian create \
+  --vault="$VAULT_NAME" \
+  --path="shared/Skill-Evals/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md" \
+  --content="..."
 ```
 
-If Obsidian is not running, save to the local fallback using the same absolute path convention:
-
-```bash
-LOCAL_PATH="$HOME/Tools/CLAUDE-PLUGINS/skill-eval/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md"
-```
-
-This step is non-blocking — if Obsidian is not running, save locally and move on.
+If `obsidian help` fails, stop and tell the user to launch Obsidian. Do not save the eval record locally — the vault is the only accepted destination.
 
 ---
 
@@ -149,6 +147,6 @@ Before installing, check:
 - [ ] Any referenced files in `references/` actually exist
 - [ ] Unused example directories deleted
 - [ ] `${CLAUDE_PLUGIN_ROOT}` used in scripts (not hardcoded paths)
-- [ ] Eval record saved to vault (`shared/Skill-Evals/<plugin>/<skill-name>/`) or local fallback
+- [ ] Eval record saved to vault at `$HOME/Vaults/$OBSIDIAN_VAULT_NAME/shared/Skill-Evals/<plugin>/<skill-name>/`
 
 See `references/conventions.md` for full naming rules.
