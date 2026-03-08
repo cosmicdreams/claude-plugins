@@ -98,3 +98,75 @@ After interviews are collected, `/retro:session` Phase 2 reads them from `analys
 - **Interview templates:** `interview-templates.md` (this skill's directory)
 - **Reads results:** `retro:session` Phase 2
 - **Hook source:** `../hooks/subagent-stop-interview.sh`
+
+---
+
+## Obsidian Storage
+
+After each interview file is saved to `analysis-reports/`, archive it to the Neurons vault. This step is **optional and additive** — if Obsidian is not running, skip silently.
+
+### Project Slug Resolution
+
+Resolve the project slug in this order:
+
+1. **Environment variable** — if `$OFFICE_PROJECT_NAME` is set, slugify and use it
+2. **Kanban frontmatter** — scan `kanban/sprint-run/` card files for a `project:` field; use the first value found
+3. **Ask the user** — if neither source yields a value, ask once: *"What project is this retrospective for?"* and use their answer as the slug
+
+**Slugify rule:** lowercase, spaces → hyphens, remove all special characters except hyphens.
+Example: `"Same Page Preview"` → `same-page-preview`
+
+Resolve the project slug once per sprint (not once per agent). If collecting interviews across multiple agents in the same sprint, reuse the resolved slug.
+
+### Sprint Slug
+
+Derived from the sprint folder name already established (the `<sprint-name>` segment of `analysis-reports/retro-session/<YYYY-MM-DD>+<sprint-name>/`). Slugify the same way.
+
+### Storage Script (per agent interview)
+
+```bash
+# Health check — non-blocking
+obsidian help || { echo "Vault storage skipped (Obsidian not running)"; exit 0; }
+
+# Resolve project slug (run once per sprint, reuse across agents)
+if [ -n "$OFFICE_PROJECT_NAME" ]; then
+  PROJECT_SLUG=$(echo "$OFFICE_PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+else
+  PROJECT_SLUG=$(grep -r '^project:' kanban/sprint-run/ 2>/dev/null | head -1 | sed 's/.*project: *//' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+fi
+
+# If still unset, ask the user (done interactively — not in this script block)
+# USER_INPUT captured via AskUserQuestion: "What project is this retrospective for?"
+# PROJECT_SLUG=$(echo "$USER_INPUT" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+
+SPRINT_SLUG="<sprint-slug-from-session>"  # e.g. sprint-1, jquery-fixes
+AGENT_ROLE="<agent-role>"                 # e.g. implementer, reviewer, process-improvement
+DATE=$(date +%Y-%m-%d)
+VAULT_PATH="Retrospectives/${DATE}+${PROJECT_SLUG}+${SPRINT_SLUG}/interviews/${AGENT_ROLE}.md"
+
+obsidian create \
+  --vault=Neurons \
+  --path="$VAULT_PATH" \
+  --content="<interview-file-content>"
+```
+
+### Vault Document Format
+
+Each interview file stored at `Retrospectives/<YYYY-MM-DD>+<project-slug>+<sprint-slug>/interviews/<agent-role>.md` must begin with this YAML frontmatter block:
+
+```yaml
+---
+project: <project-slug>
+sprint: <sprint-slug>
+agent_role: <agent-role>
+date: <YYYY-MM-DD>
+tags: [retro, interview]
+---
+```
+
+The frontmatter `project:` field enables cross-project Obsidian queries:
+- `tag:interview` — see all agent interviews across all projects
+- `project: same-page-preview` — see one project's agent interview history
+- `agent_role: implementer` — see all implementer interviews across all projects and sprints
+
+**Project isolation guarantee:** Because `project-slug` is embedded in both the vault path and the `project:` frontmatter field, interviews for Project A will never surface as context for Project B in a filtered query.
