@@ -1,7 +1,7 @@
 # office:pulse Configuration Template
 
-Create this file at `.claude/office-pulse.local.md` in your project root.
-Add `.claude/*.local.md` to `.gitignore` — this file is user-local.
+Create this file at `~/.claude/office-pulse.local.md`.
+This is a user-level config — it lives in your home `.claude/` directory, not in any project, because pulse scans all your email and Jira regardless of which project you're working in.
 
 ```markdown
 ---
@@ -25,6 +25,6 @@ priority_threshold: medium
 
 ## State file
 
-Pulse automatically maintains `.claude/office-pulse.state.jsonl` — do not edit manually.
+Pulse automatically maintains `~/.claude/office-pulse.state.jsonl` — do not edit manually.
 Each line is a timestamped snapshot used to compute deltas between broadcasts.
 The file is trimmed automatically to the last 7 days of entries.
