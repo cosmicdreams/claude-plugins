@@ -4,7 +4,7 @@ description: >
   Manage Microsoft Outlook email via msgcli. Trigger on: "check my email",
   "read this message", "reply to", "send email", "list inbox", "unread emails",
   "what emails do I have", "do I have any new emails", "any emails from X",
-  "show me my inbox", "draft an email", "email someone", "forward this".
+  "show me my inbox", "draft an email", "email someone".
   Do NOT trigger for calendar events — use office:calendar for those.
 ---
 

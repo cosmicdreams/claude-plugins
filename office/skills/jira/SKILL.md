@@ -11,6 +11,16 @@ description: >
 
 # office:jira
 
+## Authentication
+
+If `jira` exits with an auth or configuration error, stop and tell the user:
+
+> Jira authentication required. Run `jira init` and follow the prompts to configure
+> your Jira server URL, email, and API token.
+
+If `jira: command not found`, direct the user to install jira-cli:
+https://github.com/ankitpokhrel/jira-cli
+
 ## List assigned issues
 
 ```bash
@@ -24,16 +34,6 @@ Format output as a Markdown table:
 |-----|---------|--------|----------|---------|
 
 Group by project if issues span multiple projects.
-
-## Authentication
-
-If `jira` exits with an auth or configuration error, stop and tell the user:
-
-> Jira authentication required. Run `jira init` and follow the prompts to configure
-> your Jira server URL, email, and API token.
-
-If `jira: command not found`, direct the user to install jira-cli:
-https://github.com/ankitpokhrel/jira-cli
 
 ## View an issue
 

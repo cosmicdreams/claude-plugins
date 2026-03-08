@@ -3,7 +3,7 @@ name: calendar
 description: >
   Manage Microsoft Outlook calendar events via msgcli. Use when the user asks about
   calendar events, upcoming meetings, their schedule, availability, free/busy time,
-  or wants to create or update a meeting. Trigger phrases: "what's on my calendar",
+  or wants to create a meeting. Trigger phrases: "what's on my calendar",
   "upcoming meetings", "check availability", "am I free", "create meeting",
   "schedule event", "what do I have today", "block time", "do I have any conflicts",
   "when is my next meeting", "what meetings do I have this week".
