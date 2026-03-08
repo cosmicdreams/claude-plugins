@@ -119,11 +119,20 @@ Compose a short eval record (Markdown) containing:
 - **Quality notes**: imperative voice pass, description length, angle bracket check
 - **Before/after diff summary**: key structural changes (for improvement passes)
 
-Then invoke `office:vault-store` to save it — or if Obsidian is not running, save locally to `skill-eval/<plugin>/<skill-name>/`:
+Then invoke `office:vault-store` to save it. The full vault path uses the `OBSIDIAN_VAULT_NAME` env variable (default: `Neurons`) and the vault root at `~/Vaults/`:
 
+```bash
+VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
+VAULT_ROOT="$HOME/Vaults/$VAULT_NAME"
+VAULT_PATH="$VAULT_ROOT/shared/Skill-Evals/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md"
+
+obsidian create --vault="$VAULT_NAME" --path="shared/Skill-Evals/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md" --content="..."
 ```
-Vault path: shared/Skill-Evals/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md
-Local fallback: skill-eval/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md
+
+If Obsidian is not running, save to the local fallback using the same absolute path convention:
+
+```bash
+LOCAL_PATH="$HOME/Tools/CLAUDE-PLUGINS/skill-eval/<plugin>/<skill-name>/<YYYY-MM-DD>-eval.md"
 ```
 
 This step is non-blocking — if Obsidian is not running, save locally and move on.
