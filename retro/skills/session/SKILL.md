@@ -197,6 +197,74 @@ Read `retro:kanban` for the full user review flow. Summary:
 
 ---
 
+## Obsidian Storage
+
+After saving the session retrospective to `analysis-reports/`, archive it to the Neurons vault. This step is **optional and additive** — if Obsidian is not running, skip silently.
+
+### Project Slug Resolution
+
+Resolve the project slug in this order:
+
+1. **Environment variable** — if `$OFFICE_PROJECT_NAME` is set, slugify and use it
+2. **Kanban frontmatter** — scan `kanban/sprint-run/` card files for a `project:` field; use the first value found
+3. **Ask the user** — if neither source yields a value, ask once: *"What project is this retrospective for?"* and use their answer as the slug
+
+**Slugify rule:** lowercase, spaces → hyphens, remove all special characters except hyphens.
+Example: `"Same Page Preview"` → `same-page-preview`
+
+### Sprint Slug
+
+Derive the sprint slug from the sprint name already established for this session (e.g., the `<sprint-name>` segment of `analysis-reports/retro-session/<YYYY-MM-DD>+<sprint-name>/`). Slugify the same way.
+
+### Storage Script
+
+```bash
+# Health check — non-blocking
+obsidian help || { echo "Vault storage skipped (Obsidian not running)"; exit 0; }
+
+# Resolve project slug
+if [ -n "$OFFICE_PROJECT_NAME" ]; then
+  PROJECT_SLUG=$(echo "$OFFICE_PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+else
+  # Try kanban frontmatter
+  PROJECT_SLUG=$(grep -r '^project:' kanban/sprint-run/ 2>/dev/null | head -1 | sed 's/.*project: *//' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+fi
+
+# If still unset, ask the user (done interactively — not in this script block)
+# USER_INPUT captured via AskUserQuestion: "What project is this retrospective for?"
+# PROJECT_SLUG=$(echo "$USER_INPUT" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+
+SPRINT_SLUG="<sprint-slug-from-session>"  # e.g. sprint-1, jquery-fixes
+DATE=$(date +%Y-%m-%d)
+VAULT_PATH="Retrospectives/${DATE}+${PROJECT_SLUG}+${SPRINT_SLUG}/SESSION-RETROSPECTIVE.md"
+
+obsidian create \
+  --vault=Neurons \
+  --path="$VAULT_PATH" \
+  --content="<session-retrospective-content>"
+```
+
+### Vault Document Format
+
+The document stored at `Retrospectives/<YYYY-MM-DD>+<project-slug>+<sprint-slug>/SESSION-RETROSPECTIVE.md` must begin with this YAML frontmatter block:
+
+```yaml
+---
+project: <project-slug>
+sprint: <sprint-slug>
+date: <YYYY-MM-DD>
+tags: [retro, sprint]
+---
+```
+
+The frontmatter `project:` field enables cross-project Obsidian queries:
+- `tag:retro` — see all retros across all projects
+- `project: same-page-preview` — see one project's full history
+
+**Project isolation guarantee:** Because `project-slug` is embedded in both the vault path and the `project:` frontmatter field, a retro for Project A will never surface as context for Project B in a filtered query.
+
+---
+
 ## Minimal Quality Criteria
 
 A good retrospective:
