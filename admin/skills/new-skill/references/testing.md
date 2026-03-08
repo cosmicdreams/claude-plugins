@@ -23,7 +23,7 @@ cd "$SKILL_DIR"
 python3 -m scripts.run_eval \
   --eval-set /path/to/trigger-evals.json \
   --skill-path /path/to/skill \
-  --plugin-skill admin:schedule \
+  --plugin-skill <plugin>:<skill-name> \
   --verbose
 
 # If the skill is NOT yet installed (testing before install), omit --plugin-skill:
@@ -50,7 +50,7 @@ cd "$SKILL_DIR"
 python3 -m scripts.run_loop \
   --eval-set /path/to/trigger-evals.json \
   --skill-path /path/to/skill \
-  --plugin-skill admin:schedule \
+  --plugin-skill <plugin>:<skill-name> \
   --model claude-sonnet-4-6 \
   --max-iterations 5 \
   --verbose
@@ -63,7 +63,7 @@ Optional: save all iteration results for review. Store workspaces at the project
 python3 -m scripts.run_loop \
   --eval-set /path/to/trigger-evals.json \
   --skill-path /path/to/skill \
-  --plugin-skill admin:schedule \
+  --plugin-skill <plugin>:<skill-name> \
   --model claude-sonnet-4-6 \
   --results-dir ~/Tools/CLAUDE-PLUGINS/skill-eval/<skill-name> \
   --verbose
