@@ -4,16 +4,20 @@ description: >
   Analyzes web server and application logs (Acquia/Drupal + Cloudflare) and renders
   an ASCII dashboard report in the terminal. Use when the user asks to analyze logs,
   check error rates, investigate traffic spikes, identify bot traffic, view Cloudflare
-  threat blocks, or review overall site health. Trigger phrases: "analyze logs",
-  "check error rates", "log analysis", "cloudflare threats", "acquia logs",
-  "traffic spike", "bot traffic", "site health report", "what's hitting my site".
+  threat blocks, review overall site health, diagnose PHP errors, investigate 500 errors,
+  find slow requests, or answer "who is hammering my site". Trigger phrases: "analyze
+  logs", "check error rates", "log analysis", "cloudflare threats", "acquia logs",
+  "traffic spike", "bot traffic", "site health report", "what's hitting my site",
+  "PHP errors", "500 errors", "slow requests", "who is hammering my site".
+  Do NOT trigger for Drupal-specific log analysis within DDEV (use drupal-lab tools
+  for that).
 ---
 
 # office:log-analyzer
 
-Terminal log analysis skill — a "Splunk-lite" that runs entirely in the CLI.
-No MCP required. Uses a bundled Python script to parse and categorize logs, then
-formats the output as a rich Markdown dashboard.
+Ask the user which log source they want to analyze (Acquia access logs, Acquia error
+logs, or Cloudflare), or default to Acquia apache-access logs if no preference is stated.
+Then follow the steps below.
 
 ## Data ingestion
 
@@ -50,13 +54,15 @@ curl -s -X GET \
   -H "Content-Type: application/json" > /tmp/office-cf-events.json
 ```
 
-If CF_API_TOKEN or CF_ZONE_ID are not set, skip Cloudflare analysis and note:
+If either variable is missing, skip Cloudflare analysis entirely and note the reason.
+Do not prompt the user for credentials mid-analysis.
+
 > Cloudflare analysis skipped. Set CF_API_TOKEN and CF_ZONE_ID in environment
 > or ~/.config/office/config to enable threat analysis.
 
 ## Running the analyzer
 
-Once log data is collected, pass to the bundled Python script:
+Once log data is collected, pass it to the bundled Python script:
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/skills/log-analyzer/scripts/analyze.py" \
@@ -64,16 +70,19 @@ python3 "${CLAUDE_PLUGIN_ROOT}/skills/log-analyzer/scripts/analyze.py" \
   --cf-events /tmp/office-cf-events.json
 ```
 
+Always use `${CLAUDE_PLUGIN_ROOT}` to reference the bundled script — the path changes
+with each plugin version install. Do not hardcode a cache path.
+
 The script outputs a JSON summary. Parse that JSON to build the dashboard.
 
 ## Dashboard output
 
-Format the Python output as a rich Markdown report:
+Format the Python output as a rich Markdown report. Use the template below as a guide:
 
-```markdown
+~~~markdown
 # Site Health Dashboard — 2026-03-07
 
-## Overall Status: 🟡 YELLOW
+## Overall Status: YELLOW
 
 | Metric | Value |
 |--------|-------|
@@ -81,17 +90,15 @@ Format the Python output as a rich Markdown report:
 | 2xx Success | 94.2% (45,492) |
 | 3xx Redirects | 3.1% (1,497) |
 | 4xx Client Errors | 2.1% (1,014) |
-| 5xx Server Errors | 0.6% (290) ← watch this |
+| 5xx Server Errors | 0.6% (290) — watch this |
 | Cloudflare Threats Blocked | 23 |
 
 ## Traffic Trend (last 24h)
 
-```
-00:00 ████░░░░░░  812 req
-01:00 ███░░░░░░░  634 req
-...
-12:00 ██████████ 3,842 req (peak)
-```
+    00:00 ████░░░░░░  812 req
+    01:00 ███░░░░░░░  634 req
+    ...
+    12:00 ██████████ 3,842 req (peak)
 
 ## Top Paths by Volume
 | Path | Requests |
@@ -103,19 +110,21 @@ Format the Python output as a rich Markdown report:
 ## Potential Bot Traffic
 | IP | Requests | Flag |
 |----|----------|------|
-| 192.0.2.42 | 4,201 | ⚠️ High volume |
+| 192.0.2.42 | 4,201 | High volume |
 ...
 
 ## Recommendations
 - 5xx rate is elevated (0.6%) — check apache-error logs
 - IP 192.0.2.42 sending 4,201 requests — consider rate limiting
-```
+~~~
 
 ## Optional: HTML report
 
-If the user asks for an HTML report instead of terminal output, generate a
-standalone `log-report-<YYYY-MM-DD>.html` file with the same data formatted
-as an HTML dashboard with inline CSS, then open it:
+Generate the HTML report when the user needs to share the analysis with someone who
+doesn't have terminal access, or when the dashboard is too wide for the current terminal.
+
+If the user asks for an HTML report, generate a standalone `log-report-<YYYY-MM-DD>.html`
+file with the same data formatted as an HTML dashboard with inline CSS, then open it:
 
 ```bash
 open log-report-2026-03-07.html
