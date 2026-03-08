@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.0
+- Add `office:personal-email` skill — Gmail via Google Workspace CLI (`gws`)
+- Add `office:personal-calendar` skill — Google Calendar via Google Workspace CLI (`gws`)
+
 ## 1.1.0
 - Add `office:changelog` skill — displays office CHANGELOG with `--latest` and `--since X.Y.Z` filtering
 
