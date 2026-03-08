@@ -1,10 +1,13 @@
 ---
 name: diagram
 description: >
-  Generate Excalidraw diagrams from natural language descriptions. Produces
-  .excalidraw JSON files that open natively in PhpStorm, VS Code, and
-  excalidraw.com. Can be invoked standalone or chained after ideate:brainstorm
-  or ideate:research to visualize synthesized findings.
+  Generate Excalidraw diagrams from natural language descriptions. Produces .excalidraw
+  JSON files that open natively in PhpStorm, VS Code, and excalidraw.com. Layout argues
+  through visual structure -- the arrangement communicates meaning, not just labels.
+  Use when you need to visualize architecture, workflows, system boundaries, or decision
+  trees. Say "diagram this", "visualize this", "sketch this out", "map this out", or
+  "create a diagram". Can chain after ideate:brainstorm or ideate:research. Not for
+  simple lists or text that does not benefit from spatial arrangement.
 triggers:
   - "create a diagram"
   - "diagram this"

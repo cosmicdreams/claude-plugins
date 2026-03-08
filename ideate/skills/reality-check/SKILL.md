@@ -1,10 +1,13 @@
 ---
 name: reality-check
 description: >
-  Adversarial scrutiny of brainstormed ideas using a sequential hard-gate KILL funnel.
-  Plays devil's advocate and holds the contrarian position until a logically sound rebuttal
-  is produced — not until the user pushes back emotionally. Can be invoked standalone or
-  chained after ideate:brainstorm synthesize phase.
+  Adversarial scrutiny of ideas using a five-gate KILL funnel. Challenges problem clarity,
+  problem reality, simplicity, failure modes, and killer assumptions in sequence. Holds
+  the contrarian position until a logically sound rebuttal is produced -- emotional
+  pushback does not pass gates. Use when you want to stress-test an idea before committing.
+  Say "reality check", "poke holes in this", "play devil's advocate", "stress test this
+  idea", or "tear this apart". Can chain after ideate:brainstorm. Not for validating
+  ideas you have already decided to build -- this skill can kill them.
 triggers:
   - "reality check"
   - "stress test this idea"

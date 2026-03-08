@@ -1,6 +1,6 @@
 ---
 name: changelog
-description: Display sprint plugin changelog from CHANGELOG.md. Use when the user mentions "sprint" and wants to know what changed — e.g. "sprint changelog", "what's new in sprint", "what changed in sprint", "sprint release notes". Default (no args): full CHANGELOG. Optional args: "--latest" shows only the most recent version; "--since X.Y.Z" shows all versions after X.Y.Z.
+description: Display the sprint plugin version changelog from CHANGELOG.md. Use when the user wants to see plugin version history -- "sprint changelog", "what's new in sprint", "what changed in sprint", "sprint release notes", "show sprint versions", "what version is sprint". Default (no args) shows the full changelog. Supports --latest for the most recent version, --since X.Y.Z for versions after a specific release, or X.Y.Z for a specific version section. Do NOT confuse with sprint:project-notes which documents project-level sprint outcomes -- this skill reads the plugin's own CHANGELOG.md version history.
 allowed-tools: Bash
 ---
 

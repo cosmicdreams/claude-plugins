@@ -1,6 +1,6 @@
 ---
 name: changelog
-description: Display drupal-lab plugin changelog from CHANGELOG.md. Use when the user mentions "drupal-lab" and wants to know what changed — e.g. "drupal-lab changelog", "what's new in drupal-lab", "what changed in drupal-lab", "drupal-lab release notes". Default (no args): full CHANGELOG. Optional args: "--latest" shows only the most recent version; "--since X.Y.Z" shows all versions after X.Y.Z.
+description: Display the drupal-lab plugin changelog. Use when asked about drupal-lab changes or version history -- e.g. "drupal-lab changelog", "what's new in drupal-lab", "what changed in drupal-lab", "drupal-lab release notes", "show drupal-lab version history". Supports filters: --latest for most recent version, --since X.Y.Z for versions after a specific release. Do NOT use for sprint or admin changelogs -- each plugin has its own release-notes skill.
 allowed-tools: Bash
 ---
 

@@ -1,6 +1,6 @@
 ---
 name: changelog
-description: Display admin plugin changelog from CHANGELOG.md. Use when the user mentions "admin" and wants to know what changed — e.g. "admin changelog", "what's new in admin", "what changed in admin", "admin release notes". Default (no args): full CHANGELOG. Optional args: "--latest" shows only the most recent version; "--since X.Y.Z" shows all versions after X.Y.Z.
+description: Displays the admin plugin changelog, showing what changed across versions. Use when the user says "admin changelog", "what's new in admin", "what changed in admin", "admin release notes", "show admin changes", or asks about recent admin plugin updates. Supports filters: --latest for most recent version, --since X.Y.Z for changes after a specific version. NOT for viewing changelogs of other plugins or for bumping versions.
 allowed-tools: Bash
 ---
 

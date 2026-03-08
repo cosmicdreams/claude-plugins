@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Use when asked to plan a sprint, decide which issues to tackle next, sequence work by dependencies, or propose agent assignments before spinning up a team. Invoke before sprint:run when the issue list needs prioritization. Trigger phrases: "plan a sprint", "which issues should we work", "sequence these issues".
+description: Prepare an ordered, dependency-aware work queue before launching a team sprint. Use when the user wants to plan a sprint, prioritize issues, sequence work by dependencies, or propose agent assignments. Trigger phrases include "plan a sprint", "which issues should we work on", "sequence these issues", "prioritize the backlog", "what order should we tackle these". Always invoke this before sprint:run when issues need analysis or ordering. Do NOT use for mid-sprint re-prioritization or retrospective planning -- those are separate concerns.
 ---
 
 # Sprint Planning

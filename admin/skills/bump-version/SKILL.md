@@ -1,6 +1,6 @@
 ---
 name: bump-version
-description: Bump the semantic version (SemVer) of one or all CLAUDE-PLUGINS plugins. Use when asked to "bump the version", "increment version", "release a new version", or after making plugin changes that warrant a version update. Determines the correct bump type (major/minor/patch) based on the nature of the changes.
+description: Bumps the semantic version (major/minor/patch) of one or all CLAUDE-PLUGINS plugins, updates all version references, writes CHANGELOG entries, and provides a reinstall command. Use when the user says "bump version", "increment version", "release a new version", "version bump", "update plugin version to X.Y.Z", or after completing plugin changes that warrant a version update. NOT for checking which version is installed or updating npm/composer packages.
 triggers:
   - "bump version"
   - "increment version"

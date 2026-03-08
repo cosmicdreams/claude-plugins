@@ -1,6 +1,6 @@
 ---
 name: optimize-agents
-description: Use when asked to review agent definitions, check if agents are using the right models, trim agent prompts for size, or audit agent frontmatter across the plugin. Trigger phrases: 'optimize agents', 'review agents', 'check agent models', 'are agents well-configured', 'trim agent prompts'.
+description: Audits agent definition files for cost and token efficiency -- assigns the cheapest viable model tier (haiku/sonnet/opus), trims bloated prompts, and flags missing frontmatter. Use when the user says "optimize agents", "review agent definitions", "check agent models", "are agents well-configured", "trim agent prompts", or "audit agents". NOT for creating new agents (use admin:new-agent) or for reviewing skill definitions.
 ---
 
 # Optimize Agent Definitions

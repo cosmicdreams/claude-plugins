@@ -1,11 +1,13 @@
 ---
 name: brainstorm
 description: >
-  Interactive brainstorming with a visual decision canvas. Use when exploring options before
-  implementing, facing architectural decisions, choosing between approaches, or whenever the
-  right path isn't obvious. Generates divergent ideas → opens a local UI for annotation →
-  synthesizes the annotated choices into a concrete plan. Also handles the synthesize phase
-  when the user returns after annotating.
+  Interactive brainstorming with a visual decision canvas. Generates divergent ideas, opens
+  a local browser UI for annotation, and synthesizes the annotated choices into a concrete
+  plan. Use this skill when exploring options before implementing, facing architectural
+  decisions, choosing between approaches, or when the right path is not obvious. Say
+  "brainstorm", "explore options", "help me decide", or "what are my options". Also handles
+  the synthesize phase when you return after annotating. Not for quick questions with an
+  obvious answer -- only when genuine divergent thinking adds value.
 triggers:
   - "brainstorm"
   - "let's brainstorm"

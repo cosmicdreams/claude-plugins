@@ -1,6 +1,6 @@
 ---
 name: analyze-issue
-description: Analyze Drupal issues from drupal.org issue queue and generate standardized analysis reports. Use when asked to analyze an issue, research a drupal.org issue number, or investigate a Drupal bug. Fetches issue data, filters comments, discovers patches/MRs, and assesses complexity.
+description: Analyze a Drupal.org issue and produce a structured analysis report. Use when asked to analyze, research, or investigate a drupal.org issue number -- e.g. "analyze issue 2901667", "look into this Drupal bug", "research this drupal.org issue". Fetches issue data, filters comments, discovers patches/MRs, assesses complexity, and saves a report to analysis-reports/. Do NOT use for browsing or listing issues -- use drupal-lab:browse-drupal-issues instead.
 ---
 
 # Analyze Drupal Issue

@@ -1,6 +1,6 @@
 ---
 name: ddev-drupal-dev
-description: Run Drupal core development tools via DDEV containers. Use when running phpcs, phpunit, drush, or any PHP/testing commands against a Drupal worktree. Provides the correct PHP 8.5 environment, database, Chrome webdriver, and test configuration that host-side commands lack.
+description: Run Drupal development tools (phpcs, phpstan, phpunit, drush, composer) inside DDEV containers. Use when you need to run PHP commands, coding standards checks, static analysis, tests, or drush against a Drupal worktree. Host-side PHP commands will fail -- DDEV provides PHP 8.5, database, Chrome webdriver, and test env vars. Do NOT use for DDEV lifecycle management (start/stop/setup) -- use drupal-lab:process-lifecycle instead.
 ---
 
 # DDEV for Drupal Core Development

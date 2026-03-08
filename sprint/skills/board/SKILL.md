@@ -1,16 +1,6 @@
 ---
 name: board
-description: Use before creating, moving, or interpreting any card in kanban/sprint-run/. Required reading before any sprint board operation. Also use when you need lane definitions, card frontmatter fields, or board conventions for the team-sprint pipeline. Always pair with sprint:kanban for universal rules.
-triggers:
-  - "create sprint card"
-  - "show sprint board"
-  - "work sprint ticket"
-  - "advance sprint card"
-  - "sprint board columns"
-  - "add issue to sprint"
-  - "open sprint board"
-  - "launch sprint board"
-  - "show sprint kanban"
+description: Board-specific rules for the kanban/sprint-run/ pipeline. Use before creating, moving, or interpreting any card in the sprint board. Provides lane definitions, card frontmatter fields, naming conventions, DDEV slot rules, and agent role mappings. Trigger phrases include "create sprint card", "show sprint board", "sprint board columns", "add issue to sprint", "open sprint board", "launch sprint board". Always pair with sprint:kanban for universal kanban rules. Do NOT use for the retrospective-actions board -- use retro:kanban instead.
 allowed-tools:
   - Bash
 ---
