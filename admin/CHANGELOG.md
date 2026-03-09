@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.2.1
+- Fixed `bump-version` skill to use `zsh` instead of `bash` in reinstall command output and code blocks
+
 ## 2.2.0
 - Added `admin:schedule` skill — create, list, enable, disable, delete, and view logs for macOS launchd scheduled tasks under the `com.chrisweber.*` namespace; supports prompt, skill, and script task types
 - Added `admin:schedule ui` — local web dashboard at localhost:7474 showing all scheduled tasks with status, log viewer, and enable/disable/delete actions
