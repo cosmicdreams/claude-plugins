@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.0.2] — 2026-03-09
+- `sprint:run`: fix stale "file-based Kanban" in description — now correctly says "Beads database pipeline (.beads/sprint.db)"
+- `sprint:plan`: add missing `allowed-tools: Bash, Read, Write`; Step 1 now checks Beads board for existing cards before falling back to file-based analysis reports
+
 ## [3.0.1] — 2026-03-09
 
 - Added Card Body Standard to `sprint:plan` skill: BDD Given/When/Then acceptance criteria format (AC-1/AC-2/AC-3), card body schema with "What to change / What NOT to change / Acceptance Criteria" sections, and guidance for generating testable ACs from card descriptions

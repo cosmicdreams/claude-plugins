@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.1.1
+- `ideate:diagram`: fix broken playwright-cli render commands (replaced 4-call session pattern with single one-shot `screenshot` command); add install fallback note; use `OBSIDIAN_VAULT_NAME` env var in Obsidian storage section with filesystem fallback
+
 ## 2.1.0
 - All four skills (brainstorm, diagram, compare, research) now archive output to the Neurons Obsidian vault after completing
 - Vault paths: `shared/Decisions/`, `shared/Architecture/`, `shared/Analysis/`, `shared/Research/` respectively

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.1
+- `office:slack`: sharpen description with raw-data-only framing and negative boundaries (vs pulse/morning-brief); add `--workspace` flag to message list and thread commands; add user ID retrieval section under auth
+- `office:pulse`: replace missing `scripts/trim-state.py` with inline Python (7-day window trim); expand triggers with "anything urgent", "check pulse", "what's new"
+- `office:morning-brief`: expand triggers with "morning briefing", "catch me up", "what did I miss", "overnight activity", "start my day"; clarify sequential channel fetches are intentional (rate limit)
+
 ## 1.5.0
 - Add `office:testrail` skill — TestRail REST API wrapper; reads projects, suites, plans, sections, and cases for Playwright test generation
 - Config template: `~/.claude/office-testrail.local.md` with `host`, `username`, `api_key`, `default_project_id`
