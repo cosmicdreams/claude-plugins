@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.0.1] — 2026-03-09
+
+- Added Card Body Standard to `sprint:plan` skill: BDD Given/When/Then acceptance criteria format (AC-1/AC-2/AC-3), card body schema with "What to change / What NOT to change / Acceptance Criteria" sections, and guidance for generating testable ACs from card descriptions
+- Added SUMMARY write step to `SPAWNING.md` implementer prompt: before closing a card, agents write a structured `SUMMARY: <what was built> / <ACs passed> / <deferred>` comment via `bd update --append-notes`
+
 ## [3.0.0] — 2026-03-09
 
 ### Breaking Changes
