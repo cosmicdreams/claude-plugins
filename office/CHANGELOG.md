@@ -1,5 +1,19 @@
 # Changelog
 
+## 1.5.0
+- Add `office:testrail` skill — TestRail REST API wrapper; reads projects, suites, plans, sections, and cases for Playwright test generation
+- Config template: `~/.claude/office-testrail.local.md` with `host`, `username`, `api_key`, `default_project_id`
+
+## 1.4.2
+- `office:pulse`: office-pulse.json as source of truth for Slack channel tracking
+
+## 1.4.1
+- `office:pulse`: project-level Slack channel override + consolidated channel config
+
+## 1.4.0
+- Add `office:morning-brief` skill
+- `office:pulse`: Slack integration
+
 ## 1.3.0
 - Add `office:slack` skill — Slack CLI wrapper via `agent-slack`; reads channels, fetches messages, searches; thin API layer for use by `office:pulse` and `office:morning-brief`
 - Config template: `~/.claude/office-slack.local.md` with `channels` and `message_limit` fields
