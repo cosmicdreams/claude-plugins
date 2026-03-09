@@ -307,14 +307,15 @@ with open(outfile, "w") as f:
 PYEOF
 
 PREVIEW="${FILENAME%.excalidraw}-preview.png"
-playwright-cli open "file://$RENDER_HTML"
-playwright-cli eval "await new Promise(r => setTimeout(r, 4000))"
-playwright-cli screenshot --filename="$PREVIEW"
-playwright-cli close
+playwright-cli screenshot "file://$RENDER_HTML" "$PREVIEW" --wait-for-timeout 4000
 rm -f "$RENDER_HTML"
 ```
 
 Then use the **Read tool** on `$PREVIEW` to view the rendered result.
+
+> If `playwright-cli` is not installed (`npm i -g playwright-cli`), open the `.excalidraw`
+> file directly in PhpStorm or drag it to excalidraw.com to visually inspect — then
+> re-edit the JSON and re-check.
 
 ### The loop
 
@@ -380,11 +381,20 @@ This is non-blocking — if Obsidian isn't running, skip and continue.
 
 3. **Write to vault**:
    ```bash
+   VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
    obsidian create \
-     --vault=Neurons \
+     --vault="$VAULT_NAME" \
      --path="shared/Architecture/<topic>/<YYYY-MM-DD>-<diagram-name>.excalidraw" \
      --content="<output-content>"
    ```
    Where `<output-content>` is the raw Excalidraw JSON.
 
-4. **Confirm**: "✅ Saved to Neurons: shared/Architecture/<topic>/<YYYY-MM-DD>-<diagram-name>.excalidraw"
+   If `obsidian create` fails (Obsidian not running), write the file directly:
+   ```bash
+   VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
+   VAULT_PATH="$HOME/Vaults/$VAULT_NAME/shared/Architecture/<topic>"
+   mkdir -p "$VAULT_PATH"
+   cp "$FILENAME" "$VAULT_PATH/<YYYY-MM-DD>-<diagram-name>.excalidraw"
+   ```
+
+4. **Confirm**: "Saved to $VAULT_NAME: shared/Architecture/<topic>/<YYYY-MM-DD>-<diagram-name>.excalidraw"

@@ -6,6 +6,9 @@ triggers:
   - "what needs attention"
   - "priority check"
   - "office:pulse"
+  - "anything urgent"
+  - "check pulse"
+  - "what's new"
 allowed-tools: Bash, Read, Write
 ---
 
@@ -243,7 +246,28 @@ Append one line to `~/.claude/office-pulse.state.jsonl`:
 Then trim the file to the last 7 days of entries:
 
 ```bash
-python3 scripts/trim-state.py
+python3 << 'EOF'
+import json, os
+from datetime import datetime, timedelta
+
+path = os.path.expanduser("~/.claude/office-pulse.state.jsonl")
+if not os.path.exists(path):
+    exit(0)
+cutoff = (datetime.now() - timedelta(days=7)).isoformat()
+with open(path) as f:
+    lines = [l.strip() for l in f if l.strip()]
+kept = []
+for line in lines:
+    try:
+        entry = json.loads(line)
+        if entry.get("ts", "") >= cutoff:
+            kept.append(line)
+    except Exception:
+        pass
+with open(path, "w") as f:
+    f.write("\n".join(kept) + ("\n" if kept else ""))
+print(f"Trimmed state: kept {len(kept)} entries (7-day window).")
+EOF
 ```
 
 ## Modifying the channel list mid-session

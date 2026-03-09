@@ -1,6 +1,7 @@
 ---
 name: plan
 description: Prepare an ordered, dependency-aware work queue before launching a team sprint. Use when the user wants to plan a sprint, prioritize issues, sequence work by dependencies, or propose agent assignments. Trigger phrases include "plan a sprint", "which issues should we work on", "sequence these issues", "prioritize the backlog", "what order should we tackle these". Always invoke this before sprint:run when issues need analysis or ordering. Do NOT use for mid-sprint re-prioritization or retrospective planning -- those are separate concerns.
+allowed-tools: Bash, Read, Write
 ---
 
 # Sprint Planning
@@ -15,9 +16,13 @@ A list of issue numbers (or a Jira query / backlog reference). If none provided,
 
 ### 1. Check for Existing Analysis Reports
 
-For each issue, check `./analysis-reports/{issue_number}.md`:
-- **Found**: Read complexity, effort estimate, and dependencies
-- **Not found**: Mark as `[NEEDS ANALYSIS]` — these must be analyzed before implementation can start
+For each issue, check two sources:
+
+1. **Beads board**: `bd list -l issue-{issue_number} --json` — if a card already exists for the issue, analysis may have already been done (check the card's lane and narrative)
+2. **File report**: `./analysis-reports/{issue_number}.md` — legacy analysis output; read for complexity, effort estimate, and dependencies if present
+
+- **Card or report found**: Extract complexity, effort estimate, and dependencies
+- **Neither found**: Mark as `[NEEDS ANALYSIS]` — these must be analyzed before implementation can start
 
 ### 2. Assess Complexity
 

@@ -11,6 +11,11 @@ triggers:
   - "office:morning-brief"
   - "what happened overnight"
   - "set today's focus"
+  - "morning briefing"
+  - "catch me up"
+  - "what did I miss"
+  - "overnight activity"
+  - "start my day"
 allowed-tools: Bash, Read, Write
 ---
 
@@ -80,7 +85,9 @@ For each channel in `slack_channels`, fetch recent messages:
 agent-slack message list <channel> --workspace <workspace> --limit 100
 ```
 
-Run fetches sequentially (rate limit caution). Skip channels that error with a note.
+Run fetches sequentially (rate limit caution).
+(Sequential is intentional — `agent-slack` rate-limits per workspace. Running in parallel risks 429 errors.)
+Skip channels that error with a note.
 
 Filter to messages where `ts` (Unix epoch float) > `last_run` Unix timestamp.
 

@@ -1,8 +1,8 @@
 ---
 name: run
 description: >
-  Orchestrates a multi-agent team sprint: spawns parallel agents, manages a file-based Kanban
-  pipeline, and coordinates implementers, analyzers, and reviewers across multiple issues.
+  Orchestrates a multi-agent team sprint: spawns parallel agents, manages a Beads database pipeline (.beads/sprint.db),
+  and coordinates implementers, analyzers, and reviewers across multiple issues.
   Use when asked to run a team sprint, spin up agents, work on multiple issues in parallel,
   kick off the sprint pipeline, or start parallel agent work. Trigger phrases: "run a team
   sprint", "spin up agents", "work on these issues as a team", "team validate these patches",

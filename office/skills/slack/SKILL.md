@@ -2,9 +2,12 @@
 name: slack
 description: >
   Slack CLI wrapper — read channels, fetch messages, search, and list conversations
-  via agent-slack. Thin API layer only; business logic belongs in office:pulse and
-  office:morning-brief. Trigger phrases: "office:slack", "slack channels",
-  "read slack", "slack messages", "list my slack channels".
+  via agent-slack. Returns raw data only; no summarization or prioritization.
+  Use when the user asks to read Slack directly: "what's in #channel", "search slack for X",
+  "list my slack channels", "show messages from #general", "check slack", "fetch slack messages".
+  Also use when office:pulse or office:morning-brief need raw Slack data.
+  Do NOT use for summarized priority views (use office:pulse) or overnight summaries
+  (use office:morning-brief).
 triggers:
   - "office:slack"
   - "slack channels"
@@ -25,6 +28,14 @@ Check that `agent-slack` is installed and authenticated before any operation:
 
 ```bash
 agent-slack auth whoami
+```
+
+### Get your user ID (needed for @mention filtering)
+
+```bash
+# Get your user ID (needed for @mention filtering)
+agent-slack auth whoami
+# Look for `user_id` or `id` in the output
 ```
 
 **If `agent-slack: command not found`**, tell the user:
@@ -71,19 +82,20 @@ Returns JSON array of channels. Present as a Markdown table when invoked directl
 ### Read recent messages from a channel
 
 ```bash
-agent-slack message list <channel-name-or-id> --limit <N>
+agent-slack message list <channel-name-or-id> --workspace <workspace-url> --limit <N>
 ```
 
 - `<channel-name-or-id>`: channel name (e.g. `general`) or channel ID (e.g. `C01234567`)
 - Default limit: value from config `message_limit`, or `50` if not set
 - Returns JSON array of messages with `ts`, `user`, `text`, `thread_ts` fields
+- Omit `--workspace` only if you have a single workspace configured.
 
 To read multiple channels, run in parallel with one command per channel.
 
 ### Read a thread
 
 ```bash
-agent-slack message list <channel> --thread-ts <ts>
+agent-slack message list <channel> --workspace <workspace-url> --thread-ts <ts>
 ```
 
 Use the `thread_ts` from a parent message to fetch all replies.
