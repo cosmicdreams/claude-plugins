@@ -17,6 +17,8 @@ triggers:
   - "catch me up on overnight"
   - "what did I miss overnight"
   - "set today's focus"
+  - "start of day slack summary"
+  - "start of day summary"
 allowed-tools: Bash, Read, Write
 ---
 
