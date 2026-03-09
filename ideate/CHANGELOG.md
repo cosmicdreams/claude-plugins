@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.1.2
+- `ideate:diagram`: sharpen trigger description with specific diagram types (architecture, flowchart, sequence, dependency graph); remove over-broad "visualize this" trigger; add NOT-for exclusions (data charts, written explanations); add ambiguity check step before committing to diagram type; add Obsidian vault path guidance
+
 ## 2.1.1
 - `ideate:diagram`: fix broken playwright-cli render commands (replaced 4-call session pattern with single one-shot `screenshot` command); add install fallback note; use `OBSIDIAN_VAULT_NAME` env var in Obsidian storage section with filesystem fallback
 

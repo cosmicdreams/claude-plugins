@@ -1,5 +1,9 @@
 # Changelog
 
+## [3.0.3] — 2026-03-09
+- `sprint:run`: sharpen trigger to lead with "executes" intent; add explicit sprint:plan vs. sprint:run boundary with concrete examples; move anti-patterns inline into skill body; remove orphaned empty `## Kanban Board` section; fix section hierarchy (`##` → `###`)
+- `sprint:plan`: fix `bd init` error on already-initialized boards; fix `--acceptance` → `--description` flag in all `bd create` examples; add duplicate-card guard before creation; add "order the backlog by dependencies" trigger phrase; add explicit negative guardrail against execution requests
+
 ## [3.0.2] — 2026-03-09
 - `sprint:run`: fix stale "file-based Kanban" in description — now correctly says "Beads database pipeline (.beads/sprint.db)"
 - `sprint:plan`: add missing `allowed-tools: Bash, Read, Write`; Step 1 now checks Beads board for existing cards before falling back to file-based analysis reports

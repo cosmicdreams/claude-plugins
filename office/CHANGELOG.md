@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.5.2
+- `office:slack`: add explicit read-only exclusion (does not send/post/react); document `#channel` name format gotcha (CLI needs name without `#`); add workspace URL discovery via `whoami`; remove redundant "Get your user ID" subsection
+- `office:pulse`: rewrite description to distinguish cross-source triage from single-source queries; remove over-broad triggers ("what's new", "anything urgent"); add "Use pulse when / Use individual skills instead when" decision block; document first-run vs. delta behavior
+- `office:morning-brief`: reframe description around morning-routine time-bounded use case; add sibling-skill disambiguation (vs. pulse and slack); tighten over-broad trigger phrases; document office-pulse.json handoff to pulse; fix missing office-pulse.json guard in workflow step
+
 ## 1.5.1
 - `office:slack`: sharpen description with raw-data-only framing and negative boundaries (vs pulse/morning-brief); add `--workspace` flag to message list and thread commands; add user ID retrieval section under auth
 - `office:pulse`: replace missing `scripts/trim-state.py` with inline Python (7-day window trim); expand triggers with "anything urgent", "check pulse", "what's new"
