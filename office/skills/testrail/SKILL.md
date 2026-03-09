@@ -21,31 +21,75 @@ returns raw JSON for the calling skill or user to process into Playwright tests.
 
 ## Authentication
 
-Load credentials from `~/.claude/office-testrail.local.md` (frontmatter fields):
+### Step 1 — Load non-secret config
+
+Read `~/.claude/office-testrail.local.md` for `host`, `username`, and optionally `default_project_id`:
 
 ```bash
-# Parse config
 CONFIG=~/.claude/office-testrail.local.md
 HOST=$(awk '/^host:/{print $2}' "$CONFIG" 2>/dev/null | tr -d "'\"")
 USERNAME=$(awk '/^username:/{print $2}' "$CONFIG" 2>/dev/null | tr -d "'\"")
-API_KEY=$(awk '/^api_key:/{print $2}' "$CONFIG" 2>/dev/null | tr -d "'\"")
 ```
 
-If the file does not exist or any field is empty, output:
+If the file does not exist or `host`/`username` are empty, output:
 
 > `office:testrail` is not configured.
 > Create `~/.claude/office-testrail.local.md` — see `references/config-template.md`.
 
-**Verify auth** before any operation:
+### Step 2 — Resolve API key (never stored in a file)
+
+Try each source in order, stopping at the first hit:
+
+**1. 1Password CLI** (recommended — `op` is installed):
+```bash
+API_KEY=$(op read "op://Private/TestRail/credential" 2>/dev/null)
+```
+
+**2. macOS Keychain** (fallback — encrypted, Touch ID protected):
+```bash
+if [ -z "$API_KEY" ]; then
+  API_KEY=$(security find-generic-password -s "testrail" -a "$USERNAME" -w 2>/dev/null)
+fi
+```
+
+**3. Environment variable** (fallback):
+```bash
+if [ -z "$API_KEY" ]; then
+  API_KEY="${TESTRAIL_API_KEY:-}"
+fi
+```
+
+If `API_KEY` is still empty after all three, tell the user:
+
+> No TestRail API key found. Store it using one of these methods:
+>
+> **1Password CLI (recommended — already installed):**
+> ```bash
+> op signin   # first-time account setup
+> op item create --category login --title "TestRail" \
+>   --field "username=your@email.com" \
+>   --field "credential=your-api-key"
+> # skill reads it as: op://Private/TestRail/credential
+> ```
+> **macOS Keychain:**
+> ```bash
+> security add-generic-password -s "testrail" -a "your@email.com" -w "your-api-key"
+> ```
+> **Environment variable** (add to `~/.zshrc`):
+> ```bash
+> export TESTRAIL_API_KEY="your-api-key"
+> ```
+
+### Step 3 — Verify auth
 
 ```bash
 curl -sf -u "$USERNAME:$API_KEY" \
   "https://$HOST/index.php?/api/v2/get_current_user" -o /dev/null
 ```
 
-If this returns non-zero or HTTP 401/403, tell the user:
+If non-zero or HTTP 401/403:
 
-> Authentication failed. Check `host`, `username`, and `api_key` in `~/.claude/office-testrail.local.md`.
+> Authentication failed. Verify your username and API key are correct.
 > API keys are generated in TestRail under My Settings → API Keys.
 
 ## Helper
@@ -184,8 +228,9 @@ as clean Markdown tables. Never dump raw JSON at the user unless they ask for it
 
 | Condition | Action |
 |---|---|
-| Config file missing | Prompt to create with config-template |
-| HTTP 401 / 403 | Auth failure — check credentials |
+| Config file missing or incomplete | Prompt to create with config-template |
+| API key not found in any source | Show three setup options (Keychain, env var, 1Password) |
+| HTTP 401 / 403 | Auth failure — check username and API key |
 | HTTP 429 | Rate limited — wait 60s and retry once |
 | HTTP 404 | Invalid ID — tell user which ID was not found |
 | `curl: command not found` | Should never happen on macOS — report and stop |
