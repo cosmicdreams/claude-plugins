@@ -1,7 +1,7 @@
 # office:pulse Configuration Template
 
 Create this file at `~/.claude/office-pulse.local.md`.
-This is a user-level config — it lives in your home `.claude/` directory, not in any project, because pulse scans all your email and Jira regardless of which project you're working in.
+This is a user-level config — it lives in your home `.claude/` directory, not in any project.
 
 ```markdown
 ---
@@ -16,6 +16,12 @@ slack_keywords:
   - urgent
   - blocked
   - your-name-here
+slack_channels:
+  - channel: general
+  - channel: project-alpha
+  - channel: project-beta
+  - channel: project-gamma
+    workspace: https://other.slack.com
 ---
 ```
 
@@ -27,16 +33,40 @@ slack_keywords:
 | `jira_projects` | list | required | Jira project codes to watch (e.g. `PROJ`, `INFRA`) |
 | `email_source` | string | `gmail` | Email provider. Only `gmail` supported (via `gws`) |
 | `priority_threshold` | string | `medium` | Minimum priority to surface: `low`, `medium`, `high`, `critical` |
-| `slack_default_workspace` | string | `https://slack.com` | Default Slack workspace URL. Used when channel entries omit `workspace`. |
+| `slack_default_workspace` | string | `https://slack.com` | Default Slack workspace URL. Applied to any channel entry that omits `workspace`. |
 | `slack_keywords` | list | `[]` | Keywords to flag in Slack messages (case-insensitive). Add your name, project names, or alert terms. |
+| `slack_channels` | list | `[]` | Channels to monitor. Each entry: `{ channel: name, workspace?: url }`. Omit `workspace` to use `slack_default_workspace`. |
 
-## Slack focus file
+## Project-level channel override
 
-Pulse reads `~/.claude/office-slack-focus.json` to know which channels to watch.
-This file is written by `office:morning-brief`. If absent, pulse skips Slack with a note.
+To get a focused briefing when working in a specific project, create `.claude/office-pulse.local.md`
+in that project's root directory:
 
-To update the focus mid-day, ask the general agent:
-> "Switch Slack focus to #javascript and #css"
+```markdown
+---
+slack_channels:
+  - channel: experience-builder
+  - channel: preview
+---
+```
+
+**Merge rules:**
+- `slack_channels` from the project config **replaces** the global list entirely
+- All other fields (`jira_projects`, `email_source`, `priority_threshold`, `slack_keywords`,
+  `slack_default_workspace`) are always read from the global config — project config cannot override them
+- Running from outside any project directory → global channels (full briefing)
+- Running from inside a project directory with `.claude/office-pulse.local.md` → project channels only
+
+## Ad-hoc daily override (focus file)
+
+`office:morning-brief` writes `~/.claude/office-slack-focus.json` with a confirmed channel list.
+If that file exists and is non-empty, pulse uses it instead of either config. This lets you temporarily
+focus on different channels without editing your config files.
+
+To clear the focus override and revert to config channels, delete the focus file:
+```bash
+rm ~/.claude/office-slack-focus.json
+```
 
 ## State file
 

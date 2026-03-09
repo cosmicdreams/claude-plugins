@@ -15,9 +15,9 @@ Scan email, Jira, and Slack, compute what changed since last run, surface the to
 
 ## Step 1: Load config
 
-Read `~/.claude/office-pulse.local.md`. The config lives at user scope — not project-local — because pulse scans all your email and Jira regardless of which project you're in.
+### Global config
 
-If the file does not exist, output:
+Read `~/.claude/office-pulse.local.md`. If the file does not exist, output:
 
 ```
 office:pulse is not configured.
@@ -33,6 +33,29 @@ Parse frontmatter fields:
 - `priority_threshold` — `low` / `medium` / `high` / `critical` (default: `medium`)
 - `slack_default_workspace` — default Slack workspace URL (e.g. `https://drupal.slack.com`)
 - `slack_keywords` — list of keywords to watch for in Slack messages (case-insensitive)
+- `slack_channels` — list of channel entries to monitor; each entry is `{ channel, workspace? }`
+
+### Project config (channel override)
+
+Check for a project-level config at `.claude/office-pulse.local.md` relative to the current working directory:
+
+```bash
+[ -f .claude/office-pulse.local.md ] && cat .claude/office-pulse.local.md
+```
+
+If found, parse its `slack_channels` field. **Replace** (do not merge) the global `slack_channels` with the project value. All other fields (`jira_projects`, `email_source`, `priority_threshold`, `slack_keywords`, `slack_default_workspace`) are always taken from the global config only.
+
+Note which channel source is active — show in output header:
+- `[project: .claude/office-pulse.local.md]` if project config was found
+- `[global: ~/.claude/office-pulse.local.md]` otherwise
+
+### Focus file (ad-hoc daily override)
+
+Check for `~/.claude/office-slack-focus.json`. If it exists and its `channels` list is non-empty, **replace** the active `slack_channels` with it (this overrides even the project config). Note `[focus: morning-brief override]` in output.
+
+The resolved channel list used for this run = focus file channels OR project channels OR global channels (first non-empty wins).
+
+If no channels are configured at any level, skip Slack with note: `[slack: no channels configured — add slack_channels to ~/.claude/office-pulse.local.md]`
 
 ## Step 2: Load previous state
 
@@ -94,13 +117,7 @@ Then stop — do not write state.
 
 ### Slack
 
-Read `~/.claude/office-slack-focus.json`. If the file does not exist or is not readable:
-- Skip Slack entirely
-- Note: `[slack: no focus set — run /office:morning-brief]`
-
-If the file exists but `channels` is an empty list:
-- Skip Slack
-- Note: `[slack: no focus channels for today]`
+If no resolved channel list (skipped above), output the skip note and continue.
 
 Otherwise:
 
@@ -112,7 +129,7 @@ Otherwise:
 
 2. Get your user ID from `agent-slack auth whoami` output (look for `user_id` or `id` field).
 
-3. For each channel entry in the focus file:
+3. For each entry in the resolved channel list, use the entry's `workspace` if set, otherwise `slack_default_workspace`:
    ```bash
    agent-slack message list <channel> --workspace <workspace> --limit 50
    ```
@@ -143,15 +160,15 @@ Score each item:
 |---|---|
 | Jira issue assigned to you, status = Blocked | Critical |
 | DM received in Slack | High |
-| @mention in focused Slack channel | High |
+| @mention in Slack channel | High |
 | Email subject contains urgent/approval/action required | High |
 | Jira issue where you are mentioned in new comment | High |
-| Reply to your thread in focused Slack channel | Medium |
-| Keyword match in focused Slack channel | Medium |
+| Reply to your thread in Slack channel | Medium |
+| Keyword match in Slack channel | Medium |
 | Jira issue status changed | Medium |
 | New email from manager or key stakeholder | Medium |
 | Jira comment on issue you're watching | Low |
-| New message in focused Slack channel (general) | Low |
+| New message in Slack channel (general) | Low |
 | New unread email (general) | Low |
 
 Filter to items at or above `priority_threshold`. Sort descending.
@@ -160,6 +177,7 @@ Filter to items at or above `priority_threshold`. Sort descending.
 
 ```
 ━━━ PULSE — {HH:MM} ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+  slack: #{channel1}, #{channel2}  [{project|global|focus} config]
 
 TOP PRIORITY
 → [{source}] {summary} — {why it's top priority}
@@ -171,14 +189,13 @@ EMAIL
 
 JIRA
   → {KEY}: {what changed} ({project})
-  → {KEY}: {what changed} ({project})
   → [or: no Jira activity]
 
-SLACK  (focus: #{channel1}, #{channel2})
+SLACK
   → [High] @mention from {user} in #{channel}: "{excerpt}"
   → [Medium] keyword "{keyword}" in #{channel}: "{excerpt}"
-  → [or: no Slack activity in focused channels]
-  → [or: no focus set — run /office:morning-brief]
+  → [or: no Slack activity]
+  → [or: no channels configured — add slack_channels to ~/.claude/office-pulse.local.md]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
