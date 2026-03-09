@@ -107,6 +107,55 @@ bd create "Issue #1234: validate <short-desc>" \
 
 Replace `sprint-XXXX`/`sprint-YYYY` with the actual IDs returned by prior `bd create` commands. Set `-p 1` for high-priority issues.
 
+## Card Body Standard
+
+Every card created by `sprint:plan` should follow this schema in its `--description` body. This is a **convention** — there is no enforcement gate. Consistent card bodies make implementation unambiguous and retrospective analysis meaningful.
+
+### Card Body Schema
+
+```
+## What to change
+- File: <path relative to plugin root>
+  - <specific change description>
+  - <another change in the same file>
+- File: <another path>
+  - <change description>
+
+## What NOT to change
+- <guardrail: files or behaviors explicitly out of scope>
+
+## Acceptance Criteria
+- AC-1: Given <precondition>, When <action>, Then <expected outcome>
+- AC-2: Given <precondition>, When <action>, Then <expected outcome>
+- AC-3: Given <precondition>, When <action>, Then <expected outcome>
+```
+
+### Acceptance Criteria Format
+
+ACs use numbered BDD Given/When/Then format:
+
+- **Numbered**: AC-1, AC-2, AC-3 — enables precise pass/fail tracking in SUMMARY comments
+- **BDD structure**: `Given <context>, When <action>, Then <result>` — removes interpretation ambiguity
+- **Independently testable**: each AC can be verified on its own without depending on another AC passing first
+
+### Example
+
+For a card titled "Add retry logic to API client":
+
+```
+## Acceptance Criteria
+- AC-1: Given the API returns a 5xx error, When the client sends a request, Then it retries up to 3 times with exponential backoff
+- AC-2: Given all retries are exhausted, When the final attempt fails, Then the client raises a RetryExhaustedError with the last response attached
+- AC-3: Given the API returns a 4xx error, When the client sends a request, Then it does NOT retry and raises immediately
+```
+
+### Generating ACs from a Card Description
+
+When writing cards, derive ACs directly from the "What to change" section:
+1. Each distinct behavior change becomes one AC
+2. Each "What NOT to change" guardrail can become a negative AC (Then it does NOT...)
+3. Aim for 2-5 ACs per card — fewer means the card may be underspecified, more means it should be split
+
 ## Key Points
 
 - Never assume an issue is ready to implement without a report

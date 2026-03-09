@@ -132,6 +132,9 @@ Claim it: bd update <bd-card-id> --claim --add-label lane-developing
 Comms: ~/.claude/plugins/cache/local/sprint/<ver>/protocols/team-comms-protocol.md
 Coordination: ~/.claude/plugins/cache/local/sprint/<ver>/protocols/AGENT-COORDINATION.md
 
+Before closing a card, write a SUMMARY comment:
+bd update <bd-card-id> --append-notes "SUMMARY: <what was built> / <which ACs passed> / <what was deferred> (by @<your-name>)"
+
 After completing your first issue, check the board for the next available develop card:
 bd ready --json --unassigned
 Follow the pull protocol — claim unassigned cards matching your stage label.
@@ -164,6 +167,32 @@ SendMessage(recipient: "implementer-3",
 Don't wait. Reassign immediately.
 
 ---
+
+## SUMMARY Write Step
+
+Before an implementer closes a card (moves to done), it writes a structured SUMMARY as a `bd` card comment. This is a **convention** — there is no `bd` label gate enforcing it.
+
+### Why
+
+SUMMARYs create a traceable record of what each card delivered, which ACs passed, and what (if anything) was deferred. This feeds into retrospective analysis and makes card outcomes auditable without reading diffs.
+
+### Template
+
+```
+SUMMARY: <what was built> / <which ACs passed> / <what was deferred> (by @<agent-name>)
+```
+
+- **What was built**: one-sentence description of the implementation
+- **Which ACs passed**: reference AC numbers (e.g., "AC-1 PASS, AC-2 PASS, AC-3 DEFERRED") or a brief pass/fail summary if the card used prose acceptance criteria
+- **What was deferred**: anything from the card scope that was intentionally left for a follow-up, or "Nothing deferred" if fully complete
+
+### Command
+
+```bash
+BD_ACTOR=implementer-1 bd update <card-id> --append-notes "SUMMARY: Added retry logic to API client with exponential backoff / AC-1 PASS, AC-2 PASS, AC-3 PASS / Nothing deferred. (by @implementer-1)"
+```
+
+The SUMMARY must be written **before** `bd close`. The agent loop order is: implement → write SUMMARY comment → close card.
 
 ## Shutdown Sequence
 
