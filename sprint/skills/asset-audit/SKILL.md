@@ -167,7 +167,7 @@ elsewhere or be released.
 |---|---|---|
 | **Distill** | Idea is sound; value belongs inside something active | Extract the core insight into the active asset; archive the original |
 | **Merge** | Significant functional overlap with an active asset | Merge content into the active asset; remove the standalone version |
-| **Retire** | Need is genuinely gone; idea no longer serves the process | Create a retro bead: `bd --db .beads/retro.db create "Retire: <asset-name>" --labels "lane-backlog,cat-improve" --description "What: ... Why created: ... Why retiring: ..."` User approves before deletion. |
+| **Retire** | Need is genuinely gone; idea no longer serves the process | Create a retro bead: `bd create "Retire: <asset-name>" --labels "lane-backlog,cat-improve" --description "What: ... Why created: ... Why retiring: ..."` User approves before deletion. |
 | **Defer** | Genuinely unclear; too little data | Add `<!-- audit: defer, revisit after <YYYY-MM-DD> -->` to the asset; reassess in 2 sessions |
 
 **`trigger-failure` assets follow a different path first:**

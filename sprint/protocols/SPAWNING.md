@@ -107,13 +107,13 @@ issue-analyzer-1, issue-analyzer-2
 Each agent's spawn prompt should include:
 
 1. **Role context**: "You are part of a team sprint working on Drupal issues."
-2. **Board location**: `Board: bd --db .beads/sprint.db`
+2. **Board location**: `Board: bd`
 3. **Specific assignment**: which issue or card this instance is starting on
 4. **Protocol references**: comms format, coordination protocol paths
 5. **Instance name**: explicitly tell the agent its own name so it can claim tasks correctly
 6. **BD environment**: set `BD_ACTOR` to the agent's instance name before any `bd` call:
    `export BD_ACTOR=implementer-2`
-   Board database: `.beads/sprint.db` (use `--db .beads/sprint.db` flag on all bd commands)
+   Board database: shared `.beads/` (auto-discovered). Sprint issues carry `-l board-sprint` label; use `bd list -l board-sprint` to scope queries.
 
 Template:
 
@@ -121,19 +121,19 @@ Template:
 You are part of a team sprint.
 
 export BD_ACTOR=implementer-2
-Board: bd --db .beads/sprint.db
+Board: bd
 Your name: implementer-2
 Your first assignment: <bd-card-id>
 Analysis report: analysis-reports/3302103.md
 
-Read your card: bd --db .beads/sprint.db show <bd-card-id> --json
-Claim it: bd --db .beads/sprint.db update <bd-card-id> --claim --add-label lane-developing
+Read your card: bd show <bd-card-id> --json
+Claim it: bd update <bd-card-id> --claim --add-label lane-developing
 
 Comms: ~/.claude/plugins/cache/local/sprint/<ver>/protocols/team-comms-protocol.md
 Coordination: ~/.claude/plugins/cache/local/sprint/<ver>/protocols/AGENT-COORDINATION.md
 
 After completing your first issue, check the board for the next available develop card:
-bd --db .beads/sprint.db ready --json --unassigned
+bd ready --json --unassigned
 Follow the pull protocol — claim unassigned cards matching your stage label.
 
 ALLOWED FILES (you may ONLY write to these paths):

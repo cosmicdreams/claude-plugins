@@ -84,18 +84,18 @@ Once the plan is approved, cards are created in the Beads sprint database (`.bea
 bd init --prefix sprint
 
 # For each issue in the plan:
-bd --db .beads/sprint.db create "Issue #1234: analyze <short-desc>" \
+bd create "Issue #1234: analyze <short-desc>" \
   -p 2 -t task \
   --labels "lane-backlog,stage-analyze,issue-1234" \
   --acceptance "<criteria from plan>"
 
-bd --db .beads/sprint.db create "Issue #1234: implement <short-desc>" \
+bd create "Issue #1234: implement <short-desc>" \
   -p 2 -t task \
   --labels "lane-backlog,stage-develop,issue-1234" \
   --deps "sprint-XXXX" \
   --acceptance "<criteria from plan>"
 
-bd --db .beads/sprint.db create "Issue #1234: validate <short-desc>" \
+bd create "Issue #1234: validate <short-desc>" \
   -p 2 -t task \
   --labels "lane-backlog,stage-validate,issue-1234,review-DYNAMIC_FULL" \
   --deps "sprint-YYYY" \

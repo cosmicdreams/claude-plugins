@@ -26,16 +26,16 @@ Board-specific rules for `.beads/retro.db`. Read `sprint:kanban` first for unive
 
 ```bash
 # All open cards by lane
-bd --db .beads/retro.db list --json | jq 'group_by(.labels)'
+bd list --json | jq 'group_by(.labels)'
 
 # Cards awaiting review (backlog)
-bd --db .beads/retro.db list -l lane-backlog --json
+bd list -l lane-backlog --json
 
 # Approved, ready for implementation
-bd --db .beads/retro.db list -l lane-approved --json
+bd list -l lane-approved --json
 
 # In progress
-bd --db .beads/retro.db list -s in_progress --json
+bd list -s in_progress --json
 ```
 
 ---
@@ -54,7 +54,7 @@ bd --db .beads/retro.db list -s in_progress --json
 ## Creating Cards
 
 ```bash
-bd --db .beads/retro.db create "Improve X" \
+bd create "Improve X" \
   -p 1 -t task \
   --labels "lane-backlog,target-skill,cat-improve,effort-m,session-YYYY-MM-DD" \
   --description "$(cat <<'EOF'
@@ -114,10 +114,10 @@ Before presenting cards to the user, run a dedup pass across all backlog cards:
 
 ```bash
 # List all backlog cards
-bd --db .beads/retro.db list -l lane-backlog --json | jq '[.[] | {id, title, labels}]'
+bd list -l lane-backlog --json | jq '[.[] | {id, title, labels}]'
 
 # Search for near-duplicates on specific terms
-bd --db .beads/retro.db search "agent shutdown"
+bd search "agent shutdown"
 ```
 
 1. Review all backlog cards together
@@ -164,17 +164,17 @@ After user decisions:
 
 ```bash
 # Approve: move from backlog to approved lane
-bd --db .beads/retro.db update <id> --remove-label lane-backlog --add-label lane-approved
+bd update <id> --remove-label lane-backlog --add-label lane-approved
 
 # Apply Now (trivial, immediate): apply change, then close
-bd --db .beads/retro.db close <id> --reason "Applied immediately: [summary of change made]"
+bd close <id> --reason "Applied immediately: [summary of change made]"
 
 # Reject: close with reason
-bd --db .beads/retro.db close <id> --reason "Rejected: [reason]"
+bd close <id> --reason "Rejected: [reason]"
 
 # Modify: update description, then approve
-bd --db .beads/retro.db update <id> --description "Updated description..."
-bd --db .beads/retro.db update <id> --remove-label lane-backlog --add-label lane-approved
+bd update <id> --description "Updated description..."
+bd update <id> --remove-label lane-backlog --add-label lane-approved
 ```
 
 User may identify missing cards during review — create them directly with the `lane-approved` label.
@@ -185,9 +185,9 @@ User may identify missing cards during review — create them directly with the 
 
 After a card is in the approved lane:
 
-1. Agent claims it: `bd --db .beads/retro.db update <id> --claim --add-label lane-in-progress` (atomically sets assignee + status=in_progress)
+1. Agent claims it: `bd update <id> --claim --add-label lane-in-progress` (atomically sets assignee + status=in_progress)
 2. Agent implements the change
-3. Verified complete: `bd --db .beads/retro.db close <id> --reason "Implemented: [summary]"`
+3. Verified complete: `bd close <id> --reason "Implemented: [summary]"`
 
 Closed cards are kept as institutional memory — they are not deleted.
 
@@ -197,10 +197,10 @@ Cards with the `verification-required` label **cannot be closed** until verifica
 
 ```bash
 # Add verification evidence
-bd --db .beads/retro.db update <id> --append-notes "verification_evidence: [sprint, agent, observation]"
+bd update <id> --append-notes "verification_evidence: [sprint, agent, observation]"
 
 # Only then close it
-bd --db .beads/retro.db close <id> --reason "Implemented and verified."
+bd close <id> --reason "Implemented and verified."
 ```
 
 `verification_evidence` must contain: sprint name or date, agent name, and a transcript snippet or observation confirming the gate was followed at least once.
@@ -217,11 +217,11 @@ Rejected cards **may be kept open** with a note documenting the rejection reason
 
 ```bash
 # Strategic rejection (keep for memory)
-bd --db .beads/retro.db update <id> --append-notes "Rejection reason (strategic): [reason]"
-bd --db .beads/retro.db update <id> --remove-label lane-backlog --add-label lane-rejected
+bd update <id> --append-notes "Rejection reason (strategic): [reason]"
+bd update <id> --remove-label lane-backlog --add-label lane-rejected
 
 # Default rejection (close)
-bd --db .beads/retro.db close <id> --reason "Rejected: [reason]"
+bd close <id> --reason "Rejected: [reason]"
 ```
 
 Default: close rejected cards unless the rejection reason reveals strategic direction worth preserving.

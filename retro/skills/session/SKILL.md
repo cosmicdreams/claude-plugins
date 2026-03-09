@@ -59,12 +59,12 @@ Agent interviews are collected by the retro plugin's SubagentStop hook during ea
 ### Phase 3: Data Analysis (10-15 min)
 
 **3A: Kanban Board Analysis**
-- [ ] *(Optional — only if sprint:run was used)* Review sprint board: `bd --db .beads/sprint.db list --json`
-  - Count cards by status: `bd --db .beads/sprint.db list --json | jq 'group_by(.status)'`
-  - Check blocked: `bd --db .beads/sprint.db blocked`
+- [ ] *(Optional — only if sprint:run was used)* Review sprint board: `bd list --json`
+  - Count cards by status: `bd list --json | jq 'group_by(.status)'`
+  - Check blocked: `bd blocked`
   - Calculate first-pass rate: (cards with validation_attempts=1) / (total cards) × 100%
   - If `.beads/sprint.db` does not exist, skip this section — retro runs on interviews + JSONL alone
-- [ ] Check retro backlog: `bd --db .beads/retro.db list -l lane-backlog --json`
+- [ ] Check retro backlog: `bd list -l lane-backlog --json`
 
 **3B: JSONL Transcript Mining** (grep-level analysis)
 *Locate session JSONL file at:* `~/.claude/projects/<sanitized-project-path>/<session-id>.jsonl` (e.g. `-Users-Chris-Weber-OpenSource-SAME_PAGE_PREVIEW` or `-Users-Chris-Weber-OpenSource-DRUPAL`)
@@ -174,7 +174,7 @@ Convert findings from the report into action cards. Read `retro:kanban` for the 
 **6D: Create cards in `.beads/retro.db`**
 
 ```bash
-bd --db .beads/retro.db create "Card title" \
+bd create "Card title" \
   -p 1 -t task \
   --labels "lane-backlog,target-skill,cat-improve,effort-m,session-YYYY-MM-DD" \
   --description "$(cat <<'EOF'
@@ -229,7 +229,7 @@ After saving the session retrospective to `analysis-reports/`, archive it to the
 Resolve the project slug in this order:
 
 1. **Environment variable** — if `$OFFICE_PROJECT_NAME` is set, slugify and use it
-2. **Beads metadata** — query sprint board for project field: `bd --db .beads/sprint.db list --json | jq -r '.[0].metadata.project // empty'`; use the first value found
+2. **Beads metadata** — query sprint board for project field: `bd list --json | jq -r '.[0].metadata.project // empty'`; use the first value found
 3. **Ask the user** — if neither source yields a value, ask once: *"What project is this retrospective for?"* and use their answer as the slug
 
 **Slugify rule:** lowercase, spaces → hyphens, remove all special characters except hyphens.
@@ -250,7 +250,7 @@ if [ -n "$OFFICE_PROJECT_NAME" ]; then
   PROJECT_SLUG=$(echo "$OFFICE_PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
 else
   # Try Beads sprint board metadata
-  PROJECT_SLUG=$(bd --db .beads/sprint.db list --json 2>/dev/null | jq -r '.[0].metadata.project // empty' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+  PROJECT_SLUG=$(bd list --json 2>/dev/null | jq -r '.[0].metadata.project // empty' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
 fi
 
 # If still unset, ask the user (done interactively — not in this script block)

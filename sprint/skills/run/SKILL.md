@@ -46,7 +46,7 @@ A blocked card is expressed via `--deps` (dependency on another issue), not as a
 Cards are created with `bd create`:
 
 ```bash
-bd --db .beads/sprint.db create "Issue #2901667: jQuery removal in toggleEditMode" \
+bd create "Issue #2901667: jQuery removal in toggleEditMode" \
   -p 2 -t task \
   --labels "lane-backlog,stage-analyze" \
   --acceptance "jQuery replaced with native JS; all tests pass; PHPCS clean" \
@@ -94,7 +94,7 @@ Every card maintains a Narrative section in its description — an append-only l
 - When closing a card, add enough detail for a future reader to understand the outcome
 
 ```bash
-bd --db .beads/sprint.db update <id> \
+bd update <id> \
   --append-notes "2026-02-16: Analysis complete. Simple jQuery removal, once() can be replaced with native addEventListener. (by @issue-analyzer)"
 ```
 
@@ -109,43 +109,43 @@ All board queries use `bd` CLI commands — no shell scripts or file scanning ne
 ### View the Board
 
 ```bash
-bd --db .beads/sprint.db list --json
+bd list --json
 ```
 
 ### Show Blocked Cards
 
 ```bash
-bd --db .beads/sprint.db blocked
+bd blocked
 ```
 
 ### Filter by Label
 
 ```bash
-bd --db .beads/sprint.db list -l stage-analyze --json
+bd list -l stage-analyze --json
 ```
 
 ### Ready Work (unblocked, open)
 
 ```bash
-bd --db .beads/sprint.db ready --json
+bd ready --json
 ```
 
 ### Unassigned Ready Work
 
 ```bash
-bd --db .beads/sprint.db ready --json --unassigned
+bd ready --json --unassigned
 ```
 
 ### Pipeline Status
 
 ```bash
-bd --db .beads/sprint.db list --json | jq 'group_by(.status)'
+bd list --json | jq 'group_by(.status)'
 ```
 
 ### DDEV Slot Count
 
 ```bash
-bd --db .beads/sprint.db list --metadata-field ddev=true --json | jq 'length'
+bd list --metadata-field ddev=true --json | jq 'length'
 ```
 
 ## Sprint Workflow
@@ -190,7 +190,7 @@ timeout 10 ddev list -A 2>/dev/null && echo "DDEV healthy" || echo "DDEV unhealt
 ls ./worktrees/
 
 # Check for existing board state
-bd --db .beads/sprint.db ready --json 2>/dev/null || echo "Empty board -- will create cards"
+bd ready --json 2>/dev/null || echo "Empty board -- will create cards"
 ```
 
 Resolve before proceeding:
@@ -207,7 +207,7 @@ The team-lead creates and manages all cards. For each issue, create one card per
 ```bash
 # For issue 2901667:
 # Card 1: analyze (no blockers)
-bd --db .beads/sprint.db create "Issue #2901667: analyze jQuery removal" \
+bd create "Issue #2901667: analyze jQuery removal" \
   -p 2 -t task \
   --labels "lane-backlog,stage-analyze,issue-2901667" \
   --acceptance "Analysis report written with complexity, files, and approach" \
@@ -217,7 +217,7 @@ bd --db .beads/sprint.db create "Issue #2901667: analyze jQuery removal" \
 - 2026-02-16: Card created. Analysis pending. (by @team-lead)"
 
 # Card 2: develop (blocked by card 1)
-bd --db .beads/sprint.db create "Issue #2901667: implement jQuery removal" \
+bd create "Issue #2901667: implement jQuery removal" \
   -p 2 -t task \
   --labels "lane-backlog,stage-develop,issue-2901667" \
   --deps "sprint-XXXX" \
@@ -228,7 +228,7 @@ bd --db .beads/sprint.db create "Issue #2901667: implement jQuery removal" \
 - 2026-02-16: Card created. Blocked on analysis. (by @team-lead)"
 
 # Card 3: validate (blocked by card 2)
-bd --db .beads/sprint.db create "Issue #2901667: validate jQuery removal" \
+bd create "Issue #2901667: validate jQuery removal" \
   -p 2 -t task \
   --labels "lane-backlog,stage-validate,issue-2901667,review-DYNAMIC_FULL" \
   --deps "sprint-YYYY" \
@@ -255,7 +255,7 @@ When you invoke this skill, YOU run the team-lead function. Do not spawn a team-
 
 TEAM-LEAD LOOP (run every turn):
 1. TaskList -> who has no in_progress task right now?
-2. Scan the board: `bd --db .beads/sprint.db ready --json --unassigned` for available work. For in-progress status: `bd --db .beads/sprint.db list -s in_progress --json`.
+2. Scan the board: `bd ready --json --unassigned` for available work. For in-progress status: `bd list -s in_progress --json`.
 3. Match idle agents to available cards -> SendMessage with task assignment (card ID only) immediately
 4. If an agent's role has no remaining cards -> run GRACEFUL SHUTDOWN SEQUENCE (see below)
    ⚠ Exception: process-improvement stays alive until ALL sprint work is done (Step 7). Do not shut it down mid-sprint.
@@ -269,13 +269,13 @@ TEAM-LEAD LOOP (run every turn):
 **Board scan** — use bd to query card metadata without loading full descriptions:
 ```bash
 # All open unassigned work ready to claim
-bd --db .beads/sprint.db ready --json --unassigned
+bd ready --json --unassigned
 
 # In-progress work (who's working on what)
-bd --db .beads/sprint.db list -s in_progress --json
+bd list -s in_progress --json
 
 # Blocked work
-bd --db .beads/sprint.db blocked
+bd blocked
 ```
 
 You push work. You do NOT collect reports and wait.
@@ -319,7 +319,7 @@ Spawn `process-improvement` once at sprint start and leave it alone. It does NOT
 Task(subagent_type="sprint:process-improvement", name="process-improvement",
      team_name="<team-name>",
      prompt="You are observing a team sprint for process quality.
-Board: bd --db .beads/sprint.db (use bd list/ready/blocked to observe board state — read-only observation).
+Board: bd (use bd list/ready/blocked to observe board state — read-only observation).
 export BD_ACTOR=process-improvement
 You operate in ping-response mode: do one initial state snapshot, then wait for task_completed_ping
 messages from team-lead. On each ping, run /sprint:retro-transcript to review the agent's session log,
@@ -337,7 +337,7 @@ You shut down only when the user asks — not when team-lead sends shutdown_requ
 **Resolve card state before sending ping**: By the time team-lead sends a `task_completed_ping`, the card may have already been moved. Always query the card's actual state immediately before composing the ping:
 
 ```bash
-bd --db .beads/sprint.db show <id> --json
+bd show <id> --json
 ```
 
 Use the current state from `bd show` for the ping. Never use stale data from the original assignment.
@@ -361,7 +361,7 @@ Spawn the other worker agents from `.claude/agents/` definitions. **Every agent 
 Task(subagent_type="<role>", name="<name>", team_name="<team-name>",
      prompt="You are part of a team sprint.
 export BD_ACTOR=<your-agent-name>
-Board: bd --db .beads/sprint.db
+Board: bd
 Pipeline: Streaming (pull from board, don't wait for batches).
 DDEV limit: 3 concurrent (check ddev metadata on cards).
 Retro folder: analysis-reports/retro-session/<YYYY-MM-DD>+<team-name>/interviews/{your-agent-name}.md
@@ -369,7 +369,7 @@ Retro folder: analysis-reports/retro-session/<YYYY-MM-DD>+<team-name>/interviews
 Comms: ~/.claude/plugins/cache/local/sprint/<ver>/protocols/team-comms-protocol.md
 
 Your assigned card: <bd-card-id>
-Read the full card yourself at task start: bd --db .beads/sprint.db show <bd-card-id> --json
+Read the full card yourself at task start: bd show <bd-card-id> --json
 The team-lead provides only the card ID, not the full content.
 
 ALLOWED FILES (you may ONLY write to these paths):
@@ -378,15 +378,15 @@ Any edit to a file not in this list is strictly forbidden.
 If the card spec requires editing a file not listed, STOP and message team-lead before proceeding.
 
 AGENT LOOP (for analyzers, developers, validators):
-1. Read your assigned card: bd --db .beads/sprint.db show <id> --json
-2. Scan for available work: bd --db .beads/sprint.db ready --json --unassigned | filter by your stage label
-3. Claim: BD_ACTOR=<your-name> bd --db .beads/sprint.db update <id> --claim --add-label lane-<your-lane>
+1. Read your assigned card: bd show <id> --json
+2. Scan for available work: bd ready --json --unassigned | filter by your stage label
+3. Claim: BD_ACTOR=<your-name> bd update <id> --claim --add-label lane-<your-lane>
 4. Do the work
 5. Transition to next lane:
-   bd --db .beads/sprint.db update <id> --status open --assignee "" \
+   bd update <id> --status open --assignee "" \
      --remove-label lane-<current> --add-label lane-<next>
-   OR close: bd --db .beads/sprint.db close <id> --reason 'Done.'
-6. Append narrative: bd --db .beads/sprint.db update <id> --append-notes '...'
+   OR close: bd close <id> --reason 'Done.'
+6. Append narrative: bd update <id> --append-notes '...'
 7. Repeat
 
 ## Context Retrieval (opt-in)
@@ -404,7 +404,7 @@ See: sprint/protocols/ITERATIVE-RETRIEVAL.md for the full pattern and examples.
 Consult `references/streaming-pipeline.md` for full specification. Key rules:
 
 1. **No batch gates**: Each issue flows independently through stages.
-2. **Pull system**: Agents query the board with `bd --db .beads/sprint.db ready --json --unassigned` and filter by their stage label for available cards. No central assignment needed.
+2. **Pull system**: Agents query the board with `bd ready --json --unassigned` and filter by their stage label for available cards. No central assignment needed.
 3. **Claim before working**: Use `bd update <id> --claim --add-label lane-<working-lane>` before starting work.
 4. **Flow on completion**: When done, transition the card to the next lane. Downstream cards with deps pointing to this card become unblocked when this card is closed.
 5. **Narrative on every transition**: Append notes with `bd update <id> --append-notes "..."` when moving a card between lanes.
@@ -456,14 +456,14 @@ Max 3 DDEV instances. Track with `ddev` metadata on cards.
 - Phase 2 (runtime tests): DDEV needed. Queue if 3 slots full.
 
 **Claiming a DDEV slot:**
-1. Count cards with ddev metadata: `bd --db .beads/sprint.db list --metadata-field ddev=true --json | jq 'length'`
-2. If < 3: `bd --db .beads/sprint.db update <id> --set-metadata ddev=true`, run `ddev start`
+1. Count cards with ddev metadata: `bd list --metadata-field ddev=true --json | jq 'length'`
+2. If < 3: `bd update <id> --set-metadata ddev=true`, run `ddev start`
 3. If = 3: do Phase 1 work while waiting, check again after another card completes
 
 **Releasing a DDEV slot:**
 1. Run `ddev stop` in the worktree
-2. `bd --db .beads/sprint.db update <id> --unset-metadata ddev`
-3. Append narrative: `bd --db .beads/sprint.db update <id> --append-notes "DDEV slot released"`
+2. `bd update <id> --unset-metadata ddev`
+3. Append narrative: `bd update <id> --append-notes "DDEV slot released"`
 
 **DDEV setup per worktree:**
 ```bash
@@ -477,7 +477,7 @@ cd ./worktrees/{ISSUE} && ddev start
 
 ### Step 6: Monitor and Rebalance
 
-You monitor pipeline health and rebalance work. Run `bd --db .beads/sprint.db list --json | jq 'group_by(.status)'` to check health. The process-improvement agent may recommend rebalancing actions but does not modify cards directly.
+You monitor pipeline health and rebalance work. Run `bd list --json | jq 'group_by(.status)'` to check health. The process-improvement agent may recommend rebalancing actions but does not modify cards directly.
 
 | Signal | Action |
 |--------|--------|
@@ -494,7 +494,7 @@ You monitor pipeline health and rebalance work. Run `bd --db .beads/sprint.db li
 
 When sprint completes:
 
-1. Run `bd --db .beads/sprint.db list -s closed --json` for final board state
+1. Run `bd list -s closed --json` for final board state
 2. For each closed card: append an entry to `analysis-reports/RELEASE-NOTES.md` (see format below)
 3. Update `.claude/memory/MEMORY.md` with learnings
 4. For each completed issue, run `issue-summary` skill to generate a drupal.org contribution comment ready to post
@@ -518,29 +518,29 @@ Prepend new entries at the top so the file reads newest-first.
 
 | Action | Command |
 |--------|---------|
-| View board | `bd --db .beads/sprint.db list --json` |
-| Ready work | `bd --db .beads/sprint.db ready --json` |
-| Unassigned ready work | `bd --db .beads/sprint.db ready --json --unassigned` |
-| Show blocked | `bd --db .beads/sprint.db blocked` |
-| Filter by label | `bd --db .beads/sprint.db list -l stage-analyze --json` |
-| Pipeline status | `bd --db .beads/sprint.db list --json \| jq 'group_by(.status)'` |
-| DDEV slot count | `bd --db .beads/sprint.db list --metadata-field ddev=true --json \| jq 'length'` |
-| In-progress work | `bd --db .beads/sprint.db list -s in_progress --json` |
-| Closed (done) | `bd --db .beads/sprint.db list -s closed --json` |
-| Show card details | `bd --db .beads/sprint.db show <id> --json` |
+| View board | `bd list --json` |
+| Ready work | `bd ready --json` |
+| Unassigned ready work | `bd ready --json --unassigned` |
+| Show blocked | `bd blocked` |
+| Filter by label | `bd list -l stage-analyze --json` |
+| Pipeline status | `bd list --json \| jq 'group_by(.status)'` |
+| DDEV slot count | `bd list --metadata-field ddev=true --json \| jq 'length'` |
+| In-progress work | `bd list -s in_progress --json` |
+| Closed (done) | `bd list -s closed --json` |
+| Show card details | `bd show <id> --json` |
 | Init board | `bd init --prefix sprint` |
 | Start sprint | Init board, create cards with `bd create`, spawn agents, execute steps 1-7 |
-| Resume sprint | `bd --db .beads/sprint.db list --json` to scan board state, continue from current status |
-| Add issue | `bd --db .beads/sprint.db create ...` with appropriate labels and deps |
+| Resume sprint | `bd list --json` to scan board state, continue from current status |
+| Add issue | `bd create ...` with appropriate labels and deps |
 | End sprint | Let in-progress finish, write release notes, run step 7 |
 
 ## Troubleshooting
 
-**Cards not advancing**: Check deps — are blocking cards closed? Run `bd --db .beads/sprint.db blocked`.
+**Cards not advancing**: Check deps — are blocking cards closed? Run `bd blocked`.
 
-**DDEV slot contention**: Run `bd --db .beads/sprint.db list --metadata-field ddev=true --json | jq 'length'` to see DDEV allocation. Release finished slots.
+**DDEV slot contention**: Run `bd list --metadata-field ddev=true --json | jq 'length'` to see DDEV allocation. Release finished slots.
 
-**Agent can't find work**: Run `bd --db .beads/sprint.db ready --json --unassigned` and filter by stage label. If none, do fallback work.
+**Agent can't find work**: Run `bd ready --json --unassigned` and filter by stage label. If none, do fallback work.
 
 **Validation keeps failing**: Check fix-loop label count. If >= 3, escalate. Check PHP version (use DDEV, not host).
 

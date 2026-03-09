@@ -80,7 +80,7 @@ If `--teammate` is `team-lead`, read the top-level session JSONL directly instea
 Read the bead notes to get the task timeframe:
 
 ```bash
-bd --db .beads/sprint.db show <bead_id> --json | jq '.notes'
+bd show <bead_id> --json | jq '.notes'
 ```
 
 Narrow the JSONL scan to entries whose `timestamp` falls within the task window. If timestamps are ambiguous (same-day, no time in narrative), use the full file.

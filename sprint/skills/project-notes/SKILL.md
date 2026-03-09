@@ -15,7 +15,7 @@ This is the project-level complement to `sprint:release-notes` (which reads the 
 Query closed sprint beads from the Beads database:
 
 ```bash
-bd --db .beads/sprint.db list -s closed --json
+bd list -s closed --json
 ```
 
 If the result is empty, output:

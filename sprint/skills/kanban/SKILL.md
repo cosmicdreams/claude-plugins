@@ -73,5 +73,5 @@ closed                ← Terminal state (no lane label needed)
 
 | Board | Database | Board-specific docs |
 |-------|----------|---------------------|
-| Team sprint | `bd --db .beads/sprint.db` | `sprint:board` |
-| Retrospective actions | `bd --db .beads/retro.db` | `retro:kanban` |
+| Team sprint | `bd` | `sprint:board` |
+| Retrospective actions | `bd` | `retro:kanban` |

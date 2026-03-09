@@ -25,14 +25,14 @@ When first activated, orient yourself before going idle:
 2. Scan the sprint board for active work:
 
 ```bash
-bd --db .beads/sprint.db list -s in_progress --json
-bd --db .beads/sprint.db ready --json --unassigned
+bd list -s in_progress --json
+bd ready --json --unassigned
 ```
 
 3. Check for discipline cards that need verification:
 
 ```bash
-bd --db .beads/retro.db list -l lane-approved -l verification-required --json
+bd list -l lane-approved -l verification-required --json
 ```
 
 Any cards found are your **top probe priority** this sprint — add their target gates to your watch list. Don't wait for a ping to start watching these.
@@ -52,7 +52,7 @@ Skill("retro:transcript", "--teammate <agent-name> --task <task-id> --focus all"
 
 **2. Read the bead:**
 ```bash
-bd --db .beads/sprint.db show <bead_id> --json
+bd show <bead_id> --json
 ```
 
 **3. Run the gate checklist** — see `references/gate-checklist.md`. Work discipline gates first, behavioral gates second, board hygiene last.

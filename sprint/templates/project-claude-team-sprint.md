@@ -13,7 +13,7 @@ When asked to run a team sprint, coordinate multiple agents, or work on issues i
 ### Every Turn
 
 1. `TaskList` — who has no `in_progress` task right now?
-2. Scan sprint board: `bd --db .beads/sprint.db ready --json --unassigned`
+2. Scan sprint board: `bd ready --json --unassigned`
 3. Match idle agents to available beads → `SendMessage` with task immediately
 4. If an agent's stage has no remaining beads → run Graceful Shutdown Sequence (see below)
 5. If an agent is unresponsive 2+ turns → reassign or replace

@@ -20,25 +20,25 @@ View the sprint board via bd CLI:
 
 ```bash
 # All cards grouped by status
-bd --db .beads/sprint.db list --json | jq 'group_by(.status)'
+bd list --json | jq 'group_by(.status)'
 
 # Ready to claim (unblocked, unassigned)
-bd --db .beads/sprint.db ready --json --unassigned
+bd ready --json --unassigned
 
 # In-progress work
-bd --db .beads/sprint.db list -s in_progress --json
+bd list -s in_progress --json
 
 # Blocked work
-bd --db .beads/sprint.db blocked
+bd blocked
 
 # Done (closed)
-bd --db .beads/sprint.db list -s closed --json
+bd list -s closed --json
 
 # Filter by lane
-bd --db .beads/sprint.db list -l lane-developing --json
+bd list -l lane-developing --json
 
 # Filter by stage
-bd --db .beads/sprint.db list -l stage-analyze --json
+bd list -l stage-analyze --json
 ```
 
 ---
@@ -55,7 +55,7 @@ bd --db .beads/sprint.db list -l stage-analyze --json
 | `lane-review-failed` | `open` | Review failed, back to implementer | implementer |
 | (closed) | `closed` | All stages complete, ready for MR | team-lead |
 
-**Blocked cards**: Stay in their current lane with deps on other cards. Use `bd --db .beads/sprint.db blocked` to identify them — there is no separate blocked lane.
+**Blocked cards**: Stay in their current lane with deps on other cards. Use `bd blocked` to identify them — there is no separate blocked lane.
 
 ---
 
@@ -64,7 +64,7 @@ bd --db .beads/sprint.db list -l stage-analyze --json
 Cards are created with `bd create`. The bd-assigned ID (e.g. `sprint-a1b2`) is the card's unique identifier.
 
 ```bash
-bd --db .beads/sprint.db create "Issue #2901667: jQuery removal in toggleEditMode" \
+bd create "Issue #2901667: jQuery removal in toggleEditMode" \
   -p 2 -t task \
   --labels "lane-backlog,stage-develop,issue-2901667" \
   --acceptance "jQuery replaced with native JS; all tests pass; PHPCS clean" \
@@ -99,16 +99,16 @@ One card per pipeline stage, chained with `--deps`:
 
 ```bash
 # Card 1 — analyze (no blockers)
-bd --db .beads/sprint.db create "Issue #NNN: analyze" -t task \
+bd create "Issue #NNN: analyze" -t task \
   --labels "lane-backlog,stage-analyze,issue-NNN"
 
 # Card 2 — develop (blocked by card 1)
-bd --db .beads/sprint.db create "Issue #NNN: implement" -t task \
+bd create "Issue #NNN: implement" -t task \
   --labels "lane-backlog,stage-develop,issue-NNN" \
   --deps "sprint-XXXX"
 
 # Card 3 — validate (blocked by card 2)
-bd --db .beads/sprint.db create "Issue #NNN: validate" -t task \
+bd create "Issue #NNN: validate" -t task \
   --labels "lane-backlog,stage-validate,issue-NNN,review-DYNAMIC_FULL" \
   --deps "sprint-YYYY"
 ```
@@ -137,7 +137,7 @@ Create all three up front. Downstream cards unblock automatically when upstream 
 Every card maintains a Narrative section — append-only log of decisions and outcomes.
 
 ```bash
-bd --db .beads/sprint.db update <id> \
+bd update <id> \
   --append-notes "2026-02-16: Analysis complete. Simple jQuery removal. (by @issue-analyzer)"
 ```
 
@@ -149,7 +149,7 @@ Never rewrite prior entries. Always append with ISO date and author.
 
 Max 3 concurrent DDEV instances across all cards on the board.
 
-- **Claiming**: Count ddev metadata cards: `bd --db .beads/sprint.db list --metadata-field ddev=true --json | jq 'length'`. If < 3, `bd update <id> --set-metadata ddev=true`, run `ddev start`.
+- **Claiming**: Count ddev metadata cards: `bd list --metadata-field ddev=true --json | jq 'length'`. If < 3, `bd update <id> --set-metadata ddev=true`, run `ddev start`.
 - **Releasing**: Run `ddev stop`, `bd update <id> --unset-metadata ddev`, append narrative.
 - **Phase 1** (phpcs, phpstan): No DDEV needed — run immediately.
 - **Phase 2** (phpunit, browser tests): DDEV required — queue if 3 slots full.

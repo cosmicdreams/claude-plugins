@@ -51,7 +51,7 @@ Event-driven, not poll-driven. Three modes — you may be in multiple simultaneo
 Check the retro board on spawn for any cards with the `verification-required` label in the `lane-approved` lane — these are your **top probe priority** for this sprint. Add each target gate to your active probe agenda. Do not wait for a ping to begin watching for these — they are the highest-value observations you can make.
 
 ```bash
-bd --db .beads/retro.db list -l lane-approved -l verification-required --json
+bd list -l lane-approved -l verification-required --json
 ```
 
 ## Mode 1: Observation
@@ -67,7 +67,7 @@ bead_id: <bead-id>
 
 **On ping:**
 1. `/sprint:retro-transcript --teammate <owner> --task <task_id>`
-2. Read the bead: `bd --db .beads/sprint.db show <bead_id> --json`
+2. Read the bead: `bd show <bead_id> --json`
 3. Run checklist — probe if a question arises; do not flag until confirmed
 4. Report to team-lead only when a finding is confirmed
 

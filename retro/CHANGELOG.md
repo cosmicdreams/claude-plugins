@@ -6,7 +6,7 @@
 
 - **Migrated kanban to Beads (bd CLI)**: The file-based `kanban/retrospective-actions/` directory is replaced by a Beads database at `.beads/retro.db`. All card operations now use `bd` commands.
 - **Card IDs changed**: Old `retro-YYYYMMDD-NNN` filename IDs replaced by Beads auto-assigned hash IDs. Session is tracked via `session-YYYY-MM-DD` label.
-- **Kanban UI removed**: The markdown-based board viewer no longer works. Use `bd --db .beads/retro.db list --json` for board inspection.
+- **Kanban UI removed**: The markdown-based board viewer no longer works. Use `bd list --json` for board inspection.
 - **Frontmatter removed**: Card metadata (target, category, priority, effort, verification_required) is now stored as Beads labels and fields. Verification evidence is stored via `--append-notes`.
 
 ### Migration
