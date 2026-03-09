@@ -1,6 +1,14 @@
 ---
 name: run
-description: Use when asked to run a team sprint, work on multiple issues in parallel, spin up agents for a set of issues, or coordinate a Kanban-driven pipeline. Invoke after sprint:plan when ready to start parallel agent work. Trigger phrases: "run a team sprint", "spin up agents", "work on these issues as a team", "team validate these patches".
+description: >
+  Orchestrates a multi-agent team sprint: spawns parallel agents, manages a file-based Kanban
+  pipeline, and coordinates implementers, analyzers, and reviewers across multiple issues.
+  Use when asked to run a team sprint, spin up agents, work on multiple issues in parallel,
+  kick off the sprint pipeline, or start parallel agent work. Trigger phrases: "run a team
+  sprint", "spin up agents", "work on these issues as a team", "team validate these patches",
+  "start the sprint", "let's kick off the pipeline". Do NOT use for: planning which issues
+  to tackle (sprint:plan), observing pipeline quality (sprint:observe), reading the board
+  (sprint:board), or running a retrospective (retro:session).
 ---
 
 # Team Sprint

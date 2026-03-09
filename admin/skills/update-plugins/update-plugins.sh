@@ -1,4 +1,4 @@
-#!/usr/bin/env bash
+#!/bin/zsh
 # update-plugins.sh — Reinstall all local plugins and patch CLAUDE.md version paths
 #
 # Usage: update-plugins.sh [claude_md_path]
