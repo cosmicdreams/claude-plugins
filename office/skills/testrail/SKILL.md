@@ -83,7 +83,7 @@ If `API_KEY` is still empty after all three, tell the user:
 ### Step 3 — Verify auth
 
 ```bash
-curl -sf -u "$USERNAME:$API_KEY" \
+curl -sf --path-as-is -u "$USERNAME:$API_KEY" \
   "https://$HOST/index.php?/api/v2/get_current_user" -o /dev/null
 ```
 
@@ -101,7 +101,7 @@ TR_BASE="https://$HOST/index.php?/api/v2"
 TR_AUTH="$USERNAME:$API_KEY"
 ```
 
-All API calls use: `curl -sf -u "$TR_AUTH" "$TR_BASE/<endpoint>"`
+All API calls use: `curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/<endpoint>"`
 
 A non-zero curl exit or an HTTP error response containing `"error"` key means the call
 failed — report the error message and stop.
@@ -113,7 +113,7 @@ failed — report the error message and stop.
 ### List projects
 
 ```bash
-curl -sf -u "$TR_AUTH" "$TR_BASE/get_projects"
+curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_projects"
 ```
 
 Returns array of projects. Present as a table: `ID | Name | Suite Mode`.
@@ -121,7 +121,7 @@ Returns array of projects. Present as a table: `ID | Name | Suite Mode`.
 ### List suites for a project
 
 ```bash
-curl -sf -u "$TR_AUTH" "$TR_BASE/get_suites/$PROJECT_ID"
+curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_suites/$PROJECT_ID"
 ```
 
 Returns array of suites. Each suite has `id`, `name`, `description`.
@@ -129,7 +129,7 @@ Returns array of suites. Each suite has `id`, `name`, `description`.
 ### List test plans for a project
 
 ```bash
-curl -sf -u "$TR_AUTH" "$TR_BASE/get_plans/$PROJECT_ID"
+curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_plans/$PROJECT_ID"
 ```
 
 Supports optional filters appended as query params:
@@ -141,7 +141,7 @@ Returns array of plans with `id`, `name`, `description`, `milestone_id`, `is_com
 ### Get a test plan (with runs)
 
 ```bash
-curl -sf -u "$TR_AUTH" "$TR_BASE/get_plan/$PLAN_ID"
+curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_plan/$PLAN_ID"
 ```
 
 Returns the plan object with an `entries` array. Each entry contains:
@@ -151,7 +151,7 @@ Returns the plan object with an `entries` array. Each entry contains:
 ### List sections (for describe-block hierarchy)
 
 ```bash
-curl -sf -u "$TR_AUTH" "$TR_BASE/get_sections/$PROJECT_ID&suite_id=$SUITE_ID"
+curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_sections/$PROJECT_ID&suite_id=$SUITE_ID"
 ```
 
 Returns sections with `id`, `name`, `parent_id`, `depth`. Use this to reconstruct
@@ -160,7 +160,7 @@ the `describe` block nesting when generating Playwright tests.
 ### List test cases
 
 ```bash
-curl -sf -u "$TR_AUTH" "$TR_BASE/get_cases/$PROJECT_ID&suite_id=$SUITE_ID"
+curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_cases/$PROJECT_ID&suite_id=$SUITE_ID"
 ```
 
 Optional filters:
@@ -184,7 +184,7 @@ Key fields per case:
 ### Get a single test case (full detail)
 
 ```bash
-curl -sf -u "$TR_AUTH" "$TR_BASE/get_case/$CASE_ID"
+curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_case/$CASE_ID"
 ```
 
 Use this when `get_cases` returns truncated step data.
@@ -192,7 +192,7 @@ Use this when `get_cases` returns truncated step data.
 ### List cases in a specific test run
 
 ```bash
-curl -sf -u "$TR_AUTH" "$TR_BASE/get_tests/$RUN_ID"
+curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_tests/$RUN_ID"
 ```
 
 Returns the cases actually included in a run (respects any case filters on the run).
@@ -205,7 +205,7 @@ Useful when a plan entry limits to a subset of suite cases.
 TestRail paginates large result sets. Check for `_links.next` in the response:
 
 ```bash
-RESPONSE=$(curl -sf -u "$TR_AUTH" "$TR_BASE/get_cases/$PROJECT_ID&suite_id=$SUITE_ID&limit=250&offset=0")
+RESPONSE=$(curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_cases/$PROJECT_ID&suite_id=$SUITE_ID&limit=250&offset=0")
 # Check: echo "$RESPONSE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('_links',{}).get('next',''))"
 ```
 
