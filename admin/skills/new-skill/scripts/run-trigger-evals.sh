@@ -2,12 +2,12 @@
 # run-trigger-evals.sh — Run trigger accuracy evals for one or all skills
 #
 # Usage (from worktrees/main/):
-#   admin/skills/bump-version/scripts/run-trigger-evals.sh [plugin:skill | all]
+#   admin/skills/new-skill/scripts/run-trigger-evals.sh [plugin:skill | all]
 #
 # Examples:
-#   admin/skills/bump-version/scripts/run-trigger-evals.sh all
-#   admin/skills/bump-version/scripts/run-trigger-evals.sh ideate:diagram
-#   admin/skills/bump-version/scripts/run-trigger-evals.sh office:morning-brief
+#   admin/skills/new-skill/scripts/run-trigger-evals.sh all
+#   admin/skills/new-skill/scripts/run-trigger-evals.sh ideate:diagram
+#   admin/skills/new-skill/scripts/run-trigger-evals.sh office:morning-brief
 #
 # What it does:
 #   For each skill with a trigger-evals.json in skill-eval/:
@@ -22,8 +22,8 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "$SCRIPT_DIR/../../../.." && pwd)"
-NEW_SKILL_DIR="$REPO_ROOT/admin/skills/new-skill"
+NEW_SKILL_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+REPO_ROOT="$(cd "$NEW_SKILL_DIR/../../.." && pwd)"
 CLAUDE_PLUGINS_ROOT="$(cd "$REPO_ROOT/../.." && pwd)"
 SKILL_EVAL_DIR="${SKILL_EVAL_DIR:-$CLAUDE_PLUGINS_ROOT/skill-eval}"
 PLUGIN_CACHE="$HOME/.claude/plugins/cache/local"
