@@ -263,7 +263,83 @@ echo "Open in: PhpStorm, VS Code (Excalidraw extension), or excalidraw.com"
 
 ---
 
-## Phase 5 — Chain Offer
+## Phase 5 — Render & Validate
+
+**This phase is mandatory.** You cannot judge a diagram from JSON alone. After
+writing the file, render it and visually inspect the result. Fix what you see,
+then re-render. Repeat until it looks right.
+
+### How to render
+
+Generate a self-contained HTML wrapper and screenshot it with playwright-cli:
+
+```bash
+RENDER_HTML=$(mktemp /tmp/excalidraw-render-XXXXX.html)
+python3 - "$FILENAME" "$RENDER_HTML" << 'PYEOF'
+import json, sys
+fname, outfile = sys.argv[1], sys.argv[2]
+with open(fname) as f:
+    scene = json.load(f)
+html = """<!DOCTYPE html>
+<html><head><meta charset="utf-8">
+<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
+<script src="https://unpkg.com/@excalidraw/excalidraw/dist/excalidraw.production.min.js"></script>
+<style>*{margin:0;padding:0}body,html{width:100%;height:100vh;background:#fff}</style>
+</head><body>
+<div id="app" style="width:100%;height:100vh;"></div>
+<script>
+const sceneData = """ + json.dumps(scene) + """;
+const { Excalidraw } = ExcalidrawLib;
+const App = () => React.createElement(Excalidraw, {
+  initialData: {
+    elements: sceneData.elements,
+    appState: { ...sceneData.appState, viewModeEnabled: true },
+    scrollToContent: true
+  },
+  viewModeEnabled: true
+});
+ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(App));
+</script>
+</body></html>"""
+with open(outfile, "w") as f:
+    f.write(html)
+PYEOF
+
+PREVIEW="${FILENAME%.excalidraw}-preview.png"
+playwright-cli open "file://$RENDER_HTML"
+playwright-cli eval "await new Promise(r => setTimeout(r, 4000))"
+playwright-cli screenshot --filename="$PREVIEW"
+playwright-cli close
+rm -f "$RENDER_HTML"
+```
+
+Then use the **Read tool** on `$PREVIEW` to view the rendered result.
+
+### The loop
+
+Run this cycle until the diagram passes all checks:
+
+1. **Render & view** — run the script above, then Read the PNG
+2. **Audit against your design** — does the rendered structure match what you
+   planned? Eye flow correct? Visual hierarchy clear?
+3. **Check for defects:**
+   - Text clipped or overflowing its container
+   - Shapes or text overlapping unintentionally
+   - Arrows missing targets or crossing through shapes
+   - Labels floating without clear anchor
+   - Uneven spacing between elements that should be uniform
+   - Lopsided composition — large voids on one side, crowding on the other
+4. **Fix** — edit the JSON: widen containers, adjust `x`/`y`, add waypoints to
+   arrow `points` arrays, resize elements for visual balance
+5. **Re-render & re-view** — repeat from step 1
+
+**Stop when:** no text is clipped, arrows connect correctly, spacing is balanced,
+and you'd show this to someone without caveats. Usually takes 2–3 iterations.
+
+---
+
+## Phase 6 — Chain Offer
 
 After delivering the file, offer:
 
@@ -279,12 +355,12 @@ If chained from `ideate:brainstorm`, also offer:
 
 ## Known Limitations
 
-- Large diagrams (50+ elements) may need to be generated in sections — build
-  section by section, then combine
-- Arrow routing is manual — calculate coordinates explicitly, don't assume
-  Excalidraw will route around shapes
-- Text clipping: verify `width` and `height` of text containers are large enough
-  for the content before writing the file
+- Large diagrams (50+ elements): build section by section, then combine — don't
+  generate the entire file in one pass
+- Arrow routing is manual — calculate coordinates explicitly; Excalidraw does not
+  route around shapes automatically
+- CDN dependency: the render step loads Excalidraw from unpkg.com and requires
+  an internet connection
 
 ---
 
