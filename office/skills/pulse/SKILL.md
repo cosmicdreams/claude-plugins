@@ -15,7 +15,7 @@ Scan email, Jira, and Slack, compute what changed since last run, surface the to
 
 ## Step 1: Load config
 
-### Global config
+### Static config (always from ~/.claude/office-pulse.local.md)
 
 Read `~/.claude/office-pulse.local.md`. If the file does not exist, output:
 
@@ -33,29 +33,55 @@ Parse frontmatter fields:
 - `priority_threshold` — `low` / `medium` / `high` / `critical` (default: `medium`)
 - `slack_default_workspace` — default Slack workspace URL (e.g. `https://drupal.slack.com`)
 - `slack_keywords` — list of keywords to watch for in Slack messages (case-insensitive)
-- `slack_channels` — list of channel entries to monitor; each entry is `{ channel, workspace? }`
+- `slack_channels` — initial channel list; used only to seed `office-pulse.json` on first run
 
-### Project config (channel override)
+### Runtime channel config (source of truth: ~/.claude/office-pulse.json)
 
-Check for a project-level config at `.claude/office-pulse.local.md` relative to the current working directory:
+Read `~/.claude/office-pulse.json`.
+
+**If the file does not exist:** seed it from `slack_channels` in `office-pulse.local.md`:
+
+```bash
+python3 << 'EOF'
+import json, os
+from datetime import datetime
+
+# Populate `channels` from the parsed slack_channels list in .local.md
+channels = []  # agent fills this from parsed .local.md slack_channels
+
+seed = {
+    "updated": datetime.now().isoformat(),
+    "updated_by": "pulse-init",
+    "slack_channels": channels
+}
+path = os.path.expanduser("~/.claude/office-pulse.json")
+with open(path, "w") as f:
+    json.dump(seed, f, indent=2)
+print(f"Seeded {path} from local config ({len(channels)} channels).")
+EOF
+```
+
+Then read it back.
+
+**If the file exists:** read `slack_channels` from it — this is the authoritative list for this run.
+
+### Project config detection
+
+Check for `.claude/office-pulse.local.md` in the current working directory:
 
 ```bash
 [ -f .claude/office-pulse.local.md ] && cat .claude/office-pulse.local.md
 ```
 
-If found, parse its `slack_channels` field. **Replace** (do not merge) the global `slack_channels` with the project value. All other fields (`jira_projects`, `email_source`, `priority_threshold`, `slack_keywords`, `slack_default_workspace`) are always taken from the global config only.
+If found, parse its `slack_channels`. Compare to the current `office-pulse.json` channels.
+If they differ, note in output header:
+```
+[project config available — say "use project channels" to switch]
+```
 
-Note which channel source is active — show in output header:
-- `[project: .claude/office-pulse.local.md]` if project config was found
-- `[global: ~/.claude/office-pulse.local.md]` otherwise
-
-### Focus file (ad-hoc daily override)
-
-Check for `~/.claude/office-slack-focus.json`. If it exists and its `channels` list is non-empty, **replace** the active `slack_channels` with it (this overrides even the project config). Note `[focus: morning-brief override]` in output.
-
-The resolved channel list used for this run = focus file channels OR project channels OR global channels (first non-empty wins).
-
-If no channels are configured at any level, skip Slack with note: `[slack: no channels configured — add slack_channels to ~/.claude/office-pulse.local.md]`
+Do NOT automatically apply the project config. Apply only when the user explicitly asks
+(e.g. "use project channels", "switch to project config"). When switching, write the project
+`slack_channels` into `~/.claude/office-pulse.json` with `updated_by: "project-switch"`.
 
 ## Step 2: Load previous state
 
@@ -69,7 +95,7 @@ Parse as JSON. Fields:
 - `ts` — ISO timestamp of last run
 - `email_last_id` — most recent email message ID seen
 - `jira_snapshots` — object mapping issue key → `{ comments, status, updated }`
-- `slack_channels` — object mapping `"workspace_host/channel"` → last seen Slack `ts` (Unix epoch string)
+- `slack_channels` — object mapping `"workspace_host/channel"` → last seen Slack `ts`
 
 If the file does not exist or is empty, treat as first run — all current data is "new."
 
@@ -83,9 +109,10 @@ Run all fetches in parallel where possible.
 gws mail list --unread --limit 20 --format json
 ```
 
-Extract: message IDs, subjects, senders, received timestamps, any priority/urgent signals (subject contains "urgent", "action required", "approval needed", flagged by sender).
+Extract: message IDs, subjects, senders, received timestamps, priority/urgent signals
+(subject contains "urgent", "action required", "approval needed", or flagged by sender).
 
-If `gws` is not available or auth fails, skip email with a note: `[email unavailable]`
+If `gws` is not available or auth fails, skip with note: `[email unavailable]`
 
 ### Jira
 
@@ -107,7 +134,7 @@ For issues assigned to you or where you are mentioned, also fetch comment counts
 jira issue view {KEY} --plain --comments 5
 ```
 
-If `jira` is not available, skip with a note: `[jira unavailable]`
+If `jira` is not available, skip with note: `[jira unavailable]`
 
 If both email and Jira are unavailable, output:
 ```
@@ -117,7 +144,8 @@ Then stop — do not write state.
 
 ### Slack
 
-If no resolved channel list (skipped above), output the skip note and continue.
+If `slack_channels` in `office-pulse.json` is empty, skip Slack with note:
+`[slack: no channels — say "add #channel" to start tracking]`
 
 Otherwise:
 
@@ -125,36 +153,35 @@ Otherwise:
    ```bash
    agent-slack auth whoami
    ```
-   If `agent-slack` is not found or auth fails, skip Slack with note: `[slack: agent-slack unavailable]`
+   If `agent-slack` not found or auth fails, skip with note: `[slack: agent-slack unavailable]`
 
 2. Get your user ID from `agent-slack auth whoami` output (look for `user_id` or `id` field).
 
-3. For each entry in the resolved channel list, use the entry's `workspace` if set, otherwise `slack_default_workspace`:
+3. For each entry in `slack_channels`, use entry's `workspace` if set, else `slack_default_workspace`:
    ```bash
    agent-slack message list <channel> --workspace <workspace> --limit 50
    ```
-   Run fetches sequentially (rate limit caution). Skip channels that return errors with a note.
+   Run fetches sequentially (rate limit caution). Skip channels that error with a note.
 
-4. Filter messages: keep only those with `ts` (Unix epoch) > `slack_channels["host/channel"]` from state. On first run, keep all messages.
+4. Filter: keep messages with `ts` > `slack_channels["host/channel"]` from state.
+   On first run, keep all messages.
 
 5. Classify each new message:
    - **DM**: channel name is `directmessage` or `im`
    - **@mention**: `text` contains `<@{your_user_id}>`
-   - **Thread reply**: `thread_ts` is set and `thread_ts` != `ts` and `thread_ts` matches a `ts` from your prior messages
+   - **Thread reply**: `thread_ts` set, `thread_ts` != `ts`, `thread_ts` matches a `ts` from your prior messages
    - **Keyword match**: `text` contains any `slack_keywords` entry (case-insensitive)
    - **General**: any other new message
 
 ## Step 4: Compute deltas
 
-**Email delta:** Messages with IDs not seen in previous state = new messages.
+**Email delta:** Messages with IDs not seen in previous state.
 
-**Jira delta:** Issues where `updated` timestamp is after `last_run_ts`, or comment count increased vs snapshot.
+**Jira delta:** Issues where `updated` is after `last_run_ts`, or comment count increased vs snapshot.
 
-**Slack delta:** Messages with `ts` > last seen per channel (from `slack_channels` state field).
+**Slack delta:** Messages with `ts` > last seen per channel (from state `slack_channels`).
 
 ## Step 5: Rank priorities
-
-Score each item:
 
 | Signal | Weight |
 |---|---|
@@ -177,7 +204,8 @@ Filter to items at or above `priority_threshold`. Sort descending.
 
 ```
 ━━━ PULSE — {HH:MM} ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  slack: #{channel1}, #{channel2}  [{project|global|focus} config]
+  slack: #{channel1}, #{channel2}  (set {N}m ago by {updated_by})
+  [project config available — say "use project channels" to switch]  ← only if applicable
 
 TOP PRIORITY
 → [{source}] {summary} — {why it's top priority}
@@ -195,7 +223,6 @@ SLACK
   → [High] @mention from {user} in #{channel}: "{excerpt}"
   → [Medium] keyword "{keyword}" in #{channel}: "{excerpt}"
   → [or: no Slack activity]
-  → [or: no channels configured — add slack_channels to ~/.claude/office-pulse.local.md]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
@@ -211,13 +238,33 @@ Append one line to `~/.claude/office-pulse.state.jsonl`:
 {"ts":"{ISO_NOW}","email_last_id":"{most_recent_id}","jira_snapshots":{"{KEY}":{"comments":{N},"status":"{status}","updated":"{ts}"}},"slack_channels":{"drupal.slack.com/preview":"{most_recent_ts}","drupal.slack.com/experience-builder":"{most_recent_ts}"}}
 ```
 
-`slack_channels` key format: `"{workspace_hostname}/{channel_name}"` → value is the `ts` of the most recent message seen in that channel.
+`slack_channels` key: `"{workspace_hostname}/{channel_name}"` → most recent message `ts` seen.
 
 Then trim the file to the last 7 days of entries:
 
 ```bash
 python3 scripts/trim-state.py
 ```
+
+## Modifying the channel list mid-session
+
+When the user asks to change channels (e.g. "add #javascript", "remove #preview",
+"switch to #css and #theming", "use project channels"), update `~/.claude/office-pulse.json`:
+
+```json
+{
+  "updated": "{ISO_NOW}",
+  "updated_by": "user",
+  "slack_channels": [
+    { "workspace": "https://drupal.slack.com", "channel": "javascript" }
+  ]
+}
+```
+
+Confirm: "Updated. Pulse will now track: #javascript"
+
+To reset channels to defaults: say "reset slack channels" — agent reads `slack_channels`
+from `~/.claude/office-pulse.local.md` and writes them into `office-pulse.json`.
 
 ## Running on a loop
 
