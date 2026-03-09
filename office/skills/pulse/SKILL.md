@@ -1,6 +1,6 @@
 ---
 name: pulse
-description: Ambient priority watchdog — scans email and Jira for what needs your attention right now. Outputs two views: (1) top priority, (2) what changed since last broadcast. Designed to run hourly via /loop. Requires ~/.claude/office-pulse.local.md config. Trigger phrases: "pulse check", "what needs attention", "priority check", "office:pulse".
+description: Ambient priority watchdog — scans email, Jira, and Slack for what needs your attention right now. Outputs two views: (1) top priority, (2) what changed since last broadcast. Designed to run hourly via /loop. Requires ~/.claude/office-pulse.local.md config. Trigger phrases: "pulse check", "what needs attention", "priority check", "office:pulse".
 triggers:
   - "pulse check"
   - "what needs attention"
@@ -11,7 +11,7 @@ allowed-tools: Bash, Read, Write
 
 # office:pulse — Ambient Priority Watchdog
 
-Scan email and Jira, compute what changed since last run, surface the top priority.
+Scan email, Jira, and Slack, compute what changed since last run, surface the top priority.
 
 ## Step 1: Load config
 
@@ -31,6 +31,8 @@ Parse frontmatter fields:
 - `jira_projects` — list of project codes
 - `email_source` — `gmail` (only supported value)
 - `priority_threshold` — `low` / `medium` / `high` / `critical` (default: `medium`)
+- `slack_default_workspace` — default Slack workspace URL (e.g. `https://drupal.slack.com`)
+- `slack_keywords` — list of keywords to watch for in Slack messages (case-insensitive)
 
 ## Step 2: Load previous state
 
@@ -44,6 +46,7 @@ Parse as JSON. Fields:
 - `ts` — ISO timestamp of last run
 - `email_last_id` — most recent email message ID seen
 - `jira_snapshots` — object mapping issue key → `{ comments, status, updated }`
+- `slack_channels` — object mapping `"workspace_host/channel"` → last seen Slack `ts` (Unix epoch string)
 
 If the file does not exist or is empty, treat as first run — all current data is "new."
 
@@ -89,11 +92,48 @@ PULSE {HH:MM} — all sources unavailable (email: gws not found / Jira: jira not
 ```
 Then stop — do not write state.
 
+### Slack
+
+Read `~/.claude/office-slack-focus.json`. If the file does not exist or is not readable:
+- Skip Slack entirely
+- Note: `[slack: no focus set — run /office:morning-brief]`
+
+If the file exists but `channels` is an empty list:
+- Skip Slack
+- Note: `[slack: no focus channels for today]`
+
+Otherwise:
+
+1. Auth check:
+   ```bash
+   agent-slack auth whoami
+   ```
+   If `agent-slack` is not found or auth fails, skip Slack with note: `[slack: agent-slack unavailable]`
+
+2. Get your user ID from `agent-slack auth whoami` output (look for `user_id` or `id` field).
+
+3. For each channel entry in the focus file:
+   ```bash
+   agent-slack message list <channel> --workspace <workspace> --limit 50
+   ```
+   Run fetches sequentially (rate limit caution). Skip channels that return errors with a note.
+
+4. Filter messages: keep only those with `ts` (Unix epoch) > `slack_channels["host/channel"]` from state. On first run, keep all messages.
+
+5. Classify each new message:
+   - **DM**: channel name is `directmessage` or `im`
+   - **@mention**: `text` contains `<@{your_user_id}>`
+   - **Thread reply**: `thread_ts` is set and `thread_ts` != `ts` and `thread_ts` matches a `ts` from your prior messages
+   - **Keyword match**: `text` contains any `slack_keywords` entry (case-insensitive)
+   - **General**: any other new message
+
 ## Step 4: Compute deltas
 
 **Email delta:** Messages with IDs not seen in previous state = new messages.
 
 **Jira delta:** Issues where `updated` timestamp is after `last_run_ts`, or comment count increased vs snapshot.
+
+**Slack delta:** Messages with `ts` > last seen per channel (from `slack_channels` state field).
 
 ## Step 5: Rank priorities
 
@@ -102,11 +142,16 @@ Score each item:
 | Signal | Weight |
 |---|---|
 | Jira issue assigned to you, status = Blocked | Critical |
+| DM received in Slack | High |
+| @mention in focused Slack channel | High |
 | Email subject contains urgent/approval/action required | High |
 | Jira issue where you are mentioned in new comment | High |
+| Reply to your thread in focused Slack channel | Medium |
+| Keyword match in focused Slack channel | Medium |
 | Jira issue status changed | Medium |
 | New email from manager or key stakeholder | Medium |
 | Jira comment on issue you're watching | Low |
+| New message in focused Slack channel (general) | Low |
 | New unread email (general) | Low |
 
 Filter to items at or above `priority_threshold`. Sort descending.
@@ -129,6 +174,12 @@ JIRA
   → {KEY}: {what changed} ({project})
   → [or: no Jira activity]
 
+SLACK  (focus: #{channel1}, #{channel2})
+  → [High] @mention from {user} in #{channel}: "{excerpt}"
+  → [Medium] keyword "{keyword}" in #{channel}: "{excerpt}"
+  → [or: no Slack activity in focused channels]
+  → [or: no focus set — run /office:morning-brief]
+
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
@@ -140,8 +191,10 @@ If nothing has changed across all sources: output a single line —
 Append one line to `~/.claude/office-pulse.state.jsonl`:
 
 ```json
-{"ts":"{ISO_NOW}","email_last_id":"{most_recent_id}","jira_snapshots":{"{KEY}":{"comments":{N},"status":"{status}","updated":"{ts}"}}}
+{"ts":"{ISO_NOW}","email_last_id":"{most_recent_id}","jira_snapshots":{"{KEY}":{"comments":{N},"status":"{status}","updated":"{ts}"}},"slack_channels":{"drupal.slack.com/preview":"{most_recent_ts}","drupal.slack.com/experience-builder":"{most_recent_ts}"}}
 ```
+
+`slack_channels` key format: `"{workspace_hostname}/{channel_name}"` → value is the `ts` of the most recent message seen in that channel.
 
 Then trim the file to the last 7 days of entries:
 
