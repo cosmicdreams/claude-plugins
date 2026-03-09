@@ -19,12 +19,18 @@ model: sonnet
 
 ## Context Awareness
 **Important**: All relative paths (e.g. `./worktrees/...`) assume you are executing from the **Project Root** (e.g. `~/OpenSource/SAME_PAGE_PREVIEW`).
-- The Project Root is the folder that *contains* the `worktrees/` and `kanban/` directories.
+- The Project Root is the folder that *contains* the `worktrees/` directory.
 - If you are inside a worktree (e.g. `.../worktrees/1234`), you must `cd ../..` to return to the Project Root before running commands.
 
 ## Claiming Work
 
-Scan `kanban/sprint-run/` for cards in `4_needs-review/` with no assignee. Move card to `5_reviewing/` on claim (rename file path), then set `assignee` to your name before starting.
+Find unassigned cards ready for review, claim atomically:
+
+```bash
+export BD_ACTOR=reviewer   # or reviewer-1, reviewer-2 if multiple instances
+bd ready -l board-sprint -l lane-needs-review --json --unassigned | jq '.[0]'
+bd update <id> --claim --remove-label lane-needs-review --add-label lane-reviewing
+```
 
 ## Process
 
@@ -83,8 +89,12 @@ DECISION: PROCEED TO PHASE 2 / RETURN TO IMPLEMENTER
 ```
 
 **If RETURN TO IMPLEMENTER:**
-- Move card to `6_review-failed/`
-- Update card: set `assignee: ""`, increment `fix_loop`, append to Narrative with the verdict
+- Move card to review-failed lane:
+  ```bash
+  bd update <id> --status open --assignee "" \
+    --remove-label lane-reviewing --add-label lane-review-failed \
+    --append-notes "YYYY-MM-DD: Spec review failed — [specific problem]. fix_loop incremented. (by @reviewer)"
+  ```
 - SendMessage team-lead: `review fail (spec) | #[iss] | [specific problem statement]`
 - Do NOT run Phase 2
 
@@ -97,15 +107,25 @@ Only runs after Phase 1 passes.
 3. `ddev exec vendor/bin/phpstan analyze --configuration=./core/phpstan.neon.dist path/to/changed/files`
 4. `ddev phpunit core/modules/{module}/tests/`
 5. Verify test coverage for new code
-6. **Before moving the card to `7_done` or messaging team-lead with approval, run the full test suite now:**
+6. **Before closing the card or messaging team-lead with approval, run the full test suite now:**
 
    ```bash
    ddev phpunit core/modules/{module}/tests/
    ```
 
-   Include the raw output in your approval message. A run cited from earlier in the session does not count. If it fails: move card back to `6_review-failed/`, clear assignee, message implementer.
+   Include the raw output in your approval message. A run cited from earlier in the session does not count. If it fails:
+   ```bash
+   bd update <id> --status open --assignee "" \
+     --remove-label lane-reviewing --add-label lane-review-failed \
+     --append-notes "YYYY-MM-DD: Quality review failed — [details]. (by @reviewer)"
+   ```
+   Then message implementer.
 
-7. Update task + message team-lead (see Team Coordination below)
+7. On pass: close the bead:
+   ```bash
+   bd close <id> --reason "Review passed. phpcs: ok | phpstan: ok | phpunit: ok"
+   ```
+8. Update task + message team-lead (see Team Coordination below)
 
 ## Team Coordination (when in a team sprint)
 
@@ -193,7 +213,13 @@ EOF
 - **Transient (retry once after ~5s):** DDEV start/timeout failure, PHPUnit flaky test (single non-deterministic failure), lock contention
 - **Permanent (escalate immediately):** DDEV fails twice, persistent test failure (same test fails on retry), missing worktree or test files
 - On second transient failure, treat as permanent.
-- **Escalate:** stop work, move card to `1_backlog/`, set `assignee: ""`, append to Narrative: `"Blocked: <error> — escalating to team-lead"`, then `SendMessage` team-lead with the blocker.
+- **Escalate:** stop work, move card back to backlog:
+  ```bash
+  bd update <id> --status open --assignee "" \
+    --remove-label lane-reviewing --add-label lane-backlog \
+    --append-notes "YYYY-MM-DD: Blocked: <error> — escalating to team-lead. (by @reviewer)"
+  ```
+  Then `SendMessage` team-lead with the blocker.
 
 ## Git Policy — ABSOLUTE RULE
 

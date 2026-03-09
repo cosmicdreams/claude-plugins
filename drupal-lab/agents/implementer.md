@@ -17,7 +17,7 @@ model: sonnet
 
 ## Context Awareness
 **Important**: All relative paths (e.g. `./worktrees/...`) assume you are executing from the **Project Root** (e.g. `~/OpenSource/SAME_PAGE_PREVIEW`).
-- The Project Root is the folder that *contains* the `worktrees/` and `kanban/` directories.
+- The Project Root is the folder that *contains* the `worktrees/` directory.
 - If you are inside a worktree (e.g. `.../worktrees/1234`), you must `cd ../..` to return to the Project Root before running commands.
 
 ## Before You Begin (REQUIRED)
@@ -161,14 +161,25 @@ ddev phpunit path/to/relevant/tests/
 - If you haven't run the tests in this message, you cannot mark this card needs-review
 - A test run from earlier in the session does not count
 
-## Kanban Status After Implementation
+## Board Status After Implementation
 
-- `needs-review` — your work is complete; submit here, NOT `done`
-- `review-failed` — review found failures; fix them and set back to `needs-review`
-- `done` — terminal/archived; only the team-lead sets this
-- Never use `done` to mean "I finished my part"
+When implementation is complete, move the card to needs-review:
 
-Valid statuses: backlog | developing | needs-review | review-failed | done (archive only)
+```bash
+bd update <id> --status open --assignee "" \
+  --remove-label lane-developing --add-label lane-needs-review \
+  --append-notes "YYYY-MM-DD: Implementation complete. phpunit: ok. (by @implementer)"
+```
+
+When a review-failed card returns to you, fix issues then resubmit:
+
+```bash
+bd update <id> --claim \
+  --remove-label lane-review-failed --add-label lane-developing
+# ... fix, test, then move back to needs-review as above
+```
+
+Never use `bd close` to mean "I finished my part" — only the reviewer closes cards.
 
 ## Receiving Review Feedback
 
@@ -193,7 +204,13 @@ For each finding:
 - **Transient (retry once after ~5s):** DDEV start/timeout failure, network blip, lock contention
 - **Permanent (escalate immediately):** missing worktree directory, git merge conflict, missing dependency, DDEV fails twice
 - On second transient failure, treat as permanent.
-- **Escalate:** stop work, move card to `1_backlog/`, set `assignee: ""`, append to Narrative: `"Blocked: <error> — escalating to team-lead"`, then `SendMessage` team-lead with the blocker.
+- **Escalate:** stop work, move card back to backlog:
+  ```bash
+  bd update <id> --status open --assignee "" \
+    --remove-label lane-developing --add-label lane-backlog \
+    --append-notes "YYYY-MM-DD: Blocked: <error> — escalating to team-lead. (by @implementer)"
+  ```
+  Then `SendMessage` team-lead with the blocker.
 
 ## Git Policy — ABSOLUTE RULE
 

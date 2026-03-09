@@ -123,7 +123,7 @@ Do not loop or retry permanent errors.
 ## Quality Gates
 
 Before closing a sprint, confirm **all** of the following:
-- All kanban cards are in `7_done/` (none left in earlier stages)
+- All board cards are closed (`bd list -l board-sprint -s open --json` returns empty)
 - Retro interviews are written for all sprint agents (implementer, reviewer, process-improvement)
 - All agents have been shut down via shutdown_request
 - Final sprint summary delivered to the user with results and any unresolved items

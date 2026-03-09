@@ -147,7 +147,12 @@ Root cause investigation is required before any fix.
 - **Transient (retry once after ~5s):** DDEV timeout, network blip, lock contention, patch apply conflict on first attempt
 - **Permanent (escalate immediately):** patch apply fails twice, PHPCS fix loop (`fix_loop >= 3`), missing source file or dependency
 - On second transient failure, treat as permanent.
-- **Escalate:** stop work, move card to `1_backlog/`, set `assignee: ""`, append to Narrative: `"Blocked: <error> — escalating to team-lead"`, then `SendMessage` team-lead with the blocker.
+- **Escalate:** stop work, move card back to backlog:
+  ```bash
+  bd update <id> --status open --assignee "" --add-label lane-backlog \
+    --append-notes "YYYY-MM-DD: Blocked: <error> — escalating to team-lead. (by @fixer)"
+  ```
+  Then `SendMessage` team-lead with the blocker.
 
 ## 3-Fix Escalation Rule
 

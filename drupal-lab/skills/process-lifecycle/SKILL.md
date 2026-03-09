@@ -16,7 +16,7 @@ INIT --> READY CHECK --> [WORK] --> COMPLETION CHECK --> SHUTDOWN
 
 ## Context Awareness
 **Important**: All relative paths (e.g. `./worktrees/...`) assume you are executing from the **Project Root** (e.g. `~/OpenSource/SAME_PAGE_PREVIEW`).
-- The Project Root is the folder that *contains* the `worktrees/` and `kanban/` directories.
+- The Project Root is the folder that *contains* the `worktrees/` directory.
 - If you are inside a worktree (e.g. `.../worktrees/1234`), you must `cd ../..` to return to the Project Root before running commands.
 
 ## Phase 1: INIT (Environment Bootstrap)
@@ -180,9 +180,12 @@ ddev list 2>/dev/null | grep "drupal-{ISSUE}" | grep -q "stopped" && echo "PASS:
 
 ### 4.3 Release DDEV Slot
 
-If in sprint context, update the kanban card:
-- Set `ddev: false` on the card (agents update their own assigned cards)
-- Append to narrative: "DDEV slot released"
+If in sprint context, update the bead:
+
+```bash
+bd update <id> --set-metadata ddev=false \
+  --append-notes "YYYY-MM-DD: DDEV slot released. (by @<agent>)"
+```
 
 ### 4.4 Full Cleanup (Optional)
 
@@ -343,4 +346,4 @@ done
 - `/create-worktree` -- Creates the git worktree (prerequisite for INIT)
 - `/ddev-drupal-dev` -- Full DDEV command reference for development tools
 - `/validate-patch` -- Quality gate procedures (referenced by COMPLETION phase)
-- `/sprint-run` -- Sprint coordination, DDEV slot management, kanban board
+- `/sprint-run` -- Sprint coordination, DDEV slot management, board

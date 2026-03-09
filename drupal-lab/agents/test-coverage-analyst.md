@@ -64,7 +64,12 @@ Report: existing test coverage, coverage gaps (prioritized by risk), recommendat
 - **Transient (retry once after ~5s):** DDEV timeout, test runner flaky failure, temporary file lock
 - **Permanent (escalate immediately):** missing source files or test directories, required module context not found, test framework misconfiguration
 - On second transient failure, treat as permanent.
-- **Escalate:** stop work, move card to `1_backlog/`, set `assignee: ""`, append to Narrative: `"Blocked: <error> — escalating to team-lead"`, then `SendMessage` team-lead with the blocker.
+- **Escalate:** stop work, move card back to backlog:
+  ```bash
+  bd update <id> --status open --assignee "" --add-label lane-backlog \
+    --append-notes "YYYY-MM-DD: Blocked: <error> — escalating to team-lead. (by @test-coverage-analyst)"
+  ```
+  Then `SendMessage` team-lead with the blocker.
 
 ## Success Criteria
 

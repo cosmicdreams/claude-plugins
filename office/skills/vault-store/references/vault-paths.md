@@ -138,7 +138,7 @@ If the project name cannot be determined from context and the user does not prov
 ### Unknown Sprint Name
 
 If the sprint name cannot be determined:
-1. Check for a `kanban/sprint-run/` directory or recent git branch names
+1. Check `bd list -l board-sprint --json | jq -r '.[0].title // empty'` or recent git branch names
 2. Ask the user once: "What sprint name should I use? (e.g., sprint-3, q1-hardening)"
 3. Fallback: `sprint-unknown`
 

@@ -17,7 +17,7 @@ model: sonnet
 
 ## Context Awareness
 **Important**: All relative paths (e.g. `./worktrees/...`) assume you are executing from the **Project Root** (e.g. `~/OpenSource/SAME_PAGE_PREVIEW`).
-- The Project Root is the folder that *contains* the `worktrees/` and `kanban/` directories.
+- The Project Root is the folder that *contains* the `worktrees/` directory.
 - If you are inside a worktree (e.g. `.../worktrees/1234`), you must `cd ../..` to return to the Project Root before running commands.
 
 ## Process
@@ -58,7 +58,13 @@ model: sonnet
 - **Transient (retry once after ~5s):** network fetch failure (d.o API timeout or 5xx), temporary file lock
 - **Permanent (escalate immediately):** missing or invalid issue number, d.o API returns 404, required source files not found
 - On second transient failure, treat as permanent.
-- **Escalate:** stop work, move card to `1_backlog/`, set `assignee: ""`, append to Narrative: `"Blocked: <error> — escalating to team-lead"`, then `SendMessage` team-lead with the blocker.
+- **Escalate:** stop work, move card back to backlog:
+  ```bash
+  bd update <id> --status open --assignee "" \
+    --remove-label lane-analyzing --add-label lane-backlog \
+    --append-notes "YYYY-MM-DD: Blocked: <error> — escalating to team-lead. (by @issue-analyzer)"
+  ```
+  Then `SendMessage` team-lead with the blocker.
 
 ## Skills
 - `/analyze-issue <issue-number>`: Automated workflow

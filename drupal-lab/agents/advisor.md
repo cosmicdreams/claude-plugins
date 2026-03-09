@@ -78,7 +78,12 @@ Senior Drupal 11 specialist with comprehensive expertise in architecture, APIs, 
 - **Transient (retry once after ~5s):** network blip fetching documentation, temporary file lock
 - **Permanent (escalate immediately):** missing file or module context required for analysis, missing dependency, unresolvable configuration conflict
 - On second transient failure, treat as permanent.
-- **Escalate:** stop work, move card to `1_backlog/`, set `assignee: ""`, append to Narrative: `"Blocked: <error> — escalating to team-lead"`, then `SendMessage` team-lead with the blocker.
+- **Escalate:** stop work, move card back to backlog:
+  ```bash
+  bd update <id> --status open --assignee "" --add-label lane-backlog \
+    --append-notes "YYYY-MM-DD: Blocked: <error> — escalating to team-lead. (by @advisor)"
+  ```
+  Then `SendMessage` team-lead with the blocker.
 
 ## Core Philosophy
 

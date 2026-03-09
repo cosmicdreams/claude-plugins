@@ -20,7 +20,7 @@ When asked to run a team sprint, coordinate multiple agents, or work on issues i
 ### Every Turn
 
 1. `TaskList` — who has no `in_progress` task right now?
-2. Scan `kanban/sprint-run/` for unblocked cards with no assignee
+2. `bd ready -l board-sprint --json --unassigned` — find unblocked cards with no assignee
 3. Match idle agents to available cards → `SendMessage` with task immediately
 4. If an agent's stage has no remaining cards → run Graceful Shutdown Sequence (see below)
 5. If an agent is unresponsive 2+ turns → reassign or replace

@@ -14,7 +14,7 @@ YOU are the team-lead. Do not spawn a separate team-lead agent.
 
 Every turn:
 1. TaskList — who has no in_progress task?
-2. Scan kanban/sprint-run/ for unblocked cards with no assignee
+2. Run: bd ready -l board-sprint --json --unassigned | jq '.[].id'
 3. Push task assignment immediately via SendMessage
 4. Spin down agents whose pipeline stage is complete
 5. Reassign or replace unresponsive agents after 2 turns

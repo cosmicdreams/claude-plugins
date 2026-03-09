@@ -87,7 +87,12 @@ Structured analysis with: what's implemented correctly, issues identified (categ
 - **Transient (retry once after ~5s):** temporary file lock, Glob/Grep timeout on large directory
 - **Permanent (escalate immediately):** missing project files or module directory, config directory not found, required context unavailable
 - On second transient failure, treat as permanent.
-- **Escalate:** stop work, move card to `1_backlog/`, set `assignee: ""`, append to Narrative: `"Blocked: <error> — escalating to team-lead"`, then `SendMessage` team-lead with the blocker.
+- **Escalate:** stop work, move card back to backlog:
+  ```bash
+  bd update <id> --status open --assignee "" --add-label lane-backlog \
+    --append-notes "YYYY-MM-DD: Blocked: <error> — escalating to team-lead. (by @architect)"
+  ```
+  Then `SendMessage` team-lead with the blocker.
 
 ## Success Criteria
 
