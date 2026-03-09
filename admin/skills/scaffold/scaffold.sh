@@ -46,19 +46,14 @@ write_file() {
 # --- Directories ---
 make_dir ".claude/memory"
 make_dir "analysis-reports/retro-session"
-make_dir "kanban/sprint-run/1_backlog"
-make_dir "kanban/sprint-run/2_analyzing"
-make_dir "kanban/sprint-run/3_developing"
-make_dir "kanban/sprint-run/4_needs-qa"
-make_dir "kanban/sprint-run/5_validating"
-make_dir "kanban/sprint-run/6_qa-failed"
-make_dir "kanban/sprint-run/7_done"
-make_dir "kanban/retrospective-actions/1_backlog"
-make_dir "kanban/retrospective-actions/2_approved"
-make_dir "kanban/retrospective-actions/3_in-progress"
-make_dir "kanban/retrospective-actions/4_done"
 make_dir "plans"
+make_dir "scripts"
 make_dir "worktrees"
+
+# --- Beads database ---
+if [ ! -d "$TARGET/.beads" ]; then
+  (cd "$TARGET" && bd init --prefix sprint 2>/dev/null) && created+=(".beads/ (bd init --prefix sprint)") || true
+fi
 
 # --- Files from templates ---
 write_file "CLAUDE.md"          "$SCRIPT_DIR/CLAUDE.md.tmpl" ""

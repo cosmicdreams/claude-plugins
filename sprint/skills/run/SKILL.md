@@ -47,8 +47,9 @@ Cards are created with `bd create`:
 
 ```bash
 bd create "Issue #2901667: jQuery removal in toggleEditMode" \
+  --prefix sprint \
   -p 2 -t task \
-  --labels "lane-backlog,stage-analyze" \
+  --labels "board-sprint,lane-backlog,stage-analyze" \
   --acceptance "jQuery replaced with native JS; all tests pass; PHPCS clean" \
   --description "Remove jQuery dependency from Settings Tray toggleEditMode function.
 
@@ -64,7 +65,7 @@ bd create "Issue #2901667: jQuery removal in toggleEditMode" \
 | priority | `-p 1` (High) or `-p 2` (Normal, default) | High-priority cards get DDEV slots first. |
 | blocked_by | `--deps "sprint-a1b2"` on create | Issues that must close before this card can advance. Use `bd blocked` to see. |
 | assignee | `--claim` sets to `BD_ACTOR`; `--assignee ""` clears | Agent name who owns the card. |
-| tags | `--labels "tag1,tag2"` | Labels for filtering (lane, stage, issue number, topic tags). |
+| tags | `--labels "board-sprint,tag1,tag2"` | Labels for filtering (lane, stage, issue number, topic tags). |
 | issue | Label: `issue-2901667` | Drupal.org issue number encoded as a label. |
 | stage | Label: `stage-analyze`, `stage-develop`, `stage-validate` | Pipeline phase. |
 | ddev | `--set-metadata ddev=true` | Whether this card holds a DDEV slot. Max 3 cards with ddev=true at once. |
@@ -208,8 +209,9 @@ The team-lead creates and manages all cards. For each issue, create one card per
 # For issue 2901667:
 # Card 1: analyze (no blockers)
 bd create "Issue #2901667: analyze jQuery removal" \
+  --prefix sprint \
   -p 2 -t task \
-  --labels "lane-backlog,stage-analyze,issue-2901667" \
+  --labels "board-sprint,lane-backlog,stage-analyze,issue-2901667" \
   --acceptance "Analysis report written with complexity, files, and approach" \
   --description "Analyze jQuery dependency in Settings Tray toggleEditMode.
 
@@ -218,8 +220,9 @@ bd create "Issue #2901667: analyze jQuery removal" \
 
 # Card 2: develop (blocked by card 1)
 bd create "Issue #2901667: implement jQuery removal" \
+  --prefix sprint \
   -p 2 -t task \
-  --labels "lane-backlog,stage-develop,issue-2901667" \
+  --labels "board-sprint,lane-backlog,stage-develop,issue-2901667" \
   --deps "sprint-XXXX" \
   --acceptance "jQuery replaced with native JS; all tests pass; PHPCS clean" \
   --description "Implement jQuery removal based on analysis report.
@@ -229,8 +232,9 @@ bd create "Issue #2901667: implement jQuery removal" \
 
 # Card 3: validate (blocked by card 2)
 bd create "Issue #2901667: validate jQuery removal" \
+  --prefix sprint \
   -p 2 -t task \
-  --labels "lane-backlog,stage-validate,issue-2901667,review-DYNAMIC_FULL" \
+  --labels "board-sprint,lane-backlog,stage-validate,issue-2901667,review-DYNAMIC_FULL" \
   --deps "sprint-YYYY" \
   --acceptance "All quality gates pass; no regressions" \
   --description "Validate jQuery removal implementation.

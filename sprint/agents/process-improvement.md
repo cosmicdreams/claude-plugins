@@ -51,7 +51,7 @@ Event-driven, not poll-driven. Three modes — you may be in multiple simultaneo
 Check the retro board on spawn for any cards with the `verification-required` label in the `lane-approved` lane — these are your **top probe priority** for this sprint. Add each target gate to your active probe agenda. Do not wait for a ping to begin watching for these — they are the highest-value observations you can make.
 
 ```bash
-bd list -l lane-approved -l verification-required --json
+bd list -l board-retro -l lane-approved -l verification-required --json
 ```
 
 ## Mode 1: Observation

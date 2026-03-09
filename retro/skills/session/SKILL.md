@@ -59,12 +59,12 @@ Agent interviews are collected by the retro plugin's SubagentStop hook during ea
 ### Phase 3: Data Analysis (10-15 min)
 
 **3A: Kanban Board Analysis**
-- [ ] *(Optional — only if sprint:run was used)* Review sprint board: `bd list --json`
-  - Count cards by status: `bd list --json | jq 'group_by(.status)'`
+- [ ] *(Optional — only if sprint:run was used)* Review sprint board: `bd list -l board-sprint --json`
+  - Count cards by status: `bd list -l board-sprint --json | jq 'group_by(.status)'`
   - Check blocked: `bd blocked`
   - Calculate first-pass rate: (cards with validation_attempts=1) / (total cards) × 100%
   - If `.beads/sprint.db` does not exist, skip this section — retro runs on interviews + JSONL alone
-- [ ] Check retro backlog: `bd list -l lane-backlog --json`
+- [ ] Check retro backlog: `bd list -l board-retro -l lane-backlog --json`
 
 **3B: JSONL Transcript Mining** (grep-level analysis)
 *Locate session JSONL file at:* `~/.claude/projects/<sanitized-project-path>/<session-id>.jsonl` (e.g. `-Users-Chris-Weber-OpenSource-SAME_PAGE_PREVIEW` or `-Users-Chris-Weber-OpenSource-DRUPAL`)
@@ -175,8 +175,9 @@ Convert findings from the report into action cards. Read `retro:kanban` for the 
 
 ```bash
 bd create "Card title" \
+  --prefix retro \
   -p 1 -t task \
-  --labels "lane-backlog,target-skill,cat-improve,effort-m,session-YYYY-MM-DD" \
+  --labels "board-retro,lane-backlog,target-skill,cat-improve,effort-m,session-YYYY-MM-DD" \
   --description "$(cat <<'EOF'
 ## Finding
 [1-2 sentences]
@@ -250,7 +251,7 @@ if [ -n "$OFFICE_PROJECT_NAME" ]; then
   PROJECT_SLUG=$(echo "$OFFICE_PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
 else
   # Try Beads sprint board metadata
-  PROJECT_SLUG=$(bd list --json 2>/dev/null | jq -r '.[0].metadata.project // empty' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+  PROJECT_SLUG=$(bd list -l board-sprint --json 2>/dev/null | jq -r '.[0].metadata.project // empty' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
 fi
 
 # If still unset, ask the user (done interactively — not in this script block)

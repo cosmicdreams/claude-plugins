@@ -20,25 +20,25 @@ View the sprint board via bd CLI:
 
 ```bash
 # All cards grouped by status
-bd list --json | jq 'group_by(.status)'
+bd list -l board-sprint --json | jq 'group_by(.status)'
 
 # Ready to claim (unblocked, unassigned)
-bd ready --json --unassigned
+bd ready -l board-sprint --json --unassigned
 
 # In-progress work
-bd list -s in_progress --json
+bd list -l board-sprint -s in_progress --json
 
 # Blocked work
 bd blocked
 
 # Done (closed)
-bd list -s closed --json
+bd list -l board-sprint -s closed --json
 
 # Filter by lane
-bd list -l lane-developing --json
+bd list -l board-sprint -l lane-developing --json
 
 # Filter by stage
-bd list -l stage-analyze --json
+bd list -l board-sprint -l stage-analyze --json
 ```
 
 ---
@@ -65,8 +65,9 @@ Cards are created with `bd create`. The bd-assigned ID (e.g. `sprint-a1b2`) is t
 
 ```bash
 bd create "Issue #2901667: jQuery removal in toggleEditMode" \
+  --prefix sprint \
   -p 2 -t task \
-  --labels "lane-backlog,stage-develop,issue-2901667" \
+  --labels "board-sprint,lane-backlog,stage-develop,issue-2901667" \
   --acceptance "jQuery replaced with native JS; all tests pass; PHPCS clean" \
   --description "Remove jQuery dependency from Settings Tray toggleEditMode function.
 
@@ -100,16 +101,16 @@ One card per pipeline stage, chained with `--deps`:
 ```bash
 # Card 1 — analyze (no blockers)
 bd create "Issue #NNN: analyze" -t task \
-  --labels "lane-backlog,stage-analyze,issue-NNN"
+  --labels "board-sprint,lane-backlog,stage-analyze,issue-NNN"
 
 # Card 2 — develop (blocked by card 1)
 bd create "Issue #NNN: implement" -t task \
-  --labels "lane-backlog,stage-develop,issue-NNN" \
+  --labels "board-sprint,lane-backlog,stage-develop,issue-NNN" \
   --deps "sprint-XXXX"
 
 # Card 3 — validate (blocked by card 2)
 bd create "Issue #NNN: validate" -t task \
-  --labels "lane-backlog,stage-validate,issue-NNN,review-DYNAMIC_FULL" \
+  --labels "board-sprint,lane-backlog,stage-validate,issue-NNN,review-DYNAMIC_FULL" \
   --deps "sprint-YYYY"
 ```
 
@@ -149,7 +150,7 @@ Never rewrite prior entries. Always append with ISO date and author.
 
 Max 3 concurrent DDEV instances across all cards on the board.
 
-- **Claiming**: Count ddev metadata cards: `bd list --metadata-field ddev=true --json | jq 'length'`. If < 3, `bd update <id> --set-metadata ddev=true`, run `ddev start`.
+- **Claiming**: Count ddev metadata cards: `bd list -l board-sprint --metadata-field ddev=true --json | jq 'length'`. If < 3, `bd update <id> --set-metadata ddev=true`, run `ddev start`.
 - **Releasing**: Run `ddev stop`, `bd update <id> --unset-metadata ddev`, append narrative.
 - **Phase 1** (phpcs, phpstan): No DDEV needed — run immediately.
 - **Phase 2** (phpunit, browser tests): DDEV required — queue if 3 slots full.

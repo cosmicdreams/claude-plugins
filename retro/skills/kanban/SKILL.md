@@ -26,16 +26,16 @@ Board-specific rules for `.beads/retro.db`. Read `sprint:kanban` first for unive
 
 ```bash
 # All open cards by lane
-bd list --json | jq 'group_by(.labels)'
+bd list -l board-retro --json | jq 'group_by(.labels)'
 
 # Cards awaiting review (backlog)
-bd list -l lane-backlog --json
+bd list -l board-retro -l lane-backlog --json
 
 # Approved, ready for implementation
-bd list -l lane-approved --json
+bd list -l board-retro -l lane-approved --json
 
 # In progress
-bd list -s in_progress --json
+bd list -l board-retro -s in_progress --json
 ```
 
 ---
@@ -55,8 +55,9 @@ bd list -s in_progress --json
 
 ```bash
 bd create "Improve X" \
+  --prefix retro \
   -p 1 -t task \
-  --labels "lane-backlog,target-skill,cat-improve,effort-m,session-YYYY-MM-DD" \
+  --labels "board-retro,lane-backlog,target-skill,cat-improve,effort-m,session-YYYY-MM-DD" \
   --description "$(cat <<'EOF'
 ## Finding
 [1-2 sentences describing the observed problem or pattern]
@@ -114,7 +115,7 @@ Before presenting cards to the user, run a dedup pass across all backlog cards:
 
 ```bash
 # List all backlog cards
-bd list -l lane-backlog --json | jq '[.[] | {id, title, labels}]'
+bd list -l board-retro -l lane-backlog --json | jq '[.[] | {id, title, labels}]'
 
 # Search for near-duplicates on specific terms
 bd search "agent shutdown"

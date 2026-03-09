@@ -85,19 +85,22 @@ bd init --prefix sprint
 
 # For each issue in the plan:
 bd create "Issue #1234: analyze <short-desc>" \
+  --prefix sprint \
   -p 2 -t task \
-  --labels "lane-backlog,stage-analyze,issue-1234" \
+  --labels "board-sprint,lane-backlog,stage-analyze,issue-1234" \
   --acceptance "<criteria from plan>"
 
 bd create "Issue #1234: implement <short-desc>" \
+  --prefix sprint \
   -p 2 -t task \
-  --labels "lane-backlog,stage-develop,issue-1234" \
+  --labels "board-sprint,lane-backlog,stage-develop,issue-1234" \
   --deps "sprint-XXXX" \
   --acceptance "<criteria from plan>"
 
 bd create "Issue #1234: validate <short-desc>" \
+  --prefix sprint \
   -p 2 -t task \
-  --labels "lane-backlog,stage-validate,issue-1234,review-DYNAMIC_FULL" \
+  --labels "board-sprint,lane-backlog,stage-validate,issue-1234,review-DYNAMIC_FULL" \
   --deps "sprint-YYYY" \
   --acceptance "<criteria from plan>"
 ```
