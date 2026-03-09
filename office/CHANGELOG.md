@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.3.0
+- Add `office:slack` skill — Slack CLI wrapper via `agent-slack`; reads channels, fetches messages, searches; thin API layer for use by `office:pulse` and `office:morning-brief`
+- Config template: `~/.claude/office-slack.local.md` with `channels` and `message_limit` fields
+
 ## 1.2.0
 - Add `office:personal-email` skill — Gmail via Google Workspace CLI (`gws`)
 - Add `office:personal-calendar` skill — Google Calendar via Google Workspace CLI (`gws`)
