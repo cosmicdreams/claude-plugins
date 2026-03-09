@@ -75,6 +75,35 @@ Present a sprint plan table for team-lead approval:
 
 Wait for team-lead approval before handing off to `sprint:run`.
 
+## Card Creation
+
+Once the plan is approved, cards are created in the Beads sprint database (`.beads/sprint.db`). For each issue, create one card per pipeline stage with blocking dependencies using `bd create`:
+
+```bash
+# Initialize board if not already done
+bd init --prefix sprint
+
+# For each issue in the plan:
+bd --db .beads/sprint.db create "Issue #1234: analyze <short-desc>" \
+  -p 2 -t task \
+  --labels "lane-backlog,stage-analyze,issue-1234" \
+  --acceptance "<criteria from plan>"
+
+bd --db .beads/sprint.db create "Issue #1234: implement <short-desc>" \
+  -p 2 -t task \
+  --labels "lane-backlog,stage-develop,issue-1234" \
+  --deps "sprint-XXXX" \
+  --acceptance "<criteria from plan>"
+
+bd --db .beads/sprint.db create "Issue #1234: validate <short-desc>" \
+  -p 2 -t task \
+  --labels "lane-backlog,stage-validate,issue-1234,review-DYNAMIC_FULL" \
+  --deps "sprint-YYYY" \
+  --acceptance "<criteria from plan>"
+```
+
+Replace `sprint-XXXX`/`sprint-YYYY` with the actual IDs returned by prior `bd create` commands. Set `-p 1` for high-priority issues.
+
 ## Key Points
 
 - Never assume an issue is ready to implement without a report

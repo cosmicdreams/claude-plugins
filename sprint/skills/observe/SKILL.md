@@ -22,16 +22,17 @@ Three modes of operation: **Spawn** (initial snapshot), **Ping** (post-task revi
 When first activated, orient yourself before going idle:
 
 1. Run `TaskList` to see which agents are active and what they own.
-2. Scan the sprint board:
+2. Scan the sprint board for active work:
 
 ```bash
-ls kanban/sprint-run/3_developing/ kanban/sprint-run/4_needs-review/ kanban/sprint-run/5_reviewing/ 2>/dev/null
+bd --db .beads/sprint.db list -s in_progress --json
+bd --db .beads/sprint.db ready --json --unassigned
 ```
 
 3. Check for discipline cards that need verification:
 
 ```bash
-grep -rl "verification_required: true" kanban/retrospective-actions/2_approved/ 2>/dev/null
+bd --db .beads/retro.db list -l lane-approved -l verification-required --json
 ```
 
 Any cards found are your **top probe priority** this sprint — add their target gates to your watch list. Don't wait for a ping to start watching these.
@@ -49,9 +50,9 @@ Team-lead sends you a `task_completed_ping` when an agent finishes a task. Work 
 Skill("retro:transcript", "--teammate <agent-name> --task <task-id> --focus all")
 ```
 
-**2. Read the kanban card:**
+**2. Read the bead:**
 ```bash
-cat "<kanban_card_path>"
+bd --db .beads/sprint.db show <bead_id> --json
 ```
 
 **3. Run the gate checklist** — see `references/gate-checklist.md`. Work discipline gates first, behavioral gates second, board hygiene last.
@@ -156,7 +157,7 @@ Don't message the user directly. Tell team-lead "Recommend escalating to user:" 
 | Error | Response |
 |-------|----------|
 | Transcript logs missing after retry | Tell team-lead what failed. Go idle. |
-| `kanban/sprint-run/` not found | Tell team-lead. Go idle. |
+| Sprint database unreachable (`bd ready` fails) | Tell team-lead. Go idle. |
 | `retro:transcript` unavailable after one retry | Tell team-lead. Go idle. |
 | Agent unresponsive after 3 probes | Escalate. Stop probing that agent. |
 

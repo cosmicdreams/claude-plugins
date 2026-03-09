@@ -116,7 +116,7 @@ After each interview file is saved to `analysis-reports/`, archive it to the Neu
 Resolve the project slug in this order:
 
 1. **Environment variable** — if `$OFFICE_PROJECT_NAME` is set, slugify and use it
-2. **Kanban frontmatter** — scan `kanban/sprint-run/` card files for a `project:` field; use the first value found
+2. **Beads database** — query the sprint board for a bead with a `project-*` label: `bd --db .beads/sprint.db list --json | jq -r '.[0].labels[]? | select(startswith("project-")) | ltrimstr("project-")'`
 3. **Ask the user** — if neither source yields a value, ask once: *"What project is this retrospective for?"* and use their answer as the slug
 
 **Slugify rule:** lowercase, spaces → hyphens, remove all special characters except hyphens.
@@ -138,7 +138,7 @@ obsidian help || { echo "Vault storage skipped (Obsidian not running)"; exit 0; 
 if [ -n "$OFFICE_PROJECT_NAME" ]; then
   PROJECT_SLUG=$(echo "$OFFICE_PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
 else
-  PROJECT_SLUG=$(grep -r '^project:' kanban/sprint-run/ 2>/dev/null | head -1 | sed 's/.*project: *//' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+  PROJECT_SLUG=$(bd --db .beads/sprint.db list --json 2>/dev/null | jq -r '.[0].labels[]? | select(startswith("project-")) | ltrimstr("project-")' | head -1)
 fi
 
 # If still unset, ask the user (done interactively — not in this script block)

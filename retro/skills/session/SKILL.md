@@ -48,7 +48,7 @@ Agent interviews are collected by the retro plugin's SubagentStop hook during ea
 
 - [ ] Read all files in `analysis-reports/retro-session/<YYYY-MM-DD>+<sprint-name>/interviews/`
 - [ ] For each interview file, extract based on templates at:
-- **Action Cards**: `kanban/retrospective-actions/1_backlog/`
+- **Action Cards**: `.beads/retro.db` (backlog lane)
 - **Templates**: `retro:interviews` (interview-templates.md)
 - [ ] Cross-reference C3 answers — if 2+ agents name the same process change, flag as high-priority
 - [ ] Cross-reference D1 confidence with V2 handoff quality for calibration gaps
@@ -59,12 +59,12 @@ Agent interviews are collected by the retro plugin's SubagentStop hook during ea
 ### Phase 3: Data Analysis (10-15 min)
 
 **3A: Kanban Board Analysis**
-- [ ] *(Optional — only if sprint:run was used)* Review sprint board state at `kanban/sprint-run/`
-  - Count cards in each status (DEVELOPING, VALIDATING, DONE)
-  - Note blockers or stuck cards
+- [ ] *(Optional — only if sprint:run was used)* Review sprint board: `bd --db .beads/sprint.db list --json`
+  - Count cards by status: `bd --db .beads/sprint.db list --json | jq 'group_by(.status)'`
+  - Check blocked: `bd --db .beads/sprint.db blocked`
   - Calculate first-pass rate: (cards with validation_attempts=1) / (total cards) × 100%
-  - If `kanban/sprint-run/` does not exist, skip this section — retro runs on interviews + JSONL alone
-- [ ] Check `kanban/retrospective-actions/` for any prior action cards (context for this retro)
+  - If `.beads/sprint.db` does not exist, skip this section — retro runs on interviews + JSONL alone
+- [ ] Check retro backlog: `bd --db .beads/retro.db list -l lane-backlog --json`
 
 **3B: JSONL Transcript Mining** (grep-level analysis)
 *Locate session JSONL file at:* `~/.claude/projects/<sanitized-project-path>/<session-id>.jsonl` (e.g. `-Users-Chris-Weber-OpenSource-SAME_PAGE_PREVIEW` or `-Users-Chris-Weber-OpenSource-DRUPAL`)
@@ -171,12 +171,35 @@ Convert findings from the report into action cards. Read `retro:kanban` for the 
 
 **6C: Calculate source weight** — Critical (4+ sources) | High (2–3) | Medium (1)
 
-**6D: Write cards to `kanban/retrospective-actions/1_backlog/`**
-- Use template: `references/action-card-template.md`
-- Card ID format: `retro-YYYYMMDD-NNN`
-- Review and refine each finding before writing (merge near-duplicates, sharpen recommendations)
+**6D: Create cards in `.beads/retro.db`**
 
-**6E: Run scrum (dedup pass)** — see `retro:kanban` for the dedup procedure
+```bash
+bd --db .beads/retro.db create "Card title" \
+  -p 1 -t task \
+  --labels "lane-backlog,target-skill,cat-improve,effort-m,session-YYYY-MM-DD" \
+  --description "$(cat <<'EOF'
+## Finding
+[1-2 sentences]
+
+## Sources
+- [agent]: [observation]
+
+## Recommendation
+[What to do]
+
+## Effort
+[S/M/L]
+
+## Priority
+[Critical/High/Medium/Low]
+EOF
+)"
+```
+
+- Review and refine each finding before writing (merge near-duplicates, sharpen recommendations)
+- See `retro:kanban` for priority mapping, label conventions, and card format
+
+**6E: Run scrum (dedup pass)** — see `retro:kanban` for the dedup procedure using `bd search` and `bd list`
 
 ### Phase 7: Review Proposed Action Cards with User (5–10 min)
 
@@ -185,8 +208,8 @@ Convert findings from the report into action cards. Read `retro:kanban` for the 
 Read `retro:kanban` for the full user review flow. Summary:
 
 - Present each card via `AskUserQuestion` with markdown preview (max 4 per call)
-- Options per card: Approve → `approved/` | Reject → delete (log rationale) | Modify → edit then `approved/`
-- User may identify missing cards — create them directly in `approved/`
+- Options per card: Approve → `bd update --remove-label lane-backlog --add-label lane-approved` | Reject → `bd close --reason` (log rationale) | Modify → `bd update` then approve
+- User may identify missing cards — create them directly with the `lane-approved` label
 - Append rejection/modification rationale to the retro report (institutional memory)
 
 **Why this phase exists:** The retro generates cards from automated analysis. Only the user holds strategic context (e.g., "we're removing jQuery — don't invest in it"). Without this review, action cards can work against the team's direction.
@@ -206,7 +229,7 @@ After saving the session retrospective to `analysis-reports/`, archive it to the
 Resolve the project slug in this order:
 
 1. **Environment variable** — if `$OFFICE_PROJECT_NAME` is set, slugify and use it
-2. **Kanban frontmatter** — scan `kanban/sprint-run/` card files for a `project:` field; use the first value found
+2. **Beads metadata** — query sprint board for project field: `bd --db .beads/sprint.db list --json | jq -r '.[0].metadata.project // empty'`; use the first value found
 3. **Ask the user** — if neither source yields a value, ask once: *"What project is this retrospective for?"* and use their answer as the slug
 
 **Slugify rule:** lowercase, spaces → hyphens, remove all special characters except hyphens.
@@ -226,8 +249,8 @@ obsidian help || { echo "Vault storage skipped (Obsidian not running)"; exit 0; 
 if [ -n "$OFFICE_PROJECT_NAME" ]; then
   PROJECT_SLUG=$(echo "$OFFICE_PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
 else
-  # Try kanban frontmatter
-  PROJECT_SLUG=$(grep -r '^project:' kanban/sprint-run/ 2>/dev/null | head -1 | sed 's/.*project: *//' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+  # Try Beads sprint board metadata
+  PROJECT_SLUG=$(bd --db .beads/sprint.db list --json 2>/dev/null | jq -r '.[0].metadata.project // empty' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
 fi
 
 # If still unset, ask the user (done interactively — not in this script block)
@@ -335,5 +358,5 @@ A good retrospective:
 - **CLAUDE.md** — Development practices updated by approved action cards
 
 **Kanban Locations:**
-- **`kanban/sprint-run/`** — Drupal core issue work pipeline
-- **`kanban/retrospective-actions/`** — Process improvement action cards (`retro:kanban`)
+- **`.beads/sprint.db`** — Drupal core issue work pipeline (Beads database)
+- **`.beads/retro.db`** — Process improvement action cards (`retro:kanban`)

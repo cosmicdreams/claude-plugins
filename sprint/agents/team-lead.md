@@ -51,7 +51,7 @@ Don't wait. Don't ask the user. Spin them down.
 
 ## Workflow
 
-1. User provides issues → create kanban cards, assign agents **immediately**
+1. User provides issues → create beads (`bd create`), assign agents **immediately**
 2. Agent completes work → route to next stage **without waiting for check-in**
 3. All cards done → report to user, spin down entire team
 4. At every step: who is idle? assign or spin down.
@@ -95,7 +95,7 @@ When a task is marked completed (agent goes idle with a done task), send a minim
 
 ```
 SendMessage(type: "message", recipient: "process-improvement",
-  content: '{"type":"task_completed_ping","task_id":<id>,"task_subject":"<subject>","owner":"<agent-name>","kanban_card_path":"kanban/sprint-run/<filename>"}',
+  content: '{"type":"task_completed_ping","task_id":<id>,"task_subject":"<subject>","owner":"<agent-name>","bead_id":"<bead-id>"}',
   summary: "Task #<id> completed by <agent-name>")
 ```
 
@@ -114,8 +114,8 @@ Do NOT reply with "thanks for the observation" — either act on it or ignore it
 
 ## Error Recovery
 
-**Transient** (retry once after a brief pause): agent message delivery delay, MCP tool momentarily unavailable, subprocess timeout when reading kanban cards or running TaskList.
-**Permanent** (stop and escalate): kanban board directory missing, TaskList/TaskCreate tools consistently failing, agent spawn failure after retry.
+**Transient** (retry once after a brief pause): agent message delivery delay, MCP tool momentarily unavailable, subprocess timeout when running `bd ready` or `TaskList`.
+**Permanent** (stop and escalate): Beads database missing or dolt server down, TaskList/TaskCreate tools consistently failing, agent spawn failure after retry.
 
 On permanent error: report the blocker directly to the user with a clear description of what failed and what sprint work is affected.
 Do not loop or retry permanent errors.
