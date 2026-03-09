@@ -77,10 +77,10 @@ If `--teammate` is `team-lead`, read the top-level session JSONL directly instea
 
 ### Step 4: Scope to Task Window (if --task provided)
 
-Read the kanban card narrative to get the task timeframe:
+Read the bead notes to get the task timeframe:
 
 ```bash
-grep -h "narrative\|$(date +%Y-%m-%d)" kanban/sprint-run/*.md | grep -i "task\|#<task-id>"
+bd --db .beads/sprint.db show <bead_id> --json | jq '.notes'
 ```
 
 Narrow the JSONL scan to entries whose `timestamp` falls within the task window. If timestamps are ambiguous (same-day, no time in narrative), use the full file.
@@ -139,7 +139,7 @@ If `--focus errors` is specified, omit tool counts and messages. If `--focus mes
 ## Examples
 
 **Example 1**: Team-lead pings after task completion
-- Ping received: `{task_id: 25, owner: "implementer-1", kanban_card_path: "kanban/sprint-run/3393916-leave-dialog-on-edit-link-click-develop.md"}`
+- Ping received: `{task_id: 25, owner: "implementer-1", bead_id: "sprint-a1b2"}`
 - Run: `/retro:transcript --teammate implementer-1 --task 25 --focus errors`
 - Result: Structured summary of implementer-1's session scoped to task 25, errors highlighted
 

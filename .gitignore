@@ -6,3 +6,6 @@
 
 # Analysis artifacts
 analysis-reports/
+
+# NOTE: .beads/ must NOT be gitignored — Beads databases are committed to the repo
+# .beads/

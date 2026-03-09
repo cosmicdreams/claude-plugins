@@ -3,7 +3,14 @@
 Standard task coordination behavior for all agents participating in team sprints.
 This protocol keeps team-lead's TaskList accurate as the source of truth.
 
-## Required Tools
+## Required Setup
+
+All team sprint agents must set `BD_ACTOR` before any `bd` call:
+```bash
+export BD_ACTOR=<your-agent-name>
+```
+
+Board database: `.beads/sprint.db` (use `--db .beads/sprint.db` flag on all bd commands).
 
 All team sprint agents must have these tools in their frontmatter:
 ```
@@ -16,21 +23,26 @@ Team-lead additionally needs: `TaskCreate`
 
 ```
 1. TaskUpdate(taskId, status: in_progress, owner: "your-agent-name")
-2. Begin work immediately
+2. Claim the board card: BD_ACTOR=<your-name> bd --db .beads/sprint.db update <card-id> --claim --add-label lane-<your-lane>
+3. Begin work immediately
 ```
 
-Claim before starting. Do not start work on an unclaimed task.
+Claim before starting. Do not start work on an unclaimed task or unclaimed board card.
 
 ## On Task Complete
 
 ```
-1. TaskUpdate(taskId, status: completed)
-2. SendMessage(type: message, recipient: "team-lead", content: "[your completion summary]")
-3. TaskList → check for next assigned task
-4. If no next task: SendMessage(team-lead, "your-agent-name available | no pending tasks")
+1. Transition the board card:
+   - If passing to next lane: bd --db .beads/sprint.db update <id> --status open --assignee "" --remove-label lane-<current> --add-label lane-<next>
+   - If done: bd --db .beads/sprint.db close <id> --reason "Review passed."
+2. Append narrative: bd --db .beads/sprint.db update <id> --append-notes "YYYY-MM-DD: <summary> (by @your-name)"
+3. TaskUpdate(taskId, status: completed)
+4. SendMessage(type: message, recipient: "team-lead", content: "[your completion summary]")
+5. TaskList → check for next assigned task
+6. If no next task: SendMessage(team-lead, "your-agent-name available | no pending tasks")
 ```
 
-Always update the task BEFORE messaging team-lead. The task state is ground truth.
+Always update the board card and task BEFORE messaging team-lead. The task state is ground truth.
 
 ## If Blocked
 
@@ -128,10 +140,11 @@ Use the full chain only for high-stakes changes. Use individual agents for targe
 
 - You can fix it yourself → fix it
 - The finding is out of scope → note in output, don't spawn a chain
-- Issue is already tracked on the kanban board → update the card, don't message
+- Issue is already tracked on the board → update the card via `bd update`, don't message
 
 ## Reference
 
+- Board database: `bd --db .beads/sprint.db`
 - Team comms format: `.claude/team-comms-protocol.md`
 - Team-lead decision rules: `.claude/skills/sprint-run/references/decision-framework.md`
 - Sprint protocol: `.claude/skills/sprint-run/SKILL.md`

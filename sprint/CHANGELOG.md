@@ -1,5 +1,21 @@
 # Changelog
 
+## [3.0.0] — 2026-03-09
+
+### Breaking Changes
+
+- **Migrated kanban to Beads (bd CLI)**: The file-based `kanban/sprint-run/` directory is replaced by a Beads database at `.beads/sprint.db`. All card operations (create, claim, move, close) now use `bd` commands instead of file moves. Existing markdown cards must be migrated via `scripts/migrate-to-beads.sh`.
+- **`BD_ACTOR` required**: All agents must set `export BD_ACTOR=<agent-name>` before calling any `bd` command. Add to every agent spawn prompt.
+- **Shell scripts removed**: `view_board.sh`, `pipeline_status.sh`, `show_blocked.sh`, `search_by_tag.sh`, `search_content.sh`, `list_all_cards.sh` are no longer used. Replace with `bd list`/`bd ready`/`bd blocked` commands.
+- **Kanban UI removed**: The `kanban-ui/server.js` markdown-based board viewer no longer works. Board inspection is via `bd list --json` terminal output.
+
+### Migration
+
+1. Install beads: `brew install beads`
+2. Start dolt server: `dolt sql-server &` (required for bd operations)
+3. Init sprint database: `bd init --prefix sprint` (from project root)
+4. Run migration: `zsh scripts/migrate-to-beads.sh`
+
 ## 2.0.0
 - Rename `release-notes` skill to `changelog` — invoke as `/sprint:changelog`; `/sprint:release-notes` no longer works
 - Remove `pre-tool-use-observe.sh` and `post-tool-use-observe.sh` hooks — observation JSONL was never consumed; process-improvement agent uses `retro:transcript` instead

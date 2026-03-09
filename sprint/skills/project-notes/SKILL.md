@@ -1,36 +1,36 @@
 ---
 name: project-notes
-description: Synthesize completed sprint cards from kanban/sprint-run/7_done/ into a structured RELEASE-NOTES.md entry. Use when asked to "write release notes", "project release notes", "document completed cards", "summarize what we shipped", "what did the sprint accomplish", or "update RELEASE-NOTES.md". Reads done cards and git log, drafts entries, confirms with team-lead, then prepends to analysis-reports/RELEASE-NOTES.md. Do NOT confuse with sprint:release-notes (changelog) which reads the plugin CHANGELOG.md version history -- this skill documents project-level sprint outcomes, not plugin versions.
+description: Synthesize completed sprint beads into a structured RELEASE-NOTES.md entry. Use when asked to "write release notes", "project release notes", "document completed cards", "summarize what we shipped", "what did the sprint accomplish", or "update RELEASE-NOTES.md". Reads closed beads from .beads/sprint.db and git log, drafts entries, confirms with team-lead, then prepends to analysis-reports/RELEASE-NOTES.md. Do NOT confuse with sprint:release-notes (changelog) which reads the plugin CHANGELOG.md version history -- this skill documents project-level sprint outcomes, not plugin versions.
 allowed-tools: Read, Bash, Write, Edit, Glob
 ---
 
 # sprint:project-notes
 
-Synthesize completed kanban cards from `kanban/sprint-run/7_done/` into a structured `analysis-reports/RELEASE-NOTES.md` entry.
+Synthesize completed sprint beads from `.beads/sprint.db` into a structured `analysis-reports/RELEASE-NOTES.md` entry.
 
 This is the project-level complement to `sprint:release-notes` (which reads the plugin CHANGELOG). This skill reads sprint outcomes, not plugin version history.
 
-## Step 1: Read Completed Cards
+## Step 1: Read Completed Beads
 
-Scan `kanban/sprint-run/7_done/` for all `.md` files.
+Query closed sprint beads from the Beads database:
 
 ```bash
-ls kanban/sprint-run/7_done/*.md 2>/dev/null || echo "EMPTY"
+bd --db .beads/sprint.db list -s closed --json
 ```
 
-If the directory is empty or no `.md` files exist, output:
+If the result is empty, output:
 
 ```
-No completed cards to document.
+No completed beads to document.
 ```
 
 and stop.
 
-For each card found, extract:
-- `id` — from frontmatter `id:` field
-- `title` — from the first `# ` heading in the body
-- `issue` — from frontmatter `issue:` field (optional; may not be present)
-- `## Narrative` — the full narrative section from the card body
+For each closed bead, extract:
+- `id` — the bead's hash ID
+- `title` — the bead title
+- `issue` — from labels matching `issue-*` (e.g., `issue-2901667` → issue `2901667`)
+- `notes` — the bead's append-only notes (equivalent to the old Narrative section)
 
 ## Step 2: Check for Git Log (cards with issue: field)
 
@@ -89,7 +89,7 @@ On confirmation:
 
 If `analysis-reports/RELEASE-NOTES.md` does not exist, create it with just the new entries.
 
-Do NOT delete, archive, or modify the `7_done/` cards — card management is the team-lead's responsibility.
+Do NOT close, delete, or modify beads — bead lifecycle management is the team-lead's responsibility.
 
 ## Notes
 
