@@ -3,24 +3,29 @@ name: slack
 description: >
   Slack CLI wrapper — read channels, fetch messages, search, and list conversations
   via agent-slack. Returns raw data only; no summarization or prioritization.
-  Use when the user asks to read Slack directly: "what's in #channel", "search slack for X",
-  "list my slack channels", "show messages from #general", "check slack", "fetch slack messages".
+  Use when the user asks to READ or FETCH from Slack: "what's in #channel", "what's happening in #engineering",
+  "search slack for X", "list my slack channels", "show messages from #general", "check slack",
+  "fetch slack messages", "catch up on slack", "any updates in #X", "show me slack".
   Also use when office:pulse or office:morning-brief need raw Slack data.
-  Do NOT use for summarized priority views (use office:pulse) or overnight summaries
-  (use office:morning-brief).
+  Do NOT use for: sending, posting, or writing to Slack (this skill is read-only);
+  summarized priority views (use office:pulse); overnight summaries (use office:morning-brief).
 triggers:
   - "office:slack"
-  - "slack channels"
   - "read slack"
   - "slack messages"
   - "list my slack channels"
+  - "what's in #"
+  - "check slack"
+  - "slack updates"
+  - "search slack"
 allowed-tools: Bash, Read
 ---
 
 # office:slack — Slack CLI Wrapper
 
-Thin wrapper around `agent-slack`. No summarization, no prioritization — return raw
-data for the calling skill to process.
+Thin wrapper around `agent-slack`. Read-only — this skill does NOT send, post, react,
+or modify Slack in any way. No summarization, no prioritization — return raw data for
+the calling skill to process.
 
 ## Authentication
 
@@ -30,13 +35,7 @@ Check that `agent-slack` is installed and authenticated before any operation:
 agent-slack auth whoami
 ```
 
-### Get your user ID (needed for @mention filtering)
-
-```bash
-# Get your user ID (needed for @mention filtering)
-agent-slack auth whoami
-# Look for `user_id` or `id` in the output
-```
+The output includes `user_id` (or `id`) — save this if @mention filtering is needed.
 
 **If `agent-slack: command not found`**, tell the user:
 
@@ -85,10 +84,11 @@ Returns JSON array of channels. Present as a Markdown table when invoked directl
 agent-slack message list <channel-name-or-id> --workspace <workspace-url> --limit <N>
 ```
 
-- `<channel-name-or-id>`: channel name (e.g. `general`) or channel ID (e.g. `C01234567`)
+- `<channel-name-or-id>`: channel name WITHOUT the `#` prefix (e.g. `general`, not `#general`), or channel ID (e.g. `C01234567`)
 - Default limit: value from config `message_limit`, or `50` if not set
 - Returns JSON array of messages with `ts`, `user`, `text`, `thread_ts` fields
-- Omit `--workspace` only if you have a single workspace configured.
+- Omit `--workspace` only if you have a single workspace configured
+- To find the workspace URL: run `agent-slack auth whoami` and look for the `url` or `team_url` field
 
 To read multiple channels, run in parallel with one command per channel.
 

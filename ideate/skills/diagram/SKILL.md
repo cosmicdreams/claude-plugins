@@ -4,19 +4,30 @@ description: >
   Generate Excalidraw diagrams from natural language descriptions. Produces .excalidraw
   JSON files that open natively in PhpStorm, VS Code, and excalidraw.com. Layout argues
   through visual structure -- the arrangement communicates meaning, not just labels.
-  Use when you need to visualize architecture, workflows, system boundaries, or decision
-  trees. Say "diagram this", "visualize this", "sketch this out", "map this out", or
-  "create a diagram". Can chain after ideate:brainstorm or ideate:research. Not for
-  simple lists or text that does not benefit from spatial arrangement.
+  Use when you need to produce a spatial/structural diagram: system architecture,
+  component relationships, data flow, sequence of actor interactions, dependency graphs,
+  decision trees, or workflow pipelines. Triggered by "diagram this", "draw a diagram",
+  "create a flowchart", "draw the flow", "show the architecture", "show how X connects
+  to Y", "map the dependencies", or "now diagram that" (when chaining from brainstorm or
+  research). Can chain after ideate:brainstorm or ideate:research. NOT for: bar/line/pie
+  charts or data visualizations, written explanations, textual lists or outlines, or any
+  output where spatial arrangement adds no meaning.
 triggers:
   - "create a diagram"
   - "diagram this"
-  - "visualize this"
   - "draw a diagram"
   - "make a diagram"
   - "excalidraw"
   - "sketch this out"
   - "map this out"
+  - "draw a flowchart"
+  - "create a flowchart"
+  - "show the architecture"
+  - "draw the flow"
+  - "show how"
+  - "map the dependencies"
+  - "now diagram that"
+  - "chart this out"
 allowed-tools: Bash, Read, Write
 ---
 
@@ -62,6 +73,11 @@ Extract:
 ---
 
 ## Phase 1 — Depth Assessment
+
+**If the user's request is ambiguous** (no explicit subject, scope, or level of detail):
+ask one clarifying question before proceeding — e.g., "High-level overview or detailed
+breakdown? What's the main thing you want someone to understand from this diagram?"
+Do not ask multiple questions; pick the one that unblocks design.
 
 Determine diagram type before generating any JSON:
 
@@ -313,9 +329,10 @@ rm -f "$RENDER_HTML"
 
 Then use the **Read tool** on `$PREVIEW` to view the rendered result.
 
-> If `playwright-cli` is not installed (`npm i -g playwright-cli`), open the `.excalidraw`
-> file directly in PhpStorm or drag it to excalidraw.com to visually inspect — then
-> re-edit the JSON and re-check.
+> If `playwright-cli` is not installed, install via `npm i -g playwright-cli` (legacy) or
+> use the modern Playwright CLI: `npm i -g @playwright/test && npx playwright install chromium`.
+> Alternatively, open the `.excalidraw` file directly in PhpStorm or drag it to
+> excalidraw.com to visually inspect — then re-edit the JSON and re-check.
 
 ### The loop
 
@@ -379,12 +396,18 @@ This is non-blocking — if Obsidian isn't running, skip and continue.
 2. **Determine topic slug**: convert the diagram topic to kebab-case
    (e.g. "API authentication options" → `api-authentication-options`)
 
-3. **Write to vault**:
+3. **Choose the vault subfolder** based on diagram intent:
+   - `shared/Architecture/<topic>/` — system/component/data-flow diagrams
+   - `shared/Decisions/<topic>/` — decision trees, option comparisons
+   - `shared/Analysis/<topic>/` — dependency maps, audit diagrams
+
+4. **Write to vault**:
    ```bash
    VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
+   SUBFOLDER="shared/Architecture/<topic>"   # adjust per step 3
    obsidian create \
      --vault="$VAULT_NAME" \
-     --path="shared/Architecture/<topic>/<YYYY-MM-DD>-<diagram-name>.excalidraw" \
+     --path="$SUBFOLDER/<YYYY-MM-DD>-<diagram-name>.excalidraw" \
      --content="<output-content>"
    ```
    Where `<output-content>` is the raw Excalidraw JSON.
@@ -392,9 +415,9 @@ This is non-blocking — if Obsidian isn't running, skip and continue.
    If `obsidian create` fails (Obsidian not running), write the file directly:
    ```bash
    VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
-   VAULT_PATH="$HOME/Vaults/$VAULT_NAME/shared/Architecture/<topic>"
+   VAULT_PATH="$HOME/Vaults/$VAULT_NAME/$SUBFOLDER"
    mkdir -p "$VAULT_PATH"
    cp "$FILENAME" "$VAULT_PATH/<YYYY-MM-DD>-<diagram-name>.excalidraw"
    ```
 
-4. **Confirm**: "Saved to $VAULT_NAME: shared/Architecture/<topic>/<YYYY-MM-DD>-<diagram-name>.excalidraw"
+5. **Confirm**: "Saved to $VAULT_NAME: $SUBFOLDER/<YYYY-MM-DD>-<diagram-name>.excalidraw"

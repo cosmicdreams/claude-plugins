@@ -1,20 +1,40 @@
 ---
 name: pulse
-description: Ambient priority watchdog — scans email, Jira, and Slack for what needs your attention right now. Outputs two views: (1) top priority, (2) what changed since last broadcast. Designed to run hourly via /loop. Requires ~/.claude/office-pulse.local.md config. Trigger phrases: "pulse check", "what needs attention", "priority check", "office:pulse".
+description: >
+  Cross-source priority triage — aggregates email (Gmail), Jira, and Slack into a single
+  ranked view of what needs your attention right now. Use pulse when you want a unified,
+  multi-source snapshot. Use individual skills (office:slack, office:jira,
+  office:personal-email) when querying a single source. Outputs two views: (1) top
+  priority item across all sources, (2) full delta since last broadcast. Designed to run
+  hourly via /loop. Requires ~/.claude/office-pulse.local.md config.
 triggers:
   - "pulse check"
-  - "what needs attention"
+  - "what needs my attention"
+  - "what needs attention right now"
   - "priority check"
   - "office:pulse"
-  - "anything urgent"
+  - "anything urgent across"
   - "check pulse"
-  - "what's new"
+  - "what's new across email and slack"
+  - "cross-source check"
 allowed-tools: Bash, Read, Write
 ---
 
 # office:pulse — Ambient Priority Watchdog
 
-Scan email, Jira, and Slack, compute what changed since last run, surface the top priority.
+Orchestrates `office:personal-email` (gws), `office:jira` (jira-cli), and `office:slack`
+(agent-slack) to produce a unified priority view across all three sources. Computes deltas
+since the last run and surfaces the single top-priority item.
+
+**Use pulse when:** you want a cross-source triage — "what do I need to respond to right now?"
+
+**Use individual skills instead when:** querying a single source (e.g. "show me my Jira sprint
+tickets" → `office:jira`; "read my latest emails" → `office:personal-email`; "check #general
+in Slack" → `office:slack`).
+
+**Two output views every run:**
+1. **TOP PRIORITY** — the single highest-priority item across all sources with a one-line reason
+2. **SINCE LAST BROADCAST** — full delta grouped by source (email / Jira / Slack)
 
 ## Step 1: Load config
 
@@ -299,3 +319,6 @@ To run every hour:
 ```
 
 Cancel with `CronDelete` using the job ID returned by `/loop`.
+
+**First run:** if no state file exists, all current data is treated as "new." The first
+broadcast will be verbose — subsequent runs show only what changed.

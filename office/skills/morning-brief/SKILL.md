@@ -1,21 +1,22 @@
 ---
 name: morning-brief
 description: >
-  Morning briefing that scans overnight Slack activity across all configured channels,
-  highlights notable activity, and optionally updates ~/.claude/office-pulse.json
-  to focus pulse on specific channels for the day.
-  Run once each morning. Trigger phrases: "morning brief", "office:morning-brief",
-  "what happened overnight", "set today's focus".
+  Your morning Slack catchup. Run once at the start of your day to scan what happened
+  overnight across all configured channels, surface @mentions and keyword hits, and
+  optionally update ~/.claude/office-pulse.json to set which channels office:pulse
+  monitors for the rest of the day.
+
+  Use this skill for time-bounded overnight catchup ("what happened while I was away").
+  For real-time Slack monitoring use office:pulse. For raw channel data fetch use office:slack.
 triggers:
   - "morning brief"
   - "office:morning-brief"
   - "what happened overnight"
-  - "set today's focus"
-  - "morning briefing"
-  - "catch me up"
-  - "what did I miss"
   - "overnight activity"
-  - "start my day"
+  - "morning briefing"
+  - "catch me up on overnight"
+  - "what did I miss overnight"
+  - "set today's focus"
 allowed-tools: Bash, Read, Write
 ---
 
@@ -129,6 +130,9 @@ Show channels with activity ranked by score. List zero-activity channels compact
 If no channels had any activity: output "No overnight activity across any configured channel."
 
 ## Step 7: Offer focus update
+
+Read `~/.claude/office-pulse.json` if it exists. Extract `slack_channels` for display.
+If the file does not exist or `slack_channels` is empty, show "(none configured)" as the current tracking state.
 
 After the brief, show the current tracking state and offer to change it:
 

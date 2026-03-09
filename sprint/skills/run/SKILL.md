@@ -1,14 +1,18 @@
 ---
 name: run
 description: >
-  Orchestrates a multi-agent team sprint: spawns parallel agents, manages a Beads database pipeline (.beads/sprint.db),
-  and coordinates implementers, analyzers, and reviewers across multiple issues.
-  Use when asked to run a team sprint, spin up agents, work on multiple issues in parallel,
-  kick off the sprint pipeline, or start parallel agent work. Trigger phrases: "run a team
-  sprint", "spin up agents", "work on these issues as a team", "team validate these patches",
-  "start the sprint", "let's kick off the pipeline". Do NOT use for: planning which issues
-  to tackle (sprint:plan), observing pipeline quality (sprint:observe), reading the board
+  Executes a team sprint: spawns parallel agents, drives a Beads database pipeline (.beads/sprint.db),
+  and coordinates implementers, analyzers, and reviewers until issues are done.
+  Use when the user wants to START EXECUTING work — agents are being spawned, cards are being
+  worked, and the pipeline is actively running. Trigger phrases: "run a team sprint", "spin up
+  agents", "work on these issues as a team", "team validate these patches", "start the sprint",
+  "let's kick off the pipeline", "run these issues in parallel".
+  Do NOT use for: deciding which issues to tackle or sequencing the backlog (use sprint:plan),
+  observing pipeline quality without executing (sprint:observe), reading board state only
   (sprint:board), or running a retrospective (retro:session).
+  Key distinction from sprint:plan — sprint:run EXECUTES; sprint:plan DECIDES. If the user
+  is asking "what should we work on?" or "prioritize these issues" → sprint:plan. If the user
+  is asking "do the work" or "start the agents" → sprint:run.
 ---
 
 # Team Sprint
@@ -16,8 +20,6 @@ description: >
 Orchestrate multiple agents working on multiple Drupal issues using a persistent Beads database with streaming pipeline coordination.
 
 Board state lives in `.beads/sprint.db` (Beads database). Cards are Beads issues with status (`open`, `in_progress`, `closed`) and lane labels (`lane-backlog`, `lane-developing`, etc.). Agents coordinate via the pull protocol and communicate via `../protocols/team-comms-protocol.md`.
-
-## Kanban Board
 
 ## Context Awareness
 **Important**: All relative paths (e.g. `./worktrees/...`) assume you are executing from the **Project Root** (e.g. `~/OpenSource/SAME_PAGE_PREVIEW`).
@@ -253,7 +255,7 @@ Create only analyze cards with no `--deps`.
 
 ### Step 3: Team Sizing and Agent Spawning
 
-## You Are the Team Lead
+### You Are the Team Lead
 
 When you invoke this skill, YOU run the team-lead function. Do not spawn a team-lead agent.
 
@@ -283,6 +285,15 @@ bd blocked
 ```
 
 You push work. You do NOT collect reports and wait.
+
+### Anti-Patterns (team-lead)
+
+- Do NOT ask agents "are you ready?" — assume yes and send the task immediately
+- Do NOT spawn one agent and wait for it to finish before spawning the next
+- Do NOT keep agents alive when their pipeline stage has no remaining cards
+- Do NOT send a status-check message when you should be sending a work assignment
+- Do NOT wait for all agents to check in before assigning next work
+- Do NOT use a team-lead agent — you are the team-lead
 
 ### Graceful Shutdown Sequence (mandatory before every agent shutdown)
 

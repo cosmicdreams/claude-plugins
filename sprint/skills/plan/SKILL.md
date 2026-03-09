@@ -1,6 +1,6 @@
 ---
 name: plan
-description: Prepare an ordered, dependency-aware work queue before launching a team sprint. Use when the user wants to plan a sprint, prioritize issues, sequence work by dependencies, or propose agent assignments. Trigger phrases include "plan a sprint", "which issues should we work on", "sequence these issues", "prioritize the backlog", "what order should we tackle these". Always invoke this before sprint:run when issues need analysis or ordering. Do NOT use for mid-sprint re-prioritization or retrospective planning -- those are separate concerns.
+description: Prepare an ordered, dependency-aware work queue and create Beads cards before launching a team sprint. Use when the user wants to plan a sprint, prioritize issues, sequence work by dependencies, order the backlog, or propose agent assignments. Trigger phrases include "plan a sprint", "which issues should we work on", "sequence these issues", "prioritize the backlog", "order the backlog by dependencies", "what order should we tackle these". This skill ONLY plans and creates cards — it does NOT execute agents or start work. Use sprint:run to actually execute the sprint after planning. Do NOT use for mid-sprint re-prioritization, retrospective planning, or when the user asks to start/run/work on issues immediately.
 allowed-tools: Bash, Read, Write
 ---
 
@@ -82,35 +82,50 @@ Wait for team-lead approval before handing off to `sprint:run`.
 
 ## Card Creation
 
-Once the plan is approved, cards are created in the Beads sprint database (`.beads/sprint.db`). For each issue, create one card per pipeline stage with blocking dependencies using `bd create`:
+Once the plan is approved, cards are created in the Beads sprint database (`.beads/sprint.db`). Before creating cards, check whether cards already exist for each issue to avoid duplicates:
 
 ```bash
-# Initialize board if not already done
-bd init --prefix sprint
+# Check for existing cards (skip creation if cards already exist for this issue)
+bd list -l board-sprint -l issue-1234 --json
+```
 
+For each issue with no existing cards, create one card per pipeline stage with blocking dependencies using `bd create`:
+
+```bash
 # For each issue in the plan:
 bd create "Issue #1234: analyze <short-desc>" \
   --prefix sprint \
   -p 2 -t task \
   --labels "board-sprint,lane-backlog,stage-analyze,issue-1234" \
-  --acceptance "<criteria from plan>"
+  --description "$(cat <<'EOF'
+## What to change
+- File: <path>
+  - <change>
+
+## What NOT to change
+- <guardrail>
+
+## Acceptance Criteria
+- AC-1: Given <context>, When <action>, Then <result>
+EOF
+)"
 
 bd create "Issue #1234: implement <short-desc>" \
   --prefix sprint \
   -p 2 -t task \
   --labels "board-sprint,lane-backlog,stage-develop,issue-1234" \
   --deps "sprint-XXXX" \
-  --acceptance "<criteria from plan>"
+  --description "<card body per schema above>"
 
 bd create "Issue #1234: validate <short-desc>" \
   --prefix sprint \
   -p 2 -t task \
   --labels "board-sprint,lane-backlog,stage-validate,issue-1234,review-DYNAMIC_FULL" \
   --deps "sprint-YYYY" \
-  --acceptance "<criteria from plan>"
+  --description "<card body per schema above>"
 ```
 
-Replace `sprint-XXXX`/`sprint-YYYY` with the actual IDs returned by prior `bd create` commands. Set `-p 1` for high-priority issues.
+Replace `sprint-XXXX`/`sprint-YYYY` with the actual IDs returned by prior `bd create` commands. Set `-p 1` for high-priority issues. The `--description` body follows the Card Body Schema below.
 
 ## Card Body Standard
 
