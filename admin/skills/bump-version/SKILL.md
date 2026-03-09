@@ -39,8 +39,8 @@ Valid bump types: `major`, `minor`, `patch`
 
 ### 2. Run the bump script
 
-```zsh
-zsh admin/skills/bump-version/scripts/bump-version.sh <plugin> <bump-type>
+```
+bash admin/skills/bump-version/scripts/bump-version.sh <plugin> <bump-type>
 ```
 
 The script prints the before/after version and every file it modifies.
@@ -65,8 +65,8 @@ Rules:
 
 Old cached versions accumulate on every reinstall. One script handles both: it wipes all cached versions first, then reinstalls clean.
 
-```zsh
-zsh admin/skills/bump-version/scripts/reinstall-plugin.sh <plugin|all>
+```
+/Users/Chris.Weber/Tools/CLAUDE-PLUGINS/worktrees/main/admin/skills/bump-version/scripts/reinstall-plugin.sh <plugin|all>
 ```
 
 **Must be run in a separate terminal** — the Claude CLI cannot run inside an active Claude Code session (`CLAUDECODE` env var blocks it). Provide this command to the user.
@@ -79,7 +79,7 @@ Why clean-then-reinstall: wiping first removes all stale versions before the fre
 Version bumped: <plugin> <old> → <new>
 Files updated: <count>
 CHANGELOG: <plugin>/CHANGELOG.md updated
-Reinstall command: zsh admin/skills/bump-version/scripts/reinstall-plugin.sh <plugin|all>
+Reinstall command: /Users/Chris.Weber/Tools/CLAUDE-PLUGINS/worktrees/main/admin/skills/bump-version/scripts/reinstall-plugin.sh <plugin|all>
 ```
 
 ## Notes
