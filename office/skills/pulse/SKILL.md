@@ -64,14 +64,12 @@ Parse as JSON. Fields used:
 
 If absent or empty: first run — treat `oldest_ts` as 24h ago.
 
-Get your Slack user ID (needed for @mention classification):
+For each workspace, get the Slack user ID for @mention classification:
 
-```bash
-agent-slack auth whoami
-```
-
-Extract `user_id` or `id` from the output. If this fails, set `your_user_id` to null
-(mention classification will be skipped).
+- If `user_id` is already set on the workspace object in config → use it directly
+- If missing → run `agent-slack auth whoami --workspace {workspace_url}`, extract `user_id`
+  or `id`, write it back to the config file under that workspace, then use it
+- If `whoami` fails → set `user_id` to null (mention classification skipped for that workspace)
 
 Convert `ts` to a Unix float (`oldest_ts`) for Slack `--oldest`, and a date string
 (`last_run_date`) for Jira `--updated-after`:
