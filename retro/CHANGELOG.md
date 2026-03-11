@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.0
+- Removed `retro:changelog` — use `admin:changelog retro` instead
+- Vault writes in `retro:interviews` and `retro:session` now assume Obsidian is running; `obsidian help` is only run as a diagnostic if the write fails
+
 ## [3.0.0] — 2026-03-09
 
 ### Breaking Changes

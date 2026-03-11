@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.3.0
+- `admin:changelog` now handles changelogs for all plugins — pass the plugin name as the first argument (e.g. `admin:changelog sprint --latest`); no plugin argument lists available plugins
+- `admin:changelog` resolves sibling plugins from the shared cache directory, so no per-plugin changelog skills are needed
+
 ## 2.2.1
 - Fixed `bump-version` skill to use `zsh` instead of `bash` in reinstall command output and code blocks
 

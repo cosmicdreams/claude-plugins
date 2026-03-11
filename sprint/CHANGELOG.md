@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.1.0
+- Removed `sprint:changelog` — use `admin:changelog sprint` instead
+- `sprint:project-notes` now archives a per-sprint snapshot to the Neurons vault at `Projects/<project>/release-notes/<date>-sprint-notes.md` after writing the local RELEASE-NOTES.md
+- Vault writes across all skills now assume Obsidian is running; `obsidian help` is only run as a diagnostic if the write fails
+
 ## [3.0.3] — 2026-03-09
 - `sprint:run`: sharpen trigger to lead with "executes" intent; add explicit sprint:plan vs. sprint:run boundary with concrete examples; move anti-patterns inline into skill body; remove orphaned empty `## Kanban Board` section; fix section hierarchy (`##` → `###`)
 - `sprint:plan`: fix `bd init` error on already-initialized boards; fix `--acceptance` → `--description` flag in all `bd create` examples; add duplicate-card guard before creation; add "order the backlog by dependencies" trigger phrase; add explicit negative guardrail against execution requests

@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.0
+- Removed `ideate:changelog` — use `admin:changelog ideate` instead
+- Vault writes across all ideate skills now assume Obsidian is running; `obsidian help` is only run as a diagnostic if the write fails
+
 ## 2.1.2
 - `ideate:diagram`: sharpen trigger description with specific diagram types (architecture, flowchart, sequence, dependency graph); remove over-broad "visualize this" trigger; add NOT-for exclusions (data charts, written explanations); add ambiguity check step before committing to diagram type; add Obsidian vault path guidance
 

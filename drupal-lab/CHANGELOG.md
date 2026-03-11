@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.0
+- Removed `drupal-lab:changelog` — use `admin:changelog drupal-lab` instead
+- Vault writes in `drupal-lab:analyze-issue` and `drupal-lab:issue-summary` now assume Obsidian is running; `obsidian help` is only run as a diagnostic if the write fails
+
 ## 2.1.0
 - `drupal-lab:analyze-issue` archives issue analysis reports to `Neurons/Drupal.org/<project>/<issue-number>-<slug>.md`
 - `drupal-lab:issue-summary` archives contribution comments to the same vault namespace

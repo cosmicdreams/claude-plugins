@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.6.0
+- Removed `office:changelog` — use `admin:changelog office` instead
+
 ## 1.5.2
 - `office:slack`: add explicit read-only exclusion (does not send/post/react); document `#channel` name format gotcha (CLI needs name without `#`); add workspace URL discovery via `whoami`; remove redundant "Get your user ID" subsection
 - `office:pulse`: rewrite description to distinguish cross-source triage from single-source queries; remove over-broad triggers ("what's new", "anything urgent"); add "Use pulse when / Use individual skills instead when" decision block; document first-run vs. delta behavior
