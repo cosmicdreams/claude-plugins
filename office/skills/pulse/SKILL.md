@@ -17,7 +17,7 @@ triggers:
   - "check pulse"
   - "what's new across email and slack"
   - "cross-source check"
-allowed-tools: Bash, Read, Write
+allowed-tools: Agent, Bash, Read, Write
 ---
 
 # office:pulse — Ambient Priority Watchdog
@@ -47,16 +47,12 @@ Create ~/.claude/office-pulse.json — see references/config-template.md for the
 
 Then stop.
 
-Parse these top-level fields:
+Parse:
 - `enabled` — if `false`, output "office:pulse is disabled." and stop
+- `priority_threshold` — `low` / `medium` / `high` / `critical` (default: `medium`)
 - `jira.projects` — list of project codes
 - `email_source` — `gmail` (only supported value)
-- `priority_threshold` — `low` / `medium` / `high` / `critical` (default: `medium`)
 - `slack.workspaces` — list of workspace objects, each with `url`, `name`, `channels`, and optional `keywords`
-
-Keywords are scoped per workspace — each workspace watches only its own `keywords` list.
-
-If `slack.workspaces` is empty or missing, Slack will be skipped (noted in output).
 
 ### Project config detection
 
@@ -66,131 +62,117 @@ Check for `.claude/office-pulse.json` in the current working directory:
 [ -f .claude/office-pulse.json ] && cat .claude/office-pulse.json
 ```
 
-If found, parse `slack.workspaces`. Compare to the active config in `~/.claude/office-pulse.json`.
-If different, note in output header:
-```
-[project config available — say "use project channels" to switch]
-```
-Do NOT automatically apply. Apply only when the user explicitly asks (e.g. "use project channels").
-When switching, merge project `slack.workspaces` into `~/.claude/office-pulse.json` with
-`updated_by: "project-switch"`.
+If found, compare `slack.workspaces` to the active config. If different, note for output header:
+`[project config available — say "use project channels" to switch]`
 
 Also parse from project config:
-- `jira.server` — alternate Jira instance URL (e.g. `https://acme.atlassian.net`). Store for Step 3.
-- `jira.config_file` — path to alternate jira-cli config. Expand `~` to `$HOME`.
-- `jira.projects` — project codes for the alternate instance, fetched using `jira.config_file`.
+- `jira.server`, `jira.config_file`, `jira.projects` — for alternate Jira instance
 
-If `jira.config_file` is set but the file does not exist, skip project Jira with note:
+If `jira.config_file` is set but the file does not exist, note for output:
 `[project Jira: config not found at {path} — run: JIRA_CONFIG_FILE={path} jira init]`
 
 ## Step 2: Load previous state
-
-Read the last line of `~/.claude/office-pulse.state.jsonl` (if it exists):
 
 ```bash
 tail -1 ~/.claude/office-pulse.state.jsonl 2>/dev/null
 ```
 
-Parse as JSON. Fields:
+Parse as JSON. Fields used:
 - `ts` — ISO timestamp of last run
 - `email_last_id` — most recent email message ID seen
 - `jira_snapshots` — object mapping issue key → `{ comments, status, updated }`
 - `slack_channels` — object mapping `"workspace_host/channel"` → last seen Slack `ts`
 
-If the file does not exist or is empty, treat as first run — all current data is "new."
+If absent or empty: first run — all current data is "new."
 
-## Step 3: Fetch current data
+## Step 3: Spawn data-collection subagent
 
-Run all fetches in parallel where possible.
+Spawn a general-purpose subagent to do all external fetching. Pass the full config and state
+as context in the prompt. The subagent runs silently and returns a single structured JSON result.
 
-### Email (Gmail)
+**Subagent prompt template** (substitute actual config and state values before spawning):
 
-```bash
-gws mail list --unread --limit 20 --format json
+```
+You are a data collection agent for office:pulse. Fetch data from all configured sources and
+return a single JSON object. Do not narrate or explain — just fetch and return structured data.
+
+CONFIG:
+{paste full office-pulse.json content}
+
+PREVIOUS STATE:
+{paste last state line, or "first_run" if none}
+
+INSTRUCTIONS:
+
+1. Slack auth: Run `agent-slack auth whoami`. Extract your user ID (field: user_id or id).
+   If agent-slack is unavailable, set slack.available=false.
+
+2. Email: Run `gws mail list --unread --limit 20 --format json`.
+   If unavailable or auth fails, set email.available=false.
+
+3. Jira (global projects from config.jira.projects, default jira-cli config):
+   For each project run:
+     jira issue list --project {PROJECT} --updated-after "{last_run_ts}" --plain \
+       --columns KEY,SUMMARY,STATUS,PRIORITY,UPDATED,ASSIGNEE
+   If last_run_ts unknown, use: date -v-24H +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -d '24 hours ago' +"%Y-%m-%dT%H:%M:%S"
+   For issues assigned to you or mentioning you, also run: jira issue view {KEY} --plain --comments 5
+   If unavailable, set jira.available=false.
+
+4. Jira (project-local, only if config has jira.config_file):
+   Same commands prefixed with JIRA_CONFIG_FILE={expanded_path}.
+   Tag these issues with the jira.server hostname.
+
+5. Slack: For each workspace in config.slack.workspaces, for each channel, run sequentially
+   within the workspace (parallel across workspaces is fine):
+     agent-slack message list {channel} --workspace {workspace_url} --limit 50
+   Skip channels that error — note the error in the result.
+
+Return ONLY valid JSON in this exact shape (no markdown, no explanation):
+{
+  "your_user_id": "U...",
+  "last_run_ts": "{ts from state, or null}",
+  "email": {
+    "available": true,
+    "messages": [ { "id": "...", "subject": "...", "from": "...", "received": "...", "urgent": false } ]
+  },
+  "jira": {
+    "available": true,
+    "issues": [ { "key": "PROJ-1", "summary": "...", "status": "...", "priority": "...", "updated": "...", "assignee": "...", "source": "global|project", "comments": 0 } ]
+  },
+  "slack": {
+    "available": true,
+    "workspaces": {
+      "{workspace_hostname}": {
+        "{channel_name}": {
+          "error": null,
+          "most_recent_ts": "...",
+          "messages": [ { "ts": "...", "user": "...", "text": "...", "thread_ts": null } ]
+        }
+      }
+    }
+  }
+}
 ```
 
-Extract: message IDs, subjects, senders, received timestamps, priority/urgent signals
-(subject contains "urgent", "action required", "approval needed", or flagged by sender).
-
-If `gws` is not available or auth fails, skip with note: `[email unavailable]`
-
-### Jira
-
-Fetch projects from two sources, running in parallel where possible:
-
-**Global projects** (from `~/.claude/office-pulse.json` `jira.projects`, using default jira-cli config):
-
-```bash
-jira issue list --project {PROJECT} --updated-after "{last_run_ts}" --plain --columns KEY,SUMMARY,STATUS,PRIORITY,UPDATED,ASSIGNEE
-```
-
-**Project-local projects** (from `.claude/office-pulse.json` `jira.projects`, using `jira.config_file`):
-
-```bash
-JIRA_CONFIG_FILE={expanded_jira_config_file} jira issue list --project {PROJECT} --updated-after "{last_run_ts}" --plain --columns KEY,SUMMARY,STATUS,PRIORITY,UPDATED,ASSIGNEE
-```
-
-If `last_run_ts` is unknown (first run), use 24h ago:
-
-```bash
-date -v-24H +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -d '24 hours ago' +"%Y-%m-%dT%H:%M:%S"
-```
-
-For issues assigned to you or where you are mentioned, also fetch comment counts:
-
-```bash
-[JIRA_CONFIG_FILE={path}] jira issue view {KEY} --plain --comments 5
-```
-
-Label project-local issues in output with the `jira.server` hostname (e.g. `[acme.atlassian.net]`).
-
-If `jira` is not available, skip with note: `[jira unavailable]`
-
-If both email and Jira are unavailable, output:
-```
-PULSE {HH:MM} — all sources unavailable (email: gws not found / Jira: jira not found)
-```
-Then stop — do not write state.
-
-### Slack
-
-If `slack.workspaces` is empty, skip Slack with note:
-`[slack: no workspaces configured — add a workspace to office-pulse.json to start tracking]`
-
-Otherwise:
-
-1. Auth check:
-   ```bash
-   agent-slack auth whoami
-   ```
-   If `agent-slack` not found or auth fails, skip with note: `[slack: agent-slack unavailable]`
-
-2. Get your user ID from `agent-slack auth whoami` output (look for `user_id` or `id` field).
-
-3. For each workspace in `slack.workspaces`, iterate over its `channels`. Fetch sequentially per workspace
-   (rate limit caution — parallel across workspaces is fine, sequential within a workspace):
-   ```bash
-   agent-slack message list <channel> --workspace <workspace_url> --limit 50
-   ```
-   Skip channels that error with a note.
-
-4. Filter: keep messages with `ts` > `slack_channels["{workspace_host}/{channel}"]` from state.
-   On first run, keep all messages.
-
-5. Classify each new message using the workspace's own `keywords` list:
-   - **DM**: channel name is `directmessage` or `im`
-   - **@mention**: `text` contains `<@{your_user_id}>`
-   - **Thread reply**: `thread_ts` set, `thread_ts` != `ts`, `thread_ts` matches a `ts` from your prior messages
-   - **Keyword match**: `text` contains any entry from this workspace's `keywords` (case-insensitive)
-   - **General**: any other new message
+Wait for the subagent to return. If it returns an error instead of JSON, note `[data collection failed: {error}]` and stop.
 
 ## Step 4: Compute deltas
 
-**Email delta:** Messages with IDs not seen in previous state.
+Using the subagent result and previous state:
 
-**Jira delta:** Issues where `updated` is after `last_run_ts`, or comment count increased vs snapshot.
+**Email delta:** Messages with IDs not in `email_last_id` from state.
 
-**Slack delta:** Messages with `ts` > last seen per channel (from state `slack_channels`).
+**Jira delta:** Issues where `updated` > `last_run_ts`, or `comments` count > snapshot.
+
+**Slack delta:** Per workspace/channel, messages with `ts` > `slack_channels["{host}/{channel}"]` from state.
+On first run, all messages are new.
+
+Classify each new Slack message using the workspace's own `keywords` list:
+- **DM**: channel is `directmessage` or `im`
+- **@mention**: text contains `<@{your_user_id}>`
+- **Thread reply**: `thread_ts` set, `thread_ts` != `ts`, `thread_ts` matches one of your prior message `ts` values
+- **Keyword match**: text contains any entry from this workspace's `keywords` (case-insensitive)
+- **General**: anything else
 
 ## Step 5: Rank priorities
 
@@ -231,14 +213,14 @@ JIRA
   → [or: no Jira activity]
 
 SLACK
-  → [High] @mention from {user} in #{channel} ({workspace}): "{excerpt}"
-  → [Medium] keyword "{keyword}" in #{channel} ({workspace}): "{excerpt}"
+  → [High] @mention from {user} in #{channel} ({WorkspaceName}): "{excerpt}"
+  → [Medium] keyword "{keyword}" in #{channel} ({WorkspaceName}): "{excerpt}"
   → [or: no Slack activity]
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-If nothing has changed across all sources: output a single line —
+If nothing new across all sources:
 `✓ PULSE {HH:MM} — nothing new since {last broadcast time}`
 
 ## Step 7: Write new state
@@ -246,12 +228,10 @@ If nothing has changed across all sources: output a single line —
 Append one line to `~/.claude/office-pulse.state.jsonl`:
 
 ```json
-{"ts":"{ISO_NOW}","email_last_id":"{most_recent_id}","jira_snapshots":{"{KEY}":{"comments":{N},"status":"{status}","updated":"{ts}"}},"slack_channels":{"drupal.slack.com/preview":"{most_recent_ts}","drupal.slack.com/experience-builder":"{most_recent_ts}"}}
+{"ts":"{ISO_NOW}","email_last_id":"{most_recent_id}","jira_snapshots":{"{KEY}":{"comments":{N},"status":"{status}","updated":"{ts}"}},"slack_channels":{"{workspace_host}/{channel}":"{most_recent_ts}"}}
 ```
 
-`slack_channels` key: `"{workspace_hostname}/{channel_name}"` → most recent message `ts` seen.
-
-Then trim the file to the last 7 days of entries:
+Then trim to last 7 days:
 
 ```bash
 python3 << 'EOF'
@@ -264,42 +244,28 @@ if not os.path.exists(path):
 cutoff = (datetime.now() - timedelta(days=7)).isoformat()
 with open(path) as f:
     lines = [l.strip() for l in f if l.strip()]
-kept = []
-for line in lines:
-    try:
-        entry = json.loads(line)
-        if entry.get("ts", "") >= cutoff:
-            kept.append(line)
-    except Exception:
-        pass
+kept = [l for l in lines if json.loads(l).get("ts","") >= cutoff]
 with open(path, "w") as f:
     f.write("\n".join(kept) + ("\n" if kept else ""))
-print(f"Trimmed state: kept {len(kept)} entries (7-day window).")
+print(f"Trimmed state: kept {len(kept)} entries.")
 EOF
 ```
 
 ## Modifying config mid-session
 
-When the user asks to change channels or keywords, update `~/.claude/office-pulse.json` in place,
-preserving all other fields. Update `updated` and `updated_by` on every write.
+Update `~/.claude/office-pulse.json` in place, preserving all fields. Set `updated` and `updated_by`.
 
-Examples:
-- "add #javascript to Drupal" → find workspace with `name: "Drupal"` (or matching URL), append to `channels`
+- "add #javascript to Drupal" → append to that workspace's `channels`
 - "remove #preview from Drupal" → remove from that workspace's `channels`
-- "add keyword 'deploy' to My Team workspace" → add to that workspace's `keywords` array
+- "add keyword 'deploy' to My Team" → append to that workspace's `keywords`
 - "use project channels" → merge project `.claude/office-pulse.json` workspaces into main config
 
-Confirm each change: "Updated. [Workspace] now tracks: #ch1, #ch2, #ch3"
+Confirm: "Updated. [WorkspaceName] now tracks: #ch1, #ch2, #ch3"
 
 ## Running on a loop
-
-To run every hour:
 
 ```
 /loop 1h /office:pulse
 ```
 
 Cancel with `CronDelete` using the job ID returned by `/loop`.
-
-**First run:** if no state file exists, all current data is treated as "new." The first
-broadcast will be verbose — subsequent runs show only what changed.
