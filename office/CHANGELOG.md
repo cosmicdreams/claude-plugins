@@ -1,5 +1,12 @@
 # Changelog
 
+## 1.10.0
+- `office:pulse` and `office:morning-brief`: project-first config cascade — checks `.claude/office-pulse.json` before `~/.claude/office-pulse.json`; creates project config from template on first run if neither exists
+- `office:pulse`: email source removed (no longer fetched or displayed)
+- `office:pulse`: Jira now uses `--updated-after {date}` for server-side filtering; state schema simplified to `ts` + `jira_snapshots` only
+- `office:pulse`: output and priority table cleaned of email rows
+- `office:morning-brief`: focus update now writes to whichever config was loaded (project or user scope)
+
 ## 1.9.1
 - `office:pulse` and `office:morning-brief`: one subagent per Slack channel, all spawned in parallel — replaces single sequential subagent; reduces 5-channel run from ~10m to ~2m
 - Both skills now pass `--oldest {last_run_ts}` to `agent-slack message list` — server-side filtering eliminates client-side ts comparison and reduces data returned on quiet channels
