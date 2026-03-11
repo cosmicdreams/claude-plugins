@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.8.0
+- `office:pulse` and `office:morning-brief`: `~/.claude/office-pulse.local.md` removed — all configuration now lives in `~/.claude/office-pulse.json` only
+- Slack channels are now grouped by workspace: each workspace entry has `url`, `name`, `channels[]`, and optional `keywords[]`
+- Keywords are scoped per workspace — global `slack.keywords` removed; add keywords to each workspace independently
+
 ## 1.7.0
 - `office:csv-analysis`: new skill — auto-analyzes CSV files with pandas/matplotlib/seaborn, generates type-appropriate visualizations and statistical summaries without prompting the user
 - `office:image-optimize`: new skill — format-aware image optimization routing to specialist tools (pngquant for PNG, cwebp/avifenc for modern formats, jpegtran for JPEG lossless); ImageMagick as universal fallback; covers JPEG, PNG, WebP, AVIF, GIF, HEIC, TIFF, BMP, ICO, PSD, SVG, APNG; includes batch processing patterns and format conversion recommendations
