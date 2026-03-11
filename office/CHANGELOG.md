@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.1
+- `office:pulse` and `office:morning-brief`: one subagent per Slack channel, all spawned in parallel — replaces single sequential subagent; reduces 5-channel run from ~10m to ~2m
+- Both skills now pass `--oldest {last_run_ts}` to `agent-slack message list` — server-side filtering eliminates client-side ts comparison and reduces data returned on quiet channels
+
 ## 1.9.0
 - `office:pulse` and `office:morning-brief`: all external data fetching (Slack, email, Jira) now runs inside a subagent — main conversation stays clean; only the formatted summary is surfaced
 - Added `Agent` to `allowed-tools` for both skills
