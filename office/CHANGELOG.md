@@ -2,6 +2,8 @@
 
 ## 1.6.0
 - Removed `office:changelog` — use `admin:changelog office` instead
+- `office:pulse`: expanded project config parsing to support additional local override fields
+- `office:vault-store`: vault notes now authored in Obsidian Flavored Markdown with required frontmatter (title, date, tags, source) and wikilink guidance
 
 ## 1.5.2
 - `office:slack`: add explicit read-only exclusion (does not send/post/react); document `#channel` name format gotcha (CLI needs name without `#`); add workspace URL discovery via `whoami`; remove redundant "Get your user ID" subsection

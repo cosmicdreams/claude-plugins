@@ -96,15 +96,29 @@ Check for `.claude/office-pulse.local.md` in the current working directory:
 [ -f .claude/office-pulse.local.md ] && cat .claude/office-pulse.local.md
 ```
 
-If found, parse its `slack_channels`. Compare to the current `office-pulse.json` channels.
-If they differ, note in output header:
-```
-[project config available — say "use project channels" to switch]
-```
+If found, parse these fields:
 
-Do NOT automatically apply the project config. Apply only when the user explicitly asks
-(e.g. "use project channels", "switch to project config"). When switching, write the project
-`slack_channels` into `~/.claude/office-pulse.json` with `updated_by: "project-switch"`.
+- `slack_channels` — compare to `office-pulse.json`; if different, note in output header:
+  ```
+  [project config available — say "use project channels" to switch]
+  ```
+  Do NOT automatically apply. Apply only when the user explicitly asks (e.g. "use project
+  channels"). When switching, write `slack_channels` into `~/.claude/office-pulse.json`
+  with `updated_by: "project-switch"`.
+
+- `jira_server` — alternate Jira instance URL for this project (e.g. `https://acme.atlassian.net`).
+  Store for use in Step 3. If set, `jira_config_file` should also be set.
+
+- `jira_config_file` — path to an alternate jira-cli config file (e.g. `~/.config/.jira/.config-acme.yml`).
+  Expand `~` to `$HOME`. When fetching Jira data for projects listed under this config,
+  prepend `JIRA_CONFIG_FILE=<expanded_path>` to all `jira` commands.
+
+- `jira_projects` — list of Jira project codes on the project's Jira instance. These are
+  fetched using `jira_config_file` instead of the default jira-cli config. Projects listed
+  in the global `jira_projects` (from `~/.claude/office-pulse.local.md`) use the default config.
+
+If `jira_config_file` is set but the file does not exist, skip project Jira with note:
+`[project Jira: config not found at {path} — run: JIRA_CONFIG_FILE={path} jira init]`
 
 ## Step 2: Load previous state
 
@@ -139,10 +153,18 @@ If `gws` is not available or auth fails, skip with note: `[email unavailable]`
 
 ### Jira
 
-For each project in `jira_projects`:
+Fetch projects from two sources, running in parallel where possible:
+
+**Global projects** (from `~/.claude/office-pulse.local.md` `jira_projects`, using default jira-cli config):
 
 ```bash
 jira issue list --project {PROJECT} --updated-after "{last_run_ts}" --plain --columns KEY,SUMMARY,STATUS,PRIORITY,UPDATED,ASSIGNEE
+```
+
+**Project-local projects** (from `.claude/office-pulse.local.md` `jira_projects`, using `jira_config_file`):
+
+```bash
+JIRA_CONFIG_FILE={expanded_jira_config_file} jira issue list --project {PROJECT} --updated-after "{last_run_ts}" --plain --columns KEY,SUMMARY,STATUS,PRIORITY,UPDATED,ASSIGNEE
 ```
 
 If `last_run_ts` is unknown (first run), use 24h ago:
@@ -151,11 +173,15 @@ If `last_run_ts` is unknown (first run), use 24h ago:
 date -v-24H +"%Y-%m-%dT%H:%M:%S" 2>/dev/null || date -d '24 hours ago' +"%Y-%m-%dT%H:%M:%S"
 ```
 
-For issues assigned to you or where you are mentioned, also fetch comment counts:
+For issues assigned to you or where you are mentioned, also fetch comment counts (using the
+appropriate config for each project's source):
 
 ```bash
-jira issue view {KEY} --plain --comments 5
+[JIRA_CONFIG_FILE={path}] jira issue view {KEY} --plain --comments 5
 ```
+
+Label project-local issues in output with the `jira_server` hostname so it's clear which
+instance they come from (e.g. `[acme.atlassian.net]`).
 
 If `jira` is not available, skip with note: `[jira unavailable]`
 

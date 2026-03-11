@@ -3,6 +3,7 @@
 ## 2.3.0
 - `admin:changelog` now handles changelogs for all plugins — pass the plugin name as the first argument (e.g. `admin:changelog sprint --latest`); no plugin argument lists available plugins
 - `admin:changelog` resolves sibling plugins from the shared cache directory, so no per-plugin changelog skills are needed
+- Added `admin:agent-team` skill — sets up a proper agent team using TeamCreate so spawned agents share a communication channel and can coordinate via SendMessage
 
 ## 2.2.1
 - Fixed `bump-version` skill to use `zsh` instead of `bash` in reinstall command output and code blocks

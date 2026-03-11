@@ -77,21 +77,34 @@ Say any of the following to Claude while pulse is running:
 
 ## Project-level seed: .claude/office-pulse.local.md
 
-Optional. Place in any project's root `.claude/` directory. Contains only `slack_channels`.
+Optional. Place in any project's root `.claude/` directory.
 
 ```markdown
 ---
+jira_server: https://acme.atlassian.net
+jira_config_file: ~/.config/.jira/.config-acme.yml
+jira_projects:
+  - PROJ
+  - INFRA
 slack_channels:
-  - channel: experience-builder
-  - channel: preview
+  - channel: project-general
+  - channel: project-dev
+    workspace: https://myteam.slack.com
 ---
 ```
 
-When you run pulse from inside a project directory that has this file, pulse detects it and
-shows: `[project config available — say "use project channels" to switch]`
+| Field | Description |
+|---|---|
+| `jira_server` | Alternate Jira instance URL for this project |
+| `jira_config_file` | Path to jira-cli config for the alternate instance. Create with: `JIRA_CONFIG_FILE=<path> jira init` |
+| `jira_projects` | Project codes on the alternate Jira instance |
+| `slack_channels` | Slack channels for this project. Say "use project channels" to activate. |
 
-Saying "use project channels" writes those channels into `~/.claude/office-pulse.json`.
-All other settings (Jira, email, keywords, workspace) always come from the global static config.
+When you run pulse from inside a project directory that has this file:
+- Project `jira_projects` are fetched from the project's `jira_server` using `jira_config_file`
+- Global `jira_projects` (from `~/.claude/office-pulse.local.md`) use the default jira-cli config
+- If `slack_channels` differ from the active JSON config, pulse shows:
+  `[project config available — say "use project channels" to switch]`
 
 ---
 

@@ -66,19 +66,45 @@ Quick reference (substitute actual values for placeholders):
 | Drupal contribution comment | Project | `Drupal.org/project/issue-number-contribution-comment.md` |
 | Log analysis report | Project | `Projects/project/Reports/YYYY-MM-DD-log-analysis.md` |
 
-## Step 4: Write to vault
+## Step 4: Author as Obsidian Flavored Markdown
+
+Before writing, wrap the content in proper OFM structure using the `obsidian-markdown` skill conventions.
+
+**Required frontmatter** (add to top of every `.md` note):
+
+```yaml
+---
+title: "Human-readable title"
+date: YYYY-MM-DD
+tags:
+  - relevant-tag
+  - second-tag
+source: "origin of the content (skill name, notebook title, URL, etc.)"
+---
+```
+
+**Tag selection:** Choose from existing vault tags where applicable (`#drupal`, `#sprint`, `#ai-agents`, `#mcp`, `#skills`, `#research`, `#automation`, etc.). Add new tags only when no existing tag fits.
+
+**Wikilinks:** If the content references topics that have related notes already in the vault, add `[[wikilinks]]` inline. Don't force links — only add them when the connection is genuine and the target note exists.
+
+**Callouts:** Use `> [!note]`, `> [!warning]`, `> [!tip]` for key takeaways or important caveats worth highlighting.
+
+Skip OFM authoring (pass content through as-is) when:
+- The file is not `.md` (e.g., `.excalidraw`, `.canvas`, `.base`)
+- The content already has valid YAML frontmatter
+
+## Step 5: Write to vault
 
 ```bash
 obsidian create \
-  --vault="$OBSIDIAN_VAULT_NAME" \
-  --path="resolved-path" \
-  --content="document-content"
+  path="resolved-path" \
+  content="authored-content-with-frontmatter"
 ```
 
 On success: report "Saved to Neurons: path"
 On failure: report the error, preserve the local file, do not retry automatically.
 
-## Step 5: Add vault link to local output
+## Step 6: Add vault link to local output
 
 If the document was also written locally, append a breadcrumb line to the local file:
 
