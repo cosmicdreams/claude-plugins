@@ -220,7 +220,7 @@ echo ""
 if [[ "$total_failures" -eq 0 ]]; then
     echo "All assertions passed."
     echo "NOTE: filesystem state only. To verify Claude Code loads the plugin,"
-    echo "start a new session and invoke a skill (e.g. /sprint:changelog --latest)."
+    echo "start a new session and invoke a skill (e.g. admin:changelog sprint --latest)."
     exit 0
 else
     echo "FAILED: $total_failures assertion(s) did not pass." >&2
