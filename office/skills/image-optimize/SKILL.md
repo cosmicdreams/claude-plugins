@@ -17,17 +17,17 @@ compression at equal quality.
 
 ## Installed Tools
 
-| Tool | Version | Best for |
-|---|---|---|
-| `magick` / `convert` / `mogrify` | ImageMagick 7.1.2 | Universal fallback, format conversion, resize, HEIC, BMP, ICO, PSD, TIFF, APNG |
-| `pngquant` | 3.0.3 | PNG lossy compression (excellent quality/size ratio) |
-| `cwebp` | 1.6.0 | Encoding images → WebP |
-| `dwebp` | 1.6.0 | Decoding WebP → other formats |
-| `gif2webp` | 1.6.0 | Converting GIF → WebP |
-| `avifenc` | 1.4.0 | Encoding images → AVIF (best modern format) |
-| `avifdec` | 1.4.0 | Decoding AVIF → other formats |
-| `jpegtran` | libjpeg-turbo 3.1.3 | JPEG lossless optimization (strip metadata, progressive) |
-| `cjpeg` | libjpeg-turbo 3.1.3 | JPEG re-encoding (lossy, quality control) |
+| Tool | Best for |
+|---|---|
+| `magick` / `convert` / `mogrify` | Universal fallback, format conversion, resize, HEIC, BMP, ICO, PSD, TIFF, APNG |
+| `pngquant` | PNG lossy compression (excellent quality/size ratio) |
+| `cwebp` | Encoding images → WebP |
+| `dwebp` | Decoding WebP → other formats |
+| `gif2webp` | Converting GIF → WebP |
+| `avifenc` | Encoding images → AVIF (best modern format) |
+| `avifdec` | Decoding AVIF → other formats |
+| `jpegtran` | JPEG lossless optimization (strip metadata, progressive) |
+| `cjpeg` | JPEG re-encoding (lossy, quality control) |
 
 ## Format Routing
 
