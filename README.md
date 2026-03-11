@@ -1,40 +1,74 @@
 # claude-plugins
 
-A collection of [Claude Code](https://code.claude.com) plugins for Drupal development, team sprint orchestration, and plugin management tooling.
+A collection of [Claude Code](https://claude.ai/code) plugins for team sprint orchestration, Drupal development, office productivity, and plugin management tooling.
+
+## Dependencies
+
+Several plugins require external CLI tools (Beads, Obsidian CLI, GitHub CLI, jira-cli, etc.).
+
+**→ See [DEPENDENCIES.md](./DEPENDENCIES.md) for the full install guide.**
 
 ## Installation
 
 ```bash
 # Clone the repo
 git clone git@github.com:cosmicdreams/claude-plugins.git
-cd claude-plugins
+cd claude-plugins/worktrees/main
 
-# Install each plugin at user scope
+# Install plugins at user scope
 claude plugin install admin@local --scope user
-claude plugin install drupal-lab@local --scope user
-claude plugin install git-ops@local --scope user
 claude plugin install sprint@local --scope user
+claude plugin install retro@local --scope user
+claude plugin install ideate@local --scope user
+claude plugin install office@local --scope user
+claude plugin install drupal-lab@local --scope user
+```
+
+After installing, initialize the sprint board in your project:
+
+```bash
+brew install beads
+bd init --prefix sprint
 ```
 
 ## Plugins
 
-### `sprint` v1.3.0
-Team sprint execution infrastructure: agents, skills, hooks, protocols, kanban, and retrospectives.
-
-Coordinate parallel agent work across a file-based kanban board with built-in retrospectives and observability hooks.
-
-### `drupal-lab` v1.5.3
-Drupal-specific development skills and agents for DDEV, issue analysis, patch validation, and scaffolding.
-
-Purpose-built for contributing to Drupal core and contrib modules within a DDEV environment.
-
-### `admin` v1.1.1
-Plugin, agent, and skill management tooling: bump-version, scaffold, new-agent, new-skill, optimize-agents, update-plugins.
-
+### `admin`
 Meta-tooling for developing and maintaining Claude Code plugins.
 
-### `git-ops` v1.0.2
-Generic Git workflow tools for worktree management and cleanup.
+Skills: `bump-version`, `changelog` (universal — accepts any plugin name), `create-worktree`, `new-agent`, `new-skill`, `optimize-agents`, `scaffold`, `update-plugins`, `agent-team`
+
+### `sprint`
+Team sprint execution: parallel agents, kanban pipeline, hooks, and protocols.
+
+Skills: `run`, `plan`, `board`, `kanban`, `project-notes`, `asset-audit`, `observe`
+
+### `retro`
+End-of-sprint retrospectives: agent interviews, action card management, session reports.
+
+Skills: `session`, `interviews`, `kanban`, `transcript`
+
+### `ideate`
+Pre-sprint ideation: brainstorming canvas, research, comparisons, and ADRs.
+
+Skills: `brainstorm`, `research`, `compare`, `diagram`, `adr`
+
+### `office`
+Productivity CLI wrappers: email, calendar, Jira, GitHub, Slack, and Obsidian memory layer.
+
+Skills: `personal-email`, `personal-calendar`, `jira`, `github`, `slack`, `pulse`, `morning-brief`, `archive`, `organize`, `vault-store`, `log-analyzer`, `testrail`
+
+### `drupal-lab`
+Drupal development: DDEV environment, issue analysis, patch validation, and scaffolding.
+
+Skills: `analyze-issue`, `issue-summary`, `ddev-drupal-dev`, `process-lifecycle`, `module-dev-starter`, `browse-drupal-issues`, `validate-patch`, `finish-issue`
+
+## Changelog
+
+```bash
+admin:changelog <plugin>            # e.g. admin:changelog sprint
+admin:changelog <plugin> --latest   # most recent version only
+```
 
 ## Author
 
