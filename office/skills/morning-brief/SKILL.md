@@ -25,17 +25,20 @@ allowed-tools: Agent, Bash, Read, Write
 # office:morning-brief — Morning Briefing
 
 Scan overnight Slack activity across all configured channels, surface what matters,
-and optionally update `~/.claude/office-pulse.json` to focus pulse for the day.
+and optionally update the active config to focus pulse for the day.
 
 ## Step 1: Load config
 
-Read `~/.claude/office-pulse.json`. If it does not exist, output:
+Check for config in order:
+1. `.claude/office-pulse.json` in the current working directory
+2. `~/.claude/office-pulse.json`
+
+```bash
+[ -f .claude/office-pulse.json ] && cat .claude/office-pulse.json || cat ~/.claude/office-pulse.json 2>/dev/null
 ```
-office:morning-brief requires ~/.claude/office-pulse.json.
-Create it with slack.workspaces configured.
-See office/skills/pulse/references/config-template.md for the template.
-```
-Then stop.
+
+If neither exists, create `.claude/office-pulse.json` from the template at
+`references/config-template.md`, output setup instructions, and stop.
 
 Parse:
 - `slack.workspaces` — list of workspace objects, each with `url`, `name`, `channels`, and optional `keywords`
@@ -191,16 +194,16 @@ Say which to watch (e.g. "focus on #preview and #experience-builder in Drupal"),
 or "keep current" to leave office-pulse.json unchanged.
 ```
 
-- User names channels → update `office-pulse.json` (Step 7)
+- User names channels → update the active config file (Step 7)
 - User says "keep current" / "no" / "leave it" → skip Step 7
 
-## Step 7: Update office-pulse.json (only if requested)
+## Step 7: Update config (only if requested)
 
-Read `~/.claude/office-pulse.json`. Update the `channels` list for the relevant workspace(s).
-Preserve all other fields. Set `updated` and `updated_by: "morning-brief"`.
+Update the config file that was loaded in Step 1 (project or user scope).
+Update the `channels` list for the relevant workspace(s). Preserve all other fields.
 
-Channels must already exist in the workspace's current list. If a named channel is not found:
-"#{channel} is not in your configured channels — add it to ~/.claude/office-pulse.json first, or confirm to track it anyway."
+If a named channel is not found in the workspace's current list:
+"#{channel} is not in your configured channels — add it to the config first, or confirm to track it anyway."
 
 ## Step 8: Write state
 
