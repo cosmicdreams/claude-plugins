@@ -12,7 +12,14 @@ Human-authored and agent-updated. Edit directly or ask Claude to update it.
   "enabled": true,
   "priority_threshold": "medium",
   "jira": {
-    "projects": ["PROJ", "INFRA"]
+    "servers": [
+      {
+        "url": "https://acme.atlassian.net",
+        "name": "Acme",
+        "config_file": "~/.config/.jira/.config-acme.yml",
+        "projects": ["PROJ", "INFRA"]
+      }
+    ]
   },
   "slack": {
     "workspaces": [
@@ -45,7 +52,16 @@ Human-authored and agent-updated. Edit directly or ask Claude to update it.
 
 | Field | Type | Description |
 |---|---|---|
-| `projects` | list | Jira project codes to watch (e.g. `PROJ`, `INFRA`) |
+| `servers` | list | One entry per Jira server — see server object below |
+
+### jira server object
+
+| Field | Type | Required | Description |
+|---|---|---|---|
+| `url` | string | yes | Jira instance URL (e.g. `https://acme.atlassian.net`) |
+| `name` | string | recommended | Human-readable label shown in output |
+| `config_file` | string | no | Path to jira-cli config for this server. Create with: `JIRA_CONFIG_FILE=<path> jira init`. Omit to use the default jira-cli config. |
+| `projects` | list | yes | Project codes to watch on this server (e.g. `PROJ`, `INFRA`) |
 
 ### workspace object (inside slack.workspaces)
 

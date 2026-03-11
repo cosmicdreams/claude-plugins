@@ -49,8 +49,8 @@ If neither exists, create `.claude/office-pulse.json` from the template at
 Parse:
 - `enabled` — if `false`, output "office:pulse is disabled." and stop
 - `priority_threshold` — `low` / `medium` / `high` / `critical` (default: `medium`)
-- `jira.projects` — list of project codes
-- `slack.workspaces` — list of workspace objects, each with `url`, `name`, `channels`, and optional `keywords`
+- `jira.servers` — list of server objects, each with `url`, `name`, `config_file`, `projects`
+- `slack.workspaces` — list of workspace objects, each with `url`, `name`, `user_id`, `channels`, `keywords`
 
 ## Step 2: Load previous state
 
@@ -64,9 +64,8 @@ Parse as JSON. Fields used:
 
 If absent or empty: first run — treat `oldest_ts` as 24h ago.
 
-For each workspace, get the Slack user ID for @mention classification:
-
-- If `user_id` is already set on the workspace object in config → use it directly
+For each Slack workspace, get the user ID for @mention classification:
+- If `user_id` is already set on the workspace object → use it directly
 - If missing → run `agent-slack auth whoami --workspace {workspace_url}`, extract `user_id`
   or `id`, write it back to the config file under that workspace, then use it
 - If `whoami` fails → set `user_id` to null (mention classification skipped for that workspace)
@@ -86,87 +85,68 @@ print(dt.strftime('%Y-%m-%d'))
 
 ## Step 3: Spawn parallel data-collection subagents
 
-Spawn all subagents simultaneously — one for Jira, one per Slack channel.
-Wait for all before proceeding.
+Spawn all subagents simultaneously — one per Jira server, one per Slack channel.
+Wait for all to return, then synthesize their findings into the output.
 
-### 3a. Jira subagent
+### 3a. One subagent per Jira server
+
+For each server in `jira.servers`, spawn a dedicated subagent. Prompt template:
 
 ```
-You are a data collection agent for office:pulse. Fetch Jira data and return JSON.
-Do not narrate — just fetch and return structured data.
+You are a Jira data collection agent for office:pulse.
 
-JIRA_PROJECTS: {comma-separated list from config.jira.projects}
-LAST_RUN_DATE: {last_run_date, e.g. 2026-03-11}
+SERVER: {server.name} ({server.url})
+JIRA_CONFIG_FILE: {server.config_file, or "default"}
+PROJECTS: {server.projects}
+LAST_RUN_DATE: {last_run_date}
 
-INSTRUCTIONS:
+If JIRA_CONFIG_FILE is not "default", export it before running any jira commands:
+  export JIRA_CONFIG_FILE={server.config_file}
 
-For each project in JIRA_PROJECTS run:
-  jira issue list --project {PROJECT} --updated-after {LAST_RUN_DATE} --plain \
-    --columns KEY,SUMMARY,STATUS,PRIORITY,UPDATED,ASSIGNEE
-If LAST_RUN_DATE is unknown, omit --updated-after.
-For issues assigned to you or with new comments, also run:
-  jira issue view {KEY} --plain --comments 5
-If jira is unavailable, set available=false, issues=[].
+Use the office:jira skill to fetch issues updated since LAST_RUN_DATE across all PROJECTS.
+Focus on: issues assigned to you, issues with new comments, status changes, and blocked issues.
+If LAST_RUN_DATE is unknown, look back 24 hours.
+If jira is unavailable or auth fails, report that clearly.
 
-Return ONLY valid JSON (no markdown):
-{
-  "available": true,
-  "issues": [ { "key": "...", "summary": "...", "status": "...", "priority": "...", "updated": "...", "assignee": "...", "comments": 0 } ]
-}
+Report your findings as a concise summary — what changed, what needs attention, any blockers.
+Label each issue with its server name ({server.name}) so the synthesizing agent knows the source.
 ```
 
-### 3b. One subagent per Slack channel (all spawned in parallel)
+### 3b. One subagent per Slack channel
 
 For every channel across all workspaces, spawn a dedicated subagent simultaneously.
 Prompt template (substitute values per channel):
 
 ```
-You are a data collection agent for office:pulse. Fetch one Slack channel and return JSON.
-Do not narrate — just fetch and return structured data.
+You are a Slack data collection agent for office:pulse.
 
 CHANNEL: {channel_name}
-WORKSPACE_URL: {workspace_url}
+WORKSPACE: {workspace.name} ({workspace_url})
 OLDEST_TS: {oldest_ts}
-
-INSTRUCTIONS:
+YOUR_USER_ID: {workspace.user_id, or null}
+KEYWORDS: {workspace.keywords}
 
 Fetch:
   agent-slack message list {channel_name} --workspace {workspace_url} \
     --oldest {oldest_ts} --limit 20
 If oldest_ts is null, omit --oldest and use --limit 20.
-If the fetch fails, set error to the error message and messages=[].
-Do NOT run agent-slack auth whoami — assume auth works.
+If the fetch fails, report the error and stop.
+Do NOT run agent-slack auth whoami.
 
-Return ONLY valid JSON (no markdown):
-{
-  "workspace_host": "{hostname of workspace_url}",
-  "channel": "{channel_name}",
-  "error": null,
-  "messages": [ { "ts": "...", "user": "...", "text": "...", "thread_ts": null } ]
-}
+Report your findings as a concise summary:
+- @mentions of <@{YOUR_USER_ID}> (skip if YOUR_USER_ID is null)
+- Thread replies to your messages
+- Keyword hits from KEYWORDS (case-insensitive)
+- General activity count
+If nothing new, say so in one line.
 ```
 
-If a channel subagent fails entirely, treat it as `{ "error": "subagent failed", "messages": [] }`.
-If the Jira subagent fails entirely, note `[Jira collection failed]` and continue with Slack only.
+## Step 4: Synthesize findings
 
-## Step 4: Compute deltas
+Collect all subagent reports. Using the priority table below, identify the single
+top-priority item across all sources. Then compile the full delta grouped by source.
 
-Use `your_user_id` from Step 2 for mention classification.
-
-**Jira delta:** Issues where `updated` date > `last_run_date`, or `comments` count >
-snapshot value in `jira_snapshots`. On first run, all returned issues are new.
-
-**Slack delta:** Because `--oldest` was passed, all returned messages are already new.
-
-Classify each Slack message using the workspace's `keywords` list:
-- **DM**: channel is `directmessage` or `im`
-- **@mention**: text contains `<@{your_user_id}>` (skip if `your_user_id` is null)
-- **Thread reply**: `thread_ts` set and `thread_ts` != `ts`
-- **Keyword match**: text matches any entry from this workspace's `keywords` (case-insensitive)
-- **General**: anything else
-
-## Step 5: Rank priorities
-
+Priority signals:
 | Signal | Weight |
 |---|---|
 | Jira issue assigned to you, status = Blocked | Critical |
@@ -179,20 +159,21 @@ Classify each Slack message using the workspace's `keywords` list:
 | Jira comment on issue you're watching | Low |
 | New message in Slack channel (general) | Low |
 
-Filter to items at or above `priority_threshold`. Sort descending.
+Filter to items at or above `priority_threshold`.
 
-## Step 6: Output
+## Step 5: Output
 
 ```
 ━━━ PULSE — {HH:MM} ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  slack: {WorkspaceName}: #{ch1}, #{ch2} · {WorkspaceName2}: #{ch3}
+  jira: {ServerName1}, {ServerName2}
+  slack: {WorkspaceName}: #{ch1}, #{ch2}
 
 TOP PRIORITY
 → [{source}] {summary} — {why it's top priority}
 
 SINCE LAST BROADCAST ({N} minutes ago)
 JIRA
-  → {KEY}: {what changed} ({project})
+  → [{ServerName}] {KEY}: {what changed}
   → [or: no Jira activity]
 
 SLACK
@@ -205,7 +186,7 @@ SLACK
 
 If nothing new: `✓ PULSE {HH:MM} — nothing new since {last broadcast time}`
 
-## Step 7: Write new state
+## Step 6: Write new state
 
 Append one line to `~/.claude/office-pulse.state.jsonl`:
 
