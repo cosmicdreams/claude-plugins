@@ -6,7 +6,9 @@ description: >
   Use when the user asks to optimize, compress, shrink, or convert images, reduce file
   size of images, batch-process a folder of images, or strip image metadata.
   Trigger phrases: "optimize image", "compress image", "shrink image", "reduce image size",
-  "convert to webp", "convert to avif", "batch optimize images", "strip exif", "resize image".
+  "convert to webp", "convert to avif", "batch optimize images", "strip exif", "resize image",
+  "make image smaller", "compress screenshot", "convert heic", "optimize png", "optimize jpeg".
+  Do NOT trigger for AI image generation, photo retouching, or enhancement requiring AI upscaling.
 ---
 
 # office:image-optimize
@@ -166,18 +168,25 @@ Never keep BMP for web use. Always convert.
 
 ### ICO
 
-```bash
-# Create ICO from PNG (multi-size)
-magick input.png -resize 256x256 -resize 128x128 -resize 64x64 -resize 48x48 -resize 32x32 -resize 16x16 output.ico
+**Goal: create multi-size favicon or extract from existing ICO**
 
-# Extract from ICO
+```bash
+# Create multi-size ICO from PNG (auto-resize generates all standard sizes)
+magick input.png -define icon:auto-resize=256,128,64,48,32,16 output.ico
+
+# Extract largest layer from ICO → PNG
 magick input.ico output.png
 ```
 
+Note: chaining `-resize` in sequence does NOT create multi-layer ICO — each resize
+operates on the previous result. Use `-define icon:auto-resize` instead.
+
 ### PSD (Photoshop)
 
+**Goal: flatten and export to a web-compatible format**
+
 ```bash
-# Flatten and export (use [0] to get merged composite)
+# Flatten and export (use [0] to get merged composite layer)
 magick "input.psd[0]" output.png
 magick "input.psd[0]" -quality 85 output.jpg
 ```
@@ -206,10 +215,11 @@ magick input.apng output.webp
 ## Batch Processing
 
 ```bash
-# Optimize all JPEGs in a directory (lossless)
+# Optimize all JPEGs in a directory (lossless, safe in-place via temp file)
 for f in *.jpg *.jpeg; do
-  jpegtran -optimize -progressive -copy none -outfile "$f" "$f"
+  tmp=$(mktemp) && jpegtran -optimize -progressive -copy none -outfile "$tmp" "$f" && mv "$tmp" "$f"
 done
+# Note: jpegtran does not support true in-place editing — always route through a temp file
 
 # Convert all PNGs to WebP
 for f in *.png; do
