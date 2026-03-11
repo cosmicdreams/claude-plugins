@@ -81,8 +81,6 @@ Parse as JSON. Fields used:
 - `ts` — ISO timestamp of last run
 - `email_last_id` — most recent email message ID seen
 - `jira_snapshots` — object mapping issue key → `{ comments, status, updated }`
-- `slack_channels` — object mapping `"workspace_host/channel"` → last seen Slack `ts`
-
 If absent or empty: first run — treat `oldest_ts` as 24h ago for Slack.
 
 Convert `ts` to a Unix float (`oldest_ts`) for use in `--oldest` flags:
@@ -276,7 +274,7 @@ If nothing new across all sources:
 Append one line to `~/.claude/office-pulse.state.jsonl`:
 
 ```json
-{"ts":"{ISO_NOW}","email_last_id":"{most_recent_id}","jira_snapshots":{"{KEY}":{"comments":{N},"status":"{status}","updated":"{ts}"}},"slack_channels":{"{workspace_host}/{channel}":"{most_recent_ts}"}}
+{"ts":"{ISO_NOW}","email_last_id":"{most_recent_id}","jira_snapshots":{"{KEY}":{"comments":{N},"status":"{status}","updated":"{ts}"}}}
 ```
 
 Then trim to last 7 days:
