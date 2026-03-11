@@ -14,11 +14,11 @@ Edit directly or ask Claude to update it.
     "projects": ["PROJ", "INFRA"]
   },
   "slack": {
-    "keywords": ["urgent", "blocked", "your-name-here"],
     "workspaces": [
       {
         "url": "https://drupal.slack.com",
         "name": "Drupal",
+        "keywords": ["urgent", "blocked", "your-name-here"],
         "channels": ["general", "experience-builder", "preview", "javascript"]
       },
       {
@@ -58,7 +58,6 @@ Edit directly or ask Claude to update it.
 
 | Field | Type | Description |
 |---|---|---|
-| `keywords` | list | Global keywords to flag across all workspaces (case-insensitive). Add your name, alert terms, project names. |
 | `workspaces` | list | List of workspace objects — one entry per Slack workspace |
 
 ### workspace object (inside slack.workspaces)
@@ -68,9 +67,7 @@ Edit directly or ask Claude to update it.
 | `url` | string | yes | Full workspace URL (e.g. `https://drupal.slack.com`) |
 | `name` | string | recommended | Human-readable label shown in output |
 | `channels` | list | yes | Channel names to monitor in this workspace (no `#` prefix) |
-| `keywords` | list | no | Workspace-specific keywords, merged with global `slack.keywords` for channels in this workspace |
-
-Keywords applied per channel = global `slack.keywords` ∪ workspace-level `keywords`.
+| `keywords` | list | no | Keywords to flag in this workspace's channels (case-insensitive) |
 
 ---
 

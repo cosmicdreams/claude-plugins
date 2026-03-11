@@ -52,10 +52,9 @@ Parse these top-level fields:
 - `jira.projects` — list of project codes
 - `email_source` — `gmail` (only supported value)
 - `priority_threshold` — `low` / `medium` / `high` / `critical` (default: `medium`)
-- `slack.keywords` — global keywords to watch across all workspaces (case-insensitive)
 - `slack.workspaces` — list of workspace objects, each with `url`, `name`, `channels`, and optional `keywords`
 
-For each workspace, the effective keyword list = global `slack.keywords` ∪ workspace-level `keywords`.
+Keywords are scoped per workspace — each workspace watches only its own `keywords` list.
 
 If `slack.workspaces` is empty or missing, Slack will be skipped (noted in output).
 
@@ -178,11 +177,11 @@ Otherwise:
 4. Filter: keep messages with `ts` > `slack_channels["{workspace_host}/{channel}"]` from state.
    On first run, keep all messages.
 
-5. Classify each new message using the effective keywords for that workspace:
+5. Classify each new message using the workspace's own `keywords` list:
    - **DM**: channel name is `directmessage` or `im`
    - **@mention**: `text` contains `<@{your_user_id}>`
    - **Thread reply**: `thread_ts` set, `thread_ts` != `ts`, `thread_ts` matches a `ts` from your prior messages
-   - **Keyword match**: `text` contains any keyword in global `slack.keywords` ∪ workspace `keywords`
+   - **Keyword match**: `text` contains any entry from this workspace's `keywords` (case-insensitive)
    - **General**: any other new message
 
 ## Step 4: Compute deltas

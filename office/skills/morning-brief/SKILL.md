@@ -52,10 +52,9 @@ See office/skills/pulse/references/config-template.md for the template.
 Then stop.
 
 Parse:
-- `slack.keywords` — global keywords to flag (case-insensitive)
 - `slack.workspaces` — list of workspace objects, each with `url`, `name`, `channels`, and optional `keywords`
 
-For each workspace, the effective keyword list = global `slack.keywords` ∪ workspace-level `keywords`.
+Keywords are scoped per workspace — each workspace watches only its own `keywords` list.
 
 If `slack.workspaces` is empty or missing, output:
 ```
@@ -95,7 +94,7 @@ Filter to messages where `ts` (Unix epoch float) > `last_run` Unix timestamp.
 Compute per-channel metrics:
 - `total_messages` — count since `last_run`
 - `mention_count` — messages containing `<@{your_user_id}>`
-- `keyword_hits` — messages matching any keyword in the workspace's effective keyword list; record keyword + excerpt
+- `keyword_hits` — messages matching any entry in this workspace's `keywords` list; record keyword + excerpt
 - `thread_replies` — messages where `thread_ts` set and `thread_ts` != `ts`
 - `notable` — up to 2 notable messages per channel (mentions first, then keyword hits)
 
