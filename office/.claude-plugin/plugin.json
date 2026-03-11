@@ -1,7 +1,7 @@
 {
     "name": "office",
-    "version": "1.6.0",
-    "description": "Office productivity CLI plugin: wraps msgcli (email/calendar), jira-cli, gh, gws, agent-slack, TestRail REST API, and Obsidian CLI via intelligent skill routing. Provides office:email, office:calendar, office:jira, office:github, office:archive, office:organize, office:log-analyzer, office:personal-email, office:personal-calendar, office:slack, office:pulse, office:morning-brief, and office:testrail skills.",
+    "version": "1.7.0",
+    "description": "Office productivity CLI plugin: wraps msgcli (email/calendar), jira-cli, gh, gws, agent-slack, TestRail REST API, and Obsidian CLI via intelligent skill routing. Provides office:email, office:calendar, office:jira, office:github, office:archive, office:organize, office:log-analyzer, office:personal-email, office:personal-calendar, office:slack, office:pulse, office:morning-brief, office:testrail, office:csv-analysis, and office:image-optimize skills.",
     "author": {
         "name": "Chris Weber"
     },
