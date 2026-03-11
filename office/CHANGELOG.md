@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.9.0
+- `office:pulse` and `office:morning-brief`: all external data fetching (Slack, email, Jira) now runs inside a subagent — main conversation stays clean; only the formatted summary is surfaced
+- Added `Agent` to `allowed-tools` for both skills
+
 ## 1.8.0
 - `office:pulse` and `office:morning-brief`: `~/.claude/office-pulse.local.md` removed — all configuration now lives in `~/.claude/office-pulse.json` only
 - Slack channels are now grouped by workspace: each workspace entry has `url`, `name`, `channels[]`, and optional `keywords[]`
