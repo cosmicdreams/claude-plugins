@@ -64,6 +64,15 @@ Parse as JSON. Fields used:
 
 If absent or empty: first run — treat `oldest_ts` as 24h ago.
 
+Get your Slack user ID (needed for @mention classification):
+
+```bash
+agent-slack auth whoami
+```
+
+Extract `user_id` or `id` from the output. If this fails, set `your_user_id` to null
+(mention classification will be skipped).
+
 Convert `ts` to a Unix float (`oldest_ts`) for Slack `--oldest`, and a date string
 (`last_run_date`) for Jira `--updated-after`:
 
@@ -123,19 +132,17 @@ OLDEST_TS: {oldest_ts}
 
 INSTRUCTIONS:
 
-1. Auth: Run `agent-slack auth whoami` to get your user ID (field: user_id or id).
-
-2. Fetch:
-     agent-slack message list {channel_name} --workspace {workspace_url} \
-       --oldest {oldest_ts} --limit 20
-   If oldest_ts is null, omit --oldest and use --limit 20.
-   If the channel errors, set error to the error message and messages=[].
+Fetch:
+  agent-slack message list {channel_name} --workspace {workspace_url} \
+    --oldest {oldest_ts} --limit 20
+If oldest_ts is null, omit --oldest and use --limit 20.
+If the fetch fails, set error to the error message and messages=[].
+Do NOT run agent-slack auth whoami — assume auth works.
 
 Return ONLY valid JSON (no markdown):
 {
   "workspace_host": "{hostname of workspace_url}",
   "channel": "{channel_name}",
-  "your_user_id": "U...",
   "error": null,
   "messages": [ { "ts": "...", "user": "...", "text": "...", "thread_ts": null } ]
 }
@@ -146,6 +153,8 @@ If the Jira subagent fails entirely, note `[Jira collection failed]` and continu
 
 ## Step 4: Compute deltas
 
+Use `your_user_id` from Step 2 for mention classification.
+
 **Jira delta:** Issues where `updated` date > `last_run_date`, or `comments` count >
 snapshot value in `jira_snapshots`. On first run, all returned issues are new.
 
@@ -153,7 +162,7 @@ snapshot value in `jira_snapshots`. On first run, all returned issues are new.
 
 Classify each Slack message using the workspace's `keywords` list:
 - **DM**: channel is `directmessage` or `im`
-- **@mention**: text contains `<@{your_user_id}>`
+- **@mention**: text contains `<@{your_user_id}>` (skip if `your_user_id` is null)
 - **Thread reply**: `thread_ts` set and `thread_ts` != `ts`
 - **Keyword match**: text matches any entry from this workspace's `keywords` (case-insensitive)
 - **General**: anything else

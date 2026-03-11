@@ -67,10 +67,21 @@ print(prev_10pm.isoformat())
 "
 ```
 
-## Step 3: Spawn data-collection subagent
+Get your Slack user ID (needed for @mention classification):
 
-Spawn a general-purpose subagent to fetch all Slack data silently. Pass the workspace config
-and `last_run` timestamp in the prompt.
+```bash
+agent-slack auth whoami
+```
+
+Extract `user_id` or `id`. If this fails, set `your_user_id` to null (mention counts will be 0).
+
+Convert `last_run` ISO to a Unix float (`oldest_ts`):
+
+```bash
+python3 -c "from datetime import datetime; print(datetime.fromisoformat('{last_run}').timestamp())"
+```
+
+## Step 3: Spawn per-channel subagents
 
 Spawn one subagent per Slack channel, all simultaneously. Each subagent handles exactly one
 channel. Wait for all to return before proceeding.
@@ -85,23 +96,21 @@ CHANNEL: {channel_name}
 WORKSPACE_URL: {workspace_url}
 WORKSPACE_HOST: {workspace_hostname}
 WORKSPACE_KEYWORDS: {keywords array for this workspace, or []}
-OLDEST_TS: {last_run_unix_float}   ← fetch only messages after this point
-YOUR_USER_ID: omit — detect via auth whoami
+OLDEST_TS: {oldest_ts}
+YOUR_USER_ID: {your_user_id, or null}
 
 INSTRUCTIONS:
 
-1. Auth: Run `agent-slack auth whoami`. Extract your user ID (field: user_id or id).
-   If agent-slack is unavailable, return { "error": "agent-slack unavailable" }.
+Fetch:
+  agent-slack message list {channel_name} --workspace {workspace_url} \
+    --oldest {oldest_ts} --limit 20
+If oldest_ts is null, omit --oldest and use --limit 20.
+If the fetch fails, set error to the error message and messages=[].
+Do NOT run agent-slack auth whoami.
 
-2. Fetch:
-     agent-slack message list {channel_name} --workspace {workspace_url} \
-       --oldest {oldest_ts} --limit 20
-   If oldest_ts is null, omit --oldest and use --limit 20.
-   If the channel errors, set error to the error message and messages=[].
-
-3. Compute from returned messages (all are already newer than oldest_ts):
+Compute from returned messages (all are already newer than oldest_ts):
    - total_messages: count of all returned messages
-   - mention_count: messages containing <@{your_user_id}>
+   - mention_count: messages containing <@{YOUR_USER_ID}> (0 if YOUR_USER_ID is null)
    - keyword_hits: messages matching any keyword in WORKSPACE_KEYWORDS (case-insensitive);
      record { keyword, user, excerpt } for each hit
    - thread_replies: messages where thread_ts is set and thread_ts != ts
