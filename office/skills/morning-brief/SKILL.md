@@ -19,7 +19,7 @@ triggers:
   - "set today's focus"
   - "start of day slack summary"
   - "start of day summary"
-allowed-tools: Bash, Read, Write
+allowed-tools: Agent, Bash, Read, Write
 ---
 
 # office:morning-brief — Morning Briefing
@@ -27,21 +27,7 @@ allowed-tools: Bash, Read, Write
 Scan overnight Slack activity across all configured channels, surface what matters,
 and optionally update `~/.claude/office-pulse.json` to focus pulse for the day.
 
-## Step 1: Auth check
-
-```bash
-agent-slack auth whoami
-```
-
-If `agent-slack` is not found, tell the user:
-> `agent-slack` is not installed. Install with: `npm i -g agent-slack`
-> Then authenticate: `agent-slack auth import-desktop`
-
-If auth fails, tell the user to run `agent-slack auth import-desktop` and stop.
-
-Get your user ID from the output (look for `user_id` or `id` field).
-
-## Step 2: Load config
+## Step 1: Load config
 
 Read `~/.claude/office-pulse.json`. If it does not exist, output:
 ```
@@ -54,8 +40,6 @@ Then stop.
 Parse:
 - `slack.workspaces` — list of workspace objects, each with `url`, `name`, `channels`, and optional `keywords`
 
-Keywords are scoped per workspace — each workspace watches only its own `keywords` list.
-
 If `slack.workspaces` is empty or missing, output:
 ```
 No slack.workspaces configured in ~/.claude/office-pulse.json.
@@ -63,11 +47,13 @@ Add at least one workspace with channels to enable morning-brief.
 ```
 Then stop.
 
-## Step 3: Load state
+## Step 2: Load state
 
-Read `~/.claude/office-morning-brief.state.json` if it exists. Parse `last_run` ISO timestamp.
+```bash
+cat ~/.claude/office-morning-brief.state.json 2>/dev/null
+```
 
-If the file does not exist or `last_run` is missing: default to 10pm of the previous calendar day.
+Parse `last_run` ISO timestamp. If absent, default to 10pm of the previous calendar day:
 
 ```bash
 python3 -c "
@@ -78,35 +64,78 @@ print(prev_10pm.isoformat())
 "
 ```
 
-## Step 4: Scan all channels
+## Step 3: Spawn data-collection subagent
 
-For each workspace in `slack.workspaces`, iterate over its `channels`. Fetch sequentially within each
-workspace (rate limit caution — parallel across workspaces is fine):
+Spawn a general-purpose subagent to fetch all Slack data silently. Pass the workspace config
+and `last_run` timestamp in the prompt.
 
-```bash
-agent-slack message list <channel> --workspace <workspace_url> --limit 100
+**Subagent prompt template** (substitute actual values before spawning):
+
+```
+You are a data collection agent for office:morning-brief. Fetch Slack messages from all
+configured channels and return a single JSON object. Do not narrate or explain.
+
+LAST_RUN: {last_run ISO timestamp}
+
+WORKSPACES:
+{paste slack.workspaces array from office-pulse.json}
+
+INSTRUCTIONS:
+
+1. Auth: Run `agent-slack auth whoami`. Extract your user ID (field: user_id or id).
+   If agent-slack is unavailable, return { "error": "agent-slack unavailable" } and stop.
+
+2. For each workspace, for each channel, fetch sequentially within the workspace
+   (parallel across workspaces is fine):
+     agent-slack message list {channel} --workspace {workspace_url} --limit 100
+   Skip channels that error — record the error.
+
+3. For each channel, compute:
+   - total_messages: count of messages where ts (Unix float) > last_run Unix timestamp
+   - mention_count: messages containing <@{your_user_id}>
+   - keyword_hits: messages matching any keyword in this workspace's keywords list (case-insensitive);
+     record { keyword, user, excerpt } for each hit
+   - thread_replies: messages where thread_ts is set and thread_ts != ts
+   - notable: up to 2 messages — mentions first, then keyword hits; each as { user, excerpt }
+   - most_recent_ts: highest ts value seen across all messages (not just new ones)
+
+Return ONLY valid JSON (no markdown, no explanation):
+{
+  "your_user_id": "U...",
+  "workspaces": {
+    "{workspace_hostname}": {
+      "{channel_name}": {
+        "error": null,
+        "most_recent_ts": "...",
+        "total_messages": 0,
+        "mention_count": 0,
+        "keyword_hits": [ { "keyword": "...", "user": "...", "excerpt": "..." } ],
+        "thread_replies": 0,
+        "notable": [ { "user": "...", "excerpt": "..." } ]
+      }
+    }
+  }
+}
 ```
 
-Skip channels that error with a note.
+Wait for the subagent to return. If it returns `{ "error": "..." }`, output:
+```
+Morning brief failed: {error}
+Check agent-slack auth: agent-slack auth import-desktop
+```
+Then stop.
 
-Filter to messages where `ts` (Unix epoch float) > `last_run` Unix timestamp.
+## Step 4: Score and rank
 
-Compute per-channel metrics:
-- `total_messages` — count since `last_run`
-- `mention_count` — messages containing `<@{your_user_id}>`
-- `keyword_hits` — messages matching any entry in this workspace's `keywords` list; record keyword + excerpt
-- `thread_replies` — messages where `thread_ts` set and `thread_ts` != `ts`
-- `notable` — up to 2 notable messages per channel (mentions first, then keyword hits)
-
-## Step 5: Score and rank
+For each channel in the subagent result:
 
 ```
 score = (mention_count × 3) + (keyword_hits × 2) + (thread_replies × 2) + floor(total_messages / 5)
 ```
 
-Sort descending by score. Group output by workspace.
+Sort descending by score within each workspace.
 
-## Step 6: Output morning brief
+## Step 5: Output morning brief
 
 ```
 ━━━ MORNING BRIEF — {YYYY-MM-DD} ━━━━━━━━━━━━━━━━━━━━━━━
@@ -114,7 +143,7 @@ Sort descending by score. Group output by workspace.
 OVERNIGHT SLACK ACTIVITY (since {last_run_time})
 Scanned {N} channels across {W} workspaces · {total_msg_count} messages
 
-{WorkspaceName} ({workspace_url})
+{WorkspaceName}
   #{channel}  — {mention_count} @mentions, {keyword_hits} keyword hits, {total_messages} messages
     → @{user}: "{excerpt}"
   #{channel}  — keyword "{keyword}", {total_messages} messages
@@ -122,19 +151,19 @@ Scanned {N} channels across {W} workspaces · {total_msg_count} messages
   #{channel}  — {total_messages} messages
   Quiet: #channel1, #channel2
 
-{WorkspaceName2} ({workspace_url})
+{WorkspaceName2}
   ...
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
 Show channels with activity ranked by score within each workspace.
-List zero-activity channels compactly as "Quiet: ..." per workspace.
-If no channels had any activity: output "No overnight activity across any configured channel."
+List zero-activity channels as "Quiet: ..." per workspace.
+If no activity anywhere: "No overnight activity across any configured channel."
 
-## Step 7: Offer focus update
+## Step 6: Offer focus update
 
-After the brief, show the current channel configuration and offer to narrow it for the day:
+Show current config and offer to narrow it for the day:
 
 ```
 Currently configured:
@@ -146,46 +175,24 @@ Say which to watch (e.g. "focus on #preview and #experience-builder in Drupal"),
 or "keep current" to leave office-pulse.json unchanged.
 ```
 
-- If user names channels → update `office-pulse.json` (Step 8)
-- If user says "keep current" / "no" / "leave it" → skip Step 8
+- User names channels → update `office-pulse.json` (Step 7)
+- User says "keep current" / "no" / "leave it" → skip Step 7
 
-## Step 8: Update office-pulse.json (only if requested)
+## Step 7: Update office-pulse.json (only if requested)
 
-Read `~/.claude/office-pulse.json`. Update the `channels` list for the relevant workspace(s),
-preserving all other fields. Update `updated` and `updated_by`:
+Read `~/.claude/office-pulse.json`. Update the `channels` list for the relevant workspace(s).
+Preserve all other fields. Set `updated` and `updated_by: "morning-brief"`.
 
-```json
-{
-  "updated": "{ISO_NOW}",
-  "updated_by": "morning-brief",
-  "slack": {
-    "keywords": ["...unchanged..."],
-    "workspaces": [
-      {
-        "url": "https://drupal.slack.com",
-        "name": "Drupal",
-        "channels": ["preview", "experience-builder"]
-      }
-    ]
-  }
-}
-```
-
-Channels must already exist in the workspace's channel list.
-If the user names a channel not in any workspace, flag it:
+Channels must already exist in the workspace's current list. If a named channel is not found:
 "#{channel} is not in your configured channels — add it to ~/.claude/office-pulse.json first, or confirm to track it anyway."
 
-## Step 9: Write state
+## Step 8: Write state
 
-Write `~/.claude/office-morning-brief.state.json`:
-
-```json
-{"last_run": "{ISO_NOW}"}
+```bash
+echo '{"last_run": "{ISO_NOW}"}' > ~/.claude/office-morning-brief.state.json
 ```
 
-## Step 10: Done
-
-Output:
+## Step 9: Done
 
 ```
 Morning brief complete.
