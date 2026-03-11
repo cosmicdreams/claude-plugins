@@ -3,7 +3,7 @@ name: morning-brief
 description: >
   Your morning Slack catchup. Run once at the start of your day to scan what happened
   overnight across all configured channels, surface @mentions and keyword hits, and
-  optionally update ~/.claude/office-pulse.json to set which channels office:pulse
+  optionally update ~/.claude/office-pulse.json to focus which channels office:pulse
   monitors for the rest of the day.
 
   Use this skill for time-bounded overnight catchup ("what happened while I was away").
@@ -43,27 +43,26 @@ Get your user ID from the output (look for `user_id` or `id` field).
 
 ## Step 2: Load config
 
-Read `~/.claude/office-pulse.local.md`. If it does not exist, output:
+Read `~/.claude/office-pulse.json`. If it does not exist, output:
 ```
-office:morning-brief requires ~/.claude/office-pulse.local.md.
-Create it with slack_channels and slack_default_workspace configured.
-See references/config-template.md for the template.
+office:morning-brief requires ~/.claude/office-pulse.json.
+Create it with slack.workspaces configured.
+See office/skills/pulse/references/config-template.md for the template.
 ```
 Then stop.
 
 Parse:
-- `slack_default_workspace` — workspace URL for channels that omit `workspace`
-- `slack_keywords` — keywords to flag (case-insensitive)
-- `slack_channels` — full universe of channels to scan
+- `slack.keywords` — global keywords to flag (case-insensitive)
+- `slack.workspaces` — list of workspace objects, each with `url`, `name`, `channels`, and optional `keywords`
 
-If `slack_channels` is empty or missing, output:
+For each workspace, the effective keyword list = global `slack.keywords` ∪ workspace-level `keywords`.
+
+If `slack.workspaces` is empty or missing, output:
 ```
-No slack_channels configured in ~/.claude/office-pulse.local.md.
-Add a slack_channels list to enable morning-brief.
+No slack.workspaces configured in ~/.claude/office-pulse.json.
+Add at least one workspace with channels to enable morning-brief.
 ```
 Then stop.
-
-Resolve each channel entry: if `workspace` is omitted, apply `slack_default_workspace`.
 
 ## Step 3: Load state
 
@@ -82,14 +81,13 @@ print(prev_10pm.isoformat())
 
 ## Step 4: Scan all channels
 
-For each channel in `slack_channels`, fetch recent messages:
+For each workspace in `slack.workspaces`, iterate over its `channels`. Fetch sequentially within each
+workspace (rate limit caution — parallel across workspaces is fine):
 
 ```bash
-agent-slack message list <channel> --workspace <workspace> --limit 100
+agent-slack message list <channel> --workspace <workspace_url> --limit 100
 ```
 
-Run fetches sequentially (rate limit caution).
-(Sequential is intentional — `agent-slack` rate-limits per workspace. Running in parallel risks 429 errors.)
 Skip channels that error with a note.
 
 Filter to messages where `ts` (Unix epoch float) > `last_run` Unix timestamp.
@@ -97,7 +95,7 @@ Filter to messages where `ts` (Unix epoch float) > `last_run` Unix timestamp.
 Compute per-channel metrics:
 - `total_messages` — count since `last_run`
 - `mention_count` — messages containing `<@{your_user_id}>`
-- `keyword_hits` — messages matching any `slack_keywords` entry; record keyword + excerpt
+- `keyword_hits` — messages matching any keyword in the workspace's effective keyword list; record keyword + excerpt
 - `thread_replies` — messages where `thread_ts` set and `thread_ts` != `ts`
 - `notable` — up to 2 notable messages per channel (mentions first, then keyword hits)
 
@@ -107,7 +105,7 @@ Compute per-channel metrics:
 score = (mention_count × 3) + (keyword_hits × 2) + (thread_replies × 2) + floor(total_messages / 5)
 ```
 
-Sort descending by score.
+Sort descending by score. Group output by workspace.
 
 ## Step 6: Output morning brief
 
@@ -115,58 +113,68 @@ Sort descending by score.
 ━━━ MORNING BRIEF — {YYYY-MM-DD} ━━━━━━━━━━━━━━━━━━━━━━━
 
 OVERNIGHT SLACK ACTIVITY (since {last_run_time})
-Scanned {N} channels · {total_msg_count} messages
+Scanned {N} channels across {W} workspaces · {total_msg_count} messages
 
+{WorkspaceName} ({workspace_url})
   #{channel}  — {mention_count} @mentions, {keyword_hits} keyword hits, {total_messages} messages
     → @{user}: "{excerpt}"
   #{channel}  — keyword "{keyword}", {total_messages} messages
     → "{excerpt}"
   #{channel}  — {total_messages} messages
+  Quiet: #channel1, #channel2
 
-  Quiet: #channel1, #channel2, #channel3
+{WorkspaceName2} ({workspace_url})
+  ...
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```
 
-Show channels with activity ranked by score. List zero-activity channels compactly as "Quiet: ...".
+Show channels with activity ranked by score within each workspace.
+List zero-activity channels compactly as "Quiet: ..." per workspace.
 If no channels had any activity: output "No overnight activity across any configured channel."
 
 ## Step 7: Offer focus update
 
-Read `~/.claude/office-pulse.json` if it exists. Extract `slack_channels` for display.
-If the file does not exist or `slack_channels` is empty, show "(none configured)" as the current tracking state.
-
-After the brief, show the current tracking state and offer to change it:
+After the brief, show the current channel configuration and offer to narrow it for the day:
 
 ```
-Currently tracking (office-pulse.json): #{ch1}, #{ch2}
+Currently configured:
+  {WorkspaceName}: #{ch1}, #{ch2}, #{ch3}
+  {WorkspaceName2}: #{ch1}
 
 Want to focus on specific channels today?
-Say which channels to watch (e.g. "focus on #preview and #experience-builder"),
+Say which to watch (e.g. "focus on #preview and #experience-builder in Drupal"),
 or "keep current" to leave office-pulse.json unchanged.
 ```
 
 - If user names channels → update `office-pulse.json` (Step 8)
 - If user says "keep current" / "no" / "leave it" → skip Step 8
-- If user says "reset" → restore channels from `slack_channels` in `office-pulse.local.md`
 
 ## Step 8: Update office-pulse.json (only if requested)
 
-Read `~/.claude/office-pulse.json` and update `slack_channels` in place, preserving all other fields:
+Read `~/.claude/office-pulse.json`. Update the `channels` list for the relevant workspace(s),
+preserving all other fields. Update `updated` and `updated_by`:
 
 ```json
 {
   "updated": "{ISO_NOW}",
   "updated_by": "morning-brief",
-  "slack_channels": [
-    { "workspace": "{workspace_url}", "channel": "{channel_name}" }
-  ]
+  "slack": {
+    "keywords": ["...unchanged..."],
+    "workspaces": [
+      {
+        "url": "https://drupal.slack.com",
+        "name": "Drupal",
+        "channels": ["preview", "experience-builder"]
+      }
+    ]
+  }
 }
 ```
 
-Channels must come from the `slack_channels` universe in `office-pulse.local.md`.
-If the user names a channel not in the list, flag it:
-"#{channel} is not in your configured channels — add it to ~/.claude/office-pulse.local.md first, or confirm to track it anyway."
+Channels must already exist in the workspace's channel list.
+If the user names a channel not in any workspace, flag it:
+"#{channel} is not in your configured channels — add it to ~/.claude/office-pulse.json first, or confirm to track it anyway."
 
 ## Step 9: Write state
 
@@ -182,6 +190,6 @@ Output:
 
 ```
 Morning brief complete.
-Pulse is tracking: #{channel1}, #{channel2}  (source: {morning-brief|unchanged|reset})
+Pulse is tracking: {WorkspaceName}: #{ch1}, #{ch2} · {WorkspaceName2}: #{ch1}
 Run /loop 1h /office:pulse to start monitoring.
 ```
