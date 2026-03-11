@@ -92,8 +92,8 @@ INSTRUCTIONS:
 
 2. Fetch:
      agent-slack message list {channel_name} --workspace {workspace_url} \
-       --oldest {oldest_ts} --limit 200
-   If oldest_ts is null, omit --oldest and use --limit 100.
+       --oldest {oldest_ts} --limit 20
+   If oldest_ts is null, omit --oldest and use --limit 20.
    If the channel errors, set error to the error message and messages=[].
 
 3. Compute from returned messages (all are already newer than oldest_ts):

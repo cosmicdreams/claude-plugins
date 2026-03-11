@@ -167,8 +167,8 @@ INSTRUCTIONS:
 
 2. Fetch: Run:
      agent-slack message list {channel_name} --workspace {workspace_url} \
-       --oldest {oldest_ts} --limit 200
-   If oldest_ts is null or unknown, omit --oldest and use --limit 50.
+       --oldest {oldest_ts} --limit 20
+   If oldest_ts is null or unknown, omit --oldest and use --limit 20.
    If the channel errors, set error to the error message and messages=[].
 
 3. Compute most_recent_ts: highest ts value across ALL returned messages (not just new ones).
