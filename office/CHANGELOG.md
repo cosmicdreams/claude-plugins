@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.7.0
+- `office:csv-analysis`: new skill — auto-analyzes CSV files with pandas/matplotlib/seaborn, generates type-appropriate visualizations and statistical summaries without prompting the user
+- `office:image-optimize`: new skill — format-aware image optimization routing to specialist tools (pngquant for PNG, cwebp/avifenc for modern formats, jpegtran for JPEG lossless); ImageMagick as universal fallback; covers JPEG, PNG, WebP, AVIF, GIF, HEIC, TIFF, BMP, ICO, PSD, SVG, APNG; includes batch processing patterns and format conversion recommendations
+
 ## 1.6.0
 - Removed `office:changelog` — use `admin:changelog office` instead
 - `office:pulse`: expanded project config parsing to support additional local override fields
