@@ -70,7 +70,7 @@ Save to `./analysis-reports/{issue_number}.md`
 
 ## Obsidian Storage
 
-After the analysis report is written to `./analysis-reports/{issue_number}.md`, also archive it to the Neurons vault. This step is **optional and non-blocking** — skip silently if Obsidian is not running.
+After the analysis report is written to `./analysis-reports/{issue_number}.md`, also archive it to the Neurons vault. Obsidian is assumed to be running — if the write fails, run `obsidian help` to diagnose the connection.
 
 ### Project Mapping
 
@@ -94,9 +94,6 @@ Drupal.org/webform/3401234-validation-bug.md
 ### Archive Command
 
 ```bash
-# Health check — non-blocking
-obsidian help || { echo "Vault storage skipped (Obsidian not running)"; exit 0; }
-
 # Resolve project name from issue URL
 # e.g. https://www.drupal.org/project/drupal/issues/3345989 → DRUPAL_PROJECT="drupal"
 # e.g. https://www.drupal.org/project/webform/issues/3401234 → DRUPAL_PROJECT="webform"
@@ -104,10 +101,13 @@ DRUPAL_PROJECT="<extracted-from-issue-url>"
 ISSUE_NUMBER="<issue-number>"
 ISSUE_SLUG="<kebab-title>"
 
-obsidian create \
+# Write to vault — Obsidian assumed running
+if ! obsidian create \
   --vault=Neurons \
   --path="Drupal.org/${DRUPAL_PROJECT}/${ISSUE_NUMBER}-${ISSUE_SLUG}.md" \
-  --content="<analysis-report-content>"
+  --content="<analysis-report-content>"; then
+  echo "Vault write failed — run 'obsidian help' to check the connection"
+fi
 ```
 
 ### YAML Frontmatter

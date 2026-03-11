@@ -91,6 +91,25 @@ If `analysis-reports/RELEASE-NOTES.md` does not exist, create it with just the n
 
 Do NOT close, delete, or modify beads — bead lifecycle management is the team-lead's responsibility.
 
+## Step 6: Archive to Neurons Vault
+
+After writing the local file, also write the new entries to the Neurons vault. Obsidian is assumed to be running.
+
+```bash
+VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
+DATE=$(date +%Y-%m-%d)
+PROJECT_SLUG=$(echo "${OFFICE_PROJECT_NAME:-$(basename "$PWD")}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+
+if ! obsidian create \
+  --vault="$VAULT_NAME" \
+  --path="Projects/${PROJECT_SLUG}/release-notes/${DATE}-sprint-notes.md" \
+  --content="<new-entries-content>"; then
+  echo "Vault write failed — run 'obsidian help' to check the connection"
+fi
+```
+
+This captures a snapshot of the sprint's outcomes in the vault — the local `RELEASE-NOTES.md` remains the append-only source of truth; the vault entry is a per-sprint snapshot for cross-project querying.
+
 ## Notes
 
 - Works with zero or multiple cards: always check the count before proceeding

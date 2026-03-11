@@ -234,19 +234,12 @@ These principles govern how this skill behaves. An agent implementing this skill
 
 ## Obsidian Storage
 
-After producing output, optionally archive to the Neurons vault for long-term memory.
-This is non-blocking — if Obsidian isn't running, skip and continue.
+After producing output, archive to the Neurons vault for long-term memory. Obsidian is assumed to be running.
 
-1. **Health check**:
-   ```bash
-   obsidian help
-   ```
-   If this fails: note "Vault storage skipped (Obsidian not running)" and finish normally.
-
-2. **Determine topic slug**: convert the brainstorm topic to kebab-case
+1. **Determine topic slug**: convert the brainstorm topic to kebab-case
    (e.g. "API authentication options" → `api-authentication-options`)
 
-3. **Write to vault**:
+2. **Write to vault**:
    ```bash
    obsidian create \
      --vault=Neurons \
@@ -254,5 +247,6 @@ This is non-blocking — if Obsidian isn't running, skip and continue.
      --content="<output-content>"
    ```
    Where `<output-content>` is the synthesized plan + key decisions from the canvas.
+   If this fails: run `obsidian help` to diagnose the connection, then report the error.
 
-4. **Confirm**: "✅ Saved to Neurons: shared/Decisions/<topic>/<YYYY-MM-DD>-<topic>.md"
+3. **Confirm**: "Saved to Neurons: shared/Decisions/<topic>/<YYYY-MM-DD>-<topic>.md"

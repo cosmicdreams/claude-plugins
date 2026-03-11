@@ -81,13 +81,7 @@ VAULT_ROOT="$HOME/Vaults/$VAULT_NAME"
 ADR_PATH="shared/Architecture/ADRs/{YYYY-MM-DD}-{slug}.md"
 ```
 
-Check if Obsidian is running:
-
-```bash
-obsidian help &>/dev/null
-```
-
-If available, write via CLI:
+Write via CLI — Obsidian assumed running:
 ```bash
 obsidian create \
   --vault="$VAULT_NAME" \
@@ -96,12 +90,12 @@ obsidian create \
 ```
 Report: `ADR saved: $VAULT_NAME/$ADR_PATH`
 
-If Obsidian is not running, write directly to vault root:
+If the CLI write fails, fall back to the vault filesystem directly:
 ```bash
 mkdir -p "$VAULT_ROOT/shared/Architecture/ADRs"
 # write formatted ADR to $VAULT_ROOT/$ADR_PATH
 ```
-Note: `Obsidian not running — ADR written to $VAULT_ROOT/$ADR_PATH. It will appear in Obsidian next time it opens.`
+Note: `Vault CLI failed — ADR written directly to $VAULT_ROOT/$ADR_PATH. Run 'obsidian help' to check the connection.`
 
 **On any failure:** output the formatted ADR directly in the conversation so it is not lost, then report the error.
 

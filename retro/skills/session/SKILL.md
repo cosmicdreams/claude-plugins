@@ -223,7 +223,7 @@ Read `retro:kanban` for the full user review flow. Summary:
 
 ## Obsidian Storage
 
-After saving the session retrospective to `analysis-reports/`, archive it to the Neurons vault. This step is **optional and additive** — if Obsidian is not running, skip silently.
+After saving the session retrospective to `analysis-reports/`, archive it to the Neurons vault. Obsidian is assumed to be running — if the write fails, run `obsidian help` to diagnose the connection.
 
 ### Project Slug Resolution
 
@@ -243,9 +243,6 @@ Derive the sprint slug from the sprint name already established for this session
 ### Storage Script
 
 ```bash
-# Health check — non-blocking
-obsidian help || { echo "Vault storage skipped (Obsidian not running)"; exit 0; }
-
 # Resolve project slug
 if [ -n "$OFFICE_PROJECT_NAME" ]; then
   PROJECT_SLUG=$(echo "$OFFICE_PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
@@ -262,10 +259,13 @@ SPRINT_SLUG="<sprint-slug-from-session>"  # e.g. sprint-1, jquery-fixes
 DATE=$(date +%Y-%m-%d)
 VAULT_PATH="Retrospectives/${DATE}+${PROJECT_SLUG}+${SPRINT_SLUG}/SESSION-RETROSPECTIVE.md"
 
-obsidian create \
+# Write to vault — Obsidian assumed running
+if ! obsidian create \
   --vault=Neurons \
   --path="$VAULT_PATH" \
-  --content="<session-retrospective-content>"
+  --content="<session-retrospective-content>"; then
+  echo "Vault write failed — run 'obsidian help' to check the connection"
+fi
 ```
 
 ### Vault Document Format

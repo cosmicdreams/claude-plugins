@@ -101,7 +101,7 @@ Run with: `ddev phpunit path/to/tests/`
 
 ## Obsidian Storage
 
-After the contribution comment is generated, also archive it to the Neurons vault. This step is **optional and non-blocking** — skip silently if Obsidian is not running.
+After the contribution comment is generated, also archive it to the Neurons vault. Obsidian is assumed to be running — if the write fails, run `obsidian help` to diagnose the connection.
 
 ### Project Mapping
 
@@ -125,17 +125,17 @@ Drupal.org/webform/3401234-contribution-comment.md
 ### Archive Command
 
 ```bash
-# Health check — non-blocking
-obsidian help || { echo "Vault storage skipped (Obsidian not running)"; exit 0; }
-
 # Resolve project name from issue URL
 DRUPAL_PROJECT="<extracted-from-issue-url>"
 ISSUE_NUMBER="<issue-number>"
 
-obsidian create \
+# Write to vault — Obsidian assumed running
+if ! obsidian create \
   --vault=Neurons \
   --path="Drupal.org/${DRUPAL_PROJECT}/${ISSUE_NUMBER}-contribution-comment.md" \
-  --content="<contribution-comment-content>"
+  --content="<contribution-comment-content>"; then
+  echo "Vault write failed — run 'obsidian help' to check the connection"
+fi
 ```
 
 ### YAML Frontmatter

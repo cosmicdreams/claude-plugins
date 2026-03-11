@@ -109,7 +109,7 @@ The hook remains in place as a last-resort fallback for sessions where team-lead
 
 ## Obsidian Storage
 
-After each interview file is saved to `analysis-reports/`, archive it to the Neurons vault. This step is **optional and additive** — if Obsidian is not running, skip silently.
+After each interview file is saved to `analysis-reports/`, archive it to the Neurons vault. Obsidian is assumed to be running — if the write fails, run `obsidian help` to diagnose the connection.
 
 ### Project Slug Resolution
 
@@ -131,9 +131,6 @@ Derived from the sprint folder name already established (the `<sprint-name>` seg
 ### Storage Script (per agent interview)
 
 ```bash
-# Health check — non-blocking
-obsidian help || { echo "Vault storage skipped (Obsidian not running)"; exit 0; }
-
 # Resolve project slug (run once per sprint, reuse across agents)
 if [ -n "$OFFICE_PROJECT_NAME" ]; then
   PROJECT_SLUG=$(echo "$OFFICE_PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
@@ -150,10 +147,13 @@ AGENT_ROLE="<agent-role>"                 # e.g. implementer, reviewer, process-
 DATE=$(date +%Y-%m-%d)
 VAULT_PATH="Retrospectives/${DATE}+${PROJECT_SLUG}+${SPRINT_SLUG}/interviews/${AGENT_ROLE}.md"
 
-obsidian create \
+# Write to vault — Obsidian assumed running
+if ! obsidian create \
   --vault=Neurons \
   --path="$VAULT_PATH" \
-  --content="<interview-file-content>"
+  --content="<interview-file-content>"; then
+  echo "Vault write failed — run 'obsidian help' to check the connection"
+fi
 ```
 
 ### Vault Document Format

@@ -384,27 +384,20 @@ If chained from `ideate:brainstorm`, also offer:
 
 ## Obsidian Storage
 
-After producing output, optionally archive to the Neurons vault for long-term memory.
-This is non-blocking — if Obsidian isn't running, skip and continue.
+After producing output, archive to the Neurons vault for long-term memory. Obsidian is assumed to be running.
 
-1. **Health check**:
-   ```bash
-   obsidian help
-   ```
-   If this fails: note "Vault storage skipped (Obsidian not running)" and finish normally.
-
-2. **Determine topic slug**: convert the diagram topic to kebab-case
+1. **Determine topic slug**: convert the diagram topic to kebab-case
    (e.g. "API authentication options" → `api-authentication-options`)
 
-3. **Choose the vault subfolder** based on diagram intent:
+2. **Choose the vault subfolder** based on diagram intent:
    - `shared/Architecture/<topic>/` — system/component/data-flow diagrams
    - `shared/Decisions/<topic>/` — decision trees, option comparisons
    - `shared/Analysis/<topic>/` — dependency maps, audit diagrams
 
-4. **Write to vault**:
+3. **Write to vault**:
    ```bash
    VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
-   SUBFOLDER="shared/Architecture/<topic>"   # adjust per step 3
+   SUBFOLDER="shared/Architecture/<topic>"   # adjust per step 2
    obsidian create \
      --vault="$VAULT_NAME" \
      --path="$SUBFOLDER/<YYYY-MM-DD>-<diagram-name>.excalidraw" \
@@ -412,12 +405,12 @@ This is non-blocking — if Obsidian isn't running, skip and continue.
    ```
    Where `<output-content>` is the raw Excalidraw JSON.
 
-   If `obsidian create` fails (Obsidian not running), write the file directly:
+   If `obsidian create` fails, fall back to writing directly to the vault filesystem:
    ```bash
-   VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
    VAULT_PATH="$HOME/Vaults/$VAULT_NAME/$SUBFOLDER"
    mkdir -p "$VAULT_PATH"
    cp "$FILENAME" "$VAULT_PATH/<YYYY-MM-DD>-<diagram-name>.excalidraw"
    ```
+   Report: `Vault CLI failed — written to $VAULT_PATH. Run 'obsidian help' to check the connection.`
 
-5. **Confirm**: "Saved to $VAULT_NAME: $SUBFOLDER/<YYYY-MM-DD>-<diagram-name>.excalidraw"
+4. **Confirm**: "Saved to $VAULT_NAME: $SUBFOLDER/<YYYY-MM-DD>-<diagram-name>.excalidraw"
