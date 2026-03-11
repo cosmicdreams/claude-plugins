@@ -69,61 +69,77 @@ print(prev_10pm.isoformat())
 Spawn a general-purpose subagent to fetch all Slack data silently. Pass the workspace config
 and `last_run` timestamp in the prompt.
 
-**Subagent prompt template** (substitute actual values before spawning):
+Spawn one subagent per Slack channel, all simultaneously. Each subagent handles exactly one
+channel. Wait for all to return before proceeding.
+
+**Per-channel subagent prompt** (substitute values for each channel):
 
 ```
-You are a data collection agent for office:morning-brief. Fetch Slack messages from all
-configured channels and return a single JSON object. Do not narrate or explain.
+You are a data collection agent for office:morning-brief. Fetch one Slack channel and return JSON.
+Do not narrate or explain.
 
-LAST_RUN: {last_run ISO timestamp}
-
-WORKSPACES:
-{paste slack.workspaces array from office-pulse.json}
+CHANNEL: {channel_name}
+WORKSPACE_URL: {workspace_url}
+WORKSPACE_HOST: {workspace_hostname}
+WORKSPACE_KEYWORDS: {keywords array for this workspace, or []}
+OLDEST_TS: {last_run_unix_float}   ← fetch only messages after this point
+YOUR_USER_ID: omit — detect via auth whoami
 
 INSTRUCTIONS:
 
 1. Auth: Run `agent-slack auth whoami`. Extract your user ID (field: user_id or id).
-   If agent-slack is unavailable, return { "error": "agent-slack unavailable" } and stop.
+   If agent-slack is unavailable, return { "error": "agent-slack unavailable" }.
 
-2. For each workspace, for each channel, fetch sequentially within the workspace
-   (parallel across workspaces is fine):
-     agent-slack message list {channel} --workspace {workspace_url} --limit 100
-   Skip channels that error — record the error.
+2. Fetch:
+     agent-slack message list {channel_name} --workspace {workspace_url} \
+       --oldest {oldest_ts} --limit 200
+   If oldest_ts is null, omit --oldest and use --limit 100.
+   If the channel errors, set error to the error message and messages=[].
 
-3. For each channel, compute:
-   - total_messages: count of messages where ts (Unix float) > last_run Unix timestamp
+3. Compute from returned messages (all are already newer than oldest_ts):
+   - total_messages: count of all returned messages
    - mention_count: messages containing <@{your_user_id}>
-   - keyword_hits: messages matching any keyword in this workspace's keywords list (case-insensitive);
+   - keyword_hits: messages matching any keyword in WORKSPACE_KEYWORDS (case-insensitive);
      record { keyword, user, excerpt } for each hit
    - thread_replies: messages where thread_ts is set and thread_ts != ts
    - notable: up to 2 messages — mentions first, then keyword hits; each as { user, excerpt }
-   - most_recent_ts: highest ts value seen across all messages (not just new ones)
+   - most_recent_ts: highest ts value seen (if no messages, use oldest_ts)
 
-Return ONLY valid JSON (no markdown, no explanation):
+Return ONLY valid JSON (no markdown):
+{
+  "workspace_host": "{workspace_hostname}",
+  "channel": "{channel_name}",
+  "your_user_id": "U...",
+  "error": null,
+  "most_recent_ts": "...",
+  "total_messages": 0,
+  "mention_count": 0,
+  "keyword_hits": [ { "keyword": "...", "user": "...", "excerpt": "..." } ],
+  "thread_replies": 0,
+  "notable": [ { "user": "...", "excerpt": "..." } ]
+}
+```
+
+If any channel subagent fails entirely, treat it as `{ "error": "subagent failed", "total_messages": 0, ... }`.
+
+If ALL channel subagents return `{ "error": "agent-slack unavailable" }`, output:
+```
+Morning brief failed: agent-slack unavailable
+Check agent-slack auth: agent-slack auth import-desktop
+```
+Then stop.
+
+**Merge results** into the shape the scoring step expects:
+```json
 {
   "your_user_id": "U...",
   "workspaces": {
     "{workspace_hostname}": {
-      "{channel_name}": {
-        "error": null,
-        "most_recent_ts": "...",
-        "total_messages": 0,
-        "mention_count": 0,
-        "keyword_hits": [ { "keyword": "...", "user": "...", "excerpt": "..." } ],
-        "thread_replies": 0,
-        "notable": [ { "user": "...", "excerpt": "..." } ]
-      }
+      "{channel_name}": { ...per-channel result... }
     }
   }
 }
 ```
-
-Wait for the subagent to return. If it returns `{ "error": "..." }`, output:
-```
-Morning brief failed: {error}
-Check agent-slack auth: agent-slack auth import-desktop
-```
-Then stop.
 
 ## Step 4: Score and rank
 
