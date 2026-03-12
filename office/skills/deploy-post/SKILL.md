@@ -1,93 +1,146 @@
 ---
 name: deploy-post
 description: >
-  Post a formatted deployment checklist message to a Slack channel using agent-slack.
-  Use when the user says "post deployment checklist", "send deploy checklist", "post to slack for deployment",
-  "send the deployment post", "post deploy status to slack", "office:deploy-post", or references
-  sending a deployment announcement to a Slack channel.
-  Takes a channel name as the first argument (with or without #).
-  Optionally takes a release branch and previous tag as additional arguments.
-  Do NOT use for reading Slack messages (use office:slack); do NOT use for non-deployment Slack posts.
+  Manage a live Slack deployment checklist: post the initial all-pending checklist, then update
+  individual steps to in-progress or complete as the deployment proceeds.
+  Use when the user says "post deployment checklist", "send deploy checklist", "init deploy post",
+  "mark deploy step done", "start deploy step", "update deployment post", "office:deploy-post",
+  or asks to track deployment progress in Slack.
+  Takes a channel as the required first argument; release and prev-tag are named flags.
+  Do NOT use for reading Slack messages (use office:slack); do NOT use for non-deployment posts.
 triggers:
   - "office:deploy-post"
   - "post deployment checklist"
-  - "send deploy checklist"
-  - "post to slack for deployment"
-  - "send the deployment post"
+  - "deploy checklist"
+  - "init deploy post"
+  - "mark deploy step done"
+  - "update deployment post"
   - "deployment announcement"
 allowed-tools: Bash, Read
 ---
 
-# office:deploy-post — Deployment Checklist to Slack
+# office:deploy-post — Slack Deployment Checklist
 
-Post the standard deployment checklist message to a Slack channel.
+Post and progressively update a deployment checklist in Slack. The checklist starts with all steps
+pending, and you update individual steps to in-progress or done as the deployment proceeds.
 
-## Arguments
+## Step names
 
-- **Channel** (required): channel name with or without `#` (e.g. `#deployments` or `deployments`)
-- **Release** (optional): release branch name (e.g. `release/2025.12.02-build`). Defaults to `release/TBD`.
-- **Previous tag** (optional): previous git tag (e.g. `tags/2025-11-05`). Defaults to `tags/TBD`.
+| Name | Description |
+|---|---|
+| `develop` | Tested on develop |
+| `staging` | Tested on staging |
+| `backup` | Back up database |
+| `approved` | Launch approved |
+| `precheck` | Pre-deployment check |
+| `email` | Email sent to client |
+| `maint-on` | Put site in maintenance mode |
+| `deploy` | Deploy staged code |
+| `search` | Rebuild search index |
+| `testing` | Manual testing |
+| `maint-off` | Take site out of maintenance mode |
+| `uat` | User acceptance |
+| `merge-main` | Merge to main |
+| `merge-develop` | Merge to develop |
 
-## Steps
+Aliases accepted: `maintenance-on`, `maintenance-off`, `manual-test`, `acceptance`, `merge_main`, `merge_develop`.
+Prefix matching also works: `maint` → `maint-on` if unambiguous.
 
-### 1. Parse arguments
+## Commands
 
-Extract the channel, release, and previous tag from the skill arguments. Strip the leading `#` from the channel if present — agent-slack accepts either form, but be consistent.
+### Post initial checklist (all pending)
 
-Example invocations:
+```bash
+SCRIPT="${CLAUDE_PLUGIN_ROOT}/skills/deploy-post/scripts/deploy-post.py"
+
+python3 "$SCRIPT" init <channel> \
+  --release release/2025.12.02-build \
+  --prev-tag tags/2025-11-05
 ```
-/office:deploy-post #deployments release/2025.12.02-build tags/2025-11-05
-/office:deploy-post deployments
+
+- `<channel>`: with or without `#`
+- `--release`: release branch name (default: `release/TBD`)
+- `--prev-tag` or `--prev_tag`: previous git tag (default: `tags/TBD`)
+- `--workspace <url>`: Slack workspace URL (only needed if you have multiple workspaces)
+
+On success, prints the message ts. The ts is stored in `~/.deploy-post-state.json` — all subsequent
+`done` and `start` calls will edit the Slack post in-place.
+
+### Mark a step complete
+
+```bash
+python3 "$SCRIPT" done <step>
 ```
 
-### 2. Check authentication
+Changes the step icon to `:white_check_mark:` and edits the live Slack post.
+
+### Mark a step in progress
+
+```bash
+python3 "$SCRIPT" start <step>
+```
+
+Changes the step icon to `:loading:` and edits the live Slack post.
+
+### Reset a step to pending
+
+```bash
+python3 "$SCRIPT" undo <step>
+```
+
+### Show current state in terminal
+
+```bash
+python3 "$SCRIPT" status
+```
+
+### Clear state (after deployment is complete)
+
+```bash
+python3 "$SCRIPT" reset
+```
+
+## Initial icon states
+
+- All steps: `:white_square:` (pending)
+- `uat`: `:rocket:` (pending — signals this is the final gate)
+
+## Authentication
+
+Before any operation, verify `agent-slack` is ready:
 
 ```bash
 agent-slack auth whoami
 ```
 
-If `agent-slack: command not found`, tell the user:
-> `agent-slack` is not installed. Run: `npm i -g agent-slack`, then `agent-slack auth import-desktop`
+If `agent-slack: command not found`:
+> Install with: `npm i -g agent-slack`, then authenticate: `agent-slack auth import-desktop`
 
-If auth fails (non-zero exit or "not authenticated"), tell the user:
-> Run `agent-slack auth import-desktop` to authenticate with your Slack Desktop app.
+If auth fails:
+> Run: `agent-slack auth import-desktop`
 
-### 3. Load the message template
+## Typical deployment flow
 
-Read the template from:
 ```
-${CLAUDE_PLUGIN_ROOT}/skills/deploy-post/assets/checklist.txt
-```
-
-Replace `{RELEASE}` with the release argument and `{PREV_TAG}` with the previous tag argument.
-
-### 4. Send the message
-
-```bash
-agent-slack message send "#<channel>" "<message text>"
-```
-
-Pass the full multi-line message as the text argument. Use a shell variable to hold the message to avoid quoting issues:
-
-```bash
-PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT}"
-TEMPLATE="$PLUGIN_ROOT/skills/deploy-post/assets/checklist.txt"
-
-RELEASE="release/2025.12.02-build"   # from args
-PREV_TAG="tags/2025-11-05"           # from args
-CHANNEL="deployments"                 # from args, no #
-
-MESSAGE=$(sed "s/{RELEASE}/$RELEASE/g; s/{PREV_TAG}/$PREV_TAG/g" "$TEMPLATE")
-
-agent-slack message send "#$CHANNEL" "$MESSAGE"
+/office:deploy-post init #deployments --release release/2025.12.02-build --prev-tag tags/2025-11-05
+/office:deploy-post start maint-on
+/office:deploy-post done maint-on
+/office:deploy-post start deploy
+/office:deploy-post done deploy
+/office:deploy-post done search
+/office:deploy-post done testing
+/office:deploy-post done maint-off
+/office:deploy-post done uat
+/office:deploy-post done merge-main
+/office:deploy-post done merge-develop
+/office:deploy-post reset
 ```
 
-### 5. Confirm success
+## State file
 
-On success (exit 0), print:
-> Deployment checklist posted to #<channel>.
-
-On non-zero exit, show stderr and stop.
+Stored at `~/.deploy-post-state.json`. Contains channel, release info, message ts, and per-step status.
+If the ts is missing (e.g. was not captured after init), Slack edits will fail gracefully with a local-only update.
+You can manually add the ts by finding the message in Slack (right-click → Copy link, extract the p-prefixed number).
 
 ## Error handling
 
@@ -95,5 +148,6 @@ On non-zero exit, show stderr and stop.
 |---|---|
 | `command not found` | Prompt: `npm i -g agent-slack` |
 | Auth error | Prompt: `agent-slack auth import-desktop` |
-| Channel not found | Tell user to verify the channel name; suggest `agent-slack channel list` |
+| Channel not found | Verify name; suggest `agent-slack channel list` |
+| Edit fails (no ts) | Update state locally, warn user |
 | Any other non-zero exit | Show stderr and stop |
