@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.3.4
+- `admin:scaffold`: CLAUDE.md and MEMORY.md templates now include ADR section pointing to `~/Vaults/Neurons/Architecture/ADRs/` — every scaffolded project knows to consult accepted ADRs before making architectural decisions
+
 ## 2.3.2
 - `admin:new-skill`: eval records now write to `Skill-Evals/` directly (removed `shared/` prefix); filesystem-direct write replaces Obsidian CLI check
 
