@@ -10,7 +10,7 @@ triggers:
   - "implement fixes"
   - "fix errors"
   - "process ready tickets"
-allowed-tools: Bash, Read, Write, Agent
+allowed-tools: Bash, Read, Write, Agent, TeamCreate, TeamDelete, SendMessage
 ---
 
 # drover:implement — Autonomous fix pipeline
@@ -81,11 +81,23 @@ if [ -n "$FP" ]; then
 fi
 ```
 
-## Step 4: Spawn implementer agent
+## Step 4: Create agent team and spawn implementer
+
+Create an agent team before spawning any agents — this gives the implementer a shared
+communication channel so it can report back while working:
+
+```
+TeamCreate(
+  team_name = "drover-implement-{fp}",
+  description = "Implementing fix for drover ticket {TICKET_ID}: {ticket_title}"
+)
+```
 
 Build the implementer prompt:
 
 ```
+Your name is implementer-agent. You are part of team "drover-implement-{fp}".
+
 export BD_DB=.beads/drover.db
 export BD_ACTOR=implementer-agent
 
@@ -95,9 +107,31 @@ CONFIG: {full_drover_config_json}
 
 Follow the drover:implementer-agent protocol to claim this ticket, create the worktree,
 implement the fix, run quality checks, write the merge case, and move to lane-awaiting-review.
+
+When complete, send a final status message to team-lead:
+  SendMessage(type="message", recipient="team-lead", content="Done: {TICKET_ID} → {lane_status}")
 ```
 
-Spawn the agent and wait for it to complete.
+Spawn the agent into the team and wait for its completion message:
+
+```
+Agent(
+  subagent_type = "drover-lab:implementer-agent",
+  team_name     = "drover-implement-{fp}",
+  name          = "implementer-agent",
+  prompt        = {above prompt}
+)
+```
+
+After the agent sends its completion message, send a shutdown request:
+```
+SendMessage(type="shutdown_request", recipient="implementer-agent", content="Work complete. Shut down.")
+```
+
+Then clean up the team:
+```
+TeamDelete()
+```
 
 ## Step 5: Output result
 
