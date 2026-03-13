@@ -116,21 +116,20 @@ Spawn the agent into the team and wait for its completion message:
 
 ```
 Agent(
-  subagent_type = "drover-lab:implementer-agent",
+  subagent_type = "drover:implementer-agent",
   team_name     = "drover-implement-{fp}",
   name          = "implementer-agent",
   prompt        = {above prompt}
 )
 ```
 
-After the agent sends its completion message, send a shutdown request:
+After the agent sends its completion message, send a shutdown request and delete the team:
 ```
 SendMessage(type="shutdown_request", recipient="implementer-agent", content="Work complete. Shut down.")
 ```
 
-Then clean up the team:
 ```
-TeamDelete()
+TeamDelete(team_name="drover-implement-{fp}")
 ```
 
 ## Step 5: Output result
