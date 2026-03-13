@@ -49,17 +49,39 @@ quiet_mode = global_cfg.get("notify", {}).get("quiet_mode", False)
 quiet_hours = global_cfg.get("notify", {}).get("quiet_hours", {})
 ```
 
-**[INSERTION 2 — v1.1.0] Cache approot once per session (before processing any log entries):**
+**[INSERTION 2 — v1.1.0] Resolve DDEV instance and approot (before processing any log entries):**
 
-For DDEV environments:
+For DDEV environments, **never assume drush works until a healthy DDEV instance is confirmed**.
+Do NOT run `ddev start`. Check for an already-running instance first:
+
 ```bash
-APPROOT=$(ddev describe --json 2>/dev/null | python3 -c "
-import json,sys
-d=json.load(sys.stdin)
-approot=d.get('raw',{}).get('approot','')
-if not approot: raise SystemExit(1)
-print(approot)" 2>/dev/null || echo "")
+# Check if a DDEV instance for this project is already running
+DDEV_PROJECT=<from_env_config_ddev_project>
+
+# If the watch skill passed DDEV status (instance name + approot), use it directly.
+# Otherwise, discover it now:
+DDEV_INFO=$(ddev list -A --json-output 2>/dev/null | python3 -c "
+import json, sys
+items = json.load(sys.stdin)
+project = '$DDEV_PROJECT'
+match = next((i for i in items if i.get('name') == project and i.get('status') == 'running'), None)
+if match:
+    print(match.get('approot', ''))
+" 2>/dev/null || echo "")
+
+APPROOT="$DDEV_INFO"
 ```
+
+If `APPROOT` is empty (no running instance found):
+- Set `DDEV_AVAILABLE=false`
+- Skip all DDEV-dependent log sources (watchdog, php_error_log, nginx_error_log)
+- Include a note in the triage summary: "DDEV not running — local log sources skipped."
+- Do NOT attempt `ddev start`
+
+If DDEV is running but drush commands fail:
+- Run `ddev restart $DDEV_PROJECT` once to heal the instance
+- Retry the failing command
+- If it still fails, mark the source as unavailable and continue
 
 For Acquia environments (resolve once, not per log entry):
 ```bash
@@ -92,17 +114,12 @@ Extract per-source positions for this environment from the checkpoint.
 ### DDEV environment (type: "ddev")
 
 ```bash
-# Get DDEV project name from config
-DDEV_PROJECT=$(cat .claude/drover-config.json | python3 -c "
-import json,sys
-cfg=json.load(sys.stdin)
-env=next(e for e in cfg['environments'] if e['name']=='ENV_NAME')
-print(env.get('ddev_project',''))
-")
+# DDEV_PROJECT and APPROOT already resolved in Insertion 2 above.
+# Only proceed if DDEV_AVAILABLE != false.
 
 # Watchdog: new entries since last_wid
 LAST_WID=<from_checkpoint_or_0>
-ddev exec -s web drush watchdog:show --format=json --count=200 2>/dev/null | python3 -c "
+ddev drush watchdog:show --format=json --count=200 2>/dev/null | python3 -c "
 import json,sys
 entries=json.load(sys.stdin)
 # Drush returns newest-first; filter wid > last_wid
@@ -115,13 +132,13 @@ For each error entry (severity <= warning = severity code <= 4):
 ```bash
 # Enrich with stack trace and extended context
 WID=<entry_wid>
-ddev exec -s web drush watchdog:show $WID --format=json --extended 2>/dev/null
+ddev drush watchdog:show $WID --format=json --extended 2>/dev/null
 ```
 
 Surrounding entries (±5 wids):
 ```bash
 WID=<entry_wid>
-ddev exec -s web drush watchdog:show --format=json --count=11 \
+ddev drush watchdog:show --format=json --count=11 \
   --filter="wid BETWEEN $((WID-5)) AND $((WID+5))" 2>/dev/null
 ```
 

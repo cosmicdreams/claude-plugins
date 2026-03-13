@@ -41,7 +41,7 @@ if [[ ! -f .claude/drover-config.json ]]; then
 fi
 
 # 5) .beads/drover.db — required
-if [[ ! -f .beads/drover.db ]]; then
+if [[ ! -e .beads/drover.db ]]; then
   add_failure ".beads/drover.db not found. Run /drover:setup first."
 fi
 
