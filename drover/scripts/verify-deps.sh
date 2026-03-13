@@ -46,6 +46,8 @@ if [[ ! -e .beads/drover.db ]]; then
 fi
 
 # 6) acli — checked only if Acquia envs are configured (skip with 'no-acquia')
+#    Drover uses the local system acli, NOT acli inside DDEV containers.
+#    Run `acli auth:login` once to store credentials in ~/.acquia/cloud_api.conf.
 if [[ "${1:-}" != "no-acquia" ]]; then
   HAS_ACQUIA=$(python3 -c "
 import json, sys
@@ -59,7 +61,9 @@ except Exception:
 
   if [[ "$HAS_ACQUIA" == "yes" ]]; then
     if ! command -v acli >/dev/null 2>&1; then
-      add_failure "acli (Acquia CLI) not found but Acquia environments are configured. Install acli and run: acli auth:login"
+      add_failure "acli (Acquia CLI) not found but Acquia environments are configured. Install from https://github.com/acquia/cli/releases and run: acli auth:login"
+    elif [[ ! -f "$HOME/.acquia/cloud_api.conf" ]]; then
+      add_failure "acli found but not authenticated. Run: acli auth:login (credentials stored in ~/.acquia/cloud_api.conf — no DDEV env vars needed)"
     fi
   fi
 fi

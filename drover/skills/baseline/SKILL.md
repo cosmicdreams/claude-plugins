@@ -43,27 +43,52 @@ else:
 If `NO_ACQUIA`: print `"No Acquia environments configured."` and exit 0.
 
 ```bash
-# Verify acli is available
+# Verify local system acli is available and authenticated
+# Drover uses the LOCAL system acli — not the acli inside DDEV containers.
+# Run `acli auth:login` once; credentials are stored in ~/.acquia/cloud_api.conf.
 command -v acli >/dev/null 2>&1 || {
   echo "acli not found — required for Acquia baseline." >&2
-  echo "Install: https://docs.acquia.com/acquia-cli/" >&2
+  echo "Install from https://github.com/acquia/cli/releases" >&2
+  exit 1
+}
+[ -f "$HOME/.acquia/cloud_api.conf" ] || {
+  echo "acli not authenticated. Run: acli auth:login" >&2
+  echo "Credentials are stored in ~/.acquia/cloud_api.conf — no DDEV env vars needed." >&2
   exit 1
 }
 ```
 
-## Step 2: Run acquia-baseline.sh
+## Step 2: Run acquia-baseline.sh for each Acquia environment
+
+Load `acli_alias` for each Acquia environment from drover-config.json and run the script:
 
 ```bash
-# Find the script path
 PLUGIN_ROOT=$(ls -d ~/.claude/plugins/cache/local/drover/*/  2>/dev/null | tail -1)
 SCRIPT="${PLUGIN_ROOT}scripts/acquia-baseline.sh"
 
 [ -x "$SCRIPT" ] || { echo "acquia-baseline.sh not found or not executable at $SCRIPT"; exit 1; }
 
-"$SCRIPT" ".claude/drover-config.json" "$@"
+# Get acli_alias values for all (or filtered) Acquia environments
+ENV_FILTER="${1:-}"  # optional: environment name to run solo, e.g. "production"
+
+python3 -c "
+import json, sys
+cfg = json.load(open('.claude/drover-config.json'))
+envs = [e for e in cfg['environments'] if e.get('type') == 'acquia']
+if sys.argv[1]:
+    envs = [e for e in envs if e['name'] == sys.argv[1]]
+for e in envs:
+    alias = e.get('acli_alias', '')
+    if alias:
+        print(alias)
+    else:
+        print(f'SKIP:{e[\"name\"]}', file=sys.stderr)
+" "$ENV_FILTER" | while read -r ACLI_ALIAS; do
+  "$SCRIPT" "$ACLI_ALIAS"
+done
 ```
 
-The script accepts an optional second argument for environment name filter:
+The optional argument filters to a single environment:
 ```bash
 /drover:baseline               # runs all Acquia environments
 /drover:baseline production    # runs only the environment named "production"
@@ -102,3 +127,5 @@ except FileNotFoundError:
 - Baseline data is used by the triage agent (Step 4.5) to detect rising error velocity
 - If baselines.json has `"partial": true`, the velocity boost in triage is skipped for that run
 - The baseline only covers Acquia log sources; DDEV local errors are not baselined
+- `acli_alias` in drover-config.json is required for each Acquia environment (e.g. `"ahridrupalhosting.prod"`). If missing, that environment is skipped with a warning.
+- Drover uses the **local system acli**, not DDEV's acli. Authenticate once with `acli auth:login` — no API keys needed in DDEV config or environment variables.

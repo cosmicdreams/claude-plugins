@@ -85,14 +85,14 @@ If DDEV is running but drush commands fail:
 
 For Acquia environments (resolve once, not per log entry):
 ```bash
-DDEV_ALIAS=$(python3 -c "
+ACLI_ALIAS=$(python3 -c "
 import json
 cfg = json.load(open('.claude/drover-config.json'))
 env = next((e for e in cfg['environments'] if e['name']=='${ENV_NAME}'), {})
-print(env.get('ddev_alias', ''))")
+print(env.get('acli_alias', ''))")
 
-ACQUIA_APPROOT=$(acli ssh "${ENV_SLUG}" -- "realpath docroot" 2>/dev/null || echo "")
-# If empty: suspect-commit will be skipped for Acquia entries
+# Uses local system acli (not DDEV's). Credentials stored in ~/.acquia/cloud_api.conf.
+# If empty: Acquia log sources will be skipped for this environment.
 ```
 
 Identify the environment config matching `ENV_NAME`. Extract:
@@ -161,25 +161,31 @@ ddev exec -s web bash -c "stat -c %s /var/log/php/error.log 2>/dev/null || echo 
 
 ### Acquia environment (type: "acquia")
 
-```bash
-APP_UUID=<from_config>
-ENV_SLUG=<from_config>
+Uses the **local system acli** — not the acli inside DDEV containers. Credentials
+are stored by acli in `~/.acquia/cloud_api.conf` after running `acli auth:login` once.
+The `acli_alias` field in drover-config.json (e.g. `ahridrupalhosting.prod`) is used
+as the environment identifier for all acli commands.
 
-# Watchdog via SSH
+```bash
+DDEV_ALIAS=<env.ddev_alias from config>  # e.g. @ahri.prod
+ACLI_ALIAS=<env.acli_alias from config>  # e.g. ahridrupalhosting.prod
+
+# Watchdog via ddev drush alias (primary path)
 LAST_WID=<from_checkpoint_or_0>
-acli ssh ${APP_UUID}.${ENV_SLUG} -- drush watchdog:show --format=json --count=200 2>/dev/null | python3 -c "
+ddev drush "${DDEV_ALIAS}" watchdog:show --format=json --count=200 2>/dev/null | python3 -c "
 import json,sys
 entries=json.load(sys.stdin)
 new=[e for e in entries if int(e.get('wid',0)) > $LAST_WID]
 print(json.dumps(new))
 "
 
-# PHP/Apache logs via snapshot
-acli log:tail --format=json --environment=${ENV_SLUG} --log-type=php-error > /tmp/drover-${ENV_SLUG}-php.json 2>/dev/null || echo "[]" > /tmp/drover-${ENV_SLUG}-php.json
-acli log:tail --format=json --environment=${ENV_SLUG} --log-type=apache-error > /tmp/drover-${ENV_SLUG}-apache.json 2>/dev/null || echo "[]" > /tmp/drover-${ENV_SLUG}-apache.json
+# PHP/Apache logs via local system acli (not DDEV's acli)
+# acli auth:login must have been run once; creds in ~/.acquia/cloud_api.conf
+acli api:environments:log-download "${ACLI_ALIAS}" php-error > /tmp/drover-${ACLI_ALIAS##*.}-php.log 2>/dev/null || touch /tmp/drover-${ACLI_ALIAS##*.}-php.log
+acli api:environments:log-download "${ACLI_ALIAS}" apache-error > /tmp/drover-${ACLI_ALIAS##*.}-apache.log 2>/dev/null || touch /tmp/drover-${ACLI_ALIAS##*.}-apache.log
 ```
 
-Filter log snapshots to new lines since last checkpoint timestamp.
+Filter log files to new lines since last checkpoint byte offset.
 
 ## Step 3: Apply noise filter (low trust_level only)
 
