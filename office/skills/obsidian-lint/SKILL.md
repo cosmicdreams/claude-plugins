@@ -41,9 +41,14 @@ Drupal.org content should live under `OpenSource/Drupal.org/`, not at vault root
 
 **3. Files in vault root**
 ```bash
-find "$VAULT_ROOT" -maxdepth 1 -type f -name "*.md" | sort
+find "$VAULT_ROOT" -maxdepth 1 -type f -name "*.md" ! -name "perfect.md" | sort
 ```
-All notes should be inside a purpose folder.
+Most notes should be inside a purpose folder — but some files may be intentionally
+at the vault root (meta-files, vault status logs, etc.). Treat these as
+**confirm intent**, not automatic violations. Always ask the user before proposing
+to move a vault-root file.
+
+`perfect.md` is permanently exempt — never flag or move it.
 
 **4. Empty folders**
 ```bash
@@ -65,8 +70,8 @@ VIOLATIONS FOUND: N
 [wrong location] Drupal.org/drupal/3345989-issue.md
   → OpenSource/Drupal.org/drupal/3345989-issue.md
 
-[vault root] my-loose-note.md
-  → Research/topic/my-loose-note.md  (inferred from content)
+[vault root — confirm intent] my-loose-note.md
+  → Research/topic/my-loose-note.md  (inferred from content — or intentional?)
 ```
 
 Show count of violations by type. Ask:

@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.11.1
+- obsidian-lint: removed redundant per-item confirmation step in Phase 3 for vault-root files; batch confirmation at Phase 2 already covers them
+
 ## 1.11.0
 - Add `office/references/obsidian-rules.md` — canonical vault taxonomy and path conventions shared by all plugins
 - Add new `office:obsidian-lint` skill to audit and correct vault structure against obsidian-rules.md
