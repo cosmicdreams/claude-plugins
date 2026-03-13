@@ -16,8 +16,8 @@
 #
 # Verification boundary:
 #   This script verifies filesystem state only. It cannot verify that Claude Code
-#   loads the plugin in a live session. To confirm end-to-end, start a new Claude
-#   Code session after running this script and invoke a skill from the plugin.
+#   loads the plugin in a live session. After this script passes, run /reload-plugins
+#   in your active Claude Code session to pick up the changes without restarting.
 #
 # Must be run outside an active Claude Code session (CLAUDECODE env var blocks
 # the Claude CLI).
@@ -219,8 +219,8 @@ fi
 echo ""
 if [[ "$total_failures" -eq 0 ]]; then
     echo "All assertions passed."
-    echo "NOTE: filesystem state only. To verify Claude Code loads the plugin,"
-    echo "start a new session and invoke a skill (e.g. admin:changelog sprint --latest)."
+    echo "NOTE: filesystem state only. Run /reload-plugins in your active Claude Code"
+    echo "session to pick up the changes, then invoke a skill to verify end-to-end."
     exit 0
 else
     echo "FAILED: $total_failures assertion(s) did not pass." >&2

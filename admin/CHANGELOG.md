@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.3.5
+- `admin:bump-version`: updated reinstall instructions to use `/reload-plugins` in the current session instead of starting a new one
+
 ## 2.3.4
 - `admin:scaffold`: CLAUDE.md and MEMORY.md templates now include ADR section pointing to `~/Vaults/Neurons/Architecture/ADRs/` — every scaffolded project knows to consult accepted ADRs before making architectural decisions
 

@@ -71,6 +71,8 @@ admin/skills/bump-version/scripts/reinstall-plugin.sh <plugin|all>
 
 **Must be run in a separate terminal** — the Claude CLI cannot run inside an active Claude Code session (`CLAUDECODE` env var blocks it). Provide this command to the user.
 
+After the script completes, the user can run `/reload-plugins` in the current Claude Code session to load the updated plugin without restarting.
+
 Why clean-then-reinstall: wiping first removes all stale versions before the fresh install. Since reinstall follows immediately, there is no risk of an empty cache.
 
 ### 5. Confirm to the user
@@ -80,6 +82,7 @@ Version bumped: <plugin> <old> → <new>
 Files updated: <count>
 CHANGELOG: <plugin>/CHANGELOG.md updated
 Reinstall command: admin/skills/bump-version/scripts/reinstall-plugin.sh <plugin|all>
+Then run /reload-plugins in this session to pick up the changes.
 ```
 
 ## Notes
