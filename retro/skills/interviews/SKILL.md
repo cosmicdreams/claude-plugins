@@ -147,13 +147,11 @@ AGENT_ROLE="<agent-role>"                 # e.g. implementer, reviewer, process-
 DATE=$(date +%Y-%m-%d)
 VAULT_PATH="Retrospectives/${DATE}+${PROJECT_SLUG}+${SPRINT_SLUG}/interviews/${AGENT_ROLE}.md"
 
-# Write to vault — Obsidian assumed running
-if ! obsidian create \
-  --vault=Neurons \
-  --path="$VAULT_PATH" \
-  --content="<interview-file-content>"; then
-  echo "Vault write failed — run 'obsidian help' to check the connection"
-fi
+VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
+mkdir -p "$VAULT_ROOT/$(dirname "$VAULT_PATH")"
+cat > "$VAULT_ROOT/$VAULT_PATH" << 'EOF'
+<interview-file-content>
+EOF
 ```
 
 ### Vault Document Format

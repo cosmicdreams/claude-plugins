@@ -234,19 +234,23 @@ These principles govern how this skill behaves. An agent implementing this skill
 
 ## Obsidian Storage
 
-After producing output, archive to the Neurons vault for long-term memory. Obsidian is assumed to be running.
+After producing output, archive to the Neurons vault for long-term memory.
 
 1. **Determine topic slug**: convert the brainstorm topic to kebab-case
    (e.g. "API authentication options" → `api-authentication-options`)
 
-2. **Write to vault**:
-   ```bash
-   obsidian create \
-     --vault=Neurons \
-     --path="shared/Decisions/<topic>/<YYYY-MM-DD>-<topic>.md" \
-     --content="<output-content>"
-   ```
-   Where `<output-content>` is the synthesized plan + key decisions from the canvas.
-   If this fails: run `obsidian help` to diagnose the connection, then report the error.
+2. **Determine vault path**: read `obsidian-rules.md` from the office plugin references
+   (`~/.claude/plugins/cache/local/office/*/references/obsidian-rules.md`) to confirm
+   correct placement. Default: `Decisions/<topic>/<YYYY-MM-DD>-<topic>.md`
 
-3. **Confirm**: "Saved to Neurons: shared/Decisions/<topic>/<YYYY-MM-DD>-<topic>.md"
+3. **Write to vault**:
+   ```bash
+   VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
+   DEST_PATH="Decisions/<topic>/<YYYY-MM-DD>-<topic>.md"
+   mkdir -p "$VAULT_ROOT/$(dirname "$DEST_PATH")"
+   cat > "$VAULT_ROOT/$DEST_PATH" << 'EOF'
+   <output-content>
+   EOF
+   ```
+
+4. **Confirm**: "Saved to Neurons: Decisions/<topic>/<YYYY-MM-DD>-<topic>.md"

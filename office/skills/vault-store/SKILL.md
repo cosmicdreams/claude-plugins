@@ -20,51 +20,30 @@ Default: `~/Vaults/Neurons`
 
 Override: set `OBSIDIAN_VAULT_NAME` in env or `~/.config/office/config`. Only needed if your vault is named something other than `Neurons`.
 
-## Step 1: Health check (always first)
+## Step 1: Determine vault path
 
+Read `obsidian-rules.md` to determine correct placement:
 ```bash
-obsidian help
+ls ~/.claude/plugins/cache/local/office/*/references/obsidian-rules.md | sort -V | tail -1 | xargs cat
 ```
 
-If this fails: warn the user that Obsidian is not reachable, but do not block the calling skill from completing. Vault storage is always optional and additive — the primary output was already produced. Note: "Vault storage skipped (Obsidian not running)."
-
-## Step 2: Determine document scope
-
-Ask: **Is this document tied to a specific project, issue, or client?**
-
-Route to `Projects/` if ANY of these are true:
-- The content references a specific named project
-- It contains a Jira/GitHub issue number or Drupal issue number
-- It is a sprint release note, retro, or analysis for one specific codebase
-- The user explicitly says "this is for [project name]"
-
-Route to `shared/` if ANY of these are true:
-- The content captures general methodology, patterns, or process learnings
-- It is a brainstorm, decision record, or architectural comparison not tied to one project
-- It is a retrospective pattern that spans multiple projects
-- The user explicitly says it should be reusable across projects
-
-When unsure: ask the user one question — "Is this specific to [detected project name], or shared knowledge?"
-
-**Why routing matters:** Project-scoped documents won't appear in shared knowledge searches, and shared documents won't be co-located with project assets. Getting this right once prevents vault sprawl.
-
-## Step 3: Determine vault path
-
-See `references/vault-paths.md` for the full path template table.
+Check existing vault folders before creating new ones — prefer matching an existing
+folder over creating a new one.
 
 Quick reference (substitute actual values for placeholders):
 
-| Content type | Scope | Vault path |
-|---|---|---|
-| Retro session report | Project | `Retrospectives/YYYY-MM-DD+project+sprint/SESSION-RETROSPECTIVE.md` |
-| Retro agent interview | Project | `Retrospectives/YYYY-MM-DD+project+sprint/interviews/agent.md` |
-| Brainstorm canvas | Shared | `shared/Decisions/topic/YYYY-MM-DD-topic.md` |
-| Excalidraw diagram | Shared or Project | `shared/Architecture/topic/YYYY-MM-DD-name.excalidraw` |
-| Comparison analysis | Shared | `shared/Analysis/topic/YYYY-MM-DD-name.md` |
-| Research session | Shared | `shared/Research/topic/YYYY-MM-DD-topic.md` |
-| Drupal issue analysis | Project | `Drupal.org/project/issue-number-short-title.md` |
-| Drupal contribution comment | Project | `Drupal.org/project/issue-number-contribution-comment.md` |
-| Log analysis report | Project | `Projects/project/Reports/YYYY-MM-DD-log-analysis.md` |
+| Content type | Vault path |
+|---|---|
+| Retro session report | `Retrospectives/YYYY-MM-DD+project+sprint/SESSION-RETROSPECTIVE.md` |
+| Retro agent interview | `Retrospectives/YYYY-MM-DD+project+sprint/interviews/agent.md` |
+| Brainstorm canvas | `Decisions/topic/YYYY-MM-DD-topic.md` |
+| Excalidraw diagram | `Architecture/topic/YYYY-MM-DD-name.excalidraw` |
+| Comparison analysis | `Analysis/topic/YYYY-MM-DD-name.md` |
+| Research session | `Research/topic/YYYY-MM-DD-topic.md` |
+| Drupal issue analysis | `OpenSource/Drupal.org/project/issue-number-short-title.md` |
+| Drupal contribution comment | `OpenSource/Drupal.org/project/issue-number-contribution-comment.md` |
+| Log analysis report | `Projects/project/Reports/YYYY-MM-DD-log-analysis.md` |
+| Skill eval record | `Skill-Evals/plugin/skill-name/YYYY-MM-DD-eval.md` |
 
 ## Step 4: Author as Obsidian Flavored Markdown
 
@@ -96,12 +75,15 @@ Skip OFM authoring (pass content through as-is) when:
 ## Step 5: Write to vault
 
 ```bash
-obsidian create \
-  path="resolved-path" \
-  content="authored-content-with-frontmatter"
+VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
+DEST_PATH="<resolved-path>"
+mkdir -p "$VAULT_ROOT/$(dirname "$DEST_PATH")"
+cat > "$VAULT_ROOT/$DEST_PATH" << 'EOF'
+<authored-content-with-frontmatter>
+EOF
 ```
 
-On success: report "Saved to Neurons: path"
+Report: "Saved to Neurons: DEST_PATH"
 On failure: report the error, preserve the local file, do not retry automatically.
 
 ## Step 6: Add vault link to local output

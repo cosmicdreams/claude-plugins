@@ -1,6 +1,6 @@
 ---
 name: adr
-description: Capture an Architecture Decision Record (ADR) for a design choice, tool selection, retirement, or process change. Prompts for context, options considered, decision, and consequences. Stores to Neurons vault at shared/Architecture/ADRs/. Use when making a significant technical decision, retiring a tool, choosing between approaches, or documenting why something was NOT done. Trigger phrases: "architecture decision", "adr", "document this decision", "record this decision", "why we chose", "ideate:adr".
+description: Capture an Architecture Decision Record (ADR) for a design choice, tool selection, retirement, or process change. Prompts for context, options considered, decision, and consequences. Stores to Neurons vault at Architecture/ADRs/. Use when making a significant technical decision, retiring a tool, choosing between approaches, or documenting why something was NOT done. Trigger phrases: "architecture decision", "adr", "document this decision", "record this decision", "why we chose", "ideate:adr".
 triggers:
   - "architecture decision"
   - "adr"
@@ -75,27 +75,20 @@ status: {status}
 
 ## Step 4: Store to Neurons vault
 
+Read `obsidian-rules.md` from the office plugin references
+(`~/.claude/plugins/cache/local/office/*/references/obsidian-rules.md`) to confirm
+correct placement. Default path: `Architecture/ADRs/{YYYY-MM-DD}-{slug}.md`
+
 ```bash
-VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
-VAULT_ROOT="$HOME/Vaults/$VAULT_NAME"
-ADR_PATH="shared/Architecture/ADRs/{YYYY-MM-DD}-{slug}.md"
+VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
+ADR_PATH="Architecture/ADRs/{YYYY-MM-DD}-{slug}.md"
+mkdir -p "$VAULT_ROOT/Architecture/ADRs"
+cat > "$VAULT_ROOT/$ADR_PATH" << 'EOF'
+<formatted ADR content>
+EOF
 ```
 
-Write via CLI — Obsidian assumed running:
-```bash
-obsidian create \
-  --vault="$VAULT_NAME" \
-  --path="$ADR_PATH" \
-  --content="..."
-```
-Report: `ADR saved: $VAULT_NAME/$ADR_PATH`
-
-If the CLI write fails, fall back to the vault filesystem directly:
-```bash
-mkdir -p "$VAULT_ROOT/shared/Architecture/ADRs"
-# write formatted ADR to $VAULT_ROOT/$ADR_PATH
-```
-Note: `Vault CLI failed — ADR written directly to $VAULT_ROOT/$ADR_PATH. Run 'obsidian help' to check the connection.`
+Report: `ADR saved: $VAULT_ROOT/$ADR_PATH`
 
 **On any failure:** output the formatted ADR directly in the conversation so it is not lost, then report the error.
 
