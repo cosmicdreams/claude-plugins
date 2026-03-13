@@ -1,5 +1,11 @@
 # drover Changelog
 
+## 1.3.0
+- `drover:implement`: agents now run as a named agent team (`TeamCreate` before spawn, `TeamDelete` after) so the implementer can report back via `SendMessage`
+- `drover:watch`: triage agents now run as a named agent team; each environment gets its own named agent (`triage-{env}`) with a shared communication channel; team is torn down after all summaries are received
+- `drover:triage` (triage-agent): fixed DDEV instance resolution to use `ddev list -A --json-output` instead of `ddev describe`; skips DDEV log sources gracefully if no running instance found; adds `ddev restart` heal path on drush failures
+- `drover:watch` (verify-deps.sh): fixed Beads DB check to use `-e` instead of `-f` (Beads creates a directory, not a plain file)
+
 ## 1.2.0
 - `drover:triage` (triage-agent): DDEV pre-flight step (Step 0) discovers running DDEV instance or starts `worktrees/main`; returns zeros instead of fabricating data if DDEV is unreachable
 - `drover:triage` (triage-agent): switched from `ddev exec -s web drush` to `ddev drush`; watchdog query now uses `--severity=4 --count=500` for better coverage
