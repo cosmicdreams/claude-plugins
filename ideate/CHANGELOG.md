@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.2.1
+- All 5 skills: vault writes are now filesystem-direct — no Obsidian CLI dependency
+- Remove `shared/` prefix from all vault paths (`shared/Research/` → `Research/`, etc.)
+- All skills now reference `obsidian-rules.md` for placement decisions
+
 ## 2.2.0
 - Removed `ideate:changelog` — use `admin:changelog ideate` instead
 - Vault writes across all ideate skills now assume Obsidian is running; `obsidian help` is only run as a diagnostic if the write fails

@@ -246,19 +246,23 @@ context before generating ideas — the user does not need to re-paste the findi
 
 ## Obsidian Storage
 
-After producing output, archive to the Neurons vault for long-term memory. Obsidian is assumed to be running.
+After producing output, archive to the Neurons vault for long-term memory.
 
 1. **Determine topic slug**: convert the research topic to kebab-case
    (e.g. "API authentication options" → `api-authentication-options`)
 
-2. **Write to vault**:
-   ```bash
-   obsidian create \
-     --vault=Neurons \
-     --path="shared/Research/<topic>/<YYYY-MM-DD>-<topic>.md" \
-     --content="<output-content>"
-   ```
-   Where `<output-content>` is the research summary + source list.
-   If this fails: run `obsidian help` to diagnose the connection, then report the error.
+2. **Determine vault path**: read `obsidian-rules.md` from the office plugin references
+   (`~/.claude/plugins/cache/local/office/*/references/obsidian-rules.md`) to confirm
+   correct placement. Default: `Research/<topic>/<YYYY-MM-DD>-<topic>.md`
 
-3. **Confirm**: "Saved to Neurons: shared/Research/<topic>/<YYYY-MM-DD>-<topic>.md"
+3. **Write to vault**:
+   ```bash
+   VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
+   DEST_PATH="Research/<topic>/<YYYY-MM-DD>-<topic>.md"
+   mkdir -p "$VAULT_ROOT/$(dirname "$DEST_PATH")"
+   cat > "$VAULT_ROOT/$DEST_PATH" << 'EOF'
+   <output-content>
+   EOF
+   ```
+
+4. **Confirm**: "Saved to Neurons: Research/<topic>/<YYYY-MM-DD>-<topic>.md"

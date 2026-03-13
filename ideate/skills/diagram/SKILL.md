@@ -384,33 +384,24 @@ If chained from `ideate:brainstorm`, also offer:
 
 ## Obsidian Storage
 
-After producing output, archive to the Neurons vault for long-term memory. Obsidian is assumed to be running.
+After producing output, archive to the Neurons vault for long-term memory.
 
 1. **Determine topic slug**: convert the diagram topic to kebab-case
    (e.g. "API authentication options" → `api-authentication-options`)
 
-2. **Choose the vault subfolder** based on diagram intent:
-   - `shared/Architecture/<topic>/` — system/component/data-flow diagrams
-   - `shared/Decisions/<topic>/` — decision trees, option comparisons
-   - `shared/Analysis/<topic>/` — dependency maps, audit diagrams
+2. **Choose the vault subfolder**: read `obsidian-rules.md` from the office plugin references
+   (`~/.claude/plugins/cache/local/office/*/references/obsidian-rules.md`) to confirm
+   correct placement. Default guidance:
+   - `Architecture/<topic>/` — system/component/data-flow diagrams
+   - `Decisions/<topic>/` — decision trees, option comparisons
+   - `Analysis/<topic>/` — dependency maps, audit diagrams
 
 3. **Write to vault**:
    ```bash
-   VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
-   SUBFOLDER="shared/Architecture/<topic>"   # adjust per step 2
-   obsidian create \
-     --vault="$VAULT_NAME" \
-     --path="$SUBFOLDER/<YYYY-MM-DD>-<diagram-name>.excalidraw" \
-     --content="<output-content>"
+   VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
+   SUBFOLDER="Architecture/<topic>"   # adjust per step 2
+   mkdir -p "$VAULT_ROOT/$SUBFOLDER"
+   cp "$FILENAME" "$VAULT_ROOT/$SUBFOLDER/<YYYY-MM-DD>-<diagram-name>.excalidraw"
    ```
-   Where `<output-content>` is the raw Excalidraw JSON.
 
-   If `obsidian create` fails, fall back to writing directly to the vault filesystem:
-   ```bash
-   VAULT_PATH="$HOME/Vaults/$VAULT_NAME/$SUBFOLDER"
-   mkdir -p "$VAULT_PATH"
-   cp "$FILENAME" "$VAULT_PATH/<YYYY-MM-DD>-<diagram-name>.excalidraw"
-   ```
-   Report: `Vault CLI failed — written to $VAULT_PATH. Run 'obsidian help' to check the connection.`
-
-4. **Confirm**: "Saved to $VAULT_NAME: $SUBFOLDER/<YYYY-MM-DD>-<diagram-name>.excalidraw"
+4. **Confirm**: "Saved to Neurons: $SUBFOLDER/<YYYY-MM-DD>-<diagram-name>.excalidraw"

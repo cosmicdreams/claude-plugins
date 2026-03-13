@@ -113,29 +113,27 @@ Extract the Drupal project name from the issue URL or analysis report frontmatte
 ### Vault Path
 
 ```
-~/Vaults/Neurons/Drupal.org/<project>/<issue-number>-contribution-comment.md
+~/Vaults/Neurons/OpenSource/Drupal.org/<project>/<issue-number>-contribution-comment.md
 ```
 
 Examples:
 ```
-Drupal.org/drupal/3345989-contribution-comment.md
-Drupal.org/webform/3401234-contribution-comment.md
+OpenSource/Drupal.org/drupal/3345989-contribution-comment.md
+OpenSource/Drupal.org/webform/3401234-contribution-comment.md
 ```
 
 ### Archive Command
 
 ```bash
-# Resolve project name from issue URL
 DRUPAL_PROJECT="<extracted-from-issue-url>"
 ISSUE_NUMBER="<issue-number>"
+VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
+DEST_PATH="OpenSource/Drupal.org/${DRUPAL_PROJECT}/${ISSUE_NUMBER}-contribution-comment.md"
 
-# Write to vault — Obsidian assumed running
-if ! obsidian create \
-  --vault=Neurons \
-  --path="Drupal.org/${DRUPAL_PROJECT}/${ISSUE_NUMBER}-contribution-comment.md" \
-  --content="<contribution-comment-content>"; then
-  echo "Vault write failed — run 'obsidian help' to check the connection"
-fi
+mkdir -p "$VAULT_ROOT/$(dirname "$DEST_PATH")"
+cat > "$VAULT_ROOT/$DEST_PATH" << 'EOF'
+<contribution-comment-content>
+EOF
 ```
 
 ### YAML Frontmatter

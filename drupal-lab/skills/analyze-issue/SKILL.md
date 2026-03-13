@@ -82,32 +82,28 @@ Extract the Drupal project name from the issue URL:
 ### Vault Path
 
 ```
-~/Vaults/Neurons/Drupal.org/<project>/<issue-number>-<kebab-slug-of-title>.md
+~/Vaults/Neurons/OpenSource/Drupal.org/<project>/<issue-number>-<kebab-slug-of-title>.md
 ```
 
 Examples:
 ```
-Drupal.org/drupal/3345989-loading-indicator-accessibility.md
-Drupal.org/webform/3401234-validation-bug.md
+OpenSource/Drupal.org/drupal/3345989-loading-indicator-accessibility.md
+OpenSource/Drupal.org/webform/3401234-validation-bug.md
 ```
 
 ### Archive Command
 
 ```bash
-# Resolve project name from issue URL
-# e.g. https://www.drupal.org/project/drupal/issues/3345989 → DRUPAL_PROJECT="drupal"
-# e.g. https://www.drupal.org/project/webform/issues/3401234 → DRUPAL_PROJECT="webform"
 DRUPAL_PROJECT="<extracted-from-issue-url>"
 ISSUE_NUMBER="<issue-number>"
 ISSUE_SLUG="<kebab-title>"
+VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
+DEST_PATH="OpenSource/Drupal.org/${DRUPAL_PROJECT}/${ISSUE_NUMBER}-${ISSUE_SLUG}.md"
 
-# Write to vault — Obsidian assumed running
-if ! obsidian create \
-  --vault=Neurons \
-  --path="Drupal.org/${DRUPAL_PROJECT}/${ISSUE_NUMBER}-${ISSUE_SLUG}.md" \
-  --content="<analysis-report-content>"; then
-  echo "Vault write failed — run 'obsidian help' to check the connection"
-fi
+mkdir -p "$VAULT_ROOT/$(dirname "$DEST_PATH")"
+cat > "$VAULT_ROOT/$DEST_PATH" << 'EOF'
+<analysis-report-content>
+EOF
 ```
 
 ### YAML Frontmatter

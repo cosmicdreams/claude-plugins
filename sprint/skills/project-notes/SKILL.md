@@ -93,19 +93,18 @@ Do NOT close, delete, or modify beads — bead lifecycle management is the team-
 
 ## Step 6: Archive to Neurons Vault
 
-After writing the local file, also write the new entries to the Neurons vault. Obsidian is assumed to be running.
+After writing the local file, also write the new entries to the Neurons vault.
 
 ```bash
-VAULT_NAME="${OBSIDIAN_VAULT_NAME:-Neurons}"
+VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
 DATE=$(date +%Y-%m-%d)
 PROJECT_SLUG=$(echo "${OFFICE_PROJECT_NAME:-$(basename "$PWD")}" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
+DEST_PATH="Projects/${PROJECT_SLUG}/release-notes/${DATE}-sprint-notes.md"
 
-if ! obsidian create \
-  --vault="$VAULT_NAME" \
-  --path="Projects/${PROJECT_SLUG}/release-notes/${DATE}-sprint-notes.md" \
-  --content="<new-entries-content>"; then
-  echo "Vault write failed — run 'obsidian help' to check the connection"
-fi
+mkdir -p "$VAULT_ROOT/$(dirname "$DEST_PATH")"
+cat > "$VAULT_ROOT/$DEST_PATH" << 'EOF'
+<new-entries-content>
+EOF
 ```
 
 This captures a snapshot of the sprint's outcomes in the vault — the local `RELEASE-NOTES.md` remains the append-only source of truth; the vault entry is a per-sprint snapshot for cross-project querying.
