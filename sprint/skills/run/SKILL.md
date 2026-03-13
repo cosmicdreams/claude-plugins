@@ -151,6 +151,17 @@ bd list --json | jq 'group_by(.status)'
 bd list --metadata-field ddev=true --json | jq 'length'
 ```
 
+## Prerequisites
+
+Launch this session before invoking sprint:run:
+
+```bash
+claude --dangerously-skip-permissions --agent team-lead
+```
+
+- `--agent team-lead` gives the main thread the team-lead agent identity and tools list (TeamCreate, CronCreate, CronDelete, CronList, Agent, Skill, and all coordination tools). Without this flag, the main thread has no defined tools list and may silently lack required tools.
+- `--dangerously-skip-permissions` enables unattended pipeline operation. Safety boundary is the agent definition's tools list — keep it narrow and well-audited.
+
 ## Sprint Workflow
 
 ### Step 0: Pre-Sprint Planning (recommended)
@@ -285,6 +296,15 @@ bd blocked
 ```
 
 You push work. You do NOT collect reports and wait.
+
+### Build-Sprint Naming Convention
+
+When running a sprint to **build** agent definitions, name implementer agents by their role — NOT by the artifact they are creating:
+
+- ✅ `impl-agent-1`, `impl-agent-2`
+- ❌ `impl-team-lead`, `impl-ideas-inbox`
+
+Naming agents after their output (e.g. `impl-team-lead`) creates confusion when the main thread is also `team-lead` and the artifact being built is also called `team-lead`. Role-based names stay unambiguous throughout.
 
 ### Anti-Patterns (team-lead)
 

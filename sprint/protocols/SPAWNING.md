@@ -44,6 +44,35 @@ Project-specific agents (in `.claude/agents/`) use just the filename without a p
 
 ---
 
+## Required Tools Per Agent Role
+
+Every agent definition's `tools:` frontmatter is a **strict allowlist**. Any tool not declared is unavailable — there is no silent fallback. Missing tools cause agents to either fail outright or make bad decisions (e.g. falling back to OS scheduling when CronCreate is missing).
+
+Minimum required tools by role:
+
+| Role | Required Tools | Why |
+|------|---------------|-----|
+| Any agent running a cron loop | `CronCreate`, `CronDelete`, `CronList`, `SendMessage` | Compaction recovery restores its own loop via CronCreate; uses SendMessage to notify team-lead |
+| Any agent that spawns subagents | `Agent` | Cannot spawn without it |
+| Team-lead / coordinator | `TeamCreate`, `SendMessage`, `TaskCreate`, `TaskUpdate`, `TaskList`, `TaskGet` | Core coordination tools |
+| Implementer / worker | `Read`, `Edit`, `Write`, `Bash`, `Grep`, `Glob` | File operations |
+
+> **Compaction recovery silent failure**: If `CronCreate` is missing from a loop agent's tools list, the agent goes permanently idle after context compaction — the loop is never restored and no error is surfaced.
+
+### Shell Aliases Are Not Available in Bash Scripts
+
+If you have a shell alias (e.g. `clauded` → `claude --dangerously-skip-permissions "$@"`), it is **not available** inside `#!/bin/bash` scripts. Always inline the full command with explicit flags:
+
+```bash
+# ❌ Will fail in a script
+clauded --agent team-lead "prompt"
+
+# ✅ Use the full invocation
+claude --dangerously-skip-permissions --agent team-lead "prompt"
+```
+
+---
+
 ## Parallel Spawning
 
 **Multiple Task tool calls in the same message = parallel agents.**
