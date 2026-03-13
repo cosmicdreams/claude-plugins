@@ -71,12 +71,10 @@ except FileNotFoundError:
     pass
 
 # Update checkpoint for this environment
+# Triage only tracks watchdog WIDs. Log file analysis is handled by drover:baseline.
 env_name = "ENV_NAME"  # substitute
 new_checkpoint = {
     "watchdog": {"last_wid": AGENT_REPORTED_MAX_WID},
-    "php_error_log": {"byte_offset": AGENT_REPORTED_PHP_OFFSET},
-    "nginx_error_log": {"byte_offset": AGENT_REPORTED_NGINX_OFFSET},
-    "apache_error_log": {"byte_offset": AGENT_REPORTED_APACHE_OFFSET},
 }
 
 environments = prev.get("environments", {})

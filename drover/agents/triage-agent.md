@@ -29,9 +29,22 @@ export BD_ACTOR=triage-agent
 You will be called with:
 - `ENV_NAME` — name of the environment to triage (e.g. `local`, `production`, `staging`)
 - `ENV_CONFIG` — JSON object from `.claude/drover-config.json` for this environment
-- `CHECKPOINT` — JSON object with last known positions (`last_wid`, `byte_offset` per source)
+- `CHECKPOINT` — JSON object with last known watchdog position (`last_wid`)
+- `DDEV_PROJECT` — name of the verified-healthy DDEV project (from watch skill)
+- `DDEV_APPROOT` — absolute path to the DDEV project root (from watch skill)
+- `DDEV_HEALTHY` — always `true` (watch skill verified this before spawning you)
 
 Parse these from the prompt context you receive.
+
+## DDEV Rules (CRITICAL)
+
+**DDEV has already been verified healthy by the watch skill. Do NOT:**
+- Run `ddev list`, `ddev start`, `ddev restart`, or any DDEV lifecycle commands
+- Attempt to discover or validate DDEV yourself
+- Launch additional DDEV instances
+
+**Just use `ddev drush` directly** — it works. If a drush command fails, report it in your
+summary and move on. Do not attempt DDEV recovery.
 
 ## Step 1: Load config, global config, and checkpoint
 
@@ -39,7 +52,7 @@ Parse these from the prompt context you receive.
 cat .claude/drover-config.json
 ```
 
-**[INSERTION 1 — v1.1.0] Load global config for Slack credentials:**
+**Load global config for Slack credentials:**
 ```python
 import json, os
 global_cfg_path = os.path.expanduser("~/.claude/drover-global-config.json")
@@ -49,99 +62,29 @@ quiet_mode = global_cfg.get("notify", {}).get("quiet_mode", False)
 quiet_hours = global_cfg.get("notify", {}).get("quiet_hours", {})
 ```
 
-**[INSERTION 2 — v1.1.0] Resolve DDEV instance and approot (before processing any log entries):**
-
-For DDEV environments, **never assume drush works until a healthy DDEV instance is confirmed**.
-Do NOT run `ddev start`. Check for an already-running instance first:
-
-```bash
-# Check if a DDEV instance for this project is already running
-DDEV_PROJECT=<from_env_config_ddev_project>
-
-# If the watch skill passed DDEV status (instance name + approot), use it directly.
-# Otherwise, discover it now:
-DDEV_INFO=$(ddev list -A --json-output 2>/dev/null | python3 -c "
-import json, sys
-items = json.load(sys.stdin)
-project = '$DDEV_PROJECT'
-match = next((i for i in items if i.get('name') == project and i.get('status') == 'running'), None)
-if match:
-    print(match.get('approot', ''))
-" 2>/dev/null || echo "")
-
-APPROOT="$DDEV_INFO"
-```
-
-If `APPROOT` is empty (no running instance found):
-- Set `DDEV_AVAILABLE=false`
-- Skip all DDEV-dependent log sources (watchdog, php_error_log, nginx_error_log)
-- Include a note in the triage summary: "DDEV not running — local log sources skipped."
-- Do NOT attempt `ddev start`
-
-If DDEV is running but drush commands fail:
-- Run `ddev restart $DDEV_PROJECT` once to heal the instance
-- Retry the failing command
-- If it still fails, mark the source as unavailable and continue
-
-For Acquia environments (resolve once, not per log entry):
-```bash
-# Derive acli env ID from drush site alias YAML (drush/sites/<group>.site.yml).
-# No acli_alias field needed in drover-config.json — derived from ddev_alias + drush YAML.
-ACLI_ALIAS=$(python3 -c "
-import json, os, re, sys
-cfg = json.load(open('.claude/drover-config.json'))
-env = next((e for e in cfg['environments'] if e['name'] == '${ENV_NAME}'), {})
-ddev_alias = env.get('ddev_alias', '')
-# ddev_alias format: @group.env_key  e.g. @ahri.prod
-if not ddev_alias.startswith('@'):
-    sys.exit(0)
-alias_parts = ddev_alias.lstrip('@').split('.')
-if len(alias_parts) < 2:
-    sys.exit(0)
-group, env_key = alias_parts[0], alias_parts[1]
-yaml_path = os.path.join('drush', 'sites', f'{group}.site.yml')
-if not os.path.exists(yaml_path):
-    sys.exit(0)
-with open(yaml_path) as f:
-    content = f.read()
-# Parse YAML: split on top-level keys, find env_key block
-blocks = re.split(r'^(\w[\w-]*):\s*$', content, flags=re.MULTILINE)
-for i in range(1, len(blocks), 2):
-    if blocks[i] == env_key and i + 1 < len(blocks):
-        block = blocks[i + 1]
-        m_site = re.search(r'ac-site:\s*(\S+)', block)
-        m_env  = re.search(r'ac-env:\s*(\S+)', block)
-        if m_site and m_env:
-            print(f'{m_site.group(1)}.{m_env.group(1)}')
-        break
-")
-
-# Uses local system acli (not DDEV's). Credentials stored in ~/.acquia/cloud_api.conf.
-# Derived from drush/sites/<group>.site.yml ac-site + ac-env fields.
-# If empty: Acquia log sources will be skipped for this environment.
-```
-
 Identify the environment config matching `ENV_NAME`. Extract:
 - `type` (ddev or acquia)
 - `trust_level` (low, medium, high)
 - `noise_filter` (true/false)
 - `promote_threshold.min_count` and `promote_threshold.min_severity`
-- `sources` list
 
 Load checkpoint:
 ```bash
 tail -1 ~/.claude/drover.state.jsonl 2>/dev/null || echo "{}"
 ```
 
-Extract per-source positions for this environment from the checkpoint.
+Extract `last_wid` for this environment from the checkpoint.
 
-## Step 2: Gather new log entries
+## Step 2: Gather new watchdog entries
+
+**Triage uses watchdog only.** Log file analysis (PHP error logs, Apache logs) is handled
+by `drover:baseline`. Do NOT download or parse log files.
 
 ### DDEV environment (type: "ddev")
 
 ```bash
-# DDEV_PROJECT and APPROOT already resolved in Insertion 2 above.
-# Only proceed if DDEV_AVAILABLE != false.
+# cd to the DDEV approot passed by watch skill
+cd "$DDEV_APPROOT"
 
 # Watchdog: new entries since last_wid
 LAST_WID=<from_checkpoint_or_0>
@@ -168,35 +111,17 @@ ddev drush watchdog:show --format=json --count=11 \
   --filter="wid BETWEEN $((WID-5)) AND $((WID+5))" 2>/dev/null
 ```
 
-PHP error log (if in sources):
-```bash
-OFFSET=<from_checkpoint_or_0>
-ddev exec -s web bash -c "tail -c +$OFFSET /var/log/php/error.log 2>/dev/null || tail -c +$OFFSET /var/log/php8.3-fpm.log 2>/dev/null || echo ''"
-```
-
-Nginx error log (if in sources):
-```bash
-OFFSET=<from_checkpoint_or_0>
-ddev exec -s web bash -c "tail -c +$OFFSET /var/log/nginx/error.log 2>/dev/null || echo ''"
-```
-
-After reading each log file, record the new byte offset:
-```bash
-ddev exec -s web bash -c "stat -c %s /var/log/php/error.log 2>/dev/null || echo 0"
-```
-
 ### Acquia environment (type: "acquia")
 
-Uses the **local system acli** — not the acli inside DDEV containers. Credentials
-are stored by acli in `~/.acquia/cloud_api.conf` after running `acli auth:login` once.
-The acli env ID is derived from `drush/sites/<group>.site.yml` (`ac-site` + `ac-env`)
-using `ddev_alias` from drover-config.json — no separate `acli_alias` field needed.
+Acquia environments use `ddev drush` with a Drush site alias to query remote watchdog.
+**No `acli` commands are used in triage** — log file downloads are handled by `drover:baseline`.
 
 ```bash
-DDEV_ALIAS=<env.ddev_alias from config>  # e.g. @ahri.prod
-ACLI_ALIAS=<derived from drush YAML>     # e.g. ahridrupalhosting.prod
+cd "$DDEV_APPROOT"
 
-# Watchdog via ddev drush alias (primary path)
+DDEV_ALIAS=<env.ddev_alias from config>  # e.g. @ahri.prod
+
+# Watchdog via ddev drush alias
 LAST_WID=<from_checkpoint_or_0>
 ddev drush "${DDEV_ALIAS}" watchdog:show --format=json --count=200 2>/dev/null | python3 -c "
 import json,sys
@@ -204,14 +129,13 @@ entries=json.load(sys.stdin)
 new=[e for e in entries if int(e.get('wid',0)) > $LAST_WID]
 print(json.dumps(new))
 "
-
-# PHP/Apache logs via local system acli (not DDEV's acli)
-# acli auth:login must have been run once; creds in ~/.acquia/cloud_api.conf
-acli api:environments:log-download "${ACLI_ALIAS}" php-error > /tmp/drover-${ACLI_ALIAS##*.}-php.log 2>/dev/null || touch /tmp/drover-${ACLI_ALIAS##*.}-php.log
-acli api:environments:log-download "${ACLI_ALIAS}" apache-error > /tmp/drover-${ACLI_ALIAS##*.}-apache.log 2>/dev/null || touch /tmp/drover-${ACLI_ALIAS##*.}-apache.log
 ```
 
-Filter log files to new lines since last checkpoint byte offset.
+For each error entry, enrich the same way as DDEV local (stack trace, surrounding entries)
+using the alias:
+```bash
+ddev drush "${DDEV_ALIAS}" watchdog:show $WID --format=json --extended 2>/dev/null
+```
 
 ## Step 3: Apply noise filter (low trust_level only)
 
@@ -508,7 +432,7 @@ Triage cycle complete — {env_name} ({trust_level})
   Cross-boosts:  {N}
   Notifications: {N}
   New max WID:   {max_wid}
-  PHP log offset: {new_byte_offset}
 ```
 
 Return this summary as your final output so the watch skill can write the state checkpoint.
+The only checkpoint value watch needs from you is `max_wid`.

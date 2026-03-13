@@ -50,6 +50,78 @@ If `DISABLED`, print "drover is disabled (enabled: false in config)." and stop.
 [ -f .beads/drover.db ] || { echo "Drover board not initialized. Run /drover:setup first."; exit 1; }
 ```
 
+## Step 1.5: DDEV health & readiness check
+
+**All triage environments depend on a running DDEV instance** — local environments use it for
+`ddev drush watchdog:show`, Acquia environments use it for `ddev drush @alias watchdog:show`.
+Check DDEV health **once here**, then pass the result to all triage agents. Agents must NOT
+discover or start DDEV themselves.
+
+```bash
+# Find the DDEV project name from config (first environment with a ddev_project field)
+DDEV_PROJECT=$(python3 -c "
+import json
+cfg = json.load(open('.claude/drover-config.json'))
+for env in cfg.get('environments', []):
+    p = env.get('ddev_project', '')
+    if p:
+        print(p)
+        break
+")
+
+if [ -z "$DDEV_PROJECT" ]; then
+  echo "ERROR: No ddev_project found in any environment config."
+  echo "Run /drover:setup to reconfigure."
+  exit 1
+fi
+
+# Check for a running instance — do NOT run ddev start
+DDEV_STATUS=$(ddev list -A --json-output 2>/dev/null | python3 -c "
+import json, sys
+items = json.load(sys.stdin)
+project = '$DDEV_PROJECT'
+match = next((i for i in items if i.get('name') == project), None)
+if not match:
+    print('NOT_FOUND')
+elif match.get('status') != 'running':
+    print('NOT_RUNNING')
+else:
+    print(match.get('approot', 'RUNNING'))
+" 2>/dev/null || echo "ERROR")
+
+if [ "$DDEV_STATUS" = "NOT_FOUND" ] || [ "$DDEV_STATUS" = "ERROR" ]; then
+  echo "DDEV project '$DDEV_PROJECT' not found. Start it first: cd worktrees/main && ddev start"
+  echo "Aborting triage cycle."
+  exit 1
+fi
+
+if [ "$DDEV_STATUS" = "NOT_RUNNING" ]; then
+  echo "DDEV project '$DDEV_PROJECT' exists but is not running. Start it first."
+  echo "Aborting triage cycle."
+  exit 1
+fi
+
+DDEV_APPROOT="$DDEV_STATUS"
+echo "DDEV healthy: $DDEV_PROJECT @ $DDEV_APPROOT"
+```
+
+**Verify drush works** through the running instance before spawning any agents:
+
+```bash
+cd "$DDEV_APPROOT" && ddev drush status --field=bootstrap 2>/dev/null || {
+  echo "drush status failed — attempting ddev restart..."
+  ddev restart "$DDEV_PROJECT" 2>/dev/null
+  ddev drush status --field=bootstrap 2>/dev/null || {
+    echo "DDEV drush is broken even after restart. Aborting triage cycle."
+    exit 1
+  }
+}
+echo "drush verified."
+```
+
+The values `DDEV_PROJECT`, `DDEV_APPROOT`, and `DDEV_HEALTHY=true` are passed into every
+triage agent's prompt (see Step 2).
+
 ## Step 2: Triage phase — all environments
 
 Load config and find all enabled environments:
@@ -69,7 +141,10 @@ tail -1 ~/.claude/drover.state.jsonl 2>/dev/null || echo "{}"
 ```
 
 **Create an agent team before spawning any triage agents** — this gives all agents a shared
-communication channel and lets them report their summaries back to team-lead:
+communication channel and lets them report their summaries back to team-lead.
+
+> **Tip:** Use **Shift+ArrowUp / Shift+ArrowDown** to navigate between team member outputs
+> while agents are running.
 
 ```
 TeamCreate(
@@ -79,7 +154,10 @@ TeamCreate(
 ```
 
 For each environment, spawn a `drover:triage-agent` into the team. If multiple environments
-are configured, spawn them all in parallel (multiple Agent calls in one message):
+are configured, spawn them all in parallel (multiple Agent calls in one message).
+
+**Include DDEV state from Step 1.5 in every agent prompt** so agents never need to discover
+DDEV themselves:
 
 ```
 Agent(
@@ -93,7 +171,12 @@ Agent(
     CHECKPOINT: {per_env_checkpoint_json}
     FULL_CONFIG: {full_drover_config_json}
 
+    DDEV_PROJECT: {DDEV_PROJECT}
+    DDEV_APPROOT: {DDEV_APPROOT}
+    DDEV_HEALTHY: true
+
     Follow the drover:triage-agent protocol for this environment.
+    DDEV is already verified healthy — use it directly. Do NOT run ddev list, ddev start, or ddev restart.
 
     When complete, send your summary to team-lead:
       SendMessage(type="message", recipient="team-lead", content="{json_summary}")
@@ -171,13 +254,11 @@ state_path = os.path.expanduser("~/.claude/drover.state.jsonl")
 config = json.load(open(".claude/drover-config.json"))
 
 # Build merged environments dict from all agent summaries
+# Triage only tracks watchdog WIDs. Log file analysis is handled by drover:baseline.
 merged_environments = {}
 for env_name, summary in all_agent_summaries.items():
     merged_environments[env_name] = {
         "watchdog": {"last_wid": summary["max_wid"]},
-        "php_error_log": {"byte_offset": summary["php_offset"]},
-        "nginx_error_log": {"byte_offset": summary["nginx_offset"]},
-        "apache_error_log": {"byte_offset": summary["apache_offset"]},
     }
 
 total_new = sum(s["new_errors"] for s in all_agent_summaries.values())
@@ -234,6 +315,8 @@ Next run: /loop 3m /drover:watch
 ```
 
 If nothing happened: `✓ drover:watch {HH:MM} — no new errors, {N} verified`
+
+> **Navigation:** Use **Shift+ArrowUp / Shift+ArrowDown** to jump between agent outputs during a cycle.
 
 ## Running on a loop
 
