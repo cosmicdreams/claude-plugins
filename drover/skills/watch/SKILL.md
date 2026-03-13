@@ -68,13 +68,17 @@ Load the latest checkpoint:
 tail -1 ~/.claude/drover.state.jsonl 2>/dev/null || echo "{}"
 ```
 
-**Create an agent team before spawning any triage agents** — this gives all agents a shared
-communication channel and lets them report their summaries back to team-lead:
+**Compute the cycle number** from the state file, then create a team with an incremental name:
+
+```bash
+CYCLE_N=$(( $(wc -l < ~/.claude/drover.state.jsonl 2>/dev/null || echo 0) + 1 ))
+echo "drover-watch-${CYCLE_N}"
+```
 
 ```
 TeamCreate(
-  team_name = "drover-watch-{YYYYMMDD-HHMM}",
-  description = "Drover triage cycle — {N} environments"
+  team_name = "drover-watch-{CYCLE_N}",
+  description = "Drover triage cycle {CYCLE_N} — {N} environments"
 )
 ```
 
@@ -84,10 +88,10 @@ are configured, spawn them all in parallel (multiple Agent calls in one message)
 ```
 Agent(
   subagent_type = "drover:triage-agent",
-  team_name     = "drover-watch-{YYYYMMDD-HHMM}",
+  team_name     = "drover-watch-{CYCLE_N}",
   name          = "triage-{env_name}",
   prompt        = """
-    Your name is triage-{env_name}. You are part of team "drover-watch-{YYYYMMDD-HHMM}".
+    Your name is triage-{env_name}. You are part of team "drover-watch-{CYCLE_N}".
 
     ENV_CONFIG: {full_env_config_json}
     CHECKPOINT: {per_env_checkpoint_json}
@@ -102,16 +106,14 @@ Agent(
 ```
 
 Wait for all triage agents to send their completion messages. After all have reported,
-send each a shutdown request:
+send each a shutdown request and delete the team:
 
 ```
 SendMessage(type="shutdown_request", recipient="triage-{env_name}", content="Triage complete. Shut down.")
 ```
 
-Then clean up the team:
-
 ```
-TeamDelete()
+TeamDelete(team_name="drover-watch-{CYCLE_N}")
 ```
 
 Collect summary output from each agent's final SendMessage for the verification phase.
