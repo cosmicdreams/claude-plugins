@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.2.0
+- `sprint:run`: added Prerequisites section — launch sessions with `claude --dangerously-skip-permissions --agent team-lead` to give the main thread a defined identity and full tools list
+- `sprint/agents/team-lead`: added missing tools (TeamCreate, CronCreate, CronDelete, CronList, Agent, Skill); fixed description (removed Settings Tray reference)
+- `sprint/protocols/SPAWNING`: added Required Tools Per Agent Role section — documents minimum tools per role, compaction recovery silent failure risk, and shell alias limitation in bash scripts
+- `sprint:run`: added build-sprint naming convention — name implementer agents by role (impl-agent-1) not by artifact (impl-team-lead)
+
 ## 3.1.1
 - `sprint:project-notes`: vault write is now filesystem-direct — no Obsidian CLI dependency
 
