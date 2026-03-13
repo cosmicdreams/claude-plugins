@@ -10,7 +10,7 @@ triggers:
   - "start watching"
   - "monitor errors"
   - "watch drupal errors"
-allowed-tools: Bash, Read, Write, Agent
+allowed-tools: Bash, Read, Write, Agent, TeamCreate, TeamDelete, SendMessage
 ---
 
 # drover:watch — Loop orchestrator
@@ -68,15 +68,53 @@ Load the latest checkpoint:
 tail -1 ~/.claude/drover.state.jsonl 2>/dev/null || echo "{}"
 ```
 
-For each environment, spawn a `drover:triage-agent`. If multiple environments are configured,
-spawn them in parallel (one Agent call per environment in the same message).
+**Create an agent team before spawning any triage agents** — this gives all agents a shared
+communication channel and lets them report their summaries back to team-lead:
 
-Pass to each agent:
-- The full environment config block (JSON)
-- The per-environment checkpoint from state
-- The full `.claude/drover-config.json` content (for notification config)
+```
+TeamCreate(
+  team_name = "drover-watch-{YYYYMMDD-HHMM}",
+  description = "Drover triage cycle — {N} environments"
+)
+```
 
-Wait for all triage agents to complete. Collect their summary output.
+For each environment, spawn a `drover:triage-agent` into the team. If multiple environments
+are configured, spawn them all in parallel (multiple Agent calls in one message):
+
+```
+Agent(
+  subagent_type = "drover:triage-agent",
+  team_name     = "drover-watch-{YYYYMMDD-HHMM}",
+  name          = "triage-{env_name}",
+  prompt        = """
+    Your name is triage-{env_name}. You are part of team "drover-watch-{YYYYMMDD-HHMM}".
+
+    ENV_CONFIG: {full_env_config_json}
+    CHECKPOINT: {per_env_checkpoint_json}
+    FULL_CONFIG: {full_drover_config_json}
+
+    Follow the drover:triage-agent protocol for this environment.
+
+    When complete, send your summary to team-lead:
+      SendMessage(type="message", recipient="team-lead", content="{json_summary}")
+  """
+)
+```
+
+Wait for all triage agents to send their completion messages. After all have reported,
+send each a shutdown request:
+
+```
+SendMessage(type="shutdown_request", recipient="triage-{env_name}", content="Triage complete. Shut down.")
+```
+
+Then clean up the team:
+
+```
+TeamDelete()
+```
+
+Collect summary output from each agent's final SendMessage for the verification phase.
 
 ## Step 3: Verification phase
 
