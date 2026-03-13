@@ -1,0 +1,50 @@
+# drover Changelog
+
+## 1.2.0
+- `drover:triage` (triage-agent): DDEV pre-flight step (Step 0) discovers running DDEV instance or starts `worktrees/main`; returns zeros instead of fabricating data if DDEV is unreachable
+- `drover:triage` (triage-agent): switched from `ddev exec -s web drush` to `ddev drush`; watchdog query now uses `--severity=4 --count=500` for better coverage
+- `drover:setup`: Step 1.7 auto-discovers Drush site aliases (`drush/sites/*.site.yml`) to pre-fill env slugs, aliases, staging/production defaults
+- `drover:watch` (verify-deps.sh): fixed Beads DB check to use `-e` instead of `-f` (Dolt creates a directory, not a plain file)
+- `drover:watch` (verify-deps.sh): Slack dep check now looks for `agent-slack` instead of `gws`
+
+## [1.1.0] - 2026-03-12
+
+### Added
+- **Global/project config split** — notification preferences (Slack User ID, quiet mode, quiet hours) now live in `~/.claude/drover-global-config.json`; project config (`.claude/drover-config.json`) contains no `notify` block. `drover:setup` auto-migrates legacy per-project `notify` blocks on re-run.
+- **Suspect commit tracking** — triage agent runs `scripts/suspect-commit.sh` after each new ticket is created, resolving the error's `location` field to a git-tracked file and extracting the most recent commit. Result written to the ticket's Merge Case section.
+- **Dual-window log gathering** — short-window triage (every 3m via `drush @alias watchdog:show`) supplemented by long-window 24h Acquia baseline via `scripts/acquia-baseline.sh`. Velocity-rising errors get a `velocity-rising` label and a lower effective promotion threshold.
+- **Kanban web UI** (`tools/kanban-ui/server.js`) — pure Node.js ≥18 HTTP server on port 3748. Auto-refreshes every 30s. `drover:board` launches it alongside the ASCII summary. Requires no npm install.
+- **`drover:baseline` skill** — on-demand 24h Acquia log download and velocity analysis. Shows rising/stable/falling error trends per fingerprint.
+- **`drover:reset-state` skill** — state recovery for corrupted `drover.state.jsonl`. Soft reset advances offsets to current log tail; hard reset rescans with a one-cycle dedup guard to prevent ticket storms.
+- **`scripts/verify-deps.sh`** — dependency gate run at `drover:watch` startup. Checks bd, python3, Node.js ≥18, config file, Beads DB. Warnings for optional deps (Node.js); errors for required deps.
+- **`scripts/acquia-baseline.sh`** — downloads 24h PHP + Apache logs from Acquia via `acli log:download`, computes per-fingerprint hourly rates and mean baseline, outputs JSON.
+- **`ddev_alias` field** in Acquia environment config — enables short-window Drush queries via `drush @alias` (faster than full `acli ssh` roundtrip).
+- **Velocity boost** in triage agent — detects accelerating error rates (recent gaps <50% of overall average) and applies `velocity-rising` label with reduced promotion threshold.
+
+### Changed
+- **Slack DM replaces gmail** — triage agent and implementer agent now notify via `gws slack send-dm` using `slack_user_id` from global config. Gmail (`gws gmail send`) removed.
+- **Approot cached once per session** — triage agent resolves DDEV/Acquia approot at startup (not per log entry) to avoid repeated shell-outs.
+- **`drover:board`** now performs DB existence pre-check before attempting to start the web server. Includes port conflict detection and 3s startup verification.
+- **`drover:watch`** runs `verify-deps.sh` as first pre-flight step; aborts with actionable error if required deps are missing.
+- **`drover:setup`** Step 1.5 migrates legacy `notify` block from project config to global config on re-run; last-write-wins with INFO log on conflict.
+- **Implementer agent worktree creation** explicitly branches from `main` (not current HEAD) with idempotency guard for existing worktrees.
+
+## [1.0.0] - 2026-03-12
+
+### Added
+- Initial release: automated Drupal error monitoring and self-healing pipeline
+- `drover:setup` — first-time project configuration with interactive interview, Beads board init, and environment validation
+- `drover:watch` — loop orchestrator that runs triage and verification cycles against configured environments (DDEV + Acquia)
+- `drover:triage` — fingerprint-based log ingestion: deduplication, cross-environment signal boost, promotion rules, and Beads ticket management
+- `drover:implement` — autonomous fix pipeline: claims ready tickets, spawns implementer agent, creates isolated git worktrees, runs PHPCS/PHPStan
+- `drover:board` — human-facing board viewer with filterable columns and open/closed counts
+- `triage-agent` (haiku) — reads logs, fingerprints errors, creates/augments Beads tickets without code writing
+- `implementer-agent` (sonnet) — claims tickets, creates worktrees, implements fixes, writes merge cases
+- Environment trust model: `high` (production), `medium` (staging), `low` (local DDEV) with configurable promotion thresholds
+- Local noise filter: suppresses DDEV-specific false positives (missing synced files, absent services)
+- Cross-environment signal boost: shared fingerprint in low+high trust environments promotes immediately
+- Quiet mode and quiet hours for notifications (skips non-critical on `quiet_mode: true` or during quiet window)
+- Verification loop: tracks 3 consecutive absent cycles before auto-closing a fixed ticket
+- Session-start hook: injects one-line ambient status when drover is configured in the current project
+- Stateful checkpoint via `~/.claude/drover.state.jsonl` (append-only, trimmed to 30 days)
+- Fingerprint rules reference: per-source normalization rules (watchdog, PHP error log, Nginx/Apache)

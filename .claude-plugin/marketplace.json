@@ -42,6 +42,12 @@
       "description": "Office productivity skills: email, calendar, Jira, GitHub, Obsidian vault management, and log analysis",
       "source": "./office",
       "category": "productivity"
+    },
+    {
+      "name": "drover",
+      "description": "Automated Drupal error monitoring and self-healing pipeline: watches logs, triages errors into curated Beads tickets, autonomously implements fixes in isolated git worktrees, and notifies on ready-to-review fixes",
+      "source": "./drover",
+      "category": "development"
     }
   ]
 }
