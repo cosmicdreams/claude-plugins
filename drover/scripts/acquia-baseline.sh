@@ -2,42 +2,54 @@
 # drover/scripts/acquia-baseline.sh
 # Downloads 24h of Acquia logs and computes per-fingerprint error baseline.
 #
-# Usage: acquia-baseline.sh <app_uuid> <env_slug> [output_dir]
+# Uses the local system acli (NOT the acli inside DDEV containers).
+# Requires: `acli auth:login` to have been run once on this machine.
+# Credentials are stored by acli in ~/.acquia/cloud_api.conf.
+#
+# Usage: acquia-baseline.sh <acli_env_id> [output_dir]
+#   acli_env_id — Acquia environment alias from drover-config.json "acli_alias"
+#                 e.g. "ahridrupalhosting.prod" or "ahridrupalhosting.test"
 # Output: JSON to stdout with top error fingerprints and their hourly rates
 
 set -euo pipefail
 
-APP_UUID="${1:-}"
-ENV_SLUG="${2:-}"
-OUTPUT_DIR="${3:-/tmp/drover-baseline}"
+ACLI_ENV_ID="${1:-}"
+OUTPUT_DIR="${2:-/tmp/drover-baseline}"
 
-if [ -z "$APP_UUID" ] || [ -z "$ENV_SLUG" ]; then
-  echo "Usage: acquia-baseline.sh <app_uuid> <env_slug> [output_dir]" >&2
+if [ -z "$ACLI_ENV_ID" ]; then
+  echo "Usage: acquia-baseline.sh <acli_env_id> [output_dir]" >&2
+  echo "  acli_env_id — e.g. ahridrupalhosting.prod" >&2
   exit 1
 fi
 
+# Verify local system acli is available and authenticated
+if ! command -v acli >/dev/null 2>&1; then
+  echo "ERROR: acli not found. Install from https://github.com/acquia/cli/releases" >&2
+  exit 1
+fi
+
+if [ ! -f "$HOME/.acquia/cloud_api.conf" ]; then
+  echo "ERROR: acli not authenticated. Run: acli auth:login" >&2
+  exit 1
+fi
+
+ENV_SLUG="${ACLI_ENV_ID##*.}"
 mkdir -p "$OUTPUT_DIR"
 
 PHP_LOG="${OUTPUT_DIR}/${ENV_SLUG}-php-24h.log"
 APACHE_LOG="${OUTPUT_DIR}/${ENV_SLUG}-apache-24h.log"
 
-# Download 24h PHP error log
-echo "Downloading PHP error log for ${ENV_SLUG}..." >&2
-acli log:download \
-  --environment="${APP_UUID}.${ENV_SLUG}" \
-  --log-type=php-error \
-  --filename="$PHP_LOG" 2>/dev/null || {
-  echo "WARNING: Failed to download PHP error log" >&2
+# Download 24h PHP error log via local system acli
+echo "Downloading PHP error log for ${ACLI_ENV_ID}..." >&2
+acli api:environments:log-download "${ACLI_ENV_ID}" php-error > "$PHP_LOG" 2>/dev/null || {
+  echo "WARNING: Failed to download PHP error log for ${ACLI_ENV_ID}" >&2
   touch "$PHP_LOG"
 }
 
-# Download 24h Apache error log
-echo "Downloading Apache error log for ${ENV_SLUG}..." >&2
-acli log:download \
-  --environment="${APP_UUID}.${ENV_SLUG}" \
-  --log-type=apache-error \
-  --filename="$APACHE_LOG" 2>/dev/null || {
-  echo "WARNING: Failed to download Apache error log" >&2
+# Download 24h Apache error log via local system acli
+echo "Downloading Apache error log for ${ACLI_ENV_ID}..." >&2
+acli api:environments:log-download "${ACLI_ENV_ID}" apache-error > "$APACHE_LOG" 2>/dev/null || {
+  echo "WARNING: Failed to download Apache error log for ${ACLI_ENV_ID}" >&2
   touch "$APACHE_LOG"
 }
 

@@ -85,14 +85,40 @@ If DDEV is running but drush commands fail:
 
 For Acquia environments (resolve once, not per log entry):
 ```bash
-DDEV_ALIAS=$(python3 -c "
-import json
+# Derive acli env ID from drush site alias YAML (drush/sites/<group>.site.yml).
+# No acli_alias field needed in drover-config.json — derived from ddev_alias + drush YAML.
+ACLI_ALIAS=$(python3 -c "
+import json, os, re, sys
 cfg = json.load(open('.claude/drover-config.json'))
-env = next((e for e in cfg['environments'] if e['name']=='${ENV_NAME}'), {})
-print(env.get('ddev_alias', ''))")
+env = next((e for e in cfg['environments'] if e['name'] == '${ENV_NAME}'), {})
+ddev_alias = env.get('ddev_alias', '')
+# ddev_alias format: @group.env_key  e.g. @ahri.prod
+if not ddev_alias.startswith('@'):
+    sys.exit(0)
+alias_parts = ddev_alias.lstrip('@').split('.')
+if len(alias_parts) < 2:
+    sys.exit(0)
+group, env_key = alias_parts[0], alias_parts[1]
+yaml_path = os.path.join('drush', 'sites', f'{group}.site.yml')
+if not os.path.exists(yaml_path):
+    sys.exit(0)
+with open(yaml_path) as f:
+    content = f.read()
+# Parse YAML: split on top-level keys, find env_key block
+blocks = re.split(r'^(\w[\w-]*):\s*$', content, flags=re.MULTILINE)
+for i in range(1, len(blocks), 2):
+    if blocks[i] == env_key and i + 1 < len(blocks):
+        block = blocks[i + 1]
+        m_site = re.search(r'ac-site:\s*(\S+)', block)
+        m_env  = re.search(r'ac-env:\s*(\S+)', block)
+        if m_site and m_env:
+            print(f'{m_site.group(1)}.{m_env.group(1)}')
+        break
+")
 
-ACQUIA_APPROOT=$(acli ssh "${ENV_SLUG}" -- "realpath docroot" 2>/dev/null || echo "")
-# If empty: suspect-commit will be skipped for Acquia entries
+# Uses local system acli (not DDEV's). Credentials stored in ~/.acquia/cloud_api.conf.
+# Derived from drush/sites/<group>.site.yml ac-site + ac-env fields.
+# If empty: Acquia log sources will be skipped for this environment.
 ```
 
 Identify the environment config matching `ENV_NAME`. Extract:
@@ -161,25 +187,31 @@ ddev exec -s web bash -c "stat -c %s /var/log/php/error.log 2>/dev/null || echo 
 
 ### Acquia environment (type: "acquia")
 
-```bash
-APP_UUID=<from_config>
-ENV_SLUG=<from_config>
+Uses the **local system acli** — not the acli inside DDEV containers. Credentials
+are stored by acli in `~/.acquia/cloud_api.conf` after running `acli auth:login` once.
+The acli env ID is derived from `drush/sites/<group>.site.yml` (`ac-site` + `ac-env`)
+using `ddev_alias` from drover-config.json — no separate `acli_alias` field needed.
 
-# Watchdog via SSH
+```bash
+DDEV_ALIAS=<env.ddev_alias from config>  # e.g. @ahri.prod
+ACLI_ALIAS=<derived from drush YAML>     # e.g. ahridrupalhosting.prod
+
+# Watchdog via ddev drush alias (primary path)
 LAST_WID=<from_checkpoint_or_0>
-acli ssh ${APP_UUID}.${ENV_SLUG} -- drush watchdog:show --format=json --count=200 2>/dev/null | python3 -c "
+ddev drush "${DDEV_ALIAS}" watchdog:show --format=json --count=200 2>/dev/null | python3 -c "
 import json,sys
 entries=json.load(sys.stdin)
 new=[e for e in entries if int(e.get('wid',0)) > $LAST_WID]
 print(json.dumps(new))
 "
 
-# PHP/Apache logs via snapshot
-acli log:tail --format=json --environment=${ENV_SLUG} --log-type=php-error > /tmp/drover-${ENV_SLUG}-php.json 2>/dev/null || echo "[]" > /tmp/drover-${ENV_SLUG}-php.json
-acli log:tail --format=json --environment=${ENV_SLUG} --log-type=apache-error > /tmp/drover-${ENV_SLUG}-apache.json 2>/dev/null || echo "[]" > /tmp/drover-${ENV_SLUG}-apache.json
+# PHP/Apache logs via local system acli (not DDEV's acli)
+# acli auth:login must have been run once; creds in ~/.acquia/cloud_api.conf
+acli api:environments:log-download "${ACLI_ALIAS}" php-error > /tmp/drover-${ACLI_ALIAS##*.}-php.log 2>/dev/null || touch /tmp/drover-${ACLI_ALIAS##*.}-php.log
+acli api:environments:log-download "${ACLI_ALIAS}" apache-error > /tmp/drover-${ACLI_ALIAS##*.}-apache.log 2>/dev/null || touch /tmp/drover-${ACLI_ALIAS##*.}-apache.log
 ```
 
-Filter log snapshots to new lines since last checkpoint timestamp.
+Filter log files to new lines since last checkpoint byte offset.
 
 ## Step 3: Apply noise filter (low trust_level only)
 
