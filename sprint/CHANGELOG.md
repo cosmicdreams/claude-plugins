@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.1
+- `sprint:project-notes`: vault write is now filesystem-direct — no Obsidian CLI dependency
+
 ## 3.1.0
 - Removed `sprint:changelog` — use `admin:changelog sprint` instead
 - `sprint:project-notes` now archives a per-sprint snapshot to the Neurons vault at `Projects/<project>/release-notes/<date>-sprint-notes.md` after writing the local RELEASE-NOTES.md

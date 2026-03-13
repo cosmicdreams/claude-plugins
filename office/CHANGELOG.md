@@ -1,5 +1,13 @@
 # Changelog
 
+## 1.11.0
+- Add `office/references/obsidian-rules.md` — canonical vault taxonomy and path conventions shared by all plugins
+- Add new `office:obsidian-lint` skill to audit and correct vault structure against obsidian-rules.md
+- `office:archive`, `office:organize`, `office:vault-store`: switch to filesystem-first writes — no longer require Obsidian desktop to be running
+- `office:archive` and `office:organize`: use obsidian-rules.md for placement decisions instead of hardcoded heuristics
+- `office:vault-store`: remove `shared/` routing; replace hardcoded path table with obsidian-rules.md reference
+- Remove `shared/` prefix from all vault paths — the vault is shared by definition
+
 ## 1.10.0
 - `office:pulse` and `office:morning-brief`: project-first config cascade — checks `.claude/office-pulse.json` before `~/.claude/office-pulse.json`; creates project config from template on first run if neither exists
 - `office:pulse`: email source removed (no longer fetched or displayed)

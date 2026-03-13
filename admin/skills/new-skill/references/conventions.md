@@ -50,7 +50,7 @@ Use `${CLAUDE_PLUGIN_ROOT}` for all plugin-internal references. Never hardcode c
 SCRIPT="${CLAUDE_PLUGIN_ROOT}/skills/my-skill/scripts/process.sh"
 
 # Bad — breaks on reinstall
-SCRIPT="~/.claude/plugins/cache/local/admin/2.3.1/skills/my-skill/scripts/process.sh"
+SCRIPT="~/.claude/plugins/cache/local/admin/2.3.2/skills/my-skill/scripts/process.sh"
 ```
 
 ## Installing and verifying

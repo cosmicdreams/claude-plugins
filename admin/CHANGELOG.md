@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.3.2
+- `admin:new-skill`: eval records now write to `Skill-Evals/` directly (removed `shared/` prefix); filesystem-direct write replaces Obsidian CLI check
+
 ## 2.3.1
 - Fix `reinstall-plugin.sh` verification note — example skill updated from `sprint:changelog` to `admin:changelog sprint --latest`
 

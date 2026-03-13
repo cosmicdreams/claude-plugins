@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.2.1
+- `drupal-lab:analyze-issue` and `drupal-lab:issue-summary`: Drupal vault path moved to `OpenSource/Drupal.org/<project>/` — aligns with new vault taxonomy
+- Both skills: vault writes are now filesystem-direct — no Obsidian CLI dependency
+
 ## 2.2.0
 - Removed `drupal-lab:changelog` — use `admin:changelog drupal-lab` instead
 - Vault writes in `drupal-lab:analyze-issue` and `drupal-lab:issue-summary` now assume Obsidian is running; `obsidian help` is only run as a diagnostic if the write fails
