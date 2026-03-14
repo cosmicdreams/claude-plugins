@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.3.0
+- Added LSP tool (PHP code-aware navigation) to implementer, fixer, and architect agents
+- Agents coached on when to use LSP vs grep: LSP for class hierarchies, method callers, interface implementations; grep for string patterns and non-PHP files
+- `analyze-issue` skill: LSP guidance for tracing classes, finding references, and checking method signatures during code analysis
+- `validate-patch` skill: LSP guidance for test inheritance chain traversal (Phase 0.2) and coverage gap detection (Phase 0.5)
+
 ## 2.2.1
 - `drupal-lab:analyze-issue` and `drupal-lab:issue-summary`: Drupal vault path moved to `OpenSource/Drupal.org/<project>/` — aligns with new vault taxonomy
 - Both skills: vault writes are now filesystem-direct — no Obsidian CLI dependency
