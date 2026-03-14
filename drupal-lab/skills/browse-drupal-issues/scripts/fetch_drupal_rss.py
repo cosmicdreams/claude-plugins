@@ -1,11 +1,74 @@
 #!/usr/bin/env python3
 """Fetch and parse Drupal.org project issue RSS feeds."""
 import sys
+import os
 import argparse
 import xml.etree.ElementTree as ET
 from urllib.request import urlopen
 from urllib.error import URLError, HTTPError
 import json
+import glob
+import re
+
+
+def detect_project_name():
+    """Auto-detect Drupal project name from the current working directory.
+
+    Resolution order:
+    1. DRUPAL_MODULE_MACHINE_NAME environment variable (DDEV contrib projects)
+    2. *.info.yml file with type: module or type: theme in CWD or parent
+    3. composer.json with a drupal/* package name
+    4. CLAUDE.md mentioning a module machine name
+    """
+    cwd = os.getcwd()
+    search_dirs = [cwd, os.path.dirname(cwd)]
+
+    # 1. DDEV contrib env var
+    env_name = os.environ.get('DRUPAL_MODULE_MACHINE_NAME')
+    if env_name:
+        return env_name
+
+    # 2. *.info.yml in CWD or parent (worktree layouts place module root one level up)
+    for search_dir in search_dirs:
+        for info_file in glob.glob(os.path.join(search_dir, '*.info.yml')):
+            try:
+                with open(info_file) as f:
+                    content = f.read()
+                if re.search(r'^type:\s+(module|theme)', content, re.MULTILINE):
+                    return os.path.basename(info_file).replace('.info.yml', '')
+            except OSError:
+                continue
+
+    # 3. composer.json with drupal/* package name
+    for search_dir in search_dirs:
+        composer_path = os.path.join(search_dir, 'composer.json')
+        if os.path.isfile(composer_path):
+            try:
+                with open(composer_path) as f:
+                    data = json.load(f)
+                pkg_name = data.get('name', '')
+                if pkg_name.startswith('drupal/'):
+                    return pkg_name.split('/', 1)[1]
+            except (OSError, json.JSONDecodeError):
+                pass
+
+    # 4. CLAUDE.md mentioning module machine name
+    for search_dir in search_dirs:
+        claude_md = os.path.join(search_dir, 'CLAUDE.md')
+        if os.path.isfile(claude_md):
+            try:
+                with open(claude_md) as f:
+                    content = f.read()
+                m = re.search(r'\*\*Module\*\*:\s*`?(\w+)`?', content)
+                if m:
+                    return m.group(1)
+                m = re.search(r'Module machine name[:\s]+`?(\w+)`?', content, re.IGNORECASE)
+                if m:
+                    return m.group(1)
+            except OSError:
+                pass
+
+    return None
 
 
 def fetch_rss(project, component=None, status=None, priority=None):
@@ -124,16 +187,35 @@ def main():
         """
     )
 
-    parser.add_argument('project', help='Project name (e.g., drupal, views)')
+    parser.add_argument('project', nargs='?', default=None,
+                        help='Project name (e.g., drupal, views). '
+                             'Auto-detected from CWD if omitted.')
     parser.add_argument('--component', help='Filter by component (e.g., settings_tray.module or just settings_tray)')
-    parser.add_argument('--status', help='Filter by status (e.g., Open, Active, Fixed)')
+    parser.add_argument('--status', help='Filter by status (e.g., Open, Active, Fixed). '
+                                         'Defaults to Open when no arguments are given.')
     parser.add_argument('--priority', help='Filter by priority (e.g., Critical, Major)')
     parser.add_argument('--limit', type=int, help='Max issues to display')
     parser.add_argument('--output', choices=['text', 'json'], default='text')
 
     args = parser.parse_args()
 
-    xml_content = fetch_rss(args.project, args.component, args.status, args.priority)
+    # Resolve project — auto-detect when not provided
+    project = args.project
+    if not project:
+        project = detect_project_name()
+        if project:
+            print(f"Auto-detected project: {project}", file=sys.stderr)
+        else:
+            print("Error: could not auto-detect project name. "
+                  "Pass it explicitly: fetch_drupal_rss.py <project>", file=sys.stderr)
+            sys.exit(1)
+
+    # Default status to Open when running with no explicit filters
+    status = args.status
+    if not status and not args.component and not args.priority and not args.project:
+        status = 'Open'
+
+    xml_content = fetch_rss(project, args.component, status, args.priority)
     issues = parse_rss(xml_content)
     format_output(issues, args.limit, args.output)
 
