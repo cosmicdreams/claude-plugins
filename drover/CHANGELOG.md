@@ -1,5 +1,8 @@
 # drover Changelog
 
+## 1.4.0
+- `drover:dashboard`: new Datadog/Splunk-style ops dashboard on port 3749. Environment health tiles, error volume timeline chart, triage cycle stats, filterable error table with expandable stack traces, and full kanban board view with drag-and-drop and ticket modals. Live updates via SSE (no polling). System fonts, zero external dependencies.
+
 ## 1.3.0
 - `drover:implement`: agents now run as a named agent team (`TeamCreate` before spawn, `TeamDelete` after) so the implementer can report back via `SendMessage`
 - `drover:watch`: triage agents now run as a named agent team; each environment gets its own named agent (`triage-{env}`) with a shared communication channel; team is torn down after all summaries are received
