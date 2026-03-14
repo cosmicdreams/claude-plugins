@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.3.6
+- `scaffold-detect` hook: updated references from retired `drupal-module-starter` to `drupal-lab:module-dev-starter`
+
 ## 2.3.5
 - `admin:bump-version`: updated reinstall instructions to use `/reload-plugins` in the current session instead of starting a new one
 
