@@ -10,8 +10,10 @@ Browse Drupal.org project issue queues using RSS feeds for quick discovery and f
 ## Usage
 
 ```bash
-browse-drupal-issues <project-name> [options]
+browse-drupal-issues [project-name] [options]
 ```
+
+`project-name` is optional — when omitted, the project is auto-detected from the current working directory and the status defaults to `Open`.
 
 **Options:**
 - `--status=<status>` - Filter by issue status (e.g., Open, Fixed, Closed, Active)
@@ -23,6 +25,9 @@ browse-drupal-issues <project-name> [options]
 ## Examples
 
 ```bash
+# No arguments — auto-detect project from CWD, show open issues
+browse-drupal-issues
+
 # Browse all open Drupal core issues
 browse-drupal-issues drupal --status=Open
 
@@ -43,16 +48,28 @@ browse-drupal-issues views --status=Active
 browse-drupal-issues cloudflare --output=json
 ```
 
+## Auto-Detection
+
+When `project-name` is omitted, the script resolves it in this order:
+
+1. `DRUPAL_MODULE_MACHINE_NAME` env var (set automatically in DDEV contrib projects)
+2. `*.info.yml` file with `type: module` or `type: theme` in CWD or parent directory
+3. `composer.json` with a `drupal/*` package name
+4. `CLAUDE.md` containing a `**Module**: <name>` line
+
+The detected name is printed to stderr so you can confirm it.
+
 ## How It Works
 
 Execute the bundled Python script that:
-1. Fetches RSS feed from `https://www.drupal.org/project/issues/rss/{project}`
-2. Applies filters via URL parameters
-3. Parses XML and extracts issue metadata
-4. Displays formatted results
+1. Resolves the project name (from args or auto-detection)
+2. Fetches RSS feed from `https://www.drupal.org/project/issues/rss/{project}`
+3. Applies filters via URL parameters
+4. Parses XML and extracts issue metadata
+5. Displays formatted results
 
 ```bash
-python3 scripts/fetch_drupal_rss.py <project> [options]
+python3 scripts/fetch_drupal_rss.py [project] [options]
 ```
 
 ## Integration with analyze-issue
