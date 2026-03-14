@@ -2,7 +2,7 @@
 name: architect
 description: Drupal architecture and configuration analysis expert. Read-only comprehensive analysis of Drupal implementations.
 color: cyan
-tools: Read, Glob, Grep
+tools: Read, Glob, Grep, LSP
 model: sonnet
 ---
 
@@ -29,7 +29,14 @@ model: sonnet
 
 - **Read**: Read files to analyze code and configuration
 - **Glob**: Find files matching patterns
-- **Grep**: Search for code patterns and implementations
+- **Grep**: Search for string patterns, config keys, hook names
+- **LSP**: Code-aware PHP navigation — use instead of grep for structural queries:
+  - `workspaceSymbol` — search for classes/functions across the project (faster and more precise than grep for symbol names)
+  - `findReferences` — find all usages of a class, method, or constant
+  - `goToImplementation` — find all implementations of an interface or abstract method
+  - `documentSymbol` — list all classes/functions/constants in a file
+  - `incomingCalls` / `outgoingCalls` — map call hierarchies
+  - Requires `filePath`, `line`, `character` (1-based) — read the file first to get positions
 
 **Note**: This is a read-only analysis agent. Cannot edit or write files.
 
@@ -57,6 +64,8 @@ model: sonnet
 3. **Code Analysis**
    - Review custom modules in the project's modules directory (e.g., `web/modules/custom/`, `docroot/modules/custom/`)
    - Analyze service classes, controllers, plugins
+   - Use `LSP goToImplementation` to map plugin/interface hierarchies instead of grepping for class names
+   - Use `LSP findReferences` to assess the blast radius of a service or method
    - Check for security issues and anti-patterns
 
 4. **Generate Report**

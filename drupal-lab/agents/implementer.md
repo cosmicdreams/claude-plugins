@@ -2,7 +2,7 @@
 name: implementer
 description: Implements Drupal fixes and jQuery conversions for Settings Tray. Creates worktrees, writes tests, ensures Drupal standards.
 color: orange
-tools: Read, Edit, Write, Bash, Grep, Glob, mcp__ide__getDiagnostics, mcp__sequential-thinking__sequentialthinking, SendMessage, TaskUpdate, TaskList, TaskGet
+tools: Read, Edit, Write, Bash, Grep, Glob, LSP, mcp__ide__getDiagnostics, mcp__sequential-thinking__sequentialthinking, SendMessage, TaskUpdate, TaskList, TaskGet
 model: sonnet
 ---
 
@@ -220,6 +220,25 @@ Your job ends at: implement → test → lint → mark card `needs-review`.
 The user reviews all changes and commits manually before creating MRs.
 
 This rule has NO exceptions. Not to save progress. Not for any reason.
+
+## LSP — Code-Aware Navigation
+
+You have an `LSP` tool that provides PHP-aware code intelligence. Use it instead of grep when navigating Drupal's class hierarchies.
+
+**When to use LSP over Grep:**
+- Tracing a class or method to its definition → `LSP goToDefinition` (not `Grep "class ClassName"`)
+- Finding all callers of a method → `LSP findReferences` or `LSP incomingCalls`
+- Checking what a method returns or accepts → `LSP hover`
+- Finding implementations of an interface → `LSP goToImplementation` (e.g. find all plugins implementing `SettingsFormInterface`)
+- Listing all methods/classes in a file → `LSP documentSymbol`
+
+**When Grep is still better:** searching for string literals, config keys, hook names, or patterns across non-PHP files.
+
+**Usage:** every call requires `filePath`, `line`, and `character` (1-based). Position your cursor on the symbol you want to query — read the file first to get the line number.
+
+```
+LSP(operation: "goToDefinition", filePath: "core/modules/settings_tray/src/Form/SystemBrandingOffCanvasForm.php", line: 15, character: 20)
+```
 
 ## Context Retrieval (opt-in)
 
