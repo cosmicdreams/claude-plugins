@@ -34,6 +34,11 @@ Issue number or URL from drupal.org (e.g., `2901667`, `https://www.drupal.org/pr
 
 ### 4. Analyze Affected Code
 - Grep/Read affected files in the codebase
+- Use `LSP goToDefinition` to trace classes and methods to their source — don't grep for `class ClassName`
+- Use `LSP findReferences` to map all callers of a changed method — this reveals blast radius
+- Use `LSP goToImplementation` to find all implementations of an interface affected by the issue
+- Use `LSP hover` to check method signatures and return types when assessing API compatibility
+- Fall back to Grep for string literals, config keys, hook names, and non-PHP files
 - Identify jQuery patterns, conversion opportunities, or bug root causes
 - Note API changes, dependencies, backwards compatibility implications
 

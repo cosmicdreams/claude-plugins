@@ -58,13 +58,22 @@ Review the base class of each changed test. Common pitfalls:
 | `KernelTestBase` | Service container assumptions | Verify services referenced in test still exist after patch |
 | `UnitTestCase` | No Drupal bootstrap | Ensure no `\Drupal::` calls in test or tested code |
 
-**Action**: Read each test's parent class. Search for inherited `setUp()`, `tearDown()`, and assertion methods that may conflict with the patch.
+**Action**: Read each test file, then use LSP to trace the inheritance chain and understand inherited behavior.
 
+```
+# Find where the base class is defined (position cursor on the class name after "extends")
+LSP(operation: "goToDefinition", filePath: "path/to/TestFile.php", line: <extends-line>, character: <class-name-col>)
+
+# List all methods in the base class (setUp, tearDown, assertions, helpers)
+LSP(operation: "documentSymbol", filePath: "path/to/BaseClass.php", line: 1, character: 1)
+
+# Check what a specific inherited method does (hover for signature + docblock)
+LSP(operation: "hover", filePath: "path/to/BaseClass.php", line: <method-line>, character: <method-col>)
+```
+
+Fall back to grep if the LSP server is unavailable:
 ```bash
-# Find the base class
 grep -n 'extends\s' path/to/TestFile.php
-
-# Check what the base class setUp does
 grep -n 'function setUp\|function tearDown\|function assert' path/to/BaseClass.php
 ```
 
@@ -98,9 +107,10 @@ Verify tests don't assume state that the patch may alter:
 Even if no test files changed, verify:
 
 - [ ] Changed PHP files have corresponding test coverage (check `tests/` sibling directory)
-- [ ] No new public methods without test coverage
+- [ ] No new public methods without test coverage — use `LSP documentSymbol` on changed files to list all public methods, then `LSP findReferences` to check if tests call them
 - [ ] Changed module `.info.yml` dependencies match test `$modules` arrays
 - [ ] If JS/CSS changed, FunctionalJavascript tests exist for the module
+- [ ] Use `LSP findReferences` on changed methods to identify downstream code that may need additional test coverage
 
 ### Phase 0 Result
 
