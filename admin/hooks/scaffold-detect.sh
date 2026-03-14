@@ -12,7 +12,7 @@
 #   - Project complete:     "agentSquad": { "scaffoldComplete": true } in .claude/settings.json
 #                           (set automatically when scaffold skill completes)
 #   - Drupal Phase 2:      "agentSquad": { "drupalScaffoldComplete": true } in .claude/settings.json
-#                           (set when drupal-module-starter completes)
+#                           (set when drupal-lab:module-dev-starter completes)
 
 GLOBAL_SETTINGS="$HOME/.claude/settings.json"
 PROJECT_SETTINGS="$PWD/.claude/settings.json"
@@ -79,7 +79,7 @@ if [ "$IS_DRUPAL" = "true" ] && [ "$DRUPAL_SCAFFOLD_COMPLETE" = "false" ]; then
     jq -n \
       --arg name "$PROJECT_NAME" \
       '{
-        systemMessage: ("\($name) base scaffold is complete, but Drupal-specific setup has not been run.\nType: \"/drupal-module-starter\" to configure Drupal DDEV environment.\nOR\n\"silence this prompt\" to disable for this project only.")
+        systemMessage: ("\($name) base scaffold is complete, but Drupal-specific setup has not been run.\nType: \"/drupal-lab:module-dev-starter\" to configure Drupal DDEV environment.\nOR\n\"silence this prompt\" to disable for this project only.")
       }'
     exit 0
 fi
