@@ -48,6 +48,12 @@
       "description": "Automated Drupal error monitoring and self-healing pipeline: watches logs, triages errors into curated Beads tickets, autonomously implements fixes in isolated git worktrees, and notifies on ready-to-review fixes",
       "source": "./drover",
       "category": "development"
+    },
+    {
+      "name": "research-lab",
+      "description": "Composable research engagement pipeline: literary review via NotebookLM, multi-agent workshop swarms, cross-examination seminars, and iterative experimentation with ratchet-based optimization",
+      "source": "./research-lab",
+      "category": "development"
     }
   ]
 }
