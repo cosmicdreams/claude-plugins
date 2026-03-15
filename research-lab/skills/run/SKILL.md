@@ -47,27 +47,46 @@ Report resume state to the user before proceeding.
 
 ## Phase 1 — Setup
 
+### Golden Rule: Worktree = Branch
+
+**Never modify code in any working directory named `main` or with the main branch checked out.**
+All experiment work happens in a dedicated worktree. Create one now — not later.
+
 1. Confirm with the user:
    - Engagement name (kebab-case, e.g., `pncb-cache-optimization`)
    - Research topic / optimization target
    - Any seed URLs or existing notebooks
-   - Working directory (where experiments will run)
+   - Target project root (where the code lives, e.g., `~/Sites/AHRI`)
 
-2. Create the engagement directory:
+2. **Create a worktree in the target project** via `/create-worktree`:
+```
+Skill("admin:create-worktree", args="project=<target-project-root> name=<engagement-name>")
+```
+This creates `<target-project-root>/worktrees/<engagement-name>/` on its own branch.
+The experimentalist commits changes here — never in `worktrees/main/`.
+
+3. **Start DDEV in the new worktree** (not in main):
+```bash
+cd <target-project-root>/worktrees/<engagement-name>
+ddev start
+```
+The worktree's DDEV URL becomes the target for preflight and measurement.
+
+4. Create the engagement directory (in the orchestrating project, not the target):
 ```bash
 mkdir -p "analysis-reports/research/<engagement>"
 ```
 
-3. **No TeamCreate yet.** No subagents until Phase 3.
+5. **No TeamCreate yet.** No subagents until Phase 3.
 
 ---
 
 ## Phase 2 — Preflight
 
-Run the preflight script directly (no agent needed):
+Run the preflight script against the **worktree's DDEV URL** (never a remote site, never main):
 
 ```bash
-${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh <target-url> <pages>
+${CLAUDE_PLUGIN_ROOT}/scripts/preflight.sh <worktree-ddev-url> <pages>
 ```
 
 Review the output. Write findings to `01-preflight.md`.

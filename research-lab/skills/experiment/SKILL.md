@@ -25,12 +25,20 @@ Read these references before starting:
 
 ---
 
+## Golden Rule: Worktree = Branch
+
+**You MUST be working in a dedicated worktree — never in `worktrees/main/`.**
+Verify before starting: your working directory must NOT be named `main` or have the main branch checked out.
+If no worktree exists, STOP and ask the PI to create one via `/create-worktree`.
+
+---
+
 ## Input
 
 Required:
 - **Methodology path** — path to `05-methodology.md` (or any methodology file)
 - **Results path** — where to write `results.jsonl`
-- **Working directory** — where to make changes
+- **Working directory** — a dedicated worktree (never main). Must be on its own branch.
 
 Optional:
 - **Measurement harness** — path to a measurement script (may be defined in methodology)
