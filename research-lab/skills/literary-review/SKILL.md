@@ -53,6 +53,18 @@ Extract from the user's message or PI's spawn prompt:
 - `topic`: research subject (notebook title and research query)
 - `seed_urls`: starting point URLs (0 or more)
 - `focus`: specific angle or constraints
+- `notebook_id`: existing NotebookLM notebook to reuse (if provided)
+
+### Check for reusable notebooks
+
+Before creating a new notebook, check if a relevant one already exists from a prior engagement. Topics like "Drupal cache optimization" or "CDN integration patterns" are project-agnostic — the same reference material applies across projects.
+
+```bash
+# List existing notebooks
+notebooklm list 2>/dev/null | grep -i "<topic keywords>"
+```
+
+If an existing notebook covers the same domain, reuse it by passing its ID. You can still add project-specific seed URLs as new sources. Only create a new notebook if no relevant one exists.
 
 **Defaults:**
 - Research mode: **deep** (20+ sources)
