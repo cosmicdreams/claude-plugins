@@ -55,7 +55,7 @@ Report resume state to the user before proceeding.
 ## Phase 1 — Setup
 
 Confirm with the user:
-- Engagement name (kebab-case, e.g., `ahri-cache-optimization`)
+- Engagement name (kebab-case, e.g., `cache-optimization`)
 - Research topic / optimization target
 - Any seed URLs or existing NotebookLM notebooks
 - Target project root (e.g., `~/Sites/AHRI`)
@@ -70,6 +70,8 @@ Skill("admin:create-worktree", args="project=<target-project-root> name=<engagem
 
 This creates `<target-project-root>/worktrees/<engagement-name>/` on its own branch.
 
+**Naming convention:** The worktree name is just the engagement name (e.g., `cache-optimization`), NOT prefixed with the project name. The worktree already lives under the project root, so the project prefix is redundant in the path. The DDEV instance name (set in `config.local.yaml`) is where the project prefix belongs: `<project>-<engagement>` (e.g., `massport-cache-optimization`).
+
 ### 1b. Bootstrap DDEV
 
 Invoke the process-lifecycle skill for DDEV setup. Do not run `ddev start` directly — the skill handles `config.local.yaml` creation, dependency installation, and ready checks.
@@ -78,18 +80,25 @@ Invoke the process-lifecycle skill for DDEV setup. Do not run `ddev start` direc
 Skill("drupal-lab:process-lifecycle", args="phase=init worktree=<target-project-root>/worktrees/<engagement-name>")
 ```
 
-**DDEV naming:** The process-lifecycle skill creates `config.local.yaml` with a project name. Ensure it includes the project prefix — e.g., `ahri-cache-optimization`, not just `cache-optimization`. This prevents collisions in `ddev list` and makes the DDEV URL meaningful (`https://ahri-cache-optimization.ddev.site`).
+**DDEV naming:** Ensure the `config.local.yaml` name includes the project prefix — e.g., `massport-cache-optimization`, not just `cache-optimization`. This prevents collisions in `ddev list` and makes the DDEV URL meaningful.
 
 ### 1c. Provision database
 
-A fresh worktree has an empty database. Pull data using one of:
+A fresh worktree has an empty database. Try these sources in order — use the first that succeeds:
 
 ```bash
-# Option 1: Pull from Acquia (preferred — gets production-like data)
+# Option 1: Local database dump (fastest, no network needed)
+# Check for existing dumps in the project's databases/ directory
+ls <target-project-root>/databases/*.sql* 2>/dev/null
+# If found:
+cd <worktree-path>
+ddev import-db --file=<target-project-root>/databases/<latest-dump>
+
+# Option 2: Pull from Acquia (gets production-like data, requires network + IP whitelist)
 cd <worktree-path>
 ddev pull acquia-dev --skip-files -y
 
-# Option 2: Export from main DDEV and import (if Acquia CLI not configured)
+# Option 3: Export from main DDEV (requires a free DDEV slot)
 cd <target-project-root>/worktrees/main && ddev start
 ddev export-db --gzip=false --file=/tmp/project-db.sql
 ddev stop
@@ -97,18 +106,18 @@ cd <worktree-path>
 ddev import-db --file=/tmp/project-db.sql
 ```
 
-After importing, run standard post-DB steps:
+**After importing from ANY source**, always run the full post-DB bootstrap:
 ```bash
-ddev drush cr
-ddev drush updbst    # check for pending updates
-ddev drush config:status  # check config sync
+ddev drush updatedb -y    # apply pending schema updates
+ddev drush config:import -y  # sync config with codebase
+ddev drush cr             # clear caches
 ```
+
+This sequence is critical when the DB dump is older than the codebase — skipping `updatedb` or `config:import` causes 500 errors.
 
 If the project has custom bootstrap steps (e.g., Site Studio's `cohesion:import` + `cohesion:rebuild`), ask the user: "Does this project need any special bootstrap steps beyond database pull and cache clear?"
 
 ### 1d. Create engagement directory
-
-### 1e. Create engagement directory
 
 In the orchestrating project (CLAUDE-PLUGINS), not the target:
 
@@ -151,6 +160,24 @@ Write output to `01-preflight.md`. For each page, note:
 ### 2c. Gate check
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/run/references/phase-gates.md` (Phase 2 gate).
+
+### 2d. Diagnostic mode decision
+
+After the preflight, assess the engagement type:
+
+**Diagnostic engagement** — the problem is observable and measurable (e.g., 0% cache survival, UNCACHEABLE on all pages, specific error). The preflight already reveals the symptom. Research phases would add overhead without producing the root cause.
+
+**Design engagement** — the question is "what's the best approach?" (e.g., "should we use Imperva or Cloudflare?", "what CDN integration pattern fits our architecture?"). Multiple perspectives and external research add genuine value.
+
+**If diagnostic:** Ask the user: "The preflight reveals a measurable problem. I can investigate directly and skip to methodology+experiment. Or run the full research pipeline. Which do you prefer?"
+
+If the user chooses diagnostic mode:
+- Skip Phases 3-5 (literary review, workshop, seminar)
+- The PI investigates directly (enable debug headers, enumerate blocks, trace cache tags, etc.)
+- Write findings to `03-workshop.md` (PI-authored diagnostic summary)
+- Proceed to Phase 6 (Methodology)
+
+**If design or user prefers full pipeline:** Continue to Phase 3.
 
 ---
 
@@ -245,7 +272,16 @@ cat ${CLAUDE_PLUGIN_ROOT}/skills/run/references/methodology-template.md
 - **Sampling method.** Document exactly which pages are measured and how they were chosen. Use the content-type-based sample from Phase 2.
 - **Direction.** State whether higher or lower is better.
 
-Fill in based on all prior phase outputs. Confirm with the user before proceeding.
+**Metric selection guidance:** The metric must reflect what the user's infrastructure cares about, not Drupal internals. Ask: "What does your CDN/proxy/end-user experience when this problem occurs?"
+
+| User goal | Wrong metric | Right metric |
+|-----------|-------------|--------------|
+| Maximize CDN hit rate | DPC HIT % (internal) | % of pages still cached after a content edit |
+| Reduce origin load | Cold TTFB (measures render speed, not cache) | Cache survival rate after tag invalidation |
+| Improve authenticated UX | Page cache HIT (anonymous only) | DPC HIT rate for authenticated requests |
+| Speed up page loads | Render pipeline time | LCP or TTFB at the edge |
+
+Fill in based on all prior phase outputs. **Confirm the metric with the user before proceeding** — getting this wrong wastes iterations.
 
 **Gate check** (Phase 6 gate): `05-methodology.md` exists, has all required sections per `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/methodology-spec.md`, has exactly one metric with direction specified.
 
