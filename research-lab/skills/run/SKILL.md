@@ -72,15 +72,43 @@ This creates `<target-project-root>/worktrees/<engagement-name>/` on its own bra
 
 ### 1b. Bootstrap DDEV
 
-Invoke the process-lifecycle skill for DDEV setup. Do not run `ddev start` directly — the skill handles `config.local.yaml` creation, naming, dependency installation, and ready checks.
+Invoke the process-lifecycle skill for DDEV setup. Do not run `ddev start` directly — the skill handles `config.local.yaml` creation, dependency installation, and ready checks.
 
 ```
 Skill("drupal-lab:process-lifecycle", args="phase=init worktree=<target-project-root>/worktrees/<engagement-name>")
 ```
 
-If the project has a custom bootstrap sequence (e.g., Site Studio's `cohesion:import` + `cohesion:rebuild`), the user will guide you through it. Ask: "Does this project need any special bootstrap steps beyond standard DDEV start + composer install?"
+**DDEV naming:** The process-lifecycle skill creates `config.local.yaml` with a project name. Ensure it includes the project prefix — e.g., `ahri-cache-optimization`, not just `cache-optimization`. This prevents collisions in `ddev list` and makes the DDEV URL meaningful (`https://ahri-cache-optimization.ddev.site`).
 
-### 1c. Create engagement directory
+### 1c. Provision database
+
+A fresh worktree has an empty database. Pull data using one of:
+
+```bash
+# Option 1: Pull from Acquia (preferred — gets production-like data)
+cd <worktree-path>
+ddev pull acquia-dev --skip-files -y
+
+# Option 2: Export from main DDEV and import (if Acquia CLI not configured)
+cd <target-project-root>/worktrees/main && ddev start
+ddev export-db --gzip=false --file=/tmp/project-db.sql
+ddev stop
+cd <worktree-path>
+ddev import-db --file=/tmp/project-db.sql
+```
+
+After importing, run standard post-DB steps:
+```bash
+ddev drush cr
+ddev drush updbst    # check for pending updates
+ddev drush config:status  # check config sync
+```
+
+If the project has custom bootstrap steps (e.g., Site Studio's `cohesion:import` + `cohesion:rebuild`), ask the user: "Does this project need any special bootstrap steps beyond database pull and cache clear?"
+
+### 1d. Create engagement directory
+
+### 1e. Create engagement directory
 
 In the orchestrating project (CLAUDE-PLUGINS), not the target:
 
