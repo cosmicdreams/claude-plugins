@@ -21,7 +21,7 @@ allowed-tools: Bash, Read, Write
 Transform curated research into a defensible position through structured interrogation.
 
 Read `${CLAUDE_PLUGIN_ROOT}/skills/seminar/references/examination-techniques.md` for the four techniques.
-Read `${CLAUDE_PLUGIN_ROOT}/skills/literary-review/references/notebooklm-cli.md` for CLI syntax.
+**NotebookLM scripts:** Use `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh` for all notebook queries. Reference: `${CLAUDE_PLUGIN_ROOT}/skills/literary-review/references/notebooklm-cli.md`.
 
 ---
 
@@ -71,7 +71,8 @@ Ask the notebook: "Compare <approach A> vs <approach B> based on the sources. Wh
 
 For each assumption identified in Step 1:
 ```bash
-notebooklm ask query="What evidence supports the assumption that <assumption>? What evidence contradicts it?" notebook=NOTEBOOK_ID
+${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh NOTEBOOK_ID \
+  "What evidence supports the assumption that <assumption>? What evidence contradicts it?"
 ```
 
 Record: assumption, supporting evidence, contradicting evidence, revised confidence.

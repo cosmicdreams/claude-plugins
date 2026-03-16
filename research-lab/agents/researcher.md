@@ -29,8 +29,9 @@ Follow the `research-lab:workshop` skill protocol:
 If asked to support a seminar, query the notebook with structured questions provided by the PI. Return raw answers — the PI handles synthesis.
 
 **NotebookLM interaction rules:**
-- Read `references/notebooklm-cli.md` for exact CLI syntax before running any command
-- CLI uses `key=value` syntax, NOT `--key=value`
+- Use `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh` for all notebook queries — it encodes the correct CLI syntax
+- Read `${CLAUDE_PLUGIN_ROOT}/skills/literary-review/references/notebooklm-cli.md` for the full command reference
+- CLI uses `--key value` flag syntax (NOT `key=value` — that's the Obsidian CLI)
 - Always use `--json` flag for parseable output where available
 - Log all notebook interactions for reproducibility
 

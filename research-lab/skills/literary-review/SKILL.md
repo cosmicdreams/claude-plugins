@@ -19,7 +19,8 @@ allowed-tools: Bash, Read, Write
 
 Gather and synthesize knowledge via NotebookLM. Works standalone or as Phase 3 of a research engagement.
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/literary-review/references/notebooklm-cli.md` for exact CLI syntax.
+**NotebookLM CLI reference:** `${CLAUDE_PLUGIN_ROOT}/skills/literary-review/references/notebooklm-cli.md`
+**NotebookLM scripts:** `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-*.sh` — use these instead of calling `notebooklm` directly. They encode the correct CLI syntax.
 
 ---
 
@@ -39,7 +40,7 @@ print(d.get('title', ''))
 "
 ```
 
-- `status: gathering` → research still running. Check status and report.
+- `status: gathering` → research still running. Check with `notebooklm research status -n NOTEBOOK_ID`.
 - `status: ready` → sources imported. Skip to Phase 3 (Source Review).
 - `status: synthesized` → already done. Report and offer to re-query.
 - Otherwise → start fresh at Phase 1.
@@ -81,32 +82,23 @@ with open('$ENGAGEMENT_DIR/.research.json', 'w') as f:
 
 ## Phase 2 — Build the Notebook
 
-### Create notebook
+### Option A: New notebook (no existing notebook)
+
+Use the setup script to create, seed, and fire research in one step:
 
 ```bash
-notebooklm create title="Research: TOPIC" --json 2>&1
+NOTEBOOK_ID=$(${CLAUDE_PLUGIN_ROOT}/scripts/notebook-setup.sh "Research: TOPIC" \
+  --seed-url "URL1" --seed-url "URL2" \
+  --research "TOPIC FOCUS" --no-wait)
 ```
 
-Parse the `id` from JSON output. Update `.research.json` with `notebook_id`.
+Update `.research.json` with the notebook ID and set status to `gathering`.
 
-### Add seed URLs (if any)
+### Option B: Existing notebook
 
-For each seed URL:
-```bash
-notebooklm source add url="URL" notebook=NOTEBOOK_ID --json 2>&1
-```
+If the user provided a notebook ID, skip creation. Set it in `.research.json` and proceed to Phase 3.
 
-Log failures but continue — a failed seed is not fatal.
-
-### Fire deep research
-
-```bash
-notebooklm source add-research query="TOPIC FOCUS" mode=deep notebook=NOTEBOOK_ID --no-wait 2>&1
-```
-
-Update status to `gathering`.
-
-### Wait for research
+### Wait for research (if --no-wait was used)
 
 Spawn a background agent to wait:
 
@@ -116,8 +108,8 @@ Agent(
   subagent_type="general-purpose",
   run_in_background=true,
   prompt="Wait for NotebookLM deep research to complete.
-  Run: notebooklm research wait notebook=NOTEBOOK_ID --import-all --timeout 1800
-  When complete, run: notebooklm source list notebook=NOTEBOOK_ID --json
+  Run: notebooklm research wait -n NOTEBOOK_ID
+  When complete, run: notebooklm source list -n NOTEBOOK_ID --json
   Count sources with status=ready.
   Update $ENGAGEMENT_DIR/.research.json: set status='ready', source_count=N."
 )
@@ -130,7 +122,7 @@ Tell the user: research is running (15-30 minutes). Offer to add more URLs while
 ## Phase 3 — Source Review
 
 ```bash
-notebooklm source list notebook=NOTEBOOK_ID 2>&1
+notebooklm source list -n NOTEBOOK_ID
 ```
 
 Show the source list. Ask the user/PI:
@@ -138,32 +130,40 @@ Show the source list. Ask the user/PI:
 
 Handle removals:
 ```bash
-notebooklm source delete id=SOURCE_ID notebook=NOTEBOOK_ID 2>&1
+notebooklm source delete SOURCE_ID -n NOTEBOOK_ID
+```
+
+Handle additions:
+```bash
+notebooklm source add "URL" -n NOTEBOOK_ID --json
 ```
 
 ---
 
 ## Phase 4 — Synthesis
 
-Run a structured synthesis query:
+Run a structured synthesis query using the ask script:
 
 ```bash
-notebooklm ask query="Summarize the key themes, best practices, and important distinctions across all sources on: TOPIC FOCUS. Structure: (1) core concepts, (2) common patterns, (3) known pitfalls or debates." notebook=NOTEBOOK_ID 2>&1
+${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh NOTEBOOK_ID \
+  "Summarize the key themes, best practices, and important distinctions across all sources on: TOPIC FOCUS. Structure: (1) core concepts, (2) common patterns, (3) known pitfalls or debates."
 ```
 
-Save as a notebook note:
+Save the synthesis as a notebook note:
+
 ```bash
-notebooklm ask query="<same query>" notebook=NOTEBOOK_ID --save-as-note title="Research Summary: TOPIC" 2>&1
+${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh NOTEBOOK_ID \
+  "Summarize the key themes, best practices, and important distinctions across all sources on: TOPIC FOCUS. Structure: (1) core concepts, (2) common patterns, (3) known pitfalls or debates." \
+  --save-as-note --note-title "Research Summary: TOPIC"
 ```
 
 ---
 
 ## Phase 5 — Output
 
-Write the literary review document:
+Write `02-literary-review.md` to the engagement directory. Structure:
 
-```bash
-cat > "$ENGAGEMENT_DIR/02-literary-review.md" << 'REVIEW_EOF'
+```markdown
 # Literary Review: TOPIC
 
 ## Notebook
@@ -182,7 +182,6 @@ cat > "$ENGAGEMENT_DIR/02-literary-review.md" << 'REVIEW_EOF'
 
 ## Key Sources
 <top 5 sources with brief descriptions>
-REVIEW_EOF
 ```
 
 Update `.research.json` status to `synthesized`.
