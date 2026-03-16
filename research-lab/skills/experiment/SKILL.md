@@ -19,6 +19,10 @@ allowed-tools: Bash, Read, Write, Edit
 
 Execute a methodology-driven iteration loop with ratchet-based keep/discard decisions.
 
+## Design Principle
+
+This skill implements the [autoresearch](https://github.com/karpathy/autoresearch) pattern: pick a metric, measure it, try something, measure again, keep if better, revert if worse, repeat. That's the entire loop. This skill owns the **loop mechanics** — ratchet, futility stopping, git discipline, JSONL logging. It does NOT own domain knowledge. What to measure, how to measure it, what to try — all come from the methodology document. The skill is domain-agnostic. It works for cache optimization, performance tuning, code quality scores, or any goal with a measurable metric.
+
 Read these references before starting:
 - `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/iteration-protocol.md` — JSONL schema, git protocol, ratchet rules
 - `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/methodology-spec.md` — methodology.md format
