@@ -1,5 +1,17 @@
 # research-lab Changelog
 
+## 0.3.0 (2026-03-16)
+
+Round 3 improvements from the massport-cache-optimization engagement.
+
+### Changed
+- `preflight.sh`: removed `set -e` (was causing silent exits on curl failures). Added Block Cache Audit section that enumerates blocks with `max-age: 0`, broad tags, or high-cardinality contexts. Added Cache Tag Blast Radius test that primes pages, saves a node, and reports cache survival %. Added Page Cache and Cache-Control columns to header table.
+- `run` Phase 1: worktree naming convention documented (worktree = engagement name only, DDEV = project-engagement). DB provisioning now has 3-option fallback sequence: local dump → Acquia pull → main export. Post-DB bootstrap is mandatory: `updatedb → config:import → cr`.
+- `run` Phase 2: added diagnostic mode decision (2d) — after preflight, PI assesses whether to run full research pipeline or skip to methodology+experiment for observable problems.
+- `run` Phase 6: added metric selection guidance table — prevents wrong metric choice by mapping user goals to appropriate metrics.
+- `literary-review` Phase 1: added notebook reuse check — search for existing NotebookLM notebooks before creating new ones.
+- `iteration-protocol.md`: added staging discipline section — only stage files from the current iteration, never investigation artifacts.
+
 ## 0.2.0 (2026-03-15)
 
 ### Changed
