@@ -70,6 +70,13 @@ Examples:
 - Commit BEFORE measuring — the git log is the experiment's lab notebook
 - Each iteration gets exactly one commit (the change) or one commit + one revert (on discard)
 
+### Staging Discipline
+**Only stage files related to the current iteration's change.** Use `git add <specific-files>` rather than `git add -A` or `git add .`. If earlier phases modified files (e.g., module uninstalls during diagnostic investigation), those changes must NOT be included in iteration commits.
+
+If config was modified during investigation before the experiment started, either:
+1. Stash or commit the investigation changes as a separate "investigation baseline" commit before iteration 1
+2. Or `git checkout -- <unrelated-files>` to restore them before committing
+
 ### Revert on Discard
 ```bash
 git revert HEAD --no-edit
