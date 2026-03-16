@@ -59,12 +59,12 @@ When the cheap gate rejects an iteration:
 
 ### Commit Format
 ```
-experiment(<engagement>): <description>
+perf(<engagement>): <description>
 ```
 
 Examples:
-- `experiment(pncb-cache): enable BigPipe for authenticated users`
-- `experiment(pncb-cache): set Views cache to tag-based invalidation`
+- `perf(pncb-cache): enable BigPipe for authenticated users`
+- `perf(pncb-cache): set Views cache to tag-based invalidation`
 
 ### Commit Timing
 - Commit BEFORE measuring — the git log is the experiment's lab notebook
@@ -78,7 +78,7 @@ git revert HEAD --no-edit
 This creates a clean revert commit. Never amend, never force-push, never manually undo.
 
 ### Revert Commit Message
-Git generates: `Revert "experiment(<engagement>): <description>"`
+Git generates: `Revert "perf(<engagement>): <description>"`
 
 ---
 

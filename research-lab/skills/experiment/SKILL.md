@@ -80,12 +80,33 @@ cat "$METHODOLOGY_PATH"
 ```
 
 Extract:
-- **Objective** and target metric
+- **Objective** and target metric (must be exactly ONE number)
+- **Direction** — higher is better or lower is better
 - **Hypotheses** (ranked — work top-down)
 - **Iteration budget** and futility threshold
-- **Measurement protocol**
+- **Measurement protocol** (including page sample)
 - **Correctness checks**
 - **Scope constraints**
+
+**Validate:** The methodology must specify a single metric with a direction. If it has two metrics, mixed qualitative/quantitative criteria, or no clear direction — STOP and ask the PI to fix the methodology before proceeding.
+
+---
+
+## Step 1.5 — Baseline Survey (mandatory)
+
+Before the first iteration, measure the metric across the FULL page sample defined in the methodology. This establishes the true baseline and prevents false conclusions from narrow sampling.
+
+```bash
+# Run the measurement protocol from the methodology against ALL sample pages
+# Record the result as the baseline
+```
+
+Log the survey as iteration 0:
+```json
+{"iteration": 0, "timestamp": "...", "change": "Baseline survey", "gate": "pass", "metric_before": null, "metric_after": MEASURED, "ratchet": MEASURED, "decision": "keep", "reason": "Baseline established across N pages. Details: ..."}
+```
+
+The ratchet seed = this measured baseline. Do NOT use the baseline value written in the methodology if it differs from what you measure — the actual measurement is the truth.
 
 ---
 
@@ -115,7 +136,7 @@ Make the change in the working directory. Then commit:
 cd "$WORKING_DIR"
 git add -A
 git commit -m "$(cat <<'EOF'
-experiment(<engagement>): <description of change>
+perf(<engagement>): <description of change>
 EOF
 )"
 ```

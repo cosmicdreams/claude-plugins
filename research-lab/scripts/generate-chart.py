@@ -97,7 +97,7 @@ def ascii_chart(records, width=60, height=20):
     print(f"\n  Legend: K = keep, x = discard, - = ratchet line")
 
 
-def print_summary(records):
+def print_summary(records, direction="down"):
     total = len(records)
     keeps = sum(1 for r in records if r.get("decision") == "keep")
     discards = sum(1 for r in records if r.get("decision") == "discard")
@@ -117,8 +117,12 @@ def print_summary(records):
         print(f"  Final ratchet: {last_ratchet}")
 
         if isinstance(first_val, (int, float)) and isinstance(last_ratchet, (int, float)) and first_val != 0:
-            improvement = ((first_val - last_ratchet) / first_val) * 100
+            if direction == "down":
+                improvement = ((first_val - last_ratchet) / first_val) * 100
+            else:
+                improvement = ((last_ratchet - first_val) / first_val) * 100
             print(f"  Improvement: {improvement:.1f}%")
+            print(f"  Direction: {'lower' if direction == 'down' else 'higher'} is better")
 
     # Consecutive discard streaks
     max_streak = 0
@@ -137,6 +141,8 @@ def main():
     parser.add_argument("file", help="Path to results.jsonl")
     parser.add_argument("--width", type=int, default=60, help="Chart width (default 60)")
     parser.add_argument("--height", type=int, default=20, help="Chart height (default 20)")
+    parser.add_argument("--direction", choices=["up", "down"], default="down",
+                        help="Metric direction: 'down' = lower is better (latency), 'up' = higher is better (hit rate)")
     args = parser.parse_args()
 
     records = load_results(args.file)
@@ -145,7 +151,7 @@ def main():
         sys.exit(1)
 
     ascii_chart(records, width=args.width, height=args.height)
-    print_summary(records)
+    print_summary(records, direction=args.direction)
 
 
 if __name__ == "__main__":

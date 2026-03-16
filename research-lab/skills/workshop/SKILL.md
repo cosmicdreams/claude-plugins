@@ -119,11 +119,25 @@ Read each `03-workshop-N.md` and synthesize into `03-workshop.md`:
 
 ---
 
+## Solo Mode
+
+When the PI is working alone (no team sprint, single session), skip agent spawning and query the notebook directly:
+
+1. Define facets as in Step 1
+2. For each facet, run 5-8 focused queries via `notebooklm ask -n <id> "question"` (see `${CLAUDE_PLUGIN_ROOT}/skills/literary-review/references/notebooklm-cli.md` for syntax)
+3. Record findings per facet in the same `03-workshop-N.md` format
+4. Synthesize into `03-workshop.md`
+
+Solo mode is appropriate when:
+- Testing the research process (no need for parallel agents)
+- The notebook has few sources (parallel queries add overhead, not speed)
+- The PI is already in the context and switching to agents would lose context
+
 ## Standalone Mode
 
 When used outside of research-lab:run:
 1. Ask the user for the notebook ID and research questions
-2. Run Steps 1-3
+2. Run Steps 1-3 (or Solo Mode)
 3. Present the synthesis and offer next steps:
    - "Run a seminar to form decisions from these findings?"
    - "Add more sources and re-run the workshop?"

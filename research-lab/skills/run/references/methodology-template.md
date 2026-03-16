@@ -11,6 +11,10 @@ The PI fills in this template to produce `05-methodology.md` for the experimenta
 
 <What metric are we optimizing? What is the target value?>
 
+**Metric:** <Exactly ONE number. Not two metrics. Not a qualitative assessment.>
+**Direction:** <"higher is better" or "lower is better">
+**Target:** <Numeric target value>
+
 ## Baseline
 
 - **Current value:** <measured baseline>
@@ -30,9 +34,20 @@ The PI fills in this template to produce `05-methodology.md` for the experimenta
 - **Noise handling:** <median of N runs, e.g., median of 3>
 - **Ratchet seed:** <initial ratchet value = baseline>
 
+## Sampling Method
+
+<How were the test pages chosen? The experimentalist must reproduce this exactly.>
+
+- **Method:** <e.g., "One published page per content type, discovered via drush SQL query">
+- **Sample size:** <N pages>
+- **Pages:**
+  - <page 1 path> (<content type>)
+  - <page 2 path> (<content type>)
+  - <...>
+
 ## Measurement Protocol
 
-<Exact steps to measure the metric. The experimentalist follows this literally.>
+<Exact steps to measure the metric across ALL sample pages. The experimentalist follows this literally.>
 
 1. <Step 1>
 2. <Step 2>
