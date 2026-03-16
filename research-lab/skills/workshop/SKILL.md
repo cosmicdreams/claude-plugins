@@ -65,10 +65,12 @@ Agent(
   - researcher-2: <facet-2>
   - ...
 
-  Read ${CLAUDE_PLUGIN_ROOT}/skills/literary-review/references/notebooklm-cli.md for CLI syntax.
+  Use ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh for all notebook queries (correct CLI syntax).
+  Reference: ${CLAUDE_PLUGIN_ROOT}/skills/literary-review/references/notebooklm-cli.md
   Read ${CLAUDE_PLUGIN_ROOT}/skills/workshop/references/cross-pollination.md for sharing protocol.
 
   Query the notebook with 5-8 focused questions about your facet.
+  Example: ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh <notebook-id> "your question here"
   For each question, record: the question, the answer, key sources cited.
 
   When you discover something significant, share it with other researchers via SendMessage.
@@ -124,7 +126,7 @@ Read each `03-workshop-N.md` and synthesize into `03-workshop.md`:
 When the PI is working alone (no team sprint, single session), skip agent spawning and query the notebook directly:
 
 1. Define facets as in Step 1
-2. For each facet, run 5-8 focused queries via `notebooklm ask -n <id> "question"` (see `${CLAUDE_PLUGIN_ROOT}/skills/literary-review/references/notebooklm-cli.md` for syntax)
+2. For each facet, run 5-8 focused queries via `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh <notebook-id> "question"`
 3. Record findings per facet in the same `03-workshop-N.md` format
 4. Synthesize into `03-workshop.md`
 

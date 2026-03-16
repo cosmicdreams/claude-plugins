@@ -184,25 +184,11 @@ git revert HEAD --no-edit
 
 ### 2g. Log
 
-Append to results.jsonl:
+Append to results.jsonl using the logging script:
 
 ```bash
-python3 -c "
-import json, datetime
-record = {
-    'iteration': ITERATION_NUMBER,
-    'timestamp': datetime.datetime.now().isoformat(),
-    'change': 'DESCRIPTION',
-    'gate': 'pass',
-    'metric_before': RATCHET_VALUE,
-    'metric_after': MEASURED_VALUE,
-    'ratchet': NEW_RATCHET_VALUE,
-    'decision': 'keep_or_discard',
-    'reason': 'WHY'
-}
-with open('$RESULTS_PATH', 'a') as f:
-    f.write(json.dumps(record) + '\n')
-"
+${CLAUDE_PLUGIN_ROOT}/scripts/log-iteration.sh "$RESULTS_PATH" \
+  ITERATION_NUMBER "DESCRIPTION" "pass" RATCHET_VALUE MEASURED_VALUE NEW_RATCHET_VALUE "keep_or_discard" "WHY"
 ```
 
 ---
