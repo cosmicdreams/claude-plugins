@@ -1,5 +1,9 @@
 # Changelog
 
+
+## 2.4.0
+- New `accessibility-scan` skill: multi-tool a11y audit (Pa11y + axe-core + Lighthouse) that outputs a JSON score tuple for experiment improvement loops
+
 ## 2.3.6
 - `scaffold-detect` hook: updated references from retired `drupal-module-starter` to `drupal-lab:module-dev-starter`
 
