@@ -63,4 +63,46 @@ Parse script output and present to the user:
   - `skipped:no-prerequisites` — DDEV or Docker not found; show install links
 - **Next Steps**: if DDEV was skipped, show the relevant message from the script output
 
+### 4. Verify Environment
+
+After the script completes with `configured` status, run the existing test suite to confirm the environment works:
+
+```bash
+cd <target>/worktrees/main
+ddev phpunit
+```
+
+If tests fail or phpunit is not found, run `ddev poser` again — the first run can occasionally miss dev dependencies if the container wasn't fully ready.
+
+### 5. Remind: Worktree Discipline for Issue Work
+
+After setup is complete, remind the user:
+
+> **Golden Rule: main stays clean.** Do not make code changes in `worktrees/main/`.
+> When you start working on an issue, create a dedicated worktree first:
+> ```
+> cd <target>/worktrees/main
+> git worktree add ../<issue-number> -b <issue-number>-<short-description> <base-branch>
+> ```
+> Then bootstrap DDEV in the issue worktree:
+> ```
+> cd <target>/worktrees/<issue-number>
+> ddev config --project-name=<module>-<issue-number> --project-type=drupal --docroot=web --php-version=8.3
+> printf 'name: <module>-<issue-number>\n' > .ddev/config.local.yaml
+> ddev add-on get ddev/ddev-drupal-contrib
+> ddev add-on get ddev/ddev-selenium-standalone-chrome
+> ddev start && ddev poser && ddev symlink-project
+> ```
+
+#### DDEV Naming Convention
+
+All DDEV project names follow `<module>-<suffix>` with hyphens (no underscores):
+
+| Worktree | DDEV project name | Example |
+|----------|-------------------|---------|
+| `worktrees/main` | `<module>-main` | `better-exposed-filters-main` |
+| `worktrees/<issue>` | `<module>-<issue>` | `better-exposed-filters-3513544` |
+
+This avoids collisions across projects (every project's `main` directory would otherwise default to DDEV name `main`) and makes `ddev list` output self-documenting.
+
 To re-run Drupal setup later: remove the `agentSquad.drupalScaffoldComplete` key from `.claude/settings.json`.

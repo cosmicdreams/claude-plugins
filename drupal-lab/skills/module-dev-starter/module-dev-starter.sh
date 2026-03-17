@@ -62,8 +62,10 @@ CLAUDE_MD="$TARGET/CLAUDE.md"
 if grep -q "## Drupal Contrib Module" "$CLAUDE_MD" 2>/dev/null; then
   skipped+=("CLAUDE.md (Drupal section)")
 else
-  # Substitute MODULE_NAME in template and append
-  sed "s/MODULE_NAME/$MODULE_NAME/g" "$SCRIPT_DIR/drupal-section.md.tmpl" >> "$CLAUDE_MD"
+  # Substitute MODULE_NAME and DDEV_NAME in template and append.
+  # DDEV_NAME uses hyphens for DDEV compatibility.
+  DDEV_NAME_TMPL="${MODULE_NAME//_/-}"
+  sed -e "s/MODULE_NAME/$MODULE_NAME/g" -e "s/DDEV_NAME/$DDEV_NAME_TMPL/g" "$SCRIPT_DIR/drupal-section.md.tmpl" >> "$CLAUDE_MD"
   created+=("CLAUDE.md (Drupal section appended)")
 fi
 
@@ -94,14 +96,19 @@ if [ -z "$DDEV_STATUS" ]; then
   else
     cd "$MAIN"
 
-    # 6b: ddev config
-    ddev config --project-type=drupal --docroot=web --php-version=8.3 --corepack-enable
-    created+=(".ddev/ (ddev config)")
+    # Derive a DDEV-safe project name (hyphens, not underscores).
+    DDEV_NAME="${MODULE_NAME//_/-}-main"
 
-    # 6c: config.local.yaml
+    # 6b: ddev config — always pass --project-name to avoid collisions.
+    # The worktree directory is always "main", which collides with other
+    # projects using the same worktree convention.
+    ddev config --project-name="$DDEV_NAME" --project-type=drupal --docroot=web --php-version=8.3 --corepack-enable
+    created+=(".ddev/ (ddev config, project=$DDEV_NAME)")
+
+    # 6c: config.local.yaml — pin the project name so restarts are stable.
     LOCAL_YAML="$MAIN/.ddev/config.local.yaml"
     if [ ! -f "$LOCAL_YAML" ]; then
-      printf 'name: %s-main\n' "$MODULE_NAME" > "$LOCAL_YAML"
+      printf 'name: %s\n' "$DDEV_NAME" > "$LOCAL_YAML"
       created+=(".ddev/config.local.yaml")
     else
       skipped+=(".ddev/config.local.yaml")
@@ -111,10 +118,18 @@ if [ -z "$DDEV_STATUS" ]; then
     ddev add-on get ddev/ddev-drupal-contrib
     ddev add-on get ddev/ddev-selenium-standalone-chrome
 
-    # 6e: start and bootstrap
+    # 6e: start, then bootstrap inside the running container.
+    # poser and symlink-project must run after ddev start so they execute
+    # inside the container with the full PHP/composer environment.
     ddev start
     ddev poser
     ddev symlink-project
+
+    # 6f: verify phpunit is available — poser should have installed it.
+    if ! ddev exec which phpunit >/dev/null 2>&1; then
+      echo "WARNING: phpunit not found after ddev poser. Running ddev poser again..."
+      ddev poser
+    fi
 
     DDEV_STATUS="configured"
   fi
