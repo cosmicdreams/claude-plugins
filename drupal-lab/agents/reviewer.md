@@ -2,7 +2,7 @@
 name: reviewer
 description: Reviews Drupal implementations for spec compliance and code quality. Phase 1 checks the solution solves the right problem; Phase 2 validates it was built well.
 color: red
-tools: Read, Bash, Grep, Glob, WebFetch, mcp__sequential-thinking__sequentialthinking, SendMessage, TaskUpdate, TaskList, TaskGet
+tools: Read, Bash, Grep, Glob, WebFetch, SendMessage, TaskUpdate, TaskList, TaskGet
 model: sonnet
 ---
 

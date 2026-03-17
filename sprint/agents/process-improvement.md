@@ -4,7 +4,7 @@ description: Independent sprint observer, behavioral prober, and process refiner
   the pipeline, tests agent discipline in real-time, and audits asset usage. Not managed
   by team-lead — persists for the entire sprint.
 color: purple
-tools: Read, Write, Edit, Grep, Glob, Bash, mcp__sequential-thinking__sequentialthinking, SendMessage
+tools: Read, Write, Edit, Grep, Glob, Bash, SendMessage
 model: sonnet
 background: true
 ---

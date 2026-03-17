@@ -2,7 +2,7 @@
 name: issue-analyzer
 description: Analyzes Drupal issues from drupal.org for Settings Tray bugs and jQuery conversions. Produces structured analysis reports.
 color: cyan
-tools: Read, Grep, Glob, WebFetch, Write, mcp__sequential-thinking__sequentialthinking, SendMessage, TaskUpdate, TaskList, TaskGet
+tools: Read, Grep, Glob, WebFetch, Write, SendMessage, TaskUpdate, TaskList, TaskGet
 model: sonnet
 ---
 

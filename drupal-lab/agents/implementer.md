@@ -2,7 +2,7 @@
 name: implementer
 description: Implements Drupal fixes and jQuery conversions for Settings Tray. Creates worktrees, writes tests, ensures Drupal standards.
 color: orange
-tools: Read, Edit, Write, Bash, Grep, Glob, LSP, mcp__ide__getDiagnostics, mcp__sequential-thinking__sequentialthinking, SendMessage, TaskUpdate, TaskList, TaskGet
+tools: Read, Edit, Write, Bash, Grep, Glob, LSP, mcp__ide__getDiagnostics, SendMessage, TaskUpdate, TaskList, TaskGet
 model: sonnet
 ---
 

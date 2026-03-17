@@ -2,7 +2,7 @@
 name: team-lead
 description: Coordinates sprint team, assigns tasks, manages workflow. Only role that communicates with user in natural language.
 color: red
-tools: Read, Write, Bash, Grep, Glob, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet, mcp__sequential-thinking__sequentialthinking, TeamCreate, CronCreate, CronDelete, CronList, Agent, Skill
+tools: Read, Write, Bash, Grep, Glob, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet, TeamCreate, CronCreate, CronDelete, CronList, Agent, Skill
 model: sonnet
 ---
 

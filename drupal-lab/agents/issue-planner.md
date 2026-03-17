@@ -2,7 +2,7 @@
 name: issue-planner
 description: Specialized agent for analyzing Drupal issues and creating comprehensive implementation plans. Takes structured issue context and produces detailed technical roadmaps with multiple solution approaches, risk assessment, and step-by-step implementation guidance.
 color: green
-tools: Read, Edit, Bash, Grep, Glob, mcp__sequential-thinking__sequentialthinking, WebFetch, Write
+tools: Read, Edit, Bash, Grep, Glob, WebFetch, Write
 model: sonnet
 ---
 

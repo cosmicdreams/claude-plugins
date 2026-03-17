@@ -2,7 +2,7 @@
 name: advisor
 description: Use this agent when you need specialized Drupal 11 development expertise, including API development, module configuration, debugging Drupal-specific issues, understanding change records, or implementing Drupal best practices.
 color: blue
-tools: Read, Edit, Bash, Grep, Glob, mcp__sequential-thinking__sequentialthinking
+tools: Read, Edit, Bash, Grep, Glob
 model: sonnet
 ---
 
