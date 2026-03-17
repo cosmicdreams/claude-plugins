@@ -1,5 +1,8 @@
 # Changelog
 
+
+## 2.3.2
+- Removed `mcp__sequential-thinking__sequentialthinking` from all agent tool lists (implementer, advisor, issue-analyzer, issue-planner, reviewer)
 ## 2.3.1
 - `module-dev-starter`: pass `--project-name` to `ddev config` to prevent DDEV name collisions across projects using the `worktrees/main/` convention
 - `module-dev-starter`: verify phpunit is available after `ddev poser`, re-run if missing

@@ -1,6 +1,6 @@
 {
     "name": "sprint",
-    "version": "3.2.0",
+    "version": "3.2.1",
     "description": "Team sprint execution infrastructure: agents, skills, hooks, protocols, and kanban pipeline.",
     "author": {
         "name": "Chris Weber"

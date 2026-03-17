@@ -1,5 +1,8 @@
 # Changelog
 
+
+## 3.2.1
+- Removed `mcp__sequential-thinking__sequentialthinking` from team-lead and process-improvement agent tool lists
 ## 3.2.0
 - `sprint:run`: added Prerequisites section — launch sessions with `claude --dangerously-skip-permissions --agent team-lead` to give the main thread a defined identity and full tools list
 - `sprint/agents/team-lead`: added missing tools (TeamCreate, CronCreate, CronDelete, CronList, Agent, Skill); fixed description (removed Settings Tray reference)

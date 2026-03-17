@@ -1,6 +1,10 @@
 # Changelog
 
 
+## 2.4.1
+- `scaffold`: creates `.claude/progress.jsonl` for session continuity tracking
+- `scaffold`: CLAUDE.md template includes Session Progress Log section with JSONL schema and read/write instructions
+
 ## 2.4.0
 - New `accessibility-scan` skill: multi-tool a11y audit (Pa11y + axe-core + Lighthouse) that outputs a JSON score tuple for experiment improvement loops
 
