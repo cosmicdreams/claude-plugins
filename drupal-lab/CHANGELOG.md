@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.3.1
+- `module-dev-starter`: pass `--project-name` to `ddev config` to prevent DDEV name collisions across projects using the `worktrees/main/` convention
+- `module-dev-starter`: verify phpunit is available after `ddev poser`, re-run if missing
+- `module-dev-starter`: DDEV naming convention `<module>-main` / `<module>-<issue>` documented in SKILL.md and CLAUDE.md template
+- `module-dev-starter`: added environment verification step and worktree discipline reminder with issue worktree bootstrap commands
+
 ## 2.3.0
 - Added LSP tool (PHP code-aware navigation) to implementer, fixer, and architect agents
 - Agents coached on when to use LSP vs grep: LSP for class hierarchies, method callers, interface implementations; grep for string patterns and non-PHP files
