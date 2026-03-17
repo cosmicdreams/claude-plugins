@@ -7,6 +7,7 @@
 ## Project Structure
 
 - `.claude/memory/` — Project-specific institutional memory
+- `.claude/progress.jsonl` — Append-only session progress log (JSONL)
 - `analysis-reports/` — Session retrospective output and analysis
 - `kanban/` — File-based Kanban boards for team sprints and retrospective actions
 - `plans/` — Implementation plans
@@ -81,6 +82,19 @@ Verify current version: `ls ~/.claude/plugins/cache/local/sprint/` — use the h
 - ❌ Spawning one agent and waiting before spawning the next
 - ❌ Keeping agents alive when their pipeline stage is complete
 - ❌ Sending a status-check message instead of a work assignment
+
+## Session Progress Log
+
+Append-only JSONL at `.claude/progress.jsonl`. Each line:
+```json
+{"date":"YYYY-MM-DD","task":"short name","status":"active|done|blocked","notes":"what happened"}
+```
+
+- **On session start**: a SessionStart hook loads recent entries — no manual read needed
+- **During session**: if you need older history, grep or read the file directly
+- **After significant milestones** (commit, PR, passing tests, finishing a plan): append a line summarizing what was accomplished
+- **Cross-project view**: `~/.claude/progress-index.jsonl` has one line per project with the latest entry. Read it when asked about other projects.
+- After appending to the local file, upsert this project's row in `~/.claude/progress-index.jsonl` (replace the line matching this project path)
 
 ## TODO
 

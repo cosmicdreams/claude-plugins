@@ -55,6 +55,9 @@ if [ ! -d "$TARGET/.beads" ]; then
   (cd "$TARGET" && bd init --prefix sprint 2>/dev/null) && created+=(".beads/ (bd init --prefix sprint)") || true
 fi
 
+# --- Progress log ---
+write_file ".claude/progress.jsonl" "" ""
+
 # --- Files from templates ---
 write_file "CLAUDE.md"          "$SCRIPT_DIR/CLAUDE.md.tmpl" ""
 write_file ".claude/memory/MEMORY.md" "$SCRIPT_DIR/MEMORY.md.tmpl" ""
