@@ -39,7 +39,7 @@
 ## 2.1.0
 - `admin:new-skill` now saves an eval record to the Neurons vault after every skill create/improve pass (`shared/Skill-Evals/<plugin>/<skill-name>/`)
 - Eval storage uses `OBSIDIAN_VAULT_NAME` env var with full absolute path; falls back to same path locally if Obsidian not running
-- Removed cross-plugin dependency on `office:vault-store` — eval storage logic is self-contained
+- Removed cross-plugin dependency on `lib:vault-store` — eval storage logic is self-contained
 
 ## 2.0.0
 - Rename `release-notes` skill to `changelog` — invoke as `/admin:changelog`; `/admin:release-notes` no longer works

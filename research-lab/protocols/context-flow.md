@@ -44,7 +44,7 @@ analysis-reports/research/<engagement>/
 | `04-seminar.md` | seminar skill | PI (methodology input) |
 | `05-methodology.md` | PI | experimentalist |
 | `results.jsonl` | experimentalist | PI, report |
-| `07-report.md` | PI / office:report | vault archival |
+| `07-report.md` | PI / lib:vault-store | vault archival |
 
 ## Resume Detection
 

@@ -1,0 +1,6 @@
+{
+  "eval_id": 2,
+  "eval_name": "targeted-slack-jira",
+  "prompt": "I just need slack and jira set up. Don't bother with anything else.",
+  "assertions": []
+}

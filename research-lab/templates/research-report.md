@@ -1,6 +1,6 @@
 # Research Report Template
 
-Template for `office:report` (or inline PI authoring) when writing a research engagement report.
+Template for `lib:vault-store` (or inline PI authoring) when writing a research engagement report.
 
 ---
 

@@ -10,9 +10,7 @@ Analyze a Drupal issue and generate a standardized analysis report.
 ## Input
 
 ## Context Awareness
-**Important**: All relative paths (e.g. `./worktrees/...`) assume you are executing from the **Project Root** (e.g. `~/OpenSource/SAME_PAGE_PREVIEW`).
-- The Project Root is the folder that *contains* the `worktrees/` and `kanban/` directories.
-- If you are inside a worktree (e.g. `.../worktrees/1234`), you must `cd ../..` to return to the Project Root before running commands.
+**Important**: Resolve the active project root from `~/.claude/drupal-lab.json` before running any commands. See `drupal-lab/references/project-context.md` for the resolution steps. All relative paths (`./worktrees/...`) are relative to that root. If inside a worktree (`..../worktrees/1234`), `cd ../..` to return to the project root.
 
 Issue number or URL from drupal.org (e.g., `2901667`, `https://www.drupal.org/project/drupal/issues/2901667`)
 

@@ -52,5 +52,5 @@ Round 3 improvements from the massport-cache-optimization engagement.
 - Seminar skill for cross-examination of curated knowledge
 - Preflight script for Drupal cache audits
 - Measurement harness template
-- Research report template for office:report
+- Research report template for lib:vault-store
 - Chart generation script (ASCII from results.jsonl)

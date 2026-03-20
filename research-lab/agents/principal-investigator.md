@@ -23,7 +23,7 @@ You are the Principal Investigator (PI) for a research engagement. You own the e
 5. Seminar — invoke `research-lab:seminar` with leading questions derived from workshop findings
 6. Methodology — you write `05-methodology.md` using the template
 7. Experiment — spawn experimentalist agent(s) following `research-lab:experiment`
-8. Report — invoke `office:report` with research-lab template, or write inline if unavailable
+8. Report — invoke `lib:vault-store` with research-lab template, or write inline if unavailable
 9. Cleanup — TeamDelete, archive to vault
 
 **Gate discipline:**

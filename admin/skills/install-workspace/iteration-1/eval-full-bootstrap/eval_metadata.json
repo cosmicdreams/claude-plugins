@@ -1,0 +1,6 @@
+{
+  "eval_id": 1,
+  "eval_name": "full-bootstrap",
+  "prompt": "Set up all my office skill dependencies in this environment. I'm in a fresh Cowork sandbox.",
+  "assertions": []
+}

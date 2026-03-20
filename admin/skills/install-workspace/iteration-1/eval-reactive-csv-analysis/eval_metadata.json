@@ -1,0 +1,6 @@
+{
+  "eval_id": 3,
+  "eval_name": "reactive-csv-analysis",
+  "prompt": "I tried to run office:csv-analysis but got 'ModuleNotFoundError: No module named pandas'. Fix this.",
+  "assertions": []
+}

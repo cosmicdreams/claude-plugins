@@ -18,7 +18,7 @@ model: sonnet
 - Regression testing
 
 ## Context Awareness
-**Important**: All relative paths (e.g. `./worktrees/...`) assume you are executing from the **Project Root** (e.g. `~/OpenSource/SAME_PAGE_PREVIEW`).
+**Important**: Resolve the active project root from `~/.claude/drupal-lab.json` before running any commands (see `drupal-lab/references/project-context.md`). All relative paths are relative to that root.
 - The Project Root is the folder that *contains* the `worktrees/` directory.
 - If you are inside a worktree (e.g. `.../worktrees/1234`), you must `cd ../..` to return to the Project Root before running commands.
 

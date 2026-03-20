@@ -139,7 +139,7 @@ brew install ddev/ddev/ddev
 
 ## acli (Acquia CLI)
 
-Acquia Cloud Platform CLI. Used by `office:log-analyzer` to fetch logs from Acquia-hosted environments.
+Acquia Cloud Platform CLI. Used by `lib:log-analyzer` to fetch logs from Acquia-hosted environments.
 
 ```bash
 curl -OL https://github.com/acquia/cli/releases/latest/download/acli.phar
@@ -154,7 +154,7 @@ acli auth:login
 
 ## op (1Password CLI)
 
-Used by `office:testrail` to retrieve the TestRail API key from 1Password. Falls back to macOS Keychain if not available.
+Used by `lib:testrail` to retrieve the TestRail API key from 1Password. Falls back to macOS Keychain if not available.
 
 Install via the [1Password desktop app](https://developer.1password.com/docs/cli/get-started/) → Preferences → Developer → Enable 1Password CLI.
 
