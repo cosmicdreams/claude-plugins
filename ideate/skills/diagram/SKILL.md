@@ -40,6 +40,11 @@ not just the labels.
 Output files open natively in PhpStorm (Excalidraw plugin), VS Code (Excalidraw
 extension), and excalidraw.com.
 
+## Resources in this skill
+
+- `references/json-reference.md` — element type table, JSON property templates for rectangles/text/arrows, color palette; read before generating any JSON
+- `assets/excalidraw-render.py` — renders an `.excalidraw` file to HTML for screenshotting; use in Phase 5
+
 ---
 
 ## Phase 0 — Chain Detection
@@ -121,128 +126,13 @@ communicate the concept? If not, redesign the layout until it does.
 
 ## Phase 3 — JSON Generation
 
-### File header
+Read `references/json-reference.md` before generating any JSON — it contains the
+file header, all element type templates, and the semantic color palette.
 
-```json
-{
-  "type": "excalidraw",
-  "version": 2,
-  "source": "ideate:diagram",
-  "elements": [],
-  "appState": {
-    "gridSize": null,
-    "viewBackgroundColor": "#ffffff"
-  },
-  "files": {}
-}
-```
-
-### Element types and when to use them
-
-| Type | Use for |
-|---|---|
-| `rectangle` | Processes, components, steps |
-| `ellipse` | Start/end points, external systems |
-| `diamond` | Decisions, conditionals |
-| `arrow` | Directional relationships |
-| `line` | Non-directional connections |
-| `text` | Labels, annotations, evidence |
-| `frame` | Section grouping |
-
-### Standard element properties (apply to all elements)
-
-```json
-{
-  "id": "unique-id",
-  "type": "rectangle",
-  "x": 0,
-  "y": 0,
-  "width": 160,
-  "height": 60,
-  "strokeColor": "#1e1e2e",
-  "backgroundColor": "#cba6f7",
-  "fillStyle": "solid",
-  "strokeWidth": 2,
-  "strokeStyle": "solid",
-  "roughness": 0,
-  "opacity": 100,
-  "seed": 12345,
-  "version": 1,
-  "versionNonce": 1,
-  "angle": 0
-}
-```
-
-**Always use `roughness: 0` and `opacity: 100`.** Create hierarchy through color,
-size, and stroke width — never through opacity.
-
-### Text elements
-
-```json
-{
-  "id": "text-id",
-  "type": "text",
-  "x": 10,
-  "y": 15,
-  "width": 140,
-  "height": 30,
-  "text": "Label here",
-  "originalText": "Label here",
-  "fontSize": 16,
-  "fontFamily": 3,
-  "textAlign": "center",
-  "verticalAlign": "middle",
-  "containerId": "parent-shape-id"
-}
-```
-
-**`fontFamily: 3`** = monospace. Always use this.
-
-### Arrow elements
-
-```json
-{
-  "id": "arrow-id",
-  "type": "arrow",
-  "x": 160,
-  "y": 30,
-  "width": 80,
-  "height": 0,
-  "points": [[0, 0], [80, 0]],
-  "startBinding": {
-    "elementId": "source-shape-id",
-    "focus": 0,
-    "gap": 2
-  },
-  "endBinding": {
-    "elementId": "target-shape-id",
-    "focus": 0,
-    "gap": 2
-  },
-  "startArrowhead": null,
-  "endArrowhead": "arrow",
-  "strokeColor": "#1e1e2e",
-  "strokeWidth": 2,
-  "roughness": 0,
-  "opacity": 100,
-  "seed": 99999,
-  "version": 1,
-  "versionNonce": 1,
-  "angle": 0
-}
-```
-
-### Color palette (use semantic roles, not arbitrary colors)
-
-| Role | Color |
-|---|---|
-| Primary action / highlight | `#cba6f7` (mauve) |
-| Secondary / supporting | `#89dceb` (sky) |
-| Warning / caution | `#f9e2af` (yellow) |
-| Success / positive | `#a6e3a1` (green) |
-| Negative / risk | `#f38ba8` (red) |
-| Neutral / background | `#eff1f5` (surface) |
-| Text / stroke | `#1e1e2e` (base) |
+Key rules from that reference:
+- Always `roughness: 0`, `opacity: 100`
+- Always `fontFamily: 3` (monospace) for text elements
+- Use semantic color roles, not arbitrary colors
 
 ---
 
@@ -257,70 +147,23 @@ FILENAME="${DATE}-${SLUG}.excalidraw"
 echo $FILENAME
 ```
 
-Write the complete JSON to the file:
-
-```bash
-cat > "$FILENAME" << 'EXCALIDRAW_EOF'
-{
-  "type": "excalidraw",
-  "version": 2,
-  ...full JSON...
-}
-EXCALIDRAW_EOF
-```
-
-Confirm:
+Write the complete JSON, then validate:
 
 ```bash
 python3 -c "import json; json.load(open('$FILENAME')); print('Valid JSON ✓')"
-echo "Written: $FILENAME"
-echo "Open in: PhpStorm, VS Code (Excalidraw extension), or excalidraw.com"
 ```
 
 ---
 
 ## Phase 5 — Render & Validate
 
-**This phase is mandatory.** You cannot judge a diagram from JSON alone. After
-writing the file, render it and visually inspect the result. Fix what you see,
-then re-render. Repeat until it looks right.
+**This phase is mandatory.** You cannot judge a diagram from JSON alone.
 
-### How to render
-
-Generate a self-contained HTML wrapper and screenshot it with playwright-cli:
+Use `assets/excalidraw-render.py` to generate the HTML wrapper, then screenshot it:
 
 ```bash
 RENDER_HTML=$(mktemp /tmp/excalidraw-render-XXXXX.html)
-python3 - "$FILENAME" "$RENDER_HTML" << 'PYEOF'
-import json, sys
-fname, outfile = sys.argv[1], sys.argv[2]
-with open(fname) as f:
-    scene = json.load(f)
-html = """<!DOCTYPE html>
-<html><head><meta charset="utf-8">
-<script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
-<script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
-<script src="https://unpkg.com/@excalidraw/excalidraw/dist/excalidraw.production.min.js"></script>
-<style>*{margin:0;padding:0}body,html{width:100%;height:100vh;background:#fff}</style>
-</head><body>
-<div id="app" style="width:100%;height:100vh;"></div>
-<script>
-const sceneData = """ + json.dumps(scene) + """;
-const { Excalidraw } = ExcalidrawLib;
-const App = () => React.createElement(Excalidraw, {
-  initialData: {
-    elements: sceneData.elements,
-    appState: { ...sceneData.appState, viewModeEnabled: true },
-    scrollToContent: true
-  },
-  viewModeEnabled: true
-});
-ReactDOM.createRoot(document.getElementById("app")).render(React.createElement(App));
-</script>
-</body></html>"""
-with open(outfile, "w") as f:
-    f.write(html)
-PYEOF
+python3 "${CLAUDE_SKILL_DIR}/assets/excalidraw-render.py" "$FILENAME" "$RENDER_HTML"
 
 PREVIEW="${FILENAME%.excalidraw}-preview.png"
 playwright-cli screenshot "file://$RENDER_HTML" "$PREVIEW" --wait-for-timeout 4000
@@ -329,31 +172,22 @@ rm -f "$RENDER_HTML"
 
 Then use the **Read tool** on `$PREVIEW` to view the rendered result.
 
-> If `playwright-cli` is not installed, install via `npm i -g playwright-cli` (legacy) or
-> use the modern Playwright CLI: `npm i -g @playwright/test && npx playwright install chromium`.
-> Alternatively, open the `.excalidraw` file directly in PhpStorm or drag it to
-> excalidraw.com to visually inspect — then re-edit the JSON and re-check.
+> If `playwright-cli` is not installed: `npm i -g playwright-cli` or open the
+> `.excalidraw` file directly in PhpStorm / drag to excalidraw.com to inspect.
 
 ### The loop
 
-Run this cycle until the diagram passes all checks:
+Run until the diagram passes all checks:
 
 1. **Render & view** — run the script above, then Read the PNG
-2. **Audit against your design** — does the rendered structure match what you
-   planned? Eye flow correct? Visual hierarchy clear?
-3. **Check for defects:**
-   - Text clipped or overflowing its container
-   - Shapes or text overlapping unintentionally
-   - Arrows missing targets or crossing through shapes
-   - Labels floating without clear anchor
-   - Uneven spacing between elements that should be uniform
-   - Lopsided composition — large voids on one side, crowding on the other
-4. **Fix** — edit the JSON: widen containers, adjust `x`/`y`, add waypoints to
-   arrow `points` arrays, resize elements for visual balance
-5. **Re-render & re-view** — repeat from step 1
+2. **Check for defects:** clipped text, unintentional overlaps, arrows missing targets,
+   floating labels, uneven spacing, lopsided composition
+3. **Fix** — edit JSON: widen containers, adjust `x`/`y`, add waypoints to arrow
+   `points` arrays, resize for visual balance
+4. **Re-render** — repeat from step 1
 
 **Stop when:** no text is clipped, arrows connect correctly, spacing is balanced,
-and you'd show this to someone without caveats. Usually takes 2–3 iterations.
+and you'd show this to someone without caveats. Usually 2–3 iterations.
 
 ---
 
@@ -373,8 +207,7 @@ If chained from `ideate:brainstorm`, also offer:
 
 ## Known Limitations
 
-- Large diagrams (50+ elements): build section by section, then combine — don't
-  generate the entire file in one pass
+- Large diagrams (50+ elements): build section by section, then combine
 - Arrow routing is manual — calculate coordinates explicitly; Excalidraw does not
   route around shapes automatically
 - CDN dependency: the render step loads Excalidraw from unpkg.com and requires
@@ -382,26 +215,26 @@ If chained from `ideate:brainstorm`, also offer:
 
 ---
 
-## Obsidian Storage
+## Storage
 
-After producing output, archive to the Neurons vault for long-term memory.
+The diagram is already written locally (Phase 4). This phase archives it to the Obsidian
+vault if one is present.
 
-1. **Determine topic slug**: convert the diagram topic to kebab-case
-   (e.g. "API authentication options" → `api-authentication-options`)
+Choose the vault subfolder based on diagram type:
+- `Architecture/<topic>/` — system/component/data-flow diagrams
+- `Decisions/<topic>/` — decision trees, option comparisons
+- `Analysis/<topic>/` — dependency maps, audit diagrams
 
-2. **Choose the vault subfolder**: read `obsidian-rules.md` from the office plugin references
-   (`~/.claude/plugins/cache/local/office/*/references/obsidian-rules.md`) to confirm
-   correct placement. Default guidance:
-   - `Architecture/<topic>/` — system/component/data-flow diagrams
-   - `Decisions/<topic>/` — decision trees, option comparisons
-   - `Analysis/<topic>/` — dependency maps, audit diagrams
+```bash
+VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
+SUBFOLDER="Architecture/<topic>"   # adjust per type above
 
-3. **Write to vault**:
-   ```bash
-   VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
-   SUBFOLDER="Architecture/<topic>"   # adjust per step 2
-   mkdir -p "$VAULT_ROOT/$SUBFOLDER"
-   cp "$FILENAME" "$VAULT_ROOT/$SUBFOLDER/<YYYY-MM-DD>-<diagram-name>.excalidraw"
-   ```
-
-4. **Confirm**: "Saved to Neurons: $SUBFOLDER/<YYYY-MM-DD>-<diagram-name>.excalidraw"
+if [ -d "$VAULT_ROOT" ]; then
+  mkdir -p "$VAULT_ROOT/$SUBFOLDER"
+  cp "$FILENAME" "$VAULT_ROOT/$SUBFOLDER/$FILENAME"
+  echo "Saved to vault: $SUBFOLDER/$FILENAME"
+else
+  echo "Saved locally: $FILENAME"
+  echo "Tip: to route diagrams to your Obsidian vault automatically, run /update-config and set OBSIDIAN_VAULT_NAME."
+fi
+```

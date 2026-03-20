@@ -26,6 +26,11 @@ Adversarial scrutiny for brainstormed ideas. Five sequential hard gates. The cha
 
 **Limitation (v1):** Session state uses `.reality-check.json` in the current working directory. Multiple concurrent projects with in-progress sessions will collide. Use separate directories per project.
 
+## Resources in this skill
+
+- `scripts/update-gate.py` — updates `.reality-check.json` after each gate evaluation; use instead of inline Python at every gate
+- `references/verdict-guide.md` — CLEARED/CONDITIONAL/KILLED output formats and gate-specific recovery prescriptions; read at Phase 3 before delivering any verdict
+
 ---
 
 ## Phase 0 — Mode Detection
@@ -139,38 +144,17 @@ If the response is interchangeable with a generic reply — it does not pass.
 
 **KILL condition:** User cannot state a clear, bounded problem. No clear problem = no valid solution.
 
-**After user response — evaluate with rubric. Then update session:**
+**After evaluating with the rubric above, update state:**
 
 ```bash
-python3 -c "
-import json
-
-with open('.reality-check.json') as f:
-    state = json.load(f)
-
-gate_record = {
-    'gate': 1,
-    'name': 'Problem clarity',
-    'challenge': 'What specific problem does this solve? State it in one sentence without using the word better.',
-    'response': 'USER_RESPONSE',
-    'result': 'PASS_OR_KILL',
-    'evaluator_note': 'EVALUATOR_NOTE'
-}
-state['gates'].append(gate_record)
-
-if gate_record['result'] == 'PASS':
-    state['current_gate'] = 2
-else:
-    state['status'] = 'killed'
-    state['killed_at'] = 1
-
-with open('.reality-check.json', 'w') as f:
-    json.dump(state, f, indent=2)
-"
+python3 "${CLAUDE_SKILL_DIR}/scripts/update-gate.py" \
+  1 "Problem clarity" \
+  "What specific problem does this solve? State it in one sentence without using the word better." \
+  "PASS_OR_KILL" "USER_RESPONSE" "EVALUATOR_NOTE"
 ```
 
-If KILL → jump to Phase 3 with KILLED verdict.
-If PASS → proceed to Gate 2.
+If exit code 1 (KILL) → proceed to Phase 3.
+If exit code 0 (PASS) → proceed to Gate 2.
 
 ---
 
@@ -181,38 +165,14 @@ If PASS → proceed to Gate 2.
 
 **KILL condition:** Problem is hypothetical or based on assumption without named evidence.
 
-**Update session after evaluation:**
-
 ```bash
-python3 -c "
-import json
-
-with open('.reality-check.json') as f:
-    state = json.load(f)
-
-gate_record = {
-    'gate': 2,
-    'name': 'Problem reality',
-    'challenge': 'Is this problem real and confirmed, or is it assumed? Who has actually experienced it and how do you know?',
-    'response': 'USER_RESPONSE',
-    'result': 'PASS_OR_KILL',
-    'evaluator_note': 'EVALUATOR_NOTE'
-}
-state['gates'].append(gate_record)
-
-if gate_record['result'] == 'PASS':
-    state['current_gate'] = 3
-else:
-    state['status'] = 'killed'
-    state['killed_at'] = 2
-
-with open('.reality-check.json', 'w') as f:
-    json.dump(state, f, indent=2)
-"
+python3 "${CLAUDE_SKILL_DIR}/scripts/update-gate.py" \
+  2 "Problem reality" \
+  "Is this problem real and confirmed, or is it assumed? Who has actually experienced it and how do you know?" \
+  "PASS_OR_KILL" "USER_RESPONSE" "EVALUATOR_NOTE"
 ```
 
-If KILL → Phase 3 with KILLED verdict.
-If PASS → proceed to Gate 3.
+If exit code 1 → Phase 3. If exit code 0 → Gate 3.
 
 ---
 
@@ -223,29 +183,11 @@ If PASS → proceed to Gate 3.
 
 **WARN condition (not KILL):** Proposed solution is substantially more complex than the simplest viable approach without clear justification. Complexity can be legitimate — it must be defended, not assumed.
 
-**Update session after evaluation:**
-
 ```bash
-python3 -c "
-import json
-
-with open('.reality-check.json') as f:
-    state = json.load(f)
-
-gate_record = {
-    'gate': 3,
-    'name': 'Simplicity test',
-    'challenge': 'What is the simplest possible solution to this problem? Is the proposed idea simpler than that, or more complex? If more complex, why is the complexity justified?',
-    'response': 'USER_RESPONSE',
-    'result': 'PASS_OR_WARN',
-    'evaluator_note': 'EVALUATOR_NOTE'
-}
-state['gates'].append(gate_record)
-state['current_gate'] = 4
-
-with open('.reality-check.json', 'w') as f:
-    json.dump(state, f, indent=2)
-"
+python3 "${CLAUDE_SKILL_DIR}/scripts/update-gate.py" \
+  3 "Simplicity test" \
+  "What is the simplest possible solution to this problem? Is the proposed idea simpler than that, or more complex? If more complex, why is the complexity justified?" \
+  "PASS_OR_WARN" "USER_RESPONSE" "EVALUATOR_NOTE"
 ```
 
 Gate 3 never kills. If WARN, note it for the verdict. Proceed to Gate 4.
@@ -259,38 +201,14 @@ Gate 3 never kills. If WARN, note it for the verdict. Proceed to Gate 4.
 
 **KILL condition:** User cannot describe a concrete, sequential failure scenario.
 
-**Update session after evaluation:**
-
 ```bash
-python3 -c "
-import json
-
-with open('.reality-check.json') as f:
-    state = json.load(f)
-
-gate_record = {
-    'gate': 4,
-    'name': 'Failure mode',
-    'challenge': 'What is the most likely way this fails in the first 90 days? Walk me through the failure scenario concretely — who does what, what breaks, what the consequence is.',
-    'response': 'USER_RESPONSE',
-    'result': 'PASS_OR_KILL',
-    'evaluator_note': 'EVALUATOR_NOTE'
-}
-state['gates'].append(gate_record)
-
-if gate_record['result'] == 'PASS':
-    state['current_gate'] = 5
-else:
-    state['status'] = 'killed'
-    state['killed_at'] = 4
-
-with open('.reality-check.json', 'w') as f:
-    json.dump(state, f, indent=2)
-"
+python3 "${CLAUDE_SKILL_DIR}/scripts/update-gate.py" \
+  4 "Failure mode" \
+  "What is the most likely way this fails in the first 90 days? Walk me through the failure scenario concretely." \
+  "PASS_OR_KILL" "USER_RESPONSE" "EVALUATOR_NOTE"
 ```
 
-If KILL → Phase 3 with KILLED verdict.
-If PASS → proceed to Gate 5.
+If exit code 1 → Phase 3. If exit code 0 → Gate 5.
 
 ---
 
@@ -301,41 +219,20 @@ If PASS → proceed to Gate 5.
 
 **KILL condition:** Killer assumption is untestable until significant investment is made.
 
-**Update session after evaluation:**
-
 ```bash
-python3 -c "
-import json
-
-with open('.reality-check.json') as f:
-    state = json.load(f)
-
-gate_record = {
-    'gate': 5,
-    'name': 'Killer assumption',
-    'challenge': 'What single assumption, if wrong, makes this entire idea invalid? Is that assumption testable before you commit significant resources?',
-    'response': 'USER_RESPONSE',
-    'result': 'PASS_OR_KILL',
-    'evaluator_note': 'EVALUATOR_NOTE'
-}
-state['gates'].append(gate_record)
-
-if gate_record['result'] == 'PASS':
-    state['status'] = 'cleared'
-else:
-    state['status'] = 'killed'
-    state['killed_at'] = 5
-
-with open('.reality-check.json', 'w') as f:
-    json.dump(state, f, indent=2)
-"
+python3 "${CLAUDE_SKILL_DIR}/scripts/update-gate.py" \
+  5 "Killer assumption" \
+  "What single assumption, if wrong, makes this entire idea invalid? Is that assumption testable before you commit significant resources?" \
+  "PASS_OR_KILL" "USER_RESPONSE" "EVALUATOR_NOTE"
 ```
 
 ---
 
 ## Phase 3 — Verdict
 
-**Read the gate records and determine verdict:**
+Read `references/verdict-guide.md` before delivering any verdict output.
+
+Check final state:
 
 ```bash
 python3 -c "
@@ -348,48 +245,10 @@ print('warn' if has_warn else 'no_warn')
 "
 ```
 
----
-
-### CLEARED
-
-All five gates passed (Gate 3 may be PASS or WARN with justification accepted).
-
-Output:
-1. One-paragraph summary of the idea's validated strengths
-2. **Structured evidence record** — one line per gate:
-   - Gate N — [name]: [what was challenged] → [what the user said] → [why it passed]
-3. Key risks identified and accepted (from gate responses)
-4. Chain offer: *"This idea cleared the funnel. The natural next step is `ideate:plan-improvements` to identify gaps and improvement opportunities in the proposed approach. Run it now?"*
-
----
-
-### CONDITIONAL
-
-All gates passed but Gate 3 produced a WARN (unjustified complexity).
-
-Output:
-1. Summary of what passed
-2. The specific complexity concern that was flagged
-3. Next action: "Build the simplest version first. Return with evidence that the simpler approach is genuinely insufficient for the stated problem — not just less elegant."
-
----
-
-### KILLED at Gate N
-
-Output:
-1. The gate that killed it — state it plainly
-2. The specific objection that was not addressed
-3. **Gate-specific recovery prescription:**
-
-| Gate | Recovery |
-|------|----------|
-| Gate 1 | Restate the problem naming one specific person or role affected and one measurable pain they experience. No abstractions. Return when you can state it in one sentence. |
-| Gate 2 | Validate with 5 real instances — users interviewed, cases observed, or data points reviewed. Describe the validation method and what you found. Return with evidence. |
-| Gate 3 | *(Gate 3 does not kill — this row exists for reference only)* |
-| Gate 4 | Write the failure post-mortem before building anything. Walk through the full sequence: who does what, what breaks, what the consequence is, who is affected. Return when you can narrate it concretely. |
-| Gate 5 | Name the killer assumption explicitly. Design the cheapest possible test that would prove or disprove it. What is the one-week experiment? Return with the test result. |
-
-Do not substitute a generic suggestion. Use the prescription for the specific gate that killed the idea.
+Deliver the appropriate verdict per `references/verdict-guide.md`:
+- `cleared` + no warn → **CLEARED**
+- `cleared` + warn → **CONDITIONAL**
+- `killed` → **KILLED at Gate N**
 
 ---
 

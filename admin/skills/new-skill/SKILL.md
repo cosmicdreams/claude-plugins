@@ -9,6 +9,13 @@ A skill lives in a plugin folder and teaches Claude a specialized workflow. Your
 
 The skill-creator eval infrastructure is available for testing: see `references/testing.md`.
 
+## Resources in this skill
+
+- `references/conventions.md` — naming rules, plugin structure, install commands; read when setting up the skill folder
+- `references/description-guide.md` — description patterns and examples; read when writing the frontmatter description
+- `references/testing.md` — eval infrastructure and description optimization loop; read before testing
+- `references/deliverable-storage.md` — vault detection pattern and subfolder conventions; read when the skill produces a file output
+
 ---
 
 ## Understand the goal first
@@ -42,7 +49,7 @@ The plugin installs from `worktrees/main/`. After writing or changing a skill, r
 claude plugin install <plugin-name>@local --scope user
 ```
 
-For plugin-internal paths in scripts, use `${CLAUDE_PLUGIN_ROOT}` — never hardcode cache paths.
+For plugin-internal paths in scripts, use `${CLAUDE_SKILL_DIR}` (the skill's own folder) or `${CLAUDE_PLUGIN_ROOT}` (the plugin root) — never hardcode cache paths.
 
 See `references/conventions.md` for naming rules and full plugin structure.
 
@@ -160,7 +167,8 @@ Before installing, check:
 - [ ] Any referenced files in `references/` actually exist
 - [ ] If `references/`, `scripts/`, or `assets/` exist, a `## Resources in this skill` manifest is present in SKILL.md with "read when" conditions for each file
 - [ ] Unused example directories deleted
-- [ ] `${CLAUDE_PLUGIN_ROOT}` used in scripts (not hardcoded paths)
+- [ ] `${CLAUDE_SKILL_DIR}` or `${CLAUDE_PLUGIN_ROOT}` used in scripts (not hardcoded paths)
 - [ ] Eval record saved to `$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}/Skill-Evals/<plugin>/<skill-name>/`
+- [ ] If the skill produces a file deliverable, storage uses the vault detection pattern from `references/deliverable-storage.md` (vault if present, local fallback with `/update-config` tip if not)
 
 See `references/conventions.md` for full naming rules.
