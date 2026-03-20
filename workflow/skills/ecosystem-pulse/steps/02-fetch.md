@@ -29,5 +29,6 @@ If a source returns no relevant content, skip it silently.
 - WebSearch: `Claude Code new features [current month year]`
 - WebSearch: `agentic workflow patterns AI [current month year]`
 - WebSearch: `MCP new servers tools [current month year]`
+- WebSearch: `AI workflow developer blogs newsletters worth following [current year]` — source discovery; note any domains that produce 2+ high-signal hits
 
 Proceed to `steps/03-diff-debate.md` with all fetched stories.

@@ -41,3 +41,16 @@ Vault: [N] entries added to Research/AI-Agent-Teams/[filename]
 ```
 
 If nothing new: `✓ Ecosystem Pulse [HH:MM] — no net-new stories. Vault unchanged.`
+
+## Source candidates
+
+If any source candidates were flagged in Step 3, append to the briefing:
+
+```
+NEW SOURCES SPOTTED:
+• domain.com — [what it covered, why it scored]
+• domain.com — [what it covered, why it scored]
+```
+
+These are surfaced for review only — sources are not added automatically. The user decides
+whether to promote a candidate to the primary source list in `steps/02-fetch.md`.

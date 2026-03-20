@@ -34,3 +34,12 @@ For each net-new story, score using three lenses:
 If any active watch item from Step 1 matches a fetched story, flag it with `[WATCH HIT]`.
 
 Proceed to `steps/04-store-output.md` with: kept stories, augments, watch hits, skip count.
+
+## Source candidate tracking
+
+While debating, note any domain that is **not in the primary source list** and produces
+a story that scores **Keep**. These are source candidates — new feeds worth monitoring.
+
+Tag them as: `[SOURCE CANDIDATE: domain.com — reason it produced signal]`
+
+Pass source candidates to Step 4 for surfacing in the output briefing.
