@@ -5,18 +5,18 @@ Fetch all sources simultaneously. Do NOT wait for one before starting the next.
 ## Tool feature sources (new capabilities in your stack)
 
 - `https://simonwillison.net/` — Claude, MCP, agentic tooling coverage (last 3 days)
-- `https://www.anthropic.com/news/feed.xml` — Claude and Claude Code announcements (RSS feed)
+- `https://api.github.com/repos/anthropics/claude/releases` — Claude model releases (GitHub API JSON)
 - `https://api.github.com/repos/anthropics/claude-code/releases` — Claude Code changelog (GitHub API JSON)
-- `https://openai.com/blog/feed` — Codex and OpenAI tooling updates (RSS feed)
+- `https://api.github.com/repos/openai/gpt-4` — OpenAI model releases (GitHub API JSON, filter by updates about new models/APIs)
 - `https://github.blog/feed/` — GitHub Copilot features and developer tooling (RSS feed)
 - `https://api.github.com/repos/modelcontextprotocol/modelcontextprotocol/releases` — MCP spec updates (GitHub API JSON)
-- `https://blog.google/feed/technology/` — Google AI and DeepMind announcements (RSS feed)
-- `https://developers.google.com/blog/feeds` — Google AI developer tooling and Gemini API (RSS feed)
+- `https://news.ycombinator.com/newest?p=1` — Real-time HN feed for Anthropic/OpenAI news (secondary, cross-checked with primary)
+- `https://news.google.com/rss/topics/CAAqKAgKIkZPUjBCVExFYm5rTEpKRWZEZ3dFQVFJQ0JBRWlHQ3lFSktEb3dFCg` — Google News: AI (RSS feed)
 
 ## Workflow pattern sources (new ways of working with AI)
 
 - `https://news.ycombinator.com/` — AI/dev tooling stories with 50+ points; skip anything not about agents, workflows, or developer tooling
-- `https://www.deeplearning.ai/the-batch/feed` — AI workflow and agentic pattern coverage (RSS feed)
+- `https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml` — Broad tech coverage (includes AI workflow/policy stories)
 
 **Prompt for each fetch:** "List recent stories about AI agents, Claude Code, MCP, developer
 tooling, CLI tools for AI, agentic workflows, multi-agent patterns, and coding productivity.
