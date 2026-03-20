@@ -2,23 +2,30 @@
 
 Fetch all sources simultaneously. Do NOT wait for one before starting the next.
 
-## Primary sources
+## Tool feature sources (new capabilities in your stack)
 
-- `https://simonwillison.net/` — AI agents, Claude, MCP, developer tooling (last 3 days)
-- `https://news.ycombinator.com/` — AI/dev tooling stories with 50+ points
-- `https://www.anthropic.com/news` — Anthropic announcements
-- `https://www.deeplearning.ai/the-batch/` — AI ecosystem roundup
-- `https://www.openbrain.ai/` — Open-source AI research and model releases
+- `https://simonwillison.net/` — Claude, MCP, agentic tooling coverage (last 3 days)
+- `https://www.anthropic.com/news` — Claude and Claude Code announcements
+- `https://github.com/anthropics/claude-code/releases` — Claude Code changelog
+- `https://openai.com/blog` — Codex and OpenAI tooling updates
+- `https://github.blog` — GitHub Copilot features and developer tooling
+- `https://github.com/modelcontextprotocol/modelcontextprotocol/releases` — MCP spec updates
 
-**Prompt for each fetch:** "List recent stories about AI agents, Claude, MCP, developer tooling,
-CLI tools for AI, AI workflows, coding productivity, and claudepilled developer practices.
+## Workflow pattern sources (new ways of working with AI)
+
+- `https://news.ycombinator.com/` — AI/dev tooling stories with 50+ points; skip anything not about agents, workflows, or developer tooling
+- `https://www.deeplearning.ai/the-batch/` — AI workflow and agentic pattern coverage; skip if no actionable workflow content this cycle
+
+**Prompt for each fetch:** "List recent stories about AI agents, Claude Code, MCP, developer
+tooling, CLI tools for AI, agentic workflows, multi-agent patterns, and coding productivity.
 Titles and 1-line summaries only. Focus on the last 3 days."
 
 If a source returns no relevant content, skip it silently.
 
-## Supplemental search (run in parallel with fetches)
+## Supplemental searches (run in parallel with fetches)
 
 - WebSearch: `Claude Code new features [current month year]`
-- WebSearch: `AI agent CLI tools developer productivity [current month year]`
+- WebSearch: `agentic workflow patterns AI [current month year]`
+- WebSearch: `MCP new servers tools [current month year]`
 
 Proceed to `steps/03-diff-debate.md` with all fetched stories.
