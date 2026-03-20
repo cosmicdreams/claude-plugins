@@ -30,10 +30,10 @@ Skills in this system live inside a plugin:
 
 ```
 <plugin>/skills/<skill-name>/
-├── SKILL.md          ← required
-├── references/       ← docs loaded on demand
-├── scripts/          ← executable code
-└── assets/           ← templates, images, boilerplate
+├── SKILL.md          ← required: core instructions + file manifest
+├── references/       ← detail loaded on demand (Claude reads when needed)
+├── scripts/          ← executable code Claude runs directly
+└── assets/           ← output templates, boilerplate, examples
 ```
 
 The plugin installs from `worktrees/main/`. After writing or changing a skill, reinstall:
@@ -48,15 +48,33 @@ See `references/conventions.md` for naming rules and full plugin structure.
 
 ---
 
-## Plan what to bundle
+## Design for progressive disclosure
 
-For each usage scenario, ask: what would Claude have to figure out or rewrite every time without guidance?
+A skill is a folder, not just a file. The folder structure is a form of context engineering: `SKILL.md` carries only what Claude needs on every run; everything else lives in `references/`, `scripts/`, or `assets/` and gets read on demand. This keeps the always-loaded context small while making deeper detail available exactly when it's needed.
 
-- **scripts/** — code that's deterministic and reused (e.g. a validation script, a packager). Bundle it if Claude would write the same thing every invocation.
-- **references/** — documentation too detailed to live in SKILL.md. Move content here when SKILL.md exceeds ~400 lines or a subtopic exceeds ~300 words.
-- **assets/** — files used in output (templates, boilerplate, icons).
+**The key mechanic:** Tell Claude what files exist in the folder and when to read them. Claude will read them at the right moment — but only if you declare them.
 
-Lean toward less. An unused reference/ directory adds noise. Start with SKILL.md only and add resources when you feel the absence.
+Add a file manifest to `SKILL.md` for any bundled resources:
+
+```markdown
+## Resources in this skill
+
+- `references/api.md` — full function signatures and usage examples; read before writing any API calls
+- `references/gotchas.md` — common failure patterns; read if a step fails unexpectedly
+- `assets/output-template.md` — copy this as the base for all output; read before generating output
+- `scripts/validate.sh` — runs validation; execute after each implementation step
+```
+
+Each entry answers: *what is it* and *when should Claude read/run it*. Without the "when", Claude may load everything eagerly or nothing at all.
+
+**Decide what belongs where:**
+
+- **`SKILL.md`** — workflow steps, the "when to read X" manifest, gotchas that apply on every run
+- **`references/`** — detailed docs, large API surfaces, edge case catalogs, anything exceeding ~300 words on a subtopic. Move content here when `SKILL.md` approaches ~400 lines — that's a symptom that detail is accumulating that could be disclosed on demand instead.
+- **`scripts/`** — deterministic, reusable code Claude would otherwise rewrite every invocation (validators, packagers, formatters)
+- **`assets/`** — output templates, boilerplate files, example outputs Claude copies rather than generates
+
+Lean toward less. An unused `references/` directory adds noise. Start with `SKILL.md` only and add subdirectories when you feel the absence.
 
 ---
 
@@ -83,10 +101,9 @@ See `references/description-guide.md` for patterns and examples.
 
 **Structure:** Lead with the most critical information. A reader (or Claude) who stops halfway through should still have the most important guidance.
 
-**Length:** Keep SKILL.md under ~400 lines. When you approach that limit, move detailed content to `references/` and add a pointer. Claude loads references on demand — they don't cost context unless needed.
+**Length:** Keep SKILL.md under ~400 lines. Approaching that limit is a signal that detail is accumulating that could live in `references/` instead — move it and add a manifest entry pointing to it.
 
-**Resources:** Reference bundled files explicitly with a note on when to read them:
-> "For validation patterns, see `references/patterns.md`."
+**File manifest:** If the skill has any bundled resources, include a `## Resources in this skill` section that lists each file and its "read when" condition. This is what makes progressive disclosure work — Claude reads the manifest and knows when to pull each file. Without it, references go unused.
 
 ---
 
@@ -141,6 +158,7 @@ Before installing, check:
 - [ ] `name:` is kebab-case (lowercase, hyphens only, no underscores)
 - [ ] Description is under 1024 characters, no `<` or `>` characters
 - [ ] Any referenced files in `references/` actually exist
+- [ ] If `references/`, `scripts/`, or `assets/` exist, a `## Resources in this skill` manifest is present in SKILL.md with "read when" conditions for each file
 - [ ] Unused example directories deleted
 - [ ] `${CLAUDE_PLUGIN_ROOT}` used in scripts (not hardcoded paths)
 - [ ] Eval record saved to `$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}/Skill-Evals/<plugin>/<skill-name>/`
