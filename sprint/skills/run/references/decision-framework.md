@@ -14,15 +14,17 @@ These actions keep the pipeline flowing. Do them immediately without asking.
 
 | Trigger | Action |
 |---------|--------|
-| Validation fails, fix_loop < 3 | Spawn developer to fix |
-| Developer finishes a card | Spawn validator for next stage |
-| DDEV slot frees up | Start next queued validator |
+| Slice-worker completes + `cross-review-yes` label | Assign cross-review |
+| Slice-worker completes + `cross-review-no` label | Close card |
+| Cross-review pass | Close card |
+| Cross-review fail | Return card to slice-worker (`lane-in-progress`) |
+| 3-fix escalation from slice-worker | Spawn deep-debugger with context |
+| DDEV slot frees up | Notify waiting slice-workers |
 | Idle agent + unblocked card on board | Assign the work |
-| Test infrastructure issue found | Spawn developer for test fix |
-| Card reaches done, downstream card unblocked | Start next stage |
+| Card reaches done, downstream card unblocked | Assign to next slice-worker |
 | Agent reports stuck or error | Reassign or spawn replacement |
 | Phase 1 validation possible without DDEV | Start static analysis immediately |
-| Multiple cards ready for same stage | Prioritize High over Normal, then lowest ID first |
+| Multiple cards ready | Prioritize High over Normal, then lowest ID first |
 
 ## Ask the User
 
@@ -38,6 +40,7 @@ These decisions change scope, are irreversible, or need human judgment.
 | Exceeding 3 concurrent DDEV slots | Resource constraint set by user |
 | Removing a card from the board | Scope reduction |
 | Changing the sprint goal or focus area | Strategic direction |
+| Skip cross-review on a `cross-review-yes` card | Scope change (overriding planning decision) |
 
 ## Mental Model
 
@@ -59,25 +62,25 @@ Think of yourself as an **engineering manager**, not a support role.
 
 ### Good (autonomous)
 
-> Validator reports #2793141 failed with test design issue.
+> Slice-worker reports #2793141 done with `cross-review-yes` label.
 >
-> **Action:** Immediately spawn developer to fix test. Update card to developing, increment fix_loop. No need to ask.
+> **Action:** Assign cross-reviewer immediately. No need to ask.
 
-> #3566050 validation passed. DDEV slot freed.
+> Cross-review passed on #3566050. DDEV slot freed.
 >
-> **Action:** Move card to done. Check if any card is queued for DDEV. If yes, assign it the slot and spawn validator.
+> **Action:** Close card. Check if any slice-worker is waiting for a DDEV slot.
 
-> All validators busy. Analyzer has nothing to analyze.
+> Slice-worker hits 3-fix limit on #1234.
 >
-> **Action:** Assign analyzer to Phase 1 static review on a developing card. Idle agents do fallback work.
+> **Action:** Spawn deep-debugger with the slice-worker's context and findings.
 
 ### Bad (unnecessary escalation)
 
-> "Should I spawn a developer to fix this test issue?"
+> "Should I assign a cross-reviewer to this completed slice?"
 >
-> **Problem:** The card is on the board, fix_loop < 3, the action is obvious. Just do it.
+> **Problem:** The card has `cross-review-yes` label. The action is obvious. Just do it.
 
-> "I have 3 validators idle and 3 cards ready. Should I start them?"
+> "I have 3 slice-workers idle and 3 cards in backlog. Should I assign them?"
 >
 > **Problem:** This is exactly your job. Don't ask, decide.
 

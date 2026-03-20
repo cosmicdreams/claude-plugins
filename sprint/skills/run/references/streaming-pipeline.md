@@ -1,15 +1,15 @@
 # Streaming Pipeline
 
-A pull-based Kanban pipeline for coordinating multiple agents working on independent work items through sequential stages. Each item flows independently -- no batch gates. State is stored as persistent Markdown card files in `kanban/`.
+A pull-based Kanban pipeline for coordinating multiple agents working on independent issues. Each issue flows independently through a single slice-worker — no batch gates, no handoffs between roles.
 
 ## Core Concept
 
 ```
-BACKLOG --> ANALYZING --> DEVELOPING --> VALIDATING --> DONE
-             (pull)        (pull)         (pull)
+BACKLOG --> IN-PROGRESS (slice-worker) --> CROSS-REVIEW (optional) --> DONE
+             (pull)                          (pull)
 ```
 
-Every work item moves through stages independently. When an agent finishes one item, it pulls the next available item from the board. No stage waits for all items to clear the previous stage.
+Every issue is owned end-to-end by a single slice-worker. The slice-worker analyzes, implements, tests, and validates within one context window. When done, the card either goes to cross-review (if flagged) or closes directly.
 
 **Anti-pattern (batch model -- avoid):**
 ```
@@ -20,169 +20,109 @@ Batch gates cause 30% idle time. Measured in 2026-02-13 session.
 
 ## Card-Based State Management
 
-Board state lives in `kanban/` as Markdown files with YAML frontmatter. This replaces in-memory task tracking and provides:
+Board state lives in `.beads/sprint.db` as Beads issues. This provides:
 - **Cross-session persistence**: cards survive when Claude exits
-- **User visibility**: users can browse/edit cards directly as `.md` files
 - **Narrative trail**: append-only decision log for retrospectives
-- **Shell scripts**: board visualization without consuming API tokens
+- **CLI queryable**: `bd list`, `bd ready`, `bd blocked`
 
-See the main SKILL.md for card format and field definitions.
+See `sprint:board` for card format and field definitions.
 
-## Setting Up a Pipeline
+## Pipeline Setup
 
-### 1. Define Stages
+### 1. Define Lanes
 
-Each stage maps to a card `status` value and is worked by a specific agent role.
+| Lane | Status | Agent Role | Output |
+|------|--------|------------|--------|
+| `lane-backlog` | `open` | — | Queued |
+| `lane-in-progress` | `in_progress` | slice-worker | End-to-end: analysis + patch + tests + validation |
+| `lane-needs-cross-review` | `open` | — | Awaiting cross-review |
+| `lane-cross-reviewing` | `in_progress` | cross-reviewer | Independent validation |
+| (closed) | `closed` | — | Done |
 
-**Full pipeline (default):**
+### 2. Create Cards
 
-| Stage | Card Status | Agent Role | Output |
-|-------|------------|------------|--------|
-| Analyze | `analyzing` | issue-analyzer | Analysis report |
-| Develop | `developing` | implementer | Patch in worktree |
-| Validate | `reviewing` | reviewer | Pass/fail report |
+One card per issue. Dependencies between issues only (not between phases of the same issue).
 
-### 2. Create Cards with Dependencies
-
-For each work item, create one card per stage. Link with `blocked_by` so work flows in order.
-
-**For a 3-stage pipeline with items A, B, C:**
-
+```bash
+bd create "Issue #NNN: <title>" --prefix sprint \
+  --labels "board-sprint,lane-backlog,issue-NNN,cross-review-<yes|no>" \
+  --description "<card body with phase checklist>"
 ```
-Card #1: Analyze A       (blocked_by: [])      <- starts immediately
-Card #2: Develop A       (blocked_by: [1])     <- waits for #1
-Card #3: Validate A      (blocked_by: [2])     <- waits for #2
-
-Card #4: Analyze B       (blocked_by: [])      <- starts immediately
-Card #5: Develop B       (blocked_by: [4])     <- waits for #4
-Card #6: Validate B      (blocked_by: [5])     <- waits for #5
-```
-
-Key: Analysis cards have NO blockers. They start immediately. Each downstream card is blocked only by its own predecessor, not by other items.
 
 ### 3. Agent Pull Protocol
 
-Agents follow this loop by scanning card files in `kanban/`:
+Slice-workers follow this loop:
 
 ```
-1. Scan kanban/*.md for cards matching my role (by stage field)
-2. Find cards that are:
-   - status: backlog (unstarted)
-   - assignee: empty (unclaimed)
-   - blocked_by: all blocking cards have status "done"
-3. Claim the lowest-ID matching card:
-   - Set assignee to my agent name
-   - Set status to active stage (analyzing/developing/validating)
-   - Append to Narrative: "Claimed by @{agent}. Starting work."
-4. Do the work
-5. On completion:
-   - Set status to "done"
-   - Clear assignee
-   - Append to Narrative: result summary
-6. Go to step 1
+1. Query board: bd ready -l board-sprint --json --unassigned
+2. Claim the first available card:
+   - bd update <id> --claim --add-label lane-in-progress
+3. Work end-to-end: analyze → implement → test → validate
+4. On completion:
+   - If cross-review-yes: move to lane-needs-cross-review
+   - If cross-review-no: bd close <id>
+   - Append SUMMARY to narrative
+5. Go to step 1
 ```
 
 **Rules:**
 - Always claim by writing assignee before starting (prevents double-assignment)
 - Prefer lowest card ID when multiple are available (maintains order)
 - Always append to Narrative on status changes
-- When no cards are available, perform fallback work (see Idle Protocol)
+- When no cards are available, notify team-lead
 
-### 4. Stage Transition
+### 4. Cross-Review Flow
 
-When an agent completes a card and sets it to `done`, downstream cards' blockers are resolved. The next agent scanning the board sees the downstream card as available.
+When a slice-worker completes and the card has `cross-review-yes`:
 
 ```
-Agent completes "Analyze A" (card #1) -> status = done
-  -> Card #2 ("Develop A") has blocked_by: [1]
-  -> Card #1 is now done -> blocker satisfied
-  -> Next developer scanning the board claims card #2
+Slice-worker moves card to lane-needs-cross-review
+  → Cross-reviewer claims from lane-needs-cross-review
+  → Runs independent validation
+  → APPROVED: bd close <id>
+  → REJECTED: move back to lane-in-progress, notify slice-worker
 ```
 
-No manual handoff needed. The dependency chain handles flow through card files.
+## Idle Protocol
 
-## Idle Protocol (Dynamic Role Fallback)
+When a slice-worker has no cards available:
 
-When an agent has no primary cards available, it should not sit idle.
+1. Check `bd ready -l board-sprint --json --unassigned` for any card
+2. If no work at all, notify team-lead: `slice-N available | no pending tasks`
 
-### Fallback Work by Role
-
-| Role | Primary | Fallback 1 | Fallback 2 |
-|------|---------|-----------|-----------|
-| issue-analyzer | Analyze issues | Pre-read next issues from d.o | Code review in-progress patches |
-| implementer | Implement fixes | Fix validation failures | Static code review |
-| reviewer | Run quality gates | Phase 1 static review (no DDEV) | Help with issue analysis |
-
-### Idle Detection
-
-An agent is idle when scanning `kanban/` returns no cards matching:
-- Stage matches agent role
-- Status is `backlog`
-- Assignee is empty
-- All `blocked_by` cards are `done`
-
-### Idle Actions
-
-1. Check `kanban/` for ANY available card (not just primary role)
-2. If fallback work available, claim it with a Narrative entry
-3. If no work at all, notify team-lead via message
+Cross-reviewers idle when no cards in `lane-needs-cross-review`. They can be spawned late and shut down early.
 
 ## Bottleneck Detection
 
-Monitor pipeline health using `pipeline_status.sh` or by scanning cards.
-
-### Signals
-
 | Signal | Meaning | Action |
 |--------|---------|--------|
-| Many cards in `backlog`, none `analyzing` | Analyzer bottleneck | Add analyzer agents |
-| Many `analyzing`/`developing`, none `validating` | Validators idle | Assign Phase 1 static review |
+| Many cards in backlog, agents idle | Agents not pulling | Check for blocked cards, spawn more if needed |
 | All agents busy, cards flowing | Healthy pipeline | Monitor |
-| Cards stuck in `blocked` | Dependency stall | Resolve blockers |
-| `fix_loop >= 3` on any card | Repeated failures | Escalate to team-lead |
-
-### Health Check
-
-Run periodically:
-
-```bash
-bash .claude/skills/sprint-run/scripts/pipeline_status.sh kanban/
-```
-
-Or scan manually:
-```
-Scan kanban/ -> categorize by status:
-  backlog + unblocked = AVAILABLE (should be claimed)
-  backlog + blocked = WAITING (normal)
-  analyzing/developing/validating = ACTIVE (being worked)
-  done = COMPLETE
-
-Healthy: AVAILABLE is low (items get claimed quickly)
-Warning: AVAILABLE > 2x active agents (agents not pulling)
-Problem: Multiple agents idle + AVAILABLE > 0 (agents not finding work)
-```
-
-### Rebalancing
-
-1. **Move agents across stages**: idle Stage 3 agent picks up Stage 1 fallback
-2. **Prioritize near-done items**: focus DDEV slots on cards closest to `done`
-3. **Escalate structural issues**: DDEV full, environment broken -> notify team-lead
+| Cards stuck in `lane-needs-cross-review` | Cross-reviewer bottleneck | Spawn additional cross-reviewer |
+| `fix_loop >= 3` on any card | Repeated failures | Spawn deep-debugger, escalate |
+| DDEV slots full, agents waiting | Resource contention | Static analysis first, queue runtime tests |
 
 ## Resource Constraints (DDEV Slots)
 
-DDEV instances are a shared resource with max 3 concurrent.
+DDEV instances are a shared resource with max 3 concurrent. Each slice-worker self-manages:
 
 ### Two-Phase Split
 
-- **Phase 1** (code review, static analysis): No DDEV needed. Run for all cards immediately.
+- **Phase 1** (phpcs, phpstan): No DDEV needed. Run immediately.
 - **Phase 2** (phpunit, functional tests): DDEV needed. Queue if slots full.
 
-### Tracking with Card Fields
+### Tracking with Card Metadata
 
-Use the `ddev` field on cards:
-- `ddev: true` = this card holds a DDEV slot
-- `ddev: false` = no slot held
-- Count cards with `ddev: true` -- must be <= 3
+```bash
+# Check slot count
+bd list -l board-sprint --metadata-field ddev=true --json | jq 'length'
+
+# Claim slot
+bd update <id> --set-metadata ddev=true
+
+# Release slot
+bd update <id> --unset-metadata ddev
+```
 
 ### Slot Lifecycle
 
@@ -193,50 +133,38 @@ SLOT FREE -> claim (ddev: true) -> ddev start (~30s) -> tests (5-30 min) -> ddev
 ## Pipeline Variants
 
 ### Full Pipeline (default)
-All stages, 3 cards per issue. For end-to-end issue resolution.
+One card per issue, slice-worker handles end-to-end. Optional cross-review.
 
 ### Validation-Only
-1 card per issue, `stage: validate`, no blockers. For existing patches.
+Pre-existing patches — slice-worker skips analysis, focuses on test + validate.
 
 ### Analysis-Only
-1 card per issue, `stage: analyze`, no blockers. For triage. No DDEV needed.
-
-### Fix-and-Verify Loop
-When validation fails:
-1. Increment `fix_loop` on the validate card
-2. Create new develop card (no blockers) for the fix
-3. Create new validate card blocked by the fix card
-4. Max 3 loops, then escalate
+Triage run — slice-workers analyze only, no implementation. No DDEV needed.
 
 ## Quick Reference
 
 ```
 SETUP:
-  1. mkdir -p kanban/archived
-  2. Create cards as .md files with YAML frontmatter
-  3. Analysis cards start with blocked_by: []
+  1. bd init --prefix sprint
+  2. Create cards with bd create (one per issue)
+  3. Set cross-review-yes/no labels
 
-AGENT LOOP:
-  1. Scan kanban/ for cards matching my role
-  2. Find unblocked, unassigned cards
-  3. Claim: set assignee + update status
-  4. Work
-  5. Complete: set status to done, append Narrative
-  6. Repeat (or fallback if nothing available)
+AGENT LOOP (slice-worker):
+  1. bd ready -l board-sprint --json --unassigned
+  2. Claim: bd update <id> --claim --add-label lane-in-progress
+  3. Analyze → Implement → Test → Validate
+  4. SUMMARY → Close or move to cross-review
+  5. Repeat
 
-FLOW:
-  - Items flow independently (no batch gates)
-  - blocked_by resolves when blocking card reaches done
-  - Agents pull by scanning card files (persistent, cross-session)
-
-IDLE:
-  - Do fallback work for other roles
-  - Notify team-lead if truly nothing to do
+CROSS-REVIEW:
+  1. bd list -l lane-needs-cross-review --json
+  2. Claim: bd update <id> --claim --add-label lane-cross-reviewing
+  3. Validate independently
+  4. APPROVED: close | REJECTED: return to lane-in-progress
 
 BOARD OPS:
-  - View:     bash scripts/view_board.sh kanban/
-  - Status:   bash scripts/pipeline_status.sh kanban/
-  - Blocked:  bash scripts/show_blocked.sh kanban/
-  - Tags:     bash scripts/search_by_tag.sh kanban/ <tag>
-  - Search:   bash scripts/search_content.sh kanban/ "<term>"
+  - View:     bd list -l board-sprint --json
+  - Ready:    bd ready -l board-sprint --json --unassigned
+  - Blocked:  bd blocked
+  - DDEV:     bd list --metadata-field ddev=true --json | jq 'length'
 ```

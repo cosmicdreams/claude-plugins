@@ -13,9 +13,9 @@
 - Facts only
 
 ### Abbreviations
-- `ana` = analysis/analyzer
+- `ana` = analysis/analyzed
 - `impl` = implementation/implement
-- `val` = validation/validator
+- `tst` = test(s)
 - `qa` = quality assurance
 - `std` = standards
 - `cov` = coverage
@@ -23,13 +23,13 @@
 - `rpt` = report
 - `iss` = issue
 - `mod` = module
-- `tst` = test(s)
 - `phpcs` = coding standards
 - `phpunit` = tests
 - `d.o` = drupal.org
 - `bc` = breaking change
 - `ok` = pass/approved
 - `nok` = fail/blocked
+- `xr` = cross-review
 
 ### Status Emojis
 - ✅ = done/pass
@@ -43,46 +43,31 @@
 
 **Bad (verbose):**
 ```
-Hello team-lead! I have completed the comprehensive analysis
-of issue #3543210. The analysis report has been successfully
-generated and saved to the analysis-reports directory.
-I found that this is a relatively simple bug fix...
+Hello team-lead! I have completed the full analysis, implementation,
+and validation of issue #3543210. All tests pass and coding standards
+are clean. The fix is ready for cross-review.
 ```
 
 **Good (concise):**
 ```
-📝 #3543210 ana done
-rpt: .claude/analysis-reports/3543210.md
-complexity: simple
-effort: 2h
-ready for impl
-```
-
-**Bad:**
-```
-I have successfully completed the implementation and all
-tests are passing! The code follows all Drupal standards.
-```
-
-**Good:**
-```
-✅ #3543210 impl done
+✅ #3543210 slice done
 phpcs: ok
 phpunit: ok
 wrk: worktrees/3543210/
-ready for val
+cross-review: yes
 ```
 
 **Bad:**
 ```
-Unfortunately, the validation has failed. There are several
-coding standards violations that need to be addressed...
+Unfortunately, the cross-review has found several issues that
+need to be addressed before this can be merged...
 ```
 
 **Good:**
 ```
-❌ review fail
-phpcs: 3 errors (file.php:45,67,89)
+❌ #3543210 xr fail
+stubs: settings_tray.js:45 (TODO left as impl)
+tst: test doesn't exercise bug scenario
 needs fix
 ```
 
@@ -99,18 +84,15 @@ needs fix
 
 **Good:**
 ```
-Analyzed issue #3543210. It's a simple routing bug - double
-slash in URL causes 404. Fix will take ~2 hours.
-
-Implementation ready in worktrees/3543210/. Validated - all
-tests pass, coding standards clean. Ready to submit.
+Issue #3543210 complete. Simple routing bug - double
+slash in URL caused 404. Fix in worktrees/3543210/.
+All tests pass, coding standards clean. Ready to submit.
 ```
 
 **Bad:**
 ```
-issue-analyzer reported analysis complete. Waiting for
-implementer to finish implementation. reviewer
-will check after...
+slice-1 reported the slice is complete. Cross-reviewer
+is now validating the implementation...
 ```
 
 ## Key Rules
@@ -123,33 +105,31 @@ will check after...
 6. **Facts only**: What happened, what's next
 7. **Token efficiency**: Every word counts in team messages
 
-## Summary Template
+## Summary Templates
 
-### For issue-analyzer → team-lead
+### For slice-worker → team-lead
 ```
-[emoji] #[issue] ana done
-rpt: [path]
-complexity: [simple|med|complex]
-effort: [estimate]
-[blockers if any]
-```
-
-### For implementer → team-lead
-```
-[emoji] #[issue] impl done
+[emoji] #[issue] slice done
 phpcs: [ok|nok]
 phpunit: [ok|nok]
 wrk: [path]
+cross-review: [yes|no]
 [issues if any]
 ```
 
-### For reviewer → team-lead
+### For cross-reviewer → team-lead (pass)
 ```
-[emoji] #[issue] review [pass|fail]
-phpcs: [status]
-phpunit: [status]
-cov: [status]
-[specific issues if fail]
+✅ #[issue] xr pass
+phpcs: ok
+phpstan: ok
+phpunit: ok
+```
+
+### For cross-reviewer → team-lead (fail)
+```
+❌ #[issue] xr fail
+[gate]: [N errors] | [file:line]
+[what needs fixing]
 ```
 
 ### For process-improvement → team-lead

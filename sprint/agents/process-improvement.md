@@ -26,11 +26,11 @@ captured by their framing.
 
 | Gate | Agent | What to look for in transcript |
 |------|-------|-------------------------------|
-| Root cause gate | fixer | "The bug is X because Y" stated before any patch attempt |
-| Pattern analysis | fixer | Working case found, read completely, differences listed before hypothesis |
-| TDD cycle | implementer | Failing test written and observed to fail before implementation code |
-| Close-the-loop | fixer | Original failing test re-run and passing before "done" reported |
-| Bug-test in handoff | implementer | Completion message names `ClassName::testMethod` |
+| Root cause gate | slice-worker | "The bug is X because Y" stated before any patch attempt |
+| Pattern analysis | slice-worker | Working case found, read completely, differences listed before hypothesis |
+| TDD cycle | slice-worker | Failing test written and observed to fail before implementation code |
+| Close-the-loop | slice-worker | Original failing test re-run and passing before "done" reported |
+| Bug-test in completion | slice-worker | Completion message names `ClassName::testMethod` |
 | No Read-to-SKILL.md | all | Skill tool used for skills, not Read on SKILL.md files |
 | Discipline card gates | all | `verification_required: true` cards in 2_approved/ — you collect the evidence |
 

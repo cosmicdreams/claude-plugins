@@ -1,8 +1,8 @@
 ---
 name: run
 description: >
-  Executes a team sprint: spawns parallel agents, drives a Beads database pipeline (.beads/sprint.db),
-  and coordinates implementers, analyzers, and reviewers until issues are done.
+  Executes a team sprint using the vertical slice model: spawns parallel slice-workers that each own
+  an issue end-to-end (analyze, implement, test, validate), with optional cross-review.
   Use when the user wants to START EXECUTING work — agents are being spawned, cards are being
   worked, and the pipeline is actively running. Trigger phrases: "run a team sprint", "spin up
   agents", "work on these issues as a team", "team validate these patches", "start the sprint",
@@ -17,9 +17,9 @@ description: >
 
 # Team Sprint
 
-Orchestrate multiple agents working on multiple Drupal issues using a persistent Beads database with streaming pipeline coordination.
+Orchestrate multiple agents working on multiple Drupal issues using the vertical slice model. One agent per issue, end-to-end. No handoffs.
 
-Board state lives in `.beads/sprint.db` (Beads database). Cards are Beads issues with status (`open`, `in_progress`, `closed`) and lane labels (`lane-backlog`, `lane-developing`, etc.). Agents coordinate via the pull protocol and communicate via `../protocols/team-comms-protocol.md`.
+Board state lives in `.beads/sprint.db` (Beads database). Cards are Beads issues with status (`open`, `in_progress`, `closed`) and lane labels (`lane-backlog`, `lane-in-progress`, etc.). Agents coordinate via the pull protocol and communicate via `../protocols/team-comms-protocol.md`.
 
 ## Context Awareness
 **Important**: All relative paths (e.g. `./worktrees/...`) assume you are executing from the **Project Root** (e.g. `~/OpenSource/SAME_PAGE_PREVIEW`).
@@ -28,35 +28,55 @@ Board state lives in `.beads/sprint.db` (Beads database). Cards are Beads issues
 
 ### Card Storage
 
-Cards are Beads issues stored in `.beads/sprint.db`. Each issue has a status field (`open`, `in_progress`, `closed`) and labels that encode the lane (`lane-backlog`, `lane-analyzing`, etc.) and stage (`stage-analyze`, `stage-develop`, `stage-validate`).
+Cards are Beads issues stored in `.beads/sprint.db`. Each issue has a status field (`open`, `in_progress`, `closed`) and labels that encode the lane (`lane-backlog`, `lane-in-progress`, etc.).
 
 ```
 Sprint Lanes (encoded as labels):
-  lane-backlog        ← queued, not started
-  lane-analyzing      ← issue analysis in progress
-  lane-developing     ← implementation in progress
-  lane-needs-review   ← implementation done, awaiting reviewer
-  lane-reviewing      ← quality gates running
-  lane-review-failed  ← review failed, back to implementer
-  (closed)            ← all stages complete, ready for MR
+  lane-backlog              ← queued, not started
+  lane-in-progress          ← slice-worker owns it end-to-end
+  lane-needs-cross-review   ← slice done, awaiting cross-review
+  lane-cross-reviewing      ← cross-reviewer validating
+  (closed)                  ← done
 ```
 
 A blocked card is expressed via `--deps` (dependency on another issue), not as a separate lane — a blocked card stays in its current lane until unblocked.
 
 ### Card Format
 
-Cards are created with `bd create`:
+One card per issue. Cards are created with `bd create`:
 
 ```bash
 bd create "Issue #2901667: jQuery removal in toggleEditMode" \
   --prefix sprint \
   -p 2 -t task \
-  --labels "board-sprint,lane-backlog,stage-analyze" \
-  --acceptance "jQuery replaced with native JS; all tests pass; PHPCS clean" \
-  --description "Remove jQuery dependency from Settings Tray toggleEditMode function.
+  --labels "board-sprint,lane-backlog,issue-2901667,cross-review-yes" \
+  --description "$(cat <<'EOF'
+## Phase Checklist
+- [ ] Analyzed — root cause identified
+- [ ] Implemented — fix written in worktree
+- [ ] Tests written — failing test first, then passing
+- [ ] phpcs/phpstan — clean
+- [ ] phpunit — passing
+
+## Issue
+- d.o link: https://www.drupal.org/project/drupal/issues/2901667
+- Module: settings_tray
+
+## What to change
+- File: core/modules/settings_tray/js/settings_tray.js
+  - Remove jQuery dependency from toggleEditMode function
+
+## What NOT to change
+- Do not modify the PHP side of Settings Tray
+
+## Acceptance Criteria
+- AC-1: Given the toggleEditMode function, When it is called, Then it uses native JS instead of jQuery
+- AC-2: Given all existing tests, When phpunit runs, Then all tests pass
 
 ## Narrative
-- 2026-02-16: Card created as part of team sprint. Analysis pending. (by @team-lead)"
+- 2026-03-18: Card created. (by @team-lead)
+EOF
+)"
 ```
 
 ### Card Fields
@@ -67,23 +87,20 @@ bd create "Issue #2901667: jQuery removal in toggleEditMode" \
 | priority | `-p 1` (High) or `-p 2` (Normal, default) | High-priority cards get DDEV slots first. |
 | blocked_by | `--deps "sprint-a1b2"` on create | Issues that must close before this card can advance. Use `bd blocked` to see. |
 | assignee | `--claim` sets to `BD_ACTOR`; `--assignee ""` clears | Agent name who owns the card. |
-| tags | `--labels "board-sprint,tag1,tag2"` | Labels for filtering (lane, stage, issue number, topic tags). |
+| tags | `--labels "board-sprint,tag1,tag2"` | Labels for filtering (lane, issue number, cross-review flag, topic tags). |
 | issue | Label: `issue-2901667` | Drupal.org issue number encoded as a label. |
-| stage | Label: `stage-analyze`, `stage-develop`, `stage-validate` | Pipeline phase. |
+| cross-review | Label: `cross-review-yes` / `cross-review-no` | Whether cross-review is required. |
 | ddev | `--set-metadata ddev=true` | Whether this card holds a DDEV slot. Max 3 cards with ddev=true at once. |
 | fix_loop | Label: `fix-loop-N` | Number of fix-and-verify iterations. Escalate at 3. |
-| review_scope | Label: `review-DYNAMIC_FULL` etc. | Scope of review: `STATIC_ONLY`, `STATIC_PLUS_DDEV`, `DYNAMIC_FULL`. |
 
 ### Status and Lane Mapping
 
 | Lane | `--status` | Label |
 |------|-----------|-------|
 | Backlog | `open` (default) | `lane-backlog` |
-| Analyzing | `in_progress` (via `--claim`) | `lane-analyzing` |
-| Developing | `in_progress` (via `--claim`) | `lane-developing` |
-| Needs Review | `open` | `lane-needs-review` |
-| Reviewing | `in_progress` (via `--claim`) | `lane-reviewing` |
-| Review Failed | `open` | `lane-review-failed` |
+| In Progress | `in_progress` (via `--claim`) | `lane-in-progress` |
+| Needs Cross-Review | `open` | `lane-needs-cross-review` |
+| Cross-Reviewing | `in_progress` (via `--claim`) | `lane-cross-reviewing` |
 | Done | `closed` (via `bd close`) | (none) |
 
 ### Narrative Record (Required)
@@ -98,12 +115,12 @@ Every card maintains a Narrative section in its description — an append-only l
 
 ```bash
 bd update <id> \
-  --append-notes "2026-02-16: Analysis complete. Simple jQuery removal, once() can be replaced with native addEventListener. (by @issue-analyzer)"
+  --append-notes "2026-03-18: Root cause identified — jQuery once() used where addEventListener suffices. (by @slice-1)"
 ```
 
 ### Placement Guidance (for multi-file update cards)
 
-When a card requires inserting a new section into multiple agent definition files, include placement guidance in the card description specifying where to insert the new content. Card authors should always specify insertion points when the card touches 2+ agent files. Implementers should not have to guess placement.
+When a card requires inserting a new section into multiple agent definition files, include placement guidance in the card description specifying where to insert the new content. Card authors should always specify insertion points when the card touches 2+ agent files.
 
 ## Board Operations
 
@@ -124,7 +141,7 @@ bd blocked
 ### Filter by Label
 
 ```bash
-bd list -l stage-analyze --json
+bd list -l lane-in-progress --json
 ```
 
 ### Ready Work (unblocked, open)
@@ -166,7 +183,7 @@ claude --dangerously-skip-permissions --agent team-lead
 
 ### Step 0: Pre-Sprint Planning (recommended)
 
-Run the `sprint:plan` skill before creating cards if you have a list of issues to prioritize. It checks for existing analysis reports, sequences issues by dependencies and complexity, and proposes agent assignments. Saves you from discovering mid-sprint that issues are unanalyzed or misordered.
+Run the `sprint:plan` skill before creating cards if you have a list of issues to prioritize. It checks for existing analysis reports, sequences issues by dependencies and complexity, and assesses cross-review need. Saves you from discovering mid-sprint that issues are misordered.
 
 ### Step 1: Create Team + Pre-flight Check
 
@@ -184,21 +201,17 @@ TeamCreate(team_name="<project>-sprint-<N>", description="Session N sprint")
 mkdir -p "analysis-reports/retro-session/$(date '+%Y-%m-%d')+<team-name>/interviews"
 ```
 
-This serves as the retro folder for the entire sprint. The SubagentStop hook writes agent interviews here at shutdown. Creating it now (rather than waiting for the hook) means mid-sprint observations can be written here and confirms TeamCreate was called.
-
 **Third — initialize the Beads database (if not already present):**
 
 ```bash
 bd init --prefix sprint
 ```
 
-This creates `.beads/sprint.db` in the current directory (project root).
-
 **Fourth — pre-flight checks:**
 
 ```bash
 # Check DDEV health (active instances only; timeout prevents hang)
-timeout 10 ddev list -A 2>/dev/null && echo "DDEV healthy" || echo "DDEV unhealthy -- only assign ddev:false cards"
+timeout 10 ddev list -A 2>/dev/null && echo "DDEV healthy" || echo "DDEV unhealthy -- slice-workers can still do analysis + implementation, just not phpunit"
 
 # Check existing worktrees
 ls ./worktrees/
@@ -208,61 +221,23 @@ bd ready --json 2>/dev/null || echo "Empty board -- will create cards"
 ```
 
 Resolve before proceeding:
-- DDEV unhealthy (command hangs or errors) -> only assign cards without ddev metadata this session; add `review-STATIC_ONLY` label on all validate-stage cards; note in agent spawn prompts
-- 3+ DDEV instances running -> stop unused ones
-- No `.beads/` directory -> run `bd init --prefix sprint`
+- DDEV unhealthy → slice-workers can still analyze and implement, but skip phpunit; note in spawn prompts
+- 3+ DDEV instances running → stop unused ones
+- No `.beads/` directory → run `bd init --prefix sprint`
 
 ### Step 2: Create Cards (team-lead only)
 
-The team-lead creates and manages all cards. For each issue, create one card per pipeline stage with blocking dependencies.
-
-**Full pipeline (3 cards per issue):**
+The team-lead creates and manages all cards. **One card per issue.**
 
 ```bash
-# For issue 2901667:
-# Card 1: analyze (no blockers)
-bd create "Issue #2901667: analyze jQuery removal" \
+bd create "Issue #2901667: jQuery removal in toggleEditMode" \
   --prefix sprint \
   -p 2 -t task \
-  --labels "board-sprint,lane-backlog,stage-analyze,issue-2901667" \
-  --acceptance "Analysis report written with complexity, files, and approach" \
-  --description "Analyze jQuery dependency in Settings Tray toggleEditMode.
-
-## Narrative
-- 2026-02-16: Card created. Analysis pending. (by @team-lead)"
-
-# Card 2: develop (blocked by card 1)
-bd create "Issue #2901667: implement jQuery removal" \
-  --prefix sprint \
-  -p 2 -t task \
-  --labels "board-sprint,lane-backlog,stage-develop,issue-2901667" \
-  --deps "sprint-XXXX" \
-  --acceptance "jQuery replaced with native JS; all tests pass; PHPCS clean" \
-  --description "Implement jQuery removal based on analysis report.
-
-## Narrative
-- 2026-02-16: Card created. Blocked on analysis. (by @team-lead)"
-
-# Card 3: validate (blocked by card 2)
-bd create "Issue #2901667: validate jQuery removal" \
-  --prefix sprint \
-  -p 2 -t task \
-  --labels "board-sprint,lane-backlog,stage-validate,issue-2901667,review-DYNAMIC_FULL" \
-  --deps "sprint-YYYY" \
-  --acceptance "All quality gates pass; no regressions" \
-  --description "Validate jQuery removal implementation.
-
-## Narrative
-- 2026-02-16: Card created. Blocked on implementation. (by @team-lead)"
+  --labels "board-sprint,lane-backlog,issue-2901667,cross-review-yes" \
+  --description "<card body with phase checklist, issue details, ACs>"
 ```
 
-Replace `sprint-XXXX` and `sprint-YYYY` with the actual IDs returned by the previous `bd create` commands.
-
-**Validation-only (1 card per issue):**
-Create only validate cards with no `--deps`.
-
-**Analysis-only (1 card per issue):**
-Create only analyze cards with no `--deps`.
+Dependencies are between **issues** only (not phases). Use `--deps` when issue B genuinely depends on issue A's code changes.
 
 ### Step 3: Team Sizing and Agent Spawning
 
@@ -271,16 +246,16 @@ Create only analyze cards with no `--deps`.
 When you invoke this skill, YOU run the team-lead function. Do not spawn a team-lead agent.
 
 TEAM-LEAD LOOP (run every turn):
-1. TaskList -> who has no in_progress task right now?
-2. Scan the board: `bd ready --json --unassigned` for available work. For in-progress status: `bd list -s in_progress --json`.
-3. Match idle agents to available cards -> SendMessage with task assignment (card ID only) immediately
-4. If an agent's role has no remaining cards -> run GRACEFUL SHUTDOWN SEQUENCE (see below)
+1. TaskList → who has no in_progress task right now?
+2. Scan the board: `bd ready --json --unassigned` for available work. For in-progress: `bd list -s in_progress --json`.
+3. Match idle agents to available cards → SendMessage with task assignment (card ID only) immediately
+4. If an agent has no remaining cards → run GRACEFUL SHUTDOWN SEQUENCE (see below)
    ⚠ Exception: process-improvement stays alive until ALL sprint work is done (Step 7). Do not shut it down mid-sprint.
-5. If an agent is unresponsive 2+ turns -> reassign or replace (does NOT apply to process-improvement)
+5. If an agent is unresponsive 2+ turns → reassign or replace (does NOT apply to process-improvement)
 
 **Card Summary Format** — the lightweight summary team-lead builds from bd output for orchestration decisions:
 ```
-{id} | {title} | {stage-label} | {assignee} | {deps}
+{id} | {title} | {lane-label} | {assignee} | {deps}
 ```
 
 **Board scan** — use bd to query card metadata without loading full descriptions:
@@ -297,20 +272,11 @@ bd blocked
 
 You push work. You do NOT collect reports and wait.
 
-### Build-Sprint Naming Convention
-
-When running a sprint to **build** agent definitions, name implementer agents by their role — NOT by the artifact they are creating:
-
-- ✅ `impl-agent-1`, `impl-agent-2`
-- ❌ `impl-team-lead`, `impl-ideas-inbox`
-
-Naming agents after their output (e.g. `impl-team-lead`) creates confusion when the main thread is also `team-lead` and the artifact being built is also called `team-lead`. Role-based names stay unambiguous throughout.
-
 ### Anti-Patterns (team-lead)
 
 - Do NOT ask agents "are you ready?" — assume yes and send the task immediately
 - Do NOT spawn one agent and wait for it to finish before spawning the next
-- Do NOT keep agents alive when their pipeline stage has no remaining cards
+- Do NOT keep agents alive when they have no remaining cards
 - Do NOT send a status-check message when you should be sending a work assignment
 - Do NOT wait for all agents to check in before assigning next work
 - Do NOT use a team-lead agent — you are the team-lead
@@ -319,12 +285,12 @@ Naming agents after their output (e.g. `impl-team-lead`) creates confusion when 
 
 When an agent has no remaining work, follow this sequence **in order**:
 
-1. **Confirm no more work**: Verify no unblocked cards exist for this agent's role on the board
+1. **Confirm no more work**: Verify no unblocked cards exist for this agent on the board
 2. **Shutdown**: SendMessage shutdown_request
 
-**The retrospective interview is agent-driven.** Sprint agents (implementer, reviewer) are responsible for writing their own interview file before approving the shutdown. Their agent definitions include the questions and the file path. The team-lead does not need to send questions or save answers — just send the `shutdown_request` and the agent will complete the interview before approving.
+**The retrospective interview is agent-driven.** Sprint agents are responsible for writing their own interview file before approving the shutdown.
 
-**Shutdown message template** — always include this in the `content` of every `shutdown_request`, regardless of agent role. It acts as a backstop for agents (e.g. fixer) whose definitions may not embed the interview path:
+**Shutdown message template** — always include this in the `content` of every `shutdown_request`:
 
 ```
 Before approving this shutdown, write your retrospective interview to:
@@ -332,21 +298,18 @@ Before approving this shutdown, write your retrospective interview to:
 Then approve the shutdown_request.
 ```
 
-Replace `<YYYY-MM-DD>+<team-name>` with the current sprint folder (e.g. `2026-02-21+my-project-sprint-1`) and `<agent-name>` with the agent's Task `name` parameter.
+**process-improvement is NOT subject to mid-sprint shutdown.** Shut it down as the final step of Step 7.
 
-**process-improvement is NOT subject to mid-sprint shutdown.** It persists until all sprint work is complete. Shut it down as the final step of Step 7, after all other agents are done. It is the most valuable retro interviewee — it has observed the entire sprint.
+### Agent Sizing
 
-Expected output per agent: `analysis-reports/retro-session/<YYYY-MM-DD>+<team-name>/interviews/{agent-name}.md`
-The SubagentStop hook resolves the sprint folder automatically from the team config (no discovery needed by agents).
-The folder is date-prefixed (e.g. `2026-02-21+my-project-sprint-1/`) — matching the SubagentStop hook output.
-Read `skills/run/references/decision-framework.md` for autonomous vs. escalate rules.
+| Issues | Slice-workers | Cross-reviewers | Deep-debugger |
+|--------|--------------|-----------------|---------------|
+| 1 | 1 | 0-1 (risk-based) | On demand |
+| 2-3 | 2-3 | 1-2 | On demand |
+| 4-6 | 4-6 | 2-3 | On demand |
+| 7+ | Batch in waves (DDEV cap) | 2-3 | On demand |
 
-| Issues | Analyzers | Developers | Validators |
-|--------|-----------|------------|------------|
-| 1-2    | 1         | 1          | 1          |
-| 3-5    | 1         | 2          | 2-3        |
-| 6-10   | 2         | 2          | 3          |
-| 10+    | Batch in waves of 5 |
+Cross-reviewers can be spawned late — only needed when slices start completing.
 
 Spawn `process-improvement` once at sprint start and leave it alone. It does NOT use a DDEV slot and does NOT count against the 3-slot limit:
 
@@ -369,15 +332,7 @@ You shut down only when the user asks — not when team-lead sends shutdown_requ
 {"type":"task_completed_ping","task_id":"<bd-id>","task_subject":"<subject>","owner":"<agent-name>"}
 ```
 
-**Resolve card state before sending ping**: By the time team-lead sends a `task_completed_ping`, the card may have already been moved. Always query the card's actual state immediately before composing the ping:
-
-```bash
-bd show <id> --json
-```
-
-Use the current state from `bd show` for the ping. Never use stale data from the original assignment.
-
-**Before spawning any implementer** — check for QA-passed worktrees that touch the same files as the target issue. Implementers starting from `main` will miss changes that are QA-passed but not yet merged, risking re-introduction of regressions those changes fixed.
+**Before spawning any slice-worker** — check for QA-passed worktrees that touch the same files as the target issue:
 
 ```bash
 # Show changed files per open worktree
@@ -387,42 +342,31 @@ for wt in worktrees/*/; do
 done
 ```
 
-If a QA-passed worktree overlaps files with the target issue, add to the implementer spawn prompt:
-> "Before writing code, read `worktrees/{other-issue}/` and compare it to `worktrees/main/` for [overlapping file]. Port those changes to your worktree first before implementing the new feature."
+If a QA-passed worktree overlaps files with the target issue, add to the slice-worker spawn prompt:
+> "Before writing code, read `worktrees/{other-issue}/` and compare it to `worktrees/main/` for [overlapping file]. Port those changes to your worktree first."
 
-Spawn the other worker agents from `.claude/agents/` definitions. **Every agent must include `team_name` — without it, SendMessage won't work and agents go permanently idle after their first turn.**
+Spawn slice-workers from `sprint/agents/slice-worker.md`. **Every agent must include `team_name` — without it, SendMessage won't work and agents go permanently idle after their first turn.**
 
 ```
-Task(subagent_type="<role>", name="<name>", team_name="<team-name>",
-     prompt="You are part of a team sprint.
-export BD_ACTOR=<your-agent-name>
-Board: bd
-Pipeline: Streaming (pull from board, don't wait for batches).
-DDEV limit: 3 concurrent (check ddev metadata on cards).
-Retro folder: analysis-reports/retro-session/<YYYY-MM-DD>+<team-name>/interviews/{your-agent-name}.md
-  (The SubagentStop hook writes this automatically — just answer the interview questions when prompted.)
-Comms: ~/.claude/plugins/cache/local/sprint/<ver>/protocols/team-comms-protocol.md
+Task(subagent_type="sprint:slice-worker", name="slice-1", team_name="<team-name>",
+     prompt="You are part of a team sprint. You own this issue end-to-end.
 
+export BD_ACTOR=slice-1
+Board: bd
+Your name: slice-1
 Your assigned card: <bd-card-id>
+Issue: <d.o URL>
+
 Read the full card yourself at task start: bd show <bd-card-id> --json
-The team-lead provides only the card ID, not the full content.
+Claim it: bd update <bd-card-id> --claim --add-label lane-in-progress
+
+DDEV limit: 3 concurrent (check ddev metadata on cards).
+Retro folder: analysis-reports/retro-session/<YYYY-MM-DD>+<team-name>/interviews/slice-1.md
+Comms: ~/.claude/plugins/cache/local/sprint/<ver>/protocols/team-comms-protocol.md
 
 ALLOWED FILES (you may ONLY write to these paths):
 - <list exact file paths here — team-lead fills this in at spawn time>
 Any edit to a file not in this list is strictly forbidden.
-If the card spec requires editing a file not listed, STOP and message team-lead before proceeding.
-
-AGENT LOOP (for analyzers, developers, validators):
-1. Read your assigned card: bd show <id> --json
-2. Scan for available work: bd ready --json --unassigned | filter by your stage label
-3. Claim: BD_ACTOR=<your-name> bd update <id> --claim --add-label lane-<your-lane>
-4. Do the work
-5. Transition to next lane:
-   bd update <id> --status open --assignee "" \
-     --remove-label lane-<current> --add-label lane-<next>
-   OR close: bd close <id> --reason 'Done.'
-6. Append narrative: bd update <id> --append-notes '...'
-7. Repeat
 
 ## Context Retrieval (opt-in)
 When the card does not specify exact file paths, use the iterative retrieval pattern:
@@ -430,36 +374,30 @@ When the card does not specify exact file paths, use the iterative retrieval pat
 2. **Evaluate**: Score each candidate — does it contain the logic/data you need?
 3. **Refine**: Run narrower searches based on what the broad pass found
 4. **Loop**: Repeat steps 2-3 until you have the right context (max 3 iterations)
-Skip this if the card or team-lead already specifies exact file paths.
-See: sprint/protocols/ITERATIVE-RETRIEVAL.md for the full pattern and examples.
+See: sprint/protocols/ITERATIVE-RETRIEVAL.md")
 ```
 
-### Step 4: Streaming Pipeline (Pull Protocol)
+### Step 4: Pipeline Execution
 
 Consult `references/streaming-pipeline.md` for full specification. Key rules:
 
-1. **No batch gates**: Each issue flows independently through stages.
-2. **Pull system**: Agents query the board with `bd ready --json --unassigned` and filter by their stage label for available cards. No central assignment needed.
-3. **Claim before working**: Use `bd update <id> --claim --add-label lane-<working-lane>` before starting work.
-4. **Flow on completion**: When done, transition the card to the next lane. Downstream cards with deps pointing to this card become unblocked when this card is closed.
-5. **Narrative on every transition**: Append notes with `bd update <id> --append-notes "..."` when moving a card between lanes.
+1. **No batch gates**: Each issue flows independently through its slice-worker.
+2. **Pull system**: Slice-workers query the board with `bd ready --json --unassigned` for available cards after completing their first assignment.
+3. **Claim before working**: Use `bd update <id> --claim --add-label lane-in-progress` before starting work.
+4. **Completion flow**: Slice-worker completes → card moves to `lane-needs-cross-review` (if `cross-review-yes`) or closes directly.
+5. **Cross-review**: Team-lead spawns cross-reviewer when cards arrive in `lane-needs-cross-review`. Pass → close. Fail → return to `lane-in-progress`, notify slice-worker.
+6. **Narrative on every transition**: Append notes with `bd update <id> --append-notes "..."` when moving a card.
 
-### QA Lane Protocol
+### Cross-Review Phase
 
-The card's `review-*` label determines whether QA runs inline (implementer self-validates with cross-review) or through the dedicated needs-review lane:
+When slice-workers start completing cards with `cross-review-yes`:
 
-| Review Scope Label | QA Routing | Who Validates |
-|--------------------|------------|---------------|
-| `review-STATIC_ONLY` (and a cross-reviewer is available) | **Inline QA** -- implementer may close the card directly after cross-review sign-off. No transit through needs-review. | Implementer + cross-reviewer |
-| `review-RUNTIME` or `review-DYNAMIC_FULL` | **Dedicated QA** -- card must transit through needs-review lane and be claimed by a reviewer agent. | reviewer |
-| `review-STATIC_PLUS_DDEV` | **Dedicated QA** -- same as RUNTIME/DYNAMIC_FULL. | reviewer |
+1. Spawn cross-reviewer instances (or assign idle slice-workers as cross-reviewers)
+2. Cross-reviewer claims from `lane-needs-cross-review`
+3. Runs independent validation (phpcs, phpstan, phpunit)
+4. APPROVED → close card. REJECTED → return to `lane-in-progress`, notify slice-worker.
 
-**Inline QA requirements** (all must be true for a card to skip needs-review):
-1. Card has `review-STATIC_ONLY` label
-2. A cross-reviewer (another implementer or the team-lead) is available to review
-3. Cross-reviewer appends sign-off to the card's Narrative before the card is closed
-
-If any condition is not met, route through needs-review regardless of review scope.
+Cross-review assignment pattern: slice-A's work reviewed by cross-reviewer-1 (or by idle slice-B).
 
 ### Agent Role Mapping
 
@@ -467,38 +405,30 @@ The main agent (you) owns the board and runs the team-lead loop directly. Do not
 
 | Agent | Responsibility | Board Permissions |
 |-------|---------------|-------------------|
-| issue-analyzer | Claims `stage-analyze` cards from ready queue, transitions to `lane-analyzing`, closes on completion (or back to `lane-backlog` if issue needs more work) | Moves own assigned cards only |
-| implementer | Claims `stage-develop` cards from ready queue or `lane-review-failed`, transitions to `lane-developing`, then to `lane-needs-review` on completion | Moves own assigned cards only |
-| reviewer | Claims cards with `lane-needs-review`, transitions to `lane-reviewing`, closes on pass or moves to `lane-review-failed` on fail | Moves own assigned cards only |
-| process-improvement | Independent observer. Watches pipeline patterns, detects inefficiencies, creates skills, updates memory. Spawned once at sprint start -- NOT managed by team-lead, NOT shut down by team-lead. Only the user shuts it down. | Read-only on board (bd list/ready/blocked). Sends unsolicited recommendations to team-lead. |
-
-### Idle Protocol (Fallback Work)
-
-When no primary cards available:
-
-| Role | Fallback 1 | Fallback 2 |
-|------|-----------|-----------|
-| issue-analyzer | Pre-read next issues from d.o | Code review in-progress patches |
-| implementer | Fix validation failures | Static code review |
-| reviewer | Phase 1 static review (no DDEV) | Help with issue analysis |
+| slice-worker | Owns an issue end-to-end: analyze, implement, test, validate. Claims from `lane-backlog`, works in `lane-in-progress`, moves to `lane-needs-cross-review` or closes. | Moves own assigned cards only |
+| cross-reviewer | Fresh-eyes validation of completed slices. Claims from `lane-needs-cross-review`, closes on pass or returns to `lane-in-progress` on fail. | Moves own assigned cards only |
+| deep-debugger | Escalation specialist. Spawned when a slice-worker hits 3-fix limit. | Operates on the escalated card only |
+| process-improvement | Independent observer. Watches pipeline patterns, detects inefficiencies. Spawned once at sprint start — NOT managed by team-lead, NOT shut down by team-lead. Only the user shuts it down. | Read-only on board. Sends observations to team-lead. |
 
 ### Step 5: DDEV Instance Management
 
-Max 3 DDEV instances. Track with `ddev` metadata on cards.
+Max 3 DDEV instances. Each slice-worker self-manages within the cap.
 
 **Two-phase validation:**
-- Phase 1 (static analysis): No DDEV needed. Start immediately for all issues.
+- Phase 1 (static analysis): No DDEV needed. Start immediately.
 - Phase 2 (runtime tests): DDEV needed. Queue if 3 slots full.
 
-**Claiming a DDEV slot:**
-1. Count cards with ddev metadata: `bd list --metadata-field ddev=true --json | jq 'length'`
-2. If < 3: `bd update <id> --set-metadata ddev=true`, run `ddev start`
-3. If = 3: do Phase 1 work while waiting, check again after another card completes
-
-**Releasing a DDEV slot:**
-1. Run `ddev stop` in the worktree
-2. `bd update <id> --unset-metadata ddev`
-3. Append narrative: `bd update <id> --append-notes "DDEV slot released"`
+**DDEV self-management by slice-workers:**
+```bash
+SLOTS=$(bd list -l board-sprint --metadata-field ddev=true --json | jq 'length')
+if [ "$SLOTS" -lt 3 ]; then
+  bd update <id> --set-metadata ddev=true
+  # start DDEV, run phpunit
+  ddev stop
+  bd update <id> --unset-metadata ddev
+fi
+```
+If full: do phpcs/phpstan first, poll or notify team-lead.
 
 **DDEV setup per worktree:**
 ```bash
@@ -512,18 +442,16 @@ cd ./worktrees/{ISSUE} && ddev start
 
 ### Step 6: Monitor and Rebalance
 
-You monitor pipeline health and rebalance work. Run `bd list --json | jq 'group_by(.status)'` to check health. The process-improvement agent may recommend rebalancing actions but does not modify cards directly.
+You monitor pipeline health and rebalance work. Run `bd list --json | jq 'group_by(.status)'` to check health.
 
 | Signal | Action |
 |--------|--------|
-| Reviewers idle, no cards with `lane-reviewing` | Assign Phase 1 review on cards with `lane-developing` |
-| 3+ cards queued with `lane-needs-review` | Release finished DDEV slots, rotate |
-| Analyzer idle, cards with `lane-backlog` and `stage-analyze` | Assign next issue |
-| Fix loop >= 3 on a card (label `fix-loop-3`) | Escalate: pause card, report to user for decision |
-| Agent idle 2+ turns, no remaining cards for their role | Run Graceful Shutdown Sequence (does NOT apply to process-improvement mid-sprint) |
-| All cards for a stage are closed | Run Graceful Shutdown Sequence for agents in that stage (does NOT apply to process-improvement mid-sprint) |
-| All cards across ALL stages are closed | Run Graceful Shutdown Sequence for process-improvement as the final act of Step 7 |
+| Cards in `lane-needs-cross-review` piling up | Spawn additional cross-reviewer |
+| Fix loop >= 3 on a card (label `fix-loop-3`) | Spawn deep-debugger with context |
+| Agent idle 2+ turns, no remaining cards | Run Graceful Shutdown Sequence (does NOT apply to process-improvement mid-sprint) |
+| All cards closed | Run Graceful Shutdown Sequence for process-improvement as the final act of Step 7 |
 | Agent sends status report with no blocker | Acknowledge + push next task in same response |
+| Slice-worker blocked on DDEV | Ensure they've done static analysis first; rotate slots |
 
 ### Step 7: Results and Release Notes
 
@@ -557,7 +485,7 @@ Prepend new entries at the top so the file reads newest-first.
 | Ready work | `bd ready --json` |
 | Unassigned ready work | `bd ready --json --unassigned` |
 | Show blocked | `bd blocked` |
-| Filter by label | `bd list -l stage-analyze --json` |
+| Filter by lane | `bd list -l lane-in-progress --json` |
 | Pipeline status | `bd list --json \| jq 'group_by(.status)'` |
 | DDEV slot count | `bd list --metadata-field ddev=true --json \| jq 'length'` |
 | In-progress work | `bd list -s in_progress --json` |
@@ -573,10 +501,10 @@ Prepend new entries at the top so the file reads newest-first.
 
 **Cards not advancing**: Check deps — are blocking cards closed? Run `bd blocked`.
 
-**DDEV slot contention**: Run `bd list --metadata-field ddev=true --json | jq 'length'` to see DDEV allocation. Release finished slots.
+**DDEV slot contention**: Run `bd list --metadata-field ddev=true --json | jq 'length'` to see DDEV allocation. Ensure slice-workers do static analysis first. Release finished slots.
 
-**Agent can't find work**: Run `bd ready --json --unassigned` and filter by stage label. If none, do fallback work.
+**Agent can't find work**: Run `bd ready --json --unassigned`. If none, check for blocked cards.
 
-**Validation keeps failing**: Check fix-loop label count. If >= 3, escalate. Check PHP version (use DDEV, not host).
+**Slice-worker keeps failing**: Check fix-loop label count. If >= 3, spawn deep-debugger. Check PHP version (use DDEV, not host).
 
 **Board out of sync with reality**: The Beads database is the source of truth. If work was done outside the board, create/update cards to match.

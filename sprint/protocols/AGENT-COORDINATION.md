@@ -33,8 +33,10 @@ Claim before starting. Do not start work on an unclaimed task or unclaimed board
 
 ```
 1. Transition the board card:
-   - If passing to next lane: bd update <id> --status open --assignee "" --remove-label lane-<current> --add-label lane-<next>
-   - If done: bd close <id> --reason "Review passed."
+   - Slice-worker (cross-review-yes): bd update <id> --status open --assignee "" --remove-label lane-in-progress --add-label lane-needs-cross-review
+   - Slice-worker (cross-review-no): bd close <id> --reason "All phases complete."
+   - Cross-reviewer (pass): bd close <id> --reason "Cross-review passed."
+   - Cross-reviewer (fail): bd update <id> --status open --assignee "" --remove-label lane-cross-reviewing --add-label lane-in-progress
 2. Append narrative: bd update <id> --append-notes "YYYY-MM-DD: <summary> (by @your-name)"
 3. TaskUpdate(taskId, status: completed)
 4. SendMessage(type: message, recipient: "team-lead", content: "[your completion summary]")
@@ -72,10 +74,9 @@ does not know you are available — even if it has work ready for you.
 
 | Role | Format |
 |------|--------|
-| issue-analyzer | `📝 #[iss] ana done \| rpt: [path] \| complexity: [level] \| effort: [est]` |
-| implementer | `✅ #[iss] impl done \| phpcs: [ok\|nok] \| phpunit: [ok\|nok] \| wrk: [path]` |
-| reviewer (pass) | `review pass \| #[iss] \| phpcs: ok \| phpstan: ok \| phpunit: ok` |
-| reviewer (fail) | `review fail \| #[iss] \| [gate]: [N errors] \| [file:line]` |
+| slice-worker | `✅ #[iss] slice done \| phpcs: ok \| phpunit: ok \| wrk: [path] \| cross-review: [yes\|no]` |
+| cross-reviewer (pass) | `✅ #[iss] cross-review pass \| phpcs: ok \| phpstan: ok \| phpunit: ok` |
+| cross-reviewer (fail) | `❌ #[iss] cross-review fail \| [reason] \| [file:line]` |
 | process-improvement | `✅ [improvement] \| [what changed] \| [expected impact]` |
 | any agent available | `[agent-name] available \| no pending tasks` |
 
@@ -90,7 +91,7 @@ when referring to a specific finding.
 
 When recommending another agent's involvement, use `@agent-name`:
 ```
-Consider consulting @code-quality-pragmatist before finalizing this approach.
+Consider consulting @cross-reviewer before closing this card.
 ```
 
 Only recommend agents when genuinely warranted — not as a reflexive sign-off.
@@ -119,22 +120,10 @@ Action needed: [what the receiving agent should do]
 | Agent Type | Can Edit/Write | Can Run Bash | Examples |
 |---|---|---|---|
 | Analyst (read-only) | No | No | architect |
-| Validator | No | Yes | reviewer, claude-md-compliance-checker |
-| Reviewer | Yes | Yes | reality-checker, code-quality-pragmatist |
-| Developer | Yes | Yes | implementer, fixer, advisor, issue-analyzer |
+| Cross-reviewer | No | Yes | cross-reviewer |
+| Slice-worker | Yes | Yes | slice-worker |
 | Strategist | Yes | Yes | process-improvement, issue-planner |
-| Specialist | Yes | Yes | deep-debugger (opus), ui-comprehensive-tester |
-
-### Common Collaboration Chains
-
-For comprehensive review of a complex implementation:
-```
-1. @reality-checker — does it match the spec, actually work?
-2. @code-quality-pragmatist — is it unnecessarily complex?
-3. @claude-md-compliance-checker — does it follow project rules?
-```
-
-Use the full chain only for high-stakes changes. Use individual agents for targeted reviews.
+| Specialist | Yes | Yes | deep-debugger (opus) |
 
 ### When NOT to Recommend Another Agent
 
@@ -145,6 +134,6 @@ Use the full chain only for high-stakes changes. Use individual agents for targe
 ## Reference
 
 - Board database: `bd`
-- Team comms format: `.claude/team-comms-protocol.md`
-- Team-lead decision rules: `.claude/skills/sprint-run/references/decision-framework.md`
-- Sprint protocol: `.claude/skills/sprint-run/SKILL.md`
+- Team comms format: `sprint/protocols/team-comms-protocol.md`
+- Team-lead decision rules: `sprint/skills/run/references/decision-framework.md`
+- Sprint protocol: `sprint/skills/run/SKILL.md`

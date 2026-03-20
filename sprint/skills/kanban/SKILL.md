@@ -12,7 +12,7 @@ All kanban boards in this project follow these rules. Board-specific rules
 
 ## Core Mechanic
 
-Cards are Beads issues. **Status is a field (`open`, `in_progress`, `closed`). Lane is a label (`lane-backlog`, `lane-developing`, etc.).**
+Cards are Beads issues. **Status is a field (`open`, `in_progress`, `closed`). Lane is a label (`lane-backlog`, `lane-in-progress`, etc.).**
 
 Moving a card between lanes = updating labels:
 
@@ -51,7 +51,7 @@ lane-<stage>          ← Intermediate stages (board-specific)
 closed                ← Terminal state (no lane label needed)
 ```
 
-**Why labels:** Labels are queryable (`bd list -l lane-backlog`), composable (a card can have both `lane-developing` and `stage-develop`), and don't require filesystem operations to change.
+**Why labels:** Labels are queryable (`bd list -l lane-backlog`), composable (a card can have multiple lane and metadata labels), and don't require filesystem operations to change.
 
 **Rule:** Every formal pipeline stage uses a `lane-` prefixed label. Boards may define as many intermediate lane labels as needed in their own documentation.
 
