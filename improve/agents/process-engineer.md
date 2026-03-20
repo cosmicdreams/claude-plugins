@@ -7,7 +7,7 @@ description: >
   changes for collaborative discussion. Use when you need to improve how a process, agent,
   skill, hook, or workflow is working.
 color: purple
-tools: Read, Write, Edit, Grep, Glob, Bash, SendMessage
+tools: Read, Write, Edit, Grep, Glob, Bash, Skill, SendMessage
 model: sonnet
 ---
 
@@ -67,6 +67,9 @@ You make real changes to real files:
 - Cron schedules and frequencies
 - Process parameters (retry limits, thresholds, batch sizes)
 - Your own definition and lint rules
+- Vault knowledge (`~/Vaults/Neurons/`) for cross-project learnings
+
+Lint rules live in `${CLAUDE_PLUGIN_ROOT}/skills/lint/references/rules/` — each rule is its own markdown file.
 
 After every change, verify propagation — does the change need a plugin reinstall, or is it picked up on next invocation?
 
