@@ -58,7 +58,7 @@ Confirm with the user:
 - Engagement name (kebab-case, e.g., `cache-optimization`)
 - Research topic / optimization target
 - Any seed URLs or existing NotebookLM notebooks
-- Target project root (e.g., `~/Sites/AHRI`)
+- Target project root (e.g., `~/Sites/my-project`)
 
 ### 1a. Create worktree
 
@@ -70,7 +70,7 @@ Skill("admin:create-worktree", args="project=<target-project-root> name=<engagem
 
 This creates `<target-project-root>/worktrees/<engagement-name>/` on its own branch.
 
-**Naming convention:** The worktree name is just the engagement name (e.g., `cache-optimization`), NOT prefixed with the project name. The worktree already lives under the project root, so the project prefix is redundant in the path. The DDEV instance name (set in `config.local.yaml`) is where the project prefix belongs: `<project>-<engagement>` (e.g., `massport-cache-optimization`).
+**Naming convention:** The worktree name is just the engagement name (e.g., `cache-optimization`), NOT prefixed with the project name. The worktree already lives under the project root, so the project prefix is redundant in the path. The DDEV instance name (set in `config.local.yaml`) is where the project prefix belongs: `<project>-<engagement>` (e.g., `mysite-cache-optimization`).
 
 ### 1b. Bootstrap DDEV
 
@@ -80,7 +80,7 @@ Invoke the process-lifecycle skill for DDEV setup. Do not run `ddev start` direc
 Skill("drupal-lab:process-lifecycle", args="phase=init worktree=<target-project-root>/worktrees/<engagement-name>")
 ```
 
-**DDEV naming:** Ensure the `config.local.yaml` name includes the project prefix — e.g., `massport-cache-optimization`, not just `cache-optimization`. This prevents collisions in `ddev list` and makes the DDEV URL meaningful.
+**DDEV naming:** Ensure the `config.local.yaml` name includes the project prefix — e.g., `mysite-cache-optimization`, not just `cache-optimization`. This prevents collisions in `ddev list` and makes the DDEV URL meaningful.
 
 ### 1c. Provision database
 

@@ -119,7 +119,7 @@ Acquia environments use `ddev drush` with a Drush site alias to query remote wat
 ```bash
 cd "$DDEV_APPROOT"
 
-DDEV_ALIAS=<env.ddev_alias from config>  # e.g. @ahri.prod
+DDEV_ALIAS=<env.ddev_alias from config>  # e.g. @mysite.prod
 
 # Watchdog via ddev drush alias
 LAST_WID=<from_checkpoint_or_0>

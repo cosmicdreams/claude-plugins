@@ -8,7 +8,7 @@
 #
 # Usage: acquia-baseline.sh <acli_env_id> [output_dir]
 #   acli_env_id — Acquia environment alias from drover-config.json "acli_alias"
-#                 e.g. "ahridrupalhosting.prod" or "ahridrupalhosting.test"
+#                 e.g. "mysitehosting.prod" or "mysitehosting.test"
 # Output: JSON to stdout with top error fingerprints and their hourly rates
 
 set -euo pipefail
@@ -18,7 +18,7 @@ OUTPUT_DIR="${2:-/tmp/drover-baseline}"
 
 if [ -z "$ACLI_ENV_ID" ]; then
   echo "Usage: acquia-baseline.sh <acli_env_id> [output_dir]" >&2
-  echo "  acli_env_id — e.g. ahridrupalhosting.prod" >&2
+  echo "  acli_env_id — e.g. mysitehosting.prod" >&2
   exit 1
 fi
 

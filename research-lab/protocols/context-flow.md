@@ -6,7 +6,7 @@ All research engagement outputs live in a single engagement directory:
 analysis-reports/research/<engagement>/
 ```
 
-Where `<engagement>` is a kebab-case name chosen by the PI at setup (e.g., `pncb-cache-optimization`, `ahri-migration-strategy`).
+Where `<engagement>` is a kebab-case name chosen by the PI at setup (e.g., `mysite-cache-optimization`, `mysite-migration-strategy`).
 
 ## Engagement Directory Structure
 

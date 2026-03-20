@@ -44,7 +44,7 @@ jira issue view ISSUE-KEY --plain
 Show all fields: summary, status, assignee, reporter, priority, description,
 comments (last 3), and linked issues.
 
-Issue keys follow the pattern PROJECT-123 (e.g., PROJ-456, AHRIPS-789).
+Issue keys follow the pattern PROJECT-123 (e.g., PROJ-456, TEAM-789).
 
 ## Transition an issue status
 

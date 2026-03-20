@@ -153,5 +153,5 @@ except FileNotFoundError:
 - Baseline data is used by the triage agent (Step 4.5) to detect rising error velocity
 - If baselines.json has `"partial": true`, the velocity boost in triage is skipped for that run
 - The baseline only covers Acquia log sources; DDEV local errors are not baselined
-- The acli env ID is derived from `drush/sites/<group>.site.yml` (`ac-site` + `ac-env`) — no `acli_alias` field needed in drover-config.json. The `ddev_alias` field (e.g. `@ahri.prod`) is used to locate the right YAML file and env block.
+- The acli env ID is derived from `drush/sites/<group>.site.yml` (`ac-site` + `ac-env`) — no `acli_alias` field needed in drover-config.json. The `ddev_alias` field (e.g. `@mysite.prod`) is used to locate the right YAML file and env block.
 - Drover uses the **local system acli**, not DDEV's acli. Authenticate once with `acli auth:login` — no API keys needed in DDEV config or environment variables.
