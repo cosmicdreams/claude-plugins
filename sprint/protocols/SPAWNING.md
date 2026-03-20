@@ -27,8 +27,8 @@ Agents from plugins are referenced as `plugin:agent-name`:
 | sprint | slice-worker | `sprint:slice-worker` |
 | sprint | cross-reviewer | `sprint:cross-reviewer` |
 | sprint | deep-debugger | `sprint:deep-debugger` |
-| sprint | process-improvement | `sprint:process-improvement` |
 | sprint | team-lead | `sprint:team-lead` |
+| improve | process-engineer | `improve:process-engineer` |
 | drupal-lab | implementer | `drupal-lab:implementer` |
 | drupal-lab | reviewer | `drupal-lab:reviewer` |
 | drupal-lab | issue-analyzer | `drupal-lab:issue-analyzer` |

@@ -8,7 +8,7 @@ description: >
   agents", "work on these issues as a team", "team validate these patches", "start the sprint",
   "let's kick off the pipeline", "run these issues in parallel".
   Do NOT use for: deciding which issues to tackle or sequencing the backlog (use sprint:plan),
-  observing pipeline quality without executing (sprint:observe), reading board state only
+  reading board state only
   (sprint:board), or running a retrospective (retro:session).
   Key distinction from sprint:plan — sprint:run EXECUTES; sprint:plan DECIDES. If the user
   is asking "what should we work on?" or "prioritize these issues" → sprint:plan. If the user
@@ -250,8 +250,8 @@ TEAM-LEAD LOOP (run every turn):
 2. Scan the board: `bd ready --json --unassigned` for available work. For in-progress: `bd list -s in_progress --json`.
 3. Match idle agents to available cards → SendMessage with task assignment (card ID only) immediately
 4. If an agent has no remaining cards → run GRACEFUL SHUTDOWN SEQUENCE (see below)
-   ⚠ Exception: process-improvement stays alive until ALL sprint work is done (Step 7). Do not shut it down mid-sprint.
-5. If an agent is unresponsive 2+ turns → reassign or replace (does NOT apply to process-improvement)
+   ⚠ Exception: process-engineer stays alive until ALL sprint work is done (Step 7). Do not shut it down mid-sprint.
+5. If an agent is unresponsive 2+ turns → reassign or replace (does NOT apply to process-engineer)
 
 **Card Summary Format** — the lightweight summary team-lead builds from bd output for orchestration decisions:
 ```
@@ -298,7 +298,7 @@ Before approving this shutdown, write your retrospective interview to:
 Then approve the shutdown_request.
 ```
 
-**process-improvement is NOT subject to mid-sprint shutdown.** Shut it down as the final step of Step 7.
+**process-engineer is NOT subject to mid-sprint shutdown.** Shut it down as the final step of Step 7.
 
 ### Agent Sizing
 
@@ -311,25 +311,19 @@ Then approve the shutdown_request.
 
 Cross-reviewers can be spawned late — only needed when slices start completing.
 
-Spawn `process-improvement` once at sprint start and leave it alone. It does NOT use a DDEV slot and does NOT count against the 3-slot limit:
+Optionally spawn `process-engineer` at sprint start. It does NOT use a DDEV slot and does NOT count against the 3-slot limit:
 
 ```
-Task(subagent_type="sprint:process-improvement", name="process-improvement",
+Task(subagent_type="improve:process-engineer", name="process-engineer",
      team_name="<team-name>",
-     prompt="You are observing a team sprint for process quality.
-Board: bd (use bd list/ready/blocked to observe board state — read-only observation).
-export BD_ACTOR=process-improvement
-You operate in ping-response mode: do one initial state snapshot, then wait for task_completed_ping
-messages from team-lead. On each ping, run /sprint:retro-transcript to review the agent's session log,
-check the board state via bd, and report to team-lead ONLY if you find an actionable issue.
-Silence means the review passed — do not send confirmations.
+     prompt="You are attached to a team sprint as the process engineer.
+Board: bd (use bd list/ready/blocked to observe board state).
+export BD_ACTOR=process-engineer
+Your job: improve how the sprint agents work — fix prompt issues, model mismatches, tool gaps,
+and process friction as you observe them. Use improve:attach to map the sprint topology,
+improve:lint to check against known patterns, and improve:fix for directed changes.
 You are NOT part of the task queue. Do NOT respond to task assignments.
 You shut down only when the user asks — not when team-lead sends shutdown_request.")
-```
-
-**Ping format** — team-lead sends this after each task completion:
-```json
-{"type":"task_completed_ping","task_id":"<bd-id>","task_subject":"<subject>","owner":"<agent-name>"}
 ```
 
 **Before spawning any slice-worker** — check for QA-passed worktrees that touch the same files as the target issue:
@@ -408,7 +402,7 @@ The main agent (you) owns the board and runs the team-lead loop directly. Do not
 | slice-worker | Owns an issue end-to-end: analyze, implement, test, validate. Claims from `lane-backlog`, works in `lane-in-progress`, moves to `lane-needs-cross-review` or closes. | Moves own assigned cards only |
 | cross-reviewer | Fresh-eyes validation of completed slices. Claims from `lane-needs-cross-review`, closes on pass or returns to `lane-in-progress` on fail. | Moves own assigned cards only |
 | deep-debugger | Escalation specialist. Spawned when a slice-worker hits 3-fix limit. | Operates on the escalated card only |
-| process-improvement | Independent observer. Watches pipeline patterns, detects inefficiencies. Spawned once at sprint start — NOT managed by team-lead, NOT shut down by team-lead. Only the user shuts it down. | Read-only on board. Sends observations to team-lead. |
+| process-engineer | Process engineer (from `improve` plugin). Watches pipeline patterns, identifies friction, makes autonomous improvements. Spawned once at sprint start — NOT managed by team-lead, NOT shut down by team-lead. Only the user shuts it down. | Read-only on board. Makes changes to agent definitions, skills, and process config. |
 
 ### Step 5: DDEV Instance Management
 
@@ -448,8 +442,8 @@ You monitor pipeline health and rebalance work. Run `bd list --json | jq 'group_
 |--------|--------|
 | Cards in `lane-needs-cross-review` piling up | Spawn additional cross-reviewer |
 | Fix loop >= 3 on a card (label `fix-loop-3`) | Spawn deep-debugger with context |
-| Agent idle 2+ turns, no remaining cards | Run Graceful Shutdown Sequence (does NOT apply to process-improvement mid-sprint) |
-| All cards closed | Run Graceful Shutdown Sequence for process-improvement as the final act of Step 7 |
+| Agent idle 2+ turns, no remaining cards | Run Graceful Shutdown Sequence (does NOT apply to process-engineer mid-sprint) |
+| All cards closed | Run Graceful Shutdown Sequence for process-engineer as the final act of Step 7 |
 | Agent sends status report with no blocker | Acknowledge + push next task in same response |
 | Slice-worker blocked on DDEV | Ensure they've done static analysis first; rotate slots |
 
@@ -461,8 +455,8 @@ When sprint completes:
 2. For each closed card: append an entry to `analysis-reports/RELEASE-NOTES.md` (see format below)
 3. Update `.claude/memory/MEMORY.md` with learnings
 4. For each completed issue, run `issue-summary` skill to generate a drupal.org contribution comment ready to post
-5. Run Graceful Shutdown Sequence for `process-improvement` — it has observed the full sprint and is the most valuable retro interviewee. Shut it down last.
-6. Call `TeamDelete` — removes the team directory (`~/.claude/teams/{team-name}/`) and its inboxes, preventing stale inbox matches in future sprints for recurring agent names like `process-improvement`.
+5. Run Graceful Shutdown Sequence for `process-engineer` — it has observed the full sprint and is the most valuable retro interviewee. Shut it down last.
+6. Call `TeamDelete` — removes the team directory (`~/.claude/teams/{team-name}/`) and its inboxes, preventing stale inbox matches in future sprints for recurring agent names like `process-engineer`.
 
 **Release notes format** (`analysis-reports/RELEASE-NOTES.md` is an append-only log):
 

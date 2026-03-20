@@ -25,7 +25,7 @@ Build agent definitions that meet team standards and integrate correctly with te
 | Agent | Color |
 |-------|-------|
 | team-lead | red |
-| process-improvement | purple |
+| process-engineer | purple |
 | issue-analyzer | cyan |
 | implementer | orange |
 | qa-validator | red (collision with team-lead) |

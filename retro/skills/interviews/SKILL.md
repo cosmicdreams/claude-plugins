@@ -28,7 +28,7 @@ When you receive a "Shutdown imminent" message from team-lead:
 |-----------|-------------------|
 | implementer | C1, C2, C3, D1, D2, D3 |
 | qa-validator / reviewer | C1, C2, C3, V1, V2, V3 |
-| process-improvement | C1, C2, C3, P1, P2, P3 |
+| process-engineer | C1, C2, C3, P1, P2, P3 |
 | team-lead | C1, C2, C3, TL1, TL2, TL3 |
 | any other role | C1, C2, C3 |
 
@@ -143,7 +143,7 @@ fi
 # PROJECT_SLUG=$(echo "$USER_INPUT" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
 
 SPRINT_SLUG="<sprint-slug-from-session>"  # e.g. sprint-1, jquery-fixes
-AGENT_ROLE="<agent-role>"                 # e.g. implementer, reviewer, process-improvement
+AGENT_ROLE="<agent-role>"                 # e.g. implementer, reviewer, process-engineer
 DATE=$(date +%Y-%m-%d)
 VAULT_PATH="Retrospectives/${DATE}+${PROJECT_SLUG}+${SPRINT_SLUG}/interviews/${AGENT_ROLE}.md"
 

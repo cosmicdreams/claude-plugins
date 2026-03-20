@@ -77,7 +77,7 @@ does not know you are available — even if it has work ready for you.
 | slice-worker | `✅ #[iss] slice done \| phpcs: ok \| phpunit: ok \| wrk: [path] \| cross-review: [yes\|no]` |
 | cross-reviewer (pass) | `✅ #[iss] cross-review pass \| phpcs: ok \| phpstan: ok \| phpunit: ok` |
 | cross-reviewer (fail) | `❌ #[iss] cross-review fail \| [reason] \| [file:line]` |
-| process-improvement | `✅ [improvement] \| [what changed] \| [expected impact]` |
+| process-engineer | `✅ [improvement] \| [what changed] \| [expected impact]` |
 | any agent available | `[agent-name] available \| no pending tasks` |
 
 ## Cross-Agent Standards
@@ -122,7 +122,7 @@ Action needed: [what the receiving agent should do]
 | Analyst (read-only) | No | No | architect |
 | Cross-reviewer | No | Yes | cross-reviewer |
 | Slice-worker | Yes | Yes | slice-worker |
-| Strategist | Yes | Yes | process-improvement, issue-planner |
+| Strategist | Yes | Yes | process-engineer, issue-planner |
 | Specialist | Yes | Yes | deep-debugger (opus) |
 
 ### When NOT to Recommend Another Agent

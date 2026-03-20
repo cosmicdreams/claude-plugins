@@ -132,7 +132,7 @@ phpunit: ok
 [what needs fixing]
 ```
 
-### For process-improvement → team-lead
+### For process-engineer → team-lead
 ```
 [emoji] [improvement type]
 [what changed]

@@ -72,7 +72,7 @@ if [ "$STOP_HOOK_ACTIVE" != "true" ]; then
       reviewer*)
         ROLE_QUESTIONS=" Plus your role-specific questions V1-V3: V1. For each issue that failed validation (partially or fully), classify the root cause: CODE_REGRESSION / TEST_DESIGN / INFRASTRUCTURE / HANDOFF_GAP / STANDARDS_ONLY, and give a one-line explanation. V2. What did you catch that the developer couldn't have seen from their side? Rate overall handoff quality: CLEAN / MINOR_GAPS / SIGNIFICANT_REWORK / BLOCKED, and explain if not CLEAN. V3. What DDEV, environment, or tooling friction did you encounter? (Format: Friction encountered / Time impact / Suggestion to prevent it next time.)"
         ;;
-      process-improvement*)
+      process-engineer*)
         ROLE_QUESTIONS=" Plus your role-specific questions P1-P3: P1. Where did work flow smoothly through the pipeline and where did it stall? Identify the primary bottleneck. (Format O-E-I-R: Observation / Evidence / Impact / Recommendation.) P2. What interaction patterns between agents helped or hurt productivity? Identify the most effective and most problematic interaction. (Format O-E-I-R: Most effective interaction / Most problematic interaction / Recommendation.) P3. Looking across ALL problems this session, what is the deepest root cause you identified -- the one thing that, if fixed, would prevent the most other problems? (Format O-E-I-R: Observation / Evidence / Impact / Recommendation.)"
         ;;
     esac

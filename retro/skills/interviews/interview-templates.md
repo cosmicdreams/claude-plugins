@@ -168,7 +168,7 @@ Asked only of the team-lead (main orchestrator). Focuses on coordination effecti
 
 ## Process-Improvement-Specific Section
 
-Asked only of the process-improvement agent. Uses the O-E-I-R (Observation-Evidence-Impact-Recommendation) format for structured systemic analysis.
+Asked only of the process-engineer agent. Uses the O-E-I-R (Observation-Evidence-Impact-Recommendation) format for structured systemic analysis.
 
 ### P1. Pipeline Flow Analysis
 
@@ -180,7 +180,7 @@ Asked only of the process-improvement agent. Uses the O-E-I-R (Observation-Evide
 - **Impact:** [how it affected throughput, quality, or agent utilization]
 - **Recommendation:** [specific change to improve flow]
 
-**Why this question:** Only the process-improvement agent has the cross-pipeline view. Developers see their issues; validators see their test results; process sees the whole board. Bottleneck identification is this role's primary unique value.
+**Why this question:** Only the process-engineer agent has the cross-pipeline view. Developers see their issues; validators see their test results; process sees the whole board. Bottleneck identification is this role's primary unique value.
 
 ### P2. Cross-Agent Interaction Patterns
 

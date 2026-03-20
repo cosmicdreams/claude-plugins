@@ -61,7 +61,7 @@ Then: `~/.claude/plugins/cache/local/sprint/<ver>/protocols/SPAWNING.md`
 1. Confirm no remaining cards for this agent's stage
 2. Send `shutdown_request`
 
-**The retrospective interview is automated** for sprint agents (implementer, qa-validator, process-improvement). The `subagent-stop-interview` hook intercepts the stop, injects interview questions, and saves answers automatically — no manual action needed.
+**The retrospective interview is automated** for sprint agents (implementer, qa-validator, process-engineer). The `subagent-stop-interview` hook intercepts the stop, injects interview questions, and saves answers automatically — no manual action needed.
 
 If the hook is not active, fall back to the manual sequence: send questions from `retro-session/interview-templates.md`, save the response, then shutdown.
 

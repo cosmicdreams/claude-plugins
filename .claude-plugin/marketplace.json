@@ -66,6 +66,12 @@
       "description": "Composable research engagement pipeline: literary review via NotebookLM, multi-agent workshop swarms, cross-examination seminars, and iterative experimentation with ratchet-based optimization",
       "source": "./research-lab",
       "category": "development"
+    },
+    {
+      "name": "improve",
+      "description": "Process engineering methodology: maps process topology, makes directed fixes, runs improvement experiments, and accumulates process lint rules. Domain-agnostic — each plugin owns its own :improve skill.",
+      "source": "./improve",
+      "category": "development"
     }
   ]
 }
