@@ -2,6 +2,13 @@
 
 Fetch all sources simultaneously. Do NOT wait for one before starting the next.
 
+**SOURCES ARE EXTENSIBLE**: This list is a starting point and will grow over time. To add a new source:
+1. Choose RSS feed URL or API endpoint
+2. Add entry to the appropriate category (Tool features / Workflow patterns)
+3. Include format hint (RSS, GitHub API, etc.)
+4. Test with a full run; report success/failure
+5. Commit to workflow/skills/ecosystem-pulse/steps/02-fetch.md
+
 ## Tool feature sources (new capabilities in your stack)
 
 - `https://simonwillison.net/` — Claude, MCP, agentic tooling coverage (last 3 days)
@@ -34,6 +41,8 @@ If a source returns no relevant content, skip it silently.
 - WebSearch: `Claude Code new features [current month year]`
 - WebSearch: `agentic workflow patterns AI [current month year]`
 - WebSearch: `MCP new servers tools [current month year]`
-- WebSearch: `AI workflow developer blogs newsletters worth following [current year]` — source discovery; note any domains that produce 2+ high-signal hits
+- WebSearch: `AI workflow developer blogs newsletters worth following [current year]` — **source discovery**: note any domains that produce 2+ high-signal hits per cycle; candidate for addition as permanent source
+
+**Source discovery pipeline**: If a domain from supplemental searches produces consistent high-signal hits, report it to team-lead for evaluation as a permanent source. This keeps the source list evolving with ecosystem trends.
 
 Proceed to `steps/03-diff-debate.md` with all fetched stories.
