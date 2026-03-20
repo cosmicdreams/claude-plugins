@@ -24,6 +24,7 @@ Fetch all sources simultaneously. Do NOT wait for one before starting the next.
 
 - `https://news.ycombinator.com/` — AI/dev tooling stories with 50+ points; skip anything not about agents, workflows, or developer tooling
 - `https://rss.nytimes.com/services/xml/rss/nyt/Technology.xml` — Broad tech coverage (includes AI workflow/policy stories)
+- **Medium**: Search for AI workflow articles (Claude Code, multi-agent systems, agentic development patterns) — WebSearch: `site:medium.com Claude Code workflow teams agents [current month year]` OR `site:medium.com AI agent teams development [current month year]` — extract articles about practical AI development workflows, skip opinion pieces without technical depth
 
 **Prompt for each fetch:** "List recent stories about AI agents, Claude Code, MCP, developer
 tooling, CLI tools for AI, agentic workflows, multi-agent patterns, and coding productivity.
