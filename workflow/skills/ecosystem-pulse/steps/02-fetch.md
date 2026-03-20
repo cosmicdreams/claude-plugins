@@ -9,7 +9,9 @@ Fetch all sources simultaneously. Do NOT wait for one before starting the next.
 - `https://github.com/anthropics/claude-code/releases` — Claude Code changelog
 - `https://openai.com/blog` — Codex and OpenAI tooling updates
 - `https://github.blog` — GitHub Copilot features and developer tooling
-- `https://github.com/modelcontextprotocol/modelcontextprotocol/releases` — MCP spec updates
+- `https://github.com/modelcontextprotocol/modelcontextprotocol/releases` — MCP spec updates 
+- `https://blog.google/technology/google-deepmind/` — Gemini and Google DeepMind model/tooling announcements
+- `https://developers.googleblog.com/` — Google AI developer tooling, Gemini API, and agentic workflow features
 
 ## Workflow pattern sources (new ways of working with AI)
 
