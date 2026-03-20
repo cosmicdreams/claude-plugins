@@ -8,6 +8,7 @@ Fetch all sources simultaneously. Do NOT wait for one before starting the next.
 - `https://news.ycombinator.com/` — AI/dev tooling stories with 50+ points
 - `https://www.anthropic.com/news` — Anthropic announcements
 - `https://www.deeplearning.ai/the-batch/` — AI ecosystem roundup
+- `https://www.openbrain.ai/` — Open-source AI research and model releases
 
 **Prompt for each fetch:** "List recent stories about AI agents, Claude, MCP, developer tooling,
 CLI tools for AI, AI workflows, coding productivity, and claudepilled developer practices.
