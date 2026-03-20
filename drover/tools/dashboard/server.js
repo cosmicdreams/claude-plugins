@@ -13,7 +13,7 @@
 
 const http = require('http');
 const fs = require('fs');
-const { execFileSync } = require('child_process');
+const { execFileSync, execFile, spawn } = require('child_process');
 const { URL } = require('url');
 
 // ---------------------------------------------------------------------------
@@ -72,6 +72,174 @@ const SEVERITY_ICONS = {
 
 const CACHE_TTL = 5000; // 5 seconds
 let ticketCache = { data: null, ts: 0 };
+
+// ---------------------------------------------------------------------------
+// DDEV Instance Management
+// ---------------------------------------------------------------------------
+
+const DDEV_POLL_INTERVAL = 15000; // 15 seconds
+let ddevCache = { instances: [], ts: 0 };
+const ddevActions = new Map(); // project -> 'starting' | 'stopping'
+
+// Build the set of DDEV project names relevant to this drover instance
+function getRelevantDdevProjects() {
+  const config = fetchConfig();
+  if (!config || !config.environments) return null; // null = show all
+  const names = new Set();
+  for (const env of config.environments) {
+    if (env.ddev_project) names.add(env.ddev_project);
+  }
+  // Also include any projects listed in ddev_management.instances
+  if (config.ddev_management && Array.isArray(config.ddev_management.instances)) {
+    for (const inst of config.ddev_management.instances) {
+      if (inst.ddev_project || inst.name) names.add(inst.ddev_project || inst.name);
+    }
+  }
+  return names.size > 0 ? names : null;
+}
+
+function fetchDdevInstances() {
+  const now = Date.now();
+  if (ddevCache.instances.length && (now - ddevCache.ts) < DDEV_POLL_INTERVAL) {
+    return applyActionStates(ddevCache.instances);
+  }
+  try {
+    const output = execFileSync('ddev', ['list', '--json-output'], {
+      encoding: 'utf8', timeout: 10000
+    });
+    const parsed = JSON.parse(output);
+    // ddev list --json-output returns { raw: [...] }
+    const raw = parsed.raw || parsed || [];
+    const relevantProjects = getRelevantDdevProjects();
+    const instances = (Array.isArray(raw) ? raw : []).map(item => ({
+      name: item.name || '',
+      status: normalizeDdevStatus(item.status || ''),
+      type: item.type || '',
+      approot: item.approot || '',
+      httpUrl: item.httpurl || '',
+      httpsUrl: item.httpsurl || '',
+    })).filter(i => {
+      if (!i.name) return false;
+      // If we have a config with known projects, filter to those
+      if (relevantProjects) return relevantProjects.has(i.name);
+      return true;
+    });
+
+    ddevCache = { instances, ts: now };
+    return applyActionStates(instances);
+  } catch (err) {
+    // If ddev is not installed or fails, return empty
+    if (ddevCache.instances.length) return applyActionStates(ddevCache.instances);
+    return [];
+  }
+}
+
+function normalizeDdevStatus(raw) {
+  const s = String(raw).toLowerCase();
+  if (s.includes('running') || s.includes('ok')) return 'running';
+  if (s.includes('stopped') || s.includes('exited')) return 'stopped';
+  if (s.includes('paused')) return 'stopped';
+  if (s.includes('starting')) return 'starting';
+  return 'stopped';
+}
+
+function applyActionStates(instances) {
+  return instances.map(i => {
+    const action = ddevActions.get(i.name);
+    if (action) return { ...i, status: action };
+    return i;
+  });
+}
+
+// Log buffers for DDEV operations: Map<project, {lines:[], status:'running'|'done'|'error', startedAt}>
+const ddevLogs = new Map();
+const DDEV_LOG_MAX_LINES = 500;
+
+function appendDdevLog(project, line, stream) {
+  let buf = ddevLogs.get(project);
+  if (!buf) {
+    buf = { lines: [], status: 'running', startedAt: Date.now() };
+    ddevLogs.set(project, buf);
+  }
+  const elapsed = ((Date.now() - buf.startedAt) / 1000).toFixed(1);
+  const entry = { ts: elapsed, text: line, stream };
+  buf.lines.push(entry);
+  if (buf.lines.length > DDEV_LOG_MAX_LINES) buf.lines.shift();
+  broadcast('ddev-log', { project, ...entry });
+}
+
+function finishDdevLog(project, success) {
+  const buf = ddevLogs.get(project);
+  if (buf) {
+    buf.status = success ? 'done' : 'error';
+    const label = success ? 'completed successfully' : 'failed';
+    appendDdevLog(project, project + ' ' + label, success ? 'ok' : 'stderr');
+  }
+  broadcast('ddev-log-done', { project, success });
+}
+
+function spawnDdevCommand(project, args, actionState) {
+  // Init log buffer
+  ddevLogs.set(project, { lines: [], status: 'running', startedAt: Date.now() });
+  ddevActions.set(project, actionState);
+  broadcast('ddev-status', fetchDdevInstances());
+
+  const child = spawn('ddev', args, { timeout: 180000 });
+  let remainder = { stdout: '', stderr: '' };
+
+  function processLines(stream, chunk) {
+    const text = remainder[stream] + chunk;
+    const lines = text.split('\n');
+    remainder[stream] = lines.pop(); // keep incomplete last line
+    for (const line of lines) {
+      if (line.trim()) appendDdevLog(project, line, stream);
+    }
+  }
+
+  child.stdout.on('data', (data) => processLines('stdout', data.toString()));
+  child.stderr.on('data', (data) => processLines('stderr', data.toString()));
+
+  child.on('close', (code) => {
+    // Flush remainders
+    if (remainder.stdout.trim()) appendDdevLog(project, remainder.stdout, 'stdout');
+    if (remainder.stderr.trim()) appendDdevLog(project, remainder.stderr, 'stderr');
+
+    const success = code === 0;
+    ddevActions.delete(project);
+    ddevCache.ts = 0;
+    finishDdevLog(project, success);
+    const updated = fetchDdevInstances();
+    broadcast('ddev-status', updated);
+  });
+
+  child.on('error', (err) => {
+    ddevActions.delete(project);
+    ddevCache.ts = 0;
+    appendDdevLog(project, 'Process error: ' + err.message, 'stderr');
+    finishDdevLog(project, false);
+    broadcast('ddev-status', fetchDdevInstances());
+  });
+}
+
+function handleDdevStart(project) {
+  spawnDdevCommand(project, ['start', project], 'starting');
+}
+
+function handleDdevStop(project) {
+  spawnDdevCommand(project, ['stop', project], 'stopping');
+}
+
+// Poll DDEV status periodically and broadcast changes
+let lastDdevJson = '';
+setInterval(() => {
+  ddevCache.ts = 0; // force refresh
+  const instances = fetchDdevInstances();
+  const json = JSON.stringify(instances);
+  if (json !== lastDdevJson) {
+    lastDdevJson = json;
+    broadcast('ddev-status', instances);
+  }
+}, DDEV_POLL_INTERVAL);
 
 // ---------------------------------------------------------------------------
 // Data Layer
@@ -1065,6 +1233,216 @@ function buildHtml() {
   ::-webkit-scrollbar-track { background:transparent; }
   ::-webkit-scrollbar-thumb { background:var(--muted3); border-radius:3px; }
   ::-webkit-scrollbar-thumb:hover { background:var(--muted2); }
+
+  /* DDEV Instance Management Panel */
+  .ddev-panel {
+    padding:12px 24px 8px;
+    animation: fade-up 0.35s ease both;
+  }
+  .ddev-panel.collapsed .ddev-tiles { display:none; }
+  .ddev-panel.collapsed .ddev-warn { display:none; }
+
+  .ddev-header {
+    display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:8px;
+  }
+  .ddev-header-left { display:flex; align-items:center; gap:10px; }
+  .ddev-header-label {
+    font-family:var(--mono); font-size:9px; font-weight:600;
+    letter-spacing:0.18em; text-transform:uppercase; color:var(--muted3);
+  }
+  .ddev-header-summary {
+    font-family:var(--mono); font-size:10px; color:var(--muted2);
+  }
+  .ddev-collapse-btn {
+    font-family:var(--mono); font-size:9px; color:var(--info);
+    background:none; border:none; cursor:pointer;
+    opacity:0.7; transition:opacity 0.12s;
+  }
+  .ddev-collapse-btn:hover { opacity:1; }
+
+  /* Collapsed inline summary */
+  .ddev-inline-summary {
+    display:none; align-items:center; gap:8px;
+    font-family:var(--mono); font-size:10px;
+  }
+  .ddev-panel.collapsed .ddev-inline-summary { display:flex; }
+  .ddev-inline-dot {
+    width:6px; height:6px; border-radius:50%;
+    display:inline-block;
+  }
+  .ddev-inline-dot.running { background:var(--ok); box-shadow:0 0 4px var(--ok); }
+  .ddev-inline-dot.stopped { background:var(--muted3); }
+  .ddev-inline-dot.starting, .ddev-inline-dot.stopping { background:var(--info); }
+  .ddev-inline-dot.error { background:var(--crit); }
+  .ddev-inline-name { color:var(--muted); }
+
+  .ddev-tiles { display:flex; flex-wrap:wrap; gap:8px; }
+
+  .ddev-tile {
+    width:120px; height:120px; flex-shrink:0;
+    background:var(--surface); border:1px solid var(--border);
+    border-radius:8px; padding:12px 12px 10px;
+    position:relative; overflow:hidden;
+    display:flex; flex-direction:column; justify-content:space-between;
+    transition:transform 0.15s ease, box-shadow 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+  }
+  .ddev-tile:hover { transform:translateY(-1px); }
+  .ddev-tile::before {
+    content:''; position:absolute; left:0; top:0; bottom:0;
+    width:3px; border-radius:8px 0 0 8px;
+    transition:background 0.15s, box-shadow 0.15s;
+  }
+
+  .ddev-tile.running { border-color:rgba(50,215,75,0.2); background:linear-gradient(135deg, var(--ok-dim), var(--surface)); }
+  .ddev-tile.running::before { background:var(--ok); box-shadow:0 0 10px var(--ok); }
+  .ddev-tile.running:hover { box-shadow:0 3px 16px rgba(50,215,75,0.08); }
+
+  .ddev-tile.stopped { border-color:var(--border); }
+  .ddev-tile.stopped::before { background:var(--muted3); }
+
+  .ddev-tile.starting { border-color:rgba(94,92,230,0.25); background:linear-gradient(135deg, var(--info-dim), var(--surface)); }
+  .ddev-tile.starting::before { background:var(--info); box-shadow:0 0 10px var(--info); }
+
+  .ddev-tile.stopping { border-color:rgba(255,179,64,0.25); background:linear-gradient(135deg, var(--warn-dim), var(--surface)); }
+  .ddev-tile.stopping::before { background:var(--warn); box-shadow:0 0 10px var(--warn); }
+
+  .ddev-tile.error { border-color:rgba(255,69,58,0.25); background:linear-gradient(135deg, var(--crit-dim), var(--surface)); }
+  .ddev-tile.error::before { background:var(--crit); box-shadow:0 0 10px var(--crit); }
+
+  .ddev-tile-footer { margin-top:auto; }
+  .ddev-tile-namerow { display:flex; align-items:flex-start; gap:5px; margin-top:2px; }
+  .ddev-dot {
+    width:7px; height:7px; border-radius:50%; flex-shrink:0;
+  }
+  .ddev-tile.running .ddev-dot {
+    background:var(--ok); box-shadow:0 0 6px var(--ok);
+    animation:pulse-dot 2s ease-in-out infinite;
+  }
+  .ddev-tile.stopped .ddev-dot {
+    background:transparent; border:1.5px solid var(--muted2);
+  }
+  .ddev-tile.error .ddev-dot { background:var(--crit); }
+
+  @keyframes spin-ring { to { transform:rotate(360deg); } }
+  .ddev-spinner {
+    width:7px; height:7px;
+    border:1.5px solid var(--info2);
+    border-top-color:transparent;
+    border-radius:50%;
+    animation:spin-ring 0.8s linear infinite;
+    flex-shrink:0;
+  }
+  .ddev-tile.stopping .ddev-spinner {
+    border-color:var(--warn);
+    border-top-color:transparent;
+  }
+
+  .ddev-name {
+    font-family:var(--mono); font-size:9px; font-weight:500;
+    letter-spacing:0.06em; text-transform:uppercase; color:var(--muted);
+    word-break:break-all; line-height:1.3;
+  }
+
+  .ddev-tile-body { display:flex; flex-direction:column; align-items:stretch; gap:0; }
+  .ddev-state {
+    font-family:var(--mono); font-size:9px; font-weight:500;
+    letter-spacing:0.06em; text-transform:uppercase;
+  }
+  .ddev-tile.running .ddev-state { color:var(--ok); }
+  .ddev-tile.stopped .ddev-state { color:var(--muted); }
+  .ddev-tile.starting .ddev-state { color:var(--info2); }
+  .ddev-tile.stopping .ddev-state { color:var(--warn); }
+  .ddev-tile.error .ddev-state { color:var(--crit); }
+
+  .ddev-action {
+    font-family:var(--mono); font-size:11px; font-weight:700;
+    padding:12px 10px; border-radius:6px; cursor:pointer;
+    letter-spacing:0.08em; text-transform:uppercase; text-align:center;
+    transition:all 0.12s; border:1px solid; width:100%;
+  }
+  .ddev-action.start-btn {
+    background:var(--ok-dim); color:var(--ok); border-color:rgba(50,215,75,0.25);
+  }
+  .ddev-action.start-btn:hover { background:rgba(50,215,75,0.22); border-color:rgba(50,215,75,0.4); }
+  .ddev-action.stop-btn {
+    background:var(--surface2); color:var(--crit2); border-color:var(--crit); border-width:1.5px;
+  }
+  .ddev-action.stop-btn:hover { background:var(--crit-dim); color:var(--crit); }
+  .ddev-action.confirm-btn {
+    background:var(--crit-dim); color:var(--crit); border-color:rgba(255,69,58,0.35);
+    animation:fade-up 0.15s ease both;
+  }
+  .ddev-action:disabled { opacity:0.4; pointer-events:none; }
+  .ddev-tile.starting .ddev-action { border-color:var(--info); color:var(--info2); background:var(--info-dim); opacity:0.8; }
+  .ddev-tile.stopping .ddev-action { border-color:var(--warn); color:var(--warn); background:var(--warn-dim); opacity:0.8; }
+
+  .ddev-warn {
+    display:flex; align-items:center; gap:6px;
+    margin-top:6px; padding:4px 10px;
+    background:var(--warn-dim); border:1px solid rgba(255,179,64,0.2);
+    border-radius:5px;
+    font-family:var(--mono); font-size:10px; color:var(--warn);
+    animation:fade-down 0.25s ease both;
+  }
+  .ddev-warn-icon { font-size:11px; }
+
+  /* DDEV Terminal Log */
+  .ddev-term {
+    background:var(--bg); border:1px solid var(--border);
+    border-radius:8px; margin-top:8px;
+    overflow:hidden;
+    animation:fade-up 0.25s ease both;
+    max-height:200px;
+    display:flex; flex-direction:column;
+  }
+  .ddev-term.hidden { display:none; }
+  .ddev-term-header {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:5px 10px; background:var(--surface);
+    border-bottom:1px solid var(--border); flex-shrink:0;
+  }
+  .ddev-term-tabs { display:flex; gap:2px; }
+  .ddev-term-tab {
+    font-family:var(--mono); font-size:9px; font-weight:500;
+    padding:2px 8px; border-radius:4px; border:1px solid transparent;
+    background:transparent; color:var(--muted2); cursor:pointer;
+    transition:all 0.1s; letter-spacing:0.04em;
+  }
+  .ddev-term-tab.active { background:var(--info-dim); color:var(--info2); border-color:rgba(94,92,230,0.3); }
+  .ddev-term-tab:hover:not(.active) { color:var(--muted); background:var(--surface2); }
+  .ddev-term-tab .tab-dot {
+    display:inline-block; width:5px; height:5px; border-radius:50%;
+    margin-right:4px; vertical-align:middle;
+  }
+  .ddev-term-tab .tab-dot.running { background:var(--info); animation:pulse-dot 2s ease-in-out infinite; }
+  .ddev-term-tab .tab-dot.done { background:var(--ok); }
+  .ddev-term-tab .tab-dot.error { background:var(--crit); }
+
+  .ddev-term-controls { display:flex; gap:4px; }
+  .ddev-term-dismiss {
+    font-family:var(--mono); font-size:9px; color:var(--muted3);
+    background:none; border:none; cursor:pointer; padding:2px 6px;
+    border-radius:3px; transition:all 0.1s;
+  }
+  .ddev-term-dismiss:hover { color:var(--muted); background:var(--surface2); }
+
+  .ddev-term-body {
+    overflow-y:auto; flex:1; padding:6px 0;
+    max-height:150px;
+  }
+  .ddev-term-line {
+    font-family:var(--mono); font-size:10px; line-height:1.5;
+    padding:0 10px; display:flex; gap:8px;
+    white-space:pre-wrap; word-break:break-all;
+  }
+  .ddev-term-ts {
+    color:var(--muted3); flex-shrink:0; min-width:36px; text-align:right;
+    user-select:none;
+  }
+  .ddev-term-text { color:var(--muted); }
+  .ddev-term-text.stderr { color:var(--warn); }
+  .ddev-term-text.ok { color:var(--ok); font-weight:600; }
 </style>
 </head>
 <body>
@@ -1082,6 +1460,28 @@ function buildHtml() {
       <button class="btn btn-ghost" id="btn-board" onclick="switchView('board')">&#8862; Board</button>
     </div>
   </header>
+
+  <section class="ddev-panel" id="ddev-panel" aria-label="DDEV instances" style="display:none">
+    <div class="ddev-header">
+      <div class="ddev-header-left">
+        <span class="ddev-header-label">DDEV Instances</span>
+        <span class="ddev-header-summary" id="ddev-summary"></span>
+        <div class="ddev-inline-summary" id="ddev-inline"></div>
+      </div>
+      <button class="ddev-collapse-btn" id="ddev-collapse-btn" onclick="toggleDdevPanel()">&#9660;</button>
+    </div>
+    <div class="ddev-tiles" id="ddev-tiles"></div>
+    <div id="ddev-warn-wrap"></div>
+    <div class="ddev-term hidden" id="ddev-term">
+      <div class="ddev-term-header">
+        <div class="ddev-term-tabs" id="ddev-term-tabs"></div>
+        <div class="ddev-term-controls">
+          <button class="ddev-term-dismiss" onclick="dismissDdevTerm()" title="Dismiss">\u2715</button>
+        </div>
+      </div>
+      <div class="ddev-term-body" id="ddev-term-body"></div>
+    </div>
+  </section>
 
   <div class="view-dashboard" id="view-dashboard">
   <section class="pulse" aria-label="Environment health overview">
@@ -2067,22 +2467,353 @@ for(var ti=0;ti<timeTabs.length;ti++){
 }
 
 // ========================================================================
+// DDEV Instance Management
+// ========================================================================
+var DDEV_INSTANCES = [];
+var ddevPanelCollapsed = false;
+var ddevConfirmTimers = {};
+var MAX_CONCURRENT_WARNING = 3;
+
+function fetchDdevStatus() {
+  return fetch('/api/ddev/status').then(function(r){ return r.json(); }).then(function(data) {
+    if (Array.isArray(data)) {
+      DDEV_INSTANCES = data;
+      renderDdevPanel();
+    }
+  }).catch(function(err){ console.warn('DDEV fetch error:', err); });
+}
+
+function renderDdevPanel() {
+  var panel = document.getElementById('ddev-panel');
+  var tiles = document.getElementById('ddev-tiles');
+  var summary = document.getElementById('ddev-summary');
+  var inlineSummary = document.getElementById('ddev-inline');
+  var warnWrap = document.getElementById('ddev-warn-wrap');
+
+  if (!DDEV_INSTANCES.length) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = '';
+
+  var running = DDEV_INSTANCES.filter(function(i){ return i.status==='running'; }).length;
+  var total = DDEV_INSTANCES.length;
+  summary.textContent = running + ' of ' + total + ' running';
+
+  // Inline summary (shown when collapsed)
+  removeChildren(inlineSummary);
+  DDEV_INSTANCES.forEach(function(inst) {
+    var dot = el('span','ddev-inline-dot '+inst.status);
+    inlineSummary.appendChild(dot);
+    inlineSummary.appendChild(txt('span','ddev-inline-name',inst.name.replace(/-main$/i,'')));
+  });
+
+  // Tiles
+  removeChildren(tiles);
+  DDEV_INSTANCES.forEach(function(inst, idx) {
+    var tile = el('div','ddev-tile '+inst.status);
+    tile.style.animationDelay = (idx*50)+'ms';
+    tile.style.animation = 'fade-up 0.3s ease both';
+    tile.setAttribute('role','status');
+    tile.setAttribute('aria-label', inst.name+' DDEV instance: '+inst.status);
+
+    // Top: action button + status
+    var body = el('div','ddev-tile-body');
+    if (inst.status === 'running') {
+      var stopBtn = el('button','ddev-action stop-btn');
+      stopBtn.textContent = 'Stop';
+      stopBtn.setAttribute('aria-label','Stop '+inst.name+' DDEV instance');
+      stopBtn.addEventListener('click', (function(name){ return function(ev){
+        ev.stopPropagation();
+        ddevConfirmStop(name, this);
+      };})(inst.name));
+      body.appendChild(stopBtn);
+    } else if (inst.status === 'stopped') {
+      var startBtn = el('button','ddev-action start-btn');
+      startBtn.textContent = 'Start';
+      startBtn.setAttribute('aria-label','Start '+inst.name+' DDEV instance');
+      startBtn.addEventListener('click', (function(name){ return function(ev){
+        ev.stopPropagation();
+        ddevStartInstance(name);
+      };})(inst.name));
+      body.appendChild(startBtn);
+    } else if (inst.status === 'error') {
+      var retryBtn = el('button','ddev-action start-btn');
+      retryBtn.textContent = 'Retry';
+      retryBtn.setAttribute('aria-label','Retry '+inst.name+' DDEV instance');
+      retryBtn.addEventListener('click', (function(name){ return function(ev){
+        ev.stopPropagation();
+        ddevStartInstance(name);
+      };})(inst.name));
+      body.appendChild(retryBtn);
+    } else {
+      var disBtn = el('button','ddev-action stop-btn');
+      disBtn.textContent = inst.status === 'starting' ? 'Starting\u2026' : 'Stopping\u2026';
+      disBtn.disabled = true;
+      body.appendChild(disBtn);
+    }
+    tile.appendChild(body);
+
+    // Bottom: status + dot + name
+    var footer = el('div','ddev-tile-footer');
+    footer.appendChild(txt('span','ddev-state',inst.status));
+    var nameRow = el('div','ddev-tile-namerow');
+    if (inst.status === 'starting' || inst.status === 'stopping') {
+      nameRow.appendChild(el('span','ddev-spinner'));
+    } else {
+      nameRow.appendChild(el('span','ddev-dot'));
+    }
+    nameRow.appendChild(txt('span','ddev-name',inst.name.replace(/-main$/i,'')));
+    footer.appendChild(nameRow);
+    tile.appendChild(footer);
+
+    tiles.appendChild(tile);
+  });
+
+  // Resource warning
+  removeChildren(warnWrap);
+  if (running >= MAX_CONCURRENT_WARNING && running === total) {
+    var warn = el('div','ddev-warn');
+    warn.appendChild(txt('span','ddev-warn-icon','\u26A0'));
+    warn.appendChild(txt('span','',running+' of '+total+' instances running \u2014 monitor laptop resources'));
+    warnWrap.appendChild(warn);
+  }
+}
+
+function ddevStartInstance(name) {
+  fetch('/api/ddev/start', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({project:name})
+  }).then(function(r){ return r.json(); }).then(function(data) {
+    if (data.ok) showToast('Starting '+name+'\u2026');
+    else showToast('Error: '+(data.error||'unknown'));
+  }).catch(function(){ showToast('Network error'); });
+}
+
+function ddevConfirmStop(name, btn) {
+  if (ddevConfirmTimers[name]) {
+    // Second click — actually stop
+    clearTimeout(ddevConfirmTimers[name]);
+    delete ddevConfirmTimers[name];
+    ddevStopInstance(name);
+    return;
+  }
+  // First click — show confirmation
+  btn.textContent = 'Confirm?';
+  btn.className = 'ddev-action confirm-btn';
+  ddevConfirmTimers[name] = setTimeout(function() {
+    delete ddevConfirmTimers[name];
+    btn.textContent = 'Stop';
+    btn.className = 'ddev-action stop-btn';
+  }, 3000);
+}
+
+function ddevStopInstance(name) {
+  fetch('/api/ddev/stop', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({project:name})
+  }).then(function(r){ return r.json(); }).then(function(data) {
+    if (data.ok) showToast('Stopping '+name+'\u2026');
+    else showToast('Error: '+(data.error||'unknown'));
+  }).catch(function(){ showToast('Network error'); });
+}
+
+function toggleDdevPanel() {
+  var panel = document.getElementById('ddev-panel');
+  var btn = document.getElementById('ddev-collapse-btn');
+  ddevPanelCollapsed = !ddevPanelCollapsed;
+  if (ddevPanelCollapsed) {
+    panel.classList.add('collapsed');
+    btn.textContent = '\u25B8 Expand';
+  } else {
+    panel.classList.remove('collapsed');
+    btn.textContent = '\u25BE';
+  }
+}
+
+// ========================================================================
+// DDEV Terminal Log
+// ========================================================================
+var ddevTermLogs = {}; // project -> {lines:[], status:'running'|'done'|'error'}
+var ddevTermActiveTab = null;
+var ddevTermAutoScroll = true;
+var ddevTermVisible = false;
+
+function showDdevTerm(project) {
+  var term = document.getElementById('ddev-term');
+  term.classList.remove('hidden');
+  ddevTermVisible = true;
+  ddevTermActiveTab = project;
+  renderDdevTermTabs();
+  renderDdevTermBody();
+}
+
+function dismissDdevTerm() {
+  // Only dismiss the active tab; if others remain, switch to them
+  if (ddevTermActiveTab && ddevTermLogs[ddevTermActiveTab]) {
+    var status = ddevTermLogs[ddevTermActiveTab].status;
+    if (status === 'done' || status === 'error') {
+      delete ddevTermLogs[ddevTermActiveTab];
+    }
+  }
+  var remaining = Object.keys(ddevTermLogs);
+  if (remaining.length > 0) {
+    ddevTermActiveTab = remaining[0];
+    renderDdevTermTabs();
+    renderDdevTermBody();
+  } else {
+    document.getElementById('ddev-term').classList.add('hidden');
+    ddevTermVisible = false;
+    ddevTermActiveTab = null;
+  }
+}
+
+function renderDdevTermTabs() {
+  var tabsEl = document.getElementById('ddev-term-tabs');
+  removeChildren(tabsEl);
+  var projects = Object.keys(ddevTermLogs);
+  if (projects.length <= 1) {
+    // Single project — show label instead of tabs
+    if (projects.length === 1) {
+      var label = el('span','ddev-term-tab active');
+      var dot = el('span','tab-dot '+(ddevTermLogs[projects[0]].status||'running'));
+      label.appendChild(dot);
+      label.appendChild(document.createTextNode(projects[0]));
+      tabsEl.appendChild(label);
+    }
+    return;
+  }
+  projects.forEach(function(proj) {
+    var tab = el('button','ddev-term-tab'+(proj===ddevTermActiveTab?' active':''));
+    var dot = el('span','tab-dot '+(ddevTermLogs[proj].status||'running'));
+    tab.appendChild(dot);
+    tab.appendChild(document.createTextNode(proj));
+    tab.addEventListener('click', function(){ ddevTermActiveTab=proj; renderDdevTermTabs(); renderDdevTermBody(); });
+    tabsEl.appendChild(tab);
+  });
+}
+
+function renderDdevTermBody() {
+  var bodyEl = document.getElementById('ddev-term-body');
+  removeChildren(bodyEl);
+  var log = ddevTermLogs[ddevTermActiveTab];
+  if (!log) return;
+  log.lines.forEach(function(entry) {
+    var line = el('div','ddev-term-line');
+    line.appendChild(txt('span','ddev-term-ts',entry.ts+'s'));
+    var textCls = 'ddev-term-text';
+    if (entry.stream === 'stderr') textCls += ' stderr';
+    if (entry.stream === 'ok') textCls += ' ok';
+    line.appendChild(txt('span',textCls,entry.text));
+    bodyEl.appendChild(line);
+  });
+  if (ddevTermAutoScroll) {
+    bodyEl.scrollTop = bodyEl.scrollHeight;
+  }
+}
+
+function appendDdevTermLine(project, entry) {
+  if (!ddevTermLogs[project]) {
+    ddevTermLogs[project] = { lines: [], status: 'running' };
+  }
+  ddevTermLogs[project].lines.push(entry);
+  if (ddevTermLogs[project].lines.length > 500) ddevTermLogs[project].lines.shift();
+
+  // Auto-show terminal when a process starts
+  if (!ddevTermVisible) {
+    showDdevTerm(project);
+  } else if (!ddevTermActiveTab) {
+    ddevTermActiveTab = project;
+    renderDdevTermTabs();
+  }
+
+  // If this is the active tab, append the line directly (no full re-render)
+  if (project === ddevTermActiveTab) {
+    var bodyEl = document.getElementById('ddev-term-body');
+    var line = el('div','ddev-term-line');
+    line.appendChild(txt('span','ddev-term-ts',entry.ts+'s'));
+    var textCls = 'ddev-term-text';
+    if (entry.stream === 'stderr') textCls += ' stderr';
+    if (entry.stream === 'ok') textCls += ' ok';
+    line.appendChild(txt('span',textCls,entry.text));
+    bodyEl.appendChild(line);
+    if (ddevTermAutoScroll) bodyEl.scrollTop = bodyEl.scrollHeight;
+  } else {
+    // Update tab dot if needed
+    renderDdevTermTabs();
+  }
+}
+
+function handleDdevLogDone(project, success) {
+  if (ddevTermLogs[project]) {
+    ddevTermLogs[project].status = success ? 'done' : 'error';
+    renderDdevTermTabs();
+  }
+}
+
+// Auto-scroll: stop if user scrolls up, resume if at bottom
+(function() {
+  var bodyEl = document.getElementById('ddev-term-body');
+  bodyEl.addEventListener('scroll', function() {
+    var atBottom = bodyEl.scrollHeight - bodyEl.scrollTop - bodyEl.clientHeight < 20;
+    ddevTermAutoScroll = atBottom;
+  });
+})();
+
+// On SSE reconnect, fetch existing log buffers for any active operations
+function fetchDdevLogs() {
+  DDEV_INSTANCES.forEach(function(inst) {
+    if (inst.status === 'starting' || inst.status === 'stopping') {
+      fetch('/api/ddev/logs?project='+encodeURIComponent(inst.name))
+        .then(function(r){ return r.json(); })
+        .then(function(data) {
+          if (data.lines && data.lines.length) {
+            ddevTermLogs[inst.name] = { lines: data.lines, status: data.status };
+            if (!ddevTermVisible) showDdevTerm(inst.name);
+            else { renderDdevTermTabs(); renderDdevTermBody(); }
+          }
+        }).catch(function(){});
+    }
+  });
+}
+
+// ========================================================================
 // SSE: live updates
 // ========================================================================
 function connectSSE() {
   var evtSource = new EventSource('/events');
   evtSource.addEventListener('board-update', function(){ fetchAll(); });
   evtSource.addEventListener('cycle-complete', function(){ fetchAll(); });
+  evtSource.addEventListener('ddev-status', function(ev){
+    try {
+      DDEV_INSTANCES = JSON.parse(ev.data);
+      renderDdevPanel();
+    } catch(e) {}
+  });
+  evtSource.addEventListener('ddev-log', function(ev){
+    try {
+      var d = JSON.parse(ev.data);
+      appendDdevTermLine(d.project, { ts:d.ts, text:d.text, stream:d.stream });
+    } catch(e) {}
+  });
+  evtSource.addEventListener('ddev-log-done', function(ev){
+    try {
+      var d = JSON.parse(ev.data);
+      handleDdevLogDone(d.project, d.success);
+    } catch(e) {}
+  });
   evtSource.onerror = function() {
     evtSource.close();
-    setTimeout(connectSSE, 5000);
+    setTimeout(function(){ connectSSE(); fetchDdevLogs(); }, 5000);
   };
 }
 
 // ========================================================================
 // Init
 // ========================================================================
-fetchAll().then(function(){ connectSSE(); });
+Promise.all([fetchAll(), fetchDdevStatus()]).then(function(){ connectSSE(); });
 </script>
 </body>
 </html>`;
@@ -2138,6 +2869,58 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/move' && req.method === 'POST') {
       return await handleMove(req, res);
+    }
+
+    // DDEV management endpoints
+    if (pathname === '/api/ddev/status' && req.method === 'GET') {
+      const instances = fetchDdevInstances();
+      return jsonResponse(res, 200, instances);
+    }
+
+    if (pathname === '/api/ddev/start' && req.method === 'POST') {
+      let body;
+      try { body = await readBody(req); } catch (e) {
+        return jsonResponse(res, 400, { error: 'Invalid JSON' });
+      }
+      const { project } = body;
+      if (!project) return jsonResponse(res, 400, { error: 'Missing project' });
+
+      // Verify the project exists in DDEV
+      const instances = fetchDdevInstances();
+      const inst = instances.find(i => i.name === project);
+      if (!inst) return jsonResponse(res, 404, { error: 'DDEV project not found: ' + project });
+      if (inst.status === 'running') return jsonResponse(res, 200, { ok: true, message: 'Already running' });
+      if (inst.status === 'starting') return jsonResponse(res, 200, { ok: true, message: 'Already starting' });
+
+      // Fire and forget — SSE will push updates
+      handleDdevStart(project);
+      return jsonResponse(res, 200, { ok: true });
+    }
+
+    if (pathname === '/api/ddev/stop' && req.method === 'POST') {
+      let body;
+      try { body = await readBody(req); } catch (e) {
+        return jsonResponse(res, 400, { error: 'Invalid JSON' });
+      }
+      const { project } = body;
+      if (!project) return jsonResponse(res, 400, { error: 'Missing project' });
+
+      const instances = fetchDdevInstances();
+      const inst = instances.find(i => i.name === project);
+      if (!inst) return jsonResponse(res, 404, { error: 'DDEV project not found: ' + project });
+      if (inst.status === 'stopped') return jsonResponse(res, 200, { ok: true, message: 'Already stopped' });
+      if (inst.status === 'stopping') return jsonResponse(res, 200, { ok: true, message: 'Already stopping' });
+
+      handleDdevStop(project);
+      return jsonResponse(res, 200, { ok: true });
+    }
+
+    if (pathname === '/api/ddev/logs' && req.method === 'GET') {
+      const project = url.searchParams.get('project');
+      if (!project) return jsonResponse(res, 400, { error: 'Missing project param' });
+      const buf = ddevLogs.get(project);
+      if (!buf) return jsonResponse(res, 200, { lines: [], status: 'idle' });
+      return jsonResponse(res, 200, { lines: buf.lines, status: buf.status });
     }
 
     // Default: serve HTML dashboard

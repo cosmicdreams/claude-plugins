@@ -171,6 +171,23 @@ ddev drupal admin-login
 
 ## Troubleshooting
 
+### First step: check container logs
+
+When any command fails unexpectedly, check container logs before debugging further. PHP-FPM segfaults, OOM kills, and Apache errors show up here but not in tool output.
+
+```bash
+# Web container logs (PHP-FPM + Apache) — last 50 lines
+ddev logs | tail -50
+
+# Database container logs
+ddev logs -s db | tail -30
+
+# Follow logs in real-time (useful during long test runs)
+ddev logs -f
+```
+
+### Common errors
+
 **Error: "Container not running"**
 ```bash
 ddev start
@@ -190,12 +207,24 @@ ddev exec curl -f -s http://chrome:4444/status
 **Tests fail with "connection refused"**
 Ensure Chrome container is running:
 ```bash
-ddev describe
+ddev describe --json-output 2>/dev/null | jq '.raw.status'
 ```
-If chrome shows "stopped", restart:
+If not running, restart:
 ```bash
 ddev restart
 ```
+
+**Cryptic test failure (blank output, segfault, timeout)**
+Check container logs first — the root cause is usually visible there:
+```bash
+ddev logs | tail -50
+```
+
+| Log Pattern | Meaning | Action |
+|------------|---------|--------|
+| `Killed` or `oom-kill` | Container out of memory | Reduce test scope, run sequentially |
+| `Segmentation fault` | PHP crash | `ddev restart`, retry |
+| `No space left on device` | Docker disk full | `docker system prune`, retry |
 
 ## Environment Details
 

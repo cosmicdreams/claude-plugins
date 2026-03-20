@@ -59,8 +59,8 @@ fi
 In sprint context, max 3 concurrent DDEV instances. Check before starting.
 
 ```bash
-# Count running DDEV instances
-RUNNING=$(ddev list 2>/dev/null | grep -c "running" || echo 0)
+# Count running DDEV instances (JSON output for reliable parsing)
+RUNNING=$(ddev list --json-output 2>/dev/null | jq '[.raw[] | select(.status == "running")] | length')
 echo "DDEV slots: $RUNNING / 3"
 
 if [ "$RUNNING" -ge 3 ]; then
@@ -94,8 +94,9 @@ Verify environment is fully operational before starting work. Run all checks; an
 ```bash
 cd "$WORKTREE"
 
-# 2.1 Containers running
-ddev describe | grep -q "running" && echo "PASS: containers running" || echo "FAIL: containers not running"
+# 2.1 Containers running (JSON output for reliable parsing)
+STATUS=$(ddev describe --json-output 2>/dev/null | jq -r '.raw.status')
+[ "$STATUS" = "running" ] && echo "PASS: containers running" || echo "FAIL: containers not running (status: $STATUS)"
 
 # 2.2 PHP version
 ddev exec php -v | head -1
@@ -174,8 +175,9 @@ This stops containers but preserves the database and configuration. The worktree
 ### 4.2 Verify Shutdown
 
 ```bash
-# Confirm instance is stopped
-ddev list 2>/dev/null | grep "drupal-{ISSUE}" | grep -q "stopped" && echo "PASS: stopped" || echo "WARNING: still running"
+# Confirm instance is stopped (JSON output for reliable parsing)
+SHUTDOWN_STATUS=$(ddev list --json-output 2>/dev/null | jq -r '.raw[] | select(.name == "drupal-{ISSUE}") | .status')
+[ "$SHUTDOWN_STATUS" = "stopped" ] && echo "PASS: stopped" || echo "WARNING: status is $SHUTDOWN_STATUS"
 ```
 
 ### 4.3 Release DDEV Slot
@@ -314,13 +316,11 @@ A process is stuck when it has been in the same state with no progress for an ex
 ### 6.2 Detecting Stuck DDEV Instances
 
 ```bash
-# List all DDEV instances with their last activity
-ddev list
+# List all DDEV instances with status (JSON for reliable parsing)
+ddev list --json-output 2>/dev/null | jq -r '.raw[] | "\(.name): \(.status) | \(.shortroot)"'
 
-# Check how long each instance has been running
-for project in $(ddev list --json-output 2>/dev/null | grep -o '"name":"[^"]*"' | cut -d'"' -f4); do
-  echo "$project: $(ddev describe "$project" 2>/dev/null | grep 'started')"
-done
+# Check running instances with details
+ddev list --json-output 2>/dev/null | jq -r '.raw[] | select(.status == "running") | "\(.name): running since \(.approot)"'
 ```
 
 ### 6.3 Stuck Recovery

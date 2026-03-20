@@ -26,7 +26,8 @@ DDEV must be set up and running in the worktree. Follow `/process-lifecycle` ski
 If DDEV is already running, verify readiness:
 ```bash
 cd ./worktrees/{issue_number}
-ddev describe | grep -q "running" && echo "READY" || echo "Run: ddev start"
+STATUS=$(ddev describe --json-output 2>/dev/null | jq -r '.raw.status')
+[ "$STATUS" = "running" ] && echo "READY" || echo "Run: ddev start (status: $STATUS)"
 ```
 
 When validation is complete, follow `/process-lifecycle` Phase 4 (SHUTDOWN) to release the DDEV slot.
@@ -164,15 +165,29 @@ ddev exec vendor/bin/phpstan analyze --configuration=./core/phpstan.neon.dist pa
 
 **Pass criteria**: Zero errors.
 
+### 3.5 Snapshot Before Tests
+
+Create a database snapshot before running PHPUnit. Functional and FunctionalJavascript tests mutate the database — a snapshot allows instant rollback between test suites or on retry.
+
+```bash
+cd ./worktrees/{issue_number}
+ddev snapshot --name=pre-test
+```
+
+To restore (e.g., before a retry or between test suites):
+```bash
+ddev snapshot restore pre-test
+```
+
 ### 4. PHPUnit Tests
 
 Unit and Kernel tests (no browser required):
 ```bash
-cd ./worktrees/main
+cd ./worktrees/{issue_number}
 ddev phpunit core/modules/{module}/tests/
 ```
 
-By group:
+By group (run from the worktree directory):
 ```bash
 ddev phpunit --group settings_tray
 ```
@@ -193,6 +208,32 @@ ddev exec -d /var/www/html env \
   SIMPLETEST_BASE_URL="http://drupal-{ISSUE}.ddev.site" \
   SIMPLETEST_DB="sqlite://localhost/sites/default/files/.ht.sqlite" \
   vendor/bin/phpunit core/modules/settings_tray/tests/src/FunctionalJavascript/SettingsTrayBlockFormTest.php
+```
+
+### 4.5 On Test Failure: Check Container Logs
+
+When PHPUnit returns a cryptic failure (segfault, connection refused, blank output), check the container logs — PHP-FPM errors, OOM kills, and Apache crashes show up here but not in PHPUnit output.
+
+```bash
+cd ./worktrees/{issue_number}
+# Last 50 lines of web container logs (PHP-FPM + Apache)
+ddev logs | tail -50
+
+# If database-related failure, check db container too
+ddev logs -s db | tail -30
+```
+
+Common container-level failures:
+| Log Pattern | Meaning | Action |
+|------------|---------|--------|
+| `Killed` or `oom-kill` | Container ran out of memory | Reduce test scope, run suites sequentially |
+| `Segmentation fault` | PHP crash (often opcache or extension) | `ddev restart`, retry |
+| `Connection refused` on :4444 | Chrome webdriver died | `ddev restart`, retry |
+| `No space left on device` | Docker disk full | `docker system prune`, then retry |
+
+After diagnosing and fixing, restore the pre-test snapshot before retrying:
+```bash
+ddev snapshot restore pre-test
 ```
 
 ### 5. Test Coverage Check
