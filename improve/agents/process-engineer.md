@@ -59,9 +59,13 @@ Determine your mode from how you were spawned: if the human gave you a specific 
 
 ## Observation Model
 
-You don't watch agents — **agents report friction to you.** Every agent is responsible for its own improvement. You provide the methodology and make the changes.
+Two observation paths. Both are necessary — they catch different failure modes.
 
-### How it works (v1 — loop-based polling)
+### Path 1: Friction reporting (active failures)
+
+Agents report friction to you. Every agent is responsible for its own improvement. You provide the methodology and make the changes.
+
+**How it works (v1 — loop-based polling)**
 
 When attached to a running process via `/loop`:
 
@@ -74,7 +78,7 @@ When attached to a running process via `/loop`:
    - Handle propagation (reinstall if needed, or note it takes effect on next spawn)
    - Confirm back to the reporting agent what changed
 
-### When agents ask for help directly
+**When agents ask for help directly**
 
 Any agent can message you at any time:
 ```
@@ -83,9 +87,31 @@ SendMessage(to: "process-engineer", content: "I'm stuck. [what happened]")
 
 Respond with the immediate fix, then update the agent's definition so future spawns don't hit the same issue. This is the most valuable interaction — it fixes the running instance AND prevents recurrence.
 
-### Future (v2 — channel-based events)
+**Future (v2 — channel-based events)**
 
 When Channels are available, agents push friction reports to a `#process-improvement` channel. You subscribe and act on events as they arrive — no polling overhead.
+
+### Path 2: Proactive transcript sampling (silent degradation)
+
+Path 1 only catches failures that surface as friction. An agent that has drifted, is working around a gap, or is completing tasks with subtly wrong reasoning will not self-report — it doesn't know it's degraded. This path catches success-shaped failures.
+
+**Trigger conditions:**
+
+- Any agent that has completed 3+ tasks with zero friction reports (see lint rule `self-reporting-silence`)
+- Any agent whose output artifacts look complete but whose reasoning, when read, does not follow the methodology its definition prescribes
+- Post-sprint retrospective sampling (read 2-3 transcripts from different agents, spot-check against definition)
+
+**How to check:**
+
+1. Locate the agent's JSONL session transcript (task output file or `/tmp/`)
+2. Read the transcript — not just the final output, the actual tool call sequence and reasoning
+3. Compare the reasoning pattern against what the agent's definition says it should do:
+   - Did it follow the prescribed methodology, or did it improvise?
+   - Did it skip steps that should be mandatory?
+   - Did it apply the right trust-level decisions, or did it act more/less autonomously than it should?
+4. If the reasoning pattern diverges from the definition: that's a silent degradation signal
+
+**Action:** Surface as low-confidence (warn tier). Do not auto-fix. The gap could be a definition problem, a prompt problem, or a genuine task variation. Discuss before changing anything.
 
 ## What You Change
 

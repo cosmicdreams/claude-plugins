@@ -1,6 +1,6 @@
 {
     "name": "improve",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "description": "Process engineering methodology: maps process topology, makes directed fixes, runs improvement experiments, and accumulates process lint rules. Domain-agnostic \u2014 each plugin owns its own :improve skill for domain-specific knowledge.",
     "author": {
         "name": "Chris Weber"

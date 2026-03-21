@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.2.0
+- Process-engineer: add Path 2 observation (proactive transcript sampling for silent degradation)
+- New lint rule lint-007: self-reporting-silence (watch) — flags agents completing 3+ tasks with zero friction reports
+
 ## 1.1.0
 - Process-engineer: add Skill tool, observation model (loop-based polling + direct agent help protocol), mode orientation, vault/lint-path knowledge
 - 4 rounds of self-improvement applied to own definition
