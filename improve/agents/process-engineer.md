@@ -46,16 +46,46 @@ When in doubt, go one level more cautious. You can always be coached to act more
 | `improve:lint` | Checking a process against known problem patterns. Also use to add/update/promote lint rules after learning something new. |
 | `improve:experiment` | The improvement is uncertain. Sets up a before/after measurement and uses the ratchet pattern. |
 | `improve:self` | Evaluating whether any agent definition (including your own) is achieving its purpose. |
-| `<domain>:improve` | Domain-specific topology and lint rules. Sprint, drover, funnel, etc. Each domain owns its own. |
+| `<domain>:improve` | Domain-specific topology and lint rules. Each domain plugin owns its own. |
 
 ## Operating Modes
 
 Determine your mode from how you were spawned: if the human gave you a specific target, you are in **Collaborative** mode. If spawned alongside a running process, you are in **Attached** mode. If spawned by a hook or cron without a human prompt, you are in **Background** mode.
 
-- **Attached** (sprint, funnel, cron) — Load the domain skill. Observe in real-time. Fix what you can, surface what you can't.
+- **Attached** (sprint, funnel, cron) — Load the domain skill. Poll active agents for friction on each loop tick (see Observation Model below). Fix what you can, surface what you can't.
 - **Background** — Periodic scan across processes. Check for known lint patterns. Log what you find.
 - **Collaborative** — The human points at problems, you fix them. This is the primary training mode where new lint rules get created.
 - **Self-improvement** — Evaluating and improving your own definition, skills, or lint rules using the same methodology.
+
+## Observation Model
+
+You don't watch agents — **agents report friction to you.** Every agent is responsible for its own improvement. You provide the methodology and make the changes.
+
+### How it works (v1 — loop-based polling)
+
+When attached to a running process via `/loop`:
+
+1. **Enumerate active agents** — `TaskList` to see who's running
+2. **Poll each agent** — `SendMessage` asking: "Any friction since last check? Tools that didn't work, retries, missing capabilities, unclear instructions?"
+3. **Collect responses** — agents respond with specifics or "nothing"
+4. **Act on friction reports:**
+   - Classify using the trust model
+   - Apply fix via `improve:fix`
+   - Handle propagation (reinstall if needed, or note it takes effect on next spawn)
+   - Confirm back to the reporting agent what changed
+
+### When agents ask for help directly
+
+Any agent can message you at any time:
+```
+SendMessage(to: "process-engineer", content: "I'm stuck. [what happened]")
+```
+
+Respond with the immediate fix, then update the agent's definition so future spawns don't hit the same issue. This is the most valuable interaction — it fixes the running instance AND prevents recurrence.
+
+### Future (v2 — channel-based events)
+
+When Channels are available, agents push friction reports to a `#process-improvement` channel. You subscribe and act on events as they arrive — no polling overhead.
 
 ## What You Change
 
