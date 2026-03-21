@@ -26,24 +26,9 @@ Board state lives in `.beads/sprint.db` (Beads database). Cards are Beads issues
 - The Project Root is the folder that *contains* the `worktrees/` and `.beads/` directories.
 - If you are inside a worktree (e.g. `.../worktrees/1234`), you must `cd ../..` to return to the Project Root before running commands.
 
-### Card Storage
+### Card Structure
 
-Cards are Beads issues stored in `.beads/sprint.db`. Each issue has a status field (`open`, `in_progress`, `closed`) and labels that encode the lane (`lane-backlog`, `lane-in-progress`, etc.).
-
-```
-Sprint Lanes (encoded as labels):
-  lane-backlog              ← queued, not started
-  lane-in-progress          ← slice-worker owns it end-to-end
-  lane-needs-cross-review   ← slice done, awaiting cross-review
-  lane-cross-reviewing      ← cross-reviewer validating
-  (closed)                  ← done
-```
-
-A blocked card is expressed via `--deps` (dependency on another issue), not as a separate lane — a blocked card stays in its current lane until unblocked.
-
-### Card Format
-
-One card per issue. Cards are created with `bd create`:
+See `sprint:board` for lane definitions, card fields, status mapping, and narrative rules. Cards are created with `bd create`:
 
 ```bash
 bd create "Issue #2901667: jQuery removal in toggleEditMode" \
@@ -79,94 +64,6 @@ EOF
 )"
 ```
 
-### Card Fields
-
-| Field | bd equivalent | Description |
-|-------|---------------|-------------|
-| id | Auto-assigned by bd (e.g. `sprint-a1b2`) | Unique ID. |
-| priority | `-p 1` (High) or `-p 2` (Normal, default) | High-priority cards get DDEV slots first. |
-| blocked_by | `--deps "sprint-a1b2"` on create | Issues that must close before this card can advance. Use `bd blocked` to see. |
-| assignee | `--claim` sets to `BD_ACTOR`; `--assignee ""` clears | Agent name who owns the card. |
-| tags | `--labels "board-sprint,tag1,tag2"` | Labels for filtering (lane, issue number, cross-review flag, topic tags). |
-| issue | Label: `issue-2901667` | Drupal.org issue number encoded as a label. |
-| cross-review | Label: `cross-review-yes` / `cross-review-no` | Whether cross-review is required. |
-| ddev | `--set-metadata ddev=true` | Whether this card holds a DDEV slot. Max 3 cards with ddev=true at once. |
-| fix_loop | Label: `fix-loop-N` | Number of fix-and-verify iterations. Escalate at 3. |
-
-### Status and Lane Mapping
-
-| Lane | `--status` | Label |
-|------|-----------|-------|
-| Backlog | `open` (default) | `lane-backlog` |
-| In Progress | `in_progress` (via `--claim`) | `lane-in-progress` |
-| Needs Cross-Review | `open` | `lane-needs-cross-review` |
-| Cross-Reviewing | `in_progress` (via `--claim`) | `lane-cross-reviewing` |
-| Done | `closed` (via `bd close`) | (none) |
-
-### Narrative Record (Required)
-
-Every card maintains a Narrative section in its description — an append-only log of decisions, discoveries, and outcomes. This is the card's story.
-
-**Rules:**
-- Never rewrite or delete prior narrative entries
-- Append new entries with `--append-notes` using ISO date and author
-- Focus on reasons, insights, and decisions — not just lane moves
-- When closing a card, add enough detail for a future reader to understand the outcome
-
-```bash
-bd update <id> \
-  --append-notes "2026-03-18: Root cause identified — jQuery once() used where addEventListener suffices. (by @slice-1)"
-```
-
-### Placement Guidance (for multi-file update cards)
-
-When a card requires inserting a new section into multiple agent definition files, include placement guidance in the card description specifying where to insert the new content. Card authors should always specify insertion points when the card touches 2+ agent files.
-
-## Board Operations
-
-All board queries use `bd` CLI commands — no shell scripts or file scanning needed.
-
-### View the Board
-
-```bash
-bd list --json
-```
-
-### Show Blocked Cards
-
-```bash
-bd blocked
-```
-
-### Filter by Label
-
-```bash
-bd list -l lane-in-progress --json
-```
-
-### Ready Work (unblocked, open)
-
-```bash
-bd ready --json
-```
-
-### Unassigned Ready Work
-
-```bash
-bd ready --json --unassigned
-```
-
-### Pipeline Status
-
-```bash
-bd list --json | jq 'group_by(.status)'
-```
-
-### DDEV Slot Count
-
-```bash
-bd list --metadata-field ddev=true --json | jq 'length'
-```
 
 ## Prerequisites
 
