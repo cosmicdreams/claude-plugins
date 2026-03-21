@@ -53,7 +53,7 @@ When each agent is spawned, log:
 ```markdown
 ### [agent-name]
 - **Spawned**: HH:MM
-- **Role**: [developer/validator/analyzer/process-improvement]
+- **Role**: [developer/validator/analyzer/process-engineer]
 - **Assigned issues**: [list]
 - **Messages sent**: [count, update at end]
 - **Tool calls**: [estimate]
