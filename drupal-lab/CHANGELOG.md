@@ -1,5 +1,14 @@
 # Changelog
 
+## 2.4.0
+- Retire `advisor` agent — overlapped architect, fixer, and issue-planner with no unique workflow
+- Dedup 5 agents (reviewer, implementer, issue-analyzer, fixer, architect): replace inline Team Coordination, DDEV, Shutdown Protocol with pointers to canonical sources (-280 lines)
+- `implementer`: fix stale git-ops:create-worktree → admin:create-worktree, update description
+- `issue-analyzer`: update description (remove Settings Tray scoping)
+- `issue-planner`: remove 87 lines of capability filler, fix tools (add SendMessage, remove Edit)
+- `fixer`: add missing SendMessage/Write/Glob tools, remove Tools Available and Quality Standards filler, remove stale drupal-patterns reference
+- `architect`: add Bash/SendMessage tools, remove Tools Available/Integration/Success Criteria filler, fix description
+- `test-coverage-analyst`: add SendMessage, remove filler sections and stale drupal-test-patterns reference
 
 ## 2.3.2
 - Removed `mcp__sequential-thinking__sequentialthinking` from all agent tool lists (implementer, advisor, issue-analyzer, issue-planner, reviewer)

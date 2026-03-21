@@ -1,5 +1,10 @@
 # research-lab Changelog
 
+## 0.3.1
+- Add explicit tools declarations to all 3 agents (experimentalist, researcher, principal-investigator)
+- `experimentalist`: fix bare reference paths to use `${CLAUDE_PLUGIN_ROOT}`
+- `researcher`: add mode self-orientation fallback
+
 ## 0.3.0 (2026-03-16)
 
 Round 3 improvements from the massport-cache-optimization engagement.

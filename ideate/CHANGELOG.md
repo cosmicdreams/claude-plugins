@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.2.2
+- Fix stale obsidian-rules.md paths in 5 skills (adr, brainstorm, compare, research, understand): office → workflow
+
 ## 2.2.1
 - All 5 skills: vault writes are now filesystem-direct — no Obsidian CLI dependency
 - Remove `shared/` prefix from all vault paths (`shared/Research/` → `Research/`, etc.)

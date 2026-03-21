@@ -1,6 +1,6 @@
 {
     "name": "retro",
-    "version": "3.1.1",
+    "version": "3.1.2",
     "description": "Sprint retrospective infrastructure: agent interviews via SubagentStop hook, session analysis, action cards, and retrospective kanban board.",
     "author": {
         "name": "Chris Weber"

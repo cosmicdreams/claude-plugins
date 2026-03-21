@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.4.2
+- `reinstall-plugin.sh`: add missing plugins (lib, workflow, drover, research-lab, improve) to PLUGINS array
+- `bump-version.sh`: same fix
+- `bump-version` SKILL.md: update valid plugin names list
+- `changelog` SKILL.md: update valid plugin names list and tighten description
+- `new-agent` SKILL.md: update color table (process-improvement → process-engineer)
+- `scaffold` CLAUDE.md template: update retro interview agent list
 
 ## 2.4.1
 - `scaffold`: creates `.claude/progress.jsonl` for session continuity tracking

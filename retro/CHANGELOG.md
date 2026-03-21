@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.1.2
+- Update interview templates, SKILL.md, and SubagentStop hook: process-improvement → process-engineer
+
 ## 3.1.1
 - `retro:session` and `retro:interviews`: vault writes are now filesystem-direct — no Obsidian CLI dependency
 

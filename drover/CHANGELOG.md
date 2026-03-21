@@ -1,5 +1,9 @@
 # drover Changelog
 
+## 1.4.1
+- `triage-agent`: extract 390-line procedure to `skills/triage/references/triage-procedure.md` (agent: 438→63 lines), add SendMessage tool
+- `implementer-agent`: extract 247-line procedure to `skills/implement/references/implementer-procedure.md` (agent: 275→53 lines), add SendMessage tool
+
 ## 1.4.0
 - `drover:dashboard`: new Datadog/Splunk-style ops dashboard on port 3749. Environment health tiles, error volume timeline chart, triage cycle stats, filterable error table with expandable stack traces, and full kanban board view with drag-and-drop and ticket modals. Live updates via SSE (no polling). System fonts, zero external dependencies.
 

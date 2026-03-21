@@ -1,5 +1,15 @@
 # Changelog
 
+## 3.3.0
+- Retire `process-improvement` agent and `sprint:observe` skill — replaced by `improve:process-engineer`
+- `deep-debugger`: add explicit tools declaration, remove filler sections, add handoff protocol (owns card to completion)
+- `cross-reviewer`: add LSP/diagnostics tools, fix close-before-update ordering bug
+- `slice-worker`: evaluated, confirmed clean (opus retained)
+- `team-lead`: evaluated, confirmed clean (minor description tightening)
+- `reality-checker`: add tools declaration, remove unreachable agent handoff references
+- `sprint:run`: remove 103 lines of board structure duplication (deferred to `sprint:board`)
+- Update all protocols and references for process-improvement → process-engineer rename
+- Fix stale process-improvement role in token-tracking template
 
 ## 3.2.1
 - Removed `mcp__sequential-thinking__sequentialthinking` from team-lead and process-improvement agent tool lists

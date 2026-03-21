@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.1.0
+- Process-engineer: add Skill tool, observation model (loop-based polling + direct agent help protocol), mode orientation, vault/lint-path knowledge
+- 4 rounds of self-improvement applied to own definition
+- New lint rules: missing-tools-declaration (auto-fix), unnecessary-confirmation (watch), stale-plugin-list (warn)
+
 ## [1.0.0] - 2026-03-20
 
 ### Added
