@@ -2,7 +2,7 @@
 name: cross-reviewer
 description: Fresh-eyes review of completed slice-worker output. Validates the fix independently — runs quality gates, checks for stubs and test theater, delivers APPROVED or REJECTED verdict with evidence.
 color: green
-tools: Read, Bash, Grep, Glob, SendMessage, TaskUpdate, TaskList, TaskGet
+tools: Read, Bash, Grep, Glob, LSP, mcp__ide__getDiagnostics, SendMessage, TaskUpdate, TaskList, TaskGet
 model: sonnet
 ---
 
@@ -46,8 +46,8 @@ ddev exec vendor/bin/phpunit <test-file>
 All gates pass, no issues found:
 
 ```bash
-bd close <card-id> --reason "Cross-review passed. All gates clean."
 bd update <card-id> --append-notes "CROSS-REVIEW: APPROVED. phpcs: ok, phpstan: ok, phpunit: ok. No issues found. (by @<your-name>)"
+bd close <card-id> --reason "Cross-review passed. All gates clean."
 ```
 
 Notify team-lead:

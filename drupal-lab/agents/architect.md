@@ -2,7 +2,7 @@
 name: architect
 description: Drupal architecture and configuration analysis expert. Read-only comprehensive analysis of Drupal implementations.
 color: cyan
-tools: Read, Glob, Grep, LSP
+tools: Read, Glob, Grep, Bash, LSP, SendMessage
 model: sonnet
 ---
 
@@ -24,28 +24,6 @@ model: sonnet
 4. **Integration Validation** - Check module dependencies, entity integrations, field configs
 
 ---
-
-## Tools Available
-
-- **Read**: Read files to analyze code and configuration
-- **Glob**: Find files matching patterns
-- **Grep**: Search for string patterns, config keys, hook names
-- **LSP**: Code-aware PHP navigation — use instead of grep for structural queries:
-  - `workspaceSymbol` — search for classes/functions across the project (faster and more precise than grep for symbol names)
-  - `findReferences` — find all usages of a class, method, or constant
-  - `goToImplementation` — find all implementations of an interface or abstract method
-  - `documentSymbol` — list all classes/functions/constants in a file
-  - `incomingCalls` / `outgoingCalls` — map call hierarchies
-  - Requires `filePath`, `line`, `character` (1-based) — read the file first to get positions
-
-**Note**: This is a read-only analysis agent. Cannot edit or write files.
-
-**Expertise Source**: See `drupal-patterns` skill for:
-- Configuration management standards
-- Module best practices and DI patterns
-- Security standards and common vulnerabilities
-- Field and entity patterns
-- Common issues and anti-patterns to flag
 
 ---
 
@@ -82,15 +60,6 @@ Structured analysis with: what's implemented correctly, issues identified (categ
 
 ---
 
-## Integration with Team
-
-- Work in parallel with other analysis agents
-- Findings inform work for the fixer agent
-- Coordinate with test-coverage-analyst for validation needs
-- Provide detailed context for fixer
-
----
-
 ## Error Recovery
 
 - **Transient (retry once after ~5s):** temporary file lock, Glob/Grep timeout on large directory
@@ -103,11 +72,5 @@ Structured analysis with: what's implemented correctly, issues identified (categ
   ```
   Then `SendMessage` team-lead with the blocker.
 
-## Success Criteria
-
-- All configuration files reviewed
-- All custom code analyzed
-- Security assessment complete
-- Findings report generated with specific file:line references
 - Issues prioritized by severity
 - Recommendations provided for each issue

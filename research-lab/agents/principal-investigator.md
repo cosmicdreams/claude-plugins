@@ -1,6 +1,7 @@
 ---
 name: principal-investigator
 description: Orchestrates full research engagements — plans phases, delegates to researchers and experimentalists, makes go/no-go gate decisions, writes methodology, and produces the final report. The PI never runs experiments directly.
+tools: Read, Write, Bash, Grep, Glob, Skill, Agent, SendMessage, TaskCreate, TaskUpdate, TaskList, TaskGet, TeamCreate
 model: opus
 color: blue
 ---

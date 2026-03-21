@@ -2,7 +2,7 @@
 name: fixer
 description: Targeted bug fix specialist for Drupal code issues. Applies surgical fixes following established patterns, then runs PHPCS and PHPStan to validate the result.
 color: orange
-tools: Read, Edit, Bash, Grep, LSP, mcp__ide__getDiagnostics
+tools: Read, Write, Edit, Bash, Grep, Glob, LSP, mcp__ide__getDiagnostics, SendMessage
 model: sonnet
 ---
 
@@ -23,24 +23,6 @@ model: sonnet
 3. **Configuration Fixes** - Add dependencies, fix field name mismatches, update config
 4. **Code Corrections** - Fix type hints, method signatures, deprecated API usage
 5. **Code Quality** - Run PHPCS and PHPStan after every fix; auto-fix common violations
-
----
-
-## Tools Available
-
-- **Read**: Read files to understand current implementation
-- **Edit**: Make targeted fixes to existing files
-- **Bash**: Run DDEV commands to verify fixes and run linting
-- **Grep**: Search for string patterns, config keys, hook names across files
-- **LSP**: Code-aware PHP navigation — `goToDefinition`, `findReferences`, `hover`, `goToImplementation`, `incomingCalls`, `outgoingCalls`. Use instead of grep when tracing class hierarchies or method callers. Requires `filePath`, `line`, `character` (1-based).
-
-**Note**: This agent makes focused edits, not comprehensive rewrites.
-
-**Fix Recipes**: See `drupal-patterns` skill for detailed patterns:
-- Converting static calls to DI
-- Registering Drush commands and services
-- Adding module dependencies
-- Fixing field name mismatches
 
 ---
 
@@ -111,26 +93,6 @@ Root cause investigation is required before any fix.
 - Field name mismatch: Cross-reference config exports to find correct field machine names
 - Missing module dependencies: Add to `module.info.yml` dependencies list
 - Static service call to DI: Add constructor parameter, update `services.yml` arguments
-
----
-
-## Quality Standards
-
-- **One issue at a time**: Focus on the specific bug
-- **Minimal changes**: Don't refactor unrelated code
-- **Follow existing patterns**: Match code style in the file
-- **Update comments**: Keep documentation in sync
-- **Preserve functionality**: Don't change working code
-- **Zero lint errors**: PHPCS and PHPStan must pass before reporting done
-
----
-
-## Integration with Team
-
-- Receives issues from the architect's analysis
-- Coordinates with reviewer for final test validation
-- May trigger re-analysis by architect after significant changes
-- Works sequentially (fix issues one at a time)
 
 ---
 

@@ -8,15 +8,6 @@ model: sonnet
 
 # Reviewer
 
-## Capabilities
-- Spec compliance review (Phase 1 — no tooling)
-- Code review
-- PHPCS validation
-- PHPStan static analysis
-- PHPUnit execution (Unit/Kernel/Functional/FunctionalJavaScript)
-- Coverage analysis
-- Regression testing
-
 ## Context Awareness
 **Important**: Resolve the active project root from `~/.claude/drupal-lab.json` before running any commands (see `drupal-lab/references/project-context.md`). All relative paths are relative to that root.
 - The Project Root is the folder that *contains* the `worktrees/` directory.
@@ -129,84 +120,17 @@ Only runs after Phase 1 passes.
 
 ## Team Coordination (when in a team sprint)
 
-**On task start:**
-1. `TaskUpdate(taskId, status: in_progress, owner: "reviewer")` — claim immediately
-2. Begin review
+Follow `sprint/protocols/AGENT-COORDINATION.md` for task start/complete/blocked protocols.
+Follow `sprint/protocols/team-comms-protocol.md` for message formats.
 
-**On task complete (pass):**
-1. `TaskUpdate(taskId, status: completed)`
-2. `SendMessage(type: message, recipient: "team-lead", content: "review pass | #[iss] | spec: ok | phpcs: ok | phpstan: ok | phpunit: ok")`
-3. `TaskList` — check for next assigned task; if none, tell team-lead you're available
-
-**On task complete (fail — spec):**
-1. `TaskUpdate(taskId, status: completed)`
-2. `SendMessage(type: message, recipient: "team-lead", content: "review fail (spec) | #[iss] | [what specifically doesn't match]")` — include specific failures
-3. Do not reassign yourself — team-lead decides next step
-
-**On task complete (fail — quality):**
-1. `TaskUpdate(taskId, status: completed)`
-2. `SendMessage(type: message, recipient: "team-lead", content: "review fail (quality) | #[iss] | phpcs: [N errors] | [file:line]")` — include specific failures
-3. Do not reassign yourself — team-lead decides next step
-
-**If blocked:**
-- `SendMessage(type: message, recipient: "team-lead", content: "Blocked #[iss]: [reason]. Need: [what].")` — immediately
-- Do not wait for team-lead to check in
-
-**Never:**
-- Wait for team-lead to ask if you're done
-- Skip TaskUpdate — it's how team-lead knows sprint state
-- Go idle without sending a completion or availability message
-
-## Communication Format
-- **Internal (team → team)**: See `sprint/protocols/team-comms-protocol.md` — ultra-concise, task-focused
+**Reviewer-specific message formats:**
 - Pass: `review pass | #[iss] | spec: ok | phpcs: ok | phpstan: ok | phpunit: ok`
 - Fail (spec): `review fail (spec) | #[iss] | [what specifically doesn't match]`
 - Fail (quality): `review fail (quality) | #[iss] | phpcs: [N errors] | [file:line]`
-- Available: `reviewer available | no pending tasks`
 
-## CRITICAL: Use DDEV for All Testing
+## DDEV
 
-**Never run `composer phpcs` or `./vendor/bin/phpunit` directly on the host.**
-Use DDEV containers which provide PHP 8.5, database, Chrome webdriver, and test env vars.
-
-See `/ddev-drupal-dev` skill for full reference.
-
-### Quick Start
-```bash
-cd ./worktrees/{issue}
-ddev start
-
-# PHPCS on specific files
-ddev exec composer phpcs -- path/to/file.php
-
-# PHPUnit for a module
-ddev phpunit core/modules/settings_tray/tests
-
-# PHPUnit by group
-ddev phpunit --group settings_tray
-
-# PHPStan on specific files
-ddev exec vendor/bin/phpstan analyze --configuration=./core/phpstan.neon.dist path/to/file.php
-
-# All linters (phpcs + phpstan + css + js + cspell)
-ddev drupal lint
-```
-
-### Setting Up DDEV in a Worktree
-**Every worktree MUST have its own `config.local.yaml` with a unique `name` matching the issue number.** If a worktree lacks `.ddev/`, copy it from main:
-```bash
-cp -r ./worktrees/main/.ddev ./worktrees/{issue}/
-cat > ./worktrees/{issue}/.ddev/config.local.yaml << EOF
-name: drupal-{issue}
-EOF
-```
-
-## Quality Gates
-- Zero PHPCS errors
-- Zero PHPStan errors
-- All tests pass
-- New code has tests
-- Follows Drupal patterns
+**Never run PHP tools on the host.** Use DDEV. See `drupal-lab:ddev-drupal-dev` for commands and worktree setup.
 
 ## Error Recovery
 
@@ -238,52 +162,4 @@ Skip this entirely when file paths are already provided in the spawn prompt or c
 
 ## Shutdown Protocol
 
-When you receive a `shutdown_request`, complete your retrospective interview **before** approving. Do not skip this — it is the only window to capture session learning.
-
-### Step 1 — Write your interview file
-
-```bash
-# Discover the sprint folder created by team-lead at sprint start
-SPRINT_DIR=$(ls -dt analysis-reports/retro-session/*/ 2>/dev/null | head -1)
-mkdir -p "${SPRINT_DIR}interviews"
-```
-
-Write answers to `${SPRINT_DIR}interviews/reviewer.md`:
-
-**C1. Biggest Success (KEEP)**
-What was the single most effective practice, tool, or interaction this session?
-Format: One sentence what worked. One sentence why.
-
-**C2. Technical Insight (LEARN)**
-What non-obvious technical knowledge did you discover that would help a future agent?
-Format: Describe the insight and which files/modules/APIs it applies to.
-
-**C3. One Process Change (IMPROVE)**
-- **Change:** [specific, implementable action]
-- **Category:** TOOLING / COMMUNICATION / TESTING / WORKFLOW / INFRASTRUCTURE
-- **Expected impact:** [what improves and by how much]
-
-**V1. Failure Root Cause Classification**
-For each issue that failed review (partially or fully):
-- **Issue:** [number]
-- **Root cause:** CODE_REGRESSION / TEST_DESIGN / INFRASTRUCTURE / HANDOFF_GAP / STANDARDS_ONLY
-- **One-line explanation:** [what specifically failed and why]
-
-**V2. Developer Blind Spots and Handoff Quality**
-What did you catch that the developer couldn't have seen? Rate overall handoff quality.
-- **Blind spots found:** [environmental, integration, or cross-module issues]
-- **Handoff quality:** CLEAN / MINOR_GAPS / SIGNIFICANT_REWORK / BLOCKED
-- **If not CLEAN:** [what was missing]
-
-**V3. Infrastructure and Resource Friction**
-What DDEV, environment, or tooling friction did you encounter?
-- **Friction encountered:** [specific issue]
-- **Time impact:** [minutes lost or workaround needed]
-- **Suggestion:** [what would prevent this next time]
-
-### Step 2 — Approve shutdown
-
-After the file is written:
-```
-SendMessage(type: "shutdown_response", request_id: "<id from request>", approve: true)
-```
+On `shutdown_request`: follow `retro:interviews` to write your interview file, then approve shutdown.
