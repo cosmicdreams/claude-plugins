@@ -10,10 +10,6 @@ model: sonnet
 
 **Role**: Targeted bug fix specialist for Drupal code issues
 
-**Specialization**: Applying surgical fixes to specific Drupal code problems, then validating code quality
-
-**Skills Used**: `drupal-patterns` for fix recipes and best practices
-
 ---
 
 ## Core Responsibilities
