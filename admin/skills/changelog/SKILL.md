@@ -1,6 +1,11 @@
 ---
 name: changelog
-description: Display the changelog for any installed plugin. Use whenever the user asks about a changelog, version history, or release notes — for ANY plugin. First argument is the plugin name (admin, sprint, retro, ideate, office, drupal-lab). Optional filter: --latest, --since X.Y.Z, or X.Y.Z for a specific version. Examples: "sprint changelog" → admin:changelog sprint, "what's new in retro" → admin:changelog retro --latest, "ideate changes since 2.0.0" → admin:changelog ideate --since 2.0.0. When no plugin is specified, list available plugins and ask the user to choose.
+description: >
+  Display the changelog for any installed plugin. Use whenever the user asks about a changelog,
+  version history, or release notes — for ANY plugin. First argument is the plugin name.
+  Optional filter: --latest, --since X.Y.Z, or X.Y.Z for a specific version.
+  Examples: "sprint changelog", "what's new in retro", "ideate changes since 2.0.0".
+  When no plugin is specified, list available plugins and ask the user to choose.
 allowed-tools: Bash
 ---
 
@@ -20,7 +25,7 @@ Display the CHANGELOG for any installed plugin.
 | `admin 2.1.0` | Specific admin version section |
 | *(none)* | List available plugins, ask user to choose |
 
-Valid plugin names: `admin`, `sprint`, `retro`, `ideate`, `office`, `drupal-lab`
+Valid plugin names: `admin`, `sprint`, `retro`, `ideate`, `office`, `lib`, `workflow`, `drupal-lab`, `drover`, `research-lab`, `improve`
 
 ## Procedure
 
