@@ -27,10 +27,38 @@ PHP performance profiling inside DDEV. Assumes DDEV is running. For DDEV lifecyc
 
 ## --xhprof
 
+### Prerequisites
+
+> **Never use `ddev config` to change individual settings** — it rewrites and reorganizes the entire `config.yaml`, which can cascade into DB type mismatches and project name collisions. Use `config.local.yaml` for all local overrides instead.
+
+**Step 0 — Verify xhprof mode before measuring.**
+
+DDEV v1.23+ defaults xhprof to `xhgui` mode, which sends data to a collector pipeline rather than writing raw `.xhprof` files. This skill requires `prepend` mode (raw files). Check which mode is active:
+
+```bash
+ddev exec php -r "echo ini_get('auto_prepend_file');" 2>/dev/null
+```
+
+- If output contains `xhprof_prepend.php` → you are in `prepend` mode. Proceed.
+- If output is empty or contains `xhgui` → set prepend mode via `config.local.yaml`:
+
+```yaml
+# .ddev/config.local.yaml
+xhprof_mode: prepend
+```
+
+Then restart: `ddev restart` (not `ddev start` — containers are already running).
+
+If DDEV is not running yet, use `ddev xhprof on` which enables xhprof (in whatever mode is configured). Then verify mode with the check above before proceeding.
+
+> **Note:** If DDEV containers are already running, `ddev xhprof on` will attempt a restart internally. If it fails with a container conflict error, run `ddev poweroff` first, then `ddev xhprof on`.
+
 ### Setup
 
 ```bash
 ddev xhprof on
+# Verify mode (must say prepend):
+ddev exec php -r "echo ini_get('auto_prepend_file');"
 ```
 
 ### Measure `<path>` (default: `/`)

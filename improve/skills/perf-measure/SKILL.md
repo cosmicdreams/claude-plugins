@@ -27,16 +27,19 @@ Measure web frontend performance and CLI benchmark targets. Outputs a JSON score
 
 ## Setup
 
-Run once per environment:
+Check first:
+```bash
+lighthouse --version 2>/dev/null || echo "not installed — run: npm install -g lighthouse"
+hyperfine --version 2>/dev/null || echo "not installed"
+```
 
+Install if missing:
 ```bash
 # Lighthouse
 npm install -g lighthouse
-lighthouse --version  # verify
 
 # hyperfine (macOS)
 brew install hyperfine
-hyperfine --version  # verify
 
 # hyperfine (Linux)
 cargo install hyperfine
@@ -51,7 +54,7 @@ For detailed setup checks, invocation flags, and error handling see `lib:lightho
 
 ```bash
 lighthouse <url> --only-categories=performance --output=json \
-  --chrome-flags="--ignore-certificate-errors" 2>/dev/null | \
+  --chrome-flags="--ignore-certificate-errors --headless --no-sandbox" 2>/dev/null | \
   jq '{scores: {
     lighthouse_performance: (.categories.performance.score * 100 | round),
     lighthouse_lcp_ms: (.audits["largest-contentful-paint"].numericValue | round),
