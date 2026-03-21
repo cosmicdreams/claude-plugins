@@ -33,30 +33,24 @@ Always pass `--chrome-flags="--ignore-certificate-errors"`. Do not omit this for
 
 ## Run — performance
 
-```bash
-lighthouse <url> \
-  --only-categories=performance \
-  --output=json \
-  --chrome-flags="--ignore-certificate-errors" \
-  2>/dev/null
-```
+> **Always write to a file first.** Lighthouse JSON output is large (200–500 KB). Piping directly to `jq` produces `parse error: Unfinished string at EOF` on large reports. Use `--output-path` then read the file.
 
-Extract scores with jq:
 ```bash
 lighthouse <url> \
   --only-categories=performance \
   --output=json \
-  --chrome-flags="--ignore-certificate-errors" \
-  2>/dev/null | \
-  jq '{
-    lighthouse_performance: (.categories.performance.score * 100 | round),
-    lighthouse_lcp_ms: (.audits["largest-contentful-paint"].numericValue | round),
-    lighthouse_tbt_ms: (.audits["total-blocking-time"].numericValue | round),
-    lighthouse_fcp_ms: (.audits["first-contentful-paint"].numericValue | round),
-    lighthouse_cls: .audits["cumulative-layout-shift"].numericValue,
-    target: .requestedUrl,
-    ts: now | todate
-  }'
+  --output-path=/tmp/lighthouse-output.json \
+  --chrome-flags="--headless --no-sandbox --ignore-certificate-errors" \
+  2>/dev/null
+jq '{
+  lighthouse_performance: (.categories.performance.score * 100 | round),
+  lighthouse_lcp_ms: (.audits["largest-contentful-paint"].numericValue | round),
+  lighthouse_tbt_ms: (.audits["total-blocking-time"].numericValue | round),
+  lighthouse_fcp_ms: (.audits["first-contentful-paint"].numericValue | round),
+  lighthouse_cls: .audits["cumulative-layout-shift"].numericValue,
+  target: .requestedUrl,
+  ts: now | todate
+}' /tmp/lighthouse-output.json
 ```
 
 ## Run — accessibility
@@ -65,13 +59,14 @@ lighthouse <url> \
 lighthouse <url> \
   --only-categories=accessibility \
   --output=json \
-  --chrome-flags="--ignore-certificate-errors" \
-  2>/dev/null | \
-  jq '{
-    lighthouse_accessibility: (.categories.accessibility.score * 100 | round),
-    target: .requestedUrl,
-    ts: now | todate
-  }'
+  --output-path=/tmp/lighthouse-output.json \
+  --chrome-flags="--headless --no-sandbox --ignore-certificate-errors" \
+  2>/dev/null
+jq '{
+  lighthouse_accessibility: (.categories.accessibility.score * 100 | round),
+  target: .requestedUrl,
+  ts: now | todate
+}' /tmp/lighthouse-output.json
 ```
 
 ## Noise — run 3 times, take median
@@ -81,8 +76,9 @@ Lighthouse scores vary run-to-run (±5 points typical for performance). For ratc
 ```bash
 for i in 1 2 3; do
   lighthouse <url> --only-categories=performance --output=json \
-    --chrome-flags="--ignore-certificate-errors" 2>/dev/null | \
-    jq '.categories.performance.score * 100 | round'
+    --output-path=/tmp/lighthouse-output.json \
+    --chrome-flags="--headless --no-sandbox --ignore-certificate-errors" 2>/dev/null
+  jq '.categories.performance.score * 100 | round' /tmp/lighthouse-output.json
 done
 # Sort the three values, take the middle one
 ```

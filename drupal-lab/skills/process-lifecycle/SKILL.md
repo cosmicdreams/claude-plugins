@@ -85,6 +85,20 @@ cd "$WORKTREE"
 ddev composer install
 ```
 
+### 1.6 Post-Start Setup (Project-Specific)
+
+Before doing any work in a fresh worktree, check for a project-specific setup file:
+
+```bash
+test -f "$WORKTREE/.claude/ddev-setup.md" && cat "$WORKTREE/.claude/ddev-setup.md"
+```
+
+If the file exists, follow it. It contains the authoritative post-start steps for that project — typically: which environment to pull the database from, which `drush` commands to run after import, and any settings overrides required.
+
+**If the file does not exist and you need a database**, ask the user: *"What are the post-start steps for this project (db pull source, drush commands)?"* Do not guess or proceed without a database when one is required.
+
+> **Why this matters:** A fresh DDEV worktree has no database. Skipping this step causes hard-to-diagnose errors (500s, missing config, install-profile prompts) that waste significant time. The `.claude/ddev-setup.md` file eliminates this failure mode.
+
 ## Phase 2: READY CHECK (Gate Before Work)
 
 Verify environment is fully operational before starting work. Run all checks; any failure means the environment is not ready.

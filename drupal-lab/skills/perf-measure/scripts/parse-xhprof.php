@@ -21,6 +21,8 @@ if (!file_exists($file)) {
 }
 
 // Load xhprof libraries from DDEV's built-in xhprof extension.
+// Library path: /var/xhprof/xhprof_lib/ (static — installed by DDEV)
+// Data files path: /tmp/xhprof/ (written at runtime by the prepend script)
 $xhprof_lib = '/var/xhprof/xhprof_lib/utils/xhprof_lib.php';
 $xhprof_runs = '/var/xhprof/xhprof_lib/utils/xhprof_runs.php';
 
@@ -54,8 +56,8 @@ foreach ($top10 as $fn => $metrics) {
     $callgraph[] = [
         'fn'     => $fn,
         'wt_ms'  => round($metrics['wt'] / 1000),
-        'ct'     => $metrics['ct'],
-        'cpu_ms' => round(($metrics['cpu'] ?? 0) / 1000),
+        'ct'     => $metrics['ct'] ?? 0,
+        'cpu_ms' => round(($metrics['cpu'] ?? 0) / 1000),  // 0 if XHPROF_FLAGS_CPU not set
         'mu_kb'  => round(($metrics['mu'] ?? 0) / 1024),
         'pmu_kb' => round(($metrics['pmu'] ?? 0) / 1024),
     ];
@@ -68,12 +70,12 @@ $top_entry = $callgraph[0] ?? ['fn' => 'unknown', 'wt_ms' => 0, 'ct' => 0];
 $output = [
     'scores' => [
         'wall_time_ms'          => round(($main['wt'] ?? 0) / 1000),
-        'cpu_time_ms'           => round(($main['cpu'] ?? 0) / 1000),
+        'cpu_time_ms'           => round(($main['cpu'] ?? 0) / 1000),  // 0 if XHPROF_FLAGS_CPU not set
         'memory_peak_mb'        => round(($main['pmu'] ?? 0) / 1024 / 1024, 2),
         'function_calls_total'  => array_sum(array_column(array_values($flat), 'ct')),
         'top_function'          => $top_entry['fn'],
         'top_function_wall_ms'  => $top_entry['wt_ms'],
-        'top_function_calls'    => $top_entry['ct'],
+        'top_function_calls'    => $top_entry['ct'] ?? 0,
     ],
     'callgraph_top_10' => $callgraph,
     'ts' => gmdate('Y-m-d\TH:i:s\Z'),

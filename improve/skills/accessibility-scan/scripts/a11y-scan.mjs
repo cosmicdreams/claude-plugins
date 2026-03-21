@@ -69,7 +69,17 @@ async function discoverUrls(baseUrl, urlListFile, maxPages) {
 
   const sitemapUrls = await tryParseSitemap(baseUrl);
   if (sitemapUrls.length > 0) {
-    return sitemapUrls.slice(0, maxPages);
+    // Deduplicate sitemap entries by normalized URL
+    const seen = new Set();
+    const deduped = [];
+    for (const url of sitemapUrls) {
+      const norm = normalizeUrl(url);
+      if (!seen.has(norm)) {
+        seen.add(norm);
+        deduped.push(norm);
+      }
+    }
+    return deduped.slice(0, maxPages);
   }
 
   return await crawlHomepage(baseUrl, maxPages);
@@ -90,26 +100,49 @@ async function tryParseSitemap(baseUrl) {
   }
 }
 
+// Normalize URL for deduplication: strip fragment and trailing slash (except root).
+function normalizeUrl(url) {
+  try {
+    const u = new URL(url);
+    u.hash = '';
+    if (u.pathname !== '/' && u.pathname.endsWith('/')) {
+      u.pathname = u.pathname.replace(/\/$/, '');
+    }
+    return u.toString();
+  } catch {
+    return url;
+  }
+}
+
 async function crawlHomepage(baseUrl, maxPages) {
   try {
     const { body } = await fetchUrl(baseUrl);
     const origin = new URL(baseUrl).origin;
     const hrefMatches = body.matchAll(/href="([^"]+)"/g);
     const seen = new Set();
-    const urls = [baseUrl];
-    seen.add(baseUrl);
+    const normalized = normalizeUrl(baseUrl);
+    const urls = [normalized];
+    seen.add(normalized);
 
     for (const m of hrefMatches) {
       if (urls.length >= maxPages) break;
       let href = m[1];
+      // Strip fragments before any processing — prevents SVG sprite anchors (#icon-x)
+      // and hash-only links from being treated as separate pages.
+      if (href.includes('#')) {
+        href = href.split('#')[0];
+      }
+      if (!href) continue;
       if (href.startsWith('/') && !href.startsWith('//')) {
         href = origin + href;
       }
       if (!href.startsWith(origin)) continue;
-      if (seen.has(href)) continue;
-      if (/\.(css|js|png|jpg|jpeg|gif|svg|ico|pdf|xml|json|woff|ttf)(\?|$)/i.test(href)) continue;
-      seen.add(href);
-      urls.push(href);
+      // Skip static asset extensions (including .svg files and sprite sheets)
+      if (/\.(css|js|png|jpg|jpeg|gif|svg|ico|pdf|xml|json|woff|woff2|ttf|eot)(\?|$)/i.test(href)) continue;
+      const norm = normalizeUrl(href);
+      if (seen.has(norm)) continue;
+      seen.add(norm);
+      urls.push(norm);
     }
     return urls;
   } catch {

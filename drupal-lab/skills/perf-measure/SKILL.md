@@ -69,19 +69,21 @@ ddev xhprof on
 ddev exec touch /tmp/.xhprof-mark
 ```
 
-2. Trigger the request (internal URL avoids TLS):
+2. Trigger the request via the external DDEV URL (not `http://web/` — that routes to an internal PHP_CodeSniffer bootstrap, not a Drupal page):
 ```bash
-ddev exec curl -s -o /dev/null "http://web/<path>"
+curl -sk -o /dev/null "https://<ddev-site-name>.ddev.site/<path>"
 ```
+
+The site name is the `name:` field in `.ddev/config.local.yaml`. For example: `https://pncb-perf.ddev.site/`.
 
 3. Find the xhprof file created after the marker:
 ```bash
-ddev exec find /var/xhprof -name "*.xhprof" -newer /tmp/.xhprof-mark -type f | head -1
+ddev exec find /tmp/xhprof -name "*.xhprof" -newer /tmp/.xhprof-mark -type f | head -1
 ```
 
 If `/tmp/.xhprof-mark` doesn't exist (first run or container restart), fall back to the most recently modified xhprof file:
 ```bash
-ddev exec find /var/xhprof -name "*.xhprof" -type f | sort -t_ -k2 -n | tail -1
+ddev exec find /tmp/xhprof -name "*.xhprof" -type f | sort -t_ -k2 -n | tail -1
 ```
 
 4. Parse via helper script (copy to project first):

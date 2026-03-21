@@ -54,17 +54,20 @@ For detailed setup checks, invocation flags, and error handling see `lib:lightho
 
 ```bash
 lighthouse <url> --only-categories=performance --output=json \
-  --chrome-flags="--ignore-certificate-errors --headless --no-sandbox" 2>/dev/null | \
-  jq '{scores: {
-    lighthouse_performance: (.categories.performance.score * 100 | round),
-    lighthouse_lcp_ms: (.audits["largest-contentful-paint"].numericValue | round),
-    lighthouse_tbt_ms: (.audits["total-blocking-time"].numericValue | round),
-    lighthouse_fcp_ms: (.audits["first-contentful-paint"].numericValue | round),
-    lighthouse_cls: .audits["cumulative-layout-shift"].numericValue
-  }, ts: now | todate, target: .requestedUrl}'
+  --output-path=/tmp/lighthouse-output.json \
+  --chrome-flags="--headless --no-sandbox --ignore-certificate-errors" 2>/dev/null
+jq '{scores: {
+  lighthouse_performance: (.categories.performance.score * 100 | round),
+  lighthouse_lcp_ms: (.audits["largest-contentful-paint"].numericValue | round),
+  lighthouse_tbt_ms: (.audits["total-blocking-time"].numericValue | round),
+  lighthouse_fcp_ms: (.audits["first-contentful-paint"].numericValue | round),
+  lighthouse_cls: .audits["cumulative-layout-shift"].numericValue
+}, ts: now | todate, target: .requestedUrl}' /tmp/lighthouse-output.json
 ```
 
-The jq paths above (`audits["largest-contentful-paint"]`, etc.) are stable Lighthouse audit IDs. If scores come back `null`, check that the audit IDs haven't changed by inspecting the raw JSON: `lighthouse <url> --output=json 2>/dev/null | jq '.audits | keys'`. See `lib:lighthouse` for the canonical extraction patterns and error handling.
+> **Do not pipe Lighthouse output directly to jq.** Large reports (200–500 KB) cause `parse error: Unfinished string at EOF`. Always use `--output-path` then read the file.
+
+The jq paths above (`audits["largest-contentful-paint"]`, etc.) are stable Lighthouse audit IDs. If scores come back `null`, check that the audit IDs haven't changed by inspecting the raw JSON: `lighthouse <url> --output=json --output-path=/tmp/lighthouse-output.json 2>/dev/null && jq '.audits | keys' /tmp/lighthouse-output.json`. See `lib:lighthouse` for the canonical extraction patterns and error handling.
 
 Run 3 times and take the median score for `lighthouse_performance` to reduce noise.
 
