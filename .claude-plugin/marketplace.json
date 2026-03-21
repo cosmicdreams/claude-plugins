@@ -38,12 +38,6 @@
       "category": "development"
     },
     {
-      "name": "office",
-      "description": "Office plugin bootstrapper: installs lib and workflow dependencies",
-      "source": "./office",
-      "category": "productivity"
-    },
-    {
       "name": "lib",
       "description": "CLI wrapper skills: Slack, Jira, GitHub, TestRail, vault operations, log analysis, and file utilities",
       "source": "./lib",
