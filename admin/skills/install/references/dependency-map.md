@@ -216,6 +216,39 @@ No external tool installs needed beyond git and Python.
 
 ---
 
+## improve:accessibility-scan
+
+| Dependency | macOS | Linux sandbox |
+|---|---|---|
+| Node.js | Pre-installed or `brew install node` | Pre-installed |
+| npm packages (Pa11y, axe-core, Lighthouse) | Auto-installed via `npm install` in scripts dir on first run | Same |
+
+Note: self-installs on first run — no upfront install needed.
+
+---
+
+## improve:perf-measure
+
+| Dependency | macOS | Linux sandbox |
+|---|---|---|
+| lighthouse CLI | `npm install -g lighthouse` | `npm install -g lighthouse` |
+| hyperfine | `brew install hyperfine` | `cargo install hyperfine` (or apt if available) |
+| Node.js | Pre-installed | Pre-installed |
+
+---
+
+## drupal-lab:perf-measure
+
+| Dependency | macOS | Linux |
+|---|---|---|
+| ddev | Pre-installed (drupal-lab prerequisite) | N/A |
+| xhprof | Built into DDEV — `ddev xhprof on` | N/A |
+| tbkot/ddev-newrelic | `ddev add-on get tbkot/ddev-newrelic` (project-level) | N/A |
+| NEWRELIC_LICENSE_KEY | Env var in `.ddev/config.local.yaml` | N/A |
+| NEWRELIC_APPNAME | Env var in `.ddev/config.local.yaml` | N/A |
+
+---
+
 ## research-lab:run
 
 | Dependency | macOS | Linux sandbox | Auth |
@@ -236,7 +269,7 @@ This is a macOS-host workflow. In a sandbox, only the non-Drupal phases can run.
 
 ### npm global packages (both environments)
 ```bash
-npm i -g agent-slack @googleworkspace/cli
+npm i -g agent-slack @googleworkspace/cli lighthouse
 ```
 
 ### pip packages
@@ -252,7 +285,7 @@ pip install pandas matplotlib seaborn --break-system-packages
 ```bash
 brew install gh imagemagick pngquant webp libavif libjpeg \
   ankitpokhrel/jira-cli/jira-cli 1password-cli ddev/ddev/ddev \
-  acquia/tools/acli
+  acquia/tools/acli hyperfine
 ```
 
 ### apt (Linux sandbox only)

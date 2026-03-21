@@ -2,8 +2,8 @@
 name: admin:install
 description: >
   Bootstrap office skill dependencies for the current environment. Detects whether
-  running on macOS (Homebrew) or a Linux sandbox (apt/pip/npm), scans the office and
-  research-lab SKILL.md files for prerequisites, maps each dependency to the correct
+  running on macOS (Homebrew) or a Linux sandbox (apt/pip/npm), scans all installed
+  plugin SKILL.md files for prerequisites, maps each dependency to the correct
   install command, and installs what it can automatically. Use this skill whenever
   Claude is in a fresh environment, when a skill fails because a CLI or package is
   missing, when the user says "install", "setup", "bootstrap", or "get my tools

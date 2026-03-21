@@ -1,5 +1,5 @@
 ---
-name: ddev-drupal-dev
+name: ddev
 description: Run Drupal development tools (phpcs, phpstan, phpunit, drush, composer) inside DDEV containers. Use when you need to run PHP commands, coding standards checks, static analysis, tests, or drush against a Drupal worktree. Host-side PHP commands will fail -- DDEV provides PHP 8.5, database, Chrome webdriver, and test env vars. Do NOT use for DDEV lifecycle management (start/stop/setup) -- use drupal-lab:process-lifecycle instead.
 ---
 
@@ -236,3 +236,8 @@ ddev logs | tail -50
 | Site URL | https://drupal-test.ddev.site |
 | Perf mode | Mutagen |
 | Node.js | 24 |
+
+## Profiling
+
+For PHP performance profiling (xhprof, slow query log), see `drupal-lab:perf-measure`.
+For frontend performance (Lighthouse, Core Web Vitals), see `improve:perf-measure`.

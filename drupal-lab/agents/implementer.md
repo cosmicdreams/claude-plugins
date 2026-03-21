@@ -74,7 +74,7 @@ Follow `sprint/protocols/team-comms-protocol.md` for message formats.
 
 ## DDEV
 
-**Never run PHP tools on the host.** Use DDEV. See `drupal-lab:ddev-drupal-dev` for commands and worktree setup.
+**Never run PHP tools on the host.** Use DDEV. See `drupal-lab:ddev` for commands and worktree setup.
 
 ## Before Submitting for QA (REQUIRED)
 

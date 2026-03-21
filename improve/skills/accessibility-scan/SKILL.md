@@ -20,7 +20,7 @@ Optional arguments (pass to the script):
 The scan script requires Node.js packages. Install on first run:
 
 ```bash
-SKILL_DIR="$(ls -d ~/.claude/plugins/cache/local/admin/*/skills/accessibility-scan/scripts | tail -1)"
+SKILL_DIR="$(ls -d ~/.claude/plugins/cache/local/improve/*/skills/accessibility-scan/scripts | tail -1)"
 cd "$SKILL_DIR" && npm install 2>&1 | tail -5
 ```
 
@@ -29,7 +29,7 @@ If `npm install` fails (puppeteer/chromium issues), check that Chrome or Chromiu
 ## Step 2: Run the Scan
 
 ```bash
-SKILL_DIR="$(ls -d ~/.claude/plugins/cache/local/admin/*/skills/accessibility-scan/scripts | tail -1)"
+SKILL_DIR="$(ls -d ~/.claude/plugins/cache/local/improve/*/skills/accessibility-scan/scripts | tail -1)"
 node "$SKILL_DIR/a11y-scan.mjs" <BASE_URL> [--max-pages 20] 2>/tmp/a11y-progress.log
 ```
 

@@ -61,7 +61,7 @@ Skills: `personal-email`, `personal-calendar`, `jira`, `github`, `slack`, `pulse
 ### `drupal-lab`
 Drupal development: DDEV environment, issue analysis, patch validation, and scaffolding.
 
-Skills: `analyze-issue`, `issue-summary`, `ddev-drupal-dev`, `process-lifecycle`, `module-dev-starter`, `browse-drupal-issues`, `validate-patch`, `finish-issue`
+Skills: `analyze-issue`, `issue-summary`, `ddev`, `process-lifecycle`, `module-dev-starter`, `browse-drupal-issues`, `validate-patch`, `finish-issue`
 
 ## Changelog
 

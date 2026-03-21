@@ -109,3 +109,17 @@ Store in the relevant domain's improvement knowledge, or in `improve:lint` as a 
 - Always have a revert plan before starting
 - If an experiment causes a failure, revert first, analyze second
 - One variable at a time — don't change the model AND the prompt AND the tools simultaneously
+
+## Available Measurement Harnesses
+
+| Target | Skill | Key scores |
+|---|---|---|
+| Web frontend performance | `improve:perf-measure --frontend` | `lighthouse_performance`, LCP, TBT, CLS |
+| CLI command benchmarking | `improve:perf-measure --cli` | `hyperfine_mean_ms`, stddev, min, max |
+| Accessibility | `improve:accessibility-scan` | `lighthouse`, `axe_critical`, `pa11y_errors` |
+| PHP/Drupal page performance | `drupal-lab:perf-measure --xhprof` | `wall_time_ms`, `memory_peak_mb` |
+| DB query profiling | `drupal-lab:perf-measure --db` | `db_queries`, `db_time_ms`, slow query list |
+
+All harnesses output a `scores` object. Save baseline to `/tmp/*-baseline.json`, run after
+change, compare `scores` directly. `callgraph_top_10` (xhprof) is for hypothesis generation,
+not ratchet comparison.

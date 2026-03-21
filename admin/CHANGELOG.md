@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.5.0
+- Move `accessibility-scan` to `improve` plugin — measurement skills belong with improvement primitives
+- Update `install` skill: add perf-measure deps for improve and drupal-lab; broaden description to cover all installed plugins
+
 ## 2.4.3
 - `update-plugins` SKILL.md: document single-plugin reinstall syntax (`uninstall` + `install <name>@local`); no `reinstall` command exists, no `--local` flag, no path-based install
 

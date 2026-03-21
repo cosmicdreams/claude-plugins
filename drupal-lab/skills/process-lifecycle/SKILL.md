@@ -1,6 +1,6 @@
 ---
 name: process-lifecycle
-description: Manage the DDEV lifecycle for Drupal worktrees -- start, ready-check, completion, and shutdown. Use when setting up DDEV in a worktree, checking environment readiness, deciding whether to stop DDEV, or cleaning up after work -- e.g. "start DDEV for this worktree", "is my environment ready", "shut down DDEV", "clean up the worktree". Do NOT use for running dev tools inside DDEV -- use drupal-lab:ddev-drupal-dev instead.
+description: Manage the DDEV lifecycle for Drupal worktrees -- start, ready-check, completion, and shutdown. Use when setting up DDEV in a worktree, checking environment readiness, deciding whether to stop DDEV, or cleaning up after work -- e.g. "start DDEV for this worktree", "is my environment ready", "shut down DDEV", "clean up the worktree". Do NOT use for running dev tools inside DDEV -- use drupal-lab:ddev instead.
 ---
 
 # Process Lifecycle
@@ -342,6 +342,6 @@ ddev list --json-output 2>/dev/null | jq -r '.raw[] | select(.status == "running
 ## Cross-References
 
 - `/create-worktree` -- Creates the git worktree (prerequisite for INIT)
-- `/ddev-drupal-dev` -- Full DDEV command reference for development tools
+- `/ddev` -- Full DDEV command reference for development tools
 - `/validate-patch` -- Quality gate procedures (referenced by COMPLETION phase)
 - `/sprint-run` -- Sprint coordination, DDEV slot management, board

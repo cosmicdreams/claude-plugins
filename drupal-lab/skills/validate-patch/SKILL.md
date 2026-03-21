@@ -7,7 +7,7 @@ description: Validate a Drupal patch or merge request against all quality gates.
 
 Run all quality gates on a Drupal implementation in a worktree using DDEV.
 
-**Important**: All phpcs/phpstan/phpunit commands must run inside DDEV containers. See `/ddev-drupal-dev` skill for full DDEV reference.
+**Important**: All phpcs/phpstan/phpunit commands must run inside DDEV containers. See `/ddev` skill for full DDEV reference.
 
 ## Input
 

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.0
+- Add `perf-measure` skill — Lighthouse + hyperfine + a11y delegation; JSON score tuple for experiment ratchet
+- Add `accessibility-scan` (moved from `admin`) — measurement skills consolidated into improve
+- Add `optimizer` agent — autonomous hypothesis-driven optimization loop for any measurable target
+
 ## 1.2.0
 - Process-engineer: add Path 2 observation (proactive transcript sampling for silent degradation)
 - New lint rule lint-007: self-reporting-silence (watch) — flags agents completing 3+ tasks with zero friction reports

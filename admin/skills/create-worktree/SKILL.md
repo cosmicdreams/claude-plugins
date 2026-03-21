@@ -110,7 +110,7 @@ If the baseline is not green before you start, stop and investigate. Do not begi
 
 See `/process-lifecycle` skill (Phase 1: INIT) for the full DDEV setup, startup, and ready check procedures. That skill is the single source of truth for DDEV instance management.
 
-See `/ddev-drupal-dev` skill for the full DDEV command reference.
+See `/ddev` skill for the full DDEV command reference.
 
 When done with the worktree, follow `/process-lifecycle` Phase 4: SHUTDOWN to release resources.
 

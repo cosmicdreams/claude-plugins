@@ -1,5 +1,9 @@
 # Changelog
 
+## 2.5.0
+- Add `perf-measure` skill — xhprof, New Relic setup, slow query log; callgraph_top_10 for autoresearch hypothesis generation
+- Rename `ddev-drupal-dev` → `ddev`; cross-references to both perf-measure skills
+
 ## 2.4.0
 - Retire `advisor` agent — overlapped architect, fixer, and issue-planner with no unique workflow
 - Dedup 5 agents (reviewer, implementer, issue-analyzer, fixer, architect): replace inline Team Coordination, DDEV, Shutdown Protocol with pointers to canonical sources (-280 lines)
