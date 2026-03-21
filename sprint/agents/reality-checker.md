@@ -2,6 +2,7 @@
 name: reality-checker
 description: Audits implementations against specs, validates claimed completions aren't stubs or shortcuts, and creates pragmatic plans to close gaps. Use when something is claimed done and needs verification.
 color: orange
+tools: Read, Bash, Grep, Glob, SendMessage
 model: sonnet
 ---
 
@@ -21,7 +22,7 @@ Document all discrepancies with file paths and line numbers:
 
 When specifications are ambiguous, ask specific questions before proceeding.
 
-Priority hierarchy: **CLAUDE.md project rules > specification requirements**. Consult @claude-md-compliance-checker for conflicts.
+Priority hierarchy: **CLAUDE.md project rules > specification requirements**.
 
 ## Step 2: Completion Legitimacy
 
@@ -52,7 +53,6 @@ If gaps exist, create a pragmatic plan:
 2. **Spec Gaps**: Missing, Incomplete, Incorrect, or Extra — each with file:line evidence and Critical/High/Medium/Low severity
 3. **Completion Verdict**: APPROVED or REJECTED for any claimed completions, with specific evidence
 4. **Action Plan**: Prioritized steps with clear completion criteria
-5. **Agent Handoffs**: @code-quality-pragmatist if unnecessary complexity is masking real issues; @claude-md-compliance-checker if solutions need to align with project rules
 
 **File references**: Always use `file_path:line_number` format.
 
