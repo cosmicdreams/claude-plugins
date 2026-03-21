@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.4.3
+- `update-plugins` SKILL.md: document single-plugin reinstall syntax (`uninstall` + `install <name>@local`); no `reinstall` command exists, no `--local` flag, no path-based install
+
 ## 2.4.2
 - `reinstall-plugin.sh`: add missing plugins (lib, workflow, drover, research-lab, improve) to PLUGINS array
 - `bump-version.sh`: same fix

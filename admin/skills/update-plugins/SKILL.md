@@ -39,3 +39,8 @@ Parse the script output and present to the user:
 
 - **Clean cache wipe with assertions**: use `reinstall-plugin.sh all` outside a Claude session instead.
 - **Scope**: updates apply at user scope (`--scope user`) — covers all projects on this machine.
+- **Single-plugin reinstall** (e.g. after a one-off merge): there is no `reinstall` command and no `--local` flag. Paths do not work. The only correct form is:
+  ```bash
+  env -u CLAUDECODE claude plugin uninstall <name>
+  env -u CLAUDECODE claude plugin install <name>@local --scope user
+  ```
