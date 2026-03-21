@@ -21,7 +21,7 @@ VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
 
 Before determining where any file goes, read `obsidian-rules.md`:
 ```bash
-cat ~/.claude/plugins/cache/local/office/*/references/obsidian-rules.md | tail -1 | xargs cat
+cat ~/.claude/plugins/cache/local/workflow/*/references/obsidian-rules.md | tail -1 | xargs cat
 ```
 Use the purpose taxonomy and path patterns there to decide each file's destination.
 Do not assume all files belong under `Projects/` — content type determines placement.

@@ -291,8 +291,8 @@ After producing output, archive to the Neurons vault for long-term memory.
 1. **Determine topic slug**: convert the comparison topic to kebab-case
    (e.g. "API authentication options" → `api-authentication-options`)
 
-2. **Determine vault path**: read `obsidian-rules.md` from the office plugin references
-   (`~/.claude/plugins/cache/local/office/*/references/obsidian-rules.md`) to confirm
+2. **Determine vault path**: read `obsidian-rules.md` from the workflow plugin references
+   (`~/.claude/plugins/cache/local/workflow/*/references/obsidian-rules.md`) to confirm
    correct placement. Default: `Analysis/<topic>/<YYYY-MM-DD>-<comparison-name>.md`
 
 3. **Write to vault**:

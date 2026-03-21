@@ -229,10 +229,10 @@ what's not obvious from the target itself.]
 Archive the record to the Neurons vault for long-term reference.
 
 1. Convert the target name to kebab-case for the slug
-2. Read `obsidian-rules.md` from the office plugin references to confirm placement:
+2. Read `obsidian-rules.md` from the workflow plugin references to confirm placement:
    ```bash
-   OFFICE_VERSION=$(ls ~/.claude/plugins/cache/local/office/ 2>/dev/null | sort -V | tail -1)
-   cat ~/.claude/plugins/cache/local/office/$OFFICE_VERSION/references/obsidian-rules.md 2>/dev/null | head -50
+   WORKFLOW_VERSION=$(ls ~/.claude/plugins/cache/local/workflow/ 2>/dev/null | sort -V | tail -1)
+   cat ~/.claude/plugins/cache/local/workflow/$WORKFLOW_VERSION/references/obsidian-rules.md 2>/dev/null | head -50
    ```
 3. Default path: `Understanding/<YYYY-MM-DD>-<target-slug>.md`
 4. Write to vault:

@@ -24,7 +24,7 @@ Override: set `OBSIDIAN_VAULT_NAME` in env or `~/.config/office/config`. Only ne
 
 Read `obsidian-rules.md` to determine correct placement:
 ```bash
-ls ~/.claude/plugins/cache/local/office/*/references/obsidian-rules.md | sort -V | tail -1 | xargs cat
+ls ~/.claude/plugins/cache/local/workflow/*/references/obsidian-rules.md | sort -V | tail -1 | xargs cat
 ```
 
 Check existing vault folders before creating new ones — prefer matching an existing
