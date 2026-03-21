@@ -51,6 +51,11 @@ ddev exec curl -s -o /dev/null "http://web/<path>"
 ddev exec find /var/xhprof -name "*.xhprof" -newer /tmp/.xhprof-mark -type f | head -1
 ```
 
+If `/tmp/.xhprof-mark` doesn't exist (first run or container restart), fall back to the most recently modified xhprof file:
+```bash
+ddev exec find /var/xhprof -name "*.xhprof" -type f | sort -t_ -k2 -n | tail -1
+```
+
 4. Parse via helper script (copy to project first):
 ```bash
 ddev exec php /var/www/html/.claude/perf-measure/parse-xhprof.php <xhprof-file>
@@ -100,10 +105,13 @@ ddev exec curl -s -o /dev/null "http://web/<path>"
 ddev exec mysql -e "FLUSH SLOW LOGS;"
 ```
 
-2. Read the slow query log:
+2. Locate and read the slow query log (path varies by DDEV/MariaDB version — always check first):
 ```bash
-ddev exec cat /var/lib/mysql/slow.log
+ddev exec mysql -e "SHOW VARIABLES LIKE 'slow_query_log_file';"
+# Use the Value from the result:
+ddev exec cat <slow_query_log_file_path>
 ```
+Common path: `/var/lib/mysql/<hostname>-slow.log` or `/var/lib/mysql/slow.log` — confirm with the query above.
 
 3. Parse query text, run `EXPLAIN` for each unique query:
 ```bash

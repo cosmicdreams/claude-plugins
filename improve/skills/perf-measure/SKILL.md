@@ -43,6 +43,8 @@ cargo install hyperfine
 # or: apt install hyperfine (if available)
 ```
 
+For detailed setup checks, invocation flags, and error handling see `lib:lighthouse` and `lib:hyperfine`.
+
 ## Measure
 
 ### Frontend (default)
@@ -58,6 +60,8 @@ lighthouse <url> --only-categories=performance --output=json \
     lighthouse_cls: .audits["cumulative-layout-shift"].numericValue
   }, ts: now | todate, target: .requestedUrl}'
 ```
+
+The jq paths above (`audits["largest-contentful-paint"]`, etc.) are stable Lighthouse audit IDs. If scores come back `null`, check that the audit IDs haven't changed by inspecting the raw JSON: `lighthouse <url> --output=json 2>/dev/null | jq '.audits | keys'`. See `lib:lighthouse` for the canonical extraction patterns and error handling.
 
 Run 3 times and take the median score for `lighthouse_performance` to reduce noise.
 
@@ -75,7 +79,7 @@ jq '{scores: {
 }, ts: now | todate, target: .results[0].command}' /tmp/hyperfine-result.json
 ```
 
-hyperfine defaults to ≥10 runs for statistical stability.
+hyperfine defaults to ≥10 runs for statistical stability. For `--warmup`, `--min-runs`, comparison mode, and noise interpretation see `lib:hyperfine`.
 
 ### Accessibility delegation
 

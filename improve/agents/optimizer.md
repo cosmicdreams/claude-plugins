@@ -44,30 +44,35 @@ This is where the LLM does the work. The callgraph tells it *where*; source read
 ```
 ratchet = baseline scores[target_metric]
 consecutive_discards = 0
+total_experiments = 0
+total_discards = 0
 
 for each hypothesis in queue:
   implement the change (small, targeted — use Edit/Write)
+  commit: "perf(optimizer): <hypothesis description>"  # commit BEFORE measuring
+  total_experiments += 1
   run harness → new_scores
   if new_scores[target_metric] better than ratchet:
     ratchet = new_scores[target_metric]
     consecutive_discards = 0
-    commit: "perf(optimizer): <hypothesis description>"
     log: KEEP
   else:
-    revert change (git revert HEAD --no-edit or manual undo)
+    revert: git revert HEAD --no-edit
     consecutive_discards += 1
+    total_discards += 1
     log: DISCARD — <why it didn't work>
 
   if consecutive_discards >= futility: STOP → Phase 4
   if total_experiments >= budget: STOP → Phase 4
 
-  # Queue expansion: after every 3 discards, re-read source of remaining hot spots
-  # and add new hypotheses — learning from failure patterns
+  # Queue expansion: after every 3 total discards (not consecutive — total_discards % 3 == 0),
+  # re-read source of remaining hot spots and add new hypotheses — learning from failure patterns
 ```
 
 Rules:
 - One variable at a time (experiment ethics from `improve:experiment`)
-- Every implemented hypothesis gets its own commit before measuring
+- Every implemented hypothesis gets its own commit BEFORE measuring — this is what makes `git revert HEAD` safe
+- Before reverting, verify the hypothesis commit is HEAD: `git log --oneline -1`. If the last commit is not the hypothesis (e.g. implementation failed before committing), use `git diff` to identify and manually undo the partial change instead of `git revert`
 - Discards use `git revert HEAD --no-edit`
 - Does NOT modify files outside the codebase (no agent definitions, no skills)
 

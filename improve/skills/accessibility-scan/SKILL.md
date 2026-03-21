@@ -106,3 +106,6 @@ For local DDEV sites that may not have a sitemap, the homepage crawl fallback wo
 - **Puppeteer/Chrome errors**: Ensure Chrome or Chromium is installed. On macOS, Puppeteer downloads its own Chromium during `npm install`.
 - **Timeouts on local sites**: Confirm DDEV is running (`ddev status`). Increase page timeout if the site is slow.
 - **Self-signed cert errors**: The script accepts self-signed certificates by default (common with DDEV HTTPS).
+
+For single-page pa11y invocation, flag reference, and per-issue JSON structure see `lib:pa11y`.
+For single-page Lighthouse invocation and score extraction see `lib:lighthouse`.
