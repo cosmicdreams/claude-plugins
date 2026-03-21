@@ -34,7 +34,6 @@ Agents from plugins are referenced as `plugin:agent-name`:
 | drupal-lab | issue-analyzer | `drupal-lab:issue-analyzer` |
 | drupal-lab | architect | `drupal-lab:architect` |
 | drupal-lab | fixer | `drupal-lab:fixer` |
-| drupal-lab | advisor | `drupal-lab:advisor` |
 | drupal-lab | issue-planner | `drupal-lab:issue-planner` |
 | drupal-lab | test-coverage-analyst | `drupal-lab:test-coverage-analyst` |
 
