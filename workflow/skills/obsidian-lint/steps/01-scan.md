@@ -2,26 +2,21 @@
 
 Check for each violation type:
 
-**1. Legacy `shared/` prefix**
+**1. Files in vault root**
 ```bash
-find "$VAULT_ROOT/shared" -type f 2>/dev/null | sort
+find "$VAULT_ROOT" -maxdepth 1 -type f -name "*.md" \
+  ! -name "index.md" \
+  ! -name "wiki-schema.md" \
+  ! -name "AGENTS.md" \
+  | sort
 ```
-Any file under `shared/` is a violation.
-
-**2. Drupal content outside OpenSource/**
 ```bash
-find "$VAULT_ROOT/Drupal.org" -type f 2>/dev/null | sort
+find "$VAULT_ROOT" -maxdepth 1 -type f -name "*.base" | sort
 ```
-Should live under `OpenSource/Drupal.org/`.
+Any `.md` file in root that isn't `index.md`, `wiki-schema.md`, or `AGENTS.md` is a violation.
+Any `.base` file in root is allowed — not a violation.
 
-**3. Files in vault root**
-```bash
-find "$VAULT_ROOT" -maxdepth 1 -type f -name "*.md" ! -name "perfect.md" | sort
-```
-Treat as **confirm intent**, not automatic violations. Always ask before proposing to move.
-`perfect.md` is permanently exempt — never flag or move it.
-
-**4. Empty folders**
+**2. Empty folders**
 ```bash
 find "$VAULT_ROOT" -type d -empty | sort
 ```

@@ -5,7 +5,7 @@
 ```bash
 VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
 TODAY=$(date +%Y-%m-%d)
-NOTE_PATH="$VAULT_ROOT/Research/AI-Agent-Teams/${TODAY}-ai-ecosystem-update.md"
+NOTE_PATH="$VAULT_ROOT/Raw/${TODAY}-ecosystem-pulse.md"
 ```
 
 If today's note exists, extract:
@@ -20,6 +20,8 @@ cat > "$NOTE_PATH" << EOF
 ---
 title: "AI Ecosystem Update — $TODAY"
 date: $TODAY
+type: raw
+origin: ecosystem-pulse
 tags:
   - ai-agents
   - research

@@ -222,8 +222,8 @@ vault if one is present.
 
 Choose the vault subfolder based on diagram type:
 - `Architecture/<topic>/` — system/component/data-flow diagrams
-- `Decisions/<topic>/` — decision trees, option comparisons
-- `Analysis/<topic>/` — dependency maps, audit diagrams
+- `Architecture/ADRs/<topic>/` — decision trees, option comparisons
+- `Research/<topic>/` — dependency maps, audit diagrams
 
 ```bash
 VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"

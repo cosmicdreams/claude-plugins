@@ -50,13 +50,13 @@ Replace `<SUBFOLDER>` and `<FILENAME>` with the skill's appropriate vault path.
 | Deliverable type | Vault path |
 |---|---|
 | Architecture / system diagrams | `Architecture/<topic>/` |
-| Decision trees, option comparisons | `Decisions/<topic>/` |
-| Dependency maps, audit diagrams | `Analysis/<topic>/` |
+| Decision trees, option comparisons | `Architecture/ADRs/<topic>/` |
+| Dependency maps, audit diagrams | `Research/<topic>/` |
 | Research reports | `Research/<topic>/` |
 | Sprint / retro outputs | `Retrospectives/<date>+<project>/` |
-| Skill eval records | `shared/Skill-Evals/<plugin>/<skill>/` |
+| Skill eval records | `Projects/CLAUDE-PLUGINS/Skill-Evals/<plugin>/<skill>/` |
 
-When in doubt: use `shared/<topic>/` for general purpose output.
+When in doubt: use `Research/<topic>/` for general-purpose output.
 
 ---
 

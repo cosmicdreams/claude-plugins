@@ -293,16 +293,16 @@ After producing output, archive to the Neurons vault for long-term memory.
 
 2. **Determine vault path**: read `obsidian-rules.md` from the workflow plugin references
    (`~/.claude/plugins/cache/local/workflow/*/references/obsidian-rules.md`) to confirm
-   correct placement. Default: `Analysis/<topic>/<YYYY-MM-DD>-<comparison-name>.md`
+   correct placement. Default: `Research/<topic>/<YYYY-MM-DD>-<comparison-name>.md`
 
 3. **Write to vault**:
    ```bash
    VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
-   DEST_PATH="Analysis/<topic>/<YYYY-MM-DD>-<comparison-name>.md"
+   DEST_PATH="Research/<topic>/<YYYY-MM-DD>-<comparison-name>.md"
    mkdir -p "$VAULT_ROOT/$(dirname "$DEST_PATH")"
    cat > "$VAULT_ROOT/$DEST_PATH" << 'EOF'
    <output-content>
    EOF
    ```
 
-4. **Confirm**: "Saved to Neurons: Analysis/<topic>/<YYYY-MM-DD>-<comparison-name>.md"
+4. **Confirm**: "Saved to Neurons: Research/<topic>/<YYYY-MM-DD>-<comparison-name>.md"

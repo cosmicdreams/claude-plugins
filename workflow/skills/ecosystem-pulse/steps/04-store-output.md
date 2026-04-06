@@ -37,7 +37,7 @@ AUGMENTED:
 WATCH HIT: [item] — [what was found]  ← only if applicable
 
 SKIPPED: [N] duplicates, [N] irrelevant
-Vault: [N] entries added to Research/AI-Agent-Teams/[filename]
+Vault: [N] entries added to Raw/[filename]
 ```
 
 If nothing new: `✓ Ecosystem Pulse [HH:MM] — no net-new stories. Vault unchanged.`

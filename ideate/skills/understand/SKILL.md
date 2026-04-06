@@ -234,13 +234,13 @@ Archive the record to the Neurons vault for long-term reference.
    WORKFLOW_VERSION=$(ls ~/.claude/plugins/cache/local/workflow/ 2>/dev/null | sort -V | tail -1)
    cat ~/.claude/plugins/cache/local/workflow/$WORKFLOW_VERSION/references/obsidian-rules.md 2>/dev/null | head -50
    ```
-3. Default path: `Understanding/<YYYY-MM-DD>-<target-slug>.md`
+3. Default path: `Concepts/<YYYY-MM-DD>-<target-slug>.md`
 4. Write to vault:
    ```bash
    VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
-   mkdir -p "$VAULT_ROOT/Understanding"
+   mkdir -p "$VAULT_ROOT/Concepts"
    ```
-5. Confirm: "Saved to Neurons: Understanding/YYYY-MM-DD-target-slug.md"
+5. Confirm: "Saved to Neurons: Concepts/YYYY-MM-DD-target-slug.md"
 
 ---
 

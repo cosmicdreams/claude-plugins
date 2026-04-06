@@ -18,7 +18,7 @@ Categorize and tag loose notes in the Obsidian vault.
 
 ```bash
 VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
-RULES="${CLAUDE_PLUGIN_ROOT}/../obsidian-lint/references/obsidian-rules.md"
+RULES="${CLAUDE_PLUGIN_ROOT}/references/obsidian-rules.md"
 ```
 
 Read the rules file before proposing any moves: `cat "$RULES"`

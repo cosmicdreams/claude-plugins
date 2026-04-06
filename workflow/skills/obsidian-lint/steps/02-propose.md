@@ -8,14 +8,11 @@ Present a dry-run report:
 ```
 VIOLATIONS FOUND: N
 
-[legacy shared/] shared/Research/topic/file.md
-  → Research/topic/file.md
+[vault root — misplaced] loose-note.md
+  → Projects/CLAUDE-PLUGINS/loose-note.md
 
-[wrong location] Drupal.org/drupal/3345989-issue.md
-  → OpenSource/Drupal.org/drupal/3345989-issue.md
-
-[vault root — confirm intent] my-loose-note.md
-  → Research/topic/my-loose-note.md  (inferred from content — or intentional?)
+[vault root — confirm intent] random-thoughts.md
+  → Raw/random-thoughts.md  (inferred from content — or intentional?)
 ```
 
 Show count by violation type. Ask:
