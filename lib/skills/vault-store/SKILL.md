@@ -36,14 +36,14 @@ Quick reference (substitute actual values for placeholders):
 |---|---|
 | Retro session report | `Retrospectives/YYYY-MM-DD+project+sprint/SESSION-RETROSPECTIVE.md` |
 | Retro agent interview | `Retrospectives/YYYY-MM-DD+project+sprint/interviews/agent.md` |
-| Brainstorm canvas | `Decisions/topic/YYYY-MM-DD-topic.md` |
+| Brainstorm canvas | `Architecture/ADRs/topic/YYYY-MM-DD-topic.md` |
 | Excalidraw diagram | `Architecture/topic/YYYY-MM-DD-name.excalidraw` |
-| Comparison analysis | `Analysis/topic/YYYY-MM-DD-name.md` |
+| Comparison analysis | `Research/topic/YYYY-MM-DD-name.md` |
 | Research session | `Research/topic/YYYY-MM-DD-topic.md` |
 | Drupal issue analysis | `OpenSource/Drupal.org/project/issue-number-short-title.md` |
 | Drupal contribution comment | `OpenSource/Drupal.org/project/issue-number-contribution-comment.md` |
 | Log analysis report | `Projects/project/Reports/YYYY-MM-DD-log-analysis.md` |
-| Skill eval record | `Skill-Evals/plugin/skill-name/YYYY-MM-DD-eval.md` |
+| Skill eval record | `Projects/CLAUDE-PLUGINS/Skill-Evals/plugin/skill-name/YYYY-MM-DD-eval.md` |
 
 ## Step 4: Author as Obsidian Flavored Markdown
 

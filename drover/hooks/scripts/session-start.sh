@@ -16,7 +16,7 @@ ENABLED=$(python3 -c "import json,sys; d=json.load(open('$CONFIG_FILE')); print(
 
 # Get the Beads DB path
 DB_PATH="${PWD}/.beads/drover.db"
-[ -f "$DB_PATH" ] || exit 0
+[ -d "$DB_PATH" ] || exit 0
 
 # Count open errors by lane
 LANE_COUNTS=$(bd list -l board-drover --db "$DB_PATH" --json --flat 2>/dev/null | python3 -c "

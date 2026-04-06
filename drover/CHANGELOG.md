@@ -1,6 +1,6 @@
 # drover Changelog
 
-## 1.4.2
+## 1.5.0
 - `triage-agent`: bumped model from haiku to sonnet (haiku was skipping Steps 2-4: drush enrichment, noise filter, fingerprinting)
 - `triage-agent`: added explicit non-skippable step callouts in agent definition to enforce enrichment and dedup before ticket creation
 - `bd list --json`: added `--flat` to all `bd list --json` calls across all skills, agent definitions, hooks, and reference files (13 occurrences); `bd` v0.59.0 requires `--flat` for JSON output
