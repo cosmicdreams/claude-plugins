@@ -47,7 +47,7 @@ If `DISABLED`, print "drover is disabled (enabled: false in config)." and stop.
 
 ```bash
 # Board must exist
-[ -f .beads/drover.db ] || { echo "Drover board not initialized. Run /drover:setup first."; exit 1; }
+[ -d .beads/drover.db ] || { echo "Drover board not initialized. Run /drover:setup first."; exit 1; }
 ```
 
 ## Step 1.5: DDEV health & readiness check
@@ -207,8 +207,8 @@ Check for tickets in `lane-awaiting-review` or `lane-done`:
 
 ```bash
 export BD_DB=.beads/drover.db
-bd list -l board-drover -l lane-awaiting-review --json 2>/dev/null
-bd list -l board-drover -l lane-done --json 2>/dev/null
+bd list -l board-drover -l lane-awaiting-review --json --flat 2>/dev/null
+bd list -l board-drover -l lane-done --json --flat 2>/dev/null
 ```
 
 For each such ticket, extract the `fp` fingerprint hash from its body:

@@ -19,7 +19,7 @@ DB_PATH="${PWD}/.beads/drover.db"
 [ -f "$DB_PATH" ] || exit 0
 
 # Count open errors by lane
-LANE_COUNTS=$(bd list -l board-drover --db "$DB_PATH" --json 2>/dev/null | python3 -c "
+LANE_COUNTS=$(bd list -l board-drover --db "$DB_PATH" --json --flat 2>/dev/null | python3 -c "
 import json, sys, collections
 try:
     items = json.load(sys.stdin)

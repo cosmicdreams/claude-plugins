@@ -24,7 +24,7 @@ Designed to run via `/loop 30m /drover:implement`. Cancel with `CronDelete`.
 
 ```bash
 [ -f .claude/drover-config.json ] || { echo "drover not configured. Run /drover:setup first."; exit 1; }
-[ -f .beads/drover.db ] || { echo "Drover board not initialized. Run /drover:setup first."; exit 1; }
+[ -d .beads/drover.db ] || { echo "Drover board not initialized. Run /drover:setup first."; exit 1; }
 ```
 
 Check enabled:
@@ -41,7 +41,7 @@ if not cfg.get('enabled', True):
 
 ```bash
 export BD_DB=.beads/drover.db
-bd list -l board-drover -l lane-ready --json --unassigned 2>/dev/null || echo "[]"
+bd list -l board-drover -l lane-ready --json --flat --no-assignee 2>/dev/null || echo "[]"
 ```
 
 If the result is empty: print "drover:implement — no lane-ready tickets. Nothing to do." and stop.
@@ -65,7 +65,7 @@ Before spawning the implementer, verify we're at the project root with a clean g
 ls worktrees/main/.git > /dev/null 2>&1 || { echo "ERROR: Not at project root (worktrees/main/.git not found)"; exit 1; }
 
 # Check for stale drover worktrees for this fingerprint
-TICKET_BODY="$(bd get {TICKET_ID} --db .beads/drover.db --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('body',''))")"
+TICKET_BODY="$(bd show {TICKET_ID} --db .beads/drover.db --json 2>/dev/null | python3 -c "import json,sys; print(json.load(sys.stdin).get('body',''))")"
 FP=$(echo "$TICKET_BODY" | python3 -c "
 import sys, re
 body = sys.stdin.read()
@@ -137,7 +137,7 @@ TeamDelete(team_name="drover-implement-{fp}")
 After the agent completes, query the ticket status:
 
 ```bash
-bd get {TICKET_ID} --db .beads/drover.db --json 2>/dev/null | python3 -c "
+bd show {TICKET_ID} --db .beads/drover.db --json 2>/dev/null | python3 -c "
 import json,sys
 t=json.load(sys.stdin)
 labels=t.get('labels',[])
