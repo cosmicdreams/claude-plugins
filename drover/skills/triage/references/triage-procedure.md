@@ -113,7 +113,7 @@ For each remaining error entry:
 2. Search existing board for this fingerprint:
 ```bash
 export BD_DB=.beads/drover.db
-bd list -l board-drover --json 2>/dev/null | python3 -c "
+bd list -l board-drover --json --flat 2>/dev/null | python3 -c "
 import json,sys
 items=json.load(sys.stdin)
 fp='HASH_HERE'
@@ -238,7 +238,7 @@ After processing all entries for this environment:
 
 ```bash
 # Find tickets where this env has occurrences but effective trust is still low
-bd list -l board-drover -l trust-low --db .beads/drover.db --json 2>/dev/null | python3 -c "
+bd list -l board-drover -l trust-low --db .beads/drover.db --json --flat 2>/dev/null | python3 -c "
 import json,sys
 items=json.load(sys.stdin)
 for item in items:
@@ -297,9 +297,14 @@ for ticket in lane_triage_tickets:
 
     # Rising velocity: recent gaps are <50% of overall average
     if recent_gap < overall_gap * 0.5 and counts[-1] >= 3:
-        bd update {ticket['id']} --add-label velocity-rising \
-          --append-notes "{ISO_NOW}: Velocity boost — error rate accelerating (recent gap {recent_gap:.0f}s vs avg {overall_gap:.0f}s)."
+        print(ticket['id'])  # emit ticket ID for shell processing
         # Lower effective promotion threshold by 1 for this ticket
+```
+
+For each ticket ID emitted above, run as a shell command:
+```bash
+bd update {ticket_id} --add-label velocity-rising \
+  --append-notes "{ISO_NOW}: Velocity boost — error rate accelerating (recent gap {recent_gap:.0f}s vs avg {overall_gap:.0f}s)."
 ```
 
 Velocity-rising tickets reduce their effective `promote_threshold.min_count` by 1 when
@@ -349,8 +354,13 @@ def should_notify(severity):
         now = datetime.datetime.now(tz).time()
         start = datetime.time(*map(int, quiet_hours['start'].split(':')))
         end = datetime.time(*map(int, quiet_hours['end'].split(':')))
-        if start <= now or now <= end:  # overnight window
-            return False
+        # Overnight window (e.g. 22:00–07:00): quiet if now >= start OR now <= end
+        if start > end:
+            if now >= start or now <= end:
+                return False
+        else:
+            if start <= now <= end:
+                return False
     return True
 ```
 

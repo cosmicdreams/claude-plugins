@@ -48,7 +48,7 @@ const SEVERITY_ICONS = {
 function fetchTickets() {
   try {
     const output = execFileSync('bd', [
-      'list', '-l', 'board-drover', '--db', DB_PATH, '--json'
+      'list', '-l', 'board-drover', '--db', DB_PATH, '--json', '--flat'
     ], { encoding: 'utf8', timeout: 5000 });
     return JSON.parse(output || '[]');
   } catch (err) {

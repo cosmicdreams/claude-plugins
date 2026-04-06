@@ -184,7 +184,7 @@ Ask for `ddev_alias` during setup: "What is your Drush remote alias for this env
 
 ```bash
 # Check if drover board already exists
-bd list -l board-drover --db .beads/drover.db --json 2>/dev/null && echo "EXISTS" || echo "NEW"
+bd list -l board-drover --db .beads/drover.db --json --flat 2>/dev/null && echo "EXISTS" || echo "NEW"
 ```
 
 If `NEW` (db file does not exist or bd errors):
@@ -197,7 +197,7 @@ If `EXISTS`: skip init (second `bd init` on the same db errors intentionally).
 
 Verify the board is accessible:
 ```bash
-bd list -l board-drover --db .beads/drover.db --json 2>/dev/null || echo "BOARD_ERROR"
+bd list -l board-drover --db .beads/drover.db --json --flat 2>/dev/null || echo "BOARD_ERROR"
 ```
 
 ## Step 5: Validate environment access

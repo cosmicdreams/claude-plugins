@@ -1,5 +1,15 @@
 # drover Changelog
 
+## 1.4.2
+- `triage-agent`: bumped model from haiku to sonnet (haiku was skipping Steps 2-4: drush enrichment, noise filter, fingerprinting)
+- `triage-agent`: added explicit non-skippable step callouts in agent definition to enforce enrichment and dedup before ticket creation
+- `bd list --json`: added `--flat` to all `bd list --json` calls across all skills, agent definitions, hooks, and reference files (13 occurrences); `bd` v0.59.0 requires `--flat` for JSON output
+- `bd get` → `bd show`: replaced non-existent `bd get` command with correct `bd show` in `skills/implement/SKILL.md` (2 occurrences)
+- `--unassigned` → `--no-assignee`: fixed invalid flag in `skills/implement/SKILL.md`; correct flag is `--no-assignee`
+- `triage-procedure.md` Step 5 velocity boost: fixed mixed Python/shell syntax — extracted `bd update` shell command out of the Python code block
+- `triage-procedure.md` Step 7 quiet hours: fixed overnight window logic (`start > end` case was inverted, causing quiet hours to be silenced at wrong times)
+- `tools/dashboard/server.js`: added `-A` flag to `ddev list --json-output` to discover all projects, not just those in the server's cwd
+
 ## 1.4.1
 - `triage-agent`: extract 390-line procedure to `skills/triage/references/triage-procedure.md` (agent: 438→63 lines), add SendMessage tool
 - `implementer-agent`: extract 247-line procedure to `skills/implement/references/implementer-procedure.md` (agent: 275→53 lines), add SendMessage tool

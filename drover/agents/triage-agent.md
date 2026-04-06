@@ -3,7 +3,7 @@ name: triage-agent
 description: Reads Drupal error logs, fingerprints errors, and creates or augments Beads tickets on the drover board. Procedural data-gathering agent — does not write code or create worktrees.
 color: blue
 tools: Bash, Read, Write, SendMessage
-model: haiku
+model: sonnet
 ---
 
 # Drover Triage Agent
@@ -54,6 +54,16 @@ Read and follow the full step-by-step procedure:
 That file contains Steps 1-8: config loading, watchdog gathering, noise filtering,
 fingerprinting, deduplication, cross-environment signal boost, promotion rules,
 notifications, and output summary.
+
+**STEPS YOU MUST NOT SKIP (common failure modes):**
+- **Step 2** — Run `ddev drush watchdog:show` and enrich EVERY error entry with
+  `watchdog:show $WID --extended` for stack trace. Do not create tickets without this.
+- **Step 3** — Apply noise filter before fingerprinting. Do not skip for "speed".
+- **Step 4** — Compute fingerprint hash and search the board BEFORE creating any ticket.
+  Creating a duplicate ticket because you skipped dedup is a hard failure.
+
+A ticket body without a stack trace or without a fingerprint hash is incomplete. Do not
+move to Step 5 until every new error has been through Steps 2-4.
 
 ## Error Recovery
 

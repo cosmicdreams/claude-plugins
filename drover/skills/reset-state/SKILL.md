@@ -83,7 +83,7 @@ CURRENT_MAX_WID=$(ddev drush "${DDEV_ALIAS}" watchdog:show --format=json --count
 Set all offsets to 0. Enable dedup guard by loading all existing fingerprints from the Beads board:
 
 ```bash
-KNOWN_FPS=$(bd list -l board-drover --db .beads/drover.db --json 2>/dev/null | python3 -c "
+KNOWN_FPS=$(bd list -l board-drover --db .beads/drover.db --json --flat 2>/dev/null | python3 -c "
 import json, sys, re
 tickets = json.load(sys.stdin)
 fps = []

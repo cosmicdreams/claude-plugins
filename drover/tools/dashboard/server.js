@@ -104,11 +104,11 @@ function fetchDdevInstances() {
     return applyActionStates(ddevCache.instances);
   }
   try {
-    const output = execFileSync('ddev', ['list', '--json-output'], {
+    const output = execFileSync('ddev', ['list', '-A', '--json-output'], {
       encoding: 'utf8', timeout: 10000
     });
     const parsed = JSON.parse(output);
-    // ddev list --json-output returns { raw: [...] }
+    // ddev list -A --json-output returns { raw: [...] }
     const raw = parsed.raw || parsed || [];
     const relevantProjects = getRelevantDdevProjects();
     const instances = (Array.isArray(raw) ? raw : []).map(item => ({
@@ -252,7 +252,7 @@ function fetchTickets() {
   }
   try {
     const output = execFileSync('bd', [
-      'list', '-l', 'board-drover', '--db', DB_PATH, '--json'
+      'list', '-l', 'board-drover', '--db', DB_PATH, '--json', '--flat'
     ], { encoding: 'utf8', timeout: 5000 });
     const data = JSON.parse(output || '[]');
     ticketCache = { data, ts: now };

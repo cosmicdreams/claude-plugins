@@ -102,7 +102,7 @@ file: "/var/www/html/modules/custom/my_module/src/MyService.php"
 To look up an existing ticket by fingerprint hash `{fp}`:
 
 ```bash
-bd list -l board-drover --db .beads/drover.db --json | python3 -c "
+bd list -l board-drover --db .beads/drover.db --json --flat | python3 -c "
 import json, sys
 items = json.load(sys.stdin)
 fp = '{fp}'

@@ -92,7 +92,7 @@ echo "Web board: http://localhost:$PORT (auto-refresh every 30s)"
 
 ```bash
 export BD_DB=.beads/drover.db
-bd list -l board-drover --json 2>/dev/null || echo "[]"
+bd list -l board-drover --json --flat 2>/dev/null || echo "[]"
 ```
 
 Also load the latest state for "last triage" time:
