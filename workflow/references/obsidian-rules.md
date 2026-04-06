@@ -8,32 +8,24 @@ Before creating any folder, scan what already exists and prefer an existing fold
 over creating a new one — even if the casing or singular/plural differs slightly.
 Only create a new folder when nothing in the vault is a reasonable match.
 
+When ingesting content or creating wiki pages, read `wiki-schema.md` at vault root first.
+
 ## Top-level structure
 
 | Folder | What belongs here |
 |--------|-------------------|
-| `Projects/` | Work scoped to a specific client or internal project |
-| `OpenSource/` | Open source contributions, issues, and research |
-| `Research/` | Background reading, investigation findings, external sources |
-| `Analysis/` | Structured comparisons, evaluations, gap analyses |
-| `Decisions/` | ADRs, option selections, rationale documents |
-| `Architecture/` | System design, component relationships, diagrams |
+| `Raw/` | Unprocessed input: daily notes, web clips, funnel graduates. Ingest processes these. |
+| `Sources/` | Processed summaries of raw inputs (one per ingested item) |
+| `Concepts/` | Living topic pages — patterns, techniques, trends. Updated as knowledge arrives. |
+| `Entities/` | People, tools, companies, products. Updated as knowledge arrives. |
+| `Projects/` | Work scoped to a specific client, internal project, or open source effort |
+| `Next-Experiments/` | Actionable experiments graduated from the funnel or ingest |
+| `Architecture/` | System design, ADRs, component relationships, diagrams |
 | `Retrospectives/` | Sprint and team retrospectives |
-| `Skill-Evals/` | Skill evaluation records |
-
-## OpenSource structure
-
-Open source work is grouped by domain (the platform or ecosystem it belongs to).
-Each domain gets its own folder. Within a domain, each project gets its own folder.
-
-```
-OpenSource/
-  Drupal.org/
-    drupal/          ← Drupal core contributions
-    same_page_preview/
-    <module-name>/   ← each contrib module gets its own folder
-  <other-domain>/    ← other ecosystems follow the same pattern
-```
+| `Scratches/` | Working scratch space, organized by project |
+| `Personal/` | Personal notes, ideas, non-work content |
+| `Research/` | General research topics (AI-Ecosystem, Claude-Plugins, Security) |
+| `Archive/` | Retired content, historical records |
 
 ## Projects structure
 
@@ -48,9 +40,21 @@ Projects/
     Decisions/
     Architecture/
     ...
+  OpenSource/
+    Drupal.org/
+      drupal/
+      <module-name>/
 ```
 
 Only create subfolders that are actually needed — don't pre-populate empty folders.
+
+## Wiki page conventions
+
+See `wiki-schema.md` at vault root for full details on page types and ingest workflow.
+
+- **Concepts and Entities** use title-case names without date prefixes (`MCP.md`, `Anthropic.md`)
+- **Sources** use date-prefixed names (`2026-04-06-llm-wiki-pattern.md`)
+- **Experiments** use date-prefixed names (`2026-04-06-ollama-evaluation.md`)
 
 ## Path pattern
 

@@ -32,12 +32,12 @@ provide a value, use the fallback slug shown in the Special Cases section below.
 | Session retrospective report | Project | `Retrospectives/{date}+{project}+{sprint}/SESSION-RETROSPECTIVE.md` | Top-level retro summary |
 | Agent interview | Project | `Retrospectives/{date}+{project}+{sprint}/interviews/{agent}.md` | One file per agent |
 | Retrospective action card | Project | `Retrospectives/{date}+{project}+{sprint}/actions/{date}-{name}.md` | Kanban action items worth preserving |
-| Cross-sprint pattern note | Shared | `shared/Patterns/{topic}/{date}-{topic}.md` | Patterns that span multiple sprints or projects |
+| Cross-sprint pattern note | Cross-project | `Concepts/{topic}.md` | Patterns that span multiple sprints or projects |
 
 **Examples:**
 - `Retrospectives/2026-03-07+client-portal+sprint-3/SESSION-RETROSPECTIVE.md`
 - `Retrospectives/2026-03-07+client-portal+sprint-3/interviews/deep-debugger.md`
-- `shared/Patterns/agent-coordination/2026-03-07-task-overflow-pattern.md`
+- `Concepts/agent-coordination.md`
 
 ---
 
@@ -45,14 +45,14 @@ provide a value, use the fallback slug shown in the Special Cases section below.
 
 | Output type | Scope | Vault path template | Notes |
 |---|---|---|---|
-| Brainstorm canvas | Shared | `shared/Decisions/{topic}/{date}-{topic}.md` | Full canvas: ideas + annotations + synthesis |
-| Decision record | Shared | `shared/Decisions/{topic}/{date}-decision-record.md` | Final synthesized decision only |
-| Comparison analysis | Shared | `shared/Analysis/{topic}/{date}-{name}.md` | Side-by-side option comparison |
+| Brainstorm canvas | Cross-project | `Architecture/ADRs/{topic}/{date}-{topic}.md` | Full canvas: ideas + annotations + synthesis |
+| Decision record | Cross-project | `Architecture/ADRs/{topic}/{date}-decision-record.md` | Final synthesized decision only |
+| Comparison analysis | Cross-project | `Research/{topic}/{date}-{name}.md` | Side-by-side option comparison |
 | Brainstorm canvas (project-specific) | Project | `Projects/{project}/Decisions/{date}-{topic}.md` | When ideation is scoped to one project |
 
 **Examples:**
-- `shared/Decisions/vault-routing-approach/2026-03-07-vault-routing-approach.md`
-- `shared/Analysis/mcp-vs-skills/2026-03-07-mcp-vs-skills.md`
+- `Architecture/ADRs/vault-routing-approach/2026-03-07-vault-routing-approach.md`
+- `Research/mcp-vs-skills/2026-03-07-mcp-vs-skills.md`
 - `Projects/client-portal/Decisions/2026-03-07-auth-strategy.md`
 
 ---
@@ -63,15 +63,15 @@ provide a value, use the fallback slug shown in the Special Cases section below.
 |---|---|---|---|
 | Issue analysis | Project | `Drupal.org/{project}/{issue}-{name}.md` | Analysis of a specific Drupal.org issue |
 | Contribution comment draft | Project | `Drupal.org/{project}/{issue}-contribution-comment.md` | Drafted comment for posting to Drupal.org |
-| Module research note | Shared | `shared/Research/drupal/{module}/{date}-{topic}.md` | General module research not tied to one issue |
-| Core API exploration | Shared | `shared/Research/drupal/core/{date}-{topic}.md` | Drupal core internals research |
+| Module research note | Cross-project | `Research/drupal/{module}/{date}-{topic}.md` | General module research not tied to one issue |
+| Core API exploration | Cross-project | `Research/drupal/core/{date}-{topic}.md` | Drupal core internals research |
 | Patch or diff description | Project | `Drupal.org/{project}/{issue}-patch-notes.md` | Notes accompanying a patch submission |
 
 **Examples:**
 - `Drupal.org/drupal/3412876-ckeditor5-toolbar-regression.md`
 - `Drupal.org/webform/3398201-contribution-comment.md`
-- `shared/Research/drupal/paragraphs/2026-03-07-nested-paragraph-limits.md`
-- `shared/Research/drupal/core/2026-03-07-render-pipeline-hooks.md`
+- `Research/drupal/paragraphs/2026-03-07-nested-paragraph-limits.md`
+- `Research/drupal/core/2026-03-07-render-pipeline-hooks.md`
 
 ---
 
@@ -81,12 +81,12 @@ provide a value, use the fallback slug shown in the Special Cases section below.
 |---|---|---|---|
 | Sprint release notes | Project | `Projects/{project}/Releases/{date}+{sprint}-release-notes.md` | Post-sprint RELEASE-NOTES.md |
 | Sprint plan | Project | `Projects/{project}/Plans/{date}-{sprint}-plan.md` | Sprint plan produced by `sprint:plan` |
-| Asset audit report | Shared | `shared/Analysis/sprint-assets/{date}-asset-audit.md` | Output of `sprint:asset-audit` |
+| Asset audit report | Cross-project | `Projects/CLAUDE-PLUGINS/Analysis/{date}-asset-audit.md` | Output of `sprint:asset-audit` |
 
 **Examples:**
 - `Projects/client-portal/Releases/2026-03-07+sprint-3-release-notes.md`
 - `Projects/client-portal/Plans/2026-03-07-sprint-4-plan.md`
-- `shared/Analysis/sprint-assets/2026-03-07-asset-audit.md`
+- `Projects/CLAUDE-PLUGINS/Analysis/2026-03-07-asset-audit.md`
 
 ---
 
@@ -95,16 +95,16 @@ provide a value, use the fallback slug shown in the Special Cases section below.
 | Output type | Scope | Vault path template | Notes |
 |---|---|---|---|
 | Log analysis report | Project | `Projects/{project}/Reports/{date}-log-analysis.md` | Output of a log-analyzer skill |
-| Architecture diagram | Shared or Project | `shared/Architecture/{topic}/{date}-{name}.excalidraw` | Excalidraw diagrams |
+| Architecture diagram | Cross-project | `Architecture/{topic}/{date}-{name}.excalidraw` | Excalidraw diagrams |
 | Architecture diagram (project) | Project | `Projects/{project}/Architecture/{date}-{name}.excalidraw` | Project-scoped diagrams |
-| Research session | Shared | `shared/Research/{topic}/{date}-{topic}.md` | General research not fitting other categories |
+| Research session | Cross-project | `Research/{topic}/{date}-{topic}.md` | General research not fitting other categories |
 | Meeting notes | Project | `Projects/{project}/Meetings/{date}-{name}.md` | Notes from a specific meeting |
-| Reference document | Shared | `shared/Reference/{topic}/{date}-{name}.md` | Evergreen reference material |
+| Reference document | Cross-project | `Research/{topic}/{date}-{name}.md` | Evergreen reference material |
 
 **Examples:**
 - `Projects/client-portal/Reports/2026-03-07-log-analysis.md`
-- `shared/Architecture/plugin-system/2026-03-07-plugin-lifecycle.excalidraw`
-- `shared/Research/obsidian-mcp/2026-03-07-obsidian-mcp.md`
+- `Architecture/plugin-system/2026-03-07-plugin-lifecycle.excalidraw`
+- `Research/obsidian-mcp/2026-03-07-obsidian-mcp.md`
 - `Projects/client-portal/Meetings/2026-03-07-kickoff.md`
 
 ---
@@ -162,7 +162,7 @@ If `{date}` cannot be determined (no system date access):
 
 Before calling `obsidian create`, verify:
 
-- [ ] Scope determined (project vs. shared)
+- [ ] Scope determined (project vs. cross-project)
 - [ ] All variables substituted — no bare `{variable}` tokens remain in the path
 - [ ] Path uses forward slashes only (no backslashes)
 - [ ] File extension matches content type (`.md` for markdown, `.excalidraw` for diagrams)
