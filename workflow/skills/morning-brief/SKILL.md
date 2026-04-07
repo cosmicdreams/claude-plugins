@@ -1,13 +1,12 @@
 ---
 name: morning-brief
 description: >
-  Your morning Slack and Jira catchup. Run once at the start of your day to scan what
-  happened overnight across all configured Slack channels and Jira projects, surface
-  @mentions, keyword hits, and updated issues, and optionally update
-  ~/.claude/workflow.json to focus which channels workflow:pulse monitors for the rest
-  of the day.
+  Your morning priority briefing. Scans overnight Slack and Jira activity, classifies
+  each item by action needed (RESPOND, UNBLOCK, REVIEW, FYI), and presents a single
+  priority-ordered table across all sources so you know what to tackle first.
+  Optionally updates ~/.claude/workflow.json to focus pulse monitoring for the day.
 
-  Use this skill for time-bounded overnight catchup ("what happened while I was away").
+  Use this skill for "what needs my attention first?" at the start of day.
   For real-time monitoring use workflow:pulse. For raw data fetch use lib:slack or lib:jira.
 triggers:
   - "morning brief"
@@ -25,7 +24,7 @@ allowed-tools: Agent, Bash, Read, Write
 
 # workflow:morning-brief — Morning Briefing
 
-Scan overnight Slack and Jira activity, surface what matters, optionally update today's focus.
+Scan overnight Slack and Jira, classify by action needed, present a single priority table.
 
 **This is a read-only skill.** Never post messages to Slack, comment on Jira issues,
 transition issue statuses, or make any write operations to external services. Only
