@@ -46,7 +46,17 @@ For each workspace:
   write it back to the config file under that workspace, then use it
 - If `whoami` fails → set `user_id` to null (mention counts will be 0)
 
-## Compute oldest_ts
+## Load Jira config
+
+Parse `integrations.jira.servers` from the same config file. Each server has:
+- `name`: display name
+- `url`: Jira base URL
+- `projects`: array of project keys
+- `config_file` (optional): path to jira-cli config if non-default
+
+If `jira.servers` is empty or missing, Jira will be skipped in step 3.
+
+## Compute timestamps
 
 Convert `last_run` ISO to a Unix float for Slack `--oldest`:
 
@@ -54,4 +64,11 @@ Convert `last_run` ISO to a Unix float for Slack `--oldest`:
 python3 -c "from datetime import datetime; print(datetime.fromisoformat('{last_run}').timestamp())"
 ```
 
-Proceed to `steps/02-fetch.md` with: workspaces list, oldest_ts, user_id per workspace.
+Compute `last_run_date` for Jira JQL (YYYY-MM-DD format):
+
+```bash
+python3 -c "from datetime import datetime; print(datetime.fromisoformat('{last_run}').strftime('%Y-%m-%d'))"
+```
+
+Proceed to `steps/02-fetch-slack.md` with: workspaces list, oldest_ts, user_id per workspace,
+jira servers list, last_run_date.
