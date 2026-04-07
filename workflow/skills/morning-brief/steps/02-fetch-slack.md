@@ -24,8 +24,13 @@ Fetch:
   agent-slack message list {channel_name} --workspace {workspace_url} \
     --oldest {oldest_ts} --limit 20
 If oldest_ts is null, omit --oldest and use --limit 20.
-If the fetch fails, set error to the error message and messages=[].
+If the fetch fails (non-zero exit or network error), set error to the error message and messages=[].
 Do NOT run agent-slack auth whoami.
+
+**agent-slack quirk:** When no messages match the --oldest filter, agent-slack returns
+`{ "channel_id": "C..." }` with NO `messages` key. This is NOT an error — it means
+the channel had no activity since the cutoff. Treat a missing `messages` key as
+an empty array, not a failure.
 
 Compute from returned messages (all are already newer than oldest_ts):
    - total_messages: count of all returned messages
