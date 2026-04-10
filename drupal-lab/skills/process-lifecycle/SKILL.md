@@ -7,6 +7,8 @@ description: Manage the DDEV lifecycle for Drupal worktrees -- start, ready-chec
 
 Governs how DDEV-based development processes start, run, complete, and shut down in Drupal worktrees. Every agent working in a worktree follows this lifecycle.
 
+For general DDEV commands (start, stop, restart, import-db, logs, troubleshooting), see `lib:ddev`. This skill defines the Drupal worktree workflow that wraps those commands.
+
 ```
 INIT --> READY CHECK --> [WORK] --> COMPLETION CHECK --> SHUTDOWN
               |                          |
@@ -355,7 +357,8 @@ ddev list --json-output 2>/dev/null | jq -r '.raw[] | select(.status == "running
 
 ## Cross-References
 
+- `lib:ddev` -- General DDEV knowledge (lifecycle, database ops, troubleshooting, providers)
 - `/create-worktree` -- Creates the git worktree (prerequisite for INIT)
-- `/ddev` -- Full DDEV command reference for development tools
+- `/ddev` -- Drupal-specific DDEV commands (phpcs, phpstan, phpunit, drush)
 - `/validate-patch` -- Quality gate procedures (referenced by COMPLETION phase)
 - `/sprint-run` -- Sprint coordination, DDEV slot management, board

@@ -321,7 +321,7 @@ fi
 ```
 If full: do phpcs/phpstan first, poll or notify team-lead.
 
-**DDEV setup per worktree:**
+**DDEV setup per worktree** (see `lib:ddev` for worktree isolation details):
 ```bash
 cp -r ./worktrees/main/.ddev \
   ./worktrees/{ISSUE}/

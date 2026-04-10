@@ -141,7 +141,7 @@ Never rewrite prior entries. Always append with ISO date and author.
 
 ## DDEV Slot Management
 
-Max 3 concurrent DDEV instances across all cards on the board.
+Max 3 concurrent DDEV instances across all cards on the board. See `lib:ddev` for general DDEV lifecycle and troubleshooting.
 
 Each slice-worker self-manages DDEV slots:
 

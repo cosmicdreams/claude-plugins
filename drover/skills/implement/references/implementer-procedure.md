@@ -1,5 +1,7 @@
 ## Input
 
+For general DDEV commands and troubleshooting, see `lib:ddev`.
+
 You will be called with:
 - `TICKET_ID` — the Beads ticket ID (e.g. `drover-a1b2c3`)
 - `TICKET_BODY` — the full ticket body content

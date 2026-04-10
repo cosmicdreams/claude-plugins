@@ -7,6 +7,8 @@ description: Run Drupal development tools (phpcs, phpstan, phpunit, drush, compo
 
 Run all development tools inside DDEV containers where PHP 8.5, MariaDB, Chrome webdriver, and test environment variables are properly configured.
 
+For general DDEV knowledge (lifecycle, database operations, troubleshooting, worktree isolation, providers), see `lib:ddev`. This skill covers Drupal-specific commands only.
+
 ## Why DDEV Instead of Host Commands
 
 Host-side commands (`composer phpcs`, `./vendor/bin/phpunit`) will fail or produce wrong results because:
@@ -17,7 +19,7 @@ Host-side commands (`composer phpcs`, `./vendor/bin/phpunit`) will fail or produ
 
 ## Prerequisites
 
-DDEV must be started before running any commands.
+DDEV must be started before running any commands. See `lib:ddev` for startup and lifecycle.
 
 ## Context Awareness
 **Important**: Resolve the active project root from `~/.claude/drupal-lab.json` before running any commands. See `drupal-lab/references/project-context.md` for the resolution steps. All relative paths (`./worktrees/...`) are relative to that root. If inside a worktree (`..../worktrees/1234`), `cd ../..` to return to the project root.
@@ -169,27 +171,7 @@ ddev drupal admin-login
 
 ## Troubleshooting
 
-### First step: check container logs
-
-When any command fails unexpectedly, check container logs before debugging further. PHP-FPM segfaults, OOM kills, and Apache errors show up here but not in tool output.
-
-```bash
-# Web container logs (PHP-FPM + Apache) — last 50 lines
-ddev logs | tail -50
-
-# Database container logs
-ddev logs -s db | tail -30
-
-# Follow logs in real-time (useful during long test runs)
-ddev logs -f
-```
-
-### Common errors
-
-**Error: "Container not running"**
-```bash
-ddev start
-```
+For general DDEV troubleshooting (container logs, Mutagen, port conflicts, error table), see `lib:ddev`. Below are Drupal-specific issues only.
 
 **Error: "phpunit is not in PATH"**
 ```bash
@@ -207,22 +189,12 @@ Ensure Chrome container is running:
 ```bash
 ddev describe --json-output 2>/dev/null | jq '.raw.status'
 ```
-If not running, restart:
-```bash
-ddev restart
-```
 
 **Cryptic test failure (blank output, segfault, timeout)**
 Check container logs first — the root cause is usually visible there:
 ```bash
 ddev logs | tail -50
 ```
-
-| Log Pattern | Meaning | Action |
-|------------|---------|--------|
-| `Killed` or `oom-kill` | Container out of memory | Reduce test scope, run sequentially |
-| `Segmentation fault` | PHP crash | `ddev restart`, retry |
-| `No space left on device` | Docker disk full | `docker system prune`, retry |
 
 ## Environment Details
 

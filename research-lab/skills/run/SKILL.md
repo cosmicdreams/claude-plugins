@@ -80,7 +80,7 @@ Invoke the process-lifecycle skill for DDEV setup. Do not run `ddev start` direc
 Skill("drupal-lab:process-lifecycle", args="phase=init worktree=<target-project-root>/worktrees/<engagement-name>")
 ```
 
-**DDEV naming:** Ensure the `config.local.yaml` name includes the project prefix — e.g., `mysite-cache-optimization`, not just `cache-optimization`. This prevents collisions in `ddev list` and makes the DDEV URL meaningful.
+**DDEV naming:** Use `project_tld` in the project's `config.yaml` to namespace by project (see `lib:ddev` for the multi-project worktree convention). If `project_tld` isn't set, ensure `config.local.yaml` name includes the project prefix — e.g., `mysite-cache-optimization`.
 
 ### 1c. Provision database
 
