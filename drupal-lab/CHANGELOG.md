@@ -1,5 +1,8 @@
 # Changelog
 
+## 2.5.1
+- Deduplicate general DDEV knowledge from `ddev` and `process-lifecycle` skills; cross-reference `lib:ddev`
+
 ## 2.5.0
 - Add `perf-measure` skill — xhprof, New Relic setup, slow query log; callgraph_top_10 for autoresearch hypothesis generation
 - Rename `ddev-drupal-dev` → `ddev`; cross-references to both perf-measure skills

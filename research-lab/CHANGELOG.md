@@ -1,5 +1,8 @@
 # research-lab Changelog
 
+## 0.3.2
+- Cross-reference `lib:ddev` for DDEV naming convention in research-lab:run
+
 ## 0.3.1
 - Add explicit tools declarations to all 3 agents (experimentalist, researcher, principal-investigator)
 - `experimentalist`: fix bare reference paths to use `${CLAUDE_PLUGIN_ROOT}`

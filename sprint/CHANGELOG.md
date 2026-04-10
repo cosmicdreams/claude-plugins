@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.3.1
+- Cross-reference `lib:ddev` from sprint:run and sprint:board DDEV sections
+
 ## 3.3.0
 - Retire `process-improvement` agent and `sprint:observe` skill — replaced by `improve:process-engineer`
 - `deep-debugger`: add explicit tools declaration, remove filler sections, add handoff protocol (owns card to completion)

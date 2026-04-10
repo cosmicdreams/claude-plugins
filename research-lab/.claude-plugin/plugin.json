@@ -1,6 +1,6 @@
 {
     "name": "research-lab",
-    "version": "0.3.1",
+    "version": "0.3.2",
     "description": "Composable research engagement pipeline: literary review, workshop swarms, cross-examination seminars, and iterative experimentation with ratchet-based optimization.",
     "author": {
         "name": "Chris Weber"

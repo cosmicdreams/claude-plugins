@@ -1,5 +1,8 @@
 # drover Changelog
 
+## 1.5.1
+- Cross-reference `lib:ddev` from implementer procedure
+
 ## 1.5.0
 - `triage-agent`: bumped model from haiku to sonnet (haiku was skipping Steps 2-4: drush enrichment, noise filter, fingerprinting)
 - `triage-agent`: added explicit non-skippable step callouts in agent definition to enforce enrichment and dedup before ticket creation
