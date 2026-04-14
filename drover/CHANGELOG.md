@@ -1,5 +1,11 @@
 # drover Changelog
 
+## 1.9.0
+- **bd-ready monitor**: new `scripts/monitors/bd-ready-watch.py` polls each registered project's Beads board every 60s (`DROVER_BD_POLL_INTERVAL`) and emits `READY <ticket-id> <severity> <fingerprint> <project>` when a new unassigned `lane-ready` ticket appears. Detection-only — invoking `drover:implement` remains the user/agent call.
+- **Umbrella routing**: `bd-ready:<project-path>` keys route to the new watcher. Pidfile naming switched from colon-substitution to sha1-hashed (handles paths with slashes). Each pidfile stores the original key on line 1, pid on line 2.
+- **`drover:implement` skill doc**: notes that detection is now monitor-driven; `/loop 30m` remains supported but is no longer the primary cadence.
+- **Tests**: 5 new bats tests for bd-ready-watch (missing path, NEW on first ready ticket, diffing across polls, state persistence, missing db tolerance). Umbrella test stubs both ddev and bd-ready children. Total: 75 tests green.
+
 ## 1.8.2
 - **Dashboard UI polish**: replaced `alert()` / `prompt()` with `showToast()` feedback and a proper modal for the Backfill flow. Modal uses safe DOM-construction (no innerHTML with untrusted content). Add Project result now surfaces as a toast; Backfill opens a modal with an environment dropdown and log-types field.
 

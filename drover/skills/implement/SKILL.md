@@ -18,13 +18,19 @@ allowed-tools: Bash, Read, Write, Agent, TeamCreate, TeamDelete, SendMessage
 Processes one `lane-ready` ticket per invocation: claims it, spawns an implementer agent,
 and waits for the fix to complete.
 
-> **Note (1.8.0+):** Live error *detection* moved from `/loop 3m /drover:watch`
-> to the umbrella monitor. `drover:implement` is the last remaining
-> `/loop`-driven skill in the pipeline. A future pass will convert it to a
-> monitor that arms on `lane-ready` ticket transitions, removing the last
-> time-based cadence.
+> **Note (1.9.0+):** The plugin's umbrella monitor now runs a
+> `bd-ready-watch.py` child per registered project. It polls the project's
+> Beads board every 60s (`DROVER_BD_POLL_INTERVAL`) and emits a
+> `READY <ticket-id>` notification when a new unassigned `lane-ready`
+> ticket appears. The emission is *detection-only* — you still invoke
+> `drover:implement` (manually, or via an agent in a watching session) to
+> actually implement. Detection and execution are deliberately separated
+> because implementation is a heavy multi-step flow that a shell monitor
+> shouldn't drive directly.
 
-Designed to run via `/loop 30m /drover:implement`. Cancel with `CronDelete`.
+Works standalone too. `/loop 30m /drover:implement` remains supported for
+non-monitor workflows, but with the bd-ready monitor you typically run
+this skill on demand when a notification arrives.
 
 ## Step 1: Pre-flight checks
 

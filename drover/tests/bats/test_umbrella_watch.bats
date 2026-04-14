@@ -25,6 +25,15 @@ while [ $n -lt 6 ]; do
 done
 EOF
   chmod +x "$DROVER_DDEV_WATCH"
+
+  # Fake bd-ready-watch: short-lived so tests terminate cleanly.
+  export DROVER_BD_READY_WATCH="$TMP/fake-bd-ready-watch.sh"
+  cat > "$DROVER_BD_READY_WATCH" <<'EOF'
+#!/usr/bin/env bash
+echo "bd-ready $1"
+exit 0
+EOF
+  chmod +x "$DROVER_BD_READY_WATCH"
 }
 
 teardown() {
