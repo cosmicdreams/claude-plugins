@@ -81,6 +81,32 @@ test('addProject returns generic error when stdout is not JSON', () => {
   assert.match(result.message, /oops/);
 });
 
+test('parseBackfillOutput extracts event count and NEW/THRESH tallies', () => {
+  const raw = [
+    'NEW aaaa error php pncb.prod oh no',
+    'NEW bbbb notice watchdog pncb.prod another',
+    'THRESH aaaa count=50 error php pncb.prod',
+    'BACKFILL done env=pncb.prod events=200',
+  ].join('\n');
+  const r = projects.parseBackfillOutput(raw);
+  assert.equal(r.status, 'done');
+  assert.equal(r.events, 200);
+  assert.equal(r.new_fingerprints, 2);
+  assert.equal(r.threshold_hits, 1);
+});
+
+test('backfill returns error object when alias missing', () => {
+  assert.equal(projects.backfill('').status, 'error');
+});
+
+test('backfill dispatches to script and parses output', () => {
+  const fakeRunner = () => 'NEW x error php pncb.prod msg\nBACKFILL done env=pncb.prod events=1\n';
+  const r = projects.backfill('pncb.prod', { runner: fakeRunner, scriptPath: '/usr/bin/true' });
+  assert.equal(r.status, 'done');
+  assert.equal(r.events, 1);
+  assert.equal(r.new_fingerprints, 1);
+});
+
 test('pickFolderMacOS returns null when runner throws', () => {
   const throwingRunner = () => { throw new Error('user canceled'); };
   assert.equal(projects.pickFolderMacOS({ runner: throwingRunner }), null);
