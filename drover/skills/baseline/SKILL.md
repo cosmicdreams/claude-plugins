@@ -1,10 +1,10 @@
 ---
 name: baseline
 description: >
-  Runs a 24-hour Acquia log download and fingerprint velocity computation for all configured
-  Acquia environments. Updates .claude/drover.baselines.json with rising/stable/falling velocity
-  data. Run manually or via /loop 24h. Long-window only — short-window data comes from the
-  triage loop.
+  Runs a 24-hour Acquia log download and fingerprint velocity computation for all
+  configured Acquia environments. Updates .claude/drover.baselines.json with
+  rising/stable/falling velocity data. Long-window only — short-window data comes
+  from live monitors. Run manually or via /loop 24h.
 triggers:
   - "drover:baseline"
   - "run baseline"
@@ -16,6 +16,12 @@ allowed-tools: Bash, Read
 # drover:baseline — 24h Acquia log baseline
 
 Computes fingerprint velocity baselines from 24-hour Acquia log downloads.
+
+> **Note (1.8.0+):** `scripts/acquia-baseline.sh` now delegates the download +
+> fingerprinting to `scripts/backfill.sh` (with `DROVER_JSONL_OUT`) and only
+> adds the hourly-rate aggregation step on top. Both paths go through the
+> shared `fingerprint.py`, so baseline output reflects the same error
+> classification as live monitors and backfill.
 
 ## When to run
 

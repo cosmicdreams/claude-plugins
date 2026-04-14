@@ -1,21 +1,31 @@
 ---
 name: watch
 description: >
-  Drover's loop orchestrator. On each cycle: runs triage for all enabled environments,
-  then runs the verification phase against awaiting-review and done tickets. Designed to
-  run on a /loop 3m schedule. Reads config from .claude/drover-config.json and state
-  from ~/.claude/drover.state.jsonl.
+  Manual full-sweep skill — runs one triage cycle per configured environment
+  plus verification against awaiting-review tickets. Continuous watching is
+  handled by the plugin's umbrella monitor (`monitors/monitors.json`, auto-
+  arms at session start or `/reload-plugins`). Use this skill when you want
+  a full sweep right now rather than waiting for the monitor to detect
+  changes, or for a project that is not yet registered via
+  `drover:add-project`.
 triggers:
   - "drover:watch"
-  - "start watching"
-  - "monitor errors"
-  - "watch drupal errors"
+  - "drover full sweep"
+  - "run a full drover cycle"
+  - "triage all environments now"
 allowed-tools: Bash, Read, Write, Agent, TeamCreate, TeamDelete, SendMessage
 ---
 
-# drover:watch — Loop orchestrator
+# drover:watch — Manual full sweep
 
-Each cycle: triage all environments → verify fixed tickets → update state.
+> **Note (1.8.0+):** Continuous error monitoring now happens via the
+> plugin's umbrella monitor (`scripts/monitors/umbrella-watch.sh`), which
+> auto-arms at session start, skill invocation, or `/reload-plugins` and
+> spawns per-project `ddev-watch.py` / `acquia-watch.py` children. This
+> skill remains useful for one-off manual sweeps, projects not yet
+> onboarded via `drover:add-project`, or debugging a single cycle.
+
+Each manual cycle: triage all environments → verify fixed tickets → update state.
 
 Designed to run via `/loop 3m /drover:watch`. Cancel with `CronDelete`.
 

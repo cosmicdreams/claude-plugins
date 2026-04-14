@@ -233,10 +233,18 @@ Environments:
 Notifications: <email>  [quiet mode: on|off]
 
 Next steps:
-  /loop 3m /drover:watch      — start error monitoring
-  /loop 30m /drover:implement — start autonomous fix pipeline
+  /drover:add-project         — register this project so the umbrella monitor
+                                (auto-armed by the plugin) starts watching it
+  /drover:baseline            — compute 24h velocity baselines for Acquia envs
   /drover:board               — view open errors
+  /drover:dashboard           — launch the ops dashboard UI
+  (legacy) /loop 30m /drover:implement — autonomous fix pipeline; moves to
+                                a monitor in a future release
 ```
+
+> **Note (1.8.0+):** Continuous error-watching no longer requires `/loop 3m
+> /drover:watch`. The plugin ships an umbrella monitor that auto-arms at
+> session start and picks up any project registered via `drover:add-project`.
 
 ## Error handling
 

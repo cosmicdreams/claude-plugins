@@ -109,7 +109,13 @@ NOISE_SKIP: {wid} — {reason}: {message[:80]}
 
 For each remaining error entry:
 
-1. Compute fingerprint hash using Python inline from `fingerprint-rules.md`
+1. Compute fingerprint hash. Triage processes **structured records** — use
+   the per-source Python helpers in `fingerprint-rules.md` ("structured-record
+   variant"). For streaming raw log lines, use
+   `scripts/fingerprint.py` instead (what the umbrella monitor uses).
+   The two systems currently produce different hashes for the same data
+   on purpose; see the note at the top of `fingerprint-rules.md` for the
+   planned unification (Phase 3b).
 2. Search existing board for this fingerprint:
 ```bash
 export BD_DB=.beads/drover.db
