@@ -480,6 +480,37 @@ setInterval(() => {
 }, 30000);
 
 // ---------------------------------------------------------------------------
+// Project registration (/api/projects, /api/projects/add)
+// ---------------------------------------------------------------------------
+
+const projectsModule = require('./projects.js');
+
+async function handleAddProject(req, res) {
+  let body = {};
+  try {
+    const raw = await readBody(req);
+    body = raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return jsonResponse(res, 400, { status: 'error', message: 'invalid JSON body' });
+  }
+
+  let targetPath = body.path;
+  if (!targetPath) {
+    if (process.platform !== 'darwin') {
+      return jsonResponse(res, 400, { status: 'error', message: 'path required on non-macOS' });
+    }
+    targetPath = projectsModule.pickFolderMacOS();
+    if (!targetPath) return jsonResponse(res, 200, { status: 'canceled' });
+  }
+
+  const result = projectsModule.addProject(targetPath);
+  const code = result.status === 'error' ? 400 : 200;
+  return jsonResponse(res, code, result);
+}
+
+function listProjects() { return projectsModule.listProjects(); }
+
+// ---------------------------------------------------------------------------
 // POST /api/move
 // ---------------------------------------------------------------------------
 
@@ -1458,6 +1489,7 @@ function buildHtml() {
       <span class="ts" id="clock"></span>
       <button class="btn btn-ghost active-view" id="btn-dashboard" onclick="switchView('dashboard')">&#9783; Dashboard</button>
       <button class="btn btn-ghost" id="btn-board" onclick="switchView('board')">&#8862; Board</button>
+      <button class="btn btn-ghost" id="btn-add-project" onclick="addProjectPrompt()" title="Register a DDEV project with drover">+ Add Project</button>
     </div>
   </header>
 
@@ -2409,6 +2441,31 @@ document.addEventListener('keydown', function(ev){
 });
 
 // ========================================================================
+// Project registration
+// ========================================================================
+function addProjectPrompt() {
+  var btn = document.getElementById('btn-add-project');
+  if (btn) { btn.disabled = true; btn.textContent = 'Picking…'; }
+  fetch('/api/projects/add', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}'
+  })
+    .then(function(r) { return r.json().then(function(body) { return { status: r.status, body: body }; }); })
+    .then(function(r) {
+      var b = r.body || {};
+      if (b.status === 'canceled') { alert('Add project: canceled.'); return; }
+      if (b.status === 'added')   { alert('Added ' + b.name + '\\n' + (b.path || '')); return; }
+      if (b.status === 'exists')  { alert((b.name || 'project') + ' is already registered.'); return; }
+      alert('Could not add project: ' + (b.message || 'unknown error'));
+    })
+    .catch(function(e) { alert('Request failed: ' + e.message); })
+    .finally(function() {
+      if (btn) { btn.disabled = false; btn.textContent = '+ Add Project'; }
+    });
+}
+
+// ========================================================================
 // View switching
 // ========================================================================
 function switchView(view) {
@@ -2849,6 +2906,15 @@ const server = http.createServer(async (req, res) => {
       sseClients.add(res);
       req.on('close', () => sseClients.delete(res));
       return;
+    }
+
+    // Project registration endpoints (GET list, POST add)
+    if (pathname === '/api/projects' && req.method === 'GET') {
+      return jsonResponse(res, 200, listProjects());
+    }
+
+    if (pathname === '/api/projects/add' && req.method === 'POST') {
+      return handleAddProject(req, res);
     }
 
     // API endpoints
