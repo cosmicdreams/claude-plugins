@@ -2468,15 +2468,15 @@ function addProjectPrompt() {
     headers: { 'Content-Type': 'application/json' },
     body: '{}'
   })
-    .then(function(r) { return r.json().then(function(body) { return { status: r.status, body: body }; }); })
-    .then(function(r) {
-      var b = r.body || {};
-      if (b.status === 'canceled') { alert('Add project: canceled.'); return; }
-      if (b.status === 'added')   { alert('Added ' + b.name + '\\n' + (b.path || '')); return; }
-      if (b.status === 'exists')  { alert((b.name || 'project') + ' is already registered.'); return; }
-      alert('Could not add project: ' + (b.message || 'unknown error'));
+    .then(function(r) { return r.json(); })
+    .then(function(b) {
+      b = b || {};
+      if (b.status === 'canceled') return showToast('Add project canceled');
+      if (b.status === 'added')   return showToast('Added ' + b.name);
+      if (b.status === 'exists')  return showToast((b.name || 'project') + ' already registered');
+      showToast('Add project failed: ' + (b.message || 'unknown'));
     })
-    .catch(function(e) { alert('Request failed: ' + e.message); })
+    .catch(function(e) { showToast('Request failed: ' + e.message); })
     .finally(function() {
       if (btn) { btn.disabled = false; btn.textContent = '+ Add Project'; }
     });
@@ -2492,32 +2492,75 @@ function backfillPrompt() {
           if (e.alias) envs.push(e.alias);
         });
       });
-      if (envs.length === 0) { alert('No Acquia environments registered. Run Add Project first.'); return; }
-      var alias = prompt('Backfill which environment?\n\n' + envs.join(', '), envs[0]);
-      if (!alias) return;
-      var btn = document.getElementById('btn-backfill');
-      if (btn) { btn.disabled = true; btn.textContent = 'Backfilling…'; }
-      fetch('/api/projects/backfill', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ alias: alias })
-      })
-        .then(function(r) { return r.json(); })
-        .then(function(body) {
-          if (body.status === 'done') {
-            alert('Backfill complete for ' + alias + '\\n' +
-                  'Events: ' + body.events + '\\n' +
-                  'New fingerprints: ' + body.new_fingerprints + '\\n' +
-                  'Thresholds hit: ' + body.threshold_hits);
-          } else {
-            alert('Backfill failed: ' + (body.message || 'unknown error'));
-          }
-        })
-        .catch(function(e) { alert('Request failed: ' + e.message); })
-        .finally(function() {
-          if (btn) { btn.disabled = false; btn.textContent = 'Backfill'; }
-        });
+      if (envs.length === 0) return showToast('No Acquia envs registered. Add a project first.');
+      showBackfillModal(envs);
     });
+}
+
+// Safe DOM-construction modal — no innerHTML with user data.
+function showBackfillModal(envs) {
+  var content = document.getElementById('modal-content');
+  while (content.firstChild) content.removeChild(content.firstChild);
+
+  var header = document.createElement('div'); header.className = 'modal-header';
+  var title = document.createElement('div'); title.className = 'modal-title'; title.textContent = 'Backfill Acquia logs';
+  var closeBtn = document.createElement('button'); closeBtn.className = 'modal-close'; closeBtn.textContent = '\u2715';
+  closeBtn.onclick = closeBackfillModal;
+  header.appendChild(title); header.appendChild(closeBtn);
+
+  var body = document.createElement('div'); body.className = 'modal-body';
+
+  var sec1 = document.createElement('div'); sec1.className = 'modal-section';
+  var lbl1 = document.createElement('label'); lbl1.textContent = 'Environment';
+  lbl1.style.display = 'block'; lbl1.style.marginBottom = '8px';
+  var sel = document.createElement('select'); sel.id = 'backfill-env'; sel.style.width = '100%'; sel.style.padding = '8px';
+  envs.forEach(function(a) {
+    var opt = document.createElement('option'); opt.value = a; opt.textContent = a; sel.appendChild(opt);
+  });
+  sec1.appendChild(lbl1); sec1.appendChild(sel);
+
+  var sec2 = document.createElement('div'); sec2.className = 'modal-section';
+  var lbl2 = document.createElement('label'); lbl2.textContent = 'Log types (comma-separated)';
+  lbl2.style.display = 'block'; lbl2.style.marginBottom = '8px';
+  var inp = document.createElement('input'); inp.id = 'backfill-types'; inp.type = 'text';
+  inp.value = 'php-error,apache-error'; inp.style.width = '100%'; inp.style.padding = '8px';
+  sec2.appendChild(lbl2); sec2.appendChild(inp);
+
+  var sec3 = document.createElement('div'); sec3.className = 'modal-section'; sec3.style.textAlign = 'right';
+  var cancel = document.createElement('button'); cancel.className = 'btn'; cancel.textContent = 'Cancel'; cancel.onclick = closeBackfillModal;
+  var go = document.createElement('button'); go.className = 'btn btn-primary'; go.id = 'backfill-go'; go.textContent = 'Run Backfill'; go.onclick = runBackfill;
+  sec3.appendChild(cancel); sec3.appendChild(go);
+
+  body.appendChild(sec1); body.appendChild(sec2); body.appendChild(sec3);
+  content.appendChild(header); content.appendChild(body);
+  document.getElementById('board-modal').classList.add('open');
+}
+
+function closeBackfillModal() {
+  document.getElementById('board-modal').classList.remove('open');
+}
+
+function runBackfill() {
+  var alias = document.getElementById('backfill-env').value;
+  var logTypes = document.getElementById('backfill-types').value;
+  var go = document.getElementById('backfill-go');
+  if (go) { go.disabled = true; go.textContent = 'Running\u2026'; }
+  fetch('/api/projects/backfill', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ alias: alias, log_types: logTypes })
+  })
+    .then(function(r) { return r.json(); })
+    .then(function(body) {
+      if (body.status === 'done') {
+        showToast('Backfilled ' + alias + ': ' + body.events + ' events, ' +
+                  body.new_fingerprints + ' new, ' + body.threshold_hits + ' thresholds');
+      } else {
+        showToast('Backfill failed: ' + (body.message || 'unknown'));
+      }
+      closeBackfillModal();
+    })
+    .catch(function(e) { showToast('Request failed: ' + e.message); closeBackfillModal(); });
 }
 
 // ========================================================================
