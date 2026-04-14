@@ -47,9 +47,13 @@ try:
         if name:
             print(f"ddev:{name}")
         for env in (e.get("acquia") or {}).get("environments", []) or []:
-            eid = env.get("id") if isinstance(env, dict) else env
-            if eid:
-                print(f"acquia:{eid}")
+            # Prefer alias ("site.env" — works with acli), fall back to id or raw string.
+            if isinstance(env, dict):
+                key = env.get("alias") or env.get("id")
+            else:
+                key = env
+            if key:
+                print(f"acquia:{key}")
 except Exception:
     pass
 PY
