@@ -109,13 +109,31 @@ NOISE_SKIP: {wid} — {reason}: {message[:80]}
 
 For each remaining error entry:
 
-1. Compute fingerprint hash. Triage processes **structured records** — use
-   the per-source Python helpers in `fingerprint-rules.md` ("structured-record
-   variant"). For streaming raw log lines, use
-   `scripts/fingerprint.py` instead (what the umbrella monitor uses).
-   The two systems currently produce different hashes for the same data
-   on purpose; see the note at the top of `fingerprint-rules.md` for the
-   planned unification (Phase 3b).
+1. Compute fingerprint hash using the shared helper in
+   `${CLAUDE_PLUGIN_ROOT}/scripts/fingerprint.py`:
+
+   ```python
+   import importlib.util, os
+   spec = importlib.util.spec_from_file_location(
+       "fingerprint",
+       os.environ["CLAUDE_PLUGIN_ROOT"] + "/scripts/fingerprint.py",
+   )
+   fp = importlib.util.module_from_spec(spec); spec.loader.exec_module(fp)
+   h = fp.fingerprint_structured(
+       source=record["source"],         # "watchdog" | "php" | "nginx" | "apache"
+       message=record["message"],
+       level=record.get("level"),
+       file=record.get("file"),
+       type_=record.get("type"),
+   )
+   ```
+
+   Both triage (structured records) and the umbrella monitor (raw log
+   lines, via `fp.process(line)`) now share a single sha256[:12] hash
+   space — identical errors produce identical fingerprints across both
+   entry points. Per-source normalization rules live in one place:
+   `fingerprint.py`. Detailed intent of each source is documented in
+   `fingerprint-rules.md`.
 2. Search existing board for this fingerprint:
 ```bash
 export BD_DB=.beads/drover.db

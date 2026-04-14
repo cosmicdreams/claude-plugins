@@ -1,188 +1,93 @@
 ---
 name: fingerprint-rules
 description: >
-  Fingerprinting rules for drover error deduplication. Defines per-source
-  normalization and hash computation. Referenced by drover:triage for the
-  structured-input case (parsed log records) and by scripts/fingerprint.py
-  for the streaming-line case (monitors).
+  Canonical reference for drover error fingerprinting. As of 1.10.0 there
+  is one implementation — `scripts/fingerprint.py` — consumed by both the
+  umbrella monitor (line-mode via `process(line)`) and drover:triage
+  (structured-record mode via `fingerprint_structured(...)`). This
+  document describes what that code does and why.
 ---
 
 # Drover Fingerprint Rules
 
-> **Two implementations — deliberate split as of 1.8.0**
->
-> | Context | Implementation | Hash | Input shape | Source detection |
-> |---|---|---|---|---|
-> | Live monitors (`ddev-watch.py`, `acquia-watch.py`) and backfill (`backfill.sh`) | `scripts/fingerprint.py` | `sha256[:12]` | raw log line | auto-detected |
-> | Triage cycle (`drover:triage`) | inline Python in `triage-procedure.md` | `sha1[:12]` | structured record (`{type, message, level, file, ...}`) | explicit per-source keys |
->
-> **Why the split is acceptable (for now):** the two never produce
-> fingerprints for the same data — monitors process raw streams, triage
-> processes already-parsed records. Tickets in `.beads/drover.db` carry
-> triage-produced sha1 fingerprints; monitor state carries sha256
-> fingerprints in per-project state files.
->
-> **Planned unification (Phase 3b — deferred):** promote `fingerprint.py`
-> into a shared module exposing both `process(line)` and
-> `fingerprint_structured(source, level, message, file=None)`. Pick one
-> hash. Migrate existing Beads ticket bodies by running a one-shot rehash
-> pass over open tickets. Tracked as a future card; do not attempt
-> inline with other changes.
+Fingerprints are the canonical deduplication key for drover tickets.
+Both the monitor pipeline and triage compute fingerprints using the
+**same Python module** (`${CLAUDE_PLUGIN_ROOT}/scripts/fingerprint.py`),
+**same hash** (sha256, truncated to 12 hex chars), and **same key
+space** — so a `NEW` emitted by `ddev-watch.py` shares a fingerprint
+with a triage-created ticket for the same underlying error.
 
-The remainder of this document is the spec for the **structured-record
-variant** used by triage. The streaming variant lives in
-`${CLAUDE_PLUGIN_ROOT}/scripts/fingerprint.py` and is tested in
-`tests/python/test_fingerprint.py`.
+## Two entry points, one implementation
 
-Fingerprints are the canonical deduplication key for drover tickets. Each error source
-uses source-specific normalization before hashing to group semantically identical errors
-regardless of variable data (IDs, timestamps, IP addresses, file paths).
+| Entry point | Function | Input |
+|---|---|---|
+| Umbrella monitor (`ddev-watch.py`, `acquia-watch.py`, `backfill.sh`) | `fingerprint.process(line)` | raw log line; source auto-detected |
+| `drover:triage` Step 4 | `fingerprint.fingerprint_structured(...)` | parsed record with explicit `source`, `level`, `file`, `type`, `message` |
 
-## Normalization Rules (apply to all sources)
+Both paths call the same internal `normalize()` + sha256-truncate
+sequence.
 
-Before computing any fingerprint, apply these transformations to the message string:
+## Normalization (before hashing, either entry point)
 
-1. **Strip 4+ digit integers** — removes node IDs, WIDs, timestamps embedded in messages
-   - Pattern: `\b\d{4,}\b` → `{N}`
-2. **Strip UUIDs** — removes entity UUIDs
-   - Pattern: `[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}` → `{UUID}`
-3. **Strip URLs** — removes request-specific URLs
-   - Pattern: `https?://[^\s"']+` → `{URL}`
-4. **Strip IP addresses** — removes client IPs, server addresses
-   - Pattern: `\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b` → `{IP}`
-5. **Strip absolute paths** — removes environment-specific file paths
-   - Pattern: `/[a-zA-Z0-9_/.-]{10,}` → `{PATH}` (only paths with 10+ chars to avoid false positives)
-6. **Normalize whitespace** — collapse multiple spaces/newlines to single space, strip leading/trailing whitespace
-7. **Truncate** — trim to 120 characters
+From `fingerprint.py`:
 
-## Per-Source Fingerprint Keys
+1. Strip request IDs (UUID-ish hex patterns)
+2. Strip timestamps (bracketed tokens, ISO dates, Drupal watchdog date format)
+3. Strip IP addresses
+4. Strip PID markers (`pid <n>`)
+5. Strip hex addresses (`0x…`)
+6. Collapse long path runs to `PATH/<last-two-segments>`
+7. Replace bare integers with `N`
+8. Collapse whitespace
+9. Lowercase, strip, truncate to 120 chars
 
-### Watchdog (Drupal `watchdog` table)
+## Source-specific key shape (structured mode)
 
-**Input fields:** `type`, `message`, `variables` (JSON-decoded message variables substituted in)
+The structured helper produces a per-source key **before** hashing so
+that a Drupal watchdog notice stays distinct from an Apache error even
+when the raw message strings happen to collide post-normalization.
 
-**Composite key format:** `watchdog:{type}:{normalized_message[:120]}`
+| Source | Key shape |
+|---|---|
+| `watchdog` | `watchdog:{type}:{normalized_message}` |
+| `php` | `php:{level}:{normalized_message}:{module_relative_file}` |
+| `nginx` | `nginx:{level}:{normalized_message}` (transport noise stripped first) |
+| `apache` | `apache:{level}:{normalized_message}` (`[client …]`, `[pid …]`, `AH00xx:` stripped first) |
+| other | `{source}:{normalized_message}` |
 
-**Steps:**
-1. Substitute `variables` JSON into `message` placeholders (e.g. `%var` → value from variables)
-2. Apply normalization rules above
-3. Compute SHA-1 of composite key → take first 12 hex characters
+For `php`, `module_relative_file` is the path from the first `modules/`
+or `core/` prefix onward with trailing `:<line>` stripped. Example:
+`/var/www/html/modules/custom/foo/src/Bar.php:142` →
+`modules/custom/foo/src/Bar.php`.
 
-**Example:**
-```
-type: "php"
-message: "PDOException: SQLSTATE[HY000]: General error: 1 Can't create/write to file '/tmp/mysql.tmp' (Errcode: 28 \"No space left on device\") in /var/www/html/modules/custom/my_module/src/MyService.php on line 142"
-→ normalized: "PDOException: SQLSTATE[HY000]: General error: {N} Can't create/write to file {PATH} (Errcode: {N} \"No space left on device\") in {PATH} on line {N}"
-→ key: "watchdog:php:PDOException: SQLSTATE[HY000]: General error: {N} Can't create/write to"
-→ fp: sha1(key)[:12] = "a3f2b1c4d5e6"
-```
+## Line-mode (monitor) source classification
 
-### PHP Error Log
+`process(line)` detects source from the line content:
+- `watchdog`: contains ` | php ` / ` | cron ` / "drush" (drush watchdog:tail format)
+- `php`: contains `[php:` or `php fatal` / `php warning`
+- `apache`: contains `[error]` or `[:error]`
+- `other`: anything else that passes the severity gate
 
-**Input fields:** `level`, `message`, `file` (make module-relative by stripping everything before `modules/` or `core/`)
+Line-mode calls `normalize(line)` directly (no per-source prefix) and
+hashes the result. This means line-mode and structured-mode can assign
+slightly different fingerprints to the same error when the raw line
+normalizes differently than the structured record's `message` field.
+In practice the two paths process disjoint data windows (live stream
+vs batch triage). When they disagree, structured-mode is authoritative
+for ticket identity.
 
-**Composite key format:** `php:{level}:{normalized_message[:120]}:{module_relative_file}`
+## Migration (1.10.0)
 
-**Additional normalization:**
-- Convert `$module_relative_file`: strip absolute prefix up to `modules/` or `core/`, keep remainder
-  - Example: `/var/www/html/modules/custom/my_module/src/MyService.php:142` → `modules/custom/my_module/src/MyService.php` (strip line number)
-- Strip line numbers from file references in the message itself
+The legacy per-source helper used sha1[:12] — a different hash space
+from the monitor pipeline. Unifying onto `fingerprint_structured()`
+changes the hash of every existing open ticket. Run
+`${CLAUDE_PLUGIN_ROOT}/scripts/fingerprint-migrate.py <path/to/.beads/drover.db>`
+once per project to recompute and rewrite the fingerprint hashes stored
+in open ticket bodies. Idempotent; safe to re-run. Pass `--dry-run`
+first to preview.
 
-**Example:**
-```
-level: "PHP Fatal error"
-message: "Uncaught Error: Call to undefined method Drupal\my_module\MyService::loadItems() in /var/www/html/modules/custom/my_module/src/MyService.php:98"
-file: "/var/www/html/modules/custom/my_module/src/MyService.php"
-→ module_relative_file: "modules/custom/my_module/src/MyService.php"
-→ normalized message: "Uncaught Error: Call to undefined method Drupal\my_module\MyService::loadItems() in {PATH}"
-→ key: "php:PHP Fatal error:Uncaught Error: Call to undefined method Drupal\my_module\MyService::loadItems():modules/custom/my_module/src/MyService.php"
-→ fp: sha1(key)[:12]
-```
+## Fingerprint lookup
 
-### Nginx Error Log
-
-**Input fields:** `level`, `message`
-
-**Composite key format:** `nginx:{level}:{normalized_message[:120]}`
-
-**Additional normalization (beyond standard):**
-- Strip client IP from messages: `client: {IP}` → removed
-- Strip PID references: `\[pid \d+\]` → removed
-- Strip request IDs (e.g. X-Request-ID): `request_id "[a-z0-9]+"` → removed
-- Strip upstream addresses: `upstream: "https?://[^\s"]+"` → `upstream: {URL}`
-
-### Apache Error Log
-
-**Input fields:** `level`, `message`
-
-**Composite key format:** `apache:{level}:{normalized_message[:120]}`
-
-**Additional normalization (beyond standard):**
-- Strip `[client {IP}:{port}]` prefixes
-- Strip `[pid \d+]` markers
-- Strip AH error codes from message prefix: `AH\d+: ` → removed (keep remaining message)
-- Strip referer lines: `referer: {URL}` → removed
-
-## Fingerprint Lookup
-
-To look up an existing ticket by fingerprint hash `{fp}`:
-
-```bash
-bd list -l board-drover --db .beads/drover.db --json --flat | python3 -c "
-import json, sys
-items = json.load(sys.stdin)
-fp = '{fp}'
-for item in items:
-    body = item.get('body', '')
-    if f'\"fp\": \"{fp}\"' in body or f'**Fingerprint:** \`{fp}\`' in body:
-        print(json.dumps(item))
-        break
-"
-```
-
-If a match is found: augment the existing ticket (increment count, update last-seen, update context).
-If no match: create a new ticket.
-
-## Python Helper (inline in triage agent)
-
-```python
-import hashlib, re, json
-
-NORM_PATTERNS = [
-    (re.compile(r'\b\d{4,}\b'), '{N}'),
-    (re.compile(r'[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}', re.I), '{UUID}'),
-    (re.compile(r'https?://[^\s"\']+'), '{URL}'),
-    (re.compile(r'\b\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\b'), '{IP}'),
-    (re.compile(r'/[a-zA-Z0-9_/.-]{10,}'), '{PATH}'),
-]
-
-def normalize(msg):
-    for pattern, replacement in NORM_PATTERNS:
-        msg = pattern.sub(replacement, msg)
-    msg = re.sub(r'\s+', ' ', msg).strip()
-    return msg[:120]
-
-def fingerprint_watchdog(type_, message):
-    key = f"watchdog:{type_}:{normalize(message)}"
-    return hashlib.sha1(key.encode()).hexdigest()[:12]
-
-def fingerprint_php(level, message, filepath):
-    rel = re.sub(r'^.*?(modules/|core/)', r'\1', filepath)
-    rel = re.sub(r':\d+$', '', rel)
-    key = f"php:{level}:{normalize(message)}:{rel}"
-    return hashlib.sha1(key.encode()).hexdigest()[:12]
-
-def fingerprint_nginx(level, message):
-    msg = re.sub(r'client: \S+', '', message)
-    msg = re.sub(r'\[pid \d+\]', '', msg)
-    msg = re.sub(r'request_id "[a-z0-9]+"', '', msg)
-    key = f"nginx:{level}:{normalize(msg)}"
-    return hashlib.sha1(key.encode()).hexdigest()[:12]
-
-def fingerprint_apache(level, message):
-    msg = re.sub(r'\[client [^\]]+\]', '', message)
-    msg = re.sub(r'\[pid \d+\]', '', msg)
-    msg = re.sub(r'AH\d+: ', '', msg)
-    key = f"apache:{level}:{normalize(msg)}"
-    return hashlib.sha1(key.encode()).hexdigest()[:12]
-```
+Ticket bodies store the fingerprint as `**Fingerprint:** \`<hash>\``.
+Triage Step 4 greps for that string when searching for an existing
+ticket to augment.

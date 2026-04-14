@@ -127,5 +127,60 @@ class TestMainStdin(unittest.TestCase):
             json.loads(l)  # every line is valid JSON
 
 
+class TestFingerprintStructured(unittest.TestCase):
+    def test_watchdog_includes_type_in_key(self):
+        a = fp.fingerprint_structured("watchdog", "undefined index bar", type_="php")
+        b = fp.fingerprint_structured("watchdog", "undefined index bar", type_="cron")
+        self.assertNotEqual(a, b)
+
+    def test_watchdog_stable_across_instances(self):
+        msg = "Notice: Undefined index foo in line 42"
+        a = fp.fingerprint_structured("watchdog", msg, type_="php")
+        b = fp.fingerprint_structured("watchdog", msg, type_="php")
+        self.assertEqual(a, b)
+
+    def test_php_uses_module_relative_file(self):
+        a = fp.fingerprint_structured(
+            "php", "Uncaught TypeError", level="error",
+            file="/var/www/html/modules/custom/foo/src/Bar.php",
+        )
+        b = fp.fingerprint_structured(
+            "php", "Uncaught TypeError", level="error",
+            file="/tmp/build123/modules/custom/foo/src/Bar.php",
+        )
+        self.assertEqual(a, b)
+
+    def test_php_line_number_ignored(self):
+        a = fp.fingerprint_structured(
+            "php", "Uncaught X in Foo.php on line 10", level="error",
+            file="modules/foo/Foo.php",
+        )
+        b = fp.fingerprint_structured(
+            "php", "Uncaught X in Foo.php on line 99", level="error",
+            file="modules/foo/Foo.php",
+        )
+        self.assertEqual(a, b)
+
+    def test_apache_strips_client_and_pid(self):
+        a = fp.fingerprint_structured(
+            "apache", "[client 10.0.0.1:12345] [pid 321] AH00054: something",
+            level="error",
+        )
+        b = fp.fingerprint_structured(
+            "apache", "[client 10.0.0.2:99999] [pid 7] AH00054: something",
+            level="error",
+        )
+        self.assertEqual(a, b)
+
+    def test_result_is_12_hex(self):
+        h = fp.fingerprint_structured("watchdog", "x", type_="php")
+        self.assertEqual(len(h), 12)
+        int(h, 16)
+
+    def test_unknown_source_falls_through(self):
+        h = fp.fingerprint_structured("custom", "anything")
+        self.assertEqual(len(h), 12)
+
+
 if __name__ == "__main__":
     unittest.main()

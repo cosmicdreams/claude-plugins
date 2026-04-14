@@ -1,5 +1,12 @@
 # drover Changelog
 
+## 1.10.0
+- **Fingerprint unification** — one hash space, one implementation. Triage and the monitor pipeline now compute fingerprints using the same `scripts/fingerprint.py` module. `fingerprint_structured(source, message, level=…, file=…, type_=…)` is the new entry point for pre-parsed records; `process(line)` remains the line-mode entry point for monitors. Both produce sha256[:12] hashes in the same keyspace.
+- **Migration**: `scripts/fingerprint-migrate.py <drover.db>` rewrites the fingerprint hashes stored in open ticket bodies so existing tickets survive the cutover. Idempotent; `--dry-run` previews changes. Run once per project after upgrade.
+- **`fingerprint-rules.md`** rewritten as a thin reference that describes what `fingerprint.py` does; the divergent inline per-source helper is gone.
+- **`triage-procedure.md`** Step 4 now calls `fingerprint_structured()` directly instead of duplicating sha1 logic.
+- **Tests**: +7 python tests for `fingerprint_structured` covering watchdog-type stability, php module-relative paths + line-number invariance, apache client/pid stripping, hex length, unknown-source fallthrough. Total: 82 tests green.
+
 ## 1.9.0
 - **bd-ready monitor**: new `scripts/monitors/bd-ready-watch.py` polls each registered project's Beads board every 60s (`DROVER_BD_POLL_INTERVAL`) and emits `READY <ticket-id> <severity> <fingerprint> <project>` when a new unassigned `lane-ready` ticket appears. Detection-only — invoking `drover:implement` remains the user/agent call.
 - **Umbrella routing**: `bd-ready:<project-path>` keys route to the new watcher. Pidfile naming switched from colon-substitution to sha1-hashed (handles paths with slashes). Each pidfile stores the original key on line 1, pid on line 2.

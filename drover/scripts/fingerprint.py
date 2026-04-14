@@ -91,6 +91,56 @@ def fingerprint(line: str) -> str:
     return hashlib.sha256(normalize(line).encode("utf-8")).hexdigest()[:12]
 
 
+def fingerprint_structured(
+    source: str,
+    message: str,
+    *,
+    level: str | None = None,
+    file: str | None = None,
+    type_: str | None = None,
+) -> str:
+    """Fingerprint a pre-parsed log record.
+
+    Used by drover:triage when fields are already split out (the
+    streaming process() is for raw lines). Produces the same sha256[:12]
+    hash space so triage-created tickets and monitor-created state share
+    a single namespace.
+
+    Source-specific key shape:
+      watchdog -> "watchdog:{type}:{normalized[:120]}"
+      php      -> "php:{level}:{normalized[:120]}:{module_relative_file}"
+      nginx    -> "nginx:{level}:{normalized[:120]}"
+      apache   -> "apache:{level}:{normalized[:120]}"
+      other    -> "{source}:{normalized[:120]}"
+    """
+    norm = normalize(message)[:120]
+    src = (source or "other").lower()
+
+    if src == "watchdog":
+        key = f"watchdog:{type_ or ''}:{norm}"
+    elif src == "php":
+        rel = _module_relative(file or "")
+        key = f"php:{level or ''}:{norm}:{rel}"
+    elif src in ("nginx", "apache"):
+        stripped = re.sub(r"\[client [^\]]+\]", "", message)
+        stripped = re.sub(r"\bclient: \S+", "", stripped)
+        stripped = re.sub(r"\bpid \d+\b", "", stripped, flags=re.I)
+        stripped = re.sub(r"\bAH\d+:\s*", "", stripped)
+        key = f"{src}:{level or ''}:{normalize(stripped)[:120]}"
+    else:
+        key = f"{src}:{norm}"
+
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
+
+
+def _module_relative(path: str) -> str:
+    if not path:
+        return ""
+    m = re.search(r"(modules/|core/).*$", path)
+    rel = m.group(0) if m else path
+    return re.sub(r":\d+$", "", rel)
+
+
 def process(line: str) -> dict | None:
     line = line.rstrip("\n")
     if not line:
