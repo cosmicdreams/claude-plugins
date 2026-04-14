@@ -1,5 +1,12 @@
 # drover Changelog
 
+## 1.7.0
+- **Acquia logstream watcher**: `scripts/monitors/acquia-watch.py` spawns `acli app:log:tail <env>`, strips the preamble, and routes lines through the shared `fingerprint.process()` — same `NEW`/`THRESH` emission format as `ddev-watch.py`. State at `${DROVER_STATE_DIR}/acquia-<envId>.json`.
+- **Umbrella routing by prefix**: `ddev:<name>` keys spawn `ddev-watch.py`; `acquia:<alias-or-id>` keys spawn `acquia-watch.py`. Pidfiles use `__` instead of `:` for filesystem safety.
+- **Auto-discovery from drush aliases**: `add-project.sh` now parses `drush/sites/*.site.yml` for `ac-site` + `ac-env` keys and populates `acquia.environments[]` with `{alias, env, site, drush_alias}`. The `alias` field works directly as the argument to `acli app:log:tail`.
+- **UUID caching**: `scripts/resolve-acquia-uuids.sh` is invoked at registration time when `acli` is on PATH. It enriches each Acquia env with `app_uuid`, `env_uuid`, and `default_domain` via one-shot `acli api:applications:list` + `environment-list` calls. These UUIDs support future backfill and historical pulls without re-hitting the API.
+- **Tests**: +11 tests (6 acquia-watch, 3 uuid resolver, 1 umbrella acquia routing, 1 add-project discovery). Total: 58 tests green.
+
 ## 1.6.0
 - **Monitor-driven architecture**: adopts the CC 2.1.105 `monitors` manifest key. The new umbrella monitor (`scripts/monitors/umbrella-watch.sh`) reads `${CLAUDE_PLUGIN_DATA}/projects.json` and spawns one `ddev-watch.py` per registered project. Auto-arms at session start, skill invocation, or `/reload-plugins` — no `/loop` required.
 - **`ddev-watch.py`**: per-project error watcher merging `drush watchdog:tail` and `ddev logs -f --service web`. Shared-fingerprint dedup. Emits `NEW <fp>` on first occurrence and `THRESH <fp> count=N` when a fingerprint hits `DROVER_THRESHOLD` (default 50 = Drupal watchdog batch size). State persisted in `${CLAUDE_PLUGIN_DATA}/ddev-state/<project>.json`.
