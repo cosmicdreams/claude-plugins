@@ -1,26 +1,40 @@
 #!/usr/bin/env bash
 # umbrella-watch.sh — one monitor entry that tails every registered
 # drover project. Polls projects.json on an interval; starts a child
-# ddev-watch.sh for new projects, kills children for removed ones.
+# watcher for new keys, kills children for removed ones.
+#
+# Each wanted key has a prefix selecting the watcher:
+#   ddev:<project-name>    — scripts/monitors/ddev-watch.py
+#   acquia:<env-id>        — scripts/monitors/acquia-watch.py
 #
 # Users can add or remove projects (via add-project.sh or the
 # dashboard) without /reload-plugins.
-#
-# Every child line is re-emitted on umbrella stdout prefixed with the
-# project name so a chat notification identifies the source.
-#
-# Child tracking: one file per project in $TRACK_DIR containing the
-# child PID. No associative arrays required — works under bash 3.
 
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DDEV_WATCH="${DROVER_DDEV_WATCH:-${SCRIPT_DIR}/ddev-watch.py}"
+ACQUIA_WATCH="${DROVER_ACQUIA_WATCH:-${SCRIPT_DIR}/acquia-watch.py}"
 PROJECTS_FILE="${DROVER_PROJECTS_FILE:-${CLAUDE_PLUGIN_DATA:-${HOME}/.claude/plugins/data/drover-fallback}/projects.json}"
 POLL_INTERVAL="${DROVER_UMBRELLA_POLL:-30}"
-MAX_ITERATIONS="${DROVER_UMBRELLA_MAX_ITERATIONS:-0}"  # 0 = forever; tests set a small number
+MAX_ITERATIONS="${DROVER_UMBRELLA_MAX_ITERATIONS:-0}"
 
 TRACK_DIR="$(mktemp -d -t drover-umbrella.XXXXXX)"
+
+# Map a "kind:id" key to a filesystem-safe pidfile name.
+pidfile_for() {
+  local key="$1"
+  local safe="${key//:/__}"
+  echo "$TRACK_DIR/$safe.pid"
+}
+
+# Reverse pidfile_for: derive key from a pidfile path.
+key_for_pidfile() {
+  local f="$1"
+  local base
+  base="$(basename "$f" .pid)"
+  echo "${base/__/:}"
+}
 
 list_projects() {
   [ -f "$PROJECTS_FILE" ] || return 0
@@ -31,32 +45,48 @@ try:
     for e in data:
         name = e.get("name") or e.get("ddev_project")
         if name:
-            print(name)
+            print(f"ddev:{name}")
+        for env in (e.get("acquia") or {}).get("environments", []) or []:
+            eid = env.get("id") if isinstance(env, dict) else env
+            if eid:
+                print(f"acquia:{eid}")
 except Exception:
     pass
 PY
 }
 
 start_child() {
-  local name="$1"
+  local key="$1"
+  local kind="${key%%:*}"
+  local id="${key#*:}"
+  local cmd
+  case "$kind" in
+    ddev)   cmd="$DDEV_WATCH" ;;
+    acquia) cmd="$ACQUIA_WATCH" ;;
+    *)
+      echo "umbrella: unknown watcher kind '$kind' for '$key'"
+      return
+      ;;
+  esac
   (
-    "$DDEV_WATCH" "$name" 2>&1 | while IFS= read -r line; do
-      printf '[%s] %s\n' "$name" "$line"
+    "$cmd" "$id" 2>&1 | while IFS= read -r line; do
+      printf '[%s] %s\n' "$key" "$line"
     done
   ) &
-  echo "$!" > "$TRACK_DIR/$name.pid"
-  echo "umbrella: starting $name"
+  echo "$!" > "$(pidfile_for "$key")"
+  echo "umbrella: starting $key"
 }
 
 stop_child() {
-  local name="$1"
-  local pidfile="$TRACK_DIR/$name.pid"
+  local key="$1"
+  local pidfile
+  pidfile="$(pidfile_for "$key")"
   [ -f "$pidfile" ] || return 0
   local pid
   pid="$(cat "$pidfile")"
   kill "$pid" 2>/dev/null || true
   rm -f "$pidfile"
-  echo "umbrella: stopping $name"
+  echo "umbrella: stopping $key"
 }
 
 child_alive() {
@@ -70,9 +100,7 @@ child_alive() {
 cleanup() {
   for f in "$TRACK_DIR"/*.pid; do
     [ -e "$f" ] || continue
-    local name
-    name="$(basename "$f" .pid)"
-    stop_child "$name"
+    stop_child "$(key_for_pidfile "$f")"
   done
   rm -rf "$TRACK_DIR"
   exit 0
@@ -86,21 +114,20 @@ while :; do
   wanted_file="$(mktemp -t drover-umbrella-wanted.XXXXXX)"
   list_projects > "$wanted_file"
 
-  # Start children for newly-wanted projects.
-  while IFS= read -r name; do
-    [ -z "$name" ] && continue
-    if ! child_alive "$TRACK_DIR/$name.pid"; then
-      [ -f "$TRACK_DIR/$name.pid" ] && rm -f "$TRACK_DIR/$name.pid"
-      start_child "$name"
+  while IFS= read -r key; do
+    [ -z "$key" ] && continue
+    pidfile="$(pidfile_for "$key")"
+    if ! child_alive "$pidfile"; then
+      [ -f "$pidfile" ] && rm -f "$pidfile"
+      start_child "$key"
     fi
   done < "$wanted_file"
 
-  # Stop children for projects no longer listed.
   for pidfile in "$TRACK_DIR"/*.pid; do
     [ -e "$pidfile" ] || continue
-    name="$(basename "$pidfile" .pid)"
-    if ! grep -qxF "$name" "$wanted_file"; then
-      stop_child "$name"
+    key="$(key_for_pidfile "$pidfile")"
+    if ! grep -qxF "$key" "$wanted_file"; then
+      stop_child "$key"
     fi
   done
 
