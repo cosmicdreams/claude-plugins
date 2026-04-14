@@ -67,6 +67,32 @@ EOF
   [ "$count" = "1" ]
 }
 
+@test "Acquia env blocks are discovered from site.yml ac-site/ac-env keys" {
+  make_project "$TMP/pncb" "pncb-main"
+  mkdir -p "$TMP/pncb/drush/sites"
+  cat > "$TMP/pncb/drush/sites/pncb.site.yml" <<EOF
+dev:
+  uri: dev.example.org
+  ac-site: pncb
+  ac-env: dev
+prod:
+  uri: www.example.org
+  ac-site: pncb
+  ac-env: prod
+local:
+  uri: 'http://pncb.ddev.site'
+EOF
+  run "$SCRIPT" "$TMP/pncb"
+  [ "$status" -eq 0 ]
+  python3 -c "
+import json,os
+d = json.load(open(os.environ['DROVER_PROJECTS_FILE']))
+envs = d[0]['acquia']['environments']
+aliases = sorted(e['alias'] for e in envs)
+assert aliases == ['pncb.dev', 'pncb.prod'], aliases
+"
+}
+
 @test "drush aliases are captured when present" {
   make_project "$TMP/site3" "site3-main"
   mkdir -p "$TMP/site3/drush/sites"

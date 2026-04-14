@@ -1,6 +1,6 @@
 {
     "name": "drover",
-    "version": "1.6.0",
+    "version": "1.7.0",
     "monitors": "./monitors/monitors.json",
     "description": "Automated Drupal error monitoring and self-healing pipeline: watches logs, triages errors into curated Beads tickets, autonomously implements fixes in isolated git worktrees, and notifies on ready-to-review fixes.",
     "author": {
