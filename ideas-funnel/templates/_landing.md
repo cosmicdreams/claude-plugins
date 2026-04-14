@@ -1,9 +1,9 @@
 ---
-type: moc
+type: landing
 domain: [{{DOMAIN_SLUG}}]
-title: "{{DOMAIN_LABEL}} — Map of Content"
+title: "{{DOMAIN_LABEL}} — Landing page"
 summary: "Landing page and agent entry point for the {{DOMAIN_LABEL}} domain."
-tags: [moc]
+tags: [landing]
 provenance:
   origin: human-written
   source_ids: []
@@ -21,7 +21,7 @@ hardened: true
 # {{DOMAIN_LABEL}}
 
 <!--
-This is the Map of Content (MOC) for the {{DOMAIN_LABEL}} domain.
+This is the landing page for the {{DOMAIN_LABEL}} domain.
 Ingest agents READ this file to understand the domain's landscape before writing new pages.
 The refinery agent updates the "Bridges" section when cross-domain connections emerge.
 Humans edit the "Landscape" paragraph and section anchors.

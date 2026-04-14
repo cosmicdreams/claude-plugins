@@ -1,0 +1,9 @@
+{
+  "monitors": [
+    {
+      "name": "ideas-funnel-umbrella",
+      "description": "Watches the umbrella multiplexer script. Each stdout line wakes the orchestrator skill.",
+      "command": "${CLAUDE_PLUGIN_ROOT}/scripts/monitors/umbrella-ideas.sh"
+    }
+  ]
+}

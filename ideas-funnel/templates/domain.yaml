@@ -5,9 +5,9 @@
 
 # --- Identity ---
 slug: ai-workflows              # kebab-case; used in filenames + signal payloads
-label: "AI Workflows"           # human-readable; used in UI and MOC titles
+label: "AI Workflows"           # human-readable; used in UI and landing page titles
 active: true                    # false = domain is dormant; feeds paused, pages retained
-moc: "Domains/AI-Workflows/_moc.md"  # vault-relative path to this domain's Map of Content
+landing: "Domains/AI-Workflows/_landing.md"  # vault-relative path to this domain's Landing page
 raw_inbox: "Raw/Inbox/ai-workflows/"  # vault-relative; scraper drop zone
 
 # --- Feeds ---

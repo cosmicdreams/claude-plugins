@@ -7,7 +7,7 @@ Derived from Andrej Karpathy's LLM Wiki pattern, extended with multi-domain atte
 ## What it does
 
 - **Ingests** — background scripts poll feeds and drop items into `Raw/Inbox/<domain>/`. No cron polling from the agent side; Monitor wakes the orchestrator only when content arrives.
-- **Compiles** — agents read raw items and produce durable Markdown pages in the vault: domain MOCs, Concept pages, Entity pages, Source pages.
+- **Compiles** — agents read raw items and produce durable Markdown pages in the vault: domain landing pages, Concept pages, Entity pages, Source pages.
 - **Consolidates** — when a concept appears in ≥3 unrelated sources, a synthesis page is generated. Cross-domain concepts produce Bridge pages.
 - **Remembers** — every claim carries provenance + bi-temporal timeline + confidence. Unused facts decay. Contradicted facts fork into Conflict pages.
 - **Surfaces** — high-signal items land in Beads lanes (Ready for new content, Review for resurfaced). You decide what graduates.
@@ -36,7 +36,7 @@ Derived from Andrej Karpathy's LLM Wiki pattern, extended with multi-domain atte
 
 ## Seven core concepts
 
-1. **Domain** — a pluggable attention slice (AI workflows, Drupal dev, Drupal news, OSS AI tools, ad-hoc). Declared in one YAML file. Each domain has its own feeds, keywords, MOC, decay class, and Beads scorer weights.
+1. **Domain** — a pluggable attention slice (AI workflows, Drupal dev, Drupal news, OSS AI tools, ad-hoc). Declared in one YAML file. Each domain has its own feeds, keywords, landing page, decay class, and Beads scorer weights.
 2. **`Raw/`** — immutable drop zone. LLM reads, never writes. `Raw/Inbox/<domain>/` is the Monitor trigger target.
 3. **Wiki layers** — compiled output: `Domains/<Label>/` (domain-owned), `Concepts/` / `Entities/` / `Sources/` / `Bridges/` (vault-shared, Refinery-owned), `Conflicts/` (auto-generated).
 4. **Monitor signals** — `umbrella-ideas.sh` emits typed stdout lines; Monitor wakes the orchestrator per signal. No polling.

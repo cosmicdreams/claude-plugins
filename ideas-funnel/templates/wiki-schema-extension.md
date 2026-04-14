@@ -8,7 +8,7 @@ Domains are declared in `~/.config/ideas-funnel/domains/*.yaml`. Each has its ow
 
 Current active domains (auto-synced by the orchestrator on each run):
 
-- **AI-Workflows** → `Domains/AI-Workflows/_moc.md` — raw: `Raw/Inbox/ai-workflows/`
+- **AI-Workflows** → `Domains/AI-Workflows/_landing.md` — raw: `Raw/Inbox/ai-workflows/`
 
 ## Directory Rule Update — Shared Layer Write Protocol
 
@@ -42,7 +42,7 @@ The canonical frontmatter for every wiki page is now:
 ```yaml
 ---
 # Existing (preserved)
-type: concept | entity | source | synthesis | bridge | conflict | moc
+type: concept | entity | source | synthesis | bridge | conflict | landing
 tags: []
 status: active | watching | archived     # legacy — may be dropped once `state` adopted
 

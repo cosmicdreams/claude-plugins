@@ -20,7 +20,7 @@ Agents are in `agents/*.md`. Each is ephemeral: spawned per firing, exits on com
 ### ingest (haiku) — Phase 2+
 **Purpose:** process a single domain's raw inbox slice into domain-scoped wiki pages.
 **Triggers:** spawned by orchestrator per `batch_complete` or `manual-ingest` signal.
-**Reads:** `Raw/Inbox/<domain>/`, `Domains/<Label>/_moc.md`, `Concepts/`, `Entities/` (read-only — never writes here).
+**Reads:** `Raw/Inbox/<domain>/`, `Domains/<Label>/_landing.md`, `Concepts/`, `Entities/` (read-only — never writes here).
 **Writes:** `Domains/<Label>/*.md`, `Sources/<slug>.md`, `Raw/.manifest.json`, `log.md`, `index.md`. Emits `wiki/concept-density-threshold` signal when a concept crosses the ≥3-unrelated-sources bar.
 **Never does:** write to shared `Concepts/`/`Entities/`/`Bridges/`/`Conflicts/`. Never scores. Never decays. Never spawns other agents.
 
