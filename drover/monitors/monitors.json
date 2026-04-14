@@ -1,1 +1,7 @@
-[]
+[
+  {
+    "name": "drover-umbrella",
+    "description": "Watches all registered DDEV projects for Drupal errors (watchdog + web container). Configure via /drover:add-project or the dashboard.",
+    "command": "${CLAUDE_PLUGIN_ROOT}/scripts/monitors/umbrella-watch.sh"
+  }
+]

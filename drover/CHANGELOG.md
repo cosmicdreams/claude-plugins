@@ -1,5 +1,14 @@
 # drover Changelog
 
+## 1.6.0
+- **Monitor-driven architecture**: adopts the CC 2.1.105 `monitors` manifest key. The new umbrella monitor (`scripts/monitors/umbrella-watch.sh`) reads `${CLAUDE_PLUGIN_DATA}/projects.json` and spawns one `ddev-watch.py` per registered project. Auto-arms at session start, skill invocation, or `/reload-plugins` — no `/loop` required.
+- **`ddev-watch.py`**: per-project error watcher merging `drush watchdog:tail` and `ddev logs -f --service web`. Shared-fingerprint dedup. Emits `NEW <fp>` on first occurrence and `THRESH <fp> count=N` when a fingerprint hits `DROVER_THRESHOLD` (default 50 = Drupal watchdog batch size). State persisted in `${CLAUDE_PLUGIN_DATA}/ddev-state/<project>.json`.
+- **`scripts/fingerprint.py`**: pure stdin→JSON fingerprinter, single source of truth for "same error" across triage and monitors. Normalizes timestamps, IPs, line numbers, pid numbers, long paths; classifies severity and source. Handles `BrokenPipeError` cleanly.
+- **`scripts/add-project.sh`**: idempotent project registration — reads `.ddev/config.yaml`, drush aliases, git remote. Writes to `${CLAUDE_PLUGIN_DATA}/projects.json`. Emits structured JSON.
+- **`drover:add-project` skill**: on macOS, opens a native folder picker via `osascript`, then registers the project. Accepts an explicit path argument on other platforms.
+- **Dashboard**: new `GET /api/projects` and `POST /api/projects/add` endpoints backed by `tools/dashboard/projects.js`. The POST endpoint runs `osascript` server-side when no path is supplied.
+- **Tests**: 47 new tests total — 21 python unit tests (fingerprint), 18 bats tests (add-project, ddev-watch, umbrella-watch), 8 node:test tests (dashboard projects module). Unified runner at `tests/run.sh` skips frameworks that aren't installed.
+
 ## 1.5.1
 - Cross-reference `lib:ddev` from implementer procedure
 
