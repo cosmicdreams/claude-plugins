@@ -18,6 +18,12 @@ allowed-tools: Bash, Read, Write, Agent, TeamCreate, TeamDelete, SendMessage
 Processes one `lane-ready` ticket per invocation: claims it, spawns an implementer agent,
 and waits for the fix to complete.
 
+> **Note (1.8.0+):** Live error *detection* moved from `/loop 3m /drover:watch`
+> to the umbrella monitor. `drover:implement` is the last remaining
+> `/loop`-driven skill in the pipeline. A future pass will convert it to a
+> monitor that arms on `lane-ready` ticket transitions, removing the last
+> time-based cadence.
+
 Designed to run via `/loop 30m /drover:implement`. Cancel with `CronDelete`.
 
 ## Step 1: Pre-flight checks

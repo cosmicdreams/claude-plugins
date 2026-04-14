@@ -17,6 +17,13 @@ allowed-tools: Bash, Read, Write, Agent, TeamCreate, TeamDelete, SendMessage
 Single command to go from zero to monitoring. Validates, launches UI, triages all
 environments with proper agent teams, and shows results.
 
+> **Note (1.8.0+):** Continuous watching is handled by the plugin's umbrella
+> monitor (`monitors/monitors.json`), which auto-arms at session start. `drover:run`
+> remains the right entry point for first-time setup, dashboard launch, and a
+> bootstrap triage cycle. At the end, instead of pitching `/loop 3m drover:watch`
+> as the primary follow-up, direct the user to register their project with
+> `drover:add-project` so the umbrella picks it up automatically.
+
 ## GOTCHAS — Read before every step
 
 - **`acli` runs on the HOST** — never `ddev exec acli` or `ddev acli`

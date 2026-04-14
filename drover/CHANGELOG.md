@@ -1,5 +1,14 @@
 # drover Changelog
 
+## 1.8.1
+- **System-wide consistency pass** — no behavioral change; docs aligned with the monitor-driven architecture introduced in 1.6.0–1.8.0.
+- `drover:watch` redescribed as a manual full-sweep skill; continuous watching now flows through the plugin's umbrella monitor.
+- `drover:run` and `drover:setup` "next steps" lead with `drover:add-project` + dashboard instead of `/loop 3m /drover:watch`.
+- `drover:baseline` doc notes that `acquia-baseline.sh` now delegates to `backfill.sh` + aggregation.
+- `drover:implement` doc notes it is the last `/loop`-driven skill in the pipeline; future pass will convert to a monitor.
+- `fingerprint-rules.md` now honestly documents the two-implementation split (line-mode `fingerprint.py` vs structured-record per-source helpers used by triage) and outlines the deferred Phase 3b unification plan.
+- `triage-procedure.md` Step 4 disambiguates: structured variant here, streaming variant in `scripts/fingerprint.py`.
+
 ## 1.8.0
 - **`drover:backfill` skill + `scripts/backfill.sh`**: pulls historical Acquia logs for a registered environment and feeds them through the same fingerprint/state pipeline live monitoring uses. Idempotent — re-running the same window increments counts without double-emitting `NEW`. Use after a monitor outage or to seed a newly-registered env.
 - **`scripts/acquia-download.sh`**: extracted thin wrapper around `acli api:environments:log-download`. Shared building block for backfill and baseline.

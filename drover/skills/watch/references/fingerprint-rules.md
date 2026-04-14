@@ -1,12 +1,38 @@
 ---
 name: fingerprint-rules
 description: >
-  Fingerprinting rules for drover error deduplication. Defines per-source normalization
-  and SHA-1 hash computation for watchdog, PHP error log, Nginx, and Apache sources.
-  Referenced by drover:watch and drover:triage.
+  Fingerprinting rules for drover error deduplication. Defines per-source
+  normalization and hash computation. Referenced by drover:triage for the
+  structured-input case (parsed log records) and by scripts/fingerprint.py
+  for the streaming-line case (monitors).
 ---
 
 # Drover Fingerprint Rules
+
+> **Two implementations — deliberate split as of 1.8.0**
+>
+> | Context | Implementation | Hash | Input shape | Source detection |
+> |---|---|---|---|---|
+> | Live monitors (`ddev-watch.py`, `acquia-watch.py`) and backfill (`backfill.sh`) | `scripts/fingerprint.py` | `sha256[:12]` | raw log line | auto-detected |
+> | Triage cycle (`drover:triage`) | inline Python in `triage-procedure.md` | `sha1[:12]` | structured record (`{type, message, level, file, ...}`) | explicit per-source keys |
+>
+> **Why the split is acceptable (for now):** the two never produce
+> fingerprints for the same data — monitors process raw streams, triage
+> processes already-parsed records. Tickets in `.beads/drover.db` carry
+> triage-produced sha1 fingerprints; monitor state carries sha256
+> fingerprints in per-project state files.
+>
+> **Planned unification (Phase 3b — deferred):** promote `fingerprint.py`
+> into a shared module exposing both `process(line)` and
+> `fingerprint_structured(source, level, message, file=None)`. Pick one
+> hash. Migrate existing Beads ticket bodies by running a one-shot rehash
+> pass over open tickets. Tracked as a future card; do not attempt
+> inline with other changes.
+
+The remainder of this document is the spec for the **structured-record
+variant** used by triage. The streaming variant lives in
+`${CLAUDE_PLUGIN_ROOT}/scripts/fingerprint.py` and is tested in
+`tests/python/test_fingerprint.py`.
 
 Fingerprints are the canonical deduplication key for drover tickets. Each error source
 uses source-specific normalization before hashing to group semantically identical errors
