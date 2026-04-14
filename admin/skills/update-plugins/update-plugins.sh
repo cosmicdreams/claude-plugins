@@ -18,7 +18,7 @@ set -uo pipefail
 
 CLAUDE_MD="${1:-$PWD/CLAUDE.md}"
 CACHE_BASE="$HOME/.claude/plugins/cache/local"
-PLUGINS=(sprint admin drupal-lab retro ideate office)
+PLUGINS=(sprint admin drupal-lab retro ideate drover improve lib research-lab workflow)
 
 declare -A BEFORE
 declare -A AFTER

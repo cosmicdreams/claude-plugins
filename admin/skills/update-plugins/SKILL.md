@@ -20,7 +20,7 @@ Update all installed local marketplace plugins and fix any stale version paths i
 ### 1. Run Update Script
 
 ```bash
-bash "${CLAUDE_SKILL_DIR}/update-plugins.sh" "$PWD/CLAUDE.md"
+zsh "${CLAUDE_SKILL_DIR}/update-plugins.sh" "$PWD/CLAUDE.md"
 ```
 
 ### 2. Report

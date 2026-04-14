@@ -1,5 +1,8 @@
 # drover Changelog
 
+## 1.8.2
+- **Dashboard UI polish**: replaced `alert()` / `prompt()` with `showToast()` feedback and a proper modal for the Backfill flow. Modal uses safe DOM-construction (no innerHTML with untrusted content). Add Project result now surfaces as a toast; Backfill opens a modal with an environment dropdown and log-types field.
+
 ## 1.8.1
 - **System-wide consistency pass** — no behavioral change; docs aligned with the monitor-driven architecture introduced in 1.6.0–1.8.0.
 - `drover:watch` redescribed as a manual full-sweep skill; continuous watching now flows through the plugin's umbrella monitor.
