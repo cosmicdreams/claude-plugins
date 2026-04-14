@@ -510,6 +510,22 @@ async function handleAddProject(req, res) {
 
 function listProjects() { return projectsModule.listProjects(); }
 
+async function handleBackfill(req, res) {
+  let body = {};
+  try {
+    const raw = await readBody(req);
+    body = raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return jsonResponse(res, 400, { status: 'error', message: 'invalid JSON body' });
+  }
+  if (!body.alias) {
+    return jsonResponse(res, 400, { status: 'error', message: 'alias is required' });
+  }
+  const result = projectsModule.backfill(body.alias, { logTypes: body.log_types });
+  const code = result.status === 'error' ? 400 : 200;
+  return jsonResponse(res, code, result);
+}
+
 // ---------------------------------------------------------------------------
 // POST /api/move
 // ---------------------------------------------------------------------------
@@ -1490,6 +1506,7 @@ function buildHtml() {
       <button class="btn btn-ghost active-view" id="btn-dashboard" onclick="switchView('dashboard')">&#9783; Dashboard</button>
       <button class="btn btn-ghost" id="btn-board" onclick="switchView('board')">&#8862; Board</button>
       <button class="btn btn-ghost" id="btn-add-project" onclick="addProjectPrompt()" title="Register a DDEV project with drover">+ Add Project</button>
+      <button class="btn btn-ghost" id="btn-backfill" onclick="backfillPrompt()" title="Pull historical Acquia logs for an environment">Backfill</button>
     </div>
   </header>
 
@@ -2465,6 +2482,44 @@ function addProjectPrompt() {
     });
 }
 
+function backfillPrompt() {
+  fetch('/api/projects')
+    .then(function(r){ return r.json(); })
+    .then(function(list) {
+      var envs = [];
+      (list || []).forEach(function(p) {
+        ((p.acquia && p.acquia.environments) || []).forEach(function(e) {
+          if (e.alias) envs.push(e.alias);
+        });
+      });
+      if (envs.length === 0) { alert('No Acquia environments registered. Run Add Project first.'); return; }
+      var alias = prompt('Backfill which environment?\n\n' + envs.join(', '), envs[0]);
+      if (!alias) return;
+      var btn = document.getElementById('btn-backfill');
+      if (btn) { btn.disabled = true; btn.textContent = 'Backfilling…'; }
+      fetch('/api/projects/backfill', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ alias: alias })
+      })
+        .then(function(r) { return r.json(); })
+        .then(function(body) {
+          if (body.status === 'done') {
+            alert('Backfill complete for ' + alias + '\\n' +
+                  'Events: ' + body.events + '\\n' +
+                  'New fingerprints: ' + body.new_fingerprints + '\\n' +
+                  'Thresholds hit: ' + body.threshold_hits);
+          } else {
+            alert('Backfill failed: ' + (body.message || 'unknown error'));
+          }
+        })
+        .catch(function(e) { alert('Request failed: ' + e.message); })
+        .finally(function() {
+          if (btn) { btn.disabled = false; btn.textContent = 'Backfill'; }
+        });
+    });
+}
+
 // ========================================================================
 // View switching
 // ========================================================================
@@ -2915,6 +2970,10 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/projects/add' && req.method === 'POST') {
       return handleAddProject(req, res);
+    }
+
+    if (pathname === '/api/projects/backfill' && req.method === 'POST') {
+      return handleBackfill(req, res);
     }
 
     // API endpoints

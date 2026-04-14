@@ -1,131 +1,96 @@
 #!/usr/bin/env bash
-# drover/scripts/acquia-baseline.sh
-# Downloads 24h of Acquia logs and computes per-fingerprint error baseline.
+# acquia-baseline.sh <env-alias> [<output-dir>]
 #
-# Uses the local system acli (NOT the acli inside DDEV containers).
-# Requires: `acli auth:login` to have been run once on this machine.
-# Credentials are stored by acli in ~/.acquia/cloud_api.conf.
+# Thin wrapper around backfill.sh that additionally computes per-
+# fingerprint hourly rates used for velocity tier classification
+# (rising / stable / falling).
 #
-# Usage: acquia-baseline.sh <acli_env_id> [output_dir]
-#   acli_env_id — Acquia environment alias from drover-config.json "acli_alias"
-#                 e.g. "mysitehosting.prod" or "mysitehosting.test"
-# Output: JSON to stdout with top error fingerprints and their hourly rates
+# The heavy lifting (download + fingerprint + state update) is done
+# by backfill.sh. This script requests a JSONL side-stream, then
+# aggregates it into the legacy baseline JSON format for callers
+# that already consume it (drover-config.baselines).
+#
+# Usage: acquia-baseline.sh <env-alias> [<output-dir>]
+# Output: JSON on stdout with generated_at, env_slug, and top_errors[].
 
-set -euo pipefail
+set -uo pipefail
 
-ACLI_ENV_ID="${1:-}"
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ALIAS="${1:-}"
 OUTPUT_DIR="${2:-/tmp/drover-baseline}"
 
-if [ -z "$ACLI_ENV_ID" ]; then
-  echo "Usage: acquia-baseline.sh <acli_env_id> [output_dir]" >&2
-  echo "  acli_env_id — e.g. mysitehosting.prod" >&2
+if [ -z "$ALIAS" ]; then
+  echo "Usage: acquia-baseline.sh <env-alias> [<output-dir>]" >&2
   exit 1
 fi
 
-# Verify local system acli is available and authenticated
-if ! command -v acli >/dev/null 2>&1; then
-  echo "ERROR: acli not found. Install from https://github.com/acquia/cli/releases" >&2
-  exit 1
-fi
-
-if [ ! -f "$HOME/.acquia/cloud_api.conf" ]; then
-  echo "ERROR: acli not authenticated. Run: acli auth:login" >&2
-  exit 1
-fi
-
-ENV_SLUG="${ACLI_ENV_ID##*.}"
 mkdir -p "$OUTPUT_DIR"
+JSONL="$OUTPUT_DIR/${ALIAS}-events.jsonl"
+: > "$JSONL"  # truncate
 
-PHP_LOG="${OUTPUT_DIR}/${ENV_SLUG}-php-24h.log"
-APACHE_LOG="${OUTPUT_DIR}/${ENV_SLUG}-apache-24h.log"
+BACKFILL="${DROVER_BACKFILL_SCRIPT:-${SCRIPT_DIR}/backfill.sh}"
 
-# Download 24h PHP error log via local system acli
-echo "Downloading PHP error log for ${ACLI_ENV_ID}..." >&2
-acli api:environments:log-download "${ACLI_ENV_ID}" php-error > "$PHP_LOG" 2>/dev/null || {
-  echo "WARNING: Failed to download PHP error log for ${ACLI_ENV_ID}" >&2
-  touch "$PHP_LOG"
-}
+DROVER_JSONL_OUT="$JSONL" \
+  "$BACKFILL" "$ALIAS" "php-error,apache-error" > "$OUTPUT_DIR/${ALIAS}-emit.log" 2>&1 \
+  || echo "WARN: backfill exited non-zero for $ALIAS" >&2
 
-# Download 24h Apache error log via local system acli
-echo "Downloading Apache error log for ${ACLI_ENV_ID}..." >&2
-acli api:environments:log-download "${ACLI_ENV_ID}" apache-error > "$APACHE_LOG" 2>/dev/null || {
-  echo "WARNING: Failed to download Apache error log for ${ACLI_ENV_ID}" >&2
-  touch "$APACHE_LOG"
-}
+# Aggregate JSONL into the baseline shape.
+JSONL="$JSONL" ALIAS="$ALIAS" python3 <<'PY'
+import collections, datetime, json, os
 
-# Compute baseline statistics
-python3 - "$PHP_LOG" "$APACHE_LOG" "$ENV_SLUG" <<'PYEOF'
-import sys, re, json, collections, hashlib
-from datetime import datetime, timezone
+jsonl_path = os.environ["JSONL"]
+alias = os.environ["ALIAS"]
 
-php_log  = sys.argv[1]
-apache_log = sys.argv[2]
-env_slug  = sys.argv[3] if len(sys.argv) > 3 else ''
+hourly = collections.defaultdict(lambda: collections.defaultdict(int))
+samples = {}
+totals = collections.Counter()
 
-PHP_RE = re.compile(
-    r'\[(\d{2}-\w{3}-\d{4} \d{2}:\d{2}:\d{2}) UTC\] PHP \w+: (.+?) in .+ on line \d+'
-)
-APACHE_RE = re.compile(
-    r'\[\w{3} \w{3} \s?\d{1,2} \d{2}:\d{2}:\d{2}[^\]]*\d{4}\] \[\w+\] .+?: (.+)'
-)
+def to_hour_bucket(ts):
+    if not ts:
+        return "unknown"
+    # PHP: "14-Apr-2026 20:22:40"
+    for fmt in ("%d-%b-%Y %H:%M:%S",):
+        try:
+            dt = datetime.datetime.strptime(ts, fmt)
+            return dt.strftime("%Y-%m-%dT%H:00:00Z")
+        except ValueError:
+            pass
+    return "unknown"
 
-def make_fp(msg):
-    normalized = re.sub(r'\b\d+\b', 'N', msg)
-    normalized = re.sub(r'(?:/[^\s,]+)', 'PATH', normalized)
-    normalized = re.sub(r"'[^']{0,60}'", 'STR', normalized)
-    return hashlib.md5(normalized.encode()).hexdigest()[:12]
-
-hourly  = collections.defaultdict(lambda: collections.defaultdict(int))
-samples = collections.defaultdict(str)
-total   = collections.Counter()
-
-for log_file, pattern, group_idx in [
-    (php_log,    PHP_RE,    (1, 2)),
-    (apache_log, APACHE_RE, (None, 1)),
-]:
-    date_grp, msg_grp = group_idx
-    try:
-        with open(log_file) as f:
-            for line in f:
-                m = pattern.match(line.strip())
-                if not m:
-                    continue
-                msg = m.group(msg_grp).strip()
-                fp = make_fp(msg)
-                hour_key = ''
-                if date_grp:
-                    try:
-                        dt = datetime.strptime(m.group(date_grp), '%d-%b-%Y %H:%M:%S')
-                        hour_key = dt.strftime('%Y-%m-%dT%H:00:00Z')
-                    except ValueError:
-                        hour_key = 'unknown'
-                else:
-                    hour_key = 'unknown'
-                hourly[fp][hour_key] += 1
-                total[fp] += 1
-                if fp not in samples:
-                    samples[fp] = msg[:120]
-    except FileNotFoundError:
-        continue
+try:
+    with open(jsonl_path) as f:
+        for line in f:
+            try:
+                ev = json.loads(line)
+            except Exception:
+                continue
+            fp = ev.get("fingerprint")
+            if not fp:
+                continue
+            bucket = to_hour_bucket(ev.get("ts"))
+            hourly[fp][bucket] += 1
+            totals[fp] += 1
+            samples.setdefault(fp, (ev.get("message") or "")[:120])
+except FileNotFoundError:
+    pass
 
 results = []
 for fp, hours in hourly.items():
     counts = list(hours.values())
-    mean = sum(counts) / len(counts) if counts else 0
+    mean = round(sum(counts) / len(counts), 2) if counts else 0
     results.append({
-        'fp': fp,
-        'sample': samples.get(fp, ''),
-        'total_24h': total[fp],
-        'mean_hourly': round(mean, 2),
-        'hours_seen': len(counts),
-        'hourly': dict(hours),
+        "fp": fp,
+        "sample": samples.get(fp, ""),
+        "total_24h": totals[fp],
+        "mean_hourly": mean,
+        "hours_seen": len(counts),
+        "hourly": dict(hours),
     })
-
-results.sort(key=lambda x: x['total_24h'], reverse=True)
+results.sort(key=lambda x: x["total_24h"], reverse=True)
 
 print(json.dumps({
-    'generated_at': datetime.now(timezone.utc).isoformat(),
-    'env_slug': env_slug,
-    'top_errors': results[:50],
+    "generated_at": datetime.datetime.now(datetime.UTC).isoformat().replace("+00:00","Z"),
+    "env_slug": alias.split(".")[-1],
+    "top_errors": results[:50],
 }, indent=2))
-PYEOF
+PY

@@ -53,4 +53,35 @@ function addProject(targetPath, { scriptPath, runner = childProcess.execFileSync
   }
 }
 
-module.exports = { projectsFilePath, listProjects, pickFolderMacOS, addProject };
+function parseBackfillOutput(out) {
+  const lines = (out || '').trim().split('\n').filter(Boolean);
+  const summary = lines.find(l => l.startsWith('BACKFILL done')) || '';
+  const m = summary.match(/events=(\d+)/);
+  const newCount = lines.filter(l => l.startsWith('NEW ')).length;
+  const threshCount = lines.filter(l => l.startsWith('THRESH ')).length;
+  return {
+    status: summary ? 'done' : 'error',
+    events: m ? parseInt(m[1], 10) : 0,
+    new_fingerprints: newCount,
+    threshold_hits: threshCount,
+    summary,
+  };
+}
+
+function backfill(alias, { logTypes, scriptPath, runner = childProcess.execFileSync } = {}) {
+  if (!alias) return { status: 'error', message: 'alias required' };
+  const script = scriptPath
+    || process.env.DROVER_BACKFILL_SCRIPT
+    || path.resolve(__dirname, '..', '..', 'scripts', 'backfill.sh');
+  const args = [alias];
+  if (logTypes) args.push(logTypes);
+  try {
+    const out = runner(script, args, { encoding: 'utf8' });
+    return parseBackfillOutput(out);
+  } catch (e) {
+    const stdout = e.stdout ? e.stdout.toString() : '';
+    return { status: 'error', message: (e.stderr && e.stderr.toString()) || e.message, output: stdout };
+  }
+}
+
+module.exports = { projectsFilePath, listProjects, pickFolderMacOS, addProject, backfill, parseBackfillOutput };
