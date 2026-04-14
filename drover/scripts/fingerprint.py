@@ -107,10 +107,17 @@ def process(line: str) -> dict | None:
 
 
 def main() -> int:
-    for raw in sys.stdin:
-        result = process(raw)
-        if result is not None:
-            print(json.dumps(result), flush=True)
+    try:
+        for raw in sys.stdin:
+            result = process(raw)
+            if result is not None:
+                print(json.dumps(result), flush=True)
+    except BrokenPipeError:
+        # Downstream consumer exited; silently stop.
+        try:
+            sys.stdout.close()
+        except Exception:
+            pass
     return 0
 
 

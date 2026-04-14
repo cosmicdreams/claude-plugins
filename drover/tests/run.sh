@@ -22,7 +22,7 @@ fi
 echo
 echo "== node (dashboard api) =="
 if [ -d tests/node ] && command -v node >/dev/null 2>&1; then
-  if node --test tests/node/; then pass=$((pass+1)); else fail=$((fail+1)); fi
+  if node --test tests/node/*.test.js; then pass=$((pass+1)); else fail=$((fail+1)); fi
 else
   echo "tests/node/ not present yet — skipping"
 fi

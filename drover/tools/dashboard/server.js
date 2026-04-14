@@ -480,6 +480,37 @@ setInterval(() => {
 }, 30000);
 
 // ---------------------------------------------------------------------------
+// Project registration (/api/projects, /api/projects/add)
+// ---------------------------------------------------------------------------
+
+const projectsModule = require('./projects.js');
+
+async function handleAddProject(req, res) {
+  let body = {};
+  try {
+    const raw = await readBody(req);
+    body = raw ? JSON.parse(raw) : {};
+  } catch (e) {
+    return jsonResponse(res, 400, { status: 'error', message: 'invalid JSON body' });
+  }
+
+  let targetPath = body.path;
+  if (!targetPath) {
+    if (process.platform !== 'darwin') {
+      return jsonResponse(res, 400, { status: 'error', message: 'path required on non-macOS' });
+    }
+    targetPath = projectsModule.pickFolderMacOS();
+    if (!targetPath) return jsonResponse(res, 200, { status: 'canceled' });
+  }
+
+  const result = projectsModule.addProject(targetPath);
+  const code = result.status === 'error' ? 400 : 200;
+  return jsonResponse(res, code, result);
+}
+
+function listProjects() { return projectsModule.listProjects(); }
+
+// ---------------------------------------------------------------------------
 // POST /api/move
 // ---------------------------------------------------------------------------
 
@@ -2849,6 +2880,15 @@ const server = http.createServer(async (req, res) => {
       sseClients.add(res);
       req.on('close', () => sseClients.delete(res));
       return;
+    }
+
+    // Project registration endpoints (GET list, POST add)
+    if (pathname === '/api/projects' && req.method === 'GET') {
+      return jsonResponse(res, 200, listProjects());
+    }
+
+    if (pathname === '/api/projects/add' && req.method === 'POST') {
+      return handleAddProject(req, res);
     }
 
     // API endpoints
