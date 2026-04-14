@@ -1,5 +1,12 @@
 # drover Changelog
 
+## 1.8.0
+- **`drover:backfill` skill + `scripts/backfill.sh`**: pulls historical Acquia logs for a registered environment and feeds them through the same fingerprint/state pipeline live monitoring uses. Idempotent — re-running the same window increments counts without double-emitting `NEW`. Use after a monitor outage or to seed a newly-registered env.
+- **`scripts/acquia-download.sh`**: extracted thin wrapper around `acli api:environments:log-download`. Shared building block for backfill and baseline.
+- **Refactored `scripts/acquia-baseline.sh`**: now calls `backfill.sh` with `DROVER_JSONL_OUT` and aggregates the stream into the legacy baseline JSON. Eliminates the divergent fingerprint logic — one source of truth for "what errors happened".
+- **Dashboard**: `POST /api/projects/backfill` endpoint + "Backfill" button in the topbar. Prompts for an Acquia env from the registered list, runs the backfill, shows event/new-fingerprint/threshold counts.
+- **Tests**: +12 (7 backfill bats, 2 baseline bats, 3 node backfill). Total: 70 tests green.
+
 ## 1.7.0
 - **Acquia logstream watcher**: `scripts/monitors/acquia-watch.py` spawns `acli app:log:tail <env>`, strips the preamble, and routes lines through the shared `fingerprint.process()` — same `NEW`/`THRESH` emission format as `ddev-watch.py`. State at `${DROVER_STATE_DIR}/acquia-<envId>.json`.
 - **Umbrella routing by prefix**: `ddev:<name>` keys spawn `ddev-watch.py`; `acquia:<alias-or-id>` keys spawn `acquia-watch.py`. Pidfiles use `__` instead of `:` for filesystem safety.
