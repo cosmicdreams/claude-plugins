@@ -53,10 +53,10 @@ for yaml_file in "$CONFIG_DIR"/*.yaml; do
   mkdir -p "$raw_inbox"
 
   # Collect RSS feeds + API endpoints
-  rss_feeds=$(yq -r '.feeds.rss[]? // empty' "$yaml_file")
-  api_endpoints=$(yq -r '.feeds.api[]? // empty' "$yaml_file")
-  keywords=$(yq -r '.feeds.keywords[]? // empty' "$yaml_file" | tr '\n' '|' | sed 's/|$//')
-  exclude=$(yq -r '.feeds.exclude_keywords[]? // empty' "$yaml_file" | tr '\n' '|' | sed 's/|$//')
+  rss_feeds=$(yq -r '.feeds.rss[]?' "$yaml_file")
+  api_endpoints=$(yq -r '.feeds.api[]?' "$yaml_file")
+  keywords=$(yq -r '.feeds.keywords[]?' "$yaml_file" | tr '\n' '|' | sed 's/|$//')
+  exclude=$(yq -r '.feeds.exclude_keywords[]?' "$yaml_file" | tr '\n' '|' | sed 's/|$//')
 
   count=0
   batch_id="$(date -u +%Y-%m-%dT%H:%M:%SZ)"

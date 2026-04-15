@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.2 — 2026-04-15
+
+Fix: `rss-ingest.sh` used jq's `// empty` idiom inside mikefarah yq v4 expressions, which errored with `lexer: invalid input text "empty"` and aborted the first poll. The trailing `[]?` already produces no output when a key is absent, so `// empty` was redundant — removed.
+
 ## 0.2.1 — 2026-04-15
 
 Fix: `monitors/monitors.json` was wrapped in a `{"monitors": [...]}` object; the harness expects a raw array (see drover). The umbrella monitor was silently skipped at load time. Reformatted to a bare array.
