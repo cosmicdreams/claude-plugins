@@ -1,0 +1,48 @@
+# Canonical frontmatter schema for every page in the ideas-funnel vault.
+# This file documents the schema. Individual pages carry their own frontmatter
+# block with values filled in.
+#
+# Required fields are marked [req]. Optional fields default as indicated.
+# Agents validate against this schema via /ideas-funnel:lint.
+
+# --- Identity ---
+type: concept                   # [req] concept | entity | source | synthesis | bridge | conflict | moc
+domain: [ai-workflows]          # [req] multi-value array; at least one domain slug
+title: "Page Title"             # [req]
+summary: "1–2 sentence index.md line"  # [req]
+tags: []                        # optional; values must exist in _meta/taxonomy.md
+
+# --- Provenance ---
+provenance:
+  origin: extracted             # [req] extracted | ai-generated | inferred | ambiguous | conflicting | human-written
+  source_ids: []                # Raw/ paths or URLs this page derives from
+  created_at: 2026-04-14        # [req] transaction time — when the vault learned this
+  created_by: ingest@ai-workflows  # agent-id or "human"
+
+# --- Bi-temporal timeline (append-only) ---
+# Every material change appends an entry. Never overwrite or delete.
+# When the array exceeds 10 entries, the lint agent moves it to Sources/<slug>.timeline.md
+# and sets timeline_truncated: true, keeping the last 3 entries here as a preview.
+timeline:
+  - event_at: 2026-04-14        # when the claim became true (may precede learned_at)
+    learned_at: 2026-04-14      # when the vault ingested it
+    claim: "one-line fact captured at this point"
+    agent: ingest@ai-workflows
+timeline_truncated: false
+
+# --- Trust ---
+confidence: 1.0                 # [req] float 0.0–1.0; decays on neglect, adjusts on confirmation/contradiction
+confirmation_count: 0           # increments each independent corroboration
+decay_class: fast               # [req] fast | standard | slow | frozen
+last_confirmed: 2026-04-14      # [req] last positive signal (confirmation, recall, corroboration)
+last_touched: 2026-04-14        # [req] any agent read/write resets this
+
+# --- State ---
+state: fresh                    # [req] fresh | stable | at_risk | archived
+superseded_by: null             # wikilink to replacement page if archived+superseded
+hardened: false                 # flag — confidence ≥0.85 AND confirmation_count ≥10 pauses decay
+
+# --- Graph (agent-maintained) ---
+backlink_density: 0             # in-degree; lint agent updates
+bridge_score: null              # cross-domain balance ratio; refinery/health updates
+tension_score: 0.0              # float; ≥0.8 triggers auto-conflict page creation

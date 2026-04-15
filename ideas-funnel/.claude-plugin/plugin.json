@@ -1,0 +1,9 @@
+{
+    "name": "ideas-funnel",
+    "version": "0.2.0",
+    "monitors": "./monitors/monitors.json",
+    "description": "Passive knowledge capture pipeline \u2014 Karpathy-derived LLM Wiki with Monitor-driven multi-domain ingest. Feeds land in raw/, agents compile them into a cross-linked Obsidian wiki, memory evolves via confidence decay and graph-aware consolidation.",
+    "author": {
+        "name": "Chris Weber"
+    }
+}

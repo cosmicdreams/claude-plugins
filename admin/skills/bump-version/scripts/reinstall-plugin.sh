@@ -26,7 +26,7 @@ set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 CACHE_BASE="$HOME/.claude/plugins/cache/local"
-PLUGINS=(sprint retro ideate admin drupal-lab office lib workflow drover research-lab improve)
+PLUGINS=(sprint retro ideate admin drupal-lab office lib workflow drover research-lab improve ideas-funnel)
 
 # --- Helpers ---
 

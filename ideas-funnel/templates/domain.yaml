@@ -1,0 +1,59 @@
+# Domain config for ideas-funnel.
+# Copy this to ~/.config/ideas-funnel/domains/<slug>.yaml and edit.
+# Minimal required fields: slug, moc, raw_inbox, feeds.keywords.
+# All other fields default sensibly.
+
+# --- Identity ---
+slug: ai-workflows              # kebab-case; used in filenames + signal payloads
+label: "AI Workflows"           # human-readable; used in UI and landing page titles
+active: true                    # false = domain is dormant; feeds paused, pages retained
+landing: "Domains/AI-Workflows/_landing.md"  # vault-relative path to this domain's Landing page
+raw_inbox: "Raw/Inbox/ai-workflows/"  # vault-relative; scraper drop zone
+
+# --- Feeds ---
+feeds:
+  rss:
+    # Add RSS / Atom feed URLs
+    - https://simonwillison.net/atom/everything/
+  api:
+    # Optional structured JSON endpoints
+    # - https://hn.algolia.com/api/v1/search?tags=front_page&hitsPerPage=30
+  keywords:
+    # Positive signal — items whose title or content matches these pass the quality gate
+    - claude code
+    - MCP
+    - agent orchestration
+    - LLM workflow
+  exclude_keywords:
+    # Negative signal — items matching these are filtered out even if they match positive keywords
+    - crypto
+    - gaming
+
+# --- Memory ---
+decay_class: fast               # fast (7d) | standard (30d) | slow (180d) | frozen (∞)
+# Override with slow for architecture-domains (drupal-dev),
+# fast for news-domains (drupal-news, ai-ecosystem).
+
+# --- Scoring ---
+scorer_weights:
+  novelty: 0.5                  # how different from existing wiki pages
+  relevance: 0.5                # keyword/feed alignment
+scorer_bonuses:
+  cross_domain_bridge: 5        # added when a page earns a bridge to another domain
+
+scoring_rubric:
+  # 0–10 scale applied by scorer agent; human-readable guidance
+  10: "Paradigm shift with direct applicability to current work"
+  7:  "Meaningful new technique or tool worth prototyping"
+  5:  "Good reference material, no urgency"
+  3:  "Marginally relevant, noise risk"
+  1:  "Off-topic or duplicate"
+
+# --- Lanes ---
+ready_cap: 5                    # per-domain max in lane-ready (global cap is 8 across all domains)
+
+# --- Bootstrap ---
+# Optional manual pre-seed URLs added to Raw/Inbox/<slug>/ on first enable.
+# Strongly recommended — cold-starting from raw feeds produces a junk drawer.
+bootstrap_seeds:
+  # - https://karpathy.bearblog.dev/
