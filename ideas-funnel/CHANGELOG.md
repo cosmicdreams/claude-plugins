@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.2.1 — 2026-04-15
+
+Fix: `monitors/monitors.json` was wrapped in a `{"monitors": [...]}` object; the harness expects a raw array (see drover). The umbrella monitor was silently skipped at load time. Reformatted to a bare array.
+
 ## 0.2.0 — 2026-04-14
 
 Phase 2 — AI-Workflows vertical slice. First runtime; manual-invocation testable.
