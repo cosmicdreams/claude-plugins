@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.10.1
+- **Quiet umbrella monitor**: lifecycle messages (`starting`/`stopping`/unknown-kind) now go to `~/.claude/drover.umbrella.log` (override via `DROVER_UMBRELLA_LOG`) instead of stdout. The Claude Code harness treats every stdout line from a Monitor as a user-facing notification, so stdout is now reserved for actual signal from child watchers.
+- **Lazy start gate**: umbrella exits immediately when `projects.json` is missing or holds an empty list. The monitor still registers on every session; it just no-ops until a project is added. Picked up on next session without `/reload-plugins`.
+- **Tests**: updated `test_umbrella_watch.bats` to assert lifecycle in the log file and verify stdout stays silent for non-signal events. All 5 tests green.
+
 ## 1.10.0
 - **Fingerprint unification** — one hash space, one implementation. Triage and the monitor pipeline now compute fingerprints using the same `scripts/fingerprint.py` module. `fingerprint_structured(source, message, level=…, file=…, type_=…)` is the new entry point for pre-parsed records; `process(line)` remains the line-mode entry point for monitors. Both produce sha256[:12] hashes in the same keyspace.
 - **Migration**: `scripts/fingerprint-migrate.py <drover.db>` rewrites the fingerprint hashes stored in open ticket bodies so existing tickets survive the cutover. Idempotent; `--dry-run` previews changes. Run once per project after upgrade.

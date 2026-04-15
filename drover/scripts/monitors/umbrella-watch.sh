@@ -20,6 +20,28 @@ PROJECTS_FILE="${DROVER_PROJECTS_FILE:-${CLAUDE_PLUGIN_DATA:-${HOME}/.claude/plu
 POLL_INTERVAL="${DROVER_UMBRELLA_POLL:-30}"
 MAX_ITERATIONS="${DROVER_UMBRELLA_MAX_ITERATIONS:-0}"
 
+LOG_FILE="${DROVER_UMBRELLA_LOG:-${HOME}/.claude/drover.umbrella.log}"
+
+# Lifecycle messages go to a log file, not stdout. The Claude Code harness
+# treats every stdout line from a Monitor as a user-facing notification, so
+# stdout is reserved for actual signal (child-watcher error lines).
+log() { printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$LOG_FILE" 2>/dev/null || true; }
+
+# Gate: if projects.json is missing or holds an empty list, exit quietly.
+# The harness re-registers the monitor on next session; once a project is
+# added, the next session will pick it up.
+if [ ! -f "$PROJECTS_FILE" ] || ! python3 -c "
+import json, sys
+try:
+    d = json.load(open('$PROJECTS_FILE'))
+    sys.exit(0 if isinstance(d, list) and d else 1)
+except Exception:
+    sys.exit(1)
+"; then
+  log "no projects registered; exiting"
+  exit 0
+fi
+
 TRACK_DIR="$(mktemp -d -t drover-umbrella.XXXXXX)"
 
 # Hash keys for pidfile names (keys may contain slashes for paths).
@@ -74,7 +96,7 @@ start_child() {
     acquia)   cmd="$ACQUIA_WATCH" ;;
     bd-ready) cmd="$BD_READY_WATCH" ;;
     *)
-      echo "umbrella: unknown watcher kind '$kind' for '$key'"
+      log "unknown watcher kind '$kind' for '$key'"
       return
       ;;
   esac
@@ -87,7 +109,7 @@ start_child() {
   local pidfile
   pidfile="$(pidfile_for "$key")"
   printf '%s\n%s\n' "$key" "$pid" > "$pidfile"
-  echo "umbrella: starting $key"
+  log "starting $key"
 }
 
 pid_of_pidfile() {
@@ -103,7 +125,7 @@ stop_child() {
   pid="$(pid_of_pidfile "$pidfile")"
   [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
   rm -f "$pidfile"
-  echo "umbrella: stopping $key"
+  log "stopping $key"
 }
 
 child_alive() {

@@ -12,6 +12,7 @@ setup() {
   export DROVER_PROJECTS_FILE="$TMP/projects.json"
   export DROVER_UMBRELLA_POLL=1
   export DROVER_UMBRELLA_MAX_ITERATIONS=2
+  export DROVER_UMBRELLA_LOG="$TMP/umbrella.log"
 
   # Fake ddev-watch that echoes a "tick NAME" every 0.2s for 1.2s then exits.
   export DROVER_DDEV_WATCH="$TMP/fake-ddev-watch.sh"
@@ -48,27 +49,38 @@ print(json.dumps(data))
 " "$@" > "$DROVER_PROJECTS_FILE"
 }
 
-@test "empty projects file spawns no children" {
+log_contents() {
+  cat "$DROVER_UMBRELLA_LOG" 2>/dev/null || true
+}
+
+@test "empty projects file spawns no children and exits quietly" {
   echo "[]" > "$DROVER_PROJECTS_FILE"
   run run_timeout 3 "$SCRIPT"
   [[ "$output" != *"starting"* ]]
   [[ "$output" != *"tick"* ]]
+  # Lifecycle never emitted on stdout even with projects present.
+  logs="$(log_contents)"
+  [[ "$logs" != *"starting"* ]]
 }
 
 @test "one project spawns one child and emits prefixed output" {
   write_projects siteA
   run run_timeout 3 "$SCRIPT"
-  [[ "$output" == *"starting ddev:siteA"* ]]
+  # Lifecycle goes to log, not stdout.
+  [[ "$output" != *"starting"* ]]
   [[ "$output" == *"[ddev:siteA] tick siteA"* ]]
+  logs="$(log_contents)"
+  [[ "$logs" == *"starting ddev:siteA"* ]]
 }
 
 @test "two projects spawn two children" {
   write_projects siteA siteB
   run run_timeout 3 "$SCRIPT"
-  [[ "$output" == *"starting ddev:siteA"* ]]
-  [[ "$output" == *"starting ddev:siteB"* ]]
   [[ "$output" == *"[ddev:siteA] tick siteA"* ]]
   [[ "$output" == *"[ddev:siteB] tick siteB"* ]]
+  logs="$(log_contents)"
+  [[ "$logs" == *"starting ddev:siteA"* ]]
+  [[ "$logs" == *"starting ddev:siteB"* ]]
 }
 
 @test "project with acquia envs spawns one child per env" {
@@ -88,10 +100,11 @@ print(json.dumps(data))
 " > "$DROVER_PROJECTS_FILE"
 
   run run_timeout 3 "$SCRIPT"
-  [[ "$output" == *"starting ddev:siteC"* ]]
-  [[ "$output" == *"starting acquia:30395-xxx"* ]]
-  [[ "$output" == *"starting acquia:30396-xxx"* ]]
   [[ "$output" == *"[acquia:30395-xxx] aqtick 30395-xxx"* ]]
+  logs="$(log_contents)"
+  [[ "$logs" == *"starting ddev:siteC"* ]]
+  [[ "$logs" == *"starting acquia:30395-xxx"* ]]
+  [[ "$logs" == *"starting acquia:30396-xxx"* ]]
 }
 
 @test "missing projects file is tolerated" {
