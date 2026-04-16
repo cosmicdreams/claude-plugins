@@ -1,7 +1,7 @@
 ---
 name: fingerprint-rules
 description: >
-  Canonical reference for drover error fingerprinting. As of 1.10.1 there
+  Canonical reference for drover error fingerprinting. As of 1.11.0 there
   is one implementation — `scripts/fingerprint.py` — consumed by both the
   umbrella monitor (line-mode via `process(line)`) and drover:triage
   (structured-record mode via `fingerprint_structured(...)`). This
@@ -76,7 +76,7 @@ In practice the two paths process disjoint data windows (live stream
 vs batch triage). When they disagree, structured-mode is authoritative
 for ticket identity.
 
-## Migration (1.10.1)
+## Migration (1.11.0)
 
 The legacy per-source helper used sha1[:12] — a different hash space
 from the monitor pipeline. Unifying onto `fingerprint_structured()`

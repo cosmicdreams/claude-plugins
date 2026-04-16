@@ -1,5 +1,17 @@
 # drover Changelog
 
+## 1.11.0
+- **Direct Acquia Cloud API + WSS**: replaced acli subprocess with acquia_api.py (REST client) and acquia_logstream.py (async WSS client). Per-type log subscription, structured JSON events, no PHP dependency.
+- **acli dropped as dependency**: all scripts now use the API directly. Only ~/.acquia/cloud_api.conf is needed.
+- **TRAFFIC event type**: acquia-watch.py emits periodic traffic summaries for access/request log types alongside error fingerprinting.
+- **Umbrella respawn backoff**: per-child exponential backoff (5s-300s) prevents respawn flood when a watcher child exits immediately.
+- **Severity misclassification fix**: access-log lines excluded from fingerprint classifier.
+- **Setup interview reduced**: 10 prompts collapsed to 5 with sensible defaults and conditional follow-ups.
+- **Skill audience tags**: triage, watch, backfill, reset-state marked audience:internal (user-facing 11 to 7).
+- **README and ONBOARDING**: new docs for first-time users with no AI background.
+- **UX measurement harness**: 6 scenarios, 17 metrics, fixture-replay baseline.
+- **Requires**: pip install websockets for Acquia log streaming.
+
 ## 1.10.1
 - **Quiet umbrella monitor**: lifecycle messages (`starting`/`stopping`/unknown-kind) now go to `~/.claude/drover.umbrella.log` (override via `DROVER_UMBRELLA_LOG`) instead of stdout. The Claude Code harness treats every stdout line from a Monitor as a user-facing notification, so stdout is now reserved for actual signal from child watchers.
 - **Lazy start gate**: umbrella exits immediately when `projects.json` is missing or holds an empty list. The monitor still registers on every session; it just no-ops until a project is added. Picked up on next session without `/reload-plugins`.
