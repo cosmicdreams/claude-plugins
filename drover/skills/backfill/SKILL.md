@@ -1,5 +1,6 @@
 ---
 name: drover:backfill
+audience: internal
 description: Pull historical Acquia logs for a registered environment and feed them through drover's fingerprint pipeline, updating the same state file live monitoring uses. Use after a monitor outage, for post-mortem analysis of a recent incident, or to seed state for a newly-registered environment. Idempotent. Trigger phrases - "backfill drover logs", "pull past logs for X", "drover missed some time, catch up", "rebuild drover state from history".
 ---
 

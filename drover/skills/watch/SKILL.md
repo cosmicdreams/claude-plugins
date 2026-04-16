@@ -1,5 +1,6 @@
 ---
 name: watch
+audience: internal
 description: >
   Manual full-sweep skill — runs one triage cycle per configured environment
   plus verification against awaiting-review tickets. Continuous watching is

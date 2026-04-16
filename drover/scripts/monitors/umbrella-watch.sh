@@ -43,6 +43,12 @@ except Exception:
 fi
 
 TRACK_DIR="$(mktemp -d -t drover-umbrella.XXXXXX)"
+BACKOFF_DIR="$TRACK_DIR/backoff"
+mkdir -p "$BACKOFF_DIR"
+BACKOFF_MAX="${DROVER_UMBRELLA_BACKOFF_MAX:-300}"
+BACKOFF_MIN="${DROVER_UMBRELLA_BACKOFF_MIN:-5}"
+# A child that exits within this many seconds of start counts as "flapping".
+FLAP_WINDOW="${DROVER_UMBRELLA_FLAP_WINDOW:-10}"
 
 # Hash keys for pidfile names (keys may contain slashes for paths).
 # Pidfile format: line 1 is the original key, line 2 is the pid.
@@ -108,7 +114,8 @@ start_child() {
   local pid=$!
   local pidfile
   pidfile="$(pidfile_for "$key")"
-  printf '%s\n%s\n' "$key" "$pid" > "$pidfile"
+  # Pidfile format: line 1 = key, line 2 = pid, line 3 = start epoch.
+  printf '%s\n%s\n%s\n' "$key" "$pid" "$(date +%s)" > "$pidfile"
   log "starting $key"
 }
 
@@ -158,7 +165,38 @@ while :; do
     [ -z "$key" ] && continue
     pidfile="$(pidfile_for "$key")"
     if ! child_alive "$pidfile"; then
-      [ -f "$pidfile" ] && rm -f "$pidfile"
+      # If the pidfile exists (child died this iteration), check lifespan.
+      # Short-lived child ⇒ flapping ⇒ grow per-key backoff.
+      hash="$(printf %s "$key" | shasum | awk '{print $1}' | cut -c1-12)"
+      backoff_file="$BACKOFF_DIR/$hash.next"
+      if [ -f "$pidfile" ]; then
+        start_epoch="$(sed -n '3p' "$pidfile" 2>/dev/null || echo 0)"
+        now="$(date +%s)"
+        lived=$((now - start_epoch))
+        if [ "$lived" -lt "$FLAP_WINDOW" ]; then
+          prev="$(cat "$backoff_file" 2>/dev/null || echo 0)"
+          next=$(( prev * 2 ))
+          [ "$next" -lt "$BACKOFF_MIN" ] && next="$BACKOFF_MIN"
+          [ "$next" -gt "$BACKOFF_MAX" ] && next="$BACKOFF_MAX"
+          echo "$next" > "$backoff_file"
+          echo "$(date +%s)" > "$backoff_file.until"
+          log "child $key flapped (lived ${lived}s); backoff ${next}s"
+        else
+          # Healthy run; reset backoff.
+          rm -f "$backoff_file" "$backoff_file.until" 2>/dev/null || true
+        fi
+        rm -f "$pidfile"
+      fi
+      # Respect backoff deadline.
+      until_file="$backoff_file.until"
+      if [ -f "$until_file" ] && [ -f "$backoff_file" ]; then
+        last="$(cat "$until_file" 2>/dev/null || echo 0)"
+        delay="$(cat "$backoff_file" 2>/dev/null || echo 0)"
+        now="$(date +%s)"
+        if [ "$((now - last))" -lt "$delay" ]; then
+          continue
+        fi
+      fi
       start_child "$key"
     fi
   done < "$wanted_file"

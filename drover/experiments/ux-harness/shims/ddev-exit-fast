@@ -1,0 +1,14 @@
+#!/usr/bin/env bash
+# Alternate ddev shim that EXITS immediately for tail commands.
+# Simulates "ddev project not running" — the real-world state that
+# causes umbrella children to die immediately and respawn.
+set -u
+args="$*"
+case "$args" in
+  *drush*watchdog:tail*|*logs*--service*web*) exit 1 ;;
+  *list*--json-output*)
+    echo '{"raw":[{"name":"harness-proj","status":"stopped","approot":"/tmp/harness"}]}'
+    exit 0
+    ;;
+  *) exit 0 ;;
+esac

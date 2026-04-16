@@ -1,5 +1,6 @@
 ---
 name: reset-state
+audience: internal
 description: >
   State recovery skill for drover. Resets log processing offsets in ~/.claude/drover.state.jsonl
   to prevent a "ticket storm" after state file corruption or deletion. Soft reset (default) sets

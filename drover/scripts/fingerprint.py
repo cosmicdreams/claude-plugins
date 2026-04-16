@@ -39,6 +39,12 @@ REQUEST_ID_RE = re.compile(r"\b[0-9a-f]{8,}-[0-9a-f-]{8,}\b")
 PATH_TAIL_RE = re.compile(r"(?:/[^\s/]+){3,}/([^\s/]+/[^\s/]+)")
 WS_RE = re.compile(r"\s+")
 
+# Apache combined log format: ip - - [timestamp] "METHOD /path HTTP/x.x" status size ...
+ACCESS_LOG_RE = re.compile(
+    r'^\d{1,3}(?:\.\d{1,3}){3}\s+\S+\s+\S+\s+\[.+?\]\s+"(?:GET|POST|PUT|DELETE|HEAD|OPTIONS|PATCH)\s+\S+\s+HTTP/\d',
+    re.I,
+)
+
 ERROR_KEYWORDS = re.compile(
     r"\b(fatal|uncaught|exception|error|warning|notice|deprecated|emergency|alert|critical)\b",
     re.I,
@@ -57,6 +63,9 @@ SEVERITY_MAP = [
 
 
 def classify(line: str) -> str | None:
+    # Skip HTTP access-log lines — error-like words in URLs are not errors.
+    if ACCESS_LOG_RE.match(line):
+        return None
     lower = line.lower()
     for needle, sev in SEVERITY_MAP:
         if needle in lower:

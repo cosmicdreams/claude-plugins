@@ -1,5 +1,6 @@
 ---
 name: triage
+audience: internal
 description: >
   Called by drover:watch to run one triage cycle for a specific environment. Reads the
   config and checkpoint, gathers new log entries, fingerprints and deduplicates, creates

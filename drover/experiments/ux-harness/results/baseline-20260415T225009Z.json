@@ -1,0 +1,80 @@
+{
+  "timestamp": "20260415T225009Z",
+  "metrics": [
+    {
+      "metric": "idle_stdout_lines",
+      "value": 0,
+      "notes": "duration=10s, 1 project registered"
+    },
+    {
+      "metric": "umbrella_unique_children",
+      "value": 2,
+      "notes": "distinct child keys spawned (ddev + bd-ready = 2 per project)"
+    },
+    {
+      "metric": "umbrella_child_respawns",
+      "value": 0,
+      "notes": "starting events beyond first per child; target 0"
+    },
+    {
+      "metric": "fingerprint_determinism",
+      "value": 1,
+      "notes": "20 varied copies of one error; 1 = perfect"
+    },
+    {
+      "metric": "fingerprint_unique_on_3error_fixture",
+      "value": 3,
+      "notes": "50 lines, 3 distinct errors; target 3"
+    },
+    {
+      "metric": "fingerprint_dedup_rate",
+      "value": 0.94,
+      "notes": "(processed-unique)/processed; higher = more collapse"
+    },
+    {
+      "metric": "new_emits_per_fixture",
+      "value": 3,
+      "notes": "50-line 3-error fixture; target 3"
+    },
+    {
+      "metric": "thresh_emits_per_fixture",
+      "value": 0,
+      "notes": "threshold=50; target 0 (fixture hits 25 for top error)"
+    },
+    {
+      "metric": "time_to_first_emit_ms",
+      "value": 132,
+      "notes": "ms from ddev-watch start to first NEW"
+    },
+    {
+      "metric": "setup_interview_questions",
+      "value": 5,
+      "notes": "numbered items in setup SKILL.md Step 2"
+    },
+    {
+      "metric": "skill_count_user_facing",
+      "value": 11,
+      "notes": "SKILL.md files under drover/skills/"
+    },
+    {
+      "metric": "skill_trigger_phrases_total",
+      "value": 33,
+      "notes": "sum of trigger lines across skills"
+    },
+    {
+      "metric": "readme_present",
+      "value": 0,
+      "notes": "drover/README.md"
+    },
+    {
+      "metric": "onboarding_present",
+      "value": 0,
+      "notes": "drover/ONBOARDING.md"
+    },
+    {
+      "metric": "respawn_flood_count",
+      "value": 2,
+      "notes": "ddev child always fails; duration=10s, poll=1s; target <=2"
+    }
+  ]
+}

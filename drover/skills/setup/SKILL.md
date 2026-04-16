@@ -64,31 +64,16 @@ Print the migration result to the user.
 
 ## Step 2: Interview the user
 
-Ask the following questions. Use sensible defaults; bold defaults in brackets.
+Keep the interview short. Ask only the five primary questions below; use
+the sensible defaults shown in brackets for everything else. Only ask a
+follow-up question if the user's answer to the primary question makes
+the follow-up relevant.
 
-1. **Project name** — slug used in state file and notifications (e.g. `my-drupal-site`)
-2. **Slack User ID** — Slack member ID for DM notifications via `agent-slack` (e.g. `U012AB3CD`). Leave blank to disable Slack notifications. Check your Slack profile to find this.
-3. **Quiet mode?** — suppress non-critical Slack DMs? [no]
-4. **Quiet hours?** — e.g. `22:00–07:00 America/New_York` [none]
-
-Then for each environment, ask:
-
-5. **DDEV local environment?**
-   - DDEV project name (from `ddev list`): run `ddev list --json-output 2>/dev/null` to show options
-   - Trust level: [low]
-   - Noise filter: [enabled]
-
-6. **Acquia staging environment?** [skip if none]
-   - App UUID (from `acli app:list`): run `acli app:list 2>/dev/null` if available
-   - Environment slug (e.g. `stg`)
-
-7. **Acquia production environment?** [skip if none]
-   - App UUID (same or different from staging)
-   - Environment slug (e.g. `prod`)
-
-8. **phpcs quality check?** [yes]
-9. **phpstan quality check?** [no]
-10. **Run checks via DDEV?** [yes]
+1. **Project name** — slug used in state and notifications (e.g. `my-drupal-site`).
+2. **DDEV project?** — first run `ddev list --json-output 2>/dev/null` to show running projects; the user picks one. Defaults: trust=`low`, noise filter on.
+3. **Any Acquia environments to watch?** [no] — if yes, collect `acli app:list` once and for each env ask only `env slug` (e.g. `stg`, `prod`) and optional `drush alias` (e.g. `@mysite.prod`). App UUID is resolved from `acli` for the current app.
+4. **Slack User ID?** [blank = skip] — only if the user provides one, ask the single follow-up: `Quiet hours? (e.g. 22:00-07:00 TZ) [none]`. Quiet mode defaults to `off`.
+5. **Run quality checks?** [phpcs: yes, phpstan: no, via DDEV: yes] — one composite question; only break it apart if the user says "custom".
 
 ## Step 3: Write config files
 
