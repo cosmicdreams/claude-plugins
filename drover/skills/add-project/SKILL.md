@@ -47,7 +47,21 @@ The script emits one JSON object on stdout. Parse it and report:
 List the currently-registered projects so the user sees the new state:
 
 ```bash
-python3 -c 'import json,os; f=os.environ.get("DROVER_PROJECTS_FILE") or (os.environ.get("CLAUDE_PLUGIN_DATA","")+"/projects.json"); d=json.load(open(f)); [print(f"- {e[\"name\"]} ({e[\"path\"]})") for e in d]'
+python3 <<'PY'
+import json, os, pathlib
+candidates = [
+    os.environ.get("DROVER_PROJECTS_FILE", ""),
+    os.path.join(os.environ.get("CLAUDE_PLUGIN_DATA", ""), "projects.json"),
+    os.path.expanduser("~/.claude/plugins/data/drover/projects.json"),
+]
+for f in candidates:
+    if f and pathlib.Path(f).exists():
+        for e in json.load(open(f)):
+            print(f"- {e['name']} ({e['path']})")
+        break
+else:
+    print("No projects registered yet.")
+PY
 ```
 
 ## Notes
