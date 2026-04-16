@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # scaffold-detect hook — admin plugin
 #
 # Detects whether the current project has been scaffolded for admin (scaffold skill).

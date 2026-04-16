@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # git-create-worktree - Create a new Git worktree with specified parameters
 # Usage: git-create-worktree <worktree-path> <branch-name> [base-branch]
 

@@ -1,5 +1,6 @@
-#!/bin/zsh
+#!/usr/bin/env zsh
 # update-plugins.sh — Reinstall all local plugins and patch CLAUDE.md version paths
+# Uses associative arrays (declare -A); runs under zsh to avoid needing bash 4+ on macOS.
 #
 # Usage: update-plugins.sh [claude_md_path]
 #

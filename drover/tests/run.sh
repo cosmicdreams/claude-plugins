@@ -1,5 +1,6 @@
 #!/usr/bin/env zsh
 # Run all drover tests. Exit non-zero on any failure.
+# Uses the zsh ${0:A:h} modifier for the script's own absolute directory.
 set -u
 cd "${0:A:h}/.."
 pass=0; fail=0

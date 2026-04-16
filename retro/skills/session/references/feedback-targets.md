@@ -10,7 +10,7 @@ Maps retrospective findings to specific targets where changes can be implemented
 
 ### 1. **memory** — Update MEMORY.md
 **What**: Session baselines, code learnings, process patterns, trend analysis
-**File**: `/Users/Chris.Weber/.claude/projects/-Users-Chris-Weber-OpenSource-DRUPAL/memory/MEMORY.md`
+**File**: `$HOME/.claude/projects/<encoded-project-path>/memory/MEMORY.md` (Claude Code encodes the project cwd by replacing `/` with `-`)
 **Process**: Edit existing file with new observations, update sections
 **Approval**: Team lead reviews, user approves before edit
 **Example**: "MEMORY: Add architectural pattern for entity field validation discovered this session"
@@ -19,7 +19,7 @@ Maps retrospective findings to specific targets where changes can be implemented
 
 ### 2. **claude-md** — Update CLAUDE.md
 **What**: Development practices, coding standards, architecture guidelines, testing requirements
-**File**: `/Users/Chris.Weber/OpenSource/DRUPAL/CLAUDE.md`
+**File**: `<project-root>/CLAUDE.md`
 **Process**: Add new sections or update existing guidance
 **Approval**: Team lead reviews, user approves before edit
 **Example**: "CLAUDE.md: Document Settings Tray jQuery→HTMX conversion pattern for future module work"
@@ -28,7 +28,7 @@ Maps retrospective findings to specific targets where changes can be implemented
 
 ### 3. **agent** — Modify Agent Definition
 **What**: Agent capabilities, constraints, responsibilities, tools access
-**Directory**: `/Users/Chris.Weber/OpenSource/DRUPAL/.claude/agents/`
+**Directory**: `<project-root>/.claude/agents/` (or the owning plugin's `agents/` dir if the agent is plugin-scoped)
 **Files**: Agent .md definition files
 **Process**: Edit agent prompt, constraints, or role description
 **Approval**: Team lead reviews, user approves before edit
@@ -38,7 +38,7 @@ Maps retrospective findings to specific targets where changes can be implemented
 
 ### 4. **skill** — Update or Create Skill
 **What**: Skill procedures, phases, templates, error handling, references
-**Directory**: `/Users/Chris.Weber/OpenSource/DRUPAL/.claude/skills/`
+**Directory**: `<project-root>/.claude/skills/` (or the owning plugin's `skills/` dir if the skill is plugin-scoped)
 **Process**: Create new skill or update existing SKILL.md and references/
 **Approval**: Team lead reviews, user approves before edit
 **Example**: "skill: validate-patch - Add Phase 0 test design review before DDEV"
@@ -47,7 +47,7 @@ Maps retrospective findings to specific targets where changes can be implemented
 
 ### 5. **protocol** — Create or Update Protocol
 **What**: Standard procedures, decision frameworks, lifecycle management
-**Directory**: `/Users/Chris.Weber/OpenSource/DRUPAL/.claude/protocols/`
+**Directory**: `<project-root>/.claude/protocols/` (or the owning plugin's `protocols/` dir)
 **Files**: Protocol .md files (e.g., DDEV-CLEANUP.md, decision-framework.md)
 **Process**: Document new protocol or update existing procedure
 **Approval**: Team lead reviews, user approves before edit

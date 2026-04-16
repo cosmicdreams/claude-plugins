@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Detect the current environment and output a JSON summary of available package managers.
-# Used by office:install to decide which install commands to run.
+# Used by admin:install to decide which install commands to run.
 
 set -euo pipefail
 

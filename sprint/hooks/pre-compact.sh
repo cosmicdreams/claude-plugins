@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # PreCompact hook — sprint plugin
 #
 # Advisory hook that fires when Claude Code is about to compact context.

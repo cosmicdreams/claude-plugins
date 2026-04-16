@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # SessionStart hook — sprint plugin
 #
 # Injects team-lead capability reminder into Claude's session context.

@@ -39,13 +39,14 @@ an asset, or evaluating the 5-session grace period across all work).
 ### Sprint-cycle (default)
 
 ```bash
-# 5 most recent sessions in the current project
-PROJ=$(pwd | sed 's|/Users/[^/]*/||; s|/|-|g; s|^|/Users/Chris.Weber/.claude/projects/-Users-Chris-Weber-|')
-SESSION_FILES=$(ls -t ~/.claude/projects/-Users-Chris-Weber-$(basename $(pwd))/*.jsonl 2>/dev/null | head -5)
+# 5 most recent sessions in the current project.
+# Claude Code names project dirs by replacing "/" with "-" in the absolute cwd.
+PROJ=~/.claude/projects/$(pwd | sed 's|/|-|g')
+SESSION_FILES=$(ls -t "$PROJ"/*.jsonl 2>/dev/null | head -5)
 echo "$SESSION_FILES"
 ```
 
-If the path substitution doesn't resolve, use:
+If the path doesn't resolve (e.g. a worktree that hasn't been opened in Claude Code yet), pick the directory manually:
 ```bash
 ls -t ~/.claude/projects/ | head -5   # find your project directory name
 SESSION_FILES=$(ls -t ~/.claude/projects/<your-project-dir>/*.jsonl | head -5)

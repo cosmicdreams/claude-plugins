@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # subagent-stop-interview.sh — retro plugin
 #
 # Requires all team sprint agents to complete a graceful shutdown interview

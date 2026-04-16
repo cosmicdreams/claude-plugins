@@ -7,7 +7,7 @@
 # Examples:
 #   admin/skills/new-skill/scripts/run-trigger-evals.sh all
 #   admin/skills/new-skill/scripts/run-trigger-evals.sh ideate:diagram
-#   admin/skills/new-skill/scripts/run-trigger-evals.sh office:morning-brief
+#   admin/skills/new-skill/scripts/run-trigger-evals.sh workflow:morning-brief
 #
 # What it does:
 #   For each skill with a trigger-evals.json in skill-eval/:
@@ -37,8 +37,9 @@ SKILL_EVAL_DIR="${SKILL_EVAL_DIR:-$CLAUDE_PLUGINS_ROOT/skill-eval}"
 PLUGIN_CACHE="$HOME/.claude/plugins/cache/local"
 DATE="$(date +%Y-%m-%d)"
 
-# Known plugin prefixes — longer names must come first
-KNOWN_PLUGINS=(drupal-lab ideate office sprint retro admin)
+# Known plugin prefixes — longer names must come first (so e.g. drupal-lab
+# is matched before drupal would be, if there ever was one).
+KNOWN_PLUGINS=(research-lab ideas-funnel drupal-lab workflow improve drover ideate sprint admin retro lib)
 
 TOTAL_PASS=0
 TOTAL_FAIL=0
