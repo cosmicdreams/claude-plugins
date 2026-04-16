@@ -45,9 +45,9 @@ if [[ ! -e .beads/drover.db ]]; then
   add_failure ".beads/drover.db not found. Run /drover:setup first."
 fi
 
-# 6) acli — checked only if Acquia envs are configured (skip with 'no-acquia')
-#    Drover uses the local system acli, NOT acli inside DDEV containers.
-#    Run `acli auth:login` once to store credentials in ~/.acquia/cloud_api.conf.
+# 6) Acquia API credentials — checked only if Acquia envs are configured (skip with 'no-acquia')
+#    Credentials stored in ~/.acquia/cloud_api.conf (API key + secret).
+#    Run /drover:setup to configure, or create manually.
 if [[ "${1:-}" != "no-acquia" ]]; then
   HAS_ACQUIA=$(python3 -c "
 import json, sys
@@ -60,15 +60,33 @@ except Exception:
 " 2>/dev/null || echo "no")
 
   if [[ "$HAS_ACQUIA" == "yes" ]]; then
-    if ! command -v acli >/dev/null 2>&1; then
-      add_failure "acli (Acquia CLI) not found but Acquia environments are configured. Install from https://github.com/acquia/cli/releases and run: acli auth:login"
-    elif [[ ! -f "$HOME/.acquia/cloud_api.conf" ]]; then
-      add_failure "acli found but not authenticated. Run: acli auth:login (credentials stored in ~/.acquia/cloud_api.conf — no DDEV env vars needed)"
+    if [[ ! -f "$HOME/.acquia/cloud_api.conf" ]]; then
+      add_failure "Acquia API credentials not found at ~/.acquia/cloud_api.conf. Run /drover:setup to configure."
+    else
+      CRED_OK=$(python3 -c "
+import json, sys
+try:
+    c = json.load(open('$HOME/.acquia/cloud_api.conf'))
+    k = c.get('acli_key','')
+    s = c.get('keys',{}).get(k,{}).get('secret','')
+    print('yes' if k and s else 'no')
+except: print('no')
+" 2>/dev/null || echo "no")
+      if [[ "$CRED_OK" != "yes" ]]; then
+        add_failure "Acquia credentials file exists but is missing key or secret. Run /drover:setup to reconfigure."
+      fi
     fi
   fi
 fi
 
-# 7) gws slack — warning only (non-fatal: Slack notify is optional)
+# 7) websockets (Python) — required for Acquia logstream
+if [[ "${HAS_ACQUIA:-no}" == "yes" ]]; then
+  if ! python3 -c "import websockets" 2>/dev/null; then
+    add_failure "Python 'websockets' package not found (required for Acquia log streaming). Install: pip install websockets"
+  fi
+fi
+
+# 8) gws slack — warning only (non-fatal: Slack notify is optional)
 if ! command -v gws >/dev/null 2>&1; then
   echo "WARNING: gws (Google Workspace CLI) not found — Slack notifications will be skipped." >&2
 fi

@@ -71,7 +71,7 @@ the follow-up relevant.
 
 1. **Project name** — slug used in state and notifications (e.g. `my-drupal-site`).
 2. **DDEV project?** — first run `ddev list --json-output 2>/dev/null` to show running projects; the user picks one. Defaults: trust=`low`, noise filter on.
-3. **Any Acquia environments to watch?** [no] — if yes, collect `acli app:list` once and for each env ask only `env slug` (e.g. `stg`, `prod`) and optional `drush alias` (e.g. `@mysite.prod`). App UUID is resolved from `acli` for the current app.
+3. **Any Acquia environments to watch?** [no] — if yes, ask for the Acquia **API key** and **API secret** (from https://cloud.acquia.com/a/profile/tokens). Store in `~/.acquia/cloud_api.conf` via `acquia_api.write_credentials()`. Then list applications via the API, let the user pick their app, and for each env ask only `env slug` (e.g. `test`, `prod`) and optional `drush alias` (e.g. `@mysite.prod`).
 4. **Slack User ID?** [blank = skip] — only if the user provides one, ask the single follow-up: `Quiet hours? (e.g. 22:00-07:00 TZ) [none]`. Quiet mode defaults to `off`.
 5. **Run quality checks?** [phpcs: yes, phpstan: no, via DDEV: yes] — one composite question; only break it apart if the user says "custom".
 
@@ -94,7 +94,7 @@ Write Slack and quiet preferences to the global config (one per user, not per pr
     }
   },
   "acquia": {
-    "use_global_acli_session": true
+    "credentials_path": "~/.acquia/cloud_api.conf"
   }
 }
 ```
@@ -196,10 +196,16 @@ ddev describe <ddev_project_name> 2>/dev/null | head -5 || echo "DDEV_UNREACHABL
 If DDEV is not running: warn the user — drover watch won't work until DDEV is started.
 
 **Acquia:**
-```bash
-acli auth:check 2>/dev/null && echo "ACQUIA_OK" || echo "ACQUIA_AUTH_NEEDED"
+```python
+import sys; sys.path.insert(0, "${CLAUDE_PLUGIN_ROOT}/scripts/monitors")
+from acquia_api import AcquiaClient
+try:
+    ok = AcquiaClient().verify_credentials()
+    print("ACQUIA_OK" if ok else "ACQUIA_AUTH_NEEDED")
+except FileNotFoundError:
+    print("ACQUIA_AUTH_NEEDED")
 ```
-If not authenticated: print `Run: acli auth:login` and continue (non-blocking).
+If not authenticated: print `Run /drover:setup again to enter your API key and secret` and continue (non-blocking).
 
 ## Step 6: Output summary
 

@@ -17,6 +17,7 @@ You need these installed:
 | [Beads](https://github.com/sonrise/beads) | Kanban database for tickets | `bd --version` (install: `brew install beads`) |
 | `git` and [`gh`](https://cli.github.com/) | Version control and GitHub | `git --version && gh --version` |
 | `node` ≥ 18 | Powers the dashboard UI | `node --version` |
+| `websockets` (Python) | Streams Acquia logs in real-time | `python3 -c "import websockets"` (install: `pip install websockets`) |
 
 You also need:
 
@@ -26,7 +27,7 @@ You also need:
 
 Optional (you can skip these and add them later):
 
-- An **Acquia Cloud** account with `acli` authenticated (`acli auth:login`) — if you want Drover to watch staging or production logs.
+- An **Acquia Cloud API key and secret** — if you want Drover to watch staging or production logs. Generate them at https://cloud.acquia.com/a/profile/tokens. Setup will ask for these and store them locally.
 - A **Slack user ID** — for DM notifications. Find yours in Slack → your profile → "Copy member ID". Looks like `U012AB3CD`.
 
 ---
@@ -65,7 +66,7 @@ Expect to be asked:
 - **Slack User ID** — paste it if you want DMs; leave blank otherwise.
 - **Quiet mode / quiet hours** — whether to suppress non-critical pings.
 - **DDEV project name** — Drover shows you your DDEV projects; pick the one for this site.
-- **Acquia staging/production** — skip these if you don't have Acquia. Otherwise paste the app UUID from `acli app:list`.
+- **Acquia staging/production** — skip these if you don't have Acquia. Otherwise enter your API key and secret; Drover lists your applications and environments automatically.
 - **Quality checks** — keep PHPCS on (recommended), PHPStan is optional.
 
 When it finishes you'll see:

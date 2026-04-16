@@ -75,13 +75,18 @@ try:
         name = e.get("name") or e.get("ddev_project")
         if name:
             print(f"ddev:{name}")
+        app_uuid = (e.get("acquia") or {}).get("app_uuid", "")
         for env in (e.get("acquia") or {}).get("environments", []) or []:
             if isinstance(env, dict):
-                key = env.get("alias") or env.get("id")
+                env_name = env.get("name") or env.get("env_slug", "")
+                eid = env.get("alias") or env.get("id", "")
             else:
-                key = env
-            if key:
-                print(f"acquia:{key}")
+                env_name = env
+                eid = env
+            if app_uuid and env_name:
+                print(f"acquia:{env_name}.{app_uuid}")
+            elif eid:
+                print(f"acquia:{eid}")
         # bd-ready watcher polls the project's local Beads board for
         # newly-ready tickets. One watcher per project path.
         path = e.get("path")

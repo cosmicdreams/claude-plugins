@@ -1,33 +1,36 @@
 #!/usr/bin/env python3
 """
-acquia-watch.py <environment-id>
+acquia-watch.py <acquia-env-alias>
 
-Streams logs from one Acquia Cloud environment via `acli app:log:tail`,
-fingerprints each error line, and emits ECA events identical in format
-to ddev-watch.py:
+Streams logs from one Acquia Cloud environment via direct WSS connection
+to the Acquia logstream service. Fingerprints each error line and emits
+ECA events:
 
-  NEW     <fp> <severity> <source> <env-id> <message>
-  THRESH  <fp> count=<n>  <severity> <source> <env-id>
+  NEW     <fp> <severity> <source> <env-alias> <message>
+  THRESH  <fp> count=<n>  <severity> <source> <env-alias>
 
-State persists at ${DROVER_STATE_DIR:-...}/acquia-<envId>.json.
+For non-error log types (apache-request, drupal-request, fpm-access),
+emits periodic TRAFFIC summaries instead of per-line events.
+
+The env alias format is "<env_name>.<app_uuid>" — e.g. "prod.fa5e7770-...".
+The umbrella passes this; it's split here into app_uuid and env_name.
+
+State persists at ${DROVER_STATE_DIR:-...}/acquia-<alias>.json.
 
 Environment overrides (tests):
   DROVER_STATE_DIR          state dir
   DROVER_THRESHOLD          emit threshold (default 50)
   DROVER_MAX_EVENTS         exit after N events (tests)
   DROVER_FINGERPRINT_SCRIPT override fingerprint.py path
-  DROVER_ACLI               override acli command (tests stub with a fake)
+  DROVER_LOG_TYPES          comma-separated log types (default: all)
 """
+import asyncio
 import importlib.util
 import json
 import os
 import pathlib
 import signal
-import subprocess
 import sys
-
-
-STREAM_READY_MARKER = "Streaming has started"
 
 
 def load_fingerprint():
@@ -40,17 +43,31 @@ def load_fingerprint():
     return mod
 
 
-def main() -> int:
+ERROR_TYPES = {"apache-error", "php-error", "drupal-watchdog", "fpm-error"}
+TRAFFIC_TYPES = {"apache-request", "drupal-request", "fpm-access",
+                 "bal-request", "varnish-request"}
+
+
+async def main() -> int:
     if len(sys.argv) < 2:
-        print("acquia-watch: missing environment id", file=sys.stderr)
+        print("acquia-watch: missing env alias (env_name.app_uuid)", file=sys.stderr)
         return 2
 
-    env_id = sys.argv[1]
-    fingerprint = load_fingerprint()
+    alias = sys.argv[1]
+    # Support both "prod.fa5e7770-..." and legacy "30395-fa5e7770-..." formats.
+    if "." in alias and not alias[0].isdigit():
+        env_name, app_uuid = alias.split(".", 1)
+    else:
+        print(f"acquia-watch: expected alias format 'env.app_uuid', got '{alias}'",
+              file=sys.stderr)
+        return 2
 
+    fingerprint = load_fingerprint()
     threshold = int(os.environ.get("DROVER_THRESHOLD", "50"))
     max_events = int(os.environ.get("DROVER_MAX_EVENTS", "0"))
-    acli = os.environ.get("DROVER_ACLI", "acli")
+
+    type_env = os.environ.get("DROVER_LOG_TYPES")
+    log_types = type_env.split(",") if type_env else None
 
     state_dir_env = os.environ.get("DROVER_STATE_DIR")
     if state_dir_env:
@@ -62,57 +79,72 @@ def main() -> int:
         )
         state_dir = pathlib.Path(base) / "acquia-state"
     state_dir.mkdir(parents=True, exist_ok=True)
-    state_file = state_dir / f"{env_id}.json"
+    state_file = state_dir / f"{alias}.json"
     try:
         state = json.loads(state_file.read_text()) if state_file.exists() else {}
     except Exception:
         state = {}
 
-    proc = subprocess.Popen(
-        [acli, "app:log:tail", env_id, "-n"],
-        stdout=subprocess.PIPE,
-        stderr=subprocess.DEVNULL,
-        text=True,
-        bufsize=1,
-    )
+    # Import the logstream client (sibling module).
+    sys.path.insert(0, str(pathlib.Path(__file__).resolve().parent))
+    from acquia_logstream import connect
 
-    def shutdown(_signum=None, _frame=None):
-        try:
-            proc.terminate()
-        except Exception:
-            pass
+    stop = asyncio.Event()
 
-    signal.signal(signal.SIGINT, shutdown)
-    signal.signal(signal.SIGTERM, shutdown)
+    def handle_signal():
+        stop.set()
 
-    streaming = False
+    loop = asyncio.get_running_loop()
+    for sig in (signal.SIGINT, signal.SIGTERM):
+        loop.add_signal_handler(sig, handle_signal)
+
     processed = 0
     try:
-        for raw in proc.stdout:
-            if not streaming:
-                if STREAM_READY_MARKER in raw:
-                    streaming = True
-                continue
-            ev = fingerprint.process(raw)
-            if ev is None:
-                continue
-            fp = ev["fingerprint"]
-            sev = ev["severity"]
-            src = ev["source"]
-            msg = ev["message"]
-            entry = state.get(fp, {"count": 0, "severity": sev, "source": src})
-            is_new = entry["count"] == 0
-            entry["count"] += 1
-            state[fp] = entry
-            if is_new:
-                print(f"NEW {fp} {sev} {src} {env_id} {msg}", flush=True)
-            elif entry["count"] == threshold:
-                print(f"THRESH {fp} count={threshold} {sev} {src} {env_id}", flush=True)
+        async for event in connect(app_uuid, env_name, types=log_types):
+            if stop.is_set():
+                break
+
+            log_type = event.get("log_type", "")
+            text = event.get("text", "")
+
+            if log_type in ERROR_TYPES:
+                ev = fingerprint.process(text)
+                if ev is None:
+                    continue
+                fp = ev["fingerprint"]
+                sev = ev["severity"]
+                src = ev["source"]
+                msg = ev["message"]
+                entry = state.get(fp, {"count": 0, "severity": sev, "source": src})
+                is_new = entry["count"] == 0
+                entry["count"] += 1
+                state[fp] = entry
+                if is_new:
+                    print(f"NEW {fp} {sev} {src} {alias} {msg}", flush=True)
+                elif entry["count"] == threshold:
+                    print(f"THRESH {fp} count={threshold} {sev} {src} {alias}",
+                          flush=True)
+            elif log_type in TRAFFIC_TYPES:
+                # Accumulate traffic stats; emit periodically.
+                bucket = state.setdefault("_traffic", {})
+                type_bucket = bucket.setdefault(log_type, {"count": 0, "status": {}})
+                type_bucket["count"] += 1
+                status = str(event.get("http_status", "?"))
+                type_bucket["status"][status] = type_bucket["status"].get(status, 0) + 1
+                # Emit summary every 100 lines per type.
+                if type_bucket["count"] % 100 == 0:
+                    print(
+                        f"TRAFFIC {log_type} count={type_bucket['count']} "
+                        f"status={json.dumps(type_bucket['status'])} {alias}",
+                        flush=True,
+                    )
+
             processed += 1
             if max_events and processed >= max_events:
                 break
+    except Exception as e:
+        print(f"acquia-watch: {e}", file=sys.stderr)
     finally:
-        shutdown()
         try:
             state_file.write_text(json.dumps(state))
         except Exception:
@@ -122,4 +154,4 @@ def main() -> int:
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    sys.exit(asyncio.run(main()))

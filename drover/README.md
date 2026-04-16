@@ -48,7 +48,7 @@ A dashboard UI at `http://localhost:3749` shows the whole pipeline live.
 - **A Drupal project** running locally in [DDEV](https://ddev.com/)
 - **Beads** (`brew install beads`) — the kanban database Drover uses for tickets
 - **Git** and the **`gh` CLI** (for branches and eventual PRs)
-- **Acquia CLI** (`acli`) — only if you want Drover to watch Acquia staging/production logs
+- **Acquia Cloud API credentials** — only if you want Drover to watch Acquia staging/production logs. Get an API key and secret from https://cloud.acquia.com/a/profile/tokens
 - **Slack** — optional, for DM notifications when a fix is ready
 
 You don't need to know anything about AI agents or prompt engineering. The plugin's skills are the interface — you run `/drover:setup`, answer a few questions, and Drover takes care of the rest.
