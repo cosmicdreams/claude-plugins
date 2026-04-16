@@ -2,7 +2,7 @@
 # umbrella-ideas.sh — multiplexer for the ideas-funnel pipeline
 #
 # Runs background producers (currently: rss-ingest). Emits each producer's
-# stdout lines verbatim. Emits a heartbeat every 10 minutes for liveness.
+# stdout lines verbatim.
 # Registered in monitors.json — Claude Code's plugin monitor invokes this
 # script and watches its stdout; each line wakes the orchestrator.
 #
@@ -14,17 +14,11 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RSS_INGEST="$SCRIPT_DIR/rss-ingest.sh"
 
 POLL_INTERVAL_SECONDS="${IDEAS_FUNNEL_POLL_INTERVAL:-1800}"   # 30 minutes
-HEARTBEAT_INTERVAL_SECONDS=600                                # 10 minutes
 
-last_heartbeat=0
 last_poll=0
 
 log_stderr() {
   echo "[umbrella-ideas $(date -u +%Y-%m-%dT%H:%M:%SZ)] $*" >&2
-}
-
-emit_heartbeat() {
-  echo "heartbeat $(date -u +%Y-%m-%dT%H:%M:%SZ)"
 }
 
 run_rss_ingest() {
@@ -36,17 +30,11 @@ run_rss_ingest() {
   fi
 }
 
-log_stderr "umbrella starting (poll=${POLL_INTERVAL_SECONDS}s, heartbeat=${HEARTBEAT_INTERVAL_SECONDS}s)"
-emit_heartbeat
+log_stderr "umbrella starting (poll=${POLL_INTERVAL_SECONDS}s)"
 
 # Main loop
 while true; do
   now=$(date +%s)
-
-  if [ $((now - last_heartbeat)) -ge $HEARTBEAT_INTERVAL_SECONDS ]; then
-    emit_heartbeat
-    last_heartbeat=$now
-  fi
 
   if [ $((now - last_poll)) -ge $POLL_INTERVAL_SECONDS ]; then
     run_rss_ingest
