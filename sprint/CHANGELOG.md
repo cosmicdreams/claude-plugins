@@ -1,5 +1,11 @@
 # Changelog
 
+## 3.4.0
+- Add observer heartbeat sidecars (`sprint/scripts/heartbeat.sh`) for stalled-agent detection
+- Add `sprint/protocols/heartbeat.md` — convention for start/touch/stop/stalled lifecycle
+- Add `sprint/tests/test_heartbeat.bats` — 17 tests covering full lifecycle, threshold detection, JSON validity
+- `sprint:run` TEAM-LEAD LOOP: add step 3 — `heartbeat.sh stalled` check each turn
+
 ## 3.3.1
 - Cross-reference `lib:ddev` from sprint:run and sprint:board DDEV sections
 
