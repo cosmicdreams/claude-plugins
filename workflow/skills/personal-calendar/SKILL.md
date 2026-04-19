@@ -14,6 +14,18 @@ description: >
 
 Manage personal Google Calendar via `gws`.
 
+## Integration preflight (circuit-breaker)
+
+Before any `gws` call, run:
+
+```bash
+"${CLAUDE_PLUGIN_ROOT}/scripts/check-integration.sh" gws
+```
+
+If exit code is non-zero, stop and output the message from stderr verbatim.
+Example: "integration gws unavailable: gws auth failed: token expired — run: gws auth login"
+Do not proceed with any calendar operations.
+
 For auth setup and error handling, read `references/auth.md` (also at
 `workflow/references/gws-auth.md`).
 

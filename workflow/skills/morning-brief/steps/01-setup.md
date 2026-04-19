@@ -70,5 +70,27 @@ Compute `last_run_date` for Jira JQL (YYYY-MM-DD format):
 python3 -c "from datetime import datetime; print(datetime.fromisoformat('{last_run}').strftime('%Y-%m-%d'))"
 ```
 
+## Integration preflight (circuit-breaker)
+
+Before spawning fetch subagents, run the preflight for each configured integration.
+The script caches results for 5 minutes — repeat calls within TTL are instant.
+
+```bash
+SCRIPT="${CLAUDE_PLUGIN_ROOT}/scripts/check-integration.sh"
+
+slack_ok=true
+jira_ok=true
+
+"$SCRIPT" slack 2>&1 || { echo "Skipping Slack: $(cat)"; slack_ok=false; }
+
+if [[ $(jq '.integrations.jira.servers | length' ~/.claude/workflow.json 2>/dev/null) -gt 0 ]]; then
+  "$SCRIPT" jira 2>&1 || { echo "Skipping Jira: $(cat)"; jira_ok=false; }
+fi
+```
+
+- If `slack_ok=false` — skip `steps/02-fetch-slack.md`; note "Slack unavailable" in the brief header.
+- If `jira_ok=false` — skip `steps/03-fetch-jira.md`; note "Jira unavailable" in the brief header.
+- If **both** unavailable — output "All integrations unavailable — morning-brief cannot run." and stop.
+
 Proceed to `steps/02-fetch-slack.md` with: workspaces list, oldest_ts, user_id per workspace,
-jira servers list, last_run_date.
+jira servers list, last_run_date (skipping any marked unavailable).
