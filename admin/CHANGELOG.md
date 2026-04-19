@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.5.1
+- Add `admin/scripts/validate-plugin-list.sh`: scans repo root for plugin dirs (by presence of `.claude-plugin/plugin.json`), cross-checks against the hardcoded PLUGINS array, and exits 1 with a clear diff on mismatch
+- `bump-version.sh` and `reinstall-plugin.sh`: call validator on entry; fix stale PLUGINS array (remove retired `office`, add `ideas-funnel`)
+- `bump-version` and `changelog` SKILL.md: update valid plugin names list to match
+
 ## 2.5.0
 - Move `accessibility-scan` to `improve` plugin — measurement skills belong with improvement primitives
 - Update `install` skill: add perf-measure deps for improve and drupal-lab; broaden description to cover all installed plugins
