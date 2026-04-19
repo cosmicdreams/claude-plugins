@@ -47,6 +47,10 @@ BACKOFF_DIR="$TRACK_DIR/backoff"
 mkdir -p "$BACKOFF_DIR"
 BACKOFF_MAX="${DROVER_UMBRELLA_BACKOFF_MAX:-300}"
 BACKOFF_MIN="${DROVER_UMBRELLA_BACKOFF_MIN:-5}"
+# Envs that exit with permanent-failure status (IP allowlist, revoked creds)
+# are quarantined for this long — they won't recover without human action,
+# so respawning every 30s just floods notifications.
+QUARANTINE_SECS="${DROVER_UMBRELLA_QUARANTINE:-3600}"
 # A child that exits within this many seconds of start counts as "flapping".
 FLAP_WINDOW="${DROVER_UMBRELLA_FLAP_WINDOW:-10}"
 
@@ -111,15 +115,18 @@ start_child() {
       return
       ;;
   esac
+  local pidfile
+  pidfile="$(pidfile_for "$key")"
+  local exitfile="${pidfile}.exit"
+  rm -f "$exitfile"
   (
+    set -o pipefail
     "$cmd" "$id" 2>&1 | while IFS= read -r line; do
       printf '[%s] %s\n' "$key" "$line"
     done
+    echo "${PIPESTATUS[0]}" > "$exitfile"
   ) &
   local pid=$!
-  local pidfile
-  pidfile="$(pidfile_for "$key")"
-  # Pidfile format: line 1 = key, line 2 = pid, line 3 = start epoch.
   printf '%s\n%s\n%s\n' "$key" "$pid" "$(date +%s)" > "$pidfile"
   log "starting $key"
 }
@@ -178,6 +185,17 @@ while :; do
         start_epoch="$(sed -n '3p' "$pidfile" 2>/dev/null || echo 0)"
         now="$(date +%s)"
         lived=$((now - start_epoch))
+        exit_code="$(cat "$pidfile.exit" 2>/dev/null || echo 0)"
+        rm -f "$pidfile.exit"
+        # Exit code 3 = permanent failure (forbidden_ip, invalid_grant, etc.)
+        # Quarantine for QUARANTINE_SECS — these need human intervention.
+        if [ "$exit_code" = "3" ]; then
+          echo "$QUARANTINE_SECS" > "$backoff_file"
+          echo "$(date +%s)" > "$backoff_file.until"
+          log "child $key quarantined (permanent failure); backoff ${QUARANTINE_SECS}s"
+          rm -f "$pidfile"
+          continue
+        fi
         if [ "$lived" -lt "$FLAP_WINDOW" ]; then
           prev="$(cat "$backoff_file" 2>/dev/null || echo 0)"
           next=$(( prev * 2 ))

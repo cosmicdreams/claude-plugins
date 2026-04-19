@@ -19,6 +19,7 @@ Environment overrides (for tests):
 import json
 import os
 import time
+import urllib.error
 import urllib.parse
 import urllib.request
 from typing import Any
@@ -31,6 +32,67 @@ API_BASE = os.environ.get(
     "ACQUIA_API_BASE",
     "https://cloud.acquia.com/api",
 )
+
+_RETRY_STATUSES = {429, 500, 502, 503, 504}
+_MAX_RETRIES = 3
+_BACKOFF_BASE = 1.0
+
+
+class AcquiaAPIError(Exception):
+    """Non-retryable Acquia API failure carrying status + parsed error slug.
+
+    `error_slug` comes from the JSON body's `error` field (e.g. 'forbidden_ip',
+    'invalid_grant') and lets callers branch on the specific failure mode
+    rather than parsing the human-readable message.
+    """
+
+    def __init__(self, status: int, url: str, body: str, error_slug: str = ""):
+        self.status = status
+        self.url = url
+        self.body = body
+        self.error_slug = error_slug
+        super().__init__(f"HTTP {status} ({error_slug or 'unknown'}) from {url}")
+
+
+def _extract_error_slug(body: str) -> str:
+    try:
+        parsed = json.loads(body)
+        if isinstance(parsed, dict):
+            return str(parsed.get("error") or parsed.get("message_key") or "")
+    except Exception:
+        pass
+    return ""
+
+
+def _urlopen_with_retry(req: urllib.request.Request, timeout: int):
+    last_exc: Exception | None = None
+    for attempt in range(_MAX_RETRIES):
+        try:
+            return urllib.request.urlopen(req, timeout=timeout)
+        except urllib.error.HTTPError as e:
+            try:
+                body = e.read().decode("utf-8", errors="replace")
+            except Exception:
+                body = ""
+            if e.code in _RETRY_STATUSES and attempt < _MAX_RETRIES - 1:
+                time.sleep(_BACKOFF_BASE * (2 ** attempt))
+                last_exc = e
+                continue
+            raise AcquiaAPIError(
+                status=e.code,
+                url=req.full_url,
+                body=body,
+                error_slug=_extract_error_slug(body),
+            ) from e
+        except urllib.error.URLError as e:
+            if attempt < _MAX_RETRIES - 1:
+                time.sleep(_BACKOFF_BASE * (2 ** attempt))
+                last_exc = e
+                continue
+            raise
+    if last_exc:
+        raise last_exc
+    raise RuntimeError("urlopen retry loop exited without result")
 
 
 class AcquiaClient:
@@ -59,7 +121,7 @@ class AcquiaClient:
             "grant_type": "client_credentials",
         }).encode()
         req = urllib.request.Request(TOKEN_URL, data=data)
-        with urllib.request.urlopen(req, timeout=15) as r:
+        with _urlopen_with_retry(req, timeout=15) as r:
             body = json.loads(r.read())
         self._token = body["access_token"]
         self._token_expires = time.time() + body.get("expires_in", 300) - 30
@@ -71,7 +133,7 @@ class AcquiaClient:
             f"{API_BASE}{path}",
             headers={"Authorization": f"Bearer {token}"},
         )
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with _urlopen_with_retry(req, timeout=30) as r:
             return json.loads(r.read())
 
     def _post(self, path: str, body: dict | None = None) -> Any:
@@ -86,7 +148,7 @@ class AcquiaClient:
             },
             method="POST",
         )
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with _urlopen_with_retry(req, timeout=30) as r:
             return json.loads(r.read())
 
     # --- Applications ---
@@ -132,7 +194,7 @@ class AcquiaClient:
             notification_url,
             headers={"Authorization": f"Bearer {token}"},
         )
-        with urllib.request.urlopen(req, timeout=30) as r:
+        with _urlopen_with_retry(req, timeout=30) as r:
             return json.loads(r.read())
 
     # --- Auth verification ---
