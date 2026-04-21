@@ -156,25 +156,49 @@ ddev exec vendor/bin/phpstan analyze \
 
 Parse output. Fix any type errors or undefined symbol references before proceeding.
 
-## Step 8: Write merge case
+## Step 8: Write structured Solution > Projected block
 
-Update the ticket body to populate the ## Merge Case section:
+Per ADR 2026-04-21-drover-solution-capture-schema, drover tickets carry a
+two-block `## Solution` section:
+
+- **### Projected** — written here, by the implementer. Records what the
+  agent *thought* was the problem and the fix attempted. Effectiveness
+  starts `pending` until verified (by the user via `/drover:verify` /
+  `/drover:solution`, by commit trailer, or by silence).
+- **### Actual** — written later by the user (or by a backfill signal).
+  Records the verified ground truth. Omitted at implementer time.
+
+Update the ticket body to append the Projected block:
 
 ```bash
 export BD_DB=.beads/drover.db
 export BD_ACTOR=implementer-agent
 bd update {TICKET_ID} --append-notes "
-## Merge Case (populated {ISO_NOW})
-**Risk:** {Low|Medium|High}
-**What was changed:** {one sentence description of the fix}
-**Why this fixes it:** {one sentence explanation}
-**Worktree:** worktrees/drover-{fp}/
-**Files changed:** {list of changed files}
-**PHPCS:** {pass|fail — N errors}
-**PHPStan:** {pass|fail — N errors|skipped}
-**Urgency:** {High|Medium|Low} (based on severity: {severity_label})
+## Solution
+
+### Projected  (written: {ISO_NOW}, by: implementer-agent)
+- **hypothesis:** {one sentence — what the agent believes the root cause is}
+- **proposed_fix:** {one sentence — what this change does}
+- **confidence:** {low|medium|high}
+- **reasoning:** {one sentence — why this fix should work}
+- **fix_commit_sha:** {sha of the attempted commit, if already made, else 'pending'}
+- **effectiveness:** pending
+
+#### Review metadata (for lane-awaiting-review)
+- **Risk:** {Low|Medium|High}
+- **Worktree:** worktrees/drover-{fp}/
+- **Files changed:** {list of changed files}
+- **PHPCS:** {pass|fail — N errors}
+- **PHPStan:** {pass|fail — N errors|skipped}
+- **Urgency:** {High|Medium|Low} (based on severity: {severity_label})
 "
 ```
+
+> **Important:** the Projected block's `hypothesis`, `proposed_fix`, and
+> `reasoning` fields will be read by `/drover:recall` when similar errors
+> surface on other projects. Write them with a general audience in mind
+> (no project-specific paths, customer identifiers, or internal URLs).
+> The review metadata subsection is local-only and not surfaced by recall.
 
 Risk assessment guide:
 - **Low** — null guard, missing check, type coercion fix in custom module only, no schema changes
