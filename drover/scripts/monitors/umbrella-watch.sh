@@ -14,6 +14,7 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DDEV_WATCH="${DROVER_DDEV_WATCH:-${SCRIPT_DIR}/ddev-watch.py}"
+WP_WATCH="${DROVER_WP_WATCH:-${SCRIPT_DIR}/wp-watch.py}"
 ACQUIA_WATCH="${DROVER_ACQUIA_WATCH:-${SCRIPT_DIR}/acquia-watch.py}"
 BD_READY_WATCH="${DROVER_BD_READY_WATCH:-${SCRIPT_DIR}/bd-ready-watch.py}"
 PROJECTS_FILE="${DROVER_PROJECTS_FILE:-${CLAUDE_PLUGIN_DATA:-${HOME}/.claude/plugins/data/drover-fallback}/projects.json}"
@@ -88,6 +89,59 @@ ddev_reachable() {
   [ -s "$REACHABLE_DDEV_FILE" ] || return 0
   grep -qx "$name" "$REACHABLE_DDEV_FILE"
 }
+
+# Platform dispatch. projects.json entries may carry a `platform` field
+# ("drupal" | "wordpress" | …). At session start we build a sidecar
+# {ddev_project_name} -> {platform} map so start_child() can route a
+# ddev:* key to the correct watcher (ddev-watch.py for drupal,
+# wp-watch.py for wordpress). Unknown platforms fall back to drupal
+# with a log warning.
+PLATFORM_MAP_FILE="$TRACK_DIR/platform-map"
+if [ -f "$PROJECTS_FILE" ]; then
+  python3 - "$PROJECTS_FILE" "$PLATFORM_MAP_FILE" <<'PY' 2>/dev/null || : > "$PLATFORM_MAP_FILE"
+import json, sys
+try:
+    data = json.load(open(sys.argv[1]))
+    lines = []
+    for e in data:
+        name = e.get("ddev_project") or e.get("name")
+        if not name:
+            continue
+        platform = (e.get("platform") or "drupal").lower()
+        lines.append(f"{name}\t{platform}")
+    open(sys.argv[2], "w").write("\n".join(lines) + "\n")
+except Exception:
+    open(sys.argv[2], "w").write("")
+PY
+fi
+
+platform_for_ddev() {
+  local name="$1"
+  # Default drupal when no entry found — matches legacy behavior before
+  # the platform field existed.
+  awk -F'\t' -v n="$name" '$1==n {print $2; exit}' "$PLATFORM_MAP_FILE" 2>/dev/null || :
+}
+
+# Resolve a ddev:<name> key to the watcher command that should handle it.
+# Unknown platforms warn once and fall back to ddev-watch (drupal).
+watcher_for_ddev() {
+  local name="$1"
+  local platform
+  platform="$(platform_for_ddev "$name")"
+  case "$platform" in
+    ""|drupal) echo "$DDEV_WATCH" ;;
+    wordpress) echo "$WP_WATCH" ;;
+    *)
+      # Warn once per unknown platform by using a marker file.
+      local marker="$TRACK_DIR/unknown-platform.$(printf %s "$platform:$name" | shasum | awk '{print $1}' | cut -c1-12)"
+      if [ ! -f "$marker" ]; then
+        log "unknown platform '$platform' for ddev:$name; falling back to drupal"
+        : > "$marker"
+      fi
+      echo "$DDEV_WATCH"
+      ;;
+  esac
+}
 BACKOFF_MAX="${DROVER_UMBRELLA_BACKOFF_MAX:-300}"
 BACKOFF_MIN="${DROVER_UMBRELLA_BACKOFF_MIN:-5}"
 # Envs that exit with permanent-failure status (IP allowlist, revoked creds)
@@ -150,7 +204,7 @@ start_child() {
   local id="${key#*:}"
   local cmd
   case "$kind" in
-    ddev)     cmd="$DDEV_WATCH" ;;
+    ddev)     cmd="$(watcher_for_ddev "$id")" ;;
     acquia)   cmd="$ACQUIA_WATCH" ;;
     bd-ready) cmd="$BD_READY_WATCH" ;;
     *)

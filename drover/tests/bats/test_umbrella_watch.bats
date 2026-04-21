@@ -273,6 +273,61 @@ EOF
   assert_output --partial "expected alias format"
 }
 
+@test "dispatcher: drupal platform routes to ddev-watch" {
+  # Default: projects without an explicit platform field are treated as drupal.
+  write_projects siteA
+  run run_timeout 3 "$SCRIPT"
+  assert_output --partial "[ddev:siteA] tick siteA"
+  # The ddev-watch fake echoes "tick NAME". If the wrong watcher were
+  # dispatched, we'd see a different output prefix or nothing.
+}
+
+@test "dispatcher: wordpress platform routes to wp-watch" {
+  # Override the wp watcher with a fake that emits a distinct marker.
+  export DROVER_WP_WATCH="$TMP/fake-wp-watch.sh"
+  cat > "$DROVER_WP_WATCH" <<'EOF'
+#!/usr/bin/env bash
+echo "wp-tick $1"
+sleep 0.3
+EOF
+  chmod +x "$DROVER_WP_WATCH"
+
+  python3 -c "
+import json
+print(json.dumps([{'name': 'siteA', 'path': '/tmp/siteA', 'ddev_project': 'siteA',
+                   'platform': 'wordpress'}]))
+" > "$DROVER_PROJECTS_FILE"
+
+  run run_timeout 3 "$SCRIPT"
+  # wp-watch fake emits wp-tick; the ddev-watch fake would emit "tick".
+  assert_output --partial "[ddev:siteA] wp-tick siteA"
+  refute_output --partial "[ddev:siteA] tick siteA"
+}
+
+@test "dispatcher: explicit drupal platform still routes to ddev-watch" {
+  python3 -c "
+import json
+print(json.dumps([{'name': 'siteA', 'path': '/tmp/siteA', 'ddev_project': 'siteA',
+                   'platform': 'drupal'}]))
+" > "$DROVER_PROJECTS_FILE"
+
+  run run_timeout 3 "$SCRIPT"
+  assert_output --partial "[ddev:siteA] tick siteA"
+}
+
+@test "dispatcher: unknown platform logs a warning and falls back to drupal" {
+  python3 -c "
+import json
+print(json.dumps([{'name': 'siteA', 'path': '/tmp/siteA', 'ddev_project': 'siteA',
+                   'platform': 'sitecore'}]))
+" > "$DROVER_PROJECTS_FILE"
+
+  run run_timeout 3 "$SCRIPT"
+  assert_output --partial "[ddev:siteA] tick siteA"
+  run cat "$DROVER_UMBRELLA_LOG"
+  assert_output --partial "unknown platform 'sitecore' for ddev:siteA; falling back to drupal"
+}
+
 @test "signal still reaches harness when stderr is also active" {
   # Interleave stdout and stderr — make sure the stdout path isn't
   # accidentally starved or buffered to death by the stderr redirection.
