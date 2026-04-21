@@ -145,10 +145,13 @@ When you invoke this skill, YOU run the team-lead function. Do not spawn a team-
 TEAM-LEAD LOOP (run every turn):
 1. TaskList → who has no in_progress task right now?
 2. Scan the board: `bd ready --json --unassigned` for available work. For in-progress: `bd list -s in_progress --json`.
-3. Match idle agents to available cards → SendMessage with task assignment (card ID only) immediately
-4. If an agent has no remaining cards → run GRACEFUL SHUTDOWN SEQUENCE (see below)
+3. Check for stalled agents: `~/.claude/plugins/cache/local/sprint/<ver>/scripts/heartbeat.sh stalled`
+   — Any `STALLED` output means an agent has not touched its heartbeat in 10+ min. Cross-check with `bd list -s in_progress --json`; if unresponsive 2+ turns → reassign.
+   — See `sprint/protocols/heartbeat.md` for full protocol.
+4. Match idle agents to available cards → SendMessage with task assignment (card ID only) immediately
+5. If an agent has no remaining cards → run GRACEFUL SHUTDOWN SEQUENCE (see below)
    ⚠ Exception: process-engineer stays alive until ALL sprint work is done (Step 7). Do not shut it down mid-sprint.
-5. If an agent is unresponsive 2+ turns → reassign or replace (does NOT apply to process-engineer)
+6. If an agent is unresponsive 2+ turns → reassign or replace (does NOT apply to process-engineer)
 
 **Card Summary Format** — the lightweight summary team-lead builds from bd output for orchestration decisions:
 ```
