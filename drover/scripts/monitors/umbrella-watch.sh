@@ -119,11 +119,22 @@ start_child() {
   pidfile="$(pidfile_for "$key")"
   local exitfile="${pidfile}.exit"
   rm -f "$exitfile"
+  # Child stdout carries user-facing signal (NEW / THRESH / TRAFFIC events);
+  # it's piped so each line is prefixed with the watcher key, then reaches
+  # the harness as a task-notification. Child stderr is watcher lifecycle
+  # (TRANSIENT retries, PERMANENT auth failures, init errors) — routed to
+  # the umbrella log with a matching prefix so it doesn't spam the terminal
+  # but is still scannable for debugging. Dashboard reads per-env status
+  # from watcher state files, not from harness stream.
   (
     set -o pipefail
-    "$cmd" "$id" 2>&1 | while IFS= read -r line; do
-      printf '[%s] %s\n' "$key" "$line"
-    done
+    "$cmd" "$id" \
+      2> >(while IFS= read -r err; do
+             printf '[%s] [%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$key" "$err" >> "$LOG_FILE"
+           done) \
+      | while IFS= read -r line; do
+          printf '[%s] %s\n' "$key" "$line"
+        done
     echo "${PIPESTATUS[0]}" > "$exitfile"
   ) &
   local pid=$!

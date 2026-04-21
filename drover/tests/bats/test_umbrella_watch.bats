@@ -113,3 +113,27 @@ print(json.dumps(data))
   [ "$status" -eq 0 ]
   [[ "$output" != *"starting"* ]]
 }
+
+@test "child stderr routes to log, not harness stdout" {
+  # Watcher that emits to both stdout and stderr. stderr must not reach
+  # harness (task-notification channel); it must land in the umbrella log
+  # with the watcher key prefixed.
+  cat > "$DROVER_DDEV_WATCH" <<'EOF'
+#!/usr/bin/env bash
+echo "signal-line $1"
+echo "noisy-retry $1" >&2
+sleep 0.3
+EOF
+  chmod +x "$DROVER_DDEV_WATCH"
+
+  write_projects siteA
+  run run_timeout 3 "$SCRIPT"
+
+  # Signal reaches stdout with key prefix.
+  [[ "$output" == *"[ddev:siteA] signal-line siteA"* ]]
+  # Noise MUST NOT reach stdout.
+  [[ "$output" != *"noisy-retry"* ]]
+  # Noise lands in log with a key prefix so it's scannable for debugging.
+  logs="$(log_contents)"
+  [[ "$logs" == *"[ddev:siteA] noisy-retry siteA"* ]]
+}
