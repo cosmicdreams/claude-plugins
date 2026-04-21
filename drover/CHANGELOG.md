@@ -1,5 +1,11 @@
 # drover Changelog
 
+## 1.15.0
+- **Dashboard Solution section in the card modal**: the error-detail modal now shows a structured Solution block with both Projected (written by the implementer agent) and Actual (written by the user) blocks. Fields are extracted from the ticket's notes/body (`### Projected` and `### Actual` subsections). Empty states explicitly say so ("No projected solution. drover:implementer has not run on this ticket." / "Record Actual solution" button).
+- **In-modal Actual solution form**: click "Record Actual solution" to open an inline form with root_cause, fix_summary, fix_commit_sha, and divergence-from-projected dropdown (only shown when a Projected block exists). Save posts to a new `/api/cards/:id/solution` endpoint that writes the structured `### Actual` block via `bd update --append-notes`, moves the ticket to `lane-done`, and closes it. Dashboard refreshes automatically.
+- **Virtual-central aware**: the Solution endpoint locates the ticket across all registered project boards (by `project` tag) and writes to the right db, not the `--db` flag value.
+- Client + server both parse Projected/Actual so SSE refreshes preserve the rendered fields without a server round-trip.
+
 ## 1.14.0
 - **Dashboard virtual-central view across all registered projects (sprint-0r3)**: the dashboard no longer shows only the board from the directory you `cd`'d into. It now merges cards from every project registered in `projects.json` by default and tags each card with its source project. A new "Project" column appears in the error table so you can see at a glance which project each card came from. Pass `DROVER_DB_OVERRIDE=<path>` to the skill to scope back to a single board.
 - **File watcher fan-out**: one `fs.watch` per registered project's `.beads/` directory. When triage writes to *any* project's board, the dashboard pushes an SSE `board-update` immediately — no reload, no re-launch. Viewing AHRI and a new PNCB error fires? You see the card appear in real time.
