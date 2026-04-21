@@ -69,6 +69,10 @@ function parseBackfillOutput(out) {
 }
 
 function backfill(alias, { logTypes, scriptPath, runner = childProcess.execFileSync } = {}) {
+  // Synchronous variant — kept for tests and for any CLI path that wants
+  // the fully-parsed result (events count, NEW/THRESH tallies). The
+  // dashboard no longer uses this: it calls backfillAsync() so the
+  // Acquia-polling latency doesn't block the user's click.
   if (!alias) return { status: 'error', message: 'alias required' };
   const script = scriptPath
     || process.env.DROVER_BACKFILL_SCRIPT
@@ -84,4 +88,62 @@ function backfill(alias, { logTypes, scriptPath, runner = childProcess.execFileS
   }
 }
 
-module.exports = { projectsFilePath, listProjects, pickFolderMacOS, addProject, backfill, parseBackfillOutput };
+// Async backfill — spawn detached, redirect stdout/stderr to a per-job
+// log file, and return immediately with { status: 'queued', log, pid }.
+// Acquia log archive creation + polling + download can take many minutes;
+// making the dashboard wait on that was blocking the user's click for the
+// full duration with no progress. The log file lets the user (or a future
+// SSE endpoint) tail progress independently.
+//
+// Overrides:
+//   logDir:    where to place the log file (default /private/tmp)
+//   spawner:   injection seam for tests (defaults to child_process.spawn)
+//   nowFn:     timestamp generator for the log filename (tests control this)
+function backfillAsync(alias, { logTypes, scriptPath, logDir, spawner, nowFn } = {}) {
+  if (!alias) return { status: 'error', message: 'alias required' };
+  const script = scriptPath
+    || process.env.DROVER_BACKFILL_SCRIPT
+    || path.resolve(__dirname, '..', '..', 'scripts', 'backfill.sh');
+  const dir = logDir || process.env.DROVER_BACKFILL_LOG_DIR || '/private/tmp';
+  const ts = (nowFn || (() => new Date().toISOString().replace(/[:.]/g, '-').slice(0, 19)))();
+  const safeAlias = String(alias).replace(/[^A-Za-z0-9._-]/g, '_');
+  const logPath = path.join(dir, `drover-backfill-${safeAlias}-${ts}.log`);
+  const args = [alias];
+  if (logTypes) args.push(logTypes);
+
+  let out, err;
+  try {
+    fs.mkdirSync(dir, { recursive: true });
+    out = fs.openSync(logPath, 'a');
+    err = out;  // same fd → stdout + stderr interleaved in the log
+  } catch (e) {
+    return { status: 'error', message: `cannot open log file ${logPath}: ${e.message}` };
+  }
+
+  const spawn = spawner || childProcess.spawn;
+  let child;
+  try {
+    child = spawn(script, args, {
+      detached: true,
+      stdio: ['ignore', out, err],
+      env: process.env,
+    });
+    child.unref();
+  } catch (e) {
+    try { fs.closeSync(out); } catch (_) {}
+    return { status: 'error', message: `spawn failed: ${e.message}` };
+  }
+
+  // fs descriptors are inherited by the child; parent can close.
+  try { fs.closeSync(out); } catch (_) {}
+
+  return {
+    status: 'queued',
+    alias,
+    log: logPath,
+    pid: child.pid || null,
+    message: `Backfill queued for ${alias}. Tail ${logPath} for progress.`,
+  };
+}
+
+module.exports = { projectsFilePath, listProjects, pickFolderMacOS, addProject, backfill, backfillAsync, parseBackfillOutput };

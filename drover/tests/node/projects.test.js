@@ -107,6 +107,67 @@ test('backfill dispatches to script and parses output', () => {
   assert.equal(r.new_fingerprints, 1);
 });
 
+test('backfillAsync returns error when alias missing', () => {
+  assert.equal(projects.backfillAsync('').status, 'error');
+});
+
+test('backfillAsync returns queued immediately without blocking', () => {
+  const calls = [];
+  const fakeSpawn = (cmd, args, opts) => {
+    calls.push({ cmd, args, opts });
+    return { pid: 4242, unref() {} };
+  };
+  const dir = tmpdir();
+  const r = projects.backfillAsync('pncb.prod', {
+    logTypes: 'php-error',
+    scriptPath: '/usr/bin/true',
+    logDir: dir,
+    spawner: fakeSpawn,
+    nowFn: () => '2026-04-21T15-30-00',
+  });
+  assert.equal(r.status, 'queued');
+  assert.equal(r.alias, 'pncb.prod');
+  assert.equal(r.pid, 4242);
+  assert.match(r.log, /drover-backfill-pncb\.prod-2026-04-21T15-30-00\.log$/);
+  assert.equal(calls.length, 1);
+  assert.equal(calls[0].cmd, '/usr/bin/true');
+  assert.deepEqual(calls[0].args, ['pncb.prod', 'php-error']);
+  assert.equal(calls[0].opts.detached, true);
+  // stdout + stderr must share an fd so interleaving is preserved in the log.
+  assert.equal(calls[0].opts.stdio[0], 'ignore');
+  assert.equal(calls[0].opts.stdio[1], calls[0].opts.stdio[2]);
+  // The log file must actually exist (opened with fs.openSync + 'a').
+  assert.ok(fs.existsSync(r.log));
+});
+
+test('backfillAsync sanitizes unsafe alias characters so log stays in logDir', () => {
+  const fakeSpawn = () => ({ pid: 1, unref() {} });
+  const dir = tmpdir();
+  const r = projects.backfillAsync('pncb/../etc/passwd', {
+    scriptPath: '/usr/bin/true',
+    logDir: dir,
+    spawner: fakeSpawn,
+    nowFn: () => 'ts',
+  });
+  // No path separators survived — the basename cannot escape logDir.
+  assert.ok(!r.log.slice(dir.length + 1).includes('/'));
+  // Resolved path must still live inside logDir (no ../ escape).
+  assert.ok(path.resolve(r.log).startsWith(path.resolve(dir)));
+});
+
+test('backfillAsync surfaces spawn failure as error status', () => {
+  const dir = tmpdir();
+  const throwingSpawn = () => { throw new Error('ENOENT'); };
+  const r = projects.backfillAsync('pncb.prod', {
+    scriptPath: '/nonexistent',
+    logDir: dir,
+    spawner: throwingSpawn,
+    nowFn: () => 'ts',
+  });
+  assert.equal(r.status, 'error');
+  assert.match(r.message, /spawn failed/);
+});
+
 test('pickFolderMacOS returns null when runner throws', () => {
   const throwingRunner = () => { throw new Error('user canceled'); };
   assert.equal(projects.pickFolderMacOS({ runner: throwingRunner }), null);
