@@ -31,6 +31,7 @@ import os
 import pathlib
 import signal
 import sys
+import time
 
 
 def load_fingerprint():
@@ -143,7 +144,33 @@ async def main() -> int:
             if max_events and processed >= max_events:
                 break
     except Exception as e:
-        print(f"acquia-watch: {e}", file=sys.stderr)
+        # Distinguish permanent auth/IP failures from transient network blips so
+        # the umbrella can back off permanently-failing envs instead of
+        # respawning every cycle and flooding notifications.
+        permanent_slugs = {"forbidden_ip", "invalid_grant", "invalid_client",
+                           "not_found", "access_denied"}
+        status = getattr(e, "status", None)
+        slug = getattr(e, "error_slug", "")
+        if slug in permanent_slugs:
+            # Record in state so dashboard can surface per-env status; umbrella
+            # greps stderr for PERMANENT to decide whether to stop respawning.
+            state["_last_error"] = {
+                "kind": "permanent", "slug": slug, "status": status,
+                "at": int(time.time()),
+            }
+            print(f"acquia-watch: PERMANENT {alias} status={status} slug={slug} {e}",
+                  file=sys.stderr)
+            return 3
+        state["_last_error"] = {
+            "kind": "transient",
+            "status": status,
+            "slug": slug,
+            "msg": str(e)[:200],
+            "at": int(time.time()),
+        }
+        print(f"acquia-watch: TRANSIENT {alias} status={status or '?'} {e}",
+              file=sys.stderr)
+        return 1
     finally:
         try:
             state_file.write_text(json.dumps(state))

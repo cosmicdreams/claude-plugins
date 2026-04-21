@@ -1,5 +1,11 @@
 # drover Changelog
 
+## 1.11.1
+- **Structured Acquia API error handling**: new `AcquiaAPIError` carries HTTP status + parsed `error` slug (e.g. `forbidden_ip`, `invalid_grant`). `acquia-watch.py` distinguishes permanent failures (exit 3) from transient ones (exit 1).
+- **Auto-retry on transient failures**: 429 and 5xx responses are retried with exponential backoff (3 attempts, 1s/2s/4s) before raising.
+- **Umbrella quarantine for permanent failures**: envs with IP-allowlist or revoked-credential failures are quarantined for 1h (DROVER_UMBRELLA_QUARANTINE) instead of respawning every cycle, stopping notification floods when a site is unreachable from the current network.
+- **Tests**: new `test_acquia_api_errors.py` covers forbidden_ip classification, 5xx retry-then-success, and non-retryable 4xx.
+
 ## 1.11.0
 - **Direct Acquia Cloud API + WSS**: replaced acli subprocess with acquia_api.py (REST client) and acquia_logstream.py (async WSS client). Per-type log subscription, structured JSON events, no PHP dependency.
 - **acli dropped as dependency**: all scripts now use the API directly. Only ~/.acquia/cloud_api.conf is needed.
