@@ -94,6 +94,55 @@ write_events() {
   [[ "$output" == *"expected alias format"* ]]
 }
 
+@test "TRAFFIC interval is configurable (sprint-j0u)" {
+  # Default interval (1000) must NOT emit when count < 1000.
+  # Write 150 traffic events — with the old hardcoded 100, this would
+  # have fired at least one TRAFFIC line. With the new 1000 default, silent.
+  events='['
+  for i in $(seq 1 150); do
+    [ "$i" -gt 1 ] && events="$events,"
+    events="$events{\"log_type\":\"apache-request\",\"http_status\":200}"
+  done
+  events="$events]"
+  write_events "$events"
+  export DROVER_MAX_EVENTS=150
+  run "$SCRIPT" prod.abc-123
+  unset DROVER_MAX_EVENTS
+  [ "$status" -eq 0 ]
+  [[ "$output" != *"TRAFFIC apache-request"* ]]
+}
+
+@test "TRAFFIC emits at configured DROVER_TRAFFIC_INTERVAL" {
+  events='['
+  for i in $(seq 1 25); do
+    [ "$i" -gt 1 ] && events="$events,"
+    events="$events{\"log_type\":\"apache-request\",\"http_status\":200}"
+  done
+  events="$events]"
+  write_events "$events"
+  export DROVER_TRAFFIC_INTERVAL=20
+  export DROVER_MAX_EVENTS=25
+  run "$SCRIPT" prod.abc-123
+  unset DROVER_TRAFFIC_INTERVAL DROVER_MAX_EVENTS
+  [[ "$output" == *"TRAFFIC apache-request count=20"* ]]
+}
+
+@test "TRAFFIC can be fully suppressed via DROVER_TRAFFIC_EMIT=0" {
+  events='['
+  for i in $(seq 1 5); do
+    [ "$i" -gt 1 ] && events="$events,"
+    events="$events{\"log_type\":\"apache-request\",\"http_status\":200}"
+  done
+  events="$events]"
+  write_events "$events"
+  export DROVER_TRAFFIC_EMIT=0
+  export DROVER_TRAFFIC_INTERVAL=2
+  export DROVER_MAX_EVENTS=5
+  run "$SCRIPT" prod.abc-123
+  unset DROVER_TRAFFIC_EMIT DROVER_TRAFFIC_INTERVAL DROVER_MAX_EVENTS
+  [[ "$output" != *"TRAFFIC"* ]]
+}
+
 @test "invalid_id slug classified as permanent (exit 3)" {
   # sprint-cxl safety net. HTTP 400 invalid_id means the UUID we passed to
   # the Acquia API does not exist — no amount of retry will fix it (user

@@ -66,6 +66,12 @@ async def main() -> int:
     fingerprint = load_fingerprint()
     threshold = int(os.environ.get("DROVER_THRESHOLD", "50"))
     max_events = int(os.environ.get("DROVER_MAX_EVENTS", "0"))
+    # sprint-j0u — TRAFFIC summaries were hardcoded to emit every 100 lines
+    # per type. Under the WSS logstream on a busy prod site, that fires
+    # multiple task-notifications per minute across 5 TRAFFIC_TYPES. Now
+    # configurable (default 1000) and suppressible entirely.
+    traffic_interval = int(os.environ.get("DROVER_TRAFFIC_INTERVAL", "1000"))
+    traffic_emit = os.environ.get("DROVER_TRAFFIC_EMIT", "1") != "0"
 
     type_env = os.environ.get("DROVER_LOG_TYPES")
     log_types = type_env.split(",") if type_env else None
@@ -132,8 +138,11 @@ async def main() -> int:
                 type_bucket["count"] += 1
                 status = str(event.get("http_status", "?"))
                 type_bucket["status"][status] = type_bucket["status"].get(status, 0) + 1
-                # Emit summary every 100 lines per type.
-                if type_bucket["count"] % 100 == 0:
+                # Emit summary at configured interval per type (default 1000).
+                # DROVER_TRAFFIC_EMIT=0 suppresses the stdout emission entirely
+                # while still accumulating stats for the state file (useful
+                # when only errors warrant task-notifications).
+                if traffic_emit and type_bucket["count"] % traffic_interval == 0:
                     print(
                         f"TRAFFIC {log_type} count={type_bucket['count']} "
                         f"status={json.dumps(type_bucket['status'])} {alias}",
