@@ -176,17 +176,28 @@ try:
         name = e.get("name") or e.get("ddev_project")
         if name:
             print(f"ddev:{name}")
-        app_uuid = (e.get("acquia") or {}).get("app_uuid", "")
+        # app_uuid may live on the per-env record (add-project.sh since
+        # resolve-acquia-uuids) or as a parent-level fallback (legacy).
+        parent_app_uuid = (e.get("acquia") or {}).get("app_uuid", "")
         for env in (e.get("acquia") or {}).get("environments", []) or []:
             if isinstance(env, dict):
-                env_name = env.get("name") or env.get("env_slug", "")
+                # Env slug may be in 'env' (current add-project.sh), 'name',
+                # or 'env_slug' (legacy). Try all.
+                env_name = env.get("env") or env.get("name") or env.get("env_slug", "")
+                app_uuid = env.get("app_uuid") or parent_app_uuid
                 eid = env.get("alias") or env.get("id", "")
             else:
                 env_name = env
+                app_uuid = parent_app_uuid
                 eid = env
             if app_uuid and env_name:
+                # Canonical form: acquia:<env>.<app_uuid>. This is what
+                # acquia-watch.py's arg parser expects.
                 print(f"acquia:{env_name}.{app_uuid}")
             elif eid:
+                # Legacy fallback — raw id / alias. Only used when app_uuid
+                # is missing from projects.json (requires re-running
+                # add-project / resolve-acquia-uuids).
                 print(f"acquia:{eid}")
         # bd-ready watcher polls the project's local Beads board for
         # newly-ready tickets. One watcher per project path.

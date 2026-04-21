@@ -147,8 +147,12 @@ async def main() -> int:
         # Distinguish permanent auth/IP failures from transient network blips so
         # the umbrella can back off permanently-failing envs instead of
         # respawning every cycle and flooding notifications.
+        # invalid_id = HTTP 400 "application UUID does not exist". No retry
+        # will fix it (user must re-run /drover:setup or add-project with
+        # correct creds). Quarantine along with the other permanent failures
+        # so the umbrella doesn't respawn the watcher every cycle.
         permanent_slugs = {"forbidden_ip", "invalid_grant", "invalid_client",
-                           "not_found", "access_denied"}
+                           "not_found", "access_denied", "invalid_id"}
         status = getattr(e, "status", None)
         slug = getattr(e, "error_slug", "")
         if slug in permanent_slugs:

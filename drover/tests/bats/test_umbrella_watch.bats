@@ -118,6 +118,48 @@ print(json.dumps(data))
   refute_output --partial "starting"
 }
 
+@test "acquia alias contract: real-shape projects.json emits acquia:env.app_uuid" {
+  # Regression test for sprint-8bo. Real add-project.sh output uses 'env' for
+  # the env slug (not 'name' / 'env_slug') and puts app_uuid inside each env
+  # entry (not at the parent 'acquia' level). Previously the umbrella's
+  # list_projects used the wrong field names and fell through to emitting
+  # the raw drush alias ("pncb.dev") as the acquia key — which acquia-watch
+  # then split as env='pncb' app_uuid='dev' and blew up with HTTP 400
+  # invalid_id on every cycle.
+  export DROVER_ACQUIA_WATCH="$TMP/fake-acquia-watch.sh"
+  cat > "$DROVER_ACQUIA_WATCH" <<'EOF'
+#!/usr/bin/env bash
+echo "aqtick $1"
+sleep 0.2
+EOF
+  chmod +x "$DROVER_ACQUIA_WATCH"
+
+  python3 -c "
+import json
+print(json.dumps([{
+    'name': 'pncb-main',
+    'path': '/tmp/pncb',
+    'ddev_project': 'pncb-main',
+    'acquia': {
+        'environments': [
+            {'alias': 'pncb.dev',  'env': 'dev',  'site': 'pncb',
+             'app_uuid': 'fa5e7770-c451-433d-8dcb-482af08eae21'},
+            {'alias': 'pncb.prod', 'env': 'prod', 'site': 'pncb',
+             'app_uuid': 'fa5e7770-c451-433d-8dcb-482af08eae21'},
+        ]
+    }
+}]))
+" > "$DROVER_PROJECTS_FILE"
+
+  run run_timeout 3 "$SCRIPT"
+  # Correct form: env_name.app_uuid — what acquia-watch.py expects.
+  assert_output --partial "[acquia:dev.fa5e7770-c451-433d-8dcb-482af08eae21]"
+  assert_output --partial "[acquia:prod.fa5e7770-c451-433d-8dcb-482af08eae21]"
+  # Must NOT emit the raw drush-alias form which triggered the bug.
+  refute_output --partial "[acquia:pncb.dev]"
+  refute_output --partial "[acquia:pncb.prod]"
+}
+
 @test "DDEV gate: ddev:<name> in active set spawns watcher" {
   export DROVER_REACHABLE_DDEV="siteA"
   write_projects siteA
