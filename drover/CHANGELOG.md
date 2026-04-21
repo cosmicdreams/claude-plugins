@@ -1,5 +1,11 @@
 # drover Changelog
 
+## 1.12.2
+- **Fix: dashboard Backfill button was fully broken.** Two layered bugs:
+  - `server.js`: `handleBackfill` and `handleAddProject` double-parsed the request body (`JSON.parse(raw)` where `raw` was already the parsed object from `readBody`), always returning 400 "invalid JSON body". Removed the redundant parse.
+  - `backfill.sh`: still called `acquia-download.sh` with the legacy 2-arg signature `(alias, log_type)` instead of the current 3-arg `(app_uuid, env_name, log_type)` that landed in 1.11.0 when acli was dropped for direct API calls. The downloader silently rejected and the temp log ended up empty — toast reported "0 events". Now resolves the alias to `(app_uuid, env_name)` via `projects.json` before calling the downloader; exits 3 with a pointer to `/drover:add-project` if the alias can't be resolved.
+- **Test updates**: `test_backfill.bats` setup now provides a `DROVER_PROJECTS_FILE` fixture and updates the fake downloader to the 3-arg signature. New regression test asserts the downloader receives `(app_uuid, env_name, log_type)` and refuses to proceed on the legacy 2-arg form.
+
 ## 1.12.1
 - **TRAFFIC summary cadence is configurable (sprint-j0u)**: the hardcoded `% 100` emission rate became multiple task-notifications per minute on busy WSS-streamed production sites. New defaults: `DROVER_TRAFFIC_INTERVAL=1000` (10× fewer notifications from the same traffic volume) and `DROVER_TRAFFIC_EMIT=1` (set to `0` to suppress TRAFFIC stdout entirely while still accumulating stats into state).
 

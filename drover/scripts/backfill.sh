@@ -47,7 +47,46 @@ FINGERPRINT="${DROVER_FINGERPRINT_SCRIPT:-${SCRIPT_DIR}/fingerprint.py}"
 THRESHOLD="${DROVER_THRESHOLD:-50}"
 STATE_DIR="${DROVER_STATE_DIR:-${CLAUDE_PLUGIN_DATA:-${HOME}/.claude/plugins/data/drover-fallback}/acquia-state}"
 STATE_FILE="${STATE_DIR}/${ALIAS}.json"
+PROJECTS_FILE="${DROVER_PROJECTS_FILE:-${CLAUDE_PLUGIN_DATA:-${HOME}/.claude/plugins/data/drover-fallback}/projects.json}"
 mkdir -p "$STATE_DIR"
+
+# Resolve the user-facing alias (e.g. "pncb.prod") into the
+# (app_uuid, env_name) pair that acquia-download.sh expects. The
+# downloader switched to the 3-arg signature (app_uuid, env_name, log_type)
+# in drover 1.11.0 when acli was dropped for direct Acquia API calls —
+# backfill.sh was still passing (alias, log_type) which the downloader
+# silently rejected. End result: the dashboard Backfill button reported
+# "0 events" with no obvious error.
+RESOLVED="$(ALIAS="$ALIAS" PROJECTS_FILE="$PROJECTS_FILE" python3 <<'PY'
+import json, os, sys
+alias = os.environ["ALIAS"]
+path = os.environ["PROJECTS_FILE"]
+try:
+    data = json.load(open(path))
+except Exception:
+    sys.exit(0)
+for entry in data:
+    for env in (entry.get("acquia") or {}).get("environments", []) or []:
+        if not isinstance(env, dict):
+            continue
+        if env.get("alias") == alias:
+            app_uuid = env.get("app_uuid") or (entry.get("acquia") or {}).get("app_uuid", "")
+            env_name = env.get("env") or env.get("name") or ""
+            if app_uuid and env_name:
+                print(f"{app_uuid}\t{env_name}")
+                sys.exit(0)
+PY
+)"
+
+APP_UUID="$(printf '%s' "$RESOLVED" | cut -f1)"
+ENV_NAME="$(printf '%s' "$RESOLVED" | cut -f2)"
+
+if [ -z "$APP_UUID" ] || [ -z "$ENV_NAME" ]; then
+  echo "ERROR: could not resolve alias '$ALIAS' to (app_uuid, env_name) via $PROJECTS_FILE" >&2
+  echo "       Re-run /drover:add-project for this project to populate the env config," >&2
+  echo "       or set DROVER_PROJECTS_FILE to the correct path." >&2
+  exit 3
+fi
 
 TMP_LOG="$(mktemp -t drover-backfill-XXXXXX)"
 trap 'rm -f "$TMP_LOG"' EXIT
@@ -56,7 +95,7 @@ IFS=',' read -ra TYPE_ARR <<< "$TYPES"
 for t in "${TYPE_ARR[@]}"; do
   t="$(echo "$t" | tr -d '[:space:]')"
   [ -z "$t" ] && continue
-  "$DOWNLOADER" "$ALIAS" "$t" >> "$TMP_LOG" 2>/dev/null || \
+  "$DOWNLOADER" "$APP_UUID" "$ENV_NAME" "$t" >> "$TMP_LOG" 2>/dev/null || \
     echo "WARN: failed to download $t for $ALIAS" >&2
 done
 

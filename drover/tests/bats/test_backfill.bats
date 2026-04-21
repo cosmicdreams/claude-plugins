@@ -10,11 +10,26 @@ setup() {
   export DROVER_STATE_DIR="$TMP/state"
   export DROVER_THRESHOLD=3
 
-  # Fake downloader: emits canned log lines. Ignores args.
+  # Provide a projects.json so backfill.sh can resolve pncb.prod into
+  # (app_uuid=fa5e7770-..., env_name=prod). Without this, backfill exits 3.
+  export DROVER_PROJECTS_FILE="$TMP/projects.json"
+  python3 -c "
+import json
+print(json.dumps([{
+    'name': 'pncb-main', 'path': '/tmp/pncb', 'ddev_project': 'pncb-main',
+    'acquia': {'environments': [
+        {'alias': 'pncb.prod', 'env': 'prod', 'site': 'pncb',
+         'app_uuid': 'fa5e7770-c451-433d-8dcb-482af08eae21'},
+    ]}
+}]))
+" > "$DROVER_PROJECTS_FILE"
+
+  # Fake downloader with the current (drover 1.11.0+) 3-arg signature:
+  #   $1=app_uuid, $2=env_name, $3=log-type. Dispatches on log-type.
   export DROVER_DOWNLOAD_SCRIPT="$TMP/fake-download.sh"
   cat > "$DROVER_DOWNLOAD_SCRIPT" <<'EOF'
 #!/usr/bin/env bash
-case "$2" in
+case "$3" in
   php-error)
     for i in 1 2 3 4 5; do
       echo "[14-Apr-2026 20:0$i:00 UTC] PHP Fatal error: Uncaught TypeError in /var/www/foo.php on line 42"
@@ -79,6 +94,57 @@ for line in open(os.environ['DROVER_JSONL_OUT']):
     assert d['fingerprint']
     assert d['env'] == 'pncb.prod'
 "
+}
+
+@test "downloader is invoked with 3 args: app_uuid, env_name, log_type" {
+  # Regression for the broken backfill button. Since drover 1.11.0 the
+  # downloader signature is (app_uuid, env_name, log_type); backfill.sh
+  # was still passing (alias, log_type). A real download would fail silently
+  # (stderr swallowed by backfill's `2>/dev/null`) and the temp log ended
+  # up empty — the toast reported "0 events" and nothing was backfilled.
+  #
+  # This fake downloader asserts it sees exactly 3 non-empty args and
+  # records argv to a log file so the test can verify the exact arguments.
+  ARGS_LOG="$TMP/download-args.log"
+  cat > "$DROVER_DOWNLOAD_SCRIPT" <<EOF
+#!/usr/bin/env bash
+echo "argc=\$#  arg1=\$1  arg2=\$2  arg3=\${3:-}" >> "$ARGS_LOG"
+if [ "\$#" -ne 3 ] || [ -z "\$1" ] || [ -z "\$2" ] || [ -z "\$3" ]; then
+  echo "downloader-rejected: wrong arg count" >&2
+  exit 1
+fi
+# Emit one PHP Fatal so backfill has something to fingerprint.
+echo "[14-Apr-2026 20:01:00 UTC] PHP Fatal error: Uncaught in /foo.php on line 1"
+EOF
+  chmod +x "$DROVER_DOWNLOAD_SCRIPT"
+
+  # Backfill needs a way to resolve alias -> (app_uuid, env_name). The
+  # natural source is projects.json (written by add-project.sh). Set it
+  # up with a registered pncb project.
+  export DROVER_PROJECTS_FILE="$TMP/projects.json"
+  python3 -c "
+import json
+print(json.dumps([{
+    'name': 'pncb-main',
+    'path': '/tmp/pncb',
+    'ddev_project': 'pncb-main',
+    'acquia': {'environments': [
+        {'alias': 'pncb.prod', 'env': 'prod', 'site': 'pncb',
+         'app_uuid': 'fa5e7770-c451-433d-8dcb-482af08eae21'},
+    ]}
+}]))
+" > "$DROVER_PROJECTS_FILE"
+
+  run "$SCRIPT" pncb.prod php-error
+  # Capture the downloader's argv log for diagnosis on failure.
+  if [ -f "$ARGS_LOG" ]; then
+    echo "downloader argv log:"
+    cat "$ARGS_LOG"
+  fi
+  # The test fails here if the signature mismatch is present.
+  [[ "$output" != *"downloader-rejected"* ]]
+  # Assert the downloader saw the right three values, not (alias, log-type, '').
+  grep -q "argc=3  arg1=fa5e7770-c451-433d-8dcb-482af08eae21  arg2=prod  arg3=php-error" "$ARGS_LOG"
 }
 
 @test "second invocation is idempotent (counts continue, no double NEW)" {
