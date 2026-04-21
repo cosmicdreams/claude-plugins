@@ -168,6 +168,52 @@ test('backfillAsync surfaces spawn failure as error status', () => {
   assert.match(r.message, /spawn failed/);
 });
 
+test('listBoards returns empty array when projects.json missing', () => {
+  const orig = process.env.DROVER_PROJECTS_FILE;
+  process.env.DROVER_PROJECTS_FILE = '/tmp/drover-test-does-not-exist.json';
+  try {
+    const boards = projects.listBoards();
+    assert.deepEqual(boards, []);
+  } finally {
+    if (orig) process.env.DROVER_PROJECTS_FILE = orig;
+    else delete process.env.DROVER_PROJECTS_FILE;
+  }
+});
+
+test('listBoards enumerates {project, dbPath} for each registered project with a .beads/drover.db', () => {
+  const dir = tmpdir();
+  const a = path.join(dir, 'projA');
+  const b = path.join(dir, 'projB');
+  const c = path.join(dir, 'projC-no-db');
+  fs.mkdirSync(path.join(a, '.beads'), { recursive: true });
+  fs.writeFileSync(path.join(a, '.beads', 'drover.db'), '');
+  fs.mkdirSync(path.join(b, '.beads'), { recursive: true });
+  fs.writeFileSync(path.join(b, '.beads', 'drover.db'), '');
+  fs.mkdirSync(c, { recursive: true });
+
+  const pjson = path.join(dir, 'projects.json');
+  fs.writeFileSync(pjson, JSON.stringify([
+    { name: 'projA', path: a, ddev_project: 'projA' },
+    { name: 'projB', path: b, ddev_project: 'projB' },
+    { name: 'projC', path: c, ddev_project: 'projC' },
+  ]));
+
+  const orig = process.env.DROVER_PROJECTS_FILE;
+  process.env.DROVER_PROJECTS_FILE = pjson;
+  try {
+    const boards = projects.listBoards();
+    assert.equal(boards.length, 2);
+    const names = boards.map(b => b.project).sort();
+    assert.deepEqual(names, ['projA', 'projB']);
+    const a_board = boards.find(x => x.project === 'projA');
+    assert.equal(a_board.dbPath, path.join(a, '.beads', 'drover.db'));
+    // projC absent because it has no .beads/drover.db.
+  } finally {
+    if (orig) process.env.DROVER_PROJECTS_FILE = orig;
+    else delete process.env.DROVER_PROJECTS_FILE;
+  }
+});
+
 test('pickFolderMacOS returns null when runner throws', () => {
   const throwingRunner = () => { throw new Error('user canceled'); };
   assert.equal(projects.pickFolderMacOS({ runner: throwingRunner }), null);

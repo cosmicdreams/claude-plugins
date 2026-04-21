@@ -30,16 +30,15 @@ Live updates via Server-Sent Events — no polling, no page refresh.
 ## Step 1: Pre-flight
 
 ```bash
-# Config check
-[ -f .claude/drover-config.json ] || { echo "No drover config found. Run /drover:setup first."; exit 1; }
+# Config check — this project's drover-config.json gives the server ddev
+# and acquia context. Not required in virtual-central mode but strongly
+# recommended; a running dashboard with no config is a flat board view.
+[ -f .claude/drover-config.json ] || echo "Note: no .claude/drover-config.json in cwd — dashboard will still run in virtual-central mode across all registered projects."
 
-# DB existence check
-DB_PATH=$(git rev-parse --show-toplevel 2>/dev/null)/.beads/drover.db
-[ -f "$DB_PATH" ] || {
-  echo "No drover board found at $DB_PATH"
-  echo "Run /drover:triage first to create tickets, or /drover:setup to initialize."
-  exit 1
-}
+# projects.json determines which boards are visible in virtual-central
+# mode. If it's empty, the dashboard will show nothing until you run
+# /drover:add-project for at least one project.
+PROJECTS_FILE="${CLAUDE_PLUGIN_DATA:-$HOME/.claude/plugins/data/drover-fallback}/projects.json"
 
 # Node.js version check
 NODE_VER=$(node --version 2>/dev/null | sed 's/v//' | cut -d. -f1)
@@ -66,14 +65,22 @@ fi
 PLUGIN_ROOT=$(ls -d ~/.claude/plugins/cache/local/drover/*/ 2>/dev/null | tail -1)
 SERVER_JS="${PLUGIN_ROOT}tools/dashboard/server.js"
 
-# Resolve paths
+# Default to virtual-central mode: dashboard merges cards from every
+# registered project's .beads/drover.db and fans out file watchers so
+# updates from any project show up in real time regardless of which
+# directory the user invoked /drover:dashboard from.
+#
+# Single-project mode is available by passing DROVER_DB_OVERRIDE — point
+# at a specific .beads/drover.db to scope the board to one project.
 PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
-DB_PATH="${PROJECT_ROOT}/.beads/drover.db"
 STATE_PATH="$HOME/.claude/drover.state.jsonl"
 CONFIG_PATH="${PROJECT_ROOT}/.claude/drover-config.json"
 
-# Build args
-ARGS="--db $DB_PATH"
+if [ -n "${DROVER_DB_OVERRIDE:-}" ]; then
+  ARGS="--db $DROVER_DB_OVERRIDE"
+else
+  ARGS="--all-projects"
+fi
 [ -f "$STATE_PATH" ] && ARGS="$ARGS --state $STATE_PATH"
 [ -f "$CONFIG_PATH" ] && ARGS="$ARGS --config $CONFIG_PATH"
 

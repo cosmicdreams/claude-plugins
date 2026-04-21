@@ -20,12 +20,19 @@ const { URL } = require('url');
 // CLI Argument Parsing
 // ---------------------------------------------------------------------------
 
+// Boolean flags (no value follows). Every other --key consumes the next
+// argv token as its value.
+const BOOL_FLAGS = new Set(['all-projects']);
+
 function parseArgs(argv) {
   const args = {};
   for (let i = 2; i < argv.length; i++) {
     const arg = argv[i];
-    if (arg.startsWith('--') && i + 1 < argv.length) {
-      const key = arg.slice(2);
+    if (!arg.startsWith('--')) continue;
+    const key = arg.slice(2);
+    if (BOOL_FLAGS.has(key)) {
+      args[key] = true;
+    } else if (i + 1 < argv.length) {
       args[key] = argv[++i];
     }
   }
@@ -34,21 +41,30 @@ function parseArgs(argv) {
 
 const args = parseArgs(process.argv);
 
-if (!args.db) {
-  console.error('Usage: node server.js --db <path> --state <path> [--config <path>] [--port 3749]');
+// --all-projects (or no --db) enables virtual-central mode: walk projects.json,
+// open every registered project's .beads/drover.db, merge cards with a
+// project tag. --db is an override for single-project mode (unchanged).
+const ALL_PROJECTS = args['all-projects'] === true || !args.db;
+
+if (!ALL_PROJECTS && !args.db) {
+  console.error('Usage: node server.js [--all-projects] [--db <path>] --state <path> [--config <path>] [--port 3749]');
   process.exit(1);
 }
 
-const DB_PATH = args.db;
+const DB_PATH = args.db || '';
 const STATE_PATH = args.state || '';
 const CONFIG_PATH = args.config || '';
 const PORT = parseInt(args.port || '3749', 10);
 
-// Verify DB exists
-if (!fs.existsSync(DB_PATH)) {
-  console.error(`drover.db not found at: ${DB_PATH}`);
-  console.error('Run /drover:setup first to initialize the board.');
-  process.exit(1);
+// In single-project mode, the db must exist. In all-projects mode we
+// resolve boards lazily per request so new projects added mid-session
+// show up on the next tick.
+if (!ALL_PROJECTS) {
+  if (!fs.existsSync(DB_PATH)) {
+    console.error(`drover.db not found at: ${DB_PATH}`);
+    console.error('Run /drover:setup first to initialize the board.');
+    process.exit(1);
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -245,21 +261,68 @@ setInterval(() => {
 // Data Layer
 // ---------------------------------------------------------------------------
 
+// Resolve the set of boards to query. In single-project mode this is a
+// one-entry array wrapping DB_PATH; in all-projects mode it's every
+// registered project from projects.json (resolved on each call so
+// add-project registrations surface without restart).
+function currentBoards() {
+  if (ALL_PROJECTS) return projectsModule.listBoards();
+  // Derive a stable "project" tag from the --db path so single-project
+  // mode still shows a consistent label on every card.
+  const dir = require('path').dirname(DB_PATH);
+  const project = require('path').basename(require('path').dirname(dir));
+  return [{ project: project || 'project', path: require('path').dirname(dir), dbPath: DB_PATH }];
+}
+
 function fetchTickets() {
   const now = Date.now();
   if (ticketCache.data && (now - ticketCache.ts) < CACHE_TTL) {
     return ticketCache.data;
   }
-  try {
-    const output = execFileSync('bd', [
-      'list', '-l', 'board-drover', '--db', DB_PATH, '--json', '--flat'
-    ], { encoding: 'utf8', timeout: 5000 });
-    const data = JSON.parse(output || '[]');
-    ticketCache = { data, ts: now };
-    return data;
-  } catch (err) {
-    return { error: err.message };
+  const boards = currentBoards();
+  const merged = [];
+  const boardErrors = [];
+  for (const b of boards) {
+    try {
+      const output = execFileSync('bd', [
+        'list', '-l', 'board-drover', '--db', b.dbPath, '--json', '--flat'
+      ], { encoding: 'utf8', timeout: 5000 });
+      // bd may emit a JSON error object instead of throwing (for schema
+      // mismatches, permissions warnings, etc). Detect and route to
+      // boardErrors so one poisoned db doesn't suppress the rest.
+      let rows;
+      try {
+        rows = JSON.parse(output || '[]');
+      } catch {
+        boardErrors.push({ project: b.project, message: 'invalid JSON from bd' });
+        continue;
+      }
+      if (!Array.isArray(rows)) {
+        const msg = (rows && rows.error) ? rows.error : 'non-array response from bd';
+        boardErrors.push({ project: b.project, message: msg });
+        continue;
+      }
+      for (const t of rows) {
+        t.project = b.project;
+        merged.push(t);
+      }
+    } catch (err) {
+      boardErrors.push({ project: b.project, message: err.message });
+    }
   }
+  // If everything failed AND there was nothing to show, return an error
+  // object (the UI renders that). Otherwise return the (possibly partial)
+  // list — a broken PNCB db should not hide AHRI's cards.
+  if (!merged.length && boardErrors.length) {
+    return { error: boardErrors.map(e => `${e.project}: ${e.message}`).join('\n') };
+  }
+  if (boardErrors.length) {
+    // Log partial failures to stderr for diagnostic tail -f, but don't
+    // attach to the response (the UI treats arrays as success).
+    console.warn('fetchTickets: partial errors:', JSON.stringify(boardErrors));
+  }
+  ticketCache = { data: merged, ts: now };
+  return merged;
 }
 
 function parseField(body, pattern, fallback) {
@@ -306,6 +369,9 @@ function parseCard(ticket) {
   return {
     id: ticket.id || '[unknown]',
     title: ticket.title || '[untitled]',
+    // sprint-0r3: carry through the board's project tag so the UI can
+    // group / badge cards by source project in virtual-central mode.
+    project: ticket.project || '',
     lane: labels.find(l => l.startsWith('lane-')) || 'lane-triage',
     severityLabel,
     severityIcon: SEVERITY_ICONS[severityLabel] || '\u26AA',
@@ -443,18 +509,33 @@ let boardDebounce = null;
 let stateDebounce = null;
 
 function setupWatchers() {
-  // Watch .beads/ directory for board changes
-  const beadsDir = require('path').dirname(DB_PATH);
-  try {
-    fs.watch(beadsDir, { persistent: false }, () => {
-      if (boardDebounce) clearTimeout(boardDebounce);
-      boardDebounce = setTimeout(() => {
-        ticketCache = { data: null, ts: 0 }; // invalidate cache
-        broadcast('board-update', { ts: new Date().toISOString() });
-      }, 500);
-    });
-  } catch {
-    console.warn('Could not watch .beads/ directory');
+  // sprint-0r3: fan out file watchers. In all-projects mode we register
+  // one fs.watch per registered project's .beads/ directory so any write
+  // (triage-created ticket, user-closed card, etc) pushes an SSE update
+  // to the dashboard regardless of which project the user's "currently
+  // looking at". Critical for the "I'm viewing AHRI but PNCB just got
+  // a new error" case — without fan-out the card would only appear on
+  // next manual refresh.
+  const boards = currentBoards();
+  const watchedDirs = new Set();
+  for (const b of boards) {
+    const beadsDir = require('path').dirname(b.dbPath);
+    if (watchedDirs.has(beadsDir)) continue;
+    watchedDirs.add(beadsDir);
+    try {
+      fs.watch(beadsDir, { persistent: false }, () => {
+        if (boardDebounce) clearTimeout(boardDebounce);
+        boardDebounce = setTimeout(() => {
+          ticketCache = { data: null, ts: 0 }; // invalidate cache
+          broadcast('board-update', {
+            ts: new Date().toISOString(),
+            project: b.project,
+          });
+        }, 500);
+      });
+    } catch {
+      console.warn(`Could not watch .beads/ directory for ${b.project}`);
+    }
   }
 
   // Watch state file for cycle completions
@@ -1616,6 +1697,7 @@ function buildHtml() {
             <tr>
               <th style="width:60px">Sev</th>
               <th>Error</th>
+              <th style="width:90px">Project</th>
               <th class="sort-active" style="width:90px;text-align:right">Occ &#8595;</th>
               <th style="width:100px">Env</th>
               <th style="width:72px">Age</th>
@@ -1742,6 +1824,9 @@ function parseCardClient(ticket) {
   return {
     id: ticket.id || '',
     title: ticket.title || '[untitled]',
+    // sprint-0r3: virtual-central tag. Server attaches ticket.project
+    // when the board was loaded in --all-projects mode.
+    project: ticket.project || '',
     lane: lane,
     sev: SEV_MAP[sevRaw] || 'info',
     sevRaw: sevRaw,
@@ -2101,6 +2186,12 @@ function buildRow(c, i) {
   titleTd.appendChild(titleWrap);
   titleTd.appendChild(txt('div','err-fp','fp:'+c.fp));
   tr.appendChild(titleTd);
+
+  // Project (virtual-central mode shows where the card came from;
+  // single-project mode reuses the label for consistency).
+  var projTd = el('td');
+  if (c.project) projTd.appendChild(txt('span','env-tag', c.project));
+  tr.appendChild(projTd);
 
   // Occ
   var occTd = txt('td','num',c.occ.toLocaleString());

@@ -1,5 +1,12 @@
 # drover Changelog
 
+## 1.14.0
+- **Dashboard virtual-central view across all registered projects (sprint-0r3)**: the dashboard no longer shows only the board from the directory you `cd`'d into. It now merges cards from every project registered in `projects.json` by default and tags each card with its source project. A new "Project" column appears in the error table so you can see at a glance which project each card came from. Pass `DROVER_DB_OVERRIDE=<path>` to the skill to scope back to a single board.
+- **File watcher fan-out**: one `fs.watch` per registered project's `.beads/` directory. When triage writes to *any* project's board, the dashboard pushes an SSE `board-update` immediately — no reload, no re-launch. Viewing AHRI and a new PNCB error fires? You see the card appear in real time.
+- **New `projectsModule.listBoards()`**: enumerates `{project, path, dbPath}` for every registered project that has a usable beads board. Handles both the `.beads/drover.db` layout (sqlite file or dolt-backed directory) and the dolt-only `.beads/` layout (config.yaml + dolt/). Walks up from the registered path to find the board, which fixes worktree-style layouts where projects register at `/repo/worktrees/main` but `.beads` lives at `/repo`.
+- **CLI: `--all-projects` flag** for `server.js`. Now the default when `--db` is not supplied. Fixed the arg parser so boolean flags like `--all-projects` no longer consume the next token as their value.
+- **Partial-failure resilience**: if one project's db errors (schema mismatch, locked db, etc), the dashboard now returns cards from the healthy projects and logs the partial failure to stderr. Previously one bad db would hide all boards.
+
 ## 1.13.0
 - **Dashboard Backfill is now async**: clicking Run Backfill returns immediately with `{status: "queued", log: "/private/tmp/drover-backfill-<alias>-<iso>.log"}`. Previously the click blocked the user for the full Acquia archive-create + poll + download cycle (several minutes) with no feedback. Full backfill stdout/stderr now streams to the per-run log file; tail it for live progress. SSE progress stream is a future enhancement.
 - **New `projectsModule.backfillAsync()`**: spawns `backfill.sh` detached with `stdio: ['ignore', logFd, logFd]` so both streams interleave in one log file. Aliases are sanitized to keep the resulting path inside `logDir` (no path-traversal escapes). Legacy synchronous `backfill()` is kept for CLI use and tests.
