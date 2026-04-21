@@ -25,7 +25,7 @@ Display the CHANGELOG for any installed plugin.
 | `admin 2.1.0` | Specific admin version section |
 | *(none)* | List available plugins, ask user to choose |
 
-Valid plugin names: `admin`, `sprint`, `retro`, `ideate`, `office`, `lib`, `workflow`, `drupal-lab`, `drover`, `research-lab`, `improve`
+Valid plugin names: `admin`, `sprint`, `retro`, `ideate`, `ideas-funnel`, `lib`, `workflow`, `drupal-lab`, `drover`, `research-lab`, `improve`
 
 ## Procedure
 
