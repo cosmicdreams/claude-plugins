@@ -1,5 +1,8 @@
 # drover Changelog
 
+## 1.12.1
+- **TRAFFIC summary cadence is configurable (sprint-j0u)**: the hardcoded `% 100` emission rate became multiple task-notifications per minute on busy WSS-streamed production sites. New defaults: `DROVER_TRAFFIC_INTERVAL=1000` (10× fewer notifications from the same traffic volume) and `DROVER_TRAFFIC_EMIT=1` (set to `0` to suppress TRAFFIC stdout entirely while still accumulating stats into state).
+
 ## 1.12.0
 - **WordPress platform support**: new `wp-watch.py` tails `wp-content/debug.log` + container PHP/nginx error logs via `ddev exec`. First non-Drupal platform on drover.
 - **(substrate, platform) dispatcher**: umbrella reads `platform: drupal|wordpress` from each `projects.json` entry and routes to the correct watcher. Unknown platforms warn once and fall back to drupal. Default (no `platform` field) remains `drupal`.
