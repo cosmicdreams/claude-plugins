@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.13.0
+- **Dashboard Backfill is now async**: clicking Run Backfill returns immediately with `{status: "queued", log: "/private/tmp/drover-backfill-<alias>-<iso>.log"}`. Previously the click blocked the user for the full Acquia archive-create + poll + download cycle (several minutes) with no feedback. Full backfill stdout/stderr now streams to the per-run log file; tail it for live progress. SSE progress stream is a future enhancement.
+- **New `projectsModule.backfillAsync()`**: spawns `backfill.sh` detached with `stdio: ['ignore', logFd, logFd]` so both streams interleave in one log file. Aliases are sanitized to keep the resulting path inside `logDir` (no path-traversal escapes). Legacy synchronous `backfill()` is kept for CLI use and tests.
+- **Tests**: four new node tests covering the queued return shape, spawn argument plumbing, alias sanitization, and spawn-failure error path.
+
 ## 1.12.2
 - **Fix: dashboard Backfill button was fully broken.** Two layered bugs:
   - `server.js`: `handleBackfill` and `handleAddProject` double-parsed the request body (`JSON.parse(raw)` where `raw` was already the parsed object from `readBody`), always returning 400 "invalid JSON body". Removed the redundant parse.

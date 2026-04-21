@@ -525,7 +525,12 @@ async function handleBackfill(req, res) {
   if (!body || !body.alias) {
     return jsonResponse(res, 400, { status: 'error', message: 'alias is required' });
   }
-  const result = projectsModule.backfill(body.alias, { logTypes: body.log_types });
+  // Async: spawn detached, return immediately. The Acquia log-download
+  // flow can take minutes (archive creation + polling + download);
+  // blocking the user's click for that duration produced no progress
+  // feedback. Full stdout/stderr streams to the returned log path so the
+  // user can tail it or a future SSE endpoint can relay progress.
+  const result = projectsModule.backfillAsync(body.alias, { logTypes: body.log_types });
   const code = result.status === 'error' ? 400 : 200;
   return jsonResponse(res, code, result);
 }
@@ -2548,7 +2553,7 @@ function runBackfill() {
   var alias = document.getElementById('backfill-env').value;
   var logTypes = document.getElementById('backfill-types').value;
   var go = document.getElementById('backfill-go');
-  if (go) { go.disabled = true; go.textContent = 'Running\u2026'; }
+  if (go) { go.disabled = true; go.textContent = "Queuing\u2026"; }
   fetch('/api/projects/backfill', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -2556,7 +2561,10 @@ function runBackfill() {
   })
     .then(function(r) { return r.json(); })
     .then(function(body) {
-      if (body.status === 'done') {
+      if (body.status === 'queued') {
+        showToast('Backfill queued for ' + alias + '. Tail ' + body.log + ' for progress.');
+      } else if (body.status === 'done') {
+        // Legacy sync path — still handled for tests / CLI fallback.
         showToast('Backfilled ' + alias + ': ' + body.events + ' events, ' +
                   body.new_fingerprints + ' new, ' + body.threshold_hits + ' thresholds');
       } else {
