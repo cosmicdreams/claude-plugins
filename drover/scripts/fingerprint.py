@@ -150,6 +150,43 @@ def _module_relative(path: str) -> str:
     return re.sub(r":\d+$", "", rel)
 
 
+# Noise patterns for sprint-etd. When the umbrella spawns a watcher with
+# DROVER_NOISE_FILTER=1 (derived from `noise_filter: true` in projects.json
+# combined with `trust_level: low`), the watcher calls is_noise() on each
+# raw line before fingerprinting. Matches are silently dropped — they never
+# reach the NEW/THRESH emission path and therefore never become task
+# notifications in the Claude Code harness.
+#
+# Patterns mirror the Drupal ones documented in triage-procedure.md Step 3,
+# plus WordPress analogs for the Kellogg demo target. Keep this list tight —
+# it's a hard silencer, not a ranking signal.
+_NOISE_PATTERNS: list[re.Pattern] = [
+    # Missing public-file 404s (Drupal + WordPress)
+    re.compile(r"(GuzzleHttp|file_get_contents).*(sites/default/files|wp-content/uploads)", re.I),
+    # Dev-environment cache-backend connection failures. Only the classic
+    # trio of cache backends — random "Connection refused" elsewhere is a
+    # real error that should pass through.
+    re.compile(r"(memcache|redis|solr).*(connection refused|econnrefused|connect failed)", re.I),
+    # Drupal core notices (not custom module code).
+    re.compile(r"\bnotice[:\s].*core/lib/Drupal/", re.I),
+]
+
+
+def is_noise(line: str) -> bool:
+    """Return True if the line matches a known noise pattern that low-trust
+    DDEV environments should silence. See _NOISE_PATTERNS for the ruleset.
+
+    Callers decide WHEN to apply this (watchers only consult it when the
+    umbrella sets DROVER_NOISE_FILTER=1). Fingerprint.py itself has no
+    knowledge of trust_level or per-project config — that gating lives at
+    the umbrella/watcher boundary.
+    """
+    for pat in _NOISE_PATTERNS:
+        if pat.search(line):
+            return True
+    return False
+
+
 def process(line: str) -> dict | None:
     line = line.rstrip("\n")
     if not line:
