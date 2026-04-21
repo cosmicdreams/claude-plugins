@@ -1,66 +1,100 @@
 #!/usr/bin/env bats
 
-# Tests for scripts/monitors/acquia-watch.py — stubs `acli` via DROVER_ACLI.
+# Tests for scripts/monitors/acquia-watch.py
+#
+# The current implementation streams via acquia_logstream.connect(); we
+# shadow that module with a fake on PYTHONPATH so the real WSS client is
+# never touched. Events come from a JSON fixture pointed to by
+# DROVER_EVENTS_FIXTURE.
 
 setup() {
   DROVER_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
-  SCRIPT="$DROVER_ROOT/scripts/monitors/acquia-watch.py"
+  SCRIPT_PATH="$DROVER_ROOT/scripts/monitors/acquia-watch.py"
   TMP="$(mktemp -d)"
   export DROVER_STATE_DIR="$TMP/state"
   export DROVER_THRESHOLD=3
+  export DROVER_FINGERPRINT_SCRIPT="$DROVER_ROOT/scripts/fingerprint.py"
 
-  # Fake acli that emits the preamble then some log lines.
-  export DROVER_ACLI="$TMP/fake-acli"
-  cat > "$DROVER_ACLI" <<'EOF'
+  FAKE_LOGSTREAM="$TMP/fake_logstream.py"
+  cat > "$FAKE_LOGSTREAM" <<'PY'
+import asyncio, json, os, pathlib
+async def connect(app_uuid, env_name, types=None):
+    fixture = pathlib.Path(os.environ["DROVER_EVENTS_FIXTURE"])
+    for ev in json.loads(fixture.read_text()):
+        yield ev
+        await asyncio.sleep(0)
+PY
+
+  # Wrapper preseeds sys.modules['acquia_logstream'] before the real
+  # script imports it — the script's own sys.path.insert(0, parent_dir)
+  # can't override a module already present in sys.modules.
+  SCRIPT="$TMP/run-acquia-watch.sh"
+  cat > "$SCRIPT" <<EOF
 #!/usr/bin/env bash
-echo "Box Requirements Checker"
-echo ""
-echo "Streaming has started and new logs will appear below. Use Ctrl+C to exit."
-# Access log — should be skipped.
-echo '127.0.0.1 - - [14/Apr/2026:20:22:40 +0000] "GET / HTTP/1.1" 200 861'
-# PHP Fatal — one fingerprint.
-echo 'PHP Fatal error:  Uncaught TypeError in /var/www/html/pncb.prod/docroot/modules/foo/src/Bar.php on line 42'
-# Three identical notices.
-for i in 1 2 3; do
-  echo "Sun, 2026/04/14 - 21:0$i | php | Notice: Undefined index in /var/www/html/foo.module (line 99)."
-done
+exec python3 -c "
+import sys, importlib.util, runpy
+spec = importlib.util.spec_from_file_location('acquia_logstream', '$FAKE_LOGSTREAM')
+m = importlib.util.module_from_spec(spec); spec.loader.exec_module(m)
+sys.modules['acquia_logstream'] = m
+sys.argv = ['$SCRIPT_PATH'] + sys.argv[1:]
+runpy.run_path('$SCRIPT_PATH', run_name='__main__')
+" "\$@"
 EOF
-  chmod +x "$DROVER_ACLI"
+  chmod +x "$SCRIPT"
 }
 
 teardown() {
   rm -rf "$TMP"
 }
 
-@test "skips preamble until 'Streaming has started'" {
-  DROVER_MAX_EVENTS=1 run "$SCRIPT" envX
-  [[ "$output" != *"Box Requirements"* ]]
+write_events() {
+  echo "$1" > "$TMP/events.json"
+  export DROVER_EVENTS_FIXTURE="$TMP/events.json"
 }
 
 @test "emits NEW for a PHP fatal" {
-  DROVER_MAX_EVENTS=1 run "$SCRIPT" envX
+  write_events '[
+    {"log_type":"php-error","text":"PHP Fatal error:  Uncaught TypeError in /var/www/html/pncb.prod/docroot/modules/foo/src/Bar.php on line 42"}
+  ]'
+  run "$SCRIPT" prod.abc-123
   [[ "$output" == *"NEW "* ]]
-  [[ "$output" == *"error"* ]]
 }
 
 @test "distinct fingerprints for fatal and watchdog notice" {
-  DROVER_MAX_EVENTS=4 run "$SCRIPT" envY
+  write_events '[
+    {"log_type":"php-error","text":"PHP Fatal error:  Uncaught TypeError in /var/www/html/foo.php on line 1"},
+    {"log_type":"drupal-watchdog","text":"Sun, 2026/04/14 - 21:01 | php | Notice: Undefined index in /var/www/html/foo.module (line 99)."},
+    {"log_type":"drupal-watchdog","text":"Sun, 2026/04/14 - 21:02 | php | Notice: Undefined index in /var/www/html/foo.module (line 99)."}
+  ]'
+  run "$SCRIPT" prod.abc-123
   new_count=$(echo "$output" | grep -c "^NEW " || true)
   [ "$new_count" -eq 2 ]
 }
 
 @test "emits THRESH at threshold" {
-  DROVER_MAX_EVENTS=5 run "$SCRIPT" envZ
+  write_events '[
+    {"log_type":"drupal-watchdog","text":"Sun, 2026/04/14 - 21:01 | php | Notice: X in /a.module (line 1)."},
+    {"log_type":"drupal-watchdog","text":"Sun, 2026/04/14 - 21:02 | php | Notice: X in /a.module (line 1)."},
+    {"log_type":"drupal-watchdog","text":"Sun, 2026/04/14 - 21:03 | php | Notice: X in /a.module (line 1)."}
+  ]'
+  run "$SCRIPT" prod.abc-123
   [[ "$output" == *"THRESH "* ]]
   [[ "$output" == *"count=3"* ]]
 }
 
-@test "state file created per environment id" {
-  DROVER_MAX_EVENTS=2 "$SCRIPT" env-abc > /dev/null
-  [ -f "$DROVER_STATE_DIR/env-abc.json" ]
+@test "state file created per alias" {
+  write_events '[{"log_type":"php-error","text":"PHP Fatal error: boom in /x.php on line 1"}]'
+  "$SCRIPT" prod.abc-123 > /dev/null
+  [ -f "$DROVER_STATE_DIR/prod.abc-123.json" ]
 }
 
-@test "missing env id exits 2" {
+@test "rejects legacy single-id alias format" {
+  run "$SCRIPT" env-abc
+  [ "$status" -eq 2 ]
+  [[ "$output" == *"expected alias format"* ]]
+}
+
+@test "missing alias exits 2" {
   run "$SCRIPT"
   [ "$status" -eq 2 ]
 }
