@@ -20,6 +20,10 @@ setup() {
   # test replaces this with a bats-mock `ddev` stub so the code reads real
   # ddev-shaped JSON instead of the env-var backdoor.
   export DROVER_REACHABLE_DDEV=$'siteA\nsiteB\nsiteC'
+  # Default: accept any Acquia app (prevents the real acquia_api probe from
+  # running, which would hit live Acquia and exceed the run_timeout budget).
+  # Tests that exercise the Acquia gate override this explicitly.
+  export DROVER_REACHABLE_ACQUIA_APPS=$'fa5e7770-c451-433d-8dcb-482af08eae21\n30395-xxx\n30396-xxx\n30397-xxx\nabc-123'
 
   # Fake ddev-watch that echoes a "tick NAME" every 0.2s for 1.2s then exits.
   export DROVER_DDEV_WATCH="$TMP/fake-ddev-watch.sh"
@@ -116,6 +120,71 @@ print(json.dumps(data))
   run run_timeout 3 "$SCRIPT"
   assert_success
   refute_output --partial "starting"
+}
+
+@test "Acquia gate: app with reachable creds spawns its env watchers" {
+  # Override marks app_uuid A as reachable; watcher should spawn.
+  export DROVER_REACHABLE_ACQUIA_APPS="fa5e7770-c451-433d-8dcb-482af08eae21"
+  export DROVER_ACQUIA_WATCH="$TMP/fake-acquia-watch.sh"
+  cat > "$DROVER_ACQUIA_WATCH" <<'EOF'
+#!/usr/bin/env bash
+echo "aqtick $1"; sleep 0.2
+EOF
+  chmod +x "$DROVER_ACQUIA_WATCH"
+
+  python3 -c "
+import json
+print(json.dumps([{'name': 'siteA', 'path': '/tmp/siteA', 'ddev_project': 'siteA',
+    'acquia': {'environments': [
+        {'alias': 'pncb.dev', 'env': 'dev',
+         'app_uuid': 'fa5e7770-c451-433d-8dcb-482af08eae21'}]}}]))
+" > "$DROVER_PROJECTS_FILE"
+  run run_timeout 3 "$SCRIPT"
+  assert_output --partial "[acquia:dev.fa5e7770-c451-433d-8dcb-482af08eae21]"
+}
+
+@test "Acquia gate: unreachable app is silently skipped (no spawn)" {
+  # Empty reachable set with the env var explicitly present: gate is
+  # active but no apps match — all acquia:* keys silently excluded.
+  export DROVER_REACHABLE_ACQUIA_APPS=" "
+  export DROVER_ACQUIA_WATCH="$TMP/fake-acquia-watch.sh"
+  cat > "$DROVER_ACQUIA_WATCH" <<'EOF'
+#!/usr/bin/env bash
+echo "aqtick $1"; sleep 0.2
+EOF
+  chmod +x "$DROVER_ACQUIA_WATCH"
+
+  python3 -c "
+import json
+print(json.dumps([{'name': 'siteA', 'path': '/tmp/siteA', 'ddev_project': 'siteA',
+    'acquia': {'environments': [
+        {'alias': 'pncb.dev', 'env': 'dev',
+         'app_uuid': 'fa5e7770-c451-433d-8dcb-482af08eae21'}]}}]))
+" > "$DROVER_PROJECTS_FILE"
+  run run_timeout 3 "$SCRIPT"
+  refute_output --partial "aqtick"
+  run cat "$DROVER_UMBRELLA_LOG"
+  assert_output --partial "skip acquia:dev.fa5e7770-c451-433d-8dcb-482af08eae21"
+}
+
+@test "Acquia gate: skip is logged once per session, not per tick" {
+  export DROVER_REACHABLE_ACQUIA_APPS=" "
+  export DROVER_ACQUIA_WATCH="$TMP/fake-acquia-watch.sh"
+  cat > "$DROVER_ACQUIA_WATCH" <<'EOF'
+#!/usr/bin/env bash
+echo "aqtick $1"; sleep 0.2
+EOF
+  chmod +x "$DROVER_ACQUIA_WATCH"
+  python3 -c "
+import json
+print(json.dumps([{'name': 'siteA', 'path': '/tmp/siteA', 'ddev_project': 'siteA',
+    'acquia': {'environments': [
+        {'alias': 'pncb.dev', 'env': 'dev',
+         'app_uuid': 'fa5e7770-c451-433d-8dcb-482af08eae21'}]}}]))
+" > "$DROVER_PROJECTS_FILE"
+  run run_timeout 3 "$SCRIPT"
+  count=$(grep -c "skip acquia:" "$DROVER_UMBRELLA_LOG" 2>/dev/null || true)
+  assert_equal "$count" "1"
 }
 
 @test "acquia alias contract: real-shape projects.json emits acquia:env.app_uuid" {
