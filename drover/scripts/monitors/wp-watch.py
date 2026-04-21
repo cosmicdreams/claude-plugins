@@ -63,6 +63,9 @@ def main() -> int:
     debug_log = os.environ.get(
         "DROVER_WP_DEBUG_LOG", "/var/www/html/wp-content/debug.log"
     )
+    # sprint-etd — low-trust DDEV + noise_filter: true silences dev-env
+    # noise (missing wp-content/uploads 404s, cache backends refused).
+    noise_filter = os.environ.get("DROVER_NOISE_FILTER") == "1"
 
     state_dir_env = os.environ.get("DROVER_STATE_DIR")
     if state_dir_env:
@@ -134,6 +137,8 @@ def main() -> int:
             item = q.get()
             if item is sentinel:
                 done_count += 1
+                continue
+            if noise_filter and fingerprint.is_noise(item):
                 continue
             ev = fingerprint.process(item)
             if ev is None:

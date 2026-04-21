@@ -182,5 +182,75 @@ class TestFingerprintStructured(unittest.TestCase):
         self.assertEqual(len(h), 12)
 
 
+class TestIsNoise(unittest.TestCase):
+    """Coverage for sprint-etd — the is_noise() helper used by watchers
+    when `DROVER_NOISE_FILTER=1` is set on a low-trust DDEV environment.
+    Patterns mirror those documented in triage-procedure.md Step 3."""
+
+    # --- real errors that must always pass through (never treated as noise) ---
+
+    def test_php_fatal_is_not_noise(self):
+        self.assertFalse(fp.is_noise("PHP Fatal error: Uncaught TypeError in /module.php on line 42"))
+
+    def test_php_warning_in_custom_module_is_not_noise(self):
+        self.assertFalse(fp.is_noise(
+            "PHP Warning: Undefined variable in /var/www/web/modules/custom/foo/foo.module on line 10"
+        ))
+
+    def test_watchdog_error_is_not_noise(self):
+        self.assertFalse(fp.is_noise(
+            "Mon 2026/04/14 | php | Exception: cannot load entity in EntityManager.php"
+        ))
+
+    # --- documented noise patterns ---
+
+    def test_guzzle_missing_file_is_noise(self):
+        self.assertTrue(fp.is_noise(
+            "GuzzleHttp\\Exception\\ConnectException 404 for /sites/default/files/photo.jpg"
+        ))
+
+    def test_file_get_contents_missing_file_is_noise(self):
+        self.assertTrue(fp.is_noise(
+            "PHP Warning: file_get_contents(/sites/default/files/missing.pdf): Failed to open stream"
+        ))
+
+    def test_memcache_refused_is_noise(self):
+        self.assertTrue(fp.is_noise(
+            "MemcachedException: Connection refused to memcache host"
+        ))
+
+    def test_redis_refused_is_noise(self):
+        self.assertTrue(fp.is_noise(
+            "RedisException: connect failed to redis on localhost:6379"
+        ))
+
+    def test_solr_refused_is_noise(self):
+        self.assertTrue(fp.is_noise(
+            "Solr HTTP 503 — ECONNREFUSED to solr on localhost:8983"
+        ))
+
+    def test_drupal_core_notice_is_noise(self):
+        self.assertTrue(fp.is_noise(
+            "Notice: Undefined index in core/lib/Drupal/Core/Entity/EntityForm.php on line 120"
+        ))
+
+    def test_wp_uploads_404_is_noise(self):
+        self.assertTrue(fp.is_noise(
+            "PHP Warning: file_get_contents(/wp-content/uploads/2025/05/missing.jpg): Failed to open stream"
+        ))
+
+    # --- boundary cases ---
+
+    def test_refused_in_non_cache_context_is_not_noise(self):
+        # "Connection refused" NOT against known-noise backends is a real error.
+        self.assertFalse(fp.is_noise("cURL error 7: Connection refused to api.payments.example.com"))
+
+    def test_contrib_module_in_sites_default_files_still_noise(self):
+        # /sites/default/files/ 404s are noise regardless of which contrib module triggered.
+        self.assertTrue(fp.is_noise(
+            "GuzzleHttp error: 404 sites/default/files/imagecache/thumb/x.jpg"
+        ))
+
+
 if __name__ == "__main__":
     unittest.main()

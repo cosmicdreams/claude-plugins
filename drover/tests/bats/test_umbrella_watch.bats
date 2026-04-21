@@ -384,6 +384,34 @@ EOF
   assert_output --partial "expected alias format"
 }
 
+@test "noise_filter: DROVER_NOISE_FILTER=1 injected when map enables it" {
+  export DROVER_DDEV_WATCH="$TMP/echo-noise"
+  cat > "$DROVER_DDEV_WATCH" <<'EOF'
+#!/usr/bin/env bash
+echo "noise_filter=${DROVER_NOISE_FILTER:-unset}"
+sleep 0.3
+EOF
+  chmod +x "$DROVER_DDEV_WATCH"
+  export DROVER_NOISE_FILTER_DDEV="siteA"
+  write_projects siteA
+  run run_timeout 3 "$SCRIPT"
+  assert_output --partial "[ddev:siteA] noise_filter=1"
+}
+
+@test "noise_filter: unset when project is not in the map" {
+  export DROVER_DDEV_WATCH="$TMP/echo-noise"
+  cat > "$DROVER_DDEV_WATCH" <<'EOF'
+#!/usr/bin/env bash
+echo "noise_filter=${DROVER_NOISE_FILTER:-unset}"
+sleep 0.3
+EOF
+  chmod +x "$DROVER_DDEV_WATCH"
+  export DROVER_NOISE_FILTER_DDEV="siteB"
+  write_projects siteA
+  run run_timeout 3 "$SCRIPT"
+  assert_output --partial "[ddev:siteA] noise_filter=unset"
+}
+
 @test "dispatcher: drupal platform routes to ddev-watch" {
   # Default: projects without an explicit platform field are treated as drupal.
   write_projects siteA

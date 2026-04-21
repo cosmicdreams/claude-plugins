@@ -195,23 +195,52 @@ acquia_reachable() {
 # wp-watch.py for wordpress). Unknown platforms fall back to drupal
 # with a log warning.
 PLATFORM_MAP_FILE="$TRACK_DIR/platform-map"
+NOISE_FILTER_MAP_FILE="$TRACK_DIR/noise-filter-map"
 if [ -f "$PROJECTS_FILE" ]; then
-  python3 - "$PROJECTS_FILE" "$PLATFORM_MAP_FILE" <<'PY' 2>/dev/null || : > "$PLATFORM_MAP_FILE"
+  python3 - "$PROJECTS_FILE" "$PLATFORM_MAP_FILE" "$NOISE_FILTER_MAP_FILE" <<'PY' 2>/dev/null || { : > "$PLATFORM_MAP_FILE"; : > "$NOISE_FILTER_MAP_FILE"; }
 import json, sys
+platforms = []
+noise = []
 try:
     data = json.load(open(sys.argv[1]))
-    lines = []
     for e in data:
         name = e.get("ddev_project") or e.get("name")
         if not name:
             continue
         platform = (e.get("platform") or "drupal").lower()
-        lines.append(f"{name}\t{platform}")
-    open(sys.argv[2], "w").write("\n".join(lines) + "\n")
+        platforms.append(f"{name}\t{platform}")
+        # Noise filter applies to the project's local DDEV env when
+        # trust_level=low AND noise_filter=true. Signal comes from the
+        # per-project drover-config.json written by /drover:setup.
+        cfg_path = f"{e.get('path', '')}/.claude/drover-config.json"
+        try:
+            cfg = json.load(open(cfg_path))
+            for env in cfg.get("environments", []):
+                if env.get("type") == "ddev" and \
+                   env.get("trust_level", "low") == "low" and \
+                   env.get("noise_filter", False):
+                    noise.append(name)
+                    break
+        except Exception:
+            pass
+    open(sys.argv[2], "w").write("\n".join(platforms) + "\n")
+    open(sys.argv[3], "w").write("\n".join(noise) + "\n")
 except Exception:
     open(sys.argv[2], "w").write("")
+    open(sys.argv[3], "w").write("")
 PY
 fi
+
+noise_filter_for_ddev() {
+  local name="$1"
+  # Override path for tests: DROVER_NOISE_FILTER_DDEV=name1,name2
+  if [ -n "${DROVER_NOISE_FILTER_DDEV:-}" ]; then
+    printf '%s\n' "${DROVER_NOISE_FILTER_DDEV//,/$'\n'}" | grep -qx "$name"
+    return $?
+  fi
+  [ -s "$NOISE_FILTER_MAP_FILE" ] || return 1
+  grep -qx "$name" "$NOISE_FILTER_MAP_FILE"
+}
 
 platform_for_ddev() {
   local name="$1"
@@ -312,8 +341,14 @@ start_child() {
   local kind="${key%%:*}"
   local id="${key#*:}"
   local cmd
+  local noise_env=""
   case "$kind" in
-    ddev)     cmd="$(watcher_for_ddev "$id")" ;;
+    ddev)
+      cmd="$(watcher_for_ddev "$id")"
+      if noise_filter_for_ddev "$id"; then
+        noise_env="DROVER_NOISE_FILTER=1"
+      fi
+      ;;
     acquia)   cmd="$ACQUIA_WATCH" ;;
     bd-ready) cmd="$BD_READY_WATCH" ;;
     *)
@@ -334,6 +369,9 @@ start_child() {
   # from watcher state files, not from harness stream.
   (
     set -o pipefail
+    if [ -n "$noise_env" ]; then
+      export DROVER_NOISE_FILTER=1
+    fi
     "$cmd" "$id" \
       2> >(while IFS= read -r err; do
              printf '[%s] [%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$key" "$err" >> "$LOG_FILE"

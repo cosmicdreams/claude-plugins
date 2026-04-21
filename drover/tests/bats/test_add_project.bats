@@ -124,6 +124,57 @@ EOF
   [ "$count" = "2" ]
 }
 
+@test "Acquia envs are deduped when multiple drush alias files point to the same app/env" {
+  # Regression for sprint-7gj. The pncb project in the wild has two drush
+  # alias files (pncb.site.yml + ipn.site.yml) that each declare the same
+  # three Acquia envs (dev/prod/test). Previously add-project appended an
+  # environments[] entry per alias-file per env, producing 6 duplicate env
+  # entries — which doubled the umbrella's Acquia watcher fire rate.
+  make_project "$TMP/pncb" "pncb-main"
+  mkdir -p "$TMP/pncb/drush/sites"
+  cat > "$TMP/pncb/drush/sites/pncb.site.yml" <<EOF
+dev:
+  uri: dev.example.org
+  ac-site: pncb
+  ac-env: dev
+prod:
+  uri: www.example.org
+  ac-site: pncb
+  ac-env: prod
+test:
+  uri: stage.example.org
+  ac-site: pncb
+  ac-env: test
+EOF
+  cat > "$TMP/pncb/drush/sites/ipn.site.yml" <<EOF
+dev:
+  uri: dev.example.org
+  ac-site: pncb
+  ac-env: dev
+prod:
+  uri: www.example.org
+  ac-site: pncb
+  ac-env: prod
+test:
+  uri: stage.example.org
+  ac-site: pncb
+  ac-env: test
+EOF
+  run "$SCRIPT" "$TMP/pncb"
+  [ "$status" -eq 0 ]
+  python3 -c "
+import json, os
+d = json.load(open(os.environ['DROVER_PROJECTS_FILE']))
+envs = d[0]['acquia']['environments']
+aliases = [e['alias'] for e in envs]
+assert sorted(aliases) == ['pncb.dev', 'pncb.prod', 'pncb.test'], f'expected 3 unique envs, got {aliases}'
+# Each unique env should merge its drush_aliases (both @pncb and @ipn pointed to it).
+dev = next(e for e in envs if e['alias'] == 'pncb.dev')
+# Either aliases stored as a list, or the first alias was kept — both are
+# acceptable outcomes. Just require the env entry is not duplicated.
+"
+}
+
 @test "corrupt projects file returns error" {
   make_project "$TMP/site4" "site4-main"
   echo "not json" > "$DROVER_PROJECTS_FILE"

@@ -66,6 +66,11 @@ import json, re, sys
 
 aliases = []
 acquia_envs = []
+# Dedup envs by (ac-site, ac-env) across drush alias files — many projects
+# have multiple alias files pointing at the same Acquia app/env, and
+# without dedup the umbrella spawns N copies of the same watcher and the
+# triage agent sees N-fold inflated occurrence counts.
+seen_env_keys: set[tuple[str, str]] = set()
 for path in (l.strip() for l in sys.stdin if l.strip()):
     site = path.rsplit("/", 1)[-1].replace(".site.yml", "")
     aliases.append(site)
@@ -81,6 +86,20 @@ for path in (l.strip() for l in sys.stdin if l.strip()):
         if current and "ac-site" in block and "ac-env" in block:
             ac_site = block["ac-site"]
             ac_env = block["ac-env"]
+            key = (ac_site, ac_env)
+            if key in seen_env_keys:
+                # Second/nth alias file pointing at the same Acquia env.
+                # Record the additional drush_alias on the existing entry
+                # so we do not lose information, but skip the duplicate.
+                for existing in acquia_envs:
+                    if existing["alias"] == ac_site + "." + ac_env:
+                        existing.setdefault("drush_aliases_all", [existing["drush_alias"]])
+                        extra = "@" + site + "." + current
+                        if extra not in existing["drush_aliases_all"]:
+                            existing["drush_aliases_all"].append(extra)
+                        break
+                return
+            seen_env_keys.add(key)
             acquia_envs.append({
                 "alias": ac_site + "." + ac_env,
                 "env": ac_env,

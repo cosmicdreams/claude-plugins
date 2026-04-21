@@ -57,6 +57,12 @@ def main() -> int:
 
     threshold = int(os.environ.get("DROVER_THRESHOLD", "50"))
     max_events = int(os.environ.get("DROVER_MAX_EVENTS", "0"))
+    # sprint-etd — the umbrella sets DROVER_NOISE_FILTER=1 for low-trust
+    # DDEV envs whose projects.json entry carries noise_filter: true.
+    # When set, lines matching known dev-env noise (missing public files,
+    # cache backend refused, Drupal core notices) are dropped before the
+    # fingerprint pipeline.
+    noise_filter = os.environ.get("DROVER_NOISE_FILTER") == "1"
     state_dir_env = os.environ.get("DROVER_STATE_DIR")
     if state_dir_env:
         state_dir = pathlib.Path(state_dir_env)
@@ -126,6 +132,8 @@ def main() -> int:
             item = q.get()
             if item is sentinel:
                 done_count += 1
+                continue
+            if noise_filter and fingerprint.is_noise(item):
                 continue
             ev = fingerprint.process(item)
             if ev is None:
