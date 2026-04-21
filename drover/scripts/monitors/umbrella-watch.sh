@@ -14,6 +14,7 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 DDEV_WATCH="${DROVER_DDEV_WATCH:-${SCRIPT_DIR}/ddev-watch.py}"
+WP_WATCH="${DROVER_WP_WATCH:-${SCRIPT_DIR}/wp-watch.py}"
 ACQUIA_WATCH="${DROVER_ACQUIA_WATCH:-${SCRIPT_DIR}/acquia-watch.py}"
 BD_READY_WATCH="${DROVER_BD_READY_WATCH:-${SCRIPT_DIR}/bd-ready-watch.py}"
 PROJECTS_FILE="${DROVER_PROJECTS_FILE:-${CLAUDE_PLUGIN_DATA:-${HOME}/.claude/plugins/data/drover-fallback}/projects.json}"
@@ -45,6 +46,102 @@ fi
 TRACK_DIR="$(mktemp -d -t drover-umbrella.XXXXXX)"
 BACKOFF_DIR="$TRACK_DIR/backoff"
 mkdir -p "$BACKOFF_DIR"
+
+# Registration-time DDEV reachability gate.
+# Run `ddev list -A --json-output` ONCE at startup (not per-tick) to discover
+# which DDEV projects are actually active. ddev:<name> watchers for stopped
+# projects are silently excluded for the session — no spawn/fail/retry loop,
+# no stderr flood. If the user runs `ddev start <name>` mid-session, the
+# watcher won't auto-attach; they either restart the session or run a future
+# /drover:refresh. Accepted tradeoff: eliminates the main spam source.
+#
+# Overridable via DROVER_REACHABLE_DDEV (newline-separated list) — tests
+# use this to assert behavior without invoking real ddev.
+REACHABLE_DDEV_FILE="$TRACK_DIR/reachable-ddev"
+if [ -n "${DROVER_REACHABLE_DDEV:-}" ]; then
+  printf '%s\n' "$DROVER_REACHABLE_DDEV" > "$REACHABLE_DDEV_FILE"
+elif command -v ddev >/dev/null 2>&1; then
+  # ddev list output can be noisy on stderr; we only care about the JSON.
+  # Use python3 -c (not a heredoc) so the pipe stays wired to python's stdin —
+  # a `<<'PY'` heredoc would redirect stdin to the script body and silently
+  # swallow the ddev output.
+  ddev list -A --json-output 2>/dev/null \
+    | python3 -c 'import json, sys
+try:
+    data = json.load(sys.stdin)
+    names = [p.get("name", "") for p in data.get("raw", []) if p.get("name")]
+    open(sys.argv[1], "w").write("\n".join(names) + "\n")
+except Exception:
+    open(sys.argv[1], "w").write("")
+' "$REACHABLE_DDEV_FILE" 2>/dev/null || : > "$REACHABLE_DDEV_FILE"
+  count="$(grep -c . "$REACHABLE_DDEV_FILE" 2>/dev/null || echo 0)"
+  log "reachability gate: $count active DDEV project(s)"
+else
+  # ddev not installed — be permissive, let child watcher report the error
+  # (once, thanks to the quiet-monitor stderr routing).
+  : > "$REACHABLE_DDEV_FILE"
+  log "reachability gate: ddev not found on PATH; skipping filter"
+fi
+
+ddev_reachable() {
+  local name="$1"
+  # Empty file means "no filter applied" (ddev missing or override empty).
+  [ -s "$REACHABLE_DDEV_FILE" ] || return 0
+  grep -qx "$name" "$REACHABLE_DDEV_FILE"
+}
+
+# Platform dispatch. projects.json entries may carry a `platform` field
+# ("drupal" | "wordpress" | …). At session start we build a sidecar
+# {ddev_project_name} -> {platform} map so start_child() can route a
+# ddev:* key to the correct watcher (ddev-watch.py for drupal,
+# wp-watch.py for wordpress). Unknown platforms fall back to drupal
+# with a log warning.
+PLATFORM_MAP_FILE="$TRACK_DIR/platform-map"
+if [ -f "$PROJECTS_FILE" ]; then
+  python3 - "$PROJECTS_FILE" "$PLATFORM_MAP_FILE" <<'PY' 2>/dev/null || : > "$PLATFORM_MAP_FILE"
+import json, sys
+try:
+    data = json.load(open(sys.argv[1]))
+    lines = []
+    for e in data:
+        name = e.get("ddev_project") or e.get("name")
+        if not name:
+            continue
+        platform = (e.get("platform") or "drupal").lower()
+        lines.append(f"{name}\t{platform}")
+    open(sys.argv[2], "w").write("\n".join(lines) + "\n")
+except Exception:
+    open(sys.argv[2], "w").write("")
+PY
+fi
+
+platform_for_ddev() {
+  local name="$1"
+  # Default drupal when no entry found — matches legacy behavior before
+  # the platform field existed.
+  awk -F'\t' -v n="$name" '$1==n {print $2; exit}' "$PLATFORM_MAP_FILE" 2>/dev/null || :
+}
+
+# Resolve a ddev:<name> key to the watcher command that should handle it.
+# Unknown platforms warn once and fall back to ddev-watch (drupal).
+watcher_for_ddev() {
+  local name="$1"
+  local platform
+  platform="$(platform_for_ddev "$name")"
+  case "$platform" in
+    ""|drupal) echo "$DDEV_WATCH" ;;
+    wordpress) echo "$WP_WATCH" ;;
+    *)
+      # Warn once per unknown platform by using a marker file.
+      local marker="$TRACK_DIR/unknown-platform.$(printf %s "$platform:$name" | shasum | awk '{print $1}' | cut -c1-12)"
+      if [ ! -f "$marker" ]; then
+        log "unknown platform '$platform' for ddev:$name; falling back to drupal"
+        : > "$marker"
+      fi
+      echo "$DDEV_WATCH"
+      ;;
+  esac
+}
 BACKOFF_MAX="${DROVER_UMBRELLA_BACKOFF_MAX:-300}"
 BACKOFF_MIN="${DROVER_UMBRELLA_BACKOFF_MIN:-5}"
 # Envs that exit with permanent-failure status (IP allowlist, revoked creds)
@@ -107,7 +204,7 @@ start_child() {
   local id="${key#*:}"
   local cmd
   case "$kind" in
-    ddev)     cmd="$DDEV_WATCH" ;;
+    ddev)     cmd="$(watcher_for_ddev "$id")" ;;
     acquia)   cmd="$ACQUIA_WATCH" ;;
     bd-ready) cmd="$BD_READY_WATCH" ;;
     *)
@@ -119,11 +216,22 @@ start_child() {
   pidfile="$(pidfile_for "$key")"
   local exitfile="${pidfile}.exit"
   rm -f "$exitfile"
+  # Child stdout carries user-facing signal (NEW / THRESH / TRAFFIC events);
+  # it's piped so each line is prefixed with the watcher key, then reaches
+  # the harness as a task-notification. Child stderr is watcher lifecycle
+  # (TRANSIENT retries, PERMANENT auth failures, init errors) — routed to
+  # the umbrella log with a matching prefix so it doesn't spam the terminal
+  # but is still scannable for debugging. Dashboard reads per-env status
+  # from watcher state files, not from harness stream.
   (
     set -o pipefail
-    "$cmd" "$id" 2>&1 | while IFS= read -r line; do
-      printf '[%s] %s\n' "$key" "$line"
-    done
+    "$cmd" "$id" \
+      2> >(while IFS= read -r err; do
+             printf '[%s] [%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$key" "$err" >> "$LOG_FILE"
+           done) \
+      | while IFS= read -r line; do
+          printf '[%s] %s\n' "$key" "$line"
+        done
     echo "${PIPESTATUS[0]}" > "$exitfile"
   ) &
   local pid=$!
@@ -175,6 +283,23 @@ while :; do
 
   while IFS= read -r key; do
     [ -z "$key" ] && continue
+    # Reachability gate (computed once at startup): silently skip ddev:*
+    # keys for projects that are not currently active. Other watcher kinds
+    # (acquia, bd-ready) are gated by their own preflight mechanisms.
+    case "$key" in
+      ddev:*)
+        name="${key#ddev:}"
+        if ! ddev_reachable "$name"; then
+          # Log once per iteration is noisy; log once per session is enough.
+          marker="$TRACK_DIR/skipped.$(printf %s "$key" | shasum | awk '{print $1}' | cut -c1-12)"
+          if [ ! -f "$marker" ]; then
+            log "skip $key (not in active DDEV set; ddev project stopped or unknown)"
+            : > "$marker"
+          fi
+          continue
+        fi
+        ;;
+    esac
     pidfile="$(pidfile_for "$key")"
     if ! child_alive "$pidfile"; then
       # If the pidfile exists (child died this iteration), check lifespan.
