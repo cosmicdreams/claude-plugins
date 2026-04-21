@@ -1,5 +1,20 @@
 # drover Changelog
 
+## 1.12.0
+- **WordPress platform support**: new `wp-watch.py` tails `wp-content/debug.log` + container PHP/nginx error logs via `ddev exec`. First non-Drupal platform on drover.
+- **(substrate, platform) dispatcher**: umbrella reads `platform: drupal|wordpress` from each `projects.json` entry and routes to the correct watcher. Unknown platforms warn once and fall back to drupal. Default (no `platform` field) remains `drupal`.
+- **Solution capture schema (Projected/Actual)**: drover tickets now carry a structured `## Solution` section with separate Projected (implementer hypothesis) and Actual (verified ground truth) blocks. `effectiveness: pending|verified|ineffective` tracks the verification arc. See ADR `2026-04-21-drover-solution-capture-schema`.
+- **New skills**:
+  - `/drover:solution <ticket-id>` — interactively capture the Actual block (works whether or not the implementer agent ran).
+  - `/drover:recall "<query>"` — ranked search over verified Actual blocks across every registered project board.
+  - `/drover:verify <ticket-id>` — one-click promotion of Projected to Actual when the implementer hypothesis was correct.
+- **Quiet-by-default monitors**: child watcher stderr routed to the umbrella log file (`~/.claude/drover.umbrella.log`) instead of the harness. Only user-actionable signal (NEW / THRESH / TRAFFIC) reaches the Claude Code task-notification channel. Dashboard reads per-env status from watcher state files.
+- **Registration-time reachability gates**: at session start, the umbrella probes `ddev list -A` (once) and each Acquia app's credentials (once per app), skipping watchers whose targets aren't reachable. Eliminates the spawn/fail/retry flood for stopped DDEV projects and invalid Acquia creds. Override via `DROVER_REACHABLE_DDEV` / `DROVER_REACHABLE_ACQUIA_APPS`.
+- **Acquia alias contract fix**: `list_projects` now reads the `env` slug field correctly and locates `app_uuid` per-env (matching current add-project.sh output), producing the canonical `acquia:<env>.<app_uuid>` form that acquia-watch.py expects. Resolves the HTTP 400 `invalid_id` spam that flooded every session on projects registered before this release.
+- **`invalid_id` classified as permanent**: added to `permanent_slugs` in acquia-watch.py so the umbrella's quarantine kicks in instead of respawning the watcher.
+- **Vendored bats-support / bats-assert / bats-mock**: under `drover/tests/bats/_libs/`. The test suite is now self-contained (none of these are in homebrew-core) with `assert_output` / `refute_output` / `assert_success` diagnostics. Writing the bats-mock coverage caught a production heredoc bug in the DDEV gate parser that would otherwise have silently failed in real usage.
+- **Tests**: 66/69 drover bats pass (3 pre-existing failures in `test_resolve_acquia_uuids.bats` unrelated).
+
 ## 1.11.1
 - **Structured Acquia API error handling**: new `AcquiaAPIError` carries HTTP status + parsed `error` slug (e.g. `forbidden_ip`, `invalid_grant`). `acquia-watch.py` distinguishes permanent failures (exit 3) from transient ones (exit 1).
 - **Auto-retry on transient failures**: 429 and 5xx responses are retried with exponential backoff (3 attempts, 1s/2s/4s) before raising.
