@@ -90,6 +90,104 @@ ddev_reachable() {
   grep -qx "$name" "$REACHABLE_DDEV_FILE"
 }
 
+# Registration-time Acquia reachability gate.
+# Collect unique app_uuids from projects.json and check which ones have
+# usable creds. Done ONCE at startup (not per-tick). If the probe fails
+# permanently (revoked creds, IP not allowlisted, invalid_id) the app's
+# acquia:* keys are silently excluded for the session — no spawn/fail/
+# retry loop, no stderr flood.
+#
+# Override: DROVER_REACHABLE_ACQUIA_APPS=uuid1,uuid2 or newline-separated.
+# A single space/empty-ish override means "gate is active, no apps match"
+# — used by tests to exercise the deny path.
+REACHABLE_ACQUIA_FILE="$TRACK_DIR/reachable-acquia"
+if [ -n "${DROVER_REACHABLE_ACQUIA_APPS+set}" ]; then
+  # Env var is set (including empty/space) — honor as-is, no probe.
+  printf '%s' "$DROVER_REACHABLE_ACQUIA_APPS" | tr ', ' '\n' | sed '/^$/d' > "$REACHABLE_ACQUIA_FILE"
+  log "acquia gate: explicit override — $(grep -c . "$REACHABLE_ACQUIA_FILE" 2>/dev/null || echo 0) app(s) reachable"
+elif [ -f "$PROJECTS_FILE" ]; then
+  # Derive unique app_uuids from projects.json and probe each via the
+  # acquia_api python module. Apps with successful probes write their
+  # uuid to the reachable file; permanent failures are skipped.
+  python3 - "$PROJECTS_FILE" "$REACHABLE_ACQUIA_FILE" "$SCRIPT_DIR" <<'PY' 2>>"$LOG_FILE" || : > "$REACHABLE_ACQUIA_FILE"
+import json, os, sys
+
+projects_file, reachable_file, script_dir = sys.argv[1:4]
+
+# Collect unique app_uuids.
+app_uuids: set[str] = set()
+try:
+    for e in json.load(open(projects_file)):
+        ac = e.get("acquia") or {}
+        parent = ac.get("app_uuid", "")
+        for env in ac.get("environments") or []:
+            if isinstance(env, dict):
+                uid = env.get("app_uuid") or parent
+                if uid:
+                    app_uuids.add(uid)
+except Exception:
+    pass
+
+if not app_uuids:
+    open(reachable_file, "w").write("")
+    sys.exit(0)
+
+# Try to import acquia_api. If unavailable (dev environment missing deps)
+# be permissive — let each watcher probe independently.
+sys.path.insert(0, script_dir)
+try:
+    import acquia_api as aa
+except Exception as e:
+    print(f"acquia gate: acquia_api unavailable ({e}); skipping gate", file=sys.stderr)
+    open(reachable_file, "w").write("")
+    sys.exit(0)
+
+try:
+    client = aa.AcquiaClient()
+except Exception as e:
+    # Creds file missing / malformed — all apps unreachable.
+    print(f"acquia gate: no credentials ({e}); all Acquia envs excluded", file=sys.stderr)
+    open(reachable_file, "w").write("")
+    sys.exit(0)
+
+reachable = []
+for uid in sorted(app_uuids):
+    try:
+        # list_environments is the cheapest probe that exercises both auth
+        # and the specific app_uuid (would-be invalid_id surfaces here).
+        client.list_environments(uid)
+        reachable.append(uid)
+    except Exception as e:
+        slug = getattr(e, "error_slug", "")
+        status = getattr(e, "status", "?")
+        print(f"acquia gate: app {uid} unreachable status={status} slug={slug}", file=sys.stderr)
+
+open(reachable_file, "w").write("\n".join(reachable) + ("\n" if reachable else ""))
+PY
+  count="$(grep -c . "$REACHABLE_ACQUIA_FILE" 2>/dev/null || echo 0)"
+  log "acquia gate: $count app(s) reachable"
+else
+  : > "$REACHABLE_ACQUIA_FILE"
+fi
+
+acquia_reachable() {
+  # Input: "env.app_uuid" (the id portion of an acquia:<id> key).
+  local id="$1"
+  # If the override was never set AND no file exists, gate is inactive
+  # (permissive fallback).
+  [ -f "$REACHABLE_ACQUIA_FILE" ] || return 0
+  # If the override WAS set but resolved to empty, all apps are unreachable.
+  if [ ! -s "$REACHABLE_ACQUIA_FILE" ] && [ -n "${DROVER_REACHABLE_ACQUIA_APPS+set}" ]; then
+    return 1
+  fi
+  # No file content but also no explicit override = permissive (acquia_api
+  # probe was skipped because no uuids or deps missing).
+  [ -s "$REACHABLE_ACQUIA_FILE" ] || return 0
+  # Extract app_uuid portion (everything after the first dot).
+  local app_uuid="${id#*.}"
+  grep -qx "$app_uuid" "$REACHABLE_ACQUIA_FILE"
+}
+
 # Platform dispatch. projects.json entries may carry a `platform` field
 # ("drupal" | "wordpress" | …). At session start we build a sidecar
 # {ddev_project_name} -> {platform} map so start_child() can route a
@@ -176,17 +274,28 @@ try:
         name = e.get("name") or e.get("ddev_project")
         if name:
             print(f"ddev:{name}")
-        app_uuid = (e.get("acquia") or {}).get("app_uuid", "")
+        # app_uuid may live on the per-env record (add-project.sh since
+        # resolve-acquia-uuids) or as a parent-level fallback (legacy).
+        parent_app_uuid = (e.get("acquia") or {}).get("app_uuid", "")
         for env in (e.get("acquia") or {}).get("environments", []) or []:
             if isinstance(env, dict):
-                env_name = env.get("name") or env.get("env_slug", "")
+                # Env slug may be in 'env' (current add-project.sh), 'name',
+                # or 'env_slug' (legacy). Try all.
+                env_name = env.get("env") or env.get("name") or env.get("env_slug", "")
+                app_uuid = env.get("app_uuid") or parent_app_uuid
                 eid = env.get("alias") or env.get("id", "")
             else:
                 env_name = env
+                app_uuid = parent_app_uuid
                 eid = env
             if app_uuid and env_name:
+                # Canonical form: acquia:<env>.<app_uuid>. This is what
+                # acquia-watch.py's arg parser expects.
                 print(f"acquia:{env_name}.{app_uuid}")
             elif eid:
+                # Legacy fallback — raw id / alias. Only used when app_uuid
+                # is missing from projects.json (requires re-running
+                # add-project / resolve-acquia-uuids).
                 print(f"acquia:{eid}")
         # bd-ready watcher polls the project's local Beads board for
         # newly-ready tickets. One watcher per project path.
@@ -294,6 +403,17 @@ while :; do
           marker="$TRACK_DIR/skipped.$(printf %s "$key" | shasum | awk '{print $1}' | cut -c1-12)"
           if [ ! -f "$marker" ]; then
             log "skip $key (not in active DDEV set; ddev project stopped or unknown)"
+            : > "$marker"
+          fi
+          continue
+        fi
+        ;;
+      acquia:*)
+        id="${key#acquia:}"
+        if ! acquia_reachable "$id"; then
+          marker="$TRACK_DIR/skipped.$(printf %s "$key" | shasum | awk '{print $1}' | cut -c1-12)"
+          if [ ! -f "$marker" ]; then
+            log "skip $key (app creds unreachable; re-run /drover:setup to fix)"
             : > "$marker"
           fi
           continue

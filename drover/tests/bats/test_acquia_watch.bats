@@ -94,6 +94,61 @@ write_events() {
   [[ "$output" == *"expected alias format"* ]]
 }
 
+@test "invalid_id slug classified as permanent (exit 3)" {
+  # sprint-cxl safety net. HTTP 400 invalid_id means the UUID we passed to
+  # the Acquia API does not exist — no amount of retry will fix it (user
+  # needs to re-run /drover:setup or add-project with correct creds).
+  # The umbrella quarantines permanent failures (exit 3) for an hour
+  # instead of respawning them every 30 seconds.
+  #
+  # Override the fake logstream to raise an invalid_id-shaped exception.
+  cat > "$FAKE_LOGSTREAM" <<'PY'
+class AcquiaAPIError(Exception):
+    def __init__(self, msg, status, slug):
+        super().__init__(msg)
+        self.status = status
+        self.error_slug = slug
+async def connect(app_uuid, env_name, types=None):
+    raise AcquiaAPIError("invalid application id", 400, "invalid_id")
+    yield  # pragma: no cover
+PY
+  run "$SCRIPT" prod.abc-123
+  [ "$status" -eq 3 ]
+  [[ "$output" == *"PERMANENT"* ]]
+  [[ "$output" == *"invalid_id"* ]]
+}
+
+@test "forbidden_ip slug classified as permanent (regression)" {
+  cat > "$FAKE_LOGSTREAM" <<'PY'
+class AcquiaAPIError(Exception):
+    def __init__(self, msg, status, slug):
+        super().__init__(msg)
+        self.status = status
+        self.error_slug = slug
+async def connect(app_uuid, env_name, types=None):
+    raise AcquiaAPIError("ip not allowlisted", 403, "forbidden_ip")
+    yield  # pragma: no cover
+PY
+  run "$SCRIPT" prod.abc-123
+  [ "$status" -eq 3 ]
+}
+
+@test "transient network error stays exit 1 (not permanent)" {
+  cat > "$FAKE_LOGSTREAM" <<'PY'
+class AcquiaAPIError(Exception):
+    def __init__(self, msg, status, slug):
+        super().__init__(msg)
+        self.status = status
+        self.error_slug = slug
+async def connect(app_uuid, env_name, types=None):
+    raise AcquiaAPIError("gateway timeout", 504, "timeout")
+    yield  # pragma: no cover
+PY
+  run "$SCRIPT" prod.abc-123
+  [ "$status" -eq 1 ]
+  [[ "$output" == *"TRANSIENT"* ]]
+}
+
 @test "missing alias exits 2" {
   run "$SCRIPT"
   [ "$status" -eq 2 ]
