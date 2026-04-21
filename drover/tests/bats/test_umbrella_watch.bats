@@ -3,7 +3,9 @@
 load helpers
 
 # Tests for scripts/monitors/umbrella-watch.sh.
-# Stubs ddev-watch.sh via DROVER_DDEV_WATCH to avoid needing real DDEV.
+# Child watcher scripts are stubbed via DROVER_{DDEV,ACQUIA,BD_READY}_WATCH
+# to avoid needing real DDEV / Acquia credentials. The `ddev` binary itself
+# (used by the reachability gate) is stubbed via bats-mock where needed.
 
 setup() {
   DROVER_ROOT="$(cd "$BATS_TEST_DIRNAME/../.." && pwd)"
@@ -13,8 +15,10 @@ setup() {
   export DROVER_UMBRELLA_POLL=1
   export DROVER_UMBRELLA_MAX_ITERATIONS=2
   export DROVER_UMBRELLA_LOG="$TMP/umbrella.log"
-  # Default: no DDEV reachability filter in tests. Individual tests that
-  # exercise the gate override DROVER_REACHABLE_DDEV explicitly.
+  # Default: a broad DDEV reachability set so generic tests don't get gated.
+  # Tests exercising the gate override this explicitly, and the parser-path
+  # test replaces this with a bats-mock `ddev` stub so the code reads real
+  # ddev-shaped JSON instead of the env-var backdoor.
   export DROVER_REACHABLE_DDEV=$'siteA\nsiteB\nsiteC'
 
   # Fake ddev-watch that echoes a "tick NAME" every 0.2s for 1.2s then exits.
@@ -59,35 +63,33 @@ log_contents() {
 @test "empty projects file spawns no children and exits quietly" {
   echo "[]" > "$DROVER_PROJECTS_FILE"
   run run_timeout 3 "$SCRIPT"
-  [[ "$output" != *"starting"* ]]
-  [[ "$output" != *"tick"* ]]
+  refute_output --partial "starting"
+  refute_output --partial "tick"
   # Lifecycle never emitted on stdout even with projects present.
-  logs="$(log_contents)"
-  [[ "$logs" != *"starting"* ]]
+  refute [ -s "$DROVER_UMBRELLA_LOG" ] || { run cat "$DROVER_UMBRELLA_LOG"; refute_output --partial "starting"; }
 }
 
 @test "one project spawns one child and emits prefixed output" {
   write_projects siteA
   run run_timeout 3 "$SCRIPT"
   # Lifecycle goes to log, not stdout.
-  [[ "$output" != *"starting"* ]]
-  [[ "$output" == *"[ddev:siteA] tick siteA"* ]]
-  logs="$(log_contents)"
-  [[ "$logs" == *"starting ddev:siteA"* ]]
+  refute_output --partial "starting"
+  assert_output --partial "[ddev:siteA] tick siteA"
+  run cat "$DROVER_UMBRELLA_LOG"
+  assert_output --partial "starting ddev:siteA"
 }
 
 @test "two projects spawn two children" {
   write_projects siteA siteB
   run run_timeout 3 "$SCRIPT"
-  [[ "$output" == *"[ddev:siteA] tick siteA"* ]]
-  [[ "$output" == *"[ddev:siteB] tick siteB"* ]]
-  logs="$(log_contents)"
-  [[ "$logs" == *"starting ddev:siteA"* ]]
-  [[ "$logs" == *"starting ddev:siteB"* ]]
+  assert_output --partial "[ddev:siteA] tick siteA"
+  assert_output --partial "[ddev:siteB] tick siteB"
+  run cat "$DROVER_UMBRELLA_LOG"
+  assert_output --partial "starting ddev:siteA"
+  assert_output --partial "starting ddev:siteB"
 }
 
 @test "project with acquia envs spawns one child per env" {
-  # Use a fake acquia watcher so the umbrella can route without real acli.
   export DROVER_ACQUIA_WATCH="$TMP/fake-acquia-watch.sh"
   cat > "$DROVER_ACQUIA_WATCH" <<'EOF'
 #!/usr/bin/env bash
@@ -103,25 +105,24 @@ print(json.dumps(data))
 " > "$DROVER_PROJECTS_FILE"
 
   run run_timeout 3 "$SCRIPT"
-  [[ "$output" == *"[acquia:30395-xxx] aqtick 30395-xxx"* ]]
-  logs="$(log_contents)"
-  [[ "$logs" == *"starting ddev:siteC"* ]]
-  [[ "$logs" == *"starting acquia:30395-xxx"* ]]
-  [[ "$logs" == *"starting acquia:30396-xxx"* ]]
+  assert_output --partial "[acquia:30395-xxx] aqtick 30395-xxx"
+  run cat "$DROVER_UMBRELLA_LOG"
+  assert_output --partial "starting ddev:siteC"
+  assert_output --partial "starting acquia:30395-xxx"
+  assert_output --partial "starting acquia:30396-xxx"
 }
 
 @test "missing projects file is tolerated" {
-  # No file at all.
   run run_timeout 3 "$SCRIPT"
-  [ "$status" -eq 0 ]
-  [[ "$output" != *"starting"* ]]
+  assert_success
+  refute_output --partial "starting"
 }
 
 @test "DDEV gate: ddev:<name> in active set spawns watcher" {
   export DROVER_REACHABLE_DDEV="siteA"
   write_projects siteA
   run run_timeout 3 "$SCRIPT"
-  [[ "$output" == *"[ddev:siteA] tick siteA"* ]]
+  assert_output --partial "[ddev:siteA] tick siteA"
 }
 
 @test "DDEV gate: ddev:<name> not in active set is silently skipped" {
@@ -130,14 +131,13 @@ print(json.dumps(data))
   write_projects siteA
   run run_timeout 3 "$SCRIPT"
   # No watcher spawned → no tick on stdout, no terminal noise.
-  [[ "$output" != *"tick"* ]]
+  refute_output --partial "tick"
   # Log records the skip once, for debuggability.
-  logs="$(log_contents)"
-  [[ "$logs" == *"skip ddev:siteA"* ]]
+  run cat "$DROVER_UMBRELLA_LOG"
+  assert_output --partial "skip ddev:siteA"
 }
 
 @test "DDEV gate: only ddev kind is gated; acquia passes through" {
-  # Fake acquia-watch so we can observe the spawn without needing credentials.
   export DROVER_ACQUIA_WATCH="$TMP/fake-acquia-watch.sh"
   cat > "$DROVER_ACQUIA_WATCH" <<'EOF'
 #!/usr/bin/env bash
@@ -156,28 +156,42 @@ print(json.dumps(data))
 " > "$DROVER_PROJECTS_FILE"
 
   run run_timeout 3 "$SCRIPT"
-  # ddev:siteA gated out.
-  [[ "$output" != *"tick siteA"* ]]
-  # acquia watcher spawns regardless of ddev gate.
-  [[ "$output" == *"[acquia:30395-xxx] aqtick 30395-xxx"* ]]
+  refute_output --partial "tick siteA"
+  assert_output --partial "[acquia:30395-xxx] aqtick 30395-xxx"
 }
 
 @test "DDEV gate: skip is logged once per session, not per tick" {
-  # Two iterations of the main loop (DROVER_UMBRELLA_MAX_ITERATIONS=2 in
-  # setup) should only produce one skip log line per key — otherwise the
-  # log itself becomes a per-tick spam channel.
+  # Two iterations (DROVER_UMBRELLA_MAX_ITERATIONS=2) should produce exactly
+  # one skip log line per key — otherwise the log itself becomes a spam channel.
   export DROVER_REACHABLE_DDEV="otherSite"
   write_projects siteA
   run run_timeout 3 "$SCRIPT"
-  logs="$(log_contents)"
-  count=$(printf '%s\n' "$logs" | grep -c "skip ddev:siteA" || true)
-  [ "$count" -eq 1 ]
+  count=$(grep -c "skip ddev:siteA" "$DROVER_UMBRELLA_LOG" 2>/dev/null || true)
+  assert_equal "$count" "1"
+}
+
+@test "DDEV gate: uses real ddev CLI output when no override is set" {
+  # Replace the env-var backdoor with a bats-mock `ddev` stub so the parser
+  # path (ddev list -A --json-output | python3 ...) actually runs. Proves
+  # the JSON parser correctly extracts project names from real ddev output.
+  unset DROVER_REACHABLE_DDEV
+  stub ddev \
+    "list -A --json-output : echo '{\"raw\":[{\"name\":\"siteA\",\"status\":\"running\"}]}'"
+
+  write_projects siteA siteB
+  # Umbrella runs under perl-based run_timeout; PATH modifications from
+  # bats-mock must cross into exec'd subprocesses. Assert they did by
+  # checking the log for a "1 active DDEV project" line before asserting
+  # child-watcher behavior.
+  run run_timeout 3 "$SCRIPT"
+  run cat "$DROVER_UMBRELLA_LOG"
+  assert_output --partial "reachability gate: 1 active DDEV project"
+  assert_output --partial "skip ddev:siteB"
+
+  unstub ddev
 }
 
 @test "child stderr routes to log, not harness stdout" {
-  # Watcher that emits to both stdout and stderr. stderr must not reach
-  # harness (task-notification channel); it must land in the umbrella log
-  # with the watcher key prefixed.
   cat > "$DROVER_DDEV_WATCH" <<'EOF'
 #!/usr/bin/env bash
 echo "signal-line $1"
@@ -189,18 +203,14 @@ EOF
   write_projects siteA
   run run_timeout 3 "$SCRIPT"
 
-  # Signal reaches stdout with key prefix.
-  [[ "$output" == *"[ddev:siteA] signal-line siteA"* ]]
-  # Noise MUST NOT reach stdout.
-  [[ "$output" != *"noisy-retry"* ]]
-  # Noise lands in log with a key prefix so it's scannable for debugging.
-  logs="$(log_contents)"
-  [[ "$logs" == *"[ddev:siteA] noisy-retry siteA"* ]]
+  assert_output --partial "[ddev:siteA] signal-line siteA"
+  refute_output --partial "noisy-retry"
+  run cat "$DROVER_UMBRELLA_LOG"
+  assert_output --partial "[ddev:siteA] noisy-retry siteA"
 }
 
 @test "TRANSIENT acquia-watch lines stay off harness stdout" {
-  # Simulate acquia-watch.py emitting the TRANSIENT pattern seen in real
-  # spam (status=400 HTTP 400 invalid_id). Must not reach harness.
+  # Real TRANSIENT pattern from acquia-watch.py (status=400 invalid_id).
   export DROVER_ACQUIA_WATCH="$TMP/fake-acquia-transient.sh"
   cat > "$DROVER_ACQUIA_WATCH" <<'EOF'
 #!/usr/bin/env bash
@@ -216,15 +226,14 @@ print(json.dumps([{'name': 'siteA', 'path': '/tmp/siteA', 'ddev_project': 'siteA
 " > "$DROVER_PROJECTS_FILE"
 
   run run_timeout 3 "$SCRIPT"
-  [[ "$output" != *"TRANSIENT"* ]]
-  [[ "$output" != *"invalid_id"* ]]
-  logs="$(log_contents)"
-  [[ "$logs" == *"TRANSIENT"* ]]
-  [[ "$logs" == *"[acquia:30395-xxx]"* ]]
+  refute_output --partial "TRANSIENT"
+  refute_output --partial "invalid_id"
+  run cat "$DROVER_UMBRELLA_LOG"
+  assert_output --partial "TRANSIENT"
+  assert_output --partial "[acquia:30395-xxx]"
 }
 
 @test "PERMANENT acquia-watch lines stay off harness stdout" {
-  # PERMANENT pattern (quarantine-triggering). Must not reach harness.
   export DROVER_ACQUIA_WATCH="$TMP/fake-acquia-permanent.sh"
   cat > "$DROVER_ACQUIA_WATCH" <<'EOF'
 #!/usr/bin/env bash
@@ -240,11 +249,11 @@ print(json.dumps([{'name': 'siteA', 'path': '/tmp/siteA', 'ddev_project': 'siteA
 " > "$DROVER_PROJECTS_FILE"
 
   run run_timeout 3 "$SCRIPT"
-  [[ "$output" != *"PERMANENT"* ]]
-  [[ "$output" != *"forbidden_ip"* ]]
-  logs="$(log_contents)"
-  [[ "$logs" == *"PERMANENT"* ]]
-  [[ "$logs" == *"forbidden_ip"* ]]
+  refute_output --partial "PERMANENT"
+  refute_output --partial "forbidden_ip"
+  run cat "$DROVER_UMBRELLA_LOG"
+  assert_output --partial "PERMANENT"
+  assert_output --partial "forbidden_ip"
 }
 
 @test "init-error on child stderr stays off harness stdout" {
@@ -259,9 +268,9 @@ EOF
 
   write_projects siteA
   run run_timeout 3 "$SCRIPT"
-  [[ "$output" != *"expected alias format"* ]]
-  logs="$(log_contents)"
-  [[ "$logs" == *"expected alias format"* ]]
+  refute_output --partial "expected alias format"
+  run cat "$DROVER_UMBRELLA_LOG"
+  assert_output --partial "expected alias format"
 }
 
 @test "signal still reaches harness when stderr is also active" {
@@ -279,12 +288,10 @@ EOF
 
   write_projects siteA
   run run_timeout 3 "$SCRIPT"
-  # All three NEW events should arrive on stdout.
-  [[ "$output" == *"NEW fp1 error source siteA msg1"* ]]
-  [[ "$output" == *"NEW fp2 error source siteA msg2"* ]]
-  [[ "$output" == *"NEW fp3 error source siteA msg3"* ]]
-  # And all three TRANSIENT blips in the log.
-  logs="$(log_contents)"
-  [[ "$logs" == *"TRANSIENT blip 1"* ]]
-  [[ "$logs" == *"TRANSIENT blip 3"* ]]
+  assert_output --partial "NEW fp1 error source siteA msg1"
+  assert_output --partial "NEW fp2 error source siteA msg2"
+  assert_output --partial "NEW fp3 error source siteA msg3"
+  run cat "$DROVER_UMBRELLA_LOG"
+  assert_output --partial "TRANSIENT blip 1"
+  assert_output --partial "TRANSIENT blip 3"
 }

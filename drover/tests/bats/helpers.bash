@@ -1,4 +1,15 @@
 # Shared helpers for drover bats tests.
+#
+# Libraries are vendored under _libs/ so the test suite is self-contained
+# (bats-support/assert/mock are not in homebrew-core). Licenses are MIT.
+
+_HELPER_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=_libs/bats-support/load.bash
+. "$_HELPER_DIR/_libs/bats-support/load.bash"
+# shellcheck source=_libs/bats-assert/load.bash
+. "$_HELPER_DIR/_libs/bats-assert/load.bash"
+# shellcheck source=_libs/bats-mock/stub.bash
+. "$_HELPER_DIR/_libs/bats-mock/stub.bash"
 
 # run_timeout <seconds> <command...>
 # Portable replacement for GNU `timeout` on macOS. Runs the command,

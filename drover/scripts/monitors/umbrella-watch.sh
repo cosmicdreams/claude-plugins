@@ -61,16 +61,20 @@ if [ -n "${DROVER_REACHABLE_DDEV:-}" ]; then
   printf '%s\n' "$DROVER_REACHABLE_DDEV" > "$REACHABLE_DDEV_FILE"
 elif command -v ddev >/dev/null 2>&1; then
   # ddev list output can be noisy on stderr; we only care about the JSON.
-  ddev list -A --json-output 2>/dev/null | python3 - "$REACHABLE_DDEV_FILE" <<'PY' || : > "$REACHABLE_DDEV_FILE"
-import json, sys
+  # Use python3 -c (not a heredoc) so the pipe stays wired to python's stdin —
+  # a `<<'PY'` heredoc would redirect stdin to the script body and silently
+  # swallow the ddev output.
+  ddev list -A --json-output 2>/dev/null \
+    | python3 -c 'import json, sys
 try:
     data = json.load(sys.stdin)
     names = [p.get("name", "") for p in data.get("raw", []) if p.get("name")]
     open(sys.argv[1], "w").write("\n".join(names) + "\n")
 except Exception:
     open(sys.argv[1], "w").write("")
-PY
-  log "reachability gate: $(wc -l < "$REACHABLE_DDEV_FILE" | tr -d ' ') active DDEV project(s)"
+' "$REACHABLE_DDEV_FILE" 2>/dev/null || : > "$REACHABLE_DDEV_FILE"
+  count="$(grep -c . "$REACHABLE_DDEV_FILE" 2>/dev/null || echo 0)"
+  log "reachability gate: $count active DDEV project(s)"
 else
   # ddev not installed — be permissive, let child watcher report the error
   # (once, thanks to the quiet-monitor stderr routing).
