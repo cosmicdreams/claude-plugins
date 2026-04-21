@@ -52,4 +52,29 @@ print(dt.strftime('%Y-%m-%d'))  # last_run_date for Jira --updated-after
 "
 ```
 
-Proceed to `steps/02-fetch-jira.md` and `steps/03-fetch-slack.md` (spawn in parallel).
+## Integration preflight (circuit-breaker)
+
+Before spawning fetch subagents, run the preflight for each configured integration.
+The script caches results for 5 minutes — repeat calls within TTL are instant.
+
+```bash
+SCRIPT="${CLAUDE_PLUGIN_ROOT}/scripts/check-integration.sh"
+
+jira_ok=true
+slack_ok=true
+
+# Only check if servers are configured
+if [[ $(jq '.integrations.jira.servers | length' ~/.claude/workflow.json 2>/dev/null) -gt 0 ]]; then
+  "$SCRIPT" jira 2>&1 || { echo "Skipping Jira: $(cat)"; jira_ok=false; }
+fi
+
+if [[ $(jq '.integrations.slack.workspaces | length' ~/.claude/workflow.json 2>/dev/null) -gt 0 ]]; then
+  "$SCRIPT" slack 2>&1 || { echo "Skipping Slack: $(cat)"; slack_ok=false; }
+fi
+```
+
+- If `jira_ok=false` — skip `steps/02-fetch-jira.md` entirely; note "Jira unavailable" in output.
+- If `slack_ok=false` — skip `steps/03-fetch-slack.md` entirely; note "Slack unavailable" in output.
+- If **both** unavailable — output "All integrations unavailable — pulse cannot run." and stop.
+
+Proceed to `steps/02-fetch-jira.md` and `steps/03-fetch-slack.md` (spawn in parallel, skipping any marked unavailable).
