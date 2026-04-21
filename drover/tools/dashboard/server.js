@@ -331,6 +331,42 @@ function parseField(body, pattern, fallback) {
   return m ? m[1].trim() : fallback;
 }
 
+// sprint-0r3/sprint-wgy dashboard integration — parse the Projected/Actual
+// Solution blocks written by drover:implementer and /drover:solution.
+// Returns { projected, actual } where each is either null or an object with
+// the block's structured fields. Source is the concatenation of ticket body
+// and notes because implementer historically appended via --append-notes
+// but older cards may have it in body.
+function parseSolutionBlocks(ticket) {
+  const text = ((ticket.body || '') + '\n' + (ticket.notes || ''));
+  return {
+    projected: extractSolutionBlock(text, 'Projected'),
+    actual: extractSolutionBlock(text, 'Actual'),
+  };
+}
+
+function extractSolutionBlock(text, kind) {
+  // Match "### Projected" or "### Actual" headers followed by field lines.
+  // Block ends at the next "### " header or end of text.
+  const headerRe = new RegExp('###\\s+' + kind + '\\b([\\s\\S]*?)(?=\\n###\\s+|$)', 'i');
+  const m = text.match(headerRe);
+  if (!m) return null;
+  const section = m[1];
+  const fields = {};
+  // Parse bullet lines like `- **key:** value`. Use matchAll (not .exec)
+  // to walk all occurrences; the hook treats regex.exec as a shell-exec
+  // false positive.
+  for (const fm of section.matchAll(/-\s+\*\*([a-z_]+):\*\*\s*(.+)/gi)) {
+    fields[fm[1].toLowerCase()] = fm[2].trim();
+  }
+  const whenMatch = section.match(/\(written:\s*([^,)]+)(?:,\s*by:\s*([^)]+))?\)/);
+  if (whenMatch) {
+    fields.written_at = whenMatch[1].trim();
+    if (whenMatch[2]) fields.written_by = whenMatch[2].trim();
+  }
+  return Object.keys(fields).length ? fields : null;
+}
+
 function formatAge(dateStr) {
   if (!dateStr) return '?';
   const diff = Date.now() - new Date(dateStr).getTime();
@@ -366,12 +402,18 @@ function parseCard(ticket) {
     return { ts: '', msg: line };
   }).filter(entry => entry.msg);
 
+  const solution = parseSolutionBlocks(ticket);
+
   return {
     id: ticket.id || '[unknown]',
     title: ticket.title || '[untitled]',
     // sprint-0r3: carry through the board's project tag so the UI can
     // group / badge cards by source project in virtual-central mode.
     project: ticket.project || '',
+    // sprint-wgy dashboard integration — structured Projected/Actual
+    // solution blocks rendered in the card modal.
+    projected: solution.projected,
+    actual: solution.actual,
     lane: labels.find(l => l.startsWith('lane-')) || 'lane-triage',
     severityLabel,
     severityIcon: SEVERITY_ICONS[severityLabel] || '\u26AA',
@@ -662,6 +704,74 @@ async function handleMove(req, res) {
     return jsonResponse(res, 200, { ok: true });
   } catch (err) {
     return jsonResponse(res, 500, { error: 'bd update failed: ' + err.message });
+  }
+}
+
+// sprint-wgy dashboard integration — record Actual solution from the modal.
+// Finds which board the ticket lives on (critical for virtual-central mode),
+// appends a structured ### Actual block via bd update --append-notes,
+// moves the ticket to lane-done, closes it, and invalidates cache.
+async function handleSolution(req, res, ticketId) {
+  let body;
+  try { body = await readBody(req); } catch (e) {
+    return jsonResponse(res, 400, { status: 'error', message: 'invalid JSON body' });
+  }
+  const { root_cause, fix_summary, fix_commit_sha, divergence } = body || {};
+  if (!root_cause || !fix_summary) {
+    return jsonResponse(res, 400, { status: 'error', message: 'root_cause and fix_summary required' });
+  }
+
+  // Locate the ticket across all boards so we know which db to update.
+  const tickets = fetchTickets();
+  if (tickets && tickets.error && !Array.isArray(tickets)) {
+    return jsonResponse(res, 500, { status: 'error', message: tickets.error });
+  }
+  const ticket = (Array.isArray(tickets) ? tickets : []).find(t => t.id === ticketId);
+  if (!ticket) {
+    return jsonResponse(res, 404, { status: 'error', message: 'Ticket not found: ' + ticketId });
+  }
+  const board = currentBoards().find(b => b.project === ticket.project)
+    || { dbPath: DB_PATH };
+
+  const now = new Date().toISOString();
+  const actualBlock = [
+    '',
+    '### Actual  (written: ' + now + ', by: user)',
+    '- **root_cause:** ' + root_cause,
+    '- **fix_summary:** ' + fix_summary,
+    '- **fix_commit_sha:** ' + (fix_commit_sha || 'none'),
+    (divergence ? '- **divergence:** ' + divergence : '- **divergence:** n/a (no Projected block)'),
+    '- **effectiveness:** verified',
+    '- **verified_at:** ' + now,
+    '- **captured_by:** user',
+    '- **evidence:** dashboard-modal',
+  ].join('\n');
+
+  const currentLane = (ticket.labels || []).find(l => l.startsWith('lane-')) || 'lane-triage';
+
+  try {
+    execFileSync('bd', [
+      'update', ticketId,
+      '--db', board.dbPath,
+      '--append-notes', actualBlock,
+    ], { encoding: 'utf8', timeout: 5000 });
+    // Move to lane-done and close.
+    if (currentLane !== 'lane-done' && currentLane !== 'lane-closed') {
+      execFileSync('bd', [
+        'update', ticketId,
+        '--db', board.dbPath,
+        '--remove-label', currentLane,
+        '--add-label', 'lane-done',
+        '--append-notes', now + ': Solution captured via dashboard; lane-done.',
+      ], { encoding: 'utf8', timeout: 5000 });
+    }
+    ticketCache = { data: null, ts: 0 };
+    return jsonResponse(res, 200, { status: 'ok', id: ticketId, project: ticket.project });
+  } catch (err) {
+    return jsonResponse(res, 500, {
+      status: 'error',
+      message: 'bd update failed: ' + ((err.stderr && err.stderr.toString()) || err.message),
+    });
   }
 }
 
@@ -1300,6 +1410,21 @@ function buildHtml() {
   .modal-close:hover { background:var(--surface3); color:var(--text); }
 
   .modal-body { padding:16px 20px; }
+  /* sprint-wgy: Solution section styling */
+  .solution-row { margin-bottom:12px; }
+  .solution-sub-title { font-size:11px; text-transform:uppercase; letter-spacing:0.5px; color:var(--muted2); margin-bottom:6px; }
+  .solution-fields { background:var(--surface-alt); border-radius:4px; padding:8px 10px; font-family:var(--mono); font-size:11px; }
+  .solution-field { display:flex; gap:8px; padding:2px 0; }
+  .solution-key { color:var(--muted2); min-width:120px; }
+  .solution-val { color:var(--text); word-break:break-word; }
+  .solution-empty { font-style:italic; color:var(--muted2); font-size:12px; padding:4px 0; }
+  .solution-form { background:var(--surface-alt); border-radius:4px; padding:12px; margin-top:6px; }
+  .solution-field-wrap { margin-bottom:10px; }
+  .solution-field-label { display:block; font-size:11px; text-transform:uppercase; color:var(--muted2); margin-bottom:4px; }
+  .solution-field-input { width:100%; padding:6px 8px; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:3px; font-family:var(--mono); font-size:12px; box-sizing:border-box; }
+  .solution-field-input:focus { outline:none; border-color:var(--primary); }
+  .solution-form-btns { display:flex; gap:8px; justify-content:flex-end; margin-top:6px; }
+  .solution-add-btn { margin-top:4px; }
 
   .modal-section { margin-bottom:16px; }
   .modal-section:last-child { margin-bottom:0; }
@@ -1821,12 +1946,20 @@ function parseCardClient(ticket) {
 
   var lane = labels.find(function(l){return l.startsWith('lane-');}) || 'lane-triage';
 
+  // sprint-wgy dashboard integration — parse Projected/Actual from the
+  // combined body + notes so refreshes via SSE don't lose structured data.
+  var solText = body + '\\n' + notes;
+  var projected = extractSolutionBlockClient(solText, 'Projected');
+  var actual = extractSolutionBlockClient(solText, 'Actual');
+
   return {
     id: ticket.id || '',
     title: ticket.title || '[untitled]',
-    // sprint-0r3: virtual-central tag. Server attaches ticket.project
-    // when the board was loaded in --all-projects mode.
+    // sprint-0r3: virtual-central tag.
     project: ticket.project || '',
+    // sprint-wgy: structured solution blocks (null when absent).
+    projected: ticket.projected || projected,
+    actual: ticket.actual || actual,
     lane: lane,
     sev: SEV_MAP[sevRaw] || 'info',
     sevRaw: sevRaw,
@@ -1837,6 +1970,25 @@ function parseCardClient(ticket) {
     age: formatAgeClient(ticket.created_at),
     stack: stack, triageLog: triageLog,
   };
+}
+
+function extractSolutionBlockClient(text, kind) {
+  var headerRe = new RegExp('###\\\\s+' + kind + '\\\\b([\\\\s\\\\S]*?)(?=\\\\n###\\\\s+|$)', 'i');
+  var m = text.match(headerRe);
+  if (!m) return null;
+  var section = m[1];
+  var fields = {};
+  var fieldRe = /-\\s+\\*\\*([a-z_]+):\\*\\*\\s*(.+)/gi;
+  var fm;
+  while ((fm = fieldRe.exec(section)) !== null) {
+    fields[fm[1].toLowerCase()] = fm[2].trim();
+  }
+  var whenMatch = section.match(/\\(written:\\s*([^,)]+)(?:,\\s*by:\\s*([^)]+))?\\)/);
+  if (whenMatch) {
+    fields.written_at = whenMatch[1].trim();
+    if (whenMatch[2]) fields.written_by = whenMatch[2].trim();
+  }
+  return Object.keys(fields).length ? fields : null;
 }
 
 function formatAgeClient(dateStr) {
@@ -2469,6 +2621,62 @@ function openBoardModal(c) {
   errSec.appendChild(txt('div','modal-err-msg',c.title));
   body.appendChild(errSec);
 
+  // sprint-wgy: Solution section (Projected + Actual). Always shown so the
+  // user can always record an Actual even when no Projected exists.
+  var solSec = el('div','modal-section');
+  solSec.appendChild(txt('div','modal-section-title','Solution'));
+
+  var projRow = el('div','solution-row');
+  projRow.appendChild(txt('div','solution-sub-title',
+    'Projected ' + (c.projected ? '(' + (c.projected.written_by || 'agent') + ')' : '(not yet run)')));
+  if (c.projected) {
+    var projList = el('div','solution-fields');
+    ['hypothesis','proposed_fix','confidence','reasoning','fix_commit_sha','effectiveness']
+      .forEach(function(k){
+        if (c.projected[k]) {
+          var row = el('div','solution-field');
+          row.appendChild(txt('span','solution-key', k + ':'));
+          row.appendChild(txt('span','solution-val', c.projected[k]));
+          projList.appendChild(row);
+        }
+      });
+    projRow.appendChild(projList);
+  } else {
+    projRow.appendChild(txt('div','solution-empty',
+      'No projected solution. drover:implementer has not run on this ticket.'));
+  }
+  solSec.appendChild(projRow);
+
+  var actRow = el('div','solution-row');
+  actRow.appendChild(txt('div','solution-sub-title',
+    'Actual ' + (c.actual ? '(' + (c.actual.written_by || 'user') + ')' : '(not yet recorded)')));
+  if (c.actual) {
+    var actList = el('div','solution-fields');
+    ['root_cause','fix_summary','fix_commit_sha','divergence','effectiveness','captured_by','verified_at']
+      .forEach(function(k){
+        if (c.actual[k]) {
+          var row = el('div','solution-field');
+          row.appendChild(txt('span','solution-key', k + ':'));
+          row.appendChild(txt('span','solution-val', c.actual[k]));
+          actList.appendChild(row);
+        }
+      });
+    actRow.appendChild(actList);
+  } else {
+    var formHolder = el('div','solution-form-holder');
+    var addBtn = el('button','btn btn-primary solution-add-btn');
+    addBtn.textContent = 'Record Actual solution';
+    addBtn.addEventListener('click', function(){
+      formHolder.removeChild(addBtn);
+      formHolder.appendChild(buildActualForm(c, formHolder));
+    });
+    formHolder.appendChild(addBtn);
+    actRow.appendChild(formHolder);
+  }
+  solSec.appendChild(actRow);
+
+  body.appendChild(solSec);
+
   if(c.stack && c.stack.length){
     var stackSec = el('div','modal-section');
     stackSec.appendChild(txt('div','modal-section-title','Stack trace'));
@@ -2544,6 +2752,94 @@ function openBoardModal(c) {
 
   modal.appendChild(footer);
   document.getElementById('board-modal').classList.add('open');
+}
+
+// sprint-wgy: build an inline form for the Actual solution. Mirrors the
+// /drover:solution skill's prompted fields (root_cause, fix_summary,
+// fix_commit_sha, divergence). POSTs to /api/cards/:id/solution and
+// refreshes the board.
+function buildActualForm(c, holder) {
+  var form = el('div','solution-form');
+
+  function field(id, label, placeholder, multiline) {
+    var wrap = el('div','solution-field-wrap');
+    var l = el('label','solution-field-label'); l.textContent = label; l.setAttribute('for', id);
+    wrap.appendChild(l);
+    var inp = multiline ? el('textarea','solution-field-input') : el('input','solution-field-input');
+    inp.id = id;
+    if (!multiline) inp.type = 'text';
+    if (placeholder) inp.placeholder = placeholder;
+    if (multiline) inp.rows = 2;
+    wrap.appendChild(inp);
+    return wrap;
+  }
+
+  form.appendChild(field('sol-root-cause', 'Root cause', 'One or two sentences, general audience — no project paths or customer names.', true));
+  form.appendChild(field('sol-fix-summary', 'Fix summary', 'What you actually changed.', true));
+  form.appendChild(field('sol-fix-sha', 'Fix commit SHA (or "none")', 'abc1234'));
+  if (c.projected) {
+    var divWrap = el('div','solution-field-wrap');
+    var dl = el('label','solution-field-label'); dl.textContent = 'Divergence from projected';
+    dl.setAttribute('for','sol-divergence');
+    divWrap.appendChild(dl);
+    var divSel = el('select','solution-field-input');
+    divSel.id = 'sol-divergence';
+    ['none','minor','major'].forEach(function(v){
+      var o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      divSel.appendChild(o);
+    });
+    divWrap.appendChild(divSel);
+    form.appendChild(divWrap);
+  }
+
+  var btnRow = el('div','solution-form-btns');
+  var cancelBtn = el('button','btn btn-ghost'); cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', function(){
+    removeChildren(holder);
+    var readd = el('button','btn btn-primary solution-add-btn');
+    readd.textContent = 'Record Actual solution';
+    readd.addEventListener('click', function(){
+      holder.removeChild(readd);
+      holder.appendChild(buildActualForm(c, holder));
+    });
+    holder.appendChild(readd);
+  });
+  var saveBtn = el('button','btn btn-primary'); saveBtn.textContent = 'Save + close ticket';
+  saveBtn.addEventListener('click', function(){
+    var payload = {
+      root_cause:    document.getElementById('sol-root-cause').value.trim(),
+      fix_summary:   document.getElementById('sol-fix-summary').value.trim(),
+      fix_commit_sha:document.getElementById('sol-fix-sha').value.trim() || 'none',
+    };
+    var divEl = document.getElementById('sol-divergence');
+    if (divEl) payload.divergence = divEl.value;
+    if (!payload.root_cause || !payload.fix_summary) {
+      showToast('Root cause and fix summary are required.');
+      return;
+    }
+    saveBtn.disabled = true; saveBtn.textContent = 'Saving\\u2026';
+    fetch('/api/cards/' + encodeURIComponent(c.id) + '/solution', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify(payload),
+    }).then(function(r){ return r.json(); }).then(function(resp){
+      if (resp.status === 'ok') {
+        showToast('Actual solution saved. Ticket ' + c.id + ' closed.');
+        closeBoardModal();
+        fetchAll();
+      } else {
+        saveBtn.disabled = false; saveBtn.textContent = 'Save + close ticket';
+        showToast('Save failed: ' + (resp.message || 'unknown'));
+      }
+    }).catch(function(e){
+      saveBtn.disabled = false; saveBtn.textContent = 'Save + close ticket';
+      showToast('Request failed: ' + e.message);
+    });
+  });
+  btnRow.appendChild(cancelBtn); btnRow.appendChild(saveBtn);
+  form.appendChild(btnRow);
+  return form;
 }
 
 function closeBoardModal(){
@@ -3140,6 +3436,12 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/move' && req.method === 'POST') {
       return await handleMove(req, res);
+    }
+
+    // sprint-wgy: /api/cards/:id/solution — record Actual solution + close.
+    const solMatch = pathname.match(/^\/api\/cards\/([^/]+)\/solution$/);
+    if (solMatch && req.method === 'POST') {
+      return await handleSolution(req, res, decodeURIComponent(solMatch[1]));
     }
 
     // DDEV management endpoints
