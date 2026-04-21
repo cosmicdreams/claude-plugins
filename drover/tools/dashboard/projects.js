@@ -146,4 +146,52 @@ function backfillAsync(alias, { logTypes, scriptPath, logDir, spawner, nowFn } =
   };
 }
 
-module.exports = { projectsFilePath, listProjects, pickFolderMacOS, addProject, backfill, backfillAsync, parseBackfillOutput };
+// Enumerate every registered project with a present .beads/drover.db file.
+// Used by the dashboard's virtual-central view (sprint-0r3) to merge cards
+// across projects and fan out file watchers for real-time cross-project
+// updates — matches the pattern already used by recall-search.sh.
+//
+// Returns [{ project, path, dbPath }] in registration order, filtered to
+// entries whose .beads/drover.db actually exists (so newly-added projects
+// that have not yet run /drover:setup are silently skipped).
+// Walk up from `dir` looking for a usable beads board. Supports two
+// on-disk layouts seen in the wild:
+//   1. `.beads/drover.db` exists (sqlite file OR dolt-backed directory)
+//   2. `.beads/` itself is the db (dolt-only layout: config.yaml + dolt/
+//      without a drover.db entry; bd's auto-discovery handles this)
+// Also handles worktree-style repos where the project is registered at
+// `/repo/worktrees/main` but the .beads directory lives at `/repo`.
+function findBeadsDb(dir) {
+  let cur = dir;
+  const stop = process.env.HOME || '/';
+  for (let i = 0; i < 6; i++) {
+    const beadsDir = path.join(cur, '.beads');
+    const droverDb = path.join(beadsDir, 'drover.db');
+    if (fs.existsSync(droverDb)) return droverDb;
+    // Dolt-only layout: no drover.db, but .beads has config.yaml + dolt/.
+    if (fs.existsSync(beadsDir)) {
+      const cfg = path.join(beadsDir, 'config.yaml');
+      const dolt = path.join(beadsDir, 'dolt');
+      if (fs.existsSync(cfg) && fs.existsSync(dolt)) return beadsDir;
+    }
+    const parent = path.dirname(cur);
+    if (parent === cur || parent === stop) break;
+    cur = parent;
+  }
+  return null;
+}
+
+function listBoards() {
+  return listProjects()
+    .map(p => {
+      const name = p.name || p.ddev_project;
+      const dir = p.path;
+      if (!name || !dir) return null;
+      const dbPath = findBeadsDb(dir);
+      if (!dbPath) return null;
+      return { project: name, path: dir, dbPath };
+    })
+    .filter(Boolean);
+}
+
+module.exports = { projectsFilePath, listProjects, listBoards, pickFolderMacOS, addProject, backfill, backfillAsync, parseBackfillOutput };
