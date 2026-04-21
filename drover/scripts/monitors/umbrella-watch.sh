@@ -45,6 +45,45 @@ fi
 TRACK_DIR="$(mktemp -d -t drover-umbrella.XXXXXX)"
 BACKOFF_DIR="$TRACK_DIR/backoff"
 mkdir -p "$BACKOFF_DIR"
+
+# Registration-time DDEV reachability gate.
+# Run `ddev list -A --json-output` ONCE at startup (not per-tick) to discover
+# which DDEV projects are actually active. ddev:<name> watchers for stopped
+# projects are silently excluded for the session — no spawn/fail/retry loop,
+# no stderr flood. If the user runs `ddev start <name>` mid-session, the
+# watcher won't auto-attach; they either restart the session or run a future
+# /drover:refresh. Accepted tradeoff: eliminates the main spam source.
+#
+# Overridable via DROVER_REACHABLE_DDEV (newline-separated list) — tests
+# use this to assert behavior without invoking real ddev.
+REACHABLE_DDEV_FILE="$TRACK_DIR/reachable-ddev"
+if [ -n "${DROVER_REACHABLE_DDEV:-}" ]; then
+  printf '%s\n' "$DROVER_REACHABLE_DDEV" > "$REACHABLE_DDEV_FILE"
+elif command -v ddev >/dev/null 2>&1; then
+  # ddev list output can be noisy on stderr; we only care about the JSON.
+  ddev list -A --json-output 2>/dev/null | python3 - "$REACHABLE_DDEV_FILE" <<'PY' || : > "$REACHABLE_DDEV_FILE"
+import json, sys
+try:
+    data = json.load(sys.stdin)
+    names = [p.get("name", "") for p in data.get("raw", []) if p.get("name")]
+    open(sys.argv[1], "w").write("\n".join(names) + "\n")
+except Exception:
+    open(sys.argv[1], "w").write("")
+PY
+  log "reachability gate: $(wc -l < "$REACHABLE_DDEV_FILE" | tr -d ' ') active DDEV project(s)"
+else
+  # ddev not installed — be permissive, let child watcher report the error
+  # (once, thanks to the quiet-monitor stderr routing).
+  : > "$REACHABLE_DDEV_FILE"
+  log "reachability gate: ddev not found on PATH; skipping filter"
+fi
+
+ddev_reachable() {
+  local name="$1"
+  # Empty file means "no filter applied" (ddev missing or override empty).
+  [ -s "$REACHABLE_DDEV_FILE" ] || return 0
+  grep -qx "$name" "$REACHABLE_DDEV_FILE"
+}
 BACKOFF_MAX="${DROVER_UMBRELLA_BACKOFF_MAX:-300}"
 BACKOFF_MIN="${DROVER_UMBRELLA_BACKOFF_MIN:-5}"
 # Envs that exit with permanent-failure status (IP allowlist, revoked creds)
@@ -186,6 +225,23 @@ while :; do
 
   while IFS= read -r key; do
     [ -z "$key" ] && continue
+    # Reachability gate (computed once at startup): silently skip ddev:*
+    # keys for projects that are not currently active. Other watcher kinds
+    # (acquia, bd-ready) are gated by their own preflight mechanisms.
+    case "$key" in
+      ddev:*)
+        name="${key#ddev:}"
+        if ! ddev_reachable "$name"; then
+          # Log once per iteration is noisy; log once per session is enough.
+          marker="$TRACK_DIR/skipped.$(printf %s "$key" | shasum | awk '{print $1}' | cut -c1-12)"
+          if [ ! -f "$marker" ]; then
+            log "skip $key (not in active DDEV set; ddev project stopped or unknown)"
+            : > "$marker"
+          fi
+          continue
+        fi
+        ;;
+    esac
     pidfile="$(pidfile_for "$key")"
     if ! child_alive "$pidfile"; then
       # If the pidfile exists (child died this iteration), check lifespan.
