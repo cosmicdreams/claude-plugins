@@ -486,13 +486,14 @@ setInterval(() => {
 const projectsModule = require('./projects.js');
 
 async function handleAddProject(req, res) {
-  let body = {};
+  // readBody already parses the body; no second JSON.parse.
+  let body;
   try {
-    const raw = await readBody(req);
-    body = raw ? JSON.parse(raw) : {};
+    body = await readBody(req);
   } catch (e) {
     return jsonResponse(res, 400, { status: 'error', message: 'invalid JSON body' });
   }
+  if (!body) body = {};
 
   let targetPath = body.path;
   if (!targetPath) {
@@ -511,14 +512,17 @@ async function handleAddProject(req, res) {
 function listProjects() { return projectsModule.listProjects(); }
 
 async function handleBackfill(req, res) {
-  let body = {};
+  // readBody already JSON.parses the request body and returns the parsed
+  // object. A previous version of this handler ran JSON.parse() again on
+  // that object, which coerced to "[object Object]" and failed with
+  // "invalid JSON body" on every click of the dashboard Backfill button.
+  let body;
   try {
-    const raw = await readBody(req);
-    body = raw ? JSON.parse(raw) : {};
+    body = await readBody(req);
   } catch (e) {
     return jsonResponse(res, 400, { status: 'error', message: 'invalid JSON body' });
   }
-  if (!body.alias) {
+  if (!body || !body.alias) {
     return jsonResponse(res, 400, { status: 'error', message: 'alias is required' });
   }
   const result = projectsModule.backfill(body.alias, { logTypes: body.log_types });
