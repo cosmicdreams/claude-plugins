@@ -308,4 +308,4 @@ function listBoards() {
     .filter(Boolean);
 }
 
-module.exports = { projectsFilePath, listProjects, listBoards, ddevProjectNames, resolveCardHostnames, isValidBackfillLogPath, classifyBackfillLine, hasDdevConfig, listRunningDdevUnregistered, pickFolderMacOS, addProject, backfill, backfillAsync, parseBackfillOutput };
+module.exports = { projectsFilePath, listProjects, listBoards, findBeadsDb, ddevProjectNames, resolveCardHostnames, isValidBackfillLogPath, classifyBackfillLine, hasDdevConfig, listRunningDdevUnregistered, pickFolderMacOS, addProject, backfill, backfillAsync, parseBackfillOutput };
