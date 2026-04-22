@@ -62,15 +62,37 @@ for attempt in range(30):
                     download_url = item.get("_links", {}).get("download", {}).get("href")
                     break
         if download_url:
-            # The download endpoint redirects to a signed S3 URL; follow it.
+            # The Acquia download URL redirects to a signed S3 URL.
+            # We must NOT forward the bearer token to S3 (S3 returns 400).
+            # Disable automatic redirect handling so we get the 302 directly,
+            # then follow the Location header without auth headers.
             import urllib.error
-            opener = urllib.request.build_opener(urllib.request.HTTPRedirectHandler())
+
+            class NoRedirect(urllib.request.HTTPRedirectHandler):
+                def redirect_request(self, req, fp, code, msg, headers, newurl):
+                    return None  # don't follow
+
             token = client._get_token()
+            opener = urllib.request.build_opener(NoRedirect)
             req = urllib.request.Request(download_url, headers={"Authorization": f"Bearer {token}"})
-            with opener.open(req, timeout=120) as r:
-                while chunk := r.read(8192):
-                    sys.stdout.buffer.write(chunk)
-            sys.exit(0)
+            try:
+                with opener.open(req, timeout=30) as r:
+                    # Unlikely to reach here without redirect, but handle it.
+                    while chunk := r.read(8192):
+                        sys.stdout.buffer.write(chunk)
+                    sys.exit(0)
+            except urllib.error.HTTPError as e:
+                if e.code in (301, 302, 303, 307, 308):
+                    s3_url = e.headers.get("Location", "")
+                    if not s3_url:
+                        print("ERROR: redirect with no Location header", file=sys.stderr)
+                        sys.exit(2)
+                    # Fetch S3 URL without auth headers.
+                    with urllib.request.urlopen(s3_url, timeout=120) as r:
+                        while chunk := r.read(8192):
+                            sys.stdout.buffer.write(chunk)
+                    sys.exit(0)
+                raise
         else:
             print("ERROR: completed but no download URL", file=sys.stderr)
             sys.exit(2)
