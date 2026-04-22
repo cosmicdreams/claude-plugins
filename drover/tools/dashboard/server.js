@@ -3217,10 +3217,14 @@ function backfillPrompt() {
   fetch('/api/projects')
     .then(function(r){ return r.json(); })
     .then(function(list) {
+      var seen = new Set();
       var envs = [];
       (list || []).forEach(function(p) {
         ((p.acquia && p.acquia.environments) || []).forEach(function(e) {
-          if (e.alias) envs.push(e.alias);
+          if (e.alias && !seen.has(e.alias)) {
+            seen.add(e.alias);
+            envs.push(e.alias);
+          }
         });
       });
       if (envs.length === 0) return showToast('No Acquia envs registered. Add a project first.');
