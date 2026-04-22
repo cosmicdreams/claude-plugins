@@ -106,15 +106,14 @@ let ddevCache = { instances: [], ts: 0 };
 const ddevActions = new Map(); // project -> 'starting' | 'stopping'
 
 // Build the set of DDEV project names relevant to this drover instance.
-// In virtual-central mode (--all-projects) the single launch-dir config
-// doesn't know about the other registered projects, so ddev list was
-// being filtered down to one project even when six were running.
-// sprint-7fy: union ddev_project names across every registered project,
-// then layer the launch-dir config on top as a superset.
+// In virtual-central mode we show ALL running ddev instances — the user is
+// watching every project so filtering by registered names would hide
+// worktree instances (AHRI-626, AHRI-d11-upgrade, etc.) that aren't
+// individually registered. Return null to signal "no filter, show all".
+// In single-project mode, restrict to what the config declares.
 function getRelevantDdevProjects() {
-  const names = ALL_PROJECTS
-    ? projectsModule.ddevProjectNames(projectsModule.listProjects())
-    : new Set();
+  if (ALL_PROJECTS) return null;
+  const names = new Set();
   const config = fetchConfig();
   if (config && Array.isArray(config.environments)) {
     for (const env of config.environments) {
