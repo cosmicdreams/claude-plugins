@@ -1054,12 +1054,71 @@ function listProjects() { return projectsModule.listProjects(); }
 // Cache log types per alias for the server session — types don't change.
 const logTypesCache = new Map();
 
+// A11: derive a per-type `state` that folds Acquia's flags.available + any
+// in-flight request tracked in logRequests. Client uses this to pick the
+// correct row UX (checkbox / Request button / Preparing spinner / Retry).
+function enrichLogTypes(alias, types) {
+  return types.map(function(t) {
+    const key = logRequestKey(alias, t.type);
+    const req = logRequests.get(key);
+    let state;
+    if (t.available) {
+      state = 'ready';
+    } else if (req && req.state === 'preparing') {
+      state = 'preparing';
+    } else if (req && req.state === 'ready') {
+      state = 'ready'; // request completed since last cache population
+    } else if (req && req.state === 'failed') {
+      state = 'failed';
+    } else {
+      state = 'not_built';
+    }
+    return Object.assign({}, t, {
+      state,
+      requestedAt: req ? req.requestedAt : null,
+      elapsedSec: req ? Math.floor((Date.now() - req.requestedAt) / 1000) : null,
+      error: (req && req.error) || null,
+    });
+  });
+}
+
+// A11: poke Acquia for the notification URL of every still-preparing request
+// for this alias. Updates entries in-place. Called before enrichment so the
+// UI sees transitions to ready/failed on its next poll tick rather than
+// requiring a separate /api/logs/status round-trip per row.
+async function refreshPreparingRequests(alias) {
+  const preparing = [];
+  for (const [key, entry] of logRequests) {
+    if (!key.startsWith(alias + '|')) continue;
+    if (entry.state !== 'preparing') continue;
+    preparing.push({ key, entry });
+  }
+  if (!preparing.length) return;
+  await Promise.all(preparing.map(async ({ key, entry }) => {
+    try {
+      const status = await runAcquiaPython(alias,
+        `import urllib.request\n` +
+        `req = urllib.request.Request("${entry.notification_url}", headers={"Authorization": "Bearer " + c._get_token()})\n` +
+        `with urllib.request.urlopen(req, timeout=10) as r: d = json.loads(r.read())\n` +
+        `print(json.dumps({"status": d.get("status"), "progress": d.get("progress")}))`
+      );
+      entry.lastCheckedAt = Date.now();
+      if (status.status === 'completed') entry.state = 'ready';
+      else if (status.status === 'failed') { entry.state = 'failed'; entry.error = 'Acquia reported failed'; }
+      logRequests.set(key, entry);
+    } catch (e) {
+      // Leave entry in preparing state; UI will retry on next tick.
+    }
+  }));
+}
+
 async function handleLogTypes(req, res, url) {
   const alias = url.searchParams.get('alias') || '';
   if (!alias) return jsonResponse(res, 400, { error: 'alias required' });
 
   if (logTypesCache.has(alias)) {
-    return jsonResponse(res, 200, { log_types: logTypesCache.get(alias) });
+    await refreshPreparingRequests(alias);
+    return jsonResponse(res, 200, { log_types: enrichLogTypes(alias, logTypesCache.get(alias)) });
   }
 
   // Resolve alias → app_uuid + env_name from projects.json
@@ -1093,9 +1152,152 @@ print(json.dumps([{"type": i["type"], "label": i.get("label", i["type"]), "avail
 `], { encoding: 'utf8', timeout: 30000 });
     const types = JSON.parse(stdout.trim());
     logTypesCache.set(alias, types);
-    return jsonResponse(res, 200, { log_types: types });
+    await refreshPreparingRequests(alias);
+    return jsonResponse(res, 200, { log_types: enrichLogTypes(alias, types) });
   } catch (e) {
     return jsonResponse(res, 500, { error: 'Acquia API error: ' + e.message });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// A11: Per-log-type archive-request state.
+//
+// Acquia's log-archive flow is 2-step:
+//   1. POST /environments/{id}/logs/{type} -> returns _links.notification.href
+//   2. Poll that notification URL until completed -> _links.download.href is
+//      usable for a 302-redirected S3 GET.
+//
+// Today the UI disables checkboxes for log types with flags.available=false,
+// so the user has no affordance to ask Acquia to start building an archive.
+// This in-memory Map tracks drover-initiated requests so:
+//   - The UI can show "preparing" rows with an elapsed timer,
+//   - Repeated Request clicks on the same type are deduped,
+//   - /api/backfill/log-types can enrich its response with per-type state.
+//
+// Key: `${alias}|${type}`. Never persisted; server restart = forget, and the
+// user can just re-Request (POST is idempotent on Acquia's side).
+// ---------------------------------------------------------------------------
+const logRequests = new Map();
+
+function logRequestKey(alias, type) { return alias + '|' + type; }
+
+async function runAcquiaPython(alias, script) {
+  const projects = projectsModule.listProjects();
+  let appUuid, envName;
+  for (const p of projects) {
+    for (const e of (p.acquia && p.acquia.environments) || []) {
+      if (e.alias === alias) {
+        appUuid = e.app_uuid || (p.acquia && p.acquia.app_uuid) || '';
+        envName = e.env || e.name || '';
+        break;
+      }
+    }
+    if (appUuid) break;
+  }
+  if (!appUuid || !envName) throw new Error(`alias not found: ${alias}`);
+  const apiScript = path.join(__dirname, '../../scripts/monitors/acquia_api.py');
+  const prelude = [
+    'import importlib.util, json, sys',
+    `spec = importlib.util.spec_from_file_location("acquia_api", "${apiScript.replace(/\\/g, '\\\\')}")`,
+    'mod = importlib.util.module_from_spec(spec)',
+    'spec.loader.exec_module(mod)',
+    'c = mod.AcquiaClient()',
+    `env_id = c.resolve_env_id("${appUuid}", "${envName}")`,
+  ].join('\n');
+  const full = prelude + '\n' + script;
+  const { stdout } = await execFileP('python3', ['-c', full], { encoding: 'utf8', timeout: 30000 });
+  return JSON.parse(stdout.trim());
+}
+
+// POST /api/logs/request  body: {alias, type}
+async function handleLogsRequest(req, res) {
+  let body;
+  try { body = await readBody(req); } catch (e) { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
+  const { alias, type } = body || {};
+  if (!alias || !type) return jsonResponse(res, 400, { error: 'alias and type required' });
+
+  const key = logRequestKey(alias, type);
+  const existing = logRequests.get(key);
+  if (existing && existing.state === 'preparing') {
+    return jsonResponse(res, 200, {
+      state: 'preparing',
+      requestedAt: existing.requestedAt,
+      elapsedSec: Math.floor((Date.now() - existing.requestedAt) / 1000),
+    });
+  }
+
+  try {
+    const resp = await runAcquiaPython(alias,
+      `resp = c.request_log_download(env_id, "${type}")\n` +
+      `print(json.dumps({"notification_url": resp.get("_links", {}).get("notification", {}).get("href")}))`
+    );
+    const notification_url = resp.notification_url;
+    if (!notification_url) {
+      return jsonResponse(res, 502, { error: 'Acquia returned no notification URL' });
+    }
+    const now = Date.now();
+    logRequests.set(key, {
+      state: 'preparing',
+      notification_url,
+      requestedAt: now,
+      lastCheckedAt: now,
+    });
+    return jsonResponse(res, 200, { state: 'preparing', requestedAt: now, elapsedSec: 0 });
+  } catch (e) {
+    return jsonResponse(res, 500, { error: 'Acquia request failed: ' + e.message });
+  }
+}
+
+// GET /api/logs/status?alias=...&type=...
+async function handleLogsStatus(req, res, url) {
+  const alias = url.searchParams.get('alias') || '';
+  const type = url.searchParams.get('type') || '';
+  if (!alias || !type) return jsonResponse(res, 400, { error: 'alias and type required' });
+
+  const key = logRequestKey(alias, type);
+  const entry = logRequests.get(key);
+  if (!entry) return jsonResponse(res, 200, { state: 'none' });
+
+  // If already ready or failed, don't re-check — return cached terminal state.
+  if (entry.state === 'ready' || entry.state === 'failed') {
+    return jsonResponse(res, 200, {
+      state: entry.state,
+      requestedAt: entry.requestedAt,
+      elapsedSec: Math.floor(((entry.lastCheckedAt || Date.now()) - entry.requestedAt) / 1000),
+      error: entry.error || undefined,
+    });
+  }
+
+  try {
+    const status = await runAcquiaPython(alias,
+      `import urllib.request\n` +
+      `req = urllib.request.Request("${entry.notification_url}", headers={"Authorization": "Bearer " + c._get_token()})\n` +
+      `with urllib.request.urlopen(req, timeout=15) as r: d = json.loads(r.read())\n` +
+      `print(json.dumps({"status": d.get("status"), "progress": d.get("progress")}))`
+    );
+    const now = Date.now();
+    entry.lastCheckedAt = now;
+    if (status.status === 'completed') {
+      entry.state = 'ready';
+    } else if (status.status === 'failed') {
+      entry.state = 'failed';
+      entry.error = 'Acquia reported failed';
+    }
+    logRequests.set(key, entry);
+    return jsonResponse(res, 200, {
+      state: entry.state,
+      requestedAt: entry.requestedAt,
+      elapsedSec: Math.floor((now - entry.requestedAt) / 1000),
+      progress: status.progress,
+      error: entry.error || undefined,
+    });
+  } catch (e) {
+    return jsonResponse(res, 200, {
+      state: 'preparing',
+      requestedAt: entry.requestedAt,
+      elapsedSec: Math.floor((Date.now() - entry.requestedAt) / 1000),
+      pollError: e.message,
+    });
   }
 }
 
@@ -3959,38 +4161,131 @@ function showBackfillModal(envs) {
   content.appendChild(header); content.appendChild(body);
   document.getElementById('board-modal').classList.add('open');
 
-  function loadLogTypes(alias) {
-    go.disabled = true;
-    removeChildren(logTypeWrap);
-    logTypeWrap.appendChild(document.createTextNode('Loading\u2026'));
+  // A11: per-type state rendering with Request / Preparing / Ready / Failed
+  // variants. Polling loop runs while any row is preparing; tracked here in
+  // modal-scoped state so closing the modal cancels.
+  var checkedTypes = new Set();
+  var pollHandle = null;
+  var firstLoadForAlias = true;
+
+  function updateGoButton() { go.disabled = checkedTypes.size === 0; }
+
+  function startPolling() {
+    if (pollHandle) return;
+    pollHandle = setInterval(function(){ loadLogTypes(sel.value, {silent: true}); }, 10000);
+  }
+  function stopPolling() {
+    if (pollHandle) { clearInterval(pollHandle); pollHandle = null; }
+  }
+
+  function requestType(type) {
+    fetch('/api/logs/request', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({alias: sel.value, type: type})
+    })
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (d.error) { showToast('Request failed: ' + d.error); return; }
+      loadLogTypes(sel.value, {silent: true});
+    })
+    .catch(function(e){ showToast('Request failed: ' + e.message); });
+  }
+
+  function buildTypeRow(t) {
+    var row = el('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:4px 0;min-height:24px;';
+    if (t.state === 'ready') {
+      var cb = document.createElement('input'); cb.type = 'checkbox';
+      cb.id = 'lt-' + t.type; cb.value = t.type;
+      cb.checked = checkedTypes.has(t.type);
+      cb.addEventListener('change', function(){
+        if (cb.checked) checkedTypes.add(t.type); else checkedTypes.delete(t.type);
+        updateGoButton();
+      });
+      var lbl = document.createElement('label'); lbl.htmlFor = cb.id;
+      lbl.style.cssText = 'font-family:var(--mono);font-size:11px;color:var(--text);flex:1;';
+      lbl.textContent = t.label;
+      row.appendChild(cb); row.appendChild(lbl);
+    } else if (t.state === 'not_built') {
+      var btn = document.createElement('button');
+      btn.className = 'btn btn-ghost';
+      btn.style.cssText = 'font-size:10px;padding:2px 10px;border-radius:4px;';
+      btn.textContent = 'Request';
+      btn.onclick = function(){ requestType(t.type); };
+      var lbl = txt('span','', t.label);
+      lbl.style.cssText = 'font-family:var(--mono);font-size:11px;color:var(--muted);flex:1;';
+      var note = txt('span','','archive not yet built');
+      note.style.cssText = 'font-size:10px;color:var(--muted2);';
+      row.appendChild(btn); row.appendChild(lbl); row.appendChild(note);
+    } else if (t.state === 'preparing') {
+      var spinner = txt('span','','\u27F3');
+      spinner.style.cssText = 'display:inline-block;animation:spin-ring 1.2s linear infinite;color:var(--info);width:16px;text-align:center;font-size:14px;';
+      var lbl = txt('span','', t.label);
+      lbl.style.cssText = 'font-family:var(--mono);font-size:11px;color:var(--text2);flex:1;';
+      var elapsed = txt('span','', 'preparing \u00b7 ' + (t.elapsedSec || 0) + 's');
+      elapsed.style.cssText = 'font-size:10px;color:var(--info);font-family:var(--mono);';
+      row.appendChild(spinner); row.appendChild(lbl); row.appendChild(elapsed);
+    } else if (t.state === 'failed') {
+      var btn = document.createElement('button');
+      btn.className = 'btn btn-ghost';
+      btn.style.cssText = 'font-size:10px;padding:2px 10px;border-radius:4px;color:var(--crit);';
+      btn.textContent = 'Retry';
+      btn.onclick = function(){ requestType(t.type); };
+      var lbl = txt('span','', t.label);
+      lbl.style.cssText = 'font-family:var(--mono);font-size:11px;color:var(--muted);flex:1;';
+      var note = txt('span','', t.error || 'request failed');
+      note.style.cssText = 'font-size:10px;color:var(--crit);';
+      row.appendChild(btn); row.appendChild(lbl); row.appendChild(note);
+    }
+    return row;
+  }
+
+  function loadLogTypes(alias, opts) {
+    opts = opts || {};
+    if (!opts.silent) {
+      removeChildren(logTypeWrap);
+      logTypeWrap.appendChild(document.createTextNode('Loading\u2026'));
+    }
     fetch('/api/backfill/log-types?alias=' + encodeURIComponent(alias))
       .then(function(r){ return r.json(); })
       .then(function(d){
         removeChildren(logTypeWrap);
         var types = (d && d.log_types) || [];
         if (!types.length) { logTypeWrap.appendChild(document.createTextNode('No log types found')); return; }
+
+        if (firstLoadForAlias) {
+          types.forEach(function(t){ if (t.state === 'ready') checkedTypes.add(t.type); });
+          firstLoadForAlias = false;
+        }
+
+        var anyPreparing = false;
         types.forEach(function(t){
-          var row = el('div');
-          row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:2px 0;';
-          var cb = document.createElement('input'); cb.type = 'checkbox';
-          cb.id = 'lt-' + t.type; cb.value = t.type;
-          cb.checked = t.available; cb.disabled = !t.available;
-          var lbl = document.createElement('label'); lbl.htmlFor = 'lt-' + t.type;
-          lbl.style.fontFamily = 'var(--mono)'; lbl.style.fontSize = '11px';
-          lbl.style.color = t.available ? 'var(--text)' : 'var(--muted2)';
-          lbl.textContent = t.label + (t.available ? '' : ' \u2014 unavailable');
-          row.appendChild(cb); row.appendChild(lbl); logTypeWrap.appendChild(row);
+          logTypeWrap.appendChild(buildTypeRow(t));
+          if (t.state === 'preparing') anyPreparing = true;
         });
-        go.disabled = false;
+        updateGoButton();
+        if (anyPreparing) startPolling(); else stopPolling();
       })
       .catch(function(e){
         removeChildren(logTypeWrap);
         logTypeWrap.appendChild(document.createTextNode('Could not load log types: ' + e.message));
+        stopPolling();
       });
   }
 
-  sel.addEventListener('change', function(){ loadLogTypes(sel.value); });
+  sel.addEventListener('change', function(){
+    checkedTypes.clear();
+    firstLoadForAlias = true;
+    loadLogTypes(sel.value);
+  });
   loadLogTypes(sel.value);
+
+  var modal = document.getElementById('board-modal');
+  var mo = new MutationObserver(function(){
+    if (!modal.classList.contains('open')) { stopPolling(); mo.disconnect(); }
+  });
+  mo.observe(modal, { attributes: true, attributeFilter: ['class'] });
 }
 function closeBackfillModal() {
   document.getElementById('board-modal').classList.remove('open');
@@ -4627,6 +4922,14 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/backfill/log-types' && req.method === 'GET') {
       return await handleLogTypes(req, res, url);
+    }
+
+    // A11: Per-log-type archive-request flow.
+    if (pathname === '/api/logs/request' && req.method === 'POST') {
+      return await handleLogsRequest(req, res);
+    }
+    if (pathname === '/api/logs/status' && req.method === 'GET') {
+      return await handleLogsStatus(req, res, url);
     }
 
     // API endpoints
