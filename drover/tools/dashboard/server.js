@@ -665,9 +665,29 @@ async function handleAddProject(req, res) {
     if (!targetPath) return jsonResponse(res, 200, { status: 'canceled' });
   }
 
+  // sprint-nto: validate the selection has a DDEV config before handing off
+  // to add-project.sh. Rejecting here lets us return a single clear error
+  // instead of a confusing shell failure in the dashboard toast.
+  if (!projectsModule.hasDdevConfig(targetPath)) {
+    return jsonResponse(res, 400, {
+      status: 'error',
+      message: `No .ddev/config.yaml found in ${targetPath} — drover projects require a DDEV configuration.`,
+    });
+  }
+
   const result = projectsModule.addProject(targetPath);
   const code = result.status === 'error' ? 400 : 200;
   return jsonResponse(res, code, result);
+}
+
+// sprint-nto: GET /api/projects/discover
+// Returns a list of running DDEV projects that are not yet registered
+// with drover so the UI can offer a checkbox-style picker instead of
+// forcing the user through a generic folder dialog.
+function handleDiscoverProjects(req, res) {
+  const registered = projectsModule.listProjects();
+  const unregistered = projectsModule.listRunningDdevUnregistered({ registered });
+  return jsonResponse(res, 200, { running_unregistered: unregistered });
 }
 
 function listProjects() { return projectsModule.listProjects(); }
@@ -3049,26 +3069,115 @@ document.addEventListener('keydown', function(ev){
 // ========================================================================
 // Project registration
 // ========================================================================
+// sprint-nto: Add Project modal — offers three paths: pick from
+// running-but-unregistered DDEV instances (the primary happy path),
+// paste a project path, or fall back to a native folder picker.
+// Server validates the selection has .ddev/config.yaml before writing.
 function addProjectPrompt() {
-  var btn = document.getElementById('btn-add-project');
-  if (btn) { btn.disabled = true; btn.textContent = 'Picking…'; }
+  showAddProjectModal();
+}
+
+function showAddProjectModal() {
+  var content = document.getElementById('modal-content');
+  while (content.firstChild) content.removeChild(content.firstChild);
+
+  var header = document.createElement('div'); header.className = 'modal-header';
+  var title = document.createElement('div'); title.className = 'modal-title'; title.textContent = 'Add Project';
+  var closeBtn = document.createElement('button'); closeBtn.className = 'modal-close'; closeBtn.textContent = '✕';
+  closeBtn.onclick = closeBoardModal;
+  header.appendChild(title); header.appendChild(closeBtn);
+
+  var body = document.createElement('div'); body.className = 'modal-body';
+
+  // Section 1: running DDEV projects not yet registered.
+  var sec1 = document.createElement('div'); sec1.className = 'modal-section';
+  var lbl1 = document.createElement('div'); lbl1.className = 'modal-section-title';
+  lbl1.textContent = 'Running DDEV projects (not yet registered)';
+  sec1.appendChild(lbl1);
+  var runList = document.createElement('div'); runList.id = 'add-proj-running';
+  runList.style.fontFamily = 'var(--mono)'; runList.style.fontSize = '11px';
+  runList.appendChild(document.createTextNode('Loading…'));
+  sec1.appendChild(runList);
+  body.appendChild(sec1);
+
+  // Section 2: paste-path + folder-picker fallback.
+  var sec2 = document.createElement('div'); sec2.className = 'modal-section';
+  var lbl2 = document.createElement('div'); lbl2.className = 'modal-section-title';
+  lbl2.textContent = 'Or paste a project path';
+  sec2.appendChild(lbl2);
+  var row = document.createElement('div');
+  row.style.display = 'flex'; row.style.gap = '8px';
+  var inp = document.createElement('input'); inp.id = 'add-proj-path'; inp.type = 'text';
+  inp.placeholder = '/Users/you/Sites/example'; inp.style.flex = '1'; inp.style.padding = '8px';
+  var pasteBtn = document.createElement('button'); pasteBtn.className = 'btn btn-primary';
+  pasteBtn.textContent = 'Add'; pasteBtn.onclick = function(){ submitAddProject(inp.value.trim()); };
+  var pickerBtn = document.createElement('button'); pickerBtn.className = 'btn';
+  pickerBtn.textContent = 'Pick folder…';
+  pickerBtn.onclick = function(){ submitAddProject(''); };
+  row.appendChild(inp); row.appendChild(pasteBtn); row.appendChild(pickerBtn);
+  sec2.appendChild(row);
+  var hint = document.createElement('div');
+  hint.style.fontSize = '10px'; hint.style.color = 'var(--muted2)'; hint.style.marginTop = '6px';
+  hint.textContent = 'The selected folder must contain .ddev/config.yaml.';
+  sec2.appendChild(hint);
+  body.appendChild(sec2);
+
+  content.appendChild(header); content.appendChild(body);
+  document.getElementById('board-modal').classList.add('open');
+
+  // Load the running-unregistered list.
+  fetch('/api/projects/discover').then(function(r){ return r.json(); }).then(function(d){
+    while (runList.firstChild) runList.removeChild(runList.firstChild);
+    var arr = (d && d.running_unregistered) || [];
+    if (!arr.length) {
+      var empty = document.createElement('div');
+      empty.style.color = 'var(--muted2)'; empty.style.fontStyle = 'italic';
+      empty.textContent = 'No unregistered running DDEV projects.';
+      runList.appendChild(empty);
+      return;
+    }
+    arr.forEach(function(p){
+      var line = document.createElement('div');
+      line.style.display = 'flex'; line.style.alignItems = 'center';
+      line.style.justifyContent = 'space-between'; line.style.padding = '4px 0';
+      line.style.borderBottom = '1px solid var(--border2)';
+      var info = document.createElement('div');
+      info.appendChild(document.createTextNode(p.name));
+      var sub = document.createElement('div');
+      sub.style.fontSize = '9px'; sub.style.color = 'var(--muted2)';
+      sub.textContent = p.approot;
+      info.appendChild(sub);
+      var addBtn = document.createElement('button'); addBtn.className = 'btn btn-primary';
+      addBtn.textContent = 'Add';
+      addBtn.onclick = (function(path){ return function(){ submitAddProject(path); }; })(p.approot);
+      line.appendChild(info); line.appendChild(addBtn);
+      runList.appendChild(line);
+    });
+  }).catch(function(e){
+    while (runList.firstChild) runList.removeChild(runList.firstChild);
+    var err = document.createElement('div');
+    err.style.color = 'var(--crit)';
+    err.textContent = 'Discovery failed: ' + e.message;
+    runList.appendChild(err);
+  });
+}
+
+function submitAddProject(projectPath) {
+  var payload = projectPath ? { path: projectPath } : {};
   fetch('/api/projects/add', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: '{}'
+    body: JSON.stringify(payload),
   })
-    .then(function(r) { return r.json(); })
-    .then(function(b) {
-      b = b || {};
-      if (b.status === 'canceled') return showToast('Add project canceled');
-      if (b.status === 'added')   return showToast('Added ' + b.name);
-      if (b.status === 'exists')  return showToast((b.name || 'project') + ' already registered');
+    .then(function(r){ return r.json().then(function(b){ return { b: b, status: r.status }; }); })
+    .then(function(x){
+      var b = x.b || {};
+      if (b.status === 'canceled') { showToast('Add project canceled'); return; }
+      if (b.status === 'added')   { showToast('Added ' + b.name); closeBoardModal(); if (typeof fetchAll === 'function') fetchAll(); return; }
+      if (b.status === 'exists')  { showToast((b.name || 'project') + ' already registered'); closeBoardModal(); return; }
       showToast('Add project failed: ' + (b.message || 'unknown'));
     })
-    .catch(function(e) { showToast('Request failed: ' + e.message); })
-    .finally(function() {
-      if (btn) { btn.disabled = false; btn.textContent = '+ Add Project'; }
-    });
+    .catch(function(e){ showToast('Request failed: ' + e.message); });
 }
 
 function backfillPrompt() {
@@ -3687,6 +3796,11 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/projects/add' && req.method === 'POST') {
       return handleAddProject(req, res);
+    }
+
+    // sprint-nto: running-but-unregistered DDEV discovery for the picker.
+    if (pathname === '/api/projects/discover' && req.method === 'GET') {
+      return handleDiscoverProjects(req, res);
     }
 
     if (pathname === '/api/projects/backfill' && req.method === 'POST') {

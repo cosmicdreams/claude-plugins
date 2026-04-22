@@ -209,6 +209,40 @@ function classifyBackfillLine(line) {
   return null;
 }
 
+// Validation helper for project paths: drover requires a registered
+// project to have a DDEV config at <path>/.ddev/config.yaml. The Add
+// Project API calls this before invoking add-project.sh so we reject
+// arbitrary folders early with a clear error instead of dumping a
+// confusing shell failure in the toast.
+function hasDdevConfig(projectPath) {
+  if (typeof projectPath !== 'string' || !projectPath) return false;
+  try {
+    return fs.statSync(path.join(projectPath, '.ddev', 'config.yaml')).isFile();
+  } catch { return false; }
+}
+
+// Return ddev projects that are running on the host but not yet
+// registered with drover. Powers the "Pick from running DDEV" tab in
+// the Add Project modal — much nicer UX than a generic folder picker
+// when the user already has the project spun up.
+// `runner` is the injectable shim (default execFileSync) used in tests.
+function listRunningDdevUnregistered({ runner, registered } = {}) {
+  const run = runner || childProcess.execFileSync;
+  const reg = Array.isArray(registered) ? registered : [];
+  let output;
+  try {
+    output = run('ddev', ['list', '-A', '--json-output'], { encoding: 'utf8', timeout: 10000 });
+  } catch { return []; }
+  let parsed;
+  try { parsed = JSON.parse(output); } catch { return []; }
+  const raw = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.raw) ? parsed.raw : []);
+  const regNames = new Set(reg.map(p => p && (p.ddev_project || p.name)).filter(Boolean));
+  return raw
+    .filter(i => i && i.name && (i.status || '').toLowerCase().includes('running'))
+    .filter(i => !regNames.has(i.name))
+    .map(i => ({ name: i.name, approot: i.approot || '', status: i.status || '' }));
+}
+
 // Union of ddev_project names across a projects list. Used by the dashboard
 // in virtual-central mode to build the filter set for `ddev list -A`, so
 // every registered project's ddev instance shows up — not just the one whose
@@ -274,4 +308,4 @@ function listBoards() {
     .filter(Boolean);
 }
 
-module.exports = { projectsFilePath, listProjects, listBoards, ddevProjectNames, resolveCardHostnames, isValidBackfillLogPath, classifyBackfillLine, pickFolderMacOS, addProject, backfill, backfillAsync, parseBackfillOutput };
+module.exports = { projectsFilePath, listProjects, listBoards, ddevProjectNames, resolveCardHostnames, isValidBackfillLogPath, classifyBackfillLine, hasDdevConfig, listRunningDdevUnregistered, pickFolderMacOS, addProject, backfill, backfillAsync, parseBackfillOutput };
