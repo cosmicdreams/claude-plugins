@@ -39,6 +39,34 @@ REQUEST_ID_RE = re.compile(r"\b[0-9a-f]{8,}-[0-9a-f-]{8,}\b")
 PATH_TAIL_RE = re.compile(r"(?:/[^\s/]+){3,}/([^\s/]+/[^\s/]+)")
 WS_RE = re.compile(r"\s+")
 
+# Apache-specific ephemeral tokens. Acquia apache error lines look like:
+#   [Tue Apr 22 10:30:15.123 2026] [proxy_fcgi:error] [pid 12345]
+#     1.2.3.4 "<referer>" "<user-agent-or-@@seq>" vhost=<host>
+#     forwarded_for="ip, ip, ip" request_id="v-<reqid>"
+#     hosting_site=<slug> ahNNN
+# Stable signal: severity (from the `[module:error]` bracket), the `ahNNN`
+# Apache status code when present, and the broad message shape after
+# ephemera are scrubbed. Everything else (quoted referer, quoted UA,
+# vhost, forwarded_for, request_id, stand-alone IPs, `@@xxxx` per-request
+# sequence tokens, hosting_site slug) is per-request ephemera and MUST
+# NOT influence the fingerprint — otherwise every apache line becomes its
+# own "unique" fingerprint and the dashboard degenerates into a 50-row
+# wall of singletons (see T4 of the Friday demo).
+# Matches Apache's bracketed severity / module tag. Accepts both the Acquia
+# simple form (`[error]`, `[warn]`, `[notice]`) and the multi-module form
+# (`[proxy_fcgi:error]`, `[php:warn]`, ...).
+APACHE_MODULE_TAG_RE = re.compile(
+    r"\[(?:[a-z_]+:)?(?:error|warn|warning|notice|info|debug|crit|alert|emerg)\]",
+    re.I,
+)
+APACHE_QUOTED_RE = re.compile(r'"[^"]*"')
+APACHE_KV_DROP_RE = re.compile(
+    r"\b(?:vhost|forwarded_for|request_id|client|referer|user_agent|hosting_site)=\S+",
+    re.I,
+)
+APACHE_AT_SEQ_RE = re.compile(r"@@[A-Za-z0-9]+")
+APACHE_STATUS_CODE_RE = re.compile(r"\b(ah\d{3,5})\b", re.I)
+
 # Apache combined log format: ip - - [timestamp] "METHOD /path HTTP/x.x" status size ...
 ACCESS_LOG_RE = re.compile(
     r'^\d{1,3}(?:\.\d{1,3}){3}\s+\S+\s+\S+\s+\[.+?\]\s+"(?:GET|POST|PUT|DELETE|HEAD|OPTIONS|PATCH)\s+\S+\s+HTTP/\d',
@@ -74,11 +102,18 @@ def classify(line: str) -> str | None:
 
 
 def source_of(line: str) -> str:
-    if "drush" in line.lower() or " | php " in line or " | cron " in line:
+    lo = line.lower()
+    if "drush" in lo or " | php " in line or " | cron " in line:
         return "watchdog"
-    if "[php:" in line.lower() or "php fatal" in line.lower() or "php warning" in line.lower():
+    if "[php:" in lo or "php fatal" in lo or "php warning" in lo:
         return "php"
-    if "[error]" in line.lower() or "[:error]" in line.lower():
+    if "[error]" in lo or "[:error]" in lo or "apache:" in lo:
+        return "apache"
+    # Acquia apache error log: `[<mod>:error]` tag plus a vhost= / hosting_site=
+    # / forwarded_for= kv-pair is a strong apache-error signature.
+    if APACHE_MODULE_TAG_RE.search(line) and (
+        "vhost=" in lo or "hosting_site=" in lo or "forwarded_for=" in lo
+    ):
         return "apache"
     return "other"
 
@@ -96,8 +131,66 @@ def normalize(line: str) -> str:
     return s
 
 
+def _normalize_apache(line: str) -> str:
+    """Build a stable canonical form for an Acquia apache error line.
+
+    When a line carries an Apache status code (`ahNNNN`, e.g. AH01276),
+    the canonical key is ONLY `apache:<ahcode>`. That collapses the 600+
+    variants of "AH01276: Cannot serve directory /some/varying/path/" — all
+    genuinely the same error class — into a single fingerprint with a
+    real occurrence count, which is the whole point of T4.
+
+    When no AH code is present, we scrub per-request ephemera (quoted
+    referer / UA strings, `@@seq` tokens, vhost/forwarded_for/request_id/
+    client/hosting_site kv-pairs, IPs, timestamps, request-id UUIDs) and
+    hash the remaining prose. Path tails are reduced to their parent
+    directory so `cannot serve directory /var/www/html/foo/` and
+    `cannot serve directory /var/www/html/bar/` collapse to the same key.
+    """
+    s = line
+    # If an AH status code exists, that's the whole fingerprint. Every
+    # message body with the same AH code is the same error class.
+    m = APACHE_STATUS_CODE_RE.search(s)
+    if m:
+        return f"apache:{m.group(1).lower()}"
+    # Otherwise, scrub aggressively and hash the residual shape.
+    s = APACHE_QUOTED_RE.sub('""', s)
+    s = APACHE_KV_DROP_RE.sub("", s)
+    s = APACHE_AT_SEQ_RE.sub("", s)
+    s = REQUEST_ID_RE.sub("", s)
+    s = IP_RE.sub("", s)
+    s = TIMESTAMP_RE.sub("", s)
+    s = PID_RE.sub("", s)
+    # Collapse long directory paths to a single `PATH` token so per-request
+    # path variance (`/var/.../themes/custom/foo/` vs `.../bar/`) doesn't
+    # create false-positive fingerprints.
+    s = re.sub(r"/[^\s]{2,}", "PATH", s)
+    s = NUM_RE.sub("", s)
+    s = WS_RE.sub(" ", s).strip().lower()
+    return f"apache:{s}"
+
+
+def _is_apache_line(line: str) -> bool:
+    """Detect Apache error-log shape. Accepts either the raw Acquia shape
+    (has a `[module:error]` or `[module:warn]` tag plus a vhost=/hosting_site=
+    kv-pair) or the drover-internal `[SEV] apache:` rendering.
+    """
+    lo = line.lower()
+    if "apache:" in lo:
+        return True
+    if APACHE_MODULE_TAG_RE.search(line) and (
+        "vhost=" in lo or "hosting_site=" in lo or "forwarded_for=" in lo
+    ):
+        return True
+    return False
+
+
 def fingerprint(line: str) -> str:
-    return hashlib.sha256(normalize(line).encode("utf-8")).hexdigest()[:12]
+    if _is_apache_line(line):
+        key = _normalize_apache(line)
+    else:
+        key = normalize(line)
+    return hashlib.sha256(key.encode("utf-8")).hexdigest()[:12]
 
 
 def fingerprint_structured(
