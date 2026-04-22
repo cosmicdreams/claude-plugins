@@ -1,5 +1,9 @@
 # drover Changelog
 
+## 1.19.1
+- **Dashboard resolves PROJECT_ROOT from drover-config.json, not `git rev-parse` (sprint-06p)**: worktree-style layouts (AHRI, KELLOGG, etc.) have multiple `.beads/` directories under one git repo — invoking `/drover:dashboard` from `worktrees/main` vs the repo root used to produce wildly different boards (2 cards vs 37). The dashboard skill now walks up from `$PWD` for the nearest `.claude/drover-config.json` and uses that directory as `PROJECT_ROOT`, consistent regardless of cwd inside the worktree tree.
+- **Explicit `dashboard.db_path` support**: drover-config.json can now carry `"dashboard": { "db_path": "<path or relative>" }` to pin a single-project dashboard run without setting `DROVER_DB_OVERRIDE` each time. Precedence: env override → config value → `--all-projects` virtual-central fallback.
+
 ## 1.19.0
 - **Per-session notification budget on umbrella stdout (sprint-89h)**: a deploy burst of 20 unique errors used to become 20 per-event harness notifications in under a minute — the existing `THRESH` was per-fingerprint, not per-session. The umbrella now routes its own stdout through a rolling-window budget filter (`scripts/monitors/budget_filter.py`) via `exec > >(python3 …)`. NEW events exceeding `DROVER_NOTIFY_MAX` (default 10) per `DROVER_NOTIFY_WINDOW` seconds (default 300) are dropped; a "`[drover] N NEW events suppressed`" summary is emitted every `DROVER_NOTIFY_SUMMARY_EVERY` drops (default 5). THRESH / TRAFFIC / anything that isn't `[key] NEW …` passes through untouched.
 - **Escape hatch**: `DROVER_NOTIFY_DISABLE=1` bypasses the filter for tests and debugging.
