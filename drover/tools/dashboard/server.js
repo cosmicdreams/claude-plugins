@@ -684,9 +684,18 @@ async function handleAddProject(req, res) {
 // Returns a list of running DDEV projects that are not yet registered
 // with drover so the UI can offer a checkbox-style picker instead of
 // forcing the user through a generic folder dialog.
-function handleDiscoverProjects(req, res) {
+async function handleDiscoverProjects(req, res) {
   const registered = projectsModule.listProjects();
-  const unregistered = projectsModule.listRunningDdevUnregistered({ registered });
+  const regNames = new Set(registered.map(p => p && (p.ddev_project || p.name)).filter(Boolean));
+  let unregistered = [];
+  try {
+    const { stdout } = await execFileP('ddev', ['list', '-A', '--json-output'], { encoding: 'utf8', timeout: 10000 });
+    const parsed = JSON.parse(stdout);
+    const raw = Array.isArray(parsed) ? parsed : (Array.isArray(parsed.raw) ? parsed.raw : []);
+    unregistered = raw
+      .filter(i => i && i.name && (i.status || '').toLowerCase().includes('running') && !regNames.has(i.name))
+      .map(i => ({ name: i.name, approot: i.approot || '' }));
+  } catch { /* ddev unavailable — return empty list */ }
   return jsonResponse(res, 200, { running_unregistered: unregistered });
 }
 
@@ -3079,7 +3088,7 @@ function addProjectPrompt() {
 
 function showAddProjectModal() {
   var content = document.getElementById('modal-content');
-  while (content.firstChild) content.removeChild(content.firstChild);
+  removeChildren(content);
 
   var header = document.createElement('div'); header.className = 'modal-header';
   var title = document.createElement('div'); title.className = 'modal-title'; title.textContent = 'Add Project';
@@ -3127,7 +3136,7 @@ function showAddProjectModal() {
 
   // Load the running-unregistered list.
   fetch('/api/projects/discover').then(function(r){ return r.json(); }).then(function(d){
-    while (runList.firstChild) runList.removeChild(runList.firstChild);
+    removeChildren(runList);
     var arr = (d && d.running_unregistered) || [];
     if (!arr.length) {
       var empty = document.createElement('div');
@@ -3154,7 +3163,7 @@ function showAddProjectModal() {
       runList.appendChild(line);
     });
   }).catch(function(e){
-    while (runList.firstChild) runList.removeChild(runList.firstChild);
+    removeChildren(runList);
     var err = document.createElement('div');
     err.style.color = 'var(--crit)';
     err.textContent = 'Discovery failed: ' + e.message;
@@ -3198,7 +3207,7 @@ function backfillPrompt() {
 // Safe DOM-construction modal — no innerHTML with user data.
 function showBackfillModal(envs) {
   var content = document.getElementById('modal-content');
-  while (content.firstChild) content.removeChild(content.firstChild);
+  removeChildren(content);
 
   var header = document.createElement('div'); header.className = 'modal-header';
   var title = document.createElement('div'); title.className = 'modal-title'; title.textContent = 'Backfill Acquia logs';
@@ -3800,7 +3809,7 @@ const server = http.createServer(async (req, res) => {
 
     // sprint-nto: running-but-unregistered DDEV discovery for the picker.
     if (pathname === '/api/projects/discover' && req.method === 'GET') {
-      return handleDiscoverProjects(req, res);
+      return await handleDiscoverProjects(req, res);
     }
 
     if (pathname === '/api/projects/backfill' && req.method === 'POST') {
