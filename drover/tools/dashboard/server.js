@@ -14,6 +14,8 @@
 const http = require('http');
 const fs = require('fs');
 const { execFileSync, execFile, spawn } = require('child_process');
+const { promisify } = require('util');
+const execFileP = promisify(execFile);
 const { URL } = require('url');
 
 // ---------------------------------------------------------------------------
@@ -281,14 +283,41 @@ function currentBoards() {
   return [{ project: project || 'project', path: require('path').dirname(dir), dbPath: DB_PATH }];
 }
 
-function fetchTickets() {
+// sprint-56q: Query a single bd board. Returns { rows } on success or
+// { error } on any failure — extracted so Promise.all can fan out board
+// queries in parallel. Per-board 5s timeout keeps one stuck db from
+// blocking the whole page load.
+async function queryBoard(board) {
+  try {
+    const { stdout } = await execFileP('bd', [
+      'list', '-l', 'board-drover', '--db', board.dbPath, '--json', '--flat'
+    ], { encoding: 'utf8', timeout: 5000 });
+    let rows;
+    try {
+      rows = JSON.parse(stdout || '[]');
+    } catch {
+      return { project: board.project, error: 'invalid JSON from bd' };
+    }
+    if (!Array.isArray(rows)) {
+      const msg = (rows && rows.error) ? rows.error : 'non-array response from bd';
+      return { project: board.project, error: msg };
+    }
+    return { project: board.project, rows };
+  } catch (err) {
+    return { project: board.project, error: err.message };
+  }
+}
+
+// sprint-56q: parallel board fetch. Previously N sequential execFileSync
+// calls stalled first paint for seconds as more projects registered.
+// Now execFile + Promise.all so overall latency is max-over-boards, not
+// sum-over-boards.
+async function fetchTickets() {
   const now = Date.now();
   if (ticketCache.data && (now - ticketCache.ts) < CACHE_TTL) {
     return ticketCache.data;
   }
   const boards = currentBoards();
-  const merged = [];
-  const boardErrors = [];
   // sprint-2g8: project registry map for hostname resolution. Built once
   // per fetchTickets so we don't re-read projects.json per ticket.
   const projectRegistry = new Map();
@@ -298,39 +327,24 @@ function fetchTickets() {
     }
   } catch { /* silent — hostname enrichment is best-effort */ }
 
-  for (const b of boards) {
-    try {
-      const output = execFileSync('bd', [
-        'list', '-l', 'board-drover', '--db', b.dbPath, '--json', '--flat'
-      ], { encoding: 'utf8', timeout: 5000 });
-      // bd may emit a JSON error object instead of throwing (for schema
-      // mismatches, permissions warnings, etc). Detect and route to
-      // boardErrors so one poisoned db doesn't suppress the rest.
-      let rows;
-      try {
-        rows = JSON.parse(output || '[]');
-      } catch {
-        boardErrors.push({ project: b.project, message: 'invalid JSON from bd' });
-        continue;
-      }
-      if (!Array.isArray(rows)) {
-        const msg = (rows && rows.error) ? rows.error : 'non-array response from bd';
-        boardErrors.push({ project: b.project, message: msg });
-        continue;
-      }
-      const proj = projectRegistry.get(b.project) || null;
-      for (const t of rows) {
-        t.project = b.project;
-        // sprint-2g8: attach resolved hostnames so the UI can show
-        // "pncb.prod.acquia-sites.com" alongside the bare env label.
-        const envLabels = (t.labels || [])
-          .filter(l => typeof l === 'string' && l.startsWith('env-'))
-          .map(l => l.replace('env-', ''));
-        t.hostnames = projectsModule.resolveCardHostnames({ project: b.project, envLabels }, proj);
-        merged.push(t);
-      }
-    } catch (err) {
-      boardErrors.push({ project: b.project, message: err.message });
+  const results = await Promise.all(boards.map(queryBoard));
+  const merged = [];
+  const boardErrors = [];
+  for (let i = 0; i < results.length; i++) {
+    const r = results[i];
+    const b = boards[i];
+    if (r.error) {
+      boardErrors.push({ project: r.project, message: r.error });
+      continue;
+    }
+    const proj = projectRegistry.get(b.project) || null;
+    for (const t of r.rows) {
+      t.project = b.project;
+      const envLabels = (t.labels || [])
+        .filter(l => typeof l === 'string' && l.startsWith('env-'))
+        .map(l => l.replace('env-', ''));
+      t.hostnames = projectsModule.resolveCardHostnames({ project: b.project, envLabels }, proj);
+      merged.push(t);
     }
   }
   // If everything failed AND there was nothing to show, return an error
@@ -340,8 +354,6 @@ function fetchTickets() {
     return { error: boardErrors.map(e => `${e.project}: ${e.message}`).join('\n') };
   }
   if (boardErrors.length) {
-    // Log partial failures to stderr for diagnostic tail -f, but don't
-    // attach to the response (the UI treats arrays as success).
     console.warn('fetchTickets: partial errors:', JSON.stringify(boardErrors));
   }
   ticketCache = { data: merged, ts: now };
@@ -478,8 +490,8 @@ function fetchConfig() {
   }
 }
 
-function fetchHealth() {
-  const tickets = fetchTickets();
+async function fetchHealth() {
+  const tickets = await fetchTickets();
   if (tickets.error) return { error: tickets.error };
 
   const cards = Array.isArray(tickets) ? tickets.map(parseCard) : [];
@@ -797,7 +809,7 @@ async function handleMove(req, res) {
   }
 
   // Find current lane from cached ticket
-  const tickets = fetchTickets();
+  const tickets = await fetchTickets();
   if (tickets.error) return jsonResponse(res, 500, { error: tickets.error });
 
   const ticket = (Array.isArray(tickets) ? tickets : []).find(t => t.id === id);
@@ -840,7 +852,7 @@ async function handleSolution(req, res, ticketId) {
   }
 
   // Locate the ticket across all boards so we know which db to update.
-  const tickets = fetchTickets();
+  const tickets = await fetchTickets();
   if (tickets && tickets.error && !Array.isArray(tickets)) {
     return jsonResponse(res, 500, { status: 'error', message: tickets.error });
   }
@@ -3688,7 +3700,7 @@ const server = http.createServer(async (req, res) => {
 
     // API endpoints
     if (pathname === '/api/board' && req.method === 'GET') {
-      const tickets = fetchTickets();
+      const tickets = await fetchTickets();
       return jsonResponse(res, 200, tickets);
     }
 
@@ -3698,7 +3710,7 @@ const server = http.createServer(async (req, res) => {
     }
 
     if (pathname === '/api/health' && req.method === 'GET') {
-      const health = fetchHealth();
+      const health = await fetchHealth();
       return jsonResponse(res, 200, health);
     }
 
@@ -3795,6 +3807,11 @@ server.listen(PORT, '127.0.0.1', () => {
   if (STATE_PATH) console.log(`State: ${STATE_PATH}`);
   if (CONFIG_PATH) console.log(`Config: ${CONFIG_PATH}`);
   setupWatchers();
+  // sprint-56q: warm the ticket cache at startup so the first /api/board
+  // request paints from cache instead of paying full bd-list latency.
+  fetchTickets().catch(err => {
+    console.warn('initial fetchTickets prefetch failed:', err.message);
+  });
 });
 
 server.on('error', (err) => {
