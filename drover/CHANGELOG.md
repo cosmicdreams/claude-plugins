@@ -1,5 +1,8 @@
 # drover Changelog
 
+## 1.15.1
+- **Dashboard ddev filter aggregates across all registered projects (sprint-7fy)**: `getRelevantDdevProjects` in virtual-central mode was filtering `ddev list -A` output by only the launch-dir `drover-config.json`'s environments, so a user with six running ddev instances across pncb / massport / ahri only saw one in the dashboard. Now it unions `ddev_project` from every registered project in `projects.json` and layers the launch-dir config on top. New pure helper `projects.ddevProjectNames()` keeps the aggregation testable; four new node tests cover union, skip-missing, dedup, and non-array input safety.
+
 ## 1.15.0
 - **Dashboard Solution section in the card modal**: the error-detail modal now shows a structured Solution block with both Projected (written by the implementer agent) and Actual (written by the user) blocks. Fields are extracted from the ticket's notes/body (`### Projected` and `### Actual` subsections). Empty states explicitly say so ("No projected solution. drover:implementer has not run on this ticket." / "Record Actual solution" button).
 - **In-modal Actual solution form**: click "Record Actual solution" to open an inline form with root_cause, fix_summary, fix_commit_sha, and divergence-from-projected dropdown (only shown when a Projected block exists). Save posts to a new `/api/cards/:id/solution` endpoint that writes the structured `### Actual` block via `bd update --append-notes`, moves the ticket to `lane-done`, and closes it. Dashboard refreshes automatically.
