@@ -14,6 +14,11 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const PLUGIN_VERSION = (() => {
+  try {
+    return JSON.parse(fs.readFileSync(path.join(__dirname, '../../.claude-plugin/plugin.json'), 'utf8')).version || '';
+  } catch { return ''; }
+})();
 const { execFileSync, execFile, spawn } = require('child_process');
 const { promisify } = require('util');
 const execFileP = promisify(execFile);
@@ -1025,6 +1030,10 @@ function buildHtml() {
     letter-spacing: -0.01em;
   }
   .wordmark em { font-style: normal; color: var(--crit); }
+  .version-badge {
+    font-family: var(--mono); font-size: 10px; font-weight: 500;
+    color: var(--muted2); letter-spacing: 0.03em;
+  }
 
   .live-badge {
     display: flex; align-items: center; gap: 6px;
@@ -1913,6 +1922,7 @@ function buildHtml() {
   <header class="topbar">
     <div class="topbar-left">
       <span class="wordmark">dro<em>v</em>er</span>
+      ${PLUGIN_VERSION ? `<span class="version-badge">v${PLUGIN_VERSION}</span>` : ''}
       <span class="live-badge"><span class="live-dot"></span>live</span>
     </div>
     <div class="topbar-right">
