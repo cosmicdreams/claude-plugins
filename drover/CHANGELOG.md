@@ -1,5 +1,9 @@
 # drover Changelog
 
+## 1.23.0
+- Backfill modal now respects Acquia's 2-step archive flow (A11). Previously, log types whose archives hadn't been prepared yet were rendered as disabled checkboxes marked "unavailable" — the user had no way to ask Acquia to build one. Each row now renders one of four states driven by the combined Acquia availability flag plus drover's in-flight request state: Ready (checkbox), Not built (Request button), Preparing (spinner + elapsed counter), Failed (Retry button). Clicking Request fires `AcquiaClient.request_log_download()`, the UI flips to Preparing, and a 10-second poll cycle picks up the transition to Ready (or Failed) without any manual refresh. When the archive is ready, the row becomes a pre-checked checkbox; the user then clicks Run Backfill to download and fingerprint the log.
+- New endpoints: `POST /api/logs/request` and `GET /api/logs/status?alias=&type=`. `/api/backfill/log-types` response enriched with per-type `state` / `elapsedSec`, and fans out notification-URL polls for any preparing entries before responding so the UI's periodic refresh sees terminal states quickly.
+
 ## 1.22.0
 - Auto-ingest on dashboard launch (T2): `/drover:dashboard` now spawns a detached-group umbrella watcher at startup (deduped via `~/.claude/drover.umbrella.dashboard.pid`), parses `[<key>] NEW …` lines from umbrella stdout, writes each to the matching project's `.beads/drover.db`, and broadcasts a new `ingest-event` SSE so the UI refetches `/api/board` without a page reload. Previously the dashboard loaded the UI but left ingestion to a separate `/loop` or `/drover:watch` invocation.
 - "Listening for stream messages…" empty state on Pulse tiles for quiet projects (mirrors Acquia Cloud's own UI wording), backed by new `/api/ingestion/status` endpoint.
