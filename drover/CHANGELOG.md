@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.17.1
+- **Parallel `fetchTickets` (sprint-56q)**: the dashboard previously ran `bd list` sequentially against every registered project's board — N × (bd boot ≈ 300ms + dolt open ≈ 200ms) of serial latency on every first paint. Now each board is queried via `util.promisify(execFile)` + `Promise.all`, so total latency is max-over-boards instead of sum-over-boards. Extracted `queryBoard()` as a dedicated async unit that returns `{project, rows}` or `{project, error}` — partial-failure resilience preserved.
+- **Cache prefetch at startup**: `server.listen` callback now fires `fetchTickets()` so the first `/api/board` request paints from cache instead of paying full bd-list latency. Failures are logged but non-fatal.
+- **All four `fetchTickets()` callers** (`/api/board`, `/api/health`, `handleMove`, `handleSolution`) now `await` the async function. `fetchHealth()` is async as well.
+
 ## 1.17.0
 - **In-UI backfill progress indicator (sprint-ydz)**: the Backfill modal used to queue the job and close with a "tail the log" toast — nobody tailed the log. Clicking Run Backfill now swaps the form for a live progress panel that subscribes to a new `GET /api/backfill/progress?log=<path>` SSE endpoint, streaming backfill.sh stdout/stderr line-by-line into a scrolling `<pre>`. A phase badge (QUEUED / STARTING / ARCHIVING / POLLING / DOWNLOADING / PARSING / DONE / TIMEOUT / RECONNECT) updates from known markers in the log. The board refreshes automatically when DONE fires.
 - **Path-safe SSE tail**: server validates the log path via new pure helper `projects.isValidBackfillLogPath(path, logDir)` — must resolve inside `DROVER_BACKFILL_LOG_DIR` (default `/private/tmp`), carry the `drover-backfill-` filename prefix, and exist on disk — refusing symlink games, path traversal, and arbitrary-file reads. Five tests cover accept/traversal/prefix/missing/non-string paths.
