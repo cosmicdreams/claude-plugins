@@ -683,6 +683,311 @@ setInterval(() => {
 }, 30000);
 
 // ---------------------------------------------------------------------------
+// T2: Auto-ingestion — arm the umbrella watcher on dashboard launch so
+// /drover:dashboard is a one-shot entry point ("open the dashboard, data
+// flows in"). Without this, the dashboard renders cold cards only — the
+// umbrella only ran when explicitly armed elsewhere (harness monitor,
+// /drover:watch, /loop).
+//
+// Contract:
+//   - Dashboard owns one umbrella child. PID recorded at DASHBOARD_UMBRELLA_PID
+//     so a second dashboard launch doesn't double-spawn.
+//   - Umbrella stdout lines (format: "[key] NEW <fp> <sev> <src> <env> <msg>")
+//     are parsed and routed to `bd create` in the project's drover.db.
+//   - Per-project / per-source ingestion status is tracked in memory and
+//     exposed via /api/ingestion/status so the UI can render the
+//     "Listening for stream messages…" empty state on Pulse tiles.
+//   - SIGINT/SIGTERM kills the umbrella + child watchers; no orphans.
+//   - If a non-dashboard-owned umbrella is already running we log a
+//     warning but proceed with our own spawn because its stdout is
+//     captured by the harness, not by us. De-duplication at the bd-level
+//     (fingerprint uniqueness) prevents duplicate cards.
+// ---------------------------------------------------------------------------
+
+const DASHBOARD_UMBRELLA_PID_FILE = path.join(process.env.HOME || '/tmp', '.claude', 'drover.umbrella.dashboard.pid');
+const INGEST_STATE_DIR = path.join(
+  process.env.CLAUDE_PLUGIN_DATA
+    || path.join(process.env.HOME || '/tmp', '.claude/plugins/data/drover-fallback'),
+  'dashboard-ingest-state'
+);
+
+let umbrellaChild = null;
+// Map<project-name, { armed, firstEventTs, eventCount, sources }>
+const ingestionStatus = new Map();
+let ingestionArmedAt = null;
+// Reverse lookups: key (ddev:<name> | acquia:<env.uuid>) -> {project, source, dbPath, envLabel, alias, trustLevel}
+const ingestionKeyIndex = new Map();
+
+function buildIngestionIndex() {
+  ingestionKeyIndex.clear();
+  ingestionStatus.clear();
+  let projects = [];
+  try { projects = projectsModule.listProjects() || []; } catch { projects = []; }
+  for (const p of projects) {
+    if (!p || !p.path) continue;
+    const dbPath = projectsModule.findBeadsDb(p.path);
+    if (!dbPath) continue;
+    const projName = p.name || p.ddev_project || path.basename(p.path);
+    ingestionStatus.set(projName, {
+      project: projName,
+      path: p.path,
+      armed: true,
+      firstEventTs: null,
+      lastEventTs: null,
+      eventCount: 0,
+      sources: {},
+    });
+    const ddevName = p.ddev_project || p.name;
+    if (ddevName) {
+      ingestionKeyIndex.set(`ddev:${ddevName}`, {
+        project: projName, source: 'ddev', dbPath,
+        envLabel: ddevName, alias: ddevName, trustLevel: 'low',
+      });
+    }
+    const parentUuid = (p.acquia && p.acquia.app_uuid) || '';
+    for (const e of (p.acquia && p.acquia.environments) || []) {
+      const envName = e.env || e.name || '';
+      const appUuid = e.app_uuid || parentUuid;
+      const alias = e.alias || (envName && p.name ? `${p.name}.${envName}` : envName);
+      if (appUuid && envName) {
+        ingestionKeyIndex.set(`acquia:${envName}.${appUuid}`, {
+          project: projName, source: `acquia:${envName}`, dbPath,
+          envLabel: envName, alias, trustLevel: e.trust_level || 'medium',
+        });
+      }
+    }
+  }
+}
+
+function markEvent(key) {
+  const meta = ingestionKeyIndex.get(key);
+  if (!meta) return null;
+  const st = ingestionStatus.get(meta.project);
+  if (!st) return meta;
+  const now = new Date().toISOString();
+  if (!st.firstEventTs) st.firstEventTs = now;
+  st.lastEventTs = now;
+  st.eventCount++;
+  const srcKey = meta.source;
+  if (!st.sources[srcKey]) st.sources[srcKey] = { count: 0, firstTs: now, lastTs: now };
+  st.sources[srcKey].count++;
+  st.sources[srcKey].lastTs = now;
+  return meta;
+}
+
+// Fingerprint-existence cache per db (session-scoped).
+const ingestExistingFp = new Map(); // dbPath -> Set<fp>
+
+async function getExistingFingerprints(dbPath) {
+  if (ingestExistingFp.has(dbPath)) return ingestExistingFp.get(dbPath);
+  const set = new Set();
+  try {
+    const { stdout } = await execFileP('bd', [
+      'list', '-l', 'board-drover', '--db', dbPath, '--json', '--flat'
+    ], { encoding: 'utf8', timeout: 10000 });
+    const cards = JSON.parse(stdout || '[]');
+    if (Array.isArray(cards)) {
+      for (const c of cards) {
+        const body = c.description || c.body || '';
+        const m = body.match(/\*\*Fingerprint:\*\*\s+`([a-f0-9]+)`/);
+        if (m) set.add(m[1]);
+      }
+    }
+  } catch { /* treat as empty */ }
+  ingestExistingFp.set(dbPath, set);
+  return set;
+}
+
+// Parse one umbrella stdout line.
+//   [<kind>:<id>] NEW <fp> <severity> <source> <env> <message...>
+//   [<kind>:<id>] THRESH <fp> count=<n> <severity> <source> <env>
+async function handleUmbrellaLine(rawLine) {
+  const line = rawLine.trim();
+  if (!line) return;
+  const m = line.match(/^\[([^\]]+)\]\s+(.+)$/);
+  if (!m) return;
+  const key = m[1];
+  const payload = m[2];
+
+  if (payload.startsWith('NEW ')) {
+    const parts = payload.slice(4).split(' ');
+    if (parts.length < 5) return;
+    const fp = parts[0];
+    const sev = parts[1];
+    const src = parts[2];
+    const msg = parts.slice(4).join(' ').slice(0, 200);
+    const meta = markEvent(key);
+    if (!meta) return;
+    try {
+      const existing = await getExistingFingerprints(meta.dbPath);
+      if (existing.has(fp)) return;
+      const sevLabel = SEV_LABEL_MAP[sev] || 'error';
+      const title = `[${(sev || 'error').toUpperCase()}] ${src || 'source'}: ${msg || '(no message)'}`;
+      const body =
+        `**Fingerprint:** \`${fp}\`\n` +
+        `**Total Occurrences:** 1\n` +
+        `**Source:** ${src || 'unknown'}\n` +
+        `**Ingested via:** dashboard live stream\n\n` +
+        `## Error Message\n${msg || '(no message)'}\n`;
+      const labels = `board-drover,lane-triage,severity-${sevLabel},source-${src || 'unknown'},env-${meta.envLabel},trust-${meta.trustLevel}`;
+      await execFileP('bd', ['create', title, '--db', meta.dbPath, '--labels', labels, '--description', body],
+        { encoding: 'utf8', timeout: 8000 });
+      existing.add(fp);
+      ticketCache = { data: null, ts: 0 };
+      broadcast('board-update', { ts: new Date().toISOString(), project: meta.project, via: 'live-ingest' });
+      broadcast('ingest-event', { ts: new Date().toISOString(), project: meta.project, source: meta.source, fp });
+      console.log(`[ingest] NEW ${fp} ${sev} ${src} -> bd card in project=${meta.project}`);
+    } catch (err) {
+      console.warn(`[ingest] bd create failed for fp=${fp}: ${err.message}`);
+    }
+    return;
+  }
+
+  if (payload.startsWith('THRESH ')) {
+    markEvent(key);
+    broadcast('ingest-event', { ts: new Date().toISOString(), key, kind: 'threshold' });
+  }
+}
+
+function readExistingDashboardPid() {
+  try {
+    if (!fs.existsSync(DASHBOARD_UMBRELLA_PID_FILE)) return 0;
+    const pid = parseInt(fs.readFileSync(DASHBOARD_UMBRELLA_PID_FILE, 'utf8').trim(), 10);
+    if (!pid) return 0;
+    try { process.kill(pid, 0); return pid; } catch { return 0; }
+  } catch { return 0; }
+}
+
+function detectExternalUmbrellas(ownPid) {
+  try {
+    const out = execFileSync('pgrep', ['-f', 'umbrella-watch.sh'], { encoding: 'utf8', timeout: 3000 });
+    return out.split('\n').map(s => parseInt(s.trim(), 10)).filter(p => p && p !== ownPid);
+  } catch { return []; }
+}
+
+function startAutoIngestion() {
+  try { fs.mkdirSync(path.dirname(DASHBOARD_UMBRELLA_PID_FILE), { recursive: true }); } catch {}
+  try { fs.mkdirSync(INGEST_STATE_DIR, { recursive: true }); } catch {}
+
+  buildIngestionIndex();
+  if (ingestionKeyIndex.size === 0) {
+    console.log('[ingest] no registered projects with bd boards; umbrella not armed');
+    return;
+  }
+
+  const existing = readExistingDashboardPid();
+  if (existing) {
+    console.log(`[ingest] dashboard-owned umbrella already alive (pid=${existing}); not double-arming`);
+    ingestionArmedAt = new Date().toISOString();
+    return;
+  }
+
+  const plugin = path.resolve(__dirname, '../../');
+  const umbrella = path.join(plugin, 'scripts/monitors/umbrella-watch.sh');
+  if (!fs.existsSync(umbrella)) {
+    console.warn(`[ingest] umbrella-watch.sh not found at ${umbrella}; auto-arm disabled`);
+    return;
+  }
+
+  const external = detectExternalUmbrellas(process.pid);
+  if (external.length > 0) {
+    console.log(`[ingest] note: ${external.length} external umbrella watcher(s) running (pids=${external.join(',')}); spawning dashboard-owned child for live UI events. bd fingerprint dedup prevents duplicate cards.`);
+  }
+
+  const env = Object.assign({}, process.env, {
+    DROVER_STATE_DIR: INGEST_STATE_DIR,
+    DROVER_UMBRELLA_LOG: path.join(process.env.HOME || '/tmp', '.claude', 'drover.umbrella.dashboard.log'),
+    DROVER_UMBRELLA_POLL: process.env.DROVER_UMBRELLA_POLL || '15',
+    DROVER_NOTIFY_DISABLE: '1',
+  });
+
+  try {
+    // detached:true gives the umbrella its own process group. On shutdown we
+    // signal the whole group (process.kill(-pid, …)) so every per-project
+    // watcher child dies with it — otherwise they reparent to init and
+    // outlive the dashboard.
+    umbrellaChild = spawn('bash', [umbrella], {
+      env,
+      stdio: ['ignore', 'pipe', 'pipe'],
+      detached: true,
+    });
+  } catch (err) {
+    console.warn(`[ingest] failed to spawn umbrella: ${err.message}`);
+    umbrellaChild = null;
+    return;
+  }
+
+  try { fs.writeFileSync(DASHBOARD_UMBRELLA_PID_FILE, String(umbrellaChild.pid) + '\n'); } catch {}
+  ingestionArmedAt = new Date().toISOString();
+  console.log(`[ingest] umbrella armed (pid=${umbrellaChild.pid}); state-dir=${INGEST_STATE_DIR}; projects=${ingestionStatus.size}`);
+
+  let carry = '';
+  umbrellaChild.stdout.on('data', chunk => {
+    const combined = carry + chunk.toString('utf8');
+    const lines = combined.split('\n');
+    carry = lines.pop();
+    for (const line of lines) {
+      if (!line) continue;
+      handleUmbrellaLine(line).catch(err => console.warn(`[ingest] handler error: ${err.message}`));
+    }
+  });
+
+  umbrellaChild.stderr.on('data', chunk => {
+    const text = chunk.toString('utf8').trim();
+    if (text) console.log(`[ingest stderr] ${text.split('\n').slice(0, 3).join(' | ')}`);
+  });
+
+  umbrellaChild.on('exit', (code, signal) => {
+    console.log(`[ingest] umbrella exited code=${code} signal=${signal || ''}`);
+    umbrellaChild = null;
+    try { fs.unlinkSync(DASHBOARD_UMBRELLA_PID_FILE); } catch {}
+  });
+}
+
+function stopAutoIngestion() {
+  if (umbrellaChild && umbrellaChild.pid && !umbrellaChild.killed) {
+    const pid = umbrellaChild.pid;
+    // Kill the whole process group so per-project watchers (acquia-watch.py,
+    // ddev-watch.py) don't reparent to init and survive the dashboard.
+    try { process.kill(-pid, 'SIGTERM'); } catch {}
+    // Synchronous spin — we're in shutdown, we want the child gone before we
+    // exit. Bounded to ~1.5s total (15 * 100ms) then escalate to SIGKILL.
+    const deadline = Date.now() + 1500;
+    while (Date.now() < deadline) {
+      try { process.kill(-pid, 0); } catch { break; }
+      // poll with execFileSync so we actually yield
+      try { execFileSync('sleep', ['0.1']); } catch { break; }
+    }
+    try { process.kill(-pid, 0); process.kill(-pid, 'SIGKILL'); } catch { /* already gone */ }
+  }
+  try { fs.unlinkSync(DASHBOARD_UMBRELLA_PID_FILE); } catch {}
+}
+
+function ingestionStatusSnapshot() {
+  const projects = {};
+  for (const [k, v] of ingestionStatus.entries()) {
+    projects[k] = {
+      project: v.project,
+      armed: v.armed,
+      firstEventTs: v.firstEventTs,
+      lastEventTs: v.lastEventTs,
+      eventCount: v.eventCount,
+      sources: v.sources,
+    };
+  }
+  return {
+    armedAt: ingestionArmedAt,
+    umbrellaPid: umbrellaChild && umbrellaChild.pid || 0,
+    umbrellaAlive: !!(umbrellaChild && !umbrellaChild.killed),
+    projects,
+  };
+}
+
+process.on('SIGINT', () => { console.log('[ingest] SIGINT received; stopping umbrella'); stopAutoIngestion(); process.exit(0); });
+process.on('SIGTERM', () => { console.log('[ingest] SIGTERM received; stopping umbrella'); stopAutoIngestion(); process.exit(0); });
+process.on('exit', () => { stopAutoIngestion(); });
+
+// ---------------------------------------------------------------------------
 // Project registration (/api/projects, /api/projects/add)
 // ---------------------------------------------------------------------------
 
@@ -1427,6 +1732,18 @@ function buildHtml() {
   .sev-pill.c { background:var(--crit-dim); color:var(--crit); }
   .sev-pill.w { background:var(--warn-dim); color:var(--warn); }
   .sev-pill.i { background:var(--info-dim); color:var(--info); }
+  /* T2: "Listening for stream messages…" state on Pulse tiles — distinguishes
+     "armed + no events yet" from "healthy / 0 open" so a quiet project isn't
+     mistaken for a broken monitor. */
+  .sev-pill.listening {
+    background: rgba(94,92,230,0.14); color: #9e9cff;
+    letter-spacing:0.02em;
+    animation: listening-pulse 2.2s ease-in-out infinite;
+  }
+  @keyframes listening-pulse {
+    0%,100% { opacity: 0.75; }
+    50%     { opacity: 1;    }
+  }
 
   .pulse-bottom { display:grid; grid-template-columns:1fr 300px; gap:10px; }
 
@@ -2390,6 +2707,7 @@ function removeChildren(node){ while(node.firstChild) node.removeChild(node.firs
 var ALL_CARDS = [];
 var HEALTH = {};
 var TIMELINE = [];
+var INGESTION = {};
 var currentView = 'dashboard';
 var showClosedLanes = false;
 var activeFilters = { sev: {}, env: {} };
@@ -2423,11 +2741,13 @@ function fetchAll() {
   return Promise.all([
     fetch('/api/board').then(function(r){return r.json();}),
     fetch('/api/health').then(function(r){return r.json();}),
-    fetch('/api/timeline').then(function(r){return r.json();})
+    fetch('/api/timeline').then(function(r){return r.json();}),
+    fetch('/api/ingestion/status').then(function(r){return r.json();}).catch(function(){return null;})
   ]).then(function(results) {
     var board = results[0];
     HEALTH = results[1];
     TIMELINE = results[2];
+    INGESTION = results[3] || {};
 
     if (Array.isArray(board)) {
       ALL_CARDS = board.map(parseCardClient);
@@ -2569,6 +2889,22 @@ function renderEnvTiles() {
     return;
   }
 
+  // T2: is live ingestion armed but not yet producing events? If so,
+  // empty tiles render "Listening for stream messages…" instead of the
+  // default "0 open" green pill, which was ambiguous between "healthy"
+  // and "ingest is broken". Wording mirrors Acquia Cloud's own log-stream
+  // UI (spec §4.12.a).
+  var ingestionArmed = !!(INGESTION && INGESTION.umbrellaAlive);
+  var totalIngestEvents = 0;
+  if (INGESTION && INGESTION.projects) {
+    for (var pname in INGESTION.projects) {
+      if (INGESTION.projects[pname] && INGESTION.projects[pname].eventCount) {
+        totalIngestEvents += INGESTION.projects[pname].eventCount;
+      }
+    }
+  }
+  var listeningNoEvents = ingestionArmed && totalIngestEvents === 0;
+
   envNames.forEach(function(name, idx) {
     var env = envs[name];
     var tile = el('div','env-tile ' + env.status);
@@ -2589,7 +2925,15 @@ function renderEnvTiles() {
     var pills = el('div','env-sev-pills');
     if (env.critCount > 0) pills.appendChild(txt('span','sev-pill c',env.critCount+' crit'));
     if (env.warnCount > 0) pills.appendChild(txt('span','sev-pill w',env.warnCount+' warn'));
-    if (env.critCount === 0 && env.warnCount === 0) pills.appendChild(txt('span','sev-pill i','0 open'));
+    if (env.critCount === 0 && env.warnCount === 0) {
+      if (env.count === 0 && listeningNoEvents) {
+        var pill = txt('span','sev-pill listening','Listening for stream messages…');
+        pill.title = 'Umbrella watcher is armed; no new events yet in this dashboard session.';
+        pills.appendChild(pill);
+      } else {
+        pills.appendChild(txt('span','sev-pill i','0 open'));
+      }
+    }
     right.appendChild(pills);
     body.appendChild(right);
     tile.appendChild(body);
@@ -4187,6 +4531,7 @@ function connectSSE() {
   var evtSource = new EventSource('/events');
   evtSource.addEventListener('board-update', function(){ fetchAll(); });
   evtSource.addEventListener('cycle-complete', function(){ fetchAll(); });
+  evtSource.addEventListener('ingest-event', function(){ fetchAll(); });
   evtSource.addEventListener('ddev-status', function(ev){
     try {
       DDEV_INSTANCES = JSON.parse(ev.data);
@@ -4300,6 +4645,29 @@ const server = http.createServer(async (req, res) => {
       return jsonResponse(res, 200, health);
     }
 
+    // T2: live ingestion status — per-project armed / event counts so the
+    // UI can render the "Listening for stream messages…" empty state.
+    if (pathname === '/api/ingestion/status' && req.method === 'GET') {
+      return jsonResponse(res, 200, ingestionStatusSnapshot());
+    }
+
+    // T2 test harness: simulate an umbrella stdout line so evidence runs can
+    // demonstrate the end-to-end path (watcher line -> bd create -> SSE push
+    // -> UI row) without waiting for a real DDEV/Acquia event. Gated by
+    // DROVER_TEST_INGEST=1 so the endpoint returns 404 in normal operation.
+    if (pathname === '/api/ingestion/__test_event' && req.method === 'POST') {
+      if (process.env.DROVER_TEST_INGEST !== '1') {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Not Found');
+      }
+      let body;
+      try { body = await readBody(req); } catch { body = null; }
+      const line = (body && body.line) || '';
+      if (!line) return jsonResponse(res, 400, { error: 'line required' });
+      handleUmbrellaLine(line).catch(err => console.warn('[ingest-test] ' + err.message));
+      return jsonResponse(res, 200, { ok: true, line });
+    }
+
     if (pathname === '/api/move' && req.method === 'POST') {
       return await handleMove(req, res);
     }
@@ -4410,6 +4778,15 @@ server.listen(PORT, '127.0.0.1', () => {
   fetchTickets().catch(err => {
     console.warn('initial fetchTickets prefetch failed:', err.message);
   });
+  // T2: auto-arm the umbrella watcher so opening the dashboard starts
+  // live ingestion without requiring a separate /drover:watch invocation.
+  // Can be disabled for tests via DROVER_DISABLE_AUTOINGEST=1.
+  if (!process.env.DROVER_DISABLE_AUTOINGEST) {
+    try { startAutoIngestion(); }
+    catch (err) { console.warn('auto-ingest startup failed:', err.message); }
+  } else {
+    console.log('[ingest] auto-ingest disabled via DROVER_DISABLE_AUTOINGEST');
+  }
 });
 
 server.on('error', (err) => {

@@ -1,0 +1,239 @@
+- generic [active] [ref=e1]:
+  - link "Skip to errors" [ref=e2] [cursor=pointer]:
+    - /url: "#tbody"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - text: dro
+          - emphasis [ref=e7]: v
+          - text: er
+        - generic [ref=e8]: v1.21.0
+        - generic [ref=e9]: live
+      - generic [ref=e11]:
+        - generic [ref=e12]: 2026-04-22 · 13:26:16
+        - button "☷ Dashboard" [ref=e13] [cursor=pointer]
+        - button "⊞ Board" [ref=e14] [cursor=pointer]
+        - button "+ Add Project" [ref=e15] [cursor=pointer]
+        - button "Backfill" [ref=e16] [cursor=pointer]
+    - region "DDEV instances" [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - generic [ref=e59]: DDEV Instances
+          - generic [ref=e60]: 5 of 6 running
+        - button "▼" [ref=e61] [cursor=pointer]
+      - generic [ref=e62]:
+        - 'status "AHRI-main DDEV instance: running" [ref=e63]':
+          - button "Stop AHRI-main DDEV instance" [ref=e65] [cursor=pointer]: Stop
+          - generic [ref=e66]:
+            - text: running
+            - generic [ref=e69]: AHRI
+        - 'status "de-regression-tests DDEV instance: running" [ref=e70]':
+          - button "Stop de-regression-tests DDEV instance" [ref=e72] [cursor=pointer]: Stop
+          - generic [ref=e73]:
+            - text: running
+            - generic [ref=e76]: de-regression-tests
+        - 'status "kd DDEV instance: stopped" [ref=e77]':
+          - button "Start kd DDEV instance" [ref=e79] [cursor=pointer]: Start
+          - generic [ref=e80]:
+            - text: stopped
+            - generic [ref=e83]: kd
+        - 'status "kd-sprint1 DDEV instance: running" [ref=e84]':
+          - button "Stop kd-sprint1 DDEV instance" [ref=e86] [cursor=pointer]: Stop
+          - generic [ref=e87]:
+            - text: running
+            - generic [ref=e90]: kd-sprint1
+        - 'status "massport-main DDEV instance: running" [ref=e91]':
+          - button "Stop massport-main DDEV instance" [ref=e93] [cursor=pointer]: Stop
+          - generic [ref=e94]:
+            - text: running
+            - generic [ref=e97]: massport
+        - 'status "spsx-527 DDEV instance: running" [ref=e98]':
+          - button "Stop spsx-527 DDEV instance" [ref=e100] [cursor=pointer]: Stop
+          - generic [ref=e101]:
+            - text: running
+            - generic [ref=e104]: spsx-527
+    - generic [ref=e17]:
+      - region "Environment health overview" [ref=e18]:
+        - generic [ref=e19]: Pulse
+        - generic [ref=e105]:
+          - generic [ref=e106]:
+            - generic [ref=e107]:
+              - generic [ref=e108]: prod
+              - generic [ref=e109]: Warning
+            - generic [ref=e110]:
+              - generic [ref=e112]: "6"
+              - generic [ref=e115]: 1 warn
+          - generic [ref=e116]:
+            - generic [ref=e117]:
+              - generic [ref=e118]: local
+              - generic [ref=e119]: Healthy
+            - generic [ref=e120]:
+              - generic [ref=e122]: "0"
+              - generic "Umbrella watcher is armed; no new events yet in this dashboard session." [ref=e125]: Listening for stream messages…
+          - generic [ref=e126]:
+            - generic [ref=e127]:
+              - generic [ref=e128]: staging
+              - generic [ref=e129]: Healthy
+            - generic [ref=e130]:
+              - generic [ref=e132]: "0"
+              - generic "Umbrella watcher is armed; no new events yet in this dashboard session." [ref=e135]: Listening for stream messages…
+          - generic [ref=e136]:
+            - generic [ref=e137]:
+              - generic [ref=e138]: production
+              - generic [ref=e139]: Healthy
+            - generic [ref=e140]:
+              - generic [ref=e142]: "0"
+              - generic "Umbrella watcher is armed; no new events yet in this dashboard session." [ref=e145]: Listening for stream messages…
+        - generic [ref=e20]:
+          - generic [ref=e21]:
+            - generic [ref=e22]:
+              - text: Error volume
+              - generic [ref=e23]:
+                - button "24h" [pressed] [ref=e24] [cursor=pointer]
+                - button "7d" [ref=e25] [cursor=pointer]
+                - button "30d" [ref=e26] [cursor=pointer]
+            - generic [ref=e27]:
+              - img "Error volume over time" [ref=e28]
+              - generic [ref=e148]:
+                - generic [ref=e149]: 20:31
+                - generic [ref=e150]: 03:03
+          - generic [ref=e29]:
+            - generic [ref=e30]: Last triage cycle
+            - generic [ref=e31]: 2026-04-22T03:03:11Z
+            - generic [ref=e151]:
+              - generic [ref=e152]:
+                - generic [ref=e154]: "3"
+                - generic [ref=e155]: New errors
+              - generic [ref=e156]:
+                - generic [ref=e158]: "0"
+                - generic [ref=e159]: Augmented
+              - generic [ref=e160]:
+                - generic [ref=e161]: "3"
+                - generic [ref=e162]: Promoted
+              - generic [ref=e163]:
+                - generic [ref=e165]: "0"
+                - generic [ref=e166]: Cross-env
+      - generic "Error investigation" [ref=e33]:
+        - complementary "Filters" [ref=e34]:
+          - generic [ref=e36]: none
+          - generic [ref=e167]:
+            - generic [ref=e168]:
+              - generic [ref=e169]: Severity
+              - checkbox "CRIT 0" [ref=e170] [cursor=pointer]:
+                - generic [ref=e171]: CRIT
+                - generic [ref=e173]: "0"
+              - checkbox "WARN 1" [ref=e174] [cursor=pointer]:
+                - generic [ref=e175]: WARN
+                - generic [ref=e177]: "1"
+              - checkbox "INFO 5" [ref=e178] [cursor=pointer]:
+                - generic [ref=e179]: INFO
+                - generic [ref=e181]: "5"
+            - generic [ref=e182]:
+              - generic [ref=e183]: Environment
+              - checkbox "prod 6" [ref=e184] [cursor=pointer]:
+                - generic [ref=e185]: prod
+                - generic [ref=e186]: "6"
+        - generic [ref=e37]:
+          - generic [ref=e39]:
+            - generic [ref=e40]:
+              - generic [ref=e41]: ⌕
+              - textbox "Search errors" [ref=e42]:
+                - /placeholder: search errors, fingerprints, environments…
+            - generic [ref=e43]: 6 errors
+          - table [ref=e45]:
+            - rowgroup [ref=e46]:
+              - row "Sev Error Project Occ Env Age ↓ Lane" [ref=e47]:
+                - columnheader "Sev" [ref=e48] [cursor=pointer]
+                - columnheader "Error" [ref=e49] [cursor=pointer]
+                - columnheader "Project" [ref=e50] [cursor=pointer]
+                - columnheader "Occ" [ref=e51] [cursor=pointer]
+                - columnheader "Env" [ref=e52] [cursor=pointer]
+                - columnheader "Age ↓" [ref=e53] [cursor=pointer]
+                - columnheader "Lane" [ref=e54] [cursor=pointer]
+            - rowgroup [ref=e187]:
+              - 'row "INFO [NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully fp:05d485fbce72 ahri-main 14 prod 2h READY" [ref=e188] [cursor=pointer]':
+                - cell "INFO" [ref=e189]:
+                  - generic [ref=e190]: INFO
+                - 'cell "[NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully fp:05d485fbce72" [ref=e192]':
+                  - generic [ref=e193]:
+                    - img [ref=e194]
+                    - generic [ref=e196]: "[NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully"
+                  - generic [ref=e197]: fp:05d485fbce72
+                - cell "ahri-main" [ref=e198]
+                - cell "14" [ref=e199]
+                - cell "prod" [ref=e200]:
+                  - generic [ref=e202]: prod
+                - cell "2h" [ref=e203]
+                - cell "READY" [ref=e204]
+              - 'row "WARN [ERROR] apache: ts ts ts ip \"-\" \"mozilla/n.n (windows nt n.n; win64; x64) applewebkit/n.n (khtml, like gecko) chrome/ip safari/n.n\" vhost=ahridrupalhosting.prod.acquia-sites.com forwarded_for=\"ip, ip, ip\" request_id= fp:79e8fbbb9f9f ahri-main 666 prod 2h TRIAGE" [ref=e205] [cursor=pointer]':
+                - cell "WARN" [ref=e206]:
+                  - generic [ref=e207]: WARN
+                - 'cell "[ERROR] apache: ts ts ts ip \"-\" \"mozilla/n.n (windows nt n.n; win64; x64) applewebkit/n.n (khtml, like gecko) chrome/ip safari/n.n\" vhost=ahridrupalhosting.prod.acquia-sites.com forwarded_for=\"ip, ip, ip\" request_id= fp:79e8fbbb9f9f" [ref=e209]':
+                  - generic [ref=e210]:
+                    - img [ref=e211]
+                    - generic [ref=e213]: "[ERROR] apache: ts ts ts ip \"-\" \"mozilla/n.n (windows nt n.n; win64; x64) applewebkit/n.n (khtml, like gecko) chrome/ip safari/n.n\" vhost=ahridrupalhosting.prod.acquia-sites.com forwarded_for=\"ip, ip, ip\" request_id="
+                  - generic [ref=e214]: fp:79e8fbbb9f9f
+                - cell "ahri-main" [ref=e215]
+                - cell "666" [ref=e216]
+                - cell "prod" [ref=e217]:
+                  - generic [ref=e219]: prod
+                - cell "2h" [ref=e220]
+                - cell "TRIAGE" [ref=e221]
+              - 'row "INFO [NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00489: apache/n.n.n (ubuntu) configured -- resuming normal operations fp:418c90c38ccd ahri-main 14 prod 2h TRIAGE" [ref=e222] [cursor=pointer]':
+                - cell "INFO" [ref=e223]:
+                  - generic [ref=e224]: INFO
+                - 'cell "[NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00489: apache/n.n.n (ubuntu) configured -- resuming normal operations fp:418c90c38ccd" [ref=e226]':
+                  - generic [ref=e227]:
+                    - img [ref=e228]
+                    - generic [ref=e230]: "[NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00489: apache/n.n.n (ubuntu) configured -- resuming normal operations"
+                  - generic [ref=e231]: fp:418c90c38ccd
+                - cell "ahri-main" [ref=e232]
+                - cell "14" [ref=e233]
+                - cell "prod" [ref=e234]:
+                  - generic [ref=e236]: prod
+                - cell "2h" [ref=e237]
+                - cell "TRIAGE" [ref=e238]
+              - 'row "INFO [NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00094: command line: ''/usr/sbin/apache2 -d foreground'' fp:2512875211e7 ahri-main 14 prod 2h TRIAGE" [ref=e239] [cursor=pointer]':
+                - cell "INFO" [ref=e240]:
+                  - generic [ref=e241]: INFO
+                - 'cell "[NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00094: command line: ''/usr/sbin/apache2 -d foreground'' fp:2512875211e7" [ref=e243]':
+                  - generic [ref=e244]:
+                    - img [ref=e245]
+                    - generic [ref=e247]: "[NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00094: command line: '/usr/sbin/apache2 -d foreground'"
+                  - generic [ref=e248]: fp:2512875211e7
+                - cell "ahri-main" [ref=e249]
+                - cell "14" [ref=e250]
+                - cell "prod" [ref=e251]:
+                  - generic [ref=e253]: prod
+                - cell "2h" [ref=e254]
+                - cell "TRIAGE" [ref=e255]
+              - 'row "INFO [NOTICE] other: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully fp:83827b906832 ahri-main 1 prod 12h TRIAGE" [ref=e256] [cursor=pointer]':
+                - cell "INFO" [ref=e257]:
+                  - generic [ref=e258]: INFO
+                - 'cell "[NOTICE] other: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully fp:83827b906832" [ref=e260]':
+                  - generic [ref=e261]:
+                    - img [ref=e262]
+                    - generic [ref=e264]: "[NOTICE] other: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully"
+                  - generic [ref=e265]: fp:83827b906832
+                - cell "ahri-main" [ref=e266]
+                - cell "1" [ref=e267]
+                - cell "prod" [ref=e268]:
+                  - generic [ref=e270]: prod
+                - cell "12h" [ref=e271]
+                - cell "TRIAGE" [ref=e272]
+              - 'row "INFO [NOTICE] other: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully fp:83827b906832 ahri-main 1 prod 12h TRIAGE" [ref=e273] [cursor=pointer]':
+                - cell "INFO" [ref=e274]:
+                  - generic [ref=e275]: INFO
+                - 'cell "[NOTICE] other: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully fp:83827b906832" [ref=e277]':
+                  - generic [ref=e278]:
+                    - img [ref=e279]
+                    - generic [ref=e281]: "[NOTICE] other: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully"
+                  - generic [ref=e282]: fp:83827b906832
+                - cell "ahri-main" [ref=e283]
+                - cell "1" [ref=e284]
+                - cell "prod" [ref=e285]:
+                  - generic [ref=e287]: prod
+                - cell "12h" [ref=e288]
+                - cell "TRIAGE" [ref=e289]
+  - alert [ref=e55]

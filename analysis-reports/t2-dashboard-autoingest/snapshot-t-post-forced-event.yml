@@ -1,0 +1,394 @@
+- generic [active] [ref=e1]:
+  - link "Skip to errors" [ref=e2] [cursor=pointer]:
+    - /url: "#tbody"
+  - generic [ref=e3]:
+    - banner [ref=e4]:
+      - generic [ref=e5]:
+        - generic [ref=e6]:
+          - text: dro
+          - emphasis [ref=e7]: v
+          - text: er
+        - generic [ref=e8]: v1.21.0
+        - generic [ref=e9]: live
+      - generic [ref=e11]:
+        - generic [ref=e12]: 2026-04-22 · 13:35:01
+        - button "☷ Dashboard" [ref=e13] [cursor=pointer]
+        - button "⊞ Board" [ref=e14] [cursor=pointer]
+        - button "+ Add Project" [ref=e15] [cursor=pointer]
+        - button "Backfill" [ref=e16] [cursor=pointer]
+    - region "DDEV instances" [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - generic [ref=e59]: DDEV Instances
+          - generic [ref=e60]: 5 of 6 running
+        - button "▼" [ref=e61] [cursor=pointer]
+      - generic [ref=e62]:
+        - 'status "AHRI-main DDEV instance: running" [ref=e63]':
+          - button "Stop AHRI-main DDEV instance" [ref=e65] [cursor=pointer]: Stop
+          - generic [ref=e66]:
+            - text: running
+            - generic [ref=e69]: AHRI
+        - 'status "de-regression-tests DDEV instance: running" [ref=e70]':
+          - button "Stop de-regression-tests DDEV instance" [ref=e72] [cursor=pointer]: Stop
+          - generic [ref=e73]:
+            - text: running
+            - generic [ref=e76]: de-regression-tests
+        - 'status "kd DDEV instance: stopped" [ref=e77]':
+          - button "Start kd DDEV instance" [ref=e79] [cursor=pointer]: Start
+          - generic [ref=e80]:
+            - text: stopped
+            - generic [ref=e83]: kd
+        - 'status "kd-sprint1 DDEV instance: running" [ref=e84]':
+          - button "Stop kd-sprint1 DDEV instance" [ref=e86] [cursor=pointer]: Stop
+          - generic [ref=e87]:
+            - text: running
+            - generic [ref=e90]: kd-sprint1
+        - 'status "massport-main DDEV instance: running" [ref=e91]':
+          - button "Stop massport-main DDEV instance" [ref=e93] [cursor=pointer]: Stop
+          - generic [ref=e94]:
+            - text: running
+            - generic [ref=e97]: massport
+        - 'status "spsx-527 DDEV instance: running" [ref=e98]':
+          - button "Stop spsx-527 DDEV instance" [ref=e100] [cursor=pointer]: Stop
+          - generic [ref=e101]:
+            - text: running
+            - generic [ref=e104]: spsx-527
+    - generic [ref=e17]:
+      - region "Environment health overview" [ref=e18]:
+        - generic [ref=e19]: Pulse
+        - generic [ref=e105]:
+          - generic [ref=e106]:
+            - generic [ref=e107]:
+              - generic [ref=e108]: test
+              - generic [ref=e109]: Warning
+            - generic [ref=e110]:
+              - generic [ref=e112]: "6"
+              - generic [ref=e115]: 6 warn
+          - generic [ref=e116]:
+            - generic [ref=e117]:
+              - generic [ref=e118]: AHRI-main
+              - generic [ref=e119]: Warning
+            - generic [ref=e120]:
+              - generic [ref=e122]: "3"
+              - generic [ref=e125]: 3 warn
+          - generic [ref=e126]:
+            - generic [ref=e127]:
+              - generic [ref=e128]: prod
+              - generic [ref=e129]: Warning
+            - generic [ref=e130]:
+              - generic [ref=e132]: "6"
+              - generic [ref=e135]: 1 warn
+          - generic [ref=e136]:
+            - generic [ref=e137]:
+              - generic [ref=e138]: local
+              - generic [ref=e139]: Healthy
+            - generic [ref=e140]:
+              - generic [ref=e142]: "0"
+              - generic [ref=e145]: 0 open
+          - generic [ref=e146]:
+            - generic [ref=e147]:
+              - generic [ref=e148]: staging
+              - generic [ref=e149]: Healthy
+            - generic [ref=e150]:
+              - generic [ref=e152]: "0"
+              - generic [ref=e155]: 0 open
+          - generic [ref=e156]:
+            - generic [ref=e157]:
+              - generic [ref=e158]: production
+              - generic [ref=e159]: Healthy
+            - generic [ref=e160]:
+              - generic [ref=e162]: "0"
+              - generic [ref=e165]: 0 open
+        - generic [ref=e20]:
+          - generic [ref=e21]:
+            - generic [ref=e22]:
+              - text: Error volume
+              - generic [ref=e23]:
+                - button "24h" [pressed] [ref=e24] [cursor=pointer]
+                - button "7d" [ref=e25] [cursor=pointer]
+                - button "30d" [ref=e26] [cursor=pointer]
+            - generic [ref=e27]:
+              - img "Error volume over time" [ref=e28]
+              - generic [ref=e168]:
+                - generic [ref=e169]: 20:31
+                - generic [ref=e170]: 03:03
+          - generic [ref=e29]:
+            - generic [ref=e30]: Last triage cycle
+            - generic [ref=e31]: 2026-04-22T03:03:11Z
+            - generic [ref=e171]:
+              - generic [ref=e172]:
+                - generic [ref=e174]: "3"
+                - generic [ref=e175]: New errors
+              - generic [ref=e176]:
+                - generic [ref=e178]: "0"
+                - generic [ref=e179]: Augmented
+              - generic [ref=e180]:
+                - generic [ref=e181]: "3"
+                - generic [ref=e182]: Promoted
+              - generic [ref=e183]:
+                - generic [ref=e185]: "0"
+                - generic [ref=e186]: Cross-env
+      - generic "Error investigation" [ref=e33]:
+        - complementary "Filters" [ref=e34]:
+          - generic [ref=e36]: none
+          - generic [ref=e187]:
+            - generic [ref=e188]:
+              - generic [ref=e189]: Severity
+              - checkbox "CRIT 0" [ref=e190] [cursor=pointer]:
+                - generic [ref=e191]: CRIT
+                - generic [ref=e193]: "0"
+              - checkbox "WARN 10" [ref=e194] [cursor=pointer]:
+                - generic [ref=e195]: WARN
+                - generic [ref=e197]: "10"
+              - checkbox "INFO 5" [ref=e198] [cursor=pointer]:
+                - generic [ref=e199]: INFO
+                - generic [ref=e201]: "5"
+            - generic [ref=e202]:
+              - generic [ref=e203]: Environment
+              - checkbox "AHRI-main 3" [ref=e204] [cursor=pointer]:
+                - generic [ref=e205]: AHRI-main
+                - generic [ref=e206]: "3"
+              - checkbox "prod 6" [ref=e207] [cursor=pointer]:
+                - generic [ref=e208]: prod
+                - generic [ref=e209]: "6"
+              - checkbox "test 6" [ref=e210] [cursor=pointer]:
+                - generic [ref=e211]: test
+                - generic [ref=e212]: "6"
+        - generic [ref=e37]:
+          - generic [ref=e39]:
+            - generic [ref=e40]:
+              - generic [ref=e41]: ⌕
+              - textbox "Search errors" [ref=e42]:
+                - /placeholder: search errors, fingerprints, environments…
+            - generic [ref=e43]: 15 errors
+          - table [ref=e45]:
+            - rowgroup [ref=e46]:
+              - row "Sev Error Project Occ Env Age ↓ Lane" [ref=e47]:
+                - columnheader "Sev" [ref=e48] [cursor=pointer]
+                - columnheader "Error" [ref=e49] [cursor=pointer]
+                - columnheader "Project" [ref=e50] [cursor=pointer]
+                - columnheader "Occ" [ref=e51] [cursor=pointer]
+                - columnheader "Env" [ref=e52] [cursor=pointer]
+                - columnheader "Age ↓" [ref=e53] [cursor=pointer]
+                - columnheader "Lane" [ref=e54] [cursor=pointer]
+            - rowgroup [ref=e213]:
+              - 'row "WARN [ERROR] other: ts drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: syntax error or access violation: n you have an error in your sql syntax; check the manual that corresponds to your mysql server version f fp:9216da282038 pncb-main 1 test · pncbstg.prod.acquia-sites.com 0m TRIAGE" [ref=e214] [cursor=pointer]':
+                - cell "WARN" [ref=e215]:
+                  - generic [ref=e216]: WARN
+                - 'cell "[ERROR] other: ts drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: syntax error or access violation: n you have an error in your sql syntax; check the manual that corresponds to your mysql server version f fp:9216da282038" [ref=e218]':
+                  - generic [ref=e219]:
+                    - img [ref=e220]
+                    - generic [ref=e222]: "[ERROR] other: ts drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: syntax error or access violation: n you have an error in your sql syntax; check the manual that corresponds to your mysql server version f"
+                  - generic [ref=e223]: fp:9216da282038
+                - cell "pncb-main" [ref=e224]
+                - cell "1" [ref=e225]
+                - cell "test · pncbstg.prod.acquia-sites.com" [ref=e226]:
+                  - link "test · pncbstg.prod.acquia-sites.com" [ref=e228]:
+                    - /url: https://pncbstg.prod.acquia-sites.com
+                - cell "0m" [ref=e229]
+                - cell "TRIAGE" [ref=e230]
+              - 'row "WARN [ERROR] other: https://staging.pncb.org|n|php|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: syntax error fp:07437e18df42 pncb-main 1 test · pncbstg.prod.acquia-sites.com 0m TRIAGE" [ref=e231] [cursor=pointer]':
+                - cell "WARN" [ref=e232]:
+                  - generic [ref=e233]: WARN
+                - 'cell "[ERROR] other: https://staging.pncb.org|n|php|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: syntax error fp:07437e18df42" [ref=e235]':
+                  - generic [ref=e236]:
+                    - img [ref=e237]
+                    - generic [ref=e239]: "[ERROR] other: https://staging.pncb.org|n|php|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: syntax error"
+                  - generic [ref=e240]: fp:07437e18df42
+                - cell "pncb-main" [ref=e241]
+                - cell "1" [ref=e242]
+                - cell "test · pncbstg.prod.acquia-sites.com" [ref=e243]:
+                  - link "test · pncbstg.prod.acquia-sites.com" [ref=e245]:
+                    - /url: https://pncbstg.prod.acquia-sites.com
+                - cell "0m" [ref=e246]
+                - cell "TRIAGE" [ref=e247]
+              - 'row "WARN [ERROR] other: https://staging.pncb.org|n|simple_cron|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: synta fp:1fa8db22ec52 pncb-main 1 test · pncbstg.prod.acquia-sites.com 0m TRIAGE" [ref=e248] [cursor=pointer]':
+                - cell "WARN" [ref=e249]:
+                  - generic [ref=e250]: WARN
+                - 'cell "[ERROR] other: https://staging.pncb.org|n|simple_cron|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: synta fp:1fa8db22ec52" [ref=e252]':
+                  - generic [ref=e253]:
+                    - img [ref=e254]
+                    - generic [ref=e256]: "[ERROR] other: https://staging.pncb.org|n|simple_cron|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: synta"
+                  - generic [ref=e257]: fp:1fa8db22ec52
+                - cell "pncb-main" [ref=e258]
+                - cell "1" [ref=e259]
+                - cell "test · pncbstg.prod.acquia-sites.com" [ref=e260]:
+                  - link "test · pncbstg.prod.acquia-sites.com" [ref=e262]:
+                    - /url: https://pncbstg.prod.acquia-sites.com
+                - cell "0m" [ref=e263]
+                - cell "TRIAGE" [ref=e264]
+              - 'row "WARN [ERROR] other: https://staging.pncb.org|n|simple_cron|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: synta fp:c9dcdb9f9a11 pncb-main 1 test · pncbstg.prod.acquia-sites.com 0m TRIAGE" [ref=e265] [cursor=pointer]':
+                - cell "WARN" [ref=e266]:
+                  - generic [ref=e267]: WARN
+                - 'cell "[ERROR] other: https://staging.pncb.org|n|simple_cron|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: synta fp:c9dcdb9f9a11" [ref=e269]':
+                  - generic [ref=e270]:
+                    - img [ref=e271]
+                    - generic [ref=e273]: "[ERROR] other: https://staging.pncb.org|n|simple_cron|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: synta"
+                  - generic [ref=e274]: fp:c9dcdb9f9a11
+                - cell "pncb-main" [ref=e275]
+                - cell "1" [ref=e276]
+                - cell "test · pncbstg.prod.acquia-sites.com" [ref=e277]:
+                  - link "test · pncbstg.prod.acquia-sites.com" [ref=e279]:
+                    - /url: https://pncbstg.prod.acquia-sites.com
+                - cell "0m" [ref=e280]
+                - cell "TRIAGE" [ref=e281]
+              - 'row "WARN [ERROR] other: https://staging.pncb.org|n|simple_cron|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: synta fp:87b3002da1ae pncb-main 1 test · pncbstg.prod.acquia-sites.com 0m TRIAGE" [ref=e282] [cursor=pointer]':
+                - cell "WARN" [ref=e283]:
+                  - generic [ref=e284]: WARN
+                - 'cell "[ERROR] other: https://staging.pncb.org|n|simple_cron|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: synta fp:87b3002da1ae" [ref=e286]':
+                  - generic [ref=e287]:
+                    - img [ref=e288]
+                    - generic [ref=e290]: "[ERROR] other: https://staging.pncb.org|n|simple_cron|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: synta"
+                  - generic [ref=e291]: fp:87b3002da1ae
+                - cell "pncb-main" [ref=e292]
+                - cell "1" [ref=e293]
+                - cell "test · pncbstg.prod.acquia-sites.com" [ref=e294]:
+                  - link "test · pncbstg.prod.acquia-sites.com" [ref=e296]:
+                    - /url: https://pncbstg.prod.acquia-sites.com
+                - cell "0m" [ref=e297]
+                - cell "TRIAGE" [ref=e298]
+              - 'row "WARN [ERROR] other: https://staging.pncb.org|n|simple_cron|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: synta fp:ab9f68d0a3ff pncb-main 1 test · pncbstg.prod.acquia-sites.com 0m TRIAGE" [ref=e299] [cursor=pointer]':
+                - cell "WARN" [ref=e300]:
+                  - generic [ref=e301]: WARN
+                - 'cell "[ERROR] other: https://staging.pncb.org|n|simple_cron|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: synta fp:ab9f68d0a3ff" [ref=e303]':
+                  - generic [ref=e304]:
+                    - img [ref=e305]
+                    - generic [ref=e307]: "[ERROR] other: https://staging.pncb.org|n|simple_cron|ip|https://staging.pncb.org/faces-certification?f%5b0%5d=employer%3al&f%5b1%5d=last_name%3ad||n||drupal\\core\\database\\databaseexceptionwrapper: sqlstatets: synta"
+                  - generic [ref=e308]: fp:ab9f68d0a3ff
+                - cell "pncb-main" [ref=e309]
+                - cell "1" [ref=e310]
+                - cell "test · pncbstg.prod.acquia-sites.com" [ref=e311]:
+                  - link "test · pncbstg.prod.acquia-sites.com" [ref=e313]:
+                    - /url: https://pncbstg.prod.acquia-sites.com
+                - cell "0m" [ref=e314]
+                - cell "TRIAGE" [ref=e315]
+              - 'row "WARN [ERROR] apache: Forced demo event: PHP Fatal: undefined function drover_demo() in /var/www/demo.php on line 1 fp:[unknown] ahri-main 1 AHRI-main · AHRI-main.ddev.site 0m TRIAGE" [ref=e316] [cursor=pointer]':
+                - cell "WARN" [ref=e317]:
+                  - generic [ref=e318]: WARN
+                - 'cell "[ERROR] apache: Forced demo event: PHP Fatal: undefined function drover_demo() in /var/www/demo.php on line 1 fp:[unknown]" [ref=e320]':
+                  - generic [ref=e321]:
+                    - img [ref=e322]
+                    - generic [ref=e324]: "[ERROR] apache: Forced demo event: PHP Fatal: undefined function drover_demo() in /var/www/demo.php on line 1"
+                  - generic [ref=e325]: fp:[unknown]
+                - cell "ahri-main" [ref=e326]
+                - cell "1" [ref=e327]
+                - cell "AHRI-main · AHRI-main.ddev.site" [ref=e328]:
+                  - link "AHRI-main · AHRI-main.ddev.site" [ref=e330]:
+                    - /url: https://AHRI-main.ddev.site
+                - cell "0m" [ref=e331]
+                - cell "TRIAGE" [ref=e332]
+              - 'row "WARN [ERROR] apache: Forced test event v2 — PHP Fatal error: new function undefined() in /var/www/test.php on line 99 fp:ffeedd882652 ahri-main 1 AHRI-main · AHRI-main.ddev.site 4m TRIAGE" [ref=e333] [cursor=pointer]':
+                - cell "WARN" [ref=e334]:
+                  - generic [ref=e335]: WARN
+                - 'cell "[ERROR] apache: Forced test event v2 — PHP Fatal error: new function undefined() in /var/www/test.php on line 99 fp:ffeedd882652" [ref=e337]':
+                  - generic [ref=e338]:
+                    - img [ref=e339]
+                    - generic [ref=e341]: "[ERROR] apache: Forced test event v2 — PHP Fatal error: new function undefined() in /var/www/test.php on line 99"
+                  - generic [ref=e342]: fp:ffeedd882652
+                - cell "ahri-main" [ref=e343]
+                - cell "1" [ref=e344]
+                - cell "AHRI-main · AHRI-main.ddev.site" [ref=e345]:
+                  - link "AHRI-main · AHRI-main.ddev.site" [ref=e347]:
+                    - /url: https://AHRI-main.ddev.site
+                - cell "4m" [ref=e348]
+                - cell "TRIAGE" [ref=e349]
+              - 'row "WARN [ERROR] apache: Synthetic T2 forced event — PHP Fatal error: Call to undefined function foo() in /var/www/index.php on line 42 fp:abcdef882407 ahri-main 1 AHRI-main · AHRI-main.ddev.site 8m TRIAGE" [ref=e350] [cursor=pointer]':
+                - cell "WARN" [ref=e351]:
+                  - generic [ref=e352]: WARN
+                - 'cell "[ERROR] apache: Synthetic T2 forced event — PHP Fatal error: Call to undefined function foo() in /var/www/index.php on line 42 fp:abcdef882407" [ref=e354]':
+                  - generic [ref=e355]:
+                    - img [ref=e356]
+                    - generic [ref=e358]: "[ERROR] apache: Synthetic T2 forced event — PHP Fatal error: Call to undefined function foo() in /var/www/index.php on line 42"
+                  - generic [ref=e359]: fp:abcdef882407
+                - cell "ahri-main" [ref=e360]
+                - cell "1" [ref=e361]
+                - cell "AHRI-main · AHRI-main.ddev.site" [ref=e362]:
+                  - link "AHRI-main · AHRI-main.ddev.site" [ref=e364]:
+                    - /url: https://AHRI-main.ddev.site
+                - cell "8m" [ref=e365]
+                - cell "TRIAGE" [ref=e366]
+              - 'row "INFO [NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully fp:05d485fbce72 ahri-main 14 prod 2h READY" [ref=e367] [cursor=pointer]':
+                - cell "INFO" [ref=e368]:
+                  - generic [ref=e369]: INFO
+                - 'cell "[NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully fp:05d485fbce72" [ref=e371]':
+                  - generic [ref=e372]:
+                    - img [ref=e373]
+                    - generic [ref=e375]: "[NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully"
+                  - generic [ref=e376]: fp:05d485fbce72
+                - cell "ahri-main" [ref=e377]
+                - cell "14" [ref=e378]
+                - cell "prod" [ref=e379]:
+                  - generic [ref=e381]: prod
+                - cell "2h" [ref=e382]
+                - cell "READY" [ref=e383]
+              - 'row "WARN [ERROR] apache: ts ts ts ip \"-\" \"mozilla/n.n (windows nt n.n; win64; x64) applewebkit/n.n (khtml, like gecko) chrome/ip safari/n.n\" vhost=ahridrupalhosting.prod.acquia-sites.com forwarded_for=\"ip, ip, ip\" request_id= fp:79e8fbbb9f9f ahri-main 666 prod 2h TRIAGE" [ref=e384] [cursor=pointer]':
+                - cell "WARN" [ref=e385]:
+                  - generic [ref=e386]: WARN
+                - 'cell "[ERROR] apache: ts ts ts ip \"-\" \"mozilla/n.n (windows nt n.n; win64; x64) applewebkit/n.n (khtml, like gecko) chrome/ip safari/n.n\" vhost=ahridrupalhosting.prod.acquia-sites.com forwarded_for=\"ip, ip, ip\" request_id= fp:79e8fbbb9f9f" [ref=e388]':
+                  - generic [ref=e389]:
+                    - img [ref=e390]
+                    - generic [ref=e392]: "[ERROR] apache: ts ts ts ip \"-\" \"mozilla/n.n (windows nt n.n; win64; x64) applewebkit/n.n (khtml, like gecko) chrome/ip safari/n.n\" vhost=ahridrupalhosting.prod.acquia-sites.com forwarded_for=\"ip, ip, ip\" request_id="
+                  - generic [ref=e393]: fp:79e8fbbb9f9f
+                - cell "ahri-main" [ref=e394]
+                - cell "666" [ref=e395]
+                - cell "prod" [ref=e396]:
+                  - generic [ref=e398]: prod
+                - cell "2h" [ref=e399]
+                - cell "TRIAGE" [ref=e400]
+              - 'row "INFO [NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00489: apache/n.n.n (ubuntu) configured -- resuming normal operations fp:418c90c38ccd ahri-main 14 prod 2h TRIAGE" [ref=e401] [cursor=pointer]':
+                - cell "INFO" [ref=e402]:
+                  - generic [ref=e403]: INFO
+                - 'cell "[NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00489: apache/n.n.n (ubuntu) configured -- resuming normal operations fp:418c90c38ccd" [ref=e405]':
+                  - generic [ref=e406]:
+                    - img [ref=e407]
+                    - generic [ref=e409]: "[NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00489: apache/n.n.n (ubuntu) configured -- resuming normal operations"
+                  - generic [ref=e410]: fp:418c90c38ccd
+                - cell "ahri-main" [ref=e411]
+                - cell "14" [ref=e412]
+                - cell "prod" [ref=e413]:
+                  - generic [ref=e415]: prod
+                - cell "2h" [ref=e416]
+                - cell "TRIAGE" [ref=e417]
+              - 'row "INFO [NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00094: command line: ''/usr/sbin/apache2 -d foreground'' fp:2512875211e7 ahri-main 14 prod 2h TRIAGE" [ref=e418] [cursor=pointer]':
+                - cell "INFO" [ref=e419]:
+                  - generic [ref=e420]: INFO
+                - 'cell "[NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00094: command line: ''/usr/sbin/apache2 -d foreground'' fp:2512875211e7" [ref=e422]':
+                  - generic [ref=e423]:
+                    - img [ref=e424]
+                    - generic [ref=e426]: "[NOTICE] apache: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00094: command line: '/usr/sbin/apache2 -d foreground'"
+                  - generic [ref=e427]: fp:2512875211e7
+                - cell "ahri-main" [ref=e428]
+                - cell "14" [ref=e429]
+                - cell "prod" [ref=e430]:
+                  - generic [ref=e432]: prod
+                - cell "2h" [ref=e433]
+                - cell "TRIAGE" [ref=e434]
+              - 'row "INFO [NOTICE] other: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully fp:83827b906832 ahri-main 1 prod 12h TRIAGE" [ref=e435] [cursor=pointer]':
+                - cell "INFO" [ref=e436]:
+                  - generic [ref=e437]: INFO
+                - 'cell "[NOTICE] other: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully fp:83827b906832" [ref=e439]':
+                  - generic [ref=e440]:
+                    - img [ref=e441]
+                    - generic [ref=e443]: "[NOTICE] other: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully"
+                  - generic [ref=e444]: fp:83827b906832
+                - cell "ahri-main" [ref=e445]
+                - cell "1" [ref=e446]
+                - cell "prod" [ref=e447]:
+                  - generic [ref=e449]: prod
+                - cell "12h" [ref=e450]
+                - cell "TRIAGE" [ref=e451]
+              - 'row "INFO [NOTICE] other: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully fp:83827b906832 ahri-main 1 prod 12h TRIAGE" [ref=e452] [cursor=pointer]':
+                - cell "INFO" [ref=e453]:
+                  - generic [ref=e454]: INFO
+                - 'cell "[NOTICE] other: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully fp:83827b906832" [ref=e456]':
+                  - generic [ref=e457]:
+                    - img [ref=e458]
+                    - generic [ref=e460]: "[NOTICE] other: ts ts ts - \"-\" \"-\" vhost=acquia-sites.com forwarded_for=\"-\" request_id=\"-\" hosting_site=ahridrupalhosting ah00492: caught sigwinch, shutting down gracefully"
+                  - generic [ref=e461]: fp:83827b906832
+                - cell "ahri-main" [ref=e462]
+                - cell "1" [ref=e463]
+                - cell "prod" [ref=e464]:
+                  - generic [ref=e466]: prod
+                - cell "12h" [ref=e467]
+                - cell "TRIAGE" [ref=e468]
+  - alert [ref=e55]
