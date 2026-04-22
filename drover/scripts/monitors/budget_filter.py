@@ -28,19 +28,15 @@ _NEW_PARSE = re.compile(r"^\[[^\]]+\]\s+NEW\s+(\S+)\s+\S+\s+\S+\s+(\S+)\s+")
 class CrossEnvDedup:
     """Sliding-window dedup for the same fingerprint across different envs.
 
-    sprint-ie4: the same fingerprint hitting local + staging + prod within a
-    short window previously produced 3 separate NEW notifications. This filter
-    lets the FIRST environment through, suppresses subsequent
-    different-env sightings within `window_seconds`, and accumulates a
-    multi-env summary line that the caller emits periodically
-    ("[drover] multi-env fp abc123: local,stg,prod"). Same-env repeats are
-    NOT suppressed here — that's the job of BudgetFilter / per-fp THRESH.
+    Lets the first-seen env's NEW through; suppresses follow-ups from different
+    envs within the window. Same-env repeats pass through unaffected — those
+    are the job of BudgetFilter / per-fp THRESH.
     """
 
     def __init__(self, window_seconds=60, now_fn=None):
         self.window = float(window_seconds)
         self._now = now_fn or time.monotonic
-        # fp -> {"ts": float, "first_env": str, "envs": list[str]}
+        # fp -> {"ts": float, "first_env": str, "envs": set[str]}
         self._state = {}
 
     def _prune(self, now):
@@ -58,24 +54,24 @@ class CrossEnvDedup:
         self._prune(now)
         s = self._state.get(fp)
         if s is None:
-            self._state[fp] = {"ts": now, "first_env": env, "envs": [env], "summary_emitted": False}
+            self._state[fp] = {"ts": now, "first_env": env, "envs": {env}}
             return line
-        # Refresh TTL so a steadily-flapping fp stays deduped.
-        s["ts"] = now
+        s["ts"] = now  # refresh TTL so a steadily-flapping fp stays deduped
         if env == s["first_env"]:
-            # Same env — let BudgetFilter / THRESH handle it.
             return line
-        if env not in s["envs"]:
-            s["envs"].append(env)
-        return None  # suppressed
+        s["envs"].add(env)
+        return None
 
     def flush_multi_env_summaries(self):
+        """Emit and evict entries that span more than one env."""
         out = []
+        evict = []
         for fp, s in self._state.items():
-            if len(s["envs"]) > 1 and not s.get("summary_emitted"):
-                envs = ",".join(s["envs"])
-                out.append(f"[drover] multi-env fp {fp}: {envs}")
-                s["summary_emitted"] = True
+            if len(s["envs"]) > 1:
+                out.append(f"[drover] multi-env fp {fp}: {','.join(sorted(s['envs']))}")
+                evict.append(fp)
+        for fp in evict:
+            del self._state[fp]
         return out
 
 

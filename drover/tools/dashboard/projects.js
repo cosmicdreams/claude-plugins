@@ -269,7 +269,7 @@ function ddevProjectNames(projectsList) {
 function _acquiaMatch(label, env) {
   if (!env || !env.env) return false;
   if (env.env === label) return true;
-  return label.startsWith(env.env) || env.env.startsWith(label.slice(0, 4));
+  return label.startsWith(env.env) || env.env.startsWith(label);
 }
 
 function resolveCardHostnames(card, project) {
