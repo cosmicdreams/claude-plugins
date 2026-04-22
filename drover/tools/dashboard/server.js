@@ -888,6 +888,100 @@ async function handleBackfill(req, res) {
 }
 
 // ---------------------------------------------------------------------------
+// POST /api/triage  { log: "/path/to/backfill.log", alias: "ahri.prod" }
+// Reads NEW lines from a completed backfill log and creates bd cards so
+// errors appear in the dashboard without requiring /drover:triage skill.
+// ---------------------------------------------------------------------------
+
+const SEV_LABEL_MAP = { emergency:'emergency', critical:'critical', alert:'alert',
+  error:'error', warning:'warning', notice:'notice', info:'info', debug:'debug' };
+
+async function handleTriage(req, res) {
+  let body;
+  try { body = await readBody(req); } catch (e) {
+    return jsonResponse(res, 400, { error: 'invalid JSON body' });
+  }
+  const { log: logPath, alias } = body || {};
+  if (!logPath || !alias) return jsonResponse(res, 400, { error: 'log and alias required' });
+
+  // Resolve alias → project board
+  const projects = projectsModule.listProjects();
+  let dbPath, projectName, envType, trustLevel;
+  for (const p of projects) {
+    for (const e of (p.acquia && p.acquia.environments) || []) {
+      if (e.alias === alias) {
+        const db = projectsModule.findBeadsDb(p.path);
+        if (db) { dbPath = db; projectName = p.name; envType = 'acquia'; trustLevel = e.trust_level || 'medium'; }
+        break;
+      }
+    }
+    if (dbPath) break;
+    // Also check ddev environments for local alias
+    for (const e of (p.drover_config && p.drover_config.environments) || []) {
+      if ((e.name === alias || e.ddev_project === alias) && e.type === 'ddev') {
+        const db = projectsModule.findBeadsDb(p.path);
+        if (db) { dbPath = db; projectName = p.name; envType = 'ddev'; trustLevel = e.trust_level || 'low'; }
+        break;
+      }
+    }
+    if (dbPath) break;
+  }
+  if (!dbPath) return jsonResponse(res, 404, { error: `no board found for alias: ${alias}` });
+
+  // Parse NEW lines from the backfill log
+  let logContent;
+  try { logContent = fs.readFileSync(logPath, 'utf8'); } catch (e) {
+    return jsonResponse(res, 400, { error: `cannot read log: ${e.message}` });
+  }
+
+  const newLines = logContent.split('\n').filter(l => l.startsWith('NEW '));
+  if (!newLines.length) return jsonResponse(res, 200, { created: 0, message: 'no NEW events found' });
+
+  // Fetch existing fingerprints to avoid duplicates
+  let existing = new Set();
+  try {
+    const { stdout } = await execFileP('bd', ['list', '-l', 'board-drover', '--db', dbPath, '--json', '--flat'],
+      { encoding: 'utf8', timeout: 10000 });
+    const cards = JSON.parse(stdout || '[]');
+    if (Array.isArray(cards)) {
+      for (const c of cards) {
+        const m = (c.body || '').match(/\*\*Fingerprint:\*\*\s+`([a-f0-9]+)`/);
+        if (m) existing.add(m[1]);
+      }
+    }
+  } catch { /* if board query fails, proceed anyway */ }
+
+  let created = 0, skipped = 0;
+  const envLabel = alias.includes('.') ? alias.split('.').pop() : alias;
+  const envName = alias;
+
+  for (const line of newLines) {
+    // Format: NEW <fp> <severity> <source> <env> <message...>
+    const parts = line.slice(4).split(' ');
+    if (parts.length < 5) continue;
+    const [fp, sev, src, , ...msgParts] = parts;
+    const msg = msgParts.join(' ').slice(0, 200);
+    if (existing.has(fp)) { skipped++; continue; }
+
+    const sevLabel = SEV_LABEL_MAP[sev] || 'error';
+    const title = `[${sev.toUpperCase()}] ${src}: ${msg}`;
+    const body = `**Fingerprint:** \`${fp}\`\n**Total Occurrences:** 1\n**Source:** ${src}\n\n## Error Message\n${msg}`;
+    const labels = `board-drover,lane-triage,severity-${sevLabel},source-${src},env-${envLabel},trust-${trustLevel}`;
+
+    try {
+      await execFileP('bd', ['create', title, '--db', dbPath, '--labels', labels, '--body', body],
+        { encoding: 'utf8', timeout: 8000 });
+      existing.add(fp);
+      created++;
+    } catch { /* skip cards that fail */ }
+  }
+
+  ticketCache = { data: null, ts: 0 }; // invalidate so dashboard refreshes
+  broadcast('board-update', { ts: new Date().toISOString(), project: projectName });
+  return jsonResponse(res, 200, { created, skipped, total: newLines.length });
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/move
 // ---------------------------------------------------------------------------
 
@@ -3485,9 +3579,28 @@ function showBackfillProgress(alias, logPath) {
     } catch (_) {}
   });
   es.addEventListener('done', function(){
-    setPhase('DONE');
+    setPhase('TRIAGING');
     es.close();
-    if (typeof fetchAll === 'function') fetchAll();
+    // Auto-triage: convert backfill NEW events into board cards so errors
+    // appear in the dashboard without a separate manual step.
+    fetch('/api/triage', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ log: logPath, alias: alias })
+    })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        setPhase('DONE');
+        var msg = d.created + ' new errors added to board';
+        if (d.skipped) msg += ' (' + d.skipped + ' already known)';
+        pre.appendChild(document.createTextNode('TRIAGE: ' + msg + '\\n'));
+        pre.scrollTop = pre.scrollHeight;
+        if (typeof fetchAll === 'function') fetchAll();
+      })
+      .catch(function(e){
+        setPhase('DONE');
+        pre.appendChild(document.createTextNode('TRIAGE failed: ' + e.message + '\\n'));
+      });
   });
   es.addEventListener('timeout', function(){ setPhase('TIMEOUT'); es.close(); });
   es.onerror = function(){ /* eventsource auto-reconnect; show soft state */ setPhase('RECONNECT'); };
@@ -3983,6 +4096,10 @@ const server = http.createServer(async (req, res) => {
     // sprint-ydz: SSE tail of a backfill log file.
     if (pathname === '/api/backfill/progress' && req.method === 'GET') {
       return handleBackfillProgress(req, res, url);
+    }
+
+    if (pathname === '/api/triage' && req.method === 'POST') {
+      return await handleTriage(req, res);
     }
 
     if (pathname === '/api/backfill/log-types' && req.method === 'GET') {
