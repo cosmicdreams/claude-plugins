@@ -1051,6 +1051,31 @@ async function handleTriage(req, res) {
 }
 
 // ---------------------------------------------------------------------------
+// Resolve the project-scoped Beads database for a ticket.
+//
+// Each registered project maintains its own .beads/drover.db; virtual-central
+// mode aggregates cards from N boards and stamps ticket.project at fetch time
+// (see fetchTickets → rows.map → t.project = b.project). Every bd mutation
+// (move, solution, close) must target the card's source db — otherwise the
+// shell command ran with --db "" and bd failed with "no issue found matching".
+//
+// Returns a board object { project, dbPath } or null when resolution fails.
+// Callers MUST handle null rather than falling back to an empty --db.
+// ---------------------------------------------------------------------------
+
+function resolveBoardForTicket(ticket) {
+  const boards = currentBoards();
+  if (ticket && ticket.project) {
+    const hit = boards.find(b => b.project === ticket.project);
+    if (hit && hit.dbPath) return hit;
+  }
+  if (DB_PATH) {
+    return { project: (ticket && ticket.project) || 'project', dbPath: DB_PATH };
+  }
+  return null;
+}
+
+// ---------------------------------------------------------------------------
 // POST /api/move
 // ---------------------------------------------------------------------------
 
@@ -1081,19 +1106,28 @@ async function handleMove(req, res) {
   if (!currentLane) return jsonResponse(res, 400, { error: 'Ticket has no lane label' });
   if (currentLane === toLane) return jsonResponse(res, 200, { ok: true, message: 'Already in that lane' });
 
+  const board = resolveBoardForTicket(ticket);
+  if (!board) {
+    return jsonResponse(res, 500, {
+      error: 'Cannot resolve source board for ticket ' + id
+           + (ticket.project ? ' (project=' + ticket.project + ')' : ' (no project tag)')
+           + ' — no matching registered project and no --db override configured',
+    });
+  }
+
   const now = new Date().toISOString();
   const note = now + ': Moved from ' + currentLane + ' to ' + toLane + ' via dashboard';
 
   try {
     execFileSync('bd', [
       'update', id,
-      '--db', DB_PATH,
+      '--db', board.dbPath,
       '--remove-label', currentLane,
       '--add-label', toLane,
       '--append-notes', note,
     ], { encoding: 'utf8', timeout: 5000 });
     ticketCache = { data: null, ts: 0 }; // invalidate
-    return jsonResponse(res, 200, { ok: true });
+    return jsonResponse(res, 200, { ok: true, project: board.project });
   } catch (err) {
     return jsonResponse(res, 500, { error: 'bd update failed: ' + err.message });
   }
@@ -1122,8 +1156,14 @@ async function handleSolution(req, res, ticketId) {
   if (!ticket) {
     return jsonResponse(res, 404, { status: 'error', message: 'Ticket not found: ' + ticketId });
   }
-  const board = currentBoards().find(b => b.project === ticket.project)
-    || { dbPath: DB_PATH };
+  const board = resolveBoardForTicket(ticket);
+  if (!board) {
+    return jsonResponse(res, 500, {
+      status: 'error',
+      message: 'Cannot resolve source board for ticket ' + ticketId
+             + (ticket.project ? ' (project=' + ticket.project + ')' : ' (no project tag)'),
+    });
+  }
 
   const now = new Date().toISOString();
   const actualBlock = [
