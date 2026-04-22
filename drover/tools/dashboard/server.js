@@ -2026,15 +2026,15 @@ function buildHtml() {
       </div>
       <div class="table-wrap">
         <table>
-          <thead>
+          <thead id="err-thead">
             <tr>
-              <th style="width:60px">Sev</th>
-              <th>Error</th>
-              <th style="width:90px">Project</th>
-              <th class="sort-active" style="width:90px;text-align:right">Occ &#8595;</th>
-              <th style="width:100px">Env</th>
-              <th style="width:72px">Age</th>
-              <th style="width:72px">Lane</th>
+              <th data-sort="sev" style="width:60px">Sev</th>
+              <th data-sort="title">Error</th>
+              <th data-sort="project" style="width:90px">Project</th>
+              <th data-sort="occ" style="width:90px;text-align:right">Occ</th>
+              <th data-sort="env" style="width:100px">Env</th>
+              <th data-sort="age" class="sort-active" style="width:72px">Age &#8595;</th>
+              <th data-sort="lane" style="width:72px">Lane</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -2481,6 +2481,33 @@ function clearFilters() {
 // ========================================================================
 // Error table
 // ========================================================================
+// Sort state — default age descending so newest errors appear first.
+var sortCol = 'age';
+var sortDir = -1; // -1 = descending, 1 = ascending
+
+var SEV_ORDER = {crit:0, warn:1, info:2};
+
+function cardSortKey(c, col) {
+  if (col === 'sev')     return SEV_ORDER[c.sev] !== undefined ? SEV_ORDER[c.sev] : 9;
+  if (col === 'occ')     return c.occ;
+  if (col === 'age')     return c.createdAt ? -new Date(c.createdAt).getTime() : 0;
+  if (col === 'title')   return (c.title || '').toLowerCase();
+  if (col === 'project') return (c.project || '').toLowerCase();
+  if (col === 'env')     return (c.envs || []).join(',').toLowerCase();
+  if (col === 'lane')    return (c.lane || '').toLowerCase();
+  return 0;
+}
+
+function updateSortHeaders() {
+  var ths = document.querySelectorAll('#err-thead th[data-sort]');
+  ths.forEach(function(th) {
+    var col = th.getAttribute('data-sort');
+    var label = th.textContent.replace(/[↑↓\s]+$/, '').trim();
+    th.textContent = label + (col === sortCol ? (' ' + (sortDir === -1 ? '↓' : '↑')) : '');
+    th.classList.toggle('sort-active', col === sortCol);
+  });
+}
+
 function getFilteredCards() {
   var cards = ALL_CARDS;
   if (countKeys(activeFilters.sev) > 0) {
@@ -2493,7 +2520,13 @@ function getFilteredCards() {
   if (q) {
     cards = cards.filter(function(c){ return c.title.toLowerCase().indexOf(q)!==-1 || c.fp.indexOf(q)!==-1 || c.envs.some(function(e){return e.indexOf(q)!==-1;}); });
   }
-  return cards.sort(function(a,b){ return b.occ - a.occ; });
+  var col = sortCol, dir = sortDir;
+  return cards.slice().sort(function(a, b) {
+    var ka = cardSortKey(a, col), kb = cardSortKey(b, col);
+    if (ka < kb) return -dir;
+    if (ka > kb) return dir;
+    return 0;
+  });
 }
 
 function renderTable() {
@@ -3420,6 +3453,24 @@ function showToast(msg){
 // Search
 // ========================================================================
 document.getElementById('search').addEventListener('input', renderTable);
+
+// Column sort — click to sort, click again to reverse.
+document.getElementById('err-thead').addEventListener('click', function(ev) {
+  var th = ev.target.closest('th[data-sort]');
+  if (!th) return;
+  var col = th.getAttribute('data-sort');
+  if (col === sortCol) {
+    sortDir = -sortDir;
+  } else {
+    sortCol = col;
+    // Numeric columns default descending (highest first);
+    // text columns default ascending.
+    sortDir = (col === 'occ' || col === 'sev' || col === 'age') ? -1 : 1;
+  }
+  updateSortHeaders();
+  renderTable();
+});
+updateSortHeaders();
 
 // ========================================================================
 // Clock
