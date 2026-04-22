@@ -723,9 +723,16 @@ function listProjects() { return projectsModule.listProjects(); }
 // GET /api/backfill/log-types?alias=ahri.prod
 // Returns available Acquia log types for an environment so the backfill
 // modal can show checkboxes instead of a freehand comma-delimited field.
+// Cache log types per alias for the server session — types don't change.
+const logTypesCache = new Map();
+
 async function handleLogTypes(req, res, url) {
   const alias = url.searchParams.get('alias') || '';
   if (!alias) return jsonResponse(res, 400, { error: 'alias required' });
+
+  if (logTypesCache.has(alias)) {
+    return jsonResponse(res, 200, { log_types: logTypesCache.get(alias) });
+  }
 
   // Resolve alias → app_uuid + env_name from projects.json
   const projects = projectsModule.listProjects();
@@ -742,7 +749,7 @@ async function handleLogTypes(req, res, url) {
   }
   if (!appUuid || !envName) return jsonResponse(res, 404, { error: `alias not found: ${alias}` });
 
-  // Call Acquia API via Python helper
+  // Call Acquia API via Python helper — 30s timeout (two API calls + startup).
   const apiScript = path.join(__dirname, '../../scripts/monitors/acquia_api.py');
   try {
     const { stdout } = await execFileP('python3', ['-c', `
@@ -755,8 +762,10 @@ env_id = c.resolve_env_id("${appUuid}", "${envName}")
 logs = c._get(f"/environments/{env_id}/logs")
 items = logs.get("_embedded", {}).get("items", [])
 print(json.dumps([{"type": i["type"], "label": i.get("label", i["type"]), "available": i.get("flags", {}).get("available", False)} for i in items]))
-`], { encoding: 'utf8', timeout: 15000 });
-    return jsonResponse(res, 200, { log_types: JSON.parse(stdout.trim()) });
+`], { encoding: 'utf8', timeout: 30000 });
+    const types = JSON.parse(stdout.trim());
+    logTypesCache.set(alias, types);
+    return jsonResponse(res, 200, { log_types: types });
   } catch (e) {
     return jsonResponse(res, 500, { error: 'Acquia API error: ' + e.message });
   }
