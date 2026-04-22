@@ -523,11 +523,28 @@ async function fetchHealth() {
   const timeline = fetchTimeline();
   const lastCycle = timeline.length ? timeline[timeline.length - 1] : null;
 
-  // Derive environments from ticket labels or config
+  // Derive environments from ticket labels, then fill in config envs that
+  // haven't produced cards yet.
+  //
+  // Cards carry env labels like `env-prod` / `env-local` (see handleTriage:
+  // `envLabel = alias.split('.').pop()` for Acquia, ddev project for DDEV).
+  // Config environments carry an optional friendly `name` ("production",
+  // "Local dev") plus the on-the-wire identity in `env_slug` (Acquia) or
+  // `ddev_project` (DDEV). Adding `e.name` unconditionally was duplicating
+  // tiles — an env configured as `{name:"production", env_slug:"prod"}` was
+  // rendering as both "prod" (from cards) and "production" (from name).
+  // Canonicalise on the identity the cards use; treat `name` as display-only.
   const envSet = new Set();
+  const envDisplay = new Map(); // canonical slug -> friendly label from config
   cards.forEach(c => c.envLabels.forEach(e => envSet.add(e)));
   if (config && config.environments) {
-    config.environments.forEach(e => envSet.add(e.name));
+    config.environments.forEach(e => {
+      const canonical = e.env_slug || e.ddev_project || e.name;
+      if (canonical) envSet.add(canonical);
+      if (canonical && e.name && e.name !== canonical) {
+        envDisplay.set(canonical, e.name);
+      }
+    });
   }
 
   const envHealth = {};
@@ -543,6 +560,7 @@ async function fetchHealth() {
 
     envHealth[env] = {
       name: env,
+      label: envDisplay.get(env) || env,
       status,
       statusLabel,
       count: envCards.length,
@@ -2521,7 +2539,7 @@ function renderEnvTiles() {
     tile.style.animation = 'fade-up 0.35s ease both';
 
     var header = el('div','env-tile-header');
-    header.appendChild(txt('span','env-name',name));
+    header.appendChild(txt('span','env-name', env.label || name));
     header.appendChild(txt('span','env-status-badge',env.statusLabel));
     tile.appendChild(header);
 
