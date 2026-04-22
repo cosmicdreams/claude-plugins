@@ -257,6 +257,65 @@ test('ddevProjectNames handles non-array input safely', () => {
   assert.equal(projects.ddevProjectNames('nope').size, 0);
 });
 
+test('resolveCardHostnames maps acquia env label to default_domain', () => {
+  const project = {
+    name: 'pncb-main',
+    ddev_project: 'pncb-main',
+    acquia: {
+      environments: [
+        { env: 'prod', default_domain: 'pncb.prod.acquia-sites.com' },
+        { env: 'dev',  default_domain: 'pncbdev.prod.acquia-sites.com' },
+      ],
+    },
+  };
+  const card = { project: 'pncb-main', envLabels: ['prod'] };
+  const out = projects.resolveCardHostnames(card, project);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].env, 'prod');
+  assert.equal(out[0].domain, 'pncb.prod.acquia-sites.com');
+  assert.equal(out[0].url, 'https://pncb.prod.acquia-sites.com');
+});
+
+test('resolveCardHostnames falls back to <ddev_project>.ddev.site for local env', () => {
+  const project = { name: 'pncb-main', ddev_project: 'pncb-main' };
+  const card = { project: 'pncb-main', envLabels: ['local'] };
+  const out = projects.resolveCardHostnames(card, project);
+  assert.equal(out.length, 1);
+  assert.equal(out[0].env, 'local');
+  assert.equal(out[0].domain, 'pncb-main.ddev.site');
+  assert.equal(out[0].url, 'https://pncb-main.ddev.site');
+});
+
+test('resolveCardHostnames matches fuzzy env names (production -> prod)', () => {
+  const project = {
+    name: 'x',
+    acquia: { environments: [{ env: 'prod', default_domain: 'x.prod.acquia-sites.com' }] },
+  };
+  const out = projects.resolveCardHostnames(
+    { project: 'x', envLabels: ['production'] },
+    project
+  );
+  assert.equal(out[0].domain, 'x.prod.acquia-sites.com');
+});
+
+test('resolveCardHostnames returns empty array when project is null', () => {
+  assert.deepEqual(projects.resolveCardHostnames({ envLabels: ['prod'] }, null), []);
+});
+
+test('resolveCardHostnames handles card with no envLabels', () => {
+  const project = { name: 'x', ddev_project: 'x' };
+  assert.deepEqual(projects.resolveCardHostnames({ project: 'x', envLabels: [] }, project), []);
+});
+
+test('resolveCardHostnames dedups repeated env labels', () => {
+  const project = {
+    name: 'x',
+    acquia: { environments: [{ env: 'prod', default_domain: 'x.acquia-sites.com' }] },
+  };
+  const out = projects.resolveCardHostnames({ project: 'x', envLabels: ['prod', 'prod'] }, project);
+  assert.equal(out.length, 1);
+});
+
 test('pickFolderMacOS returns null when runner throws', () => {
   const throwingRunner = () => { throw new Error('user canceled'); };
   assert.equal(projects.pickFolderMacOS({ runner: throwingRunner }), null);

@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.16.0
+- **Dashboard card rows and modal surface hostnames (sprint-2g8)**: cards previously showed only the bare env label ("production") so a user with multiple registered projects couldn't tell whether an error came from pncb.prod or massport.prod. Each card is now server-enriched with a `hostnames: [{env, domain, url}]` array resolved from `projects.json`: Acquia envs resolve to their `default_domain` (e.g. `pncb.prod.acquia-sites.com`) and DDEV/local envs fall back to `<ddev_project>.ddev.site`. Env cells in the error table render the domain as a clickable link, the modal's Details grid shows a new "Hostnames" row, and fuzzy matching (`production` → `prod`) keeps user-chosen env names compatible with Acquia's own slugs.
+- **New pure helper `projects.resolveCardHostnames(card, project)`**: six new node tests cover Acquia lookup, ddev.site fallback, fuzzy production↔prod matching, null-project safety, empty envLabels, and dedup.
+- **`fetchTickets()` builds the project registry once per call** and attaches hostnames during the merge so SSE refresh payloads carry the enrichment without per-ticket projects.json reads.
+
 ## 1.15.1
 - **Dashboard ddev filter aggregates across all registered projects (sprint-7fy)**: `getRelevantDdevProjects` in virtual-central mode was filtering `ddev list -A` output by only the launch-dir `drover-config.json`'s environments, so a user with six running ddev instances across pncb / massport / ahri only saw one in the dashboard. Now it unions `ddev_project` from every registered project in `projects.json` and layers the launch-dir config on top. New pure helper `projects.ddevProjectNames()` keeps the aggregation testable; four new node tests cover union, skip-missing, dedup, and non-array input safety.
 
