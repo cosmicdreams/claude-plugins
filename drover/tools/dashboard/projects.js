@@ -181,6 +181,20 @@ function findBeadsDb(dir) {
   return null;
 }
 
+// Union of ddev_project names across a projects list. Used by the dashboard
+// in virtual-central mode to build the filter set for `ddev list -A`, so
+// every registered project's ddev instance shows up — not just the one whose
+// drover-config.json happened to be passed via --config. Pure so it stays
+// testable; accepts any array (including a listProjects() result).
+function ddevProjectNames(projectsList) {
+  const out = new Set();
+  if (!Array.isArray(projectsList)) return out;
+  for (const p of projectsList) {
+    if (p && typeof p === 'object' && p.ddev_project) out.add(p.ddev_project);
+  }
+  return out;
+}
+
 function listBoards() {
   return listProjects()
     .map(p => {
@@ -194,4 +208,4 @@ function listBoards() {
     .filter(Boolean);
 }
 
-module.exports = { projectsFilePath, listProjects, listBoards, pickFolderMacOS, addProject, backfill, backfillAsync, parseBackfillOutput };
+module.exports = { projectsFilePath, listProjects, listBoards, ddevProjectNames, pickFolderMacOS, addProject, backfill, backfillAsync, parseBackfillOutput };

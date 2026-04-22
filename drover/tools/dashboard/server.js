@@ -97,16 +97,23 @@ const DDEV_POLL_INTERVAL = 15000; // 15 seconds
 let ddevCache = { instances: [], ts: 0 };
 const ddevActions = new Map(); // project -> 'starting' | 'stopping'
 
-// Build the set of DDEV project names relevant to this drover instance
+// Build the set of DDEV project names relevant to this drover instance.
+// In virtual-central mode (--all-projects) the single launch-dir config
+// doesn't know about the other registered projects, so ddev list was
+// being filtered down to one project even when six were running.
+// sprint-7fy: union ddev_project names across every registered project,
+// then layer the launch-dir config on top as a superset.
 function getRelevantDdevProjects() {
+  const names = ALL_PROJECTS
+    ? projectsModule.ddevProjectNames(projectsModule.listProjects())
+    : new Set();
   const config = fetchConfig();
-  if (!config || !config.environments) return null; // null = show all
-  const names = new Set();
-  for (const env of config.environments) {
-    if (env.ddev_project) names.add(env.ddev_project);
+  if (config && Array.isArray(config.environments)) {
+    for (const env of config.environments) {
+      if (env.ddev_project) names.add(env.ddev_project);
+    }
   }
-  // Also include any projects listed in ddev_management.instances
-  if (config.ddev_management && Array.isArray(config.ddev_management.instances)) {
+  if (config && config.ddev_management && Array.isArray(config.ddev_management.instances)) {
     for (const inst of config.ddev_management.instances) {
       if (inst.ddev_project || inst.name) names.add(inst.ddev_project || inst.name);
     }

@@ -214,6 +214,49 @@ test('listBoards enumerates {project, dbPath} for each registered project with a
   }
 });
 
+test('ddevProjectNames unions ddev_project across all registered projects', () => {
+  const input = [
+    { name: 'pncb-main', path: '/x', ddev_project: 'pncb-main' },
+    { name: 'massport',  path: '/y', ddev_project: 'massport' },
+    { name: 'ahri',      path: '/z', ddev_project: 'ahri' },
+  ];
+  const names = projects.ddevProjectNames(input);
+  assert.ok(names instanceof Set);
+  assert.equal(names.size, 3);
+  assert.ok(names.has('pncb-main'));
+  assert.ok(names.has('massport'));
+  assert.ok(names.has('ahri'));
+});
+
+test('ddevProjectNames skips entries without ddev_project', () => {
+  const names = projects.ddevProjectNames([
+    { name: 'a', path: '/a', ddev_project: 'a' },
+    { name: 'b', path: '/b' },
+    { path: '/c', ddev_project: 'c' },
+    null,
+    {},
+  ]);
+  assert.equal(names.size, 2);
+  assert.ok(names.has('a'));
+  assert.ok(names.has('c'));
+});
+
+test('ddevProjectNames deduplicates repeated ddev_project entries', () => {
+  const names = projects.ddevProjectNames([
+    { ddev_project: 'dup' },
+    { ddev_project: 'dup' },
+    { ddev_project: 'uniq' },
+  ]);
+  assert.equal(names.size, 2);
+});
+
+test('ddevProjectNames handles non-array input safely', () => {
+  assert.equal(projects.ddevProjectNames(null).size, 0);
+  assert.equal(projects.ddevProjectNames(undefined).size, 0);
+  assert.equal(projects.ddevProjectNames({}).size, 0);
+  assert.equal(projects.ddevProjectNames('nope').size, 0);
+});
+
 test('pickFolderMacOS returns null when runner throws', () => {
   const throwingRunner = () => { throw new Error('user canceled'); };
   assert.equal(projects.pickFolderMacOS({ runner: throwingRunner }), null);
