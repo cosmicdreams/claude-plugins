@@ -71,7 +71,37 @@ the follow-up relevant.
 
 1. **Project name** — slug used in state and notifications (e.g. `my-drupal-site`).
 2. **DDEV project?** — first run `ddev list --json-output 2>/dev/null` to show running projects; the user picks one. Defaults: trust=`low`, noise filter on.
-3. **Any Acquia environments to watch?** [no] — if yes, ask for the Acquia **API key** and **API secret** (from https://cloud.acquia.com/a/profile/tokens). Store in `~/.acquia/cloud_api.conf` via `acquia_api.write_credentials()`. Then list applications via the API, let the user pick their app, and for each env ask only `env slug` (e.g. `test`, `prod`) and optional `drush alias` (e.g. `@mysite.prod`).
+3. **Any Acquia environments to watch?** [no] — if yes:
+
+   **First, probe for an existing authenticated session** (user may already
+   be signed in via `acli auth:login` or have a `~/.acquia/cloud_api.conf`
+   from a previous setup):
+
+   ```bash
+   python3 - <<'PY'
+   import sys, os
+   sys.path.insert(0, os.path.expanduser("${CLAUDE_PLUGIN_ROOT}/scripts/monitors"))
+   from acquia_api import AcquiaClient
+   try:
+       print("OK" if AcquiaClient().verify_credentials() else "NEEDS_CREDS")
+   except FileNotFoundError:
+       print("NEEDS_CREDS")
+   except Exception:
+       print("NEEDS_CREDS")
+   PY
+   ```
+
+   - If `OK` → **skip the key/secret prompt entirely**. Print
+     `Acquia: using existing session` and proceed straight to listing
+     applications via the API, let the user pick their app, then for each
+     env ask only `env slug` (e.g. `test`, `prod`) and optional `drush
+     alias` (e.g. `@mysite.prod`).
+   - If `NEEDS_CREDS` → prompt:
+     `Acquia API key (from https://cloud.acquia.com/a/profile/tokens) — or type 'skip' to register DDEV-only and add Acquia later:`
+     If the user types `skip` (or blank), treat the Acquia answer as `no`
+     and continue with DDEV-only setup. Otherwise collect key + secret,
+     store in `~/.acquia/cloud_api.conf` via `acquia_api.write_credentials()`,
+     then proceed with the app picker + env loop above.
 4. **Slack User ID?** [blank = skip] — only if the user provides one, ask the single follow-up: `Quiet hours? (e.g. 22:00-07:00 TZ) [none]`. Quiet mode defaults to `off`.
 5. **Run quality checks?** [phpcs: yes, phpstan: no, via DDEV: yes] — one composite question; only break it apart if the user says "custom".
 
@@ -173,8 +203,36 @@ bd list -l board-drover --db .beads/drover.db --json --flat 2>/dev/null && echo 
 ```
 
 If `NEW` (db file does not exist or bd errors):
+
+Run `bd init` with two protections so the demo never hangs:
+
+1. **Hook bypass** — `bd init` runs an internal `git commit` whose
+   `.beads/hooks/pre-commit` calls `bd export` against the dolt DB
+   that `bd init` itself still holds open. On macOS (no GNU `timeout`
+   binary on `$PATH`), the hook's timeout safety net silently no-ops
+   and the commit waits forever on `.beads/embeddeddolt/.lock`.
+   We neutralise `core.hooksPath` for the child process so the hook
+   is not found. User-level hooks (e.g. global commit-msg at
+   `~/.git-hooks`) are unaffected after `bd init` returns.
+2. **Wall-clock safety net** — wrap the invocation in a `perl alarm`
+   so that if anything else hangs the user sees a clear failure
+   instead of a frozen terminal.
+
 ```bash
-bd init --prefix drover --db .beads/drover.db
+mkdir -p .beads
+GIT_CONFIG_COUNT=1 \
+GIT_CONFIG_KEY_0=core.hooksPath \
+GIT_CONFIG_VALUE_0=/dev/null \
+perl -e 'alarm shift @ARGV; exec @ARGV' 30 \
+  bd init --prefix drover --db .beads/drover.db
+rc=$?
+if [ $rc -eq 142 ] || [ $rc -eq 14 ]; then
+  echo "ERROR: bd init timed out after 30s. Check .beads/embeddeddolt/.lock and kill any hung bd/dolt processes, then re-run /drover:setup." >&2
+  exit 1
+elif [ $rc -ne 0 ]; then
+  echo "ERROR: bd init failed (exit $rc)." >&2
+  exit $rc
+fi
 echo "Board initialized"
 ```
 
