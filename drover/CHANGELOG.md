@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.19.0
+- **Per-session notification budget on umbrella stdout (sprint-89h)**: a deploy burst of 20 unique errors used to become 20 per-event harness notifications in under a minute — the existing `THRESH` was per-fingerprint, not per-session. The umbrella now routes its own stdout through a rolling-window budget filter (`scripts/monitors/budget_filter.py`) via `exec > >(python3 …)`. NEW events exceeding `DROVER_NOTIFY_MAX` (default 10) per `DROVER_NOTIFY_WINDOW` seconds (default 300) are dropped; a "`[drover] N NEW events suppressed`" summary is emitted every `DROVER_NOTIFY_SUMMARY_EVERY` drops (default 5). THRESH / TRAFFIC / anything that isn't `[key] NEW …` passes through untouched.
+- **Escape hatch**: `DROVER_NOTIFY_DISABLE=1` bypasses the filter for tests and debugging.
+- **Tests**: 5 new python tests for `BudgetFilter` (under-budget passthrough, overflow suppression, non-NEW immunity, sliding window expiry, summary-line emission) + 2 new bats tests confirming the integration path (budget applied, disable flag honored). All 27 umbrella bats tests pass.
+
 ## 1.18.0
 - **Add Project modal replaces the generic folder picker (sprint-nto)**: clicking + Add Project used to open a free-form macOS folder dialog with no validation — a silent way to register any directory as a drover project. The button now opens a modal with two sections: (a) running DDEV projects that aren't registered yet, each with a one-click Add button; (b) paste-path input + native folder picker fallback. Every path is validated server-side for `.ddev/config.yaml` presence before being handed to add-project.sh, so bad selections fail fast with a clear error.
 - **New API endpoint `GET /api/projects/discover`**: returns running DDEV projects not yet present in `projects.json`, diffed against current registrations.

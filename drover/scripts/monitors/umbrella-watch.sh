@@ -17,11 +17,23 @@ DDEV_WATCH="${DROVER_DDEV_WATCH:-${SCRIPT_DIR}/ddev-watch.py}"
 WP_WATCH="${DROVER_WP_WATCH:-${SCRIPT_DIR}/wp-watch.py}"
 ACQUIA_WATCH="${DROVER_ACQUIA_WATCH:-${SCRIPT_DIR}/acquia-watch.py}"
 BD_READY_WATCH="${DROVER_BD_READY_WATCH:-${SCRIPT_DIR}/bd-ready-watch.py}"
+BUDGET_FILTER="${DROVER_BUDGET_FILTER:-${SCRIPT_DIR}/budget_filter.py}"
 PROJECTS_FILE="${DROVER_PROJECTS_FILE:-${CLAUDE_PLUGIN_DATA:-${HOME}/.claude/plugins/data/drover-fallback}/projects.json}"
 POLL_INTERVAL="${DROVER_UMBRELLA_POLL:-30}"
 MAX_ITERATIONS="${DROVER_UMBRELLA_MAX_ITERATIONS:-0}"
 
 LOG_FILE="${DROVER_UMBRELLA_LOG:-${HOME}/.claude/drover.umbrella.log}"
+
+# sprint-89h: route all umbrella stdout through a rolling-window budget
+# filter so a deploy burst of 20 unique errors cannot produce 20
+# per-event harness notifications in under a minute. NEW events exceeding
+# DROVER_NOTIFY_MAX (default 10) per DROVER_NOTIFY_WINDOW seconds
+# (default 300) are dropped; a summary line ("N NEW events suppressed")
+# is emitted every DROVER_NOTIFY_SUMMARY_EVERY drops (default 5).
+# Setting DROVER_NOTIFY_DISABLE=1 bypasses the filter (tests use this).
+if [ -z "${DROVER_NOTIFY_DISABLE:-}" ] && [ -f "$BUDGET_FILTER" ]; then
+  exec > >(python3 "$BUDGET_FILTER")
+fi
 
 # Lifecycle messages go to a log file, not stdout. The Claude Code harness
 # treats every stdout line from a Monitor as a user-facing notification, so
