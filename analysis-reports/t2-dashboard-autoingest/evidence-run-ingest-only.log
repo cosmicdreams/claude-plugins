@@ -1,0 +1,3 @@
+[ingest] note: 18 external umbrella watcher(s) running (pids=32084,32085,38235,38238,38239,77718,77722,77723,79666,79669,92050,92053,92608,92614,92615,92760,92764,92765); spawning dashboard-owned child for live UI events. bd fingerprint dedup prevents duplicate cards.
+[ingest] umbrella armed (pid=87807); state-dir=/Users/Chris.Weber/.claude/plugins/data/drover-fallback/dashboard-ingest-state; projects=4
+[ingest] NEW t2dem082855 error apache -> bd card in project=ahri-main
