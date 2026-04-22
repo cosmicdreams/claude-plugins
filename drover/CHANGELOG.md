@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.21.0
+- Stable Apache fingerprints: parser in `fingerprint.process()` strips IPs, timestamps, request_ids, user-agents, vhost path tails, and forwarded_for data before hashing; anchors the canonical shape on the `AHNNNNN` Acquia error code. The 50-row `[ERROR] apache: …` wall that produced `fp:[unknown]` for every line now collapses to a handful of unique fingerprints with real occurrence counts.
+- Triage card bodies: `handleTriage` switched from the unsupported `bd create --body` flag to `--description`, so cards now carry `**Fingerprint:** …`, `**Occurrences:** …`, `**Source:** …`, and the raw log line. Occurrence counts render from the persisted acquia-state instead of always reading 0.
+- Favicon: the dashboard now serves `/favicon.svg` — a V mark that mixes drover's crit-red wedge with Velir's green/blue chevron cap. Declared via `<link rel="icon">` and `<link rel="mask-icon">` in the dashboard head.
+
 ## 1.20.0
 - **Cross-env fingerprint dedup on umbrella stdout (sprint-ie4)**: the same fingerprint hitting local + staging + prod within a short window used to produce three separate NEW notifications because watcher state is per-env. The umbrella's stdout filter now runs a cross-env dedup pass (`CrossEnvDedup` in `scripts/monitors/budget_filter.py`) before the budget step. First-seen env's NEW passes through; subsequent different-env sightings of the same fp within `DROVER_DEDUP_WINDOW` seconds (default 60) are suppressed and accumulated into a single `[drover] multi-env fp <fp>: <env1>,<env2>,<env3>` summary line. Same-env repeats are unaffected — those remain the job of BudgetFilter / per-fp THRESH.
 - **New pure helper `CrossEnvDedup`**: parse regex extracts fp + env from the `[key] NEW <fp> <severity> <source> <env> <msg>` shape. Five python tests cover suppression within window, no-op on same env, window expiry, multi-env summary emission, and non-NEW passthrough.
