@@ -884,10 +884,14 @@ function startAutoIngestion() {
   });
 
   try {
+    // detached:true gives the umbrella its own process group. On shutdown we
+    // signal the whole group (process.kill(-pid, …)) so every per-project
+    // watcher child dies with it — otherwise they reparent to init and
+    // outlive the dashboard.
     umbrellaChild = spawn('bash', [umbrella], {
       env,
       stdio: ['ignore', 'pipe', 'pipe'],
-      detached: false,
+      detached: true,
     });
   } catch (err) {
     console.warn(`[ingest] failed to spawn umbrella: ${err.message}`);
@@ -923,13 +927,20 @@ function startAutoIngestion() {
 }
 
 function stopAutoIngestion() {
-  if (umbrellaChild && !umbrellaChild.killed) {
-    try { umbrellaChild.kill('SIGTERM'); } catch {}
-    setTimeout(() => {
-      if (umbrellaChild && !umbrellaChild.killed) {
-        try { umbrellaChild.kill('SIGKILL'); } catch {}
-      }
-    }, 2000).unref();
+  if (umbrellaChild && umbrellaChild.pid && !umbrellaChild.killed) {
+    const pid = umbrellaChild.pid;
+    // Kill the whole process group so per-project watchers (acquia-watch.py,
+    // ddev-watch.py) don't reparent to init and survive the dashboard.
+    try { process.kill(-pid, 'SIGTERM'); } catch {}
+    // Synchronous spin — we're in shutdown, we want the child gone before we
+    // exit. Bounded to ~1.5s total (15 * 100ms) then escalate to SIGKILL.
+    const deadline = Date.now() + 1500;
+    while (Date.now() < deadline) {
+      try { process.kill(-pid, 0); } catch { break; }
+      // poll with execFileSync so we actually yield
+      try { execFileSync('sleep', ['0.1']); } catch { break; }
+    }
+    try { process.kill(-pid, 0); process.kill(-pid, 'SIGKILL'); } catch { /* already gone */ }
   }
   try { fs.unlinkSync(DASHBOARD_UMBRELLA_PID_FILE); } catch {}
 }
@@ -954,8 +965,8 @@ function ingestionStatusSnapshot() {
   };
 }
 
-process.on('SIGINT', () => { stopAutoIngestion(); process.exit(0); });
-process.on('SIGTERM', () => { stopAutoIngestion(); process.exit(0); });
+process.on('SIGINT', () => { console.log('[ingest] SIGINT received; stopping umbrella'); stopAutoIngestion(); process.exit(0); });
+process.on('SIGTERM', () => { console.log('[ingest] SIGTERM received; stopping umbrella'); stopAutoIngestion(); process.exit(0); });
 process.on('exit', () => { stopAutoIngestion(); });
 
 // ---------------------------------------------------------------------------
@@ -4571,6 +4582,23 @@ const server = http.createServer(async (req, res) => {
     // UI can render the "Listening for stream messages…" empty state.
     if (pathname === '/api/ingestion/status' && req.method === 'GET') {
       return jsonResponse(res, 200, ingestionStatusSnapshot());
+    }
+
+    // T2 test harness: simulate an umbrella stdout line so evidence runs can
+    // demonstrate the end-to-end path (watcher line -> bd create -> SSE push
+    // -> UI row) without waiting for a real DDEV/Acquia event. Gated by
+    // DROVER_TEST_INGEST=1 so the endpoint returns 404 in normal operation.
+    if (pathname === '/api/ingestion/__test_event' && req.method === 'POST') {
+      if (process.env.DROVER_TEST_INGEST !== '1') {
+        res.writeHead(404, { 'Content-Type': 'text/plain' });
+        return res.end('Not Found');
+      }
+      let body;
+      try { body = await readBody(req); } catch { body = null; }
+      const line = (body && body.line) || '';
+      if (!line) return jsonResponse(res, 400, { error: 'line required' });
+      handleUmbrellaLine(line).catch(err => console.warn('[ingest-test] ' + err.message));
+      return jsonResponse(res, 200, { ok: true, line });
     }
 
     if (pathname === '/api/move' && req.method === 'POST') {
