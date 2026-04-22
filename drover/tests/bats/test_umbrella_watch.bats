@@ -467,6 +467,48 @@ print(json.dumps([{'name': 'siteA', 'path': '/tmp/siteA', 'ddev_project': 'siteA
   assert_output --partial "unknown platform 'sitecore' for ddev:siteA; falling back to drupal"
 }
 
+@test "sprint-89h: budget filter caps NEW events per session" {
+  cat > "$DROVER_DDEV_WATCH" <<'EOF'
+#!/usr/bin/env bash
+for i in 1 2 3 4 5 6 7 8 9 10; do
+  echo "NEW fp$i error source $1 msg$i"
+done
+sleep 0.3
+EOF
+  chmod +x "$DROVER_DDEV_WATCH"
+
+  export DROVER_NOTIFY_MAX=2
+  export DROVER_NOTIFY_WINDOW=300
+  export DROVER_NOTIFY_SUMMARY_EVERY=3
+
+  write_projects siteA
+  run run_timeout 3 "$SCRIPT"
+  assert_output --partial "NEW fp1 error source siteA msg1"
+  assert_output --partial "NEW fp2 error source siteA msg2"
+  refute_output --partial "NEW fp10 error source siteA msg10"
+  assert_output --partial "NEW events suppressed"
+}
+
+@test "sprint-89h: DROVER_NOTIFY_DISABLE bypasses the filter" {
+  cat > "$DROVER_DDEV_WATCH" <<'EOF'
+#!/usr/bin/env bash
+for i in 1 2 3 4 5; do
+  echo "NEW fp$i error source $1 msg$i"
+done
+sleep 0.3
+EOF
+  chmod +x "$DROVER_DDEV_WATCH"
+
+  export DROVER_NOTIFY_DISABLE=1
+
+  write_projects siteA
+  run run_timeout 3 "$SCRIPT"
+  for i in 1 2 3 4 5; do
+    assert_output --partial "NEW fp$i error source siteA msg$i"
+  done
+  refute_output --partial "NEW events suppressed"
+}
+
 @test "signal still reaches harness when stderr is also active" {
   # Interleave stdout and stderr — make sure the stdout path isn't
   # accidentally starved or buffered to death by the stderr redirection.
