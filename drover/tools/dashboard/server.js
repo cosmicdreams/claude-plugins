@@ -959,10 +959,10 @@ async function handleTriage(req, res) {
     }
   } catch { /* if board query fails, proceed anyway */ }
 
-  // Build occurrence counts from the backfill log. NEW lines emit once per
-  // fingerprint (first-see), THRESH lines carry `count=<n>` at threshold
-  // crossings. We aggregate both so the card body reflects real volume
-  // instead of the hard-coded `1` that was there before.
+  // Build occurrence counts. Preferred source is the acquia-state JSON
+  // that backfill.sh writes — it carries the true count per fingerprint
+  // across the entire log. Fall back to the NEW/THRESH-line aggregation
+  // for environments without a readable state file (tests, fresh installs).
   const logLines = logContent.split('\n');
   const occCounts = new Map();
   const rawSamples = new Map();
@@ -982,6 +982,27 @@ async function handleTriage(req, res) {
       }
     }
   }
+  // Overlay true state-file counts when available. This is authoritative —
+  // NEW/THRESH only emit at threshold crossings, so an error seen 14 times
+  // (below the NEW+THRESH=50 default threshold) shows up as 1 in the log
+  // aggregation but 14 in the state file.
+  try {
+    const stateDir = process.env.DROVER_STATE_DIR
+      || path.join(process.env.CLAUDE_PLUGIN_DATA
+        || path.join(process.env.HOME || '/tmp', '.claude/plugins/data/drover-fallback'),
+        'acquia-state');
+    const stateFile = path.join(stateDir, `${alias}.json`);
+    if (fs.existsSync(stateFile)) {
+      const state = JSON.parse(fs.readFileSync(stateFile, 'utf8'));
+      for (const [fp, entry] of Object.entries(state || {})) {
+        if (entry && typeof entry === 'object' && typeof entry.count === 'number') {
+          // State is authoritative: use max(state, log-aggregated) so a
+          // stale state file never downgrades a fresh THRESH count.
+          occCounts.set(fp, Math.max(occCounts.get(fp) || 0, entry.count));
+        }
+      }
+    }
+  } catch { /* state file unreadable — keep log-derived counts */ }
 
   let created = 0, skipped = 0;
   const envLabel = alias.includes('.') ? alias.split('.').pop() : alias;

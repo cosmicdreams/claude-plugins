@@ -52,7 +52,13 @@ WS_RE = re.compile(r"\s+")
 # NOT influence the fingerprint — otherwise every apache line becomes its
 # own "unique" fingerprint and the dashboard degenerates into a 50-row
 # wall of singletons (see T4 of the Friday demo).
-APACHE_MODULE_TAG_RE = re.compile(r"\[[a-z_]+:(?:error|warn|notice|info|debug|crit|alert|emerg)\]", re.I)
+# Matches Apache's bracketed severity / module tag. Accepts both the Acquia
+# simple form (`[error]`, `[warn]`, `[notice]`) and the multi-module form
+# (`[proxy_fcgi:error]`, `[php:warn]`, ...).
+APACHE_MODULE_TAG_RE = re.compile(
+    r"\[(?:[a-z_]+:)?(?:error|warn|warning|notice|info|debug|crit|alert|emerg)\]",
+    re.I,
+)
 APACHE_QUOTED_RE = re.compile(r'"[^"]*"')
 APACHE_KV_DROP_RE = re.compile(
     r"\b(?:vhost|forwarded_for|request_id|client|referer|user_agent|hosting_site)=\S+",
@@ -128,36 +134,39 @@ def normalize(line: str) -> str:
 def _normalize_apache(line: str) -> str:
     """Build a stable canonical form for an Acquia apache error line.
 
-    Collapses per-request ephemera (quoted referer / UA strings, `@@seq`
-    request tokens, kv-pairs for vhost/forwarded_for/request_id/client/
-    hosting_site, IPs, timestamps) and keeps the stable signal: the
-    severity token, the `apache:` source tag, and the `ahNNN` Apache
-    status code (when present). Falls back to the generic `normalize()`
-    path for apache-like lines that don't carry any stable code.
+    When a line carries an Apache status code (`ahNNNN`, e.g. AH01276),
+    the canonical key is ONLY `apache:<ahcode>`. That collapses the 600+
+    variants of "AH01276: Cannot serve directory /some/varying/path/" — all
+    genuinely the same error class — into a single fingerprint with a
+    real occurrence count, which is the whole point of T4.
+
+    When no AH code is present, we scrub per-request ephemera (quoted
+    referer / UA strings, `@@seq` tokens, vhost/forwarded_for/request_id/
+    client/hosting_site kv-pairs, IPs, timestamps, request-id UUIDs) and
+    hash the remaining prose. Path tails are reduced to their parent
+    directory so `cannot serve directory /var/www/html/foo/` and
+    `cannot serve directory /var/www/html/bar/` collapse to the same key.
     """
     s = line
-    # Pull out the Apache status code first so we can preserve it after
-    # the aggressive scrubbing below.
+    # If an AH status code exists, that's the whole fingerprint. Every
+    # message body with the same AH code is the same error class.
     m = APACHE_STATUS_CODE_RE.search(s)
-    ah_code = m.group(1).lower() if m else ""
-    # Strip quoted strings wholesale — referer + UA are per-request.
+    if m:
+        return f"apache:{m.group(1).lower()}"
+    # Otherwise, scrub aggressively and hash the residual shape.
     s = APACHE_QUOTED_RE.sub('""', s)
-    # Strip kv-pairs carrying per-request identifiers.
     s = APACHE_KV_DROP_RE.sub("", s)
-    # Strip bare `@@xxxx` sequence tokens.
     s = APACHE_AT_SEQ_RE.sub("", s)
-    # Strip IPs and request-ids and timestamps.
     s = REQUEST_ID_RE.sub("", s)
     s = IP_RE.sub("", s)
     s = TIMESTAMP_RE.sub("", s)
     s = PID_RE.sub("", s)
+    # Collapse long directory paths to a single `PATH` token so per-request
+    # path variance (`/var/.../themes/custom/foo/` vs `.../bar/`) doesn't
+    # create false-positive fingerprints.
+    s = re.sub(r"/[^\s]{2,}", "PATH", s)
     s = NUM_RE.sub("", s)
     s = WS_RE.sub(" ", s).strip().lower()
-    # Canonical shape: source + ah-code. The surrounding prose is noisy
-    # enough after scrubbing that we anchor on the code (when we have
-    # one) to guarantee identical shapes collapse.
-    if ah_code:
-        return f"apache:{ah_code}:{s}"
     return f"apache:{s}"
 
 
