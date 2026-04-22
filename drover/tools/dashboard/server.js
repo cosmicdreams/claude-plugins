@@ -1698,6 +1698,41 @@ function buildHtml() {
 
   .btn.active-view { background:var(--info-dim); color:var(--info2); border-color:rgba(94,92,230,0.35); }
 
+  /* A9: segmented view toggle replaces the pair of Dashboard/Board buttons. */
+  .view-toggle {
+    display: inline-flex;
+    align-items: stretch;
+    background: var(--surface2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 2px;
+    gap: 0;
+  }
+  .view-toggle-seg {
+    appearance: none;
+    background: transparent;
+    color: var(--muted);
+    border: 0;
+    padding: 6px 14px;
+    font: inherit;
+    font-size: 13px;
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    cursor: pointer;
+    border-radius: 6px;
+    transition: background 0.15s ease, color 0.15s ease;
+  }
+  .view-toggle-seg:hover { color: var(--text2); }
+  .view-toggle-seg[aria-pressed="true"] {
+    background: var(--info-dim);
+    color: var(--info2);
+    box-shadow: 0 1px 0 rgba(0,0,0,0.25) inset;
+  }
+  .view-toggle-seg:focus-visible {
+    outline: 2px solid var(--info);
+    outline-offset: 2px;
+  }
+
   .board-wrap {
     flex:1; display:flex; flex-direction:column; overflow:hidden;
     animation: fade-up 0.35s ease both;
@@ -2200,8 +2235,10 @@ function buildHtml() {
     </div>
     <div class="topbar-right">
       <span class="ts" id="clock"></span>
-      <button class="btn btn-ghost active-view" id="btn-dashboard" onclick="switchView('dashboard')">&#9783; Dashboard</button>
-      <button class="btn btn-ghost" id="btn-board" onclick="switchView('board')">&#8862; Board</button>
+      <div class="view-toggle" role="radiogroup" aria-label="View">
+        <button type="button" class="view-toggle-seg" id="btn-dashboard" role="radio" aria-pressed="true" onclick="switchView('dashboard')">Dashboard</button>
+        <button type="button" class="view-toggle-seg" id="btn-board" role="radio" aria-pressed="false" onclick="switchView('board')">Issues</button>
+      </div>
       <button class="btn btn-ghost" id="btn-add-project" onclick="addProjectPrompt()" title="Register a DDEV project with drover">+ Add Project</button>
       <button class="btn btn-ghost" id="btn-backfill" onclick="backfillPrompt()" title="Pull historical Acquia logs for an environment">Backfill</button>
     </div>
@@ -3744,27 +3781,38 @@ function showBackfillProgress(alias, logPath) {
 }
 
 // ========================================================================
-// View switching
+// View switching — segmented toggle (Dashboard / Issues). State persists
+// in localStorage under 'drover.view'. Default is 'dashboard' when the
+// key is missing or holds an unrecognised value.
 // ========================================================================
 function switchView(view) {
+  if (view !== 'board' && view !== 'dashboard') view = 'dashboard';
   currentView = view;
   var dashEl = document.getElementById('view-dashboard');
   var boardEl = document.getElementById('view-board');
   var btnDash = document.getElementById('btn-dashboard');
   var btnBoard = document.getElementById('btn-board');
 
-  if(view==='board'){
+  if (view === 'board') {
     dashEl.classList.add('hidden');
     boardEl.classList.remove('hidden');
-    btnBoard.classList.add('active-view');
-    btnDash.classList.remove('active-view');
+    btnBoard.setAttribute('aria-pressed', 'true');
+    btnDash.setAttribute('aria-pressed', 'false');
     renderBoard();
   } else {
     boardEl.classList.add('hidden');
     dashEl.classList.remove('hidden');
-    btnDash.classList.add('active-view');
-    btnBoard.classList.remove('active-view');
+    btnDash.setAttribute('aria-pressed', 'true');
+    btnBoard.setAttribute('aria-pressed', 'false');
   }
+
+  try { localStorage.setItem('drover.view', view); } catch (e) { /* private mode */ }
+}
+
+function restoreViewFromStorage() {
+  var saved;
+  try { saved = localStorage.getItem('drover.view'); } catch (e) { saved = null; }
+  switchView(saved === 'board' ? 'board' : 'dashboard');
 }
 
 // ========================================================================
@@ -4166,6 +4214,7 @@ function connectSSE() {
 // ========================================================================
 // Init
 // ========================================================================
+restoreViewFromStorage();
 Promise.all([fetchAll(), fetchDdevStatus()]).then(function(){ connectSSE(); });
 </script>
 </body>
