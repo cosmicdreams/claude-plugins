@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.20.0
+- **Cross-env fingerprint dedup on umbrella stdout (sprint-ie4)**: the same fingerprint hitting local + staging + prod within a short window used to produce three separate NEW notifications because watcher state is per-env. The umbrella's stdout filter now runs a cross-env dedup pass (`CrossEnvDedup` in `scripts/monitors/budget_filter.py`) before the budget step. First-seen env's NEW passes through; subsequent different-env sightings of the same fp within `DROVER_DEDUP_WINDOW` seconds (default 60) are suppressed and accumulated into a single `[drover] multi-env fp <fp>: <env1>,<env2>,<env3>` summary line. Same-env repeats are unaffected — those remain the job of BudgetFilter / per-fp THRESH.
+- **New pure helper `CrossEnvDedup`**: parse regex extracts fp + env from the `[key] NEW <fp> <severity> <source> <env> <msg>` shape. Five python tests cover suppression within window, no-op on same env, window expiry, multi-env summary emission, and non-NEW passthrough.
+- **Composition order**: dedup first (so cross-env collapses don't consume budget slots), budget second.
+
 ## 1.19.1
 - **Dashboard resolves PROJECT_ROOT from drover-config.json, not `git rev-parse` (sprint-06p)**: worktree-style layouts (AHRI, KELLOGG, etc.) have multiple `.beads/` directories under one git repo — invoking `/drover:dashboard` from `worktrees/main` vs the repo root used to produce wildly different boards (2 cards vs 37). The dashboard skill now walks up from `$PWD` for the nearest `.claude/drover-config.json` and uses that directory as `PROJECT_ROOT`, consistent regardless of cwd inside the worktree tree.
 - **Explicit `dashboard.db_path` support**: drover-config.json can now carry `"dashboard": { "db_path": "<path or relative>" }` to pin a single-project dashboard run without setting `DROVER_DB_OVERRIDE` each time. Precedence: env override → config value → `--all-projects` virtual-central fallback.

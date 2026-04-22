@@ -60,5 +60,51 @@ class TestBudgetFilter(unittest.TestCase):
         self.assertIn("3", summary)
 
 
+class TestCrossEnvDedup(unittest.TestCase):
+    def test_same_fp_in_different_envs_within_window_is_suppressed(self):
+        t = [0.0]
+        d = bf.CrossEnvDedup(window_seconds=60, now_fn=lambda: t[0])
+        first = d.handle("[ddev:siteA] NEW abc123 error php local oh no")
+        second = d.handle("[acquia:siteA-prod] NEW abc123 error php prod oh no")
+        self.assertIsNotNone(first)
+        self.assertIsNone(second)
+
+    def test_same_fp_same_env_is_not_suppressed_by_dedup(self):
+        t = [0.0]
+        d = bf.CrossEnvDedup(window_seconds=60, now_fn=lambda: t[0])
+        a = d.handle("[ddev:siteA] NEW abc123 error php local oh no")
+        b = d.handle("[ddev:siteA] NEW abc123 error php local oh no")
+        self.assertIsNotNone(a)
+        self.assertIsNotNone(b)
+
+    def test_window_expiry_allows_cross_env_again(self):
+        t = [0.0]
+        d = bf.CrossEnvDedup(window_seconds=60, now_fn=lambda: t[0])
+        d.handle("[ddev:siteA] NEW abc123 error php local oh no")
+        self.assertIsNone(d.handle("[acquia:siteA-prod] NEW abc123 error php prod oh no"))
+        t[0] = 120.0
+        self.assertIsNotNone(d.handle("[acquia:siteA-prod] NEW abc123 error php prod oh no"))
+
+    def test_summary_reports_multi_env_span(self):
+        t = [0.0]
+        d = bf.CrossEnvDedup(window_seconds=60, now_fn=lambda: t[0])
+        d.handle("[ddev:siteA] NEW abc123 error php local oh no")
+        d.handle("[acquia:siteA-stg] NEW abc123 error php stg oh no")
+        d.handle("[acquia:siteA-prod] NEW abc123 error php prod oh no")
+        summaries = d.flush_multi_env_summaries()
+        self.assertEqual(len(summaries), 1)
+        line = summaries[0]
+        self.assertIn("abc123", line)
+        self.assertIn("multi-env", line)
+        for env in ("local", "stg", "prod"):
+            self.assertIn(env, line)
+
+    def test_non_new_lines_are_passed_through(self):
+        d = bf.CrossEnvDedup(window_seconds=60)
+        self.assertIsNotNone(d.handle("[x] THRESH abc count=50"))
+        self.assertIsNotNone(d.handle("[x] TRAFFIC env=pncb.prod count=1000"))
+        self.assertIsNotNone(d.handle("random unrelated noise"))
+
+
 if __name__ == "__main__":
     unittest.main()
