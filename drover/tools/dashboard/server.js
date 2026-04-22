@@ -13,6 +13,7 @@
 
 const http = require('http');
 const fs = require('fs');
+const path = require('path');
 const { execFileSync, execFile, spawn } = require('child_process');
 const { promisify } = require('util');
 const execFileP = promisify(execFile);
@@ -275,12 +276,26 @@ setInterval(() => {
 // registered project from projects.json (resolved on each call so
 // add-project registrations surface without restart).
 function currentBoards() {
-  if (ALL_PROJECTS) return projectsModule.listBoards();
-  // Derive a stable "project" tag from the --db path so single-project
-  // mode still shows a consistent label on every card.
-  const dir = require('path').dirname(DB_PATH);
-  const project = require('path').basename(require('path').dirname(dir));
-  return [{ project: project || 'project', path: require('path').dirname(dir), dbPath: DB_PATH }];
+  if (ALL_PROJECTS) {
+    const boards = projectsModule.listBoards();
+    // Also include the launch-directory's board (passed via --config) even
+    // when it hasn't been registered with /drover:add-project yet. Without
+    // this, running /drover:dashboard from a project directory that isn't in
+    // projects.json produces a blank dashboard — confusing for first-time use.
+    if (CONFIG_PATH) {
+      const configProjectDir = path.dirname(path.dirname(CONFIG_PATH));
+      const configDb = projectsModule.findBeadsDb(configProjectDir);
+      if (configDb && !boards.some(b => b.dbPath === configDb)) {
+        const name = path.basename(configProjectDir);
+        boards.push({ project: name, path: configProjectDir, dbPath: configDb });
+      }
+    }
+    return boards;
+  }
+  // Single-project mode: derive a stable label from the --db path.
+  const dir = path.dirname(DB_PATH);
+  const project = path.basename(path.dirname(dir));
+  return [{ project: project || 'project', path: path.dirname(dir), dbPath: DB_PATH }];
 }
 
 // sprint-56q: Query a single bd board. Returns { rows } on success or
@@ -599,7 +614,7 @@ function setupWatchers() {
   const boards = currentBoards();
   const watchedDirs = new Set();
   for (const b of boards) {
-    const beadsDir = require('path').dirname(b.dbPath);
+    const beadsDir = path.dirname(b.dbPath);
     if (watchedDirs.has(beadsDir)) continue;
     watchedDirs.add(beadsDir);
     try {
