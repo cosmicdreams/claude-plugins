@@ -316,6 +316,48 @@ test('resolveCardHostnames dedups repeated env labels', () => {
   assert.equal(out.length, 1);
 });
 
+test('isValidBackfillLogPath accepts a file inside logDir with expected prefix', () => {
+  const dir = tmpdir();
+  const file = path.join(dir, 'drover-backfill-pncb.prod-ts.log');
+  fs.writeFileSync(file, '');
+  assert.equal(projects.isValidBackfillLogPath(file, dir), true);
+});
+
+test('isValidBackfillLogPath rejects path traversal escapes', () => {
+  const dir = tmpdir();
+  const escape = path.join(dir, '..', 'etc', 'passwd');
+  assert.equal(projects.isValidBackfillLogPath(escape, dir), false);
+});
+
+test('isValidBackfillLogPath rejects files without the drover-backfill- prefix', () => {
+  const dir = tmpdir();
+  const bad = path.join(dir, 'random.log');
+  fs.writeFileSync(bad, '');
+  assert.equal(projects.isValidBackfillLogPath(bad, dir), false);
+});
+
+test('isValidBackfillLogPath rejects when file is absent', () => {
+  const dir = tmpdir();
+  const missing = path.join(dir, 'drover-backfill-x-ts.log');
+  assert.equal(projects.isValidBackfillLogPath(missing, dir), false);
+});
+
+test('isValidBackfillLogPath rejects non-string inputs', () => {
+  const dir = tmpdir();
+  assert.equal(projects.isValidBackfillLogPath(null, dir), false);
+  assert.equal(projects.isValidBackfillLogPath('', dir), false);
+  assert.equal(projects.isValidBackfillLogPath({}, dir), false);
+});
+
+test('classifyBackfillLine recognizes well-known progress markers', () => {
+  assert.equal(projects.classifyBackfillLine('Requested log download for pncb.prod'), 'ARCHIVING');
+  assert.equal(projects.classifyBackfillLine('attempt 5/30 archive not ready'), 'POLLING');
+  assert.equal(projects.classifyBackfillLine('downloading archive http://acquia...'), 'DOWNLOADING');
+  assert.equal(projects.classifyBackfillLine('NEW aaaa error php pncb.prod oh no'), 'PARSING');
+  assert.equal(projects.classifyBackfillLine('BACKFILL done env=pncb.prod events=50'), 'DONE');
+  assert.equal(projects.classifyBackfillLine('some unrelated noise'), null);
+});
+
 test('pickFolderMacOS returns null when runner throws', () => {
   const throwingRunner = () => { throw new Error('user canceled'); };
   assert.equal(projects.pickFolderMacOS({ runner: throwingRunner }), null);

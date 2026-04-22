@@ -660,6 +660,98 @@ async function handleAddProject(req, res) {
 
 function listProjects() { return projectsModule.listProjects(); }
 
+// sprint-ydz: GET /api/backfill/progress?log=<path>
+// SSE endpoint that streams the backfill log file line-by-line to the
+// dashboard modal. Sends existing content immediately, then tails new lines
+// via fs.watch. Closes when the log emits BACKFILL done / BACKFILL error or
+// when the client disconnects. 15-min hard ceiling.
+function handleBackfillProgress(req, res, url) {
+  const logPath = url.searchParams.get('log') || '';
+  const logDir = process.env.DROVER_BACKFILL_LOG_DIR || '/private/tmp';
+  if (!projectsModule.isValidBackfillLogPath(logPath, logDir)) {
+    return jsonResponse(res, 400, { status: 'error', message: 'invalid log path' });
+  }
+
+  res.writeHead(200, {
+    'Content-Type': 'text/event-stream',
+    'Cache-Control': 'no-cache',
+    'Connection': 'keep-alive',
+  });
+  res.write(': progress-connected\n\n');
+
+  let position = 0;
+  let closed = false;
+  let carry = '';
+
+  function emit(event, data) {
+    if (closed) return;
+    try {
+      res.write(`event: ${event}\ndata: ${JSON.stringify(data)}\n\n`);
+    } catch {
+      closed = true;
+    }
+  }
+
+  function readNew() {
+    if (closed) return;
+    fs.stat(logPath, (err, stat) => {
+      if (err || closed) return;
+      if (stat.size < position) {
+        // File truncated/rotated — restart from the top.
+        position = 0;
+        carry = '';
+      }
+      if (stat.size === position) return;
+      const stream = fs.createReadStream(logPath, { start: position, end: stat.size - 1 });
+      let chunk = '';
+      stream.on('data', d => { chunk += d.toString('utf8'); });
+      stream.on('end', () => {
+        position = stat.size;
+        const combined = carry + chunk;
+        const lines = combined.split('\n');
+        carry = lines.pop(); // last partial line
+        for (const line of lines) {
+          if (!line) continue;
+          const phase = projectsModule.classifyBackfillLine(line);
+          emit('line', { line, phase });
+          if (phase === 'DONE') {
+            emit('done', { status: 'done' });
+            closed = true;
+            try { res.end(); } catch {}
+            return;
+          }
+        }
+      });
+      stream.on('error', () => { /* ignore transient read errors */ });
+    });
+  }
+
+  readNew();
+
+  let watcher;
+  try {
+    watcher = fs.watch(logPath, { persistent: false }, () => readNew());
+  } catch (e) {
+    emit('error', { message: `watch failed: ${e.message}` });
+  }
+  // Poll as a safety net — fs.watch on macOS can miss append events.
+  const poll = setInterval(readNew, 1000);
+  const ceiling = setTimeout(() => {
+    emit('timeout', { message: 'progress stream ceiling reached (15m)' });
+    closed = true;
+    try { res.end(); } catch {}
+  }, 15 * 60 * 1000);
+
+  function cleanup() {
+    closed = true;
+    clearInterval(poll);
+    clearTimeout(ceiling);
+    if (watcher) { try { watcher.close(); } catch {} }
+  }
+  req.on('close', cleanup);
+  res.on('close', cleanup);
+}
+
 async function handleBackfill(req, res) {
   // readBody already JSON.parses the request body and returns the parsed
   // object. A previous version of this handler ran JSON.parse() again on
@@ -1198,6 +1290,21 @@ function buildHtml() {
   }
   .modal-host-link { color:var(--info2); text-decoration:none; }
   .modal-host-link:hover { text-decoration:underline; }
+
+  .backfill-phase {
+    font-family:var(--mono); font-size:10px; font-weight:600;
+    padding:2px 7px; border-radius:10px; letter-spacing:0.05em;
+    background:var(--surface2); color:var(--muted); border:1px solid var(--border);
+  }
+  .backfill-phase.queued, .backfill-phase.starting { background:var(--surface2); color:var(--muted); }
+  .backfill-phase.archiving, .backfill-phase.polling, .backfill-phase.downloading {
+    background:var(--info-dim); color:var(--info2); border-color:rgba(64,156,255,0.25);
+  }
+  .backfill-phase.parsing { background:var(--warn-dim); color:var(--warn); border-color:rgba(255,179,64,0.25); }
+  .backfill-phase.done { background:var(--ok-dim); color:var(--ok); border-color:rgba(50,215,75,0.25); }
+  .backfill-phase.timeout, .backfill-phase.disconnected, .backfill-phase.reconnect {
+    background:var(--crit-dim); color:var(--crit); border-color:rgba(255,69,58,0.25);
+  }
 
   .age-cell { font-family:var(--mono); font-size:10px; color:var(--muted); white-space:nowrap; }
 
@@ -3023,7 +3130,11 @@ function runBackfill() {
     .then(function(r) { return r.json(); })
     .then(function(body) {
       if (body.status === 'queued') {
-        showToast('Backfill queued for ' + alias + '. Tail ' + body.log + ' for progress.');
+        // sprint-ydz: swap the form for a live progress panel instead of
+        // firing a toast and closing — the user can now watch
+        // archive-create -> poll -> download -> parse -> done.
+        showBackfillProgress(alias, body.log);
+        return;
       } else if (body.status === 'done') {
         // Legacy sync path — still handled for tests / CLI fallback.
         showToast('Backfilled ' + alias + ': ' + body.events + ' events, ' +
@@ -3034,6 +3145,84 @@ function runBackfill() {
       closeBackfillModal();
     })
     .catch(function(e) { showToast('Request failed: ' + e.message); closeBackfillModal(); });
+}
+
+// sprint-ydz: swap the backfill modal body for a streaming progress panel.
+// Subscribes to /api/backfill/progress?log=<path> (SSE) and appends each
+// line as it arrives. A state badge reflects the last classified phase.
+function showBackfillProgress(alias, logPath) {
+  var content = document.getElementById('modal-content');
+  var oldBody = content.querySelector('.modal-body');
+  if (oldBody) oldBody.parentNode.removeChild(oldBody);
+
+  var body = document.createElement('div'); body.className = 'modal-body';
+
+  var status = document.createElement('div'); status.className = 'modal-section';
+  var row = document.createElement('div');
+  row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '10px';
+  var aliasLbl = document.createElement('div');
+  aliasLbl.style.fontFamily = 'var(--mono)'; aliasLbl.style.fontSize = '12px';
+  aliasLbl.textContent = alias;
+  var badge = document.createElement('span');
+  badge.id = 'backfill-phase'; badge.className = 'backfill-phase queued';
+  badge.textContent = 'QUEUED';
+  row.appendChild(aliasLbl); row.appendChild(badge);
+  status.appendChild(row);
+
+  var logLbl = document.createElement('div');
+  logLbl.style.marginTop = '6px'; logLbl.style.fontSize = '10px'; logLbl.style.color = 'var(--muted2)';
+  logLbl.textContent = logPath;
+  status.appendChild(logLbl);
+
+  var pre = document.createElement('pre');
+  pre.id = 'backfill-log';
+  pre.style.maxHeight = '360px'; pre.style.overflow = 'auto';
+  pre.style.fontFamily = 'var(--mono)'; pre.style.fontSize = '11px';
+  pre.style.background = 'var(--surface2)'; pre.style.padding = '10px';
+  pre.style.border = '1px solid var(--border)'; pre.style.borderRadius = '4px';
+  pre.style.margin = '12px 0 0';
+  pre.style.whiteSpace = 'pre-wrap';
+
+  var foot = document.createElement('div'); foot.className = 'modal-section'; foot.style.textAlign = 'right';
+  var dismiss = document.createElement('button'); dismiss.className = 'btn';
+  dismiss.textContent = 'Close'; dismiss.onclick = closeBackfillModal;
+  foot.appendChild(dismiss);
+
+  body.appendChild(status);
+  body.appendChild(pre);
+  body.appendChild(foot);
+  content.appendChild(body);
+
+  var url = '/api/backfill/progress?log=' + encodeURIComponent(logPath);
+  var es = new EventSource(url);
+  function setPhase(phase) {
+    badge.className = 'backfill-phase ' + phase.toLowerCase();
+    badge.textContent = phase;
+  }
+  setPhase('STARTING');
+  es.addEventListener('line', function(ev){
+    try {
+      var d = JSON.parse(ev.data);
+      pre.appendChild(document.createTextNode(d.line + '\\n'));
+      pre.scrollTop = pre.scrollHeight;
+      if (d.phase) setPhase(d.phase);
+    } catch (_) {}
+  });
+  es.addEventListener('done', function(){
+    setPhase('DONE');
+    es.close();
+    if (typeof fetchAll === 'function') fetchAll();
+  });
+  es.addEventListener('timeout', function(){ setPhase('TIMEOUT'); es.close(); });
+  es.onerror = function(){ /* eventsource auto-reconnect; show soft state */ setPhase('RECONNECT'); };
+
+  var backdrop = document.getElementById('board-modal');
+  if (backdrop) {
+    var obs = new MutationObserver(function(){
+      if (!backdrop.classList.contains('open')) { try { es.close(); } catch (_) {} obs.disconnect(); }
+    });
+    obs.observe(backdrop, { attributes: true, attributeFilter: ['class'] });
+  }
 }
 
 // ========================================================================
@@ -3490,6 +3679,11 @@ const server = http.createServer(async (req, res) => {
 
     if (pathname === '/api/projects/backfill' && req.method === 'POST') {
       return handleBackfill(req, res);
+    }
+
+    // sprint-ydz: SSE tail of a backfill log file.
+    if (pathname === '/api/backfill/progress' && req.method === 'GET') {
+      return handleBackfillProgress(req, res, url);
     }
 
     // API endpoints
