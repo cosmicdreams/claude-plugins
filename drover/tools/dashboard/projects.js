@@ -181,6 +181,34 @@ function findBeadsDb(dir) {
   return null;
 }
 
+// Validate that a log path submitted by the client is safe for the
+// progress-streaming endpoint to open and tail. Must be a plain string that
+// resolves inside logDir, carry the `drover-backfill-` filename prefix
+// (backfillAsync's naming contract), and exist on disk. Returning false for
+// any failure keeps the rules explicit and the endpoint refuses symlink
+// games, unrelated log files, or ../ escapes.
+function isValidBackfillLogPath(logPath, logDir) {
+  if (typeof logPath !== 'string' || !logPath) return false;
+  const resolved = path.resolve(logPath);
+  const resolvedDir = path.resolve(logDir);
+  if (!resolved.startsWith(resolvedDir + path.sep)) return false;
+  if (!path.basename(resolved).startsWith('drover-backfill-')) return false;
+  try { return fs.statSync(resolved).isFile(); } catch { return false; }
+}
+
+// Classify a single stdout/stderr line from backfill.sh / acquia-download.sh
+// into a high-level phase the dashboard renders as a state badge. Returning
+// null signals "no new state" — the UI keeps whatever phase it had.
+function classifyBackfillLine(line) {
+  if (typeof line !== 'string') return null;
+  if (/^BACKFILL done/.test(line)) return 'DONE';
+  if (/^Requested log download/i.test(line)) return 'ARCHIVING';
+  if (/^attempt\s+\d+\/\d+/i.test(line)) return 'POLLING';
+  if (/^downloading archive/i.test(line)) return 'DOWNLOADING';
+  if (/^NEW\s+[a-f0-9]+/.test(line) || /^THRESH\s/.test(line)) return 'PARSING';
+  return null;
+}
+
 // Union of ddev_project names across a projects list. Used by the dashboard
 // in virtual-central mode to build the filter set for `ddev list -A`, so
 // every registered project's ddev instance shows up — not just the one whose
@@ -246,4 +274,4 @@ function listBoards() {
     .filter(Boolean);
 }
 
-module.exports = { projectsFilePath, listProjects, listBoards, ddevProjectNames, resolveCardHostnames, pickFolderMacOS, addProject, backfill, backfillAsync, parseBackfillOutput };
+module.exports = { projectsFilePath, listProjects, listBoards, ddevProjectNames, resolveCardHostnames, isValidBackfillLogPath, classifyBackfillLine, pickFolderMacOS, addProject, backfill, backfillAsync, parseBackfillOutput };
