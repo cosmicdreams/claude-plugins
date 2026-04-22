@@ -1,5 +1,14 @@
 # drover Changelog
 
+## 1.22.0
+- Auto-ingest on dashboard launch (T2): `/drover:dashboard` now spawns a detached-group umbrella watcher at startup (deduped via `~/.claude/drover.umbrella.dashboard.pid`), parses `[<key>] NEW …` lines from umbrella stdout, writes each to the matching project's `.beads/drover.db`, and broadcasts a new `ingest-event` SSE so the UI refetches `/api/board` without a page reload. Previously the dashboard loaded the UI but left ingestion to a separate `/loop` or `/drover:watch` invocation.
+- "Listening for stream messages…" empty state on Pulse tiles for quiet projects (mirrors Acquia Cloud's own UI wording), backed by new `/api/ingestion/status` endpoint.
+- Graceful teardown: umbrella process group is killed with SIGTERM when the dashboard server exits; no orphan `acquia-watch.py` or `bd-ready-watch.py` processes left behind.
+- Segmented view toggle (A9) replaces the Dashboard / Board buttons with one labelled radiogroup. "Board" is relabelled "Issues" in the UI only (internal identifiers unchanged). State persists in `localStorage['drover.view']` and defaults to Dashboard.
+- Pulse env-tile dedup (A8): config env `name:"production"` no longer renders as a separate tile from the `env-prod` card label. Each env appears once with a config-provided friendly label when one exists.
+- `/drover:setup` now survives two known blockers on fresh projects (T1): the `bd init` deadlock (child git commit blocking on a dolt-locked pre-commit hook) is avoided by running `bd init` with `core.hooksPath=/dev/null` in the child environment + a 30s `perl -e 'alarm'` watchdog. The Acquia credentials flow probes `AcquiaClient.verify_credentials()` first and skips the API-key/secret prompt when an existing `acli` session is valid; a `'skip'` escape hatch lets the user register DDEV-only.
+- Virtual-central bd mutation routing (T0): `handleMove` and `handleSolution` now resolve each ticket's source `.beads/drover.db` via a shared `resolveBoardForTicket()` helper. Previously both paths hardcoded `--db DB_PATH`, which was empty in virtual-central mode and failed with `bd update ... --db` "no issue found matching". Lane advance and Record Actual both work across projects.
+
 ## 1.21.0
 - Stable Apache fingerprints: parser in `fingerprint.process()` strips IPs, timestamps, request_ids, user-agents, vhost path tails, and forwarded_for data before hashing; anchors the canonical shape on the `AHNNNNN` Acquia error code. The 50-row `[ERROR] apache: …` wall that produced `fp:[unknown]` for every line now collapses to a handful of unique fingerprints with real occurrence counts.
 - Triage card bodies: `handleTriage` switched from the unsupported `bd create --body` flag to `--description`, so cards now carry `**Fingerprint:** …`, `**Occurrences:** …`, `**Source:** …`, and the raw log line. Occurrence counts render from the persisted acquia-state instead of always reading 0.
