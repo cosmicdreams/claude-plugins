@@ -1109,6 +1109,8 @@ function buildHtml() {
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>drover \u2014 ops dashboard</title>
+<link rel="icon" type="image/svg+xml" href="/favicon.svg">
+<link rel="mask-icon" href="/favicon.svg" color="#FF453A">
 <style>
   :root {
     --bg:        #0C0D10;
@@ -4182,6 +4184,18 @@ const server = http.createServer(async (req, res) => {
       const buf = ddevLogs.get(project);
       if (!buf) return jsonResponse(res, 200, { lines: [], status: 'idle' });
       return jsonResponse(res, 200, { lines: buf.lines, status: buf.status });
+    }
+
+    // Favicon: drover wordmark V in drover-red, capped by Velir's green/blue
+    // chevron. Split-palette attribution mark (candidate V3).
+    if (pathname === '/favicon.svg' && req.method === 'GET') {
+      const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><rect width="48" height="48" rx="8" fill="#0C0D10"/><g transform="translate(0 6.34) scale(1.0385)"><path d="M0 0H15.2L32.06 34H16.85Z" fill="#FF453A"/><path d="M30.75 0L38.49 15.77L23.01 0Z" fill="#10E992"/><path d="M38.49 15.77L30.75 0L46.22 0Z" fill="#0051FF"/></g></svg>`;
+      res.writeHead(200, {
+        'Content-Type': 'image/svg+xml; charset=utf-8',
+        'Content-Length': Buffer.byteLength(svg),
+        'Cache-Control': 'public, max-age=86400',
+      });
+      return res.end(svg);
     }
 
     // Default: serve HTML dashboard
