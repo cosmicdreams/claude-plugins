@@ -289,6 +289,15 @@ function fetchTickets() {
   const boards = currentBoards();
   const merged = [];
   const boardErrors = [];
+  // sprint-2g8: project registry map for hostname resolution. Built once
+  // per fetchTickets so we don't re-read projects.json per ticket.
+  const projectRegistry = new Map();
+  try {
+    for (const p of projectsModule.listProjects()) {
+      if (p && p.name) projectRegistry.set(p.name, p);
+    }
+  } catch { /* silent — hostname enrichment is best-effort */ }
+
   for (const b of boards) {
     try {
       const output = execFileSync('bd', [
@@ -309,8 +318,15 @@ function fetchTickets() {
         boardErrors.push({ project: b.project, message: msg });
         continue;
       }
+      const proj = projectRegistry.get(b.project) || null;
       for (const t of rows) {
         t.project = b.project;
+        // sprint-2g8: attach resolved hostnames so the UI can show
+        // "pncb.prod.acquia-sites.com" alongside the bare env label.
+        const envLabels = (t.labels || [])
+          .filter(l => typeof l === 'string' && l.startsWith('env-'))
+          .map(l => l.replace('env-', ''));
+        t.hostnames = projectsModule.resolveCardHostnames({ project: b.project, envLabels }, proj);
         merged.push(t);
       }
     } catch (err) {
@@ -417,6 +433,9 @@ function parseCard(ticket) {
     // sprint-0r3: carry through the board's project tag so the UI can
     // group / badge cards by source project in virtual-central mode.
     project: ticket.project || '',
+    // sprint-2g8: server-attached hostnames so the card row/modal show
+    // pncb.prod.acquia-sites.com instead of just "production".
+    hostnames: Array.isArray(ticket.hostnames) ? ticket.hostnames : [],
     // sprint-wgy dashboard integration — structured Projected/Actual
     // solution blocks rendered in the card modal.
     projected: solution.projected,
@@ -1169,6 +1188,16 @@ function buildHtml() {
     border-radius:3px; border:1px solid var(--border);
     background:var(--surface2); color:var(--muted);
   }
+  a.env-tag.env-host {
+    color:var(--info2); text-decoration:none;
+    border-color:rgba(64,156,255,0.25);
+  }
+  a.env-tag.env-host:hover {
+    color:#fff; border-color:var(--info2);
+    background:rgba(64,156,255,0.12);
+  }
+  .modal-host-link { color:var(--info2); text-decoration:none; }
+  .modal-host-link:hover { text-decoration:underline; }
 
   .age-cell { font-family:var(--mono); font-size:10px; color:var(--muted); white-space:nowrap; }
 
@@ -1964,6 +1993,8 @@ function parseCardClient(ticket) {
     title: ticket.title || '[untitled]',
     // sprint-0r3: virtual-central tag.
     project: ticket.project || '',
+    // sprint-2g8: hostnames attached by server (pass-through).
+    hostnames: Array.isArray(ticket.hostnames) ? ticket.hostnames : [],
     // sprint-wgy: structured solution blocks (null when absent).
     projected: ticket.projected || projected,
     actual: ticket.actual || actual,
@@ -2357,10 +2388,28 @@ function buildRow(c, i) {
   occTd.style.textAlign = 'right';
   tr.appendChild(occTd);
 
-  // Envs
+  // Envs — sprint-2g8: show hostname when resolved (Acquia default_domain
+  // or <ddev_project>.ddev.site), fall back to bare env label otherwise.
   var envTd = el('td');
   var envWrap = el('div','env-tags');
-  c.envs.forEach(function(env){ envWrap.appendChild(txt('span','env-tag',env)); });
+  var hostByEnv = {};
+  (c.hostnames || []).forEach(function(h){ if (h && h.env) hostByEnv[h.env] = h; });
+  c.envs.forEach(function(env){
+    var host = hostByEnv[env];
+    if (host && host.url) {
+      var a = document.createElement('a');
+      a.href = host.url;
+      a.target = '_blank';
+      a.rel = 'noopener';
+      a.className = 'env-tag env-host';
+      a.title = host.url;
+      a.textContent = env + ' · ' + host.domain;
+      a.addEventListener('click', function(e){ e.stopPropagation(); });
+      envWrap.appendChild(a);
+    } else {
+      envWrap.appendChild(txt('span','env-tag',env));
+    }
+  });
   envTd.appendChild(envWrap); tr.appendChild(envTd);
 
   // Age
@@ -2611,6 +2660,7 @@ function openBoardModal(c) {
     {label:'Age', value:c.age},
     {label:'Lane', value:laneLabel(c.lane)},
   ];
+  if(c.project) items.push({label:'Project', value:c.project});
   if(c.assignee) items.push({label:'Assigned', value:c.assignee});
   if(c.worktree) items.push({label:'Worktree', value:c.worktree});
 
@@ -2620,6 +2670,23 @@ function openBoardModal(c) {
     mi.appendChild(txt('div','modal-meta-value'+(item.cls?' '+item.cls:''), item.value));
     metaGrid.appendChild(mi);
   });
+  // sprint-2g8: list clickable hostnames (one per env) so the user can
+  // jump straight to the affected site from the modal.
+  if (c.hostnames && c.hostnames.length) {
+    var hostMi = el('div','modal-meta-item');
+    hostMi.appendChild(txt('div','modal-meta-label','Hostnames'));
+    var hostVal = el('div','modal-meta-value');
+    c.hostnames.forEach(function(h, idx){
+      if (idx > 0) hostVal.appendChild(document.createTextNode(', '));
+      var a = document.createElement('a');
+      a.href = h.url; a.target = '_blank'; a.rel = 'noopener';
+      a.className = 'modal-host-link';
+      a.textContent = h.env + ':' + h.domain;
+      hostVal.appendChild(a);
+    });
+    hostMi.appendChild(hostVal);
+    metaGrid.appendChild(hostMi);
+  }
   metaSec.appendChild(metaGrid);
   body.appendChild(metaSec);
 

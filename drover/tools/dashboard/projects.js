@@ -195,6 +195,44 @@ function ddevProjectNames(projectsList) {
   return out;
 }
 
+// Resolve hostname/URL(s) for a card from its project entry. Card rows and
+// the modal render these so users can see which site an error came from —
+// previously only the bare env label ("production") was shown, leaving users
+// guessing whether it was pncb.prod or massport.prod.
+//
+// Acquia env match is fuzzy: label 'production' also resolves the entry
+// whose `env` is 'prod', because env labels come from drover-config.json's
+// user-chosen names while projects.json stores Acquia's own env slugs.
+// Local/ddev envs fall back to `<ddev_project>.ddev.site`.
+function _acquiaMatch(label, env) {
+  if (!env || !env.env) return false;
+  if (env.env === label) return true;
+  return label.startsWith(env.env) || env.env.startsWith(label.slice(0, 4));
+}
+
+function resolveCardHostnames(card, project) {
+  if (!project || !card || !Array.isArray(card.envLabels)) return [];
+  const acquia = project.acquia && Array.isArray(project.acquia.environments)
+    ? project.acquia.environments : [];
+  const ddev = project.ddev_project;
+  const seen = new Set();
+  const out = [];
+  for (const label of card.envLabels) {
+    if (!label || seen.has(label)) continue;
+    seen.add(label);
+    const match = acquia.find(e => _acquiaMatch(label, e));
+    if (match && match.default_domain) {
+      out.push({ env: label, domain: match.default_domain, url: `https://${match.default_domain}` });
+      continue;
+    }
+    if (ddev && (label === 'local' || label === 'ddev' || label === ddev)) {
+      const domain = `${ddev}.ddev.site`;
+      out.push({ env: label, domain, url: `https://${domain}` });
+    }
+  }
+  return out;
+}
+
 function listBoards() {
   return listProjects()
     .map(p => {
@@ -208,4 +246,4 @@ function listBoards() {
     .filter(Boolean);
 }
 
-module.exports = { projectsFilePath, listProjects, listBoards, ddevProjectNames, pickFolderMacOS, addProject, backfill, backfillAsync, parseBackfillOutput };
+module.exports = { projectsFilePath, listProjects, listBoards, ddevProjectNames, resolveCardHostnames, pickFolderMacOS, addProject, backfill, backfillAsync, parseBackfillOutput };
