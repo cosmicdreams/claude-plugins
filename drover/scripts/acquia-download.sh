@@ -52,11 +52,22 @@ for attempt in range(30):
     progress = status.get("progress", 0)
     state = status.get("status", "")
     if state == "completed":
+        # The notification does not include a download URL in _links —
+        # fetch the logs list and pull the href from the matching entry.
         download_url = status.get("_links", {}).get("download", {}).get("href")
+        if not download_url:
+            logs = client._get(f"/environments/{env_id}/logs")
+            for item in (logs.get("_embedded", {}).get("items", [])):
+                if item.get("type") == log_type:
+                    download_url = item.get("_links", {}).get("download", {}).get("href")
+                    break
         if download_url:
-            # Stream to stdout.
-            req = urllib.request.Request(download_url)
-            with urllib.request.urlopen(req, timeout=120) as r:
+            # The download endpoint redirects to a signed S3 URL; follow it.
+            import urllib.error
+            opener = urllib.request.build_opener(urllib.request.HTTPRedirectHandler())
+            token = client._get_token()
+            req = urllib.request.Request(download_url, headers={"Authorization": f"Bearer {token}"})
+            with opener.open(req, timeout=120) as r:
                 while chunk := r.read(8192):
                     sys.stdout.buffer.write(chunk)
             sys.exit(0)

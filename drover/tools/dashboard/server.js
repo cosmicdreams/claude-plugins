@@ -720,6 +720,48 @@ async function handleDiscoverProjects(req, res) {
 
 function listProjects() { return projectsModule.listProjects(); }
 
+// GET /api/backfill/log-types?alias=ahri.prod
+// Returns available Acquia log types for an environment so the backfill
+// modal can show checkboxes instead of a freehand comma-delimited field.
+async function handleLogTypes(req, res, url) {
+  const alias = url.searchParams.get('alias') || '';
+  if (!alias) return jsonResponse(res, 400, { error: 'alias required' });
+
+  // Resolve alias → app_uuid + env_name from projects.json
+  const projects = projectsModule.listProjects();
+  let appUuid, envName;
+  for (const p of projects) {
+    for (const e of (p.acquia && p.acquia.environments) || []) {
+      if (e.alias === alias) {
+        appUuid = e.app_uuid || (p.acquia && p.acquia.app_uuid) || '';
+        envName = e.env || e.name || '';
+        break;
+      }
+    }
+    if (appUuid) break;
+  }
+  if (!appUuid || !envName) return jsonResponse(res, 404, { error: `alias not found: ${alias}` });
+
+  // Call Acquia API via Python helper
+  const apiScript = path.join(__dirname, '../../scripts/monitors/acquia_api.py');
+  try {
+    const { stdout } = await execFileP('python3', ['-c', `
+import importlib.util, json, sys
+spec = importlib.util.spec_from_file_location("acquia_api", "${apiScript.replace(/\\/g, '\\\\')}")
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+c = mod.AcquiaClient()
+env_id = c.resolve_env_id("${appUuid}", "${envName}")
+logs = c._get(f"/environments/{env_id}/logs")
+items = logs.get("_embedded", {}).get("items", [])
+print(json.dumps([{"type": i["type"], "label": i.get("label", i["type"]), "available": i.get("flags", {}).get("available", False)} for i in items]))
+`], { encoding: 'utf8', timeout: 15000 });
+    return jsonResponse(res, 200, { log_types: JSON.parse(stdout.trim()) });
+  } catch (e) {
+    return jsonResponse(res, 500, { error: 'Acquia API error: ' + e.message });
+  }
+}
+
 // sprint-ydz: GET /api/backfill/progress?log=<path>
 // SSE endpoint that streams the backfill log file line-by-line to the
 // dashboard modal. Sends existing content immediately, then tails new lines
@@ -3265,52 +3307,86 @@ function backfillPrompt() {
     });
 }
 
-// Safe DOM-construction modal — no innerHTML with user data.
 function showBackfillModal(envs) {
   var content = document.getElementById('modal-content');
   removeChildren(content);
 
-  var header = document.createElement('div'); header.className = 'modal-header';
-  var title = document.createElement('div'); title.className = 'modal-title'; title.textContent = 'Backfill Acquia logs';
-  var closeBtn = document.createElement('button'); closeBtn.className = 'modal-close'; closeBtn.textContent = '\u2715';
+  var header = el('div','modal-header');
+  header.appendChild(txt('div','modal-title','Backfill Acquia logs'));
+  var closeBtn = el('button','modal-close'); closeBtn.textContent = '\u2715';
   closeBtn.onclick = closeBackfillModal;
-  header.appendChild(title); header.appendChild(closeBtn);
+  header.appendChild(closeBtn);
 
-  var body = document.createElement('div'); body.className = 'modal-body';
+  var body = el('div','modal-body');
 
-  var sec1 = document.createElement('div'); sec1.className = 'modal-section';
-  var lbl1 = document.createElement('label'); lbl1.textContent = 'Environment';
-  lbl1.style.display = 'block'; lbl1.style.marginBottom = '8px';
-  var sel = document.createElement('select'); sel.id = 'backfill-env'; sel.style.width = '100%'; sel.style.padding = '8px';
+  var sec1 = el('div','modal-section');
+  sec1.appendChild(txt('div','modal-section-title','Environment'));
+  var sel = document.createElement('select');
+  sel.id = 'backfill-env'; sel.style.width = '100%'; sel.style.padding = '8px';
   envs.forEach(function(a) {
     var opt = document.createElement('option'); opt.value = a; opt.textContent = a; sel.appendChild(opt);
   });
-  sec1.appendChild(lbl1); sec1.appendChild(sel);
+  sec1.appendChild(sel);
+  body.appendChild(sec1);
 
-  var sec2 = document.createElement('div'); sec2.className = 'modal-section';
-  var lbl2 = document.createElement('label'); lbl2.textContent = 'Log types (comma-separated)';
-  lbl2.style.display = 'block'; lbl2.style.marginBottom = '8px';
-  var inp = document.createElement('input'); inp.id = 'backfill-types'; inp.type = 'text';
-  inp.value = 'php-error,apache-error'; inp.style.width = '100%'; inp.style.padding = '8px';
-  sec2.appendChild(lbl2); sec2.appendChild(inp);
+  var sec2 = el('div','modal-section');
+  sec2.appendChild(txt('div','modal-section-title','Log types'));
+  var logTypeWrap = el('div'); logTypeWrap.id = 'backfill-log-types';
+  logTypeWrap.style.cssText = 'display:flex;flex-direction:column;gap:6px;margin-top:8px;';
+  sec2.appendChild(logTypeWrap);
+  body.appendChild(sec2);
 
-  var sec3 = document.createElement('div'); sec3.className = 'modal-section'; sec3.style.textAlign = 'right';
-  var cancel = document.createElement('button'); cancel.className = 'btn'; cancel.textContent = 'Cancel'; cancel.onclick = closeBackfillModal;
-  var go = document.createElement('button'); go.className = 'btn btn-primary'; go.id = 'backfill-go'; go.textContent = 'Run Backfill'; go.onclick = runBackfill;
+  var sec3 = el('div','modal-section'); sec3.style.textAlign = 'right';
+  var cancel = el('button','btn'); cancel.textContent = 'Cancel'; cancel.onclick = closeBackfillModal;
+  var go = el('button','btn btn-primary'); go.id = 'backfill-go'; go.textContent = 'Run Backfill';
+  go.onclick = runBackfill; go.disabled = true;
   sec3.appendChild(cancel); sec3.appendChild(go);
+  body.appendChild(sec3);
 
-  body.appendChild(sec1); body.appendChild(sec2); body.appendChild(sec3);
   content.appendChild(header); content.appendChild(body);
   document.getElementById('board-modal').classList.add('open');
-}
 
+  function loadLogTypes(alias) {
+    go.disabled = true;
+    removeChildren(logTypeWrap);
+    logTypeWrap.appendChild(document.createTextNode('Loading\u2026'));
+    fetch('/api/backfill/log-types?alias=' + encodeURIComponent(alias))
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        removeChildren(logTypeWrap);
+        var types = (d && d.log_types) || [];
+        if (!types.length) { logTypeWrap.appendChild(document.createTextNode('No log types found')); return; }
+        types.forEach(function(t){
+          var row = el('div');
+          row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:2px 0;';
+          var cb = document.createElement('input'); cb.type = 'checkbox';
+          cb.id = 'lt-' + t.type; cb.value = t.type;
+          cb.checked = t.available; cb.disabled = !t.available;
+          var lbl = document.createElement('label'); lbl.htmlFor = 'lt-' + t.type;
+          lbl.style.fontFamily = 'var(--mono)'; lbl.style.fontSize = '11px';
+          lbl.style.color = t.available ? 'var(--text)' : 'var(--muted2)';
+          lbl.textContent = t.label + (t.available ? '' : ' \u2014 unavailable');
+          row.appendChild(cb); row.appendChild(lbl); logTypeWrap.appendChild(row);
+        });
+        go.disabled = false;
+      })
+      .catch(function(e){
+        removeChildren(logTypeWrap);
+        logTypeWrap.appendChild(document.createTextNode('Could not load log types: ' + e.message));
+      });
+  }
+
+  sel.addEventListener('change', function(){ loadLogTypes(sel.value); });
+  loadLogTypes(sel.value);
+}
 function closeBackfillModal() {
   document.getElementById('board-modal').classList.remove('open');
 }
 
 function runBackfill() {
   var alias = document.getElementById('backfill-env').value;
-  var logTypes = document.getElementById('backfill-types').value;
+  var checked = Array.from(document.querySelectorAll('#backfill-log-types input[type=checkbox]:checked'));
+  var logTypes = checked.map(function(cb){ return cb.value; }).join(',');
   var go = document.getElementById('backfill-go');
   if (go) { go.disabled = true; go.textContent = "Queuing\u2026"; }
   fetch('/api/projects/backfill', {
@@ -3898,6 +3974,10 @@ const server = http.createServer(async (req, res) => {
     // sprint-ydz: SSE tail of a backfill log file.
     if (pathname === '/api/backfill/progress' && req.method === 'GET') {
       return handleBackfillProgress(req, res, url);
+    }
+
+    if (pathname === '/api/backfill/log-types' && req.method === 'GET') {
+      return await handleLogTypes(req, res, url);
     }
 
     // API endpoints
