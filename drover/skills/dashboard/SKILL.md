@@ -70,14 +70,59 @@ SERVER_JS="${PLUGIN_ROOT}tools/dashboard/server.js"
 # updates from any project show up in real time regardless of which
 # directory the user invoked /drover:dashboard from.
 #
-# Single-project mode is available by passing DROVER_DB_OVERRIDE — point
-# at a specific .beads/drover.db to scope the board to one project.
-PROJECT_ROOT=$(git rev-parse --show-toplevel 2>/dev/null || pwd)
+# Single-project mode precedence (highest first):
+#   1. DROVER_DB_OVERRIDE — explicit path override
+#   2. dashboard.db_path   in the nearest .claude/drover-config.json
+#   3. --all-projects      (virtual-central)
+#
+# sprint-06p: we no longer rely on `git rev-parse --show-toplevel` to
+# discover drover-config.json because in worktree-style layouts the same
+# project has multiple .beads/ directories — the git root pointed at one
+# (AHRI repo root = 37 cards) while the user was cd'd in a worktree
+# (worktrees/main = 2 cards), producing inconsistent dashboards.
+# Instead walk up from $PWD looking for the first .claude/drover-config.json.
+PROJECT_ROOT=$(python3 - <<'PY'
+import os, sys
+cur = os.getcwd()
+for _ in range(8):
+    cfg = os.path.join(cur, '.claude', 'drover-config.json')
+    if os.path.isfile(cfg):
+        print(cur); sys.exit(0)
+    parent = os.path.dirname(cur)
+    if parent == cur:
+        break
+    cur = parent
+print(os.getcwd())
+PY
+)
 STATE_PATH="$HOME/.claude/drover.state.jsonl"
 CONFIG_PATH="${PROJECT_ROOT}/.claude/drover-config.json"
 
+# Resolve db_path from config (if present) — relative paths are resolved
+# against PROJECT_ROOT so a config value of ".beads/drover.db" works.
+CONFIG_DB_PATH=""
+if [ -f "$CONFIG_PATH" ]; then
+  CONFIG_DB_PATH=$(python3 - "$CONFIG_PATH" "$PROJECT_ROOT" <<'PY'
+import json, os, sys
+try:
+    cfg = json.load(open(sys.argv[1]))
+except Exception:
+    sys.exit(0)
+p = (cfg.get('dashboard') or {}).get('db_path') or ''
+if not p:
+    sys.exit(0)
+if not os.path.isabs(p):
+    p = os.path.join(sys.argv[2], p)
+if os.path.exists(p):
+    print(p)
+PY
+)
+fi
+
 if [ -n "${DROVER_DB_OVERRIDE:-}" ]; then
   ARGS="--db $DROVER_DB_OVERRIDE"
+elif [ -n "$CONFIG_DB_PATH" ]; then
+  ARGS="--db $CONFIG_DB_PATH"
 else
   ARGS="--all-projects"
 fi
