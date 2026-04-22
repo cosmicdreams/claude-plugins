@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.18.0
+- **Add Project modal replaces the generic folder picker (sprint-nto)**: clicking + Add Project used to open a free-form macOS folder dialog with no validation — a silent way to register any directory as a drover project. The button now opens a modal with two sections: (a) running DDEV projects that aren't registered yet, each with a one-click Add button; (b) paste-path input + native folder picker fallback. Every path is validated server-side for `.ddev/config.yaml` presence before being handed to add-project.sh, so bad selections fail fast with a clear error.
+- **New API endpoint `GET /api/projects/discover`**: returns running DDEV projects not yet present in `projects.json`, diffed against current registrations.
+- **New pure helpers**: `projects.hasDdevConfig(path)` for .ddev/config.yaml validation (4 tests) and `projects.listRunningDdevUnregistered({runner, registered})` for the discovery list (3 tests). Runner/registered are injectable so tests don't shell out to ddev.
+
 ## 1.17.1
 - **Parallel `fetchTickets` (sprint-56q)**: the dashboard previously ran `bd list` sequentially against every registered project's board — N × (bd boot ≈ 300ms + dolt open ≈ 200ms) of serial latency on every first paint. Now each board is queried via `util.promisify(execFile)` + `Promise.all`, so total latency is max-over-boards instead of sum-over-boards. Extracted `queryBoard()` as a dedicated async unit that returns `{project, rows}` or `{project, error}` — partial-failure resilience preserved.
 - **Cache prefetch at startup**: `server.listen` callback now fires `fetchTickets()` so the first `/api/board` request paints from cache instead of paying full bd-list latency. Failures are logged but non-fatal.

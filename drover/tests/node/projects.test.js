@@ -358,6 +358,57 @@ test('classifyBackfillLine recognizes well-known progress markers', () => {
   assert.equal(projects.classifyBackfillLine('some unrelated noise'), null);
 });
 
+test('hasDdevConfig returns true when .ddev/config.yaml exists', () => {
+  const dir = tmpdir();
+  fs.mkdirSync(path.join(dir, '.ddev'), { recursive: true });
+  fs.writeFileSync(path.join(dir, '.ddev', 'config.yaml'), 'name: demo');
+  assert.equal(projects.hasDdevConfig(dir), true);
+});
+
+test('hasDdevConfig returns false when directory has no .ddev/config.yaml', () => {
+  const dir = tmpdir();
+  assert.equal(projects.hasDdevConfig(dir), false);
+});
+
+test('hasDdevConfig returns false for non-existent path', () => {
+  assert.equal(projects.hasDdevConfig('/nope/definitely-not-a-dir'), false);
+});
+
+test('hasDdevConfig rejects non-string input', () => {
+  assert.equal(projects.hasDdevConfig(null), false);
+  assert.equal(projects.hasDdevConfig(undefined), false);
+  assert.equal(projects.hasDdevConfig({}), false);
+});
+
+test('listRunningDdevUnregistered filters out projects already registered', () => {
+  const fakeRunner = () => JSON.stringify({
+    raw: [
+      { name: 'pncb-main', status: 'running', approot: '/p/pncb' },
+      { name: 'other-site', status: 'running', approot: '/p/other' },
+      { name: 'stopped-site', status: 'stopped', approot: '/p/stopped' },
+    ],
+  });
+  const registered = [{ name: 'pncb-main', path: '/p/pncb', ddev_project: 'pncb-main' }];
+  const out = projects.listRunningDdevUnregistered({ runner: fakeRunner, registered });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].name, 'other-site');
+  assert.equal(out[0].approot, '/p/other');
+});
+
+test('listRunningDdevUnregistered returns [] when ddev runner throws', () => {
+  const throwingRunner = () => { throw new Error('ddev not found'); };
+  assert.deepEqual(projects.listRunningDdevUnregistered({ runner: throwingRunner, registered: [] }), []);
+});
+
+test('listRunningDdevUnregistered handles the raw-less ddev output shape', () => {
+  const fakeRunner = () => JSON.stringify([
+    { name: 'a', status: 'running', approot: '/p/a' },
+  ]);
+  const out = projects.listRunningDdevUnregistered({ runner: fakeRunner, registered: [] });
+  assert.equal(out.length, 1);
+  assert.equal(out[0].name, 'a');
+});
+
 test('pickFolderMacOS returns null when runner throws', () => {
   const throwingRunner = () => { throw new Error('user canceled'); };
   assert.equal(projects.pickFolderMacOS({ runner: throwingRunner }), null);
