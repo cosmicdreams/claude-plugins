@@ -86,6 +86,32 @@ class TestFingerprintStability(unittest.TestCase):
         self.assertEqual(len(h), 12)
         int(h, 16)  # must parse as hex
 
+    def test_apache_collapses_per_request_ephemera(self):
+        # Two Acquia apache error lines — same ah-code (ah012) and same
+        # `apache:` framing, different IPs, timestamps, referers, UAs,
+        # request_ids, and per-request @@seq tokens. They must collapse.
+        a = (
+            '[ERROR] apache: ts ts ts 1.2.3.4 '
+            '"https://www.google.com/search?hl=en&q=testing" "@@jzzxo" '
+            'vhost=ahridrupalhosting.prod.acquia-sites.com '
+            'forwarded_for="1.2.3.4, 5.6.7.8" request_id="v-abc123-def" '
+            'hosting_site=ahridrupalhosting ah012'
+        )
+        b = (
+            '[ERROR] apache: ts ts ts 9.9.9.9 '
+            '"https://example.com/different" '
+            '"Mozilla/5.0 (Windows NT 10.0; Win64) AppleWebKit/537.36" '
+            'vhost=other.prod.acquia-sites.com '
+            'forwarded_for="9.9.9.9" request_id="v-xyz-789" '
+            'hosting_site=ahridrupalhosting ah012'
+        )
+        self.assertEqual(fp.fingerprint(a), fp.fingerprint(b))
+
+    def test_apache_different_ah_codes_different_hash(self):
+        a = '[ERROR] apache: ts ts ts 1.2.3.4 "x" "y" hosting_site=ahri ah012'
+        b = '[ERROR] apache: ts ts ts 1.2.3.4 "x" "y" hosting_site=ahri ah013'
+        self.assertNotEqual(fp.fingerprint(a), fp.fingerprint(b))
+
 
 class TestProcess(unittest.TestCase):
     def test_non_error_line_returns_none(self):

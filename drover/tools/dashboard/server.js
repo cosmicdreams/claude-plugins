@@ -359,6 +359,11 @@ async function fetchTickets() {
     const proj = projectRegistry.get(b.project) || null;
     for (const t of r.rows) {
       t.project = b.project;
+      // `bd list --json` returns the issue body under `description`, but the
+      // dashboard (server-side solution parser + client-side parseCardClient)
+      // historically reads `ticket.body`. Alias here so both code paths see
+      // the same content without each having to probe both field names.
+      if (!t.body && t.description) t.body = t.description;
       const envLabels = (t.labels || [])
         .filter(l => typeof l === 'string' && l.startsWith('env-'))
         .map(l => l.replace('env-', ''));
@@ -945,31 +950,74 @@ async function handleTriage(req, res) {
     const cards = JSON.parse(stdout || '[]');
     if (Array.isArray(cards)) {
       for (const c of cards) {
-        const m = (c.body || '').match(/\*\*Fingerprint:\*\*\s+`([a-f0-9]+)`/);
+        // bd emits the issue body under `description`; keep `body` as a
+        // fallback for callers that already normalized it.
+        const cBody = c.description || c.body || '';
+        const m = cBody.match(/\*\*Fingerprint:\*\*\s+`([a-f0-9]+)`/);
         if (m) existing.add(m[1]);
       }
     }
   } catch { /* if board query fails, proceed anyway */ }
 
+  // Build occurrence counts from the backfill log. NEW lines emit once per
+  // fingerprint (first-see), THRESH lines carry `count=<n>` at threshold
+  // crossings. We aggregate both so the card body reflects real volume
+  // instead of the hard-coded `1` that was there before.
+  const logLines = logContent.split('\n');
+  const occCounts = new Map();
+  const rawSamples = new Map();
+  const threshRe = /^THRESH\s+([0-9a-f]+)\s+count=(\d+)/;
+  for (const l of logLines) {
+    if (l.startsWith('NEW ')) {
+      const parts = l.slice(4).split(' ');
+      const fp = parts[0];
+      if (!fp) continue;
+      occCounts.set(fp, (occCounts.get(fp) || 0) + 1);
+      if (!rawSamples.has(fp)) rawSamples.set(fp, parts.slice(4).join(' '));
+    } else if (l.startsWith('THRESH ')) {
+      const m = l.match(threshRe);
+      if (m) {
+        const n = parseInt(m[2], 10);
+        if (!Number.isNaN(n)) occCounts.set(m[1], Math.max(occCounts.get(m[1]) || 0, n));
+      }
+    }
+  }
+
   let created = 0, skipped = 0;
   const envLabel = alias.includes('.') ? alias.split('.').pop() : alias;
   const envName = alias;
 
+  // De-dupe NEW lines by fingerprint within a single backfill run — a
+  // collapsed-fingerprint set can still emit multiple NEWs when the state
+  // file was wiped before the run.
+  const seenInRun = new Set();
   for (const line of newLines) {
     // Format: NEW <fp> <severity> <source> <env> <message...>
     const parts = line.slice(4).split(' ');
     if (parts.length < 5) continue;
     const [fp, sev, src, , ...msgParts] = parts;
     const msg = msgParts.join(' ').slice(0, 200);
+    if (seenInRun.has(fp)) { skipped++; continue; }
+    seenInRun.add(fp);
     if (existing.has(fp)) { skipped++; continue; }
 
+    const occ = occCounts.get(fp) || 1;
+    const rawSample = (rawSamples.get(fp) || msg).slice(0, 500);
     const sevLabel = SEV_LABEL_MAP[sev] || 'error';
     const title = `[${sev.toUpperCase()}] ${src}: ${msg}`;
-    const body = `**Fingerprint:** \`${fp}\`\n**Total Occurrences:** 1\n**Source:** ${src}\n\n## Error Message\n${msg}`;
+    const body =
+      `**Fingerprint:** \`${fp}\`\n` +
+      `**Total Occurrences:** ${occ}\n` +
+      `**Source:** ${src}\n\n` +
+      `## Error Message\n${msg}\n\n` +
+      `## Raw Log Line\n\`\`\`\n${rawSample}\n\`\`\`\n`;
     const labels = `board-drover,lane-triage,severity-${sevLabel},source-${src},env-${envLabel},trust-${trustLevel}`;
 
     try {
-      await execFileP('bd', ['create', title, '--db', dbPath, '--labels', labels, '--body', body],
+      // `bd create` takes --description for the issue body; --body is not
+      // a valid flag and was silently dropped, leaving every card with an
+      // empty body and breaking client-side fingerprint/occurrence parsing.
+      await execFileP('bd', ['create', title, '--db', dbPath, '--labels', labels, '--description', body],
         { encoding: 'utf8', timeout: 8000 });
       existing.add(fp);
       created++;
