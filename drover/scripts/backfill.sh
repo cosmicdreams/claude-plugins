@@ -137,7 +137,15 @@ def extract_ts(line):
 
 processed = 0
 try:
-    with open(tmp_log) as f:
+    # Acquia log archives are gzip-compressed; detect and decompress.
+    import gzip as _gzip
+    def _open_log(path):
+        with open(path, "rb") as h:
+            magic = h.read(2)
+        if magic == b"\x1f\x8b":
+            return _gzip.open(path, "rt", encoding="utf-8", errors="replace")
+        return open(path, encoding="utf-8", errors="replace")
+    with _open_log(tmp_log) as f:
         for line in f:
             ev = fp_mod.process(line)
             if ev is None:
