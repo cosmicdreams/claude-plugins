@@ -2805,8 +2805,38 @@ function buildHtml() {
   }
   .expanded .expand-chevron { transform:rotate(90deg); stroke:var(--info2); }
 
-  .err-title { font-size:12px; color:var(--text2); font-weight:500; }
+  .err-title { font-size:12px; color:var(--text2); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .err-cls {
+    font-family:var(--mono); font-size:11px; font-weight:600;
+    color:var(--info2); margin-right:6px;
+    white-space:nowrap;
+  }
   .err-fp { font-family:var(--mono); font-size:9px; color:var(--muted3); margin-top:1px; letter-spacing:0.06em; padding-left:22px; }
+
+  /* Last-seen cell: absolute timestamp + subtle first-seen hint below. */
+  .seen-cell {
+    font-family:var(--mono); font-size:11px; color:var(--text2);
+    font-variant-numeric: tabular-nums; white-space:nowrap;
+  }
+  .seen-last { font-size:11px; color:var(--text2); }
+  .seen-first { font-size:9px; color:var(--muted3); margin-top:1px; }
+
+  /* Project chip (strip of "-main") — matches the Projects-panel tile label. */
+  .proj-chip {
+    font-family:var(--mono); font-size:10px;
+    padding:1px 6px; border-radius:3px;
+    background:var(--surface2); border:1px solid var(--border);
+    color:var(--text2); text-transform:lowercase;
+  }
+
+  /* Source chip — which log tailer detected the error. */
+  .source-chip {
+    font-family:var(--mono); font-size:9px;
+    padding:1px 6px; border-radius:3px;
+    background:var(--surface2); border:1px solid var(--border);
+    color:var(--text2); letter-spacing:0.02em;
+  }
+  .source-chip.muted { color:var(--muted3); }
 
   .num { font-family:var(--mono); font-size:12px; color:var(--text2); }
 
@@ -2819,11 +2849,13 @@ function buildHtml() {
   a.env-tag.env-host {
     color:var(--info2); text-decoration:none;
     border-color:rgba(64,156,255,0.25);
+    display:inline-flex; align-items:center; gap:3px;
   }
   a.env-tag.env-host:hover {
     color:#fff; border-color:var(--info2);
     background:rgba(64,156,255,0.12);
   }
+  .env-link-icon { font-size:8px; opacity:0.6; }
   .modal-host-link { color:var(--info2); text-decoration:none; }
   .modal-host-link:hover { text-decoration:underline; }
 
@@ -3837,13 +3869,14 @@ function buildHtml() {
         <table>
           <thead id="err-thead">
             <tr>
-              <th data-sort="sev" style="width:60px">Sev</th>
+              <th data-sort="sev"     style="width:60px">Sev</th>
+              <th data-sort="lastSeen" class="sort-active" style="width:88px">Last seen &#8595;</th>
+              <th data-sort="project" style="width:80px">Project</th>
+              <th data-sort="env"     style="width:76px">Env</th>
+              <th data-sort="source"  style="width:90px">Source</th>
               <th data-sort="title">Error</th>
-              <th data-sort="project" style="width:90px">Project</th>
-              <th data-sort="occ" style="width:90px;text-align:right">Occ</th>
-              <th data-sort="env" style="width:100px">Env</th>
-              <th data-sort="age" class="sort-active" style="width:72px">Age &#8595;</th>
-              <th data-sort="lane" style="width:72px">Lane</th>
+              <th data-sort="occ"     style="width:68px;text-align:right">Count</th>
+              <th data-sort="lane"    style="width:76px">Lane</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -3990,11 +4023,68 @@ function parseCardClient(ticket) {
   var projected = extractSolutionBlockClient(solText, 'Projected');
   var actual = extractSolutionBlockClient(solText, 'Actual');
 
+  // Source label (watchdog / apache-error / drupal-request / other / ...).
+  // Prefer the source-* label (triage-pipeline cards); fall back to body
+  // **Source:** value for cards ingested by other paths.
+  var sourceLabel = (labels.find(function(l){return l.startsWith('source-');}) || '')
+    .replace('source-','');
+  if (!sourceLabel) {
+    var bodySourceMatch = body.match(/\\*\\*Source:\\*\\*\\s+(.+?)(?:\\n|$)/);
+    if (bodySourceMatch) sourceLabel = bodySourceMatch[1].trim().toLowerCase();
+  }
+  sourceLabel = sourceLabel || 'unknown';
+
+  // Pretty project name — strip a trailing "-main" worktree suffix so the
+  // table matches the Projects panel's project labels ("pncb", "ahri").
+  var bareProject = (ticket.project || '').replace(/-main$/i,'');
+
+  // Cleaned exception class + one-line summary from the raw title. Titles
+  // are emitted by the triage agent as
+  //   [SEV] <source>: <url-pipe-soup>||<class>: <message>
+  // so we look for the last "<class>: <message>" pair and PascalCase the
+  // class name. If nothing matches we strip the "[SEV] <source>:" prefix
+  // and keep the tail, truncated. Fingerprint hash stays as metadata.
+  function extractException(raw) {
+    var s = String(raw || '').trim();
+    // Drop leading [SEV] prefix
+    s = s.replace(/^\\[[A-Z]+\\]\\s*/, '');
+    // Drop leading "<source>:" prefix up to a URL or backslash path
+    s = s.replace(/^[a-z_\\-]+:\\s*/, '');
+    // Look for the last "<class>: <message>" where <class> contains a
+    // backslash (PHP FQN). This is the most informative bit. Titles are
+    // lowercased upstream by the triage agent, so we keep them lowercase
+    // here — they're identifiers, rendered in monospace, and users parse
+    // them better as-stored than with naive auto-camelcasing.
+    var m = s.match(/([a-z0-9_\\\\]*\\\\[a-z0-9_]+)\\s*:\\s*(.+)$/i);
+    if (m) {
+      var parts = m[1].split('\\\\');
+      var cls = parts[parts.length - 1];
+      var msg = m[2].trim();
+      return { cls: cls, msg: msg };
+    }
+    // Fallback: split on "|" and keep the final meaningful chunk. If the
+    // chunk is itself a "\\"-delimited PHP FQN (i.e. the title was
+    // truncated storage-side before the colon+message), promote the last
+    // path segment into the class slot so the Error column still shows
+    // something identifiable instead of a leading "drupal\\core\\...".
+    var parts2 = s.split('|').filter(Boolean);
+    var tail = parts2.length ? parts2[parts2.length - 1].trim() : s;
+    if (tail.indexOf('\\\\') !== -1) {
+      var tparts = tail.split('\\\\');
+      return { cls: tparts[tparts.length - 1], msg: '' };
+    }
+    return { cls: '', msg: tail };
+  }
+  var err = extractException(ticket.title);
+
   return {
     id: ticket.id || '',
     title: ticket.title || '[untitled]',
-    // sprint-0r3: virtual-central tag.
+    errCls: err.cls,
+    errMsg: err.msg,
+    // sprint-0r3: virtual-central tag (raw + stripped).
     project: ticket.project || '',
+    projectLabel: bareProject || ticket.project || '',
     // sprint-2g8: hostnames attached by server (pass-through).
     hostnames: Array.isArray(ticket.hostnames) ? ticket.hostnames : [],
     // sprint-wgy: structured solution blocks (null when absent).
@@ -4005,8 +4095,15 @@ function parseCardClient(ticket) {
     sevRaw: sevRaw,
     envs: envLabels,
     fp: fp, occ: occ,
+    source: sourceLabel,
     worktree: worktreeMatch ? worktreeMatch[1] : '',
     assignee: assigneeMatch ? assigneeMatch[1] : '',
+    // Timestamps — client renders absolute HH:MM:SS with full ISO on hover.
+    // firstSeenTs is ticket creation (first fingerprint crossing).
+    // lastSeenTs is updated_at (most recent augment / lane-move / note).
+    firstSeenTs: ticket.created_at || '',
+    lastSeenTs: ticket.updated_at || ticket.created_at || '',
+    // Kept for legacy callers until they migrate to the timestamp fields.
     age: formatAgeClient(ticket.created_at),
     stack: stack, triageLog: triageLog,
   };
@@ -4039,6 +4136,35 @@ function formatAgeClient(dateStr) {
   var hrs = Math.floor(mins / 60);
   if (hrs < 24) return hrs + 'h';
   return Math.floor(hrs / 24) + 'd';
+}
+
+// Absolute HH:MM:SS for table cells. Today's events show time only;
+// older events show date + time so "when exactly?" is one glance.
+function fmtClock(ts) {
+  if (!ts) return '—';
+  var d = new Date(ts); if (isNaN(d.getTime())) return '—';
+  var now = new Date();
+  var sameDay = d.toDateString() === now.toDateString();
+  var h = String(d.getHours()).padStart(2,'0');
+  var m = String(d.getMinutes()).padStart(2,'0');
+  var s = String(d.getSeconds()).padStart(2,'0');
+  if (sameDay) return h+':'+m+':'+s;
+  var mo = String(d.getMonth()+1).padStart(2,'0');
+  var dy = String(d.getDate()).padStart(2,'0');
+  return mo+'/'+dy+' '+h+':'+m;
+}
+function fmtDateShort(ts) {
+  if (!ts) return '';
+  var d = new Date(ts); if (isNaN(d.getTime())) return '';
+  var now = new Date();
+  if (d.toDateString() === now.toDateString()) {
+    var h = String(d.getHours()).padStart(2,'0');
+    var m = String(d.getMinutes()).padStart(2,'0');
+    return h+':'+m;
+  }
+  var mo = String(d.getMonth()+1).padStart(2,'0');
+  var dy = String(d.getDate()).padStart(2,'0');
+  return mo+'/'+dy;
 }
 
 // ========================================================================
@@ -4339,20 +4465,23 @@ function clearFilters() {
 // ========================================================================
 // Error table
 // ========================================================================
-// Sort state — default age descending so newest errors appear first.
-var sortCol = 'age';
+// Sort state — default last-seen descending so the top of the table
+// always answers "what happened most recently?"
+var sortCol = 'lastSeen';
 var sortDir = -1; // -1 = descending, 1 = ascending
 
 var SEV_ORDER = {crit:0, warn:1, info:2};
 
 function cardSortKey(c, col) {
-  if (col === 'sev')     return SEV_ORDER[c.sev] !== undefined ? SEV_ORDER[c.sev] : 9;
-  if (col === 'occ')     return c.occ;
-  if (col === 'age')     return c.createdAt ? -new Date(c.createdAt).getTime() : 0;
-  if (col === 'title')   return (c.title || '').toLowerCase();
-  if (col === 'project') return (c.project || '').toLowerCase();
-  if (col === 'env')     return (c.envs || []).join(',').toLowerCase();
-  if (col === 'lane')    return (c.lane || '').toLowerCase();
+  if (col === 'sev')      return SEV_ORDER[c.sev] !== undefined ? SEV_ORDER[c.sev] : 9;
+  if (col === 'occ')      return c.occ;
+  if (col === 'lastSeen') return c.lastSeenTs ? new Date(c.lastSeenTs).getTime() : 0;
+  if (col === 'age')      return c.createdAt ? -new Date(c.createdAt).getTime() : 0;
+  if (col === 'title')    return ((c.errCls || c.errMsg || c.title) || '').toLowerCase();
+  if (col === 'project')  return (c.projectLabel || c.project || '').toLowerCase();
+  if (col === 'env')      return (c.envs || []).join(',').toLowerCase();
+  if (col === 'source')   return (c.source || '').toLowerCase();
+  if (col === 'lane')     return (c.lane || '').toLowerCase();
   return 0;
 }
 
@@ -4376,7 +4505,15 @@ function getFilteredCards() {
   }
   var q = (document.getElementById('search').value||'').toLowerCase();
   if (q) {
-    cards = cards.filter(function(c){ return c.title.toLowerCase().indexOf(q)!==-1 || c.fp.indexOf(q)!==-1 || c.envs.some(function(e){return e.indexOf(q)!==-1;}); });
+    cards = cards.filter(function(c){
+      return (c.title || '').toLowerCase().indexOf(q) !== -1
+          || (c.errCls || '').toLowerCase().indexOf(q) !== -1
+          || (c.errMsg || '').toLowerCase().indexOf(q) !== -1
+          || (c.source || '').toLowerCase().indexOf(q) !== -1
+          || (c.projectLabel || c.project || '').toLowerCase().indexOf(q) !== -1
+          || c.fp.indexOf(q) !== -1
+          || c.envs.some(function(e){return e.indexOf(q)!==-1;});
+    });
   }
   var col = sortCol, dir = sortDir;
   return cards.slice().sort(function(a, b) {
@@ -4396,7 +4533,7 @@ function renderTable() {
   if (cards.length === 0) {
     var tr = el('tr');
     var td = el('td');
-    td.colSpan = 6;
+    td.colSpan = 8;
     td.style.textAlign = 'center';
     td.style.padding = '32px';
     var empty = el('div','empty-state');
@@ -4427,54 +4564,84 @@ function buildRow(c, i) {
   badge.appendChild(document.createTextNode(' '+(SEV_LABEL[c.sev]||c.sev)));
   sevTd.appendChild(badge); tr.appendChild(sevTd);
 
-  // Title
-  var titleTd = el('td');
-  var titleWrap = el('div','err-title-wrap');
-  var chevSvg = svgEl('svg',{'class':'expand-chevron',viewBox:'0 0 16 16',width:14,height:14});
-  chevSvg.appendChild(svgEl('path',{d:'M6 4l4 4-4 4'}));
-  titleWrap.appendChild(chevSvg);
-  titleWrap.appendChild(txt('span','err-title',c.title));
-  titleTd.appendChild(titleWrap);
-  titleTd.appendChild(txt('div','err-fp','fp:'+c.fp));
-  tr.appendChild(titleTd);
+  // Last seen — absolute HH:MM:SS with full ISO in tooltip. Replaces
+  // the old relative "age" column. Secondary line shows first-seen date
+  // so recurring-vs-new is readable at a glance.
+  var seenTd = el('td','seen-cell');
+  var last = txt('div','seen-last', fmtClock(c.lastSeenTs));
+  last.title = (c.lastSeenTs || '') + (c.firstSeenTs ? '\\nfirst seen: '+c.firstSeenTs : '');
+  seenTd.appendChild(last);
+  if (c.firstSeenTs && c.firstSeenTs !== c.lastSeenTs) {
+    seenTd.appendChild(txt('div','seen-first', 'first ' + fmtDateShort(c.firstSeenTs)));
+  }
+  tr.appendChild(seenTd);
 
-  // Project (virtual-central mode shows where the card came from;
-  // single-project mode reuses the label for consistency).
+  // Project (virtual-central) — strip trailing "-main" for consistency
+  // with the Projects panel.
   var projTd = el('td');
-  if (c.project) projTd.appendChild(txt('span','env-tag', c.project));
+  if (c.projectLabel) projTd.appendChild(txt('span','proj-chip', c.projectLabel));
   tr.appendChild(projTd);
 
-  // Occ
-  var occTd = txt('td','num',c.occ.toLocaleString());
-  occTd.style.textAlign = 'right';
-  tr.appendChild(occTd);
-
-  // Envs — sprint-2g8: show hostname when resolved (Acquia default_domain
-  // or <ddev_project>.ddev.site), fall back to bare env label otherwise.
+  // Env — bare slug only (local / prod / test / ...). Hostname that used
+  // to live inline moves to a tooltip + small link-out icon so the cell
+  // stays narrow without losing the click-through.
   var envTd = el('td');
   var envWrap = el('div','env-tags');
   var hostByEnv = {};
   (c.hostnames || []).forEach(function(h){ if (h && h.env) hostByEnv[h.env] = h; });
   c.envs.forEach(function(env){
     var host = hostByEnv[env];
+    var chip;
     if (host && host.url) {
-      var a = document.createElement('a');
-      a.href = host.url;
-      a.target = '_blank';
-      a.rel = 'noopener';
-      a.className = 'env-tag env-host';
-      a.title = host.url;
-      a.textContent = env + ' · ' + host.domain;
-      a.addEventListener('click', function(e){ e.stopPropagation(); });
-      envWrap.appendChild(a);
+      chip = document.createElement('a');
+      chip.href = host.url;
+      chip.target = '_blank';
+      chip.rel = 'noopener';
+      chip.className = 'env-tag env-host';
+      chip.title = host.url;
+      chip.textContent = env;
+      chip.appendChild(txt('span','env-link-icon','\\u2197'));
+      chip.addEventListener('click', function(e){ e.stopPropagation(); });
     } else {
-      envWrap.appendChild(txt('span','env-tag',env));
+      chip = txt('span','env-tag', env);
     }
+    envWrap.appendChild(chip);
   });
   envTd.appendChild(envWrap); tr.appendChild(envTd);
 
-  // Age
-  tr.appendChild(txt('td','age-cell',c.age));
+  // Source — which log source detected the error (watchdog / apache-error
+  // / drupal-request / ...). Short chip; "other" and "unknown" render
+  // muted so the informative sources pop.
+  var srcTd = el('td');
+  var srcChip = txt('span','source-chip', c.source || 'unknown');
+  if (c.source === 'other' || c.source === 'unknown') srcChip.classList.add('muted');
+  srcTd.appendChild(srcChip); tr.appendChild(srcTd);
+
+  // Error — PascalCase exception class + one-line summary. Fingerprint
+  // hash remains as a subtle meta row below so dedup-by-fp is still easy
+  // to scan.
+  var titleTd = el('td');
+  var titleWrap = el('div','err-title-wrap');
+  var chevSvg = svgEl('svg',{'class':'expand-chevron',viewBox:'0 0 16 16',width:14,height:14});
+  chevSvg.appendChild(svgEl('path',{d:'M6 4l4 4-4 4'}));
+  titleWrap.appendChild(chevSvg);
+  if (c.errCls) {
+    titleWrap.appendChild(txt('span','err-cls', c.errCls));
+  }
+  // Render message when present; when only the class was recoverable
+  // (truncated titles), skip the raw title so it doesn't bleed in as a
+  // second unreadable chunk next to the class chip.
+  var hasExtraction = !!(c.errCls || c.errMsg);
+  var msgText = c.errMsg || (hasExtraction ? '' : c.title);
+  if (msgText) titleWrap.appendChild(txt('span','err-title', msgText));
+  titleTd.appendChild(titleWrap);
+  titleTd.appendChild(txt('div','err-fp','fp:'+c.fp));
+  tr.appendChild(titleTd);
+
+  // Count
+  var occTd = txt('td','num',c.occ.toLocaleString());
+  occTd.style.textAlign = 'right';
+  tr.appendChild(occTd);
 
   // Lane
   tr.appendChild(txt('td','age-cell',laneLabel(c.lane)));
@@ -5946,9 +6113,9 @@ document.getElementById('err-thead').addEventListener('click', function(ev) {
     sortDir = -sortDir;
   } else {
     sortCol = col;
-    // Numeric columns default descending (highest first);
-    // text columns default ascending.
-    sortDir = (col === 'occ' || col === 'sev' || col === 'age') ? -1 : 1;
+    // Numeric + time-ordered columns default descending (highest/most-
+    // recent first); text columns default ascending.
+    sortDir = (col === 'occ' || col === 'sev' || col === 'age' || col === 'lastSeen') ? -1 : 1;
   }
   updateSortHeaders();
   renderTable();

@@ -1,5 +1,14 @@
 # drover Changelog
 
+## 1.31.0
+- **Error table rewritten.** New columns, ordered by operator read-priority: `Sev · Last seen · Project · Env · Source · Error · Count · Lane`. Every column remains sortable via the existing header-click handler.
+- **Age → Last seen (absolute timestamps).** Age strings are retired from the table — they staled out between renders and answered the wrong question. `Last seen` renders as `HH:MM:SS` for events today and `MM/DD HH:MM` for older ones, with the full ISO + first-seen timestamp in the cell's tooltip. Default sort is `Last seen ↓` so the top of the table always answers "what happened most recently?"
+- **Error column is now readable.** The triage-agent-emitted titles (`[ERROR] other: https://... |n| simple_cron |n|| drupal\core\database\databaseexceptionwrapper: sqlstatets: syntax error or access viol`) are parsed client-side into an exception class + one-line message. Class renders as an info-blue monospace chip; message follows. Truncated titles (which have no colon+message tail) promote the last backslash-path segment into the class slot so the row is never blank.
+- **Env column drops the redundant hostname.** Used to show `prod · pncb.prod.acquia-sites.com`; now renders just the env slug with an inline `↗` link-out icon. Hostname moves to the tooltip. Saves ~200px horizontally.
+- **Source column added.** `watchdog`, `apache-error`, `drupal-request`, `php-error`, etc — extracted from the `source-*` label (triage cards) with a body-field fallback. Muted chip for `other`/`unknown`.
+- **Project column strips trailing `-main`** to match the Projects-panel labels.
+- Search filter now matches on exception class, message, source, project label, fingerprint, and env in addition to the raw title.
+
 ## 1.30.1
 - **Narrower project tiles.** Tile width trimmed from `min-width:240 / max-width:320` to `min-width:170 / max-width:230`. With the vertical env-toggle stack the old width was mostly whitespace — four projects now fit comfortably in the first half of the panel on a 1440px dashboard.
 - **Drawer carries per-env toggles.** Each environment block in the drawer's Environments section now has its own `role="switch"` toggle — identical control surface to the tile, co-located with the env's listener method, last-event age, and source list. Toggling an env from inside the drawer flips the config and updates the block in-place; the drawer stays open so the user doesn't lose context.
