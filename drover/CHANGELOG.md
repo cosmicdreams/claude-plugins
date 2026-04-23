@@ -1,5 +1,11 @@
 # drover Changelog
 
+## 1.32.0
+- **Pulse strip.** A new always-visible heartbeat row sits directly under the header. When collapsed it shows the most recent structured event drover emitted: `15:33:32 · env-on · pncb.test · Tracking on · drupal-watchdog`. Click the strip to expand a scrollable feed of the last 60 events in reverse chronological order. The dot beside the "Pulse" label pulses green when activity has occurred in the last 2 minutes; otherwise it goes grey. `prefers-reduced-motion` disables all pulse-strip animation (entrance, transitions, pulsing dot).
+- **Event types + color coding.** Each event carries a type: `fingerprint-new` / `fingerprint-augment` (red-ish, for new or augmented error fingerprints), `lane-change` (blue), `solution` (green), `env-on` / `env-off` (green / muted), `watcher-start` / `watcher-restart` / `watcher-arm` / `watcher-stop` (blue / muted). Type pills are color-coded and left-border accents pop new fingerprints and solutions.
+- **New SSE channel `pulse-event` + server-side ring buffer.** Every meaningful state transition is recorded via a new `recordPulse()` helper: new-card ingestion, threshold augmenting, lane moves, solution capture, env toggles, umbrella watcher lifecycle. The server keeps the last 200 events in memory; clients hydrate via `GET /api/pulse?limit=60` on load so the feed is never empty when history exists, then stream live via SSE.
+- **Honest empty state.** When no events have been seen yet, the expanded feed says: *"No events yet. Toggle a project env or wait for an ingest — every meaningful transition drover makes will appear here."* No fabricated activity, no pulsing lies.
+
 ## 1.31.0
 - **Error table rewritten.** New columns, ordered by operator read-priority: `Sev · Last seen · Project · Env · Source · Error · Count · Lane`. Every column remains sortable via the existing header-click handler.
 - **Age → Last seen (absolute timestamps).** Age strings are retired from the table — they staled out between renders and answered the wrong question. `Last seen` renders as `HH:MM:SS` for events today and `MM/DD HH:MM` for older ones, with the full ISO + first-seen timestamp in the cell's tooltip. Default sort is `Last seen ↓` so the top of the table always answers "what happened most recently?"
