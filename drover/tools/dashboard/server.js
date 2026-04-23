@@ -3998,20 +3998,6 @@ function buildHtml() {
     </div>
   </header>
 
-  <section class="pulse-strip open" id="pulse-strip" aria-label="Recent drover activity" aria-live="polite">
-    <button type="button" class="pulse-strip-head" id="pulse-strip-head" aria-expanded="true" aria-controls="pulse-feed" onclick="togglePulseFeed()">
-      <span class="pulse-strip-dot" aria-hidden="true"></span>
-      <span class="pulse-strip-label">Pulse</span>
-      <span class="pulse-strip-last" id="pulse-strip-last">awaiting first event…</span>
-      <span class="pulse-strip-count" id="pulse-strip-count"></span>
-      <span class="pulse-strip-chev" aria-hidden="true">▾</span>
-    </button>
-    <div class="pulse-feed" id="pulse-feed" aria-hidden="false">
-      <div class="pulse-feed-inner" id="pulse-feed-inner"></div>
-      <div class="pulse-feed-empty" id="pulse-feed-empty">No events yet. Toggle a project env or wait for an ingest — every meaningful transition drover makes will appear here.</div>
-    </div>
-  </section>
-
   <section class="ddev-panel" id="ddev-panel" aria-label="Projects" style="display:none">
     <div class="ddev-header">
       <div class="ddev-header-left">
@@ -4035,8 +4021,21 @@ function buildHtml() {
     </div>
   </section>
 
+  <section class="pulse-strip open" id="pulse-strip" aria-label="Recent drover activity" aria-live="polite">
+    <button type="button" class="pulse-strip-head" id="pulse-strip-head" aria-expanded="true" aria-controls="pulse-feed" onclick="togglePulseFeed()">
+      <span class="pulse-strip-dot" aria-hidden="true"></span>
+      <span class="pulse-strip-label">Pulse</span>
+      <span class="pulse-strip-last" id="pulse-strip-last">awaiting first event…</span>
+      <span class="pulse-strip-count" id="pulse-strip-count"></span>
+      <span class="pulse-strip-chev" aria-hidden="true">▾</span>
+    </button>
+    <div class="pulse-feed" id="pulse-feed" aria-hidden="false">
+      <div class="pulse-feed-inner" id="pulse-feed-inner"></div>
+      <div class="pulse-feed-empty" id="pulse-feed-empty">No events yet. Toggle a project env or wait for an ingest — every meaningful transition drover makes will appear here.</div>
+    </div>
+  </section>
+
   <div class="view-dashboard" id="view-dashboard">
-  <div class="env-strip" id="env-strip" aria-label="Open-error counts by environment"></div>
   <div class="divider" aria-hidden="true"></div>
 
   <div class="pivot" aria-label="Error investigation">
