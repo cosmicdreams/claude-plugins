@@ -1,5 +1,9 @@
 # drover Changelog
 
+## 1.24.0
+- Clicking a row in the Dashboard error table now opens the same card-detail modal as clicking a kanban card on the Issues tab (T5a). The previous in-place row expansion, which showed only a re-echo of the title and "No log entries", is retired — every row click now goes straight to Details + Error message + Projected/Actual solution + Move-to + action strip. Board tab behaviour is unchanged.
+- Fingerprint row display accepts non-hex identifier tokens (A10). `[a-f0-9]+` was arbitrarily restrictive and left cards whose fingerprint contained any other character rendering as `fp:[unknown]`; the regex now accepts any non-backtick, non-whitespace run between backticks. Applied consistently across the 4 call sites (server-side parse, solution lookup in two writers, client-side parseCardClient).
+
 ## 1.23.1
 - Fixed: selecting an Acquia env whose project was registered without `app_uuid` in projects.json (e.g. massport.*) no longer 404s with "alias not found". A shared `resolveAliasToAcquia()` helper walks up from the project's path looking for `.claude/drover-config.json` (which carries `app_uuid` per env) and uses that as a fallback (A12).
 - Friendlier 403 surface: when Acquia rejects with `forbidden_ip` (the app has an IP allowlist and the local machine isn't on it), the Backfill modal shows a one-sentence human explanation with remediation instead of a Python traceback. The client-side modal also surfaces any server-side `error` payload inline rather than falling through to the silent "No log types found" state.
