@@ -1893,6 +1893,111 @@ async function handleSourcesEnvToggle(req, res) {
   });
 }
 
+// ---------------------------------------------------------------------------
+// Groups — user-curated sets of cards that share a root cause across
+// projects or near-duplicate fingerprints. Backed by a JSON file next to
+// projects.json. Full spec lives in drover/docs/user-stories.md §12.
+// This cut ships create / list / delete + parent-row rendering on the
+// client; suggestion engine + solution propagation are follow-ups.
+// ---------------------------------------------------------------------------
+const GROUPS_FILE = process.env.DROVER_GROUPS_FILE
+  || path.join(
+    process.env.CLAUDE_PLUGIN_DATA || `${process.env.HOME}/.claude/plugins/data/drover-fallback`,
+    'drover-groups.json'
+  );
+
+function readGroups() {
+  try {
+    if (!fs.existsSync(GROUPS_FILE)) return { groups: [] };
+    const raw = fs.readFileSync(GROUPS_FILE, 'utf8');
+    const data = JSON.parse(raw || '{}');
+    return { groups: Array.isArray(data.groups) ? data.groups : [] };
+  } catch (e) {
+    console.warn('[groups] read failed:', e.message);
+    return { groups: [] };
+  }
+}
+
+function writeGroups(data) {
+  try {
+    fs.mkdirSync(path.dirname(GROUPS_FILE), { recursive: true });
+    fs.writeFileSync(GROUPS_FILE, JSON.stringify(data, null, 2) + '\n');
+  } catch (e) {
+    console.warn('[groups] write failed:', e.message);
+    throw e;
+  }
+}
+
+function newGroupId() {
+  return 'grp-' + Math.random().toString(36).slice(2, 8) + Date.now().toString(36).slice(-4);
+}
+
+async function handleGroupsList(req, res) {
+  return jsonResponse(res, 200, readGroups());
+}
+
+async function handleGroupsCreate(req, res) {
+  let body;
+  try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
+  const { name, member_ids } = body || {};
+  if (!Array.isArray(member_ids) || member_ids.length < 2) {
+    return jsonResponse(res, 400, { error: 'member_ids must be an array of ≥2 card ids' });
+  }
+  const trimmedName = typeof name === 'string' && name.trim() ? name.trim().slice(0, 120) : 'Group';
+  const data = readGroups();
+  // Reject double-membership: a card can only live in one group. If any
+  // requested member is already in a group, surface the conflict.
+  const already = new Map();
+  for (const g of data.groups) {
+    for (const m of (g.member_ids || [])) already.set(m, g.id);
+  }
+  const conflicts = member_ids.filter(id => already.has(id));
+  if (conflicts.length > 0) {
+    return jsonResponse(res, 409, {
+      error: 'some members are already grouped',
+      conflicts: conflicts.map(id => ({ id, group_id: already.get(id) })),
+    });
+  }
+  const group = {
+    id: newGroupId(),
+    name: trimmedName,
+    member_ids: Array.from(new Set(member_ids)),
+    created_at: new Date().toISOString(),
+    rejected_pairs: [],
+  };
+  data.groups.push(group);
+  try { writeGroups(data); }
+  catch (e) { return jsonResponse(res, 500, { error: 'failed to write groups: ' + e.message }); }
+  broadcast('groups-update', { ts: new Date().toISOString(), action: 'create', id: group.id });
+  recordPulse({
+    type: 'group-created',
+    origin: group.id,
+    summary: 'Group created · ' + group.member_ids.length + ' errors · ' + trimmedName,
+    details: { id: group.id, name: trimmedName, members: group.member_ids },
+  });
+  return jsonResponse(res, 200, { group });
+}
+
+async function handleGroupDissolve(req, res, groupId) {
+  const data = readGroups();
+  const before = data.groups.length;
+  const removed = data.groups.find(g => g.id === groupId);
+  data.groups = data.groups.filter(g => g.id !== groupId);
+  if (data.groups.length === before) {
+    return jsonResponse(res, 404, { error: 'group not found: ' + groupId });
+  }
+  try { writeGroups(data); }
+  catch (e) { return jsonResponse(res, 500, { error: 'failed to write groups: ' + e.message }); }
+  broadcast('groups-update', { ts: new Date().toISOString(), action: 'dissolve', id: groupId });
+  recordPulse({
+    type: 'group-dissolved',
+    origin: groupId,
+    summary: 'Group dissolved · ' + (removed ? removed.name : groupId),
+    details: { id: groupId, name: removed && removed.name, members: removed && removed.member_ids },
+  });
+  return jsonResponse(res, 200, { ok: true, id: groupId });
+}
+
 async function handleSourcesToggle(req, res) {
   let body;
   try { body = await readBody(req); } catch (e) {
@@ -2833,6 +2938,44 @@ function buildHtml() {
   .filter-chip.sel .chip-count { color:var(--info); }
 
   .errors-main { display:flex; flex-direction:column; overflow:hidden; }
+
+  /* Group parent rows — visually distinct so operators see at a glance
+     that this represents multiple underlying tickets. Purple accent to
+     match the selection-tint and the grouping bulk bar. */
+  tbody tr.row-group {
+    background: rgba(94,92,230,0.05);
+    border-left: 2px solid rgba(94,92,230,0.5);
+  }
+  tbody tr.row-group:hover { background: rgba(94,92,230,0.1); }
+  .row-group-glyph {
+    display:inline-block; width:14px; text-align:center;
+    color: var(--info); font-size:12px; font-weight:600;
+  }
+  .group-name-chip {
+    color: var(--info) !important;
+    background: rgba(94,92,230,0.12);
+    padding:1px 6px; border-radius:3px;
+    border:1px solid rgba(94,92,230,0.3);
+  }
+  /* Group modal — members list */
+  .group-member-row {
+    display:grid; grid-template-columns: 60px 80px 1fr 110px; gap:8px;
+    align-items:baseline;
+    padding:6px 8px; border-top:1px solid var(--border);
+    font-family:var(--mono); font-size:11px;
+  }
+  .group-member-row:first-child { border-top:none; }
+  .group-member-row:hover { background:var(--surface3); }
+  .group-member-sev { font-size:9px; font-weight:600; letter-spacing:0.04em; }
+  .group-member-sev.sev-crit { color:var(--crit); }
+  .group-member-sev.sev-warn { color:var(--warn); }
+  .group-member-sev.sev-info { color:var(--info2); }
+  .group-member-project { color:var(--muted); text-transform:lowercase; }
+  .group-member-title {
+    color:var(--text2);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .group-member-fp { color:var(--muted3); font-size:9px; text-align:right; }
 
   /* Row-selection column + bulk action bar */
   .col-select { width:32px; padding:0 8px; }
@@ -4166,6 +4309,7 @@ function removeChildren(node){ while(node.firstChild) node.removeChild(node.firs
 // State
 // ========================================================================
 var ALL_CARDS = [];
+var GROUPS = []; // fetched from /api/groups; { id, name, member_ids[] }
 var HEALTH = {};
 var TIMELINE = [];
 var INGESTION = {};
@@ -4204,18 +4348,15 @@ function fetchAll() {
     fetch('/api/health').then(function(r){return r.json();}),
     fetch('/api/timeline').then(function(r){return r.json();}),
     fetch('/api/ingestion/status').then(function(r){return r.json();}).catch(function(){return null;}),
-    // Projects overview is fetched alongside board data so the client-side
-    // env canonicalisation in parseCardClient has a populated ddev-project
-    // set on every pass. Without this, the first paint renders per-project
-    // local tiles ("AHRI-main") and only collapses to "local" after the
-    // separate fetchDdevStatus() race resolves.
-    fetch('/api/projects/overview').then(function(r){return r.json();}).catch(function(){return null;})
+    fetch('/api/projects/overview').then(function(r){return r.json();}).catch(function(){return null;}),
+    fetch('/api/groups').then(function(r){return r.json();}).catch(function(){return { groups: [] };})
   ]).then(function(results) {
     var board = results[0];
     HEALTH = results[1];
     TIMELINE = results[2];
     INGESTION = results[3] || {};
     if (results[4] && Array.isArray(results[4].projects)) PROJECTS_OVERVIEW = results[4];
+    GROUPS = (results[5] && Array.isArray(results[5].groups)) ? results[5].groups : [];
 
     if (Array.isArray(board)) {
       ALL_CARDS = board.map(parseCardClient);
@@ -4773,6 +4914,9 @@ function getFilteredCards() {
           || c.envs.some(function(e){return e.indexOf(q)!==-1;});
     });
   }
+  // Fold grouped cards into their parent BEFORE sort so sort keys (last
+  // seen, count) apply to the synthesized parent, not individual members.
+  cards = foldGroupsIntoCards(cards);
   var col = sortCol, dir = sortDir;
   return cards.slice().sort(function(a, b) {
     var ka = cardSortKey(a, col), kb = cardSortKey(b, col);
@@ -4838,6 +4982,10 @@ function clearSelection() {
 // propagation). For now this captures the intent via a pulse event and
 // a toast so the UX flow can be demoed end-to-end. The server-side
 // group store + visual merge land post-demo.
+// POST the selected ids to /api/groups. Server persists to
+// $CLAUDE_PLUGIN_DATA/drover-groups.json and broadcasts groups-update.
+// SELECTED is cleared regardless of outcome so the checkbox column
+// returns to a clean state; the toast reports success or failure.
 function groupSelected() {
   if (SELECTED.size < 2) {
     showToast('Select at least two rows to group.');
@@ -4845,15 +4993,189 @@ function groupSelected() {
   }
   var ids = Array.from(SELECTED);
   var members = (ALL_CARDS || []).filter(function(c){ return SELECTED.has(c.id); });
-  var projects = {};
-  members.forEach(function(m){ if (m.projectLabel) projects[m.projectLabel] = true; });
-  var projectList = Object.keys(projects).sort();
-  var name = (members[0] && members[0].errCls) ? members[0].errCls : 'group-' + Date.now();
-  showToast('Group "' + name + '" queued · ' + ids.length + ' errors · ' + projectList.join(', ')
-           + '. Full grouping UI ships post-demo (see user-stories §12).');
-  // Log the intent centrally so we can audit demo behavior later.
-  try { console.info('[group-stub]', { name: name, ids: ids, projects: projectList }); } catch(e) {}
-  clearSelection();
+  var firstMsg = (members[0] && (members[0].errCls || members[0].errMsg || members[0].title)) || '';
+  var name = (firstMsg || 'Group').slice(0, 80);
+  fetch('/api/groups', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name, member_ids: ids })
+  }).then(function(r){ return r.json().then(function(d){ return { status: r.status, body: d }; }); })
+    .then(function(res){
+      if (res.status === 200 && res.body && res.body.group) {
+        showToast('Grouped ' + ids.length + ' errors · "' + res.body.group.name + '"');
+        clearSelection();
+        fetchAll();
+      } else if (res.status === 409 && res.body && res.body.conflicts) {
+        var names = res.body.conflicts.map(function(c){ return c.id; }).join(', ');
+        showToast('Already grouped: ' + names);
+      } else {
+        showToast('Group failed: ' + ((res.body && res.body.error) || ('HTTP ' + res.status)));
+      }
+    })
+    .catch(function(e){ showToast('Group failed: ' + e.message); });
+}
+
+// Build an id → group lookup for renderTable. A card belongs to at most
+// one group (server-side constraint).
+function groupLookupByMember() {
+  var map = {};
+  (GROUPS || []).forEach(function(g){
+    (g.member_ids || []).forEach(function(id){ map[id] = g; });
+  });
+  return map;
+}
+
+// Compose a synthetic parent-row object from a group + its member cards.
+// Mirrors the shape of a parsed card enough that buildRow + sort + filter
+// helpers can treat it uniformly.
+function synthesizeGroupCard(group, members) {
+  var sevOrder = { crit:0, warn:1, info:2, unknown:3 };
+  var worst = members.reduce(function(acc, m){
+    if (!acc) return m;
+    return (sevOrder[m.sev] < sevOrder[acc.sev]) ? m : acc;
+  }, null) || {};
+  var projSet = {}; members.forEach(function(m){ if (m.projectLabel) projSet[m.projectLabel] = true; });
+  var envSet  = {}; members.forEach(function(m){ (m.envs||[]).forEach(function(e){ envSet[e] = true; }); });
+  var laneOrder = LANE_ORDER;
+  var mostAdvanced = members.reduce(function(acc, m){
+    var i = laneOrder.indexOf(m.lane);
+    return (i > acc.i) ? { i: i, lane: m.lane } : acc;
+  }, { i: -1, lane: 'lane-triage' }).lane;
+  var occ = members.reduce(function(a,m){ return a + (m.occ || 0); }, 0);
+  var lastSeenTs = members.reduce(function(a,m){
+    if (!m.lastSeenTs) return a;
+    if (!a) return m.lastSeenTs;
+    return (m.lastSeenTs > a) ? m.lastSeenTs : a;
+  }, '');
+  var firstSeenTs = members.reduce(function(a,m){
+    if (!m.firstSeenTs) return a;
+    if (!a) return m.firstSeenTs;
+    return (m.firstSeenTs < a) ? m.firstSeenTs : a;
+  }, '');
+  return {
+    id: group.id,
+    isGroup: true,
+    group: group,
+    members: members,
+    title: group.name,
+    errCls: worst.errCls || '',
+    errMsg: group.name,
+    project: '',
+    projectLabel: Object.keys(projSet).sort().join(' · '),
+    hostnames: [],
+    projected: null,
+    actual: null,
+    lane: mostAdvanced,
+    sev: worst.sev || 'warn',
+    sevRaw: worst.sevRaw || 'warning',
+    envs: Object.keys(envSet).sort(),
+    fp: 'group:' + group.id.slice(4),
+    occ: occ,
+    source: 'group',
+    worktree: '',
+    assignee: '',
+    firstSeenTs: firstSeenTs,
+    lastSeenTs: lastSeenTs,
+    age: '',
+    stack: [],
+    triageLog: [],
+  };
+}
+
+// Fold member cards into their group's parent row for display. Returns a
+// card list where members are replaced by (deduped) group parents. Cards
+// not in any group pass through unchanged.
+function foldGroupsIntoCards(cards) {
+  if (!GROUPS || !GROUPS.length) return cards;
+  var byMember = groupLookupByMember();
+  var seenGroup = {};
+  var out = [];
+  cards.forEach(function(c){
+    var g = byMember[c.id];
+    if (g) {
+      if (!seenGroup[g.id]) {
+        seenGroup[g.id] = true;
+        var members = cards.filter(function(x){ return byMember[x.id] && byMember[x.id].id === g.id; });
+        out.push(synthesizeGroupCard(g, members));
+      }
+    } else {
+      out.push(c);
+    }
+  });
+  return out;
+}
+
+function dissolveGroup(groupId) {
+  fetch('/api/groups/' + encodeURIComponent(groupId), { method: 'DELETE' })
+    .then(function(r){ return r.json().then(function(d){ return { status: r.status, body: d }; }); })
+    .then(function(res){
+      if (res.status === 200) {
+        showToast('Group dissolved');
+        closeBoardModal();
+        fetchAll();
+      } else {
+        showToast('Dissolve failed: ' + ((res.body && res.body.error) || ('HTTP ' + res.status)));
+      }
+    })
+    .catch(function(e){ showToast('Dissolve failed: ' + e.message); });
+}
+
+function openGroupModal(parent) {
+  var modal = document.getElementById('modal-content');
+  removeChildren(modal);
+  var header = el('div','modal-header');
+  header.appendChild(txt('div','modal-title', 'Group · ' + parent.group.name));
+  var closeBtn = el('button','modal-close');
+  closeBtn.textContent = '\\u2715';
+  closeBtn.addEventListener('click', closeBoardModal);
+  header.appendChild(closeBtn);
+  modal.appendChild(header);
+
+  var body = el('div','modal-body');
+  var meta = el('div','modal-section');
+  meta.appendChild(txt('div','modal-section-title','Details'));
+  var grid = el('div','modal-meta-grid');
+  [
+    {label:'Members', value:String(parent.members.length)},
+    {label:'Projects', value:parent.projectLabel || '—'},
+    {label:'Total occurrences', value:parent.occ.toLocaleString()},
+    {label:'Last seen', value:parent.lastSeenTs || '—'},
+    {label:'First seen', value:parent.firstSeenTs || '—'},
+  ].forEach(function(it){
+    grid.appendChild(txt('div','modal-meta-label', it.label));
+    grid.appendChild(txt('div','modal-meta-value', it.value));
+  });
+  meta.appendChild(grid);
+  body.appendChild(meta);
+
+  // Members list — clicking a member opens its own ticket modal.
+  var listSec = el('div','modal-section');
+  listSec.appendChild(txt('div','modal-section-title','Members'));
+  parent.members.forEach(function(m){
+    var row = el('div','group-member-row');
+    row.appendChild(txt('span','group-member-sev sev-'+m.sev, (SEV_LABEL[m.sev]||m.sev).toUpperCase()));
+    row.appendChild(txt('span','group-member-project', m.projectLabel || m.project || ''));
+    row.appendChild(txt('span','group-member-title', (m.errCls ? m.errCls + ': ' : '') + (m.errMsg || m.title || '')));
+    row.appendChild(txt('span','group-member-fp', 'fp:' + (m.fp || '').slice(0,8)));
+    row.style.cursor = 'pointer';
+    row.addEventListener('click', (function(card){ return function(){ openBoardModal(card); };})(m));
+    listSec.appendChild(row);
+  });
+  body.appendChild(listSec);
+
+  var actions = el('div','modal-section');
+  var dissolve = el('button','bulk-btn');
+  dissolve.textContent = 'Dissolve group';
+  dissolve.style.borderColor = 'rgba(255,69,58,0.4)';
+  dissolve.style.color = 'var(--crit)';
+  dissolve.addEventListener('click', (function(id){ return function(){
+    if (confirm('Dissolve this group? Member errors return to their own rows.')) dissolveGroup(id);
+  };})(parent.group.id));
+  actions.appendChild(dissolve);
+  body.appendChild(actions);
+
+  modal.appendChild(body);
+  document.getElementById('board-modal').classList.add('open');
 }
 
 function renderTable() {
@@ -4890,6 +5212,7 @@ function buildRow(c, i) {
   tr.style.animationDelay = (i*20)+'ms';
   tr.tabIndex = 0;
   tr.dataset.id = c.id;
+  if (c.isGroup) tr.classList.add('row-group');
   if (SELECTED.has(c.id)) tr.classList.add('row-selected');
 
   // Select checkbox — leftmost column. Clicking the checkbox toggles the
@@ -4898,18 +5221,25 @@ function buildRow(c, i) {
   // modal as before. This is the primitive that group-creation builds
   // on (drover/docs/user-stories.md §12).
   var selTd = el('td','col-select');
-  var cb = document.createElement('input');
-  cb.type = 'checkbox';
-  cb.checked = SELECTED.has(c.id);
-  cb.setAttribute('aria-label', 'Select ' + (c.errCls || c.fp));
-  cb.addEventListener('click', function(ev){ ev.stopPropagation(); });
-  cb.addEventListener('change', (function(id, row){ return function(ev){
-    ev.stopPropagation();
-    if (ev.target.checked) SELECTED.add(id); else SELECTED.delete(id);
-    row.classList.toggle('row-selected', ev.target.checked);
-    renderBulkBar();
-  };})(c.id, tr));
-  selTd.appendChild(cb);
+  if (c.isGroup) {
+    // Group rows aren't selectable (selection exists to CREATE groups;
+    // grouping a group is out of scope). Render a small group glyph in
+    // place of the checkbox so the column still reads at a glance.
+    selTd.appendChild(txt('span','row-group-glyph','⊞'));
+  } else {
+    var cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = SELECTED.has(c.id);
+    cb.setAttribute('aria-label', 'Select ' + (c.errCls || c.fp));
+    cb.addEventListener('click', function(ev){ ev.stopPropagation(); });
+    cb.addEventListener('change', (function(id, row){ return function(ev){
+      ev.stopPropagation();
+      if (ev.target.checked) SELECTED.add(id); else SELECTED.delete(id);
+      row.classList.toggle('row-selected', ev.target.checked);
+      renderBulkBar();
+    };})(c.id, tr));
+    selTd.appendChild(cb);
+  }
   tr.appendChild(selTd);
 
   // Sev
@@ -4948,42 +5278,44 @@ function buildRow(c, i) {
   var chevSvg = svgEl('svg',{'class':'expand-chevron',viewBox:'0 0 16 16',width:14,height:14});
   chevSvg.appendChild(svgEl('path',{d:'M6 4l4 4-4 4'}));
   titleWrap.appendChild(chevSvg);
-  if (c.errCls) {
+  if (c.isGroup) {
+    titleWrap.appendChild(txt('span','err-cls group-name-chip', c.group.name));
+    var projList = c.projectLabel || '—';
+    var summary = c.members.length + ' errors · ' + projList;
+    titleWrap.appendChild(txt('span','err-title', summary));
+  } else if (c.errCls) {
     titleWrap.appendChild(txt('span','err-cls', c.errCls));
   }
-  // Render the full original title (minus the [SEV] source: prefix).
-  // Previously we kept only the post-colon tail — which threw away URL
-  // path, hook name, and watchdog pipe fields (the stuff that tells the
-  // operator where to look). We now keep everything; the class chip is
-  // just a visual anchor alongside it, not a replacement for context.
-  var shown = String(c.title || '');
-  var sevMatch = shown.match(/^\\[[A-Z]+\\]\\s*/);
-  if (sevMatch) shown = shown.slice(sevMatch[0].length);
-  var srcMatch = shown.match(/^[a-z_\\-]+:\\s*/);
-  if (srcMatch) shown = shown.slice(srcMatch[0].length);
-  // Drupal watchdog pipe separators render as opaque noise. Replace them
-  // with a readable separator so the URL / hook / request-path fields
-  // are visually distinguishable.
-  shown = shown.replace(/\\|n\\|/g, ' · ').replace(/\\|ip\\|/g, ' · ');
-  if (shown) {
-    var msgEl = txt('span','err-title', shown);
-    msgEl.title = (c.errCls ? c.errCls + ': ' : '') + shown;
-    titleWrap.appendChild(msgEl);
+  // Render the full original title (minus the [SEV] source: prefix) for
+  // individual ticket rows. Group parents already filled titleWrap above.
+  if (!c.isGroup) {
+    var shown = String(c.title || '');
+    var sevMatch = shown.match(/^\\[[A-Z]+\\]\\s*/);
+    if (sevMatch) shown = shown.slice(sevMatch[0].length);
+    var srcMatch = shown.match(/^[a-z_\\-]+:\\s*/);
+    if (srcMatch) shown = shown.slice(srcMatch[0].length);
+    shown = shown.replace(/\\|n\\|/g, ' · ').replace(/\\|ip\\|/g, ' · ');
+    if (shown) {
+      var msgEl = txt('span','err-title', shown);
+      msgEl.title = (c.errCls ? c.errCls + ': ' : '') + shown;
+      titleWrap.appendChild(msgEl);
+    }
   }
   titleTd.appendChild(titleWrap);
-  titleTd.appendChild(txt('div','err-fp','fp:'+c.fp));
+  var fpLine = c.isGroup ? ('group id ' + c.group.id) : ('fp:' + c.fp);
+  titleTd.appendChild(txt('div','err-fp', fpLine));
   tr.appendChild(titleTd);
 
-  // T5a: Dashboard row click opens the same modal as Board card click.
-  // The previous in-place expand row was a dead end (A3/A4 in the audit):
-  // it only showed ERROR + empty TRIAGE LOG and offered no path to the
-  // full card detail view. We now route row click through openBoardModal
-  // so Dashboard and Board share one detail UI.
-  tr.addEventListener('click', function(){ openBoardModal(c); });
+  // Row click: individual ticket → openBoardModal; group parent row →
+  // openGroupModal (which lists members and offers Dissolve).
+  var openHandler = c.isGroup
+    ? function(){ openGroupModal(c); }
+    : function(){ openBoardModal(c); };
+  tr.addEventListener('click', openHandler);
   tr.addEventListener('keydown', function(ev){
     if (ev.key === 'Enter' || ev.key === ' ') {
       ev.preventDefault();
-      openBoardModal(c);
+      openHandler();
     }
   });
 
@@ -7353,6 +7685,10 @@ function connectSSE() {
     noteLiveEvent('pulse-event');
     try { pulseAppend(JSON.parse(ev.data)); } catch(e) {}
   });
+  evtSource.addEventListener('groups-update', function(){
+    noteLiveEvent('groups-update');
+    fetchAll();
+  });
   evtSource.onerror = function() {
     window._sseReadyState = 2;
     setLiveBadge('offline','Disconnected from /events. Retrying in 5s.');
@@ -7466,6 +7802,18 @@ const server = http.createServer(async (req, res) => {
     }
     if (pathname === '/api/sources/env-toggle' && req.method === 'POST') {
       return await handleSourcesEnvToggle(req, res);
+    }
+
+    // Groups (user-curated cross-project error collections).
+    if (pathname === '/api/groups' && req.method === 'GET') {
+      return await handleGroupsList(req, res);
+    }
+    if (pathname === '/api/groups' && req.method === 'POST') {
+      return await handleGroupsCreate(req, res);
+    }
+    const groupMatch = pathname.match(/^\/api\/groups\/([^/]+)$/);
+    if (groupMatch && req.method === 'DELETE') {
+      return await handleGroupDissolve(req, res, decodeURIComponent(groupMatch[1]));
     }
 
     // API endpoints
