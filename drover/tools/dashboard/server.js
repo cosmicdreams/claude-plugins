@@ -1732,13 +1732,16 @@ async function handleMove(req, res) {
   const note = now + ': Moved from ' + currentLane + ' to ' + toLane + ' via dashboard';
 
   try {
+    // A13: bumped from 5000→15000. bd against a dolt-backed .beads dir can
+    // take 6-8s when the dolt-server is under load from live ingest, which
+    // caused intermittent ETIMEDOUT 500s on the user-click mutation path.
     execFileSync('bd', [
       'update', id,
       '--db', board.dbPath,
       '--remove-label', currentLane,
       '--add-label', toLane,
       '--append-notes', note,
-    ], { encoding: 'utf8', timeout: 5000 });
+    ], { encoding: 'utf8', timeout: 15000 });
     ticketCache = { data: null, ts: 0 }; // invalidate
     return jsonResponse(res, 200, { ok: true, project: board.project });
   } catch (err) {
@@ -1795,11 +1798,16 @@ async function handleSolution(req, res, ticketId) {
   const currentLane = (ticket.labels || []).find(l => l.startsWith('lane-')) || 'lane-triage';
 
   try {
+    // A13: bumped from 5000→15000 on both bd calls for the same reason as
+    // handleMove. If the first (append-notes) times out, the second
+    // (lane-move) doesn't run and the Actual block is persisted but the
+    // card stays in its current lane — leaving the modal in an inconsistent
+    // state. Making the timeout generous is the cheapest mitigation.
     execFileSync('bd', [
       'update', ticketId,
       '--db', board.dbPath,
       '--append-notes', actualBlock,
-    ], { encoding: 'utf8', timeout: 5000 });
+    ], { encoding: 'utf8', timeout: 15000 });
     // Move to lane-done and close.
     if (currentLane !== 'lane-done' && currentLane !== 'lane-closed') {
       execFileSync('bd', [
@@ -1808,7 +1816,7 @@ async function handleSolution(req, res, ticketId) {
         '--remove-label', currentLane,
         '--add-label', 'lane-done',
         '--append-notes', now + ': Solution captured via dashboard; lane-done.',
-      ], { encoding: 'utf8', timeout: 5000 });
+      ], { encoding: 'utf8', timeout: 15000 });
     }
     ticketCache = { data: null, ts: 0 };
     return jsonResponse(res, 200, { status: 'ok', id: ticketId, project: ticket.project });
