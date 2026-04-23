@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.33.0
+- **Pulse is now the hero, not an addition.** The old "Pulse" section (env-tile grid + error-volume sparkline + last-triage-cycle card) is retired. In its place: the live Pulse feed opens by default at page load, taking ~360px of vertical real estate and showing drover's actual event stream as it happens. One heartbeat surface, not two.
+- **Env health collapses to a compact chip row.** The question "is anything on fire?" still matters, but doesn't deserve three large tiles. `OPEN BY ENV · prod 24 · test 33 · local 4` now sits as a single inline chip row below the Projects panel, colored by worst-severity per env and muted when zero.
+- **Error-volume chart and Last-triage-cycle card retired.** The sparkline was decorative, not decision-informing; the cycle card always lied about process liveness. Both call sites are stubbed as no-ops so existing render wiring survives without surfacing the UI.
+
 ## 1.32.0
 - **Pulse strip.** A new always-visible heartbeat row sits directly under the header. When collapsed it shows the most recent structured event drover emitted: `15:33:32 · env-on · pncb.test · Tracking on · drupal-watchdog`. Click the strip to expand a scrollable feed of the last 60 events in reverse chronological order. The dot beside the "Pulse" label pulses green when activity has occurred in the last 2 minutes; otherwise it goes grey. `prefers-reduced-motion` disables all pulse-strip animation (entrance, transitions, pulsing dot).
 - **Event types + color coding.** Each event carries a type: `fingerprint-new` / `fingerprint-augment` (red-ish, for new or augmented error fingerprints), `lane-change` (blue), `solution` (green), `env-on` / `env-off` (green / muted), `watcher-start` / `watcher-restart` / `watcher-arm` / `watcher-stop` (blue / muted). Type pills are color-coded and left-border accents pop new fingerprints and solutions.
