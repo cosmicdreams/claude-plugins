@@ -1,5 +1,11 @@
 # drover Changelog
 
+## 1.35.0
+- **Table refocuses on the error.** Project / Env / Source / Lane columns removed. The table now reads `[Sev] [Last seen] [Count] [Error →]` where Error takes all remaining horizontal space. This reflects the product's unit of work: what's broken, how bad, how often. Context (which project, env, source, lane) is still surfaced — it lives in the row modal and in the sidebar facets, which are the right affordances for "should I act on this" and "narrow to these" respectively.
+- **Lane joins the sidebar facet rail.** Fourth facet after Severity / Environment / Project. Displayed in pipeline order (TRIAGE → READY → IMPLEMENTING → AWAITING REVIEW), not alphabetical, so "Ready" is visually where your eye expects it.
+- **Count moves left of Error.** Reading flow is now severity → when → impact → message. The eye takes in the three-number triage-at-a-glance signal before committing to the text.
+- **Error cell flexes to the viewport edge** (no right-side column boundary). Long messages have real room before they truncate. Hover tooltip reveals the full `Class: message` when truncation does happen.
+
 ## 1.34.0
 - **Project facet in the filter sidebar.** Alongside Severity and Environment, the sidebar now carries a **Project** section with one checkbox per registered project (`acu`, `ahri`, `massport`, `pncb` — alphabetical, `-main` stripped to match the Projects-panel + Error-table Project column). Counts reflect open cards per project; projects with zero open cards still appear so the chip set is stable across refreshes. Click to narrow the table; multi-select ORs within the facet and ANDs across facets (same semantics as Severity / Environment).
 

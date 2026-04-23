@@ -4061,14 +4061,10 @@ function buildHtml() {
         <table>
           <thead id="err-thead">
             <tr>
-              <th data-sort="sev"     style="width:60px">Sev</th>
+              <th data-sort="sev"      style="width:60px">Sev</th>
               <th data-sort="lastSeen" class="sort-active" style="width:88px">Last seen &#8595;</th>
-              <th data-sort="project" style="width:80px">Project</th>
-              <th data-sort="env"     style="width:76px">Env</th>
-              <th data-sort="source"  style="width:90px">Source</th>
+              <th data-sort="occ"      style="width:68px;text-align:right">Count</th>
               <th data-sort="title">Error</th>
-              <th data-sort="occ"     style="width:68px;text-align:right">Count</th>
-              <th data-sort="lane"    style="width:76px">Lane</th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -4116,7 +4112,7 @@ var TIMELINE = [];
 var INGESTION = {};
 var currentView = 'dashboard';
 var showClosedLanes = false;
-var activeFilters = { sev: {}, env: {}, project: {} };
+var activeFilters = { sev: {}, env: {}, project: {}, lane: {} };
 
 var LANES = [
   { id:'lane-triage', label:'TRIAGE', color:'var(--muted3)' },
@@ -4599,6 +4595,31 @@ function renderFilters() {
   });
   wrap.appendChild(projectSection);
 
+  // Lane — replaces the previous Lane column in the data table. Keeps
+  // lane-oriented browsing cheap (one click to narrow to "Ready") while
+  // letting the error table stay focused on the error itself.
+  var laneSection = el('div','sidebar-section');
+  laneSection.appendChild(txt('div','sidebar-section-title','Lane'));
+  var laneCounts = {};
+  ALL_CARDS.forEach(function(c){ if (c.lane) laneCounts[c.lane] = (laneCounts[c.lane]||0)+1; });
+  // Keep lane display order aligned with the pipeline, not alphabetical.
+  LANES.filter(function(l){ return !l.hidden || laneCounts[l.id]; }).forEach(function(lane) {
+    var chip = el('div','filter-chip' + (activeFilters.lane[lane.id]?' sel':''));
+    chip.tabIndex = 0;
+    chip.setAttribute('role','checkbox');
+    chip.setAttribute('aria-checked', !!activeFilters.lane[lane.id]);
+    var label = el('span','chip-label');
+    var dot = el('span','chip-dot');
+    dot.style.background = lane.color;
+    label.appendChild(dot);
+    label.appendChild(document.createTextNode(' ' + lane.label));
+    chip.appendChild(label);
+    chip.appendChild(txt('span','chip-count', String(laneCounts[lane.id] || 0)));
+    chip.onclick = (function(id){ return function(){ toggleFilter('lane', id, this); }; })(lane.id);
+    laneSection.appendChild(chip);
+  });
+  wrap.appendChild(laneSection);
+
   updateFilterCount();
 }
 
@@ -4617,7 +4638,8 @@ function toggleFilter(type, val, chip) {
 }
 
 function updateFilterCount() {
-  var n = countKeys(activeFilters.sev) + countKeys(activeFilters.env) + countKeys(activeFilters.project);
+  var n = countKeys(activeFilters.sev) + countKeys(activeFilters.env)
+        + countKeys(activeFilters.project) + countKeys(activeFilters.lane);
   document.getElementById('filter-count').textContent = n ? n+' active' : 'none';
   document.getElementById('filter-clear').style.display = n ? 'block' : 'none';
 }
@@ -4626,6 +4648,7 @@ function clearFilters() {
   activeFilters.sev = {};
   activeFilters.env = {};
   activeFilters.project = {};
+  activeFilters.lane = {};
   var chips = document.querySelectorAll('.filter-chip.sel');
   for(var i=0;i<chips.length;i++){chips[i].classList.remove('sel');chips[i].setAttribute('aria-checked','false');}
   updateFilterCount();
@@ -4676,6 +4699,9 @@ function getFilteredCards() {
   if (countKeys(activeFilters.project) > 0) {
     cards = cards.filter(function(c){ return !!activeFilters.project[c.projectLabel || c.project]; });
   }
+  if (countKeys(activeFilters.lane) > 0) {
+    cards = cards.filter(function(c){ return !!activeFilters.lane[c.lane]; });
+  }
   var q = (document.getElementById('search').value||'').toLowerCase();
   if (q) {
     cards = cards.filter(function(c){
@@ -4706,7 +4732,7 @@ function renderTable() {
   if (cards.length === 0) {
     var tr = el('tr');
     var td = el('td');
-    td.colSpan = 8;
+    td.colSpan = 4;
     td.style.textAlign = 'center';
     td.style.padding = '32px';
     var empty = el('div','empty-state');
@@ -4749,50 +4775,18 @@ function buildRow(c, i) {
   }
   tr.appendChild(seenTd);
 
-  // Project (virtual-central) — strip trailing "-main" for consistency
-  // with the Projects panel.
-  var projTd = el('td');
-  if (c.projectLabel) projTd.appendChild(txt('span','proj-chip', c.projectLabel));
-  tr.appendChild(projTd);
+  // Count — "how many users are hitting this" is a severity multiplier.
+  // Right-aligned, tabular-numeric, left of the error cell so the reader
+  // takes in [severity] [when] [impact] before reading the message.
+  var occTd = txt('td','num',c.occ.toLocaleString());
+  occTd.style.textAlign = 'right';
+  tr.appendChild(occTd);
 
-  // Env — bare slug only (local / prod / test / ...). Hostname that used
-  // to live inline moves to a tooltip + small link-out icon so the cell
-  // stays narrow without losing the click-through.
-  var envTd = el('td');
-  var envWrap = el('div','env-tags');
-  var hostByEnv = {};
-  (c.hostnames || []).forEach(function(h){ if (h && h.env) hostByEnv[h.env] = h; });
-  c.envs.forEach(function(env){
-    var host = hostByEnv[env];
-    var chip;
-    if (host && host.url) {
-      chip = document.createElement('a');
-      chip.href = host.url;
-      chip.target = '_blank';
-      chip.rel = 'noopener';
-      chip.className = 'env-tag env-host';
-      chip.title = host.url;
-      chip.textContent = env;
-      chip.appendChild(txt('span','env-link-icon','\\u2197'));
-      chip.addEventListener('click', function(e){ e.stopPropagation(); });
-    } else {
-      chip = txt('span','env-tag', env);
-    }
-    envWrap.appendChild(chip);
-  });
-  envTd.appendChild(envWrap); tr.appendChild(envTd);
-
-  // Source — which log source detected the error (watchdog / apache-error
-  // / drupal-request / ...). Short chip; "other" and "unknown" render
-  // muted so the informative sources pop.
-  var srcTd = el('td');
-  var srcChip = txt('span','source-chip', c.source || 'unknown');
-  if (c.source === 'other' || c.source === 'unknown') srcChip.classList.add('muted');
-  srcTd.appendChild(srcChip); tr.appendChild(srcTd);
-
-  // Error — PascalCase exception class + one-line summary. Fingerprint
-  // hash remains as a subtle meta row below so dedup-by-fp is still easy
-  // to scan.
+  // Error — the actual unit of work. Takes all remaining horizontal
+  // space; hostname, env, source, project, and lane are intentionally
+  // not columns here (they're one click away in the row modal, and the
+  // sidebar facets carry filtering duty). Fingerprint hash stays as a
+  // subtle sub-line so dedup-by-fp remains scannable.
   var titleTd = el('td');
   var titleWrap = el('div','err-title-wrap');
   var chevSvg = svgEl('svg',{'class':'expand-chevron',viewBox:'0 0 16 16',width:14,height:14});
@@ -4801,23 +4795,19 @@ function buildRow(c, i) {
   if (c.errCls) {
     titleWrap.appendChild(txt('span','err-cls', c.errCls));
   }
-  // Render message when present; when only the class was recoverable
-  // (truncated titles), skip the raw title so it doesn't bleed in as a
-  // second unreadable chunk next to the class chip.
   var hasExtraction = !!(c.errCls || c.errMsg);
   var msgText = c.errMsg || (hasExtraction ? '' : c.title);
-  if (msgText) titleWrap.appendChild(txt('span','err-title', msgText));
+  if (msgText) {
+    var msgEl = txt('span','err-title', msgText);
+    // Hover tooltip reveals the full message when the cell truncates
+    // (narrow viewports). Combined with the modal, nothing important is
+    // ever permanently hidden.
+    msgEl.title = (c.errCls ? c.errCls + ': ' : '') + msgText;
+    titleWrap.appendChild(msgEl);
+  }
   titleTd.appendChild(titleWrap);
   titleTd.appendChild(txt('div','err-fp','fp:'+c.fp));
   tr.appendChild(titleTd);
-
-  // Count
-  var occTd = txt('td','num',c.occ.toLocaleString());
-  occTd.style.textAlign = 'right';
-  tr.appendChild(occTd);
-
-  // Lane
-  tr.appendChild(txt('td','age-cell',laneLabel(c.lane)));
 
   // T5a: Dashboard row click opens the same modal as Board card click.
   // The previous in-place expand row was a dead end (A3/A4 in the audit):
