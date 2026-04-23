@@ -55,7 +55,16 @@ except Exception:
   exit 0
 fi
 
-TRACK_DIR="$(mktemp -d -t drover-umbrella.XXXXXX)"
+# T3: TRACK_DIR is overridable via DROVER_UMBRELLA_TRACK_DIR so the
+# dashboard can locate per-key pidfiles and signal a surgical child
+# restart when Stream-tab subscriptions change. Falls back to mktemp
+# for standalone umbrella runs (no dashboard).
+if [ -n "${DROVER_UMBRELLA_TRACK_DIR:-}" ]; then
+  TRACK_DIR="$DROVER_UMBRELLA_TRACK_DIR"
+  mkdir -p "$TRACK_DIR"
+else
+  TRACK_DIR="$(mktemp -d -t drover-umbrella.XXXXXX)"
+fi
 BACKOFF_DIR="$TRACK_DIR/backoff"
 mkdir -p "$BACKOFF_DIR"
 
@@ -379,10 +388,25 @@ start_child() {
   # the umbrella log with a matching prefix so it doesn't spam the terminal
   # but is still scannable for debugging. Dashboard reads per-env status
   # from watcher state files, not from harness stream.
+  # T3: per-key log-type override. When Stream-tab toggles write
+  # ${TRACK_DIR}/sources/<hash>.types with a comma-separated list, the
+  # child watcher starts with that DROVER_LOG_TYPES so Acquia's WSS
+  # connection only subscribes to enabled sources. Missing file = inherit
+  # the umbrella-level DROVER_LOG_TYPES (legacy behaviour).
+  local key_hash
+  key_hash="$(printf %s "$key" | shasum | awk '{print $1}' | cut -c1-12)"
+  local types_file="$TRACK_DIR/sources/$key_hash.types"
+  local types_override=""
+  if [ -f "$types_file" ]; then
+    types_override="$(head -1 "$types_file" 2>/dev/null)"
+  fi
   (
     set -o pipefail
     if [ -n "$noise_env" ]; then
       export DROVER_NOISE_FILTER=1
+    fi
+    if [ -n "$types_override" ]; then
+      export DROVER_LOG_TYPES="$types_override"
     fi
     "$cmd" "$id" \
       2> >(while IFS= read -r err; do
@@ -395,7 +419,11 @@ start_child() {
   ) &
   local pid=$!
   printf '%s\n%s\n%s\n' "$key" "$pid" "$(date +%s)" > "$pidfile"
-  log "starting $key"
+  if [ -n "$types_override" ]; then
+    log "starting $key (subscribe sources=[$types_override])"
+  else
+    log "starting $key (subscribe sources=[all-detected])"
+  fi
 }
 
 pid_of_pidfile() {
@@ -411,7 +439,7 @@ stop_child() {
   pid="$(pid_of_pidfile "$pidfile")"
   [ -n "$pid" ] && kill "$pid" 2>/dev/null || true
   rm -f "$pidfile"
-  log "stopping $key"
+  log "stopping $key (unsubscribe)"
 }
 
 child_alive() {
