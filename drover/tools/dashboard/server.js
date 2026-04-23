@@ -676,6 +676,36 @@ function broadcast(event, data) {
   }
 }
 
+// Pulse: the structured event log that drives the header-strip feed. Every
+// meaningful state transition in drover (ingest, fingerprint create/augment,
+// lane change, env toggle, watcher lifecycle, solution capture) gets
+// recorded here and broadcast over the `pulse-event` SSE channel. New
+// clients hydrate from GET /api/pulse on load so the feed is never empty
+// when there's history available.
+const PULSE_MAX = 200;
+const pulseBuffer = [];
+let pulseSeq = 0;
+
+function recordPulse(event) {
+  const entry = {
+    id: ++pulseSeq,
+    ts: event.ts || new Date().toISOString(),
+    type: event.type || 'event',
+    origin: event.origin || '',
+    summary: event.summary || '',
+    details: event.details || null,
+  };
+  pulseBuffer.push(entry);
+  while (pulseBuffer.length > PULSE_MAX) pulseBuffer.shift();
+  broadcast('pulse-event', entry);
+  return entry;
+}
+
+function pulseSnapshot(limit) {
+  const n = Math.min(Math.max(parseInt(limit || '50', 10) || 50, 1), PULSE_MAX);
+  return pulseBuffer.slice(-n).reverse();
+}
+
 // Debounced watchers
 let boardDebounce = null;
 let stateDebounce = null;
@@ -915,6 +945,14 @@ async function handleUmbrellaLine(rawLine) {
       ticketCache = { data: null, ts: 0 };
       broadcast('board-update', { ts: new Date().toISOString(), project: meta.project, via: 'live-ingest' });
       broadcast('ingest-event', { ts: new Date().toISOString(), project: meta.project, source: meta.source, fp });
+      recordPulse({
+        type: 'fingerprint-new',
+        origin: (meta.project || '') + ' · ' + (meta.envLabel || ''),
+        summary: '[' + (sev || 'error').toUpperCase() + '] '
+          + (src || 'source') + ' · fp:' + fp.slice(0,8) + ' · '
+          + (msg || '').slice(0, 60),
+        details: { fp, sev, src, project: meta.project, env: meta.envLabel },
+      });
       console.log(`[ingest] NEW ${fp} ${sev} ${src} -> bd card in project=${meta.project}`);
     } catch (err) {
       console.warn(`[ingest] bd create failed for fp=${fp}: ${err.message}`);
@@ -923,8 +961,16 @@ async function handleUmbrellaLine(rawLine) {
   }
 
   if (payload.startsWith('THRESH ')) {
-    markEvent(key);
+    const meta = markEvent(key);
     broadcast('ingest-event', { ts: new Date().toISOString(), key, kind: 'threshold' });
+    if (meta) {
+      recordPulse({
+        type: 'fingerprint-augment',
+        origin: (meta.project || '') + ' · ' + (meta.envLabel || ''),
+        summary: 'Threshold crossing · ' + payload.slice(7, 77),
+        details: { key, project: meta.project, env: meta.envLabel },
+      });
+    }
   }
 }
 
@@ -1833,6 +1879,14 @@ async function handleSourcesEnvToggle(req, res) {
 
   const resubResult = resubscribeEnv(alias, next, match);
   broadcast('sources-update', { alias, enabled: enable, sources: next, ts: new Date().toISOString() });
+  recordPulse({
+    type: enable ? 'env-on' : 'env-off',
+    origin: alias,
+    summary: enable
+      ? ('Tracking on · ' + next.join(', '))
+      : 'Tracking off',
+    details: { alias, sources: next, resubscribe_action: resubResult.action },
+  });
   return jsonResponse(res, 200, {
     alias, enabled: enable, sources: next,
     resubscribed: resubResult.resubscribed, action: resubResult.action,
@@ -1926,11 +1980,10 @@ function resubscribeEnv(alias, sources, match) {
     if (childPid) {
       try { process.kill(childPid, 'SIGTERM'); } catch {}
       console.log(`[ingest] resubscribe ${key}: unsubscribe all sources; stopped child pid=${childPid}`);
+      recordPulse({ type: 'watcher-stop', origin: key, summary: 'Watcher stopped (pid ' + childPid + ')', details: { key, pid: childPid } });
     } else {
       console.log(`[ingest] resubscribe ${key}: unsubscribe all sources; no live child to stop`);
     }
-    // Remove the pidfile so the umbrella doesn't try to respawn with an
-    // empty sources override on its own schedule.
     try { fs.unlinkSync(pidfilePath); } catch {}
     return { resubscribed: true, action: 'unsubscribed', key };
   }
@@ -1938,12 +1991,11 @@ function resubscribeEnv(alias, sources, match) {
   if (childPid) {
     try { process.kill(childPid, 'SIGTERM'); } catch {}
     console.log(`[ingest] resubscribe ${key}: sources=[${sources.join(',')}]; killed child pid=${childPid}; umbrella will respawn with new subscription`);
+    recordPulse({ type: 'watcher-restart', origin: key, summary: 'Watcher restarting · sources=[' + sources.join(',') + ']', details: { key, pid: childPid, sources } });
     return { resubscribed: true, action: 'restart', key };
   }
-  // No live watcher (perhaps the env was offline). The override file is
-  // now in place so when the umbrella does spawn the child it'll subscribe
-  // correctly. Still counts as "resubscribed intent captured."
   console.log(`[ingest] resubscribe ${key}: sources=[${sources.join(',')}]; no live child, override file written for next spawn`);
+  recordPulse({ type: 'watcher-arm', origin: key, summary: 'Watcher armed · sources=[' + sources.join(',') + '] (awaiting next spawn)', details: { key, sources } });
   return { resubscribed: true, action: 'sources-updated', key };
 }
 
@@ -2315,6 +2367,12 @@ async function handleMove(req, res) {
       '--append-notes', note,
     ], { encoding: 'utf8', timeout: 15000 });
     ticketCache = { data: null, ts: 0 }; // invalidate
+    recordPulse({
+      type: 'lane-change',
+      origin: (board.project || '') + ' · ' + id,
+      summary: (ticket.title || id).slice(0,60) + ' → ' + toLane.replace(/^lane-/,''),
+      details: { id, from: currentLane, to: toLane, project: board.project },
+    });
     return jsonResponse(res, 200, { ok: true, project: board.project });
   } catch (err) {
     return jsonResponse(res, 500, { error: 'bd update failed: ' + err.message });
@@ -2391,6 +2449,12 @@ async function handleSolution(req, res, ticketId) {
       ], { encoding: 'utf8', timeout: 15000 });
     }
     ticketCache = { data: null, ts: 0 };
+    recordPulse({
+      type: 'solution',
+      origin: (ticket.project || '') + ' · ' + ticketId,
+      summary: 'Fix captured: ' + String(fix_summary || '').slice(0, 80),
+      details: { id: ticketId, project: ticket.project, root_cause: root_cause, fix_commit_sha: fix_commit_sha || null },
+    });
     return jsonResponse(res, 200, { status: 'ok', id: ticketId, project: ticket.project });
   } catch (err) {
     return jsonResponse(res, 500, {
@@ -3293,6 +3357,132 @@ function buildHtml() {
   ::-webkit-scrollbar-thumb { background:var(--muted3); border-radius:3px; }
   ::-webkit-scrollbar-thumb:hover { background:var(--muted2); }
 
+  /* Pulse strip — collapsed single-row heartbeat; click to expand into
+     the last N structured events. This is drover's "I'm alive and doing
+     things" surface, sourced from the pulse-event SSE channel. */
+  .pulse-strip {
+    border-bottom: 1px solid var(--border);
+    background: var(--surface);
+    animation: fade-up 0.3s ease both;
+  }
+  .pulse-strip-head {
+    display: flex; align-items: center; gap: 10px;
+    width: 100%;
+    padding: 7px 24px; margin: 0;
+    background: transparent; border: none;
+    color: var(--text2);
+    font-family: var(--mono); font-size: 11px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .pulse-strip-head:hover { background: var(--surface2); }
+  .pulse-strip-head:focus-visible { outline: 2px solid var(--info); outline-offset: -2px; }
+  .pulse-strip-dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--muted3);
+    flex-shrink: 0;
+  }
+  .pulse-strip.has-recent .pulse-strip-dot {
+    background: var(--ok);
+    box-shadow: 0 0 6px var(--ok);
+    animation: pulse-dot 2s ease-in-out infinite;
+  }
+  .pulse-strip-label {
+    font-size: 9px; font-weight: 600; letter-spacing: 0.18em;
+    text-transform: uppercase; color: var(--muted3);
+    flex-shrink: 0;
+  }
+  .pulse-strip-last {
+    flex: 1 1 auto; min-width: 0;
+    color: var(--muted);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    font-variant-numeric: tabular-nums;
+  }
+  .pulse-strip.has-recent .pulse-strip-last { color: var(--text2); }
+  .pulse-strip-count {
+    font-size: 9px; color: var(--muted3);
+    flex-shrink: 0;
+  }
+  .pulse-strip-chev {
+    font-size: 10px; color: var(--muted3);
+    transition: transform 0.12s ease;
+    flex-shrink: 0;
+  }
+  .pulse-strip.open .pulse-strip-chev { transform: rotate(-180deg); }
+  .pulse-feed {
+    max-height: 0; overflow: hidden;
+    transition: max-height 0.18s ease-out;
+    background: var(--surface2);
+    border-top: 1px solid transparent;
+  }
+  .pulse-strip.open .pulse-feed {
+    max-height: 360px;
+    border-top-color: var(--border);
+  }
+  .pulse-feed-inner {
+    max-height: 360px; overflow-y: auto;
+    padding: 4px 0;
+  }
+  .pulse-feed-empty {
+    display: none;
+    padding: 20px 24px;
+    font-family: var(--mono); font-size: 11px;
+    color: var(--muted2); text-align: center;
+    line-height: 1.6;
+  }
+  .pulse-feed.empty .pulse-feed-inner { display: none; }
+  .pulse-feed.empty .pulse-feed-empty { display: block; }
+
+  .pulse-event {
+    display: grid;
+    grid-template-columns: 80px 110px minmax(140px, auto) 1fr;
+    gap: 10px; align-items: baseline;
+    padding: 4px 24px;
+    font-family: var(--mono); font-size: 11px;
+    border-left: 2px solid transparent;
+    animation: pulse-event-in 0.18s ease-out both;
+  }
+  .pulse-event:hover { background: var(--surface3); }
+  .pulse-event-ts {
+    color: var(--muted3); font-size: 10px; font-variant-numeric: tabular-nums;
+  }
+  .pulse-event-type {
+    font-size: 9px; font-weight: 600; letter-spacing: 0.04em;
+    padding: 1px 6px; border-radius: 3px;
+    background: var(--surface3); border: 1px solid var(--border);
+    color: var(--muted2); text-transform: lowercase;
+    justify-self: start;
+  }
+  .pulse-event.t-fingerprint-new .pulse-event-type { color: var(--crit); border-color: rgba(255,69,58,0.35); background: var(--crit-dim); }
+  .pulse-event.t-fingerprint-augment .pulse-event-type { color: var(--warn); border-color: rgba(255,214,10,0.35); }
+  .pulse-event.t-lane-change .pulse-event-type { color: var(--info2); border-color: rgba(64,156,255,0.35); }
+  .pulse-event.t-solution .pulse-event-type { color: var(--ok); border-color: rgba(50,215,75,0.35); background: var(--ok-dim); }
+  .pulse-event.t-env-on .pulse-event-type { color: var(--ok); border-color: rgba(50,215,75,0.35); }
+  .pulse-event.t-env-off .pulse-event-type { color: var(--muted2); }
+  .pulse-event.t-watcher-start .pulse-event-type,
+  .pulse-event.t-watcher-restart .pulse-event-type,
+  .pulse-event.t-watcher-arm .pulse-event-type { color: var(--info2); }
+  .pulse-event.t-watcher-stop .pulse-event-type { color: var(--muted2); }
+  .pulse-event.t-fingerprint-new { border-left-color: rgba(255,69,58,0.45); }
+  .pulse-event.t-solution { border-left-color: rgba(50,215,75,0.45); }
+  .pulse-event-origin {
+    color: var(--muted); text-transform: lowercase;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  .pulse-event-summary {
+    color: var(--text2);
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  }
+  @keyframes pulse-event-in {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .pulse-feed { transition: none; }
+    .pulse-event { animation: none; }
+    .pulse-strip.has-recent .pulse-strip-dot { animation: none; }
+  }
+
   /* Projects Panel (per-project tiles w/ per-env toggles + proof-of-life) */
   .proj-tiles { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
   .proj-tile {
@@ -3772,6 +3962,20 @@ function buildHtml() {
       <button class="btn btn-ghost" id="btn-sources" onclick="sourcesPrompt()" title="Legacy shared sources modal — per-project sources now live in each project's drawer. Keep for Seed history and debugging." style="display:none">Sources</button>
     </div>
   </header>
+
+  <section class="pulse-strip" id="pulse-strip" aria-label="Recent drover activity" aria-live="polite">
+    <button type="button" class="pulse-strip-head" id="pulse-strip-head" aria-expanded="false" aria-controls="pulse-feed" onclick="togglePulseFeed()">
+      <span class="pulse-strip-dot" aria-hidden="true"></span>
+      <span class="pulse-strip-label">Pulse</span>
+      <span class="pulse-strip-last" id="pulse-strip-last">awaiting first event…</span>
+      <span class="pulse-strip-count" id="pulse-strip-count"></span>
+      <span class="pulse-strip-chev" aria-hidden="true">▾</span>
+    </button>
+    <div class="pulse-feed" id="pulse-feed" aria-hidden="true">
+      <div class="pulse-feed-inner" id="pulse-feed-inner"></div>
+      <div class="pulse-feed-empty" id="pulse-feed-empty">No events yet. Toggle a project env or wait for an ingest — every meaningful transition drover makes will appear here.</div>
+    </div>
+  </section>
 
   <section class="ddev-panel" id="ddev-panel" aria-label="Projects" style="display:none">
     <div class="ddev-header">
@@ -6894,6 +7098,109 @@ function noteLiveEvent(name) {
 }
 setInterval(refreshLiveBadgeFromState, 5000);
 
+// ========================================================================
+// Pulse strip + expandable feed
+// ========================================================================
+// The strip is an ambient, always-visible heartbeat under the header. It
+// shows the most recent pulse-event as a single line. Clicking expands
+// the strip into a scrollable list of the last N events. Every event is
+// appended as the SSE channel delivers it, with the oldest trimmed out so
+// the list never grows unbounded.
+var PULSE_MAX_FEED = 60;
+var PULSE_HAS_RECENT_MS = 2 * 60 * 1000;
+var pulseFeed = [];
+
+function pulseFmtTime(ts) {
+  var d = new Date(ts); if (isNaN(d.getTime())) return '';
+  var h = String(d.getHours()).padStart(2,'0');
+  var m = String(d.getMinutes()).padStart(2,'0');
+  var s = String(d.getSeconds()).padStart(2,'0');
+  return h+':'+m+':'+s;
+}
+
+function pulseRenderRow(ev) {
+  var row = el('div','pulse-event t-' + (ev.type || 'event'));
+  row.setAttribute('data-id', ev.id);
+  row.appendChild(txt('span','pulse-event-ts', pulseFmtTime(ev.ts)));
+  row.appendChild(txt('span','pulse-event-type', (ev.type || 'event').replace(/_/g,' ')));
+  row.appendChild(txt('span','pulse-event-origin', ev.origin || ''));
+  row.appendChild(txt('span','pulse-event-summary', ev.summary || ''));
+  return row;
+}
+
+function pulseRenderStrip() {
+  var strip = document.getElementById('pulse-strip');
+  var last = document.getElementById('pulse-strip-last');
+  var count = document.getElementById('pulse-strip-count');
+  if (!strip || !last) return;
+  if (!pulseFeed.length) {
+    last.textContent = 'awaiting first event…';
+    if (count) count.textContent = '';
+    strip.classList.remove('has-recent');
+    return;
+  }
+  var top = pulseFeed[0];
+  last.textContent = pulseFmtTime(top.ts) + '  ·  ' + (top.type || 'event').replace(/_/g,' ')
+    + (top.origin ? '  ·  ' + top.origin : '')
+    + '  ·  ' + (top.summary || '');
+  if (count) count.textContent = pulseFeed.length + ' recent';
+  var age = Date.now() - new Date(top.ts).getTime();
+  if (age >= 0 && age < PULSE_HAS_RECENT_MS) strip.classList.add('has-recent');
+  else strip.classList.remove('has-recent');
+}
+
+function pulseRenderFeed() {
+  var inner = document.getElementById('pulse-feed-inner');
+  var feed = document.getElementById('pulse-feed');
+  if (!inner || !feed) return;
+  removeChildren(inner);
+  if (!pulseFeed.length) { feed.classList.add('empty'); return; }
+  feed.classList.remove('empty');
+  pulseFeed.slice(0, PULSE_MAX_FEED).forEach(function(ev){
+    inner.appendChild(pulseRenderRow(ev));
+  });
+}
+
+function pulseAppend(ev) {
+  if (!ev) return;
+  // Dedup by id (SSE + snapshot can race during reconnect).
+  if (pulseFeed.length && pulseFeed[0].id === ev.id) return;
+  pulseFeed.unshift(ev);
+  while (pulseFeed.length > PULSE_MAX_FEED * 2) pulseFeed.pop();
+  pulseRenderStrip();
+  var inner = document.getElementById('pulse-feed-inner');
+  var feed = document.getElementById('pulse-feed');
+  if (inner && feed) {
+    feed.classList.remove('empty');
+    inner.insertBefore(pulseRenderRow(ev), inner.firstChild);
+    while (inner.children.length > PULSE_MAX_FEED) inner.removeChild(inner.lastChild);
+  }
+}
+
+function togglePulseFeed() {
+  var strip = document.getElementById('pulse-strip');
+  var feed = document.getElementById('pulse-feed');
+  var head = document.getElementById('pulse-strip-head');
+  if (!strip) return;
+  var next = !strip.classList.contains('open');
+  strip.classList.toggle('open', next);
+  if (feed) feed.setAttribute('aria-hidden', next ? 'false' : 'true');
+  if (head) head.setAttribute('aria-expanded', next ? 'true' : 'false');
+}
+
+function pulseHydrate() {
+  fetch('/api/pulse?limit=60').then(function(r){ return r.json(); }).then(function(d){
+    if (d && Array.isArray(d.events)) {
+      pulseFeed = d.events.slice(); // newest first from server
+      pulseRenderStrip();
+      pulseRenderFeed();
+    }
+  }).catch(function(){ /* strip stays in "awaiting" */ });
+}
+// Refresh the strip's freshness class every 30s so the pulsing dot fades
+// out when activity goes stale, without waiting for a new event.
+setInterval(pulseRenderStrip, 30000);
+
 function connectSSE() {
   window._sseReadyState = 0;
   setLiveBadge('connecting','Connecting to /events…');
@@ -6918,6 +7225,10 @@ function connectSSE() {
     noteLiveEvent('ddev-log-done');
     try { var d = JSON.parse(ev.data); handleDdevLogDone(d.project, d.success); } catch(e) {}
   });
+  evtSource.addEventListener('pulse-event', function(ev){
+    noteLiveEvent('pulse-event');
+    try { pulseAppend(JSON.parse(ev.data)); } catch(e) {}
+  });
   evtSource.onerror = function() {
     window._sseReadyState = 2;
     setLiveBadge('offline','Disconnected from /events. Retrying in 5s.');
@@ -6930,6 +7241,7 @@ function connectSSE() {
 // Init
 // ========================================================================
 restoreViewFromStorage();
+pulseHydrate();
 Promise.all([fetchAll(), fetchDdevStatus()]).then(function(){ connectSSE(); });
 </script>
 </body>
@@ -6987,6 +7299,13 @@ const server = http.createServer(async (req, res) => {
     // unregistered-but-running DDEV instances for the "+ Add" affordance.
     if (pathname === '/api/projects/overview' && req.method === 'GET') {
       return await handleProjectsOverview(req, res);
+    }
+
+    // Pulse: structured event-log feed. `limit` caps the snapshot size;
+    // clients typically request 50. Newest entries first.
+    if (pathname === '/api/pulse' && req.method === 'GET') {
+      const limit = url.searchParams.get('limit');
+      return jsonResponse(res, 200, { events: pulseSnapshot(limit) });
     }
 
     if (pathname === '/api/projects/backfill' && req.method === 'POST') {
