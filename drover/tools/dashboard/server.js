@@ -2304,10 +2304,10 @@ function buildHtml() {
   }
   .wordmark-v {
     display: inline-block;
-    height: 0.95em;
+    height: 0.82em;
     width: auto;
-    vertical-align: -0.14em;
-    margin: 0 0.02em;
+    vertical-align: -0.06em;
+    margin: 0 0.04em;
   }
   .version-badge {
     font-family: var(--mono); font-size: 10px; font-weight: 500;
@@ -3328,7 +3328,7 @@ function buildHtml() {
 
   <header class="topbar">
     <div class="topbar-left">
-      <span class="wordmark">dro<svg class="wordmark-v" viewBox="0 0 46.22 40.34" aria-hidden="true" focusable="false"><path d="M0 0H15.2L32.06 34H16.85Z" fill="#FF453A"/><path d="M30.75 0L38.49 15.77L23.01 0Z" fill="#10E992"/><path d="M38.49 15.77L30.75 0L46.22 0Z" fill="#0051FF"/></svg>er</span>
+      <span class="wordmark">dro<svg class="wordmark-v" viewBox="0 0 46.22 34" aria-hidden="true" focusable="false"><path d="M0 0H15.2L32.06 34H16.85Z" fill="#FF453A"/><path d="M30.75 0L38.49 15.77L23.01 0Z" fill="#10E992"/><path d="M38.49 15.77L30.75 0L46.22 0Z" fill="#0051FF"/></svg>er</span>
       ${PLUGIN_VERSION ? `<span class="version-badge">v${PLUGIN_VERSION}</span>` : ''}
       <span class="live-badge"><span class="live-dot"></span>live</span>
     </div>
