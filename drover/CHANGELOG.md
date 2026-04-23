@@ -1,5 +1,8 @@
 # drover Changelog
 
+## 1.33.2
+- **Umbrella now respects per-project `drover-config.json`.** The `list_projects()` emission previously walked every env in `projects.json` and handed them all to the umbrella as spawn candidates, regardless of whether the user had paused them. Net effect: clicking "Tracking off" on an env in the UI wrote `sources: []` to the config, but the umbrella kept spawning a child for that env anyway and streamed its logs in silent defiance of the config. Fixed by gating each `ddev:<name>` and `acquia:<env>.<uuid>` emission on the matching env having a non-empty `sources` array in that project's drover-config. `bd-ready:<path>` pollers still emit unconditionally (they read the local board, not log streams). Net effect: the UI's env toggles are now the actual source of truth for what gets tailed.
+
 ## 1.33.1
 - **Final layout: Header → Projects → Pulse → Table.** Projects now sits directly below the header — the admin context comes first, then the live event stream, then the actionable queue.
 - **`OPEN BY ENV` chip row removed.** The env-health sidebar facet already provides per-env filtering, which is a stronger affordance than a read-only decorative chip row. Dropping it also cleans one more vertical band off the dashboard.

@@ -317,20 +317,56 @@ key_for_pidfile() {
 list_projects() {
   [ -f "$PROJECTS_FILE" ] || return 0
   python3 - "$PROJECTS_FILE" <<'PY'
-import json, sys
+import json, os, sys
+# The per-project drover-config.json is the source of truth for WHICH envs
+# drover should tail. projects.json only says the project exists and lists
+# every possible env from the Acquia application — it does NOT mean the
+# user wants each one streamed. An env with sources=[] (the safe default
+# since 1.29.1) is explicitly paused and must not be emitted as a spawn
+# key. Prior behavior spawned children for every projects.json env, which
+# silently bypassed the user's own config.
+def find_drover_config(project_path):
+    if not project_path:
+        return None
+    cur = project_path
+    for _ in range(5):
+        p = os.path.join(cur, ".claude", "drover-config.json")
+        if os.path.isfile(p):
+            try: return json.load(open(p))
+            except Exception: return None
+        parent = os.path.dirname(cur)
+        if parent == cur: break
+        cur = parent
+    return None
+
+def env_has_sources(cfg, predicate):
+    """Return True if the config has any env matching predicate with a
+    non-empty sources list. predicate(e) -> bool."""
+    if not cfg: return False
+    for e in cfg.get("environments", []) or []:
+        if predicate(e):
+            srcs = e.get("sources") or []
+            return bool(srcs)
+    return False
+
 try:
     data = json.load(open(sys.argv[1]))
     for e in data:
         name = e.get("name") or e.get("ddev_project")
-        if name:
+        project_path = e.get("path", "")
+        cfg = find_drover_config(project_path)
+
+        # Gate ddev:<name> by the project's local ddev env having sources.
+        ddev_project = e.get("ddev_project") or name
+        if name and env_has_sources(cfg, lambda x: x.get("type") == "ddev"
+                                     and (x.get("ddev_project") == ddev_project
+                                          or x.get("name") == "local")):
             print(f"ddev:{name}")
-        # app_uuid may live on the per-env record (add-project.sh since
-        # resolve-acquia-uuids) or as a parent-level fallback (legacy).
+
+        # Gate each acquia:<env>.<uuid> by that specific env having sources.
         parent_app_uuid = (e.get("acquia") or {}).get("app_uuid", "")
         for env in (e.get("acquia") or {}).get("environments", []) or []:
             if isinstance(env, dict):
-                # Env slug may be in 'env' (current add-project.sh), 'name',
-                # or 'env_slug' (legacy). Try all.
                 env_name = env.get("env") or env.get("name") or env.get("env_slug", "")
                 app_uuid = env.get("app_uuid") or parent_app_uuid
                 eid = env.get("alias") or env.get("id", "")
@@ -338,20 +374,25 @@ try:
                 env_name = env
                 app_uuid = parent_app_uuid
                 eid = env
+
+            def match_acquia(x, _env=env_name):
+                if x.get("type") != "acquia": return False
+                return (x.get("env_slug") == _env
+                        or x.get("name") == _env
+                        or x.get("env") == _env)
+            if not env_has_sources(cfg, match_acquia):
+                # Paused or unconfigured remote env — do not spawn a watcher.
+                continue
+
             if app_uuid and env_name:
-                # Canonical form: acquia:<env>.<app_uuid>. This is what
-                # acquia-watch.py's arg parser expects.
                 print(f"acquia:{env_name}.{app_uuid}")
             elif eid:
-                # Legacy fallback — raw id / alias. Only used when app_uuid
-                # is missing from projects.json (requires re-running
-                # add-project / resolve-acquia-uuids).
                 print(f"acquia:{eid}")
-        # bd-ready watcher polls the project's local Beads board for
-        # newly-ready tickets. One watcher per project path.
-        path = e.get("path")
-        if path:
-            print(f"bd-ready:{path}")
+
+        # bd-ready always runs per project (local Beads board poller); it
+        # is not a log streamer and is not gated by sources.
+        if project_path:
+            print(f"bd-ready:{project_path}")
 except Exception:
     pass
 PY
