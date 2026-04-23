@@ -1998,6 +1998,179 @@ function syncGroupLabel(group, action) {
   return results;
 }
 
+// ---------------------------------------------------------------------------
+// Recall — advisor endpoint. Given a card id, finds past-documented errors
+// across every registered project that look similar, so the dashboard can
+// surface "have we seen this before?" inside the document-this-error form.
+// Drover's product isn't fix-automation; this is the memory function that
+// earns its keep on recurrence.
+// ---------------------------------------------------------------------------
+function similarityScore(a, b) {
+  // Quick-and-honest scorer. Tuned for Drupal error titles which are
+  // squashed pipe-delimited records ending with "class: message". We
+  // reward:
+  //   - exact class match                 (0.6)
+  //   - shared fingerprint                (+0.4)
+  //   - shared source                     (+0.1)
+  //   - shared env                        (+0.05)
+  //   - rough message token overlap       (up to +0.25)
+  // Clamped to [0, 1].
+  var s = 0;
+  if (a.errCls && b.errCls && a.errCls.toLowerCase() === b.errCls.toLowerCase()) s += 0.6;
+  if (a.fp && b.fp && a.fp === b.fp) s += 0.4;
+  if (a.source && b.source && a.source === b.source) s += 0.1;
+  if (a.env && b.env && a.env === b.env) s += 0.05;
+  var ta = String(a.errMsg || a.title || '').toLowerCase().split(/[^a-z0-9]+/).filter(function(x){return x.length>3;});
+  var tb = String(b.errMsg || b.title || '').toLowerCase().split(/[^a-z0-9]+/).filter(function(x){return x.length>3;});
+  if (ta.length && tb.length) {
+    var setB = new Set(tb);
+    var hits = ta.filter(function(x){return setB.has(x);}).length;
+    var jaccard = hits / Math.max(1, new Set(ta.concat(tb)).size);
+    s += Math.min(0.25, jaccard);
+  }
+  return Math.min(1, s);
+}
+
+// Coarse parse of a ticket → { errCls, errMsg, fp, source, env }. Mirrors
+// the parseCardClient shape server-side so the recall scorer can treat
+// the subject card and candidates uniformly.
+function parseCardServer(t) {
+  var labels = t.labels || [];
+  var body = t.description || t.body || '';
+  var notes = t.notes || '';
+  function extractField(re, str) { var m = (str || '').match(re); return m ? m[1] : ''; }
+  var fp = extractField(/\*\*Fingerprint:\*\*\s+`([^`\s]+)`/, body);
+  var source = (labels.find(function(l){return l.startsWith('source-');}) || '').replace('source-','')
+    || extractField(/\*\*Source:\*\*\s+(.+?)(?:\n|$)/, body).toLowerCase();
+  var env = (labels.find(function(l){return l.startsWith('env-');}) || '').replace('env-','');
+  // Class + message: look for the last `\class: message` pattern in the
+  // title, same approach as the client.
+  var title = String(t.title || '');
+  var sevStripped = title.replace(/^\[[A-Z]+\]\s*/, '').replace(/^[a-z_\-]+:\s*/, '');
+  var m = sevStripped.match(/([a-z0-9_\\]*\\[a-z0-9_]+)\s*:\s*(.+)$/i);
+  var errCls = '';
+  var errMsg = sevStripped;
+  if (m) {
+    var parts = m[1].split('\\');
+    errCls = parts[parts.length - 1];
+    errMsg = m[2];
+  }
+  // Actual block (documented solution, what recall actually surfaces).
+  var actualMatch = (body + '\n' + notes).match(/###\s+Actual\b([\s\S]*?)(?=\n###\s+|$)/i);
+  var actualText = actualMatch ? actualMatch[1].trim() : '';
+  function fld(label) {
+    var r = new RegExp('\\*\\*' + label + ':\\*\\*\\s*(.+?)(?:\\n|$)', 'i');
+    var mm = actualText.match(r);
+    return mm ? mm[1].trim() : '';
+  }
+  return {
+    id: t.id || '',
+    project: t.project || '',
+    title: title,
+    errCls: errCls,
+    errMsg: errMsg,
+    fp: fp,
+    source: source,
+    env: env,
+    hasActual: !!actualText,
+    actual: actualText ? {
+      root_cause:     fld('root_cause'),
+      fix_summary:    fld('fix_summary'),
+      fix_commit_sha: fld('fix_commit_sha'),
+      effectiveness:  fld('effectiveness'),
+      verified_at:    fld('verified_at'),
+    } : null,
+  };
+}
+
+// Mark-as-noise. Moves the card to lane-noise and appends a reason note.
+// Separate from the generic move handler because it's a terminal state
+// with its own pulse-event type and because we want the reason field
+// to be durable on the card body.
+async function handleNoiseMark(req, res, ticketId) {
+  let body;
+  try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
+  const { reason } = body || {};
+  const trimmed = typeof reason === 'string' ? reason.trim().slice(0, 400) : '';
+  if (!trimmed) return jsonResponse(res, 400, { error: 'reason required' });
+
+  const tickets = await fetchTickets();
+  if (tickets && tickets.error && !Array.isArray(tickets)) {
+    return jsonResponse(res, 500, { error: tickets.error });
+  }
+  const ticket = (Array.isArray(tickets) ? tickets : []).find(t => t.id === ticketId);
+  if (!ticket) return jsonResponse(res, 404, { error: 'card not found: ' + ticketId });
+  const board = resolveBoardForTicket(ticket);
+  if (!board) return jsonResponse(res, 500, { error: 'cannot resolve board for ' + ticketId });
+  const currentLane = (ticket.labels || []).find(l => l.startsWith('lane-')) || 'lane-triage';
+  const now = new Date().toISOString();
+  const note = now + ': Marked as noise. Reason: ' + trimmed;
+
+  try {
+    const args = ['update', ticketId, '--db', board.dbPath, '--append-notes', note];
+    if (currentLane !== 'lane-noise') {
+      args.push('--remove-label', currentLane, '--add-label', 'lane-noise');
+    }
+    execFileSync('bd', args, { encoding: 'utf8', timeout: 15000 });
+    ticketCache = { data: null, ts: 0 };
+    recordPulse({
+      type: 'noise-marked',
+      origin: (ticket.project || '') + ' · ' + ticketId,
+      summary: 'Marked as noise · ' + trimmed.slice(0, 80),
+      details: { id: ticketId, project: ticket.project, reason: trimmed },
+    });
+    broadcast('board-update', { ts: now, project: board.project });
+    return jsonResponse(res, 200, { ok: true });
+  } catch (e) {
+    return jsonResponse(res, 500, { error: 'bd update failed: ' + e.message });
+  }
+}
+
+async function handleRecall(req, res, url) {
+  var cardId = url.searchParams.get('card_id') || '';
+  var projectQ = url.searchParams.get('project') || '';
+  if (!cardId) return jsonResponse(res, 400, { error: 'card_id required' });
+  const tickets = await fetchTickets();
+  if (tickets && tickets.error && !Array.isArray(tickets)) {
+    return jsonResponse(res, 500, { error: tickets.error });
+  }
+  const all = Array.isArray(tickets) ? tickets : [];
+  // Find the subject card. Prefer a {project, card_id} match when the
+  // caller supplied a project qualifier (natural key from the group
+  // work); fall back to bare id match for legacy callers.
+  const subjectTicket = all.find(function(t){
+    if (projectQ && t.project !== projectQ) return false;
+    return t.id === cardId;
+  }) || all.find(function(t){ return t.id === cardId; });
+  if (!subjectTicket) return jsonResponse(res, 404, { error: 'card not found: ' + cardId });
+
+  const subject = parseCardServer(subjectTicket);
+  const candidates = all
+    .filter(function(t){ return t.id !== subjectTicket.id || t.project !== subjectTicket.project; })
+    .map(parseCardServer)
+    .filter(function(c){ return c.hasActual; });
+
+  const scored = candidates.map(function(c){
+    return { card: c, score: similarityScore(subject, c) };
+  }).filter(function(r){ return r.score >= 0.2; });
+  scored.sort(function(a,b){ return b.score - a.score; });
+
+  return jsonResponse(res, 200, {
+    subject: { id: subject.id, project: subject.project, errCls: subject.errCls, fp: subject.fp },
+    matches: scored.slice(0, 5).map(function(r){
+      return {
+        score: Math.round(r.score * 100) / 100,
+        card: {
+          id: r.card.id, project: r.card.project, title: r.card.title.slice(0, 200),
+          errCls: r.card.errCls, errMsg: r.card.errMsg.slice(0, 200), fp: r.card.fp,
+          env: r.card.env, source: r.card.source,
+        },
+        actual: r.card.actual,
+      };
+    }),
+  });
+}
+
 async function handleGroupsCreate(req, res) {
   let body;
   try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
@@ -2681,10 +2854,10 @@ async function handleSolution(req, res, ticketId) {
     }
     ticketCache = { data: null, ts: 0 };
     recordPulse({
-      type: 'solution',
+      type: 'error-documented',
       origin: (ticket.project || '') + ' · ' + ticketId,
-      summary: 'Fix captured: ' + String(fix_summary || '').slice(0, 80),
-      details: { id: ticketId, project: ticket.project, root_cause: root_cause, fix_commit_sha: fix_commit_sha || null },
+      summary: 'Documented · ' + (String(root_cause || fix_summary || '').slice(0, 80) || 'error'),
+      details: { id: ticketId, project: ticket.project, root_cause: root_cause, fix_summary: fix_summary, fix_commit_sha: fix_commit_sha || null },
     });
     return jsonResponse(res, 200, { status: 'ok', id: ticketId, project: ticket.project });
   } catch (err) {
@@ -2798,6 +2971,50 @@ function buildHtml() {
     animation: pulse-dot 2s ease-in-out infinite;
   }
   .live-badge.state-connecting .live-dot { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+
+  /* Needs-documentation count chip — the product's primary ask. Visible
+     in the header when N>0; clicking filters the table to the cards that
+     haven't been documented yet. */
+  .needs-doc-chip {
+    display:inline-flex; align-items:center; gap:6px;
+    font-family:var(--mono); font-size:10px; font-weight:600;
+    padding:3px 10px; border-radius:12px;
+    background:rgba(255,149,0,0.14);
+    border:1px solid rgba(255,149,0,0.35);
+    color:var(--warn);
+    cursor:pointer;
+    letter-spacing:0.02em;
+  }
+  .needs-doc-chip:hover {
+    background:rgba(255,149,0,0.22);
+    border-color:rgba(255,149,0,0.55);
+    color:#fff;
+  }
+  .needs-doc-chip[hidden] { display:none !important; }
+
+  /* Row-level Document CTA — the dashboard's primary per-row action.
+     Accent matches the needs-doc chip so the eye connects the "I have
+     work to do here" state in header and row. */
+  .col-action { text-align:right; padding-right:14px; vertical-align:top; }
+  .row-action-doc {
+    font-family:var(--mono); font-size:10px; font-weight:600;
+    padding:4px 10px; border-radius:4px;
+    background:rgba(255,149,0,0.12);
+    color:var(--warn);
+    border:1px solid rgba(255,149,0,0.4);
+    cursor:pointer; letter-spacing:0.02em;
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  }
+  .row-action-doc:hover {
+    background:rgba(255,149,0,0.22);
+    color:#fff;
+    border-color:rgba(255,149,0,0.7);
+  }
+  .row-action-doc:focus-visible { outline:2px solid var(--info); outline-offset:2px; }
+  .row-action-muted {
+    font-family:var(--mono); font-size:9px;
+    color:var(--muted3); letter-spacing:0.04em;
+  }
   .live-badge.state-offline    .live-dot { background: var(--crit); box-shadow: 0 0 6px var(--crit); animation: none; opacity:0.8; }
   @keyframes pulse-dot {
     0%,100% { opacity:1; transform:scale(1); }
@@ -3590,6 +3807,49 @@ function buildHtml() {
   .solution-field-input:focus { outline:none; border-color:var(--primary); }
   .solution-form-btns { display:flex; gap:8px; justify-content:flex-end; margin-top:6px; }
   .solution-add-btn { margin-top:4px; }
+  .solution-noise-btn { margin-top:4px; margin-left:8px; color:var(--muted2); }
+  .solution-noise-btn:hover { color:var(--warn); border-color:rgba(255,214,10,0.3); }
+  .solution-row-muted { opacity:0.55; margin-top:12px; border-top:1px dashed var(--border); padding-top:10px; }
+
+  /* Recall ("have we seen this before?") — advisor output in the modal. */
+  .recall-row {
+    background: rgba(94,92,230,0.06);
+    border-left: 2px solid rgba(94,92,230,0.4);
+    padding:10px 12px; border-radius:4px;
+    margin-bottom:12px;
+  }
+  .recall-loading, .recall-empty {
+    font-family:var(--mono); font-size:11px; color:var(--muted2);
+  }
+  .recall-match {
+    padding:8px 0; border-top:1px solid rgba(255,255,255,0.04);
+  }
+  .recall-match:first-of-type { border-top:none; }
+  .recall-match-head {
+    display:flex; align-items:baseline; gap:10px;
+    font-family:var(--mono); font-size:11px;
+  }
+  .recall-score {
+    font-weight:600; color:var(--info2);
+    background:rgba(94,92,230,0.15); border:1px solid rgba(94,92,230,0.3);
+    padding:1px 6px; border-radius:3px;
+    font-size:10px;
+  }
+  .recall-origin { color:var(--muted); }
+  .recall-cls { color:var(--text2); font-weight:500; }
+  .recall-fields { margin:4px 0 6px 0; font-family:var(--mono); font-size:11px; line-height:1.5; }
+  .recall-field { display:grid; grid-template-columns:90px 1fr; gap:6px; }
+  .recall-key { color:var(--muted2); font-size:10px; text-transform:uppercase; letter-spacing:0.04em; }
+  .recall-val { color:var(--text2); word-break:break-word; }
+  .recall-actions { margin-top:6px; }
+  .recall-apply {
+    font-family:var(--mono); font-size:10px; font-weight:600;
+    background:transparent; color:var(--ok);
+    border:1px solid rgba(50,215,75,0.3);
+    border-radius:3px; padding:3px 8px;
+    cursor:pointer;
+  }
+  .recall-apply:hover { background:var(--ok-dim); }
 
   .modal-section { margin-bottom:16px; }
   .modal-section:last-child { margin-bottom:0; }
@@ -4306,6 +4566,7 @@ function buildHtml() {
       <span class="wordmark">dro<svg class="wordmark-v" viewBox="0 0 46.22 34" aria-hidden="true" focusable="false"><path d="M0 0H15.2L32.06 34H16.85Z" fill="#FF453A"/><path d="M30.75 0L38.49 15.77L23.01 0Z" fill="#10E992"/><path d="M38.49 15.77L30.75 0L46.22 0Z" fill="#0051FF"/></svg>er</span>
       ${PLUGIN_VERSION ? `<span class="version-badge">v${PLUGIN_VERSION}</span>` : ''}
       <span class="live-badge state-connecting" id="live-badge" title="Connecting to server-sent events…"><span class="live-dot"></span><span id="live-label">connecting</span></span>
+      <button type="button" id="needs-doc-chip" class="needs-doc-chip" hidden onclick="filterToNeedsDoc()" title="Filter the table to errors that haven\\u2019t been documented yet"><span id="needs-doc-count">0</span> need documentation</button>
     </div>
     <div class="topbar-right">
       <span class="ts" id="clock"></span>
@@ -4393,6 +4654,7 @@ function buildHtml() {
               <th data-sort="lastSeen" class="sort-active" style="width:88px">Last seen &#8595;</th>
               <th data-sort="occ"      style="width:68px;text-align:right">Count</th>
               <th data-sort="title">Error</th>
+              <th class="col-action" style="width:130px" aria-label="Action"></th>
             </tr>
           </thead>
           <tbody id="tbody"></tbody>
@@ -4442,14 +4704,24 @@ var INGESTION = {};
 var currentView = 'dashboard';
 var showClosedLanes = false;
 var activeFilters = { sev: {}, env: {}, project: {}, lane: {} };
+// Pseudo-filter for the needs-doc chip: when true, getFilteredCards
+// narrows to cards that are undocumented and not already noise/done.
+var needsDocOnly = false;
 
+// Lane pipeline. Drover's core product is error tracking + documenting;
+// the implementer-agent lanes (implementing / awaiting-review) are kept
+// for users who opt into the optional fix workflow but are de-emphasized
+// in the primary UX (hidden from the Lane facet by default). The noise
+// lane is the "dismiss as known-noise" terminal state — legitimate for
+// an error-tracking tool.
 var LANES = [
   { id:'lane-triage', label:'TRIAGE', color:'var(--muted3)' },
   { id:'lane-ready', label:'READY', color:'var(--info)' },
-  { id:'lane-implementing', label:'IMPLEMENTING', color:'var(--warn)' },
-  { id:'lane-awaiting-review', label:'AWAITING REVIEW', color:'var(--ok)' },
-  { id:'lane-done', label:'DONE', color:'var(--muted3)', hidden:true },
-  { id:'lane-closed', label:'CLOSED', color:'var(--muted3)', hidden:true },
+  { id:'lane-implementing',     label:'IMPLEMENTING',     color:'var(--warn)', optional:true },
+  { id:'lane-awaiting-review',  label:'AWAITING REVIEW',  color:'var(--ok)',   optional:true },
+  { id:'lane-done',    label:'DONE',    color:'var(--muted3)', hidden:true },
+  { id:'lane-noise',   label:'NOISE',   color:'var(--muted3)', hidden:true },
+  { id:'lane-closed',  label:'CLOSED',  color:'var(--muted3)', hidden:true },
 ];
 
 var LANE_ORDER = LANES.map(function(l){return l.id;});
@@ -4705,6 +4977,7 @@ function renderAll() {
   renderTimeline();
   renderFilters();
   renderTable();
+  updateNeedsDocChip();
   if (currentView === 'board') renderBoard();
 }
 
@@ -4929,7 +5202,13 @@ function renderFilters() {
   var laneCounts = {};
   ALL_CARDS.forEach(function(c){ if (c.lane) laneCounts[c.lane] = (laneCounts[c.lane]||0)+1; });
   // Keep lane display order aligned with the pipeline, not alphabetical.
-  LANES.filter(function(l){ return !l.hidden || laneCounts[l.id]; }).forEach(function(lane) {
+  // Hide "optional" lanes (implementing, awaiting-review) unless at least
+  // one card is actually in them — drover's product is error tracking,
+  // not fix automation, so those lanes are de-emphasized by default.
+  LANES
+    .filter(function(l){ return !l.hidden || laneCounts[l.id]; })
+    .filter(function(l){ return !l.optional || laneCounts[l.id]; })
+    .forEach(function(lane) {
     var chip = el('div','filter-chip' + (activeFilters.lane[lane.id]?' sel':''));
     chip.tabIndex = 0;
     chip.setAttribute('role','checkbox');
@@ -4960,6 +5239,30 @@ function toggleFilter(type, val, chip) {
     chip.setAttribute('aria-checked','true');
   }
   updateFilterCount();
+  renderTable();
+}
+
+// Refresh the header "N need documentation" chip. Count is cards in
+// lane-triage / lane-ready without an Actual block, across every project.
+function updateNeedsDocChip() {
+  var chip = document.getElementById('needs-doc-chip');
+  var countEl = document.getElementById('needs-doc-count');
+  if (!chip || !countEl) return;
+  var n = (ALL_CARDS || []).filter(function(c){
+    if (c.isGroup) return false;
+    if (c.actual) return false;
+    if (c.lane === 'lane-noise' || c.lane === 'lane-done' || c.lane === 'lane-closed') return false;
+    return c.lane === 'lane-triage' || c.lane === 'lane-ready' || !c.lane;
+  }).length;
+  countEl.textContent = String(n);
+  chip.hidden = (n === 0);
+  chip.classList.toggle('active', needsDocOnly);
+}
+
+function filterToNeedsDoc() {
+  needsDocOnly = !needsDocOnly;
+  var chip = document.getElementById('needs-doc-chip');
+  if (chip) chip.classList.toggle('active', needsDocOnly);
   renderTable();
 }
 
@@ -5027,6 +5330,13 @@ function getFilteredCards() {
   }
   if (countKeys(activeFilters.lane) > 0) {
     cards = cards.filter(function(c){ return !!activeFilters.lane[c.lane]; });
+  }
+  if (needsDocOnly) {
+    cards = cards.filter(function(c){
+      if (c.actual) return false;
+      if (c.lane === 'lane-noise' || c.lane === 'lane-done' || c.lane === 'lane-closed') return false;
+      return true;
+    });
   }
   var q = (document.getElementById('search').value||'').toLowerCase();
   if (q) {
@@ -5460,6 +5770,32 @@ function buildRow(c, i) {
   titleTd.appendChild(txt('div','err-fp', fpLine));
   tr.appendChild(titleTd);
 
+  // Action cell — the product's primary CTA lives here, per row.
+  // Undocumented individual cards get a 📝 Document button that jumps
+  // straight to the modal's capture form. Documented cards show a muted
+  // ✓ indicator. Noise cards show a muted ⌀. Groups defer to the group
+  // modal via row click and render no inline action.
+  var actTd = el('td','col-action');
+  if (c.isGroup) {
+    // No row-level action for groups; user opens the group modal via row
+    // click and acts from there.
+  } else if (c.lane === 'lane-noise') {
+    actTd.appendChild(txt('span','row-action-muted','⌀ noise'));
+  } else if (c.actual) {
+    actTd.appendChild(txt('span','row-action-muted','✓ documented'));
+  } else {
+    var docBtn = el('button','row-action-doc');
+    docBtn.type = 'button';
+    docBtn.textContent = 'Document';
+    docBtn.setAttribute('aria-label','Document this error (opens capture form)');
+    docBtn.addEventListener('click', (function(card){ return function(ev){
+      ev.stopPropagation();
+      openBoardModal(card, { expandForm: true });
+    };})(c));
+    actTd.appendChild(docBtn);
+  }
+  tr.appendChild(actTd);
+
   // Row click: individual ticket → openBoardModal; group parent row →
   // openGroupModal (which lists members and offers Dissolve).
   var openHandler = c.isGroup
@@ -5624,7 +5960,8 @@ function apiMoveTicket(id, toLane) {
 // ========================================================================
 // Board modal
 // ========================================================================
-function openBoardModal(c) {
+function openBoardModal(c, opts) {
+  opts = opts || {};
   var modal = document.getElementById('modal-content');
   removeChildren(modal);
 
@@ -5687,15 +6024,84 @@ function openBoardModal(c) {
   errSec.appendChild(txt('div','modal-err-msg',c.title));
   body.appendChild(errSec);
 
-  // sprint-wgy: Solution section (Projected + Actual). Always shown so the
-  // user can always record an Actual even when no Projected exists.
-  var solSec = el('div','modal-section');
-  solSec.appendChild(txt('div','modal-section-title','Solution'));
+  // Documentation section. Drover's product is error tracking + memory,
+  // not fix-automation — so the primary ask of the human is to DOCUMENT
+  // the error (root cause, what was done about it) so the next recurrence
+  // can reuse the knowledge. Layout, top-to-bottom:
+  //   1. "Have we seen this before?" — recall matches across all projects
+  //   2. Documented block (if present) OR the capture form
+  //   3. Projected (if present) — muted, collapsed-by-default, labelled
+  //      "Agent notes (optional)" so it's not confused with the human's
+  //      documentation.
+  var docSec = el('div','modal-section');
+  docSec.appendChild(txt('div','modal-section-title','Documentation'));
 
-  var projRow = el('div','solution-row');
-  projRow.appendChild(txt('div','solution-sub-title',
-    'Projected ' + (c.projected ? '(' + (c.projected.written_by || 'agent') + ')' : '(not yet run)')));
+  // Recall — "have we seen this before?"
+  var recallRow = el('div','recall-row');
+  recallRow.appendChild(txt('div','solution-sub-title','Have we seen this before?'));
+  var recallBody = el('div','recall-body');
+  recallBody.appendChild(txt('div','recall-loading','Searching past documentation…'));
+  recallRow.appendChild(recallBody);
+  docSec.appendChild(recallRow);
+
+  // Documented block / capture form.
+  var docRow = el('div','solution-row');
+  if (c.actual) {
+    docRow.appendChild(txt('div','solution-sub-title',
+      'Documented · ' + (c.actual.captured_by || c.actual.written_by || 'user')
+      + (c.actual.verified_at ? ' · ' + c.actual.verified_at : '')));
+    var actList = el('div','solution-fields');
+    ['root_cause','fix_summary','fix_commit_sha','divergence','effectiveness','captured_by','verified_at']
+      .forEach(function(k){
+        if (c.actual[k]) {
+          var row = el('div','solution-field');
+          row.appendChild(txt('span','solution-key', k + ':'));
+          row.appendChild(txt('span','solution-val', c.actual[k]));
+          actList.appendChild(row);
+        }
+      });
+    docRow.appendChild(actList);
+  } else {
+    docRow.appendChild(txt('div','solution-sub-title', 'This error has not been documented yet.'));
+    var formHolder = el('div','solution-form-holder');
+    var addBtn = el('button','btn btn-primary solution-add-btn');
+    addBtn.textContent = 'Document this error';
+    addBtn.addEventListener('click', function(){
+      formHolder.removeChild(addBtn);
+      formHolder.appendChild(buildActualForm(c, formHolder));
+    });
+    formHolder.appendChild(addBtn);
+    // Secondary action: mark-as-noise. Visually subordinate to Document;
+    // same row, right-aligned, muted styling.
+    var noiseBtn = el('button','btn btn-ghost solution-noise-btn');
+    noiseBtn.textContent = 'Mark as known noise';
+    noiseBtn.addEventListener('click', function(){
+      var reason = prompt('Why is this noise? (required)');
+      if (!reason || !reason.trim()) return;
+      fetch('/api/cards/' + encodeURIComponent(c.id) + '/noise', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ reason: reason.trim() })
+      }).then(function(r){ return r.json().then(function(d){ return { status: r.status, body: d }; }); })
+        .then(function(res){
+          if (res.status === 200) {
+            showToast('Marked as noise.');
+            closeBoardModal();
+            fetchAll();
+          } else {
+            showToast('Failed: ' + ((res.body && res.body.error) || 'HTTP ' + res.status));
+          }
+        });
+    });
+    formHolder.appendChild(noiseBtn);
+    docRow.appendChild(formHolder);
+  }
+  docSec.appendChild(docRow);
+
+  // Projected block — muted, secondary. Only shown when present.
   if (c.projected) {
+    var projRow = el('div','solution-row solution-row-muted');
+    projRow.appendChild(txt('div','solution-sub-title',
+      'Agent notes (' + (c.projected.written_by || 'agent') + ') — optional, not drover\\u2019s documentation'));
     var projList = el('div','solution-fields');
     ['hypothesis','proposed_fix','confidence','reasoning','fix_commit_sha','effectiveness']
       .forEach(function(k){
@@ -5707,41 +6113,23 @@ function openBoardModal(c) {
         }
       });
     projRow.appendChild(projList);
-  } else {
-    projRow.appendChild(txt('div','solution-empty',
-      'No projected solution. drover:implementer has not run on this ticket.'));
+    docSec.appendChild(projRow);
   }
-  solSec.appendChild(projRow);
 
-  var actRow = el('div','solution-row');
-  actRow.appendChild(txt('div','solution-sub-title',
-    'Actual ' + (c.actual ? '(' + (c.actual.written_by || 'user') + ')' : '(not yet recorded)')));
-  if (c.actual) {
-    var actList = el('div','solution-fields');
-    ['root_cause','fix_summary','fix_commit_sha','divergence','effectiveness','captured_by','verified_at']
-      .forEach(function(k){
-        if (c.actual[k]) {
-          var row = el('div','solution-field');
-          row.appendChild(txt('span','solution-key', k + ':'));
-          row.appendChild(txt('span','solution-val', c.actual[k]));
-          actList.appendChild(row);
-        }
+  body.appendChild(docSec);
+
+  // Fire the recall lookup asynchronously so the modal opens immediately.
+  (function(card, host){
+    var qs = 'card_id=' + encodeURIComponent(card.id)
+           + (card.project ? '&project=' + encodeURIComponent(card.project) : '');
+    fetch('/api/recall?' + qs)
+      .then(function(r){ return r.json(); })
+      .then(function(data){ renderRecallMatches(host, data, card); })
+      .catch(function(e){
+        removeChildren(host);
+        host.appendChild(txt('div','recall-loading','Recall failed: ' + e.message));
       });
-    actRow.appendChild(actList);
-  } else {
-    var formHolder = el('div','solution-form-holder');
-    var addBtn = el('button','btn btn-primary solution-add-btn');
-    addBtn.textContent = 'Record Actual solution';
-    addBtn.addEventListener('click', function(){
-      formHolder.removeChild(addBtn);
-      formHolder.appendChild(buildActualForm(c, formHolder));
-    });
-    formHolder.appendChild(addBtn);
-    actRow.appendChild(formHolder);
-  }
-  solSec.appendChild(actRow);
-
-  body.appendChild(solSec);
+  })(c, recallBody);
 
   if(c.stack && c.stack.length){
     var stackSec = el('div','modal-section');
@@ -5818,21 +6206,92 @@ function openBoardModal(c) {
 
   modal.appendChild(footer);
   document.getElementById('board-modal').classList.add('open');
+
+  // When opened from the row-level Document CTA, auto-expand the capture
+  // form so the user lands on the input they were asking for. If the
+  // card is already documented, the add-btn isn't in the DOM — which is
+  // the right behavior.
+  if (opts.expandForm) {
+    setTimeout(function(){
+      var addBtn = document.querySelector('.solution-add-btn');
+      if (addBtn) addBtn.click();
+      var first = document.querySelector('.solution-form textarea[name=root_cause]');
+      if (first) first.focus();
+    }, 20);
+  }
 }
 
 // sprint-wgy: build an inline form for the Actual solution. Mirrors the
 // /drover:solution skill's prompted fields (root_cause, fix_summary,
 // fix_commit_sha, divergence). POSTs to /api/cards/:id/solution and
 // refreshes the board.
+// Render /api/recall results into the "Have we seen this before?" host.
+// Matches list root_cause / fix_summary from the candidate's Actual
+// block. Each match has an "Apply" button that prefills the capture
+// form on this card with the candidate's solution fields.
+function renderRecallMatches(host, data, card) {
+  removeChildren(host);
+  var matches = (data && data.matches) || [];
+  if (!matches.length) {
+    host.appendChild(txt('div','recall-empty',
+      'No documented matches across your registered projects yet. You\\u2019re the first.'));
+    return;
+  }
+  matches.forEach(function(m){
+    var row = el('div','recall-match');
+    var head = el('div','recall-match-head');
+    head.appendChild(txt('span','recall-score', Math.round(m.score * 100) + '% match'));
+    head.appendChild(txt('span','recall-origin', (m.card.project || '?') + ' · ' + m.card.id));
+    head.appendChild(txt('span','recall-cls', m.card.errCls || '—'));
+    row.appendChild(head);
+    var fields = el('div','recall-fields');
+    if (m.actual && m.actual.root_cause) {
+      var rc = el('div','recall-field');
+      rc.appendChild(txt('span','recall-key','root cause:'));
+      rc.appendChild(txt('span','recall-val', m.actual.root_cause));
+      fields.appendChild(rc);
+    }
+    if (m.actual && m.actual.fix_summary) {
+      var fs = el('div','recall-field');
+      fs.appendChild(txt('span','recall-key','fix:'));
+      fs.appendChild(txt('span','recall-val', m.actual.fix_summary));
+      fields.appendChild(fs);
+    }
+    row.appendChild(fields);
+    var actions = el('div','recall-actions');
+    var applyBtn = el('button','btn btn-ghost recall-apply');
+    applyBtn.textContent = 'Apply this to ' + card.id;
+    applyBtn.addEventListener('click', (function(match){ return function(ev){
+      ev.preventDefault(); ev.stopPropagation();
+      // Expand the capture form if collapsed, then prefill.
+      var addBtn = document.querySelector('.solution-add-btn');
+      if (addBtn) addBtn.click();
+      setTimeout(function(){
+        var rc = document.querySelector('.solution-form textarea[name=root_cause]');
+        var fs = document.querySelector('.solution-form textarea[name=fix_summary]');
+        var sha = document.querySelector('.solution-form input[name=fix_commit_sha]');
+        if (rc && match.actual && match.actual.root_cause)  rc.value = match.actual.root_cause;
+        if (fs && match.actual && match.actual.fix_summary) fs.value = match.actual.fix_summary;
+        if (sha && match.actual && match.actual.fix_commit_sha) sha.value = match.actual.fix_commit_sha;
+        if (rc) rc.focus();
+      }, 40);
+    };})(m));
+    actions.appendChild(applyBtn);
+    row.appendChild(actions);
+    host.appendChild(row);
+  });
+}
+
 function buildActualForm(c, holder) {
   var form = el('div','solution-form');
 
-  function field(id, label, placeholder, multiline) {
+  function field(id, fieldName, label, placeholder, multiline) {
     var wrap = el('div','solution-field-wrap');
     var l = el('label','solution-field-label'); l.textContent = label; l.setAttribute('for', id);
     wrap.appendChild(l);
     var inp = multiline ? el('textarea','solution-field-input') : el('input','solution-field-input');
     inp.id = id;
+    inp.setAttribute('name', fieldName);
     if (!multiline) inp.type = 'text';
     if (placeholder) inp.placeholder = placeholder;
     if (multiline) inp.rows = 2;
@@ -5840,9 +6299,11 @@ function buildActualForm(c, holder) {
     return wrap;
   }
 
-  form.appendChild(field('sol-root-cause', 'Root cause', 'One or two sentences, general audience — no project paths or customer names.', true));
-  form.appendChild(field('sol-fix-summary', 'Fix summary', 'What you actually changed.', true));
-  form.appendChild(field('sol-fix-sha', 'Fix commit SHA (or "none")', 'abc1234'));
+  form.appendChild(field('sol-root-cause',  'root_cause',     'Root cause',
+    'One or two sentences, general audience — no project paths or customer names.', true));
+  form.appendChild(field('sol-fix-summary', 'fix_summary',    'Fix summary (or "not yet fixed")',
+    'What was done, or the plan if not yet fixed.', true));
+  form.appendChild(field('sol-fix-sha',     'fix_commit_sha', 'Fix commit SHA (optional)', 'abc1234'));
   if (c.projected) {
     var divWrap = el('div','solution-field-wrap');
     var dl = el('label','solution-field-label'); dl.textContent = 'Divergence from projected';
@@ -5864,14 +6325,14 @@ function buildActualForm(c, holder) {
   cancelBtn.addEventListener('click', function(){
     removeChildren(holder);
     var readd = el('button','btn btn-primary solution-add-btn');
-    readd.textContent = 'Record Actual solution';
+    readd.textContent = 'Document this error';
     readd.addEventListener('click', function(){
       holder.removeChild(readd);
       holder.appendChild(buildActualForm(c, holder));
     });
     holder.appendChild(readd);
   });
-  var saveBtn = el('button','btn btn-primary'); saveBtn.textContent = 'Save + close ticket';
+  var saveBtn = el('button','btn btn-primary'); saveBtn.textContent = 'Save documentation';
   saveBtn.addEventListener('click', function(){
     var payload = {
       root_cause:    document.getElementById('sol-root-cause').value.trim(),
@@ -7959,6 +8420,10 @@ const server = http.createServer(async (req, res) => {
     }
 
     // Groups (user-curated cross-project error collections).
+    if (pathname === '/api/recall' && req.method === 'GET') {
+      return await handleRecall(req, res, url);
+    }
+
     if (pathname === '/api/groups' && req.method === 'GET') {
       return await handleGroupsList(req, res);
     }
@@ -8013,10 +8478,15 @@ const server = http.createServer(async (req, res) => {
       return await handleMove(req, res);
     }
 
-    // sprint-wgy: /api/cards/:id/solution — record Actual solution + close.
+    // POST /api/cards/:id/solution — record Actual (documenting the error).
     const solMatch = pathname.match(/^\/api\/cards\/([^/]+)\/solution$/);
     if (solMatch && req.method === 'POST') {
       return await handleSolution(req, res, decodeURIComponent(solMatch[1]));
+    }
+    // POST /api/cards/:id/noise — mark as known noise, move to lane-noise.
+    const noiseMatch = pathname.match(/^\/api\/cards\/([^/]+)\/noise$/);
+    if (noiseMatch && req.method === 'POST') {
+      return await handleNoiseMark(req, res, decodeURIComponent(noiseMatch[1]));
     }
 
     // DDEV management endpoints
