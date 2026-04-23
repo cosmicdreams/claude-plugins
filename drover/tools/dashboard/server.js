@@ -557,25 +557,39 @@ async function fetchHealth() {
   const timeline = fetchTimeline();
   const lastCycle = timeline.length ? timeline[timeline.length - 1] : null;
 
+  // Canonicalise env labels across projects so "local" is a single tile
+  // regardless of which project's DDEV instance (AHRI-main, pncb-main, acu, …)
+  // originally emitted the card. The triage agent tags DDEV-sourced cards
+  // with `env-<ddev_project>`, which produced per-project local tiles
+  // (AHRI-main / pncb-main) instead of one unified "local" bucket. Build a
+  // ddev-project set from projects.json and collapse those env labels to
+  // "local" here. Acquia env labels (dev/test/prod/stage/…) pass through.
+  const registeredProjects = projectsModule.listProjects() || [];
+  const ddevProjectNames = new Set();
+  for (const p of registeredProjects) {
+    if (p.ddev_project) ddevProjectNames.add(p.ddev_project);
+    if (p.name) ddevProjectNames.add(p.name);
+  }
+  function canonicaliseEnv(env) {
+    if (!env) return env;
+    return ddevProjectNames.has(env) ? 'local' : env;
+  }
+
   // Derive environments from ticket labels, then fill in config envs that
-  // haven't produced cards yet.
-  //
-  // Cards carry env labels like `env-prod` / `env-local` (see handleTriage:
-  // `envLabel = alias.split('.').pop()` for Acquia, ddev project for DDEV).
-  // Config environments carry an optional friendly `name` ("production",
-  // "Local dev") plus the on-the-wire identity in `env_slug` (Acquia) or
-  // `ddev_project` (DDEV). Adding `e.name` unconditionally was duplicating
-  // tiles — an env configured as `{name:"production", env_slug:"prod"}` was
-  // rendering as both "prod" (from cards) and "production" (from name).
-  // Canonicalise on the identity the cards use; treat `name` as display-only.
+  // haven't produced cards yet. Config environments carry an optional
+  // friendly `name` ("production", "Local dev") plus the on-the-wire
+  // identity in `env_slug` (Acquia) or `ddev_project` (DDEV).
   const envSet = new Set();
   const envDisplay = new Map(); // canonical slug -> friendly label from config
-  cards.forEach(c => c.envLabels.forEach(e => envSet.add(e)));
+  cards.forEach(c => c.envLabels.forEach(e => envSet.add(canonicaliseEnv(e))));
   if (config && config.environments) {
     config.environments.forEach(e => {
-      const canonical = e.env_slug || e.ddev_project || e.name;
+      let canonical = e.env_slug || e.ddev_project || e.name;
+      canonical = canonicaliseEnv(canonical);
       if (canonical) envSet.add(canonical);
-      if (canonical && e.name && e.name !== canonical) {
+      if (canonical === 'local') {
+        envDisplay.set('local', 'Local');
+      } else if (canonical && e.name && e.name !== canonical) {
         envDisplay.set(canonical, e.name);
       }
     });
@@ -583,7 +597,9 @@ async function fetchHealth() {
 
   const envHealth = {};
   for (const env of envSet) {
-    const envCards = cards.filter(c => c.envLabels.includes(env) && !['lane-done', 'lane-closed'].includes(c.lane));
+    const envCards = cards.filter(c =>
+      c.envLabels.some(el => canonicaliseEnv(el) === env)
+      && !['lane-done', 'lane-closed'].includes(c.lane));
     const critCount = envCards.filter(c => ['emergency', 'critical'].includes(c.severityLabel)).length;
     const warnCount = envCards.filter(c => ['alert', 'error', 'warning'].includes(c.severityLabel)).length;
 
@@ -1121,6 +1137,70 @@ async function handleAddProject(req, res) {
   }
 
   return jsonResponse(res, code, result);
+}
+
+// GET /api/projects/overview
+// Unified per-project view for the Projects panel. One entry per registered
+// project, enumerating its configured environments and how many log sources
+// are currently enabled for each (from .claude/drover-config.json). DDEV
+// instance status is folded in from `ddev list -A`. Unregistered-but-running
+// DDEV projects are returned separately so the UI can keep the "+ Add" flow
+// without blurring them into the registered-projects list.
+async function handleProjectsOverview(req, res) {
+  const registered = projectsModule.listProjects() || [];
+  const ddevInstances = fetchDdevInstances();
+  const ddevByName = new Map(ddevInstances.map(i => [i.name, i]));
+
+  const projects = registered.map(p => {
+    const projectName = p.name || p.ddev_project || '';
+    const ddevProject = p.ddev_project || p.name || '';
+    const ddev = ddevProject ? ddevByName.get(ddevProject) : null;
+
+    // Read per-project drover-config.json to enumerate configured envs +
+    // enabled source lists. The config is the truth for "what are we
+    // tracking?" — the umbrella watcher state is downstream of this.
+    const configPath = findDroverConfigPath(p.path);
+    const cfg = readDroverConfig(configPath);
+    const cfgEnvs = (cfg && Array.isArray(cfg.environments)) ? cfg.environments : [];
+
+    const environments = cfgEnvs.map(e => {
+      const alias = aliasForConfigEnv(cfg.project || projectName, e);
+      // `sources` on the env is an array of source names (legacy snake_case
+      // or canonical kebab-case). Empty / missing = paused.
+      const srcs = Array.isArray(e.sources) ? e.sources.filter(Boolean) : [];
+      return {
+        name: e.name || '',
+        type: e.type || '',
+        alias,
+        enabled_sources: srcs,
+        enabled_count: srcs.length,
+      };
+    });
+
+    const streamingEnvs = environments.filter(e => e.enabled_count > 0).length;
+
+    return {
+      name: projectName,
+      display_name: (cfg && cfg.project) || projectName,
+      path: p.path || '',
+      ddev_project: ddevProject,
+      ddev_status: ddev ? ddev.status : 'unknown',
+      ddev_approot: ddev ? ddev.approot : '',
+      has_drover_config: !!cfg,
+      environments,
+      streaming_env_count: streamingEnvs,
+      configured_env_count: environments.length,
+    };
+  });
+
+  // Unregistered-but-running DDEV instances — these are candidates for
+  // "+ Add Project". Keep them separate from the registered list.
+  const registeredDdevSet = new Set(registered.map(p => p.ddev_project || p.name).filter(Boolean));
+  const unregistered = ddevInstances
+    .filter(i => i.status === 'running' && !registeredDdevSet.has(i.name))
+    .map(i => ({ name: i.name, approot: i.approot || '', type: i.type || '' }));
+
+  return jsonResponse(res, 200, { projects, unregistered_running: unregistered });
 }
 
 // sprint-nto: GET /api/projects/discover
@@ -3081,12 +3161,102 @@ function buildHtml() {
   ::-webkit-scrollbar-thumb { background:var(--muted3); border-radius:3px; }
   ::-webkit-scrollbar-thumb:hover { background:var(--muted2); }
 
+  /* Projects Panel (per-project tiles w/ env streaming indicators) */
+  .proj-tiles { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
+  .proj-tile {
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; padding:10px 12px;
+    min-width:220px; flex:1 1 220px; max-width:320px;
+    display:flex; flex-direction:column; gap:8px;
+    position:relative;
+  }
+  .proj-tile.no-config {
+    border-color:rgba(255,214,10,0.25);
+    background:rgba(255,214,10,0.03);
+  }
+  .proj-tile-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .proj-name {
+    font-family:var(--display); font-weight:600; font-size:13px;
+    color:var(--text2); letter-spacing:0.01em;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .proj-ddev {
+    display:inline-flex; align-items:center; gap:4px;
+    font-family:var(--mono); font-size:9px; letter-spacing:0.04em;
+    color:var(--muted2); text-transform:uppercase;
+  }
+  .proj-ddev-dot {
+    width:6px; height:6px; border-radius:50%;
+    background:var(--muted3);
+  }
+  .proj-ddev-dot.running { background:var(--ok); box-shadow:0 0 4px var(--ok); }
+  .proj-ddev-dot.stopped { background:var(--muted3); }
+  .proj-ddev-dot.error   { background:var(--crit); }
+
+  .proj-envs {
+    display:flex; flex-wrap:wrap; gap:4px;
+  }
+  .proj-env {
+    display:inline-flex; align-items:center; gap:5px;
+    padding:3px 8px; border-radius:4px;
+    background:var(--surface3);
+    border:1px solid var(--border);
+    font-family:var(--mono); font-size:10px;
+    color:var(--muted2);
+    cursor:default;
+  }
+  .proj-env-dot {
+    width:6px; height:6px; border-radius:50%;
+    background:var(--muted3);
+    flex-shrink:0;
+  }
+  .proj-env.streaming { color:var(--text2); border-color:rgba(50,215,75,0.3); }
+  .proj-env.streaming .proj-env-dot { background:var(--ok); box-shadow:0 0 4px var(--ok); }
+  .proj-env.paused { color:var(--muted3); }
+  .proj-env.paused .proj-env-dot { background:var(--muted3); }
+  .proj-env-label { font-weight:500; letter-spacing:0.03em; text-transform:lowercase; }
+  .proj-env-count { color:var(--muted3); font-size:9px; }
+
+  .proj-empty-cfg {
+    font-family:var(--mono); font-size:10px; color:var(--warn);
+  }
+
+  .proj-unregistered {
+    display:flex; flex-wrap:wrap; gap:6px;
+    margin-top:10px; padding-top:10px;
+    border-top:1px dashed var(--border);
+  }
+  .proj-unregistered:empty { display:none; }
+  .proj-unreg-label {
+    font-family:var(--mono); font-size:9px;
+    color:var(--muted2); letter-spacing:0.06em; text-transform:uppercase;
+    margin-right:6px; align-self:center;
+  }
+  .proj-unreg-pill {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:4px 8px; border-radius:4px;
+    background:var(--surface3);
+    border:1px dashed var(--border2);
+    font-family:var(--mono); font-size:10px;
+    color:var(--muted2);
+  }
+  .proj-unreg-pill button {
+    font-family:var(--mono); font-size:9px; font-weight:600;
+    background:transparent;
+    color:var(--ok); border:1px solid rgba(50,215,75,0.3);
+    border-radius:3px; padding:2px 6px;
+    cursor:pointer;
+  }
+  .proj-unreg-pill button:hover { background:var(--ok-dim); }
+
   /* DDEV Instance Management Panel */
   .ddev-panel {
     padding:12px 24px 8px;
     animation: fade-up 0.35s ease both;
   }
-  .ddev-panel.collapsed .ddev-tiles { display:none; }
+  .ddev-panel.collapsed .ddev-tiles,
+  .ddev-panel.collapsed .proj-tiles,
+  .ddev-panel.collapsed .proj-unregistered { display:none; }
   .ddev-panel.collapsed .ddev-warn { display:none; }
 
   .ddev-header {
@@ -3343,16 +3513,17 @@ function buildHtml() {
     </div>
   </header>
 
-  <section class="ddev-panel" id="ddev-panel" aria-label="DDEV instances" style="display:none">
+  <section class="ddev-panel" id="ddev-panel" aria-label="Projects" style="display:none">
     <div class="ddev-header">
       <div class="ddev-header-left">
-        <span class="ddev-header-label">DDEV Instances</span>
+        <span class="ddev-header-label">Projects</span>
         <span class="ddev-header-summary" id="ddev-summary"></span>
         <div class="ddev-inline-summary" id="ddev-inline"></div>
       </div>
       <button class="ddev-collapse-btn" id="ddev-collapse-btn" onclick="toggleDdevPanel()">&#9660;</button>
     </div>
-    <div class="ddev-tiles" id="ddev-tiles"></div>
+    <div class="proj-tiles" id="proj-tiles"></div>
+    <div class="proj-unregistered" id="proj-unregistered"></div>
     <div id="ddev-warn-wrap"></div>
     <div class="ddev-term hidden" id="ddev-term">
       <div class="ddev-term-header">
@@ -3405,9 +3576,9 @@ function buildHtml() {
         </div>
       </div>
 
-      <div class="card">
+      <div class="card" id="cycle-card" style="display:none">
         <div class="card-title" id="cycle-card-title">Last triage cycle</div>
-        <span class="cycle-ts" id="cycle-ts">Waiting for live activity&#8230;</span>
+        <span class="cycle-ts" id="cycle-ts"></span>
         <div class="cycle-stats" id="cycle-stats"></div>
       </div>
     </div>
@@ -3524,12 +3695,19 @@ function fetchAll() {
     fetch('/api/board').then(function(r){return r.json();}),
     fetch('/api/health').then(function(r){return r.json();}),
     fetch('/api/timeline').then(function(r){return r.json();}),
-    fetch('/api/ingestion/status').then(function(r){return r.json();}).catch(function(){return null;})
+    fetch('/api/ingestion/status').then(function(r){return r.json();}).catch(function(){return null;}),
+    // Projects overview is fetched alongside board data so the client-side
+    // env canonicalisation in parseCardClient has a populated ddev-project
+    // set on every pass. Without this, the first paint renders per-project
+    // local tiles ("AHRI-main") and only collapses to "local" after the
+    // separate fetchDdevStatus() race resolves.
+    fetch('/api/projects/overview').then(function(r){return r.json();}).catch(function(){return null;})
   ]).then(function(results) {
     var board = results[0];
     HEALTH = results[1];
     TIMELINE = results[2];
     INGESTION = results[3] || {};
+    if (results[4] && Array.isArray(results[4].projects)) PROJECTS_OVERVIEW = results[4];
 
     if (Array.isArray(board)) {
       ALL_CARDS = board.map(parseCardClient);
@@ -3548,7 +3726,18 @@ function parseCardClient(ticket) {
   var notes = ticket.notes || '';
 
   var sevRaw = (labels.find(function(l){return l.startsWith('severity-');})||'').replace('severity-','') || 'unknown';
-  var envLabels = labels.filter(function(l){return l.startsWith('env-');}).map(function(l){return l.replace('env-','');});
+  // Canonicalise env labels so ddev-project names (AHRI-main, pncb-main,
+  // massport, acu, ...) all roll up to "local" on the client. The server
+  // does the same in fetchHealth(); this keeps the sidebar filter, table
+  // column, and kanban chips consistent.
+  var ddevNames = {};
+  (PROJECTS_OVERVIEW.projects || []).forEach(function(p){
+    if (p.ddev_project) ddevNames[p.ddev_project] = 1;
+    if (p.name) ddevNames[p.name] = 1;
+  });
+  function canonEnv(e) { return ddevNames[e] ? 'local' : e; }
+  var envLabels = labels.filter(function(l){return l.startsWith('env-');})
+    .map(function(l){ return canonEnv(l.replace('env-','')); });
   var fpMatch = body.match(/\\*\\*Fingerprint:\\*\\*\\s+\`([^\`\\s]+)\`/);
   var fp = fpMatch ? fpMatch[1] : '[unknown]';
   var occMatch = body.match(/\\*\\*Total Occurrences:\\*\\*\\s+(\\d+)/);
@@ -3727,108 +3916,34 @@ function renderEnvTiles() {
 // Cycle stats
 // ========================================================================
 function renderCycleStats() {
+  // Historical /drover:watch cycle summary. When no cycle data exists the
+  // whole card is hidden — we deliberately do NOT fabricate a "live
+  // monitoring" view here, because the only data this card can truthfully
+  // render comes from ~/.claude/drover.state.jsonl (written by the
+  // drover:watch skill). Live streaming status belongs in the Projects
+  // panel, which is driven by config + DDEV truth.
+  var card = document.getElementById('cycle-card');
   var wrap = document.getElementById('cycle-stats');
   var tsEl = document.getElementById('cycle-ts');
   var titleEl = document.getElementById('cycle-card-title');
   removeChildren(wrap);
 
   var cycle = HEALTH.lastCycle;
-  if (cycle) {
-    if (titleEl) titleEl.textContent = 'Last triage cycle';
-    tsEl.textContent = HEALTH.lastCycleTs || '';
+  if (!cycle) { if (card) card.style.display = 'none'; return; }
+  if (card) card.style.display = '';
+  if (titleEl) titleEl.textContent = 'Last triage cycle';
+  tsEl.textContent = HEALTH.lastCycleTs || '';
 
-    var stats = [
-      { num: cycle.new_errors||0, cls:'new', label:'New errors' },
-      { num: cycle.augmented||0, cls:'aug', label:'Augmented' },
-      { num: cycle.promoted||0, cls:'skip', label:'Promoted' },
-      { num: cycle.cross_env_boosts||0, cls:'boost', label:'Cross-env' },
-    ];
-    stats.forEach(function(c) {
-      var tile = el('div','stat-tile');
-      var row = el('div','stat-row');
-      row.appendChild(txt('span','stat-num '+c.cls, String(c.num)));
-      tile.appendChild(row);
-      tile.appendChild(txt('div','stat-label',c.label));
-      wrap.appendChild(tile);
-    });
-    return;
-  }
-
-  // No manual /drover:watch cycle on record yet — surface live umbrella
-  // ingestion stats so the card reflects what's actually happening in the UI
-  // instead of pointing the user at a slash command.
-  if (titleEl) titleEl.textContent = 'Live monitoring';
-
-  var ingestion = (typeof INGESTION === 'object' && INGESTION) ? INGESTION : {};
-  var armed = !!ingestion.umbrellaAlive;
-  var projects = ingestion.projects || {};
-  var projectKeys = Object.keys(projects);
-
-  var totalEvents = 0;
-  var armedProjects = 0;
-  var sourceCount = 0;
-  var lastEventTs = '';
-  projectKeys.forEach(function(k){
-    var p = projects[k] || {};
-    totalEvents += (p.eventCount || 0);
-    if (p.armed) armedProjects++;
-    var srcs = p.sources || {};
-    Object.keys(srcs).forEach(function(sk){ if (srcs[sk]) sourceCount++; });
-    if (p.lastEventTs && (!lastEventTs || p.lastEventTs > lastEventTs)) {
-      lastEventTs = p.lastEventTs;
-    }
-  });
-
-  function fmtHm(ts) {
-    if (!ts) return '—';
-    var d = new Date(ts);
-    if (isNaN(d.getTime())) return ts.slice(11,16) || '—';
-    var h = String(d.getHours()).padStart(2,'0');
-    var m = String(d.getMinutes()).padStart(2,'0');
-    return h+':'+m;
-  }
-  function fmtRel(ts) {
-    if (!ts) return '';
-    var d = new Date(ts); if (isNaN(d.getTime())) return '';
-    var s = Math.max(0, Math.floor((Date.now() - d.getTime())/1000));
-    if (s < 60) return s+'s ago';
-    if (s < 3600) return Math.floor(s/60)+'m ago';
-    if (s < 86400) return Math.floor(s/3600)+'h ago';
-    return Math.floor(s/86400)+'d ago';
-  }
-
-  if (armed) {
-    var armedAt = ingestion.armedAt ? fmtHm(ingestion.armedAt) : '';
-    tsEl.textContent = armedAt
-      ? ('Umbrella watcher armed at ' + armedAt)
-      : 'Umbrella watcher armed';
-  } else if (projectKeys.length === 0) {
-    tsEl.textContent = 'No projects registered — use + Add Project to begin';
-  } else {
-    tsEl.textContent = 'Umbrella watcher idle';
-  }
-
-  var tiles = [
-    {
-      num: armed ? 'LIVE' : 'IDLE',
-      cls:  armed ? 'aug' : 'skip',
-      label: armed ? 'Status' : 'Status (no umbrella)'
-    },
-    { num: totalEvents, cls:'new',  label:'Events streamed' },
-    { num: armedProjects + '/' + projectKeys.length, cls:'boost', label:'Projects watched' },
-    {
-      num: lastEventTs ? fmtHm(lastEventTs) : '—',
-      cls:'skip',
-      label: lastEventTs ? ('Last event · ' + fmtRel(lastEventTs)) : 'Last event'
-    },
+  var stats = [
+    { num: cycle.new_errors||0, cls:'new', label:'New errors' },
+    { num: cycle.augmented||0, cls:'aug', label:'Augmented' },
+    { num: cycle.promoted||0, cls:'skip', label:'Promoted' },
+    { num: cycle.cross_env_boosts||0, cls:'boost', label:'Cross-env' },
   ];
-
-  tiles.forEach(function(c) {
+  stats.forEach(function(c) {
     var tile = el('div','stat-tile');
     var row = el('div','stat-row');
-    var numEl = txt('span','stat-num '+c.cls, String(c.num));
-    if (typeof c.num === 'string' && c.num.length > 4) numEl.style.fontSize = '14px';
-    row.appendChild(numEl);
+    row.appendChild(txt('span','stat-num '+c.cls, String(c.num)));
     tile.appendChild(row);
     tile.appendChild(txt('div','stat-label',c.label));
     wrap.appendChild(tile);
@@ -5633,142 +5748,155 @@ for(var ti=0;ti<timeTabs.length;ti++){
 }
 
 // ========================================================================
-// DDEV Instance Management
+// Projects panel (registered projects + env streaming indicators)
 // ========================================================================
 var DDEV_INSTANCES = [];
+var PROJECTS_OVERVIEW = { projects: [], unregistered_running: [] };
 var ddevPanelCollapsed = false;
 var ddevConfirmTimers = {};
 var MAX_CONCURRENT_WARNING = 3;
 
 function fetchDdevStatus() {
-  return fetch('/api/ddev/status').then(function(r){ return r.json(); }).then(function(data) {
-    if (Array.isArray(data)) {
-      DDEV_INSTANCES = data;
-      renderDdevPanel();
+  // Two parallel calls: the overview drives the Projects panel; the DDEV
+  // list keeps DDEV_INSTANCES in sync so start/stop actions still have
+  // the raw instance data they need (approot, type, etc.).
+  return Promise.all([
+    fetch('/api/projects/overview').then(function(r){ return r.json(); }).catch(function(){ return null; }),
+    fetch('/api/ddev/status').then(function(r){ return r.json(); }).catch(function(){ return null; }),
+  ]).then(function(results) {
+    var overview = results[0];
+    var ddev = results[1];
+    if (overview && Array.isArray(overview.projects)) {
+      PROJECTS_OVERVIEW = overview;
     }
-  }).catch(function(err){ console.warn('DDEV fetch error:', err); });
+    if (Array.isArray(ddev)) {
+      DDEV_INSTANCES = ddev;
+    }
+    renderDdevPanel();
+  });
+}
+
+// sprint-1po: sums enabled-source counts across all configured envs so the
+// panel header can answer "how many tailers should be running?" without
+// conflating DDEV instance state with source configuration.
+function countStreamingEnvs() {
+  var streaming = 0, configured = 0;
+  PROJECTS_OVERVIEW.projects.forEach(function(p) {
+    (p.environments || []).forEach(function(e) {
+      configured++;
+      if ((e.enabled_count || 0) > 0) streaming++;
+    });
+  });
+  return { streaming: streaming, configured: configured };
 }
 
 function renderDdevPanel() {
   var panel = document.getElementById('ddev-panel');
-  var tiles = document.getElementById('ddev-tiles');
+  var projTiles = document.getElementById('proj-tiles');
+  var unregWrap = document.getElementById('proj-unregistered');
   var summary = document.getElementById('ddev-summary');
   var inlineSummary = document.getElementById('ddev-inline');
   var warnWrap = document.getElementById('ddev-warn-wrap');
 
-  if (!DDEV_INSTANCES.length) {
+  var projects = PROJECTS_OVERVIEW.projects || [];
+  var unreg = PROJECTS_OVERVIEW.unregistered_running || [];
+
+  if (!projects.length && !unreg.length) {
     panel.style.display = 'none';
     return;
   }
   panel.style.display = '';
 
-  var running = DDEV_INSTANCES.filter(function(i){ return i.status==='running'; }).length;
-  var total = DDEV_INSTANCES.length;
-  summary.textContent = running + ' of ' + total + ' running';
+  // Header summary: "N projects · M/K envs streaming"
+  var counts = countStreamingEnvs();
+  var headerBits = [projects.length + ' project' + (projects.length === 1 ? '' : 's')];
+  if (counts.configured > 0) {
+    headerBits.push(counts.streaming + '/' + counts.configured + ' envs streaming');
+  }
+  summary.textContent = headerBits.join(' · ');
 
-  // Inline summary (shown when collapsed)
+  // Inline summary (shown when collapsed) — one dot per project, green if
+  // any env is streaming for that project.
   removeChildren(inlineSummary);
-  DDEV_INSTANCES.forEach(function(inst) {
-    var dot = el('span','ddev-inline-dot '+inst.status);
+  projects.forEach(function(p) {
+    var dotCls = p.streaming_env_count > 0 ? 'running' : 'stopped';
+    var dot = el('span','ddev-inline-dot '+dotCls);
     inlineSummary.appendChild(dot);
-    inlineSummary.appendChild(txt('span','ddev-inline-name',inst.name.replace(/-main$/i,'')));
+    inlineSummary.appendChild(txt('span','ddev-inline-name',p.display_name || p.name));
   });
 
-  // Tiles
-  removeChildren(tiles);
-  DDEV_INSTANCES.forEach(function(inst, idx) {
-    // T6: default registered to true when the server omits the flag (older
-    // cached JSON, test harness). Only false triggers the unregistered UX.
-    var registered = inst.registered !== false;
-    var tile = el('div','ddev-tile '+inst.status+(registered ? '' : ' unregistered'));
-    tile.style.animationDelay = (idx*50)+'ms';
+  // Project tiles
+  removeChildren(projTiles);
+  projects.forEach(function(proj, idx) {
+    var tile = el('div','proj-tile'+(proj.has_drover_config ? '' : ' no-config'));
+    tile.style.animationDelay = (idx*40)+'ms';
     tile.style.animation = 'fade-up 0.3s ease both';
-    tile.setAttribute('role','status');
-    tile.setAttribute('aria-label',
-      inst.name+' DDEV instance: '+inst.status
-      +'; '+(registered ? 'monitored by drover' : 'not monitored by drover'));
+    tile.setAttribute('role','group');
+    tile.setAttribute('aria-label', proj.display_name + ' project, '
+      + proj.streaming_env_count + ' of ' + proj.configured_env_count + ' environments streaming');
 
-    // T6: registration badge. Sits above the action row so anyone scanning
-    // the panel can tell at a glance which projects drover is tailing vs
-    // which are just running DDEV containers.
-    var badge = el('span','ddev-reg-badge '+(registered ? 'watching' : 'unregistered'));
-    var badgeIcon = el('span','ddev-reg-icon');
-    badgeIcon.textContent = registered ? '✓' : '○';
-    badge.appendChild(badgeIcon);
-    var badgeText = el('span','');
-    badgeText.textContent = registered ? ' watching' : ' not monitored';
-    badge.appendChild(badgeText);
-    badge.title = registered
-      ? 'drover is tailing this project’s logs'
-      : 'drover is not watching this project. Click + Add to start.';
-    tile.appendChild(badge);
+    var head = el('div','proj-tile-head');
+    head.appendChild(txt('div','proj-name', proj.display_name || proj.name));
 
-    // Top: action button + status. For unregistered running projects the
-    // primary button is "+ Add" (registers + triggers umbrella re-arm)
-    // instead of "Stop". Demo beat 6: "click Add, start listening."
-    var body = el('div','ddev-tile-body');
-    if (inst.status === 'running' && !registered) {
-      var addBtn = el('button','ddev-action add-btn');
+    var ddevBadge = el('span','proj-ddev');
+    var ddevDot = el('span','proj-ddev-dot '+(proj.ddev_status || 'stopped'));
+    ddevBadge.appendChild(ddevDot);
+    ddevBadge.appendChild(txt('span','',(proj.ddev_project || '').replace(/-main$/i,'') || 'no ddev'));
+    ddevBadge.title = 'DDEV instance “' + proj.ddev_project + '” is ' + proj.ddev_status;
+    head.appendChild(ddevBadge);
+    tile.appendChild(head);
+
+    if (proj.environments && proj.environments.length) {
+      var envsRow = el('div','proj-envs');
+      proj.environments.forEach(function(env) {
+        var streaming = (env.enabled_count || 0) > 0;
+        var chip = el('span','proj-env '+(streaming ? 'streaming' : 'paused'));
+        chip.appendChild(el('span','proj-env-dot'));
+        chip.appendChild(txt('span','proj-env-label', env.name || env.alias || '?'));
+        if (streaming) {
+          chip.appendChild(txt('span','proj-env-count', String(env.enabled_count)));
+        }
+        chip.title = streaming
+          ? 'Streaming ' + env.enabled_count + ' source' + (env.enabled_count === 1 ? '' : 's')
+            + ': ' + env.enabled_sources.join(', ')
+          : 'No log sources enabled. Use Sources → ' + (env.alias || env.name) + ' to turn tracking on.';
+        envsRow.appendChild(chip);
+      });
+      tile.appendChild(envsRow);
+    } else if (!proj.has_drover_config) {
+      tile.appendChild(txt('div','proj-empty-cfg','No drover-config.json — run /drover:setup in this project'));
+    } else {
+      tile.appendChild(txt('div','proj-empty-cfg','No environments configured'));
+    }
+
+    projTiles.appendChild(tile);
+  });
+
+  // Unregistered running DDEV instances — keep the "+ Add" affordance
+  // visible without blurring them into the registered-projects row.
+  removeChildren(unregWrap);
+  if (unreg.length) {
+    unregWrap.appendChild(txt('span','proj-unreg-label', 'Running · not watched'));
+    unreg.forEach(function(inst) {
+      var pill = el('span','proj-unreg-pill');
+      pill.appendChild(txt('span','proj-unreg-name', inst.name));
+      var addBtn = el('button');
       addBtn.textContent = '+ Add';
-      addBtn.setAttribute('aria-label','Register '+inst.name+' with drover and start watching its logs');
+      addBtn.setAttribute('aria-label','Register '+inst.name+' with drover');
       addBtn.addEventListener('click', (function(approot, name){ return function(ev){
         ev.stopPropagation();
         ddevAddInstance(approot, name, this);
       };})(inst.approot, inst.name));
-      body.appendChild(addBtn);
-    } else if (inst.status === 'running') {
-      var stopBtn = el('button','ddev-action stop-btn');
-      stopBtn.textContent = 'Stop';
-      stopBtn.setAttribute('aria-label','Stop '+inst.name+' DDEV instance');
-      stopBtn.addEventListener('click', (function(name){ return function(ev){
-        ev.stopPropagation();
-        ddevConfirmStop(name, this);
-      };})(inst.name));
-      body.appendChild(stopBtn);
-    } else if (inst.status === 'stopped') {
-      var startBtn = el('button','ddev-action start-btn');
-      startBtn.textContent = 'Start';
-      startBtn.setAttribute('aria-label','Start '+inst.name+' DDEV instance');
-      startBtn.addEventListener('click', (function(name){ return function(ev){
-        ev.stopPropagation();
-        ddevStartInstance(name);
-      };})(inst.name));
-      body.appendChild(startBtn);
-    } else if (inst.status === 'error') {
-      var retryBtn = el('button','ddev-action start-btn');
-      retryBtn.textContent = 'Retry';
-      retryBtn.setAttribute('aria-label','Retry '+inst.name+' DDEV instance');
-      retryBtn.addEventListener('click', (function(name){ return function(ev){
-        ev.stopPropagation();
-        ddevStartInstance(name);
-      };})(inst.name));
-      body.appendChild(retryBtn);
-    } else {
-      var disBtn = el('button','ddev-action stop-btn');
-      disBtn.textContent = inst.status === 'starting' ? 'Starting\u2026' : 'Stopping\u2026';
-      disBtn.disabled = true;
-      body.appendChild(disBtn);
-    }
-    tile.appendChild(body);
+      pill.appendChild(addBtn);
+      unregWrap.appendChild(pill);
+    });
+  }
 
-    // Bottom: status + dot + name
-    var footer = el('div','ddev-tile-footer');
-    footer.appendChild(txt('span','ddev-state',inst.status));
-    var nameRow = el('div','ddev-tile-namerow');
-    if (inst.status === 'starting' || inst.status === 'stopping') {
-      nameRow.appendChild(el('span','ddev-spinner'));
-    } else {
-      nameRow.appendChild(el('span','ddev-dot'));
-    }
-    nameRow.appendChild(txt('span','ddev-name',inst.name.replace(/-main$/i,'')));
-    footer.appendChild(nameRow);
-    tile.appendChild(footer);
 
-    tiles.appendChild(tile);
-  });
-
-  // Resource warning
+  // Resource warning — based on DDEV running count across all instances.
   removeChildren(warnWrap);
+  var running = DDEV_INSTANCES.filter(function(i){ return i.status === 'running'; }).length;
+  var total = DDEV_INSTANCES.length;
   if (running >= MAX_CONCURRENT_WARNING && running === total) {
     var warn = el('div','ddev-warn');
     warn.appendChild(txt('span','ddev-warn-icon','\u26A0'));
@@ -6104,6 +6232,13 @@ const server = http.createServer(async (req, res) => {
     // sprint-nto: running-but-unregistered DDEV discovery for the picker.
     if (pathname === '/api/projects/discover' && req.method === 'GET') {
       return await handleDiscoverProjects(req, res);
+    }
+
+    // Unified per-project overview powering the Projects panel. Registered
+    // projects with configured envs + DDEV status, plus a sidecar list of
+    // unregistered-but-running DDEV instances for the "+ Add" affordance.
+    if (pathname === '/api/projects/overview' && req.method === 'GET') {
+      return await handleProjectsOverview(req, res);
     }
 
     if (pathname === '/api/projects/backfill' && req.method === 'POST') {
