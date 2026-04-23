@@ -2616,6 +2616,41 @@ function buildHtml() {
 
   .env-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 10px; }
 
+  /* Compact env-health chip strip (replaces the old large env tiles). */
+  .env-strip {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+    padding: 10px 24px;
+  }
+  .env-strip-label {
+    font-family: var(--mono); font-size: 9px; font-weight: 600;
+    letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted3);
+    margin-right: 4px;
+  }
+  .env-strip-empty {
+    font-family: var(--mono); font-size: 11px; color: var(--muted3);
+  }
+  .env-strip-chip {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 3px 10px; border-radius: 12px;
+    background: var(--surface2); border: 1px solid var(--border);
+    font-family: var(--mono); font-size: 11px;
+    color: var(--text2);
+  }
+  .env-strip-chip.crit { border-color: rgba(255,69,58,0.35); background: var(--crit-dim); color: var(--crit); }
+  .env-strip-chip.warn { border-color: rgba(255,214,10,0.35); background: var(--warn-dim); color: var(--warn); }
+  .env-strip-chip.ok   { border-color: rgba(50,215,75,0.3); }
+  .env-strip-chip.zero { color: var(--muted3); }
+  .env-strip-dot {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--muted3); flex-shrink: 0;
+  }
+  .env-strip-chip.crit .env-strip-dot { background: var(--crit); box-shadow: 0 0 6px var(--crit); }
+  .env-strip-chip.warn .env-strip-dot { background: var(--warn); box-shadow: 0 0 5px var(--warn); }
+  .env-strip-chip.ok   .env-strip-dot { background: var(--ok); }
+  .env-strip-name { text-transform: lowercase; letter-spacing: 0.03em; }
+  .env-strip-count { font-weight: 600; font-variant-numeric: tabular-nums; }
+  .env-strip-crit { font-size: 9px; color: var(--crit); margin-left: 2px; }
+
   .env-tile {
     background: var(--surface); border: 1px solid var(--border);
     border-radius: 10px; padding: 14px 16px 12px;
@@ -3963,15 +3998,15 @@ function buildHtml() {
     </div>
   </header>
 
-  <section class="pulse-strip" id="pulse-strip" aria-label="Recent drover activity" aria-live="polite">
-    <button type="button" class="pulse-strip-head" id="pulse-strip-head" aria-expanded="false" aria-controls="pulse-feed" onclick="togglePulseFeed()">
+  <section class="pulse-strip open" id="pulse-strip" aria-label="Recent drover activity" aria-live="polite">
+    <button type="button" class="pulse-strip-head" id="pulse-strip-head" aria-expanded="true" aria-controls="pulse-feed" onclick="togglePulseFeed()">
       <span class="pulse-strip-dot" aria-hidden="true"></span>
       <span class="pulse-strip-label">Pulse</span>
       <span class="pulse-strip-last" id="pulse-strip-last">awaiting first event…</span>
       <span class="pulse-strip-count" id="pulse-strip-count"></span>
       <span class="pulse-strip-chev" aria-hidden="true">▾</span>
     </button>
-    <div class="pulse-feed" id="pulse-feed" aria-hidden="true">
+    <div class="pulse-feed" id="pulse-feed" aria-hidden="false">
       <div class="pulse-feed-inner" id="pulse-feed-inner"></div>
       <div class="pulse-feed-empty" id="pulse-feed-empty">No events yet. Toggle a project env or wait for an ingest — every meaningful transition drover makes will appear here.</div>
     </div>
@@ -4001,53 +4036,7 @@ function buildHtml() {
   </section>
 
   <div class="view-dashboard" id="view-dashboard">
-  <section class="pulse" aria-label="Environment health overview">
-    <div class="section-label">Pulse</div>
-    <div class="env-tiles" id="env-tiles"></div>
-
-    <div class="pulse-bottom">
-      <div class="card">
-        <div class="card-title">
-          Error volume
-          <div class="time-tabs">
-            <button class="time-tab active" aria-pressed="true">24h</button>
-            <button class="time-tab" aria-pressed="false">7d</button>
-            <button class="time-tab" aria-pressed="false">30d</button>
-          </div>
-        </div>
-        <div class="chart-wrap">
-          <svg class="chart-svg" viewBox="0 0 600 80" preserveAspectRatio="none" role="img" aria-label="Error volume over time">
-            <defs>
-              <linearGradient id="aGrad" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stop-color="#5E5CE6" stop-opacity="0.3"/>
-                <stop offset="100%" stop-color="#5E5CE6" stop-opacity="0"/>
-              </linearGradient>
-              <linearGradient id="lGrad" x1="0" y1="0" x2="1" y2="0">
-                <stop offset="0%" stop-color="#5E5CE6" stop-opacity="0.35"/>
-                <stop offset="55%" stop-color="#5E5CE6"/>
-                <stop offset="100%" stop-color="#FF453A"/>
-              </linearGradient>
-            </defs>
-            <line x1="0" y1="20" x2="600" y2="20" stroke="#1C1D25" stroke-width="1"/>
-            <line x1="0" y1="40" x2="600" y2="40" stroke="#1C1D25" stroke-width="1"/>
-            <line x1="0" y1="60" x2="600" y2="60" stroke="#1C1D25" stroke-width="1"/>
-            <path id="area-path" fill="url(#aGrad)"/>
-            <path id="line-path" fill="none" stroke="url(#lGrad)" stroke-width="1.5" stroke-linejoin="round"/>
-            <g id="chart-dots"></g>
-          </svg>
-          <div class="chart-tooltip" id="chart-tip"></div>
-          <div class="chart-axis-labels" id="chart-axis"></div>
-        </div>
-      </div>
-
-      <div class="card" id="cycle-card" style="display:none">
-        <div class="card-title" id="cycle-card-title">Last triage cycle</div>
-        <span class="cycle-ts" id="cycle-ts"></span>
-        <div class="cycle-stats" id="cycle-stats"></div>
-      </div>
-    </div>
-  </section>
-
+  <div class="env-strip" id="env-strip" aria-label="Open-error counts by environment"></div>
   <div class="divider" aria-hidden="true"></div>
 
   <div class="pivot" aria-label="Error investigation">
@@ -4401,72 +4390,40 @@ function renderAll() {
 // ========================================================================
 // Environment tiles
 // ========================================================================
+// Compact env-health chip row. Replaces the previous large tile grid —
+// "is anything on fire?" is still a useful answer, but at chip-size now
+// that the Pulse feed is the hero. Each chip shows env name + open count
+// and colors by worst-severity. Zero-count envs render muted.
 function renderEnvTiles() {
-  var wrap = document.getElementById('env-tiles');
+  var wrap = document.getElementById('env-strip');
+  if (!wrap) return;
   removeChildren(wrap);
 
   var envs = HEALTH.environments || {};
-  var envNames = Object.keys(envs);
+  var envNames = Object.keys(envs).sort(function(a,b){
+    // local last; others alphabetical
+    if (a === 'local' && b !== 'local') return 1;
+    if (b === 'local' && a !== 'local') return -1;
+    return a.localeCompare(b);
+  });
 
   if (envNames.length === 0) {
-    var empty = el('div','empty-state');
-    var icon = el('div','empty-state-icon');
-    icon.textContent = '\\u25C9';
-    empty.appendChild(icon);
-    empty.appendChild(txt('div','empty-state-msg','No environments found'));
-    wrap.appendChild(empty);
+    wrap.appendChild(txt('span','env-strip-empty','No environments configured'));
     return;
   }
 
-  // T2: is live ingestion armed but not yet producing events? If so,
-  // empty tiles render "Listening for stream messages…" instead of the
-  // default "0 open" green pill, which was ambiguous between "healthy"
-  // and "ingest is broken". Wording mirrors Acquia Cloud's own log-stream
-  // UI (spec §4.12.a).
-  var ingestionArmed = !!(INGESTION && INGESTION.umbrellaAlive);
-  var totalIngestEvents = 0;
-  if (INGESTION && INGESTION.projects) {
-    for (var pname in INGESTION.projects) {
-      if (INGESTION.projects[pname] && INGESTION.projects[pname].eventCount) {
-        totalIngestEvents += INGESTION.projects[pname].eventCount;
-      }
-    }
-  }
-  var listeningNoEvents = ingestionArmed && totalIngestEvents === 0;
-
-  envNames.forEach(function(name, idx) {
+  wrap.appendChild(txt('span','env-strip-label','Open by env'));
+  envNames.forEach(function(name) {
     var env = envs[name];
-    var tile = el('div','env-tile ' + env.status);
-    tile.style.animationDelay = (idx*60)+'ms';
-    tile.style.animation = 'fade-up 0.35s ease both';
-
-    var header = el('div','env-tile-header');
-    header.appendChild(txt('span','env-name', env.label || name));
-    header.appendChild(txt('span','env-status-badge',env.statusLabel));
-    tile.appendChild(header);
-
-    var body = el('div','env-tile-body');
-    var countWrap = el('div','env-count-wrap');
-    countWrap.appendChild(txt('span','env-count',String(env.count)));
-    body.appendChild(countWrap);
-
-    var right = el('div','env-right');
-    var pills = el('div','env-sev-pills');
-    if (env.critCount > 0) pills.appendChild(txt('span','sev-pill c',env.critCount+' crit'));
-    if (env.warnCount > 0) pills.appendChild(txt('span','sev-pill w',env.warnCount+' warn'));
-    if (env.critCount === 0 && env.warnCount === 0) {
-      if (env.count === 0 && listeningNoEvents) {
-        var pill = txt('span','sev-pill listening','Listening for stream messages…');
-        pill.title = 'Umbrella watcher is armed; no new events yet in this dashboard session.';
-        pills.appendChild(pill);
-      } else {
-        pills.appendChild(txt('span','sev-pill i','0 open'));
-      }
+    var chip = el('span','env-strip-chip ' + (env.status || 'ok') + (env.count === 0 ? ' zero' : ''));
+    chip.title = env.statusLabel + ' · ' + env.count + ' open';
+    chip.appendChild(el('span','env-strip-dot'));
+    chip.appendChild(txt('span','env-strip-name', env.label || name));
+    chip.appendChild(txt('span','env-strip-count', String(env.count)));
+    if (env.critCount > 0) {
+      chip.appendChild(txt('span','env-strip-crit', env.critCount + ' crit'));
     }
-    right.appendChild(pills);
-    body.appendChild(right);
-    tile.appendChild(body);
-    wrap.appendChild(tile);
+    wrap.appendChild(chip);
   });
 }
 
@@ -4474,44 +4431,22 @@ function renderEnvTiles() {
 // Cycle stats
 // ========================================================================
 function renderCycleStats() {
-  // Historical /drover:watch cycle summary. When no cycle data exists the
-  // whole card is hidden — we deliberately do NOT fabricate a "live
-  // monitoring" view here, because the only data this card can truthfully
-  // render comes from ~/.claude/drover.state.jsonl (written by the
-  // drover:watch skill). Live streaming status belongs in the Projects
-  // panel, which is driven by config + DDEV truth.
-  var card = document.getElementById('cycle-card');
-  var wrap = document.getElementById('cycle-stats');
-  var tsEl = document.getElementById('cycle-ts');
-  var titleEl = document.getElementById('cycle-card-title');
-  removeChildren(wrap);
-
-  var cycle = HEALTH.lastCycle;
-  if (!cycle) { if (card) card.style.display = 'none'; return; }
-  if (card) card.style.display = '';
-  if (titleEl) titleEl.textContent = 'Last triage cycle';
-  tsEl.textContent = HEALTH.lastCycleTs || '';
-
-  var stats = [
-    { num: cycle.new_errors||0, cls:'new', label:'New errors' },
-    { num: cycle.augmented||0, cls:'aug', label:'Augmented' },
-    { num: cycle.promoted||0, cls:'skip', label:'Promoted' },
-    { num: cycle.cross_env_boosts||0, cls:'boost', label:'Cross-env' },
-  ];
-  stats.forEach(function(c) {
-    var tile = el('div','stat-tile');
-    var row = el('div','stat-row');
-    row.appendChild(txt('span','stat-num '+c.cls, String(c.num)));
-    tile.appendChild(row);
-    tile.appendChild(txt('div','stat-label',c.label));
-    wrap.appendChild(tile);
-  });
+  // Retired in 1.33.0: the "last triage cycle" card was replaced by the
+  // live Pulse feed. Historical cycle data, when present, surfaces as
+  // cycle-complete events in the Pulse stream rather than as a separate
+  // always-visible card. Stubbed here because other render paths still
+  // call it; removing the call sites is post-demo cleanup.
+  return;
 }
 
 // ========================================================================
-// Timeline chart
+// Timeline chart (retired in 1.33.0)
 // ========================================================================
 function renderTimeline() {
+  // Error-volume sparkline retired along with the old "Pulse" section.
+  // Kept as a no-op so every fetchAll() caller stays wired; removing the
+  // call sites is post-demo cleanup.
+  if (!document.querySelector('.chart-svg')) return;
   var axisEl = document.getElementById('chart-axis');
   removeChildren(axisEl);
 
