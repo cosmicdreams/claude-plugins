@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.29.1
+- **Safe-by-default tracking: local on, remote off.** Drover's first-start policy is now explicit: local DDEV envs stream on first launch with `drupal-watchdog` (or `wp-debug` for WordPress); **remote Acquia envs start paused with `"sources": []`** and require an explicit per-env opt-in. Spinning up drover should never begin tailing production before the user says so.
+  - `/drover:setup` schema updated — DDEV template seeds `["drupal-watchdog"]`, Acquia template seeds `[]`, with a new "Default tracking policy" section documenting the principle.
+  - `/api/sources/inventory` no longer pre-checks `drupal-watchdog` on Acquia envs that have no canonical config — the Sources modal opens with every remote source unchecked until the user opts in. DDEV inventory still pre-selects the platform default, which is low-risk (user's own container).
+
 ## 1.29.0
 - **Env chips are now toggles.** Click an env chip in any project tile to flip tracking on or off for that `(project, env)` pair. Paused → click → streams the platform-default source (`drupal-watchdog` for Drupal, `wp-debug` for WordPress). Streaming → click → clears all sources for that env and stops the watcher. The server writes the project's `.claude/drover-config.json` and signals the umbrella to respawn/stop the relevant tailer. Chip ARIA is `role="switch"` with `aria-checked` reflecting truth.
 - **Header LIVE badge is now truthful.** The always-pulsing green "live" label is replaced by a state machine bound to the `/events` EventSource: **connecting** (amber) while the socket is opening, **live** (green) when connected and an event has arrived in the last 120s, **idle** (amber) when connected but silent for >120s, **offline** (red, no pulse) when the connection drops. Tooltip surfaces the last event's name + age so "is monitoring actually working?" is answerable by hovering the badge.

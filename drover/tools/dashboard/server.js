@@ -1690,8 +1690,12 @@ print(json.dumps([{"type": i["type"], "label": i.get("label", i["type"])} for i 
           return jsonResponse(res, 500, { error: 'Acquia API error: ' + msg.split('\n')[0] });
         }
       }
-      // Default subscription state on first use: only drupal-watchdog.
-      const defaults = ['drupal-watchdog'];
+      // Safe default for remote (Acquia) envs: nothing pre-checked on
+      // first use. Drover should never start tailing production without
+      // an explicit opt-in from the user. Local DDEV envs below pre-check
+      // drupal-watchdog because tailing the user's own container is
+      // low-risk and matches the "what am I working on?" intent.
+      const defaults = [];
       const checkedSet = new Set(configuredSources || defaults);
       const sources = (types || []).map(t => ({
         type: t.type,
