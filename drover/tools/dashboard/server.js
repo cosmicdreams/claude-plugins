@@ -105,6 +105,31 @@ const DDEV_POLL_INTERVAL = 15000; // 15 seconds
 let ddevCache = { instances: [], ts: 0 };
 const ddevActions = new Map(); // project -> 'starting' | 'stopping'
 
+// T6: read the set of DDEV project names registered with drover so the UI can
+// render "watching" vs "not monitored" badges on each tile. Re-read on every
+// call so a registration via /api/projects/add surfaces without server
+// restart; projects.json is tiny so the cost is negligible.
+function registeredDdevNames() {
+  const file = process.env.DROVER_PROJECTS_FILE
+    || path.join(process.env.CLAUDE_PLUGIN_DATA
+      || `${process.env.HOME}/.claude/plugins/data/drover-fallback`,
+      'projects.json');
+  try {
+    if (!fs.existsSync(file)) return new Set();
+    const data = JSON.parse(fs.readFileSync(file, 'utf8'));
+    if (!Array.isArray(data)) return new Set();
+    const out = new Set();
+    for (const p of data) {
+      if (!p) continue;
+      if (p.ddev_project) out.add(p.ddev_project);
+      if (p.name) out.add(p.name);
+    }
+    return out;
+  } catch {
+    return new Set();
+  }
+}
+
 // Build the set of DDEV project names relevant to this drover instance.
 // In virtual-central mode we show ALL running ddev instances — the user is
 // watching every project so filtering by registered names would hide
@@ -131,7 +156,7 @@ function getRelevantDdevProjects() {
 function fetchDdevInstances() {
   const now = Date.now();
   if (ddevCache.instances.length && (now - ddevCache.ts) < DDEV_POLL_INTERVAL) {
-    return applyActionStates(ddevCache.instances);
+    return applyActionStates(applyRegistrationStates(ddevCache.instances));
   }
   try {
     const output = execFileSync('ddev', ['list', '-A', '--json-output'], {
@@ -156,10 +181,10 @@ function fetchDdevInstances() {
     });
 
     ddevCache = { instances, ts: now };
-    return applyActionStates(instances);
+    return applyActionStates(applyRegistrationStates(instances));
   } catch (err) {
     // If ddev is not installed or fails, return empty
-    if (ddevCache.instances.length) return applyActionStates(ddevCache.instances);
+    if (ddevCache.instances.length) return applyActionStates(applyRegistrationStates(ddevCache.instances));
     return [];
   }
 }
@@ -179,6 +204,15 @@ function applyActionStates(instances) {
     if (action) return { ...i, status: action };
     return i;
   });
+}
+
+// T6: stamp each instance with a `registered` flag so the DDEV panel can
+// visually distinguish drover-watched projects from unregistered-but-running
+// ones. Reads projects.json on each call (small file, negligible cost) so a
+// fresh add surfaces on the next broadcast without a server restart.
+function applyRegistrationStates(instances) {
+  const registered = registeredDdevNames();
+  return instances.map(i => ({ ...i, registered: registered.has(i.name) }));
 }
 
 // Log buffers for DDEV operations: Map<project, {lines:[], status:'running'|'done'|'error', startedAt}>
@@ -1024,6 +1058,34 @@ async function handleAddProject(req, res) {
 
   const result = projectsModule.addProject(targetPath);
   const code = result.status === 'error' ? 400 : 200;
+
+  // T6: on a successful add, push the new registration into the live
+  // stream so the user sees "watching" without reloading. Steps:
+  //   1. Bust the DDEV cache and re-broadcast ddev-status so the panel
+  //      flips the tile's badge from "not monitored" to "watching".
+  //   2. Re-arm the umbrella watcher — projects.json changed, and the
+  //      umbrella evaluates DDEV reachability + the projects list once
+  //      at spawn time, so a running umbrella will not pick up the new
+  //      project until respawned. Guarded by DROVER_DISABLE_AUTOINGEST
+  //      for tests.
+  if (result && result.status === 'added') {
+    try {
+      ddevCache.ts = 0;
+      broadcast('ddev-status', fetchDdevInstances());
+    } catch (e) {
+      console.warn('[add-project] ddev-status broadcast failed:', e.message);
+    }
+    if (!process.env.DROVER_DISABLE_AUTOINGEST) {
+      try {
+        stopAutoIngestion();
+        startAutoIngestion();
+        console.log(`[add-project] umbrella re-armed after registering ${result.name || targetPath}`);
+      } catch (e) {
+        console.warn('[add-project] umbrella re-arm failed:', e.message);
+      }
+    }
+  }
+
   return jsonResponse(res, code, result);
 }
 
@@ -2696,7 +2758,37 @@ function buildHtml() {
     background:var(--crit-dim); color:var(--crit); border-color:rgba(255,69,58,0.35);
     animation:fade-up 0.15s ease both;
   }
+  /* T6: primary action for unregistered running DDEV projects. Uses the
+     brand-blue palette so it visually reads as "something new to do" rather
+     than the familiar green (Start) / red (Stop) of existing actions. */
+  .ddev-action.add-btn {
+    background:rgba(0,81,255,0.14); color:var(--info2);
+    border-color:rgba(0,81,255,0.45); border-width:1.5px;
+  }
+  .ddev-action.add-btn:hover { background:rgba(0,81,255,0.24); border-color:rgba(0,81,255,0.7); }
   .ddev-action:disabled { opacity:0.4; pointer-events:none; }
+
+  /* T6: tiny badge on the tile that says "watching" (drover is monitoring
+     this project) or "not monitored" (unregistered-but-running). Anchored
+     top-right so it doesn't collide with the left accent rail. */
+  .ddev-reg-badge {
+    position:absolute; top:6px; right:8px;
+    display:inline-flex; align-items:center; gap:2px;
+    font-family:var(--mono); font-size:8px; font-weight:600;
+    letter-spacing:0.08em; text-transform:uppercase;
+    padding:2px 5px; border-radius:9px; border:1px solid;
+    line-height:1;
+  }
+  .ddev-reg-badge.watching {
+    background:rgba(50,215,75,0.15); color:var(--ok);
+    border-color:rgba(50,215,75,0.35);
+  }
+  .ddev-reg-badge.unregistered {
+    background:var(--surface2); color:var(--muted2);
+    border-color:var(--muted3);
+  }
+  .ddev-reg-icon { font-size:9px; line-height:1; }
+  .ddev-tile.unregistered { border-style:dashed; }
   .ddev-tile.starting .ddev-action { border-color:var(--info); color:var(--info2); background:var(--info-dim); opacity:0.8; }
   .ddev-tile.stopping .ddev-action { border-color:var(--warn); color:var(--warn); background:var(--warn-dim); opacity:0.8; }
 
@@ -4585,15 +4677,46 @@ function renderDdevPanel() {
   // Tiles
   removeChildren(tiles);
   DDEV_INSTANCES.forEach(function(inst, idx) {
-    var tile = el('div','ddev-tile '+inst.status);
+    // T6: default registered to true when the server omits the flag (older
+    // cached JSON, test harness). Only false triggers the unregistered UX.
+    var registered = inst.registered !== false;
+    var tile = el('div','ddev-tile '+inst.status+(registered ? '' : ' unregistered'));
     tile.style.animationDelay = (idx*50)+'ms';
     tile.style.animation = 'fade-up 0.3s ease both';
     tile.setAttribute('role','status');
-    tile.setAttribute('aria-label', inst.name+' DDEV instance: '+inst.status);
+    tile.setAttribute('aria-label',
+      inst.name+' DDEV instance: '+inst.status
+      +'; '+(registered ? 'monitored by drover' : 'not monitored by drover'));
 
-    // Top: action button + status
+    // T6: registration badge. Sits above the action row so anyone scanning
+    // the panel can tell at a glance which projects drover is tailing vs
+    // which are just running DDEV containers.
+    var badge = el('span','ddev-reg-badge '+(registered ? 'watching' : 'unregistered'));
+    var badgeIcon = el('span','ddev-reg-icon');
+    badgeIcon.textContent = registered ? '✓' : '○';
+    badge.appendChild(badgeIcon);
+    var badgeText = el('span','');
+    badgeText.textContent = registered ? ' watching' : ' not monitored';
+    badge.appendChild(badgeText);
+    badge.title = registered
+      ? 'drover is tailing this project’s logs'
+      : 'drover is not watching this project. Click + Add to start.';
+    tile.appendChild(badge);
+
+    // Top: action button + status. For unregistered running projects the
+    // primary button is "+ Add" (registers + triggers umbrella re-arm)
+    // instead of "Stop". Demo beat 6: "click Add, start listening."
     var body = el('div','ddev-tile-body');
-    if (inst.status === 'running') {
+    if (inst.status === 'running' && !registered) {
+      var addBtn = el('button','ddev-action add-btn');
+      addBtn.textContent = '+ Add';
+      addBtn.setAttribute('aria-label','Register '+inst.name+' with drover and start watching its logs');
+      addBtn.addEventListener('click', (function(approot, name){ return function(ev){
+        ev.stopPropagation();
+        ddevAddInstance(approot, name, this);
+      };})(inst.approot, inst.name));
+      body.appendChild(addBtn);
+    } else if (inst.status === 'running') {
       var stopBtn = el('button','ddev-action stop-btn');
       stopBtn.textContent = 'Stop';
       stopBtn.setAttribute('aria-label','Stop '+inst.name+' DDEV instance');
@@ -4663,6 +4786,48 @@ function ddevStartInstance(name) {
     if (data.ok) showToast('Starting '+name+'\u2026');
     else showToast('Error: '+(data.error||'unknown'));
   }).catch(function(){ showToast('Network error'); });
+}
+
+// T6: inline registration from the DDEV panel. POSTs to /api/projects/add
+// with the instance's approot (the same path the Add Project modal would
+// hand over) and expects the server to:
+//   - write projects.json,
+//   - bust the ddev cache and broadcast a fresh ddev-status (so the tile
+//     flips from "not monitored" to "watching" without a reload),
+//   - re-arm the umbrella so the new project's watcher spawns.
+// Success toast text matches the T6 contract: "Added <name>; watching logs."
+function ddevAddInstance(approot, name, btn) {
+  if (!approot) { showToast('Cannot add '+name+': approot unknown'); return; }
+  if (btn) { btn.disabled = true; btn.textContent = 'Adding…'; }
+  fetch('/api/projects/add', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({ path: approot })
+  }).then(function(r){ return r.json().then(function(b){ return { b:b, status:r.status }; }); })
+    .then(function(x){
+      var b = x.b || {};
+      if (b.status === 'added') {
+        showToast('Added '+(b.name||name)+'; watching logs.');
+        // Force an immediate ddev-status refetch. The server also broadcasts
+        // via SSE, but refetching here gives the user a deterministic flip
+        // even if the SSE push raced the POST response.
+        fetchDdevStatus();
+        if (typeof fetchAll === 'function') fetchAll();
+        return;
+      }
+      if (b.status === 'exists') {
+        showToast((b.name||name)+' already registered');
+        fetchDdevStatus();
+        return;
+      }
+      if (b.status === 'canceled') { showToast('Add canceled'); }
+      else { showToast('Add failed: '+(b.message||'unknown')); }
+      if (btn) { btn.disabled = false; btn.textContent = '+ Add'; }
+    })
+    .catch(function(e){
+      showToast('Add failed: '+e.message);
+      if (btn) { btn.disabled = false; btn.textContent = '+ Add'; }
+    });
 }
 
 function ddevConfirmStop(name, btn) {

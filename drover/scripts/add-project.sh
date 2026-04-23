@@ -46,6 +46,21 @@ DDEV_NAME="$(awk -F': *' '/^name: */ {print $2; exit}' "$DDEV_CONFIG" | tr -d '"
 DDEV_TYPE="$(awk -F': *' '/^type: */ {print $2; exit}' "$DDEV_CONFIG" | tr -d '"' | tr -d "'")"
 DDEV_DOCROOT="$(awk -F': *' '/^docroot: */ {print $2; exit}' "$DDEV_CONFIG" | tr -d '"' | tr -d "'")"
 
+# T6: worktree-style DDEV setups override `name:` in config.local.yaml
+# (e.g. /Users/x/Sites/AHRI/worktrees/main has config.yaml with no name +
+# config.local.yaml `name: AHRI-main`). DDEV at runtime applies the local
+# override, so the running instance name is "AHRI-main" — if we only read
+# config.yaml the registered ddev_project won't match the DDEV instance
+# and the dashboard's DDEV panel can't flip the tile to "watching".
+# Prefer config.local.yaml's name when it is present.
+DDEV_LOCAL_CONFIG="$ABS_PATH/.ddev/config.local.yaml"
+if [ -f "$DDEV_LOCAL_CONFIG" ]; then
+  LOCAL_NAME="$(awk -F': *' '/^name: */ {print $2; exit}' "$DDEV_LOCAL_CONFIG" | tr -d '"' | tr -d "'")"
+  if [ -n "$LOCAL_NAME" ]; then
+    DDEV_NAME="$LOCAL_NAME"
+  fi
+fi
+
 if [ -z "$DDEV_NAME" ]; then
   echo "{\"status\":\"error\",\"path\":\"$ABS_PATH\",\"message\":\"config.yaml missing name\"}"
   exit 1

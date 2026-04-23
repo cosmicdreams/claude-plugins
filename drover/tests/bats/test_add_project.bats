@@ -115,6 +115,28 @@ EOF
   [[ "$output" == *"missing name"* ]]
 }
 
+# T6: worktree-style DDEV setups put the instance name in config.local.yaml
+# rather than config.yaml. The registered ddev_project must match the
+# instance name that `ddev list -A` will report, otherwise the DDEV panel
+# can't flip the tile from "not monitored" to "watching".
+@test "config.local.yaml name overrides config.yaml name" {
+  mkdir -p "$TMP/wtree/.ddev"
+  cat > "$TMP/wtree/.ddev/config.yaml" <<EOF
+type: drupal11
+docroot: docroot
+EOF
+  cat > "$TMP/wtree/.ddev/config.local.yaml" <<EOF
+name: wtree-main
+EOF
+  run "$SCRIPT" "$TMP/wtree"
+  [ "$status" -eq 0 ]
+  python3 -c "
+import json, os
+d = json.load(open(os.environ['DROVER_PROJECTS_FILE']))
+assert d[0]['ddev_project'] == 'wtree-main', f'expected wtree-main, got {d[0][\"ddev_project\"]}'
+"
+}
+
 @test "two different projects both register" {
   make_project "$TMP/a" "a-main"
   make_project "$TMP/b" "b-main"
