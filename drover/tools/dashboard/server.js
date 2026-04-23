@@ -3265,9 +3265,9 @@ function buildHtml() {
   .proj-tiles { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
   .proj-tile {
     background:var(--surface2); border:1px solid var(--border);
-    border-radius:8px; padding:8px 10px;
-    min-width:240px; flex:1 1 240px; max-width:320px;
-    display:flex; flex-direction:row; align-items:flex-start; gap:12px;
+    border-radius:8px; padding:7px 9px;
+    min-width:170px; flex:0 1 200px; max-width:230px;
+    display:flex; flex-direction:row; align-items:flex-start; gap:10px;
     position:relative;
     cursor:pointer;
     transition: border-color 0.1s ease, background 0.1s ease;
@@ -6150,18 +6150,28 @@ function renderDdevPanel() {
     projTiles.appendChild(tile);
 
     // Popover drawer (rendered as a sibling so it can escape the panel's
-    // stacking context). Lazily populated on open to avoid rebuilding
-    // every env refresh.
-    var existingPop = document.getElementById(popId);
-    if (existingPop) existingPop.remove();
-    var pop = el('div','proj-drawer');
-    pop.id = popId;
-    pop.setAttribute('popover','auto');
+    // stacking context). We must NOT remove an open popover during tile
+    // re-render — that forcibly closes the drawer the user is working in.
+    // Reuse the existing element when present; only (re)bind the current
+    // proj snapshot so the lazy open-handler and any live refresh paths
+    // pick up fresh data. If the drawer is already open we also re-render
+    // its body in place so toggles + proof-of-life stay current.
+    var pop = document.getElementById(popId);
+    var isNew = !pop;
+    if (isNew) {
+      pop = el('div','proj-drawer');
+      pop.id = popId;
+      pop.setAttribute('popover','auto');
+      pop.addEventListener('beforetoggle', function(ev){
+        if (ev.newState === 'open') {
+          var p = PROJECTS_OVERVIEW.projects.find(function(x){ return x.name === pop.dataset.projectName; });
+          if (p) renderProjectDrawer(pop, p);
+        }
+      });
+      document.body.appendChild(pop);
+    }
     pop.dataset.projectName = proj.name;
-    pop.addEventListener('beforetoggle', function(ev){
-      if (ev.newState === 'open') renderProjectDrawer(pop, proj);
-    });
-    document.body.appendChild(pop);
+    if (pop.matches(':popover-open')) renderProjectDrawer(pop, proj);
   });
 
   // Unregistered running DDEV instances — keep the "+ Add" affordance
@@ -6211,7 +6221,17 @@ function toggleEnvTracking(alias, enable, chipEl) {
   }).then(function(r){ return r.json(); }).then(function(data){
     if (data && data.alias) {
       showToast((enable ? 'Tracking on · ' : 'Tracking off · ') + alias);
-      fetchDdevStatus();
+      // fetchDdevStatus re-renders the tile panel. If a drawer is open,
+      // re-render it in-place from the freshly-fetched overview so the
+      // drawer's toggle and per-env state update without a close/reopen.
+      fetchDdevStatus().then(function(){
+        var openDrawer = document.querySelector('.proj-drawer[popover]:popover-open');
+        if (openDrawer && openDrawer.dataset.projectName) {
+          var name = openDrawer.dataset.projectName;
+          var fresh = (PROJECTS_OVERVIEW.projects || []).find(function(p){ return p.name === name; });
+          if (fresh) renderProjectDrawer(openDrawer, fresh);
+        }
+      });
     } else {
       showToast('Toggle failed: ' + ((data && data.error) || 'unknown'));
     }
@@ -6261,23 +6281,43 @@ function renderProjectDrawer(root, proj) {
     envSec.appendChild(txt('div','proj-empty-cfg','No environments configured for this project'));
   } else {
     proj.environments.forEach(function(env) {
-      var block = el('div','proj-env-block');
+      var streaming = (env.enabled_count || 0) > 0;
+      var block = el('div','proj-env-block'+(streaming?' streaming':' paused'));
       var bh = el('div','proj-env-block-head');
       var bhLeft = el('div','proj-env-block-head-left');
-      var envDot = el('span','proj-env-dot');
-      envDot.style.background = (env.enabled_count > 0) ? 'var(--ok)' : 'var(--muted3)';
-      envDot.style.width = '7px'; envDot.style.height = '7px';
-      envDot.style.borderRadius = '50%';
-      bhLeft.appendChild(envDot);
+
+      // Env toggle in the drawer header — mirrors the tile's toggle so the
+      // drawer is a self-contained admin surface. No need to close the
+      // drawer to pause/resume an env.
+      var toggle = el('button','proj-env-toggle');
+      toggle.type = 'button';
+      toggle.setAttribute('role','switch');
+      toggle.setAttribute('aria-checked', streaming ? 'true' : 'false');
+      toggle.setAttribute('aria-label',
+        (streaming ? 'Tracking on for ' : 'Tracking off for ')
+        + (env.name || env.alias) + '. Click to ' + (streaming ? 'pause' : 'resume') + '.');
+      toggle.title = toggle.getAttribute('aria-label');
+      toggle.appendChild(el('span','proj-env-toggle-thumb'));
+      // We wrap the toggle in a proj-env-row so the existing .streaming /
+      // .paused parent rules drive the visual state without new CSS.
+      var toggleWrap = el('span','proj-env-row '+(streaming?'streaming':'paused'));
+      toggleWrap.style.padding = '0';
+      toggleWrap.appendChild(toggle);
+      toggle.addEventListener('click', (function(alias, turnOn, container){ return function(ev){
+        ev.preventDefault(); ev.stopPropagation();
+        toggleEnvTracking(alias, turnOn, container);
+      };})(env.alias, !streaming, toggleWrap));
+      bhLeft.appendChild(toggleWrap);
+
       bhLeft.appendChild(txt('span','proj-env-block-name', env.name || env.alias));
       bhLeft.appendChild(txt('span','proj-env-block-method', env.listener_method || ''));
       bh.appendChild(bhLeft);
-      var polLabel = env.enabled_count > 0
+      var polLabel = streaming
         ? (env.last_event_ts
             ? ('last event ' + formatAgeShort(env.last_event_ts))
             : 'armed · no events yet')
         : 'paused';
-      var pol = el('span','proj-env-block-pol' + (env.enabled_count > 0 && !env.last_event_ts ? ' silent' : ''));
+      var pol = el('span','proj-env-block-pol' + (streaming && !env.last_event_ts ? ' silent' : ''));
       pol.textContent = polLabel;
       bh.appendChild(pol);
       block.appendChild(bh);
