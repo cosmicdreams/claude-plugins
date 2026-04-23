@@ -2302,7 +2302,13 @@ function buildHtml() {
     font-family: var(--display); font-weight: 800; font-size: 17px;
     letter-spacing: -0.01em;
   }
-  .wordmark em { font-style: normal; color: var(--crit); }
+  .wordmark-v {
+    display: inline-block;
+    height: 0.82em;
+    width: auto;
+    vertical-align: -0.06em;
+    margin: 0 0.04em;
+  }
   .version-badge {
     font-family: var(--mono); font-size: 10px; font-weight: 500;
     color: var(--muted2); letter-spacing: 0.03em;
@@ -3322,7 +3328,7 @@ function buildHtml() {
 
   <header class="topbar">
     <div class="topbar-left">
-      <span class="wordmark">dro<em>v</em>er</span>
+      <span class="wordmark">dro<svg class="wordmark-v" viewBox="0 0 46.22 34" aria-hidden="true" focusable="false"><path d="M0 0H15.2L32.06 34H16.85Z" fill="#FF453A"/><path d="M30.75 0L38.49 15.77L23.01 0Z" fill="#10E992"/><path d="M38.49 15.77L30.75 0L46.22 0Z" fill="#0051FF"/></svg>er</span>
       ${PLUGIN_VERSION ? `<span class="version-badge">v${PLUGIN_VERSION}</span>` : ''}
       <span class="live-badge"><span class="live-dot"></span>live</span>
     </div>
@@ -3400,8 +3406,8 @@ function buildHtml() {
       </div>
 
       <div class="card">
-        <div class="card-title">Last triage cycle</div>
-        <span class="cycle-ts" id="cycle-ts">No triage data yet</span>
+        <div class="card-title" id="cycle-card-title">Last triage cycle</div>
+        <span class="cycle-ts" id="cycle-ts">Waiting for live activity&#8230;</span>
         <div class="cycle-stats" id="cycle-stats"></div>
       </div>
     </div>
@@ -3723,28 +3729,106 @@ function renderEnvTiles() {
 function renderCycleStats() {
   var wrap = document.getElementById('cycle-stats');
   var tsEl = document.getElementById('cycle-ts');
+  var titleEl = document.getElementById('cycle-card-title');
   removeChildren(wrap);
 
   var cycle = HEALTH.lastCycle;
-  if (!cycle) {
-    tsEl.textContent = 'No triage data yet';
-    wrap.appendChild(txt('div','empty-state-msg','Run /drover:watch to start'));
+  if (cycle) {
+    if (titleEl) titleEl.textContent = 'Last triage cycle';
+    tsEl.textContent = HEALTH.lastCycleTs || '';
+
+    var stats = [
+      { num: cycle.new_errors||0, cls:'new', label:'New errors' },
+      { num: cycle.augmented||0, cls:'aug', label:'Augmented' },
+      { num: cycle.promoted||0, cls:'skip', label:'Promoted' },
+      { num: cycle.cross_env_boosts||0, cls:'boost', label:'Cross-env' },
+    ];
+    stats.forEach(function(c) {
+      var tile = el('div','stat-tile');
+      var row = el('div','stat-row');
+      row.appendChild(txt('span','stat-num '+c.cls, String(c.num)));
+      tile.appendChild(row);
+      tile.appendChild(txt('div','stat-label',c.label));
+      wrap.appendChild(tile);
+    });
     return;
   }
 
-  tsEl.textContent = HEALTH.lastCycleTs || '';
+  // No manual /drover:watch cycle on record yet — surface live umbrella
+  // ingestion stats so the card reflects what's actually happening in the UI
+  // instead of pointing the user at a slash command.
+  if (titleEl) titleEl.textContent = 'Live monitoring';
 
-  var stats = [
-    { num: cycle.new_errors||0, cls:'new', label:'New errors' },
-    { num: cycle.augmented||0, cls:'aug', label:'Augmented' },
-    { num: cycle.promoted||0, cls:'skip', label:'Promoted' },
-    { num: cycle.cross_env_boosts||0, cls:'boost', label:'Cross-env' },
+  var ingestion = (typeof INGESTION === 'object' && INGESTION) ? INGESTION : {};
+  var armed = !!ingestion.umbrellaAlive;
+  var projects = ingestion.projects || {};
+  var projectKeys = Object.keys(projects);
+
+  var totalEvents = 0;
+  var armedProjects = 0;
+  var sourceCount = 0;
+  var lastEventTs = '';
+  projectKeys.forEach(function(k){
+    var p = projects[k] || {};
+    totalEvents += (p.eventCount || 0);
+    if (p.armed) armedProjects++;
+    var srcs = p.sources || {};
+    Object.keys(srcs).forEach(function(sk){ if (srcs[sk]) sourceCount++; });
+    if (p.lastEventTs && (!lastEventTs || p.lastEventTs > lastEventTs)) {
+      lastEventTs = p.lastEventTs;
+    }
+  });
+
+  function fmtHm(ts) {
+    if (!ts) return '—';
+    var d = new Date(ts);
+    if (isNaN(d.getTime())) return ts.slice(11,16) || '—';
+    var h = String(d.getHours()).padStart(2,'0');
+    var m = String(d.getMinutes()).padStart(2,'0');
+    return h+':'+m;
+  }
+  function fmtRel(ts) {
+    if (!ts) return '';
+    var d = new Date(ts); if (isNaN(d.getTime())) return '';
+    var s = Math.max(0, Math.floor((Date.now() - d.getTime())/1000));
+    if (s < 60) return s+'s ago';
+    if (s < 3600) return Math.floor(s/60)+'m ago';
+    if (s < 86400) return Math.floor(s/3600)+'h ago';
+    return Math.floor(s/86400)+'d ago';
+  }
+
+  if (armed) {
+    var armedAt = ingestion.armedAt ? fmtHm(ingestion.armedAt) : '';
+    tsEl.textContent = armedAt
+      ? ('Umbrella watcher armed at ' + armedAt)
+      : 'Umbrella watcher armed';
+  } else if (projectKeys.length === 0) {
+    tsEl.textContent = 'No projects registered — use + Add Project to begin';
+  } else {
+    tsEl.textContent = 'Umbrella watcher idle';
+  }
+
+  var tiles = [
+    {
+      num: armed ? 'LIVE' : 'IDLE',
+      cls:  armed ? 'aug' : 'skip',
+      label: armed ? 'Status' : 'Status (no umbrella)'
+    },
+    { num: totalEvents, cls:'new',  label:'Events streamed' },
+    { num: armedProjects + '/' + projectKeys.length, cls:'boost', label:'Projects watched' },
+    {
+      num: lastEventTs ? fmtHm(lastEventTs) : '—',
+      cls:'skip',
+      label: lastEventTs ? ('Last event · ' + fmtRel(lastEventTs)) : 'Last event'
+    },
   ];
 
-  stats.forEach(function(c) {
+  tiles.forEach(function(c) {
     var tile = el('div','stat-tile');
     var row = el('div','stat-row');
-    row.appendChild(txt('span','stat-num '+c.cls, String(c.num)));
+    var numEl = txt('span','stat-num '+c.cls, String(c.num));
+    if (typeof c.num === 'string' && c.num.length > 4) numEl.style.fontSize = '14px';
+    row.appendChild(numEl);
     tile.appendChild(row);
     tile.appendChild(txt('div','stat-label',c.label));
     wrap.appendChild(tile);

@@ -1,5 +1,9 @@
 # drover Changelog
 
+## 1.27.0
+- **Wordmark V matches the favicon.** The inline `<em>v</em>` in the `drover` wordmark is replaced by the same three-color split-palette V used in the tab favicon (drover-red + Velir green/blue cap), so the header and favicon read as one brand mark.
+- **"Last triage cycle" card surfaces live monitoring when no manual cycle has run.** Previously the card's empty state said *"Run /drover:watch to start"* — a slash command the user can't trigger from the UI. The card now retitles to **Live monitoring** when `HEALTH.lastCycle` is empty and renders umbrella watcher status from `/api/ingestion/status`: LIVE/IDLE badge, total events streamed, armed-vs-registered project count, and last-event timestamp with a relative age. Historical cycle data is still shown verbatim when present.
+
 ## 1.26.0
 - **Top-bar button renamed Backfill → Sources.** The former Backfill modal is now a two-tab Sources panel, matching Acquia Cloud's own log-stream UI (Stream / Download). Internal URL paths keep the `backfill` name for stability (`/api/projects/backfill`, `/api/backfill/progress`); only user-facing strings change (T3).
 - **Stream tab** — live subscription. Flat checkbox list of detected log sources per env, sourced from `AcquiaClient.list_log_types()` (Acquia) or project-platform defaults (DDEV). On first use only `drupal-watchdog` is pre-checked. Toggling writes `environments[].sources` in `.claude/drover-config.json` and signals the dashboard-owned umbrella to restart just that env's watcher with a fresh `DROVER_LOG_TYPES`. No full dashboard or umbrella restart. Per-source "N msgs / N connected" counter + "Listening for stream messages…" empty state.
