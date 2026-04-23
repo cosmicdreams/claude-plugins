@@ -710,6 +710,12 @@ const INGEST_STATE_DIR = path.join(
     || path.join(process.env.HOME || '/tmp', '.claude/plugins/data/drover-fallback'),
   'dashboard-ingest-state'
 );
+// T3: pinned umbrella track dir so the dashboard can locate per-watcher
+// pidfiles and drop per-key DROVER_LOG_TYPES override files for the
+// Stream-tab re-subscribe path. Cleared + recreated on each dashboard
+// startup by startAutoIngestion().
+const UMBRELLA_TRACK_DIR = path.join(INGEST_STATE_DIR, 'umbrella-track');
+const UMBRELLA_SOURCES_DIR = path.join(UMBRELLA_TRACK_DIR, 'sources');
 
 let umbrellaChild = null;
 // Map<project-name, { armed, firstEventTs, eventCount, sources }>
@@ -728,6 +734,7 @@ function buildIngestionIndex() {
     const dbPath = projectsModule.findBeadsDb(p.path);
     if (!dbPath) continue;
     const projName = p.name || p.ddev_project || path.basename(p.path);
+    const configPath = findDroverConfigPath(p.path);
     ingestionStatus.set(projName, {
       project: projName,
       path: p.path,
@@ -742,6 +749,7 @@ function buildIngestionIndex() {
       ingestionKeyIndex.set(`ddev:${ddevName}`, {
         project: projName, source: 'ddev', dbPath,
         envLabel: ddevName, alias: ddevName, trustLevel: 'low',
+        projectPath: p.path, configPath, kind: 'ddev',
       });
     }
     const parentUuid = (p.acquia && p.acquia.app_uuid) || '';
@@ -753,10 +761,31 @@ function buildIngestionIndex() {
         ingestionKeyIndex.set(`acquia:${envName}.${appUuid}`, {
           project: projName, source: `acquia:${envName}`, dbPath,
           envLabel: envName, alias, trustLevel: e.trust_level || 'medium',
+          projectPath: p.path, configPath, kind: 'acquia',
+          appUuid, envName,
         });
       }
     }
   }
+}
+
+// T3: locate .claude/drover-config.json by walking up from a project path.
+// Mirrors the lookup in resolveAliasToAcquia() so Stream toggles write to
+// the same file /drover:setup seeded.
+function findDroverConfigPath(projectPath) {
+  if (!projectPath) return '';
+  let dir = projectPath;
+  for (let i = 0; i < 5 && dir && dir !== '/'; i++) {
+    const p = path.join(dir, '.claude', 'drover-config.json');
+    try { if (fs.existsSync(p)) return p; } catch {}
+    dir = path.dirname(dir);
+  }
+  return '';
+}
+
+function hashUmbrellaKey(key) {
+  const crypto = require('crypto');
+  return crypto.createHash('sha1').update(key).digest('hex').slice(0, 12);
 }
 
 function markEvent(key) {
@@ -894,10 +923,15 @@ function startAutoIngestion() {
     console.log(`[ingest] note: ${external.length} external umbrella watcher(s) running (pids=${external.join(',')}); spawning dashboard-owned child for live UI events. bd fingerprint dedup prevents duplicate cards.`);
   }
 
+  // T3: pin the umbrella's track dir so the dashboard can read pidfiles
+  // and write per-key source overrides. Freshly created each launch.
+  try { fs.mkdirSync(UMBRELLA_SOURCES_DIR, { recursive: true }); } catch {}
+
   const env = Object.assign({}, process.env, {
     DROVER_STATE_DIR: INGEST_STATE_DIR,
     DROVER_UMBRELLA_LOG: path.join(process.env.HOME || '/tmp', '.claude', 'drover.umbrella.dashboard.log'),
     DROVER_UMBRELLA_POLL: process.env.DROVER_UMBRELLA_POLL || '15',
+    DROVER_UMBRELLA_TRACK_DIR: UMBRELLA_TRACK_DIR,
     DROVER_NOTIFY_DISABLE: '1',
   });
 
@@ -1325,6 +1359,369 @@ async function handleLogsStatus(req, res, url) {
       pollError: e.message,
     });
   }
+}
+
+// ---------------------------------------------------------------------------
+// T3: Sources panel — Stream tab subscriptions + inventory endpoints.
+//
+// Two intentions, one source list:
+//   - Stream (live listen): per-env log-type subscribe via umbrella child
+//     restart. Config lives in .claude/drover-config.json
+//     `environments[].sources` as a canonical type array (Acquia log-type
+//     names: drupal-watchdog, apache-error, php-error, fpm-error, plus the
+//     traffic types). DDEV envs reuse the same names where equivalent.
+//   - Seed history (one-shot): reuses A11's request/ready flow, already
+//     served by /api/backfill/log-types + /api/logs/request + /api/projects/backfill.
+//
+// Source inventory per transport:
+//   - Acquia: list_log_types REST (existing /api/backfill/log-types).
+//     Filter to types actually exposed by the env (we render every type
+//     that REST returns; flags.available is treated as "is there a prebuilt
+//     archive?" not "does this env emit this type?" — existence = inventory).
+//   - DDEV: filesystem detection via `ddev exec ...`. Cheap: a single
+//     `ls` inside the container. Cached per ddev_project for the session.
+// ---------------------------------------------------------------------------
+
+const CANONICAL_ACQUIA_SOURCES = [
+  { type: 'drupal-watchdog',  label: 'drupal-watchdog'  },
+  { type: 'apache-error',     label: 'apache-error'     },
+  { type: 'php-error',        label: 'php-error'        },
+  { type: 'fpm-error',        label: 'fpm-error'        },
+  { type: 'apache-request',   label: 'apache-request'   },
+  { type: 'drupal-request',   label: 'drupal-request'   },
+  { type: 'fpm-access',       label: 'fpm-access'       },
+  { type: 'bal-request',      label: 'bal-request'      },
+  { type: 'varnish-request',  label: 'varnish-request'  },
+];
+
+// DDEV source inventory by platform. Full container probes are too
+// expensive per-click (ddev exec resolves via cwd, not a project flag),
+// so we derive the list from the project's declared platform — Drupal
+// ddev envs expose drupal-watchdog + web container error logs; WP envs
+// expose wp-debug + web container error logs. Types the container can't
+// actually emit are pruned by ddev-watch / wp-watch themselves when they
+// tail; inventory only gates what's offered in the UI.
+function detectDdevSources(ddevProject) {
+  // Look up the project to learn its platform.
+  const projects = projectsModule.listProjects() || [];
+  const proj = projects.find(p => (p.ddev_project || p.name) === ddevProject);
+  const platform = (proj && proj.platform || '').toLowerCase();
+  if (platform === 'wordpress') {
+    return [
+      { type: 'wp-debug',     label: 'wp-debug' },
+      { type: 'apache-error', label: 'apache-error' },
+      { type: 'php-error',    label: 'php-error' },
+    ];
+  }
+  // Default: Drupal.
+  return [
+    { type: 'drupal-watchdog', label: 'drupal-watchdog' },
+    { type: 'apache-error',    label: 'apache-error' },
+    { type: 'php-error',       label: 'php-error' },
+  ];
+}
+
+function readDroverConfig(configPath) {
+  if (!configPath || !fs.existsSync(configPath)) return null;
+  try { return JSON.parse(fs.readFileSync(configPath, 'utf8')); } catch { return null; }
+}
+
+function writeDroverConfig(configPath, cfg) {
+  fs.writeFileSync(configPath, JSON.stringify(cfg, null, 2) + '\n');
+}
+
+// Map drover-config env -> alias used by the dashboard. For Acquia, the
+// alias is `<project>.<env_slug>` (matches `/api/projects` shape); for
+// DDEV the alias is the ddev_project name.
+function aliasForConfigEnv(projectName, cfgEnv) {
+  if (!cfgEnv) return '';
+  if (cfgEnv.type === 'ddev') return cfgEnv.ddev_project || cfgEnv.name || '';
+  if (cfgEnv.type === 'acquia') {
+    const slug = cfgEnv.env_slug || cfgEnv.name || '';
+    return projectName && slug ? `${projectName}.${slug}` : slug;
+  }
+  return cfgEnv.name || '';
+}
+
+function findConfigEnvByAlias(projects, alias) {
+  for (const p of projects) {
+    const configPath = findDroverConfigPath(p.path);
+    const cfg = readDroverConfig(configPath);
+    if (!cfg || !Array.isArray(cfg.environments)) continue;
+    for (const e of cfg.environments) {
+      // Try multiple name variants so aliases like "pncb.prod" match
+      // config rows whose parent project is named "pncb-main" in
+      // projects.json. The drover-config.json's top-level `project`
+      // field carries the user-facing name; try it first.
+      const candidates = [cfg.project, p.name, p.ddev_project].filter(Boolean);
+      for (const projectName of candidates) {
+        if (aliasForConfigEnv(projectName, e) === alias) {
+          return { project: p, configPath, cfg, cfgEnv: e };
+        }
+      }
+      // Also match by explicit alias/ddev_alias stored on the env.
+      if (e.ddev_alias && (e.ddev_alias === alias || e.ddev_alias === '@' + alias)) {
+        return { project: p, configPath, cfg, cfgEnv: e };
+      }
+    }
+    // Fallback: match against the Acquia env alias stored in projects.json.
+    for (const e of (p.acquia && p.acquia.environments) || []) {
+      if (e.alias === alias) {
+        // Find the drover-config.json env by env_slug.
+        for (const cfgEnv of cfg.environments) {
+          if (cfgEnv.type === 'acquia' && (cfgEnv.env_slug === e.env || cfgEnv.name === e.env)) {
+            return { project: p, configPath, cfg, cfgEnv };
+          }
+        }
+      }
+    }
+  }
+  return null;
+}
+
+// GET /api/sources/inventory?alias=...
+// Returns { alias, env_type, sources: [{type, label, detected, checked}], defaults }
+// `checked` is the currently-configured subscription state.
+async function handleSourcesInventory(req, res, url) {
+  const alias = url.searchParams.get('alias') || '';
+  if (!alias) return jsonResponse(res, 400, { error: 'alias required' });
+
+  const projects = projectsModule.listProjects() || [];
+  const match = findConfigEnvByAlias(projects, alias);
+  // Fallback: unknown alias in config (env added via /api/projects but not
+  // in drover-config.json) — infer from projects.json.
+  let envType = '';
+  let configuredSources = null;
+  let cfgEnvRef = null;
+  let configPath = '';
+  if (match) {
+    envType = match.cfgEnv.type || '';
+    configuredSources = Array.isArray(match.cfgEnv.sources) ? match.cfgEnv.sources : null;
+    cfgEnvRef = match.cfgEnv;
+    configPath = match.configPath;
+  }
+
+  // T3: treat legacy source names (snake_case) as "not configured" so the
+  // defaults apply. Canonical names are kebab-case (drupal-watchdog,
+  // apache-error). The Stream tab writes canonical names on first toggle
+  // and the legacy ones coexist but no longer gate the checkboxes.
+  if (configuredSources) {
+    const isCanonical = (s) => s.indexOf('-') >= 0 && s.indexOf('_') < 0;
+    const anyCanonical = configuredSources.some(isCanonical);
+    if (!anyCanonical) { configuredSources = null; }
+  }
+
+  // Acquia path: inventory from list_log_types (existing handler).
+  if (envType === 'acquia' || !envType) {
+    const acquiaMatch = projects.some(p =>
+      (p.acquia && p.acquia.environments || []).some(e => e.alias === alias)
+    );
+    if (acquiaMatch || envType === 'acquia') {
+      envType = 'acquia';
+      // Reuse the cached logTypesCache or populate via a fresh REST call.
+      let types = logTypesCache.get(alias);
+      if (!types) {
+        const resolved = resolveAliasToAcquia(alias);
+        if (!resolved) return jsonResponse(res, 404, { error: `alias not found: ${alias}` });
+        try {
+          const apiScript = path.join(__dirname, '../../scripts/monitors/acquia_api.py');
+          const { stdout } = await execFileP('python3', ['-c', `
+import importlib.util, json
+spec = importlib.util.spec_from_file_location("acquia_api", "${apiScript.replace(/\\/g, '\\\\')}")
+mod = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(mod)
+c = mod.AcquiaClient()
+env_id = c.resolve_env_id("${resolved.appUuid}", "${resolved.envName}")
+logs = c._get(f"/environments/{env_id}/logs")
+items = logs.get("_embedded", {}).get("items", [])
+print(json.dumps([{"type": i["type"], "label": i.get("label", i["type"])} for i in items]))
+`], { encoding: 'utf8', timeout: 30000 });
+          types = JSON.parse(stdout.trim());
+          logTypesCache.set(alias, types);
+        } catch (e) {
+          const msg = String((e && e.message) || e);
+          if (msg.includes('forbidden_ip') || msg.includes('HTTP 403')) {
+            return jsonResponse(res, 502, {
+              error: `Acquia rejected ${alias} with HTTP 403 (forbidden_ip). IP allowlist on this Acquia account does not include this machine.`,
+            });
+          }
+          return jsonResponse(res, 500, { error: 'Acquia API error: ' + msg.split('\n')[0] });
+        }
+      }
+      // Default subscription state on first use: only drupal-watchdog.
+      const defaults = ['drupal-watchdog'];
+      const checkedSet = new Set(configuredSources || defaults);
+      const sources = (types || []).map(t => ({
+        type: t.type,
+        label: t.label || t.type,
+        checked: checkedSet.has(t.type),
+      }));
+      return jsonResponse(res, 200, {
+        alias,
+        env_type: 'acquia',
+        sources,
+        defaults,
+        configured: !!configuredSources,
+        config_path: configPath,
+      });
+    }
+  }
+
+  // DDEV path: filesystem detection inside the container.
+  if (envType === 'ddev' || !envType) {
+    // Resolve ddev_project name from alias.
+    let ddevProject = alias;
+    if (cfgEnvRef && cfgEnvRef.ddev_project) ddevProject = cfgEnvRef.ddev_project;
+    envType = 'ddev';
+    let detected = [];
+    try { detected = await detectDdevSources(ddevProject); }
+    catch (e) { detected = []; }
+    const defaults = detected.some(d => d.type === 'drupal-watchdog')
+      ? ['drupal-watchdog']
+      : (detected[0] ? [detected[0].type] : []);
+    const checkedSet = new Set(configuredSources || defaults);
+    const sources = detected.map(d => ({
+      type: d.type,
+      label: d.label,
+      checked: checkedSet.has(d.type),
+    }));
+    return jsonResponse(res, 200, {
+      alias,
+      env_type: 'ddev',
+      sources,
+      defaults,
+      configured: !!configuredSources,
+      config_path: configPath,
+    });
+  }
+
+  return jsonResponse(res, 404, { error: `no inventory for alias: ${alias}` });
+}
+
+// POST /api/sources/toggle  { alias, type, enabled }
+// Updates drover-config.json environments[].sources and signals the
+// umbrella to re-subscribe that env's watcher. Response includes the full
+// updated source list so the UI can reconcile without a re-fetch.
+async function handleSourcesToggle(req, res) {
+  let body;
+  try { body = await readBody(req); } catch (e) {
+    return jsonResponse(res, 400, { error: 'invalid JSON' });
+  }
+  const { alias, type, enabled } = body || {};
+  if (!alias || !type || typeof enabled !== 'boolean') {
+    return jsonResponse(res, 400, { error: 'alias, type, enabled(boolean) required' });
+  }
+  const projects = projectsModule.listProjects() || [];
+  const match = findConfigEnvByAlias(projects, alias);
+  if (!match) return jsonResponse(res, 404, { error: `alias not found in any drover-config.json: ${alias}` });
+
+  // T3: migrate legacy snake_case names off the array on first canonical
+  // toggle. Only keep kebab-case (canonical Acquia log-type) names. If
+  // the env has never had a canonical list written, seed it with the
+  // first-use defaults (drupal-watchdog) so toggling a new source on
+  // doesn't silently unsubscribe the default.
+  const rawCurrent = Array.isArray(match.cfgEnv.sources) ? match.cfgEnv.sources : [];
+  const isCanonical = (s) => typeof s === 'string' && s.indexOf('-') >= 0 && s.indexOf('_') < 0;
+  let current = rawCurrent.filter(isCanonical);
+  if (current.length === 0) {
+    current = ['drupal-watchdog'];
+  }
+  let next;
+  if (enabled) {
+    next = current.includes(type) ? current : current.concat([type]);
+  } else {
+    next = current.filter(s => s !== type);
+  }
+  match.cfgEnv.sources = next;
+  try { writeDroverConfig(match.configPath, match.cfg); }
+  catch (e) { return jsonResponse(res, 500, { error: 'failed to write drover-config.json: ' + e.message }); }
+
+  // Signal umbrella to re-subscribe this env's watcher.
+  const resubResult = resubscribeEnv(alias, next, match);
+  broadcast('sources-update', { alias, type, enabled, sources: next, ts: new Date().toISOString() });
+
+  return jsonResponse(res, 200, {
+    alias, sources: next, resubscribed: resubResult.resubscribed,
+    action: resubResult.action, key: resubResult.key,
+  });
+}
+
+// T3: locate the umbrella's pidfile for a given alias and kill just that
+// child. The umbrella's main loop will respawn it on the next poll tick
+// with the fresh DROVER_LOG_TYPES drawn from the side-file we drop here.
+// Returns {resubscribed: bool, action: 'restart'|'sources-updated'|'no-watcher', key}.
+function resubscribeEnv(alias, sources, match) {
+  const key = umbrellaKeyForAlias(alias, match);
+  if (!key) {
+    console.log(`[ingest] resubscribe: no watcher key for alias=${alias}; config saved, umbrella will pick up on next restart`);
+    return { resubscribed: false, action: 'no-key', key: '' };
+  }
+  // Write the per-key source override file. If `sources` is empty the
+  // umbrella child is stopped below and the next spawn will read the
+  // empty file (DROVER_LOG_TYPES="") — acquia-watch treats that as "no
+  // filter", which is wrong. So when sources is empty we *don't* restart
+  // the watcher at all and instead just stop it; that produces zero
+  // ingested events for that env which matches the spec intent
+  // ("Unsubscribed sources produce zero events").
+  try {
+    fs.mkdirSync(UMBRELLA_SOURCES_DIR, { recursive: true });
+    const hash = hashUmbrellaKey(key);
+    const typesFile = path.join(UMBRELLA_SOURCES_DIR, `${hash}.types`);
+    fs.writeFileSync(typesFile, sources.join(',') + '\n');
+  } catch (e) {
+    console.warn(`[ingest] failed to write sources override for ${key}: ${e.message}`);
+  }
+
+  // Locate and kill the child pidfile so the umbrella respawns it with
+  // the new DROVER_LOG_TYPES.
+  const pidfilePath = path.join(UMBRELLA_TRACK_DIR, `${hashUmbrellaKey(key)}.pid`);
+  let childPid = 0;
+  try {
+    if (fs.existsSync(pidfilePath)) {
+      const lines = fs.readFileSync(pidfilePath, 'utf8').split('\n');
+      childPid = parseInt(lines[1] || '0', 10);
+    }
+  } catch {}
+
+  if (sources.length === 0) {
+    // Unsubscribe-all: stop the watcher outright. Umbrella will log
+    // "stopping <key> (unsubscribe)" and skip respawn for this tick.
+    if (childPid) {
+      try { process.kill(childPid, 'SIGTERM'); } catch {}
+      console.log(`[ingest] resubscribe ${key}: unsubscribe all sources; stopped child pid=${childPid}`);
+    } else {
+      console.log(`[ingest] resubscribe ${key}: unsubscribe all sources; no live child to stop`);
+    }
+    // Remove the pidfile so the umbrella doesn't try to respawn with an
+    // empty sources override on its own schedule.
+    try { fs.unlinkSync(pidfilePath); } catch {}
+    return { resubscribed: true, action: 'unsubscribed', key };
+  }
+
+  if (childPid) {
+    try { process.kill(childPid, 'SIGTERM'); } catch {}
+    console.log(`[ingest] resubscribe ${key}: sources=[${sources.join(',')}]; killed child pid=${childPid}; umbrella will respawn with new subscription`);
+    return { resubscribed: true, action: 'restart', key };
+  }
+  // No live watcher (perhaps the env was offline). The override file is
+  // now in place so when the umbrella does spawn the child it'll subscribe
+  // correctly. Still counts as "resubscribed intent captured."
+  console.log(`[ingest] resubscribe ${key}: sources=[${sources.join(',')}]; no live child, override file written for next spawn`);
+  return { resubscribed: true, action: 'sources-updated', key };
+}
+
+function umbrellaKeyForAlias(alias, match) {
+  // DDEV: key is ddev:<ddev_project>
+  if (match && match.cfgEnv && match.cfgEnv.type === 'ddev') {
+    const name = match.cfgEnv.ddev_project || match.project.ddev_project || match.project.name;
+    return name ? `ddev:${name}` : '';
+  }
+  // Acquia: resolve app_uuid + env_slug
+  const resolved = resolveAliasToAcquia(alias);
+  if (resolved && resolved.appUuid && resolved.envName) {
+    return `acquia:${resolved.envName}.${resolved.appUuid}`;
+  }
+  return '';
 }
 
 // sprint-ydz: GET /api/backfill/progress?log=<path>
@@ -2495,6 +2892,57 @@ function buildHtml() {
     color:var(--muted3); margin-bottom:6px;
   }
 
+  /* T3: Sources panel tabs (Stream / Seed history) */
+  .sources-tabs {
+    display:flex; gap:2px; border-bottom:1px solid var(--border);
+    margin-bottom:16px;
+  }
+  .sources-tab {
+    background:transparent; border:none; color:var(--muted);
+    font-family:var(--mono); font-size:11px; letter-spacing:0.05em;
+    padding:8px 14px; cursor:pointer;
+    border-bottom:2px solid transparent; margin-bottom:-1px;
+  }
+  .sources-tab:hover { color:var(--text2); }
+  .sources-tab.active { color:var(--text); border-bottom-color:var(--primary); }
+  .sources-tab-panel { display:none; }
+  .sources-tab-panel.active { display:block; }
+
+  .sources-list {
+    display:flex; flex-direction:column; gap:4px;
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:6px; padding:6px 8px;
+  }
+  .sources-list-empty {
+    padding:18px 10px; font-family:var(--mono); font-size:11px;
+    color:var(--muted2); text-align:center;
+  }
+  .sources-row {
+    display:flex; align-items:center; gap:10px;
+    padding:6px 6px; min-height:28px;
+    border-radius:4px;
+  }
+  .sources-row:hover { background:var(--surface3); }
+  .sources-row-name {
+    font-family:var(--mono); font-size:11px; color:var(--text);
+    flex:1; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+  }
+  .sources-row-counter {
+    font-family:var(--mono); font-size:10px; color:var(--muted2);
+    white-space:nowrap;
+  }
+  .sources-row-counter.armed { color:var(--info); }
+  .sources-row-empty-state {
+    font-family:var(--mono); font-size:10px; color:var(--muted2);
+    font-style:italic; white-space:nowrap;
+  }
+  .sources-empty-state {
+    padding:12px; font-family:var(--mono); font-size:11px;
+    color:var(--muted2); text-align:center; font-style:italic;
+    background:var(--surface2); border:1px dashed var(--border);
+    border-radius:6px; margin-top:10px;
+  }
+
   .modal-meta-grid { display:grid; grid-template-columns:1fr 1fr; gap:8px; }
   .modal-meta-item {
     background:var(--surface2); border:1px solid var(--border);
@@ -2785,7 +3233,7 @@ function buildHtml() {
         <button type="button" class="view-toggle-seg" id="btn-board" role="radio" aria-pressed="false" onclick="switchView('board')">Issues</button>
       </div>
       <button class="btn btn-ghost" id="btn-add-project" onclick="addProjectPrompt()" title="Register a DDEV project with drover">+ Add Project</button>
-      <button class="btn btn-ghost" id="btn-backfill" onclick="backfillPrompt()" title="Pull historical Acquia logs for an environment">Backfill</button>
+      <button class="btn btn-ghost" id="btn-sources" onclick="sourcesPrompt()" title="Choose which log sources drover listens to per env (Stream) and seed historical windows (Seed history)">Sources</button>
     </div>
   </header>
 
@@ -4015,6 +4463,20 @@ document.addEventListener('keydown', function(ev){
   if(ev.key==='Escape') closeBoardModal();
 });
 
+// T3: keyboard shortcut for the Sources panel. Single key "s" per spec 4.19.
+document.addEventListener('keydown', function(ev){
+  var tag = (ev.target && ev.target.tagName || '').toLowerCase();
+  if (tag === 'input' || tag === 'textarea' || tag === 'select') return;
+  if (ev.metaKey || ev.ctrlKey || ev.altKey) return;
+  if (ev.key === 's' && typeof sourcesPrompt === 'function') {
+    // Only fire when no modal is open (Escape model for dismissal).
+    var modal = document.getElementById('board-modal');
+    if (modal && modal.classList.contains('open')) return;
+    ev.preventDefault();
+    sourcesPrompt();
+  }
+});
+
 // ========================================================================
 // Project registration
 // ========================================================================
@@ -4129,25 +4591,504 @@ function submitAddProject(projectPath) {
     .catch(function(e){ showToast('Request failed: ' + e.message); });
 }
 
-function backfillPrompt() {
+// T3: Sources panel entrypoint. Collects every registered env (Acquia +
+// DDEV) across all projects, grouped by project, and opens the two-tab
+// modal. Backwards-compatible alias kept for tests.
+function backfillPrompt() { sourcesPrompt(); }
+
+function sourcesPrompt() {
   fetch('/api/projects')
     .then(function(r){ return r.json(); })
     .then(function(list) {
+      var envs = []; // [{alias, project, env_type, label}]
       var seen = new Set();
-      var envs = [];
       (list || []).forEach(function(p) {
+        var projectName = p.name || p.ddev_project || '';
+        // Acquia envs
         ((p.acquia && p.acquia.environments) || []).forEach(function(e) {
           if (e.alias && !seen.has(e.alias)) {
             seen.add(e.alias);
-            envs.push(e.alias);
+            envs.push({ alias: e.alias, project: projectName, env_type: 'acquia', label: e.alias });
           }
         });
+        // DDEV env (one per project — the local container).
+        var ddevName = p.ddev_project || p.name;
+        if (ddevName && !seen.has(ddevName)) {
+          seen.add(ddevName);
+          envs.push({ alias: ddevName, project: projectName, env_type: 'ddev', label: ddevName + ' (local)' });
+        }
       });
-      if (envs.length === 0) return showToast('No Acquia envs registered. Add a project first.');
-      showBackfillModal(envs);
+      if (envs.length === 0) {
+        return showToast('No envs registered. Add a project first.');
+      }
+      showSourcesModal(envs);
     });
 }
 
+// T3: Sources panel with Stream / Seed history tabs.
+function showSourcesModal(envs) {
+  var content = document.getElementById('modal-content');
+  removeChildren(content);
+
+  var lastAlias = '';
+  try { lastAlias = localStorage.getItem('drover.sources.lastAlias') || ''; } catch (_) {}
+  var defaultIdx = 0;
+  for (var i = 0; i < envs.length; i++) {
+    if (envs[i].alias === lastAlias) { defaultIdx = i; break; }
+  }
+
+  var header = el('div','modal-header');
+  header.appendChild(txt('div','modal-title','Sources'));
+  var closeBtnT3 = el('button','modal-close'); closeBtnT3.textContent = '✕';
+  closeBtnT3.onclick = closeBackfillModal;
+  header.appendChild(closeBtnT3);
+
+  var body = el('div','modal-body');
+
+  var envSec = el('div','modal-section');
+  envSec.appendChild(txt('div','modal-section-title','Environment'));
+  var envSel = document.createElement('select');
+  envSel.id = 'sources-env';
+  envSel.style.cssText = 'width:100%;padding:8px;';
+  var byProject = {};
+  envs.forEach(function(e){
+    if (!byProject[e.project]) byProject[e.project] = [];
+    byProject[e.project].push(e);
+  });
+  Object.keys(byProject).sort().forEach(function(proj){
+    var group = document.createElement('optgroup');
+    group.label = proj;
+    byProject[proj].forEach(function(e){
+      var opt = document.createElement('option');
+      opt.value = e.alias; opt.textContent = e.label;
+      opt.setAttribute('data-env-type', e.env_type);
+      group.appendChild(opt);
+    });
+    envSel.appendChild(group);
+  });
+  if (envSel.options.length) envSel.selectedIndex = Math.min(defaultIdx, envSel.options.length - 1);
+  envSec.appendChild(envSel);
+  body.appendChild(envSec);
+
+  var tabs = el('div','sources-tabs');
+  var tabStream = document.createElement('button');
+  tabStream.className = 'sources-tab active';
+  tabStream.id = 'sources-tab-stream';
+  tabStream.textContent = 'Stream';
+  tabStream.setAttribute('role', 'tab');
+  var tabSeed = document.createElement('button');
+  tabSeed.className = 'sources-tab';
+  tabSeed.id = 'sources-tab-seed';
+  tabSeed.textContent = 'Seed history';
+  tabSeed.setAttribute('role', 'tab');
+  tabs.appendChild(tabStream); tabs.appendChild(tabSeed);
+  body.appendChild(tabs);
+
+  var streamPanel = el('div','sources-tab-panel active');
+  streamPanel.id = 'sources-panel-stream';
+  buildStreamTabBody(streamPanel);
+  body.appendChild(streamPanel);
+
+  var seedPanel = el('div','sources-tab-panel');
+  seedPanel.id = 'sources-panel-seed';
+  buildSeedHistoryTabBody(seedPanel);
+  body.appendChild(seedPanel);
+
+  content.appendChild(header); content.appendChild(body);
+  document.getElementById('board-modal').classList.add('open');
+
+  function activateTab(which) {
+    if (which === 'stream') {
+      tabStream.classList.add('active'); tabSeed.classList.remove('active');
+      streamPanel.classList.add('active'); seedPanel.classList.remove('active');
+      loadStreamTab(envSel.value);
+    } else {
+      tabSeed.classList.add('active'); tabStream.classList.remove('active');
+      seedPanel.classList.add('active'); streamPanel.classList.remove('active');
+      loadSeedHistoryTab(envSel.value);
+    }
+  }
+  tabStream.onclick = function(){ activateTab('stream'); };
+  tabSeed.onclick = function(){ activateTab('seed'); };
+
+  envSel.addEventListener('change', function(){
+    try { localStorage.setItem('drover.sources.lastAlias', envSel.value); } catch (_) {}
+    if (tabStream.classList.contains('active')) loadStreamTab(envSel.value);
+    else loadSeedHistoryTab(envSel.value);
+  });
+
+  try { localStorage.setItem('drover.sources.lastAlias', envSel.value); } catch (_) {}
+  loadStreamTab(envSel.value);
+
+  var modalEl = document.getElementById('board-modal');
+  var moT3 = new MutationObserver(function(){
+    if (!modalEl.classList.contains('open')) {
+      stopStreamCounterPoll();
+      if (sourcesSeedState.pollHandle) { clearInterval(sourcesSeedState.pollHandle); sourcesSeedState.pollHandle = null; }
+      moT3.disconnect();
+    }
+  });
+  moT3.observe(modalEl, { attributes: true, attributeFilter: ['class'] });
+}
+
+function buildStreamTabBody(panel) {
+  panel.appendChild(txt('div','modal-section-title','Log sources (live subscription)'));
+  var list = el('div'); list.id = 'sources-stream-list';
+  list.className = 'sources-list';
+  list.appendChild(txt('div','sources-list-empty','Loading…'));
+  panel.appendChild(list);
+
+  var emptyState = el('div','sources-empty-state');
+  emptyState.id = 'sources-stream-empty';
+  emptyState.style.display = 'none';
+  emptyState.textContent = 'Listening for stream messages…';
+  panel.appendChild(emptyState);
+
+  var footer = el('div');
+  footer.style.cssText = 'font-size:10px;color:var(--muted2);margin-top:10px;font-family:var(--mono);';
+  footer.textContent = 'Toggles apply immediately. Writes drover-config.json and signals the umbrella to resubscribe without a full restart.';
+  panel.appendChild(footer);
+}
+
+var sourcesStreamState = { pollHandle: null, currentAlias: '', rowIndex: {} };
+
+function loadStreamTab(alias) {
+  sourcesStreamState.currentAlias = alias;
+  sourcesStreamState.rowIndex = {};
+  var list = document.getElementById('sources-stream-list');
+  var emptyState = document.getElementById('sources-stream-empty');
+  if (!list) return;
+  removeChildren(list);
+  list.appendChild(txt('div','sources-list-empty','Loading…'));
+  if (emptyState) emptyState.style.display = 'none';
+
+  fetch('/api/sources/inventory?alias=' + encodeURIComponent(alias))
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      if (sourcesStreamState.currentAlias !== alias) return;
+      removeChildren(list);
+      if (d && d.error) {
+        var err = el('div','sources-list-empty');
+        err.style.color = 'var(--crit)';
+        err.textContent = d.error;
+        list.appendChild(err);
+        return;
+      }
+      var sources = (d && d.sources) || [];
+      if (!sources.length) {
+        list.appendChild(txt('div','sources-list-empty','No log sources detected for this environment.'));
+        return;
+      }
+      sources.forEach(function(s){
+        var row = buildStreamSourceRow(alias, s);
+        sourcesStreamState.rowIndex[s.type] = row;
+        list.appendChild(row.el);
+      });
+      var anyChecked = sources.some(function(s){ return s.checked; });
+      if (emptyState) emptyState.style.display = anyChecked ? 'block' : 'none';
+      startStreamCounterPoll();
+    })
+    .catch(function(e){
+      if (sourcesStreamState.currentAlias !== alias) return;
+      removeChildren(list);
+      var err = el('div','sources-list-empty');
+      err.style.color = 'var(--crit)';
+      err.textContent = 'Could not load sources: ' + e.message;
+      list.appendChild(err);
+    });
+}
+
+function buildStreamSourceRow(alias, src) {
+  var rowEl = el('div','sources-row');
+  var cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.checked = !!src.checked;
+  cb.id = 'stream-src-' + src.type;
+  var name = el('div','sources-row-name');
+  name.textContent = src.type;
+  var counter = el('div','sources-row-counter');
+  counter.textContent = cb.checked ? '0 msgs / 1 connected' : 'off';
+  if (cb.checked) counter.classList.add('armed');
+
+  cb.addEventListener('change', function(){
+    cb.disabled = true;
+    fetch('/api/sources/toggle', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ alias: alias, type: src.type, enabled: cb.checked })
+    })
+      .then(function(r){ return r.json().then(function(b){ return { status: r.status, body: b }; }); })
+      .then(function(x){
+        cb.disabled = false;
+        var b = x.body || {};
+        if (x.status !== 200) {
+          showToast('Toggle failed: ' + (b.error || 'unknown'));
+          cb.checked = !cb.checked;
+          return;
+        }
+        counter.textContent = cb.checked ? '0 msgs / 1 connected' : 'off';
+        counter.classList.toggle('armed', cb.checked);
+        var action = b.action || 'updated';
+        showToast((cb.checked ? 'Subscribed ' : 'Unsubscribed ') + src.type + ' (' + action + ')');
+        var anyChecked = document.querySelectorAll('#sources-stream-list input[type=checkbox]:checked').length > 0;
+        var emptyState = document.getElementById('sources-stream-empty');
+        if (emptyState) emptyState.style.display = anyChecked ? 'block' : 'none';
+      })
+      .catch(function(e){
+        cb.disabled = false;
+        showToast('Toggle failed: ' + e.message);
+        cb.checked = !cb.checked;
+      });
+  });
+
+  rowEl.appendChild(cb); rowEl.appendChild(name); rowEl.appendChild(counter);
+  return { el: rowEl, checkbox: cb, counter: counter, type: src.type };
+}
+
+function startStreamCounterPoll() {
+  stopStreamCounterPoll();
+  sourcesStreamState.pollHandle = setInterval(refreshStreamCounters, 3000);
+  refreshStreamCounters();
+}
+function stopStreamCounterPoll() {
+  if (sourcesStreamState.pollHandle) {
+    clearInterval(sourcesStreamState.pollHandle);
+    sourcesStreamState.pollHandle = null;
+  }
+}
+
+function refreshStreamCounters() {
+  fetch('/api/ingestion/status')
+    .then(function(r){ return r.json(); })
+    .then(function(d){
+      var projects = (d && d.projects) || {};
+      var alias = sourcesStreamState.currentAlias;
+      var envCount = 0;
+      var connected = 0;
+      Object.keys(projects).forEach(function(pk){
+        var p = projects[pk];
+        var sources = p.sources || {};
+        Object.keys(sources).forEach(function(sk){
+          if (alias.indexOf('.') < 0 && sk === 'ddev') {
+            envCount += (sources[sk].count || 0); connected = 1;
+          } else if (sk.indexOf('acquia:') === 0) {
+            var env = sk.slice('acquia:'.length);
+            if (alias.indexOf(env + '.') === 0 || alias === env) {
+              envCount += (sources[sk].count || 0); connected = 1;
+            }
+          }
+        });
+      });
+      Object.keys(sourcesStreamState.rowIndex).forEach(function(type){
+        var row = sourcesStreamState.rowIndex[type];
+        if (!row || !row.checkbox.checked) return;
+        row.counter.textContent = envCount + ' msgs / ' + connected + ' connected';
+        row.counter.classList.add('armed');
+      });
+    })
+    .catch(function(_){ /* ignore */ });
+}
+
+function buildSeedHistoryTabBody(panel) {
+  panel.appendChild(txt('div','modal-section-title','Log sources (one-shot historical pull)'));
+  var logTypeWrap = el('div'); logTypeWrap.id = 'backfill-log-types';
+  logTypeWrap.className = 'sources-list';
+  panel.appendChild(logTypeWrap);
+
+  var winSec = el('div','modal-section');
+  winSec.style.marginTop = '12px';
+  winSec.appendChild(txt('div','modal-section-title','Time window'));
+  var winRow = el('div');
+  winRow.id = 'seed-window-row';
+  winRow.style.cssText = 'display:flex;gap:6px;flex-wrap:wrap;';
+  var windows = [
+    { value: '1h',  label: 'Last hour' },
+    { value: '24h', label: '24h' },
+    { value: '7d',  label: '7d' },
+    { value: '30d', label: '30d' },
+    { value: 'custom', label: 'Custom' },
+  ];
+  windows.forEach(function(w, idx){
+    var btn = document.createElement('button');
+    btn.className = 'btn btn-ghost';
+    btn.style.cssText = 'font-size:10px;padding:4px 10px;';
+    btn.textContent = w.label;
+    btn.dataset.window = w.value;
+    if (idx === 1) btn.setAttribute('aria-pressed', 'true');
+    btn.onclick = function(){
+      winRow.querySelectorAll('button').forEach(function(b){ b.setAttribute('aria-pressed','false'); });
+      btn.setAttribute('aria-pressed','true');
+    };
+    winRow.appendChild(btn);
+  });
+  winSec.appendChild(winRow);
+  panel.appendChild(winSec);
+
+  var actions = el('div','modal-section');
+  actions.style.textAlign = 'right';
+  var cancel = el('button','btn'); cancel.textContent = 'Cancel'; cancel.onclick = closeBackfillModal;
+  var go = el('button','btn btn-primary');
+  go.id = 'backfill-go';
+  go.textContent = 'Seed history';
+  go.onclick = runBackfill;
+  go.disabled = true;
+  actions.appendChild(cancel); actions.appendChild(go);
+  panel.appendChild(actions);
+}
+
+var sourcesSeedState = { pollHandle: null, currentAlias: '', checkedTypes: null, firstLoadForAlias: true };
+
+function loadSeedHistoryTab(alias) {
+  var hiddenSel = document.getElementById('backfill-env');
+  if (!hiddenSel) {
+    hiddenSel = document.createElement('select');
+    hiddenSel.id = 'backfill-env';
+    hiddenSel.style.display = 'none';
+    document.body.appendChild(hiddenSel);
+  }
+  var exists = false;
+  for (var i = 0; i < hiddenSel.options.length; i++) {
+    if (hiddenSel.options[i].value === alias) { hiddenSel.selectedIndex = i; exists = true; break; }
+  }
+  if (!exists) {
+    var opt = document.createElement('option');
+    opt.value = alias; opt.textContent = alias; hiddenSel.appendChild(opt);
+    hiddenSel.value = alias;
+  }
+
+  sourcesSeedState.currentAlias = alias;
+  sourcesSeedState.checkedTypes = new Set();
+  sourcesSeedState.firstLoadForAlias = true;
+
+  var logTypeWrap = document.getElementById('backfill-log-types');
+  if (!logTypeWrap) return;
+
+  function updateGoButton() {
+    var go = document.getElementById('backfill-go');
+    if (go) go.disabled = sourcesSeedState.checkedTypes.size === 0;
+  }
+  function startPolling() {
+    if (sourcesSeedState.pollHandle) return;
+    sourcesSeedState.pollHandle = setInterval(function(){ loadTypes({silent: true}); }, 10000);
+  }
+  function stopPolling() {
+    if (sourcesSeedState.pollHandle) { clearInterval(sourcesSeedState.pollHandle); sourcesSeedState.pollHandle = null; }
+  }
+  function requestType(type) {
+    fetch('/api/logs/request', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({alias: sourcesSeedState.currentAlias, type: type})
+    })
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (d.error) { showToast('Request failed: ' + d.error); return; }
+        loadTypes({silent: true});
+      })
+      .catch(function(e){ showToast('Request failed: ' + e.message); });
+  }
+
+  function buildRow(t) {
+    var row = el('div','sources-row');
+    if (t.state === 'ready') {
+      var cb = document.createElement('input'); cb.type = 'checkbox';
+      cb.id = 'lt-' + t.type; cb.value = t.type;
+      cb.checked = sourcesSeedState.checkedTypes.has(t.type);
+      cb.addEventListener('change', function(){
+        if (cb.checked) sourcesSeedState.checkedTypes.add(t.type);
+        else sourcesSeedState.checkedTypes.delete(t.type);
+        updateGoButton();
+      });
+      var lbl = document.createElement('label'); lbl.htmlFor = cb.id;
+      lbl.className = 'sources-row-name'; lbl.textContent = t.label;
+      row.appendChild(cb); row.appendChild(lbl);
+    } else if (t.state === 'not_built') {
+      var btn = document.createElement('button');
+      btn.className = 'btn btn-ghost';
+      btn.style.cssText = 'font-size:10px;padding:2px 10px;';
+      btn.textContent = 'Request';
+      btn.onclick = function(){ requestType(t.type); };
+      var lbl = el('span','sources-row-name');
+      lbl.textContent = t.label; lbl.style.color = 'var(--muted)';
+      var note = el('span','sources-row-empty-state');
+      note.textContent = 'archive not yet built';
+      row.appendChild(btn); row.appendChild(lbl); row.appendChild(note);
+    } else if (t.state === 'preparing') {
+      var spinner = txt('span','','⟳');
+      spinner.style.cssText = 'display:inline-block;animation:spin-ring 1.2s linear infinite;color:var(--info);width:16px;text-align:center;font-size:14px;';
+      var lbl = el('span','sources-row-name');
+      lbl.textContent = t.label;
+      var elapsed = el('span','sources-row-counter');
+      elapsed.classList.add('armed');
+      elapsed.textContent = 'preparing · ' + (t.elapsedSec || 0) + 's';
+      row.appendChild(spinner); row.appendChild(lbl); row.appendChild(elapsed);
+    } else if (t.state === 'failed') {
+      var btn = document.createElement('button');
+      btn.className = 'btn btn-ghost';
+      btn.style.cssText = 'font-size:10px;padding:2px 10px;color:var(--crit);';
+      btn.textContent = 'Retry';
+      btn.onclick = function(){ requestType(t.type); };
+      var lbl = el('span','sources-row-name');
+      lbl.textContent = t.label; lbl.style.color = 'var(--muted)';
+      var note = el('span','sources-row-counter');
+      note.style.color = 'var(--crit)';
+      note.textContent = t.error || 'request failed';
+      row.appendChild(btn); row.appendChild(lbl); row.appendChild(note);
+    }
+    return row;
+  }
+
+  function loadTypes(opts) {
+    opts = opts || {};
+    if (!opts.silent) {
+      removeChildren(logTypeWrap);
+      logTypeWrap.appendChild(txt('div','sources-list-empty','Loading…'));
+    }
+    fetch('/api/backfill/log-types?alias=' + encodeURIComponent(sourcesSeedState.currentAlias))
+      .then(function(r){ return r.json(); })
+      .then(function(d){
+        if (sourcesSeedState.currentAlias !== alias) return;
+        removeChildren(logTypeWrap);
+        if (d && d.error) {
+          var err = el('div','sources-list-empty');
+          err.style.color = 'var(--crit)';
+          err.textContent = d.error;
+          logTypeWrap.appendChild(err);
+          stopPolling();
+          return;
+        }
+        var types = (d && d.log_types) || [];
+        if (!types.length) {
+          logTypeWrap.appendChild(txt('div','sources-list-empty','No log types found.'));
+          return;
+        }
+        if (sourcesSeedState.firstLoadForAlias) {
+          types.forEach(function(t){ if (t.state === 'ready') sourcesSeedState.checkedTypes.add(t.type); });
+          sourcesSeedState.firstLoadForAlias = false;
+        }
+        var anyPreparing = false;
+        types.forEach(function(t){
+          logTypeWrap.appendChild(buildRow(t));
+          if (t.state === 'preparing') anyPreparing = true;
+        });
+        updateGoButton();
+        if (anyPreparing) startPolling(); else stopPolling();
+      })
+      .catch(function(e){
+        if (sourcesSeedState.currentAlias !== alias) return;
+        removeChildren(logTypeWrap);
+        var err = el('div','sources-list-empty');
+        err.style.color = 'var(--crit)';
+        err.textContent = 'Could not load log types: ' + e.message;
+        logTypeWrap.appendChild(err);
+        stopPolling();
+      });
+  }
+
+  loadTypes();
+}
+
+// Legacy Acquia-only Backfill modal. Kept for tests that call it directly.
 function showBackfillModal(envs) {
   var content = document.getElementById('modal-content');
   removeChildren(content);
@@ -4329,6 +5270,11 @@ function runBackfill() {
   var alias = document.getElementById('backfill-env').value;
   var checked = Array.from(document.querySelectorAll('#backfill-log-types input[type=checkbox]:checked'));
   var logTypes = checked.map(function(cb){ return cb.value; }).join(',');
+  // T3: capture window for the DONE summary. Defaults to 24h.
+  var windowSel = document.querySelector('#seed-window-row button[aria-pressed="true"]');
+  var seedWindow = windowSel ? windowSel.dataset.window : '24h';
+  var seedContext = { alias: alias, sources: logTypes.split(',').filter(Boolean), window: seedWindow };
+  window.__droverSeedContext = seedContext;
   var go = document.getElementById('backfill-go');
   if (go) { go.disabled = true; go.textContent = "Queuing\u2026"; }
   fetch('/api/projects/backfill', {
@@ -4346,10 +5292,10 @@ function runBackfill() {
         return;
       } else if (body.status === 'done') {
         // Legacy sync path — still handled for tests / CLI fallback.
-        showToast('Backfilled ' + alias + ': ' + body.events + ' events, ' +
-                  body.new_fingerprints + ' new, ' + body.threshold_hits + ' thresholds');
+        showToast('Seeded ' + alias + ': ' + body.events + ' events, ' +
+                  body.new_fingerprints + ' new fingerprints, ' + body.threshold_hits + ' thresholds');
       } else {
-        showToast('Backfill failed: ' + (body.message || 'unknown'));
+        showToast('Seed history failed: ' + (body.message || 'unknown'));
       }
       closeBackfillModal();
     })
@@ -4359,7 +5305,9 @@ function runBackfill() {
 // sprint-ydz: swap the backfill modal body for a streaming progress panel.
 // Subscribes to /api/backfill/progress?log=<path> (SSE) and appends each
 // line as it arrives. A state badge reflects the last classified phase.
-function showBackfillProgress(alias, logPath) {
+// T3: optional seedContext is stashed for the DONE summary banner.
+function showBackfillProgress(alias, logPath, seedContext) {
+  if (seedContext) window.__droverSeedContext = seedContext;
   var content = document.getElementById('modal-content');
   var oldBody = content.querySelector('.modal-body');
   if (oldBody) oldBody.parentNode.removeChild(oldBody);
@@ -4367,6 +5315,7 @@ function showBackfillProgress(alias, logPath) {
   var body = document.createElement('div'); body.className = 'modal-body';
 
   var status = document.createElement('div'); status.className = 'modal-section';
+  status.appendChild(txt('div','modal-section-title','Seeding history'));
   var row = document.createElement('div');
   row.style.display = 'flex'; row.style.alignItems = 'center'; row.style.gap = '10px';
   var aliasLbl = document.createElement('div');
@@ -4430,10 +5379,21 @@ function showBackfillProgress(alias, logPath) {
       .then(function(r){ return r.json(); })
       .then(function(d){
         setPhase('DONE');
-        var msg = d.created + ' new errors added to board';
-        if (d.skipped) msg += ' (' + d.skipped + ' already known)';
-        pre.appendChild(document.createTextNode('TRIAGE: ' + msg + '\\n'));
+        // T3: final summary uses the spec's exact wording -
+        // "Seeded <sources> from <env>, last <window> - N events, M new fingerprints."
+        var ctx = window.__droverSeedContext || { sources: [], window: '24h' };
+        var srcList = (ctx.sources && ctx.sources.length) ? ctx.sources.join(' + ') : 'all sources';
+        var events = (typeof d.events === 'number') ? d.events : (d.created + (d.skipped || 0));
+        var newFp = d.created || 0;
+        var summary = 'Seeded ' + srcList + ' from ' + alias + ', last ' + ctx.window +
+                      ' - ' + events + ' events, ' + newFp + ' new fingerprints.';
+        pre.appendChild(document.createTextNode('SEED DONE: ' + summary + '\\n'));
         pre.scrollTop = pre.scrollHeight;
+        var banner = document.createElement('div');
+        banner.id = 'seed-summary-banner';
+        banner.style.cssText = 'margin-top:10px;padding:10px 12px;background:var(--ok-dim);color:var(--ok);border:1px solid rgba(50,215,75,0.35);border-radius:6px;font-family:var(--mono);font-size:11px;line-height:1.5;';
+        banner.textContent = summary;
+        pre.parentNode.insertBefore(banner, pre.nextSibling);
         if (typeof fetchAll === 'function') fetchAll();
       })
       .catch(function(e){
@@ -4964,6 +5924,14 @@ const server = http.createServer(async (req, res) => {
     }
     if (pathname === '/api/logs/status' && req.method === 'GET') {
       return await handleLogsStatus(req, res, url);
+    }
+
+    // T3: Sources panel — Stream-tab inventory + subscription toggles.
+    if (pathname === '/api/sources/inventory' && req.method === 'GET') {
+      return await handleSourcesInventory(req, res, url);
+    }
+    if (pathname === '/api/sources/toggle' && req.method === 'POST') {
+      return await handleSourcesToggle(req, res);
     }
 
     // API endpoints
