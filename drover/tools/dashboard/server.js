@@ -1049,6 +1049,47 @@ async function handleDiscoverProjects(req, res) {
 function listProjects() { return projectsModule.listProjects(); }
 
 // GET /api/backfill/log-types?alias=ahri.prod
+// A12: resolve a user-facing alias (e.g. "massport.test") to the Acquia
+// app_uuid + env name needed for the REST API. Primary source is
+// projects.json via projectsModule.listProjects(). When a project was
+// registered without app_uuid populated there, fall back to reading the
+// project's own drover-config.json, which captures app_uuid per env.
+function resolveAliasToAcquia(alias) {
+  const projects = projectsModule.listProjects();
+  for (const p of projects) {
+    const acqEnvs = (p.acquia && p.acquia.environments) || [];
+    for (const e of acqEnvs) {
+      if (e.alias !== alias) continue;
+      let appUuid = e.app_uuid || (p.acquia && p.acquia.app_uuid) || '';
+      const envName = e.env || e.name || '';
+      if (!appUuid && p.path) {
+        // p.path often points into a worktree (e.g. .../SITE/worktrees/main);
+        // the drover-config.json typically lives at the project root. Walk
+        // up from p.path until .claude/drover-config.json is found, capped
+        // at 5 levels to avoid runaway filesystem traversal.
+        let dir = p.path;
+        for (let i = 0; i < 5 && dir && dir !== '/'; i++) {
+          const cfgPath = path.join(dir, '.claude', 'drover-config.json');
+          try {
+            const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+            for (const cfgEnv of (cfg.environments || [])) {
+              if (!cfgEnv.app_uuid) continue;
+              if (cfgEnv.env_slug === envName || cfgEnv.name === envName) {
+                appUuid = cfgEnv.app_uuid;
+                break;
+              }
+            }
+            if (appUuid) break;
+          } catch { /* not here; try parent */ }
+          dir = path.dirname(dir);
+        }
+      }
+      if (appUuid && envName) return { appUuid, envName, projectName: p.name };
+    }
+  }
+  return null;
+}
+
 // Returns available Acquia log types for an environment so the backfill
 // modal can show checkboxes instead of a freehand comma-delimited field.
 // Cache log types per alias for the server session — types don't change.
@@ -1121,20 +1162,9 @@ async function handleLogTypes(req, res, url) {
     return jsonResponse(res, 200, { log_types: enrichLogTypes(alias, logTypesCache.get(alias)) });
   }
 
-  // Resolve alias → app_uuid + env_name from projects.json
-  const projects = projectsModule.listProjects();
-  let appUuid, envName;
-  for (const p of projects) {
-    for (const e of (p.acquia && p.acquia.environments) || []) {
-      if (e.alias === alias) {
-        appUuid = e.app_uuid || (p.acquia && p.acquia.app_uuid) || '';
-        envName = e.env || e.name || '';
-        break;
-      }
-    }
-    if (appUuid) break;
-  }
-  if (!appUuid || !envName) return jsonResponse(res, 404, { error: `alias not found: ${alias}` });
+  const resolved = resolveAliasToAcquia(alias);
+  if (!resolved) return jsonResponse(res, 404, { error: `alias not found or missing app_uuid: ${alias}` });
+  const { appUuid, envName } = resolved;
 
   // Call Acquia API via Python helper — 30s timeout (two API calls + startup).
   const apiScript = path.join(__dirname, '../../scripts/monitors/acquia_api.py');
@@ -1155,7 +1185,13 @@ print(json.dumps([{"type": i["type"], "label": i.get("label", i["type"]), "avail
     await refreshPreparingRequests(alias);
     return jsonResponse(res, 200, { log_types: enrichLogTypes(alias, types) });
   } catch (e) {
-    return jsonResponse(res, 500, { error: 'Acquia API error: ' + e.message });
+    const msg = String((e && e.message) || e);
+    if (msg.includes('forbidden_ip') || msg.includes('HTTP 403')) {
+      return jsonResponse(res, 502, {
+        error: `Acquia rejected the request for ${alias} with HTTP 403 (forbidden_ip). The Acquia account for this application has an IP allowlist and the machine running drover is not on it. Ask the Acquia admin to add this IP to the allowlist, or run drover from an allowed network.`,
+      });
+    }
+    return jsonResponse(res, 500, { error: 'Acquia API error: ' + msg.split('\n')[0] });
   }
 }
 
@@ -1182,19 +1218,9 @@ const logRequests = new Map();
 function logRequestKey(alias, type) { return alias + '|' + type; }
 
 async function runAcquiaPython(alias, script) {
-  const projects = projectsModule.listProjects();
-  let appUuid, envName;
-  for (const p of projects) {
-    for (const e of (p.acquia && p.acquia.environments) || []) {
-      if (e.alias === alias) {
-        appUuid = e.app_uuid || (p.acquia && p.acquia.app_uuid) || '';
-        envName = e.env || e.name || '';
-        break;
-      }
-    }
-    if (appUuid) break;
-  }
-  if (!appUuid || !envName) throw new Error(`alias not found: ${alias}`);
+  const resolved = resolveAliasToAcquia(alias);
+  if (!resolved) throw new Error(`alias not found or missing app_uuid: ${alias}`);
+  const { appUuid, envName } = resolved;
   const apiScript = path.join(__dirname, '../../scripts/monitors/acquia_api.py');
   const prelude = [
     'import importlib.util, json, sys',
@@ -4251,6 +4277,14 @@ function showBackfillModal(envs) {
       .then(function(r){ return r.json(); })
       .then(function(d){
         removeChildren(logTypeWrap);
+        if (d && d.error) {
+          var err = el('div');
+          err.style.cssText = 'font-size:11px;color:var(--crit);line-height:1.5;padding:6px 0;';
+          err.textContent = d.error;
+          logTypeWrap.appendChild(err);
+          stopPolling();
+          return;
+        }
         var types = (d && d.log_types) || [];
         if (!types.length) { logTypeWrap.appendChild(document.createTextNode('No log types found')); return; }
 
