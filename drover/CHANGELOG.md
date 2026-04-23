@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.30.1
+- **Narrower project tiles.** Tile width trimmed from `min-width:240 / max-width:320` to `min-width:170 / max-width:230`. With the vertical env-toggle stack the old width was mostly whitespace — four projects now fit comfortably in the first half of the panel on a 1440px dashboard.
+- **Drawer carries per-env toggles.** Each environment block in the drawer's Environments section now has its own `role="switch"` toggle — identical control surface to the tile, co-located with the env's listener method, last-event age, and source list. Toggling an env from inside the drawer flips the config and updates the block in-place; the drawer stays open so the user doesn't lose context.
+- **Tile re-render no longer closes an open drawer.** The panel refresh path used to `existingPop.remove()` before re-creating each drawer, which forcibly closed whatever the user had open. Now we reuse the existing popover element across renders and only re-run `renderProjectDrawer` on the drawer if it's currently open.
+
 ## 1.30.0
 - **Project tiles redesigned as compact listener strips with a popover drawer.** Each project tile is now a horizontal `[dot] name | vertical env-toggle stack` row. Each env row carries its own switch toggle and a per-env proof-of-life (`12s`, `4m`, `armed · no events`) keyed off the ingestion bus's per-source `lastTs`. Clicking anywhere on the tile opens a per-project drawer using the native HTML **Popover API** (`popover="auto"`) — no modal, no focus-trap code, browser handles dismiss and accessibility. Escape closes.
 - **Drawer is the project's single-pane admin surface.** Three sections:

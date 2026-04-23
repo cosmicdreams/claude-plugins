@@ -1,6 +1,6 @@
 {
     "name": "drover",
-    "version": "1.30.0",
+    "version": "1.30.1",
     "monitors": "./monitors/monitors.json",
     "description": "Automated Drupal and WordPress error monitoring and self-healing pipeline: watches logs (DDEV + Acquia), triages errors into curated Beads tickets, autonomously implements fixes in isolated git worktrees, captures verified Actual solutions alongside Projected hypotheses, and surfaces past fixes via /drover:recall.",
     "author": {
