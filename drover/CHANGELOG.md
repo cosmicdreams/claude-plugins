@@ -1,5 +1,9 @@
 # drover Changelog
 
+## 1.23.1
+- Fixed: selecting an Acquia env whose project was registered without `app_uuid` in projects.json (e.g. massport.*) no longer 404s with "alias not found". A shared `resolveAliasToAcquia()` helper walks up from the project's path looking for `.claude/drover-config.json` (which carries `app_uuid` per env) and uses that as a fallback (A12).
+- Friendlier 403 surface: when Acquia rejects with `forbidden_ip` (the app has an IP allowlist and the local machine isn't on it), the Backfill modal shows a one-sentence human explanation with remediation instead of a Python traceback. The client-side modal also surfaces any server-side `error` payload inline rather than falling through to the silent "No log types found" state.
+
 ## 1.23.0
 - Backfill modal now respects Acquia's 2-step archive flow (A11). Previously, log types whose archives hadn't been prepared yet were rendered as disabled checkboxes marked "unavailable" — the user had no way to ask Acquia to build one. Each row now renders one of four states driven by the combined Acquia availability flag plus drover's in-flight request state: Ready (checkbox), Not built (Request button), Preparing (spinner + elapsed counter), Failed (Retry button). Clicking Request fires `AcquiaClient.request_log_download()`, the UI flips to Preparing, and a 10-second poll cycle picks up the transition to Ready (or Failed) without any manual refresh. When the archive is ready, the row becomes a pre-checked checkbox; the user then clicks Run Backfill to download and fingerprint the log.
 - New endpoints: `POST /api/logs/request` and `GET /api/logs/status?alias=&type=`. `/api/backfill/log-types` response enriched with per-type `state` / `elapsedSec`, and fans out notification-URL polls for any preparing entries before responding so the UI's periodic refresh sees terminal states quickly.
