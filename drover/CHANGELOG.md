@@ -1,5 +1,8 @@
 # drover Changelog
 
+## 1.34.0
+- **Project facet in the filter sidebar.** Alongside Severity and Environment, the sidebar now carries a **Project** section with one checkbox per registered project (`acu`, `ahri`, `massport`, `pncb` — alphabetical, `-main` stripped to match the Projects-panel + Error-table Project column). Counts reflect open cards per project; projects with zero open cards still appear so the chip set is stable across refreshes. Click to narrow the table; multi-select ORs within the facet and ANDs across facets (same semantics as Severity / Environment).
+
 ## 1.33.2
 - **Umbrella now respects per-project `drover-config.json`.** The `list_projects()` emission previously walked every env in `projects.json` and handed them all to the umbrella as spawn candidates, regardless of whether the user had paused them. Net effect: clicking "Tracking off" on an env in the UI wrote `sources: []` to the config, but the umbrella kept spawning a child for that env anyway and streamed its logs in silent defiance of the config. Fixed by gating each `ddev:<name>` and `acquia:<env>.<uuid>` emission on the matching env having a non-empty `sources` array in that project's drover-config. `bd-ready:<path>` pollers still emit unconditionally (they read the local board, not log streams). Net effect: the UI's env toggles are now the actual source of truth for what gets tailed.
 
