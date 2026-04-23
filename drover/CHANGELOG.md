@@ -1,5 +1,14 @@
 # drover Changelog
 
+## 1.30.0
+- **Project tiles redesigned as compact listener strips with a popover drawer.** Each project tile is now a horizontal `[dot] name | vertical env-toggle stack` row. Each env row carries its own switch toggle and a per-env proof-of-life (`12s`, `4m`, `armed · no events`) keyed off the ingestion bus's per-source `lastTs`. Clicking anywhere on the tile opens a per-project drawer using the native HTML **Popover API** (`popover="auto"`) — no modal, no focus-trap code, browser handles dismiss and accessibility. Escape closes.
+- **Drawer is the project's single-pane admin surface.** Three sections:
+  - **Environments** — one block per env showing listener method (`ddev drush watchdog tail` / `Acquia logstream (WSS)`), last-event age, alias/trust/app_uuid/drush_alias/events/watcher pid, and the currently-enabled log source pills.
+  - **Project** — DDEV instance + status + approot + URL, drush aliases, Acquia app UUID, full path to `drover-config.json`, full path to the project's Beads DB.
+  - **Diagnostics** — per-env watcher liveness, armed-vs-running counts, orphan-watcher detection (a pid alive but env paused shows up here). This is the doctor corner that used to be mixed into the main page.
+- **Shared Sources button hidden.** Per-project sources live in each project's drawer now; the legacy top-bar Sources modal stays in code (hidden) so `Seed history` remains reachable without removing its wiring.
+- **`/api/projects/overview` enriched**: each env row now includes `listener_method`, `last_event_ts`, `event_count`, `watcher_pid` (from umbrella pidfiles), `ingest_key`, and identity bits (`env_slug`, `app_uuid`, `drush_alias`, `trust_level`). Projects carry `config_path`, `bd_db_path`, `ddev_http_url`, and `drush_aliases` so the drawer never needs a second round-trip.
+
 ## 1.29.1
 - **Safe-by-default tracking: local on, remote off.** Drover's first-start policy is now explicit: local DDEV envs stream on first launch with `drupal-watchdog` (or `wp-debug` for WordPress); **remote Acquia envs start paused with `"sources": []`** and require an explicit per-env opt-in. Spinning up drover should never begin tailing production before the user says so.
   - `/drover:setup` schema updated — DDEV template seeds `["drupal-watchdog"]`, Acquia template seeds `[]`, with a new "Default tracking policy" section documenting the principle.

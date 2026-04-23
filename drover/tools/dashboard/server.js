@@ -1151,29 +1151,78 @@ async function handleProjectsOverview(req, res) {
   const ddevInstances = fetchDdevInstances();
   const ddevByName = new Map(ddevInstances.map(i => [i.name, i]));
 
+  // Build a per-project lookup for the ingestion snapshot so we can attach
+  // per-env lastEventTs / sourceCount to each environment row.
+  const ingestionByProject = {};
+  for (const [k, v] of ingestionStatus.entries()) {
+    ingestionByProject[k] = v;
+  }
+  // Snapshot umbrella watcher pidfiles so the drawer can show "watcher alive"
+  // per env. Each pidfile's second line is the child PID.
+  function liveWatcherPid(key) {
+    if (!key) return 0;
+    const pf = path.join(UMBRELLA_TRACK_DIR, `${hashUmbrellaKey(key)}.pid`);
+    try {
+      if (!fs.existsSync(pf)) return 0;
+      const lines = fs.readFileSync(pf, 'utf8').split('\n');
+      const pid = parseInt(lines[1] || '0', 10);
+      if (!pid) return 0;
+      try { process.kill(pid, 0); return pid; } catch { return 0; }
+    } catch { return 0; }
+  }
+  function listenerMethodFor(cfgEnv) {
+    if (cfgEnv && cfgEnv.type === 'ddev') return 'ddev drush watchdog tail';
+    if (cfgEnv && cfgEnv.type === 'acquia') return 'Acquia logstream (WSS)';
+    return 'unknown';
+  }
+
   const projects = registered.map(p => {
     const projectName = p.name || p.ddev_project || '';
     const ddevProject = p.ddev_project || p.name || '';
     const ddev = ddevProject ? ddevByName.get(ddevProject) : null;
 
-    // Read per-project drover-config.json to enumerate configured envs +
-    // enabled source lists. The config is the truth for "what are we
-    // tracking?" — the umbrella watcher state is downstream of this.
     const configPath = findDroverConfigPath(p.path);
     const cfg = readDroverConfig(configPath);
     const cfgEnvs = (cfg && Array.isArray(cfg.environments)) ? cfg.environments : [];
 
+    const ingestState = ingestionByProject[projectName] || {};
+    const ingestSources = ingestState.sources || {};
+
     const environments = cfgEnvs.map(e => {
       const alias = aliasForConfigEnv(cfg.project || projectName, e);
-      // `sources` on the env is an array of source names (legacy snake_case
-      // or canonical kebab-case). Empty / missing = paused.
       const srcs = Array.isArray(e.sources) ? e.sources.filter(Boolean) : [];
+
+      // Look up the ingestion key that maps to this env so we can surface
+      // the last event timestamp and the umbrella watcher pid.
+      let ingestKey = '';
+      let srcBucket = null;
+      if (e.type === 'ddev') {
+        ingestKey = `ddev:${e.ddev_project || ddevProject}`;
+        srcBucket = ingestSources['ddev'] || null;
+      } else if (e.type === 'acquia') {
+        const envName = e.env_slug || e.name || '';
+        const appUuid = e.app_uuid || (p.acquia && p.acquia.app_uuid) || '';
+        ingestKey = appUuid && envName ? `acquia:${envName}.${appUuid}` : '';
+        srcBucket = ingestSources[`acquia:${envName}`] || null;
+      }
+
       return {
         name: e.name || '',
         type: e.type || '',
         alias,
+        listener_method: listenerMethodFor(e),
         enabled_sources: srcs,
         enabled_count: srcs.length,
+        last_event_ts: srcBucket ? srcBucket.lastTs : null,
+        event_count: srcBucket ? srcBucket.count : 0,
+        watcher_pid: liveWatcherPid(ingestKey),
+        ingest_key: ingestKey,
+        // Surface identity bits the drawer needs without a second round-trip.
+        ddev_project: e.ddev_project || '',
+        env_slug: e.env_slug || '',
+        app_uuid: e.app_uuid || '',
+        trust_level: e.trust_level || '',
+        drush_alias: e.ddev_alias || '',
       };
     });
 
@@ -1186,6 +1235,11 @@ async function handleProjectsOverview(req, res) {
       ddev_project: ddevProject,
       ddev_status: ddev ? ddev.status : 'unknown',
       ddev_approot: ddev ? ddev.approot : '',
+      ddev_http_url: ddev ? (ddev.httpsUrl || ddev.httpUrl || '') : '',
+      drush_aliases: Array.isArray(p.drush_aliases) ? p.drush_aliases : [],
+      acquia_app_uuid: (p.acquia && p.acquia.app_uuid) || '',
+      config_path: configPath,
+      bd_db_path: projectsModule.findBeadsDb(p.path) || '',
       has_drover_config: !!cfg,
       environments,
       streaming_env_count: streamingEnvs,
@@ -1193,8 +1247,6 @@ async function handleProjectsOverview(req, res) {
     };
   });
 
-  // Unregistered-but-running DDEV instances — these are candidates for
-  // "+ Add Project". Keep them separate from the registered list.
   const registeredDdevSet = new Set(registered.map(p => p.ddev_project || p.name).filter(Boolean));
   const unregistered = ddevInstances
     .filter(i => i.status === 'running' && !registeredDdevSet.has(i.name))
@@ -3209,26 +3261,39 @@ function buildHtml() {
   ::-webkit-scrollbar-thumb { background:var(--muted3); border-radius:3px; }
   ::-webkit-scrollbar-thumb:hover { background:var(--muted2); }
 
-  /* Projects Panel (per-project tiles w/ env streaming indicators) */
+  /* Projects Panel (per-project tiles w/ per-env toggles + proof-of-life) */
   .proj-tiles { display:flex; flex-wrap:wrap; gap:8px; margin-top:4px; }
   .proj-tile {
     background:var(--surface2); border:1px solid var(--border);
-    border-radius:8px; padding:10px 12px;
-    min-width:220px; flex:1 1 220px; max-width:320px;
-    display:flex; flex-direction:column; gap:8px;
+    border-radius:8px; padding:8px 10px;
+    min-width:240px; flex:1 1 240px; max-width:320px;
+    display:flex; flex-direction:row; align-items:flex-start; gap:12px;
     position:relative;
+    cursor:pointer;
+    transition: border-color 0.1s ease, background 0.1s ease;
   }
+  .proj-tile:hover { border-color:var(--border2); background:var(--surface3); }
+  .proj-tile:focus-visible { outline:2px solid var(--info); outline-offset:1px; }
   .proj-tile.no-config {
     border-color:rgba(255,214,10,0.25);
     background:rgba(255,214,10,0.03);
   }
-  .proj-tile-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
-  .proj-name-wrap { display:flex; align-items:center; gap:7px; min-width:0; }
+
+  .proj-tile-left {
+    display:flex; align-items:center; gap:6px;
+    min-width:0; flex:0 0 auto;
+    padding-top:2px;
+  }
   .proj-name {
-    font-family:var(--display); font-weight:600; font-size:13px;
+    font-family:var(--display); font-weight:600; font-size:12px;
     color:var(--text2); letter-spacing:0.01em;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+    max-width:90px;
   }
+  .proj-gear {
+    font-size:10px; color:var(--muted3); opacity:0; transition:opacity 0.1s ease;
+  }
+  .proj-tile:hover .proj-gear { opacity:1; }
   .proj-ddev-dot {
     width:7px; height:7px; border-radius:50%;
     background:var(--muted3); flex-shrink:0;
@@ -3238,39 +3303,151 @@ function buildHtml() {
   .proj-ddev-dot.error   { background:var(--crit); }
   .proj-ddev-dot.unknown { background:var(--warn); opacity:0.45; }
 
-  .proj-envs {
-    display:flex; flex-wrap:wrap; gap:4px;
+  .proj-envs-col {
+    display:flex; flex-direction:column; gap:3px;
+    flex:1 1 auto; min-width:0;
   }
-  .proj-env {
-    display:inline-flex; align-items:center; gap:5px;
-    padding:3px 8px; border-radius:4px;
-    background:var(--surface3);
-    border:1px solid var(--border);
+  .proj-env-row {
+    display:flex; align-items:center; gap:6px;
     font-family:var(--mono); font-size:10px;
-    color:var(--muted2);
+    padding:1px 0;
+  }
+  .proj-env-row.streaming { color:var(--text2); }
+  .proj-env-row.paused    { color:var(--muted3); }
+  .proj-env-row.pending   { opacity:0.5; }
+
+  .proj-env-toggle {
+    position:relative; flex-shrink:0;
+    width:22px; height:12px;
+    background:var(--surface3);
+    border:1px solid var(--border2);
+    border-radius:7px;
+    padding:0; margin:0;
     cursor:pointer;
-    transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
+    transition: background 0.12s ease, border-color 0.12s ease;
   }
-  .proj-env:hover { background:var(--surface2); }
-  .proj-env:focus-visible { outline:2px solid var(--info); outline-offset:1px; }
-  .proj-env.pending { opacity:0.5; cursor:progress; }
-  .proj-env-dot {
-    width:6px; height:6px; border-radius:50%;
+  .proj-env-toggle:focus-visible { outline:2px solid var(--info); outline-offset:1px; }
+  .proj-env-toggle-thumb {
+    position:absolute; top:1px; left:1px;
+    width:8px; height:8px; border-radius:50%;
     background:var(--muted3);
-    flex-shrink:0;
+    transition: transform 0.12s ease, background 0.12s ease;
   }
-  .proj-env.streaming { color:var(--text2); border-color:rgba(50,215,75,0.3); }
-  .proj-env.streaming .proj-env-dot { background:var(--ok); box-shadow:0 0 4px var(--ok); }
-  .proj-env.streaming:hover { border-color:rgba(255,214,10,0.4); }
-  .proj-env.paused { color:var(--muted3); }
-  .proj-env.paused .proj-env-dot { background:var(--muted3); }
-  .proj-env.paused:hover { color:var(--text2); border-color:rgba(50,215,75,0.35); }
-  .proj-env-label { font-weight:500; letter-spacing:0.03em; text-transform:lowercase; }
-  .proj-env-count { color:var(--muted3); font-size:9px; }
+  .proj-env-row.streaming .proj-env-toggle {
+    background:rgba(50,215,75,0.18);
+    border-color:rgba(50,215,75,0.5);
+  }
+  .proj-env-row.streaming .proj-env-toggle-thumb {
+    background:var(--ok);
+    transform:translateX(10px);
+    box-shadow:0 0 4px var(--ok);
+  }
+  .proj-env-name {
+    font-weight:500; letter-spacing:0.03em; text-transform:lowercase;
+    flex:1 1 auto; min-width:0;
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .proj-env-pol {
+    font-size:9px; color:var(--muted3);
+    flex-shrink:0; font-variant-numeric: tabular-nums;
+  }
+  .proj-env-pol.silent { color:var(--warn); }
 
   .proj-empty-cfg {
     font-family:var(--mono); font-size:10px; color:var(--warn);
   }
+
+  /* Per-project drawer (native popover) */
+  .proj-drawer {
+    position:fixed; top:0; right:0; left:auto; bottom:0;
+    width:440px; max-width:100vw; height:100vh;
+    margin:0; border:none; padding:0;
+    background:var(--surface); color:var(--text2);
+    border-left:1px solid var(--border);
+    box-shadow:-16px 0 48px rgba(0,0,0,0.45);
+    overflow:hidden;
+    inset:0 0 auto auto;
+  }
+  .proj-drawer::backdrop { background:rgba(0,0,0,0.35); }
+  .proj-drawer[popover]:not(:popover-open) { display:none; }
+  .proj-drawer-inner { display:flex; flex-direction:column; height:100%; }
+  .proj-drawer-head {
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 18px; border-bottom:1px solid var(--border);
+    background:var(--surface2);
+  }
+  .proj-drawer-title {
+    display:flex; align-items:center; gap:10px;
+    font-family:var(--display); font-weight:700; font-size:14px;
+  }
+  .proj-drawer-close {
+    background:transparent; border:1px solid var(--border2); color:var(--muted2);
+    border-radius:5px; padding:4px 10px; font-size:12px; cursor:pointer;
+  }
+  .proj-drawer-close:hover { color:var(--text2); border-color:var(--border); }
+  .proj-drawer-body {
+    flex:1 1 auto; overflow-y:auto; padding:16px 18px;
+    display:flex; flex-direction:column; gap:18px;
+  }
+  .proj-drawer-section {
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .proj-drawer-section-title {
+    font-family:var(--mono); font-size:10px; font-weight:600;
+    letter-spacing:0.14em; text-transform:uppercase;
+    color:var(--muted2);
+  }
+  .proj-env-block {
+    background:var(--surface2); border:1px solid var(--border);
+    border-radius:8px; padding:10px 12px;
+  }
+  .proj-env-block-head {
+    display:flex; align-items:center; justify-content:space-between;
+    gap:8px; margin-bottom:6px;
+  }
+  .proj-env-block-head-left { display:flex; align-items:center; gap:8px; min-width:0; }
+  .proj-env-block-name {
+    font-family:var(--mono); font-size:12px; font-weight:600;
+    color:var(--text2); text-transform:lowercase;
+  }
+  .proj-env-block-method {
+    font-family:var(--mono); font-size:9px; color:var(--muted3);
+    letter-spacing:0.03em;
+  }
+  .proj-env-block-pol {
+    font-family:var(--mono); font-size:9px; color:var(--muted2);
+  }
+  .proj-env-block-pol.silent { color:var(--warn); }
+  .proj-env-block-body {
+    font-family:var(--mono); font-size:10px; color:var(--muted2);
+    line-height:1.6;
+  }
+  .proj-env-sources-label {
+    font-size:9px; color:var(--muted3); letter-spacing:0.06em;
+    text-transform:uppercase; margin-top:4px; display:block;
+  }
+  .proj-env-sources-list {
+    display:flex; flex-wrap:wrap; gap:4px; margin-top:4px;
+  }
+  .proj-env-source-pill {
+    padding:2px 6px; border-radius:3px;
+    background:var(--surface3); border:1px solid var(--border);
+    color:var(--muted2); font-size:9px;
+  }
+  .proj-env-source-pill.enabled {
+    color:var(--ok); border-color:rgba(50,215,75,0.35);
+  }
+  .proj-kv {
+    display:grid; grid-template-columns:max-content 1fr;
+    gap:4px 10px;
+    font-family:var(--mono); font-size:10px;
+  }
+  .proj-kv-key { color:var(--muted2); letter-spacing:0.04em; text-transform:uppercase; font-size:9px; align-self:center; }
+  .proj-kv-val { color:var(--text2); word-break:break-all; font-size:10px; }
+  .proj-kv-val.muted { color:var(--muted3); }
+  .proj-diag-ok   { color:var(--ok); }
+  .proj-diag-warn { color:var(--warn); }
+  .proj-diag-crit { color:var(--crit); }
 
   .proj-unregistered {
     display:flex; flex-wrap:wrap; gap:6px;
@@ -3560,7 +3737,7 @@ function buildHtml() {
         <button type="button" class="view-toggle-seg" id="btn-board" role="radio" aria-pressed="false" onclick="switchView('board')">Issues</button>
       </div>
       <button class="btn btn-ghost" id="btn-add-project" onclick="addProjectPrompt()" title="Register a DDEV project with drover">+ Add Project</button>
-      <button class="btn btn-ghost" id="btn-sources" onclick="sourcesPrompt()" title="Choose which log sources drover listens to per env (Stream) and seed historical windows (Seed history)">Sources</button>
+      <button class="btn btn-ghost" id="btn-sources" onclick="sourcesPrompt()" title="Legacy shared sources modal — per-project sources now live in each project's drawer. Keep for Seed history and debugging." style="display:none">Sources</button>
     </div>
   </header>
 
@@ -5884,57 +6061,107 @@ function renderDdevPanel() {
     tile.style.animation = 'fade-up 0.3s ease both';
     tile.setAttribute('role','group');
     tile.setAttribute('aria-label', proj.display_name + ' project, '
-      + proj.streaming_env_count + ' of ' + proj.configured_env_count + ' environments streaming');
+      + proj.streaming_env_count + ' of ' + proj.configured_env_count + ' environments streaming'
+      + '. Click to open configuration.');
+    // Native popover: clicking the tile body opens the per-project drawer.
+    // The popover itself lives outside the panel and is rendered once per
+    // project below.
+    var popId = 'proj-pop-' + (proj.name || idx);
+    // Popover API's popovertarget attribute only triggers on <button>. The
+    // tile is a div (so it can host nested toggle buttons), so we open the
+    // popover manually on click. The toggle buttons call stopPropagation
+    // to avoid dragging the drawer open when the user just wants to flip
+    // an env chip.
+    tile.setAttribute('tabindex','0');
+    tile.addEventListener('click', (function(id){ return function(){
+      var pop = document.getElementById(id);
+      if (pop && pop.showPopover) pop.showPopover();
+    };})(popId));
+    tile.addEventListener('keydown', (function(id){ return function(ev){
+      if (ev.key === 'Enter' || ev.key === ' ') {
+        ev.preventDefault();
+        var pop = document.getElementById(id);
+        if (pop && pop.showPopover) pop.showPopover();
+      }
+    };})(popId));
 
-    // Head carries a single project identity — dot + name. The DDEV
-    // instance name used to sit on the right, but it duplicated the project
-    // label after stripping "-main" (e.g. "pncb" on both sides), so now we
-    // keep just a status dot whose tooltip names the DDEV instance.
-    var head = el('div','proj-tile-head');
-    var nameWrap = el('div','proj-name-wrap');
+    // Left column: DDEV status dot + project name + open-drawer affordance.
+    var leftCol = el('div','proj-tile-left');
     var ddevDot = el('span','proj-ddev-dot '+(proj.ddev_status || 'stopped'));
     ddevDot.title = proj.ddev_project
       ? 'DDEV instance “' + proj.ddev_project + '” is ' + proj.ddev_status
       : 'No DDEV instance linked to this project';
-    nameWrap.appendChild(ddevDot);
-    nameWrap.appendChild(txt('div','proj-name', proj.display_name || proj.name));
-    head.appendChild(nameWrap);
-    tile.appendChild(head);
+    leftCol.appendChild(ddevDot);
+    leftCol.appendChild(txt('div','proj-name', proj.display_name || proj.name));
+    var gear = el('span','proj-gear');
+    gear.textContent = '⚙';
+    gear.setAttribute('aria-hidden','true');
+    leftCol.appendChild(gear);
+    tile.appendChild(leftCol);
 
+    // Right column: vertical env stack. Each row = [toggle][env name]
+    // [last-event age]. Toggle uses role=switch; last-event age updates
+    // from /api/projects/overview on every fetch.
+    var envsCol = el('div','proj-envs-col');
     if (proj.environments && proj.environments.length) {
-      var envsRow = el('div','proj-envs');
       proj.environments.forEach(function(env) {
         var streaming = (env.enabled_count || 0) > 0;
-        var chip = el('button','proj-env '+(streaming ? 'streaming' : 'paused'));
-        chip.type = 'button';
-        chip.setAttribute('role','switch');
-        chip.setAttribute('aria-checked', streaming ? 'true' : 'false');
-        chip.setAttribute('aria-label',
+        var row = el('div','proj-env-row '+(streaming ? 'streaming' : 'paused'));
+
+        var toggle = el('button','proj-env-toggle');
+        toggle.type = 'button';
+        toggle.setAttribute('role','switch');
+        toggle.setAttribute('aria-checked', streaming ? 'true' : 'false');
+        toggle.setAttribute('aria-label',
           (streaming ? 'Tracking on for ' : 'Tracking off for ')
           + (env.name || env.alias) + '. Click to ' + (streaming ? 'pause' : 'resume') + '.');
-        chip.appendChild(el('span','proj-env-dot'));
-        chip.appendChild(txt('span','proj-env-label', env.name || env.alias || '?'));
+        toggle.title = toggle.getAttribute('aria-label');
+        toggle.appendChild(el('span','proj-env-toggle-thumb'));
+        toggle.addEventListener('click', (function(alias, turnOn, rowEl){ return function(ev){
+          ev.preventDefault(); ev.stopPropagation();
+          toggleEnvTracking(alias, turnOn, rowEl);
+        };})(env.alias, !streaming, row));
+        row.appendChild(toggle);
+
+        row.appendChild(txt('span','proj-env-name', env.name || env.alias || '?'));
+
+        // Proof-of-life: "14s" if we've seen a recent event, "—" if the
+        // env is streaming but we've never received one, hidden when
+        // paused (nothing should be coming through by design).
+        var pol = el('span','proj-env-pol');
         if (streaming) {
-          chip.appendChild(txt('span','proj-env-count', String(env.enabled_count)));
+          pol.textContent = formatAgeShort(env.last_event_ts);
+          pol.title = env.last_event_ts
+            ? 'Last event at ' + env.last_event_ts
+            : 'Armed, but no events have been received yet.';
+          if (!env.last_event_ts) pol.classList.add('silent');
         }
-        chip.title = streaming
-          ? 'Streaming ' + env.enabled_count + ' source' + (env.enabled_count === 1 ? '' : 's')
-            + ': ' + env.enabled_sources.join(', ') + '. Click to pause.'
-          : 'Paused — no log sources enabled. Click to resume with the default source.';
-        chip.addEventListener('click', (function(alias, turnOn){ return function(ev){
-          ev.stopPropagation();
-          toggleEnvTracking(alias, turnOn, this);
-        };})(env.alias, !streaming));
-        envsRow.appendChild(chip);
+        row.appendChild(pol);
+
+        envsCol.appendChild(row);
       });
-      tile.appendChild(envsRow);
     } else if (!proj.has_drover_config) {
-      tile.appendChild(txt('div','proj-empty-cfg','No drover-config.json — run /drover:setup in this project'));
+      envsCol.appendChild(txt('div','proj-empty-cfg','No drover-config.json — run /drover:setup'));
     } else {
-      tile.appendChild(txt('div','proj-empty-cfg','No environments configured'));
+      envsCol.appendChild(txt('div','proj-empty-cfg','No environments configured'));
     }
+    tile.appendChild(envsCol);
 
     projTiles.appendChild(tile);
+
+    // Popover drawer (rendered as a sibling so it can escape the panel's
+    // stacking context). Lazily populated on open to avoid rebuilding
+    // every env refresh.
+    var existingPop = document.getElementById(popId);
+    if (existingPop) existingPop.remove();
+    var pop = el('div','proj-drawer');
+    pop.id = popId;
+    pop.setAttribute('popover','auto');
+    pop.dataset.projectName = proj.name;
+    pop.addEventListener('beforetoggle', function(ev){
+      if (ev.newState === 'open') renderProjectDrawer(pop, proj);
+    });
+    document.body.appendChild(pop);
   });
 
   // Unregistered running DDEV instances — keep the "+ Add" affordance
@@ -5990,6 +6217,166 @@ function toggleEnvTracking(alias, enable, chipEl) {
     }
   }).catch(function(){ showToast('Network error'); })
     .finally(function(){ if (chipEl) chipEl.classList.remove('pending'); });
+}
+
+// Compact age formatter for tile proof-of-life: "just now", "12s", "4m", "1h".
+function formatAgeShort(ts) {
+  if (!ts) return '—';
+  var d = new Date(ts); if (isNaN(d.getTime())) return '—';
+  var s = Math.max(0, Math.floor((Date.now() - d.getTime())/1000));
+  if (s < 5) return 'now';
+  if (s < 60) return s + 's';
+  if (s < 3600) return Math.floor(s/60) + 'm';
+  if (s < 86400) return Math.floor(s/3600) + 'h';
+  return Math.floor(s/86400) + 'd';
+}
+
+// Render the per-project drawer body. Called lazily the first time the
+// popover opens; keeps the tile render cheap. The drawer has three
+// sections: Environments (listener, last-event, sources with checkboxes),
+// Project (DDEV controls, paths, aliases, app_uuid), Diagnostics
+// (umbrella watcher pids, orphans, config-write state).
+function renderProjectDrawer(root, proj) {
+  removeChildren(root);
+  var inner = el('div','proj-drawer-inner');
+
+  var head = el('div','proj-drawer-head');
+  var title = el('div','proj-drawer-title');
+  var dot = el('span','proj-ddev-dot '+(proj.ddev_status || 'stopped'));
+  title.appendChild(dot);
+  title.appendChild(txt('span','', proj.display_name || proj.name));
+  head.appendChild(title);
+  var closeBtn = el('button','proj-drawer-close');
+  closeBtn.textContent = 'Close';
+  closeBtn.addEventListener('click', function(){ try { root.hidePopover(); } catch(e){} });
+  head.appendChild(closeBtn);
+  inner.appendChild(head);
+
+  var body = el('div','proj-drawer-body');
+
+  // Section 1: Environments
+  var envSec = el('div','proj-drawer-section');
+  envSec.appendChild(txt('div','proj-drawer-section-title','Environments'));
+  if (!proj.environments || !proj.environments.length) {
+    envSec.appendChild(txt('div','proj-empty-cfg','No environments configured for this project'));
+  } else {
+    proj.environments.forEach(function(env) {
+      var block = el('div','proj-env-block');
+      var bh = el('div','proj-env-block-head');
+      var bhLeft = el('div','proj-env-block-head-left');
+      var envDot = el('span','proj-env-dot');
+      envDot.style.background = (env.enabled_count > 0) ? 'var(--ok)' : 'var(--muted3)';
+      envDot.style.width = '7px'; envDot.style.height = '7px';
+      envDot.style.borderRadius = '50%';
+      bhLeft.appendChild(envDot);
+      bhLeft.appendChild(txt('span','proj-env-block-name', env.name || env.alias));
+      bhLeft.appendChild(txt('span','proj-env-block-method', env.listener_method || ''));
+      bh.appendChild(bhLeft);
+      var polLabel = env.enabled_count > 0
+        ? (env.last_event_ts
+            ? ('last event ' + formatAgeShort(env.last_event_ts))
+            : 'armed · no events yet')
+        : 'paused';
+      var pol = el('span','proj-env-block-pol' + (env.enabled_count > 0 && !env.last_event_ts ? ' silent' : ''));
+      pol.textContent = polLabel;
+      bh.appendChild(pol);
+      block.appendChild(bh);
+
+      var kv = el('div','proj-kv');
+      function addKv(k, v, cls) {
+        kv.appendChild(txt('div','proj-kv-key', k));
+        kv.appendChild(txt('div','proj-kv-val'+(cls?' '+cls:''), v || '—'));
+      }
+      addKv('Alias', env.alias);
+      if (env.trust_level) addKv('Trust', env.trust_level);
+      if (env.type === 'acquia') {
+        addKv('Env slug', env.env_slug);
+        addKv('App UUID', env.app_uuid, 'muted');
+        if (env.drush_alias) addKv('Drush alias', env.drush_alias);
+      } else if (env.type === 'ddev') {
+        addKv('DDEV project', env.ddev_project || proj.ddev_project);
+      }
+      addKv('Events', String(env.event_count || 0));
+      addKv('Watcher', env.watcher_pid ? ('pid ' + env.watcher_pid) : 'not running',
+        env.enabled_count > 0 && !env.watcher_pid ? 'muted' : '');
+      block.appendChild(kv);
+
+      // Source list — enabled names rendered as green pills. A "Configure
+      // sources" link opens the existing Sources modal filtered to this
+      // alias (we keep the modal as the granular source editor during the
+      // transition away from the shared Sources button).
+      var srcsLabel = el('span','proj-env-sources-label');
+      srcsLabel.textContent = 'Log sources';
+      block.appendChild(srcsLabel);
+      var srcsList = el('div','proj-env-sources-list');
+      if (env.enabled_sources && env.enabled_sources.length) {
+        env.enabled_sources.forEach(function(s){
+          srcsList.appendChild(txt('span','proj-env-source-pill enabled', s));
+        });
+      } else {
+        srcsList.appendChild(txt('span','proj-env-source-pill', 'none — paused'));
+      }
+      block.appendChild(srcsList);
+
+      envSec.appendChild(block);
+    });
+  }
+  body.appendChild(envSec);
+
+  // Section 2: Project
+  var projSec = el('div','proj-drawer-section');
+  projSec.appendChild(txt('div','proj-drawer-section-title','Project'));
+  var projKv = el('div','proj-kv');
+  function pkv(k,v,cls){
+    projKv.appendChild(txt('div','proj-kv-key', k));
+    projKv.appendChild(txt('div','proj-kv-val'+(cls?' '+cls:''), v || '—'));
+  }
+  pkv('Name', proj.display_name || proj.name);
+  pkv('DDEV project', proj.ddev_project);
+  pkv('DDEV status', proj.ddev_status, proj.ddev_status === 'running' ? 'proj-diag-ok' : (proj.ddev_status === 'stopped' ? 'muted' : 'proj-diag-warn'));
+  pkv('Approot', proj.ddev_approot, 'muted');
+  if (proj.ddev_http_url) pkv('DDEV URL', proj.ddev_http_url);
+  pkv('Drush aliases', (proj.drush_aliases || []).join(', ') || '—');
+  pkv('Acquia UUID', proj.acquia_app_uuid, 'muted');
+  pkv('drover-config.json', proj.config_path || '(missing)', 'muted');
+  pkv('Beads DB', proj.bd_db_path || '(not found)', 'muted');
+  projSec.appendChild(projKv);
+  body.appendChild(projSec);
+
+  // Section 3: Diagnostics
+  var diagSec = el('div','proj-drawer-section');
+  diagSec.appendChild(txt('div','proj-drawer-section-title','Diagnostics'));
+  var diagKv = el('div','proj-kv');
+  function dkv(k,v,cls){
+    diagKv.appendChild(txt('div','proj-kv-key', k));
+    diagKv.appendChild(txt('div','proj-kv-val'+(cls?' '+cls:''), v));
+  }
+  var liveWatchers = (proj.environments||[]).filter(function(e){return e.watcher_pid;}).length;
+  var armedEnvs = (proj.environments||[]).filter(function(e){return (e.enabled_count||0) > 0;}).length;
+  dkv('Config OK', proj.has_drover_config ? 'yes' : 'no', proj.has_drover_config ? 'proj-diag-ok' : 'proj-diag-crit');
+  dkv('Envs armed', String(armedEnvs));
+  dkv('Watchers live', liveWatchers + ' of ' + armedEnvs,
+    (armedEnvs > 0 && liveWatchers < armedEnvs) ? 'proj-diag-warn' : (liveWatchers > 0 ? 'proj-diag-ok' : 'muted'));
+  if (proj.environments && proj.environments.length) {
+    proj.environments.forEach(function(env) {
+      var status;
+      if (env.enabled_count === 0) status = 'paused';
+      else if (!env.watcher_pid) status = 'armed · no watcher';
+      else if (!env.last_event_ts) status = 'watching · no events yet';
+      else status = 'last event ' + formatAgeShort(env.last_event_ts);
+      var cls = '';
+      if (status === 'paused') cls = 'muted';
+      else if (status.indexOf('no watcher') >= 0) cls = 'proj-diag-warn';
+      else if (status.indexOf('no events') >= 0) cls = 'proj-diag-warn';
+      else cls = 'proj-diag-ok';
+      dkv(env.name || env.alias, status, cls);
+    });
+  }
+  diagSec.appendChild(diagKv);
+  body.appendChild(diagSec);
+
+  inner.appendChild(body);
+  root.appendChild(inner);
 }
 
 function ddevStartInstance(name) {
