@@ -1,5 +1,9 @@
 # drover Changelog
 
+## 1.25.0
+- DDEV panel distinguishes registered-with-drover instances from unregistered-but-running ones (T6). Tiles now carry a ✓ watching / ○ not monitored badge; unregistered running tiles render with a dashed border and a primary `+ Add` button. Clicking Add registers the project, re-arms the umbrella so the new watcher spawns, and flips the tile to "watching" without a page reload. `/api/ddev/status` stamps every instance with `registered: bool`; `/api/projects/add` busts the ddev cache and broadcasts a fresh `ddev-status` SSE.
+- `add-project.sh` prefers `config.local.yaml`'s `name:` over `config.yaml` when present so worktree-style DDEV setups register under the same instance name DDEV itself uses (e.g. `AHRI-main` for the AHRI worktree rather than the project slug from config.yaml).
+
 ## 1.24.0
 - Clicking a row in the Dashboard error table now opens the same card-detail modal as clicking a kanban card on the Issues tab (T5a). The previous in-place row expansion, which showed only a re-echo of the title and "No log entries", is retired — every row click now goes straight to Details + Error message + Projected/Actual solution + Move-to + action strip. Board tab behaviour is unchanged.
 - Fingerprint row display accepts non-hex identifier tokens (A10). `[a-f0-9]+` was arbitrarily restrictive and left cards whose fingerprint contained any other character rendering as `fp:[unknown]`; the regex now accepts any non-backtick, non-whitespace run between backticks. Applied consistently across the 4 call sites (server-side parse, solution lookup in two writers, client-side parseCardClient).
