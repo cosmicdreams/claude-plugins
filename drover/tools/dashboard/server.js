@@ -2896,21 +2896,39 @@ function buildHtml() {
   .sev-badge.info { background:var(--info-dim); color:var(--info2); }
   .sev-dot { width:4px; height:4px; border-radius:50%; background:currentColor; }
 
-  .err-title-wrap { display:flex; align-items:center; gap:8px; }
+  .err-title-wrap {
+    display:flex; align-items:flex-start; gap:8px;
+    /* was align-items:center with nowrap — allowed only a single line.
+       flex-start + wrap below lets long messages spill across 2–3 lines,
+       which is what Option C's wide Error column was supposed to enable. */
+  }
   .expand-chevron {
-    width:14px; height:14px; flex-shrink:0;
+    width:14px; height:14px; flex-shrink:0; margin-top:3px;
     fill:none; stroke:var(--muted3); stroke-width:2;
     transition:transform 0.15s ease, stroke 0.15s;
   }
   .expanded .expand-chevron { transform:rotate(90deg); stroke:var(--info2); }
 
-  .err-title { font-size:12px; color:var(--text2); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  /* Error cell uses the full width it was given. Messages wrap up to 3
+     lines; long URLs / pipe-delimited watchdog payloads break mid-word
+     so nothing overflows the cell. Truncation, when it happens, is at
+     line 3 via line-clamp — hover tooltip and the row modal both show
+     the full text. */
+  .err-title {
+    font-size:12px; color:var(--text2); font-weight:500;
+    flex:1 1 auto; min-width:0;
+    white-space:normal; word-break:break-word; overflow-wrap:anywhere;
+    line-height:1.4;
+    display:-webkit-box; -webkit-box-orient:vertical; -webkit-line-clamp:3;
+    overflow:hidden;
+  }
   .err-cls {
     font-family:var(--mono); font-size:11px; font-weight:600;
-    color:var(--info2); margin-right:6px;
-    white-space:nowrap;
+    color:var(--info2); margin-right:0;
+    white-space:nowrap; flex-shrink:0;
   }
-  .err-fp { font-family:var(--mono); font-size:9px; color:var(--muted3); margin-top:1px; letter-spacing:0.06em; padding-left:22px; }
+  .err-fp { font-family:var(--mono); font-size:9px; color:var(--muted3); margin-top:2px; letter-spacing:0.06em; padding-left:22px; }
+  tbody tr td { vertical-align:top; }
 
   /* Last-seen cell: absolute timestamp + subtle first-seen hint below. */
   .seen-cell {
@@ -4795,14 +4813,23 @@ function buildRow(c, i) {
   if (c.errCls) {
     titleWrap.appendChild(txt('span','err-cls', c.errCls));
   }
-  var hasExtraction = !!(c.errCls || c.errMsg);
-  var msgText = c.errMsg || (hasExtraction ? '' : c.title);
-  if (msgText) {
-    var msgEl = txt('span','err-title', msgText);
-    // Hover tooltip reveals the full message when the cell truncates
-    // (narrow viewports). Combined with the modal, nothing important is
-    // ever permanently hidden.
-    msgEl.title = (c.errCls ? c.errCls + ': ' : '') + msgText;
+  // Render the full original title (minus the [SEV] source: prefix).
+  // Previously we kept only the post-colon tail — which threw away URL
+  // path, hook name, and watchdog pipe fields (the stuff that tells the
+  // operator where to look). We now keep everything; the class chip is
+  // just a visual anchor alongside it, not a replacement for context.
+  var shown = String(c.title || '');
+  var sevMatch = shown.match(/^\\[[A-Z]+\\]\\s*/);
+  if (sevMatch) shown = shown.slice(sevMatch[0].length);
+  var srcMatch = shown.match(/^[a-z_\\-]+:\\s*/);
+  if (srcMatch) shown = shown.slice(srcMatch[0].length);
+  // Drupal watchdog pipe separators render as opaque noise. Replace them
+  // with a readable separator so the URL / hook / request-path fields
+  // are visually distinguishable.
+  shown = shown.replace(/\\|n\\|/g, ' · ').replace(/\\|ip\\|/g, ' · ');
+  if (shown) {
+    var msgEl = txt('span','err-title', shown);
+    msgEl.title = (c.errCls ? c.errCls + ': ' : '') + shown;
     titleWrap.appendChild(msgEl);
   }
   titleTd.appendChild(titleWrap);

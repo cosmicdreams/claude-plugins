@@ -1,5 +1,8 @@
 # drover Changelog
 
+## 1.35.1
+- **Error cell now uses the space the Option-C layout gave it.** Two regressions fixed in one pass: (a) `.err-title` had `white-space: nowrap; text-overflow: ellipsis` which clamped every message to one truncated line — removed, replaced with a 3-line clamp that allows wrap and word-break; (b) the render was showing only the extracted post-colon tail (`sqlstatets: syntax error or ac`) instead of the full original title, throwing away URL paths, hook names, and watchdog pipe fields. The class chip remains as a visual anchor; the rest of the original title now renders alongside it, wrapped to as many lines as the clamp allows. Drupal watchdog pipe separators (`|n|`, `|ip|`) render as visible `·` bullets so the URL / hook / request-path fields are distinguishable.
+
 ## 1.35.0
 - **Table refocuses on the error.** Project / Env / Source / Lane columns removed. The table now reads `[Sev] [Last seen] [Count] [Error →]` where Error takes all remaining horizontal space. This reflects the product's unit of work: what's broken, how bad, how often. Context (which project, env, source, lane) is still surfaced — it lives in the row modal and in the sidebar facets, which are the right affordances for "should I act on this" and "narrow to these" respectively.
 - **Lane joins the sidebar facet rail.** Fourth facet after Severity / Environment / Project. Displayed in pipeline order (TRIAGE → READY → IMPLEMENTING → AWAITING REVIEW), not alphabetical, so "Ready" is visually where your eye expects it.
