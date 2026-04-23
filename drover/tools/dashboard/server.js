@@ -1744,6 +1744,45 @@ print(json.dumps([{"type": i["type"], "label": i.get("label", i["type"])} for i 
 // Updates drover-config.json environments[].sources and signals the
 // umbrella to re-subscribe that env's watcher. Response includes the full
 // updated source list so the UI can reconcile without a re-fetch.
+// Binary per-env toggle powering the Projects panel's env chips.
+// enable=false   → clears the sources array (unsubscribes the watcher).
+// enable=true    → sets sources to a sensible default for the env's platform
+//                  (drupal-watchdog for Drupal, wp-debug for WordPress).
+// Returns the new sources list + resubscribe action.
+async function handleSourcesEnvToggle(req, res) {
+  let body;
+  try { body = await readBody(req); } catch (e) {
+    return jsonResponse(res, 400, { error: 'invalid JSON' });
+  }
+  const { alias, enable } = body || {};
+  if (!alias || typeof enable !== 'boolean') {
+    return jsonResponse(res, 400, { error: 'alias, enable(boolean) required' });
+  }
+  const projects = projectsModule.listProjects() || [];
+  const match = findConfigEnvByAlias(projects, alias);
+  if (!match) return jsonResponse(res, 404, { error: `alias not found in any drover-config.json: ${alias}` });
+
+  let next;
+  if (enable) {
+    // Default tracking set. Prefer Drupal watchdog; fall back to wp-debug
+    // when the parent project's ddev_type marks the project as WordPress.
+    const ddevType = (match.project.ddev_type || '').toLowerCase();
+    next = ddevType.includes('wordpress') ? ['wp-debug'] : ['drupal-watchdog'];
+  } else {
+    next = [];
+  }
+  match.cfgEnv.sources = next;
+  try { writeDroverConfig(match.configPath, match.cfg); }
+  catch (e) { return jsonResponse(res, 500, { error: 'failed to write drover-config.json: ' + e.message }); }
+
+  const resubResult = resubscribeEnv(alias, next, match);
+  broadcast('sources-update', { alias, enabled: enable, sources: next, ts: new Date().toISOString() });
+  return jsonResponse(res, 200, {
+    alias, enabled: enable, sources: next,
+    resubscribed: resubResult.resubscribed, action: resubResult.action,
+  });
+}
+
 async function handleSourcesToggle(req, res) {
   let body;
   try { body = await readBody(req); } catch (e) {
@@ -2398,12 +2437,17 @@ function buildHtml() {
     display: flex; align-items: center; gap: 6px;
     font-family: var(--mono); font-size: 10px; font-weight: 500;
     color: var(--ok); letter-spacing: 0.1em; text-transform: uppercase;
+    cursor: help;
   }
+  .live-badge.state-connecting { color: var(--warn); }
+  .live-badge.state-offline    { color: var(--crit); }
   .live-dot {
     width: 6px; height: 6px; border-radius: 50%; background: var(--ok);
     box-shadow: 0 0 6px var(--ok);
     animation: pulse-dot 2s ease-in-out infinite;
   }
+  .live-badge.state-connecting .live-dot { background: var(--warn); box-shadow: 0 0 6px var(--warn); }
+  .live-badge.state-offline    .live-dot { background: var(--crit); box-shadow: 0 0 6px var(--crit); animation: none; opacity:0.8; }
   @keyframes pulse-dot {
     0%,100% { opacity:1; transform:scale(1); }
     50%      { opacity:0.35; transform:scale(0.6); }
@@ -3175,23 +3219,20 @@ function buildHtml() {
     background:rgba(255,214,10,0.03);
   }
   .proj-tile-head { display:flex; align-items:center; justify-content:space-between; gap:8px; }
+  .proj-name-wrap { display:flex; align-items:center; gap:7px; min-width:0; }
   .proj-name {
     font-family:var(--display); font-weight:600; font-size:13px;
     color:var(--text2); letter-spacing:0.01em;
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
-  .proj-ddev {
-    display:inline-flex; align-items:center; gap:4px;
-    font-family:var(--mono); font-size:9px; letter-spacing:0.04em;
-    color:var(--muted2); text-transform:uppercase;
-  }
   .proj-ddev-dot {
-    width:6px; height:6px; border-radius:50%;
-    background:var(--muted3);
+    width:7px; height:7px; border-radius:50%;
+    background:var(--muted3); flex-shrink:0;
   }
   .proj-ddev-dot.running { background:var(--ok); box-shadow:0 0 4px var(--ok); }
   .proj-ddev-dot.stopped { background:var(--muted3); }
   .proj-ddev-dot.error   { background:var(--crit); }
+  .proj-ddev-dot.unknown { background:var(--warn); opacity:0.45; }
 
   .proj-envs {
     display:flex; flex-wrap:wrap; gap:4px;
@@ -3203,8 +3244,12 @@ function buildHtml() {
     border:1px solid var(--border);
     font-family:var(--mono); font-size:10px;
     color:var(--muted2);
-    cursor:default;
+    cursor:pointer;
+    transition: background 0.1s ease, border-color 0.1s ease, color 0.1s ease;
   }
+  .proj-env:hover { background:var(--surface2); }
+  .proj-env:focus-visible { outline:2px solid var(--info); outline-offset:1px; }
+  .proj-env.pending { opacity:0.5; cursor:progress; }
   .proj-env-dot {
     width:6px; height:6px; border-radius:50%;
     background:var(--muted3);
@@ -3212,8 +3257,10 @@ function buildHtml() {
   }
   .proj-env.streaming { color:var(--text2); border-color:rgba(50,215,75,0.3); }
   .proj-env.streaming .proj-env-dot { background:var(--ok); box-shadow:0 0 4px var(--ok); }
+  .proj-env.streaming:hover { border-color:rgba(255,214,10,0.4); }
   .proj-env.paused { color:var(--muted3); }
   .proj-env.paused .proj-env-dot { background:var(--muted3); }
+  .proj-env.paused:hover { color:var(--text2); border-color:rgba(50,215,75,0.35); }
   .proj-env-label { font-weight:500; letter-spacing:0.03em; text-transform:lowercase; }
   .proj-env-count { color:var(--muted3); font-size:9px; }
 
@@ -3500,7 +3547,7 @@ function buildHtml() {
     <div class="topbar-left">
       <span class="wordmark">dro<svg class="wordmark-v" viewBox="0 0 46.22 34" aria-hidden="true" focusable="false"><path d="M0 0H15.2L32.06 34H16.85Z" fill="#FF453A"/><path d="M30.75 0L38.49 15.77L23.01 0Z" fill="#10E992"/><path d="M38.49 15.77L30.75 0L46.22 0Z" fill="#0051FF"/></svg>er</span>
       ${PLUGIN_VERSION ? `<span class="version-badge">v${PLUGIN_VERSION}</span>` : ''}
-      <span class="live-badge"><span class="live-dot"></span>live</span>
+      <span class="live-badge state-connecting" id="live-badge" title="Connecting to server-sent events…"><span class="live-dot"></span><span id="live-label">connecting</span></span>
     </div>
     <div class="topbar-right">
       <span class="ts" id="clock"></span>
@@ -5835,22 +5882,32 @@ function renderDdevPanel() {
     tile.setAttribute('aria-label', proj.display_name + ' project, '
       + proj.streaming_env_count + ' of ' + proj.configured_env_count + ' environments streaming');
 
+    // Head carries a single project identity — dot + name. The DDEV
+    // instance name used to sit on the right, but it duplicated the project
+    // label after stripping "-main" (e.g. "pncb" on both sides), so now we
+    // keep just a status dot whose tooltip names the DDEV instance.
     var head = el('div','proj-tile-head');
-    head.appendChild(txt('div','proj-name', proj.display_name || proj.name));
-
-    var ddevBadge = el('span','proj-ddev');
+    var nameWrap = el('div','proj-name-wrap');
     var ddevDot = el('span','proj-ddev-dot '+(proj.ddev_status || 'stopped'));
-    ddevBadge.appendChild(ddevDot);
-    ddevBadge.appendChild(txt('span','',(proj.ddev_project || '').replace(/-main$/i,'') || 'no ddev'));
-    ddevBadge.title = 'DDEV instance “' + proj.ddev_project + '” is ' + proj.ddev_status;
-    head.appendChild(ddevBadge);
+    ddevDot.title = proj.ddev_project
+      ? 'DDEV instance “' + proj.ddev_project + '” is ' + proj.ddev_status
+      : 'No DDEV instance linked to this project';
+    nameWrap.appendChild(ddevDot);
+    nameWrap.appendChild(txt('div','proj-name', proj.display_name || proj.name));
+    head.appendChild(nameWrap);
     tile.appendChild(head);
 
     if (proj.environments && proj.environments.length) {
       var envsRow = el('div','proj-envs');
       proj.environments.forEach(function(env) {
         var streaming = (env.enabled_count || 0) > 0;
-        var chip = el('span','proj-env '+(streaming ? 'streaming' : 'paused'));
+        var chip = el('button','proj-env '+(streaming ? 'streaming' : 'paused'));
+        chip.type = 'button';
+        chip.setAttribute('role','switch');
+        chip.setAttribute('aria-checked', streaming ? 'true' : 'false');
+        chip.setAttribute('aria-label',
+          (streaming ? 'Tracking on for ' : 'Tracking off for ')
+          + (env.name || env.alias) + '. Click to ' + (streaming ? 'pause' : 'resume') + '.');
         chip.appendChild(el('span','proj-env-dot'));
         chip.appendChild(txt('span','proj-env-label', env.name || env.alias || '?'));
         if (streaming) {
@@ -5858,8 +5915,12 @@ function renderDdevPanel() {
         }
         chip.title = streaming
           ? 'Streaming ' + env.enabled_count + ' source' + (env.enabled_count === 1 ? '' : 's')
-            + ': ' + env.enabled_sources.join(', ')
-          : 'No log sources enabled. Use Sources → ' + (env.alias || env.name) + ' to turn tracking on.';
+            + ': ' + env.enabled_sources.join(', ') + '. Click to pause.'
+          : 'Paused — no log sources enabled. Click to resume with the default source.';
+        chip.addEventListener('click', (function(alias, turnOn){ return function(ev){
+          ev.stopPropagation();
+          toggleEnvTracking(alias, turnOn, this);
+        };})(env.alias, !streaming));
         envsRow.appendChild(chip);
       });
       tile.appendChild(envsRow);
@@ -5903,6 +5964,28 @@ function renderDdevPanel() {
     warn.appendChild(txt('span','',running+' of '+total+' instances running \u2014 monitor laptop resources'));
     warnWrap.appendChild(warn);
   }
+}
+
+// Binary env toggle: click a chip in the Projects panel to turn tracking
+// on or off for that (project, env) pair. The server flips the drover-
+// config.json sources array to either a sensible default or empty and
+// respawns/stops the watcher.
+function toggleEnvTracking(alias, enable, chipEl) {
+  if (!alias) return;
+  if (chipEl) chipEl.classList.add('pending');
+  fetch('/api/sources/env-toggle', {
+    method:'POST',
+    headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({ alias: alias, enable: !!enable })
+  }).then(function(r){ return r.json(); }).then(function(data){
+    if (data && data.alias) {
+      showToast((enable ? 'Tracking on · ' : 'Tracking off · ') + alias);
+      fetchDdevStatus();
+    } else {
+      showToast('Toggle failed: ' + ((data && data.error) || 'unknown'));
+    }
+  }).catch(function(){ showToast('Network error'); })
+    .finally(function(){ if (chipEl) chipEl.classList.remove('pending'); });
 }
 
 function ddevStartInstance(name) {
@@ -6149,30 +6232,97 @@ function fetchDdevLogs() {
 // ========================================================================
 // SSE: live updates
 // ========================================================================
+
+// Last-event bookkeeping for the LIVE badge. The header badge is the
+// only place we claim "live" to the user, so it must reflect the real
+// EventSource state plus whether any data has arrived recently.
+var liveState = { lastEventTs: 0, lastEventName: '' };
+
+function setLiveBadge(state, detail) {
+  var badge = document.getElementById('live-badge');
+  var label = document.getElementById('live-label');
+  if (!badge || !label) return;
+  badge.classList.remove('state-connecting','state-offline');
+  if (state === 'live') {
+    label.textContent = 'live';
+  } else if (state === 'connecting') {
+    badge.classList.add('state-connecting');
+    label.textContent = 'connecting';
+  } else if (state === 'offline') {
+    badge.classList.add('state-offline');
+    label.textContent = 'offline';
+  } else if (state === 'idle') {
+    // Connected but no events have arrived since the last tick. Signal
+    // this plainly instead of pulsing green as if data were flowing.
+    badge.classList.add('state-connecting');
+    label.textContent = 'idle';
+  }
+  badge.title = detail || '';
+}
+
+function refreshLiveBadgeFromState() {
+  var age = liveState.lastEventTs ? (Date.now() - liveState.lastEventTs) : Infinity;
+  var sinceLastEvent;
+  if (!isFinite(age)) {
+    sinceLastEvent = 'no events received yet this session';
+  } else if (age < 1000) {
+    sinceLastEvent = 'last event just now';
+  } else if (age < 60000) {
+    sinceLastEvent = 'last event ' + Math.round(age/1000) + 's ago';
+  } else if (age < 3600000) {
+    sinceLastEvent = 'last event ' + Math.round(age/60000) + 'm ago';
+  } else {
+    sinceLastEvent = 'last event ' + Math.round(age/3600000) + 'h ago';
+  }
+  var detail = sinceLastEvent + (liveState.lastEventName ? ' · ' + liveState.lastEventName : '');
+  // When we're connected but no events have arrived in the last 2 minutes,
+  // downgrade the badge to "idle" so the user isn't misled into thinking
+  // logs are actively streaming when nothing is being ingested.
+  if (window._sseReadyState === 1 && age < 120000) {
+    setLiveBadge('live', detail);
+  } else if (window._sseReadyState === 1) {
+    setLiveBadge('idle', detail + '. Connected, but nothing has streamed recently.');
+  } else if (window._sseReadyState === 0) {
+    setLiveBadge('connecting', 'Reconnecting to /events…');
+  } else {
+    setLiveBadge('offline', 'Disconnected from /events. Retrying in 5s.');
+  }
+}
+
+function noteLiveEvent(name) {
+  liveState.lastEventTs = Date.now();
+  liveState.lastEventName = name || '';
+  refreshLiveBadgeFromState();
+}
+setInterval(refreshLiveBadgeFromState, 5000);
+
 function connectSSE() {
+  window._sseReadyState = 0;
+  setLiveBadge('connecting','Connecting to /events…');
   var evtSource = new EventSource('/events');
-  evtSource.addEventListener('board-update', function(){ fetchAll(); });
-  evtSource.addEventListener('cycle-complete', function(){ fetchAll(); });
-  evtSource.addEventListener('ingest-event', function(){ fetchAll(); });
+  evtSource.onopen = function() {
+    window._sseReadyState = 1;
+    refreshLiveBadgeFromState();
+  };
+  evtSource.addEventListener('board-update',   function(){ noteLiveEvent('board-update');   fetchAll(); });
+  evtSource.addEventListener('cycle-complete', function(){ noteLiveEvent('cycle-complete'); fetchAll(); });
+  evtSource.addEventListener('ingest-event',   function(){ noteLiveEvent('ingest-event');   fetchAll(); });
+  evtSource.addEventListener('sources-update', function(){ noteLiveEvent('sources-update'); fetchDdevStatus(); });
   evtSource.addEventListener('ddev-status', function(ev){
-    try {
-      DDEV_INSTANCES = JSON.parse(ev.data);
-      renderDdevPanel();
-    } catch(e) {}
+    noteLiveEvent('ddev-status');
+    try { DDEV_INSTANCES = JSON.parse(ev.data); renderDdevPanel(); } catch(e) {}
   });
   evtSource.addEventListener('ddev-log', function(ev){
-    try {
-      var d = JSON.parse(ev.data);
-      appendDdevTermLine(d.project, { ts:d.ts, text:d.text, stream:d.stream });
-    } catch(e) {}
+    noteLiveEvent('ddev-log');
+    try { var d = JSON.parse(ev.data); appendDdevTermLine(d.project, { ts:d.ts, text:d.text, stream:d.stream }); } catch(e) {}
   });
   evtSource.addEventListener('ddev-log-done', function(ev){
-    try {
-      var d = JSON.parse(ev.data);
-      handleDdevLogDone(d.project, d.success);
-    } catch(e) {}
+    noteLiveEvent('ddev-log-done');
+    try { var d = JSON.parse(ev.data); handleDdevLogDone(d.project, d.success); } catch(e) {}
   });
   evtSource.onerror = function() {
+    window._sseReadyState = 2;
+    setLiveBadge('offline','Disconnected from /events. Retrying in 5s.');
     evtSource.close();
     setTimeout(function(){ connectSSE(); fetchDdevLogs(); }, 5000);
   };
@@ -6272,6 +6422,9 @@ const server = http.createServer(async (req, res) => {
     }
     if (pathname === '/api/sources/toggle' && req.method === 'POST') {
       return await handleSourcesToggle(req, res);
+    }
+    if (pathname === '/api/sources/env-toggle' && req.method === 'POST') {
+      return await handleSourcesEnvToggle(req, res);
     }
 
     // API endpoints
