@@ -161,6 +161,18 @@ Create `.claude/` if it doesn't exist. The project config contains NO `notify` b
 Note: `notify` block is intentionally absent from the project config. All notification preferences live in `~/.claude/drover-global-config.json`.
 ```
 
+### Default tracking policy
+
+**Local envs are tracked by default. Remote envs are paused by default.** The
+user opts remote streaming in per-env from the Projects panel (click an env
+chip to resume) or via the Sources modal. Spinning up a new drover instance
+should never start tailing production before the user explicitly says so.
+
+- **DDEV / local env** → `"sources": ["drupal-watchdog"]` (or `["wp-debug"]`
+  for WordPress). Tracked on first launch.
+- **Acquia / remote env** → `"sources": []`. Paused on first launch. User
+  must explicitly enable each remote env.
+
 ### DDEV environment schema:
 ```json
 {
@@ -170,7 +182,7 @@ Note: `notify` block is intentionally absent from the project config. All notifi
   "trust_level": "low",
   "promote_threshold": { "min_count": 5, "min_severity": "error" },
   "noise_filter": true,
-  "sources": ["watchdog", "php_error_log", "nginx_error_log"]
+  "sources": ["drupal-watchdog"]
 }
 ```
 
@@ -189,7 +201,7 @@ Note: `notify` block is intentionally absent from the project config. All notifi
   },
   "immediate_promote_severities": ["emergency", "critical", "alert"],
   "noise_filter": false,
-  "sources": ["watchdog", "php_error_log", "apache_error_log"]
+  "sources": []
 }
 ```
 
