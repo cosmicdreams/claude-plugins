@@ -1,5 +1,14 @@
 # drover Changelog
 
+## 1.26.0
+- **Top-bar button renamed Backfill → Sources.** The former Backfill modal is now a two-tab Sources panel, matching Acquia Cloud's own log-stream UI (Stream / Download). Internal URL paths keep the `backfill` name for stability (`/api/projects/backfill`, `/api/backfill/progress`); only user-facing strings change (T3).
+- **Stream tab** — live subscription. Flat checkbox list of detected log sources per env, sourced from `AcquiaClient.list_log_types()` (Acquia) or project-platform defaults (DDEV). On first use only `drupal-watchdog` is pre-checked. Toggling writes `environments[].sources` in `.claude/drover-config.json` and signals the dashboard-owned umbrella to restart just that env's watcher with a fresh `DROVER_LOG_TYPES`. No full dashboard or umbrella restart. Per-source "N msgs / N connected" counter + "Listening for stream messages…" empty state.
+- **Seed history tab** — one-shot historical pull. Wraps A11's per-type request-state machine (Ready / Not built / Preparing / Failed) inside the new tab chrome. Adds a time-window selector (Last hour / 24h / 7d / 30d / Custom; default 24h), renames the action button to **Seed history**. Progress panel labels and DONE summary use the spec wording: *"Seeded `<sources>` from `<env>`, last `<window>` — N events, M new fingerprints."*
+- Keyboard shortcut: `s` opens the Sources panel.
+- Legacy snake_case source names (watchdog, php_error_log, nginx_error_log, apache_error_log, wp_debug_log) are treated as "not configured" so the `drupal-watchdog` default applies on first view. First canonical toggle writes kebab-case names (drupal-watchdog, apache-error, php-error, …) that match Acquia's log-type inventory.
+- New endpoints: `GET /api/sources/inventory?alias=` and `POST /api/sources/toggle {alias,type,enabled}`. Unchecking the last source stops the watcher (zero events for that env until a source is re-enabled). `sources-update` SSE event broadcasts config changes.
+- `scripts/monitors/umbrella-watch.sh` now honours `$DROVER_UMBRELLA_TRACK_DIR` when set so the dashboard can locate per-key pidfiles and source-override files. Falls back to `mktemp -d` for standalone runs.
+
 ## 1.25.1
 - Bumped `bd` mutation timeouts from 5s to 15s on the user-click hot path (handleMove, handleSolution's append-notes and move-to-done). Under live-ingest load a dolt-backed `.beads/drover.db` intermittently takes 6-8s to respond, which produced sporadic spawnSync ETIMEDOUT 500s when clicking "Save + close ticket" on the card modal (A13). The 5s cap on the parallel board-list fetch at first paint is unchanged by design.
 
