@@ -1,5 +1,15 @@
 # drover Changelog
 
+## 1.38.0
+- **Groups use a natural key: `{project, card_id}` tuples.** The 1.37.0 storage used bare `sprint-abc` ids, which aren't unique across projects (each `.beads/drover.db` has its own prefix space — two projects can both produce `sprint-abc`). Membership now requires the `{project, card_id}` tuple on the wire and on disk, so "pncb's sprint-abc" and "ahri's sprint-abc" can never collide. Conflict-check, lookup, and fold all key by the tuple.
+- **Group membership is written into the individual project's bd database.** On create, the server writes a `group-<grpId>` label onto each member card via `bd update --add-label`. On dissolve, the label is removed via `--remove-label`. This means:
+  - `bd list -l group-<grpId> --db <project>/.beads` returns the group's members in that project.
+  - `drover:recall`, the triage agent, the implementer agent, and any other bd-facing tooling can see membership natively without the dashboard acting as a gatekeeper.
+  - Membership propagates to the project's own view of its work, not just the aggregate dashboard.
+- **Write ordering is safe.** Labels land in bd BEFORE the group record is saved to the JSON file; if labels partially succeed, the server rolls back the additions and fails. If the JSON write fails after labels succeed, labels are reversed. Net result: the bd mesh and the groups file never disagree about which cards belong to which group.
+- **Failure modes documented in the response.** `handleGroupDissolve` returns `label_errors: []` when removals couldn't reach every project's bd (for example, a project's bd db got moved) — the group is still deleted from the JSON (orphan labels are strictly less harmful than orphan group records).
+- **Client sends tuples.** `groupSelected` composes `[{project, card_id}, ...]` from the selected rows; lookup + fold key on the tuple; rows missing a project qualifier (shouldn't happen in virtual-central mode, but defensively) surface a toast and are skipped.
+
 ## 1.37.0
 - **Groups actually group.** The 1.36.0 stub is promoted to a real feature. Selecting ≥2 rows and clicking *Group selected* now POSTs to `/api/groups`, which persists to `$CLAUDE_PLUGIN_DATA/drover-groups.json`. The table re-renders with member cards folded into a single parent row (purple left-accent, group-glyph in the select column, `[group-name] N errors · project·list`). Sort keys apply to the parent (worst severity, max lastSeen, sum occurrences, most-advanced lane).
 - **Group modal.** Clicking a parent row opens a group modal with the member list (each row clickable through to its own ticket modal), a Details section (member count, projects, total occurrences, first/last seen), and a Dissolve button. Dissolving restores members to their own rows.
