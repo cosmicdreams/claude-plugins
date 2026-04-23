@@ -3436,9 +3436,7 @@ function renderTable() {
   }
 
   cards.forEach(function(c,i) {
-    var rows = buildRow(c, i);
-    tbody.appendChild(rows[0]);
-    tbody.appendChild(rows[1]);
+    tbody.appendChild(buildRow(c, i));
   });
 }
 
@@ -3506,70 +3504,20 @@ function buildRow(c, i) {
   // Lane
   tr.appendChild(txt('td','age-cell',laneLabel(c.lane)));
 
-  // Expand row
-  var exTr = el('tr','expand-row');
-  exTr.style.display = 'none';
-  var exTd = document.createElement('td');
-  exTd.colSpan = 6;
+  // T5a: Dashboard row click opens the same modal as Board card click.
+  // The previous in-place expand row was a dead end (A3/A4 in the audit):
+  // it only showed ERROR + empty TRIAGE LOG and offered no path to the
+  // full card detail view. We now route row click through openBoardModal
+  // so Dashboard and Board share one detail UI.
+  tr.addEventListener('click', function(){ openBoardModal(c); });
+  tr.addEventListener('keydown', function(ev){
+    if (ev.key === 'Enter' || ev.key === ' ') {
+      ev.preventDefault();
+      openBoardModal(c);
+    }
+  });
 
-  var body = el('div','expand-body');
-  var stackPanel = el('div');
-  stackPanel.appendChild(txt('div','expand-card-title','Error'));
-  stackPanel.appendChild(txt('div','expand-err-msg',c.title));
-
-  if (c.stack.length) {
-    stackPanel.appendChild(txt('div','expand-card-title','Stack trace'));
-    var stackBlock = el('div','stack-block');
-    c.stack.forEach(function(line,li) {
-      if (li===0) { stackBlock.appendChild(txt('span','stack-line-err',line)); }
-      else {
-        var row = el('span','stack-line-file');
-        row.appendChild(txt('span','stack-line-at','  at '));
-        var parts = line.match(/^(.+):(\\d+)$/);
-        if (parts) {
-          row.appendChild(document.createTextNode(parts[1]+':'));
-          row.appendChild(txt('span','stack-line-num',parts[2]));
-        } else {
-          row.appendChild(document.createTextNode(line));
-        }
-        stackBlock.appendChild(row);
-      }
-    });
-    stackPanel.appendChild(stackBlock);
-  }
-
-  body.appendChild(stackPanel);
-
-  var logPanel = el('div');
-  logPanel.appendChild(txt('div','expand-card-title','Triage log'));
-  if (c.triageLog.length) {
-    var logWrap = el('div','triage-log');
-    c.triageLog.forEach(function(t) {
-      var entry = el('div','triage-entry');
-      entry.appendChild(txt('span','triage-ts',t.ts));
-      entry.appendChild(txt('span','triage-msg',t.msg));
-      logWrap.appendChild(entry);
-    });
-    logPanel.appendChild(logWrap);
-  } else {
-    logPanel.appendChild(txt('div','triage-msg','No log entries'));
-  }
-  body.appendChild(logPanel);
-
-  exTd.appendChild(body); exTr.appendChild(exTd);
-
-  function toggle() {
-    var isOpen = exTr.style.display !== 'none';
-    var allExpand = document.querySelectorAll('.expand-row');
-    for(var j=0;j<allExpand.length;j++) allExpand[j].style.display='none';
-    var allRows = document.querySelectorAll('tbody tr:not(.expand-row)');
-    for(var j=0;j<allRows.length;j++) allRows[j].classList.remove('expanded');
-    if (!isOpen) { exTr.style.display=''; tr.classList.add('expanded'); }
-  }
-  tr.addEventListener('click', toggle);
-  tr.addEventListener('keydown', function(ev){ if(ev.key==='Enter'||ev.key===' '){ ev.preventDefault(); toggle(); }});
-
-  return [tr, exTr];
+  return tr;
 }
 
 // ========================================================================
