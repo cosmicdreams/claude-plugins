@@ -442,7 +442,7 @@ function parseCard(ticket) {
 
   const severityLabel = (labels.find(l => l.startsWith('severity-')) || '').replace('severity-', '') || 'unknown';
   const envLabels = labels.filter(l => l.startsWith('env-')).map(l => l.replace('env-', ''));
-  const fp = parseField(body, /\*\*Fingerprint:\*\*\s+`([a-f0-9]+)`/, '[unknown]');
+  const fp = parseField(body, /\*\*Fingerprint:\*\*\s+`([^`\s]+)`/, '[unknown]');
   const occurrences = parseField(body, /\*\*Total Occurrences:\*\*\s+(\d+)/, '0');
   const worktree = parseField(body, /\*\*Worktree:\*\*\s+(\S+)/);
   const assignee = parseField(body, /\*\*Assignee:\*\*\s+(\S+)/);
@@ -789,7 +789,7 @@ async function getExistingFingerprints(dbPath) {
     if (Array.isArray(cards)) {
       for (const c of cards) {
         const body = c.description || c.body || '';
-        const m = body.match(/\*\*Fingerprint:\*\*\s+`([a-f0-9]+)`/);
+        const m = body.match(/\*\*Fingerprint:\*\*\s+`([^`\s]+)`/);
         if (m) set.add(m[1]);
       }
     }
@@ -1504,7 +1504,7 @@ async function handleTriage(req, res) {
         // bd emits the issue body under `description`; keep `body` as a
         // fallback for callers that already normalized it.
         const cBody = c.description || c.body || '';
-        const m = cBody.match(/\*\*Fingerprint:\*\*\s+`([a-f0-9]+)`/);
+        const m = cBody.match(/\*\*Fingerprint:\*\*\s+`([^`\s]+)`/);
         if (m) existing.add(m[1]);
       }
     }
@@ -2995,7 +2995,7 @@ function parseCardClient(ticket) {
 
   var sevRaw = (labels.find(function(l){return l.startsWith('severity-');})||'').replace('severity-','') || 'unknown';
   var envLabels = labels.filter(function(l){return l.startsWith('env-');}).map(function(l){return l.replace('env-','');});
-  var fpMatch = body.match(/\\*\\*Fingerprint:\\*\\*\\s+\`([a-f0-9]+)\`/);
+  var fpMatch = body.match(/\\*\\*Fingerprint:\\*\\*\\s+\`([^\`\\s]+)\`/);
   var fp = fpMatch ? fpMatch[1] : '[unknown]';
   var occMatch = body.match(/\\*\\*Total Occurrences:\\*\\*\\s+(\\d+)/);
   var occ = occMatch ? parseInt(occMatch[1]) : 0;
