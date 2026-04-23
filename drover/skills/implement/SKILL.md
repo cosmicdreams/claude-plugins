@@ -1,19 +1,32 @@
 ---
 name: implement
 description: >
-  Drover's autonomous fix pipeline. Checks the drover board for tickets in lane-ready,
-  selects the highest-priority unassigned ticket, and spawns drover:implementer-agent to
-  create a worktree and implement the fix. Designed to run on a /loop 30m schedule.
-  Safe to call manually to process one ticket.
+  (Opt-in / experimental.) Drover's autonomous fix-attempt skill. Not part of drover's
+  primary product — drover is an error-tracking and documenting system; the primary
+  operator action is Document (drover:solution). This skill exists for teams that have
+  granted the agent worktree-create + source-edit + DDEV-exec permissions and want to
+  experiment with AI-assisted fix attempts. Claims the highest-priority unassigned
+  ticket from lane-ready and spawns drover:implementer-agent.
 triggers:
   - "drover:implement"
-  - "implement fixes"
-  - "fix errors"
-  - "process ready tickets"
+  - "try a fix attempt"
+  - "experimental fix pipeline"
 allowed-tools: Bash, Read, Write, Agent, TeamCreate, TeamDelete, SendMessage
 ---
 
-# drover:implement — Autonomous fix pipeline
+# drover:implement — experimental fix pipeline (opt-in)
+
+> **Scope note.** This skill is **not part of drover's primary product.**
+> Drover's core loop is: watch logs → fingerprint + deduplicate → open
+> tickets → have the human **Document** the root cause / fix / commit
+> SHA → **Recall** past documentation when similar errors recur. That
+> loop requires no source-edit permissions and is where the product's
+> value lives.
+>
+> `drover:implement` is available for teams that have independently
+> decided to grant an agent the additional permissions required to
+> create worktrees, edit source files, and run tests. If you haven't
+> made that decision, you don't need this skill.
 
 Processes one `lane-ready` ticket per invocation: claims it, spawns an implementer agent,
 and waits for the fix to complete.

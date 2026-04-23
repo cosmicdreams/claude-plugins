@@ -157,47 +157,57 @@ $undefined = $thisVariableDoesNotExist;
 
 Load the page that triggers it a few times. Then wait ~1 minute for the umbrella monitor to poll, or run `/drover:run` again.
 
-This time the triage summary should show `New errors: 1` or `Augmented: 1`. Check the dashboard — a ticket appeared in the **lane-errors** column.
+This time the triage summary should show `New errors: 1` or `Augmented: 1`. Open the dashboard — a new ticket appears in the error table and the header chip reads **1 need documentation** in orange.
 
 ---
 
-## Step 6 — Watch Drover attempt a fix
+## Step 6 — Document the error
 
-When a ticket's occurrence count crosses its threshold (default for local: 5 occurrences), it moves to **lane-ready**. You can force this by hitting the bad page a few more times, or by manually moving the ticket with `bd`:
+This is the action Drover is built around. Click the `Document` button on the new row (orange, rightmost cell), or click the row and then `Document this error` inside the modal.
 
-```bash
-bd update <ticket-id> --db .beads/drover.db --remove-label lane-errors --add-label lane-ready
-```
+The modal opens with three things stacked top-to-bottom:
 
-Then:
+1. **"Have we seen this before?"** — Drover searches every registered project's past documented solutions for similar errors (by exception class + fingerprint + message overlap) and surfaces the top matches with a confidence score. On your first run the result will be empty — you haven't documented anything yet. Later, this is where recurrence memory earns its keep.
+2. **The capture form** — two free-text fields (root cause, fix summary) plus an optional commit SHA.
+3. **Agent notes (optional)** — deliberately muted. If the optional implementer-agent ran, its hypothesis / proposed-fix show up here as a reference, not as the authoritative record. You write the authoritative record.
 
-```
-/drover:implement
-```
+Fill in the form. `Save documentation` closes the ticket.
 
-Drover will:
+In the pulse feed at the top of the page, you'll see: `error-documented · <project> · <ticket-id> · Documented · <root cause>`.
 
-1. Pick the highest-priority ticket from `lane-ready`.
-2. Create a git worktree at `worktrees/drover-<ticket-id>/`.
-3. Spawn an implementer agent to write a fix.
-4. Run your configured quality checks (PHPCS, optionally PHPStan) inside DDEV.
-5. Move the ticket to `lane-awaiting-review`.
-6. Send you a Slack DM (if configured).
-
-You can watch progress in the dashboard. When it finishes, `cd` into the worktree and `git diff main` to see what Drover wrote.
-
-**You're the reviewer.** Nothing gets merged. If the fix looks good, merge it yourself. If not, close the ticket as `rejected` and the error will re-appear in triage next cycle (so Drover can try again with more context).
+If you decide the error is known noise (not a real bug, ignore forever), the secondary `Mark as known noise` button in the same modal moves the ticket to `lane-noise` with your reason recorded.
 
 ---
 
-## Step 7 — Ongoing use
+## Step 7 — Prove the recall loop
+
+Trigger a second, similar error — or if you don't want to, just open another existing ticket whose title resembles the one you just documented. Click `Document`. This time, the **"Have we seen this before?"** section should surface your previous documentation with a match percentage. Click `Apply this` — the form below prefills with the past root cause + fix summary. Adjust if needed, save.
+
+That's the whole loop. The value compounds: every documented error makes the next recurrence across any client site a one-click resolution.
+
+---
+
+## Step 8 — Grouping across projects
+
+When two projects produce what's clearly the same bug — different fingerprints because their URLs or line numbers differ, but the underlying cause is identical — mark them as one group:
+
+1. Check the checkbox on the left of each row.
+2. When selection count reaches 2+, a bar slides in above the table: `N selected · Group selected · Clear`.
+3. Click `Group selected`. The two rows fold into one parent row with the members indented (click-to-expand) and the group metadata surfaces in a separate group modal.
+
+Groups persist across dashboard restarts (stored in `~/.claude/plugins/data/drover/drover-groups.json`) and are also written into each project's bd database as a `group-<id>` label — so `bd list -l group-abc` in either project returns the members, and any bd-facing tool sees the grouping natively.
+
+---
+
+## Step 9 — Ongoing use
 
 Once you trust the setup, day-to-day use is:
 
 - **Leave it running.** The umbrella monitor polls every 30s whenever you have a Claude Code session open in the project.
-- **Glance at the dashboard** when you want a snapshot: `/drover:dashboard`.
-- **Check the board** when you want text output: `/drover:board`.
-- **Trigger fixes on demand**: `/drover:implement` (or `/loop 30m /drover:implement` for an autonomous loop).
+- **Glance at the dashboard** first thing in the morning. The header chip tells you how many errors need documentation. The pulse feed tells you what drover saw overnight.
+- **Document as you resolve.** Every error you fix gets a quick two-field capture. That's the work.
+- **Check past solutions** when a new error looks familiar — `/drover:recall <keyword>` from the CLI or just open the ticket and read the "Have we seen this before?" section.
+- **Mark known noise** aggressively. False positives shouldn't clog your queue.
 - **Baselines** (Acquia only): once a day, run `/drover:baseline` to refresh 24h error-velocity stats.
 
 ---
@@ -262,14 +272,17 @@ claude plugin uninstall drover
 
 | Term | Meaning |
 |---|---|
-| **Agent** | A Claude instance with a specific role (triage, implementer). Spawned on demand, not persistent. |
+| **Agent** | A Claude instance with a specific role (triage, optionally implementer). Spawned on demand, not persistent. |
 | **Beads** | The kanban CLI (`bd`) Drover uses for ticket storage. Each ticket is a row in a SQLite-backed DB. |
+| **Document** | The primary operator action — capture the root cause + fix summary (+ optional commit SHA) on a ticket. Closes the ticket and feeds the Recall engine. |
 | **Fingerprint** | A hash of an error's signature (file, line, message shape) so duplicates collapse into one ticket. |
-| **Lane** | A ticket's state — `errors`, `ready`, `implementing`, `awaiting-review`, `done`. |
+| **Group** | A user-curated set of tickets (across one or more projects) that represent the same bug. Stored as a `group-<id>` label on each member's bd card + a JSON manifest. |
+| **Lane** | A ticket's state — `triage`, `ready`, `done`, `noise`, `closed`. Optional lanes (`implementing`, `awaiting-review`) exist for the opt-in implementer-agent workflow. |
 | **Monitor** | A long-running umbrella process that polls log sources every 30s. Auto-armed by the plugin. |
+| **Pulse** | The live event feed in the dashboard header. Every meaningful transition drover makes (new fingerprint, threshold crossing, document, group, watcher lifecycle) emits a pulse event. |
+| **Recall** | The "have we seen this before?" engine. When you open a ticket to document it, drover searches past documented solutions across all projects and surfaces matches. |
 | **Skill** | A Markdown file describing a procedure Claude follows. Invoked with `/drover:<name>`. |
 | **Trust level** | How aggressively Drover should act. `low` (local dev) → wait for multiple occurrences. `high` (prod) → act on the first. |
-| **Worktree** | An isolated git working directory on a separate branch. Drover creates one per fix attempt so your main checkout stays clean. |
 
 ---
 

@@ -1,5 +1,15 @@
 # drover Changelog
 
+## 1.39.1
+- **Docs sweep** catching the written product up to what the 1.39.0 code actually does.
+  - **`README.md`** rewritten. Tagline is now *"Drover watches your Drupal sites' error logs and captures what you know about each error — so the next time a similar one surfaces, you're not rediscovering the fix."* Retires the "opens fix PRs for you to review" language. The implementer-agent is called out explicitly as an opt-in / experimental capability, not as part of the primary product.
+  - **`ONBOARDING.md`** rewritten from Step 5 onward. The first-run walkthrough is now *trigger a fake error → document it → see the recall loop fire on a second similar error → group across projects*. The "watch drover attempt a fix" step is removed. Glossary updated — `Document`, `Recall`, `Group`, `Pulse`, and an honest `Lane` listing with `noise` as a terminal state.
+  - **`docs/user-stories.md`**: story §8 rewritten around documenting as the primary action; story §9 rewritten around the recall engine. New story §16 for *Dismiss as known noise*, §17 for *Advisor-agent: suggest a solution from history* (planned), §18 for *Implementer-agent: opt-in, not the product* (shipped). §15 reframed as documentation narrative rather than autonomy narrative.
+  - **New: `docs/grouping-spec.md`** — full companion spec for the cross-project grouping feature (user-stories §12/§13): data model with natural keys, bd-label dual-write ordering, UX for selection and bulk bar, group modal behavior, the planned suggestion engine and its signal weights, the planned solution-propagation flow, and a testing checklist.
+  - **`agents/implementer-agent.md`** and **`skills/implement/SKILL.md`** carry an explicit scope-note header: "Not part of drover's primary product. Opt-in / experimental." The skill's description is rewritten so agent-selection prompts see the scope boundary without having to read the body.
+
+No runtime behavior changes in this version — this is documentation catching up to the 1.39.0 rescoping.
+
 ## 1.39.0
 - **Drover's primary action is now "Document," not "Confirm fix."** The product is an error-tracking + documenting system with an optional advisor-agent that reads history. Not a fix pipeline. UI reframed accordingly.
 - **Row-level Document CTA.** Every row for a card that hasn't been documented yet carries a `Document` button in a new rightmost column (warn-accent pill, distinct from the body text). Clicking it opens the modal with the capture form pre-expanded and focus landed on the root-cause field. Documented rows show a muted `✓ documented`; noise rows show a muted `⌀ noise`; group rows defer to the group modal.
