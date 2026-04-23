@@ -1,5 +1,12 @@
 # drover Changelog
 
+## 1.37.0
+- **Groups actually group.** The 1.36.0 stub is promoted to a real feature. Selecting ≥2 rows and clicking *Group selected* now POSTs to `/api/groups`, which persists to `$CLAUDE_PLUGIN_DATA/drover-groups.json`. The table re-renders with member cards folded into a single parent row (purple left-accent, group-glyph in the select column, `[group-name] N errors · project·list`). Sort keys apply to the parent (worst severity, max lastSeen, sum occurrences, most-advanced lane).
+- **Group modal.** Clicking a parent row opens a group modal with the member list (each row clickable through to its own ticket modal), a Details section (member count, projects, total occurrences, first/last seen), and a Dissolve button. Dissolving restores members to their own rows.
+- **SSE + pulse wiring.** `groups-update` broadcasts on create/dissolve so other open dashboards refresh in real time. `group-created` / `group-dissolved` events appear in the pulse feed.
+- **Server-side constraints.** A card can only belong to one group (409 on conflict). Group name truncated to 120 chars; member ids deduped.
+- **Still stubbed for post-demo:** the similarity-based suggestion engine (spec'd in user-stories §12), solution propagation across members, cross-project fingerprint matching hints. This release lands the core data model + UX; v2 lands the intelligence on top.
+
 ## 1.36.0
 - **Row-selection primitive for grouping.** Leftmost column in the error table is now a checkbox per row. Clicking the checkbox does **not** open the row modal (stopPropagation); clicking anywhere else on the row still does. A header "select all" checkbox toggles every visible row and honors filter scope. Selected rows render with a purple tint. Selection state (`SELECTED` set of card ids) survives across filter changes and sorts — rows that leave the filtered view stay selected and reappear checked when they return.
 - **Bulk action bar** slides in above the table when selection count > 0: `N selected · [ Group selected ] · [ Clear ]`. `Group selected` is disabled until N ≥ 2.
