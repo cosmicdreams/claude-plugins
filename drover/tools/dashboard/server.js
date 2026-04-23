@@ -4116,7 +4116,7 @@ var TIMELINE = [];
 var INGESTION = {};
 var currentView = 'dashboard';
 var showClosedLanes = false;
-var activeFilters = { sev: {}, env: {} };
+var activeFilters = { sev: {}, env: {}, project: {} };
 
 var LANES = [
   { id:'lane-triage', label:'TRIAGE', color:'var(--muted3)' },
@@ -4568,6 +4568,37 @@ function renderFilters() {
   });
   wrap.appendChild(envSection);
 
+  // Project — derived from every registered project so chips are stable
+  // across refreshes even when a project has zero open cards. Counts come
+  // from ALL_CARDS. Alphabetical, lowercased "-main"-stripped labels match
+  // the Projects panel + error table's Project column.
+  var projectSection = el('div','sidebar-section');
+  projectSection.appendChild(txt('div','sidebar-section-title','Project'));
+  var projectCounts = {};
+  ALL_CARDS.forEach(function(c){
+    var pl = c.projectLabel || c.project;
+    if (pl) projectCounts[pl] = (projectCounts[pl] || 0) + 1;
+  });
+  var projectSet = {};
+  (PROJECTS_OVERVIEW.projects || []).forEach(function(p){
+    var pl = p.display_name || p.name || '';
+    if (pl) projectSet[pl] = true;
+  });
+  Object.keys(projectCounts).forEach(function(k){ projectSet[k] = true; });
+  Object.keys(projectSet).sort().forEach(function(proj) {
+    var chip = el('div','filter-chip' + (activeFilters.project[proj]?' sel':''));
+    chip.tabIndex = 0;
+    chip.setAttribute('role','checkbox');
+    chip.setAttribute('aria-checked', !!activeFilters.project[proj]);
+    var label = el('span','chip-label');
+    label.appendChild(document.createTextNode(proj));
+    chip.appendChild(label);
+    chip.appendChild(txt('span','chip-count', String(projectCounts[proj] || 0)));
+    chip.onclick = (function(p){ return function(){ toggleFilter('project', p, this); }; })(proj);
+    projectSection.appendChild(chip);
+  });
+  wrap.appendChild(projectSection);
+
   updateFilterCount();
 }
 
@@ -4586,7 +4617,7 @@ function toggleFilter(type, val, chip) {
 }
 
 function updateFilterCount() {
-  var n = countKeys(activeFilters.sev) + countKeys(activeFilters.env);
+  var n = countKeys(activeFilters.sev) + countKeys(activeFilters.env) + countKeys(activeFilters.project);
   document.getElementById('filter-count').textContent = n ? n+' active' : 'none';
   document.getElementById('filter-clear').style.display = n ? 'block' : 'none';
 }
@@ -4594,6 +4625,7 @@ function updateFilterCount() {
 function clearFilters() {
   activeFilters.sev = {};
   activeFilters.env = {};
+  activeFilters.project = {};
   var chips = document.querySelectorAll('.filter-chip.sel');
   for(var i=0;i<chips.length;i++){chips[i].classList.remove('sel');chips[i].setAttribute('aria-checked','false');}
   updateFilterCount();
@@ -4640,6 +4672,9 @@ function getFilteredCards() {
   }
   if (countKeys(activeFilters.env) > 0) {
     cards = cards.filter(function(c){ return c.envs.some(function(e){ return activeFilters.env[e]; }); });
+  }
+  if (countKeys(activeFilters.project) > 0) {
+    cards = cards.filter(function(c){ return !!activeFilters.project[c.projectLabel || c.project]; });
   }
   var q = (document.getElementById('search').value||'').toLowerCase();
   if (q) {
