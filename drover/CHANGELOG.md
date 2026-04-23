@@ -1,5 +1,9 @@
 # drover Changelog
 
+## 1.33.1
+- **Final layout: Header → Projects → Pulse → Table.** Projects now sits directly below the header — the admin context comes first, then the live event stream, then the actionable queue.
+- **`OPEN BY ENV` chip row removed.** The env-health sidebar facet already provides per-env filtering, which is a stronger affordance than a read-only decorative chip row. Dropping it also cleans one more vertical band off the dashboard.
+
 ## 1.33.0
 - **Pulse is now the hero, not an addition.** The old "Pulse" section (env-tile grid + error-volume sparkline + last-triage-cycle card) is retired. In its place: the live Pulse feed opens by default at page load, taking ~360px of vertical real estate and showing drover's actual event stream as it happens. One heartbeat surface, not two.
 - **Env health collapses to a compact chip row.** The question "is anything on fire?" still matters, but doesn't deserve three large tiles. `OPEN BY ENV · prod 24 · test 33 · local 4` now sits as a single inline chip row below the Projects panel, colored by worst-severity per env and muted when zero.
