@@ -1,5 +1,8 @@
 # drover Changelog
 
+## 1.25.1
+- Bumped `bd` mutation timeouts from 5s to 15s on the user-click hot path (handleMove, handleSolution's append-notes and move-to-done). Under live-ingest load a dolt-backed `.beads/drover.db` intermittently takes 6-8s to respond, which produced sporadic spawnSync ETIMEDOUT 500s when clicking "Save + close ticket" on the card modal (A13). The 5s cap on the parallel board-list fetch at first paint is unchanged by design.
+
 ## 1.25.0
 - DDEV panel distinguishes registered-with-drover instances from unregistered-but-running ones (T6). Tiles now carry a ✓ watching / ○ not monitored badge; unregistered running tiles render with a dashed border and a primary `+ Add` button. Clicking Add registers the project, re-arms the umbrella so the new watcher spawns, and flips the tile to "watching" without a page reload. `/api/ddev/status` stamps every instance with `registered: bool`; `/api/projects/add` busts the ddev cache and broadcasts a fresh `ddev-status` SSE.
 - `add-project.sh` prefers `config.local.yaml`'s `name:` over `config.yaml` when present so worktree-style DDEV setups register under the same instance name DDEV itself uses (e.g. `AHRI-main` for the AHRI worktree rather than the project slug from config.yaml).
