@@ -1936,66 +1936,192 @@ async function handleGroupsList(req, res) {
   return jsonResponse(res, 200, readGroups());
 }
 
+// Resolve {project, card_id} tuple → Beads db path. Returns null for
+// projects we don't recognize. Keeps the group handler out of the
+// projects discovery code by caching once per request.
+function buildDbPathIndex() {
+  const out = {};
+  for (const p of (projectsModule.listProjects() || [])) {
+    const key = p.ddev_project || p.name;
+    const dbPath = projectsModule.findBeadsDb(p.path);
+    if (key && dbPath) out[key] = dbPath;
+  }
+  return out;
+}
+
+function normalizeMemberList(raw) {
+  // Accept legacy bare-string member_ids AND the new tuple form in a
+  // single list. Unknown shapes are dropped. Returns a normalized array
+  // of {project, card_id} objects with whitespace trimmed.
+  const out = [];
+  for (const m of (raw || [])) {
+    if (typeof m === 'string') {
+      out.push({ project: '', card_id: m.trim() });
+    } else if (m && typeof m === 'object' && m.card_id) {
+      out.push({
+        project: String(m.project || '').trim(),
+        card_id: String(m.card_id).trim(),
+      });
+    }
+  }
+  return out;
+}
+
+function memberKey(m) {
+  return (m.project || '_') + '|' + m.card_id;
+}
+
+// bd label sync — writes or removes the group-<grpId> label on every
+// member card in its own project's Beads database. Eventually-consistent:
+// we do all writes, collect failures, and return them. Callers decide
+// whether to roll back.
+function syncGroupLabel(group, action) {
+  const results = { added: [], removed: [], errors: [] };
+  const dbIndex = buildDbPathIndex();
+  const label = 'group-' + group.id;
+  for (const m of normalizeMemberList(group.member_ids)) {
+    const dbPath = dbIndex[m.project];
+    if (!dbPath) {
+      results.errors.push({ member: m, error: 'no db path for project=' + m.project });
+      continue;
+    }
+    const args = action === 'add'
+      ? ['update', m.card_id, '--db', dbPath, '--add-label', label]
+      : ['update', m.card_id, '--db', dbPath, '--remove-label', label];
+    try {
+      execFileSync('bd', args, { encoding: 'utf8', timeout: 15000 });
+      if (action === 'add') results.added.push(m); else results.removed.push(m);
+    } catch (e) {
+      results.errors.push({ member: m, error: (e && e.message) || String(e) });
+    }
+  }
+  return results;
+}
+
 async function handleGroupsCreate(req, res) {
   let body;
   try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
   const { name, member_ids } = body || {};
-  if (!Array.isArray(member_ids) || member_ids.length < 2) {
-    return jsonResponse(res, 400, { error: 'member_ids must be an array of ≥2 card ids' });
+  const members = normalizeMemberList(member_ids);
+  if (members.length < 2) {
+    return jsonResponse(res, 400, { error: 'member_ids must be an array of ≥2 entries; each {project, card_id}' });
+  }
+  // Every member must carry a project — the whole point of this change
+  // is to make "sprint-abc" unambiguous across projects.
+  const missingProject = members.filter(m => !m.project).map(m => m.card_id);
+  if (missingProject.length) {
+    return jsonResponse(res, 400, {
+      error: 'every member must include a project qualifier',
+      missing: missingProject,
+    });
   }
   const trimmedName = typeof name === 'string' && name.trim() ? name.trim().slice(0, 120) : 'Group';
+
   const data = readGroups();
-  // Reject double-membership: a card can only live in one group. If any
-  // requested member is already in a group, surface the conflict.
+  // Reject double-membership keyed by (project, card_id) tuple, not bare id.
   const already = new Map();
   for (const g of data.groups) {
-    for (const m of (g.member_ids || [])) already.set(m, g.id);
+    for (const m of normalizeMemberList(g.member_ids)) {
+      already.set(memberKey(m), g.id);
+    }
   }
-  const conflicts = member_ids.filter(id => already.has(id));
+  const conflicts = members.filter(m => already.has(memberKey(m)));
   if (conflicts.length > 0) {
     return jsonResponse(res, 409, {
       error: 'some members are already grouped',
-      conflicts: conflicts.map(id => ({ id, group_id: already.get(id) })),
+      conflicts: conflicts.map(m => ({
+        project: m.project, card_id: m.card_id, group_id: already.get(memberKey(m)),
+      })),
     });
   }
+
+  // Dedup on tuple identity.
+  const dedupKeys = new Set();
+  const uniqMembers = [];
+  for (const m of members) {
+    const k = memberKey(m);
+    if (!dedupKeys.has(k)) { dedupKeys.add(k); uniqMembers.push(m); }
+  }
+
   const group = {
     id: newGroupId(),
     name: trimmedName,
-    member_ids: Array.from(new Set(member_ids)),
+    member_ids: uniqMembers,
     created_at: new Date().toISOString(),
     rejected_pairs: [],
   };
+
+  // Write labels FIRST. If any fail, abort without touching the JSON so
+  // on-disk state never claims a membership that bd doesn't carry.
+  const labelResult = syncGroupLabel(group, 'add');
+  if (labelResult.errors.length > 0 && labelResult.added.length === 0) {
+    return jsonResponse(res, 500, {
+      error: 'failed to write group label on any member',
+      details: labelResult.errors,
+    });
+  }
+  if (labelResult.errors.length > 0) {
+    // Partial — roll back the additions we made so bd state is clean,
+    // then fail loudly. Better than an inconsistent mesh.
+    syncGroupLabel({ id: group.id, member_ids: labelResult.added }, 'remove');
+    return jsonResponse(res, 500, {
+      error: 'partial label failure; rolled back',
+      details: labelResult.errors,
+      rolled_back: labelResult.added.length,
+    });
+  }
+
   data.groups.push(group);
   try { writeGroups(data); }
-  catch (e) { return jsonResponse(res, 500, { error: 'failed to write groups: ' + e.message }); }
+  catch (e) {
+    // Reverse the labels we just wrote so state stays consistent.
+    syncGroupLabel(group, 'remove');
+    return jsonResponse(res, 500, { error: 'failed to write groups file: ' + e.message });
+  }
+
+  // Invalidate the ticket cache so the next /api/board pickup reflects
+  // the new labels (the dashboard's virtual-central merge reads labels).
+  ticketCache = { data: null, ts: 0 };
+
   broadcast('groups-update', { ts: new Date().toISOString(), action: 'create', id: group.id });
   recordPulse({
     type: 'group-created',
     origin: group.id,
-    summary: 'Group created · ' + group.member_ids.length + ' errors · ' + trimmedName,
-    details: { id: group.id, name: trimmedName, members: group.member_ids },
+    summary: 'Group created · ' + uniqMembers.length + ' errors · ' + trimmedName,
+    details: { id: group.id, name: trimmedName, members: uniqMembers },
   });
   return jsonResponse(res, 200, { group });
 }
 
 async function handleGroupDissolve(req, res, groupId) {
   const data = readGroups();
-  const before = data.groups.length;
   const removed = data.groups.find(g => g.id === groupId);
+  if (!removed) return jsonResponse(res, 404, { error: 'group not found: ' + groupId });
+
+  // Remove bd labels first so the bd-side state leads the JSON state.
+  // If some removals fail we still drop the group from the JSON —
+  // orphan labels are less harmful than orphan group records.
+  const labelResult = syncGroupLabel(removed, 'remove');
+
   data.groups = data.groups.filter(g => g.id !== groupId);
-  if (data.groups.length === before) {
-    return jsonResponse(res, 404, { error: 'group not found: ' + groupId });
-  }
   try { writeGroups(data); }
-  catch (e) { return jsonResponse(res, 500, { error: 'failed to write groups: ' + e.message }); }
+  catch (e) {
+    return jsonResponse(res, 500, { error: 'failed to write groups file: ' + e.message });
+  }
+
+  ticketCache = { data: null, ts: 0 };
+
   broadcast('groups-update', { ts: new Date().toISOString(), action: 'dissolve', id: groupId });
   recordPulse({
     type: 'group-dissolved',
     origin: groupId,
-    summary: 'Group dissolved · ' + (removed ? removed.name : groupId),
-    details: { id: groupId, name: removed && removed.name, members: removed && removed.member_ids },
+    summary: 'Group dissolved · ' + removed.name,
+    details: { id: groupId, name: removed.name, members: removed.member_ids, label_errors: labelResult.errors },
   });
-  return jsonResponse(res, 200, { ok: true, id: groupId });
+  return jsonResponse(res, 200, {
+    ok: true, id: groupId,
+    label_errors: labelResult.errors,
+  });
 }
 
 async function handleSourcesToggle(req, res) {
@@ -4977,36 +5103,42 @@ function clearSelection() {
   renderBulkBar();
 }
 
-// Stub group-creation. Full spec at drover/docs/user-stories.md §12
-// (multi-row collapse into parent, suggestion engine, solution
-// propagation). For now this captures the intent via a pulse event and
-// a toast so the UX flow can be demoed end-to-end. The server-side
-// group store + visual merge land post-demo.
-// POST the selected ids to /api/groups. Server persists to
-// $CLAUDE_PLUGIN_DATA/drover-groups.json and broadcasts groups-update.
-// SELECTED is cleared regardless of outcome so the checkbox column
-// returns to a clean state; the toast reports success or failure.
+// POST the selected rows to /api/groups as {project, card_id} tuples.
+// Bare card-ids aren't unique across projects (bd prefixes are per-db),
+// so the natural key is the tuple. Server persists to
+// $CLAUDE_PLUGIN_DATA/drover-groups.json AND writes a group-<grpId>
+// label onto each member card in its own project's bd database, so the
+// bd side (triage, implementer, recall) can see membership too.
 function groupSelected() {
   if (SELECTED.size < 2) {
     showToast('Select at least two rows to group.');
     return;
   }
-  var ids = Array.from(SELECTED);
   var members = (ALL_CARDS || []).filter(function(c){ return SELECTED.has(c.id); });
+  // Drop anything that doesn't carry a project tag — we can't build a
+  // valid natural key without it.
+  var tuples = members
+    .map(function(c){ return { project: c.project || '', card_id: c.id }; })
+    .filter(function(t){ return t.project && t.card_id; });
+  if (tuples.length < 2) {
+    showToast('Selection is missing project qualifiers; cannot form a natural key.');
+    return;
+  }
   var firstMsg = (members[0] && (members[0].errCls || members[0].errMsg || members[0].title)) || '';
   var name = (firstMsg || 'Group').slice(0, 80);
   fetch('/api/groups', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name: name, member_ids: ids })
+    body: JSON.stringify({ name: name, member_ids: tuples })
   }).then(function(r){ return r.json().then(function(d){ return { status: r.status, body: d }; }); })
     .then(function(res){
       if (res.status === 200 && res.body && res.body.group) {
-        showToast('Grouped ' + ids.length + ' errors · "' + res.body.group.name + '"');
+        showToast('Grouped ' + tuples.length + ' errors · "' + res.body.group.name + '"');
         clearSelection();
         fetchAll();
       } else if (res.status === 409 && res.body && res.body.conflicts) {
-        var names = res.body.conflicts.map(function(c){ return c.id; }).join(', ');
+        var names = res.body.conflicts
+          .map(function(c){ return (c.project || '?') + ':' + c.card_id; }).join(', ');
         showToast('Already grouped: ' + names);
       } else {
         showToast('Group failed: ' + ((res.body && res.body.error) || ('HTTP ' + res.status)));
@@ -5015,12 +5147,30 @@ function groupSelected() {
     .catch(function(e){ showToast('Group failed: ' + e.message); });
 }
 
-// Build an id → group lookup for renderTable. A card belongs to at most
-// one group (server-side constraint).
+// Build a (project|card_id) → group lookup for renderTable. A card
+// belongs to at most one group (server-side constraint). Keys use the
+// natural tuple form since bd card ids aren't globally unique across
+// projects — "sprint-abc" in pncb and in ahri are different rows.
+function memberLookupKey(projectOrObj, cardId) {
+  if (projectOrObj && typeof projectOrObj === 'object') {
+    return (projectOrObj.project || '_') + '|' + projectOrObj.card_id;
+  }
+  return (projectOrObj || '_') + '|' + cardId;
+}
 function groupLookupByMember() {
   var map = {};
   (GROUPS || []).forEach(function(g){
-    (g.member_ids || []).forEach(function(id){ map[id] = g; });
+    (g.member_ids || []).forEach(function(m){
+      // Support legacy bare-string member_ids alongside the new tuple
+      // form. Strings get an empty-project bucket and won't match real
+      // cards, which is the right failure mode: an unqualified member
+      // id can't tell "pncb's sprint-abc" from "ahri's sprint-abc".
+      if (typeof m === 'string') {
+        map['_|' + m] = g;
+      } else if (m && m.card_id) {
+        map[memberLookupKey(m)] = g;
+      }
+    });
   });
   return map;
 }
@@ -5088,14 +5238,18 @@ function synthesizeGroupCard(group, members) {
 function foldGroupsIntoCards(cards) {
   if (!GROUPS || !GROUPS.length) return cards;
   var byMember = groupLookupByMember();
+  function keyFor(c) { return memberLookupKey(c.project || '', c.id); }
   var seenGroup = {};
   var out = [];
   cards.forEach(function(c){
-    var g = byMember[c.id];
+    var g = byMember[keyFor(c)];
     if (g) {
       if (!seenGroup[g.id]) {
         seenGroup[g.id] = true;
-        var members = cards.filter(function(x){ return byMember[x.id] && byMember[x.id].id === g.id; });
+        var members = cards.filter(function(x){
+          var xg = byMember[keyFor(x)];
+          return xg && xg.id === g.id;
+        });
         out.push(synthesizeGroupCard(g, members));
       }
     } else {
