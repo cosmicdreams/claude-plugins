@@ -211,53 +211,74 @@ evidence.
 
 ---
 
-## 8. Autonomous fix attempts, human-approved merge
+## 8. Document every resolved error (primary action)
 
-**As** the accountable engineer,
-**I want** drover to attempt fixes automatically in isolated worktrees
-and hand me a ready-to-review PR,
-**so that** when I sit down I'm triaging fixes instead of picking up
-tickets — but nothing lands in `main` without my approval.
+**As** a Drupal platform operator,
+**I want** documenting an error to be the single most obvious action on
+the dashboard,
+**so that** my team's institutional knowledge about each failure is
+captured at the moment of resolution — not lost to a Slack thread or a
+closed PR description.
 
-**Motivation.** Most Drupal error tickets have rote fixes (raise a
-timeout, add a null-check, update a deprecation). Drover doing that
-work while the engineer is asleep is the product's headline value.
-But agent-authored code landing without review is unacceptable.
+**Motivation.** Drover's compound-interest asset is documentation.
+Every error an operator resolves without writing down what it was and
+what they did about it is memory that evaporates. The dashboard exists
+to make *not evaporating* the easy path.
 
 **Acceptance.**
-- `/drover:implement` claims a `lane-ready` card and spawns an
-  implementer agent.
-- The agent works in an isolated git worktree branched from `main`.
-- PHPCS and PHPStan run before the card moves to `lane-awaiting-review`.
-- Drover never merges a PR itself. The card stays in `awaiting-review`
-  until a human moves it.
+- Every table row for an undocumented card in `lane-triage` / `lane-ready`
+  carries a row-level `Document` button, styled as the primary per-row
+  action (warn-accent pill), visible without opening a modal.
+- The header carries a `N need documentation` count chip (also in warn
+  accent) that filters the table to undocumented cards on click.
+- Clicking `Document` opens the row modal with the capture form
+  pre-expanded and focus landed on the root-cause field — no hunting.
+- The capture form takes root cause (required) + fix summary (required)
+  + commit SHA (optional). Submit writes a structured Actual block on
+  the card, moves the card to `lane-done`, and emits an
+  `error-documented` pulse event.
+- Documented cards show `✓ documented` in the action column; the card
+  no longer counts toward the "need documentation" chip.
+- The skill `/drover:solution` is the CLI equivalent and writes to the
+  same endpoint — no divergence between UI and CLI paths.
 
-**Status.** ✅ Shipped · implementer agent and worktree creation in
-place.
+**Status.** ✅ Shipped in 1.39.1.
 
 ---
 
-## 9. Capture verified solutions and surface them on recurrence
+## 9. Recall — "have we seen this before?"
 
-**As** a team,
-**we want** verified fixes captured structurally and searchable,
-**so that** when the same or similar error recurs we can recall what
-worked before instead of rediscovering it.
+**As** an operator about to document a new error,
+**I want** drover to surface any previously documented errors that look
+similar,
+**so that** when the same root cause recurs on a different site or a
+different fingerprint, I can reuse the past resolution with one click
+instead of rediscovering it.
 
-**Motivation.** Solutions are the compound-interest asset of an error-
-monitoring system. A drover that captured fixes once per ticket would
-be a to-do list; one that remembers fixes across tickets becomes an
-organizational memory.
+**Motivation.** The grouping feature (§12) solves the "same bug, two
+tickets" problem when the operator knows they're related. Recall solves
+the "might be the same bug, I don't remember" problem by consulting
+history automatically on every new documentation event. Together they
+make drover's memory function useful.
 
 **Acceptance.**
-- `/drover:solution` captures a structured Actual block on the card
-  with root cause, fix summary, and commit SHA.
-- `/drover:recall <keyword>` searches every registered project's board
-  for Actual blocks matching the keyword.
-- Resolved cards remain queryable (don't get garbage-collected).
+- `GET /api/recall?card_id=…&project=…` returns the top N similar
+  documented errors across every registered project, scored on
+  exception-class match + fingerprint match + source/env match +
+  message-token Jaccard overlap.
+- The capture modal renders the top results at the top of the form as
+  "Have we seen this before?" with match scores, past root cause and
+  fix summary rendered for the operator to read.
+- Each match carries an `Apply this` button that prefills the current
+  card's capture form with the past root cause / fix summary / commit
+  SHA. The operator can then tweak and save.
+- When there are no matches, the section says so plainly —
+  *"No documented matches across your registered projects yet. You're
+  the first."* — rather than rendering an empty shell.
+- `/drover:recall <keyword>` remains as the CLI equivalent for ad-hoc
+  searching outside a specific card's context.
 
-**Status.** ✅ Shipped · `drover:solution` and `drover:recall` skills
-present.
+**Status.** ✅ Shipped in 1.39.1.
 
 ---
 
@@ -391,40 +412,143 @@ banner is the current weak link — planned for enhancement.
 
 ---
 
-## 15. Portfolio-level autonomy narrative
+## 15. Portfolio-level documentation narrative
 
 **As** a manager watching drover across a portfolio of client sites,
-**I want** a visible headline of drover's autonomous activity,
-**so that** the value story ("it caught 3 issues overnight, shipped 1
-fix, auto-closed 2") is the first thing I see — not a scoreboard of
-error counts.
+**I want** a visible headline of drover's documentation activity,
+**so that** the value story ("9 new errors caught today · 7 documented
+· 2 marked as noise · 3 recalls from past solutions applied") is the
+first thing I see — not just a scoreboard of open-error counts.
 
 **Motivation.** Drover's differentiation isn't "another error
-dashboard"; it's "a self-healing pipeline that demonstrably saves human
-hours." Manager-visible surfaces should lead with that.
+dashboard"; it's "an error-tracking system that accumulates
+institutional memory." Manager-visible surfaces should lead with what
+the memory is doing for the team, not with the raw error count.
 
 **Acceptance.**
-- A "today" strip (or similar) shows: tickets opened, fixes shipped,
-  cards auto-closed, solutions captured.
+- A "today" strip (or similar) shows: new tickets filed, errors
+  documented, recall suggestions applied, cards marked as noise.
 - The numbers are honest (no fabricated activity on fresh installs).
 - Historical trend available on hover or in a detail view.
 
-**Status.** 💡 Backlog · previously proposed, deferred for demo scope.
+**Status.** 💡 Backlog · spec'd, not yet built.
+
+---
+
+## 16. Dismiss as known noise
+
+**As** an operator,
+**I want** a one-click "this is noise, ignore forever" action on any
+card,
+**so that** false positives and known-but-unactionable errors
+don't clog my documentation queue.
+
+**Motivation.** Not every error deserves documentation. Some are
+transient environmental noise. Some are known bugs in third-party code
+that we've decided not to address. An error-tracking tool that forces
+every ticket to be either "documented" or "still open" would drive the
+team to ignore it or rubber-stamp noise as resolved. A first-class
+"noise" terminal state is essential.
+
+**Acceptance.**
+- The card modal exposes a `Mark as known noise` button as a secondary
+  action next to `Document`.
+- Clicking prompts for a reason (required — "why is this noise?") and
+  moves the card to `lane-noise`.
+- Noise cards show `⌀ noise` in the action column and drop out of the
+  "need documentation" count.
+- A `noise-marked` pulse event records the action, origin, and reason
+  so the feed shows this as real triage work.
+- Noise cards remain queryable via the Lane facet for audit / undo.
+
+**Status.** ✅ Shipped in 1.39.1.
+
+---
+
+## 17. Advisor-agent: suggest a solution from history
+
+**As** an operator about to document a new error,
+**I want** an advisor-agent to read my team's past documented solutions
+and suggest what the root cause and fix are likely to be,
+**so that** for errors we've seen before (even on different projects
+or under slightly different fingerprints), the work is proofreading a
+suggestion rather than starting from a blank form.
+
+**Motivation.** Recall (§9) surfaces similar past *tickets*. An
+advisor-agent goes one step further: given N past documentations of
+similar errors, it proposes a consolidated hypothesis — "this error
+pattern is caused by X; the fix is Y; commit Z had the canonical
+change." That's the legitimate, in-scope agent role — using history as
+data, not writing code.
+
+**Acceptance.**
+- When the capture modal opens on an undocumented card, the advisor
+  runs `/api/recall` (or its agentic equivalent) and, if results are
+  strong (≥0.75 confidence), posts a prefilled hypothesis into the
+  capture form — not just a "here's a match" link, but an actual
+  candidate `root_cause` / `fix_summary`.
+- The operator reviews, edits, and saves. Edits feed back into the
+  recall scorer's rejection-aware tuning (see §13).
+- The advisor **never edits source**. It never creates worktrees. It
+  never runs tests. It reads the bd database and writes structured
+  text into a single card's body on the operator's behalf, pending
+  their `Save` click.
+
+**Status.** 📋 Planned · `/api/recall` exists as of 1.39.1 but agent
+wrapper + prefill path not yet built.
+
+---
+
+## 18. Implementer-agent: opt-in, not the product
+
+**As** a team experimenting with AI-assisted development,
+**we want** the optional implementer-agent workflow to exist for teams
+that want to try it,
+**but we do not want** drover to position itself as a fix-writing tool
+or to lead the UX with it.
+
+**Motivation.** Writing code from an agent in a production codebase
+requires granting the agent permissions drover does not ask for by
+default (worktree create, source edit, DDEV exec, test runs). The
+security and governance bar is high enough that auto-fix should never
+be what drover markets itself as. An optional skill for teams that have
+done that evaluation is fine; the default surface should not mention
+it.
+
+**Acceptance.**
+- The `Lane` sidebar facet hides `lane-implementing` and
+  `lane-awaiting-review` by default (shown only when a card is
+  currently in one of them).
+- The README + ONBOARDING describe the implementer-agent as an
+  optional, opt-in capability under a clearly-labelled "experimental"
+  section, not as the primary flow.
+- The dashboard's row-level CTA is `Document`, not `Confirm fix`.
+- Agent notes (Projected block) render in the modal as muted,
+  de-emphasized reference material labeled `Agent notes (optional) —
+  not drover's documentation`, clearly subordinate to the human's
+  Documented block.
+
+**Status.** ✅ Shipped in 1.39.1.
 
 ---
 
 ## Open questions / needs refinement
 
-- **Solution propagation UX.** When a solution is captured on a group
-  member, what does the prompt look like? (Affects story 12.)
-- **Notifications policy.** Who gets pinged for what, and where? Slack
-  vs. email vs. in-dashboard. Needs a story.
-- **PR ownership.** Once drover opens a PR, who owns it — the engineer
-  oncall for that project or the engineer who claimed the card? Needs a
-  story.
+- **Solution propagation UX.** When a solution is documented on a
+  group member, what does the prompt look like for applying it to
+  siblings? (Affects story 12.)
+- **Notifications policy.** Who gets pinged for what, and where?
+  Slack vs. email vs. in-dashboard. Needs a story.
+- **Rejection-aware recall.** Story 13 calls for the recall scorer to
+  learn from operator rejections. The rejection-pair storage schema
+  isn't designed yet.
 - **Velocity boosting.** Should an accelerating error rate promote a
   card ahead of its threshold? Partially implemented (`velocity-rising`
-  label) but not surfaced as a user story yet.
+  label) but not surfaced as a user story.
+- **Team sharing of groups.** Groups currently live in
+  `$CLAUDE_PLUGIN_DATA/drover-groups.json` — machine-local. Shareable
+  across a team would require a different storage location (likely a
+  shared repo). Requires a story.
 
 ---
 
