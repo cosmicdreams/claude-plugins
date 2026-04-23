@@ -2834,6 +2834,39 @@ function buildHtml() {
 
   .errors-main { display:flex; flex-direction:column; overflow:hidden; }
 
+  /* Row-selection column + bulk action bar */
+  .col-select { width:32px; padding:0 8px; }
+  .col-select input[type=checkbox] {
+    cursor:pointer; margin:0;
+    accent-color: var(--info);
+  }
+  tbody tr td.col-select { padding:6px 8px; vertical-align:top; }
+  tbody tr.row-selected { background:rgba(94,92,230,0.08); }
+  tbody tr.row-selected:hover { background:rgba(94,92,230,0.12); }
+
+  .bulk-bar {
+    display:flex; align-items:center; gap:10px;
+    padding:8px 12px;
+    background:rgba(94,92,230,0.08);
+    border-top:1px solid rgba(94,92,230,0.25);
+    border-bottom:1px solid rgba(94,92,230,0.25);
+    font-family:var(--mono); font-size:11px; color:var(--text2);
+    animation: fade-down 0.18s ease both;
+  }
+  .bulk-bar[hidden] { display:none; }
+  .bulk-count { font-weight:600; letter-spacing:0.02em; }
+  .bulk-btn {
+    font-family:var(--mono); font-size:10px; font-weight:600;
+    padding:4px 10px; border-radius:4px;
+    background:transparent; color:var(--text2);
+    border:1px solid var(--border2);
+    cursor:pointer;
+    transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+  }
+  .bulk-btn:hover { border-color:var(--info); color:#fff; background:var(--info-dim); }
+  .bulk-btn.bulk-group:hover { border-color:var(--ok); color:var(--ok); background:var(--ok-dim); }
+  .bulk-btn:focus-visible { outline:2px solid var(--info); outline-offset:2px; }
+
   .table-toolbar {
     display:flex; align-items:center; justify-content:space-between;
     padding:8px 16px; border-bottom:1px solid var(--border);
@@ -4075,10 +4108,18 @@ function buildHtml() {
           <span class="result-count" id="result-count">0 errors</span>
         </div>
       </div>
+      <div class="bulk-bar" id="bulk-bar" role="region" aria-label="Selection actions" hidden>
+        <span class="bulk-count" id="bulk-count">0 selected</span>
+        <button type="button" class="bulk-btn bulk-group" id="bulk-group" onclick="groupSelected()">Group selected</button>
+        <button type="button" class="bulk-btn bulk-clear" id="bulk-clear" onclick="clearSelection()">Clear</button>
+      </div>
       <div class="table-wrap">
         <table>
           <thead id="err-thead">
             <tr>
+              <th class="col-select" style="width:32px" aria-label="Select">
+                <input type="checkbox" id="select-all" aria-label="Select all rows" onclick="event.stopPropagation(); toggleSelectAll(this);">
+              </th>
               <th data-sort="sev"      style="width:60px">Sev</th>
               <th data-sort="lastSeen" class="sort-active" style="width:88px">Last seen &#8595;</th>
               <th data-sort="occ"      style="width:68px;text-align:right">Count</th>
@@ -4741,6 +4782,80 @@ function getFilteredCards() {
   });
 }
 
+// Row selection state. Keyed by card id so selections survive across
+// filter + sort + refetch (rows that leave the filter reappear still
+// checked when they come back). Cleared explicitly via Clear or once
+// a group is created.
+var SELECTED = new Set();
+
+function renderBulkBar() {
+  var bar = document.getElementById('bulk-bar');
+  var count = document.getElementById('bulk-count');
+  var groupBtn = document.getElementById('bulk-group');
+  var selectAll = document.getElementById('select-all');
+  var n = SELECTED.size;
+  if (bar) {
+    bar.hidden = (n === 0);
+    if (count) count.textContent = n + (n === 1 ? ' selected' : ' selected');
+    if (groupBtn) groupBtn.disabled = (n < 2);
+  }
+  // Select-all header checkbox reflects indeterminate / all-checked when
+  // some / all of the CURRENTLY-VISIBLE rows are selected.
+  if (selectAll) {
+    var visible = document.querySelectorAll('#tbody tr[data-id]');
+    var visibleIds = Array.from(visible).map(function(r){ return r.dataset.id; });
+    var selectedVisible = visibleIds.filter(function(id){ return SELECTED.has(id); }).length;
+    selectAll.checked = visibleIds.length > 0 && selectedVisible === visibleIds.length;
+    selectAll.indeterminate = selectedVisible > 0 && selectedVisible < visibleIds.length;
+  }
+}
+
+function toggleSelectAll(el) {
+  var on = el.checked;
+  var visible = document.querySelectorAll('#tbody tr[data-id]');
+  visible.forEach(function(row){
+    var id = row.dataset.id;
+    if (on) SELECTED.add(id); else SELECTED.delete(id);
+    row.classList.toggle('row-selected', on);
+    var cb = row.querySelector('td.col-select input[type=checkbox]');
+    if (cb) cb.checked = on;
+  });
+  renderBulkBar();
+}
+
+function clearSelection() {
+  SELECTED.clear();
+  document.querySelectorAll('#tbody tr.row-selected').forEach(function(row){
+    row.classList.remove('row-selected');
+    var cb = row.querySelector('td.col-select input[type=checkbox]');
+    if (cb) cb.checked = false;
+  });
+  renderBulkBar();
+}
+
+// Stub group-creation. Full spec at drover/docs/user-stories.md §12
+// (multi-row collapse into parent, suggestion engine, solution
+// propagation). For now this captures the intent via a pulse event and
+// a toast so the UX flow can be demoed end-to-end. The server-side
+// group store + visual merge land post-demo.
+function groupSelected() {
+  if (SELECTED.size < 2) {
+    showToast('Select at least two rows to group.');
+    return;
+  }
+  var ids = Array.from(SELECTED);
+  var members = (ALL_CARDS || []).filter(function(c){ return SELECTED.has(c.id); });
+  var projects = {};
+  members.forEach(function(m){ if (m.projectLabel) projects[m.projectLabel] = true; });
+  var projectList = Object.keys(projects).sort();
+  var name = (members[0] && members[0].errCls) ? members[0].errCls : 'group-' + Date.now();
+  showToast('Group "' + name + '" queued · ' + ids.length + ' errors · ' + projectList.join(', ')
+           + '. Full grouping UI ships post-demo (see user-stories §12).');
+  // Log the intent centrally so we can audit demo behavior later.
+  try { console.info('[group-stub]', { name: name, ids: ids, projects: projectList }); } catch(e) {}
+  clearSelection();
+}
+
 function renderTable() {
   var tbody = document.getElementById('tbody');
   removeChildren(tbody);
@@ -4750,7 +4865,7 @@ function renderTable() {
   if (cards.length === 0) {
     var tr = el('tr');
     var td = el('td');
-    td.colSpan = 4;
+    td.colSpan = 5;
     td.style.textAlign = 'center';
     td.style.padding = '32px';
     var empty = el('div','empty-state');
@@ -4767,12 +4882,35 @@ function renderTable() {
   cards.forEach(function(c,i) {
     tbody.appendChild(buildRow(c, i));
   });
+  renderBulkBar();
 }
 
 function buildRow(c, i) {
   var tr = el('tr');
   tr.style.animationDelay = (i*20)+'ms';
   tr.tabIndex = 0;
+  tr.dataset.id = c.id;
+  if (SELECTED.has(c.id)) tr.classList.add('row-selected');
+
+  // Select checkbox — leftmost column. Clicking the checkbox toggles the
+  // row's membership in the current selection WITHOUT opening the modal
+  // (event.stopPropagation). Row click anywhere else still opens the
+  // modal as before. This is the primitive that group-creation builds
+  // on (drover/docs/user-stories.md §12).
+  var selTd = el('td','col-select');
+  var cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.checked = SELECTED.has(c.id);
+  cb.setAttribute('aria-label', 'Select ' + (c.errCls || c.fp));
+  cb.addEventListener('click', function(ev){ ev.stopPropagation(); });
+  cb.addEventListener('change', (function(id, row){ return function(ev){
+    ev.stopPropagation();
+    if (ev.target.checked) SELECTED.add(id); else SELECTED.delete(id);
+    row.classList.toggle('row-selected', ev.target.checked);
+    renderBulkBar();
+  };})(c.id, tr));
+  selTd.appendChild(cb);
+  tr.appendChild(selTd);
 
   // Sev
   var sevTd = el('td');

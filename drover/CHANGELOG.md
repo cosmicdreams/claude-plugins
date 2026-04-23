@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.36.0
+- **Row-selection primitive for grouping.** Leftmost column in the error table is now a checkbox per row. Clicking the checkbox does **not** open the row modal (stopPropagation); clicking anywhere else on the row still does. A header "select all" checkbox toggles every visible row and honors filter scope. Selected rows render with a purple tint. Selection state (`SELECTED` set of card ids) survives across filter changes and sorts — rows that leave the filtered view stay selected and reappear checked when they return.
+- **Bulk action bar** slides in above the table when selection count > 0: `N selected · [ Group selected ] · [ Clear ]`. `Group selected` is disabled until N ≥ 2.
+- **Group creation — stub.** `Group selected` currently captures intent via toast + console log and clears the selection. Full implementation (parent/child row rendering, server-side group store, similarity-based suggestion engine, solution propagation) is scoped in [drover/docs/user-stories.md §12](./docs/user-stories.md) and will land in a follow-up feature branch. This release ships only the UX primitive — the column, the bar, the selection model.
+
 ## 1.35.1
 - **Error cell now uses the space the Option-C layout gave it.** Two regressions fixed in one pass: (a) `.err-title` had `white-space: nowrap; text-overflow: ellipsis` which clamped every message to one truncated line — removed, replaced with a 3-line clamp that allows wrap and word-break; (b) the render was showing only the extracted post-colon tail (`sqlstatets: syntax error or ac`) instead of the full original title, throwing away URL paths, hook names, and watchdog pipe fields. The class chip remains as a visual anchor; the rest of the original title now renders alongside it, wrapped to as many lines as the clamp allows. Drupal watchdog pipe separators (`|n|`, `|ip|`) render as visible `·` bullets so the URL / hook / request-path fields are distinguishable.
 
