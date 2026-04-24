@@ -4173,6 +4173,29 @@ function buildHtml() {
     border-radius:6px;
   }
 
+  /* Structured error fields in the Understand column (vision Part I
+     Stage 1 — parsed class + message instead of raw watchdog soup). */
+  .err-field-row {
+    display:grid; grid-template-columns: 74px 1fr; gap:10px;
+    font-family:var(--mono); font-size:11px;
+    padding:4px 0; border-bottom:1px dashed var(--border);
+  }
+  .err-field-row:last-of-type { border-bottom:none; }
+  .err-field-label {
+    color:var(--muted2); text-transform:uppercase; letter-spacing:0.04em;
+    font-size:9px; padding-top:2px;
+  }
+  .err-field-value { color:var(--text); word-break:break-word; line-height:1.55; }
+  .err-raw-details { margin-top:10px; }
+  .err-raw-details > summary {
+    cursor:pointer; font-size:10px; color:var(--muted);
+    padding:4px 0; list-style:none;
+  }
+  .err-raw-details > summary::-webkit-details-marker { display:none; }
+  .err-raw-details > summary::before { content: '\\25B8  '; display:inline-block; width:14px; }
+  .err-raw-details[open] > summary::before { content: '\\25BE  '; }
+  .err-raw-details > .modal-err-msg { margin-top:6px; }
+
   .modal-stack {
     font-family:var(--mono); font-size:10px; line-height:1.8;
     padding:10px 12px; background:var(--bg); border:1px solid var(--border);
@@ -5010,6 +5033,38 @@ function fetchAll() {
   }).catch(function(err) {
     console.error('Fetch error:', err);
   });
+}
+
+// Parse a Drupal-watchdog-style title into discrete fields for the
+// Understand column. Typical titles look like:
+//   [WARNING] other: https://host · hook · https://host/path · [sev] class: message
+//   [WARNING] other: ts warning: short message
+// The splitter walks '  middot  '-separated parts, classifying each as a
+// URL-with-path, host-only URL, or hook token. Leftover tail is message;
+// message; class is already extracted by parseCardClient.extractException.
+function parseWatchdogTitle(raw) {
+  var out = { cls: '', msg: '', hook: '', url: '' };
+  if (!raw) return out;
+  var s = String(raw).trim();
+  // Strip leading [SEV] and "source:" prefix, same as extractException.
+  s = s.replace(/^\\[[A-Z]+\\]\\s*/, '').replace(/^[a-z_\\-]+:\\s*/, '');
+  var parts = s.split(' \\u00b7 ').map(function(p){ return p.trim(); }).filter(Boolean);
+  if (parts.length <= 1) { out.msg = s; return out; }
+  parts.forEach(function(p){
+    if (/^https?:\\/\\/[^/\\s]+\\//.test(p)) {
+      if (!out.url) out.url = p; // first path-bearing URL wins
+    } else if (/^https?:\\/\\//.test(p)) {
+      // host-only — already in c.hostnames grid; skip
+    } else if (/^\\[[a-z]+\\]\\s/.test(p)) {
+      // "[sev] rest" chunks — keep rest as message
+      out.msg = out.msg || p.replace(/^\\[[a-z]+\\]\\s*/, '');
+    } else if (p.indexOf(':') === -1 && p.length < 40) {
+      if (!out.hook) out.hook = p;
+    } else if (!out.msg) {
+      out.msg = p;
+    }
+  });
+  return out;
 }
 
 function parseCardClient(ticket) {
@@ -6596,9 +6651,37 @@ function openBoardModal(c, opts) {
   metaSec.appendChild(metaGrid);
   understand.appendChild(metaSec);
 
+  // Structured error view (vision-doc Part I Stage 1 — parsed class +
+  // message instead of the raw watchdog pipe soup). The raw title is
+  // still available behind a disclosure; the parsed view is what the
+  // operator reads first.
   var errSec = el('div','modal-section');
-  errSec.appendChild(txt('div','modal-section-title','Error message'));
-  errSec.appendChild(txt('div','modal-err-msg',c.title));
+  errSec.appendChild(txt('div','modal-section-title','Error'));
+  var parsed = parseWatchdogTitle(c.title || '');
+  function errField(label, value) {
+    if (!value) return;
+    var row = el('div','err-field-row');
+    row.appendChild(txt('span','err-field-label', label));
+    row.appendChild(txt('span','err-field-value', value));
+    errSec.appendChild(row);
+  }
+  errField('Class', c.errCls || parsed.cls);
+  errField('Message', c.errMsg || parsed.msg);
+  errField('Hook', parsed.hook);
+  errField('URL', parsed.url);
+  if (!c.errCls && !c.errMsg && !parsed.cls && !parsed.msg) {
+    // Parser produced nothing useful. Render the raw title so we don't
+    // leave the operator staring at an empty section.
+    errField('Title', c.title);
+  }
+  // Raw title disclosure — useful when the parse drops nuance.
+  var rawDetails = document.createElement('details');
+  rawDetails.className = 'err-raw-details';
+  var rawSummary = document.createElement('summary');
+  rawSummary.textContent = 'Show raw title';
+  rawDetails.appendChild(rawSummary);
+  rawDetails.appendChild(txt('div','modal-err-msg', c.title));
+  errSec.appendChild(rawDetails);
   understand.appendChild(errSec);
 
   // Documentation section. Drover's product is error tracking + memory,

@@ -1,5 +1,9 @@
 # drover Changelog
 
+## 1.44.0
+- **Structured error view in the sheet's Understand column (vision-doc Part I Stage 1).** The old single-block watchdog-pipe-soup title display is replaced by labeled fields: `CLASS`, `MESSAGE`, and — when the title carries the Acquia-style ` · `-separated parts — `HOOK` and `URL`. The raw title stays accessible behind a `▸ Show raw title` disclosure so no information is lost.
+- **Client-side `parseWatchdogTitle`** drives the parse. Splits on ` · `, classifies each chunk (path-URL, host-only URL, hook token, bracketed severity), and falls back to the flat title when the format doesn't match. Combined with the existing `parseCardClient.extractException`, the sheet now renders the class + message cleanly whether the title was a pipe-soup or a plain string.
+
 ## 1.43.0
 - **Bulk-action bar polish (vision-doc Phase 2 / Stage 3 Decide).** The toolbar under the table that appears on row selection is now the four-CTA bar from the vision doc:
   - **Primary**: *Group & Document…* (N>=2) / *Document…* (N=1). One click takes the operator from "these are the same bug" to the group's capture sheet — no intermediate "now go click the group" step.
