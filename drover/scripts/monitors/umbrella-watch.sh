@@ -449,6 +449,12 @@ start_child() {
     if [ -n "$types_override" ]; then
       export DROVER_LOG_TYPES="$types_override"
     fi
+    # Per-line passthrough for traffic logs so the dashboard pulse feed
+    # sees every apache-request / fpm-access event in real time instead
+    # of a once-per-1000 aggregate. Harmless when no traffic log is in
+    # the subscription (acquia-watch only honors this in TRAFFIC_TYPES
+    # branches).
+    export DROVER_TRAFFIC_PASSTHRU=1
     "$cmd" "$id" \
       2> >(while IFS= read -r err; do
              printf '[%s] [%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$key" "$err" >> "$LOG_FILE"
