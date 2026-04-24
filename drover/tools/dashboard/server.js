@@ -2297,6 +2297,139 @@ async function handleGroupDissolve(req, res, groupId) {
   });
 }
 
+// POST /api/groups/:id/solution — document the group once, write the same
+// Actual block to every remaining member. "uncheck = ungroup before save"
+// is implemented via `ungroup_members`: members listed there get their
+// group-label removed, drop out of the group record, and are excluded
+// from the propagation. The group auto-dissolves if it shrinks below 2.
+async function handleGroupSolution(req, res, groupId) {
+  let body;
+  try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
+  const { root_cause, fix_summary, fix_commit_sha, ungroup_members } = body || {};
+  if (!root_cause || !fix_summary) {
+    return jsonResponse(res, 400, { error: 'root_cause and fix_summary required' });
+  }
+
+  const data = readGroups();
+  const group = data.groups.find(g => g.id === groupId);
+  if (!group) return jsonResponse(res, 404, { error: 'group not found: ' + groupId });
+
+  // 1. Process ungroup-before-save. Members in ungroup_members get their
+  //    bd label pulled and are stripped from the in-memory member list.
+  //    They'll be excluded from the propagation loop below.
+  const ungroupList = normalizeMemberList(ungroup_members || []);
+  const ungroupSet = new Set(ungroupList.map(memberKey));
+  let ungroupedCount = 0;
+  if (ungroupSet.size > 0) {
+    const toUngroup = normalizeMemberList(group.member_ids).filter(m => ungroupSet.has(memberKey(m)));
+    if (toUngroup.length > 0) {
+      const labelResult = syncGroupLabel({ id: group.id, member_ids: toUngroup }, 'remove');
+      ungroupedCount = labelResult.removed.length;
+      group.member_ids = normalizeMemberList(group.member_ids).filter(m => !ungroupSet.has(memberKey(m)));
+    }
+  }
+
+  // 2. Snapshot the remaining targets BEFORE we possibly dissolve the group.
+  const targets = normalizeMemberList(group.member_ids);
+
+  // 3. Fetch tickets so we can look up each member's current lane
+  //    (so the bd update can remove the right lane- label cleanly).
+  const tickets = await fetchTickets();
+  const ticketMap = {};
+  if (Array.isArray(tickets)) {
+    tickets.forEach(t => { ticketMap[t.id] = t; });
+  }
+
+  // 4. Build the shared Actual block. It's written to each member.
+  const now = new Date().toISOString();
+  const actualBlock = [
+    '',
+    '### Actual  (group: ' + groupId + ', written: ' + now + ', by: user)',
+    '- **mode:** group',
+    '- **group_id:** ' + groupId,
+    '- **group_name:** ' + (group.name || ''),
+    '- **group_member_count:** ' + targets.length,
+    '- **root_cause:** ' + root_cause,
+    '- **fix_summary:** ' + fix_summary,
+    '- **fix_commit_sha:** ' + (fix_commit_sha || 'none'),
+    '- **effectiveness:** verified',
+    '- **verified_at:** ' + now,
+    '- **captured_by:** user',
+    '- **evidence:** dashboard-group-modal',
+  ].join('\n');
+
+  const boards = currentBoards();
+  const errors = [];
+  let appliedCount = 0;
+  for (const m of targets) {
+    const board = boards.find(b => b.project === m.project);
+    if (!board || !board.dbPath) {
+      errors.push({ member: m, error: 'no db path for project=' + m.project });
+      continue;
+    }
+    const ticket = ticketMap[m.card_id];
+    const currentLane = (ticket && (ticket.labels || []).find(l => l.startsWith('lane-'))) || 'lane-triage';
+    try {
+      // Two bd calls per member, matching handleSolution's pattern:
+      // append-notes first, then the lane move. Keeps write semantics
+      // identical to the single-card flow so recall surfaces these the
+      // same way it surfaces per-card docs.
+      execFileSync('bd', [
+        'update', m.card_id,
+        '--db', board.dbPath,
+        '--append-notes', actualBlock,
+      ], { encoding: 'utf8', timeout: 15000 });
+      if (currentLane !== 'lane-done' && currentLane !== 'lane-closed') {
+        execFileSync('bd', [
+          'update', m.card_id,
+          '--db', board.dbPath,
+          '--remove-label', currentLane,
+          '--add-label', 'lane-done',
+          '--append-notes', now + ': Group solution captured via dashboard; lane-done.',
+        ], { encoding: 'utf8', timeout: 15000 });
+      }
+      appliedCount++;
+    } catch (e) {
+      errors.push({ member: m, error: (e.stderr && e.stderr.toString()) || e.message });
+    }
+  }
+
+  // 5. Auto-dissolve if the group fell below 2 members (either because
+  //    the operator unchecked everyone but one, or started that way).
+  //    The remaining singleton is ungrouped cleanly.
+  let dissolved = false;
+  if (group.member_ids.length < 2) {
+    if (group.member_ids.length === 1) {
+      syncGroupLabel({ id: group.id, member_ids: group.member_ids }, 'remove');
+    }
+    data.groups = data.groups.filter(g => g.id !== groupId);
+    dissolved = true;
+  }
+
+  try { writeGroups(data); }
+  catch (e) {
+    return jsonResponse(res, 500, { error: 'failed to write groups file: ' + e.message, applied: appliedCount });
+  }
+
+  ticketCache = { data: null, ts: 0 };
+  broadcast('groups-update', { ts: now, action: 'solution', id: groupId, dissolved });
+  recordPulse({
+    type: 'group-documented',
+    origin: groupId,
+    summary: 'Documented group · ' + appliedCount + ' errors · ' + (group.name || 'unnamed'),
+    details: {
+      id: groupId, name: group.name,
+      applied: appliedCount, ungrouped: ungroupedCount, dissolved,
+      root_cause, fix_summary, fix_commit_sha: fix_commit_sha || null,
+    },
+  });
+  return jsonResponse(res, 200, {
+    status: 'ok', group_id: groupId,
+    applied: appliedCount, ungrouped: ungroupedCount,
+    dissolved, errors,
+  });
+}
+
 async function handleSourcesToggle(req, res) {
   let body;
   try { body = await readBody(req); } catch (e) {
@@ -3319,6 +3452,43 @@ function buildHtml() {
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   .group-member-fp { color:var(--muted3); font-size:9px; text-align:right; }
+
+  /* Group-mode Document form (openGroupDocumentForm) */
+  .group-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .modal-section-note {
+    color:var(--muted); font-size:11px; line-height:1.5;
+    margin:-4px 0 8px 0;
+  }
+  .writes-to-list {
+    display:flex; flex-direction:column;
+    border:1px solid var(--border); border-radius:4px;
+    overflow:hidden;
+  }
+  .writes-to-row {
+    display:grid; grid-template-columns: 24px 60px 110px 1fr 110px; gap:8px;
+    align-items:center;
+    padding:8px 10px; border-top:1px solid var(--border);
+    font-family:var(--mono); font-size:11px;
+    cursor:pointer;
+    transition: background 120ms ease;
+  }
+  .writes-to-row:first-child { border-top:none; }
+  .writes-to-row:hover { background:var(--surface3); }
+  .writes-to-row:has(input:not(:checked)) {
+    opacity:0.55;
+    background:var(--surface2);
+  }
+  .writes-to-cb { cursor:pointer; margin:0; accent-color: var(--info); }
+  .writes-to-sev { font-size:9px; font-weight:600; letter-spacing:0.04em; }
+  .writes-to-sev.sev-crit { color:var(--crit); }
+  .writes-to-sev.sev-warn { color:var(--warn); }
+  .writes-to-sev.sev-info { color:var(--info2); }
+  .writes-to-project { color:var(--muted); text-transform:lowercase; }
+  .writes-to-cardid {
+    color:var(--text2);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .writes-to-fp { color:var(--muted3); font-size:9px; text-align:right; }
 
   /* Row-selection column + bulk action bar */
   .col-select { width:32px; padding:0 8px; }
@@ -5627,7 +5797,17 @@ function openGroupModal(parent) {
   });
   body.appendChild(listSec);
 
-  var actions = el('div','modal-section');
+  var actions = el('div','modal-section group-actions');
+
+  // Primary: one solution, all members. This is the fix the docs call
+  // out in document-flow-vision §IV — groupthink, one write, many cards.
+  var docBtn = el('button','btn btn-primary');
+  docBtn.textContent = 'Document group';
+  docBtn.addEventListener('click', (function(p){ return function(){
+    openGroupDocumentForm(p);
+  };})(parent));
+  actions.appendChild(docBtn);
+
   var dissolve = el('button','bulk-btn');
   dissolve.textContent = 'Dissolve group';
   dissolve.style.borderColor = 'rgba(255,69,58,0.4)';
@@ -5637,6 +5817,164 @@ function openGroupModal(parent) {
   };})(parent.group.id));
   actions.appendChild(dissolve);
   body.appendChild(actions);
+
+  modal.appendChild(body);
+  document.getElementById('board-modal').classList.add('open');
+}
+
+// Group Document form — the group-mode of the Document sheet, scoped down
+// to what tonight's demo can ship honestly. Replaces the overview with:
+// a "Writes to" checklist of members (all checked by default), the same
+// three capture fields the per-card form uses (root cause / fix summary /
+// commit SHA), and a save button whose label carries the live member
+// count. Unchecking a member means "ungroup this one before saving" —
+// not "skip it silently." The server translates that into bd label
+// removal via ungroup_members in the payload.
+function openGroupDocumentForm(parent) {
+  var modal = document.getElementById('modal-content');
+  removeChildren(modal);
+
+  var header = el('div','modal-header');
+  header.appendChild(txt('div','modal-title', 'Document group \\u00b7 ' + parent.group.name));
+  var closeBtn = el('button','modal-close');
+  closeBtn.textContent = '\\u2715';
+  closeBtn.addEventListener('click', closeBoardModal);
+  header.appendChild(closeBtn);
+  modal.appendChild(header);
+
+  var body = el('div','modal-body');
+
+  // Back-to-overview — the form is reachable from the group overview,
+  // and the overview has context (member list, metadata) the operator
+  // might want to re-reference while composing. Keep the escape route.
+  var backWrap = el('div','modal-section');
+  var backBtn = el('button','bulk-btn');
+  backBtn.textContent = '\\u2190 Back to group overview';
+  backBtn.addEventListener('click', (function(p){ return function(){ openGroupModal(p); };})(parent));
+  backWrap.appendChild(backBtn);
+  body.appendChild(backWrap);
+
+  // Writes-to checklist. Renders every current member with a checkbox,
+  // default-checked. Uncheck = ungroup-before-save. The count on the
+  // save button updates live so the operator always sees the blast
+  // radius of their next click.
+  var writesSec = el('div','modal-section');
+  writesSec.appendChild(txt('div','modal-section-title','Writes to'));
+  var writesNote = txt('div','modal-section-note',
+    'This solution will be applied to every checked member. Uncheck a member to ungroup it before saving (groups commit to one truth).');
+  writesSec.appendChild(writesNote);
+
+  var writesList = el('div','writes-to-list');
+  var checkboxes = [];
+  parent.members.forEach(function(m){
+    var row = el('label','writes-to-row');
+    var cb = el('input','writes-to-cb');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.setAttribute('data-project', m.project || '');
+    cb.setAttribute('data-card-id', m.id || '');
+    checkboxes.push(cb);
+    row.appendChild(cb);
+    row.appendChild(txt('span','writes-to-sev sev-'+m.sev, (SEV_LABEL[m.sev]||m.sev||'').toUpperCase()));
+    row.appendChild(txt('span','writes-to-project', m.projectLabel || m.project || ''));
+    row.appendChild(txt('span','writes-to-cardid', m.id || ''));
+    row.appendChild(txt('span','writes-to-fp', 'fp:' + (m.fp||'').slice(0,8)));
+    writesList.appendChild(row);
+  });
+  writesSec.appendChild(writesList);
+  body.appendChild(writesSec);
+
+  // Capture fields — same three-field shape as the per-card form so
+  // recall surfaces these cards uniformly, regardless of whether they
+  // were documented singly or as part of a group.
+  var fieldsSec = el('div','modal-section');
+  fieldsSec.appendChild(txt('div','modal-section-title','Your documentation'));
+
+  function field(id, label, placeholder, multiline) {
+    var wrap = el('div','solution-field-wrap');
+    var l = el('label','solution-field-label'); l.textContent = label; l.setAttribute('for', id);
+    wrap.appendChild(l);
+    var inp = multiline ? el('textarea','solution-field-input') : el('input','solution-field-input');
+    inp.id = id;
+    if (!multiline) inp.type = 'text';
+    if (placeholder) inp.placeholder = placeholder;
+    if (multiline) inp.rows = 3;
+    wrap.appendChild(inp);
+    return wrap;
+  }
+
+  fieldsSec.appendChild(field('grp-sol-root-cause', 'Root cause',
+    'One or two sentences, general audience — no project paths or customer names.', true));
+  fieldsSec.appendChild(field('grp-sol-fix-summary', 'Fix summary (or \\u201cnot yet fixed\\u201d)',
+    'What was done, or the plan if not yet fixed.', true));
+  fieldsSec.appendChild(field('grp-sol-fix-sha', 'Fix commit SHA (optional)', 'abc1234', false));
+  body.appendChild(fieldsSec);
+
+  // Save row.
+  var btnRow = el('div','solution-form-btns');
+  var cancelBtn = el('button','btn btn-ghost');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', (function(p){ return function(){ openGroupModal(p); };})(parent));
+
+  var saveBtn = el('button','btn btn-primary');
+  function updateSaveLabel() {
+    var n = checkboxes.filter(function(cb){ return cb.checked; }).length;
+    saveBtn.textContent = 'Save group documentation (' + n + ')';
+    saveBtn.disabled = (n === 0);
+  }
+  checkboxes.forEach(function(cb){ cb.addEventListener('change', updateSaveLabel); });
+  updateSaveLabel();
+
+  saveBtn.addEventListener('click', function(){
+    var rc = document.getElementById('grp-sol-root-cause').value.trim();
+    var fs = document.getElementById('grp-sol-fix-summary').value.trim();
+    var sha = document.getElementById('grp-sol-fix-sha').value.trim() || 'none';
+    if (!rc || !fs) {
+      showToast('Root cause and fix summary are required.');
+      return;
+    }
+    var applied = [];
+    var ungroup = [];
+    checkboxes.forEach(function(cb){
+      var entry = { project: cb.getAttribute('data-project'), card_id: cb.getAttribute('data-card-id') };
+      if (cb.checked) applied.push(entry); else ungroup.push(entry);
+    });
+    if (applied.length === 0) {
+      showToast('At least one member must stay checked to save a group solution.');
+      return;
+    }
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving\\u2026';
+    fetch('/api/groups/' + encodeURIComponent(parent.group.id) + '/solution', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        root_cause: rc, fix_summary: fs, fix_commit_sha: sha,
+        ungroup_members: ungroup,
+      }),
+    }).then(function(r){ return r.json(); }).then(function(resp){
+      if (resp.status === 'ok') {
+        var msg = 'Documented ' + resp.applied + ' error' + (resp.applied === 1 ? '' : 's')
+                + ' with one solution'
+                + (resp.ungrouped ? ' \\u00b7 ungrouped ' + resp.ungrouped : '')
+                + (resp.dissolved ? ' \\u00b7 group dissolved' : '');
+        showToast(msg);
+        closeBoardModal();
+        fetchAll();
+      } else {
+        saveBtn.disabled = false;
+        updateSaveLabel();
+        showToast('Save failed: ' + (resp.error || resp.message || 'unknown'));
+      }
+    }).catch(function(e){
+      saveBtn.disabled = false;
+      updateSaveLabel();
+      showToast('Request failed: ' + e.message);
+    });
+  });
+  btnRow.appendChild(cancelBtn);
+  btnRow.appendChild(saveBtn);
+  body.appendChild(btnRow);
 
   modal.appendChild(body);
   document.getElementById('board-modal').classList.add('open');
@@ -8433,6 +8771,10 @@ const server = http.createServer(async (req, res) => {
     const groupMatch = pathname.match(/^\/api\/groups\/([^/]+)$/);
     if (groupMatch && req.method === 'DELETE') {
       return await handleGroupDissolve(req, res, decodeURIComponent(groupMatch[1]));
+    }
+    const groupSolMatch = pathname.match(/^\/api\/groups\/([^/]+)\/solution$/);
+    if (groupSolMatch && req.method === 'POST') {
+      return await handleGroupSolution(req, res, decodeURIComponent(groupSolMatch[1]));
     }
 
     // API endpoints

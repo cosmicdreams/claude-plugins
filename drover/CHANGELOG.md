@@ -1,5 +1,15 @@
 # drover Changelog
 
+## 1.40.0
+- **Group-mode Document flow ships (vision-doc Phase 6, partial).** Documenting a group is now a first-class action, not a per-member chore.
+  - **Group modal** gains a primary `[ Document group ]` button alongside the existing `Dissolve group`. Clicking it replaces the overview with a Document form scoped to the group.
+  - **"Writes to" checklist.** Every current member of the group appears with a checkbox, default-checked. The save button's label carries the live count (*"Save group documentation (N)"*).
+  - **Uncheck = ungroup before saving.** This is the groupthink semantic from `docs/document-flow-vision.md`: groups commit to one truth. Unchecking a member strips its `group-<id>` label, drops it from the group record, and excludes it from the propagation. It becomes a plain single-mode card.
+  - **One solution, many cards.** New endpoint `POST /api/groups/:id/solution` takes one set of root_cause / fix_summary / fix_commit_sha fields and writes the same Actual block to every remaining member's bd card. Each member is moved to `lane-done` with the same two-call write pattern as the per-card `handleSolution`. Partial failures surface per-member in the `errors` array.
+  - **Auto-dissolve at save.** If the group shrinks below 2 members during save (operator unchecked all but one), the group record is removed and the singleton is ungrouped cleanly on the way out.
+  - **Pulse event** `group-documented` fires once per group save with `{applied, ungrouped, dissolved}` counts so the pulse feed tells the knowledge-capture story without double-counting per-member writes.
+- Vision doc (`docs/document-flow-vision.md`) continues to describe the fuller sheet + three-mode design targeted for phases 1, 5, 8–9. This release is the wiring underneath it.
+
 ## 1.39.1
 - **Docs sweep** catching the written product up to what the 1.39.0 code actually does.
   - **`README.md`** rewritten. Tagline is now *"Drover watches your Drupal sites' error logs and captures what you know about each error — so the next time a similar one surfaces, you're not rediscovering the fix."* Retires the "opens fix PRs for you to review" language. The implementer-agent is called out explicitly as an opt-in / experimental capability, not as part of the primary product.
