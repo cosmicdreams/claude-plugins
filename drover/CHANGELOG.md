@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.46.0
+- **Category picker + template hints (vision-doc Phase 4 / "Write with scaffolding").** Both single-mode and group-mode Capture columns now lead with a Category dropdown: Database issue · Permission / access · Configuration · Third-party module · Deployment · Performance · Security · Other. Selecting a category surfaces a short info-tinted hint below the field — "Name the query pattern that failed, the Drupal/MySQL version, and the canonical workaround" for DB issues, and category-appropriate text for each of the others. Fills the blank-textarea gap the earlier draft named as the weakest spot in the capture experience.
+- **Data model extension.** `category` is now a top-level field on the Actual markdown block when present. Backwards-compatible: absent = untagged. Both `/api/cards/:id/solution` and `/api/groups/:id/solution` accept the field; `buildActualBlock` emits it when set.
+- **DRY capture helper.** Shared `buildCategoryField(idPrefix)` + `CATEGORY_OPTIONS` / `CATEGORY_HINTS` constants drive both surfaces from the same table, so taxonomy edits land in one place.
+
 ## 1.45.0
 - **One-click openers (vision-doc Phase 3 / "Investigate").** Understand column on the single-card sheet now carries:
   - **Open approot** — reveals the project's repo root in Finder. Always enabled when the card carries a project.

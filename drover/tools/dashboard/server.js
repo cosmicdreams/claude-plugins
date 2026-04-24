@@ -2369,7 +2369,7 @@ async function handleGroupDissolve(req, res, groupId) {
 async function handleGroupSolution(req, res, groupId) {
   let body;
   try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
-  const { root_cause, fix_summary, fix_commit_sha, ungroup_members } = body || {};
+  const { category, root_cause, fix_summary, fix_commit_sha, ungroup_members } = body || {};
   if (!root_cause || !fix_summary) {
     return jsonResponse(res, 400, { error: 'root_cause and fix_summary required' });
   }
@@ -2392,7 +2392,7 @@ async function handleGroupSolution(req, res, groupId) {
   const actualBlock = buildActualBlock({
     now, mode: 'group',
     groupCtx: { id: groupId, name: group.name, member_count: targets.length },
-    root_cause, fix_summary, fix_commit_sha,
+    category, root_cause, fix_summary, fix_commit_sha,
   });
 
   // Phase 1: bd writes only. Nothing in group state or groups-file
@@ -2958,7 +2958,7 @@ async function handleMove(req, res) {
 
 // Shared Actual-block builder. Single-mode and group-mode call this so
 // the block's shape evolves in one place.
-function buildActualBlock({ now, mode, groupCtx, root_cause, fix_summary, fix_commit_sha, divergence }) {
+function buildActualBlock({ now, mode, groupCtx, category, root_cause, fix_summary, fix_commit_sha, divergence }) {
   const lines = [''];
   if (mode === 'group' && groupCtx) {
     lines.push('### Actual  (group: ' + groupCtx.id + ', written: ' + now + ', by: user)');
@@ -2969,6 +2969,7 @@ function buildActualBlock({ now, mode, groupCtx, root_cause, fix_summary, fix_co
   } else {
     lines.push('### Actual  (written: ' + now + ', by: user)');
   }
+  if (category) lines.push('- **category:** ' + category);
   lines.push('- **root_cause:** ' + root_cause);
   lines.push('- **fix_summary:** ' + fix_summary);
   lines.push('- **fix_commit_sha:** ' + (fix_commit_sha || 'none'));
@@ -3010,7 +3011,7 @@ async function handleSolution(req, res, ticketId) {
   try { body = await readBody(req); } catch (e) {
     return jsonResponse(res, 400, { status: 'error', message: 'invalid JSON body' });
   }
-  const { root_cause, fix_summary, fix_commit_sha, divergence } = body || {};
+  const { category, root_cause, fix_summary, fix_commit_sha, divergence } = body || {};
   if (!root_cause || !fix_summary) {
     return jsonResponse(res, 400, { status: 'error', message: 'root_cause and fix_summary required' });
   }
@@ -3035,7 +3036,7 @@ async function handleSolution(req, res, ticketId) {
 
   const now = new Date().toISOString();
   const actualBlock = buildActualBlock({
-    now, mode: 'single', root_cause, fix_summary, fix_commit_sha, divergence,
+    now, mode: 'single', category, root_cause, fix_summary, fix_commit_sha, divergence,
   });
   const currentLane = (ticket.labels || []).find(l => l.startsWith('lane-')) || 'lane-triage';
 
@@ -4109,6 +4110,14 @@ function buildHtml() {
   .solution-field-label { display:block; font-size:11px; text-transform:uppercase; color:var(--muted2); margin-bottom:4px; }
   .solution-field-input { width:100%; padding:6px 8px; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:3px; font-family:var(--mono); font-size:12px; box-sizing:border-box; }
   .solution-field-input:focus { outline:none; border-color:var(--primary); }
+  .solution-field-hint {
+    display:none;
+    margin-top:6px; padding:8px 10px;
+    background:var(--info-dim); border:1px solid rgba(94,92,230,0.25);
+    border-radius:4px;
+    color:var(--text2); font-size:10px; line-height:1.5;
+    font-family:var(--mono);
+  }
   .solution-form-btns { display:flex; gap:8px; justify-content:flex-end; margin-top:6px; }
   .solution-add-btn { margin-top:4px; }
   .solution-noise-btn { margin-top:4px; margin-left:8px; color:var(--muted2); }
@@ -5108,6 +5117,50 @@ function fetchAll() {
   }).catch(function(err) {
     console.error('Fetch error:', err);
   });
+}
+
+// Category taxonomy + hints used by both single-mode and group-mode
+// capture forms. Driven by a select whose change event writes a hint
+// string below the field to scaffold the Root cause textarea.
+var CATEGORY_OPTIONS = [
+  { value:'',             label:'\\u2014 select \\u2014' },
+  { value:'db-issue',     label:'Database issue' },
+  { value:'permission',   label:'Permission / access' },
+  { value:'config',       label:'Configuration' },
+  { value:'third-party',  label:'Third-party module' },
+  { value:'deployment',   label:'Deployment' },
+  { value:'performance',  label:'Performance' },
+  { value:'security',     label:'Security' },
+  { value:'other',        label:'Other' },
+];
+var CATEGORY_HINTS = {
+  'db-issue':    'Name the query pattern that failed, the Drupal/MySQL version, and the canonical workaround.',
+  'permission':  'Which role/user, which resource, and how you adjusted access.',
+  'config':      'Which setting, what value vs. expected, and the config import/export impact.',
+  'third-party': 'Which module + version, what it expected, and whether the fix is upstream or local.',
+  'deployment':  'Which release, what changed, and the rollback or hotfix path.',
+  'performance': 'The slow path, the metric (RPS / latency), and the mitigation.',
+  'security':    'The exposure scope, who is affected, and whether a disclosure timeline applies.',
+  'other':       'Describe what went wrong and how it was resolved.',
+};
+function buildCategoryField(idPrefix) {
+  var wrap = el('div','solution-field-wrap');
+  var l = el('label','solution-field-label'); l.textContent = 'Category'; l.setAttribute('for', idPrefix + '-category');
+  wrap.appendChild(l);
+  var sel = document.createElement('select'); sel.className = 'solution-field-input'; sel.id = idPrefix + '-category';
+  CATEGORY_OPTIONS.forEach(function(o){
+    var opt = document.createElement('option'); opt.value = o.value; opt.textContent = o.label;
+    sel.appendChild(opt);
+  });
+  wrap.appendChild(sel);
+  var hint = el('div','solution-field-hint'); hint.id = idPrefix + '-category-hint';
+  wrap.appendChild(hint);
+  sel.addEventListener('change', function(){
+    var text = sel.value ? (CATEGORY_HINTS[sel.value] || '') : '';
+    hint.textContent = text;
+    hint.style.display = text ? 'block' : 'none';
+  });
+  return wrap;
 }
 
 // Parse a Drupal-watchdog-style title into discrete fields for the
@@ -6220,6 +6273,7 @@ function openGroupSheet(parent) {
     wrap.appendChild(inp);
     return wrap;
   }
+  fieldsSec.appendChild(buildCategoryField('grp-sheet'));
   fieldsSec.appendChild(field('grp-sheet-root','Root cause','One or two sentences, general audience.',true));
   fieldsSec.appendChild(field('grp-sheet-summary','Fix summary','What was done, or the plan if not yet fixed.',true));
   fieldsSec.appendChild(field('grp-sheet-sha','Fix commit SHA (optional)','abc1234',false));
@@ -6238,6 +6292,8 @@ function openGroupSheet(parent) {
     var rc = document.getElementById('grp-sheet-root').value.trim();
     var fs = document.getElementById('grp-sheet-summary').value.trim();
     var sha = document.getElementById('grp-sheet-sha').value.trim() || 'none';
+    var catEl = document.getElementById('grp-sheet-category');
+    var cat = (catEl && catEl.value) || '';
     if (!rc || !fs) { showToast('Root cause and fix summary are required.'); return; }
     var applied = [], ungroup = [];
     checkboxes.forEach(function(cb){
@@ -6248,7 +6304,7 @@ function openGroupSheet(parent) {
     saveBtn.disabled = true; saveBtn.textContent = 'Saving\\u2026';
     fetch('/api/groups/' + encodeURIComponent(parent.group.id) + '/solution', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ root_cause: rc, fix_summary: fs, fix_commit_sha: sha, ungroup_members: ungroup }),
+      body: JSON.stringify({ category: cat, root_cause: rc, fix_summary: fs, fix_commit_sha: sha, ungroup_members: ungroup }),
     }).then(function(r){return r.json();}).then(function(resp){
       if (resp.status === 'ok') {
         var msg = 'Documented ' + resp.applied + ' error' + (resp.applied === 1 ? '' : 's')
@@ -7090,6 +7146,7 @@ function buildActualForm(c, holder) {
     return wrap;
   }
 
+  form.appendChild(buildCategoryField('sol'));
   form.appendChild(field('sol-root-cause',  'root_cause',     'Root cause',
     'One or two sentences, general audience — no project paths or customer names.', true));
   form.appendChild(field('sol-fix-summary', 'fix_summary',    'Fix summary (or "not yet fixed")',
@@ -7130,6 +7187,8 @@ function buildActualForm(c, holder) {
       fix_summary:   document.getElementById('sol-fix-summary').value.trim(),
       fix_commit_sha:document.getElementById('sol-fix-sha').value.trim() || 'none',
     };
+    var catEl = document.getElementById('sol-category');
+    if (catEl && catEl.value) payload.category = catEl.value;
     var divEl = document.getElementById('sol-divergence');
     if (divEl) payload.divergence = divEl.value;
     if (!payload.root_cause || !payload.fix_summary) {
