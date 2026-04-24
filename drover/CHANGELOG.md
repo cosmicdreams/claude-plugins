@@ -1,5 +1,14 @@
 # drover Changelog
 
+## 1.45.0
+- **One-click openers (vision-doc Phase 3 / "Investigate").** Understand column on the single-card sheet now carries:
+  - **Open approot** — reveals the project's repo root in Finder. Always enabled when the card carries a project.
+  - **Open in PhpStorm** — appears when the card's top stack frame has a parseable `path.php:line` (or `path.php(line)`) signature. Opens via the `phpstorm://open?file=...&line=...` URL handler. Supports `.php`, `.module`, `.inc`, `.theme`.
+- **Two new server endpoints gate these against arbitrary-path requests**:
+  - `POST /api/openers/approot { project }` → resolves the name against `projectsModule.listProjects()`; runs `open <path>` on match, 404 otherwise.
+  - `POST /api/openers/editor { project, file, line }` → file is resolved relative to the project approot; absolute paths must live inside the approot or the request is rejected with 400.
+- Neither endpoint touches the network or the bd database; both are scoped to the local filesystem.
+
 ## 1.44.0
 - **Structured error view in the sheet's Understand column (vision-doc Part I Stage 1).** The old single-block watchdog-pipe-soup title display is replaced by labeled fields: `CLASS`, `MESSAGE`, and — when the title carries the Acquia-style ` · `-separated parts — `HOOK` and `URL`. The raw title stays accessible behind a `▸ Show raw title` disclosure so no information is lost.
 - **Client-side `parseWatchdogTitle`** drives the parse. Splits on ` · `, classifies each chunk (path-URL, host-only URL, hook token, bracketed severity), and falls back to the flat title when the format doesn't match. Combined with the existing `parseCardClient.extractException`, the sheet now renders the class + message cleanly whether the title was a pipe-soup or a plain string.

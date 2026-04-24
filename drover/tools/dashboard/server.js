@@ -2126,6 +2126,68 @@ async function handleNoiseMark(req, res, ticketId) {
   }
 }
 
+// Map a project name (as carried on a card) to its on-disk approot.
+// Only returns a path if the name matches a registered project; this
+// gates the opener endpoints against arbitrary-path requests.
+function resolveApproot(projectName) {
+  if (!projectName || typeof projectName !== 'string') return null;
+  const bare = projectName.replace(/-main$/i, '');
+  let projects = [];
+  try { projects = projectsModule.listProjects() || []; } catch { return null; }
+  const hit = projects.find(p => {
+    if (!p || !p.path) return false;
+    const candidate = p.name || p.ddev_project || '';
+    return candidate === projectName
+        || candidate === bare
+        || (candidate || '').replace(/-main$/i, '') === bare;
+  });
+  return hit ? hit.path : null;
+}
+
+// POST /api/openers/approot { project } — reveal the project's root
+// folder in Finder. Operator uses this to jump into the codebase while
+// composing documentation.
+async function handleOpenApproot(req, res) {
+  let body;
+  try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
+  const project = body && body.project;
+  const approot = resolveApproot(project);
+  if (!approot) return jsonResponse(res, 404, { error: 'unknown project: ' + (project || '<missing>') });
+  try {
+    execFileSync('open', [approot], { encoding: 'utf8', timeout: 5000 });
+    return jsonResponse(res, 200, { status: 'ok', path: approot });
+  } catch (e) {
+    return jsonResponse(res, 500, { error: 'open failed: ' + ((e.stderr && e.stderr.toString()) || e.message) });
+  }
+}
+
+// POST /api/openers/editor { project, file, line } — open file:line in
+// the default editor via the jetbrains://open URL handler (PhpStorm
+// registers this scheme on install). Relative paths are resolved
+// against the project's approot; absolute-path requests are rejected
+// unless they live inside the approot.
+async function handleOpenEditor(req, res) {
+  let body;
+  try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
+  const project = body && body.project;
+  const file = body && typeof body.file === 'string' ? body.file : '';
+  const line = parseInt(body && body.line, 10) || 1;
+  if (!file) return jsonResponse(res, 400, { error: 'file required' });
+  const approot = resolveApproot(project);
+  if (!approot) return jsonResponse(res, 404, { error: 'unknown project: ' + (project || '<missing>') });
+  const resolved = path.isAbsolute(file) ? path.normalize(file) : path.normalize(path.join(approot, file));
+  if (!resolved.startsWith(approot)) {
+    return jsonResponse(res, 400, { error: 'file outside project approot' });
+  }
+  const url = 'phpstorm://open?file=' + encodeURIComponent(resolved) + '&line=' + encodeURIComponent(String(line));
+  try {
+    execFileSync('open', [url], { encoding: 'utf8', timeout: 5000 });
+    return jsonResponse(res, 200, { status: 'ok', url });
+  } catch (e) {
+    return jsonResponse(res, 500, { error: 'open failed: ' + ((e.stderr && e.stderr.toString()) || e.message) });
+  }
+}
+
 async function handleRecall(req, res, url) {
   var cardId = url.searchParams.get('card_id') || '';
   var projectQ = url.searchParams.get('project') || '';
@@ -4195,6 +4257,19 @@ function buildHtml() {
   .err-raw-details > summary::before { content: '\\25B8  '; display:inline-block; width:14px; }
   .err-raw-details[open] > summary::before { content: '\\25BE  '; }
   .err-raw-details > .modal-err-msg { margin-top:6px; }
+
+  /* One-click openers row in the Understand column. */
+  .openers-row { display:flex; gap:8px; flex-wrap:wrap; }
+  .opener-btn {
+    font-family:var(--mono); font-size:10px;
+    padding:6px 12px; border-radius:4px;
+    background:var(--surface2); color:var(--text2);
+    border:1px solid var(--border2);
+    cursor:pointer;
+    transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+  }
+  .opener-btn:hover { border-color:var(--info); color:#fff; background:var(--info-dim); }
+  .opener-btn:disabled { opacity:0.4; cursor:not-allowed; }
 
   .modal-stack {
     font-family:var(--mono); font-size:10px; line-height:1.8;
@@ -6684,6 +6759,56 @@ function openBoardModal(c, opts) {
   errSec.appendChild(rawDetails);
   understand.appendChild(errSec);
 
+  // One-click openers (vision-doc Part III — "Investigate"). Approot
+  // in Finder is always offered when the card carries a project; the
+  // editor opener appears when the top stack frame has a parseable
+  // file:line pair. Both POST to server-side handlers that gate the
+  // target against registered projects only.
+  var openersSec = el('div','modal-section');
+  var openersRow = el('div','openers-row');
+  var approotBtn = el('button','opener-btn');
+  approotBtn.textContent = 'Open approot';
+  approotBtn.disabled = !c.project;
+  approotBtn.addEventListener('click', (function(proj){ return function(){
+    fetch('/api/openers/approot', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ project: proj }),
+    }).then(function(r){ return r.json().then(function(d){ return { s: r.status, b: d }; }); })
+      .then(function(res){
+        if (res.s !== 200) showToast('Open approot failed: ' + ((res.b && res.b.error) || 'HTTP ' + res.s));
+      })
+      .catch(function(e){ showToast('Open approot failed: ' + e.message); });
+  }; })(c.project));
+  openersRow.appendChild(approotBtn);
+
+  // Editor button: scan stack frames for the first "path.php:NN" or
+  // "path.php(NN)" pattern and offer to open it in PhpStorm.
+  var editorTarget = null;
+  (c.stack || []).some(function(frame){
+    var m = String(frame).match(/([^\\s()]+\\.(?:php|module|inc|theme)):(\\d+)/)
+         || String(frame).match(/([^\\s()]+\\.(?:php|module|inc|theme))\\((\\d+)\\)/);
+    if (m) { editorTarget = { file: m[1], line: parseInt(m[2],10) }; return true; }
+    return false;
+  });
+  if (editorTarget && c.project) {
+    var editorBtn = el('button','opener-btn');
+    editorBtn.textContent = 'Open in PhpStorm';
+    editorBtn.title = editorTarget.file + ':' + editorTarget.line;
+    editorBtn.addEventListener('click', (function(proj, tgt){ return function(){
+      fetch('/api/openers/editor', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ project: proj, file: tgt.file, line: tgt.line }),
+      }).then(function(r){ return r.json().then(function(d){ return { s: r.status, b: d }; }); })
+        .then(function(res){
+          if (res.s !== 200) showToast('Open editor failed: ' + ((res.b && res.b.error) || 'HTTP ' + res.s));
+        })
+        .catch(function(e){ showToast('Open editor failed: ' + e.message); });
+    }; })(c.project, editorTarget));
+    openersRow.appendChild(editorBtn);
+  }
+  openersSec.appendChild(openersRow);
+  understand.appendChild(openersSec);
+
   // Documentation section. Drover's product is error tracking + memory,
   // not fix-automation — so the primary ask of the human is to DOCUMENT
   // the error (root cause, what was done about it) so the next recurrence
@@ -9162,6 +9287,16 @@ const server = http.createServer(async (req, res) => {
     const noiseMatch = pathname.match(/^\/api\/cards\/([^/]+)\/noise$/);
     if (noiseMatch && req.method === 'POST') {
       return await handleNoiseMark(req, res, decodeURIComponent(noiseMatch[1]));
+    }
+
+    // One-click openers: reveal the project's approot in Finder, or
+    // open a file:line in PhpStorm (jetbrains URL scheme). Scoped to
+    // registered projects only — arbitrary paths are rejected.
+    if (pathname === '/api/openers/approot' && req.method === 'POST') {
+      return await handleOpenApproot(req, res);
+    }
+    if (pathname === '/api/openers/editor' && req.method === 'POST') {
+      return await handleOpenEditor(req, res);
     }
 
     // DDEV management endpoints
