@@ -2298,10 +2298,12 @@ async function handleGroupDissolve(req, res, groupId) {
 }
 
 // POST /api/groups/:id/solution — document the group once, write the same
-// Actual block to every remaining member. "uncheck = ungroup before save"
-// is implemented via `ungroup_members`: members listed there get their
-// group-label removed, drop out of the group record, and are excluded
-// from the propagation. The group auto-dissolves if it shrinks below 2.
+// Actual block to every remaining member. `ungroup_members` lists tuples
+// the operator unchecked in the Writes-to list; those are ungrouped
+// before the propagation. The group auto-dissolves if it shrinks below
+// 2 members. Ordering: bd writes run first and gate the side-effects —
+// if every write fails we abort without mutating group state, so the
+// operator can retry from a clean surface.
 async function handleGroupSolution(req, res, groupId) {
   let body;
   try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
@@ -2314,50 +2316,26 @@ async function handleGroupSolution(req, res, groupId) {
   const group = data.groups.find(g => g.id === groupId);
   if (!group) return jsonResponse(res, 404, { error: 'group not found: ' + groupId });
 
-  // 1. Process ungroup-before-save. Members in ungroup_members get their
-  //    bd label pulled and are stripped from the in-memory member list.
-  //    They'll be excluded from the propagation loop below.
-  const ungroupList = normalizeMemberList(ungroup_members || []);
-  const ungroupSet = new Set(ungroupList.map(memberKey));
-  let ungroupedCount = 0;
-  if (ungroupSet.size > 0) {
-    const toUngroup = normalizeMemberList(group.member_ids).filter(m => ungroupSet.has(memberKey(m)));
-    if (toUngroup.length > 0) {
-      const labelResult = syncGroupLabel({ id: group.id, member_ids: toUngroup }, 'remove');
-      ungroupedCount = labelResult.removed.length;
-      group.member_ids = normalizeMemberList(group.member_ids).filter(m => !ungroupSet.has(memberKey(m)));
-    }
-  }
+  // Partition the current membership in one pass.
+  const ungroupSet = new Set(normalizeMemberList(ungroup_members || []).map(memberKey));
+  const allMembers = normalizeMemberList(group.member_ids);
+  const toUngroup = allMembers.filter(m => ungroupSet.has(memberKey(m)));
+  const targets = allMembers.filter(m => !ungroupSet.has(memberKey(m)));
 
-  // 2. Snapshot the remaining targets BEFORE we possibly dissolve the group.
-  const targets = normalizeMemberList(group.member_ids);
-
-  // 3. Fetch tickets so we can look up each member's current lane
-  //    (so the bd update can remove the right lane- label cleanly).
   const tickets = await fetchTickets();
   const ticketMap = {};
-  if (Array.isArray(tickets)) {
-    tickets.forEach(t => { ticketMap[t.id] = t; });
-  }
+  if (Array.isArray(tickets)) tickets.forEach(t => { ticketMap[t.id] = t; });
 
-  // 4. Build the shared Actual block. It's written to each member.
   const now = new Date().toISOString();
-  const actualBlock = [
-    '',
-    '### Actual  (group: ' + groupId + ', written: ' + now + ', by: user)',
-    '- **mode:** group',
-    '- **group_id:** ' + groupId,
-    '- **group_name:** ' + (group.name || ''),
-    '- **group_member_count:** ' + targets.length,
-    '- **root_cause:** ' + root_cause,
-    '- **fix_summary:** ' + fix_summary,
-    '- **fix_commit_sha:** ' + (fix_commit_sha || 'none'),
-    '- **effectiveness:** verified',
-    '- **verified_at:** ' + now,
-    '- **captured_by:** user',
-    '- **evidence:** dashboard-group-modal',
-  ].join('\n');
+  const actualBlock = buildActualBlock({
+    now, mode: 'group',
+    groupCtx: { id: groupId, name: group.name, member_count: targets.length },
+    root_cause, fix_summary, fix_commit_sha,
+  });
 
+  // Phase 1: bd writes only. Nothing in group state or groups-file
+  // mutates yet; if every write fails we return 500 untouched so the
+  // operator retries from a clean slate.
   const boards = currentBoards();
   const errors = [];
   let appliedCount = 0;
@@ -2370,37 +2348,37 @@ async function handleGroupSolution(req, res, groupId) {
     const ticket = ticketMap[m.card_id];
     const currentLane = (ticket && (ticket.labels || []).find(l => l.startsWith('lane-'))) || 'lane-triage';
     try {
-      // Two bd calls per member, matching handleSolution's pattern:
-      // append-notes first, then the lane move. Keeps write semantics
-      // identical to the single-card flow so recall surfaces these the
-      // same way it surfaces per-card docs.
-      execFileSync('bd', [
-        'update', m.card_id,
-        '--db', board.dbPath,
-        '--append-notes', actualBlock,
-      ], { encoding: 'utf8', timeout: 15000 });
-      if (currentLane !== 'lane-done' && currentLane !== 'lane-closed') {
-        execFileSync('bd', [
-          'update', m.card_id,
-          '--db', board.dbPath,
-          '--remove-label', currentLane,
-          '--add-label', 'lane-done',
-          '--append-notes', now + ': Group solution captured via dashboard; lane-done.',
-        ], { encoding: 'utf8', timeout: 15000 });
-      }
+      writeActualToCard({
+        board, cardId: m.card_id, actualBlock, currentLane, now,
+        laneMoveNote: 'Group solution captured via dashboard; lane-done.',
+      });
       appliedCount++;
     } catch (e) {
       errors.push({ member: m, error: (e.stderr && e.stderr.toString()) || e.message });
     }
   }
+  if (targets.length > 0 && appliedCount === 0) {
+    return jsonResponse(res, 500, {
+      status: 'error', group_id: groupId,
+      applied: 0, ungrouped: 0, dissolved: false, errors,
+      message: 'all ' + targets.length + ' member writes failed; group unchanged',
+    });
+  }
 
-  // 5. Auto-dissolve if the group fell below 2 members (either because
-  //    the operator unchecked everyone but one, or started that way).
-  //    The remaining singleton is ungrouped cleanly.
+  // Phase 2: at least one write landed — commit the group mutations.
+  let ungroupedCount = 0;
+  if (toUngroup.length > 0) {
+    const labelResult = syncGroupLabel({ id: group.id, member_ids: toUngroup }, 'remove');
+    ungroupedCount = labelResult.removed.length;
+    group.member_ids = targets;
+  }
+
+  // Auto-dissolve if fewer than 2 members remain (the last singleton is
+  // ungrouped cleanly on the way out, keeping bd-side state consistent).
   let dissolved = false;
-  if (group.member_ids.length < 2) {
-    if (group.member_ids.length === 1) {
-      syncGroupLabel({ id: group.id, member_ids: group.member_ids }, 'remove');
+  if (targets.length < 2) {
+    if (targets.length === 1) {
+      syncGroupLabel({ id: group.id, member_ids: targets }, 'remove');
     }
     data.groups = data.groups.filter(g => g.id !== groupId);
     dissolved = true;
@@ -2916,10 +2894,55 @@ async function handleMove(req, res) {
   }
 }
 
+// Shared Actual-block builder. Single-mode and group-mode call this so
+// the block's shape evolves in one place.
+function buildActualBlock({ now, mode, groupCtx, root_cause, fix_summary, fix_commit_sha, divergence }) {
+  const lines = [''];
+  if (mode === 'group' && groupCtx) {
+    lines.push('### Actual  (group: ' + groupCtx.id + ', written: ' + now + ', by: user)');
+    lines.push('- **mode:** group');
+    lines.push('- **group_id:** ' + groupCtx.id);
+    lines.push('- **group_name:** ' + (groupCtx.name || ''));
+    lines.push('- **group_member_count:** ' + groupCtx.member_count);
+  } else {
+    lines.push('### Actual  (written: ' + now + ', by: user)');
+  }
+  lines.push('- **root_cause:** ' + root_cause);
+  lines.push('- **fix_summary:** ' + fix_summary);
+  lines.push('- **fix_commit_sha:** ' + (fix_commit_sha || 'none'));
+  if (mode !== 'group') {
+    lines.push(divergence ? '- **divergence:** ' + divergence : '- **divergence:** n/a (no Projected block)');
+  }
+  lines.push('- **effectiveness:** verified');
+  lines.push('- **verified_at:** ' + now);
+  lines.push('- **captured_by:** user');
+  lines.push('- **evidence:** ' + (mode === 'group' ? 'dashboard-group-modal' : 'dashboard-modal'));
+  return lines.join('\n');
+}
+
+// Shared bd write: append the Actual block, then move to lane-done if
+// the card isn't already there. Two execFileSync calls — the 15000ms
+// timeout is the A13 mitigation for the append→move ordering (see
+// handleMove). Throws on bd error; callers decide whether to continue
+// or bail.
+function writeActualToCard({ board, cardId, actualBlock, currentLane, now, laneMoveNote }) {
+  execFileSync('bd', [
+    'update', cardId,
+    '--db', board.dbPath,
+    '--append-notes', actualBlock,
+  ], { encoding: 'utf8', timeout: 15000 });
+  if (currentLane !== 'lane-done' && currentLane !== 'lane-closed') {
+    execFileSync('bd', [
+      'update', cardId,
+      '--db', board.dbPath,
+      '--remove-label', currentLane,
+      '--add-label', 'lane-done',
+      '--append-notes', now + ': ' + (laneMoveNote || 'Solution captured via dashboard; lane-done.'),
+    ], { encoding: 'utf8', timeout: 15000 });
+  }
+}
+
 // sprint-wgy dashboard integration — record Actual solution from the modal.
-// Finds which board the ticket lives on (critical for virtual-central mode),
-// appends a structured ### Actual block via bd update --append-notes,
-// moves the ticket to lane-done, closes it, and invalidates cache.
 async function handleSolution(req, res, ticketId) {
   let body;
   try { body = await readBody(req); } catch (e) {
@@ -2949,42 +2972,13 @@ async function handleSolution(req, res, ticketId) {
   }
 
   const now = new Date().toISOString();
-  const actualBlock = [
-    '',
-    '### Actual  (written: ' + now + ', by: user)',
-    '- **root_cause:** ' + root_cause,
-    '- **fix_summary:** ' + fix_summary,
-    '- **fix_commit_sha:** ' + (fix_commit_sha || 'none'),
-    (divergence ? '- **divergence:** ' + divergence : '- **divergence:** n/a (no Projected block)'),
-    '- **effectiveness:** verified',
-    '- **verified_at:** ' + now,
-    '- **captured_by:** user',
-    '- **evidence:** dashboard-modal',
-  ].join('\n');
-
+  const actualBlock = buildActualBlock({
+    now, mode: 'single', root_cause, fix_summary, fix_commit_sha, divergence,
+  });
   const currentLane = (ticket.labels || []).find(l => l.startsWith('lane-')) || 'lane-triage';
 
   try {
-    // A13: bumped from 5000→15000 on both bd calls for the same reason as
-    // handleMove. If the first (append-notes) times out, the second
-    // (lane-move) doesn't run and the Actual block is persisted but the
-    // card stays in its current lane — leaving the modal in an inconsistent
-    // state. Making the timeout generous is the cheapest mitigation.
-    execFileSync('bd', [
-      'update', ticketId,
-      '--db', board.dbPath,
-      '--append-notes', actualBlock,
-    ], { encoding: 'utf8', timeout: 15000 });
-    // Move to lane-done and close.
-    if (currentLane !== 'lane-done' && currentLane !== 'lane-closed') {
-      execFileSync('bd', [
-        'update', ticketId,
-        '--db', board.dbPath,
-        '--remove-label', currentLane,
-        '--add-label', 'lane-done',
-        '--append-notes', now + ': Solution captured via dashboard; lane-done.',
-      ], { encoding: 'utf8', timeout: 15000 });
-    }
+    writeActualToCard({ board, cardId: ticketId, actualBlock, currentLane, now });
     ticketCache = { data: null, ts: 0 };
     recordPulse({
       type: 'error-documented',
@@ -5991,23 +5985,28 @@ function openGroupDocumentForm(parent) {
   document.getElementById('board-modal').classList.add('open');
 }
 
-// "You've documented N this week" quiet contribution counter, per the
-// document-flow-vision "Feel the contribution" stage. Only rendered when
-// N > 0 — self-respecting, not gamified. Scope: documented cards whose
-// Actual.verified_at is within the past 7 days. Group-mode saves show
-// up here N times (one per member) because that's the honest error
-// count, not the save count.
+// "You've documented N this week" — per document-flow-vision "Feel the
+// contribution" stage. Only rendered when N > 0. Memoized on ALL_CARDS
+// identity so it costs nothing on search-keystroke rerenders; only the
+// fetchAll boundary changes ALL_CARDS.
+var _docCounterCache = { src: null, count: -1 };
 function updateDocCounter() {
   var counter = document.getElementById('doc-counter');
   if (!counter) return;
-  var cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-  var n = 0;
-  (ALL_CARDS || []).forEach(function(c){
-    if (!c || c.isGroup || !c.actual) return;
-    var ts = c.actual.verified_at || c.actual.written_at || c.actual.captured_at || '';
-    var t = ts ? Date.parse(ts) : NaN;
-    if (!isNaN(t) && t >= cutoff) n++;
-  });
+  var n;
+  if (_docCounterCache.src === ALL_CARDS) {
+    n = _docCounterCache.count;
+  } else {
+    var cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    n = 0;
+    (ALL_CARDS || []).forEach(function(c){
+      if (!c || c.isGroup || !c.actual) return;
+      var ts = c.actual.verified_at || c.actual.written_at || c.actual.captured_at || '';
+      var t = ts ? Date.parse(ts) : NaN;
+      if (!isNaN(t) && t >= cutoff) n++;
+    });
+    _docCounterCache = { src: ALL_CARDS, count: n };
+  }
   if (n <= 0) { counter.setAttribute('hidden',''); counter.textContent = ''; return; }
   counter.removeAttribute('hidden');
   counter.textContent = '\\u2713 ' + n + ' documented this week';
