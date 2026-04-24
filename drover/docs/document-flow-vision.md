@@ -155,13 +155,13 @@ Disabled rules:
 - Selection of 0 → bulk bar is hidden entirely.
 - Selection mixing already-documented and undocumented cards →
   button label becomes `Document selection…` (same destination — the
-  sheet handles the mixed-state reconciliation; see §IV).
+  sheet applies groupthink semantics; see §IV).
 
 ## Stage 3 — Decide
 
 One click on the primary CTA commits the operator to the Document
 flow. The decision point is intentionally simple: everything more
-nuanced (propagation, overrides, playbook promotion) happens *inside*
+nuanced (propagation, playbook promotion) happens *inside*
 the sheet, where the operator has the material in front of them.
 
 `progressive-disclosure` — don't make the operator answer five
@@ -201,12 +201,13 @@ surface, three entry points, unified save behavior.
 - Entry: click a group parent row in the table. The group modal that
   exists today is replaced by the Document sheet in group-mode,
   header titled with the existing group name.
-- If all members are already documented → the sheet opens in
+- If the group already has an Actual block → the sheet opens in
   **read-mode** (not write-mode), showing the current group
   documentation with an `Edit documentation` button that flips to
   write-mode. `read-only-distinction` rule.
-- If members have conflicting prior documentation → sheet opens in
-  **reconcile-mode** (see §IV).
+- Prior per-member documentation on any member is irrelevant to the
+  display — joining a group superseded it. See *Groupthink:
+  supersede-on-join, fork-on-leave* in §IV.
 
 All three paths share: header, Understand column, Capture column,
 keyboard model, save behavior shell. The differences are the **header
@@ -251,13 +252,6 @@ Document: DatabaseExceptionWrapper           ✕
 Document group: "DB reserved-word" ⟶ [ Rename ]   ✕
 5 errors · 3 projects · first seen 5d ago · 47 occurrences
 [ Members (5) ▾ ]   [ Ungroup ]
-```
-
-**Reconcile-mode:**
-```
-Reconcile: "DB reserved-word"                 ✕
-5 errors · 2 already documented · needs review
-[ Review documented 2 ▾ ]
 ```
 
 Header rules:
@@ -355,15 +349,15 @@ Fix summary ────────────────────
 Commit / PR / Links   + add      ← applied to all 5 members
 Tags: drupal-core · mysql-8      ← applied to all 5 members
 
-┌─ Propagation (default: all members) ────────┐
+┌─ Writes to (all 5 members) ─────────────────┐
 │ ☑ pncb-test  · sprint-abc                   │
 │ ☑ ahri-prod  · sprint-def                   │
 │ ☑ pncb-prod  · sprint-ghi                   │
 │ ☑ sch-test   · sprint-jkl                   │
 │ ☑ ahri-test  · sprint-mno                   │
 │                                             │
-│ [ Uncheck a member to skip it ]             │
-│ [ Override for a member… ]                  │
+│ Uncheck to ungroup a member before saving.  │
+│ Groups commit to one truth; see Groupthink. │
 └─────────────────────────────────────────────┘
 
 Preview — how this reads when recalled
@@ -391,21 +385,18 @@ should assume one solution covers them unless you say otherwise.
 documentation"*, not *"Save and apply to N"*, because applying is
 the point of group-mode, not a modifier.
 
-### Per-member override is a progressive disclosure, not a ceremony
+### No per-member overrides — if they differ, ungroup
 
-`progressive-disclosure` — unchecking a member in the list means
-*"skip this one."* It stays on the row but the save won't write a
-solution to it. The expected workflow for an operator who wants that
-skipped member documented differently is: save the group, then open
-the skipped member in single-mode, document it individually. Most
-groups won't need this.
+Unchecking a row in the *Writes to* list is **not** "skip this one"
+— it means *"remove this member from the group before I save."* The
+save then writes the group doc to the remaining checked members and
+the unchecked card becomes a plain single-mode card, forked from the
+in-progress group doc (see *Groupthink* below).
 
-A heavier path — *"document this member with a variant of the group
-solution"* — is available via `[ Override for a member… ]`. It
-opens an inline sub-sheet where the operator picks a member and edits
-their per-member Actual block. The group block stays the canonical
-source; the override records a diff (`superseded_by` in the data
-model, scoped to the member, not the group).
+There is no per-member override and no variant-of-the-group-solution
+sub-sheet. If the fixes differ, the cards weren't the same bug; they
+should ungroup. The design refuses to hedge against the operator's
+own grouping decision.
 
 ### Recall is scoped to the group shape
 
@@ -414,56 +405,39 @@ shape + source) to query, not any single member. The results are
 scored as usual but tagged with *"matches N of the group's 5
 members"* so the operator knows how confidently they're importing.
 
-### Mixed-state reconciliation
+### Groupthink: supersede-on-join, fork-on-leave
 
-If the operator opens a group where some members already have their
-own Actual blocks (e.g. documented before grouping), the sheet opens
-in **reconcile-mode**:
+Grouping is a commitment to one truth. Drover enforces it with two
+symmetric rules.
 
-```
-Reconcile: DB reserved-word                    ✕
-5 errors · 2 already documented
+**Supersede on join.** When a card joins a group — at creation or
+added later — its independent Actual block, if any, is marked
+superseded and retained in history. Display switches to the group's
+Actual block immediately. The operator does not reconcile; the
+group wins.
 
-Existing documentation
-  ┃ pncb-test · chris · 3d ago
-  ┃   Category: DB issue
-  ┃   Root cause: reserved word collision in…
-  ┃   Fix:   wrap column name in backticks…
-  ┃   [ View full ]   [ Adopt as group doc ]
-  ┃
-  ┃ ahri-prod · jane · 2w ago
-  ┃   Category: DB issue
-  ┃   Root cause: upgrade migration left…
-  ┃   Fix:   hand-edit the migration to…
-  ┃   [ View full ]   [ Adopt as group doc ]
+**Fork on leave.** When a card leaves a group (single-member ungroup
+or full dissolve), it is initialized with the group's current Actual
+block as its own. The satellite is frozen at the moment of fork —
+future group edits do not propagate to it, and satellite edits do
+not flow back. From that moment the card is a plain single-mode
+card, allowed to live its own life.
 
-Three members have no documentation yet.
+If a group never had an Actual block, members that leave are
+initialized empty. Pre-join superseded docs are **not** auto-restored
+— joining was the commitment; history is retrievable (via the
+superseded record), not default.
 
-[ Adopt chris's — recommended (most recent)      ]
-[ Write a new group documentation from scratch   ]
-[ Keep per-member docs, don't write group doc    ]
-```
+The satellite records a `forked_from_group` lineage pointer for
+recall and analytics. It's metadata, not behavior.
 
-Rules:
+### Concurrent edits
 
-- `progressive-disclosure` — the three options are listed in order of
-  ascending friction. Recommended first.
-- `error-recovery` — *"Keep per-member docs"* is always available; the
-  operator is never forced to merge.
-- `confirmation-dialogs` — *"Adopt as group doc"* warns: *"This will
-  replace jane's per-member documentation on ahri-prod with the
-  group documentation. Her text will be kept as a superseded
-  version, not deleted."* → `Adopt` / `Cancel`.
-- `undo-support` — adopt and replace actions record a supersede entry
-  so the prior documentation can be restored in one click for 30 days.
-
-### Mixed-state at save time
-
-If the operator edits a group solution while a member has newer
-per-member documentation (created in another tab), the save surfaces
-a conflict: *"ahri-prod was documented 45 seconds ago by jane. Your
-group save will overwrite it."* With `error-recovery`: `Merge…`,
-`Overwrite`, `Cancel`.
+If a group save lands while a member's per-member Actual block was
+edited in another tab, the group save wins — the concurrent edit is
+superseded along with any pre-join history. No conflict dialog, no
+merge ceremony. The operator who grouped the cards is asserting
+groupthink; concurrent per-member writes don't get a veto.
 
 ---
 
@@ -560,9 +534,9 @@ described. Same shell, different data.
 │  • ahri-prod · 12 occ · 9m   ▸  │   Commit / Links  + add    │
 │  • pncb-prod ·  8 occ · 1h   ▸  │   Tags: drupal · mysql-8   │
 │  • sch-test  ·  7 occ · 2h   ▸  │                            │
-│  • ahri-test ·  6 occ · 3h   ▸  │   ┌ Propagation ─────────┐ │
-│                                 │   │ ☑ all 5 members (→)  │ │
-│  Combined log (60s)       ▾     │   │ [ Override member… ] │ │
+│  • ahri-test ·  6 occ · 3h   ▸  │   ┌ Writes to ───────────┐ │
+│                                 │   │ ☑ all 5 members      │ │
+│  Combined log (60s)       ▾     │   │ uncheck = ungroup    │ │
 │  Stack shapes (3 forms)   ▾     │   └──────────────────────┘ │
 │                                 │                            │
 │  [ Open all approots ]          │   Preview —                │
@@ -574,33 +548,6 @@ described. Same shell, different data.
 │                                 │                            │
 │                                 │  [ Save group docs (5) ]   │
 │                                 │  [ Mark group as noise ]   │
-└──────────────────────────────────────────────────────────────┘
-```
-
-## Reconcile-mode sketch (abbreviated)
-
-```
-┌─── Reconcile: "DB reserved-word" ───────────────────────  ✕ ┐
-│    5 errors · 2 already documented · needs review           │
-│                                                              │
-│  Existing documentation                                      │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │ pncb-test · chris · 3d ago · DB issue                │   │
-│  │   Root cause: reserved word collision in…            │   │
-│  │   Fix:        wrap column name in backticks…         │   │
-│  │   [ View full ]   [ Adopt as group doc ]             │   │
-│  └──────────────────────────────────────────────────────┘   │
-│  ┌──────────────────────────────────────────────────────┐   │
-│  │ ahri-prod · jane · 2w ago · DB issue                 │   │
-│  │   Root cause: upgrade migration left…                │   │
-│  │   Fix:        hand-edit the migration to…            │   │
-│  │   [ View full ]   [ Adopt as group doc ]             │   │
-│  └──────────────────────────────────────────────────────┘   │
-│  Three members have no documentation yet.                    │
-│                                                              │
-│  [ Adopt chris's — recommended (most recent)            ]    │
-│  [ Write a new group documentation from scratch         ]    │
-│  [ Keep per-member docs, don't write a group doc        ]    │
 └──────────────────────────────────────────────────────────────┘
 ```
 
@@ -620,8 +567,7 @@ are `confirmation-dialogs` gated, `destructive-emphasis` styled.
 ## Why a sheet, not a modal
 
 - Modals imply a blocking decision. Documentation — especially group
-  documentation — is iterative: read, investigate, write, reconcile,
-  read again.
+  documentation — is iterative: read, investigate, write, read again.
 - The sheet keeps the rest of the queue visible behind the scrim
   (`modal-escape` + peripheral awareness).
 - Group-mode especially benefits: the operator can see *other* groups
@@ -671,6 +617,7 @@ Extending the earlier draft's `actual` block:
 - mode:              "single"   |  "group"
 - group_id:          null        |  "grp-abc123"
 - group_snapshot:    null        |  { name, member_count, member_ids[] }
+- forked_from_group: null        |  { group_id, forked_at, parent_doc_version }
 - category:          "db-issue"
 - root_cause:        "…"
 - fix_summary:       "…"
@@ -679,8 +626,7 @@ Extending the earlier draft's `actual` block:
 - links:             [{"kind":"pr","url":"…"}]
 - playbook:          null  |  "db-reserved-word"
 - recalls:           [ { ts, applied_by, on_card, on_project } ]
-- superseded_by:     null  |  { version, ts, author }
-- member_overrides:  [ { project, card_id, override_block } ]
+- superseded_by:     null  |  { version, ts, author, reason }
 - propagate_targets: [ { project, card_id } ]
 - notify:            [ { kind:"slack", target:"jane", ts } ]
 ```
@@ -691,8 +637,11 @@ Each write is independent (atomic per card, not atomic across the
 group — partial failures surface as `member_errors` in the save
 response and the operator sees a retry dialog for failed members).
 
-`member_overrides` supports the *"document this member differently"*
-path without breaking the group's canonical block.
+On group **join**, any prior per-card Actual block is moved to
+`superseded_by` (`reason: "joined-group"`) and the card's current
+display block is the group's. On group **leave**, the satellite
+inherits the group's current Actual block frozen, records
+`forked_from_group`, and from then on is a plain single-mode card.
 
 Backwards-compatible: all new fields optional. Existing card bodies
 parse as `mode: "single"` implicitly.
@@ -723,29 +672,29 @@ with "(N of M match)" badges. Aggregate openers. No propagation yet
 — save still writes per-card one at a time via existing machinery.
 ~5 hours.
 
-**Phase 6 — One-save-to-many.** Backend: single save endpoint
-accepts `group_id` + propagate targets + single Actual block,
-writes N bd cards atomically-per-card with error rollup. Frontend:
-propagation checklist (default-on), save button label update, error
-dialog for partial failures with per-member retry. ~6 hours. **This
-is the phase that fixes the broken case the user called out.**
+**Phase 6 — One-save-to-many + groupthink rules.** Backend: single
+save endpoint accepts `group_id` + propagate targets + single Actual
+block, writes N bd cards atomically-per-card with error rollup.
+Supersede-on-join runs at group creation / add-member (move each
+member's prior Actual block to `superseded_by`). Fork-on-leave runs
+at ungroup / dissolve (freeze group block into satellite, set
+`forked_from_group`). Frontend: *Writes to* checklist (default-on,
+uncheck = ungroup), save button label update, error dialog for
+partial failures with per-member retry. ~6 hours. **This is the
+phase that fixes the broken case.**
 
-**Phase 7 — Reconcile-mode.** Detect mixed-state on group-sheet
-open. Reconcile panel with Adopt / Write-new / Keep-per-member
-options. Supersede-with-undo for adopted docs. ~5 hours.
-
-**Phase 8 — Intent at save.** Notify checkbox (Slack), add-to-
+**Phase 7 — Intent at save.** Notify checkbox (Slack), add-to-
 playbook checkbox. ~3 hours.
 
-**Phase 9 — Contribution feedback.** Post-save toast (single + group
+**Phase 8 — Contribution feedback.** Post-save toast (single + group
 variants), row-state transformations, header counter, recalls-yet
 counter on documented rows/groups. ~2 hours.
 
-**Phase 10 — The reap loop.** Apply-history, authorship on recall
+**Phase 9 — The reap loop.** Apply-history, authorship on recall
 matches (group-aware), supersede flow, playbook promotion. ~8 hours.
 
-Phases 1–6 get the broken case working. Phase 7 handles the messy
-real-world. Phases 8–10 are the payoff loop.
+Phases 1–6 get the broken case working. Phases 7–9 are the payoff
+loop.
 
 ---
 
@@ -778,16 +727,10 @@ real-world. Phases 8–10 are the payoff loop.
   what member-count (and/or recall-count-since-creation) should the
   `Add to playbook` checkbox default to checked? Lean: 3 members OR
   2 recalls, whichever first.
-- **Override block propagation.** If a member has an override and the
-  group doc is later edited, does the override auto-invalidate or
-  auto-rebase? Lean: neither — surface a *"The group doc changed,
-  your override may need review"* banner on the member, no automatic
-  write.
 - **Single-member group.** Can a group of 1 exist (e.g. after 4
-  members are dismissed)? If yes, does the sheet open in single-mode
-  or group-mode for it? Lean: group dissolves automatically when it
-  drops to 1 member; the remaining card inherits the group's
-  Actual block as its own.
+  members are ungrouped)? Lean: no — the group auto-dissolves when
+  it drops to 1 member. The remaining card forks on the way out,
+  inheriting the group's last Actual block as its own.
 - **Who gets the recall digest for group docs?** The original author
   of the group doc, not any subsequent editor. Editors get an "edited
   by you" secondary digest line.
