@@ -3447,7 +3447,7 @@ function buildHtml() {
   }
   .group-member-fp { color:var(--muted3); font-size:9px; text-align:right; }
 
-  /* Group-mode Document form (openGroupDocumentForm) */
+  /* Group-mode sheet — writes-to checklist + helpers. */
   .group-actions { display:flex; gap:8px; flex-wrap:wrap; }
   .modal-section-note {
     color:var(--muted); font-size:11px; line-height:1.5;
@@ -3483,6 +3483,16 @@ function buildHtml() {
     overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
   }
   .writes-to-fp { color:var(--muted3); font-size:9px; text-align:right; }
+
+  /* Shared-across-members rollup in the group-sheet Understand column. */
+  .shared-fields { display:flex; flex-direction:column; gap:6px; }
+  .shared-field-row {
+    display:grid; grid-template-columns: 70px 1fr auto; gap:10px;
+    font-family:var(--mono); font-size:11px; align-items:baseline;
+  }
+  .shared-field-label { color:var(--muted2); text-transform:uppercase; letter-spacing:0.04em; font-size:9px; }
+  .shared-field-value { color:var(--text); word-break:break-word; }
+  .shared-field-badge { color:var(--muted); font-size:9px; }
 
   /* Row-selection column + bulk action bar */
   .col-select { width:32px; padding:0 8px; }
@@ -5806,125 +5816,148 @@ function dissolveGroup(groupId) {
     .catch(function(e){ showToast('Dissolve failed: ' + e.message); });
 }
 
-function openGroupModal(parent) {
+
+// Phase 5 of document-flow-vision: group-mode on the sheet shell.
+// Retires the centered openGroupModal + the Back-to-overview relay
+// through openGroupDocumentForm. One surface: Understand (aggregate
+// details, shared-fields rollup with (N of M match), members list)
+// on the left; Capture (recall on group shape, Writes-to checklist,
+// capture fields) on the right. The Dissolve group action lives in
+// the footer; ungrouping single members happens implicitly through
+// the Writes-to checklist (uncheck = ungroup before save).
+function openGroupSheet(parent) {
   var modal = document.getElementById('modal-content');
   removeChildren(modal);
-  modal.classList.remove('sheet');
+  modal.classList.add('sheet');
+
   var header = el('div','modal-header');
-  header.appendChild(txt('div','modal-title', 'Group · ' + parent.group.name));
+  header.appendChild(txt('div','modal-title','Group \\u00b7 ' + parent.group.name));
   var closeBtn = el('button','modal-close');
   closeBtn.textContent = '\\u2715';
   closeBtn.addEventListener('click', closeBoardModal);
   header.appendChild(closeBtn);
   modal.appendChild(header);
 
-  var body = el('div','modal-body');
-  var meta = el('div','modal-section');
-  meta.appendChild(txt('div','modal-section-title','Details'));
+  var body = el('div','modal-body modal-body-sheet');
+  var understand = el('div','sheet-col sheet-understand');
+  understand.appendChild(txt('div','sheet-col-title','Understand'));
+  var capture = el('div','sheet-col sheet-capture');
+  capture.appendChild(txt('div','sheet-col-title','Capture'));
+
+  // Understand / Details aggregate.
+  var metaSec = el('div','modal-section');
+  metaSec.appendChild(txt('div','modal-section-title','Details'));
   var grid = el('div','modal-meta-grid');
   [
-    {label:'Members', value:String(parent.members.length)},
-    {label:'Projects', value:parent.projectLabel || '—'},
-    {label:'Total occurrences', value:parent.occ.toLocaleString()},
-    {label:'Last seen', value:parent.lastSeenTs || '—'},
-    {label:'First seen', value:parent.firstSeenTs || '—'},
+    { label:'Members', value: String(parent.members.length) },
+    { label:'Projects', value: parent.projectLabel || '\\u2014' },
+    { label:'Total occurrences', value: (parent.occ || 0).toLocaleString() },
+    { label:'Last seen', value: parent.lastSeenTs || '\\u2014' },
+    { label:'First seen', value: parent.firstSeenTs || '\\u2014' },
   ].forEach(function(it){
-    grid.appendChild(txt('div','modal-meta-label', it.label));
-    grid.appendChild(txt('div','modal-meta-value', it.value));
+    var mi = el('div','modal-meta-item');
+    mi.appendChild(txt('div','modal-meta-label', it.label));
+    mi.appendChild(txt('div','modal-meta-value', it.value));
+    grid.appendChild(mi);
   });
-  meta.appendChild(grid);
-  body.appendChild(meta);
+  metaSec.appendChild(grid);
+  understand.appendChild(metaSec);
 
-  // Members list — clicking a member opens its own ticket modal.
+  // Shared-across-members: majority-value + (N of M match) for class /
+  // source, plus an env-mix row showing per-env counts.
+  var sharedSec = el('div','modal-section');
+  sharedSec.appendChild(txt('div','modal-section-title','Shared across members'));
+  var sharedList = el('div','shared-fields');
+  function rateFor(key) {
+    var counts = {};
+    parent.members.forEach(function(m){
+      var v = m[key]; if (!v) return;
+      if (Array.isArray(v)) v = v.join(',');
+      counts[v] = (counts[v] || 0) + 1;
+    });
+    var keys = Object.keys(counts);
+    if (!keys.length) return null;
+    keys.sort(function(a,b){ return counts[b] - counts[a]; });
+    return { value: keys[0], count: counts[keys[0]], total: parent.members.length };
+  }
+  function renderSharedRow(label, rate) {
+    if (!rate) return;
+    var row = el('div','shared-field-row');
+    row.appendChild(txt('span','shared-field-label', label));
+    row.appendChild(txt('span','shared-field-value', rate.value));
+    row.appendChild(txt('span','shared-field-badge', '(' + rate.count + ' of ' + rate.total + ' match)'));
+    sharedList.appendChild(row);
+  }
+  renderSharedRow('Class', rateFor('errCls'));
+  renderSharedRow('Source', rateFor('source'));
+  var envCounts = {};
+  parent.members.forEach(function(m){ (m.envs || []).forEach(function(e){ envCounts[e] = (envCounts[e]||0) + 1; }); });
+  var envKeys = Object.keys(envCounts).sort();
+  if (envKeys.length) {
+    var erow = el('div','shared-field-row');
+    erow.appendChild(txt('span','shared-field-label', 'Env mix'));
+    erow.appendChild(txt('span','shared-field-value',
+      envKeys.map(function(e){ return e + ' (' + envCounts[e] + ')'; }).join(', ')));
+    erow.appendChild(txt('span','shared-field-badge',''));
+    sharedList.appendChild(erow);
+  }
+  sharedSec.appendChild(sharedList);
+  understand.appendChild(sharedSec);
+
+  // Members — click to drill into that card's single-mode sheet.
   var listSec = el('div','modal-section');
-  listSec.appendChild(txt('div','modal-section-title','Members'));
+  listSec.appendChild(txt('div','modal-section-title', 'Members (' + parent.members.length + ')'));
   parent.members.forEach(function(m){
     var row = el('div','group-member-row');
-    row.appendChild(txt('span','group-member-sev sev-'+m.sev, (SEV_LABEL[m.sev]||m.sev).toUpperCase()));
+    row.appendChild(txt('span','group-member-sev sev-'+m.sev, (SEV_LABEL[m.sev]||m.sev||'').toUpperCase()));
     row.appendChild(txt('span','group-member-project', m.projectLabel || m.project || ''));
-    row.appendChild(txt('span','group-member-title', (m.errCls ? m.errCls + ': ' : '') + (m.errMsg || m.title || '')));
-    row.appendChild(txt('span','group-member-fp', 'fp:' + (m.fp || '').slice(0,8)));
+    row.appendChild(txt('span','group-member-title',
+      (m.errCls ? m.errCls + ': ' : '') + (m.errMsg || m.title || '')));
+    row.appendChild(txt('span','group-member-fp', 'fp:' + (m.fp||'').slice(0,8)));
     row.style.cursor = 'pointer';
-    row.addEventListener('click', (function(card){ return function(){ openBoardModal(card); };})(m));
+    row.addEventListener('click', (function(card){ return function(){ openBoardModal(card); }; })(m));
     listSec.appendChild(row);
   });
-  body.appendChild(listSec);
+  understand.appendChild(listSec);
 
-  var actions = el('div','modal-section group-actions');
+  // --- Capture column ---
+  var captureDoc = el('div','modal-section');
+  captureDoc.appendChild(txt('div','modal-section-title','Documentation'));
 
-  // Primary: one solution, all members. This is the fix the docs call
-  // out in document-flow-vision §IV — groupthink, one write, many cards.
-  var docBtn = el('button','btn btn-primary');
-  docBtn.textContent = 'Document group';
-  docBtn.addEventListener('click', (function(p){ return function(){
-    openGroupDocumentForm(p);
-  };})(parent));
-  actions.appendChild(docBtn);
+  // Recall: fire with the first member's id so the backend's
+  // fingerprint-and-class scorer runs on a real card. Group members
+  // share the same shape by definition; the top recall is what a
+  // future operator would see if any member recurred.
+  var recallRow = el('div','recall-row');
+  recallRow.appendChild(txt('div','solution-sub-title','Have we seen this before?'));
+  var recallBody = el('div','recall-body');
+  recallBody.appendChild(txt('div','recall-loading','Searching past documentation\\u2026'));
+  recallRow.appendChild(recallBody);
+  captureDoc.appendChild(recallRow);
+  var seed = parent.members[0];
+  if (seed && seed.id) {
+    var qs = 'card_id=' + encodeURIComponent(seed.id)
+           + (seed.project ? '&project=' + encodeURIComponent(seed.project) : '');
+    fetch('/api/recall?' + qs)
+      .then(function(r){ return r.json(); })
+      .then(function(data){ renderRecallMatches(recallBody, data, seed); })
+      .catch(function(e){
+        removeChildren(recallBody);
+        recallBody.appendChild(txt('div','recall-loading','Recall failed: ' + e.message));
+      });
+  }
 
-  var dissolve = el('button','bulk-btn');
-  dissolve.textContent = 'Dissolve group';
-  dissolve.style.borderColor = 'rgba(255,69,58,0.4)';
-  dissolve.style.color = 'var(--crit)';
-  dissolve.addEventListener('click', (function(id){ return function(){
-    if (confirm('Dissolve this group? Member errors return to their own rows.')) dissolveGroup(id);
-  };})(parent.group.id));
-  actions.appendChild(dissolve);
-  body.appendChild(actions);
-
-  modal.appendChild(body);
-  document.getElementById('board-modal').classList.add('open');
-}
-
-// Group Document form — the group-mode of the Document sheet, scoped down
-// to what tonight's demo can ship honestly. Replaces the overview with:
-// a "Writes to" checklist of members (all checked by default), the same
-// three capture fields the per-card form uses (root cause / fix summary /
-// commit SHA), and a save button whose label carries the live member
-// count. Unchecking a member means "ungroup this one before saving" —
-// not "skip it silently." The server translates that into bd label
-// removal via ungroup_members in the payload.
-function openGroupDocumentForm(parent) {
-  var modal = document.getElementById('modal-content');
-  removeChildren(modal);
-  modal.classList.remove('sheet');
-
-  var header = el('div','modal-header');
-  header.appendChild(txt('div','modal-title', 'Document group \\u00b7 ' + parent.group.name));
-  var closeBtn = el('button','modal-close');
-  closeBtn.textContent = '\\u2715';
-  closeBtn.addEventListener('click', closeBoardModal);
-  header.appendChild(closeBtn);
-  modal.appendChild(header);
-
-  var body = el('div','modal-body');
-
-  // Back-to-overview — the form is reachable from the group overview,
-  // and the overview has context (member list, metadata) the operator
-  // might want to re-reference while composing. Keep the escape route.
-  var backWrap = el('div','modal-section');
-  var backBtn = el('button','bulk-btn');
-  backBtn.textContent = '\\u2190 Back to group overview';
-  backBtn.addEventListener('click', (function(p){ return function(){ openGroupModal(p); };})(parent));
-  backWrap.appendChild(backBtn);
-  body.appendChild(backWrap);
-
-  // Writes-to checklist. Renders every current member with a checkbox,
-  // default-checked. Uncheck = ungroup-before-save. The count on the
-  // save button updates live so the operator always sees the blast
-  // radius of their next click.
+  // Writes-to checklist.
   var writesSec = el('div','modal-section');
   writesSec.appendChild(txt('div','modal-section-title','Writes to'));
-  var writesNote = txt('div','modal-section-note',
-    'This solution will be applied to every checked member. Uncheck a member to ungroup it before saving (groups commit to one truth).');
-  writesSec.appendChild(writesNote);
-
+  writesSec.appendChild(txt('div','modal-section-note',
+    'This solution will be applied to every checked member. Uncheck to ungroup a member before saving (groups commit to one truth).'));
   var writesList = el('div','writes-to-list');
   var checkboxes = [];
   parent.members.forEach(function(m){
     var row = el('label','writes-to-row');
     var cb = el('input','writes-to-cb');
-    cb.type = 'checkbox';
-    cb.checked = true;
+    cb.type = 'checkbox'; cb.checked = true;
     cb.setAttribute('data-project', m.project || '');
     cb.setAttribute('data-card-id', m.id || '');
     checkboxes.push(cb);
@@ -5936,77 +5969,52 @@ function openGroupDocumentForm(parent) {
     writesList.appendChild(row);
   });
   writesSec.appendChild(writesList);
-  body.appendChild(writesSec);
+  captureDoc.appendChild(writesSec);
 
-  // Capture fields — same three-field shape as the per-card form so
-  // recall surfaces these cards uniformly, regardless of whether they
-  // were documented singly or as part of a group.
+  // Capture fields.
   var fieldsSec = el('div','modal-section');
   fieldsSec.appendChild(txt('div','modal-section-title','Your documentation'));
-
   function field(id, label, placeholder, multiline) {
     var wrap = el('div','solution-field-wrap');
     var l = el('label','solution-field-label'); l.textContent = label; l.setAttribute('for', id);
     wrap.appendChild(l);
     var inp = multiline ? el('textarea','solution-field-input') : el('input','solution-field-input');
-    inp.id = id;
-    if (!multiline) inp.type = 'text';
+    inp.id = id; if (!multiline) inp.type = 'text';
     if (placeholder) inp.placeholder = placeholder;
     if (multiline) inp.rows = 3;
     wrap.appendChild(inp);
     return wrap;
   }
+  fieldsSec.appendChild(field('grp-sheet-root','Root cause','One or two sentences, general audience.',true));
+  fieldsSec.appendChild(field('grp-sheet-summary','Fix summary','What was done, or the plan if not yet fixed.',true));
+  fieldsSec.appendChild(field('grp-sheet-sha','Fix commit SHA (optional)','abc1234',false));
+  captureDoc.appendChild(fieldsSec);
 
-  fieldsSec.appendChild(field('grp-sol-root-cause', 'Root cause',
-    'One or two sentences, general audience — no project paths or customer names.', true));
-  fieldsSec.appendChild(field('grp-sol-fix-summary', 'Fix summary (or \\u201cnot yet fixed\\u201d)',
-    'What was done, or the plan if not yet fixed.', true));
-  fieldsSec.appendChild(field('grp-sol-fix-sha', 'Fix commit SHA (optional)', 'abc1234', false));
-  body.appendChild(fieldsSec);
-
-  // Save row.
   var btnRow = el('div','solution-form-btns');
-  var cancelBtn = el('button','btn btn-ghost');
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', (function(p){ return function(){ openGroupModal(p); };})(parent));
-
   var saveBtn = el('button','btn btn-primary');
-  function updateSaveLabel() {
-    var n = checkboxes.filter(function(cb){ return cb.checked; }).length;
+  function updateSaveLabel(){
+    var n = checkboxes.filter(function(cb){return cb.checked;}).length;
     saveBtn.textContent = 'Save group documentation (' + n + ')';
     saveBtn.disabled = (n === 0);
   }
   checkboxes.forEach(function(cb){ cb.addEventListener('change', updateSaveLabel); });
   updateSaveLabel();
-
   saveBtn.addEventListener('click', function(){
-    var rc = document.getElementById('grp-sol-root-cause').value.trim();
-    var fs = document.getElementById('grp-sol-fix-summary').value.trim();
-    var sha = document.getElementById('grp-sol-fix-sha').value.trim() || 'none';
-    if (!rc || !fs) {
-      showToast('Root cause and fix summary are required.');
-      return;
-    }
-    var applied = [];
-    var ungroup = [];
+    var rc = document.getElementById('grp-sheet-root').value.trim();
+    var fs = document.getElementById('grp-sheet-summary').value.trim();
+    var sha = document.getElementById('grp-sheet-sha').value.trim() || 'none';
+    if (!rc || !fs) { showToast('Root cause and fix summary are required.'); return; }
+    var applied = [], ungroup = [];
     checkboxes.forEach(function(cb){
       var entry = { project: cb.getAttribute('data-project'), card_id: cb.getAttribute('data-card-id') };
       if (cb.checked) applied.push(entry); else ungroup.push(entry);
     });
-    if (applied.length === 0) {
-      showToast('At least one member must stay checked to save a group solution.');
-      return;
-    }
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving\\u2026';
+    if (applied.length === 0) { showToast('At least one member must stay checked.'); return; }
+    saveBtn.disabled = true; saveBtn.textContent = 'Saving\\u2026';
     fetch('/api/groups/' + encodeURIComponent(parent.group.id) + '/solution', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        root_cause: rc, fix_summary: fs, fix_commit_sha: sha,
-        ungroup_members: ungroup,
-      }),
-    }).then(function(r){ return r.json(); }).then(function(resp){
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ root_cause: rc, fix_summary: fs, fix_commit_sha: sha, ungroup_members: ungroup }),
+    }).then(function(r){return r.json();}).then(function(resp){
       if (resp.status === 'ok') {
         var msg = 'Documented ' + resp.applied + ' error' + (resp.applied === 1 ? '' : 's')
                 + ' with one solution'
@@ -6016,21 +6024,39 @@ function openGroupDocumentForm(parent) {
         closeBoardModal();
         fetchAll();
       } else {
-        saveBtn.disabled = false;
-        updateSaveLabel();
+        saveBtn.disabled = false; updateSaveLabel();
         showToast('Save failed: ' + (resp.error || resp.message || 'unknown'));
       }
     }).catch(function(e){
-      saveBtn.disabled = false;
-      updateSaveLabel();
+      saveBtn.disabled = false; updateSaveLabel();
       showToast('Request failed: ' + e.message);
     });
   });
-  btnRow.appendChild(cancelBtn);
   btnRow.appendChild(saveBtn);
-  body.appendChild(btnRow);
+  captureDoc.appendChild(btnRow);
 
+  capture.appendChild(captureDoc);
+
+  body.appendChild(understand);
+  body.appendChild(capture);
   modal.appendChild(body);
+
+  // Footer: Dissolve on the right. Balance the move-wrap slot so
+  // the layout matches the single-card sheet.
+  var footer = el('div','modal-footer');
+  footer.appendChild(el('div','modal-move-wrap'));
+  var btnGroup = el('div','modal-btn-group');
+  var dissolve = el('button','btn btn-ghost');
+  dissolve.textContent = 'Dissolve group';
+  dissolve.style.borderColor = 'rgba(255,69,58,0.4)';
+  dissolve.style.color = 'var(--crit)';
+  dissolve.addEventListener('click', (function(id){ return function(){
+    if (confirm('Dissolve this group? Member errors return to their own rows.')) dissolveGroup(id);
+  }; })(parent.group.id));
+  btnGroup.appendChild(dissolve);
+  footer.appendChild(btnGroup);
+  modal.appendChild(footer);
+
   document.getElementById('board-modal').classList.add('open');
 }
 
@@ -6216,10 +6242,11 @@ function buildRow(c, i) {
   }
   tr.appendChild(actTd);
 
-  // Row click: individual ticket → openBoardModal; group parent row →
-  // openGroupModal (which lists members and offers Dissolve).
+  // Row click: individual ticket → openBoardModal (single-mode sheet);
+  // group parent row → openGroupSheet (group-mode sheet). Both are the
+  // sheet shell from vision-doc Phase 1/5.
   var openHandler = c.isGroup
-    ? function(){ openGroupModal(c); }
+    ? function(){ openGroupSheet(c); }
     : function(){ openBoardModal(c); };
   tr.addEventListener('click', openHandler);
   tr.addEventListener('keydown', function(ev){

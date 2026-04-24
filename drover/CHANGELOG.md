@@ -1,5 +1,13 @@
 # drover Changelog
 
+## 1.42.0
+- **Group-mode sheet (vision-doc Phase 5).** Clicking a group parent row now opens the same right-docked full-height sheet as a single-card click, adapted to group mode:
+  - **Understand column**: aggregate *Details* (member count, projects, total occurrences, first/last seen), *Shared across members* rollup showing the majority value + `(N of M match)` badge for class and source plus per-env counts, and a clickable *Members* list where each row drills into the single-mode sheet for that card.
+  - **Capture column**: *Have we seen this before?* recall seeded with the first member's id (members share shape by definition, so recall's output is the same), the *Writes to* checklist with live count (uncheck = ungroup before saving), and the three capture fields.
+  - **Footer**: *Dissolve group* lives here; *Document* is the primary Save inside the Capture column. Group and single sheets now present identical shell chrome.
+- **Retired**: `openGroupModal` (the centered "Group · X" dialog with *Document group* / *Dissolve group* buttons) and `openGroupDocumentForm` (the Back-to-overview relay). Both are replaced by `openGroupSheet`. Dead code removed — ~227 lines.
+- **Questions doc** at `docs/questions-for-chris.md` introduced. A durable scratchpad for design decisions in flight, non-blocking judgment calls, and slice-level backlog. Used during the midnight-burn autonomous-work mode.
+
 ## 1.41.0
 - **Single-mode Document sheet (vision-doc Phase 1).** The per-card Document modal is retired; its replacement is a right-docked full-height sheet with two independently-scrollable columns:
   - **Understand** (left, ~45%, read-only surface): *Details* grid (severity, fingerprint, occurrences, envs, age, lane, project, hostnames), the parsed *Error message*, the *Stack trace* when present, the *Triage log* when present, and *Agent notes* (Projected block, muted) when an implementer-agent has run. Everything the operator needs to understand the error before writing about it.
