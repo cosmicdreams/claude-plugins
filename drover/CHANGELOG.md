@@ -1,5 +1,13 @@
 # drover Changelog
 
+## 1.49.0
+- **Per-env log-source toggles in the project drawer.** Every env in a project drawer now renders its full list of available log sources as clickable pills — not just the enabled ones. Green pill = streaming, grey dashed pill = available-but-paused. One click flips the state; the drawer re-renders in place without close/reopen.
+  - **Acquia envs** show the full canonical inventory: `drupal-watchdog`, `apache-error`, `php-error`, `fpm-error`, `apache-request`, `drupal-request`, `fpm-access`, `bal-request`, `varnish-request`.
+  - **DDEV envs** show platform-detected inventory: Drupal → `drupal-watchdog` + `apache-error` + `php-error`; WordPress → `wp-debug` + `apache-error` + `php-error`.
+  - Toggling uses the existing `POST /api/sources/toggle` endpoint; the server drops a side-file with the new `DROVER_LOG_TYPES` and asks the umbrella to re-spawn the env's watcher with the fresh subscription set. No restart needed.
+- **`available_sources` field on every env in `/api/projects/overview`.** The drawer consumes it directly; the earlier field `enabled_sources` is unchanged so nothing else had to move.
+- **`toggleEnvSource(alias, type, turnOn)` client helper** for the per-pill click. Hits `/api/sources/toggle`, toasts the result, then re-renders the open drawer in place against the fresh overview — same pattern as the existing `toggleEnvTracking` for env-level pause/resume.
+
 ## 1.48.0
 - **Groups keep growing.** Group parent rows now render a selection checkbox (alongside the ⊞ glyph), not just a decorative symbol. A group is a living collection, not a frozen snapshot — you can add items to it after it's created.
 - **Smart primary CTA on mixed selections.** The bulk-bar primary button now branches on selection shape:
