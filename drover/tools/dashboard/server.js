@@ -870,6 +870,34 @@ function findDroverConfigPath(projectPath) {
   return '';
 }
 
+// Walk every indexed env and write its side-file from drover-config.json.
+// Called once at dashboard startup so the umbrella's first poll tick
+// sees the right subscription per env, instead of defaulting to "all
+// types". Idempotent — re-running overwrites files with the same content.
+function bootstrapSideFilesFromConfig() {
+  try { fs.mkdirSync(UMBRELLA_SOURCES_DIR, { recursive: true }); } catch {}
+  let wrote = 0, skipped = 0;
+  for (const [key, meta] of ingestionKeyIndex) {
+    try {
+      const cfg = meta.configPath ? readDroverConfig(meta.configPath) : null;
+      if (!cfg || !Array.isArray(cfg.environments)) { skipped++; continue; }
+      const envRow = cfg.environments.find(e => {
+        if (meta.kind === 'ddev') return e.type === 'ddev' && (e.ddev_project === meta.envLabel || e.name === meta.envLabel);
+        if (meta.kind === 'acquia') return e.type === 'acquia' && (e.env_slug === meta.envName || e.name === meta.envName);
+        return false;
+      });
+      const sources = (envRow && Array.isArray(envRow.sources)) ? envRow.sources.filter(Boolean) : [];
+      const hash = hashUmbrellaKey(key);
+      const typesFile = path.join(UMBRELLA_SOURCES_DIR, `${hash}.types`);
+      fs.writeFileSync(typesFile, sources.join(',') + '\n');
+      wrote++;
+    } catch (e) {
+      skipped++;
+    }
+  }
+  console.log(`[ingest] bootstrapped ${wrote} side-file(s) from drover-config.json (${skipped} skipped)`);
+}
+
 function hashUmbrellaKey(key) {
   const crypto = require('crypto');
   return crypto.createHash('sha1').update(key).digest('hex').slice(0, 12);
@@ -995,7 +1023,11 @@ async function handleUmbrellaLine(rawLine) {
     const aliasTok = rest.slice(sp2 + 1, sp3);
     const text = rest.slice(sp3 + 1);
     const meta = markEvent(key) || {};
-    broadcast('ingest-event', { ts: new Date().toISOString(), key, kind: 'traffic-line' });
+    // Deliberately NOT broadcasting 'ingest-event' here: traffic lines
+    // don't create bd cards, so triggering a board refresh per line
+    // would make the client refetch 6 endpoints 5+ times per second on
+    // a busy site. recordPulse already broadcasts 'pulse-event' which
+    // updates the feed in place without touching the table.
     recordPulse({
       type: 'traffic-line',
       origin: (meta.project || '') + ' · ' + (meta.envLabel || aliasTok),
@@ -1091,6 +1123,14 @@ function startAutoIngestion() {
   // T3: pin the umbrella's track dir so the dashboard can read pidfiles
   // and write per-key source overrides. Freshly created each launch.
   try { fs.mkdirSync(UMBRELLA_SOURCES_DIR, { recursive: true }); } catch {}
+
+  // Bootstrap side-files from drover-config.json. Without this, a fresh
+  // umbrella spawns watchers with no DROVER_LOG_TYPES and acquia-watch
+  // subscribes to every available type — even envs whose config says
+  // sources: ['drupal-watchdog']. Side-files are the umbrella's single
+  // source of truth for subscription; write them before the first poll
+  // tick so the first watcher spawn is already correctly scoped.
+  bootstrapSideFilesFromConfig();
 
   const env = Object.assign({}, process.env, {
     DROVER_STATE_DIR: INGEST_STATE_DIR,
