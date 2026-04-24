@@ -3419,6 +3419,41 @@ function buildHtml() {
     50%      { opacity:0.35; transform:scale(0.6); }
   }
 
+  /* Master ingestion on/off toggle next to the LIVE badge. Pauses all
+     watchers without tearing down the dashboard UI, so the operator
+     can stop the stream mid-demo without losing their current view. */
+  .ingestion-toggle {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:3px 9px 3px 4px; border-radius:999px;
+    background: var(--surface3); border:1px solid var(--border);
+    color: var(--muted2); cursor:pointer;
+    font-family: var(--mono); font-size: 10px;
+    letter-spacing: 0.06em; text-transform: uppercase;
+    transition: color 0.15s ease, background 0.15s ease, border-color 0.15s ease;
+  }
+  .ingestion-toggle-thumb {
+    width:10px; height:10px; border-radius:50%;
+    background: var(--ok); box-shadow: 0 0 6px var(--ok);
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+  }
+  .ingestion-toggle[aria-checked="true"] {
+    color: var(--ok); border-color: rgba(50,215,75,0.35);
+    background: rgba(50,215,75,0.08);
+  }
+  .ingestion-toggle[aria-checked="false"] {
+    color: var(--muted); border-color: var(--border);
+    background: var(--surface2);
+  }
+  .ingestion-toggle[aria-checked="false"] .ingestion-toggle-thumb {
+    background: var(--muted3); box-shadow: none;
+  }
+  .ingestion-toggle[aria-busy="true"] {
+    opacity: 0.6; cursor: wait;
+  }
+  .ingestion-toggle:hover:not([aria-busy="true"]) {
+    color: var(--text);
+  }
+
   .topbar-right { display: flex; align-items: center; gap: 10px; }
   .ts { font-family: var(--mono); font-size: 11px; color: var(--muted2); margin-right: 4px; }
 
@@ -5153,6 +5188,7 @@ function buildHtml() {
       <span class="wordmark">dro<svg class="wordmark-v" viewBox="0 0 46.22 34" aria-hidden="true" focusable="false"><path d="M0 0H15.2L32.06 34H16.85Z" fill="#FF453A"/><path d="M30.75 0L38.49 15.77L23.01 0Z" fill="#10E992"/><path d="M38.49 15.77L30.75 0L46.22 0Z" fill="#0051FF"/></svg>er</span>
       ${PLUGIN_VERSION ? `<span class="version-badge">v${PLUGIN_VERSION}</span>` : ''}
       <span class="live-badge state-connecting" id="live-badge" title="Connecting to server-sent events…"><span class="live-dot"></span><span id="live-label">connecting</span></span>
+      <button type="button" id="ingestion-toggle" class="ingestion-toggle" role="switch" aria-checked="true" title="Ingestion is ON. Click to pause all watchers (umbrella + acquia-watch + ddev-watch + wp-watch + bd-ready-watch). The dashboard UI stays up; no new events arrive until you resume." onclick="toggleIngestion()"><span class="ingestion-toggle-thumb"></span><span class="ingestion-toggle-label">on</span></button>
       <button type="button" id="needs-doc-chip" class="needs-doc-chip" hidden onclick="filterToNeedsDoc()" title="Filter the table to errors that haven\\u2019t been documented yet"><span id="needs-doc-count">0</span> need documentation</button>
     </div>
     <div class="topbar-right">
@@ -9597,6 +9633,46 @@ function pulseHydrate() {
 // out when activity goes stale, without waiting for a new event.
 setInterval(pulseRenderStrip, 30000);
 
+// Master ingestion toggle (header button next to LIVE badge). Pauses
+// or resumes the umbrella + all watchers without tearing down the
+// dashboard UI — so the operator can stop the stream mid-demo without
+// losing their current view, and flip it back on when ready.
+function renderIngestionToggle(state) {
+  var btn = document.getElementById('ingestion-toggle');
+  if (!btn) return;
+  var running = !!(state && state.running);
+  btn.setAttribute('aria-checked', running ? 'true' : 'false');
+  btn.removeAttribute('aria-busy');
+  var label = btn.querySelector('.ingestion-toggle-label');
+  if (label) label.textContent = running ? 'on' : 'off';
+  btn.title = running
+    ? 'Ingestion is ON. Click to pause all watchers (umbrella + acquia-watch + ddev-watch + wp-watch + bd-ready-watch). The dashboard UI stays up; no new events arrive until you resume.'
+    : 'Ingestion is OFF. Click to resume — dashboard will re-arm the umbrella and every enabled env will start streaming again.';
+}
+function toggleIngestion() {
+  var btn = document.getElementById('ingestion-toggle');
+  if (!btn) return;
+  var currentlyOn = btn.getAttribute('aria-checked') === 'true';
+  btn.setAttribute('aria-busy', 'true');
+  var endpoint = currentlyOn ? '/api/ingestion/stop' : '/api/ingestion/start';
+  fetch(endpoint, { method: 'POST' })
+    .then(function(r){ return r.json(); })
+    .then(function(data){
+      renderIngestionToggle(data);
+      showToast(data.running ? 'Ingestion resumed' : 'Ingestion paused');
+    })
+    .catch(function(e){
+      btn.removeAttribute('aria-busy');
+      showToast('Toggle failed: ' + e.message);
+    });
+}
+function hydrateIngestionToggle() {
+  fetch('/api/ingestion/status')
+    .then(function(r){ return r.json(); })
+    .then(function(d){ renderIngestionToggle({ running: !!d.umbrellaAlive }); })
+    .catch(function(){ /* leave default state */ });
+}
+
 function connectSSE() {
   window._sseReadyState = 0;
   setLiveBadge('connecting','Connecting to /events…');
@@ -9638,6 +9714,9 @@ function connectSSE() {
     noteLiveEvent('groups-update');
     fetchAllDebounced();
   });
+  evtSource.addEventListener('ingestion-state', function(ev){
+    try { renderIngestionToggle(JSON.parse(ev.data)); } catch(e) {}
+  });
   evtSource.onerror = function() {
     window._sseReadyState = 2;
     setLiveBadge('offline','Disconnected from /events. Retrying in 5s.');
@@ -9651,6 +9730,7 @@ function connectSSE() {
 // ========================================================================
 restoreViewFromStorage();
 pulseHydrate();
+hydrateIngestionToggle();
 Promise.all([fetchAll(), fetchDdevStatus()]).then(function(){ connectSSE(); });
 </script>
 </body>
@@ -9797,6 +9877,22 @@ const server = http.createServer(async (req, res) => {
     // UI can render the "Listening for stream messages…" empty state.
     if (pathname === '/api/ingestion/status' && req.method === 'GET') {
       return jsonResponse(res, 200, ingestionStatusSnapshot());
+    }
+
+    // Master ingestion on/off. The dashboard UI calls these when the
+    // operator flips the header toggle. Stop keeps the dashboard UI
+    // alive (no event loop reboot); only the umbrella + its watchers
+    // go away. Start re-arms.
+    if (pathname === '/api/ingestion/stop' && req.method === 'POST') {
+      stopAutoIngestion();
+      ingestionArmedAt = null;
+      broadcast('ingestion-state', { ts: new Date().toISOString(), running: false });
+      return jsonResponse(res, 200, { running: false });
+    }
+    if (pathname === '/api/ingestion/start' && req.method === 'POST') {
+      startAutoIngestion();
+      broadcast('ingestion-state', { ts: new Date().toISOString(), running: !!umbrellaChild });
+      return jsonResponse(res, 200, { running: !!umbrellaChild, umbrellaPid: umbrellaChild && umbrellaChild.pid || 0 });
     }
 
     // T2 test harness: simulate an umbrella stdout line so evidence runs can
