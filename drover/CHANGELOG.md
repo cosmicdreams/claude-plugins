@@ -1,5 +1,45 @@
 # drover Changelog
 
+## 1.47.0
+- **Tags (vision-doc Phase 4 partial).** Capture columns on both single-mode and group-mode sheets now include a comma-separated *Tags* input. Stored on the Actual markdown block as `- **tags:** drupal-core, mysql-8, cron` when set; becomes the substrate for cross-ticket facets in future work. Typeahead over past-used tags is deferred.
+- **Scratch notes (vision-doc Phase 3 / Slice H).** The single-mode sheet's Understand column gets a dashed-border, italic textarea labeled *Scratch notes* with the help text *"Working thoughts while you investigate. Cleared when you save documentation; stays on this device until then."* Content is persisted to `localStorage` keyed by card id, auto-cleared on successful save. Not posted to the server — this is the thinking surface, not the archive surface.
+- **Data-model extension.** `tags: string[]` is now a first-class field on the Actual block builder, accepted by both POST endpoints; absent = untagged; capped at 20 entries.
+
+## 1.46.0
+- **Category picker + template hints (vision-doc Phase 4 / "Write with scaffolding").** Both single-mode and group-mode Capture columns now lead with a Category dropdown: Database issue · Permission / access · Configuration · Third-party module · Deployment · Performance · Security · Other. Selecting a category surfaces a short info-tinted hint below the field — "Name the query pattern that failed, the Drupal/MySQL version, and the canonical workaround" for DB issues, and category-appropriate text for each of the others. Fills the blank-textarea gap the earlier draft named as the weakest spot in the capture experience.
+- **Data model extension.** `category` is now a top-level field on the Actual markdown block when present. Backwards-compatible: absent = untagged. Both `/api/cards/:id/solution` and `/api/groups/:id/solution` accept the field; `buildActualBlock` emits it when set.
+- **DRY capture helper.** Shared `buildCategoryField(idPrefix)` + `CATEGORY_OPTIONS` / `CATEGORY_HINTS` constants drive both surfaces from the same table, so taxonomy edits land in one place.
+
+## 1.45.0
+- **One-click openers (vision-doc Phase 3 / "Investigate").** Understand column on the single-card sheet now carries:
+  - **Open approot** — reveals the project's repo root in Finder. Always enabled when the card carries a project.
+  - **Open in PhpStorm** — appears when the card's top stack frame has a parseable `path.php:line` (or `path.php(line)`) signature. Opens via the `phpstorm://open?file=...&line=...` URL handler. Supports `.php`, `.module`, `.inc`, `.theme`.
+- **Two new server endpoints gate these against arbitrary-path requests**:
+  - `POST /api/openers/approot { project }` → resolves the name against `projectsModule.listProjects()`; runs `open <path>` on match, 404 otherwise.
+  - `POST /api/openers/editor { project, file, line }` → file is resolved relative to the project approot; absolute paths must live inside the approot or the request is rejected with 400.
+- Neither endpoint touches the network or the bd database; both are scoped to the local filesystem.
+
+## 1.44.0
+- **Structured error view in the sheet's Understand column (vision-doc Part I Stage 1).** The old single-block watchdog-pipe-soup title display is replaced by labeled fields: `CLASS`, `MESSAGE`, and — when the title carries the Acquia-style ` · `-separated parts — `HOOK` and `URL`. The raw title stays accessible behind a `▸ Show raw title` disclosure so no information is lost.
+- **Client-side `parseWatchdogTitle`** drives the parse. Splits on ` · `, classifies each chunk (path-URL, host-only URL, hook token, bracketed severity), and falls back to the flat title when the format doesn't match. Combined with the existing `parseCardClient.extractException`, the sheet now renders the class + message cleanly whether the title was a pipe-soup or a plain string.
+
+## 1.43.0
+- **Bulk-action bar polish (vision-doc Phase 2 / Stage 3 Decide).** The toolbar under the table that appears on row selection is now the four-CTA bar from the vision doc:
+  - **Primary**: *Group & Document…* (N>=2) / *Document…* (N=1). One click takes the operator from "these are the same bug" to the group's capture sheet — no intermediate "now go click the group" step.
+  - **Secondary**: *Group* — group without opening the sheet, for the "I'll document later" path.
+  - **Tertiary**: *Mark as noise* — bulk-silence. One reason-prompt, N serial POSTs to `/api/cards/:id/noise`.
+  - **Quiet**: *Clear* — right-aligned, low-emphasis.
+- **Primary button gets a filled treatment** (solid `--info` background) so the primary-action rule from ui-ux-pro-max reads correctly.
+- **Keyboard separation on focused rows.** `Enter` opens the row's sheet (as before). `Space` now *toggles row selection* instead of opening the sheet — matches the spec in document-flow-vision Part I (Stage 2). Group rows (no checkbox) fall through to open.
+
+## 1.42.0
+- **Group-mode sheet (vision-doc Phase 5).** Clicking a group parent row now opens the same right-docked full-height sheet as a single-card click, adapted to group mode:
+  - **Understand column**: aggregate *Details* (member count, projects, total occurrences, first/last seen), *Shared across members* rollup showing the majority value + `(N of M match)` badge for class and source plus per-env counts, and a clickable *Members* list where each row drills into the single-mode sheet for that card.
+  - **Capture column**: *Have we seen this before?* recall seeded with the first member's id (members share shape by definition, so recall's output is the same), the *Writes to* checklist with live count (uncheck = ungroup before saving), and the three capture fields.
+  - **Footer**: *Dissolve group* lives here; *Document* is the primary Save inside the Capture column. Group and single sheets now present identical shell chrome.
+- **Retired**: `openGroupModal` (the centered "Group · X" dialog with *Document group* / *Dissolve group* buttons) and `openGroupDocumentForm` (the Back-to-overview relay). Both are replaced by `openGroupSheet`. Dead code removed — ~227 lines.
+- **Questions doc** at `docs/questions-for-chris.md` introduced. A durable scratchpad for design decisions in flight, non-blocking judgment calls, and slice-level backlog. Used during the midnight-burn autonomous-work mode.
+
 ## 1.41.0
 - **Single-mode Document sheet (vision-doc Phase 1).** The per-card Document modal is retired; its replacement is a right-docked full-height sheet with two independently-scrollable columns:
   - **Understand** (left, ~45%, read-only surface): *Details* grid (severity, fingerprint, occurrences, envs, age, lane, project, hostnames), the parsed *Error message*, the *Stack trace* when present, the *Triage log* when present, and *Agent notes* (Projected block, muted) when an implementer-agent has run. Everything the operator needs to understand the error before writing about it.

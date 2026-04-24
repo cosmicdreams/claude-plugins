@@ -2126,6 +2126,68 @@ async function handleNoiseMark(req, res, ticketId) {
   }
 }
 
+// Map a project name (as carried on a card) to its on-disk approot.
+// Only returns a path if the name matches a registered project; this
+// gates the opener endpoints against arbitrary-path requests.
+function resolveApproot(projectName) {
+  if (!projectName || typeof projectName !== 'string') return null;
+  const bare = projectName.replace(/-main$/i, '');
+  let projects = [];
+  try { projects = projectsModule.listProjects() || []; } catch { return null; }
+  const hit = projects.find(p => {
+    if (!p || !p.path) return false;
+    const candidate = p.name || p.ddev_project || '';
+    return candidate === projectName
+        || candidate === bare
+        || (candidate || '').replace(/-main$/i, '') === bare;
+  });
+  return hit ? hit.path : null;
+}
+
+// POST /api/openers/approot { project } — reveal the project's root
+// folder in Finder. Operator uses this to jump into the codebase while
+// composing documentation.
+async function handleOpenApproot(req, res) {
+  let body;
+  try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
+  const project = body && body.project;
+  const approot = resolveApproot(project);
+  if (!approot) return jsonResponse(res, 404, { error: 'unknown project: ' + (project || '<missing>') });
+  try {
+    execFileSync('open', [approot], { encoding: 'utf8', timeout: 5000 });
+    return jsonResponse(res, 200, { status: 'ok', path: approot });
+  } catch (e) {
+    return jsonResponse(res, 500, { error: 'open failed: ' + ((e.stderr && e.stderr.toString()) || e.message) });
+  }
+}
+
+// POST /api/openers/editor { project, file, line } — open file:line in
+// the default editor via the jetbrains://open URL handler (PhpStorm
+// registers this scheme on install). Relative paths are resolved
+// against the project's approot; absolute-path requests are rejected
+// unless they live inside the approot.
+async function handleOpenEditor(req, res) {
+  let body;
+  try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
+  const project = body && body.project;
+  const file = body && typeof body.file === 'string' ? body.file : '';
+  const line = parseInt(body && body.line, 10) || 1;
+  if (!file) return jsonResponse(res, 400, { error: 'file required' });
+  const approot = resolveApproot(project);
+  if (!approot) return jsonResponse(res, 404, { error: 'unknown project: ' + (project || '<missing>') });
+  const resolved = path.isAbsolute(file) ? path.normalize(file) : path.normalize(path.join(approot, file));
+  if (!resolved.startsWith(approot)) {
+    return jsonResponse(res, 400, { error: 'file outside project approot' });
+  }
+  const url = 'phpstorm://open?file=' + encodeURIComponent(resolved) + '&line=' + encodeURIComponent(String(line));
+  try {
+    execFileSync('open', [url], { encoding: 'utf8', timeout: 5000 });
+    return jsonResponse(res, 200, { status: 'ok', url });
+  } catch (e) {
+    return jsonResponse(res, 500, { error: 'open failed: ' + ((e.stderr && e.stderr.toString()) || e.message) });
+  }
+}
+
 async function handleRecall(req, res, url) {
   var cardId = url.searchParams.get('card_id') || '';
   var projectQ = url.searchParams.get('project') || '';
@@ -2307,7 +2369,7 @@ async function handleGroupDissolve(req, res, groupId) {
 async function handleGroupSolution(req, res, groupId) {
   let body;
   try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
-  const { root_cause, fix_summary, fix_commit_sha, ungroup_members } = body || {};
+  const { category, tags, root_cause, fix_summary, fix_commit_sha, ungroup_members } = body || {};
   if (!root_cause || !fix_summary) {
     return jsonResponse(res, 400, { error: 'root_cause and fix_summary required' });
   }
@@ -2330,7 +2392,7 @@ async function handleGroupSolution(req, res, groupId) {
   const actualBlock = buildActualBlock({
     now, mode: 'group',
     groupCtx: { id: groupId, name: group.name, member_count: targets.length },
-    root_cause, fix_summary, fix_commit_sha,
+    category, tags, root_cause, fix_summary, fix_commit_sha,
   });
 
   // Phase 1: bd writes only. Nothing in group state or groups-file
@@ -2896,7 +2958,7 @@ async function handleMove(req, res) {
 
 // Shared Actual-block builder. Single-mode and group-mode call this so
 // the block's shape evolves in one place.
-function buildActualBlock({ now, mode, groupCtx, root_cause, fix_summary, fix_commit_sha, divergence }) {
+function buildActualBlock({ now, mode, groupCtx, category, tags, root_cause, fix_summary, fix_commit_sha, divergence }) {
   const lines = [''];
   if (mode === 'group' && groupCtx) {
     lines.push('### Actual  (group: ' + groupCtx.id + ', written: ' + now + ', by: user)');
@@ -2906,6 +2968,11 @@ function buildActualBlock({ now, mode, groupCtx, root_cause, fix_summary, fix_co
     lines.push('- **group_member_count:** ' + groupCtx.member_count);
   } else {
     lines.push('### Actual  (written: ' + now + ', by: user)');
+  }
+  if (category) lines.push('- **category:** ' + category);
+  if (Array.isArray(tags) && tags.length) {
+    const cleanTags = tags.map(t => String(t).trim()).filter(Boolean).slice(0, 20);
+    if (cleanTags.length) lines.push('- **tags:** ' + cleanTags.join(', '));
   }
   lines.push('- **root_cause:** ' + root_cause);
   lines.push('- **fix_summary:** ' + fix_summary);
@@ -2948,7 +3015,7 @@ async function handleSolution(req, res, ticketId) {
   try { body = await readBody(req); } catch (e) {
     return jsonResponse(res, 400, { status: 'error', message: 'invalid JSON body' });
   }
-  const { root_cause, fix_summary, fix_commit_sha, divergence } = body || {};
+  const { category, tags, root_cause, fix_summary, fix_commit_sha, divergence } = body || {};
   if (!root_cause || !fix_summary) {
     return jsonResponse(res, 400, { status: 'error', message: 'root_cause and fix_summary required' });
   }
@@ -2973,7 +3040,7 @@ async function handleSolution(req, res, ticketId) {
 
   const now = new Date().toISOString();
   const actualBlock = buildActualBlock({
-    now, mode: 'single', root_cause, fix_summary, fix_commit_sha, divergence,
+    now, mode: 'single', category, tags, root_cause, fix_summary, fix_commit_sha, divergence,
   });
   const currentLane = (ticket.labels || []).find(l => l.startsWith('lane-')) || 'lane-triage';
 
@@ -3447,7 +3514,7 @@ function buildHtml() {
   }
   .group-member-fp { color:var(--muted3); font-size:9px; text-align:right; }
 
-  /* Group-mode Document form (openGroupDocumentForm) */
+  /* Group-mode sheet — writes-to checklist + helpers. */
   .group-actions { display:flex; gap:8px; flex-wrap:wrap; }
   .modal-section-note {
     color:var(--muted); font-size:11px; line-height:1.5;
@@ -3484,6 +3551,16 @@ function buildHtml() {
   }
   .writes-to-fp { color:var(--muted3); font-size:9px; text-align:right; }
 
+  /* Shared-across-members rollup in the group-sheet Understand column. */
+  .shared-fields { display:flex; flex-direction:column; gap:6px; }
+  .shared-field-row {
+    display:grid; grid-template-columns: 70px 1fr auto; gap:10px;
+    font-family:var(--mono); font-size:11px; align-items:baseline;
+  }
+  .shared-field-label { color:var(--muted2); text-transform:uppercase; letter-spacing:0.04em; font-size:9px; }
+  .shared-field-value { color:var(--text); word-break:break-word; }
+  .shared-field-badge { color:var(--muted); font-size:9px; }
+
   /* Row-selection column + bulk action bar */
   .col-select { width:32px; padding:0 8px; }
   .col-select input[type=checkbox] {
@@ -3515,6 +3592,17 @@ function buildHtml() {
   }
   .bulk-btn:hover { border-color:var(--info); color:#fff; background:var(--info-dim); }
   .bulk-btn.bulk-group:hover { border-color:var(--ok); color:var(--ok); background:var(--ok-dim); }
+  .bulk-btn.bulk-primary {
+    background: var(--info); border-color: var(--info); color: #fff;
+  }
+  .bulk-btn.bulk-primary:hover {
+    background: var(--info2); border-color: var(--info2); color: #fff;
+  }
+  .bulk-btn.bulk-primary:disabled {
+    opacity: 0.45; cursor: not-allowed;
+    background: var(--info); border-color: var(--info); color: #fff;
+  }
+  .bulk-btn.bulk-clear { margin-left:auto; color:var(--muted); border-color:var(--border); }
   .bulk-btn:focus-visible { outline:2px solid var(--info); outline-offset:2px; }
 
   .table-toolbar {
@@ -4026,6 +4114,14 @@ function buildHtml() {
   .solution-field-label { display:block; font-size:11px; text-transform:uppercase; color:var(--muted2); margin-bottom:4px; }
   .solution-field-input { width:100%; padding:6px 8px; background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:3px; font-family:var(--mono); font-size:12px; box-sizing:border-box; }
   .solution-field-input:focus { outline:none; border-color:var(--primary); }
+  .solution-field-hint {
+    display:none;
+    margin-top:6px; padding:8px 10px;
+    background:var(--info-dim); border:1px solid rgba(94,92,230,0.25);
+    border-radius:4px;
+    color:var(--text2); font-size:10px; line-height:1.5;
+    font-family:var(--mono);
+  }
   .solution-form-btns { display:flex; gap:8px; justify-content:flex-end; margin-top:6px; }
   .solution-add-btn { margin-top:4px; }
   .solution-noise-btn { margin-top:4px; margin-left:8px; color:var(--muted2); }
@@ -4151,6 +4247,51 @@ function buildHtml() {
     padding:10px 12px; background:var(--surface2); border:1px solid var(--border);
     border-radius:6px;
   }
+
+  /* Structured error fields in the Understand column (vision Part I
+     Stage 1 — parsed class + message instead of raw watchdog soup). */
+  .err-field-row {
+    display:grid; grid-template-columns: 74px 1fr; gap:10px;
+    font-family:var(--mono); font-size:11px;
+    padding:4px 0; border-bottom:1px dashed var(--border);
+  }
+  .err-field-row:last-of-type { border-bottom:none; }
+  .err-field-label {
+    color:var(--muted2); text-transform:uppercase; letter-spacing:0.04em;
+    font-size:9px; padding-top:2px;
+  }
+  .err-field-value { color:var(--text); word-break:break-word; line-height:1.55; }
+  .err-raw-details { margin-top:10px; }
+  .err-raw-details > summary {
+    cursor:pointer; font-size:10px; color:var(--muted);
+    padding:4px 0; list-style:none;
+  }
+  .err-raw-details > summary::-webkit-details-marker { display:none; }
+  .err-raw-details > summary::before { content: '\\25B8  '; display:inline-block; width:14px; }
+  .err-raw-details[open] > summary::before { content: '\\25BE  '; }
+  .err-raw-details > .modal-err-msg { margin-top:6px; }
+
+  /* One-click openers row in the Understand column. */
+  .openers-row { display:flex; gap:8px; flex-wrap:wrap; }
+  .opener-btn {
+    font-family:var(--mono); font-size:10px;
+    padding:6px 12px; border-radius:4px;
+    background:var(--surface2); color:var(--text2);
+    border:1px solid var(--border2);
+    cursor:pointer;
+    transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+  }
+  .opener-btn:hover { border-color:var(--info); color:#fff; background:var(--info-dim); }
+  .opener-btn:disabled { opacity:0.4; cursor:not-allowed; }
+
+  /* Scratch notes textarea — lighter treatment than capture fields so
+     the operator feels the difference between "working thoughts" and
+     "persisted documentation". */
+  .scratch-notes {
+    background: transparent; border-style: dashed;
+    color: var(--text2); font-style: italic;
+  }
+  .scratch-notes:focus { border-style: solid; font-style: normal; }
 
   .modal-stack {
     font-family:var(--mono); font-size:10px; line-height:1.8;
@@ -4862,7 +5003,9 @@ function buildHtml() {
       </div>
       <div class="bulk-bar" id="bulk-bar" role="region" aria-label="Selection actions" hidden>
         <span class="bulk-count" id="bulk-count">0 selected</span>
-        <button type="button" class="bulk-btn bulk-group" id="bulk-group" onclick="groupSelected()">Group selected</button>
+        <button type="button" class="bulk-btn bulk-group bulk-primary" id="bulk-group-doc" onclick="groupAndDocument()">Group &amp; Document&#8230;</button>
+        <button type="button" class="bulk-btn" id="bulk-group" onclick="groupSelected()">Group</button>
+        <button type="button" class="bulk-btn" id="bulk-noise" onclick="bulkMarkNoise()">Mark as noise</button>
         <button type="button" class="bulk-btn bulk-clear" id="bulk-clear" onclick="clearSelection()">Clear</button>
       </div>
       <div class="table-wrap">
@@ -4987,6 +5130,102 @@ function fetchAll() {
   }).catch(function(err) {
     console.error('Fetch error:', err);
   });
+}
+
+// Category taxonomy + hints used by both single-mode and group-mode
+// capture forms. Driven by a select whose change event writes a hint
+// string below the field to scaffold the Root cause textarea.
+var CATEGORY_OPTIONS = [
+  { value:'',             label:'\\u2014 select \\u2014' },
+  { value:'db-issue',     label:'Database issue' },
+  { value:'permission',   label:'Permission / access' },
+  { value:'config',       label:'Configuration' },
+  { value:'third-party',  label:'Third-party module' },
+  { value:'deployment',   label:'Deployment' },
+  { value:'performance',  label:'Performance' },
+  { value:'security',     label:'Security' },
+  { value:'other',        label:'Other' },
+];
+var CATEGORY_HINTS = {
+  'db-issue':    'Name the query pattern that failed, the Drupal/MySQL version, and the canonical workaround.',
+  'permission':  'Which role/user, which resource, and how you adjusted access.',
+  'config':      'Which setting, what value vs. expected, and the config import/export impact.',
+  'third-party': 'Which module + version, what it expected, and whether the fix is upstream or local.',
+  'deployment':  'Which release, what changed, and the rollback or hotfix path.',
+  'performance': 'The slow path, the metric (RPS / latency), and the mitigation.',
+  'security':    'The exposure scope, who is affected, and whether a disclosure timeline applies.',
+  'other':       'Describe what went wrong and how it was resolved.',
+};
+// Tags field. Comma-separated input; split on save into an array of
+// trimmed, non-empty strings. Deliberately plain — a typeahead over
+// past-used tags is Slice E+ work; this is the persistence layer.
+function buildTagsField(idPrefix) {
+  var wrap = el('div','solution-field-wrap');
+  var l = el('label','solution-field-label'); l.textContent = 'Tags';
+  l.setAttribute('for', idPrefix + '-tags');
+  wrap.appendChild(l);
+  var inp = el('input','solution-field-input');
+  inp.id = idPrefix + '-tags'; inp.type = 'text';
+  inp.placeholder = 'comma-separated (drupal-core, mysql-8, cron\\u2026)';
+  wrap.appendChild(inp);
+  return wrap;
+}
+function readTagsField(idPrefix) {
+  var el = document.getElementById(idPrefix + '-tags');
+  if (!el || !el.value) return [];
+  return el.value.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+}
+
+function buildCategoryField(idPrefix) {
+  var wrap = el('div','solution-field-wrap');
+  var l = el('label','solution-field-label'); l.textContent = 'Category'; l.setAttribute('for', idPrefix + '-category');
+  wrap.appendChild(l);
+  var sel = document.createElement('select'); sel.className = 'solution-field-input'; sel.id = idPrefix + '-category';
+  CATEGORY_OPTIONS.forEach(function(o){
+    var opt = document.createElement('option'); opt.value = o.value; opt.textContent = o.label;
+    sel.appendChild(opt);
+  });
+  wrap.appendChild(sel);
+  var hint = el('div','solution-field-hint'); hint.id = idPrefix + '-category-hint';
+  wrap.appendChild(hint);
+  sel.addEventListener('change', function(){
+    var text = sel.value ? (CATEGORY_HINTS[sel.value] || '') : '';
+    hint.textContent = text;
+    hint.style.display = text ? 'block' : 'none';
+  });
+  return wrap;
+}
+
+// Parse a Drupal-watchdog-style title into discrete fields for the
+// Understand column. Typical titles look like:
+//   [WARNING] other: https://host · hook · https://host/path · [sev] class: message
+//   [WARNING] other: ts warning: short message
+// The splitter walks '  middot  '-separated parts, classifying each as a
+// URL-with-path, host-only URL, or hook token. Leftover tail is message;
+// message; class is already extracted by parseCardClient.extractException.
+function parseWatchdogTitle(raw) {
+  var out = { cls: '', msg: '', hook: '', url: '' };
+  if (!raw) return out;
+  var s = String(raw).trim();
+  // Strip leading [SEV] and "source:" prefix, same as extractException.
+  s = s.replace(/^\\[[A-Z]+\\]\\s*/, '').replace(/^[a-z_\\-]+:\\s*/, '');
+  var parts = s.split(' \\u00b7 ').map(function(p){ return p.trim(); }).filter(Boolean);
+  if (parts.length <= 1) { out.msg = s; return out; }
+  parts.forEach(function(p){
+    if (/^https?:\\/\\/[^/\\s]+\\//.test(p)) {
+      if (!out.url) out.url = p; // first path-bearing URL wins
+    } else if (/^https?:\\/\\//.test(p)) {
+      // host-only — already in c.hostnames grid; skip
+    } else if (/^\\[[a-z]+\\]\\s/.test(p)) {
+      // "[sev] rest" chunks — keep rest as message
+      out.msg = out.msg || p.replace(/^\\[[a-z]+\\]\\s*/, '');
+    } else if (p.indexOf(':') === -1 && p.length < 40) {
+      if (!out.hook) out.hook = p;
+    } else if (!out.msg) {
+      out.msg = p;
+    }
+  });
+  return out;
 }
 
 function parseCardClient(ticket) {
@@ -5594,12 +5833,19 @@ function renderBulkBar() {
   var bar = document.getElementById('bulk-bar');
   var count = document.getElementById('bulk-count');
   var groupBtn = document.getElementById('bulk-group');
+  var groupDocBtn = document.getElementById('bulk-group-doc');
+  var noiseBtn = document.getElementById('bulk-noise');
   var selectAll = document.getElementById('select-all');
   var n = SELECTED.size;
   if (bar) {
     bar.hidden = (n === 0);
     if (count) count.textContent = n + (n === 1 ? ' selected' : ' selected');
     if (groupBtn) groupBtn.disabled = (n < 2);
+    if (groupDocBtn) {
+      groupDocBtn.disabled = (n < 2);
+      groupDocBtn.textContent = n === 1 ? 'Document\\u2026' : 'Group & Document\\u2026';
+    }
+    if (noiseBtn) noiseBtn.disabled = (n === 0);
   }
   // Select-all header checkbox reflects indeterminate / all-checked when
   // some / all of the CURRENTLY-VISIBLE rows are selected.
@@ -5677,6 +5923,91 @@ function groupSelected() {
       }
     })
     .catch(function(e){ showToast('Group failed: ' + e.message); });
+}
+
+// Primary bulk action. N=1 → open that card's single-mode sheet.
+// N>=2 → group them, then open the new group's sheet so the operator
+// can document immediately. This is the "Group & Document" flow from
+// vision-doc Part I (Stage 3 — Decide) condensed into one click.
+function groupAndDocument() {
+  if (SELECTED.size === 0) return;
+  if (SELECTED.size === 1) {
+    var onlyId = Array.from(SELECTED)[0];
+    var card = (ALL_CARDS || []).find(function(c){ return c.id === onlyId; });
+    clearSelection();
+    if (card) openBoardModal(card, { expandForm: true });
+    return;
+  }
+  var members = (ALL_CARDS || []).filter(function(c){ return SELECTED.has(c.id); });
+  var tuples = members
+    .map(function(c){ return { project: c.project || '', card_id: c.id }; })
+    .filter(function(t){ return t.project && t.card_id; });
+  if (tuples.length < 2) {
+    showToast('Selection is missing project qualifiers; cannot form a natural key.');
+    return;
+  }
+  var firstMsg = (members[0] && (members[0].errCls || members[0].errMsg || members[0].title)) || '';
+  var name = (firstMsg || 'Group').slice(0, 80);
+  fetch('/api/groups', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name, member_ids: tuples }),
+  }).then(function(r){ return r.json().then(function(d){ return { status: r.status, body: d }; }); })
+    .then(function(res){
+      if (res.status === 200 && res.body && res.body.group) {
+        var newGroupId = res.body.group.id;
+        showToast('Grouped ' + tuples.length + ' errors \\u00b7 opening capture\\u2026');
+        clearSelection();
+        // Refresh, then find the synthesized parent row and open its sheet.
+        fetchAll().then(function(){
+          var parent = (ALL_CARDS || []).find(function(c){
+            return c.isGroup && c.group && c.group.id === newGroupId;
+          });
+          if (parent) openGroupSheet(parent);
+        });
+      } else if (res.status === 409 && res.body && res.body.conflicts) {
+        var names = res.body.conflicts
+          .map(function(c){ return (c.project || '?') + ':' + c.card_id; }).join(', ');
+        showToast('Already grouped: ' + names);
+      } else {
+        showToast('Group failed: ' + ((res.body && res.body.error) || ('HTTP ' + res.status)));
+      }
+    })
+    .catch(function(e){ showToast('Group failed: ' + e.message); });
+}
+
+// Bulk-mark every selected card as noise. One reason-prompt, N serial
+// POSTs to /api/cards/:id/noise. Used when the operator has selected a
+// batch of known-noise rows (e.g. the same cron heartbeat warning on
+// every env).
+function bulkMarkNoise() {
+  var n = SELECTED.size;
+  if (!n) return;
+  var reason = prompt('Why are these ' + n + ' error' + (n === 1 ? '' : 's') + ' noise? (required)');
+  if (!reason || !reason.trim()) return;
+  var ids = Array.from(SELECTED);
+  var failed = [];
+  function next(i) {
+    if (i >= ids.length) {
+      showToast(
+        failed.length
+          ? 'Marked ' + (ids.length - failed.length) + ' as noise \\u00b7 ' + failed.length + ' failed'
+          : 'Marked ' + ids.length + ' error' + (ids.length === 1 ? '' : 's') + ' as noise.');
+      clearSelection();
+      fetchAll();
+      return;
+    }
+    fetch('/api/cards/' + encodeURIComponent(ids[i]) + '/noise', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ reason: reason.trim() }),
+    }).then(function(r){
+      if (r.status !== 200) failed.push(ids[i]);
+      next(i + 1);
+    }).catch(function(){
+      failed.push(ids[i]); next(i + 1);
+    });
+  }
+  next(0);
 }
 
 // Build a (project|card_id) → group lookup for renderTable. A card
@@ -5806,125 +6137,148 @@ function dissolveGroup(groupId) {
     .catch(function(e){ showToast('Dissolve failed: ' + e.message); });
 }
 
-function openGroupModal(parent) {
+
+// Phase 5 of document-flow-vision: group-mode on the sheet shell.
+// Retires the centered openGroupModal + the Back-to-overview relay
+// through openGroupDocumentForm. One surface: Understand (aggregate
+// details, shared-fields rollup with (N of M match), members list)
+// on the left; Capture (recall on group shape, Writes-to checklist,
+// capture fields) on the right. The Dissolve group action lives in
+// the footer; ungrouping single members happens implicitly through
+// the Writes-to checklist (uncheck = ungroup before save).
+function openGroupSheet(parent) {
   var modal = document.getElementById('modal-content');
   removeChildren(modal);
-  modal.classList.remove('sheet');
+  modal.classList.add('sheet');
+
   var header = el('div','modal-header');
-  header.appendChild(txt('div','modal-title', 'Group · ' + parent.group.name));
+  header.appendChild(txt('div','modal-title','Group \\u00b7 ' + parent.group.name));
   var closeBtn = el('button','modal-close');
   closeBtn.textContent = '\\u2715';
   closeBtn.addEventListener('click', closeBoardModal);
   header.appendChild(closeBtn);
   modal.appendChild(header);
 
-  var body = el('div','modal-body');
-  var meta = el('div','modal-section');
-  meta.appendChild(txt('div','modal-section-title','Details'));
+  var body = el('div','modal-body modal-body-sheet');
+  var understand = el('div','sheet-col sheet-understand');
+  understand.appendChild(txt('div','sheet-col-title','Understand'));
+  var capture = el('div','sheet-col sheet-capture');
+  capture.appendChild(txt('div','sheet-col-title','Capture'));
+
+  // Understand / Details aggregate.
+  var metaSec = el('div','modal-section');
+  metaSec.appendChild(txt('div','modal-section-title','Details'));
   var grid = el('div','modal-meta-grid');
   [
-    {label:'Members', value:String(parent.members.length)},
-    {label:'Projects', value:parent.projectLabel || '—'},
-    {label:'Total occurrences', value:parent.occ.toLocaleString()},
-    {label:'Last seen', value:parent.lastSeenTs || '—'},
-    {label:'First seen', value:parent.firstSeenTs || '—'},
+    { label:'Members', value: String(parent.members.length) },
+    { label:'Projects', value: parent.projectLabel || '\\u2014' },
+    { label:'Total occurrences', value: (parent.occ || 0).toLocaleString() },
+    { label:'Last seen', value: parent.lastSeenTs || '\\u2014' },
+    { label:'First seen', value: parent.firstSeenTs || '\\u2014' },
   ].forEach(function(it){
-    grid.appendChild(txt('div','modal-meta-label', it.label));
-    grid.appendChild(txt('div','modal-meta-value', it.value));
+    var mi = el('div','modal-meta-item');
+    mi.appendChild(txt('div','modal-meta-label', it.label));
+    mi.appendChild(txt('div','modal-meta-value', it.value));
+    grid.appendChild(mi);
   });
-  meta.appendChild(grid);
-  body.appendChild(meta);
+  metaSec.appendChild(grid);
+  understand.appendChild(metaSec);
 
-  // Members list — clicking a member opens its own ticket modal.
+  // Shared-across-members: majority-value + (N of M match) for class /
+  // source, plus an env-mix row showing per-env counts.
+  var sharedSec = el('div','modal-section');
+  sharedSec.appendChild(txt('div','modal-section-title','Shared across members'));
+  var sharedList = el('div','shared-fields');
+  function rateFor(key) {
+    var counts = {};
+    parent.members.forEach(function(m){
+      var v = m[key]; if (!v) return;
+      if (Array.isArray(v)) v = v.join(',');
+      counts[v] = (counts[v] || 0) + 1;
+    });
+    var keys = Object.keys(counts);
+    if (!keys.length) return null;
+    keys.sort(function(a,b){ return counts[b] - counts[a]; });
+    return { value: keys[0], count: counts[keys[0]], total: parent.members.length };
+  }
+  function renderSharedRow(label, rate) {
+    if (!rate) return;
+    var row = el('div','shared-field-row');
+    row.appendChild(txt('span','shared-field-label', label));
+    row.appendChild(txt('span','shared-field-value', rate.value));
+    row.appendChild(txt('span','shared-field-badge', '(' + rate.count + ' of ' + rate.total + ' match)'));
+    sharedList.appendChild(row);
+  }
+  renderSharedRow('Class', rateFor('errCls'));
+  renderSharedRow('Source', rateFor('source'));
+  var envCounts = {};
+  parent.members.forEach(function(m){ (m.envs || []).forEach(function(e){ envCounts[e] = (envCounts[e]||0) + 1; }); });
+  var envKeys = Object.keys(envCounts).sort();
+  if (envKeys.length) {
+    var erow = el('div','shared-field-row');
+    erow.appendChild(txt('span','shared-field-label', 'Env mix'));
+    erow.appendChild(txt('span','shared-field-value',
+      envKeys.map(function(e){ return e + ' (' + envCounts[e] + ')'; }).join(', ')));
+    erow.appendChild(txt('span','shared-field-badge',''));
+    sharedList.appendChild(erow);
+  }
+  sharedSec.appendChild(sharedList);
+  understand.appendChild(sharedSec);
+
+  // Members — click to drill into that card's single-mode sheet.
   var listSec = el('div','modal-section');
-  listSec.appendChild(txt('div','modal-section-title','Members'));
+  listSec.appendChild(txt('div','modal-section-title', 'Members (' + parent.members.length + ')'));
   parent.members.forEach(function(m){
     var row = el('div','group-member-row');
-    row.appendChild(txt('span','group-member-sev sev-'+m.sev, (SEV_LABEL[m.sev]||m.sev).toUpperCase()));
+    row.appendChild(txt('span','group-member-sev sev-'+m.sev, (SEV_LABEL[m.sev]||m.sev||'').toUpperCase()));
     row.appendChild(txt('span','group-member-project', m.projectLabel || m.project || ''));
-    row.appendChild(txt('span','group-member-title', (m.errCls ? m.errCls + ': ' : '') + (m.errMsg || m.title || '')));
-    row.appendChild(txt('span','group-member-fp', 'fp:' + (m.fp || '').slice(0,8)));
+    row.appendChild(txt('span','group-member-title',
+      (m.errCls ? m.errCls + ': ' : '') + (m.errMsg || m.title || '')));
+    row.appendChild(txt('span','group-member-fp', 'fp:' + (m.fp||'').slice(0,8)));
     row.style.cursor = 'pointer';
-    row.addEventListener('click', (function(card){ return function(){ openBoardModal(card); };})(m));
+    row.addEventListener('click', (function(card){ return function(){ openBoardModal(card); }; })(m));
     listSec.appendChild(row);
   });
-  body.appendChild(listSec);
+  understand.appendChild(listSec);
 
-  var actions = el('div','modal-section group-actions');
+  // --- Capture column ---
+  var captureDoc = el('div','modal-section');
+  captureDoc.appendChild(txt('div','modal-section-title','Documentation'));
 
-  // Primary: one solution, all members. This is the fix the docs call
-  // out in document-flow-vision §IV — groupthink, one write, many cards.
-  var docBtn = el('button','btn btn-primary');
-  docBtn.textContent = 'Document group';
-  docBtn.addEventListener('click', (function(p){ return function(){
-    openGroupDocumentForm(p);
-  };})(parent));
-  actions.appendChild(docBtn);
+  // Recall: fire with the first member's id so the backend's
+  // fingerprint-and-class scorer runs on a real card. Group members
+  // share the same shape by definition; the top recall is what a
+  // future operator would see if any member recurred.
+  var recallRow = el('div','recall-row');
+  recallRow.appendChild(txt('div','solution-sub-title','Have we seen this before?'));
+  var recallBody = el('div','recall-body');
+  recallBody.appendChild(txt('div','recall-loading','Searching past documentation\\u2026'));
+  recallRow.appendChild(recallBody);
+  captureDoc.appendChild(recallRow);
+  var seed = parent.members[0];
+  if (seed && seed.id) {
+    var qs = 'card_id=' + encodeURIComponent(seed.id)
+           + (seed.project ? '&project=' + encodeURIComponent(seed.project) : '');
+    fetch('/api/recall?' + qs)
+      .then(function(r){ return r.json(); })
+      .then(function(data){ renderRecallMatches(recallBody, data, seed); })
+      .catch(function(e){
+        removeChildren(recallBody);
+        recallBody.appendChild(txt('div','recall-loading','Recall failed: ' + e.message));
+      });
+  }
 
-  var dissolve = el('button','bulk-btn');
-  dissolve.textContent = 'Dissolve group';
-  dissolve.style.borderColor = 'rgba(255,69,58,0.4)';
-  dissolve.style.color = 'var(--crit)';
-  dissolve.addEventListener('click', (function(id){ return function(){
-    if (confirm('Dissolve this group? Member errors return to their own rows.')) dissolveGroup(id);
-  };})(parent.group.id));
-  actions.appendChild(dissolve);
-  body.appendChild(actions);
-
-  modal.appendChild(body);
-  document.getElementById('board-modal').classList.add('open');
-}
-
-// Group Document form — the group-mode of the Document sheet, scoped down
-// to what tonight's demo can ship honestly. Replaces the overview with:
-// a "Writes to" checklist of members (all checked by default), the same
-// three capture fields the per-card form uses (root cause / fix summary /
-// commit SHA), and a save button whose label carries the live member
-// count. Unchecking a member means "ungroup this one before saving" —
-// not "skip it silently." The server translates that into bd label
-// removal via ungroup_members in the payload.
-function openGroupDocumentForm(parent) {
-  var modal = document.getElementById('modal-content');
-  removeChildren(modal);
-  modal.classList.remove('sheet');
-
-  var header = el('div','modal-header');
-  header.appendChild(txt('div','modal-title', 'Document group \\u00b7 ' + parent.group.name));
-  var closeBtn = el('button','modal-close');
-  closeBtn.textContent = '\\u2715';
-  closeBtn.addEventListener('click', closeBoardModal);
-  header.appendChild(closeBtn);
-  modal.appendChild(header);
-
-  var body = el('div','modal-body');
-
-  // Back-to-overview — the form is reachable from the group overview,
-  // and the overview has context (member list, metadata) the operator
-  // might want to re-reference while composing. Keep the escape route.
-  var backWrap = el('div','modal-section');
-  var backBtn = el('button','bulk-btn');
-  backBtn.textContent = '\\u2190 Back to group overview';
-  backBtn.addEventListener('click', (function(p){ return function(){ openGroupModal(p); };})(parent));
-  backWrap.appendChild(backBtn);
-  body.appendChild(backWrap);
-
-  // Writes-to checklist. Renders every current member with a checkbox,
-  // default-checked. Uncheck = ungroup-before-save. The count on the
-  // save button updates live so the operator always sees the blast
-  // radius of their next click.
+  // Writes-to checklist.
   var writesSec = el('div','modal-section');
   writesSec.appendChild(txt('div','modal-section-title','Writes to'));
-  var writesNote = txt('div','modal-section-note',
-    'This solution will be applied to every checked member. Uncheck a member to ungroup it before saving (groups commit to one truth).');
-  writesSec.appendChild(writesNote);
-
+  writesSec.appendChild(txt('div','modal-section-note',
+    'This solution will be applied to every checked member. Uncheck to ungroup a member before saving (groups commit to one truth).'));
   var writesList = el('div','writes-to-list');
   var checkboxes = [];
   parent.members.forEach(function(m){
     var row = el('label','writes-to-row');
     var cb = el('input','writes-to-cb');
-    cb.type = 'checkbox';
-    cb.checked = true;
+    cb.type = 'checkbox'; cb.checked = true;
     cb.setAttribute('data-project', m.project || '');
     cb.setAttribute('data-card-id', m.id || '');
     checkboxes.push(cb);
@@ -5936,77 +6290,57 @@ function openGroupDocumentForm(parent) {
     writesList.appendChild(row);
   });
   writesSec.appendChild(writesList);
-  body.appendChild(writesSec);
+  captureDoc.appendChild(writesSec);
 
-  // Capture fields — same three-field shape as the per-card form so
-  // recall surfaces these cards uniformly, regardless of whether they
-  // were documented singly or as part of a group.
+  // Capture fields.
   var fieldsSec = el('div','modal-section');
   fieldsSec.appendChild(txt('div','modal-section-title','Your documentation'));
-
   function field(id, label, placeholder, multiline) {
     var wrap = el('div','solution-field-wrap');
     var l = el('label','solution-field-label'); l.textContent = label; l.setAttribute('for', id);
     wrap.appendChild(l);
     var inp = multiline ? el('textarea','solution-field-input') : el('input','solution-field-input');
-    inp.id = id;
-    if (!multiline) inp.type = 'text';
+    inp.id = id; if (!multiline) inp.type = 'text';
     if (placeholder) inp.placeholder = placeholder;
     if (multiline) inp.rows = 3;
     wrap.appendChild(inp);
     return wrap;
   }
+  fieldsSec.appendChild(buildCategoryField('grp-sheet'));
+  fieldsSec.appendChild(field('grp-sheet-root','Root cause','One or two sentences, general audience.',true));
+  fieldsSec.appendChild(field('grp-sheet-summary','Fix summary','What was done, or the plan if not yet fixed.',true));
+  fieldsSec.appendChild(field('grp-sheet-sha','Fix commit SHA (optional)','abc1234',false));
+  fieldsSec.appendChild(buildTagsField('grp-sheet'));
+  captureDoc.appendChild(fieldsSec);
 
-  fieldsSec.appendChild(field('grp-sol-root-cause', 'Root cause',
-    'One or two sentences, general audience — no project paths or customer names.', true));
-  fieldsSec.appendChild(field('grp-sol-fix-summary', 'Fix summary (or \\u201cnot yet fixed\\u201d)',
-    'What was done, or the plan if not yet fixed.', true));
-  fieldsSec.appendChild(field('grp-sol-fix-sha', 'Fix commit SHA (optional)', 'abc1234', false));
-  body.appendChild(fieldsSec);
-
-  // Save row.
   var btnRow = el('div','solution-form-btns');
-  var cancelBtn = el('button','btn btn-ghost');
-  cancelBtn.textContent = 'Cancel';
-  cancelBtn.addEventListener('click', (function(p){ return function(){ openGroupModal(p); };})(parent));
-
   var saveBtn = el('button','btn btn-primary');
-  function updateSaveLabel() {
-    var n = checkboxes.filter(function(cb){ return cb.checked; }).length;
+  function updateSaveLabel(){
+    var n = checkboxes.filter(function(cb){return cb.checked;}).length;
     saveBtn.textContent = 'Save group documentation (' + n + ')';
     saveBtn.disabled = (n === 0);
   }
   checkboxes.forEach(function(cb){ cb.addEventListener('change', updateSaveLabel); });
   updateSaveLabel();
-
   saveBtn.addEventListener('click', function(){
-    var rc = document.getElementById('grp-sol-root-cause').value.trim();
-    var fs = document.getElementById('grp-sol-fix-summary').value.trim();
-    var sha = document.getElementById('grp-sol-fix-sha').value.trim() || 'none';
-    if (!rc || !fs) {
-      showToast('Root cause and fix summary are required.');
-      return;
-    }
-    var applied = [];
-    var ungroup = [];
+    var rc = document.getElementById('grp-sheet-root').value.trim();
+    var fs = document.getElementById('grp-sheet-summary').value.trim();
+    var sha = document.getElementById('grp-sheet-sha').value.trim() || 'none';
+    var catEl = document.getElementById('grp-sheet-category');
+    var cat = (catEl && catEl.value) || '';
+    var grpTags = readTagsField('grp-sheet');
+    if (!rc || !fs) { showToast('Root cause and fix summary are required.'); return; }
+    var applied = [], ungroup = [];
     checkboxes.forEach(function(cb){
       var entry = { project: cb.getAttribute('data-project'), card_id: cb.getAttribute('data-card-id') };
       if (cb.checked) applied.push(entry); else ungroup.push(entry);
     });
-    if (applied.length === 0) {
-      showToast('At least one member must stay checked to save a group solution.');
-      return;
-    }
-    saveBtn.disabled = true;
-    saveBtn.textContent = 'Saving\\u2026';
+    if (applied.length === 0) { showToast('At least one member must stay checked.'); return; }
+    saveBtn.disabled = true; saveBtn.textContent = 'Saving\\u2026';
     fetch('/api/groups/' + encodeURIComponent(parent.group.id) + '/solution', {
-      method: 'POST',
-      headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({
-        root_cause: rc, fix_summary: fs, fix_commit_sha: sha,
-        ungroup_members: ungroup,
-      }),
-    }).then(function(r){ return r.json(); }).then(function(resp){
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ category: cat, tags: grpTags, root_cause: rc, fix_summary: fs, fix_commit_sha: sha, ungroup_members: ungroup }),
+    }).then(function(r){return r.json();}).then(function(resp){
       if (resp.status === 'ok') {
         var msg = 'Documented ' + resp.applied + ' error' + (resp.applied === 1 ? '' : 's')
                 + ' with one solution'
@@ -6016,21 +6350,39 @@ function openGroupDocumentForm(parent) {
         closeBoardModal();
         fetchAll();
       } else {
-        saveBtn.disabled = false;
-        updateSaveLabel();
+        saveBtn.disabled = false; updateSaveLabel();
         showToast('Save failed: ' + (resp.error || resp.message || 'unknown'));
       }
     }).catch(function(e){
-      saveBtn.disabled = false;
-      updateSaveLabel();
+      saveBtn.disabled = false; updateSaveLabel();
       showToast('Request failed: ' + e.message);
     });
   });
-  btnRow.appendChild(cancelBtn);
   btnRow.appendChild(saveBtn);
-  body.appendChild(btnRow);
+  captureDoc.appendChild(btnRow);
 
+  capture.appendChild(captureDoc);
+
+  body.appendChild(understand);
+  body.appendChild(capture);
   modal.appendChild(body);
+
+  // Footer: Dissolve on the right. Balance the move-wrap slot so
+  // the layout matches the single-card sheet.
+  var footer = el('div','modal-footer');
+  footer.appendChild(el('div','modal-move-wrap'));
+  var btnGroup = el('div','modal-btn-group');
+  var dissolve = el('button','btn btn-ghost');
+  dissolve.textContent = 'Dissolve group';
+  dissolve.style.borderColor = 'rgba(255,69,58,0.4)';
+  dissolve.style.color = 'var(--crit)';
+  dissolve.addEventListener('click', (function(id){ return function(){
+    if (confirm('Dissolve this group? Member errors return to their own rows.')) dissolveGroup(id);
+  }; })(parent.group.id));
+  btnGroup.appendChild(dissolve);
+  footer.appendChild(btnGroup);
+  modal.appendChild(footer);
+
   document.getElementById('board-modal').classList.add('open');
 }
 
@@ -6216,16 +6568,32 @@ function buildRow(c, i) {
   }
   tr.appendChild(actTd);
 
-  // Row click: individual ticket → openBoardModal; group parent row →
-  // openGroupModal (which lists members and offers Dissolve).
+  // Row click: individual ticket → openBoardModal (single-mode sheet);
+  // group parent row → openGroupSheet (group-mode sheet). Both are the
+  // sheet shell from vision-doc Phase 1/5.
   var openHandler = c.isGroup
-    ? function(){ openGroupModal(c); }
+    ? function(){ openGroupSheet(c); }
     : function(){ openBoardModal(c); };
   tr.addEventListener('click', openHandler);
   tr.addEventListener('keydown', function(ev){
-    if (ev.key === 'Enter' || ev.key === ' ') {
+    if (ev.key === 'Enter') {
       ev.preventDefault();
       openHandler();
+      return;
+    }
+    // Space toggles selection (not open) so keyboard users can build
+    // bulk selections without opening each row's sheet. Group rows
+    // don't have a checkbox, so Space falls through to open instead.
+    if (ev.key === ' ') {
+      var cbEl = tr.querySelector('td.col-select input[type=checkbox]');
+      if (cbEl) {
+        ev.preventDefault();
+        cbEl.checked = !cbEl.checked;
+        cbEl.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+        ev.preventDefault();
+        openHandler();
+      }
     }
   });
 
@@ -6449,10 +6817,111 @@ function openBoardModal(c, opts) {
   metaSec.appendChild(metaGrid);
   understand.appendChild(metaSec);
 
+  // Structured error view (vision-doc Part I Stage 1 — parsed class +
+  // message instead of the raw watchdog pipe soup). The raw title is
+  // still available behind a disclosure; the parsed view is what the
+  // operator reads first.
   var errSec = el('div','modal-section');
-  errSec.appendChild(txt('div','modal-section-title','Error message'));
-  errSec.appendChild(txt('div','modal-err-msg',c.title));
+  errSec.appendChild(txt('div','modal-section-title','Error'));
+  var parsed = parseWatchdogTitle(c.title || '');
+  function errField(label, value) {
+    if (!value) return;
+    var row = el('div','err-field-row');
+    row.appendChild(txt('span','err-field-label', label));
+    row.appendChild(txt('span','err-field-value', value));
+    errSec.appendChild(row);
+  }
+  errField('Class', c.errCls || parsed.cls);
+  errField('Message', c.errMsg || parsed.msg);
+  errField('Hook', parsed.hook);
+  errField('URL', parsed.url);
+  if (!c.errCls && !c.errMsg && !parsed.cls && !parsed.msg) {
+    // Parser produced nothing useful. Render the raw title so we don't
+    // leave the operator staring at an empty section.
+    errField('Title', c.title);
+  }
+  // Raw title disclosure — useful when the parse drops nuance.
+  var rawDetails = document.createElement('details');
+  rawDetails.className = 'err-raw-details';
+  var rawSummary = document.createElement('summary');
+  rawSummary.textContent = 'Show raw title';
+  rawDetails.appendChild(rawSummary);
+  rawDetails.appendChild(txt('div','modal-err-msg', c.title));
+  errSec.appendChild(rawDetails);
   understand.appendChild(errSec);
+
+  // One-click openers (vision-doc Part III — "Investigate"). Approot
+  // in Finder is always offered when the card carries a project; the
+  // editor opener appears when the top stack frame has a parseable
+  // file:line pair. Both POST to server-side handlers that gate the
+  // target against registered projects only.
+  var openersSec = el('div','modal-section');
+  var openersRow = el('div','openers-row');
+  var approotBtn = el('button','opener-btn');
+  approotBtn.textContent = 'Open approot';
+  approotBtn.disabled = !c.project;
+  approotBtn.addEventListener('click', (function(proj){ return function(){
+    fetch('/api/openers/approot', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ project: proj }),
+    }).then(function(r){ return r.json().then(function(d){ return { s: r.status, b: d }; }); })
+      .then(function(res){
+        if (res.s !== 200) showToast('Open approot failed: ' + ((res.b && res.b.error) || 'HTTP ' + res.s));
+      })
+      .catch(function(e){ showToast('Open approot failed: ' + e.message); });
+  }; })(c.project));
+  openersRow.appendChild(approotBtn);
+
+  // Editor button: scan stack frames for the first "path.php:NN" or
+  // "path.php(NN)" pattern and offer to open it in PhpStorm.
+  var editorTarget = null;
+  (c.stack || []).some(function(frame){
+    var m = String(frame).match(/([^\\s()]+\\.(?:php|module|inc|theme)):(\\d+)/)
+         || String(frame).match(/([^\\s()]+\\.(?:php|module|inc|theme))\\((\\d+)\\)/);
+    if (m) { editorTarget = { file: m[1], line: parseInt(m[2],10) }; return true; }
+    return false;
+  });
+  if (editorTarget && c.project) {
+    var editorBtn = el('button','opener-btn');
+    editorBtn.textContent = 'Open in PhpStorm';
+    editorBtn.title = editorTarget.file + ':' + editorTarget.line;
+    editorBtn.addEventListener('click', (function(proj, tgt){ return function(){
+      fetch('/api/openers/editor', {
+        method: 'POST', headers: {'Content-Type':'application/json'},
+        body: JSON.stringify({ project: proj, file: tgt.file, line: tgt.line }),
+      }).then(function(r){ return r.json().then(function(d){ return { s: r.status, b: d }; }); })
+        .then(function(res){
+          if (res.s !== 200) showToast('Open editor failed: ' + ((res.b && res.b.error) || 'HTTP ' + res.s));
+        })
+        .catch(function(e){ showToast('Open editor failed: ' + e.message); });
+    }; })(c.project, editorTarget));
+    openersRow.appendChild(editorBtn);
+  }
+  openersSec.appendChild(openersRow);
+  understand.appendChild(openersSec);
+
+  // Scratch notes (vision-doc Part I "Investigate") — localStorage-keyed
+  // per card id, persists across sheet dismiss/reopen, auto-cleared when
+  // the operator saves documentation. Not posted to the server; this is
+  // the thinking surface, not the archive surface.
+  var scratchSec = el('div','modal-section');
+  scratchSec.appendChild(txt('div','modal-section-title','Scratch notes'));
+  scratchSec.appendChild(txt('div','modal-section-note',
+    'Working thoughts while you investigate. Cleared when you save documentation; stays on this device until then.'));
+  var scratchBox = el('textarea','solution-field-input scratch-notes');
+  scratchBox.id = 'scratch-' + c.id;
+  scratchBox.rows = 4;
+  scratchBox.placeholder = '(your working thoughts\\u2026)';
+  try {
+    var saved = localStorage.getItem('drover.scratch.' + c.id) || '';
+    scratchBox.value = saved;
+  } catch (e) { /* localStorage may be blocked; no-op */ }
+  scratchBox.addEventListener('input', (function(id){ return function(ev){
+    try { localStorage.setItem('drover.scratch.' + id, ev.target.value); }
+    catch (e) { /* no-op */ }
+  }; })(c.id));
+  scratchSec.appendChild(scratchBox);
+  understand.appendChild(scratchSec);
 
   // Documentation section. Drover's product is error tracking + memory,
   // not fix-automation — so the primary ask of the human is to DOCUMENT
@@ -6735,11 +7204,13 @@ function buildActualForm(c, holder) {
     return wrap;
   }
 
+  form.appendChild(buildCategoryField('sol'));
   form.appendChild(field('sol-root-cause',  'root_cause',     'Root cause',
     'One or two sentences, general audience — no project paths or customer names.', true));
   form.appendChild(field('sol-fix-summary', 'fix_summary',    'Fix summary (or "not yet fixed")',
     'What was done, or the plan if not yet fixed.', true));
   form.appendChild(field('sol-fix-sha',     'fix_commit_sha', 'Fix commit SHA (optional)', 'abc1234'));
+  form.appendChild(buildTagsField('sol'));
   if (c.projected) {
     var divWrap = el('div','solution-field-wrap');
     var dl = el('label','solution-field-label'); dl.textContent = 'Divergence from projected';
@@ -6775,6 +7246,10 @@ function buildActualForm(c, holder) {
       fix_summary:   document.getElementById('sol-fix-summary').value.trim(),
       fix_commit_sha:document.getElementById('sol-fix-sha').value.trim() || 'none',
     };
+    var catEl = document.getElementById('sol-category');
+    if (catEl && catEl.value) payload.category = catEl.value;
+    var solTags = readTagsField('sol');
+    if (solTags.length) payload.tags = solTags;
     var divEl = document.getElementById('sol-divergence');
     if (divEl) payload.divergence = divEl.value;
     if (!payload.root_cause || !payload.fix_summary) {
@@ -6789,6 +7264,7 @@ function buildActualForm(c, holder) {
     }).then(function(r){ return r.json(); }).then(function(resp){
       if (resp.status === 'ok') {
         showToast('Documented. Your notes will help the next operator who sees this.');
+        try { localStorage.removeItem('drover.scratch.' + c.id); } catch (e) { /* no-op */ }
         closeBoardModal();
         fetchAll();
       } else {
@@ -8932,6 +9408,16 @@ const server = http.createServer(async (req, res) => {
     const noiseMatch = pathname.match(/^\/api\/cards\/([^/]+)\/noise$/);
     if (noiseMatch && req.method === 'POST') {
       return await handleNoiseMark(req, res, decodeURIComponent(noiseMatch[1]));
+    }
+
+    // One-click openers: reveal the project's approot in Finder, or
+    // open a file:line in PhpStorm (jetbrains URL scheme). Scoped to
+    // registered projects only — arbitrary paths are rejected.
+    if (pathname === '/api/openers/approot' && req.method === 'POST') {
+      return await handleOpenApproot(req, res);
+    }
+    if (pathname === '/api/openers/editor' && req.method === 'POST') {
+      return await handleOpenEditor(req, res);
     }
 
     // DDEV management endpoints
