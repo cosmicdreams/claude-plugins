@@ -1,5 +1,19 @@
 # drover Changelog
 
+## 1.48.0
+- **Groups keep growing.** Group parent rows now render a selection checkbox (alongside the ⊞ glyph), not just a decorative symbol. A group is a living collection, not a frozen snapshot — you can add items to it after it's created.
+- **Smart primary CTA on mixed selections.** The bulk-bar primary button now branches on selection shape:
+  - *2+ groups selected*: disabled, label *"Pick one group + items"* (merging groups is out of scope).
+  - *1 group + 1+ individuals*: *"Add to group (N) & Document…"* — POSTs to the new `/api/groups/:id/members` endpoint, refreshes the board, opens the group's sheet in write mode.
+  - *0 groups + 1 individual*: *"Document…"* (single-mode sheet, unchanged).
+  - *0 groups + 2+ individuals*: *"Group & Document…"* (new group + sheet, unchanged).
+- **Bulk-bar count is shape-aware.** The label now reads *"N errors + M groups selected"* instead of a flat total.
+- **`/api/groups/:id/members`** — new POST endpoint to grow an existing group. Same dedupe + label-write-first rollback pattern as `/api/groups` create. Members already in any group return 409 with per-member conflicts. Re-adding an existing member of the same group is a silent no-op.
+- **Secondary *Group* button is now strictly for new-group creation** — enabled only when selection is 2+ individuals and 0 groups. Tells you to use the primary button if you meant to grow an existing group.
+- **Mark-as-noise** on a mixed selection silently skips any groups in the selection and acts on the individuals only. Prompt wording reflects the split (*"…skipping N groups"*).
+- **`classifySelection` helper** underneath it all — resolves `SELECTED` ids against `ALL_CARDS` (individuals) + `GROUPS` (synthesized parent via `synthesizeGroupCard`) so group IDs in the selection resolve correctly, since `ALL_CARDS` holds individuals only.
+- **Pulse event `group-grew`** fires on each add-to-group with `{added: [...], conflicts: [...]}` payload.
+
 ## 1.47.1
 - **Simplify pass** across drover after a parallel three-lens review (reuse / quality / efficiency).
   - **Parallelized per-member bd writes in `handleGroupSolution`.** `writeActualToCard` is now async and the group handler `Promise.all`s over the target set. At N=10 this collapses ~80s of worst-case serial A13-timeout exposure to a single concurrent wait, and stops blocking the event loop during the operation.

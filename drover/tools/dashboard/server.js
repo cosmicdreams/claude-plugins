@@ -2368,6 +2368,90 @@ async function handleGroupDissolve(req, res, groupId) {
 // 2 members. Ordering: bd writes run first and gate the side-effects —
 // if every write fails we abort without mutating group state, so the
 // operator can retry from a clean surface.
+// POST /api/groups/:id/members — grow an existing group. Same dedupe +
+// label-write-first rollback pattern as handleGroupsCreate, but against
+// a group that already exists. Members already in any group return 409.
+async function handleGroupAddMembers(req, res, groupId) {
+  let body;
+  try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
+  const proposed = normalizeMemberList((body && body.members) || []);
+  if (proposed.length === 0) {
+    return jsonResponse(res, 400, { error: 'members[] required (each {project, card_id})' });
+  }
+  const missingProject = proposed.filter(m => !m.project).map(m => m.card_id);
+  if (missingProject.length) {
+    return jsonResponse(res, 400, {
+      error: 'every member must include a project qualifier',
+      missing: missingProject,
+    });
+  }
+
+  const data = readGroups();
+  const group = data.groups.find(g => g.id === groupId);
+  if (!group) return jsonResponse(res, 404, { error: 'group not found: ' + groupId });
+
+  // Already-in-any-group check applies to other groups AND to this one
+  // (re-adding an existing member is a no-op, not an error).
+  const already = new Map();
+  for (const g of data.groups) {
+    for (const m of normalizeMemberList(g.member_ids)) {
+      already.set(memberKey(m), g.id);
+    }
+  }
+  const conflicts = [];
+  const newMembers = [];
+  const seenKeys = new Set();
+  for (const m of proposed) {
+    const k = memberKey(m);
+    if (seenKeys.has(k)) continue;
+    seenKeys.add(k);
+    const ownedBy = already.get(k);
+    if (ownedBy === groupId) continue; // already in this group; drop silently
+    if (ownedBy) { conflicts.push({ ...m, group_id: ownedBy }); continue; }
+    newMembers.push(m);
+  }
+  if (conflicts.length > 0 && newMembers.length === 0) {
+    return jsonResponse(res, 409, { error: 'all members already grouped elsewhere', conflicts });
+  }
+  if (newMembers.length === 0) {
+    return jsonResponse(res, 200, { status: 'ok', group_id: groupId, added: 0, conflicts });
+  }
+
+  // Write labels first; on failure, roll back the ones we did land so
+  // bd and JSON never disagree.
+  const labelResult = syncGroupLabel({ id: group.id, member_ids: newMembers }, 'add');
+  if (labelResult.errors.length > 0 && labelResult.added.length === 0) {
+    return jsonResponse(res, 500, { error: 'failed to add group label on any member', details: labelResult.errors });
+  }
+  if (labelResult.errors.length > 0) {
+    syncGroupLabel({ id: group.id, member_ids: labelResult.added }, 'remove');
+    return jsonResponse(res, 500, {
+      error: 'partial label failure; rolled back',
+      details: labelResult.errors, rolled_back: labelResult.added.length,
+    });
+  }
+
+  group.member_ids = normalizeMemberList(group.member_ids).concat(newMembers);
+  try { writeGroups(data); }
+  catch (e) {
+    syncGroupLabel({ id: group.id, member_ids: newMembers }, 'remove');
+    return jsonResponse(res, 500, { error: 'failed to write groups file: ' + e.message });
+  }
+
+  invalidateAndBroadcast('groups-update', { ts: new Date().toISOString(), action: 'add-members', id: group.id, added: newMembers.length });
+  recordPulse({
+    type: 'group-grew',
+    origin: group.id,
+    summary: 'Group grew · +' + newMembers.length + ' · ' + (group.name || 'unnamed'),
+    details: { id: group.id, name: group.name, added: newMembers, conflicts },
+  });
+  return jsonResponse(res, 200, {
+    status: 'ok', group_id: groupId,
+    added: newMembers.length, conflicts,
+    member_count: group.member_ids.length,
+  });
+}
+
 async function handleGroupSolution(req, res, groupId) {
   let body;
   try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
@@ -3491,8 +3575,9 @@ function buildHtml() {
   }
   tbody tr.row-group:hover { background: rgba(94,92,230,0.1); }
   .row-group-glyph {
-    display:inline-block; width:14px; text-align:center;
-    color: var(--info); font-size:12px; font-weight:600;
+    display:inline-block; margin-left:4px;
+    color: var(--info); font-size:11px; font-weight:600;
+    vertical-align:middle;
   }
   .group-name-chip {
     color: var(--info) !important;
@@ -5835,6 +5920,32 @@ function getFilteredCards() {
 // a group is created.
 var SELECTED = new Set();
 
+// Split the current selection into { groups, individuals }. ALL_CARDS
+// holds individual cards only — group parent rows are synthesized on
+// the fly during renderTable, so a group ID in SELECTED won't resolve
+// through ALL_CARDS. Look up groups in GROUPS and build a parent-card
+// shape with .group + .members for consumers (openGroupSheet etc.).
+function classifySelection() {
+  var groups = [], individuals = [];
+  SELECTED.forEach(function(id){
+    var grp = (GROUPS || []).find(function(g){ return g.id === id; });
+    if (grp) {
+      var memberIds = grp.member_ids || [];
+      var members = (ALL_CARDS || []).filter(function(c){
+        return memberIds.some(function(m){
+          if (typeof m === 'string') return m === c.id;
+          return m && m.project === c.project && m.card_id === c.id;
+        });
+      });
+      groups.push(synthesizeGroupCard(grp, members));
+      return;
+    }
+    var card = (ALL_CARDS || []).find(function(c){ return c.id === id; });
+    if (card) individuals.push(card);
+  });
+  return { groups: groups, individuals: individuals };
+}
+
 function renderBulkBar() {
   var bar = document.getElementById('bulk-bar');
   var count = document.getElementById('bulk-count');
@@ -5843,15 +5954,46 @@ function renderBulkBar() {
   var noiseBtn = document.getElementById('bulk-noise');
   var selectAll = document.getElementById('select-all');
   var n = SELECTED.size;
+  var cls = classifySelection();
+  var gCount = cls.groups.length;
+  var iCount = cls.individuals.length;
   if (bar) {
     bar.hidden = (n === 0);
-    if (count) count.textContent = n + (n === 1 ? ' selected' : ' selected');
-    if (groupBtn) groupBtn.disabled = (n < 2);
-    if (groupDocBtn) {
-      groupDocBtn.disabled = (n < 2);
-      groupDocBtn.textContent = n === 1 ? 'Document\\u2026' : 'Group & Document\\u2026';
+    if (count) {
+      var parts = [];
+      if (iCount) parts.push(iCount + (iCount === 1 ? ' error' : ' errors'));
+      if (gCount) parts.push(gCount + (gCount === 1 ? ' group' : ' groups'));
+      count.textContent = (parts.join(' + ') || '0') + ' selected';
     }
-    if (noiseBtn) noiseBtn.disabled = (n === 0);
+    // Primary CTA label + enablement branches on selection shape:
+    //   2+ groups                → refuse (label hints at why)
+    //   1 group + 1+ individuals → "Add to group (N)"
+    //   0 groups, 1 individual   → "Document…"
+    //   0 groups, 2+ individuals → "Group & Document…"
+    if (groupDocBtn) {
+      if (gCount >= 2) {
+        groupDocBtn.disabled = true;
+        groupDocBtn.textContent = 'Pick one group + items';
+      } else if (gCount === 1 && iCount >= 1) {
+        groupDocBtn.disabled = false;
+        groupDocBtn.textContent = 'Add to group (' + iCount + ') & Document\\u2026';
+      } else if (iCount === 1 && gCount === 0) {
+        groupDocBtn.disabled = false;
+        groupDocBtn.textContent = 'Document\\u2026';
+      } else if (iCount >= 2 && gCount === 0) {
+        groupDocBtn.disabled = false;
+        groupDocBtn.textContent = 'Group & Document\\u2026';
+      } else {
+        groupDocBtn.disabled = true;
+        groupDocBtn.textContent = 'Group & Document\\u2026';
+      }
+    }
+    // Secondary "Group" is only for NEW-group creation (N>=2 individuals,
+    // no groups selected).
+    if (groupBtn) groupBtn.disabled = !(iCount >= 2 && gCount === 0);
+    // Mark-as-noise works on individuals only. If the selection is all
+    // groups we disable it; mixed selections silently skip the groups.
+    if (noiseBtn) noiseBtn.disabled = (iCount === 0);
   }
   // Select-all header checkbox reflects indeterminate / all-checked when
   // some / all of the CURRENTLY-VISIBLE rows are selected.
@@ -5894,11 +6036,16 @@ function clearSelection() {
 // label onto each member card in its own project's bd database, so the
 // bd side (triage, implementer, recall) can see membership too.
 function groupSelected() {
-  if (SELECTED.size < 2) {
-    showToast('Select at least two rows to group.');
+  var cls = classifySelection();
+  if (cls.groups.length > 0) {
+    showToast('The secondary Group button creates a new group. To add items to an existing group, use the primary button.');
     return;
   }
-  var members = (ALL_CARDS || []).filter(function(c){ return SELECTED.has(c.id); });
+  if (cls.individuals.length < 2) {
+    showToast('Select at least two individual errors to create a new group.');
+    return;
+  }
+  var members = cls.individuals;
   // Drop anything that doesn't carry a project tag — we can't build a
   // valid natural key without it.
   var tuples = members
@@ -5931,28 +6078,91 @@ function groupSelected() {
     .catch(function(e){ showToast('Group failed: ' + e.message); });
 }
 
-// Primary bulk action. N=1 → open that card's single-mode sheet.
-// N>=2 → group them, then open the new group's sheet so the operator
-// can document immediately. This is the "Group & Document" flow from
-// vision-doc Part I (Stage 3 — Decide) condensed into one click.
+// Primary bulk action — branches on selection shape.
+//
+// Selection:                   Action:
+//   2+ groups                  refuse (merging groups is out of scope)
+//   1 group + 1+ individuals   add individuals to the existing group,
+//                              then open the group's sheet in write mode
+//   0 groups + 1 individual    open that card's single-mode sheet
+//   0 groups + 2+ individuals  create a new group, open the group sheet
 function groupAndDocument() {
-  if (SELECTED.size === 0) return;
-  if (SELECTED.size === 1) {
-    var onlyId = Array.from(SELECTED)[0];
-    var card = (ALL_CARDS || []).find(function(c){ return c.id === onlyId; });
-    clearSelection();
-    if (card) openBoardModal(card, { expandForm: true });
+  var cls = classifySelection();
+  var gCount = cls.groups.length;
+  var iCount = cls.individuals.length;
+  if (gCount === 0 && iCount === 0) return;
+  if (gCount >= 2) {
+    showToast('Select one group plus items to add — merging groups is not supported.');
     return;
   }
-  var members = (ALL_CARDS || []).filter(function(c){ return SELECTED.has(c.id); });
-  var tuples = members
+  // Case: single individual → just document it.
+  if (gCount === 0 && iCount === 1) {
+    var only = cls.individuals[0];
+    clearSelection();
+    openBoardModal(only, { expandForm: true });
+    return;
+  }
+  // Case: add individuals to an existing group.
+  if (gCount === 1) {
+    if (iCount === 0) {
+      // Only the group is selected — just open it.
+      var grp = cls.groups[0];
+      clearSelection();
+      openGroupSheet(grp);
+      return;
+    }
+    var targetGroup = cls.groups[0];
+    var addTuples = cls.individuals
+      .map(function(c){ return { project: c.project || '', card_id: c.id }; })
+      .filter(function(t){ return t.project && t.card_id; });
+    if (addTuples.length === 0) {
+      showToast('Selected items are missing project qualifiers; cannot form a natural key.');
+      return;
+    }
+    fetch('/api/groups/' + encodeURIComponent(targetGroup.group.id) + '/members', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ members: addTuples }),
+    }).then(function(r){ return r.json().then(function(d){ return { status: r.status, body: d }; }); })
+      .then(function(res){
+        if (res.status === 200 && res.body && res.body.status === 'ok') {
+          var msg = 'Added ' + res.body.added + ' to "' + targetGroup.group.name + '"';
+          if (res.body.conflicts && res.body.conflicts.length) {
+            msg += ' \\u00b7 ' + res.body.conflicts.length + ' already grouped elsewhere';
+          }
+          msg += ' \\u00b7 opening capture\\u2026';
+          showToast(msg);
+          clearSelection();
+          fetchAll().then(function(){
+            var grp = (GROUPS || []).find(function(g){ return g.id === targetGroup.group.id; });
+            if (!grp) return;
+            var members = (ALL_CARDS || []).filter(function(c){
+              return (grp.member_ids || []).some(function(m){
+                return m && m.project === c.project && m.card_id === c.id;
+              });
+            });
+            openGroupSheet(synthesizeGroupCard(grp, members));
+          });
+        } else if (res.status === 409 && res.body && res.body.conflicts) {
+          var names = res.body.conflicts
+            .map(function(c){ return (c.project || '?') + ':' + c.card_id; }).join(', ');
+          showToast('Already grouped: ' + names);
+        } else {
+          showToast('Add to group failed: ' + ((res.body && res.body.error) || ('HTTP ' + res.status)));
+        }
+      })
+      .catch(function(e){ showToast('Add to group failed: ' + e.message); });
+    return;
+  }
+  // Case: create new group (0 groups + 2+ individuals).
+  var tuples = cls.individuals
     .map(function(c){ return { project: c.project || '', card_id: c.id }; })
     .filter(function(t){ return t.project && t.card_id; });
   if (tuples.length < 2) {
     showToast('Selection is missing project qualifiers; cannot form a natural key.');
     return;
   }
-  var firstMsg = (members[0] && (members[0].errCls || members[0].errMsg || members[0].title)) || '';
+  var firstMsg = (cls.individuals[0] && (cls.individuals[0].errCls || cls.individuals[0].errMsg || cls.individuals[0].title)) || '';
   var name = (firstMsg || 'Group').slice(0, 80);
   fetch('/api/groups', {
     method: 'POST',
@@ -5964,12 +6174,15 @@ function groupAndDocument() {
         var newGroupId = res.body.group.id;
         showToast('Grouped ' + tuples.length + ' errors \\u00b7 opening capture\\u2026');
         clearSelection();
-        // Refresh, then find the synthesized parent row and open its sheet.
         fetchAll().then(function(){
-          var parent = (ALL_CARDS || []).find(function(c){
-            return c.isGroup && c.group && c.group.id === newGroupId;
+          var grp = (GROUPS || []).find(function(g){ return g.id === newGroupId; });
+          if (!grp) return;
+          var members = (ALL_CARDS || []).filter(function(c){
+            return (grp.member_ids || []).some(function(m){
+              return m && m.project === c.project && m.card_id === c.id;
+            });
           });
-          if (parent) openGroupSheet(parent);
+          openGroupSheet(synthesizeGroupCard(grp, members));
         });
       } else if (res.status === 409 && res.body && res.body.conflicts) {
         var names = res.body.conflicts
@@ -5987,11 +6200,19 @@ function groupAndDocument() {
 // batch of known-noise rows (e.g. the same cron heartbeat warning on
 // every env).
 function bulkMarkNoise() {
-  var n = SELECTED.size;
-  if (!n) return;
-  var reason = prompt('Why are these ' + n + ' error' + (n === 1 ? '' : 's') + ' noise? (required)');
+  // Groups don't have a noise state themselves — only their members do.
+  // Skip them silently, act on individuals only.
+  var cls = classifySelection();
+  var ids = cls.individuals.map(function(c){ return c.id; });
+  if (ids.length === 0) {
+    showToast('No individual errors in the selection to mark as noise.');
+    return;
+  }
+  var skipped = cls.groups.length;
+  var label = ids.length + ' error' + (ids.length === 1 ? '' : 's');
+  if (skipped) label += ' (skipping ' + skipped + ' group' + (skipped === 1 ? '' : 's') + ')';
+  var reason = prompt('Why are these ' + label + ' noise? (required)');
   if (!reason || !reason.trim()) return;
-  var ids = Array.from(SELECTED);
   var failed = [];
   function next(i) {
     if (i >= ids.length) {
@@ -6454,25 +6675,26 @@ function buildRow(c, i) {
   // (event.stopPropagation). Row click anywhere else still opens the
   // modal as before. This is the primitive that group-creation builds
   // on (drover/docs/user-stories.md §12).
+  // Selection column — both individual rows AND group parent rows get
+  // a checkbox. A group is a living collection, not a frozen snapshot;
+  // selecting it alongside individuals means "add these to this group".
+  // The group glyph decorates the checkbox so the row still reads as a
+  // group at a glance.
   var selTd = el('td','col-select');
+  var cb = document.createElement('input');
+  cb.type = 'checkbox';
+  cb.checked = SELECTED.has(c.id);
+  cb.setAttribute('aria-label', 'Select ' + (c.isGroup ? ('group ' + (c.group && c.group.name || c.id)) : (c.errCls || c.fp)));
+  cb.addEventListener('click', function(ev){ ev.stopPropagation(); });
+  cb.addEventListener('change', (function(id, row){ return function(ev){
+    ev.stopPropagation();
+    if (ev.target.checked) SELECTED.add(id); else SELECTED.delete(id);
+    row.classList.toggle('row-selected', ev.target.checked);
+    renderBulkBar();
+  };})(c.id, tr));
+  selTd.appendChild(cb);
   if (c.isGroup) {
-    // Group rows aren't selectable (selection exists to CREATE groups;
-    // grouping a group is out of scope). Render a small group glyph in
-    // place of the checkbox so the column still reads at a glance.
-    selTd.appendChild(txt('span','row-group-glyph','⊞'));
-  } else {
-    var cb = document.createElement('input');
-    cb.type = 'checkbox';
-    cb.checked = SELECTED.has(c.id);
-    cb.setAttribute('aria-label', 'Select ' + (c.errCls || c.fp));
-    cb.addEventListener('click', function(ev){ ev.stopPropagation(); });
-    cb.addEventListener('change', (function(id, row){ return function(ev){
-      ev.stopPropagation();
-      if (ev.target.checked) SELECTED.add(id); else SELECTED.delete(id);
-      row.classList.toggle('row-selected', ev.target.checked);
-      renderBulkBar();
-    };})(c.id, tr));
-    selTd.appendChild(cb);
+    selTd.appendChild(txt('span','row-group-glyph',' \\u229E'));
   }
   tr.appendChild(selTd);
 
@@ -9368,6 +9590,10 @@ const server = http.createServer(async (req, res) => {
     const groupSolMatch = pathname.match(/^\/api\/groups\/([^/]+)\/solution$/);
     if (groupSolMatch && req.method === 'POST') {
       return await handleGroupSolution(req, res, decodeURIComponent(groupSolMatch[1]));
+    }
+    const groupMembersMatch = pathname.match(/^\/api\/groups\/([^/]+)\/members$/);
+    if (groupMembersMatch && req.method === 'POST') {
+      return await handleGroupAddMembers(req, res, decodeURIComponent(groupMembersMatch[1]));
     }
 
     // API endpoints
