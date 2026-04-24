@@ -2369,7 +2369,7 @@ async function handleGroupDissolve(req, res, groupId) {
 async function handleGroupSolution(req, res, groupId) {
   let body;
   try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
-  const { category, root_cause, fix_summary, fix_commit_sha, ungroup_members } = body || {};
+  const { category, tags, root_cause, fix_summary, fix_commit_sha, ungroup_members } = body || {};
   if (!root_cause || !fix_summary) {
     return jsonResponse(res, 400, { error: 'root_cause and fix_summary required' });
   }
@@ -2392,7 +2392,7 @@ async function handleGroupSolution(req, res, groupId) {
   const actualBlock = buildActualBlock({
     now, mode: 'group',
     groupCtx: { id: groupId, name: group.name, member_count: targets.length },
-    category, root_cause, fix_summary, fix_commit_sha,
+    category, tags, root_cause, fix_summary, fix_commit_sha,
   });
 
   // Phase 1: bd writes only. Nothing in group state or groups-file
@@ -2958,7 +2958,7 @@ async function handleMove(req, res) {
 
 // Shared Actual-block builder. Single-mode and group-mode call this so
 // the block's shape evolves in one place.
-function buildActualBlock({ now, mode, groupCtx, category, root_cause, fix_summary, fix_commit_sha, divergence }) {
+function buildActualBlock({ now, mode, groupCtx, category, tags, root_cause, fix_summary, fix_commit_sha, divergence }) {
   const lines = [''];
   if (mode === 'group' && groupCtx) {
     lines.push('### Actual  (group: ' + groupCtx.id + ', written: ' + now + ', by: user)');
@@ -2970,6 +2970,10 @@ function buildActualBlock({ now, mode, groupCtx, category, root_cause, fix_summa
     lines.push('### Actual  (written: ' + now + ', by: user)');
   }
   if (category) lines.push('- **category:** ' + category);
+  if (Array.isArray(tags) && tags.length) {
+    const cleanTags = tags.map(t => String(t).trim()).filter(Boolean).slice(0, 20);
+    if (cleanTags.length) lines.push('- **tags:** ' + cleanTags.join(', '));
+  }
   lines.push('- **root_cause:** ' + root_cause);
   lines.push('- **fix_summary:** ' + fix_summary);
   lines.push('- **fix_commit_sha:** ' + (fix_commit_sha || 'none'));
@@ -3011,7 +3015,7 @@ async function handleSolution(req, res, ticketId) {
   try { body = await readBody(req); } catch (e) {
     return jsonResponse(res, 400, { status: 'error', message: 'invalid JSON body' });
   }
-  const { category, root_cause, fix_summary, fix_commit_sha, divergence } = body || {};
+  const { category, tags, root_cause, fix_summary, fix_commit_sha, divergence } = body || {};
   if (!root_cause || !fix_summary) {
     return jsonResponse(res, 400, { status: 'error', message: 'root_cause and fix_summary required' });
   }
@@ -3036,7 +3040,7 @@ async function handleSolution(req, res, ticketId) {
 
   const now = new Date().toISOString();
   const actualBlock = buildActualBlock({
-    now, mode: 'single', category, root_cause, fix_summary, fix_commit_sha, divergence,
+    now, mode: 'single', category, tags, root_cause, fix_summary, fix_commit_sha, divergence,
   });
   const currentLane = (ticket.labels || []).find(l => l.startsWith('lane-')) || 'lane-triage';
 
@@ -4280,6 +4284,15 @@ function buildHtml() {
   .opener-btn:hover { border-color:var(--info); color:#fff; background:var(--info-dim); }
   .opener-btn:disabled { opacity:0.4; cursor:not-allowed; }
 
+  /* Scratch notes textarea — lighter treatment than capture fields so
+     the operator feels the difference between "working thoughts" and
+     "persisted documentation". */
+  .scratch-notes {
+    background: transparent; border-style: dashed;
+    color: var(--text2); font-style: italic;
+  }
+  .scratch-notes:focus { border-style: solid; font-style: normal; }
+
   .modal-stack {
     font-family:var(--mono); font-size:10px; line-height:1.8;
     padding:10px 12px; background:var(--bg); border:1px solid var(--border);
@@ -5143,6 +5156,26 @@ var CATEGORY_HINTS = {
   'security':    'The exposure scope, who is affected, and whether a disclosure timeline applies.',
   'other':       'Describe what went wrong and how it was resolved.',
 };
+// Tags field. Comma-separated input; split on save into an array of
+// trimmed, non-empty strings. Deliberately plain — a typeahead over
+// past-used tags is Slice E+ work; this is the persistence layer.
+function buildTagsField(idPrefix) {
+  var wrap = el('div','solution-field-wrap');
+  var l = el('label','solution-field-label'); l.textContent = 'Tags';
+  l.setAttribute('for', idPrefix + '-tags');
+  wrap.appendChild(l);
+  var inp = el('input','solution-field-input');
+  inp.id = idPrefix + '-tags'; inp.type = 'text';
+  inp.placeholder = 'comma-separated (drupal-core, mysql-8, cron\\u2026)';
+  wrap.appendChild(inp);
+  return wrap;
+}
+function readTagsField(idPrefix) {
+  var el = document.getElementById(idPrefix + '-tags');
+  if (!el || !el.value) return [];
+  return el.value.split(',').map(function(s){ return s.trim(); }).filter(Boolean);
+}
+
 function buildCategoryField(idPrefix) {
   var wrap = el('div','solution-field-wrap');
   var l = el('label','solution-field-label'); l.textContent = 'Category'; l.setAttribute('for', idPrefix + '-category');
@@ -6277,6 +6310,7 @@ function openGroupSheet(parent) {
   fieldsSec.appendChild(field('grp-sheet-root','Root cause','One or two sentences, general audience.',true));
   fieldsSec.appendChild(field('grp-sheet-summary','Fix summary','What was done, or the plan if not yet fixed.',true));
   fieldsSec.appendChild(field('grp-sheet-sha','Fix commit SHA (optional)','abc1234',false));
+  fieldsSec.appendChild(buildTagsField('grp-sheet'));
   captureDoc.appendChild(fieldsSec);
 
   var btnRow = el('div','solution-form-btns');
@@ -6294,6 +6328,7 @@ function openGroupSheet(parent) {
     var sha = document.getElementById('grp-sheet-sha').value.trim() || 'none';
     var catEl = document.getElementById('grp-sheet-category');
     var cat = (catEl && catEl.value) || '';
+    var grpTags = readTagsField('grp-sheet');
     if (!rc || !fs) { showToast('Root cause and fix summary are required.'); return; }
     var applied = [], ungroup = [];
     checkboxes.forEach(function(cb){
@@ -6304,7 +6339,7 @@ function openGroupSheet(parent) {
     saveBtn.disabled = true; saveBtn.textContent = 'Saving\\u2026';
     fetch('/api/groups/' + encodeURIComponent(parent.group.id) + '/solution', {
       method: 'POST', headers: {'Content-Type':'application/json'},
-      body: JSON.stringify({ category: cat, root_cause: rc, fix_summary: fs, fix_commit_sha: sha, ungroup_members: ungroup }),
+      body: JSON.stringify({ category: cat, tags: grpTags, root_cause: rc, fix_summary: fs, fix_commit_sha: sha, ungroup_members: ungroup }),
     }).then(function(r){return r.json();}).then(function(resp){
       if (resp.status === 'ok') {
         var msg = 'Documented ' + resp.applied + ' error' + (resp.applied === 1 ? '' : 's')
@@ -6865,6 +6900,29 @@ function openBoardModal(c, opts) {
   openersSec.appendChild(openersRow);
   understand.appendChild(openersSec);
 
+  // Scratch notes (vision-doc Part I "Investigate") — localStorage-keyed
+  // per card id, persists across sheet dismiss/reopen, auto-cleared when
+  // the operator saves documentation. Not posted to the server; this is
+  // the thinking surface, not the archive surface.
+  var scratchSec = el('div','modal-section');
+  scratchSec.appendChild(txt('div','modal-section-title','Scratch notes'));
+  scratchSec.appendChild(txt('div','modal-section-note',
+    'Working thoughts while you investigate. Cleared when you save documentation; stays on this device until then.'));
+  var scratchBox = el('textarea','solution-field-input scratch-notes');
+  scratchBox.id = 'scratch-' + c.id;
+  scratchBox.rows = 4;
+  scratchBox.placeholder = '(your working thoughts\\u2026)';
+  try {
+    var saved = localStorage.getItem('drover.scratch.' + c.id) || '';
+    scratchBox.value = saved;
+  } catch (e) { /* localStorage may be blocked; no-op */ }
+  scratchBox.addEventListener('input', (function(id){ return function(ev){
+    try { localStorage.setItem('drover.scratch.' + id, ev.target.value); }
+    catch (e) { /* no-op */ }
+  }; })(c.id));
+  scratchSec.appendChild(scratchBox);
+  understand.appendChild(scratchSec);
+
   // Documentation section. Drover's product is error tracking + memory,
   // not fix-automation — so the primary ask of the human is to DOCUMENT
   // the error (root cause, what was done about it) so the next recurrence
@@ -7152,6 +7210,7 @@ function buildActualForm(c, holder) {
   form.appendChild(field('sol-fix-summary', 'fix_summary',    'Fix summary (or "not yet fixed")',
     'What was done, or the plan if not yet fixed.', true));
   form.appendChild(field('sol-fix-sha',     'fix_commit_sha', 'Fix commit SHA (optional)', 'abc1234'));
+  form.appendChild(buildTagsField('sol'));
   if (c.projected) {
     var divWrap = el('div','solution-field-wrap');
     var dl = el('label','solution-field-label'); dl.textContent = 'Divergence from projected';
@@ -7189,6 +7248,8 @@ function buildActualForm(c, holder) {
     };
     var catEl = document.getElementById('sol-category');
     if (catEl && catEl.value) payload.category = catEl.value;
+    var solTags = readTagsField('sol');
+    if (solTags.length) payload.tags = solTags;
     var divEl = document.getElementById('sol-divergence');
     if (divEl) payload.divergence = divEl.value;
     if (!payload.root_cause || !payload.fix_summary) {
@@ -7203,6 +7264,7 @@ function buildActualForm(c, holder) {
     }).then(function(r){ return r.json(); }).then(function(resp){
       if (resp.status === 'ok') {
         showToast('Documented. Your notes will help the next operator who sees this.');
+        try { localStorage.removeItem('drover.scratch.' + c.id); } catch (e) { /* no-op */ }
         closeBoardModal();
         fetchAll();
       } else {

@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.47.0
+- **Tags (vision-doc Phase 4 partial).** Capture columns on both single-mode and group-mode sheets now include a comma-separated *Tags* input. Stored on the Actual markdown block as `- **tags:** drupal-core, mysql-8, cron` when set; becomes the substrate for cross-ticket facets in future work. Typeahead over past-used tags is deferred.
+- **Scratch notes (vision-doc Phase 3 / Slice H).** The single-mode sheet's Understand column gets a dashed-border, italic textarea labeled *Scratch notes* with the help text *"Working thoughts while you investigate. Cleared when you save documentation; stays on this device until then."* Content is persisted to `localStorage` keyed by card id, auto-cleared on successful save. Not posted to the server — this is the thinking surface, not the archive surface.
+- **Data-model extension.** `tags: string[]` is now a first-class field on the Actual block builder, accepted by both POST endpoints; absent = untagged; capped at 20 entries.
+
 ## 1.46.0
 - **Category picker + template hints (vision-doc Phase 4 / "Write with scaffolding").** Both single-mode and group-mode Capture columns now lead with a Category dropdown: Database issue · Permission / access · Configuration · Third-party module · Deployment · Performance · Security · Other. Selecting a category surfaces a short info-tinted hint below the field — "Name the query pattern that failed, the Drupal/MySQL version, and the canonical workaround" for DB issues, and category-appropriate text for each of the others. Fills the blank-textarea gap the earlier draft named as the weakest spot in the capture experience.
 - **Data model extension.** `category` is now a top-level field on the Actual markdown block when present. Backwards-compatible: absent = untagged. Both `/api/cards/:id/solution` and `/api/groups/:id/solution` accept the field; `buildActualBlock` emits it when set.
