@@ -3543,6 +3543,16 @@ function buildHtml() {
   }
   .search-input::placeholder { color:var(--muted3); }
   .result-count { font-family:var(--mono); font-size:10px; color:var(--muted2); }
+  .doc-counter {
+    font-family:var(--mono); font-size:10px;
+    color: var(--ok);
+    padding: 2px 8px;
+    background: var(--ok-dim);
+    border: 1px solid rgba(50,215,75,0.2);
+    border-radius: 999px;
+    margin-left: 8px;
+    letter-spacing: 0.02em;
+  }
 
   .table-wrap { overflow-y:auto; flex:1; position:relative; }
   .table-wrap::before {
@@ -4806,6 +4816,7 @@ function buildHtml() {
             <input class="search-input" placeholder="search errors, fingerprints, environments&#8230;" id="search" autocomplete="off" aria-label="Search errors">
           </div>
           <span class="result-count" id="result-count">0 errors</span>
+          <span class="doc-counter" id="doc-counter" hidden>0 documented this week</span>
         </div>
       </div>
       <div class="bulk-bar" id="bulk-bar" role="region" aria-label="Selection actions" hidden>
@@ -5980,11 +5991,34 @@ function openGroupDocumentForm(parent) {
   document.getElementById('board-modal').classList.add('open');
 }
 
+// "You've documented N this week" quiet contribution counter, per the
+// document-flow-vision "Feel the contribution" stage. Only rendered when
+// N > 0 — self-respecting, not gamified. Scope: documented cards whose
+// Actual.verified_at is within the past 7 days. Group-mode saves show
+// up here N times (one per member) because that's the honest error
+// count, not the save count.
+function updateDocCounter() {
+  var counter = document.getElementById('doc-counter');
+  if (!counter) return;
+  var cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  var n = 0;
+  (ALL_CARDS || []).forEach(function(c){
+    if (!c || c.isGroup || !c.actual) return;
+    var ts = c.actual.verified_at || c.actual.written_at || c.actual.captured_at || '';
+    var t = ts ? Date.parse(ts) : NaN;
+    if (!isNaN(t) && t >= cutoff) n++;
+  });
+  if (n <= 0) { counter.setAttribute('hidden',''); counter.textContent = ''; return; }
+  counter.removeAttribute('hidden');
+  counter.textContent = '\\u2713 ' + n + ' documented this week';
+}
+
 function renderTable() {
   var tbody = document.getElementById('tbody');
   removeChildren(tbody);
   var cards = getFilteredCards();
   document.getElementById('result-count').textContent = cards.length + ' errors';
+  updateDocCounter();
 
   if (cards.length === 0) {
     var tr = el('tr');
@@ -6690,7 +6724,7 @@ function buildActualForm(c, holder) {
       body: JSON.stringify(payload),
     }).then(function(r){ return r.json(); }).then(function(resp){
       if (resp.status === 'ok') {
-        showToast('Actual solution saved. Ticket ' + c.id + ' closed.');
+        showToast('Documented. Your notes will help the next operator who sees this.');
         closeBoardModal();
         fetchAll();
       } else {

@@ -1,5 +1,11 @@
 # drover Changelog
 
+## 1.40.1
+- **Contribution feedback (vision-doc Phase 9).** Small polish around the save moment so the operator sees they just contributed knowledge to the system.
+  - **Documentation counter** in the table toolbar, next to the errors count. Quiet green pill reading *"✓ N documented this week"* — hidden when N=0, self-respecting. Counts cards whose Actual block's `verified_at` is within the past 7 days.
+  - **Single-card post-save toast** rewritten from the accurate-but-bureaucratic *"Actual solution saved. Ticket X closed."* to the letter-to-a-future-operator wording: *"Documented. Your notes will help the next operator who sees this."*
+  - Group-mode save toast (shipped in 1.40.0) already carries the *"Documented N errors with one solution"* copy, so both single and group paths now land on the same emotional beat.
+
 ## 1.40.0
 - **Group-mode Document flow ships (vision-doc Phase 6, partial).** Documenting a group is now a first-class action, not a per-member chore.
   - **Group modal** gains a primary `[ Document group ]` button alongside the existing `Dissolve group`. Clicking it replaces the overview with a Document form scoped to the group.
