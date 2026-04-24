@@ -101,8 +101,11 @@ cmd_stop() {
 }
 
 cmd_start() {
-  if lsof -ti:"$PORT" > /dev/null 2>&1; then
-    echo "drover start: port $PORT already in use. Running 'drover restart' instead?"
+  # Only reject on a real LISTEN; a recently-killed dashboard leaves
+  # TIME_WAIT entries + client-side Chrome connections that lsof -ti
+  # without -sTCP:LISTEN would incorrectly flag as "in use".
+  if lsof -ti:"$PORT" -sTCP:LISTEN > /dev/null 2>&1; then
+    echo "drover start: port $PORT already has a LISTEN process. Run 'drover restart' to replace it."
     return 2
   fi
   local server_js="$PLUGIN_ROOT/tools/dashboard/server.js"

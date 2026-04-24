@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.51.0
+- **Master ingestion on/off toggle in the dashboard header.** Sits next to the LIVE badge as a pill — green `●  ON` when watchers are running, grey `○  OFF` when paused. One click calls the new `POST /api/ingestion/stop` / `/api/ingestion/start` endpoints which wrap the existing `stopAutoIngestion()` / `startAutoIngestion()` functions. The dashboard UI stays up while ingestion is paused — operators can stop the stream mid-demo without losing their current view and flip it back on when ready.
+- **New SSE event `ingestion-state`** broadcasts stop/start transitions so multiple browser tabs stay in sync.
+- **`drover start` now only rejects on a real LISTEN** on port 3749. Previously used `lsof -ti:$PORT` which also returned client-side connections (e.g. a Chrome tab viewing the dashboard), so a freshly-stopped port could falsely report "in use" immediately after `drover stop`.
+
 ## 1.50.0
 - **`drover` CLI for on/off control.** Single script at `drover/bin/drover` with four subcommands:
   - `drover stop` — kills every drover-owned process (dashboard, umbrella-watch.sh, acquia-watch.py, ddev-watch.py, wp-watch.py, bd-ready-watch.py) with SIGTERM then SIGKILL for holdouts, clears stale pidfiles, preserves side-files.
