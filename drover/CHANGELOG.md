@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 1.51.2
+- **Per-source toggles are now truthful.** When you flipped off a source pill (say, `apache-request` on AHRI prod), the config + side-file updated correctly, but the *running* acquia-watch process kept its original `DROVER_LOG_TYPES` and kept receiving apache-request events from Acquia's WebSocket. The UI was lying on top of a watcher that didn't care.
+- Root cause: `resubscribeEnv` killed only the pidfile-tracked child. If the umbrella respawned the watcher without updating the pidfile (or if the watcher got orphaned to `ppid=1` during an umbrella-subshell race), the pidfile pointed at nothing and the orphan watcher lived on.
+- Fix: added `killWatchersByKey(key)` which does a safety-net `pkill -f` against the watcher's argv signature (`acquia-watch.py <env>.<uuid>` for Acquia, `ddev-watch.py <project>` / `wp-watch.py <project>` for DDEV). The pidfile kill runs first, then the argv kill catches any orphans. Confirmed end-to-end: toggle off → old watcher (pid X, env=`drupal-watchdog,apache-request`) dies → umbrella respawns (pid Y, env=`drupal-watchdog`) → zero apache-request pulse events for the next 30s.
+
 ## 1.51.1
 - **LIVE badge tells the truth when ingestion is paused.** New state `paused` (grey, no pulse, label `PAUSED`) that overrides `idle`/`live` whenever the master toggle is OFF. Previously the badge stayed on `idle` after toggling off because the SSE connection remained open and non-ingestion events (ddev-status heartbeats every ~30s) kept ticking the "last event" clock — making the toggle look like it did nothing. Now the badge reflects ingestion state as a separate dimension from SSE health.
 - State matrix:
