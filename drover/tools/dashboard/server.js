@@ -2297,6 +2297,117 @@ async function handleGroupDissolve(req, res, groupId) {
   });
 }
 
+// POST /api/groups/:id/solution — document the group once, write the same
+// Actual block to every remaining member. `ungroup_members` lists tuples
+// the operator unchecked in the Writes-to list; those are ungrouped
+// before the propagation. The group auto-dissolves if it shrinks below
+// 2 members. Ordering: bd writes run first and gate the side-effects —
+// if every write fails we abort without mutating group state, so the
+// operator can retry from a clean surface.
+async function handleGroupSolution(req, res, groupId) {
+  let body;
+  try { body = await readBody(req); } catch { return jsonResponse(res, 400, { error: 'invalid JSON' }); }
+  const { root_cause, fix_summary, fix_commit_sha, ungroup_members } = body || {};
+  if (!root_cause || !fix_summary) {
+    return jsonResponse(res, 400, { error: 'root_cause and fix_summary required' });
+  }
+
+  const data = readGroups();
+  const group = data.groups.find(g => g.id === groupId);
+  if (!group) return jsonResponse(res, 404, { error: 'group not found: ' + groupId });
+
+  // Partition the current membership in one pass.
+  const ungroupSet = new Set(normalizeMemberList(ungroup_members || []).map(memberKey));
+  const allMembers = normalizeMemberList(group.member_ids);
+  const toUngroup = allMembers.filter(m => ungroupSet.has(memberKey(m)));
+  const targets = allMembers.filter(m => !ungroupSet.has(memberKey(m)));
+
+  const tickets = await fetchTickets();
+  const ticketMap = {};
+  if (Array.isArray(tickets)) tickets.forEach(t => { ticketMap[t.id] = t; });
+
+  const now = new Date().toISOString();
+  const actualBlock = buildActualBlock({
+    now, mode: 'group',
+    groupCtx: { id: groupId, name: group.name, member_count: targets.length },
+    root_cause, fix_summary, fix_commit_sha,
+  });
+
+  // Phase 1: bd writes only. Nothing in group state or groups-file
+  // mutates yet; if every write fails we return 500 untouched so the
+  // operator retries from a clean slate.
+  const boards = currentBoards();
+  const errors = [];
+  let appliedCount = 0;
+  for (const m of targets) {
+    const board = boards.find(b => b.project === m.project);
+    if (!board || !board.dbPath) {
+      errors.push({ member: m, error: 'no db path for project=' + m.project });
+      continue;
+    }
+    const ticket = ticketMap[m.card_id];
+    const currentLane = (ticket && (ticket.labels || []).find(l => l.startsWith('lane-'))) || 'lane-triage';
+    try {
+      writeActualToCard({
+        board, cardId: m.card_id, actualBlock, currentLane, now,
+        laneMoveNote: 'Group solution captured via dashboard; lane-done.',
+      });
+      appliedCount++;
+    } catch (e) {
+      errors.push({ member: m, error: (e.stderr && e.stderr.toString()) || e.message });
+    }
+  }
+  if (targets.length > 0 && appliedCount === 0) {
+    return jsonResponse(res, 500, {
+      status: 'error', group_id: groupId,
+      applied: 0, ungrouped: 0, dissolved: false, errors,
+      message: 'all ' + targets.length + ' member writes failed; group unchanged',
+    });
+  }
+
+  // Phase 2: at least one write landed — commit the group mutations.
+  let ungroupedCount = 0;
+  if (toUngroup.length > 0) {
+    const labelResult = syncGroupLabel({ id: group.id, member_ids: toUngroup }, 'remove');
+    ungroupedCount = labelResult.removed.length;
+    group.member_ids = targets;
+  }
+
+  // Auto-dissolve if fewer than 2 members remain (the last singleton is
+  // ungrouped cleanly on the way out, keeping bd-side state consistent).
+  let dissolved = false;
+  if (targets.length < 2) {
+    if (targets.length === 1) {
+      syncGroupLabel({ id: group.id, member_ids: targets }, 'remove');
+    }
+    data.groups = data.groups.filter(g => g.id !== groupId);
+    dissolved = true;
+  }
+
+  try { writeGroups(data); }
+  catch (e) {
+    return jsonResponse(res, 500, { error: 'failed to write groups file: ' + e.message, applied: appliedCount });
+  }
+
+  ticketCache = { data: null, ts: 0 };
+  broadcast('groups-update', { ts: now, action: 'solution', id: groupId, dissolved });
+  recordPulse({
+    type: 'group-documented',
+    origin: groupId,
+    summary: 'Documented group · ' + appliedCount + ' errors · ' + (group.name || 'unnamed'),
+    details: {
+      id: groupId, name: group.name,
+      applied: appliedCount, ungrouped: ungroupedCount, dissolved,
+      root_cause, fix_summary, fix_commit_sha: fix_commit_sha || null,
+    },
+  });
+  return jsonResponse(res, 200, {
+    status: 'ok', group_id: groupId,
+    applied: appliedCount, ungrouped: ungroupedCount,
+    dissolved, errors,
+  });
+}
+
 async function handleSourcesToggle(req, res) {
   let body;
   try { body = await readBody(req); } catch (e) {
@@ -2783,10 +2894,55 @@ async function handleMove(req, res) {
   }
 }
 
+// Shared Actual-block builder. Single-mode and group-mode call this so
+// the block's shape evolves in one place.
+function buildActualBlock({ now, mode, groupCtx, root_cause, fix_summary, fix_commit_sha, divergence }) {
+  const lines = [''];
+  if (mode === 'group' && groupCtx) {
+    lines.push('### Actual  (group: ' + groupCtx.id + ', written: ' + now + ', by: user)');
+    lines.push('- **mode:** group');
+    lines.push('- **group_id:** ' + groupCtx.id);
+    lines.push('- **group_name:** ' + (groupCtx.name || ''));
+    lines.push('- **group_member_count:** ' + groupCtx.member_count);
+  } else {
+    lines.push('### Actual  (written: ' + now + ', by: user)');
+  }
+  lines.push('- **root_cause:** ' + root_cause);
+  lines.push('- **fix_summary:** ' + fix_summary);
+  lines.push('- **fix_commit_sha:** ' + (fix_commit_sha || 'none'));
+  if (mode !== 'group') {
+    lines.push(divergence ? '- **divergence:** ' + divergence : '- **divergence:** n/a (no Projected block)');
+  }
+  lines.push('- **effectiveness:** verified');
+  lines.push('- **verified_at:** ' + now);
+  lines.push('- **captured_by:** user');
+  lines.push('- **evidence:** ' + (mode === 'group' ? 'dashboard-group-modal' : 'dashboard-modal'));
+  return lines.join('\n');
+}
+
+// Shared bd write: append the Actual block, then move to lane-done if
+// the card isn't already there. Two execFileSync calls — the 15000ms
+// timeout is the A13 mitigation for the append→move ordering (see
+// handleMove). Throws on bd error; callers decide whether to continue
+// or bail.
+function writeActualToCard({ board, cardId, actualBlock, currentLane, now, laneMoveNote }) {
+  execFileSync('bd', [
+    'update', cardId,
+    '--db', board.dbPath,
+    '--append-notes', actualBlock,
+  ], { encoding: 'utf8', timeout: 15000 });
+  if (currentLane !== 'lane-done' && currentLane !== 'lane-closed') {
+    execFileSync('bd', [
+      'update', cardId,
+      '--db', board.dbPath,
+      '--remove-label', currentLane,
+      '--add-label', 'lane-done',
+      '--append-notes', now + ': ' + (laneMoveNote || 'Solution captured via dashboard; lane-done.'),
+    ], { encoding: 'utf8', timeout: 15000 });
+  }
+}
+
 // sprint-wgy dashboard integration — record Actual solution from the modal.
-// Finds which board the ticket lives on (critical for virtual-central mode),
-// appends a structured ### Actual block via bd update --append-notes,
-// moves the ticket to lane-done, closes it, and invalidates cache.
 async function handleSolution(req, res, ticketId) {
   let body;
   try { body = await readBody(req); } catch (e) {
@@ -2816,42 +2972,13 @@ async function handleSolution(req, res, ticketId) {
   }
 
   const now = new Date().toISOString();
-  const actualBlock = [
-    '',
-    '### Actual  (written: ' + now + ', by: user)',
-    '- **root_cause:** ' + root_cause,
-    '- **fix_summary:** ' + fix_summary,
-    '- **fix_commit_sha:** ' + (fix_commit_sha || 'none'),
-    (divergence ? '- **divergence:** ' + divergence : '- **divergence:** n/a (no Projected block)'),
-    '- **effectiveness:** verified',
-    '- **verified_at:** ' + now,
-    '- **captured_by:** user',
-    '- **evidence:** dashboard-modal',
-  ].join('\n');
-
+  const actualBlock = buildActualBlock({
+    now, mode: 'single', root_cause, fix_summary, fix_commit_sha, divergence,
+  });
   const currentLane = (ticket.labels || []).find(l => l.startsWith('lane-')) || 'lane-triage';
 
   try {
-    // A13: bumped from 5000→15000 on both bd calls for the same reason as
-    // handleMove. If the first (append-notes) times out, the second
-    // (lane-move) doesn't run and the Actual block is persisted but the
-    // card stays in its current lane — leaving the modal in an inconsistent
-    // state. Making the timeout generous is the cheapest mitigation.
-    execFileSync('bd', [
-      'update', ticketId,
-      '--db', board.dbPath,
-      '--append-notes', actualBlock,
-    ], { encoding: 'utf8', timeout: 15000 });
-    // Move to lane-done and close.
-    if (currentLane !== 'lane-done' && currentLane !== 'lane-closed') {
-      execFileSync('bd', [
-        'update', ticketId,
-        '--db', board.dbPath,
-        '--remove-label', currentLane,
-        '--add-label', 'lane-done',
-        '--append-notes', now + ': Solution captured via dashboard; lane-done.',
-      ], { encoding: 'utf8', timeout: 15000 });
-    }
+    writeActualToCard({ board, cardId: ticketId, actualBlock, currentLane, now });
     ticketCache = { data: null, ts: 0 };
     recordPulse({
       type: 'error-documented',
@@ -3320,6 +3447,43 @@ function buildHtml() {
   }
   .group-member-fp { color:var(--muted3); font-size:9px; text-align:right; }
 
+  /* Group-mode Document form (openGroupDocumentForm) */
+  .group-actions { display:flex; gap:8px; flex-wrap:wrap; }
+  .modal-section-note {
+    color:var(--muted); font-size:11px; line-height:1.5;
+    margin:-4px 0 8px 0;
+  }
+  .writes-to-list {
+    display:flex; flex-direction:column;
+    border:1px solid var(--border); border-radius:4px;
+    overflow:hidden;
+  }
+  .writes-to-row {
+    display:grid; grid-template-columns: 24px 60px 110px 1fr 110px; gap:8px;
+    align-items:center;
+    padding:8px 10px; border-top:1px solid var(--border);
+    font-family:var(--mono); font-size:11px;
+    cursor:pointer;
+    transition: background 120ms ease;
+  }
+  .writes-to-row:first-child { border-top:none; }
+  .writes-to-row:hover { background:var(--surface3); }
+  .writes-to-row:has(input:not(:checked)) {
+    opacity:0.55;
+    background:var(--surface2);
+  }
+  .writes-to-cb { cursor:pointer; margin:0; accent-color: var(--info); }
+  .writes-to-sev { font-size:9px; font-weight:600; letter-spacing:0.04em; }
+  .writes-to-sev.sev-crit { color:var(--crit); }
+  .writes-to-sev.sev-warn { color:var(--warn); }
+  .writes-to-sev.sev-info { color:var(--info2); }
+  .writes-to-project { color:var(--muted); text-transform:lowercase; }
+  .writes-to-cardid {
+    color:var(--text2);
+    overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
+  }
+  .writes-to-fp { color:var(--muted3); font-size:9px; text-align:right; }
+
   /* Row-selection column + bulk action bar */
   .col-select { width:32px; padding:0 8px; }
   .col-select input[type=checkbox] {
@@ -3373,6 +3537,16 @@ function buildHtml() {
   }
   .search-input::placeholder { color:var(--muted3); }
   .result-count { font-family:var(--mono); font-size:10px; color:var(--muted2); }
+  .doc-counter {
+    font-family:var(--mono); font-size:10px;
+    color: var(--ok);
+    padding: 2px 8px;
+    background: var(--ok-dim);
+    border: 1px solid rgba(50,215,75,0.2);
+    border-radius: 999px;
+    margin-left: 8px;
+    letter-spacing: 0.02em;
+  }
 
   .table-wrap { overflow-y:auto; flex:1; position:relative; }
   .table-wrap::before {
@@ -3772,6 +3946,53 @@ function buildHtml() {
   @keyframes modal-in {
     from { opacity:0; transform:translateY(12px) scale(0.97); }
     to   { opacity:1; transform:translateY(0) scale(1); }
+  }
+
+  /* Phase 1: sheet-mode for the single-card Document surface. Right-
+     docked, full-height panel instead of a centered modal. The
+     backdrop switches to flex-end when a .sheet child is present so
+     the panel seats against the right edge. */
+  .modal-backdrop:has(.modal.sheet) { justify-content:flex-end; }
+  .modal.sheet {
+    width: min(960px, 100vw); max-height: none; height: 100vh;
+    border-radius: 12px 0 0 12px;
+    overflow:hidden; display:flex; flex-direction:column;
+    animation: sheet-in 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  @keyframes sheet-in {
+    from { opacity: 0.6; transform: translateX(24px); }
+    to   { opacity: 1;   transform: translateX(0); }
+  }
+  .modal.sheet .modal-header { flex: 0 0 auto; }
+  .modal.sheet .modal-footer { flex: 0 0 auto; }
+  .modal.sheet .modal-body-sheet {
+    flex: 1 1 auto; min-height: 0;
+    display: grid;
+    grid-template-columns: 45fr 55fr;
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .sheet-col {
+    overflow-y: auto; overflow-x: hidden;
+    padding: 16px 20px;
+  }
+  .sheet-understand {
+    border-right: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .sheet-capture { background: var(--surface); }
+  .sheet-col-title {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted2); font-weight: 600;
+    padding-bottom: 8px; margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; background: inherit; z-index: 2;
+  }
+  @media (max-width: 900px) {
+    .modal.sheet { width: 100vw; border-radius: 0; }
+    .modal.sheet .modal-body-sheet { grid-template-columns: 1fr; }
+    .sheet-understand { border-right: none; border-bottom: 1px solid var(--border); }
   }
 
   .modal-header {
@@ -4636,6 +4857,7 @@ function buildHtml() {
             <input class="search-input" placeholder="search errors, fingerprints, environments&#8230;" id="search" autocomplete="off" aria-label="Search errors">
           </div>
           <span class="result-count" id="result-count">0 errors</span>
+          <span class="doc-counter" id="doc-counter" hidden>0 documented this week</span>
         </div>
       </div>
       <div class="bulk-bar" id="bulk-bar" role="region" aria-label="Selection actions" hidden>
@@ -5587,6 +5809,7 @@ function dissolveGroup(groupId) {
 function openGroupModal(parent) {
   var modal = document.getElementById('modal-content');
   removeChildren(modal);
+  modal.classList.remove('sheet');
   var header = el('div','modal-header');
   header.appendChild(txt('div','modal-title', 'Group · ' + parent.group.name));
   var closeBtn = el('button','modal-close');
@@ -5627,7 +5850,17 @@ function openGroupModal(parent) {
   });
   body.appendChild(listSec);
 
-  var actions = el('div','modal-section');
+  var actions = el('div','modal-section group-actions');
+
+  // Primary: one solution, all members. This is the fix the docs call
+  // out in document-flow-vision §IV — groupthink, one write, many cards.
+  var docBtn = el('button','btn btn-primary');
+  docBtn.textContent = 'Document group';
+  docBtn.addEventListener('click', (function(p){ return function(){
+    openGroupDocumentForm(p);
+  };})(parent));
+  actions.appendChild(docBtn);
+
   var dissolve = el('button','bulk-btn');
   dissolve.textContent = 'Dissolve group';
   dissolve.style.borderColor = 'rgba(255,69,58,0.4)';
@@ -5642,11 +5875,198 @@ function openGroupModal(parent) {
   document.getElementById('board-modal').classList.add('open');
 }
 
+// Group Document form — the group-mode of the Document sheet, scoped down
+// to what tonight's demo can ship honestly. Replaces the overview with:
+// a "Writes to" checklist of members (all checked by default), the same
+// three capture fields the per-card form uses (root cause / fix summary /
+// commit SHA), and a save button whose label carries the live member
+// count. Unchecking a member means "ungroup this one before saving" —
+// not "skip it silently." The server translates that into bd label
+// removal via ungroup_members in the payload.
+function openGroupDocumentForm(parent) {
+  var modal = document.getElementById('modal-content');
+  removeChildren(modal);
+  modal.classList.remove('sheet');
+
+  var header = el('div','modal-header');
+  header.appendChild(txt('div','modal-title', 'Document group \\u00b7 ' + parent.group.name));
+  var closeBtn = el('button','modal-close');
+  closeBtn.textContent = '\\u2715';
+  closeBtn.addEventListener('click', closeBoardModal);
+  header.appendChild(closeBtn);
+  modal.appendChild(header);
+
+  var body = el('div','modal-body');
+
+  // Back-to-overview — the form is reachable from the group overview,
+  // and the overview has context (member list, metadata) the operator
+  // might want to re-reference while composing. Keep the escape route.
+  var backWrap = el('div','modal-section');
+  var backBtn = el('button','bulk-btn');
+  backBtn.textContent = '\\u2190 Back to group overview';
+  backBtn.addEventListener('click', (function(p){ return function(){ openGroupModal(p); };})(parent));
+  backWrap.appendChild(backBtn);
+  body.appendChild(backWrap);
+
+  // Writes-to checklist. Renders every current member with a checkbox,
+  // default-checked. Uncheck = ungroup-before-save. The count on the
+  // save button updates live so the operator always sees the blast
+  // radius of their next click.
+  var writesSec = el('div','modal-section');
+  writesSec.appendChild(txt('div','modal-section-title','Writes to'));
+  var writesNote = txt('div','modal-section-note',
+    'This solution will be applied to every checked member. Uncheck a member to ungroup it before saving (groups commit to one truth).');
+  writesSec.appendChild(writesNote);
+
+  var writesList = el('div','writes-to-list');
+  var checkboxes = [];
+  parent.members.forEach(function(m){
+    var row = el('label','writes-to-row');
+    var cb = el('input','writes-to-cb');
+    cb.type = 'checkbox';
+    cb.checked = true;
+    cb.setAttribute('data-project', m.project || '');
+    cb.setAttribute('data-card-id', m.id || '');
+    checkboxes.push(cb);
+    row.appendChild(cb);
+    row.appendChild(txt('span','writes-to-sev sev-'+m.sev, (SEV_LABEL[m.sev]||m.sev||'').toUpperCase()));
+    row.appendChild(txt('span','writes-to-project', m.projectLabel || m.project || ''));
+    row.appendChild(txt('span','writes-to-cardid', m.id || ''));
+    row.appendChild(txt('span','writes-to-fp', 'fp:' + (m.fp||'').slice(0,8)));
+    writesList.appendChild(row);
+  });
+  writesSec.appendChild(writesList);
+  body.appendChild(writesSec);
+
+  // Capture fields — same three-field shape as the per-card form so
+  // recall surfaces these cards uniformly, regardless of whether they
+  // were documented singly or as part of a group.
+  var fieldsSec = el('div','modal-section');
+  fieldsSec.appendChild(txt('div','modal-section-title','Your documentation'));
+
+  function field(id, label, placeholder, multiline) {
+    var wrap = el('div','solution-field-wrap');
+    var l = el('label','solution-field-label'); l.textContent = label; l.setAttribute('for', id);
+    wrap.appendChild(l);
+    var inp = multiline ? el('textarea','solution-field-input') : el('input','solution-field-input');
+    inp.id = id;
+    if (!multiline) inp.type = 'text';
+    if (placeholder) inp.placeholder = placeholder;
+    if (multiline) inp.rows = 3;
+    wrap.appendChild(inp);
+    return wrap;
+  }
+
+  fieldsSec.appendChild(field('grp-sol-root-cause', 'Root cause',
+    'One or two sentences, general audience — no project paths or customer names.', true));
+  fieldsSec.appendChild(field('grp-sol-fix-summary', 'Fix summary (or \\u201cnot yet fixed\\u201d)',
+    'What was done, or the plan if not yet fixed.', true));
+  fieldsSec.appendChild(field('grp-sol-fix-sha', 'Fix commit SHA (optional)', 'abc1234', false));
+  body.appendChild(fieldsSec);
+
+  // Save row.
+  var btnRow = el('div','solution-form-btns');
+  var cancelBtn = el('button','btn btn-ghost');
+  cancelBtn.textContent = 'Cancel';
+  cancelBtn.addEventListener('click', (function(p){ return function(){ openGroupModal(p); };})(parent));
+
+  var saveBtn = el('button','btn btn-primary');
+  function updateSaveLabel() {
+    var n = checkboxes.filter(function(cb){ return cb.checked; }).length;
+    saveBtn.textContent = 'Save group documentation (' + n + ')';
+    saveBtn.disabled = (n === 0);
+  }
+  checkboxes.forEach(function(cb){ cb.addEventListener('change', updateSaveLabel); });
+  updateSaveLabel();
+
+  saveBtn.addEventListener('click', function(){
+    var rc = document.getElementById('grp-sol-root-cause').value.trim();
+    var fs = document.getElementById('grp-sol-fix-summary').value.trim();
+    var sha = document.getElementById('grp-sol-fix-sha').value.trim() || 'none';
+    if (!rc || !fs) {
+      showToast('Root cause and fix summary are required.');
+      return;
+    }
+    var applied = [];
+    var ungroup = [];
+    checkboxes.forEach(function(cb){
+      var entry = { project: cb.getAttribute('data-project'), card_id: cb.getAttribute('data-card-id') };
+      if (cb.checked) applied.push(entry); else ungroup.push(entry);
+    });
+    if (applied.length === 0) {
+      showToast('At least one member must stay checked to save a group solution.');
+      return;
+    }
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Saving\\u2026';
+    fetch('/api/groups/' + encodeURIComponent(parent.group.id) + '/solution', {
+      method: 'POST',
+      headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({
+        root_cause: rc, fix_summary: fs, fix_commit_sha: sha,
+        ungroup_members: ungroup,
+      }),
+    }).then(function(r){ return r.json(); }).then(function(resp){
+      if (resp.status === 'ok') {
+        var msg = 'Documented ' + resp.applied + ' error' + (resp.applied === 1 ? '' : 's')
+                + ' with one solution'
+                + (resp.ungrouped ? ' \\u00b7 ungrouped ' + resp.ungrouped : '')
+                + (resp.dissolved ? ' \\u00b7 group dissolved' : '');
+        showToast(msg);
+        closeBoardModal();
+        fetchAll();
+      } else {
+        saveBtn.disabled = false;
+        updateSaveLabel();
+        showToast('Save failed: ' + (resp.error || resp.message || 'unknown'));
+      }
+    }).catch(function(e){
+      saveBtn.disabled = false;
+      updateSaveLabel();
+      showToast('Request failed: ' + e.message);
+    });
+  });
+  btnRow.appendChild(cancelBtn);
+  btnRow.appendChild(saveBtn);
+  body.appendChild(btnRow);
+
+  modal.appendChild(body);
+  document.getElementById('board-modal').classList.add('open');
+}
+
+// "You've documented N this week" — per document-flow-vision "Feel the
+// contribution" stage. Only rendered when N > 0. Memoized on ALL_CARDS
+// identity so it costs nothing on search-keystroke rerenders; only the
+// fetchAll boundary changes ALL_CARDS.
+var _docCounterCache = { src: null, count: -1 };
+function updateDocCounter() {
+  var counter = document.getElementById('doc-counter');
+  if (!counter) return;
+  var n;
+  if (_docCounterCache.src === ALL_CARDS) {
+    n = _docCounterCache.count;
+  } else {
+    var cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+    n = 0;
+    (ALL_CARDS || []).forEach(function(c){
+      if (!c || c.isGroup || !c.actual) return;
+      var ts = c.actual.verified_at || c.actual.written_at || c.actual.captured_at || '';
+      var t = ts ? Date.parse(ts) : NaN;
+      if (!isNaN(t) && t >= cutoff) n++;
+    });
+    _docCounterCache = { src: ALL_CARDS, count: n };
+  }
+  if (n <= 0) { counter.setAttribute('hidden',''); counter.textContent = ''; return; }
+  counter.removeAttribute('hidden');
+  counter.textContent = '\\u2713 ' + n + ' documented this week';
+}
+
 function renderTable() {
   var tbody = document.getElementById('tbody');
   removeChildren(tbody);
   var cards = getFilteredCards();
   document.getElementById('result-count').textContent = cards.length + ' errors';
+  updateDocCounter();
 
   if (cards.length === 0) {
     var tr = el('tr');
@@ -5964,6 +6384,7 @@ function openBoardModal(c, opts) {
   opts = opts || {};
   var modal = document.getElementById('modal-content');
   removeChildren(modal);
+  modal.classList.add('sheet');
 
   var SEV_LABELS = {crit:'Critical',warn:'Warning',info:'Info'};
 
@@ -5975,7 +6396,16 @@ function openBoardModal(c, opts) {
   header.appendChild(closeBtn);
   modal.appendChild(header);
 
-  var body = el('div','modal-body');
+  // Sheet body: two independently-scrollable columns.
+  //   Understand (left, read-only): what happened — meta, error,
+  //     stack, triage log, Projected (agent notes).
+  //   Capture (right, write):       what we know — recall at top,
+  //     then the Documented block or the capture form.
+  var body = el('div','modal-body modal-body-sheet');
+  var understand = el('div','sheet-col sheet-understand');
+  understand.appendChild(txt('div','sheet-col-title','Understand'));
+  var capture = el('div','sheet-col sheet-capture');
+  capture.appendChild(txt('div','sheet-col-title','Capture'));
 
   var metaSec = el('div','modal-section');
   metaSec.appendChild(txt('div','modal-section-title','Details'));
@@ -6017,12 +6447,12 @@ function openBoardModal(c, opts) {
     metaGrid.appendChild(hostMi);
   }
   metaSec.appendChild(metaGrid);
-  body.appendChild(metaSec);
+  understand.appendChild(metaSec);
 
   var errSec = el('div','modal-section');
   errSec.appendChild(txt('div','modal-section-title','Error message'));
   errSec.appendChild(txt('div','modal-err-msg',c.title));
-  body.appendChild(errSec);
+  understand.appendChild(errSec);
 
   // Documentation section. Drover's product is error tracking + memory,
   // not fix-automation — so the primary ask of the human is to DOCUMENT
@@ -6097,8 +6527,13 @@ function openBoardModal(c, opts) {
   }
   docSec.appendChild(docRow);
 
-  // Projected block — muted, secondary. Only shown when present.
+  capture.appendChild(docSec);
+
+  // Projected block — muted, secondary. Sits in Understand (it's agent
+  // hypothesis, not the operator's documentation) and only appears when
+  // present.
   if (c.projected) {
+    var projSec = el('div','modal-section');
     var projRow = el('div','solution-row solution-row-muted');
     projRow.appendChild(txt('div','solution-sub-title',
       'Agent notes (' + (c.projected.written_by || 'agent') + ') — optional, not drover\\u2019s documentation'));
@@ -6113,10 +6548,9 @@ function openBoardModal(c, opts) {
         }
       });
     projRow.appendChild(projList);
-    docSec.appendChild(projRow);
+    projSec.appendChild(projRow);
+    understand.appendChild(projSec);
   }
-
-  body.appendChild(docSec);
 
   // Fire the recall lookup asynchronously so the modal opens immediately.
   (function(card, host){
@@ -6151,7 +6585,7 @@ function openBoardModal(c, opts) {
       }
     });
     stackSec.appendChild(stackBlock);
-    body.appendChild(stackSec);
+    understand.appendChild(stackSec);
   }
 
   if(c.triageLog && c.triageLog.length){
@@ -6165,9 +6599,11 @@ function openBoardModal(c, opts) {
       logWrap.appendChild(row);
     });
     logSec.appendChild(logWrap);
-    body.appendChild(logSec);
+    understand.appendChild(logSec);
   }
 
+  body.appendChild(understand);
+  body.appendChild(capture);
   modal.appendChild(body);
 
   var footer = el('div','modal-footer');
@@ -6352,7 +6788,7 @@ function buildActualForm(c, holder) {
       body: JSON.stringify(payload),
     }).then(function(r){ return r.json(); }).then(function(resp){
       if (resp.status === 'ok') {
-        showToast('Actual solution saved. Ticket ' + c.id + ' closed.');
+        showToast('Documented. Your notes will help the next operator who sees this.');
         closeBoardModal();
         fetchAll();
       } else {
@@ -6371,6 +6807,8 @@ function buildActualForm(c, holder) {
 
 function closeBoardModal(){
   document.getElementById('board-modal').classList.remove('open');
+  var mc = document.getElementById('modal-content');
+  if (mc) mc.classList.remove('sheet');
 }
 
 document.getElementById('board-modal').addEventListener('click', function(ev){
@@ -6408,6 +6846,7 @@ function addProjectPrompt() {
 function showAddProjectModal() {
   var content = document.getElementById('modal-content');
   removeChildren(content);
+  content.classList.remove('sheet');
 
   var header = document.createElement('div'); header.className = 'modal-header';
   var title = document.createElement('div'); title.className = 'modal-title'; title.textContent = 'Add Project';
@@ -6546,6 +6985,7 @@ function sourcesPrompt() {
 function showSourcesModal(envs) {
   var content = document.getElementById('modal-content');
   removeChildren(content);
+  content.classList.remove('sheet');
 
   var lastAlias = '';
   try { lastAlias = localStorage.getItem('drover.sources.lastAlias') || ''; } catch (_) {}
@@ -7009,6 +7449,7 @@ function loadSeedHistoryTab(alias) {
 function showBackfillModal(envs) {
   var content = document.getElementById('modal-content');
   removeChildren(content);
+  content.classList.remove('sheet');
 
   var header = el('div','modal-header');
   header.appendChild(txt('div','modal-title','Backfill Acquia logs'));
@@ -8433,6 +8874,10 @@ const server = http.createServer(async (req, res) => {
     const groupMatch = pathname.match(/^\/api\/groups\/([^/]+)$/);
     if (groupMatch && req.method === 'DELETE') {
       return await handleGroupDissolve(req, res, decodeURIComponent(groupMatch[1]));
+    }
+    const groupSolMatch = pathname.match(/^\/api\/groups\/([^/]+)\/solution$/);
+    if (groupSolMatch && req.method === 'POST') {
+      return await handleGroupSolution(req, res, decodeURIComponent(groupSolMatch[1]));
     }
 
     // API endpoints

@@ -1,5 +1,32 @@
 # drover Changelog
 
+## 1.41.0
+- **Single-mode Document sheet (vision-doc Phase 1).** The per-card Document modal is retired; its replacement is a right-docked full-height sheet with two independently-scrollable columns:
+  - **Understand** (left, ~45%, read-only surface): *Details* grid (severity, fingerprint, occurrences, envs, age, lane, project, hostnames), the parsed *Error message*, the *Stack trace* when present, the *Triage log* when present, and *Agent notes* (Projected block, muted) when an implementer-agent has run. Everything the operator needs to understand the error before writing about it.
+  - **Capture** (right, ~55%, write surface): *Have we seen this before?* recall matches at the top — per vision, recall is the answer to the understanding question before it's the answer to the documenting question — then either the existing Documented block (read-mode) or the capture form (write-mode) with Mark-as-noise as a secondary action.
+  - The footer (*Move to* dropdown + Dashboard / advance buttons) stays full-width across both columns.
+  - Narrow viewports (<900px) collapse to a single column with Understand stacked above Capture.
+- **Other modals unchanged.** The sheet treatment is scoped to the single-card Document flow; the group modal, group Document form, Add Project, Sources, and Backfill modals remain centered — each now explicitly removes the `.sheet` class on open so toggling between flows never leaks styling.
+- **Refactor: shared bd-write contract.** `handleSolution` and `handleGroupSolution` now both route through `buildActualBlock` (single vs group Actual markdown) + `writeActualToCard` (the two-call append-then-move-lane bd pattern with the 15000ms A13 timeout). Future bd-flag or Actual-schema changes land in one place instead of two.
+- **Group save correctness tightened.** bd writes now run first on a pure partition of the membership; group state mutations (ungroup labels, auto-dissolve, groups-file write) happen only after at least one write landed. Complete write failure returns 500 with the group unchanged so the operator retries from a clean surface. Fixes the partial-failure case where ungroup labels could be pulled before any documentation had actually persisted.
+- **Counter memoized.** `updateDocCounter` caches on `ALL_CARDS` identity; search-keystroke rerenders no longer rewalk the array.
+
+## 1.40.1
+- **Contribution feedback (vision-doc Phase 9).** Small polish around the save moment so the operator sees they just contributed knowledge to the system.
+  - **Documentation counter** in the table toolbar, next to the errors count. Quiet green pill reading *"✓ N documented this week"* — hidden when N=0, self-respecting. Counts cards whose Actual block's `verified_at` is within the past 7 days.
+  - **Single-card post-save toast** rewritten from the accurate-but-bureaucratic *"Actual solution saved. Ticket X closed."* to the letter-to-a-future-operator wording: *"Documented. Your notes will help the next operator who sees this."*
+  - Group-mode save toast (shipped in 1.40.0) already carries the *"Documented N errors with one solution"* copy, so both single and group paths now land on the same emotional beat.
+
+## 1.40.0
+- **Group-mode Document flow ships (vision-doc Phase 6, partial).** Documenting a group is now a first-class action, not a per-member chore.
+  - **Group modal** gains a primary `[ Document group ]` button alongside the existing `Dissolve group`. Clicking it replaces the overview with a Document form scoped to the group.
+  - **"Writes to" checklist.** Every current member of the group appears with a checkbox, default-checked. The save button's label carries the live count (*"Save group documentation (N)"*).
+  - **Uncheck = ungroup before saving.** This is the groupthink semantic from `docs/document-flow-vision.md`: groups commit to one truth. Unchecking a member strips its `group-<id>` label, drops it from the group record, and excludes it from the propagation. It becomes a plain single-mode card.
+  - **One solution, many cards.** New endpoint `POST /api/groups/:id/solution` takes one set of root_cause / fix_summary / fix_commit_sha fields and writes the same Actual block to every remaining member's bd card. Each member is moved to `lane-done` with the same two-call write pattern as the per-card `handleSolution`. Partial failures surface per-member in the `errors` array.
+  - **Auto-dissolve at save.** If the group shrinks below 2 members during save (operator unchecked all but one), the group record is removed and the singleton is ungrouped cleanly on the way out.
+  - **Pulse event** `group-documented` fires once per group save with `{applied, ungrouped, dissolved}` counts so the pulse feed tells the knowledge-capture story without double-counting per-member writes.
+- Vision doc (`docs/document-flow-vision.md`) continues to describe the fuller sheet + three-mode design targeted for phases 1, 5, 8–9. This release is the wiring underneath it.
+
 ## 1.39.1
 - **Docs sweep** catching the written product up to what the 1.39.0 code actually does.
   - **`README.md`** rewritten. Tagline is now *"Drover watches your Drupal sites' error logs and captures what you know about each error — so the next time a similar one surfaces, you're not rediscovering the fix."* Retires the "opens fix PRs for you to review" language. The implementer-agent is called out explicitly as an opt-in / experimental capability, not as part of the primary product.
