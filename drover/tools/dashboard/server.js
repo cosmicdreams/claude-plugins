@@ -977,6 +977,69 @@ async function handleUmbrellaLine(rawLine) {
         details: { key, project: meta.project, env: meta.envLabel },
       });
     }
+    return;
+  }
+
+  // TRAFFIC-LINE = per-event passthrough (DROVER_TRAFFIC_PASSTHRU=1).
+  // One pulse per request so the feed moves in lockstep with the
+  // websocket — proves the live layer is real-time, not polled.
+  // Line shape: TRAFFIC-LINE <log_type> <http_status> <alias> <raw text>
+  if (payload.startsWith('TRAFFIC-LINE ')) {
+    const rest = payload.slice('TRAFFIC-LINE '.length);
+    const sp1 = rest.indexOf(' ');
+    const sp2 = rest.indexOf(' ', sp1 + 1);
+    const sp3 = rest.indexOf(' ', sp2 + 1);
+    if (sp1 < 0 || sp2 < 0 || sp3 < 0) return;
+    const logType = rest.slice(0, sp1);
+    const httpStatus = rest.slice(sp1 + 1, sp2);
+    const aliasTok = rest.slice(sp2 + 1, sp3);
+    const text = rest.slice(sp3 + 1);
+    const meta = markEvent(key) || {};
+    broadcast('ingest-event', { ts: new Date().toISOString(), key, kind: 'traffic-line' });
+    recordPulse({
+      type: 'traffic-line',
+      origin: (meta.project || '') + ' · ' + (meta.envLabel || aliasTok),
+      summary: logType + ' ' + httpStatus + ' · ' + text.slice(0, 160),
+      details: { log_type: logType, http_status: httpStatus, alias: aliasTok, project: meta.project, env: meta.envLabel },
+    });
+    return;
+  }
+
+  // TRAFFIC = aggregate summary every DROVER_TRAFFIC_INTERVAL events.
+  // Shape: TRAFFIC <log_type> count=<N> status={"200":950,"404":50} <alias>
+  if (payload.startsWith('TRAFFIC ')) {
+    const rest = payload.slice(8);
+    const tokens = rest.split(' ');
+    const logType = tokens[0] || 'traffic';
+    const countMatch = rest.match(/\bcount=(\d+)/);
+    const count = countMatch ? parseInt(countMatch[1], 10) : 0;
+    // Greedy status JSON extraction — the object may contain spaces after commas.
+    let statusSummary = '';
+    const statusStart = rest.indexOf('status=');
+    if (statusStart >= 0) {
+      const jsonStart = rest.indexOf('{', statusStart);
+      const jsonEnd   = rest.indexOf('}', jsonStart);
+      if (jsonStart > 0 && jsonEnd > jsonStart) {
+        const raw = rest.slice(jsonStart, jsonEnd + 1);
+        try {
+          const obj = JSON.parse(raw);
+          statusSummary = Object.keys(obj)
+            .sort((a, b) => obj[b] - obj[a])
+            .slice(0, 4)
+            .map(k => k + ':' + obj[k])
+            .join(' ');
+        } catch { /* fall through */ }
+      }
+    }
+    const meta = markEvent(key) || {};
+    broadcast('ingest-event', { ts: new Date().toISOString(), key, kind: 'traffic', log_type: logType, count });
+    recordPulse({
+      type: 'traffic-heartbeat',
+      origin: (meta.project || '') + ' · ' + (meta.envLabel || key),
+      summary: logType + ' · ' + count + ' reqs' + (statusSummary ? ' · ' + statusSummary : ''),
+      details: { key, project: meta.project, env: meta.envLabel, log_type: logType, count, statusSummary },
+    });
+    return;
   }
 }
 

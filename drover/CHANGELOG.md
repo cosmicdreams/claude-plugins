@@ -1,5 +1,12 @@
 # drover Changelog
 
+## 1.49.1
+- **Traffic-log events flow through to the pulse feed in real time.** Enabling `apache-request` (or any `TRAFFIC_TYPES` log — `drupal-request`, `fpm-access`, `bal-request`, `varnish-request`) now emits one pulse event per event instead of dropping on the floor.
+  - Root cause: `fingerprint.py` explicitly filters access-log lines (*"HTTP access-log lines — error-like words in URLs are not errors"*) via `ACCESS_LOG_RE`. Every successful request line returned `None` from `classify()`, so the fingerprint pipeline produced no events. `handleUmbrellaLine` in the dashboard also only recognized `NEW` and `THRESH` prefixes; any `TRAFFIC` aggregate line from `acquia-watch.py` was silently dropped.
+  - Fix path: `acquia-watch.py` now honors `DROVER_TRAFFIC_PASSTHRU=1` and emits a `TRAFFIC-LINE <log_type> <http_status> <alias> <raw text>` for every traffic event. `umbrella-watch.sh` sets that env var on every spawned child, so any env with a traffic source enabled immediately starts surfacing per-line events. Dashboard's `handleUmbrellaLine` gains a `TRAFFIC-LINE` branch that records a `traffic-line` pulse event (no bd card — these are not errors).
+  - `TRAFFIC` aggregate summaries (one per `DROVER_TRAFFIC_INTERVAL=1000` events) now also flow to the pulse feed with a digest (`count=N status=200:950 404:50`) so operators who prefer the aggregate view get that too.
+- **Demo use case unlocked.** Toggle on `apache-request` on any Acquia env and the pulse feed ticks in lockstep with the WebSocket — visible proof the live layer is not a polling loop.
+
 ## 1.49.0
 - **Per-env log-source toggles in the project drawer.** Every env in a project drawer now renders its full list of available log sources as clickable pills — not just the enabled ones. Green pill = streaming, grey dashed pill = available-but-paused. One click flips the state; the drawer re-renders in place without close/reopen.
   - **Acquia envs** show the full canonical inventory: `drupal-watchdog`, `apache-error`, `php-error`, `fpm-error`, `apache-request`, `drupal-request`, `fpm-access`, `bal-request`, `varnish-request`.
