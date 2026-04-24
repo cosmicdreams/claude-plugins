@@ -97,6 +97,14 @@ const SEVERITY_ICONS = {
 const CACHE_TTL = 5000; // 5 seconds
 let ticketCache = { data: null, ts: 0 };
 
+// Every bd mutation invalidates the ticket cache and broadcasts a
+// refresh event. These always pair — use this wrapper instead of
+// writing both lines so a future handler can't forget one of them.
+function invalidateAndBroadcast(event, payload) {
+  ticketCache = { data: null, ts: 0 };
+  broadcast(event, payload);
+}
+
 // ---------------------------------------------------------------------------
 // DDEV Instance Management
 // ---------------------------------------------------------------------------
@@ -728,8 +736,7 @@ function setupWatchers() {
       fs.watch(beadsDir, { persistent: false }, () => {
         if (boardDebounce) clearTimeout(boardDebounce);
         boardDebounce = setTimeout(() => {
-          ticketCache = { data: null, ts: 0 }; // invalidate cache
-          broadcast('board-update', {
+          invalidateAndBroadcast('board-update', {
             ts: new Date().toISOString(),
             project: b.project,
           });
@@ -942,8 +949,7 @@ async function handleUmbrellaLine(rawLine) {
       await execFileP('bd', ['create', title, '--db', meta.dbPath, '--labels', labels, '--description', body],
         { encoding: 'utf8', timeout: 8000 });
       existing.add(fp);
-      ticketCache = { data: null, ts: 0 };
-      broadcast('board-update', { ts: new Date().toISOString(), project: meta.project, via: 'live-ingest' });
+      invalidateAndBroadcast('board-update', { ts: new Date().toISOString(), project: meta.project, via: 'live-ingest' });
       broadcast('ingest-event', { ts: new Date().toISOString(), project: meta.project, source: meta.source, fp });
       recordPulse({
         type: 'fingerprint-new',
@@ -2316,9 +2322,7 @@ async function handleGroupsCreate(req, res) {
 
   // Invalidate the ticket cache so the next /api/board pickup reflects
   // the new labels (the dashboard's virtual-central merge reads labels).
-  ticketCache = { data: null, ts: 0 };
-
-  broadcast('groups-update', { ts: new Date().toISOString(), action: 'create', id: group.id });
+  invalidateAndBroadcast('groups-update', { ts: new Date().toISOString(), action: 'create', id: group.id });
   recordPulse({
     type: 'group-created',
     origin: group.id,
@@ -2344,9 +2348,7 @@ async function handleGroupDissolve(req, res, groupId) {
     return jsonResponse(res, 500, { error: 'failed to write groups file: ' + e.message });
   }
 
-  ticketCache = { data: null, ts: 0 };
-
-  broadcast('groups-update', { ts: new Date().toISOString(), action: 'dissolve', id: groupId });
+  invalidateAndBroadcast('groups-update', { ts: new Date().toISOString(), action: 'dissolve', id: groupId });
   recordPulse({
     type: 'group-dissolved',
     origin: groupId,
@@ -2395,30 +2397,33 @@ async function handleGroupSolution(req, res, groupId) {
     category, tags, root_cause, fix_summary, fix_commit_sha,
   });
 
-  // Phase 1: bd writes only. Nothing in group state or groups-file
-  // mutates yet; if every write fails we return 500 untouched so the
-  // operator retries from a clean slate.
+  // Phase 1: bd writes in parallel. Event-loop-friendly at realistic N;
+  // for a group of 10 this collapses ~80s of serial A13-timeout exposure
+  // to a single concurrent wait. If every write fails we return 500
+  // untouched so the operator retries from a clean slate.
   const boards = currentBoards();
   const errors = [];
-  let appliedCount = 0;
-  for (const m of targets) {
+  const writes = targets.map(async (m) => {
     const board = boards.find(b => b.project === m.project);
     if (!board || !board.dbPath) {
       errors.push({ member: m, error: 'no db path for project=' + m.project });
-      continue;
+      return false;
     }
     const ticket = ticketMap[m.card_id];
     const currentLane = (ticket && (ticket.labels || []).find(l => l.startsWith('lane-'))) || 'lane-triage';
     try {
-      writeActualToCard({
+      await writeActualToCard({
         board, cardId: m.card_id, actualBlock, currentLane, now,
         laneMoveNote: 'Group solution captured via dashboard; lane-done.',
       });
-      appliedCount++;
+      return true;
     } catch (e) {
       errors.push({ member: m, error: (e.stderr && e.stderr.toString()) || e.message });
+      return false;
     }
-  }
+  });
+  const writeResults = await Promise.all(writes);
+  const appliedCount = writeResults.filter(Boolean).length;
   if (targets.length > 0 && appliedCount === 0) {
     return jsonResponse(res, 500, {
       status: 'error', group_id: groupId,
@@ -2451,8 +2456,7 @@ async function handleGroupSolution(req, res, groupId) {
     return jsonResponse(res, 500, { error: 'failed to write groups file: ' + e.message, applied: appliedCount });
   }
 
-  ticketCache = { data: null, ts: 0 };
-  broadcast('groups-update', { ts: now, action: 'solution', id: groupId, dissolved });
+  invalidateAndBroadcast('groups-update', { ts: now, action: 'solution', id: groupId, dissolved });
   recordPulse({
     type: 'group-documented',
     origin: groupId,
@@ -2859,8 +2863,7 @@ async function handleTriage(req, res) {
     } catch { /* skip cards that fail */ }
   }
 
-  ticketCache = { data: null, ts: 0 }; // invalidate so dashboard refreshes
-  broadcast('board-update', { ts: new Date().toISOString(), project: projectName });
+  invalidateAndBroadcast('board-update', { ts: new Date().toISOString(), project: projectName });
   return jsonResponse(res, 200, { created, skipped, total: newLines.length });
 }
 
@@ -2992,14 +2995,17 @@ function buildActualBlock({ now, mode, groupCtx, category, tags, root_cause, fix
 // timeout is the A13 mitigation for the append→move ordering (see
 // handleMove). Throws on bd error; callers decide whether to continue
 // or bail.
-function writeActualToCard({ board, cardId, actualBlock, currentLane, now, laneMoveNote }) {
-  execFileSync('bd', [
+async function writeActualToCard({ board, cardId, actualBlock, currentLane, now, laneMoveNote }) {
+  // Two bd calls: append the Actual block, then move the lane.
+  // execFileP is used instead of execFileSync so callers can Promise.all
+  // across members without blocking the event loop for N × 15000ms.
+  await execFileP('bd', [
     'update', cardId,
     '--db', board.dbPath,
     '--append-notes', actualBlock,
   ], { encoding: 'utf8', timeout: 15000 });
   if (currentLane !== 'lane-done' && currentLane !== 'lane-closed') {
-    execFileSync('bd', [
+    await execFileP('bd', [
       'update', cardId,
       '--db', board.dbPath,
       '--remove-label', currentLane,
@@ -3045,7 +3051,7 @@ async function handleSolution(req, res, ticketId) {
   const currentLane = (ticket.labels || []).find(l => l.startsWith('lane-')) || 'lane-triage';
 
   try {
-    writeActualToCard({ board, cardId: ticketId, actualBlock, currentLane, now });
+    await writeActualToCard({ board, cardId: ticketId, actualBlock, currentLane, now });
     ticketCache = { data: null, ts: 0 };
     recordPulse({
       type: 'error-documented',
@@ -6387,27 +6393,19 @@ function openGroupSheet(parent) {
 }
 
 // "You've documented N this week" — per document-flow-vision "Feel the
-// contribution" stage. Only rendered when N > 0. Memoized on ALL_CARDS
-// identity so it costs nothing on search-keystroke rerenders; only the
-// fetchAll boundary changes ALL_CARDS.
-var _docCounterCache = { src: null, count: -1 };
+// contribution" stage. One linear scan of ALL_CARDS; cheap at this scale
+// and search-keystroke rerenders are debounced at the caller anyway.
 function updateDocCounter() {
   var counter = document.getElementById('doc-counter');
   if (!counter) return;
-  var n;
-  if (_docCounterCache.src === ALL_CARDS) {
-    n = _docCounterCache.count;
-  } else {
-    var cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    n = 0;
-    (ALL_CARDS || []).forEach(function(c){
-      if (!c || c.isGroup || !c.actual) return;
-      var ts = c.actual.verified_at || c.actual.written_at || c.actual.captured_at || '';
-      var t = ts ? Date.parse(ts) : NaN;
-      if (!isNaN(t) && t >= cutoff) n++;
-    });
-    _docCounterCache = { src: ALL_CARDS, count: n };
-  }
+  var cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  var n = 0;
+  (ALL_CARDS || []).forEach(function(c){
+    if (!c || c.isGroup || !c.actual) return;
+    var ts = c.actual.verified_at || c.actual.written_at || c.actual.captured_at || '';
+    var t = ts ? Date.parse(ts) : NaN;
+    if (!isNaN(t) && t >= cutoff) n++;
+  });
   if (n <= 0) { counter.setAttribute('hidden',''); counter.textContent = ''; return; }
   counter.removeAttribute('hidden');
   counter.textContent = '\\u2713 ' + n + ' documented this week';
@@ -8294,7 +8292,14 @@ function showToast(msg){
 // ========================================================================
 // Search
 // ========================================================================
-document.getElementById('search').addEventListener('input', renderTable);
+// Debounce search-input → renderTable. Each keystroke filters + sorts
+// ALL_CARDS and rebuilds the tbody DOM; at 500+ cards typing was visibly
+// laggy. 150ms is below perceived-delay threshold and collapses bursts.
+var _searchDebounce = null;
+document.getElementById('search').addEventListener('input', function(){
+  if (_searchDebounce) clearTimeout(_searchDebounce);
+  _searchDebounce = setTimeout(renderTable, 150);
+});
 
 // Column sort — click to sort, click again to reverse.
 document.getElementById('err-thead').addEventListener('click', function(ev) {
@@ -9197,9 +9202,18 @@ function connectSSE() {
     window._sseReadyState = 1;
     refreshLiveBadgeFromState();
   };
-  evtSource.addEventListener('board-update',   function(){ noteLiveEvent('board-update');   fetchAll(); });
-  evtSource.addEventListener('cycle-complete', function(){ noteLiveEvent('cycle-complete'); fetchAll(); });
-  evtSource.addEventListener('ingest-event',   function(){ noteLiveEvent('ingest-event');   fetchAll(); });
+  // Coalesce SSE-driven refreshes — a single umbrella line may fire both
+  // board-update and ingest-event back-to-back, and group operations
+  // fire N broadcasts. Debouncing fetchAll to 200ms collapses these to
+  // one refresh cycle without delaying the first event noticeably.
+  var _fetchAllDebounce = null;
+  function fetchAllDebounced() {
+    if (_fetchAllDebounce) return;
+    _fetchAllDebounce = setTimeout(function(){ _fetchAllDebounce = null; fetchAll(); }, 200);
+  }
+  evtSource.addEventListener('board-update',   function(){ noteLiveEvent('board-update');   fetchAllDebounced(); });
+  evtSource.addEventListener('cycle-complete', function(){ noteLiveEvent('cycle-complete'); fetchAllDebounced(); });
+  evtSource.addEventListener('ingest-event',   function(){ noteLiveEvent('ingest-event');   fetchAllDebounced(); });
   evtSource.addEventListener('sources-update', function(){ noteLiveEvent('sources-update'); fetchDdevStatus(); });
   evtSource.addEventListener('ddev-status', function(ev){
     noteLiveEvent('ddev-status');
@@ -9219,7 +9233,7 @@ function connectSSE() {
   });
   evtSource.addEventListener('groups-update', function(){
     noteLiveEvent('groups-update');
-    fetchAll();
+    fetchAllDebounced();
   });
   evtSource.onerror = function() {
     window._sseReadyState = 2;
