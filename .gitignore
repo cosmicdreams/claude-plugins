@@ -11,5 +11,8 @@ __pycache__/
 # Analysis artifacts
 analysis-reports/
 
+# Playwright-CLI scratch (per-command page / console captures)
+.playwright-cli/
+
 # NOTE: .beads/ must NOT be gitignored — Beads databases are committed to the repo
 # .beads/

@@ -1,5 +1,15 @@
 # drover Changelog
 
+## 1.47.1
+- **Simplify pass** across drover after a parallel three-lens review (reuse / quality / efficiency).
+  - **Parallelized per-member bd writes in `handleGroupSolution`.** `writeActualToCard` is now async and the group handler `Promise.all`s over the target set. At N=10 this collapses ~80s of worst-case serial A13-timeout exposure to a single concurrent wait, and stops blocking the event loop during the operation.
+  - **Debounced `renderTable` on search keystroke** (150ms). At 500 cards typing was visibly laggy — each keystroke rebuilt the tbody and ran the full filter chain.
+  - **Debounced client `fetchAll()` on SSE events** (200ms). `board-update`, `cycle-complete`, `ingest-event`, and `groups-update` events coalesce; a single umbrella line firing multiple broadcasts now produces one refresh instead of N × 6 endpoint hits.
+  - **`invalidateAndBroadcast(event, payload)` wrapper.** The `ticketCache = {data:null,ts:0}` + `broadcast(...)` pair used to appear at 10+ call-sites; a future handler that forgets the invalidation would serve stale data until TTL expired. Wrapper introduced and applied at every adjacent pair.
+  - **Dropped `_docCounterCache`.** The scan is cheap (low hundreds of cards, one pass), keystroke renders are now debounced, and the `ALL_CARDS` identity invariant it relied on was fragile. Deleted entirely.
+  - **Extracted `drover/scripts/monitors/common.py`.** `ddev-watch.py` and `wp-watch.py` shared ~110 lines of byte-identical tail-subprocess + queue + fingerprint-emit logic; both collapse to ~30-line wrappers now. A bug fix to the shared loop lands in one place instead of two. State-checkpoint failure at shutdown logs to stderr (previously swallowed silently).
+  - **`umbrella-watch.sh` projects-file gate.** Switched the inline Python heredoc from shell-interpolating the file path into a single-quoted string (injection risk if the path carried a quote) to passing via `sys.argv[1]`.
+
 ## 1.47.0
 - **Tags (vision-doc Phase 4 partial).** Capture columns on both single-mode and group-mode sheets now include a comma-separated *Tags* input. Stored on the Actual markdown block as `- **tags:** drupal-core, mysql-8, cron` when set; becomes the substrate for cross-ticket facets in future work. Typeahead over past-used tags is deferred.
 - **Scratch notes (vision-doc Phase 3 / Slice H).** The single-mode sheet's Understand column gets a dashed-border, italic textarea labeled *Scratch notes* with the help text *"Working thoughts while you investigate. Cleared when you save documentation; stays on this device until then."* Content is persisted to `localStorage` keyed by card id, auto-cleared on successful save. Not posted to the server — this is the thinking surface, not the archive surface.

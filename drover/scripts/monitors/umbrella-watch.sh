@@ -43,14 +43,14 @@ log() { printf '[%s] %s\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$*" >> "$LOG_FILE" 
 # Gate: if projects.json is missing or holds an empty list, exit quietly.
 # The harness re-registers the monitor on next session; once a project is
 # added, the next session will pick it up.
-if [ ! -f "$PROJECTS_FILE" ] || ! python3 -c "
+if [ ! -f "$PROJECTS_FILE" ] || ! python3 -c '
 import json, sys
 try:
-    d = json.load(open('$PROJECTS_FILE'))
+    d = json.load(open(sys.argv[1]))
     sys.exit(0 if isinstance(d, list) and d else 1)
 except Exception:
     sys.exit(1)
-"; then
+' "$PROJECTS_FILE"; then
   log "no projects registered; exiting"
   exit 0
 fi
