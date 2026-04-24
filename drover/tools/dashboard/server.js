@@ -2716,10 +2716,51 @@ async function handleSourcesToggle(req, res) {
   });
 }
 
+// Kill every watcher process servicing this umbrella key — the
+// pidfile-tracked one AND any orphan whose argv matches. Previously
+// we only killed by pidfile, which meant orphans (ppid=1, outlived
+// their umbrella) kept their original DROVER_LOG_TYPES and kept
+// streaming. Returns the number of processes signalled.
+function killWatchersByKey(key) {
+  let killed = 0;
+  // argv pattern per key. Acquia children get 'env.uuid' as their
+  // single positional arg; ddev/wp children get 'project'.
+  let argvPattern = '';
+  if (key.startsWith('acquia:')) {
+    const suffix = key.slice('acquia:'.length);
+    argvPattern = `acquia-watch.py ${suffix}`;
+  } else if (key.startsWith('ddev:')) {
+    const suffix = key.slice('ddev:'.length);
+    // DDEV key doesn't distinguish Drupal (ddev-watch.py) from
+    // WordPress (wp-watch.py); kill both if present.
+    const dpids = pgrepArgv(`ddev-watch.py ${suffix}`);
+    const wpids = pgrepArgv(`wp-watch.py ${suffix}`);
+    [...dpids, ...wpids].forEach(pid => {
+      try { process.kill(pid, 'SIGTERM'); killed++; } catch {}
+    });
+    return killed;
+  }
+  if (argvPattern) {
+    pgrepArgv(argvPattern).forEach(pid => {
+      try { process.kill(pid, 'SIGTERM'); killed++; } catch {}
+    });
+  }
+  return killed;
+}
+
+function pgrepArgv(pattern) {
+  try {
+    const out = execFileSync('pgrep', ['-f', pattern], { encoding: 'utf8', timeout: 3000 });
+    return out.split('\n').map(s => parseInt(s.trim(), 10)).filter(p => p && p !== process.pid);
+  } catch { return []; }
+}
+
 // T3: locate the umbrella's pidfile for a given alias and kill just that
 // child. The umbrella's main loop will respawn it on the next poll tick
 // with the fresh DROVER_LOG_TYPES drawn from the side-file we drop here.
-// Returns {resubscribed: bool, action: 'restart'|'sources-updated'|'no-watcher', key}.
+// Also pkills by argv as a safety net — orphan watchers (ppid=1 from
+// umbrella respawn races) wouldn't be caught by pidfile-only kill and
+// would keep their original subscription alive.
 function resubscribeEnv(alias, sources, match) {
   const key = umbrellaKeyForAlias(alias, match);
   if (!key) {
@@ -2753,27 +2794,33 @@ function resubscribeEnv(alias, sources, match) {
     }
   } catch {}
 
+  // Always do a safety-net argv-based kill on top of the pidfile kill.
+  // Catches orphans that outlived their umbrella subshell (ppid=1)
+  // and wouldn't be signalled via the pidfile path.
+  let pidfileKilled = 0;
+  if (childPid) {
+    try { process.kill(childPid, 'SIGTERM'); pidfileKilled = 1; } catch {}
+  }
+  const argvKilled = killWatchersByKey(key);
+  const totalKilled = pidfileKilled + argvKilled;
+
   if (sources.length === 0) {
-    // Unsubscribe-all: stop the watcher outright. Umbrella will log
-    // "stopping <key> (unsubscribe)" and skip respawn for this tick.
-    if (childPid) {
-      try { process.kill(childPid, 'SIGTERM'); } catch {}
-      console.log(`[ingest] resubscribe ${key}: unsubscribe all sources; stopped child pid=${childPid}`);
-      recordPulse({ type: 'watcher-stop', origin: key, summary: 'Watcher stopped (pid ' + childPid + ')', details: { key, pid: childPid } });
+    if (totalKilled > 0) {
+      console.log(`[ingest] resubscribe ${key}: unsubscribe all sources; killed ${totalKilled} watcher process(es)`);
+      recordPulse({ type: 'watcher-stop', origin: key, summary: 'Watcher stopped (' + totalKilled + ' processes)', details: { key, killed: totalKilled } });
     } else {
-      console.log(`[ingest] resubscribe ${key}: unsubscribe all sources; no live child to stop`);
+      console.log(`[ingest] resubscribe ${key}: unsubscribe all sources; no live children to stop`);
     }
     try { fs.unlinkSync(pidfilePath); } catch {}
     return { resubscribed: true, action: 'unsubscribed', key };
   }
 
-  if (childPid) {
-    try { process.kill(childPid, 'SIGTERM'); } catch {}
-    console.log(`[ingest] resubscribe ${key}: sources=[${sources.join(',')}]; killed child pid=${childPid}; umbrella will respawn with new subscription`);
-    recordPulse({ type: 'watcher-restart', origin: key, summary: 'Watcher restarting · sources=[' + sources.join(',') + ']', details: { key, pid: childPid, sources } });
+  if (totalKilled > 0) {
+    console.log(`[ingest] resubscribe ${key}: sources=[${sources.join(',')}]; killed ${totalKilled} watcher process(es); umbrella will respawn with new subscription`);
+    recordPulse({ type: 'watcher-restart', origin: key, summary: 'Watcher restarting · sources=[' + sources.join(',') + '] · killed ' + totalKilled, details: { key, killed: totalKilled, sources } });
     return { resubscribed: true, action: 'restart', key };
   }
-  console.log(`[ingest] resubscribe ${key}: sources=[${sources.join(',')}]; no live child, override file written for next spawn`);
+  console.log(`[ingest] resubscribe ${key}: sources=[${sources.join(',')}]; no live children, override file written for next spawn`);
   recordPulse({ type: 'watcher-arm', origin: key, summary: 'Watcher armed · sources=[' + sources.join(',') + '] (awaiting next spawn)', details: { key, sources } });
   return { resubscribed: true, action: 'sources-updated', key };
 }
