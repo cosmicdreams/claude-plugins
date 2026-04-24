@@ -1,5 +1,14 @@
 # drover Changelog
 
+## 1.43.0
+- **Bulk-action bar polish (vision-doc Phase 2 / Stage 3 Decide).** The toolbar under the table that appears on row selection is now the four-CTA bar from the vision doc:
+  - **Primary**: *Group & Document…* (N>=2) / *Document…* (N=1). One click takes the operator from "these are the same bug" to the group's capture sheet — no intermediate "now go click the group" step.
+  - **Secondary**: *Group* — group without opening the sheet, for the "I'll document later" path.
+  - **Tertiary**: *Mark as noise* — bulk-silence. One reason-prompt, N serial POSTs to `/api/cards/:id/noise`.
+  - **Quiet**: *Clear* — right-aligned, low-emphasis.
+- **Primary button gets a filled treatment** (solid `--info` background) so the primary-action rule from ui-ux-pro-max reads correctly.
+- **Keyboard separation on focused rows.** `Enter` opens the row's sheet (as before). `Space` now *toggles row selection* instead of opening the sheet — matches the spec in document-flow-vision Part I (Stage 2). Group rows (no checkbox) fall through to open.
+
 ## 1.42.0
 - **Group-mode sheet (vision-doc Phase 5).** Clicking a group parent row now opens the same right-docked full-height sheet as a single-card click, adapted to group mode:
   - **Understand column**: aggregate *Details* (member count, projects, total occurrences, first/last seen), *Shared across members* rollup showing the majority value + `(N of M match)` badge for class and source plus per-env counts, and a clickable *Members* list where each row drills into the single-mode sheet for that card.

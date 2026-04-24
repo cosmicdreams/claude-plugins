@@ -3525,6 +3525,17 @@ function buildHtml() {
   }
   .bulk-btn:hover { border-color:var(--info); color:#fff; background:var(--info-dim); }
   .bulk-btn.bulk-group:hover { border-color:var(--ok); color:var(--ok); background:var(--ok-dim); }
+  .bulk-btn.bulk-primary {
+    background: var(--info); border-color: var(--info); color: #fff;
+  }
+  .bulk-btn.bulk-primary:hover {
+    background: var(--info2); border-color: var(--info2); color: #fff;
+  }
+  .bulk-btn.bulk-primary:disabled {
+    opacity: 0.45; cursor: not-allowed;
+    background: var(--info); border-color: var(--info); color: #fff;
+  }
+  .bulk-btn.bulk-clear { margin-left:auto; color:var(--muted); border-color:var(--border); }
   .bulk-btn:focus-visible { outline:2px solid var(--info); outline-offset:2px; }
 
   .table-toolbar {
@@ -4872,7 +4883,9 @@ function buildHtml() {
       </div>
       <div class="bulk-bar" id="bulk-bar" role="region" aria-label="Selection actions" hidden>
         <span class="bulk-count" id="bulk-count">0 selected</span>
-        <button type="button" class="bulk-btn bulk-group" id="bulk-group" onclick="groupSelected()">Group selected</button>
+        <button type="button" class="bulk-btn bulk-group bulk-primary" id="bulk-group-doc" onclick="groupAndDocument()">Group &amp; Document&#8230;</button>
+        <button type="button" class="bulk-btn" id="bulk-group" onclick="groupSelected()">Group</button>
+        <button type="button" class="bulk-btn" id="bulk-noise" onclick="bulkMarkNoise()">Mark as noise</button>
         <button type="button" class="bulk-btn bulk-clear" id="bulk-clear" onclick="clearSelection()">Clear</button>
       </div>
       <div class="table-wrap">
@@ -5604,12 +5617,19 @@ function renderBulkBar() {
   var bar = document.getElementById('bulk-bar');
   var count = document.getElementById('bulk-count');
   var groupBtn = document.getElementById('bulk-group');
+  var groupDocBtn = document.getElementById('bulk-group-doc');
+  var noiseBtn = document.getElementById('bulk-noise');
   var selectAll = document.getElementById('select-all');
   var n = SELECTED.size;
   if (bar) {
     bar.hidden = (n === 0);
     if (count) count.textContent = n + (n === 1 ? ' selected' : ' selected');
     if (groupBtn) groupBtn.disabled = (n < 2);
+    if (groupDocBtn) {
+      groupDocBtn.disabled = (n < 2);
+      groupDocBtn.textContent = n === 1 ? 'Document\\u2026' : 'Group & Document\\u2026';
+    }
+    if (noiseBtn) noiseBtn.disabled = (n === 0);
   }
   // Select-all header checkbox reflects indeterminate / all-checked when
   // some / all of the CURRENTLY-VISIBLE rows are selected.
@@ -5687,6 +5707,91 @@ function groupSelected() {
       }
     })
     .catch(function(e){ showToast('Group failed: ' + e.message); });
+}
+
+// Primary bulk action. N=1 → open that card's single-mode sheet.
+// N>=2 → group them, then open the new group's sheet so the operator
+// can document immediately. This is the "Group & Document" flow from
+// vision-doc Part I (Stage 3 — Decide) condensed into one click.
+function groupAndDocument() {
+  if (SELECTED.size === 0) return;
+  if (SELECTED.size === 1) {
+    var onlyId = Array.from(SELECTED)[0];
+    var card = (ALL_CARDS || []).find(function(c){ return c.id === onlyId; });
+    clearSelection();
+    if (card) openBoardModal(card, { expandForm: true });
+    return;
+  }
+  var members = (ALL_CARDS || []).filter(function(c){ return SELECTED.has(c.id); });
+  var tuples = members
+    .map(function(c){ return { project: c.project || '', card_id: c.id }; })
+    .filter(function(t){ return t.project && t.card_id; });
+  if (tuples.length < 2) {
+    showToast('Selection is missing project qualifiers; cannot form a natural key.');
+    return;
+  }
+  var firstMsg = (members[0] && (members[0].errCls || members[0].errMsg || members[0].title)) || '';
+  var name = (firstMsg || 'Group').slice(0, 80);
+  fetch('/api/groups', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name: name, member_ids: tuples }),
+  }).then(function(r){ return r.json().then(function(d){ return { status: r.status, body: d }; }); })
+    .then(function(res){
+      if (res.status === 200 && res.body && res.body.group) {
+        var newGroupId = res.body.group.id;
+        showToast('Grouped ' + tuples.length + ' errors \\u00b7 opening capture\\u2026');
+        clearSelection();
+        // Refresh, then find the synthesized parent row and open its sheet.
+        fetchAll().then(function(){
+          var parent = (ALL_CARDS || []).find(function(c){
+            return c.isGroup && c.group && c.group.id === newGroupId;
+          });
+          if (parent) openGroupSheet(parent);
+        });
+      } else if (res.status === 409 && res.body && res.body.conflicts) {
+        var names = res.body.conflicts
+          .map(function(c){ return (c.project || '?') + ':' + c.card_id; }).join(', ');
+        showToast('Already grouped: ' + names);
+      } else {
+        showToast('Group failed: ' + ((res.body && res.body.error) || ('HTTP ' + res.status)));
+      }
+    })
+    .catch(function(e){ showToast('Group failed: ' + e.message); });
+}
+
+// Bulk-mark every selected card as noise. One reason-prompt, N serial
+// POSTs to /api/cards/:id/noise. Used when the operator has selected a
+// batch of known-noise rows (e.g. the same cron heartbeat warning on
+// every env).
+function bulkMarkNoise() {
+  var n = SELECTED.size;
+  if (!n) return;
+  var reason = prompt('Why are these ' + n + ' error' + (n === 1 ? '' : 's') + ' noise? (required)');
+  if (!reason || !reason.trim()) return;
+  var ids = Array.from(SELECTED);
+  var failed = [];
+  function next(i) {
+    if (i >= ids.length) {
+      showToast(
+        failed.length
+          ? 'Marked ' + (ids.length - failed.length) + ' as noise \\u00b7 ' + failed.length + ' failed'
+          : 'Marked ' + ids.length + ' error' + (ids.length === 1 ? '' : 's') + ' as noise.');
+      clearSelection();
+      fetchAll();
+      return;
+    }
+    fetch('/api/cards/' + encodeURIComponent(ids[i]) + '/noise', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({ reason: reason.trim() }),
+    }).then(function(r){
+      if (r.status !== 200) failed.push(ids[i]);
+      next(i + 1);
+    }).catch(function(){
+      failed.push(ids[i]); next(i + 1);
+    });
+  }
+  next(0);
 }
 
 // Build a (project|card_id) → group lookup for renderTable. A card
@@ -6250,9 +6355,24 @@ function buildRow(c, i) {
     : function(){ openBoardModal(c); };
   tr.addEventListener('click', openHandler);
   tr.addEventListener('keydown', function(ev){
-    if (ev.key === 'Enter' || ev.key === ' ') {
+    if (ev.key === 'Enter') {
       ev.preventDefault();
       openHandler();
+      return;
+    }
+    // Space toggles selection (not open) so keyboard users can build
+    // bulk selections without opening each row's sheet. Group rows
+    // don't have a checkbox, so Space falls through to open instead.
+    if (ev.key === ' ') {
+      var cbEl = tr.querySelector('td.col-select input[type=checkbox]');
+      if (cbEl) {
+        ev.preventDefault();
+        cbEl.checked = !cbEl.checked;
+        cbEl.dispatchEvent(new Event('change', { bubbles: true }));
+      } else {
+        ev.preventDefault();
+        openHandler();
+      }
     }
   });
 
