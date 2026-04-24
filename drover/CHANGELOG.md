@@ -1,5 +1,14 @@
 # drover Changelog
 
+## 1.50.0
+- **`drover` CLI for on/off control.** Single script at `drover/bin/drover` with four subcommands:
+  - `drover stop` — kills every drover-owned process (dashboard, umbrella-watch.sh, acquia-watch.py, ddev-watch.py, wp-watch.py, bd-ready-watch.py) with SIGTERM then SIGKILL for holdouts, clears stale pidfiles, preserves side-files.
+  - `drover start` — launches the dashboard (which arms its own umbrella, which spawns watchers from each env's side-file).
+  - `drover restart` — stop + 2s settle + start. The escape hatch from the orphan-zoo states we hit tonight.
+  - `drover status` — reports running process counts per monitor + count of stale pidfiles.
+- **Fixed: fresh dashboard starts ingest subscriptions from drover-config.json.** Side-files (the umbrella's `DROVER_LOG_TYPES` overrides) are now bootstrapped at startup by `bootstrapSideFilesFromConfig()`. Before: if no user toggle had fired since startup, no side-file existed → acquia-watch subscribed to every available type → unwanted varnish-request / bal-request / drupal-request traffic bled into the pulse feed even when the config said `sources: ['drupal-watchdog']`. After: one side-file per indexed env at startup, first watcher spawn is correctly scoped.
+- **Net: apache-request on AHRI prod now produces apache-request lines only** — the streaming proof works cleanly for the demo without collateral traffic from other envs.
+
 ## 1.49.1
 - **Traffic-log events flow through to the pulse feed in real time.** Enabling `apache-request` (or any `TRAFFIC_TYPES` log — `drupal-request`, `fpm-access`, `bal-request`, `varnish-request`) now emits one pulse event per event instead of dropping on the floor.
   - Root cause: `fingerprint.py` explicitly filters access-log lines (*"HTTP access-log lines — error-like words in URLs are not errors"*) via `ACCESS_LOG_RE`. Every successful request line returned `None` from `classify()`, so the fingerprint pipeline produced no events. `handleUmbrellaLine` in the dashboard also only recognized `NEW` and `THRESH` prefixes; any `TRAFFIC` aggregate line from `acquia-watch.py` was silently dropped.
