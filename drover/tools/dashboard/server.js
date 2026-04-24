@@ -995,7 +995,11 @@ async function handleUmbrellaLine(rawLine) {
     const aliasTok = rest.slice(sp2 + 1, sp3);
     const text = rest.slice(sp3 + 1);
     const meta = markEvent(key) || {};
-    broadcast('ingest-event', { ts: new Date().toISOString(), key, kind: 'traffic-line' });
+    // Deliberately NOT broadcasting 'ingest-event' here: traffic lines
+    // don't create bd cards, so triggering a board refresh per line
+    // would make the client refetch 6 endpoints 5+ times per second on
+    // a busy site. recordPulse already broadcasts 'pulse-event' which
+    // updates the feed in place without touching the table.
     recordPulse({
       type: 'traffic-line',
       origin: (meta.project || '') + ' · ' + (meta.envLabel || aliasTok),
