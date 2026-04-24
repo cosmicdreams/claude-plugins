@@ -1,5 +1,16 @@
 # drover Changelog
 
+## 1.41.0
+- **Single-mode Document sheet (vision-doc Phase 1).** The per-card Document modal is retired; its replacement is a right-docked full-height sheet with two independently-scrollable columns:
+  - **Understand** (left, ~45%, read-only surface): *Details* grid (severity, fingerprint, occurrences, envs, age, lane, project, hostnames), the parsed *Error message*, the *Stack trace* when present, the *Triage log* when present, and *Agent notes* (Projected block, muted) when an implementer-agent has run. Everything the operator needs to understand the error before writing about it.
+  - **Capture** (right, ~55%, write surface): *Have we seen this before?* recall matches at the top — per vision, recall is the answer to the understanding question before it's the answer to the documenting question — then either the existing Documented block (read-mode) or the capture form (write-mode) with Mark-as-noise as a secondary action.
+  - The footer (*Move to* dropdown + Dashboard / advance buttons) stays full-width across both columns.
+  - Narrow viewports (<900px) collapse to a single column with Understand stacked above Capture.
+- **Other modals unchanged.** The sheet treatment is scoped to the single-card Document flow; the group modal, group Document form, Add Project, Sources, and Backfill modals remain centered — each now explicitly removes the `.sheet` class on open so toggling between flows never leaks styling.
+- **Refactor: shared bd-write contract.** `handleSolution` and `handleGroupSolution` now both route through `buildActualBlock` (single vs group Actual markdown) + `writeActualToCard` (the two-call append-then-move-lane bd pattern with the 15000ms A13 timeout). Future bd-flag or Actual-schema changes land in one place instead of two.
+- **Group save correctness tightened.** bd writes now run first on a pure partition of the membership; group state mutations (ungroup labels, auto-dissolve, groups-file write) happen only after at least one write landed. Complete write failure returns 500 with the group unchanged so the operator retries from a clean surface. Fixes the partial-failure case where ungroup labels could be pulled before any documentation had actually persisted.
+- **Counter memoized.** `updateDocCounter` caches on `ALL_CARDS` identity; search-keystroke rerenders no longer rewalk the array.
+
 ## 1.40.1
 - **Contribution feedback (vision-doc Phase 9).** Small polish around the save moment so the operator sees they just contributed knowledge to the system.
   - **Documentation counter** in the table toolbar, next to the errors count. Quiet green pill reading *"✓ N documented this week"* — hidden when N=0, self-respecting. Counts cards whose Actual block's `verified_at` is within the past 7 days.

@@ -3948,6 +3948,53 @@ function buildHtml() {
     to   { opacity:1; transform:translateY(0) scale(1); }
   }
 
+  /* Phase 1: sheet-mode for the single-card Document surface. Right-
+     docked, full-height panel instead of a centered modal. The
+     backdrop switches to flex-end when a .sheet child is present so
+     the panel seats against the right edge. */
+  .modal-backdrop:has(.modal.sheet) { justify-content:flex-end; }
+  .modal.sheet {
+    width: min(960px, 100vw); max-height: none; height: 100vh;
+    border-radius: 12px 0 0 12px;
+    overflow:hidden; display:flex; flex-direction:column;
+    animation: sheet-in 0.22s cubic-bezier(0.22, 0.61, 0.36, 1) both;
+  }
+  @keyframes sheet-in {
+    from { opacity: 0.6; transform: translateX(24px); }
+    to   { opacity: 1;   transform: translateX(0); }
+  }
+  .modal.sheet .modal-header { flex: 0 0 auto; }
+  .modal.sheet .modal-footer { flex: 0 0 auto; }
+  .modal.sheet .modal-body-sheet {
+    flex: 1 1 auto; min-height: 0;
+    display: grid;
+    grid-template-columns: 45fr 55fr;
+    gap: 0;
+    padding: 0;
+    overflow: hidden;
+  }
+  .sheet-col {
+    overflow-y: auto; overflow-x: hidden;
+    padding: 16px 20px;
+  }
+  .sheet-understand {
+    border-right: 1px solid var(--border);
+    background: var(--bg2);
+  }
+  .sheet-capture { background: var(--surface); }
+  .sheet-col-title {
+    font-size: 10px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--muted2); font-weight: 600;
+    padding-bottom: 8px; margin-bottom: 12px;
+    border-bottom: 1px solid var(--border);
+    position: sticky; top: 0; background: inherit; z-index: 2;
+  }
+  @media (max-width: 900px) {
+    .modal.sheet { width: 100vw; border-radius: 0; }
+    .modal.sheet .modal-body-sheet { grid-template-columns: 1fr; }
+    .sheet-understand { border-right: none; border-bottom: 1px solid var(--border); }
+  }
+
   .modal-header {
     padding:16px 20px 12px; border-bottom:1px solid var(--border);
     display:flex; align-items:flex-start; justify-content:space-between; gap:12px;
@@ -5762,6 +5809,7 @@ function dissolveGroup(groupId) {
 function openGroupModal(parent) {
   var modal = document.getElementById('modal-content');
   removeChildren(modal);
+  modal.classList.remove('sheet');
   var header = el('div','modal-header');
   header.appendChild(txt('div','modal-title', 'Group · ' + parent.group.name));
   var closeBtn = el('button','modal-close');
@@ -5838,6 +5886,7 @@ function openGroupModal(parent) {
 function openGroupDocumentForm(parent) {
   var modal = document.getElementById('modal-content');
   removeChildren(modal);
+  modal.classList.remove('sheet');
 
   var header = el('div','modal-header');
   header.appendChild(txt('div','modal-title', 'Document group \\u00b7 ' + parent.group.name));
@@ -6335,6 +6384,7 @@ function openBoardModal(c, opts) {
   opts = opts || {};
   var modal = document.getElementById('modal-content');
   removeChildren(modal);
+  modal.classList.add('sheet');
 
   var SEV_LABELS = {crit:'Critical',warn:'Warning',info:'Info'};
 
@@ -6346,7 +6396,16 @@ function openBoardModal(c, opts) {
   header.appendChild(closeBtn);
   modal.appendChild(header);
 
-  var body = el('div','modal-body');
+  // Sheet body: two independently-scrollable columns.
+  //   Understand (left, read-only): what happened — meta, error,
+  //     stack, triage log, Projected (agent notes).
+  //   Capture (right, write):       what we know — recall at top,
+  //     then the Documented block or the capture form.
+  var body = el('div','modal-body modal-body-sheet');
+  var understand = el('div','sheet-col sheet-understand');
+  understand.appendChild(txt('div','sheet-col-title','Understand'));
+  var capture = el('div','sheet-col sheet-capture');
+  capture.appendChild(txt('div','sheet-col-title','Capture'));
 
   var metaSec = el('div','modal-section');
   metaSec.appendChild(txt('div','modal-section-title','Details'));
@@ -6388,12 +6447,12 @@ function openBoardModal(c, opts) {
     metaGrid.appendChild(hostMi);
   }
   metaSec.appendChild(metaGrid);
-  body.appendChild(metaSec);
+  understand.appendChild(metaSec);
 
   var errSec = el('div','modal-section');
   errSec.appendChild(txt('div','modal-section-title','Error message'));
   errSec.appendChild(txt('div','modal-err-msg',c.title));
-  body.appendChild(errSec);
+  understand.appendChild(errSec);
 
   // Documentation section. Drover's product is error tracking + memory,
   // not fix-automation — so the primary ask of the human is to DOCUMENT
@@ -6468,8 +6527,13 @@ function openBoardModal(c, opts) {
   }
   docSec.appendChild(docRow);
 
-  // Projected block — muted, secondary. Only shown when present.
+  capture.appendChild(docSec);
+
+  // Projected block — muted, secondary. Sits in Understand (it's agent
+  // hypothesis, not the operator's documentation) and only appears when
+  // present.
   if (c.projected) {
+    var projSec = el('div','modal-section');
     var projRow = el('div','solution-row solution-row-muted');
     projRow.appendChild(txt('div','solution-sub-title',
       'Agent notes (' + (c.projected.written_by || 'agent') + ') — optional, not drover\\u2019s documentation'));
@@ -6484,10 +6548,9 @@ function openBoardModal(c, opts) {
         }
       });
     projRow.appendChild(projList);
-    docSec.appendChild(projRow);
+    projSec.appendChild(projRow);
+    understand.appendChild(projSec);
   }
-
-  body.appendChild(docSec);
 
   // Fire the recall lookup asynchronously so the modal opens immediately.
   (function(card, host){
@@ -6522,7 +6585,7 @@ function openBoardModal(c, opts) {
       }
     });
     stackSec.appendChild(stackBlock);
-    body.appendChild(stackSec);
+    understand.appendChild(stackSec);
   }
 
   if(c.triageLog && c.triageLog.length){
@@ -6536,9 +6599,11 @@ function openBoardModal(c, opts) {
       logWrap.appendChild(row);
     });
     logSec.appendChild(logWrap);
-    body.appendChild(logSec);
+    understand.appendChild(logSec);
   }
 
+  body.appendChild(understand);
+  body.appendChild(capture);
   modal.appendChild(body);
 
   var footer = el('div','modal-footer');
@@ -6742,6 +6807,8 @@ function buildActualForm(c, holder) {
 
 function closeBoardModal(){
   document.getElementById('board-modal').classList.remove('open');
+  var mc = document.getElementById('modal-content');
+  if (mc) mc.classList.remove('sheet');
 }
 
 document.getElementById('board-modal').addEventListener('click', function(ev){
@@ -6779,6 +6846,7 @@ function addProjectPrompt() {
 function showAddProjectModal() {
   var content = document.getElementById('modal-content');
   removeChildren(content);
+  content.classList.remove('sheet');
 
   var header = document.createElement('div'); header.className = 'modal-header';
   var title = document.createElement('div'); title.className = 'modal-title'; title.textContent = 'Add Project';
@@ -6917,6 +6985,7 @@ function sourcesPrompt() {
 function showSourcesModal(envs) {
   var content = document.getElementById('modal-content');
   removeChildren(content);
+  content.classList.remove('sheet');
 
   var lastAlias = '';
   try { lastAlias = localStorage.getItem('drover.sources.lastAlias') || ''; } catch (_) {}
@@ -7380,6 +7449,7 @@ function loadSeedHistoryTab(alias) {
 function showBackfillModal(envs) {
   var content = document.getElementById('modal-content');
   removeChildren(content);
+  content.classList.remove('sheet');
 
   var header = el('div','modal-header');
   header.appendChild(txt('div','modal-title','Backfill Acquia logs'));
