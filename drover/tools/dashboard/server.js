@@ -1258,12 +1258,23 @@ async function handleProjectsOverview(req, res) {
         srcBucket = ingestSources[`acquia:${envName}`] || null;
       }
 
+      // Available sources: what the env COULD tail if toggled on. Acquia
+      // uses the canonical list (full enumeration lives in
+      // CANONICAL_ACQUIA_SOURCES); DDEV detects by declared platform.
+      // Live availability checks (Acquia log-forwarding inventory) still
+      // live in /api/sources/inventory and are used by the Sources modal
+      // — those are too expensive to probe per overview refresh.
+      let availableSources = [];
+      if (e.type === 'acquia') availableSources = CANONICAL_ACQUIA_SOURCES.slice();
+      else if (e.type === 'ddev') availableSources = detectDdevSources(e.ddev_project || ddevProject);
+
       return {
         name: e.name || '',
         type: e.type || '',
         alias,
         listener_method: listenerMethodFor(e),
         enabled_sources: srcs,
+        available_sources: availableSources,
         enabled_count: srcs.length,
         last_event_ts: srcBucket ? srcBucket.lastTs : null,
         event_count: srcBucket ? srcBucket.count : 0,
@@ -4723,9 +4734,29 @@ function buildHtml() {
     padding:2px 6px; border-radius:3px;
     background:var(--surface3); border:1px solid var(--border);
     color:var(--muted2); font-size:9px;
+    font-family:var(--mono);
+  }
+  button.proj-env-source-pill {
+    cursor:pointer;
+    transition: color 0.12s ease, border-color 0.12s ease, background 0.12s ease;
+  }
+  button.proj-env-source-pill:hover {
+    color:var(--text); border-color:var(--border2);
+  }
+  button.proj-env-source-pill.toggleable {
+    color:var(--muted); border-style:dashed;
+  }
+  button.proj-env-source-pill.toggleable:hover {
+    color:var(--ok); border-color:rgba(50,215,75,0.35);
+    background:var(--ok-dim);
   }
   .proj-env-source-pill.enabled {
     color:var(--ok); border-color:rgba(50,215,75,0.35);
+    background:rgba(50,215,75,0.05);
+  }
+  button.proj-env-source-pill.enabled:hover {
+    color:var(--warn); border-color:rgba(255,179,64,0.45);
+    background:var(--warn-dim);
   }
   .proj-kv {
     display:grid; grid-template-columns:max-content 1fr;
@@ -8825,6 +8856,36 @@ function toggleEnvTracking(alias, enable, chipEl) {
     .finally(function(){ if (chipEl) chipEl.classList.remove('pending'); });
 }
 
+// Toggle a single log-source type on an env. Posts to the existing
+// /api/sources/toggle endpoint (which spawns or respawns the env's
+// watcher child with the updated DROVER_LOG_TYPES), then re-renders
+// the drawer in-place so the pill updates without closing/reopening.
+function toggleEnvSource(alias, type, turnOn) {
+  if (!alias || !type) return;
+  fetch('/api/sources/toggle', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ alias: alias, type: type, enabled: !!turnOn }),
+  }).then(function(r){ return r.json().then(function(d){ return { status: r.status, body: d }; }); })
+    .then(function(res){
+      if (res.status === 200 && res.body && res.body.alias) {
+        var verb = turnOn ? 'Streaming ' : 'Paused ';
+        showToast(verb + type + ' · ' + alias);
+        fetchDdevStatus().then(function(){
+          var openDrawer = document.querySelector('.proj-drawer[popover]:popover-open');
+          if (openDrawer && openDrawer.dataset.projectName) {
+            var name = openDrawer.dataset.projectName;
+            var fresh = (PROJECTS_OVERVIEW.projects || []).find(function(p){ return p.name === name; });
+            if (fresh) renderProjectDrawer(openDrawer, fresh);
+          }
+        });
+      } else {
+        showToast('Source toggle failed: ' + ((res.body && res.body.error) || 'HTTP ' + res.status));
+      }
+    })
+    .catch(function(e){ showToast('Source toggle failed: ' + e.message); });
+}
+
 // Compact age formatter for tile proof-of-life: "just now", "12s", "4m", "1h".
 function formatAgeShort(ts) {
   if (!ts) return '—';
@@ -8927,20 +8988,37 @@ function renderProjectDrawer(root, proj) {
         env.enabled_count > 0 && !env.watcher_pid ? 'muted' : '');
       block.appendChild(kv);
 
-      // Source list — enabled names rendered as green pills. A "Configure
-      // sources" link opens the existing Sources modal filtered to this
-      // alias (we keep the modal as the granular source editor during the
-      // transition away from the shared Sources button).
+      // Source list — all available sources render as clickable pills.
+      // Green = currently streaming, grey = available but off. Clicking
+      // a pill toggles it via /api/sources/toggle. The ddev inventory is
+      // derived from platform (Drupal vs WordPress); Acquia uses the full
+      // canonical list (live-availability probing still lives in the
+      // Sources modal under the 's' keyboard shortcut).
       var srcsLabel = el('span','proj-env-sources-label');
       srcsLabel.textContent = 'Log sources';
       block.appendChild(srcsLabel);
       var srcsList = el('div','proj-env-sources-list');
-      if (env.enabled_sources && env.enabled_sources.length) {
-        env.enabled_sources.forEach(function(s){
-          srcsList.appendChild(txt('span','proj-env-source-pill enabled', s));
-        });
+      var enabledSet = {};
+      (env.enabled_sources || []).forEach(function(s){ enabledSet[s] = true; });
+      var available = (env.available_sources && env.available_sources.length)
+        ? env.available_sources
+        : (env.enabled_sources || []).map(function(s){ return { type: s, label: s }; });
+      if (!available.length) {
+        srcsList.appendChild(txt('span','proj-env-source-pill', 'none available'));
       } else {
-        srcsList.appendChild(txt('span','proj-env-source-pill', 'none — paused'));
+        available.forEach(function(src){
+          var isOn = !!enabledSet[src.type];
+          var pill = el('button','proj-env-source-pill' + (isOn ? ' enabled' : ' toggleable'));
+          pill.type = 'button';
+          pill.textContent = src.label || src.type;
+          pill.setAttribute('aria-pressed', isOn ? 'true' : 'false');
+          pill.title = (isOn ? 'Streaming — click to pause ' : 'Not streaming — click to start ') + src.type;
+          pill.addEventListener('click', (function(alias, type, turnOn){ return function(ev){
+            ev.preventDefault(); ev.stopPropagation();
+            toggleEnvSource(alias, type, turnOn);
+          };})(env.alias, src.type, !isOn));
+          srcsList.appendChild(pill);
+        });
       }
       block.appendChild(srcsList);
 
