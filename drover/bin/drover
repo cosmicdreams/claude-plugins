@@ -27,26 +27,48 @@ TRACK_DIR="$INGEST_STATE_DIR/umbrella-track"
 
 # --- helpers -------------------------------------------------------------
 
+# macOS pgrep -f can't handle literal slashes in the pattern — using
+# bare script names keeps matches reliable. Each name is unique enough
+# in a process listing that collisions aren't a real concern.
 pgrep_drover() {
-  # List every drover-owned process pid. Matches umbrella-watch.sh and
-  # every monitor script under drover/scripts/monitors/.
-  pgrep -f 'drover/scripts/monitors/' 2>/dev/null
-  pgrep -f 'drover/tools/dashboard/server.js' 2>/dev/null
+  pgrep -f 'umbrella-watch.sh' 2>/dev/null
+  pgrep -f 'acquia-watch.py' 2>/dev/null
+  pgrep -f 'ddev-watch.py' 2>/dev/null
+  pgrep -f 'wp-watch.py' 2>/dev/null
+  pgrep -f 'bd-ready-watch.py' 2>/dev/null
+  pgrep -f 'drover.*dashboard.*server.js' 2>/dev/null
 }
 
 count_drover() { pgrep_drover | sort -u | wc -l | tr -d ' '; }
 
 count_by() { pgrep -f "$1" 2>/dev/null | wc -l | tr -d ' '; }
 
+# Count only top-level umbrella instances (parent isn't itself an
+# umbrella). umbrella-watch.sh forks subshells during normal operation
+# — each one shows up in pgrep -f but only the root process per
+# umbrella tree actually matters.
+count_umbrella_roots() {
+  local roots=0
+  for p in $(pgrep -f 'umbrella-watch.sh' 2>/dev/null); do
+    local ppid
+    ppid="$(ps -o ppid= -p "$p" 2>/dev/null | tr -d ' ')"
+    if [ -z "$ppid" ]; then continue; fi
+    if ! ps -o command= -p "$ppid" 2>/dev/null | grep -q 'umbrella-watch.sh'; then
+      roots=$((roots + 1))
+    fi
+  done
+  echo "$roots"
+}
+
 kill_tree() {
   # SIGTERM first, then SIGKILL for holdouts after a short settle.
   local patterns=(
-    'drover/tools/dashboard/server.js'
-    'drover/scripts/monitors/umbrella-watch.sh'
-    'drover/scripts/monitors/acquia-watch.py'
-    'drover/scripts/monitors/ddev-watch.py'
-    'drover/scripts/monitors/wp-watch.py'
-    'drover/scripts/monitors/bd-ready-watch.py'
+    'drover.*dashboard.*server.js'
+    'umbrella-watch.sh'
+    'acquia-watch.py'
+    'ddev-watch.py'
+    'wp-watch.py'
+    'bd-ready-watch.py'
   )
   for p in "${patterns[@]}"; do
     pkill -TERM -f "$p" 2>/dev/null || true
@@ -114,12 +136,15 @@ cmd_restart() {
 }
 
 cmd_status() {
+  # lsof -i:PORT returns every process with ANY socket on the port —
+  # including client-side connections (browser tabs). We want the
+  # LISTEN-side process only.
   local dash_port="—"
-  if lsof -ti:"$PORT" > /dev/null 2>&1; then
-    dash_port="$(lsof -ti:"$PORT" | head -1)"
-  fi
+  local listener
+  listener="$(lsof -ti:"$PORT" -sTCP:LISTEN 2>/dev/null | head -1)"
+  if [ -n "$listener" ]; then dash_port="$listener"; fi
   echo "dashboard (:$PORT):              pid=$dash_port"
-  echo "umbrella-watch.sh:              $(count_by 'drover/scripts/monitors/umbrella-watch.sh') process(es)"
+  echo "umbrella (root):                $(count_umbrella_roots) process(es)"
   echo "acquia-watch.py:                $(count_by 'drover/scripts/monitors/acquia-watch.py') process(es)"
   echo "ddev-watch.py:                  $(count_by 'drover/scripts/monitors/ddev-watch.py') process(es)"
   echo "wp-watch.py:                    $(count_by 'drover/scripts/monitors/wp-watch.py') process(es)"
