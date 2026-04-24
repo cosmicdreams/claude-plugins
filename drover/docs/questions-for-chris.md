@@ -115,5 +115,23 @@ feed surface grows, types should centralize.
 - About to start Slice B (group sheet).
 - No blockers.
 
+### 2026-04-24 03:xx — Midnight burn results
+
+Six slices shipped after the 1.41.0 merge, in this order:
+
+1. **Slice B — Group sheet (1.42.0).** Retires the centered group modal. Click a group row → right-docked sheet, Understand (Details · Shared-across-members with (N of M match) badges · Members list with drill-in) + Capture (recall seeded with first member · Writes-to checklist · fields). ~227 lines of dead code removed.
+2. **Slice A — Bulk-bar CTAs (1.43.0).** Primary *Group & Document…* button (swaps to *Document…* at N=1, grouping before opening). Secondary *Group* (no sheet). Tertiary *Mark as noise* with serial POST fanout. Right-aligned *Clear*. Space on focused row toggles selection; Enter still opens.
+3. **Slice C — Parsed error view (1.44.0).** Structured fields in Understand — Class, Message, Hook, URL — with raw title behind *▸ Show raw title*. `parseWatchdogTitle` handles the ` · `-separated format.
+4. **Slice F — One-click openers (1.45.0).** *Open approot* + *Open in PhpStorm* buttons. Server endpoints gate against registered projects only; file paths must live inside the approot.
+5. **Slice D — Category picker + hints (1.46.0).** Select with the Q2 taxonomy; selecting surfaces a scaffolding hint below. Extends the Actual block with `category`.
+6. **Slice E + H — Tags + Scratch notes (1.47.0).** Comma-separated tags on both forms, stored on the Actual block. Scratch notes in Understand (dashed border, italic, localStorage-keyed, auto-cleared on save).
+
+Dropped from tonight's scope (deferred to post-demo):
+- **Links** — needs a proper structured input, not `kind:url` per line.
+- **Notify / Add-to-playbook checkboxes** — without real Slack transport and a playbook data surface, they'd be stub-theater.
+- **Typeahead over past-used tags** — Slice E's next step.
+
+No blockers encountered. All smoke-tested end-to-end where a real bd write didn't risk user data.
+
 <!-- Append new sections at the top of `Design decisions` / `Open
 technical questions` as they arise; keep this log append-only. -->
