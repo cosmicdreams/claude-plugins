@@ -3414,6 +3414,8 @@ function buildHtml() {
     color:var(--muted3); letter-spacing:0.04em;
   }
   .live-badge.state-offline    .live-dot { background: var(--crit); box-shadow: 0 0 6px var(--crit); animation: none; opacity:0.8; }
+  .live-badge.state-paused     { color: var(--muted); }
+  .live-badge.state-paused     .live-dot { background: var(--muted3); box-shadow: none; animation: none; opacity:0.7; }
   @keyframes pulse-dot {
     0%,100% { opacity:1; transform:scale(1); }
     50%      { opacity:0.35; transform:scale(0.6); }
@@ -9476,7 +9478,7 @@ function setLiveBadge(state, detail) {
   var badge = document.getElementById('live-badge');
   var label = document.getElementById('live-label');
   if (!badge || !label) return;
-  badge.classList.remove('state-connecting','state-offline');
+  badge.classList.remove('state-connecting','state-offline','state-paused');
   if (state === 'live') {
     label.textContent = 'live';
   } else if (state === 'connecting') {
@@ -9485,9 +9487,16 @@ function setLiveBadge(state, detail) {
   } else if (state === 'offline') {
     badge.classList.add('state-offline');
     label.textContent = 'offline';
+  } else if (state === 'paused') {
+    // Ingestion toggle is OFF. This is a deliberate state, not a
+    // degraded SSE state — render it distinctly so the operator
+    // knows the quiet feed is intentional.
+    badge.classList.add('state-paused');
+    label.textContent = 'paused';
   } else if (state === 'idle') {
-    // Connected but no events have arrived since the last tick. Signal
-    // this plainly instead of pulsing green as if data were flowing.
+    // SSE connected, ingestion on, but nothing streamed recently.
+    // Signal this plainly instead of pulsing green as if data were
+    // flowing.
     badge.classList.add('state-connecting');
     label.textContent = 'idle';
   }
@@ -9509,9 +9518,15 @@ function refreshLiveBadgeFromState() {
     sinceLastEvent = 'last event ' + Math.round(age/3600000) + 'h ago';
   }
   var detail = sinceLastEvent + (liveState.lastEventName ? ' · ' + liveState.lastEventName : '');
-  // When we're connected but no events have arrived in the last 2 minutes,
-  // downgrade the badge to "idle" so the user isn't misled into thinking
-  // logs are actively streaming when nothing is being ingested.
+  // Ingestion paused overrides every other state. The SSE connection
+  // is still up (so connecting/offline aren't right), but no events
+  // will arrive until the toggle flips back on — rendering that as
+  // "idle" would imply "waiting for events" when in fact we're
+  // deliberately not listening.
+  if (window._ingestionRunning === false) {
+    setLiveBadge('paused', 'Ingestion is paused. Click the ON/OFF toggle to resume.');
+    return;
+  }
   if (window._sseReadyState === 1 && age < 120000) {
     setLiveBadge('live', detail);
   } else if (window._sseReadyState === 1) {
@@ -9641,6 +9656,10 @@ function renderIngestionToggle(state) {
   var btn = document.getElementById('ingestion-toggle');
   if (!btn) return;
   var running = !!(state && state.running);
+  // Publish to the module-wide flag the LIVE badge reads. Without this
+  // the badge wouldn't know ingestion was paused and would settle on
+  // "idle" (misleading — the quiet is deliberate, not waiting).
+  window._ingestionRunning = running;
   btn.setAttribute('aria-checked', running ? 'true' : 'false');
   btn.removeAttribute('aria-busy');
   var label = btn.querySelector('.ingestion-toggle-label');
@@ -9648,6 +9667,9 @@ function renderIngestionToggle(state) {
   btn.title = running
     ? 'Ingestion is ON. Click to pause all watchers (umbrella + acquia-watch + ddev-watch + wp-watch + bd-ready-watch). The dashboard UI stays up; no new events arrive until you resume.'
     : 'Ingestion is OFF. Click to resume — dashboard will re-arm the umbrella and every enabled env will start streaming again.';
+  // Re-evaluate the LIVE badge so paused/live transitions are reflected
+  // immediately instead of on the next event.
+  if (typeof refreshLiveBadgeFromState === 'function') refreshLiveBadgeFromState();
 }
 function toggleIngestion() {
   var btn = document.getElementById('ingestion-toggle');

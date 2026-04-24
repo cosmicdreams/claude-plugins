@@ -1,5 +1,15 @@
 # drover Changelog
 
+## 1.51.1
+- **LIVE badge tells the truth when ingestion is paused.** New state `paused` (grey, no pulse, label `PAUSED`) that overrides `idle`/`live` whenever the master toggle is OFF. Previously the badge stayed on `idle` after toggling off because the SSE connection remained open and non-ingestion events (ddev-status heartbeats every ~30s) kept ticking the "last event" clock — making the toggle look like it did nothing. Now the badge reflects ingestion state as a separate dimension from SSE health.
+- State matrix:
+  - `LIVE` (green pulse) — SSE connected, ingestion ON, events in last 2 min
+  - `IDLE` (yellow) — SSE connected, ingestion ON, no events recently
+  - `PAUSED` (grey) — ingestion OFF (takes precedence over SSE signals)
+  - `CONNECTING` (yellow) — SSE reconnecting
+  - `OFFLINE` (red) — SSE disconnected, dashboard may be down
+- `renderIngestionToggle` now publishes `window._ingestionRunning` and calls `refreshLiveBadgeFromState()` on every state change so the badge updates instantly instead of waiting for the next SSE tick.
+
 ## 1.51.0
 - **Master ingestion on/off toggle in the dashboard header.** Sits next to the LIVE badge as a pill — green `●  ON` when watchers are running, grey `○  OFF` when paused. One click calls the new `POST /api/ingestion/stop` / `/api/ingestion/start` endpoints which wrap the existing `stopAutoIngestion()` / `startAutoIngestion()` functions. The dashboard UI stays up while ingestion is paused — operators can stop the stream mid-demo without losing their current view and flip it back on when ready.
 - **New SSE event `ingestion-state`** broadcasts stop/start transitions so multiple browser tabs stay in sync.
