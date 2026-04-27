@@ -183,9 +183,28 @@ class AcquiaClient:
         resp = self._get(f"/environments/{env_id}/logstream")
         return resp["logstream"]
 
-    def request_log_download(self, env_id: str, log_type: str) -> dict:
+    def request_log_download(
+        self,
+        env_id: str,
+        log_type: str,
+        from_iso: str | None = None,
+        to_iso: str | None = None,
+    ) -> dict:
+        """POST a log-snapshot request to Acquia.
+
+        Without from_iso/to_iso the snapshot captures the live buffer
+        (legacy behavior). With both, Acquia slices a 24-hour window
+        anywhere within the last 30 days. Returns a notification envelope
+        whose `_links.notification.href` polls until status=completed.
+        """
+        body: dict = {}
+        if from_iso:
+            body["from"] = from_iso
+        if to_iso:
+            body["to"] = to_iso
         return self._post(
             f"/environments/{env_id}/logs/{log_type}",
+            body=body or None,
         )
 
     def check_log_download(self, notification_url: str) -> dict:
@@ -196,6 +215,56 @@ class AcquiaClient:
         )
         with _urlopen_with_retry(req, timeout=30) as r:
             return json.loads(r.read())
+
+    def get_log_download_url(self, env_id: str, log_type: str) -> str:
+        """Return the presigned S3 URL for the most recently created snapshot.
+
+        GET /environments/{env_id}/logs/{type} responds with a 301 whose
+        Location header is the S3 URL. We must NOT follow the redirect with
+        the Acquia Bearer header attached — S3 rejects unrecognized auth
+        with HTTP 400. Capture Location, return it; the caller GETs S3
+        directly with no auth header.
+
+        Caller must invoke this after `check_log_download` reports
+        status=completed for the corresponding notification, and before
+        the presigned URL's 10-minute TTL expires.
+        """
+        token = self._get_token()
+        req = urllib.request.Request(
+            f"{API_BASE}/environments/{env_id}/logs/{log_type}",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+
+        class _NoRedirect(urllib.request.HTTPRedirectHandler):
+            def http_error_301(self, *_args, **_kwargs):  # type: ignore[override]
+                return None
+            http_error_302 = http_error_303 = http_error_307 = http_error_301
+
+        opener = urllib.request.build_opener(_NoRedirect())
+        try:
+            r = opener.open(req, timeout=30)
+            raise RuntimeError(
+                f"expected 301 redirect to S3, got HTTP {r.status}"
+            )
+        except urllib.error.HTTPError as e:
+            if e.code not in (301, 302, 303, 307):
+                body = ""
+                try:
+                    body = e.read().decode("utf-8", errors="replace")
+                except Exception:
+                    pass
+                raise AcquiaAPIError(
+                    status=e.code,
+                    url=req.full_url,
+                    body=body,
+                    error_slug=_extract_error_slug(body),
+                ) from e
+            location = e.headers.get("Location") or e.headers.get("location")
+            if not location:
+                raise RuntimeError(
+                    f"no Location header on HTTP {e.code} from {req.full_url}"
+                )
+            return location
 
     # --- Auth verification ---
 
