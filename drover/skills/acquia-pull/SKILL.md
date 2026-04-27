@@ -88,24 +88,14 @@ find . -path ./.drover -prune -o -name "*.log" -print | sort
 cat .drover/coverage.json | python3 -m json.tool
 ```
 
-## Daily cron — recommended for monthly reports
+## Retention awareness
 
 Acquia keeps **30 days** of historical log data. A monthly report
-assembled retroactively after day 30 will be missing the first days of
-the month. Run the daily pull on a cron so the local folder always has
-the last 30 days available.
-
-A template lives at `templates/scheduling/daily-pull.crontab.example`.
-Edit the project root and the manifest's env list, then `crontab -e`
-to install:
-
-```cron
-# m   h    dom mon dow  command
-30   2    *   *   *    /path/to/drover-daily-pull.sh >> /path/to/drover.log 2>&1
-```
-
-The 02:30 UTC window is well after Acquia's midnight rotation, with
-buffer for snapshot-creation latency.
+assembled retroactively after day 30 will be missing the first days
+of the month. Plan ahead: pull early and often when retention windows
+matter to you. Drover 2.0 is **user-triggered** — there's no built-in
+scheduler. If you want scheduled pulls, ask and we'll add a cron
+template; otherwise run `--backfill` whenever you need fresh data.
 
 ## Failure modes
 

@@ -82,13 +82,14 @@ present. For each missing tuple, runs the documented Acquia 3-step
 historical download flow (POST to create snapshot → poll notification
 → GET → 301 → S3 → download).
 
-Modes: `--daily` (yesterday only — cron-friendly), `--backfill` (last
-30 days, fill gaps), `--from --to` (explicit range), `--date` (single
-day). A 30-day backfill of one env × 3 types takes ~30 minutes.
+Modes: `--daily` (yesterday only), `--backfill` (last 30 days, fill
+gaps), `--from --to` (explicit range), `--date` (single day). A
+30-day backfill of one env × 3 types takes ~30 minutes.
 
-The cron template at `templates/scheduling/daily-pull.crontab.example`
-covers the recommended pattern (daily nominal + weekly backfill
-safety-net).
+User-triggered, not scheduled — no built-in cron. Acquia's 30-day
+retention means you should pull before logs age out; plan ahead. If
+scheduled pulls become useful for your workflow, ask and we'll add a
+cron template.
 
 ### `/drover:report`
 
@@ -133,9 +134,8 @@ skill reads this ledger and surfaces gaps in the rendered markdown — a
 report can't claim 30 days of analysis if only 28 are present on disk.
 This is what makes the report defensible to clients.
 
-Acquia's 30-day retention window is the hard ceiling. Run the daily
-pull on a cron; backfilling a full month after the fact will lose the
-earliest days.
+Acquia's 30-day retention window is the hard ceiling. Pull early; if
+you wait until day 31 to backfill, you've lost day 1.
 
 ## Architecture
 

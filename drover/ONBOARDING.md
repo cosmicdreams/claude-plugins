@@ -68,21 +68,21 @@ For paste-into-JIRA blocks:
 /drover:report --env prod --month 2026-04 --template jira-ready
 ```
 
-## Step 4 — wire up the daily cron
+## Step 4 — keep the local logs current
 
-Acquia keeps **30 days** of historical log data. A monthly report
-assembled retroactively after day 30 will be missing the early days.
-Set up a daily pull so the local folder always has fresh data.
+Acquia keeps **30 days** of historical log data. If you wait until
+day 31 to backfill, you've lost day 1. Pull early, pull often:
 
-A template lives at `templates/scheduling/daily-pull.crontab.example`.
-Edit the project root + plugin path; then `crontab -e`:
-
-```cron
-30   2    *   *   *    /usr/bin/python3 /path/to/drover/scripts/pull.py --project /path/to/project --env all --daily >> /var/log/drover.log 2>&1
+```bash
+# Roll the local store forward
+python3 "$PULL_PY" --env prod --backfill
 ```
 
-The 02:30 UTC window is buffered against Acquia's midnight rotation.
-A weekly `--backfill` line catches anything the daily pull missed.
+Drover 2.0 is **user-triggered** — no built-in scheduler. The pull
+script is small, idempotent, and exit-code-correct, so wrapping it in
+cron / launchd / GitHub Actions / your CI of choice is a one-liner if
+you want scheduled pulls. Ask and we'll add a template if/when that
+becomes useful.
 
 ## What's out of scope
 
