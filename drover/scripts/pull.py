@@ -367,9 +367,14 @@ def reconcile(
                         summary["skipped"] += 1
                     continue
 
-                # Live fetch path
+                # Live fetch path. Catch broadly so a single transient
+                # network failure (TLS read timeout, DNS hiccup, etc.)
+                # never kills the whole reconcile loop. We mark the
+                # tuple fetch-failed and move on; a later --backfill
+                # picks it up.
                 attempts = retries + 1
                 last_err: Exception | None = None
+                result: dict | None = None
                 for attempt in range(attempts):
                     try:
                         result = pull_one(
@@ -389,6 +394,18 @@ def reconcile(
                             )
                             time.sleep(rate_limit_s)
                             continue
+                    except Exception as e:  # noqa: BLE001
+                        # Unexpected transient — log and retry once;
+                        # never let it crash the loop.
+                        last_err = e
+                        if attempt < attempts - 1:
+                            log_fn(
+                                f"  ~ {day} {log_type}: retry "
+                                f"{attempt + 1}/{retries} after unexpected "
+                                f"{type(e).__name__}: {e}"
+                            )
+                            time.sleep(rate_limit_s)
+                            continue
 
                 if last_err is not None:
                     if isinstance(last_err, AcquiaAPIError):
@@ -397,12 +414,22 @@ def reconcile(
                             f"{last_err.error_slug}"
                         )
                     else:
-                        reason = str(last_err)
+                        reason = (
+                            f"{type(last_err).__name__}: {last_err}"
+                        )
                     mark_coverage(
                         coverage, day, env_name, log_type,
                         state="fetch-failed", reason=reason,
                     )
-                    log_fn(f"  ! {day} {log_type}: {last_err}")
+                    log_fn(f"  ! {day} {log_type}: {reason}")
+                    summary["failed"] += 1
+                    # Checkpoint the ledger so progress survives a kill.
+                    save_coverage(project_root, coverage)
+                    continue
+
+                # Defensive — we should always have a result if last_err
+                # is None, but guard anyway.
+                if result is None:
                     summary["failed"] += 1
                     continue
 
@@ -418,6 +445,9 @@ def reconcile(
                         f"({result.get('bytes', 0):,} bytes)"
                     )
                     summary["fetched"] += 1
+                    # Checkpoint after every successful fetch — long
+                    # backfills should never lose progress on crash.
+                    save_coverage(project_root, coverage)
                     time.sleep(rate_limit_s)
                 else:
                     existing = coverage.get(day.isoformat(), {}).get(

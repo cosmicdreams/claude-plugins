@@ -241,13 +241,38 @@ class AcquiaClient:
             http_error_302 = http_error_303 = http_error_307 = http_error_301
 
         opener = urllib.request.build_opener(_NoRedirect())
-        try:
-            r = opener.open(req, timeout=30)
-            raise RuntimeError(
-                f"expected 301 redirect to S3, got HTTP {r.status}"
-            )
-        except urllib.error.HTTPError as e:
-            if e.code not in (301, 302, 303, 307):
+
+        # Acquia is intermittently slow on this exact endpoint — observed
+        # TLS read timeouts after a notification completes. Retry with the
+        # same backoff schedule we use for normal API calls.
+        last_exc: Exception | None = None
+        for attempt in range(_MAX_RETRIES):
+            try:
+                r = opener.open(req, timeout=60)
+                # Reaching here means we got a non-redirect response, which
+                # contradicts what Acquia's contract says.
+                raise RuntimeError(
+                    f"expected 301 redirect to S3, got HTTP {r.status}"
+                )
+            except urllib.error.HTTPError as e:
+                if e.code in (301, 302, 303, 307):
+                    location = (
+                        e.headers.get("Location")
+                        or e.headers.get("location")
+                    )
+                    if not location:
+                        raise RuntimeError(
+                            f"no Location header on HTTP {e.code} from "
+                            f"{req.full_url}"
+                        )
+                    return location
+                # Non-redirect error response (4xx/5xx). Retry on the usual
+                # set of transient statuses; otherwise surface as
+                # AcquiaAPIError immediately.
+                if e.code in _RETRY_STATUSES and attempt < _MAX_RETRIES - 1:
+                    time.sleep(_BACKOFF_BASE * (2 ** attempt))
+                    last_exc = e
+                    continue
                 body = ""
                 try:
                     body = e.read().decode("utf-8", errors="replace")
@@ -259,12 +284,17 @@ class AcquiaClient:
                     body=body,
                     error_slug=_extract_error_slug(body),
                 ) from e
-            location = e.headers.get("Location") or e.headers.get("location")
-            if not location:
-                raise RuntimeError(
-                    f"no Location header on HTTP {e.code} from {req.full_url}"
-                )
-            return location
+            except (urllib.error.URLError, TimeoutError, OSError) as e:
+                if attempt < _MAX_RETRIES - 1:
+                    time.sleep(_BACKOFF_BASE * (2 ** attempt))
+                    last_exc = e
+                    continue
+                raise
+        if last_exc:
+            raise last_exc
+        raise RuntimeError(
+            "get_log_download_url retry loop exited without result"
+        )
 
     # --- Auth verification ---
 
