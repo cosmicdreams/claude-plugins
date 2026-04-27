@@ -1,5 +1,87 @@
 # drover Changelog
 
+## 2.0.0 — Pivot: log-analysis pipeline (clean break from v1)
+
+Drover is now a Drupal/Acquia application-error log analysis pipeline.
+The v1 product (live monitoring + dashboard + kanban + auto-fix) has
+been retired wholesale. Anyone who wants the v1 experience installs
+the `drover-1.51.2` tag.
+
+**New surface — three skills, no UI:**
+
+- **`/drover:init`** — discovery + manifest write. Reads drush
+  aliases, composer.json, .ddev/config.yaml, acquia-pipelines.yml;
+  resolves Acquia app UUID + env list + log types via the Cloud
+  Platform API; writes `.drover/manifest.json`. Zero prompts in the
+  happy path.
+- **`/drover:acquia-pull`** — historical log download by date.
+  Talks to the Acquia Cloud Platform API directly via the existing
+  stdlib client; uses the documented `from`/`to` parameters on the
+  log-snapshot endpoint to pull any 24-hour window in the last 30
+  days. Idempotent reconcile against `.drover/coverage.json`. Modes:
+  `--daily`, `--backfill`, `--from/--to`, `--date`, `--env all`.
+  Cron template at `templates/scheduling/daily-pull.crontab.example`.
+- **`/drover:report`** — render a markdown monthly report. Three
+  templates: `monthly-client` (stakeholder), `triage-brief` (dev),
+  `jira-ready` (paste-into-JIRA blocks). Deterministic — no LLM in
+  the rendering path. Coverage caveats are surfaced automatically
+  when any day is missing or fetch-failed.
+
+**Architecture (pure stdlib Python):**
+
+- `scripts/monitors/acquia_api.py` — patched with `from`/`to` support
+  on `request_log_download()` and a new `get_log_download_url()`
+  that captures the 301 → S3 redirect without poisoning S3 with
+  the Acquia auth header.
+- `scripts/init.py` — discovery cascade + manifest builder.
+- `scripts/pull.py` — single-day primitive + multi-day reconcile
+  loop with retries and polite rate limiting.
+- `scripts/parsers/` — three deterministic parsers (apache-error,
+  drupal-watchdog with continuation-line folding, php-error with
+  stack-trace folding) emitting a uniform event shape.
+- `scripts/aggregate.py` — fingerprint + group + count using v1's
+  `fingerprint_structured` so issue keys remain hash-compatible
+  with v1 history. MoM delta annotation.
+- `scripts/report_writer.py` + `agents/report-writer.md` — agent
+  scaffolding for future LLM prose synthesis on top of the
+  deterministic report.
+- `scripts/report.py` — three template renderers + CLI.
+
+**Removed in 2.0:**
+
+- `scripts/monitors/` watchers (acquia-watch, ddev-watch, wp-watch,
+  bd-ready-watch, umbrella-watch) — gone. Application-error
+  monitoring is out of scope.
+- `tools/dashboard/` (~10K-line live SSE dashboard) — gone.
+- `tools/kanban-ui/` — gone.
+- `agents/triage-agent.md`, `agents/implementer-agent.md` — gone.
+- `bin/drover` CLI for managing watchers — gone.
+- `hooks/` session-start hook — gone.
+- `monitors/monitors.json` — gone.
+- 9 v1 skills (add-project, baseline, backfill, board, dashboard,
+  implement, recall, reset-state, run, setup, solution, triage,
+  verify, watch) — gone. Replaced by 3 (init, acquia-pull, report).
+
+**Carried forward from v1:**
+
+- `scripts/monitors/acquia_api.py` (patched, kept its stdlib client)
+- `scripts/fingerprint.py` (the deterministic core only — bd-card-
+  creating wrappers retired)
+- `tests/python/test_fingerprint.py` and `test_acquia_api_errors.py`
+- `tests/bats/_libs/` vendored bats helpers
+
+**Test suite:** 182 tests across 9 modules, all stdlib, no live
+network. Live verification scripts (`/tmp/recon-*.py`) preserved
+outside CI for ad-hoc validation.
+
+**Verified end-to-end against PNCB:**
+
+- April 3rd download: 5,691 lines / 1.29 MB drupal-watchdog
+- 3-day backfill (April 4–6): 3 fetches in 3m12s
+- April monthly-client report: 380 fingerprint groups from 2,964
+  events, top issue correctly identifies a real DB query bug in
+  cron (severity=error, count=231)
+
 ## 1.51.2
 - **Per-source toggles are now truthful.** When you flipped off a source pill (say, `apache-request` on AHRI prod), the config + side-file updated correctly, but the *running* acquia-watch process kept its original `DROVER_LOG_TYPES` and kept receiving apache-request events from Acquia's WebSocket. The UI was lying on top of a watcher that didn't care.
 - Root cause: `resubscribeEnv` killed only the pidfile-tracked child. If the umbrella respawned the watcher without updating the pidfile (or if the watcher got orphaned to `ppid=1` during an umbrella-subshell race), the pidfile pointed at nothing and the orphan watcher lived on.

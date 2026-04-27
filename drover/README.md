@@ -1,136 +1,174 @@
-# Drover
+# drover 2.0
 
-**Drover watches your Drupal sites' error logs and captures what you know about each error — so the next time a similar one surfaces, you're not rediscovering the fix.**
+> Drupal/Acquia application-error log analysis. Pulls historical logs by
+> date, fingerprints errors, and renders monthly reports stakeholders
+> can read.
 
-It's an error-tracking and error-documenting system for teams running one or more Drupal sites. Drover tails the logs (local DDEV + remote Acquia envs you authorize), fingerprints errors so duplicates collapse into one ticket with an occurrence count, surfaces them in a live dashboard, and lets you group related errors across projects and document what they are and how you resolved them. When a similar error recurs later, Drover shows you what worked last time.
+## What 2.0 is
 
-Drover does **not** write fixes, open pull requests, or merge code. An optional advisor-agent can read historical documentation and suggest what a solution might look like; the fix itself is yours to make.
-
----
-
-## Why you might want this
-
-Every Drupal site accumulates errors faster than the team can triage them. PHP warnings, deprecation notices, watchdog entries, nginx 500s — they pile up in logs nobody reads. Real bugs hide inside that noise for weeks, and when they resurface on a sister site six months later, the team rediscovers the fix from scratch.
-
-Drover's job is to turn "seven clients' worth of error streams" into:
-
-- **One dashboard.** All registered projects' errors in one table, grouped by fingerprint so "this happened 47 times" is a single row, not 47.
-- **Cross-project grouping.** When the same class of bug affects pncb and ahri, you mark them as one group. Fix once, document once, watch once.
-- **Durable documentation.** Every resolved error carries a structured root cause + fix summary + commit SHA on the ticket. That documentation is searchable and — critically — gets surfaced automatically when a matching error appears on another project next month.
-- **An honest live view.** A pulse feed in the header shows every significant event as it happens (new fingerprints, threshold crossings, docs captured, groups created, watchers started and stopped). When drover is silent, the dashboard is honestly silent.
-
----
-
-## How it works (the 30-second tour)
+A small pipeline of three skills that runs in Claude Code:
 
 ```
-┌──────────────┐    ┌──────────┐    ┌─────────┐    ┌─────────────┐    ┌─────────┐
-│ Drupal logs  │ →  │  Triage  │ →  │ Ticket  │ →  │ Document    │ →  │ Recall  │
-│ (DDEV/Acquia)│    │  agent   │    │ (Beads) │    │ (you)       │    │ (later) │
-└──────────────┘    └──────────┘    └─────────┘    └─────────────┘    └─────────┘
+/drover:init           Discover this project's Acquia config; write manifest
+/drover:acquia-pull    Pull application-error logs by date into <project>/<year>/<month>/
+/drover:report         Render a monthly markdown report from those logs
 ```
 
-1. **Log watching.** An umbrella process tails `drush watchdog` + project-configured Acquia log streams for every project you've registered.
-2. **Triage.** A Claude agent normalizes each new log line, computes a fingerprint, and either opens a new Beads ticket or increments the occurrence counter on an existing one.
-3. **Promotion.** Tickets that cross a per-env threshold (lenient for local dev, aggressive for production) move to the `ready` lane so they stand out in the dashboard.
-4. **Document.** A human opens the ticket in the dashboard and fills in a short form: root cause, what was done about it, commit SHA if fixed. Or marks it as known noise. This is the action drover is designed around.
-5. **Recall.** Next time a similar error fingerprint surfaces — on *any* registered project — the dashboard's capture modal opens with the past documentation at the top: "we've seen this before; here's what worked." One click applies the past root cause + fix summary to the new ticket.
+That's the whole product. CLI-first. Pure stdlib Python. No dashboard,
+no daemon, no kanban board. Run it when you want, get a report.
 
-A dashboard UI at `http://localhost:3749` shows the whole system live.
+## What 2.0 is not
 
----
+- Not a monitoring tool (no live tail, no SSE, no alerts)
+- Not auto-fixing anything (no implementer agent)
+- Not a UI product — the artifact is markdown (open it in any editor,
+  GitHub, JIRA, email, Claude Desktop)
+- Not multi-platform yet — Drupal/Acquia only. Sitecore / .NET /
+  Azure MCP / New Relic land in 2.x as additional discovery + parser
+  strategies.
 
-## What Drover will and won't do
+The v1 surface (watchers, dashboard, kanban, auto-fix) lives in git
+history at the `drover-1.51.2` tag. v2.0 is a clean break — none of
+the v1 features are carried forward in any form.
 
-**Will:**
+## Setup
 
-- Read log files — local DDEV and/or remote Acquia environments you explicitly enable (all remote envs start paused; you opt in per env).
-- Create Beads tickets in each project's `.beads/drover.db`.
-- Group tickets across projects that you mark as the same bug; propagate `group-<id>` labels into each project's bd database so the grouping is visible to `bd list`, `drover:recall`, and any other bd-facing tool.
-- Store your documented solutions and surface them when a matching error recurs.
-- Send you a Slack DM (optional) when a new promoted error appears.
-- Use Claude API tokens (so yes, running it costs something).
+```bash
+acli auth:login                                        # one-time: register Acquia API creds
+cd /path/to/your/drupal/project
+/drover:init                                           # discover config, write .drover/manifest.json
+/drover:acquia-pull --env all --backfill               # populate the last 30 days
+/drover:report --env prod --month 2026-04              # render April's report
+```
 
-**Won't:**
+## Folder layout
 
-- Write code. Drover has no commit / push / PR authority.
-- Merge anything.
-- Touch your `main` branch or your main working directory.
-- Restart DDEV or your database.
-- Send error content or documentation to any third party other than Anthropic (Claude API).
-- Stream logs from any env you haven't explicitly enabled. Remote envs default to paused.
+```
+<project-root>/
+  .drover/
+    manifest.json         # discovered Acquia config (app uuid, envs, types)
+    coverage.json         # per (date × env × type) state — auto-maintained
+  2026/
+    04/
+      2026-04-01.prod.apache-error.log
+      2026-04-01.prod.drupal-watchdog.log
+      2026-04-01.prod.php-error.log
+      ...
+  reports/
+    2026-04-monthly-client.md
+    2026-04-triage-brief.md
+```
 
-### An optional, opt-in capability
+Filename: `YYYY-MM-DD.<env>.<log-type>.log` — sortable, parseable,
+tab-completable.
 
-Drover ships with an experimental *implementer-agent* skill (`/drover:implement`) that can attempt a fix in an isolated git worktree and run quality checks. This is **not part of the primary product** — it requires granting the agent permission to create worktrees, read/write source, and invoke DDEV — and we explicitly do not position drover as a fix-writing tool. Treat it as a future direction that you can opt into if your team wants to experiment with it. The error-tracking + documenting pipeline does not depend on it.
+## Skills
 
----
+### `/drover:init`
 
-## What you'll need
+Discovers Drupal/Acquia config from local breadcrumbs (drush aliases,
+composer.json, .ddev/config.yaml, acquia-pipelines.yml) plus the Acquia
+Cloud Platform API. Resolves the application UUID, enumerates envs and
+their available log types, writes `.drover/manifest.json`.
 
-- **Claude Code** (the CLI this plugin runs inside).
-- **One or more Drupal projects** running locally in [DDEV](https://ddev.com/).
-- **Beads** (`brew install beads`) — the kanban database Drover uses for tickets.
-- **Git** for per-project state.
-- **Acquia Cloud API credentials** — only if you want Drover to watch Acquia staging/production logs. Get a key + secret from https://cloud.acquia.com/a/profile/tokens
-- **Slack** — optional, for DM notifications when a new promoted error appears.
+Zero prompts in the happy path. Aborts with explicit guidance when:
+acli not authed, no breadcrumbs found, multiple apps tied at top score.
 
-You don't need to know anything about AI agents or prompt engineering. The plugin's skills are the interface — run `/drover:setup`, answer a few questions, and Drover takes care of the rest.
+### `/drover:acquia-pull`
 
----
+Reconciles the local log folder against the manifest's expected
+`(date × env × type)` tuples. Idempotent: re-runs skip files already
+present. For each missing tuple, runs the documented Acquia 3-step
+historical download flow (POST to create snapshot → poll notification
+→ GET → 301 → S3 → download).
 
-## Getting started
+Modes: `--daily` (yesterday only — cron-friendly), `--backfill` (last
+30 days, fill gaps), `--from --to` (explicit range), `--date` (single
+day). A 30-day backfill of one env × 3 types takes ~30 minutes.
 
-See **[ONBOARDING.md](./ONBOARDING.md)** for a step-by-step first-run guide — install the plugin, register a project, open the dashboard, and document your first error, all in about 15 minutes.
+The cron template at `templates/scheduling/daily-pull.crontab.example`
+covers the recommended pattern (daily nominal + weekly backfill
+safety-net).
 
-For the product spec written as user stories, see **[docs/user-stories.md](./docs/user-stories.md)**.
+### `/drover:report`
 
----
+Renders a markdown report for one calendar month. Three templates:
 
-## Where things live
+- **`monthly-client`** — stakeholder-facing, plain language. Coverage
+  banner, summary, top-10 issues with month-over-month trend arrows,
+  severity distribution, retrieval gap list.
+- **`triage-brief`** — dev-facing. Top 25 fingerprints with full
+  detail and 3 sample raw lines per group.
+- **`jira-ready`** — top 15 self-contained code blocks paste-ready
+  for JIRA's create-issue dialog.
 
-| Thing | Location |
-|---|---|
-| Per-project config | `<your-project>/.claude/drover-config.json` |
-| Global user config (Slack, quiet hours) | `~/.claude/drover-global-config.json` |
-| Registered projects list | `~/.claude/plugins/data/drover/projects.json` |
-| Cross-project groups | `~/.claude/plugins/data/drover/drover-groups.json` |
-| Ticket database (Beads) — one per project | `<your-project>/.beads/drover.db` |
-| Dashboard UI | `http://localhost:3749` |
-| Log processing state | `~/.claude/drover.state.jsonl` |
+Deterministic. Same logs in, same report out. No LLM in the rendering
+path. The `drover:report-writer` agent (in `agents/`) can be wired to
+synthesize prose for narrative sections in a future slice — the
+deterministic report is what 2.0 ships.
 
----
+## How it gets logs
 
-## The skills you'll use most
+The Acquia Cloud Platform API exposes a 30-day historical log
+download:
 
-| Skill | What it does |
-|---|---|
-| `/drover:setup` | First-time config wizard for a project. |
-| `/drover:add-project` | Register a project with the umbrella monitor. |
-| `/drover:dashboard` | Open the live ops dashboard. |
-| `/drover:run` | End-to-end: validate env, launch dashboard, run one triage cycle. |
-| `/drover:board` | Show current tickets by lane in the terminal. |
-| `/drover:solution` | CLI equivalent of the dashboard's Document button — write an Actual solution on a ticket. |
-| `/drover:recall` | Search past documented solutions by keyword. |
-| `/drover:baseline` | Compute 24h error-velocity baselines for Acquia envs. |
+```
+POST   /environments/{envId}/logs/{type}    body {from, to}    → notification
+GET    <notification.href>                  poll until status=completed
+GET    /environments/{envId}/logs/{type}    → 301 to presigned S3 URL
+GET    <presigned S3 URL>                   → gzipped log bytes
+```
 
-Opt-in / experimental:
+The `from`/`to` parameters accept ISO timestamps and slice a 24-hour
+window from anywhere in the last 30 days. Acquia's docs reference this
+via `acli api:environments:log-create`; `acli` itself doesn't ship a
+date-range download command, so drover talks to the API directly via a
+stdlib-only Python client (`scripts/monitors/acquia_api.py`).
 
-| Skill | What it does |
-|---|---|
-| `/drover:implement` | Claim a ticket and attempt a fix in an isolated worktree. Requires granting the implementer-agent write/exec permissions on your codebase. Not part of the primary product. |
+## Coverage discipline
 
-Full skill list: `drover/skills/*/SKILL.md`.
+Every fetched (date × env × type) is recorded in `.drover/coverage.json`
+with a state of `present`, `fetch-failed`, or `pending`. The report
+skill reads this ledger and surfaces gaps in the rendered markdown — a
+report can't claim 30 days of analysis if only 28 are present on disk.
+This is what makes the report defensible to clients.
 
----
+Acquia's 30-day retention window is the hard ceiling. Run the daily
+pull on a cron; backfilling a full month after the fact will lose the
+earliest days.
 
-## A note for the curious
+## Architecture
 
-Under the hood, Drover is a few cooperating pieces:
+| Layer | Module | Responsibility |
+|---|---|---|
+| Acquia HTTP | `scripts/monitors/acquia_api.py` | Stdlib OAuth + Cloud Platform API client |
+| Discovery | `scripts/init.py` | Manifest from local breadcrumbs + API |
+| Pull | `scripts/pull.py` | 3-step historical download, atomic gunzip, ledger |
+| Parse | `scripts/parsers/` | apache-error / drupal-watchdog / php-error → events |
+| Aggregate | `scripts/aggregate.py` | Fingerprint + group + count + MoM delta |
+| Synthesize | `scripts/report_writer.py` + `agents/report-writer.md` | Optional LLM prose layer (future) |
+| Render | `scripts/report.py` | Three deterministic templates → markdown |
 
-- A **triage agent** (Claude, haiku) that reads log lines and manages Beads tickets.
-- An **umbrella** shell process that supervises per-env watcher children (`ddev-watch.py` for DDEV, `acquia-watch.py` for Acquia, `wp-watch.py` for WordPress) and forwards their stdout to the dashboard.
-- A **zero-dependency Node dashboard** that merges ticket state across every registered project's `.beads/` in virtual-central mode, exposes an event-stream over SSE, and holds the recall engine.
-- **Beads** for ticket state. Groups are persisted as `group-<id>` labels on member cards (visible to `bd list`) plus a JSON manifest for cross-project metadata.
+## Tests
 
-If you want to extend it — add a log source, change the promotion heuristic, swap the recall scorer — every agent and skill is a plain Markdown file you can read and edit.
+```bash
+python3 -m unittest discover -s drover/tests/python -p 'test_*.py'
+```
+
+182 tests across 9 modules. The HTTP-touching suites
+(`test_acquia_log_download`, `test_init`) use a stub HTTP server;
+nothing in the suite contacts a real Acquia endpoint. Live verification
+scripts under `/tmp/recon-*.py` are not part of CI.
+
+## Future work
+
+Tracked in `~/Vaults/Neurons/Drover-2.0/plan.md`:
+
+- v2.1 — `/drover:export-jira` (real JIRA API integration)
+- v2.2 — Sitecore / .NET adapter (different breadcrumbs + parsers)
+- v2.3+ — Azure MCP, New Relic MCP, custom platforms
+- AI-prose synthesis via the `drover:report-writer` agent
+
+## License + Author
+
+Chris Weber. Velir.
