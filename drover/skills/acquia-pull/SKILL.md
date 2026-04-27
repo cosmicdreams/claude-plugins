@@ -43,29 +43,35 @@ test -f "$PULL_PY" || { echo "drover plugin not installed at $PULL_PY"; exit 1; 
 
 ## Step 2: Pick a date mode and run
 
+`--env` defaults to `prod` — the common case. Pass `--env <name>`
+or `--env all` to override.
+
 Exactly one date mode is required.
 
 ```bash
-# Yesterday only (cron-friendly default)
-python3 "$PULL_PY" --env prod --daily
+# Yesterday only — prod by default
+python3 "$PULL_PY" --daily
 
 # Single day
-python3 "$PULL_PY" --env prod --date 2026-04-03
+python3 "$PULL_PY" --date 2026-04-03
 
 # Explicit range
-python3 "$PULL_PY" --env prod --from 2026-04-01 --to 2026-04-30
+python3 "$PULL_PY" --from 2026-04-01 --to 2026-04-30
 
 # Last 30 days, fill any gaps (default backfill window)
-python3 "$PULL_PY" --env prod --backfill
+python3 "$PULL_PY" --backfill
 
 # Custom backfill window
-python3 "$PULL_PY" --env prod --backfill --backfill-days 7
+python3 "$PULL_PY" --backfill --backfill-days 7
 
-# All envs configured in the manifest
+# Override env: every env configured in the manifest
 python3 "$PULL_PY" --env all --daily
 
+# Override env: stage only
+python3 "$PULL_PY" --env stage --backfill
+
 # Preview without making API calls
-python3 "$PULL_PY" --env prod --backfill --dry-run
+python3 "$PULL_PY" --backfill --dry-run
 ```
 
 ## Type filtering

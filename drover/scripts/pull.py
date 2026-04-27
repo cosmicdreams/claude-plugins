@@ -485,8 +485,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="project root (default: cwd)",
     )
     p.add_argument(
-        "--env", required=True,
-        help="env name from manifest, or 'all' to iterate every env",
+        "--env", default="prod",
+        help="env name from manifest, or 'all' to iterate every env "
+             "(default: prod — override when you need other envs)",
     )
 
     # Date selection (mutually exclusive — exactly one required)

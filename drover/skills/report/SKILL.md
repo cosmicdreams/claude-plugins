@@ -43,24 +43,30 @@ test -f "$REPORT_PY" || { echo "drover plugin not installed at $REPORT_PY"; exit
 
 ## Step 2: Render
 
+`--env` defaults to `prod` — the common case. Pass `--env <name>`
+to render against a different env.
+
 ```bash
-# Stakeholder report for April 2026 prod
-python3 "$REPORT_PY" --env prod --month 2026-04
+# Stakeholder report for April 2026 (prod by default)
+python3 "$REPORT_PY" --month 2026-04
 
 # Dev-facing triage brief
-python3 "$REPORT_PY" --env prod --month 2026-04 --template triage-brief
+python3 "$REPORT_PY" --month 2026-04 --template triage-brief
 
 # JIRA paste blocks
-python3 "$REPORT_PY" --env prod --month 2026-04 --template jira-ready
+python3 "$REPORT_PY" --month 2026-04 --template jira-ready
 
 # Skip month-over-month comparison
-python3 "$REPORT_PY" --env prod --month 2026-04 --no-prior
+python3 "$REPORT_PY" --month 2026-04 --no-prior
 
 # Custom output path
-python3 "$REPORT_PY" --env prod --month 2026-04 --out /tmp/april.md
+python3 "$REPORT_PY" --month 2026-04 --out /tmp/april.md
 
 # Override the type list (default: every type in the manifest for this env)
-python3 "$REPORT_PY" --env prod --month 2026-04 --types drupal-watchdog
+python3 "$REPORT_PY" --month 2026-04 --types drupal-watchdog
+
+# Override env: render the stage env's report
+python3 "$REPORT_PY" --env stage --month 2026-04
 ```
 
 ## Templates

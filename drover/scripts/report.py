@@ -502,7 +502,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         description="Render a markdown report from local logs + ledger.",
     )
     p.add_argument("--project", type=Path, default=Path.cwd())
-    p.add_argument("--env", required=True)
+    p.add_argument(
+        "--env", default="prod",
+        help="env name from manifest (default: prod — override when "
+             "rendering against another env)",
+    )
     p.add_argument(
         "--month", required=True,
         help="report month, YYYY-MM (default range: that calendar month)",
