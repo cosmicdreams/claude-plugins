@@ -13,12 +13,24 @@ Reconciles a project's local log folder against the manifest. For each
 
 Uses only the public API of AcquiaClient. Pure stdlib.
 
-CLI usage (slice 2 — single day):
-  python3 pull.py --project /path/to/project --env prod \\
-                  --date 2026-04-03 [--type drupal-watchdog]
+CLI usage:
+  # Single day:
+  python3 pull.py --env prod --date 2026-04-03 [--type drupal-watchdog]
 
-A multi-day reconcile loop with --from/--to/--backfill/--daily lands in
-slice 3 and reuses the same pull_one primitive.
+  # Explicit range:
+  python3 pull.py --env prod --from 2026-04-01 --to 2026-04-30
+
+  # Last 30 days, fill any gaps (default backfill window):
+  python3 pull.py --env prod --backfill
+
+  # Yesterday only — for daily cron:
+  python3 pull.py --env prod --daily
+
+  # All envs configured in the manifest:
+  python3 pull.py --env all --daily
+
+  # Preview only:
+  python3 pull.py --env prod --backfill --dry-run
 """
 from __future__ import annotations
 
@@ -31,7 +43,7 @@ import sys
 import tempfile
 import time
 import urllib.request
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 # Import AcquiaClient from sibling module without pip install.
@@ -42,6 +54,9 @@ from acquia_api import AcquiaClient, AcquiaAPIError  # noqa: E402
 DEFAULT_TYPES = ["apache-error", "drupal-watchdog", "php-error"]
 POLL_DEADLINE_S = 180
 POLL_INTERVAL_S = 3
+RATE_LIMIT_BETWEEN_CALLS_S = 1.0
+DEFAULT_BACKFILL_DAYS = 30
+RETRY_TRANSIENT_FAILURES = 1
 
 
 # --- Path helpers ---------------------------------------------------------
@@ -244,12 +259,196 @@ def pull_one(
     }
 
 
+# --- Range expansion ------------------------------------------------------
+
+def date_range(from_d: date, to_d: date) -> list[date]:
+    """Inclusive list of dates from from_d to to_d (no calendar magic)."""
+    if from_d > to_d:
+        return []
+    out = []
+    cur = from_d
+    while cur <= to_d:
+        out.append(cur)
+        cur = cur + timedelta(days=1)
+    return out
+
+
+def resolve_target_envs(manifest: dict, env_arg: str) -> list[dict]:
+    """Resolve --env <name> | --env all into a list of env entries."""
+    envs = manifest.get("acquia", {}).get("envs", []) or []
+    if env_arg == "all":
+        if not envs:
+            raise ValueError("manifest has no envs")
+        return envs
+    match = next((e for e in envs if e.get("name") == env_arg), None)
+    if not match:
+        names = [e.get("name") for e in envs]
+        raise ValueError(
+            f"env '{env_arg}' not in manifest. Available: {names}"
+        )
+    return [match]
+
+
+def resolve_dates(args: argparse.Namespace) -> list[date]:
+    """Resolve the date range from CLI args. Exactly one mode required."""
+    modes = [bool(args.date), bool(args.daily), bool(args.backfill),
+             bool(args.from_ and args.to)]
+    if sum(modes) != 1:
+        raise ValueError(
+            "specify exactly one of: --date, --daily, --backfill, "
+            "--from/--to"
+        )
+    today = datetime.now(timezone.utc).date()
+    if args.date:
+        d = date.fromisoformat(args.date)
+        return [d]
+    if args.daily:
+        return [today - timedelta(days=1)]
+    if args.backfill:
+        days = (
+            args.backfill_days if args.backfill_days else DEFAULT_BACKFILL_DAYS
+        )
+        # Backfill never includes "today" (still being written) — Acquia
+        # rotates at UTC midnight, so today's full slice is incomplete.
+        end = today - timedelta(days=1)
+        start = end - timedelta(days=days - 1)
+        return date_range(start, end)
+    return date_range(date.fromisoformat(args.from_),
+                      date.fromisoformat(args.to))
+
+
+# --- Multi-day reconcile orchestrator -------------------------------------
+
+def reconcile(
+    client: AcquiaClient | None,
+    project_root: Path,
+    target_envs: list[dict],
+    target_types: list[str] | None,
+    days: list[date],
+    *,
+    dry_run: bool = False,
+    rate_limit_s: float = RATE_LIMIT_BETWEEN_CALLS_S,
+    retries: int = RETRY_TRANSIENT_FAILURES,
+    poll_interval_s: int = POLL_INTERVAL_S,
+    poll_deadline_s: int = POLL_DEADLINE_S,
+    log_fn=print,
+) -> dict:
+    """Walk (env x type x day) tuples, fetching what's missing.
+
+    `target_types`, when set, overrides each env's manifest types.
+    `client` may be None when dry_run=True — no network is touched.
+
+    Returns a summary dict:
+      {present, fetched, failed, skipped, total}
+    """
+    coverage = load_coverage(project_root)
+    summary = {"present": 0, "fetched": 0, "failed": 0, "skipped": 0, "total": 0}
+
+    for env in target_envs:
+        env_name = env["name"]
+        env_id = env.get("env_id")
+        types = target_types or env.get("types") or DEFAULT_TYPES
+        log_fn(
+            f"\n[{env_name}] env_id={env_id or '<none>'} "
+            f"types={types} days={len(days)}"
+        )
+        for log_type in types:
+            for day in days:
+                summary["total"] += 1
+                local = canonical_path(
+                    project_root, day, env_name, log_type,
+                )
+                if dry_run:
+                    if file_present_and_complete(local):
+                        log_fn(f"  [dry] {day} {log_type}: present")
+                        summary["present"] += 1
+                    else:
+                        log_fn(f"  [dry] {day} {log_type}: would fetch")
+                        summary["skipped"] += 1
+                    continue
+
+                # Live fetch path
+                attempts = retries + 1
+                last_err: Exception | None = None
+                for attempt in range(attempts):
+                    try:
+                        result = pull_one(
+                            client, env_id, env_name, log_type, day,
+                            project_root,
+                            poll_interval_s=poll_interval_s,
+                            poll_deadline_s=poll_deadline_s,
+                        )
+                        last_err = None
+                        break
+                    except (PullError, AcquiaAPIError) as e:
+                        last_err = e
+                        if attempt < attempts - 1:
+                            log_fn(
+                                f"  ~ {day} {log_type}: retry "
+                                f"{attempt + 1}/{retries} ({e})"
+                            )
+                            time.sleep(rate_limit_s)
+                            continue
+
+                if last_err is not None:
+                    if isinstance(last_err, AcquiaAPIError):
+                        reason = (
+                            f"acquia-api {last_err.status} "
+                            f"{last_err.error_slug}"
+                        )
+                    else:
+                        reason = str(last_err)
+                    mark_coverage(
+                        coverage, day, env_name, log_type,
+                        state="fetch-failed", reason=reason,
+                    )
+                    log_fn(f"  ! {day} {log_type}: {last_err}")
+                    summary["failed"] += 1
+                    continue
+
+                if result.get("fetched"):
+                    ledger_fields = {
+                        k: v for k, v in result.items() if k != "fetched"
+                    }
+                    mark_coverage(
+                        coverage, day, env_name, log_type, **ledger_fields,
+                    )
+                    log_fn(
+                        f"  + {day} {log_type}: fetched "
+                        f"({result.get('bytes', 0):,} bytes)"
+                    )
+                    summary["fetched"] += 1
+                    time.sleep(rate_limit_s)
+                else:
+                    existing = coverage.get(day.isoformat(), {}).get(
+                        f"{env_name}.{log_type}"
+                    )
+                    if not existing:
+                        mark_coverage(
+                            coverage, day, env_name, log_type,
+                            state="present", bytes=result.get("bytes", 0),
+                            verified_at=datetime.now(
+                                timezone.utc,
+                            ).isoformat(),
+                        )
+                    log_fn(
+                        f"  = {day} {log_type}: present "
+                        f"({result.get('bytes', 0):,} bytes)"
+                    )
+                    summary["present"] += 1
+
+    if not dry_run:
+        save_coverage(project_root, coverage)
+    return summary
+
+
 # --- CLI ------------------------------------------------------------------
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p = argparse.ArgumentParser(
         prog="drover-pull",
-        description="Fetch Acquia application error logs by date.",
+        description="Reconcile Acquia application error logs into a "
+                    "project's local folder by date.",
     )
     p.add_argument(
         "--project", type=Path, default=Path.cwd(),
@@ -257,13 +456,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     p.add_argument(
         "--env", required=True,
-        help="env name (must match an entry in the manifest)",
+        help="env name from manifest, or 'all' to iterate every env",
     )
-    p.add_argument(
-        "--date", required=True,
-        help="single day to fetch, YYYY-MM-DD (slice 2 limit; "
-             "ranges arrive in slice 3)",
-    )
+
+    # Date selection (mutually exclusive — exactly one required)
+    p.add_argument("--date", default=None,
+                   help="single day, YYYY-MM-DD")
+    p.add_argument("--from", dest="from_", default=None,
+                   help="range start, YYYY-MM-DD (use with --to)")
+    p.add_argument("--to", default=None,
+                   help="range end, YYYY-MM-DD (use with --from)")
+    p.add_argument("--backfill", action="store_true",
+                   help="fill gaps over the last N days (default 30)")
+    p.add_argument("--backfill-days", type=int, default=None,
+                   help="override default 30-day backfill window")
+    p.add_argument("--daily", action="store_true",
+                   help="yesterday only — for cron")
+
+    # Type selection
     p.add_argument(
         "--type", default=None,
         help="single log type (default: all types from manifest)",
@@ -272,13 +482,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--types", default=None,
         help="comma-separated log types (overrides --type)",
     )
+
+    # Behavior
+    p.add_argument("--dry-run", action="store_true",
+                   help="show what would be fetched, do nothing")
+    p.add_argument("--retries", type=int, default=RETRY_TRANSIENT_FAILURES,
+                   help=f"retries on transient failure "
+                        f"(default {RETRY_TRANSIENT_FAILURES})")
+    p.add_argument("--rate-limit-s", type=float,
+                   default=RATE_LIMIT_BETWEEN_CALLS_S,
+                   help=f"sleep between API round-trips "
+                        f"(default {RATE_LIMIT_BETWEEN_CALLS_S}s)")
+
     return p.parse_args(argv)
 
 
 def cli_main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     project_root = args.project.resolve()
-    day = date.fromisoformat(args.date)
 
     try:
         manifest = load_manifest(project_root)
@@ -286,76 +507,43 @@ def cli_main(argv: list[str] | None = None) -> int:
         print(f"ERROR: {e}", file=sys.stderr)
         return 2
 
-    env = find_env(manifest, args.env)
-    env_id = env["env_id"]
+    try:
+        envs = resolve_target_envs(manifest, args.env)
+        days = resolve_dates(args)
+    except ValueError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
 
     if args.types:
-        types = [t.strip() for t in args.types.split(",") if t.strip()]
+        types_override = [
+            t.strip() for t in args.types.split(",") if t.strip()
+        ]
     elif args.type:
-        types = [args.type]
+        types_override = [args.type]
     else:
-        types = env.get("types") or DEFAULT_TYPES
-
-    client = AcquiaClient()
-    coverage = load_coverage(project_root)
+        types_override = None
 
     print(
-        f"pull project={project_root.name} env={args.env} "
-        f"date={day} types={types}"
+        f"pull project={project_root.name} envs={[e['name'] for e in envs]} "
+        f"days={len(days)} ({days[0]}..{days[-1]}) "
+        f"types={types_override or 'manifest-default'} "
+        f"dry_run={args.dry_run}"
     )
-    failed = 0
-    for log_type in types:
-        try:
-            result = pull_one(
-                client, env_id, args.env, log_type, day, project_root,
-            )
-            local = canonical_path(
-                project_root, day, args.env, log_type,
-            )
-            # Only update the ledger if we actually fetched. Short-circuit
-            # paths (file already present) preserve the prior entry's
-            # provenance fields (notification_uuid, gz_bytes, fetched_at).
-            if result.get("fetched"):
-                ledger_fields = {k: v for k, v in result.items() if k != "fetched"}
-                mark_coverage(coverage, day, args.env, log_type, **ledger_fields)
-                print(
-                    f"  + {log_type}: {result['state']} "
-                    f"({result.get('bytes', 0):,} bytes) -> {local}"
-                )
-            else:
-                # Reconcile a missing ledger entry against an existing file
-                # so operators who delete .drover/ get a fresh ledger.
-                existing = coverage.get(day.isoformat(), {}).get(
-                    f"{args.env}.{log_type}"
-                )
-                if not existing:
-                    mark_coverage(
-                        coverage, day, args.env, log_type,
-                        state="present", bytes=result.get("bytes", 0),
-                        verified_at=datetime.now(timezone.utc).isoformat(),
-                    )
-                print(
-                    f"  = {log_type}: already present "
-                    f"({result.get('bytes', 0):,} bytes) -> {local}"
-                )
-        except PullError as e:
-            mark_coverage(
-                coverage, day, args.env, log_type,
-                state="fetch-failed", reason=str(e),
-            )
-            print(f"  ! {log_type}: {e}")
-            failed += 1
-        except AcquiaAPIError as e:
-            mark_coverage(
-                coverage, day, args.env, log_type,
-                state="fetch-failed",
-                reason=f"acquia-api {e.status} {e.error_slug}",
-            )
-            print(f"  ! {log_type}: {e}")
-            failed += 1
 
-    save_coverage(project_root, coverage)
-    return 1 if failed else 0
+    client = None if args.dry_run else AcquiaClient()
+    summary = reconcile(
+        client, project_root, envs, types_override, days,
+        dry_run=args.dry_run,
+        rate_limit_s=args.rate_limit_s,
+        retries=args.retries,
+    )
+
+    print(
+        f"\nDone. total={summary['total']} "
+        f"fetched={summary['fetched']} present={summary['present']} "
+        f"failed={summary['failed']} skipped={summary['skipped']}"
+    )
+    return 1 if summary["failed"] else 0
 
 
 if __name__ == "__main__":

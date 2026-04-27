@@ -15,7 +15,7 @@ import pathlib
 import tempfile
 import unittest
 import urllib.request
-from datetime import date, timezone
+from datetime import date, datetime, timedelta, timezone
 from unittest import mock
 
 HERE = pathlib.Path(__file__).resolve()
@@ -266,6 +266,204 @@ class PullOneTests(unittest.TestCase):
                     client, "env-id", "prod", "drupal-watchdog",
                     date(2026, 4, 3), root, poll_interval_s=0,
                 )
+
+
+class DateRangeTests(unittest.TestCase):
+    def test_single_day(self):
+        d = date(2026, 4, 3)
+        self.assertEqual(pull.date_range(d, d), [d])
+
+    def test_three_days(self):
+        r = pull.date_range(date(2026, 4, 1), date(2026, 4, 3))
+        self.assertEqual(
+            r,
+            [date(2026, 4, 1), date(2026, 4, 2), date(2026, 4, 3)],
+        )
+
+    def test_inverted_returns_empty(self):
+        r = pull.date_range(date(2026, 4, 3), date(2026, 4, 1))
+        self.assertEqual(r, [])
+
+    def test_month_crossing(self):
+        r = pull.date_range(date(2026, 3, 30), date(2026, 4, 2))
+        self.assertEqual(len(r), 4)
+
+
+class ResolveTargetEnvsTests(unittest.TestCase):
+    def setUp(self):
+        self.manifest = {"acquia": {"envs": [
+            {"name": "dev", "env_id": "1"},
+            {"name": "prod", "env_id": "2"},
+        ]}}
+
+    def test_named(self):
+        envs = pull.resolve_target_envs(self.manifest, "prod")
+        self.assertEqual(len(envs), 1)
+        self.assertEqual(envs[0]["name"], "prod")
+
+    def test_all(self):
+        envs = pull.resolve_target_envs(self.manifest, "all")
+        self.assertEqual(len(envs), 2)
+
+    def test_missing_lists_available(self):
+        with self.assertRaises(ValueError) as ctx:
+            pull.resolve_target_envs(self.manifest, "stage")
+        self.assertIn("dev", str(ctx.exception))
+        self.assertIn("prod", str(ctx.exception))
+
+    def test_all_with_no_envs_raises(self):
+        with self.assertRaises(ValueError):
+            pull.resolve_target_envs({"acquia": {"envs": []}}, "all")
+
+
+class ResolveDatesTests(unittest.TestCase):
+    def _ns(self, **kw):
+        defaults = dict(
+            date=None, from_=None, to=None,
+            daily=False, backfill=False, backfill_days=None,
+        )
+        defaults.update(kw)
+        import argparse as _a
+        return _a.Namespace(**defaults)
+
+    def test_explicit_date(self):
+        d = pull.resolve_dates(self._ns(date="2026-04-03"))
+        self.assertEqual(d, [date(2026, 4, 3)])
+
+    def test_range(self):
+        d = pull.resolve_dates(self._ns(from_="2026-04-01", to="2026-04-03"))
+        self.assertEqual(len(d), 3)
+
+    def test_daily_returns_yesterday(self):
+        d = pull.resolve_dates(self._ns(daily=True))
+        self.assertEqual(len(d), 1)
+        # Within 1 day of "yesterday" — clock-tolerant
+        today = datetime.now(timezone.utc).date()
+        self.assertIn(d[0], [today - timedelta(days=1), today - timedelta(days=2)])
+
+    def test_backfill_default_30(self):
+        d = pull.resolve_dates(self._ns(backfill=True))
+        self.assertEqual(len(d), 30)
+        # Latest day should be yesterday — never includes today
+        today = datetime.now(timezone.utc).date()
+        self.assertEqual(d[-1], today - timedelta(days=1))
+
+    def test_backfill_custom_window(self):
+        d = pull.resolve_dates(self._ns(backfill=True, backfill_days=7))
+        self.assertEqual(len(d), 7)
+
+    def test_zero_modes_raises(self):
+        with self.assertRaises(ValueError):
+            pull.resolve_dates(self._ns())
+
+    def test_two_modes_raises(self):
+        with self.assertRaises(ValueError):
+            pull.resolve_dates(
+                self._ns(date="2026-04-03", daily=True),
+            )
+
+
+class ReconcileTests(unittest.TestCase):
+    def setUp(self):
+        self.envs = [{
+            "name": "prod",
+            "env_id": "env-id",
+            "types": ["drupal-watchdog", "php-error"],
+        }]
+        # use timedelta in tests
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self.tmp.name)
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_dry_run_makes_no_calls(self):
+        client = mock.MagicMock()
+        summary = pull.reconcile(
+            client, self.root, self.envs, None,
+            [date(2026, 4, 1), date(2026, 4, 2)],
+            dry_run=True, rate_limit_s=0,
+        )
+        client.request_log_download.assert_not_called()
+        # 2 days * 2 types = 4 tuples, all "would fetch"
+        self.assertEqual(summary["total"], 4)
+        self.assertEqual(summary["skipped"], 4)
+        self.assertEqual(summary["fetched"], 0)
+        # Coverage file should NOT have been written
+        self.assertFalse(pull.coverage_path(self.root).exists())
+
+    def test_dry_run_counts_present(self):
+        # Pre-create one file so dry-run reports it as present
+        local = pull.canonical_path(
+            self.root, date(2026, 4, 1), "prod", "drupal-watchdog",
+        )
+        local.parent.mkdir(parents=True)
+        local.write_text("data\n")
+
+        client = mock.MagicMock()
+        summary = pull.reconcile(
+            client, self.root, self.envs, None,
+            [date(2026, 4, 1)], dry_run=True, rate_limit_s=0,
+        )
+        # 1 day * 2 types = 2 tuples, 1 present + 1 skipped
+        self.assertEqual(summary["total"], 2)
+        self.assertEqual(summary["present"], 1)
+        self.assertEqual(summary["skipped"], 1)
+
+    def test_failure_records_fetch_failed(self):
+        client = mock.MagicMock()
+        client.request_log_download.return_value = {
+            "_links": {"notification": {"href": "https://x/n"}},
+        }
+        client.check_log_download.return_value = {"status": "failed"}
+
+        summary = pull.reconcile(
+            client, self.root, self.envs, ["drupal-watchdog"],
+            [date(2026, 4, 1)],
+            rate_limit_s=0, retries=0, poll_interval_s=0,
+        )
+        self.assertEqual(summary["failed"], 1)
+        cov = pull.load_coverage(self.root)
+        entry = cov["2026-04-01"]["prod.drupal-watchdog"]
+        self.assertEqual(entry["state"], "fetch-failed")
+        self.assertIn("reason", entry)
+
+    def test_retry_succeeds_after_transient(self):
+        # First attempt fails (notification status=failed),
+        # second attempt succeeds (notification status=completed)
+        import gzip as _gz, io as _io
+        payload = b"hello\n" * 10
+        gz_buf = _io.BytesIO()
+        with _gz.GzipFile(fileobj=gz_buf, mode="wb") as g:
+            g.write(payload)
+        gz_bytes = gz_buf.getvalue()
+
+        client = mock.MagicMock()
+        client.request_log_download.return_value = {
+            "_links": {"notification": {"href": "https://x/n"}},
+        }
+        # Sequence: failed (attempt 1), completed (attempt 2)
+        client.check_log_download.side_effect = [
+            {"status": "failed"},
+            {"status": "completed"},
+        ]
+        client.get_log_download_url.return_value = "https://s3/a.gz"
+
+        def fake_urlretrieve(url, dest):
+            with open(dest, "wb") as fh:
+                fh.write(gz_bytes)
+        with mock.patch.object(
+            pull.urllib.request, "urlretrieve", side_effect=fake_urlretrieve,
+        ):
+            summary = pull.reconcile(
+                client, self.root, self.envs, ["drupal-watchdog"],
+                [date(2026, 4, 1)],
+                rate_limit_s=0, retries=1, poll_interval_s=0,
+            )
+
+        self.assertEqual(summary["fetched"], 1)
+        self.assertEqual(summary["failed"], 0)
+        self.assertEqual(client.request_log_download.call_count, 2)
 
 
 class FindEnvTests(unittest.TestCase):
