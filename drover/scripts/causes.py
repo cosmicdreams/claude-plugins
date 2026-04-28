@@ -228,6 +228,38 @@ PATTERNS: list[dict] = [
         "confidence": "high",
     },
     {
+        "id": "drupal-cron-routine-instrumentation",
+        "channel": "simple_cron",
+        "match": [
+            r"^starting execution of cron job",
+            r"^execution of cron job .* took",
+            r"^cron run completed",
+            r"^attempting to acquire cron lock",
+        ],
+        "title": "Routine cron instrumentation logs",
+        "explanation": (
+            "Drupal's cron module logs an INFO entry every time it "
+            "starts a cron job, and another when it finishes. On "
+            "sites with many modules each cron tick emits dozens of "
+            "these and they pile up in watchdog as a substantial "
+            "share of total volume despite carrying no actionable "
+            "signal — they're 'something happened' messages, not "
+            "errors. Each cron job name produces a separate "
+            "fingerprint, so the impact is fragmented across many "
+            "rows but is fundamentally one cause: cron is over-"
+            "instrumented at the INFO level."
+        ),
+        "suggested_fix": (
+            "Either raise the syslog/dblog severity threshold to "
+            "filter out INFO-level cron logs, or override "
+            "hook_cron_alter() to silence the start logs while "
+            "keeping completion + error logs. On Acquia specifically, "
+            "the syslog facility setting in settings.php can drop "
+            "INFO without code changes."
+        ),
+        "confidence": "high",
+    },
+    {
         "id": "php-memory-exhausted",
         "match": [
             r"allowed memory size of \d+ bytes exhausted",

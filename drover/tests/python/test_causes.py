@@ -124,6 +124,50 @@ class DiagnoseTests(unittest.TestCase):
             cause.pattern_id, "drupal-cron-rerun-attempt",
         )
 
+    def test_cron_routine_startup_logs(self):
+        cause = causes.diagnose(_g(
+            summary='Starting execution of cron job cron.acquia_connector. '
+                    'request_id="v-f03d1200-2d5e-11f1-8bd3-e3de4dc33db3"',
+            channel="simple_cron",
+        ))
+        self.assertEqual(
+            cause.pattern_id, "drupal-cron-routine-instrumentation",
+        )
+
+    def test_cron_routine_run_completed(self):
+        cause = causes.diagnose(_g(
+            summary='Cron run completed in 0.082s',
+            channel="simple_cron",
+        ))
+        self.assertEqual(
+            cause.pattern_id, "drupal-cron-routine-instrumentation",
+        )
+
+    def test_cron_routine_execution_took(self):
+        # The other half of the routine pair — duration log emitted
+        # AFTER each cron job completes.
+        cause = causes.diagnose(_g(
+            summary='Execution of cron job cron.node took 0.02ms. '
+                    'request_id="v-2994357a-2db3-11f1-82a3-13a86d5cf5c9"',
+            channel="simple_cron",
+        ))
+        self.assertEqual(
+            cause.pattern_id, "drupal-cron-routine-instrumentation",
+        )
+
+    def test_cron_rerun_takes_precedence_over_routine(self):
+        # The rerun-attempt pattern is listed first in PATTERNS so it
+        # wins for the lock-contention message even though both
+        # patterns target the simple_cron channel.
+        cause = causes.diagnose(_g(
+            summary='Attempting to re-run The Search API module cron '
+                    'while it is already running',
+            channel="simple_cron",
+        ))
+        self.assertEqual(
+            cause.pattern_id, "drupal-cron-rerun-attempt",
+        )
+
     def test_php_memory_exhausted(self):
         cause = causes.diagnose(_g(
             summary='PHP Fatal error:  Allowed memory size of 268435456 '

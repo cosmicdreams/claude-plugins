@@ -426,16 +426,20 @@ def render_root_cause_summary(
     )
     lines.append("")
 
-    # Volume share chart — the top groups. Labels show the channel(s);
-    # collapsed groups use channel-plus-channel notation. The fingerprint
-    # suffix disambiguates same-channel issues that share no cause.
+    # Volume share chart — the top groups. Labels:
+    #   multi-channel collapse → "ch1+ch2"
+    #   single-channel collapse with N>1 fingerprints → "channel ×N"
+    #   single fingerprint → "channel · <fp prefix>"
     chart_items: list[tuple[str, int]] = []
     for g in sorted_groups[: max(top_n, pareto_n)]:
         chans = g.get("channels") or (
             [g["channel"]] if g.get("channel") else ["(none)"]
         )
+        member_count = g.get("member_count", 1)
         if len(chans) > 1:
             label = "+".join(chans)
+        elif member_count > 1:
+            label = f"{chans[0]} ×{member_count}"
         else:
             label = f"{chans[0]} · {g['fingerprint'][:6]}"
         chart_items.append((label, g.get("count", 0)))
