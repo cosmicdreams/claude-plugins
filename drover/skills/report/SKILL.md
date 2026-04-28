@@ -2,13 +2,15 @@
 name: drover:report
 description: >
   Render a markdown report for a calendar month from a project's local
-  logs and coverage ledger. Three templates: monthly-client (stakeholder),
-  triage-brief (developer), jira-ready (paste-ready issue blocks).
-  Deterministic — same inputs produce the same output. Coverage caveats
-  are surfaced automatically when any day is missing or fetch-failed.
-  Trigger phrases — "drover report", "monthly report for <project>",
-  "summarize <project> April", "triage brief for <env>".
-allowed-tools: Bash, Read
+  logs and coverage ledger. Five templates cover stakeholder, dev, and
+  JIRA-paste workflows. Stakeholder templates carry a Velir logo, brand
+  colors, bar charts (by channel, severity, daily volume), and a
+  "Recommended JIRA tickets" section plus a JSON sidecar listing each
+  ticket spec for downstream programmatic creation. Deterministic — same
+  inputs produce the same output. Trigger phrases — "drover report",
+  "monthly report for <project>", "summarize <project> April",
+  "root cause summary", "calendar window report".
+allowed-tools: Bash, Read, AskUserQuestion
 ---
 
 # drover:report
@@ -18,10 +20,31 @@ allowed-tools: Bash, Read
 Walks `<project>/<year>/<month>/<date>.<env>.<type>.log`, parses every
 log file in the requested calendar month, fingerprints + groups errors,
 applies month-over-month delta vs the prior calendar month if data
-exists, and renders one of three markdown templates.
+exists, and renders one of five markdown templates.
 
 The output is **deterministic**: same logs in, same report out. No LLM
 in the rendering path.
+
+## Templates
+
+### Stakeholder-facing (Velir logo + brand colors + JIRA recommendations)
+
+| Template | What it answers |
+|---|---|
+| `monthly-client` | "How was last month overall?" — totals, top issues, MoM trend, severity distribution. |
+| `root-cause-summary` | "What 5 things should we fix to silence most of this month's noise?" — Pareto cut, share-of-volume bar chart, per-issue detail. |
+| `calendar-boundary` | "What kinds of issues happened during this window?" — events-by-channel bar chart (Drupal watchdog channels), events-by-severity, daily volume. |
+
+All three end with **Recommended JIRA tickets** (suggested title,
+priority, labels, description per top issue) and write a sidecar JSON
+file (`<report>.tickets.json`) for programmatic creation later.
+
+### Dev / operational
+
+| Template | What it answers |
+|---|---|
+| `triage-brief` | "What does each top fingerprint look like up close?" — top 25 with full samples + severity histogram. |
+| `jira-ready` | "Give me JIRA-create-issue paste blocks." — one self-contained code block per fingerprint. |
 
 ## Prerequisites
 
@@ -30,8 +53,8 @@ test -f .drover/manifest.json || { echo "Run /drover:init first."; exit 1; }
 ```
 
 You also need logs on disk. Run `/drover:acquia-pull` first to populate
-them, ideally via a daily cron (Acquia's 30-day retention means
-backfilling a full month after the fact will miss the early days).
+them — Acquia's 30-day retention means backfilling a full month after
+the fact will miss the early days.
 
 ## Step 1: Resolve the plugin's report script
 
@@ -43,14 +66,19 @@ test -f "$REPORT_PY" || { echo "drover plugin not installed at $REPORT_PY"; exit
 
 ## Step 2: Render
 
-`--env` defaults to `prod` — the common case. Pass `--env <name>`
-to render against a different env.
+`--env` defaults to `prod`. Pass `--env <name>` to override.
 
 ```bash
-# Stakeholder report for April 2026 (prod by default)
+# Stakeholder summary for April 2026 (the default)
 python3 "$REPORT_PY" --month 2026-04
 
-# Dev-facing triage brief
+# Top-5 root-cause concentration
+python3 "$REPORT_PY" --month 2026-04 --template root-cause-summary
+
+# Channel-distribution view (best for a campaign / window)
+python3 "$REPORT_PY" --month 2026-04 --template calendar-boundary
+
+# Dev-facing fingerprint detail
 python3 "$REPORT_PY" --month 2026-04 --template triage-brief
 
 # JIRA paste blocks
@@ -59,48 +87,65 @@ python3 "$REPORT_PY" --month 2026-04 --template jira-ready
 # Skip month-over-month comparison
 python3 "$REPORT_PY" --month 2026-04 --no-prior
 
-# Custom output path
-python3 "$REPORT_PY" --month 2026-04 --out /tmp/april.md
+# Skip the JIRA recommendation block + sidecar
+python3 "$REPORT_PY" --month 2026-04 --template root-cause-summary --no-tickets
 
-# Override the type list (default: every type in the manifest for this env)
+# Override env / output path / type list
+python3 "$REPORT_PY" --month 2026-04 --env stage --out /tmp/april-stage.md
 python3 "$REPORT_PY" --month 2026-04 --types drupal-watchdog
-
-# Override env: render the stage env's report
-python3 "$REPORT_PY" --env stage --month 2026-04
 ```
 
-## Templates
+The CLI prints a summary line (events / groups / coverage % / tickets
+suggested) and writes:
 
-### `monthly-client` (default)
+- `reports/<month>-<template>.md` — the rendered report
+- `reports/<month>-<template>.md.tickets.json` — sidecar (stakeholder
+  templates only, when tickets are recommended)
 
-Stakeholder-facing. Plain language. Sections:
+## Step 3: Optional — create the suggested tickets in JIRA
 
-- Coverage banner (✅ 100% / ⚠ partial)
-- Summary — total event count, top-channel volume share, MoM trend
-- Top issues table (top 10) with channel, severity, count, trend arrow
-- Severity distribution table
-- Days affected by retrieval gaps (only when imperfect)
-- Issues that disappeared since prior month (only with prior data)
+After rendering a stakeholder template that emitted ticket
+recommendations, ask the user whether to follow through:
 
-### `triage-brief`
+```
+Use AskUserQuestion to ask:
+  "Create the N suggested tickets in JIRA?"
+  options:
+    - "Create in JIRA" — proceed to a follow-up skill that takes
+      the sidecar JSON, asks for the JIRA project key, and creates
+      one issue per spec
+    - "Edit first" — open the report in $EDITOR for review; user
+      reruns the create flow when ready
+    - "Skip" — leave the sidecar in place; nothing is sent
+```
 
-Developer-facing. One block per fingerprint (top 25):
+The actual JIRA API integration ships in a follow-up
+(`/drover:export-jira`, drover 2.1+). Until then, the sidecar JSON is
+the structured handoff: the user can paste each ticket's title +
+description into JIRA's create-issue dialog using the suggested
+priority and labels, OR feed the sidecar into any existing JIRA-import
+tool the team already runs.
 
-- Fingerprint, channel, majority severity, count
-- First/last seen
-- Severity histogram
-- Truncated message summary
-- Up to 3 raw sample lines
+The sidecar shape — one record per ticket — is stable and
+forward-compatible:
 
-### `jira-ready`
-
-One self-contained code block per top fingerprint (top 15), formatted
-for direct paste into a JIRA "Create issue" dialog:
-
-- Title with `[project/env] channel: summary` shape
-- Description block: project, env, month, channel, severity,
-  occurrences, first/last seen, drover fingerprint, summary, sample
-  lines
+```json
+{
+  "fingerprint": "abc123def456",
+  "title": "[entity_embed] Invalid display settings encountered.",
+  "description": "**Reported by drover...**\n\n- Channel: ...",
+  "priority": "P1",
+  "labels": ["drover-suggested", "drover-project-pncb",
+             "drover-env-prod", "drover-channel-entity-embed",
+             "drover-severity-warning"],
+  "channel": "entity_embed",
+  "severity": "warning",
+  "count": 31171,
+  "first_seen": "2026-04-01T00:01:27+00:00",
+  "last_seen": "2026-04-26T23:55:21+00:00",
+  "sample": "Apr 1 00:01:27 ..."
+}
+```
 
 ## How prior-month comparison works
 
@@ -117,26 +162,32 @@ the comparison is silently skipped.
 Force-skip with `--no-prior`. Override the prior with
 `--prior-month YYYY-MM`.
 
-## Output location
-
-Default: `<project>/reports/<month>-<template>.md`. Created if missing.
-
-Override with `--out PATH`.
-
 ## Coverage caveats
 
 If any day in the requested month has a non-`present` coverage state
-(missing-upstream, fetch-failed, pending), the report surfaces it:
+(missing-upstream, fetch-failed, pending), every stakeholder template
+surfaces it:
 
 - A `⚠ Coverage: NN%` banner at the top
-- Per-day list of affected (date, log_type, state, reason) entries
+- A per-day list of affected (date, log_type, state, reason) entries
 
-This makes the report defensible even when data is incomplete: the
-gaps are stated, not hidden.
+This makes the report defensible even when data is incomplete.
+
+## Branding
+
+Stakeholder templates carry a Velir logo (PNG, base64-embedded so the
+markdown is self-contained and travels through any viewer) and a brand
+palette extracted from the Velir 2025 Word template:
+
+- `#001B67` primary navy · `#0051FF` accent blue · `#00321A` accent green
+- `#FAD200`/`#FFE146` highlight gold/yellow
+- `#C8F5E3`/`#E6E8FF`/`#FFF4D8` tinted backgrounds
+
+The palette is exposed in `scripts/branding.py` for any future template
+that wants to color-code severity bars, callouts, or callout panels.
 
 ## Future: AI-synthesized prose
 
 The `drover:report-writer` agent (slice 7) can layer narrative prose
-on top of the deterministic report. That integration is wired in
-slice 8.5 / post-2.0; for now the deterministic report is the
-shippable surface. Stakeholders care about the facts; prose is polish.
+on top of the deterministic report. The deterministic report is the
+shippable surface for 2.0; AI prose is a follow-up enhancement.

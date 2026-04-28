@@ -6,19 +6,30 @@ report-writer agent can layer prose on top later; that integration is
 optional and lives behind a future flag. Stakeholders care most about
 the facts, so the no-AI path is the supported path for 2.0.
 
-Three templates ship:
+Templates that ship:
 
-  monthly-client   stakeholder-facing — totals, top issues, MoM trend,
-                   coverage caveats. Plain language.
-  triage-brief     dev-facing — fingerprint-by-fingerprint detail with
-                   sample lines and severity histograms.
-  jira-ready       structured for direct paste into JIRA — one block
-                   per top fingerprint, each block self-contained.
+  monthly-client       stakeholder-facing — totals, top issues, MoM
+                       trend, coverage caveats. Plain language.
+  root-cause-summary   stakeholder-facing — top 5 fingerprints driving
+                       the bulk of volume, share-of-volume bar chart,
+                       JIRA ticket recommendations.
+  calendar-boundary    stakeholder-facing — calendar/campaign window
+                       analysis with bar chart by channel + JIRA recs.
+  triage-brief         dev-facing — fingerprint-by-fingerprint detail
+                       with sample lines and severity histograms.
+  jira-ready           structured paste-blocks for JIRA's create-issue
+                       dialog (one self-contained block per fingerprint).
+
+Stakeholder templates (monthly-client, root-cause-summary,
+calendar-boundary) embed a Velir logo header + brand colors and end
+with a structured "Recommended JIRA tickets" section plus a JSON
+sidecar (.tickets.json) for downstream programmatic creation.
 
 CLI:
   python3 report.py [--project ROOT] [--env NAME] --month YYYY-MM
                     [--template NAME] [--out PATH]
                     [--types csv] [--prior-month YYYY-MM]
+                    [--no-tickets]   skip the JIRA recommendation block
 """
 from __future__ import annotations
 
@@ -48,8 +59,24 @@ _report_writer = importlib.util.module_from_spec(_spec2)
 sys.modules["drover_report_writer"] = _report_writer
 _spec2.loader.exec_module(_report_writer)
 
+# Branding, charts, and JIRA recommendations — siblings of report.py.
+import branding  # noqa: E402
+import charts  # noqa: E402
+import jira_recs  # noqa: E402
 
-KNOWN_TEMPLATES = ("monthly-client", "triage-brief", "jira-ready")
+
+KNOWN_TEMPLATES = (
+    "monthly-client",
+    "root-cause-summary",
+    "calendar-boundary",
+    "triage-brief",
+    "jira-ready",
+)
+STAKEHOLDER_TEMPLATES = (
+    "monthly-client",
+    "root-cause-summary",
+    "calendar-boundary",
+)
 SEVERITY_RANK = {
     "critical": 0, "error": 1, "warning": 2, "notice": 3,
     "info": 4, "unknown": 5,
@@ -89,6 +116,27 @@ def load_manifest(project_root: Path) -> dict:
             f"No manifest at {p}. Run /drover:init first."
         )
     return json.loads(p.read_text())
+
+
+# --- Branding header ------------------------------------------------------
+
+def velir_header(project: str, env: str, month_str: str,
+                 subtitle: str | None = None) -> list[str]:
+    """Markdown lines for the Velir-branded report header.
+
+    Embeds the logo as a base64 data: URI so the rendered .md is
+    self-contained. Falls back to a plain text title bar when the
+    asset is missing.
+    """
+    lines: list[str] = []
+    logo = branding.logo_markdown(alt="Velir")
+    if logo:
+        lines.append(logo)
+        lines.append("")
+    lines.append(f"# {project} — {subtitle or 'Application Error Report'}")
+    lines.append(f"### {month_str} · `{env}` environment")
+    lines.append("")
+    return lines
 
 
 # --- Format helpers -------------------------------------------------------
@@ -286,6 +334,361 @@ def render_monthly_client(
     return "\n".join(lines) + "\n"
 
 
+# --- Stakeholder template: root-cause-summary ----------------------------
+
+def render_root_cause_summary(
+    agg: dict,
+    *,
+    project: str,
+    env: str,
+    month_str: str,
+    coverage: dict,
+    has_prior: bool,
+    include_tickets: bool = True,
+    project_slug: str | None = None,
+) -> str:
+    """Top-N fingerprints driving the bulk of volume. Concentration
+    lens — answers "what 5 things should we fix to silence most of
+    this month's noise."
+    """
+    lines: list[str] = []
+    lines.extend(velir_header(
+        project, env, month_str,
+        subtitle="Root-Cause Summary",
+    ))
+
+    total = agg.get("events_total", 0)
+    groups = agg.get("groups", []) or []
+    by_sev = agg.get("by_severity", {}) or {}
+    by_ch = agg.get("by_channel", {}) or {}
+
+    # Coverage banner first — credibility before claims.
+    cov_pct = (
+        100.0 * coverage["present_days"] / coverage["expected_days"]
+        if coverage["expected_days"] else 100.0
+    )
+    if cov_pct < 100:
+        lines.append(branding.banner(
+            f"Coverage: {cov_pct:.1f}% — "
+            f"{coverage['present_days']} of "
+            f"{coverage['expected_days']} expected log files present.",
+            kind="warning",
+        ))
+    else:
+        lines.append(branding.banner(
+            f"Coverage: 100% — analysis covers every expected log file.",
+            kind="success",
+        ))
+    lines.append("")
+
+    if total == 0:
+        lines.append(
+            f"_No application errors recorded in {project} `{env}` "
+            f"during {month_str}._"
+        )
+        lines.append("")
+        return "\n".join(lines) + "\n"
+
+    # The headline: how many fingerprints account for what share of
+    # total volume? Pareto cut at 80%.
+    sorted_groups = sorted(
+        groups, key=lambda g: g.get("count", 0), reverse=True,
+    )
+    cumulative = 0
+    pareto_n = 0
+    pareto_pct = 0.0
+    for g in sorted_groups:
+        cumulative += g.get("count", 0)
+        pareto_n += 1
+        pareto_pct = 100.0 * cumulative / max(total, 1)
+        if pareto_pct >= 80.0 or pareto_n >= 10:
+            break
+
+    top_n = min(5, len(sorted_groups))
+    top_share = sum(g.get("count", 0) for g in sorted_groups[:top_n])
+    top_share_pct = 100.0 * top_share / max(total, 1)
+
+    lines.append("## Headline")
+    lines.append("")
+    lines.append(
+        f"**The top {top_n} issues account for "
+        f"{top_share_pct:.1f}% of all {_fmt_int(total)} application "
+        f"events in {month_str}.**"
+    )
+    lines.append("")
+    lines.append(
+        f"Pareto cut: **{pareto_n}** fingerprints make up "
+        f"{pareto_pct:.0f}% of total volume. The rest of this report "
+        f"focuses on those — fix them first to silence most of the "
+        f"noise."
+    )
+    lines.append("")
+
+    # Volume share chart — the top groups, with the channel as the label
+    chart_items: list[tuple[str, int]] = []
+    for g in sorted_groups[: max(top_n, pareto_n)]:
+        ch = g.get("channel") or "(none)"
+        # Add a short fingerprint suffix so duplicates are distinguishable
+        label = f"{ch} · {g['fingerprint'][:6]}"
+        chart_items.append((label, g.get("count", 0)))
+    lines.append(charts.horizontal_bar_chart(
+        chart_items,
+        title="Top issues by share of volume",
+        top_n=max(top_n, pareto_n),
+    ))
+    lines.append("")
+
+    # Per-issue detail
+    lines.append("## What each top issue is")
+    lines.append("")
+    for i, g in enumerate(sorted_groups[:top_n], start=1):
+        ch = g.get("channel") or "(none)"
+        sev = g.get("severity") or "unknown"
+        count = g.get("count", 0)
+        share = 100.0 * count / max(total, 1)
+        first = g.get("first_seen") or "?"
+        last = g.get("last_seen") or "?"
+        delta = g.get("delta") or {}
+        trend = ""
+        if delta.get("delta_pct") is not None:
+            trend = (
+                f" {_trend_arrow(delta)} "
+                f"{_fmt_pct(delta['delta_pct'])} vs prior month"
+            )
+        elif delta.get("is_new"):
+            trend = " 🆕 new this month"
+
+        lines.append(f"### {i}. `{ch}` — {_severity_chip(sev)}")
+        lines.append("")
+        lines.append(
+            f"- **Volume:** {_fmt_int(count)} events ({share:.1f}% "
+            f"of total){trend}"
+        )
+        lines.append(f"- **First seen:** {first}")
+        lines.append(f"- **Last seen:** {last}")
+        lines.append(f"- **Fingerprint:** `{g['fingerprint']}`")
+        lines.append("")
+        lines.append("**Representative message:**")
+        lines.append("")
+        lines.append("```")
+        lines.append(_truncate(g.get("summary") or "", 400))
+        lines.append("```")
+        lines.append("")
+
+    # Coverage caveats (compact form for stakeholder template)
+    if coverage.get("missing_or_failed"):
+        lines.append("## Days with retrieval gaps")
+        lines.append("")
+        for m in coverage["missing_or_failed"][:10]:
+            reason = m.get("reason") or ""
+            lines.append(
+                f"- **{m['date']}** {m['log_type']} "
+                f"({m['state']}{(': ' + reason) if reason else ''})"
+            )
+        if len(coverage["missing_or_failed"]) > 10:
+            lines.append(
+                f"- ...and {len(coverage['missing_or_failed']) - 10} more."
+            )
+        lines.append("")
+
+    # JIRA recommendations
+    if include_tickets:
+        specs = jira_recs.from_groups(
+            sorted_groups,
+            project_slug=project_slug or project,
+            env=env,
+            month_label=month_str,
+            total_events=total,
+            top_n=top_n,
+        )
+        lines.append(jira_recs.render_markdown(
+            specs,
+            section_title="Recommended JIRA tickets",
+        ))
+
+    lines.append("---")
+    lines.append(
+        f"*Generated by drover at "
+        f"{datetime.now(timezone.utc).isoformat(timespec='seconds')}.*"
+    )
+    return "\n".join(lines) + "\n"
+
+
+# --- Stakeholder template: calendar-boundary -----------------------------
+
+def render_calendar_boundary(
+    agg: dict,
+    *,
+    project: str,
+    env: str,
+    month_str: str,
+    coverage: dict,
+    has_prior: bool,
+    include_tickets: bool = True,
+    project_slug: str | None = None,
+) -> str:
+    """Calendar/campaign window analysis. The bar chart by channel is
+    the centerpiece — answers "what kinds of issues are happening
+    during this window."
+    """
+    lines: list[str] = []
+    lines.extend(velir_header(
+        project, env, month_str,
+        subtitle="Calendar Window Report",
+    ))
+
+    total = agg.get("events_total", 0)
+    by_ch = agg.get("by_channel", {}) or {}
+    by_sev = agg.get("by_severity", {}) or {}
+    by_day = agg.get("by_day", {}) or {}
+    groups = agg.get("groups", []) or []
+
+    cov_pct = (
+        100.0 * coverage["present_days"] / coverage["expected_days"]
+        if coverage["expected_days"] else 100.0
+    )
+    if cov_pct < 100:
+        lines.append(branding.banner(
+            f"Coverage: {cov_pct:.1f}% — "
+            f"{coverage['present_days']} of "
+            f"{coverage['expected_days']} expected log files present.",
+            kind="warning",
+        ))
+    else:
+        lines.append(branding.banner(
+            "Coverage: 100% — analysis covers every expected log file.",
+            kind="success",
+        ))
+    lines.append("")
+
+    lines.append("## At a glance")
+    lines.append("")
+    if total == 0:
+        lines.append(
+            f"_No application errors recorded in {project} `{env}` "
+            f"during {month_str}._"
+        )
+        lines.append("")
+        return "\n".join(lines) + "\n"
+
+    crit = by_sev.get("critical", 0)
+    err = by_sev.get("error", 0)
+    warn = by_sev.get("warning", 0)
+    lines.append(
+        f"During **{month_str}**, the {project} `{env}` environment "
+        f"logged **{_fmt_int(total)}** application events — "
+        f"{_fmt_int(crit)} critical, {_fmt_int(err)} error-level, "
+        f"{_fmt_int(warn)} warning-level."
+    )
+    lines.append("")
+
+    # CHART: events by channel (the centerpiece for this template)
+    lines.append("## Events by channel")
+    lines.append("")
+    lines.append(
+        "Drupal's watchdog logs each event under a category called a "
+        "*channel*. The chart below shows volume by channel for the "
+        "window — concentrated channels are usually one or two issues "
+        "in disguise; spread channels mean broader configuration "
+        "drift."
+    )
+    lines.append("")
+    lines.append(charts.channel_bar_chart(by_ch, top_n=15))
+    lines.append("")
+
+    # Severity chart for the same window
+    lines.append("## Events by severity")
+    lines.append("")
+    lines.append(charts.severity_bar_chart(by_sev))
+    lines.append("")
+
+    # Per-day volume — useful for spotting spike days inside the window
+    if by_day:
+        lines.append("## Daily volume")
+        lines.append("")
+        ordered_days = sorted(by_day.keys())
+        day_items = [
+            (d, by_day[d].get("total", 0)) for d in ordered_days
+        ]
+        lines.append(charts.horizontal_bar_chart(
+            day_items,
+            title=None,
+            top_n=len(day_items),
+            show_pct=False,
+            label_width=12,
+        ))
+        lines.append("")
+
+    # Top channels in detail
+    lines.append("## Top channels — what's inside")
+    lines.append("")
+    sorted_channels = sorted(
+        by_ch.items(), key=lambda kv: kv[1], reverse=True,
+    )[:5]
+    for ch, ch_count in sorted_channels:
+        share = 100.0 * ch_count / max(total, 1)
+        # Pull the first (highest-count) group for this channel
+        ch_groups = [g for g in groups if (g.get("channel") or "(none)") == ch]
+        ch_groups.sort(key=lambda g: g.get("count", 0), reverse=True)
+        top_summary = (
+            ch_groups[0].get("summary", "") if ch_groups else ""
+        )
+        lines.append(
+            f"### `{ch}` — {_fmt_int(ch_count)} events ({share:.1f}%)"
+        )
+        if ch_groups:
+            lines.append("")
+            lines.append(
+                f"- Distinct fingerprints in this channel: "
+                f"{len(ch_groups)}"
+            )
+            lines.append(
+                f"- Top issue: {_truncate(top_summary, 200)}"
+            )
+        lines.append("")
+
+    # Coverage detail (compact)
+    if coverage.get("missing_or_failed"):
+        lines.append("## Days with retrieval gaps")
+        lines.append("")
+        for m in coverage["missing_or_failed"][:10]:
+            reason = m.get("reason") or ""
+            lines.append(
+                f"- **{m['date']}** {m['log_type']} "
+                f"({m['state']}{(': ' + reason) if reason else ''})"
+            )
+        if len(coverage["missing_or_failed"]) > 10:
+            lines.append(
+                f"- ...and {len(coverage['missing_or_failed']) - 10} more."
+            )
+        lines.append("")
+
+    # JIRA recommendations: top issues across all channels
+    if include_tickets:
+        sorted_groups = sorted(
+            groups, key=lambda g: g.get("count", 0), reverse=True,
+        )
+        specs = jira_recs.from_groups(
+            sorted_groups,
+            project_slug=project_slug or project,
+            env=env,
+            month_label=month_str,
+            total_events=total,
+            top_n=5,
+        )
+        lines.append(jira_recs.render_markdown(
+            specs,
+            section_title="Recommended JIRA tickets",
+        ))
+
+    lines.append("---")
+    lines.append(
+        f"*Generated by drover at "
+        f"{datetime.now(timezone.utc).isoformat(timespec='seconds')}.*"
+    )
+    return "\n".join(lines) + "\n"
+
+
 def render_triage_brief(
     agg: dict,
     *,
@@ -414,6 +817,8 @@ def render_jira_ready(
 
 RENDERERS = {
     "monthly-client": render_monthly_client,
+    "root-cause-summary": render_root_cause_summary,
+    "calendar-boundary": render_calendar_boundary,
     "triage-brief": render_triage_brief,
     "jira-ready": render_jira_ready,
 }
@@ -429,8 +834,15 @@ def generate_report(
     template: str = "monthly-client",
     types: list[str] | None = None,
     prior_month_str: str | None = None,
-) -> tuple[str, dict]:
-    """Returns (markdown_text, summary_dict)."""
+    include_tickets: bool = True,
+) -> tuple[str, dict, list]:
+    """Returns (markdown_text, summary_dict, ticket_specs).
+
+    `ticket_specs` is a list of jira_recs.TicketSpec when the chosen
+    template supports JIRA recommendations and include_tickets is
+    True; an empty list otherwise. The CLI layer writes a sidecar
+    JSON file with these specs alongside the report.
+    """
     if template not in RENDERERS:
         raise ValueError(
             f"unknown template {template!r}; known: {sorted(RENDERERS)}"
@@ -474,6 +886,14 @@ def generate_report(
             agg = _aggregate.delta(agg, prior_agg)
             has_prior = True
 
+    # Templates that surface JIRA recommendations also accept the
+    # include_tickets / project_slug kwargs. The shared signature
+    # supports both shapes.
+    extra_kwargs: dict = {}
+    if template in ("root-cause-summary", "calendar-boundary"):
+        extra_kwargs["include_tickets"] = include_tickets
+        extra_kwargs["project_slug"] = manifest.get("project") or project
+
     md = RENDERERS[template](
         agg,
         project=project,
@@ -481,7 +901,28 @@ def generate_report(
         month_str=month_label(from_d.year, from_d.month),
         coverage=coverage,
         has_prior=has_prior,
+        **extra_kwargs,
     )
+
+    # Build the ticket specs separately for sidecar emission. We
+    # rebuild rather than capture from the renderer because the
+    # renderer is markdown-only by design.
+    ticket_specs: list = []
+    if include_tickets and template in ("root-cause-summary",
+                                        "calendar-boundary"):
+        sorted_groups = sorted(
+            agg.get("groups", []) or [],
+            key=lambda g: g.get("count", 0), reverse=True,
+        )
+        ticket_specs = jira_recs.from_groups(
+            sorted_groups,
+            project_slug=manifest.get("project") or project,
+            env=env,
+            month_label=month_label(from_d.year, from_d.month),
+            total_events=agg.get("events_total", 0),
+            top_n=5,
+        )
+
     summary = {
         "events_total": agg["events_total"],
         "groups_total": len(agg.get("groups", [])),
@@ -490,8 +931,9 @@ def generate_report(
             if coverage["expected_days"] else 100.0
         ),
         "template": template,
+        "ticket_count": len(ticket_specs),
     }
-    return md, summary
+    return md, summary, ticket_specs
 
 
 # --- CLI ------------------------------------------------------------------
@@ -527,6 +969,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--no-prior", action="store_true",
         help="skip MoM comparison even when prior data exists",
     )
+    p.add_argument(
+        "--no-tickets", action="store_true",
+        help="skip the JIRA recommendation block + sidecar emission "
+             "(stakeholder templates only)",
+    )
     return p.parse_args(argv)
 
 
@@ -549,13 +996,14 @@ def cli_main(argv: list[str] | None = None) -> int:
             prior = f"{py:04d}-{pm:02d}"
 
     try:
-        md, summary = generate_report(
+        md, summary, ticket_specs = generate_report(
             project_root,
             env=args.env,
             month=args.month,
             template=args.template,
             types=types_override,
             prior_month_str=prior,
+            include_tickets=not args.no_tickets,
         )
     except (FileNotFoundError, ValueError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
@@ -568,10 +1016,16 @@ def cli_main(argv: list[str] | None = None) -> int:
     out.parent.mkdir(parents=True, exist_ok=True)
     out.write_text(md)
 
+    sidecar_path = None
+    if ticket_specs:
+        sidecar_path = jira_recs.write_sidecar(ticket_specs, out)
+
     print(f"wrote {out}")
     print(f"  events:    {_fmt_int(summary['events_total'])}")
     print(f"  groups:    {summary['groups_total']}")
     print(f"  coverage:  {summary['coverage_pct']:.1f}%")
+    if sidecar_path:
+        print(f"  tickets:   {len(ticket_specs)} suggested -> {sidecar_path}")
     return 0
 
 

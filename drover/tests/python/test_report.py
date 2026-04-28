@@ -118,7 +118,7 @@ class GenerateReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = pathlib.Path(td)
             _make_project(root)
-            md, summary = report.generate_report(
+            md, summary, _tickets = report.generate_report(
                 root, env="prod", month="2026-04",
                 template="monthly-client",
                 prior_month_str=None,
@@ -134,7 +134,7 @@ class GenerateReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = pathlib.Path(td)
             _make_project(root)
-            md, summary = report.generate_report(
+            md, summary, _tickets = report.generate_report(
                 root, env="prod", month="2026-04",
                 template="triage-brief",
             )
@@ -147,7 +147,7 @@ class GenerateReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = pathlib.Path(td)
             _make_project(root)
-            md, summary = report.generate_report(
+            md, summary, _tickets = report.generate_report(
                 root, env="prod", month="2026-04",
                 template="jira-ready",
             )
@@ -186,7 +186,7 @@ class GenerateReportTests(unittest.TestCase):
             root = pathlib.Path(td)
             _make_project(root)
             # Look at a different month so logs aren't picked up
-            md, summary = report.generate_report(
+            md, summary, _tickets = report.generate_report(
                 root, env="prod", month="2026-05",
             )
             self.assertEqual(summary["events_total"], 0)
@@ -206,7 +206,7 @@ class GenerateReportTests(unittest.TestCase):
                 },
             }
             (root / ".drover" / "coverage.json").write_text(json.dumps(cov))
-            md, summary = report.generate_report(
+            md, summary, _tickets = report.generate_report(
                 root, env="prod", month="2026-04",
             )
             self.assertIn("⚠ **Coverage:", md)
@@ -226,7 +226,7 @@ class GenerateReportTests(unittest.TestCase):
                 "https://x.org|1|entity_embed|1.2.3.4|/path|0||"
                 "Invalid display settings encountered.\n"
             )
-            md, summary = report.generate_report(
+            md, summary, _tickets = report.generate_report(
                 root, env="prod", month="2026-04",
                 prior_month_str="2026-03",
             )
@@ -235,6 +235,121 @@ class GenerateReportTests(unittest.TestCase):
                 "↑" in md or "·" in md or "🆕" in md,
                 "prior data should populate trend column",
             )
+
+
+# --- Stakeholder templates -------------------------------------------------
+
+class RootCauseSummaryTests(unittest.TestCase):
+    def test_renders_with_logo_and_pareto_headline(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            md, summary, tickets = report.generate_report(
+                root, env="prod", month="2026-04",
+                template="root-cause-summary", prior_month_str=None,
+            )
+            # Velir logo is embedded as data URI
+            self.assertIn("data:image/png;base64,", md)
+            self.assertIn("Root-Cause Summary", md)
+            # Pareto-style headline
+            self.assertIn("Headline", md)
+            self.assertIn("Pareto", md)
+            # Bar chart with channel labels
+            self.assertIn("Top issues by share of volume", md)
+            # Per-issue detail
+            self.assertIn("What each top issue is", md)
+            self.assertIn("Representative message", md)
+            # JIRA recommendations + sidecar count
+            self.assertIn("Recommended JIRA tickets", md)
+            # Empty data set still renders something
+            self.assertEqual(summary["events_total"], 3)
+            self.assertEqual(summary["template"], "root-cause-summary")
+
+    def test_no_tickets_flag_hides_section(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            md, summary, tickets = report.generate_report(
+                root, env="prod", month="2026-04",
+                template="root-cause-summary",
+                include_tickets=False,
+            )
+            self.assertNotIn("Recommended JIRA tickets", md)
+            self.assertEqual(tickets, [])
+
+
+class CalendarBoundaryTests(unittest.TestCase):
+    def test_renders_channel_bar_chart(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            md, summary, _ = report.generate_report(
+                root, env="prod", month="2026-04",
+                template="calendar-boundary", prior_month_str=None,
+            )
+            self.assertIn("data:image/png;base64,", md)
+            self.assertIn("Calendar Window Report", md)
+            self.assertIn("Events by channel", md)
+            self.assertIn("Events by severity", md)
+            # Channel chart includes the channels we put in the fixture
+            self.assertIn("entity_embed", md)
+            self.assertIn("simple_cron", md)
+            # Daily volume chart
+            self.assertIn("Daily volume", md)
+            # JIRA recommendations
+            self.assertIn("Recommended JIRA tickets", md)
+
+
+def _make_busy_project(td: pathlib.Path):
+    """Project fixture with enough events to cross the JIRA-recommendation
+    min_count threshold (default 50)."""
+    _make_project(td)
+    log = (td / "2026" / "04" /
+           "2026-04-15.prod.drupal-watchdog.log")
+    extra_lines = []
+    for i in range(60):
+        extra_lines.append(
+            f"Apr 15 00:{i:02d}:00 host pncb: "
+            f"https://x.org|1|entity_embed|1.2.3.4|/path|0||"
+            f"Invalid display settings encountered.\n"
+        )
+    log.write_text(log.read_text() + "".join(extra_lines))
+
+
+class CliSidecarTests(unittest.TestCase):
+    def test_cli_writes_sidecar_for_stakeholder_template(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_busy_project(root)
+            rc = report.cli_main([
+                "--project", str(root),
+                "--month", "2026-04",
+                "--template", "root-cause-summary",
+                "--no-prior",
+            ])
+            self.assertEqual(rc, 0)
+            md_path = root / "reports" / "2026-04-root-cause-summary.md"
+            sidecar = md_path.with_suffix(".md.tickets.json")
+            self.assertTrue(md_path.exists())
+            self.assertTrue(sidecar.exists())
+            data = json.loads(sidecar.read_text())
+            self.assertGreaterEqual(len(data), 1)
+
+    def test_cli_no_tickets_skips_sidecar(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_busy_project(root)
+            rc = report.cli_main([
+                "--project", str(root),
+                "--month", "2026-04",
+                "--template", "root-cause-summary",
+                "--no-prior", "--no-tickets",
+            ])
+            self.assertEqual(rc, 0)
+            md_path = root / "reports" / "2026-04-root-cause-summary.md"
+            sidecar = md_path.with_suffix(".md.tickets.json")
+            self.assertTrue(md_path.exists())
+            self.assertFalse(sidecar.exists())
 
 
 # --- CLI smoke test ------------------------------------------------------
