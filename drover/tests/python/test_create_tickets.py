@@ -240,6 +240,93 @@ class CreateOneTests(unittest.TestCase):
 
 # --- CLI smoke tests -----------------------------------------------------
 
+class BuildPlanTests(unittest.TestCase):
+    def _spec(self, **kw):
+        base = {
+            "fingerprint": "fp1",
+            "title": "[entity_embed] X",
+            "description": "body",
+            "priority": "P1",
+            "labels": ["drover-suggested"],
+        }
+        base.update(kw)
+        return base
+
+    def test_minimal_plan_shape(self):
+        plan = ct.build_plan(
+            [self._spec()],
+            project_key="PPS", issue_type="Chore",
+            sprint_id=None, sprint_name=None,
+            parent_key=None, priority_override=None,
+        )
+        self.assertEqual(plan["drover_plan_version"], 1)
+        self.assertEqual(plan["context"]["project_key"], "PPS")
+        self.assertEqual(plan["context"]["default_issue_type"], "Chore")
+        self.assertEqual(len(plan["tickets"]), 1)
+        t0 = plan["tickets"][0]
+        self.assertEqual(t0["spec_fingerprint"], "fp1")
+        self.assertEqual(t0["issue"]["project_key"], "PPS")
+        self.assertEqual(t0["issue"]["type"], "Chore")
+        self.assertEqual(t0["issue"]["priority"], "High")
+        self.assertNotIn("sprint", t0)
+        self.assertNotIn("parent", t0)
+
+    def test_plan_includes_sprint_and_parent_when_set(self):
+        plan = ct.build_plan(
+            [self._spec()],
+            project_key="PPS", issue_type="Chore",
+            sprint_id=12345, sprint_name="2026.2",
+            parent_key="PPS-99", priority_override=None,
+        )
+        t0 = plan["tickets"][0]
+        self.assertEqual(t0["sprint"], {"id": 12345, "name": "2026.2"})
+        self.assertEqual(
+            t0["parent"], {"key": "PPS-99", "link_type": "Relates"},
+        )
+
+    def test_priority_override_in_plan(self):
+        plan = ct.build_plan(
+            [self._spec(priority="P3")],
+            project_key="PPS", issue_type="Chore",
+            sprint_id=None, sprint_name=None,
+            parent_key=None, priority_override="Highest",
+        )
+        self.assertEqual(plan["tickets"][0]["issue"]["priority"], "Highest")
+
+    def test_server_in_instance_block(self):
+        plan = ct.build_plan(
+            [self._spec()],
+            project_key="PPS", issue_type="Chore",
+            sprint_id=None, sprint_name=None,
+            parent_key=None, priority_override=None,
+            server="https://velir.atlassian.net",
+        )
+        self.assertEqual(
+            plan["instance"]["server"], "https://velir.atlassian.net",
+        )
+
+    def test_unknown_priority_renders_as_none(self):
+        plan = ct.build_plan(
+            [self._spec(priority="weird")],
+            project_key="PPS", issue_type="Chore",
+            sprint_id=None, sprint_name=None,
+            parent_key=None, priority_override=None,
+        )
+        self.assertIsNone(plan["tickets"][0]["issue"]["priority"])
+
+    def test_plan_serializable(self):
+        # The plan must round-trip through JSON without errors.
+        plan = ct.build_plan(
+            [self._spec(), self._spec(fingerprint="fp2")],
+            project_key="PPS", issue_type="Chore",
+            sprint_id=12345, sprint_name="2026.2",
+            parent_key="PPS-99", priority_override=None,
+        )
+        text = json.dumps(plan, indent=2, sort_keys=True)
+        round_tripped = json.loads(text)
+        self.assertEqual(len(round_tripped["tickets"]), 2)
+
+
 class CliTests(unittest.TestCase):
     def test_dry_run_makes_no_api_calls(self):
         with tempfile.TemporaryDirectory() as td:
@@ -272,6 +359,47 @@ class CliTests(unittest.TestCase):
                     ])
             self.assertEqual(rc, 2)
             self.assertIn("project_key", err.getvalue())
+
+    def test_plan_mode_writes_file_no_api_calls(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            sidecar = _make_project(root)
+            plan_path = root / "out.plan.json"
+            with mock.patch.object(ct.jira_api, "JiraClient") as Cls:
+                buf = io.StringIO()
+                with redirect_stdout(buf):
+                    rc = ct.cli_main([
+                        "--project", str(root),
+                        "--sidecar", str(sidecar),
+                        "--plan", str(plan_path),
+                    ])
+                Cls.assert_not_called()
+            self.assertEqual(rc, 0)
+            self.assertTrue(plan_path.exists())
+            plan = json.loads(plan_path.read_text())
+            self.assertEqual(plan["drover_plan_version"], 1)
+            self.assertEqual(len(plan["tickets"]), 2)
+            self.assertEqual(plan["context"]["project_key"], "PPS")
+            self.assertEqual(plan["context"]["default_sprint_id"], 18347)
+
+    def test_plan_with_parent_emits_parent_block(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            sidecar = _make_project(root)
+            plan_path = root / "p.json"
+            with mock.patch.object(ct.jira_api, "JiraClient"):
+                buf = io.StringIO()
+                with redirect_stdout(buf):
+                    ct.cli_main([
+                        "--project", str(root),
+                        "--sidecar", str(sidecar),
+                        "--plan", str(plan_path),
+                        "--parent", "PPS-327",
+                    ])
+            plan = json.loads(plan_path.read_text())
+            for t in plan["tickets"]:
+                self.assertEqual(t["parent"]["key"], "PPS-327")
+                self.assertEqual(t["parent"]["link_type"], "Relates")
 
     def test_filter_narrows_specs(self):
         with tempfile.TemporaryDirectory() as td:

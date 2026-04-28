@@ -14,10 +14,19 @@ Creates one JIRA issue per spec. Each created issue carries:
   - Sprint assignment to manifest.jira.default_sprint_id (or override)
   - Optional parent issue link via --parent <KEY>
 
-Modes:
-  --dry-run            print what would be created, no API calls
-  --all                create all eligible specs without per-ticket prompt
-  --interactive        ask before each ticket (default)
+Three execution paths (drover stays agnostic about the mechanism):
+
+  --dry-run            print what would be created, no side effects
+  --plan PATH          write a structured plan JSON to PATH; do not call
+                       any API. The plan is the handoff contract for an
+                       executor — direct REST, jira-cli, Atlassian MCP,
+                       or manual paste — whichever the operator prefers.
+  --all                use drover's built-in REST executor; create
+                       everything without per-ticket prompts.
+  --interactive        same REST executor; prompt before each ticket.
+                       (default)
+
+Other flags:
   --filter PATTERN     only process specs whose title matches the regex
   --priority NAME      override every ticket's priority
   --type NAME          override every ticket's issue type
@@ -121,6 +130,79 @@ def plan_for_spec(
         "priority": pri,
         "labels": list(spec.get("labels") or []),
         "description_chars": len(spec.get("description", "") or ""),
+    }
+
+
+# --- Structured plan (executor-agnostic handoff) -------------------------
+
+def build_plan(
+    specs: list[dict],
+    *,
+    project_key: str,
+    issue_type: str,
+    sprint_id: int | None,
+    sprint_name: str | None,
+    parent_key: str | None,
+    priority_override: str | None,
+    server: str | None = None,
+) -> dict:
+    """Return an executor-agnostic plan describing the work to be done.
+
+    The plan is the contract drover hands to whatever JIRA mechanism the
+    operator prefers: drover's built-in REST executor, the Atlassian MCP
+    server, jira-cli, a future paste-into-web-UI helper. Each `tickets`
+    entry has a self-contained `issue` block plus optional `sprint` and
+    `parent` directives.
+
+    Stable schema — additive evolution only. Fields downstream consumers
+    rely on:
+
+      instance.server                           Atlassian instance URL
+      tickets[].spec_fingerprint                drover-side identity
+      tickets[].issue.{project_key, type,
+                       summary, description,
+                       priority, labels}        creation payload
+      tickets[].sprint.{id, name}               sprint assignment (optional)
+      tickets[].parent.{key, link_type}         parent linking (optional)
+    """
+    tickets: list[dict] = []
+    for spec in specs:
+        pri = priority_override or jira_priority_from_drover(
+            spec.get("priority", "")
+        )
+        ticket = {
+            "spec_fingerprint": spec.get("fingerprint", ""),
+            "issue": {
+                "project_key": project_key,
+                "type": issue_type,
+                "summary": spec.get("title", ""),
+                "description": spec.get("description", "") or "",
+                "priority": pri,
+                "labels": list(spec.get("labels") or []),
+            },
+        }
+        if sprint_id:
+            ticket["sprint"] = {"id": sprint_id}
+            if sprint_name:
+                ticket["sprint"]["name"] = sprint_name
+        if parent_key:
+            ticket["parent"] = {
+                "key": parent_key,
+                "link_type": DEFAULT_LINK_TYPE,
+            }
+        tickets.append(ticket)
+
+    return {
+        "drover_plan_version": 1,
+        "instance": {"server": server} if server else {},
+        "context": {
+            "project_key": project_key,
+            "default_issue_type": issue_type,
+            "default_sprint_id": sprint_id,
+            "default_sprint_name": sprint_name,
+            "default_parent_key": parent_key,
+        },
+        "tickets": tickets,
     }
 
 
@@ -260,8 +342,15 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="show what would be created, do not call JIRA",
     )
     p.add_argument(
+        "--plan", type=Path, default=None,
+        help="emit a structured plan JSON to PATH; do not call any "
+             "API. Use when an external executor (Atlassian MCP, "
+             "jira-cli, custom tooling) will perform the writes.",
+    )
+    p.add_argument(
         "--all", action="store_true",
-        help="create every eligible spec without prompting",
+        help="create every eligible spec without prompting (uses "
+             "drover's built-in REST executor)",
     )
     p.add_argument(
         "--filter", default=None,
@@ -373,6 +462,35 @@ def cli_main(argv: list[str] | None = None) -> int:
 
     if args.dry_run:
         print("[dry-run] not creating anything; exiting.")
+        return 0
+
+    if args.plan:
+        # Resolve server (best-effort) so the plan tells the executor
+        # which Atlassian instance to talk to. We don't hold creds.
+        server = (jira_cfg.get("server") or "").rstrip("/")
+        if not server:
+            try:
+                creds = jira_api.resolve_credentials(jira_cfg)
+                server = creds["server"]
+            except FileNotFoundError:
+                server = None
+        plan = build_plan(
+            specs,
+            project_key=project_key,
+            issue_type=issue_type,
+            sprint_id=sprint_id,
+            sprint_name=jira_cfg.get("default_sprint_name"),
+            parent_key=args.parent,
+            priority_override=args.priority,
+            server=server,
+        )
+        args.plan.parent.mkdir(parents=True, exist_ok=True)
+        args.plan.write_text(json.dumps(plan, indent=2, sort_keys=True))
+        print(f"[plan] wrote {args.plan}")
+        print(
+            f"[plan] {len(plan['tickets'])} ticket(s) ready for an "
+            f"external executor (Atlassian MCP, jira-cli, custom)."
+        )
         return 0
 
     # Resolve credentials; fail fast if anything's missing.
