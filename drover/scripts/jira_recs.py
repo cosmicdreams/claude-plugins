@@ -135,19 +135,54 @@ def from_groups(
         count = g.get("count", 0)
         pct = 100 * count / max(total_events, 1)
         sample = (g.get("samples") or [None])[0]
-        cause = causes.diagnose(g)
+        # Re-use the cached Cause when groups have been collapsed by
+        # cause (root-cause / calendar-boundary path), otherwise diagnose.
+        cause = g.get("cause") or causes.diagnose(g)
+
+        # Detect collapsed groups (multiple fingerprints sharing one cause).
+        member_count = g.get("member_count", 1)
+        member_fingerprints = g.get(
+            "member_fingerprints", [g.get("fingerprint", "")],
+        )
+        channels = g.get("channels") or ([ch] if ch else [])
 
         description_lines = [
             f"**Reported by drover monthly report ({month_label}, "
             f"{project_slug}/{env}).**",
             "",
-            f"- **Channel:** `{ch or '(none)'}`",
+        ]
+        if member_count > 1:
+            description_lines.extend([
+                f"This ticket combines **{member_count} fingerprints** "
+                f"that drover diagnosed as the same root cause:",
+                "",
+            ])
+            for fp in member_fingerprints:
+                description_lines.append(f"  - `{fp}`")
+            description_lines.append("")
+            description_lines.append(
+                f"- **Channels:** "
+                + ", ".join(f"`{c}`" for c in channels)
+            )
+        else:
+            description_lines.append(
+                f"- **Channel:** `{ch or '(none)'}`"
+            )
+        description_lines.extend([
             f"- **Severity (inferred):** `{sev}`",
-            f"- **Occurrences in {month_label}:** {count:,} "
-            f"({pct:.1f}% of all events)",
+            f"- **Total occurrences in {month_label}:** {count:,} "
+            f"({pct:.1f}% of all events"
+            + (f" across {member_count} fingerprints"
+               if member_count > 1 else "")
+            + ")",
             f"- **First seen:** {g.get('first_seen') or '?'}",
             f"- **Last seen:** {g.get('last_seen') or '?'}",
-            f"- **Drover fingerprint:** `{g.get('fingerprint')}`",
+        ])
+        if member_count == 1:
+            description_lines.append(
+                f"- **Drover fingerprint:** `{g.get('fingerprint')}`"
+            )
+        description_lines.extend([
             "",
             f"**Likely cause** ({cause.confidence} confidence): "
             f"{cause.title}",
@@ -161,7 +196,7 @@ def from_groups(
             "```",
             (g.get("summary") or "")[:600],
             "```",
-        ]
+        ])
         if sample and sample != g.get("summary"):
             description_lines.extend([
                 "",
@@ -182,10 +217,27 @@ def from_groups(
         # group tickets by diagnosed cause.
         if cause.pattern_id:
             labels.append(f"drover-cause-{cause.pattern_id}")
+        # When collapsed, also tag every contributing channel.
+        if member_count > 1:
+            for c in channels:
+                slug = re.sub(r"[^a-z0-9-]", "-", c.lower())
+                lbl = f"drover-channel-{slug}"
+                if lbl not in labels:
+                    labels.append(lbl)
+
+        # Title: lead with cause when collapsed (clearer than any single
+        # channel + summary that may be one of several variants).
+        if member_count > 1:
+            title = (
+                f"[{'+'.join(channels)}] {cause.title} "
+                f"({member_count} fingerprints)"
+            )
+        else:
+            title = _suggest_title(ch, g.get("summary") or "")
 
         specs.append(TicketSpec(
             fingerprint=g.get("fingerprint", ""),
-            title=_suggest_title(ch, g.get("summary") or ""),
+            title=title,
             description="\n".join(description_lines),
             priority=_suggest_priority(sev, count, total_events),
             labels=labels,

@@ -426,12 +426,18 @@ def render_root_cause_summary(
     )
     lines.append("")
 
-    # Volume share chart — the top groups, with the channel as the label
+    # Volume share chart — the top groups. Labels show the channel(s);
+    # collapsed groups use channel-plus-channel notation. The fingerprint
+    # suffix disambiguates same-channel issues that share no cause.
     chart_items: list[tuple[str, int]] = []
     for g in sorted_groups[: max(top_n, pareto_n)]:
-        ch = g.get("channel") or "(none)"
-        # Add a short fingerprint suffix so duplicates are distinguishable
-        label = f"{ch} · {g['fingerprint'][:6]}"
+        chans = g.get("channels") or (
+            [g["channel"]] if g.get("channel") else ["(none)"]
+        )
+        if len(chans) > 1:
+            label = "+".join(chans)
+        else:
+            label = f"{chans[0]} · {g['fingerprint'][:6]}"
         chart_items.append((label, g.get("count", 0)))
     lines.append(charts.horizontal_bar_chart(
         chart_items,
@@ -444,7 +450,6 @@ def render_root_cause_summary(
     lines.append("## What each top issue is")
     lines.append("")
     for i, g in enumerate(sorted_groups[:top_n], start=1):
-        ch = g.get("channel") or "(none)"
         sev = g.get("severity") or "unknown"
         count = g.get("count", 0)
         share = 100.0 * count / max(total, 1)
@@ -460,19 +465,53 @@ def render_root_cause_summary(
         elif delta.get("is_new"):
             trend = " 🆕 new this month"
 
-        lines.append(f"### {i}. `{ch}` — {_severity_chip(sev)}")
-        lines.append("")
-        lines.append(
-            f"- **Volume:** {_fmt_int(count)} events ({share:.1f}% "
-            f"of total){trend}"
+        # Collapsed-by-cause groups carry channels (plural) +
+        # member_count. Single-fingerprint groups have one channel.
+        channels = g.get("channels") or (
+            [g["channel"]] if g.get("channel") else []
         )
+        member_count = g.get("member_count", 1)
+        if member_count > 1:
+            chan_str = " + ".join(f"`{c}`" for c in channels)
+            heading = f"### {i}. {chan_str} — {_severity_chip(sev)}"
+        else:
+            ch = g.get("channel") or "(none)"
+            heading = f"### {i}. `{ch}` — {_severity_chip(sev)}"
+
+        lines.append(heading)
+        lines.append("")
+        if member_count > 1:
+            lines.append(
+                f"_Combined from {member_count} fingerprints sharing "
+                f"the same root cause._"
+            )
+            lines.append("")
+
+        if member_count > 1:
+            lines.append(
+                f"- **Volume:** {_fmt_int(count)} events across "
+                f"{member_count} fingerprints ({share:.1f}% of total)"
+                f"{trend}"
+            )
+        else:
+            lines.append(
+                f"- **Volume:** {_fmt_int(count)} events ({share:.1f}% "
+                f"of total){trend}"
+            )
         lines.append(f"- **First seen:** {first}")
         lines.append(f"- **Last seen:** {last}")
-        lines.append(f"- **Fingerprint:** `{g['fingerprint']}`")
+        if member_count > 1:
+            fp_list = ", ".join(
+                f"`{fp}`" for fp in g.get("member_fingerprints", [])
+            )
+            lines.append(f"- **Fingerprints:** {fp_list}")
+        else:
+            lines.append(f"- **Fingerprint:** `{g['fingerprint']}`")
         lines.append("")
-        # Pattern-based cause diagnosis — high confidence for known
-        # Drupal/PHP/Apache shapes; honest "undiagnosed" otherwise.
-        lines.append(causes.diagnose(g).to_markdown())
+        # Cause diagnosis — when groups were collapsed by cause, the
+        # collapsed group already carries the Cause object in g["cause"].
+        cause_obj = g.get("cause") or causes.diagnose(g)
+        lines.append(cause_obj.to_markdown())
         lines.append("")
         lines.append("**Representative message:**")
         lines.append("")
@@ -892,6 +931,18 @@ def generate_report(
             agg = _aggregate.delta(agg, prior_agg)
             has_prior = True
 
+    # Stakeholder templates collapse fingerprints that share the same
+    # diagnosed cause — so a Solr flood that surfaces in both
+    # `acquia_search` and `search_api` channels appears as ONE issue,
+    # not two, and produces one JIRA ticket, not two.
+    if template in ("root-cause-summary", "calendar-boundary"):
+        agg_for_render = {
+            **agg,
+            "groups": causes.collapse_by_cause(agg.get("groups", []) or []),
+        }
+    else:
+        agg_for_render = agg
+
     # Templates that surface JIRA recommendations also accept the
     # include_tickets / project_slug kwargs. The shared signature
     # supports both shapes.
@@ -901,7 +952,7 @@ def generate_report(
         extra_kwargs["project_slug"] = manifest.get("project") or project
 
     md = RENDERERS[template](
-        agg,
+        agg_for_render,
         project=project,
         env=env,
         month_str=month_label(from_d.year, from_d.month),
@@ -910,18 +961,14 @@ def generate_report(
         **extra_kwargs,
     )
 
-    # Build the ticket specs separately for sidecar emission. We
-    # rebuild rather than capture from the renderer because the
-    # renderer is markdown-only by design.
+    # Build the ticket specs separately for sidecar emission. The
+    # collapsed groups feed jira_recs so duplicate-cause fingerprints
+    # produce a single combined ticket.
     ticket_specs: list = []
     if include_tickets and template in ("root-cause-summary",
                                         "calendar-boundary"):
-        sorted_groups = sorted(
-            agg.get("groups", []) or [],
-            key=lambda g: g.get("count", 0), reverse=True,
-        )
         ticket_specs = jira_recs.from_groups(
-            sorted_groups,
+            agg_for_render["groups"],
             project_slug=manifest.get("project") or project,
             env=env,
             month_label=month_label(from_d.year, from_d.month),

@@ -206,5 +206,140 @@ class DiagnoseTests(unittest.TestCase):
         self.assertIn("medium", md)
 
 
+class CollapseByCauseTests(unittest.TestCase):
+    def _fp_group(self, fp, count, channel, summary, **kw):
+        return {
+            "fingerprint": fp,
+            "channel": channel,
+            "severity": kw.get("severity", "unknown"),
+            "count": count,
+            "summary": summary,
+            "samples": kw.get("samples", []),
+            "severities": kw.get("severities", {kw.get("severity", "unknown"): count}),
+            "first_seen": kw.get("first_seen", "2026-04-01T00:00:00+00:00"),
+            "last_seen": kw.get("last_seen", "2026-04-30T00:00:00+00:00"),
+            "days": kw.get("days", {}),
+        }
+
+    def test_pncb_solr_dual_logging_collapses(self):
+        """The exact PNCB pattern: same flood-protection error logged
+        twice through search_api and acquia_search channels. Must
+        collapse to one synthetic group."""
+        groups = [
+            self._fp_group(
+                "fp-search-api", 883, "search_api",
+                "Solr endpoint unreachable code: 429 body: Flood protection has blocked this Solr request",
+            ),
+            self._fp_group(
+                "fp-acquia-search", 883, "acquia_search",
+                "Flood protection has blocked this Solr request",
+            ),
+        ]
+        out = causes.collapse_by_cause(groups)
+        self.assertEqual(len(out), 1)
+        merged = out[0]
+        self.assertEqual(merged["count"], 1766)
+        self.assertEqual(merged["member_count"], 2)
+        self.assertEqual(
+            sorted(merged["channels"]),
+            ["acquia_search", "search_api"],
+        )
+        self.assertEqual(
+            merged["cause_pattern_id"], "acquia-solr-flood-protection",
+        )
+        # Primary fingerprint is the highest-count member (tied -> first).
+        self.assertEqual(
+            sorted(merged["member_fingerprints"]),
+            ["fp-acquia-search", "fp-search-api"],
+        )
+
+    def test_distinct_causes_do_not_collapse(self):
+        groups = [
+            self._fp_group(
+                "fp-1", 100, "user",
+                "Login attempt failed from 1.2.3.4",
+            ),
+            self._fp_group(
+                "fp-2", 50, "simple_cron",
+                "SQLSTATE[42000]: Syntax error",
+            ),
+        ]
+        out = causes.collapse_by_cause(groups)
+        self.assertEqual(len(out), 2)
+        self.assertEqual({g["count"] for g in out}, {100, 50})
+
+    def test_undiagnosed_groups_pass_through_uncollapsed(self):
+        """Two unknown errors should NOT be merged together — we never
+        conflate "we don't know" cases."""
+        groups = [
+            self._fp_group("fp-a", 100, "weird1", "Something opaque"),
+            self._fp_group("fp-b", 50, "weird2", "Another opaque thing"),
+        ]
+        out = causes.collapse_by_cause(groups)
+        self.assertEqual(len(out), 2)
+        for g in out:
+            self.assertIsNone(g["cause_pattern_id"])
+            self.assertEqual(g["member_count"], 1)
+
+    def test_first_last_seen_merged_correctly(self):
+        groups = [
+            self._fp_group(
+                "fp-1", 50, "search_api",
+                "Flood protection has blocked this Solr request",
+                first_seen="2026-04-15T00:00:00+00:00",
+                last_seen="2026-04-15T23:00:00+00:00",
+            ),
+            self._fp_group(
+                "fp-2", 50, "acquia_search",
+                "Flood protection has blocked this Solr request",
+                first_seen="2026-04-01T00:00:00+00:00",
+                last_seen="2026-04-30T00:00:00+00:00",
+            ),
+        ]
+        out = causes.collapse_by_cause(groups)
+        self.assertEqual(len(out), 1)
+        self.assertEqual(
+            out[0]["first_seen"], "2026-04-01T00:00:00+00:00",
+        )
+        self.assertEqual(
+            out[0]["last_seen"], "2026-04-30T00:00:00+00:00",
+        )
+
+    def test_severities_merged(self):
+        groups = [
+            self._fp_group(
+                "fp-1", 100, "search_api",
+                "Flood protection has blocked this Solr request",
+                severities={"error": 100},
+            ),
+            self._fp_group(
+                "fp-2", 50, "acquia_search",
+                "Flood protection has blocked this Solr request",
+                severities={"warning": 50},
+            ),
+        ]
+        out = causes.collapse_by_cause(groups)
+        self.assertEqual(len(out), 1)
+        merged_sev = out[0]["severities"]
+        self.assertEqual(merged_sev["error"], 100)
+        self.assertEqual(merged_sev["warning"], 50)
+        # Majority wins
+        self.assertEqual(out[0]["severity"], "error")
+
+    def test_output_sorted_by_count_desc(self):
+        # Build several pairs with different combined counts
+        groups = [
+            self._fp_group("a", 50, "user",
+                           "Login attempt failed from 1.2.3.4"),
+            self._fp_group("b", 100, "user",
+                           "Login attempt failed from 5.6.7.8"),
+            self._fp_group("c", 200, "simple_cron",
+                           "SQLSTATE[42000]: Syntax error"),
+        ]
+        out = causes.collapse_by_cause(groups)
+        counts = [g["count"] for g in out]
+        self.assertEqual(counts, sorted(counts, reverse=True))
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -433,3 +433,123 @@ def diagnose(group: dict) -> Cause:
         confidence="low",
         pattern_id=None,
     )
+
+
+# --- Collapse by shared cause -------------------------------------------
+
+def collapse_by_cause(groups: list[dict]) -> list[dict]:
+    """Merge groups that share the same diagnosed cause pattern_id.
+
+    Returns a new list where groups with the same cause pattern_id are
+    combined into a single synthetic group dict that matches the
+    aggregation group schema (so existing renderers consume it without
+    changes) plus these new fields:
+
+      - cause                 the shared Cause object
+      - cause_pattern_id      the shared pattern_id
+      - member_count          how many fingerprints contributed
+      - member_fingerprints   the contributing fingerprints, primary first
+      - channels              unique list of channels across members
+
+    The synthetic group's primary fingerprint is the highest-count
+    member (so it stays addressable), counts are summed, samples
+    deduped, severities + per-day maps merged.
+
+    Groups with no diagnosed cause (pattern_id is None) pass through
+    unchanged — we never collapse "we don't know" cases together.
+
+    Output is sorted by count desc.
+    """
+    from collections import Counter
+
+    # Bucket by pattern_id; undiagnosed groups stay alone.
+    buckets: dict[str, list[tuple[dict, Cause]]] = {}
+    passthrough: list[dict] = []
+
+    for g in groups:
+        cause = diagnose(g)
+        if cause.pattern_id is None:
+            # Preserve original; tag with cause for downstream readers.
+            passthrough.append({
+                **g,
+                "cause": cause,
+                "cause_pattern_id": None,
+                "member_count": 1,
+                "member_fingerprints": [g.get("fingerprint", "")],
+                "channels": [g["channel"]] if g.get("channel") else [],
+            })
+        else:
+            buckets.setdefault(cause.pattern_id, []).append((g, cause))
+
+    collapsed: list[dict] = []
+    for pattern_id, items in buckets.items():
+        members = [m for m, _ in items]
+        cause = items[0][1]
+        members.sort(key=lambda g: g.get("count", 0), reverse=True)
+        primary = members[0]
+
+        total_count = sum(g.get("count", 0) for g in members)
+        merged_sev: Counter = Counter()
+        for g in members:
+            for sev, c in (g.get("severities") or {}).items():
+                merged_sev[sev] += c
+        majority_sev = (
+            merged_sev.most_common(1)[0][0] if merged_sev else "unknown"
+        )
+
+        channels: list[str] = []
+        for g in members:
+            ch = g.get("channel")
+            if ch and ch not in channels:
+                channels.append(ch)
+
+        first_seen = min(
+            (g.get("first_seen") for g in members if g.get("first_seen")),
+            default=None,
+        )
+        last_seen = max(
+            (g.get("last_seen") for g in members if g.get("last_seen")),
+            default=None,
+        )
+
+        samples: list[str] = []
+        for g in members:
+            for s in (g.get("samples") or []):
+                if s and s not in samples:
+                    samples.append(s)
+                    if len(samples) >= 3:
+                        break
+            if len(samples) >= 3:
+                break
+
+        merged_days: Counter = Counter()
+        for g in members:
+            for d, c in (g.get("days") or {}).items():
+                merged_days[d] += c
+
+        collapsed.append({
+            "fingerprint": primary.get("fingerprint", ""),
+            "channel": primary.get("channel"),
+            "severity": majority_sev,
+            "severities": dict(merged_sev),
+            "count": total_count,
+            "first_seen": first_seen,
+            "last_seen": last_seen,
+            "samples": samples,
+            "summary": primary.get("summary", ""),
+            "days": dict(merged_days),
+            "source": primary.get("source"),
+            "delta": primary.get("delta"),
+            # Collapse-aware extras
+            "cause": cause,
+            "cause_pattern_id": pattern_id,
+            "member_count": len(members),
+            "member_fingerprints": [
+                g.get("fingerprint", "") for g in members
+            ],
+            "channels": channels,
+        })
+
+    out = collapsed + passthrough
+    out.sort(key=lambda g: g.get("count", 0), reverse=True)
+    return out
