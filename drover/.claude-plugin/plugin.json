@@ -1,7 +1,7 @@
 {
     "name": "drover",
     "version": "2.0.0",
-    "description": "Drupal/Acquia application error log analysis pipeline. Pulls historical logs by date from the Acquia Cloud Platform API, parses application error logs (apache-error, drupal-watchdog, php-error), fingerprints + groups errors, and renders monthly markdown reports for stakeholders, developers, and JIRA paste-in.",
+    "description": "Drupal/Acquia application-error log analysis pipeline. Pulls 30 days of historical error logs by date from the Acquia Cloud Platform API, parses + fingerprints + groups errors, diagnoses causes from a pattern library, and renders monthly markdown reports with bar charts, stakeholder narratives, and JIRA ticket recommendations. Three execution paths for ticket creation: Atlassian MCP, direct REST, or plan-only.",
     "author": {
         "name": "Chris Weber"
     }

@@ -111,20 +111,19 @@ recommendations, ask the user whether to follow through:
 Use AskUserQuestion to ask:
   "Create the N suggested tickets in JIRA?"
   options:
-    - "Create in JIRA" — proceed to a follow-up skill that takes
-      the sidecar JSON, asks for the JIRA project key, and creates
-      one issue per spec
+    - "Yes — file via /drover:create-tickets" — invoke the
+      create-tickets skill which reads this sidecar and routes to
+      Atlassian MCP, direct REST, or plan-only based on what the
+      operator's environment supports.
     - "Edit first" — open the report in $EDITOR for review; user
       reruns the create flow when ready
     - "Skip" — leave the sidecar in place; nothing is sent
 ```
 
-The actual JIRA API integration ships in a follow-up
-(`/drover:export-jira`, drover 2.1+). Until then, the sidecar JSON is
-the structured handoff: the user can paste each ticket's title +
-description into JIRA's create-issue dialog using the suggested
-priority and labels, OR feed the sidecar into any existing JIRA-import
-tool the team already runs.
+The follow-up workflow lives in `/drover:create-tickets`, which
+consumes this sidecar directly. See that skill's README for the
+three execution paths (Atlassian MCP / direct REST / plan-only) and
+the prerequisite JIRA configuration in the manifest's `jira:` block.
 
 The sidecar shape — one record per ticket — is stable and
 forward-compatible:
