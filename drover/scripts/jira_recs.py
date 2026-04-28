@@ -18,10 +18,18 @@ module produces the *spec*, not the side-effect.
 """
 from __future__ import annotations
 
+import importlib.util
 import json
 import re
+import sys
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
+
+# Sibling import — same pattern report.py uses for cross-module loads
+# inside the scripts/ tree.
+_HERE = Path(__file__).resolve().parent
+sys.path.insert(0, str(_HERE))
+import causes  # noqa: E402
 
 
 # Minimum count for a fingerprint to merit a ticket recommendation.
@@ -84,6 +92,11 @@ class TicketSpec:
     first_seen: str | None = None
     last_seen: str | None = None
     sample: str | None = None
+    # Diagnosed cause from drover/scripts/causes.py — exposed for
+    # programmatic consumers (downstream filters, dashboards). The
+    # human-readable description always includes the same info.
+    cause_pattern_id: str | None = None
+    cause_confidence: str | None = None
 
 
 # --- Builder --------------------------------------------------------------
@@ -122,6 +135,7 @@ def from_groups(
         count = g.get("count", 0)
         pct = 100 * count / max(total_events, 1)
         sample = (g.get("samples") or [None])[0]
+        cause = causes.diagnose(g)
 
         description_lines = [
             f"**Reported by drover monthly report ({month_label}, "
@@ -134,6 +148,13 @@ def from_groups(
             f"- **First seen:** {g.get('first_seen') or '?'}",
             f"- **Last seen:** {g.get('last_seen') or '?'}",
             f"- **Drover fingerprint:** `{g.get('fingerprint')}`",
+            "",
+            f"**Likely cause** ({cause.confidence} confidence): "
+            f"{cause.title}",
+            "",
+            cause.explanation,
+            "",
+            f"**Suggested fix:** {cause.suggested_fix}",
             "",
             "**Representative message:**",
             "",
@@ -157,6 +178,11 @@ def from_groups(
             labels.append(f"drover-channel-{slug}")
         labels.append(f"drover-severity-{sev}")
 
+        # Add pattern-id label so downstream filters / dashboards can
+        # group tickets by diagnosed cause.
+        if cause.pattern_id:
+            labels.append(f"drover-cause-{cause.pattern_id}")
+
         specs.append(TicketSpec(
             fingerprint=g.get("fingerprint", ""),
             title=_suggest_title(ch, g.get("summary") or ""),
@@ -169,6 +195,8 @@ def from_groups(
             first_seen=g.get("first_seen"),
             last_seen=g.get("last_seen"),
             sample=sample,
+            cause_pattern_id=cause.pattern_id,
+            cause_confidence=cause.confidence,
         ))
 
     return specs

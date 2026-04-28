@@ -59,8 +59,10 @@ _report_writer = importlib.util.module_from_spec(_spec2)
 sys.modules["drover_report_writer"] = _report_writer
 _spec2.loader.exec_module(_report_writer)
 
-# Branding, charts, and JIRA recommendations — siblings of report.py.
+# Branding, charts, JIRA recommendations, and cause diagnosis —
+# siblings of report.py.
 import branding  # noqa: E402
+import causes  # noqa: E402
 import charts  # noqa: E402
 import jira_recs  # noqa: E402
 
@@ -467,6 +469,10 @@ def render_root_cause_summary(
         lines.append(f"- **First seen:** {first}")
         lines.append(f"- **Last seen:** {last}")
         lines.append(f"- **Fingerprint:** `{g['fingerprint']}`")
+        lines.append("")
+        # Pattern-based cause diagnosis — high confidence for known
+        # Drupal/PHP/Apache shapes; honest "undiagnosed" otherwise.
+        lines.append(causes.diagnose(g).to_markdown())
         lines.append("")
         lines.append("**Representative message:**")
         lines.append("")
