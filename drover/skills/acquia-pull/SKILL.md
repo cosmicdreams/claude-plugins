@@ -16,21 +16,32 @@ allowed-tools: Bash, Read
 ## What it does
 
 Reconciles a project's local log folder against the manifest's expected
-`(date × env × type)` tuples. For each missing tuple it runs the documented
-Acquia Cloud Platform 3-step historical download flow:
+`(date × env × type)` tuples in two phases:
 
-1. POST `/environments/{envId}/logs/{type}` body `{from, to}` → notification
-2. Poll the notification until `status: completed`
-3. GET `/environments/{envId}/logs/{type}` → 301 → presigned S3 URL → bytes
+**Phase 1 — log-create (cheap, fast)**
+POST a snapshot request for every missing tuple. Each call returns
+immediately with a notification URL (~1s each). Acquia begins building
+all snapshots in parallel on their end.
 
-Then it gunzips and atomically renames into the canonical local path, and
-records the result in the coverage ledger.
+**Phase 2 — poll + download (as files become ready)**
+Loop over all pending notifications. The moment any notification
+completes, download and gunzip that file immediately — without waiting
+for others. After each file lands, report:
+
+```
+✓ 2026-04-03 prod drupal-watchdog: 1,290,895 bytes — 12/90 done, 78 pending
+```
+
+This separation means a 30-day × 3-type backfill (90 files) runs in
+**~5–10 minutes** instead of ~60 minutes — Phase 1 takes ~90s, then
+Acquia processes all 90 in parallel while Phase 2 downloads them as
+they complete.
 
 ## Prerequisites
 
 ```bash
 test -f .drover/manifest.json || { echo "Run /drover:init first."; exit 1; }
-test -f ~/.acquia/cloud_api.conf || { echo "Run \`acli auth:login\` first."; exit 1; }
+test -f ~/.acquia/cloud_api.conf || { echo "Run /drover:setup first."; exit 1; }
 ```
 
 ## Step 1: Resolve the plugin's pull script
@@ -84,34 +95,42 @@ python3 "$PULL_PY" --env prod --daily --type drupal-watchdog
 python3 "$PULL_PY" --env prod --daily --types apache-error,php-error
 ```
 
+## Phase 2 deadline
+
+The poll loop runs until all files download or the deadline is hit.
+Default is 180s from when Phase 2 starts. Override for unusually large
+batches or slow Acquia environments:
+
+```bash
+python3 "$PULL_PY" --backfill --poll-deadline-s 300
+```
+
 ## Step 3: Inspect output
 
 ```bash
 # Files landed
-find . -path ./.drover -prune -o -name "*.log" -print | sort
+find . -name "*.log" ! -path './.drover/*' | sort
 
 # Coverage ledger
-cat .drover/coverage.json | python3 -m json.tool
+python3 -m json.tool .drover/coverage.json
 ```
 
 ## Retention awareness
 
-Acquia keeps **30 days** of historical log data. A monthly report
-assembled retroactively after day 30 will be missing the first days
-of the month. Plan ahead: pull early and often when retention windows
-matter to you. Drover 2.0 is **user-triggered** — there's no built-in
-scheduler. If you want scheduled pulls, ask and we'll add a cron
-template; otherwise run `--backfill` whenever you need fresh data.
+Acquia keeps **30 days** of historical log data. Plan ahead: pull early
+and often when retention windows matter. Run `--backfill` to fill any
+gaps since the last pull.
 
 ## Failure modes
 
 | Failure | Behavior |
 |---|---|
 | Manifest missing | Aborts: *"Run /drover:init first."* |
-| `acli` not authed | Aborts; the `AcquiaClient` constructor surfaces it. |
-| Network/API blip mid-fetch | Retries (default 1 attempt). On final failure, marks `state=fetch-failed` in the ledger; continues to next tuple. |
-| Notification ends `status=failed` | Marks `state=fetch-failed`; reason captured in ledger. |
-| Outside 30-day retention | Returned slice may be empty. Future versions will detect and mark `missing-upstream` cleanly. |
+| Credentials missing | Aborts: *"Run /drover:setup first."* |
+| log-create fails | Marked `fetch-failed` in ledger; Phase 2 continues with remaining files. |
+| Notification ends `status=failed` | Marked `fetch-failed`; retryable on next backfill. |
+| Download fails | Marked `fetch-failed`; canonical file left untouched. |
+| Phase 2 deadline exceeded | Remaining pending files marked `fetch-failed`; run `--backfill` to retry. |
 
 A `fetch-failed` ledger entry is intentionally retryable — a later run
 of `--backfill` will pick it up and try again.
@@ -132,33 +151,26 @@ of `--backfill` will pick it up and try again.
     },
     "prod.php-error": {
       "state": "fetch-failed",
-      "reason": "acquia-api 503 ",
+      "reason": "notification status=failed",
       "updated_at": "2026-04-27T18:42:11+00:00"
     }
   }
 }
 ```
 
-States:
-
-- `present` — file on disk, complete, ready to parse
-- `fetch-failed` — recoverable; will be retried on next backfill run
-- `missing-upstream` — Acquia returned no data for this window (e.g.
-  outside retention) — future state, planned for slice 5+
-- `pending` — backfill not yet attempted (future state)
+States: `present` · `fetch-failed` (retryable) · `missing-upstream` (planned)
 
 The `report` skill reads this ledger and surfaces coverage caveats in
 its output (e.g. *"Apr 1–2 unavailable; 28/30 days analyzed"*).
 
-## Performance & politeness
+## Performance
 
-Each (day, type) round-trip takes ~40–60 seconds (snapshot creation +
-poll + S3 download). A 30-day backfill of 3 types × 1 env runs ~30–45
-minutes serially. The pull skill sleeps 1 second between API
-round-trips by default; tune via `--rate-limit-s` if needed (don't go
-below 0.5).
+| Operation | Cost | Notes |
+|---|---|---|
+| Phase 1 — log-create | ~1s per file | 90 files ≈ 90s |
+| Acquia snapshot build | ~30–60s | Runs in parallel for all files |
+| Phase 2 — poll + download | ~60s total | All files download as ready |
+| **Total (30-day backfill)** | **~5–10 min** | vs ~60 min serial |
 
-## Verified
-
-- Slice 2: single-day E2E against PNCB prod (Apr 3, 1.29 MB, 5,691 lines)
-- Slice 3: 3-day backfill E2E against PNCB prod (Apr 4–6, 3 fetches in 3m12s)
+Rate limit between log-create calls defaults to 1s. Lower via
+`--rate-limit-s 0.5` if needed.

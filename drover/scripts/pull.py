@@ -1,17 +1,19 @@
 #!/usr/bin/env python3
 """drover.pull — date-ranged Acquia application error log fetcher.
 
-Reconciles a project's local log folder against the manifest. For each
-(date, env, type) tuple requested:
+Reconciles a project's local log folder against the manifest in two phases:
 
-  1. If the file is already on disk and complete, mark coverage=present.
-  2. Otherwise: POST a 24-hour log snapshot to Acquia, poll until
-     status=completed, GET the resource path to capture the 301 redirect
-     to the presigned S3 URL, download, gunzip, atomically rename into
-     <project>/<year>/<month>/<date>.<env>.<type>.log, update the
-     coverage ledger.
+  Phase 1 — Create: POST a log-create request for every missing
+    (date, env, type) tuple. Cheap and fast (~1s each). Acquia begins
+    building all snapshots in parallel on their end.
 
-Uses only the public API of AcquiaClient. Pure stdlib.
+  Phase 2 — Poll + Download: loop over all pending notifications.
+    The moment a notification completes, download and gunzip immediately.
+    Report progress after each file lands: "N/total done, M pending".
+
+Total wall time for a 30-day × 3-type backfill drops from ~60 min
+(serial create→poll→download) to ~5–10 min (batch create, then
+parallel-by-Acquia poll loop).
 
 CLI usage:
   # Single day:
@@ -143,7 +145,7 @@ def mark_coverage(
     }
 
 
-# --- Single-day pull primitive --------------------------------------------
+# --- Single-file primitives -----------------------------------------------
 
 class PullError(Exception):
     """Recoverable failure on a single (day, env, type) — caller marks
@@ -151,10 +153,8 @@ class PullError(Exception):
 
 
 def file_present_and_complete(path: Path) -> bool:
-    """Existence + non-empty. A future hardening would add a per-file
-    completion sentinel (size manifest, trailing-newline check, etc.).
-    For 2.0 we trust atomic rename — a partial download never reaches
-    the canonical filename."""
+    """Existence + non-empty. Atomic rename guarantees a canonical file is
+    always complete — a partial download never reaches the canonical name."""
     return path.exists() and path.stat().st_size > 0
 
 
@@ -200,16 +200,11 @@ def pull_one(
     poll_deadline_s: int = POLL_DEADLINE_S,
     poll_interval_s: int = POLL_INTERVAL_S,
 ) -> dict:
-    """Fetch a single (day, env, type) into the canonical local file.
+    """Fetch a single (day, env, type) end-to-end (create → poll → download).
 
-    Returns a dict suitable for the coverage ledger:
-      {state, bytes, gz_bytes, notification_uuid}
-    or short-circuits with {state: "present", bytes: ...} if the file
-    was already on disk.
-
-    Raises PullError on any recoverable failure (caller marks
-    state=fetch-failed). Hard failures (e.g. invalid creds via
-    AcquiaAPIError) propagate raw.
+    For single-file fetches. Bulk backfills should use reconcile(), which
+    separates Phase 1 (create-all) from Phase 2 (poll+download-loop) so
+    Acquia processes all snapshots in parallel.
     """
     local = canonical_path(project_root, day, env_name, log_type)
     if file_present_and_complete(local):
@@ -262,7 +257,7 @@ def pull_one(
 # --- Range expansion ------------------------------------------------------
 
 def date_range(from_d: date, to_d: date) -> list[date]:
-    """Inclusive list of dates from from_d to to_d (no calendar magic)."""
+    """Inclusive list of dates from from_d to to_d."""
     if from_d > to_d:
         return []
     out = []
@@ -308,8 +303,8 @@ def resolve_dates(args: argparse.Namespace) -> list[date]:
         days = (
             args.backfill_days if args.backfill_days else DEFAULT_BACKFILL_DAYS
         )
-        # Backfill never includes "today" (still being written) — Acquia
-        # rotates at UTC midnight, so today's full slice is incomplete.
+        # Never include today — Acquia rotates at UTC midnight, so today's
+        # slice is still being written.
         end = today - timedelta(days=1)
         start = end - timedelta(days=days - 1)
         return date_range(start, end)
@@ -317,7 +312,206 @@ def resolve_dates(args: argparse.Namespace) -> list[date]:
                       date.fromisoformat(args.to))
 
 
-# --- Multi-day reconcile orchestrator -------------------------------------
+# --- Phase 1: log-create --------------------------------------------------
+
+def _phase_create(
+    client: AcquiaClient,
+    missing: list[tuple],
+    *,
+    rate_limit_s: float = RATE_LIMIT_BETWEEN_CALLS_S,
+    retries: int = RETRY_TRANSIENT_FAILURES,
+    log_fn=print,
+) -> tuple[list[dict], list[tuple]]:
+    """Phase 1: fire log-create for every (env, log_type, day) tuple.
+
+    Each POST returns immediately with a notification URL — cheap, ~1s each.
+    Acquia begins building all snapshots in parallel on their end.
+
+    Returns:
+      pending       — items ready for Phase 2 poll+download
+      create_failed — list of (env, log_type, day, exc) that couldn't start
+    """
+    pending = []
+    create_failed = []
+    n = len(missing)
+    for i, (env, log_type, day) in enumerate(missing):
+        env_name = env["name"]
+        env_id = env.get("env_id")
+        from_iso = f"{day.isoformat()}T00:00:00+00:00"
+        to_iso = f"{day.isoformat()}T23:59:59+00:00"
+        try:
+            notif = client.request_log_download(
+                env_id, log_type, from_iso=from_iso, to_iso=to_iso,
+            )
+            notif_url = (
+                notif.get("_links", {}).get("notification", {}).get("href")
+            )
+            if not notif_url:
+                raise PullError(f"no notification URL: {notif!r}")
+            notif_uuid = notif_url.rsplit("/", 1)[-1]
+            pending.append({
+                "env": env,
+                "log_type": log_type,
+                "day": day,
+                "from_iso": from_iso,
+                "to_iso": to_iso,
+                "notif_url": notif_url,
+                "notif_uuid": notif_uuid,
+                "retries_remaining": retries,
+            })
+            log_fn(
+                f"  → {day} {env_name} {log_type}: requested "
+                f"({i + 1}/{n})"
+            )
+        except (PullError, AcquiaAPIError, Exception) as e:
+            log_fn(f"  ! {day} {env_name} {log_type}: create failed ({e})")
+            create_failed.append((env, log_type, day, e))
+        if i < n - 1:
+            time.sleep(rate_limit_s)
+    return pending, create_failed
+
+
+# --- Phase 2: poll + download as files become ready -----------------------
+
+def _phase_poll_and_download(
+    client: AcquiaClient,
+    project_root: Path,
+    coverage: dict,
+    pending: list[dict],
+    *,
+    poll_deadline_s: int = POLL_DEADLINE_S,
+    poll_interval_s: int = POLL_INTERVAL_S,
+    log_fn=print,
+) -> tuple[list[dict], list[dict]]:
+    """Phase 2: poll all pending notifications; download each file the moment
+    its notification completes.
+
+    Acquia built all snapshots in parallel during Phase 1, so most
+    notifications complete within the same ~60s window. Files are downloaded
+    as they become available — we don't wait for all to finish before
+    starting any download.
+
+    After each download reports:
+      "✓ {date} {env} {type}: N,NNN bytes — X/total done, Y pending"
+
+    Returns (downloaded_items, failed_items).
+    """
+    total = len(pending)
+    downloaded: list[dict] = []
+    failed: list[dict] = []
+    deadline = time.time() + poll_deadline_s
+
+    while pending:
+        if time.time() > deadline:
+            for item in pending:
+                env_name = item["env"]["name"]
+                log_fn(
+                    f"  ! {item['day']} {env_name} {item['log_type']}: "
+                    "poll deadline exceeded"
+                )
+            failed.extend(pending)
+            break
+
+        still_pending = []
+        for item in pending:
+            env = item["env"]
+            env_name = env["name"]
+            env_id = env.get("env_id")
+            log_type = item["log_type"]
+            day = item["day"]
+            notif_url = item["notif_url"]
+            notif_uuid = item["notif_uuid"]
+
+            try:
+                s = client.check_log_download(notif_url)
+                status = s.get("status", "?")
+            except Exception:
+                still_pending.append(item)
+                continue
+
+            if status == "completed":
+                local = canonical_path(project_root, day, env_name, log_type)
+                try:
+                    s3_url = client.get_log_download_url(env_id, log_type)
+                    gz_size, decoded = download_atomic_gunzip(s3_url, local)
+                    item.update({"bytes": decoded, "gz_bytes": gz_size})
+                    downloaded.append(item)
+                    mark_coverage(
+                        coverage, day, env_name, log_type,
+                        state="present",
+                        bytes=decoded,
+                        gz_bytes=gz_size,
+                        notification_uuid=notif_uuid,
+                    )
+                    save_coverage(project_root, coverage)
+                    done = len(downloaded)
+                    pending_count = total - done - len(failed)
+                    log_fn(
+                        f"  ✓ {day} {env_name} {log_type}: "
+                        f"{decoded:,} bytes — "
+                        f"{done}/{total} done, {pending_count} pending"
+                    )
+                except Exception as e:
+                    log_fn(
+                        f"  ! {day} {env_name} {log_type}: "
+                        f"download failed ({e})"
+                    )
+                    failed.append(item)
+                    mark_coverage(
+                        coverage, day, env_name, log_type,
+                        state="fetch-failed",
+                        reason=f"{type(e).__name__}: {e}",
+                    )
+                    save_coverage(project_root, coverage)
+
+            elif status == "failed":
+                if item.get("retries_remaining", 0) > 0:
+                    # Re-issue log-create and add back to pending.
+                    try:
+                        notif = client.request_log_download(
+                            env_id, log_type,
+                            from_iso=item["from_iso"],
+                            to_iso=item["to_iso"],
+                        )
+                        new_url = (
+                            notif.get("_links", {})
+                            .get("notification", {})
+                            .get("href")
+                        )
+                        if new_url:
+                            item["notif_url"] = new_url
+                            item["notif_uuid"] = new_url.rsplit("/", 1)[-1]
+                            item["retries_remaining"] -= 1
+                            still_pending.append(item)
+                            log_fn(
+                                f"  ~ {day} {env_name} {log_type}: "
+                                "notification failed, retrying"
+                            )
+                            continue
+                    except Exception:
+                        pass
+                log_fn(
+                    f"  ! {day} {env_name} {log_type}: notification failed"
+                )
+                failed.append(item)
+                mark_coverage(
+                    coverage, day, env_name, log_type,
+                    state="fetch-failed",
+                    reason="notification status=failed",
+                )
+                save_coverage(project_root, coverage)
+
+            else:
+                still_pending.append(item)
+
+        pending = still_pending
+        if pending:
+            time.sleep(poll_interval_s)
+
+    return downloaded, failed
+
+
+# --- Reconcile orchestrator -----------------------------------------------
 
 def reconcile(
     client: AcquiaClient | None,
@@ -333,17 +527,19 @@ def reconcile(
     poll_deadline_s: int = POLL_DEADLINE_S,
     log_fn=print,
 ) -> dict:
-    """Walk (env x type x day) tuples, fetching what's missing.
+    """Orchestrate Phase 1 (create-all) then Phase 2 (poll+download loop).
 
-    `target_types`, when set, overrides each env's manifest types.
-    `client` may be None when dry_run=True — no network is touched.
+    Phase 1 fires all log-create requests upfront — cheap, ~1s each.
+    Acquia builds all snapshots in parallel on their end. Phase 2 polls
+    all pending notifications and downloads each file the moment it's ready.
 
-    Returns a summary dict:
-      {present, fetched, failed, skipped, total}
+    Returns a summary dict: {present, fetched, failed, skipped, total}
     """
     coverage = load_coverage(project_root)
     summary = {"present": 0, "fetched": 0, "failed": 0, "skipped": 0, "total": 0}
 
+    # Scan disk: count already-present files, collect missing tuples.
+    missing: list[tuple] = []
     for env in target_envs:
         env_name = env["name"]
         env_id = env.get("env_id")
@@ -355,9 +551,7 @@ def reconcile(
         for log_type in types:
             for day in days:
                 summary["total"] += 1
-                local = canonical_path(
-                    project_root, day, env_name, log_type,
-                )
+                local = canonical_path(project_root, day, env_name, log_type)
                 if dry_run:
                     if file_present_and_complete(local):
                         log_fn(f"  [dry] {day} {log_type}: present")
@@ -365,110 +559,75 @@ def reconcile(
                     else:
                         log_fn(f"  [dry] {day} {log_type}: would fetch")
                         summary["skipped"] += 1
-                    continue
-
-                # Live fetch path. Catch broadly so a single transient
-                # network failure (TLS read timeout, DNS hiccup, etc.)
-                # never kills the whole reconcile loop. We mark the
-                # tuple fetch-failed and move on; a later --backfill
-                # picks it up.
-                attempts = retries + 1
-                last_err: Exception | None = None
-                result: dict | None = None
-                for attempt in range(attempts):
-                    try:
-                        result = pull_one(
-                            client, env_id, env_name, log_type, day,
-                            project_root,
-                            poll_interval_s=poll_interval_s,
-                            poll_deadline_s=poll_deadline_s,
-                        )
-                        last_err = None
-                        break
-                    except (PullError, AcquiaAPIError) as e:
-                        last_err = e
-                        if attempt < attempts - 1:
-                            log_fn(
-                                f"  ~ {day} {log_type}: retry "
-                                f"{attempt + 1}/{retries} ({e})"
-                            )
-                            time.sleep(rate_limit_s)
-                            continue
-                    except Exception as e:  # noqa: BLE001
-                        # Unexpected transient — log and retry once;
-                        # never let it crash the loop.
-                        last_err = e
-                        if attempt < attempts - 1:
-                            log_fn(
-                                f"  ~ {day} {log_type}: retry "
-                                f"{attempt + 1}/{retries} after unexpected "
-                                f"{type(e).__name__}: {e}"
-                            )
-                            time.sleep(rate_limit_s)
-                            continue
-
-                if last_err is not None:
-                    if isinstance(last_err, AcquiaAPIError):
-                        reason = (
-                            f"acquia-api {last_err.status} "
-                            f"{last_err.error_slug}"
-                        )
-                    else:
-                        reason = (
-                            f"{type(last_err).__name__}: {last_err}"
-                        )
-                    mark_coverage(
-                        coverage, day, env_name, log_type,
-                        state="fetch-failed", reason=reason,
-                    )
-                    log_fn(f"  ! {day} {log_type}: {reason}")
-                    summary["failed"] += 1
-                    # Checkpoint the ledger so progress survives a kill.
-                    save_coverage(project_root, coverage)
-                    continue
-
-                # Defensive — we should always have a result if last_err
-                # is None, but guard anyway.
-                if result is None:
-                    summary["failed"] += 1
-                    continue
-
-                if result.get("fetched"):
-                    ledger_fields = {
-                        k: v for k, v in result.items() if k != "fetched"
-                    }
-                    mark_coverage(
-                        coverage, day, env_name, log_type, **ledger_fields,
-                    )
-                    log_fn(
-                        f"  + {day} {log_type}: fetched "
-                        f"({result.get('bytes', 0):,} bytes)"
-                    )
-                    summary["fetched"] += 1
-                    # Checkpoint after every successful fetch — long
-                    # backfills should never lose progress on crash.
-                    save_coverage(project_root, coverage)
-                    time.sleep(rate_limit_s)
-                else:
+                elif file_present_and_complete(local):
                     existing = coverage.get(day.isoformat(), {}).get(
                         f"{env_name}.{log_type}"
                     )
                     if not existing:
                         mark_coverage(
                             coverage, day, env_name, log_type,
-                            state="present", bytes=result.get("bytes", 0),
-                            verified_at=datetime.now(
-                                timezone.utc,
-                            ).isoformat(),
+                            state="present",
+                            bytes=local.stat().st_size,
                         )
                     log_fn(
                         f"  = {day} {log_type}: present "
-                        f"({result.get('bytes', 0):,} bytes)"
+                        f"({local.stat().st_size:,} bytes)"
                     )
                     summary["present"] += 1
+                else:
+                    missing.append((env, log_type, day))
 
-    if not dry_run:
+    if dry_run:
+        return summary
+
+    if not missing:
         save_coverage(project_root, coverage)
+        return summary
+
+    # Phase 1: fire all log-create requests.
+    log_fn(f"\nPhase 1 — log-create: {len(missing)} requests")
+    pending, create_failed = _phase_create(
+        client, missing,
+        rate_limit_s=rate_limit_s,
+        retries=retries,
+        log_fn=log_fn,
+    )
+
+    for (env, log_type, day, exc) in create_failed:
+        env_name = env["name"]
+        reason = (
+            f"acquia-api {exc.status} {exc.error_slug}"
+            if isinstance(exc, AcquiaAPIError)
+            else f"{type(exc).__name__}: {exc}"
+        )
+        mark_coverage(
+            coverage, day, env_name, log_type,
+            state="fetch-failed", reason=reason,
+        )
+        summary["failed"] += 1
+    if create_failed:
+        save_coverage(project_root, coverage)
+
+    if not pending:
+        return summary
+
+    # Phase 2: poll all notifications, download files as they become ready.
+    log_fn(
+        f"\nPhase 2 — poll + download: {len(pending)} files "
+        f"(deadline {poll_deadline_s}s)"
+    )
+    downloaded, dl_failed = _phase_poll_and_download(
+        client, project_root, coverage, pending,
+        poll_deadline_s=poll_deadline_s,
+        poll_interval_s=poll_interval_s,
+        log_fn=log_fn,
+    )
+
+    summary["fetched"] = len(downloaded)
+    for item in dl_failed:
+        summary["failed"] += 1
+
+    save_coverage(project_root, coverage)
     return summary
 
 
@@ -486,13 +645,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     p.add_argument(
         "--env", default="prod",
-        help="env name from manifest, or 'all' to iterate every env "
-             "(default: prod — override when you need other envs)",
+        help="env name from manifest, or 'all' (default: prod)",
     )
 
     # Date selection (mutually exclusive — exactly one required)
-    p.add_argument("--date", default=None,
-                   help="single day, YYYY-MM-DD")
+    p.add_argument("--date", default=None, help="single day, YYYY-MM-DD")
     p.add_argument("--from", dest="from_", default=None,
                    help="range start, YYYY-MM-DD (use with --to)")
     p.add_argument("--to", default=None,
@@ -505,25 +662,24 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                    help="yesterday only — for cron")
 
     # Type selection
-    p.add_argument(
-        "--type", default=None,
-        help="single log type (default: all types from manifest)",
-    )
-    p.add_argument(
-        "--types", default=None,
-        help="comma-separated log types (overrides --type)",
-    )
+    p.add_argument("--type", default=None,
+                   help="single log type (default: all types from manifest)")
+    p.add_argument("--types", default=None,
+                   help="comma-separated log types (overrides --type)")
 
     # Behavior
     p.add_argument("--dry-run", action="store_true",
                    help="show what would be fetched, do nothing")
     p.add_argument("--retries", type=int, default=RETRY_TRANSIENT_FAILURES,
-                   help=f"retries on transient failure "
+                   help=f"retries on create failure "
                         f"(default {RETRY_TRANSIENT_FAILURES})")
     p.add_argument("--rate-limit-s", type=float,
                    default=RATE_LIMIT_BETWEEN_CALLS_S,
-                   help=f"sleep between API round-trips "
+                   help=f"sleep between log-create requests in Phase 1 "
                         f"(default {RATE_LIMIT_BETWEEN_CALLS_S}s)")
+    p.add_argument("--poll-deadline-s", type=int, default=POLL_DEADLINE_S,
+                   help=f"max seconds to wait in Phase 2 poll loop "
+                        f"(default {POLL_DEADLINE_S}s)")
 
     return p.parse_args(argv)
 
@@ -567,6 +723,7 @@ def cli_main(argv: list[str] | None = None) -> int:
         dry_run=args.dry_run,
         rate_limit_s=args.rate_limit_s,
         retries=args.retries,
+        poll_deadline_s=args.poll_deadline_s,
     )
 
     print(
