@@ -41,7 +41,7 @@ class CanonicalPathTests(unittest.TestCase):
         self.assertEqual(
             p,
             pathlib.Path(
-                "/x/proj/2026/04/2026-04-03.prod.drupal-watchdog.log"
+                "/x/proj/2026/04/2026-04-03.prod.drupal-watchdog.log.gz"
             ),
         )
 
@@ -125,36 +125,31 @@ class FilePresentTests(unittest.TestCase):
             self.assertTrue(pull.file_present_and_complete(p))
 
 
-class DownloadAtomicGunzipTests(unittest.TestCase):
-    def test_gunzip_writes_decoded_bytes(self):
+class DownloadAtomicTests(unittest.TestCase):
+    def test_stores_gzipped_bytes(self):
         with tempfile.TemporaryDirectory() as td:
-            # Create a fake gzipped payload available via a file:// URL
             payload = b"hello world\n" * 100
             gz_src = pathlib.Path(td) / "src.gz"
             with gzip.open(gz_src, "wb") as fh:
                 fh.write(payload)
+            expected_gz = gz_src.read_bytes()
 
-            dest = pathlib.Path(td) / "out" / "decoded.log"
-            gz_size, decoded = pull.download_atomic_gunzip(
-                f"file://{gz_src}", dest,
-            )
+            dest = pathlib.Path(td) / "out" / "stored.log.gz"
+            gz_size = pull.download_atomic(f"file://{gz_src}", dest)
 
-            self.assertGreater(gz_size, 0)
-            self.assertEqual(decoded, len(payload))
-            self.assertEqual(dest.read_bytes(), payload)
-            # No leftover staging files
+            self.assertEqual(gz_size, len(expected_gz))
+            self.assertEqual(dest.read_bytes(), expected_gz)
             stragglers = [
                 p for p in dest.parent.iterdir()
                 if p.name.startswith(".drover-pull-")
-                or p.name.endswith(".tmp")
             ]
             self.assertEqual(stragglers, [])
 
     def test_failure_leaves_dest_untouched(self):
         with tempfile.TemporaryDirectory() as td:
-            dest = pathlib.Path(td) / "dest.log"
+            dest = pathlib.Path(td) / "dest.log.gz"
             with self.assertRaises(Exception):
-                pull.download_atomic_gunzip(
+                pull.download_atomic(
                     "file:///nonexistent/path/that/does/not/exist.gz",
                     dest,
                 )
@@ -224,16 +219,15 @@ class PullOneTests(unittest.TestCase):
                     poll_interval_s=0,
                 )
             self.assertEqual(result["state"], "present")
-            self.assertEqual(result["bytes"], len(payload))
+            self.assertGreater(result["bytes"], 0)
             self.assertTrue(result["fetched"])
             self.assertIn("notification_uuid", result)
-            self.assertIn("gz_bytes", result)
 
             local = pull.canonical_path(
                 root, day, "prod", "drupal-watchdog",
             )
             self.assertTrue(local.exists())
-            self.assertEqual(local.read_bytes(), payload)
+            self.assertEqual(local.read_bytes(), gz_bytes)
             client.request_log_download.assert_called_once_with(
                 "env-id", "drupal-watchdog",
                 from_iso="2026-04-03T00:00:00+00:00",

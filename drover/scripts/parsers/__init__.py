@@ -26,6 +26,7 @@ parsers stand-alone; slice 6 (aggregation) and 8 (report) wrap them.
 """
 from __future__ import annotations
 
+import gzip
 from datetime import date
 from pathlib import Path
 from typing import Callable, Iterator
@@ -60,6 +61,11 @@ def parse_file(
     """Open a log file and yield parsed events. The day_hint helps
     parsers fill in years for syslog-style timestamps that omit them."""
     fn = parser_for(log_type)
-    with open(path, "r", errors="replace") as fh:
-        text = fh.read()
+    path = Path(path)
+    if path.suffix == ".gz":
+        with gzip.open(path, "rt", encoding="utf-8", errors="replace") as fh:
+            text = fh.read()
+    else:
+        with open(path, "r", errors="replace") as fh:
+            text = fh.read()
     yield from fn(text, day_hint=day_hint)

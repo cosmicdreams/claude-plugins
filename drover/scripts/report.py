@@ -65,6 +65,7 @@ import branding  # noqa: E402
 import causes  # noqa: E402
 import charts  # noqa: E402
 import jira_recs  # noqa: E402
+from pull import find_drover_root  # noqa: E402
 
 
 KNOWN_TEMPLATES = (
@@ -1036,7 +1037,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def cli_main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    project_root = args.project.resolve()
+    project_root = find_drover_root(args.project.resolve())
 
     types_override = (
         [t.strip() for t in args.types.split(",") if t.strip()]

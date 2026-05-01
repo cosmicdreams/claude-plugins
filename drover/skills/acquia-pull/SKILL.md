@@ -5,7 +5,7 @@ description: >
   php-error) into a project's canonical log folder by date. Talks to the
   Acquia Cloud Platform API directly — no acli, no PHP, pure stdlib Python.
   Idempotent reconcile: re-runs skip files already present and only refetch
-  missing or failed days. Produces `<project>/<year>/<month>/<date>.<env>.<type>.log`
+  missing or failed days. Produces `<project>/<year>/<month>/<date>.<env>.<type>.log.gz`
   files plus a coverage ledger at `.drover/coverage.json`. Trigger phrases —
   "drover pull logs", "fetch acquia logs", "backfill <project> last 30 days".
 allowed-tools: Bash, Read
@@ -25,8 +25,8 @@ all snapshots in parallel on their end.
 
 **Phase 2 — poll + download (as files become ready)**
 Loop over all pending notifications. The moment any notification
-completes, download and gunzip that file immediately — without waiting
-for others. After each file lands, report:
+completes, download and store it compressed (.log.gz) immediately —
+without waiting for others. After each file lands, report:
 
 ```
 ✓ 2026-04-03 prod drupal-watchdog: 1,290,895 bytes — 12/90 done, 78 pending

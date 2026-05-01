@@ -37,10 +37,8 @@ CLI usage:
 from __future__ import annotations
 
 import argparse
-import gzip
 import json
 import os
-import shutil
 import sys
 import tempfile
 import time
@@ -63,19 +61,53 @@ RETRY_TRANSIENT_FAILURES = 1
 
 # --- Path helpers ---------------------------------------------------------
 
+def find_drover_root(cwd: Path) -> Path:
+    """Find the drover data root from a working directory.
+
+    When running inside a git worktree (.../worktrees/<name>/...),
+    returns the directory above worktrees/ so artifacts land outside
+    the git repo. Otherwise walks up to the nearest ancestor that
+    already has .drover/manifest.json. Falls back to cwd.
+    """
+    resolved = cwd.resolve()
+    for candidate in [resolved, *resolved.parents]:
+        if candidate.name == "worktrees" and candidate.parent.is_dir():
+            return candidate.parent
+    for candidate in [resolved, *resolved.parents]:
+        if (candidate / ".drover" / "manifest.json").exists():
+            return candidate
+    return resolved
+
+
 def canonical_path(
     project_root: Path,
     day: date,
     env_name: str,
     log_type: str,
 ) -> Path:
-    """Return <project_root>/<year>/<month>/<date>.<env>.<type>.log."""
+    """Return <project_root>/<year>/<month>/<date>.<env>.<type>.log.gz"""
     return (
         project_root
         / f"{day.year:04d}"
         / f"{day.month:02d}"
-        / f"{day.isoformat()}.{env_name}.{log_type}.log"
+        / f"{day.isoformat()}.{env_name}.{log_type}.log.gz"
     )
+
+
+def find_log_file(
+    project_root: Path,
+    day: date,
+    env_name: str,
+    log_type: str,
+) -> Path | None:
+    """Return path of an existing log file: checks .log.gz then .log."""
+    gz = canonical_path(project_root, day, env_name, log_type)
+    if file_present_and_complete(gz):
+        return gz
+    plain = gz.with_suffix("")  # .log.gz → .log
+    if file_present_and_complete(plain):
+        return plain
+    return None
 
 
 def manifest_path(project_root: Path) -> Path:
@@ -158,13 +190,12 @@ def file_present_and_complete(path: Path) -> bool:
     return path.exists() and path.stat().st_size > 0
 
 
-def download_atomic_gunzip(s3_url: str, dest: Path) -> tuple[int, int]:
-    """Stream a gzipped file from S3, gunzip into `dest` atomically.
+def download_atomic(s3_url: str, dest: Path) -> int:
+    """Stream a gzipped file from S3 and store it compressed at dest.
 
-    Returns (gz_bytes, decoded_bytes). Raises on network or decode failure.
+    Returns the file size in bytes. Raises on network failure.
 
-    Atomicity: stages the gzipped download AND the decoded output as
-    sibling tempfiles, then `os.rename`s the decoded file into place.
+    Atomicity: staged as a sibling tempfile, then os.rename into place.
     A failure at any step leaves the canonical path untouched.
     """
     dest.parent.mkdir(parents=True, exist_ok=True)
@@ -175,18 +206,15 @@ def download_atomic_gunzip(s3_url: str, dest: Path) -> tuple[int, int]:
         prefix=".drover-pull-",
         suffix=".gz",
     ) as t:
-        gz_path = Path(t.name)
+        tmp_path = Path(t.name)
     try:
-        urllib.request.urlretrieve(s3_url, gz_path)
-        gz_size = gz_path.stat().st_size
-        decoded_tmp = dest.with_suffix(dest.suffix + ".tmp")
-        with gzip.open(gz_path, "rb") as fin, open(decoded_tmp, "wb") as fout:
-            shutil.copyfileobj(fin, fout)
-        decoded_size = decoded_tmp.stat().st_size
-        os.rename(decoded_tmp, dest)
-        return gz_size, decoded_size
-    finally:
-        gz_path.unlink(missing_ok=True)
+        urllib.request.urlretrieve(s3_url, tmp_path)
+        gz_size = tmp_path.stat().st_size
+        os.rename(tmp_path, dest)
+        return gz_size
+    except Exception:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
 
 def pull_one(
@@ -206,11 +234,11 @@ def pull_one(
     separates Phase 1 (create-all) from Phase 2 (poll+download-loop) so
     Acquia processes all snapshots in parallel.
     """
-    local = canonical_path(project_root, day, env_name, log_type)
-    if file_present_and_complete(local):
+    existing = find_log_file(project_root, day, env_name, log_type)
+    if existing is not None:
         return {
             "state": "present",
-            "bytes": local.stat().st_size,
+            "bytes": existing.stat().st_size,
             "fetched": False,
         }
 
@@ -242,13 +270,13 @@ def pull_one(
             f"notification {notif_uuid} ended with status={last_status}"
         )
 
+    local = canonical_path(project_root, day, env_name, log_type)
     s3_url = client.get_log_download_url(env_id, log_type)
-    gz_size, decoded = download_atomic_gunzip(s3_url, local)
+    gz_size = download_atomic(s3_url, local)
 
     return {
         "state": "present",
-        "bytes": decoded,
-        "gz_bytes": gz_size,
+        "bytes": gz_size,
         "notification_uuid": notif_uuid,
         "fetched": True,
     }
@@ -433,14 +461,13 @@ def _phase_poll_and_download(
                 local = canonical_path(project_root, day, env_name, log_type)
                 try:
                     s3_url = client.get_log_download_url(env_id, log_type)
-                    gz_size, decoded = download_atomic_gunzip(s3_url, local)
-                    item.update({"bytes": decoded, "gz_bytes": gz_size})
+                    gz_size = download_atomic(s3_url, local)
+                    item.update({"bytes": gz_size})
                     downloaded.append(item)
                     mark_coverage(
                         coverage, day, env_name, log_type,
                         state="present",
-                        bytes=decoded,
-                        gz_bytes=gz_size,
+                        bytes=gz_size,
                         notification_uuid=notif_uuid,
                     )
                     save_coverage(project_root, coverage)
@@ -448,7 +475,7 @@ def _phase_poll_and_download(
                     pending_count = total - done - len(failed)
                     log_fn(
                         f"  ✓ {day} {env_name} {log_type}: "
-                        f"{decoded:,} bytes — "
+                        f"{gz_size:,} bytes — "
                         f"{done}/{total} done, {pending_count} pending"
                     )
                 except Exception as e:
@@ -551,31 +578,34 @@ def reconcile(
         for log_type in types:
             for day in days:
                 summary["total"] += 1
-                local = canonical_path(project_root, day, env_name, log_type)
                 if dry_run:
-                    if file_present_and_complete(local):
+                    if find_log_file(project_root, day, env_name, log_type) is not None:
                         log_fn(f"  [dry] {day} {log_type}: present")
                         summary["present"] += 1
                     else:
                         log_fn(f"  [dry] {day} {log_type}: would fetch")
                         summary["skipped"] += 1
-                elif file_present_and_complete(local):
-                    existing = coverage.get(day.isoformat(), {}).get(
-                        f"{env_name}.{log_type}"
-                    )
-                    if not existing:
-                        mark_coverage(
-                            coverage, day, env_name, log_type,
-                            state="present",
-                            bytes=local.stat().st_size,
-                        )
-                    log_fn(
-                        f"  = {day} {log_type}: present "
-                        f"({local.stat().st_size:,} bytes)"
-                    )
-                    summary["present"] += 1
                 else:
-                    missing.append((env, log_type, day))
+                    existing_path = find_log_file(
+                        project_root, day, env_name, log_type,
+                    )
+                    if existing_path is not None:
+                        cov_entry = coverage.get(day.isoformat(), {}).get(
+                            f"{env_name}.{log_type}"
+                        )
+                        if not cov_entry:
+                            mark_coverage(
+                                coverage, day, env_name, log_type,
+                                state="present",
+                                bytes=existing_path.stat().st_size,
+                            )
+                        log_fn(
+                            f"  = {day} {log_type}: present "
+                            f"({existing_path.stat().st_size:,} bytes)"
+                        )
+                        summary["present"] += 1
+                    else:
+                        missing.append((env, log_type, day))
 
     if dry_run:
         return summary
@@ -686,7 +716,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 def cli_main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
-    project_root = args.project.resolve()
+    project_root = find_drover_root(args.project.resolve())
 
     try:
         manifest = load_manifest(project_root)

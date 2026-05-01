@@ -34,7 +34,7 @@ _spec.loader.exec_module(_fp)
 # Reuse parsers (slice 5).
 sys.path.insert(0, str(_HERE))
 import parsers  # noqa: E402
-from pull import canonical_path  # noqa: E402
+from pull import find_log_file  # noqa: E402
 
 
 SAMPLE_LINES_PER_GROUP = 3
@@ -231,8 +231,8 @@ def aggregate_files(
 
     for log_type in types:
         for day in days:
-            local = canonical_path(project_root, day, env, log_type)
-            if not local.exists():
+            local = find_log_file(project_root, day, env, log_type)
+            if local is None:
                 files_missing += 1
                 continue
             files_read += 1
