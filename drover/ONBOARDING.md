@@ -1,295 +1,196 @@
-# Drover Onboarding
+# drover 2.0 — Onboarding
 
-A first-run guide, written for someone who has never used an AI coding agent before. By the end, Drover will be watching one of your Drupal projects and you'll have seen it handle a real error end-to-end.
-
-Budget: **about 15 minutes** of your time plus a few minutes of waiting.
-
----
+First-run guide for setting up drover on a Drupal/Acquia project.
+Budget: **5 minutes of your time** plus 15–30 minutes of background
+log-pull while you do other work.
 
 ## Before you start
 
-You need these installed:
+- A Drupal project on Acquia Cloud Platform that you have access to.
+- `acli` installed (`brew install acquia/cli/acli` on macOS) and
+  authenticated (`acli auth:login` once).
+- Python 3.10+ on your machine.
+- The drover plugin installed at user scope:
+  `claude plugin install drover@velir --scope user`
+- Optional but recommended for `/drover:create-tickets`:
+  - `JIRA_API_TOKEN` env var (token from id.atlassian.com), AND
+  - `~/.config/.jira/.config.yml` with `server:` + `login:` (drover
+    reads these for Atlassian instance + email; most operators
+    already have this from running `jira-cli` once).
 
-| Tool | Why | Check it works |
-|---|---|---|
-| [Claude Code](https://docs.claude.com/claude-code) | Runs the plugin | `claude --version` |
-| [DDEV](https://ddev.com/) | Runs your Drupal site locally | `ddev version` |
-| [Beads](https://github.com/sonrise/beads) | Kanban database for tickets | `bd --version` (install: `brew install beads`) |
-| `git` and [`gh`](https://cli.github.com/) | Version control and GitHub | `git --version && gh --version` |
-| `node` ≥ 18 | Powers the dashboard UI | `node --version` |
-| `websockets` (Python) | Streams Acquia logs in real-time | `python3 -c "import websockets"` (install: `pip install websockets`) |
+## Step 1 — discover the project
 
-You also need:
+In your project root:
 
-- **A Drupal project in DDEV**, with the site running (`ddev start`). It can be new or existing — Drover doesn't modify your site's code at setup time.
-- **An Anthropic API key** configured for Claude Code. Running Drover uses tokens; expect a few cents per triage cycle during normal operation, more when it attempts fixes.
-- **A git repo** for that project, with a clean working tree. Drover will create worktrees off your main branch.
+```
+/drover:init
+```
 
-Optional (you can skip these and add them later):
+This reads your `drush/sites/*.site.yml`, `composer.json`,
+`.ddev/config.yaml`, etc. and matches against the Acquia Cloud
+applications you have access to. Output:
 
-- An **Acquia Cloud API key and secret** — if you want Drover to watch staging or production logs. Generate them at https://cloud.acquia.com/a/profile/tokens. Setup will ask for these and store them locally.
-- A **Slack user ID** — for DM notifications. Find yours in Slack → your profile → "Copy member ID". Looks like `U012AB3CD`.
+```
+matched: Pediatric Nursing Certification Board (fa5e7770-...)
+envs:    [dev, prod, test]
+wrote:   .drover/manifest.json
+```
 
----
+If discovery fails, the error message tells you exactly what to do
+(usually `acli auth:login` or `--app NAME` to disambiguate).
 
-## Step 1 — Install the plugin
+## Step 1.5 — (optional) add JIRA config to the manifest
 
-Drover lives in a local plugin marketplace. One-time setup:
+If you plan to use `/drover:create-tickets` later, hand-edit
+`.drover/manifest.json` to add a `jira:` block:
+
+```json
+"jira": {
+  "project_key": "PPS",
+  "board_id": 845,
+  "default_sprint_id": 18347,
+  "default_sprint_name": "2026.2",
+  "default_issue_type": "Chore"
+}
+```
+
+The board id is the Atlassian board the project lives on (visible in
+the URL when you view the board). The sprint id is the active or
+upcoming sprint. The issue type is whatever your project uses for
+small operational fixes — `Chore` / `Task` / `Bug` are common.
+
+A future `/drover:init` will detect and prompt for these
+automatically.
+
+## Step 2 — backfill the last 30 days
+
+```
+/drover:acquia-pull --env all --backfill
+```
+
+This will take 15–45 minutes depending on how many envs and how big
+your logs are. It walks every (date × env × type) tuple, requests a
+24-hour snapshot from Acquia, polls until ready, downloads from S3,
+gunzips, and writes to `<project>/<year>/<month>/<date>.<env>.<type>.log`.
+
+It's idempotent — if you Ctrl-C and re-run, it picks up where it left
+off. Coverage is recorded at `.drover/coverage.json`.
+
+## Step 3 — render this month's report
+
+The stakeholder default:
+
+```
+/drover:report --month 2026-04 --template root-cause-summary
+```
+
+That gives you a Pareto cut on top issues, a share-of-volume bar
+chart, per-issue cause diagnosis (high/medium/low confidence), and a
+JIRA ticket recommendations section + sidecar JSON. Output lands at
+`reports/2026-04-root-cause-summary.md`.
+
+Other templates:
+
+```
+# General monthly summary (top-10 trend table, severity rollup)
+/drover:report --month 2026-04 --template monthly-client
+
+# Channel-distribution view (best for campaign/window analysis)
+/drover:report --month 2026-04 --template calendar-boundary
+
+# Dev-facing detail
+/drover:report --month 2026-04 --template triage-brief
+
+# Paste blocks for JIRA's create-issue dialog (fallback when
+# /drover:create-tickets isn't appropriate)
+/drover:report --month 2026-04 --template jira-ready
+```
+
+`--env` defaults to `prod`; pass `--env stage` etc. to render
+against a different env.
+
+## Step 4 — (optional) file the recommended JIRA tickets
+
+After a stakeholder template renders, the sidecar
+`reports/2026-04-root-cause-summary.md.tickets.json` lists each
+recommended ticket with title, description, priority, labels, sprint,
+parent linking. Hand it to JIRA via:
+
+```
+/drover:create-tickets
+```
+
+The skill asks how you want to file:
+
+- **Atlassian MCP** (recommended if you have Atlassian's MCP server
+  configured — Claude calls those tools directly)
+- **Direct REST** (drover's built-in executor; needs `JIRA_API_TOKEN`)
+- **Plan-only** (drover writes a plan; you run the writes yourself)
+
+Always preview first:
 
 ```bash
-claude plugin install drover@local --scope user
+python3 "$PLUGIN/scripts/create_tickets.py" --dry-run
 ```
 
-Confirm it's installed:
+Common flags:
 
 ```bash
-claude plugin list 2>&1 | grep drover
+# Create everything, no per-ticket prompts (REST mode)
+python3 "$PLUGIN/scripts/create_tickets.py" --all
+
+# Plan-only handoff for MCP / jira-cli / manual
+python3 "$PLUGIN/scripts/create_tickets.py" --plan reports/2026-04.plan.json
+
+# Narrow with a regex match on spec title
+python3 "$PLUGIN/scripts/create_tickets.py" --filter "simple_cron|cron"
+
+# Link every created issue to a parent (Epic / Feature)
+python3 "$PLUGIN/scripts/create_tickets.py" --parent PPS-327
 ```
 
-You should see `drover` with a version number.
+## Step 5 — keep the local logs current
 
----
+Acquia keeps **30 days** of historical log data. If you wait until
+day 31 to backfill, you've lost day 1. Pull early, pull often:
 
-## Step 2 — Configure your project
-
-From the root of your Drupal project (the folder containing `.ddev/` and your git repo), open Claude Code and run:
-
-```
-/drover:setup
+```bash
+# Roll the local store forward
+/drover:acquia-pull --backfill
 ```
 
-Drover will ask you a series of questions. Reasonable defaults are shown in brackets — you can hit enter through most of them.
+Drover 2.0 is **user-triggered** — no built-in scheduler. The pull
+script is small, idempotent, and exit-code-correct, so wrapping it in
+cron / launchd / GitHub Actions / your CI of choice is a one-liner if
+you want scheduled pulls. Ask and we'll add a template if/when that
+becomes useful.
 
-Expect to be asked:
+## What's out of scope
 
-- **Project name** — a slug used in notifications. Use your site's short name.
-- **Slack User ID** — paste it if you want DMs; leave blank otherwise.
-- **Quiet mode / quiet hours** — whether to suppress non-critical pings.
-- **DDEV project name** — Drover shows you your DDEV projects; pick the one for this site.
-- **Acquia staging/production** — skip these if you don't have Acquia. Otherwise enter your API key and secret; Drover lists your applications and environments automatically.
-- **Quality checks** — keep PHPCS on (recommended), PHPStan is optional.
-
-When it finishes you'll see:
-
-```
-drover setup complete ✓
-Project: your-site
-Config:  .claude/drover-config.json
-Board:   .beads/drover.db (empty)
-Environments:
-  local (DDEV: your-site) — trust:low — noise filter ON
-```
-
-Two files now exist that you should know about:
-
-- `.claude/drover-config.json` — project-specific settings (commit this, it's not sensitive)
-- `~/.claude/drover-global-config.json` — your personal Slack / quiet-hours settings (do NOT commit; lives in your home dir)
-
----
-
-## Step 3 — Register the project for continuous watching
-
-Setup configured the project, but Drover doesn't start watching it until you register it:
-
-```
-/drover:add-project
-```
-
-On macOS this opens a folder picker — point it at your project root. On other platforms, pass the path as an argument.
-
-You should see:
-
-```
-Added your-site at /path/to/your-site. Drover will start watching within 30s.
-```
-
-An umbrella monitor process (shipped with the plugin, auto-armed at session start) now polls `drush watchdog:tail` and `ddev logs --service web` every 30 seconds for your project.
-
----
-
-## Step 4 — Run the first triage cycle
-
-Register-and-wait works, but for your first run it's more satisfying to trigger a cycle manually and watch it happen:
-
-```
-/drover:run
-```
-
-This will:
-
-1. Validate your config and check DDEV is healthy.
-2. Launch the dashboard UI at `http://localhost:3749` (it should auto-open in your browser).
-3. Spawn a triage agent for each environment you configured.
-4. Print a summary when done.
-
-You should see output like:
-
-```
-DDEV healthy: your-site @ /path/to/your-site
-Dashboard: http://localhost:3749
-━━━ drover:run complete ━━━━━━━━━━━━━━━━━━━━━━━━━━━
-  Dashboard:     http://localhost:3749
-  Environments:  local
-TRIAGE
-  New errors:    0
-  Augmented:     0
-  Promoted:      0
-━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
-```
-
-Zero errors on a healthy site is the right answer. If your site has log entries already, you may see non-zero numbers — those are real.
-
-Open the dashboard in your browser. You'll see tiles for each environment, a timeline, and lanes for tickets. Empty is fine.
-
----
-
-## Step 5 — Trigger a fake error to see the pipeline
-
-The most reassuring way to see Drover work is to make it handle a real error. Add a deliberate bug to your site:
-
-In a throwaway custom module (or a test-only file), add a PHP notice:
-
-```php
-<?php
-// somewhere that gets executed
-$undefined = $thisVariableDoesNotExist;
-```
-
-Load the page that triggers it a few times. Then wait ~1 minute for the umbrella monitor to poll, or run `/drover:run` again.
-
-This time the triage summary should show `New errors: 1` or `Augmented: 1`. Open the dashboard — a new ticket appears in the error table and the header chip reads **1 need documentation** in orange.
-
----
-
-## Step 6 — Document the error
-
-This is the action Drover is built around. Click the `Document` button on the new row (orange, rightmost cell), or click the row and then `Document this error` inside the modal.
-
-The modal opens with three things stacked top-to-bottom:
-
-1. **"Have we seen this before?"** — Drover searches every registered project's past documented solutions for similar errors (by exception class + fingerprint + message overlap) and surfaces the top matches with a confidence score. On your first run the result will be empty — you haven't documented anything yet. Later, this is where recurrence memory earns its keep.
-2. **The capture form** — two free-text fields (root cause, fix summary) plus an optional commit SHA.
-3. **Agent notes (optional)** — deliberately muted. If the optional implementer-agent ran, its hypothesis / proposed-fix show up here as a reference, not as the authoritative record. You write the authoritative record.
-
-Fill in the form. `Save documentation` closes the ticket.
-
-In the pulse feed at the top of the page, you'll see: `error-documented · <project> · <ticket-id> · Documented · <root cause>`.
-
-If you decide the error is known noise (not a real bug, ignore forever), the secondary `Mark as known noise` button in the same modal moves the ticket to `lane-noise` with your reason recorded.
-
----
-
-## Step 7 — Prove the recall loop
-
-Trigger a second, similar error — or if you don't want to, just open another existing ticket whose title resembles the one you just documented. Click `Document`. This time, the **"Have we seen this before?"** section should surface your previous documentation with a match percentage. Click `Apply this` — the form below prefills with the past root cause + fix summary. Adjust if needed, save.
-
-That's the whole loop. The value compounds: every documented error makes the next recurrence across any client site a one-click resolution.
-
----
-
-## Step 8 — Grouping across projects
-
-When two projects produce what's clearly the same bug — different fingerprints because their URLs or line numbers differ, but the underlying cause is identical — mark them as one group:
-
-1. Check the checkbox on the left of each row.
-2. When selection count reaches 2+, a bar slides in above the table: `N selected · Group selected · Clear`.
-3. Click `Group selected`. The two rows fold into one parent row with the members indented (click-to-expand) and the group metadata surfaces in a separate group modal.
-
-Groups persist across dashboard restarts (stored in `~/.claude/plugins/data/drover/drover-groups.json`) and are also written into each project's bd database as a `group-<id>` label — so `bd list -l group-abc` in either project returns the members, and any bd-facing tool sees the grouping natively.
-
----
-
-## Step 9 — Ongoing use
-
-Once you trust the setup, day-to-day use is:
-
-- **Leave it running.** The umbrella monitor polls every 30s whenever you have a Claude Code session open in the project.
-- **Glance at the dashboard** first thing in the morning. The header chip tells you how many errors need documentation. The pulse feed tells you what drover saw overnight.
-- **Document as you resolve.** Every error you fix gets a quick two-field capture. That's the work.
-- **Check past solutions** when a new error looks familiar — `/drover:recall <keyword>` from the CLI or just open the ticket and read the "Have we seen this before?" section.
-- **Mark known noise** aggressively. False positives shouldn't clog your queue.
-- **Baselines** (Acquia only): once a day, run `/drover:baseline` to refresh 24h error-velocity stats.
-
----
+- **Live monitoring / dashboard / kanban** — those were the v1
+  product. They live in git history at the `drover-1.51.2` tag if
+  you need them. v2.0 is batch-mode log analysis only.
+- **Auto-fix / triage agents** — also v1.
+- **Non-Drupal/Acquia platforms** — Sitecore, .NET, Azure MCP, New
+  Relic come in 2.x.
+- **Traffic / access logs** — only application-error types
+  (apache-error, drupal-watchdog, php-error). Adding traffic types
+  is a config one-liner if a client demands it later.
 
 ## Troubleshooting
 
-### The dashboard doesn't open
-
-```bash
-lsof -ti:3749  # is anything listening?
-```
-
-If empty, the server failed to start. Run `/drover:run` again and watch for `WARNING: Dashboard failed to start`.
-
-### Drover says "DDEV project 'x' is not running"
-
-Drover never starts DDEV for you. Run `ddev start` in the project and try again.
-
-### Tickets keep appearing for the same error after a "fix"
-
-The fix didn't actually resolve it. Look at the ticket's re-open note in the dashboard — it will say "fix ineffective after N cycles". Close the ticket manually and investigate.
-
-### I need to start over
-
-Reset Drover's state without losing tickets:
-
-```
-/drover:reset-state
-```
-
-Delete tickets too:
-
-```bash
-rm -rf .beads/drover.db
-/drover:setup  # reinitialize the board
-```
-
-### Too many notifications
-
-Enable quiet mode or quiet hours:
-
-```bash
-# Edit your global config:
-code ~/.claude/drover-global-config.json
-```
-
-Set `notify.quiet_mode` to `true`, or fill in `quiet_hours`.
-
-### I want to stop Drover entirely
-
-Set `enabled: false` in `.claude/drover-config.json`. The umbrella monitor will skip the project on its next poll.
-
-To uninstall the plugin:
-
-```bash
-claude plugin uninstall drover
-```
-
----
-
-## Glossary
-
-| Term | Meaning |
+| Symptom | Fix |
 |---|---|
-| **Agent** | A Claude instance with a specific role (triage, optionally implementer). Spawned on demand, not persistent. |
-| **Beads** | The kanban CLI (`bd`) Drover uses for ticket storage. Each ticket is a row in a SQLite-backed DB. |
-| **Document** | The primary operator action — capture the root cause + fix summary (+ optional commit SHA) on a ticket. Closes the ticket and feeds the Recall engine. |
-| **Fingerprint** | A hash of an error's signature (file, line, message shape) so duplicates collapse into one ticket. |
-| **Group** | A user-curated set of tickets (across one or more projects) that represent the same bug. Stored as a `group-<id>` label on each member's bd card + a JSON manifest. |
-| **Lane** | A ticket's state — `triage`, `ready`, `done`, `noise`, `closed`. Optional lanes (`implementing`, `awaiting-review`) exist for the opt-in implementer-agent workflow. |
-| **Monitor** | A long-running umbrella process that polls log sources every 30s. Auto-armed by the plugin. |
-| **Pulse** | The live event feed in the dashboard header. Every meaningful transition drover makes (new fingerprint, threshold crossing, document, group, watcher lifecycle) emits a pulse event. |
-| **Recall** | The "have we seen this before?" engine. When you open a ticket to document it, drover searches past documented solutions across all projects and surfaces matches. |
-| **Skill** | A Markdown file describing a procedure Claude follows. Invoked with `/drover:<name>`. |
-| **Trust level** | How aggressively Drover should act. `low` (local dev) → wait for multiple occurrences. `high` (prod) → act on the first. |
+| `Run \`acli auth:login\`` | One-time Acquia auth setup. |
+| `multiple apps tied at top score` | Pass `--app NAME` to `/drover:init` (substring match). |
+| `notification ended with status=failed` | Acquia transient; the next `--backfill` will retry. |
+| Coverage stuck at 0% | The pull skill exits non-zero on creds failure. Check the cron log. |
+| Report missing days | Run `--backfill` to fill gaps; the report's coverage banner shows what's missing. |
+| `JIRA credential resolution failed` (create-tickets) | Set `JIRA_API_TOKEN`; ensure `~/.config/.jira/.config.yml` has `server:` + `login:`, OR add `server`/`email` to the manifest's `jira:` block. |
+| `manifest.jira.project_key not set` | Hand-edit the manifest to add the `jira:` block (see Step 1.5). |
+| `The issue type selected is invalid` | Check available types with `jira project view <KEY>` or via Atlassian's REST `/rest/api/2/project/<KEY>`; update `default_issue_type` in the manifest. |
 
----
+## Next
 
-## Next steps
-
-- Read the per-skill docs in `drover/skills/<name>/SKILL.md` to understand each step in depth.
-- Look at the agent prompts in `drover/agents/` to see exactly what Drover asks Claude to do at each stage.
-- If you want to add log sources, quality checks, or notification channels, the skills and agents are plain Markdown — fork and edit.
-
-Questions, rough edges, or ideas? File a card on the sprint board or ping Chris.
+Read `README.md` for the architecture and `drover-2.0-plan.md` (in
+your Neurons vault) for the design rationale and forward roadmap.

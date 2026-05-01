@@ -53,7 +53,8 @@
       "name": "drover",
       "description": "Automated Drupal error monitoring and self-healing pipeline: watches logs, triages errors into curated Beads tickets, autonomously implements fixes in isolated git worktrees, and notifies on ready-to-review fixes",
       "source": "./drover",
-      "category": "development"
+      "category": "development",
+      "version": "2.0.0"
     },
     {
       "name": "research-lab",
@@ -63,13 +64,13 @@
     },
     {
       "name": "improve",
-      "description": "Process engineering methodology: maps process topology, makes directed fixes, runs improvement experiments, and accumulates process lint rules. Domain-agnostic — each plugin owns its own :improve skill.",
+      "description": "Process engineering methodology: maps process topology, makes directed fixes, runs improvement experiments, and accumulates process lint rules. Domain-agnostic \u2014 each plugin owns its own :improve skill.",
       "source": "./improve",
       "category": "development"
     },
     {
       "name": "ideas-funnel",
-      "description": "Passive knowledge capture pipeline — Karpathy-derived LLM Wiki with Monitor-driven multi-domain ingest. Feeds land in raw/, agents compile them into a cross-linked Obsidian wiki, memory evolves via confidence decay and graph-aware consolidation.",
+      "description": "Passive knowledge capture pipeline \u2014 Karpathy-derived LLM Wiki with Monitor-driven multi-domain ingest. Feeds land in raw/, agents compile them into a cross-linked Obsidian wiki, memory evolves via confidence decay and graph-aware consolidation.",
       "source": "./ideas-funnel",
       "category": "productivity"
     }

@@ -1,5 +1,141 @@
 # drover Changelog
 
+## 2.0.0 — Pivot: log-analysis pipeline (clean break from v1)
+
+Drover is now a Drupal/Acquia application-error log analysis pipeline.
+The v1 product (live monitoring + dashboard + kanban + auto-fix) has
+been retired wholesale. Anyone who wants the v1 experience installs
+the `drover-1.51.2` tag.
+
+**New surface — four skills, no UI:**
+
+- **`/drover:init`** — discovery + manifest write. Reads drush
+  aliases, composer.json, .ddev/config.yaml, acquia-pipelines.yml;
+  resolves Acquia app UUID + env list + log types via the Cloud
+  Platform API; writes `.drover/manifest.json`. JIRA project key,
+  board, and default sprint are hand-edited into the manifest's
+  `jira:` block today; `/drover:init` auto-detection lands in 2.1.
+  Zero prompts in the happy path.
+- **`/drover:acquia-pull`** — historical log download by date.
+  Talks to the Acquia Cloud Platform API directly via the existing
+  stdlib client; uses the documented `from`/`to` parameters on the
+  log-snapshot endpoint to pull any 24-hour window in the last 30
+  days. Idempotent reconcile against `.drover/coverage.json`. Modes:
+  `--daily`, `--backfill`, `--from/--to`, `--date`, `--env all`.
+  User-triggered, not scheduled — drover does not ship a cron
+  template; the pull script is small, idempotent, and exit-code-
+  correct so any external scheduler wraps it cleanly.
+- **`/drover:report`** — render a markdown monthly report. Five
+  templates:
+    - `monthly-client` — stakeholder summary
+    - `root-cause-summary` — Pareto cut + cause diagnosis + JIRA recs
+    - `calendar-boundary` — events-by-channel bar chart for windowed
+      analysis (campaigns, holiday boundaries)
+    - `triage-brief` — dev-facing fingerprint detail
+    - `jira-ready` — paste blocks for JIRA's create-issue dialog
+  Stakeholder templates carry a Velir 2025 logo + brand palette and
+  emit a sidecar JSON of ticket specs for downstream creation.
+  Cause diagnosis from a 17-pattern library covering the most
+  common Drupal/PHP/Apache shapes (entity_embed display drift,
+  SQLSTATE errors, Acquia Solr flood-protection, login-attempt
+  patterns, cron lock contention, routine cron instrumentation
+  noise, PHP fatals, Twig errors, route-not-found, cache-backend
+  unavailability, Apache child-process death, etc.). Fingerprints
+  sharing the same diagnosed root cause collapse into one report
+  entry and one JIRA ticket — the same Solr flood-protection error
+  surfacing in both `search_api` and `acquia_search` becomes one
+  issue, not two. Deterministic — no LLM in the rendering path.
+  Coverage caveats are surfaced automatically when any day is
+  missing or fetch-failed.
+- **`/drover:create-tickets`** — file the report's recommended
+  tickets in JIRA. Three execution paths share the same stable plan
+  schema (`drover_plan_version: 1`):
+    - **Atlassian MCP** — Claude calls `mcp__*atlassian*` /
+      `mcp__*jira*` tools directly. Drover writes a plan; Claude
+      reads it and invokes the matching MCP tools. No shared API
+      token needed.
+    - **Direct REST** — drover's built-in executor talks to
+      Atlassian Cloud's REST API. Needs `JIRA_API_TOKEN` env.
+    - **Plan-only** — drover writes the plan; the operator runs
+      the writes themselves with jira-cli, the web UI, or custom
+      tooling.
+  Per-ticket sprint assignment + parent linking are best-effort:
+  failures don't undo the issue creation; they're captured in a
+  results sidecar.
+
+**Architecture (pure stdlib Python):**
+
+- `scripts/monitors/acquia_api.py` — patched with `from`/`to` support
+  on `request_log_download()` and a new `get_log_download_url()`
+  that captures the 301 → S3 redirect without poisoning S3 with
+  the Acquia auth header. Retry-on-5xx-and-timeout via the same
+  `_urlopen_with_retry` helper.
+- `scripts/init.py` — discovery cascade + manifest builder.
+- `scripts/pull.py` — single-day primitive + multi-day reconcile
+  loop with retries, polite rate limiting, and incremental ledger
+  checkpointing so partial progress survives a crash.
+- `scripts/parsers/` — three deterministic parsers (apache-error,
+  drupal-watchdog with continuation-line folding, php-error with
+  stack-trace folding) emitting a uniform event shape.
+- `scripts/aggregate.py` — fingerprint + group + count using v1's
+  `fingerprint_structured` so issue keys remain hash-compatible
+  with v1 history. MoM delta annotation.
+- `scripts/causes.py` — 17-pattern cause-diagnosis library with
+  honest "undiagnosed" fallback for unknown shapes. Operators
+  extend by adding entries to `PATTERNS`. Includes
+  `collapse_by_cause()` for cross-channel de-duplication.
+- `scripts/charts.py` — pure-stdlib unicode bar charts that render
+  correctly in every markdown viewer.
+- `scripts/branding.py` — Velir 2025 brand palette + base64-embedded
+  logo so rendered markdown is self-contained.
+- `scripts/report_writer.py` + `agents/report-writer.md` — agent
+  scaffolding for future LLM prose synthesis on top of the
+  deterministic report.
+- `scripts/report.py` — five template renderers + CLI.
+- `scripts/jira_recs.py` — ticket-spec builder (title cleanup,
+  priority heuristic, label assignment, cause linkage, multi-
+  fingerprint collapse).
+- `scripts/jira_api.py` — stdlib Atlassian Cloud REST client; reads
+  credentials from manifest > `~/.drover/jira.json` > `jira-cli`'s
+  config > `JIRA_API_TOKEN` env.
+- `scripts/create_tickets.py` — three-mode orchestrator (REST
+  executor / `--plan` JSON for external executors / interactive).
+
+**Removed in 2.0:**
+
+- `scripts/monitors/` watchers (acquia-watch, ddev-watch, wp-watch,
+  bd-ready-watch, umbrella-watch) — gone. Application-error
+  monitoring is out of scope.
+- `tools/dashboard/` (~10K-line live SSE dashboard) — gone.
+- `tools/kanban-ui/` — gone.
+- `agents/triage-agent.md`, `agents/implementer-agent.md` — gone.
+- `bin/drover` CLI for managing watchers — gone.
+- `hooks/` session-start hook — gone.
+- `monitors/monitors.json` — gone.
+- 9 v1 skills (add-project, baseline, backfill, board, dashboard,
+  implement, recall, reset-state, run, setup, solution, triage,
+  verify, watch) — gone. Replaced by 3 (init, acquia-pull, report).
+
+**Carried forward from v1:**
+
+- `scripts/monitors/acquia_api.py` (patched, kept its stdlib client)
+- `scripts/fingerprint.py` (the deterministic core only — bd-card-
+  creating wrappers retired)
+- `tests/python/test_fingerprint.py` and `test_acquia_api_errors.py`
+- `tests/bats/_libs/` vendored bats helpers
+
+**Test suite:** 182 tests across 9 modules, all stdlib, no live
+network. Live verification scripts (`/tmp/recon-*.py`) preserved
+outside CI for ad-hoc validation.
+
+**Verified end-to-end against PNCB:**
+
+- April 3rd download: 5,691 lines / 1.29 MB drupal-watchdog
+- 3-day backfill (April 4–6): 3 fetches in 3m12s
+- April monthly-client report: 380 fingerprint groups from 2,964
+  events, top issue correctly identifies a real DB query bug in
+  cron (severity=error, count=231)
+
 ## 1.51.2
 - **Per-source toggles are now truthful.** When you flipped off a source pill (say, `apache-request` on AHRI prod), the config + side-file updated correctly, but the *running* acquia-watch process kept its original `DROVER_LOG_TYPES` and kept receiving apache-request events from Acquia's WebSocket. The UI was lying on top of a watcher that didn't care.
 - Root cause: `resubscribeEnv` killed only the pidfile-tracked child. If the umbrella respawned the watcher without updating the pidfile (or if the watcher got orphaned to `ppid=1` during an umbrella-subshell race), the pidfile pointed at nothing and the orphan watcher lived on.
