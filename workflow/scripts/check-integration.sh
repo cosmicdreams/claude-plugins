@@ -100,13 +100,13 @@ _check_jira() {
 }
 
 _check_slack() {
-  if ! command -v slack &>/dev/null; then
-    echo "slack CLI not found on \$PATH"
+  if ! command -v agent-slack &>/dev/null; then
+    echo "agent-slack CLI not found on \$PATH — install with: npm install -g agent-slack"
     return 1
   fi
   local out
-  if ! out=$(slack auth test 2>&1); then
-    echo "slack auth failed: ${out}"
+  if ! out=$(agent-slack auth whoami 2>&1); then
+    echo "agent-slack auth failed: ${out}"
     return 1
   fi
   return 0
