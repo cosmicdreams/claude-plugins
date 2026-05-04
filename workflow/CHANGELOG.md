@@ -1,5 +1,8 @@
 # Changelog
 
+## 1.1.1
+- Fixed: `check-integration.sh` slack preflight now checks for `agent-slack` instead of a non-existent `slack` CLI. Previous behavior caused every morning-brief and pulse run to silently skip Slack.
+
 ## 1.1.0
 - Added: `scripts/check-integration.sh` — shared preflight circuit-breaker for external integrations (gws, jira, slack, gh)
 - Caches health results for 5 minutes; open circuit short-circuits without re-running preflight
