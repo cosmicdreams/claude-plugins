@@ -1,9 +1,10 @@
 ---
 name: drover:report
 description: >
-  Render a markdown report for a calendar month from a project's local
-  logs and coverage ledger. Five templates cover stakeholder, dev, and
-  JIRA-paste workflows. Stakeholder templates carry a Velir logo, brand
+  Render a report for a calendar month from a project's local logs and
+  coverage ledger — markdown by default, or self-contained Velir-branded
+  HTML via the optional Python→Node render path. Five templates cover
+  stakeholder, dev, and JIRA-paste workflows. Stakeholder templates carry a Velir logo, brand
   colors, bar charts (by channel, severity, daily volume), and a
   "Recommended JIRA tickets" section plus a JSON sidecar listing each
   ticket spec for downstream programmatic creation. Deterministic — same
@@ -101,6 +102,45 @@ suggested) and writes:
 - `reports/<month>-<template>.md` — the rendered report
 - `reports/<month>-<template>.md.tickets.json` — sidecar (stakeholder
   templates only, when tickets are recommended)
+
+## Step 2b (optional): HTML output
+
+Markdown is the default. For a polished, self-contained HTML report
+(Velir-branded, all CSS inlined), use the two-stage Python→Node path:
+`report.py` emits a structured JSON aggregate, and the Node renderer
+turns that JSON + the design tokens into HTML.
+
+**Additional prerequisite:** Node ≥20 on PATH. The renderer installs its
+own dependencies on first run (a one-time `npm ci` from a committed
+lockfile) — `node_modules` is not vendored. No other setup.
+
+```bash
+# 1. Emit the structured aggregate (schema-versioned, deterministic).
+#    --template is ignored here; --format=json drives the output.
+python3 "$REPORT_PY" --month 2026-04 --format json
+#    → writes reports/2026-04.json
+
+# 2. Render HTML from that JSON.
+node "${PLUGIN_ROOT}render-html/render.mjs" \
+  --data reports/2026-04.json \
+  --template monthly-client \
+  --out reports/2026-04-monthly-client.html
+#    → first run prints "[drover] installing HTML render deps…", then
+#      writes the HTML; subsequent runs skip the install.
+```
+
+The JSON carries everything a renderer needs — totals, severity/channel
+breakdowns, by-day volume, fingerprint groups (raw and cause-collapsed),
+MoM deltas when prior data exists, and the JIRA ticket specs. Both stages
+are deterministic: same logs in, byte-identical HTML out.
+
+Renderer flags: `--data` (required), `--template` (default
+`monthly-client`), `--design` (default the plugin's `DESIGN.md`),
+`--logo`, `--out` (default: alongside `--data`, `.json`→`-<template>.html`).
+
+Templates available in HTML: `monthly-client`. (The five markdown
+templates are not all ported yet — markdown remains the path for
+`root-cause-summary`, `calendar-boundary`, `triage-brief`, `jira-ready`.)
 
 ## Step 3: Optional — create the suggested tickets in JIRA
 

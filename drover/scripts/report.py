@@ -994,6 +994,137 @@ def generate_report(
     return md, summary, ticket_specs
 
 
+# --- Structured-data emit (Node renderer input) ---------------------------
+
+DROVER_DATA_SCHEMA_VERSION = 1
+
+
+def generate_data(
+    project_root: Path,
+    *,
+    env: str,
+    month: str,
+    types: list[str] | None = None,
+    prior_month_str: str | None = None,
+    include_tickets: bool = True,
+) -> dict:
+    """Build the structured aggregate that downstream renderers consume.
+
+    Same data pipeline as `generate_report` (aggregate → coverage → MoM
+    delta → cause-collapse → ticket recs) but returns a single JSON-safe
+    dict instead of rendering markdown. The Node-based HTML renderer
+    reads this dict (one file per month/env) and turns it into HTML.
+    Deterministic: same inputs produce byte-identical output.
+
+    Returns a dict with the schema:
+      {
+        drover_schema_version: 1,
+        generated_at: ISO-8601,
+        meta: {project, env, month, month_label, prior_month, from, to,
+               types},
+        coverage: {expected_days, present_days, coverage_pct,
+                   missing_or_failed: [...]},
+        totals: {events_total, groups_total, by_severity, by_channel,
+                 by_day},
+        groups: [...full fingerprint groups with optional .delta...],
+        groups_collapsed: [...same groups collapsed by diagnosed cause,
+                            for stakeholder rendering...],
+        disappeared_from_prior: [...] (only when MoM data exists),
+        tickets: [...JIRA ticket specs (when include_tickets)...]
+      }
+    """
+    manifest = load_manifest(project_root)
+    project = manifest.get("project") or project_root.name
+
+    if types is None:
+        env_entry = next(
+            (e for e in manifest["acquia"]["envs"] if e["name"] == env),
+            None,
+        )
+        if env_entry is None:
+            raise ValueError(
+                f"env '{env}' not in manifest. "
+                f"Available: {[e['name'] for e in manifest['acquia']['envs']]}"
+            )
+        types = env_entry.get("types") or ["drupal-watchdog"]
+
+    from_d, to_d = parse_month(month)
+    agg = _aggregate.aggregate_files(
+        project_root, env=env, types=types,
+        from_date=from_d, to_date=to_d,
+    )
+
+    coverage_ledger = _aggregate.load_coverage(project_root)
+    coverage = _report_writer.coverage_summary(
+        coverage_ledger, env=env, types=types,
+        from_date=from_d, to_date=to_d,
+    )
+    coverage_pct = (
+        100.0 * coverage["present_days"] / coverage["expected_days"]
+        if coverage["expected_days"] else 100.0
+    )
+
+    has_prior = False
+    if prior_month_str:
+        pf, pt = parse_month(prior_month_str)
+        prior_agg = _aggregate.aggregate_files(
+            project_root, env=env, types=types,
+            from_date=pf, to_date=pt,
+        )
+        if prior_agg["events_total"] > 0:
+            agg = _aggregate.delta(agg, prior_agg)
+            has_prior = True
+
+    groups_collapsed = causes.collapse_by_cause(agg.get("groups", []) or [])
+
+    tickets: list = []
+    if include_tickets:
+        from dataclasses import asdict
+        specs = jira_recs.from_groups(
+            groups_collapsed,
+            project_slug=manifest.get("project") or project,
+            env=env,
+            month_label=month_label(from_d.year, from_d.month),
+            total_events=agg.get("events_total", 0),
+            top_n=5,
+        )
+        tickets = [asdict(s) for s in specs]
+
+    return {
+        "drover_schema_version": DROVER_DATA_SCHEMA_VERSION,
+        "generated_at": datetime.now(timezone.utc).isoformat(
+            timespec="seconds"),
+        "meta": {
+            "project": project,
+            "env": env,
+            "month": month,
+            "month_label": month_label(from_d.year, from_d.month),
+            "prior_month": prior_month_str if has_prior else None,
+            "from": from_d.isoformat(),
+            "to": to_d.isoformat(),
+            "types": list(types),
+            "has_prior": has_prior,
+        },
+        "coverage": {
+            "expected_days": coverage["expected_days"],
+            "present_days": coverage["present_days"],
+            "coverage_pct": round(coverage_pct, 2),
+            "missing_or_failed": coverage["missing_or_failed"],
+        },
+        "totals": {
+            "events_total": agg["events_total"],
+            "groups_total": len(agg.get("groups", [])),
+            "by_severity": agg.get("by_severity", {}),
+            "by_channel": agg.get("by_channel", {}),
+            "by_day": agg.get("by_day", {}),
+        },
+        "groups": agg.get("groups", []),
+        "groups_collapsed": groups_collapsed,
+        "disappeared_from_prior": agg.get("disappeared_from_prior", []),
+        "tickets": tickets,
+    }
+
+
 # --- CLI ------------------------------------------------------------------
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -1022,7 +1153,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="auto-derived if omitted; pass YYYY-MM to override",
     )
     p.add_argument("--out", type=Path, default=None,
-                   help="output file (default: reports/<month>-<template>.md)")
+                   help="output file (default: reports/<month>-<template>.md "
+                        "for markdown, reports/<month>.json for json)")
     p.add_argument(
         "--no-prior", action="store_true",
         help="skip MoM comparison even when prior data exists",
@@ -1031,6 +1163,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         "--no-tickets", action="store_true",
         help="skip the JIRA recommendation block + sidecar emission "
              "(stakeholder templates only)",
+    )
+    p.add_argument(
+        "--format", default="markdown",
+        choices=("markdown", "json"),
+        help="markdown (default): render one of the five templates. "
+             "json: emit the structured aggregate that downstream "
+             "renderers (Node HTML renderer, dashboards) consume. "
+             "--template is ignored when --format=json.",
     )
     return p.parse_args(argv)
 
@@ -1052,6 +1192,34 @@ def cli_main(argv: list[str] | None = None) -> int:
             y, m = (int(x) for x in args.month.split("-"))
             py, pm = prior_month(y, m)
             prior = f"{py:04d}-{pm:02d}"
+
+    if args.format == "json":
+        try:
+            data = generate_data(
+                project_root,
+                env=args.env,
+                month=args.month,
+                types=types_override,
+                prior_month_str=prior,
+                include_tickets=not args.no_tickets,
+            )
+        except (FileNotFoundError, ValueError) as e:
+            print(f"ERROR: {e}", file=sys.stderr)
+            return 2
+
+        out = args.out or (
+            project_root / "reports" / f"{args.month}.json"
+        )
+        out.parent.mkdir(parents=True, exist_ok=True)
+        out.write_text(json.dumps(data, indent=2, sort_keys=True,
+                                  default=str))
+        print(f"wrote {out}")
+        print(f"  events:    {_fmt_int(data['totals']['events_total'])}")
+        print(f"  groups:    {data['totals']['groups_total']}")
+        print(f"  collapsed: {len(data['groups_collapsed'])}")
+        print(f"  coverage:  {data['coverage']['coverage_pct']:.1f}%")
+        print(f"  tickets:   {len(data['tickets'])}")
+        return 0
 
     try:
         md, summary, ticket_specs = generate_report(

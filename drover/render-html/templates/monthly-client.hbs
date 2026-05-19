@@ -1,0 +1,99 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{meta.project}} — {{meta.month_label}} error report</title>
+  <style>{{{css}}}</style>
+</head>
+<body>
+<div class="page">
+
+  <header class="page-header">
+    <div class="page-header__brand">
+      {{#if logoDataUri}}<img src="{{logoDataUri}}" alt="Velir" class="page-header__logo">{{/if}}
+      <div class="page-header__title">{{meta.project}} application errors</div>
+    </div>
+    <div class="page-header__meta">{{meta.month_label}} · {{meta.env}}</div>
+  </header>
+
+  <main class="page-body">
+
+    <h1 class="display">{{meta.month_label}} error report</h1>
+    <p class="subtitle">A summary of application-error volume and the issues that contributed most for {{meta.project}} in {{meta.month_label}}.</p>
+
+    {{#if coverageLow}}
+    <div class="coverage-banner">
+      <span class="coverage-banner__icon">⚠</span>
+      <span><strong>Coverage:</strong> {{coverage.coverage_pct}}% — {{coverage.present_days}} of {{coverage.expected_days}} expected (env × type × day) entries were retrievable. Totals below understate the true volume.</span>
+    </div>
+    {{/if}}
+
+    <div class="metric-row">
+      <div class="metric-card">
+        <p class="metric-card__label">Total events</p>
+        <p class="metric-card__value">{{fmt totals.events_total}}</p>
+      </div>
+      <div class="metric-card">
+        <p class="metric-card__label">Unique issues</p>
+        <p class="metric-card__value">{{totals.groups_total}}</p>
+      </div>
+      <div class="metric-card">
+        <p class="metric-card__label">Top issue share</p>
+        <p class="metric-card__value">{{topShare}}%</p>
+        <p class="metric-card__hint">of all events caused by the single largest fingerprint</p>
+      </div>
+    </div>
+
+    <h2 class="section">Severity breakdown</h2>
+    <div>
+      {{#each severityChart}}
+      <div class="chart">
+        <div class="chart__label">
+          <span class="severity-pill severity-pill--{{key}}">{{key}}</span>
+        </div>
+        <div class="chart__bar-track"><div class="chart__bar-fill{{#if first}} chart__bar-fill--accent{{/if}}" style="width: {{widthPct}}%"></div></div>
+        <div class="chart__value">{{fmt count}} <span style="opacity:.7">({{sharePct}}%)</span></div>
+      </div>
+      {{/each}}
+    </div>
+
+    <h2 class="section">Top issues this month</h2>
+    {{#each topIssues}}
+    <div class="ticket-card">
+      <p class="ticket-card__title">{{title}}</p>
+      <p class="ticket-card__meta">
+        <span class="severity-pill severity-pill--{{severity}}">{{severity}}</span>
+        &nbsp;·&nbsp; {{fmt count}} events
+        &nbsp;·&nbsp; {{channel}}
+        {{#if firstSeen}}&nbsp;·&nbsp; first seen {{firstSeen}}{{/if}}
+        {{#if lastSeen}}&nbsp;·&nbsp; last seen {{lastSeen}}{{/if}}
+      </p>
+      {{#if sample}}<pre class="ticket-card__sample">{{sample}}</pre>{{/if}}
+    </div>
+    {{/each}}
+
+    {{#if tickets.length}}
+    <h2 class="section">Recommended JIRA tickets</h2>
+    {{#each tickets}}
+    <div class="ticket-card">
+      <p class="ticket-card__title">{{title}}</p>
+      <p class="ticket-card__meta">
+        Priority: {{priority}}
+        {{#if labels.length}}&nbsp;·&nbsp; Labels: {{join labels ", "}}{{/if}}
+        &nbsp;·&nbsp; {{fmt count}} events
+      </p>
+      <p class="ticket-card__desc">{{description}}</p>
+      {{#if sample}}<pre class="ticket-card__sample">{{sample}}</pre>{{/if}}
+    </div>
+    {{/each}}
+    {{/if}}
+
+  </main>
+
+  <footer class="footer">
+    <span>Prepared by Velir · drover {{schemaVersion}}</span>
+    <span>Generated {{generatedAt}}</span>
+  </footer>
+</div>
+</body>
+</html>

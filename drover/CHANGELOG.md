@@ -1,5 +1,31 @@
 # drover Changelog
 
+## 2.1.0 — HTML reports
+
+Adds a self-contained, Velir-branded HTML output alongside the existing
+markdown reports. Markdown remains the default; HTML is opt-in via a
+two-stage Python→Node render path.
+
+- **`report.py --format json`** — new `generate_data()` emits a
+  schema-versioned (`drover_schema_version: 1`) structured aggregate:
+  meta, coverage, totals (by severity/channel/day), fingerprint groups
+  (raw + cause-collapsed), MoM deltas, and JIRA ticket specs. Same
+  deterministic pipeline as the markdown path; one JSON file per
+  month/env. `--template` is ignored when `--format=json`.
+- **`render-html/`** — Node renderer (`render.mjs` → `render-core.mjs`)
+  turns that JSON + `assets/design/DESIGN.md` tokens into HTML via
+  Handlebars. All CSS inlined; logo embedded as a data URI; output is
+  byte-deterministic. Low-coverage banner gated at <90%.
+  - Template: `monthly-client`. The other four report views remain
+    markdown-only for now.
+  - **No vendored `node_modules`.** Deps install lazily on first render
+    (one-time `npm ci` from a committed lockfile); `render.mjs` is a
+    builtin-only bootstrap so it loads before deps exist. Requires
+    Node ≥20.
+- Tests: `generate_data()` schema/determinism/serialization +
+  `--format json` CLI (Python, unittest); renderer smoke + coverage-gate
+  + determinism (Node, `npm test`).
+
 ## 2.0.0 — Pivot: log-analysis pipeline (clean break from v1)
 
 Drover is now a Drupal/Acquia application-error log analysis pipeline.

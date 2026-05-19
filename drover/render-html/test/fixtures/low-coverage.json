@@ -1,0 +1,79 @@
+{
+  "drover_schema_version": 1,
+  "generated_at": "2026-04-30T12:00:00+00:00",
+  "meta": {
+    "project": "pncb",
+    "env": "prod",
+    "month": "2026-04",
+    "month_label": "April 2026",
+    "prior_month": "2026-03",
+    "from": "2026-04-01",
+    "to": "2026-04-30",
+    "types": [
+      "drupal-watchdog"
+    ],
+    "has_prior": true
+  },
+  "coverage": {
+    "expected_days": 30,
+    "present_days": 18,
+    "coverage_pct": 60.0,
+    "missing_or_failed": [
+      "2026-04-05",
+      "2026-04-06"
+    ]
+  },
+  "totals": {
+    "events_total": 1234,
+    "groups_total": 12,
+    "by_severity": {
+      "critical": 3,
+      "error": 120,
+      "warning": 900,
+      "notice": 211
+    },
+    "by_channel": {
+      "php": 800,
+      "cron": 434
+    },
+    "by_day": {
+      "2026-04-01": 40
+    }
+  },
+  "groups": [
+    {
+      "fingerprint": "abc",
+      "summary": "Undefined index foo",
+      "severity": "warning",
+      "count": 500,
+      "channel": "php",
+      "first_seen": "2026-04-01",
+      "last_seen": "2026-04-29",
+      "samples": [
+        "Notice: Undefined index: foo"
+      ]
+    }
+  ],
+  "groups_collapsed": [
+    {
+      "fingerprint": "abc",
+      "summary": "Undefined index foo",
+      "severity": "warning",
+      "count": 500,
+      "channel": "php",
+      "first_seen": "2026-04-01",
+      "last_seen": "2026-04-29",
+      "samples": [
+        "Notice: Undefined index: foo"
+      ]
+    }
+  ],
+  "disappeared_from_prior": [],
+  "tickets": [
+    {
+      "title": "Fix undefined index",
+      "priority": "P2",
+      "sample": "Notice: Undefined index: foo"
+    }
+  ]
+}

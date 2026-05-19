@@ -1,0 +1,3 @@
+# Installed on first HTML render via `npm ci` (see render.mjs bootstrap).
+# The lockfile IS tracked so installs stay deterministic; deps are not.
+node_modules/

@@ -378,5 +378,98 @@ class CliTests(unittest.TestCase):
             self.assertEqual(rc, 2)
 
 
+# --- generate_data: structured aggregate for the HTML renderer -----------
+
+class GenerateDataTests(unittest.TestCase):
+    def _data(self, root):
+        return report.generate_data(
+            root, env="prod", month="2026-04", prior_month_str=None,
+        )
+
+    def test_schema_and_top_level_shape(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            data = self._data(root)
+            self.assertEqual(
+                data["drover_schema_version"],
+                report.DROVER_DATA_SCHEMA_VERSION,
+            )
+            for key in (
+                "generated_at", "meta", "coverage", "totals",
+                "groups", "groups_collapsed", "disappeared_from_prior",
+                "tickets",
+            ):
+                self.assertIn(key, data)
+
+    def test_totals_match_generate_report(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            data = self._data(root)
+            self.assertEqual(data["totals"]["events_total"], 3)
+            self.assertGreaterEqual(data["totals"]["groups_total"], 1)
+            self.assertEqual(data["meta"]["project"], "pncb")
+            self.assertEqual(data["meta"]["env"], "prod")
+            self.assertEqual(data["meta"]["month_label"], "April 2026")
+
+    def test_json_serializable(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            data = self._data(root)
+            # The CLI writes with default=str; the dict must round-trip.
+            blob = json.dumps(data, indent=2, sort_keys=True, default=str)
+            self.assertEqual(json.loads(blob)["totals"]["events_total"], 3)
+
+    def test_deterministic(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            a = self._data(root)
+            b = self._data(root)
+            # generated_at is a wall-clock stamp; everything else is
+            # a pure function of the logs on disk.
+            a.pop("generated_at")
+            b.pop("generated_at")
+            self.assertEqual(
+                json.dumps(a, sort_keys=True, default=str),
+                json.dumps(b, sort_keys=True, default=str),
+            )
+
+    def test_no_tickets_flag(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            data = report.generate_data(
+                root, env="prod", month="2026-04",
+                prior_month_str=None, include_tickets=False,
+            )
+            self.assertEqual(data["tickets"], [])
+
+
+class CliJsonFormatTests(unittest.TestCase):
+    def test_cli_format_json_writes_json(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            rc = report.cli_main([
+                "--project", str(root),
+                "--env", "prod",
+                "--month", "2026-04",
+                "--no-prior",
+                "--format", "json",
+            ])
+            self.assertEqual(rc, 0)
+            out = root / "reports" / "2026-04.json"
+            self.assertTrue(out.exists())
+            data = json.loads(out.read_text())
+            self.assertEqual(
+                data["drover_schema_version"],
+                report.DROVER_DATA_SCHEMA_VERSION,
+            )
+            self.assertEqual(data["totals"]["events_total"], 3)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,21 @@
+{
+  "name": "drover-render-html",
+  "version": "0.1.0",
+  "description": "Node renderer that turns drover JSON + DESIGN.md tokens into HTML reports.",
+  "type": "module",
+  "private": true,
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "drover-render-html": "./render.mjs"
+  },
+  "scripts": {
+    "render": "node render.mjs",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "handlebars": "^4.7.8",
+    "js-yaml": "^4.1.0"
+  }
+}
