@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>{{meta.project}} — {{meta.month_label}} calendar window report</title>
+  {{> head-theme-init}}
   <style>
     {{{css}}}
     
@@ -13,22 +14,22 @@
       margin: var(--space-md) 0 var(--space-xl) 0;
     }
     .metric-card--critical {
-      background: #FBE2EA;
-      color: var(--color-severity-critical);
+      background: var(--color-severity-critical-bg);
+      color: var(--color-severity-critical-text);
       border-radius: var(--rounded-lg);
       padding: var(--space-lg);
       border-top: 4px solid var(--color-severity-critical);
     }
     .metric-card--error {
-      background: var(--color-tint-blue);
-      color: var(--color-severity-error);
+      background: var(--color-severity-error-bg);
+      color: var(--color-severity-error-text);
       border-radius: var(--rounded-lg);
       padding: var(--space-lg);
       border-top: 4px solid var(--color-severity-error);
     }
     .metric-card--warning {
-      background: var(--color-tint-yellow);
-      color: #7A5C00;
+      background: var(--color-severity-warning-bg);
+      color: var(--color-severity-warning-text);
       border-radius: var(--rounded-lg);
       padding: var(--space-lg);
       border-top: 4px solid var(--color-severity-warning);
@@ -40,7 +41,7 @@
       letter-spacing: var(--font-label-tracking);
       text-transform: uppercase;
       margin: 0 0 var(--space-xs) 0;
-      opacity: 0.8;
+      opacity: 0.85;
     }
     
     .channel-detail-card {
@@ -61,7 +62,7 @@
       font-family: var(--font-mono-family);
       font-size: var(--font-body-sm-size);
       font-weight: 600;
-      color: var(--color-primary);
+      color: var(--color-text-strong);
       margin: 0;
       background: var(--color-surface-alt);
       padding: 2px var(--space-sm);
@@ -92,7 +93,10 @@
       {{#if logoDataUri}}<img src="{{logoDataUri}}" alt="Velir" class="page-header__logo">{{/if}}
       <div class="page-header__title">{{meta.project}} application errors</div>
     </div>
-    <div class="page-header__meta">{{meta.month_label}} · {{meta.env}}</div>
+    <div class="page-header__actions">
+      <span class="page-header__meta">{{meta.month_label}} · {{meta.env}}</span>
+      {{> theme-toggle-button}}
+    </div>
   </header>
 
   <main class="page-body">
@@ -127,9 +131,9 @@
 
     <h2 class="section">Events by channel</h2>
     <p>Drupal's watchdog logs each event under a category called a <em>channel</em>. The chart below shows volume by channel for the window — concentrated channels are usually one or two issues in disguise; spread channels mean broader configuration drift.</p>
-    <div>
+    <div class="chart-container">
       {{#each channelChart}}
-      <div class="chart">
+      <div class="chart interactive-chart-row" data-type="channel" data-label="{{channel}}" data-count="{{fmt count}}" data-share="{{sharePct}}" style="cursor: pointer;">
         <div class="chart__label" title="{{channel}}">
           <code>{{channel}}</code>
         </div>
@@ -142,9 +146,9 @@
     </div>
 
     <h2 class="section">Events by severity</h2>
-    <div>
+    <div class="chart-container">
       {{#each severityChart}}
-      <div class="chart">
+      <div class="chart interactive-chart-row" data-type="severity" data-label="{{key}}" data-count="{{fmt count}}" data-share="{{sharePct}}" style="cursor: pointer;">
         <div class="chart__label">
           <span class="severity-pill severity-pill--{{key}}">{{key}}</span>
         </div>
@@ -159,9 +163,9 @@
     {{#if dailyChart.length}}
     <h2 class="section">Daily volume</h2>
     <p>Temporal distribution across the calendar window, useful for spotting spike days and campaign alignment.</p>
-    <div>
+    <div class="chart-container">
       {{#each dailyChart}}
-      <div class="chart" style="grid-template-columns: 8em 1fr 5em;">
+      <div class="chart interactive-chart-row" data-type="daily" data-label="{{day}}" data-count="{{fmt count}}" style="grid-template-columns: 8em 1fr 5em; cursor: pointer;">
         <div class="chart__label">
           <code>{{day}}</code>
         </div>
@@ -225,5 +229,41 @@
     <span>Generated {{generatedAt}}</span>
   </footer>
 </div>
+{{> theme-toggle-script}}
+<script>
+  (function() {
+    // Chart tooltips
+    const charts = document.querySelectorAll(".interactive-chart-row");
+    const tooltip = document.createElement("div");
+    tooltip.className = "chart-tooltip";
+    document.body.appendChild(tooltip);
+
+    charts.forEach(chart => {
+      chart.addEventListener("mousemove", function(e) {
+        const type = chart.getAttribute("data-type");
+        const label = chart.getAttribute("data-label");
+        const count = chart.getAttribute("data-count");
+        const share = chart.getAttribute("data-share");
+        
+        let content = `<strong>${label}</strong><br/>`;
+        if (type === "daily") {
+          content += `Volume: <strong>${count} events</strong>`;
+        } else {
+          content += `Volume: <strong>${count} events</strong> (${share}%)`;
+        }
+        
+        tooltip.innerHTML = content;
+        tooltip.classList.add("visible");
+        
+        tooltip.style.left = (e.pageX + 15) + "px";
+        tooltip.style.top = (e.pageY - 20) + "px";
+      });
+
+      chart.addEventListener("mouseleave", function() {
+        tooltip.classList.remove("visible");
+      });
+    });
+  })();
+</script>
 </body>
 </html>

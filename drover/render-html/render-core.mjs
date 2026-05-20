@@ -17,7 +17,7 @@
 //   --logo     ../assets/branding/velir-logo.png
 //   --out      derived from --data: same dir, replace .json with -<template>.html
 
-import { readFileSync, writeFileSync, existsSync } from "node:fs";
+import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
 import { dirname, resolve, basename, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import Handlebars from "handlebars";
@@ -65,7 +65,8 @@ Usage:
   node render.mjs --data <json> [--template monthly-client] [--design <DESIGN.md>]
                   [--out <html>] [--logo <png>]
 
-Templates: monthly-client (more coming)
+Templates: monthly-client, root-cause-summary, calendar-boundary,
+           triage-brief, jira-ready
 `);
   process.exit(code);
 }
@@ -98,6 +99,20 @@ Handlebars.registerHelper("fmt", (n) => {
 Handlebars.registerHelper("join", (arr, sep) => Array.isArray(arr) ? arr.join(sep) : "");
 Handlebars.registerHelper("eq", (a, b) => a === b);
 Handlebars.registerHelper("upper", (s) => String(s ?? "").toUpperCase());
+
+// --- Partials ------------------------------------------------------------
+// Shared chrome (theme-init script, toggle button, toggle handler) lives in
+// templates/partials/*.hbs and is registered by basename. Keeping it in one
+// place is what stops the per-template copies from drifting.
+
+function registerPartials() {
+  const dir = resolve(HERE, "templates", "partials");
+  if (!existsSync(dir)) return;
+  for (const f of readdirSync(dir)) {
+    if (!f.endsWith(".hbs")) continue;
+    Handlebars.registerPartial(f.slice(0, -4), readFileSync(join(dir, f), "utf8"));
+  }
+}
 
 // --- View-model builders -------------------------------------------------
 
@@ -495,6 +510,8 @@ export function run(argv) {
     console.error(`ERROR: unknown template "${args.template}". Known: ${Object.keys(VIEW_BUILDERS).join(", ")}`);
     process.exit(2);
   }
+
+  registerPartials();
 
   const tplPath = resolve(HERE, "templates", `${args.template}.hbs`);
   if (!existsSync(tplPath)) {

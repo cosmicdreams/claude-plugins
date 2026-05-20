@@ -4,6 +4,7 @@
   <meta charset="utf-8">
   <title>{{meta.project}} — {{meta.month_label}} error report</title>
   <style>{{{css}}}</style>
+  {{> head-theme-init}}
 </head>
 <body>
 <div class="page">
@@ -13,7 +14,10 @@
       {{#if logoDataUri}}<img src="{{logoDataUri}}" alt="Velir" class="page-header__logo">{{/if}}
       <div class="page-header__title">{{meta.project}} application errors</div>
     </div>
-    <div class="page-header__meta">{{meta.month_label}} · {{meta.env}}</div>
+    <div class="page-header__actions">
+      <span class="page-header__meta">{{meta.month_label}} · {{meta.env}}</span>
+      {{> theme-toggle-button}}
+    </div>
   </header>
 
   <main class="page-body">
@@ -95,5 +99,6 @@
     <span>Generated {{generatedAt}}</span>
   </footer>
 </div>
+{{> theme-toggle-script}}
 </body>
 </html>

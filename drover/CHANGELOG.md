@@ -16,15 +16,30 @@ two-stage Python→Node render path.
   turns that JSON + `assets/design/DESIGN.md` tokens into HTML via
   Handlebars. All CSS inlined; logo embedded as a data URI; output is
   byte-deterministic. Low-coverage banner gated at <90%.
-  - Template: `monthly-client`. The other four report views remain
-    markdown-only for now.
+  - All five report views render in HTML: `monthly-client`,
+    `root-cause-summary`, `calendar-boundary`, `triage-brief`,
+    `jira-ready`.
+  - Interactivity beyond the markdown path: persisted dark-mode toggle
+    (with `prefers-color-scheme` fallback), chart hover tooltips,
+    real-time search + severity filtering (triage-brief, jira-ready),
+    one-click clipboard "Copy Specs" (jira-ready).
+  - Shared chrome (theme init, toggle button, toggle handler) lives in
+    `templates/partials/` and is registered once, so it can't drift
+    across templates — a render test asserts the toggle handler is
+    byte-identical in all five.
   - **No vendored `node_modules`.** Deps install lazily on first render
     (one-time `npm ci` from a committed lockfile); `render.mjs` is a
     builtin-only bootstrap so it loads before deps exist. Requires
     Node ≥20.
 - Tests: `generate_data()` schema/determinism/serialization +
-  `--format json` CLI (Python, unittest); renderer smoke + coverage-gate
-  + determinism (Node, `npm test`).
+  `--format json` CLI (Python, unittest); per-template render +
+  coverage-gate + determinism + cross-template drift guard
+  (Node, `npm test`).
+
+## 2.0.1
+- Logs are now stored compressed (`.log.gz`) — 5-10× space savings, no decompression after download.
+- Parsers and aggregator transparently read both `.log.gz` and `.log` so older uncompressed captures still work.
+- Drover artifacts auto-locate outside `worktrees/` when run from inside a worktree, keeping `.drover/` at the project root.
 
 ## 2.0.0 — Pivot: log-analysis pipeline (clean break from v1)
 

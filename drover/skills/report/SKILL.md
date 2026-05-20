@@ -138,9 +138,15 @@ Renderer flags: `--data` (required), `--template` (default
 `monthly-client`), `--design` (default the plugin's `DESIGN.md`),
 `--logo`, `--out` (default: alongside `--data`, `.json`→`-<template>.html`).
 
-Templates available in HTML: `monthly-client`. (The five markdown
-templates are not all ported yet — markdown remains the path for
-`root-cause-summary`, `calendar-boundary`, `triage-brief`, `jira-ready`.)
+All five templates render in HTML: `monthly-client`,
+`root-cause-summary`, `calendar-boundary`, `triage-brief`, `jira-ready`
+— same names as the markdown path. The HTML output adds interactivity
+that markdown can't: a persisted dark-mode toggle, hover tooltips on
+charts, real-time search + severity filtering (triage-brief, jira-ready),
+and one-click "Copy Specs" to the clipboard (jira-ready). Shared chrome
+(theme init, toggle button, toggle handler) lives in
+`render-html/templates/partials/` and is injected into every template,
+so it stays consistent across all five.
 
 ## Step 3: Optional — create the suggested tickets in JIRA
 

@@ -67,6 +67,9 @@ test("renders root-cause-summary template cleanly", () => {
   assert.match(html, /Root-Cause Summary/);
   assert.match(html, /Pareto cut:/);
   assert.match(html, /Fix undefined index/);
+  assert.match(html, /id="theme-toggle"/);
+  assert.match(html, /class="chart interactive-chart-row"/);
+  assert.match(html, /id="issue-card-0"/);
 });
 
 test("renders calendar-boundary template cleanly", () => {
@@ -74,6 +77,10 @@ test("renders calendar-boundary template cleanly", () => {
   assert.match(html, /Calendar Window Report/);
   assert.match(html, /Events by channel/);
   assert.match(html, /Fix undefined index/);
+  assert.match(html, /id="theme-toggle"/);
+  assert.match(html, /data-type="channel"/);
+  assert.match(html, /data-type="severity"/);
+  assert.match(html, /data-type="daily"/);
 });
 
 test("renders triage-brief template cleanly", () => {
@@ -81,6 +88,11 @@ test("renders triage-brief template cleanly", () => {
   assert.match(html, /Triage Brief/);
   assert.match(html, /Top 25 Fingerprints/);
   assert.match(html, /Undefined index foo/);
+  assert.match(html, /id="theme-toggle"/);
+  assert.match(html, /class="filter-panel"/);
+  assert.match(html, /id="search-input"/);
+  assert.match(html, /id="severity-select"/);
+  assert.match(html, /data-channel=/);
 });
 
 test("renders jira-ready template cleanly", () => {
@@ -88,4 +100,34 @@ test("renders jira-ready template cleanly", () => {
   assert.match(html, /JIRA-Ready Issues/);
   assert.match(html, /Copy Specs/);
   assert.match(html, /Undefined index foo/);
+  assert.match(html, /id="theme-toggle"/);
+  assert.match(html, /class="filter-panel"/);
+  assert.match(html, /id="search-input"/);
+  assert.match(html, /id="severity-select"/);
+  assert.match(html, /data-severity=/);
+});
+
+// Drift guard: the theme-toggle handler is a shared partial, so it must
+// render byte-identically in every template. This is the test that would
+// have caught the pre-refactor copy-paste divergence.
+const TEMPLATES = [
+  "monthly-client", "root-cause-summary", "calendar-boundary",
+  "triage-brief", "jira-ready",
+];
+// from the IIFE that owns the toggle button through its close
+const TOGGLE_RE = /const btn = document\.getElementById\("theme-toggle"\);[\s\S]*?\}\)\(\);/;
+
+test("theme-toggle handler is identical across all templates (no drift)", () => {
+  const blocks = TEMPLATES.map((t) => {
+    const html = renderToTmp(["--template", t]);
+    const m = html.match(TOGGLE_RE);
+    assert.ok(m, `theme-toggle handler not found in ${t}`);
+    return m[0];
+  });
+  for (let i = 1; i < blocks.length; i++) {
+    assert.equal(
+      blocks[i], blocks[0],
+      `theme-toggle handler in ${TEMPLATES[i]} differs from ${TEMPLATES[0]}`,
+    );
+  }
 });

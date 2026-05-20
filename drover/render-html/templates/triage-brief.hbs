@@ -3,6 +3,7 @@
 <head>
   <meta charset="utf-8">
   <title>{{meta.project}} — {{meta.month_label}} triage brief</title>
+  {{> head-theme-init}}
   <style>
     {{{css}}}
     
@@ -13,6 +14,7 @@
       padding: var(--space-md);
       margin: var(--space-md) 0 var(--space-lg) 0;
       box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+      transition: opacity 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
     }
     .triage-card__header {
       display: flex;
@@ -26,7 +28,7 @@
       font-family: var(--font-mono-family);
       font-size: var(--font-body-sm-size);
       font-weight: 600;
-      color: var(--color-primary);
+      color: var(--color-text-strong);
       margin: 0;
     }
     .triage-card__meta {
@@ -73,7 +75,10 @@
       {{#if logoDataUri}}<img src="{{logoDataUri}}" alt="Velir" class="page-header__logo">{{/if}}
       <div class="page-header__title">{{meta.project}} triage brief</div>
     </div>
-    <div class="page-header__meta">{{meta.month_label}} · {{meta.env}}</div>
+    <div class="page-header__actions">
+      <span class="page-header__meta">{{meta.month_label}} · {{meta.env}}</span>
+      {{> theme-toggle-button}}
+    </div>
   </header>
 
   <main class="page-body">
@@ -99,9 +104,30 @@
       </div>
     </div>
 
+    <div class="filter-panel">
+      <div class="filter-panel__group">
+        <span class="filter-panel__label">Search Issues</span>
+        <input type="text" id="search-input" class="filter-panel__input" placeholder="Search fingerprint, channel, or summary...">
+      </div>
+      <div class="filter-panel__group">
+        <span class="filter-panel__label">Severity</span>
+        <select id="severity-select" class="filter-panel__select">
+          <option value="">All Severities</option>
+          <option value="critical">Critical</option>
+          <option value="error">Error</option>
+          <option value="warning">Warning</option>
+          <option value="notice">Notice</option>
+          <option value="info">Info</option>
+        </select>
+      </div>
+      <div class="filter-panel__stats">
+        <span id="filter-stats">Showing <strong id="visible-count">0</strong> of <strong id="total-count">0</strong> issues</span>
+      </div>
+    </div>
+
     <h2 class="section">Top 25 Fingerprints</h2>
     {{#each topIssues}}
-    <div class="triage-card">
+    <div class="triage-card" data-channel="{{channel}}" data-severity="{{severity}}" data-fingerprint="{{fingerprint}}">
       <div class="triage-card__header">
         <h3 class="triage-card__title">{{index}}. channel: <code>{{channel}}</code></h3>
         <div>
@@ -137,5 +163,69 @@
     <span>Generated {{generatedAt}}</span>
   </footer>
 </div>
+{{> theme-toggle-script}}
+<script>
+  (function() {
+    // Real-time search & severity filtering
+    const searchInput = document.getElementById("search-input");
+    const severitySelect = document.getElementById("severity-select");
+    const visibleCount = document.getElementById("visible-count");
+    const totalCount = document.getElementById("total-count");
+    const cards = document.querySelectorAll(".triage-card");
+
+    if (totalCount) {
+      totalCount.textContent = cards.length;
+    }
+
+    function applyFilters() {
+      const query = searchInput ? searchInput.value.toLowerCase().trim() : "";
+      const selectedSeverity = severitySelect ? severitySelect.value.toLowerCase() : "";
+      let visible = 0;
+
+      cards.forEach(card => {
+        const channel = (card.getAttribute("data-channel") || "").toLowerCase();
+        const severity = (card.getAttribute("data-severity") || "").toLowerCase();
+        const fingerprint = (card.getAttribute("data-fingerprint") || "").toLowerCase();
+        const fullText = card.textContent.toLowerCase();
+
+        const severityMatches = selectedSeverity === "" || severity === selectedSeverity;
+        const searchMatches = query === "" || 
+                              channel.includes(query) || 
+                              fingerprint.includes(query) || 
+                              fullText.includes(query);
+
+        const matches = severityMatches && searchMatches;
+
+        if (matches) {
+          visible++;
+          if (card.style.display === "none") {
+            card.style.display = "";
+            card.style.opacity = "0";
+            card.style.transform = "translateY(10px) scale(0.98)";
+            void card.offsetHeight; // force reflow
+          }
+          card.style.opacity = "1";
+          card.style.transform = "translateY(0) scale(1)";
+        } else {
+          card.style.display = "none";
+        }
+      });
+
+      if (visibleCount) {
+        visibleCount.textContent = visible;
+      }
+    }
+
+    if (searchInput) {
+      searchInput.addEventListener("input", applyFilters);
+    }
+    if (severitySelect) {
+      severitySelect.addEventListener("change", applyFilters);
+    }
+
+    // Initial run to set count
+    applyFilters();
+  })();
+</script>
 </body>
 </html>
