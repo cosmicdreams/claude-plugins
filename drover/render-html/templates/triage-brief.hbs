@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{meta.project}} — {{meta.month_label}} triage brief</title>
+  <style>
+    {{{css}}}
+    
+    .triage-card {
+      background: var(--color-surface);
+      border: 1px solid var(--color-border);
+      border-radius: var(--rounded-md);
+      padding: var(--space-md);
+      margin: var(--space-md) 0 var(--space-lg) 0;
+      box-shadow: 0 1px 3px rgba(0, 0, 0, 0.02);
+    }
+    .triage-card__header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      border-bottom: 1px solid var(--color-border);
+      padding-bottom: var(--space-xs);
+      margin-bottom: var(--space-sm);
+    }
+    .triage-card__title {
+      font-family: var(--font-mono-family);
+      font-size: var(--font-body-sm-size);
+      font-weight: 600;
+      color: var(--color-primary);
+      margin: 0;
+    }
+    .triage-card__meta {
+      list-style: none;
+      padding: 0;
+      margin: var(--space-sm) 0;
+      font-size: var(--font-body-sm-size);
+      color: var(--color-text-soft);
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: var(--space-xs);
+    }
+    .triage-card__meta li {
+      padding: 2px 0;
+    }
+    .triage-card__label {
+      font-family: var(--font-label-family);
+      font-size: var(--font-label-size);
+      font-weight: 600;
+      letter-spacing: var(--font-label-tracking);
+      text-transform: uppercase;
+      color: var(--color-text-muted);
+      margin: var(--space-sm) 0 var(--space-xs) 0;
+    }
+    .triage-card__sample {
+      font-family: var(--font-mono-family);
+      font-size: var(--font-mono-size);
+      color: var(--color-text-soft);
+      background: var(--color-surface-alt);
+      padding: var(--space-sm);
+      border-radius: var(--rounded-sm);
+      margin: var(--space-xs) 0;
+      overflow-x: auto;
+      white-space: pre-wrap;
+      border-left: 2px solid var(--color-border);
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header class="page-header">
+    <div class="page-header__brand">
+      {{#if logoDataUri}}<img src="{{logoDataUri}}" alt="Velir" class="page-header__logo">{{/if}}
+      <div class="page-header__title">{{meta.project}} triage brief</div>
+    </div>
+    <div class="page-header__meta">{{meta.month_label}} · {{meta.env}}</div>
+  </header>
+
+  <main class="page-body">
+
+    <h1 class="display">Triage Brief</h1>
+    <p class="subtitle">Dev-facing technical report showing fingerprint detail with full trace sample lines for {{meta.project}} in {{meta.month_label}}.</p>
+
+    {{#if coverageLow}}
+    <div class="coverage-banner">
+      <span class="coverage-banner__icon">⚠</span>
+      <span><strong>Coverage:</strong> {{coverage.coverage_pct}}% — {{coverage.present_days}} of {{coverage.expected_days}} expected entries present.</span>
+    </div>
+    {{/if}}
+
+    <div class="metric-row">
+      <div class="metric-card">
+        <p class="metric-card__label">Total events</p>
+        <p class="metric-card__value">{{fmt totals.events_total}}</p>
+      </div>
+      <div class="metric-card">
+        <p class="metric-card__label">Unique issues</p>
+        <p class="metric-card__value">{{totals.groups_total}}</p>
+      </div>
+    </div>
+
+    <h2 class="section">Top 25 Fingerprints</h2>
+    {{#each topIssues}}
+    <div class="triage-card">
+      <div class="triage-card__header">
+        <h3 class="triage-card__title">{{index}}. channel: <code>{{channel}}</code></h3>
+        <div>
+          <span class="severity-pill severity-pill--{{severity}}">{{severity}}</span>
+          {{#if trend}}<span class="severity-pill" style="background: var(--color-surface-alt); color: var(--color-text-strong);">{{trend}}</span>{{/if}}
+        </div>
+      </div>
+      
+      <ul class="triage-card__meta">
+        <li><strong>Count:</strong> {{fmt count}} occurrences</li>
+        <li><strong>First seen:</strong> {{#if firstSeen}}{{firstSeen}}{{else}}?{{/if}}</li>
+        <li><strong>Last seen:</strong> {{#if lastSeen}}{{lastSeen}}{{else}}?{{/if}}</li>
+        {{#if severitiesStr}}<li><strong>Severities:</strong> <code>{{severitiesStr}}</code></li>{{/if}}
+        <li style="grid-column: 1 / -1;"><strong>Fingerprint:</strong> <code>{{fingerprint}}</code></li>
+      </ul>
+
+      <p class="triage-card__label">Summary</p>
+      <pre class="triage-card__sample" style="background: var(--color-tint-blue); border-left-color: var(--color-primary); font-weight: 500;">{{summary}}</pre>
+
+      {{#if samples.length}}
+      <p class="triage-card__label">Sample log lines</p>
+      {{#each samples}}
+      <pre class="triage-card__sample">{{this}}</pre>
+      {{/each}}
+      {{/if}}
+    </div>
+    {{/each}}
+
+  </main>
+
+  <footer class="footer">
+    <span>Prepared by Velir · drover {{schemaVersion}}</span>
+    <span>Generated {{generatedAt}}</span>
+  </footer>
+</div>
+</body>
+</html>

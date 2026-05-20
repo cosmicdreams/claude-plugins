@@ -61,3 +61,31 @@ test("includes the top issue and its ticket recommendation", () => {
 test("is deterministic for identical input", () => {
   assert.equal(renderToTmp(), renderToTmp());
 });
+
+test("renders root-cause-summary template cleanly", () => {
+  const html = renderToTmp(["--template", "root-cause-summary"]);
+  assert.match(html, /Root-Cause Summary/);
+  assert.match(html, /Pareto cut:/);
+  assert.match(html, /Fix undefined index/);
+});
+
+test("renders calendar-boundary template cleanly", () => {
+  const html = renderToTmp(["--template", "calendar-boundary"]);
+  assert.match(html, /Calendar Window Report/);
+  assert.match(html, /Events by channel/);
+  assert.match(html, /Fix undefined index/);
+});
+
+test("renders triage-brief template cleanly", () => {
+  const html = renderToTmp(["--template", "triage-brief"]);
+  assert.match(html, /Triage Brief/);
+  assert.match(html, /Top 25 Fingerprints/);
+  assert.match(html, /Undefined index foo/);
+});
+
+test("renders jira-ready template cleanly", () => {
+  const html = renderToTmp(["--template", "jira-ready"]);
+  assert.match(html, /JIRA-Ready Issues/);
+  assert.match(html, /Copy Specs/);
+  assert.match(html, /Undefined index foo/);
+});

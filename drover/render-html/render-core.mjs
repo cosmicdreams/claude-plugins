@@ -150,6 +150,326 @@ function buildMonthlyClientView(data) {
   };
 }
 
+function buildRootCauseSummaryView(data) {
+  const total = data.totals.events_total || 0;
+  const groups = data.groups_collapsed || [];
+
+  // Pareto cut at 80% (same logic as report.py)
+  let cumulative = 0;
+  let paretoN = 0;
+  let paretoPct = 0;
+  for (const g of groups) {
+    cumulative += g.count || 0;
+    paretoN += 1;
+    paretoPct = (cumulative / Math.max(total, 1)) * 100;
+    if (paretoPct >= 80 || paretoN >= 10) {
+      break;
+    }
+  }
+
+  const topN = Math.min(5, groups.length);
+  const topShare = groups.slice(0, topN).reduce((sum, g) => sum + (g.count || 0), 0);
+  const topSharePct = ((topShare / Math.max(total, 1)) * 100).toFixed(1);
+
+  // volume share chart
+  const chartMaxN = Math.max(topN, paretoN);
+  const chartGroups = groups.slice(0, chartMaxN);
+  const chartMaxCount = Math.max(...chartGroups.map(g => g.count || 0), 1);
+  const volumeChart = chartGroups.map((g, i) => {
+    const chans = g.channels || (g.channel ? [g.channel] : ["(none)"]);
+    const memberCount = g.member_count || 1;
+    let label = "";
+    if (chans.length > 1) {
+      label = chans.join("+");
+    } else if (memberCount > 1) {
+      label = `${chans[0]} ×${memberCount}`;
+    } else {
+      label = `${chans[0]} · ${g.fingerprint.slice(0, 6)}`;
+    }
+    const count = g.count || 0;
+    return {
+      label,
+      count,
+      widthPct: ((count / chartMaxCount) * 100).toFixed(1),
+      sharePct: ((count / Math.max(total, 1)) * 100).toFixed(1),
+      first: i === 0,
+    };
+  });
+
+  // Top issues in detail
+  const topIssues = groups.slice(0, topN).map((g, idx) => {
+    const count = g.count || 0;
+    const sharePct = ((count / Math.max(total, 1)) * 100).toFixed(1);
+    const delta = g.delta || {};
+    let trend = null;
+    let trendKey = null;
+    if (delta.delta_pct !== undefined && delta.delta_pct !== null) {
+      const pctVal = Math.round(delta.delta_pct);
+      trend = `${pctVal > 0 ? "▲" : pctVal < 0 ? "▼" : "•"} ${Math.abs(pctVal)}% vs prior month`;
+      trendKey = pctVal > 0 ? "up" : pctVal < 0 ? "down" : "flat";
+    } else if (delta.is_new) {
+      trend = "🆕 new this month";
+      trendKey = "new";
+    }
+
+    const chans = g.channels || (g.channel ? [g.channel] : []);
+    const memberCount = g.member_count || 1;
+    let title = "";
+    if (memberCount > 1) {
+      title = chans.map(c => `"${c}"`).join(" + ");
+    } else {
+      title = `"${g.channel || "(none)"}"`;
+    }
+
+    return {
+      index: idx + 1,
+      title,
+      fingerprint: g.fingerprint,
+      severity: g.severity || "unknown",
+      count,
+      sharePct,
+      trend,
+      trendKey,
+      firstSeen: g.first_seen ? String(g.first_seen).slice(0, 10) : null,
+      lastSeen: g.last_seen ? String(g.last_seen).slice(0, 10) : null,
+      memberCount,
+      memberFingerprints: g.member_fingerprints || [],
+      cause: g.cause,
+      sample: g.samples && g.samples[0] ? truncate(g.samples[0], 400) : null,
+    };
+  });
+
+  // Coverage detail (days with retrieval gaps)
+  const retrievalGaps = (data.coverage?.missing_or_failed || []).slice(0, 10).map(m => {
+    const reason = m.reason || "";
+    return `${m.date} ${m.log_type} (${m.state}${reason ? ": " + reason : ""})`;
+  });
+  const hasMoreGaps = (data.coverage?.missing_or_failed || []).length > 10;
+  const missingGapsCount = (data.coverage?.missing_or_failed || []).length - 10;
+
+  return {
+    meta: data.meta,
+    coverage: data.coverage,
+    coverageLow: (data.coverage?.coverage_pct ?? 100) < 90,
+    totals: data.totals,
+    paretoN,
+    paretoPct: Math.round(paretoPct),
+    topN,
+    topSharePct,
+    volumeChart,
+    topIssues,
+    retrievalGaps,
+    hasMoreGaps,
+    missingGapsCount,
+    tickets: (data.tickets || []).map((t) => ({
+      ...t,
+      sample: t.sample ? truncate(t.sample, 280) : null,
+    })),
+    schemaVersion: `v${data.drover_schema_version}`,
+    generatedAt: String(data.generated_at).replace("T", " ").slice(0, 19) + " UTC",
+  };
+}
+
+function buildCalendarBoundaryView(data) {
+  const total = data.totals.events_total || 0;
+  const bySev = data.totals.by_severity || {};
+  const byCh = data.totals.by_channel || {};
+  const byDay = data.totals.by_day || {};
+  const groups = data.groups_collapsed || [];
+
+  // Severity breakdown
+  const sevOrder = ["critical", "error", "warning", "notice", "info", "unknown"];
+  const sevMax = Math.max(...Object.values(bySev), 1);
+  const severityChart = sevOrder
+    .filter((k) => (bySev[k] || 0) > 0)
+    .map((k, i) => ({
+      key: k,
+      count: bySev[k] || 0,
+      sharePct: (((bySev[k] || 0) / Math.max(total, 1)) * 100).toFixed(1),
+      widthPct: (((bySev[k] || 0) / sevMax) * 100).toFixed(1),
+      first: i === 0,
+    }));
+
+  // Events by channel chart (top 15)
+  const channelEntries = Object.entries(byCh)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 15);
+  const channelMax = Math.max(...channelEntries.map(e => e[1]), 1);
+  const channelChart = channelEntries.map(([ch, count], i) => ({
+    channel: ch,
+    count,
+    sharePct: ((count / Math.max(total, 1)) * 100).toFixed(1),
+    widthPct: ((count / channelMax) * 100).toFixed(1),
+    first: i === 0,
+  }));
+
+  // Daily volume chart
+  const dayEntries = Object.entries(byDay)
+    .sort((a, b) => a[0].localeCompare(b[0]));
+  const dayMax = Math.max(...dayEntries.map(e => e[1].total || 0), 1);
+  const dailyChart = dayEntries.map(([day, val]) => {
+    const count = val.total || 0;
+    return {
+      day,
+      count,
+      widthPct: ((count / dayMax) * 100).toFixed(1),
+    };
+  });
+
+  // Top channels in detail (top 5)
+  const topChannels = Object.entries(byCh)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([ch, count]) => {
+      const sharePct = ((count / Math.max(total, 1)) * 100).toFixed(1);
+      const chGroups = groups.filter(g => (g.channel || "(none)") === ch)
+        .sort((a, b) => (b.count || 0) - (a.count || 0));
+      const topSummary = chGroups.length > 0 ? truncate(chGroups[0].summary || "", 200) : "";
+      return {
+        channel: ch,
+        count,
+        sharePct,
+        groupCount: chGroups.length,
+        topSummary,
+      };
+    });
+
+  // Coverage detail (days with retrieval gaps)
+  const retrievalGaps = (data.coverage?.missing_or_failed || []).slice(0, 10).map(m => {
+    const reason = m.reason || "";
+    return `${m.date} ${m.log_type} (${m.state}${reason ? ": " + reason : ""})`;
+  });
+  const hasMoreGaps = (data.coverage?.missing_or_failed || []).length > 10;
+  const missingGapsCount = (data.coverage?.missing_or_failed || []).length - 10;
+
+  return {
+    meta: data.meta,
+    coverage: data.coverage,
+    coverageLow: (data.coverage?.coverage_pct ?? 100) < 90,
+    totals: data.totals,
+    criticalCount: bySev.critical || 0,
+    errorCount: bySev.error || 0,
+    warningCount: bySev.warning || 0,
+    severityChart,
+    channelChart,
+    dailyChart,
+    topChannels,
+    retrievalGaps,
+    hasMoreGaps,
+    missingGapsCount,
+    tickets: (data.tickets || []).map((t) => ({
+      ...t,
+      sample: t.sample ? truncate(t.sample, 280) : null,
+    })),
+    schemaVersion: `v${data.drover_schema_version}`,
+    generatedAt: String(data.generated_at).replace("T", " ").slice(0, 19) + " UTC",
+  };
+}
+
+function buildTriageBriefView(data) {
+  const total = data.totals.events_total || 0;
+  const groups = data.groups || [];
+
+  const topIssues = groups.slice(0, 25).map((g, idx) => {
+    const count = g.count || 0;
+    const delta = g.delta || {};
+    let trend = null;
+    let trendKey = null;
+    if (delta.delta_pct !== undefined && delta.delta_pct !== null) {
+      const pctVal = Math.round(delta.delta_pct);
+      trend = `${pctVal > 0 ? "▲" : pctVal < 0 ? "▼" : "•"} ${Math.abs(pctVal)}% vs prior month`;
+      trendKey = pctVal > 0 ? "up" : pctVal < 0 ? "down" : "flat";
+    } else if (delta.is_new) {
+      trend = "🆕 new";
+      trendKey = "new";
+    }
+
+    const sevs = Object.entries(g.severities || {})
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, v]) => `${k}=${v}`)
+      .join(", ");
+
+    return {
+      index: idx + 1,
+      fingerprint: g.fingerprint,
+      summary: g.summary,
+      channel: g.channel || "(none)",
+      severity: g.severity || "unknown",
+      count,
+      trend,
+      trendKey,
+      firstSeen: g.first_seen ? String(g.first_seen).slice(0, 10) : null,
+      lastSeen: g.last_seen ? String(g.last_seen).slice(0, 10) : null,
+      severitiesStr: sevs,
+      samples: (g.samples || []).slice(0, 3),
+    };
+  });
+
+  return {
+    meta: data.meta,
+    coverage: data.coverage,
+    coverageLow: (data.coverage?.coverage_pct ?? 100) < 90,
+    totals: data.totals,
+    topIssues,
+    schemaVersion: `v${data.drover_schema_version}`,
+    generatedAt: String(data.generated_at).replace("T", " ").slice(0, 19) + " UTC",
+  };
+}
+
+function buildJiraReadyView(data) {
+  const groups = data.groups || [];
+
+  const topIssues = groups.slice(0, 15).map((g, idx) => {
+    const ch = g.channel || "(none)";
+    const sev = g.severity || "unknown";
+    const project = data.meta.project;
+    const env = data.meta.env;
+    const month = data.meta.month_label;
+
+    const shortSummary = truncate(g.summary || "", 80);
+    const title = `[${project}/${env}] ${ch}: ${shortSummary}`;
+
+    let desc = `Project: ${project}
+Environment: ${env}
+Month: ${month}
+Channel: ${ch}
+Severity: ${sev}
+Occurrences: ${g.count}
+`;
+    if (g.first_seen) desc += `First seen: ${g.first_seen}\n`;
+    if (g.last_seen) desc += `Last seen: ${g.last_seen}\n`;
+    desc += `Drover fingerprint: ${g.fingerprint}\n\n`;
+    desc += `Summary:\n${truncate(g.summary || "", 800)}\n`;
+    
+    if (g.samples && g.samples.length > 0) {
+      desc += `\nSample log lines:\n`;
+      g.samples.slice(0, 2).forEach(s => {
+        desc += `  ${truncate(s, 400)}\n`;
+      });
+    }
+
+    return {
+      index: idx + 1,
+      fingerprint: g.fingerprint,
+      title,
+      description: desc,
+      channel: ch,
+      severity: sev,
+      count: g.count,
+    };
+  });
+
+  return {
+    meta: data.meta,
+    coverage: data.coverage,
+    coverageLow: (data.coverage?.coverage_pct ?? 100) < 90,
+    totals: data.totals,
+    topIssues,
+    schemaVersion: `v${data.drover_schema_version}`,
+    generatedAt: String(data.generated_at).replace("T", " ").slice(0, 19) + " UTC",
+  };
+}
+
 function truncate(s, n) {
   if (!s) return s;
   return s.length <= n ? s : s.slice(0, n - 1) + "…";
@@ -157,6 +477,10 @@ function truncate(s, n) {
 
 const VIEW_BUILDERS = {
   "monthly-client": buildMonthlyClientView,
+  "root-cause-summary": buildRootCauseSummaryView,
+  "calendar-boundary": buildCalendarBoundaryView,
+  "triage-brief": buildTriageBriefView,
+  "jira-ready": buildJiraReadyView,
 };
 
 // --- entry ---------------------------------------------------------------

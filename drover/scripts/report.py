@@ -1090,7 +1090,17 @@ def generate_data(
         )
         tickets = [asdict(s) for s in specs]
 
-    return {
+    def _make_json_safe(val):
+        if isinstance(val, list):
+            return [_make_json_safe(x) for x in val]
+        if isinstance(val, dict):
+            return {k: _make_json_safe(v) for k, v in val.items()}
+        if hasattr(val, "__dataclass_fields__"):
+            from dataclasses import asdict
+            return asdict(val)
+        return val
+
+    return _make_json_safe({
         "drover_schema_version": DROVER_DATA_SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(
             timespec="seconds"),
@@ -1122,7 +1132,7 @@ def generate_data(
         "groups_collapsed": groups_collapsed,
         "disappeared_from_prior": agg.get("disappeared_from_prior", []),
         "tickets": tickets,
-    }
+    })
 
 
 # --- CLI ------------------------------------------------------------------
