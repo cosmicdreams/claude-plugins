@@ -4,6 +4,7 @@
 - Add `admin/scripts/validate-plugin-list.sh`: scans repo root for plugin dirs (by presence of `.claude-plugin/plugin.json`), cross-checks against the hardcoded PLUGINS array, and exits 1 with a clear diff on mismatch
 - `bump-version.sh` and `reinstall-plugin.sh`: call validator on entry; fix stale PLUGINS array (remove retired `office`, add `ideas-funnel`)
 - `bump-version` and `changelog` SKILL.md: update valid plugin names list to match
+- `bump-version.sh`: strip any stray `version` field from a plugin's `marketplace.json` entry on bump — a stale field there makes `claude plugin install` skip the re-pull
 
 ## 2.5.0
 - Move `accessibility-scan` to `improve` plugin — measurement skills belong with improvement primitives
