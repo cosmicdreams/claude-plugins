@@ -41,8 +41,10 @@ import json
 import os
 import sys
 import tempfile
+import threading
 import time
 import urllib.request
+from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -552,6 +554,7 @@ def reconcile(
     retries: int = RETRY_TRANSIENT_FAILURES,
     poll_interval_s: int = POLL_INTERVAL_S,
     poll_deadline_s: int = POLL_DEADLINE_S,
+    concurrency: int = 4,
     log_fn=print,
 ) -> dict:
     """Orchestrate Phase 1 (create-all) then Phase 2 (poll+download loop).
@@ -614,6 +617,142 @@ def reconcile(
         save_coverage(project_root, coverage)
         return summary
 
+    if concurrency > 1:
+        # Concurrent mode using ThreadPoolExecutor
+        api_lock = threading.Lock()
+        ledger_lock = threading.Lock()
+        print_lock = threading.Lock()
+
+        done_count = 0
+        failed_count = 0
+
+        def pull_worker(env: dict, log_type: str, day: date) -> bool:
+            nonlocal done_count, failed_count
+            env_name = env["name"]
+            env_id = env.get("env_id")
+            from_iso = f"{day.isoformat()}T00:00:00+00:00"
+            to_iso = f"{day.isoformat()}T23:59:59+00:00"
+
+            retries_remaining = retries
+
+            while True:
+                # Phase 1: Request log download under api_lock (with rate limit delay)
+                try:
+                    with api_lock:
+                        if client is None:
+                            raise PullError("Client is None")
+                        notif = client.request_log_download(
+                            env_id, log_type, from_iso=from_iso, to_iso=to_iso,
+                        )
+                        time.sleep(rate_limit_s)
+
+                    notif_url = notif.get("_links", {}).get("notification", {}).get("href")
+                    if not notif_url:
+                        raise PullError(f"no notification URL in response: {notif!r}")
+                    notif_uuid = notif_url.rsplit("/", 1)[-1]
+                except Exception as e:
+                    with print_lock:
+                        log_fn(f"  ! {day} {env_name} {log_type}: create failed ({e})")
+                    reason = (
+                        f"acquia-api {e.status} {e.error_slug}"
+                        if isinstance(e, AcquiaAPIError)
+                        else f"{type(e).__name__}: {e}"
+                    )
+                    with ledger_lock:
+                        mark_coverage(
+                            coverage, day, env_name, log_type,
+                            state="fetch-failed", reason=reason,
+                        )
+                        save_coverage(project_root, coverage)
+                    with print_lock:
+                        failed_count += 1
+                    return False
+
+                # Phase 2: Poll in parallel
+                deadline = time.time() + poll_deadline_s
+                status = "?"
+                while time.time() < deadline:
+                    try:
+                        s = client.check_log_download(notif_url)
+                        status = s.get("status", "?")
+                    except Exception:
+                        pass
+                    if status in ("completed", "failed"):
+                        break
+                    time.sleep(poll_interval_s)
+
+                if status == "completed":
+                    local = canonical_path(project_root, day, env_name, log_type)
+                    try:
+                        s3_url = client.get_log_download_url(env_id, log_type)
+                        gz_size = download_atomic(s3_url, local)
+
+                        with ledger_lock:
+                            mark_coverage(
+                                coverage, day, env_name, log_type,
+                                state="present",
+                                bytes=gz_size,
+                                notification_uuid=notif_uuid,
+                            )
+                            save_coverage(project_root, coverage)
+
+                        with print_lock:
+                            done_count += 1
+                            pending_count = len(missing) - done_count - failed_count
+                            log_fn(
+                                f"  ✓ {day} {env_name} {log_type}: "
+                                f"{gz_size:,} bytes — "
+                                f"{done_count}/{len(missing)} done, {pending_count} pending"
+                            )
+                        return True
+                    except Exception as e:
+                        with print_lock:
+                            log_fn(f"  ! {day} {env_name} {log_type}: download failed ({e})")
+                        with ledger_lock:
+                            mark_coverage(
+                                coverage, day, env_name, log_type,
+                                state="fetch-failed",
+                                reason=f"{type(e).__name__}: {e}",
+                            )
+                            save_coverage(project_root, coverage)
+                        with print_lock:
+                                failed_count += 1
+                        return False
+
+                elif status == "failed" and retries_remaining > 0:
+                    retries_remaining -= 1
+                    with print_lock:
+                        log_fn(f"  ~ {day} {env_name} {log_type}: notification failed, retrying")
+                    continue
+                else:
+                    reason = "notification status=failed" if status == "failed" else "poll deadline exceeded"
+                    with print_lock:
+                        log_fn(f"  ! {day} {env_name} {log_type}: {reason}")
+                    with ledger_lock:
+                        mark_coverage(
+                            coverage, day, env_name, log_type,
+                            state="fetch-failed",
+                            reason=reason,
+                        )
+                        save_coverage(project_root, coverage)
+                    with print_lock:
+                        failed_count += 1
+                    return False
+
+        log_fn(f"\nStarting concurrent reconciliation with concurrency={concurrency}")
+        with ThreadPoolExecutor(max_workers=concurrency) as executor:
+            futures = [
+                executor.submit(pull_worker, env, log_type, day)
+                for (env, log_type, day) in missing
+            ]
+            # Wait for all threads to finish
+            [f.result() for f in futures]
+
+        summary["fetched"] = done_count
+        summary["failed"] = failed_count
+        return summary
+
+    # Sequential Fallback Mode (Phase 1 & Phase 2 batching)
     # Phase 1: fire all log-create requests.
     log_fn(f"\nPhase 1 — log-create: {len(missing)} requests")
     pending, create_failed = _phase_create(
@@ -710,6 +849,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument("--poll-deadline-s", type=int, default=POLL_DEADLINE_S,
                    help=f"max seconds to wait in Phase 2 poll loop "
                         f"(default {POLL_DEADLINE_S}s)")
+    p.add_argument("--concurrency", type=int, default=4,
+                   help="number of concurrent download threads (default: 4)")
 
     return p.parse_args(argv)
 
@@ -744,7 +885,7 @@ def cli_main(argv: list[str] | None = None) -> int:
         f"pull project={project_root.name} envs={[e['name'] for e in envs]} "
         f"days={len(days)} ({days[0]}..{days[-1]}) "
         f"types={types_override or 'manifest-default'} "
-        f"dry_run={args.dry_run}"
+        f"dry_run={args.dry_run} concurrency={args.concurrency}"
     )
 
     client = None if args.dry_run else AcquiaClient()
@@ -754,6 +895,7 @@ def cli_main(argv: list[str] | None = None) -> int:
         rate_limit_s=args.rate_limit_s,
         retries=args.retries,
         poll_deadline_s=args.poll_deadline_s,
+        concurrency=args.concurrency,
     )
 
     print(

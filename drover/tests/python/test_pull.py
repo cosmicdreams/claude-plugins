@@ -459,6 +459,48 @@ class ReconcileTests(unittest.TestCase):
         self.assertEqual(summary["failed"], 0)
         self.assertEqual(client.request_log_download.call_count, 2)
 
+    def test_concurrent_reconcile_success(self):
+        import gzip as _gz, io as _io
+        payload = b"hello\n" * 10
+        gz_buf = _io.BytesIO()
+        with _gz.GzipFile(fileobj=gz_buf, mode="wb") as g:
+            g.write(payload)
+        gz_bytes = gz_buf.getvalue()
+
+        client = mock.MagicMock()
+        client.request_log_download.return_value = {
+            "_links": {"notification": {"href": "https://x/n"}},
+        }
+        client.check_log_download.return_value = {"status": "completed"}
+        client.get_log_download_url.return_value = "https://s3/a.gz"
+
+        def fake_urlretrieve(url, dest):
+            with open(dest, "wb") as fh:
+                fh.write(gz_bytes)
+        with mock.patch.object(
+            pull.urllib.request, "urlretrieve", side_effect=fake_urlretrieve,
+        ):
+            summary = pull.reconcile(
+                client, self.root, self.envs, ["drupal-watchdog"],
+                [date(2026, 4, 1)],
+                rate_limit_s=0, retries=0, poll_interval_s=0, concurrency=2
+            )
+
+        self.assertEqual(summary["fetched"], 1)
+        self.assertEqual(summary["failed"], 0)
+        cov = pull.load_coverage(self.root)
+        self.assertEqual(cov["2026-04-01"]["prod.drupal-watchdog"]["state"], "present")
+
+
+class ParseArgsTests(unittest.TestCase):
+    def test_parse_concurrency(self):
+        args = pull.parse_args(["--concurrency", "8"])
+        self.assertEqual(args.concurrency, 8)
+
+    def test_parse_concurrency_default(self):
+        args = pull.parse_args([])
+        self.assertEqual(args.concurrency, 4)
+
 
 class FindEnvTests(unittest.TestCase):
     def test_finds_named_env(self):
