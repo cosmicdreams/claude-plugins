@@ -23,10 +23,12 @@ guessing.
 
 ## Prerequisites
 
-- `~/.claude/drupal-lab.json`, current project not opted out via
-  `team_flow.enabled: false` (default is on).
+- The current directory is a Drupal project (see step 1 for detection).
 - `jira` CLI configured.
 - Local repo has fetched recent state (`git fetch origin --prune`).
+
+Registration in `~/.claude/drupal-lab.json` is **not required** — see
+`drupal-lab/references/project-context.md` for why.
 
 ## Inputs
 
@@ -41,17 +43,41 @@ guessing.
 
 ## Workflow
 
-### 1. Resolve project context
+### 1. Detect Drupal repo
 
-Read `~/.claude/drupal-lab.json`. Match cwd against `cwd_patterns`. Fail if
-no project matches or if the matched project has `team_flow.enabled: false`.
+```bash
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+[[ -z "$REPO_ROOT" ]] && { echo "Not a git repository."; exit 1; }
+
+grep -qE '"drupal/core(-recommended)?"' "$REPO_ROOT/composer.json" 2>/dev/null \
+  || { echo "Not a Drupal project (composer.json missing drupal/core)."; exit 1; }
+[[ -d "$REPO_ROOT/docroot" || -d "$REPO_ROOT/web" ]] \
+  || { echo "Not a Drupal project (no docroot/ or web/)."; exit 1; }
+
+# For worktree-discipline repos, manifests live inside the sprint/release
+# worktree, not the cwd. Detect the worktree-parent dir.
+WORKTREE_PARENT=""
+if [[ "$(basename "$(dirname "$REPO_ROOT")")" == "worktrees" ]]; then
+  WORKTREE_PARENT="$(dirname "$REPO_ROOT")"
+fi
+```
 
 ### 2. Locate the manifest
 
-Look for `.drupal-lab/sprints/<slug>.json` or `.drupal-lab/releases/<slug>.json`.
+Search for `.drupal-lab/sprints/<slug>.json` or `.drupal-lab/releases/<slug>.json`
+in this order:
 
-If neither exists, the branch was not created via the team-flow skills.
-Continue without a manifest — derive the JIRA side by parsing the branch name:
+1. The current `$REPO_ROOT` (single-checkout layout, or the user is already
+   inside the sprint/release worktree).
+2. If `WORKTREE_PARENT` is set: the sibling worktree
+   `<WORKTREE_PARENT>/sprint-<slug>/.drupal-lab/sprints/<slug>.json` (or
+   `release-<slug>` for releases). `sprint-start`/`release-cut` write the
+   manifest inside the new worktree, so this is where it usually lives in
+   worktree-discipline repos.
+
+If neither location has a manifest, the branch was not created via the
+team-flow skills. Continue without a manifest — derive the JIRA side by
+parsing the branch name:
 
 - `sprint/<slug>` → query `jira sprint list` for a sprint whose slugified name matches `<slug>`
 - `release/<slug>` → ask the user for the release ticket key (we can't infer it)

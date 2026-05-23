@@ -20,13 +20,16 @@ the current scope.
 
 ## Prerequisites
 
-- `~/.claude/drupal-lab.json` exists and the current project is not opted out
-  of team flow (`team_flow.enabled: false` disables it; default is on).
+- The current directory is a Drupal project (see step 1 for detection).
 - `jira` CLI configured.
-- Working tree clean on `main`.
+- Working tree clean (single-checkout layout). In worktree-discipline repos,
+  cleanliness is automatic since the new release worktree starts fresh.
 - Each linked feature ticket has a corresponding `features/<KEY>` or
-  `features/<descriptive-slug>` branch in the repo. The mapping rules are
-  in `references/feature-branch-mapping.md`.
+  `features/<descriptive-slug>` branch in the repo. Mapping rules in
+  `references/feature-branch-mapping.md`.
+
+Registration in `~/.claude/drupal-lab.json` is **not required** — see
+`drupal-lab/references/project-context.md` for why.
 
 ## Inputs
 
@@ -34,10 +37,24 @@ the current scope.
 
 ## Workflow
 
-### 1. Resolve project context
+### 1. Detect Drupal repo and worktree discipline
 
-Read `~/.claude/drupal-lab.json`. Match cwd against `cwd_patterns`. Fail if
-no project matches or if the matched project has `team_flow.enabled: false`.
+Same detection as `drupal-lab:sprint-start`:
+
+```bash
+REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"
+[[ -z "$REPO_ROOT" ]] && { echo "Not a git repository."; exit 1; }
+
+grep -qE '"drupal/core(-recommended)?"' "$REPO_ROOT/composer.json" 2>/dev/null \
+  || { echo "Not a Drupal project (composer.json missing drupal/core)."; exit 1; }
+[[ -d "$REPO_ROOT/docroot" || -d "$REPO_ROOT/web" ]] \
+  || { echo "Not a Drupal project (no docroot/ or web/)."; exit 1; }
+
+WORKTREE_PARENT=""
+if [[ "$(basename "$(dirname "$REPO_ROOT")")" == "worktrees" ]]; then
+  WORKTREE_PARENT="$(dirname "$REPO_ROOT")"
+fi
+```
 
 ### 2. Fetch the release ticket
 
@@ -52,7 +69,8 @@ tickets in JIRA).
 
 If no `Fix Version/s` is set, slugify the ticket summary instead and warn the user.
 
-The branch is `release/<slug>`.
+The branch is `release/<slug>`. For worktree-discipline repos, the worktree
+directory uses a filesystem-safe variant: `<WORKTREE_PARENT>/release-<slug>`.
 
 ### 3. Discover linked feature tickets
 
@@ -62,11 +80,10 @@ jira issue list --jql "issue in linkedIssues(<RELEASE_KEY>)" \
   --columns TYPE,KEY,SUMMARY,STATUS
 ```
 
-This returns every issue linked to the release ticket regardless of link
-direction. Filter to types the team treats as deliverable work — typically
-`Story`, `Task`, `Bug`. Drop `Epic`, `Sub-task`, anything in status `Won't Do`.
+Filter to deliverable types (`Story`, `Task`, `Bug`); drop `Epic`, `Sub-task`,
+anything in status `Won't Do`.
 
-The user may want to filter further. Show the candidate list and ask:
+Show the candidate list and ask:
 "These N tickets are linked to <RELEASE_KEY>. Include all in the release?
 (or supply a comma-separated list of keys to include)"
 
@@ -80,38 +97,76 @@ For each included ticket key, look for branches matching (in order):
 4. `features/*` containing `<KEY>` as a token
 
 If multiple candidates: ask the user.
-If zero candidates: list the ticket with `(no branch found)` — the user must
-either create the branch first or drop the ticket from the release.
+If zero candidates: list the ticket with `(no branch found)`.
 
 ### 5. Confirm the plan
+
+**Worktree layout:**
 
 ```
 Release ticket: <RELEASE_KEY> — <summary>
 Fix version:    <fix version>
 Branch:         release/<slug>
-Branching from main @ <short SHA>
+Worktree:       <WORKTREE_PARENT>/release-<slug>
+Branching from origin/main @ <short SHA>
 
 Will merge (<n> features):
   features/<KEY-1>  ← <ticket summary>
-  features/<KEY-2>  ← <ticket summary>
   ...
 
 Cannot merge (<m>):
   <KEY-X> — no matching feature branch
-  ...
 
 This will:
+  - Fetch origin
+  - Delete any existing worktree at <WORKTREE_PARENT>/release-<slug>
   - Delete release/<slug> locally and on origin (if it exists)
-  - Re-create release/<slug> from current main
-  - Merge each feature branch (--no-ff)
-  - Push to origin
-  - Write .drupal-lab/releases/<slug>.json
+  - git worktree add <WORKTREE_PARENT>/release-<slug> -b release/<slug> origin/main
+  - Merge each feature branch inside the new worktree (--no-ff)
+  - Push to origin from inside the new worktree
+  - Write <WORKTREE_PARENT>/release-<slug>/.drupal-lab/releases/<slug>.json
 ```
 
-Ask: proceed? If unresolved tickets exist, ask whether to proceed without
-them (and record the omission in the manifest).
+**Single-checkout layout:** same as before — branches from current `main`,
+merges, pushes, returns to main.
+
+Ask: proceed? If unresolved tickets exist, ask whether to proceed without them.
 
 ### 6. Cut the branch and merge
+
+**Worktree layout:**
+
+```bash
+git -C "$REPO_ROOT" fetch origin --prune
+
+RELEASE_BRANCH="release/<slug>"
+RELEASE_WT="$WORKTREE_PARENT/release-<slug>"
+
+# Tear down any stale worktree + branch.
+if git -C "$REPO_ROOT" worktree list --porcelain | grep -q "^worktree $RELEASE_WT\$"; then
+  git -C "$REPO_ROOT" worktree remove --force "$RELEASE_WT"
+fi
+git -C "$REPO_ROOT" branch -D "$RELEASE_BRANCH" 2>/dev/null || true
+
+# Cut the worktree from origin/main.
+git -C "$REPO_ROOT" worktree add "$RELEASE_WT" -b "$RELEASE_BRANCH" origin/main
+
+# Merge inside the new worktree.
+for feature in features/<KEY-1> features/<KEY-2> ... ; do
+  if ! git -C "$RELEASE_WT" merge --no-ff --no-edit "$feature"; then
+    echo "Merge conflict on $feature. Resolve inside the worktree:"
+    echo "  cd $RELEASE_WT"
+    echo "  # ... resolve files ..."
+    echo "  DRUPAL_LAB_BYPASS=1 git commit"
+    echo "Then rerun drupal-lab:release-cut --resume."
+    exit 1
+  fi
+done
+
+DRUPAL_LAB_BYPASS=1 git -C "$RELEASE_WT" push --force-with-lease -u origin "$RELEASE_BRANCH"
+```
+
+**Single-checkout layout:**
 
 ```bash
 git checkout main
@@ -121,32 +176,26 @@ git fetch origin --prune
 git branch -D "release/<slug>" 2>/dev/null || true
 git checkout -B "release/<slug>"
 
-# Merge each feature branch. Use --no-ff so the merge commit records the
-# integration explicitly (the audit skill relies on these merge commits).
 for feature in features/<KEY-1> features/<KEY-2> ... ; do
   git merge --no-ff --no-edit "$feature" || {
-    echo "Merge conflict on $feature. Resolve manually:"
-    echo "  cd $(pwd)"
-    echo "  DRUPAL_LAB_BYPASS=1 git commit  # after resolving"
-    echo "Then rerun drupal-lab:release-cut --resume."
+    echo "Merge conflict on $feature. Resolve manually then commit with DRUPAL_LAB_BYPASS=1."
     exit 1
   }
 done
 
-DRUPAL_LAB_BYPASS=1 git push --force-with-lease origin "release/<slug>"
+DRUPAL_LAB_BYPASS=1 git push --force-with-lease -u origin "release/<slug>"
 git checkout main
 ```
 
-The bypass is only used for the push to `release/<slug>` and the
-conflict-resolution commit (if any). Both are recorded in `.drupal-lab/bypass.log`.
+The bypass is used for the push to `release/<slug>` and any
+conflict-resolution commit. Both are recorded in `.drupal-lab/bypass.log`.
 
 ### 7. Write the manifest
 
-```bash
-mkdir -p .drupal-lab/releases
-```
-
-Write `.drupal-lab/releases/<slug>.json`:
+The manifest lives **inside the release worktree** (worktree layout) or in
+the project root (single-checkout layout), in
+`.drupal-lab/releases/<slug>.json`. Add `.drupal-lab/` to `.gitignore` if it
+isn't already.
 
 ```json
 {
@@ -154,7 +203,9 @@ Write `.drupal-lab/releases/<slug>.json`:
   "release_summary": "<summary>",
   "fix_version": "<fix version or null>",
   "branch": "release/<slug>",
-  "cut_from_sha": "<full SHA of main>",
+  "worktree_path": "<absolute path or null for single-checkout>",
+  "project_alias": "<from drupal-lab.json if matched, else null>",
+  "cut_from_sha": "<full SHA of origin/main>",
   "cut_at": "<ISO 8601 timestamp UTC>",
   "included": [
     { "key": "PROJ-123", "branch": "features/PROJ-123", "merge_sha": "<sha>" },
@@ -170,7 +221,8 @@ Write `.drupal-lab/releases/<slug>.json`:
 ### 8. Report
 
 Tell the user:
-- Branch cut at `<short SHA>` from main
+- Branch `release/<slug>` cut at `<short SHA>` from origin/main
+- For worktree layout: the new worktree path
 - N merged, M omitted (with reasons)
 - Manifest path
 - Suggested next steps: deploy the branch to the regression environment,
@@ -179,10 +231,17 @@ Tell the user:
 
 ## Failure modes
 
-- Working tree dirty → stop, no auto-stash.
-- `main` behind origin → stop, fail loudly.
-- Merge conflict → stop with explicit resume instructions.
+- Not a Drupal project (no `drupal/core` in composer.json or no `docroot/`/`web/`)
+  → stop with a clear message.
+- Working tree dirty (single-checkout layout) → stop, no auto-stash. Worktree
+  layout is unaffected.
+- `main` behind origin → stop, fail loudly. (Worktree layout cuts from
+  `origin/main` directly, avoiding this.)
+- Merge conflict → stop with explicit resume instructions, including the path
+  to `cd` into for worktree layout.
 - Force-push refused → someone committed directly to `release/<slug>` (shouldn't
   happen with the branch guard). Surface the diff.
 - JIRA returns no linked issues → ask the user to confirm the ticket actually
   lists release scope (PMs sometimes use a separate field).
+- Worktree-add fails with "already exists" → the stale-worktree removal in
+  step 6 didn't catch it; surface git's error and stop.
