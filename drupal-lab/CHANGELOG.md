@@ -3,7 +3,7 @@
 ## 2.6.0
 - Add Drupal team branch-workflow skills: `sprint-start`, `release-cut`, `branch-audit`
 - Add `branch-guard.sh` PreToolUse hook: hard-blocks destructive git ops on `main`, soft-blocks on `sprint/*` and `release/*` with audited `DRUPAL_LAB_BYPASS=1` override
-- Hook scoped to projects with `team_flow.enabled: true` in `~/.claude/drupal-lab.json` — no-op everywhere else
+- Hook applies by default to every project in `~/.claude/drupal-lab.json`; opt out per-project with `team_flow.enabled: false`
 - Add `references/feature-branch-mapping.md` documenting ticket↔branch resolution rules used by release-cut and branch-audit
 
 ## 2.5.1

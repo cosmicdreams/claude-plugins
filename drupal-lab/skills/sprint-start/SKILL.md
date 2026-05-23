@@ -20,7 +20,8 @@ by design — running this skill again rebuilds it.
 
 ## Prerequisites
 
-- `~/.claude/drupal-lab.json` exists and the current project has `team_flow.enabled = true`.
+- `~/.claude/drupal-lab.json` exists and the current project is *not* opted out
+  of team flow (`team_flow.enabled: false` disables it; default is on).
 - `jira` CLI is configured for this project's board (`/opt/homebrew/bin/jira`).
 - Working tree is clean on `main` (no uncommitted changes).
 
@@ -32,8 +33,9 @@ by design — running this skill again rebuilds it.
 
 ### 1. Resolve project context
 
-Read `~/.claude/drupal-lab.json`, match cwd against `cwd_patterns`, fail with a
-clear message if `team_flow.enabled` is not set. See
+Read `~/.claude/drupal-lab.json`, match cwd against `cwd_patterns`. Fail with
+a clear message if no project matches the cwd, or if the matched project has
+opted out via `team_flow.enabled: false`. See
 `drupal-lab/references/project-context.md`.
 
 ### 2. Pick the sprint

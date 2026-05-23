@@ -40,8 +40,10 @@ fi
 # them; fall back to PWD env var.
 cwd="$(pwd 2>/dev/null || echo "${PWD:-}")"
 
-# Decide if cwd is inside a team-flow-enabled project. Outputs the project alias
-# on stdout if matched, empty otherwise.
+# Decide if cwd is inside a drupal-lab project that has NOT opted out of the
+# team branch flow. Default: any configured project is in scope. A project can
+# opt out by setting "team_flow": { "enabled": false } in drupal-lab.json.
+# Outputs the project alias on stdout if matched, empty otherwise.
 project="$(/usr/bin/python3 - "$cwd" "$CONFIG" <<'PY' 2>/dev/null || true
 import json, sys, os
 cwd, config = sys.argv[1], sys.argv[2]
@@ -56,7 +58,8 @@ except Exception:
     sys.exit(0)
 for p in cfg.get("projects", []):
     flow = p.get("team_flow", {})
-    if not flow.get("enabled"):
+    # Opt-out: explicit { "enabled": false } disables the guard for this project.
+    if flow.get("enabled") is False:
         continue
     for pat in p.get("cwd_patterns", []):
         try:

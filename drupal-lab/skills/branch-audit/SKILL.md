@@ -23,7 +23,8 @@ guessing.
 
 ## Prerequisites
 
-- `~/.claude/drupal-lab.json`, project has `team_flow.enabled = true`.
+- `~/.claude/drupal-lab.json`, current project not opted out via
+  `team_flow.enabled: false` (default is on).
 - `jira` CLI configured.
 - Local repo has fetched recent state (`git fetch origin --prune`).
 
@@ -42,7 +43,8 @@ guessing.
 
 ### 1. Resolve project context
 
-Read `~/.claude/drupal-lab.json`. Fail if `team_flow.enabled` is not true.
+Read `~/.claude/drupal-lab.json`. Match cwd against `cwd_patterns`. Fail if
+no project matches or if the matched project has `team_flow.enabled: false`.
 
 ### 2. Locate the manifest
 

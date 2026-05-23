@@ -20,7 +20,8 @@ the current scope.
 
 ## Prerequisites
 
-- `~/.claude/drupal-lab.json` exists and the current project has `team_flow.enabled = true`.
+- `~/.claude/drupal-lab.json` exists and the current project is not opted out
+  of team flow (`team_flow.enabled: false` disables it; default is on).
 - `jira` CLI configured.
 - Working tree clean on `main`.
 - Each linked feature ticket has a corresponding `features/<KEY>` or
@@ -35,8 +36,8 @@ the current scope.
 
 ### 1. Resolve project context
 
-Read `~/.claude/drupal-lab.json`. Fail if `team_flow.enabled` is not true
-for this project.
+Read `~/.claude/drupal-lab.json`. Match cwd against `cwd_patterns`. Fail if
+no project matches or if the matched project has `team_flow.enabled: false`.
 
 ### 2. Fetch the release ticket
 
