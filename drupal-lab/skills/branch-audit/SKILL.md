@@ -34,9 +34,8 @@ guessing.
   Accepts the short slug too; the skill will prepend `sprint/` or `release/`
   based on which manifest exists.
 - **Optional flags**:
-  - `--re-query` — ignore the manifest's `expected_tickets` and re-query JIRA
-    for current state (default behavior; pass `--frozen` to compare against
-    the manifest as captured at cut time).
+  - `--frozen` — compare against the manifest's `expected_tickets` as captured
+    at cut time instead of re-querying JIRA.
   - `--json` — emit JSON instead of the human table.
 
 ## Workflow
@@ -89,12 +88,8 @@ git log --merges --pretty=format:'%H%x09%s' main..origin/<branch>
 ```
 
 Each merge commit message typically reads `Merge branch 'features/PROJ-123' …`.
-Extract the feature branch name. From each branch name, recover the JIRA key
-using the mapping in `references/feature-branch-mapping.md`:
-
-1. `features/<KEY>` → `<KEY>`
-2. `features/<KEY>-*` → `<KEY>` (capture leading uppercase token matching `[A-Z]+-[0-9]+`)
-3. `features/<descriptive>` with no key → record as `(unkeyed)` and surface in the report
+Extract the feature branch name and recover the JIRA key using the mapping in
+`references/feature-branch-mapping.md`.
 
 Also detect direct commits to the audit branch that are *not* merge commits:
 
@@ -122,7 +117,7 @@ For each merged feature branch:
 Human format (default):
 
 ```
-Branch:   release/sprint-47-checkout-v2
+Branch:   release/checkout-v2
 JIRA src: release ticket PROJ-2200 (Fix Version: 4.1)
 Cut from: main @ a1b2c3d (2026-05-12T14:03Z)
 Audited:  2026-05-23T15:42Z (live JIRA re-query)

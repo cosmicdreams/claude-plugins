@@ -15,23 +15,24 @@ set -eu
 
 CONFIG="${HOME}/.claude/drupal-lab.json"
 
-# Read the tool input JSON from stdin.
 input="$(cat)"
 
-# Only operate on Bash tool calls. Anything else: allow.
-tool_name="$(printf '%s' "$input" | /usr/bin/python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("tool_name",""))' 2>/dev/null || echo '')"
+# Parse tool_name and command in one python3 invocation.
+read -r tool_name command_str < <(printf '%s' "$input" | /usr/bin/python3 -c '
+import json, sys
+d = json.load(sys.stdin)
+print(d.get("tool_name", ""))
+print(d.get("tool_input", {}).get("command", ""))
+' 2>/dev/null || printf '\n')
+
 if [[ "$tool_name" != "Bash" ]]; then
     exit 0
 fi
 
-command_str="$(printf '%s' "$input" | /usr/bin/python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("tool_input",{}).get("command",""))' 2>/dev/null || echo '')"
-
-# No command, nothing to gate.
 if [[ -z "$command_str" ]]; then
     exit 0
 fi
 
-# No drupal-lab config: not configured for team flow.
 if [[ ! -f "$CONFIG" ]]; then
     exit 0
 fi
@@ -46,31 +47,37 @@ cwd="$(pwd 2>/dev/null || echo "${PWD:-}")"
 # Outputs the project alias on stdout if matched, empty otherwise.
 project="$(/usr/bin/python3 - "$cwd" "$CONFIG" <<'PY' 2>/dev/null || true
 import json, sys, os
+
+def under(cwd_variants, pat_variants):
+    return any(
+        c == q or c.startswith(q.rstrip("/") + "/")
+        for c in cwd_variants for q in pat_variants
+    )
+
 cwd, config = sys.argv[1], sys.argv[2]
+cwd_variants = {cwd}
 try:
-    cwd_real = os.path.realpath(cwd)
+    cwd_variants.add(os.path.realpath(cwd))
 except Exception:
-    cwd_real = cwd
+    pass
 try:
     with open(config) as f:
         cfg = json.load(f)
 except Exception:
     sys.exit(0)
 for p in cfg.get("projects", []):
-    flow = p.get("team_flow", {})
     # Opt-out: explicit { "enabled": false } disables the guard for this project.
-    if flow.get("enabled") is False:
+    if p.get("team_flow", {}).get("enabled") is False:
         continue
     for pat in p.get("cwd_patterns", []):
+        pat_variants = {pat}
         try:
-            pat_real = os.path.realpath(pat)
+            pat_variants.add(os.path.realpath(pat))
         except Exception:
-            pat_real = pat
-        for c in (cwd, cwd_real):
-            for q in (pat, pat_real):
-                if c == q or c.startswith(q.rstrip("/") + "/"):
-                    print(p.get("alias", ""))
-                    sys.exit(0)
+            pass
+        if under(cwd_variants, pat_variants):
+            print(p.get("alias", ""))
+            sys.exit(0)
 PY
 )"
 
@@ -78,11 +85,9 @@ if [[ -z "$project" ]]; then
     exit 0
 fi
 
-# Detect destructive git ops in the command string. Match conservatively — only
-# the verbs that would write to the branch we're sitting on.
+# Match conservatively — only the verbs that write to the branch we're on.
 is_destructive_git() {
     local cmd="$1"
-    # Strip simple quoting noise.
     case "$cmd" in
         *"git commit"*|*"git merge"*|*"git rebase"*|*"git cherry-pick"*|\
         *"git reset --hard"*|*"git reset --mixed"*|*"git reset --soft"*|\

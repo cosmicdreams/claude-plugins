@@ -86,23 +86,17 @@ Ask: proceed? If no, stop.
 
 ### 5. Cut the branch
 
-Set `DRUPAL_LAB_BYPASS=1` is **not** needed here — sprint-start operates on
-main only via reads (`git checkout main`, `git pull`) and on `sprint/<slug>`
-via fresh `git checkout -B`, then a `git push --force-with-lease` to origin
-which the branch guard does allow on `sprint/*` *only* because the working
-branch will become `sprint/<slug>` *after* the checkout. To be safe, run the
-push from a transient `features/` shell or use the bypass for the single
-push call:
+The push to `sprint/<slug>` requires `DRUPAL_LAB_BYPASS=1` because the branch
+guard soft-blocks writes to `sprint/*` and HEAD will be `sprint/<slug>` when
+the push fires.
 
 ```bash
 git checkout main
 git pull --rebase
 git fetch origin --prune
 
-# Delete any stale local copy.
 git branch -D "sprint/<slug>" 2>/dev/null || true
 
-# Cut new branch from main, then return to main so we never leave a dirty sprint branch checked out.
 git checkout -B "sprint/<slug>"
 DRUPAL_LAB_BYPASS=1 git push --force-with-lease origin "sprint/<slug>"
 git checkout main

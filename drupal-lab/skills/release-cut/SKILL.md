@@ -76,7 +76,7 @@ For each included ticket key, look for branches matching (in order):
 
 1. `features/<KEY>` exact match
 2. `features/<key-lowercase>` exact match
-3. `features/<KEY>-*` prefix match (single result)
+3. `features/<KEY>-*` or `features/<KEY>_*` prefix match (single result)
 4. `features/*` containing `<KEY>` as a token
 
 If multiple candidates: ask the user.
@@ -127,8 +127,9 @@ for feature in features/<KEY-1> features/<KEY-2> ... ; do
   git merge --no-ff --no-edit "$feature" || {
     echo "Merge conflict on $feature. Resolve manually:"
     echo "  cd $(pwd)"
-    echo "  DRUPAL_LAB_BYPASS=1 git commit  # after resolving"
-    echo "Then rerun drupal-lab:release-cut --resume."
+    echo "  DRUPAL_LAB_BYPASS=1 git commit"
+    echo "Then rerun drupal-lab:release-cut <RELEASE_KEY> to rebuild the branch from scratch."
+    echo "Note: rerun deletes and re-cuts the branch — commit your resolved changes to the feature branch first."
     exit 1
   }
 done
