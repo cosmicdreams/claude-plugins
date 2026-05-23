@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.1
+- Drop the `~/.claude/drupal-lab.json` registration precondition from `sprint-start`, `release-cut`, and `branch-audit`; these skills now detect Drupal projects from the repo itself (composer.json declares drupal/core + docroot/ or web/)
+- `sprint-start` and `release-cut` now respect worktree discipline: when the repo lays out branches as siblings under `worktrees/`, the new sprint/release branch is created via `git worktree add` rather than `git checkout -B`, keeping `main` clean
+- `branch-audit` looks for manifests inside sibling sprint/release worktrees as well as the project root
+- Reframe `references/project-context.md`: registration is optional enrichment for skills that need DDEV or drupal.org context, not a universal gate
+
 ## 2.6.0
 - Add Drupal team branch-workflow skills: `sprint-start`, `release-cut`, `branch-audit`
 - Add `branch-guard.sh` PreToolUse hook: hard-blocks destructive git ops on `main`, soft-blocks on `sprint/*` and `release/*` with audited `DRUPAL_LAB_BYPASS=1` override
