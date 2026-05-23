@@ -153,9 +153,10 @@
         <div class="chart__label" title="{{label}}">
           <code>{{label}}</code>
         </div>
-        <div class="chart__bar-track">
-          <div class="chart__bar-fill{{#if first}} chart__bar-fill--accent{{/if}}" style="width: {{widthPct}}%"></div>
-        </div>
+        <svg class="chart__svg" preserveAspectRatio="none">
+          <rect class="chart__svg-track" width="100%" height="100%" rx="4"></rect>
+          <rect class="chart__svg-fill{{#if first}} chart__svg-fill--accent{{/if}}" style="width: {{widthPct}}%" height="100%" rx="4"></rect>
+        </svg>
         <div class="chart__value">{{fmt count}} <span style="opacity:.7">({{sharePct}}%)</span></div>
       </div>
       {{/each}}

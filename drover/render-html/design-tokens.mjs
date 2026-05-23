@@ -291,7 +291,7 @@ html:not([data-theme="dark"]) .theme-toggle-btn .moon-icon { display: block; }
   font-weight: var(--font-display-weight);
   line-height: var(--font-display-line-height);
   letter-spacing: var(--font-display-tracking);
-  color: var(--color-primary);
+  color: var(--color-text-strong);
   margin: 0 0 var(--space-sm) 0;
 }
 .subtitle {
@@ -354,7 +354,7 @@ p { margin: 0 0 var(--space-md) 0; }
   line-height: var(--font-metric-line-height);
   letter-spacing: var(--font-metric-tracking);
   font-feature-settings: 'tnum' 1;
-  color: var(--color-primary);
+  color: var(--color-text-strong);
   margin: 0;
 }
 .metric-card__hint {
@@ -429,6 +429,24 @@ p { margin: 0 0 var(--space-md) 0; }
   animation: chart-grow 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .chart__bar-fill--accent { background: var(--color-secondary); }
+
+/* SVG Chart variants for print-safe raster-free rendering */
+.chart__svg {
+  width: 100%;
+  height: ${cb.height || "22px"};
+  border-radius: var(--rounded-sm);
+  overflow: hidden;
+  display: block;
+}
+.chart__svg-track {
+  fill: ${cb.trackColor || c["surface-alt"]};
+}
+.chart__svg-fill {
+  fill: var(--color-primary);
+  animation: chart-grow 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+.chart__svg-fill--accent { fill: var(--color-secondary); }
+
 .chart__value { color: var(--color-text-muted); text-align: right; font-variant-numeric: tabular-nums; }
 
 /* Interactive tooltips for charts */
@@ -472,7 +490,7 @@ p { margin: 0 0 var(--space-md) 0; }
   font-family: var(--font-h3-family);
   font-size: var(--font-h3-size);
   font-weight: var(--font-h3-weight);
-  color: var(--color-primary);
+  color: var(--color-text-strong);
   margin: 0 0 var(--space-xs) 0;
 }
 .ticket-card__meta {
