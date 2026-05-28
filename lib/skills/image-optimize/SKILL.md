@@ -1,8 +1,10 @@
 ---
 name: image-optimize
 description: >
-  Optimizes, compresses, and converts images using format-specific CLI tools installed
-  via Homebrew. Selects the best available tool for each image format automatically.
+  Optimizes, compresses, resizes, and converts images. Uses Bun's built-in image
+  pipeline (Bun.Image) as the only required dependency for the common path, and falls
+  back to specialist Homebrew tools only when a task needs them — delivering install
+  guidance at that moment rather than up front.
   Use when the user asks to optimize, compress, shrink, or convert images, reduce file
   size of images, batch-process a folder of images, or strip image metadata.
   Trigger phrases: "optimize image", "compress image", "shrink image", "reduce image size",
@@ -13,262 +15,171 @@ description: >
 
 # lib:image-optimize
 
-Choose the right tool for each format. The tools below are confirmed installed via Homebrew.
-Do not use generic `magick` when a specialist tool exists — specialist tools produce better
-compression at equal quality.
+This skill uses **progressive enhancement**. Bun is the only thing a user must install.
+Reach for a specialist binary **only** when the task genuinely needs one — and when you do,
+tell the user exactly what to install and why, at that moment.
 
-## Installed Tools
+## The one dependency: Bun ≥ 1.3.14
 
-| Tool | Best for |
+`Bun.Image` ships inside the Bun runtime — no npm packages, no native addons, no separate
+binaries. It covers the everyday web path: resize, rotate, strip metadata, and encode to
+JPEG / PNG / WebP / AVIF / HEIC.
+
+```bash
+# Verify Bun is present and new enough (Image API landed in 1.3.14)
+bun --version
+bun -e 'process.exit(typeof Bun.Image === "function" ? 0 : 1)' \
+  || echo "Bun.Image unavailable — run: bun upgrade"
+```
+
+If Bun is missing entirely: `curl -fsSL https://bun.sh/install | bash` (or `brew install oven-sh/bun/bun`).
+
+### The Bun.Image pipeline
+
+Construct from a file, chain transforms, choose an output format, then call a terminal method.
+
+```ts
+// resize + convert to WebP
+await Bun.file("input.jpg").image()
+  .resize(1920, 1080, { fit: "inside", withoutEnlargement: true })
+  .webp({ quality: 82 })
+  .write("output.webp");
+```
+
+Run a snippet inline with `bun -e '...'` or save to a `.ts` file and `bun run` it.
+
+**Transforms:** `.resize(w, h?, {filter, fit, withoutEnlargement})` · `.rotate(90|180|270)` · `.flip()` · `.flop()` · `.modulate({brightness, saturation})`
+
+- `fit` accepts only **`"fill"`** or **`"inside"`** (NOT contain/cover — those error).
+- `filter` resampling: `lanczos3` (default, best), `mitchell`, `cubic`, `bilinear`, `box`, `nearest`.
+
+**Output formats:** `.jpeg({quality})` · `.png({palette, dither})` · `.webp({quality})` or `.webp({lossless:true})` · `.avif({quality})` · `.heic({quality})`
+
+**Terminals:** `.write(path)` · `.bytes()` · `.toBuffer()` · `.blob()` · `.toBase64()` · `.dataurl()` · `.placeholder()` (ThumbHash blur)
+
+**Read metadata without a full decode:**
+```ts
+const m = await Bun.file("photo.jpg").image().metadata(); // { width, height, format }
+```
+
+### Format routing with Bun (the common path)
+
+| Task | Bun call |
 |---|---|
-| `magick` / `convert` / `mogrify` | Universal fallback, format conversion, resize, HEIC, BMP, ICO, PSD, TIFF, APNG |
-| `pngquant` | PNG lossy compression (excellent quality/size ratio) |
-| `cwebp` | Encoding images → WebP |
-| `dwebp` | Decoding WebP → other formats |
-| `gif2webp` | Converting GIF → WebP |
-| `avifenc` | Encoding images → AVIF (best modern format) |
-| `avifdec` | Decoding AVIF → other formats |
-| `jpegtran` | JPEG lossless optimization (strip metadata, progressive) |
-| `cjpeg` | JPEG re-encoding (lossy, quality control) |
+| JPEG compress / re-encode | `.jpeg({ quality: 82 })` (photos: 80–85) |
+| JPEG resize for web | `.resize(1920,1080,{fit:"inside",withoutEnlargement:true}).jpeg({quality:82})` |
+| PNG → smaller PNG (lossy palette, pngquant-like) | `.png({ palette: true })` — often ~4× smaller |
+| PNG → WebP | `.webp({ quality: 82 })` |
+| PNG with transparency → lossless WebP | `.webp({ lossless: true })` |
+| Any → AVIF | `.avif({ quality: 60 })` (0=lossless, 60≈good, 80=lower) |
+| HEIC → JPEG/WebP (convert Apple photos) | `Bun.file("in.heic").image().jpeg({quality:85}).write("out.jpg")` |
+| Strip EXIF/metadata | Re-encoding through Bun.Image drops metadata by default |
 
-## Format Routing
+`.png({palette:true})` is the in-runtime substitute for pngquant; `.webp()` wraps the same
+libwebp as `cwebp` and produces byte-identical output. For these, **do not suggest installing
+anything** — Bun already gives equal results.
 
-### JPEG / JPG
+### Batch processing with Bun
 
-**Goal: reduce size without visible quality loss**
-
-```bash
-# Lossless first — strips metadata, optimizes Huffman tables, makes progressive
-jpegtran -optimize -progressive -copy none -outfile output.jpg input.jpg
-
-# If more reduction needed — lossy re-encode (use quality 82-85 for photos)
-cjpeg -quality 82 -progressive -optimize -outfile output.jpg input.jpg
-
-# Resize + compress via magick
-magick input.jpg -resize 1920x1080> -quality 82 -strip output.jpg
+```ts
+// Convert every PNG in cwd to WebP
+import { Glob } from "bun";
+for await (const f of new Glob("*.png").scan(".")) {
+  await Bun.file(f).image().webp({ quality: 82 }).write(f.replace(/\.png$/, ".webp"));
+}
 ```
 
-Use `jpegtran` first (lossless, safe). Escalate to `cjpeg` only if user needs more reduction.
-
-### PNG
-
-**Goal: significant size reduction, choose lossy vs lossless based on use case**
-
-```bash
-# Lossy — pngquant (best results, 256-color quantization, recommended for web)
-pngquant --quality=75-90 --speed 1 --output output.png input.png
-
-# Lossless — magick (compress existing data without quality loss)
-magick input.png -strip PNG:output.png
-
-# If transparency matters: pngquant preserves alpha correctly
-pngquant --quality=75-90 --speed 1 --output output.png input.png
+```ts
+// Resize + compress a folder of JPEGs in place (via temp, preserve original on failure)
+import { Glob } from "bun";
+import { unlink } from "node:fs/promises";
+for await (const f of new Glob("*.{jpg,jpeg}").scan(".")) {
+  const tmp = f + ".tmp";
+  await Bun.file(f).image().resize(1920,1080,{fit:"inside",withoutEnlargement:true}).jpeg({quality:82}).write(tmp);
+  await Bun.write(f, Bun.file(tmp)); await unlink(tmp);
+}
 ```
 
-Default to `pngquant` for web images. Use `magick` lossless if the user needs exact pixel values preserved.
+### Report savings
 
-### WebP
-
-**Goal: encode to WebP for maximum web performance**
-
-```bash
-# Photo/complex image → lossy WebP (quality 80-85 is visually lossless for most)
-cwebp -q 82 input.jpg -o output.webp
-
-# PNG with transparency → lossless WebP
-cwebp -lossless input.png -o output.webp
-
-# GIF → animated WebP
-gif2webp input.gif -o output.webp
-
-# Decode WebP back to PNG if needed
-dwebp input.webp -o output.png
+```ts
+const before = Bun.file("input.png").size;
+const after = Bun.file("output.webp").size;
+console.log(`Saved ${Math.round((before-after)*100/before)}% (${before} → ${after} bytes)`);
 ```
 
-### AVIF
+---
 
-**Goal: encode to AVIF for best compression (modern browsers)**
+## Escalation tier: specialist binaries (install only when needed)
 
-```bash
-# From JPEG/PNG — avifenc is the specialist tool
-avifenc --quality 60 --speed 6 input.jpg output.avif
+Reach here **only** when the task falls into one of the rows below. Each names a single tool
+to install. When you hit one, surface the install command to the user and explain the gain —
+do not pre-install the whole set.
 
-# Quality guide: 0=lossless, 60=good quality, 80=lower quality
-# Speed: 0=slowest/best, 10=fastest; 6 is a good balance
+| Need | Tool Bun can't replace | Install (Homebrew) |
+|---|---|---|
+| **SVG** (rasterize or optimize) | `magick` (raster) / `svgo` (vector) | `brew install imagemagick` · `npm i -g svgo` |
+| **Multi-size ICO favicon** | `magick` | `brew install imagemagick` |
+| **PSD flatten/export** | `magick` | `brew install imagemagick` |
+| **TIFF encode**, or image work on **Linux** needing AVIF/HEIC/TIFF | `magick` | `brew install imagemagick` |
+| **GIF → animated WebP** (Bun decodes GIF but emits no animation) | `gif2webp` | `brew install webp` |
+| **Maximum AVIF compression** (~12% smaller than Bun at equal quality, ~2× slower) | `avifenc` | `brew install libavif` |
+| **Lossless JPEG transform** (optimize without re-encoding) | `jpegtran` | `brew install mozjpeg` or `brew install jpeg-turbo` |
 
-# Decode AVIF → PNG
-avifdec input.avif output.png
+### Platform note for portability
 
-# Fallback: magick also handles AVIF
-magick input.jpg -quality 60 output.avif
-```
+`Bun.Image` capability varies by OS. On **Linux** it cannot encode AVIF or HEIC and has no
+TIFF support. If you're scripting for Linux and need those, route through the escalation tier
+above rather than Bun. On macOS (incl. Apple Silicon M1) all formats above encode natively.
 
-### GIF
-
-**Goal: optimize GIF or convert to modern format**
-
-```bash
-# Optimize GIF in-place (reduce colors, strip metadata)
-magick input.gif -layers optimize -coalesce output.gif
-
-# Better: convert to animated WebP (far smaller)
-gif2webp -q 80 input.gif -o output.webp
-
-# Or convert to APNG (better browser support than GIF)
-magick input.gif output.apng
-```
-
-Recommend converting GIFs to WebP unless GIF compatibility is required.
-
-### HEIC / HEIF
-
-**Goal: convert to web-compatible format (HEIC is Apple-only)**
+### Specialist commands (when escalated)
 
 ```bash
-# HEIC → JPEG
-magick input.heic -quality 85 output.jpg
+# SVG → PNG at target resolution
+magick -background none input.svg -resize 512x512 output.png
+# SVG vector optimization
+svgo input.svg -o output.svg
 
-# HEIC → PNG (lossless)
-magick input.heic output.png
-
-# HEIC → WebP
-magick input.heic -quality 82 output.webp
-```
-
-Only `magick` handles HEIC. Convert to JPEG or WebP for cross-platform use.
-
-### TIFF
-
-**Goal: compress or convert (TIFF files are often uncompressed)**
-
-```bash
-# Compress TIFF (LZW lossless compression)
-magick input.tif -compress LZW output.tif
-
-# Convert to PNG (lossless)
-magick input.tif output.png
-
-# Convert to JPEG for web
-magick input.tif -quality 85 output.jpg
-```
-
-### BMP
-
-**Goal: always convert — BMP is uncompressed and bloated**
-
-```bash
-# BMP → PNG (lossless equivalent, much smaller)
-magick input.bmp output.png
-
-# BMP → JPEG (lossy, for photos)
-magick input.bmp -quality 85 output.jpg
-```
-
-Never keep BMP for web use. Always convert.
-
-### ICO
-
-**Goal: create multi-size favicon or extract from existing ICO**
-
-```bash
-# Create multi-size ICO from PNG (auto-resize generates all standard sizes)
+# Multi-size ICO favicon (auto-resize generates all standard sizes — chained -resize does NOT)
 magick input.png -define icon:auto-resize=256,128,64,48,32,16 output.ico
 
-# Extract largest layer from ICO → PNG
-magick input.ico output.png
-```
-
-Note: chaining `-resize` in sequence does NOT create multi-layer ICO — each resize
-operates on the previous result. Use `-define icon:auto-resize` instead.
-
-### PSD (Photoshop)
-
-**Goal: flatten and export to a web-compatible format**
-
-```bash
-# Flatten and export (use [0] to get merged composite layer)
-magick "input.psd[0]" output.png
+# PSD flatten ([0] = merged composite)
 magick "input.psd[0]" -quality 85 output.jpg
+
+# TIFF compress (LZW lossless)
+magick input.tif -compress LZW output.tif
+
+# GIF → animated WebP
+gif2webp -q 80 input.gif -o output.webp
+
+# Maximum AVIF compression (NOTE: flag is -q, NOT --quality)
+avifenc -q 60 -s 6 input.png output.avif
+
+# Lossless JPEG optimization (strip metadata, progressive, Huffman) — no re-encode
+jpegtran -optimize -progressive -copy none -outfile output.jpg input.jpg
 ```
 
-### SVG
+## Decision guide
 
-**Note: no vector optimizer (svgo) installed.** Only rasterization is available:
+When the user asks to "optimize an image" without specifics:
 
-```bash
-# Rasterize SVG → PNG at target resolution
-magick -background none input.svg -resize 512x512 output.png
-```
+1. **Identify the format/task.** If it's in the Bun common-path table → use Bun, install nothing.
+2. **Only if the task is an escalation row** → name the one tool, give the install command, explain the gain, then proceed once available.
+3. **Lossless vs lossy** matters only when it affects their use case (screenshots → lossless PNG/WebP; photos → lossy is fine).
+4. **Default to high quality**; offer to go lower for more reduction.
+5. **Never overwrite the original silently** — write to a new file or confirm first.
+6. **Report before/after size** with percentage saved.
 
-If SVG optimization is needed, suggest: `npm install -g svgo && svgo input.svg`
+## Format conversion recommendations
 
-### APNG (Animated PNG)
-
-```bash
-# Optimize APNG
-magick input.apng -strip output.apng
-
-# Convert to animated WebP (smaller)
-magick input.apng output.webp
-```
-
-## Batch Processing
-
-```bash
-# Optimize all JPEGs in a directory (lossless, safe in-place via temp file)
-for f in *.jpg *.jpeg; do
-  tmp=$(mktemp) && jpegtran -optimize -progressive -copy none -outfile "$tmp" "$f" && mv "$tmp" "$f"
-done
-# Note: jpegtran does not support true in-place editing — always route through a temp file
-
-# Convert all PNGs to WebP
-for f in *.png; do
-  cwebp -q 82 "$f" -o "${f%.png}.webp"
-done
-
-# Resize + compress all images via magick (mixed formats)
-mogrify -resize 1920x1080> -quality 82 -strip *.jpg
-
-# pngquant all PNGs (creates *-fs8.png or *-or8.png by default, use --ext to override)
-pngquant --quality=75-90 --ext .png --force *.png
-```
-
-## Strip Metadata
-
-```bash
-# Strip all EXIF/metadata from JPEG (jpegtran, lossless)
-jpegtran -copy none -outfile output.jpg input.jpg
-
-# Strip metadata via magick (works on any format)
-magick input.jpg -strip output.jpg
-
-# Note: exiftool is not installed. Use jpegtran -copy none or magick -strip.
-```
-
-## Decision Guide
-
-When the user asks to "optimize an image" without specifying how:
-
-1. **Check format** → route to specialist tool above
-2. **Ask: lossless or lossy?** Only if the difference matters for their use case (e.g., screenshots → lossless PNG; photos → lossy fine)
-3. **Default quality settings** are conservative (high quality). Ask if they want to go lower for more size reduction.
-4. **Always preserve the original** — write to a new file or ask before overwriting
-5. **Report before/after file sizes** with percentage saved:
-   ```bash
-   before=$(wc -c < input.jpg); after=$(wc -c < output.jpg)
-   echo "Saved: $(( (before - after) * 100 / before ))% ($before → $after bytes)"
-   ```
-
-## Format Conversion Recommendations
-
-When a user has a file in an inefficient format, proactively suggest:
+Proactively suggest when a user has an inefficient format:
 
 | From | To | Why |
 |---|---|---|
 | BMP | PNG | Lossless, ~10× smaller |
-| GIF | WebP | Smaller, supports transparency and animation |
+| GIF | WebP | Smaller; transparency + animation (animated needs `gif2webp`) |
 | TIFF (uncompressed) | PNG | Lossless, portable |
-| JPEG (for web) | WebP | ~25-35% smaller at same quality |
-| PNG (for web, no transparency needed) | WebP | ~25-30% smaller |
-| Any (for modern web) | AVIF | Best compression, growing browser support |
+| JPEG (web) | WebP | ~25–35% smaller at same quality |
+| PNG (web, no transparency) | WebP | ~25–30% smaller |
+| Any (modern web) | AVIF | Best compression, growing browser support |
 | HEIC | JPEG or WebP | Required for cross-platform sharing |

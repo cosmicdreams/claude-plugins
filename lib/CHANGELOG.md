@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.2.0
+- Rework lib:image-optimize on a Bun-first progressive-enhancement model: Bun.Image (≥1.3.14) is the only hard dependency for the common web path (resize, JPEG/PNG/WebP/AVIF/HEIC, palette quantization, strip metadata)
+- Demote Homebrew specialists (magick, avifenc, pngquant, jpegtran, gif2webp, svgo) to an optional escalation tier surfaced only when a task needs them — with targeted install guidance at that moment
+- Fix broken `avifenc --quality` syntax (must be `-q` on avifenc 1.4.2+)
+- Add Linux platform caveat: Bun.Image cannot encode AVIF/HEIC or handle TIFF there
+
 ## 1.1.0
 - Add lib:ddev skill for general DDEV knowledge (lifecycle, naming, providers, troubleshooting, worktree isolation)
 - Includes references/providers.md with direct mysqldump, SSH tunnel, and wp-cli/drush patterns
