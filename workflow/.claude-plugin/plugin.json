@@ -1,6 +1,6 @@
 {
     "name": "workflow",
-    "version": "1.1.1",
+    "version": "1.2.0",
     "description": "Process automation skills: morning brief, deploy checklist, pulse, Obsidian maintenance, and personal productivity.",
     "author": {
         "name": "Chris Weber"

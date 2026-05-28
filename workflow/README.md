@@ -11,7 +11,7 @@ Skills read `~/.claude/workflow.json` (written by `workflow:config`) to know wha
 | `workflow:config` | Discover integrations, store config, set defaults |
 | `workflow:morning-brief` | Daily standup briefing from Slack, Jira, GitHub |
 | `workflow:pulse` | Priority triage across Jira and Slack |
-| `workflow:deploy-post` | Live Slack deployment checklist |
+| `workflow:deploy-post` | Post a deployment checklist to Slack |
 | `workflow:personal-calendar` | Manage personal Google Calendar |
 | `workflow:personal-email` | Manage personal Gmail |
 | `workflow:organize` | Categorize and tag notes in the Obsidian vault |
