@@ -1,5 +1,0 @@
-### Page
-- Page URL: http://localhost:3749/
-- Page Title: drover — ops dashboard
-### Snapshot
-- [Snapshot](.playwright-cli/page-2026-04-22T18-19-55-130Z.yml)
