@@ -13,29 +13,58 @@ allowed-tools: Bash, Read
 
 # drover:acquia-pull
 
+## The one-per-24h constraint (read this first)
+
+**Acquia keeps exactly one packaged log file per `(env, type)` at a time.**
+The download endpoint (`GET /environments/{env}/logs/{type}`) is keyed only
+by env + type and always 301-redirects to **the most recently created
+snapshot** — there is no snapshot id in the download path. Every new
+log-create for the same `(env, type)` *supersedes* the previous packaged
+file.
+
+Therefore you **must download each day's snapshot before requesting the next
+for the same `(env, type)`**. A naïve batch (fire all creates, then download
+all) returns the *same* last-created snapshot for every day — duplicate,
+mislabeled files. (This actually happened: a single `--from/--to` run for
+Massport May 1–19 returned 12 files all identical to the May 19 snapshot.)
+
+`pull.py` enforces this: multi-day pulls run **serial per `(env, type)`**.
+Distinct `(env, type)` keys map to distinct packaged files, so they run in
+parallel — `--concurrency` is the number of parallel `(env, type)` *groups*,
+never parallel days within a group.
+
 ## What it does
 
 Reconciles a project's local log folder against the manifest's expected
-`(date × env × type)` tuples in two phases:
+`(date × env × type)` tuples:
 
-**Phase 1 — log-create (cheap, fast)**
-POST a snapshot request for every missing tuple. Each call returns
-immediately with a notification URL (~1s each). Acquia begins building
-all snapshots in parallel on their end.
+1. **Group** missing tuples by `(env, type)`.
+2. For each group, **serially** per day: log-create → poll → download →
+   **verify**. Only after a day's file is downloaded and verified does the
+   next day's create fire.
+3. Run up to `--concurrency` groups in parallel.
 
-**Phase 2 — poll + download (as files become ready)**
-Loop over all pending notifications. The moment any notification
-completes, download and store it compressed (.log.gz) immediately —
-without waiting for others. After each file lands, report:
+After each file lands, report:
 
 ```
 ✓ 2026-04-03 prod drupal-watchdog: 1,290,895 bytes — 12/90 done, 78 pending
 ```
 
-This separation means a 30-day × 3-type backfill (90 files) runs in
-**~5–10 minutes** instead of ~60 minutes — Phase 1 takes ~90s, then
-Acquia processes all 90 in parallel while Phase 2 downloads them as
-they complete.
+## Post-download verification (mandatory, fail loud)
+
+Every downloaded file is verified before it's recorded `present`:
+
+- **Dominant-date check** — the most common `(month, day)` across the file's
+  lines must equal the requested day. Do **not** trust `head -1`:
+  UTC-midnight boundary lines spill across days, so the *dominant* date is
+  used, not the first line. Works across all four formats
+  (`dd/Mon` access, `Mon dd` apache-error/watchdog, `dd-Mon` php-error).
+- **Distinct-md5 check** — a file byte-identical to another day already
+  pulled in the same group is the stale-snapshot bug; it's rejected.
+
+On mismatch or duplicate the file is deleted, the day is marked
+`fetch-failed` with reason `snapshot-mismatch`, and it's retried once. A
+mislabeled file **never** reaches `present`.
 
 ## Prerequisites
 
@@ -95,11 +124,10 @@ python3 "$PULL_PY" --env prod --daily --type drupal-watchdog
 python3 "$PULL_PY" --env prod --daily --types apache-error,php-error
 ```
 
-## Phase 2 deadline
+## Poll deadline
 
-The poll loop runs until all files download or the deadline is hit.
-Default is 180s from when Phase 2 starts. Override for unusually large
-batches or slow Acquia environments:
+Each day's notification is polled until it completes or the deadline is hit.
+Default is 180s per day. Override for slow Acquia environments:
 
 ```bash
 python3 "$PULL_PY" --backfill --poll-deadline-s 300
@@ -127,10 +155,11 @@ gaps since the last pull.
 |---|---|
 | Manifest missing | Aborts: *"Run /drover:init first."* |
 | Credentials missing | Aborts: *"Run /drover:setup first."* |
-| log-create fails | Marked `fetch-failed` in ledger; Phase 2 continues with remaining files. |
-| Notification ends `status=failed` | Marked `fetch-failed`; retryable on next backfill. |
+| log-create fails | Marked `fetch-failed`; other `(env,type)` groups unaffected. |
+| Notification ends `status=failed` | Retried once, then marked `fetch-failed`. |
 | Download fails | Marked `fetch-failed`; canonical file left untouched. |
-| Phase 2 deadline exceeded | Remaining pending files marked `fetch-failed`; run `--backfill` to retry. |
+| Poll deadline exceeded | Day marked `fetch-failed`; run `--backfill` to retry. |
+| Snapshot mismatch / duplicate | File deleted, marked `fetch-failed` (`snapshot-mismatch`); retried once. Never recorded `present`. |
 
 A `fetch-failed` ledger entry is intentionally retryable — a later run
 of `--backfill` will pick it up and try again.
@@ -165,12 +194,19 @@ its output (e.g. *"Apr 1–2 unavailable; 28/30 days analyzed"*).
 
 ## Performance
 
-| Operation | Cost | Notes |
+Each day within a `(env, type)` group costs one full create → build →
+download cycle (~30–90s), because the one-per-24h constraint forbids
+batching creates ahead of downloads. Parallelism comes from running
+`(env, type)` groups concurrently:
+
+| Shape | Parallelism | Notes |
 |---|---|---|
-| Phase 1 — log-create | ~1s per file | 90 files ≈ 90s |
-| Acquia snapshot build | ~30–60s | Runs in parallel for all files |
-| Phase 2 — poll + download | ~60s total | All files download as ready |
-| **Total (30-day backfill)** | **~5–10 min** | vs ~60 min serial |
+| 1 type × N days | serial (1 group) | N × ~30–90s |
+| 3 types × N days | up to 3 groups in parallel | ≈ N × ~30–90s wall (types overlap) |
+| `--concurrency` | caps parallel groups | default 4 |
+
+A 30-day single-type pull is inherently serial (~15–45 min) — this is the
+cost of correctness under the API's one-snapshot-per-`(env,type)` limit.
 
 Rate limit between log-create calls defaults to 1s. Lower via
 `--rate-limit-s 0.5` if needed.

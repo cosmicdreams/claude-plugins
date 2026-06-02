@@ -518,5 +518,215 @@ class FindEnvTests(unittest.TestCase):
         self.assertIn("prod", str(ctx.exception))
 
 
+_MON_ABBR = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+             "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+def _gz(payload: bytes) -> bytes:
+    buf = io.BytesIO()
+    with gzip.GzipFile(fileobj=buf, mode="wb") as g:
+        g.write(payload)
+    return buf.getvalue()
+
+
+def _apache_access_gz(day: date, n: int = 5) -> bytes:
+    mon = _MON_ABBR[day.month - 1]
+    line = (
+        f"1.2.3.4 - - [{day.day:02d}/{mon}/{day.year}:00:00:01 +0000] "
+        f'"GET / HTTP/1.1" 200 1\n'
+    )
+    return _gz(line.encode() * n)
+
+
+class DominantMonthDayTests(unittest.TestCase):
+    def _write(self, td, payload: bytes, name="f.log.gz"):
+        p = pathlib.Path(td) / name
+        p.write_bytes(_gz(payload))
+        return p
+
+    def test_apache_access(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = self._write(
+                td, b"1.2.3.4 - - [10/May/2026:00:00:01 +0000] x\n" * 3
+            )
+            self.assertEqual(pull.dominant_month_day(p), (5, 10))
+
+    def test_apache_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = self._write(td, b"[Tue Apr 03 00:00:33.123456 2026] [error] x\n" * 3)
+            self.assertEqual(pull.dominant_month_day(p), (4, 3))
+
+    def test_php_error(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = self._write(td, b"[03-Apr-2026 00:00:33 UTC] PHP Warning: x\n" * 3)
+            self.assertEqual(pull.dominant_month_day(p), (4, 3))
+
+    def test_drupal_watchdog_syslog(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = self._write(td, b"Apr  3 00:00:00 host drupal: x\n" * 3)
+            self.assertEqual(pull.dominant_month_day(p), (4, 3))
+
+    def test_unparseable_returns_none(self):
+        with tempfile.TemporaryDirectory() as td:
+            p = self._write(td, b"hello world\n" * 3)
+            self.assertIsNone(pull.dominant_month_day(p))
+
+    def test_dominant_beats_minority_spillover(self):
+        # A few UTC-midnight spillover lines from the prior day must not win.
+        payload = (
+            b"1.2.3.4 - - [30/Apr/2026:23:59:59 +0000] x\n" * 2
+            + b"1.2.3.4 - - [01/May/2026:00:00:01 +0000] x\n" * 100
+        )
+        with tempfile.TemporaryDirectory() as td:
+            p = self._write(td, payload)
+            self.assertEqual(pull.dominant_month_day(p), (5, 1))
+
+
+class VerificationTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.root = pathlib.Path(self.tmp.name)
+        self.envs = [{"name": "prod", "env_id": "env-id",
+                      "types": ["apache-access"]}]
+
+    def tearDown(self):
+        self.tmp.cleanup()
+
+    def test_stale_snapshot_rejected(self):
+        """A download whose dominant date != requested day is rejected."""
+        client = mock.MagicMock()
+        client.request_log_download.return_value = {
+            "_links": {"notification": {"href": "https://x/n"}},
+        }
+        client.check_log_download.return_value = {"status": "completed"}
+        client.get_log_download_url.return_value = "https://s3/stale.gz"
+        # Requested 2026-04-02 but Acquia hands back an 04-01 snapshot.
+        stale = _apache_access_gz(date(2026, 4, 1))
+
+        def fake_urlretrieve(url, dest):
+            with open(dest, "wb") as fh:
+                fh.write(stale)
+        with mock.patch.object(
+            pull.urllib.request, "urlretrieve", side_effect=fake_urlretrieve,
+        ):
+            summary = pull.reconcile(
+                client, self.root, self.envs, ["apache-access"],
+                [date(2026, 4, 2)],
+                rate_limit_s=0, retries=0, poll_interval_s=0, concurrency=1,
+            )
+        self.assertEqual(summary["fetched"], 0)
+        self.assertEqual(summary["failed"], 1)
+        cov = pull.load_coverage(self.root)
+        entry = cov["2026-04-02"]["prod.apache-access"]
+        self.assertEqual(entry["state"], "fetch-failed")
+        self.assertIn("snapshot-mismatch", entry["reason"])
+        # The mislabeled file must NOT be left on disk.
+        self.assertIsNone(
+            pull.find_log_file(self.root, date(2026, 4, 2), "prod", "apache-access")
+        )
+
+    def test_serial_per_day_yields_distinct_files(self):
+        """Multi-day single-type pull serializes create→download per day,
+        so each day gets its own (most-recent) snapshot — distinct files."""
+        days = [date(2026, 4, 1), date(2026, 4, 2), date(2026, 4, 3)]
+        events = []
+        holder = {"day": None}
+
+        def req(env_id, log_type, from_iso=None, to_iso=None):
+            d = date.fromisoformat(from_iso[:10])
+            holder["day"] = d
+            events.append(("create", d))
+            return {"_links": {"notification": {"href": f"https://x/{d}"}}}
+
+        def dl(env_id, log_type):
+            events.append(("download", holder["day"]))
+            return f"https://s3/{holder['day']}.gz"
+
+        client = mock.MagicMock()
+        client.request_log_download.side_effect = req
+        client.check_log_download.return_value = {"status": "completed"}
+        client.get_log_download_url.side_effect = dl
+
+        def fake_urlretrieve(url, dest):
+            # "most recent" snapshot == the day of the last create.
+            with open(dest, "wb") as fh:
+                fh.write(_apache_access_gz(holder["day"]))
+        with mock.patch.object(
+            pull.urllib.request, "urlretrieve", side_effect=fake_urlretrieve,
+        ):
+            summary = pull.reconcile(
+                client, self.root, self.envs, ["apache-access"], days,
+                rate_limit_s=0, retries=0, poll_interval_s=0, concurrency=4,
+            )
+
+        self.assertEqual(summary["fetched"], 3)
+        self.assertEqual(summary["failed"], 0)
+        # Strict alternation proves no batching of creates ahead of downloads.
+        self.assertEqual(
+            events,
+            [("create", days[0]), ("download", days[0]),
+             ("create", days[1]), ("download", days[1]),
+             ("create", days[2]), ("download", days[2])],
+        )
+        # All three files present and byte-distinct.
+        md5s = set()
+        for d in days:
+            f = pull.find_log_file(self.root, d, "prod", "apache-access")
+            self.assertIsNotNone(f)
+            md5s.add(pull.file_md5(f))
+        self.assertEqual(len(md5s), 3)
+
+    def test_duplicate_md5_rejected(self):
+        """If two days come back byte-identical (the stale-snapshot bug),
+        the duplicate is rejected rather than written as present."""
+        client = mock.MagicMock()
+        client.request_log_download.return_value = {
+            "_links": {"notification": {"href": "https://x/n"}},
+        }
+        client.check_log_download.return_value = {"status": "completed"}
+        client.get_log_download_url.return_value = "https://s3/same.gz"
+        # No parseable date → date-check is inconclusive; md5 guard catches it.
+        same = _gz(b"no-date payload\n" * 5)
+
+        def fake_urlretrieve(url, dest):
+            with open(dest, "wb") as fh:
+                fh.write(same)
+        with mock.patch.object(
+            pull.urllib.request, "urlretrieve", side_effect=fake_urlretrieve,
+        ):
+            summary = pull.reconcile(
+                client, self.root, self.envs, ["apache-access"],
+                [date(2026, 4, 1), date(2026, 4, 2)],
+                rate_limit_s=0, retries=0, poll_interval_s=0, concurrency=1,
+            )
+        self.assertEqual(summary["fetched"], 1)
+        self.assertEqual(summary["failed"], 1)
+        cov = pull.load_coverage(self.root)
+        self.assertEqual(
+            cov["2026-04-01"]["prod.apache-access"]["state"], "present"
+        )
+        dup = cov["2026-04-02"]["prod.apache-access"]
+        self.assertEqual(dup["state"], "fetch-failed")
+        self.assertIn("snapshot-mismatch", dup["reason"])
+
+
+class ResolveDatesTodayExclusionTests(unittest.TestCase):
+    def _ns(self, **kw):
+        import argparse as _a
+        defaults = dict(date=None, from_=None, to=None,
+                        daily=False, backfill=False, backfill_days=None)
+        defaults.update(kw)
+        return _a.Namespace(**defaults)
+
+    def test_from_to_clamps_today(self):
+        today = datetime.now(timezone.utc).date()
+        yesterday = today - timedelta(days=1)
+        d = pull.resolve_dates(
+            self._ns(from_=yesterday.isoformat(), to=today.isoformat())
+        )
+        self.assertEqual(d[-1], yesterday)
+        self.assertNotIn(today, d)
+
+
 if __name__ == "__main__":
     unittest.main()
