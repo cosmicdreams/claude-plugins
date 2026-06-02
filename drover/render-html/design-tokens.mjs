@@ -599,11 +599,67 @@ p { margin: 0 0 var(--space-md) 0; }
   margin: 0;
 }
 @media print {
+  /* ── Color fidelity ────────────────────────────────────────────── */
+  * {
+    -webkit-print-color-adjust: exact !important;
+    print-color-adjust: exact !important;
+  }
+
+  /* ── Page chrome ───────────────────────────────────────────────── */
   body { background: white; }
   .page { max-width: none; margin: 0; box-shadow: none; }
-  h2.section { page-break-after: avoid; }
-  .ticket-card, .metric-card { page-break-inside: avoid; }
   .theme-toggle-btn, .filter-panel { display: none !important; }
+
+  /* ── Kill all animations ───────────────────────────────────────── */
+  /* Bar-chart bars animate from width:0 to their inline-style width  */
+  /* on load. A PDF snapshot mid-animation produces partial bars —    */
+  /* same root cause as the "incomplete donut circle" problem. With   */
+  /* animation:none the bar snaps to its final inline-style width     */
+  /* immediately; no special width override is needed.                */
+  *, *::before, *::after {
+    animation: none !important;
+    transition: none !important;
+  }
+
+  /* ── Intentional section page breaks ───────────────────────────── */
+  /* Every h2.section marks a distinct report chapter. Force a fresh  */
+  /* page so section headings never appear buried at the bottom of    */
+  /* the prior section. Metric summary stays on page 1; sections      */
+  /* follow on subsequent pages.                                       */
+  .page-body h2.section {
+    break-before: page;
+    page-break-before: always;
+  }
+
+  /* ── Heading orphan prevention ─────────────────────────────────── */
+  h2, h3, h4 {
+    break-after: avoid;
+    page-break-after: avoid;
+  }
+
+  /* ── Cards: never split across a page boundary ─────────────────── */
+  /* Multi-column grid cards overlap when a grid row is split at a    */
+  /* page boundary. break-inside:avoid keeps each card whole.         */
+  .ticket-card,
+  .metric-card,
+  .triage-card,
+  .jira-card,
+  tr {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  /* ── Code / log-sample blocks ──────────────────────────────────── */
+  /* overflow-x:auto is interactive-only; in print, wrap long lines   */
+  /* so they don't run off the page edge or produce a scrollbar       */
+  /* artifact in the rendered PDF.                                     */
+  .ticket-card__sample,
+  pre,
+  code {
+    white-space: pre-wrap !important;
+    overflow: visible !important;
+    word-break: break-all;
+  }
 }
 `;
 }
