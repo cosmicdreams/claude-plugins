@@ -100,6 +100,149 @@ Handlebars.registerHelper("join", (arr, sep) => Array.isArray(arr) ? arr.join(se
 Handlebars.registerHelper("eq", (a, b) => a === b);
 Handlebars.registerHelper("upper", (s) => String(s ?? "").toUpperCase());
 
+Handlebars.registerHelper("svgDonut", (cacheStatus) => {
+  if (!cacheStatus) return "";
+  const values = [
+    { label: "Hit", value: cacheStatus.hit || 0, color: "var(--color-trend-down)" },
+    { label: "Miss", value: cacheStatus.miss || 0, color: "var(--color-trend-up)" },
+    { label: "Dynamic", value: cacheStatus.dynamic || 0, color: "var(--color-secondary)" },
+    { label: "None", value: cacheStatus.none || 0, color: "var(--color-severity-info)" }
+  ];
+  const total = values.reduce((sum, v) => sum + v.value, 0);
+  if (total === 0) return "";
+  
+  let svg = `<svg viewBox="0 0 36 36" style="width:100%; height:auto;">\n`;
+  let currentAngle = 0;
+  values.forEach(v => {
+    if (v.value === 0) return;
+    const pct = v.value / total;
+    const dashLength = Math.max(pct * 100 - 0.5, 0); // slight gap
+    const dashOffset = 25 - (currentAngle / 360) * 100;
+    
+    svg += `  <circle cx="18" cy="18" r="15.91549430918954" fill="transparent" stroke="${v.color}" stroke-width="6" stroke-dasharray="${dashLength} ${100 - dashLength}" stroke-dashoffset="${dashOffset}" data-tooltip="${v.label}: ${(pct*100).toFixed(1)}% (${v.value.toLocaleString()})" style="cursor:crosshair;"><title>${v.label}: ${v.value.toLocaleString()}</title></circle>\n`;
+    currentAngle += pct * 360;
+  });
+  
+  const centerText = ((values[0].value / total) * 100).toFixed(0) + "%";
+  svg += `  <text x="18" y="20.5" text-anchor="middle" font-family="var(--font-metric-family)" font-size="7" font-weight="600" fill="var(--color-text-strong)">${centerText}</text>\n`;
+  svg += `  <text x="18" y="24" text-anchor="middle" font-family="var(--font-label-family)" font-size="2.5" fill="var(--color-text-soft)">Hit Rate</text>\n`;
+  svg += `</svg>`;
+
+  let legendHtml = `<div class="donut-legend" style="margin-left: 2rem; display:flex; flex-direction:column; gap:0.5rem; justify-content:center;">`;
+  values.forEach(v => {
+    if (v.value === 0) return;
+    const pct = ((v.value / total) * 100).toFixed(1) + "%";
+    legendHtml += `<div style="display:flex; align-items:center; font-size:var(--font-body-sm-size); gap:0.5rem;"><span style="display:inline-block; width:12px; height:12px; background:${v.color}; border-radius:2px;"></span><span style="flex:1; color:var(--color-text-strong); font-weight:500;">${v.label}</span><span style="color:var(--color-text-muted); font-variant-numeric:tabular-nums;">${v.value.toLocaleString()} <span style="opacity:0.7;">(${pct})</span></span></div>`;
+  });
+  legendHtml += `</div>`;
+
+  return `<div style="display:flex; align-items:center;">
+    <div style="flex:0 0 200px;">${svg}</div>
+    <div style="flex:1;">${legendHtml}</div>
+  </div>`;
+});
+
+Handlebars.registerHelper("svgAreaChart", (daily) => {
+  if (!daily || !daily.length) return "";
+  const maxBytes = Math.max(...daily.map(d => d.bytes || 0), 1);
+  const width = 1000;
+  const height = 300;
+  const dx = width / Math.max(daily.length - 1, 1);
+  
+  let polyTotal = "";
+  let polyCached = "";
+  let gridHtml = "";
+  
+  for (let i = 0; i <= 4; i++) {
+    const yVal = maxBytes * (i / 4);
+    const yPx = height - (i / 4) * height;
+    
+    let yLabel = yVal;
+    if (yVal > 1e12) yLabel = (yVal / 1e12).toFixed(1) + " TB";
+    else if (yVal > 1e9) yLabel = (yVal / 1e9).toFixed(1) + " GB";
+    else if (yVal > 1e6) yLabel = (yVal / 1e6).toFixed(1) + " MB";
+    else if (yVal > 1e3) yLabel = (yVal / 1e3).toFixed(1) + " KB";
+    
+    if (i > 0) {
+      gridHtml += `<line x1="0" y1="${yPx}" x2="${width}" y2="${yPx}" stroke="var(--color-border)" stroke-width="1" stroke-dasharray="4 4" />`;
+    }
+    gridHtml += `<text x="5" y="${yPx - 5}" font-family="var(--font-label-family)" font-size="12" fill="var(--color-text-muted)">${yLabel}</text>`;
+  }
+
+  let hoverTargets = "";
+
+  daily.forEach((d, i) => {
+    const x = i * dx;
+    const yTotal = height - ((d.bytes || 0) / maxBytes) * height;
+    const yCached = height - ((d.cached_bytes || 0) / maxBytes) * height;
+    polyTotal += `${x},${yTotal} `;
+    polyCached += `${x},${yCached} `;
+
+    if (i % Math.ceil(daily.length / 10) === 0 || i === daily.length - 1) {
+       const dateStr = d.date.slice(5);
+       gridHtml += `<text x="${x}" y="${height + 20}" font-family="var(--font-label-family)" font-size="12" fill="var(--color-text-muted)" text-anchor="middle">${dateStr}</text>`;
+    }
+    
+    const pct = d.bytes > 0 ? ((d.cached_bytes / d.bytes) * 100).toFixed(1) + "% hit" : "0%";
+    const tooltipText = `${d.date}: Total ${(d.bytes / 1e9).toFixed(1)}GB, Cached ${(d.cached_bytes / 1e9).toFixed(1)}GB (${pct})`;
+    const rX = x - dx/2;
+    hoverTargets += `<rect x="${rX}" y="0" width="${dx}" height="${height}" fill="transparent" data-tooltip="${tooltipText}" style="cursor:crosshair;"><title>${tooltipText}</title></rect>`;
+  });
+  
+  polyTotal += `${width},${height} 0,${height}`;
+  polyCached += `${width},${height} 0,${height}`;
+  
+  return `<svg viewBox="0 0 ${width} ${height + 30}" style="width:100%; height:auto; overflow:visible;">
+    ${gridHtml}
+    <polygon points="${polyTotal}" fill="var(--color-severity-error-bg)" opacity="0.3"/>
+    <polygon points="${polyCached}" fill="var(--color-secondary)" opacity="0.8"/>
+    ${hoverTargets}
+  </svg>
+  <div style="display:flex; justify-content:center; gap:1.5rem; margin-top:1rem; font-size:var(--font-body-sm-size);">
+    <div style="display:flex; align-items:center; gap:0.5rem;"><span style="display:inline-block; width:12px; height:12px; background:var(--color-severity-error-bg); border-radius:2px; opacity:0.5;"></span><span style="color:var(--color-text-muted);">Total Bandwidth</span></div>
+    <div style="display:flex; align-items:center; gap:0.5rem;"><span style="display:inline-block; width:12px; height:12px; background:var(--color-secondary); border-radius:2px;"></span><span style="color:var(--color-text-muted);">Cached Bandwidth</span></div>
+  </div>`;
+});
+
+Handlebars.registerHelper("svgWaffle", (botClasses) => {
+  if (!botClasses) return "";
+  const values = [
+    { label: "Machine Learning", value: botClasses.machine_learning || 0, color: "var(--color-severity-critical)" },
+    { label: "Verified Bot", value: botClasses.verified_bot || 0, color: "var(--color-trend-down)" },
+    { label: "Heuristics", value: botClasses.heuristics || 0, color: "var(--color-secondary)" },
+    { label: "Not Computed", value: botClasses.not_computed || 0, color: "var(--color-severity-info)" }
+  ];
+  const total = values.reduce((sum, v) => sum + v.value, 0);
+  if (total === 0) return "";
+  
+  let cellsHtml = "";
+  let currentClassIdx = 0;
+  let remainingInClass = Math.round((values[0].value / total) * 100);
+  
+  for (let i = 0; i < 100; i++) {
+    while (remainingInClass <= 0 && currentClassIdx < values.length - 1) {
+      currentClassIdx++;
+      remainingInClass = Math.round((values[currentClassIdx].value / total) * 100);
+    }
+    const v = values[currentClassIdx] || values[values.length - 1];
+    cellsHtml += `<div class="waffle-cell" style="background-color: ${v.color}; cursor:crosshair;" data-tooltip="${v.label}: ${((v.value/total)*100).toFixed(1)}%"><title>${v.label}</title></div>`;
+    remainingInClass--;
+  }
+  
+  let legendHtml = `<div class="waffle-legend" style="margin-left: 2rem; display:flex; flex-direction:column; gap:0.5rem; justify-content:center;">`;
+  values.forEach(v => {
+    if (v.value === 0) return;
+    const pct = ((v.value / total) * 100).toFixed(1) + "%";
+    legendHtml += `<div style="display:flex; align-items:center; font-size:var(--font-body-sm-size); gap:0.5rem;"><span style="display:inline-block; width:12px; height:12px; background:${v.color}; border-radius:2px;"></span><span style="flex:1; color:var(--color-text-strong); font-weight:500;">${v.label}</span><span style="color:var(--color-text-muted); font-variant-numeric:tabular-nums;">${v.value.toLocaleString()} <span style="opacity:0.7;">(${pct})</span></span></div>`;
+  });
+  legendHtml += `</div>`;
+  
+  return `<div style="display:flex; align-items:stretch; max-width: 600px; margin: 0 auto;">
+    <div style="flex:0 0 220px; display:flex; gap:2px; flex-wrap:wrap; align-content: flex-start;">${cellsHtml}</div>
+    <div style="flex:1;">${legendHtml}</div>
+  </div>`;
+});
+
 // --- Partials ------------------------------------------------------------
 // Shared chrome (theme-init script, toggle button, toggle handler) lives in
 // templates/partials/*.hbs and is registered by basename. Keeping it in one
@@ -490,12 +633,24 @@ function truncate(s, n) {
   return s.length <= n ? s : s.slice(0, n - 1) + "…";
 }
 
+function buildCloudflareSummaryView(data) {
+  return {
+    meta: { project: data.zone || "Zone", month_label: data.window ? `${data.window.start} - ${data.window.end}` : "Current" },
+    top_countries: data.top_countries,
+    cache_status: data.cache_status,
+    daily: data.daily,
+    bot_classes: data.bot_classes,
+    generatedAt: new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC"
+  };
+}
+
 const VIEW_BUILDERS = {
   "monthly-client": buildMonthlyClientView,
   "root-cause-summary": buildRootCauseSummaryView,
   "calendar-boundary": buildCalendarBoundaryView,
   "triage-brief": buildTriageBriefView,
   "jira-ready": buildJiraReadyView,
+  "cloudflare-summary": buildCloudflareSummaryView,
 };
 
 // --- entry ---------------------------------------------------------------
