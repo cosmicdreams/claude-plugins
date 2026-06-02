@@ -1,0 +1,3687 @@
+<!doctype html>
+<html lang="en">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>
+            Acmecorp — Search & Imperva Passthrough Analysis, May 2026
+        </title>
+        <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+        <style>
+            :root {
+                --ink: #0f172a;
+                --ink-soft: #334155;
+                --muted: #64748b;
+                --line: #e2e8f0;
+                --bg: #f8fafc;
+                --card: #ffffff;
+                --accent: #1e3a8a;
+                --accent-soft: #dbeafe;
+                --good: #047857;
+                --good-soft: #d1fae5;
+                --warn: #b45309;
+                --warn-soft: #fef3c7;
+                --bad: #b91c1c;
+                --bad-soft: #fee2e2;
+                --human: #2563eb;
+                --bot: #f59e0b;
+                --scraper: #dc2626;
+                --scan: #6b7280;
+                --static: #8b5cf6;
+                --noua: #475569;
+            }
+            * {
+                box-sizing: border-box;
+            }
+            html,
+            body {
+                margin: 0;
+                padding: 0;
+                font-family:
+                    -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+                    "Helvetica Neue", Arial, sans-serif;
+                color: var(--ink);
+                background: var(--bg);
+                line-height: 1.55;
+            }
+            .wrap {
+                max-width: 1180px;
+                margin: 0 auto;
+                padding: 0 24px;
+            }
+
+            header.hero {
+                background: linear-gradient(135deg, #0f172a 0%, #1e3a8a 100%);
+                color: #fff;
+                padding: 48px 0 56px;
+                border-bottom: 4px solid #1e40af;
+            }
+            .win-banner {
+                background: linear-gradient(135deg, #047857 0%, #10b981 100%);
+                color: #fff;
+                padding: 18px 0;
+                border-bottom: 1px solid rgba(255, 255, 255, 0.15);
+            }
+            .win-banner .wrap {
+                display: grid;
+                grid-template-columns: auto 1fr auto;
+                gap: 24px;
+                align-items: center;
+            }
+            .win-banner .check {
+                width: 44px;
+                height: 44px;
+                border-radius: 50%;
+                background: rgba(255, 255, 255, 0.18);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 24px;
+                font-weight: 700;
+                border: 2px solid rgba(255, 255, 255, 0.4);
+            }
+            .win-banner .text {
+                font-size: 15px;
+                line-height: 1.5;
+            }
+            .win-banner .text strong {
+                font-size: 17px;
+                display: block;
+                margin-bottom: 2px;
+            }
+            .win-banner .stats {
+                display: flex;
+                gap: 28px;
+                border-left: 1px solid rgba(255, 255, 255, 0.25);
+                padding-left: 28px;
+            }
+            .win-banner .stat {
+                text-align: center;
+            }
+            .win-banner .stat .num {
+                font-size: 22px;
+                font-weight: 700;
+                line-height: 1;
+            }
+            .win-banner .stat .lbl {
+                font-size: 11px;
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                opacity: 0.85;
+                margin-top: 4px;
+            }
+            @media (max-width: 900px) {
+                .win-banner .wrap {
+                    grid-template-columns: 1fr;
+                    gap: 12px;
+                }
+                .win-banner .stats {
+                    border-left: none;
+                    border-top: 1px solid rgba(255, 255, 255, 0.25);
+                    padding-left: 0;
+                    padding-top: 12px;
+                    justify-content: space-around;
+                }
+            }
+            header.hero .wrap {
+                display: grid;
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+            .eyebrow {
+                text-transform: uppercase;
+                letter-spacing: 0.12em;
+                font-size: 12px;
+                color: #93c5fd;
+                font-weight: 600;
+            }
+            h1 {
+                font-size: 34px;
+                margin: 0;
+                line-height: 1.2;
+                font-weight: 700;
+            }
+            .lede {
+                font-size: 17px;
+                color: #cbd5e1;
+                max-width: 820px;
+                margin: 8px 0 0;
+            }
+            .meta-row {
+                display: flex;
+                flex-wrap: wrap;
+                gap: 24px;
+                margin-top: 20px;
+                font-size: 13px;
+                color: #cbd5e1;
+            }
+            .meta-row span strong {
+                color: #fff;
+            }
+
+            main {
+                padding: 40px 0 80px;
+            }
+
+            section {
+                margin-bottom: 56px;
+            }
+            section h2 {
+                font-size: 24px;
+                margin: 0 0 6px;
+                display: flex;
+                align-items: baseline;
+                gap: 12px;
+            }
+            section h2 .num {
+                color: #94a3b8;
+                font-weight: 600;
+                font-size: 18px;
+                letter-spacing: 0.05em;
+            }
+            section h3 {
+                font-size: 17px;
+                margin: 32px 0 12px;
+                color: var(--ink);
+            }
+            section > p.intro {
+                color: var(--ink-soft);
+                margin: 0 0 24px;
+                max-width: 820px;
+            }
+
+            .headline-card {
+                background: var(--card);
+                border: 1px solid var(--line);
+                border-left: 5px solid var(--bad);
+                border-radius: 8px;
+                padding: 28px 32px;
+                margin-bottom: 32px;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+            }
+            .headline-card .label {
+                text-transform: uppercase;
+                font-size: 11px;
+                letter-spacing: 0.1em;
+                color: var(--bad);
+                font-weight: 700;
+            }
+            .headline-card .text {
+                font-size: 20px;
+                margin: 10px 0 0;
+                color: var(--ink);
+                font-weight: 400;
+                line-height: 1.55;
+            }
+            /* Opening section (no h2) gets a little extra top breathing room */
+            main > .wrap > section:first-child {
+                padding-top: 12px;
+            }
+
+            .kpis {
+                display: grid;
+                grid-template-columns: repeat(4, 1fr);
+                gap: 16px;
+                margin-bottom: 32px;
+            }
+            .kpi {
+                background: var(--card);
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                padding: 18px 20px;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+            }
+            .kpi .label {
+                font-size: 12px;
+                color: var(--muted);
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                font-weight: 600;
+            }
+            .kpi .value {
+                font-size: 26px;
+                font-weight: 700;
+                color: var(--ink);
+                margin-top: 4px;
+            }
+            .kpi .sub {
+                font-size: 12px;
+                color: var(--muted);
+                margin-top: 4px;
+            }
+            .kpi.bad .value {
+                color: var(--bad);
+            }
+            .kpi.good .value {
+                color: var(--good);
+            }
+            .kpi.warn .value {
+                color: var(--warn);
+            }
+
+            .grid-2 {
+                display: grid;
+                grid-template-columns: 1fr 1fr;
+                gap: 24px;
+            }
+            .grid-3 {
+                display: grid;
+                grid-template-columns: repeat(3, 1fr);
+                gap: 16px;
+            }
+
+            .card {
+                background: var(--card);
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                padding: 20px 22px;
+                box-shadow: 0 1px 2px rgba(15, 23, 42, 0.04);
+            }
+            .card h4 {
+                margin: 0 0 14px;
+                font-size: 14px;
+                color: var(--ink-soft);
+                text-transform: uppercase;
+                letter-spacing: 0.06em;
+                font-weight: 600;
+            }
+
+            .chart-box {
+                position: relative;
+                height: 280px;
+            }
+            .chart-box.tall {
+                height: 360px;
+            }
+            .chart-box.hero-chart {
+                height: 420px;
+            }
+
+            table {
+                width: 100%;
+                border-collapse: collapse;
+                font-size: 14px;
+            }
+            table th,
+            table td {
+                text-align: left;
+                padding: 10px 12px;
+                border-bottom: 1px solid var(--line);
+            }
+            table th {
+                font-weight: 600;
+                color: var(--ink-soft);
+                background: #f1f5f9;
+                font-size: 12px;
+                text-transform: uppercase;
+                letter-spacing: 0.04em;
+            }
+            table td.num {
+                text-align: right;
+                font-variant-numeric: tabular-nums;
+            }
+            table tr:last-child td {
+                border-bottom: none;
+            }
+
+            .legend-dot {
+                display: inline-block;
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                margin-right: 8px;
+                vertical-align: middle;
+            }
+
+            .recs {
+                display: grid;
+                gap: 14px;
+            }
+            .rec {
+                background: var(--card);
+                border: 1px solid var(--line);
+                border-radius: 8px;
+                padding: 18px 22px;
+                display: grid;
+                grid-template-columns: 56px 1fr auto;
+                gap: 18px;
+                align-items: center;
+            }
+            .rec .rank {
+                font-size: 28px;
+                font-weight: 700;
+                color: var(--accent);
+                width: 56px;
+                height: 56px;
+                border-radius: 50%;
+                background: var(--accent-soft);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .rec .body strong {
+                display: block;
+                font-size: 15px;
+                color: var(--ink);
+                margin-bottom: 4px;
+            }
+            .rec .body p {
+                margin: 0;
+                color: var(--ink-soft);
+                font-size: 14px;
+            }
+            .rec .lever {
+                text-align: right;
+                font-size: 13px;
+                color: var(--muted);
+            }
+            .rec .lever strong {
+                display: block;
+                font-size: 18px;
+                color: var(--bad);
+                font-weight: 700;
+            }
+
+            .pill {
+                display: inline-block;
+                padding: 2px 10px;
+                border-radius: 999px;
+                font-size: 11px;
+                font-weight: 600;
+                letter-spacing: 0.04em;
+                text-transform: uppercase;
+            }
+            .pill.bad {
+                background: var(--bad-soft);
+                color: var(--bad);
+            }
+            .pill.warn {
+                background: var(--warn-soft);
+                color: var(--warn);
+            }
+            .pill.good {
+                background: var(--good-soft);
+                color: var(--good);
+            }
+            .pill.muted {
+                background: #f1f5f9;
+                color: var(--muted);
+            }
+
+            .callout {
+                background: var(--warn-soft);
+                border-left: 4px solid var(--warn);
+                padding: 14px 18px;
+                border-radius: 4px;
+                font-size: 14px;
+                color: #78350f;
+                margin: 20px 0;
+            }
+            .callout strong {
+                color: #7c2d12;
+            }
+
+            footer {
+                border-top: 1px solid var(--line);
+                padding: 24px 0;
+                color: var(--muted);
+                font-size: 13px;
+                background: #fff;
+            }
+            footer .wrap {
+                display: flex;
+                justify-content: space-between;
+                align-items: center;
+                flex-wrap: wrap;
+                gap: 8px;
+            }
+
+            @media (max-width: 900px) {
+                .kpis {
+                    grid-template-columns: repeat(2, 1fr);
+                }
+                .grid-2 {
+                    grid-template-columns: 1fr;
+                }
+                .grid-3 {
+                    grid-template-columns: 1fr;
+                }
+                .rec {
+                    grid-template-columns: 1fr;
+                    text-align: left;
+                }
+                .rec .lever {
+                    text-align: left;
+                }
+                h1 {
+                    font-size: 26px;
+                }
+            }
+        </style>
+    </head>
+    <body>
+        <header class="hero">
+            <div class="wrap">
+                <span class="eyebrow"
+                    >Acmecorp Regional Transit — Site Reliability</span
+                >
+                <h1>Search Allocation &amp; Imperva Passthrough Analysis</h1>
+                <p class="lede">
+                    Search traffic on the Acmecorp site climbed sharply in early
+                    May. This report identifies what was driving the surge,
+                    confirms that the mitigation deployed on May 15 is working,
+                    and lays out the small set of remaining changes needed to
+                    fully resolve the issue.
+                </p>
+                <div class="meta-row">
+                    <span
+                        ><strong>Window:</strong> May 1–25, 2026 (25 days)</span
+                    >
+                    <span
+                        ><strong>Source:</strong> Production apache-access
+                        logs</span
+                    >
+                    <span><strong>Total requests:</strong> 1,251,059</span>
+                    <span
+                        ><strong>Organic (scan excluded):</strong> 795,011</span
+                    >
+                </div>
+            </div>
+        </header>
+
+        <div class="win-banner">
+            <div class="wrap">
+                <div class="check">✓</div>
+                <div class="text">
+                    <strong
+                        >The
+                        <code
+                            style="
+                                background: rgba(255, 255, 255, 0.18);
+                                padding: 1px 6px;
+                                border-radius: 3px;
+                                color: #fff;
+                            "
+                            >origin.acmecorp.example.com</code
+                        >
+                        bypass mitigation is deployed and working.</strong
+                    >
+                    As of May 15, 2026, every request from the Amazon Web
+                    Services (AWS) scraper to the bypass hostname is being
+                    rejected with an HTTP 403 response. The scraper has not
+                    migrated to
+                    <code
+                        style="
+                            background: rgba(255, 255, 255, 0.18);
+                            padding: 1px 6px;
+                            border-radius: 3px;
+                            color: #fff;
+                        "
+                        >www.acmecorp.example.com</code
+                    >. See Section&nbsp;02 for the cliff chart and measured
+                    impact.
+                </div>
+                <div class="stats">
+                    <div class="stat">
+                        <div class="num">−70%</div>
+                        <div class="lbl">Daily search burn</div>
+                    </div>
+                    <div class="stat">
+                        <div class="num">−75%</div>
+                        <div class="lbl">Bypass traffic</div>
+                    </div>
+                    <div class="stat">
+                        <div class="num">100%</div>
+                        <div class="lbl">Scraper 403'd</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <main>
+            <div class="wrap">
+                <!-- =================== OPENING / FRAMING =================== -->
+                <section>
+                    <div
+                        class="headline-card"
+                        style="border-left-color: var(--good)"
+                    >
+                        <span class="label" style="color: var(--good)"
+                            >Headline finding</span
+                        >
+                        <p class="text">
+                            Yes, the <code>origin.acmecorp.example.com</code> bypass
+                            mitigation deployed on <strong>May 15</strong> is
+                            working. Through May 14 the AWS-hosted scraper was
+                            being served Drupal pages on the bypass hostname —
+                            roughly
+                            <strong
+                                >23,000 successful (HTTP 200) responses per
+                                day</strong
+                            >
+                            that all counted toward the Acquia Views And Visits
+                            (V&amp;V) quota. From May 15 forward those drop to
+                            zero (the WAF rejects every request with 403, which
+                            by Acquia's rules does not count toward V&amp;V at
+                            all). Daily search burn against SearchStax also
+                            dropped from ~8,500/day to ~2,500/day. The remaining
+                            SearchStax pressure is primarirly from
+                            <strong
+                                >Microsoft's Bingbot crawling the legacy
+                                <code>/search</code> routes</strong
+                            >
+                            — a SearchStax-quota concern that a proposed
+                            robots.txt change (below) cleanly resolves (note:
+                            Bingbot is on Acquia's V&amp;V exclusion list, so it
+                            does not affect V&amp;V. Just search).
+                        </p>
+                    </div>
+
+                    <div class="kpis">
+                        <div class="kpi good">
+                            <div class="label">
+                                Search burn — daily, pre-mitigation
+                            </div>
+                            <div class="value">~8,500</div>
+                            <div class="sub">May 1–14, mean per day</div>
+                        </div>
+                        <div class="kpi good">
+                            <div class="label">
+                                Search burn — daily, post-mitigation
+                            </div>
+                            <div class="value">~2,500</div>
+                            <div class="sub">
+                                May 15–25, mean per day (−70%)
+                            </div>
+                        </div>
+                        <div class="kpi good">
+                            <div class="label">
+                                Scraper requests now being 403'd
+                            </div>
+                            <div class="value">~5,400/d</div>
+                            <div class="sub">
+                                100% rejection on bypass hostname
+                            </div>
+                        </div>
+                        <div class="kpi warn">
+                            <div class="label">
+                                Remaining SearchStax burn driver
+                            </div>
+                            <div class="value">Bingbot</div>
+                            <div class="sub">57,765 search hits, 25 days</div>
+                        </div>
+                    </div>
+
+                    <div class="callout">
+                        <strong>Note:</strong> the percentages above are a
+                        request-side proxy. The true SearchStax search-quota
+                        burn requires the May query count and monthly limit from
+                        the live SearchStax dashboard. This report is accurate
+                        on traffic shape and behavior; and we don't get those
+                        numbers.
+                    </div>
+
+                    <h3 style="margin-top: 36px">
+                        Three distinct budgets are at play
+                    </h3>
+                    <p style="color: var(--ink-soft); max-width: 820px">
+                        As a reminder we have three consumption concerns items
+                        below. Our efforts in optimizing traffic has been to
+                        improve the performance of all three.
+                    </p>
+
+                    <div class="grid-3" style="margin-top: 16px">
+                        <div class="card" style="border-top: 4px solid #1e3a8a">
+                            <h4 style="color: #1e3a8a">
+                                Acquia Views &amp; Visits (V&amp;V)
+                            </h4>
+                            <p style="font-size: 14px; margin-top: 0">
+                                <strong
+                                    >Contract metering against Acquia Cloud
+                                    Platform.</strong
+                                >
+                                Counted at the Varnish layer.
+                            </p>
+                            <p
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin: 8px 0 4px;
+                                "
+                            >
+                                <strong>Counts:</strong>
+                            </p>
+                            <ul
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin: 0 0 12px;
+                                    padding-left: 18px;
+                                "
+                            >
+                                <li>
+                                    Dynamic HTTP 2xx responses that bootstrapped
+                                    Drupal
+                                </li>
+                                <li>
+                                    Varnish cache hits where the underlying
+                                    request originally bootstrapped Drupal
+                                </li>
+                            </ul>
+                            <p
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin: 0 0 4px;
+                                "
+                            >
+                                <strong>Does NOT count:</strong>
+                            </p>
+                            <ul
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin: 0;
+                                    padding-left: 18px;
+                                "
+                            >
+                                <li>
+                                    Static assets — CSS, JS, images, fonts, PDFs
+                                    delivered from filesystem
+                                </li>
+                                <li>All 3xx redirects</li>
+                                <li>All 4xx client errors (404, 403, etc.)</li>
+                                <li>
+                                    Major known bots — Googlebot,
+                                    <strong>Bingbot</strong>, Yandex, Applebot,
+                                    LinkedInBot, facebookexternalhit, GPTBot,
+                                    DuckDuckBot, Baidu, CCBot, AhrefsBot,
+                                    SemrushBot, Slurp, Twitterbot, SiteMonitor,
+                                    and many more
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div
+                            class="card"
+                            style="border-top: 4px solid var(--bad)"
+                        >
+                            <h4 style="color: var(--bad)">
+                                SearchStax search-query quota
+                            </h4>
+                            <p style="font-size: 14px; margin-top: 0">
+                                <strong
+                                    >A different contract metering — the search
+                                    index has its own monthly query
+                                    budget.</strong
+                                >
+                            </p>
+                            <p
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin: 8px 0 4px;
+                                "
+                            >
+                                <strong>Counts:</strong>
+                            </p>
+                            <ul
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin: 0 0 12px;
+                                    padding-left: 18px;
+                                "
+                            >
+                                <li>
+                                    Every SearchStax query, regardless of who
+                                    triggered it
+                                </li>
+                                <li>
+                                    No bot exclusion at the SearchStax layer —
+                                    Bingbot, Googlebot, scrapers, and humans all
+                                    consume from the same pool
+                                </li>
+                                <li>
+                                    Faceted listings and area searches that
+                                    drive SearchStax queries on the back end
+                                </li>
+                            </ul>
+                            <p
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin: 0 0 4px;
+                                "
+                            >
+                                <strong>Does NOT count:</strong>
+                            </p>
+                            <ul
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin: 0;
+                                    padding-left: 18px;
+                                "
+                            >
+                                <li>
+                                    Search-result pages served entirely from
+                                    Drupal's render cache without re-querying
+                                    SearchStax
+                                </li>
+                                <li>
+                                    SearchMediator manifest endpoints (those are
+                                    static JSON, not SearchStax-backed)
+                                </li>
+                            </ul>
+                        </div>
+
+                        <div
+                            class="card"
+                            style="border-top: 4px solid var(--warn)"
+                        >
+                            <h4 style="color: var(--warn)">
+                                Origin server CPU &amp; bandwidth
+                            </h4>
+                            <p style="font-size: 14px; margin-top: 0">
+                                <strong
+                                    >Not a contract meter — but real load on the
+                                    Acquia origin servers.</strong
+                                >
+                            </p>
+                            <p
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin: 8px 0 4px;
+                                "
+                            >
+                                <strong>Counts:</strong>
+                            </p>
+                            <ul
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin: 0 0 12px;
+                                    padding-left: 18px;
+                                "
+                            >
+                                <li>
+                                    Every single request that reaches the origin
+                                    server, regardless of response code
+                                </li>
+                                <li>
+                                    Static assets that Imperva does not cache at
+                                    the edge
+                                </li>
+                                <li>
+                                    4xx and 5xx responses, including the 403s
+                                    from the May 15 mitigation (cheap, but
+                                    non-zero)
+                                </li>
+                                <li>
+                                    Bot and scraper traffic — bots that are
+                                    excluded from V&amp;V still cost
+                                    CPU/bandwidth here
+                                </li>
+                            </ul>
+                            <p
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin: 0;
+                                "
+                            >
+                                Tightening this budget keeps response times
+                                healthy and avoids overrunning the underlying
+                                server capacity (separate from billing).
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        class="callout"
+                        style="
+                            background: #eff6ff;
+                            border-left-color: var(--accent);
+                            color: #1e293b;
+                            margin-top: 16px;
+                        "
+                    >
+                        <strong>TL;DR:</strong>
+                        <ul style="margin: 8px 0 0; padding-left: 20px">
+                            <li>
+                                The <strong>Views &amp; Visits</strong> story is
+                                the AWS scraper — it presented as a real browser
+                                so Acquia counted every one of its successful
+                                hits. The May 15 mitigation is a large V&amp;V
+                                relief.
+                            </li>
+                            <li>
+                                The <strong>SearchStax</strong> story is mostly
+                                Bingbot now — but Bingbot is an excluded V&amp;V
+                                bot, so this is purely a search-quota issue, not
+                                a billing-page issue.
+                            </li>
+                            <li>
+                                The <strong>origin CPU/bandwidth</strong> story
+                                includes everything else — static assets
+                                reaching origin, 4xx attack-scanner noise, the
+                                5,400/day post-mitigation scraper probes that
+                                get 403'd, etc.
+                            </li>
+                        </ul>
+                    </div>
+                </section>
+
+                <!-- =================== MAY 15 INFLECTION (NEW) =================== -->
+                <section>
+                    <h2>
+                        <span class="num">02</span> The May 15 mitigation —
+                        measured impact
+                    </h2>
+                    <p class="intro">
+                        Splitting the 25-day window by day produces a sharp
+                        inflection: on May 15, traffic to
+                        <code>origin.acmecorp.example.com</code> changes character
+                        entirely. Successful (HTTP 200) responses fall to zero.
+                        The AWS scraper keeps attempting but every request is
+                        rejected with a 403. Total search volume to origin drops
+                        by 70%. This is the strongest possible evidence the
+                        bypass mitigation went live that day and is doing what
+                        it was designed to do.
+                    </p>
+
+                    <div
+                        class="card"
+                        style="
+                            border: 2px solid var(--good);
+                            background: linear-gradient(
+                                180deg,
+                                #f0fdf4 0%,
+                                #ffffff 100%
+                            );
+                        "
+                    >
+                        <h4 style="color: var(--good); font-size: 15px">
+                            ★ The May 15 cliff — daily traffic to
+                            <code>origin.acmecorp.example.com</code>, successful (200)
+                            vs blocked (403)
+                        </h4>
+                        <div class="chart-box hero-chart">
+                            <canvas id="chartCliff"></canvas>
+                        </div>
+                        <p
+                            style="
+                                font-size: 14px;
+                                color: var(--ink);
+                                margin: 12px 0 0;
+                            "
+                        >
+                            <strong
+                                >This is the entire story in a single
+                                chart.</strong
+                            >
+                            Through May 14, the bypass returned 10,000–23,000
+                            HTTP 200 responses per day — the AWS scraper
+                            hammering the back door and getting in. Starting May
+                            15, the 200 line falls to zero and stays there. The
+                            green 403 line is the WAF rule actively rejecting
+                            every attempt, a stable ~6,300/day floor of
+                            unsuccessful probes. Both axes are log-scale so the
+                            magnitude is visible across both regimes.
+                        </p>
+                    </div>
+
+                    <div class="grid-2" style="margin-top: 24px">
+                        <div
+                            class="card"
+                            style="border-left: 4px solid var(--good)"
+                        >
+                            <h4 style="color: var(--good)">
+                                What the mitigation accomplished
+                            </h4>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Metric</th>
+                                        <th class="num">May 1–14</th>
+                                        <th class="num">May 15–25</th>
+                                        <th class="num">Change</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            Daily 2xx Drupal responses to
+                                            scraper (V&amp;V-counted)
+                                        </td>
+                                        <td class="num">~23,000</td>
+                                        <td class="num">0</td>
+                                        <td class="num">
+                                            <span class="pill good"
+                                                >Eliminated</span
+                                            >
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Daily search burn — SearchStax quota
+                                            (mean)
+                                        </td>
+                                        <td class="num">~8,500</td>
+                                        <td class="num">~2,500</td>
+                                        <td class="num">
+                                            <span class="pill good">−70%</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>origin.acmecorp.example.com daily total</td>
+                                        <td class="num">~17–37k</td>
+                                        <td class="num">~6,400</td>
+                                        <td class="num">
+                                            <span class="pill good">−75%</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Scraper search hits / 6 days
+                                            post-mitigation
+                                        </td>
+                                        <td class="num">~14,000</td>
+                                        <td class="num">+6</td>
+                                        <td class="num">
+                                            <span class="pill good"
+                                                >Eliminated</span
+                                            >
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            Scraper shifted to
+                                            <code>www.acmecorp.example.com</code>?
+                                        </td>
+                                        <td class="num">—</td>
+                                        <td class="num">26–59/day</td>
+                                        <td class="num">
+                                            <span class="pill good"
+                                                >No spike</span
+                                            >
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin: 12px 0 0;
+                                "
+                            >
+                                <strong>Budget impact:</strong> the scraper
+                                presented as a real browser, so its successful
+                                2xx hits <em>did</em> count toward V&amp;V. The
+                                mitigation eliminated ~23,000/day of
+                                V&amp;V-counted requests and ~6,000/day of
+                                SearchStax queries. The remaining 5,400 daily
+                                403s are not counted by V&amp;V at all (4xx is
+                                excluded) and do not query SearchStax; their
+                                only cost is cheap origin CPU.
+                            </p>
+                        </div>
+                        <div
+                            class="card"
+                            style="border-left: 4px solid var(--warn)"
+                        >
+                            <h4 style="color: var(--warn)">What remains</h4>
+                            <ul
+                                style="
+                                    margin-top: 0;
+                                    color: var(--ink-soft);
+                                    font-size: 14px;
+                                "
+                            >
+                                <li>
+                                    <strong
+                                        >Bingbot continues crawling
+                                        <code>/search</code> via
+                                        <code>www.acmecorp.example.com</code></strong
+                                    >
+                                    — 57,765 search hits over 25 days
+                                    (~2,300/day), single largest remaining burn
+                                    driver. The robots.txt fix in Section 09
+                                    cleanly addresses this; the change is
+                                    one-line-per-route and free to deploy.
+                                </li>
+                                <li>
+                                    <strong
+                                        >The scraper is still attempting ~5,400
+                                        bypass hits/day</strong
+                                    >
+                                    and getting 403'd. Cost to us is small
+                                    (cheap rejection at the edge) but it
+                                    confirms the actor has not given up.
+                                    <em
+                                        >Watch for any spike that suggests it
+                                        has found a new hostname or
+                                        signature.</em
+                                    >
+                                </li>
+                                <li>
+                                    <strong
+                                        >The May 15 rule should be verified
+                                        durable.</strong
+                                    >
+                                    If it lives only in an Imperva console
+                                    session or an ephemeral deploy, a config
+                                    push could re-open the door. Capture the
+                                    rule definition in change-controlled
+                                    infrastructure-as-code.
+                                </li>
+                                <li>
+                                    <strong>Static-asset edge caching</strong>
+                                    (Section 07, Rule 4) is unchanged — 18% of
+                                    origin traffic is still cacheable assets
+                                    reaching Acquia.
+                                </li>
+                            </ul>
+                        </div>
+                    </div>
+
+                    <div
+                        class="callout"
+                        style="
+                            background: var(--good-soft);
+                            border-left-color: var(--good);
+                            color: #064e3b;
+                        "
+                    >
+                        <strong>Bottom line:</strong> the single
+                        highest-leverage change identified in the May 1–19
+                        analysis — locking down
+                        <code>origin.acmecorp.example.com</code> — has been deployed and
+                        is working as designed. The remaining recommendations in
+                        this report are now incremental refinements against a
+                        substantially smaller attack surface.
+                    </div>
+                </section>
+
+                <!-- =================== ROUTES DRIVING THE BURN =================== -->
+                <section>
+                    <h2>
+                        <span class="num">03</span> The specific routes driving
+                        the SearchStax burn
+                    </h2>
+                    <p class="intro">
+                        Seven SearchStax-backed <code>/search</code> routes
+                        account for nearly all of the search-quota burn across
+                        the full 25-day window. Every one is overwhelmingly
+                        non-human — five of the seven are above 97% bots and
+                        scrapers. Note that the AWS-scraper numbers below are
+                        now <em>frozen</em>: the May 15 mitigation cut off the
+                        scraper's bypass, so its contribution stopped growing on
+                        that day. The continuing damage is from Bingbot via the
+                        proper <code>www.acmecorp.example.com</code> hostname.
+                    </p>
+
+                    <div class="card" style="padding: 0; margin-bottom: 24px">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>SearchStax-backed route</th>
+                                    <th class="num">Hits</th>
+                                    <th class="num">Human</th>
+                                    <th class="num">Declared bots</th>
+                                    <th class="num">AWS scraper</th>
+                                    <th class="num">% non-human</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td><code>/search</code></td>
+                                    <td class="num">69,400</td>
+                                    <td class="num">1,051</td>
+                                    <td class="num">50,756</td>
+                                    <td class="num">15,666</td>
+                                    <td class="num">
+                                        <span class="pill bad">98.5%</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>/north-terminal/search</code></td>
+                                    <td class="num">18,019</td>
+                                    <td class="num">3,788</td>
+                                    <td class="num">1,650</td>
+                                    <td class="num">11,956</td>
+                                    <td class="num">
+                                        <span class="pill bad">79.0%</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>/south-terminal/search</code></td>
+                                    <td class="num">8,430</td>
+                                    <td class="num">57</td>
+                                    <td class="num">526</td>
+                                    <td class="num">7,220</td>
+                                    <td class="num">
+                                        <span class="pill bad">99.3%</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <code>/east-station/search</code>
+                                    </td>
+                                    <td class="num">7,246</td>
+                                    <td class="num">118</td>
+                                    <td class="num">594</td>
+                                    <td class="num">5,908</td>
+                                    <td class="num">
+                                        <span class="pill bad">98.4%</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <code>/west-station/search</code>
+                                    </td>
+                                    <td class="num">3,777</td>
+                                    <td class="num">95</td>
+                                    <td class="num">623</td>
+                                    <td class="num">2,435</td>
+                                    <td class="num">
+                                        <span class="pill bad">97.5%</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <code>/central-hub/search</code>
+                                    </td>
+                                    <td class="num">3,665</td>
+                                    <td class="num">66</td>
+                                    <td class="num">542</td>
+                                    <td class="num">2,432</td>
+                                    <td class="num">
+                                        <span class="pill bad">98.2%</span>
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td><code>/transit/search</code></td>
+                                    <td class="num">59</td>
+                                    <td class="num">15</td>
+                                    <td class="num">44</td>
+                                    <td class="num">0</td>
+                                    <td class="num">
+                                        <span class="pill warn">74.6%</span>
+                                    </td>
+                                </tr>
+                                <tr
+                                    style="
+                                        background: #f8fafc;
+                                        font-weight: 600;
+                                    "
+                                >
+                                    <td>Combined</td>
+                                    <td class="num">110,596</td>
+                                    <td class="num">5,190</td>
+                                    <td class="num">54,735</td>
+                                    <td class="num">45,617</td>
+                                    <td class="num">
+                                        <span class="pill bad">95.3%</span>
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="card">
+                            <h4>Non-human share by route</h4>
+                            <div class="chart-box tall">
+                                <canvas id="chartRouteNonHuman"></canvas>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <h4>What this picture tells us</h4>
+                            <p style="margin-top: 0">
+                                <strong
+                                    >The bare <code>/search</code> page is the
+                                    single biggest culprit</strong
+                                >
+                                — 69,400 hits, only 1,051 from humans.
+                                <strong
+                                    >Bingbot alone is responsible for the bulk
+                                    of the bot column</strong
+                                >
+                                (see the named-bot table below); the AWS
+                                scraper's 15,666 hits are frozen at their May 14
+                                total and no longer growing.
+                            </p>
+                            <p>
+                                Every area search
+                                (<code>/north-terminal/search</code>,
+                                <code>/south-terminal/search</code>, etc.) shows
+                                the same pattern: a tiny human signal buried
+                                under 80–99% bot and scraper traffic.
+                            </p>
+                            <p>
+                                These routes return search-result pages with no
+                                SEO value. There is no reason for search engines
+                                to be crawling them — the proposed robots.txt
+                                fix in Section 09 stops them.
+                            </p>
+                        </div>
+                    </div>
+
+                    <h3>Who exactly is the "bot" half of the search burn?</h3>
+                    <p>
+                        Breaking the "declared bots" bucket down by the actual
+                        crawler name resolves it almost entirely to a single
+                        actor: <strong>Microsoft's Bingbot</strong>. This
+                        matters operationally because the response is the same
+                        (robots.txt + WAF), but it sharpens the messaging — the
+                        residual SearchStax burn is one crawler's behavior, not
+                        a generic "bot problem."
+                        <strong
+                            >Critically: Bingbot is on Acquia's V&amp;V
+                            exclusion list, so its 57,765 search hits do
+                            <em>not</em> consume Views &amp; Visits at all. The
+                            problem is purely SearchStax-query budget.</strong
+                        >
+                    </p>
+
+                    <div class="grid-2">
+                        <div class="card" style="padding: 0">
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Crawler / actor (by name)</th>
+                                        <th class="num">Search hits</th>
+                                        <th class="num">% of search burn</th>
+                                        <th class="num">Total site hits</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <span
+                                                class="legend-dot"
+                                                style="background: var(--bot)"
+                                            ></span
+                                            ><strong
+                                                >Bingbot (Microsoft)</strong
+                                            >
+                                        </td>
+                                        <td class="num">
+                                            <strong>57,765</strong>
+                                        </td>
+                                        <td class="num">
+                                            <span class="pill bad">39.1%</span>
+                                        </td>
+                                        <td class="num">73,467</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <span
+                                                class="legend-dot"
+                                                style="
+                                                    background: var(--scraper);
+                                                "
+                                            ></span
+                                            >AWS scraper
+                                            <em>(blocked May 15)</em>
+                                        </td>
+                                        <td class="num">45,617</td>
+                                        <td class="num">30.9%</td>
+                                        <td class="num">365,085</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <span
+                                                class="legend-dot"
+                                                style="background: var(--human)"
+                                            ></span
+                                            >Humans
+                                        </td>
+                                        <td class="num">36,198</td>
+                                        <td class="num">24.5%</td>
+                                        <td class="num">323,370</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <span
+                                                class="legend-dot"
+                                                style="background: var(--scan)"
+                                            ></span
+                                            >monthly security scan scan (May 8 only)
+                                        </td>
+                                        <td class="num">5,205</td>
+                                        <td class="num">3.5%</td>
+                                        <td class="num">456,048</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Facebook/Meta crawler</td>
+                                        <td class="num">1,536</td>
+                                        <td class="num">1.0%</td>
+                                        <td class="num">8,297</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Googlebot</td>
+                                        <td class="num">696</td>
+                                        <td class="num">0.5%</td>
+                                        <td class="num">6,594</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            All other declared crawlers combined
+                                        </td>
+                                        <td class="num">~45</td>
+                                        <td class="num">&lt;0.1%</td>
+                                        <td class="num">~13,000</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <div class="card">
+                            <h4>Why this is actionable</h4>
+                            <p style="margin-top: 0">
+                                <strong
+                                    >Bingbot alone is 39% of the SearchStax
+                                    search burn.</strong
+                                >
+                                With the AWS scraper now blocked, Bingbot is the
+                                single dominant remaining actor against the
+                                search-quota budget. It is also one of the
+                                best-behaved crawlers on the internet —
+                                Microsoft honors robots.txt without exception.
+                            </p>
+                            <p>
+                                This means the robots.txt change in Section 09
+                                is not a "maybe it helps" intervention. It will
+                                <strong
+                                    >immediately stop ~2,300 Bingbot search hits
+                                    per day</strong
+                                >, which is essentially the entire remaining
+                                bot-driven SearchStax burn.
+                                <span class="pill bad">SearchStax quota</span>
+                                Note:
+                                <span class="pill muted"
+                                    >no V&amp;V impact</span
+                                >
+                                — Bingbot is on Acquia's exclusion list and was
+                                never being counted there.
+                            </p>
+                            <p
+                                style="
+                                    font-size: 13px;
+                                    color: var(--muted);
+                                    margin-top: 12px;
+                                "
+                            >
+                                Notice that Googlebot is only 696 search hits in
+                                25 days. Google has been respecting robots.txt's
+                                broader spirit. The current rule (<code
+                                    >Disallow: /search/</code
+                                >
+                                with trailing slash) is technically ineffective,
+                                but Googlebot has independently chosen not to
+                                crawl the search routes much. Bingbot has not.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- =================== SEARCHMEDIATOR ANALYSIS =================== -->
+                <section>
+                    <h2>
+                        <span class="num">04</span> Are the recent changes to
+                        search the cause? Are they helping?
+                    </h2>
+                    <p class="intro">
+                        Two related questions to answer here, because the recent
+                        changes to search was to introduce a SearchMediator for
+                        client-side fuzzy-search to reduce the impact on search
+                        and number of search queries. The data is unambiguous:
+                        SearchMediator is not contributing to the burn, and the
+                        pages it serves are exactly the ones holding up best
+                        against bot pressure.
+                    </p>
+
+                    <div class="grid-2">
+                        <div
+                            class="card"
+                            style="border-left: 4px solid var(--good)"
+                        >
+                            <h4 style="color: var(--good)">
+                                SearchMediator is not the cause
+                            </h4>
+                            <p style="margin-top: 0">
+                                The SearchMediator manifest endpoints serve JSON
+                                to the client-side React fuzzy-search component.
+                                They
+                                <strong>do not consume SearchStax quota</strong>
+                                — they read pre-built term lists. Traffic to
+                                these endpoints across the entire 19-day window:
+                            </p>
+                            <table style="margin-top: 12px">
+                                <thead>
+                                    <tr>
+                                        <th>Manifest endpoint</th>
+                                        <th class="num">Hits in 25 days</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >/api/v1/search/manifest/terminal-assets</code
+                                            >
+                                        </td>
+                                        <td class="num">309</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            All other manifest paths (mostly
+                                            attack-scanner 404 probes)
+                                        </td>
+                                        <td class="num">~170</td>
+                                    </tr>
+                                    <tr style="font-weight: 600">
+                                        <td>Total</td>
+                                        <td class="num">~480</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin-top: 12px;
+                                "
+                            >
+                                ~480 hits across 25 days is operationally
+                                invisible. It is 0.06% of organic traffic and 0%
+                                of search-quota burn. The SearchMediator
+                                endpoints are not a contributor to the
+                                SearchStax load problem.
+                            </p>
+                        </div>
+
+                        <div
+                            class="card"
+                            style="border-left: 4px solid var(--good)"
+                        >
+                            <h4 style="color: var(--good)">
+                                SearchMediator <em>is</em> helping where it has
+                                been deployed
+                            </h4>
+                            <p style="margin-top: 0">
+                                The pages that SearchMediator powers — the Logan
+                                dining, shopping, amenities, airlines, and the
+                                newsroom listings — show the inverse traffic
+                                profile of the legacy
+                                <code>/search</code> routes:
+                            </p>
+                            <table style="margin-top: 12px">
+                                <thead>
+                                    <tr>
+                                        <th>SearchMediator-driven listing</th>
+                                        <th class="num">Hits</th>
+                                        <th class="num">% human</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >/north-terminal/services/restaurants</code
+                                            >
+                                        </td>
+                                        <td class="num">22,065</td>
+                                        <td class="num">
+                                            <span class="pill good">83%</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >/north-terminal/services/shops</code
+                                            >
+                                        </td>
+                                        <td class="num">6,547</td>
+                                        <td class="num">
+                                            <span class="pill good">89%</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>/media/newsroom</code></td>
+                                        <td class="num">4,678</td>
+                                        <td class="num">
+                                            <span class="pill good">97%</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >/north-terminal/services/amenities</code
+                                            >
+                                        </td>
+                                        <td class="num">2,236</td>
+                                        <td class="num">
+                                            <span class="pill good">73%</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >/north-terminal/flights/airlines</code
+                                            >
+                                        </td>
+                                        <td class="num">724</td>
+                                        <td class="num">
+                                            <span class="pill good">96%</span>
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin-top: 12px;
+                                "
+                            >
+                                These routes carry the ad-campaign deep links.
+                                Their traffic profile is healthy — real visitors
+                                browsing, with normal incidental crawler
+                                activity. Keep them open to search engines.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        class="callout"
+                        style="
+                            background: var(--good-soft);
+                            border-left-color: var(--good);
+                            color: #064e3b;
+                        "
+                    >
+                        <strong>The takeaway:</strong> the SearchMediator work
+                        is doing its job. The SearchStax burn is not caused by
+                        anything SearchMediator touches — it is caused by the
+                        <em>legacy</em> Drupal <code>/search</code> routes that
+                        SearchMediator has not replaced. The right move is to
+                        clamp down on those legacy routes (where SearchMediator
+                        does not operate) while leaving the
+                        SearchMediator-driven pages fully open for visitors and
+                        ad campaigns.
+                    </div>
+                </section>
+
+                <!-- =================== HOSTNAME BYPASS =================== -->
+                <section>
+                    <h2>
+                        <span class="num">05</span> How the bots got in: the
+                        <code>origin.acmecorp.example.com</code> bypass (and how it was
+                        closed)
+                    </h2>
+                    <p class="intro">
+                        Apache access logs capture the exact
+                        <code>Host</code> header each request was sent with.
+                        Splitting the 25-day corpus by hostname surfaces what
+                        was — through May 14 — the single biggest weakness in
+                        the perimeter: a flood of bot and scraper traffic
+                        arriving through <code>origin.acmecorp.example.com</code>, the
+                        Acquia direct hostname that bypasses Imperva. Starting
+                        May 15 the WAF rule on that hostname began rejecting
+                        every scraper request (see Section 02). The numbers
+                        below describe the full 25-day window — pre- and
+                        post-mitigation combined — to show the size of the
+                        problem the mitigation solved.
+                    </p>
+
+                    <div class="kpis">
+                        <div class="kpi warn">
+                            <div class="label">
+                                Requests via <code>origin.acmecorp.example.com</code>
+                            </div>
+                            <div class="value">838,034</div>
+                            <div class="sub">67% of all 25-day traffic</div>
+                        </div>
+                        <div class="kpi warn">
+                            <div class="label">
+                                Non-human share of that hostname
+                            </div>
+                            <div class="value">98.6%</div>
+                            <div class="sub">scan + scraper + bot</div>
+                        </div>
+                        <div class="kpi warn">
+                            <div class="label">
+                                AWS scraper hits via this hostname
+                            </div>
+                            <div class="value">364,182</div>
+                            <div class="sub">99.8% of all scraper traffic</div>
+                        </div>
+                        <div class="kpi good">
+                            <div class="label">
+                                Of those, blocked (403) post-May 15
+                            </div>
+                            <div class="value">~58,000</div>
+                            <div class="sub">
+                                Pure rejection floor since cutover
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="grid-2">
+                        <div class="card">
+                            <h4>
+                                Traffic distribution by Host header (1.25M
+                                requests, 25 days)
+                            </h4>
+                            <div class="chart-box tall">
+                                <canvas id="chartHostSplit"></canvas>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <h4>Per-hostname profile (full 25-day window)</h4>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Host</th>
+                                        <th class="num">Requests</th>
+                                        <th class="num">% non-human</th>
+                                        <th>Status</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr style="background: #f0fdf4">
+                                        <td>
+                                            <code>origin.acmecorp.example.com</code>
+                                        </td>
+                                        <td class="num">838,034</td>
+                                        <td class="num">
+                                            <span class="pill warn">98.6%</span>
+                                        </td>
+                                        <td>
+                                            <span class="pill good"
+                                                >Mitigated May 15</span
+                                            >
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td><code>www.acmecorp.example.com</code></td>
+                                        <td class="num">388,459</td>
+                                        <td class="num">
+                                            <span class="pill good">23%</span>
+                                        </td>
+                                        <td>
+                                            <span class="pill good"
+                                                >Imperva-fronted</span
+                                            >
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code>acmecorp.example.com</code> (apex)
+                                        </td>
+                                        <td class="num">24,071</td>
+                                        <td class="num">
+                                            <span class="pill warn">13%</span>
+                                        </td>
+                                        <td>
+                                            <span class="pill muted"
+                                                >Redirects to www</span
+                                            >
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >acmecorp.example.acquia-sites.com</code
+                                            >
+                                        </td>
+                                        <td class="num">241</td>
+                                        <td class="num">
+                                            <span class="pill good">1.7%</span>
+                                        </td>
+                                        <td>
+                                            <span class="pill muted"
+                                                >Internal / staff</span
+                                            >
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin-top: 12px;
+                                "
+                            >
+                                Aggregated status across 25 days:
+                                <strong>62% 200 OK</strong> (all from before May
+                                15) and <strong>8.3% 403</strong> (almost
+                                entirely from after May 15). For post-mitigation
+                                days in isolation, the 403 rate on this hostname
+                                is effectively 100%.
+                            </p>
+                        </div>
+                    </div>
+
+                    <h3>
+                        Pre-mitigation: where the bypass was actually hurting
+                    </h3>
+                    <div class="grid-2">
+                        <div class="card">
+                            <h4>
+                                Search-triggering requests via
+                                <code>origin.acmecorp.example.com</code> (full 25 days)
+                            </h4>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Actor</th>
+                                        <th class="num">Hits</th>
+                                        <th class="num">Share</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <span
+                                                class="legend-dot"
+                                                style="
+                                                    background: var(--scraper);
+                                                "
+                                            ></span
+                                            >AWS scraper
+                                        </td>
+                                        <td class="num">45,615</td>
+                                        <td class="num">
+                                            <strong>87.6%</strong>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <span
+                                                class="legend-dot"
+                                                style="background: var(--scan)"
+                                            ></span
+                                            >monthly security scan scan
+                                        </td>
+                                        <td class="num">5,130</td>
+                                        <td class="num">9.9%</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <span
+                                                class="legend-dot"
+                                                style="background: var(--bot)"
+                                            ></span
+                                            >Declared bots
+                                        </td>
+                                        <td class="num">857</td>
+                                        <td class="num">1.6%</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <span
+                                                class="legend-dot"
+                                                style="background: var(--human)"
+                                            ></span
+                                            >Humans
+                                        </td>
+                                        <td class="num">457</td>
+                                        <td class="num">0.9%</td>
+                                    </tr>
+                                    <tr
+                                        style="
+                                            background: #f8fafc;
+                                            font-weight: 600;
+                                        "
+                                    >
+                                        <td>Total</td>
+                                        <td class="num">52,059</td>
+                                        <td class="num">100%</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin-top: 10px;
+                                "
+                            >
+                                Note the AWS-scraper count is essentially frozen
+                                — the May 15 mitigation cut off its bypass and
+                                post-mitigation it has logged only +6 search
+                                hits across 10 days.
+                            </p>
+                        </div>
+                        <div class="card">
+                            <h4>
+                                The SearchStax-burning routes reached via the
+                                bypass
+                            </h4>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Route</th>
+                                        <th class="num">Hits</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td><code>/search</code></td>
+                                        <td class="num">17,608</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code>/north-terminal/search</code>
+                                        </td>
+                                        <td class="num">12,612</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code>/south-terminal/search</code>
+                                        </td>
+                                        <td class="num">7,843</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >/east-station/search</code
+                                            >
+                                        </td>
+                                        <td class="num">6,529</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code
+                                                >/west-station/search</code
+                                            >
+                                        </td>
+                                        <td class="num">3,058</td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <code>/central-hub/search</code>
+                                        </td>
+                                        <td class="num">3,054</td>
+                                    </tr>
+                                    <tr>
+                                        <td>Dining/shopping facet URLs</td>
+                                        <td class="num">~1,225</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin-top: 12px;
+                                "
+                            >
+                                These are the same routes called out in Section
+                                03. Through May 14, they were being hit via the
+                                hostname that does not pass through Imperva.
+                                From May 15 forward, the WAF rule rejects them
+                                on this hostname — see the cliff chart in
+                                Section 02.
+                            </p>
+                        </div>
+                    </div>
+
+                    <div
+                        class="callout"
+                        style="
+                            background: var(--good-soft);
+                            border-left-color: var(--good);
+                            color: #064e3b;
+                        "
+                    >
+                        <strong
+                            >What this means for the rest of the report:</strong
+                        >
+                        the Imperva-passthrough numbers in Section 07 describe
+                        only requests that arrived through
+                        <code>www.acmecorp.example.com</code>. Post May 15 that hostname
+                        is now the only attack surface that matters — the bypass
+                        numbers above are historical and will not grow. The
+                        remaining recommendations in Section 09 focus on
+                        hardening <code>www.acmecorp.example.com</code>, with Rule 0
+                        (the bypass lockdown) marked complete and a guardrail to
+                        keep it that way.
+                    </div>
+                </section>
+
+                <!-- =================== SEARCH ALLOCATION =================== -->
+                <section>
+                    <h2>
+                        <span class="num">06</span> Search traffic in aggregate
+                    </h2>
+                    <p class="intro">
+                        Search-triggering requests were identified by URL: the
+                        SearchStax-backed search pages (<code>/search</code>,
+                        <code>/north-terminal/search</code>, the area searches),
+                        faceted listing URLs (<code>?f[…]</code>), the search
+                        API, and autocomplete. This is backend-agnostic; it
+                        counts every request that drives a SearchStax query
+                        regardless of which search server served it. Across 25
+                        days the total is
+                        <strong>147,871 search requests</strong>.
+                    </p>
+
+                    <div class="grid-2">
+                        <div class="card">
+                            <h4>Search requests by actor</h4>
+                            <div class="chart-box">
+                                <canvas id="chartSearchActor"></canvas>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <h4>Search requests by route type</h4>
+                            <div class="chart-box">
+                                <canvas id="chartSearchKind"></canvas>
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3>The actor breakdown in numbers</h3>
+                    <div class="card" style="padding: 0">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Actor</th>
+                                    <th class="num">Search requests</th>
+                                    <th class="num">Share</th>
+                                    <th>Notes</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <span
+                                            class="legend-dot"
+                                            style="background: var(--bot)"
+                                        ></span
+                                        >Declared search-engine bots
+                                    </td>
+                                    <td class="num">60,055</td>
+                                    <td class="num">41%</td>
+                                    <td>Bingbot alone is 57,765 of these</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <span
+                                            class="legend-dot"
+                                            style="background: var(--scraper)"
+                                        ></span
+                                        >Suspected scraper (AWS headless Chrome)
+                                    </td>
+                                    <td class="num">45,689</td>
+                                    <td class="num">31%</td>
+                                    <td>
+                                        Frozen at May 14 total — blocked since
+                                        May 15
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <span
+                                            class="legend-dot"
+                                            style="background: var(--human)"
+                                        ></span
+                                        >Humans
+                                    </td>
+                                    <td class="num">36,473</td>
+                                    <td class="num">25%</td>
+                                    <td>Real browser sessions</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <span
+                                            class="legend-dot"
+                                            style="background: var(--scan)"
+                                        ></span
+                                        >monthly security scan monthly scan (May 8)
+                                    </td>
+                                    <td class="num">5,653</td>
+                                    <td class="num">4%</td>
+                                    <td>Sanctioned security scan</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <h3>The surprise: faceted browsing is mostly human</h3>
+                    <p>
+                        The original hypothesis going into this analysis was
+                        that bots were crawling infinite combinations of faceted
+                        filter URLs (<code>?f[…]</code>) and driving the
+                        SearchStax burn. The logs do not support that hypothesis
+                        for this month.
+                    </p>
+
+                    <div class="grid-2">
+                        <div class="card">
+                            <h4>Faceted search requests by actor</h4>
+                            <div class="chart-box">
+                                <canvas id="chartFacetActor"></canvas>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <h4>What this means</h4>
+                            <p style="margin-top: 0">
+                                <strong
+                                    >85% of faceted search traffic is legitimate
+                                    human browsing.</strong
+                                >
+                                Search-engine crawlers touch facets only
+                                modestly — even Googlebot's busiest IP address
+                                generated only 105 distinct facet URLs across 25
+                                days.
+                            </p>
+                            <p>
+                                The real burn this month is plain
+                                <code>/search</code> page hits made by Bingbot
+                                (and, through May 14, the AWS scraper) — not
+                                facet exploration.
+                                <strong
+                                    >Faceted browsing should be left
+                                    alone</strong
+                                >; degrading it would hurt real visitors without
+                                solving the problem.
+                            </p>
+                        </div>
+                    </div>
+
+                    <h3>Daily search volume across the window</h3>
+                    <div class="card">
+                        <h4>Search requests per day (May 1–25, 2026)</h4>
+                        <div class="chart-box tall">
+                            <canvas id="chartDaily"></canvas>
+                        </div>
+                        <p
+                            style="
+                                font-size: 13px;
+                                color: var(--muted);
+                                margin: 12px 0 0;
+                            "
+                        >
+                            The mitigation cliff is clearly visible: through May
+                            14 the daily search volume ranged 5,000–20,000; from
+                            May 15 forward it ranges 1,800–3,800. Two
+                            pre-mitigation spikes —
+                            <strong>May 13 (19,826)</strong> and
+                            <strong>May 5 (12,639)</strong> — were almost
+                            entirely the AWS scraper. May 8's apparent total is
+                            the sanctioned monthly security scan security scan (456,048 scan
+                            requests); its organic search volume that day was a
+                            normal ~11,000.
+                        </p>
+                    </div>
+                </section>
+
+                <!-- =================== THE SCRAPER =================== -->
+                <section>
+                    <h2>
+                        <span class="num">07</span> The dominant actor: an
+                        Amazon-hosted scraper (now contained)
+                    </h2>
+                    <p class="intro">
+                        A single automated client accounts for 365,085 origin
+                        requests over 25 days — 46% of all organic traffic and
+                        31% of the search burn. It is not a recognized search
+                        engine. It is not one of the security or monitoring
+                        services Acmecorp has sanctioned. It presents itself as
+                        a Linux Chrome browser but originates from AWS us-east
+                        datacenter ranges, which is the signature of headless
+                        automation.
+                        <strong
+                            >Because the User-Agent is a fake browser string,
+                            this actor is <em>not</em> on Acquia's bot exclusion
+                            list — every successful HTTP 200 response it
+                            received before May 15 counted as a real visitor
+                            toward V&amp;V.</strong
+                        >
+                        Since May 15 it is fully blocked at the bypass hostname
+                        and has not appreciably shifted to
+                        <code>www.acmecorp.example.com</code> — it logs only 26–59
+                        hits/day on the public hostname across the entire
+                        window.
+                    </p>
+
+                    <div class="grid-3">
+                        <div class="kpi warn">
+                            <div class="label">Total requests (25 days)</div>
+                            <div class="value">365,085</div>
+                            <div class="sub">
+                                46% of organic; 99.8% via bypass
+                            </div>
+                        </div>
+                        <div class="kpi warn">
+                            <div class="label">Search requests</div>
+                            <div class="value">45,689</div>
+                            <div class="sub">Frozen May 14 — +6 since</div>
+                        </div>
+                        <div class="kpi good">
+                            <div class="label">Bandwidth served</div>
+                            <div class="value">35.8 GB</div>
+                            <div class="sub">14% of total origin bandwidth</div>
+                        </div>
+                    </div>
+
+                    <div class="grid-2" style="margin-top: 24px">
+                        <div class="card">
+                            <h4>Top scraper IP addresses by search hits</h4>
+                            <div class="chart-box tall">
+                                <canvas id="chartScraperIps"></canvas>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <h4>Identifying signature</h4>
+                            <table>
+                                <tr>
+                                    <th style="width: 38%">Field</th>
+                                    <th>Value</th>
+                                </tr>
+                                <tr>
+                                    <td>User-Agent</td>
+                                    <td>
+                                        <code
+                                            >Mozilla/5.0 (X11; Linux x86_64)
+                                            AppleWebKit/537.36 … Chrome/12x
+                                            …</code
+                                        >
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Subnet 1</td>
+                                    <td>
+                                        <code>192.0.2.0/24</code> — ~210k
+                                        requests
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Subnet 2</td>
+                                    <td>
+                                        <code>198.51.100.0/24</code> — ~100k
+                                        requests
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Subnet 3</td>
+                                    <td>
+                                        <code>203.0.113.0/24</code> — ~50k
+                                        requests
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        Hosting Autonomous System Number (ASN)
+                                    </td>
+                                    <td>Amazon Web Services (us-east)</td>
+                                </tr>
+                                <tr>
+                                    <td>Classification</td>
+                                    <td>
+                                        <span class="pill bad"
+                                            >Unidentified data harvester</span
+                                        >
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>Status today</td>
+                                    <td>
+                                        <span class="pill good"
+                                            >100% 403'd on bypass since May
+                                            15</span
+                                        >
+                                    </td>
+                                </tr>
+                            </table>
+                            <p
+                                style="
+                                    font-size: 13px;
+                                    color: var(--ink-soft);
+                                    margin: 14px 0 0;
+                                "
+                            >
+                                Through May 14 it crawled expensively: 64,000+
+                                hits on <code>/user</code> (uncacheable user
+                                pages), 10,000+ on
+                                <code>/_fragment</code> (BigPipe fragments —
+                                uncacheable), and ~16,000 on
+                                <code>/search</code> (SearchStax queries). The
+                                first two endpoints force full origin rendering
+                                on every hit, which is the worst-case load
+                                profile. From May 15 the WAF rejects all of
+                                these at the edge.
+                            </p>
+                        </div>
+                    </div>
+
+                    <h3>Bandwidth consumed by the scraper (full 25 days)</h3>
+                    <p>
+                        The scraper's bandwidth footprint is moderate relative
+                        to the per-hit cost it imposed — Acquia served 35.8 GB
+                        to it across the window, against 163.9 GB to real
+                        humans. The per-request cost was high though: each
+                        <code>/user</code> or <code>/_fragment</code> hit fully
+                        bootstrapped Drupal.
+                    </p>
+
+                    <div class="card" style="padding: 0">
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Actor</th>
+                                    <th class="num">Bandwidth served</th>
+                                    <th class="num">Requests</th>
+                                    <th class="num">Avg bytes/request</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <span
+                                            class="legend-dot"
+                                            style="background: var(--human)"
+                                        ></span
+                                        >Humans
+                                    </td>
+                                    <td class="num">163.85 GB</td>
+                                    <td class="num">323,370</td>
+                                    <td class="num">~509 KB</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <span
+                                            class="legend-dot"
+                                            style="background: var(--bot)"
+                                        ></span
+                                        >Declared bots
+                                    </td>
+                                    <td class="num">43.41 GB</td>
+                                    <td class="num">105,515</td>
+                                    <td class="num">~412 KB</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <span
+                                            class="legend-dot"
+                                            style="background: var(--scraper)"
+                                        ></span
+                                        >AWS scraper
+                                    </td>
+                                    <td class="num">35.79 GB</td>
+                                    <td class="num">365,085</td>
+                                    <td class="num">~98 KB</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <span
+                                            class="legend-dot"
+                                            style="background: var(--scan)"
+                                        ></span
+                                        >monthly security scan scan
+                                    </td>
+                                    <td class="num">6.22 GB</td>
+                                    <td class="num">456,048</td>
+                                    <td class="num">~14 KB</td>
+                                </tr>
+                                <tr
+                                    style="
+                                        background: #f8fafc;
+                                        font-weight: 600;
+                                    "
+                                >
+                                    <td>Total served from origin</td>
+                                    <td class="num">~250 GB</td>
+                                    <td class="num">1,251,059</td>
+                                    <td class="num">~210 KB</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <p
+                        style="
+                            font-size: 13px;
+                            color: var(--muted);
+                            margin-top: 8px;
+                        "
+                    >
+                        The scraper's low average bytes/request reflects that it
+                        primarily hit small JSON fragments and error pages. The
+                        cost it imposed was disproportionately in
+                        <em>CPU and SearchStax-query budget</em>, not bandwidth.
+                    </p>
+                </section>
+
+                <!-- =================== IMPERVA PASSTHROUGH =================== -->
+                <section>
+                    <h2>
+                        <span class="num">08</span> What is reaching the origin
+                        through Imperva (<code>www.acmecorp.example.com</code> only)
+                    </h2>
+                    <p class="intro">
+                        Imperva sits in front of Acquia as a Web Application
+                        Firewall and Content Delivery Network layer, independent
+                        of Varnish. Every request in the origin access log is
+                        traffic that
+                        <strong>Imperva already allowed through</strong>. The
+                        question for this section is how much of that traffic
+                        Imperva could have absorbed — blocked, challenged, or
+                        cached — instead.
+                    </p>
+
+                    <div class="grid-2">
+                        <div class="card">
+                            <h4>
+                                Origin passthrough composition (795,011 organic
+                                requests, 25 days)
+                            </h4>
+                            <div class="chart-box tall">
+                                <canvas id="chartPassthrough"></canvas>
+                            </div>
+                        </div>
+                        <div class="card">
+                            <h4>
+                                What should Imperva have done with each class?
+                            </h4>
+                            <table>
+                                <thead>
+                                    <tr>
+                                        <th>Category</th>
+                                        <th class="num">Requests</th>
+                                        <th>Lever</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    <tr>
+                                        <td>
+                                            <span
+                                                class="legend-dot"
+                                                style="
+                                                    background: var(--scraper);
+                                                "
+                                            ></span
+                                            >Suspected scraper
+                                        </td>
+                                        <td class="num">337,817</td>
+                                        <td>
+                                            <span class="pill bad"
+                                                >Block / challenge</span
+                                            >
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <span
+                                                class="legend-dot"
+                                                style="background: var(--human)"
+                                            ></span
+                                            >Human
+                                        </td>
+                                        <td class="num">204,283</td>
+                                        <td>
+                                            <span class="pill good">Allow</span>
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <span
+                                                class="legend-dot"
+                                                style="
+                                                    background: var(--static);
+                                                "
+                                            ></span
+                                            >Static assets
+                                        </td>
+                                        <td class="num">163,674</td>
+                                        <td>
+                                            <span class="pill warn"
+                                                >Serve from CDN cache</span
+                                            >
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <span
+                                                class="legend-dot"
+                                                style="background: var(--bot)"
+                                            ></span
+                                            >Declared bots
+                                        </td>
+                                        <td class="num">88,537</td>
+                                        <td>
+                                            <span class="pill warn"
+                                                >Rate-limit / manage</span
+                                            >
+                                        </td>
+                                    </tr>
+                                    <tr>
+                                        <td>
+                                            <span
+                                                class="legend-dot"
+                                                style="background: var(--noua)"
+                                            ></span
+                                            >No / malformed User-Agent
+                                        </td>
+                                        <td class="num">700</td>
+                                        <td>
+                                            <span class="pill bad"
+                                                >Challenge</span
+                                            >
+                                        </td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <p
+                                style="
+                                    font-size: 14px;
+                                    color: var(--ink-soft);
+                                    margin: 14px 0 0;
+                                "
+                            >
+                                <strong
+                                    >Most of the scraper share here is
+                                    historical</strong
+                                >
+                                — concentrated in the May 1–14 pre-mitigation
+                                window. The actionable categories going forward
+                                are static assets (cache them at the edge) and
+                                declared bots (rate-limit and steer them,
+                                especially Bingbot on search routes).
+                            </p>
+                        </div>
+                    </div>
+
+                    <h3>Why static assets matter (and where they don't)</h3>
+                    <p>
+                        The 163,674 static asset requests (JavaScript,
+                        stylesheets, images, fonts, PDFs) that reached the
+                        origin are cacheable by definition. They should resolve
+                        at Imperva's edge and never touch Acquia. Tightening
+                        Imperva's cache rules — honoring origin
+                        <code>Cache-Control</code> headers and adding
+                        extension-based caching for the standard static types —
+                        eliminates this entire class of passthrough.
+                    </p>
+
+                    <div
+                        class="callout"
+                        style="
+                            background: #eff6ff;
+                            border-left-color: var(--accent);
+                            color: #1e293b;
+                        "
+                    >
+                        <strong>Budget impact:</strong>
+                        <span class="pill warn">Origin CPU/bandwidth</span>
+                        <span class="pill muted">No V&amp;V impact</span> —
+                        static assets are explicitly excluded from Acquia's
+                        Views &amp; Visits count, because they are delivered
+                        from the filesystem without bootstrapping Drupal.
+                        Edge-caching them does not reduce V&amp;V; it reduces
+                        origin load and improves response times. Do not pursue
+                        this rule expecting V&amp;V relief — pursue it for
+                        performance and to keep CPU headroom available for the
+                        requests that do count.
+                    </div>
+                </section>
+
+                <!-- =================== ROBOTS.TXT FIX =================== -->
+                <section>
+                    <h2>
+                        <span class="num">09</span> The robots.txt fix — now the
+                        single most impactful remaining change
+                    </h2>
+                    <p class="intro">
+                        With the AWS scraper blocked,
+                        <strong
+                            >Bingbot is the largest remaining contributor to the
+                            SearchStax burn</strong
+                        >
+                        (57,765 search hits, ~2,300/day). Microsoft honors
+                        robots.txt scrupulously. The current Acmecorp
+                        <code>robots.txt</code> already attempts to disallow
+                        search routes but does so with a directive that does not
+                        match the URLs actually being crawled. Fixing it is a
+                        one-line-per-route change with no impact on the
+                        ad-campaign pages.
+                    </p>
+
+                    <div class="grid-2">
+                        <div
+                            class="card"
+                            style="border-left: 4px solid var(--bad)"
+                        >
+                            <h4 style="color: var(--bad)">
+                                The current rule is broken
+                            </h4>
+                            <p style="margin-top: 0">
+                                Today's <code>robots.txt</code> contains:
+                            </p>
+                            <pre
+                                style="
+                                    background: #0f172a;
+                                    color: #e2e8f0;
+                                    padding: 12px 14px;
+                                    border-radius: 6px;
+                                    font-size: 13px;
+                                    overflow-x: auto;
+                                    margin: 8px 0;
+                                "
+                            >
+Disallow: /search/</pre
+                            >
+                            <p>
+                                The trailing slash matters.
+                                <code>/search/</code> is interpreted as a path
+                                prefix that requires a literal slash after
+                                <code>search</code>. It does
+                                <strong>not</strong> match:
+                            </p>
+                            <ul
+                                style="
+                                    font-size: 14px;
+                                    color: var(--ink-soft);
+                                    margin: 8px 0 0;
+                                "
+                            >
+                                <li>
+                                    <code>/search</code> (no trailing slash)
+                                </li>
+                                <li>
+                                    <code>/search?keys=...</code> (the actual
+                                    search query URL)
+                                </li>
+                                <li>
+                                    <code>/north-terminal/search</code> and the
+                                    other area searches
+                                </li>
+                            </ul>
+                            <p
+                                style="
+                                    font-size: 14px;
+                                    color: var(--ink-soft);
+                                    margin-top: 10px;
+                                "
+                            >
+                                This is why
+                                <strong>50,756 declared-bot hits</strong>
+                                reached the bare <code>/search</code> page
+                                despite the existing rule. The bots obeyed
+                                robots.txt — the rule just did not cover the
+                                right URLs.
+                            </p>
+                        </div>
+
+                        <div
+                            class="card"
+                            style="border-left: 4px solid var(--good)"
+                        >
+                            <h4 style="color: var(--good)">
+                                The corrected rule (drop-in replacement)
+                            </h4>
+                            <p style="margin-top: 0">
+                                Replace the single broken line with the seven
+                                specific Disallow directives below. This covers
+                                every SearchStax-burning route observed in the
+                                logs and leaves the SearchMediator-driven pages
+                                fully open:
+                            </p>
+                            <pre
+                                style="
+                                    background: #0f172a;
+                                    color: #e2e8f0;
+                                    padding: 12px 14px;
+                                    border-radius: 6px;
+                                    font-size: 13px;
+                                    overflow-x: auto;
+                                    margin: 8px 0;
+                                "
+                            >
+User-agent: *
+Disallow: /search
+Disallow: /search?
+Disallow: /transit/search
+Disallow: /north-terminal/search
+Disallow: /south-terminal/search
+Disallow: /east-station/search
+Disallow: /west-station/search
+Disallow: /central-hub/search</pre
+                            >
+                            <p
+                                style="
+                                    font-size: 14px;
+                                    color: var(--ink-soft);
+                                    margin-top: 10px;
+                                "
+                            >
+                                Removing the trailing slash makes the rule match
+                                both the bare path and any query string. Each
+                                area search is listed explicitly so the intent
+                                is unambiguous to crawlers.
+                            </p>
+                        </div>
+                    </div>
+
+                    <h3>What is deliberately <em>not</em> blocked</h3>
+                    <div class="card">
+                        <p style="margin-top: 0">
+                            The pages SearchMediator powers — the ones carrying
+                            ad-campaign deep links — must stay crawlable for
+                            organic search visibility. The proposed robots.txt
+                            does not touch any of them:
+                        </p>
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Path</th>
+                                    <th>Status in proposed robots.txt</th>
+                                    <th>Why</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <tr>
+                                    <td>
+                                        <code
+                                            >/north-terminal/services/restaurants</code
+                                        >
+                                    </td>
+                                    <td>
+                                        <span class="pill good">Allowed</span>
+                                    </td>
+                                    <td>
+                                        SearchMediator-driven, ad-campaign
+                                        destination, 84% human traffic
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <code
+                                            >/north-terminal/services/shops</code
+                                        >
+                                    </td>
+                                    <td>
+                                        <span class="pill good">Allowed</span>
+                                    </td>
+                                    <td>
+                                        SearchMediator-driven, ad-campaign
+                                        destination, 91% human
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <code
+                                            >/north-terminal/services/amenities</code
+                                        >
+                                    </td>
+                                    <td>
+                                        <span class="pill good">Allowed</span>
+                                    </td>
+                                    <td>
+                                        SearchMediator-driven, ad-campaign
+                                        destination, 76% human
+                                    </td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <code
+                                            >/north-terminal/flights/airlines</code
+                                        >
+                                    </td>
+                                    <td>
+                                        <span class="pill good">Allowed</span>
+                                    </td>
+                                    <td>SearchMediator-driven, 96% human</td>
+                                </tr>
+                                <tr>
+                                    <td><code>/media/newsroom</code></td>
+                                    <td>
+                                        <span class="pill good">Allowed</span>
+                                    </td>
+                                    <td>Editorial content, 97% human</td>
+                                </tr>
+                                <tr>
+                                    <td>
+                                        <code>/api/v1/search/manifest/*</code>
+                                    </td>
+                                    <td>
+                                        <span class="pill good">Allowed</span>
+                                    </td>
+                                    <td>
+                                        JSON manifest for client-side
+                                        fuzzy-search, no SearchStax cost
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <div
+                        class="callout"
+                        style="
+                            background: var(--good-soft);
+                            border-left-color: var(--good);
+                            color: #064e3b;
+                        "
+                    >
+                        <strong>Expected effect:</strong> Bingbot is responsible
+                        for almost all of the remaining bot-driven search burn.
+                        Microsoft honors robots.txt. Deploying this change
+                        should eliminate ~2,300 Bingbot search hits per day —
+                        essentially the entire residual problem now that the AWS
+                        scraper is contained. The change is one diff to a single
+                        file and carries no operational risk.
+                    </div>
+                </section>
+
+                <!-- =================== RECOMMENDATIONS =================== -->
+                <section>
+                    <h2>
+                        <span class="num">10</span> Recommended actions, in
+                        priority order
+                    </h2>
+                    <p class="intro">
+                        Rule 0 has been deployed and is working — it should be
+                        promoted into change-controlled infrastructure-as-code
+                        to prevent regression. The remaining rules address the
+                        residual attack surface on
+                        <code>www.acmecorp.example.com</code>.
+                        <strong
+                            >Roll each new rule out in log/alert mode
+                            first</strong
+                        >
+                        to confirm it does not catch legitimate users or partner
+                        integrations, then switch to block or challenge.
+                    </p>
+
+                    <div class="recs">
+                        <div
+                            class="rec"
+                            style="
+                                border-left: 4px solid var(--good);
+                                background: #f0fdf4;
+                            "
+                        >
+                            <div
+                                class="rank"
+                                style="background: var(--good); color: #fff"
+                            >
+                                ✓
+                            </div>
+                            <div class="body">
+                                <strong
+                                    >Lock down
+                                    <code>origin.acmecorp.example.com</code> at the
+                                    Acquia origin
+                                    <span style="color: var(--good)"
+                                        >— DEPLOYED May 15</span
+                                    ></strong
+                                >
+                                <p>
+                                    Deployed and confirmed by the log evidence
+                                    in Section 02. The bypass hostname now
+                                    returns 403 on every scraper request.
+                                    <strong>Action remaining:</strong> ensure
+                                    the rule is captured in change-controlled
+                                    infrastructure-as-code (Acquia Cloud
+                                    Manifest, Imperva exported config, or
+                                    equivalent) so a future deploy or console
+                                    session cannot inadvertently re-open it.
+                                    Verify staff and Acquia-platform IP
+                                    addresses remain allowlisted.
+                                </p>
+                                <p style="font-size: 12px; margin-top: 8px">
+                                    <span class="pill bad"
+                                        >V&amp;V impact: large</span
+                                    >
+                                    <span class="pill bad"
+                                        >SearchStax quota: large</span
+                                    >
+                                    <span class="pill warn"
+                                        >Origin CPU: large</span
+                                    >
+                                </p>
+                            </div>
+                            <div class="lever">
+                                <strong style="color: var(--good)">−70%</strong
+                                >search burn<br /><strong
+                                    style="color: var(--good)"
+                                    >−75%</strong
+                                >bypass traffic
+                            </div>
+                        </div>
+
+                        <div
+                            class="rec"
+                            style="border-left: 4px solid var(--bad)"
+                        >
+                            <div
+                                class="rank"
+                                style="background: var(--bad); color: #fff"
+                            >
+                                1
+                            </div>
+                            <div class="body">
+                                <strong
+                                    >Deploy the robots.txt fix in Section
+                                    09</strong
+                                >
+                                <p>
+                                    The single highest-impact change still
+                                    available against SearchStax quota. Replace
+                                    the broken
+                                    <code>Disallow: /search/</code> with the
+                                    seven specific Disallow lines. Bingbot will
+                                    obey it immediately and stop ~2,300 search
+                                    hits per day — essentially the entire
+                                    remaining bot-driven SearchStax burn. One
+                                    diff, one file, zero operational risk.
+                                </p>
+                                <p style="font-size: 12px; margin-top: 8px">
+                                    <span class="pill muted"
+                                        >V&amp;V impact: none (Bingbot is
+                                        excluded)</span
+                                    >
+                                    <span class="pill bad"
+                                        >SearchStax quota: large</span
+                                    >
+                                    <span class="pill warn"
+                                        >Origin CPU: moderate</span
+                                    >
+                                </p>
+                            </div>
+                            <div class="lever">
+                                <strong style="color: var(--bad)"
+                                    >~2,300/day</strong
+                                >Bingbot search hits
+                            </div>
+                        </div>
+
+                        <div class="rec">
+                            <div class="rank">2</div>
+                            <div class="body">
+                                <strong
+                                    >Mirror the search-route block in the
+                                    WAF</strong
+                                >
+                                <p>
+                                    robots.txt only helps with well-behaved
+                                    crawlers. Add an Imperva rule that blocks
+                                    any client classified as a bot (declared
+                                    crawler User-Agent or datacenter ASN) from
+                                    <code>/search</code>,
+                                    <code>/*/search</code>, and the six area
+                                    searches. Leave the SearchMediator-driven
+                                    pages
+                                    (<code>/north-terminal/services/*</code>,
+                                    <code>/media/newsroom</code>,
+                                    <code>/north-terminal/flights/airlines</code
+                                    >) untouched so ad campaigns and SEO are not
+                                    affected.
+                                </p>
+                                <p style="font-size: 12px; margin-top: 8px">
+                                    <span class="pill muted"
+                                        >V&amp;V impact: none (excluded
+                                        bots)</span
+                                    >
+                                    <span class="pill bad"
+                                        >SearchStax quota: moderate</span
+                                    >
+                                    <span class="pill warn"
+                                        >Origin CPU: moderate</span
+                                    >
+                                </p>
+                            </div>
+                            <div class="lever">
+                                <strong>~60,000</strong>declared-bot search hits
+                                over 25 days
+                            </div>
+                        </div>
+
+                        <div class="rec">
+                            <div class="rank">3</div>
+                            <div class="body">
+                                <strong
+                                    >Pre-emptively block the AWS-scraper
+                                    signature on
+                                    <code>www.acmecorp.example.com</code></strong
+                                >
+                                <p>
+                                    The scraper has not yet shifted to the
+                                    public hostname (26–59 hits/day across the
+                                    window, unchanged after May 15). But the
+                                    actor has not given up — it still attempts
+                                    5,400 bypass hits/day. If it discovers
+                                    <code>www.acmecorp.example.com</code>, Imperva needs
+                                    to be ready. Match requests from
+                                    <code>192.0.2.0/24</code>,
+                                    <code>198.51.100.0/24</code>,
+                                    <code>203.0.113.0/24</code> with the X11 Linux
+                                    Chrome User-Agent signature on page routes.
+                                    Allowlist any genuine AWS-hosted first-party
+                                    integrations first.
+                                </p>
+                                <p style="font-size: 12px; margin-top: 8px">
+                                    <span class="pill bad"
+                                        >V&amp;V impact: insurance (scraper
+                                        presents as real browser)</span
+                                    >
+                                    <span class="pill bad"
+                                        >SearchStax quota: insurance</span
+                                    >
+                                    <span class="pill warn"
+                                        >Origin CPU: insurance</span
+                                    >
+                                </p>
+                            </div>
+                            <div class="lever">
+                                <strong>Insurance</strong>against scraper
+                                migration
+                            </div>
+                        </div>
+
+                        <div class="rec">
+                            <div class="rank">4</div>
+                            <div class="body">
+                                <strong
+                                    >Enforce edge caching for static
+                                    assets</strong
+                                >
+                                <p>
+                                    Extension-based cache rules so
+                                    <code>.js</code>, <code>.css</code>, images,
+                                    fonts, and PDFs resolve at the Imperva edge
+                                    instead of reaching Acquia. Honor origin
+                                    <code>Cache-Control</code> headers and set a
+                                    sane default Time To Live (TTL) for static
+                                    extensions. 163,674 static-asset requests
+                                    reached origin over 25 days — none of them
+                                    needed to.
+                                </p>
+                                <p style="font-size: 12px; margin-top: 8px">
+                                    <span class="pill muted"
+                                        >V&amp;V impact: none (static assets
+                                        excluded)</span
+                                    >
+                                    <span class="pill muted"
+                                        >SearchStax quota: none</span
+                                    >
+                                    <span class="pill warn"
+                                        >Origin CPU: large</span
+                                    >
+                                </p>
+                            </div>
+                            <div class="lever">
+                                <strong>~21%</strong>of www passthrough
+                            </div>
+                        </div>
+
+                        <div class="rec">
+                            <div class="rank">5</div>
+                            <div class="body">
+                                <strong
+                                    >Bot management policy for declared
+                                    crawlers</strong
+                                >
+                                <p>
+                                    Rate-limit legitimate search engines with a
+                                    token bucket per bot per IP address,
+                                    allowing modest crawl rates on real content
+                                    pages. Block low-value SEO scrapers and
+                                    anything self-identifying as a data
+                                    harvester. Combined with Rule 2, this keeps
+                                    bots off search entirely while still
+                                    permitting indexing of real content.
+                                </p>
+                                <p style="font-size: 12px; margin-top: 8px">
+                                    <span class="pill muted"
+                                        >V&amp;V impact: none (excluded
+                                        bots)</span
+                                    >
+                                    <span class="pill warn"
+                                        >SearchStax quota: small</span
+                                    >
+                                    <span class="pill warn"
+                                        >Origin CPU: moderate</span
+                                    >
+                                </p>
+                            </div>
+                            <div class="lever">
+                                <strong>~11%</strong>of www passthrough
+                            </div>
+                        </div>
+
+                        <div class="rec">
+                            <div class="rank">6</div>
+                            <div class="body">
+                                <strong
+                                    >Challenge empty or malformed User-Agent
+                                    requests</strong
+                                >
+                                <p>
+                                    JavaScript challenge for missing, empty, or
+                                    obviously malformed User-Agent strings
+                                    (examples seen in the logs include
+                                    <code>Mozilla\</code>,
+                                    <code>Mozilla1e309</code>). Cheap to add, no
+                                    risk to legitimate traffic.
+                                </p>
+                                <p style="font-size: 12px; margin-top: 8px">
+                                    <span class="pill warn"
+                                        >V&amp;V impact: small (unclassified
+                                        actors)</span
+                                    >
+                                    <span class="pill muted"
+                                        >SearchStax quota: none</span
+                                    >
+                                    <span class="pill warn"
+                                        >Origin CPU: small</span
+                                    >
+                                </p>
+                            </div>
+                            <div class="lever">
+                                <strong>&lt;1%</strong>of passthrough
+                            </div>
+                        </div>
+                    </div>
+
+                    <h3>
+                        Expected combined effect on the remaining attack surface
+                    </h3>
+                    <p>
+                        With Rule 0 already deployed, the main remaining lever
+                        is Rule 1 — the robots.txt fix — which will eliminate
+                        roughly the entire residual bot-driven SearchStax burn
+                        (Bingbot's ~2,300 daily search hits). Rule 2 is the
+                        belt-and-suspenders WAF version of the same protection.
+                        Rule 3 is insurance against the scraper migrating. Rules
+                        4–6 are general perimeter hygiene that will materially
+                        reduce origin server load even though they do not
+                        address the search burn directly.
+                    </p>
+
+                    <div class="callout">
+                        <strong>Guardrails:</strong> keep the monthly security scan scan range
+                        (<code>192.0.2.250/32</code>) allowlisted throughout.
+                        After each enforcement, re-pull a few days of
+                        apache-access logs and re-run the analyzers to confirm
+                        the actor mix shifted as expected. Watch for drops in
+                        legitimate human sessions, partner-API breakage from
+                        Rule 3, real search engines disappearing from content
+                        pages if Rule 5 is too aggressive, and broken assets if
+                        the Rule 4 cache is misconfigured.
+                    </div>
+                </section>
+
+                <!-- =================== METHOD / CAVEATS =================== -->
+                <section>
+                    <h2><span class="num">11</span> Method &amp; Caveats</h2>
+                    <div class="grid-2">
+                        <div class="card">
+                            <h4>How the data was produced</h4>
+                            <p style="margin-top: 0">
+                                Production apache-access logs were pulled from
+                                Acquia for each day in the May 1–25, 2026 window
+                                via the drover Acquia-pull skill (one process
+                                per day per the known multi-day pull bug; each
+                                file's distinct md5 and dominant date were
+                                verified). Five reusable Python analyzers run
+                                against the per-day gzipped logs:
+                                <code>analyze.py</code> for actor and search
+                                aggregates, <code>route_breakdown.py</code> for
+                                per-route splits,
+                                <code>host_breakdown.py</code> for the
+                                Host-header analysis behind Section 05,
+                                <code>timeline.py</code> for the per-day cliff
+                                chart in Section 02, and
+                                <code>enrichment.py</code> for the
+                                bytes-by-actor and named-bot tables. May 26 was
+                                excluded as a partial day still rotating.
+                            </p>
+                            <p>
+                                Requests are classified by user-agent and source
+                                IP. Declared bots are matched on well-known
+                                crawler user-agent strings. The suspected
+                                scraper class is a heuristic combining the
+                                headless Chrome signature with datacenter
+                                Autonomous System Numbers. Humans are the
+                                residual after subtracting the other classes.
+                                The Host-header analysis uses the
+                                <code>host=</code> field that Acquia's log
+                                format records on every line, distinct from the
+                                internal Apache <code>vhost=</code>.
+                            </p>
+                        </div>
+                        <div class="card">
+                            <h4>What this report does not yet answer</h4>
+                            <p style="margin-top: 0">
+                                <strong>Quota tie-out:</strong> the percentages
+                                above are a request-side proxy. The true
+                                SearchStax search-quota burn requires the May
+                                query count and the monthly limit from the live
+                                SearchStax dashboard.
+                            </p>
+                            <p>
+                                <strong>Scraper attribution:</strong> the AWS
+                                actor has not been identified by name. Before a
+                                hard block under Rule 1, reverse-DNS the ranges
+                                and check for any sanctioned first-party or
+                                partner integrations that legitimately run on
+                                AWS.
+                            </p>
+                        </div>
+                    </div>
+                </section>
+            </div>
+        </main>
+
+        <footer>
+            <div class="wrap">
+                <span
+                    >Source:
+                    <code>analysis-reports/search-imperva-may2026/</code> ·
+                    analyzer <code>analyze.py</code> · findings
+                    <code>findings.json</code></span
+                >
+                <span>Generated 2026-05-26 · Acmecorp Site Reliability</span>
+            </div>
+        </footer>
+
+        <script>
+            Chart.defaults.font.family =
+                '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif';
+            Chart.defaults.font.size = 12;
+            Chart.defaults.color = "#334155";
+            Chart.defaults.plugins.legend.labels.usePointStyle = true;
+            Chart.defaults.plugins.legend.labels.boxWidth = 8;
+
+            const palette = {
+                human: "#2563eb",
+                bot: "#f59e0b",
+                scraper: "#dc2626",
+                scan: "#6b7280",
+                static: "#8b5cf6",
+                noua: "#475569",
+                accent: "#1e3a8a",
+            };
+
+            // Host header split (donut)
+            new Chart(document.getElementById("chartHostSplit"), {
+                type: "doughnut",
+                data: {
+                    labels: [
+                        "origin.acmecorp.example.com (bypass — mitigated)",
+                        "www.acmecorp.example.com (Imperva)",
+                        "acmecorp.example.com (apex)",
+                        "acmecorp.example.acquia-sites.com",
+                    ],
+                    datasets: [
+                        {
+                            data: [838034, 388459, 24071, 241],
+                            backgroundColor: [
+                                palette.scraper,
+                                palette.human,
+                                palette.bot,
+                                palette.scan,
+                            ],
+                            borderColor: "#fff",
+                            borderWidth: 2,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "55%",
+                    plugins: {
+                        legend: { position: "bottom" },
+                        tooltip: {
+                            callbacks: {
+                                label: (c) =>
+                                    `${c.label}: ${c.parsed.toLocaleString()} (${((c.parsed / 1250805) * 100).toFixed(1)}%)`,
+                            },
+                        },
+                    },
+                },
+            });
+
+            // Non-human share by route (horizontal bar, stacked)
+            new Chart(document.getElementById("chartRouteNonHuman"), {
+                type: "bar",
+                data: {
+                    labels: [
+                        "/search",
+                        "/north-terminal/search",
+                        "/south-terminal/search",
+                        "/east-station/search",
+                        "/west-station/search",
+                        "/central-hub/search",
+                        "/transit/search",
+                    ],
+                    datasets: [
+                        {
+                            label: "Human",
+                            data: [1051, 3788, 57, 118, 95, 66, 15],
+                            backgroundColor: palette.human,
+                            stack: "s",
+                        },
+                        {
+                            label: "Declared bots (mostly Bingbot)",
+                            data: [50756, 1650, 526, 594, 623, 542, 44],
+                            backgroundColor: palette.bot,
+                            stack: "s",
+                        },
+                        {
+                            label: "AWS scraper (frozen May 14)",
+                            data: [15666, 11956, 7220, 5908, 2435, 2432, 0],
+                            backgroundColor: palette.scraper,
+                            stack: "s",
+                        },
+                    ],
+                },
+                options: {
+                    indexAxis: "y",
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: "bottom" },
+                        tooltip: {
+                            callbacks: {
+                                label: (c) =>
+                                    `${c.dataset.label}: ${c.parsed.x.toLocaleString()}`,
+                            },
+                        },
+                    },
+                    scales: {
+                        x: {
+                            stacked: true,
+                            ticks: { callback: (v) => v.toLocaleString() },
+                        },
+                        y: { stacked: true },
+                    },
+                },
+            });
+
+            // Search by actor (donut)
+            new Chart(document.getElementById("chartSearchActor"), {
+                type: "doughnut",
+                data: {
+                    labels: [
+                        "Declared bots (mostly Bingbot)",
+                        "AWS scraper (blocked May 15)",
+                        "Humans",
+                        "monthly security scan scan",
+                    ],
+                    datasets: [
+                        {
+                            data: [60055, 45689, 36473, 5653],
+                            backgroundColor: [
+                                palette.bot,
+                                palette.scraper,
+                                palette.human,
+                                palette.scan,
+                            ],
+                            borderColor: "#fff",
+                            borderWidth: 2,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "60%",
+                    plugins: {
+                        legend: { position: "bottom" },
+                        tooltip: {
+                            callbacks: {
+                                label: (c) =>
+                                    `${c.label}: ${c.parsed.toLocaleString()} (${((c.parsed / 147870) * 100).toFixed(1)}%)`,
+                            },
+                        },
+                    },
+                },
+            });
+
+            // Search by kind (bar)
+            new Chart(document.getElementById("chartSearchKind"), {
+                type: "bar",
+                data: {
+                    labels: [
+                        "Search pages",
+                        "Faceted listings",
+                        "Autocomplete",
+                    ],
+                    datasets: [
+                        {
+                            label: "Requests",
+                            data: [111235, 36318, 318],
+                            backgroundColor: [
+                                palette.accent,
+                                palette.human,
+                                "#94a3b8",
+                            ],
+                            borderRadius: 4,
+                        },
+                    ],
+                },
+                options: {
+                    indexAxis: "y",
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (c) =>
+                                    c.parsed.x.toLocaleString() + " requests",
+                            },
+                        },
+                    },
+                    scales: {
+                        x: { ticks: { callback: (v) => v.toLocaleString() } },
+                    },
+                },
+            });
+
+            // Facet by actor (donut)
+            new Chart(document.getElementById("chartFacetActor"), {
+                type: "doughnut",
+                data: {
+                    labels: ["Humans", "Declared bots", "Scan"],
+                    datasets: [
+                        {
+                            data: [31008, 5304, 6],
+                            backgroundColor: [
+                                palette.human,
+                                palette.bot,
+                                palette.scan,
+                            ],
+                            borderColor: "#fff",
+                            borderWidth: 2,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "60%",
+                    plugins: {
+                        legend: { position: "bottom" },
+                        tooltip: {
+                            callbacks: {
+                                label: (c) =>
+                                    `${c.label}: ${c.parsed.toLocaleString()} (${((c.parsed / 36318) * 100).toFixed(1)}%)`,
+                            },
+                        },
+                    },
+                },
+            });
+
+            // Daily search volume (bar — clearly shows May 15 cliff)
+            const days = [
+                "05-01",
+                "05-02",
+                "05-03",
+                "05-04",
+                "05-05",
+                "05-06",
+                "05-07",
+                "05-08",
+                "05-09",
+                "05-10",
+                "05-11",
+                "05-12",
+                "05-13",
+                "05-14",
+                "05-15",
+                "05-16",
+                "05-17",
+                "05-18",
+                "05-19",
+                "05-20",
+                "05-21",
+                "05-22",
+                "05-23",
+                "05-24",
+                "05-25",
+            ];
+            const searchPerDay = [
+                9008, 5011, 5434, 8981, 12639, 8304, 5823, 11093, 7565, 10231,
+                5072, 5413, 19826, 5784, 3826, 1968, 1840, 2855, 3343, 2987,
+                2082, 1809, 2078, 2193, 2706,
+            ];
+            new Chart(document.getElementById("chartDaily"), {
+                type: "bar",
+                data: {
+                    labels: days,
+                    datasets: [
+                        {
+                            label: "Search requests",
+                            data: searchPerDay,
+                            backgroundColor: searchPerDay.map((v, i) => {
+                                if (i === 12) return palette.scraper; // May 13 spike
+                                if (i === 4) return "#f97316"; // May 5 spike
+                                if (i === 7) return palette.scan; // May 8 scan day
+                                if (i >= 14) return "#10b981"; // post-mitigation, green
+                                return palette.accent;
+                            }),
+                            borderRadius: 4,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (c) =>
+                                    c.parsed.y.toLocaleString() +
+                                    " search requests",
+                            },
+                        },
+                    },
+                    scales: {
+                        y: { ticks: { callback: (v) => v.toLocaleString() } },
+                    },
+                },
+            });
+
+            // May 15 mitigation cliff — daily 200 vs 403 on origin.acmecorp.example.com
+            const cliffDays = [
+                "05-01",
+                "05-02",
+                "05-03",
+                "05-04",
+                "05-05",
+                "05-06",
+                "05-07",
+                "05-08",
+                "05-09",
+                "05-10",
+                "05-11",
+                "05-12",
+                "05-13",
+                "05-14",
+                "05-15",
+                "05-16",
+                "05-17",
+                "05-18",
+                "05-19",
+                "05-20",
+                "05-21",
+                "05-22",
+                "05-23",
+                "05-24",
+                "05-25",
+            ];
+            const cliff200 = [
+                12144, 11578, 10409, 13029, 23113, 12274, 10889, 341278, 16249,
+                20649, 11051, 12961, 13593, 9966, 25, 0, 0, 0, 0, 0, 0, 0, 0, 0,
+                0,
+            ];
+            const cliff403 = [
+                188, 220, 186, 185, 300, 278, 276, 1861, 199, 297, 276, 309,
+                276, 278, 6358, 6109, 6302, 6407, 1001, 6174, 6161, 6447, 6543,
+                6409, 6301,
+            ];
+            new Chart(document.getElementById("chartCliff"), {
+                type: "line",
+                data: {
+                    labels: cliffDays,
+                    datasets: [
+                        {
+                            label: "HTTP 200 (bypass succeeded)",
+                            data: cliff200,
+                            borderColor: palette.scraper,
+                            backgroundColor: "rgba(220, 38, 38, 0.1)",
+                            fill: true,
+                            tension: 0.2,
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                        },
+                        {
+                            label: "HTTP 403 (bypass blocked)",
+                            data: cliff403,
+                            borderColor: "#10b981",
+                            backgroundColor: "rgba(16, 185, 129, 0.1)",
+                            fill: true,
+                            tension: 0.2,
+                            borderWidth: 2,
+                            pointRadius: 3,
+                            pointHoverRadius: 5,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: "bottom" },
+                        tooltip: {
+                            mode: "index",
+                            intersect: false,
+                            callbacks: {
+                                label: (c) =>
+                                    `${c.dataset.label}: ${c.parsed.y.toLocaleString()}`,
+                            },
+                        },
+                        annotation: { annotations: {} },
+                    },
+                    scales: {
+                        y: {
+                            type: "logarithmic",
+                            ticks: { callback: (v) => v.toLocaleString() },
+                        },
+                    },
+                },
+            });
+
+            // Top scraper IPs (horizontal bar)
+            const ips = [
+                "192.0.2.10",
+                "192.0.2.11",
+                "192.0.2.12",
+                "192.0.2.13",
+                "192.0.2.14",
+                "192.0.2.15",
+                "192.0.2.16",
+                "198.51.100.21",
+                "192.0.2.17",
+                "192.0.2.18",
+                "198.51.100.22",
+                "198.51.100.23",
+                "198.51.100.24",
+                "203.0.113.31",
+            ];
+            const ipCounts = [
+                5182, 4220, 4188, 3487, 3480, 2935, 2594, 2480, 2351, 2147,
+                2098, 1398, 1351, 1347,
+            ];
+            new Chart(document.getElementById("chartScraperIps"), {
+                type: "bar",
+                data: {
+                    labels: ips,
+                    datasets: [
+                        {
+                            label: "Search requests",
+                            data: ipCounts,
+                            backgroundColor: palette.scraper,
+                            borderRadius: 3,
+                        },
+                    ],
+                },
+                options: {
+                    indexAxis: "y",
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            callbacks: {
+                                label: (c) =>
+                                    c.parsed.x.toLocaleString() +
+                                    " search requests",
+                            },
+                        },
+                    },
+                    scales: {
+                        x: { ticks: { callback: (v) => v.toLocaleString() } },
+                    },
+                },
+            });
+
+            // Passthrough composition (donut)
+            new Chart(document.getElementById("chartPassthrough"), {
+                type: "doughnut",
+                data: {
+                    labels: [
+                        "Suspected scraper",
+                        "Human",
+                        "Static assets",
+                        "Declared bots",
+                        "No / malformed UA",
+                    ],
+                    datasets: [
+                        {
+                            data: [337817, 204283, 163674, 88537, 700],
+                            backgroundColor: [
+                                palette.scraper,
+                                palette.human,
+                                palette.static,
+                                palette.bot,
+                                palette.noua,
+                            ],
+                            borderColor: "#fff",
+                            borderWidth: 2,
+                        },
+                    ],
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: "55%",
+                    plugins: {
+                        legend: { position: "bottom" },
+                        tooltip: {
+                            callbacks: {
+                                label: (c) =>
+                                    `${c.label}: ${c.parsed.toLocaleString()} (${((c.parsed / 795011) * 100).toFixed(1)}%)`,
+                            },
+                        },
+                    },
+                },
+            });
+        </script>
+    </body>
+</html>
