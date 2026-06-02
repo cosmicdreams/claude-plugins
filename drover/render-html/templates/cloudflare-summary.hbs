@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>{{meta.project}} — {{meta.month_label}} traffic &amp; offload report</title>
+  {{> head-theme-init}}
+  <style>
+    {{{css}}}
+    
+    .subhead { font-family: var(--font-h3-family); font-size: var(--font-h3-size); font-weight: 600; color: var(--color-text-strong); margin: var(--space-lg) 0 var(--space-sm); }
+    .data-table { width: 100%; border-collapse: collapse; margin: var(--space-md) 0 var(--space-xl); font-size: var(--font-body-sm-size); }
+    .data-table th, .data-table td { text-align: left; padding: var(--space-sm) var(--space-md); border-bottom: 1px solid var(--color-border); vertical-align: top; }
+    .data-table th { color: var(--color-text-muted); font-weight: 500; text-transform: uppercase; font-size: var(--font-label-size); letter-spacing: var(--font-label-tracking); }
+    .data-table td.num, .data-table th.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+    .data-table code { font-family: var(--font-mono-family); font-size: 0.85em; }
+    .flow { display: flex; align-items: stretch; gap: var(--space-sm); margin: var(--space-lg) 0 var(--space-xl); flex-wrap: wrap; }
+    .flow__step { flex: 1; min-width: 160px; background: var(--color-surface-alt); border-radius: var(--rounded-md); padding: var(--space-md); display: flex; flex-direction: column; gap: var(--space-xs); }
+    .flow__step--good { background: var(--color-tint-mint); }
+    .flow__step--warn { background: var(--color-tint-yellow); }
+    .flow__num { font-family: var(--font-metric-family); font-size: 1.9rem; font-weight: 600; color: var(--color-primary); line-height: 1; }
+    .flow__cap { font-size: var(--font-body-sm-size); color: var(--color-text-soft); }
+    .flow__cap small { color: var(--color-text-muted); }
+    .flow__arrow { display: flex; align-items: center; color: var(--color-text-muted); font-size: 1.5rem; }
+    .callout { background: var(--color-tint-blue); border-radius: var(--rounded-lg); padding: var(--space-lg) var(--space-xl); margin: var(--space-lg) 0 var(--space-xl); }
+    .callout--plain { background: var(--color-surface-alt); }
+    .callout__title { margin: 0 0 var(--space-sm); color: var(--color-primary); }
+    .callout p { margin: 0 0 var(--space-md); }
+    .callout__list, .ladder { margin: 0; padding-left: var(--space-lg); display: flex; flex-direction: column; gap: var(--space-md); }
+    .callout__list li, .ladder li { line-height: 1.55; }
+    .callout code, .data-table code { background: rgba(0,0,0,.05); padding: 1px 5px; border-radius: var(--rounded-sm); }
+    .rung { display: inline-block; font-size: var(--font-label-size); font-weight: 600; padding: 2px 8px; border-radius: var(--rounded-pill); white-space: nowrap; }
+    .rung--robots { background: var(--color-tint-mint); color: var(--color-tertiary); }
+    .rung--rules { background: var(--color-tint-blue); color: var(--color-primary); }
+    .rung--managed { background: var(--color-tint-yellow); color: #7A5C00; }
+    .tag { display: inline-block; font-size: var(--font-label-size); font-weight: 500; padding: 2px 8px; border-radius: var(--rounded-sm); line-height: 1.3; }
+    .tag--reports-unc { background: #FBE2EA; color: var(--color-severity-critical); }
+    .tag--reports-elig { background: var(--color-tint-mint); color: var(--color-tertiary); }
+    .chart-group--wide .chart { grid-template-columns: 24em 1fr 6em; }
+    .chart-group--wide .chart__label { white-space: normal; overflow: visible; text-overflow: clip; line-height: 1.35; }
+    .linechart { margin: var(--space-md) 0 var(--space-xl); }
+    .tip { border-bottom: 1px dotted var(--color-text-muted); cursor: help; }
+    .tip::before { content: "ⓘ"; font-size: 0.7em; opacity: .5; margin-right: 3px; vertical-align: 1px; }
+    @media print { .tip { border: 0; } .tip::before { display: none; } }
+    
+    /* Advanced SVG Chart Overrides */
+    .svg-donut-container { width: 100%; max-width: 400px; margin: 0 auto; }
+    .svg-area-container { width: 100%; margin: var(--space-xl) 0; }
+    .svg-waffle-container { display: flex; gap: 2px; flex-wrap: wrap; max-width: 400px; margin: 0 auto; }
+    .waffle-cell { width: 20px; height: 20px; border-radius: 2px; }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <header class="page-header">
+    <div class="page-header__brand">
+      {{#if logoDataUri}}<img src="{{logoDataUri}}" alt="Velir" class="page-header__logo">{{/if}}
+      <div class="page-header__title">{{meta.project}} traffic &amp; edge offload</div>
+    </div>
+    <div class="page-header__actions">
+      <span class="page-header__meta">{{meta.month_label}}</span>
+      {{> theme-toggle-button}}
+    </div>
+  </header>
+
+  <main class="page-body">
+
+    <h1 class="display">{{meta.month_label}} traffic &amp; offload report</h1>
+    <p class="subtitle">How much of {{meta.project}}'s traffic Cloudflare already absorbs at its edge, and how much more it could — so the origin server does less work. Every figure here is from Cloudflare and covers the full month.</p>
+
+    <!-- NEW ADVANCED SVG CHARTS -->
+    
+    <h2 class="section">Cache Offload (Donut Chart)</h2>
+    <div class="svg-donut-container">
+      {{{svgDonut cache_status}}}
+    </div>
+    
+    <h2 class="section">Bandwidth Offload over Time (Stacked Area)</h2>
+    <div class="svg-area-container">
+      {{{svgAreaChart daily}}}
+    </div>
+    
+    <h2 class="section">Bot Classification (Waffle Chart)</h2>
+    <div class="svg-waffle-container">
+      {{{svgWaffle bot_classes}}}
+    </div>
+
+    <!-- STANDARD CHARTS -->
+
+    <h2 class="section">Where visitors came from</h2>
+    <table class="data-table">
+      <thead><tr><th class=""><span class="tip" title="The country Cloudflare attributed each visitor to, based on their network address.">Country</span></th><th class="num"><span class="tip" title="Total requests from this country this month, across all traffic.">Requests</span></th><th class="num"><span class="tip" title="Requests from this country that Cloudflare flagged as a security threat.">Flagged threats</span></th></tr></thead>
+      <tbody>
+      {{#each top_countries}}
+      <tr><td>{{country}}</td><td class='num'>{{fmt requests}}</td><td class='num'>{{fmt threats}}</td></tr>
+      {{/each}}
+      </tbody>
+    </table>
+
+  </main>
+
+  <footer class="footer">
+    <span>Prepared by Velir · Cloudflare edge analytics</span>
+    <span>Generated {{generatedAt}}</span>
+  </footer>
+</div>
+{{> theme-toggle-script}}
+
+<script>
+  (function() {
+    const tooltip = document.createElement("div");
+    tooltip.className = "chart-tooltip";
+    document.body.appendChild(tooltip);
+
+    document.querySelectorAll("[data-tooltip]").forEach(el => {
+      el.addEventListener("mousemove", function(e) {
+        tooltip.innerHTML = el.getAttribute("data-tooltip");
+        tooltip.classList.add("visible");
+        
+        let left = e.pageX + 15;
+        let top = e.pageY - 20;
+        
+        // Prevent tooltip from going off screen
+        const rect = tooltip.getBoundingClientRect();
+        if (left + rect.width > window.innerWidth) {
+          left = e.pageX - rect.width - 15;
+        }
+        
+        tooltip.style.left = left + "px";
+        tooltip.style.top = top + "px";
+      });
+
+      el.addEventListener("mouseleave", function() {
+        tooltip.classList.remove("visible");
+      });
+    });
+  })();
+</script>
+</body>
+</html>
