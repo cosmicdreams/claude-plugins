@@ -102,6 +102,30 @@ PYEOF
         echo "$f"
     done
 
+    # Strip any stray "version" field from this plugin's root marketplace entry.
+    # Convention: marketplace.json entries carry no version — the installer reads
+    # plugin.json. A stale version field here makes `claude plugin install` treat
+    # the plugin as already-satisfied and skip the re-pull. Self-heal it on bump.
+    local marketplace="$REPO_ROOT/.claude-plugin/marketplace.json"
+    if [[ -f "$marketplace" ]]; then
+        python3 - "$marketplace" "$plugin" <<'PYEOF'
+import json, sys
+path, plugin = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    data = json.load(f)
+changed = False
+for entry in data.get('plugins', []):
+    if entry.get('name') == plugin and 'version' in entry:
+        entry.pop('version')
+        changed = True
+if changed:
+    with open(path, 'w') as f:
+        json.dump(data, f, indent=2)
+        f.write('\n')
+    print("  Updated: .claude-plugin/marketplace.json (removed stray version field)")
+PYEOF
+    fi
+
     echo ""
     echo "  Next step: claude plugin install ${plugin}@local --scope user"
 }
