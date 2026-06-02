@@ -1,19 +1,33 @@
 #!/usr/bin/env python3
 """drover.pull — date-ranged Acquia application error log fetcher.
 
-Reconciles a project's local log folder against the manifest in two phases:
+Reconciles a project's local log folder against the manifest.
 
-  Phase 1 — Create: POST a log-create request for every missing
-    (date, env, type) tuple. Cheap and fast (~1s each). Acquia begins
-    building all snapshots in parallel on their end.
+THE ONE-PER-24h CONSTRAINT
+--------------------------
+Acquia keeps exactly **one** packaged log file per ``(environment, log_type)``
+at a time. The download endpoint is keyed only by env + type and always
+hands back "the most recently created snapshot" — there is no snapshot id
+in the download path. So each new log-create for the same ``(env, type)``
+*supersedes* the previous packaged file.
 
-  Phase 2 — Poll + Download: loop over all pending notifications.
-    The moment a notification completes, download and gunzip immediately.
-    Report progress after each file lands: "N/total done, M pending".
+A naïve batch (fire all creates, then download all) therefore returns the
+SAME last-created snapshot for every day — duplicate, mislabeled files.
 
-Total wall time for a 30-day × 3-type backfill drops from ~60 min
-(serial create→poll→download) to ~5–10 min (batch create, then
-parallel-by-Acquia poll loop).
+The only correct algorithm is to **fully download a snapshot before creating
+the next one for the same ``(env, type)``**:
+
+  for day in days:                       # strict serial within (env, type)
+      create(env, type, day) → poll → download → verify dominant date
+
+Distinct ``(env, type)`` keys map to distinct packaged files, so they may run
+in parallel. ``reconcile`` groups missing tuples by ``(env, type)``,
+serializes days within a group, and parallelizes across groups
+(``--concurrency`` = max parallel groups).
+
+Every downloaded file is verified post-download: its dominant log date must
+match the requested day, or it is rejected (``snapshot-mismatch``) and never
+recorded as ``present``.
 
 CLI usage:
   # Single day:
@@ -37,13 +51,17 @@ CLI usage:
 from __future__ import annotations
 
 import argparse
+import gzip
+import hashlib
 import json
 import os
+import re
 import sys
 import tempfile
 import threading
 import time
 import urllib.request
+from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -59,6 +77,10 @@ POLL_INTERVAL_S = 3
 RATE_LIMIT_BETWEEN_CALLS_S = 1.0
 DEFAULT_BACKFILL_DAYS = 30
 RETRY_TRANSIENT_FAILURES = 1
+# Verification reads at most this many lines to find the dominant log date.
+# A day's true date dwarfs the handful of UTC-midnight spillover lines at the
+# top of a file, so a bounded head-scan is both fast and correct.
+MAX_VERIFY_LINES = 50000
 
 
 # --- Path helpers ---------------------------------------------------------
@@ -219,6 +241,72 @@ def download_atomic(s3_url: str, dest: Path) -> int:
         raise
 
 
+# --- Post-download verification ------------------------------------------
+
+_MONTHS = {
+    m: i for i, m in enumerate(
+        ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
+         "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"], start=1,
+    )
+}
+_MON_RE = "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
+# dd/Mon or dd-Mon — apache-access ([10/May/2026]) and php-error (03-Apr-2026)
+_RE_DAY_MON = re.compile(r"\b(\d{1,2})[/-]" + _MON_RE + r"\b")
+# Mon dd — apache-error ([Tue Apr 03 ...]) and drupal-watchdog (Apr  3 ...)
+_RE_MON_DAY = re.compile(r"\b" + _MON_RE + r"\s+(\d{1,2})\b")
+
+
+def _line_month_day(line: str) -> tuple[int, int] | None:
+    """Extract a (month, day) from one log line across all four log formats.
+
+    Year is intentionally ignored — drupal-watchdog (syslog) carries no year,
+    and (month, day) alone uniquely identifies a day within Acquia's 30-day
+    retention window, which is all the snapshot-mismatch check needs.
+    """
+    m = _RE_DAY_MON.search(line)
+    if m:
+        return (_MONTHS[m.group(2)], int(m.group(1)))
+    m = _RE_MON_DAY.search(line)
+    if m:
+        return (_MONTHS[m.group(1)], int(m.group(2)))
+    return None
+
+
+def dominant_month_day(
+    path: Path, *, max_lines: int = MAX_VERIFY_LINES,
+) -> tuple[int, int] | None:
+    """Return the most common (month, day) across a log file's lines.
+
+    Reads .gz transparently. Returns None when no line carries a recognizable
+    date (an empty or unparseable file) — the caller treats None as
+    "cannot verify" rather than a mismatch.
+    """
+    opener = gzip.open if path.suffix == ".gz" else open
+    counts: Counter[tuple[int, int]] = Counter()
+    try:
+        with opener(path, "rt", errors="replace") as fh:
+            for i, line in enumerate(fh):
+                if i >= max_lines:
+                    break
+                md = _line_month_day(line)
+                if md is not None:
+                    counts[md] += 1
+    except OSError:
+        return None
+    if not counts:
+        return None
+    return counts.most_common(1)[0][0]
+
+
+def file_md5(path: Path) -> str:
+    """Hex md5 of a file, streamed in chunks."""
+    h = hashlib.md5()
+    with open(path, "rb") as fh:
+        for chunk in iter(lambda: fh.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
 def pull_one(
     client: AcquiaClient,
     env_id: str,
@@ -275,6 +363,15 @@ def pull_one(
     local = canonical_path(project_root, day, env_name, log_type)
     s3_url = client.get_log_download_url(env_id, log_type)
     gz_size = download_atomic(s3_url, local)
+
+    observed = dominant_month_day(local)
+    if observed is not None and observed != (day.month, day.day):
+        local.unlink(missing_ok=True)
+        raise PullError(
+            f"snapshot-mismatch: file dominant date "
+            f"{observed[0]:02d}-{observed[1]:02d} != requested "
+            f"{day.month:02d}-{day.day:02d} (stale Acquia snapshot)"
+        )
 
     return {
         "state": "present",
@@ -338,206 +435,15 @@ def resolve_dates(args: argparse.Namespace) -> list[date]:
         end = today - timedelta(days=1)
         start = end - timedelta(days=days - 1)
         return date_range(start, end)
-    return date_range(date.fromisoformat(args.from_),
-                      date.fromisoformat(args.to))
-
-
-# --- Phase 1: log-create --------------------------------------------------
-
-def _phase_create(
-    client: AcquiaClient,
-    missing: list[tuple],
-    *,
-    rate_limit_s: float = RATE_LIMIT_BETWEEN_CALLS_S,
-    retries: int = RETRY_TRANSIENT_FAILURES,
-    log_fn=print,
-) -> tuple[list[dict], list[tuple]]:
-    """Phase 1: fire log-create for every (env, log_type, day) tuple.
-
-    Each POST returns immediately with a notification URL — cheap, ~1s each.
-    Acquia begins building all snapshots in parallel on their end.
-
-    Returns:
-      pending       — items ready for Phase 2 poll+download
-      create_failed — list of (env, log_type, day, exc) that couldn't start
-    """
-    pending = []
-    create_failed = []
-    n = len(missing)
-    for i, (env, log_type, day) in enumerate(missing):
-        env_name = env["name"]
-        env_id = env.get("env_id")
-        from_iso = f"{day.isoformat()}T00:00:00+00:00"
-        to_iso = f"{day.isoformat()}T23:59:59+00:00"
-        try:
-            notif = client.request_log_download(
-                env_id, log_type, from_iso=from_iso, to_iso=to_iso,
-            )
-            notif_url = (
-                notif.get("_links", {}).get("notification", {}).get("href")
-            )
-            if not notif_url:
-                raise PullError(f"no notification URL: {notif!r}")
-            notif_uuid = notif_url.rsplit("/", 1)[-1]
-            pending.append({
-                "env": env,
-                "log_type": log_type,
-                "day": day,
-                "from_iso": from_iso,
-                "to_iso": to_iso,
-                "notif_url": notif_url,
-                "notif_uuid": notif_uuid,
-                "retries_remaining": retries,
-            })
-            log_fn(
-                f"  → {day} {env_name} {log_type}: requested "
-                f"({i + 1}/{n})"
-            )
-        except (PullError, AcquiaAPIError, Exception) as e:
-            log_fn(f"  ! {day} {env_name} {log_type}: create failed ({e})")
-            create_failed.append((env, log_type, day, e))
-        if i < n - 1:
-            time.sleep(rate_limit_s)
-    return pending, create_failed
-
-
-# --- Phase 2: poll + download as files become ready -----------------------
-
-def _phase_poll_and_download(
-    client: AcquiaClient,
-    project_root: Path,
-    coverage: dict,
-    pending: list[dict],
-    *,
-    poll_deadline_s: int = POLL_DEADLINE_S,
-    poll_interval_s: int = POLL_INTERVAL_S,
-    log_fn=print,
-) -> tuple[list[dict], list[dict]]:
-    """Phase 2: poll all pending notifications; download each file the moment
-    its notification completes.
-
-    Acquia built all snapshots in parallel during Phase 1, so most
-    notifications complete within the same ~60s window. Files are downloaded
-    as they become available — we don't wait for all to finish before
-    starting any download.
-
-    After each download reports:
-      "✓ {date} {env} {type}: N,NNN bytes — X/total done, Y pending"
-
-    Returns (downloaded_items, failed_items).
-    """
-    total = len(pending)
-    downloaded: list[dict] = []
-    failed: list[dict] = []
-    deadline = time.time() + poll_deadline_s
-
-    while pending:
-        if time.time() > deadline:
-            for item in pending:
-                env_name = item["env"]["name"]
-                log_fn(
-                    f"  ! {item['day']} {env_name} {item['log_type']}: "
-                    "poll deadline exceeded"
-                )
-            failed.extend(pending)
-            break
-
-        still_pending = []
-        for item in pending:
-            env = item["env"]
-            env_name = env["name"]
-            env_id = env.get("env_id")
-            log_type = item["log_type"]
-            day = item["day"]
-            notif_url = item["notif_url"]
-            notif_uuid = item["notif_uuid"]
-
-            try:
-                s = client.check_log_download(notif_url)
-                status = s.get("status", "?")
-            except Exception:
-                still_pending.append(item)
-                continue
-
-            if status == "completed":
-                local = canonical_path(project_root, day, env_name, log_type)
-                try:
-                    s3_url = client.get_log_download_url(env_id, log_type)
-                    gz_size = download_atomic(s3_url, local)
-                    item.update({"bytes": gz_size})
-                    downloaded.append(item)
-                    mark_coverage(
-                        coverage, day, env_name, log_type,
-                        state="present",
-                        bytes=gz_size,
-                        notification_uuid=notif_uuid,
-                    )
-                    save_coverage(project_root, coverage)
-                    done = len(downloaded)
-                    pending_count = total - done - len(failed)
-                    log_fn(
-                        f"  ✓ {day} {env_name} {log_type}: "
-                        f"{gz_size:,} bytes — "
-                        f"{done}/{total} done, {pending_count} pending"
-                    )
-                except Exception as e:
-                    log_fn(
-                        f"  ! {day} {env_name} {log_type}: "
-                        f"download failed ({e})"
-                    )
-                    failed.append(item)
-                    mark_coverage(
-                        coverage, day, env_name, log_type,
-                        state="fetch-failed",
-                        reason=f"{type(e).__name__}: {e}",
-                    )
-                    save_coverage(project_root, coverage)
-
-            elif status == "failed":
-                if item.get("retries_remaining", 0) > 0:
-                    # Re-issue log-create and add back to pending.
-                    try:
-                        notif = client.request_log_download(
-                            env_id, log_type,
-                            from_iso=item["from_iso"],
-                            to_iso=item["to_iso"],
-                        )
-                        new_url = (
-                            notif.get("_links", {})
-                            .get("notification", {})
-                            .get("href")
-                        )
-                        if new_url:
-                            item["notif_url"] = new_url
-                            item["notif_uuid"] = new_url.rsplit("/", 1)[-1]
-                            item["retries_remaining"] -= 1
-                            still_pending.append(item)
-                            log_fn(
-                                f"  ~ {day} {env_name} {log_type}: "
-                                "notification failed, retrying"
-                            )
-                            continue
-                    except Exception:
-                        pass
-                log_fn(
-                    f"  ! {day} {env_name} {log_type}: notification failed"
-                )
-                failed.append(item)
-                mark_coverage(
-                    coverage, day, env_name, log_type,
-                    state="fetch-failed",
-                    reason="notification status=failed",
-                )
-                save_coverage(project_root, coverage)
-
-            else:
-                still_pending.append(item)
-
-        pending = still_pending
-        if pending:
-            time.sleep(poll_interval_s)
-
-    return downloaded, failed
+    # --from/--to: exclude today. A create for the current UTC day returns
+    # HTTP 400 (Acquia rotates at UTC midnight, so today's slice is still
+    # being written), so clamp the window end to yesterday.
+    from_d = date.fromisoformat(args.from_)
+    to_d = date.fromisoformat(args.to)
+    yesterday = today - timedelta(days=1)
+    if to_d > yesterday:
+        to_d = yesterday
+    return date_range(from_d, to_d)
 
 
 # --- Reconcile orchestrator -----------------------------------------------
@@ -557,11 +463,18 @@ def reconcile(
     concurrency: int = 4,
     log_fn=print,
 ) -> dict:
-    """Orchestrate Phase 1 (create-all) then Phase 2 (poll+download loop).
+    """Reconcile missing logs, serial per ``(env, type)`` across days.
 
-    Phase 1 fires all log-create requests upfront — cheap, ~1s each.
-    Acquia builds all snapshots in parallel on their end. Phase 2 polls
-    all pending notifications and downloads each file the moment it's ready.
+    Missing tuples are grouped by ``(env, type)``. Days within a group are
+    fetched strictly one at a time — create → poll → download → verify —
+    because Acquia keeps only one packaged snapshot per ``(env, type)`` and
+    the download endpoint always returns "the most recent" one. Groups
+    (distinct ``(env, type)`` keys, which map to distinct packaged files)
+    run in parallel, up to ``concurrency`` at a time.
+
+    Every download is verified: its dominant log date must match the
+    requested day, or it is rejected as ``snapshot-mismatch`` (retried once,
+    never recorded as ``present``).
 
     Returns a summary dict: {present, fetched, failed, skipped, total}
     """
@@ -617,186 +530,209 @@ def reconcile(
         save_coverage(project_root, coverage)
         return summary
 
-    if concurrency > 1:
-        # Concurrent mode using ThreadPoolExecutor
-        api_lock = threading.Lock()
-        ledger_lock = threading.Lock()
-        print_lock = threading.Lock()
+    # Group missing tuples by (env, type). Days within a group are fetched
+    # strictly serially (the one-per-24h constraint); distinct groups run in
+    # parallel up to `concurrency`.
+    groups: dict[tuple[str, str], dict] = {}
+    for env, log_type, day in missing:
+        key = (env["name"], log_type)
+        g = groups.setdefault(
+            key, {"env": env, "log_type": log_type, "days": []}
+        )
+        g["days"].append(day)
+    for g in groups.values():
+        g["days"].sort()
 
-        done_count = 0
-        failed_count = 0
+    total_missing = len(missing)
+    api_lock = threading.Lock()      # serialize + rate-limit log-create calls
+    ledger_lock = threading.Lock()   # guard the shared coverage dict + file
+    print_lock = threading.Lock()    # keep progress lines from interleaving
+    counters = {"fetched": 0, "failed": 0}
 
-        def pull_worker(env: dict, log_type: str, day: date) -> bool:
-            nonlocal done_count, failed_count
-            env_name = env["name"]
-            env_id = env.get("env_id")
-            from_iso = f"{day.isoformat()}T00:00:00+00:00"
-            to_iso = f"{day.isoformat()}T23:59:59+00:00"
+    def safe_log(msg: str) -> None:
+        with print_lock:
+            log_fn(msg)
 
-            retries_remaining = retries
+    def create_notification(env_id, log_type, from_iso, to_iso):
+        """Fire one log-create under the API lock, with rate-limit pacing.
 
-            while True:
-                # Phase 1: Request log download under api_lock (with rate limit delay)
+        Returns (notif_url, notif_uuid). Raises on failure."""
+        with api_lock:
+            if client is None:
+                raise PullError("Client is None")
+            notif = client.request_log_download(
+                env_id, log_type, from_iso=from_iso, to_iso=to_iso,
+            )
+            time.sleep(rate_limit_s)
+        notif_url = (
+            notif.get("_links", {}).get("notification", {}).get("href")
+        )
+        if not notif_url:
+            raise PullError(f"no notification URL in response: {notif!r}")
+        return notif_url, notif_url.rsplit("/", 1)[-1]
+
+    def fetch_day(env_id, env_name, log_type, day, seen_md5) -> tuple[str, str]:
+        """create → poll → download → verify for a single day.
+
+        Retries once (per `retries`) on notification failure, poll-deadline,
+        or snapshot-mismatch. Returns (state, detail) where state is
+        'present' or 'fetch-failed'.
+        """
+        from_iso = f"{day.isoformat()}T00:00:00+00:00"
+        to_iso = f"{day.isoformat()}T23:59:59+00:00"
+        attempts = retries + 1
+        reason = "unknown"
+
+        for attempt in range(attempts):
+            last = attempt == attempts - 1
+            try:
+                notif_url, notif_uuid = create_notification(
+                    env_id, log_type, from_iso, to_iso,
+                )
+            except Exception as e:
+                reason = (
+                    f"acquia-api {e.status} {e.error_slug}"
+                    if isinstance(e, AcquiaAPIError)
+                    else f"{type(e).__name__}: {e}"
+                )
+                safe_log(
+                    f"  ! {day} {env_name} {log_type}: create failed ({e})"
+                    + ("" if last else ", retrying")
+                )
+                continue
+
+            # Poll this day's notification to completion.
+            deadline = time.time() + poll_deadline_s
+            status = "?"
+            while time.time() < deadline:
                 try:
-                    with api_lock:
-                        if client is None:
-                            raise PullError("Client is None")
-                        notif = client.request_log_download(
-                            env_id, log_type, from_iso=from_iso, to_iso=to_iso,
-                        )
-                        time.sleep(rate_limit_s)
-
-                    notif_url = notif.get("_links", {}).get("notification", {}).get("href")
-                    if not notif_url:
-                        raise PullError(f"no notification URL in response: {notif!r}")
-                    notif_uuid = notif_url.rsplit("/", 1)[-1]
-                except Exception as e:
-                    with print_lock:
-                        log_fn(f"  ! {day} {env_name} {log_type}: create failed ({e})")
-                    reason = (
-                        f"acquia-api {e.status} {e.error_slug}"
-                        if isinstance(e, AcquiaAPIError)
-                        else f"{type(e).__name__}: {e}"
+                    status = client.check_log_download(notif_url).get(
+                        "status", "?"
                     )
-                    with ledger_lock:
-                        mark_coverage(
-                            coverage, day, env_name, log_type,
-                            state="fetch-failed", reason=reason,
-                        )
-                        save_coverage(project_root, coverage)
-                    with print_lock:
-                        failed_count += 1
-                    return False
+                except Exception:
+                    pass
+                if status in ("completed", "failed"):
+                    break
+                time.sleep(poll_interval_s)
 
-                # Phase 2: Poll in parallel
-                deadline = time.time() + poll_deadline_s
-                status = "?"
-                while time.time() < deadline:
-                    try:
-                        s = client.check_log_download(notif_url)
-                        status = s.get("status", "?")
-                    except Exception:
-                        pass
-                    if status in ("completed", "failed"):
-                        break
-                    time.sleep(poll_interval_s)
+            if status != "completed":
+                reason = (
+                    "notification status=failed" if status == "failed"
+                    else "poll deadline exceeded"
+                )
+                safe_log(
+                    f"  ~ {day} {env_name} {log_type}: {reason}"
+                    + ("" if last else ", retrying")
+                )
+                continue
 
-                if status == "completed":
-                    local = canonical_path(project_root, day, env_name, log_type)
-                    try:
-                        s3_url = client.get_log_download_url(env_id, log_type)
-                        gz_size = download_atomic(s3_url, local)
+            # Download the snapshot we just created (== "most recent").
+            local = canonical_path(project_root, day, env_name, log_type)
+            try:
+                s3_url = client.get_log_download_url(env_id, log_type)
+                gz_size = download_atomic(s3_url, local)
+            except Exception as e:
+                reason = f"{type(e).__name__}: {e}"
+                safe_log(
+                    f"  ! {day} {env_name} {log_type}: download failed ({e})"
+                    + ("" if last else ", retrying")
+                )
+                continue
 
-                        with ledger_lock:
-                            mark_coverage(
-                                coverage, day, env_name, log_type,
-                                state="present",
-                                bytes=gz_size,
-                                notification_uuid=notif_uuid,
-                            )
-                            save_coverage(project_root, coverage)
+            # Verify: dominant date must match the requested day, and the
+            # file must not duplicate another day already pulled in this group.
+            observed = dominant_month_day(local)
+            if observed is not None and observed != (day.month, day.day):
+                local.unlink(missing_ok=True)
+                reason = (
+                    f"snapshot-mismatch: file dominant date "
+                    f"{observed[0]:02d}-{observed[1]:02d} != requested "
+                    f"{day.month:02d}-{day.day:02d}"
+                )
+                safe_log(
+                    f"  ✗ {day} {env_name} {log_type}: {reason}"
+                    + ("" if last else ", retrying")
+                )
+                continue
 
-                        with print_lock:
-                            done_count += 1
-                            pending_count = len(missing) - done_count - failed_count
-                            log_fn(
-                                f"  ✓ {day} {env_name} {log_type}: "
-                                f"{gz_size:,} bytes — "
-                                f"{done_count}/{len(missing)} done, {pending_count} pending"
-                            )
-                        return True
-                    except Exception as e:
-                        with print_lock:
-                            log_fn(f"  ! {day} {env_name} {log_type}: download failed ({e})")
-                        with ledger_lock:
-                            mark_coverage(
-                                coverage, day, env_name, log_type,
-                                state="fetch-failed",
-                                reason=f"{type(e).__name__}: {e}",
-                            )
-                            save_coverage(project_root, coverage)
-                        with print_lock:
-                                failed_count += 1
-                        return False
+            digest = file_md5(local)
+            dup_day = seen_md5.get(digest)
+            if dup_day is not None:
+                local.unlink(missing_ok=True)
+                reason = (
+                    f"snapshot-mismatch: byte-identical to {dup_day} "
+                    f"(stale snapshot)"
+                )
+                safe_log(
+                    f"  ✗ {day} {env_name} {log_type}: {reason}"
+                    + ("" if last else ", retrying")
+                )
+                continue
 
-                elif status == "failed" and retries_remaining > 0:
-                    retries_remaining -= 1
-                    with print_lock:
-                        log_fn(f"  ~ {day} {env_name} {log_type}: notification failed, retrying")
-                    continue
-                else:
-                    reason = "notification status=failed" if status == "failed" else "poll deadline exceeded"
-                    with print_lock:
-                        log_fn(f"  ! {day} {env_name} {log_type}: {reason}")
-                    with ledger_lock:
-                        mark_coverage(
-                            coverage, day, env_name, log_type,
-                            state="fetch-failed",
-                            reason=reason,
-                        )
-                        save_coverage(project_root, coverage)
-                    with print_lock:
-                        failed_count += 1
-                    return False
+            seen_md5[digest] = day.isoformat()
+            with ledger_lock:
+                mark_coverage(
+                    coverage, day, env_name, log_type,
+                    state="present", bytes=gz_size,
+                    notification_uuid=notif_uuid,
+                )
+                save_coverage(project_root, coverage)
+            return "present", str(gz_size)
 
-        log_fn(f"\nStarting concurrent reconciliation with concurrency={concurrency}")
-        with ThreadPoolExecutor(max_workers=concurrency) as executor:
-            futures = [
-                executor.submit(pull_worker, env, log_type, day)
-                for (env, log_type, day) in missing
-            ]
-            # Wait for all threads to finish
-            [f.result() for f in futures]
+        # All attempts exhausted.
+        with ledger_lock:
+            mark_coverage(
+                coverage, day, env_name, log_type,
+                state="fetch-failed", reason=reason,
+            )
+            save_coverage(project_root, coverage)
+        return "fetch-failed", reason
 
-        summary["fetched"] = done_count
-        summary["failed"] = failed_count
-        return summary
-
-    # Sequential Fallback Mode (Phase 1 & Phase 2 batching)
-    # Phase 1: fire all log-create requests.
-    log_fn(f"\nPhase 1 — log-create: {len(missing)} requests")
-    pending, create_failed = _phase_create(
-        client, missing,
-        rate_limit_s=rate_limit_s,
-        retries=retries,
-        log_fn=log_fn,
-    )
-
-    for (env, log_type, day, exc) in create_failed:
+    def process_group(g: dict) -> None:
+        """Fetch every day of one (env, type) group, strictly in order."""
+        env = g["env"]
         env_name = env["name"]
-        reason = (
-            f"acquia-api {exc.status} {exc.error_slug}"
-            if isinstance(exc, AcquiaAPIError)
-            else f"{type(exc).__name__}: {exc}"
-        )
-        mark_coverage(
-            coverage, day, env_name, log_type,
-            state="fetch-failed", reason=reason,
-        )
-        summary["failed"] += 1
-    if create_failed:
-        save_coverage(project_root, coverage)
+        env_id = env.get("env_id")
+        log_type = g["log_type"]
+        seen_md5: dict[str, str] = {}
+        for day in g["days"]:
+            state, detail = fetch_day(
+                env_id, env_name, log_type, day, seen_md5,
+            )
+            with print_lock:
+                if state == "present":
+                    counters["fetched"] += 1
+                else:
+                    counters["failed"] += 1
+                done = counters["fetched"]
+                failed = counters["failed"]
+                pending = total_missing - done - failed
+                if state == "present":
+                    log_fn(
+                        f"  ✓ {day} {env_name} {log_type}: "
+                        f"{int(detail):,} bytes — "
+                        f"{done}/{total_missing} done, {pending} pending"
+                    )
+                else:
+                    log_fn(
+                        f"  ! {day} {env_name} {log_type}: "
+                        f"fetch-failed ({detail})"
+                    )
 
-    if not pending:
-        return summary
-
-    # Phase 2: poll all notifications, download files as they become ready.
     log_fn(
-        f"\nPhase 2 — poll + download: {len(pending)} files "
-        f"(deadline {poll_deadline_s}s)"
+        f"\nReconciling {total_missing} files across {len(groups)} "
+        f"(env,type) group(s), {min(concurrency, len(groups))} in parallel; "
+        f"serial per group across days."
     )
-    downloaded, dl_failed = _phase_poll_and_download(
-        client, project_root, coverage, pending,
-        poll_deadline_s=poll_deadline_s,
-        poll_interval_s=poll_interval_s,
-        log_fn=log_fn,
-    )
+    with ThreadPoolExecutor(max_workers=max(1, concurrency)) as executor:
+        futures = [
+            executor.submit(process_group, g) for g in groups.values()
+        ]
+        for f in futures:
+            f.result()
 
-    summary["fetched"] = len(downloaded)
-    for item in dl_failed:
-        summary["failed"] += 1
-
-    save_coverage(project_root, coverage)
+    summary["fetched"] = counters["fetched"]
+    summary["failed"] = counters["failed"]
     return summary
 
 
@@ -850,7 +786,9 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
                    help=f"max seconds to wait in Phase 2 poll loop "
                         f"(default {POLL_DEADLINE_S}s)")
     p.add_argument("--concurrency", type=int, default=4,
-                   help="number of concurrent download threads (default: 4)")
+                   help="max (env,type) groups fetched in parallel "
+                        "(default: 4). Days within a group are always "
+                        "serial — Acquia keeps one snapshot per (env,type).")
 
     return p.parse_args(argv)
 
