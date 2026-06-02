@@ -24,6 +24,23 @@ Gather and synthesize knowledge via NotebookLM. Works standalone or as Phase 3 o
 
 ---
 
+## Preflight (run first, every time)
+
+Passive dependency check. It **never blocks and never prompts** — it auto-applies
+safe remedies (e.g. injecting Playwright into the pipx venv) and only *reports*
+anything that needs you (interactive login). Run it and glance at the output; do
+not gate the engagement on it.
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-preflight.sh
+```
+
+- `auth: EXPIRED` → tell the user to run `notebooklm login` once, then continue.
+- `playwright: missing` lines are auto-fixed when the CLI is pipx-managed.
+- No version check here on purpose — that is end-of-run guidance (see Phase 5).
+
+---
+
 ## Phase 0 — Resume Detection
 
 Check for an existing research session:
@@ -119,8 +136,10 @@ Agent(
   description="Wait for NotebookLM research",
   subagent_type="general-purpose",
   run_in_background=true,
-  prompt="Wait for NotebookLM deep research to complete.
-  Run: notebooklm research wait -n NOTEBOOK_ID
+  prompt="Wait for NotebookLM deep research to complete, then COMMIT the found sources.
+  Run: notebooklm research wait --import-all -n NOTEBOOK_ID
+  (--import-all belongs HERE, on the wait — it cannot combine with the --no-wait
+  that fired the research. Without it, the web UI leaves an 'Add sources?' modal open.)
   When complete, run: notebooklm source list -n NOTEBOOK_ID --json
   Count sources with status=ready.
   Update $ENGAGEMENT_DIR/.research.json: set status='ready', source_count=N."
@@ -131,23 +150,40 @@ Tell the user: research is running (15-30 minutes). Offer to add more URLs while
 
 ---
 
-## Phase 3 — Source Review
+## Phase 3 — Source Review (dedup, then prune)
+
+Deep research **always** produces duplicates and tangential sources. Two passes:
+
+### 3a. Dedup — automatic (no user input)
+
+NotebookLM duplicates because `--import-all` re-imports seed URLs the research pass
+rediscovers, and because the same page arrives under trailing-slash / `#fragment` /
+`?query` variants. Just remove them — this needs no judgement:
 
 ```bash
-notebooklm source list -n NOTEBOOK_ID
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-dedup.sh NOTEBOOK_ID --apply
 ```
 
-Show the source list. Ask the user/PI:
-> "Here are the gathered sources. Remove any irrelevant ones? Add any missing URLs?"
+### 3b. Relevance prune — propose, user approves
 
-Handle removals:
+List what remains, then propose cuts grouped by reason (off-topic, low-quality,
+tangential cluster). Do NOT silently delete on relevance — that is judgement:
+
 ```bash
-notebooklm source delete SOURCE_ID -n NOTEBOOK_ID
+notebooklm source list -n NOTEBOOK_ID --json
 ```
 
-Handle additions:
+> "Deduped to N. I'd also cut these M as off-topic/tangential: <grouped list>.
+>  Reply 'prune' to cut them, 'keep all' to synthesize as-is, or name any to keep."
+
+Apply approved removals:
 ```bash
-notebooklm source add "URL" -n NOTEBOOK_ID --json
+notebooklm source delete SOURCE_ID -n NOTEBOOK_ID --yes
+```
+
+Add any missing URLs the user names:
+```bash
+notebooklm source add "URL" -n NOTEBOOK_ID --type url --json
 ```
 
 ---
@@ -207,6 +243,16 @@ TOPIC_SLUG="<kebab-case-topic>"
 DEST="Research/$TOPIC_SLUG/$(date +%Y-%m-%d)-literary-review.md"
 mkdir -p "$VAULT_ROOT/$(dirname "$DEST")"
 cp "$ENGAGEMENT_DIR/02-literary-review.md" "$VAULT_ROOT/$DEST"
+```
+
+### Postflight (version guidance)
+
+Close with a check on the CLI's health. Informational only — surface it to the
+user so the tool is in better shape next time (catches the "stale local-source
+pipx install" trap where `pipx upgrade` silently does nothing):
+
+```bash
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-postflight.sh
 ```
 
 ---

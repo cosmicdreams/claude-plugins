@@ -27,27 +27,40 @@ while [ $# -gt 0 ]; do
   esac
 done
 
-# Create notebook
-RESULT=$(notebooklm create "$TITLE" --json 2>&1)
-NOTEBOOK_ID=$(echo "$RESULT" | python3 -c "import json,sys; print(json.load(sys.stdin)['id'])" 2>/dev/null || echo "")
+# Create notebook.
+# NOTE: capture stdout ONLY — merging stderr (2>&1) corrupts the JSON when the
+# CLI emits warnings. The 0.6.0 envelope is nested: {"notebook":{"id":...}};
+# older builds returned a top-level {"id":...}. Handle both.
+RESULT=$(notebooklm create "$TITLE" --json 2>/dev/null)
+NOTEBOOK_ID=$(echo "$RESULT" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('id') or d.get('notebook',{}).get('id',''))" 2>/dev/null || echo "")
 
 if [ -z "$NOTEBOOK_ID" ]; then
-  >&2 echo "Failed to create notebook: $RESULT"
+  >&2 echo "Failed to create notebook (could not parse an id). Raw output:"
+  >&2 echo "$RESULT"
   exit 1
 fi
 
 >&2 echo "Created notebook: $NOTEBOOK_ID"
 
-# Add seed URLs
+# Add seed URLs. Always pass an explicit, non-empty -n: an empty notebook id makes
+# the CLI silently fall back to the "current context" notebook and pollute it.
 for url in "${SEED_URLS[@]}"; do
   >&2 echo "Adding seed: $url"
-  notebooklm source add "$url" -n "$NOTEBOOK_ID" --json 2>&1 || >&2 echo "  Warning: failed to add $url (continuing)"
+  notebooklm source add "$url" -n "$NOTEBOOK_ID" --type url --json >/dev/null 2>&1 \
+    || >&2 echo "  Warning: failed to add $url (continuing)"
 done
 
-# Fire research if requested
+# Fire research if requested.
+# 0.6.0 RULE: --import-all CANNOT combine with --no-wait. On the non-blocking path
+# we fire without importing; the caller commits sources later via
+# `notebooklm research wait --import-all -n <id>`. On the blocking path, import now.
 if [ -n "$RESEARCH_QUERY" ]; then
   >&2 echo "Starting deep research: $RESEARCH_QUERY"
-  notebooklm source add-research "$RESEARCH_QUERY" -n "$NOTEBOOK_ID" --mode deep --import-all $NO_WAIT 2>&1
+  if [ -n "$NO_WAIT" ]; then
+    notebooklm source add-research "$RESEARCH_QUERY" -n "$NOTEBOOK_ID" --mode deep --no-wait 2>&1
+  else
+    notebooklm source add-research "$RESEARCH_QUERY" -n "$NOTEBOOK_ID" --mode deep --import-all 2>&1
+  fi
 fi
 
 # Output the notebook ID

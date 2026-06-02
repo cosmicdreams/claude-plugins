@@ -12,7 +12,11 @@ Complete command reference for agents interacting with NotebookLM. Generated fro
 ```bash
 notebooklm create "My Research Notebook" --json
 ```
-Returns JSON with `id` field. Title is a positional argument.
+Title is a positional argument. **The `--json` envelope is nested** as of v0.6.0:
+`{"notebook": {"id": "...", "title": "...", "created_at": null}}` (older builds
+returned a top-level `{"id": ...}`). Parse defensively:
+`d.get('id') or d.get('notebook',{}).get('id')`. Capture **stdout only** — merging
+stderr (`2>&1`) corrupts the JSON when the CLI prints a warning.
 
 ### Set current notebook context
 ```bash
@@ -28,19 +32,23 @@ Content is a positional argument. Type is auto-detected (URL, file, text, YouTub
 
 ### Add deep web research
 ```bash
-# Fire and wait (blocking)
+# Fire and wait (blocking) — import is allowed here
 notebooklm source add-research "topic keywords" -n NOTEBOOK_ID --mode deep --import-all
 
-# Fire and don't wait (non-blocking)
+# Fire and don't wait (non-blocking) — NO --import-all here
 notebooklm source add-research "topic keywords" -n NOTEBOOK_ID --mode deep --no-wait
 ```
-Query is a positional argument. Modes: `deep` (20+ sources, 15-30 min), `fast` (fewer sources, 2-5 min). `--import-all` auto-imports found sources.
+Query is a positional argument. Modes: `deep` (20+ sources, 15-30 min), `fast` (fewer sources, 2-5 min).
+**v0.6.0 RULE: `--import-all` cannot combine with `--no-wait`.** On the non-blocking
+path, fire without it and import later on the wait (below). Combining them errors out.
 
-### Wait for research to complete
+### Wait for research to complete (and import)
 ```bash
-notebooklm research wait -n NOTEBOOK_ID
+notebooklm research wait --import-all -n NOTEBOOK_ID
 ```
-Blocks until deep research completes.
+Blocks until deep research completes, then commits the found sources. If you fired
+with `--no-wait`, **`--import-all` belongs on this wait command** — otherwise the
+web UI leaves an "Add sources?" modal open and nothing is imported.
 
 ### List sources
 ```bash
@@ -104,8 +112,21 @@ notebooklm ask "Summarize key themes on <topic>" -n NOTEBOOK_ID --save-as-note -
 
 1. **Flag syntax is `--key value`** — NOT `key=value`. The `key=value` syntax is for the Obsidian CLI, not NotebookLM.
 2. **Question is positional** — `notebooklm ask "question"`, not `notebooklm ask --query "question"`.
-3. **No `--new` flag** — the help text mentions "Use --new to start fresh" but it's not a formal option. Switching notebooks auto-starts a new conversation.
+3. **`--new` IS a real flag** (v0.6.0) and is **destructive** — it deletes the
+   notebook's current server-side conversation before asking. `--json` implies
+   `--yes`. Use `-c <id>` to continue a specific conversation instead.
 4. **Research time**: Deep mode takes 15-30 minutes. Use `--no-wait` and monitor with `notebooklm research status`.
 5. **Partial IDs**: Notebook and source IDs support prefix matching — `abc` matches `abc123def456`.
 6. **Source limits**: Notebooks have a source limit. Curate aggressively.
 7. **Rate limits**: Space out rapid-fire queries. 1-2 second pause between asks is safe.
+8. **Duplicates are guaranteed** after `--import-all` deep research: seeds get
+   re-imported and pages arrive under URL variants. Always run
+   `notebook-dedup.sh NOTEBOOK_ID --apply` after import.
+9. **Never pass an empty `-n`** — the CLI silently falls back to the *current
+   context* notebook and pollutes it. Always pass an explicit, validated id.
+10. **Degraded answers**: v0.6.0 `ask` can warn "No marked answer found" and return
+    a short reasoning fragment instead of the synthesis. `notebook-ask.sh` retries
+    once on this; if calling `ask` directly, re-run on that warning.
+11. **Version drift breaks scripts** silently. A local-source pipx install makes
+    `pipx upgrade` a no-op — `notebook-postflight.sh` flags both. Prefer
+    `pipx install "notebooklm-py[browser]"` from PyPI.
