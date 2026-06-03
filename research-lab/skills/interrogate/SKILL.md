@@ -49,7 +49,7 @@ This is the first of two reinforcing layers. Do it **before spawning anything**:
 
 1. Read context / file / notebook and assemble the claim and its evidence into one clean
    **submission** (claim, the evidence for it, the question it answers).
-2. **Desk-reject** if the submission is incomplete:
+2. **FAIL FAST — desk-reject** if the submission is incomplete (this is interrogate's fail-fast step):
    - claim present but **no evidence** → "Claim present but no supporting evidence — bring the
      support, or run `synthesize` first to form a backed position." Stop.
    - **no claim** found → "No formed claim to interrogate — what is the position? For an *unformed*

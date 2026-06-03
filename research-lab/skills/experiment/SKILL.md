@@ -5,14 +5,14 @@ description: >
   measure, validate correctness, keep/discard with ratchet pattern. Includes futility
   stopping and JSONL logging. Use standalone for any measurable optimization task.
   Say "run an experiment", "iterate on this", "optimize with methodology", or
-  "autoresearch loop".
+  "autoresearch loop". Needs a measurable hypothesis and a target metric.
 triggers:
   - "run an experiment"
   - "iterate on this"
   - "optimize with methodology"
   - "autoresearch loop"
   - "research-lab:experiment"
-allowed-tools: Bash, Read, Write, Edit
+allowed-tools: Bash, Read, Write, Edit, Workflow
 ---
 
 # Experiment: Iterative Optimization Loop
@@ -37,7 +37,18 @@ If no worktree exists, STOP and ask the PI to create one via `/create-worktree`.
 
 ---
 
-## Input
+## Input contract
+
+- **Requires:** a hypothesis + a metric (the methodology document carries both).
+- **Resolves from:** context → arg (methodology file path).
+
+## Preflight
+
+1. Check context for a methodology already in play (a `05-methodology.md` just written). If present, use it.
+2. Else check for an arg: a methodology file path, results path, and working directory.
+3. Else **FAIL FAST**: "Need a measurable hypothesis and a target metric — point me at a methodology file (or run the methodology step first)." Stop. Do **not** invoke another skill.
+
+### Input detail
 
 Required:
 - **Methodology path** — path to `05-methodology.md` (or any methodology file)
@@ -46,6 +57,14 @@ Required:
 
 Optional:
 - **Measurement harness** — path to a measurement script (may be defined in methodology)
+
+### Modernize — parallel candidate trials
+
+When several candidate changes are independent, map them to a Workflow `parallel()` with
+`isolation: 'worktree'` so mutating trials don't collide on the filesystem. The user invoked this
+skill, so the `Workflow` call is legitimate — but keep it explicit, and only fan out when trials
+are genuinely independent (the ratchet itself stays sequential: you still keep/discard against one
+moving best-metric).
 
 ---
 
