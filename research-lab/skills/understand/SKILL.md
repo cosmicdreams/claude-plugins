@@ -247,34 +247,19 @@ what's not obvious from the target itself.]
 
 **Where the record lives depends on whether a notebook is in play** — the next verb (`synthesize`, `interrogate`) should read it back co-located with the material it digested.
 
-**The vault is always the source of truth** — it has no external dependency. When a notebook id is in
-play you *may also* write the record into the notebook so sources and understanding sit together, but
-that is best-effort and must never be required:
+Store the record in two places — neither is load-bearing (the record also stays in the engagement
+directory), and research-lab hand-rolls neither:
 
-```bash
-# Best-effort only if your notebooklm build supports `note save`. The vault copy below is the
-# authoritative record whether or not this succeeds.
-notebooklm note save -n NOTEBOOK_ID --title "Understanding: TARGET" --content-file /tmp/understanding.md \
-  2>/dev/null || echo "(notebook note save unavailable — record preserved in the vault)"
-```
-
-Archive the record to the vault (always — this is the reliable store for loose text, files, a
-codebase, or a notebook alike):
-
-1. Convert the target name to kebab-case for the slug
-2. Default placement: `Concepts/<YYYY-MM-DD>-<target-slug>.md`. *Optional:* if the `workflow` plugin
-   is installed you may read its `obsidian-rules.md` to refine placement — not a dependency, the
-   default path stands on its own:
-   ```bash
-   WORKFLOW_VERSION=$(ls ~/.claude/plugins/cache/local/workflow/ 2>/dev/null | sort -V | tail -1)
-   [ -n "$WORKFLOW_VERSION" ] && cat ~/.claude/plugins/cache/local/workflow/$WORKFLOW_VERSION/references/obsidian-rules.md 2>/dev/null | head -50
-   ```
-3. Write to vault:
-   ```bash
-   VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
-   mkdir -p "$VAULT_ROOT/Concepts"
-   ```
-4. Confirm: "Saved to Neurons: Concepts/YYYY-MM-DD-target-slug.md"
+- **Notebook (when a notebook id is in play)** — co-locate the record with its sources using
+  NotebookLM's native note. Create a new note with the content piped from the file (`note create`
+  takes content on stdin via `--content -`; `note save` is for *updating* an existing note by id, so
+  it is the wrong verb here):
+  ```bash
+  notebooklm note create -n NOTEBOOK_ID -t "Understanding: TARGET" --content - < /tmp/understanding.md
+  ```
+- **Vault** — hand the record to `lib:vault-store`, which owns Obsidian placement and triggers in the
+  right context (default: `Concepts/<YYYY-MM-DD>-<target-slug>.md`). research-lab does not reimplement
+  vault writes or re-parse placement rules.
 
 ---
 

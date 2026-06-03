@@ -68,6 +68,6 @@ A composed run can check for existing outputs before redoing work:
 
 - A verb reads the upstream artifacts it needs and writes its own; nothing forces it to run after any
   particular predecessor.
-- Vault archival is a plain filesystem copy to `$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}` — no
-  plugin dependency. If the `lib` plugin is installed, `lib:vault-store` can route placement, but it
-  is optional.
+- Vault archival is owned by `lib:vault-store` (it routes Obsidian placement and triggers in the right
+  context); research-lab hands artifacts to it rather than reimplementing the write. Artifacts also
+  remain in the engagement directory regardless.

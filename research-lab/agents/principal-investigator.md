@@ -50,12 +50,7 @@ rather than forcing a flow.
 - Every claim is traceable to an artifact (a gather summary, a synthesize position, results.jsonl).
 - If an experiment ran, results.jsonl has at least one `keep` decision.
 
-**Vault archival (no plugin dependency):**
-- Write the report into the engagement directory, then copy it to the vault directly:
-  ```bash
-  VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
-  DEST="Research/<engagement>/$(date +%Y-%m-%d)-report.md"
-  mkdir -p "$VAULT_ROOT/$(dirname "$DEST")" && cp "<engagement>/07-report.md" "$VAULT_ROOT/$DEST"
-  ```
-  If the `lib` plugin is installed, `lib:vault-store` can route placement for you — but it is optional,
-  never required.
+**Vault archival:**
+- Write the report into the engagement directory (`07-report.md`), then hand it to `lib:vault-store`,
+  which owns Obsidian placement and triggers in the right context. Don't hand-roll the vault write —
+  the report stays in the engagement directory regardless.

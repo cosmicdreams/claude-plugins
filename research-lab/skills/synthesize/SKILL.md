@@ -134,22 +134,18 @@ Write `04-synthesize.md` to the engagement directory (or present inline when sta
 <what remains unresolved from the material>
 ```
 
-If a notebook is in play you *may also* save the position into it (best-effort — the vault copy below
-is the authoritative store, so don't depend on it):
+If a notebook is in play, co-locate the position with its sources as a NotebookLM note. Use
+`note create` (content piped from the file via `--content -`; `note save` *updates* an existing note
+by id, so it is the wrong verb here):
 
 ```bash
-notebooklm note save -n NOTEBOOK_ID --title "Position: TOPIC" --content-file 04-synthesize.md \
-  2>/dev/null || echo "(notebook note save unavailable — position preserved in the vault)"
+notebooklm note create -n NOTEBOOK_ID -t "Position: TOPIC" --content - < 04-synthesize.md
 ```
 
-### Vault archival (always — no plugin dependency)
-```bash
-VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
-TOPIC_SLUG="<kebab-case-topic>"
-DEST="Research/$TOPIC_SLUG/$(date +%Y-%m-%d)-synthesize.md"
-mkdir -p "$VAULT_ROOT/$(dirname "$DEST")"
-cp "04-synthesize.md" "$VAULT_ROOT/$DEST"
-```
+### Vault archival
+Hand `04-synthesize.md` to `lib:vault-store`, which owns Obsidian placement (default
+`Research/<topic-slug>/<date>-synthesize.md`) and triggers in the right context. research-lab does
+not reimplement the vault write. The position also remains in the engagement directory regardless.
 
 ---
 

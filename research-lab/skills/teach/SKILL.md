@@ -121,7 +121,7 @@ they cite the actual sources and supply context by construction:
 ```bash
 notebooklm generate report -n NOTEBOOK_ID --format briefing-doc   # product manager briefing
 notebooklm generate slide-deck -n NOTEBOOK_ID                     # stakeholder meeting
-notebooklm revise-slide -n NOTEBOOK_ID ...                        # iterate the deck
+notebooklm generate revise-slide -n NOTEBOOK_ID ...               # iterate a deck slide (it's under `generate`)
 notebooklm generate audio -n NOTEBOOK_ID                          # async consumption
 notebooklm generate infographic -n NOTEBOOK_ID                    # exec one-pager
 notebooklm generate flashcards -n NOTEBOOK_ID                     # secondary comprehension probe
@@ -130,7 +130,7 @@ notebooklm generate flashcards -n NOTEBOOK_ID                     # secondary co
 | Audience / channel | Artifact |
 |---|---|
 | product manager, written | briefing doc (`generate report --format briefing-doc`) |
-| Stakeholder meeting | slide deck (`generate slide-deck` + `revise-slide`) |
+| Stakeholder meeting | slide deck (`generate slide-deck` + `generate revise-slide`) |
 | Async / commute | audio overview (`generate audio`) |
 | Exec one-pager | infographic (`generate infographic`) |
 
@@ -158,4 +158,4 @@ the second failure, invisible to synthesize.
 `teach` is usually terminal — the artifact is the deliverable. Suggest (never auto-invoke):
 
 - **If the gate keeps returning `revise`** the claim itself may be the problem, not the explanation → `research-lab:interrogate` to re-check the claim, or `research-lab:synthesize` to reshape it.
-- **To publish the engagement notebook**: `notebooklm share --public` / set `view-level`.
+- **To publish the engagement notebook**: `notebooklm share public --enable` (and `notebooklm share view-level ...` to set what viewers can access).
