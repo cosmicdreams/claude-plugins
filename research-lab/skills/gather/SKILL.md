@@ -15,7 +15,7 @@ triggers:
   - "literary review"
   - "research-lab:gather"
   - "research-lab:literary-review"
-allowed-tools: Bash, Read, Write, Agent
+allowed-tools: Bash, Read, Write, Agent, Workflow
 ---
 
 # Gather

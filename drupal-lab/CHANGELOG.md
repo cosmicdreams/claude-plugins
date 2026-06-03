@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.7.1
+- `generate-chart.py` moved to research-lab (it is a generic `results.jsonl` visualizer owned by
+  `research-lab:experiment`). `optimize` now runs it from `$RESEARCH_LAB_ROOT/scripts/generate-chart.py`,
+  consistent with how it already reads research-lab's PI role, context-flow, methodology-spec, and
+  report template. No behavior change for optimize users; research-lab must be installed (already a
+  declared dependency).
+
 ## 2.7.0
 - Add `optimize` skill — the Drupal cache/performance engagement, moved from `research-lab:run`
   (research-lab 2.0 extracted it as Drupal-specific). Pipeline: preflight → gather → synthesize →

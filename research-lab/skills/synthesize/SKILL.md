@@ -134,9 +134,15 @@ Write `04-synthesize.md` to the engagement directory (or present inline when sta
 <what remains unresolved from the material>
 ```
 
-If a notebook is in play, also `notebooklm note save` the position so it sits with its sources.
+If a notebook is in play you *may also* save the position into it (best-effort — the vault copy below
+is the authoritative store, so don't depend on it):
 
-### Vault archival (standalone)
+```bash
+notebooklm note save -n NOTEBOOK_ID --title "Position: TOPIC" --content-file 04-synthesize.md \
+  2>/dev/null || echo "(notebook note save unavailable — position preserved in the vault)"
+```
+
+### Vault archival (always — no plugin dependency)
 ```bash
 VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
 TOPIC_SLUG="<kebab-case-topic>"

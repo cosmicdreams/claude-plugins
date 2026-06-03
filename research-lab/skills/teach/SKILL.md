@@ -63,11 +63,19 @@ pipeline: **produce artifact → fresh agent takes a quiz on it → grade.** Its
 the agent being **fresh and context-isolated** — it must answer using *only the produced artifact*,
 never this conversation, or the gate measures nothing.
 
-1. **Generate the quiz from the material** (not invented — sourced):
-   ```bash
-   notebooklm generate quiz -n NOTEBOOK_ID --difficulty medium
-   ```
-   (`generate flashcards` is a useful secondary probe.)
+1. **Build the quiz from the material** (sourced, not invented) and shape it into the
+   `[{q, answer}]` array the Workflow consumes as `args.quiz`:
+   - **If a notebook is in play:**
+     ```bash
+     notebooklm generate quiz -n NOTEBOOK_ID --difficulty medium
+     ```
+     Read its questions and reference answers and convert them into `[{q, answer}]`.
+     (`generate flashcards` is a useful secondary probe.)
+   - **If there is no notebook** (the contract also accepts a plain file / pasted material): write 3–5
+     comprehension questions and their reference answers directly *from the material* into the same
+     `[{q, answer}]` shape.
+   Either way you now hold `quiz` as `[{q, answer}]` — pass it, the artifact, and the audience as the
+   Workflow `args`.
 2. **A fresh, no-context Workflow `agent()` takes the quiz using only the artifact.** Its score is
    the comprehension measure. If it passes, the artifact supplies enough context to stand alone in
    front of your stakeholder. If it fails, you've found exactly where the explanation assumes

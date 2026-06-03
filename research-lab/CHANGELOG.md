@@ -1,5 +1,38 @@
 # research-lab Changelog
 
+## 2.1.0 — Standalone hardening + script correctness
+
+Made research-lab fully self-contained (it no longer depends on any other plugin to run its verbs)
+and fixed the correctness bugs surfaced by a holistic review.
+
+### Standalone — references only itself
+- `principal-investigator` agent reframed from a fixed-phase orchestrator into an **optional**
+  research-lead role that composes the verbs and *suggests* next steps. Dropped all `drupal-lab:optimize`
+  coupling (phase-gates, `preflight.sh`, the optimize methodology template) and the `lib:vault-store`
+  requirement; methodology authoring now follows research-lab's own `experiment/references/methodology-spec.md`,
+  and vault archival is a plain filesystem copy (`lib:vault-store` used only if installed).
+- `generate-chart.py` moved **into** research-lab (`scripts/`) — it is a generic `results.jsonl`
+  visualizer used by `experiment`; the report template and `drupal-lab:optimize` now read it here.
+- `context-flow.md` reframed from a phase pipeline to an **optional composition convention**: numeric
+  prefixes are sort hints (not an ordering contract), filename stems identify artifacts, and the
+  `frame`/`understand` artifacts and a no-plugin vault path are documented. Removed `preflight.sh` /
+  `lib:vault-store` from the producer map.
+- `understand`/`synthesize` notebook `note save` is now best-effort (the vault copy is the source of
+  truth); the `workflow`-plugin `obsidian-rules.md` read is explicitly optional.
+- `gather` declares `Workflow` in `allowed-tools` (its facet fan-out requires it).
+- `teach` wires the generated quiz into the Feynman gate's `args.quiz` and adds a no-notebook fallback
+  so the gate runs across the verb's full input contract.
+
+### Script correctness
+- `log-iteration.sh`: values passed via `argv` (no shell→Python source interpolation — quotes/`$`/
+  backticks can't break or inject); `metric_before` now null-guarded so the baseline iteration logs.
+- `notebook-setup.sh`: deep-research output to stderr (stdout = notebook id only); empty seed-URL loop
+  guarded against `set -u` on macOS bash 3.2.
+- `notebook-ask.sh`: degraded retry drops `--save-as-note`/`--note-title` so a junk answer isn't
+  saved twice; usage doc corrected.
+- `notebook-dedup.sh`: no longer iterates the dict itself on an unexpected envelope (was `AttributeError`).
+- `measure.sh`: `curl` bounded with `--max-time`/`--connect-timeout`; failed pages skipped, not averaged.
+
 ## 2.0.0 — Knowledge-work verb reorganization
 
 Rebuilt research-lab around the **verbs of a knowledge engagement** — one skill per distinct
