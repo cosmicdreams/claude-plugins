@@ -1,6 +1,6 @@
 # Phase Gates
 
-Go/no-go criteria for each phase transition. The PI reads this before advancing past any gate.
+Go/no-go criteria for each phase transition. The Principal Investigator reads this before advancing past any gate.
 
 ## Phase 2 Gate: Preflight → Gather
 
@@ -24,7 +24,7 @@ Go/no-go criteria for each phase transition. The PI reads this before advancing 
 - `02-gather.md` exists with structured content
 - NotebookLM notebook created and notebook ID recorded
 - At least 5 curated sources in the notebook
-- User/PI has reviewed and approved the source list
+- User/Principal Investigator has reviewed and approved the source list
 
 **No-go triggers:**
 - Research still gathering (`.research.json` status = `gathering`)
@@ -46,8 +46,8 @@ there is now a single gate where there used to be two.
   - At least 2 named concepts
   - A decision table with ranked options
   - Ranked hypotheses (at least 3)
-- PI has reviewed and can articulate the research position
-- *(High-stakes engagements)* the position survived `research-lab:interrogate`, or the PI
+- Principal Investigator has reviewed and can articulate the research position
+- *(High-stakes engagements)* the position survived `research-lab:interrogate`, or the Principal Investigator
   consciously accepted the verdict
 
 **No-go triggers:**

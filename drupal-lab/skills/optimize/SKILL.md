@@ -19,29 +19,29 @@ triggers:
 # Drupal Optimization Engagement
 
 Orchestrate a full Drupal cache/performance engagement from preflight through final report, against
-**local DDEV only**. You are the Principal Investigator (PI). This skill was formerly
+**local DDEV only**. You are the Principal Investigator. This skill was formerly
 `research-lab:run`; it moved to drupal-lab in 2.0 because it is a Drupal-specific engagement, while
 the general research primitives it calls stay in research-lab.
 
 ## Dependency — research-lab must be installed
 
 This skill calls research-lab verbs (`gather`, `experiment`) via `Skill()` and reads research-lab's
-PI/researcher agent definitions and protocols. Resolve the research-lab install once, up front, and
+Principal Investigator/researcher agent definitions and protocols. Resolve the research-lab install once, up front, and
 **fail fast** if it is absent rather than improvising:
 
 ```bash
-RL_ROOT="$(ls -d ~/.claude/plugins/cache/local/research-lab/* 2>/dev/null | sort -V | tail -1)"
-if [ -z "$RL_ROOT" ]; then
+RESEARCH_LAB_ROOT="$(ls -d ~/.claude/plugins/cache/local/research-lab/* 2>/dev/null | sort -V | tail -1)"
+if [ -z "$RESEARCH_LAB_ROOT" ]; then
   echo "drupal-lab:optimize requires the research-lab plugin. Install it:"
   echo "  claude plugin install research-lab@local --scope user"
   exit 1
 fi
 ```
 
-Use `$RL_ROOT` for research-lab resources:
-- PI role definition: `$RL_ROOT/agents/principal-investigator.md`
-- Engagement directory structure + file naming: `$RL_ROOT/protocols/context-flow.md`
-- Methodology spec (Phase 5 gate): `$RL_ROOT/skills/experiment/references/methodology-spec.md`
+Use `$RESEARCH_LAB_ROOT` for research-lab resources:
+- Principal Investigator role definition: `$RESEARCH_LAB_ROOT/agents/principal-investigator.md`
+- Engagement directory structure + file naming: `$RESEARCH_LAB_ROOT/protocols/context-flow.md`
+- Methodology spec (Phase 5 gate): `$RESEARCH_LAB_ROOT/skills/experiment/references/methodology-spec.md`
 
 Drupal-specific scripts and references are local (`${CLAUDE_PLUGIN_ROOT}/...`).
 
@@ -128,14 +128,14 @@ cd <worktree-path>
 ddev import-db --file=/tmp/project-db.sql
 ```
 
-**After importing from ANY source**, always run the full post-DB bootstrap:
+**After importing from ANY source**, always run the full post-database bootstrap:
 ```bash
 ddev drush updatedb -y    # apply pending schema updates
 ddev drush config:import -y  # sync config with codebase
 ddev drush cr             # clear caches
 ```
 
-This sequence is critical when the DB dump is older than the codebase — skipping `updatedb` or `config:import` causes 500 errors.
+This sequence is critical when the database dump is older than the codebase — skipping `updatedb` or `config:import` causes 500 errors.
 
 If the project has custom bootstrap steps (e.g., Site Studio's `cohesion:import` + `cohesion:rebuild`), ask the user: "Does this project need any special bootstrap steps beyond database pull and cache clear?"
 
@@ -195,8 +195,8 @@ After the preflight, assess the engagement type:
 
 If the user chooses diagnostic mode:
 - Skip Phases 3-4 (gather, synthesize)
-- The PI investigates directly (enable debug headers, enumerate blocks, trace cache tags, etc.)
-- Write findings to `04-synthesize.md` (PI-authored diagnostic summary)
+- The Principal Investigator investigates directly (enable debug headers, enumerate blocks, trace cache tags, etc.)
+- Write findings to `04-synthesize.md` (Principal Investigator-authored diagnostic summary)
 - Proceed to Phase 5 (Methodology)
 
 **If design or user prefers full pipeline:** Continue to Phase 3.
@@ -256,14 +256,14 @@ cat ${CLAUDE_PLUGIN_ROOT}/skills/optimize/references/methodology-template.md
 
 | User goal | Wrong metric | Right metric |
 |-----------|-------------|--------------|
-| Maximize CDN hit rate | DPC HIT % (internal) | % of pages still cached after a content edit |
-| Reduce origin load | Cold TTFB (measures render speed, not cache) | Cache survival rate after tag invalidation |
-| Improve authenticated UX | Page cache HIT (anonymous only) | DPC HIT rate for authenticated requests |
-| Speed up page loads | Render pipeline time | LCP or TTFB at the edge |
+| Maximize CDN hit rate | Dynamic Page Cache HIT % (internal) | % of pages still cached after a content edit |
+| Reduce origin load | Cold time to first byte (measures render speed, not cache) | Cache survival rate after tag invalidation |
+| Improve authenticated user experience | Page cache HIT (anonymous only) | Dynamic Page Cache HIT rate for authenticated requests |
+| Speed up page loads | Render pipeline time | Largest Contentful Paint or time to first byte at the edge |
 
 Fill in based on all prior phase outputs. **Confirm the metric with the user before proceeding** — getting this wrong wastes iterations.
 
-**Gate check** (Phase 5 gate): `05-methodology.md` exists, has all required sections per `$RL_ROOT/skills/experiment/references/methodology-spec.md` (research-lab install), has exactly one metric with direction specified.
+**Gate check** (Phase 5 gate): `05-methodology.md` exists, has all required sections per `$RESEARCH_LAB_ROOT/skills/experiment/references/methodology-spec.md` (research-lab install), has exactly one metric with direction specified.
 
 ---
 
@@ -291,7 +291,7 @@ If the experiment reports futility:
 Read the report template for structure (lives in the research-lab install):
 
 ```bash
-cat $RL_ROOT/templates/research-report.md
+cat $RESEARCH_LAB_ROOT/templates/research-report.md
 ```
 
 Write `07-report.md` to the engagement directory. Include:

@@ -16,7 +16,7 @@ focused facet, you are in Facet-Query mode.
 Follow the `research-lab:gather` skill protocol exactly:
 - Create or resume a NotebookLM notebook
 - Add seed sources, fire deep research
-- Curate sources with the user/PI
+- Curate sources with the user/Principal Investigator
 - Run summary queries and save as notes
 - Write `02-gather.md` to the engagement directory
 
@@ -31,9 +31,9 @@ specific facet:
 parallel coverage they use a Workflow fan-out, which handles result collection.)
 
 **NotebookLM interaction rules:**
-- Use `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh` for all notebook queries — it encodes the correct CLI syntax
+- Use `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh` for all notebook queries — it encodes the correct command-line interface syntax
 - Read `${CLAUDE_PLUGIN_ROOT}/skills/gather/references/notebooklm-cli.md` for the full command reference
-- CLI uses `--key value` flag syntax (NOT `key=value` — that's the Obsidian CLI)
+- command-line interface uses `--key value` flag syntax (NOT `key=value` — that's the Obsidian command-line interface)
 - Always use `--json` flag for parseable output where available
 - Log all notebook interactions for reproducibility
 

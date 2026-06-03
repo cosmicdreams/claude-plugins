@@ -24,8 +24,8 @@ Collect and curate knowledge via NotebookLM + deep web research. The **librarian
 
 **Stance:** librarian — comprehensive collection, then ruthless curation. **Notebook persona:** `notebooklm configure --mode default`.
 
-**NotebookLM CLI reference:** `${CLAUDE_PLUGIN_ROOT}/skills/gather/references/notebooklm-cli.md`
-**NotebookLM scripts:** `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-*.sh` — use these instead of calling `notebooklm` directly. They encode the correct CLI syntax.
+**NotebookLM command-line interface reference:** `${CLAUDE_PLUGIN_ROOT}/skills/gather/references/notebooklm-cli.md`
+**NotebookLM scripts:** `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-*.sh` — use these instead of calling `notebooklm` directly. They encode the correct command-line interface syntax.
 
 ---
 
@@ -56,7 +56,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-preflight.sh
 ```
 
 - `auth: EXPIRED` → tell the user to run `notebooklm login` once, then continue.
-- `playwright: missing` lines are auto-fixed when the CLI is pipx-managed.
+- `playwright: missing` lines are auto-fixed when the command-line interface is pipx-managed.
 - No version check here on purpose — that is end-of-run guidance (see Phase 5).
 
 Set the notebook persona for gathering (collection posture, no special examiner framing):
@@ -92,7 +92,7 @@ print(d.get('title', ''))
 
 ## Phase 1 — Intake
 
-Extract from the user's message or PI's spawn prompt:
+Extract from the user's message or Principal Investigator's spawn prompt:
 - `topic`: research subject (notebook title and research query)
 - `seed_urls`: starting point URLs (0 or more)
 - `focus`: specific angle or constraints
@@ -163,7 +163,7 @@ there is no need to `ScheduleWakeup`-poll. Do **not** spawn a subagent just to b
 # Bash tool call with run_in_background: true
 notebooklm research wait --import-all -n NOTEBOOK_ID
 # --import-all belongs HERE, on the wait — it cannot combine with the --no-wait that
-# fired the research. Without it, the web UI leaves an "Add sources?" modal open.
+# fired the research. Without it, the web user interface leaves an "Add sources?" modal open.
 ```
 
 When the background task completes, the session resumes: run
@@ -282,7 +282,7 @@ cp "$ENGAGEMENT_DIR/02-gather.md" "$VAULT_ROOT/$DEST"
 
 ### Postflight (version guidance)
 
-Close with a check on the CLI's health. Informational only — surface it to the
+Close with a check on the command-line interface's health. Informational only — surface it to the
 user so the tool is in better shape next time (catches the "stale local-source
 pipx install" trap where `pipx upgrade` silently does nothing):
 

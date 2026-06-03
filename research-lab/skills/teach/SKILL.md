@@ -7,7 +7,7 @@ description: >
   the score is whether the explanation transfers. synthesize proves you're right; teach proves you
   can make someone else see it. Audience is outsiders, so artifacts must SUPPLY context (contrast
   synthesize, whose artifacts assume it). Say "teach this", "make a briefing", "explain this to a
-  PM", "build a deck for", "make this land", or "research-lab:teach". Needs a formed claim plus a
+  product manager", "build a deck for", "make this land", or "research-lab:teach". Needs a formed claim plus a
   named target audience.
 triggers:
   - "teach this"
@@ -24,7 +24,7 @@ allowed-tools: Bash, Read, Write, Workflow
 
 You don't understand something until you can make someone *who wasn't there* understand it. `teach`
 is the **back** of the research arc: it takes a formed, hardened claim and makes it land with an
-outside audience — a PM, an exec, a non-developer stakeholder.
+outside audience — a product manager, an exec, a non-developer stakeholder.
 
 **The test is the spine; the materials are the deliverable; the spine certifies the deliverable.**
 These are not in tension. For an internal-only researcher the materials are throwaway and only the
@@ -51,7 +51,7 @@ your context. **Notebook persona:** `notebooklm configure --mode learning-guide`
    and the target audience." Stop. Do **not** invoke another skill to manufacture either.
 
 The **named audience** is part of the contract, not optional — the whole verb is audience-relative.
-"A PM", "a non-technical exec", "a new engineer on the team" each change what the artifact must
+"A product manager", "a non-technical exec", "a new engineer on the team" each change what the artifact must
 supply.
 
 ---
@@ -81,7 +81,7 @@ export const meta = {
   description: 'Produce an explainer artifact and certify it with a fresh-agent comprehension quiz',
   phases: [{ title: 'Gate' }],
 }
-// args: { artifact: "<the produced briefing/deck text>", quiz: [{q, answer}], audience: "a PM" }
+// args: { artifact: "<the produced briefing/deck text>", quiz: [{q, answer}], audience: "a product manager" }
 const GRADE = {
   type: 'object',
   properties: {
@@ -111,7 +111,7 @@ Produce the artifact that fits the audience and channel. Prefer NotebookLM's nat
 they cite the actual sources and supply context by construction:
 
 ```bash
-notebooklm generate report -n NOTEBOOK_ID --format briefing-doc   # PM briefing
+notebooklm generate report -n NOTEBOOK_ID --format briefing-doc   # product manager briefing
 notebooklm generate slide-deck -n NOTEBOOK_ID                     # stakeholder meeting
 notebooklm revise-slide -n NOTEBOOK_ID ...                        # iterate the deck
 notebooklm generate audio -n NOTEBOOK_ID                          # async consumption
@@ -121,7 +121,7 @@ notebooklm generate flashcards -n NOTEBOOK_ID                     # secondary co
 
 | Audience / channel | Artifact |
 |---|---|
-| PM, written | briefing doc (`generate report --format briefing-doc`) |
+| product manager, written | briefing doc (`generate report --format briefing-doc`) |
 | Stakeholder meeting | slide deck (`generate slide-deck` + `revise-slide`) |
 | Async / commute | audio overview (`generate audio`) |
 | Exec one-pager | infographic (`generate infographic`) |

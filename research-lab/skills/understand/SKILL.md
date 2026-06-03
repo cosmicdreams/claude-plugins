@@ -75,7 +75,7 @@ The only constraint: **exhaust available resources before asking the user questi
 
 ### Lightweight Output
 
-The output is a record of understanding — not a plan, not an ADR, not a spec. It captures what was understood, what was agreed, and what remains open. It should read like a summary of a good whiteboard session between two colleagues.
+The output is a record of understanding — not a plan, not an Architecture Decision Record, not a spec. It captures what was understood, what was agreed, and what remains open. It should read like a summary of a good whiteboard session between two colleagues.
 
 ---
 
@@ -251,7 +251,7 @@ what's not obvious from the target itself.]
 
 ```bash
 notebooklm note save -n NOTEBOOK_ID --title "Understanding: TARGET" --content-file /tmp/understanding.md
-# (or paste the body via the CLI's content flag; see notebooklm-cli reference)
+# (or paste the body via the command-line interface's content flag; see notebooklm-cli reference)
 ```
 
 Then **also** archive a copy to the vault (below) for long-term reference.

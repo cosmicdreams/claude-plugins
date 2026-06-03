@@ -6,7 +6,7 @@ All research engagement outputs live in a single engagement directory:
 analysis-reports/research/<engagement>/
 ```
 
-Where `<engagement>` is a kebab-case name chosen by the PI at setup (e.g., `mysite-cache-optimization`, `mysite-migration-strategy`).
+Where `<engagement>` is a kebab-case name chosen by the Principal Investigator at setup (e.g., `mysite-cache-optimization`, `mysite-migration-strategy`).
 
 ## Engagement Directory Structure
 
@@ -17,7 +17,7 @@ analysis-reports/research/<engagement>/
 ├── .research.json            # Gather session state (resume support)
 ├── 04-synthesize.md          # Formed position: named concepts, decision table, ranked hypotheses
 ├── 05-interrogate.md         # (optional) adversarial peer-review verdict
-├── 05-methodology.md         # PI-authored experiment spec
+├── 05-methodology.md         # Principal Investigator-authored experiment spec
 ├── results.jsonl             # Iteration log (append-only)
 └── 07-report.md              # Final engagement report
 ```
@@ -32,14 +32,14 @@ analysis-reports/research/<engagement>/
 
 | File | Produced by | Consumed by |
 |------|------------|-------------|
-| `01-preflight.md` | `preflight.sh` + PI | PI (gate decision) |
-| `02-gather.md` | `gather` verb | `understand`, `synthesize`, PI |
+| `01-preflight.md` | `preflight.sh` + Principal Investigator | Principal Investigator (gate decision) |
+| `02-gather.md` | `gather` verb | `understand`, `synthesize`, Principal Investigator |
 | `.research.json` | `gather` skill | `gather` skill (resume) |
-| `04-synthesize.md` | `synthesize` verb | PI (methodology input), `interrogate`, `teach` |
-| `05-interrogate.md` | `interrogate` verb | PI (verdict — revise or proceed) |
-| `05-methodology.md` | PI | experimentalist |
-| `results.jsonl` | experimentalist | PI, report |
-| `07-report.md` | PI / lib:vault-store | vault archival |
+| `04-synthesize.md` | `synthesize` verb | Principal Investigator (methodology input), `interrogate`, `teach` |
+| `05-interrogate.md` | `interrogate` verb | Principal Investigator (verdict — revise or proceed) |
+| `05-methodology.md` | Principal Investigator | experimentalist |
+| `results.jsonl` | experimentalist | Principal Investigator, report |
+| `07-report.md` | Principal Investigator / lib:vault-store | vault archival |
 
 ## Resume Detection
 
@@ -52,5 +52,5 @@ Each phase checks for existing outputs before starting:
 
 - Agents read ONLY the files listed in the "Consumed by" column
 - No raw context injection between agents — everything flows through files
-- The PI is the only agent that reads ALL phase outputs
+- The Principal Investigator is the only agent that reads ALL phase outputs
 - Researchers in facet-query mode read `02-gather.md` for baseline context

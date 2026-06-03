@@ -1,6 +1,6 @@
 # Methodology Template
 
-The PI fills in this template to produce `05-methodology.md` for the experimentalist.
+The Principal Investigator fills in this template to produce `05-methodology.md` for the experimentalist.
 
 ---
 
@@ -38,7 +38,7 @@ The PI fills in this template to produce `05-methodology.md` for the experimenta
 
 <How were the test pages chosen? The experimentalist must reproduce this exactly.>
 
-- **Method:** <e.g., "One published page per content type, discovered via drush SQL query">
+- **Method:** <e.g., "One published page per content type, discovered via a drush database query">
 - **Sample size:** <N pages>
 - **Pages:**
   - <page 1 path> (<content type>)

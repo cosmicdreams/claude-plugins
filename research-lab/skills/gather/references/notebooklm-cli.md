@@ -48,7 +48,7 @@ notebooklm research wait --import-all -n NOTEBOOK_ID
 ```
 Blocks until deep research completes, then commits the found sources. If you fired
 with `--no-wait`, **`--import-all` belongs on this wait command** — otherwise the
-web UI leaves an "Add sources?" modal open and nothing is imported.
+web user interface leaves an "Add sources?" modal open and nothing is imported.
 
 ### List sources
 ```bash
