@@ -286,11 +286,16 @@ Then **also** archive a copy to the vault (below) for long-term reference.
 
 ## Chaining
 
-`understand` sits in the **digest** half of the research arc (`frame → gather → understand → synthesize → interrogate → experiment → teach`). The arc is a composition pattern, not a pipeline: this skill never calls another skill. It only *suggests* the natural next step.
+`understand` sits in the **digest** half of the research arc (`frame → gather → understand → synthesize → interrogate → experiment → teach`). The arc is a composition pattern, not a pipeline: this skill never calls another skill. It only *suggests* the natural next step in prose, and the user decides.
+
+Default next steps stay **within research-lab** (always available when this skill is):
 
 - **After understand** → `research-lab:synthesize` to form a claim or artifact from the now-digested material (the typical next move).
 - **After understand** → `research-lab:gather` if understanding revealed gaps that need more sources.
-- **After understand** → `ideate:brainstorm` to explore options now that the problem space is understood.
-- **After understand** → `ideate:reality-check` to stress-test an unformed idea now that it is well-understood.
+
+Optional cross-plugin steps — suggest these **only if the user has the `ideate` plugin installed** (it is a separate, independently-installable plugin; do not assume it is present):
+
+- `ideate:brainstorm` to explore options now that the problem space is understood.
+- `ideate:reality-check` to stress-test an unformed idea now that it is well-understood.
 
 At session end, suggest the natural next step if one is obvious — but don't force it, and don't auto-invoke it.
