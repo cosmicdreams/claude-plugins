@@ -19,13 +19,19 @@ COUNT=0
 for PAGE in "${PAGES[@]}"; do
   FULL_URL="${URL%/}${PAGE}"
 
-  # Measure Time to First Byte (TTFB) in seconds
-  TTFB=$(curl -o /dev/null -s -w '%{time_starttransfer}' "$FULL_URL" 2>/dev/null)
-
-  >&2 echo "  $PAGE: ${TTFB}s"
-
-  TOTAL=$(echo "$TOTAL + $TTFB" | bc)
-  COUNT=$((COUNT + 1))
+  # Measure Time to First Byte (TTFB) in seconds.
+  #   --fail          : a 4xx/5xx is an error — never average an error page's TTFB
+  #   --connect-timeout/--max-time : one slow or hung page can't block the whole run
+  # A failed request is SKIPPED (not summed as 0), so a broken site can't masquerade
+  # as a fast baseline. The curl runs inside the `if` so its failure won't trip set -e.
+  if TTFB=$(curl -fsS -o /dev/null --connect-timeout 5 --max-time 30 \
+              -w '%{time_starttransfer}' "$FULL_URL" 2>/dev/null) && [ -n "$TTFB" ]; then
+    >&2 echo "  $PAGE: ${TTFB}s"
+    TOTAL=$(echo "$TOTAL + $TTFB" | bc)
+    COUNT=$((COUNT + 1))
+  else
+    >&2 echo "  $PAGE: request failed (skipped)"
+  fi
 done
 
 # Output average TTFB across all pages

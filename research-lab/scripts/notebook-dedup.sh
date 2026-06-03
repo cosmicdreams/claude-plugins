@@ -26,9 +26,21 @@ def sh(*a): return subprocess.run(a, capture_output=True, text=True)
 
 raw=sh("notebooklm","source","list","-n",NB,"--json").stdout
 try:
-    d=json.loads(raw); s=d if isinstance(d,list) else d.get("sources",d)
+    d=json.loads(raw)
 except Exception as e:
     print(f"could not read sources: {e}"); raise SystemExit(1)
+
+# Locate the source list. Never fall back to the dict itself — iterating a dict
+# yields its string keys and `x.get(...)` below would raise AttributeError.
+if isinstance(d, list):
+    s=d
+elif isinstance(d, dict):
+    s=d.get("sources") or d.get("data") or d.get("notebook",{}).get("sources")
+else:
+    s=None
+if not isinstance(s, list):
+    keys = list(d)[:8] if isinstance(d, dict) else type(d).__name__
+    print(f"could not read sources: unexpected JSON shape ({keys})"); raise SystemExit(1)
 
 def norm(u):
     if not u: return ""

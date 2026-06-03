@@ -44,22 +44,28 @@ fi
 
 # Add seed URLs. Always pass an explicit, non-empty -n: an empty notebook id makes
 # the CLI silently fall back to the "current context" notebook and pollute it.
-for url in "${SEED_URLS[@]}"; do
-  >&2 echo "Adding seed: $url"
-  notebooklm source add "$url" -n "$NOTEBOOK_ID" --type url --json >/dev/null 2>&1 \
-    || >&2 echo "  Warning: failed to add $url (continuing)"
-done
+# Guard the count: on bash 3.2 (macOS /bin/bash) expanding an empty array under
+# `set -u` is an "unbound variable" error, which would abort the research-only path.
+if [ "${#SEED_URLS[@]}" -gt 0 ]; then
+  for url in "${SEED_URLS[@]}"; do
+    >&2 echo "Adding seed: $url"
+    notebooklm source add "$url" -n "$NOTEBOOK_ID" --type url --json >/dev/null 2>&1 \
+      || >&2 echo "  Warning: failed to add $url (continuing)"
+  done
+fi
 
 # Fire research if requested.
 # 0.6.0 RULE: --import-all CANNOT combine with --no-wait. On the non-blocking path
 # we fire without importing; the caller commits sources later via
 # `notebooklm research wait --import-all -n <id>`. On the blocking path, import now.
+# Research progress goes to stderr (>&2): stdout must carry ONLY the notebook id
+# (line below) so callers can safely do `id=$(notebook-setup.sh ...)`.
 if [ -n "$RESEARCH_QUERY" ]; then
   >&2 echo "Starting deep research: $RESEARCH_QUERY"
   if [ -n "$NO_WAIT" ]; then
-    notebooklm source add-research "$RESEARCH_QUERY" -n "$NOTEBOOK_ID" --mode deep --no-wait 2>&1
+    notebooklm source add-research "$RESEARCH_QUERY" -n "$NOTEBOOK_ID" --mode deep --no-wait >&2
   else
-    notebooklm source add-research "$RESEARCH_QUERY" -n "$NOTEBOOK_ID" --mode deep --import-all 2>&1
+    notebooklm source add-research "$RESEARCH_QUERY" -n "$NOTEBOOK_ID" --mode deep --import-all >&2
   fi
 fi
 
