@@ -1,16 +1,17 @@
 ---
 name: understand
 description: >
-  Collaborative deep-understanding sessions. You and the user work together to build shared
-  understanding of a target — a design, an idea, a system, a problem space, or a codebase.
-  Follows Crucial Conversations principles: mutual purpose, mutual respect, shared pool of
-  meaning. The agent decides its own strategy for gathering information (reading code, spawning
-  subagents, web research, NotebookLM, etc.) rather than following a fixed script. The output
-  is a lightweight record of understanding stored in the vault. Use when the user wants to
-  deeply understand something together before planning or building. Say "let's understand",
-  "help me understand", "let's work through this", "I want to understand", "walk through this
-  with me", or "understand this system". Not for quick lookups, not for implementation, not for
-  adversarial challenge (use reality-check for that).
+  Digest existing material into a shared mental model. You and the user work together to build
+  shared understanding of a target — a written plan, a wall of pasted text, a file, a codebase,
+  a system, a problem space, or a curated NotebookLM notebook. Does NOT require a notebook: it
+  accepts pasted text, a file path, OR a notebook id. Follows Crucial Conversations principles:
+  mutual purpose, mutual respect, shared pool of meaning. The agent decides its own strategy for
+  gathering information rather than following a fixed script. Output is a lightweight record of
+  understanding — written into the notebook when one is in play, otherwise stored in the vault.
+  Use when the user wants to deeply understand existing material before planning or building. Say
+  "let's understand", "help me understand", "understand this", "walk through this with me", or
+  "research-lab:understand". Not for quick lookups, not for implementation, not for adversarial
+  challenge (use reality-check for an unformed idea, interrogate for a formed claim).
 triggers:
   - "let's understand"
   - "help me understand"
@@ -22,13 +23,31 @@ triggers:
   - "shared understanding"
   - "understand this system"
   - "understand this design"
-  - "understand this idea"
+  - "digest this"
+  - "research-lab:understand"
 allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, WebFetch, WebSearch
 ---
 
 # Skill: understand
 
-Collaborative deep-understanding between you and the user. Two minds building a shared pool of meaning about a target — a design, an idea, a system, a problem space, or anything else worth understanding deeply before acting on.
+Digest existing material into a shared mental model. Two minds — you and the user — building a shared pool of meaning about a target: a written plan, a raw wall of text, a file, a codebase, a system, a problem space, or a curated notebook. Everything left of `synthesize` in the research arc digests *what already exists*; this is the deepest such verb.
+
+**Stance:** peer / colleague — *both* you and the user must come to understand. NOT tutor (that is `teach`). NOT challenger (that is `interrogate` / `reality-check`).
+
+---
+
+## Input contract
+
+- **Requires:** a body of existing material to digest.
+- **Resolves from:** context → file path / pasted text → notebook id.
+
+## Preflight
+
+1. Check context for material already in play (a plan just written, code just read, a notebook id from `gather`). If present, use it.
+2. Else check for an arg: a **file path** to read, a **wall of pasted text**, or a **NotebookLM notebook id** to digest.
+3. Else **FAIL FAST**: "No material to digest — paste it, give me a file path, or a notebook id. If you have a topic but no material yet, run `gather` first." Stop. Do **not** invoke another skill to manufacture input.
+
+A notebook is **optional**, not required. When a notebook id is present, this skill reads it back and writes its record into it (see "Write the Record"). When the input is loose text or files, it works entirely from those and stores to the vault.
 
 ---
 
@@ -151,16 +170,16 @@ If the target is ambiguous, ask one clarifying question — but prefer making a 
 
 ### 2. Explore and Decompose
 
-Before engaging the user in back-and-forth, do your own homework. The strategy depends on the target:
+Before engaging the user in back-and-forth, do your own homework. The strategy depends on the **form the material arrived in**:
 
+- **A written plan / pasted wall of text / a file path**: Read it in full. This is the common case — someone dumped material on you. Trace its claims and structure. No notebook required.
+- **A NotebookLM notebook id**: Read it back. `notebooklm generate mind-map -n NOTEBOOK_ID` gives a free structural decomposition to seed the design tree; `notebooklm source list -n NOTEBOOK_ID --json` enumerates what's in scope.
 - **A system or codebase**: Read relevant code, configs, and documentation. Trace data flows. Identify the pieces and how they connect.
-- **A design or idea**: Look for prior art in the project (existing patterns, related implementations, previous decisions). Check if there are vault notes, analysis reports, or brainstorm sessions that provide context.
-- **A problem space**: Research via web, NotebookLM, or whatever sources are relevant. Look for how others have understood this space.
-- **Something the user described**: Reflect back your understanding and identify the gaps in your own mental model.
+- **A problem space**: Look for prior art in the project (existing patterns, related implementations, previous decisions), vault notes, analysis reports.
 
 As you explore, **build the design tree**. Identify the branches — the distinct facets of the target that need to be understood. Note which depend on others.
 
-You may spawn subagents for parallel exploration when the target is broad. You may do a single file read when the target is narrow. Match your approach to the situation.
+**Fan-out and model:** solo Opus is now viable here — the 1M context window holds the whole corpus, so you do **not** fan out subagents merely to shrink context. Spawn parallel subagents only when genuinely-independent facets benefit from concurrent depth. Match your approach to the situation: a single file read for a narrow target, parallel exploration for a broad one.
 
 ### 3. Share What You Found, Ask What You Can't Answer
 
@@ -224,9 +243,20 @@ way they are, what constraints exist, what history matters. Only include
 what's not obvious from the target itself.]
 ```
 
-### 6. Store to Vault
+### 6. Store the Record
 
-Archive the record to the Neurons vault for long-term reference.
+**Where the record lives depends on whether a notebook is in play** — the next verb (`synthesize`, `interrogate`) should read it back co-located with the material it digested.
+
+**If a notebook id is in play**, write the record into the notebook so the sources and the understanding sit together:
+
+```bash
+notebooklm note save -n NOTEBOOK_ID --title "Understanding: TARGET" --content-file /tmp/understanding.md
+# (or paste the body via the CLI's content flag; see notebooklm-cli reference)
+```
+
+Then **also** archive a copy to the vault (below) for long-term reference.
+
+**If there is no notebook** (loose text / files / codebase), the vault is the only store. Either way:
 
 1. Convert the target name to kebab-case for the slug
 2. Read `obsidian-rules.md` from the workflow plugin references to confirm placement:
@@ -256,11 +286,11 @@ Archive the record to the Neurons vault for long-term reference.
 
 ## Chaining
 
-This skill chains naturally with other ideate skills:
+`understand` sits in the **digest** half of the research arc (`frame → gather → understand → synthesize → interrogate → experiment → teach`). The arc is a composition pattern, not a pipeline: this skill never calls another skill. It only *suggests* the natural next step.
 
-- **After understand** → `ideate:brainstorm` to explore options now that the problem space is understood
-- **After understand** → `ideate:reality-check` to stress-test an idea that's now well-understood
-- **After understand** → `ideate:compare` to evaluate alternatives with shared context
-- **After understand** → `create-plan` to plan implementation with a solid foundation
+- **After understand** → `research-lab:synthesize` to form a claim or artifact from the now-digested material (the typical next move).
+- **After understand** → `research-lab:gather` if understanding revealed gaps that need more sources.
+- **After understand** → `ideate:brainstorm` to explore options now that the problem space is understood.
+- **After understand** → `ideate:reality-check` to stress-test an unformed idea now that it is well-understood.
 
-At session end, suggest the natural next step if one is obvious — but don't force it.
+At session end, suggest the natural next step if one is obvious — but don't force it, and don't auto-invoke it.
