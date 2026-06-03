@@ -2,7 +2,7 @@
 
 Go/no-go criteria for each phase transition. The PI reads this before advancing past any gate.
 
-## Phase 2 Gate: Preflight → Literary Review
+## Phase 2 Gate: Preflight → Gather
 
 **Go conditions:**
 - `01-preflight.md` exists and has structured output
@@ -14,14 +14,14 @@ Go/no-go criteria for each phase transition. The PI reads this before advancing 
 - Preflight script failed to run or produced no output
 - User has not confirmed scope
 
-**Action on no-go:** Fix the blocker. Re-run preflight. Do not create the team until this gate passes.
+**Action on no-go:** Fix the blocker. Re-run preflight.
 
 ---
 
-## Phase 3 Gate: Literary Review → Workshop
+## Phase 3 Gate: Gather → Synthesize
 
 **Go conditions:**
-- `02-literary-review.md` exists with structured content
+- `02-gather.md` exists with structured content
 - NotebookLM notebook created and notebook ID recorded
 - At least 5 curated sources in the notebook
 - User/PI has reviewed and approved the source list
@@ -35,45 +35,35 @@ Go/no-go criteria for each phase transition. The PI reads this before advancing 
 
 ---
 
-## Phase 4 Gate: Workshop → Seminar
+## Phase 4 Gate: Synthesize → Methodology
+
+`synthesize` absorbed the old workshop (facet coverage) and seminar (decision-forming) work, so
+there is now a single gate where there used to be two.
 
 **Go conditions:**
-- All `03-workshop-N.md` files exist (one per spawned researcher)
-- `03-workshop.md` synthesis written by PI
-- At least 3 distinct research facets explored
-- No researcher reported being unable to find relevant information
-
-**No-go triggers:**
-- Missing individual researcher outputs
-- Synthesis not yet written
-- A facet came back empty (may need different questions or more sources)
-
-**Action on no-go:** Re-query empty facets with different questions, or add more sources and re-run.
-
----
-
-## Phase 5 Gate: Seminar → Methodology
-
-**Go conditions:**
-- `04-seminar.md` exists with:
+- `04-synthesize.md` exists with:
+  - A formed position answering the engagement's question
   - At least 2 named concepts
   - A decision table with ranked options
   - Ranked hypotheses (at least 3)
 - PI has reviewed and can articulate the research position
+- *(High-stakes engagements)* the position survived `research-lab:interrogate`, or the PI
+  consciously accepted the verdict
 
 **No-go triggers:**
-- Seminar produced only surface-level summaries (no named concepts)
+- Synthesis produced only surface-level summaries (no formed position, no named concepts)
 - No clear hypotheses emerged
 - Contradictions unresolved
 
-**Action on no-go:** Re-run seminar with sharper questions, or add more context from the user.
+**Action on no-go:** Re-run synthesize with a sharper question, add more sources via gather, or
+resolve the contradictions an interrogate pass surfaced.
 
 ---
 
-## Phase 6 Gate: Methodology → Experiment
+## Phase 5 Gate: Methodology → Experiment
 
 **Go conditions:**
-- `05-methodology.md` exists with all required sections (see methodology-spec.md)
+- `05-methodology.md` exists with all required sections (see research-lab's methodology-spec.md)
 - User has reviewed and approved the methodology
 - Measurement harness is prepared and tested (can run once and produce a number)
 - Working directory identified and accessible
@@ -87,7 +77,7 @@ Go/no-go criteria for each phase transition. The PI reads this before advancing 
 
 ---
 
-## Phase 7 Gate: Experiment → Report
+## Phase 6 Gate: Experiment → Report
 
 **Go conditions:**
 - `results.jsonl` exists with at least one iteration

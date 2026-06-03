@@ -210,7 +210,7 @@ On termination, report:
 
 ## Standalone Mode
 
-When used outside of research-lab:run:
+When used outside of drupal-lab:optimize:
 1. Ask the user for the methodology file, working directory, and measurement command
 2. Run the loop
 3. Present results and offer:

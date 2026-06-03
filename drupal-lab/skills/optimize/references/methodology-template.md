@@ -23,7 +23,7 @@ The PI fills in this template to produce `05-methodology.md` for the experimenta
 
 ## Hypotheses (ranked by expected impact)
 
-1. <Hypothesis from seminar output — highest priority>
+1. <Hypothesis from synthesize output — highest priority>
 2. <Next hypothesis>
 3. <...>
 
@@ -74,5 +74,5 @@ The PI fills in this template to produce `05-methodology.md` for the experimenta
 
 ## Notes
 
-<Any additional context from preflight, literary review, or seminar that the experimentalist should know>
+<Any additional context from preflight, gather, or synthesize that the experimentalist should know>
 ```
