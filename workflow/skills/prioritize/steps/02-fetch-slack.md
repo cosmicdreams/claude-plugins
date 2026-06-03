@@ -17,7 +17,7 @@ anything unresolved that you should act on. Two passes:
 (Substitute values for each channel)
 
 ```
-You are a READ-ONLY data collection agent for workflow:morning-brief. Fetch Slack
+You are a READ-ONLY data collection agent for workflow:prioritize. Fetch Slack
 messages and identify items that need the user's attention TODAY.
 Do not narrate or explain. Do NOT post messages, react, or write to Slack in any way.
 
@@ -93,7 +93,7 @@ If any channel subagent fails entirely, treat it as:
 
 If ALL subagents return `{ "error": "agent-slack unavailable" }`, output:
 ```
-Morning brief failed: agent-slack unavailable
+Prioritize failed: agent-slack unavailable
 Check agent-slack auth: agent-slack auth import-desktop
 ```
 Then stop.
