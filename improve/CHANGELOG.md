@@ -1,5 +1,11 @@
 # Changelog
 
+## 1.4.0
+- Add lint rule `lint-008 missing-preflight-contract` (tier: warn, applies-to: research-lab) —
+  enforces the research-lab 2.0 preflight-first convention: every verb SKILL.md must carry the
+  uniform Input contract + Preflight block with a fail-fast branch that suggests (never
+  auto-invokes) the upstream verb.
+
 ## 1.3.0
 - Add `perf-measure` skill — Lighthouse + hyperfine + a11y delegation; JSON score tuple for experiment ratchet
 - Add `accessibility-scan` (moved from `admin`) — measurement skills consolidated into improve

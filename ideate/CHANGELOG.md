@@ -1,5 +1,20 @@
 # Changelog
 
+## 3.0.0 — Domain boundary with research-lab (breaking)
+
+Clarified the ideate vs research-lab boundary: **ideate works on an idea you are forming;
+research-lab works on information that already exists.** Two skills left ideate as a result.
+
+- **REMOVED** `understand` — moved to `research-lab:understand` (it digests existing material).
+- **RETIRED** `research` — replaced by `research-lab:gather`. A thin redirect shim remains: it
+  routes to `research-lab:gather` when research-lab is installed, otherwise gives an install hint.
+- ideate retains: `brainstorm`, `diagram`, `adr`, `reality-check`, `compare`.
+- `reality-check` stays — it attacks the *assumptions* of an *unformed* idea (pre-evidence);
+  contrast `research-lab:interrogate`, which attacks the *evidence* of a *formed* claim.
+
+**Migration:** `ideate:understand` → `research-lab:understand`; `ideate:research` →
+`research-lab:gather`. Both require the research-lab plugin installed.
+
 ## 2.2.2
 - Fix stale obsidian-rules.md paths in 5 skills (adr, brainstorm, compare, research, understand): office → workflow
 

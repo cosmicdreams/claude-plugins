@@ -1,5 +1,40 @@
 # research-lab Changelog
 
+## 2.0.0 — Knowledge-work verb reorganization
+
+Rebuilt research-lab around the **verbs of a knowledge engagement** — one skill per distinct
+cognitive move — instead of formats/mechanisms. See `plans/research-lab-knowledge-verbs.md`.
+
+### Skills
+- **NEW** `frame` — sharpen a vague topic into a falsifiable question (facilitator, Haiku).
+- **NEW** `interrogate` — adversarial peer-review of a formed claim via a context-isolated,
+  perspective-diverse Workflow panel; desk-reject preflight, loop-until-dry + budget ceiling.
+  Returns a verdict, never revises.
+- **NEW** `teach` — the Feynman gate: produce the deliverable artifact, then certify it with a
+  fresh no-context agent taking a generated quiz.
+- **RENAMED** `literary-review` → `gather` (librarian stance; back-compat trigger retained).
+- **RESHAPED** `seminar` → `synthesize` (the hinge verb; absorbs artifact generation).
+- **MOVED IN** `ideate:understand` → `understand` (input broadened — no longer requires a notebook).
+- **DISSOLVED** `workshop` — its parallel mechanism is now a Workflow fan-out detail inside
+  gather/interrogate, not a skill.
+- **MOVED OUT** `run` → `drupal-lab:optimize` (it was a Drupal performance engagement).
+
+### Structure
+- Every verb opens with a uniform **preflight-first** block (Input contract → resolution order →
+  fail-fast that suggests, never auto-chains). Enforced by improve lint rule `missing-preflight-contract`.
+- Strictly compositional: **no orchestrator**. Verbs are invoked intentionally in conversation.
+- Modern from birth: NotebookLM persona/artifact integration (configure, quiz, data-table, report,
+  mind-map) and Workflow fan-out with per-verb model/shape.
+- Kept agents (PI, researcher, experimentalist), `protocols/context-flow.md`, and the report
+  template updated to the new verb set.
+
+### Migration
+- `research-lab:literary-review` → `research-lab:gather` (old trigger still works).
+- `research-lab:seminar` → `research-lab:synthesize` (old trigger still works).
+- `research-lab:workshop` → removed; use `gather` (broad coverage) / `interrogate` (parallel panel).
+- `research-lab:run` → `drupal-lab:optimize` (old trigger still routes).
+- `ideate:understand` → `research-lab:understand`; `ideate:research` → `research-lab:gather`.
+
 ## 0.3.2
 - Cross-reference `lib:ddev` for DDEV naming convention in research-lab:run
 

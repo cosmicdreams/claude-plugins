@@ -1,7 +1,7 @@
 {
     "name": "research-lab",
-    "version": "0.3.2",
-    "description": "Composable research engagement pipeline: literary review, workshop swarms, cross-examination seminars, and iterative experimentation with ratchet-based optimization.",
+    "version": "2.0.0",
+    "description": "Knowledge-work verbs as standalone compositional primitives: frame, gather, understand, synthesize, interrogate, experiment, teach. Each digests existing information or tests and ships a claim; preflight-first input contracts, no orchestrator.",
     "author": {
         "name": "Chris Weber"
     },

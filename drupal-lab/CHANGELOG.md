@@ -1,5 +1,15 @@
 # Changelog
 
+## 2.7.0
+- Add `optimize` skill — the Drupal cache/performance engagement, moved from `research-lab:run`
+  (research-lab 2.0 extracted it as Drupal-specific). Pipeline: preflight → gather → synthesize →
+  methodology → experiment → report, against local DDEV only.
+- Move `preflight.sh` (cache-header audit) and `generate-chart.py` into `drupal-lab/scripts/`.
+- `optimize` declares **research-lab as a hard dependency** (calls `gather`/`experiment` via
+  `Skill()`, reads PI/researcher agents + protocols from the research-lab install via `$RL_ROOT`),
+  and fails fast with an install hint if research-lab is absent.
+- Back-compat: the old `research-lab:run` trigger phrase routes to `drupal-lab:optimize`.
+
 ## 2.6.0
 - Add Drupal team branch-workflow skills: `sprint-start`, `release-cut`, `branch-audit`
 - Add `branch-guard.sh` PreToolUse hook: hard-blocks destructive git ops on `main`, soft-blocks on `sprint/*` and `release/*` with audited `DRUPAL_LAB_BYPASS=1` override
