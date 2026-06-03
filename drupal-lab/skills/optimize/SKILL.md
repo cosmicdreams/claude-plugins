@@ -1,26 +1,49 @@
 ---
-name: run
+name: optimize
 description: >
-  Run a full research engagement: preflight audit, literary review via NotebookLM,
-  multi-agent workshop swarm, cross-examination seminar, methodology authoring,
-  iterative experimentation with ratchet optimization, and final report.
-  Use when starting or resuming a research engagement. Say "run a research engagement",
-  "research this topic end to end", "full research pipeline", or "research-lab:run".
-  Not for standalone literary review (use research-lab:literary-review), standalone
+  Run a full Drupal performance-optimization engagement against local DDEV: cache-header preflight,
+  source gathering via NotebookLM, digest + synthesis, methodology authoring, iterative
+  experimentation with ratchet optimization, and a final report with cache-survival metrics.
+  Use when starting or resuming a Drupal cache/performance engagement. Say "optimize this Drupal
+  site's caching", "run a Drupal perf engagement", "cache optimization engagement", or
+  "drupal-lab:optimize". Not for standalone source gathering (use research-lab:gather), standalone
   experiments (use research-lab:experiment), or quick brainstorming (use ideate:brainstorm).
 triggers:
-  - "run a research engagement"
-  - "full research pipeline"
-  - "research this end to end"
-  - "start a research engagement"
+  - "optimize this drupal site"
+  - "drupal performance engagement"
+  - "cache optimization engagement"
+  - "drupal-lab:optimize"
   - "research-lab:run"
 ---
 
-# Research Engagement Pipeline
+# Drupal Optimization Engagement
 
-Orchestrate a full research engagement from preflight through final report. You are the Principal Investigator (PI). Read `${CLAUDE_PLUGIN_ROOT}/agents/principal-investigator.md` for your role definition.
+Orchestrate a full Drupal cache/performance engagement from preflight through final report, against
+**local DDEV only**. You are the Principal Investigator. This skill was formerly
+`research-lab:run`; it moved to drupal-lab in 2.0 because it is a Drupal-specific engagement, while
+the general research primitives it calls stay in research-lab.
 
-Read `${CLAUDE_PLUGIN_ROOT}/protocols/context-flow.md` for the engagement directory structure and file naming conventions.
+## Dependency — research-lab must be installed
+
+This skill calls research-lab verbs (`gather`, `experiment`) via `Skill()` and reads research-lab's
+Principal Investigator/researcher agent definitions and protocols. Resolve the research-lab install once, up front, and
+**fail fast** if it is absent rather than improvising:
+
+```bash
+RESEARCH_LAB_ROOT="$(ls -d ~/.claude/plugins/cache/local/research-lab/* 2>/dev/null | sort -V | tail -1)"
+if [ -z "$RESEARCH_LAB_ROOT" ]; then
+  echo "drupal-lab:optimize requires the research-lab plugin. Install it:"
+  echo "  claude plugin install research-lab@local --scope user"
+  exit 1
+fi
+```
+
+Use `$RESEARCH_LAB_ROOT` for research-lab resources:
+- Principal Investigator role definition: `$RESEARCH_LAB_ROOT/agents/principal-investigator.md`
+- Engagement directory structure + file naming: `$RESEARCH_LAB_ROOT/protocols/context-flow.md`
+- Methodology spec (Phase 5 gate): `$RESEARCH_LAB_ROOT/skills/experiment/references/methodology-spec.md`
+
+Drupal-specific scripts and references are local (`${CLAUDE_PLUGIN_ROOT}/...`).
 
 ## Hard Rules
 
@@ -41,12 +64,11 @@ ls "$ENGAGEMENT_DIR/" 2>/dev/null
 ```
 
 If the directory exists, scan for completed phase outputs:
-- `01-preflight.md` exists → skip to Phase 3
-- `02-literary-review.md` exists → skip to Phase 4
-- `03-workshop.md` exists → skip to Phase 5
-- `04-seminar.md` exists → skip to Phase 6
-- `05-methodology.md` exists → skip to Phase 7
-- `results.jsonl` exists with keeps → skip to Phase 8
+- `01-preflight.md` exists → skip to Phase 3 (Gather)
+- `02-gather.md` exists → skip to Phase 4 (Synthesize)
+- `04-synthesize.md` exists → skip to Phase 5 (Methodology)
+- `05-methodology.md` exists → skip to Phase 6 (Experiment)
+- `results.jsonl` exists with keeps → skip to Phase 7 (Report)
 
 Report resume state to the user before proceeding.
 
@@ -106,14 +128,14 @@ cd <worktree-path>
 ddev import-db --file=/tmp/project-db.sql
 ```
 
-**After importing from ANY source**, always run the full post-DB bootstrap:
+**After importing from ANY source**, always run the full post-database bootstrap:
 ```bash
 ddev drush updatedb -y    # apply pending schema updates
 ddev drush config:import -y  # sync config with codebase
 ddev drush cr             # clear caches
 ```
 
-This sequence is critical when the DB dump is older than the codebase — skipping `updatedb` or `config:import` causes 500 errors.
+This sequence is critical when the database dump is older than the codebase — skipping `updatedb` or `config:import` causes 500 errors.
 
 If the project has custom bootstrap steps (e.g., Site Studio's `cohesion:import` + `cohesion:rebuild`), ask the user: "Does this project need any special bootstrap steps beyond database pull and cache clear?"
 
@@ -125,7 +147,7 @@ In the orchestrating project (CLAUDE-PLUGINS), not the target:
 mkdir -p "analysis-reports/research/<engagement>"
 ```
 
-**No TeamCreate yet.** No subagents until Phase 3.
+No subagents at setup — gather/synthesize/experiment manage their own fan-out when invoked.
 
 ---
 
@@ -159,7 +181,7 @@ Write output to `01-preflight.md`. For each page, note:
 
 ### 2c. Gate check
 
-Read `${CLAUDE_PLUGIN_ROOT}/skills/run/references/phase-gates.md` (Phase 2 gate).
+Read `${CLAUDE_PLUGIN_ROOT}/skills/optimize/references/phase-gates.md` (Phase 2 gate).
 
 ### 2d. Diagnostic mode decision
 
@@ -172,99 +194,57 @@ After the preflight, assess the engagement type:
 **If diagnostic:** Ask the user: "The preflight reveals a measurable problem. I can investigate directly and skip to methodology+experiment. Or run the full research pipeline. Which do you prefer?"
 
 If the user chooses diagnostic mode:
-- Skip Phases 3-5 (literary review, workshop, seminar)
-- The PI investigates directly (enable debug headers, enumerate blocks, trace cache tags, etc.)
-- Write findings to `03-workshop.md` (PI-authored diagnostic summary)
-- Proceed to Phase 6 (Methodology)
+- Skip Phases 3-4 (gather, synthesize)
+- The Principal Investigator investigates directly (enable debug headers, enumerate blocks, trace cache tags, etc.)
+- Write findings to `04-synthesize.md` (Principal Investigator-authored diagnostic summary)
+- Proceed to Phase 5 (Methodology)
 
 **If design or user prefers full pipeline:** Continue to Phase 3.
 
 ---
 
-## Phase 3 — Literary Review
+## Phase 3 — Gather
 
-**Now create the team** — first time subagents are needed.
-
-```
-TeamCreate(name="research-<engagement>")
-```
-
-Spawn a researcher agent in literary-review mode. If an existing NotebookLM notebook is available, pass its ID — do not create a new notebook.
+Delegate source gathering to the research-lab `gather` verb. It owns the NotebookLM notebook
+creation, deep-research, and curation; do not reimplement it here.
 
 ```
-Agent(
-  subagent_type="research-lab:researcher",
-  name="researcher-lit",
-  prompt="You are in literary-review mode.
-
-  Follow the research-lab:literary-review skill protocol.
-
-  Engagement directory: analysis-reports/research/<engagement>/
-  Topic: <topic>
-  Notebook ID: <existing-notebook-id-or-omit>
-  Seed URLs: <urls>
-  Focus: <focus>
-
-  Write output to: analysis-reports/research/<engagement>/02-literary-review.md
-
-  Report completion to the PI when done."
-)
+Skill("research-lab:gather", args="topic=<topic> engagement=analysis-reports/research/<engagement> notebook=<existing-notebook-id-or-omit>")
 ```
 
-**Gate check** (Phase 3 gate): `02-literary-review.md` exists, has structured content, notebook ID recorded.
+If you want parallel coverage of a broad topic, `gather` decides its own fan-out (Workflow
+`pipeline()` facets) internally — you do not orchestrate researchers here.
+
+Output: `02-gather.md` + a curated notebook id.
+
+**Gate check** (Phase 3 gate): `02-gather.md` exists, has structured content, notebook ID recorded.
 
 ---
 
-## Phase 4 — Workshop
+## Phase 4 — Synthesize
 
-Identify 3-5 facets from the literary review that need deeper investigation. Spawn one researcher per facet:
+Digest and form a position from the gathered material. Delegate to the research-lab `synthesize`
+verb (the dissolved workshop+seminar work now lives inside it):
 
 ```
-Agent(
-  subagent_type="research-lab:researcher",
-  name="researcher-<N>",
-  prompt="You are in workshop mode.
-
-  Follow the research-lab:workshop skill protocol.
-
-  Notebook ID: <notebook-id>
-  Your facet: <specific-facet>
-  Other researchers: <list-of-other-researcher-names-and-facets>
-  Engagement directory: analysis-reports/research/<engagement>/
-
-  Write your findings to: analysis-reports/research/<engagement>/03-workshop-<N>.md
-  Share key discoveries with other researchers via SendMessage."
-)
+Skill("research-lab:synthesize", args="notebook=<notebook-id> engagement=analysis-reports/research/<engagement> question=<the optimization decision to resolve>")
 ```
 
-Spawn all researchers in parallel (multiple Agent calls in one message).
+For a high-stakes engagement, optionally harden the position with `research-lab:interrogate` before
+committing to a methodology — it adversarially peer-reviews the formed claim.
 
-When all complete, synthesize their findings into `03-workshop.md`.
+Output: `04-synthesize.md` with the position, named concepts, decision table, and ranked hypotheses.
 
-**Gate check** (Phase 4 gate): All `03-workshop-N.md` files exist, `03-workshop.md` synthesis written.
+**Gate check** (Phase 4 gate): `04-synthesize.md` exists with a formed position and ranked hypotheses.
 
 ---
 
-## Phase 5 — Seminar
-
-Invoke the seminar skill. Do not run it inline.
-
-```
-Skill("research-lab:seminar", args="notebook=<notebook-id> engagement=<engagement>")
-```
-
-Output: `04-seminar.md` with named concepts, decision table, and ranked hypotheses.
-
-**Gate check** (Phase 5 gate): `04-seminar.md` exists with named concepts and ranked hypotheses.
-
----
-
-## Phase 6 — Methodology
+## Phase 5 — Methodology
 
 Write `05-methodology.md` using the template:
 
 ```bash
-cat ${CLAUDE_PLUGIN_ROOT}/skills/run/references/methodology-template.md
+cat ${CLAUDE_PLUGIN_ROOT}/skills/optimize/references/methodology-template.md
 ```
 
 **Required for this engagement:**
@@ -276,18 +256,18 @@ cat ${CLAUDE_PLUGIN_ROOT}/skills/run/references/methodology-template.md
 
 | User goal | Wrong metric | Right metric |
 |-----------|-------------|--------------|
-| Maximize CDN hit rate | DPC HIT % (internal) | % of pages still cached after a content edit |
-| Reduce origin load | Cold TTFB (measures render speed, not cache) | Cache survival rate after tag invalidation |
-| Improve authenticated UX | Page cache HIT (anonymous only) | DPC HIT rate for authenticated requests |
-| Speed up page loads | Render pipeline time | LCP or TTFB at the edge |
+| Maximize CDN hit rate | Dynamic Page Cache HIT % (internal) | % of pages still cached after a content edit |
+| Reduce origin load | Cold time to first byte (measures render speed, not cache) | Cache survival rate after tag invalidation |
+| Improve authenticated user experience | Page cache HIT (anonymous only) | Dynamic Page Cache HIT rate for authenticated requests |
+| Speed up page loads | Render pipeline time | Largest Contentful Paint or time to first byte at the edge |
 
 Fill in based on all prior phase outputs. **Confirm the metric with the user before proceeding** — getting this wrong wastes iterations.
 
-**Gate check** (Phase 6 gate): `05-methodology.md` exists, has all required sections per `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/methodology-spec.md`, has exactly one metric with direction specified.
+**Gate check** (Phase 5 gate): `05-methodology.md` exists, has all required sections per `$RESEARCH_LAB_ROOT/skills/experiment/references/methodology-spec.md` (research-lab install), has exactly one metric with direction specified.
 
 ---
 
-## Phase 7 — Experiment
+## Phase 6 — Experiment
 
 Invoke the experiment skill. Do not run the experiment loop ad-hoc.
 
@@ -299,19 +279,19 @@ The experiment skill handles: resume detection, reference reading, the full iter
 
 If the experiment reports futility:
 - Review the pattern of failures
-- Consider revising the methodology (return to Phase 6)
+- Consider revising the methodology (return to Phase 5)
 - Or accept the best result and proceed to report
 
-**Gate check** (Phase 7 gate): `results.jsonl` exists, experiment terminated via one of: target achieved, budget exhausted, or futility threshold.
+**Gate check** (Phase 6 gate): `results.jsonl` exists, experiment terminated via one of: target achieved, budget exhausted, or futility threshold.
 
 ---
 
-## Phase 8 — Report
+## Phase 7 — Report
 
-Read the report template for structure:
+Read the report template for structure (lives in the research-lab install):
 
 ```bash
-cat ${CLAUDE_PLUGIN_ROOT}/templates/research-report.md
+cat $RESEARCH_LAB_ROOT/templates/research-report.md
 ```
 
 Write `07-report.md` to the engagement directory. Include:
@@ -328,7 +308,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/generate-chart.py analysis-reports/researc
 
 ---
 
-## Phase 9 — Cleanup
+## Phase 8 — Cleanup
 
 1. Archive the report to Obsidian vault:
 ```bash
@@ -338,11 +318,6 @@ mkdir -p "$VAULT_ROOT/$(dirname "$DEST")"
 cp "analysis-reports/research/<engagement>/07-report.md" "$VAULT_ROOT/$DEST"
 ```
 
-2. Clean up the team (if created):
-```
-TeamDelete(name="research-<engagement>")
-```
+2. Clean up debug artifacts in the worktree (e.g., `services.debug-cache.yml`). Keep the actual fix commits — the user decides whether to submit them.
 
-3. Clean up debug artifacts in the worktree (e.g., `services.debug-cache.yml`). Keep the actual fix commits — the user decides whether to submit them.
-
-4. Stop DDEV only if the user confirms they're done with the worktree.
+3. Stop DDEV only if the user confirms they're done with the worktree.

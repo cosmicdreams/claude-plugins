@@ -51,12 +51,12 @@ A valid methodology.md MUST contain all of these:
 ## Optional Sections
 
 ### Notes
-- Context from earlier phases (preflight, literary review, seminar)
+- Context from earlier phases (preflight, gather, synthesize)
 - Known dead ends or things already tried
 - Domain-specific guidance
 
 ### Named Concepts
-- Vocabulary from the seminar phase
+- Vocabulary from the synthesize phase
 - The experimentalist should use these terms in commit messages and logs
 
 ---

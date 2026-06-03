@@ -21,8 +21,8 @@ Template for `lib:vault-store` (or inline PI authoring) when writing a research 
 <Summary of 01-preflight.md — what was found before research began>
 
 ## Research Findings
-<Key insights from literary review and workshop>
-<Named concepts from seminar with definitions>
+<Key insights from the gathered sources>
+<Named concepts from synthesize with definitions>
 
 ## Methodology
 <What was tested and how — summary of 05-methodology.md>
@@ -54,9 +54,8 @@ Template for `lib:vault-store` (or inline PI authoring) when writing a research 
 | Artifact | Location |
 |----------|----------|
 | Preflight | analysis-reports/research/<engagement>/01-preflight.md |
-| Literary Review | analysis-reports/research/<engagement>/02-literary-review.md |
-| Workshop | analysis-reports/research/<engagement>/03-workshop.md |
-| Seminar | analysis-reports/research/<engagement>/04-seminar.md |
+| Gather | analysis-reports/research/<engagement>/02-gather.md |
+| Synthesize | analysis-reports/research/<engagement>/04-synthesize.md |
 | Methodology | analysis-reports/research/<engagement>/05-methodology.md |
 | Results | analysis-reports/research/<engagement>/results.jsonl |
 | NotebookLM | <notebook ID> |

@@ -3,16 +3,16 @@ name: experiment
 description: >
   Iterative optimization loop: propose changes, cheap gate, implement via git commit,
   measure, validate correctness, keep/discard with ratchet pattern. Includes futility
-  stopping and JSONL logging. Use standalone for any measurable optimization task.
+  stopping and JSON Lines logging. Use standalone for any measurable optimization task.
   Say "run an experiment", "iterate on this", "optimize with methodology", or
-  "autoresearch loop".
+  "autoresearch loop". Needs a measurable hypothesis and a target metric.
 triggers:
   - "run an experiment"
   - "iterate on this"
   - "optimize with methodology"
   - "autoresearch loop"
   - "research-lab:experiment"
-allowed-tools: Bash, Read, Write, Edit
+allowed-tools: Bash, Read, Write, Edit, Workflow
 ---
 
 # Experiment: Iterative Optimization Loop
@@ -21,10 +21,10 @@ Execute a methodology-driven iteration loop with ratchet-based keep/discard deci
 
 ## Design Principle
 
-This skill implements the [autoresearch](https://github.com/karpathy/autoresearch) pattern: pick a metric, measure it, try something, measure again, keep if better, revert if worse, repeat. That's the entire loop. This skill owns the **loop mechanics** — ratchet, futility stopping, git discipline, JSONL logging. It does NOT own domain knowledge. What to measure, how to measure it, what to try — all come from the methodology document. The skill is domain-agnostic. It works for cache optimization, performance tuning, code quality scores, or any goal with a measurable metric.
+This skill implements the [autoresearch](https://github.com/karpathy/autoresearch) pattern: pick a metric, measure it, try something, measure again, keep if better, revert if worse, repeat. That's the entire loop. This skill owns the **loop mechanics** — ratchet, futility stopping, git discipline, JSON Lines logging. It does NOT own domain knowledge. What to measure, how to measure it, what to try — all come from the methodology document. The skill is domain-agnostic. It works for cache optimization, performance tuning, code quality scores, or any goal with a measurable metric.
 
 Read these references before starting:
-- `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/iteration-protocol.md` — JSONL schema, git protocol, ratchet rules
+- `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/iteration-protocol.md` — JSON Lines schema, git protocol, ratchet rules
 - `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/methodology-spec.md` — methodology.md format
 
 ---
@@ -33,11 +33,22 @@ Read these references before starting:
 
 **You MUST be working in a dedicated worktree — never in `worktrees/main/`.**
 Verify before starting: your working directory must NOT be named `main` or have the main branch checked out.
-If no worktree exists, STOP and ask the PI to create one via `/create-worktree`.
+If no worktree exists, STOP and ask the Principal Investigator to create one via `/create-worktree`.
 
 ---
 
-## Input
+## Input contract
+
+- **Requires:** a hypothesis + a metric (the methodology document carries both).
+- **Resolves from:** context → arg (methodology file path).
+
+## Preflight
+
+1. Check context for a methodology already in play (a `05-methodology.md` just written). If present, use it.
+2. Else check for an arg: a methodology file path, results path, and working directory.
+3. Else **FAIL FAST**: "Need a measurable hypothesis and a target metric — point me at a methodology file (or run the methodology step first)." Stop. Do **not** invoke another skill.
+
+### Input detail
 
 Required:
 - **Methodology path** — path to `05-methodology.md` (or any methodology file)
@@ -46,6 +57,14 @@ Required:
 
 Optional:
 - **Measurement harness** — path to a measurement script (may be defined in methodology)
+
+### Modernize — parallel candidate trials
+
+When several candidate changes are independent, map them to a Workflow `parallel()` with
+`isolation: 'worktree'` so mutating trials don't collide on the filesystem. The user invoked this
+skill, so the `Workflow` call is legitimate — but keep it explicit, and only fan out when trials
+are genuinely independent (the ratchet itself stays sequential: you still keep/discard against one
+moving best-metric).
 
 ---
 
@@ -92,7 +111,7 @@ Extract:
 - **Correctness checks**
 - **Scope constraints**
 
-**Validate:** The methodology must specify a single metric with a direction. If it has two metrics, mixed qualitative/quantitative criteria, or no clear direction — STOP and ask the PI to fix the methodology before proceeding.
+**Validate:** The methodology must specify a single metric with a direction. If it has two metrics, mixed qualitative/quantitative criteria, or no clear direction — STOP and ask the Principal Investigator to fix the methodology before proceeding.
 
 ---
 
@@ -210,7 +229,7 @@ On termination, report:
 
 ## Standalone Mode
 
-When used outside of research-lab:run:
+When used outside of drupal-lab:optimize:
 1. Ask the user for the methodology file, working directory, and measurement command
 2. Run the loop
 3. Present results and offer:

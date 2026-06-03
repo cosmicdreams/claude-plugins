@@ -48,7 +48,7 @@ notebooklm research wait --import-all -n NOTEBOOK_ID
 ```
 Blocks until deep research completes, then commits the found sources. If you fired
 with `--no-wait`, **`--import-all` belongs on this wait command** — otherwise the
-web UI leaves an "Add sources?" modal open and nothing is imported.
+web user interface leaves an "Add sources?" modal open and nothing is imported.
 
 ### List sources
 ```bash
@@ -91,12 +91,12 @@ notebooklm list --json
 notebooklm ask "Summarize across all sources: (1) core concepts, (2) common patterns, (3) pitfalls." -n NOTEBOOK_ID
 ```
 
-### Focused facet query (workshop mode)
+### Focused facet query (gather facet fan-out)
 ```bash
 notebooklm ask "What do the sources say specifically about <facet>? Include contradictions." -n NOTEBOOK_ID
 ```
 
-### Cross-examination query (seminar mode)
+### Cross-examination query (synthesize / interrogate)
 ```bash
 notebooklm ask "What seems true about <topic> but might not be? What evidence supports and contradicts it?" -n NOTEBOOK_ID
 ```
