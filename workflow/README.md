@@ -16,3 +16,4 @@ Skills read `~/.claude/workflow.json` (written by `workflow:config`) to know wha
 | `workflow:organize` | Categorize and tag notes in the Obsidian vault |
 | `workflow:obsidian-lint` | Audit vault notes for frontmatter and link violations |
 | `workflow:scout` | Knowledge radar — interest-tuned AI/ecosystem stories that learns from feedback (was ecosystem-pulse) |
+| `workflow:knowledge-check` | Keep the human in the loop during AI-assisted work — restate, fill gaps, quiz before moving on (guards against cognitive surrender) |
