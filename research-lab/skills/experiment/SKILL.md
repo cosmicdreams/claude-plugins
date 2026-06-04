@@ -229,7 +229,8 @@ On termination, report:
 
 ## Standalone Mode
 
-When used outside of drupal-lab:optimize:
+When run on its own (not composed into a larger engagement by the `principal-investigator` role or a
+domain skill that drives the verbs):
 1. Ask the user for the methodology file, working directory, and measurement command
 2. Run the loop
 3. Present results and offer:

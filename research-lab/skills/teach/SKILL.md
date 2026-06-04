@@ -63,11 +63,19 @@ pipeline: **produce artifact → fresh agent takes a quiz on it → grade.** Its
 the agent being **fresh and context-isolated** — it must answer using *only the produced artifact*,
 never this conversation, or the gate measures nothing.
 
-1. **Generate the quiz from the material** (not invented — sourced):
-   ```bash
-   notebooklm generate quiz -n NOTEBOOK_ID --difficulty medium
-   ```
-   (`generate flashcards` is a useful secondary probe.)
+1. **Build the quiz from the material** (sourced, not invented) and shape it into the
+   `[{q, answer}]` array the Workflow consumes as `args.quiz`:
+   - **If a notebook is in play:**
+     ```bash
+     notebooklm generate quiz -n NOTEBOOK_ID --difficulty medium
+     ```
+     Read its questions and reference answers and convert them into `[{q, answer}]`.
+     (`generate flashcards` is a useful secondary probe.)
+   - **If there is no notebook** (the contract also accepts a plain file / pasted material): write 3–5
+     comprehension questions and their reference answers directly *from the material* into the same
+     `[{q, answer}]` shape.
+   Either way you now hold `quiz` as `[{q, answer}]` — pass it, the artifact, and the audience as the
+   Workflow `args`.
 2. **A fresh, no-context Workflow `agent()` takes the quiz using only the artifact.** Its score is
    the comprehension measure. If it passes, the artifact supplies enough context to stand alone in
    front of your stakeholder. If it fails, you've found exactly where the explanation assumes
@@ -113,7 +121,7 @@ they cite the actual sources and supply context by construction:
 ```bash
 notebooklm generate report -n NOTEBOOK_ID --format briefing-doc   # product manager briefing
 notebooklm generate slide-deck -n NOTEBOOK_ID                     # stakeholder meeting
-notebooklm revise-slide -n NOTEBOOK_ID ...                        # iterate the deck
+notebooklm generate revise-slide -n NOTEBOOK_ID ...               # iterate a deck slide (it's under `generate`)
 notebooklm generate audio -n NOTEBOOK_ID                          # async consumption
 notebooklm generate infographic -n NOTEBOOK_ID                    # exec one-pager
 notebooklm generate flashcards -n NOTEBOOK_ID                     # secondary comprehension probe
@@ -122,7 +130,7 @@ notebooklm generate flashcards -n NOTEBOOK_ID                     # secondary co
 | Audience / channel | Artifact |
 |---|---|
 | product manager, written | briefing doc (`generate report --format briefing-doc`) |
-| Stakeholder meeting | slide deck (`generate slide-deck` + `revise-slide`) |
+| Stakeholder meeting | slide deck (`generate slide-deck` + `generate revise-slide`) |
 | Async / commute | audio overview (`generate audio`) |
 | Exec one-pager | infographic (`generate infographic`) |
 
@@ -150,4 +158,4 @@ the second failure, invisible to synthesize.
 `teach` is usually terminal — the artifact is the deliverable. Suggest (never auto-invoke):
 
 - **If the gate keeps returning `revise`** the claim itself may be the problem, not the explanation → `research-lab:interrogate` to re-check the claim, or `research-lab:synthesize` to reshape it.
-- **To publish the engagement notebook**: `notebooklm share --public` / set `view-level`.
+- **To publish the engagement notebook**: `notebooklm share public --enable` (and `notebooklm share view-level ...` to set what viewers can access).

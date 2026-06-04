@@ -15,7 +15,7 @@ triggers:
   - "literary review"
   - "research-lab:gather"
   - "research-lab:literary-review"
-allowed-tools: Bash, Read, Write, Agent
+allowed-tools: Bash, Read, Write, Agent, Workflow
 ---
 
 # Gather
@@ -271,14 +271,10 @@ Update `.research.json` status to `synthesized`.
 
 ### Vault archival (standalone mode only)
 
-If running standalone (not inside a larger engagement):
-```bash
-VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
-TOPIC_SLUG="<kebab-case-topic>"
-DEST="Research/$TOPIC_SLUG/$(date +%Y-%m-%d)-gather.md"
-mkdir -p "$VAULT_ROOT/$(dirname "$DEST")"
-cp "$ENGAGEMENT_DIR/02-gather.md" "$VAULT_ROOT/$DEST"
-```
+If running standalone (not inside a larger engagement), hand `02-gather.md` to `lib:vault-store` — it
+owns Obsidian placement (default `Research/<topic-slug>/<date>-gather.md`) and triggers in the right
+context. research-lab does not reimplement the vault write; the summary also stays in the engagement
+directory regardless.
 
 ### Postflight (version guidance)
 

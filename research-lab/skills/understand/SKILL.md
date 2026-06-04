@@ -247,30 +247,19 @@ what's not obvious from the target itself.]
 
 **Where the record lives depends on whether a notebook is in play** — the next verb (`synthesize`, `interrogate`) should read it back co-located with the material it digested.
 
-**If a notebook id is in play**, write the record into the notebook so the sources and the understanding sit together:
+Store the record in two places — neither is load-bearing (the record also stays in the engagement
+directory), and research-lab hand-rolls neither:
 
-```bash
-notebooklm note save -n NOTEBOOK_ID --title "Understanding: TARGET" --content-file /tmp/understanding.md
-# (or paste the body via the command-line interface's content flag; see notebooklm-cli reference)
-```
-
-Then **also** archive a copy to the vault (below) for long-term reference.
-
-**If there is no notebook** (loose text / files / codebase), the vault is the only store. Either way:
-
-1. Convert the target name to kebab-case for the slug
-2. Read `obsidian-rules.md` from the workflow plugin references to confirm placement:
-   ```bash
-   WORKFLOW_VERSION=$(ls ~/.claude/plugins/cache/local/workflow/ 2>/dev/null | sort -V | tail -1)
-   cat ~/.claude/plugins/cache/local/workflow/$WORKFLOW_VERSION/references/obsidian-rules.md 2>/dev/null | head -50
-   ```
-3. Default path: `Concepts/<YYYY-MM-DD>-<target-slug>.md`
-4. Write to vault:
-   ```bash
-   VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
-   mkdir -p "$VAULT_ROOT/Concepts"
-   ```
-5. Confirm: "Saved to Neurons: Concepts/YYYY-MM-DD-target-slug.md"
+- **Notebook (when a notebook id is in play)** — co-locate the record with its sources using
+  NotebookLM's native note. Create a new note with the content piped from the file (`note create`
+  takes content on stdin via `--content -`; `note save` is for *updating* an existing note by id, so
+  it is the wrong verb here):
+  ```bash
+  notebooklm note create -n NOTEBOOK_ID -t "Understanding: TARGET" --content - < /tmp/understanding.md
+  ```
+- **Vault** — hand the record to `lib:vault-store`, which owns Obsidian placement and triggers in the
+  right context (default: `Concepts/<YYYY-MM-DD>-<target-slug>.md`). research-lab does not reimplement
+  vault writes or re-parse placement rules.
 
 ---
 

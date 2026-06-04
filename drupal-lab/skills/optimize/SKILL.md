@@ -303,7 +303,9 @@ Write `07-report.md` to the engagement directory. Include:
 Generate charts if results.jsonl has data:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/generate-chart.py analysis-reports/research/<engagement>/results.jsonl
+# generate-chart.py lives in research-lab (a generic results.jsonl visualizer used by
+# research-lab:experiment); optimize already resolves $RESEARCH_LAB_ROOT up front.
+python3 "$RESEARCH_LAB_ROOT/scripts/generate-chart.py" analysis-reports/research/<engagement>/results.jsonl
 ```
 
 ---

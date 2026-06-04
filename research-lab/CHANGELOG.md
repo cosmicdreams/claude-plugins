@@ -1,5 +1,59 @@
 # research-lab Changelog
 
+## 2.1.0 — Standalone hardening + script correctness
+
+Made research-lab fully self-contained (it no longer depends on any other plugin to run its verbs)
+and fixed the correctness bugs surfaced by a holistic review.
+
+### Standalone — references only itself
+- `principal-investigator` agent reframed from a fixed-phase orchestrator into an **optional**
+  research-lead role that composes the verbs and *suggests* next steps. Dropped all `drupal-lab:optimize`
+  coupling (phase-gates, `preflight.sh`, the optimize methodology template); methodology authoring now
+  follows research-lab's own `experiment/references/methodology-spec.md`. (Vault archival defers to
+  `lib:vault-store` — see below.)
+- `generate-chart.py` moved **into** research-lab (`scripts/`) — it is a generic `results.jsonl`
+  visualizer used by `experiment`; the report template and `drupal-lab:optimize` now read it here.
+- `context-flow.md` reframed from a phase pipeline to an **optional composition convention**: numeric
+  prefixes are sort hints (not an ordering contract), filename stems identify artifacts, and the
+  `frame`/`understand` artifacts and a no-plugin vault path are documented. Removed `preflight.sh` /
+  `lib:vault-store` from the producer map.
+- `understand`/`synthesize` notebook `note save` is now best-effort (the vault copy is the source of
+  truth); the `workflow`-plugin `obsidian-rules.md` read is explicitly optional.
+- `gather` declares `Workflow` in `allowed-tools` (its facet fan-out requires it).
+- `teach` wires the generated quiz into the Feynman gate's `args.quiz` and adds a no-notebook fallback
+  so the gate runs across the verb's full input contract.
+
+### NotebookLM correctness (verified against the installed v0.6.0 CLI)
+- Rebuilt `gather/references/notebooklm-cli.md` from the real `--help` surface. It now documents the
+  full set the verbs actually use — `configure` (`--mode`/`--persona`/`--response-length`), the `note`
+  group, the entire `generate` family (report/slide-deck/revise-slide/audio/infographic/flashcards/
+  quiz/data-table/mind-map), `research status`/`wait`, `share`, and `source clean` — not just the ~9
+  commands it covered before.
+- Fixed three wrong command forms in the verbs:
+  - `understand`/`synthesize` persisted records with `notebooklm note save --content-file` — but
+    `note save` *updates* an existing note by id and there is no `--content-file`. Now `note create`
+    with content piped via `--content -`.
+  - `teach` called top-level `notebooklm revise-slide` → `notebooklm generate revise-slide`.
+  - `teach` published with `notebooklm share --public` → `notebooklm share public --enable`.
+- Noted that `source clean` natively removes exact-duplicate/error/blocked sources; `notebook-dedup.sh`
+  still adds the URL-variant collapse `source clean` doesn't do.
+
+### Vault archival
+- Vault writes now defer to `lib:vault-store` (it owns Obsidian placement and triggers in context)
+  instead of hand-rolling `cp` + re-parsing the `workflow` plugin's `obsidian-rules.md`. Artifacts
+  also remain in the engagement directory. NotebookLM `note create` co-locates a record with its
+  sources when a notebook is in play.
+
+### Script correctness
+- `log-iteration.sh`: values passed via `argv` (no shell→Python source interpolation — quotes/`$`/
+  backticks can't break or inject); `metric_before` now null-guarded so the baseline iteration logs.
+- `notebook-setup.sh`: deep-research output to stderr (stdout = notebook id only); empty seed-URL loop
+  guarded against `set -u` on macOS bash 3.2.
+- `notebook-ask.sh`: degraded retry drops `--save-as-note`/`--note-title` so a junk answer isn't
+  saved twice; usage doc corrected.
+- `notebook-dedup.sh`: no longer iterates the dict itself on an unexpected envelope (was `AttributeError`).
+- `measure.sh`: `curl` bounded with `--max-time`/`--connect-timeout`; failed pages skipped, not averaged.
+
 ## 2.0.0 — Knowledge-work verb reorganization
 
 Rebuilt research-lab around the **verbs of a knowledge engagement** — one skill per distinct
