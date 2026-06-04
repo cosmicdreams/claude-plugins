@@ -1,6 +1,6 @@
 # Step 4 — Configure Data Storage
 
-Workflow skills that store persistent data (pulse state, morning-brief history, etc.)
+Workflow skills that store persistent data (prioritize state, scout feedback/history, etc.)
 need a stable storage path that survives plugin upgrades.
 
 ## Determine storage path

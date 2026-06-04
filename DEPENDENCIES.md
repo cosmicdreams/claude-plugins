@@ -66,7 +66,7 @@ obsidian help
 
 **Vault configuration:** Skills default to a vault named `Neurons` at `~/Vaults/Neurons`. Override with the `OBSIDIAN_VAULT_NAME` environment variable.
 
-**Used by:** sprint (`project-notes`), retro (`session`, `interviews`), ideate (most skills), drupal-lab (`analyze-issue`, `issue-summary`), lib (`archive`, `vault-store`, `vault-search`, `wiki-query`), workflow (`organize`, `obsidian-lint`, `morning-brief`), ideas-funnel (all skills), research-lab (`literary-review`, `run`)
+**Used by:** sprint (`project-notes`), retro (`session`, `interviews`), ideate (most skills), drupal-lab (`analyze-issue`, `issue-summary`), lib (`archive`, `vault-store`, `vault-search`, `wiki-query`), workflow (`organize`, `obsidian-lint`, `prioritize`, `scout`), ideas-funnel (all skills), research-lab (`literary-review`, `run`)
 
 ---
 
@@ -94,7 +94,7 @@ gws auth setup
 
 Follow the setup prompts to connect a Google account. Requires a Google Cloud project with Gmail and Calendar APIs enabled.
 
-**Used by:** workflow (`personal-email`, `personal-calendar`, `pulse`, `morning-brief`)
+**Used by:** workflow (`personal-email`, `personal-calendar`, `prioritize`)
 
 ---
 
@@ -109,7 +109,7 @@ jira init
 
 Run `jira init` in your project directory to connect to your Jira instance. Requires a Jira API token.
 
-**Used by:** lib (`jira`), workflow (`pulse`, `morning-brief`)
+**Used by:** lib (`jira`), workflow (`prioritize`)
 
 ---
 
@@ -124,7 +124,7 @@ agent-slack auth import-desktop   # imports token from Slack desktop app
 
 Or: `agent-slack auth whoami` to verify an existing session.
 
-**Used by:** lib (`slack`), workflow (`pulse`, `morning-brief`, `deploy-post`)
+**Used by:** lib (`slack`), workflow (`prioritize`, `deploy-post`)
 
 ---
 

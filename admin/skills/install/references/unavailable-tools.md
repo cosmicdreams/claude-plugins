@@ -19,7 +19,7 @@ Tools that cannot work in certain environments, why, and what to do instead.
 - **Workaround:** Same as Keychain — use `TESTRAIL_API_KEY` env var
 
 ### `agent-slack auth import-desktop`
-- **Used by:** lib:slack, workflow:deploy-post, workflow:morning-brief, workflow:pulse
+- **Used by:** lib:slack, workflow:deploy-post, workflow:prioritize
 - **Why unavailable:** Imports session cookies from the Slack desktop app on macOS.
   No Slack desktop app in a sandbox.
 - **Workaround:** If the `agent-slack` CLI supports token-based auth, use

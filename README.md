@@ -69,9 +69,9 @@ Thin CLI-wrapper skills (data-layer only — no summarization). Slack, Jira, Git
 Skills: `archive`, `csv-analysis`, `ddev`, `ffmpeg`, `github`, `hyperfine`, `image-optimize`, `jira`, `lighthouse`, `log-analyzer`, `pa11y`, `slack`, `testrail`, `vault-search`, `vault-store`, `wiki-query`
 
 ### `workflow`
-Process automation built on top of `lib`: morning brief, deploy checklist, cross-source pulse, Obsidian maintenance, calendar/email helpers.
+Process automation built on top of `lib`: work prioritization, deploy checklist, knowledge radar, Obsidian maintenance, calendar/email helpers.
 
-Skills: `config`, `deploy-post`, `ecosystem-pulse`, `morning-brief`, `obsidian-lint`, `organize`, `personal-calendar`, `personal-email`, `pulse`
+Skills: `config`, `deploy-post`, `obsidian-lint`, `organize`, `personal-calendar`, `personal-email`, `prioritize`, `scout`
 
 ### `drover`
 Automated Drupal error monitoring and self-healing pipeline. Watches logs, triages errors into curated Beads tickets, autonomously implements fixes in isolated git worktrees, notifies on ready-for-review.
