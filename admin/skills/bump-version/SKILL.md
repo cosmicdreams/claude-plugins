@@ -34,7 +34,7 @@ When in doubt, ask the user: "Was this a bug fix (patch), new feature (minor), o
 - Otherwise inspect what changed (`git diff` or context from the conversation) and apply the decision rules above.
 - If still unclear, ask the user before proceeding.
 
-Valid plugin names: `sprint`, `retro`, `ideate`, `admin`, `drupal-lab`, `ideas-funnel`, `lib`, `workflow`, `drover`, `research-lab`, `improve`, `all`
+Valid plugin names: `sprint`, `retro`, `ideate`, `admin`, `drupal-lab`, `ideas-funnel`, `lib`, `workshop`, `drover`, `research-lab`, `improve`, `all`
 Valid bump types: `major`, `minor`, `patch`
 
 ### 2. Run the bump script

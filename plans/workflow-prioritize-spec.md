@@ -1,7 +1,7 @@
-# Spec — `workflow:prioritize`
+# Spec — `workshop:prioritize`
 
 **Status:** draft for review (spec-first; no code until approved)
-**Replaces:** `workflow:pulse` + `workflow:morning-brief` (both retired into this one skill)
+**Replaces:** `workshop:pulse` + `workshop:morning-brief` (both retired into this one skill)
 **Name rationale:** a verb (per the plugins=nouns / skills=verbs rule); ranks work and surfaces the top thing. Carries the "what's my next task" intent `next-task` implied, without the noun.
 
 ---
@@ -17,7 +17,7 @@ Default output **leads with a single next action + a one-line why.** A wall of s
 
 ## Input contract (preflight, fail-fast)
 
-- **Requires** `~/.claude/workflow.json`. Missing → suggest `workflow:config`, stop.
+- **Requires** `~/.claude/workshop.json`. Missing → suggest `workshop:config`, stop.
 - Reuse the existing `check-integration.sh` circuit-breaker before any Slack / Jira / gws call (already in `pulse`/`morning-brief` step 01).
 - Optional arg: `--since <when>` (delta view) vs full picture (default).
 - Optional mode: on-demand (default) | `--loop` (ambient).
@@ -68,4 +68,4 @@ Ambient mode: only the new TOP + the delta since last broadcast.
 - Bump `workflow` plugin version; CHANGELOG note the consolidation.
 
 ## Open question (needs your input before build)
-**The ranking function.** How to weight: a fresh @-mention vs a blocked-on-you issue vs an approaching deadline vs how much free time you have today? Proposal: draft a default weighting, expose the weights in `workflow.json` so you tune them. Confirm the default priorities or hand me your mental ranking.
+**The ranking function.** How to weight: a fresh @-mention vs a blocked-on-you issue vs an approaching deadline vs how much free time you have today? Proposal: draft a default weighting, expose the weights in `workshop.json` so you tune them. Confirm the default priorities or hand me your mental ranking.

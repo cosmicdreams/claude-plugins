@@ -22,7 +22,7 @@ claude plugin install retro@local        --scope user
 claude plugin install ideate@local       --scope user
 claude plugin install drupal-lab@local   --scope user
 claude plugin install lib@local          --scope user
-claude plugin install workflow@local     --scope user
+claude plugin install workshop@local     --scope user
 claude plugin install drover@local       --scope user
 claude plugin install research-lab@local --scope user
 claude plugin install improve@local      --scope user
@@ -68,10 +68,10 @@ Thin CLI-wrapper skills (data-layer only — no summarization). Slack, Jira, Git
 
 Skills: `archive`, `csv-analysis`, `ddev`, `ffmpeg`, `github`, `hyperfine`, `image-optimize`, `jira`, `lighthouse`, `log-analyzer`, `pa11y`, `slack`, `testrail`, `vault-search`, `vault-store`, `wiki-query`
 
-### `workflow`
+### `workshop`
 Process automation built on top of `lib`: work prioritization, deploy checklist, knowledge radar, Obsidian maintenance, calendar/email helpers.
 
-Skills: `config`, `deploy-post`, `obsidian-lint`, `organize`, `personal-calendar`, `personal-email`, `prioritize`, `scout`
+Skills: `config`, `deploy-post`, `obsidian-lint`, `organize`, `personal-calendar`, `personal-email`, `prioritize`, `scout`, `knowledge-check`
 
 ### `drover`
 Automated Drupal error monitoring and self-healing pipeline. Watches logs, triages errors into curated Beads tickets, autonomously implements fixes in isolated git worktrees, notifies on ready-for-review.

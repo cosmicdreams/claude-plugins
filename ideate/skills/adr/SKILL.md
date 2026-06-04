@@ -76,7 +76,7 @@ status: {status}
 ## Step 4: Store to Neurons vault
 
 Read `obsidian-rules.md` from the workflow plugin references
-(`~/.claude/plugins/cache/local/workflow/*/references/obsidian-rules.md`) to confirm
+(`~/.claude/plugins/cache/local/workshop/*/references/obsidian-rules.md`) to confirm
 correct placement. Default path: `Architecture/ADRs/{YYYY-MM-DD}-{slug}.md`
 
 ```bash

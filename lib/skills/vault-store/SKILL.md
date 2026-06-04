@@ -7,7 +7,7 @@ description: >
   "store in Obsidian", "archive this report", "put this in the vault", "save to
   Neurons". Also triggered when other skills (retro, ideate, drupal-lab) produce
   reports that should be preserved. Do NOT use for organizing or moving notes
-  already in the vault — use workflow:organize for that.
+  already in the vault — use workshop:organize for that.
 ---
 
 # lib:vault-store
@@ -24,7 +24,7 @@ Override: set `OBSIDIAN_VAULT_NAME` in env or `~/.config/office/config`. Only ne
 
 Read `obsidian-rules.md` to determine correct placement:
 ```bash
-ls ~/.claude/plugins/cache/local/workflow/*/references/obsidian-rules.md | sort -V | tail -1 | xargs cat
+ls ~/.claude/plugins/cache/local/workshop/*/references/obsidian-rules.md | sort -V | tail -1 | xargs cat
 ```
 
 Check existing vault folders before creating new ones — prefer matching an existing
