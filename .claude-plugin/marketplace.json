@@ -44,9 +44,9 @@
       "category": "productivity"
     },
     {
-      "name": "workflow",
-      "description": "Process automation skills: morning brief, deploy checklist, pulse, Obsidian maintenance, and personal productivity",
-      "source": "./workflow",
+      "name": "workshop",
+      "description": "Process automation skills: prioritize, scout, knowledge-check, deploy checklist, Obsidian maintenance, and personal productivity",
+      "source": "./workshop",
       "category": "productivity"
     },
     {

@@ -26,7 +26,7 @@ Legend:
 
 ---
 
-## workflow:deploy-post
+## workshop:deploy-post
 
 | Dependency | macOS | Linux sandbox | Auth |
 |---|---|---|---|
@@ -109,7 +109,7 @@ sudo mv jira /usr/local/bin/jira
 
 ---
 
-## workflow:morning-brief
+## workshop:morning-brief
 
 Same dependencies as `lib:slack` (agent-slack). Also uses Python 3 for timestamp
 math (pre-installed in both environments).
@@ -121,7 +121,7 @@ math (pre-installed in both environments).
 
 ---
 
-## workflow:personal-calendar
+## workshop:personal-calendar
 
 | Dependency | macOS | Linux sandbox | Auth |
 |---|---|---|---|
@@ -133,7 +133,7 @@ headless Linux sandbox, the user may need to run auth on their host machine firs
 
 ---
 
-## workflow:personal-email
+## workshop:personal-email
 
 | Dependency | macOS | Linux sandbox | Auth |
 |---|---|---|---|
@@ -143,7 +143,7 @@ Same as personal-calendar — the gws CLI handles both Gmail and Calendar APIs.
 
 ---
 
-## workflow:pulse
+## workshop:pulse
 
 Combines dependencies from jira + slack:
 
@@ -181,7 +181,7 @@ checks env vars as a fallback automatically.
 
 ---
 
-## lib:archive, workflow:obsidian-lint, workflow:organize, lib:vault-store
+## lib:archive, workshop:obsidian-lint, workshop:organize, lib:vault-store
 
 These skills have **no external tool dependencies** — they only need filesystem access
 to the Obsidian vault directory. In a Linux sandbox, the vault path must either be

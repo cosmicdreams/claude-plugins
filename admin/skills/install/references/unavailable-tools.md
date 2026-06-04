@@ -19,7 +19,7 @@ Tools that cannot work in certain environments, why, and what to do instead.
 - **Workaround:** Same as Keychain — use `TESTRAIL_API_KEY` env var
 
 ### `agent-slack auth import-desktop`
-- **Used by:** lib:slack, workflow:deploy-post, workflow:prioritize
+- **Used by:** lib:slack, workshop:deploy-post, workshop:prioritize
 - **Why unavailable:** Imports session cookies from the Slack desktop app on macOS.
   No Slack desktop app in a sandbox.
 - **Workaround:** If the `agent-slack` CLI supports token-based auth, use
@@ -35,7 +35,7 @@ Tools that cannot work in certain environments, why, and what to do instead.
   Non-Drupal phases (literary-review, workshop, seminar) can still run in sandbox.
 
 ### Obsidian vault (filesystem)
-- **Used by:** lib:archive, workflow:obsidian-lint, workflow:organize, lib:vault-store
+- **Used by:** lib:archive, workshop:obsidian-lint, workshop:organize, lib:vault-store
 - **Why unavailable:** The vault directory (`~/Vaults/Neurons`) lives on the macOS
   host filesystem and isn't automatically mounted in the sandbox.
 - **Workaround:** Mount the vault directory into the sandbox if the environment
@@ -43,7 +43,7 @@ Tools that cannot work in certain environments, why, and what to do instead.
   explicitly.
 
 ### `gws auth setup` (interactive OAuth)
-- **Used by:** workflow:personal-calendar, workflow:personal-email
+- **Used by:** workshop:personal-calendar, workshop:personal-email
 - **Why unavailable:** The OAuth flow opens a browser for Google account
   authorization. Headless sandbox has no browser.
 - **Workaround:** Run `gws auth setup` and `gws auth login` on macOS host first.

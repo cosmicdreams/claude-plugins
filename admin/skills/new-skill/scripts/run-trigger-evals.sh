@@ -7,7 +7,7 @@
 # Examples:
 #   admin/skills/new-skill/scripts/run-trigger-evals.sh all
 #   admin/skills/new-skill/scripts/run-trigger-evals.sh ideate:diagram
-#   admin/skills/new-skill/scripts/run-trigger-evals.sh workflow:morning-brief
+#   admin/skills/new-skill/scripts/run-trigger-evals.sh workshop:morning-brief
 #
 # What it does:
 #   For each skill with a trigger-evals.json in skill-eval/:
@@ -39,7 +39,7 @@ DATE="$(date +%Y-%m-%d)"
 
 # Known plugin prefixes — longer names must come first (so e.g. drupal-lab
 # is matched before drupal would be, if there ever was one).
-KNOWN_PLUGINS=(research-lab ideas-funnel drupal-lab workflow improve drover ideate sprint admin retro lib)
+KNOWN_PLUGINS=(research-lab ideas-funnel drupal-lab workshop improve drover ideate sprint admin retro lib)
 
 TOTAL_PASS=0
 TOTAL_FAIL=0

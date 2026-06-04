@@ -7,16 +7,16 @@ External CLI tools required by CLAUDE-PLUGINS. Not every plugin needs every tool
 | Tool | Plugins | Install |
 |------|---------|---------|
 | [bd (Beads)](#bd-beads) | sprint, retro, drover | `brew install beads` |
-| [obsidian CLI](#obsidian-cli) | sprint, retro, ideate, drupal-lab, lib, workflow, ideas-funnel, research-lab | see below |
+| [obsidian CLI](#obsidian-cli) | sprint, retro, ideate, drupal-lab, lib, workshop, ideas-funnel, research-lab | see below |
 | [gh (GitHub CLI)](#gh-github-cli) | lib | `brew install gh` |
-| [gws (Google Workspace CLI)](#gws-google-workspace-cli) | workflow | `npm i -g @googleworkspace/cli` |
-| [jira-cli](#jira-cli) | lib, workflow | `brew install ankitpokhrel/jira-cli/jira-cli` |
-| [agent-slack](#agent-slack) | lib, workflow | `npm i -g agent-slack` |
+| [gws (Google Workspace CLI)](#gws-google-workspace-cli) | workshop | `npm i -g @googleworkspace/cli` |
+| [jira-cli](#jira-cli) | lib, workshop | `brew install ankitpokhrel/jira-cli/jira-cli` |
+| [agent-slack](#agent-slack) | lib, workshop | `npm i -g agent-slack` |
 | [ddev](#ddev) | drupal-lab, drover, lib | see below |
 | [acli (Acquia CLI)](#acli-acquia-cli) | drover, lib | see below |
 | [op (1Password CLI)](#op-1password-cli) | lib | see below |
-| [node / npm](#node--npm) | ideate, workflow, lib | `brew install node` |
-| [python3](#python3) | admin, drupal-lab, ideate, lib, workflow | built-in on macOS |
+| [node / npm](#node--npm) | ideate, workshop, lib | `brew install node` |
+| [python3](#python3) | admin, drupal-lab, ideate, lib, workshop | built-in on macOS |
 | [ffmpeg](#ffmpeg) | lib | `brew install ffmpeg` |
 | [lighthouse](#lighthouse) | lib, improve | `npm i -g lighthouse` |
 | [pa11y](#pa11y) | lib, improve | `npm i -g pa11y` |
@@ -66,7 +66,7 @@ obsidian help
 
 **Vault configuration:** Skills default to a vault named `Neurons` at `~/Vaults/Neurons`. Override with the `OBSIDIAN_VAULT_NAME` environment variable.
 
-**Used by:** sprint (`project-notes`), retro (`session`, `interviews`), ideate (most skills), drupal-lab (`analyze-issue`, `issue-summary`), lib (`archive`, `vault-store`, `vault-search`, `wiki-query`), workflow (`organize`, `obsidian-lint`, `prioritize`, `scout`), ideas-funnel (all skills), research-lab (`literary-review`, `run`)
+**Used by:** sprint (`project-notes`), retro (`session`, `interviews`), ideate (most skills), drupal-lab (`analyze-issue`, `issue-summary`), lib (`archive`, `vault-store`, `vault-search`, `wiki-query`), workshop (`organize`, `obsidian-lint`, `prioritize`, `scout`), ideas-funnel (all skills), research-lab (`literary-review`, `run`)
 
 ---
 
@@ -94,7 +94,7 @@ gws auth setup
 
 Follow the setup prompts to connect a Google account. Requires a Google Cloud project with Gmail and Calendar APIs enabled.
 
-**Used by:** workflow (`personal-email`, `personal-calendar`, `prioritize`)
+**Used by:** workshop (`personal-email`, `personal-calendar`, `prioritize`)
 
 ---
 
@@ -109,7 +109,7 @@ jira init
 
 Run `jira init` in your project directory to connect to your Jira instance. Requires a Jira API token.
 
-**Used by:** lib (`jira`), workflow (`prioritize`)
+**Used by:** lib (`jira`), workshop (`prioritize`)
 
 ---
 
@@ -124,7 +124,7 @@ agent-slack auth import-desktop   # imports token from Slack desktop app
 
 Or: `agent-slack auth whoami` to verify an existing session.
 
-**Used by:** lib (`slack`), workflow (`prioritize`, `deploy-post`)
+**Used by:** lib (`slack`), workshop (`prioritize`, `deploy-post`)
 
 ---
 
@@ -181,7 +181,7 @@ brew install node
 
 Or use [nvm](https://github.com/nvm-sh/nvm) to manage Node versions.
 
-**Used by:** ideate (`brainstorm` UI server), workflow (via gws/agent-slack), lib (via lighthouse/pa11y)
+**Used by:** ideate (`brainstorm` UI server), workshop (via gws/agent-slack), lib (via lighthouse/pa11y)
 
 ---
 
@@ -199,7 +199,7 @@ If missing or outdated:
 brew install python3
 ```
 
-**Used by:** admin (`bump-version`, `new-skill`), drupal-lab (`module-dev-starter`), ideate (`brainstorm`), lib (`log-analyzer`, `csv-analysis`), workflow (`pulse`)
+**Used by:** admin (`bump-version`, `new-skill`), drupal-lab (`module-dev-starter`), ideate (`brainstorm`), lib (`log-analyzer`, `csv-analysis`), workshop (`pulse`)
 
 ---
 

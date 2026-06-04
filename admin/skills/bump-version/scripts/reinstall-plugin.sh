@@ -5,7 +5,7 @@
 #   reinstall-plugin.sh <plugin|all>
 #
 # Arguments:
-#   plugin — sprint | retro | ideate | admin | drupal-lab | office | lib | workflow | drover | research-lab | improve | all
+#   plugin — sprint | retro | ideate | admin | drupal-lab | office | lib | workshop | drover | research-lab | improve | all
 #
 # What it does:
 #   For each specified plugin:
@@ -26,7 +26,7 @@ set -uo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
 CACHE_BASE="$HOME/.claude/plugins/cache/local"
-PLUGINS=(sprint retro ideate admin drupal-lab ideas-funnel lib workflow drover research-lab improve)
+PLUGINS=(sprint retro ideate admin drupal-lab ideas-funnel lib workshop drover research-lab improve)
 
 # Validate PLUGINS array matches the filesystem before doing any work.
 "$REPO_ROOT/admin/scripts/validate-plugin-list.sh" "$REPO_ROOT" "${PLUGINS[@]}"

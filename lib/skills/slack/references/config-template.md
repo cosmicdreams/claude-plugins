@@ -25,4 +25,4 @@ message_limit: 50
 - Channel names are case-sensitive and should match exactly as they appear in Slack (without the `#` prefix)
 - Channel IDs (e.g. `C01234567`) also work and are more stable than names
 - Run `lib:slack` → "list my slack channels" to get IDs for all your joined channels
-- This config is read by `lib:slack` and passed through to `workflow:prioritize`
+- This config is read by `lib:slack` and passed through to `workshop:prioritize`

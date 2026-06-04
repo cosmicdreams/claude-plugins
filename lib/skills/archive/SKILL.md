@@ -5,7 +5,7 @@ description: >
   long-term memory. Trigger when the user says: "archive to Obsidian", "migrate to
   vault", "save to Obsidian", "archive my notes", "move this to my vault", "store in
   Obsidian", or any request to move local .md or .txt files into a vault. Do NOT
-  trigger for simply reading or viewing vault notes (use workflow:organize for vault
+  trigger for simply reading or viewing vault notes (use workshop:organize for vault
   management).
 ---
 
@@ -21,7 +21,7 @@ VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
 
 Before determining where any file goes, read `obsidian-rules.md`:
 ```bash
-cat ~/.claude/plugins/cache/local/workflow/*/references/obsidian-rules.md | tail -1 | xargs cat
+cat ~/.claude/plugins/cache/local/workshop/*/references/obsidian-rules.md | tail -1 | xargs cat
 ```
 Use the purpose taxonomy and path patterns there to decide each file's destination.
 Do not assume all files belong under `Projects/` — content type determines placement.

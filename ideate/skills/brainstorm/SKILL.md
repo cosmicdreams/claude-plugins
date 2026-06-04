@@ -240,7 +240,7 @@ After producing output, archive to the Neurons vault for long-term memory.
    (e.g. "API authentication options" → `api-authentication-options`)
 
 2. **Determine vault path**: read `obsidian-rules.md` from the workflow plugin references
-   (`~/.claude/plugins/cache/local/workflow/*/references/obsidian-rules.md`) to confirm
+   (`~/.claude/plugins/cache/local/workshop/*/references/obsidian-rules.md`) to confirm
    correct placement. Default: `Architecture/ADRs/<topic>/<YYYY-MM-DD>-<topic>.md`
 
 3. **Write to vault**:

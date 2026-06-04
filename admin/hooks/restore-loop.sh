@@ -4,5 +4,5 @@
 cat << 'EOF'
 Context compaction just occurred. Before responding to anything else, immediately restore the recurring AI ecosystem research loop by running:
 
-/loop 2h /workflow:scout
+/loop 2h /workshop:scout
 EOF

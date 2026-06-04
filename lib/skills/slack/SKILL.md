@@ -6,9 +6,9 @@ description: >
   Use when the user asks to READ or FETCH from Slack: "what's in #channel", "what's happening in #engineering",
   "search slack for X", "list my slack channels", "show messages from #general", "check slack",
   "fetch slack messages", "catch up on slack", "any updates in #X", "show me slack".
-  Also use when workflow:prioritize needs raw Slack data.
+  Also use when workshop:prioritize needs raw Slack data.
   Do NOT use for: sending, posting, or writing to Slack (this skill is read-only);
-  summarized priority views or "what should I work on" (use workflow:prioritize).
+  summarized priority views or "what should I work on" (use workshop:prioritize).
 triggers:
   - "lib:slack"
   - "read slack"
@@ -118,7 +118,7 @@ Slack timestamps are Unix epoch with decimal (e.g. `1709900000.123456`).
 ## Passing data to calling skills
 
 Return the raw JSON output from `agent-slack`. Do not summarize or interpret.
-The calling skill (e.g. `workflow:prioritize`) is responsible for
+The calling skill (e.g. `workshop:prioritize`) is responsible for
 all ranking, filtering, and presentation.
 
 ## Error handling

@@ -8,7 +8,7 @@ description: >
   "find in vault", "vault search", "search my notes", "find in my notes",
   "do I have a note about X", "look up X in my vault", "what notes mention X",
   "where did I write about X". Do NOT trigger for: listing or browsing vault files
-  (use Glob), linting notes (workflow:obsidian-lint), organizing notes (workflow:organize),
+  (use Glob), linting notes (workshop:obsidian-lint), organizing notes (workshop:organize),
   storing new content (lib:vault-store), or Pulse/board operations.
 triggers:
   - vault-search

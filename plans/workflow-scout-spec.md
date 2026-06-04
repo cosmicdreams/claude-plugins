@@ -1,7 +1,7 @@
-# Spec — `workflow:scout`
+# Spec — `workshop:scout`
 
 **Status:** draft for review (spec-first; no code until approved)
-**Evolves:** `workflow:ecosystem-pulse` (renamed `scout`; ends the "pulse" name collision)
+**Evolves:** `workshop:ecosystem-pulse` (renamed `scout`; ends the "pulse" name collision)
 **Name rationale:** a verb (skills=verbs); reconnaissance — range out across sources and bring back what's worth knowing. The act of gathering knowledge to distill/synthesize later. Distinct from `research-lab:gather` (which builds a corpus for a *specific* question); `scout` is continuous, passive, interest-tuned intake.
 
 ---
@@ -16,7 +16,7 @@ Parallel fetch → diff against the Obsidian vault (dedup) → store net-new →
 ## Three upgrades (the Feedly-beating parts)
 
 ### 1. Extensible, curated source list (config-driven)
-Sources move out of the step file into config (`scout` block in `workflow.json`, or `scout.json`): a list, each `{type, url, cadence, weight}`. Types:
+Sources move out of the step file into config (`scout` block in `workshop.json`, or `scout.json`): a list, each `{type, url, cadence, weight}`. Types:
 - **feed** — subscription feeds (the RSS/Atom sources Feedly subscribes to)
 - **page** — fetch + extract a non-feed page
 - **search** — a standing web search
@@ -45,6 +45,6 @@ Concise briefing, **most-relevant-to-you first**, each with a one-line "why it m
 - `allowed-tools:` Agent, Bash, Read, Write, WebFetch, WebSearch (unchanged).
 
 ## Open questions (needs your input before build)
-1. **State location:** interest profile + source list in `workflow.json` (or `scout.json`); feedback log in the vault, or a dedicated state file? (Lean: config for sources/profile, vault for feedback so it's reviewable.)
+1. **State location:** interest profile + source list in `workshop.json` (or `scout.json`); feedback log in the vault, or a dedicated state file? (Lean: config for sources/profile, vault for feedback so it's reviewable.)
 2. **Auto-tuning aggressiveness:** feedback **auto-adjusts** source/topic weights, or **proposes** adjustments you approve? (Lean: propose-then-apply — keeps you in the loop, fittingly.)
 3. **Dedup horizon:** rolling window vs whole-vault-forever.
