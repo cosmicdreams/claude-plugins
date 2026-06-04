@@ -1,5 +1,16 @@
 # Changelog
 
+## 1.4.0 — Add knowledge-check
+
+### `knowledge-check` (new)
+- Keeps the human cognitively in the loop during AI-assisted work: maintains a running
+  understanding checklist, asks the user to restate their mental model, fills gaps, and quizzes
+  before moving on. Guards against cognitive surrender — the user stays the source of truth.
+- Triggers on "keep me honest", "knowledge-check me", "quiz me on this", "make me explain it
+  back", "make sure I understand before we move on", "don't let me cognitively surrender".
+- Distinct from `research-lab:understand`, which handles first-pass exploration of new material;
+  `knowledge-check` starts after there is session context to check the user's understanding of.
+
 ## 1.3.0 — Consolidate to verbs: prioritize + scout
 
 Reworked the triage/awareness skills around purpose (they had grown from separate vertical slices
