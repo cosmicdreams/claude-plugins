@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.6.0
+- `agent-team` skill reworked against the current Claude Code tool surface:
+  - Fixed SendMessage examples to the current schema (`to`/`summary`/`message`) — the old `type=`/`recipient=`/`content=` parameters no longer exist; shutdown is now a structured message object
+  - Added a Step 0 routing gate: plain parallel Agent calls vs the Workflow tool (deterministic fan-out/pipeline with schema-validated outputs) vs a full team — teams are reserved for emergent peer-to-peer coordination
+  - Corrected the overstated "SendMessage will not work without TeamCreate" claim: named agents are addressable without a team; teams uniquely add peer messaging, the shared task list, and idle notifications
+  - Documented newer Agent parameters: per-agent `model` override (haiku/sonnet/opus/fable) and `isolation="worktree"` for concurrent file mutation
+  - Added idle-state guidance (idle is normal, do not poke) and the TeamDelete fails-while-members-active constraint
+
 ## 2.5.1
 - Add `admin/scripts/validate-plugin-list.sh`: scans repo root for plugin dirs (by presence of `.claude-plugin/plugin.json`), cross-checks against the hardcoded PLUGINS array, and exits 1 with a clear diff on mismatch
 - `bump-version.sh` and `reinstall-plugin.sh`: call validator on entry; fix stale PLUGINS array (remove retired `office`, add `ideas-funnel`)

@@ -1,6 +1,6 @@
 {
     "name": "admin",
-    "version": "2.5.1",
+    "version": "2.6.0",
     "description": "Plugin, agent, and skill management tooling: bump-version, scaffold, new-agent, new-skill, optimize-agents, update-plugins, create-worktree.",
     "author": {
         "name": "Chris Weber"
