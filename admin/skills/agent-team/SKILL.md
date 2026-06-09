@@ -79,15 +79,14 @@ Agent(
   team_name     = "descriptive-slug",   # must match TeamCreate name exactly
   name          = "agent-name",          # used for SendMessage addressing
   prompt        = "...",
-  model         = "haiku",               # optional override; omit to inherit
-  isolation     = "worktree"             # only if agents mutate files in parallel
+  model         = "haiku"                # optional override; omit to inherit
 )
 ```
 
 Spawn all agents whose work can proceed in parallel in a single message — multiple Agent tool calls in one response run concurrently.
 
 - **model**: omit to inherit the session model (usually correct). Override per agent when confident: `haiku` (well-defined, mechanical), `sonnet` (ambiguous, reasoning), `opus`/`fable` (large or long-running).
-- **isolation = "worktree"**: give each agent its own git worktree when two or more agents will edit files concurrently. Skip for read-only agents.
+- **Concurrent file mutation needs isolation.** When two or more agents will edit files at the same time, give each one its own worktree — otherwise they collide in the shared working tree. Prefer the project's own worktree convention: pre-create one worktree per writing agent (e.g. `admin:create-worktree`) and point each agent's prompt at its directory. `isolation="worktree"` is the fallback when Claude-managed worktree placement is acceptable. Read-only agents need neither.
 
 ### What to put in the agent prompt
 
@@ -151,7 +150,7 @@ This removes the team config and task list directory. It **fails if any member i
 - **Omitting `team_name` or `name` from the Agent call** — agent does not join the team
 - **Using old SendMessage syntax** — the schema is `{to, summary, message}`; `type=`/`recipient=`/`content=` parameters do not exist
 - **Spawning sequentially** — if work is parallel, spawn all agents in a single message
-- **Parallel file edits without `isolation="worktree"`** — concurrent agents will conflict in the shared working tree
+- **Parallel file edits in a shared working tree** — isolate writing agents in per-agent worktrees (project convention first, `isolation="worktree"` as fallback)
 - **Keeping agents alive with no work** — send a shutdown_request as soon as their task queue is empty
 - **Calling TeamDelete with members still active** — it fails; shut everyone down first
 
