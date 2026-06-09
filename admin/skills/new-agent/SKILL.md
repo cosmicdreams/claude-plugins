@@ -33,9 +33,10 @@ Build agent definitions that meet team standards and integrate correctly with te
 **Project agents may add more — check `.claude/agents/` for the full collision list before assigning a color.**
 
 **Model selection:** Use the full decision tree in the `optimize-agents` skill. Quick guide:
+- omit the field — inherits the session model; correct default when unsure
 - `haiku` — procedural/checklist work, runs tools and reports output, no code writing
 - `sonnet` — writes code, makes judgment calls, synthesizes information
-- `opus` — only when sonnet demonstrably fails; never default to it
+- `opus` / `fable` — only when sonnet demonstrably fails on large or long-running work; never default to them
 
 **Sprint tools (required if agent participates in team sprints):**
 `SendMessage, TaskUpdate, TaskList, TaskGet`
@@ -47,7 +48,7 @@ Ask the user each of these questions before generating anything:
 1. What is the agent's primary job? (one sentence — this becomes the description)
 2. Will it participate in team sprints? (yes/no — determines Team Coordination section)
 3. What tools does it need? (list minimum required; prompt to justify each one)
-4. What model is appropriate? (haiku/sonnet/opus — use the model selection guide above)
+4. What model is appropriate? (omit-to-inherit/haiku/sonnet/opus/fable — use the model selection guide above)
 5. What are the 3-5 key process steps in order?
 6. What does its completion message to team-lead look like?
 7. What errors might this agent encounter? (separate into transient — worth retrying — vs. permanent — must escalate. Think about role-specific failures, not generic ones.)
@@ -65,7 +66,7 @@ name: <kebab-case-name>
 description: <one sentence: what it does and when to use it>
 color: <unique color not in the collision table above>
 tools: <comma-separated minimum set; include SendMessage, TaskUpdate, TaskList, TaskGet if sprint agent>
-model: <haiku|sonnet|opus>
+model: <haiku|sonnet|opus|fable — omit the line entirely to inherit>
 ---
 
 # <Title Case Name>
@@ -87,11 +88,11 @@ model: <haiku|sonnet|opus>
 
 **On task complete:**
 1. `TaskUpdate(taskId, status: completed)`
-2. `SendMessage(type: message, recipient: "team-lead", content: "<completion message>")`
+2. `SendMessage(to: "team-lead", summary: "<5-10 word preview>", message: "<completion message>")`
 3. `TaskList` — check for next assigned task; if none, tell team-lead you're available
 
 **If blocked:**
-- `SendMessage(type: message, recipient: "team-lead", content: "Blocked: [reason]. Need: [what].")` — immediately
+- `SendMessage(to: "team-lead", summary: "blocked, need input", message: "Blocked: [reason]. Need: [what].")` — immediately
 
 **Never:**
 - Skip TaskUpdate — it is how team-lead tracks sprint state

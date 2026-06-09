@@ -7,6 +7,8 @@
   - Corrected the overstated "SendMessage will not work without TeamCreate" claim: named agents are addressable without a team; teams uniquely add peer messaging, the shared task list, and idle notifications
   - Documented newer Agent parameters: per-agent `model` override (haiku/sonnet/opus/fable) and `isolation="worktree"` for concurrent file mutation
   - Added idle-state guidance (idle is normal, do not poke) and the TeamDelete fails-while-members-active constraint
+  - Worktree isolation guidance prefers the project's own worktree convention (pre-create via `create-worktree`) over Claude-managed `isolation="worktree"` placement
+- `new-agent` skill: SendMessage examples updated to the current schema (`to`/`summary`/`message`); model guidance now includes omit-to-inherit and `fable`
 
 ## 2.5.1
 - Add `admin/scripts/validate-plugin-list.sh`: scans repo root for plugin dirs (by presence of `.claude-plugin/plugin.json`), cross-checks against the hardcoded PLUGINS array, and exits 1 with a clear diff on mismatch
