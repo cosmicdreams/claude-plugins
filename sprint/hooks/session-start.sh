@@ -1,32 +1,23 @@
-#!/usr/bin/env bash
+#!/usr/bin/env zsh
 # SessionStart hook — sprint plugin
-#
-# Injects team-lead capability reminder into Claude's session context.
-# Runs at the start of every Claude Code session where sprint is active.
+# Injects sprint capability reminder into session context.
 
 PLUGIN_DIR="${CLAUDE_PLUGIN_ROOT}"
 
 cat <<'EOF'
 ## Team Sprint Capability (sprint)
 
-When asked to run a team sprint, work on issues in parallel, or coordinate multiple agents:
-YOU are the team-lead. Do not spawn a separate team-lead agent.
+When asked to run a team sprint or work on issues in parallel:
 
-Every turn:
-1. TaskList — who has no in_progress task?
-2. Run: bd ready -l board-sprint --json --unassigned | jq '.[].id'
-3. Push task assignment immediately via SendMessage
-4. Spin down agents whose pipeline stage is complete
-5. Reassign or replace unresponsive agents after 2 turns
+1. Run sprint:plan to create and sequence beads (if not already done).
+2. Run sprint:run to execute — it invokes the Workflow tool with sprint/skills/run/scripts/sprint-run.js.
+   The Workflow script reads ready beads, launches one slice-worker per bead, and optionally runs
+   cross-review as an adversarial verify stage. Results land in analysis-reports/retro-session/.
+3. After sprint: run retro:session to read results.json and generate the retrospective.
 
-Spawn agents with the Task tool. Multiple calls in the same message run in parallel:
-  Task(subagent_type="drupal-lab:implementer", name="implementer-1", prompt="...")
-  Task(subagent_type="drupal-lab:implementer", name="implementer-2", prompt="...")
-
-If N issues are parallelizable, spawn N agents at once — never sequentially.
+No team-lead loop. No SendMessage choreography. The Workflow harness handles parallelism and completion.
 
 EOF
 
-echo "Full protocol:    $PLUGIN_DIR/skills/run/SKILL.md"
-echo "Spawning guide:   $PLUGIN_DIR/protocols/SPAWNING.md"
-echo "Decision rules:   $PLUGIN_DIR/skills/run/references/decision-framework.md"
+echo "Sprint skill:   $PLUGIN_DIR/skills/run/SKILL.md"
+echo "Workflow script: $PLUGIN_DIR/skills/run/scripts/sprint-run.js"

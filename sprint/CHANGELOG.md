@@ -1,5 +1,40 @@
 # Changelog
 
+## 4.0.0 — 2026-06-10
+
+### Breaking Changes
+
+- **`sprint:run` rewritten around Workflow tool.** The team-lead loop, SendMessage choreography, and graceful-shutdown sequence are gone. Invoke via `Workflow({ scriptPath: "sprint/skills/run/scripts/sprint-run.js", args: { sprint_name, sprint_date } })`. Results land in `analysis-reports/retro-session/<date>+<sprint>/results.json` as structured JSON.
+- **`team-lead` agent deleted.** The Workflow harness handles orchestration. There is no team-lead agent.
+- **`reality-checker` agent deleted.** Its load-bearing spec-alignment and completion-legitimacy logic is folded into `cross-reviewer`.
+- **`protocols/` directory deleted.** SPAWNING.md, AGENT-COORDINATION.md, heartbeat.md, team-comms-protocol.md, ITERATIVE-RETRIEVAL.md are removed. Relevant domain knowledge is in the skill and agent files.
+- **`scripts/heartbeat.sh` deleted.** Heartbeat polling replaced by harness-native completion notification.
+- **`tests/test_heartbeat.bats` deleted.** Heartbeat gone; test removed.
+- **`skills/asset-audit/` deleted.** Process auditing is owned by `improve` plugin.
+- **Slice-worker schema output is now required.** Slice-workers and cross-reviewers emit structured JSON per the run schema (bead_id, outcome, files_touched, test_results, retro_interview). Retro interview data is collected inline, not via shutdown ceremony.
+
+### Rewritten
+
+- **`sprint:run` SKILL.md**: Workflow-centric; documents script invocation, DDEV cap enforcement, cross-review stage, and results path.
+- **`sprint/skills/run/scripts/sprint-run.js`**: New Workflow script — reads ready beads, launches parallel slice-workers, enforces DDEV cap (max 3 concurrent) via chunked batching, runs optional cross-review adversarial verify stage, writes results.json.
+- **`agents/slice-worker.md`**: Lean. Owns issue end-to-end. Emits structured final output. rtk proxy pattern for verbose build/test/lint commands.
+- **`agents/cross-reviewer.md`**: Merged reality-checker + cross-reviewer. Fresh-eyes verifier — correctness, test quality, spec gaps, quality gates. Structured output with verdict and retro interview fields.
+- **`hooks/session-start.sh`**: Describes new model (plan → Workflow → results.json → retro:session). No team-lead loop.
+
+### Kept (light trim)
+
+- **`sprint:plan`**: Dependency sequencing, cross-review heuristics table, approval flow, card body standard.
+- **`sprint:board`**: Lane definitions, DDEV slot rules, agent role mapping, card fields. Removed stale protocols/ cross-reference.
+- **`sprint:kanban`**: Universal kanban standards. Unchanged.
+- **`sprint:project-notes`**: Release notes synthesis. Unchanged.
+- **`hooks/pre-compact.sh`**: Advisory hook. Unchanged.
+- **`agents/deep-debugger.md`**: Escalation specialist. Light trim.
+
+### Notes
+
+- The plugin is distributable via Claude Desktop's Personal Plugins upload: zip the `sprint/` directory contents so `.claude-plugin/` is at the zip root; upload as `.zip`.
+- rtk integration: slice-worker and cross-reviewer Bash calls for verbose operations (phpcs, phpstan, phpunit, ddev output) use `command -v rtk >/dev/null && rtk <cmd> || <cmd>` — degrades silently when rtk is absent.
+
 ## 3.4.0
 - Add observer heartbeat sidecars (`sprint/scripts/heartbeat.sh`) for stalled-agent detection
 - Add `sprint/protocols/heartbeat.md` — convention for start/touch/stop/stalled lifecycle

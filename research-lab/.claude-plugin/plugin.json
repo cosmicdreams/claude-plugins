@@ -1,6 +1,6 @@
 {
     "name": "research-lab",
-    "version": "2.1.0",
+    "version": "3.0.0",
     "description": "Self-contained knowledge-work verbs as standalone compositional primitives: frame, gather, understand, synthesize, interrogate, experiment, teach. Each digests existing information or tests and ships a claim; preflight-first input contracts; verbs suggest next steps but never force a pipeline; no over-all orchestrator and no hard dependency on other plugins.",
     "author": {
         "name": "Chris Weber"

@@ -15,26 +15,15 @@ triggers:
 
 # Attach: Map Process Topology
 
-Before you can improve a process, you need to know what it's made of. This skill discovers and maps the constituent parts of any process in the plugin ecosystem.
-
-## What You're Mapping
-
-A "process" is anything that runs over time to achieve a purpose:
-- A sprint pipeline (agents, board, hooks, skills)
-- An ideas funnel (cron stages, scoring, promotion)
-- A drover watch loop (triage, implementation, verification)
-- A single agent's workflow during a task
-- A skill's execution path
+Discover and map the constituent parts of a process before improving it.
 
 ## Discovery Steps
 
 ### 1. Identify the entry point
 
-Where does the process start? A skill invocation, a cron, a hook, an agent spawn? Find it.
+Where does the process start? A skill invocation, cron, hook, or agent spawn?
 
 ### 2. Trace the components
-
-From the entry point, trace what gets invoked:
 
 | Component type | Where to look | What to record |
 |---|---|---|
@@ -42,26 +31,19 @@ From the entry point, trace what gets invoked:
 | Skills | `<plugin>/skills/*/SKILL.md` | Name, triggers, what it does |
 | Hooks | `<plugin>/hooks/hooks.json` | Event, script path, what it does |
 | Crons | Active cron loops | Schedule, what it invokes |
-| Config files | `.claude/`, `.local.md`, vault | What parameters are tunable |
+| Config | `.claude/`, vault | Tunable parameters |
 | Board/state | `.beads/`, state files | What state the process reads/writes |
-| External deps | CLIs, APIs, DDEV | What external tools are required |
+| External deps | CLIs, APIs, DDEV | Required external tools |
 
 ### 3. Check for a domain improve skill
 
-If a domain `:improve` skill exists (e.g. `sprint:improve`, `drover:improve`), invoke it — it knows the topology better than generic discovery.
+If `<domain>:improve` exists, invoke it — it knows the topology better than generic discovery.
 
-### 4. Identify the purpose
+### 4. State the purpose
 
-Every process exists to achieve something. State it explicitly:
-- "This sprint pipeline exists to take issues from ready to done with quality gates"
-- "This ideas funnel exists to surface novel AI ecosystem ideas with merit"
-- "This drover loop exists to detect, triage, and fix Drupal errors automatically"
-
-The purpose statement is what all improvement is measured against.
+Write it explicitly: "This process exists to ___." All improvement is measured against this.
 
 ### 5. Output the topology map
-
-Write a structured summary. Format:
 
 ```
 ## Process: <name>
@@ -73,8 +55,6 @@ Write a structured summary. Format:
 - Hook: <event> (<plugin>/hooks/scripts/<file>) — <purpose>
 - Config: <path> — <what it controls>
 - State: <path> — <what it tracks>
-**Tunable parameters:** <list of things that can be changed>
+**Tunable parameters:** <list>
 **Known constraints:** <DDEV slots, API limits, model costs, etc.>
 ```
-
-This map is what `improve:fix` uses to know where to make changes and what `improve:lint` uses to know what to check.

@@ -24,30 +24,33 @@ allowed-tools: Agent, Bash, Read, Write
 # workshop:prioritize — What Should I Work On Next?
 
 Gather every signal that defines what's on your plate and rank it into **one clear next action**.
-Saves you from polling Slack, Jira, and your calendar separately, and from starting a low-focus
-moment at a blank slate.
 
-**Lead with one action.** A wall of signals worsens activation paralysis; a single "do this next,
-here's why" is the antidote. The default output opens with `NEXT:` — the full ranked table sits
-below it for when you want the whole picture.
+**Lead with one action.** A wall of signals worsens activation paralysis; a single "do this next, here's why" is the antidote. Output opens with `NEXT:` — the full ranked table sits below for when you want the whole picture.
 
-**This is a read-only skill.** Never post to Slack, comment on Jira, transition statuses, or make
-any write to an external service. Read and report only.
+**This is a read-only skill.** Never post to Slack, comment on Jira, transition statuses, or write to any external service.
 
 ## Modes
 
-- **On-demand (default).** Full picture: overnight delta + standing obligations + available time →
-  `NEXT:` action + ranked table. Run it whenever focus flags — start of day or the afternoon slump.
-- **Ambient (`--loop`).** Delta-only, quiet. Surfaces only when the top item changes. For passive
-  monitoring: `/loop 1h /workshop:prioritize --loop`. Skips the standing-obligations and calendar
-  passes (those don't change minute to minute).
+- **On-demand (default).** Full picture: overnight delta + standing obligations + available time → `NEXT:` action + ranked table.
+- **Ambient (`--loop`).** Delta-only, quiet. Surfaces only when the top item changes. Skip the standing-obligations and calendar passes (those don't change minute to minute).
+
+## Running on a loop (singleton cron discipline)
+
+To run prioritize passively: `/loop 1h /workshop:prioritize --loop`
+
+The `/loop` command creates a cron entry. Before creating a loop, always check for an existing one:
+
+```bash
+CronList
+```
+
+If an entry for `workshop:prioritize` already exists, **do not create another** — send the existing job ID back to the user and stop. Creating duplicate cron jobs causes double-reporting.
+
+De-registration: `CronDelete` with the job ID returned by `CronList`. Tell the user the ID when starting the loop so they can cancel it later.
 
 ## Source coverage
 
-Sources come from `~/.claude/workshop.json`. Work email and work calendar (Microsoft Outlook /
-Exchange) are **declared-but-unconnected slots** today — Microsoft Graph auth is unsolved — so the
-brief surfaces `(work email/calendar: not connected)` to keep the gap visible. When Graph access is
-configured, they drop in with no change to this skill.
+Sources come from `~/.claude/workshop.json`. Work email and work calendar (Microsoft Outlook / Exchange) are **declared-but-unconnected slots** today — Microsoft Graph auth is unsolved — so the brief surfaces `(work email/calendar: not connected)` to keep the gap visible.
 
 ## Steps
 

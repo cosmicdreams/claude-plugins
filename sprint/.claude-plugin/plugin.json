@@ -1,7 +1,7 @@
 {
     "name": "sprint",
-    "version": "3.4.0",
-    "description": "Team sprint execution infrastructure: agents, skills, hooks, protocols, and kanban pipeline.",
+    "version": "4.0.0",
+    "description": "Team sprint execution: Workflow-based pipeline, slice-worker agents, cross-review, and kanban board.",
     "author": {
         "name": "Chris Weber"
     },
@@ -10,6 +10,7 @@
         "agents",
         "sprint",
         "kanban",
-        "agile"
+        "agile",
+        "workflow"
     ]
 }

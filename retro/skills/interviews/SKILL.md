@@ -1,176 +1,89 @@
 ---
 name: interviews
-description: Retro interview standard for sprint agents. Use when an agent receives a "Shutdown imminent" message from team-lead, when manually triggering agent self-documentation before shutdown, or when verifying interview coverage after a sprint. Agents follow this skill to write their own interview file before confirming shutdown readiness to team-lead.
-triggers:
-  - "shutdown imminent"
-  - "verify interview coverage"
-  - "interview templates"
-  - "retro interview"
-  - "write my interview"
+description: Documents the retro interview schema embedded in sprint Workflow output. Use when reviewing the interview schema, understanding what retro fields slice-workers and cross-reviewers emit, or verifying results.json coverage. Trigger phrases include "retro interview schema", "what interview fields do agents emit", "verify interview coverage", "retro interview". Do NOT use to trigger agent shutdown or collect interviews manually — interviews are collected inline by sprint:run.
 ---
 
-# Retro Interviews Skill
+# Retro Interview Schema
 
-Each sprint agent writes their own retro interview before shutting down. Team-lead sends a "Shutdown imminent" message, the agent follows this skill to self-document, then pings team-lead ready. Team-lead then sends `shutdown_request`.
+Sprint agents emit retro interview data as structured fields in the sprint Workflow output schema. No shutdown ceremony, no shutdown-imminent messages. Interviews land in `analysis-reports/retro-session/<YYYY-MM-DD>+<sprint>/results.json` alongside slice and review results.
 
-**Output:** `analysis-reports/retro-session/<YYYY-MM-DD>+<sprint-name>/interviews/<your-role>.md`
-**Read by:** `retro:session` Phase 2
-
----
-
-## Agent Self-Documentation (Primary Path)
-
-When you receive a "Shutdown imminent" message from team-lead:
-
-### Step 1: Determine your role and question set
-
-| Your role | Questions to answer |
-|-----------|-------------------|
-| implementer | C1, C2, C3, D1, D2, D3 |
-| qa-validator / reviewer | C1, C2, C3, V1, V2, V3 |
-| process-engineer | C1, C2, C3, P1, P2, P3 |
-| team-lead | C1, C2, C3, TL1, TL2, TL3 |
-| any other role | C1, C2, C3 |
-
-### Step 2: Determine the output path
+## Where Results Live
 
 ```
-analysis-reports/retro-session/<YYYY-MM-DD>+<sprint-name>/interviews/<your-role>.md
+analysis-reports/retro-session/<YYYY-MM-DD>+<sprint>/results.json
 ```
 
-Use today's date and the sprint name from your task context. If no sprint name is available, use the project name or `unnamed-sprint`. Create the directory if it does not exist.
+`retro:session` reads this file. No separate interview files per agent.
 
-### Step 3: Write your interview file
+## Slice-Worker `retro_interview` Fields
 
-Answer all 6 questions (3 common + 3 role-specific) using the formats in `interview-templates.md`. Answer from your session memory — you lived the session, you do not need to read your own transcript.
+These fields are required in every slice-worker's structured output:
 
-Use this file header:
-```markdown
-# Retro Interview — <your-role>
-Sprint: <sprint-name>
-Date: <YYYY-MM-DD>
-Agent: <your-name>
-```
+| Field | Signal | Description |
+|-------|--------|-------------|
+| `what_worked` | KEEP | What was the single most effective thing this session — a practice, tool, or interaction that worked well and should be repeated? One sentence. |
+| `what_didnt` | IMPROVE | What was the biggest obstacle or friction point? One sentence. |
+| `technical_insight` | LEARN | What non-obvious technical knowledge did you discover this session that would help a future agent working on similar issues? |
+| `one_change.change` | IMPROVE | If you could change ONE thing about how the team works for next session, what would it be? Specific, implementable action. |
+| `one_change.category` | IMPROVE | TOOLING / COMMUNICATION / TESTING / WORKFLOW / INFRASTRUCTURE |
+| `one_change.expected_impact` | IMPROVE | What improves and by roughly how much. |
+| `key_decision` | LEARN | For the most challenging issue: the key technical decision made, alternatives rejected, and confidence level (HIGH / MEDIUM / LOW). |
+| `cross_issue_pattern` | LEARN | Recurring pattern, common root cause, or repeated approach noticed across issues. "N/A — single issue" if only one. |
+| `workflow_friction` | LEARN | Biggest friction point, category (TOOLING / COMMUNICATION / TESTING / CONTEXT_SWITCHING / WAITING), and time impact. |
 
-### Step 4: Confirm to team-lead
+## Cross-Reviewer `retro_interview` Fields
 
-After writing the file, reply:
-```
-Retro interview complete. Written to analysis-reports/retro-session/<path>/interviews/<role>.md. Ready to shut down.
-```
+These fields are required in every cross-reviewer's structured output:
 
----
+| Field | Signal | Description |
+|-------|--------|-------------|
+| `what_worked` | KEEP | Same as slice-worker. |
+| `what_didnt` | IMPROVE | Same as slice-worker. |
+| `technical_insight` | LEARN | Same as slice-worker. |
+| `one_change` | IMPROVE | Same structure as slice-worker. |
+| `failure_root_cause` | IMPROVE | For any failed validation: CODE_REGRESSION / TEST_DESIGN / INFRASTRUCTURE / HANDOFF_GAP / STANDARDS_ONLY / N/A |
+| `handoff_quality` | IMPROVE | CLEAN / MINOR_GAPS / SIGNIFICANT_REWORK / BLOCKED |
+| `infrastructure_friction` | IMPROVE | DDEV, environment, or tooling friction encountered, or "None". |
 
-## Standard Shutdown Imminent Message (Reference for Team-Lead)
+## Signal Mapping
 
-Team-lead sends this before every `shutdown_request`:
-
-```
-Shutdown imminent. Before we close out:
-
-1. Follow `retro:interviews` — answer your 6 questions (3 common + 3 role-specific for your role)
-2. Write your interview to: analysis-reports/retro-session/<YYYY-MM-DD>+<sprint-name>/interviews/<your-role>.md
-3. Reply when the file is written and you are ready to shut down.
-```
-
-Team-lead waits for the "ready to shut down" reply, then sends `shutdown_request`.
-
----
+| Field | Primary Signal | Secondary Signal |
+|-------|---------------|-----------------|
+| `what_worked` | KEEP | — |
+| `technical_insight` | LEARN | — |
+| `key_decision` | LEARN | IMPROVE (if low confidence) |
+| `cross_issue_pattern` | LEARN | KEEP (if pattern is a good strategy) |
+| `one_change` | IMPROVE | — |
+| `what_didnt` | IMPROVE | — |
+| `workflow_friction` | IMPROVE | — |
+| `failure_root_cause` | IMPROVE | LEARN |
+| `handoff_quality` | IMPROVE | LEARN |
+| `infrastructure_friction` | IMPROVE | — |
 
 ## Verifying Coverage
 
-After all agents have shut down:
-
 ```bash
-ls analysis-reports/retro-session/<YYYY-MM-DD>+<sprint-name>/interviews/
+cat analysis-reports/retro-session/<date>+<sprint>/results.json | jq '.results[].retro_interview | keys'
+cat analysis-reports/retro-session/<date>+<sprint>/results.json | jq '.reviews[].retro_interview | keys'
 ```
 
-Expected: one `.md` file per agent type active during the sprint.
-
-`retro:session` can proceed with partial coverage — it flags missing files as a process gap.
-
----
-
-## Legacy Hook Path (Deprecated)
-
-The `subagent-stop-interview.sh` SubagentStop hook was the original automated path. It is unreliable — `SubagentStop` fires at agent idle, not at actual shutdown, and `last_assistant_message` is often absent from the payload. The team-lead driven approach above replaces it as the primary path.
-
-The hook remains in place as a last-resort fallback for sessions where team-lead fails to send the shutdown imminent message.
-
----
-
-## Integration
-
-- **Templates:** `interview-templates.md` (this skill's directory)
-- **Reads results:** `retro:session` Phase 2
-- **Sprint shutdown protocol:** CLAUDE.md Graceful Shutdown section
-
----
+`retro:session` proceeds with partial coverage and flags missing fields as process gaps.
 
 ## Obsidian Storage
 
-After each interview file is saved to `analysis-reports/`, archive it to the Neurons vault. Obsidian is assumed to be running — if the write fails, run `obsidian help` to diagnose the connection.
+After `retro:session` generates the report, the session skill archives results.json to the Neurons vault at:
 
-### Project Slug Resolution
-
-Resolve the project slug in this order:
-
-1. **Environment variable** — if `$OFFICE_PROJECT_NAME` is set, slugify and use it
-2. **Beads database** — query the sprint board for a bead with a `project-*` label: `bd list --json | jq -r '.[0].labels[]? | select(startswith("project-")) | ltrimstr("project-")'`
-3. **Ask the user** — if neither source yields a value, ask once: *"What project is this retrospective for?"* and use their answer as the slug
-
-**Slugify rule:** lowercase, spaces → hyphens, remove all special characters except hyphens.
-Example: `"Same Page Preview"` → `same-page-preview`
-
-Resolve the project slug once per sprint (not once per agent). If collecting interviews across multiple agents in the same sprint, reuse the resolved slug.
-
-### Sprint Slug
-
-Derived from the sprint folder name already established (the `<sprint-name>` segment of `analysis-reports/retro-session/<YYYY-MM-DD>+<sprint-name>/`). Slugify the same way.
-
-### Storage Script (per agent interview)
-
-```bash
-# Resolve project slug (run once per sprint, reuse across agents)
-if [ -n "$OFFICE_PROJECT_NAME" ]; then
-  PROJECT_SLUG=$(echo "$OFFICE_PROJECT_NAME" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
-else
-  PROJECT_SLUG=$(bd list --json 2>/dev/null | jq -r '.[0].labels[]? | select(startswith("project-")) | ltrimstr("project-")' | head -1)
-fi
-
-# If still unset, ask the user (done interactively — not in this script block)
-# USER_INPUT captured via AskUserQuestion: "What project is this retrospective for?"
-# PROJECT_SLUG=$(echo "$USER_INPUT" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
-
-SPRINT_SLUG="<sprint-slug-from-session>"  # e.g. sprint-1, jquery-fixes
-AGENT_ROLE="<agent-role>"                 # e.g. implementer, reviewer, process-engineer
-DATE=$(date +%Y-%m-%d)
-VAULT_PATH="Retrospectives/${DATE}+${PROJECT_SLUG}+${SPRINT_SLUG}/interviews/${AGENT_ROLE}.md"
-
-VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
-mkdir -p "$VAULT_ROOT/$(dirname "$VAULT_PATH")"
-cat > "$VAULT_ROOT/$VAULT_PATH" << 'EOF'
-<interview-file-content>
-EOF
+```
+Retrospectives/<YYYY-MM-DD>+<project-slug>+<sprint-slug>/results.json
 ```
 
-### Vault Document Format
-
-Each interview file stored at `Retrospectives/<YYYY-MM-DD>+<project-slug>+<sprint-slug>/interviews/<agent-role>.md` must begin with this YAML frontmatter block:
+Vault frontmatter:
 
 ```yaml
 ---
 project: <project-slug>
 sprint: <sprint-slug>
-agent_role: <agent-role>
 date: <YYYY-MM-DD>
-tags: [retro, interview]
+tags: [retro, interviews]
 ---
 ```
-
-The frontmatter `project:` field enables cross-project Obsidian queries:
-- `tag:interview` — see all agent interviews across all projects
-- `project: same-page-preview` — see one project's agent interview history
-- `agent_role: implementer` — see all implementer interviews across all projects and sprints
-
-**Project isolation guarantee:** Because `project-slug` is embedded in both the vault path and the `project:` frontmatter field, interviews for Project A will never surface as context for Project B in a filtered query.

@@ -1,5 +1,25 @@
 # Changelog
 
+## 4.0.0 — 2026-06-10 — Fable-era rewrite (breaking)
+
+Removed orchestration machinery compensating for prior harness limitations. Domain knowledge preserved verbatim.
+
+**DELETED** `skills/research/` — the redirect shim is gone. `research-lab:gather` owns all source-gathering trigger phrases. Install the `research-lab` plugin if not already present.
+
+**DELETED** `skills/reality-check/scripts/update-gate.py` — the Python state machine is retired. The model tracks gate progression in conversation and emits a structured JSON verdict at session end. No `.reality-check.json` file is written during a session; the archive write happens once at Phase 4.
+
+**REWRITTEN** `brainstorm` — removed `.brainstorm.json` session-state ceremony beyond the canvas round-trip. Defensive prose trimmed.
+
+**REWRITTEN** `reality-check` — five-gate KILL funnel and rebuttal rubric preserved verbatim. Added verdict JSON schema. Session archive is a single final write.
+
+**TRIMMED** `compare` — asymmetric scoring (UNKNOWN ≠ NO) and three strategies kept intact. Process narration removed.
+
+**TRIMMED** `diagram` — isomorphism test and Excalidraw JSON reference kept. Phase narration removed.
+
+**TRIMMED** `adr` — content unchanged; prose tightened.
+
+**Breaking:** `ideate:research` trigger phrases no longer route anywhere. Use `research-lab:gather` directly.
+
 ## 3.0.0 — Domain boundary with research-lab (breaking)
 
 Clarified the ideate vs research-lab boundary: **ideate works on an idea you are forming;

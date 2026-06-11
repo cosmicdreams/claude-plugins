@@ -1,5 +1,19 @@
 # Changelog
 
+## 2.0.0 — 2026-06-10 — Fable-era rewrite (breaking)
+
+**REWRITTEN** `agents/process-engineer` — observation model rewritten from loop-based polling to event-driven. The agent now subscribes to harness hooks (PostToolUseFailure, TaskCompleted, SubagentStop) as the primary signal source. On-demand transcript reads are a fallback, not the primary path. Polling-loop version-1 prose removed. All judgment capability (trust model, lint lifecycle, error recovery) preserved.
+
+**ADDED** `skills/lint/references/rules/missed-proxy-opportunity.md` (lint-009, watch tier) — fires when `rtk discover` identifies Bash commands in plugin code that could be proxied for token savings. Detection requires `rtk` to be present; degrades silently when absent.
+
+**UPDATED** `skills/lint/SKILL.md` — added propagation table with `rtk` and `headroom` columns noting where each tool applies across the plugin ecosystem.
+
+**UPDATED** `skills/perf-measure/SKILL.md` — added `--tokens` measurement mode sourcing `rtk gain --history` and `headroom perf` as JSON score tuples. When either binary is present, token-spend metrics (`rtk_tokens_saved`, `rtk_savings_pct`, `headroom_tokens_compressed`, `headroom_compression_ratio`) are included in the output. Both integrations preflight with `command -v` and degrade silently. The experiment ratchet can now target token spend as a metric.
+
+**TRIMMED** `skills/attach`, `skills/fix`, `skills/experiment`, `skills/self` — jobs and domain knowledge unchanged; process narration removed.
+
+**Note:** This plugin is distributable via Claude Desktop Personal Plugins. Zip the plugin directory contents so `.claude-plugin/` is at the root; upload as `.zip`.
+
 ## 1.4.0
 - Add lint rule `lint-008 missing-preflight-contract` (tier: warn, applies-to: research-lab) —
   enforces the research-lab 2.0 preflight-first convention: every verb SKILL.md must carry the

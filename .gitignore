@@ -14,5 +14,8 @@ analysis-reports/
 # Playwright-CLI scratch (per-command page / console captures)
 .playwright-cli/
 
+# Plugin build artifacts (Desktop distribution zips)
+dist/
+
 # NOTE: .beads/ must NOT be gitignored — Beads databases are committed to the repo
 # .beads/

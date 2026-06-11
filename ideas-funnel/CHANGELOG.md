@@ -1,5 +1,51 @@
 # Changelog
 
+## 2.0.0 — 2026-06-10
+
+**Breaking change — singleton pipeline.** The per-instance scheduling model is replaced
+by a single cron entry. Any old per-instance cron loops created by 0.x must be manually
+removed: `CronDelete <id>` for each entry, then delete
+`$VAULT/_meta/ideas-funnel-scheduler.json` if present, then run `ideas-funnel:schedule`
+once to re-register under the new singleton discipline.
+
+### Removed
+
+- `orchestrator` agent — replaced by the pipeline Workflow script.
+- Lock-file protocol (`Raw/.lock`) — replaced by vault marker at `_meta/ideas-funnel-scheduler.json`.
+- Backlog queue and signal-parsing machinery.
+- `monitors/` directory and `monitors.json` registration — no longer needed; the cron replaces the Monitor-driven loop.
+- Per-instance scheduling code in the init skill.
+
+### Added
+
+- `skills/schedule/SKILL.md` — idempotent singleton cron registration with vault marker for cross-instance de-duplication.
+- `skills/schedule/scripts/funnel-pipeline.js` — Workflow script: `parallel()` per-domain ingest → threshold check → conditional refinery → conditional monthly scorer.
+
+### Changed
+
+- `skills/init/SKILL.md` — Step 6 now calls `ideas-funnel:schedule` to register the singleton cron.
+- `agents/ingest.md` — trimmed to a lean agentType target (≤40 lines); orchestration prose removed.
+- `agents/refinery.md` — trimmed to a lean agentType target (≤60 lines); orchestration prose removed.
+- `skills/ingest/SKILL.md` — removed orchestrator-specific procedure; added headroom compression note for large articles (optional, degrades silently when absent).
+- Plugin version bumped to 2.0.0.
+
+### Kept verbatim
+
+- Ingest page-breaking logic and full v2 frontmatter schema.
+- Domain-scoped write discipline (ingest → Domains/, Refinery → Concepts/).
+- Concept density threshold logic (≥3 unrelated sources triggers refinery).
+- Contradiction detection and tension scoring in refinery.
+- Bridge page creation logic in refinery.
+- `skills/lint/SKILL.md` — all nine steps, all schema checks, all severity definitions.
+- `skills/query/SKILL.md` — tiered retrieval, file-back offer, log entry.
+- Vault bootstrap in `skills/init/SKILL.md` (Steps 1–5 unchanged).
+- All templates.
+
+### Desktop Personal Plugins compatibility
+
+Distributable as a zip: compress the plugin directory so `.claude-plugin/` is at the
+archive root, then upload the `.zip` file.
+
 ## 0.2.2 — 2026-04-15
 
 Fix: `rss-ingest.sh` used jq's `// empty` idiom inside mikefarah yq v4 expressions, which errored with `lexer: invalid input text "empty"` and aborted the first poll. The trailing `[]?` already produces no output when a key is absent, so `// empty` was redundant — removed.

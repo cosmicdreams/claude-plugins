@@ -157,5 +157,3 @@ Each slice-worker self-manages DDEV slots:
 
 - **Universal kanban rules:** `sprint:kanban`
 - **Sprint orchestration:** `sprint:run`
-- **Spawning mechanics:** `../protocols/SPAWNING.md`
-- **Decision rules:** `../skills/run/references/decision-framework.md`

@@ -1,5 +1,17 @@
 # Changelog
 
+## 3.0.0 — 2026-06-10 — Fable-era rewrite
+
+- **agent-team**: supersedes `feature/agent-team-refresh` branch; corrected stale SendMessage syntax (`type=`/`recipient=`/`content=` → `{to, summary, message}`); added Step 0 routing table (parallel Agent calls vs. Workflow vs. team)
+- **new-agent**: collapsed four-phase eight-question wizard into judgment + a short checklist (≤20 lines); kept color-collision check and omit-to-inherit model guidance; trimmed to 60–80 line target
+- **new-skill**: kept progressive-disclosure structure guidance; trimmed wizard steps and references list
+- **optimize-agents**: rewritten around omit-to-inherit; audit now checks stale tool syntax (old SendMessage schema, stale model IDs), stale model roster (date-versioned IDs), defensive-prose bloat; removed tier-assignment decision tree
+- **scaffold**: removed markdown-kanban directory creation (Beads is the tracker); merged `scaffold-silence` skill as a `--silent` flag; `scaffold-silence.sh` moved into scaffold skill directory
+- **scaffold-silence**: deleted as a separate skill — functionality merged into `scaffold --silent`
+- **install**: added rtk dependency mapping (binary install path, `command -v rtk` check, name-collision note); added headroom dependency mapping (`pip install "headroom-ai[all]"` or `npm install -g headroom-ai`); added Claude Desktop packaging section (zip plugin directory contents, upload as `.zip` to Customize → Personal Plugins → Upload Plugin)
+- **bump-version, changelog, create-worktree, update-plugins**: kept jobs; trimmed process narration to essentials
+- Plugin distributable via Claude Desktop Personal Plugins — see install skill for packaging instructions
+
 ## 2.5.1
 - Add `admin/scripts/validate-plugin-list.sh`: scans repo root for plugin dirs (by presence of `.claude-plugin/plugin.json`), cross-checks against the hardcoded PLUGINS array, and exits 1 with a clear diff on mismatch
 - `bump-version.sh` and `reinstall-plugin.sh`: call validator on entry; fix stale PLUGINS array (remove retired `office`, add `ideas-funnel`)

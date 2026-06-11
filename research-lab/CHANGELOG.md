@@ -1,5 +1,43 @@
 # research-lab Changelog
 
+## 3.0.0 — 2026-06-10 — Fable-era rewrite
+
+### Removed
+- `.research.json` engagement-state sidecar and the Phase 0 resume-detection block in `gather` — conversation context plus Workflow resume handles in-flight state; durable state goes in beads or the vault.
+- `.understand.json` design-tree state file — the tree is now internal model state, not a disk file; the record of understanding is the only output.
+- `protocols/context-flow.md` — content condensed into a one-paragraph artifact-directory note inside `principal-investigator.md`.
+- Hand-rolled spawning prose from `interrogate` — the panel logic now lives entirely in `skills/interrogate/scripts/interrogate-panel.js`; the skill instructs the main agent to run it via `scriptPath`.
+- Behavioral railings throughout: anti-pattern lists, "do NOT auto-invoke" coaching blocks, rigid multi-question wizards. One statement per rule where the rule is genuinely non-obvious.
+- `isolation: 'worktree'` from `experiment` — worktrees are pre-created per the sibling convention.
+- Inline reference Workflow script from `interrogate/SKILL.md` (moved to the `.js` file; skill references `scriptPath`).
+
+### Rewritten
+- `interrogate/SKILL.md`: desk-reject logic kept verbatim; panel mechanics replaced with a `scriptPath` reference to `skills/interrogate/scripts/interrogate-panel.js`.
+- `gather/SKILL.md`: `.research.json` state writes removed; dedup and relevance-prune passes are now optional steps, not required phases; fan-out Workflow reference updated to use `gather-facets.js` via `scriptPath`; headroom note added for large fetched sources.
+- `understand/SKILL.md`: `.understand.json` disk file removed (design tree is internal state); headroom note added for large pasted walls of text or fetched sources.
+- `teach/SKILL.md`: Feynman gate rewritten as a clean `agent()` call with a grade schema; inline Workflow script kept short and correct.
+- `experiment/SKILL.md`: `isolation: 'worktree'` removed; parallel-candidate note updated.
+- `agents/principal-investigator.md`: trimmed to ≤80 lines; engagement-directory convention condensed to one paragraph; no fixed-phase orchestration.
+- `agents/experimentalist.md`: trimmed.
+- `agents/researcher.md`: trimmed.
+
+### Kept (byte-identical)
+- `scripts/log-iteration.sh`, `scripts/notebook-*.sh`, `scripts/generate-chart.py` — correctness-fixed in June 2026; not touched.
+- `skills/experiment/scripts/measure.sh` — kept byte-identical.
+- `skills/interrogate/scripts/interrogate-panel.js` — kept as authoritative panel implementation.
+- `skills/gather/scripts/gather-facets.js` — kept.
+- `skills/gather/references/notebooklm-cli.md` — kept (verified against v0.6.0).
+- `skills/experiment/references/iteration-protocol.md`, `methodology-spec.md` — kept.
+- `skills/synthesize/references/examination-techniques.md` — kept.
+- All seven verb skill methodologies: falsification discipline (frame), NotebookLM integration (gather), design-tree walk (understand), commit-to-claim (synthesize), perspective-diverse panel (interrogate), ratchet + futility stopping + JSONL logging (experiment), Feynman gate (teach).
+
+### Breaking changes
+- `.research.json` is no longer written or read; existing engagement directories with this file are unaffected (the file is simply ignored).
+- `interrogate` now requires callers to invoke via `scriptPath` pointing at `interrogate-panel.js`; the inline reference script block in the old SKILL.md is gone.
+
+### Distribution note
+This plugin is distributable via Claude Desktop's Personal Plugins upload: zip the plugin directory so `.claude-plugin/` is at the zip root; upload as `.zip`.
+
 ## 2.1.0 — Standalone hardening + script correctness
 
 Made research-lab fully self-contained (it no longer depends on any other plugin to run its verbs)

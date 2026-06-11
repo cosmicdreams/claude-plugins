@@ -41,32 +41,32 @@ bd init --prefix sprint
 ### `admin`
 Meta-tooling for developing and maintaining Claude Code plugins.
 
-Skills: `agent-team`, `bump-version`, `changelog`, `create-worktree`, `install`, `new-agent`, `new-skill`, `optimize-agents`, `scaffold`, `scaffold-silence`, `update-plugins`
+Skills: `agent-team`, `bump-version`, `changelog`, `create-worktree`, `install`, `new-agent`, `new-skill`, `optimize-agents`, `package`, `scaffold`, `update-plugins`
 
 ### `sprint`
-Team sprint execution: parallel agents, kanban pipeline, hooks, protocols.
+Team sprint execution: Workflow-driven parallel slice-workers, kanban pipeline, structured retro output.
 
-Skills: `asset-audit`, `board`, `kanban`, `plan`, `project-notes`, `run`
+Skills: `board`, `kanban`, `plan`, `project-notes`, `run`
 
 ### `retro`
-End-of-sprint retrospectives: agent interviews via SubagentStop hook, action card management, session reports.
+End-of-sprint retrospectives: structured interview schema in sprint Workflow output, action card management, session reports.
 
 Skills: `interviews`, `kanban`, `session`, `transcript`
 
 ### `ideate`
-Pre-work ideation: brainstorm canvas, deep research, structured comparison, reality checks, diagrams, ADRs.
+Pre-work ideation: brainstorm canvas, structured comparison, reality checks, diagrams, ADRs.
 
-Skills: `adr`, `brainstorm`, `compare`, `diagram`, `reality-check`, `research`, `understand`
+Skills: `adr`, `brainstorm`, `compare`, `diagram`, `reality-check`
 
 ### `drupal-lab`
 Drupal development against DDEV: issue analysis, patch validation, contrib module scaffolding, performance profiling.
 
-Skills: `analyze-issue`, `browse-drupal-issues`, `config`, `ddev`, `finish-issue`, `issue-summary`, `module-dev-starter`, `perf-measure`, `process-lifecycle`, `validate-patch`
+Skills: `analyze-issue`, `branch-audit`, `browse-drupal-issues`, `config`, `ddev`, `finish-issue`, `issue-summary`, `module-dev-starter`, `optimize`, `perf-measure`, `process-lifecycle`, `release-cut`, `sprint-start`, `validate-patch`
 
 ### `lib`
 Thin CLI-wrapper skills (data-layer only — no summarization). Slack, Jira, GitHub, TestRail, Obsidian vault, logs, and media utilities.
 
-Skills: `archive`, `csv-analysis`, `ddev`, `ffmpeg`, `github`, `hyperfine`, `image-optimize`, `jira`, `lighthouse`, `log-analyzer`, `pa11y`, `slack`, `testrail`, `vault-search`, `vault-store`, `wiki-query`
+Skills: `archive`, `csv-analysis`, `ddev`, `ffmpeg`, `github`, `hyperfine`, `image-optimize`, `jira`, `lighthouse`, `log-analyzer`, `pa11y`, `penpot`, `slack`, `testrail`, `vault-search`, `vault-store`, `wiki-query`
 
 ### `workshop`
 Process automation built on top of `lib`: work prioritization, deploy checklist, knowledge radar, Obsidian maintenance, calendar/email helpers.
@@ -76,12 +76,12 @@ Skills: `config`, `deploy-post`, `obsidian-lint`, `organize`, `personal-calendar
 ### `drover`
 Automated Drupal error monitoring and self-healing pipeline. Watches logs, triages errors into curated Beads tickets, autonomously implements fixes in isolated git worktrees, notifies on ready-for-review.
 
-Skills: `add-project`, `backfill`, `baseline`, `board`, `dashboard`, `implement`, `reset-state`, `run`, `setup`, `triage`, `watch`
+Skills: `acquia-pull`, `create-tickets`, `init`, `report`
 
 ### `research-lab`
-Composable research engagement pipeline: literary review via NotebookLM, multi-agent workshop swarms, cross-examination seminars, and iterative experimentation with ratchet-based optimization.
+Composable research pipeline built around seven knowledge-work verbs: frame, gather, understand, synthesize, interrogate, experiment, teach.
 
-Skills: `experiment`, `literary-review`, `run`, `seminar`, `workshop`
+Skills: `experiment`, `frame`, `gather`, `interrogate`, `synthesize`, `teach`, `understand`
 
 ### `improve`
 Process engineering methodology. Maps process topology, makes directed fixes, runs improvement experiments, accumulates lint rules. Domain-agnostic — each plugin can own its own `:improve` skill for domain-specific knowledge.
@@ -91,7 +91,7 @@ Skills: `accessibility-scan`, `attach`, `experiment`, `fix`, `lint`, `perf-measu
 ### `ideas-funnel`
 Passive knowledge capture pipeline — Karpathy-derived LLM Wiki with Monitor-driven multi-domain ingest. Feeds land in `Raw/`, agents compile them into a cross-linked Obsidian wiki, memory evolves via confidence decay and graph-aware consolidation.
 
-Skills: `ingest`, `init`, `lint`, `query`
+Skills: `ingest`, `init`, `lint`, `query`, `schedule`
 
 ## Changelog
 

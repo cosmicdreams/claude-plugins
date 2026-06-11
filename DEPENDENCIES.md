@@ -66,7 +66,7 @@ obsidian help
 
 **Vault configuration:** Skills default to a vault named `Neurons` at `~/Vaults/Neurons`. Override with the `OBSIDIAN_VAULT_NAME` environment variable.
 
-**Used by:** sprint (`project-notes`), retro (`session`, `interviews`), ideate (most skills), drupal-lab (`analyze-issue`, `issue-summary`), lib (`archive`, `vault-store`, `vault-search`, `wiki-query`), workshop (`organize`, `obsidian-lint`, `prioritize`, `scout`), ideas-funnel (all skills), research-lab (`literary-review`, `run`)
+**Used by:** sprint (`project-notes`), retro (`session`, `interviews`), ideate (most skills), drupal-lab (`analyze-issue`, `issue-summary`), lib (`archive`, `vault-store`, `vault-search`, `wiki-query`), workshop (`organize`, `obsidian-lint`, `prioritize`, `scout`), ideas-funnel (all skills), research-lab (`gather`, `understand`, `synthesize`, `teach`)
 
 ---
 

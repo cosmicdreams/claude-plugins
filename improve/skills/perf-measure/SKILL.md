@@ -1,33 +1,36 @@
 ---
 name: perf-measure
 description: >
-  Measure web frontend performance and CLI benchmark targets. Outputs a machine-readable
-  JSON score tuple for the experiment ratchet. Use when you need a Lighthouse performance
-  score, Core Web Vitals, or hyperfine CLI benchmarks. Use --a11y to delegate to
-  improve:accessibility-scan. Do NOT use for PHP/DDEV profiling -- use drupal-lab:perf-measure.
+  Measure web frontend performance, CLI benchmark targets, and token costs. Outputs a
+  machine-readable JSON score tuple for the experiment ratchet. Use when you need a
+  Lighthouse performance score, Core Web Vitals, hyperfine CLI benchmarks, or token-spend
+  metrics. Use --a11y to delegate to improve:accessibility-scan. Do NOT use for PHP/DDEV
+  profiling -- use drupal-lab:perf-measure.
 triggers:
   - "measure performance"
   - "lighthouse score"
   - "benchmark this command"
   - "core web vitals"
   - "improve:perf-measure"
+  - "token cost measurement"
+  - "token spend"
 ---
 
 # perf-measure
 
-Measure web frontend performance and CLI benchmark targets. Outputs a JSON score tuple consumable by the experiment ratchet.
+Measure performance and output a JSON score tuple consumable by the experiment ratchet.
 
 ## Groups
 
 | Flag | Default? | Tool | Notes |
 |---|---|---|---|
-| `--frontend` | yes | Lighthouse CLI | `--only-categories=performance --output=json --chrome-flags="--ignore-certificate-errors"` |
+| `--frontend` | yes | Lighthouse CLI | `--only-categories=performance --output=json` |
 | `--cli` | no | hyperfine | requires `--command "..."` arg |
+| `--tokens` | no | rtk + headroom | sources `rtk gain --history` and `headroom perf` when available |
 | `--a11y` | no | delegates to `improve:accessibility-scan` | — |
 
 ## Setup
 
-Check first:
 ```bash
 lighthouse --version 2>/dev/null || echo "not installed — run: npm install -g lighthouse"
 hyperfine --version 2>/dev/null || echo "not installed"
@@ -35,18 +38,12 @@ hyperfine --version 2>/dev/null || echo "not installed"
 
 Install if missing:
 ```bash
-# Lighthouse
 npm install -g lighthouse
-
-# hyperfine (macOS)
-brew install hyperfine
-
-# hyperfine (Linux)
-cargo install hyperfine
-# or: apt install hyperfine (if available)
+brew install hyperfine          # macOS
+cargo install hyperfine         # Linux
 ```
 
-For detailed setup checks, invocation flags, and error handling see `lib:lighthouse` and `lib:hyperfine`.
+For detailed setup see `lib:lighthouse` and `lib:hyperfine`.
 
 ## Measure
 
@@ -65,13 +62,9 @@ jq '{scores: {
 }, ts: now | todate, target: .requestedUrl}' /tmp/lighthouse-output.json
 ```
 
-> **Do not pipe Lighthouse output directly to jq.** Large reports (200–500 KB) cause `parse error: Unfinished string at EOF`. Always use `--output-path` then read the file.
+Do not pipe Lighthouse output directly to jq — use `--output-path` then read the file. Run 3 times and take the median for `lighthouse_performance`.
 
-The jq paths above (`audits["largest-contentful-paint"]`, etc.) are stable Lighthouse audit IDs. If scores come back `null`, check that the audit IDs haven't changed by inspecting the raw JSON: `lighthouse <url> --output=json --output-path=/tmp/lighthouse-output.json 2>/dev/null && jq '.audits | keys' /tmp/lighthouse-output.json`. See `lib:lighthouse` for the canonical extraction patterns and error handling.
-
-Run 3 times and take the median score for `lighthouse_performance` to reduce noise.
-
-For DDEV sites: use the external URL `https://sitename.ddev.site` (not `http://web` — that's internal only).
+For DDEV sites use the external URL `https://sitename.ddev.site`.
 
 ### CLI benchmark
 
@@ -85,13 +78,39 @@ jq '{scores: {
 }, ts: now | todate, target: .results[0].command}' /tmp/hyperfine-result.json
 ```
 
-hyperfine defaults to ≥10 runs for statistical stability. For `--warmup`, `--min-runs`, comparison mode, and noise interpretation see `lib:hyperfine`.
+### Token cost (--tokens)
+
+When `rtk` or `headroom` are present, collect token-spend metrics as ratchet targets.
+
+```bash
+if command -v rtk >/dev/null 2>&1; then
+  rtk gain --history --json > /tmp/rtk-gain.json 2>/dev/null
+fi
+if command -v headroom >/dev/null 2>&1; then
+  headroom perf --json > /tmp/headroom-perf.json 2>/dev/null
+fi
+```
+
+Emit a `token_cost` block in the scores object when either binary is present:
+
+```json
+{
+  "scores": {
+    "rtk_tokens_saved": 14200,
+    "rtk_savings_pct": 72,
+    "headroom_tokens_compressed": 8400,
+    "headroom_compression_ratio": 3.1
+  }
+}
+```
+
+If neither binary is present, omit the `token_cost` block silently — the ratchet still works on whatever other scores are present.
 
 ### Accessibility delegation
 
 Pass through to `improve:accessibility-scan` with the same URL.
 
-## Output Contract
+## Output contract
 
 Keys only present when that group ran:
 
@@ -106,29 +125,31 @@ Keys only present when that group ran:
     "hyperfine_mean_ms": 340,
     "hyperfine_stddev_ms": 12,
     "hyperfine_min_ms": 312,
-    "hyperfine_max_ms": 398
+    "hyperfine_max_ms": 398,
+    "rtk_tokens_saved": 14200,
+    "rtk_savings_pct": 72,
+    "headroom_tokens_compressed": 8400,
+    "headroom_compression_ratio": 3.1
   },
-  "ts": "2026-03-21T12:00:00Z",
+  "ts": "2026-06-10T12:00:00Z",
   "target": "https://example.ddev.site"
 }
 ```
 
-## Baseline Convention
+## Baseline convention
 
-Save baseline:
 ```bash
+# Save baseline
 improve:perf-measure measure <url> > /tmp/perf-baseline.json
-```
 
-Compare after a change:
-```bash
+# Compare after change
 jq -s '.[0].scores, .[1].scores' /tmp/perf-baseline.json /tmp/perf-after.json
 ```
 
-## Using with the Experiment Loop
+## Using with the experiment loop
 
-The `scores` object is the tuple the experiment ratchet compares between runs. Typical ratchet targets:
-
-- **Performance**: `keep if lighthouse_performance > previous.lighthouse_performance`
-- **LCP**: `keep if lighthouse_lcp_ms < previous.lighthouse_lcp_ms`
-- **CLI speed**: `keep if hyperfine_mean_ms < previous.hyperfine_mean_ms`
+Typical ratchet targets:
+- `keep if lighthouse_performance > previous.lighthouse_performance`
+- `keep if lighthouse_lcp_ms < previous.lighthouse_lcp_ms`
+- `keep if hyperfine_mean_ms < previous.hyperfine_mean_ms`
+- `keep if rtk_tokens_saved > previous.rtk_tokens_saved`

@@ -6,7 +6,7 @@ allowed-tools: Bash, Read, Write
 
 # Sprint Planning
 
-Prepare an ordered work queue for the next team sprint. Run this before `sprint:run` to avoid discovering mid-sprint that issues are unanalyzed or misordered.
+Prepare an ordered work queue for the next team sprint.
 
 ## Input
 
@@ -150,6 +150,5 @@ When writing cards, derive ACs directly from the "What to change" section:
 
 ## Key Points
 
-- Never assume an issue is ready to implement without a report — but with vertical slices, the slice-worker handles analysis as phase 1
-- Raise scope concerns before agents spin up, not mid-sprint
-- If the queue has more than 5 unanalyzed issues, that's fine — each slice-worker analyzes its own issue
+- Raise scope concerns before the sprint runs, not mid-sprint
+- With vertical slices, each slice-worker handles analysis as its first phase — unanalyzed issues are fine

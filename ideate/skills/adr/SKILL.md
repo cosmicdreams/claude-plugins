@@ -13,23 +13,23 @@ allowed-tools: Bash, Read, Write
 
 # ideate:adr — Architecture Decision Record
 
-Capture a lightweight ADR and store it permanently to the Neurons vault.
+Capture a lightweight ADR and store it to the Neurons vault.
 
-## Step 1: Gather information
+## Step 1: Gather fields
 
-If not supplied in `$ARGUMENTS`, ask the user for the following fields. Gather all before writing — do not write a partial ADR.
+If not in `$ARGUMENTS`, ask for these. Gather all before writing.
 
-| Field | Description | Example |
-|---|---|---|
-| `title` | Short decision title | "Use Skills over MCPs for non-persistent tools" |
-| `status` | Current status | `proposed`, `accepted`, `superseded`, or `deprecated` |
-| `context` | What problem or situation prompted this decision? | "MCP tools load into context on every session..." |
-| `options` | What alternatives were considered? | Option A: MCP server. Option B: Skill. |
-| `decision` | What was decided and why? | "Use Skills — zero token cost until invoked" |
-| `consequences` | What are the results and tradeoffs? | "+ lower token cost — manual invocation required" |
-| `supersedes` | (Optional) Title or path of an ADR this replaces | "Use MCP for all integrations" |
+| Field | Description |
+|---|---|
+| `title` | Short decision title |
+| `status` | `proposed`, `accepted`, `superseded`, or `deprecated` |
+| `context` | What situation prompted this decision? |
+| `options` | What alternatives were considered? |
+| `decision` | What was decided and why? |
+| `consequences` | Results and trade-offs |
+| `supersedes` | (Optional) Title of an ADR this replaces |
 
-If the user provides partial info in `$ARGUMENTS`, extract what you can and ask only for what's missing.
+Extract what you can from `$ARGUMENTS` and ask only for what's missing.
 
 ## Step 2: Generate date and slug
 
@@ -37,17 +37,16 @@ If the user provides partial info in `$ARGUMENTS`, extract what you can and ask 
 date +%Y-%m-%d
 ```
 
-**Slug rules:** lowercase title, spaces → hyphens, strip special characters, max 50 chars.
-Example: "Use Skills over MCPs for non-persistent tools" → `use-skills-over-mcps`
+Slug: lowercase title, spaces → hyphens, strip special characters, max 50 chars.
 
-## Step 3: Format the ADR
+## Step 3: Format
 
 ```markdown
 ---
 title: {title}
 date: {YYYY-MM-DD}
 status: {status}
-{supersedes: {old-adr-title}   ← include this line only if supersedes was provided, otherwise omit}
+{supersedes: {old-adr-title}   ← only if provided}
 ---
 
 # {title}
@@ -62,7 +61,7 @@ status: {status}
 
 ## Options Considered
 
-{options — formatted as a list, with brief pros/cons per option}
+{options — list with brief pros/cons per option}
 
 ## Decision
 
@@ -70,14 +69,12 @@ status: {status}
 
 ## Consequences
 
-{consequences — call out positives (+) and negatives (-) explicitly}
+{consequences — positives (+) and negatives (-) explicit}
 ```
 
 ## Step 4: Store to Neurons vault
 
-Read `obsidian-rules.md` from the workflow plugin references
-(`~/.claude/plugins/cache/local/workshop/*/references/obsidian-rules.md`) to confirm
-correct placement. Default path: `Architecture/ADRs/{YYYY-MM-DD}-{slug}.md`
+Path: `Architecture/ADRs/{YYYY-MM-DD}-{slug}.md`
 
 ```bash
 VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
@@ -88,13 +85,8 @@ cat > "$VAULT_ROOT/$ADR_PATH" << 'EOF'
 EOF
 ```
 
-Report: `ADR saved: $VAULT_ROOT/$ADR_PATH`
+On failure: output the formatted ADR in conversation so it is not lost, then report the error.
 
-**On any failure:** output the formatted ADR directly in the conversation so it is not lost, then report the error.
+## Step 5: Confirm
 
-## Step 5: Confirm and suggest follow-up
-
-Tell the user:
-- ADR title and status
-- Vault path where it was saved
-- If `supersedes` was set: offer to fetch the old ADR from the vault and update its status to `superseded` with a link to the new one
+Report title, status, and vault path. If `supersedes` was set, offer to update the old ADR's status to `superseded` with a link to the new one.

@@ -1,5 +1,42 @@
 # Changelog
 
+## 3.0.0 — 2026-06-10
+
+**Breaking: agent collapse from 7 to 2.**
+
+### Removed agents (6 retired)
+
+- `architect` — architectural analysis patterns folded into `issue-worker`
+- `fixer` — root-cause investigation and fix patterns folded into `issue-worker`
+- `implementer` — TDD workflow, worktree discipline, and pre-review checklist folded into `issue-worker`
+- `issue-analyzer` — drupal.org fetching, LSP-with-grep-fallback, and Obsidian archive folded into `issue-worker`
+- `issue-planner` — spec authoring (problem statement, root cause, solution contract, acceptance criteria) and TDD task structure folded into `issue-worker`
+- `test-coverage-analyst` — gap analysis approach folded into `reviewer`
+
+### New agents (2)
+
+- `issue-worker` — owns a drupal.org issue end-to-end (analyze, plan, implement, test, validate); emits `analysis.json` and `plan.json`; ≤80 lines
+- `reviewer` (rewritten) — fresh-context spec compliance + code quality + coverage gap analysis; emits `results.json`; ≤80 lines
+
+### Skills rewritten
+
+- `validate-patch` — Phase 0 static test-design review preserved verbatim; trimmed process narration; added optional rtk proxying note for phpcs/phpstan output
+- `ddev` — all environment knowledge preserved (SIMPLETEST_DB, MINK_DRIVER_ARGS, Chrome webdriver, config.local.yaml per-worktree naming); slot management now uses beads metadata `ddev=true`; stale-slot reclaim note added; optional rtk proxying note added; phase narration removed
+- `process-lifecycle` — all environment knowledge preserved; slot management via beads metadata; bash polling loop replaced with beads metadata as single record; phase narration trimmed
+- `analyze-issue` — drupal.org fetching and LSP-with-grep-fallback preserved; structured handoff (analysis.json) is now the primary output; markdown render is secondary
+- `optimize` — reframed as thin composition over research-lab verbs (gather, synthesize, interrogate, experiment); Drupal-specific preflight, methodology, and cleanup steps preserved; verbose phase narration removed
+
+### Structured handoffs
+
+`analysis-reports/drupal-issue/<issue>/analysis.json` and `plan.json` are the machine-readable
+state passed between stages. `analysis-reports/` markdown renders are human-readable only.
+Schemas in `drupal-lab/references/issue-handoffs.md`.
+
+### Distribution
+
+Distributable via Claude Desktop Personal Plugins: zip the plugin directory so
+`.claude-plugin/` is at the archive root, then upload as `.zip`.
+
 ## 2.7.1
 - `generate-chart.py` moved to research-lab (it is a generic `results.jsonl` visualizer owned by
   `research-lab:experiment`). `optimize` now runs it from `$RESEARCH_LAB_ROOT/scripts/generate-chart.py`,

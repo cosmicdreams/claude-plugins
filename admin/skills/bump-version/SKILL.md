@@ -14,8 +14,6 @@ allowed-tools: Read, Write, Edit, Bash
 
 # Bump Plugin Version (SemVer)
 
-Bump one or all CLAUDE-PLUGINS plugin versions following Semantic Versioning rules, then reinstall.
-
 ## SemVer Decision Rules
 
 | Change type | Bump |
@@ -24,30 +22,30 @@ Bump one or all CLAUDE-PLUGINS plugin versions following Semantic Versioning rul
 | New skill, new agent, new hook, backwards-compatible new feature | **minor** |
 | Bug fix, documentation update, prompt improvement, script fix | **patch** |
 
-When in doubt, ask the user: "Was this a bug fix (patch), new feature (minor), or breaking change (major)?"
+When in doubt: "Was this a bug fix (patch), new feature (minor), or breaking change (major)?"
 
 ## Procedure
 
 ### 1. Determine scope and bump type
 
-- If `$ARGUMENTS` specifies a plugin name and/or bump type, use them.
-- Otherwise inspect what changed (`git diff` or context from the conversation) and apply the decision rules above.
-- If still unclear, ask the user before proceeding.
+- Use `$ARGUMENTS` if it specifies a plugin name and/or bump type.
+- Otherwise inspect what changed and apply the decision rules.
+- If still unclear, ask before proceeding.
 
 Valid plugin names: `sprint`, `retro`, `ideate`, `admin`, `drupal-lab`, `ideas-funnel`, `lib`, `workshop`, `drover`, `research-lab`, `improve`, `all`
 Valid bump types: `major`, `minor`, `patch`
 
 ### 2. Run the bump script
 
-```
-bash admin/skills/bump-version/scripts/bump-version.sh <plugin> <bump-type>
+```bash
+admin/skills/bump-version/scripts/bump-version.sh <plugin> <bump-type>
 ```
 
 The script prints the before/after version and every file it modifies.
 
 ### 3. Update CHANGELOG.md
 
-Prepend a new section to `<plugin>/CHANGELOG.md` mirroring Claude Code's release notes format:
+Prepend to `<plugin>/CHANGELOG.md`:
 
 ```markdown
 ## <new-version>
@@ -55,38 +53,24 @@ Prepend a new section to `<plugin>/CHANGELOG.md` mirroring Claude Code's release
 - Summary of change two
 ```
 
-Rules:
-- One bullet per logical change (not per file edited)
-- Plain English — written for a plugin user reading release notes
-- No dates, no categories (Added/Fixed), no PR numbers
-- Derive entries from the git diff or conversation context; ask the user if unclear
+One bullet per logical change. Plain English. No dates, no categories, no PR numbers.
 
 ### 4. Clean and reinstall
 
-Old cached versions accumulate on every reinstall. One script handles both: it wipes all cached versions first, then reinstalls clean.
+Must be run in a **separate terminal** — the Claude CLI cannot run inside an active Claude Code session.
 
-```
+```bash
 admin/skills/bump-version/scripts/reinstall-plugin.sh <plugin|all>
 ```
 
-**Must be run in a separate terminal** — the Claude CLI cannot run inside an active Claude Code session (`CLAUDECODE` env var blocks it). Provide this command to the user.
+After it completes, run `/reload-plugins` in the current session.
 
-After the script completes, the user can run `/reload-plugins` in the current Claude Code session to load the updated plugin without restarting.
-
-Why clean-then-reinstall: wiping first removes all stale versions before the fresh install. Since reinstall follows immediately, there is no risk of an empty cache.
-
-### 5. Confirm to the user
+### 5. Confirm
 
 ```
 Version bumped: <plugin> <old> → <new>
 Files updated: <count>
 CHANGELOG: <plugin>/CHANGELOG.md updated
 Reinstall command: admin/skills/bump-version/scripts/reinstall-plugin.sh <plugin|all>
-Then run /reload-plugins in this session to pick up the changes.
+Then run /reload-plugins in this session.
 ```
-
-## Notes
-
-- The cache path `~/.claude/plugins/cache/local/<plugin>/<version>/` changes with every version bump. The bump script handles updating hardcoded references to these paths.
-- `reinstall-plugin.sh` reads the target version from `plugin.json` to confirm what was installed.
-- CHANGELOG.md lives at `<plugin>/CHANGELOG.md` in the plugin root (e.g. `admin/CHANGELOG.md`).

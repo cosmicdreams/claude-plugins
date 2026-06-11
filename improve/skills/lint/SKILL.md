@@ -16,7 +16,7 @@ triggers:
 
 # Lint: Process Pattern Checking
 
-Check processes against known problem patterns. Manage the growing ruleset that represents your accumulated expertise.
+Check processes against known problem patterns. Manage the ruleset that represents accumulated expertise.
 
 ## Rule Structure
 
@@ -30,27 +30,40 @@ tier: auto-fix | warn | watch | warn-permanent
 applies-to: agent | skill | hook | cron | any
 pattern: <what to look for>
 created: <ISO date>
-source: <how this rule was learned — observation, coaching, experiment>
+source: <how this rule was learned>
 ---
 
 ## Problem
-<What the pattern looks like and why it's a problem>
-
 ## Detection
-<How to detect this pattern — what to grep for, what to check in logs, what to look for in definitions>
-
 ## Fix
-<What to change and where — specific enough that improve:fix can act on it>
 ```
 
 ## Rule Tiers
 
 | Tier | Behavior | Promotion criteria |
 |---|---|---|
-| **auto-fix** | Apply the fix without asking. Log what was changed. | Human explicitly authorized, OR pattern confirmed 3+ times with successful fixes |
-| **warn** | Surface to human with evidence. Wait for guidance. | Default for new recurring patterns |
+| **auto-fix** | Apply the fix without asking. Log what changed. | Human explicitly authorized, OR confirmed 3+ times with successful fixes |
+| **warn** | Surface to human with evidence. Wait for guidance. | Default for recurring patterns |
 | **watch** | Log when seen. Don't act, don't surface. | Default for first-time observations |
-| **warn-permanent** | Like warn, but never auto-promote. | Human explicitly said "always ask me about this kind of thing" |
+| **warn-permanent** | Like warn, but never auto-promote. | Human explicitly said "always ask me about this" |
+
+## Propagation Table
+
+Where lint rules and rtk/headroom integrations apply across the plugin ecosystem:
+
+| Plugin | Lint applies | rtk applies | headroom applies |
+|---|---|---|---|
+| sprint | agents, skills, hooks | slice-worker and cross-reviewer Bash calls | — |
+| retro | skills | — | transcript reads (JSONL files >100k tokens) |
+| research-lab | skills (preflight-contract rule) | — | understand/gather: pasted text walls |
+| ideate | skills | — | — |
+| improve | agents, skills | Bash in scripts/agents | — |
+| drupal-lab | agents, skills | phpunit/phpcs/phpstan in scripts and agents | — |
+| ideas-funnel | skills | — | ingest: large raw articles |
+| admin | skills | — | — |
+| workshop | skills | — | — |
+
+rtk and headroom are **optional accelerators**. Every integration preflights with `command -v rtk` / `command -v headroom` and degrades silently when absent.
 
 ## Checking a Process
 
@@ -60,16 +73,16 @@ Read all rules from `${CLAUDE_PLUGIN_ROOT}/skills/lint/references/rules/`.
 
 ### 2. Load domain rules
 
-If a domain `:improve` skill exists for the process being checked, invoke it to get domain-specific rules. Domain rules augment global rules — they don't replace them.
+If a domain `:improve` skill exists, invoke it — domain rules augment global rules.
 
 ### 3. Evaluate each applicable rule
 
-For each rule where `applies-to` matches the component type:
+For each rule where `applies-to` matches:
 1. Run the detection steps
-2. If the pattern is found:
-   - **auto-fix**: invoke `improve:fix` immediately. Log what was changed.
-   - **warn**: report to human with the evidence and suggested fix
-   - **watch**: log the observation. Don't act.
+2. If pattern found:
+   - **auto-fix**: invoke `improve:fix` immediately, log what changed
+   - **warn**: report to human with evidence and suggested fix
+   - **watch**: log the observation, don't act
 
 ### 4. Report
 
@@ -85,34 +98,26 @@ For each rule where `applies-to` matches the component type:
 
 ### Adding a new rule
 
-When you observe a pattern or the human teaches you one:
-
-1. Create a new file in `${CLAUDE_PLUGIN_ROOT}/skills/lint/references/rules/` with the structure above
-2. Set the initial tier:
+1. Create file in `${CLAUDE_PLUGIN_ROOT}/skills/lint/references/rules/` with structure above
+2. Initial tier:
    - Human said "always fix this" → `auto-fix`
-   - Human said "always ask about this" → `warn-permanent`
+   - Human said "always ask" → `warn-permanent`
    - Recurring pattern → `warn`
    - First observation → `watch`
 
 ### Promoting a rule
 
-When evidence accumulates:
+1. `watch` seen 2+ times → propose promotion to `warn`
+2. `warn` fixed successfully 3+ times → propose promotion to `auto-fix`
+3. Never promote `warn-permanent`
 
-1. A `watch` rule seen 2+ times → propose promotion to `warn`
-2. A `warn` rule successfully fixed 3+ times → propose promotion to `auto-fix`
-3. Never promote a `warn-permanent` rule
-
-To propose promotion, surface the evidence to the human:
+Surface evidence to human before promoting:
 ```
-Lint rule "<name>" has been [triggered N times / fixed successfully N times].
-Current tier: <tier>. Proposed: <new tier>.
-Evidence: <list of instances>
-Promote? [This requires your confirmation]
+Lint rule "<name>" triggered N times. Current: <tier>. Proposed: <tier>.
+Evidence: <list>
+Promote? [requires confirmation]
 ```
 
 ### Demoting a rule
 
-If a fix made by an auto-fix rule causes problems:
-1. Immediately demote to `warn`
-2. Record what went wrong in the rule file
-3. Surface to the human
+If an auto-fix rule causes problems: demote to `warn` immediately, record what went wrong, surface to human.

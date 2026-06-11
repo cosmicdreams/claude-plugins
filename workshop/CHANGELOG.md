@@ -1,5 +1,16 @@
 # Changelog
 
+## 2.0.0 — 2026-06-10 — Fable-era rewrite
+
+- **prioritize**: added singleton cron discipline — `CronList` before `CronCreate`, skip if entry already exists, document de-registration path (`CronDelete` with job ID); trimmed process narration
+- **scout**: same singleton cron discipline as prioritize; loop section updated with CronList check before creating; trimmed defensive prose
+- **knowledge-check**: kept all logic; trimmed to essentials; removed redundant stance/coaching prose
+- **obsidian-lint**: inlined all three step files (scan, propose, apply) directly into SKILL.md; deleted `steps/` directory (pure narration indirection)
+- **organize**: inlined all three step files (find, propose, apply) directly into SKILL.md; deleted `steps/` directory
+- **config**: inlined all four step files (detect, integrations, projects, storage) directly into SKILL.md; deleted `steps/` directory; kept `references/schema.md` (genuine reference data)
+- **deploy-post, personal-calendar, personal-email**: light trim only — these are thin by design
+- Plugin distributable via Claude Desktop Personal Plugins — see admin:install for packaging instructions
+
 ## 1.5.0 — Rename plugin: workflow → workshop
 
 Renamed the plugin from `workflow` to `workshop` to avoid colliding with Claude Code's

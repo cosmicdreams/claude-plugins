@@ -32,154 +32,101 @@ triggers:
 allowed-tools: Read, WebFetch, Bash, AskUserQuestion
 ---
 
-# Skill: compare
+# compare
 
-Structured comparison using one of three strategies: **gap**, **fit**, or **trade-off**. The strategy is auto-detected from the user's language, then a phase-by-phase workflow executes appropriate to that strategy.
+Three strategies: **gap**, **fit**, **trade-off**. Auto-detect from user language; surface the detected strategy before proceeding.
 
----
+## Confidence levels
 
-## Confidence levels (used throughout)
-
-Every scored cell carries one of three confidence levels:
-- **CONFIRMED** — explicitly stated in the source material
-- **INFERRED** — derived from related signals in the source
+Every scored cell carries one of:
+- **CONFIRMED** — explicitly stated in source material
+- **INFERRED** — derived from related signals
 - **UNKNOWN** — no information available; absence of mention ≠ NO
 
-**Asymmetric comparison rule:** If option A mentions feature X but option B does not, mark B as **UNKNOWN**, not NO. Apply this rule starting in Phase 2 when extracting dimensions — design dimensions knowing they will be scored asymmetrically.
+**Asymmetric comparison rule:** If option A mentions feature X but option B does not, mark B as **UNKNOWN**, not NO. Apply this when extracting dimensions.
 
 ---
 
 ## Phase 0 — Strategy Detection
 
-Before anything else, determine which strategy to use. Apply this priority order:
+Priority order:
 
-**1. Explicit type named** — if the user says any of the following, use that strategy:
-- "gap analysis", "gap", "what am I missing", "what have I overlooked", "what gaps" → `gap`
-- "fit analysis", "fit", "which fits our", "which is right for us" → `fit`
-- "trade-off", "tradeoff", "what do I give up", "help me choose" → `trade-off`
+1. **Explicit type named:**
+   - "gap analysis", "what am I missing", "what have I overlooked" → `gap`
+   - "fit analysis", "which fits our" → `fit`
+   - "trade-off", "help me choose" → `trade-off`
 
-**2. Intent signals** — if no explicit type, infer from language:
+2. **Intent signals:**
 
 | Signal | Strategy |
 |--------|----------|
-| User presents one thing and asks if it's complete or what's missing | `gap` |
-| User has multiple options and a specific context (stack, team, constraints) | `fit` |
-| User has multiple options and wants to understand the choice, no clear context | `trade-off` |
+| One thing presented; user asks what's missing | `gap` |
+| Multiple options + specific context (stack, constraints) | `fit` |
+| Multiple options; user wants to understand the choice | `trade-off` |
 
-**3. Ambiguous** — if intent is unclear, ask before proceeding:
-> "To give you the most useful analysis, which framing fits best?
-> - **Gap** — you have one thing and want to know what's missing
-> - **Fit** — you have options and want to know which is right for your specific context
-> - **Trade-off** — you have options and want to understand what you give up with each"
+3. **Ambiguous** — ask:
+> "Which framing fits best? Gap (what's missing) · Fit (which is right for your context) · Trade-off (what you give up with each)"
 
-**Always surface the detected strategy before proceeding:**
-> "I'll run a **[strategy] analysis** — let me know if you want a different framing (gap / fit / trade-off)."
+Always surface the detected strategy before proceeding.
 
 ---
 
 ## Phase 1 — Option Intake
 
-Collect the options to compare. Options may be provided as:
-- Text descriptions inline in the user's message
-- URLs → fetch with WebFetch
-- File paths → read with Read tool
-- A mix of the above
+Collect options from inline text, URLs (WebFetch), or file paths (Read).
 
-For each option, identify:
-- `name`: Short identifying label
-- `source`: text / url / file
-- `type`: What kind of thing this is (tool, approach, design, plan, library, etc.)
+- `gap`: one option sufficient
+- `fit` and `trade-off`: require at least 2 options
 
-**Minimum options by strategy:**
-- `gap`: one option is sufficient — the gap is measured against a standard or best practice, not another option. Proceed.
-- `fit` and `trade-off`: require at least 2 options. If only one is provided, ask for a second before proceeding.
-
-**3+ options (fit and trade-off):** Ask if the user wants to narrow to a 2-option shortlist first. If they prefer to continue with 3+, proceed — the output will be wider but the format still works.
-
-**If a URL fetch fails:** mark that source as UNAVAILABLE and continue with the remaining options. Do not abort.
-
-**Fit strategy only — capture context here, before dimension extraction:**
-> "To score fit accurately, tell me:
-> - What are your key constraints? (existing stack, team skills, timeline, budget, etc.)
-> - What does a good outcome look like for this decision?"
-
-Wait for the response, then proceed to Phase 2 with context in hand.
+**Fit only** — capture context before dimension extraction:
+> "What are your key constraints (stack, team skills, timeline)? What does a good outcome look like?"
 
 ---
 
 ## Phase 2 — Dimension Extraction
 
-**Do not use a fixed template.** Extract evaluation dimensions from the source material.
+Extract from source material, not a fixed template. Produce 4–8 dimensions where options actually differ.
 
-**For `gap` strategy:** Extract dimensions from the subject being analyzed — what properties, qualities, or requirements would a complete version of this thing need to address? Use a standard, best practice, or spec as the reference frame, not another option.
-
-**For `fit` and `trade-off` strategies:** Extract dimensions from the options themselves. Identify the most meaningful axes of difference between these specific options. Prefer dimensions where options actually differ — dimensions identical across all options add no analytical value.
-
-In all cases: produce 4–8 dimensions, each with a short name and one-sentence description. Keep the asymmetric comparison rule in mind — design dimensions knowing that one option may be silent on a feature.
-
-Show the proposed dimensions to the user before scoring:
-> "Here are the dimensions I'll evaluate. Add, remove, or rename any before I proceed:
-> 1. [Dimension name] — [what it measures]
-> 2. ..."
-
-Wait for confirmation or adjustment, then continue to Phase 3.
+Show dimensions to the user and wait for confirmation before scoring.
 
 ---
 
 ## Phase 3 — Scoring
 
-For each option × dimension cell:
-1. Determine the value from source material only — do not invent
-2. Assign a confidence level (see Confidence levels above)
-3. Apply the asymmetric comparison rule: absent from source = UNKNOWN, not NO
+For each option × dimension cell: derive value from source only, assign confidence level, apply asymmetric comparison rule.
 
 ---
 
 ## Phase 4 — Strategy Report
 
-Execute the output format for the detected strategy.
-
----
-
-### Strategy: `gap`
-
-**Use when:** User presents one thing (a design, plan, implementation, proposal) and wants to know what's missing relative to a standard, best practice, or expected completeness.
+### `gap`
 
 ```
 ## Gap Analysis: [Subject]
 
 ### What's covered well
-[Brief summary — 2-4 sentences — of what the subject does well or addresses completely.]
+[2-4 sentences on what the subject addresses completely.]
 
 ### Gaps
 | Gap | Severity | Why it matters |
 |-----|----------|----------------|
-| [Missing thing] | Critical | [Specific consequence of absence] |
-| [Missing thing] | Important | [Specific consequence of absence] |
-| [Missing thing] | Minor | [Specific consequence of absence] |
+| [Missing thing] | Critical | [Specific consequence] |
+| [Missing thing] | Important | [Specific consequence] |
+| [Missing thing] | Minor | [Specific consequence] |
 
-Severity key:
-- **Critical** — absence breaks correctness, security, or completeness
-- **Important** — meaningful weakness but not fatal
-- **Minor** — nice to have, low impact if absent
+Severity: Critical = breaks correctness/security/completeness · Important = meaningful weakness · Minor = low impact
 
 ### Recommended additions
-[Prioritized list. For each: what to add, why, and one sentence on how to approach it.
-Order by severity descending. Be concrete — name specific things, not vague categories.]
+[Prioritized list. What to add, why, how to approach. Order by severity.]
 ```
 
----
-
-### Strategy: `fit`
-
-**Use when:** User needs to choose between options for a specific context (their stack, team, constraints, goals). User context was already captured in Phase 1.
+### `fit`
 
 ```
 ## Fit Analysis: [Option A] vs [Option B] vs ...
 
 ### Your context
-[Restate the constraints and success criteria as understood — 2-4 sentences.
-If anything is ambiguous, flag it here.]
+[Restate constraints and success criteria. Flag ambiguities.]
 
 ### Fit matrix
 | Dimension | [Option A] | [Option B] | Weight |
@@ -188,26 +135,17 @@ If anything is ambiguous, flag it here.]
 | [Dim 2]   | ❌ Weak (CONF) | ✅ Strong (CONF) | Medium |
 | [Dim 3]   | UNKNOWN | ✅ Strong (CONF) | Low |
 
-Fit scoring rubric (applied against the user's stated constraints):
-- ✅ Strong — fully meets this constraint or priority
-- ⚠️ Partial — partially meets; has trade-offs or gaps
-- ❌ Weak — does not meet this constraint
-
-Confidence: CONF = confirmed from source  INF = inferred  UNKNOWN = not mentioned
+✅ Strong = fully meets constraint · ⚠️ Partial = gaps/trade-offs · ❌ Weak = does not meet
+CONF = confirmed · INF = inferred · UNKNOWN = not mentioned
 
 ### Recommendation
-**[Option name]** is the best fit for your context because [specific rationale
-tied to their stated constraints and high-weight dimensions].
+**[Option]** is the best fit because [rationale tied to stated constraints].
 
 ### When you'd reconsider
-[Conditions under which the other option(s) would be the right choice — be specific.]
+[Specific conditions under which another option wins.]
 ```
 
----
-
-### Strategy: `trade-off`
-
-**Use when:** User is choosing between options and wants to understand what they sacrifice with each choice. This report surfaces values and costs — it deliberately does **not** declare a winner.
+### `trade-off`
 
 ```
 ## Trade-off Analysis: [Option A] vs [Option B] vs ...
@@ -216,93 +154,48 @@ tied to their stated constraints and high-weight dimensions].
 | Dimension | [Option A] | [Option B] |
 |-----------|-----------|-----------|
 | [Dim 1]   | value (CONF) | value (INF) |
-| [Dim 2]   | value (CONF) | UNKNOWN |
 
 ### What you gain / lose with each option
 
 **[Option A]**
-- Gains: [what this choice optimizes for — specific, not vague]
-- Costs: [what you give up — specific, not vague]
-
-**[Option B]**
-- Gains: [what this choice optimizes for]
+- Gains: [what this optimizes for]
 - Costs: [what you give up]
 
-[Repeat for each option.]
+**[Option B]**
+- Gains: [...]
+- Costs: [...]
 
 ### The core tension
-[1–2 sentences naming the fundamental value conflict between the options.
-Example: "This is a choice between delivery speed and long-term maintainability."]
+[1-2 sentences naming the fundamental value conflict.]
 
 ### Decision heuristic
-Choose **[Option A]** if [X] matters more to you.
-Choose **[Option B]** if [Y] matters more to you.
-[Repeat for each option.]
+Choose **[Option A]** if [X] matters more.
+Choose **[Option B]** if [Y] matters more.
 ```
 
-The trade-off report does not name a winner. The point is to surface the values conflict and leave the decision with the user.
+The trade-off report does not name a winner.
 
 ---
 
 ## Phase 5 — Key Unknowns
 
-If any UNKNOWN cells are present, include this section after the strategy report. Omit it entirely if there are no UNKNOWN cells.
+If UNKNOWN cells exist, add:
 
 ```
 ## Key unknowns
-
-These gaps in the source material could change the analysis:
-
-- If **[Option X]** supports [feature/dimension], it would [strengthen / weaken] the
-  [recommendation / tension] because [specific reason].
-[One entry per UNKNOWN cell that is materially relevant to the conclusion.]
+- If **[Option X]** supports [feature], it would [strengthen/weaken] the [conclusion] because [reason].
 ```
 
----
-
-## Phase 6 — Follow-up Offer
-
-After the report and key unknowns, offer:
-> "Want me to dig deeper into any specific dimension? Or run `ideate:reality-check` on the leading option?"
+Omit entirely if no UNKNOWN cells.
 
 ---
 
-## Design Principles
+## Phase 6 — Follow-up offer
 
-**Dimensions from the material, not a template.** Fixed templates miss domain-specific differentiators. Extracting from the source catches what actually matters for this specific decision.
-
-**Strategy shapes the output.** Each strategy answers a different question:
-- Gap → *what's missing?*
-- Fit → *what's right for me specifically?*
-- Trade-off → *what do I give up?*
-
-**Trade-off deliberately withholds a winner.** The point is to surface values, not to substitute for the user's judgment.
-
-**Gap works with a single option.** Gap analysis compares against a standard or best practice — it does not require a second option.
-
-**Fit needs context before dimensions.** Dimensions extracted without knowing the user's constraints may not illuminate the choice points that matter. Capture context in Phase 1.
+> "Want me to dig deeper into any dimension? Or run `ideate:reality-check` on the leading option?"
 
 ---
 
-## Obsidian Storage
+## Obsidian storage
 
-After producing output, archive to the Neurons vault for long-term memory.
-
-1. **Determine topic slug**: convert the comparison topic to kebab-case
-   (e.g. "API authentication options" → `api-authentication-options`)
-
-2. **Determine vault path**: read `obsidian-rules.md` from the workflow plugin references
-   (`~/.claude/plugins/cache/local/workshop/*/references/obsidian-rules.md`) to confirm
-   correct placement. Default: `Research/<topic>/<YYYY-MM-DD>-<comparison-name>.md`
-
-3. **Write to vault**:
-   ```bash
-   VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
-   DEST_PATH="Research/<topic>/<YYYY-MM-DD>-<comparison-name>.md"
-   mkdir -p "$VAULT_ROOT/$(dirname "$DEST_PATH")"
-   cat > "$VAULT_ROOT/$DEST_PATH" << 'EOF'
-   <output-content>
-   EOF
-   ```
-
-4. **Confirm**: "Saved to Neurons: Research/<topic>/<YYYY-MM-DD>-<comparison-name>.md"
+Archive to `$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}/Research/<topic>/<YYYY-MM-DD>-<comparison-name>.md`. Confirm path.

@@ -19,16 +19,11 @@ allowed-tools: Read, Write
 
 # Frame
 
-Turn a fuzzy topic into a sharp, falsifiable question. The **front** of the research arc
-(`frame → gather → understand → synthesize → interrogate → experiment → teach`): it runs first
-when it runs at all, and it is deliberately cheap. Framing was formerly buried in seminar's Step 1;
-it is now its own verb so a vague goal gets sharpened *before* any sources are gathered.
+Turn a fuzzy topic into a sharp, falsifiable question. The **front** of the research arc. Cheap
+and fast by design — framing is a setup, not a deliverable.
 
-**Stance:** facilitator — you ask the sharpening questions and reflect the user's answers back
-into a tighter question. You do **not** answer the research question yourself; that is what the
-rest of the arc is for.
-**Model & fan-out:** solo, **Haiku**. Framing is light reasoning over a short input — no notebook,
-no fan-out.
+**Stance:** facilitator — ask the sharpening questions and reflect the user's answers back into a
+tighter question. Do not answer the research question; that is what the rest of the arc is for.
 
 ---
 
@@ -39,36 +34,31 @@ no fan-out.
 
 ## Preflight
 
-1. Check context for a topic or goal already in play. If present, use it.
+1. Check context for a topic or goal. If present, use it.
 2. Else check for a topic passed as an arg.
-3. Else (rare) **FAIL FAST**: "What's the topic you want to frame?" Stop.
-
-This verb rarely fails its contract — almost any phrase is a framable topic. The work is
-*sharpening* it, not finding it.
+3. Else **FAIL FAST**: "What's the topic you want to frame?" Stop.
 
 ---
 
 ## Process
 
-Work the topic down to a question the rest of the arc can actually act on. Four moves:
+Four moves:
 
 ### 1. Find the real question
 
 A topic ("Drupal caching") is not a question. Push until you have a question with a verb and a
-decidable answer ("Does cache-tag granularity below the node level measurably improve CDN survival
-after an edit, or just add invalidation overhead?"). Ask the user one or two pointed questions if
-the intent is ambiguous — prefer a reasonable inference the user can correct over an interrogation.
+decidable answer. Ask one or two pointed questions if intent is ambiguous — prefer a reasonable
+inference the user can correct over an interrogation.
 
 ### 2. Draw the scope line
 
-State explicitly what is **in** scope and what is **out**. The out-of-scope list is the more
-valuable one — it is what stops `gather` from dragging in 40 tangential sources.
+State explicitly what is **in** scope and what is **out**. The out-of-scope list is more valuable —
+it prevents `gather` from dragging in 40 tangential sources.
 
 ### 3. Surface the assumptions
 
-List the assumptions the question is carrying ("assumes the CDN honors `s-maxage`", "assumes edits
-are the dominant invalidation event"). These become things later verbs test rather than inherit
-silently.
+List the assumptions the question is carrying. These become things later verbs test rather than
+inherit silently.
 
 ### 4. Write the falsification criteria
 
@@ -80,8 +70,7 @@ of a movable one.
 
 ## Output
 
-A short framed-question record — present inline, and write `01-frame.md` to the engagement
-directory when one exists:
+Write `01-frame.md` to the engagement directory when one exists (otherwise present inline):
 
 ```markdown
 # Frame: <topic>
@@ -102,15 +91,11 @@ directory when one exists:
 - ...
 ```
 
-Keep it to a screen. Framing is a setup, not a deliverable.
-
 ---
 
 ## Chaining
 
-Frame is the setup; it hands a sharp question to the gathering/digesting verbs. Suggest (never auto-invoke):
+Suggest (never auto-invoke):
 
-- **After frame** → `research-lab:gather` to collect sources against the framed question (the typical next move).
-- **After frame** → `research-lab:understand` if the material already exists and only needs digesting against the new question.
-
-If the user has the `ideate` plugin installed, `ideate:brainstorm` is also a reasonable next step when the framed question is really an idea to generate against rather than a corpus to research.
+- **After frame** → `research-lab:gather` to collect sources against the framed question (typical next move).
+- **After frame** → `research-lab:understand` if the material already exists and only needs digesting.

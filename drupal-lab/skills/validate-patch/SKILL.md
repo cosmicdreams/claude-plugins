@@ -7,34 +7,36 @@ description: Validate a Drupal patch or merge request against all quality gates.
 
 Run all quality gates on a Drupal implementation in a worktree using DDEV.
 
-**Important**: All phpcs/phpstan/phpunit commands must run inside DDEV containers. See `/ddev` skill for full DDEV reference.
+All phpcs/phpstan/phpunit commands run inside DDEV containers. See `drupal-lab:ddev` for the
+full command reference.
 
 ## Input
 
 - Worktree path (e.g., `worktrees/2901667`)
 - Optional: specific files to validate (defaults to all changed files)
 
-## Context Awareness
-**Important**: Resolve the active project root from `~/.claude/drupal-lab.json` before running any commands. See `drupal-lab/references/project-context.md` for the resolution steps. All relative paths (`./worktrees/...`) are relative to that root. If inside a worktree (`..../worktrees/1234`), `cd ../..` to return to the project root.
+Resolve project root from `~/.claude/drupal-lab.json`. See `drupal-lab/references/project-context.md`.
 
 ## Prerequisites
 
-DDEV must be set up and running in the worktree. Follow `/process-lifecycle` skill Phase 1 (INIT) and Phase 2 (READY CHECK) to bootstrap the environment. That skill handles DDEV setup, unique naming, slot management, and health verification.
+DDEV must be running. Follow `drupal-lab:process-lifecycle` to bootstrap and verify the
+environment. Check readiness:
 
-If DDEV is already running, verify readiness:
 ```bash
 cd ./worktrees/{issue_number}
 STATUS=$(ddev describe --json-output 2>/dev/null | jq -r '.raw.status')
 [ "$STATUS" = "running" ] && echo "READY" || echo "Run: ddev start (status: $STATUS)"
 ```
 
-When validation is complete, follow `/process-lifecycle` Phase 4 (SHUTDOWN) to release the DDEV slot.
+---
 
 ## Phase 0: Test Design Review (BEFORE DDEV)
 
-**Purpose**: Catch test design issues statically before spinning up DDEV. This phase runs without infrastructure and prevents the most common validation failures (50% of failures in session 2026-02-16 were test design, not code regression).
+**Purpose**: Catch test design issues statically before spinning up DDEV. This phase runs
+without infrastructure and prevents the most common validation failures (50% of failures in
+session 2026-02-16 were test design, not code regression).
 
-**Time**: 5-10 minutes. **No DDEV required.**
+**Time**: 5–10 minutes. No DDEV required.
 
 ### 0.1 Identify Changed Test Files
 
@@ -43,7 +45,7 @@ cd ./worktrees/{issue_number}
 git diff --name-only main -- '*.php' | grep -i test
 ```
 
-If no test files changed, skip to Phase 0.5 (quick sanity check on non-test changes) then proceed to Workflow step 1.
+If no test files changed, skip to Phase 0.5 then proceed to the workflow.
 
 ### 0.2 Test Class Inheritance Check
 
@@ -57,20 +59,15 @@ Review the base class of each changed test. Common pitfalls:
 | `KernelTestBase` | Service container assumptions | Verify services referenced in test still exist after patch |
 | `UnitTestCase` | No Drupal bootstrap | Ensure no `\Drupal::` calls in test or tested code |
 
-**Action**: Read each test file, then use LSP to trace the inheritance chain and understand inherited behavior.
+Read each test file, then use LSP to trace the inheritance chain:
 
 ```
-# Find where the base class is defined (position cursor on the class name after "extends")
 LSP(operation: "goToDefinition", filePath: "path/to/TestFile.php", line: <extends-line>, character: <class-name-col>)
-
-# List all methods in the base class (setUp, tearDown, assertions, helpers)
 LSP(operation: "documentSymbol", filePath: "path/to/BaseClass.php", line: 1, character: 1)
-
-# Check what a specific inherited method does (hover for signature + docblock)
 LSP(operation: "hover", filePath: "path/to/BaseClass.php", line: <method-line>, character: <method-col>)
 ```
 
-Fall back to grep if the LSP server is unavailable:
+Fall back to grep if LSP is unavailable:
 ```bash
 grep -n 'extends\s' path/to/TestFile.php
 grep -n 'function setUp\|function tearDown\|function assert' path/to/BaseClass.php
@@ -89,7 +86,7 @@ Review all assertions in changed tests for patterns that break under normal Drup
 | `$this->drupalGet('/admin/...')` then assert 200 | Assumes admin user has permission | Verify test user has required permissions |
 | `waitForElement('.class', 5000)` | Hardcoded timeout too short for CI | Use `$this->assertSession()->waitForElementVisible()` with reasonable timeout |
 
-**Action**: Flag any assertions matching these patterns. Propose fixes BEFORE running tests.
+Flag any assertions matching these patterns. Propose fixes before running tests.
 
 ### 0.4 Test Setup Dependencies Check
 
@@ -122,10 +119,11 @@ Even if no test files changed, verify:
 **Fail (fix before DDEV):**
 - Document each issue found
 - Propose specific fixes
-- Send fixes to developer BEFORE spinning up DDEV
+- Send fixes to developer before spinning up DDEV
 - Report: `phase0 fail | [issue list] | fixes proposed`
 
-**Expected Impact**: Catching these issues saves 20-30 min of DDEV spin-up, test execution, debugging, and re-testing per failure. Target: 80%+ first-pass validation rate (baseline: 56%).
+**Expected Impact**: Catching these issues saves 20–30 min of DDEV spin-up, test execution,
+debugging, and re-testing per failure. Target: 80%+ first-pass validation rate (baseline: 56%).
 
 ---
 
@@ -140,57 +138,47 @@ git diff --name-only main
 
 ### 2. Coding Standards (PHPCS)
 
-From the worktree with DDEV running:
 ```bash
-cd ./worktrees/{issue_number}
 ddev exec composer phpcs -- path/to/changed/file1.php path/to/changed/file2.php
 ```
 
-**Pass criteria**: Zero errors. Warnings are acceptable.
+Pass criteria: zero errors. Warnings are acceptable.
 
-To auto-fix:
+Auto-fix:
 ```bash
 ddev exec composer phpcbf -- path/to/file.php
 ```
 
+For verbose output, rtk proxying is optional:
+```bash
+command -v rtk >/dev/null && rtk ddev exec composer phpcs -- <files> || ddev exec composer phpcs -- <files>
+```
+
 ### 3. Static Analysis (PHPStan)
 
-Run phpstan on changed files to catch type errors and incorrect API usage:
 ```bash
-cd ./worktrees/{issue_number}
 ddev exec vendor/bin/phpstan analyze --configuration=./core/phpstan.neon.dist path/to/changed/file1.php path/to/changed/file2.php
 ```
 
-**Pass criteria**: Zero errors.
+Pass criteria: zero errors.
 
 ### 3.5 Snapshot Before Tests
 
-Create a database snapshot before running PHPUnit. Functional and FunctionalJavascript tests mutate the database — a snapshot allows instant rollback between test suites or on retry.
-
 ```bash
-cd ./worktrees/{issue_number}
 ddev snapshot --name=pre-test
 ```
 
-To restore (e.g., before a retry or between test suites):
-```bash
-ddev snapshot restore pre-test
-```
+Restore before a retry: `ddev snapshot restore pre-test`
 
 ### 4. PHPUnit Tests
 
-Unit and Kernel tests (no browser required):
 ```bash
-cd ./worktrees/{issue_number}
 ddev phpunit core/modules/{module}/tests/
 ```
 
-By group (run from the worktree directory):
-```bash
-ddev phpunit --group settings_tray
-```
+By group: `ddev phpunit --group settings_tray`
 
-Functional and FunctionalJavascript tests require `SIMPLETEST_BASE_URL` and `SIMPLETEST_DB`. Use `ddev exec` to set them:
+Functional and FunctionalJavascript tests:
 ```bash
 ddev exec -d /var/www/html env \
   SIMPLETEST_BASE_URL="http://drupal-{ISSUE}.ddev.site" \
@@ -198,30 +186,15 @@ ddev exec -d /var/www/html env \
   vendor/bin/phpunit core/modules/{module}/tests/src/FunctionalJavascript/
 ```
 
-Replace `{ISSUE}` with the worktree DDEV instance name (e.g. `drupal-3274086`).
-
-By specific test file:
-```bash
-ddev exec -d /var/www/html env \
-  SIMPLETEST_BASE_URL="http://drupal-{ISSUE}.ddev.site" \
-  SIMPLETEST_DB="sqlite://localhost/sites/default/files/.ht.sqlite" \
-  vendor/bin/phpunit core/modules/settings_tray/tests/src/FunctionalJavascript/SettingsTrayBlockFormTest.php
-```
-
 ### 4.5 On Test Failure: Check Container Logs
 
-When PHPUnit returns a cryptic failure (segfault, connection refused, blank output), check the container logs — PHP-FPM errors, OOM kills, and Apache crashes show up here but not in PHPUnit output.
-
 ```bash
-cd ./worktrees/{issue_number}
-# Last 50 lines of web container logs (PHP-FPM + Apache)
 ddev logs | tail -50
-
-# If database-related failure, check db container too
 ddev logs -s db | tail -30
 ```
 
 Common container-level failures:
+
 | Log Pattern | Meaning | Action |
 |------------|---------|--------|
 | `Killed` or `oom-kill` | Container ran out of memory | Reduce test scope, run suites sequentially |
@@ -229,31 +202,17 @@ Common container-level failures:
 | `Connection refused` on :4444 | Chrome webdriver died | `ddev restart`, retry |
 | `No space left on device` | Docker disk full | `docker system prune`, then retry |
 
-After diagnosing and fixing, restore the pre-test snapshot before retrying:
-```bash
-ddev snapshot restore pre-test
-```
+After diagnosing, restore the snapshot before retrying: `ddev snapshot restore pre-test`
 
 ### 5. Test Coverage Check
 
-Verify that:
-- New code has corresponding test coverage
-- Existing tests still pass
-- No regressions introduced
+Verify new code has corresponding test coverage and existing tests still pass.
 
 ### 6. Report Results
 
-Use team-comms-protocol format:
+Pass: `val pass | phpcs: ok | phpstan: ok | phpunit: ok | cov: ok`
 
-**Pass:**
-```
-val pass | phpcs: ok | phpstan: ok | phpunit: ok | cov: ok
-```
-
-**Fail:**
-```
-val fail | phpcs: 3 errors (file.php:45,67,89) | needs fix
-```
+Fail: `val fail | phpcs: 3 errors (file.php:45,67,89) | needs fix`
 
 ## Quality Gates Summary
 
@@ -264,12 +223,3 @@ val fail | phpcs: 3 errors (file.php:45,67,89) | needs fix
 | Unit Tests | `ddev phpunit --testsuite unit` | All pass |
 | Module Tests | `ddev phpunit core/modules/{module}/tests/` | All pass |
 | Coverage | Manual review | New code covered |
-
-## Common Issues
-
-- **PHPCS line length**: Max 80 chars for comments, exceptions for code
-- **Missing use statements**: PHPCS will flag unused or missing imports
-- **Test method naming**: Must start with `test` prefix
-- **Namespace issues**: PSR-4 autoloading must match directory structure
-- **Container not running**: Run `ddev start` from a worktree with `.ddev/`
-- **phpunit not found**: Run `ddev composer install` first
