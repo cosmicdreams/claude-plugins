@@ -22,10 +22,10 @@ Produces `.zip` archives distributable via Claude Desktop Personal Plugins uploa
 
 ```bash
 # One plugin
-zsh "${CLAUDE_PLUGIN_ROOT}/admin/scripts/package-plugin.sh" <plugin-name>
+zsh "${CLAUDE_PLUGIN_ROOT}/scripts/package-plugin.sh" <plugin-name>
 
 # All plugins
-zsh "${CLAUDE_PLUGIN_ROOT}/admin/scripts/package-plugin.sh" all
+zsh "${CLAUDE_PLUGIN_ROOT}/scripts/package-plugin.sh" all
 ```
 
 Output: `dist/<plugin-name>.zip` at the repo root. Each archive has `.claude-plugin/` at its root — the structure Claude Desktop expects.

@@ -4,7 +4,7 @@ set -euo pipefail
 # Usage: package-plugin.sh <plugin-name|all>
 # Packages plugin(s) as Desktop-distributable .zip archives in dist/
 
-repo_root="$(cd "$(dirname "$0")/../../.." && pwd)"
+repo_root="$(cd "$(dirname "$0")/../.." && pwd)"
 dist_dir="$repo_root/dist"
 mkdir -p "$dist_dir"
 

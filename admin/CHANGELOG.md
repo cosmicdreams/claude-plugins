@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.1 — 2026-06-10 — package-plugin.sh path fixes
+
+- **package**: fixed `repo_root` resolution in `package-plugin.sh` — script lives two levels below the repo root, not three, so every plugin was skipped with "no .claude-plugin directory found"
+- **package**: fixed doubled plugin-root path in SKILL.md usage (`${CLAUDE_PLUGIN_ROOT}/admin/scripts/...` → `${CLAUDE_PLUGIN_ROOT}/scripts/...`)
+
 ## 3.0.0 — 2026-06-10 — Fable-era rewrite
 
 - **agent-team**: supersedes `feature/agent-team-refresh` branch; corrected stale SendMessage syntax (`type=`/`recipient=`/`content=` → `{to, summary, message}`); added Step 0 routing table (parallel Agent calls vs. Workflow vs. team)
