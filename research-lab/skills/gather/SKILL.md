@@ -20,12 +20,16 @@ allowed-tools: Bash, Read, Write, Agent, Workflow
 
 # Gather
 
-Collect and curate knowledge via NotebookLM + deep web research. The **librarian** of the research arc (`frame → gather → understand → synthesize → interrogate → experiment → teach`): it brings material *in*. It does not digest that material — that is `understand`. Works fully standalone.
+Collect and curate knowledge via NotebookLM and deep web research. The **librarian** of the
+research arc (`frame → gather → understand → synthesize → interrogate → experiment → teach`):
+it brings material *in*. It does not digest that material — that is `understand`.
 
-**Stance:** librarian — comprehensive collection, then ruthless curation. **Notebook persona:** `notebooklm configure --mode default`.
+**Stance:** librarian — comprehensive collection, then ruthless curation.
+**Notebook persona:** `notebooklm configure --mode default`.
 
-**NotebookLM command-line interface reference:** `${CLAUDE_PLUGIN_ROOT}/skills/gather/references/notebooklm-cli.md`
-**NotebookLM scripts:** `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-*.sh` — use these instead of calling `notebooklm` directly. They encode the correct command-line interface syntax.
+**NotebookLM CLI reference:** `${CLAUDE_PLUGIN_ROOT}/skills/gather/references/notebooklm-cli.md`
+**NotebookLM scripts:** `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-*.sh` — use these instead of calling
+`notebooklm` directly; they encode correct CLI syntax and retry degraded answers.
 
 ---
 
@@ -36,110 +40,40 @@ Collect and curate knowledge via NotebookLM + deep web research. The **librarian
 
 ## Preflight
 
-1. Check context for a framed question or topic already in play (e.g. output of `frame`). If present, use it.
+1. Check context for a framed question or topic already in play. If present, use it.
 2. Else check for a topic/question passed as an arg.
-3. Else **FAIL FAST**: "Give me a topic or question to research. If it's still fuzzy, run `frame` first to sharpen it." Stop. Do **not** invoke another skill.
+3. Else **FAIL FAST**: "Give me a topic or question to research. If it's still fuzzy, run `frame` first." Stop.
 
-Then run the dependency preflight below.
-
----
-
-## Dependency preflight (run after the input contract passes)
-
-Passive dependency check. It **never blocks and never prompts** — it auto-applies
-safe remedies (e.g. injecting Playwright into the pipx venv) and only *reports*
-anything that needs you (interactive login). Run it and glance at the output; do
-not gate the engagement on it.
+Run the dependency preflight (passive, never blocks):
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-preflight.sh
 ```
 
 - `auth: EXPIRED` → tell the user to run `notebooklm login` once, then continue.
-- `playwright: missing` lines are auto-fixed when the command-line interface is pipx-managed.
-- No version check here on purpose — that is end-of-run guidance (see Phase 5).
-
-Set the notebook persona for gathering (collection posture, no special examiner framing):
-
-```bash
-notebooklm configure --mode default   # run once the notebook exists / before any ask
-```
-
----
-
-## Phase 0 — Resume Detection
-
-Check for an existing research session:
-
-```bash
-ENGAGEMENT_DIR="${ENGAGEMENT_DIR:-.}"
-test -f "$ENGAGEMENT_DIR/.research.json" && python3 -c "
-import json
-with open('$ENGAGEMENT_DIR/.research.json') as f:
-    d = json.load(f)
-print(d.get('status', 'none'))
-print(d.get('notebook_id', ''))
-print(d.get('title', ''))
-"
-```
-
-- `status: gathering` → research still running. Check with `notebooklm research status -n NOTEBOOK_ID`.
-- `status: ready` → sources imported. Skip to Phase 3 (Source Review).
-- `status: synthesized` → already done. Report and offer to re-query.
-- Otherwise → start fresh at Phase 1.
+- Auto-fixes Playwright when the CLI is pipx-managed; surface anything that needs user action.
 
 ---
 
 ## Phase 1 — Intake
 
-Extract from the user's message or Principal Investigator's spawn prompt:
-- `topic`: research subject (notebook title and research query)
-- `seed_urls`: starting point URLs (0 or more)
-- `focus`: specific angle or constraints
-- `notebook_id`: existing NotebookLM notebook to reuse (if provided)
+Extract: `topic`, `seed_urls`, `focus`, and optionally an existing `notebook_id` to reuse.
 
-### Check for reusable notebooks
-
-Before creating a new notebook, check if a relevant one already exists from a prior engagement. Topics like "Drupal cache optimization" or "CDN integration patterns" are project-agnostic — the same reference material applies across projects.
+Before creating a new notebook, check whether one already exists for the domain:
 
 ```bash
-# List existing notebooks
 notebooklm list 2>/dev/null | grep -i "<topic keywords>"
 ```
 
-If an existing notebook covers the same domain, reuse it by passing its ID. You can still add project-specific seed URLs as new sources. Only create a new notebook if no relevant one exists.
+If an existing notebook covers the same domain, reuse it — add project-specific URLs as new sources.
 
-**Defaults:**
-- Research mode: **deep** (20+ sources)
-- Research source: **web**
-- Notebook title: `"Research: <topic>"`
-
-Write session state:
-
-```bash
-python3 -c "
-import json
-state = {
-    'version': '1.0',
-    'title': 'Research: TOPIC',
-    'topic': 'TOPIC',
-    'focus': 'FOCUS',
-    'seed_urls': [],
-    'notebook_id': '',
-    'status': 'creating'
-}
-with open('$ENGAGEMENT_DIR/.research.json', 'w') as f:
-    json.dump(state, f, indent=2)
-"
-```
+**Defaults:** research mode `deep` (20+ sources), source `web`, title `"Research: <topic>"`.
 
 ---
 
 ## Phase 2 — Build the Notebook
 
-### Option A: New notebook (no existing notebook)
-
-Use the setup script to create, seed, and fire research in one step:
+### Option A: New notebook
 
 ```bash
 NOTEBOOK_ID=$(${CLAUDE_PLUGIN_ROOT}/scripts/notebook-setup.sh "Research: TOPIC" \
@@ -147,85 +81,40 @@ NOTEBOOK_ID=$(${CLAUDE_PLUGIN_ROOT}/scripts/notebook-setup.sh "Research: TOPIC" 
   --research "TOPIC FOCUS" --no-wait)
 ```
 
-Update `.research.json` with the notebook ID and set status to `gathering`.
-
 ### Option B: Existing notebook
 
-If the user provided a notebook ID, skip creation. Set it in `.research.json` and proceed to Phase 3.
+Use the provided notebook ID. Proceed to Phase 3.
 
-### Wait for research (if --no-wait was used)
+### Wait for research
 
-Deep research takes 15–30 minutes. Run the wait as a **harness-tracked background Bash
-task** (`run_in_background: true`) — the harness re-invokes the session on completion, so
-there is no need to `ScheduleWakeup`-poll. Do **not** spawn a subagent just to block on a wait.
+Deep research takes 15–30 minutes. Run as a **background Bash task** (`run_in_background: true`) —
+the harness re-invokes on completion:
 
 ```bash
-# Bash tool call with run_in_background: true
 notebooklm research wait --import-all -n NOTEBOOK_ID
-# --import-all belongs HERE, on the wait — it cannot combine with the --no-wait that
-# fired the research. Without it, the web user interface leaves an "Add sources?" modal open.
 ```
 
-When the background task completes, the session resumes: run
-`notebooklm source list -n NOTEBOOK_ID --json`, count sources with `status=ready`, and
-update `$ENGAGEMENT_DIR/.research.json` to `status='ready', source_count=N`.
-
-Tell the user: research is running (15–30 minutes). Offer to add more URLs while waiting.
+`--import-all` belongs on the `research wait`, not the `--no-wait` that fired it.
 
 ---
 
-## Phase 3 — Source Review (dedup, then prune)
+## Phase 3 — Source review (optional dedup, then prune)
 
-Deep research **always** produces duplicates and tangential sources. Two passes:
-
-### 3a. Dedup — automatic (no user input)
-
-NotebookLM duplicates because `--import-all` re-imports seed URLs the research pass
-rediscovers, and because the same page arrives under trailing-slash / `#fragment` /
-`?query` variants. Just remove them — this needs no judgement:
-
+Dedup (automatic):
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-dedup.sh NOTEBOOK_ID --apply
 ```
 
-### 3b. Relevance prune — propose, user approves
-
-List what remains, then propose cuts grouped by reason (off-topic, low-quality,
-tangential cluster). Do NOT silently delete on relevance — that is judgement:
-
+Relevance prune — list sources, propose cuts grouped by reason, user approves. Do not silently
+delete on relevance judgement:
 ```bash
 notebooklm source list -n NOTEBOOK_ID --json
-```
-
-> "Deduped to N. I'd also cut these M as off-topic/tangential: <grouped list>.
->  Reply 'prune' to cut them, 'keep all' to synthesize as-is, or name any to keep."
-
-Apply approved removals:
-```bash
 notebooklm source delete SOURCE_ID -n NOTEBOOK_ID --yes
-```
-
-Add any missing URLs the user names:
-```bash
-notebooklm source add "URL" -n NOTEBOOK_ID --type url --json
 ```
 
 ---
 
 ## Phase 4 — Source summary
-
-`gather` produces a **structured source summary** — a map of what was collected, not a formed
-position. Forming a position is `synthesize`'s job; deeply digesting the sources is `understand`'s.
-Keep this query descriptive ("what do the sources cover") rather than argumentative.
-
-Run a structured summary query using the ask script:
-
-```bash
-${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh NOTEBOOK_ID \
-  "Summarize the key themes, best practices, and important distinctions across all sources on: TOPIC FOCUS. Structure: (1) core concepts, (2) common patterns, (3) known pitfalls or debates."
-```
-
-Save the summary as a notebook note:
 
 ```bash
 ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh NOTEBOOK_ID \
@@ -235,52 +124,27 @@ ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh NOTEBOOK_ID \
 
 ### Optional — facet fan-out (broad topics only)
 
-When the topic is broad and benefits from parallel coverage, map facet queries to a Workflow
-`pipeline()` (no barrier), one Haiku agent per facet. This is the documented parallel-coverage
-shape; only reach for it on a wide topic — a narrow one is cheaper queried directly. Invoking
-`Workflow` here is legitimate because the user invoked this skill, but the call must be explicit.
+For a wide topic, map facet queries to a Workflow fan-out via `scriptPath`:
+
+```
+scriptPath: ${CLAUDE_PLUGIN_ROOT}/skills/gather/scripts/gather-facets.js
+args: { topic, facets: [{key, query}], notebookId }
+```
+
+Only reach for this on a genuinely broad topic — a narrow one is cheaper queried directly.
+
+When headroom is present (`command -v headroom`), large fetched sources can be compressed before
+digestion to reduce context consumption.
 
 ---
 
 ## Phase 5 — Output
 
-Write `02-gather.md` to the engagement directory. Structure:
+Write `02-gather.md` to the engagement directory (notebook ID, source count, core concepts,
+common patterns, known pitfalls, key sources). Present inline when standalone.
 
-```markdown
-# Gather: TOPIC
-
-## Notebook
-- ID: NOTEBOOK_ID
-- Sources: N curated sources
-- Research mode: deep web
-
-## Core Concepts
-<from synthesis>
-
-## Common Patterns
-<from synthesis>
-
-## Known Pitfalls and Debates
-<from synthesis>
-
-## Key Sources
-<top 5 sources with brief descriptions>
-```
-
-Update `.research.json` status to `synthesized`.
-
-### Vault archival (standalone mode only)
-
-If running standalone (not inside a larger engagement), hand `02-gather.md` to `lib:vault-store` — it
-owns Obsidian placement (default `Research/<topic-slug>/<date>-gather.md`) and triggers in the right
-context. research-lab does not reimplement the vault write; the summary also stays in the engagement
-directory regardless.
-
-### Postflight (version guidance)
-
-Close with a check on the command-line interface's health. Informational only — surface it to the
-user so the tool is in better shape next time (catches the "stale local-source
-pipx install" trap where `pipx upgrade` silently does nothing):
+In standalone mode, hand `02-gather.md` to `lib:vault-store` for Obsidian archival. Close with
+the postflight version check:
 
 ```bash
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-postflight.sh
@@ -288,19 +152,7 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-postflight.sh
 
 ---
 
-## User Preferences
-
-- Always deep mode. Fast is for lookups, not research.
-- Web by default. Drive only when explicitly asked.
-- Seed first — add known URLs before firing research.
-- Review before synthesizing — show sources, let the user curate.
-- Save synthesis as a notebook note for later retrieval.
-
----
-
 ## Chaining
 
-`gather` brings material in; it does not digest or argue. Suggest the next step in prose (never auto-invoke):
-
-- **After gather** → `research-lab:understand` to digest the curated notebook into a shared mental model (the typical next move — pass the notebook id).
-- **After gather** → `research-lab:synthesize` if the goal is to go straight to a formed position from the source summary.
+- **After gather** → `research-lab:understand` to digest the curated notebook (typical next move).
+- **After gather** → `research-lab:synthesize` to go straight to a formed position.

@@ -1,6 +1,11 @@
 ---
-model: opus
+name: optimizer
+description: >
+  Autonomous hypothesis-driven performance optimization. Receives a target metric
+  and codebase, generates hypotheses from measurement output, tests each via the
+  experiment ratchet, and iterates without human checkpoints.
 tools: Read, Write, Edit, Bash, Grep, Glob, Skill
+color: orange
 ---
 
 # Optimizer

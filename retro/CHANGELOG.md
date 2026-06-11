@@ -1,5 +1,31 @@
 # Changelog
 
+## 4.0.0 — 2026-06-10
+
+### Breaking Changes
+
+- **`retro:interviews` rewritten from ceremony to schema.** The shutdown-imminent message flow is gone. Retro interview questions (C1-C3 common + role-specific D1-D3 / V1-V3) are now fields in the sprint Workflow output schema, collected inline by slice-workers and cross-reviewers. Results land in `results.json`, not in per-agent `.md` interview files.
+- **`subagent-stop-interview.sh` SubagentStop hook deleted.** Automated interview capture via SubagentStop was unreliable (fires at idle, not shutdown). Interviews are now inline schema fields — no hook needed.
+- **`hooks/hooks.json` emptied.** No active hooks remain.
+- **`interview-templates.md` deleted.** Question content preserved verbatim as schema field descriptions in the new `retro:interviews` SKILL.md.
+- **`retro:session` rewritten.** Reads `results.json` from sprint:run instead of per-agent interview files. Transcript compression via headroom (when present, reversible mode) before summarizing. Metrics computed from structured results, not JSONL grep. Seven-phase shape retained where each phase earns its keep.
+
+### Kept (light trim or unchanged)
+
+- **`retro:kanban`**: Verification gates, strategic rejection memory, dedup pass — all binding. Unchanged.
+- **`retro:transcript`**: Diagnostic transcript reader. Light description trim; Python helpers unchanged.
+- **`retro:session` references/**: report-structure.md, metrics-baseline.md, feedback-targets.md, action-card-template.md kept.
+- **Obsidian storage**: vault path conventions and frontmatter schema unchanged.
+- **KEEP/IMPROVE/LEARN taxonomy**: unchanged.
+- **User interview via AskUserQuestion** (Phase 3.5): mandatory, unchanged.
+- **Phase 7 user review of action cards**: mandatory, unchanged.
+
+### Interview Question Content (preserved verbatim as schema fields)
+
+Common (all roles): what_worked (C1), what_didnt (C2), one_change (C3)
+Slice-worker (developer): key_decision (D1), cross_issue_pattern (D2), workflow_friction (D3)
+Cross-reviewer: failure_root_cause (V1), handoff_quality (V2), infrastructure_friction (V3)
+
 ## 3.1.2
 - Update interview templates, SKILL.md, and SubagentStop hook: process-improvement → process-engineer
 

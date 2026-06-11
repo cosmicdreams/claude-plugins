@@ -29,15 +29,13 @@ Valid plugin names: `admin`, `sprint`, `retro`, `ideate`, `ideas-funnel`, `lib`,
 
 ## Procedure
 
-Parse `$ARGUMENTS` to extract plugin name and filter:
-
 ```bash
 ARGS="${ARGUMENTS:-}"
 PLUGIN=$(echo "$ARGS" | awk '{print $1}')
 FILTER=$(echo "$ARGS" | cut -s -d' ' -f2-)
 ```
 
-If `$PLUGIN` is empty, list what's installed and stop:
+If `$PLUGIN` is empty, list installed plugins and stop:
 
 ```bash
 echo "Available plugins:"
@@ -46,13 +44,13 @@ ls "$(dirname "$(dirname "${CLAUDE_PLUGIN_ROOT}")")" 2>/dev/null | sort
 
 Tell the user: "Which plugin's changelog would you like? E.g.: `admin:changelog sprint`"
 
-Otherwise run:
+Otherwise:
 
 ```bash
 bash "${CLAUDE_SKILL_DIR}/read-changelog.sh" "$PLUGIN" "${CLAUDE_PLUGIN_ROOT}" "${FILTER}"
 ```
 
-Print the script output exactly as-is — no summarizing, no reformatting.
+Print output exactly as-is.
 
 ## Filters
 
@@ -62,9 +60,3 @@ Print the script output exactly as-is — no summarizing, no reformatting.
 | `--latest` | Most recent version section only |
 | `--since X.Y.Z` | All versions after X.Y.Z (exclusive) |
 | `X.Y.Z` | That specific version's section |
-
-## Usage by agents
-
-Use `--since <known-version>` to find what changed since a prior encounter:
-
-> `admin:changelog sprint --since 2.5.0`

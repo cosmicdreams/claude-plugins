@@ -1,181 +1,128 @@
 ---
 name: admin:install
 description: >
-  Bootstrap office skill dependencies for the current environment. Detects whether
-  running on macOS (Homebrew) or a Linux sandbox (apt/pip/npm), scans all installed
-  plugin SKILL.md files for prerequisites, maps each dependency to the correct
-  install command, and installs what it can automatically. Use this skill whenever
-  Claude is in a fresh environment, when a skill fails because a CLI or package is
-  missing, when the user says "install", "setup", "bootstrap", or "get my tools
-  working", or when any office/research-lab skill reports a missing dependency.
-  Trigger proactively if you detect a missing tool while running another office skill.
+  Bootstrap skill dependencies for the current environment. Detects whether running on macOS
+  (Homebrew) or a Linux sandbox (apt/pip/npm), scans installed plugin SKILL.md files for
+  prerequisites, maps each dependency to the correct install command, and installs what it can
+  automatically. Use whenever Claude is in a fresh environment, when a skill fails because a CLI
+  or package is missing, when the user says "install", "setup", "bootstrap", or "get my tools
+  working", or when any workshop or research-lab skill reports a missing dependency. Trigger
+  proactively if you detect a missing tool while running another skill.
 ---
 
 # admin:install — Environment Bootstrap
 
-Detect the host environment and install the prerequisites for office and research-lab
-skills. The goal: after this skill runs, every other skill that *can* work in the
-current environment is ready to go.
+Detect the host environment and install prerequisites for all workshop and research-lab skills.
+After this skill runs, every skill that *can* work in the current environment is ready to go.
 
-## Quick overview
+## Steps
 
-1. Detect the environment (macOS with Homebrew, or Linux sandbox with apt/pip/npm)
-2. Scan office skill SKILL.md files to build a dependency manifest
-3. Map dependencies → install commands for the detected environment
-4. Install automatically where possible
-5. Flag tools that need post-install authentication
-6. Note tools that genuinely can't work in this environment and suggest workarounds
-
-## Step 1: Detect the environment
-
-Run the detection script:
+### 1. Detect the environment
 
 ```bash
-bash "${SKILL_DIR}/scripts/detect-env.sh"
+zsh "${CLAUDE_SKILL_DIR}/scripts/detect-env.sh"
 ```
 
-This prints a JSON object like:
+Prints a JSON object with `os`, `env_type`, `has_brew`, `has_apt`, `has_pip`, `has_npm`, `has_git`, `shell`.
 
-```json
-{
-  "os": "linux",
-  "env_type": "sandbox",
-  "has_brew": false,
-  "has_apt": true,
-  "has_pip": true,
-  "has_npm": true,
-  "has_git": true,
-  "shell": "bash"
-}
-```
+Two supported environments:
+- **macOS** (`os: "darwin"`) — Homebrew as primary package manager
+- **Linux sandbox** (`os: "linux"`) — `apt`, `pip`, `npm`; no Homebrew
 
-Use `env_type` to select the right install mapping. The two supported environments are:
+Windows: not yet supported. Print a notice and exit gracefully.
 
-- **macOS** (`os: "darwin"`) — Uses Homebrew as the primary package manager. Most
-  office skills were designed for this environment, so installs are straightforward.
-- **Linux sandbox** (`os: "linux"`) — Typically a Cowork VM or CI container. Has
-  `apt`, `pip`, and `npm` but no Homebrew. Some macOS-specific tools need alternative
-  packages or aren't available at all.
+### 2. Build the dependency manifest
 
-> **Windows**: Not yet supported. If detected, print a notice and exit gracefully.
-> This is a future TODO.
+Read `references/dependency-map.md` — the complete mapping of every skill's dependencies per environment. If the user requests specific skills only, filter the manifest to those. Otherwise install everything available for the detected environment.
 
-## Step 2: Build the dependency manifest
+### 3. Install dependencies
 
-Read `references/dependency-map.md` — it contains the full mapping of every office and
-research-lab skill's dependencies, organized by package manager and environment.
+Group installs by package manager:
 
-For each skill, the map lists:
-- What to install and the command for each environment
-- Whether it needs post-install authentication
-- Whether it's unavailable in certain environments (and what workaround to use)
+1. System packages (apt/brew)
+2. Python packages (`pip install --break-system-packages` on Linux)
+3. npm global packages
+4. Standalone CLIs (jira-cli via binary download or `go install`)
 
-If the user only wants to set up specific skills (e.g., "just get slack and jira
-working"), filter the manifest to only those skills. Otherwise, install everything
-that's available for the detected environment.
-
-## Step 3: Install dependencies
-
-Group installs by package manager to minimize round-trips:
-
-```bash
-# System packages first (apt on Linux, brew on macOS)
-# Then language-specific packages (pip, npm)
-# Then verify each tool is on PATH
-```
-
-**Installation order matters:**
-1. System packages (apt/brew) — these may provide Python or Node if missing
-2. Python packages (pip) — `pip install --break-system-packages` on Linux sandbox
-3. npm global packages — `npm install -g`
-4. Standalone CLIs that need manual install (jira-cli via `go install` or release binary)
-
-For each install, capture the exit code. After the batch completes, print a summary
-table:
+Capture exit codes. Print a summary table after the batch completes:
 
 ```
-✓ pandas          pip install pandas          installed
 ✓ agent-slack     npm i -g agent-slack        installed
-✗ jira-cli        (see notes)                 failed — needs Go toolchain
 ⚠ gws             npm i -g @googleworkspace/cli  installed — needs auth
+✗ jira-cli        (see notes)                 failed — needs Go toolchain
 ⊘ pngquant        not available on Linux      unavailable
 ```
 
-Use these status markers:
-- `✓` — Installed and ready
-- `⚠` — Installed but needs authentication (see Step 4)
-- `✗` — Installation failed (show error and suggest fix)
-- `⊘` — Not available in this environment (see Step 5)
+Status markers: `✓` ready · `⚠` installed but needs auth · `✗` failed · `⊘` unavailable
 
-## Step 4: Flag authentication requirements
+### 4. Flag authentication requirements
 
-Some tools work only after the user authenticates. Don't try to authenticate
-automatically — just tell the user what they need to do.
-
-Print a section like:
+Some tools need post-install authentication. Never attempt auth automatically — tell the user:
 
 ```
-## Tools that need authentication
-
-These are installed but won't work until you authenticate:
-
-  agent-slack    →  agent-slack auth import-desktop
-  gh             →  gh auth login
-  gws            →  gws auth setup  (first time) or  gws auth login
-  jira           →  jira init  (needs server URL + API token)
+agent-slack    →  agent-slack auth import-desktop
+gh             →  gh auth login
+gws            →  gws auth setup  (first time) or  gws auth login
+jira           →  jira init  (needs server URL + API token)
 ```
 
-For tools that use secrets (TestRail, Cloudflare), suggest the environment variable
-approach since that's the most portable across environments:
+For secret-based tools: `export TESTRAIL_API_KEY="..."` and `export CF_API_TOKEN="..."`.
+
+### 5. Note unavailable tools
+
+Read `references/unavailable-tools.md` for the full per-environment list. For each unavailable tool explain why and suggest a workaround.
+
+Common Linux sandbox cases:
+- **macOS Keychain / 1Password CLI** → use env vars
+- **Homebrew image tools** (pngquant, avifenc) → some have apt equivalents
+- **DDEV** → not available in sandbox; Drupal workflows need a macOS host
+
+### 6. Summary report
 
 ```
-  testrail  →  export TESTRAIL_API_KEY="your-key"
-  log-analyzer (Cloudflare)  →  export CF_API_TOKEN="..." CF_ZONE_ID="..."
-```
-
-## Step 5: Note unavailable tools
-
-Some tools genuinely can't work in certain environments. Be honest about this rather
-than attempting broken workarounds.
-
-Read `references/unavailable-tools.md` for the full list per environment. For each
-unavailable tool, explain *why* and suggest a workaround if one exists.
-
-Common cases in a Linux sandbox:
-- **macOS Keychain** → Use env vars instead: `export TESTRAIL_API_KEY="..."`
-- **1Password CLI** → Use env vars instead (same pattern)
-- **Homebrew image tools** (pngquant, avifenc, etc.) → Some have apt equivalents,
-  some don't. Check the mapping.
-- **Obsidian vault access** → Vault lives on macOS host; in sandbox, skills that
-  need vault paths will need the path passed explicitly or mounted
-- **DDEV** → Not typically available in sandbox; research-lab:run/experiment need
-  a Drupal host environment
-- **`agent-slack auth import-desktop`** → Requires Slack desktop app session from
-  macOS; in sandbox, need `SLACK_TOKEN` env var instead if available
-
-## Step 6: Summary report
-
-End with a concise summary:
-
-```
-## Bootstrap complete
-
 Environment: Linux sandbox (Ubuntu 22.04)
-Skills ready:     csv-analysis, github, slack, deploy-post, pulse, ...
+Skills ready:     csv-analysis, github, slack, deploy-post, ...
 Need auth:        agent-slack, gh, gws, jira
-Unavailable:      image-optimize (no apt equivalent for most tools), testrail (keychain)
+Unavailable:      image-optimize, testrail (keychain)
 ```
 
-If the user asked for a specific skill and it's in the "need auth" or "unavailable"
-bucket, call that out prominently so they know what's blocking them.
+---
+
+## Token optimization tools
+
+These are optional accelerators. Both are skip-safe — skills degrade gracefully when absent.
+
+**rtk (Rust Token Killer)** — CLI proxy that filters verbose command output (60–90% savings).
+
+Check presence: `command -v rtk`
+
+Install: rtk is a binary; it is not distributed via Homebrew or npm. Download from the project's GitHub releases page. Verify installation with `rtk --version` and `rtk gain`. If a `reachingforthejack/rtk` (Rust Type Kit) conflict exists, the correct binary is identified by `rtk gain` working.
+
+Note: a user-level Claude Code hook already rewrites top-level Bash calls (`git status` → `rtk git status`). Skills should not fight or duplicate that. The hook does not reach commands inside scripts or workflow-spawned agents — call `rtk` explicitly there for known-verbose operations.
+
+**headroom** — context compression for large artifacts (logs, fetched articles, session transcripts).
+
+Check presence: `command -v headroom`
+
+Install:
+```bash
+pip install "headroom-ai[all]"
+# or
+npm install -g headroom-ai
+```
+
+Usage: `headroom wrap <agent>`, `headroom proxy`, or `from headroom import compress` in Python. `headroom perf` shows savings. Prefer reversible mode — originals stored locally, retrievable on demand.
+
+---
+
+## Claude Desktop packaging
+
+To produce a Desktop-distributable archive, use `admin:package`. It handles the zip structure correctly (`.claude-plugin/` at root) and outputs to `dist/`. See `admin/skills/package/SKILL.md` for details.
 
 ---
 
 ## Reference files
 
-- `references/dependency-map.md` — Complete dependency→install mapping per environment.
-  **Read this before installing anything.** It's the source of truth for what to
-  install and how.
-- `references/unavailable-tools.md` — Tools that can't work per environment, with
-  workarounds.
-- `scripts/detect-env.sh` — Environment detection script.
+- `references/dependency-map.md` — complete dependency → install mapping per environment. Read before installing anything.
+- `references/unavailable-tools.md` — tools that cannot work per environment, with workarounds.
+- `scripts/detect-env.sh` — environment detection script.

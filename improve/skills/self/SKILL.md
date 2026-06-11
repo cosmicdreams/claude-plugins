@@ -16,72 +16,55 @@ triggers:
 
 # Self: Agent Definition Improvement
 
-Evaluate whether an agent definition is aligned with its purpose and improve it if not.
-
-This skill works on any agent definition file — not just the process-engineer. Any agent can invoke `improve:self` to evaluate its own definition.
+Evaluate whether an agent definition is aligned with its purpose.
 
 ## Evaluation Framework
 
-### 1. Read the Definition
+### 1. Read the definition
 
-Read the full agent file: frontmatter (name, description, color, tools, model) and system prompt body.
+Full file: frontmatter (name, description, color, tools, model) and prompt body.
 
-### 2. State the Purpose
+### 2. State the purpose
 
-What is this agent supposed to do? Derive from:
-- The `description` field in frontmatter
-- The role section in the prompt
-- The context in which it's spawned
+Derive from `description`, role section, and spawn context. Write: "This agent exists to ___."
 
-Write it as one sentence: "This agent exists to ___."
-
-### 3. Evaluate Alignment
-
-Check each dimension against the purpose:
+### 3. Evaluate alignment
 
 | Dimension | Question | Red flags |
 |---|---|---|
-| **Model** | Is the model tier appropriate for the complexity of this agent's work? | Opus for routine work (wasteful). Haiku for judgment-heavy work (insufficient). |
-| **Tools** | Does the agent have the tools it needs? Does it have tools it doesn't need? | Missing tools it references in its prompt. Tools listed that it never uses. |
-| **Prompt length** | Is the prompt as long as it needs to be and no longer? | Sections that repeat other sections. Instructions for things the agent never does. |
-| **Clarity** | Would a fresh agent instance know what to do on first read? | Ambiguous instructions. Contradictory rules. References to undefined terms. |
-| **Scope** | Does the agent try to do too much or too little? | Long lists of responsibilities that span multiple concerns. |
-| **Actionability** | Can the agent act on its instructions, or are they aspirational? | "Should" and "consider" without concrete steps. Goals without methods. |
-| **Description quality** | Does the frontmatter description accurately trigger this agent? | Description doesn't match what the agent actually does. Too generic. |
+| **Model** | Appropriate for the complexity? | Opus for routine work. Haiku for judgment-heavy work. |
+| **Tools** | Has what it needs? Nothing it doesn't? | Missing tools referenced in prompt. Unused listed tools. |
+| **Prompt length** | As long as needed, no longer? | Repeated sections. Instructions for things agent never does. |
+| **Clarity** | Fresh instance knows what to do on first read? | Ambiguous or contradictory rules. |
+| **Scope** | Not too much or too little? | Long lists spanning multiple concerns. |
+| **Actionability** | Can act on instructions or are they aspirational? | "Should" and "consider" without concrete steps. |
+| **Description quality** | Accurately triggers this agent? | Doesn't match what agent actually does. Too generic. |
 
-### 4. Propose Changes
-
-For each misalignment found, propose a specific edit:
+### 4. Propose changes
 
 ```
-Dimension: <which dimension>
+Dimension: <which>
 Finding: <what's misaligned>
-Current: <what it says now>
+Current: <what it says>
 Proposed: <what it should say>
 Rationale: <why this improves purpose alignment>
 ```
 
-### 5. Apply Changes
+### 5. Apply changes
 
-Based on trust model:
-- **Trivial fixes** (typos, removing unused tools, tightening description): apply directly via `improve:fix`
-- **Substantive changes** (rewriting prompt sections, changing model tier): surface to human first
-- **Structural redesign** (agent should be split, merged, or retired): definitely surface to human
+- Trivial fixes (typos, removing unused tools, tightening description): apply via `improve:fix`
+- Substantive changes (rewriting sections, changing model tier): surface to human first
+- Structural redesign (split, merge, retire): surface to human
 
-### 6. Self-Improvement Special Case
+### 6. Self-improvement
 
-When evaluating the process-engineer's own definition:
-- Be honest about gaps — the point of self-improvement is to find them
-- If your methodology has a gap, update the relevant skill not just your own definition
-- Apply the same trust model — don't auto-fix your own structural changes
+When evaluating the process-engineer's own definition: if the methodology has a gap, update the relevant skill, not just the definition. Apply the same trust model — don't auto-fix your own structural changes.
 
-## Anti-Patterns in Agent Definitions
+## Anti-patterns to check for
 
-Common issues to check for:
-
-- **Compliance theater** — Long lists of "do not" rules that don't help the agent do its job
-- **Context bloat** — Instructions for rare edge cases loaded on every spawn
-- **Stale references** — References to skills, files, or tools that no longer exist
-- **Role confusion** — Agent definition describes what it observes rather than what it does
-- **Missing methodology** — Agent knows its goal but not its method
-- **Over-specification** — Step-by-step instructions for things the model already knows how to do
+- **Compliance theater** — long "do not" lists that don't help the agent do its job
+- **Context bloat** — instructions for rare edge cases loaded on every spawn
+- **Stale references** — skills, files, or tools that no longer exist
+- **Role confusion** — definition describes what it observes rather than what it does
+- **Missing methodology** — agent knows its goal but not its method
+- **Over-specification** — step-by-step instructions for things the model already knows

@@ -14,17 +14,13 @@ triggers:
 
 # Experiment: Ratchet-Based Process Improvement
 
-When you think a change might improve a process but you're not sure, run an experiment. Measure before, change, measure after, decide.
+Measure before, change, measure after, decide.
 
-## When to Use This
+## When to use
 
-- You have a hypothesis ("this agent would be faster on haiku")
-- The outcome is uncertain ("will the quality hold?")
-- The change is reversible ("we can switch back to sonnet")
-- There's something observable to measure ("task completion time, error rate, output quality")
-
-If you're certain the change is an improvement → use `improve:fix` instead.
-If you're just watching for patterns → use `improve:lint` instead.
+- You have a hypothesis, the outcome is uncertain, the change is reversible, and there's something observable to measure.
+- If you're certain the change is an improvement → `improve:fix`.
+- If you're watching for patterns → `improve:lint`.
 
 ## The Ratchet Pattern
 
@@ -32,94 +28,72 @@ If you're just watching for patterns → use `improve:lint` instead.
 1. State the hypothesis
 2. Define what "better" means (the metric)
 3. Measure baseline
-4. Make the change
+4. Make the change (via improve:fix)
 5. Measure again
-6. Compare: better, same, or worse?
-7. Keep if better. Revert if worse. Note if same.
-8. Record the result.
+6. Compare; keep if better, revert if not
+7. Record the result
 ```
 
-## Step 1: Hypothesis
+## Hypothesis template
 
-Write it down explicitly before doing anything:
 ```
 Hypothesis: <what you think will improve>
-Change: <what you'll change and where>
-Expected effect: <what you expect to see>
+Change: <what and where>
+Expected effect: <what you expect>
 Risk: <what could go wrong>
-Reversibility: <how to undo it>
+Reversibility: <how to undo>
 ```
 
-## Step 2: Define "Better"
+## Metric types
 
-Process improvements can be measured in multiple ways:
-
-| Metric type | Examples | How to measure |
+| Type | Examples | How to measure |
 |---|---|---|
-| **Quantitative** | Error count, retry rate, task time, token cost | Logs, JSONL, timestamps |
-| **Behavioral** | Agent follows instructions, stops retrying | Transcript analysis |
-| **Structural** | Prompt is clearer, fewer steps needed | Before/after diff review |
-| **Outcome** | Better results, fewer failures | Human judgment |
+| Quantitative | Error count, retry rate, task time, token cost | Logs, JSONL, timestamps |
+| Behavioral | Agent follows instructions, stops retrying | Transcript analysis |
+| Structural | Prompt is clearer, fewer steps needed | Before/after diff |
+| Outcome | Better results, fewer failures | Human judgment |
 
-Not everything reduces to a number. For subjective metrics, state the evaluation criteria upfront so the comparison is fair.
+For subjective metrics, state evaluation criteria upfront so the comparison is fair.
 
-## Step 3: Measure Baseline
-
-Before changing anything, capture the current state:
-- Run the process (or wait for its next natural run)
-- Record the metric values
-- Save baseline data to your working context
-
-## Step 4: Make the Change
-
-Use `improve:fix` to make the change. Note exactly what was changed and where so you can revert.
-
-## Step 5: Measure Again
-
-Run the process again (or wait for its next natural run) under the same conditions. Record the new metric values.
-
-## Step 6: Compare and Decide
+## Decision table
 
 | Result | Action |
 |---|---|
-| **Clearly better** | Keep the change. Record as a successful improvement. Consider creating a lint rule. |
-| **Marginally better** | Keep, but note the margin. May need more data. |
-| **No difference** | Revert — unnecessary changes add complexity for no gain. |
-| **Worse** | Revert immediately. Record what happened and why the hypothesis was wrong. |
-| **Mixed** | Better on some metrics, worse on others. Surface to human for judgment. |
+| Clearly better | Keep. Consider creating a lint rule. |
+| Marginally better | Keep, note the margin. |
+| No difference | Revert — unnecessary complexity. |
+| Worse | Revert immediately. Record why hypothesis was wrong. |
+| Mixed | Surface to human. |
 
-## Step 7: Record the Result
+## Result record
 
 ```markdown
 ## Experiment: <name>
 **Date:** <ISO date>
 **Hypothesis:** <what you tested>
-**Change:** <what was changed, where>
+**Change:** <what, where>
 **Baseline:** <metric values before>
 **Result:** <metric values after>
 **Decision:** kept | reverted | escalated
-**Learning:** <what this tells you about the process>
+**Learning:** <what this tells you>
 ```
 
-Store in the relevant domain's improvement knowledge, or in `improve:lint` as a new rule if the learning is generalizable.
-
-## Experiment Ethics
+## Experiment ethics
 
 - Never experiment on a process during critical work without telling the human
 - Always have a revert plan before starting
-- If an experiment causes a failure, revert first, analyze second
-- One variable at a time — don't change the model AND the prompt AND the tools simultaneously
+- Revert first, analyze second if an experiment causes a failure
+- One variable at a time
 
-## Available Measurement Harnesses
+## Available measurement harnesses
 
 | Target | Skill | Key scores |
 |---|---|---|
-| Web frontend performance | `improve:perf-measure --frontend` | `lighthouse_performance`, LCP, TBT, CLS |
-| CLI command benchmarking | `improve:perf-measure --cli` | `hyperfine_mean_ms`, stddev, min, max |
+| Web frontend | `improve:perf-measure --frontend` | `lighthouse_performance`, LCP, TBT, CLS |
+| CLI benchmarking | `improve:perf-measure --cli` | `hyperfine_mean_ms`, stddev, min, max |
+| Token cost | `improve:perf-measure --tokens` | `rtk_tokens_saved`, `headroom_compression_ratio` |
 | Accessibility | `improve:accessibility-scan` | `lighthouse`, `axe_critical`, `pa11y_errors` |
-| PHP/Drupal page performance | `drupal-lab:perf-measure --xhprof` | `wall_time_ms`, `memory_peak_mb` |
-| DB query profiling | `drupal-lab:perf-measure --db` | `db_queries`, `db_time_ms`, slow query list |
+| PHP/Drupal page | `drupal-lab:perf-measure --xhprof` | `wall_time_ms`, `memory_peak_mb` |
+| DB query | `drupal-lab:perf-measure --db` | `db_queries`, `db_time_ms` |
 
-All harnesses output a `scores` object. Save baseline to `/tmp/*-baseline.json`, run after
-change, compare `scores` directly. `callgraph_top_10` (xhprof) is for hypothesis generation,
-not ratchet comparison.
+All harnesses output a `scores` object. Save baseline to `/tmp/*-baseline.json`; compare `scores` after change.

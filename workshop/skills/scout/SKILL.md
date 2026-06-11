@@ -23,26 +23,33 @@ allowed-tools: Agent, Bash, Read, Write, WebFetch, WebSearch
 
 # workshop:scout — Knowledge Radar
 
-Passively surface net-new ideas worth knowing, filtered to *your* interests, and get sharper the
-more you use it. Output: a concise, most-relevant-first briefing + a vault entry. Built for
-`/loop 30m /workshop:scout`.
+Passively surface net-new ideas worth knowing, filtered to *your* interests, and get sharper the more you use it. Output: a concise, most-relevant-first briefing + a vault entry. Built for `/loop 30m /workshop:scout`.
 
-**What makes it better than Feedly:** Feedly aggregates; scout *filters to you* and *learns*. Three
-parts beyond a plain fetcher:
+**What makes it better than Feedly:** Feedly aggregates; scout *filters to you* and *learns*. Three parts beyond a plain fetcher:
 
-1. **Curated, extensible sources** — a config-driven list you own (add/remove conversationally), not
-   a hardcoded set.
-2. **Tunable interest profile** — explicit topics you care about and anti-topics to suppress, so
-   relevance scoring is consistent and inspectable.
-3. **Feedback loop** — mark items useful / not / more-like-this / mute; that feedback adjusts the
-   profile and source weights (propose-then-apply), so the radar tunes to you over time.
+1. **Curated, extensible sources** — a config-driven list you own (add/remove conversationally).
+2. **Tunable interest profile** — explicit topics you care about and anti-topics to suppress.
+3. **Feedback loop** — mark items useful / not / more-like-this / mute; that adjusts the profile and source weights over time.
 
 ## Config
 
-Sources and the interest profile live in `~/.claude/workshop.json` under a `scout` block (sources,
-interest topics, anti-topics, source weights). Feedback is logged to the vault so it's reviewable.
-If no `scout` block exists, fall back to the seed source list in `steps/02-fetch.md` and offer to
-write a starter config.
+Sources and the interest profile live in `~/.claude/workshop.json` under a `scout` block. If no `scout` block exists, fall back to the seed source list in `steps/02-fetch.md` and offer to write a starter config.
+
+## Running on a loop (singleton cron discipline)
+
+```
+/loop 30m /workshop:scout
+```
+
+Before creating this loop, always check for an existing one:
+
+```bash
+CronList
+```
+
+If an entry for `workshop:scout` already exists, **do not create another** — return the existing job ID to the user and stop. Duplicate cron jobs cause redundant fetches and duplicate vault entries.
+
+De-registration: `CronDelete` with the job ID returned by `CronList`. Tell the user the ID when starting the loop.
 
 ## Steps
 
@@ -66,10 +73,3 @@ Work through these in order. Read each step file as you reach it.
 ## Managing sources mid-session
 
 To add, remove, or mute a source on the fly, read `steps/06-sources.md`.
-
-## Running on a loop
-
-```
-/loop 30m /workshop:scout
-```
-Cancel with `CronDelete` using the job ID returned by `/loop`.

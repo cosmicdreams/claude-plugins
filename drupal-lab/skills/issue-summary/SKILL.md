@@ -29,7 +29,7 @@ Pull from the analysis report:
 
 From the diff, explain:
 - What was changed and why
-- Any alternative approaches considered (from issue-planner report if available)
+- Any alternative approaches considered (from `plan.json` if available)
 - Why this approach was chosen
 
 ### 4. List Changed Files

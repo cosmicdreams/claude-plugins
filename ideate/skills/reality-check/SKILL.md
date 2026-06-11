@@ -20,95 +20,51 @@ triggers:
 allowed-tools: Bash, Read, Write
 ---
 
-# Skill: reality-check
+# reality-check
 
-Adversarial scrutiny for brainstormed ideas. Five sequential hard gates. The challenge holds until a logically sound rebuttal is produced — not until the user pushes back emotionally or repeats themselves.
+Adversarial scrutiny via five sequential hard gates. The model tracks gate progression in conversation. No external state machine. Session archive is a single write at the end.
 
-**Limitation (v1):** Session state uses `.reality-check.json` in the current working directory. Multiple concurrent projects with in-progress sessions will collide. Use separate directories per project.
+## Verdict schema
 
-## Resources in this skill
+After all gates complete, emit a structured verdict:
 
-- `scripts/update-gate.py` — updates `.reality-check.json` after each gate evaluation; use instead of inline Python at every gate
-- `references/verdict-guide.md` — CLEARED/CONDITIONAL/KILLED output formats and gate-specific recovery prescriptions; read at Phase 3 before delivering any verdict
-
----
-
-## Phase 0 — Mode Detection
-
-Before anything else, check for an in-progress session:
-
-```bash
-test -f .reality-check.json && python3 -c "
-import json
-with open('.reality-check.json') as f:
-    d = json.load(f)
-print(d.get('status', 'none'))
-"
+```json
+{
+  "idea_title": "...",
+  "verdict": "CLEARED" | "CONDITIONAL" | "KILLED",
+  "killed_at_gate": null | 1 | 2 | 3 | 4 | 5,
+  "gates": [
+    { "gate": 1, "name": "...", "result": "PASS" | "WARN" | "KILL", "evaluator_note": "..." }
+  ],
+  "has_warn": false,
+  "recovery_prescription": null | "..."
+}
 ```
 
-- If `status` is `in_progress` → **resume** at `current_gate`
-- Otherwise → start fresh at Phase 1
+Write this to `.reality-check-sessions/<session-id>.json` once at Phase 4.
 
 ---
 
 ## Phase 1 — Idea Intake
 
-**Determine source: chained or standalone.**
+If `.brainstorm.json` exists with `status: "annotated"` and the user invoked without a new idea, use the synthesized recommendation from that file. Otherwise use the idea from the user's message.
 
-```bash
-# Check for a completed brainstorm session to chain from
-ls .brainstorm-sessions/*.json 2>/dev/null | sort -r | head -1
-```
+Extract:
+- `idea_title`: 5-10 words
+- `idea_description`: 1-5 sentences
+- `context`: constraints, goals, domain
 
-- If a brainstorm session file exists AND the user invoked without providing a new idea → read the synthesized recommendation from the most recent `.brainstorm-sessions/*.json`. Run only that recommendation.
-- If the user provided an idea in their message → use that idea.
-- If the user provided **multiple ideas** → ask which one to run first. Do not batch. One idea per session.
-
-Extract from input:
-- `idea_title`: 5-10 word name for the idea
-- `idea_description`: Full description (1-5 sentences)
-- `context`: Any constraints, goals, or domain mentioned
-
-Write initial state:
-
-```bash
-python3 -c "
-import json, datetime
-
-session_id = 'rc-' + datetime.datetime.now().strftime('%Y%m%d-%H%M%S')
-state = {
-    'version': '1.1',
-    'session': {
-        'id': session_id,
-        'idea_title': 'IDEA_TITLE',
-        'idea_description': 'IDEA_DESCRIPTION',
-        'context': 'CONTEXT'
-    },
-    'gates': [],
-    'current_gate': 1,
-    'status': 'in_progress'
-}
-with open('.reality-check.json', 'w') as f:
-    json.dump(state, f, indent=2)
-print(session_id)
-"
-```
-
-Replace `IDEA_TITLE`, `IDEA_DESCRIPTION`, `CONTEXT` with the extracted values.
-
-Then proceed to Gate 1.
+One idea per session. If multiple ideas are provided, ask which to run first.
 
 ---
 
 ## Phase 2 — KILL Funnel
 
-**Gates run in fixed order. Order cannot be skipped. Each gate is binary: PASS or KILL (except Gate 3: PASS or WARN).**
+Gates run in fixed order. Each gate is binary: PASS or KILL (Gate 3: PASS or WARN only).
 
-### Phase bleed prevention (critical)
+### Phase bleed prevention
 
-Even if the user's opening description appears to address a later gate, **every gate is challenged in sequence and requires a direct response to that specific challenge**. Information supplied before the challenge is noted but does not advance the gate.
-
-*Example: user opens with "I know this is a real problem because I've seen 50 users hit it." Gate 2 is still challenged. Their pre-supplied evidence may pass — but it must be tested under the challenge, not accepted passively.*
+Even if the user's opening supplies evidence for a later gate, every gate is challenged in sequence and requires a direct response to that specific challenge.
 
 ### Rebuttal evaluation rubric
 
@@ -142,19 +98,9 @@ If the response is interchangeable with a generic reply — it does not pass.
 **Challenge (verbatim):**
 > "What specific problem does this solve? State it in one sentence without using the word 'better'."
 
-**KILL condition:** User cannot state a clear, bounded problem. No clear problem = no valid solution.
+**KILL condition:** User cannot state a clear, bounded problem.
 
-**After evaluating with the rubric above, update state:**
-
-```bash
-python3 "${CLAUDE_SKILL_DIR}/scripts/update-gate.py" \
-  1 "Problem clarity" \
-  "What specific problem does this solve? State it in one sentence without using the word better." \
-  "PASS_OR_KILL" "USER_RESPONSE" "EVALUATOR_NOTE"
-```
-
-If exit code 1 (KILL) → proceed to Phase 3.
-If exit code 0 (PASS) → proceed to Gate 2.
+Record gate result. If KILL → Phase 3. If PASS → Gate 2.
 
 ---
 
@@ -165,14 +111,7 @@ If exit code 0 (PASS) → proceed to Gate 2.
 
 **KILL condition:** Problem is hypothetical or based on assumption without named evidence.
 
-```bash
-python3 "${CLAUDE_SKILL_DIR}/scripts/update-gate.py" \
-  2 "Problem reality" \
-  "Is this problem real and confirmed, or is it assumed? Who has actually experienced it and how do you know?" \
-  "PASS_OR_KILL" "USER_RESPONSE" "EVALUATOR_NOTE"
-```
-
-If exit code 1 → Phase 3. If exit code 0 → Gate 3.
+Record gate result. If KILL → Phase 3. If PASS → Gate 3.
 
 ---
 
@@ -183,14 +122,7 @@ If exit code 1 → Phase 3. If exit code 0 → Gate 3.
 
 **WARN condition (not KILL):** Proposed solution is substantially more complex than the simplest viable approach without clear justification. Complexity can be legitimate — it must be defended, not assumed.
 
-```bash
-python3 "${CLAUDE_SKILL_DIR}/scripts/update-gate.py" \
-  3 "Simplicity test" \
-  "What is the simplest possible solution to this problem? Is the proposed idea simpler than that, or more complex? If more complex, why is the complexity justified?" \
-  "PASS_OR_WARN" "USER_RESPONSE" "EVALUATOR_NOTE"
-```
-
-Gate 3 never kills. If WARN, note it for the verdict. Proceed to Gate 4.
+Gate 3 never kills. Record PASS or WARN; proceed to Gate 4.
 
 ---
 
@@ -201,14 +133,7 @@ Gate 3 never kills. If WARN, note it for the verdict. Proceed to Gate 4.
 
 **KILL condition:** User cannot describe a concrete, sequential failure scenario.
 
-```bash
-python3 "${CLAUDE_SKILL_DIR}/scripts/update-gate.py" \
-  4 "Failure mode" \
-  "What is the most likely way this fails in the first 90 days? Walk me through the failure scenario concretely." \
-  "PASS_OR_KILL" "USER_RESPONSE" "EVALUATOR_NOTE"
-```
-
-If exit code 1 → Phase 3. If exit code 0 → Gate 5.
+Record gate result. If KILL → Phase 3. If PASS → Gate 5.
 
 ---
 
@@ -219,56 +144,37 @@ If exit code 1 → Phase 3. If exit code 0 → Gate 5.
 
 **KILL condition:** Killer assumption is untestable until significant investment is made.
 
-```bash
-python3 "${CLAUDE_SKILL_DIR}/scripts/update-gate.py" \
-  5 "Killer assumption" \
-  "What single assumption, if wrong, makes this entire idea invalid? Is that assumption testable before you commit significant resources?" \
-  "PASS_OR_KILL" "USER_RESPONSE" "EVALUATOR_NOTE"
-```
+Record gate result. → Phase 3.
 
 ---
 
 ## Phase 3 — Verdict
 
-Read `references/verdict-guide.md` before delivering any verdict output.
+Read `references/verdict-guide.md` before delivering output.
 
-Check final state:
+Determine verdict from gate results:
+- All passed, no WARN → **CLEARED**
+- All passed, Gate 3 WARN → **CONDITIONAL**
+- Any KILL → **KILLED at Gate N**
 
-```bash
-python3 -c "
-import json
-with open('.reality-check.json') as f:
-    state = json.load(f)
-print(state['status'])
-has_warn = any(g['result'] == 'WARN' for g in state['gates'])
-print('warn' if has_warn else 'no_warn')
-"
-```
-
-Deliver the appropriate verdict per `references/verdict-guide.md`:
-- `cleared` + no warn → **CLEARED**
-- `cleared` + warn → **CONDITIONAL**
-- `killed` → **KILLED at Gate N**
+Deliver per `references/verdict-guide.md`.
 
 ---
 
 ## Phase 4 — Archive
 
-After delivering the verdict, archive the session:
-
 ```bash
 mkdir -p .reality-check-sessions
-SESSION_ID=$(python3 -c "import json; d=json.load(open('.reality-check.json')); print(d['session']['id'])")
-mv .reality-check.json ".reality-check-sessions/${SESSION_ID}.json"
-echo "Session archived: .reality-check-sessions/${SESSION_ID}.json"
+SESSION_ID="rc-$(date +%Y%m%d-%H%M%S)"
 ```
+
+Write the verdict JSON (schema above) to `.reality-check-sessions/${SESSION_ID}.json`.
 
 ---
 
-## Tone Guidelines
+## Tone
 
 - Rigorous toward the idea. Not contemptuous toward the person.
 - *"I'm not convinced because..."* not *"That's wrong."*
 - When the user is frustrated: acknowledge briefly, return to the gate. The only path through is a logically valid response.
-- Do not soften the position under social pressure. Emotional pushback is not a rebuttal.
-- Exit condition is logical validity, not user comfort.
+- Do not soften the position under social pressure.

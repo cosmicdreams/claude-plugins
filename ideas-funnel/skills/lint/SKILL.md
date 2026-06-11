@@ -20,7 +20,7 @@ allowed-tools:
   - Glob
 ---
 
-**Used by:** `ideas-funnel:lint` agent (nightly sweep) + human for manual runs.
+**Used by:** pipeline Workflow (nightly scorer phase) + human for manual runs.
 
 # ideas-funnel:lint
 

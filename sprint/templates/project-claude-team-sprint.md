@@ -1,6 +1,6 @@
 # Team Sprint — Project CLAUDE.md Snippet
 
-Paste the section below into a project's `CLAUDE.md` to enable team-lead mode for that project. Adjust plugin paths and agent types if your project uses a custom agent set.
+Paste the section below into a project's `CLAUDE.md` to enable sprint mode for that project.
 
 ---
 
@@ -10,51 +10,42 @@ Paste the section below into a project's `CLAUDE.md` to enable team-lead mode fo
 When asked to run a team sprint, coordinate multiple agents, or work on issues in parallel:
 **YOU are the team-lead. Do not spawn a separate team-lead agent.**
 
-### Every Turn
+### Running a Sprint
 
-1. `TaskList` — who has no `in_progress` task right now?
-2. Scan sprint board: `bd ready --json --unassigned`
-3. Match idle agents to available beads → `SendMessage` with task immediately
-4. If an agent's stage has no remaining beads → run Graceful Shutdown Sequence (see below)
-5. If an agent is unresponsive 2+ turns → reassign or replace
+1. **Plan** — run `sprint:plan` to create and sequence beads if not already done.
+2. **Run** — run `sprint:run`. It invokes the Workflow tool, which reads ready beads,
+   launches one slice-worker per bead, and optionally runs cross-review as an adversarial
+   verify stage. Results land in `analysis-reports/retro-session/<date>+<sprint>/results.json`.
+3. **Retro** — run `retro:session` to read results.json and generate the retrospective report.
 
-**You push work. You do not collect reports and wait.**
+No team-lead loop. No SendMessage choreography. No shutdown ceremonies.
+The Workflow harness handles parallelism, retro interview collection, and completion.
 
-### Spawning Agents
+### Spawning Agents Directly
 
-Agents are spawned with the Task tool. Multiple Task tool calls in the same message run in parallel:
+When running agents outside sprint:run (e.g., a one-off deep-debug):
 
 ```
-Task(subagent_type="drupal-lab:implementer", name="implementer-1", prompt="...")
-Task(subagent_type="drupal-lab:implementer", name="implementer-2", prompt="...")
+Agent(subagent_type="sprint:slice-worker", name="worker-1", prompt="...")
+Agent(subagent_type="sprint:deep-debugger", name="debugger-1", prompt="...")
+Agent(subagent_type="drupal-lab:issue-worker", name="issue-1", prompt="...")
+Agent(subagent_type="drupal-lab:reviewer", name="reviewer-1", prompt="...")
 ```
 
-If N issues are ready to implement with no file conflicts, spawn N implementers at once.
-Do not spawn one and wait for it to finish before spawning the next.
-
-Full spawning mechanics (instance naming, prompt template, sizing guide):
-`~/.claude/plugins/cache/local/sprint/<ver>/protocols/SPAWNING.md`
-
-### Graceful Shutdown (before every agent shutdown)
-
-1. Confirm no remaining beads for this agent's stage
-2. Send `shutdown_request` — the SubagentStop hook handles the retro interview automatically
+Spawn N agents at once when N items are ready — never sequentially.
 
 ### Plugin Locations
 
 Verify current version: `ls ~/.claude/plugins/cache/local/sprint/` — use the highest version as `<ver>`.
 
-- **Agents**: `~/.claude/plugins/cache/local/sprint/<ver>/agents/` and `~/.claude/plugins/cache/local/drupal-lab/<ver>/agents/`
-- **Full sprint protocol**: `~/.claude/plugins/cache/local/sprint/<ver>/skills/run/SKILL.md`
-- **Spawning mechanics**: `~/.claude/plugins/cache/local/sprint/<ver>/protocols/SPAWNING.md`
+- **Agents**: `~/.claude/plugins/cache/local/sprint/<ver>/agents/`
+- **Full sprint skill**: `~/.claude/plugins/cache/local/sprint/<ver>/skills/run/SKILL.md`
 - **Decision rules**: `~/.claude/plugins/cache/local/sprint/<ver>/skills/run/references/decision-framework.md`
-- **Comms format**: `~/.claude/plugins/cache/local/sprint/<ver>/protocols/team-comms-protocol.md`
-- **Coordination protocol**: `~/.claude/plugins/cache/local/sprint/<ver>/protocols/AGENT-COORDINATION.md`
 
 ### Anti-Patterns
 
 - ❌ Asking agents "are you ready?" — assume yes, send the task
-- ❌ Spawning one implementer and waiting before spawning the next
-- ❌ Keeping agents alive when their pipeline stage is complete
-- ❌ Sending a status-check message instead of a work assignment
+- ❌ Spawning one agent and waiting before spawning the next
+- ❌ Keeping agents alive after their work is complete
+- ❌ Sending status-check messages instead of work assignments
 ```

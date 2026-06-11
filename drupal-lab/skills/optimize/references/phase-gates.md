@@ -27,7 +27,7 @@ Go/no-go criteria for each phase transition. The Principal Investigator reads th
 - User/Principal Investigator has reviewed and approved the source list
 
 **No-go triggers:**
-- Research still gathering (`.research.json` status = `gathering`)
+- Source gathering still in progress (the gather engagement has not produced its source summary)
 - Fewer than 5 sources — insufficient knowledge base
 - Sources are off-topic or low quality
 

@@ -1,6 +1,6 @@
 {
     "name": "workshop",
-    "version": "1.5.0",
+    "version": "2.0.0",
     "description": "Process automation skills: prioritize (what to work on next), scout (knowledge radar), knowledge-check (stay in the loop on AI-assisted work), deploy checklist, Obsidian maintenance, and personal productivity.",
     "author": {
         "name": "Chris Weber"

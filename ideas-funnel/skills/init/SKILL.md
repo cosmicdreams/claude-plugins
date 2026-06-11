@@ -1,12 +1,13 @@
 ---
 name: ideas-funnel:init
 description: >
-  One-time bootstrap for the ideas-funnel plugin. Creates the user config directory,
-  writes a starter domain YAML if none exist, verifies the vault has the required
-  scaffold (Raw/Inbox, Domains/, _meta/, CRITICAL_FACTS.md), appends the v2 schema
-  extension to wiki-schema.md if not already present, and prints a next-steps
-  checklist. Trigger phrases: "init ideas-funnel", "bootstrap the funnel",
-  "/ideas-funnel:init".
+  One-time bootstrap for the ideas-funnel plugin. Creates the user config
+  directory, writes a starter domain YAML if none exist, verifies the vault has
+  the required scaffold (Raw/Inbox, Domains/, _meta/, CRITICAL_FACTS.md),
+  appends the v2 schema extension to wiki-schema.md if not already present,
+  registers the singleton daily pipeline cron via ideas-funnel:schedule, and
+  prints a next-steps checklist. Trigger phrases: "init ideas-funnel",
+  "bootstrap the funnel", "/ideas-funnel:init".
 triggers:
   - init
   - /ideas-funnel:init
@@ -25,8 +26,6 @@ allowed-tools:
 Idempotent bootstrap. Safe to run every session; only creates what's missing.
 
 ## Step 1 — Verify vault path
-
-Default vault path is `~/Vaults/Neurons`. Override with `OBSIDIAN_VAULT` env var.
 
 ```bash
 VAULT="${OBSIDIAN_VAULT:-$HOME/Vaults/Neurons}"
@@ -51,24 +50,18 @@ fi
 
 ## Step 3 — Verify vault scaffold
 
-Create any missing directories:
-
 ```bash
 mkdir -p "$VAULT/_meta" "$VAULT/Raw/Inbox" "$VAULT/Raw/Assets" \
          "$VAULT/Domains" "$VAULT/Bridges" "$VAULT/Conflicts"
 
-# Empty-dir sentinels so Obsidian + git see them
 for d in Bridges Conflicts Raw/Assets; do
   [ -f "$VAULT/$d/README.md" ] || echo "# placeholder" > "$VAULT/$d/README.md"
 done
 
-# Manifest
 [ -f "$VAULT/Raw/.manifest.json" ] || echo '{"version": 1, "entries": {}}' > "$VAULT/Raw/.manifest.json"
 ```
 
 ## Step 4 — CRITICAL_FACTS.md
-
-If missing, copy the template. If present, leave alone (user may have edited it).
 
 ```bash
 if [ ! -f "$VAULT/CRITICAL_FACTS.md" ]; then
@@ -78,8 +71,6 @@ fi
 ```
 
 ## Step 5 — Extend wiki-schema.md
-
-If the extension marker is not yet present, append it.
 
 ```bash
 MARKER="<!-- ====== ideas-funnel v2 extension — appended on init ====== -->"
@@ -92,18 +83,19 @@ if [ -f "$VAULT/wiki-schema.md" ] && ! grep -q "$MARKER" "$VAULT/wiki-schema.md"
   } >> "$VAULT/wiki-schema.md"
   echo "Appended v2 extension to wiki-schema.md."
 fi
-```
 
-If `wiki-schema.md` does not exist at all, copy the extension as a standalone file:
-
-```bash
 if [ ! -f "$VAULT/wiki-schema.md" ]; then
   cp "${CLAUDE_PLUGIN_ROOT}/templates/wiki-schema-extension.md" "$VAULT/wiki-schema.md"
   echo "Created: $VAULT/wiki-schema.md — REVIEW and reconcile with your conventions."
 fi
 ```
 
-## Step 6 — Report + next-steps checklist
+## Step 6 — Register the singleton pipeline cron
+
+Invoke `ideas-funnel:schedule`. It is idempotent — if a cron already exists it
+reports that and does nothing more.
+
+## Step 7 — Report + next-steps checklist
 
 ```
 ✓ ideas-funnel initialized.
@@ -119,5 +111,4 @@ Next steps:
   [ ] Review the v2 extension block at the bottom of $VAULT/wiki-schema.md.
   [ ] Drop 2–3 bootstrap articles into $VAULT/Raw/Inbox/ai-workflows/.
   [ ] Run /ideas-funnel:ingest manually to test.
-  [ ] Register Monitor by ensuring the plugin is installed (monitors.json handles this automatically).
 ```

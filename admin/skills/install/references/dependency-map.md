@@ -109,7 +109,7 @@ sudo mv jira /usr/local/bin/jira
 
 ---
 
-## workshop:morning-brief
+## workshop:prioritize (formerly morning-brief)
 
 Same dependencies as `lib:slack` (agent-slack). Also uses Python 3 for timestamp
 math (pre-installed in both environments).
@@ -143,7 +143,7 @@ Same as personal-calendar — the gws CLI handles both Gmail and Calendar APIs.
 
 ---
 
-## workshop:pulse
+## workshop:scout (formerly pulse)
 
 Combines dependencies from jira + slack:
 
@@ -193,7 +193,7 @@ mounted or passed explicitly.
 
 ---
 
-## research-lab:literary-review, research-lab:workshop, research-lab:seminar
+## research-lab:gather, research-lab:understand, research-lab:synthesize, research-lab:teach
 
 | Dependency | macOS | Linux sandbox | Auth |
 |---|---|---|---|
@@ -249,7 +249,7 @@ Note: self-installs on first run — no upfront install needed.
 
 ---
 
-## research-lab:run
+## drupal-lab:optimize (formerly research-lab:run)
 
 | Dependency | macOS | Linux sandbox | Auth |
 |---|---|---|---|
@@ -257,11 +257,32 @@ Note: self-installs on first run — no upfront install needed.
 | drush | Via DDEV (`ddev drush`) | ⊘ Needs DDEV | — |
 | git | Pre-installed | Pre-installed | — |
 | python3 | Pre-installed | Pre-installed | — |
-| notebooklm CLI | See literary-review | See literary-review | — |
+| notebooklm CLI | See research-lab:gather | See research-lab:gather | — |
 | agent-slack | `npm i -g agent-slack` | `npm i -g agent-slack` | See deploy-post |
 
-**Linux sandbox note:** research-lab:run requires a full Drupal + DDEV environment.
+**Linux sandbox note:** drupal-lab:optimize requires a full Drupal + DDEV environment.
 This is a macOS-host workflow. In a sandbox, only the non-Drupal phases can run.
+
+---
+
+## rtk (Rust Token Killer)
+
+| Dependency | macOS | Linux sandbox | Auth |
+|---|---|---|---|
+| rtk binary | Download from GitHub releases — not on Homebrew or npm | Same | — |
+
+Check: `command -v rtk` — verify with `rtk --version` and `rtk gain`.
+Note: name collision risk with `reachingforthejack/rtk` (Rust Type Kit). Correct binary responds to `rtk gain`.
+
+---
+
+## headroom (context compression)
+
+| Dependency | macOS | Linux sandbox | Auth |
+|---|---|---|---|
+| headroom | `pip install "headroom-ai[all]"` or `npm install -g headroom-ai` | Same | — |
+
+Check: `command -v headroom`.
 
 ---
 
