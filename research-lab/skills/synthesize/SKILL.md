@@ -80,8 +80,10 @@ actual sources:
 ```bash
 notebooklm generate data-table -n NOTEBOOK_ID
 notebooklm generate report -n NOTEBOOK_ID --format briefing-doc
-notebooklm generate mind-map -n NOTEBOOK_ID
+notebooklm generate mind-map -n NOTEBOOK_ID                       # --kind note-backed if you need to parse it
 ```
+
+If a generator fails server-side, recover with `notebooklm artifact retry ARTIFACT_ID -n NOTEBOOK_ID --wait`.
 
 ---
 

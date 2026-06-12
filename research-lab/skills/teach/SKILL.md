@@ -67,6 +67,9 @@ notebooklm generate flashcards -n NOTEBOOK_ID                     # secondary co
 | async / commute | audio overview |
 | exec one-pager | infographic |
 
+If a Studio generator (audio/video/slide-deck/infographic) fails server-side, re-run it in place with
+`notebooklm artifact retry ARTIFACT_ID -n NOTEBOOK_ID --wait` rather than regenerating from scratch.
+
 When there is no notebook, produce the artifact from the material directly as prose or markdown.
 
 ---
