@@ -1,5 +1,25 @@
 # research-lab Changelog
 
+## 3.0.1 — 2026-06-12 — NotebookLM CLI v0.7.x refresh
+
+Reviewed the NotebookLM-backed skills against the upstream `notebooklm-py` CLI, which moved from
+v0.6.0 (the pinned/verified surface) to **v0.7.1** (2026-06). Documentation-only; no script behavior
+changed (the five `notebook-*.sh` scripts remain correct — `source delete` is now idempotent so the
+dedup `returncode==0` check still holds, and the `--json` envelopes are unchanged).
+
+### Changed
+- `gather/references/notebooklm-cli.md`: kept the verified-v0.6.0 core; added `[v0.7]`-marked
+  additions — `artifact retry` (re-run a FAILED Studio artifact in place) and the `artifact` group
+  surface; `generate mind-map --kind interactive|note-backed`; `ask --request-timeout` (the
+  `--timeout` rename, old flag now a deprecated alias); `source add` SSRF/symlink guards
+  (`--allow-internal`, `--follow-symlinks`); exit-code change (`get` exits `1` on not-found, `use`
+  validates existence). Header now states provenance: v0.6.0 verified, v0.7.x from the upstream
+  changelog — confirm against your installed `--help`.
+- `understand/SKILL.md`: mind-map tree-seeding now specifies `--kind note-backed` (parseable JSON),
+  not the default interactive Studio map.
+- `synthesize/SKILL.md`, `teach/SKILL.md`: added the `artifact retry` recovery path for when a
+  Studio generator fails server-side (instead of regenerating from scratch).
+
 ## 3.0.0 — 2026-06-10 — Fable-era rewrite
 
 ### Removed

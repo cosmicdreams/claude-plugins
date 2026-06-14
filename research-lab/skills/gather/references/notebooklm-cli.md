@@ -1,8 +1,10 @@
 # NotebookLM CLI Reference
 
-Command reference for agents interacting with NotebookLM. Verified against `notebooklm <cmd> --help`
-for **v0.6.0** — not written from memory. If a command isn't here, run `notebooklm <group> --help`
-before guessing; the surface is large and grouped.
+Command reference for agents interacting with NotebookLM. The core surface below was verified against
+`notebooklm <cmd> --help` for **v0.6.0** — not written from memory. **v0.7.x additions** (marked
+`[v0.7]`) come from the upstream changelog/docs; confirm against your installed `--help`, and run
+`notebook-postflight.sh` to see whether you're behind (latest is **v0.7.1**, 2026-06). If a command
+isn't here, run `notebooklm <group> --help` before guessing; the surface is large and grouped.
 
 **CRITICAL:** The CLI uses standard `--key value` flag syntax (like most CLIs). Do NOT confuse with the Obsidian CLI which uses `key=value` syntax.
 
@@ -52,6 +54,10 @@ notebooklm source clean -n NOTEBOOK_ID --dry-run                            # se
 ```
 Other `source` subcommands (run `--help`): `add-drive`, `get`, `fulltext`, `guide` (AI summary +
 keywords), `stale`, `wait`, `delete-by-title`, `rename`, `refresh`.
+**`[v0.7]` SSRF/symlink guards:** `source add` now **rejects internal hosts** (localhost, loopback,
+RFC-1918, link-local) and **rejects symlinks** by default. Pass `--allow-internal` for a deliberate
+local NotebookLM endpoint, `--follow-symlinks` to traverse a symlinked file. `notebook-setup.sh`
+seed-URL adds will silently warn-and-skip a `localhost`/private URL unless you add the flag.
 
 ### Add deep web research
 ```bash
@@ -93,7 +99,9 @@ notebooklm ask "Explain X" -n NOTEBOOK_ID --json                           # str
 ```
 Question is positional (or `--prompt-file <file|->`). `--save-as-note` is a **bare boolean**; the
 title rides on a separate `--note-title`. Continues the last conversation by default; `-c <id>`
-continues a specific one. `--timeout <s>` (default 30) for long prompts. Prefer
+continues a specific one. `[v0.7]` the per-invocation HTTP read window is now `--request-timeout <s>`
+(`--timeout` is a deprecated back-compat alias) — bump it for long prompts or slow shared-notebook
+streams. Prefer
 `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh` — it retries the v0.6.0 "No marked answer found"
 degraded answer.
 **`--new` is DESTRUCTIVE** — it deletes the notebook's current server-side conversation before
@@ -136,13 +144,26 @@ notebooklm generate revise-slide -n NOTEBOOK_ID "<change>"         # NOTE: under
 notebooklm generate audio -n NOTEBOOK_ID                          # podcast-style overview
 notebooklm generate infographic -n NOTEBOOK_ID
 notebooklm generate flashcards -n NOTEBOOK_ID
-notebooklm generate mind-map -n NOTEBOOK_ID
+notebooklm generate mind-map -n NOTEBOOK_ID --kind note-backed     # [v0.7] note-backed = parseable JSON tree; interactive = visual studio map
 notebooklm generate data-table -n NOTEBOOK_ID                     # native decision tables / ranked rows
 notebooklm generate quiz -n NOTEBOOK_ID --difficulty medium       # easy|medium|hard; --quantity fewer|standard|more
 ```
 Most generators take `-s/--source` (repeatable), `--prompt-file`, and `--wait/--no-wait` with
 `--timeout`/`--interval`. `quiz` powers `teach`'s Feynman gate — parse its questions/answers into the
 gate's `[{q, answer}]` shape.
+
+**`[v0.7]` mind-map kinds:** `--kind interactive` (default) builds a visual Studio map; `--kind
+note-backed` returns a `{mind_map, note_id, kind}` JSON structure (with optional `--instructions`)
+— use note-backed when you need to *parse* the decomposition (e.g. `understand` seeding its tree),
+interactive when you want the artifact itself. mind-map is synchronous (no `--wait`).
+
+**`[v0.7]` retry a failed artifact:** Studio generators (`audio`, `video`, `cinematic-video`,
+`slide-deck`, `infographic`) can fail server-side. Instead of regenerating from scratch, re-run it
+in place:
+```bash
+notebooklm artifact retry ARTIFACT_ID -n NOTEBOOK_ID --wait    # [v0.7] re-runs a FAILED artifact
+notebooklm artifact list -n NOTEBOOK_ID --type mind-map        # artifact group: list/get/rename/delete/export/poll/wait/retry/suggestions
+```
 
 ---
 
@@ -170,6 +191,9 @@ notebooklm share add user@example.com -n NOTEBOOK_ID --permission viewer
 6. **Research time**: deep mode 15–30 min — use `--no-wait` and `research status`/`research wait`.
 7. **`--import-all` cannot combine with `--no-wait`** — import on the `research wait` instead.
 8. **Partial IDs**: notebook/source/note IDs support prefix matching.
+8b. **`[v0.7]` Exit codes**: `source get`/`artifact get`/`note get` now exit `1` on not-found (was
+    `0`); `notebooklm use <id>` validates existence and exits `1` without writing unless `--force`.
+    A `get` returning non-zero means *absent*, not *broken* — don't treat it as a hard failure.
 9. **Duplicates after `--import-all`**: run `source clean` (exact dups/errors/blocked) **and**
    `notebook-dedup.sh NOTEBOOK_ID --apply` (URL variants).
 10. **Never pass an empty `-n`** — the CLI falls back to the *current context* notebook and pollutes

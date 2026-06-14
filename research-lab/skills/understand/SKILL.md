@@ -80,8 +80,9 @@ Build the tree as you explore. Each branch has an identifier, a label, a status 
 `open`, `blocked`, or `deferred`), optional dependencies, and notes. Maintain the tree as internal
 state throughout the session — it guides what to explore next.
 
-When a notebook id is in play, `notebooklm generate mind-map -n NOTEBOOK_ID` gives a structural
-decomposition to seed the tree.
+When a notebook id is in play, `notebooklm generate mind-map -n NOTEBOOK_ID --kind note-backed` gives
+a parseable JSON decomposition (`{mind_map, note_id, kind}`) to seed the tree — use `--kind
+note-backed`, not the default interactive Studio map, when you need to *read* the structure.
 
 Resolve dependencies first, work outward, and do not leave branches unexplored without naming the
 deferral.
@@ -98,7 +99,7 @@ the user correct you.
 **2. Explore and decompose.** Do your own homework before engaging the user in back-and-forth:
 
 - **Plan / pasted text / file:** read it in full; trace claims and structure.
-- **Notebook id:** read it back; `generate mind-map` gives a free structural decomposition.
+- **Notebook id:** read it back; `generate mind-map --kind note-backed` gives a free, parseable structural decomposition.
 - **System or codebase:** read relevant code, configs, docs; trace data flows.
 
 Fan-out to parallel subagents only when independently explorable facets benefit from concurrent
