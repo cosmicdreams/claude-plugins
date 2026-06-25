@@ -6,6 +6,7 @@
 - **prioritize**: fixed the "quiet project" bug — a project is now marked quiet only when it has zero items across BOTH passes, computed from the final merged list, not from the delta pass alone (an assigned standing-obligation no longer gets buried under a false "quiet").
 - **prioritize**: `DUE` scoring tier (90, just under RESPOND) with a +15 overdue bonus; a due-today item that also blocks others is the strongest `NEXT:` candidate.
 - **prioritize**: on-demand runs now also write and open a self-contained HTML brief (`~/.claude/workshop-prioritize.brief.html`) centered on "What should I work on next?" — terminal `NEXT:` line stays. New `assets/brief.template.html`, styled to Velir 2025 tokens (`~/.velir/DESIGN.md`) when present: flat, light, IBM Plex Sans, navy chrome, no left-border "bracket" callouts. Ambient (`--loop`) mode stays quiet — no HTML.
+- **prioritize**: the HTML brief includes a dependency-free, client-side **queue filter** — type to live-filter the ranked rows (Esc clears, shows an N-of-total count); the hero stays pinned. Borrows the hero+queue lineage from the ActionPlan jira-work-organizer without its server stack.
 - **prioritize**: noted the jira-cli `--updated ">DATE"` quirk and the JQL fallback so quiet detection does not get false negatives.
 
 ## 2.0.0 — 2026-06-10 — Fable-era rewrite
