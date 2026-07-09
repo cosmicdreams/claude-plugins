@@ -1,5 +1,31 @@
 # Changelog
 
+## 2.1.0 — 2026-07-09
+
+### Added
+
+- `skills/supervise/SKILL.md` — Fable-owned loop supervisor for backlog health,
+  unknown discovery, run caps, priorities, and worker routing.
+- `skills/delegate/SKILL.md` — cost-aware routing policy: Fable for strategy,
+  GPT-5.5-style workers for expensive extraction/clustering, cheap/local workers
+  or shell for mechanical work.
+- `skills/decay/SKILL.md` — valid memory state-machine updates.
+- `skills/stats/SKILL.md` — `_meta/stats.md` writer for health/backlog/model
+  routing telemetry.
+- `skills/rescue/SKILL.md` — stale raw, orphan, and at-risk recovery loop.
+- `skills/funnel-export/SKILL.md` — capped Beads-to-Raw export guidance.
+
+### Changed
+
+- Workflow now starts with Fable supervision, applies per-domain backpressure,
+  delegates bounded worker ingest, and runs lint/decay/rescue/stats every run.
+- Removed invalid scorer instructions that used `state: stale` and
+  `state: hardened`; `hardened` is now handled only as a boolean flag.
+- `query` no longer writes directly to shared `Concepts/`; it drafts domain
+  synthesis or a Refinery promotion request.
+- README and templates now describe the v2 singleton Workflow instead of the
+  retired Monitor/orchestrator path.
+
 ## 2.0.0 — 2026-06-10
 
 **Breaking change — singleton pipeline.** The per-instance scheduling model is replaced

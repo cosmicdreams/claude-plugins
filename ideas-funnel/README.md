@@ -1,15 +1,18 @@
 # ideas-funnel
 
-A passive knowledge capture pipeline. Feeds (RSS, APIs, manual drops) land in your Obsidian vault's `Raw/` directory. Monitor-driven agents compile them into a cross-linked wiki. Memory evolves — knowledge is confirmed, contradicted, decayed, or resurfaced. You only see the high-signal items that earn your attention.
+A passive knowledge capture pipeline. Feeds (RSS, APIs, manual drops) land in your Obsidian vault's `Raw/` directory. A singleton daily Workflow uses Fable as the supervisor and cheaper workers for bounded extraction, then compiles selected material into a cross-linked wiki. Memory evolves — knowledge is confirmed, contradicted, decayed, rescued, or resurfaced. You only see the high-signal items that earn your attention.
 
-Derived from Andrej Karpathy's LLM Wiki pattern, extended with multi-domain attention, event-driven orchestration via Claude Code's Monitor tool, and a graph-aware consolidation layer.
+Derived from Andrej Karpathy's LLM Wiki pattern, extended with multi-domain attention, cost-aware model routing, Fable supervision, and a graph-aware consolidation layer.
 
 ## What it does
 
-- **Ingests** — background scripts poll feeds and drop items into `Raw/Inbox/<domain>/`. No cron polling from the agent side; Monitor wakes the orchestrator only when content arrives.
+- **Supervises** — Fable reads backlog, stats, conflicts, and recent notes; it chooses bounded work and unknowns to pursue.
+- **Delegates** — GPT-5.5-style workers do expensive extraction/clustering; cheap/local workers or shell do filtering and bookkeeping.
+- **Ingests** — workers process only selected high-value items from `Raw/Inbox/<domain>/` and daily notes.
 - **Compiles** — agents read raw items and produce durable Markdown pages in the vault: domain landing pages, Concept pages, Entity pages, Source pages.
 - **Consolidates** — when a concept appears in ≥3 unrelated sources, a synthesis page is generated. Cross-domain concepts produce Bridge pages.
 - **Remembers** — every claim carries provenance + bi-temporal timeline + confidence. Unused facts decay. Contradicted facts fork into Conflict pages.
+- **Measures** — `_meta/stats.md` records backlog, model routing, state counts, and health for the next Fable run.
 - **Surfaces** — high-signal items land in Beads lanes (Ready for new content, Review for resurfaced). You decide what graduates.
 
 ## Quickstart
@@ -30,18 +33,18 @@ Derived from Andrej Karpathy's LLM Wiki pattern, extended with multi-domain atte
 # 4. Drop a few bootstrap articles into Raw/Inbox/<domain>/
 #    (manual pre-seed — see domain.yaml bootstrap_seeds)
 
-# 5. Monitor is registered automatically on plugin install.
-#    umbrella-ideas.sh runs in the background; agents wake on content arrival.
+# 5. The singleton Workflow is registered by /ideas-funnel:schedule.
+#    It runs Fable supervision, bounded ingest, Refinery, lint, decay, rescue, stats.
 ```
 
 ## Seven core concepts
 
 1. **Domain** — a pluggable attention slice (AI workflows, Drupal dev, Drupal news, OSS AI tools, ad-hoc). Declared in one YAML file. Each domain has its own feeds, keywords, landing page, decay class, and Beads scorer weights.
-2. **`Raw/`** — immutable drop zone. LLM reads, never writes. `Raw/Inbox/<domain>/` is the Monitor trigger target.
+2. **`Raw/`** — immutable drop zone. LLM reads, never writes. `Raw/Inbox/<domain>/` is the scheduled worker intake.
 3. **Wiki layers** — compiled output: `Domains/<Label>/` (domain-owned), `Concepts/` / `Entities/` / `Sources/` / `Bridges/` (vault-shared, Refinery-owned), `Conflicts/` (auto-generated).
-4. **Monitor signals** — `umbrella-ideas.sh` emits typed stdout lines; Monitor wakes the orchestrator per signal. No polling.
+4. **Fable supervisor** — one strategic pass chooses priorities, caps, unknowns, and worker routing.
 5. **Refinery** — the single agent allowed to write shared layers. Prevents concurrent-write conflicts when multiple domain ingest-agents discover the same concept.
-6. **Lanes** — Beads board carries `lane-inbox` / `lane-consolidating` / `lane-scored` / `lane-ready` / `lane-review` / `lane-at-risk` / `lane-archived`. Automation ends at `lane-scored`; the rest is your call.
+6. **Backpressure** — scheduled runs process top-N valuable items instead of trying to clear all raw/card backlog.
 7. **Decay** — pages have `confidence` (0–1) + `decay_class` (fast/standard/slow/frozen). Unused facts lose confidence over time. Below 0.4 → `at_risk` → 30-day human review window → `archived`.
 
 See **ONBOARDING.md** for the role catalog (every agent, skill, script, signal, lane).
@@ -50,34 +53,32 @@ See **ONBOARDING.md** for the role catalog (every agent, skill, script, signal, 
 
 | Thing | Location |
 |---|---|
-| Agent definitions, skills, scripts, Monitor registration, templates | This plugin |
+| Agent definitions, skills, Workflow script, templates | This plugin |
 | `wiki-schema.md`, `AGENTS.md`, `CRITICAL_FACTS.md` | Vault root (copied from templates at init; user-owned) |
 | `_meta/taxonomy.md` | Vault (user-owned vocabulary) |
 | `_meta/conflicts.md`, `_meta/stats.md` | Vault (runtime state, agent-owned) |
 | `Raw/`, `Domains/`, `Concepts/`, `Entities/`, `Sources/`, `Bridges/`, `Conflicts/` | Vault (knowledge) |
 | Domain configs (`<slug>.yaml`) | `~/.config/ideas-funnel/domains/` |
-| Lock, backlog, events log | `~/.claude/ideas-funnel.{lock,backlog.jsonl,events.jsonl}` |
+| Scheduler marker | `_meta/ideas-funnel-scheduler.json` |
+| Stats / conflicts | `_meta/stats.md`, `_meta/conflicts.md` |
 
 ## Status
 
-**v0.1.0 — Phase 1 scaffold.** No runtime yet. Plugin is docs + templates only.
-
-Build plan: `analysis-reports/research/ideas-funnel-v2/06-build-plan.md` in the vault.
+**v2.1.0 — Fable-supervised singleton Workflow.**
 
 | Phase | What lands | Status |
 |---|---|---|
-| 1 | Scaffold + templates + docs | **In progress** |
-| 2 | AI-Workflows vertical slice (first runtime) | Pending |
-| 3 | Multi-domain fan-out + scorer + Beads re-integration | Pending |
-| 4 | Memory evolution (4-state, confidence, tension, resurfacing) | Pending |
-| 5 | Instrumentation + v1 retirement + bump to 1.0 | Pending |
-| 6 | FSRS, auto-archival, health.py, ops dashboard | Deferred |
+| 1 | Scaffold + templates + docs | Shipped |
+| 2 | Singleton Workflow runtime | Shipped |
+| 3 | Fable supervision + worker delegation + backpressure | **Current** |
+| 4 | Beads scoring/export polish | Next |
+| 5 | FSRS, auto-archival, health.py, ops dashboard | Deferred |
 
 ## Limitations (known, by design)
 
-- Monitor-driven orchestrator-spawn pattern is new territory. Drover uses it; broader ecosystem precedent is thin. Expect to discover edge cases during Phase 2's 7-day observation window.
 - Confidence arithmetic (+0.05/−0.20 deltas) is tunable, not axiomatic. Authors of similar systems admit the math is "a functional hack." Instrumented from day one; tune after 30 days of real data.
 - Fully autonomous curation is explicitly not a goal. The Ready lane remains human-in-the-loop. LLM laziness is real; Ready lane friction is a feature.
+- GPT-5.5 worker routing is a policy contract. Actual provider/model availability depends on the host Claude Code environment and installed adapters.
 
 ## Credits
 
@@ -87,4 +88,4 @@ Build plan: `analysis-reports/research/ideas-funnel-v2/06-build-plan.md` in the 
 - Maggie Appleton — digital gardens, epistemic disclosure
 - Tiago Forte, Nick Milo — BASB, LYT
 - Steph Ango (Kepano) — file-over-app, compilation spaces
-- drover plugin (this same author) — Monitor pattern reference implementation
+- drover plugin (this same author) — Workflow pattern reference implementation

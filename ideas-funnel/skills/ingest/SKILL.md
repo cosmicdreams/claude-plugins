@@ -30,6 +30,9 @@ allowed-tools:
 
 Process unprocessed items in `Raw/` and `Raw/Inbox/<domain>/` into the wiki.
 
+This is a worker skill. Fable supervises priority and routing; ingest performs
+bounded extraction and page-breaking.
+
 ## Prerequisites
 
 Read these before starting:
@@ -64,6 +67,17 @@ An item is unprocessed if:
 
 Skip empty files. Skip `README.md` placeholders.
 
+When the pipeline passes a `max_items_per_domain` cap, process no more than that
+many files. Rank by:
+
+1. explicit Fable priority terms,
+2. source quality,
+3. novelty against existing `index.md`,
+4. likely actionability for Chris,
+5. recency.
+
+Leave skipped files in place for later runs.
+
 ## Step 3 — For each unprocessed item, analyze
 
 Daily notes (named `YYYY-MM-DD.md` at root of `Raw/`) may contain multiple items — process each separately. `Raw/Inbox/<domain>/*.md` items are single-source per file.
@@ -91,6 +105,18 @@ Unreachable URL → note `[unreachable]` in the Source page and continue.
 
 If an article body exceeds 4000 words, compress it through headroom (reversible mode)
 before page-breaking, when `command -v headroom` succeeds. Degrade silently if absent.
+
+### model routing
+
+Follow `ideas-funnel:delegate`:
+
+- Use GPT-5.5-style worker routing for long-context extraction, multi-source
+  comparison, or nuanced clustering.
+- Use cheap/local or shell work for manifest checks, RSS/title filtering,
+  obvious duplicates, and backlink counts.
+- Do not use Fable for bulk extraction.
+
+Record routed work in the final JSON under `routed_tasks`.
 
 ## Step 4 — Write wiki pages
 
@@ -225,3 +251,5 @@ For daily notes with multiple items, archive only after ALL items are processed.
 - **Wikilinks everywhere.** Every page links to related pages.
 - **2–4 tags per page.** Use existing tags from `_meta/taxonomy.md` before inventing new ones.
 - **Never write to `Concepts/`, `Entities/`, `Bridges/`, or `Conflicts/`.** Those are Refinery-only.
+- **Respect backpressure.** It is better to process 8 high-value items well than
+  80 low-value items poorly.

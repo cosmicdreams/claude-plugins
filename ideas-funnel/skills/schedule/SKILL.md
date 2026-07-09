@@ -1,12 +1,12 @@
 ---
 name: ideas-funnel:schedule
 description: >
-  Idempotently registers the singleton daily pipeline cron for the ideas-funnel
-  plugin. Checks for an existing cron before creating one. Records the cron id
-  in the vault at _meta/ideas-funnel-scheduler.json so a second Claude instance
-  can detect and decline to create a duplicate. Trigger phrases: "schedule the
-  funnel", "register the funnel cron", "/ideas-funnel:schedule",
-  "set up funnel pipeline".
+  Idempotently registers the singleton daily Fable-supervised pipeline cron for
+  the ideas-funnel plugin. Checks for an existing cron before creating one.
+  Records the cron id in the vault at _meta/ideas-funnel-scheduler.json so a
+  second Claude instance can detect and decline to create a duplicate. Trigger
+  phrases: "schedule the funnel", "register the funnel cron",
+  "/ideas-funnel:schedule", "set up funnel pipeline".
   Do NOT use when you only want to run the pipeline manually — invoke the
   Workflow script directly for that.
 triggers:
@@ -50,7 +50,7 @@ and continue to Step 2.
 ```
 CronCreate(
   schedule: "0 2 * * *",
-  description: "ideas-funnel daily pipeline",
+  description: "ideas-funnel daily Fable-supervised pipeline",
   prompt: "Run the ideas-funnel pipeline. Invoke Workflow with scriptPath '${CLAUDE_PLUGIN_ROOT}/skills/schedule/scripts/funnel-pipeline.js' and args { date: '<today YYYY-MM-DD>', vault: '$VAULT', config: '$CONFIG' }."
 )
 ```
@@ -78,3 +78,18 @@ To cancel the pipeline:
 
 Any Claude instance that reads the marker after deletion will see no active cron
 and will offer to re-register.
+
+## Pipeline shape
+
+The scheduled Workflow runs:
+
+1. `supervise` — Fable reads health/backlog/recent notes and emits a bounded plan.
+2. `ingest` — worker agents process only the selected domains/items.
+3. `refinery` — single writer promotes concepts/bridges/conflicts.
+4. `lint` — structural health and stale raw detection.
+5. `decay` — valid memory state transitions.
+6. `rescue` — stale raw, orphan, and at-risk recovery recommendations.
+7. `stats` — writes `_meta/stats.md` for the next Fable run.
+
+The cron should not try to clear the full backlog in one run. Backpressure is
+part of the design.

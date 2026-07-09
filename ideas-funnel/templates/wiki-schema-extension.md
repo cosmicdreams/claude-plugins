@@ -6,7 +6,7 @@ This block is appended to the vault's existing `wiki-schema.md` on `init`. Revie
 
 Domains are declared in `~/.config/ideas-funnel/domains/*.yaml`. Each has its own folder under `Domains/<Label>/` and its own raw inbox under `Raw/Inbox/<slug>/`.
 
-Current active domains (auto-synced by the orchestrator on each run):
+Current active domains (auto-synced by the scheduled Workflow on each run):
 
 - **AI-Workflows** → `Domains/AI-Workflows/_landing.md` — raw: `Raw/Inbox/ai-workflows/`
 
@@ -25,10 +25,14 @@ The `ideas-funnel` plugin provides these skills. Invoke via `/ideas-funnel:<name
 | Skill | Invoked by | Purpose |
 |---|---|---|
 | `init` | human (one-time) | Bootstrap: create config dir, copy templates, print next-steps |
-| `ingest` | `ideas-funnel:ingest` agent | Process `Raw/Inbox/<domain>/` + `Raw/<date>.md` into Sources/Concepts/Entities |
-| `lint` | `ideas-funnel:lint` agent + human | Orphans, schema compliance, stale flags, timeline sidecar migration |
-| `query` | human | Scan index → synthesize with citations → file back if novel |
-| `funnel-export` | `ideas-funnel:scorer` + human | Export ready cards to `Raw/` for ingest |
+| `supervise` | Fable + nightly Workflow | Inspect health/backlog/recent notes; choose bounded work; discover unknowns |
+| `delegate` | Fable + worker prompts | Route tasks to Fable, GPT-5.5 worker, cheap/local worker, or shell |
+| `ingest` | worker agent | Process bounded `Raw/Inbox/<domain>/` + `Raw/<date>.md` into Sources/domain pages |
+| `lint` | nightly + human | Orphans, schema compliance, stale flags, timeline sidecar migration |
+| `query` | human | Scan index → synthesize with citations → draft domain page or Refinery request |
+| `decay` | nightly | Confidence decay and valid state-machine transitions |
+| `stats` | nightly | Write `_meta/stats.md` for next Fable supervision pass |
+| `funnel-export` | Fable recommendation + human | Export ready/review cards to `Raw/` for ingest |
 | `rescue` | nightly + human | Orphan rescue + unlinked-mention auto-link |
 | `emerge` | nightly + human | Surface unnamed patterns in last 30 days |
 | `challenge` | human | Red-team a specific page |
@@ -98,7 +102,7 @@ See `_meta/taxonomy.md`. Never invent tags without adding to taxonomy — lint f
 
 One of these per `log.md` line:
 
-`ingest | query | lint | emerge | decay | conflict | bridge | export | health | rescue`
+`supervise | delegate | ingest | query | lint | emerge | decay | conflict | bridge | export | health | rescue | stats`
 
 ## State Machine (Memory Evolution)
 
@@ -124,3 +128,15 @@ any ──(newer page replaces)──► archived + superseded_by: <link>
 | `frozen` | ∞ (until contradiction) | `hardened: true` pages |
 
 Cross-domain pages inherit the **slowest** class of constituent domains.
+
+## Fable Supervisor / Worker Routing
+
+- Fable owns supervision: unknown discovery, loop tuning, priority selection,
+  conflict arbitration, and final synthesis.
+- GPT-5.5-style workers handle expensive long-context extraction, clustering,
+  and source comparison when Fable explicitly routes work there.
+- Cheap/local workers or deterministic shell commands handle title filtering,
+  manifest checks, obvious duplicate detection, and backlink counts.
+- Every scheduled run must respect backpressure caps from domain config or the
+  supervisor plan. The goal is compounding quality, not clearing all backlog.
+- Model/task routing should be reflected in `_meta/stats.md`.

@@ -20,7 +20,7 @@ allowed-tools:
   - Glob
 ---
 
-**Used by:** pipeline Workflow (nightly scorer phase) + human for manual runs.
+**Used by:** pipeline Workflow (nightly maintenance phase) + human for manual runs.
 
 # ideas-funnel:lint
 
@@ -186,6 +186,10 @@ Unknown tag → warning per page.
 **HEALTHY:** 0 errors + ≤3 warnings.
 **NEEDS ATTENTION:** 0 errors + >3 warnings OR any stale Raw/ items.
 **UNHEALTHY:** any errors.
+
+Write this summary into `_meta/stats.md` when `ideas-funnel:stats` is not being
+run in the same Workflow. When `stats` is running, return the counts so that
+skill can write the consolidated snapshot.
 
 ## What NOT to do
 

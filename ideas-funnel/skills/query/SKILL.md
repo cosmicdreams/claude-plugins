@@ -3,8 +3,8 @@ name: ideas-funnel:query
 description: >
   Answer a question against the vault. Scans index.md for candidate pages,
   reads the relevant bodies, synthesizes a response with [[wikilink]] citations,
-  and optionally files the answer back as a new Concept page if the answer is
-  novel enough to deserve one. Trigger phrases: "query the vault",
+  and optionally files the answer back as a domain synthesis draft or Refinery
+  promotion request if the answer is novel enough to deserve one. Trigger phrases: "query the vault",
   "/ideas-funnel:query", "what does the vault say about X".
 triggers:
   - query
@@ -54,13 +54,22 @@ Write a response:
 
 ## Step 4 — File back if novel
 
-If the answer represents a synthesis that doesn't exist as its own Concept page, offer to create one:
+If the answer represents a synthesis that doesn't exist as its own page, offer
+to create a draft:
 
 ```
-This answer is a synthesis across [[A]], [[B]], [[C]]. File as a new Concept page?
+This answer is a synthesis across [[A]], [[B]], [[C]]. File as a domain draft
+and request Refinery promotion?
 ```
 
-If user accepts, write `Concepts/<Name>.md` with `provenance.origin: ai-generated` and `state: fresh`.
+If user accepts:
+
+1. Write to `Domains/<Label>/<Name>.md` when the synthesis is domain-scoped.
+2. Write to `Raw/Synthesis/<YYYY-MM-DD>-<slug>.md` when the domain is unclear.
+3. Append a `log.md` line with `query | refinery-request: <path>`.
+
+Do not write directly to `Concepts/`, `Entities/`, `Bridges/`, or `Conflicts/`.
+Those are Refinery-only shared layers.
 
 ## Step 5 — Log
 
@@ -75,3 +84,4 @@ Append to `log.md`:
 - Answers grounded in sources, not inferred confidently.
 - If the vault is silent on the question, say so — don't invent.
 - Prefer `Concepts/` and `Bridges/` for synthesis; `Sources/` for primary evidence.
+- Shared-layer promotion goes through Refinery.

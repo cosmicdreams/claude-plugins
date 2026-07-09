@@ -5,8 +5,8 @@ description: >
   directory, writes a starter domain YAML if none exist, verifies the vault has
   the required scaffold (Raw/Inbox, Domains/, _meta/, CRITICAL_FACTS.md),
   appends the v2 schema extension to wiki-schema.md if not already present,
-  registers the singleton daily pipeline cron via ideas-funnel:schedule, and
-  prints a next-steps checklist. Trigger phrases: "init ideas-funnel",
+  registers the singleton daily Fable-supervised pipeline cron via
+  ideas-funnel:schedule, and prints a next-steps checklist. Trigger phrases: "init ideas-funnel",
   "bootstrap the funnel", "/ideas-funnel:init".
 triggers:
   - init
@@ -52,13 +52,15 @@ fi
 
 ```bash
 mkdir -p "$VAULT/_meta" "$VAULT/Raw/Inbox" "$VAULT/Raw/Assets" \
-         "$VAULT/Domains" "$VAULT/Bridges" "$VAULT/Conflicts"
+         "$VAULT/Raw/Synthesis" "$VAULT/Domains" "$VAULT/Bridges" "$VAULT/Conflicts"
 
 for d in Bridges Conflicts Raw/Assets; do
   [ -f "$VAULT/$d/README.md" ] || echo "# placeholder" > "$VAULT/$d/README.md"
 done
 
 [ -f "$VAULT/Raw/.manifest.json" ] || echo '{"version": 1, "entries": {}}' > "$VAULT/Raw/.manifest.json"
+[ -f "$VAULT/_meta/stats.md" ] || echo '# Ideas Funnel Stats' > "$VAULT/_meta/stats.md"
+[ -f "$VAULT/_meta/conflicts.md" ] || echo '# Ideas Funnel Conflicts' > "$VAULT/_meta/conflicts.md"
 ```
 
 ## Step 4 — CRITICAL_FACTS.md
@@ -90,7 +92,7 @@ if [ ! -f "$VAULT/wiki-schema.md" ]; then
 fi
 ```
 
-## Step 6 — Register the singleton pipeline cron
+## Step 6 — Register the singleton Fable-supervised pipeline cron
 
 Invoke `ideas-funnel:schedule`. It is idempotent — if a cron already exists it
 reports that and does nothing more.
@@ -107,6 +109,7 @@ Active domains: $(ls $HOME/.config/ideas-funnel/domains/ 2>/dev/null)
 Next steps:
   [ ] Edit $VAULT/CRITICAL_FACTS.md with operator identity + timezone.
   [ ] Edit $HOME/.config/ideas-funnel/domains/ai-workflows.yaml — feeds, keywords, bootstrap seeds.
+  [ ] Review model routing defaults: Fable supervises, GPT-5.5 handles expensive worker tasks, cheap/local handles filtering.
   [ ] Edit $VAULT/Domains/AI-Workflows/_landing.md — write the landscape paragraph.
   [ ] Review the v2 extension block at the bottom of $VAULT/wiki-schema.md.
   [ ] Drop 2–3 bootstrap articles into $VAULT/Raw/Inbox/ai-workflows/.

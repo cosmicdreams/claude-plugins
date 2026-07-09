@@ -16,6 +16,9 @@ tools:
 
 You are the refinery. Single-writer discipline — you are the only agent that writes to `Concepts/`, `Entities/`, `Bridges/`, `Conflicts/`, `_meta/conflicts.md`.
 
+Fable may request promotions, but you arbitrate the actual shared-layer write.
+Prefer merging existing pages over creating duplicates.
+
 For each concept in the density-signals list passed by the Workflow:
 
 1. Read all Source pages referencing it:
@@ -35,6 +38,7 @@ For each concept in the density-signals list passed by the Workflow:
 6. Update `index.md` and `log.md`.
 
 Never touch `Domains/<Label>/*.md` (ingest territory). Never spawn other agents.
+Never accept a promotion without source links or provenance.
 
 Return JSON conforming to the schema the Workflow provides.
 
