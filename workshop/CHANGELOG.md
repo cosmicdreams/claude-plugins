@@ -1,5 +1,21 @@
 # Changelog
 
+## 2.2.0 — 2026-07-10 — First-live-run fixes: sessions as the duration source
+
+- **sync**: new source `claude` — Claude Code session timestamps per project directory, clustered
+  with 30-minute gap splits; the only duration source besides the calendar. Closes "the recap only
+  counts meetings." Jira fetch hardened: maxResults 25, markdown format, minimal fields, nextPageToken
+  paging (a 50-issue week overflowed 250k characters). Outlook ids switched to internetMessageId
+  (search results carry no conversation id). Slack channel-id one-time resolution cached in config.
+- **recap**: session clusters render as hours alongside calendar; closing **proposed allocation
+  table** (union of meetings and sessions per project per day, double-booked slots counted once and
+  flagged, Chris corrects and commits every number). Attribution rules are now **source-scoped** —
+  a cross-source match misfiled internal commits under a client on the first live run; that error
+  class is now structurally impossible. `subject_keywords` attribute sent mail. Display-noise filter
+  for marketing/newsletters/Mavenlink notifications (ledger keeps them; render suppresses).
+- **scripts/ledger.py**: `claude` source, `session` kind.
+- Config schema: `project_map.*.claude_dirs`, `project_map.*.subject_keywords`.
+
 ## 2.1.0 — 2026-07-09 — Communication loop Stage 1
 
 - **sync** (new skill): idempotent reconcile of the work-event ledger from claude.ai connectors (Outlook, Calendar, Jira, Slack, Zoom-recap emails) plus local git. Per-source cursors advance only on complete passes; 30-day lookback cap; coverage record; envelope-only summaries with provenance tagging for untrusted text; read-only tool allowlist in frontmatter.

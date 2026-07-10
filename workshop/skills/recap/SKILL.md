@@ -27,9 +27,11 @@ Supply the what. Never fabricate the how-long.
 
 **Hard rules, non-negotiable:**
 
-- **No invented hours.** Calendar blocks are the only durations rendered, because they are the
-  only events with real duration. Everything else is evidence with a link. If an hours-shaped
-  number would come from anywhere but a calendar block or Chris's own hand, it does not appear.
+- **No invented hours.** Exactly two event kinds carry real duration and may render as hours:
+  calendar blocks (`kind: meeting`) and observed activity clusters (`kind: session`, from Claude
+  Code timestamps, gap-split at 30 minutes). Everything else is evidence with a link. If an
+  hours-shaped number would come from anywhere else but Chris's own hand, it does not appear.
+  The closing table is explicitly a **proposal** — Chris corrects and commits every number.
 - **The timesheet section reads `actor: self` only.** Chris bills Chris's work.
 - **Never aggregate by person.** Grouping is by project and by work item, never by human.
   "What did Dan do this week" must not be constructible from this output.
@@ -76,9 +78,19 @@ first match wins; no match → `unattributed` (shown, never hidden):
 }
 ```
 
-Rule order per event: `work_item` prefix → jira key in summary/ref → slack channel → sender
-domain → calendar keyword → git repo. A wrong mapping fixed in config retroactively repairs
-every past recap — nothing is frozen into the ledger.
+**Rules are scoped by event source — never apply another source's rules** (a cross-source
+match misfiled internal plugin commits under a client on the first live run, 2026-07-10; that
+class of error must be structurally impossible):
+
+- `jira` events: `work_item` / key prefix only.
+- `git` events: `git_repos` match on the `[repo]` tag only.
+- `calendar` and `claude` events: `calendar_keywords` / `claude_dirs` only.
+- `slack` events: `slack_channels` only.
+- `outlook` events: sender domain first, then `subject_keywords` anywhere in the summary —
+  sent mail has no sender signal, so subject keywords are what attribute Chris's own replies.
+
+First match wins; no match → `unattributed` (shown, never hidden). A wrong mapping fixed in
+config retroactively repairs every past recap — nothing is frozen into the ledger.
 
 ### 4. Render
 
@@ -108,6 +120,24 @@ Unaccounted time (reading, thinking, hallway, phone) is invisible to telemetry: 
 
 Day mode is the same body for one day, plus a one-line header suitable for the session-start
 "since you were last here" use.
+
+### 4b. Close with the proposed allocation
+
+After the evidence sections, render the proposal — meetings and session clusters **unioned per
+project per day** (a meeting inside an active span counts once), rounded to 0.25h:
+
+```
+## Proposed week — correct, then enter in Mavenlink
+| Project | Proposed | Basis |
+| PNCB    | 10.5h    | Tue 2.1 + Wed 7.2 sessions + Thu 1.3 |
+| ...     |          |                                      |
+⚠ Thu 11:00 double-booked (two ACU meetings) — counted once, verify.
+```
+
+- **Double-booked meeting slots are counted once and flagged**, never summed.
+- **Display-noise filter**: marketing, newsletters, quarantine digests, and Mavenlink
+  notification mail stay in the ledger but are suppressed from the render.
+- Every number is a proposal. Chris assigns the finals; the skill never enters anything.
 
 ### 5. Instrument (the ledger measures the system that writes it)
 

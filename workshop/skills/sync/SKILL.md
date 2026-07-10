@@ -72,7 +72,8 @@ Two fetches with `outlook_email_search`, both windowed by `afterDateTime`:
 - **Sent Items** (`folderName: "Sent Items"`): these are `actor: self` — the half a timesheet
   is made of.
 
-Event: `id` = `outlook:conversation:{conversationId}:message:{internetMessageId}`,
+Event: `id` = `outlook:message:{internetMessageId}` (search results do not carry a
+conversation identifier — verified 2026-07-09),
 `kind: email`, `occurred_at` = sentDateTime, `actor` self if sender is the signed-in address
 else other, `provenance` self/untrusted to match, `summary` = envelope (`{sender}: {subject}`),
 `ref` = webLink. Messages from `no-reply@zoom.us` with subject starting `Meeting assets for`
@@ -88,15 +89,20 @@ because calendar blocks are the only real durations recap may treat as hours.
 ### 4. Jira (source: `jira`)
 
 Per server in config, `searchJiraIssuesUsingJql`:
-`updated >= "{cursor date}" AND project IN ({configured projects}) ORDER BY updated ASC`,
-fields: summary, status, assignee, updated. One event per issue touched:
+`updated >= "{cursor date}" AND project IN ({configured projects}) ORDER BY updated ASC`.
+**Always**: `maxResults: 25`, `responseContentFormat: "markdown"`, `fields: ["summary", "status",
+"assignee", "updated"]`, and page with `nextPageToken` — a wider request overflowed 250,000
+characters on a 50-issue week (verified 2026-07-09). One event per issue touched:
 `id` = `jira:{key}:updated:{updated}`, `kind: transition` when status moved else `comment`,
 `actor: self` only if the change author is Chris (else `other`), `work_item` = the issue key.
 
 ### 5. Slack (source: `slack`)
 
-Per configured channel, `slack_read_channel` over the window. Event per message:
-`id` = `slack:{channel}:{ts}`, `kind: message`, actor by author, envelope summary.
+Channel names must be resolved to ids once: `slack_search_channels` per configured name, then
+write the id back into `workshop.json` under the channel entry (`{"name": "ahri-support",
+"id": "C04..."}`). Skip resolution when the id is already cached. Then per channel,
+`slack_read_channel` over the window (`oldest` = cursor as Unix timestamp). Event per message:
+`id` = `slack:{channel_id}:{ts}`, `kind: message`, actor by author, envelope summary.
 
 ### 6. Git (source: `git`)
 
@@ -109,14 +115,30 @@ git -C "$repo" log --author="$(git -C "$repo" config user.email)" \
 
 `id` = `git:{repo basename}:{hash}`, `kind: commit`, `actor: self`, `provenance: self`.
 
-### 7. Close out
+### 7. Claude Code sessions (source: `claude`) — the duration source
+
+Local, free, and the only source besides the calendar that carries **real durations**. This is
+what closes the "meetings aren't my worked time" gap.
+
+Scan `~/.claude/projects/<dir>/*.jsonl` (and `*/subagents/*.jsonl`) for files modified inside
+the window. Extract every `"timestamp"` value (`grep -o '"timestamp":"20[^"]*"'` — do not parse
+whole transcripts). Map each project directory to a project via the `claude_dirs` substrings in
+`project_map`. Cluster timestamps per project per local day, **splitting on gaps over 30
+minutes** — a session left open overnight is not overnight work. One event per cluster:
+
+- `id` = `claude:{project}:{cluster start ISO}`
+- `kind: session`, `actor: self`, `provenance: self`
+- `occurred_at` = cluster start; `summary` = `active {HH:MM}–{HH:MM} CT ({h:.1f}h)` — like
+  calendar events, the duration rides in the summary and recap may treat it as hours.
+
+### 8. Close out
 
 Per source: append events, then cursor set (newest `occurred_at` fetched) and
 `record-sync ok` — or `record-sync failed --detail "<why>"` with the cursor untouched.
 Finish with `ledger.py coverage` and emit exactly one line per source:
 
 ```
-sync: outlook ok (+14) · calendar ok (+3) · jira ok (+6) · slack FAILED (rate limit, cursor held) · zoom ok (+1) · git ok (+2)
+sync: outlook ok (+14) · calendar ok (+3) · jira ok (+6) · slack FAILED (rate limit, cursor held) · zoom ok (+1) · git ok (+2) · claude ok (+5)
 ```
 
 A failed source is loud, never silent — recap will say "incomplete since {cursor}" for it.
