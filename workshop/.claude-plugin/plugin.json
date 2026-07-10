@@ -1,7 +1,7 @@
 {
     "name": "workshop",
-    "version": "2.0.0",
-    "description": "Process automation skills: prioritize (what to work on next), scout (knowledge radar), knowledge-check (stay in the loop on AI-assisted work), deploy checklist, Obsidian maintenance, and personal productivity.",
+    "version": "2.1.0",
+    "description": "Process automation skills: sync (reconcile the work-event ledger from connectors), recap (daily/weekly evidence summary for Mavenlink timesheets), prioritize (what to work on next), scout (knowledge radar), knowledge-check, deploy checklist, Obsidian maintenance, and personal productivity.",
     "author": {
         "name": "Chris Weber"
     },

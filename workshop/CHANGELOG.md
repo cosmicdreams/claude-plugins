@@ -1,5 +1,13 @@
 # Changelog
 
+## 2.1.0 — 2026-07-09 — Communication loop Stage 1
+
+- **sync** (new skill): idempotent reconcile of the work-event ledger from claude.ai connectors (Outlook, Calendar, Jira, Slack, Zoom-recap emails) plus local git. Per-source cursors advance only on complete passes; 30-day lookback cap; coverage record; envelope-only summaries with provenance tagging for untrusted text; read-only tool allowlist in frontmatter.
+- **recap** (new skill): `--day` (best-effort digest, session-start friendly) and `--week` (the mandatory Mavenlink timesheet artifact, tolerates zero daily runs). Read-time project attribution from `project_map` in workshop.json; evidence lists with links, never fabricated hours — calendar blocks are the only durations; coverage gauge with explicit unaccounted-time label; timesheet section reads `actor: self` only; never aggregates by person; logs correction events as `kind: meta`.
+- **scripts/ledger.py** (new): pure-stdlib append-only JSON Lines work-event store. Skip-if-present dedupe on source-native ids, schema validation, date-range query with last-write-wins, per-source cursors, sync coverage bookkeeping, atomic state writes.
+- Config: `project_map` (per-project jira_prefixes / slack_channels / sender_domains / calendar_keywords / git_repos / client_visible_jira) and `git_repos` keys documented in the new skills.
+- Design: plans/workshop-communication-loop.md revision 7.
+
 ## 2.0.0 — 2026-06-10 — Fable-era rewrite
 
 - **prioritize**: added singleton cron discipline — `CronList` before `CronCreate`, skip if entry already exists, document de-registration path (`CronDelete` with job ID); trimmed process narration
