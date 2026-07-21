@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{{meta.project}} — {{meta.month_label}} error report</title>
   <style>{{{css}}}</style>
   {{> head-theme-init}}
@@ -9,58 +10,39 @@
 <body>
 <div class="page">
 
-  <header class="page-header">
-    <div class="page-header__brand">
-      {{#if logoDataUri}}<img src="{{logoDataUri}}" alt="Velir" class="page-header__logo">{{/if}}
-      <div class="page-header__title">{{meta.project}} application errors</div>
-    </div>
-    <div class="page-header__actions">
-      <span class="page-header__meta">{{meta.month_label}} · {{meta.env}}</span>
-      {{> theme-toggle-button}}
-    </div>
-  </header>
+  {{> report-header
+      title=(concat meta.project " application errors")
+      meta=(concat meta.month_label " · " meta.env)}}
 
   <main class="page-body">
 
     <h1 class="display">{{meta.month_label}} error report</h1>
     <p class="subtitle">A summary of application-error volume and the issues that contributed most for {{meta.project}} in {{meta.month_label}}.</p>
 
-    {{#if coverageLow}}
-    <div class="coverage-banner">
-      <span class="coverage-banner__icon">⚠</span>
-      <span><strong>Coverage:</strong> {{coverage.coverage_pct}}% — {{coverage.present_days}} of {{coverage.expected_days}} expected (env × type × day) entries were retrievable. Totals below understate the true volume.</span>
-    </div>
-    {{/if}}
+    {{> coverage-banner
+        coverageLow=coverageLow
+        coverage=coverage
+        message="Totals below understate the true volume."}}
 
     <div class="metric-row">
-      <div class="metric-card">
-        <p class="metric-card__label">Total events</p>
-        <p class="metric-card__value">{{fmt totals.events_total}}</p>
-      </div>
-      <div class="metric-card">
-        <p class="metric-card__label">Unique issues</p>
-        <p class="metric-card__value">{{totals.groups_total}}</p>
-      </div>
-      <div class="metric-card">
-        <p class="metric-card__label">Top issue share</p>
-        <p class="metric-card__value">{{topShare}}%</p>
-        <p class="metric-card__hint">of all events caused by the single largest fingerprint</p>
-      </div>
+      {{> metric-card label="Total events" value=(fmt totals.events_total)}}
+      {{> metric-card label="Unique issues" value=totals.groups_total}}
+      {{> metric-card
+          label="Top issue share"
+          value=(pct topShare)
+          hint="of all events caused by the single largest fingerprint"}}
     </div>
 
     <h2 class="section">Severity breakdown</h2>
     <div>
       {{#each severityChart}}
-      <div class="chart">
-        <div class="chart__label">
-          <span class="severity-pill severity-pill--{{key}}">{{key}}</span>
-        </div>
-        <svg class="chart__svg" preserveAspectRatio="none">
-          <rect class="chart__svg-track" width="100%" height="100%" rx="4"></rect>
-          <rect class="chart__svg-fill{{#if first}} chart__svg-fill--accent{{/if}}" style="width: {{widthPct}}%" height="100%" rx="4"></rect>
-        </svg>
-        <div class="chart__value">{{fmt count}} <span style="opacity:.7">({{sharePct}}%)</span></div>
-      </div>
+      {{> chart-bar
+          label=key
+          severity=key
+          value=(fmt count)
+          share=sharePct
+          width=widthPct
+          accent=first}}
       {{/each}}
     </div>
 
@@ -97,10 +79,9 @@
 
   </main>
 
-  <footer class="footer">
-    <span>Prepared by Velir · drover {{schemaVersion}}</span>
-    <span>Generated {{generatedAt}}</span>
-  </footer>
+  {{> report-footer
+      preparedBy=(concat "Prepared by Velir · drover " schemaVersion)
+      generatedAt=generatedAt}}
 </div>
 {{> theme-toggle-script}}
 </body>

@@ -1,5 +1,25 @@
 # drover Changelog
 
+## Unreleased — extensible HTML and PDF delivery
+
+- HTML is now the report skill's default editable artifact; PDF is the final
+  stakeholder delivery artifact. The direct Markdown path remains supported.
+- HTML templates are discovered from explicit directories, environment
+  configuration, `.drover/templates`, and the bundled folder. Project templates
+  and partials can override bundled names without changing plugin code.
+- `cloudflare-summary` is now documented, carries a sample input, and derives
+  its timestamp from input so HTML output remains deterministic.
+- Reusable report partials cover headers, footers, coverage warnings, metric
+  cards, horizontal charts, and prose callouts. `COMPONENTS.md` documents the
+  template data contract and graph helpers.
+- Project design overrides are automatically discovered at
+  `.drover/design/DESIGN.md`; `--design` and `DROVER_DESIGN` remain explicit
+  overrides. Print page size and margin are design tokens.
+- `render-pdf.mjs` supports final PDF generation through installed Chrome,
+  Chromium, or Edge, with an explicit support matrix in `PDF.md`.
+- Removed the remote Google Fonts import so rendered HTML is genuinely
+  self-contained; local IBM Plex installations and system fallbacks are used.
+
 ## 2.1.0 — HTML reports
 
 Adds a self-contained, Velir-branded HTML output alongside the existing

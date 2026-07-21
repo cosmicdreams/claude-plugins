@@ -1,0 +1,16 @@
+{
+  "generated_at": "2026-07-01T12:00:00Z",
+  "zone": "example.org",
+  "window": {"start": "2026-06-01", "end": "2026-06-30"},
+  "top_countries": [
+    {"country": "United States", "requests": 1200000, "threats": 4200},
+    {"country": "Canada", "requests": 180000, "threats": 310}
+  ],
+  "cache_status": {"hit": 980000, "miss": 240000, "dynamic": 130000, "none": 30000},
+  "daily": [
+    {"date": "2026-06-01", "bytes": 48000000000, "cached_bytes": 39000000000},
+    {"date": "2026-06-02", "bytes": 52000000000, "cached_bytes": 43000000000},
+    {"date": "2026-06-03", "bytes": 50000000000, "cached_bytes": 41000000000}
+  ],
+  "bot_classes": {"machine_learning": 120000, "verified_bot": 80000, "heuristics": 15000, "not_computed": 5000}
+}

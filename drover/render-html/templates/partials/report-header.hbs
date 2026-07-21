@@ -1,0 +1,10 @@
+<header class="page-header">
+  <div class="page-header__brand">
+    {{#if logoDataUri}}<img src="{{logoDataUri}}" alt="Velir" class="page-header__logo" width="92" height="28">{{/if}}
+    <div class="page-header__title">{{title}}</div>
+  </div>
+  <div class="page-header__actions">
+    {{#if meta}}<span class="page-header__meta">{{meta}}</span>{{/if}}
+    {{> theme-toggle-button}}
+  </div>
+</header>

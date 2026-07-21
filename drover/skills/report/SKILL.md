@@ -2,12 +2,15 @@
 name: drover:report
 description: >
   Render a report for a calendar month from a project's local logs and
-  coverage ledger — markdown by default, or self-contained Velir-branded
-  HTML via the optional Python→Node render path. Five templates cover
+  coverage ledger — self-contained Velir-branded HTML by default, finalized
+  to PDF for delivery, with markdown available as a lightweight fallback.
+  Five application-log templates cover
   stakeholder, dev, and JIRA-paste workflows. Stakeholder templates carry a Velir logo, brand
   colors, bar charts (by channel, severity, daily volume), and a
   "Recommended JIRA tickets" section plus a JSON sidecar listing each
-  ticket spec for downstream programmatic creation. Deterministic — same
+  ticket spec for downstream programmatic creation. A sixth bundled HTML template covers
+  Cloudflare traffic/offload data, and developers can drop custom Handlebars templates into
+  `.drover/templates`. Deterministic — same
   inputs produce the same output. Trigger phrases — "drover report",
   "monthly report for <project>", "summarize <project> April",
   "root cause summary", "calendar window report".
@@ -20,11 +23,26 @@ allowed-tools: Bash, Read, AskUserQuestion
 
 Walks `<project>/<year>/<month>/<date>.<env>.<type>.log`, parses every
 log file in the requested calendar month, fingerprints + groups errors,
-applies month-over-month delta vs the prior calendar month if data
-exists, and renders one of five markdown templates.
+applies month-over-month delta vs the prior calendar month if data exists,
+and renders structured JSON into an editable HTML report. The standard
+delivery path keeps the HTML source and finalizes it to PDF. Markdown remains
+available when a lightweight text artifact is specifically requested.
 
-The output is **deterministic**: same logs in, same report out. No LLM
-in the rendering path.
+The JSON, Markdown, and HTML outputs are **deterministic**: same logs in, same
+report out. No LLM is in the rendering path. PDF bytes can vary by browser
+version even when the visible report is unchanged.
+
+## Default delivery path
+
+Unless the user explicitly asks for Markdown only:
+
+1. Run `report.py --format json` to create the structured aggregate.
+2. Render that aggregate to HTML with the selected bundled or local template.
+3. Keep the HTML as the editable source artifact.
+4. Produce and inspect the final PDF using the supported browser path.
+
+The Python Markdown renderer remains supported for quick terminal review and
+JIRA-paste workflows, but it is not the primary stakeholder deliverable.
 
 ## Templates
 
@@ -65,9 +83,10 @@ REPORT_PY="${PLUGIN_ROOT}scripts/report.py"
 test -f "$REPORT_PY" || { echo "drover plugin not installed at $REPORT_PY"; exit 1; }
 ```
 
-## Step 2: Render
+## Step 2: Render Markdown (optional lightweight path)
 
-`--env` defaults to `prod`. Pass `--env <name>` to override.
+Use this direct path when the user requests Markdown or a terminal-friendly
+artifact. `--env` defaults to `prod`. Pass `--env <name>` to override.
 
 ```bash
 # Stakeholder summary for April 2026 (the default)
@@ -103,9 +122,9 @@ suggested) and writes:
 - `reports/<month>-<template>.md.tickets.json` — sidecar (stakeholder
   templates only, when tickets are recommended)
 
-## Step 2b (optional): HTML output
+## Step 2b: HTML output (default report artifact)
 
-Markdown is the default. For a polished, self-contained HTML report
+For a polished, self-contained HTML report
 (Velir-branded, all CSS inlined), use the two-stage Python→Node path:
 `report.py` emits a structured JSON aggregate, and the Node renderer
 turns that JSON + the design tokens into HTML.
@@ -138,7 +157,7 @@ Renderer flags: `--data` (required), `--template` (default
 `monthly-client`), `--design` (default the plugin's `DESIGN.md`),
 `--logo`, `--out` (default: alongside `--data`, `.json`→`-<template>.html`).
 
-All five templates render in HTML: `monthly-client`,
+All five application-log templates render in HTML: `monthly-client`,
 `root-cause-summary`, `calendar-boundary`, `triage-brief`, `jira-ready`
 — same names as the markdown path. The HTML output adds interactivity
 that markdown can't: a persisted dark-mode toggle, hover tooltips on
@@ -147,6 +166,69 @@ and one-click "Copy Specs" to the clipboard (jira-ready). Shared chrome
 (theme init, toggle button, toggle handler) lives in
 `render-html/templates/partials/` and is injected into every template,
 so it stays consistent across all five.
+
+A sixth bundled HTML-only template, `cloudflare-summary`, renders Cloudflare
+traffic/offload JSON with country, cache-status, daily-bandwidth, and bot-class
+views. Its input is an external structured JSON document rather than the
+application-log aggregate produced by `report.py`.
+
+Templates are discovered from the filesystem rather than a hard-coded list:
+
+```bash
+# Show every available template and the file that supplies it.
+node "${PLUGIN_ROOT}render-html/render.mjs" --list-templates
+
+# A project developer can add .drover/templates/my-report.hbs, then:
+node "${PLUGIN_ROOT}render-html/render.mjs" \
+  --data reports/2026-04.json \
+  --template my-report \
+  --out reports/2026-04-my-report.html
+```
+
+Discovery priority is repeated `--templates <dir>` arguments,
+`DROVER_TEMPLATE_DIRS`, the current project's `.drover/templates`, then the
+bundled template folder. Custom templates receive the untouched input under
+`data`, generated CSS under `css`, the embedded logo under `logoDataUri`, and
+normalized `meta` / `generatedAt` values. See `render-html/COMPONENTS.md` for
+the reusable headers, metrics, charts, callouts, coverage, and footer partials.
+
+### Design selection
+
+The renderer uses the first design file it finds:
+
+1. `--design /path/to/DESIGN.md`
+2. `DROVER_DESIGN`
+3. `.drover/design/DESIGN.md` (lowercase `design.md` is also accepted)
+4. the bundled `assets/design/DESIGN.md`
+
+To customize a project's reports without changing the plugin:
+
+```bash
+mkdir -p .drover/design
+cp -f "${PLUGIN_ROOT}assets/design/DESIGN.md" .drover/design/DESIGN.md
+```
+
+Edit the project copy; subsequent renders pick it up automatically.
+
+## Step 2c: Finalize HTML to PDF
+
+HTML is the editable source report. PDF is the final delivery artifact. Drover
+supports automated PDF generation through an installed Google Chrome, Chromium,
+or Microsoft Edge executable:
+
+```bash
+node "${PLUGIN_ROOT}render-html/render-pdf.mjs" \
+  --html reports/2026-04-monthly-client.html \
+  --out reports/2026-04-monthly-client.pdf
+```
+
+Use `--browser /path/to/browser` or `DROVER_PDF_BROWSER` when auto-detection
+cannot find it. Safari and Firefox Print → Save as PDF are manual fallbacks;
+`wkhtmltopdf` and WeasyPrint are not supported conversion engines. The shared
+print CSS preserves color, removes interactive controls, controls section/card
+page breaks, and wraps long samples. Page size and margin come from the design
+file's `print` tokens. See `render-html/PDF.md` for the complete support matrix
+and delivery checklist.
 
 ## Step 3: Optional — create the suggested tickets in JIRA
 
@@ -228,7 +310,9 @@ palette extracted from the Velir 2025 Word template:
 - `#FAD200`/`#FFE146` highlight gold/yellow
 - `#C8F5E3`/`#E6E8FF`/`#FFF4D8` tinted backgrounds
 
-The palette is exposed in `scripts/branding.py` for any future template
+The palette is exposed in `scripts/branding.py` for markdown and in
+`assets/design/DESIGN.md` for HTML. Reusable HTML components are documented in
+`render-html/COMPONENTS.md` for any future template
 that wants to color-code severity bars, callouts, or callout panels.
 
 ## Future: AI-synthesized prose
