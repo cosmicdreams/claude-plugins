@@ -127,6 +127,72 @@ class FilePresentTests(unittest.TestCase):
             self.assertTrue(pull.file_present_and_complete(p))
 
 
+class GzipGuardTests(unittest.TestCase):
+    def test_uncompressed_payload_is_gzipped_before_storing(self):
+        # Acquia serves gzip, but the stored path always ends .log.gz and
+        # every reader picks its opener from that suffix. A plain payload
+        # must be compressed on the way in, not stored under a name that
+        # lies about its contents.
+        with tempfile.TemporaryDirectory() as td:
+            plain = b"2026-04-01 plain text, not gzipped\n" * 50
+            src = pathlib.Path(td) / "src.raw"
+            src.write_bytes(plain)
+            dest = pathlib.Path(td) / "out" / "2026-04-01.prod.x.log.gz"
+
+            def fake_urlretrieve(url, target):
+                pathlib.Path(target).write_bytes(plain)
+
+            with mock.patch.object(
+                pull.urllib.request, "urlretrieve", fake_urlretrieve
+            ):
+                size = pull.download_atomic("https://s3/x", dest)
+
+            self.assertTrue(dest.exists())
+            self.assertTrue(pull.is_gzip(dest), "stored file must be gzip")
+            self.assertEqual(size, dest.stat().st_size)
+            with gzip.open(dest, "rb") as fh:
+                self.assertEqual(fh.read(), plain)
+
+    def test_gzipped_payload_is_stored_verbatim(self):
+        # Already-compressed payloads must pass through untouched — no
+        # re-compression, byte-identical to what Acquia served.
+        with tempfile.TemporaryDirectory() as td:
+            payload = b"2026-04-01 already compressed\n" * 50
+            buf = io.BytesIO()
+            with gzip.GzipFile(fileobj=buf, mode="wb") as g:
+                g.write(payload)
+            gz_bytes = buf.getvalue()
+            dest = pathlib.Path(td) / "out" / "2026-04-01.prod.x.log.gz"
+
+            def fake_urlretrieve(url, target):
+                pathlib.Path(target).write_bytes(gz_bytes)
+
+            with mock.patch.object(
+                pull.urllib.request, "urlretrieve", fake_urlretrieve
+            ):
+                pull.download_atomic("https://s3/x", dest)
+
+            self.assertEqual(dest.read_bytes(), gz_bytes)
+
+    def test_unreadable_file_raises_rather_than_skipping_verification(self):
+        # A file that cannot be decompressed is corrupt, not merely undated.
+        # Collapsing the two would let a broken download skip verification
+        # and be recorded present, failing later at report time.
+        with tempfile.TemporaryDirectory() as td:
+            bad = pathlib.Path(td) / "corrupt.log.gz"
+            bad.write_bytes(b"\x1f\x8b" + b"\x00" * 200)  # gzip magic, junk body
+            with self.assertRaises(pull.UnreadableLogFile):
+                pull.dominant_month_day(bad)
+
+    def test_readable_but_undated_still_returns_none(self):
+        # The legitimate "cannot verify" case must keep returning None.
+        with tempfile.TemporaryDirectory() as td:
+            p = pathlib.Path(td) / "undated.log.gz"
+            with gzip.open(p, "wb") as fh:
+                fh.write(b"no dates anywhere in this file\n" * 10)
+            self.assertIsNone(pull.dominant_month_day(p))
+
+
 class DownloadAtomicTests(unittest.TestCase):
     def test_stores_gzipped_bytes(self):
         with tempfile.TemporaryDirectory() as td:
