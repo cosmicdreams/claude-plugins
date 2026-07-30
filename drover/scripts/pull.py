@@ -57,6 +57,10 @@ import json
 import os
 import re
 import shutil
+try:
+    import fcntl
+except ImportError:  # pragma: no cover - not available on Windows
+    fcntl = None  # type: ignore[assignment]
 import sys
 import tempfile
 import threading
@@ -177,12 +181,52 @@ def load_coverage(project_root: Path) -> dict:
 
 
 def save_coverage(project_root: Path, coverage: dict) -> None:
+    """Merge `coverage` into the on-disk ledger and write it atomically.
+
+    Writing the in-process snapshot wholesale loses entries whenever two
+    drover runs touch the same project: each loads the ledger at start,
+    mutates its own copy, and the later save silently discards everything
+    the other wrote in the meantime. The in-process `ledger_lock` cannot
+    help — it does not span processes.
+
+    Re-read under an exclusive file lock, merge this process's entries over
+    what is on disk (ours win, since we only ever mutate keys we own), then
+    rename into place. The lock makes read-merge-write indivisible across
+    processes; the rename keeps readers from seeing a partial file.
+    """
     p = coverage_path(project_root)
     p.parent.mkdir(parents=True, exist_ok=True)
-    tmp = p.with_suffix(".tmp")
-    with open(tmp, "w") as fh:
-        json.dump(coverage, fh, indent=2, sort_keys=True)
-    os.rename(tmp, p)
+    lock_path = p.with_suffix(".lock")
+    with open(lock_path, "w") as lock_fh:
+        if fcntl is not None:
+            fcntl.flock(lock_fh, fcntl.LOCK_EX)
+        try:
+            merged = load_coverage(project_root)
+            for day, entries in coverage.items():
+                existing = merged.get(day)
+                # A well-formed ledger is {day: {"env.type": {...}}}. If
+                # either side is not a mapping the file is malformed; prefer
+                # ours rather than crashing mid-write and leaving the ledger
+                # in whatever state it was.
+                if isinstance(existing, dict) and isinstance(entries, dict):
+                    existing.update(entries)
+                else:
+                    merged[day] = entries
+            # Stage under a per-process name. The lock already serializes
+            # writers, but a single shared "coverage.tmp" means one process's
+            # rename can steal another's staging file — which raised
+            # FileNotFoundError mid-write rather than merely losing data.
+            tmp = p.with_suffix(f".{os.getpid()}.tmp")
+            try:
+                with open(tmp, "w") as fh:
+                    json.dump(merged, fh, indent=2, sort_keys=True)
+                os.rename(tmp, p)
+            except Exception:
+                tmp.unlink(missing_ok=True)
+                raise
+        finally:
+            if fcntl is not None:
+                fcntl.flock(lock_fh, fcntl.LOCK_UN)
 
 
 def mark_coverage(
@@ -556,16 +600,33 @@ def reconcile(
                         cov_entry = coverage.get(day.isoformat(), {}).get(
                             f"{env_name}.{log_type}"
                         )
-                        if not cov_entry:
+                        size = existing_path.stat().st_size
+                        stale = (
+                            cov_entry is not None
+                            and cov_entry.get("state") != "present"
+                        )
+                        # The file is on disk, so `present` is the truth. A
+                        # ledger entry claiming otherwise is stale and must
+                        # be corrected: previously only a *missing* entry was
+                        # written, so a wrong state survived every later run
+                        # and /drover:report kept reporting a gap that had
+                        # already been filled.
+                        if not cov_entry or stale:
                             mark_coverage(
                                 coverage, day, env_name, log_type,
-                                state="present",
-                                bytes=existing_path.stat().st_size,
+                                state="present", bytes=size,
                             )
-                        log_fn(
-                            f"  = {day} {log_type}: present "
-                            f"({existing_path.stat().st_size:,} bytes)"
-                        )
+                        if stale:
+                            log_fn(
+                                f"  = {day} {log_type}: present "
+                                f"({size:,} bytes) — corrected stale ledger "
+                                f"state '{cov_entry.get('state')}'"
+                            )
+                        else:
+                            log_fn(
+                                f"  = {day} {log_type}: present "
+                                f"({size:,} bytes)"
+                            )
                         summary["present"] += 1
                     else:
                         missing.append((env, log_type, day))
