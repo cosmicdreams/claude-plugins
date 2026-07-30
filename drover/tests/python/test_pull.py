@@ -87,22 +87,125 @@ class CoverageLedgerTests(unittest.TestCase):
         self.assertEqual(cov["2026-04-03"]["prod.x"]["bytes"], 99)
         self.assertNotIn("reason", cov["2026-04-03"]["prod.x"])
 
-    def test_save_is_atomic(self):
-        """The .tmp file is renamed into place; on partial-write the
-        canonical path stays untouched."""
+    def test_save_is_atomic_and_merges(self):
+        """The .tmp file is renamed into place, leaving no leftover, and the
+        write merges with what is already on disk rather than replacing it.
+
+        Merge (not replace) is deliberate: a wholesale overwrite from an
+        in-process snapshot loses entries written by a concurrent run.
+        """
         with tempfile.TemporaryDirectory() as td:
             root = pathlib.Path(td)
             (root / ".drover").mkdir()
             target = root / ".drover" / "coverage.json"
-            target.write_text(json.dumps({"existing": True}))
+            target.write_text(json.dumps({
+                "2026-04-01": {"prod.php-error": {"state": "present"}},
+            }))
 
-            cov = {"replaced": True}
+            cov = {"2026-04-02": {"prod.apache-error": {"state": "present"}}}
             pull.save_coverage(root, cov)
 
-            self.assertEqual(json.load(open(target)), {"replaced": True})
+            final = json.load(open(target))
+            self.assertIn("2026-04-01", final, "pre-existing day was lost")
+            self.assertIn("2026-04-02", final, "new day was not written")
             # No leftover tmp file
-            tmp = target.with_suffix(".tmp")
-            self.assertFalse(tmp.exists())
+            self.assertEqual(
+                list(target.parent.glob("coverage.*.tmp")), [],
+                "staging file left behind",
+            )
+
+    def test_save_tolerates_malformed_ledger(self):
+        """A malformed on-disk ledger must not crash the write."""
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            (root / ".drover").mkdir()
+            target = root / ".drover" / "coverage.json"
+            target.write_text(json.dumps({"2026-04-01": "not-a-mapping"}))
+
+            cov = {"2026-04-01": {"prod.php-error": {"state": "present"}}}
+            pull.save_coverage(root, cov)
+
+            final = json.load(open(target))
+            self.assertEqual(
+                final["2026-04-01"]["prod.php-error"]["state"], "present"
+            )
+
+
+class LedgerIntegrityTests(unittest.TestCase):
+    def test_save_does_not_clobber_another_process_entries(self):
+        # Two drover runs against one project each load the ledger at start
+        # and mutate their own copy. A full-file overwrite loses whatever the
+        # other wrote in between; save must merge against what is on disk.
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            (root / ".drover").mkdir()
+
+            mine = {}
+            pull.mark_coverage(
+                mine, date(2026, 4, 1), "prod", "php-error",
+                state="present", bytes=10,
+            )
+            pull.save_coverage(root, mine)
+
+            # Another process writes a different tuple after we loaded ours.
+            theirs = pull.load_coverage(root)
+            pull.mark_coverage(
+                theirs, date(2026, 4, 2), "prod", "apache-error",
+                state="present", bytes=20,
+            )
+            pull.save_coverage(root, theirs)
+
+            # Our stale in-memory copy saves again — must not erase theirs.
+            pull.mark_coverage(
+                mine, date(2026, 4, 1), "prod", "apache-access",
+                state="present", bytes=30,
+            )
+            pull.save_coverage(root, mine)
+
+            final = pull.load_coverage(root)
+            self.assertIn("2026-04-02", final, "other process's day was lost")
+            self.assertEqual(
+                final["2026-04-02"]["prod.apache-error"]["state"], "present"
+            )
+            self.assertEqual(
+                final["2026-04-01"]["prod.php-error"]["state"], "present"
+            )
+            self.assertEqual(
+                final["2026-04-01"]["prod.apache-access"]["state"], "present"
+            )
+
+    def test_stale_state_is_corrected_when_file_is_present(self):
+        # A ledger entry claiming the file is absent, while the file sits on
+        # disk, must be corrected — otherwise /drover:report keeps reporting
+        # a gap that was filled long ago.
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            (root / ".drover").mkdir()
+            day = date(2026, 4, 1)
+            target = pull.canonical_path(root, day, "prod", "drupal-watchdog")
+            target.parent.mkdir(parents=True, exist_ok=True)
+            with gzip.open(target, "wt") as fh:
+                fh.write("Apr  1 00:00:00 host app: entry\n" * 5)
+
+            seeded = {}
+            pull.mark_coverage(
+                seeded, day, "prod", "drupal-watchdog",
+                state="missing-upstream", reason="stale",
+            )
+            pull.save_coverage(root, seeded)
+
+            envs = [{"name": "prod", "env_id": "env-id",
+                     "log_types": ["drupal-watchdog"]}]
+            pull.reconcile(
+                None, root, envs, ["drupal-watchdog"], [day],
+                dry_run=False, rate_limit_s=0, log_fn=lambda _m: None,
+            )
+
+            entry = pull.load_coverage(root)["2026-04-01"][
+                "prod.drupal-watchdog"
+            ]
+            self.assertEqual(entry["state"], "present")
+            self.assertEqual(entry["bytes"], target.stat().st_size)
 
 
 class FilePresentTests(unittest.TestCase):

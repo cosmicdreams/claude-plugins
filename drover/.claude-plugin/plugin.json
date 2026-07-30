@@ -1,6 +1,6 @@
 {
     "name": "drover",
-    "version": "2.2.2",
+    "version": "2.2.3",
     "description": "Drupal/Acquia application-error log analysis pipeline. Pulls 30 days of historical error logs by date from the Acquia Cloud Platform API, parses + fingerprints + groups errors, diagnoses causes from a pattern library, and renders monthly reports — markdown or self-contained Velir-branded HTML — with bar charts, stakeholder narratives, and JIRA ticket recommendations. Three execution paths for ticket creation: Atlassian MCP, direct REST, or plan-only.",
     "author": {
         "name": "Chris Weber"
