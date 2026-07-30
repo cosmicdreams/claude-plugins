@@ -14,7 +14,7 @@
 // Defaults:
 //   --design   ../assets/design/DESIGN.md (relative to render.mjs)
 //   --template monthly-client
-//   --logo     ../assets/branding/velir-logo.png
+//   --logo     ../assets/branding/velir-logo.png (bundled fallback; always applied)
 //   --out      derived from --data: same dir, replace .json with -<template>.html
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
@@ -76,6 +76,34 @@ and the bundled templates directory. Run --list-templates to see the result.
 
 function loadJson(path) {
   return JSON.parse(readFileSync(path, "utf8"));
+}
+
+function resolveLogoPath(args) {
+  // Every drover report carries the Velir logo. Previously --logo had no
+  // default despite the usage text claiming one, so omitting the flag
+  // rendered an unbranded header with no warning — the template guards the
+  // <img> with {{#if logoDataUri}}. Resolve it the same way DESIGN.md is
+  // resolved, and fail loudly rather than silently dropping the brand.
+  if (args.logo && !existsSync(args.logo)) {
+    throw new Error(`Explicit --logo file not found: ${resolve(args.logo)}`);
+  }
+  if (process.env.DROVER_LOGO && !existsSync(process.env.DROVER_LOGO)) {
+    throw new Error(`DROVER_LOGO file not found: ${resolve(process.env.DROVER_LOGO)}`);
+  }
+  const candidates = [
+    args.logo,
+    process.env.DROVER_LOGO,
+    resolve(process.cwd(), ".drover", "branding", "velir-logo.png"),
+    resolve(HERE, "..", "assets", "branding", "velir-logo.png"),
+  ].filter(Boolean);
+  const found = candidates.find(existsSync);
+  if (!found) {
+    throw new Error(
+      `No logo found — every drover report must carry the Velir logo. Checked:\n` +
+      candidates.map((p) => `  - ${p}`).join("\n")
+    );
+  }
+  return found;
 }
 
 function logoDataUri(logoPath) {
@@ -767,7 +795,8 @@ export function run(argv) {
   const view = buildView(data);
   view.data = data;
   view.css = baseStylesheet(tokens);
-  view.logoDataUri = logoDataUri(args.logo);
+  const logoPath = resolveLogoPath(args);
+  view.logoDataUri = logoDataUri(logoPath);
 
   const html = tpl(view);
 
@@ -781,5 +810,9 @@ export function run(argv) {
   console.log(`  template: ${args.template}`);
   console.log(`  data:     ${args.data}`);
   console.log(`  design:   ${designPath}`);
+  // Echo the logo too. Branding resolves from the bundled asset with no
+  // flags, but nothing used to say so — leaving "is the logo missing?"
+  // answerable only by reading source.
+  console.log(`  logo:     ${logoPath}`);
   console.log(`  size:     ${html.length.toLocaleString()} bytes`);
 }
