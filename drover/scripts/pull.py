@@ -56,6 +56,7 @@ import hashlib
 import json
 import os
 import re
+import shutil
 import sys
 import tempfile
 import threading
@@ -214,10 +215,40 @@ def file_present_and_complete(path: Path) -> bool:
     return path.exists() and path.stat().st_size > 0
 
 
-def download_atomic(s3_url: str, dest: Path) -> int:
-    """Stream a gzipped file from S3 and store it compressed at dest.
+GZIP_MAGIC = b"\x1f\x8b"
 
-    Returns the file size in bytes. Raises on network failure.
+
+def is_gzip(path: Path) -> bool:
+    """True when the file starts with the gzip magic number."""
+    with open(path, "rb") as fh:
+        return fh.read(2) == GZIP_MAGIC
+
+
+def gzip_in_place(path: Path) -> None:
+    """Compress `path` with gzip, replacing it atomically."""
+    tmp = path.with_name(path.name + ".gztmp")
+    try:
+        with open(path, "rb") as src, gzip.open(tmp, "wb") as dst:
+            shutil.copyfileobj(src, dst)
+        os.replace(tmp, path)
+    except Exception:
+        tmp.unlink(missing_ok=True)
+        raise
+
+
+def download_atomic(s3_url: str, dest: Path) -> int:
+    """Stream a file from S3 and store it gzip-compressed at dest.
+
+    Returns the stored file size in bytes. Raises on network failure.
+
+    Acquia serves these logs already gzipped, which is why nothing here
+    re-compresses a payload that arrives compressed — that would spend CPU to
+    shave a constant factor off a cost that is already small. But the stored
+    path always ends in .log.gz, and every reader picks its opener from that
+    suffix, so a payload that arrived *un*compressed would be stored under a
+    name that lies about its contents. Downstream that surfaces as a gzip
+    error far from the cause. Sniff the magic number and compress only when
+    it is actually missing, so what is on disk always matches its name.
 
     Atomicity: staged as a sibling tempfile, then os.rename into place.
     A failure at any step leaves the canonical path untouched.
@@ -233,6 +264,8 @@ def download_atomic(s3_url: str, dest: Path) -> int:
         tmp_path = Path(t.name)
     try:
         urllib.request.urlretrieve(s3_url, tmp_path)
+        if not is_gzip(tmp_path):
+            gzip_in_place(tmp_path)
         gz_size = tmp_path.stat().st_size
         os.rename(tmp_path, dest)
         return gz_size
@@ -272,14 +305,24 @@ def _line_month_day(line: str) -> tuple[int, int] | None:
     return None
 
 
+class UnreadableLogFile(PullError):
+    """A downloaded file could not be read at all (e.g. not valid gzip)."""
+
+
 def dominant_month_day(
     path: Path, *, max_lines: int = MAX_VERIFY_LINES,
 ) -> tuple[int, int] | None:
     """Return the most common (month, day) across a log file's lines.
 
-    Reads .gz transparently. Returns None when no line carries a recognizable
-    date (an empty or unparseable file) — the caller treats None as
-    "cannot verify" rather than a mismatch.
+    Reads .gz transparently. Returns None when the file is readable but no
+    line carries a recognizable date — the caller treats that as "cannot
+    verify" rather than a mismatch.
+
+    Raises UnreadableLogFile when the file cannot be decoded at all. That is
+    a different condition entirely: a file we cannot open is corrupt, not
+    merely undated, and collapsing the two would let a broken download skip
+    verification and be recorded `present` — failing later, at report time,
+    far from the cause.
     """
     opener = gzip.open if path.suffix == ".gz" else open
     counts: Counter[tuple[int, int]] = Counter()
@@ -291,8 +334,8 @@ def dominant_month_day(
                 md = _line_month_day(line)
                 if md is not None:
                     counts[md] += 1
-    except OSError:
-        return None
+    except OSError as e:
+        raise UnreadableLogFile(f"{path.name}: {type(e).__name__}: {e}") from e
     if not counts:
         return None
     return counts.most_common(1)[0][0]
@@ -364,7 +407,11 @@ def pull_one(
     s3_url = client.get_log_download_url(env_id, log_type)
     gz_size = download_atomic(s3_url, local)
 
-    observed = dominant_month_day(local)
+    try:
+        observed = dominant_month_day(local)
+    except UnreadableLogFile:
+        local.unlink(missing_ok=True)
+        raise
     if observed is not None and observed != (day.month, day.day):
         local.unlink(missing_ok=True)
         raise PullError(
@@ -714,7 +761,16 @@ def reconcile(
 
             # Verify: dominant date must match the requested day, and the
             # file must not duplicate another day already pulled in this group.
-            observed = dominant_month_day(local)
+            try:
+                observed = dominant_month_day(local)
+            except UnreadableLogFile as e:
+                local.unlink(missing_ok=True)
+                reason = f"unreadable download: {e}"
+                safe_log(
+                    f"  ✗ {day} {env_name} {log_type}: {reason}"
+                    + ("" if last else ", retrying")
+                )
+                continue
             if observed is not None and observed != (day.month, day.day):
                 local.unlink(missing_ok=True)
                 reason = (

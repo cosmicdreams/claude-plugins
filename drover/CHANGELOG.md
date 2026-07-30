@@ -1,5 +1,23 @@
 # drover Changelog
 
+## 2.2.2 — store what the filename claims
+
+- Downloads are sniffed for the gzip magic number and compressed only when it
+  is absent. Acquia serves these logs already gzipped, and nothing
+  re-compresses a payload that arrives compressed — that would spend CPU to
+  shave a constant factor off a cost that is already small (gzip achieves
+  roughly 28x on this data). But the stored path always ends `.log.gz` and
+  every reader picks its opener from that suffix, so a payload arriving
+  uncompressed would have been stored under a name that lies about its
+  contents.
+- `dominant_month_day` now raises `UnreadableLogFile` when a file cannot be
+  decoded, instead of returning `None`. Previously `gzip.BadGzipFile` — a
+  subclass of `OSError` — was caught and collapsed into the same `None` that
+  means "readable but no dates found". The caller reads `None` as "cannot
+  verify", so a corrupt download skipped verification entirely, was recorded
+  `present`, and failed much later at report time, far from its cause.
+  Verification failures now delete the file and retry like any other.
+
 ## 2.2.1 — create pacing and concurrent-writer safety
 
 - Log-create pacing no longer holds the lock across its sleep. Creates
