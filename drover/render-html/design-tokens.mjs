@@ -146,47 +146,10 @@ ${cssVariables(tokens)}
   --color-severity-unknown-text: #94A3B8;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) {
-    --color-surface: #0E0F12;
-    --color-surface-alt: #16181D;
-    --color-border: #232731;
-    --color-text-strong: #F8FAFC;
-    --color-text: #E2E8F0;
-    --color-text-soft: #94A3B8;
-    --color-text-muted: #64748B;
-    --color-primary: #121829;
-    --color-secondary: #3B82F6;
-    --color-tint-blue: #171E30;
-    --color-tint-yellow: #2D2106;
-    --color-tint-mint: #063121;
-    
-    --color-severity-critical: #F43F5E;
-    --color-severity-error: #60A5FA;
-    --color-severity-warning: #FBBF24;
-    --color-severity-notice: #34D399;
-    --color-severity-info: #94A3B8;
-    --color-severity-unknown: #64748B;
-
-    --color-trend-up: #F43F5E;
-    --color-trend-down: #10B981;
-    --color-trend-flat: #64748B;
-    --color-trend-new: #60A5FA;
-
-    --color-severity-critical-bg: #4C0519;
-    --color-severity-critical-text: #FDA4AF;
-    --color-severity-error-bg: #1E3A8A;
-    --color-severity-error-text: #93C5FD;
-    --color-severity-warning-bg: #451A03;
-    --color-severity-warning-text: #FCD34D;
-    --color-severity-notice-bg: #064E3B;
-    --color-severity-notice-text: #6EE7B7;
-    --color-severity-info-bg: #334155;
-    --color-severity-info-text: #CBD5E1;
-    --color-severity-unknown-bg: #334155;
-    --color-severity-unknown-text: #94A3B8;
-  }
-}
+/* Dark mode is opt-in via the toggle (data-theme="dark"), never applied
+   automatically from prefers-color-scheme: reports and their PDFs default
+   to light so an exported PDF is readable regardless of the exporting
+   machine's OS theme. */
 
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
@@ -284,10 +247,6 @@ body {
 html[data-theme="dark"] .theme-toggle-btn .sun-icon { display: block; }
 html:not([data-theme="dark"]) .theme-toggle-btn .moon-icon { display: block; }
 
-@media (prefers-color-scheme: dark) {
-  html:not([data-theme="light"]) .theme-toggle-btn .sun-icon { display: block; }
-  html:not([data-theme="light"]) .theme-toggle-btn .moon-icon { display: none; }
-}
 
 .page-body { padding: var(--space-xxl); }
 
@@ -627,6 +586,52 @@ p { margin: 0 0 var(--space-md) 0; }
     print-color-adjust: exact !important;
   }
 
+  /* ── Always print light ────────────────────────────────────────── */
+  /* Even if the reader toggled dark before exporting, the PDF must be  */
+  /* light: the page background is forced white below, so dark text     */
+  /* tokens would leave near-white text on white paper. Re-declaring    */
+  /* the light values under :root[data-theme="dark"] beats the dark     */
+  /* block on specificity without needing !important on every token.    */
+  :root[data-theme="dark"] {
+    --color-surface: ${c.surface};
+    --color-surface-alt: ${c["surface-alt"]};
+    --color-border: ${c.border};
+    --color-text-strong: ${c["text-strong"]};
+    --color-text: ${c.text};
+    --color-text-soft: ${c["text-soft"]};
+    --color-text-muted: ${c["text-muted"]};
+    --color-primary: ${c.primary};
+    --color-secondary: ${c.secondary};
+    --color-tint-blue: ${c["tint-blue"]};
+    --color-tint-yellow: ${c["tint-yellow"]};
+    --color-tint-mint: ${c["tint-mint"]};
+    --color-severity-critical: ${c["severity-critical"]};
+    --color-severity-error: ${c["severity-error"]};
+    --color-severity-warning: ${c["severity-warning"]};
+    --color-severity-notice: ${c["severity-notice"]};
+    --color-severity-info: ${c["severity-info"]};
+    --color-severity-unknown: ${c["severity-unknown"]};
+    --color-trend-up: ${c["trend-up"]};
+    --color-trend-down: ${c["trend-down"]};
+    --color-trend-flat: ${c["trend-flat"]};
+    --color-trend-new: ${c["trend-new"]};
+    /* Severity pill fills live in their own token pairs; without these the
+       pills stayed dark-filled in a dark-exported PDF even though every
+       other surface had been forced back to light. */
+    --color-severity-critical-bg: ${sev.criticalBg || "#FBE2EA"};
+    --color-severity-critical-text: ${sev.criticalText || c["severity-critical"]};
+    --color-severity-error-bg: ${sev.errorBg || c["tint-blue"]};
+    --color-severity-error-text: ${sev.errorText || c["severity-error"]};
+    --color-severity-warning-bg: ${sev.warningBg || c["tint-yellow"]};
+    --color-severity-warning-text: ${sev.warningText || "#7A5C00"};
+    --color-severity-notice-bg: ${sev.noticeBg || c["tint-mint"]};
+    --color-severity-notice-text: ${sev.noticeText || c["severity-notice"]};
+    --color-severity-info-bg: ${sev.infoBg || c["surface-alt"]};
+    --color-severity-info-text: ${sev.infoText || c["severity-info"]};
+    --color-severity-unknown-bg: ${sev.unknownBg || c["surface-alt"]};
+    --color-severity-unknown-text: ${sev.unknownText || c["severity-unknown"]};
+  }
+
   /* ── Page chrome ───────────────────────────────────────────────── */
   body { background: white; }
   .page { max-width: none; margin: 0; box-shadow: none; }
@@ -643,14 +648,19 @@ p { margin: 0 0 var(--space-md) 0; }
     transition: none !important;
   }
 
-  /* ── Intentional section page breaks ───────────────────────────── */
-  /* Every h2.section marks a distinct report chapter. Force a fresh  */
-  /* page so section headings never appear buried at the bottom of    */
-  /* the prior section. Metric summary stays on page 1; sections      */
-  /* follow on subsequent pages.                                       */
+  /* ── Section flow ──────────────────────────────────────────────── */
+  /* Sections flow continuously and fill the page. A forced           */
+  /* break-before here used to start every h2.section on a fresh      */
+  /* page, which left short sections stranded on two-thirds-empty     */
+  /* pages — four bars alone on a sheet reads as a broken export.     */
+  /* Its stated purpose, keeping headings off the bottom of a page,   */
+  /* is already served by break-after: avoid below, which glues a     */
+  /* heading to the content beneath it. One-idea-per-page is a deck   */
+  /* layout, and belongs to the deck template rather than the         */
+  /* document print stylesheet.                                       */
   .page-body h2.section {
-    break-before: page;
-    page-break-before: always;
+    break-inside: avoid;
+    page-break-inside: avoid;
   }
 
   /* ── Heading orphan prevention ─────────────────────────────────── */

@@ -131,3 +131,58 @@ test("theme-toggle handler is identical across all templates (no drift)", () => 
     );
   }
 });
+
+// --- Report defaults: branding, theme, and print ---------------------------
+// These pin behaviour a new user gets with no flags and no project config.
+
+test("brands every report with the bundled Velir logo, no flags required", () => {
+  const html = renderToTmp();
+  assert.match(html, /class="page-header__logo"/, "logo <img> must be present");
+  assert.match(html, /src="data:image\/png;base64,/, "logo must be inlined");
+});
+
+test("fails loudly when an explicit --logo does not exist", () => {
+  assert.throws(
+    () => renderToTmp(["--logo", "/nonexistent/velir.png"]),
+    /--logo file not found/,
+    "a bad --logo must abort, never silently drop the brand",
+  );
+});
+
+test("light is the default; dark is opt-in only", () => {
+  const html = renderToTmp();
+  // An automatic prefers-color-scheme block would hand dark-OS readers a
+  // dark report — and a dark PDF — without them ever choosing it.
+  const auto = html.match(/@media \(prefers-color-scheme: dark\)\s*\{/g) || [];
+  assert.equal(auto.length, 0, "no automatic dark-mode media block");
+  assert.match(html, /\[data-theme="dark"\]/, "explicit dark theme still available");
+});
+
+test("print forces light even when dark is toggled on", () => {
+  const html = renderToTmp();
+  const printBlock = html.slice(html.indexOf("@media print"));
+  assert.match(
+    printBlock,
+    /:root\[data-theme="dark"\]/,
+    "print must re-declare light values over the dark theme",
+  );
+  // Severity pills carry their own token pairs; missing them left the pills
+  // dark-filled in a dark-exported PDF while every other surface was light.
+  assert.match(printBlock, /--color-severity-error-bg/);
+  assert.match(printBlock, /--color-surface:/);
+});
+
+test("sections flow instead of forcing one page each", () => {
+  const html = renderToTmp();
+  const printBlock = html.slice(html.indexOf("@media print"));
+  assert.ok(
+    !/\.page-body h2\.section\s*\{[^}]*break-before:\s*page/.test(printBlock),
+    "forced per-section page breaks leave short sections on mostly-empty pages",
+  );
+});
+
+test("footer credits Velir without naming internal tooling", () => {
+  const html = renderToTmp();
+  assert.match(html, /Prepared by Velir/);
+  assert.ok(!/Prepared by Velir · drover/.test(html), "tool name would confuse a client");
+});

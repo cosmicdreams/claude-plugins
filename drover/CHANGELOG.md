@@ -1,5 +1,39 @@
 # drover Changelog
 
+## 2.2.4 — report defaults: branding, light mode, and print layout
+
+- **Footer no longer names internal tooling.** It read `Prepared by Velir ·
+  drover <version>`; a client has no idea what drover is. Now just
+  `Prepared by Velir`.
+- **Light is the default; dark is opt-in.** Two
+  `@media (prefers-color-scheme: dark)` blocks meant a reader whose OS was in
+  dark mode got a dark report — and a dark PDF — without ever choosing it. Dark
+  now applies only when the toggle sets it, and the toggle's own fallback no
+  longer reads the OS preference.
+- **PDFs always print light.** The print stylesheet forced a white page
+  background but left the dark tokens in place, so exporting while dark was
+  toggled produced near-white text on white paper. Print now re-declares the
+  light values over `:root[data-theme="dark"]`, including the twelve
+  severity-pill token pairs that a first pass missed and that left the pills
+  dark-filled on an otherwise light page.
+- **Sections flow instead of taking a page each.** `h2.section` forced
+  `break-before: page`, stranding short sections on two-thirds-empty pages —
+  four bars alone on a sheet. Its stated purpose (headings never at a page
+  bottom) is already served by `break-after: avoid`. One-idea-per-page is a
+  deck layout and will live in the deck template. A sample report went from 7
+  pages to 6, with page 1 now carrying the summary *and* the first chart.
+- **Logo resolution hardened.** Adds `$DROVER_LOGO` and
+  `.drover/branding/velir-logo.png` overrides, mirroring how `DESIGN.md`
+  already resolves, and raises a clear error instead of silently rendering an
+  unbranded header. Note the bundled logo already applied by default — this is
+  hardening, not a bug fix.
+- **Renders report what they resolved.** The run summary printed `design:` but
+  not `logo:`; it now prints both, so "did branding apply?" is answerable from
+  the output instead of by reading source.
+- **Docs state that branding needs no setup.** `ONBOARDING.md` and
+  `skills/init/SKILL.md` previously never mentioned the logo or `DESIGN.md`,
+  so a new user had no reason to believe they weren't expected to supply them.
+
 ## 2.2.3 — coverage ledger integrity
 
 The ledger could disagree with the files actually on disk, and

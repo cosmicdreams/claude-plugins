@@ -115,6 +115,33 @@ Edit the manifest by hand if you want to narrow types per env, exclude
 an env from analysis, or adjust the project slug. The schema is stable
 across slice 2.x releases.
 
+`manifest.json` is the **only** file init writes. In particular it does
+not write a design file or a logo — see below.
+
+## Branding: you do not supply anything
+
+Reports come out Velir-branded with **zero configuration**. The design
+tokens and the logo ship inside the plugin and are used automatically, so
+there is nothing to copy into your project and nothing to hunt down.
+
+Each asset resolves through a chain, first match wins:
+
+| Asset | Resolution order |
+|---|---|
+| Design tokens | `--design` → `$DROVER_DESIGN` → `.drover/design/DESIGN.md` → **bundled** |
+| Logo | `--logo` → `$DROVER_LOGO` → `.drover/branding/velir-logo.png` → **bundled** |
+| Templates | `--templates <dir>` → `.drover/templates` → **bundled** |
+
+Only create the project-local paths when you deliberately want to
+*override* the defaults — for example a client engagement with its own
+palette. Copying the bundled `DESIGN.md` into a project "to be safe" is
+counterproductive: it freezes a snapshot that never receives plugin
+updates, so projects silently drift apart on branding while appearing
+configured.
+
+To confirm what a render actually used, read its output — it prints the
+resolved `design:` and `logo:` paths on every run.
+
 ## Next steps
 
 ```bash

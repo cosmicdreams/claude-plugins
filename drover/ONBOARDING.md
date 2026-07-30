@@ -18,6 +18,14 @@ log-pull while you do other work.
     reads these for Atlassian instance + email; most operators
     already have this from running `jira-cli` once).
 
+**You do not need a logo or a design file.** Velir branding — the logo,
+colour tokens, and typography — ships inside the plugin and is applied
+automatically, so a first report on a fresh project is correctly branded
+with nothing extra to install, copy, or track down. Every render prints
+the `design:` and `logo:` paths it resolved, so you can always see what
+was used. Overriding is possible but rarely wanted; see the Branding
+section of `/drover:init` for the resolution order.
+
 ## Step 1 — discover the project
 
 In your project root:
