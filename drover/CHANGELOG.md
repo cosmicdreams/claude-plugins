@@ -1,6 +1,35 @@
 # drover Changelog
 
-## Unreleased — extensible HTML and PDF delivery
+## 2.2.0 — pull observability, verified snapshots, extensible HTML and PDF delivery
+
+### Pull progress is now visible while it happens
+
+- Every notification status check is reported, so a snapshot that is still
+  building is distinguishable from one whose status call is failing. Acquia
+  packages logs asynchronously — request, build onto S3, then download — and
+  the build leg previously produced no output at all for minutes at a time.
+- A failing status check no longer disappears into `except Exception: pass`.
+  The underlying error is carried into the `fetch-failed` reason instead of
+  being replaced by a bare "poll deadline exceeded".
+- An errored status check no longer leaves a stale status value standing from
+  an earlier successful check.
+- Snapshot request and download start are each reported, so the three legs of
+  the Acquia flow are individually visible.
+- stdout and stderr are line-buffered. Python block-buffers stdout when it is
+  redirected to a file or pipe, which held every progress line until the run
+  ended and made a working pull look identical to a hung one. Callers no
+  longer need `python3 -u`.
+
+### Post-download verification (was present in source but never released)
+
+- Every downloaded file is verified before being recorded `present`: its
+  dominant log date must match the requested day, and it must not be
+  byte-identical to another day already pulled in the same group. Mismatches
+  are deleted, marked `snapshot-mismatch`, and retried once. This ships the
+  guard against Acquia's one-snapshot-per-(env,type) staleness, which
+  previously produced mislabeled duplicate files.
+
+### Extensible HTML and PDF delivery
 
 - HTML is now the report skill's default editable artifact; PDF is the final
   stakeholder delivery artifact. The direct Markdown path remains supported.

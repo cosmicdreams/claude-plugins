@@ -422,6 +422,63 @@ class ReconcileTests(unittest.TestCase):
         self.assertEqual(entry["state"], "fetch-failed")
         self.assertIn("reason", entry)
 
+    def test_erroring_status_check_surfaces_cause(self):
+        # A status check that raises on every attempt used to be swallowed
+        # by `except Exception: pass`, so the day burned the full deadline
+        # and reported a bare "poll deadline exceeded" with the real cause
+        # discarded. The recorded reason must name the underlying error.
+        client = mock.MagicMock()
+        client.request_log_download.return_value = {
+            "_links": {"notification": {"href": "https://x/n"}},
+        }
+        client.check_log_download.side_effect = ConnectionResetError(
+            "connection reset by peer"
+        )
+
+        summary = pull.reconcile(
+            client, self.root, self.envs, ["drupal-watchdog"],
+            [date(2026, 4, 1)],
+            rate_limit_s=0, retries=0, poll_interval_s=0,
+            poll_deadline_s=0.05,
+        )
+        self.assertEqual(summary["failed"], 1)
+        entry = pull.load_coverage(self.root)["2026-04-01"][
+            "prod.drupal-watchdog"
+        ]
+        self.assertEqual(entry["state"], "fetch-failed")
+        self.assertIn("ConnectionResetError", entry["reason"])
+        self.assertIn("connection reset by peer", entry["reason"])
+
+    def test_stale_status_not_reused_after_check_error(self):
+        # An errored check knows nothing about the snapshot's state, so it
+        # must not leave a prior "in-progress" value standing in `status`.
+        client = mock.MagicMock()
+        client.request_log_download.return_value = {
+            "_links": {"notification": {"href": "https://x/n"}},
+        }
+        calls = {"n": 0}
+
+        def one_good_then_errors(*_args, **_kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return {"status": "in-progress"}
+            raise TimeoutError("read timed out")
+
+        client.check_log_download.side_effect = one_good_then_errors
+
+        summary = pull.reconcile(
+            client, self.root, self.envs, ["drupal-watchdog"],
+            [date(2026, 4, 1)],
+            rate_limit_s=0, retries=0, poll_interval_s=0,
+            poll_deadline_s=0.05,
+        )
+        self.assertEqual(summary["failed"], 1)
+        reason = pull.load_coverage(self.root)["2026-04-01"][
+            "prod.drupal-watchdog"
+        ]["reason"]
+        self.assertIn("TimeoutError", reason)
+        self.assertNotIn("in-progress", reason)
+
     def test_retry_succeeds_after_transient(self):
         # First attempt fails (notification status=failed),
         # second attempt succeeds (notification status=completed)
