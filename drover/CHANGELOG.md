@@ -1,5 +1,22 @@
 # drover Changelog
 
+## 2.2.1 — create pacing and concurrent-writer safety
+
+- Log-create pacing no longer holds the lock across its sleep. Creates
+  serialized behind it across every group, and each group idled a full
+  `rate_limit_s` after firing before it could begin polling. Slots are now
+  claimed from a shared monotonic schedule, with the lock held only for the
+  claim. The spacing guarantee between creates is unchanged and now tested.
+- File presence is re-checked immediately before spending a snapshot request.
+  The up-front scan only describes the filesystem at start-up, so a long run
+  gave another writer time to land a file that the run still intended to
+  fetch. Such a day is now skipped and recorded `present`.
+
+  This does **not** make two concurrent pulls safe against each other. Acquia
+  keeps one packaged file per `(env, type)`, so overlapping runs still clobber
+  one another's snapshots; the guard against acting on a clobbered file is the
+  post-download verification, not this check.
+
 ## 2.2.0 — pull observability, verified snapshots, extensible HTML and PDF delivery
 
 ### Pull progress is now visible while it happens
