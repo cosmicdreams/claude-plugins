@@ -18,7 +18,7 @@
 //   --out      derived from --data: same dir, replace .json with -<template>.html
 
 import { readFileSync, writeFileSync, existsSync, readdirSync } from "node:fs";
-import { dirname, resolve, basename, extname, join } from "node:path";
+import { delimiter, dirname, resolve, basename, extname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import Handlebars from "handlebars";
 import { loadDesign, baseStylesheet } from "./design-tokens.mjs";
@@ -28,8 +28,8 @@ const HERE = dirname(fileURLToPath(import.meta.url));
 function parseArgs(argv) {
   const args = {
     template: "monthly-client",
-    design: resolve(HERE, "..", "assets", "design", "DESIGN.md"),
     logo: resolve(HERE, "..", "assets", "branding", "velir-logo.png"),
+    templateDirs: [],
   };
   for (let i = 0; i < argv.length; i++) {
     const a = argv[i];
@@ -38,8 +38,10 @@ function parseArgs(argv) {
       case "--data": args.data = next(); break;
       case "--design": args.design = next(); break;
       case "--template": args.template = next(); break;
+      case "--templates": args.templateDirs.push(next()); break;
       case "--out": args.out = next(); break;
       case "--logo": args.logo = next(); break;
+      case "--list-templates": args.listTemplates = true; break;
       case "-h":
       case "--help":
         printHelpAndExit(0);
@@ -51,7 +53,7 @@ function parseArgs(argv) {
         }
     }
   }
-  if (!args.data) {
+  if (!args.data && !args.listTemplates) {
     console.error("ERROR: --data is required");
     printHelpAndExit(2);
   }
@@ -62,11 +64,12 @@ function printHelpAndExit(code) {
   console.log(`drover-render-html — generate HTML from drover JSON + DESIGN.md
 
 Usage:
-  node render.mjs --data <json> [--template monthly-client] [--design <DESIGN.md>]
-                  [--out <html>] [--logo <png>]
+  node render.mjs --data <json> [--template monthly-client] [--templates <dir>]
+                  [--design <DESIGN.md>] [--out <html>] [--logo <png>]
+  node render.mjs --list-templates [--templates <dir>]
 
-Templates: monthly-client, root-cause-summary, calendar-boundary,
-           triage-brief, jira-ready
+Templates are discovered from --templates directories, .drover/templates,
+and the bundled templates directory. Run --list-templates to see the result.
 `);
   process.exit(code);
 }
@@ -99,6 +102,8 @@ Handlebars.registerHelper("fmt", (n) => {
 Handlebars.registerHelper("join", (arr, sep) => Array.isArray(arr) ? arr.join(sep) : "");
 Handlebars.registerHelper("eq", (a, b) => a === b);
 Handlebars.registerHelper("upper", (s) => String(s ?? "").toUpperCase());
+Handlebars.registerHelper("concat", (...parts) => parts.slice(0, -1).join(""));
+Handlebars.registerHelper("pct", (value) => `${value}%`);
 
 Handlebars.registerHelper("svgDonut", (cacheStatus) => {
   if (!cacheStatus) return "";
@@ -248,12 +253,16 @@ Handlebars.registerHelper("svgWaffle", (botClasses) => {
 // templates/partials/*.hbs and is registered by basename. Keeping it in one
 // place is what stops the per-template copies from drifting.
 
-function registerPartials() {
-  const dir = resolve(HERE, "templates", "partials");
-  if (!existsSync(dir)) return;
-  for (const f of readdirSync(dir)) {
-    if (!f.endsWith(".hbs")) continue;
-    Handlebars.registerPartial(f.slice(0, -4), readFileSync(join(dir, f), "utf8"));
+function registerPartials(templateDirs) {
+  // Register low-priority bundled partials first so project/local partials can
+  // intentionally override them by basename.
+  for (const templateDir of [...templateDirs].reverse()) {
+    const dir = join(templateDir, "partials");
+    if (!existsSync(dir)) continue;
+    for (const f of readdirSync(dir).sort()) {
+      if (!f.endsWith(".hbs")) continue;
+      Handlebars.registerPartial(f.slice(0, -4), readFileSync(join(dir, f), "utf8"));
+    }
   }
 }
 
@@ -640,7 +649,30 @@ function buildCloudflareSummaryView(data) {
     cache_status: data.cache_status,
     daily: data.daily,
     bot_classes: data.bot_classes,
-    generatedAt: new Date().toISOString().replace("T", " ").slice(0, 19) + " UTC"
+    generatedAt: formatGeneratedAt(data.generated_at || data.generatedAt),
+  };
+}
+
+function formatGeneratedAt(value) {
+  if (!value) return "not supplied";
+  const raw = String(value);
+  const normalized = raw.replace("T", " ");
+  return raw.endsWith("Z") ? `${normalized.slice(0, 19)} UTC` : normalized;
+}
+
+// Custom templates receive the full input at both the top level and under
+// `data`. The normalized meta/generatedAt fields make small one-off reports
+// convenient without imposing drover's application-error schema.
+function buildGenericView(data) {
+  return {
+    ...data,
+    data,
+    meta: data.meta || {
+      project: data.project || data.zone || "Report",
+      month_label: data.month_label || data.period || "",
+      env: data.env || "",
+    },
+    generatedAt: formatGeneratedAt(data.generated_at || data.generatedAt),
   };
 }
 
@@ -653,30 +685,87 @@ const VIEW_BUILDERS = {
   "cloudflare-summary": buildCloudflareSummaryView,
 };
 
+function templateDirectories(args) {
+  const envDirs = (process.env.DROVER_TEMPLATE_DIRS || "")
+    .split(delimiter)
+    .filter(Boolean);
+  return [
+    ...args.templateDirs,
+    ...envDirs,
+    resolve(process.cwd(), ".drover", "templates"),
+    resolve(HERE, "templates"),
+  ].map((p) => resolve(p));
+}
+
+function discoverTemplates(dirs) {
+  const templates = new Map();
+  for (const dir of dirs) {
+    if (!existsSync(dir)) continue;
+    for (const file of readdirSync(dir).sort()) {
+      if (!file.endsWith(".hbs")) continue;
+      const name = basename(file, ".hbs");
+      if (!templates.has(name)) templates.set(name, join(dir, file));
+    }
+  }
+  return templates;
+}
+
+function resolveDesignPath(args) {
+  if (args.design && !existsSync(args.design)) {
+    throw new Error(`Explicit design file not found: ${resolve(args.design)}`);
+  }
+  if (process.env.DROVER_DESIGN && !existsSync(process.env.DROVER_DESIGN)) {
+    throw new Error(`DROVER_DESIGN file not found: ${resolve(process.env.DROVER_DESIGN)}`);
+  }
+  const candidates = [
+    args.design,
+    process.env.DROVER_DESIGN,
+    resolve(process.cwd(), ".drover", "design", "DESIGN.md"),
+    resolve(process.cwd(), ".drover", "design", "design.md"),
+    resolve(HERE, "..", "assets", "design", "DESIGN.md"),
+  ].filter(Boolean);
+  const found = candidates.find(existsSync);
+  if (!found) {
+    throw new Error(`No DESIGN.md found. Checked:\n${candidates.map((p) => `  - ${p}`).join("\n")}`);
+  }
+  return found;
+}
+
 // --- entry ---------------------------------------------------------------
 
 export function run(argv) {
   const args = parseArgs(argv);
+  const templateDirs = templateDirectories(args);
+  const templates = discoverTemplates(templateDirs);
+
+  if (args.listTemplates) {
+    for (const [name, path] of templates) console.log(`${name}\t${path}`);
+    return;
+  }
+
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]*$/.test(args.template)) {
+    console.error(`ERROR: invalid template name "${args.template}"`);
+    process.exit(2);
+  }
+  const tplPath = templates.get(args.template);
+  if (!tplPath) {
+    console.error(`ERROR: unknown template "${args.template}". Known: ${[...templates.keys()].join(", ")}`);
+    process.exit(2);
+  }
+
   const data = loadJson(args.data);
-  const tokens = loadDesign(args.design);
+  const designPath = resolveDesignPath(args);
+  const tokens = loadDesign(designPath);
 
-  const buildView = VIEW_BUILDERS[args.template];
-  if (!buildView) {
-    console.error(`ERROR: unknown template "${args.template}". Known: ${Object.keys(VIEW_BUILDERS).join(", ")}`);
-    process.exit(2);
-  }
+  const buildView = VIEW_BUILDERS[args.template] || buildGenericView;
 
-  registerPartials();
+  registerPartials(templateDirs);
 
-  const tplPath = resolve(HERE, "templates", `${args.template}.hbs`);
-  if (!existsSync(tplPath)) {
-    console.error(`ERROR: template file missing: ${tplPath}`);
-    process.exit(2);
-  }
   const tplSrc = readFileSync(tplPath, "utf8");
   const tpl = Handlebars.compile(tplSrc, { noEscape: false });
 
   const view = buildView(data);
+  view.data = data;
   view.css = baseStylesheet(tokens);
   view.logoDataUri = logoDataUri(args.logo);
 
@@ -691,6 +780,6 @@ export function run(argv) {
   console.log(`wrote ${out}`);
   console.log(`  template: ${args.template}`);
   console.log(`  data:     ${args.data}`);
-  console.log(`  design:   ${args.design}`);
+  console.log(`  design:   ${designPath}`);
   console.log(`  size:     ${html.length.toLocaleString()} bytes`);
 }

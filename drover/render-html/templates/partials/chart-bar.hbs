@@ -1,0 +1,11 @@
+<div class="chart{{#if interactive}} interactive-chart-row{{/if}}"
+     role="img"
+     aria-label="{{label}}: {{value}}{{#if share}} ({{share}}%){{/if}}"
+     {{#if interactive}}data-label="{{label}}" data-count="{{value}}"{{/if}}>
+  <div class="chart__label">{{#if severity}}<span class="severity-pill severity-pill--{{severity}}">{{label}}</span>{{else}}{{label}}{{/if}}</div>
+  <svg class="chart__svg" preserveAspectRatio="none" aria-hidden="true" focusable="false">
+    <rect class="chart__svg-track" width="100%" height="100%" rx="4"></rect>
+    <rect class="chart__svg-fill{{#if accent}} chart__svg-fill--accent{{/if}}" style="--chart-width: {{width}}%" height="100%" rx="4"></rect>
+  </svg>
+  <div class="chart__value">{{value}}{{#if share}} <span class="chart__share">({{share}}%)</span>{{/if}}</div>
+</div>

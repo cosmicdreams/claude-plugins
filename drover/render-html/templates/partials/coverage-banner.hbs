@@ -1,0 +1,6 @@
+{{#if coverageLow}}
+<div class="coverage-banner">
+  <span class="coverage-banner__icon" aria-hidden="true">⚠</span>
+  <span><strong>Coverage:</strong> {{coverage.coverage_pct}}% — {{coverage.present_days}} of {{coverage.expected_days}} expected entries were retrievable. {{message}}</span>
+</div>
+{{/if}}

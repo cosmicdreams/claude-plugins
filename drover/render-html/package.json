@@ -8,10 +8,12 @@
     "node": ">=20"
   },
   "bin": {
-    "drover-render-html": "./render.mjs"
+    "drover-render-html": "./render.mjs",
+    "drover-render-pdf": "./render-pdf.mjs"
   },
   "scripts": {
     "render": "node render.mjs",
+    "pdf": "node render-pdf.mjs",
     "test": "node --test"
   },
   "dependencies": {

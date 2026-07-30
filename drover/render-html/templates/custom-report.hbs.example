@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{meta.project}} — custom report</title>
+  {{> head-theme-init}}
+  <style>{{{css}}}</style>
+</head>
+<body>
+<div class="page">
+  {{> report-header title=meta.project meta=meta.month_label}}
+  <main class="page-body" id="content">
+    <h1 class="display">{{meta.project}} custom report</h1>
+    <p class="subtitle">Start with semantic HTML; all input remains available under <code>data</code>.</p>
+
+    <div class="metric-row">
+      {{> metric-card label="Total events" value=(fmt data.totals.events_total)}}
+    </div>
+  </main>
+  {{> report-footer preparedBy="Prepared by Velir" generatedAt=generatedAt}}
+</div>
+{{> theme-toggle-script}}
+</body>
+</html>

@@ -108,6 +108,9 @@ rounded:
   lg: 12px
   xl: 16px
   pill: 999px
+print:
+  pageSize: "Letter portrait"
+  margin: "0"
 components:
   # --- Velir base components (synced from ~/.velir/DESIGN.md) ---
   page:
@@ -286,6 +289,11 @@ Three orienting principles specific to drover reports:
    navy live in the page header and footer. The body of the report
    defaults to neutral surfaces so charts and severity colors read
    cleanly.
+
+The `print` tokens are part of the report contract because PDF is the
+delivery artifact. A project-local design may switch `pageSize` (for
+example, `A4 portrait`) or add a physical margin without changing a
+template.
 
 See `~/.velir/DESIGN.md` for full Velir brand prose (color
 philosophy, typography rationale, layout, shapes, dos and don'ts).

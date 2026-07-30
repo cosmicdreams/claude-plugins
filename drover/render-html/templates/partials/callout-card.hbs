@@ -1,0 +1,4 @@
+<aside class="callout-card{{#if modifier}} callout-card--{{modifier}}{{/if}}">
+  {{#if title}}<h3 class="callout-card__title">{{title}}</h3>{{/if}}
+  <div class="callout-card__body">{{#if text}}{{text}}{{else}}{{> @partial-block}}{{/if}}</div>
+</aside>

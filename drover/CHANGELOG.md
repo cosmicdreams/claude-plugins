@@ -1,5 +1,71 @@
 # drover Changelog
 
+## 2.2.1 — create pacing and concurrent-writer safety
+
+- Log-create pacing no longer holds the lock across its sleep. Creates
+  serialized behind it across every group, and each group idled a full
+  `rate_limit_s` after firing before it could begin polling. Slots are now
+  claimed from a shared monotonic schedule, with the lock held only for the
+  claim. The spacing guarantee between creates is unchanged and now tested.
+- File presence is re-checked immediately before spending a snapshot request.
+  The up-front scan only describes the filesystem at start-up, so a long run
+  gave another writer time to land a file that the run still intended to
+  fetch. Such a day is now skipped and recorded `present`.
+
+  This does **not** make two concurrent pulls safe against each other. Acquia
+  keeps one packaged file per `(env, type)`, so overlapping runs still clobber
+  one another's snapshots; the guard against acting on a clobbered file is the
+  post-download verification, not this check.
+
+## 2.2.0 — pull observability, verified snapshots, extensible HTML and PDF delivery
+
+### Pull progress is now visible while it happens
+
+- Every notification status check is reported, so a snapshot that is still
+  building is distinguishable from one whose status call is failing. Acquia
+  packages logs asynchronously — request, build onto S3, then download — and
+  the build leg previously produced no output at all for minutes at a time.
+- A failing status check no longer disappears into `except Exception: pass`.
+  The underlying error is carried into the `fetch-failed` reason instead of
+  being replaced by a bare "poll deadline exceeded".
+- An errored status check no longer leaves a stale status value standing from
+  an earlier successful check.
+- Snapshot request and download start are each reported, so the three legs of
+  the Acquia flow are individually visible.
+- stdout and stderr are line-buffered. Python block-buffers stdout when it is
+  redirected to a file or pipe, which held every progress line until the run
+  ended and made a working pull look identical to a hung one. Callers no
+  longer need `python3 -u`.
+
+### Post-download verification (was present in source but never released)
+
+- Every downloaded file is verified before being recorded `present`: its
+  dominant log date must match the requested day, and it must not be
+  byte-identical to another day already pulled in the same group. Mismatches
+  are deleted, marked `snapshot-mismatch`, and retried once. This ships the
+  guard against Acquia's one-snapshot-per-(env,type) staleness, which
+  previously produced mislabeled duplicate files.
+
+### Extensible HTML and PDF delivery
+
+- HTML is now the report skill's default editable artifact; PDF is the final
+  stakeholder delivery artifact. The direct Markdown path remains supported.
+- HTML templates are discovered from explicit directories, environment
+  configuration, `.drover/templates`, and the bundled folder. Project templates
+  and partials can override bundled names without changing plugin code.
+- `cloudflare-summary` is now documented, carries a sample input, and derives
+  its timestamp from input so HTML output remains deterministic.
+- Reusable report partials cover headers, footers, coverage warnings, metric
+  cards, horizontal charts, and prose callouts. `COMPONENTS.md` documents the
+  template data contract and graph helpers.
+- Project design overrides are automatically discovered at
+  `.drover/design/DESIGN.md`; `--design` and `DROVER_DESIGN` remain explicit
+  overrides. Print page size and margin are design tokens.
+- `render-pdf.mjs` supports final PDF generation through installed Chrome,
+  Chromium, or Edge, with an explicit support matrix in `PDF.md`.
+- Removed the remote Google Fonts import so rendered HTML is genuinely
+  self-contained; local IBM Plex installations and system fallbacks are used.
+
 ## 2.1.0 — HTML reports
 
 Adds a self-contained, Velir-branded HTML output alongside the existing

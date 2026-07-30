@@ -544,26 +544,37 @@ def reconcile(
         g["days"].sort()
 
     total_missing = len(missing)
-    api_lock = threading.Lock()      # serialize + rate-limit log-create calls
+    pace_lock = threading.Lock()     # guard the log-create pacing schedule
     ledger_lock = threading.Lock()   # guard the shared coverage dict + file
     print_lock = threading.Lock()    # keep progress lines from interleaving
     counters = {"fetched": 0, "failed": 0}
+    next_create_at = [0.0]           # monotonic time of the next allowed create
 
     def safe_log(msg: str) -> None:
         with print_lock:
             log_fn(msg)
 
     def create_notification(env_id, log_type, from_iso, to_iso):
-        """Fire one log-create under the API lock, with rate-limit pacing.
+        """Fire one log-create, paced `rate_limit_s` apart across all groups.
+
+        The lock is held only long enough to claim a slot in the pacing
+        schedule. Both the wait and the HTTP request happen outside it, so a
+        group awaiting its turn no longer blocks every other group's create,
+        and a group that has just fired starts polling immediately instead of
+        sleeping out the rate limit first.
 
         Returns (notif_url, notif_uuid). Raises on failure."""
-        with api_lock:
-            if client is None:
-                raise PullError("Client is None")
-            notif = client.request_log_download(
-                env_id, log_type, from_iso=from_iso, to_iso=to_iso,
-            )
-            time.sleep(rate_limit_s)
+        if client is None:
+            raise PullError("Client is None")
+        with pace_lock:
+            now = time.monotonic()
+            wait = max(0.0, next_create_at[0] - now)
+            next_create_at[0] = max(now, next_create_at[0]) + rate_limit_s
+        if wait > 0:
+            time.sleep(wait)
+        notif = client.request_log_download(
+            env_id, log_type, from_iso=from_iso, to_iso=to_iso,
+        )
         notif_url = (
             notif.get("_links", {}).get("notification", {}).get("href")
         )
@@ -585,6 +596,27 @@ def reconcile(
 
         for attempt in range(attempts):
             last = attempt == attempts - 1
+
+            # Re-check presence immediately before spending a create. The
+            # up-front scan is a snapshot of the filesystem at start-up; a
+            # long run gives another writer (a concurrent pull, a manual
+            # fetch) time to land this file in the meantime. Re-checking
+            # costs one stat and avoids both a wasted snapshot request and a
+            # needless overwrite of a file that is already good.
+            existing = find_log_file(project_root, day, env_name, log_type)
+            if existing is not None:
+                size = existing.stat().st_size
+                safe_log(
+                    f"  = {day} {env_name} {log_type}: appeared during run, "
+                    f"skipping ({size:,} bytes)"
+                )
+                with ledger_lock:
+                    mark_coverage(
+                        coverage, day, env_name, log_type,
+                        state="present", bytes=size,
+                    )
+                    save_coverage(project_root, coverage)
+                return "present", str(size)
             try:
                 notif_url, notif_uuid = create_notification(
                     env_id, log_type, from_iso, to_iso,
@@ -601,25 +633,63 @@ def reconcile(
                 )
                 continue
 
-            # Poll this day's notification to completion.
+            safe_log(
+                f"  + {day} {env_name} {log_type}: snapshot requested"
+                + (f" (attempt {attempt + 1}/{attempts})" if attempt else "")
+            )
+
+            # Poll this day's notification to completion. Acquia packages the
+            # snapshot asynchronously onto S3, so this is the long leg of the
+            # run. Every check is reported: without it, a snapshot that is
+            # still building and one whose status call is erroring on every
+            # attempt look identical — both are silent until the deadline.
             deadline = time.time() + poll_deadline_s
+            started = time.time()
             status = "?"
+            checks = 0
+            last_error: str | None = None
             while time.time() < deadline:
+                checks += 1
                 try:
                     status = client.check_log_download(notif_url).get(
                         "status", "?"
                     )
-                except Exception:
-                    pass
+                    last_error = None
+                    detail = f"status={status}"
+                except Exception as e:
+                    # Do not leave `status` holding a stale value from an
+                    # earlier successful check — an errored check knows
+                    # nothing about the snapshot's current state.
+                    status = "?"
+                    last_error = f"{type(e).__name__}: {e}"
+                    detail = f"check failed ({last_error})"
+                elapsed = time.time() - started
                 if status in ("completed", "failed"):
+                    safe_log(
+                        f"  · {day} {env_name} {log_type}: {detail} "
+                        f"after {elapsed:.0f}s ({checks} checks)"
+                    )
                     break
+                safe_log(
+                    f"  · {day} {env_name} {log_type}: poll {checks} "
+                    f"{detail} ({elapsed:.0f}s elapsed, "
+                    f"{max(0.0, deadline - time.time()):.0f}s to deadline)"
+                )
                 time.sleep(poll_interval_s)
 
             if status != "completed":
-                reason = (
-                    "notification status=failed" if status == "failed"
-                    else "poll deadline exceeded"
-                )
+                if status == "failed":
+                    reason = "notification status=failed"
+                elif last_error is not None:
+                    reason = (
+                        f"poll deadline exceeded after {checks} checks; "
+                        f"last check error: {last_error}"
+                    )
+                else:
+                    reason = (
+                        f"poll deadline exceeded after {checks} checks "
+                        f"(last status={status})"
+                    )
                 safe_log(
                     f"  ~ {day} {env_name} {log_type}: {reason}"
                     + ("" if last else ", retrying")
@@ -630,6 +700,9 @@ def reconcile(
             local = canonical_path(project_root, day, env_name, log_type)
             try:
                 s3_url = client.get_log_download_url(env_id, log_type)
+                safe_log(
+                    f"  ↓ {day} {env_name} {log_type}: downloading"
+                )
                 gz_size = download_atomic(s3_url, local)
             except Exception as e:
                 reason = f"{type(e).__name__}: {e}"
@@ -794,6 +867,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def cli_main(argv: list[str] | None = None) -> int:
+    # A pull is long and mostly silent while Acquia builds snapshots. Python
+    # block-buffers stdout when it is redirected to a file or a pipe, which
+    # holds every progress line until the run ends — making a working pull
+    # indistinguishable from a hung one. Force line buffering so callers see
+    # each event as it happens without needing `python3 -u`.
+    for stream in (sys.stdout, sys.stderr):
+        try:
+            stream.reconfigure(line_buffering=True)
+        except (AttributeError, ValueError):
+            pass
+
     args = parse_args(argv)
     project_root = find_drover_root(args.project.resolve())
 

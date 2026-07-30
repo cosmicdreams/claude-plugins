@@ -13,6 +13,8 @@ import io
 import json
 import pathlib
 import tempfile
+import threading
+import time
 import unittest
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
@@ -421,6 +423,152 @@ class ReconcileTests(unittest.TestCase):
         entry = cov["2026-04-01"]["prod.drupal-watchdog"]
         self.assertEqual(entry["state"], "fetch-failed")
         self.assertIn("reason", entry)
+
+    def test_file_appearing_mid_run_is_not_refetched(self):
+        # Another writer (a concurrent pull) can land a file after the
+        # up-front scan has already classified it as missing. The day must be
+        # skipped without spending a snapshot request, not downloaded again.
+        import gzip as _gz
+        client = mock.MagicMock()
+        client.request_log_download.return_value = {
+            "_links": {"notification": {"href": "https://x/n"}},
+        }
+        client.check_log_download.return_value = {"status": "completed"}
+
+        day = date(2026, 4, 1)
+        target = pull.canonical_path(self.root, day, "prod", "drupal-watchdog")
+
+        real_find = pull.find_log_file
+        calls = {"n": 0}
+
+        def find_then_appear(root, d, env_name, log_type):
+            # Miss on the up-front scan, then have the file exist by the time
+            # fetch_day re-checks — exactly the concurrent-writer race.
+            calls["n"] += 1
+            if calls["n"] > 1 and not target.exists():
+                target.parent.mkdir(parents=True, exist_ok=True)
+                with _gz.open(target, "wb") as fh:
+                    fh.write(b"landed by another process\n")
+            return real_find(root, d, env_name, log_type)
+
+        with mock.patch.object(pull, "find_log_file", find_then_appear):
+            summary = pull.reconcile(
+                client, self.root, self.envs, ["drupal-watchdog"], [day],
+                rate_limit_s=0, retries=0, poll_interval_s=0,
+            )
+
+        self.assertEqual(summary["failed"], 0)
+        client.request_log_download.assert_not_called()
+        client.get_log_download_url.assert_not_called()
+        entry = pull.load_coverage(self.root)["2026-04-01"][
+            "prod.drupal-watchdog"
+        ]
+        self.assertEqual(entry["state"], "present")
+
+    def test_creates_stay_rate_limit_apart_across_groups(self):
+        # Pacing is enforced by a shared schedule rather than by holding a
+        # lock across the sleep. The guarantee must survive that change:
+        # consecutive log-create calls start at least rate_limit_s apart even
+        # when several (env,type) groups run concurrently.
+        import gzip as _gz, io as _io
+        payload = b"2026-04-01 entry\n" * 10
+        gz_buf = _io.BytesIO()
+        with _gz.GzipFile(fileobj=gz_buf, mode="wb") as g:
+            g.write(payload)
+        gz_bytes = gz_buf.getvalue()
+
+        starts: list[float] = []
+        starts_lock = threading.Lock()
+
+        client = mock.MagicMock()
+
+        def timed_create(*_args, **_kwargs):
+            with starts_lock:
+                starts.append(time.monotonic())
+            return {"_links": {"notification": {"href": "https://x/n"}}}
+
+        client.request_log_download.side_effect = timed_create
+        client.check_log_download.return_value = {"status": "completed"}
+        client.get_log_download_url.return_value = "https://s3/a.gz"
+
+        def fake_urlretrieve(url, dest):
+            with open(dest, "wb") as fh:
+                fh.write(gz_bytes)
+
+        with mock.patch.object(
+            pull.urllib.request, "urlretrieve", fake_urlretrieve
+        ):
+            pull.reconcile(
+                client, self.root, self.envs,
+                ["apache-error", "drupal-watchdog", "php-error"],
+                [date(2026, 4, 1)],
+                rate_limit_s=0.05, retries=0, poll_interval_s=0,
+                concurrency=3,
+            )
+
+        self.assertEqual(len(starts), 3)
+        starts.sort()
+        for earlier, later in zip(starts, starts[1:]):
+            # Allow a small scheduling tolerance; the point is that the gap
+            # is real, not that it is exact.
+            self.assertGreaterEqual(later - earlier, 0.04)
+
+    def test_erroring_status_check_surfaces_cause(self):
+        # A status check that raises on every attempt used to be swallowed
+        # by `except Exception: pass`, so the day burned the full deadline
+        # and reported a bare "poll deadline exceeded" with the real cause
+        # discarded. The recorded reason must name the underlying error.
+        client = mock.MagicMock()
+        client.request_log_download.return_value = {
+            "_links": {"notification": {"href": "https://x/n"}},
+        }
+        client.check_log_download.side_effect = ConnectionResetError(
+            "connection reset by peer"
+        )
+
+        summary = pull.reconcile(
+            client, self.root, self.envs, ["drupal-watchdog"],
+            [date(2026, 4, 1)],
+            rate_limit_s=0, retries=0, poll_interval_s=0,
+            poll_deadline_s=0.05,
+        )
+        self.assertEqual(summary["failed"], 1)
+        entry = pull.load_coverage(self.root)["2026-04-01"][
+            "prod.drupal-watchdog"
+        ]
+        self.assertEqual(entry["state"], "fetch-failed")
+        self.assertIn("ConnectionResetError", entry["reason"])
+        self.assertIn("connection reset by peer", entry["reason"])
+
+    def test_stale_status_not_reused_after_check_error(self):
+        # An errored check knows nothing about the snapshot's state, so it
+        # must not leave a prior "in-progress" value standing in `status`.
+        client = mock.MagicMock()
+        client.request_log_download.return_value = {
+            "_links": {"notification": {"href": "https://x/n"}},
+        }
+        calls = {"n": 0}
+
+        def one_good_then_errors(*_args, **_kwargs):
+            calls["n"] += 1
+            if calls["n"] == 1:
+                return {"status": "in-progress"}
+            raise TimeoutError("read timed out")
+
+        client.check_log_download.side_effect = one_good_then_errors
+
+        summary = pull.reconcile(
+            client, self.root, self.envs, ["drupal-watchdog"],
+            [date(2026, 4, 1)],
+            rate_limit_s=0, retries=0, poll_interval_s=0,
+            poll_deadline_s=0.05,
+        )
+        self.assertEqual(summary["failed"], 1)
+        reason = pull.load_coverage(self.root)["2026-04-01"][
+            "prod.drupal-watchdog"
+        ]["reason"]
+        self.assertIn("TimeoutError", reason)
+        self.assertNotIn("in-progress", reason)
 
     def test_retry_succeeds_after_transient(self):
         # First attempt fails (notification status=failed),

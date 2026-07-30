@@ -188,8 +188,6 @@ ${cssVariables(tokens)}
   }
 }
 
-@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
-
 * { box-sizing: border-box; }
 html, body { margin: 0; padding: 0; }
 
@@ -236,7 +234,15 @@ body {
   align-items: center;
   gap: var(--space-md);
 }
-.page-header__logo { height: 28px; width: auto; display: block; filter: brightness(0) invert(1); }
+.page-header__logo {
+  height: 28px;
+  width: auto;
+  display: block;
+  background: #FFFFFF;
+  border-radius: var(--rounded-sm);
+  padding: 3px 6px;
+  object-fit: contain;
+}
 .page-header__title {
   font-size: var(--font-body-sm-size);
   letter-spacing: var(--font-label-tracking);
@@ -376,6 +382,20 @@ p { margin: 0 0 var(--space-md) 0; }
 }
 .coverage-banner__icon { font-size: 1.2em; }
 
+.callout-card {
+  background: var(--color-tint-blue);
+  border-left: 4px solid var(--color-primary);
+  border-radius: var(--rounded-md);
+  padding: var(--space-md);
+  margin: var(--space-md) 0 var(--space-lg);
+}
+.callout-card__title {
+  color: var(--color-primary);
+  margin: 0 0 var(--space-sm);
+}
+.callout-card__body { color: var(--color-text); }
+.callout-card__body > :last-child { margin-bottom: 0; }
+
 .severity-pill {
   display: inline-block;
   border-radius: var(--rounded-pill);
@@ -443,11 +463,13 @@ p { margin: 0 0 var(--space-md) 0; }
 }
 .chart__svg-fill {
   fill: var(--color-primary);
+  width: var(--chart-width, 0%);
   animation: chart-grow 0.8s cubic-bezier(0.16, 1, 0.3, 1) forwards;
 }
 .chart__svg-fill--accent { fill: var(--color-secondary); }
 
 .chart__value { color: var(--color-text-muted); text-align: right; font-variant-numeric: tabular-nums; }
+.chart__share { opacity: 0.7; }
 
 /* Interactive tooltips for charts */
 .chart-tooltip {
@@ -595,8 +617,8 @@ p { margin: 0 0 var(--space-md) 0; }
 }
 
 @page {
-  size: Letter portrait;
-  margin: 0;
+  size: ${tokens.print?.pageSize || "Letter portrait"};
+  margin: ${tokens.print?.margin || "0"};
 }
 @media print {
   /* ── Color fidelity ────────────────────────────────────────────── */
@@ -642,6 +664,7 @@ p { margin: 0 0 var(--space-md) 0; }
   /* page boundary. break-inside:avoid keeps each card whole.         */
   .ticket-card,
   .metric-card,
+  .callout-card,
   .triage-card,
   .jira-card,
   tr {
@@ -661,6 +684,13 @@ p { margin: 0 0 var(--space-md) 0; }
     word-break: break-all;
   }
 }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
 `;
 }
-

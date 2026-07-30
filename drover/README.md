@@ -13,7 +13,7 @@ A small pipeline of four skills that runs in Claude Code:
 ```
 /drover:init            Discover this project's Acquia + JIRA config; write manifest
 /drover:acquia-pull     Pull application-error logs by date into <project>/<year>/<month>/
-/drover:report          Render a monthly markdown report from those logs
+/drover:report          Render monthly HTML/Markdown reports and final PDFs
 /drover:create-tickets  File the report's recommended tickets in JIRA
 ```
 
@@ -136,6 +136,18 @@ layer narrative prose on top of the deterministic backbone in a
 future slice; the deterministic report is the shippable surface for
 2.0.
 
+HTML is the default editable report artifact and PDF is the final delivery
+artifact. The HTML renderer includes the same five application-log templates
+plus `cloudflare-summary`. It discovers additional project templates from
+`.drover/templates`, exposes reusable report partials documented in
+`render-html/COMPONENTS.md`, and automatically uses a project design at
+`.drover/design/DESIGN.md` before falling back to the bundled Velir design.
+
+Final PDF conversion is supported through installed Chrome, Chromium, or Edge
+with `render-html/render-pdf.mjs`. Safari and Firefox printing are manual
+fallbacks. See `render-html/PDF.md` for the browser support matrix and delivery
+checks.
+
 ### `/drover:create-tickets`
 
 Reads a sidecar JSON (one ticket spec per top issue from
@@ -219,6 +231,8 @@ next report.
 | Charts | `scripts/charts.py` | Unicode bar charts (markdown-renderer-portable) |
 | Branding | `scripts/branding.py` | Velir 2025 palette + base64-embedded logo |
 | Report render | `scripts/report.py` | Five deterministic templates → markdown |
+| HTML render | `render-html/render.mjs` | Discovered Handlebars templates + reusable components → self-contained HTML |
+| PDF delivery | `render-html/render-pdf.mjs` | Chrome/Chromium/Edge print pipeline → final PDF |
 | Synthesize (future) | `scripts/report_writer.py` + `agents/report-writer.md` | LLM prose on top of the deterministic report |
 | JIRA REST | `scripts/jira_api.py` | Stdlib Atlassian Cloud client |
 | Ticket recs | `scripts/jira_recs.py` | Spec generator (title, priority, labels, description) |
