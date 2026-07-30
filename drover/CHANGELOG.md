@@ -1,5 +1,28 @@
 # drover Changelog
 
+## 2.2.3 — coverage ledger integrity
+
+The ledger could disagree with the files actually on disk, and
+`/drover:report` reads it for coverage caveats — so a report could claim gaps
+that had already been filled. Found on a real project: 10 of 60 tuples were
+recorded as absent while every one of the files was present and verified.
+
+- **Concurrent runs no longer clobber each other.** `save_coverage` rewrote
+  the whole file from an in-process snapshot, so two runs against one project
+  each loaded the ledger at start and the later save silently discarded
+  everything the other had written. The in-process lock cannot help — it does
+  not span processes. The write is now a read-merge-write under an exclusive
+  `flock`. Measured with four concurrent writers of 25 entries each: before,
+  74 of 100 entries were lost; after, all 100 survive.
+- **Concurrent runs no longer crash.** Every process staged through the same
+  `coverage.tmp`, so one process's rename could steal another's staging file
+  and raise `FileNotFoundError` mid-write. Staging is now per-process.
+- **Stale states are corrected.** The startup scan wrote the ledger only when
+  an entry was missing, so an entry with a *wrong* state survived every later
+  run even though the file was sitting on disk. A present file now forces the
+  entry to `present`, and the correction is logged.
+- A malformed on-disk ledger no longer crashes the write.
+
 ## 2.2.2 — store what the filename claims
 
 - Downloads are sniffed for the gzip magic number and compressed only when it
