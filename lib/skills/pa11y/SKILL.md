@@ -1,16 +1,18 @@
 ---
 name: pa11y
 description: >
-  Run a Pa11y WCAG accessibility audit against a URL and output structured JSON results.
-  Use when you need WCAG 2.1 AA error and warning counts for a single page. Trigger
-  phrases: "pa11y", "wcag audit", "pa11y scan", "accessibility errors for this page".
-  Do NOT use for multi-page accessibility scanning (use improve:accessibility-scan for
-  that — it orchestrates pa11y, axe-core, and Lighthouse together). Do NOT use when
-  you need axe-core violations or Lighthouse accessibility scores (those require the
-  full improve:accessibility-scan flow).
+  Run a Pa11y WCAG 2.1 AA audit against one URL and return JSON errors and warnings. For
+  multi-page scans, or for axe-core and Lighthouse results, use
+  improve:accessibility-scan.
 ---
 
 # lib:pa11y
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Run a Pa11y WCAG accessibility audit against a URL and output structured JSON results. Use when you need WCAG 2.1 AA error and warning counts for a single page. Trigger phrases: "pa11y", "wcag audit", "pa11y scan", "accessibility errors for this page". Do NOT use for multi-page accessibility scanning (use improve:accessibility-scan for that — it orchestrates pa11y, axe-core, and Lighthouse together). Do NOT use when you need axe-core violations or Lighthouse accessibility scores (those require the full improve:accessibility-scan flow).
 
 Thin wrapper around the `pa11y` CLI. Outputs JSON accessibility results for a single page.
 

@@ -1,15 +1,17 @@
 ---
 name: archive
 description: >
-  Migrates local agent-produced Markdown and text files into the Obsidian vault for
-  long-term memory. Trigger when the user says: "archive to Obsidian", "migrate to
-  vault", "save to Obsidian", "archive my notes", "move this to my vault", "store in
-  Obsidian", or any request to move local .md or .txt files into a vault. Do NOT
-  trigger for simply reading or viewing vault notes (use workshop:organize for vault
-  management).
+  Migrate local .md and .txt files produced by agents into the Obsidian vault for
+  long-term storage. Not for managing notes already in the vault — use workshop:organize.
 ---
 
 # lib:archive
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Migrates local agent-produced Markdown and text files into the Obsidian vault for long-term memory. Trigger when the user says: "archive to Obsidian", "migrate to vault", "save to Obsidian", "archive my notes", "move this to my vault", "store in Obsidian", or any request to move local .md or .txt files into a vault. Do NOT trigger for simply reading or viewing vault notes (use workshop:organize for vault management).
 
 ## Vault configuration
 

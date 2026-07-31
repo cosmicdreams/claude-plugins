@@ -1,19 +1,18 @@
 ---
 name: image-optimize
 description: >
-  Optimizes, compresses, resizes, and converts images. Uses Bun's built-in image
-  pipeline (Bun.Image) as the only required dependency for the common path, and falls
-  back to specialist Homebrew tools only when a task needs them — delivering install
-  guidance at that moment rather than up front.
-  Use when the user asks to optimize, compress, shrink, or convert images, reduce file
-  size of images, batch-process a folder of images, or strip image metadata.
-  Trigger phrases: "optimize image", "compress image", "shrink image", "reduce image size",
-  "convert to webp", "convert to avif", "batch optimize images", "strip exif", "resize image",
-  "make image smaller", "compress screenshot", "convert heic", "optimize png", "optimize jpeg".
-  Do NOT trigger for AI image generation, photo retouching, or enhancement requiring AI upscaling.
+  Optimize, compress, resize, and convert still images (webp, avif, heic, png, jpeg),
+  single or batch, and strip metadata. Not for video (lib:ffmpeg) or AI generation and
+  upscaling.
 ---
 
 # lib:image-optimize
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Optimizes, compresses, resizes, and converts images. Uses Bun's built-in image pipeline (Bun.Image) as the only required dependency for the common path, and falls back to specialist Homebrew tools only when a task needs them — delivering install guidance at that moment rather than up front. Use when the user asks to optimize, compress, shrink, or convert images, reduce file size of images, batch-process a folder of images, or strip image metadata. Trigger phrases: "optimize image", "compress image", "shrink image", "reduce image size", "convert to webp", "convert to avif", "batch optimize images", "strip exif", "resize image", "make image smaller", "compress screenshot", "convert heic", "optimize png", "optimize jpeg". Do NOT trigger for AI image generation, photo retouching, or enhancement requiring AI upscaling.
 
 This skill uses **progressive enhancement**. Bun is the only thing a user must install.
 Reach for a specialist binary **only** when the task genuinely needs one — and when you do,

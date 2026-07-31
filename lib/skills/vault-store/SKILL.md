@@ -1,16 +1,18 @@
 ---
 name: vault-store
 description: >
-  Routes and stores documents, reports, diagrams, and analysis into the Obsidian
-  Neurons vault. Invoke after any skill produces output worth keeping, or when the
-  user wants to save something to the vault. Trigger phrases: "save to vault",
-  "store in Obsidian", "archive this report", "put this in the vault", "save to
-  Neurons". Also triggered when other skills (retro, ideate, drupal-lab) produce
-  reports that should be preserved. Do NOT use for organizing or moving notes
-  already in the vault — use workshop:organize for that.
+  File documents, reports, diagrams, and analysis into the right place in the Obsidian
+  Neurons vault, after a skill produces output worth keeping. Not for reorganizing notes
+  already there — use workshop:organize.
 ---
 
 # lib:vault-store
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Routes and stores documents, reports, diagrams, and analysis into the Obsidian Neurons vault. Invoke after any skill produces output worth keeping, or when the user wants to save something to the vault. Trigger phrases: "save to vault", "store in Obsidian", "archive this report", "put this in the vault", "save to Neurons". Also triggered when other skills (retro, ideate, drupal-lab) produce reports that should be preserved. Do NOT use for organizing or moving notes already in the vault — use workshop:organize for that.
 
 Route and store documents to the correct Neurons vault location using the 5-step process below.
 

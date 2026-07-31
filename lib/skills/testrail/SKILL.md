@@ -1,10 +1,8 @@
 ---
 name: testrail
 description: >
-  TestRail CLI wrapper — read projects, suites, test plans, sections, and test cases
-  via the TestRail REST API. Thin data layer for converting TestRail cases into
-  Playwright tests. Trigger phrases: "lib:testrail", "testrail plans",
-  "read testrail", "list test cases", "get test plan".
+  Read TestRail projects, suites, plans, sections, and test cases via the REST API — the
+  data layer for turning TestRail cases into Playwright tests.
 triggers:
   - "lib:testrail"
   - "testrail plans"
@@ -15,6 +13,12 @@ allowed-tools: Bash, Read
 ---
 
 # lib:testrail — TestRail REST API Wrapper
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> TestRail CLI wrapper — read projects, suites, test plans, sections, and test cases via the TestRail REST API. Thin data layer for converting TestRail cases into Playwright tests. Trigger phrases: "lib:testrail", "testrail plans", "read testrail", "list test cases", "get test plan".
 
 Thin wrapper around the TestRail REST API using `curl`. No test conversion logic here —
 returns raw JSON for the calling skill or user to process into Playwright tests.

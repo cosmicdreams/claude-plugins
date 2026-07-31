@@ -1,17 +1,9 @@
 ---
 name: wiki-query
 description: >
-  Ask a question against the Obsidian wiki and get a researched answer filed
-  as a new wiki page. Reads index.md to find relevant Concepts, Entities, and
-  Sources, synthesizes an answer from existing pages, optionally searches the
-  web to fill gaps, then writes the result as a new Concept or Source page and
-  updates the index. Closes the research loop — answers compound in the wiki
-  instead of disappearing into chat history.
-  Trigger phrases: "wiki-query", "ask the wiki", "research this in my vault",
-  "what does my wiki say about", "query the vault", "look this up in my notes",
-  "wiki answer", "what do I know about".
-  Do NOT trigger for: simple vault search (use lib:vault-search), ingesting
-  raw content (use ingest), or structural lint (use vault-lint).
+  Answer a question from the Obsidian wiki, optionally filling gaps from the web, then
+  file the answer as a new Concept or Source page and update index.md. For plain lookup
+  use lib:vault-search.
 triggers:
   - "wiki-query"
   - "ask the wiki"
@@ -32,6 +24,12 @@ allowed-tools:
 ---
 
 # lib:wiki-query
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Ask a question against the Obsidian wiki and get a researched answer filed as a new wiki page. Reads index.md to find relevant Concepts, Entities, and Sources, synthesizes an answer from existing pages, optionally searches the web to fill gaps, then writes the result as a new Concept or Source page and updates the index. Closes the research loop — answers compound in the wiki instead of disappearing into chat history. Trigger phrases: "wiki-query", "ask the wiki", "research this in my vault", "what does my wiki say about", "query the vault", "look this up in my notes", "wiki answer", "what do I know about". Do NOT trigger for: simple vault search (use lib:vault-search), ingesting raw content (use ingest), or structural lint (use vault-lint).
 
 Research a question against the vault wiki. Synthesize an answer from existing
 pages, fill gaps with web research, and file the result as a new wiki page.

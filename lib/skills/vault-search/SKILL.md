@@ -1,15 +1,9 @@
 ---
 name: vault-search
 description: >
-  Graph-aware search across the Obsidian Neurons vault. Finds notes by content,
-  then follows [[wikilinks]] one hop to show the neighborhood around each hit.
-  Opens the top result in Obsidian. Use when the user asks to search, find, or
-  look up anything in the vault or their notes. Trigger phrases: "search the vault",
-  "find in vault", "vault search", "search my notes", "find in my notes",
-  "do I have a note about X", "look up X in my vault", "what notes mention X",
-  "where did I write about X". Do NOT trigger for: listing or browsing vault files
-  (use Glob), linting notes (workshop:obsidian-lint), organizing notes (workshop:organize),
-  storing new content (lib:vault-store), or Pulse/board operations.
+  Search the Obsidian Neurons vault by content, follow [[wikilinks]] one hop to show each
+  hit's neighborhood, and open the top result. For storing new content use
+  lib:vault-store.
 triggers:
   - vault-search
   - search the vault
@@ -23,6 +17,12 @@ triggers:
 ---
 
 # vault-search
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Graph-aware search across the Obsidian Neurons vault. Finds notes by content, then follows [[wikilinks]] one hop to show the neighborhood around each hit. Opens the top result in Obsidian. Use when the user asks to search, find, or look up anything in the vault or their notes. Trigger phrases: "search the vault", "find in vault", "vault search", "search my notes", "find in my notes", "do I have a note about X", "look up X in my vault", "what notes mention X", "where did I write about X". Do NOT trigger for: listing or browsing vault files (use Glob), linting notes (workshop:obsidian-lint), organizing notes (workshop:organize), storing new content (lib:vault-store), or Pulse/board operations.
 
 Graph-aware search of the Neurons vault. Read-only — never modifies vault files.
 

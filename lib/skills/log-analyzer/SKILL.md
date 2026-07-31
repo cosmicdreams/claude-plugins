@@ -1,19 +1,17 @@
 ---
 name: log-analyzer
 description: >
-  Analyzes web server and application logs (Acquia/Drupal + Cloudflare) and renders
-  an ASCII dashboard report in the terminal. Use when the user asks to analyze logs,
-  check error rates, investigate traffic spikes, identify bot traffic, view Cloudflare
-  threat blocks, review overall site health, diagnose PHP errors, investigate 500 errors,
-  find slow requests, or answer "who is hammering my site". Trigger phrases: "analyze
-  logs", "check error rates", "log analysis", "cloudflare threats", "acquia logs",
-  "traffic spike", "bot traffic", "site health report", "what's hitting my site",
-  "PHP errors", "500 errors", "slow requests", "who is hammering my site".
-  Do NOT trigger for Drupal-specific log analysis within DDEV (use drupal-lab tools
-  for that).
+  Analyze Acquia, Drupal, and Cloudflare web logs into a terminal dashboard: error rates,
+  PHP and 500 errors, slow requests, traffic spikes, and bot or threat activity.
 ---
 
 # lib:log-analyzer
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Analyzes web server and application logs (Acquia/Drupal + Cloudflare) and renders an ASCII dashboard report in the terminal. Use when the user asks to analyze logs, check error rates, investigate traffic spikes, identify bot traffic, view Cloudflare threat blocks, review overall site health, diagnose PHP errors, investigate 500 errors, find slow requests, or answer "who is hammering my site". Trigger phrases: "analyze logs", "check error rates", "log analysis", "cloudflare threats", "acquia logs", "traffic spike", "bot traffic", "site health report", "what's hitting my site", "PHP errors", "500 errors", "slow requests", "who is hammering my site". Do NOT trigger for Drupal-specific log analysis within DDEV (use drupal-lab tools for that).
 
 Ask the user which log source they want to analyze (Acquia access logs, Acquia error
 logs, or Cloudflare), or default to Acquia apache-access logs if no preference is stated.

@@ -1,20 +1,18 @@
 ---
 name: ffmpeg
 description: >
-  Audio and video processing using ffmpeg and ffprobe. Use when the user needs
-  to compress audio, convert audio/video formats, trim or clip media, extract
-  audio from video, or inspect media file properties (codec, bitrate, duration).
-  Trigger phrases: "compress audio", "compress video", "convert mp3", "convert
-  to opus", "convert to aac", "make audio smaller", "trim audio", "clip video",
-  "extract audio", "get media info", "what codec", "what bitrate", "ffmpeg",
-  "reduce audio size", "reduce video size", "make video smaller", "transcode",
-  "convert to avif", "animated avif", "video to avif", "avif conversion",
-  "extract frames", "scene detection", "keyframes".
-  Do NOT trigger for static image optimization (use lib:image-optimize for that).
-  Do NOT trigger for streaming/live capture.
+  Audio and video processing with ffmpeg and ffprobe: compress, transcode, trim, extract
+  audio or frames, animated AVIF, and inspect codec, bitrate, and duration. For still
+  images use lib:image-optimize.
 ---
 
 # lib:ffmpeg
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Audio and video processing using ffmpeg and ffprobe. Use when the user needs to compress audio, convert audio/video formats, trim or clip media, extract audio from video, or inspect media file properties (codec, bitrate, duration). Trigger phrases: "compress audio", "compress video", "convert mp3", "convert to opus", "convert to aac", "make audio smaller", "trim audio", "clip video", "extract audio", "get media info", "what codec", "what bitrate", "ffmpeg", "reduce audio size", "reduce video size", "make video smaller", "transcode", "convert to avif", "animated avif", "video to avif", "avif conversion", "extract frames", "scene detection", "keyframes". Do NOT trigger for static image optimization (use lib:image-optimize for that). Do NOT trigger for streaming/live capture.
 
 Thin wrapper around `ffmpeg` and `ffprobe`. Always report before/after file sizes.
 

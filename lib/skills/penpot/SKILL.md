@@ -1,19 +1,18 @@
 ---
 name: penpot
 description: >
-  Drive the Penpot MCP server to inspect or modify Penpot design files via the
-  Plugin API. Use whenever creating, editing, deleting, exporting, or
-  programmatically inspecting Penpot shapes, boards, components, tokens, or
-  libraries through mcp__penpot__* tools. Trigger phrases include "create in
-  penpot", "edit penpot design", "add to penpot", "build penpot component",
-  "penpot tokens", "penpot board", "draw in penpot", "modify penpot file",
-  "screenshot penpot shape", "penpot library". Do NOT use for Figma work
-  (use figma-use), Penpot account/server setup, or for reading static Penpot
-  exports already on disk.
+  Create, edit, delete, export, or inspect Penpot designs — shapes, boards, components,
+  tokens, libraries — through the Penpot MCP server. Not for Figma; use figma-use.
 allowed-tools: mcp__penpot__high_level_overview, mcp__penpot__execute_code, mcp__penpot__penpot_api_info, mcp__penpot__export_shape, Read
 ---
 
 # lib:penpot — Penpot Plugin API Skill
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Drive the Penpot MCP server to inspect or modify Penpot design files via the Plugin API. Use whenever creating, editing, deleting, exporting, or programmatically inspecting Penpot shapes, boards, components, tokens, or libraries through mcp__penpot__* tools. Trigger phrases include "create in penpot", "edit penpot design", "add to penpot", "build penpot component", "penpot tokens", "penpot board", "draw in penpot", "modify penpot file", "screenshot penpot shape", "penpot library". Do NOT use for Figma work (use figma-use), Penpot account/server setup, or for reading static Penpot exports already on disk.
 
 Drive the Penpot MCP server (`mcp__penpot__*`) to inspect and modify a connected Penpot design file. The user's Penpot instance must be running with the MCP plugin connected — this skill assumes the connection exists.
 

@@ -1,18 +1,19 @@
 ---
 name: ddev
 description: >
-  General-purpose DDEV development environment management across all project types
-  (WordPress, Drupal, Laravel, generic PHP). Use when starting, stopping, diagnosing,
-  or configuring DDEV environments, importing databases, managing worktree isolation,
-  or troubleshooting container issues. Trigger phrases: "ddev start", "ddev import",
-  "ddev status", "start ddev", "import database", "ddev troubleshoot", "ddev config",
-  "set up ddev", "ddev worktree", "ddev pull", "configure ddev". Do NOT use for
-  Drupal-specific DDEV commands (phpcs, phpstan, phpunit, drush) -- use drupal-lab:ddev
-  for those.
+  General DDEV environment management for any project type: start, stop, configure, import
+  databases, isolate worktrees, troubleshoot containers. For Drupal tooling inside DDEV
+  (drush, phpcs, phpstan, phpunit) use drupal-lab:ddev.
 allowed-tools: Bash, Read, Glob, Grep
 ---
 
 # lib:ddev
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> General-purpose DDEV development environment management across all project types (WordPress, Drupal, Laravel, generic PHP). Use when starting, stopping, diagnosing, or configuring DDEV environments, importing databases, managing worktree isolation, or troubleshooting container issues. Trigger phrases: "ddev start", "ddev import", "ddev status", "start ddev", "import database", "ddev troubleshoot", "ddev config", "set up ddev", "ddev worktree", "ddev pull", "configure ddev". Do NOT use for Drupal-specific DDEV commands (phpcs, phpstan, phpunit, drush) -- use drupal-lab:ddev for those.
 
 General DDEV knowledge for any project type. CMS-specific skills (drupal-lab:ddev) extend this with framework-specific commands.
 
