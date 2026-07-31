@@ -1,6 +1,9 @@
 ---
 name: scaffold
-description: Sets up a project directory structure for multi-agent sprint work using Beads for kanban. Creates .claude/, analysis-reports/, plans/, and CLAUDE.md. Use when a project is missing these directories, when the user wants to start using sprint or agent workflows on a new codebase, or when asked to initialize/prepare/scaffold a project for team or multi-agent use. Also use when the user says 'set up team sprint mode', 'get this project ready for agents', or 'I want to use sprint here'. Pass --silent to suppress the scaffold detection prompt without running the scaffold. Do not use if the project is already scaffolded, or for DDEV setup, git worktrees, or environment configuration.
+description: >
+  Set up a project for multi-agent sprint work using Beads: creates .claude/,
+  analysis-reports/, plans/, and CLAUDE.md. Pass --silent to suppress the detection
+  prompt. Not for DDEV setup, worktrees, or an already-scaffolded project.
 triggers:
   - "scaffold this project"
   - "set up this project for sprint or admin"
@@ -15,6 +18,12 @@ allowed-tools: Read, Bash, Glob, Grep
 ---
 
 # Project Scaffold
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Sets up a project directory structure for multi-agent sprint work using Beads for kanban. Creates .claude/, analysis-reports/, plans/, and CLAUDE.md. Use when a project is missing these directories, when the user wants to start using sprint or agent workflows on a new codebase, or when asked to initialize/prepare/scaffold a project for team or multi-agent use. Also use when the user says 'set up team sprint mode', 'get this project ready for agents', or 'I want to use sprint here'. Pass --silent to suppress the scaffold detection prompt without running the scaffold. Do not use if the project is already scaffolded, or for DDEV setup, git worktrees, or environment configuration.
 
 Set up a project directory structure for sprint/admin collaboration: Beads kanban, retrospective tracking, analysis reports, and team-sprint mode CLAUDE.md.
 

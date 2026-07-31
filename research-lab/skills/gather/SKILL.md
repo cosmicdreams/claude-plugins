@@ -1,12 +1,10 @@
 ---
 name: gather
 description: >
-  Collect and curate sources on a question or topic. Create a NotebookLM notebook, seed sources,
-  fire deep web research, curate with the user, run synthesis queries, and produce a structured
-  source summary. The "librarian" verb of the research arc — it brings material in; digesting it
-  is understand's job. Use standalone for any knowledge-gathering task. Say "gather research on",
-  "research this topic", "build a notebook on", "collect sources on", or "research-lab:gather".
-  Formerly research-lab:literary-review (renamed in 2.0).
+  The librarian verb: collect and curate sources on a question — create a NotebookLM
+  notebook, seed it, fire deep web research, curate with the user, and produce a
+  structured source summary. Bringing material in; digesting it is
+  research-lab:understand.
 triggers:
   - "gather research on"
   - "research this topic"
@@ -19,6 +17,12 @@ allowed-tools: Bash, Read, Write, Agent, Workflow
 ---
 
 # Gather
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Collect and curate sources on a question or topic. Create a NotebookLM notebook, seed sources, fire deep web research, curate with the user, run synthesis queries, and produce a structured source summary. The "librarian" verb of the research arc — it brings material in; digesting it is understand's job. Use standalone for any knowledge-gathering task. Say "gather research on", "research this topic", "build a notebook on", "collect sources on", or "research-lab:gather". Formerly research-lab:literary-review (renamed in 2.0).
 
 Collect and curate knowledge via NotebookLM and deep web research. The **librarian** of the
 research arc (`frame → gather → understand → synthesize → interrogate → experiment → teach`):

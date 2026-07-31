@@ -1,10 +1,19 @@
 ---
 name: session
-description: Runs a structured end-of-sprint retrospective that reads results.json (structured interviews), summarizes transcripts, interviews the user, and generates a report with actionable improvement cards. Invoke when the user says "run retrospective", "session review", "what worked and what didn't", "capture learnings", or "end of sprint review". Also invoke after sprint:run completes. Do not invoke mid-sprint while agents are still active, for individual issue reviews, or for status checks — those are not retrospectives.
+description: >
+  Run an end-of-sprint retrospective: read results.json, summarize transcripts, interview
+  the user, and produce a report with actionable improvement cards. Run after sprint:run,
+  not mid-sprint and not for status checks.
 allowed-tools: Bash, Read, Write, AskUserQuestion
 ---
 
 # Session Retrospective
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Runs a structured end-of-sprint retrospective that reads results.json (structured interviews), summarizes transcripts, interviews the user, and generates a report with actionable improvement cards. Invoke when the user says "run retrospective", "session review", "what worked and what didn't", "capture learnings", or "end of sprint review". Also invoke after sprint:run completes. Do not invoke mid-sprint while agents are still active, for individual issue reviews, or for status checks — those are not retrospectives.
 
 Read structured sprint results, summarize transcripts, interview the user, generate a report, and create action cards.
 

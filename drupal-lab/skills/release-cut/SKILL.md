@@ -1,17 +1,19 @@
 ---
 name: release-cut
 description: >
-  Cut a release assembly branch from main and merge the feature branches
-  approved in a JIRA release ticket. Release branches are disposable — this
-  skill rebuilds them from scratch each time. Use when starting regression
-  testing for a release, when a release branch needs to be re-cut from
-  scratch after scope changes, or when the user says "cut release X", "start
-  release branch", "build the release branch for ticket Y". Do NOT use for
-  feature branches or sprint branches (use drupal-lab:sprint-start).
+  Cut a release assembly branch from main and merge the feature branches a JIRA release
+  ticket approves. Release branches are disposable and rebuilt from scratch each run. Not
+  for feature or sprint branches (drupal-lab:sprint-start).
 allowed-tools: Bash, Read, Write, AskUserQuestion
 ---
 
 # drupal-lab:release-cut — Assemble a release branch from a JIRA release ticket
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Cut a release assembly branch from main and merge the feature branches approved in a JIRA release ticket. Release branches are disposable — this skill rebuilds them from scratch each time. Use when starting regression testing for a release, when a release branch needs to be re-cut from scratch after scope changes, or when the user says "cut release X", "start release branch", "build the release branch for ticket Y". Do NOT use for feature branches or sprint branches (use drupal-lab:sprint-start).
 
 Reads a JIRA release ticket, resolves its linked feature tickets to local
 `features/*` branches, and merges them into a fresh `release/<slug>` branch

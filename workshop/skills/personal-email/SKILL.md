@@ -1,14 +1,17 @@
 ---
 name: personal-email
 description: >
-  Manage personal Gmail via the Google Workspace CLI (gws). Trigger on: "check my email",
-  "read this message", "reply to", "send email", "list inbox", "unread emails",
-  "what emails do I have", "do I have any new emails", "any emails from X",
-  "show me my inbox", "draft an email", "email someone".
-  Do NOT trigger for calendar events — use workshop:personal-calendar for those.
+  Personal Gmail via the gws CLI — read the inbox and messages, search, draft, reply,
+  send. Not for calendar events (workshop:personal-calendar).
 ---
 
 # workshop:personal-email
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Manage personal Gmail via the Google Workspace CLI (gws). Trigger on: "check my email", "read this message", "reply to", "send email", "list inbox", "unread emails", "what emails do I have", "do I have any new emails", "any emails from X", "show me my inbox", "draft an email", "email someone". Do NOT trigger for calendar events — use workshop:personal-calendar for those.
 
 Manage personal Gmail via `gws`.
 

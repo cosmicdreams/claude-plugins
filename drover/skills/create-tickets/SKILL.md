@@ -1,19 +1,19 @@
 ---
 name: drover:create-tickets
 description: >
-  Read a drover sidecar JSON (one ticket spec per top issue from
-  /drover:report) and create JIRA tickets — through the operator's
-  preferred mechanism. Drover stays agnostic: it can drive Atlassian
-  Cloud's REST API directly, OR emit a structured plan that an
-  Atlassian MCP server / jira-cli / manual workflow can execute.
-  Reads the project's manifest for JIRA project key, default sprint,
-  default issue type. Pure stdlib — no jira-cli or PHP dependency.
-  Trigger phrases — "create the JIRA tickets", "file these in JIRA",
-  "make tickets from the report".
+  Create JIRA tickets from a drover report's sidecar JSON, either driving the Atlassian
+  REST API directly or emitting a plan for an Atlassian MCP server, jira-cli, or manual
+  entry. Reads project key and defaults from the drover manifest.
 allowed-tools: Bash, Read, AskUserQuestion
 ---
 
 # drover:create-tickets
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Read a drover sidecar JSON (one ticket spec per top issue from /drover:report) and create JIRA tickets — through the operator's preferred mechanism. Drover stays agnostic: it can drive Atlassian Cloud's REST API directly, OR emit a structured plan that an Atlassian MCP server / jira-cli / manual workflow can execute. Reads the project's manifest for JIRA project key, default sprint, default issue type. Pure stdlib — no jira-cli or PHP dependency. Trigger phrases — "create the JIRA tickets", "file these in JIRA", "make tickets from the report".
 
 ## What it does
 

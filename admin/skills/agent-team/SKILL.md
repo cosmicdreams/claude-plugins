@@ -1,18 +1,19 @@
 ---
 name: agent-team
 description: >
-  Sets up a proper agent team using TeamCreate so that spawned agents share a communication
-  channel and can coordinate via SendMessage. Use whenever the user asks to use agent teams,
-  coordinate agents, have agents work together, or collaborate across parallel tasks — outside
-  of a full sprint context. Trigger phrases: "use agent teams", "spin up a team", "create an
-  agent team", "have agents coordinate", "agents that talk to each other", "parallel agents
-  with shared context". Also use to decide whether a team is the right shape at all — it routes
-  deterministic fan-out work to the Workflow tool and independent work to plain parallel Agent
-  calls. Do NOT use for single background agents, solo research tasks, or when sprint:run is
-  already active.
+  Set up a coordinated agent team via TeamCreate so spawned agents share a channel and can
+  SendMessage each other. Also decides whether a team is the right shape at all, versus a
+  Workflow fan-out or plain parallel agents. Not for single background agents or while
+  sprint:run is active.
 ---
 
 # Agent Team
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Sets up a proper agent team using TeamCreate so that spawned agents share a communication channel and can coordinate via SendMessage. Use whenever the user asks to use agent teams, coordinate agents, have agents work together, or collaborate across parallel tasks — outside of a full sprint context. Trigger phrases: "use agent teams", "spin up a team", "create an agent team", "have agents coordinate", "agents that talk to each other", "parallel agents with shared context". Also use to decide whether a team is the right shape at all — it routes deterministic fan-out work to the Workflow tool and independent work to plain parallel Agent calls. Do NOT use for single background agents, solo research tasks, or when sprint:run is already active.
 
 Coordinate multiple agents that share a communication channel and a task list.
 

@@ -1,9 +1,18 @@
 ---
 name: create-worktree
-description: Creates an isolated git worktree for developing a fix or feature in a separate working directory. Use when the user says "create a worktree", "set up a worktree", "new worktree for issue X", "start work on issue X", or needs an isolated branch workspace. Handles naming conventions, git config propagation, and baseline verification. NOT for creating git branches without worktrees, or for cloning repositories.
+description: >
+  Create an isolated git worktree for a fix or feature, handling naming conventions, git
+  config propagation, and baseline verification. Not for plain branches without a
+  worktree, or for cloning.
 ---
 
 # Create Worktree
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Creates an isolated git worktree for developing a fix or feature in a separate working directory. Use when the user says "create a worktree", "set up a worktree", "new worktree for issue X", "start work on issue X", or needs an isolated branch workspace. Handles naming conventions, git config propagation, and baseline verification. NOT for creating git branches without worktrees, or for cloning repositories.
 
 Create an isolated git worktree for a fix or feature.
 

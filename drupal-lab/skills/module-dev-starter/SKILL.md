@@ -1,6 +1,9 @@
 ---
 name: module-dev-starter
-description: Scaffold a Claude-ready project for Drupal contrib module development with DDEV. Use when setting up a new contrib module project -- e.g. "scaffold a Drupal module project", "set up DDEV for a contrib module", "initialize a contrib module workspace", "start a new Drupal module". Runs admin:scaffold then adds Drupal-specific directories, DDEV config, and composer setup. Do NOT use for Drupal core development -- core worktrees use drupal-lab:process-lifecycle instead.
+description: >
+  Scaffold a Claude-ready Drupal contrib module project with DDEV — runs admin:scaffold,
+  then adds Drupal directories, DDEV config, and composer setup. Not for Drupal core work
+  (drupal-lab:process-lifecycle).
 triggers:
   - "scaffold a Drupal module project"
   - "set up DDEV for a contrib module"
@@ -10,6 +13,12 @@ allowed-tools: Read, Write, Bash, Glob, Grep
 ---
 
 # Drupal Module Dev Starter
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Scaffold a Claude-ready project for Drupal contrib module development with DDEV. Use when setting up a new contrib module project -- e.g. "scaffold a Drupal module project", "set up DDEV for a contrib module", "initialize a contrib module workspace", "start a new Drupal module". Runs admin:scaffold then adds Drupal-specific directories, DDEV config, and composer setup. Do NOT use for Drupal core development -- core worktrees use drupal-lab:process-lifecycle instead.
 
 Scaffold a contrib module project with DDEV and ddev-drupal-contrib, layered on top of the generic admin scaffold.
 

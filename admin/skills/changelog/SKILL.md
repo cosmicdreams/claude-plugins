@@ -1,15 +1,19 @@
 ---
 name: changelog
 description: >
-  Display the changelog for any installed plugin. Use whenever the user asks about a changelog,
-  version history, or release notes — for ANY plugin. First argument is the plugin name.
-  Optional filter: --latest, --since X.Y.Z, or X.Y.Z for a specific version.
-  Examples: "sprint changelog", "what's new in retro", "ideate changes since 2.0.0".
-  When no plugin is specified, list available plugins and ask the user to choose.
+  Show the changelog for any installed plugin, named as the first argument. Filter with
+  --latest, --since X.Y.Z, or a specific version. Lists available plugins when none is
+  named.
 allowed-tools: Bash
 ---
 
 # admin:changelog — Plugin Changelog
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Display the changelog for any installed plugin. Use whenever the user asks about a changelog, version history, or release notes — for ANY plugin. First argument is the plugin name. Optional filter: --latest, --since X.Y.Z, or X.Y.Z for a specific version. Examples: "sprint changelog", "what's new in retro", "ideate changes since 2.0.0". When no plugin is specified, list available plugins and ask the user to choose.
 
 Display the CHANGELOG for any installed plugin.
 

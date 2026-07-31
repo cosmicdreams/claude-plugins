@@ -1,9 +1,18 @@
 ---
 name: new-skill
-description: Guides the full workflow for creating or improving a skill in the CLAUDE-PLUGINS system. Use this skill whenever the user asks to build, write, add, or improve a skill — even if they just say "make a skill for X" or "can you turn this into a skill". Also use when improving an existing skill's description, structure, or instructions. Do not use for direct edits to skill body content where the change is already clear — use the Edit tool for that.
+description: >
+  Guide creating or improving a skill in CLAUDE-PLUGINS, including reworking an existing
+  skill's description or structure. Not for a body edit that is already clearly specified
+  — just use Edit.
 ---
 
 # New Skill
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Guides the full workflow for creating or improving a skill in the CLAUDE-PLUGINS system. Use this skill whenever the user asks to build, write, add, or improve a skill — even if they just say "make a skill for X" or "can you turn this into a skill". Also use when improving an existing skill's description, structure, or instructions. Do not use for direct edits to skill body content where the change is already clear — use the Edit tool for that.
 
 A skill lives in a plugin folder and teaches Claude a specialized workflow. The goal is to create one that's genuinely useful — clear enough that Claude (reading it cold) knows exactly what to do and why.
 

@@ -1,14 +1,10 @@
 ---
 name: sync
 description: >
-  Reconcile the work-event ledger from claude.ai connectors and local git. Idempotent
-  retroactive fetch with per-source cursors, a lookback window, and a coverage record —
-  re-runs skip what is already present and refetch only what is missing or failed, so the
-  ledger is complete regardless of how long the machine was closed. Read-only against every
-  external source; the only thing it writes is the local ledger. Use before workshop:recap,
-  on session start after time away, or whenever the user says "sync my work", "catch up the
-  ledger", "backfill my week", or "workshop:sync". Do NOT use to summarize or rank (recap and
-  prioritize do that) and NOT for posting or sending anything.
+  Reconcile the work-event ledger from claude.ai connectors and local git — idempotent
+  retroactive fetch with per-source cursors, a lookback window, and a coverage record, so
+  the ledger completes no matter how long the machine was closed. Read-only externally.
+  Run before workshop:recap.
 triggers:
   - "workshop:sync"
   - "sync my work"
@@ -25,6 +21,12 @@ allowed-tools: Bash, Read,
 ---
 
 # workshop:sync — Reconcile the Work-Event Ledger
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Reconcile the work-event ledger from claude.ai connectors and local git. Idempotent retroactive fetch with per-source cursors, a lookback window, and a coverage record — re-runs skip what is already present and refetch only what is missing or failed, so the ledger is complete regardless of how long the machine was closed. Read-only against every external source; the only thing it writes is the local ledger. Use before workshop:recap, on session start after time away, or whenever the user says "sync my work", "catch up the ledger", "backfill my week", or "workshop:sync". Do NOT use to summarize or rank (recap and prioritize do that) and NOT for posting or sending anything.
 
 One job: make `~/.claude/workshop-ledger.jsonl` complete for the lookback window, then stop.
 No prose output beyond the closing coverage line. No model judgment — this is bookkeeping.

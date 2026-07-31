@@ -1,11 +1,10 @@
 ---
 name: lint
 description: >
-  Check processes against known problem patterns (lint rules) and manage the lint ruleset.
-  Provides global/default rules that apply across all domains. Domain plugins augment with
-  their own rules via their :improve skill. Use to scan for known issues, add new rules
-  from observations, promote/demote rules between confidence tiers, or review the current
-  ruleset. Do NOT use for making fixes — use improve:fix for that.
+  Check processes against known problem patterns and manage the lint ruleset — scan for
+  known issues, add rules from observations, promote or demote rules between confidence
+  tiers. Domain plugins augment it via their own :improve skill. Not for fixing
+  (improve:fix).
 triggers:
   - "check for process issues"
   - "lint this process"
@@ -15,6 +14,12 @@ triggers:
 ---
 
 # Lint: Process Pattern Checking
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Check processes against known problem patterns (lint rules) and manage the lint ruleset. Provides global/default rules that apply across all domains. Domain plugins augment with their own rules via their :improve skill. Use to scan for known issues, add new rules from observations, promote/demote rules between confidence tiers, or review the current ruleset. Do NOT use for making fixes — use improve:fix for that.
 
 Check processes against known problem patterns. Manage the ruleset that represents accumulated expertise.
 

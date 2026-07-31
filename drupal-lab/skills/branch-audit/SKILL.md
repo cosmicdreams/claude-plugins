@@ -1,18 +1,19 @@
 ---
 name: branch-audit
 description: >
-  Diff what JIRA claims is in a sprint or release against what is actually
-  merged into the corresponding branch. Produces a delta report PMs can use
-  as ground truth for status communication. Use when verifying whether a
-  release branch contains the work it should, when a PM asks "is X in the
-  release", before deploying a sprint or release branch, or when the user
-  says "audit sprint X", "audit release Y", "what's actually in this branch",
-  "prove what's in the release". Do NOT use for code review or merge conflict
-  analysis.
+  Diff what JIRA claims is in a sprint or release against what is actually merged into
+  that branch, producing a delta report a project manager can treat as ground truth. Not
+  for code review or merge-conflict analysis.
 allowed-tools: Bash, Read, Write
 ---
 
 # drupal-lab:branch-audit — Prove what's actually in a sprint or release branch
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Diff what JIRA claims is in a sprint or release against what is actually merged into the corresponding branch. Produces a delta report PMs can use as ground truth for status communication. Use when verifying whether a release branch contains the work it should, when a PM asks "is X in the release", before deploying a sprint or release branch, or when the user says "audit sprint X", "audit release Y", "what's actually in this branch", "prove what's in the release". Do NOT use for code review or merge conflict analysis.
 
 Reads the JIRA-side expectation (from the live sprint or release ticket) and
 the git-side reality (merged feature branches), then prints a three-column

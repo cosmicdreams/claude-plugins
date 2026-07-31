@@ -1,9 +1,17 @@
 ---
 name: process-lifecycle
-description: Manage the DDEV lifecycle for Drupal worktrees -- start, ready-check, completion, and shutdown. Use when setting up DDEV in a worktree, checking environment readiness, deciding whether to stop DDEV, or cleaning up after work -- e.g. "start DDEV for this worktree", "is my environment ready", "shut down DDEV", "clean up the worktree". Do NOT use for running dev tools inside DDEV -- use drupal-lab:ddev instead.
+description: >
+  Manage the DDEV lifecycle for a Drupal worktree: start, ready-check, completion,
+  shutdown, cleanup. Not for running tools inside DDEV — use drupal-lab:ddev.
 ---
 
 # Process Lifecycle
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Manage the DDEV lifecycle for Drupal worktrees -- start, ready-check, completion, and shutdown. Use when setting up DDEV in a worktree, checking environment readiness, deciding whether to stop DDEV, or cleaning up after work -- e.g. "start DDEV for this worktree", "is my environment ready", "shut down DDEV", "clean up the worktree". Do NOT use for running dev tools inside DDEV -- use drupal-lab:ddev instead.
 
 DDEV setup, readiness, and shutdown for Drupal worktrees. For general DDEV commands (start,
 stop, restart, import-db, troubleshooting), see `lib:ddev`.

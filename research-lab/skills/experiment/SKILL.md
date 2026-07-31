@@ -1,11 +1,9 @@
 ---
 name: experiment
 description: >
-  Iterative optimization loop: propose changes, cheap gate, implement via git commit,
-  measure, validate correctness, keep/discard with ratchet pattern. Includes futility
-  stopping and JSON Lines logging. Use standalone for any measurable optimization task.
-  Say "run an experiment", "iterate on this", "optimize with methodology", or
-  "autoresearch loop". Needs a measurable hypothesis and a target metric.
+  Iterative optimization loop: propose, cheap-gate, implement via git commit, measure,
+  validate, keep or discard on a ratchet — with futility stopping and JSON Lines logging.
+  Needs a measurable hypothesis and a target metric.
 triggers:
   - "run an experiment"
   - "iterate on this"
@@ -16,6 +14,12 @@ allowed-tools: Bash, Read, Write, Edit, Workflow
 ---
 
 # Experiment: Iterative Optimization Loop
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Iterative optimization loop: propose changes, cheap gate, implement via git commit, measure, validate correctness, keep/discard with ratchet pattern. Includes futility stopping and JSON Lines logging. Use standalone for any measurable optimization task. Say "run an experiment", "iterate on this", "optimize with methodology", or "autoresearch loop". Needs a measurable hypothesis and a target metric.
 
 Execute a methodology-driven iteration loop with ratchet-based keep/discard decisions.
 

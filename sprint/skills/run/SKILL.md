@@ -1,19 +1,19 @@
 ---
 name: run
 description: >
-  Executes a team sprint using the vertical slice model: one Workflow pipeline per sprint,
-  one slice-worker agent per bead, optional cross-review stage.
-  Use when the user wants to START EXECUTING work — beads are being worked,
-  and the pipeline is actively running. Trigger phrases: "run a team sprint", "spin up
-  agents", "work on these issues as a team", "team validate these patches", "start the sprint",
-  "let's kick off the pipeline", "run these issues in parallel".
-  Do NOT use for: deciding which issues to tackle or sequencing the backlog (use sprint:plan),
-  reading board state only (sprint:board), or running a retrospective (retro:session).
-  Key distinction from sprint:plan — sprint:run EXECUTES; sprint:plan DECIDES.
+  EXECUTE a team sprint: one Workflow pipeline, one slice-worker agent per bead, optional
+  cross-review stage. Use when work should start now. Not for choosing or sequencing the
+  work (sprint:plan), reading the board (sprint:board), or retrospectives (retro:session).
 allowed-tools: Bash, Read, Write, Workflow
 ---
 
 # Team Sprint
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Executes a team sprint using the vertical slice model: one Workflow pipeline per sprint, one slice-worker agent per bead, optional cross-review stage. Use when the user wants to START EXECUTING work — beads are being worked, and the pipeline is actively running. Trigger phrases: "run a team sprint", "spin up agents", "work on these issues as a team", "team validate these patches", "start the sprint", "let's kick off the pipeline", "run these issues in parallel". Do NOT use for: deciding which issues to tackle or sequencing the backlog (use sprint:plan), reading board state only (sprint:board), or running a retrospective (retro:session). Key distinction from sprint:plan — sprint:run EXECUTES; sprint:plan DECIDES.
 
 Orchestrate parallel issue work using the Workflow tool. One slice-worker per bead, end-to-end.
 No team-lead loop. No SendMessage choreography.

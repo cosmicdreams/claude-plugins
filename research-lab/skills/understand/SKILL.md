@@ -1,17 +1,11 @@
 ---
 name: understand
 description: >
-  Digest existing material into a shared mental model. You and the user work together to build
-  shared understanding of a target — a written plan, a wall of pasted text, a file, a codebase,
-  a system, a problem space, or a curated NotebookLM notebook. Does NOT require a notebook: it
-  accepts pasted text, a file path, OR a notebook id. Follows Crucial Conversations principles:
-  mutual purpose, mutual respect, shared pool of meaning. The agent decides its own strategy for
-  gathering information rather than following a fixed script. Output is a lightweight record of
-  understanding — written into the notebook when one is in play, otherwise stored in the vault.
-  Use when the user wants to deeply understand existing material before planning or building. Say
-  "let's understand", "help me understand", "understand this", "walk through this with me", or
-  "research-lab:understand". Not for quick lookups, not for implementation, not for adversarial
-  challenge (use reality-check for an unformed idea, interrogate for a formed claim).
+  Build a shared mental model of existing material with the user — a plan, pasted text, a
+  file, a codebase, a system, a problem space, or a NotebookLM notebook. No notebook
+  required. The agent chooses its own strategy rather than following a script; output is a
+  lightweight record of understanding. Not for quick lookups, implementation, or
+  adversarial challenge.
 triggers:
   - "let's understand"
   - "help me understand"
@@ -29,6 +23,12 @@ allowed-tools: Bash, Read, Write, Edit, Glob, Grep, Agent, WebFetch, WebSearch
 ---
 
 # Skill: understand
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Digest existing material into a shared mental model. You and the user work together to build shared understanding of a target — a written plan, a wall of pasted text, a file, a codebase, a system, a problem space, or a curated NotebookLM notebook. Does NOT require a notebook: it accepts pasted text, a file path, OR a notebook id. Follows Crucial Conversations principles: mutual purpose, mutual respect, shared pool of meaning. The agent decides its own strategy for gathering information rather than following a fixed script. Output is a lightweight record of understanding — written into the notebook when one is in play, otherwise stored in the vault. Use when the user wants to deeply understand existing material before planning or building. Say "let's understand", "help me understand", "understand this", "walk through this with me", or "research-lab:understand". Not for quick lookups, not for implementation, not for adversarial challenge (use reality-check for an unformed idea, interrogate for a formed claim).
 
 Digest existing material into a shared mental model. Two minds — you and the user — building a
 shared pool of meaning about a target: a written plan, a raw wall of text, a file, a codebase, a

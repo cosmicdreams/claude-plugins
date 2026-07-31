@@ -1,14 +1,10 @@
 ---
 name: scout
 description: >
-  Your personal knowledge radar — a better Feedly. Ranges across a curated, extensible list of
-  sources (feeds, pages, standing searches), diffs against your Obsidian vault to find net-new
-  ideas, scores each against a tunable interest profile, and stores only what matters to you. Learns
-  from your feedback (useful / not / more-like-this / mute) so it sharpens over time. The act of
-  gathering knowledge to distill and synthesize later — the continuous-learning counterpart to
-  workshop:prioritize. Designed to run on a loop. Renamed from ecosystem-pulse.
-  Distinct from research-lab:gather (which builds a corpus for one specific question); scout is
-  passive, continuous, interest-tuned intake.
+  Personal knowledge radar: range across curated feeds, pages, and standing searches, diff
+  against the Obsidian vault for what is genuinely new, score against a tunable interest
+  profile, and store only what matters. Learns from useful/not/mute feedback. Built to run
+  on a loop. Distinct from research-lab:gather, which serves one specific question.
 triggers:
   - "workshop:scout"
   - "run the scout"
@@ -22,6 +18,12 @@ allowed-tools: Agent, Bash, Read, Write, WebFetch, WebSearch
 ---
 
 # workshop:scout — Knowledge Radar
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Your personal knowledge radar — a better Feedly. Ranges across a curated, extensible list of sources (feeds, pages, standing searches), diffs against your Obsidian vault to find net-new ideas, scores each against a tunable interest profile, and stores only what matters to you. Learns from your feedback (useful / not / more-like-this / mute) so it sharpens over time. The act of gathering knowledge to distill and synthesize later — the continuous-learning counterpart to workshop:prioritize. Designed to run on a loop. Renamed from ecosystem-pulse. Distinct from research-lab:gather (which builds a corpus for one specific question); scout is passive, continuous, interest-tuned intake.
 
 Passively surface net-new ideas worth knowing, filtered to *your* interests, and get sharper the more you use it. Output: a concise, most-relevant-first briefing + a vault entry. Built for `/loop 30m /workshop:scout`.
 

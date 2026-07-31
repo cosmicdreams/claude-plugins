@@ -1,17 +1,19 @@
 ---
 name: drover:init
 description: >
-  Discover Drupal/Acquia config in the current project and write
-  `.drover/manifest.json`. Looks at drush aliases, composer.json,
-  .ddev/config.yaml, and the Acquia Cloud Platform API to resolve the
-  application UUID, env IDs, and available log types per env. No prompts
-  in the happy path — every value is inferred from disk + API. Trigger
-  phrases — "set up drover here", "drover init", "configure drover for
-  this project".
+  Discover a project's Drupal/Acquia config and write .drover/manifest.json — application
+  UUID, environment ids, and per-environment log types — inferred from drush aliases,
+  composer.json, .ddev/config.yaml, and the Acquia API.
 allowed-tools: Bash, Read
 ---
 
 # drover:init
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Discover Drupal/Acquia config in the current project and write `.drover/manifest.json`. Looks at drush aliases, composer.json, .ddev/config.yaml, and the Acquia Cloud Platform API to resolve the application UUID, env IDs, and available log types per env. No prompts in the happy path — every value is inferred from disk + API. Trigger phrases — "set up drover here", "drover init", "configure drover for this project".
 
 ## What it does
 

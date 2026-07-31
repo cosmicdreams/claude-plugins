@@ -1,10 +1,19 @@
 ---
 name: transcript
-description: Retrieves and summarizes a sprint agent's JSONL session transcript, showing tool calls, errors, messages, and retry patterns. Diagnostic tool — use when asked to "read the transcript for slice-1", "what did agent X do", "show me the agent log", "analyze what happened during task 25", or "retrieve agent session". Accepts --teammate, --task, --focus, and --session arguments. Do not use for reading kanban cards, analysis reports, or non-JSONL files — use Read tool directly for those.
+description: >
+  Retrieve and summarize a sprint agent's JSONL session transcript — tool calls, errors,
+  messages, retry patterns. Accepts --teammate, --task, --focus, --session. Diagnostic
+  only; read non-JSONL files directly.
 allowed-tools: Bash, Read, Glob, Grep
 ---
 
 # Read Agent Transcript
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Retrieves and summarizes a sprint agent's JSONL session transcript, showing tool calls, errors, messages, and retry patterns. Diagnostic tool — use when asked to "read the transcript for slice-1", "what did agent X do", "show me the agent log", "analyze what happened during task 25", or "retrieve agent session". Accepts --teammate, --task, --focus, and --session arguments. Do not use for reading kanban cards, analysis reports, or non-JSONL files — use Read tool directly for those.
 
 Retrieve and summarize a sprint agent's JSONL session transcript to support process observation and retrospective analysis.
 

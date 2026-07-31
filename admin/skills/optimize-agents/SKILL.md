@@ -1,9 +1,18 @@
 ---
 name: optimize-agents
-description: Audits agent definition files for correctness and token efficiency. Checks for stale tool syntax, outdated model references, and defensive-prose bloat. Use when the user says "optimize agents", "review agent definitions", "check agent models", "are agents well-configured", "trim agent prompts", or "audit agents". NOT for creating new agents (use admin:new-agent) or for reviewing skill definitions.
+description: >
+  Audit agent definition files for stale tool syntax, outdated model references, and
+  defensive-prose bloat. Not for writing new agents (admin:new-agent) or for reviewing
+  skills.
 ---
 
 # Optimize Agent Definitions
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Audits agent definition files for correctness and token efficiency. Checks for stale tool syntax, outdated model references, and defensive-prose bloat. Use when the user says "optimize agents", "review agent definitions", "check agent models", "are agents well-configured", "trim agent prompts", or "audit agents". NOT for creating new agents (use admin:new-agent) or for reviewing skill definitions.
 
 Audit agent definitions for correctness and token efficiency. Remove stale references and bloat.
 

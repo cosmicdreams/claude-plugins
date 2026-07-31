@@ -1,10 +1,9 @@
 ---
 name: experiment
 description: >
-  Run an uncertain process improvement using the ratchet pattern: measure baseline, make a
-  change, measure again, keep if better, revert if worse. For process improvements where
-  the outcome is uncertain and you need evidence before committing. Do NOT use for known
-  fixes — use improve:fix for those.
+  Run an uncertain process improvement on the ratchet pattern: baseline, change, measure
+  again, keep if better and revert if worse. For when you need evidence before committing.
+  Not for known fixes (improve:fix).
 triggers:
   - "experiment with this process"
   - "try improving"

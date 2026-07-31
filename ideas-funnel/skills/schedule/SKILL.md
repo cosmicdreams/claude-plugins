@@ -1,14 +1,9 @@
 ---
 name: ideas-funnel:schedule
 description: >
-  Idempotently registers the singleton daily pipeline cron for the ideas-funnel
-  plugin. Checks for an existing cron before creating one. Records the cron id
-  in the vault at _meta/ideas-funnel-scheduler.json so a second Claude instance
-  can detect and decline to create a duplicate. Trigger phrases: "schedule the
-  funnel", "register the funnel cron", "/ideas-funnel:schedule",
-  "set up funnel pipeline".
-  Do NOT use when you only want to run the pipeline manually — invoke the
-  Workflow script directly for that.
+  Idempotently register the singleton daily ideas-funnel pipeline cron, recording its id
+  at _meta/ideas-funnel-scheduler.json so a second Claude instance declines to duplicate
+  it. Not for running the pipeline manually — invoke the Workflow script directly.
 triggers:
   - /ideas-funnel:schedule
   - schedule the funnel
@@ -27,6 +22,12 @@ allowed-tools:
 **Used by:** `ideas-funnel:init` (called automatically on first run) + human for manual re-registration.
 
 # ideas-funnel:schedule
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Idempotently registers the singleton daily pipeline cron for the ideas-funnel plugin. Checks for an existing cron before creating one. Records the cron id in the vault at _meta/ideas-funnel-scheduler.json so a second Claude instance can detect and decline to create a duplicate. Trigger phrases: "schedule the funnel", "register the funnel cron", "/ideas-funnel:schedule", "set up funnel pipeline". Do NOT use when you only want to run the pipeline manually — invoke the Workflow script directly for that.
 
 Ensures exactly one ideas-funnel pipeline cron exists across all Claude instances.
 

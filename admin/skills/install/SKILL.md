@@ -1,16 +1,18 @@
 ---
 name: admin:install
 description: >
-  Bootstrap skill dependencies for the current environment. Detects whether running on macOS
-  (Homebrew) or a Linux sandbox (apt/pip/npm), scans installed plugin SKILL.md files for
-  prerequisites, maps each dependency to the correct install command, and installs what it can
-  automatically. Use whenever Claude is in a fresh environment, when a skill fails because a CLI
-  or package is missing, when the user says "install", "setup", "bootstrap", or "get my tools
-  working", or when any workshop or research-lab skill reports a missing dependency. Trigger
-  proactively if you detect a missing tool while running another skill.
+  Bootstrap missing skill dependencies for the current machine — detects macOS Homebrew
+  versus a Linux sandbox (apt/pip/npm), scans plugin SKILL.md prerequisites, and installs
+  what it can. Use proactively when a skill fails on a missing CLI.
 ---
 
 # admin:install — Environment Bootstrap
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Bootstrap skill dependencies for the current environment. Detects whether running on macOS (Homebrew) or a Linux sandbox (apt/pip/npm), scans installed plugin SKILL.md files for prerequisites, maps each dependency to the correct install command, and installs what it can automatically. Use whenever Claude is in a fresh environment, when a skill fails because a CLI or package is missing, when the user says "install", "setup", "bootstrap", or "get my tools working", or when any workshop or research-lab skill reports a missing dependency. Trigger proactively if you detect a missing tool while running another skill.
 
 Detect the host environment and install prerequisites for all workshop and research-lab skills.
 After this skill runs, every skill that *can* work in the current environment is ready to go.

@@ -1,9 +1,18 @@
 ---
 name: interviews
-description: Documents the retro interview schema embedded in sprint Workflow output. Use when reviewing the interview schema, understanding what retro fields slice-workers and cross-reviewers emit, or verifying results.json coverage. Trigger phrases include "retro interview schema", "what interview fields do agents emit", "verify interview coverage", "retro interview". Do NOT use to trigger agent shutdown or collect interviews manually — interviews are collected inline by sprint:run.
+description: >
+  Reference for the retro interview schema embedded in sprint Workflow output — what
+  fields slice-workers and cross-reviewers emit, and how to verify results.json coverage.
+  Interviews are collected inline by sprint:run, not by this skill.
 ---
 
 # Retro Interview Schema
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Documents the retro interview schema embedded in sprint Workflow output. Use when reviewing the interview schema, understanding what retro fields slice-workers and cross-reviewers emit, or verifying results.json coverage. Trigger phrases include "retro interview schema", "what interview fields do agents emit", "verify interview coverage", "retro interview". Do NOT use to trigger agent shutdown or collect interviews manually — interviews are collected inline by sprint:run.
 
 Sprint agents emit retro interview data as structured fields in the sprint Workflow output schema. No shutdown ceremony, no shutdown-imminent messages. Interviews land in `analysis-reports/retro-session/<YYYY-MM-DD>+<sprint>/results.json` alongside slice and review results.
 

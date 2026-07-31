@@ -1,9 +1,18 @@
 ---
 name: kanban
-description: Universal kanban standards that apply to every board in this project. Use when creating a card, moving a card between lanes, querying card state, or understanding kanban conventions. This is required reading before touching any kanban board. Trigger phrases include "work a ticket", "advance a card", "update the board", "create a card", "kanban rules", "card format". After reading this, also read the board-specific skill (sprint:board for sprint, retro:kanban for retrospective-actions) for lane definitions. Do NOT use this as the sole reference for a specific board -- always pair with the board-specific skill.
+description: >
+  Universal kanban conventions covering every board here — card format, lane moves, state
+  queries. Required reading before touching any board, then read the board-specific skill
+  (sprint:board or retro:kanban) for lane definitions. Never sufficient on its own.
 ---
 
 # Kanban — Universal Standards
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Universal kanban standards that apply to every board in this project. Use when creating a card, moving a card between lanes, querying card state, or understanding kanban conventions. This is required reading before touching any kanban board. Trigger phrases include "work a ticket", "advance a card", "update the board", "create a card", "kanban rules", "card format". After reading this, also read the board-specific skill (sprint:board for sprint, retro:kanban for retrospective-actions) for lane definitions. Do NOT use this as the sole reference for a specific board -- always pair with the board-specific skill.
 
 All kanban boards in this project follow these rules. Board-specific rules
 (card format, naming, lifecycle details) are documented alongside each board.

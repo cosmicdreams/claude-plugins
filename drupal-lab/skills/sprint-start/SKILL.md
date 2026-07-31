@@ -1,17 +1,19 @@
 ---
 name: sprint-start
 description: >
-  Create a sprint assembly branch named after the active JIRA sprint and seed
-  its manifest of expected feature tickets. Sprint branches are disposable —
-  this skill rebuilds them from main, never edits in place. Use when starting
-  a new sprint, when a sprint branch needs to be re-cut from scratch, or when
-  the user says "start the sprint branch", "cut a sprint branch", "kick off
-  sprint X". Do NOT use for creating feature branches (those branch off main
-  manually) or for release branches (use drupal-lab:release-cut).
+  Create a sprint assembly branch named for the active JIRA sprint and seed its manifest
+  of expected tickets. Rebuilt from main each run, never edited in place. Not for feature
+  branches or release branches (drupal-lab:release-cut).
 allowed-tools: Bash, Read, Write, AskUserQuestion
 ---
 
 # drupal-lab:sprint-start — Cut a sprint assembly branch
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Create a sprint assembly branch named after the active JIRA sprint and seed its manifest of expected feature tickets. Sprint branches are disposable — this skill rebuilds them from main, never edits in place. Use when starting a new sprint, when a sprint branch needs to be re-cut from scratch, or when the user says "start the sprint branch", "cut a sprint branch", "kick off sprint X". Do NOT use for creating feature branches (those branch off main manually) or for release branches (use drupal-lab:release-cut).
 
 Creates `sprint/<sprint-slug>` from `main` and records the expected ticket set
 from JIRA. The branch is the assembly point where approved feature branches

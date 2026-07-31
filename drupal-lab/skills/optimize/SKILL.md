@@ -1,13 +1,10 @@
 ---
 name: optimize
 description: >
-  Run a full Drupal performance-optimization engagement against local DDEV: cache-header preflight,
-  source gathering via NotebookLM, digest + synthesis, methodology authoring, iterative
-  experimentation with ratchet optimization, and a final report with cache-survival metrics.
-  Use when starting or resuming a Drupal cache/performance engagement. Say "optimize this Drupal
-  site's caching", "run a Drupal perf engagement", "cache optimization engagement", or
-  "drupal-lab:optimize". Not for standalone source gathering (use research-lab:gather), standalone
-  experiments (use research-lab:experiment), or quick brainstorming (use ideate:brainstorm).
+  Run or resume a full Drupal cache and performance engagement against local DDEV:
+  cache-header preflight, source gathering, synthesis, methodology, ratchet
+  experimentation, and a final report with cache-survival metrics. Not for standalone
+  gathering (research-lab:gather) or experiments (research-lab:experiment).
 triggers:
   - "optimize this drupal site"
   - "drupal performance engagement"
@@ -17,6 +14,12 @@ triggers:
 ---
 
 # Drupal Optimization Engagement
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Run a full Drupal performance-optimization engagement against local DDEV: cache-header preflight, source gathering via NotebookLM, digest + synthesis, methodology authoring, iterative experimentation with ratchet optimization, and a final report with cache-survival metrics. Use when starting or resuming a Drupal cache/performance engagement. Say "optimize this Drupal site's caching", "run a Drupal perf engagement", "cache optimization engagement", or "drupal-lab:optimize". Not for standalone source gathering (use research-lab:gather), standalone experiments (use research-lab:experiment), or quick brainstorming (use ideate:brainstorm).
 
 Orchestrate a full Drupal cache/performance engagement against **local DDEV only**. This skill
 composes research-lab verbs (`gather`, `synthesize`, `interrogate`, `experiment`) around

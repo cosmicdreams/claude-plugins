@@ -1,23 +1,20 @@
 ---
 name: drover:report
 description: >
-  Render a report for a calendar month from a project's local logs and
-  coverage ledger — self-contained Velir-branded HTML by default, finalized
-  to PDF for delivery, with markdown available as a lightweight fallback.
-  Five application-log templates cover
-  stakeholder, dev, and JIRA-paste workflows. Stakeholder templates carry a Velir logo, brand
-  colors, bar charts (by channel, severity, daily volume), and a
-  "Recommended JIRA tickets" section plus a JSON sidecar listing each
-  ticket spec for downstream programmatic creation. A sixth bundled HTML template covers
-  Cloudflare traffic/offload data, and developers can drop custom Handlebars templates into
-  `.drover/templates`. Deterministic — same
-  inputs produce the same output. Trigger phrases — "drover report",
-  "monthly report for <project>", "summarize <project> April",
-  "root cause summary", "calendar window report".
+  Render a calendar-month log report from local logs and the coverage ledger:
+  Velir-branded HTML by default, PDF for delivery, markdown as fallback. Stakeholder
+  templates add charts and a recommended-JIRA-tickets section plus a JSON sidecar. Custom
+  Handlebars templates go in .drover/templates. Deterministic.
 allowed-tools: Bash, Read, AskUserQuestion
 ---
 
 # drover:report
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Render a report for a calendar month from a project's local logs and coverage ledger — self-contained Velir-branded HTML by default, finalized to PDF for delivery, with markdown available as a lightweight fallback. Five application-log templates cover stakeholder, dev, and JIRA-paste workflows. Stakeholder templates carry a Velir logo, brand colors, bar charts (by channel, severity, daily volume), and a "Recommended JIRA tickets" section plus a JSON sidecar listing each ticket spec for downstream programmatic creation. A sixth bundled HTML template covers Cloudflare traffic/offload data, and developers can drop custom Handlebars templates into `.drover/templates`. Deterministic — same inputs produce the same output. Trigger phrases — "drover report", "monthly report for <project>", "summarize <project> April", "root cause summary", "calendar window report".
 
 ## What it does
 

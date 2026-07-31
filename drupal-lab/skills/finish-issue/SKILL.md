@@ -1,10 +1,19 @@
 ---
 name: finish-issue
-description: Close out a Drupal issue worktree with a deliberate decision -- submit as MR, submit as patch, park as WIP, or discard. Use when done with an issue -- e.g. "finish the issue", "close out the worktree", "submit the patch", "done with this issue", "discard the worktree". Checks state, presents options, handles DDEV shutdown and cleanup. Do NOT use mid-implementation -- this is the final step after work is complete or abandoned.
+description: >
+  Close out a Drupal issue worktree with a deliberate decision — submit as merge request,
+  submit as patch, park as work-in-progress, or discard — then shut down DDEV and clean
+  up. The final step, not for mid-implementation.
 allowed-tools: Bash, Read, Grep
 ---
 
 # Finish Issue
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Close out a Drupal issue worktree with a deliberate decision -- submit as MR, submit as patch, park as WIP, or discard. Use when done with an issue -- e.g. "finish the issue", "close out the worktree", "submit the patch", "done with this issue", "discard the worktree". Checks state, presents options, handles DDEV shutdown and cleanup. Do NOT use mid-implementation -- this is the final step after work is complete or abandoned.
 
 Closes out a Drupal issue worktree with a deliberate decision. No worktree drifts open
 indefinitely — every session ends with an explicit choice.
