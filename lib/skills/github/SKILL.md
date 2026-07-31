@@ -1,16 +1,17 @@
 ---
 name: github
 description: >
-  Manage GitHub pull requests and issues via the gh CLI. Trigger when the user asks
-  about pull requests, PRs, GitHub issues, PR review status, CI checks, checking out a
-  PR branch, or merging a PR. Trigger phrases: "show my PRs", "view pull request",
-  "PR status", "check PR checks", "checkout PR", "list issues", "open issues on GitHub",
-  "review this PR", "is my PR passing", "are my checks green", "merge PR",
-  "who reviewed my PR". Do NOT trigger for Jira tickets (use lib:jira for that).
-  Do NOT trigger for non-GitHub git operations (git commit, git push, git log, etc.).
+  GitHub pull requests and issues via the gh CLI: view, list, check CI status, check out a
+  PR branch, merge. Not for Jira tickets (lib:jira) or plain git operations.
 ---
 
 # lib:github
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Manage GitHub pull requests and issues via the gh CLI. Trigger when the user asks about pull requests, PRs, GitHub issues, PR review status, CI checks, checking out a PR branch, or merging a PR. Trigger phrases: "show my PRs", "view pull request", "PR status", "check PR checks", "checkout PR", "list issues", "open issues on GitHub", "review this PR", "is my PR passing", "are my checks green", "merge PR", "who reviewed my PR". Do NOT trigger for Jira tickets (use lib:jira for that). Do NOT trigger for non-GitHub git operations (git commit, git push, git log, etc.).
 
 Everything shells out to the `gh` CLI — no API clients are built.
 

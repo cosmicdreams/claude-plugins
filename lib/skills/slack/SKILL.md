@@ -1,14 +1,9 @@
 ---
 name: slack
 description: >
-  Slack CLI wrapper — read channels, fetch messages, search, and list conversations
-  via agent-slack. Returns raw data only; no summarization or prioritization.
-  Use when the user asks to READ or FETCH from Slack: "what's in #channel", "what's happening in #engineering",
-  "search slack for X", "list my slack channels", "show messages from #general", "check slack",
-  "fetch slack messages", "catch up on slack", "any updates in #X", "show me slack".
-  Also use when workshop:prioritize needs raw Slack data.
-  Do NOT use for: sending, posting, or writing to Slack (this skill is read-only);
-  summarized priority views or "what should I work on" (use workshop:prioritize).
+  Read-only Slack access via agent-slack: read channels and threads, search, list
+  conversations. Returns raw data and never sends or posts. For a ranked view of what
+  matters use workshop:prioritize.
 triggers:
   - "lib:slack"
   - "read slack"
@@ -22,6 +17,12 @@ allowed-tools: Bash, Read
 ---
 
 # lib:slack — Slack CLI Wrapper
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Slack CLI wrapper — read channels, fetch messages, search, and list conversations via agent-slack. Returns raw data only; no summarization or prioritization. Use when the user asks to READ or FETCH from Slack: "what's in #channel", "what's happening in #engineering", "search slack for X", "list my slack channels", "show messages from #general", "check slack", "fetch slack messages", "catch up on slack", "any updates in #X", "show me slack". Also use when workshop:prioritize needs raw Slack data. Do NOT use for: sending, posting, or writing to Slack (this skill is read-only); summarized priority views or "what should I work on" (use workshop:prioritize).
 
 Thin wrapper around `agent-slack`. Read-only — this skill does NOT send, post, react,
 or modify Slack in any way. No summarization, no prioritization — return raw data for

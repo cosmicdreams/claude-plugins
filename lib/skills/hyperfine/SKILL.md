@@ -1,16 +1,18 @@
 ---
 name: hyperfine
 description: >
-  Benchmark a shell command using hyperfine and output structured JSON timing results.
-  Use when you need to measure how long a CLI command takes, compare two commands, or
-  establish a performance baseline for a script or binary. Trigger phrases: "benchmark
-  this command", "how fast is", "time this command", "compare command speed", "CLI
-  benchmark", "hyperfine". Do NOT use for web page performance (use lib:lighthouse or
-  improve:perf-measure --frontend for that). Do NOT use for PHP profiling inside DDEV
-  (use drupal-lab:perf-measure --xhprof for that).
+  Benchmark a shell command with hyperfine and return JSON timings; compare two commands
+  or establish a baseline. Not for web page performance (lib:lighthouse) or PHP profiling
+  (drupal-lab:perf-measure).
 ---
 
 # lib:hyperfine
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Benchmark a shell command using hyperfine and output structured JSON timing results. Use when you need to measure how long a CLI command takes, compare two commands, or establish a performance baseline for a script or binary. Trigger phrases: "benchmark this command", "how fast is", "time this command", "compare command speed", "CLI benchmark", "hyperfine". Do NOT use for web page performance (use lib:lighthouse or improve:perf-measure --frontend for that). Do NOT use for PHP profiling inside DDEV (use drupal-lab:perf-measure --xhprof for that).
 
 Thin wrapper around the `hyperfine` CLI. Outputs JSON timing results suitable for the experiment ratchet.
 

@@ -1,16 +1,18 @@
 ---
 name: lighthouse
 description: >
-  Run a Lighthouse audit against a URL and output structured JSON scores. Use when
-  you need a Lighthouse performance score, Core Web Vitals (LCP, TBT, FCP, CLS), or
-  an accessibility score from a single page. Trigger phrases: "run lighthouse",
-  "lighthouse audit", "lighthouse score", "core web vitals", "lighthouse performance",
-  "lighthouse accessibility". Do NOT use for multi-page accessibility scanning
-  (use improve:accessibility-scan for that). Do NOT use for CLI command benchmarking
-  (use lib:hyperfine for that).
+  Run Lighthouse against one URL and return JSON scores: performance, Core Web Vitals
+  (LCP, TBT, FCP, CLS), and accessibility. For multi-page accessibility scans use
+  improve:accessibility-scan.
 ---
 
 # lib:lighthouse
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Run a Lighthouse audit against a URL and output structured JSON scores. Use when you need a Lighthouse performance score, Core Web Vitals (LCP, TBT, FCP, CLS), or an accessibility score from a single page. Trigger phrases: "run lighthouse", "lighthouse audit", "lighthouse score", "core web vitals", "lighthouse performance", "lighthouse accessibility". Do NOT use for multi-page accessibility scanning (use improve:accessibility-scan for that). Do NOT use for CLI command benchmarking (use lib:hyperfine for that).
 
 Thin wrapper around the `lighthouse` CLI. Outputs JSON scores suitable for the experiment ratchet.
 

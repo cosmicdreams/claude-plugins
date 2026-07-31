@@ -1,15 +1,17 @@
 ---
 name: jira
 description: >
-  Manage Jira issues, tickets, and sprints via jira-cli. Use when the user asks about
-  Jira issues, tickets, project tasks, sprint status, transitioning an issue status,
-  adding comments, or viewing active sprints. Trigger phrases: "show my Jira issues",
-  "view ticket", "transition issue", "move to done", "add comment to ticket",
-  "active sprint", "what's in my sprint", "Jira backlog".
-  Do NOT trigger for GitHub issues (use lib:github for that).
+  Jira issues, tickets, and sprints via jira-cli: view, list, transition status, comment,
+  show the active sprint. Not for GitHub issues — use lib:github.
 ---
 
 # lib:jira
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Manage Jira issues, tickets, and sprints via jira-cli. Use when the user asks about Jira issues, tickets, project tasks, sprint status, transitioning an issue status, adding comments, or viewing active sprints. Trigger phrases: "show my Jira issues", "view ticket", "transition issue", "move to done", "add comment to ticket", "active sprint", "what's in my sprint", "Jira backlog". Do NOT trigger for GitHub issues (use lib:github for that).
 
 ## Authentication
 

@@ -1,15 +1,18 @@
 ---
 name: csv-analysis
 description: >
-  Automatically analyzes CSV files and generates comprehensive statistical summaries,
-  visualizations, and actionable insights using Python's data science stack (pandas,
-  matplotlib, seaborn). Triggers immediately without asking what the user wants.
-  Use when the user uploads or references a CSV file, asks to "analyze this data",
-  "summarize this CSV", "what's in this file", "visualize this data", or similar.
-  Do NOT trigger for non-CSV tabular formats (use appropriate tools for Excel/JSON/SQL).
+  Analyze a CSV with pandas, matplotlib, and seaborn and return statistics, charts, and
+  insights. Starts immediately without asking what the user wants. CSV only — not Excel,
+  JSON, or SQL.
 ---
 
 # lib:csv-analysis
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Automatically analyzes CSV files and generates comprehensive statistical summaries, visualizations, and actionable insights using Python's data science stack (pandas, matplotlib, seaborn). Triggers immediately without asking what the user wants. Use when the user uploads or references a CSV file, asks to "analyze this data", "summarize this CSV", "what's in this file", "visualize this data", or similar. Do NOT trigger for non-CSV tabular formats (use appropriate tools for Excel/JSON/SQL).
 
 **Act immediately.** Do not ask the user what they want. Do not offer options. Load
 the CSV and run a full analysis autonomously — the right analyses emerge from the data.
