@@ -1,7 +1,7 @@
 {
     "name": "ideas-funnel",
-    "version": "2.0.0",
-    "description": "Passive knowledge capture pipeline — Karpathy-derived LLM Wiki with a singleton daily Workflow that runs parallel domain ingest, concept threshold promotion via Refinery, and optional monthly confidence scoring.",
+    "version": "2.0.1",
+    "description": "Passive knowledge capture pipeline \u2014 Karpathy-derived LLM Wiki with a singleton daily Workflow that runs parallel domain ingest, concept threshold promotion via Refinery, and optional monthly confidence scoring.",
     "author": {
         "name": "Chris Weber"
     }

@@ -1,5 +1,10 @@
 # drover Changelog
 
+## 2.2.5
+- Shrink all 4 skill descriptions to a routing-sufficient summary; the full trigger-phrase detail moves into each SKILL.md body under `## When to use`, where it loads on invocation instead of sitting in context every session.
+- Saves roughly 1,387 characters (~346 est. tokens) of always-resident context.
+- Descriptions keep the distinctive tool vocabulary and the "not for X, use Y" disambiguation, so routing between sibling skills is unchanged.
+
 ## 2.2.4 — report defaults: branding, light mode, and print layout
 
 - **Footer no longer names internal tooling.** It read `Prepared by Velir ·

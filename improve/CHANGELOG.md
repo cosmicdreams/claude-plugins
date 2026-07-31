@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.1
+- Shrink all 7 skill descriptions to a routing-sufficient summary; the full trigger-phrase detail moves into each SKILL.md body under `## When to use`, where it loads on invocation instead of sitting in context every session.
+- Saves roughly 1,158 characters (~289 est. tokens) of always-resident context.
+- Descriptions keep the distinctive tool vocabulary and the "not for X, use Y" disambiguation, so routing between sibling skills is unchanged.
+
 ## 2.0.0 — 2026-06-10 — Fable-era rewrite (breaking)
 
 **REWRITTEN** `agents/process-engineer` — observation model rewritten from loop-based polling to event-driven. The agent now subscribes to harness hooks (PostToolUseFailure, TaskCompleted, SubagentStop) as the primary signal source. On-demand transcript reads are a fallback, not the primary path. Polling-loop version-1 prose removed. All judgment capability (trust model, lint lifecycle, error recovery) preserved.

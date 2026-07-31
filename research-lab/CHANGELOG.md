@@ -1,5 +1,10 @@
 # research-lab Changelog
 
+## 3.0.2
+- Shrink all 7 skill descriptions to a routing-sufficient summary; the full trigger-phrase detail moves into each SKILL.md body under `## When to use`, where it loads on invocation instead of sitting in context every session.
+- Saves roughly 2,579 characters (~644 est. tokens) of always-resident context.
+- Descriptions keep the distinctive tool vocabulary and the "not for X, use Y" disambiguation, so routing between sibling skills is unchanged.
+
 ## 3.0.1 — 2026-06-12 — NotebookLM CLI v0.7.x refresh
 
 Reviewed the NotebookLM-backed skills against the upstream `notebooklm-py` CLI, which moved from

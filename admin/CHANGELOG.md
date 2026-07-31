@@ -1,5 +1,10 @@
 # Changelog
 
+## 3.0.1
+- Shrink all 11 skill descriptions to a routing-sufficient summary; the full trigger-phrase detail moves into each SKILL.md body under `## When to use`, where it loads on invocation instead of sitting in context every session.
+- Saves roughly 3,175 characters (~793 est. tokens) of always-resident context.
+- Descriptions keep the distinctive tool vocabulary and the "not for X, use Y" disambiguation, so routing between sibling skills is unchanged.
+
 ## 3.0.0 — 2026-06-10 — Fable-era rewrite
 
 - **agent-team**: supersedes `feature/agent-team-refresh` branch; corrected stale SendMessage syntax (`type=`/`recipient=`/`content=` → `{to, summary, message}`); added Step 0 routing table (parallel Agent calls vs. Workflow vs. team)

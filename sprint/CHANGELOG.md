@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.0.1
+- Shrink all 5 skill descriptions to a routing-sufficient summary; the full trigger-phrase detail moves into each SKILL.md body under `## When to use`, where it loads on invocation instead of sitting in context every session.
+- Saves roughly 1,983 characters (~495 est. tokens) of always-resident context.
+- Descriptions keep the distinctive tool vocabulary and the "not for X, use Y" disambiguation, so routing between sibling skills is unchanged.
+
 ## 4.0.0 — 2026-06-10
 
 ### Breaking Changes

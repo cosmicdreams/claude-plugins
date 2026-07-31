@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.1.1
+- Shrink all 11 skill descriptions to a routing-sufficient summary; the full trigger-phrase detail moves into each SKILL.md body under `## When to use`, where it loads on invocation instead of sitting in context every session.
+- Saves roughly 3,607 characters (~901 est. tokens) of always-resident context.
+- Descriptions keep the distinctive tool vocabulary and the "not for X, use Y" disambiguation, so routing between sibling skills is unchanged.
+
 ## 2.1.0 — 2026-07-09 — Communication loop Stage 1
 
 - **sync** (new skill): idempotent reconcile of the work-event ledger from claude.ai connectors (Outlook, Calendar, Jira, Slack, Zoom-recap emails) plus local git. Per-source cursors advance only on complete passes; 30-day lookback cap; coverage record; envelope-only summaries with provenance tagging for untrusted text; read-only tool allowlist in frontmatter.
