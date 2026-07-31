@@ -1,9 +1,17 @@
 ---
 name: browse-drupal-issues
-description: Browse and list Drupal.org project issues via RSS feeds. Use when the user wants to explore, list, or discover issues for a Drupal project -- e.g. "show me open Drupal core issues", "what issues exist for settings_tray", "browse drupal.org issues", "find critical Drupal bugs". Works with any project (core or contrib). Do NOT use for deep analysis of a single issue -- use drupal-lab:analyze-issue instead.
+description: >
+  Browse or list issues for any Drupal.org project (core or contrib) via RSS. Not for deep
+  analysis of a single issue — use drupal-lab:analyze-issue.
 ---
 
 # browse-drupal-issues
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Browse and list Drupal.org project issues via RSS feeds. Use when the user wants to explore, list, or discover issues for a Drupal project -- e.g. "show me open Drupal core issues", "what issues exist for settings_tray", "browse drupal.org issues", "find critical Drupal bugs". Works with any project (core or contrib). Do NOT use for deep analysis of a single issue -- use drupal-lab:analyze-issue instead.
 
 Browse Drupal.org project issue queues using RSS feeds for quick discovery and filtering.
 

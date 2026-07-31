@@ -1,9 +1,18 @@
 ---
 name: board
-description: Board-specific rules for the sprint Beads database (.beads/sprint.db). Use before creating, claiming, or interpreting any card in the sprint board. Provides lane definitions, card fields, DDEV slot rules, and agent role mappings. Trigger phrases include "create sprint card", "show sprint board", "sprint board columns", "add issue to sprint", "open sprint board", "launch sprint board". Always pair with sprint:kanban for universal kanban rules. Do NOT use for the retrospective-actions board -- use retro:kanban instead.
+description: >
+  Rules for the sprint Beads board in .beads/sprint.db: lane definitions, card fields,
+  DDEV slot rules, agent role mappings. Read before creating, claiming, or interpreting a
+  sprint card, and pair with sprint:kanban. Not for the retro board (retro:kanban).
 ---
 
 # Sprint-Board — Team Sprint Board
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Board-specific rules for the sprint Beads database (.beads/sprint.db). Use before creating, claiming, or interpreting any card in the sprint board. Provides lane definitions, card fields, DDEV slot rules, and agent role mappings. Trigger phrases include "create sprint card", "show sprint board", "sprint board columns", "add issue to sprint", "open sprint board", "launch sprint board". Always pair with sprint:kanban for universal kanban rules. Do NOT use for the retrospective-actions board -- use retro:kanban instead.
 
 Board-specific rules for `.beads/sprint.db`. Read `sprint:kanban` first for universal standards that apply to all boards.
 

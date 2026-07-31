@@ -1,13 +1,10 @@
 ---
 name: ideas-funnel:ingest
 description: >
-  Processes unprocessed items in Raw/ and Raw/Inbox/<domain>/ — breaks each into
-  Source, Concept, and Entity pages; updates index.md, log.md, and .manifest.json;
-  emits wiki/concept-density-threshold signal when a concept crosses the
-  ≥3-unrelated-sources bar. Extends the existing vault ingest skill with
-  multi-domain dispatch and the v2 frontmatter schema (timeline, confidence,
-  decay_class, state, provenance). Trigger phrases: "ingest", "process raw items",
-  "process inbox", "/ideas-funnel:ingest".
+  Process unprocessed items in Raw/ and Raw/Inbox/<domain>/ into Source, Concept, and
+  Entity pages; update index.md, log.md, and .manifest.json; emit the concept-density
+  signal when a concept crosses three unrelated sources. Adds multi-domain dispatch and
+  the v2 frontmatter schema.
 triggers:
   - ingest
   - /ideas-funnel:ingest
@@ -27,6 +24,12 @@ allowed-tools:
 **Used by:** `ideas-funnel/agents/ingest.md` (spawned by the pipeline Workflow) + human for manual runs.
 
 # ideas-funnel:ingest
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Processes unprocessed items in Raw/ and Raw/Inbox/<domain>/ — breaks each into Source, Concept, and Entity pages; updates index.md, log.md, and .manifest.json; emits wiki/concept-density-threshold signal when a concept crosses the ≥3-unrelated-sources bar. Extends the existing vault ingest skill with multi-domain dispatch and the v2 frontmatter schema (timeline, confidence, decay_class, state, provenance). Trigger phrases: "ingest", "process raw items", "process inbox", "/ideas-funnel:ingest".
 
 Process unprocessed items in `Raw/` and `Raw/Inbox/<domain>/` into the wiki.
 

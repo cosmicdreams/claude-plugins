@@ -1,15 +1,11 @@
 ---
 name: interrogate
 description: >
-  Adversarial peer-review of a formed, supported claim. Assembles the claim + evidence into a clean
-  submission, desk-rejects before spawning anything if evidence is missing, then spawns a panel of
-  fresh, context-isolated reviewers — each with a distinct lens (evidence-quality, alternative-
-  explanation, reproducibility, internal-consistency) — to build the case against it. Solves the
-  agentic self-confirmation problem: reviewers see only the submission, never the reasoning that
-  produced it. Returns a verdict; never revises the claim itself. Say "interrogate this",
-  "peer-review this claim", "tear this apart", "stress-test these findings", or
-  "research-lab:interrogate". Needs a formed claim plus its supporting evidence; for an unformed
-  idea use ideate:reality-check instead.
+  Adversarial peer review of a formed claim plus its evidence. Desk-rejects when evidence
+  is missing, then spawns context-isolated reviewers with distinct lenses (evidence
+  quality, alternative explanation, reproducibility, internal consistency) that see only
+  the submission, never the reasoning behind it. Returns a verdict; never revises the
+  claim. For an unformed idea use ideate:reality-check.
 triggers:
   - "interrogate this"
   - "peer-review this claim"
@@ -21,6 +17,12 @@ allowed-tools: Bash, Read, Write, Workflow
 ---
 
 # Interrogate
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Adversarial peer-review of a formed, supported claim. Assembles the claim + evidence into a clean submission, desk-rejects before spawning anything if evidence is missing, then spawns a panel of fresh, context-isolated reviewers — each with a distinct lens (evidence-quality, alternative- explanation, reproducibility, internal-consistency) — to build the case against it. Solves the agentic self-confirmation problem: reviewers see only the submission, never the reasoning that produced it. Returns a verdict; never revises the claim itself. Say "interrogate this", "peer-review this claim", "tear this apart", "stress-test these findings", or "research-lab:interrogate". Needs a formed claim plus its supporting evidence; for an unformed idea use ideate:reality-check instead.
 
 Adversarially peer-review a **formed, supported** claim. The **keystone** of the research arc: it
 stops an agent from convincing itself it is right by re-reading its own reasoning. `synthesize`

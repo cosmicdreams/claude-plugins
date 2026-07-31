@@ -1,10 +1,19 @@
 ---
 name: plan
-description: Prepare an ordered, dependency-aware work queue and create Beads cards before launching a team sprint. Use when the user wants to plan a sprint, prioritize issues, sequence work by dependencies, order the backlog, or propose agent assignments. Trigger phrases include "plan a sprint", "which issues should we work on", "sequence these issues", "prioritize the backlog", "order the backlog by dependencies", "what order should we tackle these". This skill ONLY plans and creates cards — it does NOT execute agents or start work. Use sprint:run to actually execute the sprint after planning. Do NOT use for mid-sprint re-prioritization, retrospective planning, or when the user asks to start/run/work on issues immediately.
+description: >
+  Order a dependency-aware work queue and create the Beads cards for a sprint, proposing
+  agent assignments. DECIDES only — it never starts agents; sprint:run executes. Not for
+  mid-sprint re-prioritization.
 allowed-tools: Bash, Read, Write
 ---
 
 # Sprint Planning
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Prepare an ordered, dependency-aware work queue and create Beads cards before launching a team sprint. Use when the user wants to plan a sprint, prioritize issues, sequence work by dependencies, order the backlog, or propose agent assignments. Trigger phrases include "plan a sprint", "which issues should we work on", "sequence these issues", "prioritize the backlog", "order the backlog by dependencies", "what order should we tackle these". This skill ONLY plans and creates cards — it does NOT execute agents or start work. Use sprint:run to actually execute the sprint after planning. Do NOT use for mid-sprint re-prioritization, retrospective planning, or when the user asks to start/run/work on issues immediately.
 
 Prepare an ordered work queue for the next team sprint.
 

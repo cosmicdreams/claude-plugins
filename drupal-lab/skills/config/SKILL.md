@@ -1,14 +1,10 @@
 ---
 name: config
 description: >
-  Discover and configure drupal-lab integrations. Run drupal-lab:config when setting up
-  for the first time, after adding a new Drupal project, or when a drupal-lab skill
-  cannot find its project context. Probes the system for DDEV and Acquia CLI, discovers
-  Drupal project roots, asks about naming conventions and Drupal.org credentials, and
-  writes ~/.claude/drupal-lab.json.
-
-  Trigger when: "drupal-lab:config", "configure drupal-lab", "set up drupal project",
-  "add drupal project", or when any drupal-lab skill reports config missing.
+  Discover and configure drupal-lab integrations into ~/.claude/drupal-lab.json — probes
+  DDEV and Acquia CLI, finds Drupal project roots, asks about naming conventions and
+  Drupal.org credentials. Run on first setup or when a drupal-lab skill cannot find its
+  project.
 triggers:
   - "drupal-lab:config"
   - "configure drupal-lab"
@@ -19,6 +15,12 @@ allowed-tools: Bash, Read, Write, AskUserQuestion
 ---
 
 # drupal-lab:config — Project Discovery & Configuration
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Discover and configure drupal-lab integrations. Run drupal-lab:config when setting up for the first time, after adding a new Drupal project, or when a drupal-lab skill cannot find its project context. Probes the system for DDEV and Acquia CLI, discovers Drupal project roots, asks about naming conventions and Drupal.org credentials, and writes ~/.claude/drupal-lab.json. Trigger when: "drupal-lab:config", "configure drupal-lab", "set up drupal project", "add drupal project", or when any drupal-lab skill reports config missing.
 
 Builds `~/.claude/drupal-lab.json` by probing the system and consulting the user.
 All drupal-lab skills read this config to resolve which project they are working in

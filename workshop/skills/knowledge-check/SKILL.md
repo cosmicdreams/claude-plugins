@@ -1,13 +1,9 @@
 ---
 name: knowledge-check
 description: >
-  Verify that the human genuinely understands work being done with AI and remains the source of
-  truth for the project. Maintains a running understanding checklist, asks the user to restate their
-  model, fills gaps, and quizzes before moving on. Trigger when the user says "keep me honest",
-  "knowledge-check me", "check my understanding", "quiz me on this", "make me explain it back",
-  "make sure I understand before we move on", or "don't let me cognitively surrender". Do NOT use
-  for first-pass exploration of a document, codebase, system, plan, or problem space; use
-  research-lab:understand for that.
+  Keep the human the source of truth: maintain a running understanding checklist, ask them
+  to restate their model, fill gaps, and quiz before moving on. For guarding against
+  cognitive surrender — not for first-pass exploration (research-lab:understand).
 triggers:
   - "workshop:knowledge-check"
   - "knowledge-check me"
@@ -22,6 +18,12 @@ allowed-tools: Read, Write, Edit, AskUserQuestion
 ---
 
 # workshop:knowledge-check
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Verify that the human genuinely understands work being done with AI and remains the source of truth for the project. Maintains a running understanding checklist, asks the user to restate their model, fills gaps, and quizzes before moving on. Trigger when the user says "keep me honest", "knowledge-check me", "check my understanding", "quiz me on this", "make me explain it back", "make sure I understand before we move on", or "don't let me cognitively surrender". Do NOT use for first-pass exploration of a document, codebase, system, plan, or problem space; use research-lab:understand for that.
 
 Keep the human cognitively in the loop during AI-assisted work. The goal is not to produce an explanation; the goal is to verify that the user can explain the work, its tradeoffs, and its consequences without surrendering authorship to the agent.
 

@@ -1,12 +1,10 @@
 ---
 name: prioritize
 description: >
-  Answer "what should I work on next?" on demand, any time of day. Gathers everything that
-  defines what's on your plate — overnight signals (new Slack messages, Jira comments, status
-  changes), standing obligations (blocked issues you own, stale in-progress, high-priority queue),
-  and your available time today (calendar) — then ranks it into a single next action plus a full
-  priority table. Built for the low-focus moment, morning AND afternoon. Read-only: never posts,
-  comments, or transitions. Replaces the old pulse + morning-brief skills.
+  Answer "what should I work on next?" on demand, at any hour. Combines overnight signals
+  (Slack, Jira), standing obligations (blocked issues you own, stale in-progress), and
+  today's calendar into one next action plus a ranked table. Read-only — never posts or
+  transitions.
 triggers:
   - "workshop:prioritize"
   - "what should I work on"
@@ -22,6 +20,12 @@ allowed-tools: Agent, Bash, Read, Write
 ---
 
 # workshop:prioritize — What Should I Work On Next?
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Answer "what should I work on next?" on demand, any time of day. Gathers everything that defines what's on your plate — overnight signals (new Slack messages, Jira comments, status changes), standing obligations (blocked issues you own, stale in-progress, high-priority queue), and your available time today (calendar) — then ranks it into a single next action plus a full priority table. Built for the low-focus moment, morning AND afternoon. Read-only: never posts, comments, or transitions. Replaces the old pulse + morning-brief skills.
 
 Gather every signal that defines what's on your plate and rank it into **one clear next action**.
 

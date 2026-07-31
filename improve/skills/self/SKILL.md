@@ -1,11 +1,9 @@
 ---
 name: self
 description: >
-  Evaluate and improve any agent definition against its stated purpose. Checks whether an
-  agent's prompt, model, tools, and instructions are aligned with what it's supposed to
-  achieve. Can target any agent — including the process-engineer itself. Use when an agent
-  seems to be underperforming, drifting from its role, or when you want to audit agent
-  definitions proactively. Any agent can invoke this skill on itself.
+  Evaluate and improve any agent definition against its stated purpose — whether prompt,
+  model, tools, and instructions align with what it is meant to achieve. Any agent may
+  invoke it on itself.
 triggers:
   - "improve this agent"
   - "evaluate agent definition"
@@ -15,6 +13,12 @@ triggers:
 ---
 
 # Self: Agent Definition Improvement
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Evaluate and improve any agent definition against its stated purpose. Checks whether an agent's prompt, model, tools, and instructions are aligned with what it's supposed to achieve. Can target any agent — including the process-engineer itself. Use when an agent seems to be underperforming, drifting from its role, or when you want to audit agent definitions proactively. Any agent can invoke this skill on itself.
 
 Evaluate whether an agent definition is aligned with its purpose.
 

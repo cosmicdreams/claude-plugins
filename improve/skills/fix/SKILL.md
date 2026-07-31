@@ -1,11 +1,9 @@
 ---
 name: fix
 description: >
-  Make a directed process change in the right place so it propagates to the running process.
-  Handles locating the target file, making the edit, and verifying the change takes effect.
-  Use when you know what needs to change — either from your own observation, a lint rule,
-  or because the human pointed at the problem. Do NOT use for uncertain improvements —
-  use improve:experiment for those.
+  Make a directed process change in the right place so it propagates to the running
+  process — locate the target, edit, verify it takes effect. For when you already know
+  what must change. Not for uncertain improvements (improve:experiment).
 triggers:
   - "fix this process"
   - "make this change stick"
@@ -13,6 +11,12 @@ triggers:
 ---
 
 # Fix: Make a Directed Change That Sticks
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Make a directed process change in the right place so it propagates to the running process. Handles locating the target file, making the edit, and verifying the change takes effect. Use when you know what needs to change — either from your own observation, a lint rule, or because the human pointed at the problem. Do NOT use for uncertain improvements — use improve:experiment for those.
 
 ## Step 1: Locate the target
 

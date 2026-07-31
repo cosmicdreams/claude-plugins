@@ -1,17 +1,19 @@
 ---
 name: drover:acquia-pull
 description: >
-  Fetch Drupal/Acquia application error logs (apache-error, drupal-watchdog,
-  php-error) into a project's canonical log folder by date. Talks to the
-  Acquia Cloud Platform API directly — no acli, no PHP, pure stdlib Python.
-  Idempotent reconcile: re-runs skip files already present and only refetch
-  missing or failed days. Produces `<project>/<year>/<month>/<date>.<env>.<type>.log.gz`
-  files plus a coverage ledger at `.drover/coverage.json`. Trigger phrases —
-  "drover pull logs", "fetch acquia logs", "backfill <project> last 30 days".
+  Fetch Acquia application logs (apache-error, drupal-watchdog, php-error) by date into
+  the project's log folder, via the Acquia Cloud API directly — no acli. Idempotent:
+  re-runs refetch only missing or failed days.
 allowed-tools: Bash, Read
 ---
 
 # drover:acquia-pull
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Fetch Drupal/Acquia application error logs (apache-error, drupal-watchdog, php-error) into a project's canonical log folder by date. Talks to the Acquia Cloud Platform API directly — no acli, no PHP, pure stdlib Python. Idempotent reconcile: re-runs skip files already present and only refetch missing or failed days. Produces `<project>/<year>/<month>/<date>.<env>.<type>.log.gz` files plus a coverage ledger at `.drover/coverage.json`. Trigger phrases — "drover pull logs", "fetch acquia logs", "backfill <project> last 30 days".
 
 ## The one-per-24h constraint (read this first)
 

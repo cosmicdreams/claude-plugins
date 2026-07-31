@@ -1,15 +1,10 @@
 ---
 name: diagram
 description: >
-  Generate Excalidraw diagrams from natural language descriptions. Produces .excalidraw
-  JSON files that open natively in PhpStorm, VS Code, and excalidraw.com. Layout argues
-  through visual structure -- the arrangement communicates meaning, not just labels.
-  Use for spatial/structural diagrams: system architecture, component relationships, data
-  flow, sequence of actor interactions, dependency graphs, decision trees, workflow pipelines.
-  Triggered by "diagram this", "draw a diagram", "create a flowchart", "show the architecture",
-  "show how X connects to Y", "map the dependencies", or "now diagram that". Can chain after
-  ideate:brainstorm. NOT for bar/line/pie charts, written explanations, or any output where
-  spatial arrangement adds no meaning.
+  Generate Excalidraw .excalidraw diagrams where the layout itself carries the argument —
+  architecture, component relationships, data flow, sequences, dependency graphs, decision
+  trees, pipelines. Can chain after ideate:brainstorm. Not for bar/line/pie charts or
+  prose.
 triggers:
   - "create a diagram"
   - "diagram this"
@@ -30,6 +25,12 @@ allowed-tools: Bash, Read, Write
 ---
 
 # diagram
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Generate Excalidraw diagrams from natural language descriptions. Produces .excalidraw JSON files that open natively in PhpStorm, VS Code, and excalidraw.com. Layout argues through visual structure -- the arrangement communicates meaning, not just labels. Use for spatial/structural diagrams: system architecture, component relationships, data flow, sequence of actor interactions, dependency graphs, decision trees, workflow pipelines. Triggered by "diagram this", "draw a diagram", "create a flowchart", "show the architecture", "show how X connects to Y", "map the dependencies", or "now diagram that". Can chain after ideate:brainstorm. NOT for bar/line/pie charts, written explanations, or any output where spatial arrangement adds no meaning.
 
 Generate `.excalidraw` JSON files. Layout communicates meaning — arrangement is the argument.
 

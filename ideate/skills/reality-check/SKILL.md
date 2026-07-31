@@ -1,13 +1,11 @@
 ---
 name: reality-check
 description: >
-  Adversarial scrutiny of ideas using a five-gate KILL funnel. Challenges problem clarity,
-  problem reality, simplicity, failure modes, and killer assumptions in sequence. Holds
-  the contrarian position until a logically sound rebuttal is produced -- emotional
-  pushback does not pass gates. Use when you want to stress-test an idea before committing.
-  Say "reality check", "poke holes in this", "play devil's advocate", "stress test this
-  idea", or "tear this apart". Can chain after ideate:brainstorm. Not for validating
-  ideas you have already decided to build -- this skill can kill them.
+  Adversarially stress-test an unformed idea through a five-gate KILL funnel: problem
+  clarity, problem reality, simplicity, failure modes, killer assumptions. Holds the
+  contrarian position until logically rebutted. Can kill the idea — not for validating
+  something already decided. For a formed claim with evidence use
+  research-lab:interrogate.
 triggers:
   - "reality check"
   - "stress test this idea"
@@ -21,6 +19,12 @@ allowed-tools: Bash, Read, Write
 ---
 
 # reality-check
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Adversarial scrutiny of ideas using a five-gate KILL funnel. Challenges problem clarity, problem reality, simplicity, failure modes, and killer assumptions in sequence. Holds the contrarian position until a logically sound rebuttal is produced -- emotional pushback does not pass gates. Use when you want to stress-test an idea before committing. Say "reality check", "poke holes in this", "play devil's advocate", "stress test this idea", or "tear this apart". Can chain after ideate:brainstorm. Not for validating ideas you have already decided to build -- this skill can kill them.
 
 Adversarial scrutiny via five sequential hard gates. The model tracks gate progression in conversation. No external state machine. Session archive is a single write at the end.
 

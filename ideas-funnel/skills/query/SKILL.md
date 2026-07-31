@@ -1,11 +1,9 @@
 ---
 name: ideas-funnel:query
 description: >
-  Answer a question against the vault. Scans index.md for candidate pages,
-  reads the relevant bodies, synthesizes a response with [[wikilink]] citations,
-  and optionally files the answer back as a new Concept page if the answer is
-  novel enough to deserve one. Trigger phrases: "query the vault",
-  "/ideas-funnel:query", "what does the vault say about X".
+  Answer a question against the vault: scan index.md for candidates, read the relevant
+  bodies, synthesize with [[wikilink]] citations, and optionally file the answer back as a
+  new Concept page when it is novel enough to deserve one.
 triggers:
   - query
   - /ideas-funnel:query
@@ -22,6 +20,12 @@ allowed-tools:
 **Used by:** human (on demand).
 
 # ideas-funnel:query
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Answer a question against the vault. Scans index.md for candidate pages, reads the relevant bodies, synthesizes a response with [[wikilink]] citations, and optionally files the answer back as a new Concept page if the answer is novel enough to deserve one. Trigger phrases: "query the vault", "/ideas-funnel:query", "what does the vault say about X".
 
 Answer a question using tiered retrieval over the vault.
 

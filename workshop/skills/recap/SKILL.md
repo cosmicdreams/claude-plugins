@@ -1,15 +1,10 @@
 ---
 name: recap
 description: >
-  Summarize work performed over a date range from the work-event ledger, grouped by project
-  and day, shaped for Mavenlink timesheet entry. Two cadences: --day is a best-effort daily
-  digest (skippable without consequence); --week is the mandatory weekly artifact and must
-  work even if no daily run happened all week. Emits an evidence list with links — never
-  fabricated hours: calendar blocks are the only durations shown, everything else is proof
-  that work happened, and the user assigns the hours. Use when the user says "recap my day",
-  "recap my week", "what did I do this week", "timesheet summary", "fill out my timesheet",
-  or "workshop:recap". Do NOT use for ranking what to do next (workshop:prioritize) or for
-  fetching (workshop:sync runs automatically as the first step).
+  Summarize work over a date range from the work-event ledger, grouped by project and day,
+  shaped for Mavenlink timesheet entry. --day is a skippable digest; --week is the
+  mandatory artifact and must work with no prior daily run. Never fabricates hours — only
+  calendar blocks carry durations.
 triggers:
   - "workshop:recap"
   - "recap my day"
@@ -20,6 +15,12 @@ allowed-tools: Bash, Read, Skill
 ---
 
 # workshop:recap — Evidence for the Timesheet
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Summarize work performed over a date range from the work-event ledger, grouped by project and day, shaped for Mavenlink timesheet entry. Two cadences: --day is a best-effort daily digest (skippable without consequence); --week is the mandatory weekly artifact and must work even if no daily run happened all week. Emits an evidence list with links — never fabricated hours: calendar blocks are the only durations shown, everything else is proof that work happened, and the user assigns the hours. Use when the user says "recap my day", "recap my week", "what did I do this week", "timesheet summary", "fill out my timesheet", or "workshop:recap". Do NOT use for ranking what to do next (workshop:prioritize) or for fetching (workshop:sync runs automatically as the first step).
 
 Turn the ledger into the thing Chris reads while filling Mavenlink. The expensive part of a
 timesheet is *recall* — what did I touch Tuesday, for which client — not duration arithmetic.

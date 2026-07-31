@@ -1,12 +1,9 @@
 ---
 name: new-agent
 description: >
-  Use when the user needs a brand-new agent written — any role, any plugin, any purpose.
-  Trigger phrases: "new agent", "add an agent", "create an agent", "make an agent",
-  "I need an agent", "add a role", "build an agent", "write an agent", "sprint agent for",
-  "agent that does X". Covers sprint team roles, standalone specialist agents, and plugin
-  agents. Do NOT use for editing existing agents, reviewing agent quality, listing agents,
-  or optimizing agent definitions.
+  Write a brand-new agent definition — sprint team role, standalone specialist, or plugin
+  agent. Not for editing, reviewing, listing, or optimizing existing agents
+  (admin:optimize-agents).
 triggers:
   - "create an agent"
   - "new agent"
@@ -15,6 +12,12 @@ triggers:
 ---
 
 # Agent Creator
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Use when the user needs a brand-new agent written — any role, any plugin, any purpose. Trigger phrases: "new agent", "add an agent", "create an agent", "make an agent", "I need an agent", "add a role", "build an agent", "write an agent", "sprint agent for", "agent that does X". Covers sprint team roles, standalone specialist agents, and plugin agents. Do NOT use for editing existing agents, reviewing agent quality, listing agents, or optimizing agent definitions.
 
 Build a standards-compliant agent definition and place it in the right location.
 

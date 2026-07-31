@@ -1,14 +1,10 @@
 ---
 name: teach
 description: >
-  Make a formed claim land with someone who wasn't there. Produces the deliverable (briefing doc,
-  slide deck, audio overview, infographic) AND certifies it with an automated Feynman gate: a quiz
-  generated from the material, taken by a fresh no-context agent using only the produced artifact —
-  the score is whether the explanation transfers. synthesize proves you're right; teach proves you
-  can make someone else see it. Audience is outsiders, so artifacts must SUPPLY context (contrast
-  synthesize, whose artifacts assume it). Say "teach this", "make a briefing", "explain this to a
-  product manager", "build a deck for", "make this land", or "research-lab:teach". Needs a formed claim plus a
-  named target audience.
+  Make a formed claim land with someone who wasn't there: produce the briefing, deck,
+  audio overview, or infographic, then certify it with a Feynman gate — a fresh no-context
+  agent is quizzed using only the artifact. Artifacts must supply context, unlike
+  synthesize. Needs a formed claim and a named audience.
 triggers:
   - "teach this"
   - "make a briefing"
@@ -21,6 +17,12 @@ allowed-tools: Bash, Read, Write, Workflow
 ---
 
 # Teach
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Make a formed claim land with someone who wasn't there. Produces the deliverable (briefing doc, slide deck, audio overview, infographic) AND certifies it with an automated Feynman gate: a quiz generated from the material, taken by a fresh no-context agent using only the produced artifact — the score is whether the explanation transfers. synthesize proves you're right; teach proves you can make someone else see it. Audience is outsiders, so artifacts must SUPPLY context (contrast synthesize, whose artifacts assume it). Say "teach this", "make a briefing", "explain this to a product manager", "build a deck for", "make this land", or "research-lab:teach". Needs a formed claim plus a named target audience.
 
 Make a formed, hardened claim land with an outside audience. **The back** of the research arc.
 

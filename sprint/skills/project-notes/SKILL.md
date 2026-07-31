@@ -1,10 +1,19 @@
 ---
 name: project-notes
-description: Synthesize completed sprint beads into a structured RELEASE-NOTES.md entry. Use when asked to "write release notes", "project release notes", "document completed cards", "summarize what we shipped", "what did the sprint accomplish", or "update RELEASE-NOTES.md". Reads closed beads from .beads/sprint.db and git log, drafts entries, confirms with team-lead, then prepends to analysis-reports/RELEASE-NOTES.md. Do NOT confuse with sprint:release-notes (changelog) which reads the plugin CHANGELOG.md version history -- this skill documents project-level sprint outcomes, not plugin versions.
+description: >
+  Turn closed sprint beads plus git log into a RELEASE-NOTES.md entry, confirmed with the
+  team-lead then prepended to analysis-reports/RELEASE-NOTES.md. Documents project
+  outcomes — not plugin CHANGELOG versions.
 allowed-tools: Read, Bash, Write, Edit, Glob
 ---
 
 # sprint:project-notes
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Synthesize completed sprint beads into a structured RELEASE-NOTES.md entry. Use when asked to "write release notes", "project release notes", "document completed cards", "summarize what we shipped", "what did the sprint accomplish", or "update RELEASE-NOTES.md". Reads closed beads from .beads/sprint.db and git log, drafts entries, confirms with team-lead, then prepends to analysis-reports/RELEASE-NOTES.md. Do NOT confuse with sprint:release-notes (changelog) which reads the plugin CHANGELOG.md version history -- this skill documents project-level sprint outcomes, not plugin versions.
 
 Synthesize completed sprint beads from `.beads/sprint.db` into a structured `analysis-reports/RELEASE-NOTES.md` entry.
 

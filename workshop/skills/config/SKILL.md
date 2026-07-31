@@ -1,14 +1,9 @@
 ---
 name: config
 description: >
-  Discover and configure workflow integrations. Run workshop:config when setting up
-  for the first time, after adding a new tool, or when a workflow skill reports that
-  config is missing or incomplete. Probes the system for available CLIs, asks about
-  your integrations and projects, and writes ~/.claude/workshop.json.
-
-  Trigger when the user says "configure workflows", "set up workflow config",
-  "workshop:config", "add a new integration", or when any workflow skill reports
-  config is missing.
+  Discover and configure workflow integrations into ~/.claude/workshop.json — probes for
+  available CLIs and asks about your integrations and projects. Run on first setup or when
+  a workshop skill reports missing config.
 triggers:
   - "workshop:config"
   - "configure workflows"
@@ -22,6 +17,12 @@ allowed-tools: Bash, Read, Write, AskUserQuestion
 ---
 
 # workshop:config — Integration Discovery & Configuration
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Discover and configure workflow integrations. Run workshop:config when setting up for the first time, after adding a new tool, or when a workflow skill reports that config is missing or incomplete. Probes the system for available CLIs, asks about your integrations and projects, and writes ~/.claude/workshop.json. Trigger when the user says "configure workflows", "set up workflow config", "workshop:config", "add a new integration", or when any workflow skill reports config is missing.
 
 Builds `~/.claude/workshop.json` by probing the system and consulting the user. All workshop skills read this config.
 

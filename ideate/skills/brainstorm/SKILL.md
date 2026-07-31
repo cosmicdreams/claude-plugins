@@ -1,12 +1,9 @@
 ---
 name: brainstorm
 description: >
-  Interactive brainstorming with a visual decision canvas. Generates divergent ideas, opens
-  a local browser canvas for annotation, and synthesizes the annotated choices into a concrete
-  plan. Use when exploring options before implementing, facing architectural decisions, or when
-  the right path is not obvious. Say "brainstorm", "explore options", "help me decide", or
-  "what are my options". Also handles the synthesize phase when you return after annotating.
-  Not for quick questions with an obvious answer.
+  Diverge on options, open a local browser canvas to annotate them, then synthesize the
+  annotated choices into a concrete plan. Also handles the synthesize phase when you
+  return from annotating. Not for questions with an obvious answer.
 triggers:
   - "brainstorm"
   - "let's brainstorm"
@@ -20,6 +17,12 @@ allowed-tools: Bash, Read, Write, Edit
 ---
 
 # brainstorm
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Interactive brainstorming with a visual decision canvas. Generates divergent ideas, opens a local browser canvas for annotation, and synthesizes the annotated choices into a concrete plan. Use when exploring options before implementing, facing architectural decisions, or when the right path is not obvious. Say "brainstorm", "explore options", "help me decide", or "what are my options". Also handles the synthesize phase when you return after annotating. Not for quick questions with an obvious answer.
 
 Two phases: **Generate** (divergent ideas → browser canvas) and **Synthesize** (annotations → concrete plan). Ideas are generated without judgment; the human rates them in the browser; synthesis reflects their ratings.
 

@@ -1,11 +1,9 @@
 ---
 name: ideas-funnel:lint
 description: >
-  Wiki-aware vault linter. Scans for structural violations, schema compliance
-  (v1 + v2 fields), index.md sync, Raw/ staleness, orphan pages, and timeline
-  overflow. Reports grouped by severity. Writes `^stale` flags and
-  `backlink_density` to page frontmatter. Trigger phrases: "lint the vault",
-  "vault health", "/ideas-funnel:lint", "check the vault".
+  Wiki-aware vault linter — structural violations, v1 and v2 schema compliance, index.md
+  sync, Raw/ staleness, orphan pages, timeline overflow. Reports by severity and writes
+  ^stale flags and backlink_density into page frontmatter.
 triggers:
   - lint
   - /ideas-funnel:lint
@@ -23,6 +21,12 @@ allowed-tools:
 **Used by:** pipeline Workflow (nightly scorer phase) + human for manual runs.
 
 # ideas-funnel:lint
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Wiki-aware vault linter. Scans for structural violations, schema compliance (v1 + v2 fields), index.md sync, Raw/ staleness, orphan pages, and timeline overflow. Reports grouped by severity. Writes `^stale` flags and `backlink_density` to page frontmatter. Trigger phrases: "lint the vault", "vault health", "/ideas-funnel:lint", "check the vault".
 
 Scan the vault and report problems. Writes only frontmatter flags (`^stale`, `backlink_density`) — never modifies page bodies or deletes files.
 

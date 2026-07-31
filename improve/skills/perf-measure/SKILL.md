@@ -1,11 +1,10 @@
 ---
 name: perf-measure
 description: >
-  Measure web frontend performance, CLI benchmark targets, and token costs. Outputs a
-  machine-readable JSON score tuple for the experiment ratchet. Use when you need a
-  Lighthouse performance score, Core Web Vitals, hyperfine CLI benchmarks, or token-spend
-  metrics. Use --a11y to delegate to improve:accessibility-scan. Do NOT use for PHP/DDEV
-  profiling -- use drupal-lab:perf-measure.
+  Measure frontend web performance, CLI benchmarks, and token cost into a JSON score tuple
+  for the experiment ratchet — Lighthouse scores, Core Web Vitals, hyperfine timings,
+  token spend. Pass --a11y to delegate to improve:accessibility-scan. Not for PHP/DDEV
+  profiling (drupal-lab:perf-measure).
 triggers:
   - "measure performance"
   - "lighthouse score"
@@ -17,6 +16,12 @@ triggers:
 ---
 
 # perf-measure
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Measure web frontend performance, CLI benchmark targets, and token costs. Outputs a machine-readable JSON score tuple for the experiment ratchet. Use when you need a Lighthouse performance score, Core Web Vitals, hyperfine CLI benchmarks, or token-spend metrics. Use --a11y to delegate to improve:accessibility-scan. Do NOT use for PHP/DDEV profiling -- use drupal-lab:perf-measure.
 
 Measure performance and output a JSON score tuple consumable by the experiment ratchet.
 

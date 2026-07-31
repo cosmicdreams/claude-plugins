@@ -1,12 +1,10 @@
 ---
 name: frame
 description: >
-  Sharpen a vague topic into a precise research question with explicit scope, stated assumptions,
-  and falsification criteria ("what would change my mind?"). The front-of-engagement verb — cheap,
-  fast, runs first when it runs at all. Facilitator stance: it asks the sharpening questions, it
-  does not answer them. Say "frame this", "sharpen this question", "what should I actually be
-  asking", "scope this research", or "research-lab:frame". Not for gathering sources (that is
-  gather) or forming a position (that is synthesize) — frame only sets up the question.
+  Sharpen a vague topic into a precise research question with explicit scope, stated
+  assumptions, and falsification criteria. Facilitator stance — it asks the sharpening
+  questions, it does not answer them. Runs first; not for gathering sources or forming a
+  position.
 triggers:
   - "frame this"
   - "sharpen this question"
@@ -18,6 +16,12 @@ allowed-tools: Read, Write
 ---
 
 # Frame
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Sharpen a vague topic into a precise research question with explicit scope, stated assumptions, and falsification criteria ("what would change my mind?"). The front-of-engagement verb — cheap, fast, runs first when it runs at all. Facilitator stance: it asks the sharpening questions, it does not answer them. Say "frame this", "sharpen this question", "what should I actually be asking", "scope this research", or "research-lab:frame". Not for gathering sources (that is gather) or forming a position (that is synthesize) — frame only sets up the question.
 
 Turn a fuzzy topic into a sharp, falsifiable question. The **front** of the research arc. Cheap
 and fast by design — framing is a setup, not a deliverable.

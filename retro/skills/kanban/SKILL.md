@@ -1,6 +1,9 @@
 ---
 name: kanban
-description: Manages the retrospective-actions kanban board — creating, reviewing, approving, deduplicating, and moving improvement cards in .beads/retro.db. Invoke when asked to "create a retro card", "approve an action card", "review retro cards", "scrum retro cards", "work the retro backlog", or "show retro board". Required reading before any operation on the retrospective board. Pairs with sprint:kanban for universal rules. Do not use for sprint-run board operations — those use sprint:kanban directly.
+description: >
+  Rules for the retrospective-actions board in .beads/retro.db — create, review, approve,
+  deduplicate, and move improvement cards. Required reading before touching that board;
+  pair with sprint:kanban. Not for the sprint board.
 triggers:
   - "create action card"
   - "review retro cards"
@@ -14,6 +17,12 @@ allowed-tools:
 ---
 
 # Retro-Kanban — Retrospective Actions Board
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Manages the retrospective-actions kanban board — creating, reviewing, approving, deduplicating, and moving improvement cards in .beads/retro.db. Invoke when asked to "create a retro card", "approve an action card", "review retro cards", "scrum retro cards", "work the retro backlog", or "show retro board". Required reading before any operation on the retrospective board. Pairs with sprint:kanban for universal rules. Do not use for sprint-run board operations — those use sprint:kanban directly.
 
 Board-specific rules for `.beads/retro.db`. Read `sprint:kanban` first for universal standards.
 

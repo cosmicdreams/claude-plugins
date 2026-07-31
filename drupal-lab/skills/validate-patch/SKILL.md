@@ -1,9 +1,18 @@
 ---
 name: validate-patch
-description: Validate a Drupal patch or merge request against all quality gates. Use when asked to validate, test, review, or check a patch before submission -- e.g. "validate my patch", "run the quality gates", "check this MR", "is this patch ready to submit". Runs phpcs, phpstan, phpunit, and coverage review via DDEV. Do NOT use for browsing issues or analyzing issue context -- use drupal-lab:analyze-issue instead.
+description: >
+  Run every quality gate against a Drupal patch or merge request before submission —
+  phpcs, phpstan, phpunit, and coverage review via DDEV. Not for issue research
+  (drupal-lab:analyze-issue).
 ---
 
 # Validate Patch
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Validate a Drupal patch or merge request against all quality gates. Use when asked to validate, test, review, or check a patch before submission -- e.g. "validate my patch", "run the quality gates", "check this MR", "is this patch ready to submit". Runs phpcs, phpstan, phpunit, and coverage review via DDEV. Do NOT use for browsing issues or analyzing issue context -- use drupal-lab:analyze-issue instead.
 
 Run all quality gates on a Drupal implementation in a worktree using DDEV.
 

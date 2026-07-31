@@ -1,9 +1,18 @@
 ---
 name: accessibility-scan
-description: Run a multi-tool accessibility audit (Pa11y + axe-core + Lighthouse) against a locally running site and output a JSON score tuple. Use when asked to "scan accessibility", "run a11y audit", "accessibility score", "measure accessibility", "a11y baseline", "accessibility-scan", or when the experiment loop needs a measurement step for accessibility improvements. Takes a base URL (typically a DDEV local site). Do NOT use for manual accessibility review or WCAG consulting -- this is an automated measurement tool.
+description: >
+  Multi-tool accessibility audit against a locally running site (Pa11y + axe-core +
+  Lighthouse), emitting a JSON score tuple for the experiment ratchet. Takes a base URL,
+  typically a DDEV site. Automated measurement only — not manual WCAG review.
 ---
 
 # Accessibility Scan
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Run a multi-tool accessibility audit (Pa11y + axe-core + Lighthouse) against a locally running site and output a JSON score tuple. Use when asked to "scan accessibility", "run a11y audit", "accessibility score", "measure accessibility", "a11y baseline", "accessibility-scan", or when the experiment loop needs a measurement step for accessibility improvements. Takes a base URL (typically a DDEV local site). Do NOT use for manual accessibility review or WCAG consulting -- this is an automated measurement tool.
 
 Run Pa11y, axe-core, and Lighthouse against a site. Output a JSON score tuple consumable by the experiment improvement loop.
 

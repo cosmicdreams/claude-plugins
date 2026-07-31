@@ -1,13 +1,9 @@
 ---
 name: ideas-funnel:init
 description: >
-  One-time bootstrap for the ideas-funnel plugin. Creates the user config
-  directory, writes a starter domain YAML if none exist, verifies the vault has
-  the required scaffold (Raw/Inbox, Domains/, _meta/, CRITICAL_FACTS.md),
-  appends the v2 schema extension to wiki-schema.md if not already present,
-  registers the singleton daily pipeline cron via ideas-funnel:schedule, and
-  prints a next-steps checklist. Trigger phrases: "init ideas-funnel",
-  "bootstrap the funnel", "/ideas-funnel:init".
+  One-time bootstrap for ideas-funnel: create the config directory, write a starter domain
+  YAML, verify the vault scaffold (Raw/Inbox, Domains/, _meta/, CRITICAL_FACTS.md), append
+  the v2 schema to wiki-schema.md, register the daily cron, and print next steps.
 triggers:
   - init
   - /ideas-funnel:init
@@ -22,6 +18,12 @@ allowed-tools:
 **Used by:** human — one-time at plugin install.
 
 # ideas-funnel:init
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> One-time bootstrap for the ideas-funnel plugin. Creates the user config directory, writes a starter domain YAML if none exist, verifies the vault has the required scaffold (Raw/Inbox, Domains/, _meta/, CRITICAL_FACTS.md), appends the v2 schema extension to wiki-schema.md if not already present, registers the singleton daily pipeline cron via ideas-funnel:schedule, and prints a next-steps checklist. Trigger phrases: "init ideas-funnel", "bootstrap the funnel", "/ideas-funnel:init".
 
 Idempotent bootstrap. Safe to run every session; only creates what's missing.
 

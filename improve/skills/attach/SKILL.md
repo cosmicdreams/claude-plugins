@@ -1,11 +1,9 @@
 ---
 name: attach
 description: >
-  Map the topology of a process — discover which files, agents, skills, hooks, crons, and
-  configurations constitute it. Produces a topology map that other improve skills use to
-  know where to make changes. Use when first engaging with a process, when asked to
-  "attach to" or "map" a process, or when you need to understand what a process consists of.
-  Do NOT use for making changes — use improve:fix for that.
+  Map the topology of a process — which files, agents, skills, hooks, crons, and configs
+  constitute it — producing the map other improve skills use to know where to change
+  things. Not for making changes (improve:fix).
 triggers:
   - "attach to"
   - "map this process"
@@ -14,6 +12,12 @@ triggers:
 ---
 
 # Attach: Map Process Topology
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Map the topology of a process — discover which files, agents, skills, hooks, crons, and configurations constitute it. Produces a topology map that other improve skills use to know where to make changes. Use when first engaging with a process, when asked to "attach to" or "map" a process, or when you need to understand what a process consists of. Do NOT use for making changes — use improve:fix for that.
 
 Discover and map the constituent parts of a process before improving it.
 

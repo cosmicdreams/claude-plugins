@@ -1,6 +1,9 @@
 ---
 name: update-plugins
-description: Reinstalls all locally installed CLAUDE-PLUGINS plugins to their latest versions and updates any hardcoded version paths in the project CLAUDE.md. Use when the user says "update plugins", "update my plugins", "get latest plugins", "refresh plugins", "plugin update", or after a plugin version bump to propagate changes. NOT for updating npm/pip/composer packages or for bumping plugin versions (use admin:bump-version for that).
+description: >
+  Reinstall every locally installed CLAUDE-PLUGINS plugin at its latest version and update
+  hardcoded version paths in CLAUDE.md. Run after a version bump. Not for npm, pip, or
+  composer packages.
 triggers:
   - "update plugins"
   - "update my plugins"
@@ -12,6 +15,12 @@ allowed-tools: Bash
 ---
 
 # Update Plugins
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Reinstalls all locally installed CLAUDE-PLUGINS plugins to their latest versions and updates any hardcoded version paths in the project CLAUDE.md. Use when the user says "update plugins", "update my plugins", "get latest plugins", "refresh plugins", "plugin update", or after a plugin version bump to propagate changes. NOT for updating npm/pip/composer packages or for bumping plugin versions (use admin:bump-version for that).
 
 Update all installed local marketplace plugins and fix stale version paths in CLAUDE.md.
 

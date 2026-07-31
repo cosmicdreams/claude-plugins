@@ -1,14 +1,10 @@
 ---
 name: compare
 description: >
-  Use this skill for structured comparison and analysis tasks: comparing two or more options
-  (tools, libraries, approaches, architectures), choosing between alternatives, or evaluating
-  completeness of a plan or design. Invoke when the user asks to compare, choose between,
-  evaluate, or analyze options — or when they ask what's missing, overlooked, or incomplete
-  in something they've built or proposed. Runs one of three analysis strategies: gap (what's
-  missing from a design or plan), fit (which option matches a specific context or team), or
-  trade-off (what you gain or lose with each choice). Do NOT use for brainstorming new ideas,
-  explaining concepts, fixing bugs, or general research.
+  Structured comparison of two or more options, or evaluation of how complete a plan or
+  design is. Runs one of three strategies: gap (what is missing), fit (which option suits
+  this context), trade-off (what each choice costs). Not for generating new ideas or
+  general research.
 triggers:
   - "compare"
   - "compare these options"
@@ -33,6 +29,12 @@ allowed-tools: Read, WebFetch, Bash, AskUserQuestion
 ---
 
 # compare
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Use this skill for structured comparison and analysis tasks: comparing two or more options (tools, libraries, approaches, architectures), choosing between alternatives, or evaluating completeness of a plan or design. Invoke when the user asks to compare, choose between, evaluate, or analyze options — or when they ask what's missing, overlooked, or incomplete in something they've built or proposed. Runs one of three analysis strategies: gap (what's missing from a design or plan), fit (which option matches a specific context or team), or trade-off (what you gain or lose with each choice). Do NOT use for brainstorming new ideas, explaining concepts, fixing bugs, or general research.
 
 Three strategies: **gap**, **fit**, **trade-off**. Auto-detect from user language; surface the detected strategy before proceeding.
 

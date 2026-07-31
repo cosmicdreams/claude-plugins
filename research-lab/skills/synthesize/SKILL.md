@@ -1,14 +1,10 @@
 ---
 name: synthesize
 description: >
-  Combine digested material into a formed thing — a position write-up, a decision table, ranked
-  hypotheses, or a generated artifact (NotebookLM report / data-table / mind-map). The hinge of
-  the research arc: everything before it digests existing information; this is where you commit to
-  a claim. Audience is insiders who already share your context (contrast teach, which is for
-  outsiders). Non-terminal by design — re-runnable after interrogate returns a rejection. Say
-  "synthesize this", "form a position", "write up the findings", "make a decision table", or
-  "research-lab:synthesize". Needs digested input plus a question to answer; if you only have raw
-  sources, run understand first.
+  The hinge of the research arc — commit to a claim. Combine digested material into a
+  position write-up, decision table, ranked hypotheses, or generated artifact. Written for
+  insiders who share your context. Re-runnable after interrogate rejects. Needs digested
+  input; from raw sources run understand first.
 triggers:
   - "synthesize this"
   - "form a position"
@@ -22,6 +18,12 @@ allowed-tools: Bash, Read, Write
 ---
 
 # Synthesize
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Combine digested material into a formed thing — a position write-up, a decision table, ranked hypotheses, or a generated artifact (NotebookLM report / data-table / mind-map). The hinge of the research arc: everything before it digests existing information; this is where you commit to a claim. Audience is insiders who already share your context (contrast teach, which is for outsiders). Non-terminal by design — re-runnable after interrogate returns a rejection. Say "synthesize this", "form a position", "write up the findings", "make a decision table", or "research-lab:synthesize". Needs digested input plus a question to answer; if you only have raw sources, run understand first.
 
 Combine digested input into a **formed thing**. The **hinge** of the research arc: everything to
 its left digests existing information; `synthesize` is where you commit to a claim or produce an

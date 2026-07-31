@@ -1,16 +1,17 @@
 ---
 name: personal-calendar
 description: >
-  Manage personal Google Calendar via the Google Workspace CLI (gws). Use when the user
-  asks about calendar events, upcoming meetings, their schedule, availability, free/busy
-  time, or wants to create a meeting. Trigger phrases: "what's on my calendar",
-  "upcoming meetings", "check availability", "am I free", "create meeting",
-  "schedule event", "what do I have today", "block time", "do I have any conflicts",
-  "when is my next meeting", "what meetings do I have this week".
-  Do NOT trigger for email tasks — use workshop:personal-email for that.
+  Personal Google Calendar via the gws CLI — schedule, upcoming meetings, availability and
+  free/busy, conflicts, creating events. Not for email (workshop:personal-email).
 ---
 
 # workshop:personal-calendar
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Manage personal Google Calendar via the Google Workspace CLI (gws). Use when the user asks about calendar events, upcoming meetings, their schedule, availability, free/busy time, or wants to create a meeting. Trigger phrases: "what's on my calendar", "upcoming meetings", "check availability", "am I free", "create meeting", "schedule event", "what do I have today", "block time", "do I have any conflicts", "when is my next meeting", "what meetings do I have this week". Do NOT trigger for email tasks — use workshop:personal-email for that.
 
 Manage personal Google Calendar via `gws`.
 

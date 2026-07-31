@@ -1,10 +1,8 @@
 ---
 name: admin:package
 description: >
-  Build Desktop-distributable .zip archives for one or all plugins. Use when the user says
-  "package plugin", "build plugin for desktop", "create plugin zip", "package for Claude Desktop",
-  or "distribute plugin". Output lands in dist/ at the repo root. Run after admin:bump-version
-  before distributing a new release.
+  Build Desktop-distributable .zip archives for one or all plugins into dist/. Run after
+  admin:bump-version when preparing a release.
 triggers:
   - "package plugin"
   - "build plugin"
@@ -15,6 +13,12 @@ allowed-tools: Bash
 ---
 
 # admin:package — Build Desktop Archives
+
+## When to use
+
+Full routing detail, kept out of the always-loaded skill listing:
+
+> Build Desktop-distributable .zip archives for one or all plugins. Use when the user says "package plugin", "build plugin for desktop", "create plugin zip", "package for Claude Desktop", or "distribute plugin". Output lands in dist/ at the repo root. Run after admin:bump-version before distributing a new release.
 
 Produces `.zip` archives distributable via Claude Desktop Personal Plugins upload.
 
