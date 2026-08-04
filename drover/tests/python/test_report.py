@@ -8,6 +8,7 @@ import sys
 import tempfile
 import unittest
 from datetime import date
+from unittest import mock
 
 HERE = pathlib.Path(__file__).resolve()
 SCRIPTS = HERE.parents[2] / "scripts"
@@ -64,6 +65,41 @@ def _make_project(td: pathlib.Path, *, project_name: str = "pncb"):
     }))
 
 
+def _group(fingerprint, source, count, *, channel=None, summary=None):
+    return {
+        "fingerprint": fingerprint,
+        "source": source,
+        "channel": channel or source,
+        "severity": "error",
+        "severities": {"error": count},
+        "count": count,
+        "first_seen": "2026-04-15T00:00:00+00:00",
+        "last_seen": "2026-04-15T00:01:00+00:00",
+        "samples": [summary or fingerprint],
+        "summary": summary or fingerprint,
+        "days": {"2026-04-15": count},
+    }
+
+
+def _mixed_aggregate():
+    return {
+        "metadata": {},
+        "events_total": 580,
+        "groups": [
+            _group("php-noise", "php", 500, summary="PHP frame noise"),
+            _group("watchdog-actionable", "watchdog", 60,
+                   summary="Actionable watchdog failure"),
+            _group("apache-actionable", "apache", 20,
+                   summary="Actionable Apache failure"),
+        ],
+        "by_severity": {"error": 580},
+        "by_channel": {"php": 500, "watchdog": 60, "apache": 20},
+        "by_day": {
+            "2026-04-15": {"total": 580, "severities": {"error": 580}},
+        },
+    }
+
+
 # --- Date helpers ---------------------------------------------------------
 
 class MonthHelpersTests(unittest.TestCase):
@@ -114,6 +150,28 @@ class FormatTests(unittest.TestCase):
 # --- generate_report end-to-end (no AI) ---------------------------------
 
 class GenerateReportTests(unittest.TestCase):
+    def test_mixed_sources_keep_php_supplementary_and_out_of_tickets(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            with mock.patch.object(
+                report._aggregate, "aggregate_files",
+                return_value=_mixed_aggregate(),
+            ):
+                md, summary, tickets = report.generate_report(
+                    root, env="prod", month="2026-04",
+                    template="root-cause-summary", prior_month_str=None,
+                )
+
+            self.assertEqual(summary["groups_total"], 2)
+            self.assertEqual(summary["supplementary_groups_total"], 1)
+            self.assertEqual([t.fingerprint for t in tickets],
+                             ["watchdog-actionable"])
+            self.assertIn("Supplementary detail (php-error)", md)
+            self.assertIn("PHP frame noise", md)
+            self.assertIn("top 2 issues account for 13.8%", md)
+            self.assertIn("Pareto cut: **2** fingerprints make up 14%", md)
+
     def test_monthly_client_renders(self):
         with tempfile.TemporaryDirectory() as td:
             root = pathlib.Path(td)
@@ -300,6 +358,62 @@ class CalendarBoundaryTests(unittest.TestCase):
             self.assertIn("Recommended JIRA tickets", md)
 
 
+class SupplementaryMarkdownTests(unittest.TestCase):
+    def _agg(self, with_supplementary=True):
+        agg = _mixed_aggregate()
+        agg["groups"] = agg["groups"][1:]
+        agg["supplementary_groups"] = (
+            [_mixed_aggregate()["groups"][0]] if with_supplementary else []
+        )
+        return agg
+
+    def test_stakeholder_renderers_show_supplementary_section_only_when_present(self):
+        coverage = {
+            "present_days": 1, "expected_days": 1,
+            "missing_or_failed": [],
+        }
+        renderers = (
+            report.render_monthly_client,
+            report.render_root_cause_summary,
+            report.render_calendar_boundary,
+        )
+        for renderer in renderers:
+            kwargs = {}
+            if renderer is not report.render_monthly_client:
+                kwargs["include_tickets"] = False
+            with self.subTest(renderer=renderer.__name__, supplementary=True):
+                md = renderer(
+                    self._agg(), project="pncb", env="prod",
+                    month_str="April 2026", coverage=coverage,
+                    has_prior=False, **kwargs,
+                )
+                self.assertIn("Supplementary detail (php-error)", md)
+                self.assertIn("PHP frame noise", md)
+            with self.subTest(renderer=renderer.__name__, supplementary=False):
+                md = renderer(
+                    self._agg(False), project="pncb", env="prod",
+                    month_str="April 2026", coverage=coverage,
+                    has_prior=False, **kwargs,
+                )
+                self.assertNotIn("Supplementary detail (php-error)", md)
+
+    def test_monthly_php_only_input_keeps_raw_total_and_supplementary_detail(self):
+        agg = _mixed_aggregate()
+        agg["events_total"] = 500
+        agg["groups"] = []
+        agg["supplementary_groups"] = [_mixed_aggregate()["groups"][0]]
+        md = report.render_monthly_client(
+            agg, project="pncb", env="prod", month_str="April 2026",
+            coverage={
+                "present_days": 1, "expected_days": 1,
+                "missing_or_failed": [],
+            },
+            has_prior=False,
+        )
+        self.assertIn("logged **500** application events", md)
+        self.assertIn("Supplementary detail (php-error)", md)
+
+
 def _make_busy_project(td: pathlib.Path):
     """Project fixture with enough events to cross the JIRA-recommendation
     min_count threshold (default 50)."""
@@ -398,9 +512,49 @@ class GenerateDataTests(unittest.TestCase):
             for key in (
                 "generated_at", "meta", "coverage", "totals",
                 "groups", "groups_collapsed", "disappeared_from_prior",
-                "tickets",
+                "supplementary_groups", "tickets",
             ):
                 self.assertIn(key, data)
+
+    def test_mixed_sources_split_schema_and_ticket_ranking(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            with mock.patch.object(
+                report._aggregate, "aggregate_files",
+                return_value=_mixed_aggregate(),
+            ):
+                data = self._data(root)
+
+            self.assertEqual(data["drover_schema_version"], 2)
+            self.assertEqual(
+                [g["source"] for g in data["groups"]],
+                ["watchdog", "apache"],
+            )
+            self.assertEqual(
+                [g["source"] for g in data["supplementary_groups"]],
+                ["php"],
+            )
+            self.assertEqual(data["totals"]["events_total"], 580)
+            self.assertEqual(data["totals"]["groups_total"], 2)
+            self.assertEqual(data["totals"]["by_severity"], {"error": 580})
+            self.assertEqual(
+                data["totals"]["by_channel"],
+                {"php": 500, "watchdog": 60, "apache": 20},
+            )
+            self.assertEqual(
+                data["totals"]["by_day"],
+                {"2026-04-15": {
+                    "total": 580, "severities": {"error": 580},
+                }},
+            )
+            self.assertEqual(
+                data["totals"]["supplementary_groups_total"], 1,
+            )
+            self.assertEqual(
+                [ticket["fingerprint"] for ticket in data["tickets"]],
+                ["watchdog-actionable"],
+            )
 
     def test_totals_match_generate_report(self):
         with tempfile.TemporaryDirectory() as td:

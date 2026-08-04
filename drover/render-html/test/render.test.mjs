@@ -11,6 +11,7 @@ import { fileURLToPath } from "node:url";
 const HERE = dirname(fileURLToPath(import.meta.url));
 const FIXTURE = resolve(HERE, "fixtures", "sample.json");
 const FIXTURE_LOW = resolve(HERE, "fixtures", "low-coverage.json");
+const FIXTURE_SUPPLEMENTARY = resolve(HERE, "fixtures", "supplementary.json");
 
 const { run } = await import("../render-core.mjs");
 
@@ -81,6 +82,34 @@ test("renders calendar-boundary template cleanly", () => {
   assert.match(html, /data-type="channel"/);
   assert.match(html, /data-type="severity"/);
   assert.match(html, /data-type="daily"/);
+});
+
+test("stakeholder templates render supplementary php detail without ranking it", () => {
+  for (const template of [
+    "monthly-client", "root-cause-summary", "calendar-boundary",
+  ]) {
+    const html = renderToTmp(["--template", template], FIXTURE_SUPPLEMENTARY);
+    assert.match(html, /Supplementary detail \(php-error\)/);
+    assert.match(html, /PHP frame noise/);
+    assert.match(html, /Actionable watchdog failure/);
+    assert.ok(
+      !/Top issues this month[\s\S]*PHP frame noise[\s\S]*Supplementary detail/.test(html),
+      `${template} must not rank the php group among top issues`,
+    );
+    if (template === "root-cause-summary") {
+      assert.match(html, /top 1 issues account for 9\.1%/i);
+      assert.match(html, /Pareto cut:[\s\S]*1[\s\S]*9%/i);
+    }
+  }
+});
+
+test("older schema without supplementary groups omits the section", () => {
+  for (const template of [
+    "monthly-client", "root-cause-summary", "calendar-boundary",
+  ]) {
+    const html = renderToTmp(["--template", template], FIXTURE);
+    assert.doesNotMatch(html, /Supplementary detail \(php-error\)/);
+  }
 });
 
 test("renders triage-brief template cleanly", () => {

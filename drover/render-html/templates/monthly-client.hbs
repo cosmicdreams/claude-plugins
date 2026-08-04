@@ -77,6 +77,10 @@
     {{/each}}
     {{/if}}
 
+    {{#if supplementaryGroups.length}}
+    {{> supplementary-detail groups=supplementaryGroups}}
+    {{/if}}
+
   </main>
 
   {{> report-footer
