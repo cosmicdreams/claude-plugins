@@ -1,5 +1,51 @@
 # research-lab Changelog
 
+## 4.0.0 — 2026-08-14 — Migrate from the retired `notebooklm` CLI to `nlm`
+
+**Breaking — requires a new tool install.** The upstream `notebooklm` CLI (pipx package
+`notebooklm-py`, repo `jacob-bd/notebooklm-cli`) was archived on 2026-06-26 and merged into
+NotebookLM MCP CLI. Its login flow no longer works, so every NotebookLM-backed skill was dead
+until this change.
+
+Migrate with:
+```bash
+uv tool install notebooklm-mcp-cli   # provides `nlm` and `notebooklm-mcp`
+nlm login
+research-lab/scripts/install-notebooklm-shim.sh   # removes notebooklm-py, leaves a guard
+```
+
+### Changed
+- All five `notebook-*.sh` wrappers now call `nlm`. **Their command-line interfaces are
+  unchanged**, so skills, agents, and `gather-facets.js` that call the wrappers did not need
+  rewriting — only files that shelled out to `notebooklm` directly.
+- The CLI went verb-first → noun-first, and the notebook id moved from `-n <id>` to a
+  **positional** argument. The sole exception is `research start`, where the positional slot
+  holds the query so the notebook stays on `-n/--notebook-id`.
+- `notebook-ask.sh`: `notebooklm ask` → `nlm notebook query`. `--save-as-note` no longer exists
+  as a query flag, so the script now performs a second `nlm note create` call itself. Repeated
+  `-s SOURCE_ID` flags are collapsed into one comma-joined `--source-ids`.
+- `notebook-dedup.sh`: source deletion is `--confirm`, not `--yes`, and no longer needs the
+  notebook id.
+- `notebook-setup.sh`: `source add-research` → `research start`; `--import-all` → `--auto-import`.
+  Notebook-id parsing is now a recursive search rather than two pinned JSON shapes.
+- `notebook-preflight.sh`: drops the pipx/Playwright injection (the new tool manages its own
+  browser auth) in favour of `nlm login --check`.
+- `notebook-postflight.sh`: prefers the tool's own staleness self-report from `nlm --version`,
+  falling back to PyPI only when that says nothing useful.
+- `gather/references/notebooklm-cli.md` → `gather/references/nlm-cli.md`, rewritten against the
+  installed binary's `nlm --ai` output.
+
+### Added
+- `notebook-research-wait.sh` — replaces the retired single-call
+  `notebooklm research wait --import-all`, which `nlm` splits into `research status` (poll) and
+  `research import` (commit). Defaults to a 15-minute wait; the task id auto-detects.
+- `notebooklm-retired-shim.sh` + `install-notebooklm-shim.sh` — uninstall the archived package and
+  leave a guard at `~/.local/bin/notebooklm` that prints the full command mapping and exits 127,
+  so stale muscle memory fails loudly instead of as an authentication error.
+
+### Verified against
+`nlm` 0.9.11. Command surface confirmed by probing the installed binary, not from documentation.
+
 ## 3.0.1 — 2026-06-12 — NotebookLM CLI v0.7.x refresh
 
 Reviewed the NotebookLM-backed skills against the upstream `notebooklm-py` CLI, which moved from

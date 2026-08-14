@@ -80,9 +80,10 @@ Build the tree as you explore. Each branch has an identifier, a label, a status 
 `open`, `blocked`, or `deferred`), optional dependencies, and notes. Maintain the tree as internal
 state throughout the session — it guides what to explore next.
 
-When a notebook id is in play, `notebooklm generate mind-map -n NOTEBOOK_ID --kind note-backed` gives
-a parseable JSON decomposition (`{mind_map, note_id, kind}`) to seed the tree — use `--kind
-note-backed`, not the default interactive Studio map, when you need to *read* the structure.
+When a notebook id is in play, `nlm notebook describe NOTEBOOK_ID --json` gives a parseable summary
+with suggested topics to seed the tree. `nlm mindmap create NOTEBOOK_ID --confirm` builds a Studio
+mind map, but it is a visual artifact — there is no `--kind note-backed` equivalent to the retired
+CLI's readable JSON decomposition, so prefer `describe` when you need structure you can *parse*.
 
 Resolve dependencies first, work outward, and do not leave branches unexplored without naming the
 deferral.
@@ -99,7 +100,7 @@ the user correct you.
 **2. Explore and decompose.** Do your own homework before engaging the user in back-and-forth:
 
 - **Plan / pasted text / file:** read it in full; trace claims and structure.
-- **Notebook id:** read it back; `generate mind-map --kind note-backed` gives a free, parseable structural decomposition.
+- **Notebook id:** read it back; `nlm notebook describe <id> --json` gives a free, parseable structural decomposition.
 - **System or codebase:** read relevant code, configs, docs; trace data flows.
 
 Fan-out to parallel subagents only when independently explorable facets benefit from concurrent
@@ -135,9 +136,10 @@ into the record. Use this structure as a guide, adapt to what was actually discu
 
 **6. Store the record.**
 
-- **Notebook** — co-locate with sources using `note create` (content piped via `--content -`):
+- **Notebook** — co-locate with sources using `note create`. `nlm` takes the notebook id
+  positionally and `--content` as a string, with no stdin form, so read the file in:
   ```bash
-  notebooklm note create -n NOTEBOOK_ID -t "Understanding: TARGET" --content - < /tmp/understanding.md
+  nlm note create NOTEBOOK_ID --title "Understanding: TARGET" --content "$(cat /tmp/understanding.md)"
   ```
 - **Vault** — hand to `lib:vault-store`, which owns Obsidian placement.
 

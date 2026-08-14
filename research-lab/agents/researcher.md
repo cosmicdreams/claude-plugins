@@ -25,8 +25,9 @@ When handed a notebook ID and one specific facet:
 
 **NotebookLM interaction:**
 - Use `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-ask.sh` for all notebook queries
-- Read `${CLAUDE_PLUGIN_ROOT}/skills/gather/references/notebooklm-cli.md` for the full command reference
-- CLI uses `--key value` syntax (NOT `key=value`)
+- Read `${CLAUDE_PLUGIN_ROOT}/skills/gather/references/nlm-cli.md` for the full command reference
+- The CLI is `nlm`. It uses `--key value` syntax (NOT `key=value`), and the notebook id is
+  POSITIONAL — `nlm notebook query <id> "question"`, not `-n <id>`
 - Use `--json` where available for parseable output
 
 **Output:** structured markdown with clear sections; cite sources; distinguish established

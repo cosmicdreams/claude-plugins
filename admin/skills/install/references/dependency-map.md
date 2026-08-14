@@ -197,11 +197,13 @@ mounted or passed explicitly.
 
 | Dependency | macOS | Linux sandbox | Auth |
 |---|---|---|---|
-| notebooklm CLI | Custom install (check project scripts) | Custom install (check project scripts) | Requires Google auth |
+| `nlm` (NotebookLM MCP CLI) | `uv tool install notebooklm-mcp-cli` | `uv tool install notebooklm-mcp-cli` | Requires Google auth via `nlm login` |
 | python3 | Pre-installed | Pre-installed | — |
 
-**Note:** The notebooklm CLI is a custom/internal tool. Check
-`${CLAUDE_PLUGIN_ROOT}/scripts/` for install instructions.
+**Note:** `nlm` ships in the `notebooklm-mcp-cli` package (also provides the `notebooklm-mcp` Model
+Context Protocol server). Auth is a one-time interactive browser login; cookies last ~2-4 weeks.
+The predecessor `notebooklm` CLI (package `notebooklm-py`) was archived upstream 2026-06-26 and no
+longer authenticates — do not install it.
 
 ---
 
@@ -257,7 +259,7 @@ Note: self-installs on first run — no upfront install needed.
 | drush | Via DDEV (`ddev drush`) | ⊘ Needs DDEV | — |
 | git | Pre-installed | Pre-installed | — |
 | python3 | Pre-installed | Pre-installed | — |
-| notebooklm CLI | See research-lab:gather | See research-lab:gather | — |
+| `nlm` (NotebookLM MCP CLI) | See research-lab:gather | See research-lab:gather | — |
 | agent-slack | `npm i -g agent-slack` | `npm i -g agent-slack` | See deploy-post |
 
 **Linux sandbox note:** drupal-lab:optimize requires a full Drupal + DDEV environment.

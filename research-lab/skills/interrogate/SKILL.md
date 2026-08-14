@@ -33,7 +33,7 @@ proves a claim is *right*; `interrogate` tries to prove it *wrong* and reports w
 must refute on facts, and has a submission gate.
 
 **Stance:** hostile reviewer — "assume it's wrong; build the case against it."
-**Notebook persona (if a notebook is in play):** `notebooklm configure --persona "skeptical examiner; cite or reject"`.
+**Notebook persona (if a notebook is in play):** `nlm chat configure NOTEBOOK_ID --goal custom --prompt "skeptical examiner; cite or reject"`.
 
 ---
 

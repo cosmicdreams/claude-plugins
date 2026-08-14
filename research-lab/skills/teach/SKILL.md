@@ -29,7 +29,7 @@ Make a formed, hardened claim land with an outside audience. **The back** of the
 **The test is the spine; the materials are the deliverable; the spine certifies the deliverable.**
 
 **Stance:** learner — play the naive student who won't accept jargon and has none of your context.
-**Notebook persona:** `notebooklm configure --mode learning-guide`.
+**Notebook persona:** `nlm chat configure NOTEBOOK_ID --goal learning_guide`.
 **Audience:** outsiders — every artifact must **supply** context, never assume it.
 
 ---
@@ -53,14 +53,18 @@ The **named audience** is part of the contract, not optional — the whole verb 
 
 Produce the artifact that fits the audience and channel. Prefer NotebookLM's native generators:
 
+Each generator is its own top-level command and needs `--confirm` (they cost quota):
+
 ```bash
-notebooklm generate report -n NOTEBOOK_ID --format briefing-doc   # product manager briefing
-notebooklm generate slide-deck -n NOTEBOOK_ID                     # stakeholder meeting
-notebooklm generate revise-slide -n NOTEBOOK_ID "<change>"        # iterate a deck slide
-notebooklm generate audio -n NOTEBOOK_ID                          # async consumption
-notebooklm generate infographic -n NOTEBOOK_ID                    # exec one-pager
-notebooklm generate flashcards -n NOTEBOOK_ID                     # secondary comprehension probe
+nlm report create NOTEBOOK_ID --format "Briefing Doc" --confirm   # product manager briefing
+nlm slides create NOTEBOOK_ID --confirm                           # stakeholder meeting
+nlm slides revise ARTIFACT_ID --slide '1 <change>' --confirm      # iterate a deck slide (takes the ARTIFACT id)
+nlm audio create NOTEBOOK_ID --confirm                            # async consumption
+nlm infographic create NOTEBOOK_ID --confirm                      # exec one-pager
+nlm flashcards create NOTEBOOK_ID --confirm                       # secondary comprehension probe
 ```
+
+Report formats: `"Briefing Doc"`, `"Study Guide"`, `"Blog Post"`, `"Create Your Own"` (with `--prompt`).
 
 | Audience / channel | Artifact |
 |---|---|
@@ -69,8 +73,9 @@ notebooklm generate flashcards -n NOTEBOOK_ID                     # secondary co
 | async / commute | audio overview |
 | exec one-pager | infographic |
 
-If a Studio generator (audio/video/slide-deck/infographic) fails server-side, re-run it in place with
-`notebooklm artifact retry ARTIFACT_ID -n NOTEBOOK_ID --wait` rather than regenerating from scratch.
+If a Studio generator (audio/video/slides/infographic) fails server-side, check what state it is in
+with `nlm studio status NOTEBOOK_ID --json` before spending quota again. `nlm` exposes no in-place
+retry equivalent to the retired `artifact retry`, so a genuinely failed artifact has to be re-created.
 
 When there is no notebook, produce the artifact from the material directly as prose or markdown.
 
@@ -80,8 +85,8 @@ When there is no notebook, produce the artifact from the material directly as pr
 
 Build 3–5 comprehension questions and reference answers from the material (not invented):
 
-- **Notebook in play:** `notebooklm generate quiz -n NOTEBOOK_ID --difficulty medium` — parse into
-  `[{q, answer}]`.
+- **Notebook in play:** `nlm quiz create NOTEBOOK_ID --count 5 --difficulty 3 --confirm` — parse into
+  `[{q, answer}]`. Difficulty is now numeric, not a `medium`-style word.
 - **No notebook:** write questions directly from the material into the same `[{q, answer}]` shape.
 
 ---
@@ -128,4 +133,4 @@ explanation leaked your context.
 
 - **If the gate keeps returning `revise`** → `research-lab:interrogate` to re-check the claim, or
   `research-lab:synthesize` to reshape it.
-- **To publish the engagement notebook:** `notebooklm share public -n NOTEBOOK_ID --enable`
+- **To publish the engagement notebook:** `nlm share public NOTEBOOK_ID`
