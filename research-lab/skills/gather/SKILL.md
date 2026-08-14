@@ -25,11 +25,11 @@ research arc (`frame → gather → understand → synthesize → interrogate �
 it brings material *in*. It does not digest that material — that is `understand`.
 
 **Stance:** librarian — comprehensive collection, then ruthless curation.
-**Notebook persona:** `notebooklm configure --mode default`.
+**Notebook persona:** `nlm chat configure NOTEBOOK_ID --goal default` (per-notebook, set after creation).
 
-**NotebookLM CLI reference:** `${CLAUDE_PLUGIN_ROOT}/skills/gather/references/notebooklm-cli.md`
+**NotebookLM CLI reference:** `${CLAUDE_PLUGIN_ROOT}/skills/gather/references/nlm-cli.md`
 **NotebookLM scripts:** `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-*.sh` — use these instead of calling
-`notebooklm` directly; they encode correct CLI syntax and retry degraded answers.
+`nlm` directly; they encode correct CLI syntax and retry degraded answers.
 
 ---
 
@@ -50,8 +50,8 @@ Run the dependency preflight (passive, never blocks):
 bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-preflight.sh
 ```
 
-- `auth: EXPIRED` → tell the user to run `notebooklm login` once, then continue.
-- Auto-fixes Playwright when the CLI is pipx-managed; surface anything that needs user action.
+- `auth: EXPIRED` → tell the user to run `nlm login` once, then continue. Cookies last ~2-4 weeks.
+- `nlm CLI: MISSING` → `uv tool install notebooklm-mcp-cli`. Surface anything that needs user action.
 
 ---
 
@@ -62,7 +62,7 @@ Extract: `topic`, `seed_urls`, `focus`, and optionally an existing `notebook_id`
 Before creating a new notebook, check whether one already exists for the domain:
 
 ```bash
-notebooklm list 2>/dev/null | grep -i "<topic keywords>"
+nlm notebook list 2>/dev/null | grep -i "<topic keywords>"
 ```
 
 If an existing notebook covers the same domain, reuse it — add project-specific URLs as new sources.
@@ -91,10 +91,11 @@ Deep research takes 15–30 minutes. Run as a **background Bash task** (`run_in_
 the harness re-invokes on completion:
 
 ```bash
-notebooklm research wait --import-all -n NOTEBOOK_ID
+bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-research-wait.sh NOTEBOOK_ID
 ```
 
-`--import-all` belongs on the `research wait`, not the `--no-wait` that fired it.
+`nlm` splits waiting and importing into two calls (`research status` then `research import`); the
+wrapper does both and auto-detects the task id. Do not hand-roll it.
 
 ---
 
@@ -108,8 +109,8 @@ bash ${CLAUDE_PLUGIN_ROOT}/scripts/notebook-dedup.sh NOTEBOOK_ID --apply
 Relevance prune — list sources, propose cuts grouped by reason, user approves. Do not silently
 delete on relevance judgement:
 ```bash
-notebooklm source list -n NOTEBOOK_ID --json
-notebooklm source delete SOURCE_ID -n NOTEBOOK_ID --yes
+nlm source list NOTEBOOK_ID --json
+nlm source delete SOURCE_ID --confirm
 ```
 
 ---

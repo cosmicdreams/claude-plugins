@@ -8,25 +8,30 @@
 # Usage: notebook-postflight.sh
 
 say() { echo "[postflight] $*"; }
-command -v notebooklm >/dev/null 2>&1 || { say "notebooklm CLI not found; skipping."; exit 0; }
+command -v nlm >/dev/null 2>&1 || { say "nlm CLI not found; skipping."; exit 0; }
 
-cur=$(notebooklm --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
-latest=$(curl -s https://pypi.org/pypi/notebooklm-py/json 2>/dev/null \
-  | python3 -c "import json,sys; print(json.load(sys.stdin)['info']['version'])" 2>/dev/null)
+# `nlm --version` self-reports staleness ("You are on the latest version." or an
+# upgrade hint). Prefer the tool's own answer; only fall back to PyPI when it
+# says nothing useful, so the common path costs no network call.
+ver_out=$(nlm --version 2>/dev/null)
+cur=$(printf '%s' "$ver_out" | grep -oE '[0-9]+\.[0-9]+\.[0-9]+' | head -1)
 
-if [ -n "$cur" ] && [ -n "$latest" ] && [ "$cur" != "$latest" ]; then
-  say "version: you have $cur, latest is $latest → next time upgrade with: pipx install --force \"notebooklm-py[browser]==$latest\""
-elif [ -n "$cur" ]; then
-  say "version: $cur (up to date)"
+if printf '%s' "$ver_out" | grep -qi "latest version"; then
+  say "version: ${cur:-unknown} (up to date)"
+else
+  latest=$(curl -s https://pypi.org/pypi/notebooklm-mcp-cli/json 2>/dev/null \
+    | python3 -c "import json,sys; print(json.load(sys.stdin)['info']['version'])" 2>/dev/null)
+  if [ -n "$cur" ] && [ -n "$latest" ] && [ "$cur" != "$latest" ]; then
+    say "version: you have $cur, latest is $latest → next time upgrade with: uv tool upgrade notebooklm-mcp-cli"
+  elif [ -n "$cur" ]; then
+    say "version: $cur"
+  fi
 fi
 
-# Local-source install? pipx cannot see PyPI releases when installed from a path,
-# so 'pipx upgrade' silently does nothing — exactly the trap that wastes time.
-meta="$(pipx environment --value PIPX_LOCAL_VENVS 2>/dev/null)/notebooklm-py/pipx_metadata.json"
-if [ -f "$meta" ]; then
-  src=$(python3 -c "import json;print(json.load(open('$meta')).get('main_package',{}).get('package_or_url',''))" 2>/dev/null)
-  case "$src" in
-    /*|*"://"*) say "install source: '$src' is a LOCAL PATH — pipx can't track PyPI releases. To fix version management: pipx install --force \"notebooklm-py[browser]\"";;
-  esac
+# The retired CLI lingering on PATH is the most common source of confusion, so
+# say so at the end of every engagement until it is gone.
+if command -v notebooklm >/dev/null 2>&1 && ! head -c 200 "$(command -v notebooklm)" 2>/dev/null | grep -q "RETIRED"; then
+  say "cleanup: the retired 'notebooklm' CLI is still installed — 'pipx uninstall notebooklm-py'"
 fi
+
 exit 0
