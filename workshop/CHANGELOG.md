@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.2.1
+- prioritize sweeps Slack unreads before the per-channel pass, so direct messages and unconfigured channels are no longer invisible. The configured list covers project support channels, but the time-sensitive asks arrive outside it.
+- prioritize ignores bot traffic when judging whether a channel is quiet. Automated senders dominated the raw mention counts while contributing nothing that needs a reply.
+- prioritize resolves relative dates in Slack messages against the send time before treating them as urgent. An old unread saying "due Monday" was otherwise indistinguishable from a live deadline.
+- Fixed the calendar step, which called two commands that do not exist in the installed gws build, so availability always silently degraded to unknown. Documented the working forms plus the fields projection that keeps event output small.
+- Calendar step now excludes transparent all-day events, so a birthday or anniversary no longer reads as a fully booked day.
+
 ## 2.2.0
 - prioritize now ranks committed work first: each Jira item is tagged sprint, release, or backlog, and issues assigned long ago but never planned into a sprint no longer outrank current commitments.
 - prioritize scopes its assigned-workload query per project. It previously ran unscoped, so jira-cli fell back to the single project in its config and reported one project as if it were the entire workload.

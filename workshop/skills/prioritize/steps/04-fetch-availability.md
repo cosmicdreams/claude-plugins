@@ -28,15 +28,29 @@ Circuit-breaker first (same pattern as the other integrations):
 "${CLAUDE_PLUGIN_ROOT}/scripts/check-integration.sh" gws || { echo "calendar unavailable"; }
 ```
 
-If OK, pull today's events and free/busy:
+If OK, pull today's events and free/busy. `START_ISO` = now, `END_ISO` = end of today, both
+with a local UTC offset (e.g. `2026-08-24T12:00:00-05:00`) — a bare timestamp is read as UTC and
+silently shifts the window.
 
 ```bash
-gws +agenda
-gws calendar freebusy query --json '{"timeMin":"START_ISO","timeMax":"END_ISO","items":[{"id":"primary"}]}'
+# Today's events. The fields projection matters: without it gws returns ~20 columns
+# per event (etag, iCalUID, reminders, htmlLink...) and floods the context.
+gws calendar events list --params '{"calendarId":"primary","timeMin":"START_ISO","timeMax":"END_ISO","singleEvents":true,"orderBy":"startTime","fields":"items(summary,start,end,transparency)"}' --format json
+
+# Busy blocks. Note --json (request body), NOT --params (query string).
+gws calendar freebusy query --json '{"timeMin":"START_ISO","timeMax":"END_ISO","items":[{"id":"primary"}]}' --format json
 ```
 
-Where `START_ISO` = now, `END_ISO` = end of today (local). Invert the busy blocks to get free
-windows. Compute:
+Command-shape gotchas, verified against the installed `gws`:
+  - There is no `gws +agenda`. gws rejects it with `Unknown service '+agenda'`. The helper
+    subcommands shown in `gws --help` are not available in this build; use the REST-shaped
+    `gws calendar events list` above.
+  - `freebusy` is not a top-level service either — it is `gws calendar freebusy query`.
+  - An all-day event with `"transparency": "transparent"` (birthdays, anniversaries, out-of-office
+    markers) does NOT consume working time. Exclude those before computing busy time, or a
+    personal all-day entry will read as a fully booked day.
+
+Invert the busy blocks to get free windows. Compute:
 
 - `free_hours_today` — total free time remaining today
 - `next_meeting` — title + start of the next event (or none)

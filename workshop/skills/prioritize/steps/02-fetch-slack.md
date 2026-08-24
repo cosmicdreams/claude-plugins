@@ -3,6 +3,26 @@
 Spawn one subagent per Slack channel, all simultaneously. Wait for all to return
 before proceeding to Jira fetch.
 
+## Before the per-channel fan-out: sweep unreads
+
+The configured channel list in `workshop.json` covers project support channels. It does
+NOT cover direct messages, group direct messages, or channels you were added to but never
+configured — and in practice that is where the time-sensitive asks arrive. Run one sweep
+first so those are not invisible:
+
+```bash
+agent-slack unreads --workspace {workspace_url}
+```
+
+Keep only entries with at least one message from a human author (no `bot_id`), then drop
+any whose `channel_name` is already in the configured list — those get a full per-channel
+pass below. What remains is direct messages and unconfigured channels; treat each as a
+Pass 2 (standing obligation) candidate and classify it the same way.
+
+This output is large and mostly automated noise. Summarize it per channel — name, type,
+human message count — before reading any message bodies, and only open the bodies for
+channels that still have human messages after filtering.
+
 ## Goal
 
 Surface Slack items that need your attention today — not just what's new, but
@@ -49,6 +69,18 @@ Scan these messages for unanswered questions or requests — messages that:
   - Request action ("please", "need", "can you", "when will") with no follow-up
   - Tag someone (including <@{YOUR_USER_ID}>) without a response in the thread
 Only include items from the last 48 hours that remain unanswered.
+
+**Ignore bot traffic.** Skip any message whose author carries a `bot_id`. Automated
+senders (security scanners, timesheet nags, Jira/GitHub relays, Donut) dominate the raw
+counts and never need a reply — on this account one scanner alone produced 210 mentions
+and zero human messages. A high `mention_count` is therefore not evidence of anything;
+count only messages with a human `user_id` when deciding whether a channel is quiet.
+
+**Resolve relative dates before trusting urgency.** An unread saying "they lock hours
+Monday" or "due tomorrow" is anchored to when it was SENT, not to now. Convert each
+message `ts` to a real date and compare against today before treating it as urgent — an
+old unread whose deadline has already passed is noise, not a top item, and it reads as
+maximally urgent if you skip this step.
 
 **Build priority items.** Each item has:
   - action: one of RESPOND, REVIEW, FYI
