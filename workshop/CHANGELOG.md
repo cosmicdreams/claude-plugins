@@ -1,5 +1,12 @@
 # Changelog
 
+## 2.2.0
+- prioritize now ranks committed work first: each Jira item is tagged sprint, release, or backlog, and issues assigned long ago but never planned into a sprint no longer outrank current commitments.
+- prioritize scopes its assigned-workload query per project. It previously ran unscoped, so jira-cli fell back to the single project in its config and reported one project as if it were the entire workload.
+- prioritize reports how many assigned issues sit in no sprint or release instead of dropping them, so unplanned work stays visible.
+- Items needing a reply or blocking someone else stay on the table regardless of sprint membership.
+- prioritize output is explicitly concise: the NEXT line and the table are the whole answer, overriding a verbose host output style.
+
 ## 2.1.0 — 2026-07-09 — Communication loop Stage 1
 
 - **sync** (new skill): idempotent reconcile of the work-event ledger from claude.ai connectors (Outlook, Calendar, Jira, Slack, Zoom-recap emails) plus local git. Per-source cursors advance only on complete passes; 30-day lookback cap; coverage record; envelope-only summaries with provenance tagging for untrusted text; read-only tool allowlist in frontmatter.
