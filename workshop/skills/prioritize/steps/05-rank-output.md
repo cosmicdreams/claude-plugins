@@ -96,6 +96,13 @@ or, when unchanged: `✓ PRIORITIZE {HH:MM} — top unchanged ({source})`
 
 ## Formatting rules
 
+- **Use the concise output style.** This skill's entire value is compressing a wide
+  signal sweep into something a low-focus person can act on. Do not restate the plan
+  in prose after the table, do not explain your gathering process, do not add a
+  closing summary. The `NEXT:` line and the table ARE the output. If the host sets a
+  verbose output style, this instruction still wins — a long day-plan defeats the
+  skill's purpose, because a wall of text is the activation paralysis it exists to
+  prevent.
 - **`NEXT:` always leads** in on-demand mode — one action, never a list.
 - **Table is the secondary view.** Numbered, action-tagged, one line each. Action column left-aligned, padded to 8, no emoji.
 - **Scope column**: `sprint`, `release`, `backlog`, or blank for Slack items. Padded to 8.
