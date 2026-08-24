@@ -12,7 +12,13 @@ Full schema for `~/.claude/workshop.json`.
     },
     "jira": {
       "servers": [
-        { "alias": "string", "url": "string", "default": true }
+        {
+          "name": "string",
+          "url": "string",
+          "projects": ["PROJECTKEY"],
+          "config_file": "default | path to a jira-cli config yml",
+          "default": true
+        }
       ]
     },
     "github": {
@@ -45,7 +51,10 @@ Full schema for `~/.claude/workshop.json`.
     }
   ],
   "prioritize": {
-    "weights": { "RESPOND": 100, "UNBLOCK": 80, "REVIEW": 40, "FYI": 10, "stale_bonus": 5 }
+    "weights": {
+      "RESPOND": 100, "UNBLOCK": 80, "REVIEW": 40, "FYI": 10, "stale_bonus": 5,
+      "scope": { "sprint": 30, "release": 20, "backlog": -30 }
+    }
   },
   "scout": {
     "sources": [
@@ -73,6 +82,21 @@ Full schema for `~/.claude/workshop.json`.
 ## Migration from office-pulse.json
 
 Legacy `~/.claude/office-pulse.json` fields map as follows:
+
+### Jira server fields
+
+| Field | Required | Notes |
+|---|---|---|
+| `name` | yes | Referenced by `projects[].jira`. The schema previously called this `alias`; the running config uses `name`. |
+| `url` | yes | Server base URL, for display only. |
+| `projects` | yes | Project keys to query. **Every jira-cli query must pass `--project`** — without it the CLI falls back to the single `project` key in its config file and silently reports one project as the whole workload. |
+| `config_file` | no | Path to a jira-cli config yml, or `"default"`. Set this for any server that is not the one jira-cli was initialized against; consumers export it as `JIRA_CONFIG_FILE`. A second server is unreachable without it. |
+
+Discovery hint: jira-cli configs live in `~/.config/.jira/`. The default is `.config.yml`;
+additional servers are conventionally `.config-<name>.yml`. Probe that directory rather than
+assuming a single server exists.
+
+### Legacy mapping
 
 | Legacy field | workshop.json location |
 |---|---|

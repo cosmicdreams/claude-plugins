@@ -4,6 +4,7 @@
 
 Combine slack_items and jira_items into a single list. Each item has:
 - `action`: RESPOND, UNBLOCK, REVIEW, or FYI
+- `scope`: "sprint", "release", or "backlog" (Jira items only; Slack items have none)
 - `source`: where it came from (e.g. "Velir #ahri-support", "velir AHRIPS-769")
 - `summary`: one-line description
 - `excerpt` or `detail`: supporting context
@@ -20,12 +21,32 @@ Base score by action tier:
 | REVIEW  | 40        |
 | FYI     | 10        |
 
+Then apply the **scope modifier**, which is the dominant signal for Jira items:
+
+| Scope     | Modifier | Meaning                                              |
+|-----------|----------|------------------------------------------------------|
+| sprint    | +30      | Committed in the current sprint                       |
+| release   | +20      | Attached to an unreleased fix version                 |
+| backlog   | −30      | Assigned but never planned into a sprint or release   |
+| (none)    | 0        | Slack items and anything without scope data           |
+
+The modifier is deliberately large enough to reorder across a tier: an in-sprint REVIEW
+(40+30=70) outranks a backlog UNBLOCK (80−30=50). That is the intent — planned work the
+team is counting on beats an old assignment nobody scheduled.
+
+**Guardrail:** never let the backlog penalty push a RESPOND or UNBLOCK item off the
+table entirely. Someone waiting on a reply, or work blocking another person, is a real
+obligation regardless of sprint membership. Apply the penalty to ordering only; these
+items still appear.
+
 - **Stale bonus:** `stale: true` → +5 within tier (forgotten work sorts above fresh FYI of the same tier).
-- Within the same tier and stale status, preserve subagent order (already recency/relevance-ranked).
+- Within the same tier, scope, and stale status, preserve subagent order (already recency/relevance-ranked).
 
 These weights are the **default ranking function**. They are intended to live in
 `workshop.json` under a `prioritize.weights` block so they can be tuned without editing this skill;
-if that block is present, use it, otherwise use the table above.
+if that block is present, use it, otherwise use the table above. The scope modifiers live
+under `prioritize.weights.scope` and can be tuned the same way — set them all to 0 to
+restore the old assignee-queue-only behavior.
 
 ## Choose the single NEXT action
 
@@ -46,12 +67,15 @@ NEXT → [{action}] {source}: {summary}
 
 ━━━ PRIORITIZE — {YYYY-MM-DD HH:MM} ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 
- #   Action    Source                  Summary
- 1   RESPOND   Velir #ahri-support     Unanswered question from @dev about tracking (2d ago)
- 2   UNBLOCK   velir AHRIPS-769        Blocked: waiting on API credentials from client
- 3   REVIEW    velir SPSX-536          Status changed: In Progress → Code Review
+ #   Action    Scope     Source                  Summary
+ 1   RESPOND   sprint    velir PPS-333           Client asked 4 questions on 7/01 — still unanswered
+ 2   UNBLOCK   sprint    velir AHRIPS-769        Blocked: waiting on credentials from client
+ 3   REVIEW    sprint    velir KDRRCPS-44        QA Rejected — 4 open questions before more code
+ 4   RESPOND   backlog   Velir #ahri-support     Unanswered question from @dev about tracking (2d ago)
  ...
 
+ Committed: 31 in sprint · 1 in unreleased version
+ Unplanned backlog: 46 assigned but in no sprint or release (22 Massport, 9 PNCB) — not ranked above
  Quiet: #pncb-support, #massport-support
  No items needing attention: KDRRCPS, PPS
  (work email/calendar: not connected)
@@ -72,11 +96,24 @@ or, when unchanged: `✓ PRIORITIZE {HH:MM} — top unchanged ({source})`
 
 ## Formatting rules
 
+- **Use the concise output style.** This skill's entire value is compressing a wide
+  signal sweep into something a low-focus person can act on. Do not restate the plan
+  in prose after the table, do not explain your gathering process, do not add a
+  closing summary. The `NEXT:` line and the table ARE the output. If the host sets a
+  verbose output style, this instruction still wins — a long day-plan defeats the
+  skill's purpose, because a wall of text is the activation paralysis it exists to
+  prevent.
 - **`NEXT:` always leads** in on-demand mode — one action, never a list.
 - **Table is the secondary view.** Numbered, action-tagged, one line each. Action column left-aligned, padded to 8, no emoji.
+- **Scope column**: `sprint`, `release`, `backlog`, or blank for Slack items. Padded to 8.
 - **Source column**: workspace+channel or server+issue key; truncate to 22 chars with ellipsis.
 - **Summary**: one sentence; weave the excerpt in. For stale items include the wait ("2d ago", "In Progress 8 days").
 - **Always print `(work email/calendar: not connected)`** while the Microsoft Graph slot is unconfigured, so the coverage gap stays visible.
+- **Committed line**: counts of sprint and release items, so the user sees the size of the real commitment.
+- **Unplanned backlog line**: total assigned issues in no sprint or release, with the worst
+  offending projects named. Print this whenever the count is non-zero — a large number here
+  is itself the finding (it means the assignee queue has drifted from what is planned), and
+  silently dropping those items would read as "you have nothing else on."
 - **Quiet line**: channels/projects with zero items needing attention.
 - **Error line**: config issues with actionable fix commands, prefixed ⚠.
 - **No items at all**: "Nothing needs your attention across any configured source. Clean slate."

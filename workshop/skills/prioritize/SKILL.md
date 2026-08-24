@@ -1,10 +1,11 @@
 ---
 name: prioritize
 description: >
-  Answer "what should I work on next?" on demand, at any hour. Combines overnight signals
-  (Slack, Jira), standing obligations (blocked issues you own, stale in-progress), and
-  today's calendar into one next action plus a ranked table. Read-only — never posts or
-  transitions.
+  Answer "what should I work on next?" on demand, at any hour. Prioritizes committed work —
+  issues in an open sprint or unreleased fix version — over stale assignments that were never
+  planned in. Combines overnight signals (Slack, Jira), standing obligations (blocked issues
+  you own, stale in-progress), and today's calendar into one next action plus a ranked table.
+  Read-only — never posts or transitions.
 triggers:
   - "workshop:prioritize"
   - "what should I work on"
@@ -30,6 +31,8 @@ Full routing detail, kept out of the always-loaded skill listing:
 Gather every signal that defines what's on your plate and rank it into **one clear next action**.
 
 **Lead with one action.** A wall of signals worsens activation paralysis; a single "do this next, here's why" is the antidote. Output opens with `NEXT:` — the full ranked table sits below for when you want the whole picture.
+
+**Committed work outranks the assignee queue.** An assignee queue accumulates tickets assigned years ago and never scheduled; ranking those alongside current sprint work buries what the team is actually waiting on. A scope pass tags every Jira item as `sprint`, `release`, or `backlog`, and scoring demotes `backlog`. Unplanned items are still counted and reported — never silently dropped — and a backlog item that is a direct RESPOND or UNBLOCK keeps its place, because someone waiting on you is an obligation regardless of sprint membership.
 
 **This is a read-only skill.** Never post to Slack, comment on Jira, transition statuses, or write to any external service.
 

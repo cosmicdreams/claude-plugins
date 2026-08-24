@@ -54,12 +54,32 @@ For each tool found, gather the details. Skip tools not present.
 
 **Slack** (if `agent-slack` is available): Ask which workspaces the user uses; which is the default. Parse into `integrations.slack.workspaces[]`.
 
-**Jira** (if `jira` is available): Auto-detect configured servers:
+**Jira** (if `jira` is available): Auto-detect **every** configured server, not just the default.
+jira-cli supports one server per config file, so a second Jira instance always means a second
+config file. Probe the whole directory:
 ```bash
-jira config list 2>/dev/null | grep -E "^server|^host" | head -10
-cat ~/.config/.jira/.config.yml 2>/dev/null | grep -E "server:|host:" | head -10
+ls ~/.config/.jira/*.yml 2>/dev/null
+for f in ~/.config/.jira/*.yml; do
+  echo "--- $f"
+  grep -E "^server:|^project:|^  key:" "$f" 2>/dev/null | head -5
+done
 ```
-Ask for any missing servers in format `alias=server.atlassian.net`. Parse into `integrations.jira.servers[]`.
+`.config.yml` is the default server; any `.config-<name>.yml` is an additional one.
+
+For each server found, record:
+- `name` — from the file suffix (`.config-acu.yml` → `acu`), or `velir`-style from the URL host for the default
+- `url` — the `server:` value
+- `config_file` — `"default"` for `.config.yml`, otherwise the full path
+- `projects` — ask the user which project keys they work in on that server; the config file's
+  own `project.key` is only the CLI default, not the full list
+
+Verify each server independently before writing it:
+```bash
+JIRA_CONFIG_FILE=<path> jira issue list -p<KEY> -q "assignee = currentUser()" --plain --no-headers 2>&1 | head -3
+```
+A server that fails here should still be written, with a note — the user needs to see it exists
+and is broken rather than have it silently missing. Omitting `config_file` is the common cause of
+a second server being invisible to `workshop:prioritize`.
 
 **GitHub** (if `gh` is authenticated): No further questions — `gh` uses the authenticated account automatically. Set `integrations.github.available: true`.
 
