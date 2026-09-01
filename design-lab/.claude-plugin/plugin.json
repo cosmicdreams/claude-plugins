@@ -1,6 +1,6 @@
 {
     "name": "design-lab",
-    "version": "0.6.0",
+    "version": "0.7.0",
     "description": "Build and maintain a Figma component library from a codebase. Pluggable component, token and usage sources \u2014 Site Studio, Single Directory Components, and others.",
     "author": {
         "name": "Chris Weber"

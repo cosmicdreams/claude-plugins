@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.7.0
+
+**`design-lab:verify`** — the missing step. Every skill in this plugin reported success on
+its own work, and the PNCB library still ended up with four empty Foundations pages, 36 of
+43 components never built, not one component carrying a documentation link, and sixteen
+semantic variables whose Dev Mode code syntax named CSS custom properties that exist nowhere
+in the codebase. Each step passed. Nothing looked at the whole.
+
+The rule it encodes: **an unmet expectation resolves to a fix or a recorded waiver, never to
+silence.** Waivers live in `waivers.json` with who decided, when and why, so declining
+something is durable rather than re-argued every run — and so the agent cannot quietly
+decide on the user's behalf.
+
+Twelve checks, every one of them derived from something that actually went wrong:
+
+| Check | Catches |
+|---|---|
+| `foundation-exists` | components built before variables |
+| `code-syntax-resolves` | Dev Mode names that exist nowhere in the codebase |
+| `components-built` | the plan said build, the file does not have it |
+| `variable-scoped` | `ALL_SCOPES` |
+| `code-syntax-set` | Dev Mode showing a bare number |
+| `modes-earn-themselves` | modes whose values never differ |
+| `documentation-links` | nothing leads from the Assets panel to the documentation |
+| `documentation-cards` | a component with no card |
+| `documentation-cards-unique` | two cards sharing a name |
+| `pages-populated` | an empty page |
+| `shot-frames-have-images` | a placeholder named like a capture |
+| `breakpoints-share-scale` | per-frame scaling that hides responsive behaviour |
+| `captures-unique` | two components whose selectors resolve to one element |
+
+`code-syntax-resolves` is the one worth having on its own. It greps every code syntax against
+the real codebase, and it degrades to a `minor` "not checked" finding rather than a pass when
+`--theme-root` is absent — a check that did not run is not a check that passed, and
+conflating the two is the whole failure this release exists to stop.
+
+First run against PNCB: 4 passed, 17 open, 0 waived.
+
 ## 0.6.0
 
 `figma-atlas` specified a *text card* per component — a handful of lines of canvas text. Run

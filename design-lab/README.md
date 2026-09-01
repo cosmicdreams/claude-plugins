@@ -42,6 +42,7 @@ Run them in this order. `detect` begins by looking for work that already exists 
 | `design-lab:figma-foundation` | variable collections, modes, scopes, code syntax. Once per file |
 | `design-lab:figma-component` | **one** component: variants, bindings, assertions, build record |
 | `design-lab:figma-atlas` | the searchable index page, plus what was not built |
+| `design-lab:verify` | **checks the whole file against the base expectations**; every gap ends as a fix or a recorded waiver |
 
 Extractors: `extract_sitestudio.py`, `extract_sdc.py`, `extract_paragraphs.py` (component
 sources), `extract_tokens_sitestudio.py`, `extract_tokens_sourcemap.py` and
@@ -54,6 +55,12 @@ Only the custom-property strategy can supply a semantic layer without a human na
 `figma-component` builds one component per invocation on purpose. A single run over 146
 components exhausts its context partway and leaves a half-built file with no record of where
 it stopped; one at a time is resumable, reviewable and can be fanned out.
+
+`verify` is the one that runs last and the one that should have existed first. Every other
+skill reports on its own step, so a library can pass all of them and still be half a
+library — which is exactly what happened on PNCB: four empty Foundations pages, 36 of 43
+components missing, no documentation links anywhere, and sixteen variables whose Dev Mode
+names existed nowhere in the codebase. Nothing was looking at the whole.
 
 Planned: `drift`.
 
