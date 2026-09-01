@@ -163,15 +163,32 @@ def crawl(urls, strategy, delay, base_host):
     return placements, examples, scanned, failed, rehosted
 
 
-def tier(n, counts):
-    """Coarse usage band. Thirds of the ranked distribution, not absolute thresholds -
-    a 43-component site and a 146-component site have very different absolute counts."""
-    if not counts:
-        return 'unknown'
-    ranked = sorted(counts, reverse=True)
-    hi = ranked[max(0, len(ranked) // 3 - 1)]
-    lo = ranked[max(0, (2 * len(ranked)) // 3 - 1)]
-    return 'high' if n >= hi else ('medium' if n >= lo else 'low')
+# The Figma file organises components by usage tier, and these are the thresholds that
+# organisation was built on. They are ABSOLUTE, not relative. An earlier version bucketed by
+# thirds of the ranked distribution, which is wrong twice over: on a lightly-used site it
+# still labels something "high", and it has no way to express the two categories that
+# actually matter for a library review - a component placed nowhere but referenced by other
+# components, and a component placed nowhere at all.
+TIER_PAGE = {
+    'high':            'Components — High Use',
+    'medium':          'Components — Medium Use',
+    'low':             'Components — Low Use',
+    'structural only': 'Components — Structural Only',
+    'unused':          'Components — Retirement Candidates',
+}
+
+
+def tier(placements, structural=0):
+    """Bucket a component for the Figma file organisation."""
+    if placements == 0 and structural == 0:
+        return 'unused'
+    if placements == 0 and structural > 0:
+        return 'structural only'
+    if placements >= 50:
+        return 'high'
+    if placements >= 10:
+        return 'medium'
+    return 'low'
 
 
 if __name__ == '__main__':
@@ -200,7 +217,8 @@ if __name__ == '__main__':
     usage = {}
     for name, n in placements.items():
         best = sorted(examples[name], key=lambda e: -e['instancesOnPage'])
-        usage[name] = {'placements': n, 'tier': tier(n, counts),
+        usage[name] = {'placements': n, 'tier': tier(n),
+                       'figmaPage': TIER_PAGE[tier(n)],
                        'examples': best[:a.examples_per_component]}
 
     doc = None
@@ -211,9 +229,19 @@ if __name__ == '__main__':
         unseen = sorted(known - set(usage))
         for c in doc['components']:
             u = usage.get(c['id'])
-            c['usage'] = u or {'placements': 0, 'tier': 'unobserved', 'examples': [],
-                               'note': 'not seen on any of the %d pages scanned - it may be '
-                                       'unused, or only on pages behind login' % scanned}
+            if u:
+                c['usage'] = u
+            else:
+                # structuralRefs, when the inventory recorded them, is what separates a
+                # component that other components use from one nobody uses at all.
+                st = (c.get('usage') or {}).get('structuralRefs') or 0
+                t = tier(0, st)
+                c['usage'] = {'placements': 0, 'structuralRefs': st, 'tier': t,
+                              'figmaPage': TIER_PAGE[t], 'examples': [],
+                              'note': 'not observed on any of the %d pages scanned. A page '
+                                      'crawl undercounts badly - prefer counting placements '
+                                      'from production layout canvases where the database '
+                                      'is reachable.' % scanned}
 
     meta = {'base': a.base, 'strategy': a.strategy, 'pagesScanned': scanned,
             'pagesFailed': failed[:20], 'pagesFailedCount': len(failed),

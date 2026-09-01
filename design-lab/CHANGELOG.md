@@ -1,5 +1,35 @@
 # Changelog
 
+## 0.3.0
+
+Everything here came from running the plugin against Schusterman and discovering, afterwards,
+that a Figma file and a complete working toolchain already existed. Every difference was
+design-lab being worse.
+
+- `references/prior-art.md` — look for an existing Figma file and existing repository tooling
+  before extracting. `design-lab:detect` now begins with that probe
+- `extract_tokens_sitestudio.py` rewritten to read `cohesion_website_settings` first:
+  `cohesion_color` (the palette), `cohesion_font_stack` (families, with `$coh-font-*`
+  resolved), `cohesion_scss_variable` (the spacer scale). Custom styles are now the
+  component layer, emitted separately
+- `plan_variables.py` carries the palette across intact and builds a semantic alias layer
+  from the colours' own tags
+- `find_examples.py` tiers are now **absolute** and gain two categories — `structural only`
+  and `unused` — plus the Figma page each maps to
+- `references/findability.md` prefers usage-tier pages over invented category pages
+- Components are named `<machine_name> — <Human Label>`; Assets panel search is substring
+  matching, so one name answers both `banner` and `cpt_cta`
+
+What the greenfield run got wrong, measured:
+
+| | greenfield | the existing answer |
+|---|---|---|
+| `cpt_text` placements | 26, from a 250-page crawl | **871**, from 2,448 production canvases |
+| colour palette | 11 hexes named `card-fake-button` | **43** named colours with Sass variables |
+| font families | unresolved `$coh-font-serif` | **Greta Text** |
+| spacing | 23 deduped component ramps | `$spacer-xxs..xxxl`, a real 4-96 ramp |
+| organisation | invented category pages | usage-tier pages already under review |
+
 ## 0.2.0
 
 The Figma half of the pipeline, and three corrections to facts the pilot got wrong.
