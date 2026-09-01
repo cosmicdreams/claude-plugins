@@ -74,14 +74,28 @@ def check_variable_scopes(state, rep):
 
 
 def check_code_syntax_set(state, tokens, rep):
-    """A variable with no code syntax shows a raw value in Dev Mode."""
+    """A variable with no code syntax shows a raw value in Dev Mode.
+
+    An absent code name is not automatically wrong. Sometimes the codebase genuinely has no
+    name for the value - a Figma font style is a string where CSS carries a numeric weight,
+    a computed pixel line-height where the token is a unitless ratio. What separates a
+    considered blank from an overlooked one is whether somebody wrote down why, so a
+    variable carrying a description is treated as resolved in place. That is the same
+    fix-or-waive rule as waivers.json, recorded on the variable itself where the next
+    person will actually read it.
+    """
     for c in state.get('collections') or []:
-        missing = [v['name'] for v in (c.get('variables') or []) if not v.get('web')]
-        if missing:
+        vars_ = c.get('variables') or []
+        blank = [v for v in vars_ if not v.get('web')]
+        unexplained = [v['name'] for v in blank if not (v.get('description') or '').strip()]
+        explained = len(blank) - len(unexplained)
+        if unexplained:
             rep.add('code-syntax-set', 'major', 'collection:' + c['name'],
-                    '%d of %d variables have no Web code syntax; Dev Mode shows a bare value'
-                    % (len(missing), len(c.get('variables') or [])),
-                    evidence=missing[:12])
+                    '%d of %d variables have no Web code syntax and no description saying '
+                    'why; Dev Mode shows a bare value%s'
+                    % (len(unexplained), len(vars_),
+                       ' (%d more are blank but explained)' % explained if explained else ''),
+                    evidence=unexplained[:12])
 
 
 def check_code_syntax_resolves(state, theme, rep):

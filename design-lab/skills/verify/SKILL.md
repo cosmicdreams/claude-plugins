@@ -97,6 +97,10 @@ For each, exactly one of:
 
 - **Fix it.** Preferred whenever the fix is mechanical — a missing code syntax, an
   unset scope, an absent documentation link.
+- **Record the reason on the object.** `code-syntax-set` treats a variable with no code
+  syntax as resolved when it carries a description explaining the absence. Sometimes the
+  codebase genuinely has no name for a value, and writing that on the variable puts the
+  answer where the next person reads it rather than in a side file.
 - **Ask, then waive.** Use `AskUserQuestion`. State the check, what is missing, and what is
   lost by skipping it. If they decline, append to `waivers.json`:
 
@@ -121,7 +125,7 @@ narrow scope: `*` silences the check permanently, including for gaps nobody has 
 | `code-syntax-resolves` | blocker | Dev Mode names that exist nowhere in the codebase |
 | `components-built` | blocker | the plan said build, the file does not have it |
 | `variable-scoped` | major | `ALL_SCOPES`, so a font stack shows in the radius picker |
-| `code-syntax-set` | major | Dev Mode showing a bare number |
+| `code-syntax-set` | major | Dev Mode showing a bare number, with no description saying why |
 | `modes-earn-themselves` | major | modes whose values never differ |
 | `documentation-links` | major | nothing leads from the Assets panel to the documentation |
 | `documentation-cards` | major | a component with no card |
