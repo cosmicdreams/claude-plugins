@@ -1,5 +1,27 @@
 # Changelog
 
+## 0.6.0
+
+`figma-atlas` specified a *text card* per component — a handful of lines of canvas text. Run
+against a real library that is visibly not documentation, and the comparison that proved it
+was the Schusterman Components 2026 file, which had already solved this properly. Same lesson
+as `references/prior-art.md`: the existing artifact was better than the plugin's spec.
+
+- **`figma-atlas` now specifies the full card anatomy** — 940-wide cards in a two-column
+  grid: eyebrow with machine name, title, a stats row, verified live example, a
+  Field/Type/Req./Limit table with explicit truncation, and a breakpoint row
+- **One shared scale per component in the breakpoint row.** Scaling each breakpoint
+  independently to fill its slot is the obvious implementation and it silently destroys the
+  point: a 969px desktop and a 740px tablet render identical widths, so the component reads
+  as not responsive. Hit while building PNCB's cards
+- **`shot:` versus `scale:` naming.** A frame named `shot:<name>:<Breakpoint>` claims to hold
+  a capture. When only measurements exist, the frame is a `scale:` diagram and the row says
+  `measured, drawn to scale`. A grey box named `shot:` overstates the file's fidelity
+- **`figma-component` step 8 now points documentation links at the atlas card**, and
+  `figma-atlas` asserts they are set. An empty `documentationLinks` is the commonest way a
+  library looks finished and is not — all seven of PNCB's built components had one
+- **`references/verification.md`** gains four documentation assertions
+
 ## 0.5.0
 
 `detect.py` could always *recommend* `css-custom-properties`. Nothing implemented it, so on

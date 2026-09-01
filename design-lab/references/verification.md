@@ -94,3 +94,14 @@ gate. Nothing blocks on it.
 
 Into `builds/<component-id>.json`, alongside the node identifiers. That file is both the
 verification record and the idempotency key — see `references/build-records.md`.
+
+## Documentation assertions
+
+Structure is not documentation. Assert all four, per component:
+
+- `documentationLinks.length > 0` — otherwise nothing leads from the Assets panel to the card
+- a documentation card exists whose name contains the machine name
+- the card's breakpoint frames share one scale — compare each frame's width against its
+  labelled pixel width; the ratios must be equal across the row
+- frames named `shot:*` contain an image fill. A named `shot:` frame with a flat fill is a
+  placeholder claiming to be a capture, and is worse than an honest `scale:` frame
