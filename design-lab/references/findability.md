@@ -62,7 +62,32 @@ Deviating from one-page-per-component is deliberate. 146 pages is its own naviga
 failure; the Figma guidance already allows related families to share a page with clear
 section separation, and a category page is that exception taken to its natural size.
 
-### 2. Category pages — for the designer who does not know the word
+### 2. Pages — and prefer usage tier over category
+
+Search fails when you cannot name the thing, so browsing is the fallback, and the Assets
+panel groups local components by the page they live on. That makes the page list the
+information architecture.
+
+**If an existing library file has a page structure, adopt it.** Schusterman Components 2026
+organises by usage tier, and it expresses two categories a category scheme cannot:
+
+```
+Components — High Use            >= 50 content placements
+Components — Medium Use          >= 10
+Components — Low Use             1-9
+Components — Structural Only     0 placements, but referenced by other components
+Components — Retirement Candidates   0 placements and 0 structural references
+```
+
+Those last two are the ones a library review actually turns on. On Schusterman they are 31
+and 24 components of 101 — more than half the library is either an inner part of a composite
+or a deletion candidate, and a category-based organisation hides that completely.
+
+Thresholds are **absolute, not relative**. Bucketing by thirds of the ranked distribution
+still labels something "high" on a barely-used site, and cannot express either of the two
+zero-placement tiers.
+
+### 2b. Category pages — when no tier data exists
 
 Search fails when you cannot name the thing. Browsing is the fallback, and it only works if
 the grouping is semantic rather than alphabetical. Derive categories from the model's

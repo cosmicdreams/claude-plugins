@@ -9,6 +9,22 @@ description: >
 
 # Detect design-lab strategies
 
+## Step zero: look for an existing answer
+
+Before probing for strategies, look for work that already exists — an existing Figma file,
+and existing tooling in the repository.
+
+```bash
+find . -maxdepth 4 -type d \( -name "*component*librar*" -o -name "*design*system*" \) \
+     -not -path "*/node_modules/*"
+ls build/ analysis-reports/ 2>/dev/null
+```
+
+On Schusterman this finds `scripts/component-library/` — a complete working pipeline — and
+`build/component-library/usage.json`, holding real placement counts from 2,448 production
+canvases. Extraction that ignores them reproduces them badly: the page crawl saw `cpt_text`
+26 times where the canvases show 871. Read `references/prior-art.md` before continuing.
+
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/detect.py <repo-root>
 ```

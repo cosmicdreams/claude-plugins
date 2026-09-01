@@ -28,7 +28,8 @@ a bug, not the site. See `references/strategies/README.md`.
 
 ## Skills
 
-Run them in this order.
+Run them in this order. `detect` begins by looking for work that already exists — see
+`references/prior-art.md`, which is the most expensive lesson in this plugin.
 
 | Skill | Does |
 |---|---|
@@ -53,6 +54,8 @@ Planned: `drift`.
 
 ## References
 
+- `references/prior-art.md` — **read first.** Look for an existing Figma file and existing
+  tooling before extracting anything
 - `references/model.md` — the universal model and the provenance rule
 - `references/variant-policy.md` — the decision that makes or breaks the library
 - `references/findability.md` — how anyone finds a component in a 146-component file
