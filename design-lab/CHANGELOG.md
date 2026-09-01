@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.7.3
+
+- `documentation-cards` understands the `<machine_name> — <Human Label> — documentation`
+  card name from `references/findability.md`, not just `<Human Label> — documentation`.
+  Renaming the cards to the documented convention made the check report all 44 as missing,
+  which is the check being wrong rather than the file
+
 ## 0.7.2
 
 - `code-syntax-set` now requires the description to *address* the blank, not merely to

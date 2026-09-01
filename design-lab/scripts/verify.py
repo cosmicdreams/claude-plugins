@@ -210,7 +210,16 @@ def check_documentation_cards(state, components, rep):
     reports missing cards that are sitting right there.
     """
     cards = state.get('cards') or []
-    have = {_norm(re.sub(r'\s+—\s+documentation$', '', c.get('name', ''))) for c in cards}
+    # A card is named per references/findability.md: `<machine_name> — <Human Label> —
+    # documentation`, and older cards are just `<Human Label> — documentation`. Index every
+    # em-dash-separated part so either form matches.
+    have = set()
+    for c in cards:
+        stem = re.sub(r'\s+—\s+documentation$', '', c.get('name', ''))
+        have.add(_norm(stem))
+        for part in re.split(r'\s+—\s+', stem):
+            if part.strip():
+                have.add(_norm(part))
     comps = (components or {}).get('components') or []
     if not comps:
         return
