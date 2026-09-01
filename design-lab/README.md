@@ -37,6 +37,7 @@ Run them in this order. `detect` begins by looking for work that already exists 
 | `design-lab:detect` | which strategies apply |
 | `design-lab:inventory` | components + fields + slots + source defects -> `components.json` |
 | `design-lab:usage` | verified anonymous example addresses + placement counts + tiers |
+| `design-lab:capture` | measures and photographs each component on a running site, per breakpoint |
 | `design-lab:tokens` | colour, spacing, type per breakpoint, each with its code name -> `tokens.json` |
 | `design-lab:plan` | reviewable build proposal with variant arithmetic and hard refusals |
 | `design-lab:figma-foundation` | variable collections, modes, scopes, code syntax. Once per file |
@@ -47,6 +48,11 @@ Run them in this order. `detect` begins by looking for work that already exists 
 Extractors: `extract_sitestudio.py`, `extract_sdc.py`, `extract_paragraphs.py` (component
 sources), `extract_tokens_sitestudio.py`, `extract_tokens_sourcemap.py` and
 `extract_tokens_cssvars.py` (token sources), `find_examples.py` (usage source).
+
+Capture: `scaffold_configs.py` writes a config per component and names the ones a human must
+finish; `measure.mjs` records the box model and typography per breakpoint; `capture.mjs`
+takes element-scoped screenshots. Playwright is not vendored — run these from a project that
+has it.
 
 Token sources are ranked. Authored CSS custom properties beat a recovered Sass source map,
 which beats nothing - a `:root` block states intent, a Sass file merely declares values.

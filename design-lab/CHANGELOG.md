@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.9.0
+
+**`design-lab:capture`** — the half of the pipeline that was living in a client repository.
+Measuring and photographing components was done for PNCB with scripts under
+`scripts/figma-spec/`, which meant the next project started from nothing. Ported, generalised
+and verified against the running PNCB site.
+
+- **`measure.mjs`** — box model, typography, fills and borders per node per breakpoint. No
+  images by design: everything it records becomes a native Figma node with bound variables
+- **`capture.mjs`** — element-scoped screenshots per breakpoint per state, sharing the same
+  config. `states[].setup` runs in both, so a component that must be opened to be visible
+  opens identically when measured and when photographed. Playwright resolves from the
+  **caller's** directory, not the plugin's, which a bare import gets wrong every time
+- **`scaffold_configs.py`** — writes a config per component and, more usefully, names the
+  ones that will silently produce nothing. It reads each component's Twig template for a
+  root selector and reports where the answer came from. A classless root is reported as
+  such: PNCB's `table_row` opens with a bare `<tr>`, so no selector is derivable and the
+  scaffolder says so instead of guessing
+
+The gap this closes, concretely: PNCB had four components with no config, therefore no
+measurements and no screenshots, and one of them — `table_row` — is the third most placed
+component on the site at 116 placements. Nothing surfaced it until `verify` counted. It is
+captured now, at 889 x 229 desktop.
+
+Three traps are written into the skill because each produced wrong output: take the first
+match with real height rather than `.first()`, since pages hold empty instances of the same
+component; two components can share a root selector and the failure is invisible in a
+directory listing (five PNCB components produced two distinct pictures); and never expand a
+component whose measurement recorded it collapsed, which produced a 6131px image captioned
+1871px.
+
 ## 0.8.0
 
 Three gaps found by running the plugin to completion on PNCB and then asking what it still
