@@ -14,10 +14,22 @@ description: >
 Before probing for strategies, look for work that already exists — an existing Figma file,
 and existing tooling in the repository.
 
+`detect.py` now runs this probe itself and returns it as `priorArt`, with a `PRIOR ART:`
+line at the top of `notes`. It is no longer possible to skip the step by running the script
+directly — which is how it was skipped before, since the probe existed only in this prose.
+
+It searches `build/`, `reports/`, `analysis-reports/`, `docs/`, `design/` and `.storybook/`,
+plus any directory anywhere in the tree whose name matches *component library*, *design
+system*, *figma* or *design token*. The earlier version listed only `build/` and
+`analysis-reports/`, so on PNCB it found nothing at all while `reports/` held six artifacts
+including a full Figma structure comparison.
+
+For a manual check:
+
 ```bash
 find . -maxdepth 4 -type d \( -name "*component*librar*" -o -name "*design*system*" \) \
      -not -path "*/node_modules/*"
-ls build/ analysis-reports/ 2>/dev/null
+ls build/ reports/ analysis-reports/ 2>/dev/null
 ```
 
 On Schusterman this finds `scripts/component-library/` — a complete working pipeline — and

@@ -1,5 +1,89 @@
 # Changelog
 
+## 0.5.0
+
+`detect.py` could always *recommend* `css-custom-properties`. Nothing implemented it, so on
+a theme that had moved off Sass the recommended strategy had no extractor behind it. This
+adds the missing third token source, and it turns out to be the best of the three.
+
+- **`extract_tokens_cssvars.py`** — the CSS custom property extractor. Reads only
+  stylesheets a `*.libraries.yml` actually loads, prunes `core/` and `contrib/`, tracks the
+  selector and media query per declaration, and resolves `var()` chains including the
+  fallback argument. On PNCB's `css-candidate` branch: 94 tokens from 5 loaded stylesheets,
+  against 1,023 from 174 before core was pruned
+- **`plan_variables.py` derives the semantic layer for this strategy.** Custom properties
+  are *authored*, so the names state intent where a Sass name does not. Colours are grouped
+  by normalised hex; the member with no role word in its name is the palette entry and the
+  rest alias it. PNCB gets 32 semantic variables across `text/*`, `surface/*`, `border/*`
+  and `action/*` — the gap the 2026-08-31 comparison called the most important one, closed
+  from evidence rather than invented
+- **New collections** — `Radius`, `FontWeight`, `LetterSpacing`, each with correct scopes,
+  driven by whatever the source actually declares
+- **`typeScaling` is genuinely answerable here.** A token that scales must be redeclared
+  under a media query, which is directly observable — unlike a Sass source map, where it is
+  not. A `roleLevelCaveat` records what this still cannot see: a component rule that swaps
+  which token it uses at a breakpoint. PNCB has 6 such rules
+
+**Behaviour change, and it alters previously-shipped output.** `num()` is now unit-aware.
+Figma FLOAT variables are pixels, and the old reducer stripped the unit, so `2.25rem` became
+`2.25` — binding a 36px heading as **2.25 pixels**. This was already wrong on both verified
+Site Studio sites, not just on the new strategy:
+
+| Site | Token | Was planned as | Now |
+|---|---|---|---|
+| AHRI | `Blockquote Paragraph` font-size `1.1rem` | 1.1 px | 17.6 px |
+| AHRI | `Blockquote Paragraph` line-height `2rem` | 2 px | 32 px |
+| Schusterman | `Breadcrumbs` margin `1.5rem` | 1.5 px | 24 px |
+
+Percentages now return `None` rather than a bare number, because a percentage is not a
+pixel length and guessing one is worse than declining.
+
+Otherwise regression-clean: every other value in AHRI's and Schusterman's `variable-plan.json`
+is unchanged.
+
+## 0.4.0
+
+The Figma half of the pipeline could not run on a Paragraphs site at all. `design-lab:detect`
+recommends `sass-sourcemap` for PNCB, and `plan_variables.py` crashed on its output with
+`KeyError: 'modes'` — so `figma-foundation` never ran, and `figma-component` refuses to start
+without it. Everything here came from running the plugin end to end against PNCB and hitting
+that wall.
+
+- **`plan_variables.py` normalises token schemas instead of assuming one.** The three plug
+  points vary independently, but the planner only ever read the Site Studio shape. It now
+  maps `sass-sourcemap` output into the canonical shape and **refuses outright** on a schema
+  it has no normaliser for. Defaulting the missing key was the tempting fix and the wrong
+  one: every other lookup is `.get(...) or []`, so the planner would have reported four
+  successful collections while silently discarding all 236 recovered tokens
+- **`extract_tokens_sourcemap.py` emits `codeName`.** `references/tokens-and-variables.md`
+  has always specified `$brand-blue` for this strategy; the extractor never wrote it, so
+  every variable would have shown a raw hex in Dev Mode. All 64 PNCB primitives now carry one
+- **`extract_tokens_sourcemap.py` evaluates `lighten()` and `darken()`.** Verified exactly:
+  `lighten($periwinkle-dark, 10)` → `#7c92e5`, `lighten($periwinkle-dark, 20%)` → `#a7b6ed`.
+  Both were previously recorded as PNCB colours with **no configuration provenance**. They
+  have exact provenance; the resolver just stopped at the function call
+- **`typeScaling` is emitted explicitly as not observable**, rather than being absent. A
+  source map has no CSS property and no media query attached to a declaration, so per-role
+  scaling cannot be derived from it. `noneScale` now has three states — `true`, `false`, and
+  `null` with `observable: false` — because an absent key read as "nothing scales" is the
+  same error `figma-foundation` already warns about
+- **`detect.py` performs the prior-art probe itself** and returns `priorArt` plus a leading
+  `PRIOR ART:` note. It lived only in skill prose, so running the script directly skipped the
+  single most expensive lesson in the plugin. It now also searches `reports/`, `docs/`,
+  `design/` and `.storybook/`: on PNCB the old probe found **nothing**, while `reports/` held
+  six artifacts including a complete Figma structure comparison
+- **`extract_paragraphs.py` reads `default_value`** instead of hardcoding `None`. 0.2.0
+  measured this as set in 2 of 102 PNCB field instances and then discarded it, leaving
+  `plan.py` unable to compute the implicit unset option when deriving a variant axis
+
+Regression: `variable-plan.json` is byte-identical to 0.3.0 on both AHRI and Schusterman.
+
+Not fixed, recorded instead: the **semantic colour layer cannot be derived for this
+strategy.** Site Studio colours carry tags saying what they are *for*; a Sass variable
+carries only a name. `plan_variables.py` now emits one `semantic-layer-needs-authoring`
+warning rather than five identical near-misses, and the layer stays empty until a human
+names it.
+
 ## 0.3.0
 
 Everything here came from running the plugin against Schusterman and discovering, afterwards,
