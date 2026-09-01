@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.7.1
+
+- `code-syntax-set` no longer flags a variable whose blank code name is explained. An absent
+  code name is not automatically wrong — a Figma font style is a string where CSS carries a
+  numeric weight, and a computed pixel line-height has no equivalent where the token is a
+  unitless ratio. What separates a considered blank from an overlooked one is whether anyone
+  wrote down why, so a description resolves it in place. Same fix-or-waive rule, recorded on
+  the variable where the next person will read it rather than in a side file
+
 ## 0.7.0
 
 **`design-lab:verify`** — the missing step. Every skill in this plugin reported success on
