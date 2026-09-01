@@ -48,6 +48,14 @@ the configuration shows 13 of 43 font-size tokens actually scale, Heading 2 amon
 48/48/42/36. Give type breakpoint modes unless `typeScaling.noneScale` is true, and let the
 roles that do not scale repeat their value across modes.
 
+**`noneScale` has three states, not two.** `true` means nothing scales, `false` means
+something does, and `null` with `observable: false` means the token source cannot answer.
+A Sass source map is the third case: it records each variable once, with no CSS property
+and no media query attached, so per-role scaling is not derivable from it at all. Treating
+that `null` as "nothing scales" builds a single-mode Type collection on no evidence — read
+`typeScaling.reason` and either measure the rendered type ramp or say plainly that the
+modes are unknown.
+
 ## The three rules that are easy to get wrong
 
 **Set code syntax on every variable**, from the token's `codeName`, never derived from the

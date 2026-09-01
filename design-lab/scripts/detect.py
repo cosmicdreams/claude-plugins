@@ -58,6 +58,48 @@ def config_sync(root):
     best = max(cands, key=lambda c: c['entityCount'])
     return best['path'] if best['entityCount'] else cands[0]['path']
 
+# Directories and files that mean "somebody has already done this work". references/
+# prior-art.md is emphatic that skipping this produces a second, contradictory design
+# system - but the probe lived only in the skill prose, so running detect.py directly
+# skipped it entirely, and its `ls build/ analysis-reports/` never looked in `reports/`,
+# which is where this project keeps every artifact it has.
+PRIOR_ART_DIRS = ('build', 'reports', 'analysis-reports', 'docs', 'design', '.storybook')
+PRIOR_ART_NAME = re.compile(r'(component[-_ ]?librar|design[-_ ]?system|figma|design[-_ ]?token)',
+                            re.I)
+
+
+def prior_art(root):
+    """Existing Figma files, generated artifacts and pipelines, before any extraction."""
+    hits = []
+    for base in PRIOR_ART_DIRS:
+        d = os.path.join(root, base)
+        if not os.path.isdir(d):
+            continue
+        for dirpath, dirnames, filenames in os.walk(d):
+            if dirpath[len(root):].count(os.sep) > 3:
+                dirnames[:] = []
+                continue
+            for n in list(dirnames) + filenames:
+                if PRIOR_ART_NAME.search(n):
+                    hits.append({'path': os.path.relpath(os.path.join(dirpath, n), root),
+                                 'kind': 'directory' if n in dirnames else 'file'})
+    # Pipelines live in scripts/ and src/ as often as in the artifact directories.
+    for dirpath, dirnames, filenames in os.walk(root):
+        if SKIP.search(dirpath + os.sep) or dirpath[len(root):].count(os.sep) > 3:
+            dirnames[:] = []
+            continue
+        for n in dirnames:
+            if PRIOR_ART_NAME.search(n):
+                hits.append({'path': os.path.relpath(os.path.join(dirpath, n), root),
+                             'kind': 'directory'})
+    seen, out = set(), []
+    for h in sorted(hits, key=lambda h: h['path']):
+        if h['path'] not in seen:
+            seen.add(h['path'])
+            out.append(h)
+    return out[:40]
+
+
 def detect(root):
     root = os.path.abspath(root)
     web = docroot(root)
@@ -65,6 +107,17 @@ def detect(root):
     out = {'root': root, 'docroot': web, 'configSync': cfg,
            'configCandidates': config_dirs(root),
            'componentSources': [], 'tokenSources': [], 'usageSources': [], 'notes': []}
+
+    # Step zero, per references/prior-art.md - reported before any strategy, because the
+    # code is authoritative on values but existing work is authoritative on organisation
+    # and naming.
+    out['priorArt'] = prior_art(root)
+    if out['priorArt']:
+        out['notes'].insert(0,
+            'PRIOR ART: %d existing design-system artifact(s) found, starting with %s. '
+            'Read references/prior-art.md and reconcile against them BEFORE extracting - '
+            'the code is authoritative on values, existing work on organisation and naming.'
+            % (len(out['priorArt']), ', '.join(h['path'] for h in out['priorArt'][:4])))
 
     empty = [c['path'] for c in out['configCandidates'] if not c['entityCount']]
     if empty and cfg:

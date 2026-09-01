@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.4.0
+
+The Figma half of the pipeline could not run on a Paragraphs site at all. `design-lab:detect`
+recommends `sass-sourcemap` for PNCB, and `plan_variables.py` crashed on its output with
+`KeyError: 'modes'` — so `figma-foundation` never ran, and `figma-component` refuses to start
+without it. Everything here came from running the plugin end to end against PNCB and hitting
+that wall.
+
+- **`plan_variables.py` normalises token schemas instead of assuming one.** The three plug
+  points vary independently, but the planner only ever read the Site Studio shape. It now
+  maps `sass-sourcemap` output into the canonical shape and **refuses outright** on a schema
+  it has no normaliser for. Defaulting the missing key was the tempting fix and the wrong
+  one: every other lookup is `.get(...) or []`, so the planner would have reported four
+  successful collections while silently discarding all 236 recovered tokens
+- **`extract_tokens_sourcemap.py` emits `codeName`.** `references/tokens-and-variables.md`
+  has always specified `$brand-blue` for this strategy; the extractor never wrote it, so
+  every variable would have shown a raw hex in Dev Mode. All 64 PNCB primitives now carry one
+- **`extract_tokens_sourcemap.py` evaluates `lighten()` and `darken()`.** Verified exactly:
+  `lighten($periwinkle-dark, 10)` → `#7c92e5`, `lighten($periwinkle-dark, 20%)` → `#a7b6ed`.
+  Both were previously recorded as PNCB colours with **no configuration provenance**. They
+  have exact provenance; the resolver just stopped at the function call
+- **`typeScaling` is emitted explicitly as not observable**, rather than being absent. A
+  source map has no CSS property and no media query attached to a declaration, so per-role
+  scaling cannot be derived from it. `noneScale` now has three states — `true`, `false`, and
+  `null` with `observable: false` — because an absent key read as "nothing scales" is the
+  same error `figma-foundation` already warns about
+- **`detect.py` performs the prior-art probe itself** and returns `priorArt` plus a leading
+  `PRIOR ART:` note. It lived only in skill prose, so running the script directly skipped the
+  single most expensive lesson in the plugin. It now also searches `reports/`, `docs/`,
+  `design/` and `.storybook/`: on PNCB the old probe found **nothing**, while `reports/` held
+  six artifacts including a complete Figma structure comparison
+- **`extract_paragraphs.py` reads `default_value`** instead of hardcoding `None`. 0.2.0
+  measured this as set in 2 of 102 PNCB field instances and then discarded it, leaving
+  `plan.py` unable to compute the implicit unset option when deriving a variant axis
+
+Regression: `variable-plan.json` is byte-identical to 0.3.0 on both AHRI and Schusterman.
+
+Not fixed, recorded instead: the **semantic colour layer cannot be derived for this
+strategy.** Site Studio colours carry tags saying what they are *for*; a Sass variable
+carries only a name. `plan_variables.py` now emits one `semantic-layer-needs-authoring`
+warning rather than five identical near-misses, and the layer stays empty until a human
+names it.
+
 ## 0.3.0
 
 Everything here came from running the plugin against Schusterman and discovering, afterwards,

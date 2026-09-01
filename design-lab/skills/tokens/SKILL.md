@@ -47,6 +47,13 @@ Verified: AHRI and Schusterman both. Check `source.entities` in the output — i
 
 ## Read the output carefully
 
+**The sourcemap extractor resolves `lighten()` and `darken()`.** Sass colour functions are
+evaluated against the HSL lightness channel, so `lighten($periwinkle-dark, 10)` resolves to
+`#7c92e5` rather than staying a literal string in the `unknown` family. This matters because
+an unresolved function reads as "this colour has no provenance" when its provenance is in
+fact exact — PNCB's `primary-hover` and `primary-link-hover` were both recorded as having no
+configuration source before this landed.
+
 **`codeName` is the token's identity in the codebase** — the Site Studio `class_name`, the
 Sass variable, the custom property. It becomes the Figma variable's code syntax. A `null`
 means the codebase genuinely has no name for that value; never invent one. See

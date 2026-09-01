@@ -44,9 +44,114 @@ SEMANTIC = [
 ]
 
 
+
+# ---------------------------------------------------------------------------------------
+# Schema normalisation
+#
+# The three plug points vary independently (README), so the token source is free to be a
+# Sass source map rather than Site Studio configuration. The planner below was written
+# against the Site Studio shape - four typed arrays plus `modes` - and read `tokens['modes']`
+# directly, so a sourcemap tokens.json crashed with KeyError: 'modes'.
+#
+# Defaulting that key is the wrong repair: every remaining lookup is `.get(...) or []`, so
+# the planner would return four empty collections and report success while silently
+# discarding every recovered token. Normalise into the canonical shape instead, and refuse
+# outright on a schema nobody has taught it to read.
+# ---------------------------------------------------------------------------------------
+
+CANONICAL = ('colors', 'fontStacks', 'scssVariables', 'customStyles')
+
+
+def _primary_family(stack):
+    """First family in a CSS font stack, unquoted."""
+    first = str(stack).split(',')[0].strip()
+    return first.strip('\'"') or None
+
+
+def normalize(tokens):
+    """Return tokens in the canonical Site Studio shape, whatever strategy produced them."""
+    strategy = (tokens.get('source') or {}).get('strategy')
+
+    if 'modes' in tokens and any(k in tokens for k in CANONICAL):
+        return tokens, []            # already canonical (sitestudio-styles)
+
+    if strategy == 'sass-sourcemap':
+        return _from_sourcemap(tokens)
+
+    raise SystemExit(
+        'plan_variables: unrecognised tokens.json schema (source.strategy=%r).\n'
+        'Expected the canonical shape (modes + %s) or a strategy with a normaliser.\n'
+        'Add one rather than defaulting keys - a partial read reports success while '
+        'discarding every token.' % (strategy, '/'.join(CANONICAL)))
+
+
+def _from_sourcemap(tokens):
+    """sass-sourcemap -> canonical.
+
+    Two things the source map genuinely does not carry, recorded rather than faked:
+
+    * **No breakpoint cascade.** A Sass variable is declared once. The theme's media-query
+      boundaries are values *in* the token set, not modes over it, so the collection gets a
+      single mode. Inventing Desktop/Tablet/Mobile here would copy the same number into
+      three modes and present a guess as a measurement.
+    * **No property association.** Nothing says `$h2-size` is a `font-size`, so there is no
+      customStyles layer and no per-role type ramp.
+
+    The `layer` field the extractor already assigns is what separates the global palette
+    from component-local values. Only the base layer becomes primitives: promoting
+    component-scoped values is precisely the Schusterman error the plugin documents, where
+    172 component styles were mistaken for a palette.
+    """
+    rows = tokens.get('tokens') or []
+    base = [t for t in rows if t.get('layer') == 'base']
+    skipped = len(rows) - len(base)
+    warnings = []
+    if skipped:
+        warnings.append({
+            'kind': 'component-layer-excluded', 'value': skipped,
+            'detail': 'component-local Sass variables are not the palette; see '
+                      'references/tokens-and-variables.md'})
+
+    colors = [{'name': t['name'], 'hex': t['value'], 'codeName': t.get('codeName'),
+               'tags': [], 'inUse': True, 'provenance': t.get('provenance')}
+              for t in base if t.get('family') == 'color']
+
+    stacks = [{'name': t['name'], 'stack': t['value'],
+               'primaryFamily': _primary_family(t['value']),
+               'codeName': t.get('codeName'), 'inUse': True}
+              for t in base if t.get('family') == 'font-family']
+
+    scss = [{'name': t['name'], 'value': t['value'], 'codeName': t.get('codeName')}
+            for t in base if t.get('family') in ('spacing', 'number')]
+
+    unresolved = [t['name'] for t in base if t.get('family') == 'unknown']
+    if unresolved:
+        warnings.append({
+            'kind': 'unresolved-sass-value', 'value': len(unresolved),
+            'detail': 'values the resolver could not reduce to a literal: %s'
+                      % ', '.join('$' + n for n in sorted(unresolved)[:12])})
+
+    # No tags exist on a Sass variable, so the tag-driven SEMANTIC rules below cannot fire.
+    # Say so once, here, instead of emitting five identical near-miss warnings.
+    warnings.append({
+        'kind': 'semantic-layer-needs-authoring', 'value': 'Semantic',
+        'detail': 'Site Studio colours carry tags that state what they are FOR; a Sass '
+                  'variable carries only a name. The semantic layer for this strategy is a '
+                  'naming decision a human makes, not something extraction can derive.'})
+
+    return ({'source': tokens.get('source'), 'modes': ['Value'],
+             'modeRationale': 'a Sass source map declares each variable once; it carries no '
+                              'breakpoint cascade to build modes from',
+             'typeScaling': tokens.get('typeScaling'),
+             'colors': colors, 'fontStacks': stacks,
+             'scssVariables': scss, 'customStyles': []},
+            warnings)
+
+
 def build(tokens):
+    tokens, prewarnings = normalize(tokens)
     order = tokens['modes']
-    out = {'modes': order, 'collections': {}, 'warnings': []}
+    out = {'modes': order, 'collections': {}, 'warnings': list(prewarnings)}
 
     # ---- primitives: the palette, carried across intact ------------------------------
     prims = []
@@ -62,7 +167,8 @@ def build(tokens):
     # ---- semantics: aliases, driven by the palette's own tags -------------------------
     byname = {p['name']: p for p in prims}
     sem = []
-    for sname, pred in SEMANTIC:
+    taggable = any(p['tags'] for p in prims)
+    for sname, pred in (SEMANTIC if taggable else []):
         hit = next((p for p in prims
                     if p['inUse'] and pred(set(p['tags']), p['name'])), None)
         if hit:
