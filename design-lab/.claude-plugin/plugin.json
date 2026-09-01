@@ -1,0 +1,17 @@
+{
+    "name": "design-lab",
+    "version": "0.2.0",
+    "description": "Build and maintain a Figma component library from a codebase. Pluggable component, token and usage sources — Site Studio, Single Directory Components, and others.",
+    "author": {
+        "name": "Chris Weber"
+    },
+    "license": "UNLICENSED",
+    "keywords": [
+        "figma",
+        "design-system",
+        "component-library",
+        "drupal",
+        "site-studio",
+        "sdc"
+    ]
+}
