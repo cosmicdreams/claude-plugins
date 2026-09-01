@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.7.2
+
+- `code-syntax-set` now requires the description to *address* the blank, not merely to
+  exist. The 0.7.1 version accepted any description and so passed ten PNCB colours carrying
+  unrelated notes from an earlier build — a false pass, which is precisely the failure this
+  check exists to prevent. A verifier that can be satisfied by irrelevant text is worse than
+  no verifier, because it converts an open question into a recorded pass
+
 ## 0.7.1
 
 - `code-syntax-set` no longer flags a variable whose blank code name is explained. An absent
