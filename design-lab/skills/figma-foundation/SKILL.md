@@ -16,6 +16,20 @@ completion before `design-lab:figma-component` runs once.
 
 ## Input
 
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/plan_variables.py tokens.json > variable-plan.json
+```
+
+Raw extraction is not a variable plan. Site Studio custom styles are component-scoped, so
+Schusterman's 172 entities yield 57 colour rows that collapse to **11 distinct hexes** and
+115 spacing rows that collapse to 23 ramps. One variable per row produces a picker nobody
+can use. `plan_variables.py` deduplicates by value, names each group from the contributing
+style that best describes it, and keeps every contributing class as code syntax.
+
+Read its `warnings` before building. On Schusterman it refused to create three font-family
+variables whose values were unresolved Sass variables (`$coh-font-serif`) — a Figma font
+called `$coh-font-serif` matches no installed font and no codebase identifier.
+
 `tokens.json` per `references/model.md`. Read `references/tokens-and-variables.md` before
 changing anything here — it carries the rules that make the result consistent with the code.
 
@@ -44,6 +58,12 @@ point is lost.
 **Never invent a code name.** A Site Studio site has no authored custom properties; its
 `codeName` is a generated class or `null`. Synthesising `--brand-blue` puts a name in Dev
 Mode that appears nowhere in the codebase.
+
+**Unitless line-height ratios cannot be line-height variables.** CSS line-height is legally
+either a length (`32px`) or a ratio (`1.25`), and Figma has no ratio-typed line-height
+variable — binding 1.25 makes Figma read 1.25 **pixels** and collapse every line of text.
+The planner splits them into `type/leading-ratio/*` with no scope so they cannot be bound by
+accident. Schusterman has two.
 
 **Never leave `ALL_SCOPES`.** A spacing token that shows up in the colour picker is how a
 designer binds the wrong thing.
