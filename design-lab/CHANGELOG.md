@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.8.0
+
+Three gaps found by running the plugin to completion on PNCB and then asking what it still
+would not have caught.
+
+**A completeness figure on every run.** `verify` now prints `COMPLETENESS  N of M components
+built`, broken down by usage tier, whether or not anything else failed, and closes with a
+line saying the number needs a human answer. Partial coverage is the one defect that looks
+like success from the outside: eleven good components on four well-made pages read as a
+finished library right up until somebody counts. `figma-atlas` now opens by saying it is not
+the last step — it is very good at making a quarter-built library look complete, because
+every card it draws is a card that worked.
+
+**Token integration rules that were only ever in someone's head.**
+- `plan_variables.py` emits `LeadingRatio` and `Motion` for the CSS custom property source.
+  `LeadingRatio` carries **no scopes**: CSS line-height is legally a length or a unitless
+  ratio, Figma has no ratio-typed line-height variable, and binding 1.56 makes Figma read
+  1.56 *pixels* and collapse every line of text. Line-height no longer routes through the
+  Type collection for this strategy, where it would have become a bindable pixel value
+- `figma-foundation` now states that code syntax is set **only where the Figma value matches
+  the code value**. Pointing a variable at a custom property holding a different number
+  gives a name that resolves, looks right in Dev Mode, and is wrong. On PNCB that was 1 of 6
+  radius variables and 6 of 16 spacing variables; the rest were left with no code name
+- Where no code name exists, the reason goes **on the variable**. `verify` accepts a
+  description that addresses the absence and flags one that does not
+
+**`figma-component` takes the component name.** `design-lab:figma-component <machine_name>`.
+With no argument it lists the unbuilt candidates and stops rather than choosing. The build
+sequence now carries what was learned building eleven of them by hand:
+- **Every text node gets a TEXT property.** The step most often skipped and the one that
+  decides whether a component is used at all — without it a designer detaches the instance
+  to change one word, and a detached instance stops tracking the library. Five of PNCB's
+  first seven had none
+- **Every slot gets an INSTANCE_SWAP property**, composed from real instances of the
+  components it accepts. A table containing three actual `table_row` instances shows the
+  relationship; three static rows only look like it
+- Property traps, each hit in practice: a colliding property name is silently renamed to
+  `Content2`; a variant set needs the property wired in *every* variant, not just the
+  default; never read `componentPropertyDefinitions` from a variant
+- Read the description of any similarly-named component before writing a machine name. A
+  library holding both `table` and `table_row` punishes a guess, and a wrong machine name is
+  worse than none because it gets quoted downstream as fact
+
 ## 0.7.3
 
 - `documentation-cards` understands the `<machine_name> — <Human Label> — documentation`

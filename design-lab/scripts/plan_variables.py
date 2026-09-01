@@ -241,7 +241,9 @@ def _from_cssvars(tokens):
     # customStyles layer and land in the Type collection with the right scopes.
     custom = []
     for t in rows:
-        prop = {'font-size': 'font-size', 'line-height': 'line-height'}.get(t['family'])
+        # font-size only. line-height is handled above as an unscoped ratio; sending it
+        # here would let it become a bindable pixel line-height.
+        prop = {'font-size': 'font-size'}.get(t['family'])
         if not prop:
             continue
         custom.append({'name': t['name'], 'codeName': t.get('codeName'), 'property': prop,
@@ -250,6 +252,35 @@ def _from_cssvars(tokens):
                                                   or {'Value': t.get('value')})})
 
     extra = collections.OrderedDict()
+
+    # Unitless line-height ratios get their OWN collection with NO scopes. CSS line-height
+    # is legally a length or a ratio; Figma has no ratio-typed line-height variable, so
+    # binding 1.56 makes Figma read 1.56 PIXELS and collapse every line of text. Empty
+    # scopes make that mistake impossible rather than merely discouraged.
+    ratios = [t for t in rows if t['family'] == 'line-height'
+              and (num(val(t)) or 0) and (num(val(t)) or 0) < 4]
+    if ratios:
+        extra['LeadingRatio'] = {'modes': ['Value'], 'variables': [
+            {'name': 'leading/%s' % slug(t['name']), 'type': 'FLOAT',
+             'valuesByMode': {'Value': num(val(t))}, 'codeName': t.get('codeName'),
+             'scopes': [], 'unitlessRatio': True,
+             'description': 'Ratio, not a length. Multiply by the font size; never bind to '
+                            'lineHeight, which Figma reads as pixels.'} for t in ratios]}
+
+    # Durations have no Figma scope at all, so they are stored unbound for reference.
+    motion = [t for t in rows if t['family'] == 'motion']
+    if motion:
+        def ms(v):
+            m = re.match(r'^\s*(-?[\d.]+)\s*(ms|s)\s*$', str(v))
+            return None if not m else float(m.group(1)) * (1 if m.group(2) == 'ms' else 1000)
+        vals = [(t, ms(val(t))) for t in motion]
+        extra['Motion'] = {'modes': ['Value'], 'variables': [
+            {'name': 'motion/%s' % slug(t['name']), 'type': 'FLOAT',
+             'valuesByMode': {'Value': n}, 'codeName': t.get('codeName'), 'scopes': [],
+             'description': 'Milliseconds. Figma has no duration scope, so this cannot be '
+                            'bound; it is here so the value has one source.'}
+            for t, n in vals if n is not None]}
+
     for fam in ('radius', 'font-weight', 'letter-spacing'):
         vs = [t for t in rows if t['family'] == fam]
         if not vs:
