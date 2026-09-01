@@ -39,9 +39,19 @@ The rule from the Figma library guidance — plain names, no namespace prefix, b
 slashes create nested grouping — is written for a thirty-component system. At 146 it
 inverts: a flat alphabetical list of 146 entries is not browsable. Deviate deliberately:
 
-- **Component name** is the human label in Title Case: `Call To Action Banner`, not
-  `cpt_cta_banner` and not `CTA Banner`. Spell the words out, because an abbreviation is a
-  word nobody searches for.
+- **Component name carries both forms**, machine name first:
+
+  ```
+  cpt_cta_banner — Call To Action Banner
+  ```
+
+  Assets panel search is **substring** matching, not prefix matching, so one name serves
+  both audiences: typing `banner` matches, and so does `cpt_cta`. Leading with the machine
+  name also makes the panel sort by it, which groups the `cpt_` family together and matches
+  the vocabulary the team already shares with developers.
+
+  Spell the human half out — `Call To Action Banner`, never `CTA Banner`. An abbreviation is
+  a word nobody searches for.
 - **Category is carried by the page, not by a slash prefix.** The Assets panel groups local
   components by the page they live on, so one page per category gives you a browsable tree
   for free and keeps the name clean.

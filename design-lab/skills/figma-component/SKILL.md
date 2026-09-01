@@ -30,9 +30,10 @@ fanned out across parallel agents.
 
 1. **Resolve the target page** from `category` — one page per category, not per component.
    146 pages is its own navigation failure. See `references/findability.md`.
-2. **Name it for a designer**: the human label in Title Case, `Call To Action Banner`. The
-   machine name goes in the description, because the Assets panel search box reads only
-   names and designers never type `cpt_cta_banner`.
+2. **Name it `<machine_name> — <Human Label>`**, for example
+   `cpt_cta_banner — Call To Action Banner`. Assets panel search is substring matching, so
+   this single name answers both `banner` and `cpt_cta`, and leading with the machine name
+   sorts the `cpt_` family together. See `references/findability.md`.
 3. **Build the base** with auto-layout, binding every visual property to a variable.
 4. **Create variants** from `plan.variantAxes`, then position them — `combineAsVariants`
    stacks everything at the origin.
