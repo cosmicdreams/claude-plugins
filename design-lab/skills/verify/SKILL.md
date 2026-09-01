@@ -98,7 +98,10 @@ For each, exactly one of:
 - **Fix it.** Preferred whenever the fix is mechanical — a missing code syntax, an
   unset scope, an absent documentation link.
 - **Record the reason on the object.** `code-syntax-set` treats a variable with no code
-  syntax as resolved when it carries a description explaining the absence. Sometimes the
+  syntax as resolved when its description *addresses the absence* — "no custom property
+  holds this value", "stale", "not set here". An unrelated note does not count, however
+  long: the first version of this check accepted any description and passed ten variables
+  whose descriptions were leftovers from an earlier build. Sometimes the
   codebase genuinely has no name for a value, and writing that on the variable puts the
   answer where the next person reads it rather than in a side file.
 - **Ask, then waive.** Use `AskUserQuestion`. State the check, what is missing, and what is

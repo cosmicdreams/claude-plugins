@@ -22,6 +22,12 @@ import json, os, re, sys, argparse, glob
 
 SEV = ('blocker', 'major', 'minor')
 
+# A description only resolves a blank code name if it addresses the blank. An unrelated note
+# is not an explanation, however long it is.
+EXPLAINS_BLANK = re.compile(
+    r'no (css )?(custom propert|code name|equivalent|such propert)|not set here|'
+    r'deliberately|no name (for|in) (this|the) (value|codebase)|stale', re.I)
+
 
 class Report:
     def __init__(self):
@@ -80,14 +86,17 @@ def check_code_syntax_set(state, tokens, rep):
     name for the value - a Figma font style is a string where CSS carries a numeric weight,
     a computed pixel line-height where the token is a unitless ratio. What separates a
     considered blank from an overlooked one is whether somebody wrote down why, so a
-    variable carrying a description is treated as resolved in place. That is the same
-    fix-or-waive rule as waivers.json, recorded on the variable itself where the next
-    person will actually read it.
+    variable whose description *addresses the absence* is treated as resolved in place.
+
+    The description has to actually say why. Any-description-counts was the first version
+    and it passed ten PNCB colours whose descriptions were unrelated notes left over from an
+    earlier build - a false pass, which is the exact failure this check exists to prevent.
     """
     for c in state.get('collections') or []:
         vars_ = c.get('variables') or []
         blank = [v for v in vars_ if not v.get('web')]
-        unexplained = [v['name'] for v in blank if not (v.get('description') or '').strip()]
+        unexplained = [v['name'] for v in blank
+                       if not EXPLAINS_BLANK.search(v.get('description') or '')]
         explained = len(blank) - len(unexplained)
         if unexplained:
             rep.add('code-syntax-set', 'major', 'collection:' + c['name'],
