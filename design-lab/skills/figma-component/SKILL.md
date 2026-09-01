@@ -43,7 +43,10 @@ fanned out across parallel agents.
 7. **Write the description**: machine name, source reference, verified example address,
    deferred fields, and any defects the inventory found. This is what a developer reads in
    Dev Mode.
-8. **Set documentation links** to the verified example address, when one exists.
+8. **Set documentation links.** Point at the component's atlas documentation card, not at
+   the example address — the card is what a designer needs, and it holds the example anyway.
+   An empty `documentationLinks` is the single most common way a library looks finished and
+   is not; `design-lab:figma-atlas` asserts this and will report it.
 9. **Assert**, per `references/verification.md` — structure, bindings, fidelity.
 10. **Write `builds/<id>.json`**, per `references/build-records.md`, including the
     screenshot and the source hash.

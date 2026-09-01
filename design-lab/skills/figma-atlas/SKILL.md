@@ -15,26 +15,46 @@ has to be written onto the canvas here or it is not findable at all.
 
 Read `references/findability.md` first.
 
-## One text card per component
+## One documentation card per component
 
-```
-Call To Action Banner
-cpt_cta_banner  ·  Marketing  ·  high use  ·  312 placements
-Also called: hero, promo banner, feature strip
-Live example: https://www.ahrinet.org/certification
-Source: config/sync/cohesion_elements.cohesion_component.cpt_cta_banner.yml
-Built: 8 variants (Theme x Alignment). Deferred: inside-banner-padding (11 options,
-bound to pad/* variables rather than a variant axis).
-Defects: none
-```
+The card below is not invented — it is the anatomy of the Schusterman Components 2026 file,
+which is the best documentation this practice has produced. Match it. A component whose only
+documentation is a `description` field is not documented: descriptions are invisible on the
+canvas, invisible to in-file search, and invisible to anyone scrolling the page.
 
-Now the machine name, the synonyms, the placement count and the source path are all reachable
-from one search box. Place an instance of the component beside its card so the page doubles
-as a contact sheet.
+Each card is **940 wide**, in a two-column grid, under a page header stating the tier and its
+threshold. Top to bottom:
 
-**Aliases are the highest-value line and the only one a machine cannot derive.** `Also
-called:` closes the vocabulary gap between the source configuration and the design team. Ask
-for them once per project and store them in `components.json`.
+| Row | Holds | Source |
+|---|---|---|
+| Eyebrow | category chip + **machine name** | `components.json` `group`, `id` |
+| Title | the human label | `label` |
+| Stats | placements, pages, entities, editable fields | usage source |
+| Live example | a **verified public** address | `design-lab:usage` |
+| `FIELDS` | table — Field / Type / Req. / Limit, slots first | `fields`, `slots` |
+| `ACROSS BREAKPOINTS` | one frame per breakpoint, with measured pixel dimensions | render harness |
+
+Truncate a long field table with an explicit `+ N more fields not shown`. Never silently cut.
+
+### The breakpoint row is the part that gets faked
+
+**Draw every breakpoint of one component at a single shared scale.** Scaling each frame
+independently to fill its slot is the obvious implementation and it destroys the only thing
+the row exists to show: a 969px desktop and a 740px tablet come out the same width, so the
+component reads as not responsive at all. Compute one scale per component from its widest
+and tallest measurement, then apply it to all three.
+
+**A grey box is not a screenshot, and must not be named like one.** Real captures belong in
+frames named `shot:<machine_name>:<Breakpoint>`. If the render harness has not run and you
+only have measurements, draw scale diagrams named `scale:<machine_name>:<Breakpoint>`, label
+the row `measured, drawn to scale`, and record the missing captures as an open gap. Naming a
+placeholder `shot:` makes the file claim a fidelity it does not have.
+
+### Link the component to its card
+
+`design-lab:figma-component` step 8 sets `documentationLinks`. Assert it here: a component
+with an empty `documentationLinks` array is undocumented no matter how good its card looks,
+because nothing in the Assets panel leads a designer to the card.
 
 ## The "Not built" section is required
 
@@ -50,6 +70,6 @@ make the responsive behaviour legible without anyone editing a variable.
 
 ## Source the content from disk, not from memory
 
-Build every card from `components.json` and `builds/*.json`. The build records are what make
+Build every card from `components.json`, the usage source and `builds/*.json`. The build records are what make
 the atlas reproducible after a context reset, and regenerating it is how the page stays
 honest as components are added.
