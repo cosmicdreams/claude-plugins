@@ -20,6 +20,7 @@ the axes forces one site down another's path.
 | AHRI | 146 Site Studio | `config/sync` | 129 custom style entities |
 | Schusterman | 101 Site Studio | `config/default` | 172 custom style entities |
 | PNCB | 43 Paragraph types | `config/default` | 113 base tokens via Sass source map |
+| PNCB `css-candidate` | 43 Paragraph types | `config/default` | 94 authored custom properties |
 
 PNCB also has 13 custom Single Directory Components, but only 6 are invoked by a paragraph
 template - they are a partial rendering layer, not the component source. It was recorded
@@ -43,8 +44,12 @@ Run them in this order. `detect` begins by looking for work that already exists 
 | `design-lab:figma-atlas` | the searchable index page, plus what was not built |
 
 Extractors: `extract_sitestudio.py`, `extract_sdc.py`, `extract_paragraphs.py` (component
-sources), `extract_tokens_sitestudio.py` and `extract_tokens_sourcemap.py` (token sources),
-`find_examples.py` (usage source).
+sources), `extract_tokens_sitestudio.py`, `extract_tokens_sourcemap.py` and
+`extract_tokens_cssvars.py` (token sources), `find_examples.py` (usage source).
+
+Token sources are ranked. Authored CSS custom properties beat a recovered Sass source map,
+which beats nothing - a `:root` block states intent, a Sass file merely declares values.
+Only the custom-property strategy can supply a semantic layer without a human naming it.
 
 `figma-component` builds one component per invocation on purpose. A single run over 146
 components exhausts its context partway and leaves a half-built file with no record of where

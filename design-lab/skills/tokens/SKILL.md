@@ -12,7 +12,26 @@ description: >
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/extract_tokens_sitestudio.py <repo-root> > tokens.json
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/extract_tokens_sourcemap.py  <repo-root> > tokens.json
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/extract_tokens_cssvars.py    <repo-root> > tokens.json
 ```
+
+## Prefer authored custom properties to either of the others
+
+When a theme declares its tokens as CSS custom properties, that is the best source available
+and it is not close. The other two recover *whatever variables the stylesheets happen to
+declare*: a Sass source map yields `$nth` and `$visual-grid` next to `$periwinkle`, with no
+statement of which is a design decision. A `:root` block is the design decision, written
+down. `--color-text` and `--color-surface` arrive already carrying the semantic layer, which
+is why `plan_variables.py` can derive Semantic for this strategy and cannot for the others.
+
+Two traps it handles, both of which have bitten this plugin before:
+
+- **Only stylesheets a `*.libraries.yml` actually loads.** PNCB's real sheet declares 96
+  properties; unloaded scaffolding under `components/incoming/` carries 127 Catppuccin and
+  Tailwind names. The excluded files are listed in `source.ignoredNotLoaded` - read it.
+- **`core/` and `contrib/` are pruned.** Drupal core's Claro and Olivero declare their own
+  `:root` blocks. Without pruning, PNCB returns 1,023 tokens of which 283 are
+  `--admin-color-*`; with it, 94, all the client's.
 
 Token source is independent of component source — a Single Directory Component site has no
 tokens in configuration at all. Take the source from `design-lab:detect`, not from the
