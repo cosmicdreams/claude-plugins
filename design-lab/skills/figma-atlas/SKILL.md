@@ -8,6 +8,14 @@ description: >
 
 # Build the atlas
 
+## This is not the last step
+
+`design-lab:verify` is. The atlas is the last thing *built*; it is not the thing that says
+the library is finished. Run verify afterwards and put its completeness figure — how many of
+the expected components actually exist — in front of a human before anyone treats the file
+as done. The atlas is very good at making a quarter-built library look complete, because
+every card it draws is a card that worked.
+
 The atlas is not a poster for stakeholders. It is the component database, and it exists
 because **in-file search reads canvas text and nothing else**. The Assets panel search box
 matches component names only; it cannot see a description. So every fact worth searching by

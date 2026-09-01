@@ -190,6 +190,35 @@ def check_components_built(state, components, plan, rep):
                 evidence=missing[:20])
 
 
+def completeness(state, components, plan):
+    """Expected targets versus what is actually in the file, broken down by usage tier.
+
+    Printed on every run, passing or failing. A library that is 11 of 44 built is not a
+    library with one open finding; it is a quarter of a library, and the number belongs in
+    front of whoever is about to sign it off.
+    """
+    comps = (components or {}).get('components') or []
+    built = set()
+    for c in state.get('components') or []:
+        for d in (c.get('description') or '').splitlines():
+            m = re.match(r'\s*Machine name:\s*([a-z0-9_]+)', d)
+            if m:
+                built.add(m.group(1))
+        built.add(_norm(c['name']))
+    rows, tiers = [], {}
+    for c in comps:
+        t = ((c.get('usage') or {}).get('tier')) or 'untiered'
+        ok = c['id'] in built or _norm(c.get('label') or '') in built
+        tiers.setdefault(t, [0, 0, []])
+        tiers[t][1] += 1
+        if ok:
+            tiers[t][0] += 1
+        else:
+            tiers[t][2].append(c['id'])
+    total_built = sum(v[0] for v in tiers.values())
+    return {'built': total_built, 'expected': len(comps), 'byTier': tiers}
+
+
 def check_documentation_links(state, rep):
     missing = [c['name'] for c in state.get('components') or [] if not c.get('docLinks')]
     if missing:
@@ -366,10 +395,20 @@ def main():
         (waived_ if w else open_).append(dict(f, waiver=w) if w else f)
 
     passed = [c for c in CHECKS if not any(f['check'] == c for f in rep.findings)]
+    cover = completeness(state, components, plan)
 
     if a.json:
-        print(json.dumps({'open': open_, 'waived': waived_, 'passed': passed}, indent=2))
+        print(json.dumps({'open': open_, 'waived': waived_, 'passed': passed,
+                          'completeness': cover}, indent=2))
     else:
+        pct = (100.0 * cover['built'] / cover['expected']) if cover['expected'] else 0
+        print('COMPLETENESS  %d of %d components built (%.0f%%)'
+              % (cover['built'], cover['expected'], pct))
+        for tier, (ok, tot, miss) in sorted(cover['byTier'].items()):
+            print('    %-14s %2d of %2d%s' % (tier, ok, tot,
+                  '   missing: ' + ', '.join(miss[:6]) + ('…' if len(miss) > 6 else '')
+                  if miss else ''))
+        print()
         for c in passed:
             print('PASS   %s' % c)
         for f in waived_:
@@ -384,6 +423,11 @@ def main():
         if open_:
             print('\nEvery open item must end as a fix or a recorded waiver. Ask the user '
                   'before waiving; a waiver is their decision, not yours.')
+        if cover['expected'] and cover['built'] < cover['expected']:
+            print('\nCOMPLETENESS IS NOT SELF-RESOLVING. %d component(s) are absent. Put the '
+                  'number above in front of a human and get an explicit answer before calling '
+                  'this library done — partial coverage is the one defect that looks like '
+                  'success from the outside.' % (cover['expected'] - cover['built']))
     return 1 if open_ else 0
 
 

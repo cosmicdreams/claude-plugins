@@ -1,10 +1,10 @@
 ---
 name: figma-component
 description: >
-  Build ONE component into Figma from components.json and the plan — variants, properties,
-  variable bindings, description, then assert the result and write a build record. Invoke
-  once per component. Not for tokens (design-lab:figma-foundation) or the index page
-  (design-lab:figma-atlas).
+  Build ONE named component into Figma — variants, text and slot properties, variable
+  bindings, description, documentation link — then assert it and write a build record.
+  Invoke as `design-lab:figma-component <machine_name>`, once per component. Not for tokens
+  (design-lab:figma-foundation) or the index page (design-lab:figma-atlas).
 ---
 
 # Build one component
@@ -12,44 +12,79 @@ description: >
 Load `figma-use` and `figma-generate-library` first — both are mandatory before any
 `use_figma` call.
 
+## Input
+
+```
+design-lab:figma-component cpt_cta_banner
+```
+
+The argument is the **machine name** as it appears in `components.json`. With no argument,
+list the components whose plan entry says `build` and which have no `builds/<id>.json` yet,
+then stop and ask which one. Never pick for the user, and never build several because
+several are missing.
+
 **One component per invocation. This is the point of the skill, not a limitation.** A single
-run that tries to build 146 components exhausts its context partway and leaves a half-built
-file with no record of where it stopped. One at a time is resumable, reviewable, and can be
-fanned out across parallel agents.
+run over 146 components exhausts its context partway and leaves a half-built file with no
+record of where it stopped. One at a time is resumable, reviewable, and can be fanned out
+across parallel agents.
 
 ## Preconditions
 
-1. `design-lab:figma-foundation` has completed. Refuse to start otherwise — a component
-   built before its variables exist hardcodes every value it should bind.
-2. The component's plan entry says `build`, not `refuse`. A refusal is a decision; record it
-   and stop.
-3. Read `builds/<id>.json` if it exists. Update the existing component; never create a
-   second.
+1. `design-lab:figma-foundation` has completed. Refuse otherwise — a component built before
+   its variables exist hardcodes every value it should bind.
+2. The plan entry says `build`, not `refuse`. A refusal is a decision; record it and stop.
+3. Read `builds/<id>.json` if it exists. Update that component; never create a second.
+4. **Read the description of any component already in the file with a similar name.** A
+   library with `table` and `table_row` in it will punish a guess, and a wrong machine name
+   in a description is worse than none because it is quoted downstream as fact.
 
 ## Sequence
 
-1. **Resolve the target page** from `category` — one page per category, not per component.
-   146 pages is its own navigation failure. See `references/findability.md`.
-2. **Name it `<machine_name> — <Human Label>`**, for example
-   `cpt_cta_banner — Call To Action Banner`. Assets panel search is substring matching, so
-   this single name answers both `banner` and `cpt_cta`, and leading with the machine name
-   sorts the `cpt_` family together. See `references/findability.md`.
-3. **Build the base** with auto-layout, binding every visual property to a variable.
-4. **Create variants** from `plan.variantAxes`, then position them — `combineAsVariants`
+1. **Resolve the target page** from the usage tier — one page per tier, not per component.
+   See `references/findability.md`.
+2. **Name it `<machine_name> — <Human Label>`**. Assets panel search is substring matching,
+   so one name answers both `banner` and `cpt_cta`.
+3. **Build the base with auto-layout**, binding every visual property to a variable: fills,
+   strokes, padding, gap, corner radius. Width binds to the container token when the
+   component is full width. Finish at zero hardcoded fills — assert it, do not assume it.
+4. **Give every text node a TEXT property.** This is the step most often skipped and the one
+   that decides whether the component gets used. A text node with no property cannot be
+   edited on an instance, so a designer detaches the instance to change one word, and a
+   detached instance no longer tracks the library. Five of the seven components built on
+   PNCB before this rule was written had none.
+5. **Give every slot an INSTANCE_SWAP property**, and compose the slot from **real instances
+   of the components it accepts** where those exist. A table containing three actual
+   `table_row` instances shows the relationship the configuration describes; three static
+   rows only look like it.
+6. **Create variants** from `plan.variantAxes`, then position them — `combineAsVariants`
    stacks everything at the origin.
-5. **Place the default variant first.** Figma uses the first variant as the instance
+7. **Place the default variant first.** Figma uses the first variant as the instance
    default; get this wrong and the library previews as blank. See `references/defaults.md`.
-6. **Add properties** from `plan.properties` — text, boolean, instance swap.
-7. **Write the description**: machine name, source reference, verified example address,
-   deferred fields, and any defects the inventory found. This is what a developer reads in
-   Dev Mode.
-8. **Set documentation links.** Point at the component's atlas documentation card, not at
-   the example address — the card is what a designer needs, and it holds the example anyway.
-   An empty `documentationLinks` is the single most common way a library looks finished and
-   is not; `design-lab:figma-atlas` asserts this and will report it.
-9. **Assert**, per `references/verification.md` — structure, bindings, fidelity.
-10. **Write `builds/<id>.json`**, per `references/build-records.md`, including the
-    screenshot and the source hash.
+8. **Write the description**: machine name, source path, usage counts, the fields, and —
+   explicitly — anything not measured. A component built from the field set rather than from
+   a capture must say so, or its proportions will be read as measured.
+9. **Set `documentationLinks`** to the component's atlas card. `design-lab:figma-atlas`
+   asserts this; an empty array is the commonest way a library looks finished and is not.
+10. **Assert**, per `references/verification.md`.
+11. **Write `builds/<id>.json`**, per `references/build-records.md`.
+
+## Property traps, all of them hit in practice
+
+**A colliding property name is silently renamed.** `addComponentProperty('Content', …)` on a
+component that already has `Content` creates `Content2`. Read
+`componentPropertyDefinitions` first and reuse the existing key rather than adding a
+near-duplicate that a designer then has to tell apart.
+
+**Never read `componentPropertyDefinitions` from a variant.** Narrow to the `COMPONENT_SET`,
+or to a `COMPONENT` whose parent is not a set. Optional chaining does not make the getter
+safe. See `references/component-patterns.md`.
+
+**Wire the property in every variant.** A set has one property and N text nodes that must
+each reference it — one per variant. Wiring only the default leaves the other variants
+uneditable, which is invisible until someone switches variant.
+
+**Load the font before touching a text node.** Any mutation on a node with an unloaded font
+throws, not only `characters`.
 
 ## Record what Figma cannot do
 
@@ -58,7 +93,18 @@ and reverse-direction toggles are unbuildable. Record them under `unsupported` w
 reason and say so in the description. A library that silently omits them reads as complete
 and is not.
 
+Where a paragraph renders values it does not author — an entity reference that pulls its
+title, image and date from the referenced node — expose only what an author can actually
+change, and say in the description why the rest is absent. Otherwise a designer expects
+fields the content form does not have.
+
 ## Never guess a node identifier
 
 Read them from the build record or from a returned value. A reconstructed identifier is a
 plausible string pointing at an unrelated node, and the corruption is hard to trace.
+
+## Finish by verifying
+
+Run `design-lab:verify` after a build session. It is the only step that looks at the whole
+file, and it prints the completeness figure — how many of the expected components exist —
+which no single build can know.

@@ -76,6 +76,32 @@ accident. Schusterman has two.
 **Never leave `ALL_SCOPES`.** A spacing token that shows up in the colour picker is how a
 designer binds the wrong thing.
 
+## Code syntax must survive being copied
+
+Set code syntax only where the Figma value **matches the code value**. Mapping a variable to
+a custom property that holds a different number produces a name that resolves, looks correct
+in Dev Mode, and is wrong — the worst of the three outcomes. On PNCB only 1 of 6 radius
+variables and 6 of 16 spacing variables matched the authored CSS; the rest were built from a
+different ramp and were left with no code name rather than pointed at an approximation.
+
+Where no code name exists, **say why on the variable**. A blank code syntax with a
+description reading "no custom property holds this value, recorded deliberately" is a
+decision. A blank with nothing is an oversight, and `design-lab:verify` treats the two
+differently — it accepts a description that addresses the absence and flags one that does
+not. An unrelated note does not count.
+
+## Collections that only exist because the code says so
+
+Emit what the token source actually declares, not a fixed template. `plan_variables.py`
+produces `LeadingRatio`, `Motion`, `Radius`, `FontWeight` and `LetterSpacing` when the source
+has them.
+
+`LeadingRatio` carries **no scopes at all**, deliberately. CSS line-height is legally a
+length or a unitless ratio; Figma has no ratio-typed line-height variable, so binding 1.56
+makes Figma read 1.56 **pixels** and collapse every line of text. Empty scopes make that
+mistake impossible rather than merely discouraged. `Motion` is unscoped for a duller reason:
+Figma has no duration scope, so the values are stored for reference only.
+
 ## Verify before handing off
 
 Assert every token in `tokens.json` exists, every variable has a scope other than
