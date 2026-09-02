@@ -51,8 +51,9 @@ sources), `extract_tokens_sitestudio.py`, `extract_tokens_sourcemap.py` and
 
 Capture: `scaffold_configs.py` writes a config per component and names the ones a human must
 finish; `measure.mjs` records the box model and typography per breakpoint; `capture.mjs`
-takes element-scoped screenshots. Playwright is not vendored — run these from a project that
-has it.
+takes element-scoped screenshots. Playwright is not vendored. Copy these scripts into a project that has it and run them
+there — Node resolves bare imports from the script's own location, so invoking them at the
+plugin path fails no matter what the working directory is. See `skills/capture/SKILL.md`.
 
 Token sources are ranked. Authored CSS custom properties beat a recovered Sass source map,
 which beats nothing - a `:root` block states intent, a Sass file merely declares values.

@@ -53,8 +53,19 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/capture.mjs --configs components/ --out shots
      [--only faq,accordion] [--viewports "Desktop:1400x1200,Tablet:800x1200,Mobile:375x1200"]
 ```
 
-Run from a directory where `playwright` resolves — the plugin ships none, because a browser
-binary has no business inside a plugin. `npm i -D playwright && npx playwright install
+**Copy the script into the project first — running it from the plugin path does not work.**
+Node resolves a bare `import 'playwright'` from the *script's own* location, not the working
+directory, so `cd <project> && node ${CLAUDE_PLUGIN_ROOT}/scripts/measure.mjs` fails with
+`ERR_MODULE_NOT_FOUND` however the project is set up. Copy it next to the project's
+`node_modules`, run it, delete it:
+
+```bash
+cp ${CLAUDE_PLUGIN_ROOT}/scripts/measure.mjs ./_measure.mjs
+node ./_measure.mjs --config <config>.json --out reports/figma-spec
+rm ./_measure.mjs
+```
+
+The plugin ships no browser binary, because a browser binary has no business inside a plugin. `npm i -D playwright && npx playwright install
 chromium` if the project has none.
 
 ## The config
