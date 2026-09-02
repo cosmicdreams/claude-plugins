@@ -80,6 +80,7 @@ Rules:
 - **No divider pages.** Typographic separators like `——— FOUNDATIONS ———` are unnavigable, appear in Find results as noise, and do not survive a rename.
 - **No `Internal Only Canvas`, no scratch pages, no `Components — Built`.** Working surfaces do not ship.
 - Additional Foundations pages are allowed where the token source justifies them. Additional *component* pages are not — the tier axis is the only page axis (§7.2).
+- **Where the repository has no usage source at all**, tiers cannot be computed. Collapse the five tier pages to one, named `Components — Untiered`, ordered by the source's own grouping, and state on Getting Started that no usage source was available and what that costs the reader. Never substitute a second organising scheme; one shape that admits a gap beats two shapes that compete.
 
 ---
 

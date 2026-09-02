@@ -4,7 +4,7 @@ description: >
   Build ONE named component into Figma — variants, text and slot properties, variable
   bindings, description, documentation link — then assert it and write a build record.
   Invoke as `design-lab:figma-component <machine_name>`, once per component. Not for tokens
-  (design-lab:figma-foundation) or the index page (design-lab:figma-atlas).
+  (design-lab:figma-foundation) or the Getting Started index (design-lab:figma-index).
 ---
 
 # Build one component
@@ -63,10 +63,14 @@ across parallel agents.
 8. **Write the description**: machine name, source path, usage counts, the fields, and —
    explicitly — anything not measured. A component built from the field set rather than from
    a capture must say so, or its proportions will be read as measured.
-9. **Set `documentationLinks`** to the component's atlas card. `design-lab:figma-atlas`
-   asserts this; an empty array is the commonest way a library looks finished and is not.
+9. **Set `documentationLinks`** to the component's documentation card, which sits beside it on
+   the same tier page. An empty array is the commonest way a library looks finished and is
+   not — it leaves nothing in the Assets panel leading a designer to the documentation.
 10. **Assert**, per `references/verification.md`.
-11. **Write `builds/<id>.json`**, per `references/build-records.md`.
+11. **Write `builds/<id>.json`**, per `references/build-records.md`, including
+    `figma.documentationCardId` — the index hyperlinks every row to it.
+12. **Refresh the index**: `design-lab:figma-index`. It reads the record you just wrote, so
+    the Getting Started page stops saying this component is unbuilt.
 
 ## Property traps, all of them hit in practice
 

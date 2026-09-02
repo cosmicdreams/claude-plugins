@@ -1,8 +1,8 @@
 ---
 name: verify
 description: >
-  Check a built Figma library against the base expectations and resolve every gap as either
-  a fix or a recorded waiver. Run after design-lab:figma-atlas, and again whenever the
+  Check a built Figma library against references/library-standard.md and resolve every gap as
+  either a fix or a recorded waiver. Run after design-lab:figma-index, and again whenever the
   library is handed to anyone. Not for building (design-lab:figma-component) or extraction
   (design-lab:inventory).
 ---

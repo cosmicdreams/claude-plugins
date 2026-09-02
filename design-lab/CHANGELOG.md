@@ -1,5 +1,53 @@
 # Changelog
 
+## 0.10.0
+
+**`figma-atlas` is gone, and `references/library-standard.md` is new.** Both come out of
+comparing the four libraries this practice has produced — America's Credit Unions,
+Schusterman, AHRI and PNCB. They share a page skeleton and almost nothing else: three
+different artifact classes, four naming schemes, four variable-collection conventions, and
+`components.json` files agreeing on four top-level keys.
+
+- **`references/library-standard.md`** — the single answer to "what is a finished component
+  library", at `standardVersion` 1.0.0. Artifact model, page list, component and card
+  contracts, variable rules, evidence rules, the Getting Started page, the intermediate model,
+  and 25 conformance checks. It versions independently of the plugin, against the *output*: a
+  major means an existing library must change to stay conformant. Appendix A records which of
+  the four libraries each rule came from.
+
+- **`figma-atlas` removed; `figma-index` replaces it.** The atlas described itself as building
+  "the only full-text index a Figma file has". That is false. Figma's Find searches the entire
+  file across all pages, for canvas text and layer names, and the Assets panel matches
+  descriptions as well as names. The atlas solved a problem Figma had already solved, and paid
+  for it by flattening every field table, relation and screenshot into text — strictly worse
+  documentation than the same facts drawn beside the component.
+
+- **`figma-index`** owns the Getting Started page instead: inventory, coverage counts, the
+  linked index, known gaps and provenance. It is idempotent and meant to run *early and
+  often* — once before anything is built, when every row reads *not built* and that is the
+  coverage baseline, then again after each component. The index is a table of contents, and
+  the skill says so in as many words, so nobody rebuilds a search index by accident.
+
+- **`scripts/index_rows.py`** — joins `components.json` with `builds/*.json` into the index
+  rows. Two checks that fire on real data: `usage-data-missing` (Schusterman and PNCB both
+  carry `"usage": null` for every component, so no tier can be assigned) and
+  `machine-name-collision` (America's Credit Unions has 12 machine names used by two
+  components each — `block:accordion` and `paragraph:accordion` — which cannot both be named
+  `machine_name — Human Label`, and would have produced 12 pairs of identically-named Figma
+  components).
+
+- **`references/findability.md` corrected.** Its search table had two false rows, and its
+  instruction *"if an existing library file has a page structure, adopt it"* is the single
+  line that let four libraries drift into four page structures. The page list is now fixed by
+  the standard. Added: what to do when a repository has no usage source at all — one
+  `Components — Untiered` page and an admission on Getting Started, never a competing scheme.
+
+- **`build-records.md`** gains `figma.documentationCardId`, the node every index row
+  hyperlinks to. A record without it produces a row that cannot be jumped to.
+
+- **`figma-component` step 12** — refresh the index after writing the build record, so the
+  Getting Started page stops claiming the component is unbuilt.
+
 ## 0.9.0
 
 **`design-lab:capture`** — the half of the pipeline that was living in a client repository.

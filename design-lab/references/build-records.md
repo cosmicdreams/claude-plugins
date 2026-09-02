@@ -14,6 +14,10 @@ It does three jobs at once, and all three matter:
 3. **Verification evidence.** The assertion results from `references/verification.md` live
    here, so "built" is a claim with a receipt attached.
 
+`figma.documentationCardId` is what the Getting Started index hyperlinks each row to, so a
+record without it produces a row that cannot be jumped to. `scripts/index_rows.py` reads
+these records and nothing else to decide what exists.
+
 ## Shape
 
 ```jsonc
@@ -22,8 +26,9 @@ It does three jobs at once, and all three matter:
   "figma": {
     "fileKey": "YnlrCKNjSJXCEGiO24qf67",
     "pageId": "12:34",
-    "pageName": "Marketing",
+    "pageName": "Components — High Use",
     "componentSetId": "12:56",
+    "documentationCardId": "12:88",
     "variantIds": { "Theme=Default, Alignment=Left": "12:57" }
   },
   "built": {

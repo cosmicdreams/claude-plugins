@@ -42,7 +42,7 @@ Run them in this order. `detect` begins by looking for work that already exists 
 | `design-lab:plan` | reviewable build proposal with variant arithmetic and hard refusals |
 | `design-lab:figma-foundation` | variable collections, modes, scopes, code syntax. Once per file |
 | `design-lab:figma-component` | **one named** component: `figma-component <machine_name>` — variants, text and slot properties, bindings, build record |
-| `design-lab:figma-atlas` | the searchable index page, plus what was not built |
+| `design-lab:figma-index` | the Getting Started page: inventory, linked index, coverage, known gaps. Refresh after every component |
 | `design-lab:verify` | **checks the whole file against the base expectations**; every gap ends as a fix or a recorded waiver |
 
 Extractors: `extract_sitestudio.py`, `extract_sdc.py`, `extract_paragraphs.py` (component

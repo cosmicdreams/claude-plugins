@@ -95,5 +95,6 @@ express it as a named state so the two scripts agree.
 
 ## Then
 
-`design-lab:figma-component <machine_name>` to build, `design-lab:figma-atlas` for the cards,
+`design-lab:figma-component <machine_name>` to build the component and its card,
+`design-lab:figma-index` to refresh the Getting Started index after each one, and
 `design-lab:verify` to check the whole file — including that no two captures are identical.
