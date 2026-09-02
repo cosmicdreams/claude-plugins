@@ -70,6 +70,11 @@ const comps = page.findAllWithCriteria({types:['COMPONENT_SET','COMPONENT']})
   .filter(n => n.type === 'COMPONENT_SET' || n.parent.type !== 'COMPONENT_SET')
   .map(n => ({name:n.name, page:page.name, pageId:page.id, description:n.description,
               docLinks:(n.documentationLinks||[]).length,
+              // `variants-are-sets` needs the node type: eight loose COMPONENTs side by side
+              // look almost identical on canvas and behave nothing alike on an instance,
+              // because only a COMPONENT_SET gives Figma a variant picker to compare them in.
+              type:n.type,
+              variantCount: n.type === 'COMPONENT_SET' ? n.children.length : 1,
               // How many nodes in this component bind at least one variable. `bindings-match-
               // source` compares this against what the source actually declares: a component
               // that binds where the code hardcodes has tidied away the defect the file
@@ -120,7 +125,13 @@ const section = s => {
   const box = head.parent && head.parent.findAll ? head.parent : page;
   return box.findAll(x => x.type === 'TEXT').map(x => x.characters).join('\n');
 };
-return {gettingStarted: {knownGapsText: section('known gaps'),
+// `index-complete` compares this against the row count index_rows.py produced. A page that
+// renders fewer rows than the inventory is stale, and nothing else in the file would say so.
+const indexRoot = page.findAll(x => /^index$/i.test(x.name))[0];
+const indexRowCount = indexRoot
+  ? indexRoot.findAll(x => /^row[:\s]/i.test(x.name)).length : null;
+return {gettingStarted: {indexRowCount,
+                         knownGapsText: section('known gaps'),
                          thresholdsText: section('high use\\s*—|threshold')}};
 ```
 
@@ -137,7 +148,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/verify.py \
     --index index.json --builds builds --brand <Brand> \
     --waivers waivers.json --theme-root docroot/themes/custom/<theme> \
     --shots-dir reports/figma-spec/shots \
-    --measurements reports/figma-spec/measurements.json \
+    --measurements reports/figma-spec/measurements.json --plan plan.json \
     --out verify-report.json
 ```
 
@@ -203,6 +214,9 @@ add a check here, add it there in the same change.
 | `standard-version-stamped` | blocker | no `standardVersion` in the artifacts or build records |
 | `verify-report-exists` | blocker | a verify run that kept no receipt |
 | `bindings-match-source` | blocker | Figma tidying away a hardcoded value the code actually has |
+| `index-complete` | blocker | a component with no index row, or an index page stale against the inventory |
+| `index-links-resolve` | blocker | a built component whose index row links nowhere |
+| `variants-are-sets` | blocker | variants left loose, so Figma offers no variant picker |
 | `variable-scoped` | major | `ALL_SCOPES`, so a font stack shows in the radius picker |
 | `code-syntax-set` | major | Dev Mode showing a bare number, with no description saying why |
 | `modes-earn-themselves` | major | modes whose values never differ |

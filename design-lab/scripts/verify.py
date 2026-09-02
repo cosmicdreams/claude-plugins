@@ -23,7 +23,7 @@ Exit status is 1 while any expectation is unresolved, so this can gate a pipelin
 import json, os, re, sys, argparse, glob, datetime
 
 SEV = ('blocker', 'major', 'minor')
-STANDARD_VERSION = '2.0.0'
+STANDARD_VERSION = '2.1.0'
 
 # A description only resolves a blank code name if it addresses the blank. An unrelated note
 # is not an explanation, however long it is.
@@ -629,6 +629,103 @@ def check_standard_version_stamped(components, tokens, builds_dir, rep):
                 'no standardVersion recorded in %s' % '; '.join(missing))
 
 
+def check_index_complete(index, components, state, rep):
+    """The summative page has to cover everything discovered, or it is not summative.
+
+    Two ways it can be wrong and only one of them is visible on screen: the generated index
+    can omit a component, or the page rendered into Figma can be stale relative to the index
+    it was generated from. Both are checked, because a reader trusts the page, not the JSON.
+    """
+    comps = (components or {}).get('components') or []
+    if not comps:
+        return
+    if not index:
+        rep.add('index-complete', 'minor', 'file',
+                'not checked - pass --index (index_rows.py output) to confirm the Getting '
+                'Started index covers every component')
+        return
+    rows = index.get('rows') or []
+    listed = {r.get('id') for r in rows}
+    missing = sorted(c['id'] for c in comps if c['id'] not in listed)
+    if missing:
+        rep.add('index-complete', 'blocker', 'file',
+                '%d of %d components have no row in the index, so the one page that claims to '
+                'list the library does not' % (len(missing), len(comps)), evidence=missing[:20])
+    rendered = (state.get('gettingStarted') or {}).get('indexRowCount')
+    if rendered is None:
+        rep.add('index-complete', 'minor', 'file',
+                'the rendered index was not counted, so the page in Figma could be stale '
+                'against index_rows.py and nothing would say so')
+    elif rendered != len(rows):
+        rep.add('index-complete', 'blocker', 'file',
+                'the Getting Started page renders %d index rows but the inventory produces '
+                '%d. The page is stale - re-run design-lab:figma-index.'
+                % (rendered, len(rows)))
+
+
+def check_index_links_resolve(index, rep):
+    """A built component the index cannot jump to is a component nobody finds."""
+    if not index:
+        return
+    rows = index.get('rows') or []
+    if not rows:
+        return
+    broken = [r['machineName'] for r in rows if r.get('built') and not r.get('linkTarget')]
+    if broken:
+        rep.add('index-links-resolve', 'blocker', 'file',
+                '%d built component(s) have an index row with nothing to link to. Record '
+                'figma.documentationCardId in the build record.' % len(broken),
+                evidence=broken[:20])
+
+
+def check_variants_are_sets(state, plan, rep):
+    """Eight loose components side by side are not a variant set.
+
+    Figma only offers the variant picker, and only lets you compare states against each
+    other, when the variants are combined into a COMPONENT_SET. Loose siblings look almost
+    identical on the canvas and behave nothing alike on an instance, which is why this is
+    worth checking rather than assuming `combineAsVariants` did its job.
+    """
+    comps = state.get('components') or []
+    if not comps:
+        return
+    types = {c['name']: c.get('type') for c in comps}
+    if not any(t for t in types.values()):
+        rep.add('variants-are-sets', 'minor', 'file',
+                'not checked - the state dump recorded no node type, so a loose component '
+                'cannot be told from a component set')
+        return
+    want = {}
+    for e in ((plan or {}).get('plans') or (plan or {}).get('components') or []):
+        n = e.get('variants')
+        if n and n > 1:
+            want[e.get('id') or e.get('machineName')] = n
+    loose = []
+    for c in comps:
+        if c.get('type') == 'COMPONENT_SET':
+            continue
+        stem = (c.get('name') or '').split(' — ')[0]
+        if stem in want:
+            loose.append('%s: plan says %d variants, the file has a loose COMPONENT'
+                         % (stem, want[stem]))
+    # Without a plan, fall back to the shape the mistake actually takes on the canvas:
+    # several loose components sharing one machine-name stem.
+    if not want:
+        stems = {}
+        for c in comps:
+            if c.get('type') == 'COMPONENT_SET':
+                continue
+            stems.setdefault((c.get('name') or '').split(' — ')[0], []).append(c['name'])
+        loose = ['%s: %d loose components share this machine name and are not combined into '
+                 'a set' % (s, len(names)) for s, names in sorted(stems.items())
+                 if len(names) > 1]
+    if loose:
+        rep.add('variants-are-sets', 'blocker', 'file',
+                '%d component(s) have variants that were never combined into a COMPONENT_SET, '
+                'so Figma offers no variant picker and no comparison' % len(loose),
+                evidence=loose[:20])
+
+
 def check_bindings_match_source(state, measurements, rep):
     """Figma must bind exactly where the code binds — no more, no less.
 
@@ -685,8 +782,9 @@ modes-earn-themselves components-built component-naming component-description
 documentation-links documentation-cards documentation-cards-unique documentation-adjacent
 layers-named mode-naming no-scratch-pages collection-naming fields-are-tables
 two-usage-numbers tier-thresholds-stated known-gaps-current standard-version-stamped
-verify-report-exists bindings-match-source pages-populated shot-frames-have-images
-breakpoints-share-scale captures-unique""".split()
+verify-report-exists bindings-match-source index-complete index-links-resolve
+variants-are-sets pages-populated shot-frames-have-images breakpoints-share-scale
+captures-unique""".split()
 
 
 # ------------------------------------------------------------------ waivers
@@ -755,6 +853,9 @@ def main():
     check_two_usage_numbers(components, rep)
     check_tier_thresholds_stated(index, state, rep)
     check_standard_version_stamped(components, tokens, a.builds, rep)
+    check_index_complete(index, components, state, rep)
+    check_index_links_resolve(index, rep)
+    check_variants_are_sets(state, plan, rep)
     check_bindings_match_source(state, measurements, rep)
     check_verify_report_exists(a.out, rep)
     check_pages_populated(state, rep)
@@ -783,7 +884,8 @@ def main():
              'shot-frames-have-images': 'shot', 'breakpoints-share-scale': 'shot',
              'variable-scoped': 'collection', 'code-syntax-set': 'collection',
              'modes-earn-themselves': 'collection', 'mode-naming': 'collection',
-             'collection-naming': 'collection'}
+             'collection-naming': 'collection',
+             'variants-are-sets': 'component', 'bindings-match-source': 'component'}
     inapplicable = sorted(c for c, need in NEEDS.items()
                           if not subjects[need]
                           and not any(f['check'] == c for f in rep.findings))

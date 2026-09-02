@@ -10,7 +10,7 @@ See references/library-standard.md section 8.
 """
 import json, os, sys, argparse, datetime
 
-STANDARD_VERSION = '2.0.0'
+STANDARD_VERSION = '2.1.0'
 
 HIGH, MEDIUM, LOW = 'Components — High Use', 'Components — Medium Use', 'Components — Low Use'
 STRUCTURAL, RETIRE = 'Components — Structural Only', 'Components — Retirement Candidates'

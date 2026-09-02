@@ -1,5 +1,34 @@
 # Changelog
 
+## 0.12.0
+
+**Standard 2.1.0 — the last three unenforced expectations now have checks**, bringing the set
+to 30. Each enforces something the standard already required in prose, which is why this is a
+minor rather than a major: a library genuinely conformant to 2.0.0 stays conformant.
+
+- **`index-complete`** (blocker) — every component in the inventory has a row in the index,
+  *and* the page rendered into Figma is not stale against the index it was generated from.
+  Both are checked, because a reader trusts the page, not the JSON. Section 8 said "every
+  discovered component gets a row" and nothing had ever confirmed it; `--index` was read for
+  exactly one thing, the tier thresholds.
+- **`index-links-resolve`** (blocker) — a built component whose index row links to nothing is
+  a component nobody reaches from the one page that claims to list the library.
+- **`variants-are-sets`** (blocker) — variants left as loose components instead of a
+  `COMPONENT_SET`. Only a set gives Figma a variant picker and lets the variants be compared
+  against each other, which is the whole point of building them. Uses `plan.json` where
+  available; otherwise detects the shape the mistake takes on canvas — several loose
+  components sharing one machine-name stem. Section 4.4 now states the requirement outright
+  rather than presupposing it.
+
+- **The state dump captures node type and variant count**, without which a loose component
+  cannot be told from a set, and an `indexRowCount` read from the rendered page. The index
+  container is named `Index` and each row `row: <machine_name>` so that count is possible.
+
+- Checks that cannot run still report "not checked" rather than passing. Run against the real
+  PNCB artifacts, `index-complete` confirms all 44 components are listed and
+  `index-links-resolve` passes, while `variants-are-sets` correctly declines to answer because
+  that state dump predates the node-type field.
+
 ## 0.11.0
 
 **Standard 2.0.0 — the library is a seed of ground truth, not an idealisation.** This inverts

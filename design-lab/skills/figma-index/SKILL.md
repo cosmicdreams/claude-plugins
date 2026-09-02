@@ -108,6 +108,10 @@ descending, so the busiest component in the library is the first row.
 | Placements | `placements` |
 | Built | `built`, and where false, `reason` in the same cell |
 
+Name the index container `Index` and each row `row: <machine_name>`. `design-lab:verify`
+counts those rows and compares them against the inventory, which is the only way a page left
+stale after a rebuild gets noticed.
+
 Each row's machine-name cell is a **hyperlink to `linkTarget`** — the documentation card
 where one exists, the component otherwise. Set it with `setRangeHyperlink` and a
 `{ type: 'NODE', nodeID }` target, so the jump survives a page rename.

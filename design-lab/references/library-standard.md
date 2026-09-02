@@ -1,6 +1,6 @@
 # The component library standard
 
-**Standard version: 2.0.0**
+**Standard version: 2.1.0**
 
 Every library design-lab produces conforms to this document. It is the single answer to "what is a finished component library", so that two people running the plugin against two unrelated codebases — one Drupal with Site Studio, one not Drupal at all — hand back artifacts a third person recognises as the same kind of thing.
 
@@ -111,6 +111,8 @@ machine_name — Human Label
 Em dash, spaces both sides. Both halves are mandatory.
 
 The machine name serves Find and the developer; the human label serves the Assets panel and the designer. A library naming components only `cpt_text` fails every designer who does not know the codebase; one naming them only `Text Editor` fails every developer trying to trace a template. Neither is acceptable alone.
+
+**A component with more than one variant is a `COMPONENT_SET`, never loose siblings.** Only a set gives Figma a variant picker, and only a set lets the variants be compared against each other — which is the whole reason for building them. Loose components sharing a name stem look almost identical on the canvas and behave nothing alike on an instance.
 
 Component sets take the same name. Variants are named by their axes, never by the component.
 
@@ -295,6 +297,9 @@ Every build record carries `standardVersion`, `toolVersion`, `sourceHash`, and i
 | `standard-version-stamped` | an artifact or build record carries no `standardVersion` |
 | `verify-report-exists` | no verify report was written |
 | `bindings-match-source` | the Figma component binds where the source hardcodes, or hardcodes where the source binds (§1) |
+| `index-complete` | a component missing from the index, or a rendered index stale against the inventory |
+| `index-links-resolve` | a built component whose index row links to nothing |
+| `variants-are-sets` | variants left as loose components instead of a `COMPONENT_SET` |
 
 ### Majors
 
