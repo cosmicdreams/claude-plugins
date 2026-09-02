@@ -1,5 +1,227 @@
 # Changelog
 
+## 0.13.0
+
+**The build side now instructs what the verify side checks.** An audit of all 30 checks
+against the build skills found 8 with *no* build-side instruction at all and 5 only implied.
+The verifier had been running ahead of the builder, which means a faithful run of the pipeline
+produced a library its own verifier rejected.
+
+- **`figma-component` builds the documentation card again.** Deleting `figma-atlas` in 0.10.0
+  took the only "build every card" instruction with it — a regression this release introduces
+  the fix for. The card is now step 9, built beside its component on the same page, with the
+  section 5 anatomy, the fields **table**, named layers, and `shot:`/`scale:` frame naming.
+  Folding it into `figma-component` rather than restoring a separate skill is deliberate:
+  adjacency is then true by construction, which is what `documentation-adjacent` requires.
+
+- **`figma-foundation` creates the file's pages.** Nothing did. `figma-component` was told to
+  "resolve the target page from the usage tier" against pages that no skill had ever made.
+
+- **`figma-foundation` names collections `<Brand> <Domain>`.** It previously specified
+  `Primitives`, `Semantic`, `Spacing`, `Type` — unprefixed, which is exactly what
+  `collection-naming` fails. The build skill was instructing the defect. Mode naming is now
+  explicit too, rather than left to whatever the variable plan generated.
+
+- **All six extractors stamp `standardVersion`**, and `model.md` and `build-records.md` carry
+  it in their example shapes. Section 10 required it and nothing wrote it. Verified end to end
+  against the real America's Credit Unions repository: 33 paragraph components extracted with
+  `standardVersion: 2.1.0`.
+
+- **`figma-component` step 2 handles machine-name collisions** and step 6 states the
+  `COMPONENT_SET` requirement outright.
+
+### Two bugs of mine, both silent
+
+- **`structuralRefs` was read as `structuralReferences`** in `index_rows.py` and `verify.py` —
+  a key that exists nowhere in `references/model.md`, in `find_examples.py`, or in any real
+  artifact. It always resolved to `None`. Consequences: `two-usage-numbers` failed every
+  library that had the data (all 69 America's Credit Unions components carry it), and
+  `tier_of()` could never assign the Structural Only tier, so **every load-bearing component
+  was tiered as a retirement candidate**. On America's Credit Unions that moved 3 components
+  out of a list headed "safe to delete" — Structural Only 0 → 3, Retirement Candidates
+  17 → 14. Both readers now use the model's key and accept the longer spelling rather than
+  silently returning zero.
+
+## 0.12.0
+
+**Standard 2.1.0 — the last three unenforced expectations now have checks**, bringing the set
+to 30. Each enforces something the standard already required in prose, which is why this is a
+minor rather than a major: a library genuinely conformant to 2.0.0 stays conformant.
+
+- **`index-complete`** (blocker) — every component in the inventory has a row in the index,
+  *and* the page rendered into Figma is not stale against the index it was generated from.
+  Both are checked, because a reader trusts the page, not the JSON. Section 8 said "every
+  discovered component gets a row" and nothing had ever confirmed it; `--index` was read for
+  exactly one thing, the tier thresholds.
+- **`index-links-resolve`** (blocker) — a built component whose index row links to nothing is
+  a component nobody reaches from the one page that claims to list the library.
+- **`variants-are-sets`** (blocker) — variants left as loose components instead of a
+  `COMPONENT_SET`. Only a set gives Figma a variant picker and lets the variants be compared
+  against each other, which is the whole point of building them. Uses `plan.json` where
+  available; otherwise detects the shape the mistake takes on canvas — several loose
+  components sharing one machine-name stem. Section 4.4 now states the requirement outright
+  rather than presupposing it.
+
+- **The state dump captures node type and variant count**, without which a loose component
+  cannot be told from a set, and an `indexRowCount` read from the rendered page. The index
+  container is named `Index` and each row `row: <machine_name>` so that count is possible.
+
+- Checks that cannot run still report "not checked" rather than passing. Run against the real
+  PNCB artifacts, `index-complete` confirms all 44 components are listed and
+  `index-links-resolve` passes, while `variants-are-sets` correctly declines to answer because
+  that state dump predates the node-type field.
+
+## 0.11.0
+
+**Standard 2.0.0 — the library is a seed of ground truth, not an idealisation.** This inverts
+a rule that was stated in three places and was actively harmful.
+
+The plugin previously instructed the builder to bind every visual property to a variable and
+to *"finish at zero hardcoded fills — assert it"*, and `verification.md` asserted that a raw
+value was a defect. That silently upgrades the component. A theme that hardcodes `#342649`
+where it should use `--bs-purple` produced a Figma component with a clean bound variable: the
+flaw vanished, the designer best placed to notice it never saw it, and the two sides were
+never comparable, which makes any later sync meaningless.
+
+- **`library-standard.md` section 1** now opens with the governing principle: the Figma
+  component is a faithful representation of the component as the running site implements it,
+  **including its defects**. Bind where the source binds; hardcode where the source hardcodes,
+  and record the divergence as a defect about the codebase. Never improve a component on the
+  way into Figma. Divergence between Figma and code is the product.
+- **`figma-component` step 3** and **`verification.md` section 2** rewritten to match. The
+  binding assertion is now three-outcome — source binds and Figma binds, source hardcodes and
+  Figma hardcodes, or a mismatch — and only the mismatch fails.
+- **This is a major standard version** because a library built under the old rule can fail the
+  new check.
+
+- **`measure.mjs` records declared values, not just computed ones.** `getComputedStyle`
+  resolves `var(--bs-purple)` and `#342649` to the identical `rgb(52, 38, 73)`, so the
+  pipeline had no way to tell a token from a literal and the fidelity rule would have been
+  unactionable. It now reads the raw declaration off the matching rules. Cascade order is
+  approximated by document order plus matching media queries, not by specificity — stated in
+  the code rather than implied, because that approximation can disagree with the browser.
+
+  Verified against the live America's Credit Unions homepage: `body` computes to
+  `rgb(52, 38, 73)` and declares `var(--bs-body-color)`; `h1` computes to `80px` and declares
+  `var(--k--typography--font-size-h1)`; `a` declares the literal `transparent` for its
+  background and is correctly distinguished.
+
+  That run also found a defect in the existing library. America's Credit Unions' `tokens.json`
+  records `type/size/h1` with `codeName: null` and the description *"No custom property holds
+  this value. Only the base body size is emitted, as --bs-body-font-size."* The site actually
+  renders h1 through `--k--typography--font-size-h1`. The blank was explained by a wrong
+  explanation, and `code-syntax-set` passed it because it only checks that *an* explanation
+  addresses the absence, not that the explanation is true.
+
+- **New check `bindings-match-source`** (blocker), bringing the set to 27. It compares the
+  source's declared values against the Figma component's bindings and fails a component that
+  binds where the code hardcodes, or hardcodes where the code binds. Compared at component
+  level, not per property — mapping a CSS node path onto a Figma node identifier is a real
+  problem this does not pretend to solve, and the check says so. Degrades to a `minor`
+  "not checked" without `--measurements`.
+
+- **The verify state dump captures `boundVariables`**, which it never did — so nothing had
+  ever looked at whether a built component binds anything at all.
+
+## 0.10.0
+
+**`figma-atlas` is gone, and `references/library-standard.md` is new.** Both come out of
+comparing the four libraries this practice has produced — America's Credit Unions,
+Schusterman, AHRI and PNCB. They share a page skeleton and almost nothing else: three
+different artifact classes, four naming schemes, four variable-collection conventions, and
+`components.json` files agreeing on four top-level keys.
+
+- **`references/library-standard.md`** — the single answer to "what is a finished component
+  library", at `standardVersion` 1.0.0. Artifact model, page list, component and card
+  contracts, variable rules, evidence rules, the Getting Started page, the intermediate model,
+  and 25 conformance checks. It versions independently of the plugin, against the *output*: a
+  major means an existing library must change to stay conformant. Appendix A records which of
+  the four libraries each rule came from.
+
+- **`figma-atlas` removed; `figma-index` replaces it.** The atlas described itself as building
+  "the only full-text index a Figma file has". That is false. Figma's Find searches the entire
+  file across all pages, for canvas text and layer names, and the Assets panel matches
+  descriptions as well as names. The atlas solved a problem Figma had already solved, and paid
+  for it by flattening every field table, relation and screenshot into text — strictly worse
+  documentation than the same facts drawn beside the component.
+
+- **`figma-index`** owns the Getting Started page instead: inventory, coverage counts, the
+  linked index, known gaps and provenance. It is idempotent and meant to run *early and
+  often* — once before anything is built, when every row reads *not built* and that is the
+  coverage baseline, then again after each component. The index is a table of contents, and
+  the skill says so in as many words, so nobody rebuilds a search index by accident.
+
+- **`scripts/index_rows.py`** — joins `components.json` with `builds/*.json` into the index
+  rows. Two checks that fire on real data: `usage-data-missing` (Schusterman and PNCB both
+  carry `"usage": null` for every component, so no tier can be assigned) and
+  `machine-name-collision` (America's Credit Unions has 12 machine names used by two
+  components each — `block:accordion` and `paragraph:accordion` — which cannot both be named
+  `machine_name — Human Label`, and would have produced 12 pairs of identically-named Figma
+  components).
+
+- **`references/findability.md` corrected.** Its search table had two false rows, and its
+  instruction *"if an existing library file has a page structure, adopt it"* is the single
+  line that let four libraries drift into four page structures. The page list is now fixed by
+  the standard. Added: what to do when a repository has no usage source at all — one
+  `Components — Untiered` page and an admission on Getting Started, never a competing scheme.
+
+- **`build-records.md`** gains `figma.documentationCardId`, the node every index row
+  hyperlinks to. A record without it produces a row that cannot be jumped to.
+
+- **`figma-component` step 12** — refresh the index after writing the build record, so the
+  Getting Started page stops claiming the component is unbuilt.
+
+- **`verify.py` goes from 12 checks to 26**, which is the standard's list exactly — the three
+  places that name checks (`verify.py`, `skills/verify/SKILL.md`, the standard) are now
+  identical sets. New blockers: `component-naming`, `component-description`,
+  `documentation-adjacent`, `layers-named`, `mode-naming`, `no-scratch-pages`,
+  `standard-version-stamped`, `verify-report-exists`. New majors: `collection-naming`,
+  `fields-are-tables`, `two-usage-numbers`, `tier-thresholds-stated`, `known-gaps-current`.
+  `documentation-links` is promoted from major to blocker. New flags: `--index`, `--builds`,
+  `--brand`, `--out`.
+
+- **`--out` writes the verify report**, and its absence is itself a blocker. A library that
+  has never produced a report is not a finished library, and `figma-index` regenerates Known
+  gaps from that file.
+
+- **`completeness` no longer over-reports.** It matched on the human label where
+  `components-built` matched on the machine name, and `_norm` strips underscores — so
+  `Text Editor` and `text_editor` collapsed to one string and a file where nothing was named
+  correctly reported 100% built while a blocker said the component was missing. Both now use
+  one `built_keys()` builder, and the display name is never normalised. The headline coverage
+  figure must never be the more generous of the two.
+
+- **The verify state dump was wrong in two ways**, both found by running it against the live
+  PNCB file rather than a fixture. Figma node proxies *throw* on an unknown property instead
+  of returning `undefined`, so the `n.findAll ? …` guard raised `TypeError` on a TEXT node;
+  it now tests node type. And the Known-gaps capture matched the heading text only, returning
+  `"Known gaps — read before trusting a card"` and nothing beneath it, which would have failed
+  `known-gaps-current` on every run — it now takes the whole section.
+
+- **A check with no subject now reports `N/A`, not `PASS`.** Measured on America's Credit
+  Unions, whose Figma file contains zero components: five component checks and one shot check
+  had nothing to fail on, so the file scored 17 of 26 passing. It now scores 11 passed, 6 not
+  applicable, 12 open. Reporting a vacuous pass is the same error as reporting an unrun check
+  as passing, and it flatters exactly the libraries that deserve it least.
+
+- **`pages-populated` no longer treats unloaded as empty.** Figma loads pages on demand and an
+  unloaded page reports `0` children whatever it holds — the America's Credit Unions Atlas
+  page reads `0` before `setCurrentPageAsync` and `76` after. The state dump took its counts
+  from the root iteration, so this check would have fired on nearly every page of every file.
+  Counts now come from the per-page pass, and a page never made current is reported as
+  unmeasured rather than empty.
+
+- **`code-syntax-resolves` degrades to `minor` when the theme has no compiled CSS.**
+  Bootstrap-style frameworks emit their custom properties at build time, so grepping a
+  repository whose `dist/` is gitignored reports every one as dangling — eight of them on
+  America's Credit Unions, at blocker severity, for properties that do resolve in the
+  compiled `index.css` its own tokens.json cites.
+
+  Run against real PNCB state, the check set reports 11 of 44 components built and finds
+  every component named by human label alone, 9 modes still called `Mode 1` or `Default`,
+  `PNCB Typography` and `PNCB Type` splitting one domain, and 9 to 16 layers per card still
+  named `Frame`.
+
 ## 0.9.0
 
 **`design-lab:capture`** — the half of the pipeline that was living in a client repository.

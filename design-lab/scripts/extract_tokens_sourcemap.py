@@ -16,6 +16,10 @@ Configuration beats measurement (references/model.md), and a source map is confi
 """
 import json, os, re, sys, glob, datetime, colorsys
 
+# references/library-standard.md section 10: every artifact states which edition it
+# was built to, or nobody can tell whether a library predates a rule.
+STANDARD_VERSION = '2.1.0'
+
 SKIP = re.compile(r'/(node_modules|vendor|\.git)/')
 
 # $name: value;  - tolerant of !default / !global, stops at the first semicolon.
@@ -201,6 +205,7 @@ def extract(root, base_hint='base/'):
         fams[t['family']] = fams.get(t['family'], 0) + 1
 
     return {
+        'standardVersion': STANDARD_VERSION,
         'generatedAt': datetime.datetime.now().replace(microsecond=0).isoformat(),
         'source': {'strategy': 'sass-sourcemap', 'root': root,
                    'maps': [os.path.relpath(m, root) for m in maps]},

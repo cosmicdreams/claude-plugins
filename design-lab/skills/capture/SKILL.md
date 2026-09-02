@@ -47,15 +47,23 @@ Two fields it cannot derive:
 
 ## 2. Measure, then capture
 
+**Copy the scripts into the project first — running them from the plugin path does not work.**
+Node resolves a bare `import 'playwright'` from the *script's own* location, not the working
+directory, so `cd <project> && node ${CLAUDE_PLUGIN_ROOT}/scripts/measure.mjs` fails with
+`ERR_MODULE_NOT_FOUND` however the project is set up. Copy it next to the project's
+`node_modules`, run it, delete it:
+
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/measure.mjs --config components/faq.json --out spec/
-node ${CLAUDE_PLUGIN_ROOT}/scripts/capture.mjs --configs components/ --out shots/ \
+cp ${CLAUDE_PLUGIN_ROOT}/scripts/measure.mjs ./_measure.mjs
+cp ${CLAUDE_PLUGIN_ROOT}/scripts/capture.mjs ./_capture.mjs
+node ./_measure.mjs --config components/faq.json --out spec/
+node ./_capture.mjs --configs components/ --out shots/ \
      [--only faq,accordion] [--viewports "Desktop:1400x1200,Tablet:800x1200,Mobile:375x1200"]
+rm ./_measure.mjs ./_capture.mjs
 ```
 
-Run from a directory where `playwright` resolves — the plugin ships none, because a browser
-binary has no business inside a plugin. `npm i -D playwright && npx playwright install
-chromium` if the project has none.
+The plugin ships no browser binary, because a browser binary has no business inside a plugin.
+`npm i -D playwright && npx playwright install chromium` if the project has none.
 
 ## The config
 
@@ -95,5 +103,6 @@ express it as a named state so the two scripts agree.
 
 ## Then
 
-`design-lab:figma-component <machine_name>` to build, `design-lab:figma-atlas` for the cards,
+`design-lab:figma-component <machine_name>` to build the component and its card,
+`design-lab:figma-index` to refresh the Getting Started index after each one, and
 `design-lab:verify` to check the whole file — including that no two captures are identical.

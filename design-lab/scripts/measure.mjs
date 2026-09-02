@@ -91,6 +91,63 @@ function walk(rootSelector, propList, pick_) {
     return p;
   };
 
+  /* The properties that map to a Figma variable. Only these need a declared value; the
+     rest are geometry that no token governs. */
+  const TOKEN_PROPS = [
+    'color', 'background-color', 'font-size', 'line-height', 'font-family', 'font-weight',
+    'letter-spacing', 'gap', 'row-gap', 'column-gap',
+    'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
+    'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
+    'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
+    'border-top-left-radius', 'border-top-right-radius',
+    'border-bottom-left-radius', 'border-bottom-right-radius',
+  ];
+
+  /* getComputedStyle resolves var(--bs-purple) and #342649 to the same rgb() string, so a
+     computed value cannot tell a token from a literal. The library has to mirror what the
+     code actually declares — see references/library-standard.md section 1 — so read the raw
+     declaration off the matching rules instead.
+
+     Cascade order is approximated by document order plus matching media queries, NOT by
+     specificity. That is good enough for the only question asked of it — does the code
+     reference a custom property for this property, and which one — and it is stated here
+     rather than implied, because a later low-specificity rule can win in this model and
+     lose in the browser. Inline style always wins, which is exact. */
+  const declaredFor = (el) => {
+    const out = {};
+    const take = (decl) => {
+      for (const p of TOKEN_PROPS) {
+        const v = decl.getPropertyValue(p);
+        if (v) out[p] = v.trim();
+      }
+    };
+    const scan = (rules, depth) => {
+      if (depth > 4) return;
+      for (const rule of rules) {
+        if (rule.type === CSSRule.MEDIA_RULE || rule.conditionText !== undefined) {
+          let applies = true;
+          try { applies = !rule.conditionText || matchMedia(rule.conditionText).matches; }
+          catch { applies = false; }
+          if (applies && rule.cssRules) scan(rule.cssRules, depth + 1);
+          continue;
+        }
+        if (!rule.selectorText) continue;
+        let hit = false;
+        try { hit = el.matches(rule.selectorText); } catch { hit = false; }
+        if (hit) take(rule.style);
+      }
+    };
+    for (const sheet of document.styleSheets) {
+      /* Cross-origin sheets throw on .cssRules. A stylesheet we cannot read is a gap in the
+         answer, so record it rather than silently returning fewer declarations. */
+      let rules = null;
+      try { rules = sheet.cssRules; } catch { out['__unreadableSheet'] = true; continue; }
+      if (rules) scan(rules, 0);
+    }
+    if (el.style && el.style.length) take(el.style);
+    return out;
+  };
+
   const nodes = [];
   let counter = 0;
   const visit = (el, parentPath) => {
@@ -124,6 +181,10 @@ function walk(rootSelector, propList, pick_) {
         height: +box.height.toFixed(2),
       },
       computed: pick(style),
+      /* What the code declares, not what the browser resolved. A value containing var()
+         means the source binds a token and the Figma node must bind the matching variable;
+         anything else means the source hardcodes and the Figma node must hardcode too. */
+      declared: declaredFor(el),
       before: pseudo(el, '::before'),
       after: pseudo(el, '::after'),
     });

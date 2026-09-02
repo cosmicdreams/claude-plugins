@@ -7,6 +7,10 @@ No YAML library required, which keeps this runnable without a virtualenv.
 """
 import json, re, sys, os, glob, datetime
 
+# references/library-standard.md section 10: every artifact states which edition it
+# was built to, or nobody can tell whether a library predates a rule.
+STANDARD_VERSION = '2.1.0'
+
 # Site Studio widget type -> model field kind. Source widget names never leak past here.
 KIND = {
     'cohWysiwyg': 'richtext', 'cohTextarea': 'text', 'cohSelect': 'enum',
@@ -147,6 +151,7 @@ def extract(root, config_dir=None):
         if err:
             problems.append(err)
     return {
+        'standardVersion': STANDARD_VERSION,
         'generatedAt': datetime.datetime.now().replace(microsecond=0).isoformat(),
         'source': {'strategy': 'sitestudio', 'root': root, 'configDir': config_dir},
         'components': comps, 'problems': problems,

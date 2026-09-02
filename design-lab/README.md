@@ -41,8 +41,8 @@ Run them in this order. `detect` begins by looking for work that already exists 
 | `design-lab:tokens` | colour, spacing, type per breakpoint, each with its code name -> `tokens.json` |
 | `design-lab:plan` | reviewable build proposal with variant arithmetic and hard refusals |
 | `design-lab:figma-foundation` | variable collections, modes, scopes, code syntax. Once per file |
-| `design-lab:figma-component` | **one named** component: `figma-component <machine_name>` — variants, text and slot properties, bindings, build record |
-| `design-lab:figma-atlas` | the searchable index page, plus what was not built |
+| `design-lab:figma-component` | **one named** component: `figma-component <machine_name>` — variants, text and slot properties, bindings, **its documentation card**, build record |
+| `design-lab:figma-index` | the Getting Started page: inventory, linked index, coverage, known gaps. Refresh after every component |
 | `design-lab:verify` | **checks the whole file against the base expectations**; every gap ends as a fix or a recorded waiver |
 
 Extractors: `extract_sitestudio.py`, `extract_sdc.py`, `extract_paragraphs.py` (component
@@ -51,8 +51,9 @@ sources), `extract_tokens_sitestudio.py`, `extract_tokens_sourcemap.py` and
 
 Capture: `scaffold_configs.py` writes a config per component and names the ones a human must
 finish; `measure.mjs` records the box model and typography per breakpoint; `capture.mjs`
-takes element-scoped screenshots. Playwright is not vendored — run these from a project that
-has it.
+takes element-scoped screenshots. Playwright is not vendored. Copy these scripts into a project that has it and run them
+there — Node resolves bare imports from the script's own location, so invoking them at the
+plugin path fails no matter what the working directory is. See `skills/capture/SKILL.md`.
 
 Token sources are ranked. Authored CSS custom properties beat a recovered Sass source map,
 which beats nothing - a `:root` block states intent, a Sass file merely declares values.
