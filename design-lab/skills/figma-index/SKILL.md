@@ -136,4 +136,6 @@ updates rather than duplicates.
 This is not the last step. `design-lab:verify` is. The index is very good at making a
 quarter-built library look organised, because a tidy table of 99 *not built* rows still reads
 as a finished document. Run verify and put its coverage figure in front of a human before
-anyone treats the file as done.
+anyone treats the file as done — and run it with `--out verify-report.json`, because the
+report is what this skill regenerates the Known gaps section from, and `verify-report-exists`
+is a blocker without it.

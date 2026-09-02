@@ -564,7 +564,8 @@ def check_two_usage_numbers(components, rep):
     if not withusage:
         return
     collapsed = [c['id'] for c in withusage
-                 if (c['usage'] or {}).get('structuralReferences') is None]
+                 if all((c['usage'] or {}).get(k) is None
+                        for k in ('structuralRefs', 'structuralReferences'))]
     if collapsed:
         rep.add('two-usage-numbers', 'major', 'file',
                 '%d of %d components record placements but no structuralReferences. '

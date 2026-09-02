@@ -41,7 +41,7 @@ Run them in this order. `detect` begins by looking for work that already exists 
 | `design-lab:tokens` | colour, spacing, type per breakpoint, each with its code name -> `tokens.json` |
 | `design-lab:plan` | reviewable build proposal with variant arithmetic and hard refusals |
 | `design-lab:figma-foundation` | variable collections, modes, scopes, code syntax. Once per file |
-| `design-lab:figma-component` | **one named** component: `figma-component <machine_name>` — variants, text and slot properties, bindings, build record |
+| `design-lab:figma-component` | **one named** component: `figma-component <machine_name>` — variants, text and slot properties, bindings, **its documentation card**, build record |
 | `design-lab:figma-index` | the Getting Started page: inventory, linked index, coverage, known gaps. Refresh after every component |
 | `design-lab:verify` | **checks the whole file against the base expectations**; every gap ends as a fix or a recorded waiver |
 

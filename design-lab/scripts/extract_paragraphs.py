@@ -20,6 +20,10 @@ where a paragraph's enum options live. It FAILS LOUDLY rather than guessing.
 """
 import json, os, re, sys, glob, datetime
 
+# references/library-standard.md section 10: every artifact states which edition it
+# was built to, or nobody can tell whether a library predates a rule.
+STANDARD_VERSION = '2.1.0'
+
 try:
     import yaml
     HAVE_YAML = True
@@ -403,6 +407,7 @@ def extract(root, cfg=None):
 
     return {
         'entryPoints': entry_points,
+        'standardVersion': STANDARD_VERSION,
         'generatedAt': datetime.datetime.now().replace(microsecond=0).isoformat(),
         'source': {'strategy': 'paragraphs', 'root': root, 'configDir': os.path.relpath(cfg, root),
                    'parser': 'pyyaml' if HAVE_YAML else 'fallback'},

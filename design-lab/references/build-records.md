@@ -57,7 +57,8 @@ these records and nothing else to decide what exists.
   "sourceRef": "config/sync/cohesion_elements.cohesion_component.cpt_cta_banner.yml",
   "sourceHash": "sha256:...",
   "builtAt": "2026-09-01T00:00:00Z",
-  "toolVersion": "design-lab 0.2.0"
+  "toolVersion": "design-lab 0.13.0",
+  "standardVersion": "2.1.0"
 }
 ```
 

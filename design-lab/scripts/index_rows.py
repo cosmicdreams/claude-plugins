@@ -17,13 +17,29 @@ STRUCTURAL, RETIRE = 'Components — Structural Only', 'Components — Retiremen
 TIER_ORDER = [HIGH, MEDIUM, LOW, STRUCTURAL, RETIRE]
 
 
+def structural_refs(usage):
+    """How many times the component renders without an author placing it.
+
+    `structuralRefs` per references/model.md; the longer spelling is accepted because it is
+    the obvious thing to write and silently returning zero is the worst possible failure —
+    it marks load-bearing components as deletion candidates.
+    """
+    for k in ('structuralRefs', 'structuralReferences'):
+        if usage.get(k) is not None:
+            return usage[k]
+    return None
+
+
 def tier_of(comp, high, medium):
     """Usage decides the page. No usage data is a gap, not a default."""
     usage = comp.get('usage')
     if not usage:
         return None
     placements = usage.get('placements') or 0
-    structural = usage.get('structuralReferences') or 0
+    # `structuralRefs` is the key references/model.md defines and every extractor writes.
+    # This read `structuralReferences` — a name that exists nowhere — so it was always 0 and
+    # every structural-only component was tiered as a retirement candidate instead.
+    structural = structural_refs(usage) or 0
     if placements >= high:
         return HIGH
     if placements >= medium:
@@ -79,7 +95,7 @@ def row_for(comp, rec, high, medium):
         'label': comp.get('label') or comp['id'],
         'tier': tier_of(comp, high, medium),
         'placements': usage.get('placements'),
-        'structuralReferences': usage.get('structuralReferences'),
+        'structuralRefs': structural_refs(usage),
         'built': bool(node),
         'figma': {'pageId': figma.get('pageId'), 'componentNodeId': node,
                   'documentationCardId': card},

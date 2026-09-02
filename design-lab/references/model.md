@@ -29,6 +29,7 @@ another's path.
 
 ```jsonc
 {
+  "standardVersion": "2.1.0",   // which edition of library-standard.md this was built to
   "generatedAt": "ISO-8601",
   "source": { "strategy": "sitestudio|sdc|...", "root": "/abs/path", "version": "..." },
   "components": [

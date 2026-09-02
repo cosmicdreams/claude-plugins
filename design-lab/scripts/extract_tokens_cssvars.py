@@ -25,6 +25,10 @@ Two things it does that a naive parse does not:
 """
 import json, os, re, sys, glob, datetime, colorsys
 
+# references/library-standard.md section 10: every artifact states which edition it
+# was built to, or nobody can tell whether a library predates a rule.
+STANDARD_VERSION = '2.1.0'
+
 # Matches detect.py. Drupal core's Claro and Olivero ship *.libraries.yml with their own
 # :root token blocks; without pruning, `--admin-color-blue-500` outnumbers the real palette.
 SKIP = re.compile(r'/(node_modules|vendor|\.git|contrib|core)/')
@@ -276,6 +280,7 @@ def extract(root):
     type_scales = bool(type_names & scaling_names)
 
     return {
+        'standardVersion': STANDARD_VERSION,
         'generatedAt': datetime.datetime.now().replace(microsecond=0).isoformat(),
         'source': {'strategy': 'css-custom-properties', 'root': root,
                    'stylesheets': sorted(os.path.relpath(p, root) for p, _ in sheets),

@@ -1,5 +1,47 @@
 # Changelog
 
+## 0.13.0
+
+**The build side now instructs what the verify side checks.** An audit of all 30 checks
+against the build skills found 8 with *no* build-side instruction at all and 5 only implied.
+The verifier had been running ahead of the builder, which means a faithful run of the pipeline
+produced a library its own verifier rejected.
+
+- **`figma-component` builds the documentation card again.** Deleting `figma-atlas` in 0.10.0
+  took the only "build every card" instruction with it — a regression this release introduces
+  the fix for. The card is now step 9, built beside its component on the same page, with the
+  section 5 anatomy, the fields **table**, named layers, and `shot:`/`scale:` frame naming.
+  Folding it into `figma-component` rather than restoring a separate skill is deliberate:
+  adjacency is then true by construction, which is what `documentation-adjacent` requires.
+
+- **`figma-foundation` creates the file's pages.** Nothing did. `figma-component` was told to
+  "resolve the target page from the usage tier" against pages that no skill had ever made.
+
+- **`figma-foundation` names collections `<Brand> <Domain>`.** It previously specified
+  `Primitives`, `Semantic`, `Spacing`, `Type` — unprefixed, which is exactly what
+  `collection-naming` fails. The build skill was instructing the defect. Mode naming is now
+  explicit too, rather than left to whatever the variable plan generated.
+
+- **All six extractors stamp `standardVersion`**, and `model.md` and `build-records.md` carry
+  it in their example shapes. Section 10 required it and nothing wrote it. Verified end to end
+  against the real America's Credit Unions repository: 33 paragraph components extracted with
+  `standardVersion: 2.1.0`.
+
+- **`figma-component` step 2 handles machine-name collisions** and step 6 states the
+  `COMPONENT_SET` requirement outright.
+
+### Two bugs of mine, both silent
+
+- **`structuralRefs` was read as `structuralReferences`** in `index_rows.py` and `verify.py` —
+  a key that exists nowhere in `references/model.md`, in `find_examples.py`, or in any real
+  artifact. It always resolved to `None`. Consequences: `two-usage-numbers` failed every
+  library that had the data (all 69 America's Credit Unions components carry it), and
+  `tier_of()` could never assign the Structural Only tier, so **every load-bearing component
+  was tiered as a retirement candidate**. On America's Credit Unions that moved 3 components
+  out of a list headed "safe to delete" — Structural Only 0 → 3, Retirement Candidates
+  17 → 14. Both readers now use the model's key and accept the longer spelling rather than
+  silently returning zero.
+
 ## 0.12.0
 
 **Standard 2.1.0 — the last three unenforced expectations now have checks**, bringing the set

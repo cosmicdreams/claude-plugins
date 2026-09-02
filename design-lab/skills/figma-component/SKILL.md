@@ -2,7 +2,8 @@
 name: figma-component
 description: >
   Build ONE named component into Figma — variants, text and slot properties, variable
-  bindings, description, documentation link — then assert it and write a build record.
+  bindings, its documentation card beside it, description and documentation link — then
+  assert it and write a build record.
   Invoke as `design-lab:figma-component <machine_name>`, once per component. Not for tokens
   (design-lab:figma-foundation) or the Getting Started index (design-lab:figma-index).
 ---
@@ -43,7 +44,11 @@ across parallel agents.
 1. **Resolve the target page** from the usage tier — one page per tier, not per component.
    See `references/findability.md`.
 2. **Name it `<machine_name> — <Human Label>`**. Assets panel search is substring matching,
-   so one name answers both `banner` and `cpt_cta`.
+   so one name answers both `banner` and `cpt_cta`. **Where two components share a machine
+   name, qualify it with the source type** — `block:accordion` and `paragraph:accordion` are
+   two components, not one, and Figma will not let both be called `accordion`. Record the
+   qualification on the card. `scripts/index_rows.py` reports these as
+   `machine-name-collision`; America's Credit Unions has twelve.
 3. **Build the base with auto-layout, mirroring what the code actually does** — property by
    property. Where the source resolves a value through a token, bind the corresponding
    variable: fills, strokes, padding, gap, corner radius, and width to the container token
@@ -67,19 +72,55 @@ across parallel agents.
    `table_row` instances shows the relationship the configuration describes; three static
    rows only look like it.
 6. **Create variants** from `plan.variantAxes`, then position them — `combineAsVariants`
-   stacks everything at the origin.
+   stacks everything at the origin. **A component with more than one variant must end as a
+   `COMPONENT_SET`, never loose siblings** (`variants-are-sets`, blocker). Only a set gives
+   Figma a variant picker and lets the variants be compared against each other, which is the
+   whole reason for building them; loose components sharing a name stem look nearly identical
+   on the canvas and behave nothing alike on an instance. Confirm the node type after
+   combining rather than assuming the call worked.
 7. **Place the default variant first.** Figma uses the first variant as the instance
    default; get this wrong and the library previews as blank. See `references/defaults.md`.
 8. **Write the description**: machine name, source path, usage counts, the fields, and —
    explicitly — anything not measured. A component built from the field set rather than from
    a capture must say so, or its proportions will be read as measured.
-9. **Set `documentationLinks`** to the component's documentation card, which sits beside it on
-   the same tier page. An empty array is the commonest way a library looks finished and is
-   not — it leaves nothing in the Assets panel leading a designer to the documentation.
-10. **Assert**, per `references/verification.md`.
-11. **Write `builds/<id>.json`**, per `references/build-records.md`, including
-    `figma.documentationCardId` — the index hyperlinks every row to it.
-12. **Refresh the index**: `design-lab:figma-index`. It reads the record you just wrote, so
+9. **Build the documentation card, beside this component, on the same page.** Not on an index
+   page and not in a documentation block of its own — adjacency is what stops the two drifting
+   apart, and `documentation-adjacent` is a blocker. Sections in the order
+   `references/library-standard.md` section 5 sets:
+
+   | Section | Contains |
+   |---|---|
+   | `Head` | category tags, human label, machine name, verified live example path |
+   | `Usage` | **two** stat tiles — author placements and structural references, separately |
+   | `Fields` | labelled count, then a real **table**: field, kind, required, constraint, default |
+   | `Relations` | `CAN CONTAIN` and `APPEARS IN`, derived from the model, never asserted |
+   | `Breakpoints` | `ACROSS BREAKPOINTS`, then the shots at **one shared scale**, each labelled with its real rendered height |
+
+   Three things that are checked and are easy to get wrong:
+
+   - **The fields table is a table.** A preformatted text blob with `▸` glyphs standing in for
+     structure fails `fields-are-tables`. It cannot be scanned, restyled or aligned, and it is
+     what made the America's Credit Unions atlas cards worse than AHRI's.
+   - **Name every layer.** The card root is `<Human Label> · <machine_name>`, and no layer
+     inside it may be left as `Frame`, `Group` or `Text`. Find searches layer names across the
+     whole file, so a default-named layer is invisible to the file's own search —
+     `layers-named` is a blocker, and every PNCB card carries between 9 and 16 of them.
+   - **A grey box is not a screenshot.** Real captures go in frames named
+     `shot:<machine_name>:<Breakpoint>`. With measurements but no capture, draw scale diagrams
+     named `scale:<machine_name>:<Breakpoint>`, label the row `measured, drawn to scale`, and
+     record the missing captures as a gap.
+
+   Build the card from `components.json`, the usage source and the measurements — never from
+   memory. That is what makes it regenerable after a context reset.
+
+10. **Set `documentationLinks`** to the card you just built. An empty array is the commonest
+    way a library looks finished and is not — it leaves nothing in the Assets panel leading a
+    designer to the documentation.
+11. **Assert**, per `references/verification.md`.
+12. **Write `builds/<id>.json`**, per `references/build-records.md`, including
+    `figma.documentationCardId` — the index hyperlinks every row to it, and a record without
+    it produces a row that cannot be jumped to.
+13. **Refresh the index**: `design-lab:figma-index`. It reads the record you just wrote, so
     the Getting Started page stops saying this component is unbuilt.
 
 ## Property traps, all of them hit in practice
