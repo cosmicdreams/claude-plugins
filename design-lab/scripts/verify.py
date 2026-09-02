@@ -23,7 +23,7 @@ Exit status is 1 while any expectation is unresolved, so this can gate a pipelin
 import json, os, re, sys, argparse, glob, datetime
 
 SEV = ('blocker', 'major', 'minor')
-STANDARD_VERSION = '1.0.0'
+STANDARD_VERSION = '2.0.0'
 
 # A description only resolves a blank code name if it addresses the blank. An unrelated note
 # is not an explanation, however long it is.
@@ -629,6 +629,49 @@ def check_standard_version_stamped(components, tokens, builds_dir, rep):
                 'no standardVersion recorded in %s' % '; '.join(missing))
 
 
+def check_bindings_match_source(state, measurements, rep):
+    """Figma must bind exactly where the code binds — no more, no less.
+
+    Not "is it maximally bound". A component that binds a variable the source hardcodes is a
+    different component from the one on the site: the defect a designer was best placed to
+    notice has been erased, and the next sync compares two things that were never the same.
+    See references/library-standard.md section 1.
+
+    Compared at the component level, not the node level. Mapping a CSS node path onto a Figma
+    node identifier is a real problem this does not pretend to solve, so the claim made here
+    is deliberately weaker than per-property: it catches a component the source tokenises and
+    Figma hardcodes, or the reverse, and says nothing about which node.
+    """
+    if not measurements:
+        rep.add('bindings-match-source', 'minor', 'file',
+                'not checked - pass --measurements (design-lab:capture output) so the '
+                "source's declared values can be compared against the Figma bindings")
+        return
+    comps = {c['name']: c for c in state.get('components') or []}
+    if not comps:
+        return
+    mismatched = []
+    for mid, m in (measurements or {}).items():
+        nodes = m.get('nodes') or []
+        src_binds = any('var(--' in str(v)
+                        for n in nodes for v in (n.get('declared') or {}).values())
+        fig = next((c for name, c in comps.items()
+                    if name.split(' — ')[0] == mid or name == mid), None)
+        if fig is None:
+            continue
+        fig_binds = bool(fig.get('boundVariableCount'))
+        if src_binds and not fig_binds:
+            mismatched.append('%s: source resolves through custom properties, the Figma '
+                              'component binds nothing' % mid)
+        elif fig_binds and not src_binds:
+            mismatched.append('%s: the Figma component binds variables, the source hardcodes '
+                              'every value - the defect has been tidied away' % mid)
+    if mismatched:
+        rep.add('bindings-match-source', 'blocker', 'file',
+                '%d component(s) do not mirror the source\'s binding state' % len(mismatched),
+                evidence=mismatched[:20])
+
+
 def check_verify_report_exists(out_path, rep):
     """A verify run that keeps no receipt cannot be cited, diffed, or trusted later."""
     if not out_path:
@@ -642,8 +685,8 @@ modes-earn-themselves components-built component-naming component-description
 documentation-links documentation-cards documentation-cards-unique documentation-adjacent
 layers-named mode-naming no-scratch-pages collection-naming fields-are-tables
 two-usage-numbers tier-thresholds-stated known-gaps-current standard-version-stamped
-verify-report-exists pages-populated shot-frames-have-images breakpoints-share-scale
-captures-unique""".split()
+verify-report-exists bindings-match-source pages-populated shot-frames-have-images
+breakpoints-share-scale captures-unique""".split()
 
 
 # ------------------------------------------------------------------ waivers
@@ -676,6 +719,8 @@ def main():
     ap.add_argument('--index', help='output of index_rows.py')
     ap.add_argument('--builds', help='directory of build records')
     ap.add_argument('--brand', help='collection name prefix, e.g. PNCB')
+    ap.add_argument('--measurements', help='design-lab:capture measurement JSON, keyed by '
+                                           'component; supplies the declared values')
     ap.add_argument('--out', help='write the verify report here; required by '
                                   'verify-report-exists')
     ap.add_argument('--json', action='store_true')
@@ -686,6 +731,7 @@ def main():
     tokens = json.load(open(a.tokens)) if a.tokens else None
     plan = json.load(open(a.plan)) if a.plan else None
     index = json.load(open(a.index)) if a.index else None
+    measurements = json.load(open(a.measurements)) if a.measurements else None
     waivers = load_waivers(a.waivers)
     theme = theme_text(a.theme_root)
 
@@ -709,6 +755,7 @@ def main():
     check_two_usage_numbers(components, rep)
     check_tier_thresholds_stated(index, state, rep)
     check_standard_version_stamped(components, tokens, a.builds, rep)
+    check_bindings_match_source(state, measurements, rep)
     check_verify_report_exists(a.out, rep)
     check_pages_populated(state, rep)
     check_breakpoint_frames(state, rep)

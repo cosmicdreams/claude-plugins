@@ -69,7 +69,13 @@ const childCount = page.children.length;
 const comps = page.findAllWithCriteria({types:['COMPONENT_SET','COMPONENT']})
   .filter(n => n.type === 'COMPONENT_SET' || n.parent.type !== 'COMPONENT_SET')
   .map(n => ({name:n.name, page:page.name, pageId:page.id, description:n.description,
-              docLinks:(n.documentationLinks||[]).length}));
+              docLinks:(n.documentationLinks||[]).length,
+              // How many nodes in this component bind at least one variable. `bindings-match-
+              // source` compares this against what the source actually declares: a component
+              // that binds where the code hardcodes has tidied away the defect the file
+              // exists to carry. See references/library-standard.md section 1.
+              boundVariableCount: n.findAll(x => x.boundVariables &&
+                  Object.keys(x.boundVariables).length > 0).length}));
 // `pageId` is what `documentation-adjacent` compares: a card on another page from its
 // component is the drift this standard exists to prevent, and only the ids can show it.
 const DEFAULT_LAYER = /^(Frame|Group|Rectangle|Ellipse|Text|Vector|Line|Polygon|Star|Component|Slice)( \d+)?$/;
@@ -131,6 +137,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/verify.py \
     --index index.json --builds builds --brand <Brand> \
     --waivers waivers.json --theme-root docroot/themes/custom/<theme> \
     --shots-dir reports/figma-spec/shots \
+    --measurements reports/figma-spec/measurements.json \
     --out verify-report.json
 ```
 
@@ -195,6 +202,7 @@ add a check here, add it there in the same change.
 | `no-scratch-pages` | blocker | a working surface or a typographic divider that shipped |
 | `standard-version-stamped` | blocker | no `standardVersion` in the artifacts or build records |
 | `verify-report-exists` | blocker | a verify run that kept no receipt |
+| `bindings-match-source` | blocker | Figma tidying away a hardcoded value the code actually has |
 | `variable-scoped` | major | `ALL_SCOPES`, so a font stack shows in the radius picker |
 | `code-syntax-set` | major | Dev Mode showing a bare number, with no description saying why |
 | `modes-earn-themselves` | major | modes whose values never differ |

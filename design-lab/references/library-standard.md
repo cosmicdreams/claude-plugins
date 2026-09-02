@@ -1,6 +1,6 @@
 # The component library standard
 
-**Standard version: 1.0.0**
+**Standard version: 2.0.0**
 
 Every library design-lab produces conforms to this document. It is the single answer to "what is a finished component library", so that two people running the plugin against two unrelated codebases — one Drupal with Site Studio, one not Drupal at all — hand back artifacts a third person recognises as the same kind of thing.
 
@@ -35,6 +35,22 @@ For every component in scope, all three exist and reference each other:
 3. Links both ways — the component's `description` carries the searchable payload and points at the card; the component's `documentationLinks` jumps to it.
 
 A component that cannot be built is not silently dropped. It appears in the index as **not built**, with a reason.
+
+### The file is a seed of ground truth, not an idealisation
+
+This is the governing principle, and it overrides every convenience below.
+
+**The Figma component is a faithful representation of the component as the running site actually implements it — including its defects.** Where the code resolves a value through a token, the Figma node binds the corresponding variable. Where the code hardcodes a literal, **the Figma node carries that literal too**, and the divergence is recorded as a defect about the codebase.
+
+The purpose is a file both developers and designers can work from and then sync in either direction. That only works if the two sides describe the same thing. A Figma component that binds a variable where the code hardcodes a hex is not a tidier version of the truth — it is a different component, it hides the defect that a designer is best placed to notice, and it makes every subsequent diff meaningless because the two sides were never comparable.
+
+So:
+
+- **Never improve a component on the way into Figma.** Not spacing, not colour, not type. If it looks wrong, that is the finding.
+- **A hardcoded value in the code becomes a hardcoded value in Figma plus a recorded defect**, surfaced on the card, so somebody can decide to fix it in the code and re-sync. Silently binding it destroys the signal.
+- **Divergence between Figma and code is the product**, not noise to be cleaned up before shipping.
+
+Idealising the library is the tempting failure here, because the idealised version is prettier and every individual decision to tidy one value looks harmless.
 
 ### Why adjacency is a rule, not a preference
 
@@ -157,7 +173,7 @@ Canonical domains: `Color`, `Semantic`, `Spacing`, `Type`, `Radius`, `Elevation`
 
 - **A collection exists only if the token source has values for it.** Never invent a domain to look complete.
 - **Never two collections for one domain.** Carrying both `Typography` and `Type` splits the same concept across two pickers and guarantees the wrong one gets bound.
-- Primitives hold raw values. Semantic aliases them by role. **Components bind to Semantic, never to a raw value** — a theme change must be one edit, not a hunt.
+- Primitives hold raw values. Semantic aliases them by role. **Where the code resolves a value through a token, the component binds Semantic rather than the primitive** — a theme change is then one edit, not a hunt. Where the code hardcodes, the component hardcodes too (§1) — binding a variable the code does not use is a fidelity failure, not an improvement.
 
 ### 6.2 Modes
 
@@ -278,6 +294,7 @@ Every build record carries `standardVersion`, `toolVersion`, `sourceHash`, and i
 | `no-scratch-pages` | a working or divider page shipped |
 | `standard-version-stamped` | an artifact or build record carries no `standardVersion` |
 | `verify-report-exists` | no verify report was written |
+| `bindings-match-source` | the Figma component binds where the source hardcodes, or hardcodes where the source binds (§1) |
 
 ### Majors
 

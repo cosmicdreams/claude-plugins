@@ -1,5 +1,57 @@
 # Changelog
 
+## 0.11.0
+
+**Standard 2.0.0 — the library is a seed of ground truth, not an idealisation.** This inverts
+a rule that was stated in three places and was actively harmful.
+
+The plugin previously instructed the builder to bind every visual property to a variable and
+to *"finish at zero hardcoded fills — assert it"*, and `verification.md` asserted that a raw
+value was a defect. That silently upgrades the component. A theme that hardcodes `#342649`
+where it should use `--bs-purple` produced a Figma component with a clean bound variable: the
+flaw vanished, the designer best placed to notice it never saw it, and the two sides were
+never comparable, which makes any later sync meaningless.
+
+- **`library-standard.md` section 1** now opens with the governing principle: the Figma
+  component is a faithful representation of the component as the running site implements it,
+  **including its defects**. Bind where the source binds; hardcode where the source hardcodes,
+  and record the divergence as a defect about the codebase. Never improve a component on the
+  way into Figma. Divergence between Figma and code is the product.
+- **`figma-component` step 3** and **`verification.md` section 2** rewritten to match. The
+  binding assertion is now three-outcome — source binds and Figma binds, source hardcodes and
+  Figma hardcodes, or a mismatch — and only the mismatch fails.
+- **This is a major standard version** because a library built under the old rule can fail the
+  new check.
+
+- **`measure.mjs` records declared values, not just computed ones.** `getComputedStyle`
+  resolves `var(--bs-purple)` and `#342649` to the identical `rgb(52, 38, 73)`, so the
+  pipeline had no way to tell a token from a literal and the fidelity rule would have been
+  unactionable. It now reads the raw declaration off the matching rules. Cascade order is
+  approximated by document order plus matching media queries, not by specificity — stated in
+  the code rather than implied, because that approximation can disagree with the browser.
+
+  Verified against the live America's Credit Unions homepage: `body` computes to
+  `rgb(52, 38, 73)` and declares `var(--bs-body-color)`; `h1` computes to `80px` and declares
+  `var(--k--typography--font-size-h1)`; `a` declares the literal `transparent` for its
+  background and is correctly distinguished.
+
+  That run also found a defect in the existing library. America's Credit Unions' `tokens.json`
+  records `type/size/h1` with `codeName: null` and the description *"No custom property holds
+  this value. Only the base body size is emitted, as --bs-body-font-size."* The site actually
+  renders h1 through `--k--typography--font-size-h1`. The blank was explained by a wrong
+  explanation, and `code-syntax-set` passed it because it only checks that *an* explanation
+  addresses the absence, not that the explanation is true.
+
+- **New check `bindings-match-source`** (blocker), bringing the set to 27. It compares the
+  source's declared values against the Figma component's bindings and fails a component that
+  binds where the code hardcodes, or hardcodes where the code binds. Compared at component
+  level, not per property — mapping a CSS node path onto a Figma node identifier is a real
+  problem this does not pretend to solve, and the check says so. Degrades to a `minor`
+  "not checked" without `--measurements`.
+
+- **The verify state dump captures `boundVariables`**, which it never did — so nothing had
+  ever looked at whether a built component binds anything at all.
+
 ## 0.10.0
 
 **`figma-atlas` is gone, and `references/library-standard.md` is new.** Both come out of

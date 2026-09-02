@@ -44,9 +44,19 @@ across parallel agents.
    See `references/findability.md`.
 2. **Name it `<machine_name> — <Human Label>`**. Assets panel search is substring matching,
    so one name answers both `banner` and `cpt_cta`.
-3. **Build the base with auto-layout**, binding every visual property to a variable: fills,
-   strokes, padding, gap, corner radius. Width binds to the container token when the
-   component is full width. Finish at zero hardcoded fills — assert it, do not assume it.
+3. **Build the base with auto-layout, mirroring what the code actually does** — property by
+   property. Where the source resolves a value through a token, bind the corresponding
+   variable: fills, strokes, padding, gap, corner radius, and width to the container token
+   when the component is full width. **Where the source hardcodes a literal, carry the
+   literal** and record a `hardcoded-value` defect naming the property and the token it
+   should have used.
+
+   Zero hardcoded fills is **not** the goal, and chasing it is the failure mode this step
+   exists to prevent. A component that binds a variable the code does not use is a different
+   component from the one on the site: the defect a designer was best placed to spot has been
+   erased, and the next sync compares two things that were never the same. See
+   `references/library-standard.md` section 1 — the file is a seed of ground truth, and
+   improving a component on the way in destroys the signal it exists to carry.
 4. **Give every text node a TEXT property.** This is the step most often skipped and the one
    that decides whether the component gets used. A text node with no property cannot be
    edited on an instance, so a designer detaches the instance to change one word, and a
