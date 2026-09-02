@@ -288,6 +288,7 @@ Every build record carries `standardVersion`, `toolVersion`, `sourceHash`, and i
 | `modes-earn-themselves` | a mode's values never differ |
 | `collection-naming` | a collection is unprefixed, or two collections cover one domain |
 | `documentation-cards` | a component has no card |
+| `documentation-cards-unique` | one card name is used twice, so one component is documented twice and another not at all |
 | `fields-are-tables` | a fields list is preformatted text rather than a table |
 | `pages-populated` | a page is empty and carries no line explaining why |
 | `shot-frames-have-images` | a placeholder is named like a capture |

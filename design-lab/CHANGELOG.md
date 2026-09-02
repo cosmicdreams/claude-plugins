@@ -48,6 +48,38 @@ different artifact classes, four naming schemes, four variable-collection conven
 - **`figma-component` step 12** — refresh the index after writing the build record, so the
   Getting Started page stops claiming the component is unbuilt.
 
+- **`verify.py` goes from 12 checks to 26**, which is the standard's list exactly — the three
+  places that name checks (`verify.py`, `skills/verify/SKILL.md`, the standard) are now
+  identical sets. New blockers: `component-naming`, `component-description`,
+  `documentation-adjacent`, `layers-named`, `mode-naming`, `no-scratch-pages`,
+  `standard-version-stamped`, `verify-report-exists`. New majors: `collection-naming`,
+  `fields-are-tables`, `two-usage-numbers`, `tier-thresholds-stated`, `known-gaps-current`.
+  `documentation-links` is promoted from major to blocker. New flags: `--index`, `--builds`,
+  `--brand`, `--out`.
+
+- **`--out` writes the verify report**, and its absence is itself a blocker. A library that
+  has never produced a report is not a finished library, and `figma-index` regenerates Known
+  gaps from that file.
+
+- **`completeness` no longer over-reports.** It matched on the human label where
+  `components-built` matched on the machine name, and `_norm` strips underscores — so
+  `Text Editor` and `text_editor` collapsed to one string and a file where nothing was named
+  correctly reported 100% built while a blocker said the component was missing. Both now use
+  one `built_keys()` builder, and the display name is never normalised. The headline coverage
+  figure must never be the more generous of the two.
+
+- **The verify state dump was wrong in two ways**, both found by running it against the live
+  PNCB file rather than a fixture. Figma node proxies *throw* on an unknown property instead
+  of returning `undefined`, so the `n.findAll ? …` guard raised `TypeError` on a TEXT node;
+  it now tests node type. And the Known-gaps capture matched the heading text only, returning
+  `"Known gaps — read before trusting a card"` and nothing beneath it, which would have failed
+  `known-gaps-current` on every run — it now takes the whole section.
+
+  Run against real PNCB state, the check set reports 11 of 44 components built and finds
+  every component named by human label alone, 9 modes still called `Mode 1` or `Default`,
+  `PNCB Typography` and `PNCB Type` splitting one domain, and 9 to 16 layers per card still
+  named `Frame`.
+
 ## 0.9.0
 
 **`design-lab:capture`** — the half of the pipeline that was living in a client repository.

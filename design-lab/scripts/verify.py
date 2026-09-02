@@ -12,15 +12,18 @@ silence.** A waiver is a recorded human decision - who, when, why - so "we do no
 that" is a durable answer rather than something re-litigated every run.
 
     python3 verify.py --state state.json --components components.json \\
-        [--tokens tokens.json] [--plan plan.json] [--waivers waivers.json] \\
-        [--theme-root <dir>] [--json]
+        [--tokens tokens.json] [--plan plan.json] [--index index.json] \\
+        [--builds <dir>] [--brand PNCB] [--waivers waivers.json] \\
+        [--theme-root <dir>] [--shots-dir <dir>] --out verify-report.json [--json]
 
 `state.json` is the dump produced by the read script in `skills/verify/SKILL.md`.
+The checks are defined by `references/library-standard.md` section 11.
 Exit status is 1 while any expectation is unresolved, so this can gate a pipeline.
 """
-import json, os, re, sys, argparse, glob
+import json, os, re, sys, argparse, glob, datetime
 
 SEV = ('blocker', 'major', 'minor')
+STANDARD_VERSION = '1.0.0'
 
 # A description only resolves a blank code name if it addresses the blank. An unrelated note
 # is not an explanation, however long it is.
@@ -161,6 +164,42 @@ def check_modes_earn_themselves(state, rep):
                     evidence=varying)
 
 
+def built_keys(state):
+    """Every identifier by which a component in the file can be recognised.
+
+    One builder, used by both `components-built` and `completeness`. They used to disagree:
+    completeness also matched on the human label, so a file whose components were named
+    `Text Editor` rather than `text_editor — Text Editor` reported 100% built while
+    `components-built` reported the same component missing. The headline coverage figure is
+    the number put in front of a human, so it must never be the more generous of the two.
+    """
+    built = set()
+    for c in state.get('components') or []:
+        name = c.get('name') or ''
+        # The raw name only. Never `_norm(name)`: normalisation strips the underscore, so
+        # `Text Editor` and `text_editor` collapse to one string and a wrongly-named
+        # component matches its own inventory entry — which is how completeness reported
+        # 100% built on a file where nothing was named correctly.
+        built.add(name)
+        m = re.match(r'^([a-z0-9_]+)\s+—\s+', name)
+        if m:
+            built.update((m.group(1), _norm(m.group(1))))
+        for d in (c.get('description') or '').splitlines():
+            mm = re.match(r'\s*Machine name:\s*([a-z0-9_]+)', d)
+            if mm:
+                built.update((mm.group(1), _norm(mm.group(1))))
+    return built
+
+
+def component_keys(c):
+    """The identifiers an inventory entry may legitimately be found under. Not the label."""
+    keys = {c.get('id'), c.get('machineName')}
+    if c.get('id'):
+        keys.add(str(c['id']).split(':')[-1])
+    keys.discard(None)
+    return keys | {_norm(k) for k in keys}
+
+
 def check_components_built(state, components, plan, rep):
     """Every component the plan said to build should be in the file."""
     want = set()
@@ -173,17 +212,9 @@ def check_components_built(state, components, plan, rep):
     want.discard(None)
     if not want:
         return
-    built = set()
-    for c in state.get('components') or []:
-        built.add(c['name'])
-        m = re.match(r'^([a-z0-9_]+)\s+—\s+', c['name'])
-        if m:
-            built.add(m.group(1))
-        for d in (c.get('description') or '').splitlines():
-            mm = re.match(r'\s*Machine name:\s*([a-z0-9_]+)', d)
-            if mm:
-                built.add(mm.group(1))
-    missing = sorted(want - built)
+    built = built_keys(state)
+    missing = sorted(w for w in want
+                     if not ({w, str(w).split(':')[-1], _norm(w)} & built))
     if missing:
         rep.add('components-built', 'blocker', 'file',
                 '%d of %d planned components are not in the file' % (len(missing), len(want)),
@@ -198,17 +229,11 @@ def completeness(state, components, plan):
     front of whoever is about to sign it off.
     """
     comps = (components or {}).get('components') or []
-    built = set()
-    for c in state.get('components') or []:
-        for d in (c.get('description') or '').splitlines():
-            m = re.match(r'\s*Machine name:\s*([a-z0-9_]+)', d)
-            if m:
-                built.add(m.group(1))
-        built.add(_norm(c['name']))
-    rows, tiers = [], {}
+    built = built_keys(state)
+    tiers = {}
     for c in comps:
         t = ((c.get('usage') or {}).get('tier')) or 'untiered'
-        ok = c['id'] in built or _norm(c.get('label') or '') in built
+        ok = bool(component_keys(c) & built)
         tiers.setdefault(t, [0, 0, []])
         tiers[t][1] += 1
         if ok:
@@ -222,7 +247,7 @@ def completeness(state, components, plan):
 def check_documentation_links(state, rep):
     missing = [c['name'] for c in state.get('components') or [] if not c.get('docLinks')]
     if missing:
-        rep.add('documentation-links', 'major', 'file',
+        rep.add('documentation-links', 'blocker', 'file',
                 '%d component(s) have no documentationLinks, so nothing in the Assets panel '
                 'leads to their documentation' % len(missing), evidence=missing[:20])
 
@@ -334,9 +359,254 @@ def check_captures_unique(shots_dir, rep):
                     'selectors resolve to the same element', evidence=sorted(files))
 
 
+# ---------------------------------------------------- library-standard.md v1 additions
+
+COMPONENT_NAME = re.compile(r'^[a-z0-9_]+\s+—\s+\S')
+# Figma's own placeholders, bare or numbered. A layer still carrying one was never named,
+# and Find searches layer names, so it is invisible to the file's own index.
+DEFAULT_LAYER = re.compile(
+    r'^(Frame|Group|Rectangle|Ellipse|Text|Vector|Line|Polygon|Star|Component|Slice)'
+    r'(\s+\d+)?$')
+DEFAULT_MODE = re.compile(r'^(Mode\s*\d*|Default|Value \d+)$', re.I)
+# A divider page is typographic furniture: unnavigable, noise in Find, lost on rename.
+DIVIDER_PAGE = re.compile(r'^[\s—\-=_·•]+[A-Z\s]*[\s—\-=_·•]+$')
+SCRATCH_PAGE = re.compile(
+    r'internal only|scratch|draft|wip|work in progress|sandbox|test|temp|'
+    r'components\s*—\s*built|untitled', re.I)
+# Domains that mean the same thing. Two collections for one domain split the concept across
+# two pickers and guarantee the wrong one gets bound.
+DOMAIN_ALIASES = {'typography': 'type', 'colour': 'color', 'colors': 'color',
+                  'spacings': 'spacing', 'radii': 'radius', 'shadow': 'elevation',
+                  'shadows': 'elevation', 'motions': 'motion'}
+
+
+def check_component_naming(state, rep):
+    """`machine_name — Human Label`, because two audiences search two different words."""
+    bad = [c['name'] for c in state.get('components') or []
+           if not COMPONENT_NAME.match(c['name'] or '')]
+    if bad:
+        rep.add('component-naming', 'blocker', 'file',
+                '%d component(s) are not named `machine_name — Human Label`. A machine-name-'
+                'only name matches nothing a designer types; a label-only name matches '
+                'nothing a developer traces.' % len(bad), evidence=bad[:20])
+
+
+def check_component_description(state, rep):
+    """The description is the Assets panel's search payload, so an empty one is unfindable.
+
+    Checked for the three elements that can be recognised without reading English: the
+    machine name, a source path, and a usage figure. A description missing all three is not
+    a payload, whatever else it says.
+    """
+    thin = []
+    for c in state.get('components') or []:
+        d = c.get('description') or ''
+        if not d.strip():
+            thin.append('%s (empty)' % c['name'])
+            continue
+        missing = []
+        if not re.search(r'machine name\s*:', d, re.I):
+            missing.append('machine name')
+        if not re.search(r'\b[\w./-]+\.(yml|yaml|json|twig|php|jsx?|tsx?|s?css)\b', d):
+            missing.append('source path')
+        if not re.search(r'\d', d):
+            missing.append('usage figure')
+        if missing:
+            thin.append('%s (no %s)' % (c['name'], ', '.join(missing)))
+    if thin:
+        rep.add('component-description', 'blocker', 'file',
+                '%d component description(s) do not carry the searchable payload from '
+                'library-standard.md section 4.2' % len(thin), evidence=thin[:20])
+
+
+def check_documentation_adjacent(state, rep):
+    """A card on another page means every question costs a page change, and the two drift."""
+    card_page = {}
+    for c in state.get('cards') or []:
+        stem = re.sub(r'\s+—\s+documentation$', '', c.get('name', ''))
+        for part in re.split(r'\s+—\s+', stem):
+            if part.strip():
+                card_page.setdefault(_norm(part), c.get('pageId'))
+    apart = []
+    for c in state.get('components') or []:
+        m = re.match(r'^([a-z0-9_]+)\s+—\s+(.*)$', c.get('name') or '')
+        keys = [_norm(m.group(1)), _norm(m.group(2))] if m else [_norm(c.get('name') or '')]
+        for k in keys:
+            if k in card_page and card_page[k] and c.get('pageId') \
+                    and card_page[k] != c['pageId']:
+                apart.append(c['name'])
+                break
+    if apart:
+        rep.add('documentation-adjacent', 'blocker', 'file',
+                '%d component(s) have their documentation card on a different page. '
+                'Segregating cards from components is how the two drift apart.' % len(apart),
+                evidence=apart[:20])
+
+
+def check_layers_named(state, rep):
+    """Find searches layer names, so a layer named `Frame` is invisible to the file itself."""
+    offenders = []
+    for c in state.get('cards') or []:
+        n = c.get('defaultNamedLayers')
+        if n:
+            offenders.append('%s (%d)' % (c.get('name', '?'), n))
+    if offenders:
+        rep.add('layers-named', 'blocker', 'file',
+                '%d card(s) contain layers still carrying a Figma default name such as '
+                '`Frame`' % len(offenders), evidence=offenders[:20])
+
+
+def check_mode_naming(state, rep):
+    """`Mode 1` means nobody named the mode; the reader cannot tell what it holds."""
+    bad = []
+    for c in state.get('collections') or []:
+        for m in c.get('modes') or []:
+            name = m if isinstance(m, str) else (m.get('name') or '')
+            if DEFAULT_MODE.match(name.strip()):
+                bad.append('%s::%s' % (c['name'], name))
+    if bad:
+        rep.add('mode-naming', 'blocker', 'file',
+                '%d mode(s) still carry a Figma placeholder name. A mode name states what '
+                'the mode holds — `Desktop 1440px`, not `Mode 1`.' % len(bad),
+                evidence=bad[:20])
+
+
+def check_no_scratch_pages(state, rep):
+    """Working surfaces and typographic dividers do not ship."""
+    bad = []
+    for p in state.get('pages') or []:
+        n = (p.get('name') or '').strip()
+        if DIVIDER_PAGE.match(n) or SCRATCH_PAGE.search(n):
+            bad.append(n)
+    if bad:
+        rep.add('no-scratch-pages', 'blocker', 'file',
+                '%d page(s) are working surfaces or typographic dividers' % len(bad),
+                evidence=bad)
+
+
+def check_collection_naming(state, brand, rep):
+    """Unprefixed collections collide the moment a file subscribes to a second library."""
+    colls = state.get('collections') or []
+    if brand:
+        unprefixed = [c['name'] for c in colls
+                      if not _norm(c['name']).startswith(_norm(brand))]
+        if unprefixed:
+            rep.add('collection-naming', 'major', 'file',
+                    '%d collection(s) are not prefixed `%s <Domain>`, so they collide with '
+                    'every other library in the picker' % (len(unprefixed), brand),
+                    evidence=unprefixed)
+    domains = {}
+    for c in colls:
+        # The whole remaining phrase, not its last word. Keying on the last word made
+        # `PNCB Letter Spacing` collide with `PNCB Spacing`, which are two real domains.
+        phrase = re.sub(r'^%s\s*' % re.escape(brand or ''), '', c['name'], flags=re.I).strip()
+        key = _norm(phrase) or _norm(c['name'])
+        domains.setdefault(DOMAIN_ALIASES.get(key, key), []).append(c['name'])
+    dupes = {d: names for d, names in domains.items() if len(names) > 1}
+    if dupes:
+        rep.add('collection-naming', 'major', 'file',
+                '%d domain(s) are split across more than one collection, so the same concept '
+                'lives in two pickers' % len(dupes),
+                evidence=['%s: %s' % (d, ', '.join(n)) for d, n in sorted(dupes.items())])
+
+
+def check_fields_are_tables(state, rep):
+    """Glyphs standing in for structure cannot be scanned, restyled, or aligned."""
+    faked = [c.get('name', '?') for c in state.get('cards') or []
+             if c.get('hasFields') and not c.get('hasFieldsTable')]
+    if faked:
+        rep.add('fields-are-tables', 'major', 'file',
+                '%d card(s) render their field list as preformatted text rather than a '
+                'table' % len(faked), evidence=faked[:20])
+
+
+def check_two_usage_numbers(components, rep):
+    """One number marks load-bearing components as dead and deletes working sliders."""
+    comps = (components or {}).get('components') or []
+    withusage = [c for c in comps if c.get('usage')]
+    if not withusage:
+        return
+    collapsed = [c['id'] for c in withusage
+                 if (c['usage'] or {}).get('structuralReferences') is None]
+    if collapsed:
+        rep.add('two-usage-numbers', 'major', 'file',
+                '%d of %d components record placements but no structuralReferences. '
+                'Collapsed into one number, a component with zero placements and dozens of '
+                'structural references reads as dead.' % (len(collapsed), len(withusage)),
+                evidence=collapsed[:20])
+
+
+def check_tier_thresholds_stated(index, state, rep):
+    """An unexplained threshold cannot be compared against another library."""
+    if not index:
+        return
+    th = index.get('thresholds') or {}
+    if th.get('default', True):
+        return
+    text = (state.get('gettingStarted') or {}).get('thresholdsText') or ''
+    if not re.search(r'\b%d\b' % th.get('high', -1), text) or \
+            not re.search(r'because|reason|since|so that|distribution', text, re.I):
+        rep.add('tier-thresholds-stated', 'major', 'file',
+                'tier thresholds are overridden (High >= %s, Medium >= %s) but Getting '
+                'Started does not state them together with the reason'
+                % (th.get('high'), th.get('medium')))
+
+
+def check_known_gaps_current(state, open_findings, rep):
+    """Known gaps that predates the findings tells the reader the library is cleaner."""
+    gs = state.get('gettingStarted') or {}
+    text = gs.get('knownGapsText')
+    if text is None:
+        rep.add('known-gaps-current', 'major', 'file',
+                'the Getting Started page has no Known gaps section, so nothing in the file '
+                'tells a reader what is unresolved')
+        return
+    unlisted = sorted({f['check'] for f in open_findings
+                       if f['check'] not in ('known-gaps-current',)
+                       and f['check'] not in text})
+    if unlisted:
+        rep.add('known-gaps-current', 'major', 'file',
+                '%d open finding(s) are not named in Known gaps, so the page understates '
+                'what is unresolved' % len(unlisted), evidence=unlisted[:20])
+
+
+def check_standard_version_stamped(components, tokens, builds_dir, rep):
+    """Without a stamp, nobody can tell which edition a library was built to."""
+    missing = []
+    for name, doc in (('components.json', components), ('tokens.json', tokens)):
+        if doc is not None and not doc.get('standardVersion'):
+            missing.append(name)
+    if builds_dir and os.path.isdir(builds_dir):
+        unstamped = []
+        for p in sorted(glob.glob(os.path.join(builds_dir, '*.json'))):
+            try:
+                if not (json.load(open(p)) or {}).get('standardVersion'):
+                    unstamped.append(os.path.basename(p))
+            except (ValueError, IOError):
+                unstamped.append(os.path.basename(p) + ' (unreadable)')
+        if unstamped:
+            missing.append('%d build record(s): %s' % (len(unstamped),
+                                                       ', '.join(unstamped[:6])))
+    if missing:
+        rep.add('standard-version-stamped', 'blocker', 'file',
+                'no standardVersion recorded in %s' % '; '.join(missing))
+
+
+def check_verify_report_exists(out_path, rep):
+    """A verify run that keeps no receipt cannot be cited, diffed, or trusted later."""
+    if not out_path:
+        rep.add('verify-report-exists', 'blocker', 'file',
+                'this run was not given --out, so it leaves no verify report. A library that '
+                'has never produced one is not a finished library.')
+
+
 CHECKS = """foundation-exists variable-scoped code-syntax-set code-syntax-resolves
-modes-earn-themselves components-built documentation-links documentation-cards documentation-cards-unique
-pages-populated shot-frames-have-images breakpoints-share-scale captures-unique""".split()
+modes-earn-themselves components-built component-naming component-description
+documentation-links documentation-cards documentation-cards-unique documentation-adjacent
+layers-named mode-naming no-scratch-pages collection-naming fields-are-tables
+two-usage-numbers tier-thresholds-stated known-gaps-current standard-version-stamped
+verify-report-exists pages-populated shot-frames-have-images breakpoints-share-scale
+captures-unique""".split()
 
 
 # ------------------------------------------------------------------ waivers
@@ -366,6 +636,11 @@ def main():
     ap.add_argument('--waivers')
     ap.add_argument('--theme-root')
     ap.add_argument('--shots-dir')
+    ap.add_argument('--index', help='output of index_rows.py')
+    ap.add_argument('--builds', help='directory of build records')
+    ap.add_argument('--brand', help='collection name prefix, e.g. PNCB')
+    ap.add_argument('--out', help='write the verify report here; required by '
+                                  'verify-report-exists')
     ap.add_argument('--json', action='store_true')
     a = ap.parse_args()
 
@@ -373,6 +648,7 @@ def main():
     components = json.load(open(a.components)) if a.components else None
     tokens = json.load(open(a.tokens)) if a.tokens else None
     plan = json.load(open(a.plan)) if a.plan else None
+    index = json.load(open(a.index)) if a.index else None
     waivers = load_waivers(a.waivers)
     theme = theme_text(a.theme_root)
 
@@ -383,11 +659,25 @@ def main():
     check_code_syntax_resolves(state, theme, rep)
     check_modes_earn_themselves(state, rep)
     check_components_built(state, components, plan, rep)
+    check_component_naming(state, rep)
+    check_component_description(state, rep)
     check_documentation_links(state, rep)
     check_documentation_cards(state, components, rep)
+    check_documentation_adjacent(state, rep)
+    check_layers_named(state, rep)
+    check_mode_naming(state, rep)
+    check_no_scratch_pages(state, rep)
+    check_collection_naming(state, a.brand, rep)
+    check_fields_are_tables(state, rep)
+    check_two_usage_numbers(components, rep)
+    check_tier_thresholds_stated(index, state, rep)
+    check_standard_version_stamped(components, tokens, a.builds, rep)
+    check_verify_report_exists(a.out, rep)
     check_pages_populated(state, rep)
     check_breakpoint_frames(state, rep)
     check_captures_unique(a.shots_dir, rep)
+    # Last: it compares Known gaps against everything the run has already found.
+    check_known_gaps_current(state, list(rep.findings), rep)
 
     open_, waived_ = [], []
     for f in rep.findings:
@@ -396,10 +686,20 @@ def main():
 
     passed = [c for c in CHECKS if not any(f['check'] == c for f in rep.findings)]
     cover = completeness(state, components, plan)
+    report = {'standardVersion': STANDARD_VERSION,
+              'generatedAt': datetime.datetime.now(datetime.timezone.utc)
+                                     .replace(microsecond=0).isoformat().replace('+00:00', 'Z'),
+              'open': open_, 'waived': waived_, 'passed': passed, 'completeness': cover}
+
+    if a.out:
+        # The receipt. Known gaps on Getting Started is regenerated from this file, so it is
+        # written whether the run passed or failed.
+        os.makedirs(os.path.dirname(os.path.abspath(a.out)), exist_ok=True)
+        with open(a.out, 'w') as fh:
+            json.dump(report, fh, indent=2)
 
     if a.json:
-        print(json.dumps({'open': open_, 'waived': waived_, 'passed': passed,
-                          'completeness': cover}, indent=2))
+        print(json.dumps(report, indent=2))
     else:
         pct = (100.0 * cover['built'] / cover['expected']) if cover['expected'] else 0
         print('COMPLETENESS  %d of %d components built (%.0f%%)'
