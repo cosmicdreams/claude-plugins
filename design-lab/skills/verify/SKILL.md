@@ -34,9 +34,15 @@ waiver is also what stops the same argument happening on every future run.
 
 One read-only `use_figma` call. It collects only what the checks need.
 
+**Do not read `p.children.length` here.** Figma loads pages on demand, so an unloaded page
+reports `0` children whether it is empty or holds seventy-six frames — measured on the
+America's Credit Unions file, where the Atlas page reads `0` before `setCurrentPageAsync` and
+`76` after. Taking the count from this pass makes `pages-populated` fire on almost every page
+of every file. The count is captured in the per-page pass below, where the page is current.
+
 ```js
 const pages = [];
-for (const p of figma.root.children) pages.push({id:p.id, name:p.name, children:p.children.length});
+for (const p of figma.root.children) pages.push({id:p.id, name:p.name});
 
 const colls = [];
 for (const c of await figma.variables.getLocalVariableCollectionsAsync()) {
@@ -58,6 +64,8 @@ loop), each returning that page's components, documentation cards and breakpoint
 ```js
 const page = await figma.getNodeByIdAsync(PAGE_ID);
 await figma.setCurrentPageAsync(page);
+// Authoritative: the page is current, so this count is real. Merge it onto pages[].children.
+const childCount = page.children.length;
 const comps = page.findAllWithCriteria({types:['COMPONENT_SET','COMPONENT']})
   .filter(n => n.type === 'COMPONENT_SET' || n.parent.type !== 'COMPONENT_SET')
   .map(n => ({name:n.name, page:page.name, pageId:page.id, description:n.description,
@@ -81,6 +89,7 @@ const cards = page.findAll(n => / — documentation$/.test(n.name)).map(n => {
           defaultNamedLayers: kids.filter(x => DEFAULT_LAYER.test(x.name)).length,
           hasFields: fields.length > 0, hasFieldsTable: hasTable};
 });
+// Return childCount with the rest; a page with no entry is reported as unmeasured, not empty.
 const frames = page.findAll(n => n.type==='FRAME' && /^(shot|scale):/.test(n.name))
   .map(n => ({name:n.name, width:Math.round(n.width), height:Math.round(n.height),
               hasImage: Array.isArray(n.fills) && n.fills.some(f=>f.type==='IMAGE'),

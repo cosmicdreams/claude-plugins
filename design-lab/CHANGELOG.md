@@ -75,6 +75,25 @@ different artifact classes, four naming schemes, four variable-collection conven
   `"Known gaps — read before trusting a card"` and nothing beneath it, which would have failed
   `known-gaps-current` on every run — it now takes the whole section.
 
+- **A check with no subject now reports `N/A`, not `PASS`.** Measured on America's Credit
+  Unions, whose Figma file contains zero components: five component checks and one shot check
+  had nothing to fail on, so the file scored 17 of 26 passing. It now scores 11 passed, 6 not
+  applicable, 12 open. Reporting a vacuous pass is the same error as reporting an unrun check
+  as passing, and it flatters exactly the libraries that deserve it least.
+
+- **`pages-populated` no longer treats unloaded as empty.** Figma loads pages on demand and an
+  unloaded page reports `0` children whatever it holds — the America's Credit Unions Atlas
+  page reads `0` before `setCurrentPageAsync` and `76` after. The state dump took its counts
+  from the root iteration, so this check would have fired on nearly every page of every file.
+  Counts now come from the per-page pass, and a page never made current is reported as
+  unmeasured rather than empty.
+
+- **`code-syntax-resolves` degrades to `minor` when the theme has no compiled CSS.**
+  Bootstrap-style frameworks emit their custom properties at build time, so grepping a
+  repository whose `dist/` is gitignored reports every one as dangling — eight of them on
+  America's Credit Unions, at blocker severity, for properties that do resolve in the
+  compiled `index.css` its own tokens.json cites.
+
   Run against real PNCB state, the check set reports 11 of 44 components built and finds
   every component named by human label alone, 9 modes still called `Mode 1` or `Default`,
   `PNCB Typography` and `PNCB Type` splitting one domain, and 9 to 16 layers per card still

@@ -110,7 +110,29 @@ def check_code_syntax_set(state, tokens, rep):
                     evidence=unexplained[:12])
 
 
-def check_code_syntax_resolves(state, theme, rep):
+def has_build_output(root):
+    """Whether the theme root contains compiled CSS, not just source.
+
+    Bootstrap-style frameworks emit their custom properties at build time. Grepping a
+    repository whose `dist/` is gitignored finds none of them, and every such variable is
+    reported as dangling — a blocker-severity false positive. Measured on America's Credit
+    Unions: `--bs-body-font-size` and `--bs-heading-color` resolve in the compiled
+    `index.css` its own tokens.json cites, and that file is not committed.
+    """
+    if not root or not os.path.isdir(root):
+        return False
+    for dp, dn, fn in os.walk(root):
+        if re.search(r'/(node_modules|vendor|\.git)/', dp + os.sep):
+            dn[:] = []
+            continue
+        if re.search(r'/(dist|build|compiled)(/|$)', dp) and any(f.endswith('.css') for f in fn):
+            return True
+        if any(f.endswith(('.min.css', 'index.css')) for f in fn):
+            return True
+    return False
+
+
+def check_code_syntax_resolves(state, theme, rep, built=True):
     """The check that matters most, and the one nothing was doing.
 
     A code syntax naming a custom property that does not exist is worse than none: a
@@ -139,9 +161,14 @@ def check_code_syntax_resolves(state, theme, rep):
                 dangling.append('%s -> %s (a hex is the value repeated, not a code name)'
                                 % (v['name'], web))
         if dangling:
-            rep.add('code-syntax-resolves', 'blocker', 'collection:' + c['name'],
+            rep.add('code-syntax-resolves', 'blocker' if built else 'minor',
+                    'collection:' + c['name'],
                     '%d code syntax value(s) name something that does not exist in the '
-                    'codebase' % len(dangling), evidence=dangling[:16])
+                    'codebase%s' % (len(dangling),
+                        '' if built else ' — but this theme root has no compiled CSS, so a '
+                        'framework-emitted property cannot be confirmed either way. Build '
+                        'the theme and re-run before treating these as wrong.'),
+                    evidence=dangling[:16])
 
 
 def check_modes_earn_themselves(state, rep):
@@ -302,7 +329,17 @@ def check_documentation_cards(state, components, rep):
 
 
 def check_pages_populated(state, rep):
-    empty = [p['name'] for p in state.get('pages') or [] if not p.get('children')]
+    # `children` absent means the page was never made current, so its size is unknown. Figma
+    # reports 0 children for an unloaded page regardless of what it holds, and treating that
+    # as empty fired this check on nearly every page of every file. Unmeasured is not zero.
+    pages = state.get('pages') or []
+    unmeasured = [p['name'] for p in pages if p.get('children') is None]
+    if unmeasured:
+        rep.add('pages-populated', 'minor', 'file',
+                '%d page(s) were never loaded, so whether they are empty is unknown. Make '
+                'each page current before counting its children.' % len(unmeasured),
+                evidence=unmeasured[:20])
+    empty = [p['name'] for p in pages if p.get('children') == 0]
     if empty:
         rep.add('pages-populated', 'major', 'file',
                 '%d page(s) are empty. An empty page in a published library reads as a '
@@ -656,7 +693,7 @@ def main():
     check_foundation_before_components(state, rep)
     check_variable_scopes(state, rep)
     check_code_syntax_set(state, tokens, rep)
-    check_code_syntax_resolves(state, theme, rep)
+    check_code_syntax_resolves(state, theme, rep, has_build_output(a.theme_root))
     check_modes_earn_themselves(state, rep)
     check_components_built(state, components, plan, rep)
     check_component_naming(state, rep)
@@ -684,12 +721,33 @@ def main():
         w = waived(f, waivers)
         (waived_ if w else open_).append(dict(f, waiver=w) if w else f)
 
-    passed = [c for c in CHECKS if not any(f['check'] == c for f in rep.findings)]
+    # A check with nothing to examine did not pass — it did not run. Reporting it as a pass
+    # is the same error as reporting an unrun check as passing, and it is worse here: a file
+    # with zero components scored 17 of 26 passing on America's Credit Unions, because five
+    # component checks and three card checks had no subject to fail on.
+    subjects = {'component': len(state.get('components') or []),
+                'card': len(state.get('cards') or []),
+                'shot': len(state.get('breakpointFrames') or []),
+                'collection': len(state.get('collections') or [])}
+    NEEDS = {'component-naming': 'component', 'component-description': 'component',
+             'documentation-links': 'component', 'documentation-adjacent': 'component',
+             'layers-named': 'card', 'fields-are-tables': 'card',
+             'documentation-cards-unique': 'card',
+             'shot-frames-have-images': 'shot', 'breakpoints-share-scale': 'shot',
+             'variable-scoped': 'collection', 'code-syntax-set': 'collection',
+             'modes-earn-themselves': 'collection', 'mode-naming': 'collection',
+             'collection-naming': 'collection'}
+    inapplicable = sorted(c for c, need in NEEDS.items()
+                          if not subjects[need]
+                          and not any(f['check'] == c for f in rep.findings))
+    passed = [c for c in CHECKS
+              if c not in inapplicable and not any(f['check'] == c for f in rep.findings)]
     cover = completeness(state, components, plan)
     report = {'standardVersion': STANDARD_VERSION,
               'generatedAt': datetime.datetime.now(datetime.timezone.utc)
                                      .replace(microsecond=0).isoformat().replace('+00:00', 'Z'),
-              'open': open_, 'waived': waived_, 'passed': passed, 'completeness': cover}
+              'open': open_, 'waived': waived_, 'passed': passed,
+              'inapplicable': inapplicable, 'completeness': cover}
 
     if a.out:
         # The receipt. Known gaps on Getting Started is regenerated from this file, so it is
@@ -711,6 +769,8 @@ def main():
         print()
         for c in passed:
             print('PASS   %s' % c)
+        for c in inapplicable:
+            print('N/A    %s — nothing in the file for this check to examine' % c)
         for f in waived_:
             print('WAIVED %s [%s] — %s' % (f['check'], f['scope'],
                                            (f['waiver'] or {}).get('reason', '')))
@@ -719,7 +779,8 @@ def main():
                                                       f['detail']))
             if f.get('evidence'):
                 print('         evidence: %s' % ', '.join(map(str, f['evidence']))[:400])
-        print('\n%d passed, %d waived, %d open' % (len(passed), len(waived_), len(open_)))
+        print('\n%d passed, %d not applicable, %d waived, %d open'
+              % (len(passed), len(inapplicable), len(waived_), len(open_)))
         if open_:
             print('\nEvery open item must end as a fix or a recorded waiver. Ask the user '
                   'before waiving; a waiver is their decision, not yours.')
