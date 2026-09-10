@@ -5,10 +5,15 @@ directory to `tests/e2e/` and adapt; every import here is relative and resolves
 as-is once it lands there, so the tree below is the tree you get rather than a
 diagram of one.
 
-Trimmed from a working Drupal suite, not invented for the document. The Drupal
-parts — `factories/drush.ts`, the `.ddev.site` check in the fixture, the login
-link in `global-setup.ts` — are the worked example. Replace those three; keep
-everything around them.
+Trimmed from a working Drupal suite, not invented for the document. The
+Drupal-specific parts are narrow and marked: the JSON:API paths in
+`factories/content.ts`, all of `factories/drush.ts`, the `.ddev.site` check in
+the fixture, and the login link in `global-setup.ts`. Everything else is stack
+agnostic.
+
+"Factory" here means a manufacturer of *test content* — a landing page, a blog
+post. It does not generate tests. The two senses of the word sit one directory
+apart in this plugin, so the distinction is worth stating once.
 
 ```
 tests/e2e/
@@ -19,8 +24,8 @@ tests/e2e/
   fixtures/
     base.fixture.ts        the entry point specs import from
   factories/
-    drush.ts               the environment adapter: escaping, destructive guard
-    content.ts             typed handles with cleanup(); one per content type
+    content.ts             test data, over Playwright's request context
+    drush.ts               the escape hatch, for what no interface exposes
   slices/
     C447371-example-navigation.spec.ts   specs, grouped by area
   support/
@@ -57,9 +62,9 @@ the specs. The script is three seconds and removes the failure mode.
 |---|---|
 | `components/ExampleComponent.ts` | `readonly` locators assigned in the constructor; role and accessible name first, an authored hook second, a theme class only as a commented compromise |
 | `pages/ExamplePage.ts` | components composed inside pages; site-wide chrome on the base page |
-| `fixtures/base.fixture.ts` | authenticated pages exposed as fixtures, never arranged by a spec; locality decided on a parsed hostname |
-| `factories/drush.ts` | one central adapter; escaping for every interpolated value; a guard that refuses an unnarrowed destructive command |
-| `factories/content.ts` | typed handles carrying their own `cleanup()`, not bare ids |
+| `fixtures/base.fixture.ts` | authenticated pages and factories exposed as fixtures, never arranged by a spec; locality decided on a parsed hostname |
+| `factories/content.ts` | test data built on `APIRequestContext` — portable, visible in the trace, and sending structured data rather than generating source, so there is nothing to escape. Returns typed handles carrying their own `cleanup()`, not bare ids |
+| `factories/drush.ts` | the escape hatch, for operations no interface exposes. Carries the two rules that only apply once you shell out: escape everything interpolated, and refuse an unnarrowed destructive verb |
 | `slices/C447371-*.spec.ts` | the case identifier in filename and title; `test.step()` throughout; tags actually applied; no `waitForTimeout()` |
 | `global-teardown.ts` | the orphan sweep for content whose test died before its cleanup ran |
 | `support/check-tags.mjs` | the tag rule, enforced rather than described |

@@ -81,36 +81,71 @@ against a shared environment.
 
 ## Factories
 
+**Terminology first, because this document sits inside a plugin that generates
+tests:** a factory manufactures the *content a spec acts on* — a landing page, a
+blog post, a user. It does not generate tests. The sense is the one from
+`factory_bot`.
+
 **[review]** The strongest part of a mature suite, and the usual thing missing
 from a young one. A spec that depends on content a person created is a spec that
-breaks when that person edits it.
+breaks when that person edits it, and the failure reads as a regression.
 
-The portable rules, in the form that survives leaving Drupal:
+Content is created out of band, never by driving the authoring interface. Doing
+it through the interface means every content-dependent spec fails whenever that
+interface breaks, for reasons unrelated to what the spec asserts, and it is
+roughly an order of magnitude slower.
+
+**[project] Out of band means Playwright's own request context.** Build the
+factory on `APIRequestContext` and call whatever write interface the system
+under test exposes. This is the default, and it is better than a shell-out on
+every axis that matters here:
+
+- It is portable. Any stack with an HTTP interface works; only the path and the
+  payload shape change.
+- It runs in-process and appears in the Playwright trace, so a failed setup
+  shows up in the run report instead of a swallowed stderr.
+- It sends structured data rather than generating source, so **there is nothing
+  interpolated into another language and therefore nothing to escape.**
+
+That third point retires an entire class of defect rather than mitigating it,
+which is worth being explicit about: the escaping helper the review praised is a
+patch for a problem the request-context factory does not have.
+
+Expose the factory as a fixture. A spec that builds its own factory builds its
+own credentials, which is the first anti-pattern below wearing a different hat.
+
+### The rules, in the order they survive leaving any one stack
 
 - **[review] One adapter, centrally located.** Shared helpers live in one place —
-  `factories/` — with the environment wrapper alongside them. A spec importing
-  from anywhere else is the first anti-pattern below.
+  `factories/`. A spec importing from anywhere else is the first anti-pattern
+  below.
 - **[review] Factories return a typed handle with a `cleanup()` callback**, not a
   bare id. The handle carries its own disposal, so a caller can clean up in a
   `finally` without knowing what it holds.
-- **[review] Escape every value interpolated into another language.** Whatever
-  you are generating — PHP, SQL, a shell word, JSON — the escape happens in the
-  adapter and nowhere else. Without it, a title containing an apostrophe produces
-  a silent error in the generated code instead of a test failure. That is the
-  worst available outcome, because the suite goes green having done nothing.
-- **[review] Guard destructive commands.** The adapter refuses a destructive verb
-  invoked with nothing narrowing it. Called out explicitly as good practice, not
-  paranoia: a generated cleanup helper whose id came back undefined will happily
-  ask to delete every entity of a type.
 - **[review] A global teardown sweeps orphans** — content whose test died before
   its cleanup ran.
+- **[review] If you generate source, escape every value you interpolate into it.**
+  Whatever you are generating — PHP, SQL, a shell word — the escape happens in
+  the adapter and nowhere else. Without it, a title containing an apostrophe
+  produces a silent error in the generated code instead of a test failure. That
+  is the worst available outcome, because the suite goes green having done
+  nothing. Prefer not generating source at all.
+- **[review] Guard destructive commands.** Any adapter that can delete in bulk
+  refuses a destructive verb invoked with nothing narrowing it. Called out
+  explicitly as good practice, not paranoia: a generated cleanup helper whose id
+  came back undefined will happily ask to delete every entity of a type.
 
-The Drupal instantiation of those rules is `phpString()` and a guarded `drush()`,
-which is what the review actually saw and praised by name. It is in
-`scaffold/factories/drush.ts` as the worked example. **Port the four rules above;
-do not port `drush`.** On a project that is not Drupal, the adapter is whatever
-reaches your environment — and the escaping, the typed handle, the guard and the
-sweep are unchanged.
+### The escape hatch
+
+A command-line adapter is warranted in two cases and no others: the system under
+test exposes no write interface reachable over HTTP, or you need an operation it
+deliberately does not expose — rebuilding caches, reindexing, manipulating state
+below the application.
+
+`scaffold/factories/drush.ts` is that hatch, and it is what the review actually
+saw and praised by name: `phpString()` and a guarded `drush()`. It is kept
+because the last two rules above have nowhere else to live and because a real
+suite does eventually need it. It is not the starting point.
 
 ## Discipline
 

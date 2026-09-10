@@ -32,7 +32,7 @@ Sort the intent into one of these, because it decides everything downstream:
 |---|---|
 | anonymous front end | a spec against a shared environment |
 | authenticated behaviour | a spec tagged `@local`, using a pre-authenticated fixture |
-| content authoring | same, plus a factory to create what it acts on |
+| content authoring | same, plus a factory to create the content it acts on |
 | form submission with side effects | usually not, until the side effect is contained |
 | visual or editorial judgement | not automatable; record it as a gap |
 
@@ -94,11 +94,18 @@ every spec, including the ones that look like a single phase, because a step is
 what makes the failure report legible to someone who did not write the test.
 Never `waitForTimeout()`.
 
-Reach the environment through the shared `factories/` layer and nothing else. A
-spec that declares its own helper bypasses the escaping every other spec relies
-on, and typically annotates a page as `any` on the way past. If the shared layer
-does not exist yet, write the shared layer — that is the work, not a detour
-around it.
+Take content from the shared `factories/` layer, received as a fixture, and
+never build it in the spec. A factory here manufactures the content the spec
+acts on — it does not generate tests. Build it on Playwright's `APIRequestContext`
+against whatever write interface the system exposes: portable across stacks,
+visible in the trace when setup fails, and sending structured data rather than
+generating source, so no value is interpolated into another language and there is
+nothing to escape. Shell out only for what no interface exposes.
+
+A spec that declares its own helper carries its own credentials, drifts from
+every other spec, and typically annotates a page as `any` on the way past. If the
+shared layer does not exist yet, write the shared layer — that is the work, not a
+detour around it.
 
 Name the test for what it guards. An imported case keeps its real identifier —
 `C447371` — in **both the filename and the test title**, so grepping the

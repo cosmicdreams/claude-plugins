@@ -1,5 +1,4 @@
 import {test, expect} from '../fixtures/base.fixture';
-import {LandingPageFactory} from '../factories/content';
 
 /**
  * The shape of a spec that meets the standard, in one file.
@@ -31,10 +30,11 @@ test('C447371: the example navigation lists every published item', {tag: ['@smok
   });
 });
 
-test('C447372: an authored landing page appears in the navigation', {tag: ['@local']}, async ({authenticatedPage}) => {
-  // A factory, not a page someone made by hand. The handle carries its own
-  // disposal, so the finally block does not need to know what it holds.
-  const page = await LandingPageFactory.create("Alvaro's landing page");
+test('C447372: an authored landing page appears at its alias', {tag: ['@local']}, async ({authenticatedPage, content}) => {
+  // The factory comes in as a fixture, so this spec carries no credentials and
+  // no setup logic of its own. The apostrophe is deliberate: it is the value
+  // that silently broke a suite that generated source instead of sending data.
+  const page = await content.landingPage("Alvaro's landing page");
 
   try {
     await test.step('the authored page is reachable', async () => {
@@ -42,6 +42,8 @@ test('C447372: an authored landing page appears in the navigation', {tag: ['@loc
       await expect(authenticatedPage.page.getByRole('heading', {name: page.title})).toBeVisible();
     });
   } finally {
+    // The handle carries its own disposal. global-teardown.ts sweeps anything
+    // this misses because the test died before reaching here.
     await page.cleanup();
   }
 });

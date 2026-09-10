@@ -4,37 +4,45 @@ import {promisify} from 'node:util';
 const run = promisify(execFile);
 
 /**
- * The environment adapter. Every factory reaches the system under test through
- * this file and no other, which is what makes the "spec rolls its own helper"
- * anti-pattern visible in review: an import from anywhere else is the defect.
+ * The escape hatch, not the default. Reach for `factories/content.ts` first.
  *
- * This one is Drupal. The three rules it instantiates are not:
+ * A command-line adapter is warranted in exactly two cases:
  *
- *   1. One adapter, centrally located. Not re-declared per spec.
- *   2. Escape every value interpolated into another language. Below that is
- *      PHP; elsewhere it is SQL, a shell word, or JSON. Same rule.
- *   3. Refuse destructive commands that were handed no argument.
+ *   1. The system under test exposes no write interface you can reach over
+ *      HTTP, so there is nothing for Playwright's request context to call.
+ *   2. You need an operation the interface deliberately does not expose —
+ *      rebuilding caches, reindexing, manipulating state below the application.
  *
- * Port those three. Do not port `drush`.
+ * Everything else belongs in the request-context factory, which is portable,
+ * appears in the trace, and does not interpolate values into source code.
+ *
+ * Two rules apply whenever you do shell out, and they are the transferable
+ * part of this file. Port these; do not port `drush`.
  */
 
 /** Verbs that wipe a scope when invoked with no argument narrowing them. */
 const DESTRUCTIVE = ['entity:delete', 'sql:drop', 'sql:query', 'user:cancel'];
 
 /**
- * Escape a string for interpolation into single-quoted PHP.
+ * Rule one: escape every value interpolated into another language.
  *
- * This is the load-bearing one. Without it a title containing an apostrophe
- * produces a PHP parse error inside the generated snippet, the command exits
- * having done nothing, and the test goes green against content that was never
- * created. A silent pass is worse than any failure.
+ * This helper exists only because the call below generates PHP source. That is
+ * the cost of the escape hatch, and it is the reason it is the escape hatch:
+ * without this, a title containing an apostrophe produces a parse error inside
+ * the generated snippet, the command exits having done nothing, and the test
+ * goes green against content that was never created. A silent pass is worse
+ * than any failure.
+ *
+ * The request-context factory has no equivalent of this function because it has
+ * no equivalent of the problem — it sends structured data, so there is nothing
+ * to escape.
  */
 export function phpString(value: string): string {
   return `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'`;
 }
 
 /**
- * Invoke drush, refusing an unnarrowed destructive verb.
+ * Rule two: refuse a destructive verb that was handed nothing to narrow it.
  *
  * `drush(['entity:delete', 'node'])` deletes every node on the site. That is a
  * plausible thing for a generated cleanup helper to emit when the id it meant
@@ -55,10 +63,3 @@ export async function drush(args: string[]): Promise<string> {
   const {stdout} = await run('ddev', ['drush', ...args], {maxBuffer: 10 * 1024 * 1024});
   return stdout.trim();
 }
-
-/**
- * Marks everything a factory creates, so `global-teardown.ts` can sweep content
- * whose test died before its own cleanup ran. Stable within a run, unique
- * across runs, so two suites in parallel do not delete each other's fixtures.
- */
-export const RUN_MARKER = process.env.E2E_RUN_MARKER ?? `e2e-${process.pid}`;

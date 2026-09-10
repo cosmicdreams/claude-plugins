@@ -45,11 +45,17 @@ them.
 ## Scaffold
 
 `references/scaffold/` is a copyable `tests/e2e/` tree that satisfies the
-standard: page objects, components, fixtures, the factory layer with its
-escaping and destructive-command guard, a global teardown that sweeps orphans, a
-worked spec, and `support/check-tags.mjs`, which fails the build on a tag that is
+standard: page objects, components, fixtures, test data factories built on
+Playwright's own request context, a global teardown that sweeps orphans, a worked
+spec, and `support/check-tags.mjs`, which fails the build on a tag that is
 defined and never applied. It typechecks under `strict` with no `any`.
 
-The Drupal parts — `factories/drush.ts`, the local-hostname check, the login link
-in `global-setup.ts` — are the worked example. Replace those three; keep
-everything around them.
+A factory here manufactures the *content a spec acts on*, not tests. It runs over
+`APIRequestContext` rather than the browser or a shell, which keeps it portable,
+puts setup failures in the Playwright trace, and means no value is ever
+interpolated into another language — so the escaping bug that silently greens a
+suite cannot occur. `factories/drush.ts` remains as the documented escape hatch
+for operations no interface exposes.
+
+The Drupal-specific surface is narrow and marked: the JSON:API paths, the
+escape hatch, the local-hostname check, and the login link in `global-setup.ts`.

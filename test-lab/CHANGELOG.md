@@ -1,5 +1,36 @@
 # Changelog
 
+## 0.2.1
+
+Rebuilds the test data factory on Playwright instead of a shell-out.
+
+The 0.2.0 factory drove `drush`, because that is what the source review saw and
+praised by name. That optimised for recognition over transferability, which is
+the wrong trade for a standard whose whole claim is that it outlives any one
+stack — and the reviewer's own team is not on Drupal.
+
+- `factories/content.ts` is now built on `APIRequestContext`. It is portable to
+  any system with an HTTP write interface, runs in-process so a failed setup
+  appears in the Playwright trace rather than a swallowed stderr, and sends
+  structured data instead of generating source.
+- That last property retires a class of defect rather than mitigating it. With
+  nothing interpolated into another language there is nothing to escape, so the
+  apostrophe that silently greens a suite cannot occur. `phpString()` is a patch
+  for a problem this approach does not have.
+- Factories are exposed as a fixture. A spec that builds its own factory builds
+  its own credentials, which is the shared-layer anti-pattern in disguise.
+- `global-teardown.ts` sweeps over the same request context, so the orphan sweep
+  needs no shell and no platform tooling on the machine running the suite.
+- `factories/drush.ts` survives as the documented escape hatch, warranted in two
+  cases only: no write interface reachable over HTTP, or an operation the
+  interface deliberately does not expose. It still carries the two rules that
+  apply once you do shell out — escape everything interpolated, refuse an
+  unnarrowed destructive verb.
+- Define "factory". It manufactures the content a spec acts on; it does not
+  generate tests. The plugin's job is generating tests, so the two senses of the
+  word sat one directory apart with nothing distinguishing them.
+
+
 ## 0.2.0
 
 Closes the gap between what the methodology asserts and what the scaffold
