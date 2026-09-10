@@ -1,5 +1,5 @@
 import {Page, Response} from '@playwright/test';
-import {ExampleComponent} from './ExampleComponent';
+import {ExampleComponent} from '../components/ExampleComponent';
 
 /**
  * Site-wide chrome belongs on the base page so a spec can assert on it without
