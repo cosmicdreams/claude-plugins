@@ -1,5 +1,73 @@
 # Changelog
 
+## 0.2.0
+
+Closes the gap between what the methodology asserts and what the scaffold
+actually demonstrates. Every rule the document claimed now has runnable code
+behind it, and the two rules that prose cannot enforce are enforced.
+
+### The scaffold is now a working tree
+
+- Restructured `references/scaffold/` to mirror the `tests/e2e/` layout it
+  advertises. Previously the files sat flat while the documentation described a
+  directory tree, so copying it as instructed broke every import.
+- Added the factory layer, which the methodology called the strongest part of a
+  mature suite and the scaffold omitted entirely: `factories/drush.ts` with
+  `phpString()` escaping and a `drush()` wrapper that refuses an unnarrowed
+  destructive verb, and `factories/content.ts` returning typed handles that carry
+  their own `cleanup()`.
+- Added `global-teardown.ts` (the orphan sweep), `global-setup.ts` (session
+  capture, a no-op against shared environments) and `COVERAGE-GAPS.md`. All three
+  were listed in the scaffold tree and none of them existed.
+- Added a worked spec under `slices/` showing the case identifier in filename and
+  title, `test.step()` throughout, tags actually applied, and a factory-created
+  page disposed in a `finally`.
+- The scaffold typechecks under `strict` with no `any`.
+
+### Two rules moved from prose to enforcement
+
+- `support/check-tags.mjs` fails the build on a tag defined in `TAGS.md` and
+  applied to no spec, and on a tag applied and never defined. A tag documented
+  and unused was one of the two defects in the source review, and it is the one
+  an author under deadline commits while believing they are being thorough.
+- `TAGS.md` now admits a tag only once a spec applies it. The remaining tags sit
+  in a catalogue below the table until something needs them.
+
+### Fidelity fixes
+
+- Every rule in `references/methodology.md` is marked `[review]` or `[project]`,
+  separating what the Velir head of Quality Assurance actually said from
+  conventions added since. Several rules — the class-suffix convention, the
+  animation polling, the traceability mechanism and four of the five tags — were
+  presented as his and were ours.
+- The factory section now leads with the four portable rules (one central
+  adapter, typed handles with cleanup, escape everything interpolated, guard
+  destructive commands) and demotes `drush()` and `phpString()` to the worked
+  Drupal example. The standard is a Playwright standard; it was reading as a
+  Drupal one.
+- The locator guidance is now ordered and complete: role and accessible name,
+  then a stable authored hook such as `data-component-id`, then a theme class as
+  a commented compromise, never a generated hook. `ExampleComponent.ts` follows
+  its own advice, which it previously did not — it was comment-first and
+  cascading-style-sheet-second.
+- `references/` paths in both skills are anchored to `${CLAUDE_PLUGIN_ROOT}`. A
+  bare path resolved against the consumer project, where the methodology is not,
+  so the standard the skill exists to enforce could silently never load.
+
+### Corrections
+
+- `base.fixture.ts` decides locality by parsing the hostname rather than matching
+  text anywhere in the URL. `https://example.com/?next=localhost` and the host
+  `project.ddev.site.example.com` both passed the old test, either of which hands
+  a stored editor session to a shared environment.
+- `test-lab:automate` requires `test.step()` throughout, matching the
+  methodology. It previously required it only for tests with more than one phase,
+  so the two documents disagreed.
+- `test-lab:ingest` gains a delivery gate: run the full suite, keep
+  `playwright-report/`, and deliver it with the code. The campaign previously
+  ended on a count of cases, with no evidence the suite had ever been run.
+
+
 ## 0.1.1
 
 Closes four fidelity gaps against the source review.
