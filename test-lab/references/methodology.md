@@ -6,6 +6,14 @@ named as a defect in a suite that otherwise passed review.
 
 Cite this when a reviewer asks why the suite is shaped the way it is.
 
+The criterion the review closed on, which is the point of everything below:
+
+> the documentation makes it maintainable by someone who wasn't there when it
+> was built
+
+Every rule here earns its place by serving that. A suite only its author can
+change is a suite that stops being changed.
+
 ## Page Object Model
 
 The structure is not optional and not cosmetic — it is the first thing a
@@ -20,6 +28,9 @@ reviewer looks for.
   assert on it without knowing which page object it holds.
 - Behaviour that reads several properties at once belongs on the object as a
   method, not spread across the spec. A spec should read as intent.
+- **Component classes end in `Component`** — `MegaMenuComponent`,
+  `GlobalFooterComponent`. Page classes end in `Page`. The suffix is how a
+  reader tells the two apart in an import list.
 
 ```ts
 export class GlobalFooterComponent {
@@ -54,6 +65,10 @@ The strongest part of a mature suite, and the usual thing missing from a young
 one. A spec that depends on content a person created is a spec that breaks when
 that person edits it.
 
+Shared helpers live in one place — `factories/`, with the environment wrapper
+alongside them as `factories/drush.ts` or its equivalent. A spec importing from
+anywhere else is the first anti-pattern below.
+
 - Factories return a **typed handle with a `cleanup()` callback**, not a bare id.
 - **Escape everything interpolated into a shell or a language you are
   generating.** A helper equivalent to `phpString()` is required wherever test
@@ -74,6 +89,19 @@ that person edits it.
   even when it passes.
 - Watch for transitions. Reading a computed transform immediately after a click
   catches it mid-animation; poll until settled.
+
+## Traceability
+
+A spec converted from a manual case is worth nothing to the person who owns that
+case unless they can find it.
+
+- **The filename carries the case identifier**: `DE-T126-content-moderation.spec.ts`,
+  `C447371-footer-presence.spec.ts`. Grepping the repository for a case number
+  has to find the spec.
+- **The test title carries it too**, because the identifier has to survive into
+  the run report, where filenames are easy to lose.
+- Coverage with no upstream case gets a stable local prefix instead — `REG-` and
+  a name — so the absence is visible rather than ambiguous.
 
 ## Tags
 
