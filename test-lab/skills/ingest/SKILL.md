@@ -14,7 +14,8 @@ learning how much there is.
 
 ## Step 1: pull, once, completely
 
-Pick the adapter in `references/sources/` for the tool in play. `testrail.md` is
+Pick the adapter in `${CLAUDE_PLUGIN_ROOT}/references/sources/` for the tool in
+play. `testrail.md` is
 written; other tools need an adapter, not changes to this skill.
 
 Two rules that survive any source:
@@ -83,12 +84,36 @@ Then run `test-lab:automate` per case. Keep the unit of work at one case: a batc
 that writes twenty specs without a red check on any of them produces twenty tests
 nobody trusts.
 
-## Step 6: report the boundary
+## Step 6: run the suite before you call it delivered
+
+A campaign is not finished when the specs are written. It is finished when
+someone else can see what they do.
+
+Run the whole suite and keep the report:
+
+```bash
+npx playwright test --reporter=html   # writes playwright-report/
+node tests/e2e/support/check-tags.mjs
+```
+
+Deliver `playwright-report/` alongside the code. The pass and fail snapshot,
+the execution times and — most of all — the skips are what let a reviewer judge
+the suite without running it, and the first thing a reviewer asks for when it is
+missing. A suite handed over without evidence it was ever run green is a suite
+the reviewer has to reproduce from scratch before they can even start.
+
+If specs fail or skip, say which and why in the same breath as the number. An
+unexplained skip reads as a broken test.
+
+## Step 7: report the boundary
 
 State how many cases exist, how many are automatable, how many are covered, and
 what the remainder is blocked on. A corpus of several hundred will not become
 several hundred specs, and saying so early is worth more than discovering it at
 review.
 
-Record gaps with unlock signals so a later reader can tell a decision from an
-oversight.
+Record gaps in `COVERAGE-GAPS.md` with unlock signals so a later reader can tell
+a decision from an oversight. Include the raw corpus payload committed in Step 1,
+so the cases that were automated can be cross-referenced against the cases that
+exist — traceability is what makes the coverage number checkable rather than
+asserted.
