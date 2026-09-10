@@ -67,8 +67,10 @@ components through the page object. Use `test.step()` for anything with more tha
 one phase. Never `waitForTimeout()`.
 
 Name the test for what it guards. An imported case keeps its real identifier —
-`C447371` — so it is traceable back to the source. Coverage with no case
-identifier gets a stable local prefix instead.
+`C447371` — in **both the filename and the test title**, so grepping the
+repository for a case number finds the spec and the identifier survives into the
+run report. Coverage with no upstream case gets a stable local prefix instead,
+so the absence is visible rather than ambiguous.
 
 ## Step 5: red check — do not skip this
 

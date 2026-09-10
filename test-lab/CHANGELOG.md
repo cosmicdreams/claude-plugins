@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.1.1
+
+Closes four fidelity gaps against the source review.
+
+- The success criterion the review closed on - maintainable by someone who was
+  not there when it was built - now opens the methodology, so the rules below
+  it read as means rather than preferences.
+- Traceability section: the case identifier belongs in the filename as well as
+  the test title. Grepping for a case number has to find the spec.
+- Component and Page class suffixes stated rather than implied.
+- Shared helpers live in `factories/`, with the environment wrapper alongside
+  them, which is what makes the first anti-pattern legible.
+
 ## 0.1.0
 
 Initial release.
