@@ -93,6 +93,11 @@ Passive knowledge capture pipeline — Karpathy-derived LLM Wiki with Monitor-dr
 
 Skills: `ingest`, `init`, `lint`, `query`, `schedule`
 
+### `test-lab`
+Convert a manual test corpus into an automated Playwright suite. The source is a plug point — TestRail today, another tool later — held separately from the authoring methodology, which is derived from a head of Quality Assurance review of a real suite.
+
+Skills: `automate`, `ingest`
+
 ## Changelog
 
 ```bash
