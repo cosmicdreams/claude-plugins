@@ -1,0 +1,17 @@
+{
+    "name": "test-lab",
+    "version": "0.1.0",
+    "description": "Convert a manual test corpus into an automated Playwright suite. Pluggable source — TestRail today, another test management tool tomorrow — with the authoring methodology held separately from where the cases came from.",
+    "author": {
+        "name": "Chris Weber"
+    },
+    "license": "UNLICENSED",
+    "keywords": [
+        "testing",
+        "playwright",
+        "testrail",
+        "regression",
+        "quality-assurance",
+        "page-object-model"
+    ]
+}
