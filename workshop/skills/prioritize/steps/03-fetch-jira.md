@@ -1,6 +1,6 @@
 # Step 3 — Fetch Jira: Spawn Per-Server Subagents
 
-If no Jira servers are configured, skip to `steps/04-score-output.md`.
+If no Jira servers are configured, skip to `steps/04-fetch-availability.md`.
 
 Spawn one subagent per Jira server, all simultaneously. Wait for all to return
 before proceeding to scoring.
@@ -15,7 +15,7 @@ Three passes:
 1. **Delta pass**: what changed overnight — new comments, status transitions, new
    assignments since LAST_RUN_DATE
 2. **Attention pass**: standing obligations regardless of recency — blocked issues
-   you own, high-priority items assigned to you with no recent activity, anything
+   you own, due-today/overdue issues, high-priority items assigned to you with no recent activity, anything
    in progress for an unusually long time
 
 **Why the scope pass matters.** A long-lived assignee queue accumulates tickets that
@@ -67,6 +67,9 @@ Notes on these queries, verified against jira-cli:
 For each project, fetch issues updated since LAST_RUN_DATE:
   jira issue list --project {PROJECT} --updated ">{LAST_RUN_DATE}" --plain
 
+If zero results, retry using `-q 'updated >= "{LAST_RUN_DATE}"'` with the same
+project before concluding the delta is empty (some CLI versions mishandle --updated).
+
 For each updated issue (up to 5 per project), fetch details:
   jira issue view {ISSUE_KEY} --plain
 
@@ -77,13 +80,22 @@ Classify each change:
 
 **Pass 2 — Attention (standing obligations):**
 Fetch your assigned workload **per project**. Run this once for each key in PROJECTS:
-  jira issue list --project {PROJECT} -q "assignee = currentUser() AND statusCategory != Done" --plain --no-headers
+  jira issue list --project {PROJECT} -q "assignee = currentUser() AND statusCategory != Done" --columns "key,summary,status,priority,updated,duedate" --plain --no-headers
+
+Retrieve all pages. If this CLI does not support the due-date column, retry without it
+and separately query each project with `-q "assignee = currentUser() AND
+statusCategory != Done AND duedate <= endOfDay()"`; view those issues for exact dates.
+A failed query is an error, never an empty/quiet project. Do not limit deadline discovery
+to the detail budget or first page.
 
 Never run this query without `--project`. jira-cli falls back to the `project` key in
 the config file (a single project), so an unscoped query silently reports one project's
 issues as if they were the whole workload.
 
 From your assigned issues, identify items that need attention TODAY:
+  - DUE — unfinished assigned issue with due_date <= TODAY in the user's local timezone.
+    Surface even without recent changes. Preserve due_date (YYYY-MM-DD) and overdue
+    (strictly before TODAY) independently of action so deduplication cannot lose a deadline.
   - UNBLOCK — any issue with Blocked status, Blocker priority, or blocker link/flag.
     These are always top priority regardless of when they were last updated.
   - RESPOND — issues where the last comment is from someone else asking you something,
@@ -96,8 +108,15 @@ For Pass 2, fetch details on up to 10 assigned issues that look like they need
 attention (blocked, review status, or stale). Do NOT fetch details on every assigned
 issue — filter by status and recency first.
 
+Deadline candidates are emitted from the complete workload/due query even if the detail
+budget is exhausted; include the known date/status and record missing context. The detail
+budget must not suppress a known mandatory obligation.
+
 **Build priority items.** Each item has:
-  - action: one of RESPOND, UNBLOCK, REVIEW, FYI
+  - action: one of RESPOND, DUE, UNBLOCK, REVIEW, FYI
+  - id: stable "{server_name}:{ISSUE_KEY}"; project: project key
+  - due_date: YYYY-MM-DD or null; overdue: boolean
+  - url: "{SERVER_URL}/browse/{ISSUE_KEY}"
   - scope: one of "sprint", "release", "backlog" (from Pass 0)
   - source: "{server_name} {ISSUE_KEY}"
   - summary: one-line description
@@ -105,16 +124,19 @@ issue — filter by status and recency first.
 
 **Rules:**
   - Do NOT dump all assigned issues. Only emit items that need attention.
-  - Deduplicate: if an issue appears in multiple passes, use the higher-priority action.
-  - Emit at most 5 items per project, and **fill those slots with scope "sprint" or
-    "release" before any "backlog" item**. A backlog item only takes a slot when
-    committed work does not fill it.
-  - Exception: a "backlog" item still qualifies when its action is RESPOND or UNBLOCK.
-    Someone waiting on an answer, or work blocking another person, matters whether or
-    not it was planned into a sprint. Never let scope suppress those.
-  - Track projects with zero items across all passes as quiet_projects.
-  - Count backlog items you dropped per project into backlog_suppressed, so the user
-    can see how much unplanned work is hidden rather than silently losing it.
+  - Deduplicate by id; retain highest base action (RESPOND > DUE > UNBLOCK > REVIEW > FYI)
+    and merge deadline/context fields. A RESPOND may still be a mandatory deadline.
+  - Return every attention candidate, uncapped. Scope-first selection and the five-item
+    project quota apply only to the display in step 5, not this complete collection.
+    RESPOND, UNBLOCK and due-today/overdue obligations are exempt from all display quotas.
+  - Compute quiet_projects from attention candidates across BOTH Pass 1 and Pass 2,
+    before display suppression. A scope count is not itself an attention item.
+    Failed or unexamined projects must never be reported quiet.
+  - Count scope membership over the full workload (sprint first, release excluding
+    sprint, backlog neither). Keep counts separate from attention/display counts.
+    Return unplanned_backlog_by_project for every successfully counted project,
+    including zero counts, using "{server_name}:{PROJECT}" keys. Never infer these
+    counts from attention-only candidates. Display suppression is computed in step 5.
   - If jira CLI is not configured for this server, set error and return empty items.
 
 Return ONLY valid JSON (no markdown):
@@ -122,10 +144,12 @@ Return ONLY valid JSON (no markdown):
   "server_name": "{server_name}",
   "error": null,
   "items": [
-    { "action": "UNBLOCK", "scope": "sprint", "source": "velir AHRIPS-769", "summary": "...", "detail": "..." }
+    { "id": "velir:AHRIPS-769", "server_name": "velir", "project": "AHRIPS",
+      "action": "UNBLOCK", "scope": "sprint", "source": "velir AHRIPS-769",
+      "summary": "...", "detail": "...", "due_date": null, "overdue": false }
   ],
-  "quiet_projects": ["PROJECT1"],
-  "backlog_suppressed": { "MWS": 22, "PPS": 9 },
+  "quiet_projects": ["velir:PROJECT1"],
+  "unplanned_backlog_by_project": { "velir:MWS": 22, "velir:PPS": 24 },
   "scope_counts": { "sprint": 31, "release": 1, "backlog": 46 }
 }
 ```
@@ -140,8 +164,15 @@ empty items. Include a hint about what to configure.
 
 ## Merge results
 
-Collect all items from all servers into a flat list. Track quiet projects, scope
-counts, suppressed backlog counts, and any server errors.
+Collect all items from all servers into a flat list. Keep quiet_projects
+server-qualified. Sum scope_counts.sprint, .release and .backlog into the step 5
+counts.committed_sprint, .committed_release and .unplanned_backlog respectively.
+Merge the returned unplanned_backlog_by_project maps unchanged into
+counts.unplanned_backlog_by_project; their values must sum to unplanned_backlog.
+These are full workload counts, not attention/display counts. Do not refetch or
+infer counts from attention-only candidates. A failed or unexamined project has
+no map entry, not a fabricated zero; propagate errors and partial/unavailable
+coverage so the aggregate describes only successfully counted workload.
 
-Proceed to `steps/04-score-output.md` with: slack_items, jira_items, quiet_channels,
-quiet_projects, backlog_suppressed, scope_counts, errors.
+Proceed to `steps/04-fetch-availability.md` with: slack_items, jira_items, quiet_channels,
+quiet_projects, counts, errors.

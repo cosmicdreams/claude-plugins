@@ -28,14 +28,20 @@ Circuit-breaker first (same pattern as the other integrations):
 "${CLAUDE_PLUGIN_ROOT}/scripts/check-integration.sh" gws || { echo "calendar unavailable"; }
 ```
 
-If OK, pull today's events and free/busy:
+Only if preflight succeeds, pull today's events and free/busy; otherwise record unknown
+availability and the error, and skip both commands. Substitute START_ISO = now and END_ISO =
+end of today, each with an explicit local UTC offset (never a bare timestamp).
 
 ```bash
-gws +agenda
-gws calendar freebusy query --json '{"timeMin":"START_ISO","timeMax":"END_ISO","items":[{"id":"primary"}]}'
+gws calendar events list --params '{"calendarId":"primary","timeMin":"START_ISO","timeMax":"END_ISO","singleEvents":true,"orderBy":"startTime","fields":"items(summary,start,end,transparency),nextPageToken"}' --format json
+gws calendar freebusy query --json '{"timeMin":"START_ISO","timeMax":"END_ISO","items":[{"id":"primary"}]}' --format json
 ```
 
-Where `START_ISO` = now, `END_ISO` = end of today (local). Invert the busy blocks to get free
+Follow event pagination using `nextPageToken`. Freebusy uses a request body (`--json`),
+not query params. Use the returned busy intervals as authoritative; transparent all-day
+events do not consume working time. Check per-calendar freebusy errors as well as command
+exit status; failed retrieval means unknown capacity, not a fully free day.
+Invert the busy blocks to get free
 windows. Compute:
 
 - `free_hours_today` — total free time remaining today

@@ -3,6 +3,19 @@
 Spawn one subagent per Slack channel, all simultaneously. Wait for all to return
 before proceeding to Jira fetch.
 
+## Sweep unread conversations before fan-out
+
+After Slack preflight succeeds, run `agent-slack unreads --workspace {workspace_url}`
+once per workspace. Include DMs, group DMs, and unconfigured channels. Exclude configured
+channels from this sweep (the fan-out owns them). Summarize channel name/type and human
+message count before opening bodies. Ignore messages with `bot_id` or no human `user_id`
+in both passes and the sweep; raw mention counts are not evidence of a human request.
+On-demand, classify unanswered human asks from the sweep as standing obligations.
+Ambient, only classify messages newer than `oldest_ts`; do not run a standing sweep.
+Resolve relative deadlines against the message timestamp in the user's local timezone,
+not the time it was read. An old unread is not automatically urgent; retain a genuinely
+unresolved obligation, but do not revive expired informational reminders.
+
 ## Goal
 
 Surface Slack items that need your attention today — not just what's new, but
@@ -30,6 +43,11 @@ YOUR_USER_ID: {your_user_id, or null}
 
 INSTRUCTIONS:
 
+Apply the human-author and timestamp-relative urgency rules above to both passes.
+Counts and quiet decisions exclude bot_id traffic and messages without a human user_id.
+For paginated results continue through the applicable time window; if the CLI cannot
+provide the remaining pages, report partial coverage rather than claiming completeness.
+
 **Pass 1 — Overnight activity (new since last check):**
   agent-slack message list {channel_name} --workspace {workspace_url} \
     --oldest {oldest_ts} --limit 20
@@ -40,8 +58,7 @@ the channel had no activity since the cutoff. Treat a missing `messages` key as
 an empty array, not a failure.
 
 **Pass 2 — Unanswered requests (standing obligations):**
-If Pass 1 returned fewer than 10 messages, also fetch recent history to find
-unanswered items:
+On-demand only, fetch recent history to find unanswered items even if Pass 1 was busy:
   agent-slack message list {channel_name} --workspace {workspace_url} --limit 30
 
 Scan these messages for unanswered questions or requests — messages that:
@@ -51,6 +68,7 @@ Scan these messages for unanswered questions or requests — messages that:
 Only include items from the last 48 hours that remain unanswered.
 
 **Build priority items.** Each item has:
+  - id: "{workspace_url}:{channel_id}:{message_ts}" (stable across passes and sweep)
   - action: one of RESPOND, REVIEW, FYI
   - source: "{workspace_name} #{channel_name}"
   - summary: one-line description of what needs attention
@@ -68,7 +86,8 @@ Only include items from the last 48 hours that remain unanswered.
     FYI summary item (e.g. "12 messages, 3 threads").
 
 **Rules:**
-  - Emit at most 5 items per channel. Prioritize RESPOND > REVIEW > FYI.
+  - Return every attention candidate, uncapped; display selection happens in step 5.
+    Prioritize RESPOND > REVIEW > FYI in collection order.
   - Unanswered items from Pass 2 should be RESPOND, not FYI — they need action.
   - If the channel has activity but nothing actionable, emit one FYI summary.
   - If the channel has no activity AND no unanswered items, emit nothing (empty items).
