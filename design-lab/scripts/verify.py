@@ -230,14 +230,29 @@ def component_keys(c):
 def check_components_built(state, components, plan, rep):
     """Every component the plan said to build should be in the file."""
     want = set()
+    entries = None
     if plan:
-        for e in (plan.get('components') or plan.get('plan') or []):
-            if (e.get('decision') or e.get('action')) in (None, 'build'):
+        # `plans` is the key plan.py actually writes; `components`/`plan` are read for the
+        # hand-authored plans that predate it. Reading only the latter two silently emptied
+        # `want` on every plugin-generated plan, and an empty `want` returns before adding a
+        # finding — so passing --plan turned this blocker off. Measured on America's Credit
+        # Unions: 0 of 69 components built, `components-built` reported PASS.
+        entries = (plan.get('plans') or plan.get('components') or plan.get('plan') or [])
+        for e in entries:
+            # `verdict` is plan.py's field name; `decision`/`action` are the older ones.
+            if (e.get('verdict') or e.get('decision') or e.get('action')) in (None, 'build'):
                 want.add(e.get('id') or e.get('machineName'))
     elif components:
         want = {c['id'] for c in components.get('components') or []}
     want.discard(None)
     if not want:
+        # A plan that parsed to nothing is a broken input, not a clean library. Falling
+        # through to `return` here is what made the vacuous pass invisible.
+        if plan and not entries:
+            rep.add('components-built', 'blocker', 'file',
+                    'the plan file carries no recognisable entries, so completeness could '
+                    'not be checked at all; expected a `plans`, `components` or `plan` key',
+                    evidence=sorted(plan.keys()))
         return
     built = built_keys(state)
     missing = sorted(w for w in want
