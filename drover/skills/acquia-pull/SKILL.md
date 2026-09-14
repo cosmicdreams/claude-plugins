@@ -72,14 +72,14 @@ mislabeled file **never** reaches `present`.
 
 ```bash
 test -f .drover/manifest.json || { echo "Run /drover:init first."; exit 1; }
-test -f ~/.acquia/cloud_api.conf || { echo "Run /drover:setup first."; exit 1; }
+test -f ~/.acquia/cloud_api.conf || { echo "Run \`acli auth:login\` first."; exit 1; }
 ```
 
 ## Step 1: Resolve the plugin's pull script
 
 ```bash
-PLUGIN_ROOT=$(ls -d ~/.claude/plugins/cache/local/drover/*/ 2>/dev/null | tail -1)
-PULL_PY="${PLUGIN_ROOT}scripts/pull.py"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT}"
+PULL_PY="${PLUGIN_ROOT}/scripts/pull.py"
 test -f "$PULL_PY" || { echo "drover plugin not installed at $PULL_PY"; exit 1; }
 ```
 
@@ -156,7 +156,7 @@ gaps since the last pull.
 | Failure | Behavior |
 |---|---|
 | Manifest missing | Aborts: *"Run /drover:init first."* |
-| Credentials missing | Aborts: *"Run /drover:setup first."* |
+| Credentials missing | Aborts: *"Run `acli auth:login` first."* |
 | log-create fails | Marked `fetch-failed`; other `(env,type)` groups unaffected. |
 | Notification ends `status=failed` | Retried once, then marked `fetch-failed`. |
 | Download fails | Marked `fetch-failed`; canonical file left untouched. |

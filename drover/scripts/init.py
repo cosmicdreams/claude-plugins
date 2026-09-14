@@ -36,6 +36,11 @@ DEFAULT_RETENTION_DAYS = 30
 
 # --- Breadcrumb discovery -------------------------------------------------
 
+class InitError(Exception):
+    """Discovery could not complete. Aborts init rather than persisting a
+    manifest built from partial data."""
+
+
 class Breadcrumbs:
     """Bag of inferred-from-disk hints used to resolve the Acquia app."""
 
@@ -274,8 +279,13 @@ def match_acquia_app(
     for app in apps:
         try:
             envs = client.list_environments(app["uuid"])
-        except Exception:
-            envs = []
+        except Exception as exc:
+            # An API failure is not an empty environment list.
+            raise InitError(
+                f"Could not list environments for application "
+                f"{app.get('name', app.get('uuid', '?'))}: {exc}. "
+                f"Re-run /drover:init once the Acquia API is reachable."
+            ) from exc
         s = score_app_match(app, envs, breadcrumbs)
         if s > 0:
             scored.append((s, app, envs))
@@ -298,8 +308,13 @@ def build_manifest(
     for env in app_envs:
         try:
             log_types = client.list_log_types(env["id"])
-        except Exception:
-            log_types = []
+        except Exception as exc:
+            # Do not persist a transient outage as an empty log-type list.
+            raise InitError(
+                f"Could not list log types for environment "
+                f"{env.get('name', env.get('id', '?'))}: {exc}. "
+                f"Re-run /drover:init once the Acquia API is reachable."
+            ) from exc
         names_available = {
             t.get("type") for t in log_types if t.get("type")
         }
@@ -527,7 +542,11 @@ def cli_main(argv: list[str] | None = None) -> int:
         return 2
 
     print("matching against Acquia applications...")
-    matches = match_acquia_app(client, bc)
+    try:
+        matches = match_acquia_app(client, bc)
+    except InitError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
     if not matches:
         print(
             "ERROR: no Acquia application matched. Use --app NAME to "
@@ -583,11 +602,15 @@ def cli_main(argv: list[str] | None = None) -> int:
     )
 
     print("enumerating env log types...")
-    manifest = build_manifest(
-        client, app, app_envs,
-        types_filter=types_filter,
-        project_slug=project_slug,
-    )
+    try:
+        manifest = build_manifest(
+            client, app, app_envs,
+            types_filter=types_filter,
+            project_slug=project_slug,
+        )
+    except InitError as e:
+        print(f"ERROR: {e}", file=sys.stderr)
+        return 2
 
     if args.dry_run:
         print("\n--- dry-run manifest (NOT written) ---")

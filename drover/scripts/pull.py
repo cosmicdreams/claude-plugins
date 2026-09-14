@@ -68,6 +68,7 @@ import time
 import urllib.request
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import nullcontext
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
@@ -108,19 +109,44 @@ def find_drover_root(cwd: Path) -> Path:
     return resolved
 
 
+SAFE_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
+
+
+def _safe_component(value: str, kind: str) -> str:
+    """Validate one path-bound identifier, or raise ValueError."""
+    if not isinstance(value, str) or not SAFE_NAME_RE.fullmatch(value):
+        raise ValueError(
+            f"unsafe {kind} {value!r}: expected letters, digits, dot, "
+            f"underscore or hyphen, starting with a letter or digit"
+        )
+    return value
+
+
 def canonical_path(
     project_root: Path,
     day: date,
     env_name: str,
     log_type: str,
 ) -> Path:
-    """Return <project_root>/<year>/<month>/<date>.<env>.<type>.log.gz"""
-    return (
+    """Return <project_root>/<year>/<month>/<date>.<env>.<type>.log.gz
+
+    Rejects env names and log types that could escape the project tree.
+    """
+    env_name = _safe_component(env_name, "environment name")
+    log_type = _safe_component(log_type, "log type")
+    candidate = (
         project_root
         / f"{day.year:04d}"
         / f"{day.month:02d}"
         / f"{day.isoformat()}.{env_name}.{log_type}.log.gz"
     )
+    # Compare resolved forms, but retain the caller's root-relative path.
+    resolved_root = Path(project_root).resolve()
+    if resolved_root not in candidate.resolve().parents:
+        raise ValueError(
+            f"refusing to write outside the project root: {candidate}"
+        )
+    return candidate
 
 
 def find_log_file(
@@ -172,15 +198,37 @@ def find_env(manifest: dict, env_name: str) -> dict:
 
 # --- Coverage ledger ------------------------------------------------------
 
-def load_coverage(project_root: Path) -> dict:
+class CoverageLedger(dict):
+    """Coverage mapping that remembers which tuples this process mutated.
+
+    `save_coverage` needs to distinguish "I set this to fetch-failed" from
+    "this was already fetch-failed when I loaded the file". Without that,
+    a concurrent run's fresher value gets overwritten by our stale copy of
+    a tuple we never touched.
+    """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.dirty: set[tuple[str, str]] = set()
+        self.lock = threading.RLock()
+
+
+def load_coverage(project_root: Path) -> CoverageLedger:
     p = coverage_path(project_root)
     if not p.exists():
-        return {}
+        return CoverageLedger()
     with open(p) as fh:
-        return json.load(fh)
+        return CoverageLedger(json.load(fh))
 
 
 def save_coverage(project_root: Path, coverage: dict) -> None:
+    # Serialize marks and saves on this instance through successful rename
+    # and acknowledgement; a mark arriving during I/O belongs to the next save.
+    with getattr(coverage, "lock", nullcontext()):
+        _save_coverage(project_root, coverage)
+
+
+def _save_coverage(project_root: Path, coverage: dict) -> None:
     """Merge `coverage` into the on-disk ledger and write it atomically.
 
     Writing the in-process snapshot wholesale loses entries whenever two
@@ -189,10 +237,17 @@ def save_coverage(project_root: Path, coverage: dict) -> None:
     the other wrote in the meantime. The in-process `ledger_lock` cannot
     help — it does not span processes.
 
-    Re-read under an exclusive file lock, merge this process's entries over
-    what is on disk (ours win, since we only ever mutate keys we own), then
-    rename into place. The lock makes read-merge-write indivisible across
-    processes; the rename keeps readers from seeing a partial file.
+    Re-read under an exclusive file lock, merge only the tuples this
+    process actually mutated over what is on disk, then rename into place.
+    The lock makes read-merge-write indivisible across processes; the
+    rename keeps readers from seeing a partial file.
+
+    Merging the whole in-process snapshot is not safe even under the lock:
+    our copy also holds tuples we never touched, so writing them back
+    restores their state as of our load and clobbers a concurrent run's
+    newer result for the same tuple. `CoverageLedger.dirty` records what we
+    own. A plain dict (older callers, tests) has no dirty set and falls
+    back to the previous whole-snapshot merge.
     """
     p = coverage_path(project_root)
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -202,6 +257,7 @@ def save_coverage(project_root: Path, coverage: dict) -> None:
             fcntl.flock(lock_fh, fcntl.LOCK_EX)
         try:
             merged = load_coverage(project_root)
+            dirty = getattr(coverage, "dirty", None)
             for day, entries in coverage.items():
                 existing = merged.get(day)
                 # A well-formed ledger is {day: {"env.type": {...}}}. If
@@ -209,9 +265,20 @@ def save_coverage(project_root: Path, coverage: dict) -> None:
                 # ours rather than crashing mid-write and leaving the ledger
                 # in whatever state it was.
                 if isinstance(existing, dict) and isinstance(entries, dict):
-                    existing.update(entries)
-                else:
+                    if dirty is None:
+                        existing.update(entries)
+                    else:
+                        for tuple_key, value in entries.items():
+                            if (day, tuple_key) in dirty:
+                                existing[tuple_key] = value
+                elif dirty is None or not isinstance(entries, dict):
                     merged[day] = entries
+                else:
+                    # New day for the on-disk ledger: contribute only ours.
+                    merged[day] = {
+                        tk: v for tk, v in entries.items()
+                        if (day, tk) in dirty
+                    }
             # Stage under a per-process name. The lock already serializes
             # writers, but a single shared "coverage.tmp" means one process's
             # rename can steal another's staging file — which raised
@@ -221,6 +288,8 @@ def save_coverage(project_root: Path, coverage: dict) -> None:
                 with open(tmp, "w") as fh:
                     json.dump(merged, fh, indent=2, sort_keys=True)
                 os.rename(tmp, p)
+                if dirty is not None:
+                    dirty.clear()
             except Exception:
                 tmp.unlink(missing_ok=True)
                 raise
@@ -238,12 +307,17 @@ def mark_coverage(
     **extra,
 ) -> None:
     key = day.isoformat()
-    coverage.setdefault(key, {})
-    coverage[key][f"{env_name}.{log_type}"] = {
-        "state": state,
-        "updated_at": datetime.now(timezone.utc).isoformat(),
-        **extra,
-    }
+    tuple_key = f"{env_name}.{log_type}"
+    with getattr(coverage, "lock", nullcontext()):
+        coverage.setdefault(key, {})
+        coverage[key][tuple_key] = {
+            "state": state,
+            "updated_at": datetime.now(timezone.utc).isoformat(),
+            **extra,
+        }
+        dirty = getattr(coverage, "dirty", None)
+        if dirty is not None:
+            dirty.add((key, tuple_key))
 
 
 # --- Single-file primitives -----------------------------------------------
@@ -577,7 +651,14 @@ def reconcile(
     for env in target_envs:
         env_name = env["name"]
         env_id = env.get("env_id")
-        types = target_types or env.get("types") or DEFAULT_TYPES
+        # An explicit "types": [] means no application-error logs.
+        # Only an absent key means "not recorded, use the defaults".
+        if target_types:
+            types = target_types
+        elif "types" in env:
+            types = env.get("types") or []
+        else:
+            types = DEFAULT_TYPES
         log_fn(
             f"\n[{env_name}] env_id={env_id or '<none>'} "
             f"types={types} days={len(days)}"
@@ -1009,6 +1090,16 @@ def cli_main(argv: list[str] | None = None) -> int:
         days = resolve_dates(args)
     except ValueError as e:
         print(f"ERROR: {e}", file=sys.stderr)
+        return 2
+
+    if not days:
+        # Clamping a future-only range to yesterday can leave no days.
+        print(
+            "ERROR: the requested date range resolves to no days. Acquia "
+            "only retains completed days, so ranges are clamped to "
+            "yesterday — pick a range that starts on or before yesterday.",
+            file=sys.stderr,
+        )
         return 2
 
     if args.types:

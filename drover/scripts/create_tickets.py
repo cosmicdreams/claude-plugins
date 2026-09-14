@@ -211,7 +211,10 @@ def build_plan(
 class Outcome:
     """One result row per spec."""
 
-    __slots__ = ("fingerprint", "title", "key", "url", "status", "reason")
+    __slots__ = (
+        "fingerprint", "title", "key", "url", "status", "reason",
+        "pending_operations",
+    )
 
     def __init__(self, fingerprint: str, title: str):
         self.fingerprint = fingerprint
@@ -220,9 +223,10 @@ class Outcome:
         self.url: str | None = None
         self.status: str = "pending"
         self.reason: str | None = None
+        self.pending_operations: dict | None = None
 
     def to_dict(self) -> dict:
-        return {
+        row = {
             "fingerprint": self.fingerprint,
             "title": self.title,
             "key": self.key,
@@ -230,6 +234,66 @@ class Outcome:
             "status": self.status,
             "reason": self.reason,
         }
+        if self.pending_operations is not None:
+            row["pending_operations"] = self.pending_operations
+        return row
+
+
+FINGERPRINT_LABEL_PREFIX = "drover-fp-"
+
+
+def fingerprint_label(fingerprint: str) -> str:
+    """Jira-side marker that ties an issue back to a drover fingerprint."""
+    return f"{FINGERPRINT_LABEL_PREFIX}{fingerprint}"
+
+
+def load_prior_results(sidecar_path) -> dict[str, dict]:
+    """Map fingerprint -> prior outcome from a previous run's sidecar.
+
+    Re-running against the same sidecar used to file every ticket again.
+    """
+    if not sidecar_path:
+        return {}
+    results_path = sidecar_path.with_suffix(".created.json")
+    if not results_path.exists():
+        return {}
+    try:
+        rows = json.loads(results_path.read_text())
+    except (json.JSONDecodeError, OSError):
+        return {}
+    # A partially-completed ticket still exists in Jira, so it must count
+    # as already-filed — otherwise the next run files a duplicate, which is
+    # precisely what this guard exists to prevent.
+    filed = ("created", "created-partial", "already-created")
+    return {
+        r.get("fingerprint"): r
+        for r in rows
+        if isinstance(r, dict)
+        and r.get("fingerprint")
+        and r.get("status") in filed
+        and r.get("key")
+    }
+
+
+def find_existing_issue(
+    client: jira_api.JiraClient, project_key: str, fingerprint: str,
+) -> dict | None:
+    """Look for an issue already carrying this fingerprint's label.
+
+    Covers the case the sidecar cannot: a ticket committed by Jira whose
+    response was lost, or a ticket filed from another machine.
+    """
+    if not fingerprint:
+        return None
+    jql = (
+        f'project = "{project_key}" AND '
+        f'labels = "{fingerprint_label(fingerprint)}"'
+    )
+    try:
+        issues = client.search_issues(jql, max_results=1)
+    except Exception:  # noqa: BLE001 — never block creation on a failed probe
+        return None
+    return issues[0] if issues else None
 
 
 def create_one(
@@ -255,7 +319,7 @@ def create_one(
             issue_type=issue_type,
             summary=title,
             description=spec.get("description") or "",
-            labels=list(spec.get("labels") or []),
+            labels=_labels_with_fingerprint(spec),
             priority=pri,
         )
     except jira_api.JiraAPIError as e:
@@ -270,33 +334,62 @@ def create_one(
     out.key = created.get("key", "")
     out.url = f"{client.server}/browse/{out.key}" if out.key else None
 
-    # Sprint assignment (best-effort — failure is logged, not fatal)
+    out.pending_operations = {}
     if sprint_id:
-        try:
-            client.assign_sprint([out.key], sprint_id)
-        except Exception as e:  # noqa: BLE001
-            out.reason = (
-                f"created OK but sprint-assign failed: "
-                f"{type(e).__name__}: {e}"
-            )
-
-    # Parent-link (best-effort)
+        out.pending_operations["sprint"] = {"id": sprint_id}
     if parent_key:
-        try:
-            client.link_issues(
-                from_key=out.key, to_key=parent_key,
-                link_type=DEFAULT_LINK_TYPE,
-            )
-        except Exception as e:  # noqa: BLE001
-            prior = out.reason or ""
-            out.reason = (
-                f"{prior + '; ' if prior else ''}"
-                f"created OK but parent-link to {parent_key} "
-                f"failed: {type(e).__name__}: {e}"
-            )
+        out.pending_operations["parent"] = {
+            "key": parent_key, "link_type": DEFAULT_LINK_TYPE,
+        }
+    return complete_post_create(client, out)
 
-    out.status = "created"
+
+def complete_post_create(client: jira_api.JiraClient, out: Outcome) -> Outcome:
+    """Retry only recorded destinations, never create another issue.
+
+    Sprint assignment and repeating the same Jira issue link are best-effort
+    retries, not a transaction. Legacy rows contain only free-text errors;
+    without recorded destinations we cannot claim or infer completion.
+    """
+    pending = out.pending_operations
+    if not pending:
+        if out.status != "created-partial":
+            out.status = "created"
+        return out
+    for operation, target in list(pending.items()):
+        try:
+            if operation == "sprint":
+                client.assign_sprint([out.key], target["id"])
+            elif operation == "parent":
+                client.link_issues(
+                    from_key=out.key, to_key=target["key"],
+                    link_type=target["link_type"],
+                )
+            else:
+                continue  # Unknown future operations remain unresolved.
+        except Exception as e:  # noqa: BLE001
+            label = "sprint-assign" if operation == "sprint" else "parent-link"
+            target["reason"] = (
+                f"created OK but {label} failed: {type(e).__name__}: {e}"
+            )
+        else:
+            del pending[operation]
+    out.status = "created-partial" if pending else "created"
+    out.reason = "; ".join(
+        target.get("reason") or out.reason or f"unresolved operation: {operation}"
+        for operation, target in pending.items()
+    ) or None
     return out
+
+
+def _labels_with_fingerprint(spec: dict) -> list[str]:
+    labels = list(spec.get("labels") or [])
+    fp = spec.get("fingerprint")
+    if fp:
+        marker = fingerprint_label(fp)
+        if marker not in labels:
+            labels.append(marker)
+    return labels
 
 
 def filter_specs(
@@ -516,8 +609,50 @@ def cli_main(argv: list[str] | None = None) -> int:
             print("Aborted.")
             return 0
 
+    prior = load_prior_results(sidecar_path)
+    if prior:
+        print(
+            f"note: {len(prior)} ticket(s) in this sidecar were already "
+            f"filed; only recorded unfinished operations will be retried."
+        )
+
     outcomes: list[Outcome] = []
     for spec in specs:
+        fp = spec.get("fingerprint", "")
+
+        # Already filed by a previous run against this same sidecar.
+        prior_row = prior.get(fp)
+        if prior_row:
+            done = Outcome(fp, spec.get("title", ""))
+            done.status = "already-created"
+            done.key = prior_row.get("key")
+            done.url = prior_row.get("url")
+            done.reason = "already created by a previous run"
+            if prior_row.get("status") == "created-partial":
+                done.status = "created-partial"
+                done.reason = prior_row.get("reason")
+                done.pending_operations = prior_row.get("pending_operations")
+                complete_post_create(client, done)
+            outcomes.append(done)
+            print(f"  = {done.status}: {done.key or '-'}  {done.url or '-'}")
+            if done.reason:
+                print(f"      note: {done.reason}")
+            continue
+
+        # Or filed elsewhere / by a run whose response was lost.
+        existing = find_existing_issue(client, project_key, fp)
+        if existing:
+            done = Outcome(fp, spec.get("title", ""))
+            done.status = "already-created"
+            done.key = existing.get("key")
+            done.url = (
+                f"{client.server}/browse/{done.key}" if done.key else None
+            )
+            done.reason = "an issue already carries this fingerprint label"
+            outcomes.append(done)
+            print(f"  = already-created: {done.key or '-'}  {done.url or '-'}")
+            continue
+
         if not args.all:
             if not _prompt_yes_no(
                 f"  Create '{spec.get('title', '')[:80]}'?",
@@ -553,12 +688,22 @@ def cli_main(argv: list[str] | None = None) -> int:
     # Write a results sidecar so the operator can audit later.
     if sidecar_path:
         results_path = sidecar_path.with_suffix(".created.json")
+        # Merge, keyed by fingerprint: a later run must not erase the record
+        # of tickets an earlier run filed, or dedupe breaks on the run after.
+        merged: dict[str, dict] = dict(prior)
+        for o in outcomes:
+            row = o.to_dict()
+            if o.status in ("created", "created-partial", "already-created"):
+                merged[o.fingerprint] = row
+            elif o.fingerprint not in merged:
+                merged[o.fingerprint] = row
         results_path.write_text(json.dumps(
-            [o.to_dict() for o in outcomes], indent=2,
+            list(merged.values()), indent=2,
         ))
         print(f"results: {results_path}")
 
-    return 0 if all(o.status in ("created", "skipped") for o in outcomes) else 1
+    ok_states = ("created", "skipped", "already-created")
+    return 0 if all(o.status in ok_states for o in outcomes) else 1
 
 
 if __name__ == "__main__":

@@ -132,6 +132,146 @@ class CoverageLedgerTests(unittest.TestCase):
 
 
 class LedgerIntegrityTests(unittest.TestCase):
+    def test_save_does_not_restore_stale_state_for_a_tuple_we_never_touched(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            (root / ".drover").mkdir()
+            seed = pull.load_coverage(root)
+            pull.mark_coverage(
+                seed, date(2026, 4, 1), "prod", "php-error",
+                state="fetch-failed", reason="notification status=failed",
+            )
+            pull.save_coverage(root, seed)
+            run_a = pull.load_coverage(root)
+            run_b = pull.load_coverage(root)
+            pull.mark_coverage(
+                run_a, date(2026, 4, 1), "prod", "php-error",
+                state="present", bytes=1290895,
+            )
+            pull.save_coverage(root, run_a)
+            pull.mark_coverage(
+                run_b, date(2026, 4, 2), "prod", "apache-error",
+                state="present", bytes=20,
+            )
+            pull.save_coverage(root, run_b)
+            final = pull.load_coverage(root)
+            self.assertEqual(
+                final["2026-04-01"]["prod.php-error"]["state"], "present",
+                "B must not restore its stale fetch-failed over A's success",
+            )
+            self.assertEqual(
+                final["2026-04-02"]["prod.apache-error"]["state"], "present",
+                "B's own write must still land",
+            )
+
+    def test_dirty_tracking_scopes_writes_to_this_process(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            (root / ".drover").mkdir()
+            ledger = pull.load_coverage(root)
+            self.assertEqual(ledger.dirty, set())
+            pull.mark_coverage(
+                ledger, date(2026, 4, 1), "prod", "php-error", state="present",
+            )
+            self.assertIn(("2026-04-01", "prod.php-error"), ledger.dirty)
+
+    def test_successful_save_acknowledges_only_this_runs_changes(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            a, b = pull.load_coverage(root), pull.load_coverage(root)
+            day = date(2026, 4, 1)
+            pull.mark_coverage(a, day, "prod", "php-error", "fetch-failed")
+            pull.save_coverage(root, a)
+            self.assertEqual(a.dirty, set())
+            pull.mark_coverage(b, day, "prod", "php-error", "present")
+            pull.save_coverage(root, b)
+            pull.mark_coverage(a, day, "prod", "apache-error", "present")
+            pull.save_coverage(root, a)
+            final = pull.load_coverage(root)[day.isoformat()]
+            self.assertEqual(final["prod.php-error"]["state"], "present")
+            self.assertEqual(final["prod.apache-error"]["state"], "present")
+
+    def test_failed_write_retains_dirty_for_retry(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            ledger = pull.load_coverage(root)
+            pull.mark_coverage(
+                ledger, date(2026, 4, 1), "prod", "php-error", "present",
+            )
+            expected = set(ledger.dirty)
+            with mock.patch.object(pull.os, "rename", side_effect=OSError("full")):
+                with self.assertRaises(OSError):
+                    pull.save_coverage(root, ledger)
+            self.assertEqual(ledger.dirty, expected)
+            pull.save_coverage(root, ledger)
+            self.assertEqual(ledger.dirty, set())
+            self.assertEqual(
+                pull.load_coverage(root)["2026-04-01"]["prod.php-error"]["state"],
+                "present",
+            )
+
+    def test_mark_during_save_remains_dirty_for_next_save(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            ledger = pull.load_coverage(root)
+            day = date(2026, 4, 1)
+            pull.mark_coverage(ledger, day, "prod", "php-error", "fetch-failed")
+            saving = threading.Event()
+            marking = threading.Event()
+            release = threading.Event()
+            rename = pull.os.rename
+            errors = []
+
+            def delayed_rename(src, dst):
+                saving.set()
+                if not release.wait(5):
+                    raise TimeoutError("test did not release save")
+                rename(src, dst)
+
+            def save():
+                try:
+                    pull.save_coverage(root, ledger)
+                except Exception as e:
+                    errors.append(e)
+
+            def mark():
+                marking.set()
+                pull.mark_coverage(ledger, day, "prod", "php-error", "present")
+
+            with mock.patch.object(pull.os, "rename", side_effect=delayed_rename):
+                writer = threading.Thread(target=save)
+                writer.start()
+                self.assertTrue(saving.wait(5))
+                marker = threading.Thread(target=mark)
+                marker.start()
+                self.assertTrue(marking.wait(5))
+                release.set()
+                writer.join(5)
+                marker.join(5)
+            self.assertFalse(writer.is_alive())
+            self.assertFalse(marker.is_alive())
+            self.assertEqual(errors, [])
+            self.assertEqual(ledger.dirty, {("2026-04-01", "prod.php-error")})
+            pull.save_coverage(root, ledger)
+            self.assertEqual(
+                pull.load_coverage(root)["2026-04-01"]["prod.php-error"]["state"],
+                "present",
+            )
+
+    def test_plain_dict_ledger_still_merges(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            (root / ".drover").mkdir()
+            plain = {}
+            pull.mark_coverage(
+                plain, date(2026, 4, 1), "prod", "php-error", state="present",
+            )
+            pull.save_coverage(root, plain)
+            self.assertEqual(
+                pull.load_coverage(root)["2026-04-01"]["prod.php-error"]["state"],
+                "present",
+            )
+
     def test_save_does_not_clobber_another_process_entries(self):
         # Two drover runs against one project each load the ledger at start
         # and mutate their own copy. A full-file overwrite loses whatever the
@@ -1043,6 +1183,80 @@ class ResolveDatesTodayExclusionTests(unittest.TestCase):
         )
         self.assertEqual(d[-1], yesterday)
         self.assertNotIn(today, d)
+
+
+class CanonicalPathSafetyTests(unittest.TestCase):
+    def test_empty_manifest_types_create_no_work(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            summary = pull.reconcile(
+                None, root, [{"name": "prod", "env_id": "env", "types": []}],
+                None, [date(2026, 4, 1)], dry_run=True,
+            )
+            self.assertEqual(summary["total"], 0)
+
+    def test_future_only_range_fails_before_client_creation(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            (root / ".drover").mkdir()
+            (root / ".drover" / "manifest.json").write_text(json.dumps({
+                "acquia": {"envs": [{"name": "prod", "env_id": "env", "types": []}]},
+            }))
+            with mock.patch.object(pull, "AcquiaClient") as client:
+                rc = pull.cli_main([
+                    "--project", str(root), "--from", "9999-01-01", "--to", "9999-01-02",
+                ])
+            self.assertEqual(rc, 2)
+            client.assert_not_called()
+
+    def _root(self, td):
+        root = pathlib.Path(td) / "clients" / "acme"
+        root.mkdir(parents=True)
+        return root
+
+    def test_legitimate_path_is_unchanged(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self._root(td)
+            got = pull.canonical_path(root, date(2026, 4, 1), "prod", "php-error")
+            self.assertEqual(got.name, "2026-04-01.prod.php-error.log.gz")
+            self.assertEqual(got.parent, root / "2026" / "04")
+
+    def test_traversal_via_env_name_is_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self._root(td)
+            with self.assertRaises(ValueError):
+                pull.canonical_path(
+                    root, date(2026, 4, 1),
+                    "x/../../../../tmp/owned", "php-error",
+                )
+
+    def test_traversal_via_log_type_is_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self._root(td)
+            with self.assertRaises(ValueError):
+                pull.canonical_path(
+                    root, date(2026, 4, 1),
+                    "prod", "../../../../tmp/owned",
+                )
+
+    def test_dotdot_and_empty_components_are_rejected(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self._root(td)
+            for env, typ in [("..", "php-error"), ("", "php-error"),
+                             ("prod", ".."), ("prod", ""),
+                             ("pro d", "php-error"), ("prod", "php error"),
+                             ("prod\n", "php-error")]:
+                with self.subTest(env=env, typ=typ):
+                    with self.assertRaises(ValueError):
+                        pull.canonical_path(root, date(2026, 4, 1), env, typ)
+
+    def test_realistic_env_and_type_names_still_allowed(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = self._root(td)
+            for env, typ in [("prod", "php-error"), ("ode1", "drupal-watchdog"),
+                             ("test_2", "apache-error"), ("dev.2", "php-error")]:
+                with self.subTest(env=env, typ=typ):
+                    pull.canonical_path(root, date(2026, 4, 1), env, typ)
 
 
 if __name__ == "__main__":

@@ -38,8 +38,8 @@ test -f ~/.acquia/cloud_api.conf || { echo "Run \`acli auth:login\` first."; exi
 ## Step 1: Resolve the plugin's init script
 
 ```bash
-PLUGIN_ROOT=$(ls -d ~/.claude/plugins/cache/local/drover/*/ 2>/dev/null | tail -1)
-INIT_PY="${PLUGIN_ROOT}scripts/init.py"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT}"
+INIT_PY="${PLUGIN_ROOT}/scripts/init.py"
 test -f "$INIT_PY" || { echo "drover plugin not installed at $INIT_PY"; exit 1; }
 ```
 
@@ -148,8 +148,8 @@ resolved `design:` and `logo:` paths on every run.
 
 ```bash
 # Pull yesterday's logs for prod
-python3 "${PLUGIN_ROOT}scripts/pull.py" --env prod --daily
+python3 "${PLUGIN_ROOT}/scripts/pull.py" --env prod --daily
 
 # 30-day backfill across every env
-python3 "${PLUGIN_ROOT}scripts/pull.py" --env all --backfill
+python3 "${PLUGIN_ROOT}/scripts/pull.py" --env all --backfill
 ```

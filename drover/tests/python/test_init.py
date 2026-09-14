@@ -28,6 +28,41 @@ def load_init():
 init = load_init()
 
 
+class DiscoveryFailureTests(unittest.TestCase):
+    def test_environment_failure_aborts_matching(self):
+        client = mock.Mock()
+        client.list_applications.return_value = [{"uuid": "app", "name": "fixture"}]
+        client.list_environments.side_effect = RuntimeError("offline fixture")
+        with self.assertRaises(init.InitError):
+            init.match_acquia_app(client, init.Breadcrumbs())
+
+    def test_log_type_failure_aborts_manifest(self):
+        client = mock.Mock()
+        client.list_log_types.side_effect = RuntimeError("offline fixture")
+        with self.assertRaises(init.InitError):
+            init.build_manifest(
+                client, {"uuid": "app", "name": "fixture"},
+                [{"id": "env", "name": "prod"}],
+            )
+
+    def test_collection_pagination_for_all_discovery_methods(self):
+        client = object.__new__(init.AcquiaClient)
+        for call, path in (
+            (client.list_applications, "/applications"),
+            (lambda: client.list_environments("app"), "/applications/app/environments"),
+            (lambda: client.list_log_types("env"), "/environments/env/logs"),
+        ):
+            with mock.patch.object(client, "_get", side_effect=[
+                {"_embedded": {"items": [{"id": "first"}]},
+                 "_links": {"next": {"href": path + "?page=2"}}},
+                {"_embedded": {"items": [{"id": "second"}]}},
+            ]) as get:
+                self.assertEqual(call(), [{"id": "first"}, {"id": "second"}])
+                self.assertEqual(get.call_args_list, [
+                    mock.call(path), mock.call(path + "?page=2"),
+                ])
+
+
 # --- Helpers --------------------------------------------------------------
 
 def _make_project(td: pathlib.Path, *, drush_yml: str | None = None,

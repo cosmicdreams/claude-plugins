@@ -278,5 +278,58 @@ class TestIsNoise(unittest.TestCase):
         ))
 
 
+class TestLongMessageDistinctness(unittest.TestCase):
+    """Regression: hashing a truncated message merged distinct errors."""
+
+    PREFIX = (
+        "Invalid display settings encountered while rendering the embedded "
+        "media entity for the configured view mode and the run halted because "
+    )
+
+    def test_watchdog_messages_differing_after_120_chars_do_not_collide(self):
+        self.assertGreater(len(fp.normalize(self.PREFIX)), 120)
+        a = fp.fingerprint_structured(
+            message=self.PREFIX + "database unavailable",
+            source="watchdog", type_="entity_embed")
+        b = fp.fingerprint_structured(
+            message=self.PREFIX + "authorization denied",
+            source="watchdog", type_="entity_embed")
+        self.assertNotEqual(a, b)
+
+    def test_php_messages_differing_after_120_chars_do_not_collide(self):
+        a = fp.fingerprint_structured(
+            message=self.PREFIX + "the connection dropped",
+            source="php", level="error", file="modules/custom/x.php:12")
+        b = fp.fingerprint_structured(
+            message=self.PREFIX + "the token had expired",
+            source="php", level="error", file="modules/custom/x.php:12")
+        self.assertNotEqual(a, b)
+
+    def test_apache_messages_differing_after_120_chars_do_not_collide(self):
+        a = fp.fingerprint_structured(
+            message=self.PREFIX + "the upstream closed the socket",
+            source="apache", level="error")
+        b = fp.fingerprint_structured(
+            message=self.PREFIX + "the handler was not registered",
+            source="apache", level="error")
+        self.assertNotEqual(a, b)
+
+    def test_identical_long_messages_still_group_together(self):
+        msg = self.PREFIX + "database unavailable"
+        self.assertEqual(
+            fp.fingerprint_structured(message=msg, source="watchdog", type_="entity_embed"),
+            fp.fingerprint_structured(message=msg, source="watchdog", type_="entity_embed"),
+        )
+
+    def test_variable_noise_in_long_messages_still_groups(self):
+        a = fp.fingerprint_structured(
+            message=self.PREFIX + "entity 41821 was missing",
+            source="watchdog", type_="entity_embed")
+        b = fp.fingerprint_structured(
+            message=self.PREFIX + "entity 99999 was missing",
+            source="watchdog", type_="entity_embed")
+        self.assertEqual(a, b)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -1,0 +1,29 @@
+<script>
+  // Shared, injection-safe tooltip builder.
+  //
+  // Chart labels are derived from parsed log content — a Drupal watchdog
+  // channel, a route, a host — and that content is attacker-influenceable.
+  // Handlebars escapes it correctly into the data-* attribute, but
+  // getAttribute() decodes it again on the way out, so assigning the result
+  // to innerHTML re-parses it as markup and executes any handler it carries.
+  // These reports are emailed to clients; build text nodes instead.
+  window.droverTooltip = (function () {
+    function el(tag, text, style) {
+      var node = document.createElement(tag);
+      if (text !== undefined && text !== null) node.textContent = String(text);
+      if (style) { for (var k in style) { node.style[k] = style[k]; } }
+      return node;
+    }
+    return {
+      el: el,
+      br: function () { return document.createElement("br"); },
+      text: function (s) { return document.createTextNode(String(s == null ? "" : s)); },
+      set: function (tooltip, nodes) {
+        tooltip.textContent = "";
+        for (var i = 0; i < nodes.length; i++) {
+          if (nodes[i]) tooltip.appendChild(nodes[i]);
+        }
+      }
+    };
+  })();
+</script>

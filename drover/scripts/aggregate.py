@@ -241,7 +241,9 @@ def aggregate_files(
     are unique across types (the source prefix prevents collisions),
     so this is safe.
     """
-    types = types or list(LOG_TYPE_TO_SOURCE.keys())
+    # Respect explicit empty selections from the manifest/report path.
+    if types is None:
+        types = list(LOG_TYPE_TO_SOURCE.keys())
     days = _date_range_inclusive(from_date, to_date)
 
     combined_groups: dict[str, dict] = {}

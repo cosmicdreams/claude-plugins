@@ -134,9 +134,19 @@ def _basic_auth_header(email: str, token: str) -> str:
     return "Basic " + base64.b64encode(raw).decode("ascii")
 
 
-def _urlopen_with_retry(req: urllib.request.Request, timeout: int):
+def _urlopen_with_retry(
+    req: urllib.request.Request, timeout: int, *, retry: bool = True,
+):
+    """Open `req`, retrying transient failures.
+
+    Pass ``retry=False`` for non-idempotent writes. Jira commits
+    ``POST /issue`` before the response reaches us, so a timeout or reset
+    on the way back is indistinguishable from a request that never landed
+    — retrying it files the client a second copy of the same ticket.
+    """
+    max_attempts = _MAX_RETRIES if retry else 1
     last_exc: Exception | None = None
-    for attempt in range(_MAX_RETRIES):
+    for attempt in range(max_attempts):
         try:
             return urllib.request.urlopen(req, timeout=timeout)
         except urllib.error.HTTPError as e:
@@ -144,7 +154,7 @@ def _urlopen_with_retry(req: urllib.request.Request, timeout: int):
                 body = e.read().decode("utf-8", errors="replace")
             except Exception:
                 body = ""
-            if e.code in _RETRY_STATUSES and attempt < _MAX_RETRIES - 1:
+            if e.code in _RETRY_STATUSES and attempt < max_attempts - 1:
                 time.sleep(_BACKOFF_BASE * (2 ** attempt))
                 last_exc = e
                 continue
@@ -152,7 +162,7 @@ def _urlopen_with_retry(req: urllib.request.Request, timeout: int):
                 status=e.code, url=req.full_url, body=body,
             ) from e
         except (urllib.error.URLError, TimeoutError, OSError) as e:
-            if attempt < _MAX_RETRIES - 1:
+            if attempt < max_attempts - 1:
                 time.sleep(_BACKOFF_BASE * (2 ** attempt))
                 last_exc = e
                 continue
@@ -183,6 +193,7 @@ class JiraClient:
         body: dict | None = None,
         *,
         api_root: str = "/rest/api/2",
+        retry: bool | None = None,
     ) -> Any:
         url = f"{self.server}{api_root}{path}"
         data = json.dumps(body).encode("utf-8") if body is not None else None
@@ -196,7 +207,11 @@ class JiraClient:
             },
             method=method,
         )
-        with _urlopen_with_retry(req, timeout=30) as r:
+        # Safe verbs may be retried freely; mutating verbs may not, unless
+        # the caller knows the specific endpoint is idempotent.
+        if retry is None:
+            retry = method.upper() in ("GET", "HEAD")
+        with _urlopen_with_retry(req, timeout=30, retry=retry) as r:
             raw = r.read()
             if not raw:
                 return {}
@@ -209,6 +224,19 @@ class JiraClient:
         return self._request("GET", "/myself")
 
     # --- Issue creation ---
+
+    def search_issues(self, jql: str, *, max_results: int = 50) -> list[dict]:
+        """POST /search. Read-only despite the verb, so retry is safe."""
+        resp = self._request(
+            "POST", "/search",
+            body={
+                "jql": jql,
+                "maxResults": max_results,
+                "fields": ["summary", "labels", "status"],
+            },
+            retry=True,
+        )
+        return resp.get("issues", []) or []
 
     def create_issue(
         self,

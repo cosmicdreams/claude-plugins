@@ -238,6 +238,7 @@
   </footer>
 </div>
 {{> theme-toggle-script}}
+{{> chart-tooltip-script}}
 <script>
   (function() {
     // Chart tooltips
@@ -253,14 +254,16 @@
         const count = chart.getAttribute("data-count");
         const share = chart.getAttribute("data-share");
         
-        let content = `<strong>${label}</strong><br/>`;
-        if (type === "daily") {
-          content += `Volume: <strong>${count} events</strong>`;
-        } else {
-          content += `Volume: <strong>${count} events</strong> (${share}%)`;
+        const T = window.droverTooltip;
+        const nodes = [
+          T.el("strong", label), T.br(),
+          T.text("Volume: "), T.el("strong", count + " events")
+        ];
+        if (type !== "daily") {
+          nodes.push(T.text(" (" + share + "%)"));
         }
         
-        tooltip.innerHTML = content;
+        T.set(tooltip, nodes);
         tooltip.classList.add("visible");
         
         tooltip.style.left = (e.pageX + 15) + "px";

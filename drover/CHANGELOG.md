@@ -1,5 +1,62 @@
 # drover Changelog
 
+## 3.0.0 — hardening on the 2.3 signal tiers
+
+### Compatibility and migration
+
+- **Breaking fingerprint change:** structured fingerprints now hash the full
+  normalized message instead of its first 120 characters. Distinct long
+  messages no longer silently merge. Short normalized messages and Apache
+  `AHnnnnn` collapsing retain their existing behavior. This also affects
+  monitor state keyed by structured fingerprints, not just reports.
+- Keep existing reports, ticket sidecars, and monitor state as audit records.
+  Recompute comparison periods from retained raw logs with the same version;
+  do not interpret changed IDs across versions as new/resolved incidents.
+  If the original logs are unavailable, those comparisons cannot be
+  reconstructed reliably.
+- **No automatic migration is performed.** An old truncated fingerprint can
+  map to multiple new groups, so blindly rewriting state or sidecars is unsafe.
+  Before creating tickets from regenerated reports or resuming monitors,
+  reconcile affected new fingerprints with existing issue keys manually.
+  The new fingerprint labels and sidecar checks prevent ordinary sequential
+  re-runs with unchanged IDs; they cannot identify legacy unlabeled issues
+  after IDs change. A failed Jira duplicate probe and concurrent creators
+  are not covered by this best-effort protection.
+- The plugin major version reflects the fingerprint compatibility break.
+  Report JSON stays at schema v2: the 2.3 `supplementary_groups` contract
+  is preserved, along with watchdog/apache ranking and supplementary PHP
+  detail. No `drover-charts` work is included.
+
+### Fixed
+
+- Chart tooltips build DOM text nodes instead of reparsing decoded log labels
+  through `innerHTML`; all chart templates include the shared safe partial.
+- Any missing expected coverage entry triggers the HTML caveat, even above
+  90% coverage, matching Markdown's coverage discipline.
+- Coverage ledger saves merge only tuples mutated by the current process
+  rather than restoring unrelated stale entries from its snapshot.
+- Acquia discovery failures abort initialization instead of persisting an
+  incomplete manifest; application, environment, and log-type lists paginate.
+- Explicit manifest `types: []` no longer expands to default types in pull
+  or either report output path.
+- Truncated PHP stack traces no longer raise `KeyError`; syslog years use
+  the nearest hinted date, and numeric PHP timezone offsets normalize to UTC.
+- Canonical log paths validate environment/type components and reject paths
+  resolving outside the project root.
+- Mutating Jira requests are not blindly retried. Read-only search may retry.
+  Ticket creation adds fingerprint labels, checks prior results and Jira,
+  and merges recorded created outcomes into the results sidecar.
+- Sprint/link failures retain the created issue key but return
+  `created-partial` and a nonzero CLI result.
+- Future-only pull ranges report a clear error after date clamping.
+
+### Documentation
+
+- Skills resolve paths through `CLAUDE_PLUGIN_ROOT`, not lexical cache sorting.
+- Corrected the nonexistent setup command, init's Acquia-only discovery scope,
+  coverage state descriptions, and claims of byte-identical report output
+  despite generation timestamps.
+
 ## 2.3.0 — php-error demoted to a supplementary signal
 
 - **php-error no longer competes for the ranked storyline.** Its parser only

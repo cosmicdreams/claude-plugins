@@ -25,8 +25,11 @@ and renders structured JSON into an editable HTML report. The standard
 delivery path keeps the HTML source and finalizes it to PDF. Markdown remains
 available when a lightweight text artifact is specifically requested.
 
-The JSON, Markdown, and HTML outputs are **deterministic**: same logs in, same
-report out. No LLM is in the rendering path. PDF bytes can vary by browser
+The JSON, Markdown, and HTML outputs are **deterministic in their analysis**:
+same logs and configuration in, same events, groups, counts, deltas and ticket
+specs out. No large language model is in the rendering path. The generation
+timestamp (`generated_at`, surfaced in the report footer) varies between runs;
+exclude it when comparing output. PDF bytes can additionally vary by browser
 version even when the visible report is unchanged.
 
 ## Default delivery path
@@ -75,8 +78,8 @@ the fact will miss the early days.
 ## Step 1: Resolve the plugin's report script
 
 ```bash
-PLUGIN_ROOT=$(ls -d ~/.claude/plugins/cache/local/drover/*/ 2>/dev/null | tail -1)
-REPORT_PY="${PLUGIN_ROOT}scripts/report.py"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT}"
+REPORT_PY="${PLUGIN_ROOT}/scripts/report.py"
 test -f "$REPORT_PY" || { echo "drover plugin not installed at $REPORT_PY"; exit 1; }
 ```
 
@@ -137,7 +140,7 @@ python3 "$REPORT_PY" --month 2026-04 --format json
 #    → writes reports/2026-04.json
 
 # 2. Render HTML from that JSON.
-node "${PLUGIN_ROOT}render-html/render.mjs" \
+node "${PLUGIN_ROOT}/render-html/render.mjs" \
   --data reports/2026-04.json \
   --template monthly-client \
   --out reports/2026-04-monthly-client.html
@@ -147,8 +150,9 @@ node "${PLUGIN_ROOT}render-html/render.mjs" \
 
 The JSON carries everything a renderer needs — totals, severity/channel
 breakdowns, by-day volume, fingerprint groups (raw and cause-collapsed),
-MoM deltas when prior data exists, and the JIRA ticket specs. Both stages
-are deterministic: same logs in, byte-identical HTML out.
+month-over-month deltas when prior data exists, and the JIRA ticket specs.
+Both stages are deterministic apart from the embedded generation timestamp:
+same logs and configuration in, same HTML out, modulo that timestamp.
 
 Renderer flags: `--data` (required), `--template` (default
 `monthly-client`), `--design` (default the plugin's `DESIGN.md`),
@@ -173,10 +177,10 @@ Templates are discovered from the filesystem rather than a hard-coded list:
 
 ```bash
 # Show every available template and the file that supplies it.
-node "${PLUGIN_ROOT}render-html/render.mjs" --list-templates
+node "${PLUGIN_ROOT}/render-html/render.mjs" --list-templates
 
 # A project developer can add .drover/templates/my-report.hbs, then:
-node "${PLUGIN_ROOT}render-html/render.mjs" \
+node "${PLUGIN_ROOT}/render-html/render.mjs" \
   --data reports/2026-04.json \
   --template my-report \
   --out reports/2026-04-my-report.html
@@ -202,7 +206,7 @@ To customize a project's reports without changing the plugin:
 
 ```bash
 mkdir -p .drover/design
-cp -f "${PLUGIN_ROOT}assets/design/DESIGN.md" .drover/design/DESIGN.md
+cp -f "${PLUGIN_ROOT}/assets/design/DESIGN.md" .drover/design/DESIGN.md
 ```
 
 Edit the project copy; subsequent renders pick it up automatically.
@@ -214,7 +218,7 @@ supports automated PDF generation through an installed Google Chrome, Chromium,
 or Microsoft Edge executable:
 
 ```bash
-node "${PLUGIN_ROOT}render-html/render-pdf.mjs" \
+node "${PLUGIN_ROOT}/render-html/render-pdf.mjs" \
   --html reports/2026-04-monthly-client.html \
   --out reports/2026-04-monthly-client.pdf
 ```

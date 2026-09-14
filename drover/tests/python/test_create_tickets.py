@@ -151,6 +151,76 @@ class LoadSidecarTests(unittest.TestCase):
 
 # --- create_one with mocked client ---------------------------------------
 
+class PartialRetryCliTests(unittest.TestCase):
+    def test_legacy_partial_reason_is_not_promoted_or_guessed(self):
+        for reason in (
+            "created OK but sprint-assign failed: RuntimeError: down",
+            "created OK but parent-link to PPS-1 failed: RuntimeError: down",
+            "unknown older executor failure",
+        ):
+            with self.subTest(reason=reason), tempfile.TemporaryDirectory() as td:
+                root = pathlib.Path(td)
+                sidecar = _make_project(root)
+                results = sidecar.with_suffix(".created.json")
+                row = {
+                    "fingerprint": "fp1", "title": "T", "key": "PPS-100",
+                    "url": "https://x.example/browse/PPS-100",
+                    "status": "created-partial", "reason": reason,
+                }
+                results.write_text(json.dumps([row]))
+                with mock.patch.object(ct.jira_api, "JiraClient") as factory:
+                    with redirect_stdout(io.StringIO()):
+                        status = ct.cli_main([
+                            "--project", td, "--all", "--filter", "entity_embed",
+                        ])
+                    client = factory.return_value
+                    client.create_issue.assert_not_called()
+                    client.assign_sprint.assert_not_called()
+                    client.link_issues.assert_not_called()
+                self.assertEqual(status, 1)
+                persisted = json.loads(results.read_text())[0]
+                self.assertEqual(persisted["status"], "created-partial")
+                self.assertEqual(persisted["reason"], reason)
+
+    def test_retries_only_unresolved_operations_on_existing_issue(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            sidecar = _make_project(root)
+            results = sidecar.with_suffix(".created.json")
+            with mock.patch.object(ct.jira_api, "JiraClient") as factory:
+                client = factory.return_value
+                client.server = "https://x.example"
+                client.search_issues.return_value = []
+                client.create_issue.return_value = {"key": "PPS-100"}
+                client.assign_sprint.side_effect = RuntimeError("sprint down")
+                client.link_issues.side_effect = RuntimeError("link down")
+                args = ["--project", td, "--all", "--filter", "entity_embed"]
+                with redirect_stdout(io.StringIO()):
+                    self.assertEqual(ct.cli_main(args + ["--parent", "PPS-1"]), 1)
+                    first = json.loads(results.read_text())[0]
+                    self.assertEqual(set(first["pending_operations"]), {"sprint", "parent"})
+                    self.assertEqual(ct.cli_main(args), 1)
+                    self.assertEqual(json.loads(results.read_text())[0]["reason"], first["reason"])
+                    client.assign_sprint.side_effect = None
+                    self.assertEqual(ct.cli_main(args + ["--sprint", "none"]), 1)
+                    partial = json.loads(results.read_text())[0]
+                    self.assertEqual(set(partial["pending_operations"]), {"parent"})
+                    self.assertIn("link down", partial["reason"])
+                    self.assertNotIn("sprint down", partial["reason"])
+                    client.assign_sprint.reset_mock()
+                    client.link_issues.side_effect = None
+                    self.assertEqual(ct.cli_main(args), 0)
+                client.create_issue.assert_called_once()
+                client.assign_sprint.assert_not_called()
+                client.link_issues.assert_called_with(
+                    from_key="PPS-100", to_key="PPS-1", link_type="Relates",
+                )
+                final = json.loads(results.read_text())[0]
+                self.assertEqual(final["status"], "created")
+                self.assertIsNone(final["reason"])
+                self.assertEqual(final["pending_operations"], {})
+
+
 class CreateOneTests(unittest.TestCase):
     def _spec(self, **kw):
         base = {
@@ -196,7 +266,7 @@ class CreateOneTests(unittest.TestCase):
         self.assertEqual(out.status, "create-failed")
         self.assertIn("400", out.reason)
 
-    def test_sprint_failure_does_not_fail_creation(self):
+    def test_sprint_failure_reports_partial_not_clean_success(self):
         client = mock.MagicMock()
         client.server = "https://x.example"
         client.create_issue.return_value = {"key": "PPS-200"}
@@ -207,9 +277,48 @@ class CreateOneTests(unittest.TestCase):
             sprint_id=12345, parent_key=None,
             priority_override=None,
         )
-        self.assertEqual(out.status, "created")
+        self.assertEqual(out.status, "created-partial")
         self.assertEqual(out.key, "PPS-200")
         self.assertIn("sprint-assign failed", out.reason)
+
+    def test_parent_link_failure_reports_partial(self):
+        client = mock.MagicMock()
+        client.server = "https://x.example"
+        client.create_issue.return_value = {"key": "PPS-201"}
+        client.link_issues.side_effect = RuntimeError("link api down")
+        out = ct.create_one(
+            client, self._spec(),
+            project_key="PPS", issue_type="Chore",
+            sprint_id=None, parent_key="PPS-1",
+            priority_override=None,
+        )
+        self.assertEqual(out.status, "created-partial")
+        self.assertEqual(out.key, "PPS-201")
+
+    def test_clean_creation_still_reports_created(self):
+        client = mock.MagicMock()
+        client.server = "https://x.example"
+        client.create_issue.return_value = {"key": "PPS-202"}
+        out = ct.create_one(
+            client, self._spec(),
+            project_key="PPS", issue_type="Chore",
+            sprint_id=12345, parent_key="PPS-1",
+            priority_override=None,
+        )
+        self.assertEqual(out.status, "created")
+
+    def test_fingerprint_label_is_attached_for_later_dedupe(self):
+        client = mock.MagicMock()
+        client.server = "https://x.example"
+        client.create_issue.return_value = {"key": "PPS-203"}
+        ct.create_one(
+            client, self._spec(),
+            project_key="PPS", issue_type="Chore",
+            sprint_id=None, parent_key=None,
+            priority_override=None,
+        )
+        labels = client.create_issue.call_args.kwargs["labels"]
+        self.assertIn(ct.fingerprint_label(self._spec()["fingerprint"]), labels)
 
     def test_priority_override_used(self):
         client = mock.MagicMock()
@@ -417,6 +526,88 @@ class CliTests(unittest.TestCase):
             text = buf.getvalue()
             self.assertIn("simple_cron", text)
             self.assertNotIn("entity_embed", text)
+
+
+class DuplicatePreventionTests(unittest.TestCase):
+    """Re-running against the same sidecar must not re-file tickets."""
+
+    def test_cli_reuses_created_issues_and_preserves_unselected_sidecar_rows(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            sidecar = _make_project(root)
+            results = sidecar.with_suffix(".created.json")
+            results.write_text(json.dumps([{
+                "fingerprint": "older-report", "status": "created", "key": "PPS-8",
+            }]))
+            client = mock.MagicMock()
+            client.server = "https://fixture.invalid"
+            client.search_issues.return_value = []
+            client.create_issue.side_effect = [{"key": "PPS-9"}, {"key": "PPS-10"}]
+            args = ["--project", str(root), "--sidecar", str(sidecar), "--all"]
+            with mock.patch.object(ct.jira_api, "JiraClient", return_value=client):
+                with redirect_stdout(io.StringIO()):
+                    self.assertEqual(ct.cli_main(args), 0)
+                    self.assertEqual(ct.cli_main(args), 0)
+            self.assertEqual(client.create_issue.call_count, 2)
+            rows = {r["fingerprint"]: r for r in json.loads(results.read_text())}
+            self.assertEqual(rows["older-report"]["key"], "PPS-8")
+            self.assertEqual(rows["fp1"]["key"], "PPS-9")
+            self.assertEqual(rows["fp2"]["key"], "PPS-10")
+
+    def _rows(self, status):
+        return [{
+            "fingerprint": "abc123", "title": "t", "key": "PPS-9",
+            "url": "https://x.example/browse/PPS-9", "status": status,
+            "reason": None,
+        }]
+
+    def test_prior_created_ticket_is_recognized(self):
+        with tempfile.TemporaryDirectory() as td:
+            sidecar = pathlib.Path(td) / "r.md.tickets.json"
+            sidecar.write_text("[]")
+            sidecar.with_suffix(".created.json").write_text(
+                json.dumps(self._rows("created")))
+            self.assertIn("abc123", ct.load_prior_results(sidecar))
+
+    def test_partially_created_ticket_still_counts_as_filed(self):
+        with tempfile.TemporaryDirectory() as td:
+            sidecar = pathlib.Path(td) / "r.md.tickets.json"
+            sidecar.write_text("[]")
+            sidecar.with_suffix(".created.json").write_text(
+                json.dumps(self._rows("created-partial")))
+            self.assertIn("abc123", ct.load_prior_results(sidecar))
+
+    def test_failed_ticket_is_not_treated_as_filed(self):
+        with tempfile.TemporaryDirectory() as td:
+            sidecar = pathlib.Path(td) / "r.md.tickets.json"
+            sidecar.write_text("[]")
+            sidecar.with_suffix(".created.json").write_text(
+                json.dumps([{
+                    "fingerprint": "abc123", "title": "t", "key": None,
+                    "url": None, "status": "create-failed", "reason": "boom",
+                }]))
+            self.assertEqual(ct.load_prior_results(sidecar), {})
+
+    def test_missing_or_corrupt_sidecar_is_not_fatal(self):
+        with tempfile.TemporaryDirectory() as td:
+            sidecar = pathlib.Path(td) / "r.md.tickets.json"
+            sidecar.write_text("[]")
+            self.assertEqual(ct.load_prior_results(sidecar), {})
+            sidecar.with_suffix(".created.json").write_text("{not json")
+            self.assertEqual(ct.load_prior_results(sidecar), {})
+
+    def test_existing_issue_found_by_fingerprint_label(self):
+        client = mock.MagicMock()
+        client.search_issues.return_value = [{"key": "PPS-42"}]
+        found = ct.find_existing_issue(client, "PPS", "abc123")
+        self.assertEqual(found["key"], "PPS-42")
+        jql = client.search_issues.call_args.args[0]
+        self.assertIn("drover-fp-abc123", jql)
+
+    def test_failed_duplicate_probe_does_not_block_creation(self):
+        client = mock.MagicMock()
+        client.search_issues.side_effect = RuntimeError("search down")
+        self.assertIsNone(ct.find_existing_issue(client, "PPS", "abc123"))
 
 
 if __name__ == "__main__":

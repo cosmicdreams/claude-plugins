@@ -106,6 +106,7 @@
   </footer>
 </div>
 {{> theme-toggle-script}}
+{{> chart-tooltip-script}}
 
 <script>
   (function() {
@@ -115,7 +116,7 @@
 
     document.querySelectorAll("[data-tooltip]").forEach(el => {
       el.addEventListener("mousemove", function(e) {
-        tooltip.innerHTML = el.getAttribute("data-tooltip");
+        tooltip.textContent = el.getAttribute("data-tooltip");
         tooltip.classList.add("visible");
         
         let left = e.pageX + 15;

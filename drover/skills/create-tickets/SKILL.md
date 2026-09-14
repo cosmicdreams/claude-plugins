@@ -94,8 +94,8 @@ For paths 1 and 2 (MCP / Direct REST), you also need:
 ## Step 1: Resolve the plugin's create-tickets script
 
 ```bash
-PLUGIN_ROOT=$(ls -d ~/.claude/plugins/cache/local/drover/*/ 2>/dev/null | tail -1)
-SCRIPT="${PLUGIN_ROOT}scripts/create_tickets.py"
+PLUGIN_ROOT="${CLAUDE_PLUGIN_ROOT}"
+SCRIPT="${PLUGIN_ROOT}/scripts/create_tickets.py"
 test -f "$SCRIPT" || { echo "drover plugin not installed at $SCRIPT"; exit 1; }
 ```
 
@@ -230,8 +230,13 @@ The plan JSON is human-readable and self-contained. The operator can:
 | Auth fails (401) | Aborts immediately — no point trying others. |
 
 Created issues stay created on partial failures. The results sidecar
-makes it easy to audit and re-attempt sprint/parent linking
-manually for any row in `create-failed` state.
+records `created-partial` and the CLI exits nonzero while work is unresolved.
+On rerun, recorded `pending_operations` are retried against the existing
+issue using their saved sprint ID or parent key/link type, not new defaults.
+Completed operations are not repeated. Legacy partial rows with only a
+free-text `reason` remain partial and require manual reconciliation; do not
+infer completion or create another issue. These retries remain best-effort,
+not transactional or exactly-once across interrupted or concurrent runs.
 
 ## Why three paths instead of one
 

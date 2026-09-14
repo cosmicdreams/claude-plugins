@@ -151,17 +151,43 @@ class AcquiaClient:
         with _urlopen_with_retry(req, timeout=30) as r:
             return json.loads(r.read())
 
+    def _get_collection(self, path: str) -> list[dict]:
+        """Fetch every page of a HAL collection.
+
+        Acquia paginates `_embedded.items` and advertises the next page in
+        `_links.next.href`. Reading only the first page silently drops
+        applications, environments, and log types, which surfaces later as
+        "no matching application" or an environment recorded with no types.
+        """
+        items: list[dict] = []
+        seen: set[str] = set()
+        next_path: str | None = path
+        while next_path:
+            resp = self._get(next_path)
+            items.extend(resp.get("_embedded", {}).get("items", []) or [])
+            href = (
+                (resp.get("_links") or {}).get("next", {}).get("href")
+                if isinstance(resp.get("_links"), dict) else None
+            )
+            if not href:
+                break
+            # Normalize an absolute next-href back to an API-relative path.
+            rel = href[len(API_BASE):] if href.startswith(API_BASE) else href
+            if rel in seen:          # defensive: malformed self-referencing link
+                break
+            seen.add(rel)
+            next_path = rel
+        return items
+
     # --- Applications ---
 
     def list_applications(self) -> list[dict]:
-        resp = self._get("/applications")
-        return resp.get("_embedded", {}).get("items", [])
+        return self._get_collection("/applications")
 
     # --- Environments ---
 
     def list_environments(self, app_uuid: str) -> list[dict]:
-        resp = self._get(f"/applications/{app_uuid}/environments")
-        return resp.get("_embedded", {}).get("items", [])
+        return self._get_collection(f"/applications/{app_uuid}/environments")
 
     def resolve_env_id(self, app_uuid: str, env_name: str) -> str:
         envs = self.list_environments(app_uuid)
@@ -176,8 +202,7 @@ class AcquiaClient:
     # --- Logs ---
 
     def list_log_types(self, env_id: str) -> list[dict]:
-        resp = self._get(f"/environments/{env_id}/logs")
-        return resp.get("_embedded", {}).get("items", [])
+        return self._get_collection(f"/environments/{env_id}/logs")
 
     def get_logstream_params(self, env_id: str) -> dict:
         resp = self._get(f"/environments/{env_id}/logstream")

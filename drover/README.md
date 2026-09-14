@@ -11,7 +11,7 @@
 A small pipeline of four skills that runs in Claude Code:
 
 ```
-/drover:init            Discover this project's Acquia + JIRA config; write manifest
+/drover:init            Discover this project's Acquia config; write manifest
 /drover:acquia-pull     Pull application-error logs by date into <project>/<year>/<month>/
 /drover:report          Render monthly HTML/Markdown reports and final PDFs
 /drover:create-tickets  File the report's recommended tickets in JIRA
@@ -52,7 +52,7 @@ cd /path/to/your/drupal/project
 ```
 <project-root>/
   .drover/
-    manifest.json         # discovered Acquia + JIRA config
+    manifest.json         # discovered Acquia config (+ hand-added jira: block)
     coverage.json         # per (date × env × type) state — auto-maintained
   2026/
     04/
@@ -165,7 +165,13 @@ schema:
 
 Per-ticket sprint assignment + parent linking are best-effort: if
 either fails, the issue is still created and the failure is captured
-in a results sidecar.
+in a results sidecar as `created-partial`, with a nonzero exit status.
+Rerunning the same sidecar reuses the existing issue and retries only
+recorded unfinished operations, using their original destinations rather
+than current sprint/parent defaults. Older partial rows without structured
+retry information remain partial for manual reconciliation; they are not
+silently promoted to success. This is not transactional or exactly-once
+execution: interrupted runs and concurrent executors still require care.
 
 ## How it gets logs
 
@@ -188,7 +194,9 @@ stdlib-only Python client (`scripts/monitors/acquia_api.py`).
 ## Coverage discipline
 
 Every fetched (date × env × type) is recorded in `.drover/coverage.json`
-with a state of `present`, `fetch-failed`, or `pending`. The report
+with a state of `present` or `fetch-failed` — the two states the pull
+writes. The report layer additionally treats an expected tuple with no
+ledger entry at all as `pending` when it computes coverage. The report
 skill reads this ledger and surfaces gaps in the rendered markdown — a
 report can't claim 30 days of analysis if only 28 are present on disk.
 This is what makes the report defensible to clients.
