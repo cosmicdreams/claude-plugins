@@ -40,21 +40,31 @@ Cheap, exact, no external dependency. Compare the built component set against th
 This catches the most common failure by a wide margin: `combineAsVariants` silently
 producing a different matrix than intended.
 
-### 2. Bindings are real
+### 2. Bindings match the source
 
-For every node in the component, assert that visual properties resolve through
-`boundVariables` rather than raw values:
+For every node, assert that its binding state **equals the source's binding state** — not
+that it is maximally bound. Three outcomes per property, and only the third is a failure:
 
-- fills and strokes bind to a colour variable
-- padding, gap and corner radius bind to a spacing or radius variable
-- text nodes bind their size and line height to a type variable
+| Source | Figma | Verdict |
+|---|---|---|
+| resolves through a token | bound to the matching variable | pass |
+| hardcodes a literal | carries the same literal, defect recorded | pass |
+| either | bound where the source hardcodes, or hardcoded where the source binds | **fail** |
 
-Exceptions must be declared in the plan, not discovered at assertion time. Intentionally
-fixed geometry exists — icon pixel-grid sizes, hairline dividers — and it is fine, but it
-has to be named in advance or the assertion cannot tell it apart from a mistake.
+An earlier edition of this file asserted the opposite — that every fill, padding and type
+value must resolve through `boundVariables`, and that a raw value was a defect. That rule
+silently upgrades the component. A theme that hardcodes `#342649` where it should use
+`--bs-purple` produces a Figma component with a clean bound variable, the flaw disappears,
+and the file stops being a representation of the running site. See
+`references/library-standard.md` section 1.
 
-The AHRI build reported 810 variable bindings across 14 components. Without this assertion
-that number is a claim; with it, it is a measurement.
+So a binding count on its own is not a measurement of quality. The AHRI build reported 810
+bindings across 14 components; what matters is how many of those 810 the code actually makes,
+and which properties diverge.
+
+Exceptions still have to be declared in the plan rather than discovered at assertion time.
+Intentionally fixed geometry exists — icon pixel-grid sizes, hairline dividers — and it is
+fine, but it has to be named in advance or the assertion cannot tell it apart from drift.
 
 ### 3. Fidelity against the source of truth
 
@@ -94,3 +104,14 @@ gate. Nothing blocks on it.
 
 Into `builds/<component-id>.json`, alongside the node identifiers. That file is both the
 verification record and the idempotency key — see `references/build-records.md`.
+
+## Documentation assertions
+
+Structure is not documentation. Assert all four, per component:
+
+- `documentationLinks.length > 0` — otherwise nothing leads from the Assets panel to the card
+- a documentation card exists whose name contains the machine name
+- the card's breakpoint frames share one scale — compare each frame's width against its
+  labelled pixel width; the ratios must be equal across the row
+- frames named `shot:*` contain an image fill. A named `shot:` frame with a flat fill is a
+  placeholder claiming to be a capture, and is worse than an honest `scale:` frame

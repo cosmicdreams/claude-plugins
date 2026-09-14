@@ -14,7 +14,11 @@ renders. The source map carries the 39 real ones.
 
 Configuration beats measurement (references/model.md), and a source map is configuration.
 """
-import json, os, re, sys, glob, datetime
+import json, os, re, sys, glob, datetime, colorsys
+
+# references/library-standard.md section 10: every artifact states which edition it
+# was built to, or nobody can tell whether a library predates a rule.
+STANDARD_VERSION = '2.1.0'
 
 SKIP = re.compile(r'/(node_modules|vendor|\.git)/')
 
@@ -28,6 +32,8 @@ LEN = re.compile(r'^-?\d*\.?\d+(px|rem|em|vh|vw|%)$')
 NUM = re.compile(r'^-?\d*\.?\d+$')
 EMFN = re.compile(r'^em\(\s*(-?\d*\.?\d+)\s*\)$')
 FONTSTACK = re.compile(r'["\'][^"\']+["\']\s*,')
+# lighten($c, 10) / darken(#abc, 20%) - Sass adjusts HSL lightness by whole percent.
+COLORFN = re.compile(r'^(lighten|darken)\(\s*(.+?)\s*,\s*(-?[\d.]+)%?\s*\)$', re.I)
 
 
 def find_maps(root):
@@ -56,6 +62,37 @@ def classify(value):
     return 'unknown'
 
 
+def _hex_to_rgb(h):
+    h = h.lstrip('#')
+    if len(h) == 3:
+        h = ''.join(c * 2 for c in h)
+    if len(h) < 6:
+        return None
+    try:
+        return tuple(int(h[i:i + 2], 16) / 255 for i in (0, 2, 4))
+    except ValueError:
+        return None
+
+
+def _rgb_to_hex(r, g, b):
+    return '#%02x%02x%02x' % tuple(max(0, min(255, round(c * 255))) for c in (r, g, b))
+
+
+def adjust_lightness(hexv, delta):
+    """Sass lighten()/darken(): shift HSL lightness by whole percentage points.
+
+    Without this the theme's hover colours stay as the literal string
+    `lighten(#526FDC, 10)` and land in the 'unknown' family, which reads as "this value
+    has no provenance" when in fact its provenance is exact. PNCB's `primary-hover`
+    #7c92e5 and `primary-link-hover` #a7b6ed are both recovered here.
+    """
+    rgb = _hex_to_rgb(hexv)
+    if rgb is None:
+        return None
+    h, l, sat = colorsys.rgb_to_hls(*rgb)
+    return _rgb_to_hex(*colorsys.hls_to_rgb(h, max(0.0, min(1.0, l + delta / 100.0)), sat))
+
+
 def resolve(raw, table, depth=0):
     """Resolve $alias chains and em() calls. Cycles stop rather than recurse forever."""
     v = raw.strip()
@@ -69,6 +106,15 @@ def resolve(raw, table, depth=0):
     if m:
         # Bourbon/Neat em() against the 16px default root font size.
         return '%gpx' % (float(m.group(1)))
+    m = COLORFN.match(v)
+    if m:
+        fn, inner, amt = m.group(1).lower(), m.group(2), float(m.group(3))
+        base = resolve(inner, table, depth + 1)
+        if HEX.match(base.strip()):
+            out = adjust_lightness(base.strip(), amt if fn == 'lighten' else -amt)
+            if out:
+                return out
+        return v
     if '$' in v:
         def sub(mo):
             t = table.get(mo.group(1))
@@ -126,6 +172,10 @@ def extract(root, base_hint='base/'):
                 resolved = resolve(raw, table)
                 tokens.append({
                     'name': name,
+                    # references/tokens-and-variables.md: for sass-sourcemap the codeName is
+                    # the original Sass variable. Emitting it is what lets figma-foundation
+                    # set Dev Mode code syntax; without it every variable shows a raw hex.
+                    'codeName': '$' + name,
                     'raw': raw,
                     'value': resolved,
                     'family': classify(resolved),
@@ -155,12 +205,26 @@ def extract(root, base_hint='base/'):
         fams[t['family']] = fams.get(t['family'], 0) + 1
 
     return {
+        'standardVersion': STANDARD_VERSION,
         'generatedAt': datetime.datetime.now().replace(microsecond=0).isoformat(),
         'source': {'strategy': 'sass-sourcemap', 'root': root,
                    'maps': [os.path.relpath(m, root) for m in maps]},
         'totals': {'tokens': len(kept), 'base': sum(1 for t in kept if t['layer'] == 'base'),
                    'component': sum(1 for t in kept if t['layer'] == 'component'),
                    'shadowed': len(dupes), 'byFamily': fams},
+        # figma-foundation reads typeScaling to decide whether the Type collection needs
+        # breakpoint modes. A source map records one declaration per variable with no
+        # property or media-query context, so scaling is genuinely NOT OBSERVABLE here -
+        # which is different from "nothing scales". Saying so explicitly stops the skill
+        # from silently building a single-mode Type collection off a missing key.
+        'typeScaling': {
+            'observable': False,
+            'noneScale': None,
+            'reason': 'Sass source maps carry variable declarations without the CSS property '
+                      'or breakpoint they apply at; per-role scaling cannot be derived. '
+                      'Measure the rendered type ramp, or read the theme breakpoints, before '
+                      'choosing modes for the Type collection.',
+        },
         'tokens': kept,
         'shadowed': dupes,
         'sourcesWithVariables': sorted(sources_seen, key=lambda s: -s['variables']),

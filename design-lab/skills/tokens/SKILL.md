@@ -12,7 +12,26 @@ description: >
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/extract_tokens_sitestudio.py <repo-root> > tokens.json
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/extract_tokens_sourcemap.py  <repo-root> > tokens.json
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/extract_tokens_cssvars.py    <repo-root> > tokens.json
 ```
+
+## Prefer authored custom properties to either of the others
+
+When a theme declares its tokens as CSS custom properties, that is the best source available
+and it is not close. The other two recover *whatever variables the stylesheets happen to
+declare*: a Sass source map yields `$nth` and `$visual-grid` next to `$periwinkle`, with no
+statement of which is a design decision. A `:root` block is the design decision, written
+down. `--color-text` and `--color-surface` arrive already carrying the semantic layer, which
+is why `plan_variables.py` can derive Semantic for this strategy and cannot for the others.
+
+Two traps it handles, both of which have bitten this plugin before:
+
+- **Only stylesheets a `*.libraries.yml` actually loads.** PNCB's real sheet declares 96
+  properties; unloaded scaffolding under `components/incoming/` carries 127 Catppuccin and
+  Tailwind names. The excluded files are listed in `source.ignoredNotLoaded` - read it.
+- **`core/` and `contrib/` are pruned.** Drupal core's Claro and Olivero declare their own
+  `:root` blocks. Without pruning, PNCB returns 1,023 tokens of which 283 are
+  `--admin-color-*`; with it, 94, all the client's.
 
 Token source is independent of component source — a Single Directory Component site has no
 tokens in configuration at all. Take the source from `design-lab:detect`, not from the
@@ -46,6 +65,13 @@ Verified: AHRI and Schusterman both. Check `source.entities` in the output — i
 0, the site keeps its palette somewhere else and that is worth knowing before you build.
 
 ## Read the output carefully
+
+**The sourcemap extractor resolves `lighten()` and `darken()`.** Sass colour functions are
+evaluated against the HSL lightness channel, so `lighten($periwinkle-dark, 10)` resolves to
+`#7c92e5` rather than staying a literal string in the `unknown` family. This matters because
+an unresolved function reads as "this colour has no provenance" when its provenance is in
+fact exact — PNCB's `primary-hover` and `primary-link-hover` were both recorded as having no
+configuration source before this landed.
 
 **`codeName` is the token's identity in the codebase** — the Site Studio `class_name`, the
 Sass variable, the custom property. It becomes the Figma variable's code syntax. A `null`

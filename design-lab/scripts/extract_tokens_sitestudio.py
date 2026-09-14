@@ -23,6 +23,10 @@ are emitted separately rather than mixed into the palette.
 """
 import json, re, sys, os, glob, datetime
 
+# references/library-standard.md section 10: every artifact states which edition it
+# was built to, or nobody can tell whether a library predates a rule.
+STANDARD_VERSION = '2.1.0'
+
 BREAKPOINTS = ['xxl', 'xl', 'lg', 'md', 'sm', 'xs']
 COLOR_PROPS = {'color', 'background-color', 'border-color', 'fill'}
 SPACE_PROPS = {'padding', 'margin', 'gap', 'row-gap', 'column-gap'}
@@ -199,6 +203,7 @@ def extract(root):
                if len({str(v) for v in s['valuesByBreakpoint'].values()}) > 1]
 
     return {
+        'standardVersion': STANDARD_VERSION,
         'generatedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
         'source': {'strategy': 'sitestudio-website-settings', 'root': os.path.abspath(root),
                    'configDir': cfg,

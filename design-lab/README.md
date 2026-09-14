@@ -20,6 +20,7 @@ the axes forces one site down another's path.
 | AHRI | 146 Site Studio | `config/sync` | 129 custom style entities |
 | Schusterman | 101 Site Studio | `config/default` | 172 custom style entities |
 | PNCB | 43 Paragraph types | `config/default` | 113 base tokens via Sass source map |
+| PNCB `css-candidate` | 43 Paragraph types | `config/default` | 94 authored custom properties |
 
 PNCB also has 13 custom Single Directory Components, but only 6 are invoked by a paragraph
 template - they are a partial rendering layer, not the component source. It was recorded
@@ -36,19 +37,37 @@ Run them in this order. `detect` begins by looking for work that already exists 
 | `design-lab:detect` | which strategies apply |
 | `design-lab:inventory` | components + fields + slots + source defects -> `components.json` |
 | `design-lab:usage` | verified anonymous example addresses + placement counts + tiers |
+| `design-lab:capture` | measures and photographs each component on a running site, per breakpoint |
 | `design-lab:tokens` | colour, spacing, type per breakpoint, each with its code name -> `tokens.json` |
 | `design-lab:plan` | reviewable build proposal with variant arithmetic and hard refusals |
 | `design-lab:figma-foundation` | variable collections, modes, scopes, code syntax. Once per file |
-| `design-lab:figma-component` | **one** component: variants, bindings, assertions, build record |
-| `design-lab:figma-atlas` | the searchable index page, plus what was not built |
+| `design-lab:figma-component` | **one named** component: `figma-component <machine_name>` — variants, text and slot properties, bindings, **its documentation card**, build record |
+| `design-lab:figma-index` | the Getting Started page: inventory, linked index, coverage, known gaps. Refresh after every component |
+| `design-lab:verify` | **checks the whole file against the base expectations**; every gap ends as a fix or a recorded waiver |
 
 Extractors: `extract_sitestudio.py`, `extract_sdc.py`, `extract_paragraphs.py` (component
-sources), `extract_tokens_sitestudio.py` and `extract_tokens_sourcemap.py` (token sources),
-`find_examples.py` (usage source).
+sources), `extract_tokens_sitestudio.py`, `extract_tokens_sourcemap.py` and
+`extract_tokens_cssvars.py` (token sources), `find_examples.py` (usage source).
+
+Capture: `scaffold_configs.py` writes a config per component and names the ones a human must
+finish; `measure.mjs` records the box model and typography per breakpoint; `capture.mjs`
+takes element-scoped screenshots. Playwright is not vendored. Copy these scripts into a project that has it and run them
+there — Node resolves bare imports from the script's own location, so invoking them at the
+plugin path fails no matter what the working directory is. See `skills/capture/SKILL.md`.
+
+Token sources are ranked. Authored CSS custom properties beat a recovered Sass source map,
+which beats nothing - a `:root` block states intent, a Sass file merely declares values.
+Only the custom-property strategy can supply a semantic layer without a human naming it.
 
 `figma-component` builds one component per invocation on purpose. A single run over 146
 components exhausts its context partway and leaves a half-built file with no record of where
 it stopped; one at a time is resumable, reviewable and can be fanned out.
+
+`verify` is the one that runs last and the one that should have existed first. Every other
+skill reports on its own step, so a library can pass all of them and still be half a
+library — which is exactly what happened on PNCB: four empty Foundations pages, 36 of 43
+components missing, no documentation links anywhere, and sixteen variables whose Dev Mode
+names existed nowhere in the codebase. Nothing was looking at the whole.
 
 Planned: `drift`.
 

@@ -35,18 +35,46 @@ changing anything here — it carries the rules that make the result consistent 
 
 ## What gets created
 
+**Collections are named `<Brand> <Domain>`** — `PNCB Color`, `AHRI Spacing`. Unprefixed names
+collide in every picker the moment a file subscribes to a second library, and
+`collection-naming` is a major. One domain never gets two collections: carrying both
+`Typography` and `Type`, as AHRI does, splits one concept across two pickers and guarantees
+the wrong one gets bound.
+
 | Collection | Modes | Scope |
 |---|---|---|
-| Primitives | 1 | `[]` — hidden from pickers |
-| Semantic | one per theme, aliased into primitives, never raw values | by role |
-| Spacing | one per breakpoint where spacing genuinely scales | `GAP`, padding |
-| Type | modes whenever **any** role scales | `FONT_SIZE`, `LINE_HEIGHT` |
+| `<Brand> Primitives` | 1 | `[]` — hidden from pickers |
+| `<Brand> Semantic` | one per theme, aliased into primitives, never raw values | by role |
+| `<Brand> Spacing` | one per breakpoint where spacing genuinely scales | `GAP`, padding |
+| `<Brand> Type` | modes whenever **any** role scales | `FONT_SIZE`, `LINE_HEIGHT` |
+
+**Name every mode for what it holds.** A single-mode collection uses `Value`; a responsive one
+uses `<Role> <width>px` — `Desktop 1440px`, `Mobile 400px` — taking the width from the measured
+breakpoint, not a convention. `Mode 1` and `Default` are Figma's placeholders and mean nobody
+named it; `mode-naming` is a blocker, and PNCB ships nine of them.
+
+## Create the file's pages first
+
+Nothing else creates them, and a component skill cannot resolve a tier page that does not
+exist. Create the page list in `references/library-standard.md` section 3, in that order, on
+the first run. No divider pages, no scratch pages — `no-scratch-pages` is a blocker, and
+America's Credit Unions ships two `——— SECTION ———` separators that are unnavigable, appear in
+Find as noise, and do not survive a rename. Omit a Foundations page the token source cannot
+fill and say so under Known gaps rather than shipping it empty.
 
 Read `typeScaling` from `tokens.json` and do not generalise from one role. The AHRI pilot
 measured body text at 20/32 across all breakpoints and built a single-mode type collection;
 the configuration shows 13 of 43 font-size tokens actually scale, Heading 2 among them at
 48/48/42/36. Give type breakpoint modes unless `typeScaling.noneScale` is true, and let the
 roles that do not scale repeat their value across modes.
+
+**`noneScale` has three states, not two.** `true` means nothing scales, `false` means
+something does, and `null` with `observable: false` means the token source cannot answer.
+A Sass source map is the third case: it records each variable once, with no CSS property
+and no media query attached, so per-role scaling is not derivable from it at all. Treating
+that `null` as "nothing scales" builds a single-mode Type collection on no evidence — read
+`typeScaling.reason` and either measure the rendered type ramp or say plainly that the
+modes are unknown.
 
 ## The three rules that are easy to get wrong
 
@@ -67,6 +95,32 @@ accident. Schusterman has two.
 
 **Never leave `ALL_SCOPES`.** A spacing token that shows up in the colour picker is how a
 designer binds the wrong thing.
+
+## Code syntax must survive being copied
+
+Set code syntax only where the Figma value **matches the code value**. Mapping a variable to
+a custom property that holds a different number produces a name that resolves, looks correct
+in Dev Mode, and is wrong — the worst of the three outcomes. On PNCB only 1 of 6 radius
+variables and 6 of 16 spacing variables matched the authored CSS; the rest were built from a
+different ramp and were left with no code name rather than pointed at an approximation.
+
+Where no code name exists, **say why on the variable**. A blank code syntax with a
+description reading "no custom property holds this value, recorded deliberately" is a
+decision. A blank with nothing is an oversight, and `design-lab:verify` treats the two
+differently — it accepts a description that addresses the absence and flags one that does
+not. An unrelated note does not count.
+
+## Collections that only exist because the code says so
+
+Emit what the token source actually declares, not a fixed template. `plan_variables.py`
+produces `LeadingRatio`, `Motion`, `Radius`, `FontWeight` and `LetterSpacing` when the source
+has them.
+
+`LeadingRatio` carries **no scopes at all**, deliberately. CSS line-height is legally a
+length or a unitless ratio; Figma has no ratio-typed line-height variable, so binding 1.56
+makes Figma read 1.56 **pixels** and collapse every line of text. Empty scopes make that
+mistake impossible rather than merely discouraged. `Motion` is unscoped for a duller reason:
+Figma has no duration scope, so the values are stored for reference only.
 
 ## Verify before handing off
 

@@ -20,6 +20,10 @@ where a paragraph's enum options live. It FAILS LOUDLY rather than guessing.
 """
 import json, os, re, sys, glob, datetime
 
+# references/library-standard.md section 10: every artifact states which edition it
+# was built to, or nobody can tell whether a library predates a rule.
+STANDARD_VERSION = '2.1.0'
+
 try:
     import yaml
     HAVE_YAML = True
@@ -143,6 +147,23 @@ def load(path):
         return {}
     val, _ = _parse_block(lines, 0, lines[0][0], path)
     return val
+
+
+def _default_value(fdata):
+    """First scalar out of Drupal's `default_value` list, or None.
+
+    Drupal stores it as a list of column dicts - `[{'value': 'left'}]` for a list_string,
+    `[{'uri': ...}]` for a link. Only a single-column scalar is a usable field default;
+    anything richer is left as None rather than guessed at.
+    """
+    dv = fdata.get('default_value')
+    if not isinstance(dv, list) or not dv:
+        return None
+    first = dv[0]
+    if not isinstance(first, dict) or len(first) != 1:
+        return None
+    val = next(iter(first.values()))
+    return val if isinstance(val, (str, int, float, bool)) else None
 
 
 # ----------------------------------------------------------------------- model mapping
@@ -290,13 +311,18 @@ def extract(root, cfg=None):
             if ftype == 'entity_reference' and target_type in ('media', 'file'):
                 kind = 'media'
 
+            # CHANGELOG 0.2.0 measured default_value as set in 2 of 102 PNCB field
+            # instances, but the value was still hardcoded to None here - so plan.py could
+            # never compute the implicit "unset" option when deriving a variant axis.
+            default = _default_value(fdata)
+
             fields.append({
                 'name': fname,
                 'label': fdata.get('label') or fname,
                 'kind': kind,
                 'sourceWidget': ftype,
                 'required': bool(fdata.get('required')),
-                'default': None,
+                'default': default,
                 'options': opts,
                 'showWhen': None,      # Paragraphs has no conditional-display equivalent
                 'tokenFamily': token_family(fname or '', fdata.get('label')),
@@ -381,6 +407,7 @@ def extract(root, cfg=None):
 
     return {
         'entryPoints': entry_points,
+        'standardVersion': STANDARD_VERSION,
         'generatedAt': datetime.datetime.now().replace(microsecond=0).isoformat(),
         'source': {'strategy': 'paragraphs', 'root': root, 'configDir': os.path.relpath(cfg, root),
                    'parser': 'pyyaml' if HAVE_YAML else 'fallback'},
