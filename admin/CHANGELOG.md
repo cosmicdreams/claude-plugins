@@ -1,5 +1,8 @@
 # Changelog
 
+## 3.0.1
+- Fix scaffold-detect hook ignoring `agentSquad.scaffoldDetect: false`; jq `// true` treated false as missing, so the scaffold prompt showed every startup
+
 ## 3.0.0 — 2026-06-10 — Fable-era rewrite
 
 - **agent-team**: supersedes `feature/agent-team-refresh` branch; corrected stale SendMessage syntax (`type=`/`recipient=`/`content=` → `{to, summary, message}`); added Step 0 routing table (parallel Agent calls vs. Workflow vs. team)

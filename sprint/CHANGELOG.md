@@ -1,5 +1,8 @@
 # Changelog
 
+## 4.0.1
+- Remove the SessionStart hook that injected the "Team Sprint Capability" block into every session; the skill listing already covers it. PreCompact advisory kept.
+
 ## 4.0.0 — 2026-06-10
 
 ### Breaking Changes

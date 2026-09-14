@@ -19,14 +19,14 @@ PROJECT_SETTINGS="$PWD/.claude/settings.json"
 
 # Check global kill-switch
 if [ -f "$GLOBAL_SETTINGS" ] && command -v jq >/dev/null 2>&1; then
-    if [ "$(jq -r '.agentSquad.scaffoldDetect // true' "$GLOBAL_SETTINGS" 2>/dev/null)" = "false" ]; then
+    if [ "$(jq -r 'if .agentSquad.scaffoldDetect == false then "false" else "true" end' "$GLOBAL_SETTINGS" 2>/dev/null)" = "false" ]; then
         exit 0
     fi
 fi
 
 # Check project-level silence
 if [ -f "$PROJECT_SETTINGS" ] && command -v jq >/dev/null 2>&1; then
-    if [ "$(jq -r '.agentSquad.scaffoldDetect // true' "$PROJECT_SETTINGS" 2>/dev/null)" = "false" ]; then
+    if [ "$(jq -r 'if .agentSquad.scaffoldDetect == false then "false" else "true" end' "$PROJECT_SETTINGS" 2>/dev/null)" = "false" ]; then
         exit 0
     fi
 fi
