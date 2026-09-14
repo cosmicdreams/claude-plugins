@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased
+
+- Consolidate prioritize on the existing sprint/release/backlog policy: discover Jira
+  due-today/overdue obligations, preserve them alongside RESPOND/UNBLOCK through all
+  display quotas, and compute quiet projects across delta and attention passes.
+- Add Slack unread/DM human filtering and timestamp-aware urgency; repair Google
+  Calendar REST-shaped commands, timezone windows, pagination and failure handling.
+- Rank once with an offline Python helper and derive terminal, uncapped JSON snapshot,
+  and safe, filterable Velir HTML from the same result. On-demand artifacts live under
+  data_path; ambient runs never replace them. No loop behavior or typo alias changes.
+- Add deterministic offline ranking, retention, schema/rendering and artifact tests.
+
 ## 2.2.0
 - prioritize now ranks committed work first: each Jira item is tagged sprint, release, or backlog, and issues assigned long ago but never planned into a sprint no longer outrank current commitments.
 - prioritize scopes its assigned-workload query per project. It previously ran unscoped, so jira-cli fell back to the single project in its config and reported one project as if it were the entire workload.

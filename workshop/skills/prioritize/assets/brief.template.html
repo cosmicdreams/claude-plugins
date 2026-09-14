@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>What should I work on next?</title>
+<style>
+:root{font-family:"IBM Plex Sans",system-ui,sans-serif;color:#2A2A2A;background:#FFF}
+body{margin:0} main{max-width:900px;margin:auto;padding:24px}
+header,.hero{background:#001B67;color:white;padding:24px;border-radius:12px}
+header{border-radius:0} h1{font-size:2rem} h2,a{color:#0051FF}
+.hero h2{color:white}.mark{color:#00FF99} input{padding:10px;font:inherit;max-width:100%}
+table{border-collapse:collapse;width:100%} th,td{text-align:left;padding:12px;border-bottom:1px solid #E5E5E5}
+th{background:#F1F1F1} td p{margin:4px 0;font-size:.875rem}
+.coverage{background:#FFF4D8;padding:20px;margin-top:24px;border-radius:8px}
+[hidden]{display:none} .table-wrap{overflow:auto}
+</style>
+</head>
+<body>
+<header><span class="mark">▼</span> Velir · Prioritize<h1>What should I work on next?</h1><p>{{GENERATED_AT}}</p></header>
+<main>
+<section class="hero">{{HERO}}<p>{{AVAILABILITY}}</p></section>
+<h2>Then, in order</h2>
+<p>Ranked by action score + scope + stale and overdue bonuses; mandatory obligations remain visible.</p>
+<label for="q">Filter the queue</label> <input id="q" type="search" autocomplete="off">
+<p id="qcount" aria-live="polite"></p>
+<div class="table-wrap"><table><thead><tr><th>#</th><th>Action</th><th>Scope</th><th>What &amp; where</th></tr></thead>
+<tbody id="queue">{{QUEUE_ROWS}}</tbody></table></div>
+<p id="qempty" hidden>No queue items match your filter.</p>
+<section class="coverage"><h2>Coverage</h2><ul>{{COVERAGE_NOTES}}</ul></section>
+</main>
+<script>
+// Filter text only, never interpret source content as HTML or JavaScript.
+const q = document.getElementById('q');
+const rows = Array.from(document.querySelectorAll('#queue tr'));
+function filter() {
+  const term = q.value.trim().toLowerCase();
+  let shown = 0;
+  rows.forEach(row => {
+    row.hidden = !row.textContent.toLowerCase().includes(term);
+    if (!row.hidden) shown++;
+  });
+  document.getElementById('qcount').textContent = `Showing ${shown} of ${rows.length}`;
+  document.getElementById('qempty').hidden = shown !== 0;
+}
+q.addEventListener('input', filter);
+q.addEventListener('keydown', event => { if (event.key === 'Escape') { q.value = ''; filter(); } });
+filter();
+</script>
+</body>
+</html>

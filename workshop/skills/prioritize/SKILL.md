@@ -61,6 +61,12 @@ Sources come from `~/.claude/workshop.json`. Work email and work calendar (Micro
 
 ## Steps
 
+On-demand runs also write `${data_path}/workshop-prioritize.snapshot.json` (uncapped)
+and `workshop-prioritize.brief.html`, derived from the same canonical ranked result
+as the terminal. Ambient runs preserve both artifacts. See step 5 for the schema and
+offline renderer. Due-today/overdue obligations remain visible alongside protected
+RESPOND/UNBLOCK items regardless of scope or display quotas; score modifiers still apply.
+
 Work through these in order. Read each step file as you reach it.
 
 1. **Setup** — load config + state, resolve user IDs, detect mode, circuit-breaker preflight
