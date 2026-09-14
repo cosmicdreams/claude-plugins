@@ -1,6 +1,6 @@
 {
     "name": "test-lab",
-    "version": "0.1.1",
+    "version": "0.2.1",
     "description": "Convert a manual test corpus into an automated Playwright suite. Pluggable source \u2014 TestRail today, another test management tool tomorrow \u2014 with the authoring methodology held separately from where the cases came from.",
     "author": {
         "name": "Chris Weber"
