@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased
+- Remove the separate ZIP packaging script and `admin:package` skill. Plugin distribution now relies on the repository's plugin manifests and the host's supported installation flow.
+- Remove packaging guidance from the install skill and the package command from the skill listing. Historical release notes and existing local archives are retained.
+
 ## 3.0.1
 - Fix scaffold-detect hook ignoring `agentSquad.scaffoldDetect: false`; jq `// true` treated false as missing, so the scaffold prompt showed every startup
 
