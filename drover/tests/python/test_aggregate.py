@@ -34,6 +34,35 @@ def _make_event(*, ts=None, severity="error", channel="entity_embed",
 
 
 class AggregateTests(unittest.TestCase):
+    def test_split_by_signal_tier(self):
+        apache = {"fingerprint": "apache", "source": "apache", "count": 8}
+        watchdog = {
+            "fingerprint": "watchdog", "source": "watchdog", "count": 5,
+        }
+        php_low = {"fingerprint": "php-low", "source": "php", "count": 1}
+        php_high = {
+            "fingerprint": "php-high", "source": "php", "count": 20,
+        }
+
+        strong, supplementary = aggregate.split_by_signal_tier([
+            apache, php_low, watchdog, php_high,
+        ])
+
+        self.assertEqual(strong, [apache, watchdog])
+        self.assertEqual(supplementary, [php_high, php_low])
+
+        cases = (
+            ([], [], []),
+            ([apache, watchdog], [apache, watchdog], []),
+            ([php_low, php_high], [], [php_high, php_low]),
+        )
+        for groups, expected_strong, expected_supplementary in cases:
+            with self.subTest(groups=groups):
+                self.assertEqual(
+                    aggregate.split_by_signal_tier(groups),
+                    (expected_strong, expected_supplementary),
+                )
+
     def test_groups_identical_messages(self):
         events = [
             _make_event(message="Invalid display settings."),

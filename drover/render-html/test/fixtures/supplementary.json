@@ -1,0 +1,72 @@
+{
+  "drover_schema_version": 2,
+  "generated_at": "2026-04-30T12:00:00+00:00",
+  "meta": {
+    "project": "pncb",
+    "env": "prod",
+    "month": "2026-04",
+    "month_label": "April 2026",
+    "prior_month": null,
+    "from": "2026-04-01",
+    "to": "2026-04-30",
+    "types": ["drupal-watchdog", "php-error"],
+    "has_prior": false
+  },
+  "coverage": {
+    "expected_days": 60,
+    "present_days": 60,
+    "coverage_pct": 100,
+    "missing_or_failed": []
+  },
+  "totals": {
+    "events_total": 1100,
+    "groups_total": 1,
+    "supplementary_groups_total": 1,
+    "by_severity": {"error": 1100},
+    "by_channel": {"watchdog": 100, "php": 1000},
+    "by_day": {"2026-04-01": {"total": 1100, "severities": {"error": 1100}}}
+  },
+  "groups": [
+    {
+      "fingerprint": "watchdog-actionable",
+      "source": "watchdog",
+      "summary": "Actionable watchdog failure",
+      "severity": "error",
+      "count": 100,
+      "channel": "watchdog",
+      "first_seen": "2026-04-01",
+      "last_seen": "2026-04-29",
+      "samples": ["Actionable watchdog failure"]
+    }
+  ],
+  "groups_collapsed": [
+    {
+      "fingerprint": "watchdog-actionable",
+      "source": "watchdog",
+      "summary": "Actionable watchdog failure",
+      "severity": "error",
+      "count": 100,
+      "channel": "watchdog",
+      "first_seen": "2026-04-01",
+      "last_seen": "2026-04-29",
+      "samples": ["Actionable watchdog failure"]
+    }
+  ],
+  "supplementary_groups": [
+    {
+      "fingerprint": "php-noise",
+      "source": "php",
+      "summary": "PHP frame noise",
+      "severity": "error",
+      "count": 1000,
+      "channel": "php",
+      "first_seen": "2026-04-01",
+      "last_seen": "2026-04-29",
+      "samples": ["#1 /var/www/html/index.php(10): call()"]
+    }
+  ],
+  "disappeared_from_prior": [],
+  "tickets": [
+    {"fingerprint": "watchdog-actionable", "title": "Fix watchdog failure", "priority": "P0", "count": 100, "sample": "Actionable watchdog failure"}
+  ]
+}

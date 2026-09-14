@@ -1,5 +1,25 @@
 # drover Changelog
 
+## 2.3.0 — php-error demoted to a supplementary signal
+
+- **php-error no longer competes for the ranked storyline.** Its parser only
+  folds native `PHP Fatal error:` traces; Symfony/PHP `Throwable::getTraceAsString()`
+  traces (`#N file(line): call`, no `PHP` prefix) fall through unparsed, so a
+  single recurring exception could fragment into a dozen+ near-meaningless
+  single-line groups that then dominated "top issues," Pareto cuts, and JIRA
+  ticket recommendations.
+- **`drupal-watchdog` and `apache-error` are now the strong-signal sources.**
+  They alone drive ranking, Pareto math, and ticket generation across
+  `monthly-client`, `root-cause-summary`, and `calendar-boundary`.
+- **php-error groups still show up — as a "Supplementary detail" section.**
+  De-emphasized styling, never rank-driving, useful only as corroborating
+  color for a storyline the strong signal already established. Raw totals
+  (events, severity, channel, daily volume) are unaffected — this only
+  changes what feeds the ranked groups list.
+- **JSON schema bumped to v2**: adds `supplementary_groups` and
+  `totals.supplementary_groups_total`. Older v1 report JSON (missing these
+  fields) still renders cleanly.
+
 ## 2.2.4 — report defaults: branding, light mode, and print layout
 
 - **Footer no longer names internal tooling.** It read `Prepared by Velir ·

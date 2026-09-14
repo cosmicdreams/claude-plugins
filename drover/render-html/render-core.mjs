@@ -296,6 +296,14 @@ function registerPartials(templateDirs) {
 
 // --- View-model builders -------------------------------------------------
 
+function buildSupplementaryGroups(data) {
+  return (data.supplementary_groups || []).slice(0, 10).map((g) => ({
+    severity: g.severity || "unknown",
+    count: g.count || 0,
+    summary: truncate(g.summary || "", 100),
+  }));
+}
+
 function buildMonthlyClientView(data) {
   const sevOrder = ["critical", "error", "warning", "notice", "info", "unknown"];
   const sev = data.totals.by_severity || {};
@@ -336,6 +344,7 @@ function buildMonthlyClientView(data) {
     severityChart,
     topIssues,
     topShare,
+    supplementaryGroups: buildSupplementaryGroups(data),
     tickets: (data.tickets || []).map((t) => ({
       ...t,
       sample: t.sample ? truncate(t.sample, 280) : null,
@@ -453,6 +462,7 @@ function buildRootCauseSummaryView(data) {
     topSharePct,
     volumeChart,
     topIssues,
+    supplementaryGroups: buildSupplementaryGroups(data),
     retrievalGaps,
     hasMoreGaps,
     missingGapsCount,
@@ -549,6 +559,7 @@ function buildCalendarBoundaryView(data) {
     channelChart,
     dailyChart,
     topChannels,
+    supplementaryGroups: buildSupplementaryGroups(data),
     retrievalGaps,
     hasMoreGaps,
     missingGapsCount,

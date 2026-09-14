@@ -1,0 +1,21 @@
+<h2 class="section">Supplementary detail (php-error)</h2>
+{{> callout-card
+    text="php-error log entries are not used to rank issues or drive ticket recommendations — the php-error log's multi-line stack traces are not reliably grouped, so a single recurring exception can fragment into many near-meaningless entries. Shown here only as corroborating detail for the issues already identified above."}}
+<table style="width: 100%; border-collapse: collapse; margin-top: var(--space-md); font-size: var(--font-body-sm-size);">
+  <thead>
+    <tr style="color: var(--color-text-muted); border-bottom: 1px solid var(--color-border);">
+      <th scope="col" style="text-align: left; padding: var(--space-sm);">Severity</th>
+      <th scope="col" style="text-align: right; padding: var(--space-sm);">Count</th>
+      <th scope="col" style="text-align: left; padding: var(--space-sm);">Description</th>
+    </tr>
+  </thead>
+  <tbody>
+    {{#each groups}}
+    <tr style="border-bottom: 1px solid var(--color-border); color: var(--color-text-muted);">
+      <td style="padding: var(--space-sm);"><span class="severity-pill severity-pill--{{severity}}">{{severity}}</span></td>
+      <td style="padding: var(--space-sm); text-align: right; font-variant-numeric: tabular-nums;">{{fmt count}}</td>
+      <td style="padding: var(--space-sm);">{{summary}}</td>
+    </tr>
+    {{/each}}
+  </tbody>
+</table>

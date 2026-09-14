@@ -48,6 +48,29 @@ LOG_TYPE_TO_SOURCE: dict[str, str] = {
     "php-error": "php",
 }
 
+# Sources whose signal quality is reliable enough to drive storyline
+# ranking, Pareto cuts, and JIRA ticket recommendations. php-error is
+# excluded: its multi-line stack traces are not reliably grouped (see
+# php_error.py), so a single recurring exception can fragment into many
+# near-meaningless single-line groups that would otherwise dominate
+# the ranked "top issues" list.
+STRONG_SIGNAL_SOURCES: set[str] = {"watchdog", "apache"}
+
+
+def split_by_signal_tier(groups: list[dict]) -> tuple[list[dict], list[dict]]:
+    """Split a groups list into (strong_signal, supplementary) by source.
+
+    Strong-signal groups are returned in their original (already
+    count-sorted) order. Supplementary groups are re-sorted by count
+    descending so the most-frequent supplementary issue leads.
+    """
+    strong = [g for g in groups if g.get("source") in STRONG_SIGNAL_SOURCES]
+    supplementary = [
+        g for g in groups if g.get("source") not in STRONG_SIGNAL_SOURCES
+    ]
+    supplementary.sort(key=lambda g: g.get("count", 0), reverse=True)
+    return strong, supplementary
+
 
 def _fingerprint_event(ev: dict, log_type: str) -> str:
     """Compute the v1-compatible fingerprint for a parsed event."""
