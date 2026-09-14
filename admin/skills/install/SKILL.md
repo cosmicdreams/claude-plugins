@@ -117,9 +117,12 @@ Usage: `headroom wrap <agent>`, `headroom proxy`, or `from headroom import compr
 
 ---
 
-## Claude Desktop packaging
+## Plugin distribution
 
-To produce a Desktop-distributable archive, use `admin:package`. It handles the zip structure correctly (`.claude-plugin/` at root) and outputs to `dist/`. See `admin/skills/package/SKILL.md` for details.
+Use the repository's plugin manifests and marketplace configuration with the host's
+supported plugin installation flow. This project does not maintain a separate ZIP
+build or upload workflow. Check the host's current installation requirements rather
+than introducing a packaging step.
 
 ---
 

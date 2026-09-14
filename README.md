@@ -41,7 +41,7 @@ bd init --prefix sprint
 ### `admin`
 Meta-tooling for developing and maintaining Claude Code plugins.
 
-Skills: `agent-team`, `bump-version`, `changelog`, `create-worktree`, `install`, `new-agent`, `new-skill`, `optimize-agents`, `package`, `scaffold`, `update-plugins`
+Skills: `agent-team`, `bump-version`, `changelog`, `create-worktree`, `install`, `new-agent`, `new-skill`, `optimize-agents`, `scaffold`, `update-plugins`
 
 ### `sprint`
 Team sprint execution: Workflow-driven parallel slice-workers, kanban pipeline, structured retro output.
