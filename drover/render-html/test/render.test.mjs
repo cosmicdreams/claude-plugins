@@ -3,7 +3,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync, mkdtempSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdtempSync, rmSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { dirname, resolve, join } from "node:path";
 import { fileURLToPath } from "node:url";
@@ -42,11 +42,46 @@ test("surfaces project, month, and totals", () => {
 // only emitted when coverage is low, so assert on the rendered markup.
 const BANNER_DIV = /<div class="coverage-banner">/;
 
-test("suppresses the coverage banner when coverage is healthy", () => {
-  // Fixture is at 93.33% — above the 90% threshold — banner div absent.
-  const html = renderToTmp();
-  assert.ok(!BANNER_DIV.test(html), "healthy coverage must not show the warning banner");
+function renderWithCoverage(coverage, template) {
+  const data = JSON.parse(readFileSync(FIXTURE, "utf8"));
+  data.coverage = coverage;
+  const dir = mkdtempSync(join(tmpdir(), "drover-cov-"));
+  const dataPath = join(dir, "cov.json");
+  const out = join(dir, "out.html");
+  writeFileSync(dataPath, JSON.stringify(data));
+  run(["--data", dataPath, "--out", out, ...(template ? ["--template", template] : [])]);
+  const html = readFileSync(out, "utf8");
+  rmSync(dir, { recursive: true, force: true });
+  return html;
+}
+
+test("suppresses the coverage banner only when coverage is complete", () => {
+  const html = renderWithCoverage({
+    expected_days: 30, present_days: 30, coverage_pct: 100, missing_or_failed: [],
+  });
+  assert.ok(!BANNER_DIV.test(html), "complete coverage must not show the warning banner");
 });
+
+test("warns on a single missing file even at 98.9% coverage", () => {
+  const html = renderWithCoverage({
+    expected_days: 90, present_days: 89, coverage_pct: 98.89,
+    missing_or_failed: [{ date: "2026-04-12", log_type: "php-error", state: "fetch-failed" }],
+  });
+  assert.ok(BANNER_DIV.test(html),
+    "any non-present expected entry must surface a coverage caveat");
+});
+
+for (const template of ["monthly-client", "root-cause-summary", "calendar-boundary",
+                        "triage-brief", "jira-ready"]) {
+  test(`${template}: surfaces a coverage gap just under 100%`, () => {
+    const html = renderWithCoverage({
+      expected_days: 90, present_days: 89, coverage_pct: 98.89,
+      missing_or_failed: [{ date: "2026-04-12", log_type: "php-error", state: "fetch-failed" }],
+    }, template);
+    assert.ok(BANNER_DIV.test(html),
+      `${template} must not claim complete coverage when a file is missing`);
+  });
+}
 
 test("shows the coverage banner with the figure when coverage is low", () => {
   const html = renderToTmp([], FIXTURE_LOW);
@@ -214,4 +249,120 @@ test("footer credits Velir without naming internal tooling", () => {
   const html = renderToTmp();
   assert.match(html, /Prepared by Velir/);
   assert.ok(!/Prepared by Velir · drover/.test(html), "tool name would confuse a client");
+});
+
+// Chart labels come from attacker-influenceable parsed log content.
+const XSS_PAYLOAD = '</strong><img src=x onerror=alert(document.domain)>';
+
+function renderWithHostileChannel(template) {
+  const data = JSON.parse(readFileSync(FIXTURE, "utf8"));
+  for (const g of data.groups ?? []) g.channel = XSS_PAYLOAD;
+  for (const g of data.groups_collapsed ?? []) g.channel = XSS_PAYLOAD;
+  data.totals = data.totals ?? {};
+  data.totals.by_channel = { [XSS_PAYLOAD]: 999 };
+  const dir = mkdtempSync(join(tmpdir(), "drover-xss-"));
+  const dataPath = join(dir, "hostile.json");
+  const out = join(dir, "out.html");
+  writeFileSync(dataPath, JSON.stringify(data));
+  run(["--data", dataPath, "--out", out, "--template", template]);
+  const html = readFileSync(out, "utf8");
+  rmSync(dir, { recursive: true, force: true });
+  return html;
+}
+
+for (const template of ["root-cause-summary", "calendar-boundary"]) {
+  test(`${template}: hostile channel reaches the DOM only as escaped attribute text`, () => {
+    const html = renderWithHostileChannel(template);
+    assert.match(html, /data-label="[^"]*&lt;img/,
+      "label should be present, HTML-escaped, in the data-label attribute");
+    assert.ok(!/<img\s+src=x\s+onerror/i.test(html),
+      "payload must not appear as a parsed element");
+  });
+}
+
+// getAttribute decodes escaped labels. Exercise the builder's decoded input.
+test("shared tooltip builder never parses label text as markup", () => {
+  const partial = readFileSync(
+    resolve(HERE, "..", "templates", "partials", "chart-tooltip-script.hbs"), "utf8"
+  );
+  const js = partial.replace(/^[\s\S]*?<script>/, "").replace(/<\/script>[\s\S]*$/, "");
+  const created = [];
+  const htmlAssignments = [];
+  function makeNode(tag) {
+    const node = {
+      tagName: tag, style: {}, children: [],
+      _text: "", _html: "",
+      appendChild(c) { this.children.push(c); return c; },
+      get textContent() { return this._text; },
+      set textContent(v) { this._text = v; this.children.length = 0; },
+      get innerHTML() { return this._html; },
+      set innerHTML(v) { this._html = v; htmlAssignments.push(v); },
+    };
+    created.push(node);
+    return node;
+  }
+  const documentStub = {
+    createElement: (t) => makeNode(t),
+    createTextNode: (t) => ({ nodeType: 3, data: String(t) }),
+  };
+  const windowStub = {};
+  new Function("window", "document", js)(windowStub, documentStub);
+  const T = windowStub.droverTooltip;
+  assert.ok(T, "partial must expose window.droverTooltip");
+  const tooltip = makeNode("div");
+  T.set(tooltip, [T.el("strong", XSS_PAYLOAD), T.br(), T.text("Volume: 12 events")]);
+  assert.equal(htmlAssignments.length, 0, "builder must never assign innerHTML");
+  assert.ok(!created.some((n) => /img/i.test(n.tagName)),
+    "payload must not become an element");
+  const strong = tooltip.children.find((c) => c.tagName === "strong");
+  assert.equal(strong.textContent, XSS_PAYLOAD,
+    "payload must survive as inert text, proving it was never parsed");
+});
+
+for (const template of ["root-cause-summary", "calendar-boundary", "cloudflare-summary"]) {
+  test(`${template}: no tooltip handler assigns attribute data to innerHTML`, () => {
+    const src = readFileSync(
+      resolve(HERE, "..", "templates", `${template}.hbs`), "utf8"
+    );
+    assert.ok(!/\.innerHTML\s*=/.test(src),
+      "tooltips must be built with textContent / DOM nodes, not innerHTML");
+  });
+}
+
+test("chart templates share one tooltip builder (no drift)", () => {
+  for (const t of ["root-cause-summary", "calendar-boundary", "cloudflare-summary"]) {
+    const src = readFileSync(resolve(HERE, "..", "templates", `${t}.hbs`), "utf8");
+    assert.match(src, /{{> chart-tooltip-script}}/,
+      `${t} must include the shared injection-safe tooltip partial`);
+  }
+});
+
+test("signal tiers survive incomplete coverage and hostile supplementary text", () => {
+  const data = JSON.parse(readFileSync(FIXTURE_SUPPLEMENTARY, "utf8"));
+  data.coverage = {
+    expected_days: 90, present_days: 89, coverage_pct: 98.89,
+    missing_or_failed: [{date: "2026-04-12", log_type: "php-error", state: "fetch-failed"}],
+  };
+  data.supplementary_groups[0].summary = "PHP frame noise " + XSS_PAYLOAD;
+  const dir = mkdtempSync(join(tmpdir(), "drover-tiers-"));
+  try {
+    const dataPath = join(dir, "input.json");
+    writeFileSync(dataPath, JSON.stringify(data));
+    for (const template of ["monthly-client", "root-cause-summary", "calendar-boundary"]) {
+      const out = join(dir, template + ".html");
+      run(["--data", dataPath, "--out", out, "--template", template]);
+      const html = readFileSync(out, "utf8");
+      assert.match(html, BANNER_DIV);
+      assert.match(html, /Actionable watchdog failure/);
+      assert.match(html, /Supplementary detail \(php-error\)/);
+      assert.match(html, /PHP frame noise/);
+      assert.doesNotMatch(html, /<img\s+src=x\s+onerror/i);
+      assert.doesNotMatch(html, /Top issues this month[\s\S]*PHP frame noise[\s\S]*Supplementary detail/);
+      if (template === "root-cause-summary") {
+        assert.match(html, /top 1 issues account for 9\.1%/i);
+      }
+    }
+  } finally {
+    rmSync(dir, {recursive: true, force: true});
+  }
 });

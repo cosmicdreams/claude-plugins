@@ -281,6 +281,23 @@ Handlebars.registerHelper("svgWaffle", (botClasses) => {
 // templates/partials/*.hbs and is registered by basename. Keeping it in one
 // place is what stops the per-template copies from drifting.
 
+/**
+ * Any expected log file that is not present makes analysis incomplete.
+ * Percentage selects the wording, never whether to show the caveat.
+ */
+function coverageIncomplete(data) {
+  const cov = data.coverage;
+  if (!cov) return false;
+  if ((cov.missing_or_failed || []).length > 0) return true;
+  if (typeof cov.coverage_pct === "number" && cov.coverage_pct < 100) return true;
+  if (
+    typeof cov.expected_days === "number" &&
+    typeof cov.present_days === "number" &&
+    cov.present_days < cov.expected_days
+  ) return true;
+  return false;
+}
+
 function registerPartials(templateDirs) {
   // Register low-priority bundled partials first so project/local partials can
   // intentionally override them by basename.
@@ -339,7 +356,7 @@ function buildMonthlyClientView(data) {
   return {
     meta: data.meta,
     coverage: data.coverage,
-    coverageLow: (data.coverage?.coverage_pct ?? 100) < 90,
+    coverageLow: coverageIncomplete(data),
     totals: data.totals,
     severityChart,
     topIssues,
@@ -454,7 +471,7 @@ function buildRootCauseSummaryView(data) {
   return {
     meta: data.meta,
     coverage: data.coverage,
-    coverageLow: (data.coverage?.coverage_pct ?? 100) < 90,
+    coverageLow: coverageIncomplete(data),
     totals: data.totals,
     paretoN,
     paretoPct: Math.round(paretoPct),
@@ -550,7 +567,7 @@ function buildCalendarBoundaryView(data) {
   return {
     meta: data.meta,
     coverage: data.coverage,
-    coverageLow: (data.coverage?.coverage_pct ?? 100) < 90,
+    coverageLow: coverageIncomplete(data),
     totals: data.totals,
     criticalCount: bySev.critical || 0,
     errorCount: bySev.error || 0,
@@ -614,7 +631,7 @@ function buildTriageBriefView(data) {
   return {
     meta: data.meta,
     coverage: data.coverage,
-    coverageLow: (data.coverage?.coverage_pct ?? 100) < 90,
+    coverageLow: coverageIncomplete(data),
     totals: data.totals,
     topIssues,
     schemaVersion: `v${data.drover_schema_version}`,
@@ -668,7 +685,7 @@ Occurrences: ${g.count}
   return {
     meta: data.meta,
     coverage: data.coverage,
-    coverageLow: (data.coverage?.coverage_pct ?? 100) < 90,
+    coverageLow: coverageIncomplete(data),
     totals: data.totals,
     topIssues,
     schemaVersion: `v${data.drover_schema_version}`,

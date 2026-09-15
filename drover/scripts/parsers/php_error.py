@@ -72,7 +72,11 @@ def parse(text: str, *, day_hint: date | None = None) -> Iterator[dict]:
                 continue
             mf = _STACK_FRAME.match(raw)
             if mf:
-                pending["fields"]["stack_trace"].append(mf.group("frame"))
+                # A rotated or truncated file can drop the "PHP Stack trace:"
+                # header and leave its frames behind. Adopt the orphan frame
+                # rather than raising KeyError and aborting the whole report.
+                fields = pending.setdefault("fields", {})
+                fields.setdefault("stack_trace", []).append(mf.group("frame"))
                 pending["raw"] += "\n" + raw
                 continue
 

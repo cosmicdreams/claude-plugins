@@ -208,14 +208,20 @@ def fingerprint_structured(
     hash space so triage-created tickets and monitor-created state share
     a single namespace.
 
+    The key hashes the *full* normalized message. Truncating before
+    hashing (drover < 3.0.0 cut at 120 characters) silently merged
+    distinct errors that shared a long common prefix -- their counts,
+    severities, samples, and ticket recommendations all collapsed into
+    one group. Display truncation belongs in the renderers, not here.
+
     Source-specific key shape:
-      watchdog -> "watchdog:{type}:{normalized[:120]}"
-      php      -> "php:{level}:{normalized[:120]}:{module_relative_file}"
-      nginx    -> "nginx:{level}:{normalized[:120]}"
-      apache   -> "apache:{level}:{normalized[:120]}"
-      other    -> "{source}:{normalized[:120]}"
+      watchdog -> "watchdog:{type}:{normalized}"
+      php      -> "php:{level}:{normalized}:{module_relative_file}"
+      nginx    -> "nginx:{level}:{normalized}"
+      apache   -> "apache:{level}:{normalized}"
+      other    -> "{source}:{normalized}"
     """
-    norm = normalize(message)[:120]
+    norm = normalize(message)
     src = (source or "other").lower()
 
     if src == "watchdog":
@@ -228,7 +234,7 @@ def fingerprint_structured(
         stripped = re.sub(r"\bclient: \S+", "", stripped)
         stripped = re.sub(r"\bpid \d+\b", "", stripped, flags=re.I)
         stripped = re.sub(r"\bAH\d+:\s*", "", stripped)
-        key = f"{src}:{level or ''}:{normalize(stripped)[:120]}"
+        key = f"{src}:{level or ''}:{normalize(stripped)}"
     else:
         key = f"{src}:{norm}"
 

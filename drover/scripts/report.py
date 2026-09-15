@@ -951,7 +951,11 @@ def generate_report(
                 f"env '{env}' not in manifest. "
                 f"Available: {[e['name'] for e in manifest['acquia']['envs']]}"
             )
-        types = env_entry.get("types") or ["drupal-watchdog"]
+        # An explicit empty list means no logs; only an absent key defaults.
+        types = (
+            (env_entry.get("types") or [])
+            if "types" in env_entry else ["drupal-watchdog"]
+        )
 
     from_d, to_d = parse_month(month)
     agg = _aggregate.aggregate_files(
@@ -1097,7 +1101,11 @@ def generate_data(
                 f"env '{env}' not in manifest. "
                 f"Available: {[e['name'] for e in manifest['acquia']['envs']]}"
             )
-        types = env_entry.get("types") or ["drupal-watchdog"]
+        # An explicit empty list means no logs; only an absent key defaults.
+        types = (
+            (env_entry.get("types") or [])
+            if "types" in env_entry else ["drupal-watchdog"]
+        )
 
     from_d, to_d = parse_month(month)
     agg = _aggregate.aggregate_files(

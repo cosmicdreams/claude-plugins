@@ -495,6 +495,24 @@ class CliTests(unittest.TestCase):
 # --- generate_data: structured aggregate for the HTML renderer -----------
 
 class GenerateDataTests(unittest.TestCase):
+    def test_explicit_empty_types_does_not_fabricate_coverage(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = pathlib.Path(td)
+            _make_project(root)
+            manifest_path = root / ".drover" / "manifest.json"
+            manifest = json.loads(manifest_path.read_text())
+            manifest["acquia"]["envs"][0]["types"] = []
+            manifest_path.write_text(json.dumps(manifest))
+            data = self._data(root)
+            self.assertEqual(data["meta"]["types"], [])
+            self.assertEqual(data["coverage"]["expected_days"], 0)
+            self.assertEqual(data["groups"], [])
+            self.assertEqual(data["supplementary_groups"], [])
+            _, summary, _ = report.generate_report(
+                root, env="prod", month="2026-04", prior_month_str=None,
+            )
+            self.assertEqual(summary["coverage_pct"], 100.0)
+
     def _data(self, root):
         return report.generate_data(
             root, env="prod", month="2026-04", prior_month_str=None,
@@ -527,6 +545,9 @@ class GenerateDataTests(unittest.TestCase):
                 data = self._data(root)
 
             self.assertEqual(data["drover_schema_version"], 2)
+            # Signal tiers must survive hardening even with real coverage gaps.
+            self.assertLess(data["coverage"]["coverage_pct"], 100)
+            self.assertTrue(data["coverage"]["missing_or_failed"])
             self.assertEqual(
                 [g["source"] for g in data["groups"]],
                 ["watchdog", "apache"],

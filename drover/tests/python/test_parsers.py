@@ -11,7 +11,7 @@ import importlib.util
 import pathlib
 import sys
 import unittest
-from datetime import date
+from datetime import date, timezone
 
 HERE = pathlib.Path(__file__).resolve()
 PARSERS_PKG = HERE.parents[2] / "scripts" / "parsers"
@@ -40,6 +40,7 @@ import parsers  # noqa: E402
 from parsers import (  # noqa: E402
     apache_error, drupal_watchdog, php_error,
 )
+from parsers import common  # noqa: E402
 from parsers.common import normalize_severity, parse_syslog_ts  # noqa: E402
 
 
@@ -270,6 +271,47 @@ class LiveDrupalWatchdogTests(unittest.TestCase):
         unparsed = [e for e in events if "parse_error" in e.get("fields", {})]
         # At most a handful of malformed lines; well under 1%.
         self.assertLess(len(unparsed) / max(len(events), 1), 0.01)
+
+
+class TimestampBoundaryTests(unittest.TestCase):
+    def test_december_line_in_january_file_uses_prior_year(self):
+        got = common.parse_syslog_ts("Dec 31 23:59:59", day_hint=date(2026, 1, 1))
+        self.assertEqual(got.date(), date(2025, 12, 31))
+
+    def test_january_line_in_december_file_uses_next_year(self):
+        got = common.parse_syslog_ts("Jan  1 00:00:30", day_hint=date(2025, 12, 31))
+        self.assertEqual(got.date(), date(2026, 1, 1))
+
+    def test_ordinary_same_month_date_is_unaffected(self):
+        got = common.parse_syslog_ts("Apr  3 10:00:00", day_hint=date(2026, 4, 3))
+        self.assertEqual(got.date(), date(2026, 4, 3))
+
+    def test_php_numeric_offset_moves_event_across_the_month_boundary(self):
+        got = common.parse_php_ts("31-Mar-2026 23:30:00 -0500")
+        self.assertEqual(got.tzinfo, timezone.utc)
+        self.assertEqual(got.date(), date(2026, 4, 1))
+        self.assertEqual(got.hour, 4)
+
+    def test_php_utc_token_unchanged(self):
+        got = common.parse_php_ts("03-Apr-2026 00:00:33 UTC")
+        self.assertEqual(got.date(), date(2026, 4, 3))
+        self.assertEqual(got.hour, 0)
+
+    def test_php_without_timezone_token_still_parses(self):
+        got = common.parse_php_ts("03-Apr-2026 00:00:33")
+        self.assertIsNotNone(got)
+        self.assertEqual(got.date(), date(2026, 4, 3))
+
+
+class OrphanStackFrameTests(unittest.TestCase):
+    def test_stack_frame_without_its_header_does_not_crash(self):
+        text = (
+            "[03-Apr-2026 00:00:00 UTC] PHP Fatal error:  Uncaught Error: boom\n"
+            "[03-Apr-2026 00:00:01 UTC] PHP   1. {main}() /x.php:0\n"
+        )
+        events = list(php_error.parse(text, day_hint=date(2026, 4, 3)))
+        self.assertGreaterEqual(len(events), 1)
+        self.assertIn("boom", events[0]["message"])
 
 
 if __name__ == "__main__":

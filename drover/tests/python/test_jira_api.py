@@ -9,6 +9,7 @@ import sys
 import tempfile
 import threading
 import unittest
+from unittest import mock
 
 HERE = pathlib.Path(__file__).resolve()
 SCRIPTS = HERE.parents[2] / "scripts"
@@ -23,6 +24,33 @@ spec.loader.exec_module(jira_api)
 
 
 # --- jira-cli config reader -----------------------------------------------
+
+class RetrySafetyTests(unittest.TestCase):
+    def test_mutating_post_timeout_is_not_retried(self):
+        client = jira_api.JiraClient({"server": "https://fixture.invalid", "email": "a@b", "token": "fixture"})
+        with mock.patch.object(
+            jira_api.urllib.request, "urlopen", side_effect=TimeoutError("lost response"),
+        ) as open_url, mock.patch.object(jira_api.time, "sleep") as sleep:
+            with self.assertRaises(TimeoutError):
+                client._request("POST", "/issue", body={})
+            self.assertEqual(open_url.call_count, 1)
+            sleep.assert_not_called()
+
+    def test_get_and_read_only_search_can_retry(self):
+        client = jira_api.JiraClient({"server": "https://fixture.invalid", "email": "a@b", "token": "fixture"})
+        for operation in (
+            lambda: client._request("GET", "/myself"),
+            lambda: client.search_issues("project = TEST"),
+        ):
+            response = mock.MagicMock()
+            response.__enter__.return_value.read.return_value = b'{"issues":[]}'
+            with mock.patch.object(
+                jira_api.urllib.request, "urlopen",
+                side_effect=[TimeoutError("temporary"), response],
+            ) as open_url, mock.patch.object(jira_api.time, "sleep"):
+                operation()
+                self.assertEqual(open_url.call_count, 2)
+
 
 class ReadJiraCliConfigTests(unittest.TestCase):
     def test_extracts_top_level_keys(self):
