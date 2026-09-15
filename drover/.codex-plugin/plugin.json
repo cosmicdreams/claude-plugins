@@ -1,0 +1,17 @@
+{
+  "name": "drover",
+  "version": "3.0.0",
+  "description": "Drupal and Acquia error-log analysis pipeline.",
+  "author": {
+    "name": "Chris Weber"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Drover",
+    "shortDescription": "Drupal error monitoring and triage",
+    "longDescription": "Local skills for Drupal and Acquia application-error log analysis, reporting, diagnosis, and ticket recommendation workflows.",
+    "developerName": "Chris Weber",
+    "category": "Development",
+    "capabilities": ["Write"]
+  }
+}

@@ -1,0 +1,19 @@
+{
+  "name": "admin",
+  "version": "3.0.1",
+  "description": "Plugin, agent, and skill management tooling.",
+  "author": {
+    "name": "Chris Weber"
+  },
+  "license": "UNLICENSED",
+  "keywords": ["admin", "plugins", "scaffold", "tooling", "git"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Admin",
+    "shortDescription": "Plugin and skill management tooling",
+    "longDescription": "Local tooling for plugin, agent, and skill administration including version bumps, scaffolding, changelogs, worktrees, and plugin maintenance.",
+    "developerName": "Chris Weber",
+    "category": "Development",
+    "capabilities": ["Write"]
+  }
+}
