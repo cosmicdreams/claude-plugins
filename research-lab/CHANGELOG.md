@@ -1,5 +1,11 @@
 # research-lab Changelog
 
+## 4.0.2
+
+- Separate teaching-gate roles: a fresh learner answers from the artifact and questions without seeing reference answers; a separate evaluator grades the captured learner responses against the key.
+- Preserve the existing `score`, `misses`, and `lands`/`revise` result contract and qualitative verdict policy. Failed or malformed learner/evaluator responses stop the gate instead of producing a certificate.
+- Add offline tests for answer-key isolation, response handoff, and failure handling. The gate now uses two sequential agent calls; tests establish script data flow, not real-host isolation or learning effectiveness.
+
 ## 4.0.1
 
 - Preserve failed `notebook-ask.sh` query exit codes and diagnostics; retry once only for empty or degraded successful answers. Best-effort note saving is unchanged.
