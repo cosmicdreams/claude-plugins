@@ -52,6 +52,20 @@ scoring_rubric:
 # --- Lanes ---
 ready_cap: 5                    # per-domain max in lane-ready (global cap is 8 across all domains)
 
+# --- Supervision and model routing ---
+supervision:
+  max_items_per_run: 12          # hard cap per scheduled run; Fable may lower it
+  max_worker_tasks: 8
+  max_expensive_tasks: 2
+  supervisor_model: fable        # strategy, unknown discovery, conflict arbitration
+  preferred_worker_model: gpt-5.5 # long-context extraction, clustering, synthesis support
+  cheap_worker_model: sonnet-or-local # title filtering, dedupe, manifest checks
+  priority_terms:
+    # Terms Fable should bias toward when backlog pressure is high.
+    - Fable
+    - subagents
+    - GPT-5.5
+
 # --- Bootstrap ---
 # Optional manual pre-seed URLs added to Raw/Inbox/<slug>/ on first enable.
 # Strongly recommended — cold-starting from raw feeds produces a junk drawer.

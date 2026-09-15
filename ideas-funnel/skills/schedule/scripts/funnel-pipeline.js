@@ -1,11 +1,37 @@
 export const meta = {
   name: "ideas-funnel-pipeline",
-  description: "Daily ideas funnel: ingest → threshold check → optional refinery → optional scorer",
-  phases: ["ingest", "threshold-check", "refinery", "scorer"],
+  description: "Daily ideas funnel: Fable supervision → bounded worker ingest → Refinery → lint/decay/rescue/stats",
+  phases: ["supervise", "ingest", "threshold-check", "refinery", "lint", "decay", "rescue", "stats"],
 };
 
 const VAULT = args.vault || "~/Vaults/Neurons";
 const CONFIG = args.config || "~/.config/ideas-funnel/domains";
+
+const supervisorSchema = {
+  type: "object",
+  required: ["run_ingest", "domains", "max_items_per_domain", "run_refinery", "run_lint", "run_decay", "run_rescue", "budget"],
+  properties: {
+    run_ingest: { type: "boolean" },
+    domains: { type: "array", items: { type: "string" } },
+    max_items_per_domain: { type: "number" },
+    priority_terms: { type: "array", items: { type: "string" } },
+    run_refinery: { type: "boolean" },
+    run_lint: { type: "boolean" },
+    run_decay: { type: "boolean" },
+    run_rescue: { type: "boolean" },
+    budget: {
+      type: "object",
+      properties: {
+        max_worker_tasks: { type: "number" },
+        max_expensive_tasks: { type: "number" },
+        preferred_worker_model: { type: "string" },
+        cheap_worker_model: { type: "string" },
+      },
+    },
+    unknowns: { type: "array", items: { type: "string" } },
+    notes: { type: "string" },
+  },
+};
 
 const domainIngestSchema = {
   type: "object",
@@ -29,6 +55,17 @@ const domainIngestSchema = {
       },
     },
     error: { type: "string" },
+    routed_tasks: {
+      type: "array",
+      items: {
+        type: "object",
+        properties: {
+          task: { type: "string" },
+          route: { type: "string" },
+          reason: { type: "string" },
+        },
+      },
+    },
   },
 };
 
@@ -43,18 +80,41 @@ const refinerySchema = {
   },
 };
 
-const scorerSchema = {
+const maintenanceSchema = {
   type: "object",
-  required: ["cards_scored", "cards_skipped"],
   properties: {
-    cards_scored: { type: "number" },
-    cards_skipped: { type: "number" },
-    score_summary: { type: "string" },
+    errors: { type: "number" },
+    warnings: { type: "number" },
+    pages_touched: { type: "number" },
+    state_changes: { type: "number" },
+    rescued: { type: "number" },
+    summary: { type: "string" },
   },
 };
 
-phase("ingest");
+phase("supervise");
 log(`Vault: ${VAULT}`);
+
+const supervisorPlan = await agent(
+  `You are Fable supervising the ideas-funnel plugin.
+   Vault: ${VAULT}
+   Config: ${CONFIG}
+
+   Follow \${CLAUDE_PLUGIN_ROOT}/skills/supervise/SKILL.md.
+   Read the current funnel health, recent daily notes, stats, conflicts,
+   Raw/.manifest.json, and Beads lane pressure if bd is available.
+   Decide whether ingest/refinery/lint/decay/rescue should run, which domains
+   should be processed, and the max item count per domain.
+
+   Keep expensive work delegated: use the plan to route bulk extraction to
+   workers rather than doing it yourself. Return structured JSON only.`,
+  {
+    label: "fable-supervisor",
+    schema: supervisorSchema,
+  }
+);
+
+phase("ingest");
 
 const domainsRaw = await agent(
   `List all active domain slugs from YAML files in ${CONFIG}/.
@@ -70,42 +130,54 @@ const domainsRaw = await agent(
   }
 );
 
-const domains = domainsRaw.domains || [];
-log(`Active domains: ${domains.join(", ")}`);
+const activeDomains = domainsRaw.domains || [];
+const requestedDomains = supervisorPlan.domains && supervisorPlan.domains.length > 0
+  ? supervisorPlan.domains
+  : activeDomains;
+const domains = requestedDomains.filter((domain) => activeDomains.includes(domain));
+const maxItemsPerDomain = supervisorPlan.max_items_per_domain || 12;
+log(`Active domains: ${activeDomains.join(", ")}`);
+log(`Selected domains: ${domains.join(", ")}`);
 
-const ingestResults = await parallel(
-  domains.map((domain) => async () => {
-    return agent(
-      `You are an ingest agent for the ideas-funnel plugin.
-       Process domain: ${domain}
-       Vault: ${VAULT}
-       Raw inbox: ${VAULT}/Raw/Inbox/${domain}/
-       Domain config: ${CONFIG}/${domain}.yaml
-       Manifest: ${VAULT}/Raw/.manifest.json
+const ingestResults = supervisorPlan.run_ingest === false
+  ? []
+  : await parallel(
+      domains.map((domain) => async () => {
+        return agent(
+          `You are an ingest worker for the ideas-funnel plugin.
+           Process domain: ${domain}
+           Vault: ${VAULT}
+           Raw inbox: ${VAULT}/Raw/Inbox/${domain}/
+           Domain config: ${CONFIG}/${domain}.yaml
+           Manifest: ${VAULT}/Raw/.manifest.json
+           Max items this run: ${maxItemsPerDomain}
+           Priority terms from Fable: ${(supervisorPlan.priority_terms || []).join(", ")}
+           Preferred expensive worker: ${supervisorPlan.budget?.preferred_worker_model || "gpt-5.5"}
+           Max expensive tasks this run: ${supervisorPlan.budget?.max_expensive_tasks || 2}
 
-       Step 1 — Fetch new items. Read ${CONFIG}/${domain}.yaml to find the feeds.rss[]
-       and feeds.keywords[] arrays. For each RSS URL, fetch the feed (WebFetch), extract
-       items published since the most recent ingested_at date in the manifest (or last 7
-       days if no prior ingests), and write each new item as a markdown file to
-       ${VAULT}/Raw/Inbox/${domain}/ using the item title as the filename. Skip items
-       already present in the manifest. If the feed fetch fails, log the error and
-       continue with other feeds.
+           Step 1 — Apply backpressure. Inventory unprocessed raw items, dedupe obvious
+           repeats, then choose at most ${maxItemsPerDomain} items by Fable priority,
+           source quality, novelty, and relevance. Leave the rest untouched for later.
 
-       Step 2 — Ingest. Follow the ideas-funnel:ingest skill at
-       \${CLAUDE_PLUGIN_ROOT}/skills/ingest/SKILL.md exactly.
-       Operate only on the ${domain} domain inbox. Do not touch other domains.
-       Compress any article body over 4000 words through headroom before page-breaking
-       if \`command -v headroom\` succeeds.
+           Step 2 — Fetch only what is needed for selected items. Read ${CONFIG}/${domain}.yaml
+           for feeds.rss[] and feeds.keywords[]. Skip URLs already present in the manifest.
 
-       Return structured JSON matching the output schema.`,
-      {
-        label: `ingest-${domain}`,
-        agentType: "ideas-funnel:ingest",
-        schema: domainIngestSchema,
-      }
+           Step 3 — Follow the ideas-funnel:ingest skill at
+           \${CLAUDE_PLUGIN_ROOT}/skills/ingest/SKILL.md exactly.
+           Follow \${CLAUDE_PLUGIN_ROOT}/skills/delegate/SKILL.md when deciding whether
+           an extraction/comparison task should be treated as GPT-5.5 worker work,
+           cheap/local work, or shell work.
+
+           Operate only on the ${domain} domain inbox. Do not touch other domains.
+           Do not write shared layers. Return structured JSON matching the output schema.`,
+          {
+            label: `ingest-${domain}`,
+            agentType: "ideas-funnel:ingest",
+            schema: domainIngestSchema,
+          }
+        );
+      })
     );
-  })
-);
 
 phase("threshold-check");
 
@@ -115,7 +187,7 @@ const allSignals = ingestResults
 
 log(`Density signals received: ${allSignals.length}`);
 
-if (allSignals.length > 0) {
+if (supervisorPlan.run_refinery !== false && allSignals.length > 0) {
   phase("refinery");
 
   const signalList = allSignals
@@ -142,35 +214,60 @@ if (allSignals.length > 0) {
   );
 }
 
-const runDate = args.date;
-const shouldScore = (() => {
-  if (!runDate) return false;
-  const [, , day] = runDate.split("-").map(Number);
-  return day === 1;
-})();
-
-if (shouldScore) {
-  phase("scorer");
-  log("Monthly scorer run triggered");
-
+if (supervisorPlan.run_lint !== false) {
+  phase("lint");
   await agent(
-    `You are the scorer for the ideas-funnel plugin.
-     Vault: ${VAULT}
-     Run date: ${runDate}
-
-     Review all Concepts/ and Bridges/ pages. For each page:
-     - Decay confidence by the page's decay_class rate if last_confirmed is stale.
-     - Set state to "stale" when confidence drops below 0.4.
-     - Set state to "hardened" when confirmation_count >= 5 and confidence >= 0.9.
-     - Update last_touched on every page you modify.
-
-     Do not modify Sources/ or Domains/ pages.
-     Return structured JSON matching the output schema.`,
+    `Run ideas-funnel lint for ${VAULT}.
+     Follow \${CLAUDE_PLUGIN_ROOT}/skills/lint/SKILL.md.
+     Return structured JSON with error and warning counts.`,
     {
-      label: "scorer",
-      schema: scorerSchema,
+      label: "lint",
+      schema: maintenanceSchema,
     }
   );
 }
+
+if (supervisorPlan.run_decay !== false) {
+  phase("decay");
+  await agent(
+    `Apply ideas-funnel memory decay.
+     Vault: ${VAULT}
+
+     Follow \${CLAUDE_PLUGIN_ROOT}/skills/decay/SKILL.md.
+     Use only valid states: fresh, stable, at_risk, archived. Set hardened as
+     a boolean flag only. Return structured JSON.`,
+    {
+      label: "decay",
+      schema: maintenanceSchema,
+    }
+  );
+}
+
+if (supervisorPlan.run_rescue !== false) {
+  phase("rescue");
+  await agent(
+    `Run ideas-funnel rescue for ${VAULT}.
+     Follow \${CLAUDE_PLUGIN_ROOT}/skills/rescue/SKILL.md.
+     Focus on stale raw items, orphans, and at-risk pages. Respect backpressure:
+     recommend top-N rescue candidates rather than processing the entire backlog.
+     Return structured JSON.`,
+    {
+      label: "rescue",
+      schema: maintenanceSchema,
+    }
+  );
+}
+
+phase("stats");
+await agent(
+  `Update ideas-funnel stats for ${VAULT}.
+   Follow \${CLAUDE_PLUGIN_ROOT}/skills/stats/SKILL.md.
+   Include the Fable supervisor plan, ingest results, density signal count, model
+   routing notes, and maintenance outcomes when available.`,
+  {
+    label: "stats",
+    schema: maintenanceSchema,
+  }
+);
 
 log("Pipeline complete");
