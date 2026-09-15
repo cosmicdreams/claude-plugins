@@ -38,7 +38,10 @@ Read before starting:
 
 ## Golden Rule: Worktree = Branch
 
-Work in a dedicated worktree — never in `worktrees/main/`. Verify before starting.
+Work in an exclusively owned, linked experiment worktree — never the primary
+checkout or `main`/`master`. Apply **Trial Ownership** in
+`references/iteration-protocol.md` before changing files. Do not clear unrelated
+changes automatically to satisfy that preflight.
 
 ---
 
@@ -70,6 +73,8 @@ Before proposing a new change, apply the **Measurement Validity** resume guard i
 `references/iteration-protocol.md`: read the engagement notes and inspect the
 current worktree/commit for unresolved failed measurements. A results log alone
 does not establish that the current code has been measured.
+Recover any pending trial's recorded ownership values as well; do not guess its
+commit from the current HEAD.
 
 If `results.jsonl` exists, find the current ratchet by scanning for `decision: keep` records and
 taking the best `metric_after`. Report the ratchet value and iteration count,
@@ -121,10 +126,15 @@ Can this change plausibly improve the metric?
 ### 2c. Implement
 
 Stage only files related to the current iteration's change. Commit: `perf(<engagement>): <description>`.
+Follow **Trial Ownership** in the iteration protocol: record root, branch and
+base before the change, then record the successful trial commit and verify its
+single parent matches that base before measuring.
 
 ### 2d. Measure
 
-Run the methodology-defined harness. Take the median of N runs for noisy metrics.
+Confirm the clean tip is still the recorded trial on the recorded branch and
+worktree; otherwise pause instead of attributing measurements to changed code.
+Then run the methodology-defined harness. Take the median of N runs for noisy metrics.
 
 Apply **Measurement Validity** in `references/iteration-protocol.md` before
 validation or comparison. A failed command or invalid/incomplete sample supplies
@@ -142,7 +152,11 @@ Run correctness checks. A metric improvement with failed correctness = **Stale S
 - Worse than or equal to ratchet → **DISCARD**
 - Better but correctness fails → **DISCARD**
 
-On discard: `git revert HEAD --no-edit`
+Before applying either decision, recheck trial ownership. On discard, invoke
+`discard-trial.py` with the recorded root, branch, base and trial ID as specified
+in **Revert on Discard** in the iteration protocol. Do not use the current HEAD
+as a substitute. If the helper refuses or Git fails, leave the trial unresolved,
+report the state, and pause rather than logging a completed discard.
 
 ### 2g. Log
 
