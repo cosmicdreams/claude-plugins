@@ -58,7 +58,7 @@ let fatalHit = false
 const rounds = []
 
 while (dryRounds < cleanRoundsNeeded && budget.remaining() > BUDGET_FLOOR) {
-  const votes = (await parallel(LENSES.map((L) => () =>
+  const responses = await parallel(LENSES.map((L) => () =>
     agent(
       'You are a hostile peer reviewer using ONLY the ' + L.key + ' lens: ' + L.charge + '\n' +
       'Assume the claim is wrong and build the case against it on EVIDENCE AND FACTS only - ' +
@@ -67,19 +67,54 @@ while (dryRounds < cleanRoundsNeeded && budget.remaining() > BUDGET_FLOOR) {
       'SUBMISSION:\n' + submission,
       { label: 'review:' + L.key, phase: 'Review', schema: VERDICT, model: L.model }
     )
-  ))).filter(Boolean)
+  ))
+
+  // Validate against the assigned lens, not a self-reported identity. A missing
+  // or malformed response is failed coverage, never a vote for the claim.
+  const votes = []
+  const failures = []
+  for (const [index, L] of LENSES.entries()) {
+    const vote = responses[index]
+    let reason
+    if (vote == null) {
+      reason = 'missing-response'
+    } else if (typeof vote !== 'object' || Array.isArray(vote) ||
+      typeof vote.lens !== 'string' || typeof vote.refuted !== 'boolean' ||
+      typeof vote.grounds !== 'string' || !VERDICT.properties.severity.enum.includes(vote.severity)) {
+      reason = 'invalid-verdict'
+    } else if (vote.lens !== L.key) {
+      reason = 'lens-mismatch'
+    }
+    if (reason) {
+      failures.push(L.key + ': ' + reason)
+    } else {
+      votes.push(vote)
+    }
+  }
 
   rounds.push(votes)
   const live = votes.filter((v) => v.refuted && v.severity !== 'none')
   log('round ' + rounds.length + ': ' + live.length + ' live refutation(s) from ' + votes.length + ' votes')
 
-  if (live.length === 0) { dryRounds += 1 } else { dryRounds = 0 }
+  if (failures.length > 0) {
+    log('incomplete coverage in round ' + rounds.length + ': ' + failures.join('; '))
+  }
+  // A valid fatal refutation is sufficient to reject, even with missing peers.
+  // Otherwise only a complete panel can contribute to a substantive verdict.
   if (live.some((v) => v.severity === 'fatal')) { fatalHit = true; break }
+  if (failures.length > 0) {
+    throw new Error('Interrogation execution failed in round ' + rounds.length + ': ' + failures.join('; '))
+  }
+  if (live.length === 0) { dryRounds += 1 } else { dryRounds = 0 }
 }
 
-// Majority logic: a fatal grounds rejects outright; a dry finish survives;
-// otherwise the final round's majority decides, with a minority split reported as contested.
-const finalRound = rounds.length > 0 ? rounds[rounds.length - 1] : []
+if (rounds.length === 0) {
+  throw new Error('Interrogation execution failed: budget-before-review (no round ran)')
+}
+
+// Valid fatal grounds reject; a complete dry finish survives; otherwise the
+// complete final round's majority decides, with a minority split reported as contested.
+const finalRound = rounds[rounds.length - 1]
 const refuting = finalRound.filter((v) => v.refuted && v.severity !== 'none')
 let verdict
 if (fatalHit) {

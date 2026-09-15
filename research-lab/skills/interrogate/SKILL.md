@@ -82,7 +82,16 @@ internal-consistency. Each is a parallel `agent()` with a schema-validated verdi
 - `thorough: true` → loop-until-dry with `budget.remaining()` as a hard ceiling.
 
 The script returns `{ verdict, rounds, roundCount, ceilingHit }` where `verdict` is one of
-`survived`, `rejected`, or `contested`.
+`survived`, `rejected`, or `contested`. A valid fatal refutation is sufficient for rejection
+even if another lens fails to respond correctly. `rounds` retains the valid votes and their
+grounds; logs identify incomplete coverage by round, assigned lens, and failure reason.
+Report those diagnostics alongside a fatal rejection; do not claim all four lenses responded.
+
+Without a valid fatal refutation, any missing, malformed, or misattributed response stops
+execution with an explicit error naming the round, assigned lens, and reason. Such responses
+cannot establish clean rounds or survival. No budget to run even one round is also an execution
+error, not a substantive verdict. Thrown agent/parallel errors propagate rather than becoming
+votes. Local shim tests exercise this script's logic, not the actual Workflow host contracts.
 
 ---
 
@@ -92,9 +101,14 @@ Tally the panel result and report **a verdict**, not a rewrite:
 
 - **Survived** — no live refutation across the clean rounds. State on what grounds it held.
 - **Rejected** — name the lens, the severity, and the exact evidence gap.
-- **Contested** — minority split; surface the competing votes for the user to weigh.
+- **Contested** — complete panel without a decisive result (a minority split, or the ceiling
+  reached before enough clean rounds); surface the votes and stopping condition.
 
-Write `05-interrogate.md` (verdict, per-lens grounds, round count) to the engagement directory.
+An **execution failure** is not `contested` or another verdict. Report the failure diagnostics
+without inventing a finding about the claim.
+
+Write `05-interrogate.md` (verdict, per-lens grounds, round count, and any incomplete-coverage
+diagnostics) to the engagement directory when a verdict is returned.
 
 ---
 

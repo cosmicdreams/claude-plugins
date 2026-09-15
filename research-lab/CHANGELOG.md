@@ -1,5 +1,14 @@
 # research-lab Changelog
 
+## 4.0.1
+
+- Preserve failed `notebook-ask.sh` query exit codes and diagnostics; retry once only for empty or degraded successful answers. Best-effort note saving is unchanged.
+- Require a completed compact status block in `notebook-research-wait.sh` before importing the observed task ID. Initial notebook-based task selection and the separate setup/auto-import path are unchanged.
+- Prevent missing or invalid reviewer results from establishing survival. Valid fatal refutations still reject; otherwise incomplete panels fail explicitly without adding a new verdict to the existing result API.
+- Invalidate the full measurement sample when any requested page fails or returns an invalid timing, replacing the earlier skip-failed-pages policy so comparisons use the same population.
+- Define failed-measurement handling for the experiment skill and agent: do not establish a baseline, advance the ratchet, or compare absent data; follow the engagement's recovery policy or pause for guidance. Across-page means and across-run medians remain separate.
+- Add offline regression tests against the current scripts. Model routing, teaching, and experiment rollback commands are unchanged.
+
 ## 4.0.0 — 2026-08-14 — Migrate from the retired `notebooklm` CLI to `nlm`
 
 **Breaking — requires a new tool install.** The upstream `notebooklm` CLI (pipx package

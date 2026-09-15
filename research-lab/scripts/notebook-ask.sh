@@ -48,18 +48,27 @@ QUERY_ARGS=()
 # The ${arr[@]+"${arr[@]}"} form expands to nothing when the array is empty,
 # instead of tripping `set -u` on bash 3.2 (macOS /bin/bash).
 err=$(mktemp)
-out=$(nlm notebook query "$NOTEBOOK_ID" "$QUESTION" ${QUERY_ARGS[@]+"${QUERY_ARGS[@]}"} 2>"$err") || true
-
-# Degraded answers still happen (empty body, or the provider returning a
-# no-answer marker). Retry ONCE. Unlike the old script there is no risk of
-# persisting a junk note on retry, because saving is now a separate step that
-# only runs after we have settled on a final answer.
-if [ -z "${out//[[:space:]]/}" ] || grep -qiE "no marked answer|no answer found" "$err"; then
+trap 'rm -f "$err"' EXIT
+for attempt in 1 2; do
+  # Failed calls (including auth/quota failures) are never retry candidates.
+  if out=$(nlm notebook query "$NOTEBOOK_ID" "$QUESTION" ${QUERY_ARGS[@]+"${QUERY_ARGS[@]}"} 2>"$err"); then
+    cat "$err" >&2
+  else
+    status=$?
+    cat "$err" >&2
+    # nlm writes some auth/JSON errors to stdout; keep them as diagnostics, not answers.
+    [ -z "$out" ] || printf '%s\n' "$out" >&2
+    exit "$status"
+  fi
+  if [ -n "${out//[[:space:]]/}" ] && ! grep -qiE "no marked answer|no answer found" "$err"; then
+    break
+  fi
+  if [ "$attempt" = 2 ]; then
+    >&2 echo "[notebook-ask] empty or degraded answer after retry; no answer returned."
+    exit 1
+  fi
   >&2 echo "[notebook-ask] degraded answer; retrying once…"
-  out=$(nlm notebook query "$NOTEBOOK_ID" "$QUESTION" ${QUERY_ARGS[@]+"${QUERY_ARGS[@]}"} 2>>"$err") || true
-fi
-
-cat "$err" >&2; rm -f "$err"
+done
 
 # Save the answer as a note when asked. Done AFTER the retry so the note always
 # holds the answer the caller actually received.

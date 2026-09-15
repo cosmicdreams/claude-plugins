@@ -89,6 +89,44 @@ Git generates: `Revert "perf(<engagement>): <description>"`
 
 ---
 
+## Measurement Validity
+
+Check the harness exit status before consuming its output. A measurement is usable
+only when the command succeeds, returns exactly one finite numeric metric, and
+covers the full sample required by the methodology. An error, missing/invalid
+metric, or incomplete sample is **not a measurement**. Never substitute zero,
+the previous ratchet, or an average of surviving pages.
+
+- **Failed baseline:** do not write an iteration-0 `keep`, initialize the ratchet,
+  or start candidate changes without a valid baseline.
+- **Failed post-change measurement:** leave the established baseline and ratchet
+  unchanged. Do not compare absent data or infer `keep`/`discard` from it. Record
+  the command failure, sample gaps, and current iteration/commit in the engagement
+  notes and report them to the Principal Investigator.
+- **Recovery:** follow the methodology's explicit retry or discard/recovery policy.
+  If it does not define one, pause and request guidance before continuing or
+  taking a rollback action. Do not invent retry limits or count an unresolved
+  measurement failure as a cheap-gate skip or a futility discard.
+- **Logging:** the existing numeric keep/discard records describe measured
+  outcomes; the skip record describes a cheap-gate rejection. Do not fabricate
+  either record for an unresolved measurement failure.
+- **Resume:** before another proposal, read the engagement notes and inspect
+  `git status --short` and `git rev-parse HEAD`. Reconcile any recorded failed
+  baseline or pending post-change measurement with the current worktree/commit.
+  A ratchet recovered from `results.jsonl` does not prove that an unmeasured
+  candidate is absent from the code. Resolve the pending trial under the same
+  methodology recovery policy before starting another; if the record and current
+  state cannot be reconciled, pause for guidance rather than stack a new change.
+- **Repeated measurements:** compute the across-run median only after all N
+  required runs are valid under that recovery policy. Do not quietly drop a
+  failed run to obtain a better median.
+
+The bundled harness produces one across-page mean per complete run. The noise
+protocol below still takes the median across N such runs; these are distinct
+aggregation layers.
+
+---
+
 ## Ratchet Rules
 
 1. **Initialize** — ratchet = baseline value from methodology
