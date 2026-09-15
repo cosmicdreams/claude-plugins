@@ -70,19 +70,73 @@ Examples:
 - Commit BEFORE measuring — the git log is the experiment's lab notebook
 - Each iteration gets exactly one commit (the change) or one commit + one revert (on discard)
 
+### Trial Ownership
+
+Use an exclusively owned, linked Git worktree on an experiment branch, not the
+primary checkout, a detached HEAD, or `main`/`master`. Before each candidate,
+inspect `git worktree list --porcelain`, `git status --porcelain --untracked-files=all`,
+and the current branch. Require a clean index/tree and no nonignored untracked
+files; stop if another operation or actor is using the worktree.
+
+Record these values **before changing files** in the engagement notes for the
+iteration:
+
+- `TRIAL_WORKTREE`: canonical absolute worktree root.
+- `TRIAL_BRANCH`: attached experiment branch name.
+- `TRIAL_BASE`: full commit ID of the measured state this candidate starts from.
+
+After a successful commit containing only this candidate, immediately record
+`TRIAL_COMMIT`, its full commit ID. Verify it has exactly one parent and that
+parent is `TRIAL_BASE`. If the commit failed or the parent/branch changed, stop;
+do not measure or infer which commit belongs to this trial.
+
+Keep ownership notes, measurement artifacts, and `results.jsonl` outside the
+candidate worktree or in an intentionally ignored location so recording a result
+does not dirty the next trial. Agree that storage policy before starting; do not
+move existing records or change ignore rules automatically. Do not change the
+results JSONL schema or mix those records into the candidate commit. On resume,
+recover these recorded values rather than reconstructing ownership from the
+current tip. **Never assign the current HEAD as the trial ID at discard time.**
+
+Before measuring, keeping, or discarding, confirm the worktree and branch still
+match and the clean tip is still `TRIAL_COMMIT`. Drift invalidates attribution:
+pause for reconciliation instead of stacking another candidate or applying a
+decision to different code. A later unrelated commit is not permission to
+automatically revert an older trial underneath it.
+
 ### Staging Discipline
 **Only stage files related to the current iteration's change.** Use `git add <specific-files>` rather than `git add -A` or `git add .`. If earlier phases modified files (e.g., module uninstalls during diagnostic investigation), those changes must NOT be included in iteration commits.
 
-If config was modified during investigation before the experiment started, either:
-1. Stash or commit the investigation changes as a separate "investigation baseline" commit before iteration 1
-2. Or `git checkout -- <unrelated-files>` to restore them before committing
+If investigation or unrelated changes are already present, stop and agree how to
+preserve them separately or use a clean experiment worktree. Do not automatically
+stash, reset, clean, or discard them just to satisfy the clean-state requirement.
 
 ### Revert on Discard
+
+Use the recorded ownership values with the guarded helper:
+
 ```bash
-git revert HEAD --no-edit
+python3 "${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/discard-trial.py" \
+  --worktree "$TRIAL_WORKTREE" --branch "$TRIAL_BRANCH" \
+  --base "$TRIAL_BASE" --trial "$TRIAL_COMMIT"
 ```
 
-This creates a clean revert commit. Never amend, never force-push, never manually undo.
+The helper checks worktree, branch, single-parent base, exact tip, clean state,
+in-progress Git operations, and local-file collisions before invoking native Git
+revert on the **recorded full trial ID**. It creates a revert commit; it does not
+amend, reset, rebase, force-push, stash, or remove user files to make the operation
+succeed. Existing Git hooks/signing remain in effect.
+
+Only a successful helper result permits logging a completed `discard`. Refusal,
+Git failure/conflict, or an uncertain postcondition leaves the trial unresolved:
+report the state and pause for guidance. Do not log a successful discard or
+automatically abort/reset/retry. On resume, inspect both the ownership notes and
+current Git state before any recovery action.
+
+These checks are not a transaction against arbitrary concurrent Git operations.
+Exclusive ownership is still required; a worktree is not a concurrency lock.
+The helper validates a supplied record, not the identity of whoever created a
+commit. It cannot make guessed or fabricated ownership metadata trustworthy.
 
 ### Revert Commit Message
 Git generates: `Revert "perf(<engagement>): <description>"`
@@ -113,6 +167,8 @@ the previous ratchet, or an average of surviving pages.
 - **Resume:** before another proposal, read the engagement notes and inspect
   `git status --short` and `git rev-parse HEAD`. Reconcile any recorded failed
   baseline or pending post-change measurement with the current worktree/commit.
+  Recover the trial's recorded root, branch, base and commit as specified in
+  **Trial Ownership**; never substitute the current tip for a missing trial ID.
   A ratchet recovered from `results.jsonl` does not prove that an unmeasured
   candidate is absent from the code. Resolve the pending trial under the same
   methodology recovery policy before starting another; if the record and current

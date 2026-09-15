@@ -1,5 +1,12 @@
 # research-lab Changelog
 
+## 4.0.3
+
+- Bind experiment measurements and discard decisions to recorded worktree, branch, base, and trial commit IDs rather than a moving HEAD.
+- Add a guarded discard helper that refuses mismatched or dirty trial state and reverts only the recorded trial commit. Native revert history is preserved; no reset, cleanup, or history rewrite is used.
+- Require explicit reconciliation after refused or failed discards and on resume; do not log a completed discard while trial state is unresolved.
+- Add disposable-repository regression tests for ownership drift and preservation of unrelated work. Exclusive worktree ownership remains required; the guard is not an atomic transaction against concurrent Git commands.
+
 ## 4.0.2
 
 - Separate teaching-gate roles: a fresh learner answers from the artifact and questions without seeing reference answers; a separate evaluator grades the captured learner responses against the key.
