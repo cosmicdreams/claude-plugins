@@ -1,0 +1,470 @@
+{
+  "drover_schema_version": 2,
+  "generated_at": "2026-05-01T08:00:00+00:00",
+  "meta": {
+    "project": "ahri",
+    "env": "prod",
+    "month": "2026-04",
+    "month_label": "April 2026",
+    "prior_month": "2026-03",
+    "from": "2026-04-01",
+    "to": "2026-04-30",
+    "types": [
+      "drupal-watchdog",
+      "php-error"
+    ],
+    "has_prior": true
+  },
+  "coverage": {
+    "expected_days": 60,
+    "present_days": 58,
+    "coverage_pct": 96.67,
+    "missing_or_failed": [
+      {
+        "date": "2026-04-12",
+        "log_type": "php-error",
+        "state": "fetch-failed"
+      },
+      {
+        "date": "2026-04-19",
+        "log_type": "php-error",
+        "state": "missing"
+      }
+    ]
+  },
+  "totals": {
+    "events_total": 1562,
+    "groups_total": 23,
+    "supplementary_groups_total": 2,
+    "by_severity": {
+      "critical": 3,
+      "error": 158,
+      "warning": 1096,
+      "notice": 305
+    },
+    "by_channel": {
+      "php": 830,
+      "cron": 312,
+      "page not found": 198,
+      "access denied": 101,
+      "search_api": 60,
+      "mail": 32,
+      "cache": 17,
+      "migrate": 9,
+      "theme": 3
+    },
+    "by_day": {
+      "2026-04-01": {
+        "total": 38,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 27,
+          "notice": 7
+        }
+      },
+      "2026-04-02": {
+        "total": 41,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 29,
+          "notice": 8
+        }
+      },
+      "2026-04-03": {
+        "total": 35,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 25,
+          "notice": 6
+        }
+      },
+      "2026-04-04": {
+        "total": 44,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 31,
+          "notice": 9
+        }
+      },
+      "2026-04-05": {
+        "total": 52,
+        "severities": {
+          "critical": 0,
+          "error": 5,
+          "warning": 36,
+          "notice": 11
+        }
+      },
+      "2026-04-06": {
+        "total": 47,
+        "severities": {
+          "critical": 0,
+          "error": 5,
+          "warning": 33,
+          "notice": 9
+        }
+      },
+      "2026-04-07": {
+        "total": 39,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 27,
+          "notice": 8
+        }
+      },
+      "2026-04-08": {
+        "total": 36,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 25,
+          "notice": 7
+        }
+      },
+      "2026-04-09": {
+        "total": 58,
+        "severities": {
+          "critical": 0,
+          "error": 6,
+          "warning": 41,
+          "notice": 11
+        }
+      },
+      "2026-04-10": {
+        "total": 61,
+        "severities": {
+          "critical": 0,
+          "error": 6,
+          "warning": 43,
+          "notice": 12
+        }
+      },
+      "2026-04-11": {
+        "total": 55,
+        "severities": {
+          "critical": 0,
+          "error": 6,
+          "warning": 39,
+          "notice": 10
+        }
+      },
+      "2026-04-12": {
+        "total": 49,
+        "severities": {
+          "critical": 0,
+          "error": 5,
+          "warning": 34,
+          "notice": 10
+        }
+      },
+      "2026-04-13": {
+        "total": 43,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 30,
+          "notice": 9
+        }
+      },
+      "2026-04-14": {
+        "total": 40,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 28,
+          "notice": 8
+        }
+      },
+      "2026-04-15": {
+        "total": 37,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 26,
+          "notice": 7
+        }
+      },
+      "2026-04-16": {
+        "total": 210,
+        "severities": {
+          "critical": 3,
+          "error": 21,
+          "warning": 147,
+          "notice": 39
+        }
+      },
+      "2026-04-17": {
+        "total": 96,
+        "severities": {
+          "critical": 0,
+          "error": 10,
+          "warning": 67,
+          "notice": 19
+        }
+      },
+      "2026-04-18": {
+        "total": 62,
+        "severities": {
+          "critical": 0,
+          "error": 6,
+          "warning": 43,
+          "notice": 13
+        }
+      },
+      "2026-04-19": {
+        "total": 50,
+        "severities": {
+          "critical": 0,
+          "error": 5,
+          "warning": 35,
+          "notice": 10
+        }
+      },
+      "2026-04-20": {
+        "total": 45,
+        "severities": {
+          "critical": 0,
+          "error": 5,
+          "warning": 31,
+          "notice": 9
+        }
+      },
+      "2026-04-21": {
+        "total": 42,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 29,
+          "notice": 9
+        }
+      },
+      "2026-04-22": {
+        "total": 39,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 27,
+          "notice": 8
+        }
+      },
+      "2026-04-23": {
+        "total": 41,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 29,
+          "notice": 8
+        }
+      },
+      "2026-04-24": {
+        "total": 44,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 31,
+          "notice": 9
+        }
+      },
+      "2026-04-25": {
+        "total": 48,
+        "severities": {
+          "critical": 0,
+          "error": 5,
+          "warning": 34,
+          "notice": 9
+        }
+      },
+      "2026-04-26": {
+        "total": 46,
+        "severities": {
+          "critical": 0,
+          "error": 5,
+          "warning": 32,
+          "notice": 9
+        }
+      },
+      "2026-04-27": {
+        "total": 43,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 30,
+          "notice": 9
+        }
+      },
+      "2026-04-28": {
+        "total": 40,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 28,
+          "notice": 8
+        }
+      },
+      "2026-04-29": {
+        "total": 38,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 27,
+          "notice": 7
+        }
+      },
+      "2026-04-30": {
+        "total": 36,
+        "severities": {
+          "critical": 0,
+          "error": 4,
+          "warning": 25,
+          "notice": 7
+        }
+      },
+      "unknown": {
+        "total": 7,
+        "severities": {
+          "warning": 7
+        }
+      }
+    }
+  },
+  "groups": [
+    {
+      "fingerprint": "a1f0c9",
+      "summary": "Undefined index: field_hero in template_preprocess_node()",
+      "severity": "warning",
+      "count": 612,
+      "channel": "php",
+      "first_seen": "2026-04-01",
+      "last_seen": "2026-04-30",
+      "samples": [
+        "Notice: Undefined index: field_hero in template_preprocess_node() (line 88 of themes/custom/ahri/ahri.theme)"
+      ],
+      "delta": {
+        "prior_count": 540,
+        "delta_count": 72,
+        "delta_pct": 13.3,
+        "is_new": false
+      }
+    },
+    {
+      "fingerprint": "b2e1d8",
+      "summary": "Cron run exceeded time limit",
+      "severity": "error",
+      "count": 231,
+      "channel": "cron",
+      "first_seen": "2026-04-01",
+      "last_seen": "2026-04-30",
+      "samples": [
+        "Cron run exceeded the time limit of 240 seconds"
+      ],
+      "delta": {
+        "prior_count": null,
+        "delta_count": null,
+        "delta_pct": null,
+        "is_new": true
+      }
+    },
+    {
+      "fingerprint": "c3d2e7",
+      "summary": "Page not found: /node/{id}/edit",
+      "severity": "notice",
+      "count": 198,
+      "channel": "page not found",
+      "first_seen": "2026-04-01",
+      "last_seen": "2026-04-30",
+      "samples": [
+        "/node/4021/edit"
+      ],
+      "delta": {
+        "prior_count": 220,
+        "delta_count": -22,
+        "delta_pct": -10,
+        "is_new": false
+      }
+    }
+  ],
+  "groups_collapsed": [
+    {
+      "fingerprint": "a1f0c9",
+      "summary": "Undefined index: field_hero in template_preprocess_node()",
+      "severity": "warning",
+      "count": 612,
+      "channel": "php",
+      "first_seen": "2026-04-01",
+      "last_seen": "2026-04-30",
+      "samples": [
+        "Notice: Undefined index: field_hero in template_preprocess_node() (line 88 of themes/custom/ahri/ahri.theme)"
+      ],
+      "delta": {
+        "prior_count": 540,
+        "delta_count": 72,
+        "delta_pct": 13.3,
+        "is_new": false
+      }
+    },
+    {
+      "fingerprint": "b2e1d8",
+      "summary": "Cron run exceeded time limit",
+      "severity": "error",
+      "count": 231,
+      "channel": "cron",
+      "first_seen": "2026-04-01",
+      "last_seen": "2026-04-30",
+      "samples": [
+        "Cron run exceeded the time limit of 240 seconds"
+      ],
+      "delta": {
+        "prior_count": null,
+        "delta_count": null,
+        "delta_pct": null,
+        "is_new": true
+      }
+    },
+    {
+      "fingerprint": "c3d2e7",
+      "summary": "Page not found: /node/{id}/edit",
+      "severity": "notice",
+      "count": 198,
+      "channel": "page not found",
+      "first_seen": "2026-04-01",
+      "last_seen": "2026-04-30",
+      "samples": [
+        "/node/4021/edit"
+      ],
+      "delta": {
+        "prior_count": 220,
+        "delta_count": -22,
+        "delta_pct": -10,
+        "is_new": false
+      }
+    }
+  ],
+  "disappeared_from_prior": [],
+  "supplementary_groups": [
+    {
+      "fingerprint": "d4c3f6",
+      "summary": "PHP frame noise from vendor autoloader",
+      "severity": "notice",
+      "count": 44,
+      "channel": "php-error"
+    }
+  ],
+  "tickets": [
+    {
+      "title": "Fix undefined index field_hero in node preprocess",
+      "priority": "P2",
+      "labels": [
+        "drover",
+        "theme"
+      ],
+      "count": 612,
+      "description": "Guard the field_hero lookup in template_preprocess_node().",
+      "sample": "Notice: Undefined index: field_hero in template_preprocess_node()"
+    }
+  ]
+}
