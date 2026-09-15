@@ -1,0 +1,45 @@
+{{!--
+  Trend over time. Expects `line` from the `lineChart` helper: a viewBox,
+  gridlines, and one or more series each carrying a `points` polyline string.
+
+  Inline SVG with no script, so it renders identically in the browser and in
+  the PDF. Marks are 2px; the grid is recessive; only the first, last, and
+  peak points are labelled rather than every point.
+
+  One y-axis, always. Two measures of different scale belong in two charts —
+  a second axis invites the reader to compare things that share no units.
+
+  Accessibility: the SVG carries a <title> and <desc> plus an aria-label
+  summary, the axis labels and the peak note are real text outside the SVG,
+  and the peak is stated in words so the shape is never the only encoding.
+  Every label passes through Handlebars escaping; day keys are validated to
+  YYYY-MM-DD upstream but nothing here depends on that.
+--}}
+<figure class="chart-line">
+  {{#if title}}<figcaption class="chart-line__title">{{title}}</figcaption>{{/if}}
+  <svg class="chart-line__svg" viewBox="0 0 {{line.width}} {{line.height}}"
+       preserveAspectRatio="none" role="img"
+       aria-label="{{title}}: {{line.ariaSummary}}">
+    <title>{{title}}</title>
+    <desc>{{line.ariaSummary}}</desc>
+    {{#each line.gridlines}}
+    <line class="chart-line__grid" x1="{{this.x1}}" y1="{{this.y}}" x2="{{this.x2}}" y2="{{this.y}}"></line>
+    {{/each}}
+    {{#each line.series}}
+    <polyline class="chart-line__path" points="{{this.points}}"
+              stroke="var(--color-series-{{this.slot}})" fill="none"></polyline>
+    {{#each this.markers}}
+    <circle class="chart-line__marker" cx="{{this.x}}" cy="{{this.y}}" r="{{../../line.markerRadius}}"
+            fill="var(--color-series-{{../slot}})">
+      <title>{{this.label}}: {{this.valueLabel}}</title>
+    </circle>
+    {{/each}}
+    {{/each}}
+  </svg>
+  <div class="chart-line__axis">
+    {{#each line.xLabels}}<span class="chart-line__axis-label">{{this}}</span>{{/each}}
+  </div>
+  {{#if line.peak}}
+  <p class="chart-line__note">Peak {{line.peak.value}} on {{line.peak.label}}. Gridlines mark quarter steps up to {{line.maxLabel}}.</p>
+  {{/if}}
+</figure>

@@ -1,0 +1,24 @@
+{{!--
+  The lead. What happened, who it affected, why, and where it stands — before
+  any chart. A reader who stops after this block should still know whether the
+  month was fine.
+
+  `rows` is [{label, value}, ...]. Deliberately unopinionated about which rows
+  appear: the right ones depend on what the data actually says. The bundled
+  `buildIncidentBrief` view builder derives them from the aggregation and
+  omits the brief entirely when the month recorded no events.
+
+  Values are plain text and stay double-braced: issue summaries and channel
+  names come from parsed log content, which is untrusted. A row that needs
+  markup should be a separate partial, not an unescaped value here.
+--}}
+<section class="incident-brief" aria-labelledby="incident-brief-heading">
+  {{#if eyebrow}}<p class="incident-brief__eyebrow">{{eyebrow}}</p>{{/if}}
+  {{#if headline}}<h2 class="incident-brief__headline" id="incident-brief-heading">{{headline}}</h2>{{/if}}
+  {{#each rows}}
+  <div class="incident-brief__row">
+    <div class="incident-brief__label">{{this.label}}</div>
+    <div class="incident-brief__value">{{this.value}}</div>
+  </div>
+  {{/each}}
+</section>

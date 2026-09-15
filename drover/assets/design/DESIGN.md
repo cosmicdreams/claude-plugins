@@ -36,6 +36,28 @@ colors:
   trend-down: "#00321A"
   trend-flat: "#557382"
   trend-new: "#0051FF"
+  # Categorical series ramp — for charts where the series ARE the subject
+  # (pie/donut segments, multi-line, grouped bars). Assign in this fixed
+  # order, never cycled; a 6th category folds into "Other" (series-other).
+  #
+  # These are brand hues snapped into the passing band, not the raw brand
+  # colors: #001B67 and #00321A are too dark to sit beside each other as
+  # data marks. Each mode has its own steps against its own surface — dark
+  # is selected, not a lightened flip — but slot N is the same hue family
+  # in both, so a series never changes identity when the theme is toggled.
+  #
+  # Verified with the dataviz palette validator (OKLab ΔE ×100):
+  #   light on #FFFFFF — band PASS, chroma PASS, CVD 11.6 deutan / 21.1 tritan
+  #   dark  on #0E0F12 — band PASS, chroma PASS, CVD 15.3 deutan / 19.1 tritan
+  # Gold and cyan (light) and crimson (dark) fall under 3:1 against their
+  # surface, so every chart using this ramp MUST carry direct labels or a
+  # legend — identity is never left to color alone.
+  series-1: "#1950CC"   # blue     (brand secondary hue)
+  series-2: "#CDA800"   # gold     (highlight-gold hue)
+  series-3: "#00AEEF"   # cyan
+  series-4: "#B9003F"   # crimson  (severity-critical hue)
+  series-5: "#00A457"   # green    (tertiary hue)
+  series-other: "#8899A6"  # neutral — the "Other" bucket, never a 6th identity
 typography:
   display:
     fontFamily: "'IBM Plex Sans', system-ui, sans-serif"

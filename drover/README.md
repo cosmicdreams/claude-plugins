@@ -109,7 +109,8 @@ cron template.
 Renders a markdown report for one calendar month. Five templates:
 
 - **`monthly-client`** — stakeholder-facing summary. Coverage banner,
-  top issues table with month-over-month trend arrows, severity
+  incident brief (HTML), daily volume line and events-by-channel donut
+  (HTML), top issues table with month-over-month trend arrows, severity
   distribution, retrieval gap list.
 - **`root-cause-summary`** — Pareto cut on top issues, share-of-volume
   bar chart, per-issue cause diagnosis from drover's pattern library
