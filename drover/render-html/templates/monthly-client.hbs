@@ -33,6 +33,34 @@
           hint="of all events caused by the single largest fingerprint"}}
     </div>
 
+    {{#if incidentBrief}}
+    {{> incident-brief incidentBrief}}
+    {{/if}}
+
+    {{#if dailySeries}}
+    <h2 class="section">Volume across the month</h2>
+    <p>Daily event volume for every day with retrievable logs. Look for the
+    shape — a flat line and a single spike mean very different things, and the
+    monthly total alone hides both.</p>
+    {{> chart-line line=(lineChart dailySeries) title="Daily event volume"}}
+    {{#if undatedEvents}}
+    <p style="color: var(--color-text-muted); font-size: var(--font-body-sm-size);">
+    A further {{undatedEvents}} events carried no parseable timestamp and are
+    counted in the totals above but cannot be placed on this timeline.</p>
+    {{/if}}
+    {{/if}}
+
+    {{#if channelSegments}}
+    <h2 class="section">Where the events come from</h2>
+    <p>Share of all events by Drupal channel. Segments are labelled with their
+    counts and shares, so the split is readable without relying on colour.</p>
+    {{> chart-donut
+        segments=(donutSegments channelSegments minShare=1)
+        centerValue=eventsTotalLabel
+        centerLabel="events"
+        title="Events by channel"}}
+    {{/if}}
+
     <h2 class="section">Severity breakdown</h2>
     <div>
       {{#each severityChart}}

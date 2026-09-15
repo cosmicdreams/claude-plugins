@@ -1,5 +1,36 @@
 # drover Changelog
 
+## 3.1.0 — report charts and incident brief
+
+### Added
+
+- `monthly-client` opens with an incident brief: a headline and label/value
+  rows (volume, busiest day, leading issue with its prior-month delta,
+  severity split, coverage) derived only from numbers the aggregation
+  already computed. The brief is omitted when the month recorded no events.
+- `chart-line` partial and `lineChart` helper: static inline SVG daily
+  volume trend with a `<title>`, `<desc>`, real-text axis labels, and the
+  peak stated in words. Undated events (the `by_day` "unknown" bucket) are
+  reported beneath the chart instead of being plotted as a fictional day.
+- `chart-donut` partial and `donutSegments` helper: share of events by
+  channel, direct-labelled with count and share in a legend so identity
+  never rests on colour. Channels past the five-slot ramp fold into
+  "Other"; no sixth hue is generated.
+- Categorical series tokens (`series-1` to `series-5`, `series-other`) in
+  `DESIGN.md`, with dark-surface counterparts and print overrides.
+- `render-html/test/fixtures/charts.json`, a thirty-day fixture, plus
+  renderer tests for chart geometry (empty data, a single day, one channel
+  at 100%, zero totals), the brief present and absent, and escaping of
+  hostile log text through the brief and both charts.
+
+### Security
+
+- Chart labels, issue summaries, channel names, and day keys are treated
+  as untrusted log content and always pass through Handlebars escaping.
+  The new partials contain no unescaped output; `{{{css}}}` remains the
+  only triple-brace in `monthly-client`. Charts are static SVG with no
+  script, so they render identically in the PDF.
+
 ## 3.0.0 — hardening on the 2.3 signal tiers
 
 ### Compatibility and migration

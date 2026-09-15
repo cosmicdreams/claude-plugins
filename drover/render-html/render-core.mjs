@@ -131,7 +131,144 @@ Handlebars.registerHelper("join", (arr, sep) => Array.isArray(arr) ? arr.join(se
 Handlebars.registerHelper("eq", (a, b) => a === b);
 Handlebars.registerHelper("upper", (s) => String(s ?? "").toUpperCase());
 Handlebars.registerHelper("concat", (...parts) => parts.slice(0, -1).join(""));
+
 Handlebars.registerHelper("pct", (value) => `${value}%`);
+
+// --- Chart geometry ------------------------------------------------------
+// Pure functions that do the arc and polyline maths so the .hbs partials
+// stay declarative. They emit numbers and number-derived strings only; every
+// label passes through untouched and is escaped by Handlebars at the point
+// of use, because channel names and day keys are parsed from log content.
+// All output is static inline SVG: no script, no measurement at paint time,
+// so a PDF snapshot renders exactly what a browser does.
+
+const SERIES_SLOTS = 5;           // categorical ramp size; a 6th folds to "other"
+const SEGMENT_GAP = 0.6;          // surface gap between donut segments, in path units
+
+const fmtInt = (n) => Number(n).toLocaleString("en-US");
+
+/**
+ * Part-to-whole segments for chart-donut.
+ *
+ * `items` is [{label, value}, ...]. Anything past the ramp — or below
+ * `minShare` percent — is folded into a single "Other" segment rather than
+ * being given a generated hue, because a colour a reader cannot name is not
+ * identity, it is noise. Returns [] when there is nothing to draw.
+ */
+export function donutSegments(items, { minShare = 0 } = {}) {
+  const list = Array.isArray(items)
+    ? items.filter((d) => Number.isFinite(Number(d?.value)) && Number(d.value) > 0)
+    : [];
+  const total = list.reduce((s, d) => s + Number(d.value), 0);
+  if (!total) return [];
+
+  const sorted = [...list].sort((a, b) => Number(b.value) - Number(a.value));
+  const keep = [];
+  let otherValue = 0;
+  for (const d of sorted) {
+    const share = (Number(d.value) / total) * 100;
+    if (keep.length < SERIES_SLOTS && share >= Number(minShare)) keep.push(d);
+    else otherValue += Number(d.value);
+  }
+  if (otherValue > 0) keep.push({ label: "Other", value: otherValue, other: true });
+
+  // The circumference of r=15.915 is ~100, so dash lengths read as percentages.
+  let cursor = 0;
+  return keep.map((d, i) => {
+    const share = (Number(d.value) / total) * 100;
+    const dash = Math.max(share - SEGMENT_GAP, 0.4);
+    const seg = {
+      label: String(d.label ?? ""),
+      value: fmtInt(d.value),
+      share: share.toFixed(1),
+      slot: d.other ? "other" : String((i % SERIES_SLOTS) + 1),
+      dash: dash.toFixed(2),
+      gap: (100 - dash).toFixed(2),
+      offset: (25 - cursor).toFixed(2),
+    };
+    cursor += share;
+    return seg;
+  });
+}
+
+/**
+ * Trend geometry for chart-line.
+ *
+ * `series` is [{label, slot, points: [{label, value}, ...]}, ...] or a bare
+ * array of points for the single-series case. Every series is plotted on one
+ * shared y-scale — a second axis would invite comparing unlike units.
+ * Returns null when there is nothing to draw.
+ */
+export function lineChartGeometry(series, { width = 720, height = 180, label = "" } = {}) {
+  const W = Number(width);
+  const H = Number(height);
+  const PAD = 6;
+
+  const normalized = Array.isArray(series) && series.length && series[0]?.points
+    ? series
+    : [{ label, slot: 1, points: Array.isArray(series) ? series : [] }];
+  const all = normalized.flatMap((s) => s.points || []);
+  if (!all.length) return null;
+
+  const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+  const max = Math.max(...all.map((p) => num(p.value)), 1);
+  const count = Math.max(...normalized.map((s) => (s.points || []).length), 1);
+  const x = (i) => (count === 1 ? W / 2 : PAD + (i * (W - PAD * 2)) / (count - 1));
+  const y = (v) => H - PAD - (num(v) / max) * (H - PAD * 2);
+
+  let peak = null;
+  const out = normalized.map((s, si) => {
+    const pts = s.points || [];
+    const coords = pts.map((p, i) => ({
+      label: String(p.label ?? ""),
+      value: num(p.value),
+      valueLabel: fmtInt(num(p.value)),
+      x: x(i).toFixed(1),
+      y: y(p.value).toFixed(1),
+    }));
+    for (const c of coords) {
+      if (!peak || c.value > peak.value) peak = c;
+    }
+    // Label only the endpoints and the peak — a marker on every point is
+    // chartjunk that hides the shape it is meant to show.
+    const keyIdx = new Set([0, coords.length - 1]);
+    const peakIdx = coords.reduce((bi, c, i) => (c.value > coords[bi].value ? i : bi), 0);
+    keyIdx.add(peakIdx);
+    return {
+      label: String(s.label ?? ""),
+      slot: String(s.slot ?? si + 1),
+      points: coords.map((c) => `${c.x},${c.y}`).join(" "),
+      markers: coords.filter((_, i) => keyIdx.has(i)),
+    };
+  });
+
+  const gridlines = [0.25, 0.5, 0.75, 1].map((f) => ({
+    x1: PAD, x2: W - PAD, y: (H - PAD - f * (H - PAD * 2)).toFixed(1),
+  }));
+  const firstPts = normalized[0].points || [];
+  const xLabels = firstPts.length > 1
+    ? [firstPts[0].label, firstPts[Math.floor(firstPts.length / 2)].label, firstPts[firstPts.length - 1].label]
+    : firstPts.map((p) => p.label);
+
+  return {
+    width: W, height: H, markerRadius: 4,
+    series: out, gridlines,
+    xLabels: xLabels.map((l) => String(l ?? "")),
+    maxLabel: fmtInt(max),
+    peak: peak ? { label: peak.label, value: peak.valueLabel } : null,
+    ariaSummary: `${count} points from ${xLabels[0] ?? ""} to ${xLabels[xLabels.length - 1] ?? ""}, `
+      + `peak ${peak ? peak.valueLabel : "n/a"}${peak ? ` on ${peak.label}` : ""}`,
+  };
+}
+
+Handlebars.registerHelper("donutSegments", (items, options) =>
+  donutSegments(items, { minShare: options?.hash?.minShare ?? 0 }));
+Handlebars.registerHelper("lineChart", (series, options) =>
+  lineChartGeometry(series, {
+    width: options?.hash?.width ?? 720,
+    height: options?.hash?.height ?? 180,
+    label: options?.hash?.label ?? "",
+  }));
 
 Handlebars.registerHelper("svgDonut", (cacheStatus) => {
   if (!cacheStatus) return "";
@@ -321,8 +458,124 @@ function buildSupplementaryGroups(data) {
   }));
 }
 
+const SEVERITY_ORDER = ["critical", "error", "warning", "notice", "info", "unknown"];
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * Daily volume from totals.by_day.
+ *
+ * Entries are {total, severities: {...}} — not scalars. Reading them as
+ * numbers yielded NaN, which plotted every point on the baseline and printed
+ * "Peak NaN"; accept either shape so older payloads still work.
+ *
+ * by_day also carries an "unknown" bucket for events whose date could not be
+ * parsed. Sorting placed it after the dates, so it was drawn as a point in
+ * time *after* the last real day — inventing a date the data never had. Keep
+ * it out of the trend, and report it rather than dropping it silently.
+ */
+export function dailyVolume(byDay) {
+  const days = byDay && typeof byDay === "object" ? byDay : {};
+  const dayTotal = (entry) => {
+    const v = (entry && typeof entry === "object")
+      ? Number(entry.total ?? Object.values(entry.severities || {}).reduce((a, b) => a + Number(b || 0), 0))
+      : Number(entry);
+    return Number.isFinite(v) ? v : 0;
+  };
+  const dayKeys = Object.keys(days).filter((k) => DATE_KEY.test(k)).sort();
+  const dailyPoints = dayKeys.map((day) => ({
+    label: day.slice(5),             // MM-DD; the year is already in the title
+    value: dayTotal(days[day]),
+  }));
+  const undatedEvents = Object.keys(days)
+    .filter((k) => !DATE_KEY.test(k))
+    .reduce((sum, k) => sum + dayTotal(days[k]), 0);
+  let peakDay = null;
+  for (const day of dayKeys) {
+    const value = dayTotal(days[day]);
+    if (value > 0 && (!peakDay || value > peakDay.value)) peakDay = { date: day, value };
+  }
+  return { dailyPoints, undatedEvents, peakDay };
+}
+
+/**
+ * The lead paragraph of the stakeholder report, as label/value rows.
+ *
+ * Every row is derived from a number the aggregation already computed;
+ * nothing here characterises the month ("stable", "concerning") because the
+ * renderer has no basis for that judgement. A row is omitted when its source
+ * is absent, and the whole brief is omitted when the month recorded no
+ * events — the metric cards already say zero, and a brief about nothing
+ * would only invite the reader to infer a calm that incomplete coverage
+ * cannot promise.
+ *
+ * Values are plain text and are escaped by Handlebars at render time; issue
+ * summaries and channel names are parsed from log content and untrusted.
+ */
+export function buildIncidentBrief(data, { topGroup, topShare, peakDay } = {}) {
+  const totals = data?.totals;
+  const eventsTotal = Number(totals?.events_total);
+  if (!Number.isFinite(eventsTotal) || eventsTotal <= 0) return null;
+
+  const rows = [];
+  const groupsTotal = Number(totals.groups_total);
+  rows.push({
+    label: "Volume",
+    value: Number.isFinite(groupsTotal)
+      ? `${fmtInt(eventsTotal)} events across ${fmtInt(groupsTotal)} distinct ${groupsTotal === 1 ? "issue" : "issues"}.`
+      : `${fmtInt(eventsTotal)} events.`,
+  });
+
+  if (peakDay) {
+    rows.push({
+      label: "Busiest day",
+      value: `${peakDay.date} — ${fmtInt(peakDay.value)} events (${((peakDay.value / eventsTotal) * 100).toFixed(1)}% of the month).`,
+    });
+  }
+
+  if (topGroup && Number(topGroup.count) > 0) {
+    const parts = [
+      `${truncate(String(topGroup.summary || topGroup.fingerprint || "unlabelled issue"), 160)} — `
+        + `${fmtInt(topGroup.count)} events (${topShare}% of the month)`,
+    ];
+    if (topGroup.severity) parts.push(`severity ${topGroup.severity}`);
+    if (topGroup.channel) parts.push(`channel ${topGroup.channel}`);
+    const delta = topGroup.delta || {};
+    if (delta.delta_pct !== undefined && delta.delta_pct !== null) {
+      const pctVal = Math.round(Number(delta.delta_pct));
+      parts.push(`${pctVal > 0 ? "up" : pctVal < 0 ? "down" : "flat"} ${Math.abs(pctVal)}% versus the prior month`);
+    } else if (delta.is_new) {
+      parts.push("new this month");
+    }
+    rows.push({ label: "Leading issue", value: parts.join(" · ") + "." });
+  }
+
+  const sev = totals.by_severity || {};
+  const sevParts = SEVERITY_ORDER
+    .filter((k) => Number(sev[k]) > 0)
+    .map((k) => `${fmtInt(sev[k])} ${k}`);
+  if (sevParts.length) rows.push({ label: "Severity", value: sevParts.join(" · ") + "." });
+
+  const cov = data.coverage;
+  if (cov && Number.isFinite(Number(cov.present_days)) && Number.isFinite(Number(cov.expected_days))) {
+    const incomplete = coverageIncomplete(data);
+    rows.push({
+      label: "Coverage",
+      value: `${fmtInt(cov.present_days)} of ${fmtInt(cov.expected_days)} expected log files retrieved`
+        + (Number.isFinite(Number(cov.coverage_pct)) ? ` (${Number(cov.coverage_pct).toFixed(1)}%)` : "")
+        + (incomplete ? ". Totals understate the true volume." : "."),
+    });
+  }
+
+  const month = data.meta?.month_label ? ` in ${data.meta.month_label}` : "";
+  const headline = topGroup && Number(topGroup.count) > 0
+    ? `${fmtInt(eventsTotal)} application errors${month}; the largest single issue accounted for ${topShare}% of them.`
+    : `${fmtInt(eventsTotal)} application errors${month}.`;
+
+  return { eyebrow: "Month in brief", headline, rows };
+}
+
 function buildMonthlyClientView(data) {
-  const sevOrder = ["critical", "error", "warning", "notice", "info", "unknown"];
+  const sevOrder = SEVERITY_ORDER;
   const sev = data.totals.by_severity || {};
   const sevTotal = Object.values(sev).reduce((a, b) => a + b, 0) || 1;
   const sevMax = Math.max(...Object.values(sev), 1);
@@ -353,12 +606,25 @@ function buildMonthlyClientView(data) {
     ? ((topGroup.count / Math.max(1, data.totals.events_total)) * 100).toFixed(1)
     : "0.0";
 
+  // Part-to-whole across channels, and the month's shape over time. Both are
+  // plain data here; the donutSegments/lineChart helpers do the geometry.
+  const channelSegments = Object.entries(data.totals.by_channel || {})
+    .map(([label, value]) => ({ label, value }))
+    .filter((d) => Number(d.value) > 0);
+  const { dailyPoints, undatedEvents, peakDay } = dailyVolume(data.totals.by_day);
+
   return {
     meta: data.meta,
     coverage: data.coverage,
     coverageLow: coverageIncomplete(data),
     totals: data.totals,
+    incidentBrief: buildIncidentBrief(data, { topGroup, topShare, peakDay }),
     severityChart,
+    channelSegments,
+    // A single day is a dot, not a trend; the metric cards already carry it.
+    dailySeries: dailyPoints.length > 1 ? [{ label: "Events", slot: 1, points: dailyPoints }] : null,
+    eventsTotalLabel: fmtInt(data.totals.events_total || 0),
+    undatedEvents: undatedEvents > 0 ? fmtInt(undatedEvents) : null,
     topIssues,
     topShare,
     supplementaryGroups: buildSupplementaryGroups(data),
