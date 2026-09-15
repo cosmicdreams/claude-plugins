@@ -1,0 +1,19 @@
+{
+  "name": "research-lab",
+  "version": "4.0.0",
+  "description": "Composable knowledge-work verbs.",
+  "author": {
+    "name": "Chris Weber"
+  },
+  "license": "UNLICENSED",
+  "keywords": ["research", "agents", "notebooklm", "experiment", "optimization"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Research Lab",
+    "shortDescription": "Research and synthesis workflows",
+    "longDescription": "Local knowledge-work skills for framing, gathering, understanding, synthesizing, interrogating, experimenting, and teaching.",
+    "developerName": "Chris Weber",
+    "category": "Research",
+    "capabilities": ["Write"]
+  }
+}

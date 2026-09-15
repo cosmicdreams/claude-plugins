@@ -1,0 +1,19 @@
+{
+  "name": "ideate",
+  "version": "4.0.1",
+  "description": "Pre-work ideation with a visual decision canvas.",
+  "author": {
+    "name": "Chris Weber"
+  },
+  "license": "UNLICENSED",
+  "keywords": ["ideate", "brainstorm", "planning", "decision", "ideation"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Ideate",
+    "shortDescription": "Brainstorm and compare options",
+    "longDescription": "Local ideation skills for brainstorming, architecture decisions, diagrams, comparisons, and reality checks before implementation.",
+    "developerName": "Chris Weber",
+    "category": "Development",
+    "capabilities": ["Interactive", "Write"]
+  }
+}

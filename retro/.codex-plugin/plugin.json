@@ -1,0 +1,19 @@
+{
+  "name": "retro",
+  "version": "4.0.1",
+  "description": "Sprint retrospective workflows.",
+  "author": {
+    "name": "Chris Weber"
+  },
+  "license": "UNLICENSED",
+  "keywords": ["retro", "retrospective", "interviews", "action-cards", "agile"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Retro",
+    "shortDescription": "Retrospective analysis workflows",
+    "longDescription": "Local skills for retrospective interviews, session analysis, transcripts, and action-oriented kanban workflows.",
+    "developerName": "Chris Weber",
+    "category": "Development",
+    "capabilities": ["Write"]
+  }
+}

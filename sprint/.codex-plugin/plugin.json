@@ -1,0 +1,19 @@
+{
+  "name": "sprint",
+  "version": "4.0.1",
+  "description": "Team sprint execution workflows.",
+  "author": {
+    "name": "Chris Weber"
+  },
+  "license": "UNLICENSED",
+  "keywords": ["agents", "sprint", "kanban", "agile", "workflow"],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Sprint",
+    "shortDescription": "Sprint planning and execution",
+    "longDescription": "Local skills for sprint boards, kanban, planning, project notes, and sprint execution workflows.",
+    "developerName": "Chris Weber",
+    "category": "Development",
+    "capabilities": ["Write"]
+  }
+}
