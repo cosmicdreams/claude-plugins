@@ -81,14 +81,17 @@ internal-consistency. Each is a parallel `agent()` with a schema-validated verdi
 - Default → single pass.
 - `thorough: true` → loop-until-dry with `budget.remaining()` as a hard ceiling.
 
-The script returns `{ verdict, rounds, roundCount, ceilingHit, errors, coverage }` where `verdict`
-is one of `survived`, `rejected`, `contested`, or `incomplete`. Each round requires a valid
-response from all four assigned lenses. Missing, malformed, or misattributed responses stop
-the panel immediately as `incomplete`, even alongside fatal grounds; no retry or quorum claim
-is made. `rounds` retains valid votes (including fatal grounds), while `errors` identifies the
-round, assigned lens, reason, and failed response. No budget to start is also `incomplete`.
-`coverage` lists expected lenses, per-round valid/missing lenses and completeness, and whether
-all attempted rounds are complete; it does not mean the required clean rounds were achieved.
+The script returns `{ verdict, rounds, roundCount, ceilingHit }` where `verdict` is one of
+`survived`, `rejected`, or `contested`. A valid fatal refutation is sufficient for rejection
+even if another lens fails to respond correctly. `rounds` retains the valid votes and their
+grounds; logs identify incomplete coverage by round, assigned lens, and failure reason.
+Report those diagnostics alongside a fatal rejection; do not claim all four lenses responded.
+
+Without a valid fatal refutation, any missing, malformed, or misattributed response stops
+execution with an explicit error naming the round, assigned lens, and reason. Such responses
+cannot establish clean rounds or survival. No budget to run even one round is also an execution
+error, not a substantive verdict. Thrown agent/parallel errors propagate rather than becoming
+votes. Local shim tests exercise this script's logic, not the actual Workflow host contracts.
 
 ---
 
@@ -100,10 +103,12 @@ Tally the panel result and report **a verdict**, not a rewrite:
 - **Rejected** — name the lens, the severity, and the exact evidence gap.
 - **Contested** — complete panel without a decisive result (a minority split, or the ceiling
   reached before enough clean rounds); surface the votes and stopping condition.
-- **Incomplete** — review coverage failed, not a substantive disagreement. Report missing
-  lenses/errors and any valid grounds; do not treat this as survival or a completed rejection.
 
-Write `05-interrogate.md` (verdict, per-lens grounds, round count) to the engagement directory.
+An **execution failure** is not `contested` or another verdict. Report the failure diagnostics
+without inventing a finding about the claim.
+
+Write `05-interrogate.md` (verdict, per-lens grounds, round count, and any incomplete-coverage
+diagnostics) to the engagement directory when a verdict is returned.
 
 ---
 

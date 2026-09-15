@@ -56,8 +56,6 @@ const BUDGET_FLOOR = 40000
 let dryRounds = 0
 let fatalHit = false
 const rounds = []
-const errors = []
-const coverage = { expectedLenses: LENSES.map((L) => L.key), rounds: [], complete: false }
 
 while (dryRounds < cleanRoundsNeeded && budget.remaining() > BUDGET_FLOOR) {
   const responses = await parallel(LENSES.map((L) => () =>
@@ -74,7 +72,7 @@ while (dryRounds < cleanRoundsNeeded && budget.remaining() > BUDGET_FLOOR) {
   // Validate against the assigned lens, not a self-reported identity. A missing
   // or malformed response is failed coverage, never a vote for the claim.
   const votes = []
-  const missingLenses = []
+  const failures = []
   for (const [index, L] of LENSES.entries()) {
     const vote = responses[index]
     let reason
@@ -88,42 +86,38 @@ while (dryRounds < cleanRoundsNeeded && budget.remaining() > BUDGET_FLOOR) {
       reason = 'lens-mismatch'
     }
     if (reason) {
-      missingLenses.push(L.key)
-      errors.push({ round: rounds.length + 1, lens: L.key, reason, response: vote ?? null })
+      failures.push(L.key + ': ' + reason)
     } else {
       votes.push(vote)
     }
   }
 
   rounds.push(votes)
-  coverage.rounds.push({
-    validLenses: votes.map((vote) => vote.lens),
-    missingLenses,
-    complete: missingLenses.length === 0,
-  })
   const live = votes.filter((v) => v.refuted && v.severity !== 'none')
   log('round ' + rounds.length + ': ' + live.length + ' live refutation(s) from ' + votes.length + ' votes')
 
-  // Fail closed and stop: retrying a failed panel could hide missing evidence.
-  // Even fatal grounds remain evidence only until the whole panel is covered.
-  if (missingLenses.length > 0) { break }
-  if (live.length === 0) { dryRounds += 1 } else { dryRounds = 0 }
+  if (failures.length > 0) {
+    log('incomplete coverage in round ' + rounds.length + ': ' + failures.join('; '))
+  }
+  // A valid fatal refutation is sufficient to reject, even with missing peers.
+  // Otherwise only a complete panel can contribute to a substantive verdict.
   if (live.some((v) => v.severity === 'fatal')) { fatalHit = true; break }
+  if (failures.length > 0) {
+    throw new Error('Interrogation execution failed in round ' + rounds.length + ': ' + failures.join('; '))
+  }
+  if (live.length === 0) { dryRounds += 1 } else { dryRounds = 0 }
 }
 
 if (rounds.length === 0) {
-  errors.push({ round: 0, lens: null, reason: 'budget-before-review' })
+  throw new Error('Interrogation execution failed: budget-before-review (no round ran)')
 }
-coverage.complete = rounds.length > 0 && coverage.rounds.every((round) => round.complete)
 
-// Only complete panels can decide: fatal grounds reject; a dry finish survives;
-// otherwise the final round's majority decides, with a minority split reported as contested.
-const finalRound = rounds.length > 0 ? rounds[rounds.length - 1] : []
+// Valid fatal grounds reject; a complete dry finish survives; otherwise the
+// complete final round's majority decides, with a minority split reported as contested.
+const finalRound = rounds[rounds.length - 1]
 const refuting = finalRound.filter((v) => v.refuted && v.severity !== 'none')
 let verdict
-if (!coverage.complete) {
-  verdict = 'incomplete'
-} else if (fatalHit) {
+if (fatalHit) {
   verdict = 'rejected'
 } else if (dryRounds >= cleanRoundsNeeded) {
   verdict = 'survived'
@@ -138,6 +132,4 @@ return {
   rounds,
   roundCount: rounds.length,
   ceilingHit: budget.remaining() <= BUDGET_FLOOR,
-  errors,
-  coverage,
 }

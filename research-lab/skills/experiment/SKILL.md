@@ -66,8 +66,14 @@ The ratchet itself stays sequential: keep/discard against one moving best-metric
 
 ## Step 0 — Resume Detection
 
+Before proposing a new change, apply the **Measurement Validity** resume guard in
+`references/iteration-protocol.md`: read the engagement notes and inspect the
+current worktree/commit for unresolved failed measurements. A results log alone
+does not establish that the current code has been measured.
+
 If `results.jsonl` exists, find the current ratchet by scanning for `decision: keep` records and
-taking the best `metric_after`. Report the ratchet value and iteration count before continuing.
+taking the best `metric_after`. Report the ratchet value and iteration count,
+but do not continue until any pending measurement state has been reconciled.
 
 ---
 
@@ -85,7 +91,10 @@ If the methodology has two metrics, mixed qualitative/quantitative criteria, or 
 ## Step 1.5 — Baseline Survey (mandatory)
 
 Measure the metric across the FULL page sample defined in the methodology before the first
-iteration. Log as iteration 0:
+iteration. Apply **Measurement Validity** in `references/iteration-protocol.md`:
+if the baseline fails or is incomplete, do not initialize the ratchet or begin
+candidate changes. Follow the methodology's recovery policy or pause for guidance.
+Only a valid baseline is logged as iteration 0:
 
 ```json
 {"iteration": 0, "timestamp": "...", "change": "Baseline survey", "gate": "pass",
@@ -116,6 +125,12 @@ Stage only files related to the current iteration's change. Commit: `perf(<engag
 ### 2d. Measure
 
 Run the methodology-defined harness. Take the median of N runs for noisy metrics.
+
+Apply **Measurement Validity** in `references/iteration-protocol.md` before
+validation or comparison. A failed command or invalid/incomplete sample supplies
+no metric: preserve the baseline and ratchet, report the failure, and follow the
+engagement's recovery policy or pause. Do not manufacture a numeric keep/discard
+record or advance to the decision step while the measurement is unresolved.
 
 ### 2e. Validate
 
