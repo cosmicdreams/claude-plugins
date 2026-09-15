@@ -143,6 +143,18 @@ nlm research import <notebook-id> --cited-only                  # only sources t
 Use `${CLAUDE_PLUGIN_ROOT}/scripts/notebook-research-wait.sh <id>` rather than hand-rolling the
 status-then-import pair.
 
+The wrapper checks the compact `Research Status` block before importing. Source inspection
+of upstream `v0.9.11` and `v0.11.4` confirmed this text format; `research status --json`
+is not supported in those releases. Only one explicit `completed` status and one task ID
+are accepted. The wrapper imports that observed task ID explicitly instead of letting
+the import command independently auto-select a task. Missing, ambiguous, unfinished, or
+unrecognized status output fails closed.
+
+Initial task selection still follows the CLI's notebook-based behavior: this wrapper
+cannot establish which task the caller originally intended to wait for. Command success
+alone is not evidence of completed research, and these source-checked contracts do not
+replace a live-service compatibility test.
+
 ---
 
 ## Notes

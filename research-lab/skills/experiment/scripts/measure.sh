@@ -15,6 +15,7 @@ PAGES=("${@:-/}")
 
 TOTAL=0
 COUNT=0
+FAILED=0
 
 for PAGE in "${PAGES[@]}"; do
   FULL_URL="${URL%/}${PAGE}"
@@ -22,23 +23,32 @@ for PAGE in "${PAGES[@]}"; do
   # Measure Time to First Byte (TTFB) in seconds.
   #   --fail          : a 4xx/5xx is an error — never average an error page's TTFB
   #   --connect-timeout/--max-time : one slow or hung page can't block the whole run
-  # A failed request is SKIPPED (not summed as 0), so a broken site can't masquerade
-  # as a fast baseline. The curl runs inside the `if` so its failure won't trip set -e.
+  # Any failed page invalidates the sample, not just that page's contribution.
+  # Accept only curl's nonnegative decimal format before passing data to bc.
   if TTFB=$(curl -fsS -o /dev/null --connect-timeout 5 --max-time 30 \
-              -w '%{time_starttransfer}' "$FULL_URL" 2>/dev/null) && [ -n "$TTFB" ]; then
+              -w '%{time_starttransfer}' "$FULL_URL" 2>/dev/null) &&
+      [[ "$TTFB" =~ ^[0-9]+([.][0-9]+)?$ ]]; then
     >&2 echo "  $PAGE: ${TTFB}s"
     TOTAL=$(echo "$TOTAL + $TTFB" | bc)
     COUNT=$((COUNT + 1))
   else
-    >&2 echo "  $PAGE: request failed (skipped)"
+    >&2 printf '  %q: request failed or invalid timing\n' "$PAGE"
+    FAILED=$((FAILED + 1))
   fi
 done
 
-# Output average TTFB across all pages
-if [ "$COUNT" -gt 0 ]; then
-  AVG=$(echo "scale=3; $TOTAL / $COUNT" | bc)
+# Never emit a comparable metric for an incomplete sample.
+if [ "$FAILED" -gt 0 ]; then
+  >&2 echo "Error: invalid sample: $FAILED of ${#PAGES[@]} pages failed"
+  exit 1
+fi
+
+# This is one complete page-sample mean, not an across-run median/noise check.
+# bc can wrap oversized results; only one nonnegative decimal is a metric.
+if AVG=$(echo "scale=3; $TOTAL / $COUNT" | bc) &&
+    [[ "$AVG" =~ ^([0-9]+([.][0-9]+)?|[.][0-9]+)$ ]]; then
   echo "$AVG"
 else
-  >&2 echo "Error: no pages measured"
+  >&2 echo "Error: invalid sample: average calculation failed or invalid result"
   exit 1
 fi

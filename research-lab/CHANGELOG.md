@@ -1,5 +1,13 @@
 # research-lab Changelog
 
+## Unreleased — failure integrity
+
+- Preserve failed Gemini Notebook queries as failures; retry only degraded successful answers instead of repeating authentication or quota errors.
+- Require explicit completed research status before importing sources; unknown, failed, and unfinished tasks are not successful research.
+- Report incomplete interrogation panels explicitly instead of treating missing reviewer votes as evidence that a claim survived.
+- Reject incomplete or invalid page measurements rather than averaging only the surviving pages.
+- Add offline regression tests against the current scripts. These fixes address false-success states; they do not change model routing, teaching, or experiment rollback policy.
+
 ## 4.0.0 — 2026-08-14 — Migrate from the retired `notebooklm` CLI to `nlm`
 
 **Breaking — requires a new tool install.** The upstream `notebooklm` CLI (pipx package

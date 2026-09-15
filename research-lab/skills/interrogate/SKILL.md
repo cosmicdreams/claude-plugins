@@ -81,8 +81,14 @@ internal-consistency. Each is a parallel `agent()` with a schema-validated verdi
 - Default → single pass.
 - `thorough: true` → loop-until-dry with `budget.remaining()` as a hard ceiling.
 
-The script returns `{ verdict, rounds, roundCount, ceilingHit }` where `verdict` is one of
-`survived`, `rejected`, or `contested`.
+The script returns `{ verdict, rounds, roundCount, ceilingHit, errors, coverage }` where `verdict`
+is one of `survived`, `rejected`, `contested`, or `incomplete`. Each round requires a valid
+response from all four assigned lenses. Missing, malformed, or misattributed responses stop
+the panel immediately as `incomplete`, even alongside fatal grounds; no retry or quorum claim
+is made. `rounds` retains valid votes (including fatal grounds), while `errors` identifies the
+round, assigned lens, reason, and failed response. No budget to start is also `incomplete`.
+`coverage` lists expected lenses, per-round valid/missing lenses and completeness, and whether
+all attempted rounds are complete; it does not mean the required clean rounds were achieved.
 
 ---
 
@@ -92,7 +98,10 @@ Tally the panel result and report **a verdict**, not a rewrite:
 
 - **Survived** — no live refutation across the clean rounds. State on what grounds it held.
 - **Rejected** — name the lens, the severity, and the exact evidence gap.
-- **Contested** — minority split; surface the competing votes for the user to weigh.
+- **Contested** — complete panel without a decisive result (a minority split, or the ceiling
+  reached before enough clean rounds); surface the votes and stopping condition.
+- **Incomplete** — review coverage failed, not a substantive disagreement. Report missing
+  lenses/errors and any valid grounds; do not treat this as survival or a completed rejection.
 
 Write `05-interrogate.md` (verdict, per-lens grounds, round count) to the engagement directory.
 
