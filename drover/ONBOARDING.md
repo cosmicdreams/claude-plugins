@@ -12,11 +12,6 @@ log-pull while you do other work.
 - Python 3.10+ on your machine.
 - The drover plugin installed at user scope:
   `claude plugin install drover@velir --scope user`
-- Optional but recommended for `/drover:create-tickets`:
-  - `JIRA_API_TOKEN` env var (token from id.atlassian.com), AND
-  - `~/.config/.jira/.config.yml` with `server:` + `login:` (drover
-    reads these for Atlassian instance + email; most operators
-    already have this from running `jira-cli` once).
 
 **You do not need a logo or a design file.** Velir branding — the logo,
 colour tokens, and typography — ships inside the plugin and is applied
@@ -46,29 +41,6 @@ wrote:   .drover/manifest.json
 
 If discovery fails, the error message tells you exactly what to do
 (usually `acli auth:login` or `--app NAME` to disambiguate).
-
-## Step 1.5 — (optional) add JIRA config to the manifest
-
-If you plan to use `/drover:create-tickets` later, hand-edit
-`.drover/manifest.json` to add a `jira:` block:
-
-```json
-"jira": {
-  "project_key": "PPS",
-  "board_id": 845,
-  "default_sprint_id": 18347,
-  "default_sprint_name": "2026.2",
-  "default_issue_type": "Chore"
-}
-```
-
-The board id is the Atlassian board the project lives on (visible in
-the URL when you view the board). The sprint id is the active or
-upcoming sprint. The issue type is whatever your project uses for
-small operational fixes — `Chore` / `Task` / `Bug` are common.
-
-A future `/drover:init` will detect and prompt for these
-automatically.
 
 ## Step 2 — backfill the last 30 days
 
@@ -109,55 +81,14 @@ Other templates:
 # Dev-facing detail
 /drover:report --month 2026-04 --template triage-brief
 
-# Paste blocks for JIRA's create-issue dialog (fallback when
-# /drover:create-tickets isn't appropriate)
+# Paste blocks for JIRA's create-issue dialog
 /drover:report --month 2026-04 --template jira-ready
 ```
 
 `--env` defaults to `prod`; pass `--env stage` etc. to render
 against a different env.
 
-## Step 4 — (optional) file the recommended JIRA tickets
-
-After a stakeholder template renders, the sidecar
-`reports/2026-04-root-cause-summary.md.tickets.json` lists each
-recommended ticket with title, description, priority, labels, sprint,
-parent linking. Hand it to JIRA via:
-
-```
-/drover:create-tickets
-```
-
-The skill asks how you want to file:
-
-- **Atlassian MCP** (recommended if you have Atlassian's MCP server
-  configured — Claude calls those tools directly)
-- **Direct REST** (drover's built-in executor; needs `JIRA_API_TOKEN`)
-- **Plan-only** (drover writes a plan; you run the writes yourself)
-
-Always preview first:
-
-```bash
-python3 "$PLUGIN/scripts/create_tickets.py" --dry-run
-```
-
-Common flags:
-
-```bash
-# Create everything, no per-ticket prompts (REST mode)
-python3 "$PLUGIN/scripts/create_tickets.py" --all
-
-# Plan-only handoff for MCP / jira-cli / manual
-python3 "$PLUGIN/scripts/create_tickets.py" --plan reports/2026-04.plan.json
-
-# Narrow with a regex match on spec title
-python3 "$PLUGIN/scripts/create_tickets.py" --filter "simple_cron|cron"
-
-# Link every created issue to a parent (Epic / Feature)
-python3 "$PLUGIN/scripts/create_tickets.py" --parent PPS-327
-```
-
-## Step 5 — keep the local logs current
+## Step 4 — keep the local logs current
 
 Acquia keeps **30 days** of historical log data. If you wait until
 day 31 to backfill, you've lost day 1. Pull early, pull often:
@@ -179,6 +110,8 @@ becomes useful.
   product. They live in git history at the `drover-1.51.2` tag if
   you need them. v2.0 is batch-mode log analysis only.
 - **Auto-fix / triage agents** — also v1.
+- **Filing JIRA tickets** — reports recommend tickets; people file them.
+  Ticket creation was removed in drover 4.0 and can come back if needed.
 - **Non-Drupal/Acquia platforms** — Sitecore, .NET, Azure MCP, New
   Relic come in 2.x.
 - **Traffic / access logs** — only application-error types
@@ -194,9 +127,6 @@ becomes useful.
 | `notification ended with status=failed` | Acquia transient; the next `--backfill` will retry. |
 | Coverage stuck at 0% | The pull skill exits non-zero on creds failure. Check the cron log. |
 | Report missing days | Run `--backfill` to fill gaps; the report's coverage banner shows what's missing. |
-| `JIRA credential resolution failed` (create-tickets) | Set `JIRA_API_TOKEN`; ensure `~/.config/.jira/.config.yml` has `server:` + `login:`, OR add `server`/`email` to the manifest's `jira:` block. |
-| `manifest.jira.project_key not set` | Hand-edit the manifest to add the `jira:` block (see Step 1.5). |
-| `The issue type selected is invalid` | Check available types with `jira project view <KEY>` or via Atlassian's REST `/rest/api/2/project/<KEY>`; update `default_issue_type` in the manifest. |
 
 ## Next
 

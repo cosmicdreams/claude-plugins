@@ -1,5 +1,17 @@
 # drover Changelog
 
+## 4.0.0 — reports only, no JIRA client
+
+**Breaking: `/drover:create-tickets` is removed.** drover is a report creator
+working from downloaded logs; filing tickets belonged to the old live-monitoring
+design and was never used.
+
+- Delete the `create-tickets` skill, `scripts/create_tickets.py`, `scripts/jira_api.py`,
+  and their tests. drover no longer reads `JIRA_API_TOKEN` or jira-cli's config files.
+- Reports still recommend JIRA tickets, and the `.tickets.json` sidecar keeps its
+  stable shape so a ticket skill can be added back later without changing reports.
+- A manifest `jira:` block is now ignored.
+
 ## 3.0.0 — hardening on the 2.3 signal tiers
 
 ### Compatibility and migration

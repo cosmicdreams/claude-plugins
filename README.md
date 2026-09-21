@@ -76,7 +76,7 @@ Skills: `config`, `deploy-post`, `obsidian-lint`, `organize`, `personal-calendar
 ### `drover`
 Automated Drupal error monitoring and self-healing pipeline. Watches logs, triages errors into curated Beads tickets, autonomously implements fixes in isolated git worktrees, notifies on ready-for-review.
 
-Skills: `acquia-pull`, `create-tickets`, `init`, `report`
+Skills: `acquia-pull`, `init`, `report`
 
 ### `research-lab`
 Composable research pipeline built around seven knowledge-work verbs: frame, gather, understand, synthesize, interrogate, experiment, teach.
