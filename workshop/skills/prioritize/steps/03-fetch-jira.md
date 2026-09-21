@@ -88,7 +88,10 @@ Classify each change:
 Fetch your assigned workload **per project**. Run this once for each key in PROJECTS:
   twg --site {SITE} jira workitem query --jql "project = {PROJECT} AND assignee = currentUser() AND statusCategory != Done" --fields key,summary,status,priority,updated,duedate,issuelinks --limit 100 -o json --output-summary none
 
-Retrieve all pages. A failed query is an error, never an empty/quiet project. Do not
+And the deadline set, so a due or overdue issue is never lost to paging or the detail budget:
+  twg --site {SITE} jira workitem query --jql "project = {PROJECT} AND assignee = currentUser() AND statusCategory != Done AND duedate <= endOfDay()" --fields key,summary,status,priority,duedate --limit 100 -o json --output-summary none
+
+Retrieve all pages of both. A failed query is an error, never an empty/quiet project. Do not
 limit deadline discovery to the detail budget or first page.
 
 Keep `project = {PROJECT}` in every query: per-project counts depend on it, and without it
