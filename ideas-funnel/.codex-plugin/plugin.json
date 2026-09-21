@@ -1,6 +1,6 @@
 {
   "name": "ideas-funnel",
-  "version": "2.0.0",
+  "version": "2.1.0",
   "description": "Passive knowledge capture pipeline.",
   "author": {
     "name": "Chris Weber"
@@ -12,6 +12,8 @@
     "longDescription": "Local skills for ingesting, linting, querying, and scheduling a personal knowledge-capture pipeline.",
     "developerName": "Chris Weber",
     "category": "Productivity",
-    "capabilities": ["Write"]
+    "capabilities": [
+      "Write"
+    ]
   }
 }

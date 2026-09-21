@@ -1,3 +1,4 @@
 {
-    "description": "Retro plugin hooks. SubagentStop interview hook removed in 4.0.0 — interviews are collected inline via the sprint Workflow schema."
+    "description": "Retro plugin hooks. SubagentStop interview hook removed in 4.0.0 \u2014 interviews are collected inline via the sprint Workflow schema.",
+    "hooks": {}
 }

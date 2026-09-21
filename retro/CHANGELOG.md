@@ -1,5 +1,8 @@
 # Changelog
 
+## 4.0.2
+- Give `hooks/hooks.json` an empty `hooks` object. It had only a description since 4.0.0, which fails `claude plugin validate`.
+
 ## 4.0.1 — 2026-09-14
 - Shrink all 4 skill descriptions to a routing-sufficient summary; the full trigger-phrase detail moves into each SKILL.md body under `## When to use`, where it loads on invocation instead of sitting in context every session.
 - Saves roughly 1,093 characters (~273 est. tokens) of always-resident context.
