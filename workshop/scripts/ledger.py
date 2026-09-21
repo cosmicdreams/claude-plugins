@@ -11,7 +11,7 @@ Files (under --data-dir, default ~/.claude):
 Event schema (validated on append):
   id           required  source-native identifier, e.g. "outlook:conversation:X:message:Y"
   source       required  outlook | slack | jira | zoom | calendar | git
-  kind         required  email | message | comment | transition | meeting | meeting_summary | commit | meta
+  kind         required  email | message | comment | transition | meeting | meeting_summary | commit | session | meta
   occurred_at  required  ISO 8601 UTC
   observed_at  required  ISO 8601 UTC (stamped automatically if absent)
   actor        required  self | other
@@ -35,7 +35,7 @@ import tempfile
 from datetime import datetime, timezone
 
 REQUIRED = ("id", "source", "kind", "occurred_at", "actor", "provenance", "summary")
-SOURCES = {"outlook", "slack", "jira", "zoom", "calendar", "git"}
+SOURCES = {"outlook", "slack", "jira", "zoom", "calendar", "git", "claude"}
 ACTORS = {"self", "other"}
 PROVENANCE = {"self", "untrusted"}
 

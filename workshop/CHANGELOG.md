@@ -12,6 +12,19 @@
   and safe, filterable Velir HTML from the same result. On-demand artifacts live under
   data_path; ambient runs never replace them. No loop behavior or typo alias changes.
 - Add deterministic offline ranking, retention, schema/rendering and artifact tests.
+- **sync**: new source `claude` — Claude Code session timestamps per project directory, clustered
+  with 30-minute gap splits; the only duration source besides the calendar. Closes "the recap only
+  counts meetings." Jira fetch hardened: maxResults 25, markdown format, minimal fields, nextPageToken
+  paging (a 50-issue week overflowed 250k characters). Outlook ids switched to internetMessageId
+  (search results carry no conversation id). Slack channel-id one-time resolution cached in config.
+- **recap**: session clusters render as hours alongside calendar; closing **proposed allocation
+  table** (union of meetings and sessions per project per day, double-booked slots counted once and
+  flagged, Chris corrects and commits every number). Attribution rules are now **source-scoped** —
+  a cross-source match misfiled internal commits under a client on the first live run; that error
+  class is now structurally impossible. `subject_keywords` attribute sent mail. Display-noise filter
+  for marketing/newsletters/Mavenlink notifications (ledger keeps them; render suppresses).
+- **scripts/ledger.py**: `claude` source, `session` kind.
+- Config schema: `project_map.*.claude_dirs`, `project_map.*.subject_keywords`.
 
 ## 2.2.0
 - prioritize now ranks committed work first: each Jira item is tagged sprint, release, or backlog, and issues assigned long ago but never planned into a sprint no longer outrank current commitments.
