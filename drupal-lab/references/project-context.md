@@ -21,6 +21,9 @@ context from `~/.claude/drupal-lab.json` rather than using hardcoded paths.
    - `ddev_prefix` — DDEV project name prefix (e.g. `drupal` → `drupal-3456789`)
    - `drupal_org_username` — for MR URLs and contribution comments (falls back to `drupal_org.username`)
    - `gitlab_remote` — git remote for pushing to Drupal.org (falls back to `drupal_org.gitlab_remote`)
+   - `jira_site` — twg site prefix for the project's Atlassian site (`velir` for `velir.atlassian.net`)
+   - `jira_project` — Jira project key the team-flow skills query (`AHRIPS`). If either Jira
+     field is missing, ask the user and suggest adding it to `drupal-lab.json`.
 
 ## Example
 

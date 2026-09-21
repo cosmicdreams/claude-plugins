@@ -82,17 +82,13 @@ set a `SLACK_TOKEN` env var or use `agent-slack auth` with a token directly.
 
 | Dependency | macOS | Linux sandbox | Auth |
 |---|---|---|---|
-| jira-cli | `brew install ankitpokhrel/jira-cli/jira-cli` | Download binary from GitHub releases or `go install github.com/ankitpokhrel/jira-cli/cmd/jira@latest` | `jira init` |
+| twg | `curl -fsSL --retry 2 https://teamwork-graph.atlassian.com/cli/install | bash` | Same script | `twg login` |
 
-**Linux install (no Go):**
-```bash
-# Download latest release binary
-JIRA_VERSION=$(curl -s https://api.github.com/repos/ankitpokhrel/jira-cli/releases/latest | grep tag_name | cut -d '"' -f4)
-curl -sL "https://github.com/ankitpokhrel/jira-cli/releases/download/${JIRA_VERSION}/jira_$(echo ${JIRA_VERSION} | tr -d v)_linux_x86_64.tar.gz" | tar xz
-sudo mv jira /usr/local/bin/jira
-```
+Installs to `~/.local/bin/twg`. `twg update` applies required updates.
 
-**Auth:** `jira init` requires Jira server URL, email, and API token interactively.
+**Auth:** `twg login` opens a browser for OAuth. In a sandbox without a browser, or for a
+site outside the OAuth organization, export `TWG_USER`, `TWG_TOKEN` (an Atlassian API
+token), `TWG_SITE`, and a separate `TWG_CONFIG_DIR`.
 
 ---
 
@@ -149,7 +145,7 @@ Combines dependencies from jira + slack:
 
 | Dependency | macOS | Linux sandbox | Auth |
 |---|---|---|---|
-| jira-cli | See lib:jira | See lib:jira | `jira init` |
+| twg | See lib:jira | See lib:jira | `twg login` |
 | agent-slack | `npm i -g agent-slack` | `npm i -g agent-slack` | See deploy-post |
 | python3 | Pre-installed | Pre-installed | — |
 
@@ -307,7 +303,7 @@ pip install pandas matplotlib seaborn --break-system-packages
 ### Homebrew (macOS only)
 ```bash
 brew install gh imagemagick pngquant webp libavif libjpeg \
-  ankitpokhrel/jira-cli/jira-cli 1password-cli ddev/ddev/ddev \
+  1password-cli ddev/ddev/ddev \
   acquia/tools/acli hyperfine
 ```
 
@@ -317,5 +313,5 @@ sudo apt update && sudo apt install -y \
   imagemagick pngquant webp libjpeg-turbo-progs
 # gh — see special install instructions above
 # libavif-bin — if available on your Ubuntu version
-# jira-cli — download binary, see above
+# twg — install script, see lib:jira above
 ```

@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.3.0
+- Move `lib:jira` from jira-cli to Atlassian's twg CLI: JSON output, cursor paging, every project in the site instead of jira-cli's single default project.
+- Add time logging (`twg jira workitem worklog add`) to `lib:jira`.
+- Add the `twg-attribution-guard.sh` PreToolUse hook: blocks any twg write whose text credits an agent (Claude, AI-generated, co-author trailers, robot emoji). Everything written to Atlassian reads as the user's own work.
+
 ## 1.2.1
 - Shrink all 17 skill descriptions to a routing-sufficient summary; the full trigger-phrase detail moves into each SKILL.md body under `## When to use`, where it loads on invocation instead of sitting in context every session.
 - Saves roughly 7,210 characters (~1,802 est. tokens) of always-resident context.

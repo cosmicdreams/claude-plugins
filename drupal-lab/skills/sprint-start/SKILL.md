@@ -24,7 +24,7 @@ by design — running this skill again rebuilds it.
 
 - `~/.claude/drupal-lab.json` exists and the current project is *not* opted out
   of team flow (`team_flow.enabled: false` disables it; default is on).
-- `jira` CLI is configured for this project's board (`/opt/homebrew/bin/jira`).
+- `twg` signed in (`twg login`); the project resolves `jira_site` and `jira_project` (see `drupal-lab/references/project-context.md`).
 - Working tree is clean on `main` (no uncommitted changes).
 
 ## Inputs
@@ -45,9 +45,10 @@ opted out via `team_flow.enabled: false`. See
 If the user did not supply a name:
 
 ```bash
-jira sprint list --state active --plain --no-headers --columns ID,NAME
+twg --site <JIRA_SITE> jira board sprints query --project <JIRA_PROJECT> --state active -o json --output-summary none
 ```
 
+Sprints are in `.data.sprints[]` (`id`, `name`, `startDate`, `endDate`).
 If there are multiple active sprints, ask the user which one. If there are
 zero, stop and tell the user to start a sprint in JIRA first.
 
@@ -58,9 +59,12 @@ The branch is `sprint/<slug>`.
 ### 3. Fetch the expected ticket set
 
 ```bash
-jira issue list --jql "sprint = <SPRINT_ID>" --plain --no-headers --no-truncate \
-  --columns TYPE,KEY,SUMMARY,STATUS
+twg --site <JIRA_SITE> jira workitem query --jql "sprint = <SPRINT_ID>" \
+  --fields issuetype,key,summary,status --limit 100 -o json --output-summary none
 ```
+
+Rows are in `.data.issues[]`. While `.pageInfo.hasNextPage` is true, rerun with
+`--after <.pageInfo.nextCursor>` so a large sprint is never truncated.
 
 Capture the rows. This is the manifest of what *should* end up merged into the
 sprint branch. We don't enforce it; we just record it for `drupal-lab:branch-audit`.

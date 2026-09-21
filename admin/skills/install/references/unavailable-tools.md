@@ -68,10 +68,6 @@ environment. The only potential issues:
 - **Fix:** `/bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"`
 - Everything else depends on this.
 
-### Go toolchain (for jira-cli from source)
-- **Used by:** lib:jira (only if installing from source)
-- **Workaround:** Use `brew install ankitpokhrel/jira-cli/jira-cli` instead.
-
 ---
 
 ## Windows (Future TODO)

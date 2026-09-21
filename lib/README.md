@@ -9,7 +9,7 @@ CLI wrappers and tool integrations. Each skill teaches Claude how to correctly u
 | Skill | Tool | Purpose |
 |---|---|---|
 | `lib:slack` | `slack` CLI | Read channels, fetch messages, search conversations |
-| `lib:jira` | `jira-cli` | Browse, create, and update Jira issues |
+| `lib:jira` | `twg` | Browse, comment on, transition, and log time on Jira issues |
 | `lib:github` | `gh` | Manage GitHub PRs, issues, and repos |
 | `lib:testrail` | `trcli` | Read projects, suites, test plans, and cases |
 | `lib:ddev` | `ddev` | Start/stop DDEV environments and run drush/composer/phpunit inside containers |

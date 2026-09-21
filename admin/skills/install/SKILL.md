@@ -44,14 +44,14 @@ Group installs by package manager:
 1. System packages (apt/brew)
 2. Python packages (`pip install --break-system-packages` on Linux)
 3. npm global packages
-4. Standalone CLIs (jira-cli via binary download or `go install`)
+4. Standalone CLIs (twg via Atlassian's install script)
 
 Capture exit codes. Print a summary table after the batch completes:
 
 ```
 ✓ agent-slack     npm i -g agent-slack        installed
 ⚠ gws             npm i -g @googleworkspace/cli  installed — needs auth
-✗ jira-cli        (see notes)                 failed — needs Go toolchain
+✗ twg             (see notes)                 failed — installer download blocked
 ⊘ pngquant        not available on Linux      unavailable
 ```
 
@@ -65,7 +65,7 @@ Some tools need post-install authentication. Never attempt auth automatically �
 agent-slack    →  agent-slack auth import-desktop
 gh             →  gh auth login
 gws            →  gws auth setup  (first time) or  gws auth login
-jira           →  jira init  (needs server URL + API token)
+twg            →  twg login  (browser sign-in)
 ```
 
 For secret-based tools: `export TESTRAIL_API_KEY="..."` and `export CF_API_TOKEN="..."`.

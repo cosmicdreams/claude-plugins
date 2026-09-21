@@ -10,7 +10,7 @@ External CLI tools required by CLAUDE-PLUGINS. Not every plugin needs every tool
 | [obsidian CLI](#obsidian-cli) | sprint, retro, ideate, drupal-lab, lib, workshop, ideas-funnel, research-lab | see below |
 | [gh (GitHub CLI)](#gh-github-cli) | lib | `brew install gh` |
 | [gws (Google Workspace CLI)](#gws-google-workspace-cli) | workshop | `npm i -g @googleworkspace/cli` |
-| [jira-cli](#jira-cli) | lib, workshop | `brew install ankitpokhrel/jira-cli/jira-cli` |
+| [twg](#twg) | lib, workshop, drupal-lab | `curl -fsSL --retry 2 https://teamwork-graph.atlassian.com/cli/install | bash` |
 | [agent-slack](#agent-slack) | lib, workshop | `npm i -g agent-slack` |
 | [ddev](#ddev) | drupal-lab, drover, lib | see below |
 | [acli (Acquia CLI)](#acli-acquia-cli) | drover, lib | see below |
@@ -98,18 +98,21 @@ Follow the setup prompts to connect a Google account. Requires a Google Cloud pr
 
 ---
 
-## jira-cli
+## twg
 
-Jira issue and sprint management.
+Atlassian's official Teamwork Graph CLI: Jira, Confluence, Bitbucket, and Rovo search.
+Replaces jira-cli.
 
 ```bash
-brew install ankitpokhrel/jira-cli/jira-cli
-jira init
+curl -fsSL --retry 2 https://teamwork-graph.atlassian.com/cli/install | bash
+twg login
 ```
 
-Run `jira init` in your project directory to connect to your Jira instance. Requires a Jira API token.
+`twg login` signs in through the browser (OAuth) and covers every site in your Atlassian
+organization. A site owned by another organization needs API-token auth — see
+`workshop:config`. Enriched and Rovo commands can spend Rovo credits; plain Jira reads do not.
 
-**Used by:** lib (`jira`), workshop (`prioritize`)
+**Used by:** lib (`jira`), workshop (`prioritize`, `config`), drupal-lab (`sprint-start`, `release-cut`, `branch-audit`)
 
 ---
 

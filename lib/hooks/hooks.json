@@ -1,0 +1,17 @@
+{
+    "description": "Blocks twg writes that would credit an agent instead of the user.",
+    "hooks": {
+        "PreToolUse": [
+            {
+                "matcher": "Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "${CLAUDE_PLUGIN_ROOT}/hooks/twg-attribution-guard.sh",
+                        "timeout": 10
+                    }
+                ]
+            }
+        ]
+    }
+}
