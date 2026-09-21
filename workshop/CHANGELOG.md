@@ -1,17 +1,7 @@
 # Changelog
 
-## 2.3.0
-- Move `prioritize` Jira collection and the Jira health check from jira-cli to twg. Queries keep `project = KEY` in the JQL and follow every page.
-- `config` records Jira servers as twg sites: `site`, `auth` (`oauth` or `api-token`), and `login`. Sites outside the OAuth organization use API-token auth in an isolated `TWG_CONFIG_DIR`. `config_file` is now legacy.
-- Consolidate prioritize on the existing sprint/release/backlog policy: discover Jira
-  due-today/overdue obligations, preserve them alongside RESPOND/UNBLOCK through all
-  display quotas, and compute quiet projects across delta and attention passes.
-- Add Slack unread/DM human filtering and timestamp-aware urgency; repair Google
-  Calendar REST-shaped commands, timezone windows, pagination and failure handling.
-- Rank once with an offline Python helper and derive terminal, uncapped JSON snapshot,
-  and safe, filterable Velir HTML from the same result. On-demand artifacts live under
-  data_path; ambient runs never replace them. No loop behavior or typo alias changes.
-- Add deterministic offline ranking, retention, schema/rendering and artifact tests.
+## 2.4.0
+- **prioritize**: restore the explicit `duedate <= endOfDay()` deadline query per project, lost in the 2.3.0 twg move, so due and overdue issues never depend on paging or the detail budget.
 - **sync**: new source `claude` — Claude Code session timestamps per project directory, clustered
   with 30-minute gap splits; the only duration source besides the calendar. Closes "the recap only
   counts meetings." Jira fetch hardened: maxResults 25, markdown format, minimal fields, nextPageToken
@@ -25,6 +15,19 @@
   for marketing/newsletters/Mavenlink notifications (ledger keeps them; render suppresses).
 - **scripts/ledger.py**: `claude` source, `session` kind.
 - Config schema: `project_map.*.claude_dirs`, `project_map.*.subject_keywords`.
+
+## 2.3.0
+- Move `prioritize` Jira collection and the Jira health check from jira-cli to twg. Queries keep `project = KEY` in the JQL and follow every page.
+- `config` records Jira servers as twg sites: `site`, `auth` (`oauth` or `api-token`), and `login`. Sites outside the OAuth organization use API-token auth in an isolated `TWG_CONFIG_DIR`. `config_file` is now legacy.
+- Consolidate prioritize on the existing sprint/release/backlog policy: discover Jira
+  due-today/overdue obligations, preserve them alongside RESPOND/UNBLOCK through all
+  display quotas, and compute quiet projects across delta and attention passes.
+- Add Slack unread/DM human filtering and timestamp-aware urgency; repair Google
+  Calendar REST-shaped commands, timezone windows, pagination and failure handling.
+- Rank once with an offline Python helper and derive terminal, uncapped JSON snapshot,
+  and safe, filterable Velir HTML from the same result. On-demand artifacts live under
+  data_path; ambient runs never replace them. No loop behavior or typo alias changes.
+- Add deterministic offline ranking, retention, schema/rendering and artifact tests.
 
 ## 2.2.0
 - prioritize now ranks committed work first: each Jira item is tagged sprint, release, or backlog, and issues assigned long ago but never planned into a sprint no longer outrank current commitments.
