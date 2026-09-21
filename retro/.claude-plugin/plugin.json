@@ -1,6 +1,6 @@
 {
     "name": "retro",
-    "version": "4.0.0",
+    "version": "4.0.1",
     "description": "Sprint retrospective: structured interview schema in Workflow output, session analysis, action cards, and retrospective kanban board.",
     "author": {
         "name": "Chris Weber"
