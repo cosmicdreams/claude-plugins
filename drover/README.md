@@ -2,29 +2,26 @@
 
 > Drupal/Acquia application-error log analysis. Pulls historical logs by
 > date, fingerprints + diagnoses errors, renders monthly reports
-> stakeholders can read, and files JIRA tickets through whatever JIRA
-> mechanism the team prefers (Atlassian MCP, direct REST, or
-> plan-only / jira-cli).
+> stakeholders can read, and recommends JIRA tickets for people to file.
 
 ## What 2.0 is
 
-A small pipeline of four skills that runs in Claude Code:
+A small pipeline of three skills that runs in Claude Code:
 
 ```
 /drover:init            Discover this project's Acquia config; write manifest
 /drover:acquia-pull     Pull application-error logs by date into <project>/<year>/<month>/
 /drover:report          Render monthly HTML/Markdown reports and final PDFs
-/drover:create-tickets  File the report's recommended tickets in JIRA
 ```
 
 CLI-first. Pure stdlib Python. No dashboard, no daemon, no kanban
-board. Run it when you want, get a report and (optionally) JIRA
-tickets.
+board. Run it when you want, get a report.
 
 ## What 2.0 is not
 
 - Not a monitoring tool (no live tail, no SSE, no alerts)
 - Not auto-fixing anything (no implementer agent)
+- Not a JIRA client — reports recommend tickets; people file them
 - Not a UI product — the artifact is markdown (open it in any editor,
   GitHub, JIRA, email, Claude Desktop)
 - Not multi-platform yet — Drupal/Acquia only. Sitecore / .NET /
@@ -39,12 +36,10 @@ the v1 features are carried forward in any form.
 
 ```bash
 acli auth:login                                        # one-time: register Acquia API creds
-export JIRA_API_TOKEN=...                              # optional: enables /drover:create-tickets direct-REST mode
 cd /path/to/your/drupal/project
 /drover:init                                           # discover config, write .drover/manifest.json
 /drover:acquia-pull --backfill                         # populate the last 30 days
 /drover:report --month 2026-04 --template root-cause-summary  # render April's stakeholder report
-/drover:create-tickets --plan reports/2026-04.plan.json       # (optional) hand off to JIRA
 ```
 
 ## Folder layout
@@ -119,8 +114,7 @@ Renders a markdown report for one calendar month. Five templates:
   for windowed analysis (campaign launches, holiday boundaries).
 - **`triage-brief`** — dev-facing detail per fingerprint with raw
   sample lines.
-- **`jira-ready`** — paste-blocks for JIRA's create-issue dialog when
-  `/drover:create-tickets` isn't appropriate.
+- **`jira-ready`** — paste-blocks for JIRA's create-issue dialog.
 
 Stakeholder templates (`monthly-client`, `root-cause-summary`,
 `calendar-boundary`) carry a Velir logo + 2025 brand palette and emit
@@ -147,31 +141,6 @@ Final PDF conversion is supported through installed Chrome, Chromium, or Edge
 with `render-html/render-pdf.mjs`. Safari and Firefox printing are manual
 fallbacks. See `render-html/PDF.md` for the browser support matrix and delivery
 checks.
-
-### `/drover:create-tickets`
-
-Reads a sidecar JSON (one ticket spec per top issue from
-`/drover:report`) and creates JIRA issues. Drover stays neutral about
-the JIRA execution mechanism — three paths share the same stable plan
-schema:
-
-- **Atlassian MCP** — Claude calls `mcp__*atlassian*` /
-  `mcp__*jira*` tools directly. Drover writes a plan; Claude reads it
-  and invokes the matching MCP tools. No shared API token needed.
-- **Direct REST** — drover's built-in executor talks to Atlassian
-  Cloud's REST API. Needs `JIRA_API_TOKEN` in the env.
-- **Plan-only** — drover writes the plan; the operator runs the
-  writes themselves with jira-cli, the web UI, or custom tooling.
-
-Per-ticket sprint assignment + parent linking are best-effort: if
-either fails, the issue is still created and the failure is captured
-in a results sidecar as `created-partial`, with a nonzero exit status.
-Rerunning the same sidecar reuses the existing issue and retries only
-recorded unfinished operations, using their original destinations rather
-than current sprint/parent defaults. Older partial rows without structured
-retry information remain partial for manual reconciliation; they are not
-silently promoted to success. This is not transactional or exactly-once
-execution: interrupted runs and concurrent executors still require care.
 
 ## How it gets logs
 
@@ -242,9 +211,7 @@ next report.
 | HTML render | `render-html/render.mjs` | Discovered Handlebars templates + reusable components → self-contained HTML |
 | PDF delivery | `render-html/render-pdf.mjs` | Chrome/Chromium/Edge print pipeline → final PDF |
 | Synthesize (future) | `scripts/report_writer.py` + `agents/report-writer.md` | LLM prose on top of the deterministic report |
-| JIRA REST | `scripts/jira_api.py` | Stdlib Atlassian Cloud client |
 | Ticket recs | `scripts/jira_recs.py` | Spec generator (title, priority, labels, description) |
-| Create tickets | `scripts/create_tickets.py` | Three execution paths (MCP / REST / plan) |
 
 ## Tests
 
@@ -253,7 +220,7 @@ python3 -m unittest discover -s drover/tests/python -p 'test_*.py'
 ```
 
 292 tests across 14 modules. The HTTP-touching suites
-(`test_acquia_log_download`, `test_init`, `test_jira_api`) use stub
+(`test_acquia_log_download`, `test_init`) use stub
 HTTP servers; nothing in the suite contacts a real Acquia or
 Atlassian endpoint. Live verification scripts under `/tmp/recon-*.py`
 are not part of CI.
