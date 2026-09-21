@@ -24,7 +24,7 @@ the current scope.
 
 - `~/.claude/drupal-lab.json` exists and the current project is not opted out
   of team flow (`team_flow.enabled: false` disables it; default is on).
-- `jira` CLI configured.
+- `twg` signed in (`twg login`); the project resolves `jira_site` and `jira_project` (see `drupal-lab/references/project-context.md`).
 - Working tree clean on `main`.
 - Each linked feature ticket has a corresponding `features/<KEY>` or
   `features/<descriptive-slug>` branch in the repo. The mapping rules are
@@ -44,10 +44,10 @@ no project matches or if the matched project has `team_flow.enabled: false`.
 ### 2. Fetch the release ticket
 
 ```bash
-jira issue view <RELEASE_KEY> --plain --comments 0
+twg --site <JIRA_SITE> jira workitem get <RELEASE_KEY> --fields summary,fixVersions -o json --output-summary none
 ```
 
-Confirm the ticket exists and capture its summary. Extract its `Fix Version/s`
+Confirm the ticket exists (`.data[0]`) and capture its summary. Extract its `fixVersions`
 field if present — that's the release name we'll slugify (preferred over the
 ticket summary, since the same fix version may span multiple release-prep
 tickets in JIRA).
@@ -59,10 +59,12 @@ The branch is `release/<slug>`.
 ### 3. Discover linked feature tickets
 
 ```bash
-jira issue list --jql "issue in linkedIssues(<RELEASE_KEY>)" \
-  --plain --no-headers --no-truncate \
-  --columns TYPE,KEY,SUMMARY,STATUS
+twg --site <JIRA_SITE> jira workitem query --jql "issue in linkedIssues(<RELEASE_KEY>)" \
+  --fields issuetype,key,summary,status --limit 100 -o json --output-summary none
 ```
+
+Rows are in `.data.issues[]`. While `.pageInfo.hasNextPage` is true, rerun with
+`--after <.pageInfo.nextCursor>` so a large sprint is never truncated.
 
 This returns every issue linked to the release ticket regardless of link
 direction. Filter to types the team treats as deliverable work — typically

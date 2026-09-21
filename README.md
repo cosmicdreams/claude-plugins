@@ -4,7 +4,7 @@ A collection of [Claude Code](https://claude.ai/code) plugins covering team spri
 
 ## Dependencies
 
-Several plugins require external CLI tools (Beads, Obsidian CLI, GitHub CLI, jira-cli, ddev, etc.).
+Several plugins require external CLI tools (Beads, Obsidian CLI, GitHub CLI, twg, ddev, etc.).
 
 **→ See [DEPENDENCIES.md](./DEPENDENCIES.md) for the full install guide.**
 

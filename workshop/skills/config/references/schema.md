@@ -15,8 +15,10 @@ Full schema for `~/.claude/workshop.json`.
         {
           "name": "string",
           "url": "string",
+          "site": "twg site prefix",
           "projects": ["PROJECTKEY"],
-          "config_file": "default | path to a jira-cli config yml",
+          "auth": "oauth | api-token",
+          "login": "account email (api-token only)",
           "default": true
         }
       ]
@@ -89,12 +91,11 @@ Legacy `~/.claude/office-pulse.json` fields map as follows:
 |---|---|---|
 | `name` | yes | Referenced by `projects[].jira`. The schema previously called this `alias`; the running config uses `name`. |
 | `url` | yes | Server base URL, for display only. |
-| `projects` | yes | Project keys to query. **Every jira-cli query must pass `--project`** — without it the CLI falls back to the single `project` key in its config file and silently reports one project as the whole workload. |
-| `config_file` | no | Path to a jira-cli config yml, or `"default"`. Set this for any server that is not the one jira-cli was initialized against; consumers export it as `JIRA_CONFIG_FILE`. A second server is unreachable without it. |
-
-Discovery hint: jira-cli configs live in `~/.config/.jira/`. The default is `.config.yml`;
-additional servers are conventionally `.config-<name>.yml`. Probe that directory rather than
-assuming a single server exists.
+| `site` | yes | twg site prefix (`velir` for `https://velir.atlassian.net`). Consumers pass it as `--site` or `TWG_SITE`. |
+| `projects` | yes | Project keys to query. twg has no default project, so a query without `project = KEY` spans the whole site. |
+| `auth` | no | `"oauth"` (default) uses the `twg login` session, which covers only sites in the user's Atlassian organization. `"api-token"` is for any other site: consumers export `TWG_CONFIG_DIR=~/.config/twg-<name>`, `TWG_USER=<login>`, `TWG_TOKEN="$JIRA_API_TOKEN"` and `TWG_SITE=<site>` in a subshell. The isolated config directory keeps the OAuth session intact. |
+| `login` | with api-token | Account email for API-token auth. The token itself stays in `JIRA_API_TOKEN` and is never stored here. |
+| `config_file` | legacy | jira-cli config path from before the twg migration. Ignored. |
 
 ### Legacy mapping
 

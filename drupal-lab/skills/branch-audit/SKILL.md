@@ -26,7 +26,7 @@ guessing.
 
 - `~/.claude/drupal-lab.json`, current project not opted out via
   `team_flow.enabled: false` (default is on).
-- `jira` CLI configured.
+- `twg` signed in (`twg login`); the project resolves `jira_site` and `jira_project` (see `drupal-lab/references/project-context.md`).
 - Local repo has fetched recent state (`git fetch origin --prune`).
 
 ## Inputs
@@ -53,7 +53,7 @@ Look for `.drupal-lab/sprints/<slug>.json` or `.drupal-lab/releases/<slug>.json`
 If neither exists, the branch was not created via the team-flow skills.
 Continue without a manifest — derive the JIRA side by parsing the branch name:
 
-- `sprint/<slug>` → query `jira sprint list` for a sprint whose slugified name matches `<slug>`
+- `sprint/<slug>` → query `twg --site <JIRA_SITE> jira board sprints query --project <JIRA_PROJECT> -o json --output-summary none` for a sprint whose slugified name matches `<slug>`
 - `release/<slug>` → ask the user for the release ticket key (we can't infer it)
 
 Tell the user we proceeded without a manifest and recommend rerunning
@@ -63,17 +63,18 @@ Tell the user we proceeded without a manifest and recommend rerunning
 
 **Sprint:**
 ```bash
-jira issue list --jql "sprint = <SPRINT_ID>" \
-  --plain --no-headers --no-truncate \
-  --columns TYPE,KEY,SUMMARY,STATUS
+twg --site <JIRA_SITE> jira workitem query --jql "sprint = <SPRINT_ID>" \
+  --fields issuetype,key,summary,status --limit 100 -o json --output-summary none
 ```
 
 **Release:**
 ```bash
-jira issue list --jql "issue in linkedIssues(<RELEASE_KEY>)" \
-  --plain --no-headers --no-truncate \
-  --columns TYPE,KEY,SUMMARY,STATUS
+twg --site <JIRA_SITE> jira workitem query --jql "issue in linkedIssues(<RELEASE_KEY>)" \
+  --fields issuetype,key,summary,status --limit 100 -o json --output-summary none
 ```
+
+Rows are in `.data.issues[]`. While `.pageInfo.hasNextPage` is true, rerun with
+`--after <.pageInfo.nextCursor>` so a large sprint is never truncated.
 
 Filter to deliverable types (`Story`, `Task`, `Bug`).
 

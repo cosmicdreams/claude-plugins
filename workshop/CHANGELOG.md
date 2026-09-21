@@ -1,7 +1,8 @@
 # Changelog
 
-## Unreleased
-
+## 2.3.0
+- Move `prioritize` Jira collection and the Jira health check from jira-cli to twg. Queries keep `project = KEY` in the JQL and follow every page.
+- `config` records Jira servers as twg sites: `site`, `auth` (`oauth` or `api-token`), and `login`. Sites outside the OAuth organization use API-token auth in an isolated `TWG_CONFIG_DIR`. `config_file` is now legacy.
 - Consolidate prioritize on the existing sprint/release/backlog policy: discover Jira
   due-today/overdue obligations, preserve them alongside RESPOND/UNBLOCK through all
   display quotas, and compute quiet projects across delta and attention passes.

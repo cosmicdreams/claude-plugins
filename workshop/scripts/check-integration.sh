@@ -87,13 +87,13 @@ _check_gws() {
 }
 
 _check_jira() {
-  if ! command -v jira &>/dev/null; then
-    echo "jira CLI not found on \$PATH — install with: brew install jira-cli"
+  if ! command -v twg &>/dev/null; then
+    echo "twg CLI not found on \$PATH — install from https://developer.atlassian.com/cloud/twg-cli/"
     return 1
   fi
   local out
-  if ! out=$(jira me 2>&1); then
-    echo "jira auth failed: ${out}"
+  if ! out=$(twg whoami 2>&1) || [[ "$out" != *"Account ID"* ]]; then
+    echo "twg auth failed (run: twg login): ${out}"
     return 1
   fi
   return 0

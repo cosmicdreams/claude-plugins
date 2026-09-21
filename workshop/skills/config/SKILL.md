@@ -39,11 +39,11 @@ See `references/schema.md` for the full JSON schema.
 Probe silently. Do not ask the user anything yet.
 
 ```bash
-for tool in agent-slack jira gh gws rg obsidian trcli; do
+for tool in agent-slack twg gh gws rg obsidian trcli; do
   command -v $tool &>/dev/null && echo "$tool: $(command -v $tool)" || echo "$tool: not found"
 done
 gh auth status 2>&1 | head -3 || echo "gh: not authenticated"
-jira me 2>&1 | head -2 || echo "jira: not authenticated"
+twg whoami 2>&1 | grep -E "Email|error" || echo "twg: not authenticated — run: twg login"
 [ -f ~/.claude/workshop.json ] && cat ~/.claude/workshop.json
 [ -f ~/.claude/office-pulse.json ] && echo "legacy office-pulse.json found"
 ```
@@ -54,32 +54,34 @@ For each tool found, gather the details. Skip tools not present.
 
 **Slack** (if `agent-slack` is available): Ask which workspaces the user uses; which is the default. Parse into `integrations.slack.workspaces[]`.
 
-**Jira** (if `jira` is available): Auto-detect **every** configured server, not just the default.
-jira-cli supports one server per config file, so a second Jira instance always means a second
-config file. Probe the whole directory:
-```bash
-ls ~/.config/.jira/*.yml 2>/dev/null
-for f in ~/.config/.jira/*.yml; do
-  echo "--- $f"
-  grep -E "^server:|^project:|^  key:" "$f" 2>/dev/null | head -5
-done
-```
-`.config.yml` is the default server; any `.config-<name>.yml` is an additional one.
+**Jira** (if `twg` is available): twg signs in once with the user's Atlassian account (OAuth)
+and reaches every site in that account's Atlassian organization. A site owned by a different
+organization — a client's own Atlassian — is refused with "Site ... is not in the Atlassian
+organization associated with your OAuth token" and needs API-token auth instead.
 
-For each server found, record:
-- `name` — from the file suffix (`.config-acu.yml` → `acu`), or `velir`-style from the URL host for the default
-- `url` — the `server:` value
-- `config_file` — `"default"` for `.config.yml`, otherwise the full path
-- `projects` — ask the user which project keys they work in on that server; the config file's
-  own `project.key` is only the CLI default, not the full list
+Ask which Atlassian sites the user works in. Any existing jira-cli configs in
+`~/.config/.jira/*.yml` are a good hint: each `server:` line is one site.
 
-Verify each server independently before writing it:
+For each site, record:
+- `name` — short label, e.g. `velir` or `acu`
+- `url` — `https://<site>.atlassian.net`
+- `site` — the twg site prefix, `<site>` from the URL
+- `projects` — ask which project keys they work in on that site
+- `auth` — `"oauth"` (default) or `"api-token"` for a site outside the OAuth organization
+- `login` — account email; required for `"api-token"`
+
+Verify each site before writing it:
 ```bash
-JIRA_CONFIG_FILE=<path> jira issue list -p<KEY> -q "assignee = currentUser()" --plain --no-headers 2>&1 | head -3
+# oauth
+twg --site <site> jira workitem query --jql "project = <KEY> AND assignee = currentUser()" --fields key --limit 3 -o json --output-summary none
+# api-token: isolated config dir, token from JIRA_API_TOKEN (never written to workshop.json)
+(export TWG_CONFIG_DIR=~/.config/twg-<name> TWG_USER=<login> TWG_TOKEN="$JIRA_API_TOKEN" TWG_SITE=<site>
+ mkdir -p "$TWG_CONFIG_DIR"
+ twg jira workitem query --jql "project = <KEY> AND assignee = currentUser()" --fields key --limit 3 -o json --output-summary none)
 ```
-A server that fails here should still be written, with a note — the user needs to see it exists
-and is broken rather than have it silently missing. Omitting `config_file` is the common cause of
-a second server being invisible to `workshop:prioritize`.
+If an OAuth check fails with the organization error, switch that site to `"api-token"` and
+retry. A site that still fails should be written with a note — the user needs to see it exists
+and is broken rather than have it silently missing.
 
 **GitHub** (if `gh` is authenticated): No further questions — `gh` uses the authenticated account automatically. Set `integrations.github.available: true`.
 

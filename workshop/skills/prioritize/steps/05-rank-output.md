@@ -185,7 +185,7 @@ NEXT → [{action}] {source}: {summary}
  Quiet: #pncb-support, #massport-support
  No items needing attention: KDRRCPS, PPS
  (work email/calendar: not connected)
- ⚠ ACU Jira not configured — run: jira init --config ~/.config/jira/acu.yml
+ ⚠ ACU Jira unreachable — check the acu site in workshop:config (api-token auth needs JIRA_API_TOKEN)
 
 ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
 ```

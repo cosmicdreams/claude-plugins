@@ -33,19 +33,30 @@ Do NOT comment on issues, transition statuses, or write to Jira in any way.
 
 SERVER_NAME: {server.name}
 SERVER_URL: {server.url}
-JIRA_CONFIG_FILE: {server.config_file, or "default"}
+SITE: {server.site}
+AUTH: {server.auth, or "oauth"}
+LOGIN: {server.login, or "n/a"}
 PROJECTS: {server.projects}
 LAST_RUN_DATE: {last_run_date}
 
-If JIRA_CONFIG_FILE is not "default", export it before running any jira commands:
-  export JIRA_CONFIG_FILE={server.config_file}
+All Jira access is through the twg CLI, read-only verbs only (query, get).
+Query results are in `.data.issues[]`; `get` results are in `.data[]`.
+
+If AUTH is "api-token", run every twg command inside one subshell that first exports:
+  export TWG_CONFIG_DIR=~/.config/twg-{SERVER_NAME} TWG_USER={LOGIN} TWG_TOKEN="$JIRA_API_TOKEN" TWG_SITE={SITE}
+  mkdir -p "$TWG_CONFIG_DIR"
+and drop `--site` (TWG_SITE covers it). Never print the token.
+
+Paging: a query returns at most `--limit` issues (use 100). While `.pageInfo.hasNextPage`
+is true, repeat the same query with `--after <.pageInfo.nextCursor>`. Every "retrieve all"
+below means follow every page.
 
 **Pass 0 — Scope (committed work):**
 For each project, collect the issue keys that are in an open sprint:
-  jira issue list --project {PROJECT} -q "sprint in openSprints() AND assignee = currentUser() AND statusCategory != Done" --plain --no-headers
+  twg --site {SITE} jira workitem query --jql "project = {PROJECT} AND sprint in openSprints() AND assignee = currentUser() AND statusCategory != Done" --fields key --limit 100 -o json --output-summary none
 
 And the keys in an unreleased fix version:
-  jira issue list --project {PROJECT} -q "fixVersion in unreleasedVersions() AND assignee = currentUser() AND statusCategory != Done" --plain --no-headers
+  twg --site {SITE} jira workitem query --jql "project = {PROJECT} AND fixVersion in unreleasedVersions() AND assignee = currentUser() AND statusCategory != Done" --fields key --limit 100 -o json --output-summary none
 
 Build two key sets: SPRINT_KEYS and RELEASE_KEYS. Every item emitted by later passes
 gets a `scope` field:
@@ -53,25 +64,20 @@ gets a `scope` field:
   - "release"  — key is in RELEASE_KEYS but not SPRINT_KEYS
   - "backlog"  — key is in neither
 
-Notes on these queries, verified against jira-cli:
+Notes on these queries:
   - `sprint in openSprints()` is board-independent, so it works for every project.
-    Do NOT use `jira sprint list --current` — that resolves the board from the config
-    file's `board.id` and silently returns nothing for any other project.
+    Do not look up the active sprint through a board.
   - Both queries return Done and Archived issues unless you include
     `statusCategory != Done`. Always include it.
-  - Do NOT append `ORDER BY` to `-q`; jira-cli adds its own and the query 400s.
-  - A project with no sprints or no versions returns "No result found" on stderr with
-    a non-zero exit. Treat that as an empty set, not an error.
+  - A project with no sprints or no versions returns an empty `.data.issues`. Treat that
+    as an empty set, not an error. An `.error` object is an error.
 
 **Pass 1 — Delta (overnight changes):**
 For each project, fetch issues updated since LAST_RUN_DATE:
-  jira issue list --project {PROJECT} --updated ">{LAST_RUN_DATE}" --plain
+  twg --site {SITE} jira workitem query --jql 'project = {PROJECT} AND updated >= "{LAST_RUN_DATE}" ORDER BY updated DESC' --fields key,summary,status,assignee,updated --limit 100 -o json --output-summary none
 
-If zero results, retry using `-q 'updated >= "{LAST_RUN_DATE}"'` with the same
-project before concluding the delta is empty (some CLI versions mishandle --updated).
-
-For each updated issue (up to 5 per project), fetch details:
-  jira issue view {ISSUE_KEY} --plain
+For the updated issues (up to 5 per project), fetch details with comments in one call:
+  twg --site {SITE} jira workitem get {KEY_1} {KEY_2} ... --comments -o json --output-summary none
 
 Classify each change:
   - RESPOND — new comment directed at you, or you were newly assigned
@@ -80,17 +86,13 @@ Classify each change:
 
 **Pass 2 — Attention (standing obligations):**
 Fetch your assigned workload **per project**. Run this once for each key in PROJECTS:
-  jira issue list --project {PROJECT} -q "assignee = currentUser() AND statusCategory != Done" --columns "key,summary,status,priority,updated,duedate" --plain --no-headers
+  twg --site {SITE} jira workitem query --jql "project = {PROJECT} AND assignee = currentUser() AND statusCategory != Done" --fields key,summary,status,priority,updated,duedate,issuelinks --limit 100 -o json --output-summary none
 
-Retrieve all pages. If this CLI does not support the due-date column, retry without it
-and separately query each project with `-q "assignee = currentUser() AND
-statusCategory != Done AND duedate <= endOfDay()"`; view those issues for exact dates.
-A failed query is an error, never an empty/quiet project. Do not limit deadline discovery
-to the detail budget or first page.
+Retrieve all pages. A failed query is an error, never an empty/quiet project. Do not
+limit deadline discovery to the detail budget or first page.
 
-Never run this query without `--project`. jira-cli falls back to the `project` key in
-the config file (a single project), so an unscoped query silently reports one project's
-issues as if they were the whole workload.
+Keep `project = {PROJECT}` in every query: per-project counts depend on it, and without it
+the query spans the whole site.
 
 From your assigned issues, identify items that need attention TODAY:
   - DUE — unfinished assigned issue with due_date <= TODAY in the user's local timezone.
@@ -137,7 +139,7 @@ budget must not suppress a known mandatory obligation.
     Return unplanned_backlog_by_project for every successfully counted project,
     including zero counts, using "{server_name}:{PROJECT}" keys. Never infer these
     counts from attention-only candidates. Display suppression is computed in step 5.
-  - If jira CLI is not configured for this server, set error and return empty items.
+  - If twg is missing or cannot authenticate for this site, set error and return empty items.
 
 Return ONLY valid JSON (no markdown):
 {
@@ -159,8 +161,9 @@ Return ONLY valid JSON (no markdown):
 If a server subagent fails entirely, treat it as:
 `{ "server_name": "...", "error": "subagent failed", "items": [], "quiet_projects": [] }`
 
-If `jira` is not installed or auth fails, set `error` to the message and return
-empty items. Include a hint about what to configure.
+If `twg` is not installed or auth fails, set `error` to the message and return
+empty items. Include a hint: `twg login` for an OAuth site, or `JIRA_API_TOKEN` and the
+`login` field for an api-token site (see `workshop:config`).
 
 ## Merge results
 

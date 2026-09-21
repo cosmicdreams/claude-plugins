@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.1.0
+- Move `sprint-start`, `release-cut`, and `branch-audit` from jira-cli to twg.
+- Project context gains `jira_site` and `jira_project`, replacing jira-cli's implicit default board.
+
 ## 3.0.0 — 2026-06-10
 
 **Breaking: agent collapse from 7 to 2.**
