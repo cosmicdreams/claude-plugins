@@ -51,6 +51,9 @@ admin/skills/bump-version/scripts/bump-version.sh <plugin> <bump-type>
 ```
 
 The script prints the before/after version and every file it modifies.
+It then runs `admin/scripts/sync-codex-manifests.sh`, which copies the new version into
+each `.codex-plugin/plugin.json`. After merging a pull request that bumped a plugin by hand,
+run `admin/scripts/sync-codex-manifests.sh --check` and sync if it reports drift.
 
 ### 3. Update CHANGELOG.md
 

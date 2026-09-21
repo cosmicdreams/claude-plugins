@@ -1,0 +1,19 @@
+{
+  "name": "test-lab",
+  "version": "0.2.1",
+  "description": "Manual test corpus to Playwright suite.",
+  "author": {
+    "name": "Chris Weber"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Test Lab",
+    "shortDescription": "Turn manual tests into Playwright",
+    "longDescription": "Local skills that convert a manual test corpus, such as TestRail cases, into an automated Playwright suite.",
+    "developerName": "Chris Weber",
+    "category": "Development",
+    "capabilities": [
+      "Write"
+    ]
+  }
+}

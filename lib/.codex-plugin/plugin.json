@@ -1,0 +1,27 @@
+{
+  "name": "lib",
+  "version": "1.3.0",
+  "description": "CLI wrapper skills for office tooling.",
+  "author": {
+    "name": "Chris Weber"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "slack",
+    "jira",
+    "github",
+    "vault",
+    "utilities"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Lib",
+    "shortDescription": "CLI wrapper utility skills",
+    "longDescription": "Local utility skills for Slack, Jira, GitHub, TestRail, vault operations, DDEV, logs, CSVs, accessibility, Lighthouse, and file utilities.",
+    "developerName": "Chris Weber",
+    "category": "Productivity",
+    "capabilities": [
+      "Write"
+    ]
+  }
+}

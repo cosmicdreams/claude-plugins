@@ -1,0 +1,27 @@
+{
+  "name": "workshop",
+  "version": "2.3.0",
+  "description": "Process automation and personal productivity skills.",
+  "author": {
+    "name": "Chris Weber"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "automation",
+    "workshop",
+    "obsidian",
+    "productivity"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Workshop",
+    "shortDescription": "Personal process automation",
+    "longDescription": "Local skills for prioritization, knowledge scouting, knowledge checks, deploy follow-up, Obsidian maintenance, calendar, email, and organization workflows.",
+    "developerName": "Chris Weber",
+    "category": "Productivity",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ]
+  }
+}

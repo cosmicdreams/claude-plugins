@@ -1,0 +1,19 @@
+{
+  "name": "design-lab",
+  "version": "0.13.0",
+  "description": "Figma component library builder.",
+  "author": {
+    "name": "Chris Weber"
+  },
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Design Lab",
+    "shortDescription": "Build a Figma library from code",
+    "longDescription": "Local skills that detect, inventory, and plan components and tokens from a codebase, then build and verify a matching Figma component library.",
+    "developerName": "Chris Weber",
+    "category": "Design",
+    "capabilities": [
+      "Write"
+    ]
+  }
+}

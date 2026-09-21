@@ -1,0 +1,26 @@
+{
+  "name": "drupal-lab",
+  "version": "3.1.0",
+  "description": "Drupal-specific development skills and agents.",
+  "author": {
+    "name": "Chris Weber"
+  },
+  "license": "UNLICENSED",
+  "keywords": [
+    "drupal",
+    "ddev",
+    "phpunit",
+    "phpcs"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Drupal Lab",
+    "shortDescription": "Drupal development workflows",
+    "longDescription": "Drupal-specific development skills for DDEV, analysis, issue work, patch validation, module development, release work, and performance measurement.",
+    "developerName": "Chris Weber",
+    "category": "Development",
+    "capabilities": [
+      "Write"
+    ]
+  }
+}
