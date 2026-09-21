@@ -1,0 +1,164 @@
+{
+  "name": "claude-local",
+  "interface": {
+    "displayName": "Claude Local"
+  },
+  "plugins": [
+    {
+      "name": "sprint",
+      "source": {
+        "source": "local",
+        "path": "./sprint"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Development"
+    },
+    {
+      "name": "retro",
+      "source": {
+        "source": "local",
+        "path": "./retro"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Development"
+    },
+    {
+      "name": "ideate",
+      "source": {
+        "source": "local",
+        "path": "./ideate"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Development"
+    },
+    {
+      "name": "admin",
+      "source": {
+        "source": "local",
+        "path": "./admin"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Development"
+    },
+    {
+      "name": "drupal-lab",
+      "source": {
+        "source": "local",
+        "path": "./drupal-lab"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Development"
+    },
+    {
+      "name": "lib",
+      "source": {
+        "source": "local",
+        "path": "./lib"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "workshop",
+      "source": {
+        "source": "local",
+        "path": "./workshop"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "drover",
+      "source": {
+        "source": "local",
+        "path": "./drover"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Development"
+    },
+    {
+      "name": "research-lab",
+      "source": {
+        "source": "local",
+        "path": "./research-lab"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Research"
+    },
+    {
+      "name": "improve",
+      "source": {
+        "source": "local",
+        "path": "./improve"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Development"
+    },
+    {
+      "name": "ideas-funnel",
+      "source": {
+        "source": "local",
+        "path": "./ideas-funnel"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Productivity"
+    },
+    {
+      "name": "design-lab",
+      "source": {
+        "source": "local",
+        "path": "./design-lab"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Design"
+    },
+    {
+      "name": "test-lab",
+      "source": {
+        "source": "local",
+        "path": "./test-lab"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Development"
+    }
+  ]
+}

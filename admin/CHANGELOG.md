@@ -1,5 +1,9 @@
 # Changelog
 
+## 3.0.3
+- Add `admin/scripts/sync-codex-manifests.sh`: copies each plugin's version into its `.codex-plugin/plugin.json` and checks that every plugin has a Codex manifest and a Codex marketplace entry. `--check` reports drift without writing.
+- `bump-version.sh` runs the sync after every bump, so Claude and Codex manifests can no longer drift apart.
+
 ## 3.0.2
 - Install maps list twg instead of jira-cli.
 - Add `test-lab` to the bump and reinstall script plugin lists.

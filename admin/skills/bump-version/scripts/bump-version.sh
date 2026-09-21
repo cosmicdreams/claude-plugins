@@ -160,3 +160,6 @@ else
     fi
     bump_plugin "$PLUGIN" "$BUMP_TYPE"
 fi
+
+# Keep Codex manifests in step with the Claude manifests just bumped.
+"$REPO_ROOT/admin/scripts/sync-codex-manifests.sh" "$REPO_ROOT"
