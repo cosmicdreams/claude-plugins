@@ -144,6 +144,17 @@ ${cssVariables(tokens)}
   --color-severity-info-text: #CBD5E1;
   --color-severity-unknown-bg: #334155;
   --color-severity-unknown-text: #94A3B8;
+  /* Categorical series, re-selected against the dark surface (#0E0F12)
+     rather than lightened from the light steps. Slot N is the same hue
+     family in both modes, so toggling the theme never changes which
+     series a colour means. Validated: band PASS, chroma PASS,
+     CVD 15.3 deutan / 19.1 tritan. */
+  --color-series-1: #417DFC;
+  --color-series-2: #B08F00;
+  --color-series-3: #009AD5;
+  --color-series-4: #B40039;
+  --color-series-5: #00AD5C;
+  --color-series-other: #7A8896;
 }
 
 /* Dark mode is opt-in via the toggle (data-theme="dark"), never applied
@@ -452,6 +463,160 @@ p { margin: 0 0 var(--space-md) 0; }
   transform: translateY(0);
 }
 
+/* ── Donut: part-to-whole ────────────────────────────────────────── */
+.chart-donut {
+  display: grid;
+  grid-template-columns: minmax(140px, 200px) 1fr;
+  gap: var(--space-xl);
+  align-items: center;
+  margin: var(--space-md) 0 var(--space-xl);
+}
+.chart-donut__svg { width: 100%; height: auto; transform: rotate(-90deg); }
+.chart-donut__seg {
+  fill: transparent;
+  stroke-width: 5.5;
+  /* No animation: a PDF snapshot must show final geometry, not a frame
+     part-way through a transition. */
+}
+.chart-donut__total {
+  transform: rotate(90deg);
+  transform-origin: center;
+  font-family: var(--font-metric-family);
+  font-size: 6px;
+  font-weight: 600;
+  fill: var(--color-text-strong);
+}
+.chart-donut__total-label {
+  transform: rotate(90deg);
+  transform-origin: center;
+  font-family: var(--font-label-family);
+  font-size: 2.4px;
+  letter-spacing: var(--font-label-tracking);
+  text-transform: uppercase;
+  fill: var(--color-text-muted);
+}
+.chart-donut__legend { display: flex; flex-direction: column; gap: var(--space-sm); margin: 0; }
+.chart-donut__legend-row {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  gap: var(--space-sm);
+  align-items: baseline;
+  font-size: var(--font-body-sm-size);
+}
+.chart-donut__legend-label { color: var(--color-text); }
+.chart-donut__legend-value { color: var(--color-text-strong); font-variant-numeric: tabular-nums; }
+.chart-donut__legend-share { color: var(--color-text-muted); }
+
+/* ── Line: trend over time ───────────────────────────────────────── */
+.chart-line { margin: var(--space-md) 0 var(--space-xl); }
+.chart-line__title {
+  font-family: var(--font-h3-family);
+  font-size: var(--font-h3-size);
+  color: var(--color-text-strong);
+  margin-bottom: var(--space-sm);
+}
+.chart-line__svg { width: 100%; height: auto; overflow: visible; }
+.chart-line__grid { stroke: var(--color-border); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.chart-line__path {
+  stroke-width: 2;
+  stroke-linejoin: round;
+  stroke-linecap: round;
+  vector-effect: non-scaling-stroke;
+}
+/* A 2px surface ring keeps overlapping markers legible where series cross. */
+.chart-line__marker { stroke: var(--color-surface); stroke-width: 2; }
+.chart-line__axis {
+  display: flex;
+  justify-content: space-between;
+  margin-top: var(--space-xs);
+  font-family: var(--font-mono-family);
+  font-size: var(--font-mono-size);
+  color: var(--color-text-muted);
+}
+.chart-line__note {
+  margin: var(--space-xs) 0 0;
+  font-size: var(--font-body-sm-size);
+  color: var(--color-text-muted);
+}
+
+/* ── Legend row (shared) ─────────────────────────────────────────── */
+.legend-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-lg);
+  margin: var(--space-sm) 0 var(--space-lg);
+  font-size: var(--font-body-sm-size);
+  color: var(--color-text-muted);
+}
+.legend-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 3px;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* ── Day series: one bar per day across a month ──────────────────── */
+.daybar {
+  display: grid;
+  grid-template-columns: 5.5em 1fr 4.5em;
+  gap: var(--space-sm);
+  align-items: center;
+  margin: 3px 0;
+  font-size: var(--font-body-sm-size);
+}
+.daybar__label { color: var(--color-text-soft); font-family: var(--font-mono-family); font-size: var(--font-mono-size); }
+.daybar__track { background: var(--color-surface-alt); height: 16px; border-radius: var(--rounded-sm); overflow: hidden; }
+.daybar__fill { background: var(--color-series-1); height: 100%; }
+.daybar__fill--spike { background: var(--color-series-2); }
+.daybar__value { color: var(--color-text-muted); text-align: right; font-variant-numeric: tabular-nums; }
+:root[data-theme="dark"] .daybar__track { background: var(--color-border); }
+
+/* ── Executive summary / incident brief ──────────────────────────── */
+.incident-brief {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-top: 3px solid var(--color-secondary);
+  border-radius: var(--rounded-lg);
+  padding: var(--space-xl);
+  margin: 0 0 var(--space-xxl);
+}
+.incident-brief__eyebrow {
+  text-transform: uppercase;
+  letter-spacing: .08em;
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--color-secondary);
+  margin: 0 0 var(--space-sm);
+}
+.incident-brief__headline {
+  font-size: 1.4rem;
+  font-weight: 600;
+  color: var(--color-text-strong);
+  line-height: 1.3;
+  margin: 0 0 var(--space-lg);
+}
+.incident-brief__row {
+  display: grid;
+  grid-template-columns: 130px 1fr;
+  gap: var(--space-lg);
+  padding: var(--space-sm) 0;
+  border-top: 1px solid var(--color-border);
+  align-items: baseline;
+}
+.incident-brief__label {
+  text-transform: uppercase;
+  letter-spacing: .05em;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--color-text-muted);
+}
+.incident-brief__value { color: var(--color-text-strong); line-height: 1.45; }
+@media (max-width: 640px) {
+  .incident-brief__row { grid-template-columns: 1fr; gap: var(--space-xs); }
+}
+
 .ticket-card {
   background: var(--color-tint-blue);
   border-left: 4px solid var(--color-primary);
@@ -630,6 +795,14 @@ p { margin: 0 0 var(--space-md) 0; }
     --color-severity-info-text: ${sev.infoText || c["severity-info"]};
     --color-severity-unknown-bg: ${sev.unknownBg || c["surface-alt"]};
     --color-severity-unknown-text: ${sev.unknownText || c["severity-unknown"]};
+    /* Series marks too — a dark-exported PDF must print the light steps,
+       which are the ones validated against a white surface. */
+    --color-series-1: ${c["series-1"]};
+    --color-series-2: ${c["series-2"]};
+    --color-series-3: ${c["series-3"]};
+    --color-series-4: ${c["series-4"]};
+    --color-series-5: ${c["series-5"]};
+    --color-series-other: ${c["series-other"]};
   }
 
   /* ── Page chrome ───────────────────────────────────────────────── */

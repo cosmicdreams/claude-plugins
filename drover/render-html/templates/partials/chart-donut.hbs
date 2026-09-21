@@ -1,0 +1,44 @@
+{{!--
+  Part-to-whole. Expects `segments` from the `donutSegments` helper, which
+  does the arc maths so the template stays declarative.
+
+  A donut rather than a pie: the hole carries the total, and an arc is easier
+  to compare than a wedge at these proportions. Use it for a handful of
+  segments read at a glance — for close values, or more than ~6 categories,
+  a stacked or plain bar is the honest form and this partial is the wrong
+  choice.
+
+  Every segment is direct-labelled in the legend with its value and share,
+  which is what discharges the sub-3:1 contrast of gold and cyan against a
+  white surface: identity never rests on colour alone. Segment labels are
+  channel names parsed from log content and are escaped by Handlebars; the
+  slot, dash, gap, and offset values are renderer-generated numbers.
+--}}
+<figure class="chart-donut">
+  <svg class="chart-donut__svg" viewBox="0 0 42 42" role="img"
+       aria-label="{{title}}{{#each segments}} · {{this.label}} {{this.share}}%{{/each}}">
+    <title>{{title}}</title>
+    <desc>{{#each segments}}{{this.label}} {{this.value}} ({{this.share}}%){{#unless @last}}; {{/unless}}{{/each}}</desc>
+    {{#each segments}}
+    <circle class="chart-donut__seg" cx="21" cy="21" r="15.915"
+            stroke="var(--color-series-{{this.slot}})"
+            stroke-dasharray="{{this.dash}} {{this.gap}}"
+            stroke-dashoffset="{{this.offset}}">
+      <title>{{this.label}}: {{this.value}} ({{this.share}}%)</title>
+    </circle>
+    {{/each}}
+    {{#if centerValue}}
+    <text class="chart-donut__total" x="21" y="21.4" text-anchor="middle">{{centerValue}}</text>
+    <text class="chart-donut__total-label" x="21" y="25.2" text-anchor="middle">{{centerLabel}}</text>
+    {{/if}}
+  </svg>
+  <figcaption class="chart-donut__legend">
+    {{#each segments}}
+    <div class="chart-donut__legend-row">
+      <span class="legend-dot" style="background: var(--color-series-{{this.slot}})" aria-hidden="true"></span>
+      <span class="chart-donut__legend-label">{{this.label}}</span>
+      <span class="chart-donut__legend-value">{{this.value}} <span class="chart-donut__legend-share">({{this.share}}%)</span></span>
+    </div>
+    {{/each}}
+  </figcaption>
+</figure>

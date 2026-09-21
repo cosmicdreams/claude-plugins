@@ -56,6 +56,9 @@ triple braces only for trusted renderer output such as `{{{css}}}`.
 | `coverage-banner` | Prominent incomplete-data warning | `coverageLow`, `coverage`, `message` |
 | `metric-card` | Headline number and optional explanation | `label`, `value`, `hint`, `modifier` |
 | `chart-bar` | Accessible horizontal comparison bar | `label`, `value`, `share`, `width`, `severity`, `accent` |
+| `chart-line` | Static SVG trend over time with real-text axis and peak note | `line=(lineChart series)`, `title` |
+| `chart-donut` | Part-to-whole ring with a direct-labelled legend | `segments=(donutSegments items minShare=1)`, `title`, `centerValue`, `centerLabel` |
+| `incident-brief` | Lead summary: headline plus label/value rows | `eyebrow`, `headline`, `rows` |
 | `callout-card` | Emphasized prose or recommendation | `title`, `text`, `modifier` |
 | `head-theme-init` | Flash-free theme initialization | none |
 | `theme-toggle-button` | Accessible light/dark toggle | none |
@@ -97,6 +100,17 @@ also exposes three SVG helpers used by `cloudflare-summary`:
 - `{{{svgAreaChart data.daily}}}` — `[{date, bytes, cached_bytes}]`
 - `{{{svgWaffle data.bot_classes}}}` — `{machine_learning, verified_bot,
   heuristics, not_computed}` values
+
+For application-error reports, prefer the escaped pair of helper plus partial
+used by `monthly-client`. Both helpers return plain data — numbers and
+number-derived strings — and the partial escapes every label:
+
+- `(lineChart series)` — `series` is `[{label, slot, points: [{label, value}]}]`
+  or a bare `[{label, value}]` array; returns `null` with no points, so wrap
+  the partial in `{{#if}}`.
+- `(donutSegments items minShare=1)` — `items` is `[{label, value}]`; sorts by
+  value, folds anything past five slots or under `minShare` percent into
+  "Other", and returns `[]` when the total is zero.
 
 These helpers are useful reference implementations for donut, time-series area,
 and 100-cell composition charts. Wrap complex graphs in `<figure>` with a
