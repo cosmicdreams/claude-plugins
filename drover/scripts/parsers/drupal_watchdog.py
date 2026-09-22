@@ -20,6 +20,26 @@ from typing import Iterator
 
 from .common import iter_nonempty_lines, parse_syslog_ts
 
+# --- Optional Jev severity for events the log gives none -------------------
+#
+# The default syslog format carries no severity, and _infer_severity only
+# knows a handful of channels. When parse() is given a jev_client module,
+# events still marked `unknown` are classified by Jev — one Choice per
+# distinct (channel, message), most frequent first, up to a cap — and a
+# confident answer replaces `unknown`. Severity the log or channel table
+# already gave is never overridden. Without Jev the parser is unchanged.
+# Starting thresholds; tune against real watchdog logs.
+SEVERITY_CONFIDENCE_THRESHOLD = 0.7
+MAX_SEVERITY_LOOKUPS = 100
+SEVERITY_CRITERIA = {
+    "critical": "The site or the request failed outright: fatal errors, crashes, data loss",
+    "error": "An operation failed or an exception was raised, but the site kept running",
+    "warning": "Something unexpected that did not fail: deprecated usage, a recoverable problem, a retry",
+    "notice": "A normal but significant event: access denied, a login, a configuration change",
+    "info": "Routine informational logging: cron ran, a cache was cleared, a page was not found",
+}
+_MESSAGE_KEY_CHARS = 400
+
 
 # "Apr  3 00:00:33 drupal-7fc4d489c7-98l2f pncb: <pipe-delimited message>"
 _HEADER = re.compile(
@@ -82,7 +102,7 @@ def _split_pipe_message(body: str) -> dict:
     }
 
 
-def parse(text: str, *, day_hint: date | None = None) -> Iterator[dict]:
+def _parse_lines(text: str, *, day_hint: date | None = None) -> Iterator[dict]:
     """Yield one event per logical entry, folding continuation lines.
 
     Drupal logs embedded SQL queries and PHP stack traces with literal
@@ -148,3 +168,75 @@ def parse(text: str, *, day_hint: date | None = None) -> Iterator[dict]:
 
     if pending is not None:
         yield pending
+
+
+def _classify_unknown_severities(events: list[dict], jev, jev_stats: dict | None) -> None:
+    """Fill `unknown` severities in place with confident Jev answers."""
+    by_key: dict[tuple, list[dict]] = {}
+    for ev in events:
+        if ev.get("severity") == "unknown" and ev.get("message"):
+            key = (ev.get("channel"), ev["message"][:_MESSAGE_KEY_CHARS])
+            by_key.setdefault(key, []).append(ev)
+    if not by_key:
+        return
+
+    ranked = sorted(by_key.items(), key=lambda kv: len(kv[1]), reverse=True)
+    asked = ranked[:MAX_SEVERITY_LOOKUPS]
+    items = {
+        str(n): {"channel": channel, "message": message}
+        for n, ((channel, message), _) in enumerate(asked)
+    }
+    question = {
+        "severity": {
+            "type": "choice",
+            "instructions": "Which severity would Drupal's logger have assigned "
+                            "to this watchdog entry?",
+            "criteria": dict(SEVERITY_CRITERIA),
+        },
+    }
+    response = jev.ask_items(items, question)
+
+    def tally(record: dict) -> None:
+        if jev_stats is None:
+            return
+        jev_stats.setdefault("jev", 0)
+        jev_stats.setdefault("fallback", 0)
+        jev_stats[record["source"]] += 1
+        if record.get("model"):
+            jev_stats["model"] = record["model"]
+
+    for n, (_, group) in enumerate(asked):
+        result = response["results"].get(str(n)) or {"ok": False, "reason": response["reason"]}
+        if result["ok"]:
+            record = jev.choice_verdict(
+                result["answers"]["severity"],
+                threshold=SEVERITY_CONFIDENCE_THRESHOLD, model=response["model"],
+            )
+            if record["source"] == "jev" and not record["confident"]:
+                record = {**record, "source": "fallback", "reason": "low_confidence"}
+        else:
+            record = jev.fallback(result["reason"])
+        tally(record)
+        for ev in group:
+            if record["source"] == "jev":
+                ev["severity"] = record["choice"]
+            ev.setdefault("fields", {})["severity_source"] = record["source"]
+            ev["fields"]["severity_jev"] = record
+    for _, group in ranked[MAX_SEVERITY_LOOKUPS:]:
+        tally(jev.fallback("lookup_cap"))
+        for ev in group:
+            ev.setdefault("fields", {})["severity_source"] = "fallback"
+
+
+def parse(
+    text: str, *, day_hint: date | None = None, jev=None, jev_stats: dict | None = None,
+) -> Iterator[dict]:
+    """Yield parsed events. With `jev` (a jev_client module) the stream is
+    buffered so `unknown` severities can be classified in batches first;
+    without it the parser streams exactly as before."""
+    if jev is None:
+        yield from _parse_lines(text, day_hint=day_hint)
+        return
+    events = list(_parse_lines(text, day_hint=day_hint))
+    _classify_unknown_severities(events, jev, jev_stats)
+    yield from events

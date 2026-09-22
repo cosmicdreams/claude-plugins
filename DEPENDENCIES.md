@@ -22,6 +22,7 @@ External CLI tools required by CLAUDE-PLUGINS. Not every plugin needs every tool
 | [pa11y](#pa11y) | lib, improve | `npm i -g pa11y` |
 | [hyperfine](#hyperfine) | lib, improve | `brew install hyperfine` |
 | [jq / yq](#jq--yq) | drover, ideas-funnel, lib | `brew install jq yq` |
+| [TypeSafe API key (optional)](#typesafe-api-key-optional) | drover, ideas-funnel, test-lab, workshop | `export TYPESAFE_API_KEY=...` |
 
 ---
 
@@ -263,3 +264,24 @@ brew install jq yq
 ```
 
 **Used by:** drover (scripts), ideas-funnel (`ingest`, `lint`), lib (various)
+
+---
+
+## TypeSafe API key (optional)
+
+[TypeSafe](https://docs.typesafe.ai)'s Jev model returns typed judgments (a choice, a
+yes/no probability, a score) that several skills use as an added layer: test-case triage,
+raw-item ranking and dedup, scout relevance, prioritize action classification, and drover's
+severity, cause-collapse, and ticket-worthiness calls. No package to install — each plugin
+ships a standard-library client (`scripts/jev_client.py`) that talks to the HTTP API.
+
+```bash
+export TYPESAFE_API_KEY=...     # from console.typesafe.ai; put it in ~/.zshrc
+export JEV_DISABLED=1           # opt out without removing the key
+```
+
+Everything works without the key: every skill falls back to its previous behavior and
+records each verdict's source as `fallback` with a reason. Calls cost fractions of a cent
+and are text only.
+
+**Used by:** drover (`report`), ideas-funnel (`ingest`), test-lab (`ingest`), workshop (`scout`, `prioritize`)

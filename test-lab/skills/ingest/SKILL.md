@@ -52,6 +52,24 @@ the estimate honest.
 | human judgement | "looks correct", visual comparison, design match |
 | out of scope | belongs to a subsystem not under test |
 
+**Let Jev take the clear cases first.** When `TYPESAFE_API_KEY` is set (and
+`JEV_DISABLED` is not `1`), TypeSafe's Jev model answers one Choice per case
+over the table above. Write the cases as JSON — `id`, `title`, `steps`,
+`expected`, `preconditions`, `section` — plus a one-sentence `scope`
+describing the system under test, and run:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/triage_cases.py" < cases.json > triage.json
+```
+
+Every verdict names its source. `"source": "jev"` carries the bucket, the
+model version, the confidence, and the threshold it cleared (0.8 to start;
+tune in the script). `"source": "fallback"` carries a reason — no key,
+low confidence, a timeout — and you classify that case yourself from the
+table, exactly as before. When Jev is unavailable every case is fallback
+and nothing changes. Report the counts (`counts.jev` / `counts.fallback`)
+with the distribution so the reader knows how much was machine-sorted.
+
 Report the distribution and the priority spread. Expect roughly half to be
 automatable anonymously; expect a large authenticated block.
 

@@ -67,6 +67,32 @@ import charts  # noqa: E402
 import jira_recs  # noqa: E402
 from pull import find_drover_root  # noqa: E402
 
+# Optional Jev judgments (TypeSafe System One). When TYPESAFE_API_KEY is
+# set and JEV_DISABLED is not "1", the report gains three added layers —
+# severity for watchdog events the log left unknown, a merge gate on
+# cause collapse, and a ticket-worthiness annotation. Without Jev every
+# artifact is byte-identical to a run before Jev existed.
+_JEV_PATH = HERE / "jev_client.py"
+
+
+def resolve_jev(disabled: bool = False):
+    """Return the jev_client module when Jev can be used, else None."""
+    if disabled or not _JEV_PATH.exists():
+        return None
+    spec_j = importlib.util.spec_from_file_location("drover_jev_client", _JEV_PATH)
+    mod = importlib.util.module_from_spec(spec_j)
+    spec_j.loader.exec_module(mod)
+    return mod if mod.availability()[0] else None
+
+
+def _jev_footer(stats: dict) -> str:
+    return (
+        f"*Jev judgments: {stats.get('jev', 0)} from Jev, "
+        f"{stats.get('fallback', 0)} fallback"
+        + (f" ({stats['model']})" if stats.get("model") else "")
+        + ".*\n"
+    )
+
 
 KNOWN_TEMPLATES = (
     "monthly-client",
@@ -925,6 +951,7 @@ def generate_report(
     types: list[str] | None = None,
     prior_month_str: str | None = None,
     include_tickets: bool = True,
+    jev=None,
 ) -> tuple[str, dict, list]:
     """Returns (markdown_text, summary_dict, ticket_specs).
 
@@ -932,12 +959,17 @@ def generate_report(
     template supports JIRA recommendations and include_tickets is
     True; an empty list otherwise. The CLI layer writes a sidecar
     JSON file with these specs alongside the report.
+
+    `jev` is the jev_client module (see resolve_jev) or None. With it,
+    summary gains a "jev" block counting verdicts by source and the
+    markdown gains one footer line; without it nothing changes.
     """
     if template not in RENDERERS:
         raise ValueError(
             f"unknown template {template!r}; known: {sorted(RENDERERS)}"
         )
 
+    jev_stats: dict | None = {"jev": 0, "fallback": 0} if jev is not None else None
     manifest = load_manifest(project_root)
     project = manifest.get("project") or project_root.name
 
@@ -958,9 +990,11 @@ def generate_report(
         )
 
     from_d, to_d = parse_month(month)
+    # Jev only sees the report month; the prior month feeds count deltas.
     agg = _aggregate.aggregate_files(
         project_root, env=env, types=types,
         from_date=from_d, to_date=to_d,
+        jev=jev, jev_stats=jev_stats,
     )
 
     coverage_ledger = _aggregate.load_coverage(project_root)
@@ -994,10 +1028,15 @@ def generate_report(
     # `acquia_search` and `search_api` channels appears as ONE issue,
     # not two, and produces one JIRA ticket, not two.
     if template in ("root-cause-summary", "calendar-boundary"):
-        agg_for_render = {
-            **agg,
-            "groups": causes.collapse_by_cause(agg.get("groups", []) or []),
-        }
+        collapsed = causes.collapse_by_cause(
+            agg.get("groups", []) or [], jev=jev, jev_stats=jev_stats,
+        )
+        if jev is not None and include_tickets:
+            jira_recs.judge_worthiness(
+                collapsed, total_events=agg.get("events_total", 0),
+                jev=jev, jev_stats=jev_stats, top_n=5,
+            )
+        agg_for_render = {**agg, "groups": collapsed}
     else:
         agg_for_render = agg
 
@@ -1045,6 +1084,9 @@ def generate_report(
         "template": template,
         "ticket_count": len(ticket_specs),
     }
+    if jev_stats is not None:
+        summary["jev"] = jev_stats
+        md = md.rstrip("\n") + "\n" + _jev_footer(jev_stats)
     return md, summary, ticket_specs
 
 
@@ -1061,6 +1103,7 @@ def generate_data(
     types: list[str] | None = None,
     prior_month_str: str | None = None,
     include_tickets: bool = True,
+    jev=None,
 ) -> dict:
     """Build the structured aggregate that downstream renderers consume.
 
@@ -1085,9 +1128,11 @@ def generate_data(
         groups_collapsed: [...same groups collapsed by diagnosed cause,
                             for stakeholder rendering...],
         disappeared_from_prior: [...] (only when MoM data exists),
-        tickets: [...JIRA ticket specs (when include_tickets)...]
+        tickets: [...JIRA ticket specs (when include_tickets)...],
+        jev: {jev, fallback, model} (only when Jev ran)
       }
     """
+    jev_stats: dict | None = {"jev": 0, "fallback": 0} if jev is not None else None
     manifest = load_manifest(project_root)
     project = manifest.get("project") or project_root.name
 
@@ -1111,6 +1156,7 @@ def generate_data(
     agg = _aggregate.aggregate_files(
         project_root, env=env, types=types,
         from_date=from_d, to_date=to_d,
+        jev=jev, jev_stats=jev_stats,
     )
 
     coverage_ledger = _aggregate.load_coverage(project_root)
@@ -1143,11 +1189,17 @@ def generate_data(
         "supplementary_groups": supplementary_groups,
     }
 
-    groups_collapsed = causes.collapse_by_cause(agg.get("groups", []) or [])
+    groups_collapsed = causes.collapse_by_cause(
+        agg.get("groups", []) or [], jev=jev, jev_stats=jev_stats,
+    )
 
     tickets: list = []
     if include_tickets:
-        from dataclasses import asdict
+        if jev is not None:
+            jira_recs.judge_worthiness(
+                groups_collapsed, total_events=agg.get("events_total", 0),
+                jev=jev, jev_stats=jev_stats, top_n=5,
+            )
         specs = jira_recs.from_groups(
             groups_collapsed,
             project_slug=manifest.get("project") or project,
@@ -1156,7 +1208,7 @@ def generate_data(
             total_events=agg.get("events_total", 0),
             top_n=5,
         )
-        tickets = [asdict(s) for s in specs]
+        tickets = [jira_recs.spec_to_dict(s) for s in specs]
 
     def _make_json_safe(val):
         if isinstance(val, list):
@@ -1168,7 +1220,9 @@ def generate_data(
             return asdict(val)
         return val
 
+    jev_block = {"jev": jev_stats} if jev_stats is not None else {}
     return _make_json_safe({
+        **jev_block,
         "drover_schema_version": DROVER_DATA_SCHEMA_VERSION,
         "generated_at": datetime.now(timezone.utc).isoformat(
             timespec="seconds"),
@@ -1252,12 +1306,19 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
              "renderers (Node HTML renderer, dashboards) consume. "
              "--template is ignored when --format=json.",
     )
+    p.add_argument(
+        "--no-jev", action="store_true",
+        help="skip Jev judgments even when TYPESAFE_API_KEY is set "
+             "(same as JEV_DISABLED=1); output is then identical to a "
+             "run without Jev",
+    )
     return p.parse_args(argv)
 
 
 def cli_main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
     project_root = find_drover_root(args.project.resolve())
+    jev = resolve_jev(args.no_jev)
 
     types_override = (
         [t.strip() for t in args.types.split(",") if t.strip()]
@@ -1282,6 +1343,7 @@ def cli_main(argv: list[str] | None = None) -> int:
                 types=types_override,
                 prior_month_str=prior,
                 include_tickets=not args.no_tickets,
+                jev=jev,
             )
         except (FileNotFoundError, ValueError) as e:
             print(f"ERROR: {e}", file=sys.stderr)
@@ -1299,6 +1361,9 @@ def cli_main(argv: list[str] | None = None) -> int:
         print(f"  collapsed: {len(data['groups_collapsed'])}")
         print(f"  coverage:  {data['coverage']['coverage_pct']:.1f}%")
         print(f"  tickets:   {len(data['tickets'])}")
+        if "jev" in data:
+            print(f"  jev:       {data['jev'].get('jev', 0)} verdicts from Jev, "
+                  f"{data['jev'].get('fallback', 0)} fallback")
         return 0
 
     try:
@@ -1310,6 +1375,7 @@ def cli_main(argv: list[str] | None = None) -> int:
             types=types_override,
             prior_month_str=prior,
             include_tickets=not args.no_tickets,
+            jev=jev,
         )
     except (FileNotFoundError, ValueError) as e:
         print(f"ERROR: {e}", file=sys.stderr)
@@ -1332,6 +1398,9 @@ def cli_main(argv: list[str] | None = None) -> int:
     print(f"  coverage:  {summary['coverage_pct']:.1f}%")
     if sidecar_path:
         print(f"  tickets:   {len(ticket_specs)} suggested -> {sidecar_path}")
+    if "jev" in summary:
+        print(f"  jev:       {summary['jev'].get('jev', 0)} verdicts from Jev, "
+              f"{summary['jev'].get('fallback', 0)} fallback")
     return 0
 
 

@@ -213,6 +213,7 @@ next report.
 | PDF delivery | `render-html/render-pdf.mjs` | Chrome/Chromium/Edge print pipeline → final PDF |
 | Synthesize (future) | `scripts/report_writer.py` + `agents/report-writer.md` | LLM prose on top of the deterministic report |
 | Ticket recs | `scripts/jira_recs.py` | Spec generator (title, priority, labels, description) |
+| Jev judgments (optional) | `scripts/jev_client.py` | TypeSafe System One client; severity, cause-merge gate, ticket-worthiness when `TYPESAFE_API_KEY` is set |
 
 ## Tests
 
@@ -220,10 +221,11 @@ next report.
 python3 -m unittest discover -s drover/tests/python -p 'test_*.py'
 ```
 
-292 tests across 14 modules. The HTTP-touching suites
+373 tests across 16 modules. The HTTP-touching suites
 (`test_acquia_log_download`, `test_init`) use stub
 HTTP servers; nothing in the suite contacts a real Acquia or
-Atlassian endpoint. Live verification scripts under `/tmp/recon-*.py`
+Atlassian endpoint. `test_jev_client` has one live TypeSafe smoke test,
+skipped unless `TYPESAFE_API_KEY` is set. Live verification scripts under `/tmp/recon-*.py`
 are not part of CI.
 
 ## Future work

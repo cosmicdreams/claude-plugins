@@ -301,12 +301,98 @@ def process(line: str) -> dict | None:
     }
 
 
-def main() -> int:
+# --- Optional Jev error pre-filter ----------------------------------------
+#
+# classify() fires on any error-like keyword, so a line that merely mentions
+# "error" (a page title, a module name, a success message about errors
+# handled) becomes a fingerprint. With --jev-prefilter, lines that pass the
+# keyword check are also asked one Noul question in batches; a line Jev
+# confidently says is NOT an error is dropped, and every emitted record
+# carries the verdict under "jev". Fingerprint hashing is untouched: the
+# same line always yields the same hash. Without the flag, or when Jev is
+# unavailable, the stream is exactly as before. Starting thresholds.
+ERROR_PREFILTER_YES_AT = 0.8
+ERROR_PREFILTER_NO_AT = 0.2
+PREFILTER_CHUNK = 32
+
+_IS_ERROR_QUESTION = {
+    "is_error": {
+        "type": "noul",
+        "instructions": (
+            "Does this log line report an actual error, warning, or failure "
+            "in the application, rather than a routine message that merely "
+            "contains an error-like word?"
+        ),
+    },
+}
+
+
+def prefilter_errors(lines: list[str], jev) -> list[dict]:
+    """One verdict record per line (same order), for lines classify()
+    already accepted. Never raises; a failed request yields fallback records."""
+    items = {str(n): {"line": line[:1500]} for n, line in enumerate(lines)}
+    response = jev.ask_items(items, _IS_ERROR_QUESTION)
+    records = []
+    for n in range(len(lines)):
+        result = response["results"].get(str(n)) or {"ok": False, "reason": response["reason"]}
+        if result["ok"]:
+            records.append(jev.noul_verdict(
+                result["answers"]["is_error"],
+                yes_at=ERROR_PREFILTER_YES_AT, no_at=ERROR_PREFILTER_NO_AT,
+                model=response["model"],
+            ))
+        else:
+            records.append(jev.fallback(result["reason"]))
+    return records
+
+
+def _load_jev():
+    """Sibling jev_client module, or None when it is missing or unavailable."""
+    import importlib.util
+    from pathlib import Path
+    path = Path(__file__).resolve().parent / "jev_client.py"
+    if not path.exists():
+        return None
+    spec = importlib.util.spec_from_file_location("drover_jev_client", path)
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod if mod.availability()[0] else None
+
+
+def _emit_prefiltered(buffer: list[tuple[str, dict]], jev) -> None:
+    records = prefilter_errors([line for line, _ in buffer], jev)
+    for (_, result), record in zip(buffer, records):
+        if record.get("verdict") == "no":
+            continue
+        print(json.dumps({**result, "jev": record}), flush=True)
+
+
+def main(argv: list[str] | None = None) -> int:
+    import argparse
+    p = argparse.ArgumentParser(description="Fingerprint error-shaped log lines from stdin.")
+    p.add_argument("--jev-prefilter", action="store_true",
+                   help="drop keyword hits that Jev confidently says are not errors "
+                        "(needs TYPESAFE_API_KEY; silently off otherwise)")
+    # parse_known_args: callers (tests) invoke main() under a runner whose
+    # own arguments sit in sys.argv.
+    args, _ = p.parse_known_args(argv)
+    jev = _load_jev() if args.jev_prefilter else None
+
+    buffer: list[tuple[str, dict]] = []
     try:
         for raw in sys.stdin:
             result = process(raw)
-            if result is not None:
+            if result is None:
+                continue
+            if jev is None:
                 print(json.dumps(result), flush=True)
+                continue
+            buffer.append((raw.rstrip("\n"), result))
+            if len(buffer) >= PREFILTER_CHUNK:
+                _emit_prefiltered(buffer, jev)
+                buffer = []
+        if buffer:
+            _emit_prefiltered(buffer, jev)
     except BrokenPipeError:
         # Downstream consumer exited; silently stop.
         try:

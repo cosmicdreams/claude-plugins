@@ -1,6 +1,6 @@
 {
   "name": "drover",
-  "version": "4.1.0",
+  "version": "4.2.0",
   "description": "Drupal and Acquia error-log analysis pipeline.",
   "author": {
     "name": "Chris Weber"

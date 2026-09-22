@@ -75,7 +75,18 @@ Only include items from the last 48 hours that remain unanswered.
   - excerpt: relevant quote (keep under 120 chars)
   - stale: true if from Pass 2 (unanswered/standing), false if from Pass 1 (overnight)
 
-**Action classification:**
+**Action classification.** If TYPESAFE_API_KEY is set, write the candidates as
+JSON — {"source": "slack", "user": {"user_id": "{YOUR_USER_ID}", "keywords":
+WORKSPACE_KEYWORDS}, "items": [{id, summary, excerpt, stale, mentions_user,
+unanswered}]} — and run
+  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/jev_prioritize.py" < items.json
+Use the returned `action` for every item whose `action_source` is "jev" or
+"rule" (a mention of you always floors at RESPOND). Items with `action_source`
+"fallback" — and every item when the script reports Jev unavailable — get the
+rules below, exactly as before. Keep the returned `jev` record out of the
+output; it is for your own audit only.
+
+Rules:
   - RESPOND — message contains <@{YOUR_USER_ID}>, a direct question to you, or an
     urgent/unanswered request. If YOUR_USER_ID is null, classify as RESPOND if the
     message contains urgent language ("urgent", "asap", "can someone", "need help",

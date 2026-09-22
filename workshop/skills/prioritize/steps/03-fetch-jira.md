@@ -117,6 +117,18 @@ Deadline candidates are emitted from the complete workload/due query even if the
 budget is exhausted; include the known date/status and record missing context. The detail
 budget must not suppress a known mandatory obligation.
 
+**Jev classification (optional).** If TYPESAFE_API_KEY is set, write the
+candidates from both passes as JSON — {"source": "jira", "today": TODAY,
+"user": {"user_id": ...}, "items": [{id, summary, detail, status, priority,
+due_date, overdue, blocked, last_comment_by_other, mentions_user, scope}]} —
+and run
+  python3 "${CLAUDE_PLUGIN_ROOT}/scripts/jev_prioritize.py" < items.json
+Due dates and Blocked status stay deterministic: the script floors those items
+at DUE / UNBLOCK regardless of what Jev says. Use the returned `action` where
+`action_source` is "jev" or "rule"; classify "fallback" items with the rules
+above, exactly as before. When the script reports Jev unavailable, nothing
+changes.
+
 **Build priority items.** Each item has:
   - action: one of RESPOND, DUE, UNBLOCK, REVIEW, FYI
   - id: stable "{server_name}:{ISSUE_KEY}"; project: project key

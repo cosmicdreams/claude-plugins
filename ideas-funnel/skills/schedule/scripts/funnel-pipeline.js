@@ -55,6 +55,13 @@ const domainIngestSchema = {
       },
     },
     error: { type: "string" },
+    jev: {
+      type: "object",
+      properties: {
+        jev: { type: "number" },
+        fallback: { type: "number" },
+      },
+    },
     routed_tasks: {
       type: "array",
       items: {
@@ -158,6 +165,8 @@ const ingestResults = supervisorPlan.run_ingest === false
            Step 1 — Apply backpressure. Inventory unprocessed raw items, dedupe obvious
            repeats, then choose at most ${maxItemsPerDomain} items by Fable priority,
            source quality, novelty, and relevance. Leave the rest untouched for later.
+           If TYPESAFE_API_KEY is set, run the skill's Jev ranking script first and use
+           its confident verdicts; fallback items are ranked by your own judgment.
 
            Step 2 — Fetch only what is needed for selected items. Read ${CONFIG}/${domain}.yaml
            for feeds.rss[] and feeds.keywords[]. Skip URLs already present in the manifest.

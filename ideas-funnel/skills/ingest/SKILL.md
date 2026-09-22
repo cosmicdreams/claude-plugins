@@ -81,6 +81,34 @@ many files. Rank by:
 
 Leave skipped files in place for later runs.
 
+### Jev ranking and dedup (optional layer)
+
+When `TYPESAFE_API_KEY` is set (and `JEV_DISABLED` is not `1`), TypeSafe's Jev
+model scores criteria 2 to 4 and judges duplicate / augment / new against the
+closest existing pages before you read anything:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/jev_ingest.py" \
+  --index "$VAULT/index.md" "$VAULT"/Raw/Inbox/<domain>/*.md > jev.json
+```
+
+Per item the script asks three Scores (source quality, novelty, actionability)
+and one Choice per candidate page — candidates are found by token overlap with
+`index.md`, so Jev compares against a few plausible pages, not the whole wiki.
+Read `items[]`:
+
+- `"source": "jev"` with a `rank_score` — order these by `rank_score` (they come
+  back sorted), after Fable priority terms and before recency.
+- `"source": "fallback"` with a `reason` — rank these yourself as above.
+- `dedup.verdict` of `duplicate` or `augment` with `"source": "jev"` names the
+  `page` to link to or enrich in Step 4; `new` means create pages as usual; a
+  fallback dedup (`no_candidates`, `low_confidence`) means decide as you do today.
+
+Every record carries the model version, confidence, and the threshold it
+cleared (0.5 for scores, 0.8 for dedup; starting points, tune in the script).
+When Jev is unavailable every item is fallback and this step is unchanged.
+Report `counts` in the final JSON under `jev`.
+
 ## Step 3 — For each unprocessed item, analyze
 
 Daily notes (named `YYYY-MM-DD.md` at root of `Raw/`) may contain multiple items — process each separately. `Raw/Inbox/<domain>/*.md` items are single-source per file.
@@ -182,6 +210,10 @@ For each concept identified:
 1. Check `Concepts/<Name>.md` — if it exists (Refinery-promoted), link to it from the Source page; do not modify it.
 2. Otherwise check `Domains/<Label>/<Name>.md` — if it exists, update it.
 3. Otherwise create it in `Domains/<Label>/<Name>.md`.
+
+A confident Jev `dedup` verdict from Step 2 short-cuts the lookup: `duplicate`
+means link to the named page and add nothing; `augment` means update that page.
+An unconfident verdict changes nothing — follow the three checks above.
 
 Frontmatter: use the full v2 schema. Set `type: concept`, `domain: [<slug>]`, `provenance.origin: extracted` or `ai-generated`.
 

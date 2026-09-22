@@ -37,6 +37,19 @@ import causes  # noqa: E402
 # ticket on its own" — but tunable per-template.
 DEFAULT_MIN_COUNT = 50
 
+# Optional Jev ticket-worthiness Score. The hard rules above still decide
+# WHICH groups get a ticket; Jev only annotates each recommended ticket
+# with how much it deserves filing (a label plus a description line).
+# Priority never changes, and an unconfident answer annotates nothing.
+# Starting threshold; tune against real reports.
+TICKET_WORTH_CONFIDENCE_THRESHOLD = 0.6
+TICKET_WORTH_LEVELS = [
+    "Routine instrumentation or noise; a ticket would be closed as not a bug",
+    "A real but low-impact issue; a ticket is optional",
+    "Worth a ticket: a recurring error with a plausible fix",
+    "Urgent: users or the business are affected; file the ticket now",
+]
+
 
 # Heuristic priority assignment based on severity + count percentile.
 # These are SUGGESTIONS — the real priority decision belongs to the
@@ -97,6 +110,77 @@ class TicketSpec:
     # human-readable description always includes the same info.
     cause_pattern_id: str | None = None
     cause_confidence: str | None = None
+    # Jev ticket-worthiness record (see judge_worthiness). None when Jev
+    # did not run; to_json omits it then so the sidecar is unchanged.
+    jev_ticket_worthiness: dict | None = None
+
+
+# --- Jev ticket-worthiness (optional) -------------------------------------
+
+def judge_worthiness(
+    groups: list[dict],
+    *,
+    total_events: int,
+    jev,
+    jev_stats: dict | None = None,
+    top_n: int = 5,
+    min_count: int = DEFAULT_MIN_COUNT,
+) -> None:
+    """Ask Jev how much each ticket-eligible group deserves a ticket and
+    store the record on the group as `jev_ticket_worthiness`.
+
+    Eligibility is the same hard rule from_groups applies (count >=
+    min_count, first top_n), so Jev never adds or removes a ticket. Run
+    this on the collapsed groups before rendering; from_groups picks the
+    record up from each group.
+    """
+    eligible = [g for g in groups if g.get("count", 0) >= min_count][:top_n]
+    if not eligible:
+        return
+    items = {}
+    for n, g in enumerate(eligible):
+        cause = g.get("cause") or causes.diagnose(g)
+        count = g.get("count", 0)
+        items[str(n)] = {
+            "channel": g.get("channel"),
+            "severity": g.get("severity") or "unknown",
+            "occurrences": count,
+            "share_of_all_events_pct": round(100 * count / max(total_events, 1), 2),
+            "summary": (g.get("summary") or "")[:600],
+            "sample": str((g.get("samples") or [""])[0])[:400],
+            "diagnosed_cause": cause.title,
+        }
+    question = {
+        "worth": {
+            "type": "score",
+            "instructions": "How much does this recurring log issue deserve "
+                            "a ticket in the site's issue tracker?",
+            "criteria": list(TICKET_WORTH_LEVELS),
+        },
+    }
+    response = jev.ask_items(items, question)
+    for n, g in enumerate(eligible):
+        result = response["results"].get(str(n)) or {"ok": False, "reason": response["reason"]}
+        if result["ok"]:
+            record = jev.score_verdict(
+                result["answers"]["worth"],
+                threshold=TICKET_WORTH_CONFIDENCE_THRESHOLD, model=response["model"],
+            )
+            if record["source"] == "jev" and not record["confident"]:
+                record = {**record, "source": "fallback", "reason": "low_confidence"}
+        else:
+            record = jev.fallback(result["reason"])
+        if record["source"] == "jev":
+            record["legend"] = TICKET_WORTH_LEVELS[
+                min(record["level"], len(TICKET_WORTH_LEVELS) - 1)
+            ]
+        g["jev_ticket_worthiness"] = record
+        if jev_stats is not None:
+            jev_stats.setdefault("jev", 0)
+            jev_stats.setdefault("fallback", 0)
+            jev_stats[record["source"]] += 1
+            if record.get("model"):
+                jev_stats["model"] = record["model"]
 
 
 # --- Builder --------------------------------------------------------------
@@ -207,6 +291,16 @@ def from_groups(
                 "```",
             ])
 
+        # Jev annotation, only when judge_worthiness ran and was confident.
+        worth = g.get("jev_ticket_worthiness")
+        if worth and worth.get("source") == "jev":
+            description_lines.extend([
+                "",
+                f"**Jev ticket-worthiness:** {worth['legend']} "
+                f"(level {worth['level']} of {len(TICKET_WORTH_LEVELS) - 1}, "
+                f"confidence {worth['confidence']:.2f}, {worth['model']})",
+            ])
+
         labels = list(base_labels)
         if ch:
             slug = re.sub(r"[^a-z0-9-]", "-", ch.lower())
@@ -224,6 +318,8 @@ def from_groups(
                 lbl = f"drover-channel-{slug}"
                 if lbl not in labels:
                     labels.append(lbl)
+        if worth and worth.get("source") == "jev":
+            labels.append(f"drover-jev-worth-{worth['level']}")
 
         # Title: lead with cause when collapsed (clearer than any single
         # channel + summary that may be one of several variants).
@@ -249,6 +345,7 @@ def from_groups(
             sample=sample,
             cause_pattern_id=cause.pattern_id,
             cause_confidence=cause.confidence,
+            jev_ticket_worthiness=worth,
         ))
 
     return specs
@@ -302,10 +399,19 @@ def render_markdown(
     return "\n".join(out) + "\n"
 
 
+def spec_to_dict(spec: TicketSpec) -> dict:
+    """asdict, minus Jev fields that were never populated — so a run
+    without Jev serializes exactly as it did before Jev existed."""
+    return {
+        k: v for k, v in asdict(spec).items()
+        if not (k.startswith("jev_") and v is None)
+    }
+
+
 def to_json(specs: list[TicketSpec]) -> str:
     """JSON sidecar — what a future export-jira skill consumes."""
     return json.dumps(
-        [asdict(s) for s in specs], indent=2, sort_keys=True,
+        [spec_to_dict(s) for s in specs], indent=2, sort_keys=True,
     )
 
 

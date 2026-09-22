@@ -1,5 +1,37 @@
 # drover Changelog
 
+## 4.2.0 — optional Jev judgments
+
+### Added
+
+- Jev (TypeSafe's System One model) as an added layer in the report
+  pipeline when `TYPESAFE_API_KEY` is set and `JEV_DISABLED` is not `1`:
+  - `parsers/drupal_watchdog.py` asks one severity Choice per distinct
+    (channel, message) whose severity the log left `unknown`; a confident
+    answer (0.7 to start) fills it in, source and record kept in
+    `fields.severity_source` / `fields.severity_jev`. Severity the log or
+    channel table already gave is never overridden.
+  - `causes.collapse_by_cause` gates every regex bucket: members merge
+    only when Jev confidently says they show the diagnosed cause and share
+    a root cause with the primary (0.8 to start); the rest stay separate
+    rows with their regex diagnosis and a `jev_judgments` audit list.
+  - `jira_recs.judge_worthiness` scores each ticket that the unchanged
+    hard rules (count at or above 50, top five) already selected; a
+    confident score adds a `drover-jev-worth-<level>` label and a
+    description line. Priority never changes.
+  - `fingerprint.py --jev-prefilter` drops keyword hits Jev confidently
+    says are not errors; hashing is untouched.
+  - `report.py --no-jev`; a `jev` block in the summary and the `--format
+    json` output, and one footer line in markdown, count verdicts from
+    Jev versus fallback. Present only when Jev ran.
+- `scripts/jev_client.py` — shared standard-library client (timeouts,
+  bounded 429 / 529 retries honoring Retry-After, explicit `unavailable`
+  results, item packing). Identical copies live in ideas-funnel,
+  test-lab, and workshop; `admin/scripts/check-jev-client-copies.sh`
+  and `tests/python/test_jev_client.py` fail on divergence.
+- `tests/python/test_jev_integration.py` proves every artifact is
+  byte-identical to the pre-Jev output when Jev is absent or disabled.
+
 ## 4.1.0 — report charts and incident brief
 
 ### Added
