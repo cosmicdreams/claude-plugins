@@ -57,9 +57,12 @@ def parse_file(
     log_type: str,
     *,
     day_hint: date | None = None,
+    **parser_kwargs,
 ) -> Iterator[dict]:
     """Open a log file and yield parsed events. The day_hint helps
-    parsers fill in years for syslog-style timestamps that omit them."""
+    parsers fill in years for syslog-style timestamps that omit them.
+    Extra keyword arguments go to the parser (drupal_watchdog accepts
+    `jev` / `jev_stats` for optional severity classification)."""
     fn = parser_for(log_type)
     path = Path(path)
     if path.suffix == ".gz":
@@ -68,4 +71,4 @@ def parse_file(
     else:
         with open(path, "r", errors="replace") as fh:
             text = fh.read()
-    yield from fn(text, day_hint=day_hint)
+    yield from fn(text, day_hint=day_hint, **parser_kwargs)

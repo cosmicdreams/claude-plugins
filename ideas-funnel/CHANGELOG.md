@@ -1,5 +1,27 @@
 # Changelog
 
+## 2.2.0 — 2026-09-21
+
+### Added
+
+- `scripts/jev_ingest.py` — optional Jev layer for `ideas-funnel:ingest`.
+  Per raw item, one request carries three Scores (source quality, novelty,
+  actionability) and a duplicate / augment / new Choice against candidate
+  pages found by token overlap with `index.md`. Confident scores rank the
+  item; a confident dedup verdict names the page to link or enrich in
+  Step 4. Uncertain answers, and every item without `TYPESAFE_API_KEY`,
+  fall back to the worker agent's judgment as before. Thresholds (0.5 for
+  scores, 0.8 for dedup) are starting points named in the script.
+- `scripts/jev_client.py` — shared standard-library client (identical copy
+  in drover, test-lab, workshop).
+- `tests/test_jev_ingest.py` — offline tests.
+
+### Changed
+
+- `skills/ingest/SKILL.md` Step 2 and Step 4b describe the Jev layer and
+  its fallback; the pipeline ingest prompt points workers at it and the
+  ingest result schema accepts an optional `jev` count block.
+
 ## 2.1.0 — 2026-07-09
 
 ### Added

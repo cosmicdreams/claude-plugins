@@ -1,5 +1,28 @@
 # Step 3 — Dedup and Score Against the Profile
 
+## Jev first, when available
+
+Apply feedback weights and mutes before anything else: a muted source is dropped
+here, deterministically, and never reaches Jev. Then, when `TYPESAFE_API_KEY` is
+set (and `JEV_DISABLED` is not `1`), let TypeSafe's Jev model take the clear calls:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/jev_scout.py" < scout-input.json > jev.json
+```
+
+Input: `interests`, `anti_interests`, the `baseline` headlines from step 1 (title +
+summary), and the fetched `items` (id, title, summary, source). Per item the script
+asks one Choice per baseline candidate (duplicate / augment / net-new; candidates are
+found by token overlap in code), the Keep / Watch / Skip Choice with the profile in the
+question, and the three lens questions below as yes/no probabilities.
+
+Read `items[]`: `"source": "jev"` carries a final `verdict` (a strong lens promotes
+Watch to Keep, as the rule below says) and `dedup.verdict` with the matched baseline
+entry; use them and record "Jev, confidence N" as the match reason. `"source":
+"fallback"` (no key, low confidence, timeout) means score that item by hand using the
+rest of this step, exactly as before. Thresholds start at 0.7 for the verdict and 0.8
+for dedup; tune them in the script. Report `counts` in the briefing.
+
 ## Dedup against the vault baseline
 
 Compare fetched titles/summaries against the baseline headlines from step 1:

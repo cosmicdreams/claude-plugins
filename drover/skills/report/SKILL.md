@@ -65,6 +65,19 @@ file (`<report>.tickets.json`) for programmatic creation later.
 | `triage-brief` | "What does each top fingerprint look like up close?" — top 25 with full samples + severity histogram. |
 | `jira-ready` | "Give me JIRA-create-issue paste blocks." — one self-contained code block per fingerprint. |
 
+## Optional Jev judgments
+
+When `TYPESAFE_API_KEY` is set (and `JEV_DISABLED` is not `1`), `report.py`
+adds three judgments from TypeSafe's Jev model on top of the deterministic
+pipeline: a severity for watchdog events the log left `unknown`, a merge
+gate on cause collapse (fingerprints merge only when Jev confidently agrees
+they share a root cause), and a ticket-worthiness score on each recommended
+ticket. Hashes, counts, source-given severity, the ticket count rules, and
+the sidecar schema are unchanged. The markdown footer, the terminal summary,
+and a `jev` block in the `--format json` output count verdicts from Jev
+versus fallback. Pass `--no-jev` to skip it; without Jev every artifact is
+byte-identical to a run before Jev existed.
+
 ## Prerequisites
 
 ```bash

@@ -1,5 +1,20 @@
 # Changelog
 
+## 2.5.0
+
+- **scout**: optional Jev pass in step 3 (`scripts/jev_scout.py`) — one request per fetched
+  item asks duplicate / augment / net-new against baseline candidates found by token overlap,
+  the Keep / Watch / Skip Choice with the interest profile in the question, and the three
+  lens questions as yes/no probabilities. Confident verdicts are used (a strong lens still
+  promotes Watch to Keep); everything else, and every item without `TYPESAFE_API_KEY`, is
+  scored by hand as before. Mutes and feedback weights stay deterministic and run first.
+- **prioritize**: optional Jev classification in steps 2 and 3 (`scripts/jev_prioritize.py`)
+  — one RESPOND / (DUE / UNBLOCK) / REVIEW / FYI Choice per Slack or Jira candidate, packed
+  several per request. Due dates, Blocked status, and direct mentions are deterministic
+  floors Jev cannot lower. Unconfident answers fall back to the subagent's rules; the
+  arithmetic ranking in `scripts/output.py` is unchanged.
+- `scripts/jev_client.py` — shared standard-library client; `tests/test_jev_scripts.py`.
+
 ## 2.4.0
 - **prioritize**: restore the explicit `duedate <= endOfDay()` deadline query per project, lost in the 2.3.0 twg move, so due and overdue issues never depend on paging or the detail budget.
 - **sync**: new source `claude` — Claude Code session timestamps per project directory, clustered

@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.3.0
+
+Adds TypeSafe's Jev model as an optional first pass over the ingest triage.
+
+- `scripts/triage_cases.py` asks one Choice per manual test case over the
+  bucket table in `skills/ingest`. Confident answers (confidence at or
+  above 0.8, a starting point) are used; uncertain ones, and every case
+  when `TYPESAFE_API_KEY` is absent or `JEV_DISABLED=1`, are handed back
+  for the agent to classify exactly as before. Every verdict records its
+  source, model version, confidence, and threshold.
+- `scripts/jev_client.py` — the shared standard-library client, copied
+  verbatim across plugins; `admin/scripts/check-jev-client-copies.sh`
+  fails if the copies diverge.
+- `tests/test_triage_cases.py` — offline tests with a fake transport.
+
 ## 0.2.1
 
 Rebuilds the test data factory on Playwright instead of a shell-out.

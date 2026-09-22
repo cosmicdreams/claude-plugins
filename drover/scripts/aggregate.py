@@ -232,6 +232,8 @@ def aggregate_files(
     types: list[str] | None = None,
     from_date: date,
     to_date: date,
+    jev=None,
+    jev_stats: dict | None = None,
 ) -> dict:
     """Walk every <project>/<year>/<month>/<date>.<env>.<type>.log
     across (types x days), parse, and emit a single combined aggregate.
@@ -261,8 +263,14 @@ def aggregate_files(
                 files_missing += 1
                 continue
             files_read += 1
+            # Only the watchdog parser knows how to ask Jev for severity;
+            # the others are untouched either way.
+            extra = (
+                {"jev": jev, "jev_stats": jev_stats}
+                if jev is not None and log_type == "drupal-watchdog" else {}
+            )
             agg = aggregate(
-                parsers.parse_file(local, log_type, day_hint=day),
+                parsers.parse_file(local, log_type, day_hint=day, **extra),
                 log_type,
             )
             events_total += agg["events_total"]
