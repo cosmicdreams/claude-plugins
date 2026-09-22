@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.0
+- Add `lib:babysit-pr`: monitor an open pull request through review and continuous integration — poll for comments and checks newer than the latest push, verify each bot finding against the source before changing code, rebase when `main` moves, and stop when the bots and required checks are green. Ported from the skill Theo Browne demonstrated, with the polling loop and the GraphQL thread-resolve mutation Claude Code needs filled in.
+- Add `lib:leave-pr-comment`: the voice for everything posted under Chris's name — narrative cause, change, consequence; no headings, no emoji, no agent attribution. Derived from his own commit bodies and from his one recorded review-bot dismissal, and it carries the Arnica `[arnica] ack` / `dismiss fp|accept|capacity` command syntax the Velir repositories use.
+- Add `lib:upload-to-pr`: attach screenshots and video with `gh --attach`, generally available since gh 2.99.0. Replaces the branch-commit and gist workarounds, which stay documented only as fallbacks for older gh.
+
 ## 1.3.0
 - Move `lib:jira` from jira-cli to Atlassian's twg CLI: JSON output, cursor paging, every project in the site instead of jira-cli's single default project.
 - Add time logging (`twg jira workitem worklog add`) to `lib:jira`.
