@@ -70,7 +70,7 @@ Skills: `analyze-issue`, `branch-audit`, `browse-drupal-issues`, `config`, `ddev
 ### `lib`
 Thin CLI-wrapper skills (data-layer only — no summarization). Slack, Jira, GitHub, TestRail, Obsidian vault, logs, and media utilities.
 
-Skills: `archive`, `csv-analysis`, `ddev`, `ffmpeg`, `github`, `hyperfine`, `image-optimize`, `jira`, `lighthouse`, `log-analyzer`, `pa11y`, `penpot`, `slack`, `testrail`, `vault-search`, `vault-store`, `wiki-query`
+Skills: `archive`, `babysit-pr`, `csv-analysis`, `ddev`, `ffmpeg`, `github`, `hyperfine`, `image-optimize`, `jira`, `leave-pr-comment`, `lighthouse`, `log-analyzer`, `pa11y`, `penpot`, `slack`, `testrail`, `upload-to-pr`, `vault-search`, `vault-store`, `wiki-query`
 
 ### `workshop`
 Process automation built on top of `lib`: work prioritization, deploy checklist, knowledge radar, Obsidian maintenance, calendar/email helpers.

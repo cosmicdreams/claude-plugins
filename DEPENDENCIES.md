@@ -179,7 +179,8 @@ brew install gh
 gh auth login
 ```
 
-**Used by:** lib (`github`); optionally workshop (GitHub integration in `config`)
+**Used by:** lib (`github`, `babysit-pr`, `leave-pr-comment`, `upload-to-pr` — the last needs gh 2.99.0 or
+newer for `--attach`); optionally workshop (GitHub integration in `config`)
 
 ---
 
