@@ -4,9 +4,11 @@ A collection of [Claude Code](https://claude.ai/code) plugins covering team spri
 
 ## Dependencies
 
-Several plugins require external CLI tools (Beads, Obsidian CLI, GitHub CLI, twg, ddev, etc.).
+Several plugins need external tools, runtimes, or credentials (Beads, Obsidian, GitHub,
+twg, ddev, Figma, Playwright, and more).
 
-**→ See [DEPENDENCIES.md](./DEPENDENCIES.md) for the full install guide.**
+**→ See [DEPENDENCIES.md](./DEPENDENCIES.md): a per-plugin table of what is required and
+what is optional, then install steps for each one.**
 
 ## Installation
 
@@ -27,6 +29,8 @@ claude plugin install drover@local       --scope user
 claude plugin install research-lab@local --scope user
 claude plugin install improve@local      --scope user
 claude plugin install ideas-funnel@local --scope user
+claude plugin install design-lab@local   --scope user
+claude plugin install test-lab@local     --scope user
 ```
 
 After installing, initialize the sprint board in your project:
@@ -74,7 +78,7 @@ Process automation built on top of `lib`: work prioritization, deploy checklist,
 Skills: `config`, `deploy-post`, `obsidian-lint`, `organize`, `personal-calendar`, `personal-email`, `prioritize`, `scout`, `knowledge-check`
 
 ### `drover`
-Automated Drupal error monitoring and self-healing pipeline. Watches logs, triages errors into curated Beads tickets, autonomously implements fixes in isolated git worktrees, notifies on ready-for-review.
+Drupal and Acquia log reporting. Fetches Acquia logs by date, groups errors into fingerprints, diagnoses causes, and renders a calendar-month report as a web page, a Portable Document Format file, or markdown, with recommended tickets for stakeholders.
 
 Skills: `acquia-pull`, `init`, `report`
 
@@ -92,6 +96,11 @@ Skills: `accessibility-scan`, `attach`, `experiment`, `fix`, `lint`, `perf-measu
 Passive knowledge capture pipeline — Karpathy-derived LLM Wiki with Fable-supervised singleton Workflow, cost-aware worker delegation, bounded ingest, confidence decay, graph-aware consolidation, and Obsidian wiki output.
 
 Skills: `decay`, `delegate`, `funnel-export`, `ingest`, `init`, `lint`, `query`, `rescue`, `schedule`, `stats`, `supervise`
+
+### `design-lab`
+Build and maintain a Figma component library from a codebase. Pluggable component, token, and usage sources — Site Studio, Single Directory Components, and others.
+
+Skills: `capture`, `detect`, `figma-component`, `figma-foundation`, `figma-index`, `inventory`, `plan`, `tokens`, `usage`, `verify`
 
 ### `test-lab`
 Convert a manual test corpus into an automated Playwright suite. The source is a plug point — TestRail today, another tool later — held separately from the authoring methodology, which is derived from a head of Quality Assurance review of a real suite.
