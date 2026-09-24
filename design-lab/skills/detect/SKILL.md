@@ -1,62 +1,35 @@
 ---
 name: detect
 description: >
-  Probe a repository and report which design-lab strategies apply across the three
-  independent plug points — component source, token source, usage source. Run this first;
-  every other design-lab skill needs its answer. Not for extracting components
-  (design-lab:inventory).
+  Detect prior design-system work and the independent component, token, and usage sources in a
+  repository. Run before extraction; not for extracting components (design-lab:inventory) or
+  building Figma (design-lab:figma-component).
 ---
 
-# Detect design-lab strategies
+# Detect sources
 
-## Step zero: look for an existing answer
-
-Before probing for strategies, look for work that already exists — an existing Figma file,
-and existing tooling in the repository.
-
-`detect.py` now runs this probe itself and returns it as `priorArt`, with a `PRIOR ART:`
-line at the top of `notes`. It is no longer possible to skip the step by running the script
-directly — which is how it was skipped before, since the probe existed only in this prose.
-
-It searches `build/`, `reports/`, `analysis-reports/`, `docs/`, `design/` and `.storybook/`,
-plus any directory anywhere in the tree whose name matches *component library*, *design
-system*, *figma* or *design token*. The earlier version listed only `build/` and
-`analysis-reports/`, so on PNCB it found nothing at all while `reports/` held six artifacts
-including a full Figma structure comparison.
-
-For a manual check:
+For an end-to-end run, initialize and detect through the stateful front door:
 
 ```bash
-find . -maxdepth 4 -type d \( -name "*component*librar*" -o -name "*design*system*" \) \
-     -not -path "*/node_modules/*"
-ls build/ reports/ analysis-reports/ 2>/dev/null
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py init \
+  --repo <absolute-repository-path> --workspace <artifact-directory>
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py detect --project <artifact-directory>
 ```
 
-On Schusterman this finds `scripts/component-library/` — a complete working pipeline — and
-`build/component-library/usage.json`, holding real placement counts from 2,448 production
-canvases. Extraction that ignores them reproduces them badly: the page crawl saw `cpt_text`
-26 times where the canvases show 871. Read `references/prior-art.md` before continuing.
+For an isolated probe, `scripts/detect.py <repo>` emits the same detection document to stdout.
 
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/detect.py <repo-root>
-```
+Read `priorArt` before extraction. Reconcile existing conventions and generated artifacts unless
+the user explicitly requested an independent scratch build. See `references/prior-art.md`.
 
-Returns JSON: `componentSources`, `tokenSources`, `usageSources`, `recommended`, `notes`.
+Component, token, and usage sources are independent. The recommendation prefers the system an
+author places over its rendering primitives: Drupal block-content + paragraph bundles outrank
+the SDCs that render them. A loaded authored token layer outranks recoverable compiled sources.
+Canvas registrations outrank raw Single Directory Components (SDCs) where Canvas is present;
+the matching usage strategy is `canvas-db`.
 
-## Read the output carefully
+Use the recommendation when evidence agrees. Ask only when competing sources would materially
+change the inventory and repository evidence cannot resolve them. Persist an override with
+`workflow.py select`; do not leave the decision in conversation memory.
 
-**Never assume `config/sync`.** The detector probes `config/sync`, then `config/default`,
-then `config`. Schusterman uses `config/default`; looking only in `config/sync` finds zero
-components on a site with 101 of them.
-
-**Never trust a raw `*.component.yml` count.** Drupal core and contrib ship their own
-Single Directory Components. The detector prunes `core/`, `contrib/`, `vendor/` and
-`node_modules/`. On PNCB a naive count returns 51 where only 13 are the client's; on
-Schusterman it returns 26 where **none** are.
-
-**More than one component source can be present.** Do not silently pick the first. Ask
-which one the design system actually lives in.
-
-## Next
-
-`design-lab:inventory` with the chosen component source.
+Check `notes` for ignored empty config directories, generated assets, unloaded token candidates,
+and unavailable extractors before continuing to `design-lab:inventory` and `design-lab:tokens`.

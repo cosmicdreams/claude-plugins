@@ -1,70 +1,70 @@
 ---
 name: usage
 description: >
-  Crawl the public site to find where each component actually renders — verified anonymous
-  page addresses plus placement counts and usage tiers — and merge them into
-  components.json. Run after design-lab:inventory and before design-lab:plan, because tier
-  decides what gets built. Not for extracting components (design-lab:inventory).
+  Measure where source components are actually placed and attach verified examples, placement
+  counts, structural references, and usage tiers to components.json. Run after inventory; not
+  for visual capture (design-lab:capture).
 ---
 
-# Find verified example addresses
+# Measure component usage
+
+Prefer an existing database-backed placement inventory discovered as prior art. It can traverse
+published content and structural references more completely than a public crawl. Record its
+commit/date, exclusions, and coverage.
+
+For a detected Drupal database, use the deterministic workflow command:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/find_examples.py https://www.ahrinet.org \
-    --strategy sitestudio --components components.json --merge > components.enriched.json
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py usage --project <artifact-directory> \
+  --ddev-root <running-ddev-project-root> [--ddev-project <name>] \
+  [--base-url https://project.ddev.site]
 ```
 
-`--strategy paragraphs` for a Paragraphs site. `--urls FILE` skips the sitemap when you
-already have a page list. `--limit` and `--delay` control crawl volume; be polite on a
-client's production site.
+For `drupal-db`, it reads current/default-language Paragraphs, Layout Builder sections, block configuration, and
+paragraph block fields; writes a validated `usage.json`; and atomically enriches
+`components.json`. `placements` means directly authored at a page-level host.
+`structuralRefs` means the instance renders because a containing component renders. Never add
+the two together. A zero-placement component with structural references is Structural Only, not
+a retirement candidate.
 
-## Verified, never claimed
+For `canvas-db`, it reads published Canvas pages on their current revision and Canvas content
+templates. Top-level page components and template nodes count as placements; nested page
+components count as structural references. Template nodes retain the node bundle and source
+configuration file. Aliases for Canvas pages supply example candidates. The active theme's Twig
+templates and component files are scanned for literal SDC includes, embeds, and sources; file and
+line references keep theme-rendered components out of Retirement Candidates. References in page,
+html, or region templates are treated as global presence.
 
-The specification shipped with the AHRI library listed live example paths. Two were behind
-login and at least one named a page the component was not on. So this skill does not read
-claimed addresses — it fetches pages **anonymously** and records the status code that proves
-a designer can open them.
+With `--base-url`, the workflow also fetches Canvas aliases and a deterministic sample of node
+aliases, up to 60 public paths. It counts `data-component-id="<provider>:<name>"` in rendered
+HTML, records page and instance counts and three example paths, and fills empty database example
+candidates. Self-signed HTTPS certificates are accepted for local DDEV. A standalone scan is
+available through `scripts/find_rendered_components.py <components.json> --ddev-root <root>
+--base-url <url> --output <rendered.json>`.
 
-A component with no anonymous example gets an empty list and a stated reason. That is a real
-finding, not a failure: it is exactly why four of the fourteen built AHRI components could
-only be derived from tokens rather than measured against a live instance.
+When crawling is the available source:
 
-## Two markers, and conflating them is the trap
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/find_examples.py <public-base-url> \
+  --strategy <sitestudio|paragraphs> --components components.json --merge \
+  > components.enriched.json
+```
 
-Site Studio stamps `coh-ce-<name>-<hash>` on **every styled element of a component
-template** — Schusterman's `cpt_content_card_0` carries eight different hashes across its
-root, image, text wrapper, heading and paragraph. The hash identifies an element of the
-definition, not a placement. Counting distinct hashes reports a number that never changes
-however often the component is placed, and counting raw matches inflates one site footer
-into thirty-five placements.
+Validate the enriched artifact, then atomically promote it to the canonical `components.json`
+and update the project manifest. Do not leave downstream phases reading the pre-usage file.
 
-`coh-component-instance-<uuid>` is the per-placement identifier. The script pairs the two
-within a single class attribute and counts distinct instance uuids.
+A verified example was fetched anonymously, returned its recorded status, contains the component
+marker, and has `verifiedAt`. Site Studio definition hashes identify styled elements, not
+placements; count distinct component-instance ids. Paragraph markers can undercount templates
+that omit the wrapper, so an unseen component is a question, not proof of disuse.
 
-Paragraphs are simpler: `paragraph--type--<bundle>` is emitted once per rendered paragraph,
-so occurrences are already placements. Note that Drupal's `clean_class` filter converts
-underscores to hyphens, so the extracted name needs converting back before it matches a
-bundle machine name.
+Placements are lower bounds unless every eligible source record/page was traversed. Preserve
+`pagesScanned` or database population, measurement date, structural references, and unavailable
+or gated examples. If no credible usage source exists, explicitly select
+`--usage none --degraded-reason <reason> --by <human-decider>` and use the standard Untiered
+page. If detection found a source, planning stops until usage is measured or that human-approved
+degraded waiver exists.
 
-**Paragraph counts can undercount.** PNCB's generic `paragraph.html.twig` builds the bundle
-class but does not itself emit a wrapper. Templates extending `paragraph--component.html.twig`
-emit it reliably; a custom template that omits that base wrapper renders no bundle marker at
-all, so its component is invisible to this scan. Treat a paragraph bundle reported as
-unobserved as a question about its template, not as proof it is unused.
+## Published-page copy and composition
 
-## Read the output carefully
-
-**Placements are a lower bound** over `pagesScanned`. Never quote one as a site total unless
-the whole sitemap was walked.
-
-**Check `addressesRehostedCount`.** Sitemaps often advertise the hosting origin rather than
-the public hostname — AHRI's returns `ahridrupalhosting.prod.acquia-sites.com`. The script
-rewrites addresses onto the host you asked for and tells you how many it moved.
-
-**`componentsUnseen` is the interesting list.** A component in `components.json` that never
-appears on any scanned page is either genuinely unused, or lives only behind login. Decide
-which before letting `tier` gate the build.
-
-## Next
-
-`design-lab:plan`, which uses `tier` to scope what is worth building.
+For a running public site, `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/extract_voice.py --project <artifact-directory> --base-url <url>` writes `voice.json`; add `--max-pages N` to cap sampled aliases. `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/extract_compositions.py --project <artifact-directory> --base-url <url>` writes `compositions.json` with top-level rendered component order per page. Both reuse the deterministic public alias scan and include the homepage. Read [voice report guidance](../../references/voice.md) before turning observed copy patterns into writing guidance.

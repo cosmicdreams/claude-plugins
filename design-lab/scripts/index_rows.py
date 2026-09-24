@@ -10,7 +10,7 @@ See references/library-standard.md section 8.
 """
 import json, os, sys, argparse, datetime
 
-STANDARD_VERSION = '2.1.0'
+STANDARD_VERSION = '3.0.0'
 
 HIGH, MEDIUM, LOW = 'Components — High Use', 'Components — Medium Use', 'Components — Low Use'
 STRUCTURAL, RETIRE = 'Components — Structural Only', 'Components — Retirement Candidates'
@@ -51,7 +51,12 @@ def tier_of(comp, high, medium):
 
 def record_path(builds_dir, comp):
     """Build records are named for the machine name; fall back to a sanitised id."""
-    for stem in (comp.get('machineName'), comp['id'].replace(':', '_').replace('/', '_')):
+    # Double underscore is the workflow's canonical filesystem encoding for the source
+    # namespace separator (for example block__banner.json). Keep the legacy single-
+    # underscore and machine-name fallbacks so existing workspaces still resume cleanly.
+    for stem in (comp.get('machineName'),
+                 comp['id'].replace(':', '__').replace('/', '_'),
+                 comp['id'].replace(':', '_').replace('/', '_')):
         if not stem:
             continue
         p = os.path.join(builds_dir, stem + '.json')
@@ -70,7 +75,13 @@ def read_record(builds_dir, comp):
         return {'_unreadable': '%s: %s' % (os.path.basename(p), e)}
 
 
-def why_not_built(rec):
+def why_not_built(rec, planned=None):
+    if planned and planned.get('verdict') != 'build':
+        return planned.get('refuseReason') or {
+            'map': 'mapped as a subcomponent of a larger visual asset',
+            'document': 'documented source entity; not a placeable visual asset',
+            'refuse': 'not eligible for a trustworthy visual build',
+        }.get(planned.get('verdict'), 'not in visual build scope')
     if rec is None:
         return 'not attempted'
     if rec.get('_unreadable'):
@@ -84,7 +95,7 @@ def why_not_built(rec):
     return 'build record exists but records no Figma node'
 
 
-def row_for(comp, rec, high, medium):
+def row_for(comp, rec, high, medium, planned=None):
     figma = (rec or {}).get('figma') or {}
     node = figma.get('componentSetId') or figma.get('componentId')
     card = figma.get('documentationCardId')
@@ -97,15 +108,23 @@ def row_for(comp, rec, high, medium):
         'placements': usage.get('placements'),
         'structuralRefs': structural_refs(usage),
         'built': bool(node),
+        'type': (planned or {}).get('libraryRole') or 'unclassified',
+        'status': ('Built' if node else {
+            'map': 'Mapped', 'document': 'Documentation only', 'refuse': 'Not built'
+        }.get((planned or {}).get('verdict'), 'Not attempted')),
         'figma': {'pageId': figma.get('pageId'), 'componentNodeId': node,
                   'documentationCardId': card},
-        'linkTarget': card or node,
+        # Navigation has two different jobs. The component name places the reader at the
+        # publishable master; documentation is a separate affordance. A single target made
+        # the treatment's "Built" cell jump to prose instead of the thing it claimed was built.
+        'componentLinkTarget': node,
+        'documentationLinkTarget': card,
         'reason': None,
         'deferred': len((rec or {}).get('deferred') or []),
         'unsupported': len((rec or {}).get('unsupported') or []),
     }
     if not row['built']:
-        row['reason'] = why_not_built(rec)
+        row['reason'] = why_not_built(rec, planned)
     return row
 
 
@@ -116,8 +135,10 @@ def sort_key(row):
             row['machineName'])
 
 
-def build_index(comps, builds_dir, high, medium):
-    rows = [row_for(c, read_record(builds_dir, c), high, medium) for c in comps]
+def build_index(comps, builds_dir, high, medium, plans=None):
+    plans = plans or {}
+    rows = [row_for(c, read_record(builds_dir, c), high, medium, plans.get(c['id']))
+            for c in comps]
     rows.sort(key=sort_key)
     by_tier = {}
     for t in TIER_ORDER + [None]:
@@ -172,12 +193,22 @@ if __name__ == '__main__':
     ap.add_argument('--builds', default='builds', help='directory of build records')
     ap.add_argument('--high', type=int, default=50, help='placements for High Use')
     ap.add_argument('--medium', type=int, default=10, help='placements for Medium Use')
+    ap.add_argument('--plan', help='approved plan.json; supplies role and not-built reason')
+    ap.add_argument('--output', help='write JSON to this path instead of stdout')
     ap.add_argument('--report', action='store_true')
     a = ap.parse_args()
     d = json.load(open(a.components_json))
-    idx = build_index(d['components'], a.builds, a.high, a.medium)
+    plan_rows = (json.load(open(a.plan)).get('plans') if a.plan else []) or []
+    idx = build_index(d['components'], a.builds, a.high, a.medium,
+                      {row['id']: row for row in plan_rows})
+    if a.output:
+        with open(a.output, 'w') as handle:
+            json.dump(idx, handle, indent=2)
+            handle.write('\n')
     if not a.report:
-        print(json.dumps(idx, indent=2)); sys.exit()
+        if not a.output:
+            print(json.dumps(idx, indent=2))
+        sys.exit()
     t = idx['totals']
     print('%d component(s): %d built, %d not built' % (t['components'], t['built'], t['notBuilt']))
     if not idx['thresholds']['default']:

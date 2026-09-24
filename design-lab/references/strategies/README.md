@@ -65,7 +65,29 @@ Confirm against templates before extracting; the note is a prompt, not a verdict
 |---|---|---|
 | `sitestudio` | `cohesion_elements.cohesion_component.*.yml` | form fields -> fields; `cohSelect` options -> enum; `drop-zone` in canvas -> slots; `showCondition` -> showWhen |
 | `sdc` | custom `*.component.yml` | `props.properties.*` -> fields; `enum:` -> enum options; `slots:` -> slots; no conditional equivalent |
+| `canvas` | `canvas.component.sdc.*.yml` registrations | Joins each Canvas registration to its source Single Directory Component (SDC); uses Canvas field types, required flags, defaults, version, label, and folder; keeps per-field source file provenance |
 | `paragraphs` | `paragraphs.paragraphs_type.*.yml` plus field config | field instances -> fields; `list_string` -> enum; `entity_reference_revisions` -> slots |
+
+On a Canvas site, `canvas` is the authoring vocabulary and takes precedence over raw `sdc`.
+The extractor retains registrations from custom themes, which means KINGTEC's `kingtec`
+registrations are inventoried while Navigation and Olivero are excluded. Other providers
+can still appear in usage evidence when placed. Its SDC reader tries
+PyYAML, then JSON, then a scoped YAML parser for nested mappings and block lists.
+
+## Usage sources
+
+| Strategy | Detect by | Counts |
+|---|---|---|
+| `drupal-db` | Drupal configuration and a running DDEV database | Paragraphs and blocks, with direct placements separate from nested structural references |
+| `canvas-db` | Canvas registrations and a running DDEV database | Published Canvas pages on their current revision, plus nodes in Canvas content templates |
+
+For `canvas-db`, a top-level page component counts as a direct placement. A page component
+with `components_parent_uuid` counts as a structural reference. Each content-template
+tree entry adds one template placement, recorded with its node bundle and configuration
+file. Template placements also contribute to direct placement tiering. Page examples use
+active aliases from `path_alias`, with `/page/<id>` as the fallback. Components placed by
+Canvas but absent from the inventory, including blocks and JavaScript components, remain
+in usage evidence and are reported as inventory gaps.
 
 Single Directory Components are the cleaner source: props are already typed, enums are
 already declared, and slots are explicit. Site Studio requires inference on all three.

@@ -1,0 +1,17 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/verify-report.schema.json",
+  "title": "design-lab whole-file verification receipt",
+  "type": "object",
+  "required": ["standardVersion", "generatedAt", "open", "waived", "passed", "inapplicable", "completeness"],
+  "properties": {
+    "standardVersion": {"type": "string"},
+    "generatedAt": {"type": "string"},
+    "open": {"type": "array"},
+    "waived": {"type": "array"},
+    "passed": {"type": "array"},
+    "inapplicable": {"type": "array"},
+    "completeness": {"type": "object"}
+  },
+  "additionalProperties": true
+}

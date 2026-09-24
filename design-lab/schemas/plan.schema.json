@@ -1,0 +1,32 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/plan.schema.json",
+  "title": "design-lab build plan",
+  "type": "object",
+  "required": ["standardVersion", "plans"],
+  "properties": {
+    "standardVersion": {"type": "string"},
+    "plans": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "libraryRole", "visualIdentity", "visualEvidence", "variantAxes", "variants", "properties", "verdict"],
+        "properties": {
+          "id": {"type": "string"},
+          "variantAxes": {"type": "array"},
+          "variants": {"type": "integer", "minimum": 1},
+          "properties": {"type": "array"},
+          "libraryRole": {"enum": ["component", "subcomponent", "schema-only", "retirement"]},
+          "visualIdentity": {"enum": ["independent", "embedded", "unverified", "none"]},
+          "visualEvidence": {
+            "type": "object",
+            "required": ["captured", "renderSignals", "path", "states", "images"]
+          },
+          "verdict": {"enum": ["build", "map", "document", "refuse"]}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

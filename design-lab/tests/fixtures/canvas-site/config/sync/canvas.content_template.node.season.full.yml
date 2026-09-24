@@ -1,0 +1,10 @@
+langcode: en
+status: true
+id: node.season.full
+content_entity_type_id: node
+content_entity_type_bundle: season
+content_entity_type_view_mode: full
+component_tree:
+  '0:22222222-2222-4222-8222-222222222222':
+    uuid: 22222222-2222-4222-8222-222222222222
+    component_id: sdc.demo.photo-slide

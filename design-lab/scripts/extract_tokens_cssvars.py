@@ -24,10 +24,11 @@ Two things it does that a naive parse does not:
   a value scales. Modes are built from that evidence rather than assumed.
 """
 import json, os, re, sys, glob, datetime, colorsys
+from artifact_contracts import tool_version
 
 # references/library-standard.md section 10: every artifact states which edition it
 # was built to, or nobody can tell whether a library predates a rule.
-STANDARD_VERSION = '2.1.0'
+STANDARD_VERSION = '3.0.0'
 
 # Matches detect.py. Drupal core's Claro and Olivero ship *.libraries.yml with their own
 # :root token blocks; without pruning, `--admin-color-blue-500` outnumbers the real palette.
@@ -97,7 +98,7 @@ def theme_stylesheets(root):
     and library definitions nest css groups (`theme:`, `component:`) under keys whose names
     vary by project. A path ending in `.css` on its own line is unambiguous enough.
     """
-    loaded, libs = set(), []
+    loaded, libs, references = set(), [], []
     for dirpath, dirnames, filenames in os.walk(root):
         if SKIP.search(dirpath + os.sep):
             dirnames[:] = []
@@ -115,7 +116,11 @@ def theme_stylesheets(root):
                 ref = m.group(1).strip()
                 if ref.startswith(('http:', 'https:', '//')):
                     continue
-                loaded.add(os.path.normpath(os.path.join(dirpath, ref.lstrip('/'))))
+                references.append((lib, ref))
+    theme_refs = [(lib, ref) for lib, ref in references
+                  if re.search(r'/themes(?:/|$)', lib.replace(os.sep, '/'))]
+    for lib, ref in theme_refs or references:
+        loaded.add(os.path.normpath(os.path.join(os.path.dirname(lib), ref.lstrip('/'))))
     return loaded, libs
 
 
@@ -281,6 +286,7 @@ def extract(root):
 
     return {
         'standardVersion': STANDARD_VERSION,
+        'toolVersion': tool_version(),
         'generatedAt': datetime.datetime.now().replace(microsecond=0).isoformat(),
         'source': {'strategy': 'css-custom-properties', 'root': root,
                    'stylesheets': sorted(os.path.relpath(p, root) for p, _ in sheets),

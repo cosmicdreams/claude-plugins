@@ -1,6 +1,6 @@
 # The component library standard
 
-**Standard version: 2.1.0**
+**Standard version: 4.0.0**
 
 Every library design-lab produces conforms to this document. It is the single answer to "what is a finished component library", so that two people running the plugin against two unrelated codebases — one Drupal with Site Studio, one not Drupal at all — hand back artifacts a third person recognises as the same kind of thing.
 
@@ -8,7 +8,7 @@ The source data will differ wildly. The result must not.
 
 ## How to use this document
 
-- `verify.py` checks against this file. A finding is a **blocker** or a **major**; both resolve to a fix or a recorded waiver, never to silence.
+- `verify.py` checks against this file. A finding is a **blocker** or a **major**. A visual-fidelity blocker cannot be waived while the component is reported as built.
 - Every artifact stamps `standardVersion` so a library can state which edition it was built to.
 - Deviations are permitted where a codebase genuinely cannot supply something. They are **recorded on the Getting Started page in plain language**, not left for a reader to discover.
 
@@ -28,19 +28,31 @@ Raising the bar is the point. When a library invents something better than what 
 
 A library is **components and documentation, paired**. Not a component set with docs bolted on, and not a documentation atlas that happens to sit in Figma.
 
-For every component in scope, all three exist and reference each other:
+For every **visual component** in build scope, all three exist and reference each other:
 
 1. A real Figma component or component set, on its usage tier page.
 2. A documentation card, adjacent to that component on the same page.
 3. Links both ways — the component's `description` carries the searchable payload and points at the card; the component's `documentationLinks` jumps to it.
 
-A component that cannot be built is not silently dropped. It appears in the index as **not built**, with a reason.
+A source entity that is schema-only, a subcomponent of a larger visual whole, retired, or not visually verifiable is not promoted to a Figma asset. It stays in the index with its role and reason. Inventory completeness and component-library quality are different measurements.
+
+### A component is a rendered, reusable visual whole
+
+Configuration entities are discovery inputs, not an instruction to create one Figma component apiece. A buildable component must have:
+
+- a distinct rendered root in the running site;
+- at least one verified, anonymously reachable live example;
+- a captured reference image at the target state and width;
+- an interaction or content contract that makes sense as one reusable asset; and
+- a Figma master whose default state visually matches that reference.
+
+Field schemas explain configuration. They do not define the visible boundaries of a component. A frame containing labels such as `field:`, `caption:`, `required`, or `placeholder` is an authoring diagram unless those labels literally appear on the site. Authoring diagrams may exist in supporting documentation but **must never be published as the component master**.
 
 ### The file is a seed of ground truth, not an idealisation
 
 This is the governing principle, and it overrides every convenience below.
 
-**The Figma component is a faithful representation of the component as the running site actually implements it — including its defects.** Where the code resolves a value through a token, the Figma node binds the corresponding variable. Where the code hardcodes a literal, **the Figma node carries that literal too**, and the divergence is recorded as a defect about the codebase.
+**The Figma component is a faithful representation of the component as the running site actually implements it — including its defects.** The rendered page and its captured states are the visual authority; source files explain why it looks and behaves that way. Where the code resolves a value through a token, the Figma node binds the corresponding variable. Where the code hardcodes a literal, **the Figma node carries that literal too**.
 
 The purpose is a file both developers and designers can work from and then sync in either direction. That only works if the two sides describe the same thing. A Figma component that binds a variable where the code hardcodes a hex is not a tidier version of the truth — it is a different component, it hides the defect that a designer is best placed to notice, and it makes every subsequent diff meaningless because the two sides were never comparable.
 
@@ -48,7 +60,7 @@ So:
 
 - **Never improve a component on the way into Figma.** Not spacing, not colour, not type. If it looks wrong, that is the finding.
 - **A hardcoded value in the code becomes a hardcoded value in Figma plus a recorded defect**, surfaced on the card, so somebody can decide to fix it in the code and re-sync. Silently binding it destroys the signal.
-- **Divergence between Figma and code is the product**, not noise to be cleaned up before shipping.
+- **A screenshot comparison is part of the build receipt.** A component cannot be `built` until its Figma default state has been compared with its captured live reference and passed.
 
 Idealising the library is the tempting failure here, because the idealised version is prettier and every individual decision to tidy one value looks harmless.
 
@@ -82,17 +94,22 @@ Foundations — Color
 Foundations — Typography
 Foundations — Spacing & Layout
 Foundations — Elevation & Shape
+Foundations — Brand Voice & Language
 Components — High Use
 Components — Medium Use
 Components — Low Use
 Components — Structural Only
 Components — Retirement Candidates
+Examples
 ```
 
 Rules:
 
 - **A Foundations page exists only if the token source has values for it.** Omit `Elevation & Shape` when the codebase defines no shadows or radii — and say so under Known gaps. Never publish an empty page; an empty page reads as "this system has none of these", which is a different claim from "we could not find any".
-- **A component tier page always exists**, even at zero components, because absence is the finding. It carries a single line stating the count and why.
+- **A component tier page always exists**, even at zero components, because absence is the finding. Its header panel states the count, placements and thresholds; an empty tier says why in one line.
+- **Every page is drawn by a fixed template** from `scripts/render/`: `pages.js` creates and orders them, `cover.js`, `getting_started.js`, `foundation.js` and `tier_page.js` draw them. A Foundations page is one 1440-wide panel; colour swatches are 152 × 96 and bound to their variable; type is shown at true size with a one-line specification; spacing as bars whose width is bound to the variable.
+- **Foundations — Brand Voice & Language** exists when the published pages could be read. Every statement on it is measured from the site's copy (§9.1); it is never taken from a brand document and never invented.
+- **Examples** exists when page compositions were read. It recomposes up to three real pages from INSTANCES of the library components, in the order the live page renders them, at desktop and at mobile. It holds no components.
 - **No divider pages.** Typographic separators like `——— FOUNDATIONS ———` are unnavigable, appear in Find results as noise, and do not survive a rename.
 - **No `Internal Only Canvas`, no scratch pages, no `Components — Built`.** Working surfaces do not ship.
 - Additional Foundations pages are allowed where the token source justifies them. Additional *component* pages are not — the tier axis is the only page axis (§7.2).
@@ -112,7 +129,9 @@ Em dash, spaces both sides. Both halves are mandatory.
 
 The machine name serves Find and the developer; the human label serves the Assets panel and the designer. A library naming components only `cpt_text` fails every designer who does not know the codebase; one naming them only `Text Editor` fails every developer trying to trace a template. Neither is acceptable alone.
 
-**A component with more than one variant is a `COMPONENT_SET`, never loose siblings.** Only a set gives Figma a variant picker, and only a set lets the variants be compared against each other — which is the whole reason for building them. Loose components sharing a name stem look almost identical on the canvas and behave nothing alike on an instance.
+**One Figma component per source component — a single source of truth.** A viewport is never a separate component and never a variant: the component is responsive. Every value that differs between widths is a variable in the `Breakpoint` collection (modes `Desktop 1400px`, `Tablet 800px`, `Mobile 375px`, Desktop the default), and a layout that changes shape between widths is expressed as wrapping auto layout whose widths and offsets are those variables. Mobile and tablet are INSTANCES of the component, resized, with the Breakpoint mode set on the instance or a parent frame. `no-duplicate-components` is a blocker.
+
+**A component with more than one real variant (a content option such as media position) is a `COMPONENT_SET`, never loose siblings.** Only a set gives Figma a variant picker, and only a set lets the variants be compared against each other — which is the whole reason for building them. Loose components sharing a name stem look almost identical on the canvas and behave nothing alike on an instance.
 
 Component sets take the same name. Variants are named by their axes, never by the component.
 
@@ -122,12 +141,9 @@ Component sets take the same name. Variants are named by their axes, never by th
 
 1. **What it is in the source system** — the type and its machine name.
 2. **Usage** — tier, placement count, page count. Real counts, never estimates.
-3. **Fields** — name, kind, required or optional, cardinality. Note fields that are *not* author-editable and say why.
-4. **Containment** — what it is placed inside, and what it can contain.
-5. **How it renders** — template or component file path, and whether it is a real component or plain markup.
-6. **Token bindings that carry meaning** — e.g. padding bound to a spacing step, with the measured values.
-7. **Source path** — the configuration file the anatomy was read from.
-8. **A pointer to its documentation card.**
+3. **Configuration** — the variant axes and properties a designer can actually change.
+4. **Example path** — the portable root-relative path of a verified live example, such as `/blogs/compliance`, not a local hostname.
+5. **A pointer to its documentation card.**
 
 Anything a reader would search for belongs here. Synonyms and the terms authors actually use are worth including even when they appear nowhere in the codebase.
 
@@ -141,40 +157,90 @@ Variant axes follow `variant-policy.md`. A component whose axes would explode is
 
 ---
 
-## 5. The documentation card contract
+## 5. The component block
 
-One card per component, adjacent to it, same page. Sections in this order:
+One block per built component, on its tier page. The block is the component's documentation
+and its specimen in one frame, so the two cannot drift apart. It follows the pattern the best
+single-site libraries share (Ontario, the United States Web Design System, GOV.UK, figma.com):
+the real component at real breakpoints, side by side, with a short fixed documentation panel
+beside it. Heavier documentation belongs in `components.json`, where a machine can read it.
+
+The block is drawn by `scripts/render/component_block.js` from arguments `figma_build.py`
+computes. Nothing in it is laid out by hand, so it is identical on every run.
+
+Left, the **documentation panel** (560 wide, white, 40 of padding), sections in this order:
 
 | Section | Contains |
 | --- | --- |
-| `Head` | category tags, human label, machine name, verified live example path |
-| `Usage` | **two** stat tiles — author placements and structural references, separately (§7.3) |
-| `Fields` | labelled count, then a real **table**: field, kind, required, constraint, default. Where there are none, a sentence saying why. |
-| `Relations` | `CAN CONTAIN` and `APPEARS IN`, derived from the source, not asserted |
-| `Breakpoints` | `ACROSS BREAKPOINTS`, then screenshots at every documented width, **drawn at one shared scale**, each labelled with its real rendered height |
+| `Head` | tier, human label, machine name, the source's own description of the component, chips for group and global chrome |
+| `Usage` | author placements, structural references, public pages it renders on, a live example (the portable path, linked), its source directory |
+| `Figma properties` | every property on the Figma component: name, type, values, default |
+| `Fields` | every authored field and slot: source name, kind, required, and how it appears in Figma |
+| `Relationships` | components it contains, components it is placed inside, theme templates that render it |
+| `Notes` | only recorded source defects, at most four |
+
+Right, the **specimen**: breakpoint column labels (`Mobile · 345px`, narrowest first), then
+the ONE component shown at every width — instances resized to mobile and tablet with their
+Breakpoint mode set, and the master itself at desktop — then `Live reference`: the captured
+screenshots in the same columns at the same scale, so a reader compares by looking down. The
+automatic comparison (`figma_compare.py`) measures each pair from one screenshot of the
+specimen and records the result in the build record.
 
 Rules:
 
-- **The fields table is a table.** Preformatted text with box-drawing or bullet glyphs standing in for structure is not a table — it cannot be read at a glance, cannot be restyled, and loses the alignment that makes a field list scannable.
-- **Screenshots are required** wherever the component is reachable. A component with no shot carries a stated reason (not reachable anonymously, no isolable selector, renders no distinct markup). Placeholder frames named like captures are a blocker.
-- **One shared scale across breakpoints.** Per-frame scaling makes every width look identical and hides the responsive behaviour the strip exists to show.
+- **The component is the rendered interface.** Built by `scripts/responsive.py` from the three
+  measured widths: auto layout wherever auto layout reproduces the measured positions within
+  two pixels at every width; otherwise a wrapping row of slots whose widths and offsets are
+  Breakpoint variables; absolute positions only when neither can, and the choice recorded.
+- **The desktop, tablet and mobile trio is required** for every asset reported as built, as
+  the master plus two instances and as live reference. A width without a trustworthy capture makes the component
+  `Not built — incomplete visual evidence`.
+- **Fields are source-complete.** A component with no fields says so. An option axis the capture
+  cannot show (only the rendered option is drawn) is named in `Fields` and under Known gaps,
+  never silently dropped.
+- **No authoring diagrams.** Field names never appear inside the component master.
+- **Dates stay out of blocks.** A block built on Tuesday and one built on Wednesday from the same
+  source must be identical; dates live in the Getting Started changelog.
 
 ### 5.1 Layer naming
 
-Card layers carry the machine name so Find reaches them: `Human Label · machine_name` on the card root. Layers named `Frame` are a blocker — they are invisible to the one search surface that covers the whole file.
+The block root is `Human Label · machine_name`; the panel is `Documentation · machine_name`.
+Layers inside the set are named from the source's own classes (`kt-stat__value` becomes
+`Value`) or, failing that, from the element (`Heading`, `Image`, `Link`). A layer named `Frame`
+is a blocker.
+
+### 5.2 The documentation style
+
+Documentation is neutral and belongs to design-lab, not to the site. The site's own colours and
+fonts appear only inside components and foundation specimens, where they are the subject.
+
+| Role | Style |
+| --- | --- |
+| Title | Inter Semi Bold 40/48, #18181b |
+| Heading | Inter Semi Bold 24/32 |
+| Section label | Roboto Mono Medium 12/16, uppercase, tracking 1, #71717a |
+| Body | Inter Regular 14/22, #3f3f46 |
+| Table cell | Inter Regular 13/20; header Roboto Mono Medium 11/16 uppercase on #fafafa |
+| Code identifiers | Roboto Mono Regular 12 |
+| Link | #1d4ed8, underlined |
+| Panels | white, radius 12, 1-pixel #e4e4e7 border, 40 padding |
+| Page background | #f4f4f5 |
+| Spacing | 4, 8, 16, 24, 32, 48, 80, 160 — nothing else |
+
+These values live in `scripts/render/_kit.js` and only there.
 
 ---
 
 ## 6. Variables
 
-### 6.1 Collections
+### 6.1 Collections and groups
 
-Named `<Brand> <Domain>` — brand-prefixed. When a file subscribes to more than one library, unprefixed collections collide in every picker.
+Use the fewest collections that preserve real system boundaries. Collections are for independent modes, publishing/ownership, or lifecycle. Groups are for navigation.
 
-Canonical domains: `Color`, `Semantic`, `Spacing`, `Type`, `Radius`, `Elevation`, `Motion`.
-
-- **A collection exists only if the token source has values for it.** Never invent a domain to look complete.
-- **Never two collections for one domain.** Carrying both `Typography` and `Type` splits the same concept across two pickers and guarantees the wrong one gets bound.
+- A single-mode system with one owner normally uses one brand-prefixed collection, such as `<Brand> Core`, and slash-delimited groups such as `Color/Primitive`, `Color/Semantic`, `Spacing`, `Typography`, and `Shape/Radius`.
+- Separate collections only when they have different mode sets, must be published independently, or are owned and maintained independently. Record that reason in the foundation receipt.
+- **A collection or group exists only if the token source has values for it.** Never invent a domain to look complete.
+- **Never split one conceptual domain across competing collections.** Carrying both `Typography` and `Type` guarantees the wrong one gets bound.
 - Primitives hold raw values. Semantic aliases them by role. **Where the code resolves a value through a token, the component binds Semantic rather than the primitive** — a theme change is then one edit, not a hunt. Where the code hardcodes, the component hardcodes too (§1) — binding a variable the code does not use is a fidelity failure, not an improvement.
 
 ### 6.2 Modes
@@ -237,7 +303,7 @@ Sections in order:
 2. **Coverage** — components, fields, placements, and **built versus not built**, per tier. The headline numbers from the Cover, broken down.
 3. **How this file is organised** — tier thresholds with any override and its reason (§7.2); the two usage axes and why (§7.3); the note that non-tier axes are chips.
 4. **What each card tells you** — the sections of §5, so a reader knows what they are looking at.
-5. **Index** — the jump list. One row per component: machine name, human label, tier, placements, built or not built, each row hyperlinked to its card. This is a table of contents, not documentation and not a search index — it is short enough to scan and cheap enough to stay correct.
+5. **Index** — the jump list, sorted by placements descending within tier. Columns are `Placements`, `Component`, `Tier`, `Type`, `Status`, and `Documentation`, in that order. The component name links to the Figma master; Documentation links to its card. Not-built rows have no fake destination. This is a table of contents, not documentation and not a search index.
 6. **Known gaps** — every unmet expectation and every waiver, named specifically, with counts and component names. Regenerated by `design-lab:verify`, which exits non-zero while anything is unresolved.
 7. **Provenance and regeneration** — §7.1, ending in the numbered commands to rebuild.
 
@@ -249,17 +315,34 @@ The index lives here, under the summary that gives it meaning, rather than alone
 
 ## 9. The Cover
 
-A poster, and the only page a stakeholder may ever see. Fixed shape:
+A poster, the file thumbnail, and the only page a stakeholder may ever see. One 1440 × 900 frame
+on a #18181b ground with 80 of margin, drawn by `scripts/render/cover.js`:
 
-- **Eyebrow** — the document type (`SITE STUDIO COMPONENT LIBRARY`, `DRUPAL COMPONENT LIBRARY`).
-- **Headline** — the organisation.
+- **Eyebrow** — the document type (`DRUPAL CANVAS COMPONENT LIBRARY`), Roboto Mono 13, uppercase.
+- **Headline** — the organisation, from the site's own name, Inter Semi Bold 72.
 - **Lede** — one sentence on what the file covers.
-- **Stat tiles** — four to six, each a frame named `Stat / <what>`, carrying a number, a label, and one line of qualifier. Never a single text blob.
-- **Provenance block** — source and version, what was measured and excluded, capture widths, generation date, regeneration pointer.
+- **Stat tiles** — five, each a frame named `Stat / <what>` with a number, a label and one
+  line of qualifier, separated by a 1-pixel rule on top. Never a single text blob.
+- **Provenance** — source and commit, the site the captures came from, capture widths,
+  standard version, renderer runtime.
 
 The eyebrow is the document type and the headline is the organisation — not the reverse.
 
 ---
+
+### 9.1 Brand Voice & Language
+
+Drawn by `scripts/render/voice.js` from `voice.json` (`scripts/extract_voice.py`), which reads
+the published pages. Sections in order: a lede stating the corpus (pages, sentences, calls to
+action, date); a positioning band quoting the homepage heading and opening paragraphs; five
+evidence tiles; OBSERVED and WATCH rows for Voice, Naming & terminology, Headlines, Calls to
+action, Readability and Search; vocabulary chips; a mechanics table; and published
+inconsistencies on their own panel, recorded as defects, never as guidance.
+
+- Every number carries its denominator. Every quote names its page.
+- An OBSERVED row states what the majority of the site does and never contradicts its own
+  numbers. WATCH rows are threshold-based and documented in `references/voice.md`.
+- No language model writes anything on this page, so it is identical on every run.
 
 ## 10. The intermediate model
 
@@ -287,18 +370,28 @@ Every build record carries `standardVersion`, `toolVersion`, `sourceHash`, and i
 | `foundation-exists` | components built before variables exist |
 | `code-syntax-resolves` | a Dev Mode name exists nowhere in the codebase |
 | `components-built` | the plan said build, the file does not have it |
+| `visual-evidence-present` | a built component has no verified live capture, selector, state, or root-relative example path |
+| `master-matches-capture` | a built component has no passing screenshot comparison against its live reference |
+| `no-authoring-diagrams` | a component master is a field-schema or anatomy diagram rather than the rendered interface |
+| `documentation-anatomy` | a built component's documentation omits a source field, Site Studio property, or component relationship |
+| `breakpoint-triad` | a built component lacks desktop, tablet, or mobile screenshot evidence and a passing comparison at that width |
+| `native-component-structure` | a built asset is not a native component/component set, or its root is a screenshot image fill |
+| `nested-component-coverage` | a rendered source relationship is documented but not represented by a real nested Figma instance |
 | `component-naming` | a component is not `machine_name — Human Label` |
-| `component-description` | a component's description is empty or lacks the §4.2 payload |
+| `component-description` | a component's description is empty or lacks the concise §4.2 payload |
 | `documentation-links` | a component has no link to its card |
 | `documentation-adjacent` | a card is not on the same page as its component |
 | `layers-named` | a card layer is named `Frame` or another Figma default |
 | `mode-naming` | a mode is named `Mode 1` or `Default` |
 | `no-scratch-pages` | a working or divider page shipped |
 | `standard-version-stamped` | an artifact or build record carries no `standardVersion` |
+| `build-record-assertions` | a component receipt has an empty, skipped, `not-run`, or failing assertion |
 | `verify-report-exists` | no verify report was written |
 | `bindings-match-source` | the Figma component binds where the source hardcodes, or hardcodes where the source binds (§1) |
 | `index-complete` | a component missing from the index, or a rendered index stale against the inventory |
 | `index-links-resolve` | a built component whose index row links to nothing |
+| `index-component-links` | the component name does not link to the master, or Status is used as the component link |
+| `example-path-portable` | a displayed example is a local hostname, lacks a root-relative label, or is not an actual link |
 | `variants-are-sets` | variants left as loose components instead of a `COMPONENT_SET` |
 
 ### Majors
@@ -308,13 +401,13 @@ Every build record carries `standardVersion`, `toolVersion`, `sourceHash`, and i
 | `variable-scoped` | a variable is `ALL_SCOPES` |
 | `code-syntax-set` | Dev Mode shows a bare number with no description saying why |
 | `modes-earn-themselves` | a mode's values never differ |
-| `collection-naming` | a collection is unprefixed, or two collections cover one domain |
+| `collection-strategy` | collections are split without a distinct mode, publishing, ownership, or lifecycle boundary |
 | `documentation-cards` | a component has no card |
 | `documentation-cards-unique` | one card name is used twice, so one component is documented twice and another not at all |
-| `fields-are-tables` | a fields list is preformatted text rather than a table |
+| `documentation-signal` | visible docs are dominated by source dumps or generic sections rather than Preview, When to use, Configuration, Usage, Example, and actionable Notes |
 | `pages-populated` | a page is empty and carries no line explaining why |
 | `shot-frames-have-images` | a placeholder is named like a capture |
-| `breakpoints-share-scale` | breakpoint shots are scaled per frame |
+| `breakpoints-share-scale` | responsive shots that are useful are scaled per frame |
 | `captures-unique` | two components' selectors resolve to one element |
 | `two-usage-numbers` | placements and structural references are collapsed into one |
 | `tier-thresholds-stated` | thresholds are overridden without a stated reason |

@@ -17,6 +17,7 @@ the axes forces one site down another's path.
 
 | Site | Components | Config path | Tokens |
 |---|---|---|---|
+| America's Credit Unions | 69 Drupal authoring bundles | `config/default` | 97 planned variables from authored Sass |
 | AHRI | 146 Site Studio | `config/sync` | 129 custom style entities |
 | Schusterman | 101 Site Studio | `config/default` | 172 custom style entities |
 | PNCB | 43 Paragraph types | `config/default` | 113 base tokens via Sass source map |
@@ -27,13 +28,23 @@ template - they are a partial rendering layer, not the component source. It was 
 as a 13-component Single Directory Component site until 2026-08-31; that profile came from
 a bug, not the site. See `references/strategies/README.md`.
 
-## Skills
+## Start here
 
-Run them in this order. `detect` begins by looking for work that already exists — see
-`references/prior-art.md`, which is the most expensive lesson in this plugin.
+Use `design-lab:run` for a complete library. It creates `.design-lab/project.json`, records
+the repository commit and every strategy decision, validates artifacts before rendering, and
+can resume from the first incomplete phase. Use a narrower skill only when the request names a
+single phase.
+
+Builds write into Figma through the design-lab runner, a Figma development plugin that must
+be imported once per machine by hand — Figma offers no command-line install. To get the steps
+with this machine's paths filled in, ask:
+
+> Using design-lab's references/relay.md, give me concise steps to install the design-lab
+> runner plugin in Figma desktop, including the absolute path to its manifest on this machine.
 
 | Skill | Does |
 |---|---|
+| `design-lab:run` | end-to-end, resumable workflow and completion gate |
 | `design-lab:detect` | which strategies apply |
 | `design-lab:inventory` | components + fields + slots + source defects -> `components.json` |
 | `design-lab:usage` | verified anonymous example addresses + placement counts + tiers |
@@ -41,27 +52,48 @@ Run them in this order. `detect` begins by looking for work that already exists 
 | `design-lab:tokens` | colour, spacing, type per breakpoint, each with its code name -> `tokens.json` |
 | `design-lab:plan` | reviewable build proposal with variant arithmetic and hard refusals |
 | `design-lab:figma-foundation` | variable collections, modes, scopes, code syntax. Once per file |
-| `design-lab:figma-component` | **one named** component: `figma-component <machine_name>` — variants, text and slot properties, bindings, **its documentation card**, build record |
+| `design-lab:figma-component` | one named atomic component transaction — variants, properties, bindings, documentation card, build record |
 | `design-lab:figma-index` | the Getting Started page: inventory, linked index, coverage, known gaps. Refresh after every component |
 | `design-lab:verify` | **checks the whole file against the base expectations**; every gap ends as a fix or a recorded waiver |
 
-Extractors: `extract_sitestudio.py`, `extract_sdc.py`, `extract_paragraphs.py` (component
-sources), `extract_tokens_sitestudio.py`, `extract_tokens_sourcemap.py` and
-`extract_tokens_cssvars.py` (token sources), `find_examples.py` (usage source).
+`scripts/workflow.py` is the deterministic front door. Its `init`, `detect`, `select`,
+`extract`, `usage`, `plan`, `variables`, `approve`, `target`, `register`, `record`, `validate`, and
+`status` commands write atomically and keep artifact hashes in the project manifest. The
+schemas in `schemas/` are the machine-readable contracts; `references/library-standard.md`
+is the canonical product definition.
+
+Component extractors cover Site Studio, SDCs, Paragraphs, and combined Drupal authoring
+vocabularies (`block_content` + Paragraphs). Token extractors cover Site Studio styles,
+theme-loaded CSS custom properties, Sass source maps, and source-authored Sass. Combined Drupal
+extraction also writes `render-evidence.json`, a bounded map from each authoring bundle to its
+existing Twig, SDC, stylesheet, root-class, and referenced-field evidence.
+That evidence includes deterministic `styleFacts` parsed from the component's own Sass: root
+and nested-part declarations stay separate, retain token/literal provenance, and give the model
+the visual facts it needs without asking it to rediscover every stylesheet rule.
+
+Drupal database usage is deterministic too: `extract_drupal_usage.py` reads the running DDEV
+project, preserves placements and structural references as separate measures, writes a validated
+`usage.json`, and merges tiers into `components.json`. Planning hard-stops when detection found
+usage evidence but it was neither measured nor explicitly waived as degraded.
+Waivers are human decisions: the workflow requires both a named decider and a reason, and final
+verification refuses any unresolved prerequisite phase. Registering one component receipt also
+cannot complete the component phase; valid non-failing receipts must cover the approved plan.
 
 Capture: `scaffold_configs.py` writes a config per component and names the ones a human must
 finish; `measure.mjs` records the box model and typography per breakpoint; `capture.mjs`
-takes element-scoped screenshots. Playwright is not vendored. Copy these scripts into a project that has it and run them
-there — Node resolves bare imports from the script's own location, so invoking them at the
-plugin path fails no matter what the working directory is. See `skills/capture/SKILL.md`.
+takes element-scoped screenshots. Playwright is not vendored and resolves from the current
+working directory. `DESIGN_LAB_BROWSER_EXECUTABLE` selects an installed browser when a
+Playwright-managed Chromium download is unavailable. See `skills/capture/SKILL.md`.
 
-Token sources are ranked. Authored CSS custom properties beat a recovered Sass source map,
-which beats nothing - a `:root` block states intent, a Sass file merely declares values.
-Only the custom-property strategy can supply a semantic layer without a human naming it.
+Token sources are ranked by evidence. A substantial theme-loaded custom-property layer states
+runtime intent and wins. Source-authored Sass is next, then a recovered Sass source map. Weak
+or unloaded CSS never outranks the theme sources merely because similarly named files exist.
 
-`figma-component` builds one component per invocation on purpose. A single run over 146
-components exhausts its context partway and leaves a half-built file with no record of where
-it stopped; one at a time is resumable, reviewable and can be fanned out.
+`figma-component` owns one component transaction on purpose. `run` may process many
+transactions in one model session, but each becomes durable only after its build record is
+validated. Every recorded assertion must explicitly pass; skipped fidelity work and an empty
+assertion object remain incomplete. A partial run therefore resumes safely instead of pretending
+the library is done.
 
 `verify` is the one that runs last and the one that should have existed first. Every other
 skill reports on its own step, so a library can pass all of them and still be half a

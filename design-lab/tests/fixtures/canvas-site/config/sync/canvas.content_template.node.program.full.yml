@@ -1,0 +1,10 @@
+langcode: en
+status: true
+id: node.program.full
+content_entity_type_id: node
+content_entity_type_bundle: program
+content_entity_type_view_mode: full
+component_tree:
+  '0:11111111-1111-4111-8111-111111111111':
+    uuid: 11111111-1111-4111-8111-111111111111
+    component_id: sdc.demo.program-showcase

@@ -15,10 +15,11 @@ renders. The source map carries the 39 real ones.
 Configuration beats measurement (references/model.md), and a source map is configuration.
 """
 import json, os, re, sys, glob, datetime, colorsys
+from artifact_contracts import tool_version
 
 # references/library-standard.md section 10: every artifact states which edition it
 # was built to, or nobody can tell whether a library predates a rule.
-STANDARD_VERSION = '2.1.0'
+STANDARD_VERSION = '3.0.0'
 
 SKIP = re.compile(r'/(node_modules|vendor|\.git)/')
 
@@ -206,6 +207,7 @@ def extract(root, base_hint='base/'):
 
     return {
         'standardVersion': STANDARD_VERSION,
+        'toolVersion': tool_version(),
         'generatedAt': datetime.datetime.now().replace(microsecond=0).isoformat(),
         'source': {'strategy': 'sass-sourcemap', 'root': root,
                    'maps': [os.path.relpath(m, root) for m in maps]},

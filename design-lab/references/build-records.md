@@ -4,6 +4,9 @@ One file per component, written by `design-lab:figma-component`, at
 `builds/<component-id>.json`. It is the reason a 146-component library can be built across
 many sessions by many agents without anyone remembering anything.
 
+The `assertions` object is never empty. Every assertion explicitly passes; `not-run`,
+`skipped`, or a missing verdict keeps the receipt invalid and the component phase incomplete.
+
 It does three jobs at once, and all three matter:
 
 1. **Idempotency key.** Re-running a component must update the existing one, not create a
@@ -17,6 +20,15 @@ It does three jobs at once, and all three matter:
 `figma.documentationCardId` is what the Getting Started index hyperlinks each row to, so a
 record without it produces a row that cannot be jumped to. `scripts/index_rows.py` reads
 these records and nothing else to decide what exists.
+
+The receipt also separates three things that were previously easy to conflate:
+
+- `documentation` proves every source field and relationship is explained and that the card
+  contains desktop, tablet, and mobile evidence.
+- `nativeComponent` proves the reusable asset is a component/component set, not a screenshot,
+  and records the real instances used for rendered relationships.
+- `visualEvidence` proves the native reconstruction was compared with the live component at
+  all three required widths.
 
 ## Shape
 
@@ -37,6 +49,39 @@ these records and nothing else to decide what exists.
     "properties": [ { "name": "Title", "type": "TEXT" } ],
     "bindings": 94
   },
+  "documentation": {
+    "anatomy": {
+      "fields": [
+        { "field": "field_heading", "kind": "text", "required": true,
+          "default": null, "options": null, "figmaTreatment": "TEXT",
+          "figmaProperty": "Heading" }
+      ],
+      "relationships": [
+        { "field": "field_ctas", "accepts": ["paragraph:link_default"],
+          "cardinality": 2, "required": false, "rendered": true }
+      ]
+    },
+    "breakpointScreenshots": {
+      "desktop": "12:91", "tablet": "12:92", "mobile": "12:93"
+    }
+  },
+  "nativeComponent": {
+    "nodeType": "COMPONENT_SET",
+    "rootHasImageFill": false,
+    "componentProperties": [
+      { "name": "Heading", "type": "TEXT" },
+      { "name": "CTA", "type": "INSTANCE_SWAP" }
+    ],
+    "nestedInstances": [
+      { "sourceId": "paragraph:link_default", "instanceNodeIds": ["12:70"] }
+    ],
+    "validation": {
+      "nativeNode": true,
+      "noScreenshotSurrogate": true,
+      "authoringCoverage": true,
+      "relationshipCoverage": true
+    }
+  },
   "deferred": [
     { "field": "inside-banner-padding",
       "reason": "11 options; bound to pad/* variables rather than a variant axis",
@@ -53,12 +98,25 @@ these records and nothing else to decide what exists.
                    "breakpoint": 1440,
                    "compared": [ { "property": "paddingTop", "figma": 32, "live": 32 } ] }
   },
-  "screenshot": "builds/screenshots/cpt_cta_banner.png",
+  "visualEvidence": {
+    "path": "/certification",
+    "captureFiles": ["cta--desktop.png", "cta--tablet.png", "cta--mobile.png"],
+    "states": ["default"],
+    "breakpoints": {
+      "desktop": {"captureFile": "cta--desktop.png", "viewportWidth": 1440},
+      "tablet": {"captureFile": "cta--tablet.png", "viewportWidth": 800},
+      "mobile": {"captureFile": "cta--mobile.png", "viewportWidth": 390}
+    },
+    "comparison": {
+      "verdict": "pass", "reviewedAt": "2026-09-01T00:00:00Z",
+      "breakpoints": {"desktop": "pass", "tablet": "pass", "mobile": "pass"}
+    }
+  },
   "sourceRef": "config/sync/cohesion_elements.cohesion_component.cpt_cta_banner.yml",
   "sourceHash": "sha256:...",
   "builtAt": "2026-09-01T00:00:00Z",
-  "toolVersion": "design-lab 0.13.0",
-  "standardVersion": "2.1.0"
+  "toolVersion": "design-lab 0.14.0",
+  "standardVersion": "3.0.0"
 }
 ```
 

@@ -63,7 +63,50 @@ def treat(field):
         return 'manual', 1, None
     return 'manual', 1, None
 
-def plan_component(c):
+def classify(c, rendering=None, capture=None):
+    """Separate a CMS schema entity from a reusable visual-library component.
+
+    Authoring configuration explains editable inputs. It does not prove that the bundle owns
+    a distinct rendered interface. A buildable component needs both bounded render evidence and
+    a real capture. This deliberately fails closed: fewer truthful components beat a complete
+    library of field diagrams.
+    """
+    rendering = rendering or {}
+    capture = capture or {}
+    usage = c.get('usage') or {}
+    placements = usage.get('placements') or 0
+    structural = usage.get('structuralRefs') or usage.get('structuralReferences') or 0
+    captured = bool(capture.get('images'))
+    # A Single Directory Component owns its template by definition, and a component observed
+    # on a public page or captured there plainly renders; neither needs a separate render
+    # artifact to prove it.
+    sdc = str(c.get('sourceRef') or '').endswith('.component.yml')
+    rendered = bool(usage.get('renderedPages') or usage.get('globalTemplate') or usage.get('templateRefs'))
+    render_signals = bool(rendering.get('rootClasses') or rendering.get('sdc') or
+                          rendering.get('templates') or sdc or rendered or captured)
+    contained = bool(c.get('containedBy'))
+
+    if placements == 0 and structural == 0 and not rendered:
+        role = 'retirement'
+    elif not render_signals:
+        role = 'schema-only'
+    elif contained and placements == 0 and not (sdc and captured):
+        # An embedded part is mapped into its parent. A Single Directory Component with its
+        # own capture is an asset an author can place on its own, so it is built.
+        role = 'subcomponent'
+    else:
+        role = 'component'
+
+    if captured:
+        identity = 'embedded' if role == 'subcomponent' else 'independent'
+    elif render_signals:
+        identity = 'unverified'
+    else:
+        identity = 'none'
+    return role, identity, captured, render_signals
+
+
+def plan_component(c, rendering=None, capture=None):
     axes, props, flags, skipped = [], [], [], []
     for f in c['fields']:
         t, n, flag = treat(f)
@@ -84,14 +127,33 @@ def plan_component(c):
     for f in c['fields']:
         if f['kind'] == 'enum' and f.get('options'):
             naive *= max(1, effective_options(f))
+    role, visual_identity, captured, render_signals = classify(c, rendering, capture)
+    refusal = None
+    if total > MAX_VARIANTS:
+        refusal = ('proposed %d variants exceeds maxVariants %d - treat as a layout '
+                   'engine (auto-layout plus variable modes), not a variant set'
+                   % (total, MAX_VARIANTS))
+    elif role in ('schema-only', 'retirement'):
+        refusal = ('source entity is %s, not an evidenced reusable visual component' % role)
+    elif not captured:
+        refusal = ('no component-scoped screenshot exists; capture visual and behavioral '
+                   'states before construction')
+    verdict = ('map' if role == 'subcomponent' and not refusal
+               else 'refuse' if refusal else 'build')
     return {
         'id': c['id'], 'label': c['label'],
+        'libraryRole': role, 'visualIdentity': visual_identity,
+        'visualEvidence': {
+            'captured': captured,
+            'renderSignals': render_signals,
+            'path': (capture or {}).get('path'),
+            'states': (capture or {}).get('states') or [],
+            'images': (capture or {}).get('images') or [],
+        },
         'variantAxes': axes, 'variants': total, 'naiveVariants': naive,
         'properties': props, 'flags': flags, 'skippedFields': skipped,
-        'verdict': 'refuse' if total > MAX_VARIANTS else 'build',
-        'refuseReason': ('proposed %d variants exceeds maxVariants %d - treat as a layout '
-                         'engine (auto-layout plus variable modes), not a variant set'
-                         % (total, MAX_VARIANTS)) if total > MAX_VARIANTS else None,
+        'verdict': verdict,
+        'refuseReason': refusal,
         'defects': c.get('defects') or [],
     }
 
@@ -100,13 +162,19 @@ if __name__ == '__main__':
     ap.add_argument('components_json')
     ap.add_argument('--report', action='store_true')
     ap.add_argument('--only', help='comma-separated component ids')
+    ap.add_argument('--render-evidence')
+    ap.add_argument('--capture-evidence')
     a = ap.parse_args()
     d = json.load(open(a.components_json))
     comps = d['components']
     if a.only:
         keep = set(a.only.split(','))
         comps = [c for c in comps if c['id'] in keep]
-    plans = [plan_component(c) for c in comps]
+    renders = (json.load(open(a.render_evidence)).get('items')
+               if a.render_evidence else {}) or {}
+    captures = (json.load(open(a.capture_evidence)).get('captures')
+                if a.capture_evidence else {}) or {}
+    plans = [plan_component(c, renders.get(c['id']), captures.get(c['id'])) for c in comps]
     if not a.report:
         print(json.dumps({'plans': plans}, indent=2)); sys.exit()
     build = [p for p in plans if p['verdict'] == 'build']

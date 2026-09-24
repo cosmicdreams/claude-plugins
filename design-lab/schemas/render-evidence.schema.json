@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/render-evidence.schema.json",
+  "title": "design-lab Drupal rendering evidence",
+  "type": "object",
+  "required": ["standardVersion", "generatedAt", "source", "items", "totals", "problems"],
+  "properties": {
+    "standardVersion": {"type": "string"},
+    "generatedAt": {"type": "string"},
+    "source": {"type": "object", "required": ["strategy", "root"]},
+    "items": {
+      "type": "object",
+      "minProperties": 1,
+      "additionalProperties": {
+        "type": "object",
+        "required": ["templates", "sdc", "sdcDefinitions", "stylesheets", "styleFacts",
+          "rootClasses", "referencedFields", "defects", "confidence"]
+      }
+    },
+    "totals": {"type": "object"},
+    "problems": {"type": "array"}
+  },
+  "additionalProperties": true
+}

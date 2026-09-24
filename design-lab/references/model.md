@@ -29,7 +29,7 @@ another's path.
 
 ```jsonc
 {
-  "standardVersion": "2.1.0",   // which edition of library-standard.md this was built to
+  "standardVersion": "3.0.0",   // which edition of library-standard.md this was built to
   "generatedAt": "ISO-8601",
   "source": { "strategy": "sitestudio|sdc|...", "root": "/abs/path", "version": "..." },
   "components": [
@@ -54,7 +54,7 @@ another's path.
           "defaultSource": "declared|unset|observed"  // see references/defaults.md
         }
       ],
-      "slots": [ { "name": "content", "label": "Content", "accepts": "any|[ids]" } ],
+      "slots": [ { "name": "content", "label": "Content", "accepts": ["*"] } ],
       "usage": {
         "placements": 1304,              // LOWER BOUND over the pages actually scanned
         "structuralRefs": 77,
