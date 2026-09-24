@@ -18,11 +18,11 @@ picture and measurements describe the same render.
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold_configs.py components.json \
   --out components/ --theme-root <theme-root> \
-  --canonical-base-url https://www.example.org
+  --site-url https://example.ddev.site --canonical-base-url https://www.example.org
 ```
 
-Resolve every stub the scaffolder reports. `verificationUrl` must come from verified usage
-evidence and may use DDEV; `path` is root-relative and `linkUrl` uses the canonical base URL.
+Resolve every stub the scaffolder reports. `path` comes from the first available usage example;
+`verificationUrl` uses the local site URL and `linkUrl` uses the canonical base URL.
 `rootSelector` must select the component's real rendered root; a Drupal bundle class is invalid
 when its template does not print attributes.
 
@@ -38,9 +38,19 @@ Config shape:
 
 ## Run
 
-Playwright resolves from the current working directory. Run from a project that provides it.
+Run the full capture from a project with Playwright installed. The command scaffolds configs,
+measures each eligible component, takes desktop/tablet/mobile screenshots, assembles evidence,
+and registers it in the workspace:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/capture_all.py \
+  --project .design-lab --site-url https://example.ddev.site \
+  --canonical-base-url https://www.example.org \
+  --theme-root docroot/themes/custom/example --node-cwd /path/to/project-with-playwright
+```
+
 When that project has a system Chromium/Chrome but no Playwright-managed browser download,
-set `DESIGN_LAB_BROWSER_EXECUTABLE` explicitly:
+set `DESIGN_LAB_BROWSER_EXECUTABLE` explicitly. For manual capture or a custom config, run:
 
 ```bash
 export DESIGN_LAB_BROWSER_EXECUTABLE="/path/to/Chrome"

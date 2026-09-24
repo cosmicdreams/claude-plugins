@@ -47,6 +47,8 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py usage --project <artifact-dire
   --ddev-root <running-ddev-project-root> [--ddev-project <name>]
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py variables --project <artifact-directory>
 Run `design-lab:capture` and register `capture-evidence.json`.
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/extract_voice.py --project <artifact-directory> --base-url <local-site-url>
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/extract_compositions.py --project <artifact-directory> --base-url <local-site-url>
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py plan --project <artifact-directory>
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py validate --project <artifact-directory>
 ```
@@ -80,36 +82,47 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py approve \
   --project <artifact-directory> --by <name-or-request>
 ```
 
-## Render as durable transactions
+## Render through the build driver
 
-Read `references/library-standard.md` for the output contract.
+Every Figma write is a fixed template filled from the artifacts; the model relays and decides
+nothing. That is what makes two runs over the same source produce the same file.
 
-1. Run `design-lab:figma-foundation` from `tokens.json` and `variable-plan.json`.
-2. Run `design-lab:figma-index` once to establish the zero-built coverage baseline.
-3. Build every plan entry whose verdict is `build` with `design-lab:figma-component`.
-4. Refresh the index after each successful component transaction.
-5. Run `design-lab:verify`; fix every open finding or obtain a human waiver.
+1. Record the target: an empty Figma file the user can edit, in the account that owns the work.
 
-A component is one transaction, not necessarily one model invocation. Before moving to the
-next component, assert it, atomically write `builds/<id>.json`, and register that receipt with
-`--kind build-record --phase components`. The phase stays `running` until valid non-failing
-receipts cover every `build` verdict in the approved plan. Several straightforward components
-may be completed in one session when each transaction closes independently. On resume, trust
-validated build records and node identifiers; never infer progress from names or memory.
+   ```bash
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py target --project <artifact-directory> --figma-url <file-url>
+   ```
 
-Register each durable rendering receipt; registration validates its contract before completing
-the phase. Use `record` only for running, failed, or waived states:
+2. Plan every step. This converts each captured component into its build tree and fixes the
+   page list, order and contents:
 
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py register --project <artifact-directory> \
-  --name foundation --path <artifact-directory>/foundation.json \
-  --kind foundation --phase foundation
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py register --project <artifact-directory> \
-  --name index --path <artifact-directory>/index.json --kind index --phase index
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py register --project <artifact-directory> \
-  --name verification --path <artifact-directory>/verify-report.json \
-  --kind verify-report --phase verify
-```
+   ```bash
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.py init --project <artifact-directory> \
+     --file-key <key> --site-url <local-site-url> --canonical-base-url <public-site-url>
+   ```
+
+3. Relay until `next` reports `done`, exactly as `references/relay.md` describes. A long build
+   can be relayed in batches by fresh agents; state lives on disk, so each batch resumes where
+   the last stopped. Never hand-edit the file to fix a problem — fix the template or rule in
+   `scripts/`, re-run `init` in a new file, and relay again.
+
+4. Write and register the receipts the manifest needs (foundation, index, one build record per
+   component):
+
+   ```bash
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.py receipts --project <artifact-directory>
+   ```
+
+5. Run `design-lab:verify`; fix every open finding at its source or obtain a human waiver.
+
+`design-lab:figma-foundation`, `design-lab:figma-component` and `design-lab:figma-index`
+describe what their steps produce and how to diagnose them; they no longer build by hand.
+
+Each component is built ONCE, as a responsive master (`scripts/responsive.py`,
+`render/build_responsive.js`). Mobile and tablet are instances of it with the Breakpoint mode
+set — never separate components, never variants. `voice.json` adds the Brand Voice & Language
+foundation and `compositions.json` adds the Examples page, both built from instances and
+measured data only.
 
 ## Completion gate
 

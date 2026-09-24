@@ -1,6 +1,6 @@
 # The component library standard
 
-**Standard version: 3.0.0**
+**Standard version: 4.0.0**
 
 Every library design-lab produces conforms to this document. It is the single answer to "what is a finished component library", so that two people running the plugin against two unrelated codebases — one Drupal with Site Studio, one not Drupal at all — hand back artifacts a third person recognises as the same kind of thing.
 
@@ -94,17 +94,22 @@ Foundations — Color
 Foundations — Typography
 Foundations — Spacing & Layout
 Foundations — Elevation & Shape
+Foundations — Brand Voice & Language
 Components — High Use
 Components — Medium Use
 Components — Low Use
 Components — Structural Only
 Components — Retirement Candidates
+Examples
 ```
 
 Rules:
 
 - **A Foundations page exists only if the token source has values for it.** Omit `Elevation & Shape` when the codebase defines no shadows or radii — and say so under Known gaps. Never publish an empty page; an empty page reads as "this system has none of these", which is a different claim from "we could not find any".
-- **A component tier page always exists**, even at zero components, because absence is the finding. It carries a single line stating the count and why.
+- **A component tier page always exists**, even at zero components, because absence is the finding. Its header panel states the count, placements and thresholds; an empty tier says why in one line.
+- **Every page is drawn by a fixed template** from `scripts/render/`: `pages.js` creates and orders them, `cover.js`, `getting_started.js`, `foundation.js` and `tier_page.js` draw them. A Foundations page is one 1440-wide panel; colour swatches are 152 × 96 and bound to their variable; type is shown at true size with a one-line specification; spacing as bars whose width is bound to the variable.
+- **Foundations — Brand Voice & Language** exists when the published pages could be read. Every statement on it is measured from the site's copy (§9.1); it is never taken from a brand document and never invented.
+- **Examples** exists when page compositions were read. It recomposes up to three real pages from INSTANCES of the library components, in the order the live page renders them, at desktop and at mobile. It holds no components.
 - **No divider pages.** Typographic separators like `——— FOUNDATIONS ———` are unnavigable, appear in Find results as noise, and do not survive a rename.
 - **No `Internal Only Canvas`, no scratch pages, no `Components — Built`.** Working surfaces do not ship.
 - Additional Foundations pages are allowed where the token source justifies them. Additional *component* pages are not — the tier axis is the only page axis (§7.2).
@@ -124,7 +129,9 @@ Em dash, spaces both sides. Both halves are mandatory.
 
 The machine name serves Find and the developer; the human label serves the Assets panel and the designer. A library naming components only `cpt_text` fails every designer who does not know the codebase; one naming them only `Text Editor` fails every developer trying to trace a template. Neither is acceptable alone.
 
-**A component with more than one variant is a `COMPONENT_SET`, never loose siblings.** Only a set gives Figma a variant picker, and only a set lets the variants be compared against each other — which is the whole reason for building them. Loose components sharing a name stem look almost identical on the canvas and behave nothing alike on an instance.
+**One Figma component per source component — a single source of truth.** A viewport is never a separate component and never a variant: the component is responsive. Every value that differs between widths is a variable in the `Breakpoint` collection (modes `Desktop 1400px`, `Tablet 800px`, `Mobile 375px`, Desktop the default), and a layout that changes shape between widths is expressed as wrapping auto layout whose widths and offsets are those variables. Mobile and tablet are INSTANCES of the component, resized, with the Breakpoint mode set on the instance or a parent frame. `no-duplicate-components` is a blocker.
+
+**A component with more than one real variant (a content option such as media position) is a `COMPONENT_SET`, never loose siblings.** Only a set gives Figma a variant picker, and only a set lets the variants be compared against each other — which is the whole reason for building them. Loose components sharing a name stem look almost identical on the canvas and behave nothing alike on an instance.
 
 Component sets take the same name. Variants are named by their axes, never by the component.
 
@@ -150,47 +157,77 @@ Variant axes follow `variant-policy.md`. A component whose axes would explode is
 
 ---
 
-## 5. The documentation card contract
+## 5. The component block
 
-One complete card per component, adjacent to it, same page. It is the handoff surface for a
-designer joining a long-lived support project, so it records the component as it exists — not
-an idealized replacement and not a prose summary. Sections in this order:
+One block per built component, on its tier page. The block is the component's documentation
+and its specimen in one frame, so the two cannot drift apart. It follows the pattern the best
+single-site libraries share (Ontario, the United States Web Design System, GOV.UK, figma.com):
+the real component at real breakpoints, side by side, with a short fixed documentation panel
+beside it. Heavier documentation belongs in `components.json`, where a machine can read it.
+
+The block is drawn by `scripts/render/component_block.js` from arguments `figma_build.py`
+computes. Nothing in it is laid out by hand, so it is identical on every run.
+
+Left, the **documentation panel** (560 wide, white, 40 of padding), sections in this order:
 
 | Section | Contains |
 | --- | --- |
-| `Head` | category, human label, qualified source id, placement count, and structural-reference count |
-| `When to use` | one short, specific sentence derived from observed use |
-| `Anatomy` | every authored field or Site Studio property: source name, label, kind, required/default/options, and its Figma treatment |
-| `Relationships` | every referenced component field, accepted source component ids, cardinality, and whether the current renderer actually emits it |
-| `Breakpoint evidence` | three component-scoped live screenshots: desktop, tablet, and mobile; interactive components add state rows rather than replacing the default trio |
-| `Configuration` | the properties, variants, nested instances, and interactions available on the native Figma component |
-| `Example` | a clickable canonical URL whose visible label is the portable root-relative path |
-| `Notes` | only actionable exceptions that change a designer's or developer's decision |
+| `Head` | tier, human label, machine name, the source's own description of the component, chips for group and global chrome |
+| `Usage` | author placements, structural references, public pages it renders on, a live example (the portable path, linked), its source directory |
+| `Figma properties` | every property on the Figma component: name, type, values, default |
+| `Fields` | every authored field and slot: source name, kind, required, and how it appears in Figma |
+| `Relationships` | components it contains, components it is placed inside, theme templates that render it |
+| `Notes` | only recorded source defects, at most four |
+
+Right, the **specimen**: breakpoint column labels (`Mobile · 345px`, narrowest first), then
+the ONE component shown at every width — instances resized to mobile and tablet with their
+Breakpoint mode set, and the master itself at desktop — then `Live reference`: the captured
+screenshots in the same columns at the same scale, so a reader compares by looking down. The
+automatic comparison (`figma_compare.py`) measures each pair from one screenshot of the
+specimen and records the result in the build record.
 
 Rules:
 
-- **The desktop/tablet/mobile screenshot trio is required for every asset reported as built.**
-  These are reference evidence inside the documentation card, never the implementation of the
-  Figma component. If any width lacks a trustworthy shot, the index status is
+- **The component is the rendered interface.** Built by `scripts/responsive.py` from the three
+  measured widths: auto layout wherever auto layout reproduces the measured positions within
+  two pixels at every width; otherwise a wrapping row of slots whose widths and offsets are
+  Breakpoint variables; absolute positions only when neither can, and the choice recorded.
+- **The desktop, tablet and mobile trio is required** for every asset reported as built, as
+  the master plus two instances and as live reference. A width without a trustworthy capture makes the component
   `Not built — incomplete visual evidence`.
-- **Anatomy is source-complete, not selectively summarized.** A component with no configurable
-  fields or relationships says so explicitly. A component that references another component
-  names the qualified target id and shows that relationship as a real nested instance whenever
-  the renderer emits it.
-- **The publishable asset is native and editable.** Its root is a `COMPONENT` or
-  `COMPONENT_SET`; the root cannot use an image fill. Screenshots may appear only in the
-  documentation evidence frames. Text, boolean, variant, instance-swap, and image overrides
-  reflect the actual authoring surface.
-- **Visible documentation is decision support, not an extraction dump.** Summarize component
-  relationships in the Anatomy contract; raw traversal dumps, source-fidelity audits, source
-  defects, template internals, and generic “how it renders” prose stay in machine-readable
-  evidence unless an exception is actionable.
-- **Additional states are conditional; breakpoints are not.** Always show the default trio.
-  Add hover, open, selected, error, or other state rows only when source behavior supplies them.
+- **Fields are source-complete.** A component with no fields says so. An option axis the capture
+  cannot show (only the rendered option is drawn) is named in `Fields` and under Known gaps,
+  never silently dropped.
+- **No authoring diagrams.** Field names never appear inside the component master.
+- **Dates stay out of blocks.** A block built on Tuesday and one built on Wednesday from the same
+  source must be identical; dates live in the Getting Started changelog.
 
 ### 5.1 Layer naming
 
-Card layers carry the machine name so Find reaches them: `Human Label · machine_name` on the card root. Layers named `Frame` are a blocker — they are invisible to the one search surface that covers the whole file.
+The block root is `Human Label · machine_name`; the panel is `Documentation · machine_name`.
+Layers inside the set are named from the source's own classes (`kt-stat__value` becomes
+`Value`) or, failing that, from the element (`Heading`, `Image`, `Link`). A layer named `Frame`
+is a blocker.
+
+### 5.2 The documentation style
+
+Documentation is neutral and belongs to design-lab, not to the site. The site's own colours and
+fonts appear only inside components and foundation specimens, where they are the subject.
+
+| Role | Style |
+| --- | --- |
+| Title | Inter Semi Bold 40/48, #18181b |
+| Heading | Inter Semi Bold 24/32 |
+| Section label | Roboto Mono Medium 12/16, uppercase, tracking 1, #71717a |
+| Body | Inter Regular 14/22, #3f3f46 |
+| Table cell | Inter Regular 13/20; header Roboto Mono Medium 11/16 uppercase on #fafafa |
+| Code identifiers | Roboto Mono Regular 12 |
+| Link | #1d4ed8, underlined |
+| Panels | white, radius 12, 1-pixel #e4e4e7 border, 40 padding |
+| Page background | #f4f4f5 |
+| Spacing | 4, 8, 16, 24, 32, 48, 80, 160 — nothing else |
+
+These values live in `scripts/render/_kit.js` and only there.
 
 ---
 
@@ -278,17 +315,34 @@ The index lives here, under the summary that gives it meaning, rather than alone
 
 ## 9. The Cover
 
-A poster, and the only page a stakeholder may ever see. Fixed shape:
+A poster, the file thumbnail, and the only page a stakeholder may ever see. One 1440 × 900 frame
+on a #18181b ground with 80 of margin, drawn by `scripts/render/cover.js`:
 
-- **Eyebrow** — the document type (`SITE STUDIO COMPONENT LIBRARY`, `DRUPAL COMPONENT LIBRARY`).
-- **Headline** — the organisation.
+- **Eyebrow** — the document type (`DRUPAL CANVAS COMPONENT LIBRARY`), Roboto Mono 13, uppercase.
+- **Headline** — the organisation, from the site's own name, Inter Semi Bold 72.
 - **Lede** — one sentence on what the file covers.
-- **Stat tiles** — four to six, each a frame named `Stat / <what>`, carrying a number, a label, and one line of qualifier. Never a single text blob.
-- **Provenance block** — source and version, what was measured and excluded, capture widths, generation date, regeneration pointer.
+- **Stat tiles** — five, each a frame named `Stat / <what>` with a number, a label and one
+  line of qualifier, separated by a 1-pixel rule on top. Never a single text blob.
+- **Provenance** — source and commit, the site the captures came from, capture widths,
+  standard version, renderer runtime.
 
 The eyebrow is the document type and the headline is the organisation — not the reverse.
 
 ---
+
+### 9.1 Brand Voice & Language
+
+Drawn by `scripts/render/voice.js` from `voice.json` (`scripts/extract_voice.py`), which reads
+the published pages. Sections in order: a lede stating the corpus (pages, sentences, calls to
+action, date); a positioning band quoting the homepage heading and opening paragraphs; five
+evidence tiles; OBSERVED and WATCH rows for Voice, Naming & terminology, Headlines, Calls to
+action, Readability and Search; vocabulary chips; a mechanics table; and published
+inconsistencies on their own panel, recorded as defects, never as guidance.
+
+- Every number carries its denominator. Every quote names its page.
+- An OBSERVED row states what the majority of the site does and never contradicts its own
+  numbers. WATCH rows are threshold-based and documented in `references/voice.md`.
+- No language model writes anything on this page, so it is identical on every run.
 
 ## 10. The intermediate model
 

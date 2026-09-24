@@ -21,8 +21,10 @@ Use the shipped scripts as the exact `use_figma` payloads:
    parallel. Figma pages load on demand, so root-level child counts are not authoritative.
 3. `scripts/figma_dump_getting_started.js` for the Getting Started page.
 
-Merge the returned pages, collections, components, cards, breakpoint frames, and Getting
-Started data into `state.json`. These calls are read-only.
+Merge the returned pages, collections, components, tagged component blocks (`cards`),
+breakpoint frames, and Getting Started data into `state.json`. The page dump records the
+block and panel names, section names, variant names, and image-filled capture rectangles.
+These calls are read-only.
 
 ## Run the gate
 

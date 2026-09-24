@@ -22,8 +22,10 @@ Exit status is 1 while any expectation is unresolved, so this can gate a pipelin
 """
 import json, os, re, sys, argparse, glob, datetime
 
+from artifact_contracts import missing_nested, slot_accepts
+
 SEV = ('blocker', 'major', 'minor')
-STANDARD_VERSION = '3.0.0'
+STANDARD_VERSION = '4.0.0'
 
 # A description only resolves a blank code name if it addresses the blank. An unrelated note
 # is not an explanation, however long it is.
@@ -208,7 +210,7 @@ def built_keys(state):
         # component matches its own inventory entry — which is how completeness reported
         # 100% built on a file where nothing was named correctly.
         built.add(name)
-        m = re.match(r'^([a-z0-9_]+)\s+—\s+', name)
+        m = re.match(r'^([a-z0-9_:.-]+)\s+—\s+', name)
         if m:
             built.update((m.group(1), _norm(m.group(1))))
         for d in (c.get('description') or '').splitlines():
@@ -312,7 +314,7 @@ def _norm(s):
 
 
 def _card_keys(name):
-    """Identifiers carried by either supported documentation-card root convention."""
+    """Identifiers carried by a documentation panel or component block."""
     stem = re.sub(r'\s+—\s+documentation$', '', name or '')
     parts = [part.strip() for part in re.split(r'\s+[—·]\s+', stem) if part.strip()]
     keys = {_norm(stem)}
@@ -348,7 +350,11 @@ def check_documentation_cards(state, components, rep, plan=None):
     # `<Label> · <machine> (Family)` from library-standard.md section 5.1.
     have = set()
     for c in cards:
-        have.update(_card_keys(c.get('name', '')))
+        if c.get('component') and c.get('name') == 'Documentation · ' + c['component']:
+            have.add(_norm(c['component']))
+            have.update(_card_keys(c.get('blockName', '')))
+        elif not c.get('component'):
+            have.update(_card_keys(c.get('name', '')))
     comps = (components or {}).get('components') or []
     if not comps:
         return
@@ -363,7 +369,7 @@ def check_documentation_cards(state, components, rep, plan=None):
                  if component.get('id') in approved or component.get('machineName') in approved]
     missing = []
     for c in comps:
-        keys = {_norm(c['id']), _norm(c.get('label') or ''),
+        keys = {_norm(c['id']), _norm(c.get('machineName') or ''), _norm(c.get('label') or ''),
                 _norm(str(c['id']).replace('_', ' '))}
         if not (keys & have):
             missing.append(c['id'])
@@ -456,7 +462,7 @@ def check_captures_unique(shots_dir, rep):
 
 # ---------------------------------------------------- library-standard.md v1 additions
 
-COMPONENT_NAME = re.compile(r'^[a-z0-9_]+\s+—\s+\S')
+COMPONENT_NAME = re.compile(r'^[a-z0-9_:.-]+\s+—\s+\S')
 # Figma's own placeholders, bare or numbered. A layer still carrying one was never named,
 # and Find searches layer names, so it is invisible to the file's own index.
 DEFAULT_LAYER = re.compile(
@@ -500,7 +506,9 @@ def check_component_description(state, rep):
             thin.append('%s (empty)' % c['name'])
             continue
         missing = []
-        if not re.search(r'machine name\s*:', d, re.I):
+        machine = (c.get('name') or '').split(' — ')[0]
+        if not re.search(r'machine name\s*:', d, re.I) and not re.search(
+                r'\b' + re.escape(machine) + r'\b', d):
             missing.append('machine name')
         if not re.search(r'(?:^|\s)/[a-z0-9][a-z0-9/_-]*', d, re.I):
             missing.append('portable example path')
@@ -515,24 +523,23 @@ def check_component_description(state, rep):
 
 
 def check_documentation_adjacent(state, rep):
-    """A card on another page means every question costs a page change, and the two drift."""
-    card_pages = {}
-    for c in state.get('cards') or []:
-        for key in _card_keys(c.get('name', '')):
-            card_pages.setdefault(key, set()).add(c.get('pageId'))
+    """The tagged block and its component must occupy the same tier page."""
+    cards = {c.get('component'): c for c in state.get('cards') or [] if c.get('component')}
     apart = []
     for c in state.get('components') or []:
-        m = re.match(r'^([a-z0-9_]+)\s+—\s+(.*)$', c.get('name') or '')
-        keys = [_norm(m.group(1)), _norm(m.group(2))] if m else [_norm(c.get('name') or '')]
-        for k in keys:
-            pages = card_pages.get(k) or set()
-            if pages and c.get('pageId') and c['pageId'] not in pages:
-                apart.append(c['name'])
-                break
+        machine = (c.get('name') or '').split(' — ')[0]
+        card = cards.get(machine)
+        legacy = next((item for item in state.get('cards') or []
+                       if not item.get('component') and
+                       _norm(machine) in _card_keys(item.get('name', ''))), None)
+        if card and card.get('pageId') == c.get('pageId') and (c.get('page') or '').startswith('Components — '):
+            continue
+        if legacy and legacy.get('pageId') == c.get('pageId'):
+            continue
+        apart.append(c.get('name'))
     if apart:
         rep.add('documentation-adjacent', 'blocker', 'file',
-                '%d component(s) have their documentation card on a different page. '
-                'Segregating cards from components is how the two drift apart.' % len(apart),
+                '%d component(s) lack a tagged documentation block on the same tier page' % len(apart),
                 evidence=apart[:20])
 
 
@@ -596,22 +603,59 @@ def check_collection_strategy(state, brand, rep):
 
 
 def check_documentation_signal(state, rep):
-    required = {'Head', 'When to use', 'Anatomy', 'Relationships',
-                'Breakpoint evidence', 'Configuration', 'Example'}
+    required = {'Head', 'Usage', 'Figma properties', 'Fields'}
     bad = []
     for card in state.get('cards') or []:
         missing = sorted(required - set(card.get('sections') or []))
-        if (missing or not card.get('hasPreviewImage') or
-                (card.get('breakpointScreenshotCount') or 0) < 3 or
-                card.get('rejectedHeadingCount')):
-            bad.append('%s (missing %s; breakpoint screenshots=%s; rejected headings=%s)' % (
-                card.get('name', '?'), ', '.join(missing) or 'none',
-                card.get('breakpointScreenshotCount') or 0,
-                card.get('rejectedHeadingCount') or 0))
+        if missing:
+            bad.append('%s (missing %s)' % (card.get('name', '?'), ', '.join(missing)))
     if bad:
         rep.add('documentation-signal', 'major', 'file',
-                '%d documentation card(s) do not follow the concise decision-support contract'
+                '%d documentation panel(s) lack required component block sections'
                 % len(bad), evidence=bad[:20])
+
+
+def check_block_breakpoint_triad(state, rep):
+    """A master, two mode-set instances, and three live captures show each width."""
+    cards = {card.get('component'): card for card in state.get('cards') or []}
+    collection = state.get('breakpointCollection') or {}
+    modes = {mode.get('name'): mode.get('id') for mode in collection.get('modes') or []}
+    mode_order = [mode.get('name') for mode in collection.get('modes') or []]
+    bad = []
+    for component in state.get('components') or []:
+        card = cards.get((component.get('name') or '').split(' — ')[0])
+        nodes = (card or {}).get('breakpointNodes') or []
+        captures = {m.group(1).lower() for name in (card or {}).get('captureLabels') or []
+                    if (m := re.match(r'(Mobile|Tablet|Desktop)\b', name, re.I))}
+        widths = {role: next((node for node in nodes if re.search(r'\b' + role + r'\b',
+                  node.get('name') or '', re.I)), None)
+                  for role in ('Mobile', 'Tablet')}
+        widths['Desktop'] = next((node for node in nodes if
+                                  node.get('id') == component.get('id') and
+                                  node.get('type') == 'COMPONENT'), None)
+        def instance_mode(role):
+            node = widths[role] or {}
+            explicit = node.get('explicitModes') or {}
+            return (node.get('type') == 'INSTANCE' and
+                    node.get('mainComponentId') == component.get('id') and
+                    explicit.get(collection.get('id')) == modes.get(role + ' ' +
+                    {'Mobile': '375', 'Tablet': '800'}[role] + 'px'))
+        if (mode_order != ['Desktop 1400px', 'Tablet 800px', 'Mobile 375px'] or
+                len(nodes) != 3 or not all(widths.values()) or
+                widths['Desktop'].get('type') != 'COMPONENT' or
+                widths['Desktop'].get('id') != component.get('id') or
+                not all(instance_mode(role) for role in ('Mobile', 'Tablet')) or
+                not all(isinstance(widths[role].get('width'), (int, float)) and
+                        widths[role]['width'] > 0 for role in widths) or
+                not (widths['Mobile']['width'] < widths['Tablet']['width'] <
+                     widths['Desktop']['width']) or
+                captures != {'mobile', 'tablet', 'desktop'} or
+                (card or {}).get('breakpointScreenshotCount') != 3):
+            bad.append(component.get('name'))
+    if bad:
+        rep.add('breakpoint-triad', 'blocker', 'file',
+                '%d component block(s) lack a master, two mode-set instances, or three image-filled captures' % len(bad),
+                evidence=bad[:20])
 
 
 def check_no_authoring_diagrams(state, rep):
@@ -835,8 +879,10 @@ def check_component_receipt_contract(builds_dir, components, rep):
         for name in sorted(set(expected_slots) & set(documented_relationships)):
             expected = expected_slots[name]
             documented = documented_relationships[name]
-            expected_accepts = set(expected.get('accepts') or [])
-            if (set(documented.get('accepts') or []) != expected_accepts or
+            expected_accepts = set(slot_accepts(expected.get('accepts')))
+            documented_accepts = documented.get('accepts')
+            if (not isinstance(documented_accepts, list) or
+                    set(documented_accepts) != expected_accepts or
                     documented.get('cardinality') != expected.get('cardinality') or
                     documented.get('required') is not bool(expected.get('required')) or
                     'rendered' not in documented):
@@ -854,11 +900,8 @@ def check_component_receipt_contract(builds_dir, components, rep):
         screenshots = ((record.get('documentation') or {})
                        .get('breakpointScreenshots') or {})
         evidence = (record.get('visualEvidence') or {}).get('breakpoints') or {}
-        compared = (((record.get('visualEvidence') or {}).get('comparison') or {})
-                    .get('breakpoints') or {})
         if (set(name for name in screenshots if screenshots.get(name)) < required_breakpoints
-                or set(name for name in evidence if evidence.get(name)) < required_breakpoints
-                or any(compared.get(name) != 'pass' for name in required_breakpoints)):
+                or set(name for name in evidence if evidence.get(name)) < required_breakpoints):
             triad_bad.append(component_id)
 
         native = record.get('nativeComponent') or {}
@@ -870,20 +913,13 @@ def check_component_receipt_contract(builds_dir, components, rep):
                 validation.get('authoringCoverage') is not True):
             native_bad.append(component_id)
 
-        nested = {item.get('sourceId') for item in native.get('nestedInstances') or []
-                  if isinstance(item, dict)}
-        required_nested = set()
-        for name, slot in expected_slots.items():
-            documented = documented_relationships.get(name) or {}
-            if documented.get('rendered', True) is False:
-                continue
-            accepts = slot.get('accepts') or []
-            if isinstance(accepts, list):
-                required_nested.update(accepts)
-        if required_nested - nested or validation.get('relationshipCoverage') is not True:
+        nested = [item.get('sourceId') for item in native.get('nestedInstances') or []
+                  if isinstance(item, dict)]
+        unmet = missing_nested(list(expected_slots.values()),
+                               list(documented_relationships.values()), nested)
+        if unmet or validation.get('relationshipCoverage') is not True:
             nesting_bad.append('%s (%s)' % (
-                component_id, ', '.join(sorted(required_nested - nested)) or
-                'relationshipCoverage did not pass'))
+                component_id, ', '.join(unmet) or 'relationshipCoverage did not pass'))
 
     if anatomy_bad:
         rep.add('documentation-anatomy', 'blocker', 'file',
@@ -938,6 +974,15 @@ def check_index_complete(index, components, state, rep):
                 % (rendered, len(rows)))
 
 
+def check_getting_started_sections(state, rep):
+    required = {'Coverage', 'How this file is organised', 'What each component block shows',
+                'Index', 'Known gaps', 'Provenance and regeneration'}
+    missing = sorted(required - set((state.get('gettingStarted') or {}).get('sections') or []))
+    if missing:
+        rep.add('getting-started-sections', 'major', 'Getting Started',
+                'Getting Started lacks required sections', evidence=missing)
+
+
 def check_index_links_resolve(index, rep):
     """A built component the index cannot jump to is a component nobody finds."""
     if not index:
@@ -966,7 +1011,7 @@ def check_index_component_links(index, state, rep):
         if not component or component == documentation:
             wrong.append(row.get('machineName') or row.get('id'))
     headings = (state.get('gettingStarted') or {}).get('indexHeadings') or []
-    expected = ['Placements', 'Component', 'Tier', 'Type', 'Status', 'Documentation']
+    expected = ['Placements', 'Component', 'Machine name', 'Tier', 'Type', 'Status', 'Docs']
     if headings != expected:
         wrong.append('index headings/order: %s' % ', '.join(headings))
     if wrong:
@@ -976,51 +1021,68 @@ def check_index_component_links(index, state, rep):
 
 
 def check_variants_are_sets(state, plan, rep):
-    """Eight loose components side by side are not a variant set.
-
-    Figma only offers the variant picker, and only lets you compare states against each
-    other, when the variants are combined into a COMPONENT_SET. Loose siblings look almost
-    identical on the canvas and behave nothing alike on an instance, which is why this is
-    worth checking rather than assuming `combineAsVariants` did its job.
-    """
+    """Only real plan axes use sets; Breakpoint is a variable collection."""
     comps = state.get('components') or []
     if not comps:
         return
-    types = {c['name']: c.get('type') for c in comps}
-    if not any(t for t in types.values()):
-        rep.add('variants-are-sets', 'minor', 'file',
-                'not checked - the state dump recorded no node type, so a loose component '
-                'cannot be told from a component set')
-        return
     want = {}
     for e in ((plan or {}).get('plans') or (plan or {}).get('components') or []):
-        n = e.get('variants')
-        if n and n > 1:
-            want[e.get('id') or e.get('machineName')] = n
-    loose = []
+        axes = [axis for axis in e.get('variantAxes') or []
+                if (axis.get('field') or axis.get('property')) != 'Breakpoint']
+        want[e.get('id') or e.get('machineName')] = bool(axes)
+    wrong = []
     for c in comps:
-        if c.get('type') == 'COMPONENT_SET':
-            continue
         stem = (c.get('name') or '').split(' — ')[0]
-        if stem in want:
-            loose.append('%s: plan says %d variants, the file has a loose COMPONENT'
-                         % (stem, want[stem]))
-    # Without a plan, fall back to the shape the mistake actually takes on the canvas:
-    # several loose components sharing one machine-name stem.
-    if not want:
-        stems = {}
-        for c in comps:
-            if c.get('type') == 'COMPONENT_SET':
-                continue
-            stems.setdefault((c.get('name') or '').split(' — ')[0], []).append(c['name'])
-        loose = ['%s: %d loose components share this machine name and are not combined into '
-                 'a set' % (s, len(names)) for s, names in sorted(stems.items())
-                 if len(names) > 1]
-    if loose:
+        source = next((line.split(':', 1)[1].strip() for line in
+                       (c.get('description') or '').splitlines()
+                       if line.lower().startswith('source id:')), None)
+        real_axes = want.get(source, want.get(stem, False))
+        expected = 'COMPONENT_SET' if real_axes else 'COMPONENT'
+        if c.get('type') != expected or any('Breakpoint' in name for name in
+                                              c.get('variantNames') or []):
+            wrong.append('%s: expected %s' % (c.get('name'), expected))
+        if c.get('breakpointBoundCount', 0) == 0 and c.get('responsiveVariableCount', 0):
+            wrong.append('%s: width varies but no Breakpoint variable is bound' % c.get('name'))
+    if wrong:
         rep.add('variants-are-sets', 'blocker', 'file',
-                '%d component(s) have variants that were never combined into a COMPONENT_SET, '
-                'so Figma offers no variant picker and no comparison' % len(loose),
-                evidence=loose[:20])
+                '%d component(s) violate the planned native component or Breakpoint binding contract' % len(wrong),
+                evidence=wrong[:20])
+
+
+def check_no_duplicate_components(state, rep):
+    seen = {}
+    duplicates = []
+    for component in state.get('components') or []:
+        name = component.get('name') or ''
+        description = component.get('description') or ''
+        match = re.search(r'(?im)^\s*Source id:\s*(\S+)', description)
+        source = match.group(1) if match else None
+        if not source:
+            match = re.search(r'\b([\w.-]+:[\w.-]+|sdc\.[\w.-]+)\b', description)
+            source = match.group(1) if match else None
+        for key in [('source', source), ('stem', name.split(' — ')[0].split(' · ')[0])]:
+            if not key[1]:
+                continue
+            if key in seen:
+                duplicates.append('%s and %s share %s %s' %
+                                  (seen[key], name, key[0], key[1]))
+            else:
+                seen[key] = name
+    if duplicates:
+        rep.add('no-duplicate-components', 'blocker', 'file',
+                '%d duplicate component identity or name stem(s)' % len(duplicates),
+                evidence=duplicates[:20])
+
+
+def check_examples_instances_only(state, rep):
+    bad = [c.get('name') for c in state.get('components') or []
+           if c.get('page') == 'Examples']
+    bad.extend('%s (%s)' % (node.get('name'), node.get('type'))
+               for node in state.get('exampleInvalidNodes') or [])
+    if bad:
+        rep.add('examples-instances-only', 'blocker', 'page:Examples',
+                'Examples contains component definitions instead of only instances',
+                evidence=bad[:20])
 
 
 def check_bindings_match_source(state, measurements, render_evidence, rep):
@@ -1123,9 +1185,9 @@ two-usage-numbers tier-thresholds-stated known-gaps-current standard-version-sta
 build-record-assertions
 documentation-anatomy breakpoint-triad native-component-structure nested-component-coverage
 verify-report-exists bindings-match-source index-complete index-links-resolve
-variants-are-sets pages-populated shot-frames-have-images breakpoints-share-scale
+variants-are-sets no-duplicate-components examples-instances-only pages-populated shot-frames-have-images breakpoints-share-scale
 captures-unique visual-evidence-present master-matches-capture no-authoring-diagrams
-index-component-links example-path-portable""".split()
+index-component-links example-path-portable getting-started-sections""".split()
 
 
 # ------------------------------------------------------------------ waivers
@@ -1196,6 +1258,7 @@ def main():
     check_no_scratch_pages(state, rep)
     check_collection_strategy(state, a.brand, rep)
     check_documentation_signal(state, rep)
+    check_block_breakpoint_triad(state, rep)
     check_no_authoring_diagrams(state, rep)
     check_visual_evidence(a.builds, capture_evidence, rep)
     check_example_paths(state, rep)
@@ -1205,9 +1268,12 @@ def main():
     check_build_record_assertions(a.builds, rep)
     check_component_receipt_contract(a.builds, components, rep)
     check_index_complete(index, components, state, rep)
+    check_getting_started_sections(state, rep)
     check_index_links_resolve(index, rep)
     check_index_component_links(index, state, rep)
     check_variants_are_sets(state, plan, rep)
+    check_no_duplicate_components(state, rep)
+    check_examples_instances_only(state, rep)
     check_bindings_match_source(state, measurements, render_evidence, rep)
     check_verify_report_exists(a.out, rep)
     check_pages_populated(state, rep)
@@ -1239,7 +1305,8 @@ def main():
              'variable-scoped': 'collection', 'code-syntax-set': 'collection',
              'modes-earn-themselves': 'collection', 'mode-naming': 'collection',
              'collection-strategy': 'collection',
-             'variants-are-sets': 'component', 'bindings-match-source': 'component'}
+             'variants-are-sets': 'component', 'no-duplicate-components': 'component',
+             'bindings-match-source': 'component'}
     inapplicable = sorted(c for c, need in NEEDS.items()
                           if not subjects[need]
                           and not any(f['check'] == c for f in rep.findings))

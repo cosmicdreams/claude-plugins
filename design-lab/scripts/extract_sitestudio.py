@@ -123,7 +123,7 @@ def extract_component(path, root):
     if 'drop-zone' in canvas_blob:
         n = canvas_blob.count('"uid":"component-drop-zone"') or 1
         slots = [{'name': 'content' if n == 1 else 'content-%d' % (i + 1),
-                  'label': 'Component drop zone', 'accepts': 'any'} for i in range(n)]
+                  'label': 'Component drop zone', 'accepts': ['*']} for i in range(n)]
 
     return {
         'id': scalar(txt, 'id') or os.path.basename(path).split('.')[-2],

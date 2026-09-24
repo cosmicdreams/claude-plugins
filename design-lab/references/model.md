@@ -54,7 +54,7 @@ another's path.
           "defaultSource": "declared|unset|observed"  // see references/defaults.md
         }
       ],
-      "slots": [ { "name": "content", "label": "Content", "accepts": "any|[ids]" } ],
+      "slots": [ { "name": "content", "label": "Content", "accepts": ["*"] } ],
       "usage": {
         "placements": 1304,              // LOWER BOUND over the pages actually scanned
         "structuralRefs": 77,

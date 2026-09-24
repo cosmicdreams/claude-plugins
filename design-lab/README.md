@@ -35,6 +35,13 @@ the repository commit and every strategy decision, validates artifacts before re
 can resume from the first incomplete phase. Use a narrower skill only when the request names a
 single phase.
 
+Builds write into Figma through the design-lab runner, a Figma development plugin that must
+be imported once per machine by hand — Figma offers no command-line install. To get the steps
+with this machine's paths filled in, ask:
+
+> Using design-lab's references/relay.md, give me concise steps to install the design-lab
+> runner plugin in Figma desktop, including the absolute path to its manifest on this machine.
+
 | Skill | Does |
 |---|---|
 | `design-lab:run` | end-to-end, resumable workflow and completion gate |

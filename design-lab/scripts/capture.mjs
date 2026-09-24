@@ -113,6 +113,15 @@ for (const { file, cfg, error } of configs) {
       /* Some pages hold a connection open, so networkidle never fires. Wait for fonts
          and settle instead — the same compromise measure.mjs makes. */
       await page.evaluate(() => document.fonts.ready);
+      /* Lazy images load only near the viewport, and a measurement taken before they decode
+         records the placeholder address and zero natural size — a different tree on every run.
+         Make every image eager and wait until each has decoded (or failed) before measuring. */
+      await page.evaluate(async () => {
+        for (const img of document.images) { img.loading = 'eager'; img.decoding = 'sync'; }
+        await Promise.all([...document.images].map((img) => (img.complete && img.naturalWidth)
+          ? null
+          : new Promise((done) => { img.addEventListener('load', done, { once: true }); img.addEventListener('error', done, { once: true }); setTimeout(done, 15000); })));
+      });
       await page.waitForTimeout(600);
 
       for (const state of cfg.states ?? [{ name: 'default' }]) {

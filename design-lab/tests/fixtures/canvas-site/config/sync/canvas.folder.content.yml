@@ -1,0 +1,7 @@
+langcode: en
+status: true
+name: Content
+configEntityTypeId: component
+weight: 0
+items:
+  - sdc.demo.photo-slide

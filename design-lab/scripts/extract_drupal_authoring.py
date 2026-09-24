@@ -138,7 +138,7 @@ def extract(root, cfg=None):
                                         "detail": f"target bundle {target} does not exist",
                                         "evidence": os.path.relpath(field_path, root)})
                 slots.append({"name": name, "label": instance.get("label") or name,
-                              "accepts": qualified or "any", "cardinality": cardinality,
+                              "accepts": qualified or ["*"], "cardinality": cardinality,
                               "required": bool(instance.get("required")),
                               "sourceRef": os.path.relpath(field_path, root)})
                 continue

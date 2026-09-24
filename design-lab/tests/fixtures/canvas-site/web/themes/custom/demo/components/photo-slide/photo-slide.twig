@@ -1,0 +1,4 @@
+{% set fit = fit|default('cover') %}
+<figure class="demo-slide demo-slide--{{ fit }}" data-component-id="demo:photo-slide">
+  <img src="{{ image.src }}" alt="{{ image.alt }}">
+</figure>

@@ -1,60 +1,33 @@
 ---
 name: figma-foundation
 description: >
-  Create and verify a Figma file's pages and variable foundation from validated tokens.json
-  and variable-plan.json. Run once before components; not for component construction
-  (design-lab:figma-component).
+  Explain, rebuild or diagnose the library's pages, variables and Foundations pages (Color,
+  Typography, Spacing & Layout, Elevation & Shape, Brand Voice & Language). Run as part of
+  design-lab:run; use alone to refresh foundations after tokens or published copy change. Not
+  for components (design-lab:figma-component).
 ---
 
-# Build the Figma foundation
+# Foundations
 
-Load the official Figma-use and library-generation guidance before calling `use_figma`.
-Confirm the target file is writable and is not a read-only comparison artifact.
+Built by fixed templates from the artifacts: `render/pages.js` (page list and order),
+`render/variables.js` (collections, modes, scopes and code syntax from `variable-plan.json`),
+`render/foundation.js` (the specimen pages) and `render/voice.js` (Brand Voice & Language from
+`voice.json`). The model relays the steps; it never lays anything out.
 
-## Preconditions
+## What decides each page
 
-- `tokens.json` and `variable-plan.json` validate.
-- The project manifest records an approved build plan.
-- Read `variable-plan.json.warnings`; unresolved values are findings, not variable names.
-- Read `references/tokens-and-variables.md` and `references/library-standard.md` sections 3
-  and 6. Those references are the contract; do not reproduce a remembered template.
+- A Foundations page exists only when its source has values: colour and type tokens from the
+  stylesheets, spacing and shape tokens when declared, the voice page when the published pages
+  could be read. An omitted page is named under Known gaps.
+- Type sizes the stylesheets do not declare as tokens appear on the Typography page as a
+  **measured** scale from the built components — labelled as measured, never turned into
+  variables.
+- Brand Voice & Language states only what `scripts/extract_voice.py` measured: evidence tiles,
+  observed and watch rows with their denominators, vocabulary, mechanics and published
+  inconsistencies. Nothing is taken from a brand document and no language model writes it.
 
-When the variable plan is missing, generate and register it through the workflow front door:
+## Refresh
 
-```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py variables --project <artifact-directory>
-```
-
-## Transaction
-
-1. Create or reconcile the standard page list in the specified order. Omit an unsupported
-   Foundations domain and record the gap; never publish an empty Foundations page.
-2. Create or update the collection strategy in `variable-plan.json`. Prefer one brand-prefixed
-   collection with slash-delimited groups when all tokens share one mode set and owner. Split a
-   collection only for a recorded mode, publishing, ownership, or lifecycle boundary. Resolve
-   existing collections by stored identifiers first, then exact name; never duplicate one.
-3. Create only the modes in `variable-plan.json`. Single-mode is `Value`; responsive modes
-   include their measured role and width. `typeScaling.observable: false` is unknown, not
-   evidence for a single mode.
-4. Create primitives from raw values and semantic variables as aliases. Scope every variable
-   explicitly. Leading ratios and motion remain unscoped because Figma has no safe property
-   scope for them.
-5. Set WEB code syntax only when `codeName` exists and the Figma value matches the source
-   value. Use `var(--name)` for CSS custom properties. Never synthesize a code identifier.
-   Explain an intentional blank in the variable description.
-6. Store returned collection, mode, variable, and page identifiers in the project artifacts.
-
-## Assertions
-
-Read the variables back and assert:
-
-- every planned variable exists exactly once;
-- collection strategy and mode names conform to the standard;
-- no variable retains `ALL_SCOPES`;
-- values match every planned mode;
-- aliases point to existing primitives;
-- every non-null code name has exact WEB syntax;
-- no empty Foundations page exists.
-
-Record counts and failures in the manifest. A failing foundation does not permit component
-construction.
+Re-run `design-lab:run`'s render section; the foundation steps are idempotent and replace
+their own page content. After tokens change, run `workflow.py variables` first so
+`variable-plan.json` is current. After copy changes, re-run `extract_voice.py`.

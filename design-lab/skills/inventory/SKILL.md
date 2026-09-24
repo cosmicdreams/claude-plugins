@@ -15,7 +15,8 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py extract \
   --project <artifact-directory> --kind components
 ```
 
-Supported authoring sources are Site Studio, Paragraphs, Single Directory Components, and the
+Supported authoring sources are Site Studio, Paragraphs, Single Directory Components (SDCs),
+Drupal Canvas, and the
 combined Drupal `block_content` + Paragraphs vocabulary. The combined strategy qualifies ids
 such as `block:accordion` and `paragraph:accordion`; never collapse them because their machine
 names match.

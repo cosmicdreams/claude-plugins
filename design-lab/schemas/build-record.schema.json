@@ -37,17 +37,17 @@
         },
         "comparison": {
           "type": "object",
-          "required": ["verdict", "reviewedAt", "breakpoints"],
+          "required": ["verdict", "breakpoints"],
           "properties": {
-            "verdict": {"const": "pass"},
+            "verdict": {"enum": ["pass", "fail", "not-run"]},
             "reviewedAt": {"type": "string"},
             "breakpoints": {
               "type": "object",
               "required": ["desktop", "tablet", "mobile"],
               "properties": {
-                "desktop": {"const": "pass"},
-                "tablet": {"const": "pass"},
-                "mobile": {"const": "pass"}
+                "desktop": {"enum": ["pass", "fail", "not-run"]},
+                "tablet": {"enum": ["pass", "fail", "not-run"]},
+                "mobile": {"enum": ["pass", "fail", "not-run"]}
               }
             }
           }
@@ -90,10 +90,10 @@
           "type": "object",
           "required": ["nativeNode", "noScreenshotSurrogate", "authoringCoverage", "relationshipCoverage"],
           "properties": {
-            "nativeNode": {"const": true},
-            "noScreenshotSurrogate": {"const": true},
-            "authoringCoverage": {"const": true},
-            "relationshipCoverage": {"const": true}
+            "nativeNode": {"type": "boolean"},
+            "noScreenshotSurrogate": {"type": "boolean"},
+            "authoringCoverage": {"type": "boolean"},
+            "relationshipCoverage": {"type": "boolean"}
           }
         }
       }
@@ -120,7 +120,8 @@
       "required": ["field", "accepts", "cardinality", "required", "rendered"],
       "properties": {
         "field": {"type": "string", "minLength": 1},
-        "accepts": {"type": "array", "minItems": 1},
+        "accepts": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1},
+                    "description": "Accepted component ids; [\"*\"] when the slot takes any component"},
         "cardinality": {"type": "integer"},
         "required": {"type": "boolean"},
         "rendered": {"type": "boolean"}

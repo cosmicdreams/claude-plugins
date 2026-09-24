@@ -29,7 +29,7 @@ def _scalar(v):
         return None
     if v[0] in '"\'' and v[-1] == v[0] and len(v) > 1:
         return v[1:-1]
-    if v == '{}':
+    if re.fullmatch(r'\{\s*\}', v):
         return {}
     if v.startswith('{') and v.endswith('}'):
         out = {}
@@ -56,59 +56,79 @@ def _scalar(v):
     return v
 
 
+KEY = re.compile(r'^([$\w.\-/]+|"[^"]+"|\'[^\']+\'):\s*(.*)$')
+
+
 def mini_yaml(text, path):
-    """Parse the block-mapping subset used by component.yml. Raises on anything else."""
-    root = {}
-    stack = [(-1, root)]
-    for lineno, raw in enumerate(text.splitlines(), 1):
-        if not raw.strip() or raw.lstrip().startswith('#'):
+    """Parse the scoped block mapping/list subset used by SDC and Canvas config."""
+    lines = []
+    for number, raw in enumerate(text.splitlines(), 1):
+        if not raw.strip() or raw.lstrip().startswith('#') or raw.strip() == '---':
             continue
-        if UNSUPPORTED.search(raw):
-            raise ValueError('%s:%d unsupported YAML construct: %s' % (path, lineno, raw.strip()[:60]))
-        indent = len(raw) - len(raw.lstrip())
-        line = raw.strip()
-        while stack and indent <= stack[-1][0]:
-            stack.pop()
-        if not stack:
-            raise ValueError('%s:%d indentation underflow' % (path, lineno))
-        parent = stack[-1][1]
-        if line.startswith('- '):
-            item = _scalar(line[2:])
-            if isinstance(parent, dict):
-                raise ValueError('%s:%d list item in a mapping' % (path, lineno))
-            parent.append(item)
-            continue
-        m = re.match(r'^([$\w.\-/]+|"[^"]+"|\'[^\']+\'):\s*(.*)$', line)
-        if not m:
-            raise ValueError('%s:%d unparseable line: %s' % (path, lineno, line[:60]))
-        key, rest = m.group(1).strip('"\''), m.group(2)
-        if rest == '':
-            child = {}
-            parent[key] = child
-            stack.append((indent, child))
-        elif rest.startswith('-') and not rest.startswith('- '):
-            parent[key] = _scalar(rest)
-        else:
-            parent[key] = _scalar(rest)
-    return _fix_lists(root)
+        if '\t' in raw[:len(raw) - len(raw.lstrip())] or UNSUPPORTED.search(raw):
+            raise ValueError('%s:%d unsupported YAML construct' % (path, number))
+        lines.append((len(raw) - len(raw.lstrip()), raw.strip(), number))
 
+    def block(index, indent):
+        is_list = lines[index][1] == '-' or lines[index][1].startswith('- ')
+        result = [] if is_list else {}
+        while index < len(lines) and lines[index][0] == indent:
+            _, line, number = lines[index]
+            if is_list != (line == '-' or line.startswith('- ')):
+                break
+            if is_list:
+                if not (line == '-' or line.startswith('- ')):
+                    raise ValueError('%s:%d mixed list and mapping' % (path, number))
+                rest = line[1:].strip()
+                index += 1
+                if rest:
+                    match = KEY.match(rest)
+                    if match:
+                        item = {match[1].strip('"\''): _scalar(match[2])}
+                        if index < len(lines) and lines[index][0] > indent:
+                            extra, index = block(index, lines[index][0])
+                            if not isinstance(extra, dict):
+                                raise ValueError('%s:%d list mapping expected' % (path, number))
+                            item.update(extra)
+                        result.append(item)
+                    else:
+                        result.append(_scalar(rest))
+                elif index < len(lines) and lines[index][0] > indent:
+                    item, index = block(index, lines[index][0])
+                    result.append(item)
+                else:
+                    result.append(None)
+            else:
+                match = KEY.match(line)
+                if not match:
+                    raise ValueError('%s:%d unparseable line: %s' % (path, number, line[:60]))
+                key, rest = match[1].strip('"\''), match[2]
+                index += 1
+                if not rest and index < len(lines) and (lines[index][0] > indent or
+                        (lines[index][0] == indent and
+                         (lines[index][1] == '-' or lines[index][1].startswith('- ')))):
+                    result[key], index = block(index, lines[index][0])
+                else:
+                    result[key] = _scalar(rest)
+        return result, index
 
-def _fix_lists(node):
-    """Empty mappings that only ever received list items become lists."""
-    if isinstance(node, dict):
-        return {k: _fix_lists(v) for k, v in node.items()}
-    return node
+    if not lines:
+        return {}
+    result, end = block(0, lines[0][0])
+    if end != len(lines):
+        raise ValueError('%s:%d inconsistent indentation' % (path, lines[end][2]))
+    return result
 
 
 def load(path):
-    text = open(path, errors='ignore').read()
+    with open(path, errors='ignore') as handle:
+        text = handle.read()
     if HAVE_YAML:
         return yaml.safe_load(text)
-    # Block lists need a pre-pass: convert "key:\n  - a\n  - b" into inline form.
-    text = re.sub(r'^(\s*)([$\w.\-/]+):\s*\n((?:\1\s+- .*\n?)+)',
-                  lambda m: '%s%s: [%s]\n' % (m.group(1), m.group(2),
-                      ', '.join(l.strip()[2:] for l in m.group(3).splitlines() if l.strip())),
-                  text, flags=re.M)
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
     return mini_yaml(text, path)
 
 
@@ -140,8 +160,9 @@ def extract_component(path, root):
             'tokenFamily': None,       # tokens are not in component definitions here
             'uid': name,
         })
+    # A Single Directory Component slot takes any renderable; `["*"]` is the model's "any".
     slots = [{'name': k, 'label': (v or {}).get('title') if isinstance(v, dict) else k,
-              'accepts': 'any'} for k, v in (data.get('slots') or {}).items()]
+              'accepts': ['*']} for k, v in (data.get('slots') or {}).items()]
     return {
         'id': os.path.basename(path).replace('.component.yml', ''),
         'label': data.get('name'), 'description': data.get('description'),

@@ -90,9 +90,70 @@ moving state, validation, idempotency, and completeness into deterministic tools
   capture-evidence assembler. Screenshots are mandatory documentation evidence but can never be
   the publishable component root. Build receipts now prove native node type, source anatomy,
   three-width comparisons, and real nested instances for rendered source relationships.
-- Browser-based capture, measurement, and Figma capture submission accept
+- Browser-based capture and measurement accept
   `DESIGN_LAB_BROWSER_EXECUTABLE`, allowing a reproducible system-Chrome path when Playwright's
   managed Chromium is unavailable.
+
+**Deterministic Figma builds.** The KINGTEC evaluation showed a model relaying hand-written
+layout code could not build the same library twice. Layout decisions moved into fixed templates
+and scripts, and the model's remaining job shrank to relaying steps — or to nothing.
+
+- Added `scripts/figma_build.py`: the whole library build as a fixed sequence of steps over
+  fixed `scripts/render/*.js` templates. Each payload carries its arguments and a checksum, so
+  a payload altered in transit is refused rather than built. `next` refuses to run if the
+  templates changed since `init`.
+- Added the design-lab runner (`runner/` plus `scripts/figma_runner.py`), a Figma development
+  plugin that fetches each step from localhost and posts the result back. No model is in the
+  loop, so a build costs no tokens. Three KINGTEC builds produced 7,389 nodes with zero layout,
+  style, typography, or binding differences between runs.
+- Added `spec_to_tree.py` and `responsive.py`: measured components become one deterministic
+  Figma tree, and three breakpoint measurements merge into one responsive master instead of
+  per-breakpoint drawings.
+- Added `compare_runs.py`, `determinism.py`, and `figma_compare.py` for repeatability scores,
+  canonical layout hashes, and per-variant comparison against live captures.
+- Added published-site extractors: `extract_compositions.py` (component sequences per page),
+  `extract_voice.py` (the copy voice report, see `references/voice.md`), Drupal Canvas
+  registrations and usage, `find_rendered_components.py`, and `capture_all.py` to run capture
+  end to end.
+- Added `fetch_images.py`, which re-encodes AVIF and other formats Figma cannot upload as PNG.
+- `references/relay.md` documents the runner, its one-time manual import into Figma desktop,
+  and the model-relay fallback. The README gives a prompt that produces machine-specific install
+  steps.
+- Fixed the Drupal usage crawler skipping certificate verification for every HTTPS site,
+  including public production pages. Verification is now relaxed only for local development
+  hosts (`localhost`, loopback, `*.ddev.site`, `*.localhost`). The same rule now covers every
+  published-site extractor: `find_rendered_components.py`, `published_pages.py`,
+  `extract_voice.py`, and `extract_compositions.py` had still accepted any certificate.
+- Build records no longer assert what nobody checked. The block step now reads the master
+  back from the canvas — its node type, whether its root carries an image fill, every nested
+  instance and the component it comes from, and the field rows actually drawn — and the
+  native-component flags are derived from those readings. A slotted component with no real
+  nested instance now fails relationship coverage instead of passing on a hard-coded `true`,
+  and a block recorded before these readings existed fails closed.
+- Slot `accepts` is always a list: `["*"]` means any component. Every extractor used to write
+  the bare string `"any"`, which the build-record schema rejected and verification compared
+  letter by letter; older inventories are read the same way.
+- The runner is locked to the plugin. The server prints a random token when it starts, the
+  plugin asks for it once and keeps it, and every request without it is refused. Cross-origin
+  reads are allowed only for a plugin's own origin instead of any web page, so a page that
+  learns a file key can neither read steps nor forge results. The unused `--port` flag is gone,
+  a malformed request body gets an error reply, and two workspaces claiming one Figma file are
+  refused instead of one silently replacing the other.
+- A component captured at only some widths now gets a build record with a failing
+  `breakpoint-evidence` assertion naming the missing widths, instead of stopping receipt
+  generation for every component. Each capture now lands in the rectangle of its own column
+  when a width was captured but not measured.
+- Components with no usage tier get a `Components — Untiered` page instead of stopping the
+  build; with no usage source at all, the five tier pages collapse into that one, as the
+  standard requires.
+- An image that cannot be fetched no longer stops the build: it is recorded as failed and the
+  build record's image-upload assertion names it. SVG is rasterised to PNG with cairosvg when
+  installed and otherwise recorded as failed, because Figma cannot use SVG as an image fill. An
+  upload the plugin cannot complete now fails its step, so it is reported rather than recorded
+  as done.
+- `compare_runs.py` reads the page dumps the runner writes to `figma/dump/`, so the build's
+  state file is no longer compared as a page, and it compares the variables step's recorded
+  result.
 
 ## 0.13.0
 

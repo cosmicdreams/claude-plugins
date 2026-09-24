@@ -296,7 +296,7 @@ def extract(root, cfg=None):
                 slots.append({
                     'name': fname,
                     'label': fdata.get('label') or fname,
-                    'accepts': target_list or 'any',
+                    'accepts': target_list or ['*'],
                     'cardinality': cardinality,
                     'required': bool(fdata.get('required')),
                     'sourceRef': os.path.relpath(fpath, root),
@@ -399,7 +399,7 @@ def extract(root, cfg=None):
         target_list = sorted(targets.keys()) if isinstance(targets, dict) else sorted(targets or [])
         entry_points.append({
             'hostEntityType': parts[0], 'hostBundle': parts[1], 'field': fname,
-            'label': fdata.get('label') or fname, 'accepts': target_list or 'any',
+            'label': fdata.get('label') or fname, 'accepts': target_list or ['*'],
             'sourceRef': os.path.relpath(fpath, root),
         })
         for t in target_list:

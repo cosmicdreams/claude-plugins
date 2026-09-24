@@ -1,0 +1,5 @@
+name: Unregistered
+description: A component with no Canvas registration; the Canvas inventory leaves it out.
+props:
+  type: object
+  properties: {}

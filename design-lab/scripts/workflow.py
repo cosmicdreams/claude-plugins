@@ -18,9 +18,12 @@ sys.path.insert(0, str(SCRIPT_DIR))
 from artifact_contracts import (SCHEMA_VERSION, load_json, now, register_artifact,
                                 sha256, validate, write_json)
 from detect import detect
+from extract_canvas import extract as extract_canvas
+from extract_canvas_usage import extract as extract_canvas_usage, merge_canvas_usage
 from extract_drupal_authoring import extract as extract_drupal_authoring
 from extract_drupal_rendering import extract as extract_drupal_rendering
 from extract_drupal_usage import extract as extract_drupal_usage, merge_usage
+from find_rendered_components import enrich_usage as enrich_rendered_usage, scan as scan_rendered
 from extract_paragraphs import extract as extract_paragraphs
 from extract_sdc import extract as extract_sdc
 from extract_sitestudio import extract as extract_sitestudio
@@ -200,6 +203,7 @@ def select_command(args):
 
 
 COMPONENT_EXTRACTORS = {
+    "canvas": extract_canvas,
     "drupal-authoring": extract_drupal_authoring,
     "paragraphs": extract_paragraphs,
     "sdc": extract_sdc,
@@ -263,16 +267,22 @@ def extract_command(args):
 def usage_command(args):
     path, project = load_project(args.project)
     strategy = project["decisions"].get("usageSource")
-    if strategy != "drupal-db":
-        raise ValueError(f"usage strategy {strategy!r} has no extractor; select drupal-db")
+    if strategy not in ("drupal-db", "canvas-db"):
+        raise ValueError(f"usage strategy {strategy!r} has no extractor")
     components_path = path.parent / "components.json"
     components = load_json(components_path)
     ddev_root = Path(args.ddev_root or project["repository"]["root"]).resolve()
-    document = extract_drupal_usage(ddev_root, components, args.ddev_project)
+    extractor = extract_canvas_usage if strategy == "canvas-db" else extract_drupal_usage
+    document = extractor(ddev_root, components, args.ddev_project)
+    if args.base_url:
+        evidence, details = scan_rendered(args.base_url, ddev_root, components)
+        document = enrich_rendered_usage(document, evidence, details)
     output = path.parent / "usage.json"
     write_json(output, document)
     register_artifact(path, "usage", output, "usage")
-    merged = merge_usage(components, document, args.high, args.medium)
+    merged = (merge_canvas_usage(components, document, args.high, args.medium)
+              if strategy == "canvas-db" else
+              merge_usage(components, document, args.high, args.medium))
     errors = validate(merged, "components")
     if errors:
         raise ValueError("usage merge made components invalid: " + "; ".join(errors))
@@ -563,6 +573,7 @@ def main():
     command.add_argument("--project", default=".design-lab")
     command.add_argument("--ddev-root")
     command.add_argument("--ddev-project")
+    command.add_argument("--base-url", help="verify rendered SDC markers on public aliases")
     command.add_argument("--high", type=int, default=50)
     command.add_argument("--medium", type=int, default=10)
     command.set_defaults(func=usage_command)

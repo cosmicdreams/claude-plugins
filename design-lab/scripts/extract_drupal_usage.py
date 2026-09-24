@@ -16,6 +16,7 @@ import re
 import ssl
 import subprocess
 import urllib.error
+import urllib.parse
 import urllib.request
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
@@ -276,9 +277,19 @@ def build_usage(components: dict, rows: dict[str, list[list[str]]], source: dict
     return document
 
 
+def _ssl_context(url: str) -> ssl.SSLContext | None:
+    """Verify certificates everywhere except local development hosts, whose certificates are self-signed."""
+    if not url.startswith("https://"):
+        return None
+    host = urllib.parse.urlparse(url).hostname or ""
+    if host in {"localhost", "127.0.0.1", "::1"} or host.endswith((".ddev.site", ".localhost")):
+        return ssl._create_unverified_context()
+    return ssl.create_default_context()
+
+
 def _fetch_page(url: str) -> tuple[int, str]:
     request = urllib.request.Request(url, headers={"User-Agent": "design-lab/0.14"})
-    context = ssl._create_unverified_context() if url.startswith("https://") else None
+    context = _ssl_context(url)
     try:
         with urllib.request.urlopen(request, timeout=20, context=context) as response:
             return response.status, response.read().decode("utf-8", "replace")

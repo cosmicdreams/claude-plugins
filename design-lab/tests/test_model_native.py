@@ -76,7 +76,7 @@ class ArtifactContractTests(unittest.TestCase):
         }
         self.assertIn("missing `toolVersion`", validate(document, "components"))
 
-    def test_build_record_rejects_not_run_assertion(self):
+    def test_build_record_keeps_not_run_assertion_for_verify(self):
         document = {
             "standardVersion": "2.1.0", "toolVersion": "design-lab test",
             "id": "block:hero", "sourceHash": "sha256:test",
@@ -84,8 +84,8 @@ class ArtifactContractTests(unittest.TestCase):
                       "documentationCardId": "1:3"},
             "assertions": {"fidelity": {"verdict": "not-run"}},
         }
-        self.assertIn("assertion `fidelity` is not a passing assertion",
-                      validate(document, "build-record"))
+        self.assertNotIn("assertion `fidelity` is not a passing assertion",
+                         validate(document, "build-record"))
 
     def test_unknown_explicit_kind_fails_closed(self):
         self.assertEqual(["unsupported artifact kind: mystery"],

@@ -131,6 +131,16 @@ def detect(root):
             % ('ies' if len(empty) > 1 else 'y', ', '.join(empty), cfg))
 
     if cfg:
+        custom_themes = {os.path.basename(path) for path in
+                         glob.glob(os.path.join(web, 'themes', 'custom', '*'))
+                         if os.path.isdir(path)}
+        canvas = [path for path in glob.glob(os.path.join(cfg, 'canvas.component.sdc.*.yml'))
+                  if any(os.path.basename(path).startswith('canvas.component.sdc.' + theme + '.')
+                         for theme in custom_themes)]
+        if canvas:
+            out['componentSources'].append({
+                'strategy': 'canvas', 'count': len(canvas),
+                'evidence': 'Canvas authoring registrations joined to source SDC definitions'})
         ss = glob.glob(os.path.join(cfg, 'cohesion_elements.cohesion_component.*.yml'))
         if ss:
             out['componentSources'].append(
@@ -266,10 +276,14 @@ def detect(root):
     if cfg:
         out['usageSources'].append({'strategy': 'drupal-db',
             'evidence': 'requires a running database; counts real placements'})
+        if any(source['strategy'] == 'canvas' for source in out['componentSources']):
+            out['usageSources'].append({'strategy': 'canvas-db',
+                'evidence': 'published Canvas page placements and content templates'})
 
     # Authoring vocabularies outrank rendering primitives. Raw count is not a semantic
     # signal: ACU has 109 SDCs but its editors place 36 block types and 33 paragraph types.
-    COMPONENT_RANK = {'drupal-authoring': 0, 'sitestudio': 1, 'paragraphs': 2, 'sdc': 3}
+    COMPONENT_RANK = {'canvas': 0, 'drupal-authoring': 1, 'sitestudio': 2,
+                      'paragraphs': 3, 'sdc': 4}
     comp = min(out['componentSources'],
                key=lambda c: (COMPONENT_RANK.get(c['strategy'], 9),
                               -c.get('count', 0)), default=None)
@@ -292,7 +306,7 @@ def detect(root):
             return (5, -source.get('variablesLoadedByTheme', 0))
         return (9, 0)
     tok = min(out['tokenSources'], key=token_rank, default=None)
-    usage_rank = {'drupal-db': 0, 'storybook': 1}
+    usage_rank = {'canvas-db': 0, 'drupal-db': 1, 'storybook': 2}
     usage = min(out['usageSources'],
                 key=lambda source: usage_rank.get(source['strategy'], 9), default=None)
     out['recommended'] = {

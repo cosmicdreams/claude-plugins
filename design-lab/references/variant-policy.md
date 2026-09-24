@@ -66,3 +66,18 @@ If the product of proposed variant axes exceeds `maxVariants` (default 64), refu
 report. `cpt_4_column_layout` carries 59 select fields - roughly 10^49 naive combinations.
 Components like that are layout engines, not components, and want auto-layout plus
 variable modes instead of a variant set.
+
+## What is a separate component, and what is one control
+
+Two rules adopted from Velir's Digital Solutions (`ds`) plugin, which applies them to
+Sitecore component inventories:
+
+- **Different styling is not a different component.** A separate component needs a different
+  behaviour, purpose, content source or content model. Two renderings over the same fields are
+  one component with a variant, or, when the difference is only width, one responsive
+  component (§4.1 of the standard).
+- **Two controls never govern the same visual decision.** If a variant axis and a variable (or
+  a boolean property) can both change the same thing, one of them is removed; a designer must
+  never find two switches that disagree.
+
+Screen width is never a variant axis. It is the Breakpoint variable collection.

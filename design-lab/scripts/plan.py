@@ -76,16 +76,23 @@ def classify(c, rendering=None, capture=None):
     usage = c.get('usage') or {}
     placements = usage.get('placements') or 0
     structural = usage.get('structuralRefs') or usage.get('structuralReferences') or 0
-    render_signals = bool(rendering.get('rootClasses') or rendering.get('sdc') or
-                          rendering.get('templates'))
     captured = bool(capture.get('images'))
+    # A Single Directory Component owns its template by definition, and a component observed
+    # on a public page or captured there plainly renders; neither needs a separate render
+    # artifact to prove it.
+    sdc = str(c.get('sourceRef') or '').endswith('.component.yml')
+    rendered = bool(usage.get('renderedPages') or usage.get('globalTemplate') or usage.get('templateRefs'))
+    render_signals = bool(rendering.get('rootClasses') or rendering.get('sdc') or
+                          rendering.get('templates') or sdc or rendered or captured)
     contained = bool(c.get('containedBy'))
 
-    if placements == 0 and structural == 0:
+    if placements == 0 and structural == 0 and not rendered:
         role = 'retirement'
     elif not render_signals:
         role = 'schema-only'
-    elif contained and placements == 0:
+    elif contained and placements == 0 and not (sdc and captured):
+        # An embedded part is mapped into its parent. A Single Directory Component with its
+        # own capture is an asset an author can place on its own, so it is built.
         role = 'subcomponent'
     else:
         role = 'component'

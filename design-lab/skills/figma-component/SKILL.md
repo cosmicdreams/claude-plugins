@@ -1,89 +1,55 @@
 ---
 name: figma-component
 description: >
-  Build or update one named Figma component transaction from validated design-lab artifacts,
-  including properties, variants, its adjacent documentation card, assertions, and build
-  record. Not for foundations (design-lab:figma-foundation) or whole-library orchestration
-  (design-lab:run).
+  Build, rebuild or diagnose ONE component in the Figma library: its responsive master, its
+  documentation block, its live captures and its visual comparison. Invoke as
+  `design-lab:figma-component <component-id>`. Not for foundations (design-lab:figma-foundation),
+  the Getting Started page (design-lab:figma-index), or a whole library (design-lab:run).
 ---
 
-# Build one component transaction
+# One component
 
-Load the official Figma-use and library-generation guidance before `use_figma`.
+Every component is built by fixed code from its measurements, never drawn by hand. This skill
+relays those steps for one component and reads what came back.
 
-## Input and preconditions
+## What gets built
 
-Accept a component `id` from `components.json`; qualified ids such as `block:accordion` are
-distinct from `paragraph:accordion`. With no id, list unbuilt eligible entries and ask which
-one unless an end-to-end run already authorized processing the queue.
+- **One responsive master.** `scripts/responsive.py` merges the desktop, tablet and mobile
+  measurements into one tree; `render/build_responsive.js` builds it. Values that change with
+  width are variables in the `Breakpoint` collection. There is exactly one Figma component per
+  source component: no per-viewport copies, no breakpoint variants.
+- **Its block** (`render/component_block.js`): the documentation panel, then the master at
+  desktop beside instances of it resized to tablet and mobile with their Breakpoint mode set,
+  then the live captures in the same columns.
+- **A visual comparison** (`scripts/figma_compare.py`) of each width against its capture, from
+  one screenshot of the block's specimen.
 
-Require:
+## Build or rebuild one component
 
-- a passing foundation phase and approved `plan.json`;
-- a `build` verdict for this id;
-- validated `components.json`, `tokens.json`, and `plan.json`;
-- validated `capture-evidence.json` with a unique selector, default-state image, and portable
-  example path for this id;
-- the existing `builds/<id>.json`, when present, so this run updates rather than duplicates.
+The library must already exist (built by `design-lab:run`). Initialise a subset build in the
+same workspace and relay it exactly as `references/relay.md` describes:
 
-Read `references/library-standard.md` sections 1, 4, and 5, plus
-`references/build-records.md`, `references/defaults.md`, and `references/verification.md`.
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.py init --project <W> --file-key <key> \
+  --site-url <local-site-url> --canonical-base-url <public-url> --only <component-id>
+```
 
-## Transaction
+The templates replace the component's previous block and keep a master that already exists
+in place. Re-run `design-lab:figma-index` afterwards so the index points at the new nodes.
 
-1. Resolve the tier/untiered page and any prior node by recorded id. Similar names are
-   evidence to inspect, never evidence that two source components are the same.
-2. Place the captured desktop, tablet, and mobile default-state images beside the construction area and inspect them before
-   creating layers. Build the source-faithful base with auto-layout. Bind a variable where the code uses that
-   token; preserve and report a literal where the code hardcodes it. Do not idealize defects.
-   The publishable master is the rendered interface, not a diagram of authoring fields.
-   Field anatomy belongs on the adjacent documentation card. If rendering evidence is too
-   weak to construct the interface, fail the transaction or refuse it at plan time; never
-   substitute a generic white frame with `field:`, `caption:`, or `placeholder:` layers and
-   call that source-faithful. Match the visible boundary, hierarchy, content density, typography,
-   spacing, color, border, image treatment, and responsive behavior shown by the capture.
-3. Build dependencies before parents. Expose every author-editable text node as a TEXT property
-   and each modeled slot as an INSTANCE_SWAP property using real accepted component instances.
-   If source configuration permits a nested component but the current renderer drops it,
-   document that mismatch and do not invent it in the visible master. The publishable root is a
-   `COMPONENT` or `COMPONENT_SET` and must never have an image fill.
-4. Build the approved variant matrix as a `COMPONENT_SET`; position variants and put the
-   evidence-backed default first. Responsive layout direction is a variant or an explicit
-   unsupported field—it cannot be variable-bound.
-5. Write the structured searchable description and set its documentation link.
-6. Build the standard documentation card adjacent to the component: Head, When to use,
-   source-complete Anatomy, Relationships, the desktop/tablet/mobile Breakpoint evidence trio,
-   Configuration, clickable Example, and actionable Notes. Interactive components add state
-   rows after the default trio. The visible example label is root-relative and links to the
-   canonical URL.
-7. Compare Figma screenshots of the native component against the live capture at desktop,
-   tablet, and mobile. Fix visible mismatches before continuing. Assert the transaction, then atomically write `builds/<id>.json` with returned node ids,
-   source hash, standard version, per-breakpoint evidence and comparison results, documented
-   field/relationship coverage, native-node type, root image-fill check, nested-instance
-   coverage, and assertion results. Register the valid receipt;
-   the workflow derives component-phase completion from full approved-plan coverage:
+## Diagnose a failing comparison
 
-   ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py register \
-     --project <artifact-directory> --name "build:<id>" \
-     --path "<artifact-directory>/builds/<id>.json" \
-     --kind build-record --phase components
-   ```
+Read `W/figma/results/compare_<id>.json` and the screenshot beside it in `W/figma/compare/`.
+Crop the failing width's pair (the geometry is in the block result) and look at it. Then fix
+the cause in the code, not in the file:
 
-   Until every planned build has a valid non-failing receipt, the phase remains `running`.
-   `assertions` is non-empty and every entry must explicitly pass (`true`, `{"pass": true}`,
-   or `{"verdict": "pass"}`). `not-run`, `skipped`, an empty object, and missing evidence are
-   failures, not neutral states.
-8. Refresh `design-lab:figma-index` only after the record is valid.
+| Symptom | Where the fix belongs |
+| --- | --- |
+| Text wraps where the site does not | single-line detection in `spec_to_tree.py` |
+| An element the site hides is drawn | visibility in `spec_to_tree.visible` / `measure.mjs` |
+| Items in the wrong place at one width | layout inference or slot flow in `responsive.py` |
+| A box is the wrong height | sizing in `render/build_responsive.js` |
+| A lazy image missing or different | the image wait in `measure.mjs` and `capture.mjs` |
 
-## Figma traps
-
-- Read `componentPropertyDefinitions` before adding a property; Figma silently suffixes a
-  collision. Reuse the existing key and wire it in every variant.
-- Read property definitions only from a top-level component or component set, not a variant.
-- Load each font before any text mutation.
-- Never reconstruct a node id. If a record is missing, scan by exact source-backed identity
-  and rebuild the record before mutation.
-
-A failed assertion still produces a failure record. Do not proceed to another component until
-this transaction is durably closed.
+Never repair a component by editing the Figma file. A hand fix is gone on the next run and
+makes two runs differ, which is the one thing this pipeline exists to prevent.

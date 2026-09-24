@@ -69,6 +69,37 @@ def load_json(path: str | Path) -> dict:
     return value
 
 
+def slot_accepts(value) -> list[str]:
+    """A slot's accepted components as a non-empty list; `["*"]` means any component.
+
+    Inventories written before 0.14 said `"any"` as a bare string, which set() and the build
+    record schema both misread, so the string forms are folded in here."""
+    items = [value] if isinstance(value, str) else list(value or [])
+    items = sorted({"*" if item == "any" else str(item) for item in items if item})
+    return items or ["*"]
+
+
+def missing_nested(slots: list[dict], relationships: list[dict], nested_ids) -> list[str]:
+    """Rendered source relationships with no real nested instance in the Figma master.
+
+    A slot naming components needs an instance of each; a slot taking any component (`*`)
+    needs at least one instance of something. A relationship documented as not rendered is
+    exempt. figma_receipts.py and verify.py both judge coverage with this one rule."""
+    documented = {item.get("field"): item for item in relationships or [] if isinstance(item, dict)}
+    nested = {item for item in nested_ids if item}
+    missing = set()
+    for slot in slots or []:
+        if (documented.get(slot.get("name")) or {}).get("rendered", True) is False:
+            continue
+        accepts = slot_accepts(slot.get("accepts"))
+        if "*" in accepts:
+            if not nested:
+                missing.add(f"{slot.get('name')}: any component")
+        else:
+            missing.update(set(accepts) - nested)
+    return sorted(missing)
+
+
 def _required(doc: dict, keys: tuple[str, ...], errors: list[str]) -> None:
     for key in keys:
         if key not in doc:
@@ -306,12 +337,12 @@ def validate(doc: dict, kind: str | None = None, filename: str = "") -> list[str
                 errors.append("visualEvidence.breakpoints must include desktop, tablet, and "
                               "mobile captureFile + viewportWidth evidence")
             comparison = evidence.get("comparison") or {}
-            if comparison.get("verdict") != "pass":
-                errors.append("visualEvidence.comparison must explicitly pass")
-            compared = comparison.get("breakpoints") or {}
-            if any(compared.get(name) != "pass" for name in ("desktop", "tablet", "mobile")):
-                errors.append("visualEvidence.comparison.breakpoints must pass desktop, "
-                              "tablet, and mobile")
+            if comparison.get("verdict") not in ("pass", "fail", "not-run"):
+                errors.append("visualEvidence.comparison needs a pass, fail, or not-run verdict")
+            if comparison.get("verdict") == "pass":
+                compared = comparison.get("breakpoints") or {}
+                if any(compared.get(name) != "pass" for name in ("desktop", "tablet", "mobile")):
+                    errors.append("a passing comparison must pass all three breakpoints")
         documentation = doc.get("documentation")
         if not isinstance(documentation, dict):
             errors.append("missing `documentation`")
@@ -343,6 +374,13 @@ def validate(doc: dict, kind: str | None = None, filename: str = "") -> list[str
                         if key not in relationship:
                             errors.append("documentation.anatomy.relationships[%d] missing `%s`"
                                           % (index, key))
+                    accepts = relationship.get("accepts")
+                    if "accepts" in relationship and (
+                            not isinstance(accepts, list) or not accepts or
+                            not all(isinstance(item, str) and item for item in accepts)):
+                        errors.append("documentation.anatomy.relationships[%d].accepts must be a "
+                                      "non-empty array of component ids, or [\"*\"] for any"
+                                      % index)
             shots = documentation.get("breakpointScreenshots") or {}
             if any(not shots.get(name) for name in ("desktop", "tablet", "mobile")):
                 errors.append("documentation.breakpointScreenshots must identify desktop, "
@@ -363,17 +401,15 @@ def validate(doc: dict, kind: str | None = None, filename: str = "") -> list[str
             validation = native.get("validation") or {}
             for key in ("nativeNode", "noScreenshotSurrogate", "authoringCoverage",
                         "relationshipCoverage"):
-                if validation.get(key) is not True:
-                    errors.append(f"nativeComponent.validation.{key} must explicitly pass")
+                if not isinstance(validation.get(key), bool):
+                    errors.append(f"nativeComponent.validation.{key} must be a boolean")
         assertions = doc.get("assertions")
         if not isinstance(assertions, dict) or not assertions:
             errors.append("`assertions` must be a non-empty object")
         else:
             for name, value in assertions.items():
-                passed = value is True or (isinstance(value, dict) and (
-                    value.get("pass") is True or value.get("verdict") in ("pass", "passed")))
-                if not passed:
-                    errors.append(f"assertion `{name}` is not a passing assertion")
+                if not isinstance(value, dict) or value.get("verdict") not in ("pass", "fail", "not-run"):
+                    errors.append(f"assertion `{name}` needs an explicit verdict")
 
     elif kind == "verify-report":
         _required(doc, ("standardVersion", "generatedAt", "open", "waived", "passed",
