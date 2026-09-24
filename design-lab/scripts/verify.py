@@ -23,7 +23,7 @@ Exit status is 1 while any expectation is unresolved, so this can gate a pipelin
 import json, os, re, sys, argparse, glob, datetime
 
 SEV = ('blocker', 'major', 'minor')
-STANDARD_VERSION = '2.1.0'
+STANDARD_VERSION = '3.0.0'
 
 # A description only resolves a blank code name if it addresses the blank. An unrelated note
 # is not an explanation, however long it is.
@@ -215,6 +215,9 @@ def built_keys(state):
             mm = re.match(r'\s*Machine name:\s*([a-z0-9_]+)', d)
             if mm:
                 built.update((mm.group(1), _norm(mm.group(1))))
+            source = re.match(r'\s*Source id:\s*([a-z0-9_]+:[a-z0-9_]+)', d)
+            if source:
+                built.update((source.group(1), _norm(source.group(1))))
     return built
 
 
@@ -272,10 +275,20 @@ def completeness(state, components, plan):
     """
     comps = (components or {}).get('components') or []
     built = built_keys(state)
+    machine_counts = {}
+    for component in comps:
+        machine = component.get('machineName') or str(component.get('id') or '').split(':')[-1]
+        machine_counts[machine] = machine_counts.get(machine, 0) + 1
     tiers = {}
     for c in comps:
         t = ((c.get('usage') or {}).get('tier')) or 'untiered'
-        ok = bool(component_keys(c) & built)
+        machine = c.get('machineName') or str(c.get('id') or '').split(':')[-1]
+        # A block and paragraph named `accordion` are not both built because one Figma
+        # component says `accordion`. When the suffix collides, require the qualified
+        # Source id carried by the component description.
+        keys = ({c.get('id'), _norm(c.get('id'))}
+                if machine_counts.get(machine, 0) > 1 else component_keys(c))
+        ok = bool(keys & built)
         tiers.setdefault(t, [0, 0, []])
         tiers[t][1] += 1
         if ok:
@@ -298,27 +311,56 @@ def _norm(s):
     return re.sub(r'[^a-z0-9]+', '', str(s).lower())
 
 
-def check_documentation_cards(state, components, rep):
-    """Every component in the inventory needs a card, built or not.
+def _card_keys(name):
+    """Identifiers carried by either supported documentation-card root convention."""
+    stem = re.sub(r'\s+—\s+documentation$', '', name or '')
+    parts = [part.strip() for part in re.split(r'\s+[—·]\s+', stem) if part.strip()]
+    keys = {_norm(stem)}
+    family = None
+    machine = None
+    for part in parts:
+        match = re.match(r'^(.*?)\s+\((Block|Paragraph)\)$', part, re.I)
+        if match:
+            part = match.group(1).strip()
+            family = 'block' if match.group(2).lower() == 'block' else 'paragraph'
+        if re.fullmatch(r'[a-z0-9_]+', part):
+            machine = part
+        keys.add(_norm(part))
+    if family and machine:
+        keys.add(_norm('%s:%s' % (family, machine)))
+    return keys
+
+
+def check_documentation_cards(state, components, rep, plan=None):
+    """Every component approved for construction needs a card.
 
     Match on the machine name AND the human label. A card is titled the way a designer
     reads it - "Frequently Asked Questions", never "faq" - so a machine-name-only match
     reports missing cards that are sitting right there.
+
+    Refused, mapped, structural, and retirement inventory rows stay traceable in the
+    placement-first index. Requiring full documentation cards for them spends most of the
+    run explaining things the planner deliberately chose not to publish.
     """
     cards = state.get('cards') or []
-    # A card is named per references/findability.md: `<machine_name> — <Human Label> —
-    # documentation`, and older cards are just `<Human Label> — documentation`. Index every
-    # em-dash-separated part so either form matches.
+    # Both standard card-root conventions are accepted: the historical
+    # `<machine> — <Label> — documentation` and the Find-oriented
+    # `<Label> · <machine> (Family)` from library-standard.md section 5.1.
     have = set()
     for c in cards:
-        stem = re.sub(r'\s+—\s+documentation$', '', c.get('name', ''))
-        have.add(_norm(stem))
-        for part in re.split(r'\s+—\s+', stem):
-            if part.strip():
-                have.add(_norm(part))
+        have.update(_card_keys(c.get('name', '')))
     comps = (components or {}).get('components') or []
     if not comps:
         return
+    if plan:
+        approved = {
+            entry.get('id') or entry.get('machineName')
+            for entry in ((plan.get('plans') or plan.get('components') or plan.get('plan') or []))
+            if (entry.get('verdict') or entry.get('decision') or entry.get('action')) in
+               (None, 'build')
+        }
+        comps = [component for component in comps
+                 if component.get('id') in approved or component.get('machineName') in approved]
     missing = []
     for c in comps:
         keys = {_norm(c['id']), _norm(c.get('label') or ''),
@@ -327,7 +369,8 @@ def check_documentation_cards(state, components, rep):
             missing.append(c['id'])
     if missing:
         rep.add('documentation-cards', 'major', 'file',
-                '%d of %d components have no documentation card' % (len(missing), len(comps)),
+                '%d of %d approved components have no documentation card' %
+                (len(missing), len(comps)),
                 evidence=missing[:20])
 
     # Two cards with one name means one component is documented twice and another not at
@@ -447,7 +490,7 @@ def check_component_description(state, rep):
     """The description is the Assets panel's search payload, so an empty one is unfindable.
 
     Checked for the three elements that can be recognised without reading English: the
-    machine name, a source path, and a usage figure. A description missing all three is not
+    machine name, a portable example path, and a usage figure. A description missing all three is not
     a payload, whatever else it says.
     """
     thin = []
@@ -459,8 +502,8 @@ def check_component_description(state, rep):
         missing = []
         if not re.search(r'machine name\s*:', d, re.I):
             missing.append('machine name')
-        if not re.search(r'\b[\w./-]+\.(yml|yaml|json|twig|php|jsx?|tsx?|s?css)\b', d):
-            missing.append('source path')
+        if not re.search(r'(?:^|\s)/[a-z0-9][a-z0-9/_-]*', d, re.I):
+            missing.append('portable example path')
         if not re.search(r'\d', d):
             missing.append('usage figure')
         if missing:
@@ -473,19 +516,17 @@ def check_component_description(state, rep):
 
 def check_documentation_adjacent(state, rep):
     """A card on another page means every question costs a page change, and the two drift."""
-    card_page = {}
+    card_pages = {}
     for c in state.get('cards') or []:
-        stem = re.sub(r'\s+—\s+documentation$', '', c.get('name', ''))
-        for part in re.split(r'\s+—\s+', stem):
-            if part.strip():
-                card_page.setdefault(_norm(part), c.get('pageId'))
+        for key in _card_keys(c.get('name', '')):
+            card_pages.setdefault(key, set()).add(c.get('pageId'))
     apart = []
     for c in state.get('components') or []:
         m = re.match(r'^([a-z0-9_]+)\s+—\s+(.*)$', c.get('name') or '')
         keys = [_norm(m.group(1)), _norm(m.group(2))] if m else [_norm(c.get('name') or '')]
         for k in keys:
-            if k in card_page and card_page[k] and c.get('pageId') \
-                    and card_page[k] != c['pageId']:
+            pages = card_pages.get(k) or set()
+            if pages and c.get('pageId') and c['pageId'] not in pages:
                 apart.append(c['name'])
                 break
     if apart:
@@ -536,40 +577,92 @@ def check_no_scratch_pages(state, rep):
                 evidence=bad)
 
 
-def check_collection_naming(state, brand, rep):
-    """Unprefixed collections collide the moment a file subscribes to a second library."""
+def check_collection_strategy(state, brand, rep):
+    """Groups organize one lifecycle; collections represent real independent boundaries."""
     colls = state.get('collections') or []
     if brand:
         unprefixed = [c['name'] for c in colls
                       if not _norm(c['name']).startswith(_norm(brand))]
         if unprefixed:
-            rep.add('collection-naming', 'major', 'file',
+            rep.add('collection-strategy', 'major', 'file',
                     '%d collection(s) are not prefixed `%s <Domain>`, so they collide with '
                     'every other library in the picker' % (len(unprefixed), brand),
                     evidence=unprefixed)
-    domains = {}
-    for c in colls:
-        # The whole remaining phrase, not its last word. Keying on the last word made
-        # `PNCB Letter Spacing` collide with `PNCB Spacing`, which are two real domains.
-        phrase = re.sub(r'^%s\s*' % re.escape(brand or ''), '', c['name'], flags=re.I).strip()
-        key = _norm(phrase) or _norm(c['name'])
-        domains.setdefault(DOMAIN_ALIASES.get(key, key), []).append(c['name'])
-    dupes = {d: names for d, names in domains.items() if len(names) > 1}
-    if dupes:
-        rep.add('collection-naming', 'major', 'file',
-                '%d domain(s) are split across more than one collection, so the same concept '
-                'lives in two pickers' % len(dupes),
-                evidence=['%s: %s' % (d, ', '.join(n)) for d, n in sorted(dupes.items())])
+    if len(colls) > 1 and not state.get('collectionStrategyReason'):
+        rep.add('collection-strategy', 'major', 'file',
+                '%d collections exist but the state records no distinct mode, publishing, '
+                'ownership, or lifecycle boundary' % len(colls),
+                evidence=[c.get('name') for c in colls])
 
 
-def check_fields_are_tables(state, rep):
-    """Glyphs standing in for structure cannot be scanned, restyled, or aligned."""
-    faked = [c.get('name', '?') for c in state.get('cards') or []
-             if c.get('hasFields') and not c.get('hasFieldsTable')]
-    if faked:
-        rep.add('fields-are-tables', 'major', 'file',
-                '%d card(s) render their field list as preformatted text rather than a '
-                'table' % len(faked), evidence=faked[:20])
+def check_documentation_signal(state, rep):
+    required = {'Head', 'When to use', 'Anatomy', 'Relationships',
+                'Breakpoint evidence', 'Configuration', 'Example'}
+    bad = []
+    for card in state.get('cards') or []:
+        missing = sorted(required - set(card.get('sections') or []))
+        if (missing or not card.get('hasPreviewImage') or
+                (card.get('breakpointScreenshotCount') or 0) < 3 or
+                card.get('rejectedHeadingCount')):
+            bad.append('%s (missing %s; breakpoint screenshots=%s; rejected headings=%s)' % (
+                card.get('name', '?'), ', '.join(missing) or 'none',
+                card.get('breakpointScreenshotCount') or 0,
+                card.get('rejectedHeadingCount') or 0))
+    if bad:
+        rep.add('documentation-signal', 'major', 'file',
+                '%d documentation card(s) do not follow the concise decision-support contract'
+                % len(bad), evidence=bad[:20])
+
+
+def check_no_authoring_diagrams(state, rep):
+    bad = []
+    for component in state.get('components') or []:
+        visible = component.get('visibleTextCount') or 0
+        schema = component.get('schemaLabelCount') or 0
+        if schema >= 2 and schema >= max(2, visible * 0.4):
+            bad.append('%s (%d of %d text layers are authoring labels)' %
+                       (component.get('name'), schema, visible))
+    if bad:
+        rep.add('no-authoring-diagrams', 'blocker', 'file',
+                '%d published master(s) look like field-schema diagrams rather than rendered '
+                'interfaces' % len(bad), evidence=bad[:20])
+
+
+def check_visual_evidence(builds_dir, capture_evidence, rep):
+    captures = (capture_evidence or {}).get('captures') or {}
+    if not builds_dir or not os.path.isdir(builds_dir):
+        return
+    missing, failed = [], []
+    for path in sorted(glob.glob(os.path.join(builds_dir, '*.json'))):
+        try:
+            with open(path) as handle:
+                record = json.load(handle) or {}
+        except (ValueError, IOError):
+            missing.append(os.path.basename(path) + ' (unreadable)')
+            continue
+        component_id = record.get('id')
+        evidence = record.get('visualEvidence') or {}
+        if component_id not in captures or not evidence.get('captureFiles'):
+            missing.append(component_id or os.path.basename(path))
+        if (evidence.get('comparison') or {}).get('verdict') != 'pass':
+            failed.append(component_id or os.path.basename(path))
+    if missing:
+        rep.add('visual-evidence-present', 'blocker', 'file',
+                '%d built component(s) lack registered live visual evidence' % len(missing),
+                evidence=missing[:20])
+    if failed:
+        rep.add('master-matches-capture', 'blocker', 'file',
+                '%d built component(s) lack a passing live-capture comparison' % len(failed),
+                evidence=failed[:20])
+
+
+def check_example_paths(state, rep):
+    bad = [card.get('name', '?') for card in state.get('cards') or []
+           if not card.get('rootRelativeExampleCount') or not card.get('urlLinkCount')]
+    if bad:
+        rep.add('example-path-portable', 'blocker', 'file',
+                '%d card(s) have no portable root-relative example label' % len(bad),
+                evidence=bad[:20])
 
 
 def check_two_usage_numbers(components, rep):
@@ -627,14 +720,19 @@ def check_standard_version_stamped(components, tokens, builds_dir, rep):
     """Without a stamp, nobody can tell which edition a library was built to."""
     missing = []
     for name, doc in (('components.json', components), ('tokens.json', tokens)):
-        if doc is not None and not doc.get('standardVersion'):
-            missing.append(name)
+        if doc is not None:
+            absent = [key for key in ('standardVersion', 'toolVersion') if not doc.get(key)]
+            if absent:
+                missing.append('%s (%s)' % (name, ', '.join(absent)))
     if builds_dir and os.path.isdir(builds_dir):
         unstamped = []
         for p in sorted(glob.glob(os.path.join(builds_dir, '*.json'))):
             try:
-                if not (json.load(open(p)) or {}).get('standardVersion'):
-                    unstamped.append(os.path.basename(p))
+                record = json.load(open(p)) or {}
+                absent = [key for key in ('standardVersion', 'toolVersion')
+                          if not record.get(key)]
+                if absent:
+                    unstamped.append('%s (%s)' % (os.path.basename(p), ', '.join(absent)))
             except (ValueError, IOError):
                 unstamped.append(os.path.basename(p) + ' (unreadable)')
         if unstamped:
@@ -642,7 +740,168 @@ def check_standard_version_stamped(components, tokens, builds_dir, rep):
                                                        ', '.join(unstamped[:6])))
     if missing:
         rep.add('standard-version-stamped', 'blocker', 'file',
-                'no standardVersion recorded in %s' % '; '.join(missing))
+                'required version stamp missing from %s' % '; '.join(missing))
+
+
+def check_build_record_assertions(builds_dir, rep):
+    """A skipped assertion is unfinished work, not a passing component receipt."""
+    if not builds_dir or not os.path.isdir(builds_dir):
+        return
+    invalid = []
+    for path in sorted(glob.glob(os.path.join(builds_dir, '*.json'))):
+        try:
+            with open(path) as handle:
+                assertions = (json.load(handle) or {}).get('assertions')
+        except (ValueError, IOError):
+            invalid.append(os.path.basename(path) + ' (unreadable)')
+            continue
+        if not isinstance(assertions, dict) or not assertions:
+            invalid.append(os.path.basename(path) + ' (empty assertions)')
+            continue
+        failed = []
+        for name, value in assertions.items():
+            passed = value is True or (isinstance(value, dict) and (
+                value.get('pass') is True or value.get('verdict') in ('pass', 'passed')))
+            if not passed:
+                failed.append(name)
+        if failed:
+            invalid.append('%s (%s)' % (os.path.basename(path), ', '.join(failed)))
+    if invalid:
+        rep.add('build-record-assertions', 'blocker', 'file',
+                '%d build record(s) contain empty, skipped, not-run, or failing assertions; '
+                'they cannot prove those component transactions completed' % len(invalid),
+                evidence=invalid[:20])
+
+
+def check_component_receipt_contract(builds_dir, components, rep):
+    """Prove the Figma artifact represents the authored, rendered component.
+
+    A screenshot-filled frame can look excellent while being useless as a library asset. A
+    native component can also look plausible while omitting half of its CMS contract. The
+    build receipt therefore has to account for both sides: source anatomy/relationships and
+    native Figma structure, plus a real screenshot at every required breakpoint.
+    """
+    if not builds_dir or not os.path.isdir(builds_dir):
+        return
+    source = {component.get('id'): component
+              for component in (components or {}).get('components') or []}
+    anatomy_bad, triad_bad, native_bad, nesting_bad = [], [], [], []
+    required_breakpoints = {'desktop', 'tablet', 'mobile'}
+    for path in sorted(glob.glob(os.path.join(builds_dir, '*.json'))):
+        try:
+            with open(path) as handle:
+                record = json.load(handle) or {}
+        except (ValueError, IOError):
+            anatomy_bad.append(os.path.basename(path) + ' (unreadable)')
+            continue
+        component_id = record.get('id') or os.path.basename(path)
+        component = source.get(component_id) or {}
+        anatomy = ((record.get('documentation') or {}).get('anatomy') or {})
+        documented_field_items = {
+            item.get('field'): item for item in anatomy.get('fields') or []
+            if isinstance(item, dict) and item.get('field')
+        }
+        documented_fields = set(documented_field_items)
+        documented_relationships = {
+            item.get('field'): item for item in anatomy.get('relationships') or []
+            if isinstance(item, dict) and item.get('field')
+        }
+        expected_field_items = {item.get('name'): item for item in component.get('fields') or []
+                                if item.get('name')}
+        expected_fields = set(expected_field_items)
+        expected_slots = {item.get('name'): item for item in component.get('slots') or []
+                          if item.get('name')}
+        missing_fields = sorted(expected_fields - documented_fields)
+        missing_slots = sorted(set(expected_slots) - set(documented_relationships))
+        incorrect_fields = []
+        for name in sorted(expected_fields & documented_fields):
+            expected = expected_field_items[name]
+            documented = documented_field_items[name]
+            if (documented.get('kind') != expected.get('kind') or
+                    documented.get('required') is not bool(expected.get('required')) or
+                    documented.get('default') != expected.get('default') or
+                    not documented.get('figmaTreatment')):
+                incorrect_fields.append(name)
+                continue
+            if expected.get('kind') == 'enum':
+                expected_options = {str(item.get('value')) for item in expected.get('options') or []}
+                documented_options = {
+                    str(item.get('value') if isinstance(item, dict) else item)
+                    for item in documented.get('options') or []
+                }
+                if expected_options != documented_options:
+                    incorrect_fields.append(name)
+        incorrect_slots = []
+        for name in sorted(set(expected_slots) & set(documented_relationships)):
+            expected = expected_slots[name]
+            documented = documented_relationships[name]
+            expected_accepts = set(expected.get('accepts') or [])
+            if (set(documented.get('accepts') or []) != expected_accepts or
+                    documented.get('cardinality') != expected.get('cardinality') or
+                    documented.get('required') is not bool(expected.get('required')) or
+                    'rendered' not in documented):
+                incorrect_slots.append(name)
+        if missing_fields or missing_slots or incorrect_fields or incorrect_slots or (
+                not documented_fields and not documented_relationships and
+                not anatomy.get('emptyReason')):
+            anatomy_bad.append('%s (missing fields: %s; incorrect fields: %s; '
+                               'missing relationships: %s; incorrect relationships: %s)' % (
+                component_id, ', '.join(missing_fields) or 'none',
+                ', '.join(incorrect_fields) or 'none',
+                ', '.join(missing_slots) or 'none',
+                ', '.join(incorrect_slots) or 'none'))
+
+        screenshots = ((record.get('documentation') or {})
+                       .get('breakpointScreenshots') or {})
+        evidence = (record.get('visualEvidence') or {}).get('breakpoints') or {}
+        compared = (((record.get('visualEvidence') or {}).get('comparison') or {})
+                    .get('breakpoints') or {})
+        if (set(name for name in screenshots if screenshots.get(name)) < required_breakpoints
+                or set(name for name in evidence if evidence.get(name)) < required_breakpoints
+                or any(compared.get(name) != 'pass' for name in required_breakpoints)):
+            triad_bad.append(component_id)
+
+        native = record.get('nativeComponent') or {}
+        validation = native.get('validation') or {}
+        if (native.get('nodeType') not in ('COMPONENT', 'COMPONENT_SET') or
+                native.get('rootHasImageFill') is not False or
+                validation.get('nativeNode') is not True or
+                validation.get('noScreenshotSurrogate') is not True or
+                validation.get('authoringCoverage') is not True):
+            native_bad.append(component_id)
+
+        nested = {item.get('sourceId') for item in native.get('nestedInstances') or []
+                  if isinstance(item, dict)}
+        required_nested = set()
+        for name, slot in expected_slots.items():
+            documented = documented_relationships.get(name) or {}
+            if documented.get('rendered', True) is False:
+                continue
+            accepts = slot.get('accepts') or []
+            if isinstance(accepts, list):
+                required_nested.update(accepts)
+        if required_nested - nested or validation.get('relationshipCoverage') is not True:
+            nesting_bad.append('%s (%s)' % (
+                component_id, ', '.join(sorted(required_nested - nested)) or
+                'relationshipCoverage did not pass'))
+
+    if anatomy_bad:
+        rep.add('documentation-anatomy', 'blocker', 'file',
+                '%d built component(s) do not document every authored field and relationship' %
+                len(anatomy_bad), evidence=anatomy_bad[:20])
+    if triad_bad:
+        rep.add('breakpoint-triad', 'blocker', 'file',
+                '%d built component(s) lack mobile, tablet, and desktop screenshot evidence '
+                'with a passing comparison at each width' % len(triad_bad),
+                evidence=triad_bad[:20])
+    if native_bad:
+        rep.add('native-component-structure', 'blocker', 'file',
+                '%d built asset(s) are not proven native editable components or use a '
+                'screenshot as the component root' % len(native_bad), evidence=native_bad[:20])
+    if nesting_bad:
+        rep.add('nested-component-coverage', 'blocker', 'file',
+                '%d built component(s) do not instantiate their rendered source '
+                'relationships' % len(nesting_bad), evidence=nesting_bad[:20])
 
 
 def check_index_complete(index, components, state, rep):
@@ -686,12 +945,34 @@ def check_index_links_resolve(index, rep):
     rows = index.get('rows') or []
     if not rows:
         return
-    broken = [r['machineName'] for r in rows if r.get('built') and not r.get('linkTarget')]
+    broken = [r['machineName'] for r in rows if r.get('built') and
+              (not r.get('componentLinkTarget') or not r.get('documentationLinkTarget'))]
     if broken:
         rep.add('index-links-resolve', 'blocker', 'file',
                 '%d built component(s) have an index row with nothing to link to. Record '
-                'figma.documentationCardId in the build record.' % len(broken),
+                'both component and documentation node ids in the build record.' % len(broken),
                 evidence=broken[:20])
+
+
+def check_index_component_links(index, state, rep):
+    if not index:
+        return
+    wrong = []
+    for row in index.get('rows') or []:
+        if not row.get('built'):
+            continue
+        component = row.get('componentLinkTarget')
+        documentation = row.get('documentationLinkTarget')
+        if not component or component == documentation:
+            wrong.append(row.get('machineName') or row.get('id'))
+    headings = (state.get('gettingStarted') or {}).get('indexHeadings') or []
+    expected = ['Placements', 'Component', 'Tier', 'Type', 'Status', 'Documentation']
+    if headings != expected:
+        wrong.append('index headings/order: %s' % ', '.join(headings))
+    if wrong:
+        rep.add('index-component-links', 'blocker', 'file',
+                'the index does not keep placement-first columns and separate master/docs '
+                'destinations', evidence=wrong[:20])
 
 
 def check_variants_are_sets(state, plan, rep):
@@ -742,7 +1023,7 @@ def check_variants_are_sets(state, plan, rep):
                 evidence=loose[:20])
 
 
-def check_bindings_match_source(state, measurements, rep):
+def check_bindings_match_source(state, measurements, render_evidence, rep):
     """Figma must bind exactly where the code binds — no more, no less.
 
     Not "is it maximally bound". A component that binds a variable the source hardcodes is a
@@ -755,21 +1036,58 @@ def check_bindings_match_source(state, measurements, rep):
     is deliberately weaker than per-property: it catches a component the source tokenises and
     Figma hardcodes, or the reverse, and says nothing about which node.
     """
-    if not measurements:
+    if not measurements and not render_evidence:
         rep.add('bindings-match-source', 'minor', 'file',
-                'not checked - pass --measurements (design-lab:capture output) so the '
-                "source's declared values can be compared against the Figma bindings")
+                'not checked - pass --render-evidence or --measurements so source token '
+                'use can be compared against the Figma bindings')
         return
-    comps = {c['name']: c for c in state.get('components') or []}
+    comps = state.get('components') or []
     if not comps:
         return
     mismatched = []
+
+    # Render evidence is deterministic and available before browser capture. It cannot prove
+    # that every literal stays literal, but it can prove that a component stylesheet consumes
+    # a Sass/CSS token. Letting that degrade to a minor allowed an almost entirely unbound
+    # treatment library through the gate.
+    for component_id, item in (render_evidence or {}).get('items', {}).items():
+        rules = ((item.get('styleFacts') or {}).get('rootRules') or []) + \
+                ((item.get('styleFacts') or {}).get('partRules') or [])
+        source_binds = any(
+            declaration.get('resolution') in ('css-custom-property', 'sass-variable')
+            for rule in rules for declaration in rule.get('declarations') or [])
+        if not source_binds:
+            continue
+        machine = component_id.split(':', 1)[-1]
+        candidates = [component for component in comps
+                      if (component.get('name') or '').split(' — ')[0] == machine]
+        if len(candidates) > 1:
+            source_marker = ('block_content.type.' if component_id.startswith('block:')
+                             else 'paragraphs.paragraphs_type.') + machine
+            exact = [component for component in candidates
+                     if source_marker in (component.get('description') or '')]
+            candidates = exact or candidates
+        # Drupal block and paragraph entities frequently share a machine name. Once a
+        # component records its qualified source id, never attribute another namespace's
+        # Sass evidence to it merely because the suffix matches.
+        qualified = [component for component in candidates
+                     if re.search(r'^Source id:\s*%s\s*$' % re.escape(component_id),
+                                  component.get('description') or '', re.I | re.M)]
+        if qualified:
+            candidates = qualified
+        elif any(re.search(r'^Source id:', component.get('description') or '', re.I | re.M)
+                 for component in candidates):
+            candidates = []
+        if candidates and not any(component.get('boundVariableCount') for component in candidates):
+            mismatched.append('%s: Sass/CSS evidence consumes a token, the Figma component '
+                              'binds nothing' % component_id)
+
     for mid, m in (measurements or {}).items():
         nodes = m.get('nodes') or []
         src_binds = any('var(--' in str(v)
                         for n in nodes for v in (n.get('declared') or {}).values())
-        fig = next((c for name, c in comps.items()
-                    if name.split(' — ')[0] == mid or name == mid), None)
+        fig = next((c for c in comps
+                    if (c.get('name') or '').split(' — ')[0] == mid or c.get('name') == mid), None)
         if fig is None:
             continue
         fig_binds = bool(fig.get('boundVariableCount'))
@@ -782,7 +1100,11 @@ def check_bindings_match_source(state, measurements, rep):
     if mismatched:
         rep.add('bindings-match-source', 'blocker', 'file',
                 '%d component(s) do not mirror the source\'s binding state' % len(mismatched),
-                evidence=mismatched[:20])
+                evidence=sorted(set(mismatched))[:20])
+    if not measurements:
+        rep.add('bindings-match-source', 'minor', 'file',
+                'positive token use was checked from Sass evidence; reverse and per-property '
+                'fidelity were not checked because design-lab:capture measurements are absent')
 
 
 def check_verify_report_exists(out_path, rep):
@@ -796,11 +1118,14 @@ def check_verify_report_exists(out_path, rep):
 CHECKS = """foundation-exists variable-scoped code-syntax-set code-syntax-resolves
 modes-earn-themselves components-built component-naming component-description
 documentation-links documentation-cards documentation-cards-unique documentation-adjacent
-layers-named mode-naming no-scratch-pages collection-naming fields-are-tables
+layers-named mode-naming no-scratch-pages collection-strategy documentation-signal
 two-usage-numbers tier-thresholds-stated known-gaps-current standard-version-stamped
+build-record-assertions
+documentation-anatomy breakpoint-triad native-component-structure nested-component-coverage
 verify-report-exists bindings-match-source index-complete index-links-resolve
 variants-are-sets pages-populated shot-frames-have-images breakpoints-share-scale
-captures-unique""".split()
+captures-unique visual-evidence-present master-matches-capture no-authoring-diagrams
+index-component-links example-path-portable""".split()
 
 
 # ------------------------------------------------------------------ waivers
@@ -835,6 +1160,9 @@ def main():
     ap.add_argument('--brand', help='collection name prefix, e.g. PNCB')
     ap.add_argument('--measurements', help='design-lab:capture measurement JSON, keyed by '
                                            'component; supplies the declared values')
+    ap.add_argument('--render-evidence', help='bounded Drupal Twig/SDC/Sass evidence; proves '
+                                              'positive source token use without capture')
+    ap.add_argument('--capture-evidence', help='registered live component capture evidence')
     ap.add_argument('--out', help='write the verify report here; required by '
                                   'verify-report-exists')
     ap.add_argument('--json', action='store_true')
@@ -846,6 +1174,8 @@ def main():
     plan = json.load(open(a.plan)) if a.plan else None
     index = json.load(open(a.index)) if a.index else None
     measurements = json.load(open(a.measurements)) if a.measurements else None
+    render_evidence = json.load(open(a.render_evidence)) if a.render_evidence else None
+    capture_evidence = json.load(open(a.capture_evidence)) if a.capture_evidence else None
     waivers = load_waivers(a.waivers)
     theme = theme_text(a.theme_root)
 
@@ -859,20 +1189,26 @@ def main():
     check_component_naming(state, rep)
     check_component_description(state, rep)
     check_documentation_links(state, rep)
-    check_documentation_cards(state, components, rep)
+    check_documentation_cards(state, components, rep, plan=plan)
     check_documentation_adjacent(state, rep)
     check_layers_named(state, rep)
     check_mode_naming(state, rep)
     check_no_scratch_pages(state, rep)
-    check_collection_naming(state, a.brand, rep)
-    check_fields_are_tables(state, rep)
+    check_collection_strategy(state, a.brand, rep)
+    check_documentation_signal(state, rep)
+    check_no_authoring_diagrams(state, rep)
+    check_visual_evidence(a.builds, capture_evidence, rep)
+    check_example_paths(state, rep)
     check_two_usage_numbers(components, rep)
     check_tier_thresholds_stated(index, state, rep)
     check_standard_version_stamped(components, tokens, a.builds, rep)
+    check_build_record_assertions(a.builds, rep)
+    check_component_receipt_contract(a.builds, components, rep)
     check_index_complete(index, components, state, rep)
     check_index_links_resolve(index, rep)
+    check_index_component_links(index, state, rep)
     check_variants_are_sets(state, plan, rep)
-    check_bindings_match_source(state, measurements, rep)
+    check_bindings_match_source(state, measurements, render_evidence, rep)
     check_verify_report_exists(a.out, rep)
     check_pages_populated(state, rep)
     check_breakpoint_frames(state, rep)
@@ -882,7 +1218,9 @@ def main():
 
     open_, waived_ = [], []
     for f in rep.findings:
-        w = waived(f, waivers)
+        w = None if f['check'] in {
+            'visual-evidence-present', 'master-matches-capture', 'no-authoring-diagrams'
+        } else waived(f, waivers)
         (waived_ if w else open_).append(dict(f, waiver=w) if w else f)
 
     # A check with nothing to examine did not pass — it did not run. Reporting it as a pass
@@ -895,12 +1233,12 @@ def main():
                 'collection': len(state.get('collections') or [])}
     NEEDS = {'component-naming': 'component', 'component-description': 'component',
              'documentation-links': 'component', 'documentation-adjacent': 'component',
-             'layers-named': 'card', 'fields-are-tables': 'card',
+             'layers-named': 'card', 'documentation-signal': 'card',
              'documentation-cards-unique': 'card',
              'shot-frames-have-images': 'shot', 'breakpoints-share-scale': 'shot',
              'variable-scoped': 'collection', 'code-syntax-set': 'collection',
              'modes-earn-themselves': 'collection', 'mode-naming': 'collection',
-             'collection-naming': 'collection',
+             'collection-strategy': 'collection',
              'variants-are-sets': 'component', 'bindings-match-source': 'component'}
     inapplicable = sorted(c for c, need in NEEDS.items()
                           if not subjects[need]

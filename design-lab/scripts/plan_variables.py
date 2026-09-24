@@ -17,6 +17,11 @@ SLUG = re.compile(r'[^a-z0-9]+')
 slug = lambda s: SLUG.sub('-', str(s).lower()).strip('-')
 
 
+def first_code(rows):
+    names = sorted({row['codeName'] for row in rows if row.get('codeName')})
+    return names[0] if names else None
+
+
 ROOT_FONT_PX = 16.0   # CSS default; no theme examined so far overrides it
 
 
@@ -94,6 +99,9 @@ def normalize(tokens):
     if strategy == 'sass-sourcemap':
         return _from_sourcemap(tokens)
 
+    if strategy == 'sass-source':
+        return _from_sass_source(tokens)
+
     if strategy == 'css-custom-properties':
         return _from_cssvars(tokens)
 
@@ -115,7 +123,8 @@ ROLE_WORD = re.compile(
 # Role name -> the Figma semantic path and the scopes that role may be bound to.
 SEMANTIC_ROLE = [
     (re.compile(r'^color-text(-|$)|^color-link', re.I), 'text',    ['TEXT_FILL']),
-    (re.compile(r'^color-(bg|background)(-|$)|^color-surface|^skin-', re.I),
+    (re.compile(r'^color-(bg|background)(-|$)|^color-surface|^skin-|'
+                r'^(bg|background|surface)-', re.I),
                                                        'surface', ['FRAME_FILL', 'SHAPE_FILL']),
     (re.compile(r'^color-border(-|$)', re.I),          'border',  ['STROKE_COLOR']),
     (re.compile(r'^color-brand(-|$)', re.I),           'action',  ['FRAME_FILL', 'SHAPE_FILL']),
@@ -285,12 +294,14 @@ def _from_cssvars(tokens):
         vs = [t for t in rows if t['family'] == fam]
         if not vs:
             continue
+        converted = [(t, num(val(t))) for t in vs]
         extra[fam.replace('-', ' ').title().replace(' ', '')] = {
             'modes': ['Value'],
             'variables': [{'name': '%s/%s' % (fam.split('-')[0], slug(t['name'])),
-                           'type': 'FLOAT', 'valuesByMode': {'Value': val(t)},
+                           'type': 'FLOAT', 'valuesByMode': {'Value': number},
                            'codeName': t.get('codeName'),
-                           'scopes': FAMILY_SCOPES.get(fam, [])} for t in vs]}
+                           'scopes': FAMILY_SCOPES.get(fam, [])}
+                          for t, number in converted if number is not None]}
 
     unknown = [t['codeName'] for t in rows if t['family'] == 'unknown']
     if unknown:
@@ -304,6 +315,52 @@ def _from_cssvars(tokens):
              'customStyles': custom,
              '_semantic': semantic, '_extraCollections': extra},
             warnings)
+
+
+def _from_sass_source(tokens):
+    """Source-authored Sass -> canonical.
+
+    Unlike a recovered source map, the source-tree extractor knows which declarations came
+    from the theme's configuration layer and classifies their intended families from authored
+    names. That is enough evidence to preserve type, radius, motion, and semantic colour roles
+    instead of throwing everything except colour/spacing away. The normal form is shared with
+    custom properties because both inputs expose the same evidence: an authored name, resolved
+    literal, family, layer, and provenance.
+    """
+    canonical, warnings = _from_cssvars(tokens)
+    for warning in warnings:
+        if warning.get('kind') == 'unclassified-custom-property':
+            warning['kind'] = 'unclassified-sass-declaration'
+            warning['detail'] = warning['detail'].replace('--', '$')
+    rows = tokens.get('tokens') or []
+    skipped = sum(t.get('layer') != 'base' for t in rows)
+    if skipped:
+        warnings.insert(0, {
+            'kind': 'component-layer-excluded', 'value': skipped,
+            'detail': 'component-local Sass declarations remain provenance for components; '
+                      'they are not promoted into the global variable palette'})
+    canonical['modeRationale'] = (
+        'source Sass declares each token once; responsive consumption must be measured rather '
+        'than copied into invented modes')
+    extra = canonical.setdefault('_extraCollections', collections.OrderedDict())
+    for family, collection, prefix in (
+            ('breakpoint', 'Breakpoints', 'breakpoint'),
+            ('container-width', 'ContainerWidths', 'container')):
+        variables = []
+        for token in rows:
+            if token.get('layer') != 'base' or token.get('family') != family:
+                continue
+            number = num(token.get('value'))
+            if number is None:
+                continue
+            variables.append({
+                'name': '%s/%s' % (prefix, slug(token['name'])), 'type': 'FLOAT',
+                'valuesByMode': {'Value': number}, 'codeName': token.get('codeName'),
+                'scopes': [],
+                'description': 'Reference dimension; Figma has no matching bindable scope.'})
+        if variables:
+            extra[collection] = {'modes': ['Value'], 'variables': uniquify(variables)}
+    return canonical, warnings
 
 
 def _from_sourcemap(tokens):
@@ -441,7 +498,7 @@ def build(tokens):
         nums = [num(v) for v in vals]
         space.append({'name': 'space/%s' % slug(name), 'type': 'FLOAT',
                       'valuesByMode': {b: n for b, n in zip(order, nums) if n is not None},
-                      'codeName': sorted({r['codeName'] for r in pref if r.get('codeName')})[:1] or None,
+                      'codeName': first_code(pref),
                       'scopes': ['GAP', 'WIDTH_HEIGHT'],
                       'scales': len({n for n in nums if n is not None}) > 1})
     out['collections']['Spacing'] = {'modes': order, 'variables': uniquify(space)}
@@ -468,7 +525,7 @@ def build(tokens):
             tv.append({'name': '%s/%s' % ('type/leading-ratio' if ratio else prefix, slug(name)),
                        'type': 'FLOAT',
                        'valuesByMode': {b: n for b, n in zip(order, nums) if n is not None},
-                       'codeName': sorted({r['codeName'] for r in rows if r.get('codeName')})[:1] or None,
+                       'codeName': first_code(rows),
                        'scopes': [] if ratio else scopes,
                        'unitlessRatio': bool(ratio),
                        'scales': len({n for n in declared}) > 1})
@@ -480,7 +537,80 @@ def build(tokens):
         'variables': uniquify(tv)}
     for cname, coll in (tokens.get('_extraCollections') or {}).items():
         out['collections'][cname] = coll
+    _consolidate_single_mode_collections(out)
     return out
+
+
+GROUP_PREFIX = {
+    'Primitives': ('Color/Primitive', 'color'),
+    'Semantic': ('Color/Semantic', None),
+    'Spacing': ('Spacing', 'space'),
+    'Type': ('Typography', 'type'),
+    'Radius': ('Shape/Radius', 'radius'),
+    'FontWeight': ('Typography/Weight', 'font'),
+    'LetterSpacing': ('Typography/Tracking', 'letter'),
+    'Breakpoints': ('Layout/Breakpoint', 'breakpoint'),
+    'ContainerWidths': ('Layout/Container', 'container'),
+    'LeadingRatio': ('Typography/Leading Ratio', 'leading'),
+    'Motion': ('Motion', 'motion'),
+}
+
+
+def _consolidate_single_mode_collections(out, limit=200):
+    """Use slash groups when collections do not represent a real behavioral boundary.
+
+    Figma groups are encoded in variable names. Splitting nine Value-only domains into nine
+    collections makes the picker harder to learn without adding a mode, publication, or
+    ownership boundary. Responsive or otherwise modeful plans retain their separate collections.
+    """
+    collections_ = out.get('collections') or {}
+    total = sum(len(c.get('variables') or []) for c in collections_.values())
+    if len(collections_) <= 1 or total > limit:
+        out['collectionStrategy'] = {'kind': 'domain', 'reason': 'size or existing boundary'}
+        return
+    single_names = [name for name, collection in collections_.items()
+                    if (collection.get('modes') or ['Value']) == ['Value']]
+    if len(single_names) < 2:
+        out['collectionStrategy'] = {
+            'kind': 'mode-boundaries',
+            'reason': 'no two collections share the same mode set for safe consolidation',
+        }
+        return
+
+    renamed = {}
+    rows = []
+    for collection_name in single_names:
+        collection = collections_[collection_name]
+        prefix, strip = GROUP_PREFIX.get(collection_name, (collection_name, None))
+        for variable in collection.get('variables') or []:
+            old = variable['name']
+            leaf = old
+            if strip and old.startswith(strip + '/'):
+                leaf = old[len(strip) + 1:]
+            new = prefix + ('/' + leaf if leaf else '')
+            renamed[old] = new
+            rows.append({**variable, 'name': new, 'sourceCollection': collection_name})
+    for variable in rows:
+        if variable.get('aliasOf') in renamed:
+            variable['aliasOf'] = renamed[variable['aliasOf']]
+    retained = {name: collection for name, collection in collections_.items()
+                if name not in single_names}
+    out['collections'] = {
+        'Core': {
+            'modes': ['Value'],
+            'variables': uniquify(rows),
+            'modeRationale': 'single-mode source domains share one publication lifecycle; '
+                             'slash-separated names provide Figma groups',
+        },
+        **retained,
+    }
+    out['collectionStrategy'] = {
+        'kind': ('grouped-single-collection' if not retained else 'grouped-by-mode-boundary'),
+        'reason': ('single-mode domains use slash-name groups; collections with different '
+                   'responsive modes remain separate'),
+        'sourceCollections': list(collections_),
+        'retainedModeCollections': list(retained),
+    }
 
 
 if __name__ == '__main__':

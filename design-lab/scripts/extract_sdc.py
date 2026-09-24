@@ -7,10 +7,11 @@ The fallback FAILS LOUDLY on anything it does not understand rather than guessin
 a silently mis-parsed component is worse than a reported one.
 """
 import json, os, re, sys, glob, datetime
+from artifact_contracts import tool_version
 
 # references/library-standard.md section 10: every artifact states which edition it
 # was built to, or nobody can tell whether a library predates a rule.
-STANDARD_VERSION = '2.1.0'
+STANDARD_VERSION = '3.0.0'
 
 try:
     import yaml
@@ -165,7 +166,8 @@ def extract(root):
         except Exception as e:
             problems.append({'kind': 'unparseable', 'detail': str(e)[:300]})
     return {'standardVersion': STANDARD_VERSION,
-'generatedAt': datetime.datetime.now().replace(microsecond=0).isoformat(),
+            'toolVersion': tool_version(),
+            'generatedAt': datetime.datetime.now().replace(microsecond=0).isoformat(),
             'source': {'strategy': 'sdc', 'root': root, 'parser': 'pyyaml' if HAVE_YAML else 'fallback'},
             'components': comps, 'problems': problems}
 

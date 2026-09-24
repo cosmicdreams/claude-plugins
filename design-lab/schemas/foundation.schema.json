@@ -1,0 +1,20 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/foundation.schema.json",
+  "title": "design-lab Figma foundation receipt",
+  "type": "object",
+  "required": ["standardVersion", "toolVersion", "figmaFileKey", "pages", "collections", "validation"],
+  "properties": {
+    "standardVersion": {"type": "string"},
+    "toolVersion": {"type": "string"},
+    "figmaFileKey": {"type": "string", "minLength": 1},
+    "pages": {"type": "object", "minProperties": 1},
+    "collections": {"type": "object", "minProperties": 1},
+    "validation": {
+      "type": "object",
+      "required": ["errors"],
+      "properties": {"errors": {"type": "array", "maxItems": 0}}
+    }
+  },
+  "additionalProperties": true
+}

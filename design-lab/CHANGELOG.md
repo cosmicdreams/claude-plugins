@@ -1,5 +1,99 @@
 # Changelog
 
+## 0.14.0
+
+**Model-native orchestration without model-dependent bookkeeping.** The plugin now gives a
+modern model judgment where judgment helps—source selection, variant policy, and fidelity—while
+moving state, validation, idempotency, and completeness into deterministic tools.
+
+- Added `design-lab:run` and `scripts/workflow.py`: one resumable front door backed by
+  `.design-lab/project.json`, repository/target identity, explicit decisions, phase state,
+  artifact hashes, plan approval, and a completion gate.
+- Added standard JSON Schemas and dependency-free validation for project, detection,
+  components, tokens, plans, variable plans, and build records. Writes are atomic; an invalid
+  replacement cannot destroy the last valid artifact.
+- Added the combined `drupal-authoring` strategy. Block types and Paragraph types form ACU's
+  69-item editor vocabulary; its 109 SDCs are rendering primitives and no longer win by raw
+  count.
+- Added bounded Drupal rendering evidence. One deterministic pass maps every authoring bundle
+  to existing Twig templates, included SDC definitions, adjacent stylesheets, root classes,
+  referenced fields, and suspicious missing fields. The model can spend judgment on fidelity
+  instead of launching broad searches for each component.
+- Added source-authored Sass extraction, cycle-safe memoized resolution, typed variable
+  planning, and reference collections for breakpoints and container widths. Theme-loaded CSS
+  is matched by exact path so basename collisions and module-local properties cannot select a
+  false token layer.
+- Replaced repeated procedural skill prose with concise decision contracts pointing to the
+  versioned standard. Added deterministic Figma state-dump scripts so verification no longer
+  asks the model to reproduce long inspection programs from memory.
+- Added validated foundation, index, and verification receipts. Artifact kinds are persisted
+  in the manifest, unknown kinds fail closed, and an invalid receipt cannot mark its phase
+  complete.
+- Component completion is now derived from approved-plan coverage. Registering one build
+  receipt leaves the phase running; only valid, non-failing receipts for every planned build
+  can complete it, and whole-project validation detects missing or stale receipts.
+- Fixed completeness verification silently ignoring the planner's actual top-level `plans`
+  key. A parsed-but-empty plan now blocks instead of disabling the check.
+- Added regression tests for atomic writes, schemas, Drupal source ranking, Sass planning,
+  resumable workflow state, and plan completeness.
+- Added deterministic DDEV-backed Drupal usage extraction. It reproduces ACU's 10,645 direct
+  placements and 6,305 nested structural instances across all 69 components, registers
+  `usage.json` as its own validated artifact kind, and blocks planning when detected usage was
+  silently skipped.
+- Resolved `list_predefined_options` values from their PHP plugins instead of treating Drupal's
+  exported placeholder rows as real enum choices. ACU now resolves all 20 affected fields
+  without model-written repair scripts.
+- Bundle stylesheets are additive to child SDC stylesheets, so including `back-link` no longer
+  hides `banner.scss` or `image-banner.scss`. Components and tokens now enforce and emit the
+  standard's required `toolVersion`.
+- Added bounded Sass `styleFacts` to Drupal render evidence. Root and nested-part declarations
+  remain separate and retain whether each value came from a CSS custom property, Sass variable,
+  or literal, eliminating another component-by-component source-search loop for the model.
+- Verification now uses those deterministic facts to block a component that consumes a source
+  token but binds no Figma variable, even when browser captures are unavailable. The state dump
+  also counts bindings on the component root instead of descendants only.
+- Detection no longer reports the active `.design-lab/figma-batches` workspace as external
+  prior art merely because `workflow init` created it before discovery.
+- Models can report unavailable evidence but can no longer authorise their own degraded path:
+  usage and phase waivers now require a named human decider and non-empty reason, both validated
+  in the durable project manifest. Final verification also refuses unresolved prerequisite
+  phases, including capture.
+- Common Drupal contrib fields (`email`, `telephone`, `smartdate`, and `block_field`) now map to
+  the standard's text/reference kinds instead of being mislabeled as source-code defects.
+- Re-running discovery, extraction, usage, planning, variable planning, or changing the Figma
+  target invalidates dependent phase claims and receipt registrations while preserving the raw
+  files for diagnosis. Resume can no longer mistake stale downstream evidence for completion.
+- Build receipts now require a non-empty set of explicitly passing assertions. `not-run`,
+  `skipped`, empty, and missing verdicts fail both artifact registration and whole-file
+  verification instead of silently counting as finished work.
+- The component skill now explicitly forbids using an editor-field anatomy diagram as the
+  publishable component master. The master represents rendered UI; field anatomy stays on the
+  documentation card, and insufficient rendering evidence fails or refuses the transaction.
+- Figma state dumps and verification now recognize both documented card-root conventions
+  (`— documentation` and `Human Label · machine_name (Family)`) and common durable index-row
+  prefixes. This removes false negatives discovered during the ACU control replay.
+- Added first-class component-scoped capture evidence. The planner now distinguishes visual
+  components, mapped subcomponents, schema-only entities, and retirement candidates; it refuses
+  to publish a master when no live screenshot proves the component's visual identity.
+- The Getting Started index is now placement-first and keeps component-master and documentation
+  links separate. Canonical double-underscore build-receipt filenames resume correctly, repeated
+  tier headers verify cleanly, and qualified Drupal source ids prevent block/paragraph name
+  collisions from inflating completeness.
+- Documentation is now source-complete decision support: Head, When to use, every authored
+  field/property, every component relationship, desktop/tablet/mobile evidence, native Figma
+  configuration, a root-relative label linked to the canonical FQDN, and actionable Notes.
+  Refused and structural inventory rows remain traceable without fake component pages.
+- Variable planning prefers one collection with slash-delimited groups unless lifecycle or mode
+  boundaries justify another collection. Source-authored Sass now outranks a thin compiled-CSS
+  palette, and map members without standalone code names carry an explicit Dev Mode explanation.
+- Added live anonymous Drupal example verification, targeted multi-breakpoint capture, and a
+  capture-evidence assembler. Screenshots are mandatory documentation evidence but can never be
+  the publishable component root. Build receipts now prove native node type, source anatomy,
+  three-width comparisons, and real nested instances for rendered source relationships.
+- Browser-based capture, measurement, and Figma capture submission accept
+  `DESIGN_LAB_BROWSER_EXECUTABLE`, allowing a reproducible system-Chrome path when Playwright's
+  managed Chromium is unavailable.
+
 ## 0.13.0
 
 **The build side now instructs what the verify side checks.** An audit of all 30 checks

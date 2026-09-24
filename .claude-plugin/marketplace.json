@@ -75,7 +75,7 @@
     },
     {
       "name": "design-lab",
-      "description": "Build and maintain a Figma component library from a codebase. Pluggable component, token and usage sources \u2014 Site Studio, Single Directory Components, Paragraphs. Extract and plan before rendering; Figma is one renderer.",
+      "description": "Build and maintain a verified Figma component library from real code. Resumable, schema-validated extraction and planning; Figma is one renderer.",
       "source": "./design-lab",
       "category": "productivity"
     },

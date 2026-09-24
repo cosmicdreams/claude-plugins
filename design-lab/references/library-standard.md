@@ -1,6 +1,6 @@
 # The component library standard
 
-**Standard version: 2.1.0**
+**Standard version: 3.0.0**
 
 Every library design-lab produces conforms to this document. It is the single answer to "what is a finished component library", so that two people running the plugin against two unrelated codebases — one Drupal with Site Studio, one not Drupal at all — hand back artifacts a third person recognises as the same kind of thing.
 
@@ -8,7 +8,7 @@ The source data will differ wildly. The result must not.
 
 ## How to use this document
 
-- `verify.py` checks against this file. A finding is a **blocker** or a **major**; both resolve to a fix or a recorded waiver, never to silence.
+- `verify.py` checks against this file. A finding is a **blocker** or a **major**. A visual-fidelity blocker cannot be waived while the component is reported as built.
 - Every artifact stamps `standardVersion` so a library can state which edition it was built to.
 - Deviations are permitted where a codebase genuinely cannot supply something. They are **recorded on the Getting Started page in plain language**, not left for a reader to discover.
 
@@ -28,19 +28,31 @@ Raising the bar is the point. When a library invents something better than what 
 
 A library is **components and documentation, paired**. Not a component set with docs bolted on, and not a documentation atlas that happens to sit in Figma.
 
-For every component in scope, all three exist and reference each other:
+For every **visual component** in build scope, all three exist and reference each other:
 
 1. A real Figma component or component set, on its usage tier page.
 2. A documentation card, adjacent to that component on the same page.
 3. Links both ways — the component's `description` carries the searchable payload and points at the card; the component's `documentationLinks` jumps to it.
 
-A component that cannot be built is not silently dropped. It appears in the index as **not built**, with a reason.
+A source entity that is schema-only, a subcomponent of a larger visual whole, retired, or not visually verifiable is not promoted to a Figma asset. It stays in the index with its role and reason. Inventory completeness and component-library quality are different measurements.
+
+### A component is a rendered, reusable visual whole
+
+Configuration entities are discovery inputs, not an instruction to create one Figma component apiece. A buildable component must have:
+
+- a distinct rendered root in the running site;
+- at least one verified, anonymously reachable live example;
+- a captured reference image at the target state and width;
+- an interaction or content contract that makes sense as one reusable asset; and
+- a Figma master whose default state visually matches that reference.
+
+Field schemas explain configuration. They do not define the visible boundaries of a component. A frame containing labels such as `field:`, `caption:`, `required`, or `placeholder` is an authoring diagram unless those labels literally appear on the site. Authoring diagrams may exist in supporting documentation but **must never be published as the component master**.
 
 ### The file is a seed of ground truth, not an idealisation
 
 This is the governing principle, and it overrides every convenience below.
 
-**The Figma component is a faithful representation of the component as the running site actually implements it — including its defects.** Where the code resolves a value through a token, the Figma node binds the corresponding variable. Where the code hardcodes a literal, **the Figma node carries that literal too**, and the divergence is recorded as a defect about the codebase.
+**The Figma component is a faithful representation of the component as the running site actually implements it — including its defects.** The rendered page and its captured states are the visual authority; source files explain why it looks and behaves that way. Where the code resolves a value through a token, the Figma node binds the corresponding variable. Where the code hardcodes a literal, **the Figma node carries that literal too**.
 
 The purpose is a file both developers and designers can work from and then sync in either direction. That only works if the two sides describe the same thing. A Figma component that binds a variable where the code hardcodes a hex is not a tidier version of the truth — it is a different component, it hides the defect that a designer is best placed to notice, and it makes every subsequent diff meaningless because the two sides were never comparable.
 
@@ -48,7 +60,7 @@ So:
 
 - **Never improve a component on the way into Figma.** Not spacing, not colour, not type. If it looks wrong, that is the finding.
 - **A hardcoded value in the code becomes a hardcoded value in Figma plus a recorded defect**, surfaced on the card, so somebody can decide to fix it in the code and re-sync. Silently binding it destroys the signal.
-- **Divergence between Figma and code is the product**, not noise to be cleaned up before shipping.
+- **A screenshot comparison is part of the build receipt.** A component cannot be `built` until its Figma default state has been compared with its captured live reference and passed.
 
 Idealising the library is the tempting failure here, because the idealised version is prettier and every individual decision to tidy one value looks harmless.
 
@@ -122,12 +134,9 @@ Component sets take the same name. Variants are named by their axes, never by th
 
 1. **What it is in the source system** — the type and its machine name.
 2. **Usage** — tier, placement count, page count. Real counts, never estimates.
-3. **Fields** — name, kind, required or optional, cardinality. Note fields that are *not* author-editable and say why.
-4. **Containment** — what it is placed inside, and what it can contain.
-5. **How it renders** — template or component file path, and whether it is a real component or plain markup.
-6. **Token bindings that carry meaning** — e.g. padding bound to a spacing step, with the measured values.
-7. **Source path** — the configuration file the anatomy was read from.
-8. **A pointer to its documentation card.**
+3. **Configuration** — the variant axes and properties a designer can actually change.
+4. **Example path** — the portable root-relative path of a verified live example, such as `/blogs/compliance`, not a local hostname.
+5. **A pointer to its documentation card.**
 
 Anything a reader would search for belongs here. Synonyms and the terms authors actually use are worth including even when they appear nowhere in the codebase.
 
@@ -143,21 +152,41 @@ Variant axes follow `variant-policy.md`. A component whose axes would explode is
 
 ## 5. The documentation card contract
 
-One card per component, adjacent to it, same page. Sections in this order:
+One complete card per component, adjacent to it, same page. It is the handoff surface for a
+designer joining a long-lived support project, so it records the component as it exists — not
+an idealized replacement and not a prose summary. Sections in this order:
 
 | Section | Contains |
 | --- | --- |
-| `Head` | category tags, human label, machine name, verified live example path |
-| `Usage` | **two** stat tiles — author placements and structural references, separately (§7.3) |
-| `Fields` | labelled count, then a real **table**: field, kind, required, constraint, default. Where there are none, a sentence saying why. |
-| `Relations` | `CAN CONTAIN` and `APPEARS IN`, derived from the source, not asserted |
-| `Breakpoints` | `ACROSS BREAKPOINTS`, then screenshots at every documented width, **drawn at one shared scale**, each labelled with its real rendered height |
+| `Head` | category, human label, qualified source id, placement count, and structural-reference count |
+| `When to use` | one short, specific sentence derived from observed use |
+| `Anatomy` | every authored field or Site Studio property: source name, label, kind, required/default/options, and its Figma treatment |
+| `Relationships` | every referenced component field, accepted source component ids, cardinality, and whether the current renderer actually emits it |
+| `Breakpoint evidence` | three component-scoped live screenshots: desktop, tablet, and mobile; interactive components add state rows rather than replacing the default trio |
+| `Configuration` | the properties, variants, nested instances, and interactions available on the native Figma component |
+| `Example` | a clickable canonical URL whose visible label is the portable root-relative path |
+| `Notes` | only actionable exceptions that change a designer's or developer's decision |
 
 Rules:
 
-- **The fields table is a table.** Preformatted text with box-drawing or bullet glyphs standing in for structure is not a table — it cannot be read at a glance, cannot be restyled, and loses the alignment that makes a field list scannable.
-- **Screenshots are required** wherever the component is reachable. A component with no shot carries a stated reason (not reachable anonymously, no isolable selector, renders no distinct markup). Placeholder frames named like captures are a blocker.
-- **One shared scale across breakpoints.** Per-frame scaling makes every width look identical and hides the responsive behaviour the strip exists to show.
+- **The desktop/tablet/mobile screenshot trio is required for every asset reported as built.**
+  These are reference evidence inside the documentation card, never the implementation of the
+  Figma component. If any width lacks a trustworthy shot, the index status is
+  `Not built — incomplete visual evidence`.
+- **Anatomy is source-complete, not selectively summarized.** A component with no configurable
+  fields or relationships says so explicitly. A component that references another component
+  names the qualified target id and shows that relationship as a real nested instance whenever
+  the renderer emits it.
+- **The publishable asset is native and editable.** Its root is a `COMPONENT` or
+  `COMPONENT_SET`; the root cannot use an image fill. Screenshots may appear only in the
+  documentation evidence frames. Text, boolean, variant, instance-swap, and image overrides
+  reflect the actual authoring surface.
+- **Visible documentation is decision support, not an extraction dump.** Summarize component
+  relationships in the Anatomy contract; raw traversal dumps, source-fidelity audits, source
+  defects, template internals, and generic “how it renders” prose stay in machine-readable
+  evidence unless an exception is actionable.
+- **Additional states are conditional; breakpoints are not.** Always show the default trio.
+  Add hover, open, selected, error, or other state rows only when source behavior supplies them.
 
 ### 5.1 Layer naming
 
@@ -167,14 +196,14 @@ Card layers carry the machine name so Find reaches them: `Human Label · machine
 
 ## 6. Variables
 
-### 6.1 Collections
+### 6.1 Collections and groups
 
-Named `<Brand> <Domain>` — brand-prefixed. When a file subscribes to more than one library, unprefixed collections collide in every picker.
+Use the fewest collections that preserve real system boundaries. Collections are for independent modes, publishing/ownership, or lifecycle. Groups are for navigation.
 
-Canonical domains: `Color`, `Semantic`, `Spacing`, `Type`, `Radius`, `Elevation`, `Motion`.
-
-- **A collection exists only if the token source has values for it.** Never invent a domain to look complete.
-- **Never two collections for one domain.** Carrying both `Typography` and `Type` splits the same concept across two pickers and guarantees the wrong one gets bound.
+- A single-mode system with one owner normally uses one brand-prefixed collection, such as `<Brand> Core`, and slash-delimited groups such as `Color/Primitive`, `Color/Semantic`, `Spacing`, `Typography`, and `Shape/Radius`.
+- Separate collections only when they have different mode sets, must be published independently, or are owned and maintained independently. Record that reason in the foundation receipt.
+- **A collection or group exists only if the token source has values for it.** Never invent a domain to look complete.
+- **Never split one conceptual domain across competing collections.** Carrying both `Typography` and `Type` guarantees the wrong one gets bound.
 - Primitives hold raw values. Semantic aliases them by role. **Where the code resolves a value through a token, the component binds Semantic rather than the primitive** — a theme change is then one edit, not a hunt. Where the code hardcodes, the component hardcodes too (§1) — binding a variable the code does not use is a fidelity failure, not an improvement.
 
 ### 6.2 Modes
@@ -237,7 +266,7 @@ Sections in order:
 2. **Coverage** — components, fields, placements, and **built versus not built**, per tier. The headline numbers from the Cover, broken down.
 3. **How this file is organised** — tier thresholds with any override and its reason (§7.2); the two usage axes and why (§7.3); the note that non-tier axes are chips.
 4. **What each card tells you** — the sections of §5, so a reader knows what they are looking at.
-5. **Index** — the jump list. One row per component: machine name, human label, tier, placements, built or not built, each row hyperlinked to its card. This is a table of contents, not documentation and not a search index — it is short enough to scan and cheap enough to stay correct.
+5. **Index** — the jump list, sorted by placements descending within tier. Columns are `Placements`, `Component`, `Tier`, `Type`, `Status`, and `Documentation`, in that order. The component name links to the Figma master; Documentation links to its card. Not-built rows have no fake destination. This is a table of contents, not documentation and not a search index.
 6. **Known gaps** — every unmet expectation and every waiver, named specifically, with counts and component names. Regenerated by `design-lab:verify`, which exits non-zero while anything is unresolved.
 7. **Provenance and regeneration** — §7.1, ending in the numbered commands to rebuild.
 
@@ -287,18 +316,28 @@ Every build record carries `standardVersion`, `toolVersion`, `sourceHash`, and i
 | `foundation-exists` | components built before variables exist |
 | `code-syntax-resolves` | a Dev Mode name exists nowhere in the codebase |
 | `components-built` | the plan said build, the file does not have it |
+| `visual-evidence-present` | a built component has no verified live capture, selector, state, or root-relative example path |
+| `master-matches-capture` | a built component has no passing screenshot comparison against its live reference |
+| `no-authoring-diagrams` | a component master is a field-schema or anatomy diagram rather than the rendered interface |
+| `documentation-anatomy` | a built component's documentation omits a source field, Site Studio property, or component relationship |
+| `breakpoint-triad` | a built component lacks desktop, tablet, or mobile screenshot evidence and a passing comparison at that width |
+| `native-component-structure` | a built asset is not a native component/component set, or its root is a screenshot image fill |
+| `nested-component-coverage` | a rendered source relationship is documented but not represented by a real nested Figma instance |
 | `component-naming` | a component is not `machine_name — Human Label` |
-| `component-description` | a component's description is empty or lacks the §4.2 payload |
+| `component-description` | a component's description is empty or lacks the concise §4.2 payload |
 | `documentation-links` | a component has no link to its card |
 | `documentation-adjacent` | a card is not on the same page as its component |
 | `layers-named` | a card layer is named `Frame` or another Figma default |
 | `mode-naming` | a mode is named `Mode 1` or `Default` |
 | `no-scratch-pages` | a working or divider page shipped |
 | `standard-version-stamped` | an artifact or build record carries no `standardVersion` |
+| `build-record-assertions` | a component receipt has an empty, skipped, `not-run`, or failing assertion |
 | `verify-report-exists` | no verify report was written |
 | `bindings-match-source` | the Figma component binds where the source hardcodes, or hardcodes where the source binds (§1) |
 | `index-complete` | a component missing from the index, or a rendered index stale against the inventory |
 | `index-links-resolve` | a built component whose index row links to nothing |
+| `index-component-links` | the component name does not link to the master, or Status is used as the component link |
+| `example-path-portable` | a displayed example is a local hostname, lacks a root-relative label, or is not an actual link |
 | `variants-are-sets` | variants left as loose components instead of a `COMPONENT_SET` |
 
 ### Majors
@@ -308,13 +347,13 @@ Every build record carries `standardVersion`, `toolVersion`, `sourceHash`, and i
 | `variable-scoped` | a variable is `ALL_SCOPES` |
 | `code-syntax-set` | Dev Mode shows a bare number with no description saying why |
 | `modes-earn-themselves` | a mode's values never differ |
-| `collection-naming` | a collection is unprefixed, or two collections cover one domain |
+| `collection-strategy` | collections are split without a distinct mode, publishing, ownership, or lifecycle boundary |
 | `documentation-cards` | a component has no card |
 | `documentation-cards-unique` | one card name is used twice, so one component is documented twice and another not at all |
-| `fields-are-tables` | a fields list is preformatted text rather than a table |
+| `documentation-signal` | visible docs are dominated by source dumps or generic sections rather than Preview, When to use, Configuration, Usage, Example, and actionable Notes |
 | `pages-populated` | a page is empty and carries no line explaining why |
 | `shot-frames-have-images` | a placeholder is named like a capture |
-| `breakpoints-share-scale` | breakpoint shots are scaled per frame |
+| `breakpoints-share-scale` | responsive shots that are useful are scaled per frame |
 | `captures-unique` | two components' selectors resolve to one element |
 | `two-usage-numbers` | placements and structural references are collapsed into one |
 | `tier-thresholds-stated` | thresholds are overridden without a stated reason |

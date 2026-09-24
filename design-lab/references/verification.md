@@ -1,7 +1,8 @@
 # Verification
 
-Nobody is going to eyeball 146 components. Verification here means **the machine compares
-numbers**, and a screenshot is filed for the handful of cases numbers cannot decide.
+Nobody is going to reconstruct 146 components from memory. Verification therefore combines
+**machine comparisons for every component** with a consistent visual receipt a human can audit:
+desktop, tablet, and mobile screenshots next to the native Figma component.
 
 An earlier draft of this guidance said "compare the built component against the live
 version", which reads as a request for manual visual review and is not what is being
@@ -29,13 +30,15 @@ result into the build record. A component with a failing assertion is not "built
 ### 1. Structure matches the plan
 
 Cheap, exact, no external dependency. Compare the built component set against the entry
-`plan.py` produced for it:
+`plan.py` and the source anatomy produced for it:
 
 - variant count equals `plan.variants`
 - variant property names and their option sets match `plan.variantAxes`
 - every entry in `plan.properties` exists with the right type — `TEXT`, `BOOLEAN`,
   `INSTANCE_SWAP`
 - no property exists that the plan did not ask for
+- the publishable root is a `COMPONENT` or `COMPONENT_SET`, never an image-filled frame
+- every rendered component relationship is represented by a real nested instance
 
 This catches the most common failure by a wide margin: `combineAsVariants` silently
 producing a different matrix than intended.
@@ -89,16 +92,19 @@ change here is that it stops being manual.
 **Tolerance is one pixel.** Anything larger is either a real defect or a token that was
 never captured, and both deserve a report rather than a rounding rule.
 
-Record a `fidelity: "unverified"` verdict honestly when no anonymous example exists. Four of
-the fourteen AHRI components are token-derived rather than measured, and pretending
-otherwise is worse than saying so.
+If no anonymous example exists, record the component as not built and explain why in the
+index. `fidelity: "unverified"` is useful diagnostic evidence but cannot complete a build
+receipt.
 
 ## What the screenshot is for
 
-It goes in the build record so a human can glance at a contact sheet after a batch run and
-catch the class of error numbers miss: a layer in the wrong z-order, text overflowing its
-frame, a variant that is structurally correct and visually absurd. It is evidence, not a
-gate. Nothing blocks on it.
+Desktop, tablet, and mobile screenshots appear inside the documentation card and in the build
+record so a human can catch the class of error numbers miss: a layer in the wrong z-order,
+text overflow, implausible density, or a variant that is structurally correct and visually
+absurd. Each width receives an explicit pass before the component is reported as built.
+
+The screenshots are never the reusable asset. A component root with an image fill is a hard
+failure even when it matches production perfectly.
 
 ## Where results go
 
@@ -107,11 +113,16 @@ verification record and the idempotency key — see `references/build-records.md
 
 ## Documentation assertions
 
-Structure is not documentation. Assert all four, per component:
+Structure is not documentation. Assert all of these, per component:
 
 - `documentationLinks.length > 0` — otherwise nothing leads from the Assets panel to the card
 - a documentation card exists whose name contains the machine name
-- the card's breakpoint frames share one scale — compare each frame's width against its
-  labelled pixel width; the ratios must be equal across the row
-- frames named `shot:*` contain an image fill. A named `shot:` frame with a flat fill is a
-  placeholder claiming to be a capture, and is worse than an honest `scale:` frame
+- every source field/Studio property is present with kind, required state, default, options,
+  and its Figma treatment
+- every source relationship names its accepted qualified component ids, cardinality, and
+  whether the current renderer emits it
+- desktop, tablet, and mobile frames each contain a real image fill and map to registered
+  capture evidence
+- each of those three widths has a passing source-fidelity comparison
+- the native root has no image fill
+- each relationship emitted by the renderer has a corresponding nested instance

@@ -22,10 +22,11 @@ are emitted separately rather than mixed into the palette.
     python3 extract_tokens_sitestudio.py <repo-root> > tokens.json
 """
 import json, re, sys, os, glob, datetime
+from artifact_contracts import tool_version
 
 # references/library-standard.md section 10: every artifact states which edition it
 # was built to, or nobody can tell whether a library predates a rule.
-STANDARD_VERSION = '2.1.0'
+STANDARD_VERSION = '3.0.0'
 
 BREAKPOINTS = ['xxl', 'xl', 'lg', 'md', 'sm', 'xs']
 COLOR_PROPS = {'color', 'background-color', 'border-color', 'fill'}
@@ -204,6 +205,7 @@ def extract(root):
 
     return {
         'standardVersion': STANDARD_VERSION,
+        'toolVersion': tool_version(),
         'generatedAt': datetime.datetime.now(datetime.timezone.utc).isoformat(),
         'source': {'strategy': 'sitestudio-website-settings', 'root': os.path.abspath(root),
                    'configDir': cfg,

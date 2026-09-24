@@ -13,9 +13,18 @@
  * Usage:
  *   node extract.mjs --config components/<name>.json [--out ../../reports/figma-spec]
  */
-import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+
+let chromium;
+try {
+  const { createRequire } = await import('node:module');
+  const req = createRequire(resolve(process.cwd(), 'noop.mjs'));
+  ({ chromium } = req('playwright'));
+} catch {
+  console.error('playwright is not resolvable from this directory');
+  process.exit(2);
+}
 
 const arg = (flag, fallback) => {
   const i = process.argv.indexOf(flag);
@@ -199,12 +208,15 @@ function walk(rootSelector, propList, pick_) {
   };
 }
 
-const browser = await chromium.launch();
+const executablePath = process.env.DESIGN_LAB_BROWSER_EXECUTABLE;
+const browser = await chromium.launch(executablePath ? { executablePath } : {});
 const spec = {
   component: config.component,
   machineName: config.machineName ?? null,
   source: config.source ?? null,
-  url: config.url,
+  path: config.path,
+  verificationUrl: config.verificationUrl ?? config.url,
+  linkUrl: config.linkUrl,
   rootSelector: config.rootSelector,
   extractedAt: new Date().toISOString(),
   measurements: {},
@@ -217,7 +229,9 @@ for (const vp of VIEWPORTS) {
     deviceScaleFactor: 2,
   });
   const page = await context.newPage();
-  await page.goto(config.url, { waitUntil: 'load', timeout: 60000 });
+  const verificationUrl = config.verificationUrl ?? config.url;
+  if (!verificationUrl) throw new Error('config has no verificationUrl');
+  await page.goto(verificationUrl, { waitUntil: 'load', timeout: 60000 });
   /* Some pages hold a long-lived connection open, so networkidle never fires.
      Wait for fonts and a short settle instead. */
   await page.evaluate(() => document.fonts.ready);

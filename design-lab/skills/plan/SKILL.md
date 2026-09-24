@@ -1,33 +1,27 @@
 ---
 name: plan
 description: >
-  Turn components.json into a reviewable build proposal — variant axes, properties, the
-  variant arithmetic, and a hard refusal for components that would explode. Always run and
-  show this before writing anything into Figma. Not for extraction (design-lab:inventory).
+  Convert validated components.json into a durable, reviewable Figma build plan with properties,
+  variant arithmetic, flags, and explicit refusals. Run before any Figma mutation. Not for
+  extraction (design-lab:inventory).
 ---
 
 # Plan the build
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/plan.py components.json --report
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/plan.py components.json --only cpt_text,cpt_cta_banner
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py plan --project <artifact-directory>
 ```
 
-## This step exists to be argued with
+Read `references/variant-policy.md` and `references/defaults.md`. The script applies defaults;
+the model reviews only flagged ambiguity and source-specific exceptions. A spacing choice that
+changes magnitude is usually a variable; one that changes sides may be structural. A long enum
+with no token family is manual review, not an automatic variant axis.
 
-The variant-versus-property split is judgement, and it decides whether a component needs
-8 variants or 880. Show the proposal to a human before building. Defaults live in
-`references/variant-policy.md` and are meant to be overridden per project.
+`plan.json` is the renderer contract. It records all component ids, property treatments,
+variant axes and counts, defects, flags, and `build`/`refuse` verdicts. Above `maxVariants`, refuse
+and state the arithmetic; never truncate the matrix.
 
-Pay attention to `flags`. A spacing enum whose options vary by **which sides** are padded
-cannot be cleanly expressed as one bound variable, and the policy cannot decide it for you.
-On AHRI the same field family was reasonably built both ways: a 3-option padding field
-became a variant axis, an 11-option one became a variable.
-
-## The hard stop
-
-Anything above `maxVariants` (default 64) is refused. On AHRI that is 12 of 146 components,
-including four layout components whose naive counts run past 10^47. Those are layout
-engines, not components — build them as auto-layout with variable modes, never a variant set.
-
-Refusal is a feature. Report what was refused and why; never silently truncate.
+Show the proposed scope, flags, refusals, and total variant count before external mutation.
+Persist approval through `workflow.py approve`. An explicit request to build the entire library
+is approval when the generated plan stays within that request; a material interpretation change
+still requires direction.

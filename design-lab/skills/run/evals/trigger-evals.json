@@ -1,0 +1,12 @@
+[
+  {"query": "Build a complete Figma component library from this codebase and verify it end to end", "should_trigger": true},
+  {"query": "Create a design system in a fresh Figma file from our real Drupal components", "should_trigger": true},
+  {"query": "Run design-lab from source discovery through a finished, verified component library", "should_trigger": true},
+  {"query": "Resume the component-library build recorded in .design-lab/project.json", "should_trigger": true},
+  {"query": "Turn this repository into a Figma library, including tokens, components, documentation, and final QA", "should_trigger": true},
+  {"query": "Detect which design-lab extraction strategy applies here", "should_trigger": false},
+  {"query": "Extract just the design tokens from this theme", "should_trigger": false},
+  {"query": "Verify this existing Figma library against the design-lab standard", "should_trigger": false},
+  {"query": "Build only the accordion component in Figma", "should_trigger": false},
+  {"query": "Compare two component libraries and tell me which is better", "should_trigger": false}
+]

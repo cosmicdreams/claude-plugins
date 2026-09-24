@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/usage.schema.json",
+  "title": "design-lab component usage evidence",
+  "type": "object",
+  "required": ["standardVersion", "toolVersion", "generatedAt", "source", "usage", "problems"],
+  "properties": {
+    "standardVersion": {"type": "string"},
+    "toolVersion": {"type": "string"},
+    "generatedAt": {"type": "string"},
+    "source": {"type": "object", "required": ["strategy", "scope", "definitions"]},
+    "usage": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "required": ["placements", "structuralRefs", "pages"],
+        "properties": {
+          "placements": {"type": "integer", "minimum": 0},
+          "structuralRefs": {"type": "integer", "minimum": 0},
+          "pages": {"type": "integer", "minimum": 0}
+        }
+      }
+    },
+    "problems": {"type": "array"}
+  },
+  "additionalProperties": true
+}

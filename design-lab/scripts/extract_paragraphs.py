@@ -19,10 +19,11 @@ fallback handles nested sequences of mappings (`allowed_values`), because that i
 where a paragraph's enum options live. It FAILS LOUDLY rather than guessing.
 """
 import json, os, re, sys, glob, datetime
+from artifact_contracts import tool_version
 
 # references/library-standard.md section 10: every artifact states which edition it
 # was built to, or nobody can tell whether a library predates a rule.
-STANDARD_VERSION = '2.1.0'
+STANDARD_VERSION = '3.0.0'
 
 try:
     import yaml
@@ -139,7 +140,8 @@ def _parse_seq(lines, i, indent, path):
 
 
 def load(path):
-    text = open(path, errors='ignore').read()
+    with open(path, errors='ignore') as handle:
+        text = handle.read()
     if HAVE_YAML:
         return yaml.safe_load(text)
     lines = _lines(text, path)
@@ -173,6 +175,9 @@ def _default_value(fdata):
 KIND = {
     'string': 'text',
     'string_long': 'text',
+    'email': 'text',
+    'telephone': 'text',
+    'smartdate': 'text',
     'list_string': 'enum',
     'text': 'richtext',
     'text_long': 'richtext',
@@ -188,6 +193,7 @@ KIND = {
     'entity_reference_revisions': 'reference',
     'color_field_type': 'color',
     'viewsreference': 'reference',
+    'block_field': 'reference',
 }
 
 # Field-name fragments that mark a spacing/colour token rather than a visual choice.
@@ -408,6 +414,7 @@ def extract(root, cfg=None):
     return {
         'entryPoints': entry_points,
         'standardVersion': STANDARD_VERSION,
+        'toolVersion': tool_version(),
         'generatedAt': datetime.datetime.now().replace(microsecond=0).isoformat(),
         'source': {'strategy': 'paragraphs', 'root': root, 'configDir': os.path.relpath(cfg, root),
                    'parser': 'pyyaml' if HAVE_YAML else 'fallback'},

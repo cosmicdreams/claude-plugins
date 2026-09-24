@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/tokens.schema.json",
+  "title": "design-lab token inventory",
+  "type": "object",
+  "required": ["standardVersion", "toolVersion"],
+  "properties": {
+    "standardVersion": {"type": "string"},
+    "toolVersion": {"type": "string"},
+    "tokens": {"type": "array", "minItems": 1},
+    "colors": {"type": "array"},
+    "schemes": {"type": "array"},
+    "spacing": {"type": "array"},
+    "type": {"type": "array"},
+    "radii": {"type": "array"},
+    "elevation": {"type": "array"},
+    "motion": {"type": "array"}
+  },
+  "anyOf": [
+    {"required": ["tokens"]}, {"required": ["colors"]}, {"required": ["spacing"]}, {"required": ["type"]},
+    {"required": ["radii"]}, {"required": ["elevation"]}, {"required": ["motion"]}
+  ],
+  "additionalProperties": true
+}

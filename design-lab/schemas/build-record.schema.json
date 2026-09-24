@@ -1,0 +1,140 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/build-record.schema.json",
+  "title": "design-lab Figma component build record",
+  "type": "object",
+  "required": ["standardVersion", "toolVersion", "id", "figma", "documentation", "nativeComponent", "visualEvidence", "assertions", "sourceHash"],
+  "properties": {
+    "standardVersion": {"type": "string"},
+    "toolVersion": {"type": "string"},
+    "id": {"type": "string"},
+    "figma": {
+      "type": "object",
+      "required": ["fileKey", "pageId", "documentationCardId"],
+      "properties": {
+        "fileKey": {"type": "string"},
+        "pageId": {"type": "string"},
+        "documentationCardId": {"type": "string"},
+        "componentId": {"type": "string"},
+        "componentSetId": {"type": "string"}
+      }
+    },
+    "visualEvidence": {
+      "type": "object",
+      "required": ["path", "captureFiles", "states", "breakpoints", "comparison"],
+      "properties": {
+        "path": {"type": "string", "pattern": "^/"},
+        "captureFiles": {"type": "array", "minItems": 3},
+        "states": {"type": "array", "minItems": 1},
+        "breakpoints": {
+          "type": "object",
+          "required": ["desktop", "tablet", "mobile"],
+          "properties": {
+            "desktop": {"$ref": "#/$defs/breakpointEvidence"},
+            "tablet": {"$ref": "#/$defs/breakpointEvidence"},
+            "mobile": {"$ref": "#/$defs/breakpointEvidence"}
+          }
+        },
+        "comparison": {
+          "type": "object",
+          "required": ["verdict", "reviewedAt", "breakpoints"],
+          "properties": {
+            "verdict": {"const": "pass"},
+            "reviewedAt": {"type": "string"},
+            "breakpoints": {
+              "type": "object",
+              "required": ["desktop", "tablet", "mobile"],
+              "properties": {
+                "desktop": {"const": "pass"},
+                "tablet": {"const": "pass"},
+                "mobile": {"const": "pass"}
+              }
+            }
+          }
+        }
+      }
+    },
+    "documentation": {
+      "type": "object",
+      "required": ["anatomy", "breakpointScreenshots"],
+      "properties": {
+        "anatomy": {
+          "type": "object",
+          "required": ["fields", "relationships"],
+          "properties": {
+            "fields": {"type": "array", "items": {"$ref": "#/$defs/documentationField"}},
+            "relationships": {"type": "array", "items": {"$ref": "#/$defs/documentationRelationship"}},
+            "emptyReason": {"type": "string", "minLength": 1}
+          }
+        },
+        "breakpointScreenshots": {
+          "type": "object",
+          "required": ["desktop", "tablet", "mobile"],
+          "properties": {
+            "desktop": {"type": "string", "minLength": 1},
+            "tablet": {"type": "string", "minLength": 1},
+            "mobile": {"type": "string", "minLength": 1}
+          }
+        }
+      }
+    },
+    "nativeComponent": {
+      "type": "object",
+      "required": ["nodeType", "rootHasImageFill", "componentProperties", "nestedInstances", "validation"],
+      "properties": {
+        "nodeType": {"enum": ["COMPONENT", "COMPONENT_SET"]},
+        "rootHasImageFill": {"const": false},
+        "componentProperties": {"type": "array"},
+        "nestedInstances": {"type": "array"},
+        "validation": {
+          "type": "object",
+          "required": ["nativeNode", "noScreenshotSurrogate", "authoringCoverage", "relationshipCoverage"],
+          "properties": {
+            "nativeNode": {"const": true},
+            "noScreenshotSurrogate": {"const": true},
+            "authoringCoverage": {"const": true},
+            "relationshipCoverage": {"const": true}
+          }
+        }
+      }
+    },
+    "assertions": {"type": "object", "minProperties": 1},
+    "sourceHash": {"type": "string", "pattern": "^sha256:"}
+  },
+  "$defs": {
+    "documentationField": {
+      "type": "object",
+      "required": ["field", "kind", "required", "default", "figmaTreatment"],
+      "properties": {
+        "field": {"type": "string", "minLength": 1},
+        "kind": {"type": "string", "minLength": 1},
+        "required": {"type": "boolean"},
+        "default": {},
+        "options": {"type": ["array", "null"]},
+        "figmaTreatment": {"type": "string", "minLength": 1},
+        "figmaProperty": {"type": "string"}
+      }
+    },
+    "documentationRelationship": {
+      "type": "object",
+      "required": ["field", "accepts", "cardinality", "required", "rendered"],
+      "properties": {
+        "field": {"type": "string", "minLength": 1},
+        "accepts": {"type": "array", "minItems": 1},
+        "cardinality": {"type": "integer"},
+        "required": {"type": "boolean"},
+        "rendered": {"type": "boolean"}
+      }
+    },
+    "breakpointEvidence": {
+      "type": "object",
+      "required": ["captureFile", "viewportWidth"],
+      "properties": {
+        "captureFile": {"type": "string", "minLength": 1},
+        "viewportWidth": {"type": "number", "exclusiveMinimum": 0},
+        "state": {"type": "string"}
+      }
+    }
+  },
+  "additionalProperties": true
+}

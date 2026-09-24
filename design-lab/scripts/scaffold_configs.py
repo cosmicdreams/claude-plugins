@@ -17,6 +17,7 @@ Read the `needsHuman` list it prints. Every entry there is a component that will
 produce no capture.
 """
 import json, os, re, sys, argparse, glob
+from urllib.parse import urljoin
 
 # Drupal's clean_class turns underscores into hyphens.
 clean = lambda m: m.replace('_', '-')
@@ -73,6 +74,8 @@ def main():
     ap.add_argument('components')
     ap.add_argument('--out', default='components')
     ap.add_argument('--theme-root')
+    ap.add_argument('--canonical-base-url', required=True,
+                    help='public base URL used for clickable documentation links')
     ap.add_argument('--force', action='store_true')
     a = ap.parse_args()
 
@@ -81,26 +84,40 @@ def main():
 
     written, skipped, needs_human = [], [], []
     for c in doc.get('components') or []:
-        machine = c['id']
-        path = os.path.join(a.out, '%s.json' % machine)
+        component_id = c['id']
+        machine = c.get('machineName') or component_id.split(':')[-1]
+        path = os.path.join(a.out, '%s.json' % component_id.replace(':', '__').replace('/', '__'))
         if os.path.exists(path) and not a.force:
             skipped.append(machine)
             continue
 
-        sel, why = template_selector(a.theme_root, machine)
+        examples = (c.get('usage') or {}).get('examples') or []
+        example = next((item for item in examples
+                        if item.get('anonymous') and item.get('status') == 200), None)
+        marker = (example or {}).get('marker')
+        marker_kind = (example or {}).get('markerKind')
+        sel = ('.' + marker if marker and marker_kind == 'class' else
+               '#' + marker if marker and marker_kind == 'id' else None)
+        why = 'unique rendered usage marker' if sel else None
+        if not sel:
+            sel, why = template_selector(a.theme_root, machine)
+        display_path = (example or {}).get('path')
+        verification_url = (example or {}).get('url')
         cfg = {
             'component': c.get('label') or machine,
+            'componentId': component_id,
             'machineName': machine,
-            'source': {'paragraphType': machine, 'sourceRef': c.get('sourceRef')},
-            # Not derivable: which page renders this component is a content fact, not a
-            # configuration one. design-lab:usage finds real addresses; otherwise fill it in.
-            'url': None,
+            'source': {'sourceRef': c.get('sourceRef')},
+            'path': display_path,
+            'verificationUrl': verification_url,
+            'linkUrl': urljoin(a.canonical_base_url.rstrip('/') + '/',
+                               (display_path or '').lstrip('/')) if display_path else None,
             'rootSelector': sel,
             'states': [{'name': 'default'}],
         }
         gaps = []
-        if not cfg['url']:
-            gaps.append('url')
+        if not cfg['verificationUrl'] or not cfg['path'] or not cfg['linkUrl']:
+            gaps.append('verified example')
         if not sel:
             gaps.append('rootSelector')
             cfg['rootSelector'] = '.paragraph--type--%s' % clean(machine)
@@ -126,8 +143,8 @@ def main():
         for n in needs_human:
             p = '' if n['placements'] is None else ' (%s placements)' % n['placements']
             print('   %-34s missing: %s%s' % (n['machine'], ', '.join(n['missing']), p))
-        print('\nA missing url means no capture and no measurement, silently. Run '
-              'design-lab:usage first if you want real addresses rather than guessed ones.')
+        print('\nA missing verified example means this source entity is not eligible for a '
+              'visual master. Run design-lab:usage first; do not guess a page.')
     return 0
 
 
