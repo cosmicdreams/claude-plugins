@@ -104,7 +104,7 @@ the user correct you.
 - **System or codebase:** read relevant code, configs, docs; trace data flows.
 
 Fan-out to parallel subagents only when independently explorable facets benefit from concurrent
-depth — the 1M context window holds the whole corpus for a single target.
+depth — the 1M context window holds the whole corpus for a single target. Check each subagent's cited file:line or source before adding its finding to the shared understanding.
 
 **3. Share findings; ask about gaps.** Be specific about what you now understand, what surprised
 you, and what remains open. Frame questions as contributions to the shared pool, not as an
@@ -129,6 +129,7 @@ into the record. Use this structure as a guide, adapt to what was actually discu
 
 ## Open Questions
 [Unresolved items. Each names what is unknown and why it matters. Omit if none.]
+[Mark anything we could not confirm and say where we looked — files, notebook, docs.]
 
 ## Context and Constraints
 [Background that shaped the understanding — history, constraints, why things are the way they are.]

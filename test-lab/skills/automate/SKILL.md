@@ -49,7 +49,7 @@ Choose in this order, and stop at the first that works:
    where accessibility is a requirement this is not a preference, it is coverage.
 2. **A stable authored hook** — `data-component-id`, `data-test`. Cheap for a
    front end team to add. If the markup gives you nothing and you are about to
-   reach for a class name, ask for one of these first; it is a small request and
+   reach for a class name, use option 3 for now and put the hook request in your report; it is a small request and
    it retires the compromise permanently.
 3. **A theme class name, as a stated compromise.** Comment it, and say what
    would improve it.
@@ -57,7 +57,7 @@ Choose in this order, and stop at the first that works:
 Never a generated hook that changes on rebuild. A component framework hashed
 instance class looks more specific and is strictly worse.
 
-Ask whether the page object and components already exist. Extending an existing
+Search the test tree for an existing page object and components before writing one. Extending an existing
 component is almost always right; a second component covering the same region is
 almost always wrong.
 

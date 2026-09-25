@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.3.1
+- `ingest` keeps a per-case progress file during a campaign.
+- `automate` searches for existing page objects and uses the fallback selector instead of asking.
+
 ## 0.3.0
 
 Adds TypeSafe's Jev model as an optional first pass over the ingest triage.

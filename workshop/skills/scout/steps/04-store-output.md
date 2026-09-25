@@ -2,6 +2,8 @@
 
 ## Append to the vault note
 
+Before appending, open each kept item's URL and confirm it resolves and matches its summary. Drop any that don't.
+
 For each **kept** item, append to today's note (from step 1):
 
 ```markdown
@@ -24,6 +26,7 @@ lot of high-signal material).
 ```
 **Scout — [HH:MM]**
 Sources checked: [names that returned results]
+Sources failed: [names that errored, timed out, or returned nothing — never omitted]
 
 NET-NEW (ranked):
 1. [Story title] — [one-line why it matters]  ·  matched: [interest/source]

@@ -51,7 +51,7 @@ Extract `topic` (5-10 words, used for filename) and `description`.
 
 ## Phase 1 — Clarify if ambiguous
 
-If scope or level of detail is unclear, ask one question — e.g., "High-level overview or detailed breakdown?"
+If scope or level of detail is unclear, default to a high-level overview, say so in your status note, and offer the detailed breakdown as a follow-up.
 
 Determine diagram type:
 - **Conceptual** — abstract shapes for mental models, workflows, relationships

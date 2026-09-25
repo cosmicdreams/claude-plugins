@@ -111,6 +111,8 @@ Write `04-synthesize.md` to the engagement directory (or present inline when sta
 ## Assumptions Examined
 | Assumption | Supported? | Key Evidence |
 ## Open Questions
+## Unconfirmed
+| Claim | Why unconfirmed | Where we looked |
 ```
 
 If a notebook is in play, co-locate the position as a note:

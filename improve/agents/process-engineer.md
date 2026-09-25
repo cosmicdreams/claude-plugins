@@ -96,7 +96,7 @@ Work on the task the process is executing. Hoard findings without acting. Promot
 ## Lint Rule Lifecycle
 
 1. First observation → **watch**
-2. Pattern recurs → promote to **warn** (surface, wait)
+2. Pattern recurs → promote to **warn** (report with evidence, don't apply)
 3. Human authorizes or 3+ confirmed fixes → **auto-fix**
 4. Human says "always ask" → **warn-permanent**
 

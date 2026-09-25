@@ -77,7 +77,7 @@ Transition names vary by project and cannot be assumed. List them first:
 twg jira workitem transitions query --id ISSUE-KEY -o json --output-summary none
 ```
 
-Show the user the available transitions and ask which one. Then:
+If the user named a target status and exactly one transition matches it, use that one. Otherwise show the available transitions and ask which one. Then:
 
 ```bash
 twg jira workitem transition --id ISSUE-KEY --transition-id "Target Status"
@@ -110,7 +110,7 @@ twg jira board sprints query --project PROJECT-KEY --state active -o json --outp
 twg jira sprint workitems query --id SPRINT_ID -o json --output-summary none
 ```
 
-A project can have several active sprints; list them and ask when it is ambiguous. Show
+A project can have several active sprints; show each one rather than asking which. Show
 sprint name, start and end dates, and the issues grouped by status (To Do / In Progress / Done).
 
 ## Error handling
@@ -119,7 +119,7 @@ sprint name, start and end dates, and the issues grouped by status (To Do / In P
 - `twg: command not found`: direct to https://developer.atlassian.com/cloud/twg-cli/
 - `warning: --select matched no fields`: the field path was wrong and the full payload came back; fix the path
 - Blocked by `twg-attribution-guard.sh`: remove the agent credit from the text and retry
-- Any other non-zero exit: show stderr and ask the user how to proceed
+- Any other non-zero exit: show stderr; if the cause is clear, fix and retry, and ask only when it is not
 
 ## Output style
 

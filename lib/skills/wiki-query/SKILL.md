@@ -163,6 +163,7 @@ Answer filed:
   Created: {list of new pages}
   Updated: {list of updated pages}
   New sources: {count from web research}
+  Unconfirmed: {claims in the answer no wiki page or fetched source supports; pages and URLs searched}
   Wiki coverage: {topic} is now {sufficient}
 ```
 

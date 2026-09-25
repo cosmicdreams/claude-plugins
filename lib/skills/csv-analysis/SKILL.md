@@ -124,6 +124,7 @@ VISUALIZATIONS SAVED
 - **Never say** "I can create X if you want" — just create it
 - **Always preserve** the original CSV (write outputs alongside, never overwrite)
 - **Always report** the save path of each visualization
+- **Mark guesses** — a key finding that infers a cause rather than reporting a computed statistic gets (unconfirmed); report rows or columns lost to parsing or encoding fallback
 - **Skip charts** that would be meaningless for the data shape (e.g., no heatmap for 1 numeric column)
 - **Handle encoding errors** gracefully: try `utf-8`, fall back to `latin-1`
 

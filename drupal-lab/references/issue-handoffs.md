@@ -82,7 +82,7 @@ and test output alone, no subjective judgment required.
     "bug_test": "ClassName::testMethod that proves the original bug is fixed"
   },
   "coverage_gaps": [{"target": "method or path", "risk": "high | medium | low", "suggested_test": "type + sketch"}],
-  "findings": [{"name": "short handle", "detail": "what must change", "location": "file:line"}]
+  "findings": [{"name": "short handle", "detail": "what must change", "location": "file:line", "why": "why it is wrong", "repro": "test, command, or input that shows it fails"}]
 }
 ```
 

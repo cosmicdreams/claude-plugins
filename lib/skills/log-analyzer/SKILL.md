@@ -13,8 +13,8 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 > Analyzes web server and application logs (Acquia/Drupal + Cloudflare) and renders an ASCII dashboard report in the terminal. Use when the user asks to analyze logs, check error rates, investigate traffic spikes, identify bot traffic, view Cloudflare threat blocks, review overall site health, diagnose PHP errors, investigate 500 errors, find slow requests, or answer "who is hammering my site". Trigger phrases: "analyze logs", "check error rates", "log analysis", "cloudflare threats", "acquia logs", "traffic spike", "bot traffic", "site health report", "what's hitting my site", "PHP errors", "500 errors", "slow requests", "who is hammering my site". Do NOT trigger for Drupal-specific log analysis within DDEV (use drupal-lab tools for that).
 
-Ask the user which log source they want to analyze (Acquia access logs, Acquia error
-logs, or Cloudflare), or default to Acquia apache-access logs if no preference is stated.
+Analyze the log source the user named (Acquia access logs, Acquia error
+logs, or Cloudflare). If none is named, default to Acquia apache-access logs and say so — do not ask.
 Then follow the steps below.
 
 ## Data ingestion
@@ -114,6 +114,9 @@ Format the Python output as a rich Markdown report. Use the template below as a 
 ## Recommendations
 - 5xx rate is elevated (0.6%) — check apache-error logs
 - IP 192.0.2.42 sending 4,201 requests — consider rate limiting
+
+## Coverage
+- Log types and time range read; sources skipped and why (e.g. Cloudflare: no CF_API_TOKEN)
 ~~~
 
 ## Optional: HTML report

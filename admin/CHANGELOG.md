@@ -1,5 +1,14 @@
 # Changelog
 
+## 3.0.4
+- Add `new-skill/references/prompting.md`: rules for writing skill and agent prose for current Claude models (no "think hard" lines, name the finish line, stop only for missing information, destructive, or outward-facing actions).
+- `new-skill`, `new-agent`, and `optimize-agents` check for those rules; `optimize-agents` adds a current-model prompt audit step.
+- `scaffold` writes a "When to Keep Going" section into new project CLAUDE.md files.
+- `agent-team` checks the evidence behind each agent report before accepting it.
+- `bump-version` takes the smallest supported bump instead of asking when the type is unclear.
+- `bump-version.sh` no longer rewrites `package-lock.json` or `node_modules`, where third-party packages can share our version number.
+- Eval loop examples use `claude-sonnet-5`.
+
 ## 3.0.3
 - Add `admin/scripts/sync-codex-manifests.sh`: copies each plugin's version into its `.codex-plugin/plugin.json` and checks that every plugin has a Codex manifest and a Codex marketplace entry. `--check` reports drift without writing.
 - `bump-version.sh` runs the sync after every bump, so Claude and Codex manifests can no longer drift apart.

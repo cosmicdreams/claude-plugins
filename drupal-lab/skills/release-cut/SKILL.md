@@ -70,9 +70,7 @@ This returns every issue linked to the release ticket regardless of link
 direction. Filter to types the team treats as deliverable work — typically
 `Story`, `Task`, `Bug`. Drop `Epic`, `Sub-task`, anything in status `Won't Do`.
 
-The user may want to filter further. Show the candidate list and ask:
-"These N tickets are linked to <RELEASE_KEY>. Include all in the release?
-(or supply a comma-separated list of keys to include)"
+Include every filtered candidate by default. The step 5 plan lists each ticket, so the user can narrow scope there — do not ask separately.
 
 ### 4. Resolve each ticket to a feature branch
 
@@ -83,7 +81,7 @@ For each included ticket key, look for branches matching (in order):
 3. `features/<KEY>-*` or `features/<KEY>_*` prefix match (single result)
 4. `features/*` containing `<KEY>` as a token
 
-If multiple candidates: ask the user.
+If multiple candidates: pick the branch with the most recent commit and list the alternatives beside it in the step 5 plan, so the proceed question covers the choice.
 If zero candidates: list the ticket with `(no branch found)` — the user must
 either create the branch first or drop the ticket from the release.
 
@@ -112,8 +110,7 @@ This will:
   - Write .drupal-lab/releases/<slug>.json
 ```
 
-Ask: proceed? If unresolved tickets exist, ask whether to proceed without
-them (and record the omission in the manifest).
+Ask once: proceed? This is the skill's one stop — it deletes and force-pushes a shared branch. Unresolved tickets are omitted and recorded in the manifest by default; say so in the same question rather than asking separately.
 
 ### 6. Cut the branch and merge
 

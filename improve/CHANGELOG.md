@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.2
+- `lint` warnings are reported with evidence without pausing the run; `process-engineer` matches.
+- `optimizer` appends each keep or discard decision to a results log so a restart resumes from it.
+- `self` findings carry a location and evidence; `lint` reports rules it could not check.
+
 ## 2.0.1 — 2026-09-14
 - Shrink all 7 skill descriptions to a routing-sufficient summary; the full trigger-phrase detail moves into each SKILL.md body under `## When to use`, where it loads on invocation instead of sitting in context every session.
 - Saves roughly 1,158 characters (~289 est. tokens) of always-resident context.

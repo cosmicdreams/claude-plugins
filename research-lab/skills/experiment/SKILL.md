@@ -63,7 +63,7 @@ changes automatically to satisfy that preflight.
 
 When several candidate changes are independent, map them to a Workflow `parallel()` — pre-create
 sibling worktrees per the project convention before fanning out so mutating trials don't collide.
-The ratchet itself stays sequential: keep/discard against one moving best-metric.
+The ratchet itself stays sequential: keep/discard against one moving best-metric. Re-run the measurement harness yourself on a trial's commit before keeping it. A metric a subagent reports is a claim until you reproduce it.
 
 ---
 
@@ -178,5 +178,5 @@ pattern of failures.
 
 ## Standalone Mode
 
-Ask for: methodology file, working directory, measurement command. Run the loop. Offer to generate
-a chart, write a summary, or archive to vault.
+Resolve the methodology file, working directory (default: current worktree), and measurement command (from the methodology) from arguments and context; ask only for what is still missing. Run the loop. Generate
+the chart and summary by default; offer vault archiving at the end.

@@ -48,7 +48,7 @@ source: <how this rule was learned>
 | Tier | Behavior | Promotion criteria |
 |---|---|---|
 | **auto-fix** | Apply the fix without asking. Log what changed. | Human explicitly authorized, OR confirmed 3+ times with successful fixes |
-| **warn** | Surface to human with evidence. Wait for guidance. | Default for recurring patterns |
+| **warn** | Do not apply. List in the Lint Results report with evidence and continue checking. | Default for recurring patterns |
 | **watch** | Log when seen. Don't act, don't surface. | Default for first-time observations |
 | **warn-permanent** | Like warn, but never auto-promote. | Human explicitly said "always ask me about this" |
 
@@ -97,6 +97,7 @@ For each rule where `applies-to` matches:
 - <N> warnings (list with evidence)
 - <N> watched (list for the record)
 - <N> clean
+- <N> not checked (rules whose detection could not run, and why)
 ```
 
 ## Managing Rules

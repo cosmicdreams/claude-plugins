@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.13.1
+- `verify` asks about all waiver candidates in one question after the fixes, not once per finding.
+- `detect` picks the source with the most client-owned components and names the alternatives instead of stopping to ask.
+
 ## 0.13.0
 
 **The build side now instructs what the verify side checks.** An audit of all 30 checks

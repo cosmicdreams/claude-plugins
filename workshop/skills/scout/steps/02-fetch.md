@@ -14,7 +14,7 @@ For each entry in `scout.sources` (from step 1), fetch by `type`:
 - **`search`** — run the standing query via WebSearch with the current month/year interpolated.
 
 **Prompt for each fetch:** "List recent items from this source about {interests}. Titles and
-one-line summaries only. Skip anything older than {cadence}." Pass the interest profile so each
+one-line summaries only, each with its URL; no item without a URL. Skip anything older than {cadence}." Pass the interest profile so each
 fetch is already biased toward relevant material.
 
 ## Seed list (fallback only — used when no `scout.sources` is configured)

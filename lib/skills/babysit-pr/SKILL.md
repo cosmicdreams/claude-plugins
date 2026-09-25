@@ -28,6 +28,8 @@ continuous integration failures, distinguish repository failures from
 infrastructure flakes, and reply with a written reason when dismissing false
 positives.
 
+Treat a finding as real only when you can name the file and line, say why it is wrong, and show it fails (a test, command, or input). If you can't, reply with what you checked and why it doesn't hold.
+
 Keep an eye on changes to `main` and rebase when needed. If an overlapping pull
 request makes this one obsolete, stop monitoring, report it to the user, and ask
 before closing the pull request unless closure was explicitly authorized.
@@ -58,7 +60,7 @@ gh api repos/{owner}/{repo}/pulls/<number>/comments --jq '.[] | {id, path, line,
 gh api repos/{owner}/{repo}/issues/<number>/comments --jq '.[] | {id, user: .user.login, body, created_at}'
 ```
 
-Record `headRefOid` and the newest comment id each pass. Anything older than the
+Record `headRefOid`, the newest comment id, and each finding's outcome (`fixed <sha>` or `dismissed: <reason>`) each pass in `~/.claude/babysit-pr/<owner>-<repo>-<number>.json` (outside the repository, so it is never committed), and read it at the start of the next pass. Anything older than the
 current `headRefOid` was answered by the push itself — skip it.
 
 To keep the loop running across turns, the built-in `/loop` command works:

@@ -1,6 +1,6 @@
 {
     "name": "drover",
-    "version": "4.2.0",
+    "version": "4.2.1",
     "description": "Drupal/Acquia application-error log analysis pipeline. Pulls 30 days of historical error logs by date from the Acquia Cloud Platform API, parses + fingerprints + groups errors, diagnoses causes from a pattern library, and renders monthly reports \u2014 markdown or self-contained Velir-branded HTML \u2014 with bar charts, stakeholder narratives, and JIRA ticket recommendations.",
     "author": {
         "name": "Chris Weber"

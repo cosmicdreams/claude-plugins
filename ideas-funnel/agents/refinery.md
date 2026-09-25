@@ -38,7 +38,7 @@ For each concept in the density-signals list passed by the Workflow:
 6. Update `index.md` and `log.md`.
 
 Never touch `Domains/<Label>/*.md` (ingest territory). Never spawn other agents.
-Never accept a promotion without source links or provenance.
+Never accept a promotion without source links or provenance. Re-count the unrelated source pages yourself in step 1. If there are fewer than 3, skip the concept. The signal's `source_count` is the ingest worker's claim, not evidence. Append each skip, and any claim you could not trace to a Source page, to `log.md` with the paths you grepped — the pipeline does not keep your returned JSON.
 
 Return JSON conforming to the schema the Workflow provides.
 

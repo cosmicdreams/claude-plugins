@@ -56,7 +56,7 @@ How do you want to finish this issue?
 
 A) Submit as MR    — push branch to drupal.org GitLab and create a merge request
 B) Submit as patch — generate a .patch file for manual upload to the issue
-C) Keep as WIP     — park the worktree for a future session; optionally stop DDEV
+C) Keep as WIP     — park the worktree for a future session; stops DDEV
 D) Discard         — work is not going forward; remove the worktree entirely
 ```
 
@@ -155,10 +155,9 @@ Note in the kanban card or analysis report:
 - Any blockers or open questions
 - Last test run result
 
-### C2 — Optionally stop DDEV
-Ask: "Do you want to stop DDEV to free resources? You'll restart it next session."
+### C2 — Stop DDEV
+Stop DDEV by default to free the slot — the worktree and database are kept, and `drupal-lab:process-lifecycle` INIT restarts it. Say so in C3.
 
-If yes:
 ```bash
 cd worktrees/$ISSUE && ddev stop
 ```
@@ -178,7 +177,7 @@ Work is not going forward. Confirm before removing anything.
 State explicitly what will be deleted:
 ```
 About to discard worktrees/<issue-number>/.
-This removes all uncommitted changes and the isolated branch.
+This removes all uncommitted changes and the worktree. The branch is kept unless you also ask to delete it.
 Committed changes on issue-<issue-number> are preserved in git history.
 Type 'discard' to confirm.
 ```
@@ -203,7 +202,7 @@ git -C worktrees/main branch -d issue-$ISSUE 2>/dev/null || \
   git -C worktrees/main branch -D issue-$ISSUE
 ```
 
-Ask before deleting the branch — the user may want to keep it for reference.
+Keep the branch by default — the user may want it for reference. Report it in D5 with the delete command; delete only if the user asked for that when choosing D.
 
 ### D5 — Confirm to user
 - Worktree removed: `worktrees/$ISSUE/`

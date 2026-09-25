@@ -1,6 +1,6 @@
 {
     "name": "ideas-funnel",
-    "version": "2.2.0",
+    "version": "2.2.1",
     "description": "Passive knowledge capture pipeline \u2014 Karpathy-derived LLM Wiki with a Fable-supervised singleton Workflow, cost-aware worker delegation, backpressure, Refinery promotion, and nightly memory maintenance.",
     "author": {
         "name": "Chris Weber"

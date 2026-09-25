@@ -113,6 +113,8 @@ Workflow is the default. Use `TeamCreate` only when slice-workers need to messag
 
 ## After the Sprint
 
+Before accepting a `completed` result that skipped cross-review, check its evidence: every path in `files_touched` must exist and show a change (`git diff --stat main -- <files>`), and `bd show <bead>` must carry the worker's SUMMARY note. A result that fails either check is reopened (`bd update <bead> --status open`) and counted as failed. Treat an `approved` review whose evidence names no command or file:line the same way.
+
 Check `results.json` for `outcome: "escalated"` entries — those beads defeated the slice-worker's three-fix limit. Spawn `sprint:deep-debugger` for each, with the bead id and the findings the worker appended to the card narrative. Failed outcomes go back to the board for replanning.
 
 ```bash

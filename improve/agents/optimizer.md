@@ -79,6 +79,7 @@ Rules:
 - Every implemented hypothesis gets its own commit BEFORE measuring — this is what makes `git revert HEAD` safe
 - Before reverting, verify the hypothesis commit is HEAD: `git log --oneline -1`. If the last commit is not the hypothesis (e.g. implementation failed before committing), use `git diff` to identify and manually undo the partial change instead of `git revert`
 - Discards use `git revert HEAD --no-edit`
+- After each decision, append one line to `analysis-reports/optimizer/<date>-results.jsonl` (`{n, hypothesis, commit, metric_before, metric_after, decision, why}`) and mark the hypothesis done in the queue file. On restart, resume from the ratchet in that log, not from memory.
 - Does NOT modify files outside the codebase (no agent definitions, no skills)
 
 ## Phase 4 — Report

@@ -124,7 +124,7 @@ Steps:
    REJECTED: bd update ${sliceResult.bead_id} --status open --assignee "" --remove-label lane-cross-reviewing --add-label lane-in-progress
 7. Populate retro_interview from your session experience.
 
-Emit structured JSON matching the cross-reviewer schema. Include file:line evidence for any rejection.`;
+Emit structured JSON matching the cross-reviewer schema. Include evidence for every verdict, approvals too: the gate commands you ran with their exit status, plus file:line for any rejection.`;
 }
 
 phase("load-beads");

@@ -58,7 +58,7 @@ Completed phase outputs skip ahead:
 
 ### Phase 1 — Setup
 
-Confirm with the user: engagement name (kebab-case), optimization target, any seed URLs.
+Take the engagement name, optimization target, and seed URLs from the request. If no name was given, derive a kebab-case one from the target; if no seed URLs were given, proceed without them. State both in your status note. Ask only when the optimization target is missing — it has no default.
 Create worktree via `admin:create-worktree`. Bootstrap DDEV via `drupal-lab:process-lifecycle`.
 Provision database (local dump → Acquia pull → export from main DDEV, in order).
 
@@ -89,8 +89,7 @@ Write output to `01-preflight.md`. Note per page: HTTP status, Dynamic Page Cach
 Gate check: `${CLAUDE_PLUGIN_ROOT}/skills/optimize/references/phase-gates.md` (Phase 2 gate).
 
 **Diagnostic vs. design decision**: If the preflight reveals a measurable problem directly,
-ask the user whether to investigate without the full research pipeline (skipping Gather and
-Synthesize). If the user chooses diagnostic mode, write findings directly to
+default to diagnostic mode: skip Gather and Synthesize, say so in your status note, and write findings directly to
 `04-synthesize.md` and proceed to Methodology.
 
 ### Phase 3 — Gather
@@ -116,7 +115,7 @@ Output: `04-synthesize.md` with position, named concepts, decision table, and ra
 Write `05-methodology.md` using the template from `${CLAUDE_PLUGIN_ROOT}/skills/optimize/references/methodology-template.md`.
 
 Required: one metric with direction, sampling method documenting which pages are measured.
-Confirm the metric with the user before proceeding.
+Pick the metric from the table below using the user's stated goal, record the choice and the reason in `05-methodology.md`, name it in your status note, and proceed. Ask only if the goal matches no row and preflight suggests no metric.
 
 | User goal | Wrong metric | Right metric |
 |-----------|-------------|--------------|
@@ -136,7 +135,7 @@ Skill("research-lab:experiment", args="methodology=analysis-reports/research/<en
 ### Phase 7 — Report
 
 Write `07-report.md`. Include: full page sample with per-page before/after status, single
-metric baseline → final → improvement %, all iterations from `results.jsonl`.
+metric baseline → final → improvement %, all iterations from `results.jsonl`. Add a **Not verified** section: pages or cache paths not measured, and claims from synthesis the experiments never tested.
 
 Generate chart:
 ```bash
@@ -151,5 +150,5 @@ VAULT_ROOT="$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}"
 cp "analysis-reports/research/<engagement>/07-report.md" "$VAULT_ROOT/Research/<engagement>/$(date +%Y-%m-%d)-report.md"
 ```
 
-Clean up debug artifacts (e.g., `services.debug-cache.yml`). Stop DDEV only if the user
-confirms they are done with the worktree.
+Clean up debug artifacts (e.g., `services.debug-cache.yml`). Leave DDEV running and say so in the
+final report, with the `ddev stop` command for when the user is done.

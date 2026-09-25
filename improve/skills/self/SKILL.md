@@ -52,6 +52,8 @@ Finding: <what's misaligned>
 Current: <what it says>
 Proposed: <what it should say>
 Rationale: <why this improves purpose alignment>
+Location: <file:line>
+Evidence: <what you read, or "unconfirmed — could not check <what>">
 ```
 
 ### 5. Apply changes

@@ -63,7 +63,7 @@ Invert busy blocks to show free windows.
 ## Create an event
 
 Confirm with the user before creating: title, date, start/end time, attendees.
-Convert natural language times to ISO 8601. If timezone is ambiguous, ask first.
+Convert natural language times to ISO 8601. If the timezone is unstated, use the system timezone (`date +%Z`) and show it in the confirmation above.
 
 ```bash
 gws +insert

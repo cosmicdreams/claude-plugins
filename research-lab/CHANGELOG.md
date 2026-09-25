@@ -1,5 +1,11 @@
 # research-lab Changelog
 
+## 4.0.4
+- Orchestrators check subagent evidence before accepting it: `gather` facets, `interrogate` rejections, `experiment` trial metrics, `understand` findings, and the principal investigator.
+- `teach` returns the learner's answers so the orchestrator can check the judge's score.
+- `gather`, `synthesize`, `understand`, and `researcher` mark what could not be confirmed and where they looked.
+- `experiment` resolves inputs from context and generates the chart and summary by default.
+
 ## 4.0.3
 
 - Bind experiment measurements and discard decisions to recorded worktree, branch, base, and trial commit IDs rather than a moving HEAD.

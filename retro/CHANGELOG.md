@@ -1,5 +1,8 @@
 # Changelog
 
+## 4.0.3
+- `session` defaults the project to the repository name and reports gaps; `transcript` reports what it could not find.
+
 ## 4.0.2
 - Give `hooks/hooks.json` an empty `hooks` object. It had only a description since 4.0.0, which fails `claude plugin validate`.
 

@@ -39,7 +39,7 @@ When in doubt: "Was this a bug fix (patch), new feature (minor), or breaking cha
 
 - Use `$ARGUMENTS` if it specifies a plugin name and/or bump type.
 - Otherwise inspect what changed and apply the decision rules.
-- If still unclear, ask before proceeding.
+- If still unclear, take the smallest bump the evidence supports (patch unless a feature was added), name it in your status note, and proceed — the version is reviewed in the pull request.
 
 Valid plugin names: `sprint`, `retro`, `ideate`, `admin`, `drupal-lab`, `ideas-funnel`, `lib`, `workshop`, `drover`, `research-lab`, `improve`, `all`
 Valid bump types: `major`, `minor`, `patch`

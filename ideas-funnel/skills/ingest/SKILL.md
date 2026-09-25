@@ -130,7 +130,7 @@ For items that are primarily a URL with little commentary:
 
 Fetch multiple URLs in parallel in one message.
 
-Unreachable URL → note `[unreachable]` in the Source page and continue.
+Unreachable URL → note `[unreachable]` in the Source page and continue. Only a title or description was fetchable (paywall, video, page that needs JavaScript)? Mark the summary `[from title/description only]` so Refinery does not treat it as read.
 
 ### headroom compression
 

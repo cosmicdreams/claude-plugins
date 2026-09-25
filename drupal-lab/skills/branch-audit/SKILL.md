@@ -144,6 +144,7 @@ Summary:
 
 JSON format (`--json`): structured equivalent with stable field names
 (`expected`, `merged`, `missing`, `extra`, `unkeyed`, `direct_commits`).
+Under the summary, say what the audit could not confirm: MISSING rows that may have landed by squash or cherry-pick (no merge commit to read), and whether Jira was re-queried live or read from the frozen manifest.
 
 ### 7. Suggest next steps
 

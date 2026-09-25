@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.1
+- `babysit-pr` records state in a file each pass and treats a finding as real only with file, line, reason, and a way to show it fails.
+- `github` and `jira` pick the obvious merge method, transition, or retry instead of asking; `log-analyzer` uses its default source without asking.
+- `wiki-query`, `csv-analysis`, and `log-analyzer` report what they could not confirm or cover.
+
 ## 1.4.0
 - Add `lib:babysit-pr`: monitor an open pull request through review and continuous integration — poll for comments and checks newer than the latest push, verify each bot finding against the source before changing code, rebase when `main` moves, and stop when the bots and required checks are green. Ported from the skill Theo Browne demonstrated, with the polling loop and the GraphQL thread-resolve mutation Claude Code needs filled in.
 - Add `lib:leave-pr-comment`: the voice for everything posted under Chris's name — narrative cause, change, consequence; no headings, no emoji, no agent attribution. Derived from his own commit bodies and from his one recorded review-bot dismissal, and it carries the Arnica `[arnica] ack` / `dismiss fp|accept|capacity` command syntax the Velir repositories use.

@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.2.1
+- `refinery` re-counts sources itself instead of trusting the ingest worker's count, and logs skips and untraced claims to `log.md`.
+- `ingest` marks title-only summaries.
+- `query` and `supervise` mark unconfirmed claims and missing inputs.
+
 ## 2.2.0 — 2026-09-21
 
 ### Added

@@ -31,4 +31,4 @@ When handed a notebook ID and one specific facet:
 - Use `--json` where available for parseable output
 
 **Output:** structured markdown with clear sections; cite sources; distinguish established
-findings from your interpretation.
+findings from your interpretation. End with an **Unconfirmed** list: claims no source supported, and the notebook IDs and queries you ran.
