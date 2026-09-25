@@ -1,5 +1,8 @@
 # drover Changelog
 
+## 4.2.1
+- `report` defaults to the most recent complete month and no longer lists AskUserQuestion.
+
 ## 4.2.0 — optional Jev judgments
 
 ### Added

@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.0.2
+- `run` checks the evidence behind uncross-reviewed results; cross-reviewers give evidence for approvals too and reject only for merge-blocking problems.
+- `deep-debugger` lists what stayed unconfirmed.
+
 ## 4.0.1
 - Remove the SessionStart hook that injected the "Team Sprint Capability" block into every session; the skill listing already covers it. PreCompact advisory kept.
 

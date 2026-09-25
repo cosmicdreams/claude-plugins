@@ -36,7 +36,7 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 > Use this skill for structured comparison and analysis tasks: comparing two or more options (tools, libraries, approaches, architectures), choosing between alternatives, or evaluating completeness of a plan or design. Invoke when the user asks to compare, choose between, evaluate, or analyze options — or when they ask what's missing, overlooked, or incomplete in something they've built or proposed. Runs one of three analysis strategies: gap (what's missing from a design or plan), fit (which option matches a specific context or team), or trade-off (what you gain or lose with each choice). Do NOT use for brainstorming new ideas, explaining concepts, fixing bugs, or general research.
 
-Three strategies: **gap**, **fit**, **trade-off**. Auto-detect from user language; surface the detected strategy before proceeding.
+Three strategies: **gap**, **fit**, **trade-off**. Auto-detect from user language; name the detected strategy in the same message as your next step and proceed.
 
 ## Confidence levels
 
@@ -66,10 +66,9 @@ Priority order:
 | Multiple options + specific context (stack, constraints) | `fit` |
 | Multiple options; user wants to understand the choice | `trade-off` |
 
-3. **Ambiguous** — ask:
-> "Which framing fits best? Gap (what's missing) · Fit (which is right for your context) · Trade-off (what you give up with each)"
+3. **Ambiguous** — default to `gap` for one option and `trade-off` for two or more. Name the default and the alternative framings in one line, then proceed.
 
-Always surface the detected strategy before proceeding.
+Always name the chosen strategy in your status note; do not wait for confirmation.
 
 ---
 
@@ -80,8 +79,7 @@ Collect options from inline text, URLs (WebFetch), or file paths (Read).
 - `gap`: one option sufficient
 - `fit` and `trade-off`: require at least 2 options
 
-**Fit only** — capture context before dimension extraction:
-> "What are your key constraints (stack, team skills, timeline)? What does a good outcome look like?"
+**Fit only** — take constraints and success criteria from the conversation and the current repository (stack, dependencies) and restate them under "Your context". If neither gives any, run `trade-off` instead and say why.
 
 ---
 
@@ -89,7 +87,7 @@ Collect options from inline text, URLs (WebFetch), or file paths (Read).
 
 Extract from source material, not a fixed template. Produce 4–8 dimensions where options actually differ.
 
-Show dimensions to the user and wait for confirmation before scoring.
+List the dimensions in your status note and continue to scoring; the user can redirect afterward.
 
 ---
 
@@ -190,6 +188,8 @@ If UNKNOWN cells exist, add:
 
 Omit entirely if no UNKNOWN cells.
 
+Close every report with a **Sources checked** line — the URLs and files read for each option — so each UNKNOWN shows where it was looked for.
+
 ---
 
 ## Phase 6 — Follow-up offer
@@ -200,4 +200,4 @@ Omit entirely if no UNKNOWN cells.
 
 ## Obsidian storage
 
-Archive to `$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}/Research/<topic>/<YYYY-MM-DD>-<comparison-name>.md`. Confirm path.
+Archive to `$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}/Research/<topic>/<YYYY-MM-DD>-<comparison-name>.md`. Report the path written.

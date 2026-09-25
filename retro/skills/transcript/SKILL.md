@@ -141,6 +141,9 @@ Time window: <start> → <end> (<duration>)
 
 ### Process Notes
 <Any observations worth flagging — stale flags, scope drift, missing handoff>
+
+### Not Found
+<Subagent files, task windows, or lines that could not be located or parsed, with the path searched>
 ```
 
 If `--focus errors` is specified, omit tool counts and messages. If `--focus messages`, show only the messages section. If `--focus tools`, show tool counts and retries only.

@@ -29,7 +29,7 @@ by design — running this skill again rebuilds it.
 
 ## Inputs
 
-- **Sprint name (optional)** — if omitted, query JIRA for the active sprint and confirm with the user.
+- **Sprint name (optional)** — if omitted, query JIRA for the active sprint and use it; the step 4 plan shows it, so no separate confirmation.
 
 ## Workflow
 
@@ -49,7 +49,7 @@ twg --site <JIRA_SITE> jira board sprints query --project <JIRA_PROJECT> --state
 ```
 
 Sprints are in `.data.sprints[]` (`id`, `name`, `startDate`, `endDate`).
-If there are multiple active sprints, ask the user which one. If there are
+If there are multiple active sprints, pick the one with the latest `startDate` and name the others in the step 4 plan, so the proceed question covers the choice. If there are
 zero, stop and tell the user to start a sprint in JIRA first.
 
 Slugify the sprint name (lowercase, replace non-alphanumerics with `-`,

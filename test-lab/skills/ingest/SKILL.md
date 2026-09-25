@@ -102,6 +102,8 @@ Then run `test-lab:automate` per case. Keep the unit of work at one case: a batc
 that writes twenty specs without a red check on any of them produces twenty tests
 nobody trusts.
 
+Track the campaign in `COVERAGE-PROGRESS.md` (or one `bd` issue per section), with one row per case id and status `todo | spec-written | red-checked | blocked:<reason>`. Update the row right after each `test-lab:automate` run. On resume, read it first.
+
 ## Step 6: run the suite before you call it delivered
 
 A campaign is not finished when the specs are written. It is finished when

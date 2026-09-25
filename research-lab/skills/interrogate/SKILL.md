@@ -100,7 +100,7 @@ votes. Local shim tests exercise this script's logic, not the actual Workflow ho
 Tally the panel result and report **a verdict**, not a rewrite:
 
 - **Survived** — no live refutation across the clean rounds. State on what grounds it held.
-- **Rejected** — name the lens, the severity, and the exact evidence gap.
+- **Rejected** — name the lens, the severity, and the exact evidence gap. First confirm the refuting grounds point at a specific passage in the submitted claim or evidence, or at something specifically missing from it. If they don't, report **Contested** and quote the grounds.
 - **Contested** — complete panel without a decisive result (a minority split, or the ceiling
   reached before enough clean rounds); surface the votes and stopping condition.
 

@@ -78,6 +78,7 @@ When you see these signs: escalate before attempt 4, not after.
 1. `export BD_ACTOR=<your-name>` then claim: `bd update <card-id> --claim --add-label lane-in-progress`
 2. During work: `bd update <card-id> --append-notes "YYYY-MM-DD: <what was found/tried>"`
 3. On completion: write SUMMARY, then `bd close <card-id> --reason "Deep-debugger fix verified."`
+   SUMMARY names the root cause with its evidence, and lists what stayed unconfirmed (hypotheses not tested, environments not reproduced) with where you looked.
 4. If architectural escalation: do NOT close. Append findings to card narrative and surface to the user.
 
 ## Quality Gates

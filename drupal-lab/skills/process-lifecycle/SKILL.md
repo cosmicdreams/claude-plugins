@@ -45,8 +45,8 @@ name drives the site URL (`drupal-{ISSUE}.ddev.site`).
 ### Check Slot Availability
 
 Max 3 concurrent DDEV instances. Check beads for items with `ddev=true` metadata before
-starting. If three slots are occupied, either wait or reclaim a stale slot (closed issue
-or no recent activity).
+starting. If three slots are occupied, reclaim a slot whose issue is closed with `ddev stop`
+and name it in your status note. If none is closed, stop and report the three running projects — another session may be using an idle-looking slot.
 
 ```bash
 RUNNING=$(ddev list --json-output 2>/dev/null | jq '[.raw[] | select(.status == "running")] | length')
@@ -71,7 +71,7 @@ test -f "$WORKTREE/.claude/ddev-setup.md" && cat "$WORKTREE/.claude/ddev-setup.m
 
 If the file exists, follow it — it specifies which environment to pull the database from,
 which drush commands to run after import, and any settings overrides. If absent and a
-database is required, ask the user for the post-start steps. A fresh worktree has no
+database is required, default to exporting the database from the main worktree's DDEV (`ddev export-db` there, `ddev import-db` here), then run `ddev drush updatedb -y && ddev drush config:import -y && ddev drush cr`, and say so in your status note. Ask only if main has no database either. A fresh worktree has no
 database — skipping this causes 500 errors and misleading test failures.
 
 ## READY CHECK — Gate Before Work

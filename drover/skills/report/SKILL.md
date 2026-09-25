@@ -5,7 +5,7 @@ description: >
   Velir-branded HTML by default, PDF for delivery, markdown as fallback. Stakeholder
   templates add charts and a recommended-JIRA-tickets section plus a JSON sidecar. Custom
   Handlebars templates go in .drover/templates. Deterministic.
-allowed-tools: Bash, Read, AskUserQuestion
+allowed-tools: Bash, Read
 ---
 
 # drover:report
@@ -33,6 +33,8 @@ exclude it when comparing output. PDF bytes can additionally vary by browser
 version even when the visible report is unchanged.
 
 ## Default delivery path
+
+If no month is given, report the most recent complete calendar month and say so.
 
 Unless the user explicitly asks for Markdown only:
 

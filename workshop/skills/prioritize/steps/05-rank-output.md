@@ -62,7 +62,7 @@ The top-ranked item is the candidate for `NEXT:`. Adjust using availability (fro
   actually close beats a deep UNBLOCK you can't start before a meeting. Note the tradeoff in the why.
 - If `availability: unknown`, just take the top-ranked item.
 
-`NEXT:` is one action + a one-line why, and (when known) the capacity context.
+`NEXT:` is one action + a one-line why, and (when known) the capacity context. Before naming NEXT, re-open its source (the Slack thread or `twg` issue) and confirm it is still open or unanswered. If it isn't, drop it and take the next item.
 
 ## Canonical result and artifacts
 

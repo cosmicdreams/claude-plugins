@@ -49,8 +49,8 @@ test('blind learner receives only audience, artifact and question IDs/text; judg
     quiz: input().quiz.map(({ q, answer }, i) => ({ id: `q${i + 1}`, q, answer })),
     learner: learner(),
   })
-  assert.deepEqual(result, grade())
-  assert.deepEqual(Object.keys(result).sort(), ['misses', 'score', 'verdict'])
+  assert.deepEqual(result, { ...grade(), answers: learner().answers })
+  assert.deepEqual(Object.keys(result).sort(), ['answers', 'misses', 'score', 'verdict'])
   for (const { options } of calls) {
     assert.deepEqual(Object.keys(options).sort(), ['label', 'phase', 'schema'])
     assert.ok(options.schema.required.length)
@@ -112,9 +112,9 @@ for (const response of [
   })
 }
 
-test('valid lands is returned without a newly invented numeric threshold or extra keys', async () => {
+test('valid lands is returned with the learner answers, without a newly invented numeric threshold or extra keys', async () => {
   const result = await run(learner(), { score: 2 / 3, misses: [], verdict: 'lands', extra: 'discard' })
-  assert.deepEqual(result, { score: 2 / 3, misses: [], verdict: 'lands' })
+  assert.deepEqual(result, { score: 2 / 3, misses: [], verdict: 'lands', answers: learner().answers })
 })
 
 test('explicit unanswerability is preserved, not silently filled', async () => {
@@ -123,7 +123,7 @@ test('explicit unanswerability is preserved, not silently filled', async () => {
   })) }
   const calls = []
   const expected = { score: 0, misses: ['No answers supplied by artifact.'], verdict: 'revise' }
-  assert.deepEqual(await run(unanswered, expected, input(), calls), expected)
+  assert.deepEqual(await run(unanswered, expected, input(), calls), { ...expected, answers: unanswered.answers })
   assert.deepEqual(data(calls[1].prompt).learner, unanswered)
 })
 

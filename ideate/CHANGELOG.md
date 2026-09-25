@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.0.2
+- `compare`, `diagram`, `reality-check`, and `adr` take sensible defaults and state them instead of stopping to ask; `compare` lists the sources it checked.
+- `adr` updates a superseded record directly; `brainstorm` and `compare` report the path written.
+
 ## 4.0.1 — 2026-09-14
 - Shrink all 5 skill descriptions to a routing-sufficient summary; the full trigger-phrase detail moves into each SKILL.md body under `## When to use`, where it loads on invocation instead of sitting in context every session.
 - Saves roughly 1,666 characters (~416 est. tokens) of always-resident context.

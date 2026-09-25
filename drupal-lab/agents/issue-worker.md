@@ -27,7 +27,7 @@ Fall back to Grep for string literals, config keys, hook names, and non-PHP file
 
 Write `analysis-reports/drupal-issue/<issue>/analysis.json` (schema: `issue-handoffs.md`)
 and render a human summary to `analysis-reports/drupal-issue/<issue>.md`. Archive to
-Neurons vault at `OpenSource/Drupal.org/<project>/<issue>-<slug>.md`.
+Neurons vault at `OpenSource/Drupal.org/<project>/<issue>-<slug>.md`. Record unconfirmed root-cause or scope claims in `notes` as `UNCONFIRMED: <claim> — looked in <where>`.
 
 ## Phase 2 — Plan
 

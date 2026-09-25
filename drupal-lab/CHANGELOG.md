@@ -1,5 +1,13 @@
 # Changelog
 
+## 3.1.1
+- `optimize` asks at most one up-front question (the target, only when missing); scope, diagnostic mode, and metric choice default and are stated instead of approved. Leaves DDEV running at the end.
+- `process-lifecycle` reclaims only closed-issue slots and defaults to copying the main database.
+- `release-cut` and `sprint-start` fold ticket, branch, and sprint choices into their single proceed question.
+- `finish-issue` stops DDEV and keeps the branch by default.
+- `reviewer` reports only merge-blocking findings, each with location, why, and a reproduction; the handoff schema gains `why` and `repro`.
+- `analyze-issue`, `issue-worker`, `branch-audit`, and `optimize` mark what they could not confirm and where they looked.
+
 ## 3.1.0
 - Move `sprint-start`, `release-cut`, and `branch-audit` from jira-cli to twg.
 - Project context gains `jira_site` and `jira_project`, replacing jira-cli's implicit default board.

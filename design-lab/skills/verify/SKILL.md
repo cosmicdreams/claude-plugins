@@ -178,7 +178,7 @@ For each, exactly one of:
   whose descriptions were leftovers from an earlier build. Sometimes the
   codebase genuinely has no name for a value, and writing that on the variable puts the
   answer where the next person reads it rather than in a side file.
-- **Ask, then waive.** Use `AskUserQuestion`. State the check, what is missing, and what is
+- **Ask, then waive.** Finish every fix and recorded reason first, then batch the remaining waiver candidates into `AskUserQuestion` calls of up to 4 questions each. For each, state the check, what is missing, and what is
   lost by skipping it. If they decline, append to `waivers.json`:
 
 ```jsonc

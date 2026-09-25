@@ -53,7 +53,7 @@ bd update <card-id> --status open --assignee "" \
 bd update <card-id> --append-notes "CROSS-REVIEW: REJECTED. [reason with file:line evidence]."
 ```
 
-Cite evidence with `file_path:line_number`. No vague objections.
+Cite evidence with `file_path:line_number`. No vague objections. Reject only for problems you would block the merge for. For each give file:line, why it is wrong, and how to show it fails (failing test, command, or input). Non-blocking observations go in retro_interview, not the verdict.
 
 ## Structured Output
 
@@ -63,7 +63,7 @@ Emit this schema at the end of your turn (required by the Workflow pipeline):
 {
   "bead_id": "<card-id>",
   "verdict": "approved | rejected",
-  "evidence": "File:line evidence or 'All gates passed.'",
+  "evidence": "Per blocking problem: file:line, why it's wrong, how to show it fails. For approval: the gate commands run and their exit status.",
   "retro_interview": {
     "what_worked": "One sentence.",
     "what_didnt": "One sentence.",

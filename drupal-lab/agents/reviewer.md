@@ -67,7 +67,7 @@ Write `analysis-reports/drupal-issue/<issue>/results.json`. Schema in `issue-han
 
 On pass: `bd close <id> --reason "Review passed. phpcs: ok | phpstan: ok | phpunit: ok"`.
 On fail: move bead to `lane-review-failed`, populate `findings`, message issue-worker
-naming each finding so it can match responses to the report.
+naming each finding so it can match responses to the report. Report only problems you would block the merge for. Each needs `location` (file:line), `why` it is wrong, and `repro` — the test, command, or input that shows it fails. Non-blocking gaps go in `coverage_gaps` or are dropped.
 
 ## Git Policy
 

@@ -54,6 +54,7 @@ Write a response:
 - Lead with the direct answer.
 - Cite every claim with `[[Path/Page]]`.
 - If sources disagree, surface the tension (note `tension_score` if present in frontmatter).
+- Mark any claim no page confirms as (unconfirmed), and end with the pages read and search terms tried.
 - Keep it proportional to the question.
 
 ## Step 4 — File back if novel

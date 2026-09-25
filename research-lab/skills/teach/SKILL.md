@@ -201,8 +201,10 @@ if (!grade || typeof grade.score !== 'number' || !Number.isFinite(grade.score) |
     !['lands', 'revise'].includes(grade.verdict)) {
   throw new Error('Feynman gate execution failed: judge returned an invalid grade')
 }
-return { score: grade.score, misses: grade.misses, verdict: grade.verdict }
+return { score: grade.score, misses: grade.misses, verdict: grade.verdict, answers: learner.answers }
 ```
+
+Before certifying `lands`, compare the returned `answers` with the quiz yourself. If the score doesn't match what the learner wrote, treat it as an execution error.
 
 If `verdict` is `revise`, fix the `misses` in the artifact and re-run. Each miss is a place the
 explanation leaked your context.

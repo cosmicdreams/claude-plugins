@@ -54,8 +54,8 @@ Single Directory Components. The detector prunes `core/`, `contrib/`, `vendor/` 
 `node_modules/`. On PNCB a naive count returns 51 where only 13 are the client's; on
 Schusterman it returns 26 where **none** are.
 
-**More than one component source can be present.** Do not silently pick the first. Ask
-which one the design system actually lives in.
+**More than one component source can be present.** Do not silently pick the first. Pick the source with the most client-owned components after pruning,
+name it and the alternatives in your report, and continue — `inventory` is read-only and cheap to rerun on another source.
 
 ## Next
 

@@ -7,12 +7,12 @@ Go/no-go criteria for each phase transition. The Principal Investigator reads th
 **Go conditions:**
 - `01-preflight.md` exists and has structured output
 - No critical blockers identified (or critical blockers have been resolved)
-- User has confirmed the engagement scope
+- The optimization target is known (from the request or the one Phase 1 question)
 
 **No-go triggers:**
 - Critical infrastructure issues (site down, no access, missing credentials)
 - Preflight script failed to run or produced no output
-- User has not confirmed scope
+- Optimization target is unknown (the one input with no default)
 
 **Action on no-go:** Fix the blocker. Re-run preflight.
 
@@ -24,7 +24,7 @@ Go/no-go criteria for each phase transition. The Principal Investigator reads th
 - `02-gather.md` exists with structured content
 - NotebookLM notebook created and notebook ID recorded
 - At least 5 curated sources in the notebook
-- User/Principal Investigator has reviewed and approved the source list
+- Principal Investigator has reviewed the source list
 
 **No-go triggers:**
 - Source gathering still in progress (the gather engagement has not produced its source summary)
@@ -64,16 +64,16 @@ resolve the contradictions an interrogate pass surfaced.
 
 **Go conditions:**
 - `05-methodology.md` exists with all required sections (see research-lab's methodology-spec.md)
-- User has reviewed and approved the methodology
+- Metric, sampling, and budget choices are stated in `05-methodology.md` and in the status note
 - Measurement harness is prepared and tested (can run once and produce a number)
 - Working directory identified and accessible
 
 **No-go triggers:**
 - Missing required methodology sections
 - No measurement harness or harness produces errors
-- User has not approved the approach
+- Metric does not follow from the stated goal
 
-**Action on no-go:** Complete the methodology, fix the measurement harness, get user approval.
+**Action on no-go:** Complete the methodology, fix the measurement harness, state the chosen approach.
 
 ---
 
@@ -81,13 +81,12 @@ resolve the contradictions an interrogate pass surfaced.
 
 **Go conditions:**
 - `results.jsonl` exists with at least one iteration
-- At least one `keep` decision recorded, OR user explicitly accepts current state
+- At least one `keep` decision recorded, OR the loop ended on futility/budget (report the no-improvement result)
 - No pending reverts (all discards properly reverted)
 - Experimentalist has reported completion or futility
 
 **No-go triggers:**
 - Experiment still running
-- All iterations were discards and user hasn't accepted the state
 - Git state is dirty (pending uncommitted changes or un-reverted discards)
 
-**Action on no-go:** Wait for experiment completion, or accept current state explicitly.
+**Action on no-go:** Wait for experiment completion.

@@ -1,6 +1,6 @@
 {
     "name": "sprint",
-    "version": "4.0.1",
+    "version": "4.0.2",
     "description": "Team sprint execution: Workflow-based pipeline, slice-worker agents, cross-review, and kanban board.",
     "author": {
         "name": "Chris Weber"

@@ -51,6 +51,7 @@ Gather enough context to fill every section. You need at minimum:
 - [ ] 3–5 key process steps in order
 - [ ] What role-specific errors to recover from (transient vs. permanent)
 - [ ] 2–4 role-specific quality gates before marking work complete
+- [ ] What "done" looks like, and the only reasons it stops early: missing information with no default, a destructive action, or an outward-facing action
 
 If any item is unclear from context, ask one focused question. Do not generate the file with placeholder content.
 
@@ -105,6 +106,8 @@ Before marking work complete:
 **Rules:**
 - Omit Team Coordination entirely if the agent will not be used in team sprints
 - Error Recovery and Quality Gates are always required — fill with role-specific content
+- No "think hard" or "step by step" lines and no requests to show internal reasoning; current models already think before every reply
+- Agents that fan out to subagents check each subagent's evidence before accepting its result
 - Target 60–80 lines total
 
 ## Register

@@ -87,7 +87,9 @@ PYEOF
     while IFS= read -r -d '' file; do
         # Skip binary files, plugin.json (already updated), and CHANGELOG.md
         # (CHANGELOG history must be preserved; new entries are prepended by the skill, not the script)
-        if [[ "$file" == "$json" ]] || [[ "$(basename "$file")" == "CHANGELOG.md" ]]; then
+        # Lockfiles and vendored dependencies carry third-party versions that can collide with ours.
+        if [[ "$file" == "$json" ]] || [[ "$(basename "$file")" == "CHANGELOG.md" ]] \
+            || [[ "$(basename "$file")" == "package-lock.json" ]] || [[ "$file" == */node_modules/* ]]; then
             continue
         fi
         if grep -qF "$old_version" "$file" 2>/dev/null; then

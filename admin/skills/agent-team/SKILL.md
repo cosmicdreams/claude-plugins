@@ -96,7 +96,7 @@ Each agent needs:
 2. The team name and how to read the team config: `~/.claude/teams/{team-name}/config.json`
 3. Which task(s) it owns first: `TaskUpdate(taskId="N", owner="agent-name", status="in_progress")`
 4. How to message teammates: `SendMessage(to="other-agent", summary="...", message="...")`
-5. How to message team-lead when done or blocked
+5. How to message team-lead when done or blocked, with the evidence behind each finding (file:line, command output, or diff)
 6. Pull protocol: after finishing a task, check `TaskList` for next available work before going idle
 7. Status goes through TaskUpdate, not chat — no structured JSON status messages over SendMessage
 
@@ -109,6 +109,8 @@ As agents work, they send findings and status via SendMessage. You (team-lead) r
 - **Agent → team-lead**: progress updates, blockers, findings
 - **Agent → agent**: share findings that inform another agent's work before they finish (you see a summary in their idle notification)
 - **Team-lead → agent**: new assignments, clarifications, unblocking
+
+Before marking a task done or passing a finding to another agent, check the evidence it cites. Open the file:line, re-run the command, or read the diff. A report with nothing checkable goes back to the agent.
 
 Agents go idle after every turn — this is normal, not an error. An idle agent is waiting for input; sending it a message wakes it.
 

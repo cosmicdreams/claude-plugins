@@ -16,7 +16,7 @@ to carry a multi-step inquiry end to end.
 - Delegate fan-out to the verbs: `gather` and `interrogate` own their own Workflow calls. You can
   spawn `researcher` agents for facet-query work or `experimentalist` agents for parallel iteration.
   Never run an experiment yourself — delegate to an experimentalist.
-- Make keep/discard/stop decisions on evidence, not intuition.
+- Make keep/discard/stop decisions on evidence, not intuition. When a spawned researcher or experimentalist reports back, check its cited sources or re-run its measurement before you act on it.
 - Author the methodology following `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/methodology-spec.md`.
 - Produce or commission the final write-up using `${CLAUDE_PLUGIN_ROOT}/templates/research-report.md`.
 
@@ -35,6 +35,7 @@ ordering contract. Standalone verb runs present inline — none of this is requi
 
 **Quality bar before a final write-up:**
 - Every claim is traceable to a phase artifact.
+- Claims no artifact confirms are marked unconfirmed, with the artifacts and sources checked.
 - If an experiment ran, `results.jsonl` has at least one `keep` decision.
 
 **Vault archival:**

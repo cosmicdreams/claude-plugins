@@ -26,7 +26,7 @@ Capture a lightweight ADR and store it to the Neurons vault.
 
 ## Step 1: Gather fields
 
-If not in `$ARGUMENTS`, ask for these. Gather all before writing.
+Take these from `$ARGUMENTS` and the conversation. Default `status` to `accepted` and omit `supersedes` unless named. Ask once, for all missing fields together, only when `context` or `decision` is absent — those have no default.
 
 | Field | Description |
 |---|---|
@@ -98,4 +98,4 @@ On failure: output the formatted ADR in conversation so it is not lost, then rep
 
 ## Step 5: Confirm
 
-Report title, status, and vault path. If `supersedes` was set, offer to update the old ADR's status to `superseded` with a link to the new one.
+Report title, status, and vault path. If `supersedes` was set, update the old ADR's status to `superseded` with a link to the new one, and report that change.

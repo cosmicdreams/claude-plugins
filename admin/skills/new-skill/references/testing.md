@@ -51,7 +51,7 @@ python3 -m scripts.run_loop \
   --eval-set /path/to/trigger-evals.json \
   --skill-path /path/to/skill \
   --plugin-skill <plugin>:<skill-name> \
-  --model claude-sonnet-4-6 \
+  --model claude-sonnet-5 \
   --max-iterations 5 \
   --verbose
 ```
@@ -64,7 +64,7 @@ python3 -m scripts.run_loop \
   --eval-set /path/to/trigger-evals.json \
   --skill-path /path/to/skill \
   --plugin-skill <plugin>:<skill-name> \
-  --model claude-sonnet-4-6 \
+  --model claude-sonnet-5 \
   --results-dir ~/Tools/CLAUDE-PLUGINS/skill-eval/<skill-name> \
   --verbose
 ```

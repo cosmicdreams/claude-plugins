@@ -68,6 +68,7 @@ Write `analysis-reports/drupal-issue/<issue>/analysis.json`. Full schema in
 `drupal-lab/references/issue-handoffs.md`.
 
 Also render a human-readable summary to `analysis-reports/drupal-issue/<issue>.md`.
+Put anything you could not confirm in `notes`, prefixed `UNCONFIRMED:`, with where you looked (comment number, patch, file). Leave `root_cause` null rather than guess.
 
 ## Obsidian Archive
 

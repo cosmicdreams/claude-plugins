@@ -75,3 +75,4 @@ Return a JSON plan with:
   top-N items by expected value instead of trying to clear everything.
 - Prefer surfacing fewer, higher-quality items over adding more cards.
 - Do not write wiki pages. Emit the plan only; workers and Refinery write.
+- If an input is missing or unreadable, or `bd` is unavailable, say so in `notes` with the path — do not plan as if it were empty.

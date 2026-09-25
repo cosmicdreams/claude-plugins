@@ -138,6 +138,8 @@ args: { topic, facets: [{key, query}], notebookId }
 
 Only reach for this on a genuinely broad topic — a narrow one is cheaper queried directly.
 
+Before folding facet results into 02-gather.md, open at least one listed source per facet and confirm it exists and says what the finding claims. Drop findings whose sources are empty or don't check out, and record them as gaps.
+
 When headroom is present (`command -v headroom`), large fetched sources can be compressed before
 digestion to reduce context consumption.
 
@@ -146,7 +148,7 @@ digestion to reduce context consumption.
 ## Phase 5 — Output
 
 Write `02-gather.md` to the engagement directory (notebook ID, source count, core concepts,
-common patterns, known pitfalls, key sources). Present inline when standalone.
+common patterns, known pitfalls, key sources). Present inline when standalone. Add a **Not found** section: facets the notebook and deep research did not cover, and the queries and seed URLs tried.
 
 In standalone mode, hand `02-gather.md` to `lib:vault-store` for Obsidian archival. Close with
 the postflight version check:

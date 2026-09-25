@@ -105,4 +105,4 @@ Clean up: `rm .brainstorm.json`. Add `.brainstorm.json` to `.gitignore` if not a
 
 ## Obsidian storage
 
-Archive to `$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}/Architecture/ADRs/<topic-slug>/<YYYY-MM-DD>-<topic-slug>.md`. Confirm path to user.
+Archive to `$HOME/Vaults/${OBSIDIAN_VAULT_NAME:-Neurons}/Architecture/ADRs/<topic-slug>/<YYYY-MM-DD>-<topic-slug>.md`. Report the path written.

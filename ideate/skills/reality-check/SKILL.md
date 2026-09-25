@@ -58,7 +58,7 @@ Extract:
 - `idea_description`: 1-5 sentences
 - `context`: constraints, goals, domain
 
-One idea per session. If multiple ideas are provided, ask which to run first.
+One idea per session. If multiple ideas are provided, run the first one and list the others at the end as candidates for their own sessions.
 
 ---
 

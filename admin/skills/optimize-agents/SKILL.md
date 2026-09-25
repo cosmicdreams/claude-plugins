@@ -1,8 +1,8 @@
 ---
 name: optimize-agents
 description: >
-  Audit agent definition files for stale tool syntax, outdated model references, and
-  defensive-prose bloat. Not for writing new agents (admin:new-agent) or for reviewing
+  Audit agent definition files for stale tool syntax, outdated model references,
+  defensive-prose bloat, and prompt habits current models misread. Not for writing new agents (admin:new-agent) or for reviewing
   skills.
 ---
 
@@ -37,7 +37,7 @@ Flag agents with explicit model overrides and evaluate each:
 - Is `haiku` appropriate? Only when the task is purely procedural: run a command, compare output against rules, report pass/fail. No code writing, no judgment calls.
 - Is `sonnet` appropriate? When the agent writes code, makes judgment calls, or synthesizes information.
 - Is `opus` or `fable` present? These should be rare. Flag for review — justify or remove.
-- Is the value stale? Known stale values: `claude-opus-4`, `claude-sonnet-4`, `claude-3-5-sonnet-20241022`, `claude-3-haiku-20240307`, or any pinned date-versioned ID. Replace with tier name (`haiku`, `sonnet`, `opus`, `fable`) or remove to inherit.
+- Is the value stale? Known stale values: `claude-opus-4`, `claude-opus-4-8`, `claude-sonnet-4`, `claude-sonnet-4-6`, `claude-3-5-sonnet-20241022`, `claude-3-haiku-20240307`, or any pinned date-versioned ID. Replace with tier name (`haiku`, `sonnet`, `opus`, `fable`) or remove to inherit.
 
 ## Step 3: Tool Syntax Audit
 
@@ -45,7 +45,7 @@ Flag stale SendMessage usage in agent bodies:
 - Old schema: `type=`, `recipient=`, `content=` parameters
 - Correct schema: `{to, summary, message}`
 
-Flag agents referencing non-existent tools or tools they demonstrably never call.
+Flag agents referencing non-existent tools or tools they demonstrably never call. For each unused-tool flag, say where you looked (body, transcripts, hooks); if call history could not be checked, mark it unconfirmed instead of removing the tool.
 
 ## Step 4: Defensive-Prose Audit
 
@@ -66,12 +66,21 @@ Keep:
 - Numbered process steps
 - Role-specific quality gates
 
-## Step 5: Apply and Verify
+## Step 5: Current-Model Prompt Audit
+
+Current Claude models think before every reply and follow named stops closely. Flag and fix:
+- **"Think hard / carefully / step by step", "ultrathink"** — delete. Depth is set by effort, not prose.
+- **Requests to reproduce internal reasoning in the output** — replace with a short rationale request ("why this approach, in three sentences"). These can be declined and are a safeguard flag category.
+- **Non-blocking stops** — "ask whether to continue", "report and wait", option menus that don't block the work. Keep a stop only for missing information with no default, destructive actions, or outward-facing actions; otherwise the agent takes the default, states it, and continues.
+- **Missing finish line** — the process never says what "done" looks like. Add one checkable condition.
+
+## Step 6: Apply and Verify
 
 For each agent:
 1. Fix YAML frontmatter (missing fields, stale model values)
 2. Fix SendMessage syntax if stale
-3. Trim body if over 100 lines (preserve meaning, cut bloat)
+3. Apply Step 5 fixes
+4. Trim body if over 100 lines (preserve meaning, cut bloat)
 
 Verify:
 ```bash

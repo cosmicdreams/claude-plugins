@@ -64,6 +64,7 @@ while (dryRounds < cleanRoundsNeeded && budget.remaining() > BUDGET_FLOOR) {
       'Assume the claim is wrong and build the case against it on EVIDENCE AND FACTS only - ' +
       'unsupported or emotional objections do not count. If you cannot refute it on facts, ' +
       'return refuted: false with severity: none. You see only this submission, nothing else.\n\n' +
+      'In grounds, quote the evidence you attack, say why it fails, and name the check that would show it. ' +
       'SUBMISSION:\n' + submission,
       { label: 'review:' + L.key, phase: 'Review', schema: VERDICT, model: L.model }
     )

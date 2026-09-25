@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.5.1
+- `prioritize` re-checks the top item's source before naming it NEXT.
+- `scout` requires a URL per item, confirms it before storing, and lists sources that failed.
+- `personal-calendar` defaults to the system timezone and shows it in the confirmation.
+
 ## 2.5.0
 
 - **scout**: optional Jev pass in step 3 (`scripts/jev_scout.py`) — one request per fetched

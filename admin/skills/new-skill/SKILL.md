@@ -23,6 +23,7 @@ The skill-creator eval infrastructure is available for testing: see `references/
 - `references/conventions.md` — naming rules, plugin structure, install commands; read when setting up the skill folder
 - `references/testing.md` — eval infrastructure and description optimization loop; read before testing
 - `references/deliverable-storage.md` — vault detection pattern and subfolder conventions; read when the skill produces a file output
+- `references/prompting.md` — what to remove from and add to skill prose for current Claude models; read before writing the skill body
 
 ---
 
@@ -30,7 +31,7 @@ The skill-creator eval infrastructure is available for testing: see `references/
 
 Before writing anything, get concrete about what this skill will do. Two or three real examples of how a user would invoke it are worth more than a paragraph of abstract description.
 
-Ask:
+Answer these from the request and conversation; ask only the ones you cannot answer:
 - What does the user say that should trigger this skill?
 - What does a good output look like?
 - What would Claude get wrong without guidance?
@@ -100,6 +101,8 @@ Keep it under 1024 characters. No XML angle brackets.
 - Lead with the most critical information.
 - Keep SKILL.md under ~120 lines; approaching that limit is a signal that detail belongs in `references/`.
 - Include a `## Resources in this skill` manifest for any bundled files — list each file and its "read when" condition.
+- State what "done" looks like, and stop only for missing information, destructive actions, or outward-facing actions. Everything else: take the default, say so, keep going. See `references/prompting.md`.
+- No "think hard" or "step by step" lines, and no requests to reproduce internal reasoning — current models already think before every reply.
 
 ---
 
@@ -134,4 +137,6 @@ EOF
 - [ ] Referenced files in `references/` actually exist
 - [ ] `## Resources in this skill` manifest present if any bundled files exist
 - [ ] `${CLAUDE_SKILL_DIR}` or `${CLAUDE_PLUGIN_ROOT}` used in scripts (not hardcoded paths)
+- [ ] Every stop is for missing information, a destructive action, or an outward-facing action
+- [ ] No "think hard" lines or requests to show internal reasoning
 - [ ] Eval record saved to the vault

@@ -98,7 +98,7 @@ After success: "Switched to branch '<branch-name>' for PR #<number>: <title>"
 gh pr merge <number>
 ```
 
-Ask the user for merge strategy if not specified: merge commit, squash, or rebase. Use `--merge`, `--squash`, or `--rebase` accordingly.
+If the strategy is not specified and the repository allows only one (`gh repo view --json mergeCommitAllowed,squashMergeAllowed,rebaseMergeAllowed`), use it and name it. Ask only when more than one is allowed — the merge is outward-facing and its history is permanent. Use `--merge`, `--squash`, or `--rebase` accordingly.
 
 After success: "PR #<number> merged into <base-branch>."
 If checks are failing or reviews are missing, warn before proceeding.
@@ -120,4 +120,4 @@ Tip: `gh issue list --assignee @me` filters to your assigned issues. Use `--repo
 
 ## Error handling
 
-- Non-zero exits not covered above: show stderr verbatim and ask the user how to proceed.
+- Non-zero exits not covered above: show stderr verbatim; if the cause is clear (wrong flag, missing `--repo`), fix and retry, and ask only when it is not.

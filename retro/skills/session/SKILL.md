@@ -146,6 +146,7 @@ Sections:
 5. **Start/Stop Recommendations** — from `one_change` fields, cross-role convergence first
 6. **Action Items** — Immediate / Next sprint / Future
 7. **Memory Updates** — baselines, code learnings, trends
+8. **Gaps** — agents missing `retro_interview` fields, transcripts that could not be read, metrics not computed; name the path checked for each
 
 Cite agent fields verbatim where possible.
 
@@ -213,7 +214,7 @@ if [ -n "$OFFICE_PROJECT_NAME" ]; then
 else
   PROJECT_SLUG=$(bd list -l board-sprint --json 2>/dev/null | jq -r '.[0].metadata.project // empty' | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd '[:alnum:]-')
 fi
-# If still unset: ask via AskUserQuestion — "What project is this retrospective for?"
+# If still unset: use the git repository name (basename of `git rev-parse --show-toplevel`) and say so in the report
 
 SPRINT_SLUG="<sprint-slug>"
 DATE=$(date +%Y-%m-%d)
