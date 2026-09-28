@@ -1,34 +1,22 @@
 # Build records
 
-One file per component, written by `design-lab:figma-component`, at
-`builds/<component-id>.json`. It is the reason a 146-component library can be built across
-many sessions by many agents without anyone remembering anything.
+One file per component, written by `design-lab:figma-component`, at `builds/<component-id>.json`. It is the reason a 146-component library can be built across many sessions by many agents without anyone remembering anything.
 
-The `assertions` object is never empty. Every assertion explicitly passes; `not-run`,
-`skipped`, or a missing verdict keeps the receipt invalid and the component phase incomplete.
+The `assertions` object is never empty. Every assertion explicitly passes; `not-run`, `skipped`, or a missing verdict keeps the receipt invalid and the component phase incomplete.
 
 It does three jobs at once, and all three matter:
 
-1. **Idempotency key.** Re-running a component must update the existing one, not create a
-   second. Name lookup alone is not enough — a rename orphans the original silently — so the
-   record stores node identifiers.
-2. **Resume point.** Context runs out. A batch dies halfway. The set of records on disk is
-   the answer to "what is already done", and it survives everything.
-3. **Verification evidence.** The assertion results from `references/verification.md` live
-   here, so "built" is a claim with a receipt attached.
+1. **Idempotency key.** Re-running a component must update the existing one, not create a second. Name lookup alone is not enough — a rename orphans the original silently — so the record stores node identifiers.
+2. **Resume point.** Context runs out. A batch dies halfway. The set of records on disk is the answer to "what is already done", and it survives everything.
+3. **Verification evidence.** The assertion results from `references/verification.md` live here, so "built" is a claim with a receipt attached.
 
-`figma.documentationCardId` is what the Getting Started index hyperlinks each row to, so a
-record without it produces a row that cannot be jumped to. `scripts/index_rows.py` reads
-these records and nothing else to decide what exists.
+`figma.documentationCardId` is what the Getting Started index hyperlinks each row to, so a record without it produces a row that cannot be jumped to. `scripts/index_rows.py` reads these records and nothing else to decide what exists.
 
 The receipt also separates three things that were previously easy to conflate:
 
-- `documentation` proves every source field and relationship is explained and that the card
-  contains desktop, tablet, and mobile evidence.
-- `nativeComponent` proves the reusable asset is a component/component set, not a screenshot,
-  and records the real instances used for rendered relationships.
-- `visualEvidence` proves the native reconstruction was compared with the live component at
-  all three required widths.
+- `documentation` proves every source field and relationship is explained and that the card contains desktop, tablet, and mobile evidence.
+- `nativeComponent` proves the reusable asset is a component/component set, not a screenshot, and records the real instances used for rendered relationships.
+- `visualEvidence` proves the native reconstruction was compared with the live component at all three required widths.
 
 ## Shape
 
@@ -122,22 +110,12 @@ The receipt also separates three things that were previously easy to conflate:
 
 ## `sourceHash` is what makes drift detectable
 
-Hash the source configuration entity at build time. On a later run, a changed hash means the
-component moved underneath the Figma representation — which is precisely the question the
-planned `design-lab:drift` skill exists to answer, and it cannot be answered without a
-recorded baseline. Record it even before that skill exists.
+Hash the source configuration entity at build time. On a later run, a changed hash means the component moved underneath the Figma representation — which is precisely the question the planned `design-lab:drift` skill exists to answer, and it cannot be answered without a recorded baseline. Record it even before that skill exists.
 
 ## Failure is a record too
 
-A component that fails an assertion still gets a file, with the failing verdict. Deleting the
-record on failure loses the one piece of information worth keeping: that this component was
-attempted, and why it did not work. `verdict: "refuse"` from the planner gets a record as well
-— the twelve components on Site Studio site A above `maxVariants` should be visible as
-deliberate refusals rather than as absences.
+A component that fails an assertion still gets a file, with the failing verdict. Deleting the record on failure loses the one piece of information worth keeping: that this component was attempted, and why it did not work. `verdict: "refuse"` from the planner gets a record as well — the twelve components on Site Studio site A above `maxVariants` should be visible as deliberate refusals rather than as absences.
 
 ## Never guess a node identifier
 
-Read identifiers from the record or from a returned value. Reconstructing one from memory
-produces a plausible string that points at an unrelated node, and the resulting corruption is
-hard to trace. If the record is missing, re-scan the file by name and rebuild the record
-before mutating anything.
+Read identifiers from the record or from a returned value. Reconstructing one from memory produces a plausible string that points at an unrelated node, and the resulting corruption is hard to trace. If the record is missing, re-scan the file by name and rebuild the record before mutating anything.

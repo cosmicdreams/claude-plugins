@@ -1,15 +1,10 @@
 # The universal component model
 
-Every extractor writes this shape. Every renderer reads it. Nothing else crosses the
-boundary. If a source concept does not fit here, extend this document first — do not
-let a renderer reach back into source-specific data.
+Every extractor writes this shape. Every renderer reads it. Nothing else crosses the boundary. If a source concept does not fit here, extend this document first — do not let a renderer reach back into source-specific data.
 
 ## Why an intermediate at all
 
-Writing source straight into Figma produces a one-shot script: it cannot be re-run,
-cannot be diffed against the source later, and cannot feed anything but Figma. The model
-is what makes drift detection, documentation and Code Connect possible from the same
-extraction.
+Writing source straight into Figma produces a one-shot script: it cannot be re-run, cannot be diffed against the source later, and cannot feed anything but Figma. The model is what makes drift detection, documentation and Code Connect possible from the same extraction.
 
 ## Three independent plug points
 
@@ -21,9 +16,7 @@ These vary separately. Do not assume one implies another.
 | token source | what the colours, spacing and type ramps are | Site Studio custom styles, CSS custom properties, Tailwind config, design token JSON |
 | usage source | how often each component is actually placed | database placement query, template grep, analytics |
 
-A Single Directory Component site has no tokens in configuration — they live in stylesheets.
-A Site Studio site keeps both in configuration. Conflating the axes forces one site down
-another's path.
+A Single Directory Component site has no tokens in configuration — they live in stylesheets. A Site Studio site keeps both in configuration. Conflating the axes forces one site down another's path.
 
 ## components.json
 
@@ -74,17 +67,13 @@ another's path.
 
 ### Field kinds
 
-Normalise to this closed set. Source widget names (`cohSelect`, `cohWysiwyg`,
-`form-input-hidden`) do not leak past the extractor.
+Normalise to this closed set. Source widget names (`cohSelect`, `cohWysiwyg`, `form-input-hidden`) do not leak past the extractor.
 
 `enum` `text` `richtext` `boolean` `color` `media` `number` `reference` `hidden` `help`
 
 ### `appliesToken` is the important one
 
-When an enum option's value is a design token rather than a visual choice — every
-`coh-style-padding-*` value, for instance — record it here. The renderer uses this to
-decide **bound variable, not variant axis**, which is the single decision that keeps
-variant counts sane. See `references/variant-policy.md`.
+When an enum option's value is a design token rather than a visual choice — every `coh-style-padding-*` value, for instance — record it here. The renderer uses this to decide **bound variable, not variant axis**, which is the single decision that keeps variant counts sane. See `references/variant-policy.md`.
 
 ## tokens.json
 
@@ -105,15 +94,9 @@ variant counts sane. See `references/variant-policy.md`.
 
 ### `codeName` is how the library stays consistent with the code
 
-Every token records the identifier it has in the codebase, verbatim, alongside the name it will
-carry in Figma. It becomes the Figma variable's code syntax, which is what a developer sees in
-Dev Mode. `codeName` is **not always a Cascading Style Sheets custom property** - on a Site
-Studio site it is a generated class, on a Paragraphs site it is a Sass variable - and it is
-`null` when the codebase genuinely has no identifier for that value. Never invent a plausible
-one. Full rules in `references/tokens-and-variables.md`.
+Every token records the identifier it has in the codebase, verbatim, alongside the name it will carry in Figma. It becomes the Figma variable's code syntax, which is what a developer sees in Dev Mode. `codeName` is **not always a Cascading Style Sheets custom property** - on a Site Studio site it is a generated class, on a Paragraphs site it is a Sass variable - and it is `null` when the codebase genuinely has no identifier for that value. Never invent a plausible one. Full rules in `references/tokens-and-variables.md`.
 
-`scalesByBreakpoint: false` is meaningful. If type does not scale, the type collection
-gets ONE mode. Giving it breakpoint modes implies a responsive ramp that does not exist.
+`scalesByBreakpoint: false` is meaningful. If type does not scale, the type collection gets ONE mode. Giving it breakpoint modes implies a responsive ramp that does not exist.
 
 ## Provenance
 
@@ -126,30 +109,18 @@ Every numeric value carries where it came from. Never silently mix.
 { "value": 24, "provenance": { "kind": "derived", "from": "pad/small" } }
 ```
 
-Configuration beats measurement for tokens. A single rendered instance conflates sources: on
-one Site Studio site, a text component rendered 40px horizontal padding that looked like its
-padding field but was actually its colour scheme applying `padding-equal: $spacing-small`.
-Configuration separates what measurement blends together.
+Configuration beats measurement for tokens. A single rendered instance conflates sources: on one Site Studio site, a text component rendered 40px horizontal padding that looked like its padding field but was actually its colour scheme applying `padding-equal: $spacing-small`. Configuration separates what measurement blends together.
 
 ## Verified example addresses
 
-`usage.examples` records where a component was **observed rendering**, never where a document
-claims it renders. The distinction is not pedantic: the specification file shipped with one
-Site Studio library listed live example paths of which two were behind login and at least one
-named a page the component was not on.
+`usage.examples` records where a component was **observed rendering**, never where a document claims it renders. The distinction is not pedantic: the specification file shipped with one Site Studio library listed live example paths of which two were behind login and at least one named a page the component was not on.
 
 Three conditions, all required:
 
-- fetched **anonymously**, with the status code recorded, because a page a designer cannot
-  open is not an example
+- fetched **anonymously**, with the status code recorded, because a page a designer cannot open is not an example
 - carries the markup marker, so the instance is findable on a long page
 - carries `verifiedAt`, because a content edit can remove the last instance at any time
 
-`scripts/find_examples.py` produces these by crawling the public site. A component with no
-anonymous example gets an empty list and a stated reason - that is a real finding about the
-site, and it is also the reason four of the fourteen components built on that site could only
-be derived from tokens rather than measured.
+`scripts/find_examples.py` produces these by crawling the public site. A component with no anonymous example gets an empty list and a stated reason - that is a real finding about the site, and it is also the reason four of the fourteen components built on that site could only be derived from tokens rather than measured.
 
-**Placement counts are a lower bound.** They cover only the pages scanned. Never present
-one as a site total unless the whole sitemap was walked, and record `pagesScanned` alongside
-so the number can be interpreted.
+**Placement counts are a lower bound.** They cover only the pages scanned. Never present one as a site total unless the whole sitemap was walked, and record `pagesScanned` alongside so the number can be interpreted.

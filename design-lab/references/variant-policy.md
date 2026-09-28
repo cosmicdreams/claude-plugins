@@ -1,8 +1,6 @@
 # Variant policy
 
-The single decision that determines whether a component library is usable or unusable.
-Get it wrong and one component needs 880 variants. These are **defaults, not laws** -
-every project can override them, and the planner always shows its working.
+The single decision that determines whether a component library is usable or unusable. Get it wrong and one component needs 880 variants. These are **defaults, not laws** - every project can override them, and the planner always shows its working.
 
 ## Treatments
 
@@ -32,52 +30,32 @@ every project can override them, and the planner always shows its working.
 
 ## The judgement call this cannot make for you
 
-A spacing enum can vary by **magnitude** (small / medium / large) or by **which sides**
-are padded (top / bottom / left-right / equal), and Site Studio enums routinely vary by
-both. Magnitude is cleanly a bound variable. Which-sides is structural, and a single bound
-variable cannot express "no horizontal padding".
+A spacing enum can vary by **magnitude** (small / medium / large) or by **which sides** are padded (top / bottom / left-right / equal), and Site Studio enums routinely vary by both. Magnitude is cleanly a bound variable. Which-sides is structural, and a single bound variable cannot express "no horizontal padding".
 
 Worked example of the inconsistency this produces, from the Site Studio site A build:
 
-- `cpt_text.padding-around-text` - 3 options - was built as a **variant axis**, giving
-  Theme x Padding = 12 variants. Defensible: only three options, and the designer wants
-  to see them side by side.
-- `cpt_cta_banner.inside-banner-padding` - 11 options - was built as a **bound variable**.
-  Also defensible: as a variant axis it would have produced 880 combinations.
+- `cpt_text.padding-around-text` - 3 options - was built as a **variant axis**, giving Theme x Padding = 12 variants. Defensible: only three options, and the designer wants to see them side by side.
+- `cpt_cta_banner.inside-banner-padding` - 11 options - was built as a **bound variable**. Also defensible: as a variant axis it would have produced 880 combinations.
 
-Same field family, opposite treatment, both reasonable. There is no clean automatic rule.
-So the planner defaults spacing to `variable`, and **flags any spacing enum whose options
-vary by side** so a human decides with the variant arithmetic in front of them.
+Same field family, opposite treatment, both reasonable. There is no clean automatic rule. So the planner defaults spacing to `variable`, and **flags any spacing enum whose options vary by side** so a human decides with the variant arithmetic in front of them.
 
 ## What Figma cannot express
 
 Record these as `unsupported` with a reason rather than silently dropping them.
 
-- **Auto-layout direction cannot bind to a component property.** Blocks any per-breakpoint
-  row/column switch (`cpt_link` tablet-layout and phone-layout) and any reverse-direction
-  toggle (`cpt_split_container` column-direction). Representing them doubles the set.
+- **Auto-layout direction cannot bind to a component property.** Blocks any per-breakpoint row/column switch (`cpt_link` tablet-layout and phone-layout) and any reverse-direction toggle (`cpt_split_container` column-direction). Representing them doubles the set.
 - **Variables cannot drive layout mode**, so responsive direction is variants or nothing.
-- Boolean properties bind only to layer visibility, so anything else two-state needs a
-  dedicated layer to toggle.
+- Boolean properties bind only to layer visibility, so anything else two-state needs a dedicated layer to toggle.
 
 ## Hard stop
 
-If the product of proposed variant axes exceeds `maxVariants` (default 64), refuse and
-report. `cpt_4_column_layout` carries 59 select fields - roughly 10^49 naive combinations.
-Components like that are layout engines, not components, and want auto-layout plus
-variable modes instead of a variant set.
+If the product of proposed variant axes exceeds `maxVariants` (default 64), refuse and report. `cpt_4_column_layout` carries 59 select fields - roughly 10^49 naive combinations. Components like that are layout engines, not components, and want auto-layout plus variable modes instead of a variant set.
 
 ## What is a separate component, and what is one control
 
-Two rules adopted from an in-house design-system plugin that applies them to component
-inventories:
+Two rules adopted from an in-house design-system plugin that applies them to component inventories:
 
-- **Different styling is not a different component.** A separate component needs a different
-  behaviour, purpose, content source or content model. Two renderings over the same fields are
-  one component with a variant, or, when the difference is only width, one responsive
-  component (§4.1 of the standard).
-- **Two controls never govern the same visual decision.** If a variant axis and a variable (or
-  a boolean property) can both change the same thing, one of them is removed; a designer must
-  never find two switches that disagree.
+- **Different styling is not a different component.** A separate component needs a different behaviour, purpose, content source or content model. Two renderings over the same fields are one component with a variant, or, when the difference is only width, one responsive component (§4.1 of the standard).
+- **Two controls never govern the same visual decision.** If a variant axis and a variable (or a boolean property) can both change the same thing, one of them is removed; a designer must never find two switches that disagree.
 
 Screen width is never a variant axis. It is the Breakpoint variable collection.

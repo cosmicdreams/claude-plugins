@@ -2,47 +2,25 @@
 
 ## Preferred: the runner plugin (no model in the loop)
 
-`design-lab/runner/` is a Figma development plugin that fetches each step from this machine,
-runs it in the open file, and posts the result back. No model retypes a payload, so a build
-costs no tokens and cannot be corrupted in transit.
+`design-lab/runner/` is a Figma development plugin that fetches each step from this machine, runs it in the open file, and posts the result back. No model retypes a payload, so a build costs no tokens and cannot be corrupted in transit.
 
-1. Once per machine: Figma desktop → Plugins → Development → Import plugin from manifest →
-   `design-lab/runner/manifest.json` (see Installing the runner below).
-2. `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_runner.py serve --project <W> [--project <W2> ...]`
-   (one server serves every workspace; each is matched by the file key in its state, and two
-   workspaces naming the same file are refused). It prints a `runner token:` line; the token is
-   new every time the server starts.
-3. Open the build's file in Figma desktop → Plugins → Development → design-lab runner. The
-   first time, and after every server restart, the plugin asks for the token; paste the one
-   the server printed. The server answers only requests carrying it, and only from a plugin's
-   origin, so a web page that learns the file key can neither read steps nor record results.
-4. The plugin runs to the end or stops at the first failed step, which is logged to
-   `W/figma/runner.log` and not recorded. An upload step fails if any one of its images does
-   not reach Figma. Fix the cause and run the plugin again; it resumes from that step.
+1. Once per machine: Figma desktop → Plugins → Development → Import plugin from manifest → `design-lab/runner/manifest.json` (see Installing the runner below).
+2. `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_runner.py serve --project <W> [--project <W2> ...]` (one server serves every workspace; each is matched by the file key in its state, and two workspaces naming the same file are refused). It prints a `runner token:` line; the token is new every time the server starts.
+3. Open the build's file in Figma desktop → Plugins → Development → design-lab runner. The first time, and after every server restart, the plugin asks for the token; paste the one the server printed. The server answers only requests carrying it, and only from a plugin's origin, so a web page that learns the file key can neither read steps nor record results.
+4. The plugin runs to the end or stops at the first failed step, which is logged to `W/figma/runner.log` and not recorded. An upload step fails if any one of its images does not reach Figma. Fix the cause and run the plugin again; it resumes from that step.
 
 ## Installing the runner
 
-When asked how to install the runner, answer with these steps and nothing else, filling in
-real paths rather than placeholders:
+When asked how to install the runner, answer with these steps and nothing else, filling in real paths rather than placeholders:
 
-1. Resolve the manifest's absolute path: `${CLAUDE_PLUGIN_ROOT}/runner/manifest.json` for an
-   installed plugin, `design-lab/runner/manifest.json` in a repository checkout. Confirm the
-   file exists before giving it.
-2. Figma **desktop** (the browser app cannot load development plugins) → any design file →
-   Plugins → Development → Import plugin from manifest → choose that file. It then appears as
-   "design-lab runner" under Plugins → Development.
-3. The import points at that exact path. An installed plugin's path contains its version, so
-   after a design-lab upgrade, remove the old entry and import again.
-4. Check it: start `figma_runner.py serve --project <W>`, then run the plugin in the build's
-   file and paste the `runner token:` value the server printed when the plugin asks. A
-   `serving <step>` line in the server's output (also appended to `W/figma/runner.log`) means
-   it connected. The plugin can reach only `http://localhost:8765`, which is the only port the
-   server listens on.
+1. Resolve the manifest's absolute path: `${CLAUDE_PLUGIN_ROOT}/runner/manifest.json` for an installed plugin, `design-lab/runner/manifest.json` in a repository checkout. Confirm the file exists before giving it.
+2. Figma **desktop** (the browser app cannot load development plugins) → any design file → Plugins → Development → Import plugin from manifest → choose that file. It then appears as "design-lab runner" under Plugins → Development.
+3. The import points at that exact path. An installed plugin's path contains its version, so after a design-lab upgrade, remove the old entry and import again.
+4. Check it: start `figma_runner.py serve --project <W>`, then run the plugin in the build's file and paste the `runner token:` value the server printed when the plugin asks. A `serving <step>` line in the server's output (also appended to `W/figma/runner.log`) means it connected. The plugin can reach only `http://localhost:8765`, which is the only port the server listens on.
 
 ## Fallback: a model relays
 
-When the runner cannot be used, `scripts/figma_build.py` decides everything and the agent
-relays. The loop, until `next` says done:
+When the runner cannot be used, `scripts/figma_build.py` decides everything and the agent relays. The loop, until `next` says done:
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.py next --project <W>
@@ -58,13 +36,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.py next --project <W>
 
 Rules:
 
-- **Never edit a payload.** Each is ordinary JavaScript generated by the plugin: the step's
-  arguments, a checksum over them, then the template code. `altered in transit` means a
-  character changed on the way — read the file again and resend. `next` refuses to run if the
-  templates changed since `init`; stop and report.
-- **Never record a failed step.** `record` refuses a result without the identifiers the next
-  steps need. Report the error verbatim and stop; the build resumes from the same step next
-  time.
-- **Make no design decisions.** If something looks wrong, report it. The fix belongs in the
-  templates or the layout rules, where it fixes every future run, not in this file by hand.
+- **Never edit a payload.** Each is ordinary JavaScript generated by the plugin: the step's arguments, a checksum over them, then the template code. `altered in transit` means a character changed on the way — read the file again and resend. `next` refuses to run if the templates changed since `init`; stop and report.
+- **Never record a failed step.** `record` refuses a result without the identifiers the next steps need. Report the error verbatim and stop; the build resumes from the same step next time.
+- **Make no design decisions.** If something looks wrong, report it. The fix belongs in the templates or the layout rules, where it fixes every future run, not in this file by hand.
 - Load the official Figma-use skill before the first `use_figma` call.
