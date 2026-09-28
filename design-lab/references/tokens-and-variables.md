@@ -63,14 +63,14 @@ actually live:
 | `tailwind` | the scale key path | `theme.colors.brand.blue` |
 | none recoverable | `null`, plus a note | — |
 
-**Do not synthesise a plausible custom property for a site that has none.** AHRI and
-Schusterman are Site Studio sites: their tokens are `cohesion_custom_style` configuration
-entities and generated classes, not authored custom properties. PNCB's real tokens come out
-of a Sass source map, while the stylesheet the theme actually loads declares only twelve
-custom properties. Inventing `--brand-blue` for any of these three puts a name in Dev Mode
-that appears nowhere in the codebase, and a developer who searches for it finds nothing.
-`null` with a recorded reason is the honest answer and it is also the more useful one,
-because it names a real gap in the codebase's token layer.
+**Do not synthesise a plausible custom property for a site that has none.** On Site Studio
+sites A and B the tokens are `cohesion_custom_style` configuration entities and generated
+classes, not authored custom properties. The Paragraphs site's real tokens come out of a Sass
+source map, while the stylesheet the theme actually loads declares only twelve custom
+properties. Inventing `--brand-blue` for any of these three puts a name in Dev Mode that
+appears nowhere in the codebase, and a developer who searches for it finds nothing. `null` with
+a recorded reason is the honest answer and it is also the more useful one, because it names a
+real gap in the codebase's token layer.
 
 ## Collections, modes and scopes
 
@@ -81,11 +81,11 @@ Structure follows what the extraction found, not a template.
   the primitive layer.
 - **Spacing** — one mode per breakpoint where spacing genuinely scales.
 - **Type** — mode count follows the extraction, and **scaling is a per-role fact**. Do not
-  generalise from one role. The AHRI pilot measured body text (20/32 at 1440, 905 and 400
-  alike), concluded "type does not scale", and built a single-mode type collection. The
-  configuration says otherwise: 13 of 43 AHRI font-size tokens scale, including Heading 2
-  at 48/48/42/36 and every button size. That collection is under-specified, and its
-  headings are wrong at tablet and mobile. Schusterman is the same shape - 8 of 65.
+  generalise from one role. The Site Studio site A pilot measured body text (20/32 at 1440, 905
+  and 400 alike), concluded "type does not scale", and built a single-mode type collection. The
+  configuration says otherwise: 13 of 43 of its font-size tokens scale, including Heading 2 at
+  48/48/42/36 and every button size. That collection is under-specified, and its headings are
+  wrong at tablet and mobile. Site Studio site B is the same shape - 8 of 65.
 
   So: give the type collection breakpoint modes whenever **any** role scales, and let the
   non-scaling roles carry identical values across the modes. One mode is correct only when

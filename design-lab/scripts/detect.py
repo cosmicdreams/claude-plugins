@@ -37,7 +37,7 @@ def config_dirs(root):
     """Every candidate Drupal configuration directory, with how much config each holds.
 
     Existence is not evidence. Some builds ship a scaffolded but empty config/sync
-    beside the directory that actually carries configuration - PNCB has an empty
+    beside the directory that actually carries configuration - one site has an empty
     config/sync and keeps 1,087 config entities in config/default. Returning the first
     directory that merely exists misfiles the whole site: every paragraphs_type lookup
     comes back empty and the detector falls through to whatever else it can find.
@@ -281,7 +281,8 @@ def detect(root):
                 'evidence': 'published Canvas page placements and content templates'})
 
     # Authoring vocabularies outrank rendering primitives. Raw count is not a semantic
-    # signal: ACU has 109 SDCs but its editors place 36 block types and 33 paragraph types.
+    # signal: one site has 109 SDCs but its editors place 36 block types and 33 paragraph
+    # types.
     COMPONENT_RANK = {'canvas': 0, 'drupal-authoring': 1, 'sitestudio': 2,
                       'paragraphs': 3, 'sdc': 4}
     comp = min(out['componentSources'],

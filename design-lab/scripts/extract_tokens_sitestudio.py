@@ -9,7 +9,7 @@ Reads FOUR config entity families, and the order matters more than anything else
   cohesion_custom_styles.cohesion_custom_style.*      component-scoped styles
 
 An earlier version of this extractor read ONLY custom styles, and the result was unusable:
-Schusterman's 172 custom style entities collapsed to 11 distinct hexes with component-scoped
+one site's 172 custom style entities collapsed to 11 distinct hexes with component-scoped
 names like "Card fake link with icon", because a custom style says how one component looks,
 not what the palette is. The palette is 43 named colours in cohesion_color - "Brand color",
 "Bright Teal" - each carrying its own Sass variable and an inuse flag. Same mistake made the

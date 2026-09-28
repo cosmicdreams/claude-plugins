@@ -377,7 +377,7 @@ def _from_sourcemap(tokens):
 
     The `layer` field the extractor already assigns is what separates the global palette
     from component-local values. Only the base layer becomes primitives: promoting
-    component-scoped values is precisely the Schusterman error the plugin documents, where
+    component-scoped values is precisely the Site Studio error the plugin documents, where
     172 component styles were mistaken for a palette.
     """
     rows = tokens.get('tokens') or []

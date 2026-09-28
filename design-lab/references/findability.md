@@ -80,9 +80,9 @@ Components — Structural Only          0 placements, but referenced by other co
 Components — Retirement Candidates    0 placements and 0 structural references
 ```
 
-Those last two are what a library review turns on. On Schusterman they are 31 and 24 of 101
-components — more than half the library is either an inner part of a composite or a deletion
-candidate, and a category-based organisation hides that completely.
+Those last two are what a library review turns on. On Site Studio site B they are 31 and 24 of
+101 components — more than half the library is either an inner part of a composite or a
+deletion candidate, and a category-based organisation hides that completely.
 
 Thresholds are **absolute, not relative**. Bucketing by thirds of the ranked distribution
 still labels something "high" on a barely-used site, and cannot express either zero-placement
@@ -101,11 +101,11 @@ Do not route around missing usage data quietly. `scripts/index_rows.py` reports 
 
 ## Why a library feels unmanageable
 
-Diagnosed against the AHRI library: unique identifiers on a document tree and nothing else. No
-tier grouping, so browsing means scrolling. Machine names as component names, so the words a
-designer types match nothing. Descriptions present but no documentation links, so nothing in
-the Assets panel leads anywhere. The placement counts, live addresses and source references
-genuinely collected during the build are stranded in a report nobody opens in Figma.
+Diagnosed against the Site Studio site A library: unique identifiers on a document tree and
+nothing else. No tier grouping, so browsing means scrolling. Machine names as component names,
+so the words a designer types match nothing. Descriptions present but no documentation links,
+so nothing in the Assets panel leads anywhere. The placement counts, live addresses and source
+references genuinely collected during the build are stranded in a report nobody opens in Figma.
 
 The fix is not more metadata, and it is not another index page. It is putting the metadata on
 the two surfaces Figma already searches.

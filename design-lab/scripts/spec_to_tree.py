@@ -61,7 +61,7 @@ def parse_color(value: str | None) -> dict | None:
 
 
 def css_var(declared: str | None) -> str | None:
-    """The custom property a declaration binds, e.g. 'var(--kt-red)' -> '--kt-red'."""
+    """The custom property a declaration binds, e.g. 'var(--brand-red)' -> '--brand-red'."""
     if not declared:
         return None
     m = re.search(r"var\(\s*(--[\w-]+)", declared)

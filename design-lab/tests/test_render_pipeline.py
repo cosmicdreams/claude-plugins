@@ -60,11 +60,11 @@ class SpecToTreeTests(unittest.TestCase):
                          {"hex": "#ff0010", "opacity": 0.25})
         self.assertIsNone(spec_to_tree.parse_color("rgba(0, 0, 0, 0)"))
         self.assertIsNone(spec_to_tree.parse_color("transparent"))
-        self.assertEqual(spec_to_tree.css_var("color: var( --kt-red, red)"), "--kt-red")
+        self.assertEqual(spec_to_tree.css_var("color: var( --brand-red, red)"), "--brand-red")
         self.assertIsNone(spec_to_tree.css_var("#ff0000"))
         styled = node("/div[0]", 0, 0, backgroundColor="rgb(12, 34, 56)")
-        styled["declared"]["background-color"] = "var(--kt-surface)"
-        self.assertEqual(spec_to_tree.style_of(styled)["fill"]["var"], "--kt-surface")
+        styled["declared"]["background-color"] = "var(--brand-surface)"
+        self.assertEqual(spec_to_tree.style_of(styled)["fill"]["var"], "--brand-surface")
 
     def test_flex_gap_and_center_alignment(self):
         root = node("/div[0]", 0, 0, 100, 30, display="flex", justifyContent="center")
@@ -101,10 +101,10 @@ class SpecToTreeTests(unittest.TestCase):
         self.assertTrue(layout["fellBack"])
 
     def test_bem_name_and_wrapper_collapse(self):
-        root = node("/div[0]", 0, 0, 100, 20, classes=("kt-stat",))
+        root = node("/div[0]", 0, 0, 100, 20, classes=("c-stat",))
         wrapper = node("/div[0]/div[0]", 0, 0, 100, 20)
         value = node("/div[0]/div[0]/span[0]", 0, 0, 100, 20,
-                     tag="span", classes=("kt-stat__value",))
+                     tag="span", classes=("c-stat__value",))
         value["inlineText"] = "42"
         built = tree_of([root, wrapper, value])
         self.assertEqual([c["name"] for c in built["children"]], ["Value"])

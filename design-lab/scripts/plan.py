@@ -47,9 +47,9 @@ def treat(field):
             return 'variant', n, None
         # More than 6 options and no token family. variant-policy.md calls for a review,
         # not an axis - so do NOT multiply it into the set. Returning 'variant' here made
-        # a single wide enum refuse the whole component: PNCB's icon_callout carries two
-        # 10-option icon pickers, and 11 x 11 = 121 tripped the hard stop even though an
-        # icon picker is an instance swap, never a variant axis.
+        # a single wide enum refuse the whole component: one Paragraphs site's
+        # icon_callout carries two 10-option icon pickers, and 11 x 11 = 121 tripped the
+        # hard stop even though an icon picker is an instance swap, never a variant axis.
         return 'manual', 1, ('%d options and no token family - not built as a variant axis. '
                              'Icon or media pickers want an instance swap; a long value '
                              'list is usually tokens in disguise. Decide by hand.' % n)

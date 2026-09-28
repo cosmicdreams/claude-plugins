@@ -159,14 +159,9 @@ Variant axes follow `variant-policy.md`. A component whose axes would explode is
 
 ## 5. The component block
 
-One block per built component, on its tier page. The block is the component's documentation
-and its specimen in one frame, so the two cannot drift apart. It follows the pattern the best
-single-site libraries share (Ontario, the United States Web Design System, GOV.UK, figma.com):
-the real component at real breakpoints, side by side, with a short fixed documentation panel
-beside it. Heavier documentation belongs in `components.json`, where a machine can read it.
+One block per built component, on its tier page. The block is the component's documentation and its specimen in one frame, so the two cannot drift apart. It follows the pattern the best single-site libraries share (Ontario, the United States Web Design System, GOV.UK, figma.com): the real component at real breakpoints, side by side, with a short fixed documentation panel beside it. Heavier documentation belongs in `components.json`, where a machine can read it.
 
-The block is drawn by `scripts/render/component_block.js` from arguments `figma_build.py`
-computes. Nothing in it is laid out by hand, so it is identical on every run.
+The block is drawn by `scripts/render/component_block.js` from arguments `figma_build.py` computes. Nothing in it is laid out by hand, so it is identical on every run.
 
 Left, the **documentation panel** (560 wide, white, 40 of padding), sections in this order:
 
@@ -179,40 +174,23 @@ Left, the **documentation panel** (560 wide, white, 40 of padding), sections in 
 | `Relationships` | components it contains, components it is placed inside, theme templates that render it |
 | `Notes` | only recorded source defects, at most four |
 
-Right, the **specimen**: breakpoint column labels (`Mobile · 345px`, narrowest first), then
-the ONE component shown at every width — instances resized to mobile and tablet with their
-Breakpoint mode set, and the master itself at desktop — then `Live reference`: the captured
-screenshots in the same columns at the same scale, so a reader compares by looking down. The
-automatic comparison (`figma_compare.py`) measures each pair from one screenshot of the
-specimen and records the result in the build record.
+Right, the **specimen**: breakpoint column labels (`Mobile · 345px`, narrowest first), then the ONE component shown at every width — instances resized to mobile and tablet with their Breakpoint mode set, and the master itself at desktop — then `Live reference`: the captured screenshots in the same columns at the same scale, so a reader compares by looking down. The automatic comparison (`figma_compare.py`) measures each pair from one screenshot of the specimen and records the result in the build record.
 
 Rules:
 
-- **The component is the rendered interface.** Built by `scripts/responsive.py` from the three
-  measured widths: auto layout wherever auto layout reproduces the measured positions within
-  two pixels at every width; otherwise a wrapping row of slots whose widths and offsets are
-  Breakpoint variables; absolute positions only when neither can, and the choice recorded.
-- **The desktop, tablet and mobile trio is required** for every asset reported as built, as
-  the master plus two instances and as live reference. A width without a trustworthy capture makes the component
-  `Not built — incomplete visual evidence`.
-- **Fields are source-complete.** A component with no fields says so. An option axis the capture
-  cannot show (only the rendered option is drawn) is named in `Fields` and under Known gaps,
-  never silently dropped.
+- **The component is the rendered interface.** Built by `scripts/responsive.py` from the three measured widths: auto layout wherever auto layout reproduces the measured positions within two pixels at every width; otherwise a wrapping row of slots whose widths and offsets are Breakpoint variables; absolute positions only when neither can, and the choice recorded.
+- **The desktop, tablet and mobile trio is required** for every asset reported as built, as the master plus two instances and as live reference. A width without a trustworthy capture makes the component `Not built — incomplete visual evidence`.
+- **Fields are source-complete.** A component with no fields says so. An option axis the capture cannot show (only the rendered option is drawn) is named in `Fields` and under Known gaps, never silently dropped.
 - **No authoring diagrams.** Field names never appear inside the component master.
-- **Dates stay out of blocks.** A block built on Tuesday and one built on Wednesday from the same
-  source must be identical; dates live in the Getting Started changelog.
+- **Dates stay out of blocks.** A block built on Tuesday and one built on Wednesday from the same source must be identical; dates live in the Getting Started changelog.
 
 ### 5.1 Layer naming
 
-The block root is `Human Label · machine_name`; the panel is `Documentation · machine_name`.
-Layers inside the set are named from the source's own classes (`kt-stat__value` becomes
-`Value`) or, failing that, from the element (`Heading`, `Image`, `Link`). A layer named `Frame`
-is a blocker.
+The block root is `Human Label · machine_name`; the panel is `Documentation · machine_name`. Layers inside the set are named from the source's own classes (`c-stat__value` becomes `Value`) or, failing that, from the element (`Heading`, `Image`, `Link`). A layer named `Frame` is a blocker.
 
 ### 5.2 The documentation style
 
-Documentation is neutral and belongs to design-lab, not to the site. The site's own colours and
-fonts appear only inside components and foundation specimens, where they are the subject.
+Documentation is neutral and belongs to design-lab, not to the site. The site's own colours and fonts appear only inside components and foundation specimens, where they are the subject.
 
 | Role | Style |
 | --- | --- |
@@ -315,16 +293,13 @@ The index lives here, under the summary that gives it meaning, rather than alone
 
 ## 9. The Cover
 
-A poster, the file thumbnail, and the only page a stakeholder may ever see. One 1440 × 900 frame
-on a #18181b ground with 80 of margin, drawn by `scripts/render/cover.js`:
+A poster, the file thumbnail, and the only page a stakeholder may ever see. One 1440 × 900 frame on a #18181b ground with 80 of margin, drawn by `scripts/render/cover.js`:
 
 - **Eyebrow** — the document type (`DRUPAL CANVAS COMPONENT LIBRARY`), Roboto Mono 13, uppercase.
 - **Headline** — the organisation, from the site's own name, Inter Semi Bold 72.
 - **Lede** — one sentence on what the file covers.
-- **Stat tiles** — five, each a frame named `Stat / <what>` with a number, a label and one
-  line of qualifier, separated by a 1-pixel rule on top. Never a single text blob.
-- **Provenance** — source and commit, the site the captures came from, capture widths,
-  standard version, renderer runtime.
+- **Stat tiles** — five, each a frame named `Stat / <what>` with a number, a label and one line of qualifier, separated by a 1-pixel rule on top. Never a single text blob.
+- **Provenance** — source and commit, the site the captures came from, capture widths, standard version, renderer runtime.
 
 The eyebrow is the document type and the headline is the organisation — not the reverse.
 
@@ -332,16 +307,10 @@ The eyebrow is the document type and the headline is the organisation — not th
 
 ### 9.1 Brand Voice & Language
 
-Drawn by `scripts/render/voice.js` from `voice.json` (`scripts/extract_voice.py`), which reads
-the published pages. Sections in order: a lede stating the corpus (pages, sentences, calls to
-action, date); a positioning band quoting the homepage heading and opening paragraphs; five
-evidence tiles; OBSERVED and WATCH rows for Voice, Naming & terminology, Headlines, Calls to
-action, Readability and Search; vocabulary chips; a mechanics table; and published
-inconsistencies on their own panel, recorded as defects, never as guidance.
+Drawn by `scripts/render/voice.js` from `voice.json` (`scripts/extract_voice.py`), which reads the published pages. Sections in order: a lede stating the corpus (pages, sentences, calls to action, date); a positioning band quoting the homepage heading and opening paragraphs; five evidence tiles; OBSERVED and WATCH rows for Voice, Naming & terminology, Headlines, Calls to action, Readability and Search; vocabulary chips; a mechanics table; and published inconsistencies on their own panel, recorded as defects, never as guidance.
 
 - Every number carries its denominator. Every quote names its page.
-- An OBSERVED row states what the majority of the site does and never contradicts its own
-  numbers. WATCH rows are threshold-based and documented in `references/voice.md`.
+- An OBSERVED row states what the majority of the site does and never contradicts its own numbers. WATCH rows are threshold-based and documented in `references/voice.md`.
 - No language model writes anything on this page, so it is identical on every run.
 
 ## 10. The intermediate model
@@ -423,9 +392,9 @@ Version 1.0.0 was derived on 1 September 2026 by comparing four libraries. Each 
 
 | Library | What it contributed | What it got wrong |
 | --- | --- | --- |
-| **America's Credit Unions** | usage tiers as the page axis; the `Structural Only` distinction | a text-only atlas justified by a false claim about Figma's search; zero components built; zero screenshots; five empty tier pages |
-| **Schusterman** | breakpoint screenshots at three widths; a Known-gaps section that names specific components; the numbered regeneration sequence | zero components; card layers named `Frame`; documentation with nothing to attach to |
-| **AHRI** | the documentation card structure — Head, Usage, real Fields table, Relations, Breakpoint shots; the two-usage-axes argument | 16 components segregated onto their own page; no documentation links; duplicate `Typography` and `Type` collections; modes still named `Mode 1` |
-| **PNCB** | components living on their tier pages; the description payload; documentation links on every component; binding to a semantic layer; honest empty code names | human-label-only naming; an empty Medium Use page; tier thresholds overridden without the reason recorded |
+| **Drupal authoring site** | usage tiers as the page axis; the `Structural Only` distinction | a text-only atlas justified by a false claim about Figma's search; zero components built; zero screenshots; five empty tier pages |
+| **Site Studio site B** | breakpoint screenshots at three widths; a Known-gaps section that names specific components; the numbered regeneration sequence | zero components; card layers named `Frame`; documentation with nothing to attach to |
+| **Site Studio site A** | the documentation card structure — Head, Usage, real Fields table, Relations, Breakpoint shots; the two-usage-axes argument | 16 components segregated onto their own page; no documentation links; duplicate `Typography` and `Type` collections; modes still named `Mode 1` |
+| **Paragraphs site** | components living on their tier pages; the description payload; documentation links on every component; binding to a semantic layer; honest empty code names | human-label-only naming; an empty Medium Use page; tier thresholds overridden without the reason recorded |
 
-Two of the four — Schusterman and AHRI — were produced by a bespoke `scripts/component-library` pipeline rather than by design-lab, and are evidence of what the output should be rather than of what the plugin currently does.
+Two of the four — Site Studio sites A and B — were produced by a bespoke `scripts/component-library` pipeline rather than by design-lab, and are evidence of what the output should be rather than of what the plugin currently does.

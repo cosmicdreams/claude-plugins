@@ -94,10 +94,10 @@ class ArtifactContractTests(unittest.TestCase):
     def test_capture_evidence_rejects_local_documentation_link(self):
         document = {
             "standardVersion": "3.0.0", "toolVersion": "design-lab test",
-            "generatedAt": "now", "canonicalBaseUrl": "https://americascreditunions.org",
+            "generatedAt": "now", "canonicalBaseUrl": "https://www.example.org",
             "captures": {"block:hero": {
-                "path": "/about", "verificationUrl": "https://acu-main.ddev.site/about",
-                "linkUrl": "https://acu-main.ddev.site/about", "selector": ".hero",
+                "path": "/about", "verificationUrl": "https://example.ddev.site/about",
+                "linkUrl": "https://example.ddev.site/about", "selector": ".hero",
                 "states": ["default"], "images": [{"file": "hero.png"}],
             }}, "problems": [],
         }
@@ -259,8 +259,8 @@ required: true
 class Colors {
   public function getListOptions($definition) {
     return [
-      'purple' => $this->t('ACU Purple'),
-      'red' => $this->t('ACU Red'),
+      'purple' => $this->t('Brand Purple'),
+      'red' => $this->t('Brand Red'),
     ];
   }
 }

@@ -15,7 +15,7 @@ so `--color-text` and `--color-surface` arrive already carrying the semantic lay
 Two things it does that a naive parse does not:
 
 * **Only stylesheets the theme actually loads.** The obvious probe finds the wrong file.
-  PNCB's real token sheet declares 96 properties, while unloaded scaffolding under
+  One site's real token sheet declares 96 properties, while unloaded scaffolding under
   `components/incoming/` carries 127 Catppuccin and Tailwind names. Importing those gives a
   palette the site never renders, so `*.libraries.yml` is read first and anything it does
   not reference is excluded and reported.

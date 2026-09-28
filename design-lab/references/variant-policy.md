@@ -37,7 +37,7 @@ are padded (top / bottom / left-right / equal), and Site Studio enums routinely 
 both. Magnitude is cleanly a bound variable. Which-sides is structural, and a single bound
 variable cannot express "no horizontal padding".
 
-Worked example of the inconsistency this produces, from the AHRI build:
+Worked example of the inconsistency this produces, from the Site Studio site A build:
 
 - `cpt_text.padding-around-text` - 3 options - was built as a **variant axis**, giving
   Theme x Padding = 12 variants. Defensible: only three options, and the designer wants
@@ -69,8 +69,8 @@ variable modes instead of a variant set.
 
 ## What is a separate component, and what is one control
 
-Two rules adopted from Velir's Digital Solutions (`ds`) plugin, which applies them to
-Sitecore component inventories:
+Two rules adopted from an in-house design-system plugin that applies them to component
+inventories:
 
 - **Different styling is not a different component.** A separate component needs a different
   behaviour, purpose, content source or content model. Two renderings over the same fields are

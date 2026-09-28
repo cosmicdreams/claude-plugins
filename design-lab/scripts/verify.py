@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Check a built Figma library against the base expectations -> a pass/fail/waived report.
 
-This exists because a library can be half-built and still look finished. The PNCB file had
+This exists because a library can be half-built and still look finished. One site's file had
 four empty Foundations pages, 36 of 43 components missing, every component missing its
 documentation link, and sixteen semantic variables whose Dev Mode code syntax named CSS
 custom properties that exist nowhere in the codebase. Every individual skill reported
@@ -13,7 +13,7 @@ that" is a durable answer rather than something re-litigated every run.
 
     python3 verify.py --state state.json --components components.json \\
         [--tokens tokens.json] [--plan plan.json] [--index index.json] \\
-        [--builds <dir>] [--brand PNCB] [--waivers waivers.json] \\
+        [--builds <dir>] [--brand Acme] [--waivers waivers.json] \\
         [--theme-root <dir>] [--shots-dir <dir>] --out verify-report.json [--json]
 
 `state.json` is the dump produced by the read script in `skills/verify/SKILL.md`.
@@ -94,7 +94,7 @@ def check_code_syntax_set(state, tokens, rep):
     variable whose description *addresses the absence* is treated as resolved in place.
 
     The description has to actually say why. Any-description-counts was the first version
-    and it passed ten PNCB colours whose descriptions were unrelated notes left over from an
+    and it passed ten colours whose descriptions were unrelated notes left over from an
     earlier build - a false pass, which is the exact failure this check exists to prevent.
     """
     for c in state.get('collections') or []:
@@ -138,8 +138,8 @@ def check_code_syntax_resolves(state, theme, rep, built=True):
     """The check that matters most, and the one nothing was doing.
 
     A code syntax naming a custom property that does not exist is worse than none: a
-    developer copies it out of Dev Mode, searches the codebase, and finds nothing. On PNCB
-    this was true of all sixteen semantic variables.
+    developer copies it out of Dev Mode, searches the codebase, and finds nothing. On one
+    site this was true of all sixteen semantic variables.
     """
     if theme is None:
         rep.add('code-syntax-resolves', 'minor', 'file',
@@ -1219,7 +1219,7 @@ def main():
     ap.add_argument('--shots-dir')
     ap.add_argument('--index', help='output of index_rows.py')
     ap.add_argument('--builds', help='directory of build records')
-    ap.add_argument('--brand', help='collection name prefix, e.g. PNCB')
+    ap.add_argument('--brand', help='collection name prefix, e.g. Acme')
     ap.add_argument('--measurements', help='design-lab:capture measurement JSON, keyed by '
                                            'component; supplies the declared values')
     ap.add_argument('--render-evidence', help='bounded Drupal Twig/SDC/Sass evidence; proves '
@@ -1291,8 +1291,8 @@ def main():
 
     # A check with nothing to examine did not pass — it did not run. Reporting it as a pass
     # is the same error as reporting an unrun check as passing, and it is worse here: a file
-    # with zero components scored 17 of 26 passing on America's Credit Unions, because five
-    # component checks and three card checks had no subject to fail on.
+    # with zero components scored 17 of 26 passing on one site, because five component
+    # checks and three card checks had no subject to fail on.
     subjects = {'component': len(state.get('components') or []),
                 'card': len(state.get('cards') or []),
                 'shot': len(state.get('breakpointFrames') or []),

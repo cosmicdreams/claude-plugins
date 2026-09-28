@@ -60,7 +60,8 @@ Cheap, exact, no external dependency. Compare the built component against the en
 
 - one `COMPONENT` exists per source component, with no Breakpoint variant axis
 - a `COMPONENT_SET` is used only when the plan has a real, non-Breakpoint variant axis
-- the `Breakpoint` collection has Desktop 1400px (default), Tablet 800px, and Mobile 375px modes
+- the `Breakpoint` collection has Desktop 1400px (default), Tablet 800px, and Mobile 375px
+  modes
 - responsive values bind to variables in that collection
 - every entry in `plan.properties` exists with the right type — `TEXT`, `BOOLEAN`,
   `INSTANCE_SWAP`
@@ -91,9 +92,9 @@ silently upgrades the component. A theme that hardcodes `#342649` where it shoul
 and the file stops being a representation of the running site. See
 `references/library-standard.md` section 1.
 
-So a binding count on its own is not a measurement of quality. The AHRI build reported 810
-bindings across 14 components; what matters is how many of those 810 the code actually makes,
-and which properties diverge.
+So a binding count on its own is not a measurement of quality. The Site Studio site A build
+reported 810 bindings across 14 components; what matters is how many of those 810 the code
+actually makes, and which properties diverge.
 
 Exceptions still have to be declared in the plan rather than discovered at assertion time.
 Intentionally fixed geometry exists — icon pixel-grid sizes, hairline dividers — and it is
@@ -130,16 +131,16 @@ verification record and the idempotency key — see `references/build-records.md
 
 ## Component block assertions
 
-Each built component sits inside `Human Label · machine_name` on its usage tier page. The block is
-tagged `designlab/component`; its `Documentation · machine_name` panel contains `Head`,
-`Usage`, `Figma properties`, and `Fields`, with optional `Relationships` and `Notes`.
-The component is the desktop master. Its mobile and tablet instances carry explicit
-Breakpoint modes; the block has three matching image-filled `Capture · …` rectangles.
+Each built component sits inside `Human Label · machine_name` on its usage tier page. The block
+is tagged `designlab/component`; its `Documentation · machine_name` panel contains `Head`,
+`Usage`, `Figma properties`, and `Fields`, with optional `Relationships` and `Notes`. The
+component is the desktop master. Its mobile and tablet instances carry explicit Breakpoint
+modes; the block has three matching image-filled `Capture · …` rectangles.
 
 The receipt reads `build:<id>`, `block:<id>`, `images:<id>`, `evidence:<id>`, and
-`compare:<id>`. It records source fields, slots, node ids, variable counts, bindings,
-literals, layout fallbacks, upload HTTP statuses, and each comparison verdict. An absent comparison is explicitly
-`not-run`: the receipt can be registered, but `build-record-assertions` and
+`compare:<id>`. It records source fields, slots, node ids, variable counts, bindings, literals,
+layout fallbacks, upload HTTP statuses, and each comparison verdict. An absent comparison is
+explicitly `not-run`: the receipt can be registered, but `build-record-assertions` and
 `master-matches-capture` keep verification open until all three widths pass. Getting Started
-contains Coverage, How this file is organised, What each component block shows, Index,
-Known gaps, and Provenance and regeneration; Changelog is optional.
+contains Coverage, How this file is organised, What each component block shows, Index, Known
+gaps, and Provenance and regeneration; Changelog is optional.

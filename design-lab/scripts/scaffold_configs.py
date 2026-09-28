@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """components.json -> component capture configs, and an honest list of what needs a human.
 
-The configs are the hand-work in this pipeline, and on PNCB the four components with no
+The configs are the hand-work in this pipeline, and on one site the four components with no
 config were four components with no measurements and no screenshots — including `table_row`
 at 116 placements, the third most placed component on the site. Nothing reported that gap
 until `design-lab:verify` counted.
@@ -28,7 +28,7 @@ def template_selector(theme_root, machine):
     `.paragraph--type--NAME` only works for components routed through
     `paragraph--component.html.twig`; the generic `paragraph.html.twig` never prints
     `{{ attributes }}`, so a component with its own template emits no bundle class at all.
-    On PNCB that is true of most of them, which is why this reads the template rather than
+    On one site that is true of most of them, which is why this reads the template rather than
     assuming the class.
     """
     if not theme_root or not os.path.isdir(theme_root):
@@ -45,7 +45,7 @@ def template_selector(theme_root, machine):
             if '{{ attributes' in body or '{{attributes' in body:
                 return '.paragraph--type--%s' % clean(machine), 'attributes printed'
             # The ROOT element only. Taking the first class anywhere in the file picks an
-            # inner node: PNCB's table_row template opens with a classless <tr> and the
+            # inner node: one site's table_row template opens with a classless <tr> and the
             # first class in the file is `.c-table__text`, a cell two levels down.
             block = body
             mb = re.search(r'{%\s*block\s+content\s*%}(.*?){%\s*endblock', body, re.S)

@@ -317,9 +317,9 @@ def extract(root, cfg=None):
             if ftype == 'entity_reference' and target_type in ('media', 'file'):
                 kind = 'media'
 
-            # CHANGELOG 0.2.0 measured default_value as set in 2 of 102 PNCB field
-            # instances, but the value was still hardcoded to None here - so plan.py could
-            # never compute the implicit "unset" option when deriving a variant axis.
+            # CHANGELOG 0.2.0 measured default_value as set in 2 of 102 field instances
+            # on one site, but the value was still hardcoded to None here - so plan.py
+            # could never compute the implicit "unset" option when deriving a variant axis.
             default = _default_value(fdata)
 
             fields.append({

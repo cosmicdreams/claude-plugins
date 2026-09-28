@@ -12,9 +12,9 @@ moving state, validation, idempotency, and completeness into deterministic tools
 - Added standard JSON Schemas and dependency-free validation for project, detection,
   components, tokens, plans, variable plans, and build records. Writes are atomic; an invalid
   replacement cannot destroy the last valid artifact.
-- Added the combined `drupal-authoring` strategy. Block types and Paragraph types form ACU's
-  69-item editor vocabulary; its 109 SDCs are rendering primitives and no longer win by raw
-  count.
+- Added the combined `drupal-authoring` strategy. Block types and Paragraph types form the
+  Drupal authoring site's 69-item editor vocabulary; its 109 SDCs are rendering primitives and
+  no longer win by raw count.
 - Added bounded Drupal rendering evidence. One deterministic pass maps every authoring bundle
   to existing Twig templates, included SDC definitions, adjacent stylesheets, root classes,
   referenced fields, and suspicious missing fields. The model can spend judgment on fidelity
@@ -36,13 +36,13 @@ moving state, validation, idempotency, and completeness into deterministic tools
   key. A parsed-but-empty plan now blocks instead of disabling the check.
 - Added regression tests for atomic writes, schemas, Drupal source ranking, Sass planning,
   resumable workflow state, and plan completeness.
-- Added deterministic DDEV-backed Drupal usage extraction. It reproduces ACU's 10,645 direct
-  placements and 6,305 nested structural instances across all 69 components, registers
-  `usage.json` as its own validated artifact kind, and blocks planning when detected usage was
-  silently skipped.
+- Added deterministic DDEV-backed Drupal usage extraction. It reproduces the Drupal authoring
+  site's 10,645 direct placements and 6,305 nested structural instances across all 69
+  components, registers `usage.json` as its own validated artifact kind, and blocks planning
+  when detected usage was silently skipped.
 - Resolved `list_predefined_options` values from their PHP plugins instead of treating Drupal's
-  exported placeholder rows as real enum choices. ACU now resolves all 20 affected fields
-  without model-written repair scripts.
+  exported placeholder rows as real enum choices. The Drupal authoring site now resolves all 20
+  affected fields without model-written repair scripts.
 - Bundle stylesheets are additive to child SDC stylesheets, so including `back-link` no longer
   hides `banner.scss` or `image-banner.scss`. Components and tokens now enforce and emit the
   standard's required `toolVersion`.
@@ -55,11 +55,11 @@ moving state, validation, idempotency, and completeness into deterministic tools
 - Detection no longer reports the active `.design-lab/figma-batches` workspace as external
   prior art merely because `workflow init` created it before discovery.
 - Models can report unavailable evidence but can no longer authorise their own degraded path:
-  usage and phase waivers now require a named human decider and non-empty reason, both validated
-  in the durable project manifest. Final verification also refuses unresolved prerequisite
-  phases, including capture.
-- Common Drupal contrib fields (`email`, `telephone`, `smartdate`, and `block_field`) now map to
-  the standard's text/reference kinds instead of being mislabeled as source-code defects.
+  usage and phase waivers now require a named human decider and non-empty reason, both
+  validated in the durable project manifest. Final verification also refuses unresolved
+  prerequisite phases, including capture.
+- Common Drupal contrib fields (`email`, `telephone`, `smartdate`, and `block_field`) now map
+  to the standard's text/reference kinds instead of being mislabeled as source-code defects.
 - Re-running discovery, extraction, usage, planning, variable planning, or changing the Figma
   target invalidates dependent phase claims and receipt registrations while preserving the raw
   files for diagnosis. Resume can no longer mistake stale downstream evidence for completion.
@@ -71,32 +71,34 @@ moving state, validation, idempotency, and completeness into deterministic tools
   documentation card, and insufficient rendering evidence fails or refuses the transaction.
 - Figma state dumps and verification now recognize both documented card-root conventions
   (`— documentation` and `Human Label · machine_name (Family)`) and common durable index-row
-  prefixes. This removes false negatives discovered during the ACU control replay.
+  prefixes. This removes false negatives discovered during the Drupal authoring site control
+  replay.
 - Added first-class component-scoped capture evidence. The planner now distinguishes visual
   components, mapped subcomponents, schema-only entities, and retirement candidates; it refuses
   to publish a master when no live screenshot proves the component's visual identity.
 - The Getting Started index is now placement-first and keeps component-master and documentation
-  links separate. Canonical double-underscore build-receipt filenames resume correctly, repeated
-  tier headers verify cleanly, and qualified Drupal source ids prevent block/paragraph name
-  collisions from inflating completeness.
+  links separate. Canonical double-underscore build-receipt filenames resume correctly,
+  repeated tier headers verify cleanly, and qualified Drupal source ids prevent block/paragraph
+  name collisions from inflating completeness.
 - Documentation is now source-complete decision support: Head, When to use, every authored
   field/property, every component relationship, desktop/tablet/mobile evidence, native Figma
   configuration, a root-relative label linked to the canonical FQDN, and actionable Notes.
   Refused and structural inventory rows remain traceable without fake component pages.
 - Variable planning prefers one collection with slash-delimited groups unless lifecycle or mode
   boundaries justify another collection. Source-authored Sass now outranks a thin compiled-CSS
-  palette, and map members without standalone code names carry an explicit Dev Mode explanation.
+  palette, and map members without standalone code names carry an explicit Dev Mode
+  explanation.
 - Added live anonymous Drupal example verification, targeted multi-breakpoint capture, and a
   capture-evidence assembler. Screenshots are mandatory documentation evidence but can never be
   the publishable component root. Build receipts now prove native node type, source anatomy,
   three-width comparisons, and real nested instances for rendered source relationships.
-- Browser-based capture and measurement accept
-  `DESIGN_LAB_BROWSER_EXECUTABLE`, allowing a reproducible system-Chrome path when Playwright's
-  managed Chromium is unavailable.
+- Browser-based capture and measurement accept `DESIGN_LAB_BROWSER_EXECUTABLE`, allowing a
+  reproducible system-Chrome path when Playwright's managed Chromium is unavailable.
 
-**Deterministic Figma builds.** The KINGTEC evaluation showed a model relaying hand-written
-layout code could not build the same library twice. Layout decisions moved into fixed templates
-and scripts, and the model's remaining job shrank to relaying steps — or to nothing.
+**Deterministic Figma builds.** An evaluation on a Drupal Canvas site showed a model relaying
+hand-written layout code could not build the same library twice. Layout decisions moved into
+fixed templates and scripts, and the model's remaining job shrank to relaying steps — or to
+nothing.
 
 - Added `scripts/figma_build.py`: the whole library build as a fixed sequence of steps over
   fixed `scripts/render/*.js` templates. Each payload carries its arguments and a checksum, so
@@ -104,8 +106,8 @@ and scripts, and the model's remaining job shrank to relaying steps — or to no
   templates changed since `init`.
 - Added the design-lab runner (`runner/` plus `scripts/figma_runner.py`), a Figma development
   plugin that fetches each step from localhost and posts the result back. No model is in the
-  loop, so a build costs no tokens. Three KINGTEC builds produced 7,389 nodes with zero layout,
-  style, typography, or binding differences between runs.
+  loop, so a build costs no tokens. Three builds of the Canvas site produced 7,389 nodes with
+  zero layout, style, typography, or binding differences between runs.
 - Added `spec_to_tree.py` and `responsive.py`: measured components become one deterministic
   Figma tree, and three breakpoint measurements merge into one responsive master instead of
   per-breakpoint drawings.
@@ -117,8 +119,8 @@ and scripts, and the model's remaining job shrank to relaying steps — or to no
   end to end.
 - Added `fetch_images.py`, which re-encodes AVIF and other formats Figma cannot upload as PNG.
 - `references/relay.md` documents the runner, its one-time manual import into Figma desktop,
-  and the model-relay fallback. The README gives a prompt that produces machine-specific install
-  steps.
+  and the model-relay fallback. The README gives a prompt that produces machine-specific
+  install steps.
 - Fixed the Drupal usage crawler skipping certificate verification for every HTTPS site,
   including public production pages. Verification is now relaxed only for local development
   hosts (`localhost`, loopback, `*.ddev.site`, `*.localhost`). The same rule now covers every
@@ -179,7 +181,7 @@ produced a library its own verifier rejected.
 
 - **All six extractors stamp `standardVersion`**, and `model.md` and `build-records.md` carry
   it in their example shapes. Section 10 required it and nothing wrote it. Verified end to end
-  against the real America's Credit Unions repository: 33 paragraph components extracted with
+  against the real Drupal authoring site repository: 33 paragraph components extracted with
   `standardVersion: 2.1.0`.
 
 - **`figma-component` step 2 handles machine-name collisions** and step 6 states the
@@ -190,9 +192,9 @@ produced a library its own verifier rejected.
 - **`structuralRefs` was read as `structuralReferences`** in `index_rows.py` and `verify.py` —
   a key that exists nowhere in `references/model.md`, in `find_examples.py`, or in any real
   artifact. It always resolved to `None`. Consequences: `two-usage-numbers` failed every
-  library that had the data (all 69 America's Credit Unions components carry it), and
+  library that had the data (all 69 Drupal authoring site components carry it), and
   `tier_of()` could never assign the Structural Only tier, so **every load-bearing component
-  was tiered as a retirement candidate**. On America's Credit Unions that moved 3 components
+  was tiered as a retirement candidate**. On the Drupal authoring site that moved 3 components
   out of a list headed "safe to delete" — Structural Only 0 → 3, Retirement Candidates
   17 → 14. Both readers now use the model's key and accept the longer spelling rather than
   silently returning zero.
@@ -222,7 +224,7 @@ minor rather than a major: a library genuinely conformant to 2.0.0 stays conform
   container is named `Index` and each row `row: <machine_name>` so that count is possible.
 
 - Checks that cannot run still report "not checked" rather than passing. Run against the real
-  PNCB artifacts, `index-complete` confirms all 44 components are listed and
+  Paragraphs site artifacts, `index-complete` confirms all 44 components are listed and
   `index-links-resolve` passes, while `variants-are-sets` correctly declines to answer because
   that state dump predates the node-type field.
 
@@ -256,17 +258,17 @@ never comparable, which makes any later sync meaningless.
   approximated by document order plus matching media queries, not by specificity — stated in
   the code rather than implied, because that approximation can disagree with the browser.
 
-  Verified against the live America's Credit Unions homepage: `body` computes to
+  Verified against the live Drupal authoring site homepage: `body` computes to
   `rgb(52, 38, 73)` and declares `var(--bs-body-color)`; `h1` computes to `80px` and declares
   `var(--k--typography--font-size-h1)`; `a` declares the literal `transparent` for its
   background and is correctly distinguished.
 
-  That run also found a defect in the existing library. America's Credit Unions' `tokens.json`
-  records `type/size/h1` with `codeName: null` and the description *"No custom property holds
-  this value. Only the base body size is emitted, as --bs-body-font-size."* The site actually
-  renders h1 through `--k--typography--font-size-h1`. The blank was explained by a wrong
-  explanation, and `code-syntax-set` passed it because it only checks that *an* explanation
-  addresses the absence, not that the explanation is true.
+  That run also found a defect in the existing library. The Drupal authoring site's
+  `tokens.json` records `type/size/h1` with `codeName: null` and the description *"No custom
+  property holds this value. Only the base body size is emitted, as --bs-body-font-size."* The
+  site actually renders h1 through `--k--typography--font-size-h1`. The blank was explained by
+  a wrong explanation, and `code-syntax-set` passed it because it only checks that *an*
+  explanation addresses the absence, not that the explanation is true.
 
 - **New check `bindings-match-source`** (blocker), bringing the set to 27. It compares the
   source's declared values against the Figma component's bindings and fails a component that
@@ -281,8 +283,8 @@ never comparable, which makes any later sync meaningless.
 ## 0.10.0
 
 **`figma-atlas` is gone, and `references/library-standard.md` is new.** Both come out of
-comparing the four libraries this practice has produced — America's Credit Unions,
-Schusterman, AHRI and PNCB. They share a page skeleton and almost nothing else: three
+comparing four libraries produced for real sites — the Drupal authoring site, Site Studio sites
+A and B, and the Paragraphs site. They share a page skeleton and almost nothing else: three
 different artifact classes, four naming schemes, four variable-collection conventions, and
 `components.json` files agreeing on four top-level keys.
 
@@ -307,9 +309,9 @@ different artifact classes, four naming schemes, four variable-collection conven
   the skill says so in as many words, so nobody rebuilds a search index by accident.
 
 - **`scripts/index_rows.py`** — joins `components.json` with `builds/*.json` into the index
-  rows. Two checks that fire on real data: `usage-data-missing` (Schusterman and PNCB both
-  carry `"usage": null` for every component, so no tier can be assigned) and
-  `machine-name-collision` (America's Credit Unions has 12 machine names used by two
+  rows. Two checks that fire on real data: `usage-data-missing` (Site Studio site B and the
+  Paragraphs site both carry `"usage": null` for every component, so no tier can be assigned)
+  and `machine-name-collision` (the Drupal authoring site has 12 machine names used by two
   components each — `block:accordion` and `paragraph:accordion` — which cannot both be named
   `machine_name — Human Label`, and would have produced 12 pairs of identically-named Figma
   components).
@@ -347,20 +349,20 @@ different artifact classes, four naming schemes, four variable-collection conven
   figure must never be the more generous of the two.
 
 - **The verify state dump was wrong in two ways**, both found by running it against the live
-  PNCB file rather than a fixture. Figma node proxies *throw* on an unknown property instead
-  of returning `undefined`, so the `n.findAll ? …` guard raised `TypeError` on a TEXT node;
-  it now tests node type. And the Known-gaps capture matched the heading text only, returning
-  `"Known gaps — read before trusting a card"` and nothing beneath it, which would have failed
-  `known-gaps-current` on every run — it now takes the whole section.
+  Paragraphs site file rather than a fixture. Figma node proxies *throw* on an unknown property
+  instead of returning `undefined`, so the `n.findAll ? …` guard raised `TypeError` on a TEXT
+  node; it now tests node type. And the Known-gaps capture matched the heading text only,
+  returning `"Known gaps — read before trusting a card"` and nothing beneath it, which would
+  have failed `known-gaps-current` on every run — it now takes the whole section.
 
-- **A check with no subject now reports `N/A`, not `PASS`.** Measured on America's Credit
-  Unions, whose Figma file contains zero components: five component checks and one shot check
-  had nothing to fail on, so the file scored 17 of 26 passing. It now scores 11 passed, 6 not
+- **A check with no subject now reports `N/A`, not `PASS`.** Measured on the Drupal authoring
+  site, whose Figma file contains zero components: five component checks and one shot check had
+  nothing to fail on, so the file scored 17 of 26 passing. It now scores 11 passed, 6 not
   applicable, 12 open. Reporting a vacuous pass is the same error as reporting an unrun check
   as passing, and it flatters exactly the libraries that deserve it least.
 
 - **`pages-populated` no longer treats unloaded as empty.** Figma loads pages on demand and an
-  unloaded page reports `0` children whatever it holds — the America's Credit Unions Atlas
+  unloaded page reports `0` children whatever it holds — the Drupal authoring site Atlas
   page reads `0` before `setCurrentPageAsync` and `76` after. The state dump took its counts
   from the root iteration, so this check would have fired on nearly every page of every file.
   Counts now come from the per-page pass, and a page never made current is reported as
@@ -369,20 +371,20 @@ different artifact classes, four naming schemes, four variable-collection conven
 - **`code-syntax-resolves` degrades to `minor` when the theme has no compiled CSS.**
   Bootstrap-style frameworks emit their custom properties at build time, so grepping a
   repository whose `dist/` is gitignored reports every one as dangling — eight of them on
-  America's Credit Unions, at blocker severity, for properties that do resolve in the
+  the Drupal authoring site, at blocker severity, for properties that do resolve in the
   compiled `index.css` its own tokens.json cites.
 
-  Run against real PNCB state, the check set reports 11 of 44 components built and finds
-  every component named by human label alone, 9 modes still called `Mode 1` or `Default`,
-  `PNCB Typography` and `PNCB Type` splitting one domain, and 9 to 16 layers per card still
+  Run against real Paragraphs site state, the check set reports 11 of 44 components built and
+  finds every component named by human label alone, 9 modes still called `Mode 1` or `Default`,
+  `Acme Typography` and `Acme Type` splitting one domain, and 9 to 16 layers per card still
   named `Frame`.
 
 ## 0.9.0
 
 **`design-lab:capture`** — the half of the pipeline that was living in a client repository.
-Measuring and photographing components was done for PNCB with scripts under
+Measuring and photographing components was done for the Paragraphs site with scripts under
 `scripts/figma-spec/`, which meant the next project started from nothing. Ported, generalised
-and verified against the running PNCB site.
+and verified against the running Paragraphs site.
 
 - **`measure.mjs`** — box model, typography, fills and borders per node per breakpoint. No
   images by design: everything it records becomes a native Figma node with bound variables
@@ -390,28 +392,28 @@ and verified against the running PNCB site.
   config. `states[].setup` runs in both, so a component that must be opened to be visible
   opens identically when measured and when photographed. Playwright resolves from the
   **caller's** directory, not the plugin's, which a bare import gets wrong every time
-- **`scaffold_configs.py`** — writes a config per component and, more usefully, names the
-  ones that will silently produce nothing. It reads each component's Twig template for a
-  root selector and reports where the answer came from. A classless root is reported as
-  such: PNCB's `table_row` opens with a bare `<tr>`, so no selector is derivable and the
+- **`scaffold_configs.py`** — writes a config per component and, more usefully, names the ones
+  that will silently produce nothing. It reads each component's Twig template for a root
+  selector and reports where the answer came from. A classless root is reported as such: the
+  Paragraphs site's `table_row` opens with a bare `<tr>`, so no selector is derivable and the
   scaffolder says so instead of guessing
 
-The gap this closes, concretely: PNCB had four components with no config, therefore no
-measurements and no screenshots, and one of them — `table_row` — is the third most placed
-component on the site at 116 placements. Nothing surfaced it until `verify` counted. It is
-captured now, at 889 x 229 desktop.
+The gap this closes, concretely: the Paragraphs site had four components with no config,
+therefore no measurements and no screenshots, and one of them — `table_row` — is the third most
+placed component on the site at 116 placements. Nothing surfaced it until `verify` counted. It
+is captured now, at 889 x 229 desktop.
 
-Three traps are written into the skill because each produced wrong output: take the first
-match with real height rather than `.first()`, since pages hold empty instances of the same
-component; two components can share a root selector and the failure is invisible in a
-directory listing (five PNCB components produced two distinct pictures); and never expand a
+Three traps are written into the skill because each produced wrong output: take the first match
+with real height rather than `.first()`, since pages hold empty instances of the same
+component; two components can share a root selector and the failure is invisible in a directory
+listing (five Paragraphs site components produced two distinct pictures); and never expand a
 component whose measurement recorded it collapsed, which produced a 6131px image captioned
 1871px.
 
 ## 0.8.0
 
-Three gaps found by running the plugin to completion on PNCB and then asking what it still
-would not have caught.
+Three gaps found by running the plugin to completion on the Paragraphs site and then asking
+what it still would not have caught.
 
 **A completeness figure on every run.** `verify` now prints `COMPLETENESS  N of M components
 built`, broken down by usage tier, whether or not anything else failed, and closes with a
@@ -428,9 +430,9 @@ every card it draws is a card that worked.
   1.56 *pixels* and collapse every line of text. Line-height no longer routes through the
   Type collection for this strategy, where it would have become a bindable pixel value
 - `figma-foundation` now states that code syntax is set **only where the Figma value matches
-  the code value**. Pointing a variable at a custom property holding a different number
-  gives a name that resolves, looks right in Dev Mode, and is wrong. On PNCB that was 1 of 6
-  radius variables and 6 of 16 spacing variables; the rest were left with no code name
+  the code value**. Pointing a variable at a custom property holding a different number gives a
+  name that resolves, looks right in Dev Mode, and is wrong. On the Paragraphs site that was 1
+  of 6 radius variables and 6 of 16 spacing variables; the rest were left with no code name
 - Where no code name exists, the reason goes **on the variable**. `verify` accepts a
   description that addresses the absence and flags one that does not
 
@@ -438,9 +440,9 @@ every card it draws is a card that worked.
 With no argument it lists the unbuilt candidates and stops rather than choosing. The build
 sequence now carries what was learned building eleven of them by hand:
 - **Every text node gets a TEXT property.** The step most often skipped and the one that
-  decides whether a component is used at all — without it a designer detaches the instance
-  to change one word, and a detached instance stops tracking the library. Five of PNCB's
-  first seven had none
+  decides whether a component is used at all — without it a designer detaches the instance to
+  change one word, and a detached instance stops tracking the library. Five of the Paragraphs
+  site's first seven had none
 - **Every slot gets an INSTANCE_SWAP property**, composed from real instances of the
   components it accepts. A table containing three actual `table_row` instances shows the
   relationship; three static rows only look like it
@@ -460,11 +462,11 @@ sequence now carries what was learned building eleven of them by hand:
 
 ## 0.7.2
 
-- `code-syntax-set` now requires the description to *address* the blank, not merely to
-  exist. The 0.7.1 version accepted any description and so passed ten PNCB colours carrying
+- `code-syntax-set` now requires the description to *address* the blank, not merely to exist.
+  The 0.7.1 version accepted any description and so passed ten Paragraphs site colours carrying
   unrelated notes from an earlier build — a false pass, which is precisely the failure this
-  check exists to prevent. A verifier that can be satisfied by irrelevant text is worse than
-  no verifier, because it converts an open question into a recorded pass
+  check exists to prevent. A verifier that can be satisfied by irrelevant text is worse than no
+  verifier, because it converts an open question into a recorded pass
 
 ## 0.7.1
 
@@ -477,11 +479,11 @@ sequence now carries what was learned building eleven of them by hand:
 
 ## 0.7.0
 
-**`design-lab:verify`** — the missing step. Every skill in this plugin reported success on
-its own work, and the PNCB library still ended up with four empty Foundations pages, 36 of
-43 components never built, not one component carrying a documentation link, and sixteen
-semantic variables whose Dev Mode code syntax named CSS custom properties that exist nowhere
-in the codebase. Each step passed. Nothing looked at the whole.
+**`design-lab:verify`** — the missing step. Every skill in this plugin reported success on its
+own work, and the Paragraphs site library still ended up with four empty Foundations pages, 36
+of 43 components never built, not one component carrying a documentation link, and sixteen
+semantic variables whose Dev Mode code syntax named CSS custom properties that exist nowhere in
+the codebase. Each step passed. Nothing looked at the whole.
 
 The rule it encodes: **an unmet expectation resolves to a fix or a recorded waiver, never to
 silence.** Waivers live in `waivers.json` with who decided, when and why, so declining
@@ -511,14 +513,14 @@ the real codebase, and it degrades to a `minor` "not checked" finding rather tha
 `--theme-root` is absent — a check that did not run is not a check that passed, and
 conflating the two is the whole failure this release exists to stop.
 
-First run against PNCB: 4 passed, 17 open, 0 waived.
+First run against the Paragraphs site: 4 passed, 17 open, 0 waived.
 
 ## 0.6.0
 
 `figma-atlas` specified a *text card* per component — a handful of lines of canvas text. Run
-against a real library that is visibly not documentation, and the comparison that proved it
-was the Schusterman Components 2026 file, which had already solved this properly. Same lesson
-as `references/prior-art.md`: the existing artifact was better than the plugin's spec.
+against a real library that is visibly not documentation, and the comparison that proved it was
+Site Studio site B's existing component file, which had already solved this properly. Same
+lesson as `references/prior-art.md`: the existing artifact was better than the plugin's spec.
 
 - **`figma-atlas` now specifies the full card anatomy** — 940-wide cards in a two-column
   grid: eyebrow with machine name, title, a stats row, verified live example, a
@@ -526,13 +528,13 @@ as `references/prior-art.md`: the existing artifact was better than the plugin's
 - **One shared scale per component in the breakpoint row.** Scaling each breakpoint
   independently to fill its slot is the obvious implementation and it silently destroys the
   point: a 969px desktop and a 740px tablet render identical widths, so the component reads
-  as not responsive. Hit while building PNCB's cards
+  as not responsive. Hit while building the Paragraphs site's cards
 - **`shot:` versus `scale:` naming.** A frame named `shot:<name>:<Breakpoint>` claims to hold
   a capture. When only measurements exist, the frame is a `scale:` diagram and the row says
   `measured, drawn to scale`. A grey box named `shot:` overstates the file's fidelity
 - **`figma-component` step 8 now points documentation links at the atlas card**, and
   `figma-atlas` asserts they are set. An empty `documentationLinks` is the commonest way a
-  library looks finished and is not — all seven of PNCB's built components had one
+  library looks finished and is not — all seven of that site's built components had one
 - **`references/verification.md`** gains four documentation assertions
 
 ## 0.5.0
@@ -541,23 +543,23 @@ as `references/prior-art.md`: the existing artifact was better than the plugin's
 a theme that had moved off Sass the recommended strategy had no extractor behind it. This
 adds the missing third token source, and it turns out to be the best of the three.
 
-- **`extract_tokens_cssvars.py`** — the CSS custom property extractor. Reads only
-  stylesheets a `*.libraries.yml` actually loads, prunes `core/` and `contrib/`, tracks the
-  selector and media query per declaration, and resolves `var()` chains including the
-  fallback argument. On PNCB's `css-candidate` branch: 94 tokens from 5 loaded stylesheets,
-  against 1,023 from 174 before core was pruned
-- **`plan_variables.py` derives the semantic layer for this strategy.** Custom properties
-  are *authored*, so the names state intent where a Sass name does not. Colours are grouped
-  by normalised hex; the member with no role word in its name is the palette entry and the
-  rest alias it. PNCB gets 32 semantic variables across `text/*`, `surface/*`, `border/*`
-  and `action/*` — the gap the 2026-08-31 comparison called the most important one, closed
-  from evidence rather than invented
+- **`extract_tokens_cssvars.py`** — the CSS custom property extractor. Reads only stylesheets a
+  `*.libraries.yml` actually loads, prunes `core/` and `contrib/`, tracks the selector and
+  media query per declaration, and resolves `var()` chains including the fallback argument. On
+  the Paragraphs site's compiled-CSS branch: 94 tokens from 5 loaded stylesheets, against 1,023
+  from 174 before core was pruned
+- **`plan_variables.py` derives the semantic layer for this strategy.** Custom properties are
+  *authored*, so the names state intent where a Sass name does not. Colours are grouped by
+  normalised hex; the member with no role word in its name is the palette entry and the rest
+  alias it. The Paragraphs site gets 32 semantic variables across `text/*`, `surface/*`,
+  `border/*` and `action/*` — the gap the 2026-08-31 comparison called the most important one,
+  closed from evidence rather than invented
 - **New collections** — `Radius`, `FontWeight`, `LetterSpacing`, each with correct scopes,
   driven by whatever the source actually declares
 - **`typeScaling` is genuinely answerable here.** A token that scales must be redeclared
   under a media query, which is directly observable — unlike a Sass source map, where it is
   not. A `roleLevelCaveat` records what this still cannot see: a component rule that swaps
-  which token it uses at a breakpoint. PNCB has 6 such rules
+  which token it uses at a breakpoint. The Paragraphs site has 6 such rules
 
 **Behaviour change, and it alters previously-shipped output.** `num()` is now unit-aware.
 Figma FLOAT variables are pixels, and the old reducer stripped the unit, so `2.25rem` became
@@ -566,23 +568,23 @@ Site Studio sites, not just on the new strategy:
 
 | Site | Token | Was planned as | Now |
 |---|---|---|---|
-| AHRI | `Blockquote Paragraph` font-size `1.1rem` | 1.1 px | 17.6 px |
-| AHRI | `Blockquote Paragraph` line-height `2rem` | 2 px | 32 px |
-| Schusterman | `Breadcrumbs` margin `1.5rem` | 1.5 px | 24 px |
+| Site Studio site A | `Blockquote Paragraph` font-size `1.1rem` | 1.1 px | 17.6 px |
+| Site Studio site A | `Blockquote Paragraph` line-height `2rem` | 2 px | 32 px |
+| Site Studio site B | `Breadcrumbs` margin `1.5rem` | 1.5 px | 24 px |
 
 Percentages now return `None` rather than a bare number, because a percentage is not a
 pixel length and guessing one is worse than declining.
 
-Otherwise regression-clean: every other value in AHRI's and Schusterman's `variable-plan.json`
-is unchanged.
+Otherwise regression-clean: every other value in the `variable-plan.json` of Site Studio sites
+A and B is unchanged.
 
 ## 0.4.0
 
 The Figma half of the pipeline could not run on a Paragraphs site at all. `design-lab:detect`
-recommends `sass-sourcemap` for PNCB, and `plan_variables.py` crashed on its output with
-`KeyError: 'modes'` — so `figma-foundation` never ran, and `figma-component` refuses to start
-without it. Everything here came from running the plugin end to end against PNCB and hitting
-that wall.
+recommends `sass-sourcemap` for the Paragraphs site, and `plan_variables.py` crashed on its
+output with `KeyError: 'modes'` — so `figma-foundation` never ran, and `figma-component`
+refuses to start without it. Everything here came from running the plugin end to end against
+the Paragraphs site and hitting that wall.
 
 - **`plan_variables.py` normalises token schemas instead of assuming one.** The three plug
   points vary independently, but the planner only ever read the Site Studio shape. It now
@@ -590,13 +592,13 @@ that wall.
   it has no normaliser for. Defaulting the missing key was the tempting fix and the wrong
   one: every other lookup is `.get(...) or []`, so the planner would have reported four
   successful collections while silently discarding all 236 recovered tokens
-- **`extract_tokens_sourcemap.py` emits `codeName`.** `references/tokens-and-variables.md`
-  has always specified `$brand-blue` for this strategy; the extractor never wrote it, so
-  every variable would have shown a raw hex in Dev Mode. All 64 PNCB primitives now carry one
+- **`extract_tokens_sourcemap.py` emits `codeName`.** `references/tokens-and-variables.md` has
+  always specified `$brand-blue` for this strategy; the extractor never wrote it, so every
+  variable would have shown a raw hex in Dev Mode. All 64 of its primitives now carry one
 - **`extract_tokens_sourcemap.py` evaluates `lighten()` and `darken()`.** Verified exactly:
   `lighten($periwinkle-dark, 10)` → `#7c92e5`, `lighten($periwinkle-dark, 20%)` → `#a7b6ed`.
-  Both were previously recorded as PNCB colours with **no configuration provenance**. They
-  have exact provenance; the resolver just stopped at the function call
+  Both were previously recorded as Paragraphs site colours with **no configuration
+  provenance**. They have exact provenance; the resolver just stopped at the function call
 - **`typeScaling` is emitted explicitly as not observable**, rather than being absent. A
   source map has no CSS property and no media query attached to a declaration, so per-role
   scaling cannot be derived from it. `noneScale` now has three states — `true`, `false`, and
@@ -605,13 +607,13 @@ that wall.
 - **`detect.py` performs the prior-art probe itself** and returns `priorArt` plus a leading
   `PRIOR ART:` note. It lived only in skill prose, so running the script directly skipped the
   single most expensive lesson in the plugin. It now also searches `reports/`, `docs/`,
-  `design/` and `.storybook/`: on PNCB the old probe found **nothing**, while `reports/` held
-  six artifacts including a complete Figma structure comparison
+  `design/` and `.storybook/`: on the Paragraphs site the old probe found **nothing**, while
+  `reports/` held six artifacts including a complete Figma structure comparison
 - **`extract_paragraphs.py` reads `default_value`** instead of hardcoding `None`. 0.2.0
-  measured this as set in 2 of 102 PNCB field instances and then discarded it, leaving
-  `plan.py` unable to compute the implicit unset option when deriving a variant axis
+  measured this as set in 2 of 102 Paragraphs site field instances and then discarded it,
+  leaving `plan.py` unable to compute the implicit unset option when deriving a variant axis
 
-Regression: `variable-plan.json` is byte-identical to 0.3.0 on both AHRI and Schusterman.
+Regression: `variable-plan.json` is byte-identical to 0.3.0 on both Site Studio sites A and B.
 
 Not fixed, recorded instead: the **semantic colour layer cannot be derived for this
 strategy.** Site Studio colours carry tags saying what they are *for*; a Sass variable
@@ -621,9 +623,9 @@ names it.
 
 ## 0.3.0
 
-Everything here came from running the plugin against Schusterman and discovering, afterwards,
-that a Figma file and a complete working toolchain already existed. Every difference was
-design-lab being worse.
+Everything here came from running the plugin against Site Studio site B and discovering,
+afterwards, that a Figma file and a complete working toolchain already existed. Every
+difference was design-lab being worse.
 
 - `references/prior-art.md` — look for an existing Figma file and existing repository tooling
   before extracting. `design-lab:detect` now begins with that probe
@@ -668,16 +670,16 @@ The Figma half of the pipeline, and three corrections to facts the pilot got wro
 
 Corrections, each verified against the repositories:
 
-- **Type does scale on AHRI.** The pilot measured body text at 20/32 across breakpoints and
-  built a single-mode type collection. 13 of 43 font-size tokens scale, Heading 2 among
-  them at 48/48/42/36; Schusterman is 8 of 65. Scaling is a per-role fact
+- **Type does scale on Site Studio site A.** The pilot measured body text at 20/32 across
+  breakpoints and built a single-mode type collection. 13 of 43 font-size tokens scale, Heading
+  2 among them at 48/48/42/36; Site Studio site B is 8 of 65. Scaling is a per-role fact
 - **`coh-ce-<name>-<hash>` is not an instance marker.** It is stamped on every styled
-  element of a component template - Schusterman's `cpt_content_card_0` carries eight
+  element of a component template - Site Studio site B's `cpt_content_card_0` carries eight
   hashes - so counting it inflates one site footer into 35 placements. The per-placement
   marker is `coh-component-instance-<uuid>`
 - **Site Studio defaults live at `json_values.model.<uuid>.value`**, populated in 1,485 of
-  1,858 fields. Select options carry no default marker at all across 4,732 options.
-  Paragraphs are the opposite: `default_value` is set in 2 of 102 PNCB field instances
+  1,858 fields. Select options carry no default marker at all across 4,732 options. Paragraphs
+  are the opposite: `default_value` is set in 2 of 102 Paragraphs site field instances
 
 ## 0.1.0
 
@@ -686,6 +688,8 @@ Initial skeleton.
 - Universal component model (`references/model.md`) with three independent plug points
 - Variant policy (`references/variant-policy.md`) with defaults, review flags and a hard stop
 - `design-lab:detect` — strategy detection, verified on three real repositories
-- `design-lab:inventory` — Site Studio and Single Directory Component extractors, doubling as a source lint
-- Zero-dependency YAML fallback for Single Directory Components (no PyYAML on any local interpreter)
+- `design-lab:inventory` — Site Studio and Single Directory Component extractors, doubling as a
+  source lint
+- Zero-dependency YAML fallback for Single Directory Components (no PyYAML on any local
+  interpreter)
 - `design-lab:plan` — build proposal with variant arithmetic and refusals

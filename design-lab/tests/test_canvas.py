@@ -31,15 +31,15 @@ def fixture_site(test):
 
 class CanvasTest(unittest.TestCase):
     def test_sqlq_headerless_tab_rows_keep_first_row_and_empty_columns(self):
-        sample = ("page\t0\t1\t3\ten\t0\t\t\tuuid-1\tsdc.kingtec.site-header\tv1\t{}\t\n"
+        sample = ("page\t0\t1\t3\ten\t0\t\t\tuuid-1\tsdc.mytheme.site-header\tv1\t{}\t\n"
                   "page\t0\t2\t3\ten\t1\tparent-uuid\tcontent\tuuid-2\t"
-                  "sdc.kingtec.photo-slide\tv1\t{}\tSlide\n")
+                  "sdc.mytheme.photo-slide\tv1\t{}\tSlide\n")
         rows = parse_sqlq_rows(sample, 13)
         self.assertEqual(len(rows), 2)
         self.assertEqual(rows[0][2], "1")
         self.assertEqual(rows[0][6:8], ["", ""])
         self.assertEqual(rows[0][-1], "")
-        self.assertEqual(rows[1][9], "sdc.kingtec.photo-slide")
+        self.assertEqual(rows[1][9], "sdc.mytheme.photo-slide")
         self.assertEqual(parse_sqlq_rows("/page/1\t/home\n/page/2\t/resources\n", 2),
                          [["/page/1", "/home"], ["/page/2", "/resources"]])
         with self.assertRaises(ValueError):
@@ -156,7 +156,7 @@ class CanvasTest(unittest.TestCase):
                   "contact-layout": 1, "photo-carousel": 1, "photo-gallery": 1,
                   "event-countdown": 1, "event-results": 1, "faq-group": 1,
                   "weekly-schedule": 1}
-        components = {"components": [{"id": "sdc.kingtec." + name, "fields": [],
+        components = {"components": [{"id": "sdc.mytheme." + name, "fields": [],
             "slots": [], "defects": [], "label": name, "sourceRef": name} for name in counts]}
         placements = []
         for name, count in counts.items():
@@ -164,29 +164,29 @@ class CanvasTest(unittest.TestCase):
                 # The joined query has already excluded unpublished and old revisions.
                 parent = "parent-uuid" if name == "content-column" and index < 20 else ""
                 placements.append(["page", "0", str(index % 16 + 1), "3", "en", str(index),
-                    parent, "content" if parent else "", "uuid", "sdc.kingtec." + name,
+                    parent, "content" if parent else "", "uuid", "sdc.mytheme." + name,
                     "version", "{}", ""])
-        for identifier in ("block.kingtec_contact_form", "js.bullseye"):
+        for identifier in ("block.mytheme_contact_form", "js.bullseye"):
             placements.append(["page", "0", "1", "3", "en", "0", "", "", "uuid",
                                identifier, "", "{}", ""])
         rows = {"placements": placements, "pages": [[str(i), "3"] for i in range(1, 17)],
                 "aliases": [["/page/1", "/welcome"]],
-                "templates": [["sdc.kingtec.program-link", "node.program.full", "program",
+                "templates": [["sdc.mytheme.program-link", "node.program.full", "program",
                                "config/sync/canvas.content_template.node.program.full.yml"]]}
         result = build_usage(components, rows, {"approot": "/fixture"})
         self.assertEqual(validate(result, "usage"), [])
         self.assertEqual(result["source"]["population"]["publishedPages"], 16)
-        self.assertEqual(result["usage"]["sdc.kingtec.formatted-section"]["placements"], 82)
-        column = result["usage"]["sdc.kingtec.content-column"]
+        self.assertEqual(result["usage"]["sdc.mytheme.formatted-section"]["placements"], 82)
+        column = result["usage"]["sdc.mytheme.content-column"]
         self.assertEqual((column["placements"], column["structuralRefs"]), (10, 20))
         self.assertEqual(column["pages"], 16)
         self.assertIn("/welcome", column["exampleCandidates"])
-        link = result["usage"]["sdc.kingtec.program-link"]
+        link = result["usage"]["sdc.mytheme.program-link"]
         self.assertEqual((link["placements"], link["templatePlacements"]), (8, 1))
         self.assertEqual(link["templateBundles"], ["program"])
         self.assertEqual(result["usage"]["js.bullseye"]["placements"], 1)
         self.assertEqual(result["problems"][0]["evidence"],
-                         ["block.kingtec_contact_form", "js.bullseye"])
+                         ["block.mytheme_contact_form", "js.bullseye"])
         merged = merge_usage(components, result)
         section = next(c for c in merged["components"] if c["id"].endswith("formatted-section"))
         self.assertEqual(section["category"], TIERS["high"])

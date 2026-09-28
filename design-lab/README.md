@@ -17,16 +17,16 @@ the axes forces one site down another's path.
 
 | Site | Components | Config path | Tokens |
 |---|---|---|---|
-| America's Credit Unions | 69 Drupal authoring bundles | `config/default` | 97 planned variables from authored Sass |
-| AHRI | 146 Site Studio | `config/sync` | 129 custom style entities |
-| Schusterman | 101 Site Studio | `config/default` | 172 custom style entities |
-| PNCB | 43 Paragraph types | `config/default` | 113 base tokens via Sass source map |
-| PNCB `css-candidate` | 43 Paragraph types | `config/default` | 94 authored custom properties |
+| Drupal authoring site | 69 Drupal authoring bundles | `config/default` | 97 planned variables from authored Sass |
+| Site Studio site A | 146 Site Studio | `config/sync` | 129 custom style entities |
+| Site Studio site B | 101 Site Studio | `config/default` | 172 custom style entities |
+| Paragraphs site | 43 Paragraph types | `config/default` | 113 base tokens via Sass source map |
+| Paragraphs site, compiled-CSS branch | 43 Paragraph types | `config/default` | 94 authored custom properties |
 
-PNCB also has 13 custom Single Directory Components, but only 6 are invoked by a paragraph
-template - they are a partial rendering layer, not the component source. It was recorded
-as a 13-component Single Directory Component site until 2026-08-31; that profile came from
-a bug, not the site. See `references/strategies/README.md`.
+The Paragraphs site also has 13 custom Single Directory Components, but only 6 are invoked by a
+paragraph template - they are a partial rendering layer, not the component source. It was
+recorded as a 13-component Single Directory Component site until 2026-08-31; that profile came
+from a bug, not the site. See `references/strategies/README.md`.
 
 ## Start here
 
@@ -57,24 +57,24 @@ with this machine's paths filled in, ask:
 | `design-lab:verify` | **checks the whole file against the base expectations**; every gap ends as a fix or a recorded waiver |
 
 `scripts/workflow.py` is the deterministic front door. Its `init`, `detect`, `select`,
-`extract`, `usage`, `plan`, `variables`, `approve`, `target`, `register`, `record`, `validate`, and
-`status` commands write atomically and keep artifact hashes in the project manifest. The
-schemas in `schemas/` are the machine-readable contracts; `references/library-standard.md`
-is the canonical product definition.
+`extract`, `usage`, `plan`, `variables`, `approve`, `target`, `register`, `record`, `validate`,
+and `status` commands write atomically and keep artifact hashes in the project manifest. The
+schemas in `schemas/` are the machine-readable contracts; `references/library-standard.md` is
+the canonical product definition.
 
 Component extractors cover Site Studio, SDCs, Paragraphs, and combined Drupal authoring
 vocabularies (`block_content` + Paragraphs). Token extractors cover Site Studio styles,
 theme-loaded CSS custom properties, Sass source maps, and source-authored Sass. Combined Drupal
 extraction also writes `render-evidence.json`, a bounded map from each authoring bundle to its
-existing Twig, SDC, stylesheet, root-class, and referenced-field evidence.
-That evidence includes deterministic `styleFacts` parsed from the component's own Sass: root
-and nested-part declarations stay separate, retain token/literal provenance, and give the model
-the visual facts it needs without asking it to rediscover every stylesheet rule.
+existing Twig, SDC, stylesheet, root-class, and referenced-field evidence. That evidence
+includes deterministic `styleFacts` parsed from the component's own Sass: root and nested-part
+declarations stay separate, retain token/literal provenance, and give the model the visual
+facts it needs without asking it to rediscover every stylesheet rule.
 
 Drupal database usage is deterministic too: `extract_drupal_usage.py` reads the running DDEV
-project, preserves placements and structural references as separate measures, writes a validated
-`usage.json`, and merges tiers into `components.json`. Planning hard-stops when detection found
-usage evidence but it was neither measured nor explicitly waived as degraded.
+project, preserves placements and structural references as separate measures, writes a
+validated `usage.json`, and merges tiers into `components.json`. Planning hard-stops when
+detection found usage evidence but it was neither measured nor explicitly waived as degraded.
 Waivers are human decisions: the workflow requires both a named decider and a reason, and final
 verification refuses any unresolved prerequisite phase. Registering one component receipt also
 cannot complete the component phase; valid non-failing receipts must cover the approved plan.
@@ -92,14 +92,14 @@ or unloaded CSS never outranks the theme sources merely because similarly named 
 `figma-component` owns one component transaction on purpose. `run` may process many
 transactions in one model session, but each becomes durable only after its build record is
 validated. Every recorded assertion must explicitly pass; skipped fidelity work and an empty
-assertion object remain incomplete. A partial run therefore resumes safely instead of pretending
-the library is done.
+assertion object remain incomplete. A partial run therefore resumes safely instead of
+pretending the library is done.
 
 `verify` is the one that runs last and the one that should have existed first. Every other
-skill reports on its own step, so a library can pass all of them and still be half a
-library — which is exactly what happened on PNCB: four empty Foundations pages, 36 of 43
-components missing, no documentation links anywhere, and sixteen variables whose Dev Mode
-names existed nowhere in the codebase. Nothing was looking at the whole.
+skill reports on its own step, so a library can pass all of them and still be half a library —
+which is exactly what happened on the Paragraphs site: four empty Foundations pages, 36 of 43
+components missing, no documentation links anywhere, and sixteen variables whose Dev Mode names
+existed nowhere in the codebase. Nothing was looking at the whole.
 
 Planned: `drift`.
 

@@ -1,7 +1,7 @@
 # Prior art
 
 **Look for an existing answer before extracting anything.** This document exists because
-design-lab was run against Schusterman while both a Figma file and a complete working
+design-lab was run against Site Studio site B while both a Figma file and a complete working
 toolchain already existed, and every difference between them was design-lab being worse.
 
 The `figma-generate-library` skill opens with Phase 0 DISCOVERY for exactly this reason.
@@ -19,15 +19,15 @@ encodes is a set of decisions someone already argued about:
 - **component naming** — match it rather than imposing a new scheme
 - **the Cover page** — usually states the method, the data source and the generation date
 
-A file whose pages are all empty is not an empty file. Schusterman Components 2026 had zero
-variables and zero components, and its page list was still the most valuable thing found all
-day: components organised by **usage tier**, with `Structural Only` and
+A file whose pages are all empty is not an empty file. That site's existing component file had
+zero variables and zero components, and its page list was still the most valuable thing found
+all day: components organised by **usage tier**, with `Structural Only` and
 `Retirement Candidates` as first-class categories. No amount of extraction produces that.
 
 ### 2. Existing tooling in the repository
 
 Search for it. A Cover page that says "Regenerate with `scripts/component-library/`" is
-telling you there is a pipeline, and on Schusterman there was: inventory, foundations, usage
+telling you there is a pipeline, and on that site there was: inventory, foundations, usage
 counting, page list, instance map, Figma payload and a Playwright screenshot harness, all
 working, all committed.
 
@@ -46,7 +46,7 @@ Print a gap analysis before writing: what exists in code but not Figma, what exi
 but not code, and every conflict with its resolution. Adopt the existing convention unless
 there is a stated reason to break it.
 
-## What this cost on Schusterman
+## What this cost on Site Studio site B
 
 | Question | design-lab, greenfield | The existing answer |
 |---|---|---|

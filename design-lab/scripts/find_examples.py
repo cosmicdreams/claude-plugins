@@ -1,8 +1,8 @@
 #!/usr/bin/env python3
 """Find a verified, anonymously-reachable page address for every component.
 
-The specification file that shipped with the AHRI library listed live example paths, and
-they could not be trusted: two were behind login and at least one named a page the
+The specification file that shipped with one Site Studio library listed live example paths,
+and they could not be trusted: two were behind login and at least one named a page the
 component was not on. So this does not read claimed addresses - it crawls the public site
 as an anonymous visitor and records where each component actually rendered.
 
@@ -13,8 +13,8 @@ Placement counts come out of the same pass for free, which is the `usage` plug p
 references/model.md. They are a LOWER BOUND over the pages actually scanned - never
 present them as a site total unless the whole sitemap was walked.
 
-    python3 find_examples.py https://www.ahrinet.org --strategy sitestudio --limit 200
-    python3 find_examples.py https://www.pncb.org --strategy paragraphs \
+    python3 find_examples.py https://www.example.org --strategy sitestudio --limit 200
+    python3 find_examples.py https://www.example.org --strategy paragraphs \
         --components components.json --merge > components.enriched.json
 """
 import argparse, gzip, json, re, sys, time, urllib.error, urllib.request
@@ -48,7 +48,7 @@ def normalise(strategy, raw):
 
 def canonical(url, base_host):
     """Sitemaps often advertise the hosting origin rather than the public hostname.
-    AHRI's sitemap returns ahridrupalhosting.prod.acquia-sites.com, so an address recorded
+    One site's sitemap returns example.prod.acquia-sites.com, so an address recorded
     straight from it sends a designer to an origin host that may be blocked or may serve a
     different cache. Rewrite onto the host the caller actually asked for."""
     u = urlparse(url)
@@ -193,7 +193,7 @@ def tier(placements, structural=0):
 
 if __name__ == '__main__':
     ap = argparse.ArgumentParser()
-    ap.add_argument('base', help='site root, e.g. https://www.ahrinet.org')
+    ap.add_argument('base', help='site root, e.g. https://www.example.org')
     ap.add_argument('--strategy', required=True, choices=sorted(MARKERS))
     ap.add_argument('--limit', type=int, default=200, help='max pages to fetch')
     ap.add_argument('--delay', type=float, default=0.5, help='seconds between requests')

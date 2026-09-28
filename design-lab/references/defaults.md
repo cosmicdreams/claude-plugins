@@ -19,7 +19,7 @@ json_values.model.<field_uuid>.value
 ```
 
 Not `defaultValue`, not `activeValue`, not `defaults`. Across 1,858 component form fields in
-247 components (AHRI 146 plus Schusterman 101):
+247 components (146 on Site Studio site A plus 101 on Site Studio site B):
 
 | State | Count |
 |---|---|
@@ -42,7 +42,7 @@ default.
 ### Paragraphs — declared, and almost never present
 
 ```
-default_value[0].value          # populated in 2 of 102 PNCB field instances
+default_value[0].value          # populated in 2 of 102 field instances on one site
 default_value_callback          # empty in all 102
 ```
 
@@ -58,9 +58,9 @@ Apply in order, and record which one fired in `defaultSource`:
 
 1. **`declared`** — the configuration states a default. Use it. This covers most Site Studio
    fields and almost no Paragraphs fields.
-2. **`unset`** — no default declared, so the real default is the no-token, no-class state.
-   Name that variant `Default` (for a theme axis) or `None` (for a spacing axis) and place it
-   first. It is a legitimate variant, not an absence: AHRI's `cpt_text` theme axis is
+2. **`unset`** — no default declared, so the real default is the no-token, no-class state. Name
+   that variant `Default` (for a theme axis) or `None` (for a spacing axis) and place it first.
+   It is a legitimate variant, not an absence: Site Studio site A's `cpt_text` theme axis is
    literally `Default, Light Blue Black, Dark Blue White, Medium Blue Black`.
 3. **`observed`** — optional override. When `design-lab:usage` has scanned the site, the
    configuration a component is *most often placed in* is a better library default than the

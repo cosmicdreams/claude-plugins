@@ -37,7 +37,7 @@ another's path.
       "id": "cpt_text",                  // machine name, stable key
       "label": "Text",                   // human label; becomes the Figma component name
       "description": "...",
-      "group": "AHRI General Components",
+      "group": "General Components",
       "category": "Content",             // collapsed group; becomes the Figma page
       "aliases": ["copy", "rich text", "wysiwyg"],  // search synonyms - see findability.md
       "sourceRef": "config/sync/....yml", // where it came from, for drift and citation
@@ -60,7 +60,7 @@ another's path.
         "structuralRefs": 77,
         "tier": "high",
         "examples": [                    // verified, never claimed - see below
-          { "url": "https://www.ahrinet.org/certification",
+          { "url": "https://www.example.org/certification",
             "marker": "coh-ce-cpt_text-",
             "instancesOnPage": 3,
             "status": 200, "anonymous": true, "verifiedAt": "2026-09-01" }
@@ -105,12 +105,12 @@ variant counts sane. See `references/variant-policy.md`.
 
 ### `codeName` is how the library stays consistent with the code
 
-Every token records the identifier it has in the codebase, verbatim, alongside the name it
-will carry in Figma. It becomes the Figma variable's code syntax, which is what a developer
-sees in Dev Mode. `codeName` is **not always a Cascading Style Sheets custom property** - on
-a Site Studio site it is a generated class, on PNCB it is a Sass variable - and it is `null`
-when the codebase genuinely has no identifier for that value. Never invent a plausible one.
-Full rules in `references/tokens-and-variables.md`.
+Every token records the identifier it has in the codebase, verbatim, alongside the name it will
+carry in Figma. It becomes the Figma variable's code syntax, which is what a developer sees in
+Dev Mode. `codeName` is **not always a Cascading Style Sheets custom property** - on a Site
+Studio site it is a generated class, on a Paragraphs site it is a Sass variable - and it is
+`null` when the codebase genuinely has no identifier for that value. Never invent a plausible
+one. Full rules in `references/tokens-and-variables.md`.
 
 `scalesByBreakpoint: false` is meaningful. If type does not scale, the type collection
 gets ONE mode. Giving it breakpoint modes implies a responsive ramp that does not exist.
@@ -126,17 +126,17 @@ Every numeric value carries where it came from. Never silently mix.
 { "value": 24, "provenance": { "kind": "derived", "from": "pad/small" } }
 ```
 
-Configuration beats measurement for tokens. A single rendered instance conflates sources:
-on AHRI, a text component rendered 40px horizontal padding that looked like its padding
-field but was actually its colour scheme applying `padding-equal: $spacing-small`.
+Configuration beats measurement for tokens. A single rendered instance conflates sources: on
+one Site Studio site, a text component rendered 40px horizontal padding that looked like its
+padding field but was actually its colour scheme applying `padding-equal: $spacing-small`.
 Configuration separates what measurement blends together.
 
 ## Verified example addresses
 
-`usage.examples` records where a component was **observed rendering**, never where a
-document claims it renders. The distinction is not pedantic: the specification file shipped
-with the AHRI library listed live example paths of which two were behind login and at least
-one named a page the component was not on.
+`usage.examples` records where a component was **observed rendering**, never where a document
+claims it renders. The distinction is not pedantic: the specification file shipped with one
+Site Studio library listed live example paths of which two were behind login and at least one
+named a page the component was not on.
 
 Three conditions, all required:
 
@@ -147,8 +147,8 @@ Three conditions, all required:
 
 `scripts/find_examples.py` produces these by crawling the public site. A component with no
 anonymous example gets an empty list and a stated reason - that is a real finding about the
-site, and it is also the reason four of the fourteen built AHRI components could only be
-derived from tokens rather than measured.
+site, and it is also the reason four of the fourteen components built on that site could only
+be derived from tokens rather than measured.
 
 **Placement counts are a lower bound.** They cover only the pages scanned. Never present
 one as a site total unless the whole sitemap was walked, and record `pagesScanned` alongside

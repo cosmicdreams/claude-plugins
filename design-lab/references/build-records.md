@@ -94,7 +94,7 @@ The receipt also separates three things that were previously easy to conflate:
   "assertions": {
     "structure": { "verdict": "pass" },
     "bindings":  { "verdict": "pass", "unbound": [] },
-    "fidelity":  { "verdict": "pass", "against": "https://www.ahrinet.org/certification",
+    "fidelity":  { "verdict": "pass", "against": "https://www.example.org/certification",
                    "breakpoint": 1440,
                    "compared": [ { "property": "paddingTop", "figma": 32, "live": 32 } ] }
   },
@@ -131,9 +131,9 @@ recorded baseline. Record it even before that skill exists.
 
 A component that fails an assertion still gets a file, with the failing verdict. Deleting the
 record on failure loses the one piece of information worth keeping: that this component was
-attempted, and why it did not work. `verdict: "refuse"` from the planner gets a record as
-well — the twelve AHRI components above `maxVariants` should be visible as deliberate
-refusals rather than as absences.
+attempted, and why it did not work. `verdict: "refuse"` from the planner gets a record as well
+— the twelve components on Site Studio site A above `maxVariants` should be visible as
+deliberate refusals rather than as absences.
 
 ## Never guess a node identifier
 
