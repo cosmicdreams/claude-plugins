@@ -1,0 +1,21 @@
+name: Markdown wrap
+
+on:
+  pull_request:
+    paths:
+      - '**/*.md'
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check changed Markdown files for hard-wrapped prose
+        env:
+          BASE_REF: ${{ github.base_ref }}
+        run: |
+          git diff --name-only --diff-filter=ACMR "origin/$BASE_REF...HEAD" -- '*.md' > changed.txt
+          if [ ! -s changed.txt ]; then echo "No Markdown changes."; exit 0; fi
+          xargs -d '\n' python3 scripts/check_markdown_wrap.py < changed.txt
