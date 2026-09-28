@@ -19,3 +19,6 @@ dist/
 
 # NOTE: .beads/ must NOT be gitignored — Beads databases are committed to the repo
 # .beads/
+
+# Octopus session handoff notes
+.octo-continue.md

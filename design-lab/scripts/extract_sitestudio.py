@@ -6,10 +6,11 @@ single-quoted YAML scalar, so doubled single quotes must be unescaped before par
 No YAML library required, which keeps this runnable without a virtualenv.
 """
 import json, re, sys, os, glob, datetime
+from artifact_contracts import tool_version
 
 # references/library-standard.md section 10: every artifact states which edition it
 # was built to, or nobody can tell whether a library predates a rule.
-STANDARD_VERSION = '2.1.0'
+STANDARD_VERSION = '3.0.0'
 
 # Site Studio widget type -> model field kind. Source widget names never leak past here.
 KIND = {
@@ -122,7 +123,7 @@ def extract_component(path, root):
     if 'drop-zone' in canvas_blob:
         n = canvas_blob.count('"uid":"component-drop-zone"') or 1
         slots = [{'name': 'content' if n == 1 else 'content-%d' % (i + 1),
-                  'label': 'Component drop zone', 'accepts': 'any'} for i in range(n)]
+                  'label': 'Component drop zone', 'accepts': ['*']} for i in range(n)]
 
     return {
         'id': scalar(txt, 'id') or os.path.basename(path).split('.')[-2],
@@ -152,6 +153,7 @@ def extract(root, config_dir=None):
             problems.append(err)
     return {
         'standardVersion': STANDARD_VERSION,
+        'toolVersion': tool_version(),
         'generatedAt': datetime.datetime.now().replace(microsecond=0).isoformat(),
         'source': {'strategy': 'sitestudio', 'root': root, 'configDir': config_dir},
         'components': comps, 'problems': problems,

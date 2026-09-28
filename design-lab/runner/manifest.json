@@ -1,0 +1,14 @@
+{
+  "name": "design-lab runner",
+  "id": "design-lab-runner-local",
+  "api": "1.0.0",
+  "main": "code.js",
+  "editorType": ["figma"],
+  "documentAccess": "dynamic-page",
+  "enablePrivatePluginApi": true,
+  "networkAccess": {
+    "allowedDomains": ["none"],
+    "devAllowedDomains": ["http://localhost:8765"],
+    "reasoning": "Fetches build steps from figma_runner.py on this machine and posts results back."
+  }
+}

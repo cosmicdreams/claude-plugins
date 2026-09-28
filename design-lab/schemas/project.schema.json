@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/project.schema.json",
+  "title": "design-lab project manifest",
+  "type": "object",
+  "required": ["schemaVersion", "standardVersion", "pluginVersion", "repository", "decisions", "phases", "artifacts"],
+  "properties": {
+    "schemaVersion": {"const": 1},
+    "standardVersion": {"type": "string"},
+    "pluginVersion": {"type": "string"},
+    "repository": {
+      "type": "object",
+      "required": ["root", "commit", "dirty"],
+      "properties": {
+        "root": {"type": "string"},
+        "commit": {"type": ["string", "null"]},
+        "dirty": {"type": "boolean"}
+      }
+    },
+    "decisions": {"type": "object"},
+    "phases": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "status": {"type": "string"},
+          "detail": {"type": "object"}
+        },
+        "if": {
+          "required": ["status"],
+          "properties": {"status": {"const": "waived"}}
+        },
+        "then": {
+          "required": ["detail"],
+          "properties": {
+            "detail": {
+              "type": "object",
+              "required": ["reason", "by"],
+              "properties": {
+                "reason": {"type": "string", "minLength": 1},
+                "by": {"type": "string", "minLength": 1}
+              }
+            }
+          }
+        }
+      }
+    },
+    "artifacts": {"type": "object"}
+  },
+  "additionalProperties": true
+}

@@ -7,7 +7,7 @@ authoritative variable declarations are recoverable from the site repository alo
 no build toolchain, no running site, no measurement.
 
 Why this matters: the obvious probe, "does the theme define CSS custom properties",
-finds the wrong thing on such a theme. PNCB's active stylesheet declares 12 custom
+finds the wrong thing on such a theme. One site's active stylesheet declares 12 custom
 properties, while an *unloaded* scaffolding file carries 69 Catppuccin and Tailwind
 names. Recommending `css-custom-properties` there imports a palette the site never
 renders. The source map carries the 39 real ones.
@@ -15,10 +15,11 @@ renders. The source map carries the 39 real ones.
 Configuration beats measurement (references/model.md), and a source map is configuration.
 """
 import json, os, re, sys, glob, datetime, colorsys
+from artifact_contracts import tool_version
 
 # references/library-standard.md section 10: every artifact states which edition it
 # was built to, or nobody can tell whether a library predates a rule.
-STANDARD_VERSION = '2.1.0'
+STANDARD_VERSION = '3.0.0'
 
 SKIP = re.compile(r'/(node_modules|vendor|\.git)/')
 
@@ -83,8 +84,8 @@ def adjust_lightness(hexv, delta):
 
     Without this the theme's hover colours stay as the literal string
     `lighten(#526FDC, 10)` and land in the 'unknown' family, which reads as "this value
-    has no provenance" when in fact its provenance is exact. PNCB's `primary-hover`
-    #7c92e5 and `primary-link-hover` #a7b6ed are both recovered here.
+    has no provenance" when in fact its provenance is exact. One Paragraphs site's
+    `primary-hover` #7c92e5 and `primary-link-hover` #a7b6ed are both recovered here.
     """
     rgb = _hex_to_rgb(hexv)
     if rgb is None:
@@ -206,6 +207,7 @@ def extract(root, base_hint='base/'):
 
     return {
         'standardVersion': STANDARD_VERSION,
+        'toolVersion': tool_version(),
         'generatedAt': datetime.datetime.now().replace(microsecond=0).isoformat(),
         'source': {'strategy': 'sass-sourcemap', 'root': root,
                    'maps': [os.path.relpath(m, root) for m in maps]},

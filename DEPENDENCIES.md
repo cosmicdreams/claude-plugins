@@ -1,17 +1,15 @@
 # Dependencies
 
-External tools, runtimes, and credentials the plugins use. Not every plugin needs every
-tool. Find your plugins in the first table, then install only what they list.
+External tools, runtimes, and credentials the plugins use. Not every plugin needs every tool. Find your plugins in the first table, then install only what they list.
 
 ## By plugin
 
-"Optional" means the plugin still works without it: only the named feature is unavailable,
-or the plugin falls back to other behavior.
+"Optional" means the plugin still works without it: only the named feature is unavailable, or the plugin falls back to other behavior.
 
 | Plugin | Required | Optional |
 |--------|----------|----------|
 | admin | [python3](#python3) | [Beads](#bd-beads) (`scaffold`), [jq](#jq) (scaffold detection hook), [headroom](#headroom-and-rtk) |
-| design-lab | [python3](#python3), [Figma](#figma) | [node / npm](#node--npm) and [Playwright](#playwright) (`capture`) |
+| design-lab | [python3](#python3), [Figma](#figma) | [node / npm](#node--npm) and [Playwright](#playwright) (`capture`), [ddev](#ddev) (Drupal usage counts) |
 | drover | [python3](#python3), [Acquia credentials](#acli-acquia-command-line-tool) | [node / npm](#node--npm) (web-page reports), [Chrome or Chromium](#chrome-or-chromium) (Portable Document Format reports), [TypeSafe](#typesafe-api-key) |
 | drupal-lab | [python3](#python3), [ddev](#ddev), [jq](#jq) | [twg](#twg) (`sprint-start`, `release-cut`, `branch-audit`), [Beads](#bd-beads) (development-environment slot tracking), [Obsidian](#obsidian), [headroom and rtk](#headroom-and-rtk) |
 | ideas-funnel | [python3](#python3), [Obsidian](#obsidian) | [Beads](#bd-beads), [TypeSafe](#typesafe-api-key), [headroom](#headroom-and-rtk) |
@@ -59,8 +57,7 @@ or the plugin falls back to other behavior.
 
 ## bd (Beads)
 
-Kanban and issue-tracking database. Every sprint and retro board operation (`bd list`,
-`bd create`, `bd update`, and so on) depends on it.
+Kanban and issue-tracking database. Every sprint and retro board operation (`bd list`, `bd create`, `bd update`, and so on) depends on it.
 
 ```bash
 brew install beads
@@ -72,11 +69,9 @@ After installing, initialize the board in your project:
 bd init --prefix sprint
 ```
 
-Run `bd init` once per project; a second run errors if the board already exists. Use
-`bd create --prefix retro` for retro cards on the same database.
+Run `bd init` once per project; a second run errors if the board already exists. Use `bd create --prefix retro` for retro cards on the same database.
 
-**Used by:** sprint, retro; optionally admin (`scaffold`), drupal-lab (`ddev` slot
-tracking), ideas-funnel (`supervise`)
+**Used by:** sprint, retro; optionally admin (`scaffold`), drupal-lab (`ddev` slot tracking), ideas-funnel (`supervise`)
 
 ---
 
@@ -94,10 +89,7 @@ If missing or outdated:
 brew install python3
 ```
 
-**Used by:** admin (`bump-version`, `new-skill`), design-lab (all skills), drover (all
-skills), drupal-lab (`browse-drupal-issues`, `module-dev-starter`), ideas-funnel (`ingest`),
-ideate (`diagram`), lib (`log-analyzer`, `csv-analysis`), research-lab (notebook scripts),
-retro (`transcript`), test-lab (`ingest`), workshop (`sync`, `scout`, `prioritize`)
+**Used by:** admin (`bump-version`, `new-skill`), design-lab (all skills), drover (all skills), drupal-lab (`browse-drupal-issues`, `module-dev-starter`), ideas-funnel (`ingest`), ideate (`diagram`), lib (`log-analyzer`, `csv-analysis`), research-lab (notebook scripts), retro (`transcript`), test-lab (`ingest`), workshop (`sync`, `scout`, `prioritize`)
 
 ---
 
@@ -109,34 +101,27 @@ Processor for structured data on the command line.
 brew install jq
 ```
 
-**Used by:** drupal-lab (`ddev`), improve (`perf-measure`), lib (several skills), retro
-(`kanban`), sprint (`board`); optionally admin (scaffold detection hook)
+**Used by:** drupal-lab (`ddev`), improve (`perf-measure`), lib (several skills), retro (`kanban`), sprint (`board`); optionally admin (scaffold detection hook)
 
 ---
 
 ## node / npm
 
-Node.js runtime and package manager. Also needed to install `gws`, `agent-slack`,
-`lighthouse`, `pa11y`, and Playwright.
+Node.js runtime and package manager. Also needed to install `gws`, `agent-slack`, `lighthouse`, `pa11y`, and Playwright.
 
 ```bash
 brew install node
 ```
 
-Or use [nvm](https://github.com/nvm-sh/nvm) to manage Node versions. Drover's web-page
-renderer needs Node 20 or later.
+Or use [nvm](https://github.com/nvm-sh/nvm) to manage Node versions. Drover's web-page renderer needs Node 20 or later.
 
-**Used by:** design-lab (`capture`), drover (web-page and Portable Document Format reports),
-ideate (`brainstorm` canvas), improve (`accessibility-scan`), test-lab (running generated
-suites); indirectly lib and workshop through the tools above
+**Used by:** design-lab (`capture`), drover (web-page and Portable Document Format reports), ideate (`brainstorm` canvas), improve (`accessibility-scan`), test-lab (running generated suites); indirectly lib and workshop through the tools above
 
 ---
 
 ## ddev
 
-Docker-based PHP and Drupal development environment. Required for every drupal-lab skill
-that runs phpcs, phpstan, phpunit, drush, or composer inside containers. Needs Docker
-Desktop or another Docker runtime.
+Docker-based PHP and Drupal development environment. Required for every drupal-lab skill that runs phpcs, phpstan, phpunit, drush, or composer inside containers. Needs Docker Desktop or another Docker runtime.
 
 Install through the [official DDEV documentation](https://ddev.readthedocs.io/en/stable/users/install/ddev-installation/):
 
@@ -144,20 +129,15 @@ Install through the [official DDEV documentation](https://ddev.readthedocs.io/en
 brew install ddev/ddev/ddev
 ```
 
-Drover does not need `ddev` installed; `drover:init` only reads a project's
-`.ddev/config.yaml` when one exists.
+Drover does not need `ddev` installed; `drover:init` only reads a project's `.ddev/config.yaml` when one exists.
 
-**Used by:** drupal-lab (all development and validation skills), lib (`ddev`); optionally
-sprint (Drupal work)
+**Used by:** drupal-lab (all development and validation skills), lib (`ddev`); optionally sprint (Drupal work)
 
 ---
 
 ## acli (Acquia command-line tool)
 
-Acquia Cloud Platform command-line tool. Drover calls the Acquia Cloud interface directly
-with Python, but reads its credentials from `~/.acquia/cloud_api.conf`, which
-`acli auth:login` creates. `lib:log-analyzer` uses `acli` to fetch logs from
-Acquia-hosted environments, or `logstream` when that is installed instead.
+Acquia Cloud Platform command-line tool. Drover calls the Acquia Cloud interface directly with Python, but reads its credentials from `~/.acquia/cloud_api.conf`, which `acli auth:login` creates. `lib:log-analyzer` uses `acli` to fetch logs from Acquia-hosted environments, or `logstream` when that is installed instead.
 
 ```bash
 curl -OL https://github.com/acquia/cli/releases/latest/download/acli.phar
@@ -179,34 +159,28 @@ brew install gh
 gh auth login
 ```
 
-**Used by:** lib (`github`, `babysit-pr`, `leave-pr-comment`, `upload-to-pr` — the last needs gh 2.99.0 or
-newer for `--attach`); optionally workshop (GitHub integration in `config`)
+**Used by:** lib (`github`, `babysit-pr`, `leave-pr-comment`, `upload-to-pr` — the last needs gh 2.99.0 or newer for `--attach`); optionally workshop (GitHub integration in `config`)
 
 ---
 
 ## twg
 
-Atlassian's official Teamwork Graph command-line tool: Jira, Confluence, Bitbucket, and
-Rovo search. Replaces jira-cli.
+Atlassian's official Teamwork Graph command-line tool: Jira, Confluence, Bitbucket, and Rovo search. Replaces jira-cli.
 
 ```bash
 curl -fsSL --retry 2 https://teamwork-graph.atlassian.com/cli/install | bash
 twg login
 ```
 
-`twg login` signs in through the browser and covers every site in your Atlassian
-organization. A site owned by another organization needs token sign-in; see
-`workshop:config`. Enriched and Rovo commands can spend Rovo credits; plain Jira reads do not.
+`twg login` signs in through the browser and covers every site in your Atlassian organization. A site owned by another organization needs token sign-in; see `workshop:config`. Enriched and Rovo commands can spend Rovo credits; plain Jira reads do not.
 
-**Used by:** lib (`jira`), workshop (`prioritize`, `config`), drupal-lab (`sprint-start`,
-`release-cut`, `branch-audit`)
+**Used by:** lib (`jira`), workshop (`prioritize`, `config`), drupal-lab (`sprint-start`, `release-cut`, `branch-audit`)
 
 ---
 
 ## agent-slack
 
-Slack command-line tool for reading channels and searching messages. Read-only; it does
-not send or post.
+Slack command-line tool for reading channels and searching messages. Read-only; it does not send or post.
 
 ```bash
 npm i -g agent-slack
@@ -228,8 +202,7 @@ npm i -g @googleworkspace/cli
 gws auth setup
 ```
 
-Follow the setup prompts to connect a Google account. Requires a Google Cloud project
-with the Gmail and Calendar interfaces enabled.
+Follow the setup prompts to connect a Google account. Requires a Google Cloud project with the Gmail and Calendar interfaces enabled.
 
 **Used by:** workshop (`personal-email`, `personal-calendar`, `prioritize`)
 
@@ -237,11 +210,9 @@ with the Gmail and Calendar interfaces enabled.
 
 ## op (1Password command-line tool)
 
-Used by `lib:testrail` to read the TestRail key from 1Password. Falls back to macOS
-Keychain, then the `TESTRAIL_API_KEY` environment variable.
+Used by `lib:testrail` to read the TestRail key from 1Password. Falls back to macOS Keychain, then the `TESTRAIL_API_KEY` environment variable.
 
-Install through the [1Password desktop app](https://developer.1password.com/docs/cli/get-started/)
-→ Settings → Developer → Integrate with 1Password command-line tool.
+Install through the [1Password desktop app](https://developer.1password.com/docs/cli/get-started/) → Settings → Developer → Integrate with 1Password command-line tool.
 
 ```bash
 op signin
@@ -253,9 +224,7 @@ op signin
 
 ## Obsidian
 
-Skills that archive output write into an Obsidian vault. Most write files straight into
-the vault folder; `lib:vault-store` and `drupal-lab:issue-summary` also call the
-`obsidian` command-line tool.
+Skills that archive output write into an Obsidian vault. Most write files straight into the vault folder; `lib:vault-store` and `drupal-lab:issue-summary` also call the `obsidian` command-line tool.
 
 1. Install the [Obsidian](https://obsidian.md) desktop app and open your vault at least once.
 2. In Obsidian, install and enable the **Local REST API** community plugin.
@@ -266,28 +235,21 @@ npm i -g @obsidian-tools/obsidian-cli
 obsidian help   # verify
 ```
 
-**Vault configuration:** skills default to a vault named `Neurons` at `~/Vaults/Neurons`.
-Override with the `OBSIDIAN_VAULT_NAME` environment variable.
+**Vault configuration:** skills default to a vault named `Neurons` at `~/Vaults/Neurons`. Override with the `OBSIDIAN_VAULT_NAME` environment variable.
 
-**Used by:** ideas-funnel (all skills), lib (`archive`, `vault-store`, `vault-search`,
-`wiki-query`), workshop (`organize`, `obsidian-lint`); optionally sprint
-(`project-notes`), retro (`session`), ideate (archiving), drupal-lab (`analyze-issue`,
-`issue-summary`), research-lab (`gather`, `understand`, `synthesize`, `teach`)
+**Used by:** ideas-funnel (all skills), lib (`archive`, `vault-store`, `vault-search`, `wiki-query`), workshop (`organize`, `obsidian-lint`); optionally sprint (`project-notes`), retro (`session`), ideate (archiving), drupal-lab (`analyze-issue`, `issue-summary`), research-lab (`gather`, `understand`, `synthesize`, `teach`)
 
 ---
 
 ## Figma
 
-design-lab builds component libraries through Figma's Model Context Protocol server and
-its `figma-use` and `figma-generate-library` skills, which must load before any Figma
-write.
+design-lab builds component libraries through Figma's Model Context Protocol server and its `figma-use` and `figma-generate-library` skills, which must load before any Figma write.
 
 ```bash
 claude plugin install figma@claude-plugins-official
 ```
 
-Sign in to Figma when the plugin first asks. Connecting Figma under claude.ai connector
-settings also provides the server, but not the skills.
+Sign in to Figma when the plugin first asks. Connecting Figma under claude.ai connector settings also provides the server, but not the skills.
 
 **Used by:** design-lab (`figma-foundation`, `figma-component`, `figma-index`, `verify`)
 
@@ -295,8 +257,7 @@ settings also provides the server, but not the skills.
 
 ## Playwright
 
-Browser automation. The plugins ship no browser binary; install Playwright and Chromium
-in the project that needs them.
+Browser automation. The plugins ship no browser binary; install Playwright and Chromium in the project that needs them.
 
 ```bash
 npm i -D playwright
@@ -309,10 +270,7 @@ npx playwright install chromium
 
 ## Chrome or Chromium
 
-Drover renders Portable Document Format reports with a local Chrome or Chromium. Point
-`DROVER_PDF_BROWSER` at the browser binary if it is not found automatically.
-`improve:accessibility-scan` drives Chrome through Puppeteer, which can download its own
-Chromium.
+Drover renders Portable Document Format reports with a local Chrome or Chromium. Point `DROVER_PDF_BROWSER` at the browser binary if it is not found automatically. `improve:accessibility-scan` drives Chrome through Puppeteer, which can download its own Chromium.
 
 **Used by:** optionally drover (`report`), improve (`accessibility-scan`)
 
@@ -334,8 +292,7 @@ nlm login
 
 ## ffmpeg
 
-Audio and video processing. Used by `lib:ffmpeg` for compression, format conversion, and
-media inspection.
+Audio and video processing. Used by `lib:ffmpeg` for compression, format conversion, and media inspection.
 
 ```bash
 brew install ffmpeg
@@ -347,8 +304,7 @@ brew install ffmpeg
 
 ## lighthouse
 
-Web performance and accessibility auditing tool. Produces structured scores consumed by
-`improve` experiments.
+Web performance and accessibility auditing tool. Produces structured scores consumed by `improve` experiments.
 
 ```bash
 npm i -g lighthouse
@@ -372,8 +328,7 @@ npm i -g pa11y
 
 ## hyperfine
 
-Command-line benchmarking tool. Produces structured timing results for
-`improve:perf-measure` experiments.
+Command-line benchmarking tool. Produces structured timing results for `improve:perf-measure` experiments.
 
 ```bash
 brew install hyperfine
@@ -385,8 +340,7 @@ brew install hyperfine
 
 ## Bun and image tools
 
-`lib:image-optimize` needs Bun 1.3.14 or later; its built-in image support covers resizing,
-rotation, metadata stripping, and encoding to the common web formats.
+`lib:image-optimize` needs Bun 1.3.14 or later; its built-in image support covers resizing, rotation, metadata stripping, and encoding to the common web formats.
 
 ```bash
 brew install oven-sh/bun/bun
@@ -417,9 +371,7 @@ pip install pandas matplotlib seaborn
 
 ## TestRail credentials
 
-No package. `lib:testrail` needs the TestRail host, user, and key. It reads the key from
-1Password ([op](#op-1password-command-line-tool)), then macOS Keychain, then the
-`TESTRAIL_API_KEY` environment variable.
+No package. `lib:testrail` needs the TestRail host, user, and key. It reads the key from 1Password ([op](#op-1password-command-line-tool)), then macOS Keychain, then the `TESTRAIL_API_KEY` environment variable.
 
 **Used by:** lib (`testrail`); optionally test-lab (`ingest`, when TestRail is the source)
 
@@ -440,23 +392,16 @@ export CF_ZONE_ID=...
 
 ## TypeSafe API key
 
-Optional. [TypeSafe](https://docs.typesafe.ai)'s Jev model returns typed judgments (a
-choice, a yes-or-no probability, a score) that several skills use as an added layer:
-test-case triage, raw-item ranking and duplicate matching, scout relevance, prioritize
-action classification, and drover's severity, cause-merging, and ticket-worthiness calls.
-Nothing to install; each plugin ships its own Python client (`scripts/jev_client.py`).
+Optional. [TypeSafe](https://docs.typesafe.ai)'s Jev model returns typed judgments (a choice, a yes-or-no probability, a score) that several skills use as an added layer: test-case triage, raw-item ranking and duplicate matching, scout relevance, prioritize action classification, and drover's severity, cause-merging, and ticket-worthiness calls. Nothing to install; each plugin ships its own Python client (`scripts/jev_client.py`).
 
 ```bash
 export TYPESAFE_API_KEY=...     # from console.typesafe.ai; put it in ~/.zshrc
 export JEV_DISABLED=1           # opt out without removing the key
 ```
 
-Everything works without the key: every skill falls back to its previous behavior and
-records each verdict's source as `fallback` with a reason. Calls cost fractions of a cent
-and accept text only.
+Everything works without the key: every skill falls back to its previous behavior and records each verdict's source as `fallback` with a reason. Calls cost fractions of a cent and accept text only.
 
-**Used by:** drover (`report`), ideas-funnel (`ingest`), test-lab (`ingest`), workshop
-(`scout`, `prioritize`)
+**Used by:** drover (`report`), ideas-funnel (`ingest`), test-lab (`ingest`), workshop (`scout`, `prioritize`)
 
 ---
 
@@ -464,8 +409,7 @@ and accept text only.
 
 Optional output compressors. Skills use them when present and skip them otherwise.
 
-`headroom` compresses large artifacts such as logs, fetched articles, and session
-transcripts:
+`headroom` compresses large artifacts such as logs, fetched articles, and session transcripts:
 
 ```bash
 pip install "headroom-ai[all]"
@@ -473,8 +417,6 @@ pip install "headroom-ai[all]"
 npm install -g headroom-ai
 ```
 
-`rtk` shortens verbose command output. Several unrelated projects share the name; install
-the "Rust Token Killer" and check with `rtk gain`.
+`rtk` shortens verbose command output. Several unrelated projects share the name; install the "Rust Token Killer" and check with `rtk gain`.
 
-**Used by:** optionally admin, drupal-lab (`ddev`), ideas-funnel (`ingest`), improve
-(`lint`), research-lab (`gather`), retro (`session`)
+**Used by:** optionally admin, drupal-lab (`ddev`), ideas-funnel (`ingest`), improve (`lint`), research-lab (`gather`), retro (`session`)

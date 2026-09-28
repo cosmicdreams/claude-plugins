@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/index.schema.json",
+  "title": "design-lab component index receipt",
+  "type": "object",
+  "required": ["standardVersion", "generatedAt", "totals", "rows", "notBuilt", "problems"],
+  "properties": {
+    "standardVersion": {"type": "string"},
+    "generatedAt": {"type": "string"},
+    "totals": {"type": "object", "required": ["components"]},
+    "rows": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "placements", "built", "type", "status", "componentLinkTarget", "documentationLinkTarget"],
+        "properties": {
+          "componentLinkTarget": {"type": ["string", "null"]},
+          "documentationLinkTarget": {"type": ["string", "null"]}
+        },
+        "additionalProperties": true
+      }
+    },
+    "notBuilt": {"type": "array"},
+    "problems": {"type": "array"}
+  },
+  "additionalProperties": true
+}

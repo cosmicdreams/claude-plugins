@@ -50,6 +50,8 @@ const VIEWPORTS = (arg('--viewports', 'Desktop:1400x1200,Tablet:800x1200,Mobile:
 
 const only = arg('--only', null);
 const wanted = only ? only.split(',').map((s) => s.trim()).filter(Boolean) : null;
+const onlyIds = arg('--only-ids', null);
+const wantedIds = onlyIds ? onlyIds.split(',').map((s) => s.trim()).filter(Boolean) : null;
 
 mkdirSync(OUT, { recursive: true });
 
@@ -62,7 +64,8 @@ const configs = readdirSync(CONFIG_DIR)
   .filter(({ cfg, error }) => {
     if (error) return true;
     const m = cfg.machineName ?? basename(cfg.component ?? '', '.json');
-    return !wanted || wanted.includes(m);
+    return (!wanted || wanted.includes(m)) &&
+      (!wantedIds || wantedIds.includes(cfg.componentId ?? m));
   });
 
 if (!configs.length) {
@@ -84,7 +87,11 @@ async function pickRoot(page, selector, pick) {
   return el && (await el.boundingBox()) ? el : null;
 }
 
-const browser = await chromium.launch();
+/* CI worktrees and locked-down client machines frequently have a system browser but no
+   Playwright-managed Chromium download. Keep the default for ordinary projects while
+   allowing an explicit, reproducible browser executable when needed. */
+const executablePath = process.env.DESIGN_LAB_BROWSER_EXECUTABLE;
+const browser = await chromium.launch(executablePath ? { executablePath } : {});
 const report = [];
 
 for (const { file, cfg, error } of configs) {
@@ -100,10 +107,21 @@ for (const { file, cfg, error } of configs) {
     });
     const page = await ctx.newPage();
     try {
-      await page.goto(cfg.url, { waitUntil: 'load', timeout: TIMEOUT });
+      const verificationUrl = cfg.verificationUrl ?? cfg.url;
+      if (!verificationUrl) throw new Error('config has no verificationUrl');
+      await page.goto(verificationUrl, { waitUntil: 'load', timeout: TIMEOUT });
       /* Some pages hold a connection open, so networkidle never fires. Wait for fonts
          and settle instead — the same compromise measure.mjs makes. */
       await page.evaluate(() => document.fonts.ready);
+      /* Lazy images load only near the viewport, and a measurement taken before they decode
+         records the placeholder address and zero natural size — a different tree on every run.
+         Make every image eager and wait until each has decoded (or failed) before measuring. */
+      await page.evaluate(async () => {
+        for (const img of document.images) { img.loading = 'eager'; img.decoding = 'sync'; }
+        await Promise.all([...document.images].map((img) => (img.complete && img.naturalWidth)
+          ? null
+          : new Promise((done) => { img.addEventListener('load', done, { once: true }); img.addEventListener('error', done, { once: true }); setTimeout(done, 15000); })));
+      });
       await page.waitForTimeout(600);
 
       for (const state of cfg.states ?? [{ name: 'default' }]) {
@@ -124,7 +142,9 @@ for (const { file, cfg, error } of configs) {
         const box = await el.boundingBox();
         const name = `${machine}__${vp.name.toLowerCase()}${suffix}.png`;
         await el.screenshot({ path: resolve(OUT, name), timeout: 30000 });
-        report.push({ machine, viewport: vp.name, state: state.name, file: name,
+        report.push({ componentId: cfg.componentId ?? machine, machine, path: cfg.path,
+                      verificationUrl, linkUrl: cfg.linkUrl, selector: cfg.rootSelector,
+                      viewport: vp.name, state: state.name, file: name,
                       width: Math.round(box.width), height: Math.round(box.height) });
         if (state.teardown) await page.evaluate(state.teardown);
       }

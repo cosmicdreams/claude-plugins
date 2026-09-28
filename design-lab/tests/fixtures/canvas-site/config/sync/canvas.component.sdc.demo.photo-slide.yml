@@ -1,0 +1,23 @@
+langcode: en
+status: true
+active_version: 0123456789abcdef
+versioned_properties:
+  active:
+    settings:
+      prop_field_definitions:
+        fit:
+          required: false
+          field_type: list_string
+          field_widget: options_select
+          default_value:
+            -
+              value: cover
+        image:
+          required: true
+          field_type: entity_reference
+          field_widget: media_library_widget
+          default_value: {  }
+label: 'Photo slide'
+id: sdc.demo.photo-slide
+source: sdc
+source_local_id: 'demo:photo-slide'

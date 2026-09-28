@@ -1,0 +1,31 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/components.schema.json",
+  "title": "design-lab component inventory",
+  "type": "object",
+  "required": ["standardVersion", "toolVersion", "generatedAt", "source", "components"],
+  "properties": {
+    "standardVersion": {"type": "string"},
+    "toolVersion": {"type": "string"},
+    "generatedAt": {"type": "string"},
+    "source": {"type": "object", "required": ["strategy", "root"]},
+    "components": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "label", "sourceRef", "fields", "slots", "defects"],
+        "properties": {
+          "id": {"type": "string", "minLength": 1},
+          "machineName": {"type": "string"},
+          "label": {"type": "string"},
+          "sourceRef": {"type": "string"},
+          "fields": {"type": "array"},
+          "slots": {"type": "array"},
+          "defects": {"type": "array"}
+        },
+        "additionalProperties": true
+      }
+    }
+  },
+  "additionalProperties": true
+}

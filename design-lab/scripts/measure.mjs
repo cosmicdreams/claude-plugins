@@ -13,9 +13,18 @@
  * Usage:
  *   node extract.mjs --config components/<name>.json [--out ../../reports/figma-spec]
  */
-import { chromium } from 'playwright';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+
+let chromium;
+try {
+  const { createRequire } = await import('node:module');
+  const req = createRequire(resolve(process.cwd(), 'noop.mjs'));
+  ({ chromium } = req('playwright'));
+} catch {
+  console.error('playwright is not resolvable from this directory');
+  process.exit(2);
+}
 
 const arg = (flag, fallback) => {
   const i = process.argv.indexOf(flag);
@@ -52,7 +61,7 @@ const PROPS = [
   'borderTopLeftRadius', 'borderTopRightRadius',
   'borderBottomLeftRadius', 'borderBottomRightRadius',
   'boxShadow', 'opacity', 'transform', 'transition', 'zIndex',
-  'listStyleType', 'objectFit', 'aspectRatio', 'visibility',
+  'listStyleType', 'objectFit', 'aspectRatio', 'visibility', 'clip', 'clipPath', 'whiteSpace',
 ];
 
 /* Runs inside the page. Walks the component subtree and records every node. */
@@ -187,8 +196,26 @@ function walk(rootSelector, propList, pick_) {
       declared: declaredFor(el),
       before: pseudo(el, '::before'),
       after: pseudo(el, '::after'),
+      /* An inline SVG is imported whole as vectors, so its markup is the measurement. */
+      /* The browser's own answer to "can a sighted visitor see this?": false inside a closed
+         <details>, under content-visibility, display:none, visibility:hidden or opacity 0. */
+      rendered: typeof el.checkVisibility === 'function'
+        ? el.checkVisibility({ contentVisibilityAuto: true, opacityProperty: true, visibilityProperty: true })
+        : null,
+      svg: el.tagName.toLowerCase() === 'svg' ? el.outerHTML : null,
+      /* The file the browser actually chose from srcset, so the Figma fill is the same image. */
+      image: el.tagName.toLowerCase() === 'img'
+        ? { src: el.currentSrc || el.src, naturalWidth: el.naturalWidth, naturalHeight: el.naturalHeight }
+        : null,
+      /* Text interleaved with element children (a link inside a sentence) cannot be split
+         into sibling text layers without losing the sentence, so the whole run is kept. */
+      inlineText: [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && n.textContent.trim())
+        && [...el.children].length > 0
+        ? el.innerText.trim()
+        : null,
     });
 
+    if (el.tagName.toLowerCase() === 'svg') return;
     for (const child of el.children) visit(child, path);
   };
   visit(root, '');
@@ -199,12 +226,15 @@ function walk(rootSelector, propList, pick_) {
   };
 }
 
-const browser = await chromium.launch();
+const executablePath = process.env.DESIGN_LAB_BROWSER_EXECUTABLE;
+const browser = await chromium.launch(executablePath ? { executablePath } : {});
 const spec = {
   component: config.component,
   machineName: config.machineName ?? null,
   source: config.source ?? null,
-  url: config.url,
+  path: config.path,
+  verificationUrl: config.verificationUrl ?? config.url,
+  linkUrl: config.linkUrl,
   rootSelector: config.rootSelector,
   extractedAt: new Date().toISOString(),
   measurements: {},
@@ -217,10 +247,21 @@ for (const vp of VIEWPORTS) {
     deviceScaleFactor: 2,
   });
   const page = await context.newPage();
-  await page.goto(config.url, { waitUntil: 'load', timeout: 60000 });
+  const verificationUrl = config.verificationUrl ?? config.url;
+  if (!verificationUrl) throw new Error('config has no verificationUrl');
+  await page.goto(verificationUrl, { waitUntil: 'load', timeout: 60000 });
   /* Some pages hold a long-lived connection open, so networkidle never fires.
      Wait for fonts and a short settle instead. */
   await page.evaluate(() => document.fonts.ready);
+  /* Lazy images load only near the viewport, and a measurement taken before they decode
+     records the placeholder address and zero natural size — a different tree on every run.
+     Make every image eager and wait until each has decoded (or failed) before measuring. */
+  await page.evaluate(async () => {
+    for (const img of document.images) { img.loading = 'eager'; img.decoding = 'sync'; }
+    await Promise.all([...document.images].map((img) => (img.complete && img.naturalWidth)
+      ? null
+      : new Promise((done) => { img.addEventListener('load', done, { once: true }); img.addEventListener('error', done, { once: true }); setTimeout(done, 15000); })));
+  });
   await page.waitForTimeout(600);
 
   for (const state of config.states ?? [{ name: 'default' }]) {

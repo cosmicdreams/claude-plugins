@@ -1,0 +1,16 @@
+langcode: en
+status: true
+active_version: fedcba9876543210
+versioned_properties:
+  active:
+    settings:
+      prop_field_definitions:
+        heading:
+          required: true
+          field_type: string
+          field_widget: string_textfield
+          default_value: {  }
+label: 'Program showcase'
+id: sdc.demo.program-showcase
+source: sdc
+source_local_id: 'demo:program-showcase'

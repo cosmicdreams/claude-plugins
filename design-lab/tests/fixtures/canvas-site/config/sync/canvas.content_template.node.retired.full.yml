@@ -1,0 +1,10 @@
+langcode: en
+status: false
+id: node.retired.full
+content_entity_type_id: node
+content_entity_type_bundle: retired
+content_entity_type_view_mode: full
+component_tree:
+  '0:33333333-3333-4333-8333-333333333333':
+    uuid: 33333333-3333-4333-8333-333333333333
+    component_id: sdc.demo.photo-slide

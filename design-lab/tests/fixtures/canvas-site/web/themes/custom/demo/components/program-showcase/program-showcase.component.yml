@@ -1,0 +1,12 @@
+name: Program showcase
+description: The full page layout of one program.
+group: Layout
+props:
+  type: object
+  properties:
+    heading:
+      type: string
+      title: Heading
+slots:
+  body:
+    title: Body
