@@ -39,16 +39,17 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/verify.py \
 ```
 
 Pass every available evidence input. Deterministic Sass render evidence is enough to block a
-component that consumes tokens but binds nothing; captures add reverse/per-property fidelity.
-A skipped check reports `not checked`; it never passes.
-Always save the report. Exit status 1 means the handoff remains gated.
+component that consumes tokens but binds nothing; captures add reverse/per-property fidelity. A
+skipped check reports `not checked`; it never passes. Always save the report. Exit status 1
+means the handoff remains gated.
 
 For each open finding:
 
 - fix mechanical drift and rerun the affected assertion;
 - when no code identifier genuinely exists, explain that exact absence on the variable;
 - reclassify a source entity as not built when evidence cannot support a trustworthy asset;
-- ask before waiving a non-visual finding, recording check, narrow scope, reason, decider, and date.
+- ask before waiving a non-visual finding, recording check, narrow scope, reason, decider, and
+  date.
 
 After fixes, recapture affected Figma state and rerun the full gate. Record report hash,
 coverage, severity counts, unavailable checks, and target file in the project manifest. Do not

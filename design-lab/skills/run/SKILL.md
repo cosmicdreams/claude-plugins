@@ -72,10 +72,9 @@ that source entity `Not built — no visual evidence`; it never authorizes a spe
 Review `plan.json` flags, refusals, variant arithmetic, `variable-plan.json` warnings, and
 `render-evidence.json`. The rendering artifact resolves each Drupal bundle to concrete Twig,
 SDC, stylesheet, root-class, and field-reference evidence; inspect those bounded paths for
-visual judgment instead of launching broad repository-search agents.
-Approval is required before the first external Figma mutation, but an explicit user request to
-build the whole library supplies that authority when the plan remains within their scope.
-Record who approved:
+visual judgment instead of launching broad repository-search agents. Approval is required
+before the first external Figma mutation, but an explicit user request to build the whole
+library supplies that authority when the plan remains within their scope. Record who approved:
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py approve \
@@ -133,6 +132,6 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py status --project <artifact-dir
 
 Do not call the library complete unless the manifest identifies the target Figma file, every
 in-scope visual component has a passing build record backed by capture evidence or an accurate
-not-built classification, and the saved whole-file
-verification report has no unwaived blocker or major finding. Hand off the Figma link, coverage
-counts, verification counts, unavailable evidence, and artifact directory.
+not-built classification, and the saved whole-file verification report has no unwaived blocker
+or major finding. Hand off the Figma link, coverage counts, verification counts, unavailable
+evidence, and artifact directory.

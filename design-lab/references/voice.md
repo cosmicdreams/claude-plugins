@@ -1,9 +1,6 @@
 # Published voice report
 
-Run `scripts/extract_voice.py --project W --base-url URL` to write `W/voice.json`.
-The script reads the public homepage and up to 400 published page aliases from the running site.
-Only successful pages enter copy statistics; failed addresses are listed in `corpus`.
-`generatedAt` is the extraction time. All other analysis is deterministic for the same pages.
+Run `scripts/extract_voice.py --project W --base-url URL` to write `W/voice.json`. The script reads the public homepage and up to 400 published page aliases from the running site. Only successful pages enter copy statistics; failed addresses are listed in `corpus`. `generatedAt` is the extraction time. All other analysis is deterministic for the same pages.
 
 - **Corpus** counts fetched pages, failed addresses, sentences, words, and link or button labels in main content.
 - **Evidence** gives the measured value, numerator, denominator, and a short qualification for six headline statistics.

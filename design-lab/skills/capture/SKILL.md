@@ -58,11 +58,12 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/measure.mjs --config components/faq.json --ou
 node ${CLAUDE_PLUGIN_ROOT}/scripts/capture.mjs --configs components/ --out shots/
 ```
 
-Use `anchorText`, `mustContain`, or `nth` when selectors collide. Both scripts ignore zero-height
-matches before disambiguation. Capture the default state at desktop, tablet, and mobile for every
-component. Capture additional states that materially change appearance or behavior at the same
-three widths. A component with no reachable selector is ineligible to be built; record
-`Not built — no visual evidence` and never substitute another component's capture.
+Use `anchorText`, `mustContain`, or `nth` when selectors collide. Both scripts ignore
+zero-height matches before disambiguation. Capture the default state at desktop, tablet, and
+mobile for every component. Capture additional states that materially change appearance or
+behavior at the same three widths. A component with no reachable selector is ineligible to be
+built; record `Not built — no visual evidence` and never substitute another component's
+capture.
 
 Verify that captures are non-empty and unique, states agree between measurement and screenshot,
 and all breakpoint images use their real dimensions. Register `capture-evidence.json` before

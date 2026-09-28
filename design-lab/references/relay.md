@@ -10,8 +10,8 @@ costs no tokens and cannot be corrupted in transit.
    `design-lab/runner/manifest.json` (see Installing the runner below).
 2. `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_runner.py serve --project <W> [--project <W2> ...]`
    (one server serves every workspace; each is matched by the file key in its state, and two
-   workspaces naming the same file are refused). It prints a `runner token:` line; the token
-   is new every time the server starts.
+   workspaces naming the same file are refused). It prints a `runner token:` line; the token is
+   new every time the server starts.
 3. Open the build's file in Figma desktop → Plugins → Development → design-lab runner. The
    first time, and after every server restart, the plugin asks for the token; paste the one
    the server printed. The server answers only requests carrying it, and only from a plugin's
@@ -62,8 +62,9 @@ Rules:
   arguments, a checksum over them, then the template code. `altered in transit` means a
   character changed on the way — read the file again and resend. `next` refuses to run if the
   templates changed since `init`; stop and report.
-- **Never record a failed step.** `record` refuses a result without the identifiers the next steps
-  need. Report the error verbatim and stop; the build resumes from the same step next time.
+- **Never record a failed step.** `record` refuses a result without the identifiers the next
+  steps need. Report the error verbatim and stop; the build resumes from the same step next
+  time.
 - **Make no design decisions.** If something looks wrong, report it. The fix belongs in the
   templates or the layout rules, where it fixes every future run, not in this file by hand.
 - Load the official Figma-use skill before the first `use_figma` call.
