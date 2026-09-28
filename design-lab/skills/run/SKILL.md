@@ -24,6 +24,8 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py init \
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py detect --project <artifact-directory>
 ```
 
+Pass `--site-label`, `--site-url`, `--operator` and `--model` to `init` and follow `references/benchmark.md`: every run ends with the benchmark.
+
 Read `detection.json`. Reconcile prior art unless the user explicitly requested an independent scratch build; in that case keep comparison artifacts hidden until the build is frozen.
 
 The detector recommends an authoring vocabulary over a lower-level rendering vocabulary. Use the recommendation when repository evidence agrees. Ask one narrow question only when two choices would materially change the inventory. Persist any override:
@@ -102,4 +104,17 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py validate --project <artifact-d
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py status --project <artifact-directory>
 ```
 
-Do not call the library complete unless the manifest identifies the target Figma file, every in-scope visual component has a passing build record backed by capture evidence or an accurate not-built classification, and the saved whole-file verification report has no unwaived blocker or major finding. Hand off the Figma link, coverage counts, verification counts, unavailable evidence, and artifact directory.
+Do not call the library complete unless the manifest identifies the target Figma file, every in-scope visual component has a passing build record backed by capture evidence or an accurate not-built classification, and the saved whole-file verification report has no unwaived blocker or major finding.
+
+## Benchmark and reply
+
+The last step scores the run you just made (`design-lab:evaluate`). Record schema churn first, then time the benchmark as its own step so library production and benchmarking stay separate in time and tokens:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py identity --project <artifact-directory> --no-schema-change   # or --schema-change "<what>"
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py record --project <artifact-directory> --phase benchmark --status running
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/score_run.py <artifact-directory> --session current
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py record --project <artifact-directory> --phase benchmark --status complete
+```
+
+This writes `benchmark/report.html`, `benchmark/scorecard.json` and `benchmark/completion.md` inside the artifact directory. Reply to the user with the contents of `completion.md` exactly: the fixed template in `references/completion-message.md` filled with this run's values. It gives the Figma link, the coverage line, headline accuracy, time and tokens by model for producing the library and for the benchmark, the report as a clickable link labelled as the developer audit, what was not measured, and where the known gaps are listed. Do not paraphrase it or add numbers of your own.

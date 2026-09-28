@@ -34,8 +34,9 @@ sys.path.insert(0, str(HERE))
 import render_payload  # noqa: E402
 import spec_to_tree  # noqa: E402
 import responsive  # noqa: E402
+import library_counts  # noqa: E402  the one source of every count on Cover and Getting Started
 
-STANDARD_VERSION = "4.0.0"
+STANDARD_VERSION = "4.1.0"
 TIERS = ["High Use", "Medium Use", "Low Use", "Structural Only", "Retirement Candidates"]
 TIER_PAGES = [f"Components — {t}" for t in TIERS]
 FOUNDATION_ORDER = ["Color", "Typography", "Spacing & Layout", "Elevation & Shape"]
@@ -57,7 +58,7 @@ def load(project: Path, name: str, default=None):
 
 
 def short_tier(tier: str | None) -> str:
-    return (tier or "").replace("Components — ", "") or "Untiered"
+    return library_counts.short_tier(tier)
 
 
 def components(project: Path) -> list[dict]:
@@ -102,12 +103,11 @@ def git_commit(repo: Path) -> str:
 
 
 def placements(c: dict) -> int:
-    return int((c.get("usage") or {}).get("placements") or 0)
+    return library_counts.placements(c)
 
 
 def structural(c: dict) -> int:
-    u = c.get("usage") or {}
-    return int(u.get("structuralReferences") or u.get("structuralRefs") or 0)
+    return library_counts.structural(c)
 
 
 def example_path(c: dict) -> str | None:
@@ -225,31 +225,34 @@ def variables_args(project: Path) -> dict:
     return {"collections": load(project, "variable-plan.json")["collections"]}
 
 
-def cover_args(project: Path, state: dict) -> dict:
+COVER_LABELS = {"High Use": "High use", "Medium Use": "Medium use", "Low Use": "Low use",
+                "Structural Only": "Used inside other components",
+                "Retirement Candidates": "Retirement candidates", "Untiered": "No usage data"}
+
+
+def provenance(project: Path, state: dict) -> dict:
+    """Where the file came from. Stored as hidden plugin data, never drawn on a page; the
+    benchmark report (score_run.py) shows it to developers."""
     repo = repo_root(project)
-    comps = components(project)
-    built = set(state["built"])
-    strategy = (load(project, "detection.json", {}).get("recommended") or {}).get("component", "")
-    kind = {"canvas": "DRUPAL CANVAS", "sdc": "DRUPAL", "sitestudio": "SITE STUDIO",
-            "paragraphs": "DRUPAL"}.get(strategy, "DRUPAL")
-    pages = max([int((c.get("usage") or {}).get("renderedPages") or 0) for c in comps] + [0])
-    tokens = load(project, "tokens.json", {}).get("totals", {}).get("tokens", 0)
+    return {"source": repo.name, "commit": git_commit(repo), "siteUrl": state.get("siteUrl"),
+            "captureWidths": sorted(VIEWPORTS.values()), "standardVersion": STANDARD_VERSION,
+            "runtime": state.get("runtime"), "builtOn": date.today().isoformat(),
+            "regenerate": "design-lab:run"}
+
+
+def cover_args(project: Path, state: dict) -> dict:
+    """The Cover is for the library's recipient: the site's name, one generic line, how many
+    components the library holds and how that number splits by usage tier. Nothing else."""
+    c = library_counts.counts(project, state["built"])
+    tiers = [{"key": row["tier"], "value": str(row["built"]), "label": COVER_LABELS.get(row["tier"], row["tier"])}
+             for row in c["coverBreakdown"]] if c["tiered"] else []
     return {
         "pageId": page_id(project, "Cover"),
-        "eyebrow": f"{kind} COMPONENT LIBRARY",
-        "headline": site_name(repo),
-        "lede": "Every component an author can place on the site, drawn from the running site at three widths and documented beside it.",
-        "stats": [
-            {"key": "components", "value": str(len(built)), "label": "components built", "note": f"of {len(comps)} in the source"},
-            {"key": "placements", "value": f"{sum(placements(c) for c in comps):,}", "label": "author placements", "note": "counted on published pages"},
-            {"key": "structural", "value": f"{sum(structural(c) for c in comps):,}", "label": "structural references", "note": "components placed inside components"},
-            {"key": "tokens", "value": str(tokens), "label": "design tokens", "note": "read from the site's stylesheets"},
-            {"key": "not-built", "value": str(len(comps) - len(built)), "label": "not built", "note": "each named under Known gaps"},
-        ],
-        "provenance": [
-            f"Source {repo.name} at {git_commit(repo)} · rendered from {state['siteUrl']} at 375, 800 and 1400 pixels.",
-            f"design-lab standard {STANDARD_VERSION} · runtime {state['runtime']} · regenerate with design-lab:run.",
-        ],
+        "headline": site_name(repo_root(project)),
+        "subtitle": "Component Library",
+        "total": {"value": str(c["built"]), "label": "components" if c["built"] != 1 else "component"},
+        "tiers": tiers,
+        "provenance": provenance(project, state),
         "version": STANDARD_VERSION,
     }
 
@@ -595,11 +598,10 @@ def getting_started_args(project: Path, state: dict) -> dict:
     plan = plans(project)
     built = set(state["built"])
     ordered = build_order(comps, plan)
-    coverage = []
-    for t in tier_names(comps):
-        cs = [c for c in comps if short_tier((c.get("usage") or {}).get("tier")) == t]
-        coverage.append([t, str(len(cs)), str(sum(1 for c in cs if c["id"] in built)),
-                         str(sum(1 for c in cs if c["id"] not in built)), f"{sum(placements(c) for c in cs):,}"])
+    counted = library_counts.counts(project, built)
+    shown = set(tier_names(comps))
+    coverage = [[row["tier"], str(row["found"]), str(row["built"]), str(row["notBuilt"]), f"{row['placements']:,}"]
+                for row in counted["byTier"] if row["tier"] in shown]
     index = []
     gaps = []
     for c in ordered:
@@ -651,9 +653,8 @@ def getting_started_args(project: Path, state: dict) -> dict:
                        ["Live reference", "Screenshots of the running site in the same columns, for comparison."]],
         "index": index,
         "gaps": gaps,
-        "changelog": [[date.today().isoformat(), f"Built {len(built)} of {len(comps)} components to design-lab standard {STANDARD_VERSION}."]],
-        "provenance": [f"Source: {repo} at {git_commit(repo)}. Rendered from {state['siteUrl']}.",
-                       f"Standard {STANDARD_VERSION}; renderer runtime {state['runtime']}."],
+        "changelog": [[date.today().isoformat(), library_counts.coverage_sentence(counted)
+                       + f" {counted['found']} found in the source."]],
         "regenerate": ["design-lab:run against the same repository and site", "figma_build.py init, then next/record until done", "design-lab:verify"],
     }
 

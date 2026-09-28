@@ -107,7 +107,7 @@ class ReceiptTests(unittest.TestCase):
     def test_receipts_from_recorded_steps(self):
         with tempfile.TemporaryDirectory() as tmp:
             w = Path(tmp)
-            dump(w / 'project.json', {'schemaVersion': 1, 'standardVersion': '4.0.0',
+            dump(w / 'project.json', {'schemaVersion': 1, 'standardVersion': '4.1.0',
                 'pluginVersion': 'test', 'repository': {'root': str(w), 'commit': None, 'dirty': False},
                 'decisions': {}, 'phases': {}, 'artifacts': {}})
             dump(w / 'components.json', {'components': [{
@@ -120,7 +120,7 @@ class ReceiptTests(unittest.TestCase):
                 'path': '/hero', 'images': [
                     {'viewport': bp, 'file': f'{bp}.png', 'width': width, 'state': 'default'}
                     for bp, width in [('mobile', 375), ('tablet', 800), ('desktop', 1400)]]}}})
-            dump(w / 'figma/state.json', {'standardVersion': '4.0.0', 'fileKey': 'key',
+            dump(w / 'figma/state.json', {'standardVersion': '4.1.0', 'fileKey': 'key',
                                           'built': ['hero']})
             result = w / 'figma/results'
             dump(result / 'pages.json', {'pages': {'Components — High Use': 'p'}})
@@ -187,7 +187,7 @@ class MeasuredReceiptTests(unittest.TestCase):
     def workspace(self, tmp, *, slots=(), fields=(), native=None, viewports=('mobile', 'tablet', 'desktop'),
                   tier='High Use'):
         w = Path(tmp)
-        dump(w / 'project.json', {'schemaVersion': 1, 'standardVersion': '4.0.0',
+        dump(w / 'project.json', {'schemaVersion': 1, 'standardVersion': '4.1.0',
             'pluginVersion': 'test', 'repository': {'root': str(w), 'commit': None, 'dirty': False},
             'decisions': {}, 'phases': {}, 'artifacts': {}})
         dump(w / 'components.json', {'components': [{
@@ -200,7 +200,7 @@ class MeasuredReceiptTests(unittest.TestCase):
         dump(w / 'capture-evidence.json', {'captures': {'hero': {'path': '/hero', 'images': [
             {'viewport': bp, 'file': f'{bp}.png', 'width': widths[bp], 'state': 'default'}
             for bp in viewports]}}})
-        dump(w / 'figma/state.json', {'standardVersion': '4.0.0', 'fileKey': 'key', 'built': ['hero']})
+        dump(w / 'figma/state.json', {'standardVersion': '4.1.0', 'fileKey': 'key', 'built': ['hero']})
         result = w / 'figma/results'
         page = 'Components — ' + (tier or 'Untiered')
         dump(result / 'pages.json', {'pages': {page: 'p'}})

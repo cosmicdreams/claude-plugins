@@ -65,6 +65,18 @@ def load_project(value: str | Path) -> tuple[Path, dict]:
     return path, project
 
 
+PHASE_LOG = "phase-log.jsonl"
+
+
+def append_jsonl(path: Path, entry: dict) -> None:
+    """Append one JSON line and fsync it; these logs are evidence for design-lab:evaluate."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with open(path, "a", encoding="utf-8") as handle:
+        handle.write(json.dumps(entry, ensure_ascii=False) + "\n")
+        handle.flush()
+        os.fsync(handle.fileno())
+
+
 def set_phase(project_path_: Path, project: dict, phase: str, status: str,
               detail: dict | None = None) -> None:
     project.setdefault("phases", {})[phase] = {
@@ -73,6 +85,46 @@ def set_phase(project_path_: Path, project: dict, phase: str, status: str,
         **({"detail": detail} if detail else {}),
     }
     write_json(project_path_, project)
+    append_jsonl(project_path_.parent / PHASE_LOG,
+                 {"at": project["phases"][phase]["updatedAt"], "phase": phase, "status": status})
+
+
+def plugin_source() -> dict:
+    """Plugin version, plus its commit when this copy is tracked by git (an installed cache is not)."""
+    tracked = git_value(PLUGIN_DIR, "ls-files", "--error-unmatch", ".claude-plugin/plugin.json")
+    commit = git_value(PLUGIN_DIR, "rev-parse", "HEAD") if tracked else None
+    dirty = bool(git_value(PLUGIN_DIR, "status", "--porcelain", "--", ".")) if commit else None
+    return {"version": plugin_version(), "commit": commit, "dirty": dirty}
+
+
+def claude_config_dir() -> str:
+    return os.environ.get("CLAUDE_CONFIG_DIR") or str(Path.home() / ".claude")
+
+
+def transcript_folder(config_dir: str, cwd: str) -> str:
+    """Where Claude Code keeps session transcripts for sessions started in `cwd`."""
+    return str(Path(config_dir) / "projects" / re.sub(r"[^A-Za-z0-9]", "-", cwd))
+
+
+def run_identity(args, repo: Path) -> dict:
+    """Who ran this, with what, against what: the evidence that makes two runs comparable."""
+    cwd = os.getcwd()
+    config_dir = claude_config_dir()
+    operator = (getattr(args, "operator", None) or git_value(repo, "config", "user.name")
+                or os.environ.get("USER"))
+    return {
+        "startedAt": now(),
+        "siteLabel": getattr(args, "site_label", None),
+        "siteUrl": getattr(args, "site_url", None),
+        "operator": operator,
+        "plugin": plugin_source(),
+        "claude": {"configDir": config_dir,
+                   "model": (getattr(args, "model", None) or os.environ.get("ANTHROPIC_MODEL")
+                             or os.environ.get("CLAUDE_MODEL")),
+                   "insideClaudeCode": bool(os.environ.get("CLAUDECODE")),
+                   "workingDirectory": cwd,
+                   "transcripts": transcript_folder(config_dir, cwd)},
+    }
 
 
 def invalidate(project: dict, phases: tuple[str, ...], kinds: tuple[str, ...]) -> None:
@@ -116,9 +168,41 @@ def init_command(args):
                    ("discovery", "inventory", "usage", "capture", "tokens", "plan",
                     "foundation", "components", "index", "verify")},
         "artifacts": {},
+        "run": run_identity(args, repo),
     }
     write_json(path, project)
-    print(json.dumps({"project": str(path), "repository": project["repository"]}, indent=2))
+    append_jsonl(workspace / PHASE_LOG, {"at": project["createdAt"], "phase": "init",
+                                         "status": "complete"})
+    print(json.dumps({"project": str(path), "repository": project["repository"],
+                      "run": project["run"]}, indent=2))
+
+
+def identity_command(args):
+    """Fill in or correct run identity; also works on manifests written before 0.15."""
+    path, project = load_project(args.project)
+    run = project.get("run")
+    if not isinstance(run, dict):
+        run = run_identity(argparse.Namespace(), Path(project["repository"]["root"]))
+        run["startedAt"] = project.get("createdAt") or run["startedAt"]
+        run["recordedLate"] = True
+    for key, value in (("siteLabel", args.site_label), ("siteUrl", args.site_url),
+                       ("operator", args.operator)):
+        if value:
+            run[key] = value
+    if args.model:
+        run.setdefault("claude", {})["model"] = args.model
+    if args.no_schema_change and args.schema_change:
+        raise ValueError("use --no-schema-change or --schema-change, not both")
+    if args.no_schema_change:
+        run["schemaChurn"] = {"changed": False, "changes": [], "recordedAt": now()}
+    if args.schema_change:
+        churn = run.get("schemaChurn") if (run.get("schemaChurn") or {}).get("changed") else {"changes": []}
+        churn["changes"] = list(churn.get("changes") or []) + [
+            {"at": now(), "text": text} for text in args.schema_change]
+        run["schemaChurn"] = {"changed": True, "changes": churn["changes"], "recordedAt": now()}
+    project["run"] = run
+    write_json(path, project)
+    print(json.dumps(run, indent=2))
 
 
 def detect_command(args):
@@ -549,7 +633,24 @@ def main():
     command.add_argument("--repo", required=True)
     command.add_argument("--workspace", default=".design-lab")
     command.add_argument("--force", action="store_true")
+    command.add_argument("--site-label", help="neutral name for the site, shown in reports")
+    command.add_argument("--site-url", help="local site address the run captures from")
+    command.add_argument("--operator", help="person running the build (default: git user.name)")
+    command.add_argument("--model", help="Claude model driving the run, if known")
     command.set_defaults(func=init_command)
+
+    command = sub.add_parser("identity", help="fill in or correct the run identity")
+    command.add_argument("--project", default=".design-lab")
+    command.add_argument("--site-label")
+    command.add_argument("--site-url")
+    command.add_argument("--operator")
+    command.add_argument("--model")
+    command.add_argument("--no-schema-change", action="store_true",
+                         help="record that the run needed no schema change or workaround")
+    command.add_argument("--schema-change", action="append", metavar="WHAT",
+                         help="record a schema change or workaround the run needed (repeatable)")
+    command.set_defaults(func=identity_command)
+
 
     command = sub.add_parser("detect")
     command.add_argument("--project", default=".design-lab")
@@ -610,7 +711,8 @@ def main():
     command = sub.add_parser("record")
     command.add_argument("--project", default=".design-lab")
     command.add_argument("--phase", required=True,
-                         choices=("usage", "capture", "foundation", "components", "index", "verify"))
+                         choices=("usage", "capture", "foundation", "components", "index", "verify",
+                                  "benchmark"))
     command.add_argument("--status", required=True,
                          choices=("pending", "running", "complete", "failed", "waived"))
     command.add_argument("--detail")

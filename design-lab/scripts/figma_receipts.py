@@ -15,7 +15,7 @@ from artifact_contracts import (load_json, missing_nested, sha256, slot_accepts,
 import figma_build
 import index_rows
 
-STANDARD_VERSION = '4.0.0'
+STANDARD_VERSION = '4.1.0'
 BREAKPOINTS = ('mobile', 'tablet', 'desktop')
 
 
@@ -75,7 +75,7 @@ def generate(project: Path) -> list[tuple[str, Path, str, str | None]]:
     project = project.resolve()
     state = load_json(project / 'figma/state.json')
     if state.get('standardVersion') != STANDARD_VERSION:
-        raise ValueError('Figma state is not standard 4.0.0')
+        raise ValueError('Figma state is not standard %s' % STANDARD_VERSION)
     def result(step: str) -> dict:
         return load_json(project / 'figma/results' / (safe(step) + '.json'))
     pages = result('pages')['pages']

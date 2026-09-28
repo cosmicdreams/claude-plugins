@@ -41,8 +41,9 @@ Builds write into Figma through the design-lab runner, a Figma development plugi
 | `design-lab:figma-component` | one named atomic component transaction — variants, properties, bindings, documentation card, build record |
 | `design-lab:figma-index` | the Getting Started page: inventory, linked index, coverage, known gaps. Refresh after every component |
 | `design-lab:verify` | **checks the whole file against the base expectations**; every gap ends as a fix or a recorded waiver |
+| `design-lab:evaluate` | the last step of every run: scores it into `scorecard.json`, a self-contained HTML report (coverage, accuracy against the live site, time and tokens, repeatability) and the fixed completion message |
 
-`scripts/workflow.py` is the deterministic front door. Its `init`, `detect`, `select`, `extract`, `usage`, `plan`, `variables`, `approve`, `target`, `register`, `record`, `validate`, and `status` commands write atomically and keep artifact hashes in the project manifest. The schemas in `schemas/` are the machine-readable contracts; `references/library-standard.md` is the canonical product definition.
+`scripts/workflow.py` is the deterministic front door. Its `init`, `identity`, `detect`, `select`, `extract`, `usage`, `plan`, `variables`, `approve`, `target`, `register`, `record`, `validate`, and `status` commands write atomically and keep artifact hashes in the project manifest. The schemas in `schemas/` are the machine-readable contracts; `references/library-standard.md` is the canonical product definition.
 
 Component extractors cover Site Studio, SDCs, Paragraphs, and combined Drupal authoring vocabularies (`block_content` + Paragraphs). Token extractors cover Site Studio styles, theme-loaded CSS custom properties, Sass source maps, and source-authored Sass. Combined Drupal extraction also writes `render-evidence.json`, a bounded map from each authoring bundle to its existing Twig, SDC, stylesheet, root-class, and referenced-field evidence. That evidence includes deterministic `styleFacts` parsed from the component's own Sass: root and nested-part declarations stay separate, retain token/literal provenance, and give the model the visual facts it needs without asking it to rediscover every stylesheet rule.
 
@@ -67,5 +68,7 @@ Planned: `drift`.
 - `references/tokens-and-variables.md` — code syntax, and why the Figma name is not the token
 - `references/defaults.md` — which variant goes first, and the evidence for it
 - `references/verification.md` — assert numbers, do not eyeball 146 components
+- `references/benchmark.md` — run checklist and fixed opening prompt; every run ends with `design-lab:evaluate`
+- `references/completion-message.md` — the fixed reply `design-lab:run` ends with
 - `references/build-records.md` — the idempotency and resume contract
 - `references/strategies/README.md` — per-strategy mapping and counting traps

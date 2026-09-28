@@ -17,6 +17,8 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 sys.path.insert(0, str(SCRIPTS))
 import fetch_images
 import figma_build
+import library_counts
+import score_run
 import render_payload
 import responsive
 import spec_to_tree
@@ -455,6 +457,60 @@ class FigmaBuildTests(unittest.TestCase):
         self.result("block:sdc.test.hero", {"blockId": "block-1"})
         start = figma_build.getting_started_args(self.project, state)
         self.assertEqual([row[0] for row in start["coverage"]["rows"]], ["Untiered"])
+
+    def surfaces(self):
+        """The Cover, the Getting Started page and the benchmark scorecard, from one build."""
+        pages = {name: f"page-{i}" for i, name in enumerate(figma_build.page_list(self.project))}
+        self.result("pages", {"pages": pages})
+        self.result("build:sdc.test.hero", {"componentId": "component-1"})
+        self.result("block:sdc.test.hero", {"blockId": "block-1"})
+        cover = figma_build.cover_args(self.project, self.state)
+        start = figma_build.getting_started_args(self.project, self.state)
+        card = score_run.score(self.project)
+        return cover, start, card
+
+    def test_cover_is_for_the_recipient_only(self):
+        cover, _, _ = self.surfaces()
+        self.assertEqual(set(cover), {"pageId", "headline", "subtitle", "total", "tiers", "provenance", "version"})
+        self.assertEqual((cover["headline"], cover["subtitle"]), ("Test Org", "Component Library"))
+        drawn = json.dumps({k: v for k, v in cover.items() if k not in ("provenance", "version", "pageId")})
+        for hidden in ("local.test", "runtime", "standard", "placements", "not built", "token", "design-lab"):
+            self.assertNotIn(hidden, drawn)
+        self.assertEqual(cover["provenance"]["siteUrl"].rstrip("/"), "https://local.test")
+        self.assertEqual([t["key"] for t in cover["tiers"]], ["High Use", "Medium Use", "Low Use"])
+        self.assertEqual(sum(int(t["value"]) for t in cover["tiers"]), int(cover["total"]["value"]))
+        template = (Path(figma_build.__file__).parent / "render" / "cover.js").read_text()
+        self.assertNotIn("provDark", template)             # provenance is never drawn
+        self.assertIn("figma.root.setSharedPluginData('designlab', 'provenance'", template)
+
+    def test_cover_getting_started_and_report_share_every_number(self):
+        cover, start, card = self.surfaces()
+        cov = card["sections"]["coverage"]
+        counted = library_counts.counts(self.project, self.state["built"])
+        self.assertEqual(int(cover["total"]["value"]), counted["built"])
+        self.assertEqual(cov["built"], counted["built"])
+        self.assertEqual((cov["eligible"], cov["gap"], cov["excluded"]),
+                         (counted["eligible"], counted["gap"], counted["excluded"]))
+        rows = {row[0]: row for row in start["coverage"]["rows"]}
+        for tier_row in counted["byTier"]:
+            if tier_row["tier"] in rows:
+                row = rows[tier_row["tier"]]
+                self.assertEqual([int(row[1]), int(row[2]), int(row[3]), int(row[4].replace(",", ""))],
+                                 [tier_row["found"], tier_row["built"], tier_row["notBuilt"], tier_row["placements"]])
+        for tile in cover["tiers"]:
+            self.assertEqual(int(tile["value"]), next(r["built"] for r in counted["byTier"] if r["tier"] == tile["key"]))
+        self.assertEqual(sum(int(r[4].replace(",", "")) for r in start["coverage"]["rows"]),
+                         cov["usageWeighted"]["placements"])
+        self.assertIn(library_counts.coverage_sentence(counted), start["changelog"][0][1])
+        self.assertEqual(card["sections"]["library"]["tiers"],
+                         [{"tier": r["tier"], "components": r["found"], "built": r["built"]} for r in counted["byTier"]])
+
+    def test_index_tier_follows_the_merged_usage_tier(self):
+        import index_rows
+        global_header = {"id": "x", "usage": {"tier": "Components — High Use", "placements": 0, "structuralRefs": 0}}
+        self.assertEqual(index_rows.tier_of(global_header, 50, 10), "Components — High Use")
+        self.assertEqual(index_rows.tier_of({"id": "y", "usage": {"placements": 0, "structuralRefs": 0}}, 50, 10),
+                         "Components — Retirement Candidates")
 
     def test_images_step_skips_failed_fetches_and_surfaces_fetch_errors(self):
         cid = "sdc.test.hero"

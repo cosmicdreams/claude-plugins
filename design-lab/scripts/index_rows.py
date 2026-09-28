@@ -31,10 +31,17 @@ def structural_refs(usage):
 
 
 def tier_of(comp, high, medium):
-    """Usage decides the page. No usage data is a gap, not a default."""
+    """Usage decides the page. No usage data is a gap, not a default.
+
+    The tier the usage phase merged into components.json wins: that merge also weighs global
+    and template references (a site header rendered on every page by the theme has zero author
+    placements but is High Use). Recomputing from placements alone put such components on a
+    different tier here than on their Figma page, so the index and the file disagreed."""
     usage = comp.get('usage')
     if not usage:
         return None
+    if usage.get('tier') in TIER_ORDER:
+        return usage['tier']
     placements = usage.get('placements') or 0
     # `structuralRefs` is the key references/model.md defines and every extractor writes.
     # This read `structuralReferences` — a name that exists nowhere — so it was always 0 and
