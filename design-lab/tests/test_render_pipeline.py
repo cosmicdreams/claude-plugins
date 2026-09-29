@@ -542,6 +542,21 @@ console.log(JSON.stringify(cases.map(([v, w]) => barWidths(v, w))));
         self.assertEqual(keys, [t["color"] for t in cover["tiers"]])
         self.assertIn(f"--ground:{cover['ground']}", strip)
 
+    def test_report_tier_table_reads_like_the_cover(self):
+        import re
+        import score_report
+        cover, _, card = self.surfaces()
+        table = card["sections"]["library"]["tierTable"]
+        counted = [r for r in table if r["counted"]]
+        self.assertEqual([(r["tier"], str(r["built"]), r["color"]) for r in counted],
+                         [(t["key"], t["value"], t["color"]) for t in cover["tiers"]])
+        self.assertEqual(sum(r["built"] for r in counted), int(cover["total"]["value"]))
+        self.assertTrue(all(r["tier"] == "Retirement Candidates" for r in table if not r["counted"]))
+        html = score_report.library_section(card["sections"]["library"], card["sections"]["coverage"])
+        self.assertEqual(re.findall(r'class="t-sw" style="background:(#[0-9A-Fa-f]{6})"', html),
+                         [r["color"] for r in table])
+        self.assertIn(f'<tr class="sum"><th scope="row">Total</th><td class="n">{cover["total"]["value"]}</td>', html)
+
     def test_cover_getting_started_and_report_share_every_number(self):
         cover, start, card = self.surfaces()
         cov = card["sections"]["coverage"]

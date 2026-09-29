@@ -265,6 +265,28 @@ class ScoreRunTest(unittest.TestCase):
         self.assertEqual(card["headline"]["coverage"]["placements"], 0.75)
         self.assertEqual(cov["summary"], "Built 1 of 3 components it could have built (33%).")
 
+    def test_every_refused_count_matches_the_coverage_gap(self):
+        self.test_coverage_counts_eligible_components_and_placements()      # the same five components
+        write(self.run_dir / "plan.json", {"plans": [
+            {"id": "a", "verdict": "build", "libraryRole": "component"},
+            {"id": "b", "verdict": "refuse", "libraryRole": "component", "refuseReason": "no capture"},
+            {"id": "c", "verdict": "refuse", "libraryRole": "component", "refuseReason": "no capture"},
+            {"id": "d", "verdict": "refuse", "libraryRole": "retirement"},
+            {"id": "e", "verdict": "refuse", "libraryRole": "retirement"}]})
+        out = self.root / "out"
+        with contextlib.redirect_stdout(io.StringIO()):
+            score_run.main([str(self.run_dir), "--out", str(out)])
+        card = json.loads((out / "scorecard.json").read_text())
+        refused = card["sections"]["coverage"]["gap"]["refused"]
+        self.assertEqual((refused, card["sections"]["library"]["components"]["refused"]), (2, 2))
+        html = re.sub(r"<[^>]+>", " ", (out / "report.html").read_text())
+        message = (out / "completion.md").read_text()
+        for text in (html, message):
+            found = [int(n) for n in re.findall(r"(\d+)\s+refused by the plan", text)]
+            self.assertTrue(found)
+            self.assertEqual(set(found), {refused}, found)
+            self.assertIn("2 retirement candidates", text)
+
     def test_benchmark_step_splits_time_and_tokens(self):
         config = self.root / "config"
         self.session(config)

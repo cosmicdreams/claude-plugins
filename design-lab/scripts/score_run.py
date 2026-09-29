@@ -742,7 +742,10 @@ def score_library(run_dir: Path, project: dict | None) -> dict:
         "components": {"found": len(components.get("components") or []) or totals.get("components"),
                        "planned": len(build), "built": built,
                        "notBuilt": totals.get("notBuilt"),
-                       "refused": sum(1 for p in plans if p.get("verdict") == "refuse")},
+                       # From library_counts, so it matches the coverage strip: refused by the plan,
+                       # not retirement candidates or schema-only entries, which are not counted.
+                       "refused": (counted["gap"]["refused"] if counted
+                                   else sum(1 for p in plans if p.get("verdict") == "refuse"))},
         "variants": sum(int(p.get("variants") or 0) for p in build) or None,
         "properties": sum(len(p.get("properties") or []) for p in build) or None,
         "variables": variable_count or None,
@@ -752,6 +755,7 @@ def score_library(run_dir: Path, project: dict | None) -> dict:
         "nodes": nodes or None,
         "captures": len(list(shots.glob("*.png"))) if shots.is_dir() else None,
         "tiers": tiers,
+        "tierTable": library_counts.tier_table(counted) if counted and counted["tiered"] else [],
         "voicePage": (run_dir / "voice.json").is_file(),
         "examplesPage": (run_dir / "compositions.json").is_file(),
         "notBuiltReasons": [{"id": item.get("id"), "label": item.get("label"),
@@ -1252,9 +1256,12 @@ def completion_message(card: dict, report: Path) -> str:
         "benchmark_tokens": (token_list((model.get("benchmark") or {}).get("byModel"))
                              if (model.get("benchmark") or {}).get("status") == "measured" else "not measured"),
         "not_measured": "; ".join(missing),
-        "gaps": (f"{cov['eligible'] - cov['built']} buildable component(s) not built"
-                 + ("; " + ", ".join(f"{n} {cov['reasonLabels'][k]}{'s' if n != 1 else ''} left out as not buildable"
-                                    for k, n in cov["excluded"].items() if n) if any(cov["excluded"].values()) else "")
+        # The same split and wording as the report's coverage strip and "What the run built".
+        "gaps": (("not built: " + ("; ".join(f"{n} {cov['reasonLabels'][k]}" for k, n in cov["gap"].items() if n)
+                                   or "none"))
+                 + ("; not counted: " + "; ".join(f"{n} {cov['reasonLabels'][k]}{'s' if n != 1 and k == 'retirement' else ''}"
+                                                 for k, n in cov["excluded"].items() if n)
+                    if any(cov["excluded"].values()) else "")
                  if cov.get("status") == "measured" else "not measured"),
     }
     for key, value in values.items():

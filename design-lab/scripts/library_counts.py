@@ -173,6 +173,32 @@ def cover_breakdown(rows: list[dict]) -> list[dict]:
     return breakdown
 
 
+def tier_table(c: dict) -> list[dict]:
+    """The report's usage-tier table, read the way the Cover reads: High, Medium, Low and Other with
+    the Cover's built counts, so the Built column adds up to the Cover's total, then retirement
+    candidates on a row of their own, not counted. Found keeps the raw count of each usage tier; Other
+    lists the tiers it holds."""
+    by_tier = {row["tier"]: row for row in c["byTier"]}
+    retire = "Retirement Candidates"
+    rows = []
+    for row in c["coverBreakdown"]:
+        t = row["tier"]
+        entry = {"tier": t, "label": COVER_LABELS[t], "color": TIER_COLORS[t], "built": row["built"], "counted": True}
+        if t == OTHER:
+            held = [r for r in c["byTier"] if r["tier"] not in USE_TIERS and (r["tier"] != retire or r["built"])
+                    and r["found"]]
+            entry["found"] = sum(r["found"] for r in held)
+            entry["holds"] = [{"tier": r["tier"], "built": r["built"], "found": r["found"]} for r in held]
+        else:
+            entry["found"] = (by_tier.get(t) or {}).get("found", 0)
+        rows.append(entry)
+    retired = by_tier.get(retire) or {}
+    if retired.get("found"):
+        rows.append({"tier": retire, "label": "Retirement candidates", "color": TIER_COLORS[retire],
+                     "built": retired["built"], "found": retired["found"], "counted": False})
+    return rows
+
+
 def coverage_sentence(c: dict) -> str:
     return (f"Built {c['built']} of {c['eligible']} components it could have built"
             + (f" ({c['ratio'] * 100:.0f}%)" if c.get("ratio") is not None else "") + ".")

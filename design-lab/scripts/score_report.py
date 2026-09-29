@@ -482,30 +482,61 @@ def hero(card: dict) -> str:
             + f"{fld}</section>")
 
 
-def library_section(lib: dict) -> str:
+def library_section(lib: dict, cov: dict) -> str:
     if lib.get("status") == "not-measured":
         return section("library", "What the run built", "not-measured", "Nothing to count.", absent("Library contents", lib))
     comp = lib["components"]
-    funnel = (f'<ol class="funnel"><li><b>{num(comp.get("found"))}</b> found in the source</li>'
-              f'<li><b>{num(comp.get("planned"))}</b> planned to build</li>'
-              f'<li><b>{num(comp.get("built"))}</b> built in Figma</li>'
-              f'<li class="muted"><b>{num(comp.get("refused"))}</b> refused by the plan</li></ol>')
-    tiers = [(t["tier"], t) for t in lib.get("tiers") or []]
+    labels = cov.get("reasonLabels") or {}
+    if cov.get("status") == "measured":
+        # The same split and wording as the coverage strip, every number from library_counts.
+        plural = lambda k, n: f"{labels.get(k, k)}{'s' if n != 1 and k == 'retirement' else ''}"
+        steps = [("", cov["found"], "found in the source")]
+        steps += [("muted", n, f"{plural(k, n)} not counted") for k, n in cov["excluded"].items() if n]
+        steps += [("", cov["eligible"], "it could have built"), ("", cov["built"], "built in Figma")]
+        steps += [("muted", n, labels.get(k, k)) for k, n in cov["gap"].items() if n]
+    else:
+        steps = [("", comp.get("found"), "found in the source"), ("", comp.get("planned"), "planned to build"),
+                 ("", comp.get("built"), "built in Figma"), ("muted", comp.get("refused"), "refused by the plan")]
+    funnel = '<ol class="funnel">' + "".join(
+        (f'<li class="{c}">' if c else "<li>") + f"<b>{num(n)}</b> {esc(text)}</li>" for c, n, text in steps) + "</ol>"
+    rows = lib.get("tierTable") or []
+
+    def holds(tiers):
+        return "; ".join(f'{h["tier"]}: {h["built"]} of {h["found"]} built' for h in tiers)
+    peak = max((r["found"] for r in rows), default=0) or 1
     tier_rows = "".join(
-        f'<tr><th scope="row">{esc(name)}</th><td class="n">{num(t["built"])}</td><td class="n">{num(t["components"])}</td>'
-        f'<td><span class="meter" style="--v:{(t["built"] / t["components"]) if t["components"] else 0}"></span></td></tr>'
-        for name, t in tiers)
-    tier_table = (f'<table class="tbl"><caption>By usage tier</caption><thead><tr><th scope="col">Tier</th>'
-                  f'<th scope="col" class="n">Built</th><th scope="col" class="n">Found</th><th scope="col"><span class="sr">Share built</span></th></tr></thead>'
-                  f'<tbody>{tier_rows}</tbody></table>') if tier_rows else ""
+        ('<tr>' if r["counted"] else '<tr class="out">') + f'<th scope="row"><span class="t-sw" style="background:{r["color"]}"></span>'
+        f'{esc(r["label"])}'
+        + (f'<span class="t-note">{esc(holds(r["holds"]))}</span>' if r.get("holds") else "")
+        + ('<span class="t-note">not counted</span>' if not r["counted"] else "")
+        + f'</th><td class="n">{num(r["built"])}</td><td class="n">{num(r["found"])}</td>'
+        f'<td><span class="t-bar" style="--v:{r["built"] / peak};--f:{r["found"] / peak};--c:{r["color"]}"></span></td></tr>'
+        for r in rows)
+    total = sum(r["built"] for r in rows if r["counted"])
+    tier_table = (f'<div class="tier-panel" style="--ground:{library_counts.COVER_GROUND}"><table class="tbl tiers">'
+                  f'<caption>By usage tier, as on the Cover</caption><thead><tr><th scope="col">Category</th>'
+                  f'<th scope="col" class="n">Built</th><th scope="col" class="n">Found</th><th scope="col"><span class="sr">Built out of found</span></th></tr></thead>'
+                  f'<tbody>{tier_rows}<tr class="sum"><th scope="row">Total</th><td class="n">{num(total)}</td><td class="n">'
+                  f'{num(sum(r["found"] for r in rows))}</td><td></td></tr></tbody></table></div>') if tier_rows else ""
     pages = "".join(f"<li>{esc(p)}</li>" for p in lib.get("pageNames") or [])
     extras = []
     if lib.get("voicePage"):
         extras.append("a brand voice and language page")
     if lib.get("examplesPage"):
         extras.append("an examples page assembled from real compositions")
-    not_built = "".join(f'<li><b>{esc(i["label"] or i["id"])}</b> — {esc(i["reason"])}</li>'
+    if cov.get("status") == "measured":
+        def why(item):
+            return (f'<li><b>{esc(item["label"])}</b> — {esc(labels.get(item["reason"], item["reason"]))}'
+                    + (f': {esc(item["detail"])}' if item.get("detail") else "") + "</li>")
+        gap_items = [i for i in cov.get("items") or [] if i["reason"] in cov["gap"]]
+        out_items = [i for i in cov.get("items") or [] if i["reason"] not in cov["gap"]]
+        not_built = ((f'<h3>Not built, and why</h3><ul class="plain">{"".join(why(i) for i in gap_items)}</ul>' if gap_items else "")
+                     + (f'<h3 class="h-gap">Not counted, and why</h3><ul class="plain">{"".join(why(i) for i in out_items)}</ul>'
+                        if out_items else ""))
+    else:
+        items = "".join(f'<li><b>{esc(i["label"] or i["id"])}</b> — {esc(i["reason"])}</li>'
                         for i in lib.get("notBuiltReasons") or [])
+        not_built = f'<h3>Not built, and why</h3><ul class="plain">{items}</ul>' if items else ""
     lead = ((f"{num(comp.get('built'))} components with " if comp.get("built") is not None else
              f"No build was recorded; the plan holds {num(comp.get('planned'))} components with ")
             + f"{num(lib.get('variants'))} variants and "
@@ -513,7 +544,7 @@ def library_section(lib: dict) -> str:
             + (", plus " + " and ".join(extras) if extras else "") + ".")
     body = (f'<div class="two">{funnel}{tier_table}</div>'
             f'<div class="two"><div>' + (f'<h3>Pages in the file</h3><ul class="chips">{pages}</ul>' if pages else "") + '</div>'
-            + (f'<div><h3>Not built, and why</h3><ul class="plain">{not_built}</ul></div>' if not_built else "")
+            + (f'<div>{not_built}</div>' if not_built else "")
             + "</div>")
     return section("library", "What the run built", "measured", esc(lead), body)
 
@@ -917,7 +948,19 @@ h1{font:700 clamp(40px,5.6vw,68px)/.98 var(--display);letter-spacing:-.018em;mar
 .cov-k .key-gap{background:none;box-shadow:inset 0 0 0 1.5px #E6E8FF}
 .cov-k .key-out{background:repeating-linear-gradient(135deg,rgba(230,232,255,.7) 0 1.5px,transparent 1.5px 4px)}
 .cov-k .key-retire{background:repeating-linear-gradient(135deg,#B9003F 0 2px,transparent 2px 4px);box-shadow:inset 0 0 0 1px #B9003F}
-.cov,.cov *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cov,.cov *,.tier-panel,.tier-panel *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+/* The tier table sits on the Cover's navy too, so its category colors read exactly as on the Cover. */
+.tier-panel{background:var(--ground);border-radius:12px;padding:16px 20px 8px;align-self:start}
+.tbl.tiers caption{color:#E6E8FF}.tbl.tiers thead th{color:#AEB6E6}
+.tbl.tiers th,.tbl.tiers td{color:#fff;border-top-color:rgba(230,232,255,.16)}
+.tbl.tiers tr.out th,.tbl.tiers tr.out td{color:#AEB6E6}
+.tbl.tiers tr.sum th,.tbl.tiers tr.sum td{border-top:1px solid rgba(230,232,255,.5)}
+.t-sw{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:8px}
+tr.out .t-sw{background:repeating-linear-gradient(135deg,#B9003F 0 2px,transparent 2px 4px)!important;box-shadow:inset 0 0 0 1px #B9003F}
+.t-note{display:block;margin:2px 0 0 18px;font:12px/1.4 var(--mono);color:#AEB6E6;font-weight:400}
+.t-bar{display:block;height:8px;border-radius:4px;margin-top:6px;min-width:80px;position:relative;background:linear-gradient(90deg,rgba(230,232,255,.18) calc(var(--f)*100%),transparent 0)}
+.t-bar::after{content:"";position:absolute;inset:0 auto 0 0;width:calc(var(--v)*100%);background:var(--c);border-radius:4px}
+.h-gap{margin-top:20px}
 .cov-w{margin:14px 0 0;font-size:16px;color:var(--ink2);max-width:72ch}.cov-w b{color:var(--ink)}
 .tbl tr.sum th,.tbl tr.sum td{border-top:1px solid var(--ink2);font-weight:600}
 .highlights{list-style:none;margin:40px 0 0;padding:0;columns:2;column-gap:36px}
@@ -1079,7 +1122,7 @@ def render(card: dict, run_dir: Path) -> str:
         "<main>",
         hero(card),
         '<nav class="toc" aria-label="Sections">' + "".join(f'<a href="#{i}">{esc(t)}</a>' for i, t in toc) + "</nav>",
-        library_section(s["library"]),
+        library_section(s["library"], s.get("coverage") or {}),
         accuracy_section(s["accuracy"], thumbs),
         repeat_section(s["repeatability"]),
         cost_section(s["cost"]),
