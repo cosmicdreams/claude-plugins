@@ -26,10 +26,7 @@ The Workflow harness handles parallelism, retro interview collection, and comple
 When running agents outside sprint:run (e.g., a one-off deep-debug):
 
 ```
-Agent(subagent_type="sprint:slice-worker", name="worker-1", prompt="...")
-Agent(subagent_type="sprint:deep-debugger", name="debugger-1", prompt="...")
-Agent(subagent_type="drupal-lab:issue-worker", name="issue-1", prompt="...")
-Agent(subagent_type="drupal-lab:reviewer", name="reviewer-1", prompt="...")
+Agent(subagent_type="sprint:slice-worker", name="worker-1", prompt="...") Agent(subagent_type="sprint:deep-debugger", name="debugger-1", prompt="...") Agent(subagent_type="drupal-lab:reviewer", name="reviewer-1", prompt="...")
 ```
 
 Spawn N agents at once when N items are ready — never sequentially.

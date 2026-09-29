@@ -1,5 +1,12 @@
 # Changelog
 
+## 4.0.0 — 2026-09-29
+
+**Breaking: `issue-worker` agent removed.** The main session with drupal-lab skills does this work; nothing dispatched it.
+
+- `reviewer` is now a standalone fresh-context review before submission. No Beads lanes, no issue-worker handoff, no `bd close`. Reads the issue page, the analyze-issue report if present, and acceptance criteria passed in.
+- `plan.json` removed from `references/issue-handoffs.md`; `issue-summary` takes alternatives from the analyze-issue report.
+
 ## 3.1.0
 - Move `sprint-start`, `release-cut`, and `branch-audit` from jira-cli to twg.
 - Project context gains `jira_site` and `jira_project`, replacing jira-cli's implicit default board.
@@ -32,30 +39,19 @@
 
 ### Structured handoffs
 
-`analysis-reports/drupal-issue/<issue>/analysis.json` and `plan.json` are the machine-readable
-state passed between stages. `analysis-reports/` markdown renders are human-readable only.
-Schemas in `drupal-lab/references/issue-handoffs.md`.
+`analysis-reports/drupal-issue/<issue>/analysis.json` and `plan.json` are the machine-readable state passed between stages. `analysis-reports/` markdown renders are human-readable only. Schemas in `drupal-lab/references/issue-handoffs.md`.
 
 ### Distribution
 
-Distributable via Claude Desktop Personal Plugins: zip the plugin directory so
-`.claude-plugin/` is at the archive root, then upload as `.zip`.
+Distributable via Claude Desktop Personal Plugins: zip the plugin directory so `.claude-plugin/` is at the archive root, then upload as `.zip`.
 
 ## 2.7.1
-- `generate-chart.py` moved to research-lab (it is a generic `results.jsonl` visualizer owned by
-  `research-lab:experiment`). `optimize` now runs it from `$RESEARCH_LAB_ROOT/scripts/generate-chart.py`,
-  consistent with how it already reads research-lab's PI role, context-flow, methodology-spec, and
-  report template. No behavior change for optimize users; research-lab must be installed (already a
-  declared dependency).
+- `generate-chart.py` moved to research-lab (it is a generic `results.jsonl` visualizer owned by `research-lab:experiment`). `optimize` now runs it from `$RESEARCH_LAB_ROOT/scripts/generate-chart.py`, consistent with how it already reads research-lab's PI role, context-flow, methodology-spec, and report template. No behavior change for optimize users; research-lab must be installed (already a declared dependency).
 
 ## 2.7.0
-- Add `optimize` skill — the Drupal cache/performance engagement, moved from `research-lab:run`
-  (research-lab 2.0 extracted it as Drupal-specific). Pipeline: preflight → gather → synthesize →
-  methodology → experiment → report, against local DDEV only.
+- Add `optimize` skill — the Drupal cache/performance engagement, moved from `research-lab:run` (research-lab 2.0 extracted it as Drupal-specific). Pipeline: preflight → gather → synthesize → methodology → experiment → report, against local DDEV only.
 - Move `preflight.sh` (cache-header audit) and `generate-chart.py` into `drupal-lab/scripts/`.
-- `optimize` declares **research-lab as a hard dependency** (calls `gather`/`experiment` via
-  `Skill()`, reads PI/researcher agents + protocols from the research-lab install via `$RL_ROOT`),
-  and fails fast with an install hint if research-lab is absent.
+- `optimize` declares **research-lab as a hard dependency** (calls `gather`/`experiment` via `Skill()`, reads PI/researcher agents + protocols from the research-lab install via `$RL_ROOT`), and fails fast with an install hint if research-lab is absent.
 - Back-compat: the old `research-lab:run` trigger phrase routes to `drupal-lab:optimize`.
 
 ## 2.6.0

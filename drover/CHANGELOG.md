@@ -1,333 +1,144 @@
 # drover Changelog
 
+## 4.2.1 — 2026-09-29
+
+- Fix `report-writer` agent registration: frontmatter `name` was `drover:report-writer`, which Claude Code prefixes again to `drover:drover:report-writer`, so `/drover:report`'s `drover:report-writer` dispatch never matched. `allowed-tools` (not an agent field) is now `tools: Read`, so the agent is actually read-only.
+
 ## 4.2.0 — optional Jev judgments
 
 ### Added
 
-- Jev (TypeSafe's System One model) as an added layer in the report
-  pipeline when `TYPESAFE_API_KEY` is set and `JEV_DISABLED` is not `1`:
-  - `parsers/drupal_watchdog.py` asks one severity Choice per distinct
-    (channel, message) whose severity the log left `unknown`; a confident
-    answer (0.7 to start) fills it in, source and record kept in
-    `fields.severity_source` / `fields.severity_jev`. Severity the log or
-    channel table already gave is never overridden.
-  - `causes.collapse_by_cause` gates every regex bucket: members merge
-    only when Jev confidently says they show the diagnosed cause and share
-    a root cause with the primary (0.8 to start); the rest stay separate
-    rows with their regex diagnosis and a `jev_judgments` audit list.
-  - `jira_recs.judge_worthiness` scores each ticket that the unchanged
-    hard rules (count at or above 50, top five) already selected; a
-    confident score adds a `drover-jev-worth-<level>` label and a
-    description line. Priority never changes.
-  - `fingerprint.py --jev-prefilter` drops keyword hits Jev confidently
-    says are not errors; hashing is untouched.
-  - `report.py --no-jev`; a `jev` block in the summary and the `--format
-    json` output, and one footer line in markdown, count verdicts from
-    Jev versus fallback. Present only when Jev ran.
-- `scripts/jev_client.py` — shared standard-library client (timeouts,
-  bounded 429 / 529 retries honoring Retry-After, explicit `unavailable`
-  results, item packing). Identical copies live in ideas-funnel,
-  test-lab, and workshop; `admin/scripts/check-jev-client-copies.sh`
-  and `tests/python/test_jev_client.py` fail on divergence.
-- `tests/python/test_jev_integration.py` proves every artifact is
-  byte-identical to the pre-Jev output when Jev is absent or disabled.
+- Jev (TypeSafe's System One model) as an added layer in the report pipeline when `TYPESAFE_API_KEY` is set and `JEV_DISABLED` is not `1`:
+  - `parsers/drupal_watchdog.py` asks one severity Choice per distinct (channel, message) whose severity the log left `unknown`; a confident answer (0.7 to start) fills it in, source and record kept in `fields.severity_source` / `fields.severity_jev`. Severity the log or channel table already gave is never overridden.
+  - `causes.collapse_by_cause` gates every regex bucket: members merge only when Jev confidently says they show the diagnosed cause and share a root cause with the primary (0.8 to start); the rest stay separate rows with their regex diagnosis and a `jev_judgments` audit list.
+  - `jira_recs.judge_worthiness` scores each ticket that the unchanged hard rules (count at or above 50, top five) already selected; a confident score adds a `drover-jev-worth-<level>` label and a description line. Priority never changes.
+  - `fingerprint.py --jev-prefilter` drops keyword hits Jev confidently says are not errors; hashing is untouched.
+  - `report.py --no-jev`; a `jev` block in the summary and the `--format json` output, and one footer line in markdown, count verdicts from Jev versus fallback. Present only when Jev ran.
+- `scripts/jev_client.py` — shared standard-library client (timeouts, bounded 429 / 529 retries honoring Retry-After, explicit `unavailable` results, item packing). Identical copies live in ideas-funnel, test-lab, and workshop; `admin/scripts/check-jev-client-copies.sh` and `tests/python/test_jev_client.py` fail on divergence.
+- `tests/python/test_jev_integration.py` proves every artifact is byte-identical to the pre-Jev output when Jev is absent or disabled.
 
 ## 4.1.0 — report charts and incident brief
 
 ### Added
 
-- `monthly-client` opens with an incident brief: a headline and label/value
-  rows (volume, busiest day, leading issue with its prior-month delta,
-  severity split, coverage) derived only from numbers the aggregation
-  already computed. The brief is omitted when the month recorded no events.
-- `chart-line` partial and `lineChart` helper: static inline SVG daily
-  volume trend with a `<title>`, `<desc>`, real-text axis labels, and the
-  peak stated in words. Undated events (the `by_day` "unknown" bucket) are
-  reported beneath the chart instead of being plotted as a fictional day.
-- `chart-donut` partial and `donutSegments` helper: share of events by
-  channel, direct-labelled with count and share in a legend so identity
-  never rests on colour. Channels past the five-slot ramp fold into
-  "Other"; no sixth hue is generated.
-- Categorical series tokens (`series-1` to `series-5`, `series-other`) in
-  `DESIGN.md`, with dark-surface counterparts and print overrides.
-- `render-html/test/fixtures/charts.json`, a thirty-day fixture, plus
-  renderer tests for chart geometry (empty data, a single day, one channel
-  at 100%, zero totals), the brief present and absent, and escaping of
-  hostile log text through the brief and both charts.
+- `monthly-client` opens with an incident brief: a headline and label/value rows (volume, busiest day, leading issue with its prior-month delta, severity split, coverage) derived only from numbers the aggregation already computed. The brief is omitted when the month recorded no events.
+- `chart-line` partial and `lineChart` helper: static inline SVG daily volume trend with a `<title>`, `<desc>`, real-text axis labels, and the peak stated in words. Undated events (the `by_day` "unknown" bucket) are reported beneath the chart instead of being plotted as a fictional day.
+- `chart-donut` partial and `donutSegments` helper: share of events by channel, direct-labelled with count and share in a legend so identity never rests on colour. Channels past the five-slot ramp fold into "Other"; no sixth hue is generated.
+- Categorical series tokens (`series-1` to `series-5`, `series-other`) in `DESIGN.md`, with dark-surface counterparts and print overrides.
+- `render-html/test/fixtures/charts.json`, a thirty-day fixture, plus renderer tests for chart geometry (empty data, a single day, one channel at 100%, zero totals), the brief present and absent, and escaping of hostile log text through the brief and both charts.
 
 ### Security
 
-- Chart labels, issue summaries, channel names, and day keys are treated
-  as untrusted log content and always pass through Handlebars escaping.
-  The new partials contain no unescaped output; `{{{css}}}` remains the
-  only triple-brace in `monthly-client`. Charts are static SVG with no
-  script, so they render identically in the PDF.
+- Chart labels, issue summaries, channel names, and day keys are treated as untrusted log content and always pass through Handlebars escaping. The new partials contain no unescaped output; `{{{css}}}` remains the only triple-brace in `monthly-client`. Charts are static SVG with no script, so they render identically in the PDF.
 
 ## 4.0.0 — reports only, no JIRA client
 
-**Breaking: `/drover:create-tickets` is removed.** drover is a report creator
-working from downloaded logs; filing tickets belonged to the old live-monitoring
-design and was never used.
+**Breaking: `/drover:create-tickets` is removed.** drover is a report creator working from downloaded logs; filing tickets belonged to the old live-monitoring design and was never used.
 
-- Delete the `create-tickets` skill, `scripts/create_tickets.py`, `scripts/jira_api.py`,
-  and their tests. drover no longer reads `JIRA_API_TOKEN` or jira-cli's config files.
-- Reports still recommend JIRA tickets, and the `.tickets.json` sidecar keeps its
-  stable shape so a ticket skill can be added back later without changing reports.
+- Delete the `create-tickets` skill, `scripts/create_tickets.py`, `scripts/jira_api.py`, and their tests. drover no longer reads `JIRA_API_TOKEN` or jira-cli's config files.
+- Reports still recommend JIRA tickets, and the `.tickets.json` sidecar keeps its stable shape so a ticket skill can be added back later without changing reports.
 - A manifest `jira:` block is now ignored.
 
 ## 3.0.0 — hardening on the 2.3 signal tiers
 
 ### Compatibility and migration
 
-- **Breaking fingerprint change:** structured fingerprints now hash the full
-  normalized message instead of its first 120 characters. Distinct long
-  messages no longer silently merge. Short normalized messages and Apache
-  `AHnnnnn` collapsing retain their existing behavior. This also affects
-  monitor state keyed by structured fingerprints, not just reports.
-- Keep existing reports, ticket sidecars, and monitor state as audit records.
-  Recompute comparison periods from retained raw logs with the same version;
-  do not interpret changed IDs across versions as new/resolved incidents.
-  If the original logs are unavailable, those comparisons cannot be
-  reconstructed reliably.
-- **No automatic migration is performed.** An old truncated fingerprint can
-  map to multiple new groups, so blindly rewriting state or sidecars is unsafe.
-  Before creating tickets from regenerated reports or resuming monitors,
-  reconcile affected new fingerprints with existing issue keys manually.
-  The new fingerprint labels and sidecar checks prevent ordinary sequential
-  re-runs with unchanged IDs; they cannot identify legacy unlabeled issues
-  after IDs change. A failed Jira duplicate probe and concurrent creators
-  are not covered by this best-effort protection.
-- The plugin major version reflects the fingerprint compatibility break.
-  Report JSON stays at schema v2: the 2.3 `supplementary_groups` contract
-  is preserved, along with watchdog/apache ranking and supplementary PHP
-  detail. No `drover-charts` work is included.
+- **Breaking fingerprint change:** structured fingerprints now hash the full normalized message instead of its first 120 characters. Distinct long messages no longer silently merge. Short normalized messages and Apache `AHnnnnn` collapsing retain their existing behavior. This also affects monitor state keyed by structured fingerprints, not just reports.
+- Keep existing reports, ticket sidecars, and monitor state as audit records. Recompute comparison periods from retained raw logs with the same version; do not interpret changed IDs across versions as new/resolved incidents. If the original logs are unavailable, those comparisons cannot be reconstructed reliably.
+- **No automatic migration is performed.** An old truncated fingerprint can map to multiple new groups, so blindly rewriting state or sidecars is unsafe. Before creating tickets from regenerated reports or resuming monitors, reconcile affected new fingerprints with existing issue keys manually. The new fingerprint labels and sidecar checks prevent ordinary sequential re-runs with unchanged IDs; they cannot identify legacy unlabeled issues after IDs change. A failed Jira duplicate probe and concurrent creators are not covered by this best-effort protection.
+- The plugin major version reflects the fingerprint compatibility break. Report JSON stays at schema v2: the 2.3 `supplementary_groups` contract is preserved, along with watchdog/apache ranking and supplementary PHP detail. No `drover-charts` work is included.
 
 ### Fixed
 
-- Chart tooltips build DOM text nodes instead of reparsing decoded log labels
-  through `innerHTML`; all chart templates include the shared safe partial.
-- Any missing expected coverage entry triggers the HTML caveat, even above
-  90% coverage, matching Markdown's coverage discipline.
-- Coverage ledger saves merge only tuples mutated by the current process
-  rather than restoring unrelated stale entries from its snapshot.
-- Acquia discovery failures abort initialization instead of persisting an
-  incomplete manifest; application, environment, and log-type lists paginate.
-- Explicit manifest `types: []` no longer expands to default types in pull
-  or either report output path.
-- Truncated PHP stack traces no longer raise `KeyError`; syslog years use
-  the nearest hinted date, and numeric PHP timezone offsets normalize to UTC.
-- Canonical log paths validate environment/type components and reject paths
-  resolving outside the project root.
-- Mutating Jira requests are not blindly retried. Read-only search may retry.
-  Ticket creation adds fingerprint labels, checks prior results and Jira,
-  and merges recorded created outcomes into the results sidecar.
-- Sprint/link failures retain the created issue key but return
-  `created-partial` and a nonzero CLI result.
+- Chart tooltips build DOM text nodes instead of reparsing decoded log labels through `innerHTML`; all chart templates include the shared safe partial.
+- Any missing expected coverage entry triggers the HTML caveat, even above 90% coverage, matching Markdown's coverage discipline.
+- Coverage ledger saves merge only tuples mutated by the current process rather than restoring unrelated stale entries from its snapshot.
+- Acquia discovery failures abort initialization instead of persisting an incomplete manifest; application, environment, and log-type lists paginate.
+- Explicit manifest `types: []` no longer expands to default types in pull or either report output path.
+- Truncated PHP stack traces no longer raise `KeyError`; syslog years use the nearest hinted date, and numeric PHP timezone offsets normalize to UTC.
+- Canonical log paths validate environment/type components and reject paths resolving outside the project root.
+- Mutating Jira requests are not blindly retried. Read-only search may retry. Ticket creation adds fingerprint labels, checks prior results and Jira, and merges recorded created outcomes into the results sidecar.
+- Sprint/link failures retain the created issue key but return `created-partial` and a nonzero CLI result.
 - Future-only pull ranges report a clear error after date clamping.
 
 ### Documentation
 
 - Skills resolve paths through `CLAUDE_PLUGIN_ROOT`, not lexical cache sorting.
-- Corrected the nonexistent setup command, init's Acquia-only discovery scope,
-  coverage state descriptions, and claims of byte-identical report output
-  despite generation timestamps.
+- Corrected the nonexistent setup command, init's Acquia-only discovery scope, coverage state descriptions, and claims of byte-identical report output despite generation timestamps.
 
 ## 2.3.0 — php-error demoted to a supplementary signal
 
-- **php-error no longer competes for the ranked storyline.** Its parser only
-  folds native `PHP Fatal error:` traces; Symfony/PHP `Throwable::getTraceAsString()`
-  traces (`#N file(line): call`, no `PHP` prefix) fall through unparsed, so a
-  single recurring exception could fragment into a dozen+ near-meaningless
-  single-line groups that then dominated "top issues," Pareto cuts, and JIRA
-  ticket recommendations.
-- **`drupal-watchdog` and `apache-error` are now the strong-signal sources.**
-  They alone drive ranking, Pareto math, and ticket generation across
-  `monthly-client`, `root-cause-summary`, and `calendar-boundary`.
-- **php-error groups still show up — as a "Supplementary detail" section.**
-  De-emphasized styling, never rank-driving, useful only as corroborating
-  color for a storyline the strong signal already established. Raw totals
-  (events, severity, channel, daily volume) are unaffected — this only
-  changes what feeds the ranked groups list.
-- **JSON schema bumped to v2**: adds `supplementary_groups` and
-  `totals.supplementary_groups_total`. Older v1 report JSON (missing these
-  fields) still renders cleanly.
+- **php-error no longer competes for the ranked storyline.** Its parser only folds native `PHP Fatal error:` traces; Symfony/PHP `Throwable::getTraceAsString()` traces (`#N file(line): call`, no `PHP` prefix) fall through unparsed, so a single recurring exception could fragment into a dozen+ near-meaningless single-line groups that then dominated "top issues," Pareto cuts, and JIRA ticket recommendations.
+- **`drupal-watchdog` and `apache-error` are now the strong-signal sources.** They alone drive ranking, Pareto math, and ticket generation across `monthly-client`, `root-cause-summary`, and `calendar-boundary`.
+- **php-error groups still show up — as a "Supplementary detail" section.** De-emphasized styling, never rank-driving, useful only as corroborating color for a storyline the strong signal already established. Raw totals (events, severity, channel, daily volume) are unaffected — this only changes what feeds the ranked groups list.
+- **JSON schema bumped to v2**: adds `supplementary_groups` and `totals.supplementary_groups_total`. Older v1 report JSON (missing these fields) still renders cleanly.
 
 ## 2.2.4 — report defaults: branding, light mode, and print layout
 
-- **Footer no longer names internal tooling.** It read `Prepared by Velir ·
-  drover <version>`; a client has no idea what drover is. Now just
-  `Prepared by Velir`.
-- **Light is the default; dark is opt-in.** Two
-  `@media (prefers-color-scheme: dark)` blocks meant a reader whose OS was in
-  dark mode got a dark report — and a dark PDF — without ever choosing it. Dark
-  now applies only when the toggle sets it, and the toggle's own fallback no
-  longer reads the OS preference.
-- **PDFs always print light.** The print stylesheet forced a white page
-  background but left the dark tokens in place, so exporting while dark was
-  toggled produced near-white text on white paper. Print now re-declares the
-  light values over `:root[data-theme="dark"]`, including the twelve
-  severity-pill token pairs that a first pass missed and that left the pills
-  dark-filled on an otherwise light page.
-- **Sections flow instead of taking a page each.** `h2.section` forced
-  `break-before: page`, stranding short sections on two-thirds-empty pages —
-  four bars alone on a sheet. Its stated purpose (headings never at a page
-  bottom) is already served by `break-after: avoid`. One-idea-per-page is a
-  deck layout and will live in the deck template. A sample report went from 7
-  pages to 6, with page 1 now carrying the summary *and* the first chart.
-- **Logo resolution hardened.** Adds `$DROVER_LOGO` and
-  `.drover/branding/velir-logo.png` overrides, mirroring how `DESIGN.md`
-  already resolves, and raises a clear error instead of silently rendering an
-  unbranded header. Note the bundled logo already applied by default — this is
-  hardening, not a bug fix.
-- **Renders report what they resolved.** The run summary printed `design:` but
-  not `logo:`; it now prints both, so "did branding apply?" is answerable from
-  the output instead of by reading source.
-- **Docs state that branding needs no setup.** `ONBOARDING.md` and
-  `skills/init/SKILL.md` previously never mentioned the logo or `DESIGN.md`,
-  so a new user had no reason to believe they weren't expected to supply them.
+- **Footer no longer names internal tooling.** It read `Prepared by Velir · drover <version>`; a client has no idea what drover is. Now just `Prepared by Velir`.
+- **Light is the default; dark is opt-in.** Two `@media (prefers-color-scheme: dark)` blocks meant a reader whose OS was in dark mode got a dark report — and a dark PDF — without ever choosing it. Dark now applies only when the toggle sets it, and the toggle's own fallback no longer reads the OS preference.
+- **PDFs always print light.** The print stylesheet forced a white page background but left the dark tokens in place, so exporting while dark was toggled produced near-white text on white paper. Print now re-declares the light values over `:root[data-theme="dark"]`, including the twelve severity-pill token pairs that a first pass missed and that left the pills dark-filled on an otherwise light page.
+- **Sections flow instead of taking a page each.** `h2.section` forced `break-before: page`, stranding short sections on two-thirds-empty pages — four bars alone on a sheet. Its stated purpose (headings never at a page bottom) is already served by `break-after: avoid`. One-idea-per-page is a deck layout and will live in the deck template. A sample report went from 7 pages to 6, with page 1 now carrying the summary *and* the first chart.
+- **Logo resolution hardened.** Adds `$DROVER_LOGO` and `.drover/branding/velir-logo.png` overrides, mirroring how `DESIGN.md` already resolves, and raises a clear error instead of silently rendering an unbranded header. Note the bundled logo already applied by default — this is hardening, not a bug fix.
+- **Renders report what they resolved.** The run summary printed `design:` but not `logo:`; it now prints both, so "did branding apply?" is answerable from the output instead of by reading source.
+- **Docs state that branding needs no setup.** `ONBOARDING.md` and `skills/init/SKILL.md` previously never mentioned the logo or `DESIGN.md`, so a new user had no reason to believe they weren't expected to supply them.
 
 ## 2.2.3 — coverage ledger integrity
 
-The ledger could disagree with the files actually on disk, and
-`/drover:report` reads it for coverage caveats — so a report could claim gaps
-that had already been filled. Found on a real project: 10 of 60 tuples were
-recorded as absent while every one of the files was present and verified.
+The ledger could disagree with the files actually on disk, and `/drover:report` reads it for coverage caveats — so a report could claim gaps that had already been filled. Found on a real project: 10 of 60 tuples were recorded as absent while every one of the files was present and verified.
 
-- **Concurrent runs no longer clobber each other.** `save_coverage` rewrote
-  the whole file from an in-process snapshot, so two runs against one project
-  each loaded the ledger at start and the later save silently discarded
-  everything the other had written. The in-process lock cannot help — it does
-  not span processes. The write is now a read-merge-write under an exclusive
-  `flock`. Measured with four concurrent writers of 25 entries each: before,
-  74 of 100 entries were lost; after, all 100 survive.
-- **Concurrent runs no longer crash.** Every process staged through the same
-  `coverage.tmp`, so one process's rename could steal another's staging file
-  and raise `FileNotFoundError` mid-write. Staging is now per-process.
-- **Stale states are corrected.** The startup scan wrote the ledger only when
-  an entry was missing, so an entry with a *wrong* state survived every later
-  run even though the file was sitting on disk. A present file now forces the
-  entry to `present`, and the correction is logged.
+- **Concurrent runs no longer clobber each other.** `save_coverage` rewrote the whole file from an in-process snapshot, so two runs against one project each loaded the ledger at start and the later save silently discarded everything the other had written. The in-process lock cannot help — it does not span processes. The write is now a read-merge-write under an exclusive `flock`. Measured with four concurrent writers of 25 entries each: before, 74 of 100 entries were lost; after, all 100 survive.
+- **Concurrent runs no longer crash.** Every process staged through the same `coverage.tmp`, so one process's rename could steal another's staging file and raise `FileNotFoundError` mid-write. Staging is now per-process.
+- **Stale states are corrected.** The startup scan wrote the ledger only when an entry was missing, so an entry with a *wrong* state survived every later run even though the file was sitting on disk. A present file now forces the entry to `present`, and the correction is logged.
 - A malformed on-disk ledger no longer crashes the write.
 
 ## 2.2.2 — store what the filename claims
 
-- Downloads are sniffed for the gzip magic number and compressed only when it
-  is absent. Acquia serves these logs already gzipped, and nothing
-  re-compresses a payload that arrives compressed — that would spend CPU to
-  shave a constant factor off a cost that is already small (gzip achieves
-  roughly 28x on this data). But the stored path always ends `.log.gz` and
-  every reader picks its opener from that suffix, so a payload arriving
-  uncompressed would have been stored under a name that lies about its
-  contents.
-- `dominant_month_day` now raises `UnreadableLogFile` when a file cannot be
-  decoded, instead of returning `None`. Previously `gzip.BadGzipFile` — a
-  subclass of `OSError` — was caught and collapsed into the same `None` that
-  means "readable but no dates found". The caller reads `None` as "cannot
-  verify", so a corrupt download skipped verification entirely, was recorded
-  `present`, and failed much later at report time, far from its cause.
-  Verification failures now delete the file and retry like any other.
+- Downloads are sniffed for the gzip magic number and compressed only when it is absent. Acquia serves these logs already gzipped, and nothing re-compresses a payload that arrives compressed — that would spend CPU to shave a constant factor off a cost that is already small (gzip achieves roughly 28x on this data). But the stored path always ends `.log.gz` and every reader picks its opener from that suffix, so a payload arriving uncompressed would have been stored under a name that lies about its contents.
+- `dominant_month_day` now raises `UnreadableLogFile` when a file cannot be decoded, instead of returning `None`. Previously `gzip.BadGzipFile` — a subclass of `OSError` — was caught and collapsed into the same `None` that means "readable but no dates found". The caller reads `None` as "cannot verify", so a corrupt download skipped verification entirely, was recorded `present`, and failed much later at report time, far from its cause. Verification failures now delete the file and retry like any other.
 
 ## 2.2.1 — create pacing and concurrent-writer safety
 
-- Log-create pacing no longer holds the lock across its sleep. Creates
-  serialized behind it across every group, and each group idled a full
-  `rate_limit_s` after firing before it could begin polling. Slots are now
-  claimed from a shared monotonic schedule, with the lock held only for the
-  claim. The spacing guarantee between creates is unchanged and now tested.
-- File presence is re-checked immediately before spending a snapshot request.
-  The up-front scan only describes the filesystem at start-up, so a long run
-  gave another writer time to land a file that the run still intended to
-  fetch. Such a day is now skipped and recorded `present`.
+- Log-create pacing no longer holds the lock across its sleep. Creates serialized behind it across every group, and each group idled a full `rate_limit_s` after firing before it could begin polling. Slots are now claimed from a shared monotonic schedule, with the lock held only for the claim. The spacing guarantee between creates is unchanged and now tested.
+- File presence is re-checked immediately before spending a snapshot request. The up-front scan only describes the filesystem at start-up, so a long run gave another writer time to land a file that the run still intended to fetch. Such a day is now skipped and recorded `present`.
 
-  This does **not** make two concurrent pulls safe against each other. Acquia
-  keeps one packaged file per `(env, type)`, so overlapping runs still clobber
-  one another's snapshots; the guard against acting on a clobbered file is the
-  post-download verification, not this check.
+  This does **not** make two concurrent pulls safe against each other. Acquia keeps one packaged file per `(env, type)`, so overlapping runs still clobber one another's snapshots; the guard against acting on a clobbered file is the post-download verification, not this check.
 
 ## 2.2.0 — pull observability, verified snapshots, extensible HTML and PDF delivery
 
 ### Pull progress is now visible while it happens
 
-- Every notification status check is reported, so a snapshot that is still
-  building is distinguishable from one whose status call is failing. Acquia
-  packages logs asynchronously — request, build onto S3, then download — and
-  the build leg previously produced no output at all for minutes at a time.
-- A failing status check no longer disappears into `except Exception: pass`.
-  The underlying error is carried into the `fetch-failed` reason instead of
-  being replaced by a bare "poll deadline exceeded".
-- An errored status check no longer leaves a stale status value standing from
-  an earlier successful check.
-- Snapshot request and download start are each reported, so the three legs of
-  the Acquia flow are individually visible.
-- stdout and stderr are line-buffered. Python block-buffers stdout when it is
-  redirected to a file or pipe, which held every progress line until the run
-  ended and made a working pull look identical to a hung one. Callers no
-  longer need `python3 -u`.
+- Every notification status check is reported, so a snapshot that is still building is distinguishable from one whose status call is failing. Acquia packages logs asynchronously — request, build onto S3, then download — and the build leg previously produced no output at all for minutes at a time.
+- A failing status check no longer disappears into `except Exception: pass`. The underlying error is carried into the `fetch-failed` reason instead of being replaced by a bare "poll deadline exceeded".
+- An errored status check no longer leaves a stale status value standing from an earlier successful check.
+- Snapshot request and download start are each reported, so the three legs of the Acquia flow are individually visible.
+- stdout and stderr are line-buffered. Python block-buffers stdout when it is redirected to a file or pipe, which held every progress line until the run ended and made a working pull look identical to a hung one. Callers no longer need `python3 -u`.
 
 ### Post-download verification (was present in source but never released)
 
-- Every downloaded file is verified before being recorded `present`: its
-  dominant log date must match the requested day, and it must not be
-  byte-identical to another day already pulled in the same group. Mismatches
-  are deleted, marked `snapshot-mismatch`, and retried once. This ships the
-  guard against Acquia's one-snapshot-per-(env,type) staleness, which
-  previously produced mislabeled duplicate files.
+- Every downloaded file is verified before being recorded `present`: its dominant log date must match the requested day, and it must not be byte-identical to another day already pulled in the same group. Mismatches are deleted, marked `snapshot-mismatch`, and retried once. This ships the guard against Acquia's one-snapshot-per-(env,type) staleness, which previously produced mislabeled duplicate files.
 
 ### Extensible HTML and PDF delivery
 
-- HTML is now the report skill's default editable artifact; PDF is the final
-  stakeholder delivery artifact. The direct Markdown path remains supported.
-- HTML templates are discovered from explicit directories, environment
-  configuration, `.drover/templates`, and the bundled folder. Project templates
-  and partials can override bundled names without changing plugin code.
-- `cloudflare-summary` is now documented, carries a sample input, and derives
-  its timestamp from input so HTML output remains deterministic.
-- Reusable report partials cover headers, footers, coverage warnings, metric
-  cards, horizontal charts, and prose callouts. `COMPONENTS.md` documents the
-  template data contract and graph helpers.
-- Project design overrides are automatically discovered at
-  `.drover/design/DESIGN.md`; `--design` and `DROVER_DESIGN` remain explicit
-  overrides. Print page size and margin are design tokens.
-- `render-pdf.mjs` supports final PDF generation through installed Chrome,
-  Chromium, or Edge, with an explicit support matrix in `PDF.md`.
-- Removed the remote Google Fonts import so rendered HTML is genuinely
-  self-contained; local IBM Plex installations and system fallbacks are used.
+- HTML is now the report skill's default editable artifact; PDF is the final stakeholder delivery artifact. The direct Markdown path remains supported.
+- HTML templates are discovered from explicit directories, environment configuration, `.drover/templates`, and the bundled folder. Project templates and partials can override bundled names without changing plugin code.
+- `cloudflare-summary` is now documented, carries a sample input, and derives its timestamp from input so HTML output remains deterministic.
+- Reusable report partials cover headers, footers, coverage warnings, metric cards, horizontal charts, and prose callouts. `COMPONENTS.md` documents the template data contract and graph helpers.
+- Project design overrides are automatically discovered at `.drover/design/DESIGN.md`; `--design` and `DROVER_DESIGN` remain explicit overrides. Print page size and margin are design tokens.
+- `render-pdf.mjs` supports final PDF generation through installed Chrome, Chromium, or Edge, with an explicit support matrix in `PDF.md`.
+- Removed the remote Google Fonts import so rendered HTML is genuinely self-contained; local IBM Plex installations and system fallbacks are used.
 
 ## 2.1.0 — HTML reports
 
-Adds a self-contained, Velir-branded HTML output alongside the existing
-markdown reports. Markdown remains the default; HTML is opt-in via a
-two-stage Python→Node render path.
+Adds a self-contained, Velir-branded HTML output alongside the existing markdown reports. Markdown remains the default; HTML is opt-in via a two-stage Python→Node render path.
 
-- **`report.py --format json`** — new `generate_data()` emits a
-  schema-versioned (`drover_schema_version: 1`) structured aggregate:
-  meta, coverage, totals (by severity/channel/day), fingerprint groups
-  (raw + cause-collapsed), MoM deltas, and JIRA ticket specs. Same
-  deterministic pipeline as the markdown path; one JSON file per
-  month/env. `--template` is ignored when `--format=json`.
-- **`render-html/`** — Node renderer (`render.mjs` → `render-core.mjs`)
-  turns that JSON + `assets/design/DESIGN.md` tokens into HTML via
-  Handlebars. All CSS inlined; logo embedded as a data URI; output is
-  byte-deterministic. Low-coverage banner gated at <90%.
-  - All five report views render in HTML: `monthly-client`,
-    `root-cause-summary`, `calendar-boundary`, `triage-brief`,
-    `jira-ready`.
-  - Interactivity beyond the markdown path: persisted dark-mode toggle
-    (with `prefers-color-scheme` fallback), chart hover tooltips,
-    real-time search + severity filtering (triage-brief, jira-ready),
-    one-click clipboard "Copy Specs" (jira-ready).
-  - Shared chrome (theme init, toggle button, toggle handler) lives in
-    `templates/partials/` and is registered once, so it can't drift
-    across templates — a render test asserts the toggle handler is
-    byte-identical in all five.
-  - **No vendored `node_modules`.** Deps install lazily on first render
-    (one-time `npm ci` from a committed lockfile); `render.mjs` is a
-    builtin-only bootstrap so it loads before deps exist. Requires
-    Node ≥20.
-- Tests: `generate_data()` schema/determinism/serialization +
-  `--format json` CLI (Python, unittest); per-template render +
-  coverage-gate + determinism + cross-template drift guard
-  (Node, `npm test`).
+- **`report.py --format json`** — new `generate_data()` emits a schema-versioned (`drover_schema_version: 1`) structured aggregate: meta, coverage, totals (by severity/channel/day), fingerprint groups (raw + cause-collapsed), MoM deltas, and JIRA ticket specs. Same deterministic pipeline as the markdown path; one JSON file per month/env. `--template` is ignored when `--format=json`.
+- **`render-html/`** — Node renderer (`render.mjs` → `render-core.mjs`) turns that JSON + `assets/design/DESIGN.md` tokens into HTML via Handlebars. All CSS inlined; logo embedded as a data URI; output is byte-deterministic. Low-coverage banner gated at <90%.
+  - All five report views render in HTML: `monthly-client`, `root-cause-summary`, `calendar-boundary`, `triage-brief`, `jira-ready`.
+  - Interactivity beyond the markdown path: persisted dark-mode toggle (with `prefers-color-scheme` fallback), chart hover tooltips, real-time search + severity filtering (triage-brief, jira-ready), one-click clipboard "Copy Specs" (jira-ready).
+  - Shared chrome (theme init, toggle button, toggle handler) lives in `templates/partials/` and is registered once, so it can't drift across templates — a render test asserts the toggle handler is byte-identical in all five.
+  - **No vendored `node_modules`.** Deps install lazily on first render (one-time `npm ci` from a committed lockfile); `render.mjs` is a builtin-only bootstrap so it loads before deps exist. Requires Node ≥20.
+- Tests: `generate_data()` schema/determinism/serialization + `--format json` CLI (Python, unittest); per-template render + coverage-gate + determinism + cross-template drift guard (Node, `npm test`).
 
 ## 2.0.1
 - Logs are now stored compressed (`.log.gz`) — 5-10× space savings, no decompression after download.
@@ -336,139 +147,64 @@ two-stage Python→Node render path.
 
 ## 2.0.0 — Pivot: log-analysis pipeline (clean break from v1)
 
-Drover is now a Drupal/Acquia application-error log analysis pipeline.
-The v1 product (live monitoring + dashboard + kanban + auto-fix) has
-been retired wholesale. Anyone who wants the v1 experience installs
-the `drover-1.51.2` tag.
+Drover is now a Drupal/Acquia application-error log analysis pipeline. The v1 product (live monitoring + dashboard + kanban + auto-fix) has been retired wholesale. Anyone who wants the v1 experience installs the `drover-1.51.2` tag.
 
 **New surface — four skills, no UI:**
 
-- **`/drover:init`** — discovery + manifest write. Reads drush
-  aliases, composer.json, .ddev/config.yaml, acquia-pipelines.yml;
-  resolves Acquia app UUID + env list + log types via the Cloud
-  Platform API; writes `.drover/manifest.json`. JIRA project key,
-  board, and default sprint are hand-edited into the manifest's
-  `jira:` block today; `/drover:init` auto-detection lands in 2.1.
-  Zero prompts in the happy path.
-- **`/drover:acquia-pull`** — historical log download by date.
-  Talks to the Acquia Cloud Platform API directly via the existing
-  stdlib client; uses the documented `from`/`to` parameters on the
-  log-snapshot endpoint to pull any 24-hour window in the last 30
-  days. Idempotent reconcile against `.drover/coverage.json`. Modes:
-  `--daily`, `--backfill`, `--from/--to`, `--date`, `--env all`.
-  User-triggered, not scheduled — drover does not ship a cron
-  template; the pull script is small, idempotent, and exit-code-
-  correct so any external scheduler wraps it cleanly.
-- **`/drover:report`** — render a markdown monthly report. Five
-  templates:
+- **`/drover:init`** — discovery + manifest write. Reads drush aliases, composer.json, .ddev/config.yaml, acquia-pipelines.yml; resolves Acquia app UUID + env list + log types via the Cloud Platform API; writes `.drover/manifest.json`. JIRA project key, board, and default sprint are hand-edited into the manifest's `jira:` block today; `/drover:init` auto-detection lands in 2.1. Zero prompts in the happy path.
+- **`/drover:acquia-pull`** — historical log download by date. Talks to the Acquia Cloud Platform API directly via the existing stdlib client; uses the documented `from`/`to` parameters on the log-snapshot endpoint to pull any 24-hour window in the last 30 days. Idempotent reconcile against `.drover/coverage.json`. Modes: `--daily`, `--backfill`, `--from/--to`, `--date`, `--env all`. User-triggered, not scheduled — drover does not ship a cron template; the pull script is small, idempotent, and exit-code- correct so any external scheduler wraps it cleanly.
+- **`/drover:report`** — render a markdown monthly report. Five templates:
     - `monthly-client` — stakeholder summary
     - `root-cause-summary` — Pareto cut + cause diagnosis + JIRA recs
-    - `calendar-boundary` — events-by-channel bar chart for windowed
-      analysis (campaigns, holiday boundaries)
+    - `calendar-boundary` — events-by-channel bar chart for windowed analysis (campaigns, holiday boundaries)
     - `triage-brief` — dev-facing fingerprint detail
-    - `jira-ready` — paste blocks for JIRA's create-issue dialog
-  Stakeholder templates carry a Velir 2025 logo + brand palette and
-  emit a sidecar JSON of ticket specs for downstream creation.
-  Cause diagnosis from a 17-pattern library covering the most
-  common Drupal/PHP/Apache shapes (entity_embed display drift,
-  SQLSTATE errors, Acquia Solr flood-protection, login-attempt
-  patterns, cron lock contention, routine cron instrumentation
-  noise, PHP fatals, Twig errors, route-not-found, cache-backend
-  unavailability, Apache child-process death, etc.). Fingerprints
-  sharing the same diagnosed root cause collapse into one report
-  entry and one JIRA ticket — the same Solr flood-protection error
-  surfacing in both `search_api` and `acquia_search` becomes one
-  issue, not two. Deterministic — no LLM in the rendering path.
-  Coverage caveats are surfaced automatically when any day is
-  missing or fetch-failed.
-- **`/drover:create-tickets`** — file the report's recommended
-  tickets in JIRA. Three execution paths share the same stable plan
-  schema (`drover_plan_version: 1`):
-    - **Atlassian MCP** — Claude calls `mcp__*atlassian*` /
-      `mcp__*jira*` tools directly. Drover writes a plan; Claude
-      reads it and invokes the matching MCP tools. No shared API
-      token needed.
-    - **Direct REST** — drover's built-in executor talks to
-      Atlassian Cloud's REST API. Needs `JIRA_API_TOKEN` env.
-    - **Plan-only** — drover writes the plan; the operator runs
-      the writes themselves with jira-cli, the web UI, or custom
-      tooling.
-  Per-ticket sprint assignment + parent linking are best-effort:
-  failures don't undo the issue creation; they're captured in a
-  results sidecar.
+    - `jira-ready` — paste blocks for JIRA's create-issue dialog Stakeholder templates carry a Velir 2025 logo + brand palette and emit a sidecar JSON of ticket specs for downstream creation. Cause diagnosis from a 17-pattern library covering the most common Drupal/PHP/Apache shapes (entity_embed display drift, SQLSTATE errors, Acquia Solr flood-protection, login-attempt patterns, cron lock contention, routine cron instrumentation noise, PHP fatals, Twig errors, route-not-found, cache-backend unavailability, Apache child-process death, etc.). Fingerprints sharing the same diagnosed root cause collapse into one report entry and one JIRA ticket — the same Solr flood-protection error surfacing in both `search_api` and `acquia_search` becomes one issue, not two. Deterministic — no LLM in the rendering path. Coverage caveats are surfaced automatically when any day is missing or fetch-failed.
+- **`/drover:create-tickets`** — file the report's recommended tickets in JIRA. Three execution paths share the same stable plan schema (`drover_plan_version: 1`):
+    - **Atlassian MCP** — Claude calls `mcp__*atlassian*` / `mcp__*jira*` tools directly. Drover writes a plan; Claude reads it and invokes the matching MCP tools. No shared API token needed.
+    - **Direct REST** — drover's built-in executor talks to Atlassian Cloud's REST API. Needs `JIRA_API_TOKEN` env.
+    - **Plan-only** — drover writes the plan; the operator runs the writes themselves with jira-cli, the web UI, or custom tooling. Per-ticket sprint assignment + parent linking are best-effort: failures don't undo the issue creation; they're captured in a results sidecar.
 
 **Architecture (pure stdlib Python):**
 
-- `scripts/monitors/acquia_api.py` — patched with `from`/`to` support
-  on `request_log_download()` and a new `get_log_download_url()`
-  that captures the 301 → S3 redirect without poisoning S3 with
-  the Acquia auth header. Retry-on-5xx-and-timeout via the same
-  `_urlopen_with_retry` helper.
+- `scripts/monitors/acquia_api.py` — patched with `from`/`to` support on `request_log_download()` and a new `get_log_download_url()` that captures the 301 → S3 redirect without poisoning S3 with the Acquia auth header. Retry-on-5xx-and-timeout via the same `_urlopen_with_retry` helper.
 - `scripts/init.py` — discovery cascade + manifest builder.
-- `scripts/pull.py` — single-day primitive + multi-day reconcile
-  loop with retries, polite rate limiting, and incremental ledger
-  checkpointing so partial progress survives a crash.
-- `scripts/parsers/` — three deterministic parsers (apache-error,
-  drupal-watchdog with continuation-line folding, php-error with
-  stack-trace folding) emitting a uniform event shape.
-- `scripts/aggregate.py` — fingerprint + group + count using v1's
-  `fingerprint_structured` so issue keys remain hash-compatible
-  with v1 history. MoM delta annotation.
-- `scripts/causes.py` — 17-pattern cause-diagnosis library with
-  honest "undiagnosed" fallback for unknown shapes. Operators
-  extend by adding entries to `PATTERNS`. Includes
-  `collapse_by_cause()` for cross-channel de-duplication.
-- `scripts/charts.py` — pure-stdlib unicode bar charts that render
-  correctly in every markdown viewer.
-- `scripts/branding.py` — Velir 2025 brand palette + base64-embedded
-  logo so rendered markdown is self-contained.
-- `scripts/report_writer.py` + `agents/report-writer.md` — agent
-  scaffolding for future LLM prose synthesis on top of the
-  deterministic report.
+- `scripts/pull.py` — single-day primitive + multi-day reconcile loop with retries, polite rate limiting, and incremental ledger checkpointing so partial progress survives a crash.
+- `scripts/parsers/` — three deterministic parsers (apache-error, drupal-watchdog with continuation-line folding, php-error with stack-trace folding) emitting a uniform event shape.
+- `scripts/aggregate.py` — fingerprint + group + count using v1's `fingerprint_structured` so issue keys remain hash-compatible with v1 history. MoM delta annotation.
+- `scripts/causes.py` — 17-pattern cause-diagnosis library with honest "undiagnosed" fallback for unknown shapes. Operators extend by adding entries to `PATTERNS`. Includes `collapse_by_cause()` for cross-channel de-duplication.
+- `scripts/charts.py` — pure-stdlib unicode bar charts that render correctly in every markdown viewer.
+- `scripts/branding.py` — Velir 2025 brand palette + base64-embedded logo so rendered markdown is self-contained.
+- `scripts/report_writer.py` + `agents/report-writer.md` — agent scaffolding for future LLM prose synthesis on top of the deterministic report.
 - `scripts/report.py` — five template renderers + CLI.
-- `scripts/jira_recs.py` — ticket-spec builder (title cleanup,
-  priority heuristic, label assignment, cause linkage, multi-
-  fingerprint collapse).
-- `scripts/jira_api.py` — stdlib Atlassian Cloud REST client; reads
-  credentials from manifest > `~/.drover/jira.json` > `jira-cli`'s
-  config > `JIRA_API_TOKEN` env.
-- `scripts/create_tickets.py` — three-mode orchestrator (REST
-  executor / `--plan` JSON for external executors / interactive).
+- `scripts/jira_recs.py` — ticket-spec builder (title cleanup, priority heuristic, label assignment, cause linkage, multi- fingerprint collapse).
+- `scripts/jira_api.py` — stdlib Atlassian Cloud REST client; reads credentials from manifest > `~/.drover/jira.json` > `jira-cli`'s config > `JIRA_API_TOKEN` env.
+- `scripts/create_tickets.py` — three-mode orchestrator (REST executor / `--plan` JSON for external executors / interactive).
 
 **Removed in 2.0:**
 
-- `scripts/monitors/` watchers (acquia-watch, ddev-watch, wp-watch,
-  bd-ready-watch, umbrella-watch) — gone. Application-error
-  monitoring is out of scope.
+- `scripts/monitors/` watchers (acquia-watch, ddev-watch, wp-watch, bd-ready-watch, umbrella-watch) — gone. Application-error monitoring is out of scope.
 - `tools/dashboard/` (~10K-line live SSE dashboard) — gone.
 - `tools/kanban-ui/` — gone.
 - `agents/triage-agent.md`, `agents/implementer-agent.md` — gone.
 - `bin/drover` CLI for managing watchers — gone.
 - `hooks/` session-start hook — gone.
 - `monitors/monitors.json` — gone.
-- 9 v1 skills (add-project, baseline, backfill, board, dashboard,
-  implement, recall, reset-state, run, setup, solution, triage,
-  verify, watch) — gone. Replaced by 3 (init, acquia-pull, report).
+- 9 v1 skills (add-project, baseline, backfill, board, dashboard, implement, recall, reset-state, run, setup, solution, triage, verify, watch) — gone. Replaced by 3 (init, acquia-pull, report).
 
 **Carried forward from v1:**
 
 - `scripts/monitors/acquia_api.py` (patched, kept its stdlib client)
-- `scripts/fingerprint.py` (the deterministic core only — bd-card-
-  creating wrappers retired)
+- `scripts/fingerprint.py` (the deterministic core only — bd-card- creating wrappers retired)
 - `tests/python/test_fingerprint.py` and `test_acquia_api_errors.py`
 - `tests/bats/_libs/` vendored bats helpers
 
-**Test suite:** 182 tests across 9 modules, all stdlib, no live
-network. Live verification scripts (`/tmp/recon-*.py`) preserved
-outside CI for ad-hoc validation.
+**Test suite:** 182 tests across 9 modules, all stdlib, no live network. Live verification scripts (`/tmp/recon-*.py`) preserved outside CI for ad-hoc validation.
 
 **Verified end-to-end against PNCB:**
 
 - April 3rd download: 5,691 lines / 1.29 MB drupal-watchdog
 - 3-day backfill (April 4–6): 3 fetches in 3m12s
-- April monthly-client report: 380 fingerprint groups from 2,964
-  events, top issue correctly identifies a real DB query bug in
-  cron (severity=error, count=231)
+- April monthly-client report: 380 fingerprint groups from 2,964 events, top issue correctly identifies a real DB query bug in cron (severity=error, count=231)
 
 ## 1.51.2
 - **Per-source toggles are now truthful.** When you flipped off a source pill (say, `apache-request` on AHRI prod), the config + side-file updated correctly, but the *running* acquia-watch process kept its original `DROVER_LOG_TYPES` and kept receiving apache-request events from Acquia's WebSocket. The UI was lying on top of a watcher that didn't care.

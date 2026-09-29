@@ -1,5 +1,11 @@
 # research-lab Changelog
 
+## 5.0.0 — 2026-09-29
+
+**Breaking: `principal-investigator` agent removed.** Its job was choosing among the verbs, which the main session does, and its main tool (Workflow) is not available to subagents.
+
+- Research report template no longer names the removed role.
+
 ## 4.0.3
 
 - Bind experiment measurements and discard decisions to recorded worktree, branch, base, and trial commit IDs rather than a moving HEAD.
@@ -24,10 +30,7 @@
 
 ## 4.0.0 — 2026-08-14 — Migrate from the retired `notebooklm` CLI to `nlm`
 
-**Breaking — requires a new tool install.** The upstream `notebooklm` CLI (pipx package
-`notebooklm-py`, repo `jacob-bd/notebooklm-cli`) was archived on 2026-06-26 and merged into
-NotebookLM MCP CLI. Its login flow no longer works, so every NotebookLM-backed skill was dead
-until this change.
+**Breaking — requires a new tool install.** The upstream `notebooklm` CLI (pipx package `notebooklm-py`, repo `jacob-bd/notebooklm-cli`) was archived on 2026-06-26 and merged into NotebookLM MCP CLI. Its login flow no longer works, so every NotebookLM-backed skill was dead until this change.
 
 Migrate with:
 ```bash
@@ -37,56 +40,30 @@ research-lab/scripts/install-notebooklm-shim.sh   # removes notebooklm-py, leave
 ```
 
 ### Changed
-- All five `notebook-*.sh` wrappers now call `nlm`. **Their command-line interfaces are
-  unchanged**, so skills, agents, and `gather-facets.js` that call the wrappers did not need
-  rewriting — only files that shelled out to `notebooklm` directly.
-- The CLI went verb-first → noun-first, and the notebook id moved from `-n <id>` to a
-  **positional** argument. The sole exception is `research start`, where the positional slot
-  holds the query so the notebook stays on `-n/--notebook-id`.
-- `notebook-ask.sh`: `notebooklm ask` → `nlm notebook query`. `--save-as-note` no longer exists
-  as a query flag, so the script now performs a second `nlm note create` call itself. Repeated
-  `-s SOURCE_ID` flags are collapsed into one comma-joined `--source-ids`.
-- `notebook-dedup.sh`: source deletion is `--confirm`, not `--yes`, and no longer needs the
-  notebook id.
-- `notebook-setup.sh`: `source add-research` → `research start`; `--import-all` → `--auto-import`.
-  Notebook-id parsing is now a recursive search rather than two pinned JSON shapes.
-- `notebook-preflight.sh`: drops the pipx/Playwright injection (the new tool manages its own
-  browser auth) in favour of `nlm login --check`.
-- `notebook-postflight.sh`: prefers the tool's own staleness self-report from `nlm --version`,
-  falling back to PyPI only when that says nothing useful.
-- `gather/references/notebooklm-cli.md` → `gather/references/nlm-cli.md`, rewritten against the
-  installed binary's `nlm --ai` output.
+- All five `notebook-*.sh` wrappers now call `nlm`. **Their command-line interfaces are unchanged**, so skills, agents, and `gather-facets.js` that call the wrappers did not need rewriting — only files that shelled out to `notebooklm` directly.
+- The CLI went verb-first → noun-first, and the notebook id moved from `-n <id>` to a **positional** argument. The sole exception is `research start`, where the positional slot holds the query so the notebook stays on `-n/--notebook-id`.
+- `notebook-ask.sh`: `notebooklm ask` → `nlm notebook query`. `--save-as-note` no longer exists as a query flag, so the script now performs a second `nlm note create` call itself. Repeated `-s SOURCE_ID` flags are collapsed into one comma-joined `--source-ids`.
+- `notebook-dedup.sh`: source deletion is `--confirm`, not `--yes`, and no longer needs the notebook id.
+- `notebook-setup.sh`: `source add-research` → `research start`; `--import-all` → `--auto-import`. Notebook-id parsing is now a recursive search rather than two pinned JSON shapes.
+- `notebook-preflight.sh`: drops the pipx/Playwright injection (the new tool manages its own browser auth) in favour of `nlm login --check`.
+- `notebook-postflight.sh`: prefers the tool's own staleness self-report from `nlm --version`, falling back to PyPI only when that says nothing useful.
+- `gather/references/notebooklm-cli.md` → `gather/references/nlm-cli.md`, rewritten against the installed binary's `nlm --ai` output.
 
 ### Added
-- `notebook-research-wait.sh` — replaces the retired single-call
-  `notebooklm research wait --import-all`, which `nlm` splits into `research status` (poll) and
-  `research import` (commit). Defaults to a 15-minute wait; the task id auto-detects.
-- `notebooklm-retired-shim.sh` + `install-notebooklm-shim.sh` — uninstall the archived package and
-  leave a guard at `~/.local/bin/notebooklm` that prints the full command mapping and exits 127,
-  so stale muscle memory fails loudly instead of as an authentication error.
+- `notebook-research-wait.sh` — replaces the retired single-call `notebooklm research wait --import-all`, which `nlm` splits into `research status` (poll) and `research import` (commit). Defaults to a 15-minute wait; the task id auto-detects.
+- `notebooklm-retired-shim.sh` + `install-notebooklm-shim.sh` — uninstall the archived package and leave a guard at `~/.local/bin/notebooklm` that prints the full command mapping and exits 127, so stale muscle memory fails loudly instead of as an authentication error.
 
 ### Verified against
 `nlm` 0.9.11. Command surface confirmed by probing the installed binary, not from documentation.
 
 ## 3.0.1 — 2026-06-12 — NotebookLM CLI v0.7.x refresh
 
-Reviewed the NotebookLM-backed skills against the upstream `notebooklm-py` CLI, which moved from
-v0.6.0 (the pinned/verified surface) to **v0.7.1** (2026-06). Documentation-only; no script behavior
-changed (the five `notebook-*.sh` scripts remain correct — `source delete` is now idempotent so the
-dedup `returncode==0` check still holds, and the `--json` envelopes are unchanged).
+Reviewed the NotebookLM-backed skills against the upstream `notebooklm-py` CLI, which moved from v0.6.0 (the pinned/verified surface) to **v0.7.1** (2026-06). Documentation-only; no script behavior changed (the five `notebook-*.sh` scripts remain correct — `source delete` is now idempotent so the dedup `returncode==0` check still holds, and the `--json` envelopes are unchanged).
 
 ### Changed
-- `gather/references/notebooklm-cli.md`: kept the verified-v0.6.0 core; added `[v0.7]`-marked
-  additions — `artifact retry` (re-run a FAILED Studio artifact in place) and the `artifact` group
-  surface; `generate mind-map --kind interactive|note-backed`; `ask --request-timeout` (the
-  `--timeout` rename, old flag now a deprecated alias); `source add` SSRF/symlink guards
-  (`--allow-internal`, `--follow-symlinks`); exit-code change (`get` exits `1` on not-found, `use`
-  validates existence). Header now states provenance: v0.6.0 verified, v0.7.x from the upstream
-  changelog — confirm against your installed `--help`.
-- `understand/SKILL.md`: mind-map tree-seeding now specifies `--kind note-backed` (parseable JSON),
-  not the default interactive Studio map.
-- `synthesize/SKILL.md`, `teach/SKILL.md`: added the `artifact retry` recovery path for when a
-  Studio generator fails server-side (instead of regenerating from scratch).
+- `gather/references/notebooklm-cli.md`: kept the verified-v0.6.0 core; added `[v0.7]`-marked additions — `artifact retry` (re-run a FAILED Studio artifact in place) and the `artifact` group surface; `generate mind-map --kind interactive|note-backed`; `ask --request-timeout` (the `--timeout` rename, old flag now a deprecated alias); `source add` SSRF/symlink guards (`--allow-internal`, `--follow-symlinks`); exit-code change (`get` exits `1` on not-found, `use` validates existence). Header now states provenance: v0.6.0 verified, v0.7.x from the upstream changelog — confirm against your installed `--help`.
+- `understand/SKILL.md`: mind-map tree-seeding now specifies `--kind note-backed` (parseable JSON), not the default interactive Studio map.
+- `synthesize/SKILL.md`, `teach/SKILL.md`: added the `artifact retry` recovery path for when a Studio generator fails server-side (instead of regenerating from scratch).
 
 ## 3.0.0 — 2026-06-10 — Fable-era rewrite
 
@@ -128,85 +105,53 @@ This plugin is distributable via Claude Desktop's Personal Plugins upload: zip t
 
 ## 2.1.0 — Standalone hardening + script correctness
 
-Made research-lab fully self-contained (it no longer depends on any other plugin to run its verbs)
-and fixed the correctness bugs surfaced by a holistic review.
+Made research-lab fully self-contained (it no longer depends on any other plugin to run its verbs) and fixed the correctness bugs surfaced by a holistic review.
 
 ### Standalone — references only itself
-- `principal-investigator` agent reframed from a fixed-phase orchestrator into an **optional**
-  research-lead role that composes the verbs and *suggests* next steps. Dropped all `drupal-lab:optimize`
-  coupling (phase-gates, `preflight.sh`, the optimize methodology template); methodology authoring now
-  follows research-lab's own `experiment/references/methodology-spec.md`. (Vault archival defers to
-  `lib:vault-store` — see below.)
-- `generate-chart.py` moved **into** research-lab (`scripts/`) — it is a generic `results.jsonl`
-  visualizer used by `experiment`; the report template and `drupal-lab:optimize` now read it here.
-- `context-flow.md` reframed from a phase pipeline to an **optional composition convention**: numeric
-  prefixes are sort hints (not an ordering contract), filename stems identify artifacts, and the
-  `frame`/`understand` artifacts and a no-plugin vault path are documented. Removed `preflight.sh` /
-  `lib:vault-store` from the producer map.
-- `understand`/`synthesize` notebook `note save` is now best-effort (the vault copy is the source of
-  truth); the `workflow`-plugin `obsidian-rules.md` read is explicitly optional.
+- `principal-investigator` agent reframed from a fixed-phase orchestrator into an **optional** research-lead role that composes the verbs and *suggests* next steps. Dropped all `drupal-lab:optimize` coupling (phase-gates, `preflight.sh`, the optimize methodology template); methodology authoring now follows research-lab's own `experiment/references/methodology-spec.md`. (Vault archival defers to `lib:vault-store` — see below.)
+- `generate-chart.py` moved **into** research-lab (`scripts/`) — it is a generic `results.jsonl` visualizer used by `experiment`; the report template and `drupal-lab:optimize` now read it here.
+- `context-flow.md` reframed from a phase pipeline to an **optional composition convention**: numeric prefixes are sort hints (not an ordering contract), filename stems identify artifacts, and the `frame`/`understand` artifacts and a no-plugin vault path are documented. Removed `preflight.sh` / `lib:vault-store` from the producer map.
+- `understand`/`synthesize` notebook `note save` is now best-effort (the vault copy is the source of truth); the `workflow`-plugin `obsidian-rules.md` read is explicitly optional.
 - `gather` declares `Workflow` in `allowed-tools` (its facet fan-out requires it).
-- `teach` wires the generated quiz into the Feynman gate's `args.quiz` and adds a no-notebook fallback
-  so the gate runs across the verb's full input contract.
+- `teach` wires the generated quiz into the Feynman gate's `args.quiz` and adds a no-notebook fallback so the gate runs across the verb's full input contract.
 
 ### NotebookLM correctness (verified against the installed v0.6.0 CLI)
-- Rebuilt `gather/references/notebooklm-cli.md` from the real `--help` surface. It now documents the
-  full set the verbs actually use — `configure` (`--mode`/`--persona`/`--response-length`), the `note`
-  group, the entire `generate` family (report/slide-deck/revise-slide/audio/infographic/flashcards/
-  quiz/data-table/mind-map), `research status`/`wait`, `share`, and `source clean` — not just the ~9
-  commands it covered before.
+- Rebuilt `gather/references/notebooklm-cli.md` from the real `--help` surface. It now documents the full set the verbs actually use — `configure` (`--mode`/`--persona`/`--response-length`), the `note` group, the entire `generate` family (report/slide-deck/revise-slide/audio/infographic/flashcards/ quiz/data-table/mind-map), `research status`/`wait`, `share`, and `source clean` — not just the ~9 commands it covered before.
 - Fixed three wrong command forms in the verbs:
-  - `understand`/`synthesize` persisted records with `notebooklm note save --content-file` — but
-    `note save` *updates* an existing note by id and there is no `--content-file`. Now `note create`
-    with content piped via `--content -`.
+  - `understand`/`synthesize` persisted records with `notebooklm note save --content-file` — but `note save` *updates* an existing note by id and there is no `--content-file`. Now `note create` with content piped via `--content -`.
   - `teach` called top-level `notebooklm revise-slide` → `notebooklm generate revise-slide`.
   - `teach` published with `notebooklm share --public` → `notebooklm share public --enable`.
-- Noted that `source clean` natively removes exact-duplicate/error/blocked sources; `notebook-dedup.sh`
-  still adds the URL-variant collapse `source clean` doesn't do.
+- Noted that `source clean` natively removes exact-duplicate/error/blocked sources; `notebook-dedup.sh` still adds the URL-variant collapse `source clean` doesn't do.
 
 ### Vault archival
-- Vault writes now defer to `lib:vault-store` (it owns Obsidian placement and triggers in context)
-  instead of hand-rolling `cp` + re-parsing the `workflow` plugin's `obsidian-rules.md`. Artifacts
-  also remain in the engagement directory. NotebookLM `note create` co-locates a record with its
-  sources when a notebook is in play.
+- Vault writes now defer to `lib:vault-store` (it owns Obsidian placement and triggers in context) instead of hand-rolling `cp` + re-parsing the `workflow` plugin's `obsidian-rules.md`. Artifacts also remain in the engagement directory. NotebookLM `note create` co-locates a record with its sources when a notebook is in play.
 
 ### Script correctness
-- `log-iteration.sh`: values passed via `argv` (no shell→Python source interpolation — quotes/`$`/
-  backticks can't break or inject); `metric_before` now null-guarded so the baseline iteration logs.
-- `notebook-setup.sh`: deep-research output to stderr (stdout = notebook id only); empty seed-URL loop
-  guarded against `set -u` on macOS bash 3.2.
-- `notebook-ask.sh`: degraded retry drops `--save-as-note`/`--note-title` so a junk answer isn't
-  saved twice; usage doc corrected.
+- `log-iteration.sh`: values passed via `argv` (no shell→Python source interpolation — quotes/`$`/ backticks can't break or inject); `metric_before` now null-guarded so the baseline iteration logs.
+- `notebook-setup.sh`: deep-research output to stderr (stdout = notebook id only); empty seed-URL loop guarded against `set -u` on macOS bash 3.2.
+- `notebook-ask.sh`: degraded retry drops `--save-as-note`/`--note-title` so a junk answer isn't saved twice; usage doc corrected.
 - `notebook-dedup.sh`: no longer iterates the dict itself on an unexpected envelope (was `AttributeError`).
 - `measure.sh`: `curl` bounded with `--max-time`/`--connect-timeout`; failed pages skipped, not averaged.
 
 ## 2.0.0 — Knowledge-work verb reorganization
 
-Rebuilt research-lab around the **verbs of a knowledge engagement** — one skill per distinct
-cognitive move — instead of formats/mechanisms. See `plans/research-lab-knowledge-verbs.md`.
+Rebuilt research-lab around the **verbs of a knowledge engagement** — one skill per distinct cognitive move — instead of formats/mechanisms. See `plans/research-lab-knowledge-verbs.md`.
 
 ### Skills
 - **NEW** `frame` — sharpen a vague topic into a falsifiable question (facilitator, Haiku).
-- **NEW** `interrogate` — adversarial peer-review of a formed claim via a context-isolated,
-  perspective-diverse Workflow panel; desk-reject preflight, loop-until-dry + budget ceiling.
-  Returns a verdict, never revises.
-- **NEW** `teach` — the Feynman gate: produce the deliverable artifact, then certify it with a
-  fresh no-context agent taking a generated quiz.
+- **NEW** `interrogate` — adversarial peer-review of a formed claim via a context-isolated, perspective-diverse Workflow panel; desk-reject preflight, loop-until-dry + budget ceiling. Returns a verdict, never revises.
+- **NEW** `teach` — the Feynman gate: produce the deliverable artifact, then certify it with a fresh no-context agent taking a generated quiz.
 - **RENAMED** `literary-review` → `gather` (librarian stance; back-compat trigger retained).
 - **RESHAPED** `seminar` → `synthesize` (the hinge verb; absorbs artifact generation).
 - **MOVED IN** `ideate:understand` → `understand` (input broadened — no longer requires a notebook).
-- **DISSOLVED** `workshop` — its parallel mechanism is now a Workflow fan-out detail inside
-  gather/interrogate, not a skill.
+- **DISSOLVED** `workshop` — its parallel mechanism is now a Workflow fan-out detail inside gather/interrogate, not a skill.
 - **MOVED OUT** `run` → `drupal-lab:optimize` (it was a Drupal performance engagement).
 
 ### Structure
-- Every verb opens with a uniform **preflight-first** block (Input contract → resolution order →
-  fail-fast that suggests, never auto-chains). Enforced by improve lint rule `missing-preflight-contract`.
+- Every verb opens with a uniform **preflight-first** block (Input contract → resolution order → fail-fast that suggests, never auto-chains). Enforced by improve lint rule `missing-preflight-contract`.
 - Strictly compositional: **no orchestrator**. Verbs are invoked intentionally in conversation.
-- Modern from birth: NotebookLM persona/artifact integration (configure, quiz, data-table, report,
-  mind-map) and Workflow fan-out with per-verb model/shape.
-- Kept agents (PI, researcher, experimentalist), `protocols/context-flow.md`, and the report
-  template updated to the new verb set.
+- Modern from birth: NotebookLM persona/artifact integration (configure, quiz, data-table, report, mind-map) and Workflow fan-out with per-verb model/shape.
+- Kept agents (PI, researcher, experimentalist), `protocols/context-flow.md`, and the report template updated to the new verb set.
 
 ### Migration
 - `research-lab:literary-review` → `research-lab:gather` (old trigger still works).

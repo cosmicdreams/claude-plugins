@@ -1,14 +1,11 @@
 # Issue Handoff Artifacts (JSON)
 
-Stages of issue work hand off through JSON artifacts, not markdown narrative. The JSON file is
-the machine-readable record the next stage consumes; `analysis-reports/` holds human-readable
-renders of the same content. The render is for people — never parse it.
+Stages of issue work hand off through JSON artifacts, not markdown narrative. The JSON file is the machine-readable record the next stage consumes; `analysis-reports/` holds human-readable renders of the same content. The render is for people — never parse it.
 
 Locations (relative to the project root):
 
 ```
 analysis-reports/drupal-issue/<issue>/analysis.json   # produced by the analyze stage
-analysis-reports/drupal-issue/<issue>/plan.json       # produced by the plan stage
 analysis-reports/drupal-issue/<issue>/results.json    # produced by the reviewer
 analysis-reports/drupal-issue/<issue>.md              # human-readable render
 ```
@@ -35,34 +32,6 @@ analysis-reports/drupal-issue/<issue>.md              # human-readable render
 }
 ```
 
-## plan.json
-
-The `spec` block is the reviewer's primary reference: outcome statements verifiable from code
-and test output alone, no subjective judgment required.
-
-```json
-{
-  "issue": 3456789,
-  "spec": {
-    "problem_statement": "observable broken behavior, one sentence",
-    "root_cause": "why it happens, with code location",
-    "solution_contract": "what a correct implementation must do — outcome, not approach",
-    "acceptance_criteria": ["observable outcome a reviewer can verify"]
-  },
-  "approach": "chosen approach and why, including alternatives rejected",
-  "tasks": [
-    {
-      "title": "string",
-      "test_file": "core/modules/x/tests/src/Kernel/ExampleTest.php",
-      "test_method": "testMethodName",
-      "expected_failure": "why the test fails before implementation",
-      "implementation_files": ["path/one.php"]
-    }
-  ],
-  "risks": ["technical or compatibility risks with mitigations"]
-}
-```
-
 ## results.json
 
 ```json
@@ -86,5 +55,4 @@ and test output alone, no subjective judgment required.
 }
 ```
 
-A failed review returns to the issue-worker with `findings` populated; the worker's fix must
-name each finding it addressed so the reviewer can match response to report.
+When a review fails, the author answers each finding by number so the reviewer can match response to report.

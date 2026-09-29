@@ -283,7 +283,7 @@ class AgentDefinitionFileTests(unittest.TestCase):
     def test_agent_md_has_frontmatter_name(self):
         agent_md = HERE.parents[2] / "agents" / "report-writer.md"
         text = agent_md.read_text()
-        self.assertIn("name: drover:report-writer", text)
+        self.assertIn("name: report-writer\n", text)
         self.assertIn("---", text)
 
 

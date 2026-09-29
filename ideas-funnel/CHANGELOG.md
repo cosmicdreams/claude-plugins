@@ -1,60 +1,42 @@
 # Changelog
 
+## 2.2.1 — 2026-09-29
+
+- `refinery` agent reduced to its single-writer boundary and steps; thresholds, formulas, and the concept frontmatter moved to `references/refinery-rules.md`.
+
 ## 2.2.0 — 2026-09-21
 
 ### Added
 
-- `scripts/jev_ingest.py` — optional Jev layer for `ideas-funnel:ingest`.
-  Per raw item, one request carries three Scores (source quality, novelty,
-  actionability) and a duplicate / augment / new Choice against candidate
-  pages found by token overlap with `index.md`. Confident scores rank the
-  item; a confident dedup verdict names the page to link or enrich in
-  Step 4. Uncertain answers, and every item without `TYPESAFE_API_KEY`,
-  fall back to the worker agent's judgment as before. Thresholds (0.5 for
-  scores, 0.8 for dedup) are starting points named in the script.
-- `scripts/jev_client.py` — shared standard-library client (identical copy
-  in drover, test-lab, workshop).
+- `scripts/jev_ingest.py` — optional Jev layer for `ideas-funnel:ingest`. Per raw item, one request carries three Scores (source quality, novelty, actionability) and a duplicate / augment / new Choice against candidate pages found by token overlap with `index.md`. Confident scores rank the item; a confident dedup verdict names the page to link or enrich in Step 4. Uncertain answers, and every item without `TYPESAFE_API_KEY`, fall back to the worker agent's judgment as before. Thresholds (0.5 for scores, 0.8 for dedup) are starting points named in the script.
+- `scripts/jev_client.py` — shared standard-library client (identical copy in drover, test-lab, workshop).
 - `tests/test_jev_ingest.py` — offline tests.
 
 ### Changed
 
-- `skills/ingest/SKILL.md` Step 2 and Step 4b describe the Jev layer and
-  its fallback; the pipeline ingest prompt points workers at it and the
-  ingest result schema accepts an optional `jev` count block.
+- `skills/ingest/SKILL.md` Step 2 and Step 4b describe the Jev layer and its fallback; the pipeline ingest prompt points workers at it and the ingest result schema accepts an optional `jev` count block.
 
 ## 2.1.0 — 2026-07-09
 
 ### Added
 
-- `skills/supervise/SKILL.md` — Fable-owned loop supervisor for backlog health,
-  unknown discovery, run caps, priorities, and worker routing.
-- `skills/delegate/SKILL.md` — cost-aware routing policy: Fable for strategy,
-  GPT-5.5-style workers for expensive extraction/clustering, cheap/local workers
-  or shell for mechanical work.
+- `skills/supervise/SKILL.md` — Fable-owned loop supervisor for backlog health, unknown discovery, run caps, priorities, and worker routing.
+- `skills/delegate/SKILL.md` — cost-aware routing policy: Fable for strategy, GPT-5.5-style workers for expensive extraction/clustering, cheap/local workers or shell for mechanical work.
 - `skills/decay/SKILL.md` — valid memory state-machine updates.
-- `skills/stats/SKILL.md` — `_meta/stats.md` writer for health/backlog/model
-  routing telemetry.
+- `skills/stats/SKILL.md` — `_meta/stats.md` writer for health/backlog/model routing telemetry.
 - `skills/rescue/SKILL.md` — stale raw, orphan, and at-risk recovery loop.
 - `skills/funnel-export/SKILL.md` — capped Beads-to-Raw export guidance.
 
 ### Changed
 
-- Workflow now starts with Fable supervision, applies per-domain backpressure,
-  delegates bounded worker ingest, and runs lint/decay/rescue/stats every run.
-- Removed invalid scorer instructions that used `state: stale` and
-  `state: hardened`; `hardened` is now handled only as a boolean flag.
-- `query` no longer writes directly to shared `Concepts/`; it drafts domain
-  synthesis or a Refinery promotion request.
-- README and templates now describe the v2 singleton Workflow instead of the
-  retired Monitor/orchestrator path.
+- Workflow now starts with Fable supervision, applies per-domain backpressure, delegates bounded worker ingest, and runs lint/decay/rescue/stats every run.
+- Removed invalid scorer instructions that used `state: stale` and `state: hardened`; `hardened` is now handled only as a boolean flag.
+- `query` no longer writes directly to shared `Concepts/`; it drafts domain synthesis or a Refinery promotion request.
+- README and templates now describe the v2 singleton Workflow instead of the retired Monitor/orchestrator path.
 
 ## 2.0.0 — 2026-06-10
 
-**Breaking change — singleton pipeline.** The per-instance scheduling model is replaced
-by a single cron entry. Any old per-instance cron loops created by 0.x must be manually
-removed: `CronDelete <id>` for each entry, then delete
-`$VAULT/_meta/ideas-funnel-scheduler.json` if present, then run `ideas-funnel:schedule`
-once to re-register under the new singleton discipline.
+**Breaking change — singleton pipeline.** The per-instance scheduling model is replaced by a single cron entry. Any old per-instance cron loops created by 0.x must be manually removed: `CronDelete <id>` for each entry, then delete `$VAULT/_meta/ideas-funnel-scheduler.json` if present, then run `ideas-funnel:schedule` once to re-register under the new singleton discipline.
 
 ### Removed
 
@@ -91,8 +73,7 @@ once to re-register under the new singleton discipline.
 
 ### Desktop Personal Plugins compatibility
 
-Distributable as a zip: compress the plugin directory so `.claude-plugin/` is at the
-archive root, then upload the `.zip` file.
+Distributable as a zip: compress the plugin directory so `.claude-plugin/` is at the archive root, then upload the `.zip` file.
 
 ## 0.2.2 — 2026-04-15
 

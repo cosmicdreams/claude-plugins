@@ -1,9 +1,6 @@
 # Research Report Template
 
-Template for the final research write-up — used by the `principal-investigator` role or written
-inline. Archive it to the vault with a plain filesystem copy (or via `lib:vault-store` if the `lib`
-plugin happens to be installed — optional, never required). Sections map to whichever artifacts the
-inquiry actually produced; omit the ones that don't apply.
+Template for the final research write-up. Archive it to the vault with a plain filesystem copy (or via `lib:vault-store` if the `lib` plugin happens to be installed — optional, never required). Sections map to whichever artifacts the inquiry actually produced; omit the ones that don't apply.
 
 ---
 
