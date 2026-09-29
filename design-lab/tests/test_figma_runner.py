@@ -15,6 +15,16 @@ sys.path.insert(0, str(SCRIPTS))
 import figma_runner  # noqa: E402
 
 TOKEN = "test-token"
+HOME = tempfile.TemporaryDirectory()
+
+
+def setUpModule():
+    # The person's design-lab folder, for these tests only: never the real ~/.design-lab.
+    figma_runner.HOME = Path(HOME.name) / ".design-lab"
+
+
+def tearDownModule():
+    HOME.cleanup()
 
 
 def workspace(root: Path, key: str) -> Path:
@@ -34,8 +44,10 @@ class RunnerServerTests(unittest.TestCase):
         self.addCleanup(self.server.server_close)
         self.addCleanup(self.server.shutdown)
 
-    def request(self, path, *, token=TOKEN, origin="null", body=None, key="KEY", server=None):
-        query = f"fileKey={key}" + (f"&token={token}" if token is not None else "")
+    def request(self, path, *, token=TOKEN, origin="null", body=None, key="KEY", server=None,
+                version=figma_runner.plugin_version()):
+        query = (f"fileKey={key}" + (f"&token={token}" if token is not None else "")
+                 + (f"&version={version}" if version is not None else ""))
         port = (server or self.server).server_address[1]
         url = f"http://127.0.0.1:{port}{path}{'&' if '?' in path else '?'}{query}"
         req = urllib.request.Request(url, data=body, headers={"Origin": origin} if origin else {},
@@ -75,12 +87,25 @@ class RunnerServerTests(unittest.TestCase):
         self.assertEqual(status, 500)
         self.assertIn("JSON object", text)
 
-    def test_two_workspaces_for_one_file_are_refused(self):
-        a = workspace(self.root / "a", "SAME")
-        b = workspace(self.root / "b", "SAME")
-        with self.assertRaisesRegex(SystemExit, "both build file SAME"):
+    def test_a_server_serves_exactly_one_run(self):
+        a = workspace(self.root / "a", "KEYA")
+        b = workspace(self.root / "b", "KEYB")
+        with self.assertRaisesRegex(SystemExit, "one run at a time"):
             figma_runner.load_builds([str(a), str(b)])
-        self.assertEqual(list(figma_runner.load_builds([str(a), str(a)])), ["SAME"])
+        self.assertEqual(list(figma_runner.load_builds([str(a), str(a)])), ["KEYA"])
+
+    def test_an_outdated_runner_is_told_to_restart(self):
+        for version in (None, "0.1.0", "source"):
+            status, _, text = self.request("/next", version=version)
+            self.assertEqual(status, 426, version)
+            answer = json.loads(text)
+            self.assertTrue(answer["outdated"])
+            self.assertEqual(answer["message"], f"Close the design-lab runner in Figma and start it again; it was "
+                             f"updated to {figma_runner.plugin_version()} and Figma loads the new code when it starts.")
+
+    def test_each_request_notes_when_the_runner_last_asked(self):
+        self.request("/next")
+        self.assertTrue((self.root / "w" / "figma" / figma_runner.SEEN_FILE).is_file())
 
     def test_port_is_fixed(self):
         done = subprocess.run([sys.executable, str(SCRIPTS / "figma_runner.py"), "serve",
@@ -221,14 +246,42 @@ class HandshakeTests(unittest.TestCase):
         self.assertFalse((self.ws / "figma" / figma_runner.HANDSHAKE_REQUEST).exists())
         self.assertEqual(json.loads(self.call("/next")[2])["kind"], "wait")     # the request was withdrawn
 
-    def test_a_restarted_server_reuses_the_stored_token(self):
-        first = figma_runner.load_or_create_token([self.ws])
-        path = self.ws / "figma" / figma_runner.TOKEN_FILE
-        self.assertEqual(path.stat().st_mode & 0o777, 0o600)
-        self.assertEqual(figma_runner.load_or_create_token([self.ws]), first)
-        other = preflight_workspace(self.ws.parent / "w2", "KEY2")
-        self.assertEqual(figma_runner.load_or_create_token([self.ws, other]), first)   # served together
-        self.assertEqual(path.read_text().strip(), first)
+    def test_the_token_belongs_to_the_person_not_the_run(self):
+        first = figma_runner.person_token()
+        path = figma_runner.HOME / figma_runner.TOKEN_FILE
+        self.assertEqual((path.stat().st_mode & 0o777, figma_runner.HOME.stat().st_mode & 0o777), (0o600, 0o700))
+        self.assertEqual(figma_runner.person_token(), first)             # every server, every restart, every run
+        self.assertFalse((self.ws / "figma" / figma_runner.TOKEN_FILE).exists())
+
+    def test_a_handshake_reports_an_outdated_runner(self):
+        figma_runner.request_handshake(self.ws)
+        status, _, _ = self.call("/next", version="0.1.0")
+        self.assertEqual(status, 426)
+        outcome = figma_runner.wait_for_handshake(self.ws, timeout=1, poll=0.05)
+        self.assertFalse(outcome["ok"])
+        self.assertTrue(outcome["failure"].startswith("Close the design-lab runner in Figma and start it again"))
+
+    def test_another_active_run_is_refused_by_name(self):
+        from unittest import mock
+        busy = {"alive": False, "pid": None, "portInUse": True, "otherRun": "/runs/other", "otherPid": 4321, "log": ""}
+        with mock.patch.object(figma_runner, "server_status", return_value=busy):
+            with self.assertRaises(RuntimeError) as caught:
+                figma_runner.ensure_server(self.ws)
+        text = str(caught.exception)
+        self.assertIn("another run is active: /runs/other (server process 4321)", text)
+        self.assertIn("stop --project /runs/other", text)
+
+    def test_the_runner_is_copied_to_a_stable_folder_with_its_version(self):
+        first = figma_runner.install_runner()
+        folder = figma_runner.HOME / "runner"
+        self.assertEqual(first["manifest"], str(folder / "manifest.json"))
+        self.assertTrue(first["firstInstall"])
+        code = (folder / "code.js").read_text()
+        self.assertIn(f"const RUNNER_VERSION = '{figma_runner.plugin_version()}';", code)
+        again = figma_runner.install_runner()
+        self.assertEqual((again["firstInstall"], again["updated"]), (False, False))
+        (folder / "code.js").write_text("old code")
+        self.assertTrue(figma_runner.install_runner()["updated"])       # an update refreshes the same folder
 
 
 if __name__ == "__main__":

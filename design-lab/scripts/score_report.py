@@ -791,7 +791,7 @@ def cost_section(cost: dict) -> str:
     attended = cost.get("unattended") or {}
     if attended.get("status") == "measured":
         items = "".join(
-            f'<li><span class="mono">{stamp(i["at"])}</span> {esc("A question to the person" if i["kind"] == "question" else "A turn that ended and waited for a prompt")} '
+            f'<li><span class="mono">{stamp(i["at"])}</span> {esc("A question to the person" if i["kind"] == "question" else "The run stopped: " + i["kind"][9:] if i["kind"].startswith("stopped: ") else "A turn that ended and waited for a prompt")} '
             f'during {esc(i["phase"])}' + (" (the plan review chosen at preflight)" if i["planned"] else "") + "</li>"
             for i in attended["interruptions"])
         headline_ = ("Ran unattended after preflight: yes." if attended["ranUnattended"] else

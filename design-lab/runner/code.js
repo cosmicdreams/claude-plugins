@@ -11,10 +11,14 @@
 // empty and can be written. If the server stops answering (a restart), the plugin keeps
 // retrying rather than quitting; a restarted server keeps its token, so nobody pastes it again.
 //
-// Every request carries the runner token preflight printed. The plugin asks for it the first
-// time and whenever the server refuses it, and keeps it in clientStorage.
+// Every request carries the person's runner token (~/.design-lab/runner-token). The plugin asks
+// for it the first time on a machine and whenever the server refuses it, and keeps it in
+// clientStorage. Every request also carries this runner's version; preflight copies this file
+// into ~/.design-lab/runner/ with the plugin's version filled in, and a runner older than the
+// plugin is told to restart, which loads the new code.
 const SERVER = 'http://localhost:8765';
 const TOKEN_KEY = 'design-lab-runner-token';
+const RUNNER_VERSION = 'source';
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 let token = '';
 const RETRY_MS = 5000;
@@ -32,7 +36,7 @@ function status(text) {
 }
 
 function url(path) {
-  return `${SERVER}${path}${path.includes('?') ? '&' : '?'}fileKey=${encodeURIComponent(figma.fileKey)}&token=${encodeURIComponent(token)}`;
+  return `${SERVER}${path}${path.includes('?') ? '&' : '?'}fileKey=${encodeURIComponent(figma.fileKey)}&token=${encodeURIComponent(token)}&version=${encodeURIComponent(RUNNER_VERSION)}`;
 }
 
 async function call(path, body) {
@@ -50,13 +54,19 @@ async function call(path, body) {
     }
   }
   const text = await res.text();
+  if (res.status === 426) {
+    // Outdated: the new code loads only when the runner starts again.
+    const message = JSON.parse(text).message;
+    status(message);
+    throw Object.assign(new Error(message), { status: 426 });
+  }
   if (res.status !== 200) throw Object.assign(new Error(text), { status: res.status });
   return JSON.parse(text);
 }
 
 async function askToken(reason) {
   figma.showUI(`<form id="f" style="font:12px sans-serif;margin:12px">
-    <p>${reason} Paste the runner token preflight printed.</p>
+    <p>${reason} Paste your runner token, from ~/.design-lab/runner-token on this machine.</p>
     <input id="t" style="width:100%;box-sizing:border-box" autofocus>
     <p><button>Connect</button></p></form>
     <script>f.onsubmit = (e) => { e.preventDefault(); parent.postMessage({ pluginMessage: t.value.trim() }, '*'); };</script>`,

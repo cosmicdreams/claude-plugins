@@ -663,6 +663,13 @@ def unattended(files: list[Path], run_dir: Path, since: dt.datetime | None,
                 found.append({"at": iso(at), "kind": "question", **phase_at(log, at)})
             elif kind == "reply" and following == "prompt" and (not end or following_at < end):
                 found.append({"at": iso(at), "kind": "turn ended and waited for a prompt", **phase_at(log, at)})
+    # A run that stopped for the person (the runner was absent) is an interruption too.
+    for entry in log:
+        at = parse_time(entry.get("at"))
+        if entry.get("status") == "stopped" and at and at >= go and not (end and at >= end):
+            found.append({"at": iso(at), "kind": f"stopped: {entry.get('reason') or 'waiting for the person'}",
+                          "phase": entry.get("phase") or "unknown", "status": "stopped"})
+    found.sort(key=lambda item: item["at"])
     for item in found:
         item["planned"] = (choices.get("planApproval") == "review" and item["phase"] == "plan"
                            and item["status"] == "awaiting-approval")
@@ -678,7 +685,7 @@ def unattended_phrase(section: dict) -> str:
         return "yes"
     items = [item for item in section["interruptions"] if not item["planned"]]
     return (f"no, {len(items)} interruption{'s' if len(items) != 1 else ''}: "
-            + "; ".join(f"{'a question' if i['kind'] == 'question' else 'a turn that waited for a prompt'} "
+            + "; ".join(f"{'a question' if i['kind'] == 'question' else 'a stop, ' + i['kind'][9:] if i['kind'].startswith('stopped: ') else 'a turn that waited for a prompt'} "
                         f"during {i['phase']}" for i in items))
 
 

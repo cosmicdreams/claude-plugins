@@ -8,7 +8,8 @@ Before starting:
 
 - The local site is running and answers at the address you will pass as `--site-url`.
 - The Claude account and model are the ones intended for this run; `init` records the configuration folder (`CLAUDE_CONFIG_DIR`, or `~/.claude` when unset).
-- The design-lab runner plugin is imported in Figma desktop on this machine (see `references/relay.md`). Preflight starts its server, prints the token, and proves the target file can be written by drawing a name-only Cover in it.
+- The design-lab runner plugin is imported in Figma desktop on this machine, once, from `~/.design-lab/runner/` (see `references/relay.md`). Preflight starts its server and proves the target file can be written by drawing a name-only Cover in it.
+- No other design-lab run is building: design-lab builds one library at a time.
 - The target Figma file is new and empty.
 - Screen recording is running, if the run is being recorded.
 - The workspace is new: a run that reuses another run's artifacts measures the build, not the whole pipeline.

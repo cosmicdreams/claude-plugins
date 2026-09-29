@@ -573,6 +573,18 @@ class WorkingTimeTest(unittest.TestCase):
                       "a turn that waited for a prompt during capture.", message)
         self.assertIn("2 interruptions after preflight.", (out / "report.html").read_text())
 
+    def test_a_stop_for_the_runner_counts_as_an_interruption(self):
+        write_transcript(self.main, [entry("prompt", "2026-01-05T10:00:00Z"), entry("step", "2026-01-05T10:00:40Z"),
+                                     entry("result", "2026-01-05T10:30:00Z"), entry("reply", "2026-01-05T10:31:00Z")])
+        (self.run_dir / "phase-log.jsonl").write_text("\n".join(json.dumps(e) for e in [
+            {"at": "2026-01-05T10:00:30+00:00", "phase": "preflight", "status": "complete"},
+            {"at": "2026-01-05T10:20:00+00:00", "phase": "components", "status": "stopped",
+             "reason": "runner not connected"}]) + "\n")
+        attended = score_run.score(self.run_dir, session="sess-w")["sections"]["cost"]["unattended"]
+        self.assertEqual((attended["count"], attended["ranUnattended"]), (1, False))
+        self.assertEqual(score_run.unattended_phrase(attended),
+                         "no, 1 interruption: a stop, runner not connected during components")
+
     def test_an_unattended_run_says_so(self):
         write_transcript(self.main, [entry("prompt", "2026-01-05T10:00:00Z"), entry("step", "2026-01-05T10:00:40Z"),
                                      entry("result", "2026-01-05T10:30:00Z"), entry("reply", "2026-01-05T10:31:00Z")])
@@ -775,6 +787,29 @@ class WorkflowCaptureTest(unittest.TestCase):
         self.assertEqual((code, len(answer["missing"])), (1, 2))       # site not answering, no Figma file
         called.assert_not_called()
         self.assertNotIn('"preflight"', (self.ws / "phase-log.jsonl").read_text())
+
+    def test_an_absent_runner_stops_the_build_with_what_to_do_first(self):
+        import datetime as dt
+        from unittest import mock
+        import figma_runner
+        import workflow
+        self.ws.mkdir()
+        project = legacy_project(target={"figmaFileKey": "KEY9", "figmaUrl": "https://www.figma.com/design/KEY9/Library"},
+                                 phases={"foundation": {"status": "complete"}, "components": {"status": "running"}})
+        write(self.ws / "project.json", project)
+        with mock.patch.object(figma_runner, "ensure_server", return_value={"alive": True}):
+            stopped = workflow.await_runner(self.ws, project, minutes=0.002, poll=0.01)
+            self.assertFalse(stopped["connected"])
+            self.assertTrue(stopped["message"].startswith(
+                "Open Figma desktop, open https://www.figma.com/design/KEY9/Library, and start the design-lab runner. "
+                "The build writes the component library into that file through the runner, and it has not connected for "))
+            log = [json.loads(l) for l in (self.ws / "phase-log.jsonl").read_text().splitlines()]
+            self.assertEqual((log[-1]["phase"], log[-1]["status"], log[-1]["reason"]),
+                             ("components", "stopped", "runner not connected"))
+            # The runner asked for a step a moment ago: the build carries on where it stopped.
+            (self.ws / "figma").mkdir(exist_ok=True)
+            (self.ws / "figma" / figma_runner.SEEN_FILE).write_text(dt.datetime.now(dt.timezone.utc).isoformat())
+            self.assertTrue(workflow.await_runner(self.ws, project, minutes=2, poll=0.01)["connected"])
 
     def test_plan_approval_follows_the_preflight_choice(self):
         self.ws.mkdir()

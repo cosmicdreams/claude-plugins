@@ -463,19 +463,29 @@ def site_reachable(url: str) -> tuple[bool, str]:
 
 def runner_handshake(workspace: Path, file_key: str, figma_url: str, timeout: float,
                      project: dict | None = None) -> dict:
-    """Start or reuse the runner server, tell the person what to do, and wait for the runner to
-    check the target file and draw a name-only Cover in it through the real cover.js. Returns
-    the handshake's outcome, with the token."""
+    """Refresh the runner in ~/.design-lab/runner/, start or reuse the runner server, tell the
+    person what to do, and wait for the runner to check the target file and draw a name-only
+    Cover in it through the real cover.js. The token is never printed: the person copies it
+    from ~/.design-lab/runner-token once per machine."""
     import figma_build
     import figma_runner
     import library_counts
+    install = figma_runner.install_runner()
     try:
         server = figma_runner.ensure_server(workspace)
     except (RuntimeError, OSError) as error:
-        return {"ok": False, "runnerConnected": False, "failure": f"the runner server could not start: {error}"}
-    print(f"Runner token: {server['token']}\nOpen the target file ({figma_url}) in Figma desktop and start the "
-          f"design-lab runner (Plugins, Development, design-lab runner); paste the token if it asks. "
-          f"Waiting up to {timeout:g} seconds for it to connect.", file=sys.stderr, flush=True)
+        return {"ok": False, "runnerConnected": False, "install": install,
+                "failure": f"the runner server could not start: {error}"}
+    token_file = figma_runner.HOME / figma_runner.TOKEN_FILE
+    steps = ([f"Import the runner once: in Figma desktop, Plugins, Development, Import plugin from manifest, and "
+              f"choose {install['manifest']}. Later versions only need a restart of the runner."]
+             if install["firstInstall"] else
+             [f"The runner was updated to {install['version']}: if it is open, close it and start it again, so "
+              "Figma loads the new code."] if install["updated"] else [])
+    steps += [f"Open the target file ({figma_url}) in Figma desktop and start the design-lab runner (Plugins, "
+              f"Development, design-lab runner). If it asks for a token, paste yours (copy it with: pbcopy < {token_file}).",
+              f"Waiting up to {timeout:g} seconds for it to connect."]
+    print("\n".join(steps), file=sys.stderr, flush=True)
     # The Cover's name-only form: the site's name and "Component Library", nothing computed.
     cover = {"ground": library_counts.COVER_GROUND,
              "headline": figma_build.site_name(Path((project or {}).get("repository", {}).get("root") or workspace)),
@@ -484,20 +494,75 @@ def runner_handshake(workspace: Path, file_key: str, figma_url: str, timeout: fl
     expected = (((project or {}).get("target") or {}).get("preflight") or {}).get("coverPageId")
     figma_runner.request_handshake(workspace, cover, expected)
     outcome = figma_runner.wait_for_handshake(workspace, timeout)
+    if not outcome.get("runnerConnected") and install["firstInstall"]:
+        outcome["failure"] = (f"Import the runner in Figma desktop (Plugins, Development, Import plugin from manifest, "
+                              f"{install['manifest']}), open the target file and start it, then run preflight again; "
+                              + outcome.get("failure", "no runner connected"))
     return {**outcome, "server": {"pid": server.get("pid"), "started": server.get("started")},
-            "token": server["token"]}
+            "install": install, "instructions": steps[:-1]}
+
+
+RUNNER_ABSENT_MINUTES = 2
+
+
+def build_phase(project: dict) -> str:
+    phases = project.get("phases") or {}
+    return next((name for name in ("foundation", "components", "index")
+                 if (phases.get(name) or {}).get("status") not in ("complete", "approved", "waived")), "components")
+
+
+def await_runner(workspace: Path, project: dict, minutes: float = RUNNER_ABSENT_MINUTES, poll: float = 5) -> dict:
+    """At the start of the build and any time during it: the runner must have asked for a step
+    within the last `minutes`, or ask within that long now. If it does not, the run stops with
+    what is needed first and why, and the stop is logged as an interruption with its phase."""
+    import datetime as dt
+    import time
+    import figma_runner
+    figma_runner.ensure_server(workspace)
+    seen_file = workspace / "figma" / figma_runner.SEEN_FILE
+
+    def seen():
+        try:
+            return dt.datetime.fromisoformat(seen_file.read_text().strip())
+        except (OSError, ValueError):
+            return None
+
+    window = dt.timedelta(minutes=minutes)
+    deadline = time.monotonic() + minutes * 60
+    while True:
+        last = seen()
+        if last and dt.datetime.now(dt.timezone.utc) - last <= window:
+            return {"connected": True, "lastSeen": last.isoformat()}
+        if time.monotonic() >= deadline:
+            break
+        time.sleep(poll)
+    absent = (dt.datetime.now(dt.timezone.utc) - last).total_seconds() / 60 if last else minutes
+    address = ((project.get("target") or {}).get("figmaUrl")
+               or ((project.get("target") or {}).get("preflight") or {}).get("fileUrl") or "the target Figma file")
+    whole = max(1, round(absent))
+    message = (f"Open Figma desktop, open {address}, and start the design-lab runner. The build writes the component "
+               f"library into that file through the runner, and it has not connected for {whole} "
+               f"minute{'s' if whole != 1 else ''}.")
+    phase = build_phase(project)
+    append_jsonl(workspace / PHASE_LOG, {"at": now(), "phase": phase, "status": "stopped",
+                                         "reason": "runner not connected", "message": message})
+    return {"connected": False, "phase": phase, "message": message}
 
 
 def runner_command(args):
-    """Whether this run's runner server is alive; with --ensure, restart it if it is not, with the
-    run's stored token, so the runner in Figma desktop reconnects without the person."""
+    """Whether this run's runner server is alive; with --ensure, restart it if it is not, so the
+    runner in Figma desktop reconnects without the person; with --await-runner, stop the run with
+    what is needed when the runner has not asked for a step for about two minutes."""
     import figma_runner
-    path, _ = load_project(args.project)
-    if args.ensure:
-        state = figma_runner.ensure_server(path.parent)
-        state.pop("token", None)
-    else:
-        state = figma_runner.server_status(path.parent)
+    path, project = load_project(args.project)
+    if args.await_runner:
+        outcome = await_runner(path.parent, project, args.minutes)
+        print(json.dumps(outcome, indent=2))
+        if not outcome["connected"]:
+            print(outcome["message"], file=sys.stderr)
+            sys.exit(1)
+        return
+    state = figma_runner.ensure_server(path.parent) if args.ensure else figma_runner.server_status(path.parent)
     print(json.dumps(state, indent=2))
 
 
@@ -540,7 +605,6 @@ def preflight_command(args):
                "planApproval": args.plan_approval, "usageFallback": args.usage_fallback,
                "ddevRoot": args.ddev_root,
                "schemaChurn": "recorded by the run at the benchmark, without asking"}
-    token = None
     if figma_key:
         # The server finds this run by its target file, so the target is recorded before it starts.
         previous = (project.get("target") or {}).get("figmaFileKey")
@@ -552,7 +616,6 @@ def preflight_command(args):
                              **({"preflight": kept} if kept else {})}
         write_json(path, project)
         handshake = runner_handshake(path.parent, figma_key.group(1), args.figma_url, args.runner_timeout, project)
-        token = handshake.pop("token", None)
         checks["runner"] = handshake
         if not handshake.get("ok"):
             missing.append(handshake.get("failure") or "the Figma file could not be proven writable")
@@ -565,7 +628,7 @@ def preflight_command(args):
                 "fontLoaded": handshake.get("fontLoaded"), "at": handshake.get("at")}
             write_json(path, project)
     if missing:
-        print(json.dumps({"ready": False, "missing": missing, "checks": checks, "runnerToken": token,
+        print(json.dumps({"ready": False, "missing": missing, "checks": checks,
                           "message": "Still needed before the run can go ahead unattended: " + "; ".join(missing) + "."},
                          indent=2))
         sys.exit(1)
@@ -577,7 +640,7 @@ def preflight_command(args):
     go_ahead = now()
     set_phase(path, project, "preflight", "complete", {**answers, "checks": checks, "goAheadAt": go_ahead},
               at=go_ahead)
-    print(json.dumps({"ready": True, "goAheadAt": go_ahead, "checks": checks, "runnerToken": token,
+    print(json.dumps({"ready": True, "goAheadAt": go_ahead, "checks": checks,
                       "message": "I have everything I need; it's safe to let this run to completion."}, indent=2))
 
 
@@ -852,7 +915,10 @@ def main():
 
     command = sub.add_parser("runner", help="whether the runner server is alive; --ensure restarts it")
     command.add_argument("--project", default=".design-lab")
-    command.add_argument("--ensure", action="store_true", help="start it again, with the stored token, if it is not alive")
+    command.add_argument("--ensure", action="store_true", help="start it again if it is not alive")
+    command.add_argument("--await-runner", action="store_true",
+                         help="stop the run when the runner has not asked for a step for --minutes")
+    command.add_argument("--minutes", type=float, default=RUNNER_ABSENT_MINUTES)
     command.set_defaults(func=runner_command)
 
     command = sub.add_parser("approve")

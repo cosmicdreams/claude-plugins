@@ -1,24 +1,28 @@
 #!/usr/bin/env python3
 """Serve figma_build.py steps to the design-lab runner plugin, so no model relays a build.
 
-  figma_runner.py serve  --project W [--project W2 ...]   serve in the foreground
-  figma_runner.py start  --project W                      reuse a live server, or start one detached
-  figma_runner.py status --project W                      whether this run's server is alive
+  figma_runner.py serve  --project W   serve one run in the foreground
+  figma_runner.py start  --project W   reuse this run's live server, or start one detached
+  figma_runner.py status --project W   whether this run's server is alive
+  figma_runner.py stop   --project W   stop this run's server
 
 The plugin (design-lab/runner/, imported once into Figma desktop as a development plugin)
-asks for the next step with the open file's key; the server picks the run whose target file
-(`W/figma/state.json`, or before the build `W/project.json` target) has that key, so one
-server drives several runs, each in its own file. The same `next` and `record` commands a
+asks for the next step with the open file's key. One server serves exactly one run: design-lab
+builds one library at a time, which gives Figma desktop its best results, so a second run's
+server is refused while one is active. The run's target file is `W/figma/state.json`'s, or before
+the build the `W/project.json` target. The same `next` and `record` commands a
 relaying model would call are called here, so the build is identical either way; `skip`
 steps are recorded without asking the plugin. Before the build has steps the server answers
 `wait`, and the plugin stays open and asks again; at preflight it serves one `check` step that
 proves the file is the target, is empty and can be written (the handshake).
 
 It listens on 127.0.0.1:8765, the one address the plugin's manifest allows. Every request
-carries `token=T`, a random token kept in `W/figma/runner-token` (mode 600), which the plugin
-asks for once and keeps; a restarted server reuses it, so a restart never needs the person.
-Without it a web page that learned a file key could read steps or forge results. Cross-origin
-reads are allowed only for the `null` origin of a plugin iframe.
+carries `token=T`, the person's runner token in `~/.design-lab/runner-token` (mode 600), which
+the plugin asks for once per machine and keeps; every server reads the same file, so a restart
+or a new run never needs the person, and the token is never written into a run or a log. Its
+only job is to stop a web page in the person's browser from talking to this server. Requests
+also carry the runner's `version`; a runner older than this plugin is told it is outdated.
+Cross-origin reads are allowed only for the `null` origin of a plugin iframe.
 
   GET  /health?token=T                         the projects this server serves, and its process id
   GET  /next?fileKey=K&token=T                 next step; use_figma steps carry their code inline
@@ -52,8 +56,13 @@ PORT = 8765  # runner/manifest.json and runner/code.js allow this port and no ot
 ORIGIN = "null"  # a Figma plugin's fetch comes from a sandboxed iframe with an opaque origin
 DRIVER_TIMEOUT = 900  # seconds; longer than figma_build.py's own 600-second image fetch
 WAIT_MS = 5000  # how long the plugin pauses before asking again while there is nothing to build
+# The person's own design-lab folder: their runner token, and the stable copy of the runner that
+# Figma desktop imports once, so a plugin update needs only a restart of the runner.
+HOME = Path(os.environ.get("DESIGN_LAB_HOME") or Path.home() / ".design-lab")
 TOKEN_FILE = "runner-token"
+RUNNER_SOURCE = HERE.parent / "runner"
 PID_FILE = "runner.pid"
+SEEN_FILE = "runner-seen"
 SERVER_LOG = "runner-server.log"
 HANDSHAKE_REQUEST = "handshake-request.json"
 HANDSHAKE = "handshake.json"
@@ -99,17 +108,62 @@ def figma_dir(project: Path) -> Path:
     return folder
 
 
-def load_or_create_token(projects: list[Path]) -> str:
-    """The runner token, kept in each run's figma/runner-token (mode 600). A restarted server
-    reads it back, so the plugin's saved token keeps working and nobody pastes it again."""
-    token = next((f.read_text().strip() for f in (Path(p) / "figma" / TOKEN_FILE for p in projects)
-                  if f.is_file() and f.read_text().strip()), None) or secrets.token_urlsafe(16)
-    for project in projects:
-        path = figma_dir(project) / TOKEN_FILE
-        if not path.is_file() or path.read_text().strip() != token:
-            path.write_text(token + "\n")
-        os.chmod(path, 0o600)
-    return token
+def person_token() -> str:
+    """The person's runner token, created once in ~/.design-lab/runner-token (folder mode 700,
+    file mode 600). Every server reads it, so the runner's saved copy keeps working across
+    restarts and runs, and the person pastes it once per machine."""
+    HOME.mkdir(mode=0o700, parents=True, exist_ok=True)
+    os.chmod(HOME, 0o700)
+    path = HOME / TOKEN_FILE
+    if not path.is_file() or not path.read_text().strip():
+        fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as handle:
+            handle.write(secrets.token_urlsafe(16) + "\n")
+    os.chmod(path, 0o600)
+    return path.read_text().strip()
+
+
+def plugin_version() -> str:
+    manifest = HERE.parent / ".claude-plugin" / "plugin.json"
+    return json.loads(manifest.read_text()).get("version", "0") if manifest.is_file() else "0"
+
+
+def version_tuple(value: str | None) -> tuple:
+    try:
+        return tuple(int(part) for part in str(value).split("."))
+    except ValueError:
+        return ()
+
+
+def outdated(runner_version: str | None) -> bool:
+    return version_tuple(runner_version) < version_tuple(plugin_version())
+
+
+def install_runner() -> dict:
+    """Copy the runner into ~/.design-lab/runner/, the stable folder Figma desktop imports it
+    from once. Its code carries this plugin's version, which it sends with every request.
+    Later versions refresh these files; the person only restarts the runner."""
+    target = HOME / "runner"
+    first = not (target / "manifest.json").is_file()
+    target.mkdir(parents=True, exist_ok=True)
+    version = plugin_version()
+    changed = False
+    for source in sorted(RUNNER_SOURCE.iterdir()):
+        if source.suffix not in (".json", ".js", ".html"):
+            continue
+        text = source.read_text()
+        if source.name == "code.js":
+            text = text.replace("const RUNNER_VERSION = 'source';", f"const RUNNER_VERSION = '{version}';")
+        if not (target / source.name).is_file() or (target / source.name).read_text() != text:
+            (target / source.name).write_text(text)
+            changed = True
+    return {"folder": str(target), "manifest": str(target / "manifest.json"), "version": version,
+            "firstInstall": first, "updated": changed and not first}
+
+
+def outdated_message(version: str) -> str:
+    return (f"Close the design-lab runner in Figma and start it again; it was updated to {version} "
+            "and Figma loads the new code when it starts.")
 
 
 def write_handshake(project: Path, result: dict) -> None:
@@ -347,9 +401,18 @@ def make_handler(builds: dict[str, Build], token: str):
                 for b in builds.values():   # a handshake in progress reports the rejected token
                     if b.handshake_pending() and q.get("fileKey") in (b.key, None, ""):
                         write_handshake(b.project, {"runnerConnected": True, "ok": False, "fileKey": q.get("fileKey"),
-                                                    "failure": "the runner's token was rejected; paste the token "
-                                                               "preflight printed into the runner, then run preflight again"})
-                return self.reply(401, b"missing or wrong runner token; use the one preflight or figma_runner.py printed", "text/plain")
+                                                    "failure": "Paste your runner token into the runner when it asks "
+                                                               f"(copy it with: pbcopy < {HOME / TOKEN_FILE}), then run "
+                                                               "preflight again; the runner's saved token was rejected"})
+                return self.reply(401, b"the runner token was rejected; paste the one in ~/.design-lab/runner-token", "text/plain")
+            if url.path != "/health" and outdated(q.get("version")):
+                message = outdated_message(plugin_version())
+                for b in builds.values():
+                    if b.handshake_pending():
+                        write_handshake(b.project, {"runnerConnected": True, "ok": False, "outdated": True,
+                                                    "runnerVersion": q.get("version"), "failure": message})
+                return self.reply(426, json.dumps({"outdated": True, "version": plugin_version(),
+                                                   "message": message}).encode())
             if url.path == "/health":
                 return self.reply(200, json.dumps({"pid": os.getpid(), "projects": [str(b.project) for b in builds.values()],
                                                    "files": [b.key for b in builds.values()]}).encode())
@@ -371,6 +434,8 @@ def make_handler(builds: dict[str, Build], token: str):
                         if not isinstance(body, dict):
                             raise ValueError("the request body must be a JSON object")
                     if method == "GET" and url.path == "/next":
+                        # When the runner last asked, so the run can tell it is still there.
+                        (figma_dir(build.project) / SEEN_FILE).write_text(utc_now() + "\n")
                         return self.reply(200, json.dumps(build.next()).encode())
                     if method == "GET" and url.path == "/file":
                         data, ctype = build.file(q["step"], int(q["i"]))
@@ -404,19 +469,16 @@ def make_handler(builds: dict[str, Build], token: str):
 
 
 def load_builds(projects: list[str]) -> dict[str, Build]:
-    """One Build per file key. Two workspaces naming the same file would take turns writing
-    into it, so that is refused rather than letting the later one silently win."""
-    builds: dict[str, Build] = {}
-    for p in projects:
-        b = Build(Path(p).resolve())
-        key = b.key
-        if not key:
-            raise SystemExit(f"{b.project} has no target Figma file yet; record it with workflow.py preflight")
-        if key in builds and builds[key].project != b.project:
-            raise SystemExit(f"{builds[key].project} and {b.project} both build file {key}; "
-                             "serve one of them, or give each its own file")
-        builds[key] = b
-    return builds
+    """The one run this server serves, by its target file key. design-lab builds one library at
+    a time, for the best results in Figma desktop, so a second run is refused."""
+    runs = sorted({str(Path(p).resolve()) for p in projects})
+    if len(runs) != 1:
+        raise SystemExit("one run at a time: a runner server serves exactly one run; finish or stop "
+                         f"the other before starting it ({', '.join(runs)})")
+    b = Build(Path(runs[0]))
+    if not b.key:
+        raise SystemExit(f"{b.project} has no target Figma file yet; record it with workflow.py preflight")
+    return {b.key: b}
 
 
 def health(token: str, timeout: float = 2) -> dict | None:
@@ -435,15 +497,26 @@ def port_in_use() -> bool:
 
 
 def server_status(project: Path) -> dict:
-    """Whether a server is alive and serving this run, from its pid file and its answer."""
+    """Whether a server is alive and serving this run, from its answer; and if another run's
+    server holds the port, which run that is."""
     project = Path(project).resolve()
     folder = project / "figma"
-    token = (folder / TOKEN_FILE).read_text().strip() if (folder / TOKEN_FILE).is_file() else None
     pid = int((folder / PID_FILE).read_text()) if (folder / PID_FILE).is_file() else None
-    answer = health(token) if token else None
+    answer = health(person_token())
     serving = bool(answer) and str(project) in answer.get("projects", [])
-    return {"alive": serving, "pid": (answer or {}).get("pid", pid), "portInUse": serving or port_in_use(),
+    other = [p for p in (answer or {}).get("projects", []) if p != str(project)]
+    return {"alive": serving, "pid": (answer or {}).get("pid", pid), "portInUse": serving or bool(answer) or port_in_use(),
+            "otherRun": other[0] if other and not serving else None, "otherPid": (answer or {}).get("pid") if other else None,
             "log": str(folder / SERVER_LOG)}
+
+
+def stop_server(project: Path) -> dict:
+    """Stop this run's server, if it is the one serving."""
+    import signal
+    status = server_status(project)
+    if status["alive"] and status["pid"]:
+        os.kill(int(status["pid"]), signal.SIGTERM)
+    return {"stopped": bool(status["alive"]), "pid": status["pid"]}
 
 
 def ensure_server(project: Path, wait: float = 10) -> dict:
@@ -451,15 +524,17 @@ def ensure_server(project: Path, wait: float = 10) -> dict:
     outlives the command that started it: its own session, its pid in figma/runner.pid and its
     output in figma/runner-server.log."""
     project = Path(project).resolve()
-    token = load_or_create_token([project])
+    person_token()
     status = server_status(project)
     if status["alive"]:
-        return {**status, "token": token, "started": False}
+        return {**status, "started": False}
+    if status["otherRun"]:
+        raise RuntimeError(f"another run is active: {status['otherRun']} (server process {status['otherPid']}). "
+                           "design-lab builds one library at a time, for the best results in Figma desktop; "
+                           f"stop it first with: python3 {Path(__file__).resolve()} stop --project {status['otherRun']}")
     if status["portInUse"]:
-        raise RuntimeError(f"127.0.0.1:{PORT} is in use by another program or another run's server; stop it "
-                           "(or serve both runs from one server with figma_runner.py serve --project A --project B)")
+        raise RuntimeError(f"127.0.0.1:{PORT} is in use by another program; stop it, then run preflight again")
     folder = figma_dir(project)
-    # The log carries the token the server prints, so only this user can read it.
     with os.fdopen(os.open(folder / SERVER_LOG, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600), "a") as log:
         os.chmod(folder / SERVER_LOG, 0o600)
         process = subprocess.Popen([sys.executable, str(Path(__file__).resolve()), "serve", "--project", str(project)],
@@ -471,7 +546,7 @@ def ensure_server(project: Path, wait: float = 10) -> dict:
         if process.poll() is not None:
             raise RuntimeError(f"the runner server exited at once; see {folder / SERVER_LOG}")
         if server_status(project)["alive"]:
-            return {**server_status(project), "token": token, "started": True}
+            return {**server_status(project), "started": True}
         time.sleep(0.2)
     raise RuntimeError(f"the runner server did not answer within {wait:g} seconds; see {folder / SERVER_LOG}")
 
@@ -508,9 +583,12 @@ def main() -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("serve")
     s.add_argument("--project", action="append", required=True)
-    for name in ("start", "status"):
+    for name in ("start", "status", "stop"):
         sub.add_parser(name).add_argument("--project", required=True)
     ns = ap.parse_args()
+    if ns.cmd == "stop":
+        print(json.dumps(stop_server(Path(ns.project)), indent=2))
+        return 0
     if ns.cmd == "status":
         print(json.dumps(server_status(Path(ns.project)), indent=2))
         return 0
@@ -524,8 +602,8 @@ def main() -> int:
     builds = load_builds(ns.project)
     for key, b in builds.items():
         print(f"serving {b.project} for file {key}", flush=True)
-    token = load_or_create_token([b.project for b in builds.values()])
-    print(f"runner token: {token}\n(kept in each run's figma/{TOKEN_FILE}; a restarted server reuses it)", flush=True)
+    token = person_token()   # never printed: the person copies it from the file once per machine
+    print(f"runner token: in {HOME / TOKEN_FILE}", flush=True)
     ThreadingHTTPServer(("127.0.0.1", PORT), make_handler(builds, token)).serve_forever()
     return 0
 
