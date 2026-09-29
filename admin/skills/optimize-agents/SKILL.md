@@ -1,94 +1,47 @@
 ---
 name: optimize-agents
 description: >
-  Audit agent definition files for stale tool syntax, outdated model references, and
-  defensive-prose bloat. Not for writing new agents (admin:new-agent) or for reviewing
-  skills.
+  Audit agent definitions, and the skill files they depend on, against the definition lint rules:
+  registration names, frontmatter fields, tool declarations, pinned or denied models, stale
+  references, and prompt bloat. Not for writing new agents (admin:new-agent).
 ---
 
-# Optimize Agent Definitions
+# Optimize agent definitions
 
-## When to use
-
-Full routing detail, kept out of the always-loaded skill listing:
-
-> Audits agent definition files for correctness and token efficiency. Checks for stale tool syntax, outdated model references, and defensive-prose bloat. Use when the user says "optimize agents", "review agent definitions", "check agent models", "are agents well-configured", "trim agent prompts", or "audit agents". NOT for creating new agents (use admin:new-agent) or for reviewing skill definitions.
-
-Audit agent definitions for correctness and token efficiency. Remove stale references and bloat.
+Checks that an agent will register, load the tools it needs, run on a model the account covers, and read as instructions a current model needs rather than coaching an older one did. The rules live one per file in `${CLAUDE_PLUGIN_ROOT}/skills/optimize-agents/references/rules/`; read them rather than recalling them.
 
 ## Input
 
-- Agent directory (default: `.claude/agents/`)
-- Optional: specific agent file
+A plugin, a directory of agents (default: every `*/agents/*.md` in the repository, plus `~/.claude/agents/`), or one file.
 
-## Step 1: Inventory
+## 1. Run the rules
 
-Read all `*.md` files in the agents directory. For each, extract:
-- name, description, color, tools, model (from YAML frontmatter)
-- Body line count
+For each rule whose `applies-to` matches, run its detection. Rule tiers:
 
-Flag agents missing required frontmatter fields: `name`, `description`, `color`, `tools`.
+| Tier | Behavior |
+| --- | --- |
+| auto-fix | Apply the fix, list what changed. |
+| warn | Report with evidence and the proposed fix; wait for the user. |
+| watch | Note it; take no action. |
 
-## Step 2: Model Audit (omit-to-inherit)
+A rule moves up a tier only when its findings have been right repeatedly; if an auto-fix misfires, drop it to warn at once.
 
-The correct default is to **omit the `model` field** — the agent inherits the session model, which is usually right. Only keep an explicit model override when it is clearly justified.
+## 2. Judge whether the agent should exist
 
-Flag agents with explicit model overrides and evaluate each:
-- Is `haiku` appropriate? Only when the task is purely procedural: run a command, compare output against rules, report pass/fail. No code writing, no judgment calls.
-- Is `sonnet` appropriate? When the agent writes code, makes judgment calls, or synthesizes information.
-- Is `opus` or `fable` present? These should be rare. Flag for review — justify or remove.
-- Is the value stale? Known stale values: `claude-opus-4`, `claude-sonnet-4`, `claude-3-5-sonnet-20241022`, `claude-3-haiku-20240307`, or any pinned date-versioned ID. Replace with tier name (`haiku`, `sonnet`, `opus`, `fable`) or remove to inherit.
+An agent earns its own context when it needs a tool or permission boundary, isolation from the caller's reasoning (independent review), a single-writer role, or it is dispatched by a script. If none applies and a skill run in the main session would do the job, recommend converting or deleting it. Check that something actually dispatches it: search for `<plugin>:<name>` in skills, scripts, and workflows.
 
-## Step 3: Tool Syntax Audit
+## 3. Trim the prompt
 
-Flag stale SendMessage usage in agent bodies:
-- Old schema: `type=`, `recipient=`, `content=` parameters
-- Correct schema: `{to, summary, message}`
+Keep what only this agent knows: its boundary, inputs, outputs, decision criteria, and exact commands. Cut, in order of payoff:
 
-Flag agents referencing non-existent tools or tools they demonstrably never call.
+1. Persona openers ("You are a world-class …") — replace with the responsibility.
+2. Walls of "never" and capitals — one statement per rule.
+3. Steps a current model does unprompted (read before editing, think step by step, check your work).
+4. Repeated warnings and cross-agent boilerplate — extract shared text to a reference.
+5. Full output templates — describe the shape in a line unless a caller parses it.
 
-## Step 4: Defensive-Prose Audit
+Target 40 to 80 body lines. Longer is fine when it is contract, not coaching.
 
-Token efficiency target: 60–80 lines body. Flag agents over 100 lines for review.
+## 4. Report
 
-Cut in order of savings:
-1. **Anti-pattern walls** — blocks of "do NOT do X" rules. One statement per rule; delete repetition.
-2. **Repeated warnings** — the same caution stated in multiple places.
-3. **Behavioral coaching prose** — "Always be thorough", "Make sure to check", "Remember to". Replace with specific imperatives or delete.
-4. **Role-playing text** — "You are a senior engineer with 15 years experience". Replace with responsibility list.
-5. **Embedded output templates** — full markdown templates with placeholders. Replace with a 1–2 line structural description.
-6. **Cross-agent boilerplate** — near-identical protocol blocks duplicated across 5+ agents. Extract to a shared reference.
-
-Keep:
-- Specific commands and exact syntax
-- Communication format templates
-- Decision criteria unique to this agent
-- Numbered process steps
-- Role-specific quality gates
-
-## Step 5: Apply and Verify
-
-For each agent:
-1. Fix YAML frontmatter (missing fields, stale model values)
-2. Fix SendMessage syntax if stale
-3. Trim body if over 100 lines (preserve meaning, cut bloat)
-
-Verify:
-```bash
-for f in .claude/agents/*.md; do
-  name=$(basename "$f" .md)
-  model=$(grep -m1 '^model:' "$f" | awk '{print $2}')
-  lines=$(wc -l < "$f")
-  echo "$name: model=${model:-inherited} lines=$lines"
-done
-```
-
-## Decision Table
-
-| Agent has explicit model | Evaluation |
-|--------------------------|------------|
-| None / omitted | Correct default — inherits session model |
-| `haiku` | Keep only if purely procedural (no code, no judgment) |
-| `sonnet` | Keep if code writing or judgment calls are central |
-| `opus` / `fable` | Flag — justify or remove |
-| Date-versioned ID | Replace with tier name or remove |
+One line per agent: name, findings by rule id, what was fixed, what needs the user.

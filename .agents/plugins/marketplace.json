@@ -5,30 +5,6 @@
   },
   "plugins": [
     {
-      "name": "sprint",
-      "source": {
-        "source": "local",
-        "path": "./sprint"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Development"
-    },
-    {
-      "name": "retro",
-      "source": {
-        "source": "local",
-        "path": "./retro"
-      },
-      "policy": {
-        "installation": "AVAILABLE",
-        "authentication": "ON_INSTALL"
-      },
-      "category": "Development"
-    },
-    {
       "name": "ideate",
       "source": {
         "source": "local",
@@ -113,10 +89,10 @@
       "category": "Research"
     },
     {
-      "name": "improve",
+      "name": "process-lab",
       "source": {
         "source": "local",
-        "path": "./improve"
+        "path": "./process-lab"
       },
       "policy": {
         "installation": "AVAILABLE",

@@ -3,7 +3,7 @@ name: perf-measure
 description: >
   Profile PHP inside DDEV — page load, memory allocation, database query patterns —
   emitting JSON score tuples for the experiment ratchet, including callgraph_top_10. Not
-  for frontend performance (improve:perf-measure).
+  for frontend performance (test-lab:perf-measure).
 triggers:
   - "profile this page"
   - "drupal performance"
@@ -18,7 +18,7 @@ triggers:
 
 Full routing detail, kept out of the always-loaded skill listing:
 
-> PHP performance profiling inside DDEV. Outputs machine-readable JSON score tuples for the experiment ratchet, including callgraph_top_10 for autonomous hypothesis generation. Use when profiling Drupal page load times, memory allocations, or database query patterns. Do NOT use for frontend performance -- use improve:perf-measure.
+> PHP performance profiling inside DDEV. Outputs machine-readable JSON score tuples for the experiment ratchet, including callgraph_top_10 for autonomous hypothesis generation. Use when profiling Drupal page load times, memory allocations, or database query patterns. Do NOT use for frontend performance -- use test-lab:perf-measure.
 
 PHP performance profiling inside DDEV. Assumes DDEV is running. For DDEV lifecycle and command reference, see `drupal-lab:ddev`.
 
@@ -201,4 +201,4 @@ The `scores` object is the tuple the ratchet compares. Typical targets:
 - **Memory**: `keep if memory_peak_mb < previous.memory_peak_mb`
 - **Queries**: `keep if db_queries < previous.db_queries`
 
-`callgraph_top_10` drives hypothesis generation in `improve:optimizer`.
+`callgraph_top_10` drives hypothesis generation in `research-lab:experiment`.

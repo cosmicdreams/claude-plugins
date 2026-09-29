@@ -39,7 +39,7 @@ DATE="$(date +%Y-%m-%d)"
 
 # Known plugin prefixes — longer names must come first (so e.g. drupal-lab
 # is matched before drupal would be, if there ever was one).
-KNOWN_PLUGINS=(research-lab ideas-funnel drupal-lab workshop improve drover ideate sprint admin retro lib)
+KNOWN_PLUGINS=(research-lab ideas-funnel drupal-lab workshop process-lab drover ideate admin lib design-lab test-lab)
 
 TOTAL_PASS=0
 TOTAL_FAIL=0

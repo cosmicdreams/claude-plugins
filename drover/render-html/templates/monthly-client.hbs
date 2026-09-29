@@ -89,22 +89,6 @@
     </div>
     {{/each}}
 
-    {{#if tickets.length}}
-    <h2 class="section">Recommended JIRA tickets</h2>
-    {{#each tickets}}
-    <div class="ticket-card">
-      <p class="ticket-card__title">{{title}}</p>
-      <p class="ticket-card__meta">
-        Priority: {{priority}}
-        {{#if labels.length}}&nbsp;·&nbsp; Labels: {{join labels ", "}}{{/if}}
-        &nbsp;·&nbsp; {{fmt count}} events
-      </p>
-      <p class="ticket-card__desc">{{description}}</p>
-      {{#if sample}}<pre class="ticket-card__sample">{{sample}}</pre>{{/if}}
-    </div>
-    {{/each}}
-    {{/if}}
-
     {{#if supplementaryGroups.length}}
     {{> supplementary-detail groups=supplementaryGroups}}
     {{/if}}

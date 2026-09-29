@@ -150,7 +150,7 @@ class FormatTests(unittest.TestCase):
 # --- generate_report end-to-end (no AI) ---------------------------------
 
 class GenerateReportTests(unittest.TestCase):
-    def test_mixed_sources_keep_php_supplementary_and_out_of_tickets(self):
+    def test_mixed_sources_keep_php_supplementary_and_out_of_evidence(self):
         with tempfile.TemporaryDirectory() as td:
             root = pathlib.Path(td)
             _make_project(root)
@@ -158,15 +158,15 @@ class GenerateReportTests(unittest.TestCase):
                 report._aggregate, "aggregate_files",
                 return_value=_mixed_aggregate(),
             ):
-                md, summary, tickets = report.generate_report(
+                md, summary, evidence = report.generate_report(
                     root, env="prod", month="2026-04",
                     template="root-cause-summary", prior_month_str=None,
                 )
 
             self.assertEqual(summary["groups_total"], 2)
             self.assertEqual(summary["supplementary_groups_total"], 1)
-            self.assertEqual([t.fingerprint for t in tickets],
-                             ["watchdog-actionable"])
+            self.assertEqual([g["fingerprint"] for g in evidence["groups"]],
+                             ["watchdog-actionable", "apache-actionable"])
             self.assertIn("Supplementary detail (php-error)", md)
             self.assertIn("PHP frame noise", md)
             self.assertIn("top 2 issues account for 13.8%", md)
@@ -176,7 +176,7 @@ class GenerateReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = pathlib.Path(td)
             _make_project(root)
-            md, summary, _tickets = report.generate_report(
+            md, summary, _evidence = report.generate_report(
                 root, env="prod", month="2026-04",
                 template="monthly-client",
                 prior_month_str=None,
@@ -192,7 +192,7 @@ class GenerateReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = pathlib.Path(td)
             _make_project(root)
-            md, summary, _tickets = report.generate_report(
+            md, summary, _evidence = report.generate_report(
                 root, env="prod", month="2026-04",
                 template="triage-brief",
             )
@@ -205,7 +205,7 @@ class GenerateReportTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = pathlib.Path(td)
             _make_project(root)
-            md, summary, _tickets = report.generate_report(
+            md, summary, _evidence = report.generate_report(
                 root, env="prod", month="2026-04",
                 template="jira-ready",
             )
@@ -244,7 +244,7 @@ class GenerateReportTests(unittest.TestCase):
             root = pathlib.Path(td)
             _make_project(root)
             # Look at a different month so logs aren't picked up
-            md, summary, _tickets = report.generate_report(
+            md, summary, _evidence = report.generate_report(
                 root, env="prod", month="2026-05",
             )
             self.assertEqual(summary["events_total"], 0)
@@ -264,7 +264,7 @@ class GenerateReportTests(unittest.TestCase):
                 },
             }
             (root / ".drover" / "coverage.json").write_text(json.dumps(cov))
-            md, summary, _tickets = report.generate_report(
+            md, summary, _evidence = report.generate_report(
                 root, env="prod", month="2026-04",
             )
             self.assertIn("⚠ **Coverage:", md)
@@ -284,7 +284,7 @@ class GenerateReportTests(unittest.TestCase):
                 "https://x.org|1|entity_embed|1.2.3.4|/path|0||"
                 "Invalid display settings encountered.\n"
             )
-            md, summary, _tickets = report.generate_report(
+            md, summary, _evidence = report.generate_report(
                 root, env="prod", month="2026-04",
                 prior_month_str="2026-03",
             )
@@ -302,7 +302,7 @@ class RootCauseSummaryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             root = pathlib.Path(td)
             _make_project(root)
-            md, summary, tickets = report.generate_report(
+            md, summary, evidence = report.generate_report(
                 root, env="prod", month="2026-04",
                 template="root-cause-summary", prior_month_str=None,
             )
@@ -317,23 +317,12 @@ class RootCauseSummaryTests(unittest.TestCase):
             # Per-issue detail
             self.assertIn("What each top issue is", md)
             self.assertIn("Representative message", md)
-            # JIRA recommendations + sidecar count
-            self.assertIn("Recommended JIRA tickets", md)
+            self.assertNotIn("Recommended JIRA tickets", md)
+            self.assertEqual(evidence["schema"], "drover-evidence/1")
             # Empty data set still renders something
             self.assertEqual(summary["events_total"], 3)
             self.assertEqual(summary["template"], "root-cause-summary")
 
-    def test_no_tickets_flag_hides_section(self):
-        with tempfile.TemporaryDirectory() as td:
-            root = pathlib.Path(td)
-            _make_project(root)
-            md, summary, tickets = report.generate_report(
-                root, env="prod", month="2026-04",
-                template="root-cause-summary",
-                include_tickets=False,
-            )
-            self.assertNotIn("Recommended JIRA tickets", md)
-            self.assertEqual(tickets, [])
 
 
 class CalendarBoundaryTests(unittest.TestCase):
@@ -354,8 +343,7 @@ class CalendarBoundaryTests(unittest.TestCase):
             self.assertIn("simple_cron", md)
             # Daily volume chart
             self.assertIn("Daily volume", md)
-            # JIRA recommendations
-            self.assertIn("Recommended JIRA tickets", md)
+            self.assertNotIn("Recommended JIRA tickets", md)
 
 
 class SupplementaryMarkdownTests(unittest.TestCase):
@@ -379,8 +367,6 @@ class SupplementaryMarkdownTests(unittest.TestCase):
         )
         for renderer in renderers:
             kwargs = {}
-            if renderer is not report.render_monthly_client:
-                kwargs["include_tickets"] = False
             with self.subTest(renderer=renderer.__name__, supplementary=True):
                 md = renderer(
                     self._agg(), project="pncb", env="prod",
@@ -415,8 +401,7 @@ class SupplementaryMarkdownTests(unittest.TestCase):
 
 
 def _make_busy_project(td: pathlib.Path):
-    """Project fixture with enough events to cross the JIRA-recommendation
-    min_count threshold (default 50)."""
+    """Project fixture with recurring evidence."""
     _make_project(td)
     log = (td / "2026" / "04" /
            "2026-04-15.prod.drupal-watchdog.log")
@@ -443,27 +428,15 @@ class CliSidecarTests(unittest.TestCase):
             ])
             self.assertEqual(rc, 0)
             md_path = root / "reports" / "2026-04-root-cause-summary.md"
-            sidecar = md_path.with_suffix(".md.tickets.json")
+            sidecar = md_path.with_suffix(".evidence.json")
             self.assertTrue(md_path.exists())
             self.assertTrue(sidecar.exists())
             data = json.loads(sidecar.read_text())
-            self.assertGreaterEqual(len(data), 1)
+            self.assertEqual(data["schema"], "drover-evidence/1")
+            self.assertEqual(data["events_total"], 63)
+            self.assertGreaterEqual(len(data["groups"]), 1)
+            self.assertEqual(data["groups"][0]["cause"]["pattern_id"], "drupal-entity-embed-missing-display")
 
-    def test_cli_no_tickets_skips_sidecar(self):
-        with tempfile.TemporaryDirectory() as td:
-            root = pathlib.Path(td)
-            _make_busy_project(root)
-            rc = report.cli_main([
-                "--project", str(root),
-                "--month", "2026-04",
-                "--template", "root-cause-summary",
-                "--no-prior", "--no-tickets",
-            ])
-            self.assertEqual(rc, 0)
-            md_path = root / "reports" / "2026-04-root-cause-summary.md"
-            sidecar = md_path.with_suffix(".md.tickets.json")
-            self.assertTrue(md_path.exists())
-            self.assertFalse(sidecar.exists())
 
 
 # --- CLI smoke test ------------------------------------------------------
@@ -530,11 +503,11 @@ class GenerateDataTests(unittest.TestCase):
             for key in (
                 "generated_at", "meta", "coverage", "totals",
                 "groups", "groups_collapsed", "disappeared_from_prior",
-                "supplementary_groups", "tickets",
+                "supplementary_groups",
             ):
                 self.assertIn(key, data)
 
-    def test_mixed_sources_split_schema_and_ticket_ranking(self):
+    def test_mixed_sources_split_schema(self):
         with tempfile.TemporaryDirectory() as td:
             root = pathlib.Path(td)
             _make_project(root)
@@ -572,10 +545,7 @@ class GenerateDataTests(unittest.TestCase):
             self.assertEqual(
                 data["totals"]["supplementary_groups_total"], 1,
             )
-            self.assertEqual(
-                [ticket["fingerprint"] for ticket in data["tickets"]],
-                ["watchdog-actionable"],
-            )
+
 
     def test_totals_match_generate_report(self):
         with tempfile.TemporaryDirectory() as td:
@@ -612,15 +582,6 @@ class GenerateDataTests(unittest.TestCase):
                 json.dumps(b, sort_keys=True, default=str),
             )
 
-    def test_no_tickets_flag(self):
-        with tempfile.TemporaryDirectory() as td:
-            root = pathlib.Path(td)
-            _make_project(root)
-            data = report.generate_data(
-                root, env="prod", month="2026-04",
-                prior_month_str=None, include_tickets=False,
-            )
-            self.assertEqual(data["tickets"], [])
 
 
 class CliJsonFormatTests(unittest.TestCase):

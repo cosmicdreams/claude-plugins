@@ -16,7 +16,7 @@
   {"query": "run the sprint on these issues", "should_trigger": false},
   {"query": "fix the bug in auth.py", "should_trigger": false},
   {"query": "scaffold this project for multi-agent work", "should_trigger": false},
-  {"query": "what agents are currently in the sprint plugin?", "should_trigger": false},
+  {"query": "what agents are currently in the admin plugin?", "should_trigger": false},
   {"query": "list all available agent colors", "should_trigger": false},
   {"query": "review agent definitions for quality", "should_trigger": false}
 ]

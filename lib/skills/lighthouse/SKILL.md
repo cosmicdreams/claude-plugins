@@ -3,7 +3,7 @@ name: lighthouse
 description: >
   Run Lighthouse against one URL and return JSON scores: performance, Core Web Vitals
   (LCP, TBT, FCP, CLS), and accessibility. For multi-page accessibility scans use
-  improve:accessibility-scan.
+  test-lab:accessibility-scan.
 ---
 
 # lib:lighthouse
@@ -12,7 +12,7 @@ description: >
 
 Full routing detail, kept out of the always-loaded skill listing:
 
-> Run a Lighthouse audit against a URL and output structured JSON scores. Use when you need a Lighthouse performance score, Core Web Vitals (LCP, TBT, FCP, CLS), or an accessibility score from a single page. Trigger phrases: "run lighthouse", "lighthouse audit", "lighthouse score", "core web vitals", "lighthouse performance", "lighthouse accessibility". Do NOT use for multi-page accessibility scanning (use improve:accessibility-scan for that). Do NOT use for CLI command benchmarking (use lib:hyperfine for that).
+> Run a Lighthouse audit against a URL and output structured JSON scores. Use when you need a Lighthouse performance score, Core Web Vitals (LCP, TBT, FCP, CLS), or an accessibility score from a single page. Trigger phrases: "run lighthouse", "lighthouse audit", "lighthouse score", "core web vitals", "lighthouse performance", "lighthouse accessibility". Do NOT use for multi-page accessibility scanning (use test-lab:accessibility-scan for that). Do NOT use for CLI command benchmarking (use lib:hyperfine for that).
 
 Thin wrapper around the `lighthouse` CLI. Outputs JSON scores suitable for the experiment ratchet.
 
@@ -24,14 +24,12 @@ lighthouse --version 2>/dev/null || echo "NOT INSTALLED"
 ```
 Install: `npm install -g lighthouse`
 
-**Chrome not available:**
-Lighthouse requires Chrome or Chromium. On macOS it uses the system Chrome. Verify:
+**Chrome not available:** Lighthouse requires Chrome or Chromium. On macOS it uses the system Chrome. Verify:
 ```bash
 /Applications/Google\ Chrome.app/Contents/MacOS/Google\ Chrome --version 2>/dev/null || echo "Chrome not found"
 ```
 
-**Self-signed cert (DDEV sites):**
-Always pass `--chrome-flags="--ignore-certificate-errors"`. Do not omit this for local sites.
+**Self-signed cert (DDEV sites):** Always pass `--chrome-flags="--ignore-certificate-errors"`. Do not omit this for local sites.
 
 ## Run — performance
 

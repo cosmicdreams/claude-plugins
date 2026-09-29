@@ -1,5 +1,4 @@
-"""Jev integration tests for drover: cause-collapse gate, ticket
-worthiness, watchdog severity, fingerprint pre-filter, and the report
+"""Jev integration tests for drover: cause-collapse gate, watchdog severity, fingerprint pre-filter, and the report
 plumbing. A fake jev module stands in for the network; the fallback tests
 prove that without Jev every artifact is identical to a run before Jev
 existed (the pre-Jev renderer input had no `jev*` keys anywhere).
@@ -31,7 +30,6 @@ def _load(name: str, filename: str):
 
 jev = _load("drover_jev_client", "jev_client.py")
 causes = _load("drover_causes", "causes.py")
-jira_recs = _load("drover_jira_recs", "jira_recs.py")
 fingerprint = _load("drover_fingerprint", "fingerprint.py")
 report = _load("drover_report", "report.py")
 from parsers import drupal_watchdog  # noqa: E402
@@ -166,51 +164,6 @@ class CollapseGateTests(unittest.TestCase):
         fake = FakeJev(lambda s, q: {})
         causes.collapse_by_cause([SOLR_A, NOVEL], jev=fake)
         self.assertEqual(fake.calls, [])
-
-
-# --- jira_recs.judge_worthiness ---------------------------------------------
-
-class TicketWorthinessTests(unittest.TestCase):
-    def test_no_jev_sidecar_has_no_jev_keys(self):
-        specs = jira_recs.from_groups([dict(SOLR_A)], project_slug="p", env="prod",
-                                      month_label="April 2026", total_events=200)
-        data = json.loads(jira_recs.to_json(specs))
-        self.assertNotIn("jev_ticket_worthiness", data[0])
-        self.assertFalse(any("jev" in label for label in data[0]["labels"]))
-        self.assertNotIn("Jev", data[0]["description"])
-
-    def test_confident_worthiness_annotates_without_changing_priority(self):
-        fake = FakeJev(lambda s, q: {"worth": score(2.9, 0.9)})
-        stats = {}
-        groups = [dict(SOLR_A), dict(NOVEL)]
-        base = jira_recs.from_groups(groups, project_slug="p", env="prod",
-                                     month_label="April 2026", total_events=200)
-        jira_recs.judge_worthiness(groups, total_events=200, jev=fake, jev_stats=stats)
-        specs = jira_recs.from_groups(groups, project_slug="p", env="prod",
-                                     month_label="April 2026", total_events=200)
-        # Hard rules unchanged: NOVEL (30 < 50) still gets no ticket.
-        self.assertEqual([s.fingerprint for s in specs], [s.fingerprint for s in base])
-        self.assertEqual(specs[0].priority, base[0].priority)
-        self.assertIn("drover-jev-worth-3", specs[0].labels)
-        self.assertIn("**Jev ticket-worthiness:** Urgent", specs[0].description)
-        self.assertEqual(specs[0].jev_ticket_worthiness["source"], "jev")
-        self.assertEqual(specs[0].jev_ticket_worthiness["threshold"],
-                         jira_recs.TICKET_WORTH_CONFIDENCE_THRESHOLD)
-        self.assertEqual(stats, {"jev": 1, "fallback": 0, "model": MODEL})
-        self.assertIn("jev_ticket_worthiness", json.loads(jira_recs.to_json(specs))[0])
-        # Only the eligible group was sent.
-        self.assertEqual(list(fake.calls[0][0]), ["0"])
-
-    def test_unconfident_worthiness_annotates_nothing(self):
-        fake = FakeJev(lambda s, q: {"worth": score(1.5, 0.3)})
-        groups = [dict(SOLR_A)]
-        jira_recs.judge_worthiness(groups, total_events=200, jev=fake)
-        specs = jira_recs.from_groups(groups, project_slug="p", env="prod",
-                                     month_label="April 2026", total_events=200)
-        self.assertFalse(any("jev" in label for label in specs[0].labels))
-        self.assertNotIn("Jev", specs[0].description)
-        self.assertEqual(specs[0].jev_ticket_worthiness["source"], "fallback")
-        self.assertEqual(specs[0].jev_ticket_worthiness["reason"], "low_confidence")
 
 
 # --- drupal_watchdog severity -----------------------------------------------
@@ -356,8 +309,7 @@ class ReportJevTests(unittest.TestCase):
                                                             template=template)
                 self.assertNotIn("Jev", md)
                 self.assertNotIn("jev", summary)
-                for s in specs:
-                    self.assertNotIn("jev", jira_recs.to_json([s]))
+                self.assertNotIn("jev", json.dumps(specs, default=str))
             data = report.generate_data(root, env="prod", month="2026-04")
             self.assertNotIn("jev", json.dumps(data, default=str))
 
@@ -376,26 +328,26 @@ class ReportJevTests(unittest.TestCase):
                                            jev=disabled)
                 self.assertEqual(_strip_ts(a[0]), _strip_ts(b[0]))
                 self.assertEqual(a[1], b[1])
-                self.assertEqual(jira_recs.to_json(a[2]), jira_recs.to_json(b[2]))
+                self.assertEqual(a[2], b[2])
             da = report.generate_data(root, env="prod", month="2026-04")
             db = report.generate_data(root, env="prod", month="2026-04", jev=disabled)
             da["generated_at"] = db["generated_at"] = "TS"
             self.assertEqual(json.dumps(da, sort_keys=True, default=str),
                              json.dumps(db, sort_keys=True, default=str))
 
-    def test_with_jev_counts_and_footer_and_sidecar(self):
+    def test_with_jev_counts_and_footer_and_evidence(self):
         fake = FakeJev(_all_answers)
         with tempfile.TemporaryDirectory() as td:
             root = pathlib.Path(td)
             _make_project(root)
             md, summary, specs = report.generate_report(root, env="prod", month="2026-04",
                                                         template="root-cause-summary", jev=fake)
-            # 3 severity verdicts + 2 collapse verdicts + 2 ticket verdicts
-            self.assertEqual(summary["jev"], {"jev": 7, "fallback": 0, "model": MODEL})
-            self.assertTrue(md.rstrip().endswith(f"*Jev judgments: 7 from Jev, 0 fallback ({MODEL}).*"))
-            self.assertEqual(specs[0].jev_ticket_worthiness["source"], "jev")
+            # 3 severity verdicts + 2 collapse verdicts.
+            self.assertEqual(summary["jev"], {"jev": 5, "fallback": 0, "model": MODEL})
+            self.assertTrue(md.rstrip().endswith(f"*Jev judgments: 5 from Jev, 0 fallback ({MODEL}).*"))
+            self.assertEqual(specs["schema"], "drover-evidence/1")
             data = report.generate_data(root, env="prod", month="2026-04", jev=fake)
-            self.assertEqual(data["jev"]["jev"], 7)
+            self.assertEqual(data["jev"]["jev"], 5)
             self.assertEqual(data["totals"]["by_severity"], {"warning": 180})
             self.assertTrue(all("jev_judgments" in g for g in data["groups_collapsed"]
                                 if g["member_count"] > 1))

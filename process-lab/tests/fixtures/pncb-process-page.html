@@ -1,0 +1,10 @@
+<ac:structured-macro ac:name="info"><ac:rich-text-body><p>Draft for review.</p></ac:rich-text-body></ac:structured-macro>
+<table><tbody>
+<tr><th>Gate</th><th>Detected by</th><th>Jira transition</th><th>Obligations</th></tr>
+<tr><td><p>Work started</p></td><td>branch-created</td><td>Ready for Development -&gt; In Development</td><td><ul><li>Branch name matches convention</li><li>Ticket assigned to self</li></ul></td></tr>
+<tr><td>Implementation committed</td><td>commit</td><td>none</td><td>Commit message references the ticket key</td></tr>
+<tr><td>Tests green</td><td>tests-passed</td><td>none</td><td>Reconcile estimate if actual is over</td></tr>
+<tr><td>Pushed to remote dev</td><td>pushed</td><td>In Development → Ready for QA</td><td>Manual testing steps written on the ticket; Comment summarising the change; Estimate reconciled</td></tr>
+<tr><td>Pull request opened</td><td>pull-request-opened</td><td>none</td><td>Pull request linked on the ticket</td></tr>
+<tr><td>Deployed for user acceptance testing</td><td>declared</td><td>Ready for Deployment -&gt; Deploy for UAT</td><td><p>Client-facing communication drafted and approved by a human before sending</p></td></tr>
+</tbody></table>

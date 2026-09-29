@@ -6,7 +6,7 @@
 #   bump-version.sh all <bump-type>
 #
 # Arguments:
-#   plugin     — sprint | retro | ideate | admin | drupal-lab | all
+#   plugin     — any name in PLUGINS below, or all
 #   bump-type  — major | minor | patch
 #
 # What it does:
@@ -18,7 +18,7 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../../../.." && pwd)"
-PLUGINS=(sprint retro ideate admin drupal-lab ideas-funnel lib workshop drover research-lab improve design-lab test-lab)
+PLUGINS=(ideate admin drupal-lab ideas-funnel lib workshop drover research-lab process-lab design-lab test-lab)
 
 # Validate PLUGINS array matches the filesystem before doing any work.
 "$REPO_ROOT/admin/scripts/validate-plugin-list.sh" "$REPO_ROOT" "${PLUGINS[@]}"

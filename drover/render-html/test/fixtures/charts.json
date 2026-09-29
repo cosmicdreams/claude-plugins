@@ -453,18 +453,5 @@
       "count": 44,
       "channel": "php-error"
     }
-  ],
-  "tickets": [
-    {
-      "title": "Fix undefined index field_hero in node preprocess",
-      "priority": "P2",
-      "labels": [
-        "drover",
-        "theme"
-      ],
-      "count": 612,
-      "description": "Guard the field_hero lookup in template_preprocess_node().",
-      "sample": "Notice: Undefined index: field_hero in template_preprocess_node()"
-    }
   ]
 }

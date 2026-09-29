@@ -1,5 +1,11 @@
 # drover Changelog
 
+## 5.0.0 — 2026-09-29
+
+### Breaking
+
+- Ticket recommendations moved to `process-lab:recommend-tickets`; drover stakeholder reports emit a diagnosed `.evidence.json` sidecar. The report ticket section, `.tickets.json` sidecar, and `--no-tickets` flag are removed.
+
 ## 4.2.1 — 2026-09-29
 
 - Fix `report-writer` agent registration: frontmatter `name` was `drover:report-writer`, which Claude Code prefixes again to `drover:drover:report-writer`, so `/drover:report`'s `drover:report-writer` dispatch never matched. `allowed-tools` (not an agent field) is now `tools: Read`, so the agent is actually read-only.

@@ -9,21 +9,36 @@
     "prior_month": "2026-03",
     "from": "2026-04-01",
     "to": "2026-04-30",
-    "types": ["drupal-watchdog"],
+    "types": [
+      "drupal-watchdog"
+    ],
     "has_prior": true
   },
   "coverage": {
     "expected_days": 30,
     "present_days": 28,
     "coverage_pct": 93.33,
-    "missing_or_failed": ["2026-04-12", "2026-04-19"]
+    "missing_or_failed": [
+      "2026-04-12",
+      "2026-04-19"
+    ]
   },
   "totals": {
     "events_total": 1234,
     "groups_total": 12,
-    "by_severity": {"critical": 3, "error": 120, "warning": 900, "notice": 211},
-    "by_channel": {"php": 800, "cron": 434},
-    "by_day": {"2026-04-01": 40}
+    "by_severity": {
+      "critical": 3,
+      "error": 120,
+      "warning": 900,
+      "notice": 211
+    },
+    "by_channel": {
+      "php": 800,
+      "cron": 434
+    },
+    "by_day": {
+      "2026-04-01": 40
+    }
   },
   "groups": [
     {
@@ -34,7 +49,9 @@
       "channel": "php",
       "first_seen": "2026-04-01",
       "last_seen": "2026-04-29",
-      "samples": ["Notice: Undefined index: foo"]
+      "samples": [
+        "Notice: Undefined index: foo"
+      ]
     }
   ],
   "groups_collapsed": [
@@ -46,11 +63,10 @@
       "channel": "php",
       "first_seen": "2026-04-01",
       "last_seen": "2026-04-29",
-      "samples": ["Notice: Undefined index: foo"]
+      "samples": [
+        "Notice: Undefined index: foo"
+      ]
     }
   ],
-  "disappeared_from_prior": [],
-  "tickets": [
-    {"title": "Fix undefined index", "priority": "P2", "sample": "Notice: Undefined index: foo"}
-  ]
+  "disappeared_from_prior": []
 }

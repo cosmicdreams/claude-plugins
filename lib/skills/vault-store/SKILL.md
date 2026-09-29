@@ -12,7 +12,7 @@ description: >
 
 Full routing detail, kept out of the always-loaded skill listing:
 
-> Routes and stores documents, reports, diagrams, and analysis into the Obsidian Neurons vault. Invoke after any skill produces output worth keeping, or when the user wants to save something to the vault. Trigger phrases: "save to vault", "store in Obsidian", "archive this report", "put this in the vault", "save to Neurons". Also triggered when other skills (retro, ideate, drupal-lab) produce reports that should be preserved. Do NOT use for organizing or moving notes already in the vault — use workshop:organize for that.
+> Routes and stores documents, reports, diagrams, and analysis into the Obsidian Neurons vault. Invoke after any skill produces output worth keeping, or when the user wants to save something to the vault. Trigger phrases: "save to vault", "store in Obsidian", "archive this report", "put this in the vault", "save to Neurons". Also triggered when other skills (process-lab, ideate, drupal-lab) produce reports that should be preserved. Do NOT use for organizing or moving notes already in the vault — use workshop:organize for that.
 
 Route and store documents to the correct Neurons vault location using the 5-step process below.
 
@@ -29,15 +29,13 @@ Read `obsidian-rules.md` to determine correct placement:
 ls ~/.claude/plugins/cache/local/workshop/*/references/obsidian-rules.md | sort -V | tail -1 | xargs cat
 ```
 
-Check existing vault folders before creating new ones — prefer matching an existing
-folder over creating a new one.
+Check existing vault folders before creating new ones — prefer matching an existing folder over creating a new one.
 
 Quick reference (substitute actual values for placeholders):
 
 | Content type | Vault path |
 |---|---|
-| Retro session report | `Retrospectives/YYYY-MM-DD+project+sprint/SESSION-RETROSPECTIVE.md` |
-| Retro agent interview | `Retrospectives/YYYY-MM-DD+project+sprint/interviews/agent.md` |
+| Project retrospective | `Retrospectives/YYYY-MM-DD+project/RETROSPECTIVE.md` |
 | Brainstorm canvas | `Architecture/ADRs/topic/YYYY-MM-DD-topic.md` |
 | Excalidraw diagram | `Architecture/topic/YYYY-MM-DD-name.excalidraw` |
 | Comparison analysis | `Research/topic/YYYY-MM-DD-name.md` |
@@ -85,8 +83,7 @@ cat > "$VAULT_ROOT/$DEST_PATH" << 'EOF'
 EOF
 ```
 
-Report: "Saved to Neurons: DEST_PATH"
-On failure: report the error, preserve the local file, do not retry automatically.
+Report: "Saved to Neurons: DEST_PATH" On failure: report the error, preserve the local file, do not retry automatically.
 
 ## Step 6: Add vault link to local output
 

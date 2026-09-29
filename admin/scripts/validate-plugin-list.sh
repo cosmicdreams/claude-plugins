@@ -17,7 +17,7 @@
 #
 # or invoke directly for a standalone check:
 #
-#   validate-plugin-list.sh /path/to/repo sprint retro admin
+#   validate-plugin-list.sh /path/to/repo drover design-lab admin
 
 set -euo pipefail
 

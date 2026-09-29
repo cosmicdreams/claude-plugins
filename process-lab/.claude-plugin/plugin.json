@@ -1,0 +1,17 @@
+{
+    "name": "process-lab",
+    "version": "0.1.0",
+    "description": "Holds agent-assisted work to each project's own process. Reads the project's workflow from its Confluence page, notices when work crosses a step, records what the process requires and whether it was done or waived, and runs retrospectives against it.",
+    "author": {
+        "name": "Chris Weber"
+    },
+    "license": "UNLICENSED",
+    "keywords": [
+        "process",
+        "workflow",
+        "jira",
+        "confluence",
+        "retrospective",
+        "lint"
+    ]
+}

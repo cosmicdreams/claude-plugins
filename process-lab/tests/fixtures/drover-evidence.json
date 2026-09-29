@@ -1,0 +1,26 @@
+{
+  "schema": "drover-evidence/1",
+  "project": "pncb",
+  "env": "prod",
+  "month": "2026-04",
+  "from": "2026-04-01",
+  "to": "2026-04-30",
+  "events_total": 1000,
+  "coverage": {"expected_days": 30, "present_days": 29, "missing_or_failed": []},
+  "groups": [
+    {
+      "fingerprint": "solr-a", "channel": "acquia_search", "severity": "error",
+      "count": 180, "share_pct": 18, "summary": "Flood protection blocked https://example.com/search request_id=\"abc\"",
+      "first_seen": "2026-04-01T00:00:00+00:00", "last_seen": "2026-04-30T00:00:00+00:00",
+      "sample": "raw Solr flood line", "delta": null,
+      "cause": {"pattern_id": "acquia-solr-flood-protection", "title": "Acquia Search rate limit hit", "suggested_fix": "Review flood limits.", "confidence": "high", "explanation": "Search requests hit the Solr flood limit."},
+      "member_fingerprints": ["solr-a", "solr-b"], "channels": ["acquia_search", "search_api"]
+    },
+    {
+      "fingerprint": "minor", "channel": "custom", "severity": "warning", "count": 20,
+      "share_pct": 2, "summary": "Minor failure", "first_seen": null, "last_seen": null,
+      "sample": "Minor failure", "delta": null,
+      "cause": {"pattern_id": null, "confidence": "low", "explanation": "Cause undiagnosed."}
+    }
+  ]
+}
