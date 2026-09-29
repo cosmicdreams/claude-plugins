@@ -1,0 +1,17 @@
+{
+    "description": "Keeps Claude away from the person's design-lab runner token.",
+    "hooks": {
+        "PreToolUse": [
+            {
+                "matcher": "Read|Edit|Write|MultiEdit|NotebookEdit|Grep|Glob|Bash",
+                "hooks": [
+                    {
+                        "type": "command",
+                        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/guard_runner_token.py",
+                        "timeout": 10
+                    }
+                ]
+            }
+        ]
+    }
+}
