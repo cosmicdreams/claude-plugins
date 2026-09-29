@@ -225,7 +225,7 @@ def variables_args(project: Path) -> dict:
     return {"collections": load(project, "variable-plan.json")["collections"]}
 
 
-COVER_LABELS = {"High Use": "High use", "Medium Use": "Medium use", "Low Use": "Low use", "Other": "Other"}
+COVER_LABELS = library_counts.COVER_LABELS
 
 
 def provenance(project: Path, state: dict) -> dict:
@@ -242,10 +242,12 @@ def cover_args(project: Path, state: dict) -> dict:
     """The Cover is for the library's recipient: the site's name, one generic line, how many
     components the library holds and how that number splits by usage tier. Nothing else."""
     c = library_counts.counts(project, state["built"])
-    tiers = [{"key": row["tier"], "value": str(row["built"]), "label": COVER_LABELS.get(row["tier"], row["tier"])}
+    tiers = [{"key": row["tier"], "value": str(row["built"]), "label": COVER_LABELS.get(row["tier"], row["tier"]),
+              "color": library_counts.TIER_COLORS[row["tier"]]}
              for row in c["coverBreakdown"]] if c["tiered"] else []
     return {
         "pageId": page_id(project, "Cover"),
+        "ground": library_counts.COVER_GROUND,
         "headline": site_name(repo_root(project)),
         "subtitle": "Component Library",
         "total": {"value": str(c["built"]), "label": "components" if c["built"] != 1 else "component"},

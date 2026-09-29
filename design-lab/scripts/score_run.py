@@ -39,6 +39,9 @@ BLINDED_CRITERIA = (
     ("documentation", "Documentation usefulness"),
 )
 SESSION_GAP = dt.timedelta(minutes=15)
+# Scoring that starts this soon after the recorded benchmark start is the benchmark's own last step,
+# so its end is the benchmark's end. A later re-score needs the recorded completion instead.
+LIVE_SCORING = dt.timedelta(hours=1)
 
 
 # ---------------------------------------------------------------------------- helpers
@@ -288,8 +291,11 @@ def find_session(session: str, config_dirs: list[str]) -> list[Path]:
     return []
 
 
-def read_messages(files: list[Path], since: dt.datetime | None, until: dt.datetime | None) -> list[dict]:
-    """One entry per assistant message (streamed repeats merged), with its time and model."""
+def read_messages(files: list[Path], since: dt.datetime | None, until: dt.datetime | None,
+                  unattributed: Counter | None = None) -> list[dict]:
+    """One entry per assistant message (streamed repeats merged), with its time and model. The
+    benchmark counts the tokens Claude spent producing the library, by Claude model, so entries are
+    kept when their model id starts with `claude-`; the rest are only counted, in `unattributed`."""
     messages: dict[str, dict] = {}
     for path in files:
         for entry in read_jsonl(path):
@@ -300,6 +306,10 @@ def read_messages(files: list[Path], since: dt.datetime | None, until: dt.dateti
                 continue
             message = entry.get("message") or {}
             if message.get("model") in (None, "<synthetic>"):
+                continue
+            if not str(message["model"]).startswith("claude-"):
+                if unattributed is not None:
+                    unattributed[message.get("id") or entry.get("uuid") or len(unattributed)] += 1
                 continue
             key = message.get("id") or entry.get("uuid") or f"{path}:{len(messages)}"
             kept = messages.setdefault(key, {"model": message.get("model"), "usage": {}, "tools": set(),
@@ -342,7 +352,8 @@ def by_model(messages: list[dict]) -> dict:
 def transcript_usage(files: list[Path], since: dt.datetime | None, until: dt.datetime | None,
                      split_at: dt.datetime | None = None) -> dict:
     """Tokens by model; with split_at, also library production (before) and benchmark (after)."""
-    messages = read_messages(files, since, until)
+    unattributed: Counter = Counter()
+    messages = read_messages(files, since, until, unattributed)
     times = [m["at"] for m in messages if m["at"]]
     whole = by_model(messages)
     result = {"files": len(files), "sessions": len({m["session"] for m in messages}),
@@ -352,7 +363,9 @@ def transcript_usage(files: list[Path], since: dt.datetime | None, until: dt.dat
               "configDirs": sorted({d for d in (config_dir_of(f) for f in files) if d}),
               "window": {"since": iso(since), "until": iso(until)},
               "firstMessage": iso(min(times)) if times else None,
-              "lastMessage": iso(max(times)) if times else None}
+              "lastMessage": iso(max(times)) if times else None,
+              # For developers only, never rendered: entries not attributed to a Claude model.
+              "developer": {"unattributedEntries": len(unattributed)}}
     if split_at:
         before = [m for m in messages if not m["at"] or m["at"] < split_at]
         after = [m for m in messages if m["at"] and m["at"] >= split_at]
@@ -363,6 +376,198 @@ def transcript_usage(files: list[Path], since: dt.datetime | None, until: dt.dat
         result["benchmark"] = not_measured(
             "the benchmark step's start was not recorded, so its tokens cannot be told apart",
             "record it with workflow.py record --phase benchmark --status running before scoring")
+    return result
+
+
+# ---------------------------------------------------------------------------- working time
+
+TIME_DEFINITION = (
+    "Working time is when Claude or its tools were working, read from the session transcript: every "
+    "span from a person's prompt or a tool result to the end of the assistant's response counts, and "
+    "the main session's spans and its subagents' spans are merged, so overlapping time counts once. "
+    "The rest of the time between the transcript's first and last events is waiting: waiting on the "
+    "person when the assistant had finished its turn and the next event is a person's prompt, and "
+    "waiting on usage limits when the gap follows an error that reports a rate limit, a usage limit "
+    "or an overloaded service. Working time and both kinds of waiting add up to the transcript's span. "
+    "Wall time is a clock on the wall from workflow.py init to the end of the benchmark, shown only "
+    "when both ends were recorded. The Figma build time comes from the runner's log, with no model in "
+    "the loop: each unbroken stretch of steps, from the first served to the last recorded, added up, "
+    "where a pause of more than 15 minutes starts a new stretch.")
+
+
+def _text_of(message: dict) -> str:
+    content = message.get("content")
+    if isinstance(content, str):
+        return content
+    return " ".join(block.get("text") or "" for block in content or []
+                    if isinstance(block, dict) and block.get("type") == "text")
+
+
+def limit_error(entry: dict) -> tuple[bool, dt.datetime | None]:
+    """(is it a limit error, when the limit resets if the record says). Written from the shapes
+    real Claude Code transcripts use (September 2026):
+
+    - Usage, session and spend limits are a synthetic assistant message:
+      {"type": "assistant", "isApiErrorMessage": true, "error": "rate_limit", "apiErrorStatus": 429,
+       "message": {"content": [{"type": "text", "text": "You've hit your session limit · resets
+       5:40pm (America/Chicago)"}]}, "quotaLimits": {"status": "rejected", "resetsAt": 1789771200,
+       "rateLimitType": "five_hour", ...}}. The spend-limit variant reads "You've hit your individual
+       spend limit · run /usage-credits to ask your admin for a higher limit", with
+       quotaLimits.overageDisabledReason "org_spend_cap_reached" or "out_of_credits".
+    - An overloaded service is a retry record:
+      {"type": "system", "subtype": "api_error", "level": "error", "error": {"status": 529,
+       "formatted": "529 Overloaded", "message": "529 {... \"overloaded_error\" ...}"},
+       "retryInMs": 536, "retryAttempt": 1}. A 429 retry has the same shape with status 429.
+
+    Other retry records (connection reset, no response, offline) are not limits; their gaps stay
+    with whatever surrounds them. Only structured fields are read, never the text a tool printed,
+    because transcripts also quote these very strings in prompts and tool output."""
+    if entry.get("type") == "assistant" and entry.get("isApiErrorMessage") and (
+            entry.get("error") == "rate_limit" or entry.get("apiErrorStatus") == 429):
+        resets = (entry.get("quotaLimits") or {}).get("resetsAt")
+        return True, (dt.datetime.fromtimestamp(resets, dt.timezone.utc)
+                      if isinstance(resets, (int, float)) and resets > 0 else None)
+    if entry.get("type") == "system" and entry.get("subtype") == "api_error":
+        error = entry.get("error") if isinstance(entry.get("error"), dict) else {}
+        if error.get("status") in (429, 529) or "overloaded_error" in str(error.get("message") or ""):
+            return True, None
+    return False, None
+
+
+def is_person_prompt(entry: dict) -> bool:
+    """A prompt a person typed in the main session: not a tool result, not text the harness
+    injected (isMeta, compaction summaries, command output, notifications, interruptions). A
+    slash command a person typed (<command-name>) counts as a prompt."""
+    if entry.get("type") != "user" or entry.get("isSidechain") or entry.get("isMeta") \
+            or entry.get("isCompactSummary") or "toolUseResult" in entry:
+        return False
+    message = entry.get("message") or {}
+    content = message.get("content")
+    if isinstance(content, list) and any(isinstance(b, dict) and b.get("type") == "tool_result" for b in content):
+        return False
+    text = _text_of(message).lstrip()
+    return bool(text) and not text.startswith((
+        "<local-command-", "<task-notification>", "<system-reminder>", "[Request interrupted", "Caveat:",
+        "This session is being continued from a previous conversation"))
+
+
+def transcript_events(path: Path, since: dt.datetime | None, until: dt.datetime | None) -> list[tuple]:
+    """(time, kind, resets) for one transcript, in order. kind: 'prompt' (a person typed it),
+    'input' (a tool result or anything else fed to the model), 'reply' (an assistant message that
+    ends its turn), 'step' (an assistant message that calls a tool) or 'limit' (resets: when the
+    limit lifts, if recorded). Content is never kept."""
+    events = []
+    for entry in read_jsonl(path):
+        when = parse_time(entry.get("timestamp"))
+        if not when or (since and when < since) or (until and when > until):
+            continue
+        kind, (limited, resets) = None, limit_error(entry)
+        if limited:
+            kind = "limit"
+        elif entry.get("type") == "assistant":
+            content = (entry.get("message") or {}).get("content") or []
+            calls = any(isinstance(b, dict) and b.get("type") == "tool_use" for b in content)
+            kind = "step" if calls else "reply"
+        elif entry.get("type") == "user":
+            kind = "prompt" if is_person_prompt(entry) else "input"
+        if kind:
+            events.append((when, kind, resets))
+    events.sort(key=lambda event: event[0])
+    return events
+
+
+def classify_gaps(events: list[tuple]) -> tuple[list, list, list]:
+    """Working, waiting-on-limits and waiting-on-person intervals between consecutive events. A
+    limit's wait ends when the limit resets, if the record says when; any later gap is the person's."""
+    working, limits, person = [], [], []
+    for (start, kind, resets), (end, following, _) in zip(events, events[1:]):
+        if end <= start:
+            continue
+        if kind == "limit":
+            lifted = min(end, resets) if resets and resets > start else end
+            limits.append((start, lifted))
+            if lifted < end:
+                person.append((lifted, end))
+        elif following == "prompt" and kind in ("reply", "prompt"):
+            person.append((start, end))
+        else:
+            working.append((start, end))
+    return working, limits, person
+
+
+def union(intervals: list) -> list:
+    merged = []
+    for start, end in sorted(intervals):
+        if merged and start <= merged[-1][1]:
+            merged[-1] = (merged[-1][0], max(merged[-1][1], end))
+        else:
+            merged.append((start, end))
+    return merged
+
+
+def subtract(intervals: list, cut: list) -> list:
+    """intervals minus cut; both unions."""
+    result = []
+    for start, end in intervals:
+        pieces = [(start, end)]
+        for c_start, c_end in cut:
+            pieces = [part for a, b in pieces for part in
+                      (((a, min(b, c_start)),) if c_start > a else ()) + (((max(a, c_end), b),) if c_end < b else ())
+                      if part[1] > part[0]]
+        result += pieces
+    return result
+
+
+def clip(intervals: list, start: dt.datetime, end: dt.datetime) -> list:
+    return [(max(a, start), min(b, end)) for a, b in intervals if min(b, end) > max(a, start)]
+
+
+def total_seconds(intervals: list) -> int:
+    return int(round(sum((b - a).total_seconds() for a, b in intervals)))
+
+
+def working_time(files: list[Path], since: dt.datetime | None, until: dt.datetime | None,
+                 split_at: dt.datetime | None = None) -> dict:
+    """Working time and the two kinds of waiting, from a session's transcripts. Subagent spans
+    overlap the main session's; intervals are merged, so no second is counted twice."""
+    working, limits, first, last, limit_events = [], [], None, None, 0
+    for path in files:
+        events = transcript_events(path, since, until)
+        if not events:
+            continue
+        first = min(first or events[0][0], events[0][0])
+        last = max(last or events[-1][0], events[-1][0])
+        w, l, _ = classify_gaps(events)
+        working += w
+        limits += l
+        limit_events += sum(1 for _, kind, _ in events if kind == "limit")
+    if first is None:
+        return not_measured("the transcript has no timestamped messages")
+    working = union(working)
+    limits = subtract(union(limits), working)
+
+    def part(start, end):
+        span = int(round((end - start).total_seconds()))
+        w = total_seconds(clip(working, start, end))
+        l = total_seconds(clip(limits, start, end))
+        return {"start": iso(start), "end": iso(end), "spanSeconds": span, "workingSeconds": w,
+                "waitingOnLimitsSeconds": l, "waitingOnPersonSeconds": span - w - l}
+    result = {"status": "measured", **part(first, last), "limitEvents": limit_events,
+              "definition": TIME_DEFINITION}
+    how = "record it with workflow.py record --phase benchmark --status running before scoring"
+    if split_at is None:
+        result["production"] = {"status": "measured", **part(first, last)}
+        result["benchmark"] = not_measured("the benchmark step's start was not recorded, so its working "
+                                           "time cannot be told apart", how)
+    elif split_at <= first:
+        result["production"] = not_measured("the transcript starts after the benchmark step began")
+        result["benchmark"] = {"status": "measured", **part(first, last)}
+    elif split_at >= last:
+        result["production"] = {"status": "measured", **part(first, last)}
+        result["benchmark"] = not_measured("the transcript ends before the benchmark step began")
+    else:
+        result["production"] = {"status": "measured", **part(first, split_at)}
+        result["benchmark"] = {"status": "measured", **part(split_at, last)}
     return result
 
 
@@ -386,38 +591,40 @@ def benchmark_start(run_dir: Path) -> dt.datetime | None:
     return max(starts) if starts else None
 
 
-def wall_clock(run_dir: Path, project: dict | None, runner: dict | None,
+def benchmark_end(run_dir: Path, start: dt.datetime | None) -> dt.datetime | None:
+    ends = [parse_time(e.get("at")) for e in read_jsonl(run_dir / "phase-log.jsonl")
+            if e.get("phase") == "benchmark" and e.get("status") == "complete"]
+    ends = [t for t in ends if t and start and t >= start]
+    return min(ends) if ends else None
+
+
+def wall_clock(run_dir: Path, project: dict | None,
                scorer: tuple[dt.datetime, dt.datetime]) -> dict:
-    """Library production excludes the benchmark step; total wall time includes it."""
+    """Wall time, a clock on the wall from workflow.py init to the end of the benchmark. Shown
+    only when both ends were recorded: the benchmark's end is its recorded completion or, while
+    the benchmark is still running, the end of this scoring (the benchmark's last step)."""
     project = project or {}
     start = parse_time((project.get("run") or {}).get("startedAt") or project.get("createdAt"))
     bench = benchmark_start(run_dir)
     scorer_start, scorer_end = scorer
-    if bench:
-        library_end = bench
-    else:
-        times = [parse_time((ph or {}).get("updatedAt")) for ph in (project.get("phases") or {}).values()]
-        times += [parse_time(e.get("at")) for e in read_jsonl(run_dir / "phase-log.jsonl")]
-        times += [parse_time(r["end"]) for r in (runner or {}).get("sessions") or []]
-        times = [t for t in times if t]
-        library_end = max(times) if times else None
+    end, source = benchmark_end(run_dir, bench), "phase log"
+    if bench and end is None and dt.timedelta(0) <= scorer_start - bench <= LIVE_SCORING:
+        end, source = scorer_end, "this scoring"
     seconds = lambda a, b: int((b - a).total_seconds()) if a and b else None
-    exact = (run_dir / "phase-log.jsonl").is_file()
+    wall = seconds(start, end) if start and bench and end else None
+    reason = (None if wall is not None else
+              "the run's start was not recorded by workflow.py init" if not start else
+              "the benchmark step's start was not recorded" if not bench else
+              "the benchmark step's end was not recorded")
     return {
-        "runStart": iso(start), "libraryEnd": iso(library_end), "benchmarkStart": iso(bench),
-        "benchmarkEnd": iso(scorer_end) if bench else None,
-        "librarySeconds": seconds(start, library_end),
-        "benchmarkSeconds": seconds(bench, scorer_end) if bench else None,
-        "totalSeconds": seconds(start, scorer_end) if bench else None,
+        "runStart": iso(start), "benchmarkStart": iso(bench),
+        "benchmarkEnd": iso(end) if wall is not None else None,
+        "benchmarkEndSource": source if wall is not None else None,
+        "wallSeconds": wall,
+        "libraryWallSeconds": seconds(start, bench) if wall is not None else None,
+        "benchmarkWallSeconds": seconds(bench, end) if wall is not None else None,
         "scorerSeconds": round((scorer_end - scorer_start).total_seconds(), 1),
-        "exact": exact and bench is not None,
-        "note": ("Library production runs from the run's start to the benchmark step's start; total "
-                 "wall time runs to the end of scoring. Both are wall clock and include any waiting."
-                 if bench else
-                 "The benchmark step was not part of this run, so library production runs from the "
-                 "run's start to its last recorded step, which can include idle time between sessions, "
-                 "and total wall time is not defined. The scoring script itself took "
-                 f"{round((scorer_end - scorer_start).total_seconds(), 1)} seconds."),
+        **({"notShownBecause": reason} if reason else {}),
     }
 
 
@@ -458,6 +665,7 @@ def score_cost(run_dir: Path, project: dict | None, transcripts: list | None,
         end = parse_time(until) or end
         files = list(dict.fromkeys(explicit))
         usage = transcript_usage(files, start, end, benchmark_start(run_dir))
+        working = working_time(files, start, end, benchmark_start(run_dir))
         what = (("session " + ", ".join(sessions)) if sessions else ", ".join(str(t) for t in transcripts or []))
         model = ({"status": "measured", "source": what, **usage} if usage["assistantMessages"] else
                  not_measured(f"no assistant messages found in {what}" +
@@ -472,16 +680,21 @@ def score_cost(run_dir: Path, project: dict | None, transcripts: list | None,
                 "The scorer is a plain script with no model in the loop, so the benchmark's tokens are "
                 "only the orchestration turns around it. The completion message written after the "
                 "report is not included, because it did not exist yet.")
+        if working["status"] == "measured" and folders:
+            working["caveat"] = model.get("caveat")
     else:
         hint = claude.get("transcripts")
-        model = not_measured("no session or transcript was given",
-                             "re-run with --session <session-id>, or --transcripts <file.jsonl>"
-                             + (f" (sessions for this run are under {hint})" if hint else ""))
+        how = ("re-run with --session <session-id>, or --transcripts <file.jsonl>"
+               + (f" (sessions for this run are under {hint})" if hint else ""))
+        model = not_measured("no session or transcript was given", how)
+        working = not_measured("no session transcript was given, so working time was not measured "
+                               "for this run", how)
     now_ = dt.datetime.now(dt.timezone.utc)
-    clock = wall_clock(run_dir, project, runner, scorer or (now_, now_))
-    parts = [runner is not None, timings is not None, model["status"] == "measured"]
+    clock = wall_clock(run_dir, project, scorer or (now_, now_))
+    parts = [runner is not None, timings is not None, model["status"] == "measured",
+             working["status"] == "measured"]
     status = "measured" if all(parts) else "partial" if any(parts) else "not-measured"
-    section = {"status": status, "clock": clock,
+    section = {"status": status, "definition": TIME_DEFINITION, "clock": clock, "working": working,
                "runner": runner or not_measured("figma/runner.log is missing"),
                "timings": timings or not_measured("project.json has no phase times"),
                "model": model}
@@ -830,16 +1043,6 @@ def score_schema_churn(run_dir: Path, project: dict | None) -> dict:
 
 # ---------------------------------------------------------------------------- headline
 
-def minutes(seconds) -> str | None:
-    if seconds is None:
-        return None
-    if seconds < 90:
-        return f"{int(seconds)} seconds"
-    if seconds < 5400:
-        return f"{round(seconds / 60)} minutes"
-    return f"{seconds / 3600:.1f} hours"
-
-
 def headline(sections: dict) -> dict:
     library, accuracy = sections["library"], sections["accuracy"]
     cost, repeat = sections["cost"], sections["repeatability"]
@@ -873,9 +1076,8 @@ def headline(sections: dict) -> dict:
                           f"links.")
     runner = cost.get("runner") or {}
     if runner.get("steps"):
-        build = runner["sessions"][0]
-        highlights.append(f"The Figma build ran without a model in the loop: {build['steps']} steps "
-                          f"in {minutes(build['seconds'])}.")
+        highlights.append(f"The Figma build ran without a model in the loop: {runner['steps']} steps "
+                          f"in {human_duration(runner['activeSeconds'])}.")
     if accuracy.get("pairs"):
         worst = max(accuracy["pairs"], key=lambda p: p.get("heightDelta") or 0)
         if (worst.get("heightDelta") or 0) > 10:
@@ -884,6 +1086,8 @@ def headline(sections: dict) -> dict:
             highlights.append(f"Biggest single gap: {worst['label']} at {worst['breakpoint']} is "
                               f"{worst['heightDelta']:g} px {direction} in Figma than on the live site.")
     model = cost.get("model") or {}
+    working = cost.get("working") or {}
+    production = working.get("production") or {}
     coverage = sections.get("coverage") or {}
     return {
         "coverage": ({k: coverage.get(k) for k in ("built", "eligible", "ratio", "gap", "excluded")}
@@ -894,11 +1098,13 @@ def headline(sections: dict) -> dict:
                   "variables": library.get("variables"), "nodes": library.get("nodes")},
         "accuracy": {"original": (accuracy.get("overall") or {}).get("original"),
                      "corrected": (accuracy.get("overall") or {}).get("corrected")},
-        "effort": {"libraryWallSeconds": (cost.get("clock") or {}).get("librarySeconds"),
-                   "benchmarkSeconds": (cost.get("clock") or {}).get("benchmarkSeconds"),
-                   "totalWallSeconds": (cost.get("clock") or {}).get("totalSeconds"),
+        "effort": {"workingSeconds": production.get("workingSeconds"),
+                   "waitingOnPersonSeconds": production.get("waitingOnPersonSeconds"),
+                   "waitingOnLimitsSeconds": production.get("waitingOnLimitsSeconds"),
+                   "benchmarkWorkingSeconds": (working.get("benchmark") or {}).get("workingSeconds"),
+                   "wallSeconds": (cost.get("clock") or {}).get("wallSeconds"),
                    "buildSeconds": runner.get("activeSeconds"),
-                   "firstBuildSessionSeconds": (runner.get("sessions") or [{}])[0].get("seconds"),
+                   "buildSteps": runner.get("steps"),
                    "tokens": (model.get("tokens") or {}).get("total"),
                    "tokensByModel": [{"name": r["name"], "total": r["total"]}
                                      for r in model.get("byModel") or []],
@@ -970,15 +1176,31 @@ def validate_scorecard(scorecard: dict) -> list[str]:
 def human_duration(seconds) -> str | None:
     if seconds is None:
         return None
-    seconds = int(seconds)
+    seconds = int(round(seconds))
     if seconds < 90:
         return f"{seconds} seconds"
     hours, rest = divmod(seconds, 3600)
-    return f"{hours} h {round(rest / 60)} min" if hours else f"{round(seconds / 60)} min"
+    if hours:
+        return f"{hours} h {round(rest / 60)} min"
+    return f"{rest // 60} min {rest % 60} s" if rest % 60 else f"{rest // 60} min"
 
 
 def token_list(rows) -> str:
     return ", ".join(f"{r['total']:,} {r['name']}" for r in rows or []) or "none"
+
+
+def working_phrase(working: dict) -> str:
+    """The completion message's working time: library production, then the benchmark's own."""
+    production, bench = working.get("production") or {}, working.get("benchmark") or {}
+    if working.get("status") != "measured" or production.get("status") != "measured":
+        return ("working time was not measured for this run (score it with --session <id> to measure "
+                "when Claude or its tools were working)")
+    waits = [f"{human_duration(production[k])} waiting on {what}" for k, what in
+             (("waitingOnPersonSeconds", "the person"), ("waitingOnLimitsSeconds", "usage limits")) if production.get(k)]
+    return (f"design-lab took {human_duration(production['workingSeconds'])} of working time to produce the library"
+            + (f" ({', '.join(waits)} not counted)" if waits else "")
+            + (f", and the benchmark {human_duration(bench['workingSeconds'])} more"
+               if bench.get("status") == "measured" else ""))
 
 
 def completion_message(card: dict, report: Path) -> str:
@@ -989,6 +1211,7 @@ def completion_message(card: dict, report: Path) -> str:
     ident = s["identity"].get("fields") or {}
     cov, acc, cost = s["coverage"], s["accuracy"], s["cost"]
     clock, model = cost.get("clock") or {}, cost.get("model") or {}
+    runner = cost.get("runner") or {}
     missing = [name for name, sec in (("conformance", s["conformance"]), ("schema churn", s["schemaChurn"]),
                                       ("repeatability", s["repeatability"]), ("accuracy", acc))
                if sec.get("status") == "not-measured"]
@@ -996,8 +1219,11 @@ def completion_message(card: dict, report: Path) -> str:
         missing.append("model tokens")
     elif (model.get("benchmark") or {}).get("status") != "measured":
         missing.append("benchmark tokens (step start not recorded)")
-    if clock.get("totalSeconds") is None:
-        missing.append("total wall time (benchmark not part of the run)")
+    working = cost.get("working") or {}
+    if working.get("status") != "measured":
+        missing.append("working time (no session transcript)")
+    if clock.get("wallSeconds") is None:
+        missing.append(f"wall time ({clock.get('notShownBecause') or 'not recorded'})")
     missing += ["foundations and voice rubric (scored later)", "blinded visual judgement (scored later)"]
     usage = cov.get("usageWeighted") or {}
     corrected = (acc.get("overall") or {}).get("corrected")
@@ -1015,15 +1241,12 @@ def completion_message(card: dict, report: Path) -> str:
                      f"{original['pass']} of {original['total']} on the original measure" if corrected else
                      f"{original['pass']} of {original['total']} widths within tolerance (original measure)"
                      if original else "not measured"),
-        "library_time": ((human_duration(clock.get("librarySeconds")) or "an unmeasured time")
-                         + ("" if clock.get("exact") else " (wall clock, idle time included)")),
-        "total_time": (f"{human_duration(clock['totalSeconds'])} total wall time including the benchmark, "
-                       f"which took {human_duration(clock.get('benchmarkSeconds'))}"
-                       if clock.get("totalSeconds") is not None else
-                       f"total wall time not measured, because the benchmark was not part of the run "
-                       f"(scoring took {human_duration(clock.get('scorerSeconds'))})"),
-        "figma_build_time": human_duration((cost.get("runner") or {}).get("sessions", [{}])[0].get("seconds")
-                                           if (cost.get("runner") or {}).get("sessions") else None) or "not measured",
+        "working_time": working_phrase(working),
+        "wall_time": (f"wall time {human_duration(clock['wallSeconds'])} from the start of the run to the end "
+                      f"of the benchmark" if clock.get("wallSeconds") is not None else
+                      f"no wall time, because {clock.get('notShownBecause') or 'its ends were not recorded'}"),
+        "figma_build_time": (f"{human_duration(runner['activeSeconds'])} over {runner['steps']} steps"
+                             if runner.get("steps") else "not measured"),
         "library_tokens": (token_list((model.get("production") or {}).get("byModel"))
                            if model.get("status") == "measured" else "not measured"),
         "benchmark_tokens": (token_list((model.get("benchmark") or {}).get("byModel"))

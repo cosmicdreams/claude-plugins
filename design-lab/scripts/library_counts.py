@@ -32,6 +32,16 @@ UNTIERED = "Untiered"
 # nested elsewhere is tiered by its placements, so it is never counted twice.
 USE_TIERS = ("High Use", "Medium Use", "Low Use")
 OTHER = "Other"
+# The one definition of the category colors. The Cover (cover.js, through figma_build.cover_args)
+# and the benchmark report's coverage strip both draw from it, so they cannot drift. Fixed, the same
+# on every run and never the site's brand: adapted from the Velir chart palette with gold moved to
+# High use. Every color keeps at least 3 to 1 against the navy ground (the graphics threshold);
+# Other is deliberately the lowest of the four. Crimson is reserved for retirement candidates,
+# which the Cover does not show: it reads as a recommendation to remove.
+COVER_GROUND = "#001B67"
+TIER_COLORS = {"High Use": "#FAD200", "Medium Use": "#00AEEF", "Low Use": "#00A457", OTHER: "#417DFC",
+               "Retirement Candidates": "#B9003F"}
+COVER_LABELS = {"High Use": "High use", "Medium Use": "Medium use", "Low Use": "Low use", OTHER: "Other"}
 GAP_REASONS = {"refused": "refused by the plan", "failed": "planned but not built",
                "unplanned": "not in the plan"}
 EXCLUDED_REASONS = {"retirement": "retirement candidate", "schema-only": "schema-only",

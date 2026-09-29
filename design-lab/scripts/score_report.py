@@ -11,7 +11,11 @@ import datetime as dt
 import html
 import io
 import json
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+import library_counts  # noqa: E402  the Cover's category colors, shared with cover.js
 
 BREAKPOINT_NAMES = {"desktop": "Desktop", "tablet": "Tablet", "mobile": "Mobile"}
 BP_ORDER = {"desktop": 0, "tablet": 1, "mobile": 2}
@@ -46,10 +50,21 @@ def duration(seconds) -> str:
     seconds = int(seconds)
     if seconds < 90:
         return f"{seconds} s"
-    if seconds < 5400:
-        return f"{round(seconds / 60)} min"
     hours, rest = divmod(seconds, 3600)
-    return f"{hours} h {round(rest / 60)} min"
+    if hours:
+        return f"{hours} h {round(rest / 60)} min"
+    return f"{rest // 60} min {rest % 60} s" if rest % 60 else f"{rest // 60} min"
+
+
+def split_duration(seconds) -> tuple[str, str]:
+    """A verdict figure and its unit: 5 min 27 s is ("5", " min 27 s"); 2 h 10 min is ("2", " h 10 min")."""
+    seconds = int(round(seconds))
+    if seconds < 90:
+        return str(seconds), " s"
+    hours, rest = divmod(seconds, 3600)
+    if hours:
+        return str(hours), f" h {round(rest / 60)} min"
+    return str(rest // 60), f" min {rest % 60} s" if rest % 60 else " min"
 
 
 def day(value) -> str:
@@ -77,25 +92,37 @@ def compact(value) -> str:
 
 
 def coverage_strip(cov: dict) -> str:
-    """One square per component found: built, gap (could have been built), not eligible."""
+    """One square per component found. Built squares wear their Cover category color (High, Medium,
+    Low, Other, in the Cover's order); the gap (could have been built) is outlined; components that
+    are not counted are hatched, retirement candidates in the reserved crimson. The strip sits on the
+    Cover's navy in light and dark modes alike, so the colors look exactly as they do on the Cover."""
     if cov.get("status") != "measured":
         return ""
     labels = cov.get("reasonLabels") or {}
     items = cov.get("items") or []
-    squares = ['<span class="c-built" title="built"></span>'] * cov["built"]
+    breakdown = cov.get("coverBreakdown") or [{"tier": library_counts.OTHER, "built": cov["built"]}]
+    squares = []
+    for row in breakdown:
+        name = library_counts.COVER_LABELS.get(row["tier"], row["tier"])
+        squares += [f'<span class="c-built" style="background:{library_counts.TIER_COLORS[row["tier"]]}" '
+                    f'data-tier="{esc(row["tier"])}" title="built · {esc(name)}"></span>'] * row["built"]
     gap_first = sorted(items, key=lambda item: item["reason"] not in (cov.get("gap") or {}))
     for item in gap_first:
-        kind = "c-gap" if item["reason"] in (cov.get("gap") or {}) else "c-out"
+        kind = ("c-gap" if item["reason"] in (cov.get("gap") or {}) else
+                "c-out c-retire" if item["reason"] == "retirement" else "c-out")
         squares.append(f'<span class="{kind}" title="{esc(item["label"])}: {esc(labels.get(item["reason"]))}"></span>')
     gap = [f"{n} {labels.get(k, k)}" for k, n in (cov.get("gap") or {}).items() if n]
-    out = [f"{n} {labels.get(k, k)}{'s' if n != 1 and k == 'retirement' else ''}"
+    out = [f'<span class="key {"key-retire" if k == "retirement" else "key-out"}"></span>'
+           f"{n} {esc(labels.get(k, k))}{'s' if n != 1 and k == 'retirement' else ''}"
            for k, n in (cov.get("excluded") or {}).items() if n]
     usage = cov.get("usageWeighted") or {}
-    parts = [f"<b>{cov['built']}</b> built"]
+    parts = [f'<span class="key" style="--k:{library_counts.TIER_COLORS[row["tier"]]}"></span>'
+             f'<b>{row["built"]}</b> {esc(library_counts.COVER_LABELS.get(row["tier"], row["tier"]))}'
+             for row in breakdown]
     if gap:
-        parts.append("<b>not built:</b> " + "; ".join(esc(g) for g in gap))
+        parts.append('<span class="key key-gap"></span>not built: ' + "; ".join(esc(g) for g in gap))
     if out:
-        parts.append("<b>not counted:</b> " + "; ".join(esc(o) for o in out))
+        parts.append("not counted: " + "; ".join(out))
     weighted = (f'<p class="cov-w">Built components carry <b>{num(usage["covered"])} of {num(usage["placements"])}</b> '
                 f'placements on the site (<b>{usage["ratio"] * 100:.0f}%</b>)'
                 + (f' and {num(usage["structuralCovered"])} of {num(usage["structuralRefs"])} nested uses'
@@ -106,8 +133,9 @@ def coverage_strip(cov: dict) -> str:
         weighted = weighted.replace("</p>", f' The usage scan also saw {len(outside)} item{"s" if len(outside) != 1 else ""} '
                                     f'outside the inventory ({op} placement{"s" if op != 1 else ""}, {os_} nested '
                                     f'use{"s" if os_ != 1 else ""}), not counted here.</p>', 1)
-    return (f'<div class="cov" role="img" aria-label="{esc(cov.get("summary"))}"><div class="cov-sq" aria-hidden="true">'
-            f'{"".join(squares)}</div><p class="cov-k">{" · ".join(parts)}</p></div>{weighted}')
+    return (f'<div class="cov" role="img" aria-label="{esc(cov.get("summary"))}" style="--ground:{library_counts.COVER_GROUND}">'
+            f'<div class="cov-sq" aria-hidden="true">{"".join(squares)}</div>'
+            f'<p class="cov-k">{" · ".join(parts)}</p></div>{weighted}')
 
 
 def bin_of(ratio):
@@ -388,20 +416,31 @@ def hero(card: dict) -> str:
                               "widths within tolerance on the original measure."))
     else:
         blocks.append(verdict("Faithful to the live site", "–", "", "not measured for this run", "none"))
-    clock = s["cost"].get("clock") or {}
-    timing = (f"Library produced in {duration(clock.get('librarySeconds'))} of wall clock"
-              + ("" if clock.get("exact") else ", idle time included")
-              + (f"; {duration(clock['totalSeconds'])} in total with the {duration(clock.get('benchmarkSeconds'))} benchmark."
-                 if clock.get("totalSeconds") is not None else "; the benchmark was not part of this run.")) \
-        if clock.get("librarySeconds") is not None else "Wall-clock time was not recorded."
-    if effort.get("firstBuildSessionSeconds") is not None:
-        first = (s["cost"].get("runner") or {}).get("sessions", [{}])[0]
-        minutes_ = effort["firstBuildSessionSeconds"] / 60
-        blocks.append(verdict("Figma build time", f"{minutes_:.0f}" if minutes_ >= 1 else "<1", " min",
-                              f"{num(first.get('steps'))} steps written by the runner, no model in the loop. "
-                              + timing))
+    runner = s["cost"].get("runner") or {}
+    working = s["cost"].get("working") or {}
+    made = working.get("production") or {}
+    build = (f"The Figma build itself took {duration(runner['activeSeconds'])} over {num(runner['steps'])} steps, "
+             f"with no model in the loop." if runner.get("steps") else "No runner log for this run.")
+    if made.get("status") == "measured":
+        waits = [f"{duration(made[k])} waiting on {what}" for k, what in
+                 (("waitingOnPersonSeconds", "the person"), ("waitingOnLimitsSeconds", "usage limits")) if made.get(k)]
+        bench = working.get("benchmark") or {}
+        figure, unit = split_duration(made["workingSeconds"])
+        blocks.append(verdict(
+            "design-lab took", figure, unit,
+            "of working time to produce the library, when Claude or its tools were working"
+            + (f"; {', '.join(waits)} not counted" if waits else "")
+            + (f". The benchmark took {duration(bench['workingSeconds'])} more" if bench.get("status") == "measured" else "")
+            + ". " + build))
+    elif runner.get("steps"):
+        figure, unit = split_duration(runner["activeSeconds"])
+        blocks.append(verdict("Figma build time", figure, unit,
+                              f"{num(runner['steps'])} steps written by the runner, no model in the loop. "
+                              "Working time was not measured for this run: score it with --session &lt;id&gt; "
+                              "to measure when Claude or its tools were working."))
     else:
-        blocks.append(verdict("Figma build time", "–", "", "no runner log for this run. " + timing, "none"))
+        blocks.append(verdict("Working time", "–", "", "not measured for this run; score with --session "
+                              "&lt;id&gt; to measure when Claude or its tools were working", "none"))
     model = s["cost"].get("model") or {}
     production = (model.get("production") or {}).get("byModel") or []
     if model.get("status") == "measured" and production:
@@ -676,24 +715,42 @@ def cost_section(cost: dict) -> str:
         rows = "".join(f'<tr><th scope="row">{esc(r["phase"])}</th><td>{stamp(r["start"])}</td><td>{stamp(r["end"])}</td>'
                        f'<td class="n">{duration(r["seconds"])}</td></tr>' for r in timings["phases"])
         parts.append(f'<table class="tbl"><caption>Time per phase</caption><thead><tr><th scope="col">Phase</th>'
-                     f'<th scope="col">Start</th><th scope="col">End</th><th scope="col" class="n">Took</th></tr></thead><tbody>{rows}</tbody></table>')
+                     f'<th scope="col">Start</th><th scope="col">End</th><th scope="col" class="n">Wall clock</th></tr></thead><tbody>{rows}</tbody></table>'
+                     '<p class="note">Each phase runs from the previous phase\'s end to its own; waiting is included, so these '
+                     'are not working time.</p>')
     elif timings.get("checkpoints"):
         rows = "".join(f'<li><span class="mono">{stamp(c["at"])}</span> {esc(c["phase"])} {esc(c["status"])}</li>'
                        for c in timings["checkpoints"])
         parts.append(f'<div><h3>Phase checkpoints</h3><ul class="plain cols">{rows}</ul><p class="note">{esc(timings.get("note"))}</p></div>')
     clock = cost.get("clock") or {}
-    time_rows = [("To produce the library", clock.get("librarySeconds"),
-                  "run start to the benchmark step" if clock.get("benchmarkStart") else
-                  "run start to the last recorded step; idle time between sessions included"),
-                 ("Benchmark step", clock.get("benchmarkSeconds"),
-                  "benchmark start to the end of scoring" if clock.get("benchmarkStart") else "not part of this run"),
-                 ("Total wall time", clock.get("totalSeconds"), "run start to the end of scoring, benchmark included"
-                  if clock.get("totalSeconds") is not None else "not defined without a recorded benchmark step"),
-                 ("Scoring script alone", clock.get("scorerSeconds"), "this report's own computation")]
-    parts.append('<div style="margin-bottom:32px"><h3>Time</h3><table class="tbl"><caption>Wall clock</caption><tbody>'
+    working = cost.get("working") or {}
+    time_rows = []
+    if working.get("status") == "measured":
+        for caption, part in (("To produce the library", working.get("production") or {}),
+                              ("The benchmark", working.get("benchmark") or {})):
+            if part.get("status") != "measured":
+                time_rows.append((caption, None, part.get("reason") or "not measured"))
+                continue
+            time_rows += [(f"{caption}: working", part["workingSeconds"], "Claude or its tools working"),
+                          (f"{caption}: waiting on the person", part["waitingOnPersonSeconds"],
+                           "the assistant had finished; the next event was a prompt"),
+                          (f"{caption}: waiting on usage limits", part["waitingOnLimitsSeconds"],
+                           "after a rate limit, usage limit or overload, until it lifted")]
+    else:
+        time_rows.append(("Working time", None, working.get("reason") or "not measured"))
+    if runner.get("steps"):
+        time_rows.append(("Figma build", runner["activeSeconds"], f"{num(runner['steps'])} runner steps, no model in the loop"))
+    time_rows += [("Wall time", clock.get("wallSeconds"),
+                   "workflow.py init to the end of the benchmark" if clock.get("wallSeconds") is not None
+                   else f"not shown: {clock.get('notShownBecause') or 'its ends were not recorded'}"),
+                  ("Scoring script alone", clock.get("scorerSeconds"), "this report's own computation")]
+    how = "" if working.get("status") == "measured" else (
+        f'<p class="note"><b>Working time was not measured for this run.</b> To measure it, '
+        f'{esc(working.get("howToMeasure") or "score with --session <id>")}.</p>')
+    parts.append('<div style="margin-bottom:32px"><h3>Time</h3><table class="tbl"><caption>Measured intervals</caption><tbody>'
                  + "".join(f'<tr><th scope="row">{esc(n)}</th><td class="n">{duration(v) if v is not None else "–"}</td>'
                            f'<td class="sub">{esc(d)}</td></tr>' for n, v, d in time_rows)
-                 + '</tbody></table></div>')
+                 + f'</tbody></table>{how}<p class="note"><b>How time is measured.</b> {esc(cost.get("definition"))}</p></div>')
     model = cost.get("model") or {}
     if model.get("status") == "measured":
         def token_table(caption, part):
@@ -725,9 +782,12 @@ def cost_section(cost: dict) -> str:
                      f'{esc(model.get("caveat"))}</p></div>')
     else:
         parts.append(absent("Model tokens and tool calls", model))
-    first = (runner.get("sessions") or [{}])[0] if runner.get("sessions") else None
-    lead = (f"The Figma build itself took {duration(first['seconds'])} across {num(first['steps'])} steps."
-            if first else "Timing evidence is incomplete for this run.")
+    made = (working.get("production") or {}) if working.get("status") == "measured" else {}
+    lead = (f"design-lab took {duration(made['workingSeconds'])} of working time to produce the library."
+            if made.get("status") == "measured" else
+            f"The Figma build itself took {duration(runner['activeSeconds'])} across {num(runner['steps'])} steps; "
+            f"working time was not measured for this run." if runner.get("steps") else
+            "Timing evidence is incomplete for this run.")
     return section("cost", "Time and tokens", cost["status"], esc(lead), "".join(parts))
 
 
@@ -786,7 +846,8 @@ def identity_section(ident: dict) -> str:
                                                    f"renderer runtime {f['rendererRuntime']}" if f.get("rendererRuntime") else None) if x) or None),
             ("Repository commit", ((f.get("repositoryCommit") or "")[:12] + (" (uncommitted changes)" if f.get("repositoryDirty") else "")) if f.get("repositoryCommit") else None),
             ("Figma file", f.get("figmaUrl")), ("Claude configuration", f.get("claudeConfigDir")),
-            ("Model", f.get("model")),
+            # The report describes Claude's work, so it names the model when it is a Claude model.
+            ("Model", f.get("model") if str(f.get("model") or "").startswith("claude-") else None),
             ("Strategies", ", ".join(f"{k.replace('Source', '')}: {v}" for k, v in (f.get("strategies") or {}).items() if v))]
     items = "".join(f'<div><dt>{esc(k)}</dt><dd>{esc(v) if v else "<span class=na>not recorded</span>"}</dd></div>'
                     for k, v in rows)
@@ -844,12 +905,20 @@ h1{font:700 clamp(40px,5.6vw,68px)/.98 var(--display);letter-spacing:-.018em;mar
 .v-u{font:600 28px/1 var(--display);color:var(--muted);margin-left:4px;letter-spacing:0}
 .v-c{margin:0;color:var(--ink2);font-size:14.5px;max-width:34ch}
 .v-none .v-n{color:var(--muted)}
-.cov{margin:22px 0 0}.cov-sq{display:flex;flex-wrap:wrap;gap:4px;max-width:720px}
+/* The coverage strip is drawn on the Cover's navy in both modes, so its category colors match the Cover. */
+.cov{margin:22px 0 0;padding:18px 20px 14px;border-radius:12px;background:var(--ground);display:inline-block;max-width:100%}
+.cov-sq{display:flex;flex-wrap:wrap;gap:4px;max-width:720px}
 .cov-sq span{width:16px;height:16px;border-radius:3px}
-.c-built{background:var(--corr)}.c-gap{box-shadow:inset 0 0 0 1.5px var(--corr)}
-.c-out{background:repeating-linear-gradient(135deg,var(--muted) 0 1.5px,transparent 1.5px 4px);opacity:.6}
-.cov-k{margin:10px 0 0;font:13px/1.5 var(--mono);color:var(--ink2)}.cov-k b{color:var(--ink);font-weight:600}
-.cov-w{margin:6px 0 0;font-size:16px;color:var(--ink2);max-width:72ch}.cov-w b{color:var(--ink)}
+.c-gap{box-shadow:inset 0 0 0 1.5px #E6E8FF}
+.c-out{background:repeating-linear-gradient(135deg,rgba(230,232,255,.7) 0 1.5px,transparent 1.5px 4px)}
+.c-out.c-retire{background:repeating-linear-gradient(135deg,#B9003F 0 2px,transparent 2px 4px);box-shadow:inset 0 0 0 1px #B9003F}
+.cov-k{margin:12px 0 0;font:13px/1.6 var(--mono);color:#E6E8FF}.cov-k b{color:#fff;font-weight:600}
+.cov-k .key{display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;background:var(--k);vertical-align:-1px}
+.cov-k .key-gap{background:none;box-shadow:inset 0 0 0 1.5px #E6E8FF}
+.cov-k .key-out{background:repeating-linear-gradient(135deg,rgba(230,232,255,.7) 0 1.5px,transparent 1.5px 4px)}
+.cov-k .key-retire{background:repeating-linear-gradient(135deg,#B9003F 0 2px,transparent 2px 4px);box-shadow:inset 0 0 0 1px #B9003F}
+.cov,.cov *{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+.cov-w{margin:14px 0 0;font-size:16px;color:var(--ink2);max-width:72ch}.cov-w b{color:var(--ink)}
 .tbl tr.sum th,.tbl tr.sum td{border-top:1px solid var(--ink2);font-weight:600}
 .highlights{list-style:none;margin:40px 0 0;padding:0;columns:2;column-gap:36px}
 .highlights li{break-inside:avoid;padding:12px 0 12px 26px;border-top:1px solid var(--hair);position:relative;font-size:15.5px}

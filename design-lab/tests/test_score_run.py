@@ -1,7 +1,9 @@
 """Scorer sections, run identity, schema churn and the benchmark step, on small synthetic runs."""
 import contextlib
+import datetime as dt
 import io
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -124,7 +126,9 @@ class ScoreRunTest(unittest.TestCase):
             self.assertEqual(sections[name]["status"], "not-measured")
             self.assertTrue(sections[name]["reason"])
         self.assertNotIn("interventions", sections["cost"])
-        self.assertIsNone(sections["cost"]["clock"]["totalSeconds"])      # no benchmark step recorded
+        self.assertIsNone(sections["cost"]["clock"]["wallSeconds"])       # no benchmark step recorded
+        self.assertIn("benchmark", sections["cost"]["clock"]["notShownBecause"])
+        self.assertEqual(sections["cost"]["working"]["status"], "not-measured")
         self.assertEqual(sections["cost"]["model"]["status"], "not-measured")
         self.assertEqual(sections["repeatability"]["status"], "not-measured")
         self.assertEqual(sections["foundationsVoice"]["status"], "scored-later")
@@ -268,7 +272,8 @@ class ScoreRunTest(unittest.TestCase):
             "startedAt": "2019-12-31T23:00:00+00:00", "claude": {"configDir": str(config)}}))
         (self.run_dir / "phase-log.jsonl").write_text(
             json.dumps({"at": "2019-12-31T23:30:00+00:00", "phase": "plan", "status": "complete"}) + "\n"
-            + json.dumps({"at": "2019-12-31T23:59:00+00:00", "phase": "benchmark", "status": "running"}) + "\n")
+            + json.dumps({"at": "2019-12-31T23:59:00+00:00", "phase": "benchmark", "status": "running"}) + "\n"
+            + json.dumps({"at": "2020-01-01T00:10:00+00:00", "phase": "benchmark", "status": "complete"}) + "\n")
         # move one Opus turn after the benchmark start
         main = next((config / "projects").glob("*/sess-1.jsonl"))
         lines = main.read_text().splitlines()
@@ -280,8 +285,9 @@ class ScoreRunTest(unittest.TestCase):
         card = score_run.score(self.run_dir, session="sess-1")
         self.assertEqual(score_run.validate_scorecard(card), [])
         cost = card["sections"]["cost"]
-        self.assertEqual(cost["clock"]["librarySeconds"], 3540)          # 23:00 to 23:59
-        self.assertGreater(cost["clock"]["totalSeconds"], cost["clock"]["librarySeconds"])
+        self.assertEqual(cost["clock"]["wallSeconds"], 4200)             # init 23:00 to benchmark end 00:10
+        self.assertEqual((cost["clock"]["libraryWallSeconds"], cost["clock"]["benchmarkWallSeconds"]), (3540, 660))
+        self.assertEqual(cost["clock"]["benchmarkEndSource"], "phase log")
         model = cost["model"]
         self.assertEqual([(r["name"], r["turns"]) for r in model["production"]["byModel"]],
                          [("Opus 5.5", 1), ("Haiku 4.5", 1)])
@@ -342,6 +348,157 @@ class ScoreRunTest(unittest.TestCase):
         self.assertEqual(card["run"]["siteLabel"], "Example site")
         with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
             score_run.main([str(self.run_dir), "--out", str(self.run_dir / "score")])
+
+
+def entry(kind, at, session="sess-w", sidechain=False, **extra):
+    """One transcript record, shaped like Claude Code's own."""
+    base = {"timestamp": at, "sessionId": session, "isSidechain": sidechain}
+    if kind == "prompt":
+        return {**base, "type": "user", "message": {"role": "user", "content": extra.get("text", "Build it")}}
+    if kind == "result":
+        return {**base, "type": "user", "toolUseResult": {"stdout": "ok"},
+                "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "t", "content": "ok"}]}}
+    if kind in ("step", "reply"):
+        content = [{"type": "tool_use", "id": f"t-{at}", "name": "Bash",
+                    "input": {"command": extra.get("command", "ls")}}] if kind == "step" else [{"type": "text", "text": "Done."}]
+        return {**base, "type": "assistant", "message": {"id": f"m-{at}-{session}", "model": extra.get("model", "claude-opus-5-5"),
+                                                        "usage": {"input_tokens": 10, "output_tokens": 5},
+                                                        "content": content}}
+    if kind == "limit":        # the shape of a real usage-limit record
+        return {**base, "type": "assistant", "isApiErrorMessage": True, "error": "rate_limit", "apiErrorStatus": 429,
+                "quotaLimits": {"status": "rejected", "resetsAt": extra["resets"], "rateLimitType": "five_hour"},
+                "message": {"id": f"m-{at}", "model": "<synthetic>", "content": [
+                    {"type": "text", "text": "You've hit your session limit · resets 11am"}]}}
+    if kind == "overloaded":   # the shape of a real overload retry record
+        return {**base, "type": "system", "subtype": "api_error", "level": "error", "retryInMs": 536, "retryAttempt": 1,
+                "error": {"status": 529, "formatted": "529 Overloaded",
+                          "message": '529 {"type":"error","error":{"type":"overloaded_error","message":"Overloaded"}}'}}
+    raise ValueError(kind)
+
+
+def write_transcript(path, records):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("\n".join(json.dumps(r) for r in records) + "\n", encoding="utf-8")
+
+
+class WorkingTimeTest(unittest.TestCase):
+    """Working time and the two kinds of waiting, on small synthetic transcripts."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.root = Path(self.temp.name)
+        self.run_dir = make_run(self.root)
+        self.config = self.root / "config"
+        self.main = self.config / "projects" / "-repo" / "sess-w.jsonl"
+        resets = int(dt.datetime(2026, 1, 5, 11, 0, tzinfo=dt.timezone.utc).timestamp())
+        write_transcript(self.main, [
+            entry("prompt", "2026-01-05T10:00:00Z"),
+            entry("step", "2026-01-05T10:00:10Z"),                   # the model worked 10 s
+            entry("result", "2026-01-05T10:01:10Z"),                 # the tool ran 60 s
+            entry("reply", "2026-01-05T10:01:20Z"),                  # turn over
+            entry("prompt", "2026-01-05T10:11:20Z", text="go on"),   # the person took 10 min
+            entry("step", "2026-01-05T10:11:30Z"),
+            entry("limit", "2026-01-05T10:12:00Z", resets=resets),   # limit until 11:00
+            entry("prompt", "2026-01-05T11:30:00Z", text="continue"),  # the person came back at 11:30
+            entry("reply", "2026-01-05T11:30:30Z"),
+        ])
+        # A subagent that worked 10:00:20 to 10:02:30, overlapping the main session's first turn.
+        write_transcript(self.main.with_suffix("") / "subagents" / "agent-1.jsonl", [
+            entry("prompt", "2026-01-05T10:00:20Z", sidechain=True, text="Inventory the components"),
+            entry("step", "2026-01-05T10:00:50Z", sidechain=True),
+            entry("result", "2026-01-05T10:02:00Z", sidechain=True),
+            entry("reply", "2026-01-05T10:02:30Z", sidechain=True),
+        ])
+        write(self.run_dir / "project.json", legacy_project(run={"claude": {"configDir": str(self.config)}}))
+
+    def test_working_spans_waits_and_subagent_overlap(self):
+        card = score_run.score(self.run_dir, session="sess-w")
+        self.assertEqual(score_run.validate_scorecard(card), [])
+        work = card["sections"]["cost"]["working"]
+        self.assertEqual(work["status"], "measured")
+        self.assertEqual(work["spanSeconds"], 5430)                          # 10:00:00 to 11:30:30
+        # 10:00:00-10:02:30 (main and subagent merged, counted once) + 10:11:20-10:12:00 + 11:30:00-11:30:30
+        self.assertEqual(work["workingSeconds"], 150 + 40 + 30)
+        self.assertEqual(work["waitingOnLimitsSeconds"], 48 * 60)            # 10:12 until the limit reset at 11:00
+        self.assertEqual(work["waitingOnPersonSeconds"], 530 + 30 * 60)       # after each finished turn, and after the reset
+        self.assertEqual(work["workingSeconds"] + work["waitingOnPersonSeconds"] + work["waitingOnLimitsSeconds"],
+                         work["spanSeconds"])
+        self.assertEqual(work["limitEvents"], 1)
+        self.assertEqual(card["headline"]["effort"]["workingSeconds"], 220)
+
+    def test_overload_counts_as_waiting_on_limits(self):
+        write_transcript(self.main, [
+            entry("prompt", "2026-01-05T10:00:00Z"),
+            entry("overloaded", "2026-01-05T10:00:05Z"),
+            entry("reply", "2026-01-05T10:02:05Z"),
+        ])
+        (self.main.with_suffix("") / "subagents" / "agent-1.jsonl").unlink()
+        work = score_run.score(self.run_dir, session="sess-w")["sections"]["cost"]["working"]
+        self.assertEqual((work["workingSeconds"], work["waitingOnLimitsSeconds"], work["waitingOnPersonSeconds"]),
+                         (5, 120, 0))
+
+    def test_benchmark_start_splits_working_time(self):
+        (self.run_dir / "phase-log.jsonl").write_text(
+            json.dumps({"at": "2026-01-05T11:30:00+00:00", "phase": "benchmark", "status": "running"}) + "\n")
+        work = score_run.score(self.run_dir, session="sess-w")["sections"]["cost"]["working"]
+        self.assertEqual(work["production"]["workingSeconds"], 190)
+        self.assertEqual(work["benchmark"]["workingSeconds"], 30)
+        for part in (work["production"], work["benchmark"]):
+            self.assertEqual(part["workingSeconds"] + part["waitingOnPersonSeconds"] + part["waitingOnLimitsSeconds"],
+                             part["spanSeconds"])
+
+    def test_without_a_transcript_only_measured_intervals_are_shown(self):
+        out = self.root / "out"
+        with contextlib.redirect_stdout(io.StringIO()):
+            score_run.main([str(self.run_dir), "--out", str(out)])
+        card = json.loads((out / "scorecard.json").read_text())
+        self.assertEqual(card["sections"]["cost"]["working"]["status"], "not-measured")
+        self.assertIsNone(card["headline"]["effort"]["workingSeconds"])
+        self.assertEqual(card["headline"]["effort"]["buildSeconds"], 13)      # the runner's own log
+        html = (out / "report.html").read_text()
+        message = (out / "completion.md").read_text()
+        for text in (html, message):
+            self.assertNotIn("idle time", text)
+            self.assertIn("Working time was not measured for this run" if text is html else
+                          "working time was not measured for this run", text)
+        self.assertIn("How time is measured", html)
+        self.assertNotIn("design-lab took", html)
+
+
+class ClaudeTokensTest(unittest.TestCase):
+    """The report and the completion message count Claude's work, by Claude model, and never show tool input."""
+
+    def test_only_claude_models_and_no_tool_input(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            run_dir = make_run(root)
+            config = root / "config"
+            main = config / "projects" / "-repo" / "sess-x.jsonl"
+            write_transcript(main, [
+                entry("prompt", "2026-01-05T10:00:00Z", session="sess-x"),
+                entry("step", "2026-01-05T10:00:10Z", session="sess-x",
+                      command="example-cli run --model other-model-1"),
+                entry("result", "2026-01-05T10:01:00Z", session="sess-x"),
+                entry("reply", "2026-01-05T10:01:10Z", session="sess-x", model="other-model-1"),
+                entry("reply", "2026-01-05T10:01:20Z", session="sess-x"),
+            ])
+            write(run_dir / "project.json", legacy_project(run={"claude": {"configDir": str(config),
+                                                                             "model": "other-model-1"}}))
+            out = root / "out"
+            with contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(score_run.main([str(run_dir), "--session", "sess-x", "--out", str(out)]), 0)
+            card = json.loads((out / "scorecard.json").read_text())
+            model = card["sections"]["cost"]["model"]
+            self.assertEqual([r["name"] for r in model["byModel"]], ["Opus 5.5"])
+            self.assertTrue(all(r["model"].startswith("claude-") for r in model["byModel"]))
+            self.assertEqual(model["developer"]["unattributedEntries"], 1)
+            html = re.sub(r"data:image/[a-z]+;base64,[A-Za-z0-9+/=]+", "", (out / "report.html").read_text())
+            message = (out / "completion.md").read_text()
+            for text in (html, message):
+                for placeholder in ("other-model-1", "example-cli"):
+                    self.assertNotIn(placeholder, text)
+            self.assertNotIn("unattributedEntries", html)
 
 
 class CoverBreakdownTest(unittest.TestCase):

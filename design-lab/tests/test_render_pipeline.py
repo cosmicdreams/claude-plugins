@@ -473,9 +473,10 @@ class FigmaBuildTests(unittest.TestCase):
 
     def test_cover_is_for_the_recipient_only(self):
         cover, _, _ = self.surfaces()
-        self.assertEqual(set(cover), {"pageId", "headline", "subtitle", "total", "tiers", "provenance", "version"})
+        self.assertEqual(set(cover), {"pageId", "ground", "headline", "subtitle", "total", "tiers", "provenance",
+                                     "version"})
         self.assertEqual((cover["headline"], cover["subtitle"]), ("Test Org", "Component Library"))
-        drawn = json.dumps({k: v for k, v in cover.items() if k not in ("provenance", "version", "pageId")})
+        drawn = json.dumps({k: v for k, v in cover.items() if k not in ("provenance", "version", "pageId", "ground")})
         for hidden in ("local.test", "runtime", "standard", "placements", "not built", "token", "design-lab"):
             self.assertNotIn(hidden, drawn)
         self.assertEqual(cover["provenance"]["siteUrl"].rstrip("/"), "https://local.test")
@@ -493,7 +494,6 @@ class FigmaBuildTests(unittest.TestCase):
         script = helpers + """
 const cases = [[[3, 0, 17, 9], 1280], [[1, 1, 1], 100], [[5], 1280], [[0, 0, 0, 0], 1280], [[50, 7, 13, 1], 997]];
 console.log(JSON.stringify(cases.map(([v, w]) => barWidths(v, w))));
-console.log(JSON.stringify(['High Use', 'Medium Use', 'Low Use', 'Other'].map(tierColor)));
 """
         out = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout.splitlines()
         cases = [([3, 0, 17, 9], 1280), ([1, 1, 1], 100), ([5], 1280), ([0, 0, 0, 0], 1280), ([50, 7, 13, 1], 997)]
@@ -505,17 +505,42 @@ console.log(JSON.stringify(['High Use', 'Medium Use', 'Low Use', 'Other'].map(ti
                     self.assertLess(abs(w - v / total * width), 1)   # each share within a pixel
                 if v == 0:
                     self.assertEqual(w, 0)
-        colors = json.loads(out[1])
+        # The colors come from library_counts, through the cover arguments; the template has none.
+        cover, _, _ = self.surfaces()
+        self.assertEqual(cover["ground"], library_counts.COVER_GROUND)
+        colors = [t["color"] for t in cover["tiers"]]
+        self.assertEqual(colors, [library_counts.TIER_COLORS[k] for k in ("High Use", "Medium Use", "Low Use", "Other")])
+        for color in colors + [cover["ground"]]:
+            self.assertNotIn(color.lower(), source.lower())
         self.assertEqual(len(set(colors)), 4)                          # one color per category
 
         def luminance(hex_color):
             channels = [int(hex_color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
             r, g, b = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
             return 0.2126 * r + 0.7152 * g + 0.0722 * b
-        ground = luminance("#18181b")
-        for color in colors:                                           # every segment is seen on the dark ground
-            self.assertGreaterEqual((luminance(color) + 0.05) / (ground + 0.05), 4.5, color)
-        self.assertNotIn("#71717a", [c.lower() for c in colors])       # no grey: it reads as empty
+        ground = luminance(cover["ground"])
+        contrast = {c: (luminance(c) + 0.05) / (ground + 0.05) for c in colors}
+        for color, ratio in contrast.items():                          # every segment is seen on the navy ground
+            self.assertGreaterEqual(ratio, 3, color)
+        self.assertEqual(min(contrast, key=contrast.get), library_counts.TIER_COLORS["Other"])   # Other is the quietest
+        self.assertGreaterEqual((1.05) / (ground + 0.05), 15)         # a white logo stays legible on the ground
+        for color in colors:                                           # no grey: it reads as empty
+            r, g, b = (int(color[i:i + 2], 16) for i in (1, 3, 5))
+            self.assertGreater(max(r, g, b) - min(r, g, b), 48, color)
+        self.assertEqual(library_counts.TIER_COLORS["Retirement Candidates"], "#B9003F")
+
+    def test_report_coverage_strip_uses_the_cover_colors(self):
+        import re
+        import score_report
+        cover, _, card = self.surfaces()
+        strip = score_report.coverage_strip(card["sections"]["coverage"])
+        built = re.findall(r'class="c-built" style="background:(#[0-9A-Fa-f]{6})" data-tier="([^"]+)"', strip)
+        # Every built square, in the Cover's order, in its tile's color; one square per component.
+        expected = [(t["color"], t["key"]) for t in cover["tiers"] for _ in range(int(t["value"]))]
+        self.assertEqual(built, expected)
+        keys = re.findall(r'class="key" style="--k:(#[0-9A-Fa-f]{6})"', strip)
+        self.assertEqual(keys, [t["color"] for t in cover["tiers"]])
+        self.assertIn(f"--ground:{cover['ground']}", strip)
 
     def test_cover_getting_started_and_report_share_every_number(self):
         cover, start, card = self.surfaces()

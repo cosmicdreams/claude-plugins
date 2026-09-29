@@ -23,9 +23,13 @@ During the run:
 At the end:
 
 - Record schema churn: `workflow.py identity --schema-change "<what>"` for each change or workaround, or `--no-schema-change`.
-- Record the benchmark start (`workflow.py record --phase benchmark --status running`), score, then record it complete. The start is where library production time and tokens end.
+- Record the benchmark start (`workflow.py record --phase benchmark --status running`), score with `--session current` (or the session's id), then record it complete (`--status complete`). The start is where library production time and tokens end; the completion is the end of the wall time when the report is scored again later.
 - Keep the workspace intact: `project.json`, `phase-log.jsonl`, `capture/`, `builds/`, `figma/state.json`, `figma/runner.log`, `figma/results/`, `figma/compare/`, `figma/dump/` and `benchmark/`.
 - Keep the session transcript: it lives under the configuration folder in `projects/`, in the folder recorded as `run.claude.transcripts`.
+
+## How time is measured
+
+The report shows only time it measured, and says which. Working time is when Claude or its tools were working, read from the session transcript given with `--session` or `--transcripts`: every span from a person's prompt or a tool result to the end of the assistant's response counts, and the main session's spans and its subagents' spans are merged, so time when several were working at once counts once. The rest of the time between the transcript's first and last events is waiting, of two kinds: waiting on the person, when the assistant had finished its turn and the next event is a prompt a person typed; and waiting on usage limits, when the gap follows a record reporting a rate limit, a usage or spend limit (`isApiErrorMessage` with `error` `rate_limit`, status 429) or an overloaded service (a `system` `api_error` with status 529), ending when the limit resets if the record says when. Working time and both kinds of waiting add up to the transcript's span. The headline figure is the working time to produce the library, up to the benchmark step's start; the benchmark's own working time is reported separately, as its tokens are. Wall time is a clock on the wall from `workflow.py init` to the end of the benchmark, shown only when both ends were recorded. The Figma build time comes from the runner's log, with no model in the loop: each unbroken stretch of steps, from the first step served to the last step recorded, added up, where a pause of more than 15 minutes starts a new stretch. A run scored without a transcript shows the Figma build time and no production time at all, and says how to measure it.
 
 ## Fixed opening prompt
 
