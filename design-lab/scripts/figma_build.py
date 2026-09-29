@@ -351,15 +351,17 @@ def measured_type(project: Path) -> list[dict]:
 
 def tier_args(project: Path, state: dict, tier: str) -> dict:
     comps = [c for c in components(project) if short_tier((c.get("usage") or {}).get("tier")) == tier]
-    # Tier pages are drawn before the components, so this counts what the build plans for the tier.
-    built = [c for c in comps if c["id"] in library_counts.planned_ids(state)]
+    # Tier pages are drawn before the components, so the summary states only what is true before and
+    # after they are built: how many components the tier has and their placements. Whether each one
+    # was built is on the Cover and in the Getting Started index, which count recorded steps.
+    planned = [c for c in comps if c["id"] in library_counts.planned_ids(state)]
     total = sum(placements(c) for c in comps)
-    summary = [f"{len(comps)} component{'s' if len(comps) != 1 else ''} in this tier; {len(built)} built. "
+    summary = [f"{len(comps)} component{'s' if len(comps) != 1 else ''} in this tier. "
                f"{total:,} author placement{'s' if total != 1 else ''} between them."]
     empty = None
-    if not built:
+    if not planned:
         empty = ("No component in this tier is in the source." if not comps else
-                 f"None of the {len(comps)} components in this tier was built. The index on Getting Started gives each one's reason.")
+                 f"None of the {len(comps)} components in this tier is part of the library. The index on Getting Started gives each one's reason.")
     thresholds = ("No usage source counted these components' placements, so they have no tier."
                   if tier == "Untiered" else
                   "Tiers by author placements: High Use 50 or more · Medium Use 10 to 49 · Low Use 1 to 9 · Structural Only when placed only inside other components · Retirement Candidates when placed nowhere.")
