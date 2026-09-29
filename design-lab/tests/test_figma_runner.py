@@ -1,9 +1,12 @@
 """The runner's local HTTP server: token, origin lock, request errors, workspace keys."""
+import contextlib
+import io
 import json
 import subprocess
 import sys
 import tempfile
 import threading
+import time
 import unittest
 import urllib.error
 import urllib.request
@@ -260,6 +263,66 @@ class HandshakeTests(unittest.TestCase):
         outcome = figma_runner.wait_for_handshake(self.ws, timeout=1, poll=0.05)
         self.assertFalse(outcome["ok"])
         self.assertTrue(outcome["failure"].startswith("Close the design-lab runner in Figma and start it again"))
+
+    def test_a_check_recorded_after_preflight_gave_up_is_ignored(self):
+        figma_runner.request_handshake(self.ws)
+        step = self.step()
+        (self.ws / "figma" / figma_runner.HANDSHAKE_REQUEST).unlink()      # preflight timed out and withdrew
+        self.record(step["step"], {"fileKey": "KEY", "fileName": "F", "pages": 1, "empty": True})
+        self.assertFalse((self.ws / "figma" / figma_runner.HANDSHAKE_REQUEST).exists())
+        self.assertEqual(self.step("wait")["kind"], "wait")                  # /next is not wedged
+
+    def test_a_handshake_request_without_cover_arguments_still_draws(self):
+        (self.ws / "figma").mkdir(exist_ok=True)
+        (self.ws / "figma" / figma_runner.HANDSHAKE_REQUEST).write_text(json.dumps({"stage": "cover", "pageId": "0:1"}))
+        self.assertIn('"headline":"Library"', self.step()["code"])
+
+    def test_a_resumed_build_proves_only_the_connection(self):
+        figma_runner.request_handshake(self.ws, connection_only=True)
+        self.record(self.step()["step"], {"fileKey": "KEY", "fileName": "F", "pages": 9, "empty": False})
+        outcome = figma_runner.wait_for_handshake(self.ws, timeout=1, poll=0.05)
+        self.assertEqual((outcome["ok"], outcome["connectionOnly"], outcome["fileKeyMatches"]), (True, True, True))
+        figma_runner.request_handshake(self.ws, connection_only=True)
+        self.record(self.step()["step"], {"fileKey": "OTHER", "fileName": "F", "pages": 1, "empty": True})
+        self.assertFalse(figma_runner.wait_for_handshake(self.ws, timeout=1, poll=0.05)["ok"])
+
+    def test_a_slow_step_is_reported_in_flight(self):
+        from unittest import mock
+        (self.ws / "figma").mkdir(exist_ok=True)
+        (self.ws / "figma" / "state.json").write_text(json.dumps({"fileKey": "KEY", "steps": [{"id": "images:a"}], "done": []}))
+        slow = threading.Event()
+
+        def driver(this, *args):
+            slow.wait(5)                                   # an image fetch that takes a while
+            return {"kind": "done"}
+        with mock.patch.object(figma_runner.Build, "driver", driver), \
+                mock.patch.object(figma_runner.Build, "dump_step", lambda this: None):
+            worker = threading.Thread(target=lambda: self.call("/next"))
+            worker.start()
+            for _ in range(50):
+                status, _, text = self.call("/health", version=None)
+                if json.loads(text)["inflight"]:
+                    break
+                time.sleep(0.05)
+            self.assertTrue(json.loads(text)["inflight"])
+            slow.set()
+            worker.join(5)
+        self.assertFalse(json.loads(self.call("/health", version=None)[2])["inflight"])
+
+    def test_preflight_stops_the_server_a_finished_run_left_behind(self):
+        from unittest import mock
+        finished = preflight_workspace(self.ws.parent / "done", "KEYD")
+        (finished / "figma").mkdir()
+        (finished / "figma" / "state.json").write_text(json.dumps({"steps": [{"id": "pages"}], "done": ["pages"]}))
+        busy = {"alive": False, "pid": 7, "portInUse": True, "otherRun": str(finished), "otherPid": 7, "log": ""}
+        mine = {"alive": True, "pid": 8, "portInUse": True, "otherRun": None, "otherPid": None, "log": ""}
+        with mock.patch.object(figma_runner, "server_status", side_effect=[busy, mine]), \
+                mock.patch.object(figma_runner, "stop_server") as stop, \
+                mock.patch.object(figma_runner, "port_in_use", return_value=False), \
+                contextlib.redirect_stderr(io.StringIO()) as said:
+            self.assertEqual(figma_runner.ensure_server(self.ws)["started"], False)
+        stop.assert_called_once_with(finished)
+        self.assertIn("stopped the runner server of a finished run", said.getvalue())
 
     def test_another_active_run_is_refused_by_name(self):
         from unittest import mock

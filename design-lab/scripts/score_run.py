@@ -304,7 +304,7 @@ def read_messages(files: list[Path], since: dt.datetime | None, until: dt.dateti
             when = parse_time(entry.get("timestamp"))
             if (since and (not when or when < since)) or (until and (not when or when > until)):
                 continue
-            message = entry.get("message") or {}
+            message = message_of(entry)
             if message.get("model") in (None, "<synthetic>"):
                 continue
             if not str(message["model"]).startswith("claude-"):
@@ -316,7 +316,7 @@ def read_messages(files: list[Path], since: dt.datetime | None, until: dt.dateti
                                              "at": when, "session": entry.get("sessionId") or path.stem})
             if when and (kept["at"] is None or when < kept["at"]):
                 kept["at"] = when
-            usage = message.get("usage") or {}
+            usage = message.get("usage") if isinstance(message.get("usage"), dict) else {}
             for field in ("input_tokens", "output_tokens", "cache_creation_input_tokens",
                           "cache_read_input_tokens"):
                 value = usage.get(field)
@@ -398,12 +398,20 @@ TIME_DEFINITION = (
     "pause of more than 15 minutes starts a new stretch.")
 
 
+def message_of(entry: dict) -> dict:
+    """A record's message, or an empty one when a damaged line holds something else."""
+    message = entry.get("message")
+    return message if isinstance(message, dict) else {}
+
+
 def _text_of(message: dict) -> str:
     content = message.get("content")
     if isinstance(content, str):
         return content
-    return " ".join(block.get("text") or "" for block in content or []
-                    if isinstance(block, dict) and block.get("type") == "text")
+    if not isinstance(content, list):
+        return ""
+    return " ".join(block["text"] for block in content
+                    if isinstance(block, dict) and block.get("type") == "text" and isinstance(block.get("text"), str))
 
 
 def api_wait(entry: dict) -> tuple[str | None, dt.datetime | None]:
@@ -448,7 +456,7 @@ def is_person_prompt(entry: dict) -> bool:
     if entry.get("type") != "user" or entry.get("isSidechain") or entry.get("isMeta") \
             or entry.get("isCompactSummary") or "toolUseResult" in entry:
         return False
-    message = entry.get("message") or {}
+    message = message_of(entry)
     content = message.get("content")
     if isinstance(content, list) and any(isinstance(b, dict) and b.get("type") == "tool_result" for b in content):
         return False
@@ -488,8 +496,8 @@ def transcript_events(path: Path, since: dt.datetime | None, until: dt.datetime 
         if not when or (since and when < since) or (until and when > until):
             continue
         kind, resets = api_wait(entry)
-        blocks = [b for b in ((entry.get("message") or {}).get("content") or [])
-                  if isinstance(b, dict)] if isinstance((entry.get("message") or {}).get("content"), list) else []
+        content = message_of(entry).get("content")
+        blocks = [b for b in content if isinstance(b, dict)] if isinstance(content, list) else []
         if kind:
             pass
         elif entry.get("type") == "assistant":
@@ -702,18 +710,25 @@ def evidence_window(run_dir: Path, project: dict | None,
     return start, end
 
 
+def benchmark_marks(run_dir: Path, status: str) -> list[dt.datetime]:
+    marks = [parse_time(e.get("at")) for e in read_jsonl(run_dir / "phase-log.jsonl")
+             if e.get("phase") == "benchmark" and e.get("status") == status]
+    return sorted(t for t in marks if t)
+
+
 def benchmark_start(run_dir: Path) -> dt.datetime | None:
-    starts = [parse_time(e.get("at")) for e in read_jsonl(run_dir / "phase-log.jsonl")
-              if e.get("phase") == "benchmark" and e.get("status") == "running"]
-    starts = [t for t in starts if t]
-    return max(starts) if starts else None
+    """The benchmark's start. Once a completion is recorded, the benchmark is the first
+    start-and-completion pair: a later start (a re-score that marked one) never moves it."""
+    starts, ends = benchmark_marks(run_dir, "running"), benchmark_marks(run_dir, "complete")
+    if ends:
+        before = [t for t in starts if t <= ends[0]]
+        return before[-1] if before else None
+    return starts[-1] if starts else None
 
 
 def benchmark_end(run_dir: Path, start: dt.datetime | None) -> dt.datetime | None:
-    ends = [parse_time(e.get("at")) for e in read_jsonl(run_dir / "phase-log.jsonl")
-            if e.get("phase") == "benchmark" and e.get("status") == "complete"]
-    ends = [t for t in ends if t and start and t >= start]
-    return min(ends) if ends else None
+    ends = [t for t in benchmark_marks(run_dir, "complete") if start and t >= start]
+    return ends[0] if ends else None
 
 
 def scored_before(run_dir: Path) -> bool:
@@ -775,12 +790,22 @@ def record_benchmark_end(run_dir: Path, clock: dict) -> bool:
     return True
 
 
-def current_session(folder: str | None) -> str | None:
-    """The most recently written main transcript in the run's recorded transcript folder."""
+def current_session(folder: str | None, since: dt.datetime | None = None) -> tuple[str | None, str | None]:
+    """The most recently written main transcript in the run's recorded transcript folder, and a
+    warning when other sessions in that folder were also written during the run, because the
+    newest one may then not be the one that ran the build."""
     if not folder or not Path(folder).is_dir():
-        return None
+        return None, None
     mains = sorted(Path(folder).glob("*.jsonl"), key=lambda p: p.stat().st_mtime)
-    return mains[-1].stem if mains else None
+    if not mains:
+        return None, None
+    active = [m for m in mains if since and dt.datetime.fromtimestamp(m.stat().st_mtime, dt.timezone.utc) >= since]
+    warning = None
+    if len(active) > 1:
+        warning = (f"--session current chose {mains[-1].stem}, the newest of {len(active)} sessions written in "
+                   f"{folder} during this run ({', '.join(m.stem for m in active)}); if another Claude session "
+                   "was open in the same folder, re-score with --session <id> for the one that ran the build")
+    return mains[-1].stem, warning
 
 
 def score_cost(run_dir: Path, project: dict | None, transcripts: list | None,
@@ -790,7 +815,13 @@ def score_cost(run_dir: Path, project: dict | None, transcripts: list | None,
     timings = phase_timings(run_dir, project)
     claude = ((project or {}).get("run") or {}).get("claude") or {}
     sessions = [session] if isinstance(session, str) else list(session or [])
-    sessions = [current_session(claude.get("transcripts")) if s == "current" else s for s in sessions]
+    session_warning = None
+    if "current" in sessions:
+        run_start = parse_time(((project or {}).get("run") or {}).get("startedAt") or (project or {}).get("createdAt"))
+        chosen, session_warning = current_session(claude.get("transcripts"), run_start)
+        sessions = [chosen if s == "current" else s for s in sessions]
+        if session_warning:
+            print(f"warning: {session_warning}", file=sys.stderr)
     sessions = [s for s in sessions if s]
     if transcripts or sessions:
         explicit, folders = [], []
@@ -849,6 +880,8 @@ def score_cost(run_dir: Path, project: dict | None, transcripts: list | None,
                "runner": runner or not_measured("figma/runner.log is missing"),
                "timings": timings or not_measured("project.json has no phase times"),
                "model": model}
+    if session_warning:
+        section["developer"] = {"sessionWarning": session_warning}
     if status == "not-measured":
         section["reason"] = "no timing, runner or transcript evidence"
     return section
@@ -1510,7 +1543,7 @@ def main(argv=None) -> int:
             html = score_report.render(scorecard, run)
     elif clock.get("benchmarkEndSource") == "this scoring":
         finish_clock(clock, dt.datetime.now(dt.timezone.utc))
-    record_benchmark_end(run, clock)
+    finished = record_benchmark_end(run, clock)
     out.mkdir(parents=True, exist_ok=True)
     write_json(out / "scorecard.json", scorecard)
     written = [str(out / "scorecard.json")]
@@ -1521,6 +1554,13 @@ def main(argv=None) -> int:
         (out / "completion.md").write_text(message, encoding="utf-8")
         written.append(str(out / "completion.md"))
         print(message)
+    if finished:
+        # The benchmark is the run's last step: stop its runner server, so the next run's
+        # preflight does not find it still active.
+        import figma_runner
+        stopped = figma_runner.stop_server(run)
+        if stopped["stopped"]:
+            written.append(f"stopped the runner server (process {stopped['pid']})")
     print(json.dumps({"written": written}, indent=2))
     return 0
 

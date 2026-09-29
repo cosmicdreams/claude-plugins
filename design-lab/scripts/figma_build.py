@@ -157,7 +157,7 @@ def cmd_init(ns) -> int:
         (out / "trees" / f"{c['id']}.json").write_text(json.dumps(tree, indent=1, sort_keys=True) + "\n")
         built.append({"id": c["id"]})
 
-    steps = [{"id": "pages"}, {"id": "variables"}, {"id": "cover"}]
+    steps = [{"id": "pages"}, {"id": "variables"}]
     steps += [{"id": f"foundation:{d}"} for d in foundation_domains(project)]
     steps += [{"id": f"tier:{t}"} for t in tier_names(comps)]
     for b in built:
@@ -165,14 +165,16 @@ def cmd_init(ns) -> int:
                   {"id": f"block:{b['id']}"}, {"id": f"evidence:{b['id']}"}, {"id": f"compare:{b['id']}"}]
     if (project / "compositions.json").exists():
         steps += [{"id": "examples"}]
-    steps += [{"id": "getting-started"}]
+    # The Cover shows what was built, so it is drawn once every component step is recorded.
+    steps += [{"id": "cover"}, {"id": "getting-started"}]
     state = {
         "standardVersion": STANDARD_VERSION,
         "fileKey": ns.file_key,
         "siteUrl": ns.site_url.rstrip("/"),
         "canonicalBaseUrl": ns.canonical_base_url.rstrip("/"),
         "runtime": render_payload.runtime_hash(),
-        "built": [b["id"] for b in built],
+        # The build plan, in order. What is built is read from `done` (library_counts.recorded_ids).
+        "planned": [b["id"] for b in built],
         "steps": steps,
         "done": [],
     }
@@ -246,7 +248,7 @@ def provenance(project: Path, state: dict) -> dict:
 def cover_args(project: Path, state: dict) -> dict:
     """The Cover is for the library's recipient: the site's name, one generic line, how many
     components the library holds and how that number splits by usage tier. Nothing else."""
-    c = library_counts.counts(project, state["built"])
+    c = library_counts.counts(project, library_counts.recorded_ids(state))
     tiers = [{"key": row["tier"], "value": str(row["built"]), "label": COVER_LABELS.get(row["tier"], row["tier"]),
               "color": library_counts.TIER_COLORS[row["tier"]]}
              for row in c["coverBreakdown"]] if c["tiered"] else []
@@ -349,7 +351,8 @@ def measured_type(project: Path) -> list[dict]:
 
 def tier_args(project: Path, state: dict, tier: str) -> dict:
     comps = [c for c in components(project) if short_tier((c.get("usage") or {}).get("tier")) == tier]
-    built = [c for c in comps if c["id"] in state["built"]]
+    # Tier pages are drawn before the components, so this counts what the build plans for the tier.
+    built = [c for c in comps if c["id"] in library_counts.planned_ids(state)]
     total = sum(placements(c) for c in comps)
     summary = [f"{len(comps)} component{'s' if len(comps) != 1 else ''} in this tier; {len(built)} built. "
                f"{total:,} author placement{'s' if total != 1 else ''} between them."]
@@ -567,7 +570,7 @@ def examples_args(project: Path, state: dict) -> dict:
     comps = {c["id"]: c for c in inventory}
     ids = component_ids(inventory)
     pages = load(project, "compositions.json").get("pages", [])
-    built = set(state["built"])
+    built = library_counts.recorded_ids(state)
     def distinct(p):
         return sorted({component_id(r, ids) for r in p["components"]} & built)
     ranked = sorted(pages, key=lambda p: (p["address"] != "/", -len(distinct(p)), p["address"]))
@@ -601,7 +604,7 @@ def examples_args(project: Path, state: dict) -> dict:
 def getting_started_args(project: Path, state: dict) -> dict:
     comps = components(project)
     plan = plans(project)
-    built = set(state["built"])
+    built = library_counts.recorded_ids(state)
     ordered = build_order(comps, plan)
     counted = library_counts.counts(project, built)
     shown = set(tier_names(comps))
@@ -710,7 +713,7 @@ def cmd_next(ns) -> int:
     elif head == "images":
         out = images_step(project, sid, rest, state)
     elif head == "block":
-        order = state["built"].index(rest)
+        order = library_counts.planned_ids(state).index(rest)
         out = emit_payload(project, sid, "component_block", block_args(project, state, rest, order))
     elif head == "evidence":
         tree = json.loads((project / "figma" / "trees" / f"{rest}.json").read_text())
@@ -827,7 +830,8 @@ def cmd_status(ns) -> int:
     state = json.loads((project / "figma" / "state.json").read_text())
     nxt = pending(state)
     print(json.dumps({"done": len(state["done"]), "total": len(state["steps"]), "next": nxt["id"] if nxt else None,
-                      "built": len(state["built"]), "runtime": state["runtime"]}))
+                      "planned": len(library_counts.planned_ids(state)),
+                      "built": len(library_counts.recorded_ids(state)), "runtime": state["runtime"]}))
     return 0
 
 

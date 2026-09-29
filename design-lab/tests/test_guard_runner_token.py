@@ -26,6 +26,12 @@ class GuardRunnerTokenTest(unittest.TestCase):
             ("Glob", {"pattern": "**/*", "path": "/Users/someone/.design-lab/"}),
             ("Write", {"file_path": "/Users/someone/.design-lab/runner-token", "content": "x"}),
             ("Edit", {"file_path": "/Users/someone/.design-lab/runner-token"}),
+            # Climbing out of the runner folder reaches the token by another name.
+            ("Bash", {"command": "cat ~/.design-lab/runner/../runner-token"}),
+            ("Read", {"file_path": "/Users/someone/.design-lab/runner/../runner-token"}),
+            # Reading it through the function that returns it, and showing it.
+            ("Bash", {"command": "python3 -c 'import figma_runner; print(figma_runner.person_token())'"}),
+            ("Bash", {"command": "echo $(python3 -c 'import figma_runner as f; f.person_token()')"}),
         ]:
             with self.subTest(tool=tool, tool_input=tool_input):
                 result = run(tool, tool_input)
@@ -39,6 +45,10 @@ class GuardRunnerTokenTest(unittest.TestCase):
             ("Bash", {"command": "python3 scripts/workflow.py preflight --project W"}),
             ("Read", {"file_path": "/repo/design-lab/skills/run/SKILL.md"}),
             ("Grep", {"pattern": "runner-token", "path": "/repo/design-lab"}),
+            # Ordinary runs of the scripts, which read the token themselves.
+            ("Bash", {"command": "python3 scripts/figma_runner.py start --project W"}),
+            ("Bash", {"command": "python3 scripts/workflow.py runner --project W --await-runner"}),
+            ("Bash", {"command": "python3 -m unittest discover -s tests"}),
         ]:
             with self.subTest(tool=tool, tool_input=tool_input):
                 self.assertEqual(run(tool, tool_input).returncode, 0)

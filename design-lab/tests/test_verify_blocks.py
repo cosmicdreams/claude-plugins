@@ -121,7 +121,7 @@ class ReceiptTests(unittest.TestCase):
                     {'viewport': bp, 'file': f'{bp}.png', 'width': width, 'state': 'default'}
                     for bp, width in [('mobile', 375), ('tablet', 800), ('desktop', 1400)]]}}})
             dump(w / 'figma/state.json', {'standardVersion': '4.1.0', 'fileKey': 'key',
-                                          'built': ['hero']})
+                                          'planned': ['hero'], 'done': ['build:hero', 'block:hero']})
             result = w / 'figma/results'
             dump(result / 'pages.json', {'pages': {'Components — High Use': 'p'}})
             dump(result / 'variables.json', {'collections': {'Core': {'id': 'c'}}})
@@ -200,7 +200,8 @@ class MeasuredReceiptTests(unittest.TestCase):
         dump(w / 'capture-evidence.json', {'captures': {'hero': {'path': '/hero', 'images': [
             {'viewport': bp, 'file': f'{bp}.png', 'width': widths[bp], 'state': 'default'}
             for bp in viewports]}}})
-        dump(w / 'figma/state.json', {'standardVersion': '4.1.0', 'fileKey': 'key', 'built': ['hero']})
+        dump(w / 'figma/state.json', {'standardVersion': '4.1.0', 'fileKey': 'key', 'planned': ['hero'],
+                                      'done': ['build:hero', 'block:hero']})
         result = w / 'figma/results'
         page = 'Components — ' + (tier or 'Untiered')
         dump(result / 'pages.json', {'pages': {page: 'p'}})

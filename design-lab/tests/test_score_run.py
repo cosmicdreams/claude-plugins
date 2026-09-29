@@ -3,15 +3,19 @@ import contextlib
 import datetime as dt
 import io
 import json
+import os
 import re
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import unittest
 from pathlib import Path
 
 SCRIPTS = Path(__file__).resolve().parents[1] / "scripts"
+# The person's design-lab folder, for these tests only: never the real ~/.design-lab.
+os.environ["DESIGN_LAB_HOME"] = tempfile.mkdtemp(prefix="design-lab-home-")
 sys.path.insert(0, str(SCRIPTS))
 from PIL import Image, ImageDraw  # noqa: E402
 
@@ -52,7 +56,8 @@ def make_run(root: Path, short_master=True) -> Path:
         "Components — High Use": {"components": 1, "built": 1},
         "Components — Retirement Candidates": {"components": 1, "built": 0}}},
         "rows": [], "notBuilt": [{"id": "mytheme.old", "label": "Old", "reason": "retired"}]})
-    write(run / "figma" / "state.json", {"standardVersion": "4.1.0", "built": ["mytheme.card"],
+    write(run / "figma" / "state.json", {"standardVersion": "4.1.0", "planned": ["mytheme.card"],
+                                         "done": ["build:mytheme.card", "block:mytheme.card"],
                                          "siteUrl": "https://mytheme.ddev.site", "runtime": "abc123"})
     write(run / "foundation.json", {"pages": {"Cover": "0:1"},
                                     "collections": {"Core": {"variables": 12}}})
@@ -250,7 +255,7 @@ class ScoreRunTest(unittest.TestCase):
             {"id": "c", "verdict": "refuse", "libraryRole": "component", "refuseReason": "no capture"},
             {"id": "d", "verdict": "refuse", "libraryRole": "retirement"},
             {"id": "e", "verdict": "refuse", "libraryRole": "schema-only"}]})
-        write(self.run_dir / "figma" / "state.json", {"built": ["a"]})
+        write(self.run_dir / "figma" / "state.json", {"planned": ["a", "b"], "done": ["build:a", "block:a", "build:b"]})
         # usage.json also saw something outside the inventory; it must not enter the totals
         write(self.run_dir / "usage.json", {"usage": {"a": {"placements": 6, "structuralRefs": 1},
                                                       "stray.script": {"placements": 5, "structuralRefs": 0}}})
@@ -341,6 +346,68 @@ class ScoreRunTest(unittest.TestCase):
                          (first["benchmarkEnd"], first["wallSeconds"], "phase log"))
         self.assertEqual(sum(1 for line in (self.run_dir / "phase-log.jsonl").read_text().splitlines()
                              if '"complete"' in line), 1)
+
+    def test_rescoring_keeps_the_first_benchmark(self):
+        import os
+        env = {**os.environ, "DESIGN_LAB_HOME": str(self.root / "home")}
+        repo = self.root / "repo"
+        repo.mkdir()
+        subprocess.run(["git", "init", "-q", str(repo)], check=True)
+        ws = self.root / "w"
+
+        def run(*args):
+            return subprocess.run([sys.executable, str(WORKFLOW), *args], env=env, capture_output=True, text=True)
+
+        def score():
+            done = subprocess.run([sys.executable, str(SCRIPTS / "score_run.py"), str(ws), "--no-html"],
+                                  env=env, capture_output=True, text=True)
+            self.assertEqual(done.returncode, 0, done.stderr)
+            return json.loads((ws / "benchmark" / "scorecard.json").read_text())["sections"]["cost"]["clock"]
+        self.assertEqual(run("init", "--repo", str(repo), "--workspace", str(ws)).returncode, 0)
+        write(ws / "components.json", {"components": [{"id": "a", "label": "A"}]})
+        self.assertEqual(run("record", "--project", str(ws), "--phase", "benchmark", "--status", "running").returncode, 0)
+        first = score()
+        self.assertEqual(first["benchmarkEndSource"], "this scoring")
+        time.sleep(1.1)
+        # A re-score that marks a new start, as an older skill said to: the start is ignored.
+        again = run("record", "--project", str(ws), "--phase", "benchmark", "--status", "running")
+        self.assertIn("ignored", again.stdout)
+        second = score()
+        self.assertEqual((second["benchmarkStart"], second["benchmarkEnd"], second["wallSeconds"]),
+                         (first["benchmarkStart"], first["benchmarkEnd"], first["wallSeconds"]))
+        # Even a start written straight into the log never moves the first pair.
+        with open(ws / "phase-log.jsonl", "a") as log:
+            log.write(json.dumps({"at": "2099-01-01T00:00:00+00:00", "phase": "benchmark", "status": "running"}) + "\n")
+        self.assertEqual(score()["wallSeconds"], first["wallSeconds"])
+
+    def test_the_first_scoring_stops_the_runs_server(self):
+        from unittest import mock
+        import figma_runner
+        write(self.run_dir / "project.json", legacy_project(run={"startedAt": "2026-01-05T10:00:00+00:00"}))
+        start = dt.datetime.now(dt.timezone.utc).replace(microsecond=0) - dt.timedelta(minutes=1)
+        (self.run_dir / "phase-log.jsonl").write_text(
+            json.dumps({"at": start.isoformat(), "phase": "benchmark", "status": "running"}) + "\n")
+        with mock.patch.object(figma_runner, "stop_server", return_value={"stopped": True, "pid": 9}) as stop, \
+                contextlib.redirect_stdout(io.StringIO()):
+            score_run.main([str(self.run_dir), "--no-html"])
+            score_run.main([str(self.run_dir), "--no-html"])       # a re-score leaves any server alone
+        stop.assert_called_once()
+
+    def test_an_ambiguous_current_session_is_named_in_the_report(self):
+        folder = self.root / "transcripts"
+        for name in ("older", "newer"):
+            write_transcript(folder / f"{name}.jsonl", [entry("prompt", "2026-01-05T10:00:00Z", session=name),
+                                                        entry("reply", "2026-01-05T10:00:10Z", session=name)])
+            time.sleep(0.01)
+        write(self.run_dir / "project.json", legacy_project(run={
+            "startedAt": "2026-01-05T10:00:00+00:00", "claude": {"transcripts": str(folder)}}))
+        out = self.root / "out"
+        with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()) as said:
+            score_run.main([str(self.run_dir), "--session", "current", "--out", str(out)])
+        self.assertIn("--session current chose newer", said.getvalue())
+        card = json.loads((out / "scorecard.json").read_text())
+        self.assertIn("newest of 2 sessions", card["sections"]["cost"]["developer"]["sessionWarning"])
+        self.assertIn("Which session was scored.", (out / "report.html").read_text())
 
     def test_a_run_scored_before_without_an_end_shows_no_wall_time(self):
         write(self.run_dir / "project.json", legacy_project(run={"startedAt": "2026-01-05T10:00:00+00:00"}))
@@ -657,6 +724,49 @@ class ClaudeTokensTest(unittest.TestCase):
             self.assertNotIn("unattributedEntries", html)
 
 
+class RecordedBuildTest(unittest.TestCase):
+    """Built is what the build recorded, never what it planned."""
+
+    def workspace(self, state):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        w = Path(temp.name)
+        write(w / "components.json", {"components": [{"id": "a", "label": "A", "usage": {"tier": "High Use"}},
+                                                     {"id": "b", "label": "B", "usage": {"tier": "Low Use"}}]})
+        write(w / "plan.json", {"plans": [{"id": "a", "verdict": "build"}, {"id": "b", "verdict": "build"}]})
+        write(w / "figma" / "state.json", state)
+        return w
+
+    def test_a_build_that_stopped_after_the_cover_built_nothing(self):
+        import library_counts
+        steps = [{"id": s} for s in ("pages", "build:a", "block:a", "build:b", "block:b", "cover")]
+        for key in ("planned", "built"):                 # `built` is what older state files called the plan
+            c = library_counts.counts(self.workspace({key: ["a", "b"], "steps": steps, "done": ["pages"]}))
+            self.assertEqual((c["built"], c["eligible"]), (0, 2), key)
+            self.assertEqual([r["built"] for r in c["coverBreakdown"]], [0, 0, 0, 0])
+        c = library_counts.counts(self.workspace({"planned": ["a", "b"], "steps": steps,
+                                                  "done": ["pages", "build:a", "block:a", "build:b"]}))
+        self.assertEqual(c["built"], 1)                  # b has its master but not its block yet
+        self.assertEqual(library_counts.coverage_sentence(c), "Built 1 of 2 components it could have built (50%).")
+
+
+class MalformedTranscriptTest(unittest.TestCase):
+    def test_a_line_whose_message_is_not_an_object_is_skipped(self):
+        with tempfile.TemporaryDirectory() as temp:
+            f = Path(temp) / "s.jsonl"
+            f.write_text("\n".join(json.dumps(x) for x in [
+                {"type": "user", "timestamp": "2026-09-29T10:00:00Z", "message": {"role": "user", "content": "hi"}},
+                {"type": "assistant", "timestamp": "2026-09-29T10:00:05Z", "message": "truncated"},
+                {"type": "user", "timestamp": "2026-09-29T10:00:06Z", "message": ["not", "an", "object"]},
+                {"type": "user", "timestamp": "2026-09-29T10:00:07Z", "message": {"content": [{"type": "text", "text": 5}]}},
+                {"type": "assistant", "timestamp": "2026-09-29T10:00:09Z",
+                 "message": {"model": "claude-opus-5-5", "content": [{"type": "text", "text": "done"}],
+                             "usage": {"output_tokens": 3}}}]) + "\n")
+            self.assertEqual(score_run.working_time([f], None, None)["status"], "measured")
+            usage = score_run.transcript_usage([f], None, None)
+            self.assertEqual((usage["assistantMessages"], usage["tokens"]["output"]), (1, 3))
+
+
 class CoverBreakdownTest(unittest.TestCase):
     def test_four_categories_count_each_built_component_once(self):
         import library_counts
@@ -810,6 +920,11 @@ class WorkflowCaptureTest(unittest.TestCase):
             (self.ws / "figma").mkdir(exist_ok=True)
             (self.ws / "figma" / figma_runner.SEEN_FILE).write_text(dt.datetime.now(dt.timezone.utc).isoformat())
             self.assertTrue(workflow.await_runner(self.ws, project, minutes=2, poll=0.01)["connected"])
+            # A stale time, but the server is still answering a slow step the runner asked for.
+            (self.ws / "figma" / figma_runner.SEEN_FILE).write_text("2026-01-01T00:00:00+00:00")
+            with mock.patch.object(figma_runner, "server_status", return_value={"inflight": True}):
+                answer = workflow.await_runner(self.ws, project, minutes=0.002, poll=0.01)
+            self.assertEqual((answer["connected"], answer["inflight"]), (True, True))
 
     def test_plan_approval_follows_the_preflight_choice(self):
         self.ws.mkdir()

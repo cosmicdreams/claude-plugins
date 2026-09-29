@@ -492,7 +492,13 @@ def runner_handshake(workspace: Path, file_key: str, figma_url: str, timeout: fl
              "subtitle": "Component Library", "provenance": {"stage": "preflight"},
              "version": figma_build.STANDARD_VERSION}
     expected = (((project or {}).get("target") or {}).get("preflight") or {}).get("coverPageId")
-    figma_runner.request_handshake(workspace, cover, expected)
+    # A resumed run whose build has begun in this file: the file is no longer empty, so preflight
+    # proves only that the runner is connected to it.
+    try:
+        begun = json.loads((workspace / "figma" / "state.json").read_text()).get("fileKey") == file_key
+    except (OSError, ValueError):
+        begun = False
+    figma_runner.request_handshake(workspace, cover, expected, connection_only=begun)
     outcome = figma_runner.wait_for_handshake(workspace, timeout)
     if not outcome.get("runnerConnected") and install["firstInstall"]:
         outcome["failure"] = (f"Import the runner in Figma desktop (Plugins, Development, Import plugin from manifest, "
@@ -533,6 +539,10 @@ def await_runner(workspace: Path, project: dict, minutes: float = RUNNER_ABSENT_
         last = seen()
         if last and dt.datetime.now(dt.timezone.utc) - last <= window:
             return {"connected": True, "lastSeen": last.isoformat()}
+        if figma_runner.server_status(workspace).get("inflight"):
+            # The server is still working on a step the runner asked for (a slow image fetch):
+            # the runner is there, waiting for the answer.
+            return {"connected": True, "inflight": True, "lastSeen": last.isoformat() if last else None}
         if time.monotonic() >= deadline:
             break
         time.sleep(poll)
@@ -619,7 +629,7 @@ def preflight_command(args):
         checks["runner"] = handshake
         if not handshake.get("ok"):
             missing.append(handshake.get("failure") or "the Figma file could not be proven writable")
-        else:
+        elif not handshake.get("connectionOnly"):
             # What the name-only Cover proved; the build reuses this Cover page and this address.
             path, project = load_project(path)
             project["target"]["preflight"] = {
@@ -707,8 +717,28 @@ def register_command(args):
                       **({"componentCoverage": coverage} if coverage else {})}, indent=2))
 
 
+def benchmark_completed(workspace: Path) -> bool:
+    try:
+        lines = (workspace / PHASE_LOG).read_text().splitlines()
+    except OSError:
+        return False
+    for line in lines:
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        if entry.get("phase") == "benchmark" and entry.get("status") == "complete":
+            return True
+    return False
+
+
 def record_command(args):
     path, project = load_project(args.project)
+    if args.phase == "benchmark" and args.status == "running" and benchmark_completed(path.parent):
+        # The benchmark is the first start-and-completion pair; a re-score never starts another.
+        print(json.dumps({"ignored": True, "reason": "the benchmark already has a recorded start and end; "
+                          "re-score with score_run.py alone, which keeps them"}, indent=2))
+        return
     detail = json.loads(args.detail) if args.detail else None
     if args.status == "waived":
         if not args.by:

@@ -111,7 +111,9 @@ def figma_dir(project: Path) -> Path:
 def person_token() -> str:
     """The person's runner token, created once in ~/.design-lab/runner-token (folder mode 700,
     file mode 600). Every server reads it, so the runner's saved copy keeps working across
-    restarts and runs, and the person pastes it once per machine."""
+    restarts and runs, and the person pastes it once per machine. The value is for this
+    process's own use (the server's check, and its own /health call): it is never printed,
+    no command-line path of this module outputs it, and no caller may print or log it."""
     HOME.mkdir(mode=0o700, parents=True, exist_ok=True)
     os.chmod(HOME, 0o700)
     path = HOME / TOKEN_FILE
@@ -287,15 +289,26 @@ class Build:
         if stage == "page":
             return {"kind": "check", "step": PAGE_STEP, "code": PAGE_CODE}
         import render_payload
-        args = {**request["cover"], "pageId": request["pageId"], "tiers": []}
+        args = {**(request.get("cover") or default_cover()), "pageId": request["pageId"], "tiers": []}
         return {"kind": "check", "step": COVER_STEP, "code": render_payload.call_payload("cover", args)}
 
     def handshake_record(self, step: str, result: dict) -> dict:
         request = handshake_request(self.project)
         path = self.project / "figma" / HANDSHAKE_REQUEST
+        if not path.is_file():
+            # Preflight stopped waiting and withdrew its request; nobody wants this answer now.
+            self.current = None
+            self.log(f"ignored {step}: preflight is no longer waiting for it")
+            return {"recorded": step, "ignored": True}
         if step == CHECK_STEP:
             outcome = check_outcome(self.key, result)
-            if not outcome["ok"]:
+            if request.get("connectionOnly") and outcome["fileKeyMatches"]:
+                # The build has begun in this file, so it is no longer empty: prove only that the
+                # runner is connected to it.
+                outcome = {**outcome, "ok": True, "connectionOnly": True}
+                outcome.pop("failure", None)
+                write_handshake(self.project, outcome)
+            elif not outcome["ok"]:
                 write_handshake(self.project, outcome)
             else:
                 path.write_text(json.dumps({**request, "stage": "page", "check": outcome}) + "\n")
@@ -379,6 +392,15 @@ def find_build(builds: dict[str, Build], key: str) -> Build | None:
 
 
 def make_handler(builds: dict[str, Build], token: str):
+    # Requests from the runner being served right now. A slow step (an image fetch can take
+    # minutes) is the runner working, not absent, so /health reports it and the run's check for
+    # an absent runner treats it as connected.
+    activity = {"inflight": 0}
+    counter = threading.Lock()
+
+    def seen(build: Build) -> None:
+        (figma_dir(build.project) / SEEN_FILE).write_text(utc_now() + "\n")
+
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):  # the builds log their own progress
             pass
@@ -415,7 +437,8 @@ def make_handler(builds: dict[str, Build], token: str):
                                                    "message": message}).encode())
             if url.path == "/health":
                 return self.reply(200, json.dumps({"pid": os.getpid(), "projects": [str(b.project) for b in builds.values()],
-                                                   "files": [b.key for b in builds.values()]}).encode())
+                                                   "files": [b.key for b in builds.values()],
+                                                   "inflight": activity["inflight"] > 0}).encode())
             build = find_build(builds, q.get("fileKey", ""))
             if not build:
                 for b in builds.values():   # the runner was started in a file that is not the target
@@ -426,31 +449,40 @@ def make_handler(builds: dict[str, Build], token: str):
                                                                f"open the target file (key {b.key}) in Figma desktop and "
                                                                "start the runner there"})
                 return self.reply(404, f"no build for file {q.get('fileKey')!r}; serving {sorted(b.key or '?' for b in builds.values())}".encode(), "text/plain")
-            with build.lock:
-                try:
-                    body = None
-                    if method == "POST":
-                        body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
-                        if not isinstance(body, dict):
-                            raise ValueError("the request body must be a JSON object")
-                    if method == "GET" and url.path == "/next":
-                        # When the runner last asked, so the run can tell it is still there.
-                        (figma_dir(build.project) / SEEN_FILE).write_text(utc_now() + "\n")
-                        return self.reply(200, json.dumps(build.next()).encode())
-                    if method == "GET" and url.path == "/file":
-                        data, ctype = build.file(q["step"], int(q["i"]))
-                        return self.reply(200, data, ctype)
-                    if method == "POST" and url.path == "/record":
-                        return self.reply(200, json.dumps(build.record(q["step"], body)).encode())
-                    if method == "POST" and url.path == "/error":
-                        build.log(f"FAILED {body.get('message', body)}")
-                        if (build.current or {}).get("kind") == "check" and build.handshake_pending():
-                            build.handshake_error(str(body.get("message", body)))
-                        return self.reply(200, b"{}")
-                    return self.reply(404, b"unknown route", "text/plain")
-                except Exception as e:  # reported to the plugin, which stops without recording
-                    build.log(f"error: {e}")
-                    return self.reply(500, str(e).encode(), "text/plain")
+            with counter:
+                activity["inflight"] += 1
+            seen(build)   # when the runner last asked, so the run can tell it is still there
+            try:
+                with build.lock:
+                    return self.serve(build, method, url, q)
+            finally:
+                with counter:
+                    activity["inflight"] -= 1
+                seen(build)
+
+        def serve(self, build: Build, method: str, url, q: dict) -> None:
+            try:
+                body = None
+                if method == "POST":
+                    body = json.loads(self.rfile.read(int(self.headers.get("Content-Length") or 0)) or b"{}")
+                    if not isinstance(body, dict):
+                        raise ValueError("the request body must be a JSON object")
+                if method == "GET" and url.path == "/next":
+                    return self.reply(200, json.dumps(build.next()).encode())
+                if method == "GET" and url.path == "/file":
+                    data, ctype = build.file(q["step"], int(q["i"]))
+                    return self.reply(200, data, ctype)
+                if method == "POST" and url.path == "/record":
+                    return self.reply(200, json.dumps(build.record(q["step"], body)).encode())
+                if method == "POST" and url.path == "/error":
+                    build.log(f"FAILED {body.get('message', body)}")
+                    if (build.current or {}).get("kind") == "check" and build.handshake_pending():
+                        build.handshake_error(str(body.get("message", body)))
+                    return self.reply(200, b"{}")
+                return self.reply(404, b"unknown route", "text/plain")
+            except Exception as e:  # reported to the plugin, which stops without recording
+                build.log(f"error: {e}")
+                return self.reply(500, str(e).encode(), "text/plain")
 
         def do_OPTIONS(self):  # preflight, in case a client sends a non-simple request
             self.send_response(204)
@@ -502,12 +534,23 @@ def server_status(project: Path) -> dict:
     project = Path(project).resolve()
     folder = project / "figma"
     pid = int((folder / PID_FILE).read_text()) if (folder / PID_FILE).is_file() else None
-    answer = health(person_token())
+    token_file = HOME / TOKEN_FILE
+    answer = health(token_file.read_text().strip()) if token_file.is_file() else None
     serving = bool(answer) and str(project) in answer.get("projects", [])
     other = [p for p in (answer or {}).get("projects", []) if p != str(project)]
     return {"alive": serving, "pid": (answer or {}).get("pid", pid), "portInUse": serving or bool(answer) or port_in_use(),
+            "inflight": serving and bool(answer.get("inflight")),
             "otherRun": other[0] if other and not serving else None, "otherPid": (answer or {}).get("pid") if other else None,
             "log": str(folder / SERVER_LOG)}
+
+
+def run_finished(project: Path) -> bool:
+    """Whether a run's build has every step recorded (figma_build.py next would say done)."""
+    try:
+        state = json.loads((Path(project) / "figma" / "state.json").read_text())
+    except (OSError, ValueError):
+        return False
+    return {s["id"] for s in state.get("steps") or []} <= set(state.get("done") or [])
 
 
 def stop_server(project: Path) -> dict:
@@ -528,6 +571,17 @@ def ensure_server(project: Path, wait: float = 10) -> dict:
     status = server_status(project)
     if status["alive"]:
         return {**status, "started": False}
+    if status["otherRun"] and run_finished(Path(status["otherRun"])):
+        # That run's build has every step recorded: its server was only left behind.
+        stop_server(Path(status["otherRun"]))
+        print(f"stopped the runner server of a finished run: {status['otherRun']}", file=sys.stderr, flush=True)
+        for _ in range(50):
+            if not port_in_use():
+                break
+            time.sleep(0.1)
+        status = server_status(project)
+        if status["alive"]:
+            return {**status, "started": False}
     if status["otherRun"]:
         raise RuntimeError(f"another run is active: {status['otherRun']} (server process {status['otherPid']}). "
                            "design-lab builds one library at a time, for the best results in Figma desktop; "
@@ -551,15 +605,22 @@ def ensure_server(project: Path, wait: float = 10) -> dict:
     raise RuntimeError(f"the runner server did not answer within {wait:g} seconds; see {folder / SERVER_LOG}")
 
 
-def request_handshake(project: Path, cover: dict | None = None, expected_cover_page: str | None = None) -> None:
+def default_cover() -> dict:
+    """The name-only Cover's arguments when preflight did not give them."""
+    return {"ground": "#001B67", "headline": "Library", "subtitle": "Component Library",
+            "provenance": {"stage": "preflight"}, "version": ""}
+
+
+def request_handshake(project: Path, cover: dict | None = None, expected_cover_page: str | None = None,
+                      connection_only: bool = False) -> None:
     """Ask the server to run the handshake the next time the runner asks for a step. `cover`
     holds the name-only Cover's arguments (ground, headline, subtitle, provenance, version)."""
     folder = figma_dir(Path(project))
     (folder / HANDSHAKE).unlink(missing_ok=True)
     (folder / HANDSHAKE_REQUEST).write_text(json.dumps({
         "requestedAt": utc_now(), "stage": "check", "expectedCoverPageId": expected_cover_page,
-        "cover": cover or {"ground": "#001B67", "headline": "Library", "subtitle": "Component Library",
-                           "provenance": {"stage": "preflight"}, "version": ""}}) + "\n")
+        "connectionOnly": connection_only,
+        "cover": cover or default_cover()}) + "\n")
 
 
 def wait_for_handshake(project: Path, timeout: float, poll: float = 1) -> dict:

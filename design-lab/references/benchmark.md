@@ -25,7 +25,7 @@ During the run:
 At the end:
 
 - The run records schema churn itself: `workflow.py identity --schema-change "<what>"` for each change or workaround, or `--no-schema-change`.
-- Record the benchmark start (`workflow.py record --phase benchmark --status running`), then score with `--session current` (or the session's id). The start is where library production time and tokens end. The benchmark ends when its report is finished: the first scoring records that end in the phase log, as `workflow.py record --phase benchmark --status complete` would, and later re-scores keep it.
+- Record the benchmark start once (`workflow.py record --phase benchmark --status running`), then score with `--session current` (or the session's id); a re-score runs the scorer alone. If another Claude session was open in the same project folder during the run, `--session current` may pick it: the report and the scorer's output name the session chosen, and `--session <id>` settles it. The start is where library production time and tokens end. The benchmark ends when its report is finished: the first scoring records that end in the phase log, as `workflow.py record --phase benchmark --status complete` would, and later re-scores keep it.
 - Keep the workspace intact: `project.json`, `phase-log.jsonl`, `capture/`, `builds/`, `figma/state.json`, `figma/runner.log`, `figma/results/`, `figma/compare/`, `figma/dump/` and `benchmark/`.
 - Keep the session transcript: it lives under the configuration folder in `projects/`, in the folder recorded as `run.claude.transcripts`.
 

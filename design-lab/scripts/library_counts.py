@@ -11,8 +11,10 @@ all take their numbers from `counts()`, so no two surfaces can disagree. The rul
   into components.json (references/model.md). They are never re-summed from usage.json.
 - A component's tier is the tier that merge assigned. It is not recomputed from placements,
   because the merge also weighs global and template references.
-- Built means the Figma build recorded it: figma/state.json `built`, else the index rows,
-  else valid build records. A plan verdict of `build` alone is not built.
+- Built means the Figma build recorded it, never that it was planned: a component is built
+  once both its `build:<id>` (the master) and `block:<id>` (its documentation block) steps are
+  in figma/state.json `done`. Without a build state, the index rows, else valid build records.
+  The state's `planned` list (`built` in older state files) is the build plan, not a count.
 - Buildable (eligible) means every inventoried component except retirement candidates and
   schema-only entries, and anything the plan maps into a parent or documents only. The gap
   between built and buildable is split into refused by the plan, planned but not built, and
@@ -75,10 +77,22 @@ def tier(component: dict) -> str:
     return short_tier((component.get("usage") or {}).get("tier"))
 
 
+def planned_ids(state: dict) -> list[str]:
+    """The components a build planned, in build order. Older state files call the list `built`."""
+    planned = state.get("planned")
+    return list(planned if isinstance(planned, list) else state.get("built") or [])
+
+
+def recorded_ids(state: dict) -> set[str]:
+    """The components whose build steps are recorded: the master and its documentation block."""
+    done = set(state.get("done") or [])
+    return {cid for cid in planned_ids(state) if f"build:{cid}" in done and f"block:{cid}" in done}
+
+
 def built_ids(run_dir: Path) -> set[str] | None:
     state = _read(run_dir / "figma" / "state.json") or {}
-    if isinstance(state.get("built"), list):
-        return set(state["built"])
+    if isinstance(state.get("done"), list):
+        return recorded_ids(state)
     index = _read(run_dir / "index.json") or {}
     if index.get("rows"):
         return {row["id"] for row in index["rows"] if row.get("built") and row.get("id")}

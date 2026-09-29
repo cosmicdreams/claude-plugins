@@ -289,11 +289,12 @@ class FigmaBuildTests(unittest.TestCase):
 
     def test_init_step_order_and_page_list(self):
         steps = [s["id"] for s in self.state["steps"]]
-        self.assertEqual(steps, ["pages", "variables", "cover", "foundation:Color",
+        self.assertEqual(steps, ["pages", "variables", "foundation:Color",
             "foundation:Typography", *["tier:" + t for t in figma_build.TIERS],
             "build:sdc.test.hero", "images:sdc.test.hero", "block:sdc.test.hero",
-            "evidence:sdc.test.hero", "compare:sdc.test.hero", "getting-started"])
-        self.assertEqual(self.state["built"], ["sdc.test.hero"])
+            "evidence:sdc.test.hero", "compare:sdc.test.hero", "cover", "getting-started"])
+        self.assertEqual(self.state["planned"], ["sdc.test.hero"])
+        self.assertNotIn("built", self.state)
         tree = json.loads((self.project / "figma/trees/sdc.test.hero.json").read_text())
         self.assertEqual(tree["label"], "Hero")
         self.assertEqual(tree["modes"], ["Desktop", "Tablet", "Mobile"])
@@ -432,6 +433,8 @@ run().then((r) => console.log(JSON.stringify({ r, texts: made.filter((n) => n.ty
         self.assertEqual(block["evidence"], [{"label": "Mobile 375px", "width": 375, "height": 500},
                                                {"label": "Desktop 1400px", "width": 1400, "height": 300}])
         self.assertNotRegex(json.dumps(block), r"\b20\d{2}-\d{2}-\d{2}\b")
+        # Getting Started is drawn last, once the component's steps are recorded.
+        self.state["done"] = ["pages", "build:sdc.test.hero", "block:sdc.test.hero"]
         start = figma_build.getting_started_args(self.project, self.state)
         self.assertEqual(start["index"][0]["setId"], "component-1")
         gaps = "\n".join(start["gaps"])
@@ -527,6 +530,9 @@ run().then((r) => console.log(JSON.stringify({ r, texts: made.filter((n) => n.ty
         self.result("pages", {"pages": pages})
         self.result("build:sdc.test.hero", {"componentId": "component-1"})
         self.result("block:sdc.test.hero", {"blockId": "block-1"})
+        # The component's steps are recorded, which is what makes it built.
+        self.state["done"] = ["pages", "build:sdc.test.hero", "block:sdc.test.hero"]
+        self.write("figma/state.json", self.state)
         cover = figma_build.cover_args(self.project, self.state)
         start = figma_build.getting_started_args(self.project, self.state)
         card = score_run.score(self.project)
@@ -621,7 +627,7 @@ console.log(JSON.stringify(cases.map(([v, w]) => barWidths(v, w))));
     def test_cover_getting_started_and_report_share_every_number(self):
         cover, start, card = self.surfaces()
         cov = card["sections"]["coverage"]
-        counted = library_counts.counts(self.project, self.state["built"])
+        counted = library_counts.counts(self.project, library_counts.recorded_ids(self.state))
         self.assertEqual(int(cover["total"]["value"]), counted["built"])
         self.assertEqual(cov["built"], counted["built"])
         self.assertEqual((cov["eligible"], cov["gap"], cov["excluded"]),

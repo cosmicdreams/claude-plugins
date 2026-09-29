@@ -803,6 +803,9 @@ def cost_section(cost: dict) -> str:
                        'the go-ahead are setup.</p></div>')
     else:
         parts.append(absent("Unattended after preflight", attended))
+    warning = (cost.get("developer") or {}).get("sessionWarning")
+    if warning:
+        parts.append(f'<p class="note"><b>Which session was scored.</b> {esc(warning)}.</p>')
     model = cost.get("model") or {}
     if model.get("status") == "measured":
         def token_table(caption, part):
