@@ -1,0 +1,218 @@
+#!/usr/bin/env python3
+"""The one place design-lab counts a library.
+
+The Cover, the Getting Started page (figma_build.py) and the benchmark report (score_run.py)
+all take their numbers from `counts()`, so no two surfaces can disagree. The rules:
+
+- The population is the inventory: every component in components.json. Usage rows for
+  things that are not components (a block or script the usage scan also saw) are reported
+  separately as `outsideInventory`, never mixed into component totals.
+- Placements and structural references are the per-component values the usage phase merged
+  into components.json (references/model.md). They are never re-summed from usage.json.
+- A component's tier is the tier that merge assigned. It is not recomputed from placements,
+  because the merge also weighs global and template references.
+- Built means the Figma build recorded it, never that it was planned: a component is built
+  once both its `build:<id>` (the master) and `block:<id>` (its documentation block) steps are
+  in figma/state.json `done`. Without a build state, the index rows, else valid build records.
+  The state's `planned` list (`built` in older state files) is the build plan, not a count.
+- Buildable (eligible) means every inventoried component except retirement candidates and
+  schema-only entries, and anything the plan maps into a parent or documents only. The gap
+  between built and buildable is split into refused by the plan, planned but not built, and
+  not in the plan.
+"""
+from __future__ import annotations
+
+import json
+from collections import Counter
+from pathlib import Path
+
+TIERS = ("High Use", "Medium Use", "Low Use", "Structural Only", "Retirement Candidates")
+UNTIERED = "Untiered"
+# The Cover's four categories. Every built component has exactly one tier, so it lands in exactly
+# one category: its own if it is High, Medium or Low use, otherwise Other (placed only inside
+# other components, no usage data, or no usage at all). A component placed on pages and also
+# nested elsewhere is tiered by its placements, so it is never counted twice.
+USE_TIERS = ("High Use", "Medium Use", "Low Use")
+OTHER = "Other"
+# The one definition of the category colors. The Cover (cover.js, through figma_build.cover_args)
+# and the benchmark report's coverage strip both draw from it, so they cannot drift. Fixed, the same
+# on every run and never the site's brand: adapted from the Velir chart palette with gold moved to
+# High use. Every color keeps at least 3 to 1 against the navy ground (the graphics threshold);
+# Other is deliberately the lowest of the four. Crimson is reserved for retirement candidates,
+# which the Cover does not show: it reads as a recommendation to remove.
+COVER_GROUND = "#001B67"
+TIER_COLORS = {"High Use": "#FAD200", "Medium Use": "#00AEEF", "Low Use": "#00A457", OTHER: "#417DFC",
+               "Retirement Candidates": "#B9003F"}
+COVER_LABELS = {"High Use": "High use", "Medium Use": "Medium use", "Low Use": "Low use", OTHER: "Other"}
+GAP_REASONS = {"refused": "refused by the plan", "failed": "planned but not built",
+               "unplanned": "not in the plan"}
+EXCLUDED_REASONS = {"retirement": "retirement candidate", "schema-only": "schema-only",
+                    "not-visual": "mapped or documented, not built as a component"}
+
+
+def _read(path: Path):
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def short_tier(tier: str | None) -> str:
+    return (tier or "").replace("Components — ", "").strip() or UNTIERED
+
+
+def placements(component: dict) -> int:
+    return int((component.get("usage") or {}).get("placements") or 0)
+
+
+def structural(component: dict) -> int:
+    usage = component.get("usage") or {}
+    value = usage.get("structuralRefs")
+    if value is None:
+        value = usage.get("structuralReferences")
+    return int(value or 0)
+
+
+def tier(component: dict) -> str:
+    return short_tier((component.get("usage") or {}).get("tier"))
+
+
+def planned_ids(state: dict) -> list[str]:
+    """The components a build planned, in build order. Older state files call the list `built`."""
+    planned = state.get("planned")
+    return list(planned if isinstance(planned, list) else state.get("built") or [])
+
+
+def recorded_ids(state: dict) -> set[str]:
+    """The components whose build steps are recorded: the master and its documentation block."""
+    done = set(state.get("done") or [])
+    return {cid for cid in planned_ids(state) if f"build:{cid}" in done and f"block:{cid}" in done}
+
+
+def built_ids(run_dir: Path) -> set[str] | None:
+    state = _read(run_dir / "figma" / "state.json") or {}
+    if isinstance(state.get("done"), list):
+        return recorded_ids(state)
+    index = _read(run_dir / "index.json") or {}
+    if index.get("rows"):
+        return {row["id"] for row in index["rows"] if row.get("built") and row.get("id")}
+    builds = run_dir / "builds"
+    ids = {(_read(path) or {}).get("id") for path in sorted(builds.glob("*.json"))} if builds.is_dir() else set()
+    ids.discard(None)
+    return ids or None
+
+
+def classify(component: dict, plan: dict | None, built: set[str]) -> tuple[str, str | None]:
+    """('built' | a gap reason | an excluded reason, detail)."""
+    if component["id"] in built:
+        return "built", None
+    if plan is None:
+        return "unplanned", None
+    role, verdict = plan.get("libraryRole"), plan.get("verdict")
+    if role in ("retirement", "schema-only"):
+        return role, plan.get("refuseReason")
+    if verdict in ("map", "document"):
+        return "not-visual", plan.get("refuseReason")
+    if verdict == "refuse":
+        return "refused", plan.get("refuseReason")
+    return "failed", None
+
+
+def counts(run_dir: str | Path, built: set[str] | list[str] | None = None) -> dict | None:
+    """Every number the Cover, Getting Started and the report show. None without an inventory."""
+    run_dir = Path(run_dir)
+    inventory = (_read(run_dir / "components.json") or {}).get("components") or []
+    if not inventory:
+        return None
+    plans = {p.get("id"): p for p in (_read(run_dir / "plan.json") or {}).get("plans") or []}
+    known = built_ids(run_dir) if built is None else set(built)
+    built_known = known is not None
+    known = known or set()
+    rows = []
+    for c in inventory:
+        status, detail = classify(c, plans.get(c["id"]), known)
+        rows.append({"id": c["id"], "label": c.get("label") or c["id"], "tier": tier(c),
+                     "placements": placements(c), "structural": structural(c),
+                     "built": status == "built", "status": status, "detail": detail})
+    status_counts = Counter(r["status"] for r in rows)
+    excluded = {k: status_counts.get(k, 0) for k in EXCLUDED_REASONS}
+    gap = {k: status_counts.get(k, 0) for k in GAP_REASONS}
+    found, built_n = len(rows), status_counts.get("built", 0)
+    eligible = found - sum(excluded.values())
+    total_p = sum(r["placements"] for r in rows)
+    total_s = sum(r["structural"] for r in rows)
+    tiers_present = [t for t in TIERS if any(r["tier"] == t for r in rows)]
+    order = list(TIERS) + sorted({r["tier"] for r in rows} - set(TIERS))
+    by_tier = []
+    for t in order:
+        in_tier = [r for r in rows if r["tier"] == t]
+        if not in_tier and t not in TIERS:
+            continue
+        by_tier.append({"tier": t, "found": len(in_tier), "built": sum(r["built"] for r in in_tier),
+                        "notBuilt": sum(not r["built"] for r in in_tier),
+                        "placements": sum(r["placements"] for r in in_tier),
+                        "structural": sum(r["structural"] for r in in_tier)})
+    usage = (_read(run_dir / "usage.json") or {}).get("usage") or {}
+    ids = {r["id"] for r in rows}
+    outside = [{"id": k, "placements": int(v.get("placements") or 0),
+                "structural": int(v.get("structuralRefs") or 0)}
+               for k, v in usage.items() if isinstance(v, dict) and k not in ids]
+    return {
+        "builtKnown": built_known,
+        "found": found, "built": built_n, "eligible": eligible,
+        "ratio": round(built_n / eligible, 4) if eligible else None,
+        "gap": gap, "excluded": excluded,
+        "reasonLabels": {**GAP_REASONS, **EXCLUDED_REASONS},
+        "notBuilt": [r for r in rows if not r["built"]],
+        "placements": {"total": total_p, "covered": sum(r["placements"] for r in rows if r["built"]),
+                       "ratio": round(sum(r["placements"] for r in rows if r["built"]) / total_p, 4)
+                       if total_p else None},
+        "structural": {"total": total_s, "covered": sum(r["structural"] for r in rows if r["built"])},
+        "outsideInventory": [o for o in outside if o["placements"] or o["structural"]],
+        "tiered": bool(tiers_present),
+        "byTier": by_tier,
+        "coverBreakdown": cover_breakdown(rows),
+        "components": rows,
+    }
+
+
+def cover_breakdown(rows: list[dict]) -> list[dict]:
+    """Built components for the Cover: High, Medium, Low and Other, always in that order. Each
+    built component is counted once, so the four always add up to the built total."""
+    built = [r for r in rows if r["built"]]
+    breakdown = [{"tier": t, "built": sum(r["tier"] == t for r in built)} for t in USE_TIERS]
+    breakdown.append({"tier": OTHER, "built": sum(r["tier"] not in USE_TIERS for r in built)})
+    if sum(b["built"] for b in breakdown) != len(built):
+        raise ValueError("cover breakdown does not add up to the built total")
+    return breakdown
+
+
+def tier_table(c: dict) -> list[dict]:
+    """The report's usage-tier table, read the way the Cover reads: High, Medium, Low and Other with
+    the Cover's built counts, so the Built column adds up to the Cover's total, then retirement
+    candidates on a row of their own, not counted. Found keeps the raw count of each usage tier; Other
+    lists the tiers it holds."""
+    by_tier = {row["tier"]: row for row in c["byTier"]}
+    retire = "Retirement Candidates"
+    rows = []
+    for row in c["coverBreakdown"]:
+        t = row["tier"]
+        entry = {"tier": t, "label": COVER_LABELS[t], "color": TIER_COLORS[t], "built": row["built"], "counted": True}
+        if t == OTHER:
+            held = [r for r in c["byTier"] if r["tier"] not in USE_TIERS and (r["tier"] != retire or r["built"])
+                    and r["found"]]
+            entry["found"] = sum(r["found"] for r in held)
+            entry["holds"] = [{"tier": r["tier"], "built": r["built"], "found": r["found"]} for r in held]
+        else:
+            entry["found"] = (by_tier.get(t) or {}).get("found", 0)
+        rows.append(entry)
+    retired = by_tier.get(retire) or {}
+    if retired.get("found"):
+        rows.append({"tier": retire, "label": "Retirement candidates", "color": TIER_COLORS[retire],
+                     "built": retired["built"], "found": retired["found"], "counted": False})
+    return rows
+
+
+def coverage_sentence(c: dict) -> str:
+    return (f"Built {c['built']} of {c['eligible']} components it could have built"
+            + (f" ({c['ratio'] * 100:.0f}%)" if c.get("ratio") is not None else "") + ".")

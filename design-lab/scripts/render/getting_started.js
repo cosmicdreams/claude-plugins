@@ -1,5 +1,5 @@
 /**
- * The Getting Started page: orientation, coverage, the index, known gaps and provenance.
+ * The Getting Started page: orientation, coverage, the index, known gaps and how to regenerate.
  * Rebuilt whole on every run; it holds no state of its own.
  *
  * ARGS = { pageId, title, what, whatNot,
@@ -7,7 +7,8 @@
  *   organisation: [line], thresholds: { columns, rows },
  *   blockGuide: [[section, meaning]],
  *   index: [{ placements, label, machine, tier, type, status, setId, blockId }],
- *   gaps: [line], changelog: [[date, entry]], provenance: [line], regenerate: [command] }
+ *   gaps: [line], changelog: [[date, entry]], regenerate: [command] }
+ * Provenance is hidden plugin data on the document (cover.js), never drawn on a page.
  * Index names link to the component set, Documentation links to its block; a row that was
  * not built links to nothing rather than to a placeholder.
  */
@@ -63,8 +64,7 @@ if (ARGS.changelog && ARGS.changelog.length) {
   root.appendChild(section('Changelog', inner, table([{ title: 'Date', width: 160, role: 'cellCode' }, { title: 'Change', width: inner - 160 }], ARGS.changelog, { name: 'Changelog' })));
 }
 
-root.appendChild(section('Provenance and regeneration', inner,
-  ARGS.provenance.map((l, i) => text(l, 'body', { name: `Provenance ${i + 1}`, width: inner })),
+root.appendChild(section('Regeneration', inner,
   ARGS.regenerate.map((c, i) => text(`${i + 1}. ${c}`, 'code', { name: `Command ${i + 1}`, width: inner }))));
 
 return { rootId: root.id, rows: idx.length, height: root.height };

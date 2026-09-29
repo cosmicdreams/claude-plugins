@@ -10,6 +10,10 @@
 const KIT = {
   font: 'Inter',
   mono: 'Roboto Mono',
+  /* The Cover alone is set in IBM Plex Sans; cover.js loads it and falls back to `font`. Kit
+     style names map to Plex's own. */
+  coverFont: { family: 'IBM Plex Sans', styles: { 'Semi Bold': 'SemiBold', 'Medium': 'Medium', 'Regular': 'Regular' } },
+  coverInk: '#E6E8FF',
   ink: { strong: '#18181b', body: '#3f3f46', muted: '#71717a', faint: '#a1a1aa', inverse: '#ffffff' },
   surface: { page: '#f4f4f5', panel: '#ffffff', sunken: '#fafafa', rule: '#e4e4e7', chip: '#f4f4f5', dark: '#18181b', defect: '#fef2f2' },
   link: '#1d4ed8',
@@ -23,10 +27,14 @@ const ROLES = {
   display:   [KIT.font, 'Semi Bold', 72, 80, KIT.ink.inverse, -1.5, 'ORIGINAL'],
   lede:      [KIT.font, 'Regular', 20, 30, '#d4d4d8', 0, 'ORIGINAL'],
   eyebrowDk: [KIT.mono, 'Medium', 13, 16, KIT.ink.faint, 1.2, 'UPPER'],
-  statValue: [KIT.font, 'Semi Bold', 44, 48, KIT.ink.inverse, -0.8, 'ORIGINAL'],
-  statLabel: [KIT.font, 'Medium', 14, 20, '#d4d4d8', 0, 'ORIGINAL'],
   statNote:  [KIT.font, 'Regular', 12, 16, KIT.ink.faint, 0, 'ORIGINAL'],
   provDark:  [KIT.mono, 'Regular', 12, 18, KIT.ink.muted, 0, 'ORIGINAL'],
+  coverTitle:[KIT.font, 'Semi Bold', 128, 128, KIT.ink.inverse, -4, 'ORIGINAL'],
+  coverSub:  [KIT.font, 'Regular', 28, 36, KIT.coverInk, -0.2, 'ORIGINAL'],
+  coverTotal:[KIT.font, 'Semi Bold', 176, 176, KIT.ink.inverse, -6, 'ORIGINAL'],
+  coverUnit: [KIT.font, 'Medium', 48, 56, KIT.ink.inverse, -0.5, 'ORIGINAL'],
+  coverTileValue: [KIT.font, 'Semi Bold', 44, 48, KIT.ink.inverse, -0.8, 'ORIGINAL'],
+  coverTileLabel: [KIT.font, 'Medium', 16, 24, KIT.coverInk, 0.64, 'ORIGINAL'],
   title:     [KIT.font, 'Semi Bold', 40, 48, KIT.ink.strong, -0.6, 'ORIGINAL'],
   heading:   [KIT.font, 'Semi Bold', 24, 32, KIT.ink.strong, -0.2, 'ORIGINAL'],
   eyebrow:   [KIT.mono, 'Medium', 12, 16, KIT.ink.muted, 1.0, 'UPPER'],

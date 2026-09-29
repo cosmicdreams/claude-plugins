@@ -45,7 +45,41 @@
         }
       }
     },
-    "artifacts": {"type": "object"}
+    "artifacts": {"type": "object"},
+    "run": {
+      "description": "Run identity, written by workflow.py init (0.15 and later) or workflow.py identity. Optional so older manifests stay valid.",
+      "type": "object",
+      "properties": {
+        "startedAt": {"type": "string"},
+        "siteLabel": {"type": ["string", "null"]},
+        "siteUrl": {"type": ["string", "null"]},
+        "operator": {"type": ["string", "null"]},
+        "recordedLate": {"type": "boolean"},
+        "plugin": {
+          "type": "object",
+          "properties": {
+            "version": {"type": "string"},
+            "commit": {"type": ["string", "null"]},
+            "dirty": {"type": ["boolean", "null"]}
+          }
+        },
+        "claude": {
+          "type": "object",
+          "properties": {
+            "configDir": {"type": "string"},
+            "model": {"type": ["string", "null"]},
+            "insideClaudeCode": {"type": "boolean"},
+            "workingDirectory": {"type": "string"},
+            "transcripts": {"type": "string"}
+          }
+        },
+        "schemaChurn": {
+          "type": "object",
+          "required": ["changed"],
+          "properties": {"changed": {"type": "boolean"}, "recordedAt": {"type": "string"}}
+        }
+      }
+    }
   },
   "additionalProperties": true
 }

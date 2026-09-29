@@ -11,9 +11,18 @@ measures how far apart they are. One read call per component, not one per breakp
 geometry.json: {"variants": [{"label", "x", "y", "width", "height"}],
                 "captures": [{"label", "x", "y", "width", "height"}]}  (same order)
 
-A pair passes when at most THRESHOLD of its pixels differ by more than TOLERANCE in any
-channel. Antialiased text alone sits well under two percent; a wrong font, a missing image
-or a shifted block does not.
+A pair passes when at most THRESHOLD of its pixels differ by more than TOLERANCE.
+Antialiased text alone sits well under two percent; a wrong font, a missing image or a
+shifted block does not.
+
+Two metrics, kept side by side so older results stay comparable:
+
+- original (the default): compares only the area the two crops share from their top-left
+  corner and applies the tolerance to a greyscale difference, so a master that is too short
+  can still pass;
+- corrected (`--corrected`, or compare(..., corrected=True)): compares over the larger of
+  the two boxes, counts every pixel the other crop does not cover as changed, and applies
+  the tolerance to each colour channel separately.
 """
 from __future__ import annotations
 
@@ -42,18 +51,38 @@ def compare_pair(a: Image.Image, b: Image.Image) -> dict:
             "heightDelta": round(abs(a.height - b.height), 1), "pass": changed / total <= THRESHOLD}
 
 
-def compare(png: Path, geometry: dict) -> dict:
+def compare_pair_corrected(a: Image.Image, b: Image.Image) -> dict:
+    """Corrected metric: unmatched area and per-channel tolerance both count."""
+    w, h = max(a.width, b.width), max(a.height, b.height)
+    shared_w, shared_h = min(a.width, b.width), min(a.height, b.height)
+    total = max(1, w * h)
+    changed = total - shared_w * shared_h            # area only one of the two covers
+    if shared_w and shared_h:
+        box = (0, 0, shared_w, shared_h)
+        diff = ImageChops.difference(a.convert("RGB").crop(box), b.convert("RGB").crop(box))
+        red, green, blue = diff.split()
+        worst = ImageChops.lighter(ImageChops.lighter(red, green), blue)
+        changed += sum(worst.histogram()[TOLERANCE + 1:])
+    ratio = changed / total
+    return {"width": w, "height": h, "changed": changed, "ratio": round(ratio, 4),
+            "widthDelta": round(abs(a.width - b.width), 1),
+            "heightDelta": round(abs(a.height - b.height), 1), "pass": ratio <= THRESHOLD}
+
+
+def compare(png: Path, geometry: dict, corrected: bool = False) -> dict:
     with Image.open(png) as raw:
         img = Image.new("RGB", raw.size, "white")
         img.paste(raw.convert("RGBA"), mask=raw.convert("RGBA").split()[-1])
     pairs = []
     for v, c in zip(geometry["variants"], geometry["captures"]):
-        r = compare_pair(region(img, v), region(img, c))
+        pair = compare_pair_corrected if corrected else compare_pair
+        r = pair(region(img, v), region(img, c))
         r["label"] = v.get("label")
         r["heightDelta"] = round(abs(v["height"] - c["height"]), 1)
         pairs.append(r)
-    return {"threshold": THRESHOLD, "tolerance": TOLERANCE, "pairs": pairs,
-            "pass": bool(pairs) and all(p["pass"] for p in pairs)}
+    out = {"threshold": THRESHOLD, "tolerance": TOLERANCE, "pairs": pairs,
+           "pass": bool(pairs) and all(p["pass"] for p in pairs)}
+    return {"metric": "corrected", **out} if corrected else out
 
 
 def main() -> int:
@@ -61,8 +90,10 @@ def main() -> int:
     ap.add_argument("png")
     ap.add_argument("geometry")
     ap.add_argument("--out")
+    ap.add_argument("--corrected", action="store_true",
+                    help="count height difference and unmatched area; tolerance per channel")
     ns = ap.parse_args()
-    out = compare(Path(ns.png), json.loads(Path(ns.geometry).read_text()))
+    out = compare(Path(ns.png), json.loads(Path(ns.geometry).read_text()), ns.corrected)
     text = json.dumps(out, indent=1) + "\n"
     if ns.out:
         Path(ns.out).write_text(text)

@@ -6,6 +6,8 @@ import hashlib
 import io
 import base64
 import json
+import subprocess
+import shutil
 import sys
 import tempfile
 import unittest
@@ -17,6 +19,8 @@ FIXTURES = Path(__file__).resolve().parent / "fixtures"
 sys.path.insert(0, str(SCRIPTS))
 import fetch_images
 import figma_build
+import library_counts
+import score_run
 import render_payload
 import responsive
 import spec_to_tree
@@ -285,11 +289,12 @@ class FigmaBuildTests(unittest.TestCase):
 
     def test_init_step_order_and_page_list(self):
         steps = [s["id"] for s in self.state["steps"]]
-        self.assertEqual(steps, ["pages", "variables", "cover", "foundation:Color",
+        self.assertEqual(steps, ["pages", "variables", "foundation:Color",
             "foundation:Typography", *["tier:" + t for t in figma_build.TIERS],
             "build:sdc.test.hero", "images:sdc.test.hero", "block:sdc.test.hero",
-            "evidence:sdc.test.hero", "compare:sdc.test.hero", "getting-started"])
-        self.assertEqual(self.state["built"], ["sdc.test.hero"])
+            "evidence:sdc.test.hero", "compare:sdc.test.hero", "cover", "getting-started"])
+        self.assertEqual(self.state["planned"], ["sdc.test.hero"])
+        self.assertNotIn("built", self.state)
         tree = json.loads((self.project / "figma/trees/sdc.test.hero.json").read_text())
         self.assertEqual(tree["label"], "Hero")
         self.assertEqual(tree["modes"], ["Desktop", "Tablet", "Mobile"])
@@ -343,6 +348,67 @@ class FigmaBuildTests(unittest.TestCase):
                              state["steps"][step_index + 1]["id"])
             rec.result = str(self.project / "empty.json")
 
+    def test_build_fills_the_preflight_cover_and_refuses_other_content(self):
+        project = json.loads((self.project / "project.json").read_text())
+        project["target"] = {"figmaFileKey": "file123", "preflight": {"fileKey": "file123", "coverPageId": "0:1"}}
+        self.write("project.json", project)
+        ns = type("Args", (), {"project": str(self.project), "file_key": "file123",
+                               "site_url": "https://local.test/", "canonical_base_url": "https://public.test/"})()
+        with contextlib.redirect_stdout(io.StringIO()):
+            figma_build.cmd_init(ns)
+        self.assertEqual(json.loads((self.project / "figma/state.json").read_text())["preflightCover"], "0:1")
+        rec = type("Record", (), {"project": str(self.project), "step": "pages",
+                                  "result": str(self.project / "pages.json")})()
+        for pages, error in (({"pages": {"Cover": "0:9"}}, "not the page preflight drew"),
+                             ({"pages": {"Cover": "0:1"}, "foreign": ["Page 2"]}, "did not create")):
+            self.write("pages.json", pages)
+            with self.assertRaisesRegex(SystemExit, error):
+                figma_build.cmd_record(rec)
+            self.assertEqual(json.loads((self.project / "figma/state.json").read_text())["done"], [])
+        self.write("pages.json", {"pages": {"Cover": "0:1"}, "foreign": []})
+        with contextlib.redirect_stdout(io.StringIO()):
+            figma_build.cmd_record(rec)
+        self.assertEqual(json.loads((self.project / "figma/state.json").read_text())["done"], ["pages"])
+
+    def test_name_only_cover_draws_the_title_block_alone(self):
+        if not shutil.which("node"):
+            self.skipTest("node not installed")
+        import render_payload
+        args = {"pageId": "0:1", "ground": "#001B67", "headline": "Test Org", "subtitle": "Component Library",
+                "tiers": [], "provenance": {"stage": "preflight"}, "version": "4.1.0"}
+        code = render_payload.call_payload("cover", args)
+        # A small stand-in for the Figma plugin API: enough to run the Cover and see what it drew.
+        fake = r"""
+const made = [];
+function node(type) {
+  const data = {};
+  const n = { type, id: `n${made.length}`, children: [], removed: false, name: '', fills: [],
+    appendChild(c) { this.children.push(c); c.parent = this; }, resize(w, h) { this.width = w; this.height = h; },
+    setSharedPluginData(ns, k, v) { data[k] = v; }, getSharedPluginData(ns, k) { return data[k] || ''; },
+    findAll(f) { const out = []; const walk = (x) => x.children.forEach((c) => { if (f(c)) out.push(c); walk(c); }); walk(this); return out; },
+    remove() { this.removed = true; } };
+  made.push(n);
+  return n;
+}
+const page = Object.assign(node('PAGE'), { id: '0:1' });
+const root = node('DOCUMENT'); root.children = [page];
+const loaded = [];
+globalThis.figma = { root, createFrame: () => node('FRAME'), createText: () => node('TEXT'),
+  loadFontAsync: async (f) => { loaded.push(`${f.family} ${f.style}`); },
+  getNodeByIdAsync: async (id) => (id === '0:1' ? page : null), setCurrentPageAsync: async () => {} };
+const run = new (Object.getPrototypeOf(async function () {}).constructor)(CODE);
+run().then((r) => console.log(JSON.stringify({ r, texts: made.filter((n) => n.type === 'TEXT').map((n) => [n.characters, n.fontName.family]),
+  frames: made.filter((n) => n.type === 'FRAME').map((n) => n.name), plex: loaded.some((f) => f.startsWith('IBM Plex Sans')) })));
+""".replace("CODE", json.dumps(code))
+        out = json.loads(subprocess.run(["node", "-e", fake], capture_output=True, text=True, check=True).stdout)
+        self.assertEqual(out["texts"], [["Test Org", "IBM Plex Sans"], ["Component Library", "IBM Plex Sans"]])
+        self.assertIn("Title", out["frames"])
+        for absent in ("Library", "Total", "Tier bar", "Tiers"):
+            self.assertNotIn(absent, out["frames"])
+        self.assertEqual((out["r"]["nameOnly"], out["r"]["fontLoaded"], out["r"]["font"], out["r"]["pluginData"]),
+                         (True, True, "IBM Plex Sans", True))
+        self.assertEqual(out["r"]["pageId"], "0:1")
+
     def test_tier_description_block_and_getting_started_content(self):
         pages = {name: f"page-{i}" for i, name in enumerate(figma_build.page_list(self.project))}
         self.result("pages", {"pages": pages})
@@ -367,6 +433,8 @@ class FigmaBuildTests(unittest.TestCase):
         self.assertEqual(block["evidence"], [{"label": "Mobile 375px", "width": 375, "height": 500},
                                                {"label": "Desktop 1400px", "width": 1400, "height": 300}])
         self.assertNotRegex(json.dumps(block), r"\b20\d{2}-\d{2}-\d{2}\b")
+        # Getting Started is drawn last, once the component's steps are recorded.
+        self.state["done"] = ["pages", "build:sdc.test.hero", "block:sdc.test.hero"]
         start = figma_build.getting_started_args(self.project, self.state)
         self.assertEqual(start["index"][0]["setId"], "component-1")
         gaps = "\n".join(start["gaps"])
@@ -455,6 +523,138 @@ class FigmaBuildTests(unittest.TestCase):
         self.result("block:sdc.test.hero", {"blockId": "block-1"})
         start = figma_build.getting_started_args(self.project, state)
         self.assertEqual([row[0] for row in start["coverage"]["rows"]], ["Untiered"])
+
+    def surfaces(self):
+        """The Cover, the Getting Started page and the benchmark scorecard, from one build."""
+        pages = {name: f"page-{i}" for i, name in enumerate(figma_build.page_list(self.project))}
+        self.result("pages", {"pages": pages})
+        self.result("build:sdc.test.hero", {"componentId": "component-1"})
+        self.result("block:sdc.test.hero", {"blockId": "block-1"})
+        # The component's steps are recorded, which is what makes it built.
+        self.state["done"] = ["pages", "build:sdc.test.hero", "block:sdc.test.hero"]
+        self.write("figma/state.json", self.state)
+        cover = figma_build.cover_args(self.project, self.state)
+        start = figma_build.getting_started_args(self.project, self.state)
+        card = score_run.score(self.project)
+        return cover, start, card
+
+    def test_cover_is_for_the_recipient_only(self):
+        cover, _, _ = self.surfaces()
+        self.assertEqual(set(cover), {"pageId", "ground", "headline", "subtitle", "total", "tiers", "provenance",
+                                     "version"})
+        self.assertEqual((cover["headline"], cover["subtitle"]), ("Test Org", "Component Library"))
+        drawn = json.dumps({k: v for k, v in cover.items() if k not in ("provenance", "version", "pageId", "ground")})
+        for hidden in ("local.test", "runtime", "standard", "placements", "not built", "token", "design-lab"):
+            self.assertNotIn(hidden, drawn)
+        self.assertEqual(cover["provenance"]["siteUrl"].rstrip("/"), "https://local.test")
+        self.assertEqual([t["key"] for t in cover["tiers"]], ["High Use", "Medium Use", "Low Use", "Other"])
+        self.assertEqual(sum(int(t["value"]) for t in cover["tiers"]), int(cover["total"]["value"]))
+        template = (Path(figma_build.__file__).parent / "render" / "cover.js").read_text()
+        self.assertNotIn("provDark", template)             # provenance is never drawn
+        self.assertIn("figma.root.setSharedPluginData('designlab', 'provenance'", template)
+
+    def test_cover_bar_is_the_total_split_into_exact_shares(self):
+        if not shutil.which("node"):
+            self.skipTest("node not installed")
+        source = (Path(figma_build.__file__).parent / "render" / "cover.js").read_text()
+        helpers = source[source.index("/* BEGIN bar helpers"):source.index("/* END bar helpers */")]
+        script = helpers + """
+const cases = [[[3, 0, 17, 9], 1280], [[1, 1, 1], 100], [[5], 1280], [[0, 0, 0, 0], 1280], [[50, 7, 13, 1], 997]];
+console.log(JSON.stringify(cases.map(([v, w]) => barWidths(v, w))));
+"""
+        out = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout.splitlines()
+        cases = [([3, 0, 17, 9], 1280), ([1, 1, 1], 100), ([5], 1280), ([0, 0, 0, 0], 1280), ([50, 7, 13, 1], 997)]
+        for (values, width), widths in zip(cases, json.loads(out[0])):
+            total = sum(values)
+            self.assertEqual(sum(widths), width if total else 0)       # the bar is 100% of the total
+            for v, w in zip(values, widths):
+                if total:
+                    self.assertLess(abs(w - v / total * width), 1)   # each share within a pixel
+                if v == 0:
+                    self.assertEqual(w, 0)
+        # The colors come from library_counts, through the cover arguments; the template has none.
+        cover, _, _ = self.surfaces()
+        self.assertEqual(cover["ground"], library_counts.COVER_GROUND)
+        colors = [t["color"] for t in cover["tiers"]]
+        self.assertEqual(colors, [library_counts.TIER_COLORS[k] for k in ("High Use", "Medium Use", "Low Use", "Other")])
+        for color in colors + [cover["ground"]]:
+            self.assertNotIn(color.lower(), source.lower())
+        self.assertEqual(len(set(colors)), 4)                          # one color per category
+
+        def luminance(hex_color):
+            channels = [int(hex_color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+            r, g, b = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b
+        ground = luminance(cover["ground"])
+        contrast = {c: (luminance(c) + 0.05) / (ground + 0.05) for c in colors}
+        for color, ratio in contrast.items():                          # every segment is seen on the navy ground
+            self.assertGreaterEqual(ratio, 3, color)
+        self.assertEqual(min(contrast, key=contrast.get), library_counts.TIER_COLORS["Other"])   # Other is the quietest
+        self.assertGreaterEqual((1.05) / (ground + 0.05), 15)         # a white logo stays legible on the ground
+        for color in colors:                                           # no grey: it reads as empty
+            r, g, b = (int(color[i:i + 2], 16) for i in (1, 3, 5))
+            self.assertGreater(max(r, g, b) - min(r, g, b), 48, color)
+        self.assertEqual(library_counts.TIER_COLORS["Retirement Candidates"], "#B9003F")
+
+    def test_report_coverage_strip_uses_the_cover_colors(self):
+        import re
+        import score_report
+        cover, _, card = self.surfaces()
+        strip = score_report.coverage_strip(card["sections"]["coverage"])
+        built = re.findall(r'class="c-built" style="background:(#[0-9A-Fa-f]{6})" data-tier="([^"]+)"', strip)
+        # Every built square, in the Cover's order, in its tile's color; one square per component.
+        expected = [(t["color"], t["key"]) for t in cover["tiers"] for _ in range(int(t["value"]))]
+        self.assertEqual(built, expected)
+        keys = re.findall(r'class="key" style="--k:(#[0-9A-Fa-f]{6})"', strip)
+        self.assertEqual(keys, [t["color"] for t in cover["tiers"]])
+        self.assertIn(f"--ground:{cover['ground']}", strip)
+
+    def test_report_tier_table_reads_like_the_cover(self):
+        import re
+        import score_report
+        cover, _, card = self.surfaces()
+        table = card["sections"]["library"]["tierTable"]
+        counted = [r for r in table if r["counted"]]
+        self.assertEqual([(r["tier"], str(r["built"]), r["color"]) for r in counted],
+                         [(t["key"], t["value"], t["color"]) for t in cover["tiers"]])
+        self.assertEqual(sum(r["built"] for r in counted), int(cover["total"]["value"]))
+        self.assertTrue(all(r["tier"] == "Retirement Candidates" for r in table if not r["counted"]))
+        html = score_report.library_section(card["sections"]["library"], card["sections"]["coverage"])
+        self.assertEqual(re.findall(r'class="t-sw" style="background:(#[0-9A-Fa-f]{6})"', html),
+                         [r["color"] for r in table])
+        self.assertIn(f'<tr class="sum"><th scope="row">Total</th><td class="n">{cover["total"]["value"]}</td>', html)
+
+    def test_cover_getting_started_and_report_share_every_number(self):
+        cover, start, card = self.surfaces()
+        cov = card["sections"]["coverage"]
+        counted = library_counts.counts(self.project, library_counts.recorded_ids(self.state))
+        self.assertEqual(int(cover["total"]["value"]), counted["built"])
+        self.assertEqual(cov["built"], counted["built"])
+        self.assertEqual((cov["eligible"], cov["gap"], cov["excluded"]),
+                         (counted["eligible"], counted["gap"], counted["excluded"]))
+        rows = {row[0]: row for row in start["coverage"]["rows"]}
+        for tier_row in counted["byTier"]:
+            if tier_row["tier"] in rows:
+                row = rows[tier_row["tier"]]
+                self.assertEqual([int(row[1]), int(row[2]), int(row[3]), int(row[4].replace(",", ""))],
+                                 [tier_row["found"], tier_row["built"], tier_row["notBuilt"], tier_row["placements"]])
+        by_tier = {r["tier"]: r["built"] for r in counted["byTier"]}
+        for tile in cover["tiers"]:
+            expected = (by_tier.get(tile["key"], 0) if tile["key"] != "Other"
+                        else counted["built"] - sum(by_tier.get(t, 0) for t in library_counts.USE_TIERS))
+            self.assertEqual(int(tile["value"]), expected)
+        self.assertEqual(sum(int(r[4].replace(",", "")) for r in start["coverage"]["rows"]),
+                         cov["usageWeighted"]["placements"])
+        self.assertIn(library_counts.coverage_sentence(counted), start["changelog"][0][1])
+        self.assertEqual(card["sections"]["library"]["tiers"],
+                         [{"tier": r["tier"], "components": r["found"], "built": r["built"]} for r in counted["byTier"]])
+
+    def test_index_tier_follows_the_merged_usage_tier(self):
+        import index_rows
+        global_header = {"id": "x", "usage": {"tier": "Components — High Use", "placements": 0, "structuralRefs": 0}}
+        self.assertEqual(index_rows.tier_of(global_header, 50, 10), "Components — High Use")
+        self.assertEqual(index_rows.tier_of({"id": "y", "usage": {"placements": 0, "structuralRefs": 0}}, 50, 10),
+                         "Components — Retirement Candidates")
 
     def test_images_step_skips_failed_fetches_and_surfaces_fetch_errors(self):
         cid = "sdc.test.hero"

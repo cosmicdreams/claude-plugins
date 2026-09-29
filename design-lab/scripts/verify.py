@@ -25,7 +25,7 @@ import json, os, re, sys, argparse, glob, datetime
 from artifact_contracts import missing_nested, slot_accepts
 
 SEV = ('blocker', 'major', 'minor')
-STANDARD_VERSION = '4.0.0'
+STANDARD_VERSION = '4.1.0'
 
 # A description only resolves a blank code name if it addresses the blank. An unrelated note
 # is not an explanation, however long it is.
@@ -976,7 +976,7 @@ def check_index_complete(index, components, state, rep):
 
 def check_getting_started_sections(state, rep):
     required = {'Coverage', 'How this file is organised', 'What each component block shows',
-                'Index', 'Known gaps', 'Provenance and regeneration'}
+                'Index', 'Known gaps', 'Regeneration'}
     missing = sorted(required - set((state.get('gettingStarted') or {}).get('sections') or []))
     if missing:
         rep.add('getting-started-sections', 'major', 'Getting Started',

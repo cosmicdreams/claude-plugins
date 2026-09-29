@@ -36,7 +36,7 @@ Validate the enriched artifact, then atomically promote it to the canonical `com
 
 A verified example was fetched anonymously, returned its recorded status, contains the component marker, and has `verifiedAt`. Site Studio definition hashes identify styled elements, not placements; count distinct component-instance ids. Paragraph markers can undercount templates that omit the wrapper, so an unseen component is a question, not proof of disuse.
 
-Placements are lower bounds unless every eligible source record/page was traversed. Preserve `pagesScanned` or database population, measurement date, structural references, and unavailable or gated examples. If no credible usage source exists, explicitly select `--usage none --degraded-reason <reason> --by <human-decider>` and use the standard Untiered page. If detection found a source, planning stops until usage is measured or that human-approved degraded waiver exists.
+Placements are lower bounds unless every eligible source record/page was traversed. Preserve `pagesScanned` or database population, measurement date, structural references, and unavailable or gated examples. If no credible usage source exists, explicitly select `--usage none --degraded-reason <reason> --by <human-decider>` and use the standard Untiered page; within `design-lab:run` the decider is the operator when preflight chose `--usage-fallback untiered`. If detection found a source, planning stops until usage is measured or that human-approved degraded waiver exists.
 
 ## Published-page copy and composition
 

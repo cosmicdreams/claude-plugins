@@ -13,9 +13,10 @@ from pathlib import Path
 from artifact_contracts import (load_json, missing_nested, sha256, slot_accepts, tool_version,
                                 validate, write_json)
 import figma_build
+import library_counts
 import index_rows
 
-STANDARD_VERSION = '4.0.0'
+STANDARD_VERSION = '4.1.0'
 BREAKPOINTS = ('mobile', 'tablet', 'desktop')
 
 
@@ -75,7 +76,7 @@ def generate(project: Path) -> list[tuple[str, Path, str, str | None]]:
     project = project.resolve()
     state = load_json(project / 'figma/state.json')
     if state.get('standardVersion') != STANDARD_VERSION:
-        raise ValueError('Figma state is not standard 4.0.0')
+        raise ValueError('Figma state is not standard %s' % STANDARD_VERSION)
     def result(step: str) -> dict:
         return load_json(project / 'figma/results' / (safe(step) + '.json'))
     pages = result('pages')['pages']
@@ -93,7 +94,9 @@ def generate(project: Path) -> list[tuple[str, Path, str, str | None]]:
     }
     outputs = [('foundation', project / 'foundation.json', 'foundation', 'foundation')]
     write_json(outputs[0][1], foundation)
-    for cid in state['built']:
+    # One record per component the build actually recorded, never merely planned.
+    recorded = library_counts.recorded_ids(state)
+    for cid in [c for c in library_counts.planned_ids(state) if c in recorded]:
         comp = components[cid]
         plan = plans.get(cid, {})
         tree = load_json(project / 'figma/trees' / (cid + '.json'))

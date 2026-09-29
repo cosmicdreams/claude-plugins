@@ -34,8 +34,9 @@ sys.path.insert(0, str(HERE))
 import render_payload  # noqa: E402
 import spec_to_tree  # noqa: E402
 import responsive  # noqa: E402
+import library_counts  # noqa: E402  the one source of every count on Cover and Getting Started
 
-STANDARD_VERSION = "4.0.0"
+STANDARD_VERSION = "4.1.0"
 TIERS = ["High Use", "Medium Use", "Low Use", "Structural Only", "Retirement Candidates"]
 TIER_PAGES = [f"Components — {t}" for t in TIERS]
 FOUNDATION_ORDER = ["Color", "Typography", "Spacing & Layout", "Elevation & Shape"]
@@ -57,7 +58,7 @@ def load(project: Path, name: str, default=None):
 
 
 def short_tier(tier: str | None) -> str:
-    return (tier or "").replace("Components — ", "") or "Untiered"
+    return library_counts.short_tier(tier)
 
 
 def components(project: Path) -> list[dict]:
@@ -102,12 +103,11 @@ def git_commit(repo: Path) -> str:
 
 
 def placements(c: dict) -> int:
-    return int((c.get("usage") or {}).get("placements") or 0)
+    return library_counts.placements(c)
 
 
 def structural(c: dict) -> int:
-    u = c.get("usage") or {}
-    return int(u.get("structuralReferences") or u.get("structuralRefs") or 0)
+    return library_counts.structural(c)
 
 
 def example_path(c: dict) -> str | None:
@@ -157,7 +157,7 @@ def cmd_init(ns) -> int:
         (out / "trees" / f"{c['id']}.json").write_text(json.dumps(tree, indent=1, sort_keys=True) + "\n")
         built.append({"id": c["id"]})
 
-    steps = [{"id": "pages"}, {"id": "variables"}, {"id": "cover"}]
+    steps = [{"id": "pages"}, {"id": "variables"}]
     steps += [{"id": f"foundation:{d}"} for d in foundation_domains(project)]
     steps += [{"id": f"tier:{t}"} for t in tier_names(comps)]
     for b in built:
@@ -165,17 +165,24 @@ def cmd_init(ns) -> int:
                   {"id": f"block:{b['id']}"}, {"id": f"evidence:{b['id']}"}, {"id": f"compare:{b['id']}"}]
     if (project / "compositions.json").exists():
         steps += [{"id": "examples"}]
-    steps += [{"id": "getting-started"}]
+    # The Cover shows what was built, so it is drawn once every component step is recorded.
+    steps += [{"id": "cover"}, {"id": "getting-started"}]
     state = {
         "standardVersion": STANDARD_VERSION,
         "fileKey": ns.file_key,
         "siteUrl": ns.site_url.rstrip("/"),
         "canonicalBaseUrl": ns.canonical_base_url.rstrip("/"),
         "runtime": render_payload.runtime_hash(),
-        "built": [b["id"] for b in built],
+        # The build plan, in order. What is built is read from `done` (library_counts.recorded_ids).
+        "planned": [b["id"] for b in built],
         "steps": steps,
         "done": [],
     }
+    # Preflight drew a name-only Cover to prove the file can be written; the build fills in that
+    # Cover page rather than adding a second one.
+    preflight = ((load(project, "project.json", {}).get("target") or {}).get("preflight") or {})
+    if preflight.get("coverPageId") and preflight.get("fileKey") == ns.file_key:
+        state["preflightCover"] = preflight["coverPageId"]
     (out / "state.json").write_text(json.dumps(state, indent=1) + "\n")
     print(json.dumps({"steps": len(steps), "components": len(built), "runtime": state["runtime"]}))
     return 0
@@ -225,31 +232,34 @@ def variables_args(project: Path) -> dict:
     return {"collections": load(project, "variable-plan.json")["collections"]}
 
 
-def cover_args(project: Path, state: dict) -> dict:
+COVER_LABELS = library_counts.COVER_LABELS
+
+
+def provenance(project: Path, state: dict) -> dict:
+    """Where the file came from. Stored as hidden plugin data, never drawn on a page; the
+    benchmark report (score_run.py) shows it to developers."""
     repo = repo_root(project)
-    comps = components(project)
-    built = set(state["built"])
-    strategy = (load(project, "detection.json", {}).get("recommended") or {}).get("component", "")
-    kind = {"canvas": "DRUPAL CANVAS", "sdc": "DRUPAL", "sitestudio": "SITE STUDIO",
-            "paragraphs": "DRUPAL"}.get(strategy, "DRUPAL")
-    pages = max([int((c.get("usage") or {}).get("renderedPages") or 0) for c in comps] + [0])
-    tokens = load(project, "tokens.json", {}).get("totals", {}).get("tokens", 0)
+    return {"source": repo.name, "commit": git_commit(repo), "siteUrl": state.get("siteUrl"),
+            "captureWidths": sorted(VIEWPORTS.values()), "standardVersion": STANDARD_VERSION,
+            "runtime": state.get("runtime"), "builtOn": date.today().isoformat(),
+            "regenerate": "design-lab:run"}
+
+
+def cover_args(project: Path, state: dict) -> dict:
+    """The Cover is for the library's recipient: the site's name, one generic line, how many
+    components the library holds and how that number splits by usage tier. Nothing else."""
+    c = library_counts.counts(project, library_counts.recorded_ids(state))
+    tiers = [{"key": row["tier"], "value": str(row["built"]), "label": COVER_LABELS.get(row["tier"], row["tier"]),
+              "color": library_counts.TIER_COLORS[row["tier"]]}
+             for row in c["coverBreakdown"]] if c["tiered"] else []
     return {
         "pageId": page_id(project, "Cover"),
-        "eyebrow": f"{kind} COMPONENT LIBRARY",
-        "headline": site_name(repo),
-        "lede": "Every component an author can place on the site, drawn from the running site at three widths and documented beside it.",
-        "stats": [
-            {"key": "components", "value": str(len(built)), "label": "components built", "note": f"of {len(comps)} in the source"},
-            {"key": "placements", "value": f"{sum(placements(c) for c in comps):,}", "label": "author placements", "note": "counted on published pages"},
-            {"key": "structural", "value": f"{sum(structural(c) for c in comps):,}", "label": "structural references", "note": "components placed inside components"},
-            {"key": "tokens", "value": str(tokens), "label": "design tokens", "note": "read from the site's stylesheets"},
-            {"key": "not-built", "value": str(len(comps) - len(built)), "label": "not built", "note": "each named under Known gaps"},
-        ],
-        "provenance": [
-            f"Source {repo.name} at {git_commit(repo)} · rendered from {state['siteUrl']} at 375, 800 and 1400 pixels.",
-            f"design-lab standard {STANDARD_VERSION} · runtime {state['runtime']} · regenerate with design-lab:run.",
-        ],
+        "ground": library_counts.COVER_GROUND,
+        "headline": site_name(repo_root(project)),
+        "subtitle": "Component Library",
+        "total": {"value": str(c["built"]), "label": "components" if c["built"] != 1 else "component"},
+        "tiers": tiers,
+        "provenance": provenance(project, state),
         "version": STANDARD_VERSION,
     }
 
@@ -341,14 +351,17 @@ def measured_type(project: Path) -> list[dict]:
 
 def tier_args(project: Path, state: dict, tier: str) -> dict:
     comps = [c for c in components(project) if short_tier((c.get("usage") or {}).get("tier")) == tier]
-    built = [c for c in comps if c["id"] in state["built"]]
+    # Tier pages are drawn before the components, so the summary states only what is true before and
+    # after they are built: how many components the tier has and their placements. Whether each one
+    # was built is on the Cover and in the Getting Started index, which count recorded steps.
+    planned = [c for c in comps if c["id"] in library_counts.planned_ids(state)]
     total = sum(placements(c) for c in comps)
-    summary = [f"{len(comps)} component{'s' if len(comps) != 1 else ''} in this tier; {len(built)} built. "
+    summary = [f"{len(comps)} component{'s' if len(comps) != 1 else ''} in this tier. "
                f"{total:,} author placement{'s' if total != 1 else ''} between them."]
     empty = None
-    if not built:
+    if not planned:
         empty = ("No component in this tier is in the source." if not comps else
-                 f"None of the {len(comps)} components in this tier was built. The index on Getting Started gives each one's reason.")
+                 f"None of the {len(comps)} components in this tier is part of the library. The index on Getting Started gives each one's reason.")
     thresholds = ("No usage source counted these components' placements, so they have no tier."
                   if tier == "Untiered" else
                   "Tiers by author placements: High Use 50 or more · Medium Use 10 to 49 · Low Use 1 to 9 · Structural Only when placed only inside other components · Retirement Candidates when placed nowhere.")
@@ -559,7 +572,7 @@ def examples_args(project: Path, state: dict) -> dict:
     comps = {c["id"]: c for c in inventory}
     ids = component_ids(inventory)
     pages = load(project, "compositions.json").get("pages", [])
-    built = set(state["built"])
+    built = library_counts.recorded_ids(state)
     def distinct(p):
         return sorted({component_id(r, ids) for r in p["components"]} & built)
     ranked = sorted(pages, key=lambda p: (p["address"] != "/", -len(distinct(p)), p["address"]))
@@ -593,13 +606,12 @@ def examples_args(project: Path, state: dict) -> dict:
 def getting_started_args(project: Path, state: dict) -> dict:
     comps = components(project)
     plan = plans(project)
-    built = set(state["built"])
+    built = library_counts.recorded_ids(state)
     ordered = build_order(comps, plan)
-    coverage = []
-    for t in tier_names(comps):
-        cs = [c for c in comps if short_tier((c.get("usage") or {}).get("tier")) == t]
-        coverage.append([t, str(len(cs)), str(sum(1 for c in cs if c["id"] in built)),
-                         str(sum(1 for c in cs if c["id"] not in built)), f"{sum(placements(c) for c in cs):,}"])
+    counted = library_counts.counts(project, built)
+    shown = set(tier_names(comps))
+    coverage = [[row["tier"], str(row["found"]), str(row["built"]), str(row["notBuilt"]), f"{row['placements']:,}"]
+                for row in counted["byTier"] if row["tier"] in shown]
     index = []
     gaps = []
     for c in ordered:
@@ -651,9 +663,8 @@ def getting_started_args(project: Path, state: dict) -> dict:
                        ["Live reference", "Screenshots of the running site in the same columns, for comparison."]],
         "index": index,
         "gaps": gaps,
-        "changelog": [[date.today().isoformat(), f"Built {len(built)} of {len(comps)} components to design-lab standard {STANDARD_VERSION}."]],
-        "provenance": [f"Source: {repo} at {git_commit(repo)}. Rendered from {state['siteUrl']}.",
-                       f"Standard {STANDARD_VERSION}; renderer runtime {state['runtime']}."],
+        "changelog": [[date.today().isoformat(), library_counts.coverage_sentence(counted)
+                       + f" {counted['found']} found in the source."]],
         "regenerate": ["design-lab:run against the same repository and site", "figma_build.py init, then next/record until done", "design-lab:verify"],
     }
 
@@ -704,7 +715,7 @@ def cmd_next(ns) -> int:
     elif head == "images":
         out = images_step(project, sid, rest, state)
     elif head == "block":
-        order = state["built"].index(rest)
+        order = library_counts.planned_ids(state).index(rest)
         out = emit_payload(project, sid, "component_block", block_args(project, state, rest, order))
     elif head == "evidence":
         tree = json.loads((project / "figma" / "trees" / f"{rest}.json").read_text())
@@ -795,6 +806,16 @@ def cmd_record(ns) -> int:
     key = required.get(ns.step.split(":")[0])
     if key and key not in data:
         raise SystemExit(f"{ns.step}: result has no {key}; not recording a failed step")
+    if ns.step == "pages":
+        # The file must be empty, or hold only this run's preflight Cover: anything else is
+        # someone's work, and the build does not write around it.
+        if data.get("foreign"):
+            raise SystemExit("pages: the file holds pages design-lab did not create ("
+                             + ", ".join(data["foreign"]) + "); the build needs an empty file, or one holding only "
+                             "this run's preflight Cover")
+        if state.get("preflightCover") and data["pages"].get("Cover") != state["preflightCover"]:
+            raise SystemExit(f"pages: the Cover page is {data['pages'].get('Cover')}, not the page preflight drew "
+                             f"({state['preflightCover']}); the build must fill in the preflight Cover, not add another")
     if ns.step.startswith("compare:") and data.get("file"):
         import figma_compare
         geo = result(project, "block:" + ns.step.split(":", 1)[1])["geometry"]
@@ -811,7 +832,8 @@ def cmd_status(ns) -> int:
     state = json.loads((project / "figma" / "state.json").read_text())
     nxt = pending(state)
     print(json.dumps({"done": len(state["done"]), "total": len(state["steps"]), "next": nxt["id"] if nxt else None,
-                      "built": len(state["built"]), "runtime": state["runtime"]}))
+                      "planned": len(library_counts.planned_ids(state)),
+                      "built": len(library_counts.recorded_ids(state)), "runtime": state["runtime"]}))
     return 0
 
 

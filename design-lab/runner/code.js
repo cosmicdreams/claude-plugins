@@ -5,35 +5,75 @@
 // server picks the build whose file key matches this file, so the same plugin drives every
 // run. A failed step is never recorded; running the plugin again resumes from it.
 //
-// Every request carries the token the server printed when it started. The plugin asks for it
-// the first time and whenever the server refuses it, and keeps it in clientStorage.
+// The plugin can be started before the build: the server answers `wait` until there are
+// steps, and the plugin stays open, says it is connected, and asks again every few seconds.
+// At preflight the server sends one `check` step that proves this file is the target, is
+// empty and can be written. If the server stops answering (a restart), the plugin keeps
+// retrying rather than quitting; a restarted server keeps its token, so nobody pastes it again.
+//
+// Every request carries the person's runner token (~/.design-lab/runner-token). The plugin asks
+// for it the first time on a machine and whenever the server refuses it, and keeps it in
+// clientStorage. Every request also carries this runner's version; preflight copies this file
+// into ~/.design-lab/runner/ with the plugin's version filled in, and a runner older than the
+// plugin is told to restart, which loads the new code.
 const SERVER = 'http://localhost:8765';
 const TOKEN_KEY = 'design-lab-runner-token';
+const RUNNER_VERSION = 'source';
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 let token = '';
+const RETRY_MS = 5000;
+const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+
+// A small status panel, so the person can see the runner is alive while it waits.
+function status(text) {
+  if (!figma.ui || !status.open) {
+    figma.showUI(`<p id="s" style="font:12px sans-serif;margin:12px"></p>
+      <script>onmessage = (e) => { document.getElementById('s').textContent = e.data.pluginMessage; };</script>`,
+    { width: 280, height: 60, title: 'design-lab runner' });
+    status.open = true;
+  }
+  figma.ui.postMessage(text);
+}
 
 function url(path) {
-  return `${SERVER}${path}${path.includes('?') ? '&' : '?'}fileKey=${encodeURIComponent(figma.fileKey)}&token=${encodeURIComponent(token)}`;
+  return `${SERVER}${path}${path.includes('?') ? '&' : '?'}fileKey=${encodeURIComponent(figma.fileKey)}&token=${encodeURIComponent(token)}&version=${encodeURIComponent(RUNNER_VERSION)}`;
 }
 
 async function call(path, body) {
   // text/plain keeps the POST a simple request, so no preflight check is needed.
   const init = body === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'text/plain' }, body: JSON.stringify(body) };
-  const res = await fetch(url(path), init);
+  let res;
+  for (;;) {
+    try {
+      res = await fetch(url(path), init);
+      break;
+    } catch (e) {
+      // The server is not answering (restarting, or not started yet): wait and try again.
+      status('The design-lab server is not answering. Retrying.');
+      await sleep(RETRY_MS);
+    }
+  }
   const text = await res.text();
+  if (res.status === 426) {
+    // Outdated: the new code loads only when the runner starts again.
+    const message = JSON.parse(text).message;
+    status(message);
+    throw Object.assign(new Error(message), { status: 426 });
+  }
   if (res.status !== 200) throw Object.assign(new Error(text), { status: res.status });
   return JSON.parse(text);
 }
 
 async function askToken(reason) {
   figma.showUI(`<form id="f" style="font:12px sans-serif;margin:12px">
-    <p>${reason} Paste the runner token figma_runner.py printed when it started.</p>
+    <p>${reason} Paste your runner token, from ~/.design-lab/runner-token on this machine.</p>
     <input id="t" style="width:100%;box-sizing:border-box" autofocus>
     <p><button>Connect</button></p></form>
     <script>f.onsubmit = (e) => { e.preventDefault(); parent.postMessage({ pluginMessage: t.value.trim() }, '*'); };</script>`,
   { width: 320, height: 180 });
   const value = await new Promise((resolve) => { figma.ui.onmessage = resolve; });
   figma.ui.close();
+  status.open = false;
   await figma.clientStorage.setAsync(TOKEN_KEY, value);
   return value;
 }
@@ -76,7 +116,7 @@ async function firstStep() {
       return await call('/next');
     } catch (e) {
       if (e.status !== 401) throw e;
-      token = await askToken('The server refused the saved token; a restarted server prints a new one.');
+      token = await askToken('The server refused the saved token.');
     }
   }
 }
@@ -87,10 +127,18 @@ async function run() {
   let step = await firstStep();
   for (;;) {
     if (step.kind === 'done') return `design-lab: build complete (${count} steps this session)`;
-    figma.notify(step.kind === 'dump' ? `design-lab export: ${step.step}` : `design-lab ${step.done + 1}/${step.total}: ${step.step}`, { timeout: 4000 });
+    if (step.kind === 'wait') {
+      status(step.message || 'Connected. Waiting for the build to start.');
+      await sleep(step.retryMs || RETRY_MS);
+      step = await call('/next');
+      continue;
+    }
+    status(step.kind === 'check' ? 'Connected. Checking this file for preflight.'
+      : step.kind === 'dump' ? `Exporting ${step.step}`
+        : `Building ${step.done + 1} of ${step.total}: ${step.step}`);
     let result;
     try {
-      if (step.kind === 'use_figma' || step.kind === 'dump') result = await new AsyncFunction(step.code)();
+      if (step.kind === 'use_figma' || step.kind === 'dump' || step.kind === 'check') result = await new AsyncFunction(step.code)();
       else if (step.kind === 'upload') result = await upload(step);
       else if (step.kind === 'screenshot') result = await screenshot(step);
       else throw new Error(`unknown step kind ${step.kind}`);
