@@ -317,6 +317,43 @@ class ScoreRunTest(unittest.TestCase):
                          [("Opus 5.5", 1, 100)])
         self.assertEqual(card["headline"]["effort"]["benchmarkTokensByModel"], [{"name": "Opus 5.5", "total": 100}])
 
+    def test_first_scoring_fixes_the_benchmark_end(self):
+        write(self.run_dir / "project.json", legacy_project(run={"startedAt": "2026-01-05T10:00:00+00:00"}))
+        start = dt.datetime.now(dt.timezone.utc).replace(microsecond=0) - dt.timedelta(minutes=2)
+        (self.run_dir / "phase-log.jsonl").write_text(
+            json.dumps({"at": start.isoformat(), "phase": "benchmark", "status": "running"}) + "\n")
+        with contextlib.redirect_stdout(io.StringIO()):
+            score_run.main([str(self.run_dir)])
+        log = [json.loads(line) for line in (self.run_dir / "phase-log.jsonl").read_text().splitlines()]
+        self.assertEqual((log[-1]["phase"], log[-1]["status"]), ("benchmark", "complete"))
+        first = json.loads((self.run_dir / "benchmark" / "scorecard.json").read_text())["sections"]["cost"]["clock"]
+        self.assertEqual(first["benchmarkEnd"], score_run.iso(score_run.parse_time(log[-1]["at"])))
+        self.assertIsNotNone(first["wallSeconds"])
+        written = dt.datetime.fromtimestamp((self.run_dir / "benchmark" / "report.html").stat().st_mtime,
+                                            dt.timezone.utc)
+        ended = score_run.parse_time(first["benchmarkEnd"])       # the end is when the report was finished
+        self.assertLess(abs((ended - written).total_seconds()), 2)
+        self.assertIn(first["benchmarkEnd"][:16].replace("T", " ")[:10], log[-1]["at"])
+        with contextlib.redirect_stdout(io.StringIO()):                 # a re-score never moves the end
+            score_run.main([str(self.run_dir)])
+        again = json.loads((self.run_dir / "benchmark" / "scorecard.json").read_text())["sections"]["cost"]["clock"]
+        self.assertEqual((again["benchmarkEnd"], again["wallSeconds"], again["benchmarkEndSource"]),
+                         (first["benchmarkEnd"], first["wallSeconds"], "phase log"))
+        self.assertEqual(sum(1 for line in (self.run_dir / "phase-log.jsonl").read_text().splitlines()
+                             if '"complete"' in line), 1)
+
+    def test_a_run_scored_before_without_an_end_shows_no_wall_time(self):
+        write(self.run_dir / "project.json", legacy_project(run={"startedAt": "2026-01-05T10:00:00+00:00"}))
+        (self.run_dir / "phase-log.jsonl").write_text(
+            json.dumps({"at": "2026-01-05T12:00:00+00:00", "phase": "benchmark", "status": "running"}) + "\n")
+        write(self.run_dir / "benchmark" / "scorecard.json", {"scored": "before the scorer recorded ends"})
+        with contextlib.redirect_stdout(io.StringIO()):
+            score_run.main([str(self.run_dir)])
+        clock = json.loads((self.run_dir / "benchmark" / "scorecard.json").read_text())["sections"]["cost"]["clock"]
+        self.assertIsNone(clock["wallSeconds"])
+        self.assertIn("end was not recorded", clock["notShownBecause"])
+        self.assertNotIn('"complete"', (self.run_dir / "phase-log.jsonl").read_text())
+
     def test_completion_message_fills_every_placeholder(self):
         out = self.root / "out"
         with contextlib.redirect_stdout(io.StringIO()):
@@ -386,6 +423,18 @@ def entry(kind, at, session="sess-w", sidechain=False, **extra):
         return {**base, "type": "assistant", "message": {"id": f"m-{at}-{session}", "model": extra.get("model", "claude-opus-5-5"),
                                                         "usage": {"input_tokens": 10, "output_tokens": 5},
                                                         "content": content}}
+    if kind == "ask":          # the shape of a real question to the person
+        return {**base, "type": "assistant", "message": {"id": f"m-{at}", "model": "claude-opus-5-5",
+                "usage": {"input_tokens": 1, "output_tokens": 1},
+                "content": [{"type": "tool_use", "id": "ask-1", "name": extra.get("tool", "AskUserQuestion"),
+                             "input": {"questions": [{"question": "Approve the plan?"}]}, "caller": {}}]}}
+    if kind == "answer":
+        return {**base, "type": "user", "permissionMode": extra.get("mode", "bypassPermissions"),
+                "toolUseResult": {"answers": {"Approve the plan?": "Yes"}, "questions": []},
+                "message": {"role": "user", "content": [{"type": "tool_result", "tool_use_id": "ask-1",
+                                                         "content": "User has answered your questions"}]}}
+    if kind == "meta":
+        return {**base, "type": "user", "isMeta": True, "message": {"role": "user", "content": "<system-reminder>x"}}
     if kind == "limit":        # the shape of a real usage-limit record
         return {**base, "type": "assistant", "isApiErrorMessage": True, "error": "rate_limit", "apiErrorStatus": 429,
                 "quotaLimits": {"status": "rejected", "resetsAt": extra["resets"], "rateLimitType": "five_hour"},
@@ -444,12 +493,13 @@ class WorkingTimeTest(unittest.TestCase):
         self.assertEqual(work["workingSeconds"], 150 + 40 + 30)
         self.assertEqual(work["waitingOnLimitsSeconds"], 48 * 60)            # 10:12 until the limit reset at 11:00
         self.assertEqual(work["waitingOnPersonSeconds"], 530 + 30 * 60)       # after each finished turn, and after the reset
-        self.assertEqual(work["workingSeconds"] + work["waitingOnPersonSeconds"] + work["waitingOnLimitsSeconds"],
-                         work["spanSeconds"])
+        self.assertEqual(work["waitingOnServiceSeconds"], 0)
+        self.assertEqual(work["workingSeconds"] + work["waitingOnPersonSeconds"] + work["waitingOnLimitsSeconds"]
+                         + work["waitingOnServiceSeconds"], work["spanSeconds"])
         self.assertEqual(work["limitEvents"], 1)
         self.assertEqual(card["headline"]["effort"]["workingSeconds"], 220)
 
-    def test_overload_counts_as_waiting_on_limits(self):
+    def test_overload_counts_as_waiting_on_the_service(self):
         write_transcript(self.main, [
             entry("prompt", "2026-01-05T10:00:00Z"),
             entry("overloaded", "2026-01-05T10:00:05Z"),
@@ -457,8 +507,80 @@ class WorkingTimeTest(unittest.TestCase):
         ])
         (self.main.with_suffix("") / "subagents" / "agent-1.jsonl").unlink()
         work = score_run.score(self.run_dir, session="sess-w")["sections"]["cost"]["working"]
-        self.assertEqual((work["workingSeconds"], work["waitingOnLimitsSeconds"], work["waitingOnPersonSeconds"]),
-                         (5, 120, 0))
+        self.assertEqual((work["workingSeconds"], work["waitingOnLimitsSeconds"], work["waitingOnServiceSeconds"],
+                          work["waitingOnPersonSeconds"]), (5, 0, 120, 0))
+        self.assertEqual((work["limitEvents"], work["serviceEvents"]), (0, 1))
+
+    def test_a_question_to_the_person_is_waiting_not_working(self):
+        write_transcript(self.main, [
+            entry("prompt", "2026-01-05T10:00:00Z"),
+            entry("ask", "2026-01-05T10:00:10Z"),                    # the plan goes up for approval
+            entry("meta", "2026-01-05T10:00:30Z"),                   # a record between call and answer
+            entry("answer", "2026-01-05T10:05:10Z", mode="default"),  # the person answered 5 min later
+            entry("reply", "2026-01-05T10:05:20Z"),
+        ])
+        # A subagent still working during the question keeps its time as working.
+        write_transcript(self.main.with_suffix("") / "subagents" / "agent-1.jsonl", [
+            entry("prompt", "2026-01-05T10:01:00Z", sidechain=True),
+            entry("reply", "2026-01-05T10:02:00Z", sidechain=True),
+        ])
+        out = self.root / "out"
+        with contextlib.redirect_stdout(io.StringIO()):
+            score_run.main([str(self.run_dir), "--session", "sess-w", "--out", str(out)])
+        card = json.loads((out / "scorecard.json").read_text())
+        work = card["sections"]["cost"]["working"]
+        self.assertEqual((work["workingSeconds"], work["waitingOnPersonSeconds"]), (10 + 60 + 10, 300 - 60))
+        self.assertEqual(work["questionsToPerson"], 1)
+        self.assertEqual(work["developer"]["permissionModes"], {"default": 1})
+        self.assertIs(work["fullAccess"], False)
+        self.assertIn("did not run with full access", (out / "report.html").read_text())
+        self.assertNotIn("permissionModes", (out / "report.html").read_text())
+
+    def test_interruptions_after_the_preflight_go_ahead(self):
+        write_transcript(self.main, [
+            entry("prompt", "2026-01-05T10:00:00Z"),
+            entry("reply", "2026-01-05T10:00:20Z"),                  # preflight asks for the answers: setup
+            entry("prompt", "2026-01-05T10:00:25Z", text="here they are"),
+            entry("step", "2026-01-05T10:00:40Z"),
+            entry("result", "2026-01-05T10:05:00Z"),
+            entry("ask", "2026-01-05T10:06:00Z"),                    # a question during capture
+            entry("answer", "2026-01-05T10:07:00Z"),
+            entry("reply", "2026-01-05T10:10:00Z"),                  # "done with capture, continue?"
+            entry("prompt", "2026-01-05T10:20:00Z", text="continue"),
+            entry("step", "2026-01-05T10:20:10Z"),
+            entry("result", "2026-01-05T11:00:30Z"),
+            entry("reply", "2026-01-05T11:05:00Z"),                  # the completion message: after the benchmark began
+            entry("prompt", "2026-01-05T11:06:00Z", text="thanks"),
+        ])
+        (self.run_dir / "phase-log.jsonl").write_text("\n".join(json.dumps(e) for e in [
+            {"at": "2026-01-05T10:00:30+00:00", "phase": "preflight", "status": "complete"},
+            {"at": "2026-01-05T10:01:00+00:00", "phase": "capture", "status": "running"},
+            {"at": "2026-01-05T10:15:00+00:00", "phase": "capture", "status": "complete"},
+            {"at": "2026-01-05T11:00:00+00:00", "phase": "benchmark", "status": "running"}]) + "\n")
+        write(self.run_dir / "project.json", legacy_project(run={"claude": {"configDir": str(self.config)}}, phases={
+            "preflight": {"status": "complete", "detail": {"planApproval": "proposed"}}}))
+        out = self.root / "out"
+        with contextlib.redirect_stdout(io.StringIO()):
+            score_run.main([str(self.run_dir), "--session", "sess-w", "--out", str(out)])
+        card = json.loads((out / "scorecard.json").read_text())
+        self.assertEqual(score_run.validate_scorecard(card), [])
+        attended = card["sections"]["cost"]["unattended"]
+        self.assertEqual((attended["count"], attended["ranUnattended"]), (2, False))
+        self.assertEqual([(i["kind"], i["phase"]) for i in attended["interruptions"]],
+                         [("question", "capture"), ("turn ended and waited for a prompt", "capture")])
+        message = (out / "completion.md").read_text()
+        self.assertIn("Ran unattended after preflight: no, 2 interruptions: a question during capture; "
+                      "a turn that waited for a prompt during capture.", message)
+        self.assertIn("2 interruptions after preflight.", (out / "report.html").read_text())
+
+    def test_an_unattended_run_says_so(self):
+        write_transcript(self.main, [entry("prompt", "2026-01-05T10:00:00Z"), entry("step", "2026-01-05T10:00:40Z"),
+                                     entry("result", "2026-01-05T10:30:00Z"), entry("reply", "2026-01-05T10:31:00Z")])
+        (self.run_dir / "phase-log.jsonl").write_text(json.dumps(
+            {"at": "2026-01-05T10:00:30+00:00", "phase": "preflight", "status": "complete"}) + "\n")
+        attended = score_run.score(self.run_dir, session="sess-w")["sections"]["cost"]["unattended"]
+        self.assertEqual((attended["count"], attended["ranUnattended"]), (0, True))
+        self.assertEqual(score_run.unattended_phrase(attended), "yes")
 
     def test_benchmark_start_splits_working_time(self):
         (self.run_dir / "phase-log.jsonl").write_text(
@@ -467,8 +589,8 @@ class WorkingTimeTest(unittest.TestCase):
         self.assertEqual(work["production"]["workingSeconds"], 190)
         self.assertEqual(work["benchmark"]["workingSeconds"], 30)
         for part in (work["production"], work["benchmark"]):
-            self.assertEqual(part["workingSeconds"] + part["waitingOnPersonSeconds"] + part["waitingOnLimitsSeconds"],
-                             part["spanSeconds"])
+            self.assertEqual(part["workingSeconds"] + part["waitingOnPersonSeconds"] + part["waitingOnLimitsSeconds"]
+                             + part["waitingOnServiceSeconds"], part["spanSeconds"])
 
     def test_without_a_transcript_only_measured_intervals_are_shown(self):
         out = self.root / "out"
@@ -584,6 +706,47 @@ class WorkflowCaptureTest(unittest.TestCase):
         self.assertEqual([c["text"] for c in churn["changes"]], ["added a slot kind", "renamed a field"])
         self.assertNotEqual(self.workflow("identity", "--project", str(self.ws), "--no-schema-change",
                                           "--schema-change", "x", check=False).returncode, 0)
+
+    def test_preflight_records_the_go_ahead_or_lists_what_is_missing(self):
+        import http.server
+        import threading
+        server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), http.server.SimpleHTTPRequestHandler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.shutdown)
+        site = f"http://127.0.0.1:{server.server_address[1]}/"
+        self.workflow("init", "--repo", str(self.repo), "--workspace", str(self.ws))
+        missing = self.workflow("preflight", "--project", str(self.ws), "--site-url", "http://127.0.0.1:9/",
+                                "--site-label", "Example site", "--operator", "A. Person", check=False)
+        self.assertEqual(missing.returncode, 1)
+        answer = json.loads(missing.stdout)
+        self.assertFalse(answer["ready"])
+        self.assertEqual(len(answer["missing"]), 3)          # site not answering, no Figma file, runner not confirmed
+        self.assertNotIn('"preflight"', (self.ws / "phase-log.jsonl").read_text())
+        ready = json.loads(self.workflow("preflight", "--project", str(self.ws), "--site-url", site,
+                                         "--figma-url", "https://www.figma.com/design/KEY9/Library", "--runner-ready",
+                                         "--site-label", "Example site", "--operator", "A. Person").stdout)
+        self.assertTrue(ready["ready"])
+        self.assertEqual(ready["message"], "I have everything I need; it's safe to let this run to completion.")
+        log = [json.loads(l) for l in (self.ws / "phase-log.jsonl").read_text().splitlines()]
+        self.assertEqual((log[-1]["phase"], log[-1]["status"], log[-1]["at"]), ("preflight", "complete", ready["goAheadAt"]))
+        project = json.loads((self.ws / "project.json").read_text())
+        self.assertEqual(project["target"]["figmaFileKey"], "KEY9")
+        self.assertEqual(project["phases"]["preflight"]["detail"]["planApproval"], "proposed")
+        self.assertEqual((project["run"]["siteLabel"], project["run"]["operator"]), ("Example site", "A. Person"))
+
+    def test_plan_approval_follows_the_preflight_choice(self):
+        self.ws.mkdir()
+        for choice, approved in (("proposed", True), ("review", False)):
+            write(self.ws / "project.json", legacy_project(phases={
+                "plan": {"status": "awaiting-approval"},
+                "preflight": {"status": "complete", "detail": {"planApproval": choice, "operator": "A. Person"}}}))
+            result = self.workflow("approve", "--project", str(self.ws), "--from-preflight", check=False)
+            self.assertEqual(result.returncode == 0, approved, result.stderr)
+            if approved:
+                plan = json.loads((self.ws / "project.json").read_text())["phases"]["plan"]
+                self.assertEqual(plan["approvedBy"], "A. Person (preflight: build the plan as proposed)")
+            else:
+                self.assertIn("review", result.stderr)
 
     def test_benchmark_phase_can_be_recorded(self):
         self.workflow("init", "--repo", str(self.repo), "--workspace", str(self.ws))

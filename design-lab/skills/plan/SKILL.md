@@ -16,4 +16,4 @@ Read `references/variant-policy.md` and `references/defaults.md`. The script app
 
 `plan.json` is the renderer contract. It records all component ids, property treatments, variant axes and counts, defects, flags, and `build`/`refuse` verdicts. Above `maxVariants`, refuse and state the arithmetic; never truncate the matrix.
 
-Show the proposed scope, flags, refusals, and total variant count before external mutation. Persist approval through `workflow.py approve`. An explicit request to build the entire library is approval when the generated plan stays within that request; a material interpretation change still requires direction.
+Summarise the proposed scope, flags, refusals, and total variant count before external mutation. Persist approval through `workflow.py approve --from-preflight`, which follows the person's preflight choice: build the plan as proposed, or stop for their review. Flags keep the treatment the plan proposes. Within `design-lab:run`, a plan that would change what the person asked for (a different component source, or a scope they did not request) is a genuine blocker; name the change and wait for direction.

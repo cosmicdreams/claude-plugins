@@ -423,7 +423,8 @@ def hero(card: dict) -> str:
              f"with no model in the loop." if runner.get("steps") else "No runner log for this run.")
     if made.get("status") == "measured":
         waits = [f"{duration(made[k])} waiting on {what}" for k, what in
-                 (("waitingOnPersonSeconds", "the person"), ("waitingOnLimitsSeconds", "usage limits")) if made.get(k)]
+                 (("waitingOnPersonSeconds", "the person"), ("waitingOnLimitsSeconds", "usage limits"),
+                  ("waitingOnServiceSeconds", "the service")) if made.get(k)]
         bench = working.get("benchmark") or {}
         figure, unit = split_duration(made["workingSeconds"])
         blocks.append(verdict(
@@ -764,9 +765,11 @@ def cost_section(cost: dict) -> str:
                 continue
             time_rows += [(f"{caption}: working", part["workingSeconds"], "Claude or its tools working"),
                           (f"{caption}: waiting on the person", part["waitingOnPersonSeconds"],
-                           "the assistant had finished; the next event was a prompt"),
+                           "the assistant had finished, or a tool was waiting for the person's answer"),
                           (f"{caption}: waiting on usage limits", part["waitingOnLimitsSeconds"],
-                           "after a rate limit, usage limit or overload, until it lifted")]
+                           "after a rate, session, usage or spend limit, until it reset"),
+                          (f"{caption}: waiting on the service", part["waitingOnServiceSeconds"],
+                           "the service was overloaded or unavailable")]
     else:
         time_rows.append(("Working time", None, working.get("reason") or "not measured"))
     if runner.get("steps"):
@@ -775,13 +778,31 @@ def cost_section(cost: dict) -> str:
                    "workflow.py init to the end of the benchmark" if clock.get("wallSeconds") is not None
                    else f"not shown: {clock.get('notShownBecause') or 'its ends were not recorded'}"),
                   ("Scoring script alone", clock.get("scorerSeconds"), "this report's own computation")]
+    approval = ('<p class="note">This session did not run with full access throughout, so a tool span may '
+                'include a wait for the person\'s approval, counted here as working time.</p>'
+                if working.get("fullAccess") is False else "")
     how = "" if working.get("status") == "measured" else (
         f'<p class="note"><b>Working time was not measured for this run.</b> To measure it, '
         f'{esc(working.get("howToMeasure") or "score with --session <id>")}.</p>')
     parts.append('<div style="margin-bottom:32px"><h3>Time</h3><table class="tbl"><caption>Measured intervals</caption><tbody>'
                  + "".join(f'<tr><th scope="row">{esc(n)}</th><td class="n">{duration(v) if v is not None else "–"}</td>'
                            f'<td class="sub">{esc(d)}</td></tr>' for n, v, d in time_rows)
-                 + f'</tbody></table>{how}<p class="note"><b>How time is measured.</b> {esc(cost.get("definition"))}</p></div>')
+                 + f'</tbody></table>{how}{approval}<p class="note"><b>How time is measured.</b> {esc(cost.get("definition"))}</p></div>')
+    attended = cost.get("unattended") or {}
+    if attended.get("status") == "measured":
+        items = "".join(
+            f'<li><span class="mono">{stamp(i["at"])}</span> {esc("A question to the person" if i["kind"] == "question" else "A turn that ended and waited for a prompt")} '
+            f'during {esc(i["phase"])}' + (" (the plan review chosen at preflight)" if i["planned"] else "") + "</li>"
+            for i in attended["interruptions"])
+        headline_ = ("Ran unattended after preflight: yes." if attended["ranUnattended"] else
+                     f'{attended["count"]} interruption{"s" if attended["count"] != 1 else ""} after preflight.')
+        parts.append(f'<div style="margin-bottom:32px"><h3>{esc(headline_)}</h3>'
+                     + (f'<ul class="plain">{items}</ul>' if items else "")
+                     + f'<p class="note">From the preflight go-ahead at {stamp(attended["goAheadAt"])} to the benchmark\'s start, '
+                       'every question the run asked the person and every turn that waited for a prompt. Waits before '
+                       'the go-ahead are setup.</p></div>')
+    else:
+        parts.append(absent("Unattended after preflight", attended))
     model = cost.get("model") or {}
     if model.get("status") == "measured":
         def token_table(caption, part):

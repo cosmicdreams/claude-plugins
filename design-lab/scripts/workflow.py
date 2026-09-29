@@ -78,10 +78,10 @@ def append_jsonl(path: Path, entry: dict) -> None:
 
 
 def set_phase(project_path_: Path, project: dict, phase: str, status: str,
-              detail: dict | None = None) -> None:
+              detail: dict | None = None, at: str | None = None) -> None:
     project.setdefault("phases", {})[phase] = {
         "status": status,
-        "updatedAt": now(),
+        "updatedAt": at or now(),
         **({"detail": detail} if detail else {}),
     }
     write_json(project_path_, project)
@@ -446,14 +446,101 @@ def variables_command(args):
                       "warnings": document.get("warnings") or []}, indent=2))
 
 
+def site_reachable(url: str) -> tuple[bool, str]:
+    """Whether the local site answers. A local development certificate is accepted as it is."""
+    import ssl
+    import urllib.error
+    import urllib.request
+    context = ssl._create_unverified_context() if url.startswith("https://") else None
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, method="GET"), timeout=10, context=context) as response:
+            return response.status < 500, f"HTTP {response.status}"
+    except urllib.error.HTTPError as error:
+        return error.code < 500, f"HTTP {error.code}"
+    except (urllib.error.URLError, OSError, ValueError) as error:
+        return False, str(getattr(error, "reason", error))
+
+
+def preflight_command(args):
+    """Gather every answer the run needs in one pass, check what can be checked, and either give
+    the go-ahead (recorded as the preflight phase, so the benchmark knows when the run was left to
+    itself) or list exactly what is still missing."""
+    path, project = load_project(args.project)
+    run = project.get("run") if isinstance(project.get("run"), dict) else {}
+    missing, checks = [], {}
+    site_url = args.site_url or run.get("siteUrl")
+    if not site_url:
+        missing.append("the local site address (--site-url)")
+    else:
+        ok, detail = site_reachable(site_url)
+        checks["site"] = {"url": site_url, "reachable": ok, "detail": detail}
+        if not ok:
+            missing.append(f"a running local site at {site_url} ({detail})")
+    figma_key = re.search(r"/design/([A-Za-z0-9]+)", args.figma_url or "")
+    if not figma_key:
+        missing.append("the target Figma file address, https://www.figma.com/design/<file-key>/... (--figma-url)")
+    if not args.runner_ready:
+        missing.append("confirmation that the design-lab runner plugin is imported in Figma desktop and the "
+                       "target file is open (--runner-ready)")
+    site_label = args.site_label or run.get("siteLabel")
+    operator = args.operator or run.get("operator")
+    if not site_label:
+        missing.append("a neutral site label for reports (--site-label)")
+    if not operator:
+        missing.append("the operator's name (--operator)")
+    usage = (project.get("decisions") or {}).get("usageSource")
+    if usage and usage != "none":
+        ddev_root = Path(args.ddev_root or project["repository"]["root"]).resolve()
+        checks["usage"] = {"source": usage, "ddevRoot": str(ddev_root), "ddevProject": (ddev_root / ".ddev").is_dir()}
+        if not checks["usage"]["ddevProject"] and args.usage_fallback != "untiered":
+            missing.append(f"a DDEV project for the {usage} usage source at {ddev_root} (--ddev-root), or "
+                           "--usage-fallback untiered to build without usage tiers")
+    answers = {"siteUrl": site_url, "publicUrl": args.public_url, "figmaUrl": args.figma_url,
+               "siteLabel": site_label, "operator": operator, "model": args.model,
+               "planApproval": args.plan_approval, "usageFallback": args.usage_fallback,
+               "ddevRoot": args.ddev_root, "runnerReady": bool(args.runner_ready),
+               "schemaChurn": "recorded by the run at the benchmark, without asking"}
+    if missing:
+        print(json.dumps({"ready": False, "missing": missing, "checks": checks,
+                          "message": "Still needed before the run can go ahead unattended: " + "; ".join(missing) + "."},
+                         indent=2))
+        sys.exit(1)
+    for key, value in (("siteLabel", site_label), ("siteUrl", site_url), ("operator", operator)):
+        run[key] = value
+    if args.model:
+        run.setdefault("claude", {})["model"] = args.model
+    project["run"] = run
+    previous = (project.get("target") or {}).get("figmaFileKey")
+    if previous and previous != figma_key.group(1):
+        invalidate(project, ("foundation", "components", "index", "verify"),
+                   ("foundation", "build-record", "index", "verify-report"))
+    project["target"] = {"figmaFileKey": figma_key.group(1), "figmaUrl": args.figma_url, "recordedAt": now()}
+    go_ahead = now()
+    set_phase(path, project, "preflight", "complete", {**answers, "checks": checks, "goAheadAt": go_ahead},
+              at=go_ahead)
+    print(json.dumps({"ready": True, "goAheadAt": go_ahead, "checks": checks,
+                      "message": "I have everything I need; it's safe to let this run to completion."}, indent=2))
+
+
 def approve_command(args):
     path, project = load_project(args.project)
     if project["phases"]["plan"]["status"] != "awaiting-approval":
         raise ValueError("plan is not awaiting approval")
+    by = args.by
+    if args.from_preflight:
+        detail = (project["phases"].get("preflight") or {}).get("detail") or {}
+        if detail.get("planApproval") != "proposed":
+            raise ValueError("preflight chose to review the plan before building: stop and ask the person to "
+                             "review plan.json, then approve with --by <name>")
+        by = f"{detail.get('operator')} (preflight: build the plan as proposed)"
+    if not by:
+        raise ValueError("approve needs --by <name> or --from-preflight")
     project["phases"]["plan"]["status"] = "approved"
     project["phases"]["plan"]["approvedAt"] = now()
-    project["phases"]["plan"]["approvedBy"] = args.by
+    project["phases"]["plan"]["approvedBy"] = by
     write_json(path, project)
+    append_jsonl(path.parent / PHASE_LOG, {"at": project["phases"]["plan"]["approvedAt"], "phase": "plan",
+                                           "status": "approved"})
     print(json.dumps(project["phases"]["plan"], indent=2))
 
 
@@ -687,9 +774,28 @@ def main():
     command.add_argument("--project", default=".design-lab")
     command.set_defaults(func=variables_command)
 
+    command = sub.add_parser("preflight", help="gather every answer up front and give the go-ahead")
+    command.add_argument("--project", default=".design-lab")
+    command.add_argument("--site-url", help="local site address the run captures from")
+    command.add_argument("--public-url", help="the site's public address, for provenance and captions")
+    command.add_argument("--figma-url", help="the empty target Figma file")
+    command.add_argument("--runner-ready", action="store_true",
+                         help="the person confirms the runner plugin is imported in Figma desktop")
+    command.add_argument("--site-label")
+    command.add_argument("--operator")
+    command.add_argument("--model")
+    command.add_argument("--ddev-root", help="DDEV project root for the usage source (default: repository)")
+    command.add_argument("--plan-approval", choices=("proposed", "review"), default="proposed",
+                         help="build the plan as proposed (default, unattended) or stop for review")
+    command.add_argument("--usage-fallback", choices=("stop", "untiered"), default="stop",
+                         help="if the detected usage source cannot be used: stop, or build untiered")
+    command.set_defaults(func=preflight_command)
+
     command = sub.add_parser("approve")
     command.add_argument("--project", default=".design-lab")
-    command.add_argument("--by", required=True)
+    command.add_argument("--by")
+    command.add_argument("--from-preflight", action="store_true",
+                         help="approve as the person chose at preflight")
     command.set_defaults(func=approve_command)
 
     command = sub.add_parser("target")

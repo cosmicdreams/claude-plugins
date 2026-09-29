@@ -6,8 +6,10 @@
 
 <run-dir> is the run's workspace (the folder holding project.json, usually `.design-lab`).
 Every section is scored on its own from whatever evidence the run left behind. A section
-with no evidence says "not measured" and why; it never guesses. Scoring never writes into
-the run directory, so it can be re-run whenever the scorer improves.
+with no evidence says "not measured" and why; it never guesses. The first scoring of a run
+records the benchmark's end in the run's phase log; apart from that, and the run's own
+benchmark/ folder, scoring never writes into the run directory, so it can be re-run whenever
+the scorer improves.
 """
 from __future__ import annotations
 
@@ -18,6 +20,7 @@ import os
 import re
 import statistics
 import sys
+import time
 from collections import Counter, defaultdict
 from pathlib import Path
 
@@ -39,9 +42,6 @@ BLINDED_CRITERIA = (
     ("documentation", "Documentation usefulness"),
 )
 SESSION_GAP = dt.timedelta(minutes=15)
-# Scoring that starts this soon after the recorded benchmark start is the benchmark's own last step,
-# so its end is the benchmark's end. A later re-score needs the recorded completion instead.
-LIVE_SCORING = dt.timedelta(hours=1)
 
 
 # ---------------------------------------------------------------------------- helpers
@@ -385,14 +385,17 @@ TIME_DEFINITION = (
     "Working time is when Claude or its tools were working, read from the session transcript: every "
     "span from a person's prompt or a tool result to the end of the assistant's response counts, and "
     "the main session's spans and its subagents' spans are merged, so overlapping time counts once. "
-    "The rest of the time between the transcript's first and last events is waiting: waiting on the "
-    "person when the assistant had finished its turn and the next event is a person's prompt, and "
-    "waiting on usage limits when the gap follows an error that reports a rate limit, a usage limit "
-    "or an overloaded service. Working time and both kinds of waiting add up to the transcript's span. "
-    "Wall time is a clock on the wall from workflow.py init to the end of the benchmark, shown only "
-    "when both ends were recorded. The Figma build time comes from the runner's log, with no model in "
-    "the loop: each unbroken stretch of steps, from the first served to the last recorded, added up, "
-    "where a pause of more than 15 minutes starts a new stretch.")
+    "The rest of the time between the transcript's first and last events is waiting, of three kinds: "
+    "waiting on the person, when the assistant had finished its turn and the next event is a person's "
+    "prompt, or when a tool was waiting for the person's answer (a question, or approval of a plan); "
+    "waiting on usage limits, after a record reporting a rate, session, usage or spend limit, until "
+    "the limit resets; and waiting on the service, after a record reporting it overloaded or "
+    "unavailable. Working time and the three kinds of waiting add up to the transcript's span. Wall "
+    "time is a clock on the wall from workflow.py init to the end of the benchmark, which ends when "
+    "its report is finished; the first scoring records that end in the run's phase log and later "
+    "re-scores keep it. The Figma build time comes from the runner's log, with no model in the loop: "
+    "each unbroken stretch of steps, from the first served to the last recorded, added up, where a "
+    "pause of more than 15 minutes starts a new stretch.")
 
 
 def _text_of(message: dict) -> str:
@@ -403,9 +406,10 @@ def _text_of(message: dict) -> str:
                     if isinstance(block, dict) and block.get("type") == "text")
 
 
-def limit_error(entry: dict) -> tuple[bool, dt.datetime | None]:
-    """(is it a limit error, when the limit resets if the record says). Written from the shapes
-    real Claude Code transcripts use (September 2026):
+def api_wait(entry: dict) -> tuple[str | None, dt.datetime | None]:
+    """('limit' | 'service' | None, when a limit resets if the record says). Waiting on usage
+    limits and waiting on the service are different problems, so they are told apart. Written from
+    the shapes real Claude Code transcripts use (September 2026):
 
     - Usage, session and spend limits are a synthetic assistant message:
       {"type": "assistant", "isApiErrorMessage": true, "error": "rate_limit", "apiErrorStatus": 429,
@@ -414,24 +418,27 @@ def limit_error(entry: dict) -> tuple[bool, dt.datetime | None]:
        "rateLimitType": "five_hour", ...}}. The spend-limit variant reads "You've hit your individual
        spend limit · run /usage-credits to ask your admin for a higher limit", with
        quotaLimits.overageDisabledReason "org_spend_cap_reached" or "out_of_credits".
-    - An overloaded service is a retry record:
+      A 429 retry record (the system shape below with status 429) is a limit too.
+    - An overloaded or unavailable service is a retry record:
       {"type": "system", "subtype": "api_error", "level": "error", "error": {"status": 529,
        "formatted": "529 Overloaded", "message": "529 {... \"overloaded_error\" ...}"},
-       "retryInMs": 536, "retryAttempt": 1}. A 429 retry has the same shape with status 429.
+       "retryInMs": 536, "retryAttempt": 1}. A 503 variant carries the same overloaded_error type.
 
-    Other retry records (connection reset, no response, offline) are not limits; their gaps stay
+    Other retry records (connection reset, no response, offline) are neither; their gaps stay
     with whatever surrounds them. Only structured fields are read, never the text a tool printed,
     because transcripts also quote these very strings in prompts and tool output."""
     if entry.get("type") == "assistant" and entry.get("isApiErrorMessage") and (
             entry.get("error") == "rate_limit" or entry.get("apiErrorStatus") == 429):
         resets = (entry.get("quotaLimits") or {}).get("resetsAt")
-        return True, (dt.datetime.fromtimestamp(resets, dt.timezone.utc)
-                      if isinstance(resets, (int, float)) and resets > 0 else None)
+        return "limit", (dt.datetime.fromtimestamp(resets, dt.timezone.utc)
+                         if isinstance(resets, (int, float)) and resets > 0 else None)
     if entry.get("type") == "system" and entry.get("subtype") == "api_error":
         error = entry.get("error") if isinstance(entry.get("error"), dict) else {}
-        if error.get("status") in (429, 529) or "overloaded_error" in str(error.get("message") or ""):
-            return True, None
-    return False, None
+        if error.get("status") == 429:
+            return "limit", None
+        if error.get("status") == 529 or "overloaded_error" in str(error.get("message") or ""):
+            return "service", None
+    return None, None
 
 
 def is_person_prompt(entry: dict) -> bool:
@@ -451,48 +458,77 @@ def is_person_prompt(entry: dict) -> bool:
         "This session is being continued from a previous conversation"))
 
 
-def transcript_events(path: Path, since: dt.datetime | None, until: dt.datetime | None) -> list[tuple]:
-    """(time, kind, resets) for one transcript, in order. kind: 'prompt' (a person typed it),
-    'input' (a tool result or anything else fed to the model), 'reply' (an assistant message that
-    ends its turn), 'step' (an assistant message that calls a tool) or 'limit' (resets: when the
-    limit lifts, if recorded). Content is never kept."""
-    events = []
+# Tools that stop and wait for the person's answer. In real transcripts (September 2026) the call
+# is an assistant record whose content holds {"type": "tool_use", "id": ..., "name": "AskUserQuestion",
+# "input": {"questions": [...]}} (or "name": "ExitPlanMode", "input": {"plan": ..., "planFilePath":
+# ...}, when a plan is put up for approval), and the answer is a later user record whose content
+# holds {"type": "tool_result", "tool_use_id": <the same id>, ...}, with a record-level toolUseResult
+# of {"answers", "questions"} or {"plan", "filePath", ...}; a refusal carries "is_error": true. Other
+# records can fall between the two, so the wait runs from the call to its matching result.
+ASKS_PERSON = ("AskUserQuestion", "ExitPlanMode")
+# The permission mode a session ran in: "permissionMode" on user records and on
+# {"type": "permission-mode", "permissionMode": "bypassPermissions"} records. Full access is
+# bypassPermissions; in any other mode a tool span can include a wait for the person's approval.
+FULL_ACCESS = "bypassPermissions"
+
+
+def transcript_events(path: Path, since: dt.datetime | None, until: dt.datetime | None,
+                      modes: Counter | None = None) -> tuple[list[tuple], list[tuple]]:
+    """(events, asks) for one transcript. events: (time, kind, resets) in order, where kind is
+    'prompt' (a person typed it), 'input' (a tool result or anything else fed to the model),
+    'reply' (an assistant message that ends its turn), 'step' (an assistant message that calls a
+    tool), 'ask' (one that calls a tool waiting for the person's answer), 'limit' or 'service'
+    (resets: when a limit lifts, if recorded). asks: (call, result) spans of those tools. The
+    permission modes seen are counted into `modes`. Content is never kept."""
+    events, pending, asks = [], {}, []
     for entry in read_jsonl(path):
+        if modes is not None and entry.get("permissionMode") and entry.get("type") in ("user", "permission-mode"):
+            modes[entry["permissionMode"]] += 1
         when = parse_time(entry.get("timestamp"))
         if not when or (since and when < since) or (until and when > until):
             continue
-        kind, (limited, resets) = None, limit_error(entry)
-        if limited:
-            kind = "limit"
+        kind, resets = api_wait(entry)
+        blocks = [b for b in ((entry.get("message") or {}).get("content") or [])
+                  if isinstance(b, dict)] if isinstance((entry.get("message") or {}).get("content"), list) else []
+        if kind:
+            pass
         elif entry.get("type") == "assistant":
-            content = (entry.get("message") or {}).get("content") or []
-            calls = any(isinstance(b, dict) and b.get("type") == "tool_use" for b in content)
-            kind = "step" if calls else "reply"
+            calls = [b for b in blocks if b.get("type") == "tool_use"]
+            asking = [b for b in calls if b.get("name") in ASKS_PERSON]
+            for block in asking:
+                pending[block.get("id")] = when
+            kind = "ask" if asking else "step" if calls else "reply"
         elif entry.get("type") == "user":
+            for block in blocks:
+                if block.get("type") == "tool_result" and block.get("tool_use_id") in pending:
+                    asks.append((pending.pop(block["tool_use_id"]), when))
             kind = "prompt" if is_person_prompt(entry) else "input"
         if kind:
             events.append((when, kind, resets))
     events.sort(key=lambda event: event[0])
-    return events
+    return events, asks
 
 
-def classify_gaps(events: list[tuple]) -> tuple[list, list, list]:
-    """Working, waiting-on-limits and waiting-on-person intervals between consecutive events. A
-    limit's wait ends when the limit resets, if the record says when; any later gap is the person's."""
-    working, limits, person = [], [], []
+def classify_gaps(events: list[tuple]) -> dict:
+    """Working, waiting-on-limits, waiting-on-service and waiting-on-person intervals between
+    consecutive events. A limit's wait ends when the limit resets, if the record says when; any
+    later gap is the person's. A tool that asks the person waits on the person until its result."""
+    gaps = {"working": [], "limits": [], "service": [], "person": []}
     for (start, kind, resets), (end, following, _) in zip(events, events[1:]):
         if end <= start:
             continue
         if kind == "limit":
             lifted = min(end, resets) if resets and resets > start else end
-            limits.append((start, lifted))
+            gaps["limits"].append((start, lifted))
             if lifted < end:
-                person.append((lifted, end))
-        elif following == "prompt" and kind in ("reply", "prompt"):
-            person.append((start, end))
+                gaps["person"].append((lifted, end))
+        elif kind == "service":
+            gaps["service"].append((start, end))
+        elif kind == "ask" or (following == "prompt" and kind in ("reply", "prompt")):
+            gaps["person"].append((start, end))
         else:
-            working.append((start, end))
-    return working, limits, person
+            gaps["working"].append((start, end))
+    return gaps
 
 
 def union(intervals: list) -> list:
@@ -530,29 +566,41 @@ def working_time(files: list[Path], since: dt.datetime | None, until: dt.datetim
                  split_at: dt.datetime | None = None) -> dict:
     """Working time and the two kinds of waiting, from a session's transcripts. Subagent spans
     overlap the main session's; intervals are merged, so no second is counted twice."""
-    working, limits, first, last, limit_events = [], [], None, None, 0
+    working, limits, service, first, last = [], [], [], None, None
+    counts, modes = Counter(), Counter()
     for path in files:
-        events = transcript_events(path, since, until)
+        events, asks = transcript_events(path, since, until, modes)
         if not events:
             continue
         first = min(first or events[0][0], events[0][0])
         last = max(last or events[-1][0], events[-1][0])
-        w, l, _ = classify_gaps(events)
-        working += w
-        limits += l
-        limit_events += sum(1 for _, kind, _ in events if kind == "limit")
+        gaps = classify_gaps(events)
+        # From a question tool's call to its answer this session waited on the person, whatever
+        # records fell in between; another transcript working meanwhile still counts as working.
+        working += subtract(union(gaps["working"]), union(asks))
+        limits += gaps["limits"]
+        service += gaps["service"]
+        counts.update(kind for _, kind, _ in events if kind in ("limit", "service", "ask"))
     if first is None:
         return not_measured("the transcript has no timestamped messages")
+    # Working wins over any wait (a subagent may work while the main session waits), then limits.
     working = union(working)
     limits = subtract(union(limits), working)
+    service = subtract(subtract(union(service), working), limits)
 
     def part(start, end):
         span = int(round((end - start).total_seconds()))
         w = total_seconds(clip(working, start, end))
         l = total_seconds(clip(limits, start, end))
+        v = total_seconds(clip(service, start, end))
         return {"start": iso(start), "end": iso(end), "spanSeconds": span, "workingSeconds": w,
-                "waitingOnLimitsSeconds": l, "waitingOnPersonSeconds": span - w - l}
-    result = {"status": "measured", **part(first, last), "limitEvents": limit_events,
+                "waitingOnLimitsSeconds": l, "waitingOnServiceSeconds": v,
+                "waitingOnPersonSeconds": span - w - l - v}
+    result = {"status": "measured", **part(first, last), "limitEvents": counts["limit"],
+              "serviceEvents": counts["service"], "questionsToPerson": counts["ask"],
+              "fullAccess": (set(modes) == {FULL_ACCESS}) if modes else None,
+              # For developers: the permission modes the transcripts recorded, with how often.
+              "developer": {"permissionModes": dict(modes.most_common())},
               "definition": TIME_DEFINITION}
     how = "record it with workflow.py record --phase benchmark --status running before scoring"
     if split_at is None:
@@ -569,6 +617,69 @@ def working_time(files: list[Path], since: dt.datetime | None, until: dt.datetim
         result["production"] = {"status": "measured", **part(first, split_at)}
         result["benchmark"] = {"status": "measured", **part(split_at, last)}
     return result
+
+
+def preflight_go_ahead(run_dir: Path) -> tuple[dt.datetime | None, dict]:
+    """When the person gave the run its go-ahead (workflow.py preflight), and what they chose."""
+    project = read_json(run_dir / "project.json") or {}
+    detail = ((project.get("phases") or {}).get("preflight") or {}).get("detail") or {}
+    times = [parse_time(e.get("at")) for e in read_jsonl(run_dir / "phase-log.jsonl")
+             if e.get("phase") == "preflight" and e.get("status") == "complete"]
+    times = [t for t in times if t]
+    return (max(times) if times else None), detail
+
+
+def phase_at(log: list[dict], when: dt.datetime) -> dict:
+    """The run's phase at a moment: the latest phase-log entry at or before it."""
+    current = {"phase": "preflight", "status": "complete"}
+    for entry in log:
+        at = parse_time(entry.get("at"))
+        if at and at <= when and entry.get("phase") not in (None, "init"):
+            current = {"phase": entry["phase"], "status": entry.get("status")}
+    return current
+
+
+def unattended(files: list[Path], run_dir: Path, since: dt.datetime | None,
+               until: dt.datetime | None) -> dict:
+    """Whether the run stayed unattended after the preflight go-ahead, until the benchmark began:
+    every question tool it called, and every turn that ended and waited for a person's prompt,
+    counts as an interruption, with the phase it happened in. Waits before the go-ahead are setup.
+    A plan review the person asked for at preflight is a planned stop, not an interruption."""
+    go, choices = preflight_go_ahead(run_dir)
+    if not go:
+        return not_measured("the run had no preflight go-ahead, so there is no point from which it was "
+                            "left to run", "start runs with workflow.py preflight, as design-lab:run does")
+    end = benchmark_start(run_dir)
+    log = read_jsonl(run_dir / "phase-log.jsonl")
+    found = []
+    for path in files:
+        if "subagents" in path.parts:
+            continue
+        events, _ = transcript_events(path, since, until)
+        for (at, kind, _), (following_at, following, _) in zip(events, events[1:] + [(None, None, None)]):
+            if at < go or (end and at >= end):
+                continue
+            if kind == "ask":
+                found.append({"at": iso(at), "kind": "question", **phase_at(log, at)})
+            elif kind == "reply" and following == "prompt" and (not end or following_at < end):
+                found.append({"at": iso(at), "kind": "turn ended and waited for a prompt", **phase_at(log, at)})
+    for item in found:
+        item["planned"] = (choices.get("planApproval") == "review" and item["phase"] == "plan"
+                           and item["status"] == "awaiting-approval")
+    counted = [item for item in found if not item["planned"]]
+    return {"status": "measured", "goAheadAt": iso(go), "until": iso(end) if end else None,
+            "interruptions": found, "count": len(counted), "ranUnattended": not counted}
+
+
+def unattended_phrase(section: dict) -> str:
+    if section.get("status") != "measured":
+        return f"not measured, because {section.get('reason')}"
+    if section["ranUnattended"]:
+        return "yes"
+    items = [item for item in section["interruptions"] if not item["planned"]]
+    return (f"no, {len(items)} interruption{'s' if len(items) != 1 else ''}: "
+            + "; ".join(f"{'a question' if i['kind'] == 'question' else 'a turn that waited for a prompt'} "
+                        f"during {i['phase']}" for i in items))
 
 
 def evidence_window(run_dir: Path, project: dict | None,
@@ -598,34 +709,63 @@ def benchmark_end(run_dir: Path, start: dt.datetime | None) -> dt.datetime | Non
     return min(ends) if ends else None
 
 
+def scored_before(run_dir: Path) -> bool:
+    """A scorecard already in the run's own benchmark folder means the run was scored before."""
+    return (run_dir / BENCHMARK_DIR / "scorecard.json").is_file()
+
+
 def wall_clock(run_dir: Path, project: dict | None,
                scorer: tuple[dt.datetime, dt.datetime]) -> dict:
-    """Wall time, a clock on the wall from workflow.py init to the end of the benchmark. Shown
-    only when both ends were recorded: the benchmark's end is its recorded completion or, while
-    the benchmark is still running, the end of this scoring (the benchmark's last step)."""
+    """Wall time, a clock on the wall from workflow.py init to the end of the benchmark. The
+    benchmark ends when its report is finished: the first scoring of a run takes the end of its
+    own scoring as that end, and main() records it in the phase log, where every later re-score
+    reads it and never moves it. A run with a recorded start but no recorded end that was already
+    scored (before the scorer recorded ends) shows no wall time."""
     project = project or {}
     start = parse_time((project.get("run") or {}).get("startedAt") or project.get("createdAt"))
     bench = benchmark_start(run_dir)
     scorer_start, scorer_end = scorer
     end, source = benchmark_end(run_dir, bench), "phase log"
-    if bench and end is None and dt.timedelta(0) <= scorer_start - bench <= LIVE_SCORING:
+    if bench and end is None and not scored_before(run_dir) and scorer_end >= bench:
         end, source = scorer_end, "this scoring"
     seconds = lambda a, b: int((b - a).total_seconds()) if a and b else None
     wall = seconds(start, end) if start and bench and end else None
     reason = (None if wall is not None else
               "the run's start was not recorded by workflow.py init" if not start else
               "the benchmark step's start was not recorded" if not bench else
-              "the benchmark step's end was not recorded")
+              "the benchmark step's end was not recorded when it was first scored")
     return {
         "runStart": iso(start), "benchmarkStart": iso(bench),
-        "benchmarkEnd": iso(end) if wall is not None else None,
-        "benchmarkEndSource": source if wall is not None else None,
+        "benchmarkEnd": iso(end) if end and bench else None,
+        "benchmarkEndSource": source if end and bench else None,
         "wallSeconds": wall,
         "libraryWallSeconds": seconds(start, bench) if wall is not None else None,
         "benchmarkWallSeconds": seconds(bench, end) if wall is not None else None,
         "scorerSeconds": round((scorer_end - scorer_start).total_seconds(), 1),
         **({"notShownBecause": reason} if reason else {}),
     }
+
+
+def finish_clock(clock: dict, end: dt.datetime) -> None:
+    """Move the end this scoring fixed to when its report is finished, and recompute what depends
+    on it."""
+    clock["benchmarkEnd"] = iso(end)
+    start, bench = parse_time(clock.get("runStart")), parse_time(clock.get("benchmarkStart"))
+    if start and bench:
+        clock["wallSeconds"] = int((end - start).total_seconds())
+        clock["benchmarkWallSeconds"] = int((end - bench).total_seconds())
+
+
+def record_benchmark_end(run_dir: Path, clock: dict) -> bool:
+    """Record the benchmark's end in the run's phase log, as workflow.py record --phase benchmark
+    --status complete does, when this scoring fixed it. Nothing else in the run is written."""
+    if clock.get("benchmarkEndSource") != "this scoring":
+        return False
+    import workflow
+    path, project = workflow.load_project(run_dir)
+    workflow.set_phase(path, project, "benchmark", "complete", {"recordedBy": "score_run.py"},
+                       at=clock["benchmarkEnd"])
+    return True
 
 
 def current_session(folder: str | None) -> str | None:
@@ -666,6 +806,7 @@ def score_cost(run_dir: Path, project: dict | None, transcripts: list | None,
         files = list(dict.fromkeys(explicit))
         usage = transcript_usage(files, start, end, benchmark_start(run_dir))
         working = working_time(files, start, end, benchmark_start(run_dir))
+        attended = unattended(files, run_dir, start, end)
         what = (("session " + ", ".join(sessions)) if sessions else ", ".join(str(t) for t in transcripts or []))
         model = ({"status": "measured", "source": what, **usage} if usage["assistantMessages"] else
                  not_measured(f"no assistant messages found in {what}" +
@@ -689,12 +830,15 @@ def score_cost(run_dir: Path, project: dict | None, transcripts: list | None,
         model = not_measured("no session or transcript was given", how)
         working = not_measured("no session transcript was given, so working time was not measured "
                                "for this run", how)
+        attended = not_measured("no session transcript was given, so interruptions after preflight "
+                                "were not counted", how)
     now_ = dt.datetime.now(dt.timezone.utc)
     clock = wall_clock(run_dir, project, scorer or (now_, now_))
     parts = [runner is not None, timings is not None, model["status"] == "measured",
              working["status"] == "measured"]
     status = "measured" if all(parts) else "partial" if any(parts) else "not-measured"
     section = {"status": status, "definition": TIME_DEFINITION, "clock": clock, "working": working,
+               "unattended": attended,
                "runner": runner or not_measured("figma/runner.log is missing"),
                "timings": timings or not_measured("project.json has no phase times"),
                "model": model}
@@ -1105,6 +1249,7 @@ def headline(sections: dict) -> dict:
         "effort": {"workingSeconds": production.get("workingSeconds"),
                    "waitingOnPersonSeconds": production.get("waitingOnPersonSeconds"),
                    "waitingOnLimitsSeconds": production.get("waitingOnLimitsSeconds"),
+                   "waitingOnServiceSeconds": production.get("waitingOnServiceSeconds"),
                    "benchmarkWorkingSeconds": (working.get("benchmark") or {}).get("workingSeconds"),
                    "wallSeconds": (cost.get("clock") or {}).get("wallSeconds"),
                    "buildSeconds": runner.get("activeSeconds"),
@@ -1200,7 +1345,8 @@ def working_phrase(working: dict) -> str:
         return ("working time was not measured for this run (score it with --session <id> to measure "
                 "when Claude or its tools were working)")
     waits = [f"{human_duration(production[k])} waiting on {what}" for k, what in
-             (("waitingOnPersonSeconds", "the person"), ("waitingOnLimitsSeconds", "usage limits")) if production.get(k)]
+             (("waitingOnPersonSeconds", "the person"), ("waitingOnLimitsSeconds", "usage limits"),
+              ("waitingOnServiceSeconds", "the service")) if production.get(k)]
     return (f"design-lab took {human_duration(production['workingSeconds'])} of working time to produce the library"
             + (f" ({', '.join(waits)} not counted)" if waits else "")
             + (f", and the benchmark {human_duration(bench['workingSeconds'])} more"
@@ -1246,6 +1392,7 @@ def completion_message(card: dict, report: Path) -> str:
                      f"{original['pass']} of {original['total']} widths within tolerance (original measure)"
                      if original else "not measured"),
         "working_time": working_phrase(working),
+        "unattended": unattended_phrase(cost.get("unattended") or {}),
         "wall_time": (f"wall time {human_duration(clock['wallSeconds'])} from the start of the run to the end "
                       f"of the benchmark" if clock.get("wallSeconds") is not None else
                       f"no wall time, because {clock.get('notShownBecause') or 'its ends were not recorded'}"),
@@ -1330,7 +1477,8 @@ def main(argv=None) -> int:
     out = (args.out or run / BENCHMARK_DIR).resolve()
     if (out == run or run in out.parents) and out != run / BENCHMARK_DIR:
         parser.error(f"--out must be outside the run, or the run's own {BENCHMARK_DIR}/ folder; "
-                     "scoring never writes anywhere else in a run")
+                     "apart from recording the benchmark's end in the phase log, scoring never writes "
+                     "anywhere else in a run")
     scorecard = score(args.run, args.compare, args.transcripts, args.since, args.until,
                       args.site_label, args.session)
     errors = validate_scorecard(scorecard)
@@ -1338,13 +1486,29 @@ def main(argv=None) -> int:
         print("scorecard does not match schemas/scorecard.schema.json:\n  " + "\n  ".join(errors[:20]),
               file=sys.stderr)
         return 2
+    # The benchmark ends when its report is finished, rendering included. When this scoring fixes
+    # the end, the report is rendered once to time it, the end is set to when a second render of the
+    # same length will finish, and that second render is written; the first scoring records the
+    # end, so re-scores keep it.
+    clock = scorecard["sections"]["cost"]["clock"]
+    html = None
+    if not args.no_html:
+        import score_report
+        html = score_report.render(scorecard, run)
+        if clock.get("benchmarkEndSource") == "this scoring":
+            began = time.monotonic()
+            score_report.render(scorecard, run)
+            took = dt.timedelta(seconds=time.monotonic() - began)
+            finish_clock(clock, dt.datetime.now(dt.timezone.utc) + took)
+            html = score_report.render(scorecard, run)
+    elif clock.get("benchmarkEndSource") == "this scoring":
+        finish_clock(clock, dt.datetime.now(dt.timezone.utc))
+    record_benchmark_end(run, clock)
     out.mkdir(parents=True, exist_ok=True)
     write_json(out / "scorecard.json", scorecard)
     written = [str(out / "scorecard.json")]
-    if not args.no_html:
-        import score_report
-        (out / "report.html").write_text(score_report.render(scorecard, Path(args.run).resolve()),
-                                         encoding="utf-8")
+    if html is not None:
+        (out / "report.html").write_text(html, encoding="utf-8")
         written.append(str(out / "report.html"))
         message = completion_message(scorecard, out / "report.html")
         (out / "completion.md").write_text(message, encoding="utf-8")

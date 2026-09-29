@@ -39,6 +39,6 @@ For each open finding:
 - fix mechanical drift and rerun the affected assertion;
 - when no code identifier genuinely exists, explain that exact absence on the variable;
 - reclassify a source entity as not built when evidence cannot support a trustworthy asset;
-- ask before waiving a non-visual finding, recording check, narrow scope, reason, decider, and date.
+- waive a non-visual finding only with the person's decision, recording check, narrow scope, reason, decider, and date; in an unattended run, prefer a fix or a not-built classification, and stop for a waiver only when neither is possible.
 
 After fixes, recapture affected Figma state and rerun the full gate. Record report hash, coverage, severity counts, unavailable checks, and target file in the project manifest. Do not call the library complete while any unwaived blocker or major remains. Also report objective quality measures: built assets with capture evidence, passing visual comparisons, portable live links, index-link correctness, duplicate captures, and collection count with its justification.

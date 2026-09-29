@@ -10,7 +10,7 @@ description: >
 
 # Run design-lab end to end
 
-Own the whole outcome. Durable artifacts, not conversation memory, determine what is complete and where a resumed run continues.
+Own the whole outcome. Durable artifacts, not conversation memory, determine what is complete and where a resumed run continues. The run asks for everything it needs once, at preflight, and then completes on its own.
 
 ## Establish the project
 
@@ -28,12 +28,37 @@ Pass `--site-label`, `--site-url`, `--operator` and `--model` to `init` and foll
 
 Read `detection.json`. Reconcile prior art unless the user explicitly requested an independent scratch build; in that case keep comparison artifacts hidden until the build is frozen.
 
-The detector recommends an authoring vocabulary over a lower-level rendering vocabulary. Use the recommendation when repository evidence agrees. Ask one narrow question only when two choices would materially change the inventory. Persist any override:
+## Preflight: ask everything once
+
+Before any extraction, gather every answer the run will need in one message to the person, using what the request and `detection.json` already say and asking only for the rest:
+
+- the local site address, and the public address;
+- the target Figma file: new and empty, editable by the person's account; load the official Figma-use guidance and confirm it is writable;
+- that the design-lab runner plugin is imported in Figma desktop, started with its token pasted, and the target file is open (`references/relay.md`);
+- a neutral site label and the operator's name;
+- the component, token and usage sources: state the detector's recommendation and use it unless the person overrides it now;
+- for a database usage source, the DDEV project root, and what to do if that source cannot be used after all: stop, or build without usage tiers;
+- how the plan is approved: build the plan as proposed (the default, for runs left unattended) or stop for the person's review before building.
+
+Schema churn is not a question: the run records any schema change or workaround it made, at the benchmark. Then record the answers and check what can be checked:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py preflight --project <artifact-directory> \
+  --site-url <local-site-url> --public-url <public-site-url> --figma-url <file-url> --runner-ready \
+  --site-label "<label>" --operator "<name>" [--model <model>] [--ddev-root <path>] \
+  --plan-approval proposed|review [--usage-fallback stop|untiered]
+```
+
+It checks that the local site answers and that a DDEV project is present where the usage source needs one, records the Figma target, and either records the go-ahead (the `preflight` phase) and prints "I have everything I need; it's safe to let this run to completion", or exits with exactly what is still missing. Tell the person that sentence, or ask for the missing items and run preflight again. Persist any source override the person gave:
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py select --project <artifact-directory> \
   --component <strategy> --token <strategy> [--usage <strategy>]
 ```
+
+## After the go-ahead, run to completion
+
+After preflight, complete the whole run through the benchmark and the completion message without pausing for confirmation. Do not ask whether to continue between phases or components, and do not report progress as a question. Decide everything the standard and the preflight answers decide, and record each decision in the artifacts. Only a genuine blocker, where no path forward exists without the person, may stop the run: the site or the Figma runner has stopped and cannot be restarted from here, the runner needs its token pasted again, or a failure has no fix in the templates or rules. When that happens, say exactly what is needed; once it is provided, resume from the artifacts where the run stopped. The plan-approval stop happens only when the person chose review at preflight.
 
 ## Produce the review boundary
 
@@ -49,32 +74,29 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py plan --project <artifact-direc
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py validate --project <artifact-directory>
 ```
 
-Usage is a plan prerequisite whenever detection finds a credible source. The deterministic Drupal extractor records direct placements and nested structural instances separately and merges them into canonical `components.json`. Do not substitute an ad-hoc query. If the source genuinely cannot be made available, stop for explicit degraded approval:
+Usage is a plan prerequisite whenever detection finds a credible source. The deterministic Drupal extractor records direct placements and nested structural instances separately and merges them into canonical `components.json`. Do not substitute an ad-hoc query. Start DDEV if it is stopped. If the source genuinely cannot be made available, follow the choice made at preflight: with `--usage-fallback untiered`, record the degraded approval in the operator's name and continue; with `stop`, stop and ask for that approval, a genuine blocker:
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py select --project <artifact-directory> \
   --usage none --degraded-reason "<why the detected source cannot be used>" \
-  --by "<human decider>"
+  --by "<operator> (preflight: build untiered)"
 ```
 
-That waiver requires a named human decision and means Untiered output. Never invent High/Medium/Low labels from configuration references or silently continue because DDEV was initially stopped. Capture is required for visual assets. A failed or unavailable capture makes that source entity `Not built — no visual evidence`; it never authorizes a speculative master.
+That waiver requires a named human decision, which the preflight answer supplies, and means Untiered output. Never invent High/Medium/Low labels from configuration references or silently continue because DDEV was initially stopped. Capture is required for visual assets. A failed or unavailable capture makes that source entity `Not built — no visual evidence`; it never authorizes a speculative master.
 
-Review `plan.json` flags, refusals, variant arithmetic, `variable-plan.json` warnings, and `render-evidence.json`. The rendering artifact resolves each Drupal bundle to concrete Twig, SDC, stylesheet, root-class, and field-reference evidence; inspect those bounded paths for visual judgment instead of launching broad repository-search agents. Approval is required before the first external Figma mutation, but an explicit user request to build the whole library supplies that authority when the plan remains within their scope. Record who approved:
+Review `plan.json` flags, refusals, variant arithmetic, `variable-plan.json` warnings, and `render-evidence.json` yourself. The rendering artifact resolves each Drupal bundle to concrete Twig, SDC, stylesheet, root-class, and field-reference evidence; inspect those bounded paths for visual judgment instead of launching broad repository-search agents. Flags keep the treatment the plan proposes; components over the variant limit stay refused. Approval is required before the first external Figma mutation and comes from preflight:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py approve \
-  --project <artifact-directory> --by <name-or-request>
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py approve --project <artifact-directory> --from-preflight
 ```
+
+With "build the plan as proposed" this approves in the operator's name and the run continues. With "stop for my review" it refuses: show the person the plan summary, wait for their approval, record it with `--by <name>`, and continue.
 
 ## Render through the build driver
 
 Every Figma write is a fixed template filled from the artifacts; the model relays and decides nothing. That is what makes two runs over the same source produce the same file.
 
-1. Record the target: an empty Figma file the user can edit, in the account that owns the work.
-
-   ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py target --project <artifact-directory> --figma-url <file-url>
-   ```
+1. The target was recorded at preflight: an empty Figma file the person can edit, in the account that owns the work.
 
 2. Plan every step. This converts each captured component into its build tree and fixes the page list, order and contents:
 
@@ -91,7 +113,7 @@ Every Figma write is a fixed template filled from the artifacts; the model relay
    python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.py receipts --project <artifact-directory>
    ```
 
-5. Run `design-lab:verify`; fix every open finding at its source or obtain a human waiver.
+5. Run `design-lab:verify`; fix every open finding at its source, or reclassify the component as not built with its reason. A waiver needs the person, so it is a genuine blocker only when neither is possible.
 
 `design-lab:figma-foundation`, `design-lab:figma-component` and `design-lab:figma-index` describe what their steps produce and how to diagnose them; they no longer build by hand.
 
@@ -108,13 +130,12 @@ Do not call the library complete unless the manifest identifies the target Figma
 
 ## Benchmark and reply
 
-The last step scores the run you just made (`design-lab:evaluate`). Record schema churn first, then time the benchmark as its own step so library production and benchmarking stay separate in time and tokens:
+The last step scores the run you just made (`design-lab:evaluate`). Record schema churn first, from what this run changed, without asking, then time the benchmark as its own step so library production and benchmarking stay separate in time and tokens:
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py identity --project <artifact-directory> --no-schema-change   # or --schema-change "<what>"
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py record --project <artifact-directory> --phase benchmark --status running
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/score_run.py <artifact-directory> --session current
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py record --project <artifact-directory> --phase benchmark --status complete
 ```
 
-This writes `benchmark/report.html`, `benchmark/scorecard.json` and `benchmark/completion.md` inside the artifact directory. Reply to the user with the contents of `completion.md` exactly: the fixed template in `references/completion-message.md` filled with this run's values. It gives the Figma link, the coverage line, headline accuracy, time and tokens by model for producing the library and for the benchmark, the report as a clickable link labelled as the developer audit, what was not measured, and where the known gaps are listed. Do not paraphrase it or add numbers of your own.
+This writes `benchmark/report.html`, `benchmark/scorecard.json` and `benchmark/completion.md` inside the artifact directory. The benchmark ends when its report is finished: the scorer records that end in the phase log itself, so no separate command marks it complete, and a later re-score keeps the recorded end. Reply to the user with the contents of `completion.md` exactly: the fixed template in `references/completion-message.md` filled with this run's values. It gives the Figma link, the coverage line, headline accuracy, time and tokens by model for producing the library and for the benchmark, the report as a clickable link labelled as the developer audit, what was not measured, and where the known gaps are listed. Do not paraphrase it or add numbers of your own.

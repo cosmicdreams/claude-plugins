@@ -22,6 +22,6 @@ Read `priorArt` before extraction. Reconcile existing conventions and generated 
 
 Component, token, and usage sources are independent. The recommendation prefers the system an author places over its rendering primitives: Drupal block-content + paragraph bundles outrank the SDCs that render them. A loaded authored token layer outranks recoverable compiled sources. Canvas registrations outrank raw Single Directory Components (SDCs) where Canvas is present; the matching usage strategy is `canvas-db`.
 
-Use the recommendation when evidence agrees. Ask only when competing sources would materially change the inventory and repository evidence cannot resolve them. Persist an override with `workflow.py select`; do not leave the decision in conversation memory.
+Use the recommendation when evidence agrees. Within `design-lab:run`, the recommendation is stated at preflight, and the person's answer there settles it; ask only there, and only when competing sources would materially change the inventory and repository evidence cannot resolve them. Persist an override with `workflow.py select`; do not leave the decision in conversation memory.
 
 Check `notes` for ignored empty config directories, generated assets, unloaded token candidates, and unavailable extractors before continuing to `design-lab:inventory` and `design-lab:tokens`.
