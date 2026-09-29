@@ -26,9 +26,12 @@ from pathlib import Path
 
 TIERS = ("High Use", "Medium Use", "Low Use", "Structural Only", "Retirement Candidates")
 UNTIERED = "Untiered"
-# Tiers a stakeholder reads as "how much the site uses it"; the others are shown only when
-# they hold built components, so the breakdown always adds up to the built total.
+# The Cover's four categories. Every built component has exactly one tier, so it lands in exactly
+# one category: its own if it is High, Medium or Low use, otherwise Other (placed only inside
+# other components, no usage data, or no usage at all). A component placed on pages and also
+# nested elsewhere is tiered by its placements, so it is never counted twice.
 USE_TIERS = ("High Use", "Medium Use", "Low Use")
+OTHER = "Other"
 GAP_REASONS = {"refused": "refused by the plan", "failed": "planned but not built",
                "unplanned": "not in the plan"}
 EXCLUDED_REASONS = {"retirement": "retirement candidate", "schema-only": "schema-only",
@@ -144,19 +147,20 @@ def counts(run_dir: str | Path, built: set[str] | list[str] | None = None) -> di
         "outsideInventory": [o for o in outside if o["placements"] or o["structural"]],
         "tiered": bool(tiers_present),
         "byTier": by_tier,
-        "coverBreakdown": cover_breakdown(by_tier),
+        "coverBreakdown": cover_breakdown(rows),
         "components": rows,
     }
 
 
-def cover_breakdown(by_tier: list[dict]) -> list[dict]:
-    """Built components by usage tier, for the Cover. High, Medium and Low use always; any
-    other tier only when it holds built components, so the rows add up to the built total."""
-    rows = []
-    for row in by_tier:
-        if row["tier"] in USE_TIERS or row["built"]:
-            rows.append({"tier": row["tier"], "built": row["built"]})
-    return rows
+def cover_breakdown(rows: list[dict]) -> list[dict]:
+    """Built components for the Cover: High, Medium, Low and Other, always in that order. Each
+    built component is counted once, so the four always add up to the built total."""
+    built = [r for r in rows if r["built"]]
+    breakdown = [{"tier": t, "built": sum(r["tier"] == t for r in built)} for t in USE_TIERS]
+    breakdown.append({"tier": OTHER, "built": sum(r["tier"] not in USE_TIERS for r in built)})
+    if sum(b["built"] for b in breakdown) != len(built):
+        raise ValueError("cover breakdown does not add up to the built total")
+    return breakdown
 
 
 def coverage_sentence(c: dict) -> str:

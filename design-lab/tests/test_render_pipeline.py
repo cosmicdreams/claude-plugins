@@ -477,7 +477,7 @@ class FigmaBuildTests(unittest.TestCase):
         for hidden in ("local.test", "runtime", "standard", "placements", "not built", "token", "design-lab"):
             self.assertNotIn(hidden, drawn)
         self.assertEqual(cover["provenance"]["siteUrl"].rstrip("/"), "https://local.test")
-        self.assertEqual([t["key"] for t in cover["tiers"]], ["High Use", "Medium Use", "Low Use"])
+        self.assertEqual([t["key"] for t in cover["tiers"]], ["High Use", "Medium Use", "Low Use", "Other"])
         self.assertEqual(sum(int(t["value"]) for t in cover["tiers"]), int(cover["total"]["value"]))
         template = (Path(figma_build.__file__).parent / "render" / "cover.js").read_text()
         self.assertNotIn("provDark", template)             # provenance is never drawn
@@ -497,8 +497,11 @@ class FigmaBuildTests(unittest.TestCase):
                 row = rows[tier_row["tier"]]
                 self.assertEqual([int(row[1]), int(row[2]), int(row[3]), int(row[4].replace(",", ""))],
                                  [tier_row["found"], tier_row["built"], tier_row["notBuilt"], tier_row["placements"]])
+        by_tier = {r["tier"]: r["built"] for r in counted["byTier"]}
         for tile in cover["tiers"]:
-            self.assertEqual(int(tile["value"]), next(r["built"] for r in counted["byTier"] if r["tier"] == tile["key"]))
+            expected = (by_tier.get(tile["key"], 0) if tile["key"] != "Other"
+                        else counted["built"] - sum(by_tier.get(t, 0) for t in library_counts.USE_TIERS))
+            self.assertEqual(int(tile["value"]), expected)
         self.assertEqual(sum(int(r[4].replace(",", "")) for r in start["coverage"]["rows"]),
                          cov["usageWeighted"]["placements"])
         self.assertIn(library_counts.coverage_sentence(counted), start["changelog"][0][1])

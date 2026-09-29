@@ -225,9 +225,7 @@ def variables_args(project: Path) -> dict:
     return {"collections": load(project, "variable-plan.json")["collections"]}
 
 
-COVER_LABELS = {"High Use": "High use", "Medium Use": "Medium use", "Low Use": "Low use",
-                "Structural Only": "Used inside other components",
-                "Retirement Candidates": "Retirement candidates", "Untiered": "No usage data"}
+COVER_LABELS = {"High Use": "High use", "Medium Use": "Medium use", "Low Use": "Low use", "Other": "Other"}
 
 
 def provenance(project: Path, state: dict) -> dict:

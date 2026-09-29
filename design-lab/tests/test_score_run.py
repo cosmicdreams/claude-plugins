@@ -344,6 +344,24 @@ class ScoreRunTest(unittest.TestCase):
             score_run.main([str(self.run_dir), "--out", str(self.run_dir / "score")])
 
 
+class CoverBreakdownTest(unittest.TestCase):
+    def test_four_categories_count_each_built_component_once(self):
+        import library_counts
+        rows = [
+            {"tier": "High Use", "built": True},     # placed on pages and also nested: counts once, as High
+            {"tier": "Medium Use", "built": True},
+            {"tier": "Low Use", "built": True},
+            {"tier": "Structural Only", "built": True},
+            {"tier": "Untiered", "built": True},
+            {"tier": "Retirement Candidates", "built": True},
+            {"tier": "Low Use", "built": False},
+        ]
+        breakdown = library_counts.cover_breakdown(rows)
+        self.assertEqual([b["tier"] for b in breakdown], ["High Use", "Medium Use", "Low Use", "Other"])
+        self.assertEqual([b["built"] for b in breakdown], [1, 1, 1, 3])
+        self.assertEqual(sum(b["built"] for b in breakdown), 6)
+
+
 class WorkflowCaptureTest(unittest.TestCase):
     def setUp(self):
         self.temp = tempfile.TemporaryDirectory()
