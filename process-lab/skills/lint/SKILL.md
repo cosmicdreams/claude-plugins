@@ -18,9 +18,9 @@ Pass `--ticket <KEY>` for a ticket other than the current branch's. With no `.ve
 
 Report, briefly:
 
-- Outstanding obligations grouped by gate, oldest first.
-- Failed branch or commit checks.
-- Whether the cache is older than the page might be (the status output gives `synced_at`).
+- Outstanding obligations grouped by gate, oldest first (`opened_at`).
+- Failed branch or commit checks (`failed_checks`).
+- Whether the cache is stale (`cache.stale`, `cache.synced_at`); if so, suggest rerunning `process-lab:initialize`.
 
 When the user asks whether the work actually meets the obligations, not just whether they were recorded, dispatch `process-lab:process-auditor` with the ticket, the branch, and the status output, and report its findings.
 

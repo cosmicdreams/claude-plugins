@@ -1,6 +1,7 @@
 """Project manifest discovery and validation."""
 import json
 import re
+from re import _parser
 from pathlib import Path
 
 
@@ -18,6 +19,27 @@ def find_manifest(cwd):
         if (directory / ".git").exists():
             break
     return None
+
+
+def _unsafe_pattern(value):
+    def has_complex(items):
+        for op, arg in items:
+            if op in (_parser.MAX_REPEAT, _parser.MIN_REPEAT, _parser.BRANCH):
+                return True
+            if op == _parser.SUBPATTERN and has_complex(arg[-1]):
+                return True
+        return False
+    def risky(items):
+        for op, arg in items:
+            if op in (_parser.MAX_REPEAT, _parser.MIN_REPEAT):
+                if has_complex(arg[2]) or risky(arg[2]):
+                    return True
+            elif op == _parser.SUBPATTERN and risky(arg[-1]):
+                return True
+            elif op == _parser.BRANCH and any(risky(branch) for branch in arg[1]):
+                return True
+        return False
+    return risky(_parser.parse(value))
 
 
 def load_manifest(cwd):
@@ -55,7 +77,11 @@ def load_manifest(cwd):
             if not isinstance(pattern, str):
                 raise ManifestError("invalid branch_pattern")
             try:
-                re.compile(pattern.replace("{ticket}", re.escape(jira["project"]) + r"-\d+"))
+                compiled = pattern.replace("{ticket}", re.escape(jira["project"]) + r"-\d+")
+                re.compile(compiled)
+                if _unsafe_pattern(compiled):
+                    data.setdefault("warnings", []).append("Unsafe branch_pattern ignored: quantified group contains a quantifier or alternatives")
+                    pattern = None
             except re.error as exc:
                 raise ManifestError("invalid branch_pattern") from exc
         commands = conventions.get("test_commands", [])

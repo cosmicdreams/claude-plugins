@@ -35,7 +35,7 @@ Work through the obligations the user wants to handle now:
 After each one:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/process_lab.py" discharge --gate <gate> --obligation <id> --evidence "<what shows it was done>" --actor agent
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/process_lab.py" discharge --gate <gate> --obligation <id> --evidence "<what shows it was done>" --actor agent [--ticket KEY]
 ```
 
 Evidence is concrete: a transition id, a comment link, a pull request URL.
@@ -45,7 +45,17 @@ Evidence is concrete: a transition id, a comment link, a pull request URL.
 When the obligation does not fit this change, record why rather than skipping it. The reason must say something a teammate could argue with ("configuration-only change, no user-facing behavior"), not "not needed".
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/process_lab.py" waive --gate <gate> --obligation <id> --reason "<why>" --actor human
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/process_lab.py" waive --gate <gate> --obligation <id> --reason "<why>" --actor human [--ticket KEY]
 ```
 
 Only the user decides to waive. Waiver reasons feed `process-lab:codify`.
+
+Whenever you pass `--ticket` to `status`, pass the same `--ticket` to every `discharge`, `waive`, and `declare` that follows, so work on one ticket is never recorded against the branch's ticket.
+
+## 4. When a ticket comes back
+
+Pushing again does not reopen anything; repeat pushes are normal. When a ticket is sent back (rejected in testing, rejected by the client, certification failed), reopen the gates it must pass again, with the reason:
+
+```bash
+python3 "${CLAUDE_PLUGIN_ROOT}/scripts/process_lab.py" reopen --gate <gate> --reason "<why it came back>" [--ticket KEY]
+```

@@ -23,21 +23,36 @@ class TableParser(HTMLParser):
         self.row = None
         self.cell = None
         self.depth = 0
+        self.macro = []
+        self.parameter = None
+        self.ignore_body = 0
 
     def handle_starttag(self, tag, attrs):
+        attrs = dict(attrs)
         if tag == "table":
             if self.table is None:
                 self.table = []
                 self.depth = 1
             else:
                 self.depth += 1
-        elif self.table is not None and self.depth == 1:
+                if self.cell is not None:
+                    self.cell["parts"].append("; ")
+            return
+        if self.table is None:
+            return
+        if tag == "ac:structured-macro":
+            self.macro.append({"status": attrs.get("ac:name") == "status", "title": "", "body": False})
+        elif tag == "ac:parameter" and self.macro:
+            self.parameter = attrs.get("ac:name")
+        elif tag in ("ac:plain-text-body", "ac:rich-text-body") and self.macro:
+            self.macro[-1]["body"] = True
+        if self.depth == 1:
             if tag == "tr":
                 self.row = []
             elif tag in ("td", "th") and self.row is not None:
-                self.cell = {"kind": tag, "parts": []}
-            elif self.cell is not None and tag in ("p", "li", "br", "div"):
-                self.cell["parts"].append("\n")
+                self.cell = {"kind": tag, "parts": [], "colspan": attrs.get("colspan", "1"), "rowspan": attrs.get("rowspan")}
+        if self.cell is not None and tag in ("p", "li", "br", "div", "td"):
+            self.cell["parts"].append("\n" if self.depth == 1 else "; ")
 
     def handle_endtag(self, tag):
         if tag == "table" and self.table is not None:
@@ -45,21 +60,60 @@ class TableParser(HTMLParser):
             if self.depth == 0:
                 self.tables.append(self.table)
                 self.table = None
-        elif self.table is not None and self.depth == 1:
+            return
+        if tag == "ac:parameter":
+            self.parameter = None
+        elif tag in ("ac:plain-text-body", "ac:rich-text-body") and self.macro:
+            self.macro[-1]["body"] = False
+        elif tag == "ac:structured-macro" and self.macro:
+            macro = self.macro.pop()
+            if macro["status"] and self.cell is not None:
+                self.cell["parts"].append(macro["title"])
+        if self.table is not None and self.depth == 1:
             if tag in ("td", "th") and self.cell is not None:
-                self.row.append((self.cell["kind"], "".join(self.cell["parts"])))
+                self.row.append(self.cell)
                 self.cell = None
             elif tag == "tr" and self.row is not None:
                 self.table.append(self.row)
                 self.row = None
 
     def handle_data(self, data):
-        if self.cell is not None:
+        if self.cell is None:
+            return
+        if self.macro and self.macro[-1]["status"]:
+            if self.parameter == "title":
+                self.macro[-1]["title"] += data
+        elif not self.macro or (self.macro[-1]["body"] and self.parameter is None):
             self.cell["parts"].append(data)
-
 
 def clean(value):
     return re.sub(r"\s+", " ", value).strip()
+
+
+def _cell_text(cell):
+    return "".join(cell["parts"])
+
+
+def _identifier(value):
+    match = re.search(r"\s*\{([^{}]*)\}\s*$", value)
+    if match:
+        return value[:match.start()].strip(), match.group(1).strip()
+    return value.strip(), slug(value)
+
+
+def _expand(row, number):
+    expanded = []
+    for cell in row:
+        if cell["rowspan"] is not None:
+            raise ValueError("row " + str(number) + ": rowspan is unsupported")
+        try:
+            span = int(cell["colspan"])
+        except ValueError as exc:
+            raise ValueError("row " + str(number) + ": invalid colspan") from exc
+        if span < 1:
+            raise ValueError("row " + str(number) + ": invalid colspan")
+        expanded.extend([_cell_text(cell)] * span)
+    return expanded
 
 
 def parse_page(html):
@@ -68,23 +122,27 @@ def parse_page(html):
     matches = []
     for table in parser.tables:
         for index, row in enumerate(table):
-            names = [clean(cell[1]).lower() for cell in row]
+            names = [clean(value).lower() for value in _expand(row, index + 1)]
             if all(name in names for name in HEADERS):
                 matches.append((table, index, {name: names.index(name) for name in HEADERS}))
                 break
     if len(matches) != 1:
         raise ValueError("expected exactly one gate table")
     table, header_index, columns = matches[0]
-    gates, warnings = [], []
-    for row in table[header_index + 1:]:
+    width = len(_expand(table[header_index], header_index + 1))
+    gates, warnings, gate_ids = [], [], set()
+    for number, row in enumerate(table[header_index + 1:], header_index + 2):
         if not row:
             continue
+        values = _expand(row, number)
+        if len(values) != width:
+            raise ValueError("row " + str(number) + ": cell count differs from header")
         def column(name):
-            index = columns[name]
-            return row[index][1] if index < len(row) else ""
-        label = clean(column("gate"))
-        if not label:
-            continue
+            return values[columns[name]]
+        label, gate_id = _identifier(clean(column("gate")))
+        if not gate_id or gate_id in gate_ids:
+            raise ValueError("row " + str(number) + ": empty or duplicate gate id: " + gate_id)
+        gate_ids.add(gate_id)
         detected = clean(column("detected by")).lower().split(" ", 1)[0]
         if detected not in DETECTIONS:
             warnings.append("Unknown detection key for " + label + ": " + detected)
@@ -100,13 +158,16 @@ def parse_page(html):
         obligations = []
         if transition:
             obligations.append({"id": "jira-transition", "text": "Jira transition: " + transition["from"] + " -> " + transition["to"]})
+        obligation_ids = {item["id"] for item in obligations}
         for part in re.split(r"[;\n]+", column("obligations")):
-            item = clean(part)
+            item, identifier = _identifier(clean(part))
             if item:
-                obligations.append({"id": slug(item), "text": item})
-        gates.append({"id": slug(label), "label": label, "detected_by": detected, "jira_transition": transition, "obligations": obligations})
+                if not identifier or identifier in obligation_ids:
+                    raise ValueError("row " + str(number) + ": empty or duplicate obligation id: " + identifier)
+                obligation_ids.add(identifier)
+                obligations.append({"id": identifier, "text": item})
+        gates.append({"id": gate_id, "label": label, "detected_by": detected, "jira_transition": transition, "obligations": obligations})
     return gates, warnings
-
 
 def cache_path(repo):
     return Path(repo) / ".velir" / "process-cache.json"
@@ -123,8 +184,9 @@ def save_cache(repo, page_id, version, gates, warnings):
     return payload
 
 
-def load_cache(repo):
+def load_cache(repo, page_id=None):
     path = cache_path(repo)
     if not path.exists():
         return None
-    return json.loads(path.read_text(encoding="utf-8"))
+    cache = json.loads(path.read_text(encoding="utf-8"))
+    return cache if page_id is None or cache.get("page_id") == page_id else None

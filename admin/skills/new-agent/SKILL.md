@@ -23,15 +23,7 @@ Build a standards-compliant agent definition and place it in the right location.
 
 ## Standards Reference
 
-**Check installed and project agents for color collisions before assigning one:**
-| Agent | Color |
-|-------|-------|
-| team-lead | red |
-| process-engineer | purple |
-| issue-analyzer | cyan |
-| implementer | orange |
-
-**Check `.claude/agents/` for the full collision list before assigning a color.**
+**Check installed plugin agents and `.claude/agents/` for color collisions before assigning a color.**
 
 **Model selection:** Omit the `model` field to inherit the session model — correct when unsure.
 - `haiku` — procedural/checklist work, runs tools and reports output, no code writing

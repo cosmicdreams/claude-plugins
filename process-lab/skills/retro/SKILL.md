@@ -22,7 +22,7 @@ For each action item from the previous report: done, in progress, or dropped, an
 
 Collect in parallel where you can:
 
-- **Process ledger.** `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/process_lab.py" report --since <from> --until <to> --json` — crossings, discharge rate per gate, waivers with reasons, failed checks.
+- **Process ledger.** `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/process_lab.py" report --since <from> --until <to> --project <jira project> --json` — per gate: open at start, opened, discharged, waived, reopened, open at end, discharge rate; waiver reasons; failed checks. Run it from the project's repository so the project defaults correctly.
 - **Jira.** Tickets resolved, reopened, or bounced back (rejected by testing or by the client) in the range, and how long each sat in each status.
 - **Pull requests.** Merged, review rounds, time from opened to merged.
 - **Agent work.** For a handful of tickets where the ledger shows skips or rejections, dispatch `process-lab:process-auditor` to check the work against the process. Note where agents followed the process and where they did not.

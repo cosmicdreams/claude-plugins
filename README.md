@@ -57,7 +57,7 @@ Process automation built on top of `lib`: work prioritization, deploy checklist,
 Skills: `config`, `deploy-post`, `obsidian-lint`, `organize`, `personal-calendar`, `personal-email`, `prioritize`, `scout`, `knowledge-check`
 
 ### `drover`
-Drupal and Acquia log reporting. Fetches Acquia logs by date, groups errors into fingerprints, diagnoses causes, and renders a calendar-month report as a web page, a Portable Document Format file, or markdown, with recommended tickets for stakeholders.
+Drupal and Acquia log reporting. Fetches Acquia logs by date, groups errors into fingerprints, diagnoses causes, and renders a calendar-month report as a web page, a Portable Document Format file, or markdown, plus an evidence file that `process-lab:recommend-tickets` turns into Jira ticket recommendations.
 
 Skills: `acquia-pull`, `init`, `report`
 

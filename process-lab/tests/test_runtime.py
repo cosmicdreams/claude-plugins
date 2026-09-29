@@ -1,9 +1,11 @@
 import json
+from concurrent.futures import ThreadPoolExecutor
 import os
 import subprocess
 import sys
 import tempfile
 import unittest
+from unittest.mock import patch
 from pathlib import Path
 
 
@@ -35,6 +37,27 @@ class ParserTests(unittest.TestCase):
         self.assertEqual(2, len(parsed[0]["obligations"]))
         self.assertEqual(1, len(warnings))
 
+    def test_status_macro_colspan_nested_table_and_ids(self):
+        header = "<tr><th>Gate</th><th>Detected by</th><th>Jira transition</th><th>Obligations</th></tr>"
+        row = "<tr><td>Ready {ready-id}</td><td><ac:structured-macro ac:name='status'><ac:parameter ac:name='title'>pushed</ac:parameter></ac:structured-macro></td><td colspan='2'>None</td></tr>"
+        parsed, _ = gates.parse_page("<table>" + header + row + "</table>")
+        self.assertEqual(("ready-id", "pushed"), (parsed[0]["id"], parsed[0]["detected_by"]))
+        macro = "<ac:structured-macro ac:name='note'><ac:parameter ac:name='title'>Ignore</ac:parameter><ac:rich-text-body><p>Body text</p></ac:rich-text-body></ac:structured-macro>"
+        parsed, _ = gates.parse_page("<table>" + header + "<tr><td>Ready</td><td>pushed</td><td>None</td><td>" + macro + "</td></tr></table>")
+        self.assertEqual("Body text", parsed[0]["obligations"][0]["text"])
+        row = "<tr><td>Ready</td><td>pushed</td><td>None</td><td><table><tr><td>Review</td><td>Approve</td></tr></table></td></tr>"
+        parsed, _ = gates.parse_page("<table>" + header + row + "</table>")
+        self.assertEqual(["Review", "Approve"], [o["text"] for o in parsed[0]["obligations"]])
+        for bad in ("<tr><td>Ready</td><td>pushed</td><td colspan='3'>None</td></tr>", "<tr><td rowspan='2'>Ready</td><td>pushed</td><td>None</td><td>X</td></tr>"):
+            with self.assertRaisesRegex(ValueError, "row 2"):
+                gates.parse_page("<table>" + header + bad + "</table>")
+        row = "<tr><td>Ready</td><td>pushed</td><td>None</td><td>Review A/B; Review A B</td></tr>"
+        with self.assertRaisesRegex(ValueError, "duplicate obligation id"):
+            gates.parse_page("<table>" + header + row + "</table>")
+        row = "<tr><td>Ready</td><td>pushed</td><td>None</td><td>X</td></tr>"
+        with self.assertRaisesRegex(ValueError, "duplicate gate id"):
+            gates.parse_page("<table>" + header + row + row + "</table>")
+
 
 class DetectionTests(unittest.TestCase):
     def test_commands(self):
@@ -61,6 +84,21 @@ class DetectionTests(unittest.TestCase):
         self.assertIn("PPS-12", detect.detect("git commit -m \"$(cat <<'EOF'\nPPS-12 fix\nEOF\n)\"")[0]["message"])
         self.assertEqual("PPS-12", detect.ticket_from("feature/PPS-12-slug", "PPS"))
         self.assertIsNone(detect.ticket_from("feature/ABC-12-slug", "PPS"))
+
+    def test_shell_certainty_and_nonexecuting_options(self):
+        self.assertEqual("Fix; PPS-123", detect.detect('git commit -m "Fix; PPS-123"')[0]["message"])
+        self.assertEqual([], detect.detect('git commit -m "unclosed'))
+        self.assertFalse(detect.detect("true || git push")[0]["certain"])
+        self.assertFalse(detect.detect("git push; true")[0]["certain"])
+        self.assertFalse(detect.detect("git push\ntrue")[0]["certain"])
+        self.assertFalse(detect.detect("git push | cat")[0]["certain"])
+        self.assertEqual([], detect.detect("git push --dry-run"))
+        self.assertEqual([], detect.detect("git push -n"))
+        self.assertEqual([], detect.detect("git commit --dry-run -m PPS-123"))
+        self.assertEqual([], detect.detect("pytest --collect-only", ["pytest"]))
+        self.assertEqual([], detect.detect("pytest --version", ["pytest"]))
+        self.assertEqual([], detect.detect("pytest --collect-only=yes", ["pytest"]))
+        self.assertEqual("commit", detect.detect("git commit -m 'PPS-123 --dry-run'")[0]["detected_by"])
 
 
 class IntegrationTests(unittest.TestCase):
@@ -157,6 +195,16 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(0, result.returncode, result.stderr)
         self.assertEqual(1, sum(e["event"] == "gate_declared" for e in self.entries()))
 
+    def test_ledger_lock_timeout_logs_and_skips(self):
+        import time
+        with patch.dict(os.environ, {"PROCESS_LAB_LEDGER": str(self.ledger)}), patch.object(ledger.fcntl, "flock", side_effect=BlockingIOError("held")):
+            start = time.monotonic()
+            self.assertIsNone(ledger.append("PPS", "PPS-123", "branch", "gate_crossed", gate="g"))
+            elapsed = time.monotonic() - start
+        self.assertLess(elapsed, 0.4)
+        self.assertIn("BlockingIOError", (self.ledger.parent / "errors.log").read_text())
+        self.assertEqual([], self.entries())
+
     def test_ledger_malformed_line(self):
         self.ledger.write_text("not json\n" + json.dumps({"event": "gate_crossed", "project": "PPS", "ticket": "PPS-123", "gate": "x"}) + "\n")
         result = self.invoke("status", "--ticket", "PPS-123", "--json")
@@ -174,6 +222,115 @@ class IntegrationTests(unittest.TestCase):
         (self.repo / ".velir" / "process-cache.json").unlink()
         response = self.hook("session")
         self.assertIn("process-lab:initialize", response["hookSpecificOutput"]["additionalContext"])
+
+    def test_quoted_commit_and_post_certainty(self):
+        self.manifest["mode"] = "enforce"
+        self.write_manifest()
+        self.assertIsNone(self.hook("pre", 'git commit -m "Fix; PPS-123"'))
+        for command in ("true || git push", "git push --dry-run", "git push -n", "git push; true"):
+            self.hook("post", command)
+        self.assertEqual([], self.entries())
+
+    def test_effective_directory_and_git_c(self):
+        other = Path(self.temp.name) / "other"
+        other.mkdir()
+        subprocess.run(["git", "init", "-q", str(other)], check=True)
+        (other / ".velir").mkdir()
+        (other / ".velir" / "project.json").write_text(json.dumps(self.manifest))
+        parsed, warnings = gates.parse_page((FIXTURES / "pncb-process-page.html").read_text())
+        gates.save_cache(other, 4205052827, 1, parsed, warnings)
+        subprocess.run(["git", "-C", str(other), "checkout", "-q", "-b", "feature/PPS-456-other"], check=True)
+        subprocess.run(["git", "-C", str(other), "-c", "user.name=Test", "-c", "user.email=test@example.invalid", "commit", "-q", "--allow-empty", "-m", "test: initial"], check=True)
+        self.hook("post", "cd ../other && git push")
+        self.hook("post", "git -C ../other push")
+        self.assertEqual({"PPS-456"}, {e["ticket"] for e in self.entries()})
+        self.assertEqual(4, sum(e["event"] == "obligation_opened" for e in self.entries()))
+        self.hook("post", "cd ../missing && git push")
+        self.assertEqual(2, sum(e["event"] == "gate_crossed" for e in self.entries()))
+
+    def test_branch_created_changes_later_segment_context(self):
+        self.hook("post", "git switch -c feature/PPS-789-new && git push")
+        self.assertEqual({"PPS-789"}, {e["ticket"] for e in self.entries()})
+        self.assertEqual(2, sum(e["event"] == "gate_crossed" for e in self.entries()))
+
+    def test_concurrent_open_and_reopen_cycle(self):
+        with ThreadPoolExecutor(max_workers=4) as pool:
+            list(pool.map(lambda _: self.hook("post", "git push"), range(4)))
+        self.assertEqual(4, sum(e["event"] == "obligation_opened" for e in self.entries()))
+        obligation = "jira-transition"
+        self.assertEqual(0, self.invoke("discharge", "--gate", "pushed-to-remote-dev", "--obligation", obligation, "--evidence", "done").returncode)
+        self.hook("post", "git push")
+        self.assertNotIn(obligation, [o["id"] for o in json.loads(self.invoke("status", "--json").stdout)["outstanding"]["pushed-to-remote-dev"]])
+        self.assertEqual(0, self.invoke("reopen", "--gate", "pushed-to-remote-dev", "--reason", "new revision").returncode)
+        summary = json.loads(self.invoke("status", "--json").stdout)
+        self.assertIn(obligation, [o["id"] for o in summary["outstanding"]["pushed-to-remote-dev"]])
+        self.assertEqual(1, json.loads(self.invoke("report", "--since", "2020-01-01", "--json").stdout)["gates"]["pushed-to-remote-dev"]["reopened"])
+
+    def test_sync_error_preserves_cache(self):
+        cache_file = self.repo / ".velir" / "process-cache.json"
+        original = cache_file.read_bytes()
+        bad_page = Path(self.temp.name) / "bad-page.html"
+        bad_page.write_text("<table><tr><th>Gate</th><th>Detected by</th><th>Jira transition</th><th>Obligations</th></tr><tr><td>Bad</td><td>pushed</td><td colspan='3'>None</td></tr></table>")
+        result = self.invoke("sync", "--page-file", str(bad_page), "--page-id", "4205052827", "--page-version", "2")
+        self.assertEqual(1, result.returncode)
+        self.assertIn("row 2", result.stderr)
+        self.assertEqual(original, cache_file.read_bytes())
+
+    def test_status_failed_check_details(self):
+        self.hook("pre", "git commit -m missing")
+        summary = json.loads(self.invoke("status", "--json").stdout)
+        self.assertEqual(1, summary["checks_failed"])
+        self.assertEqual("commit_message", summary["failed_checks"][0]["check"])
+        self.assertIn("Commit message must contain", summary["failed_checks"][0]["detail"])
+
+    def test_page_id_mismatch_and_status_fields(self):
+        self.manifest["confluence"]["pages"]["process"] = 12345
+        self.write_manifest()
+        self.assertIsNone(self.hook("post", "git push"))
+        self.assertIn("process-lab:initialize", self.hook("session")["hookSpecificOutput"]["additionalContext"])
+        summary = json.loads(self.invoke("status", "--json").stdout)
+        self.assertEqual({"page_id": None, "page_version": None, "synced_at": None, "stale": True}, summary["cache"])
+        self.assertEqual([], summary["failed_checks"])
+
+    def test_report_window_math_and_declared_count(self):
+        entries = [
+            {"ts": "2026-01-01T00:00:00Z", "project": "PPS", "ticket": "PPS-1", "gate": "g", "obligation": "o", "text": "O", "event": "obligation_opened"},
+            {"ts": "2026-02-01T00:00:00Z", "project": "PPS", "ticket": "PPS-1", "gate": "g", "obligation": "o", "event": "obligation_discharged"},
+            {"ts": "2026-02-02T00:00:00Z", "project": "PPS", "ticket": "PPS-1", "gate": "g", "event": "gate_declared"},
+            {"ts": "2026-02-03T00:00:00Z", "project": "OTHER", "ticket": "OTHER-1", "gate": "g", "event": "gate_crossed"},
+        ]
+        group = status.report("2026-02-01", "2026-02-28", "PPS", entries)["gates"]["g"]
+        self.assertEqual((1, 0, 1, 0, 1, 0, 1.0), (group["open_at_start"], group["opened"], group["discharged"], group["open_at_end"], group["crossings"], group["reopened"], group["discharge_rate"]))
+        self.assertEqual(1, status.summarize("PPS", "PPS-1", entries)["gates_crossed"])
+        result = self.invoke("declare", "--gate", "deployed-for-user-acceptance-testing", "--ticket", "PPS-123")
+        self.assertEqual(0, result.returncode, result.stderr)
+        self.assertEqual(1, json.loads(self.invoke("status", "--ticket", "PPS-123", "--json").stdout)["gates_crossed"])
+
+    def test_report_reopen_after_window_discharge(self):
+        entries = [
+            {"ts": "2026-01-01T00:00:00Z", "project": "PPS", "ticket": "PPS-1", "gate": "g", "obligation": "o", "text": "O", "event": "obligation_opened"},
+            {"ts": "2026-02-01T00:00:00Z", "project": "PPS", "ticket": "PPS-1", "gate": "g", "obligation": "o", "event": "obligation_discharged"},
+            {"ts": "2026-02-02T00:00:00Z", "project": "PPS", "ticket": "PPS-1", "gate": "g", "event": "gate_reopened"},
+        ]
+        group = status.report("2026-02-01", "2026-02-28", "PPS", entries)["gates"]["g"]
+        self.assertEqual((1, 1, 1, 1, 0.5), (group["open_at_start"], group["opened"], group["reopened"], group["open_at_end"], group["discharge_rate"]))
+
+    def test_report_defaults_to_manifest_project(self):
+        self.ledger.write_text("\n".join(json.dumps(e) for e in [
+            {"ts": "2026-02-01T00:00:00Z", "project": "PPS", "ticket": "PPS-1", "gate": "g", "event": "gate_declared"},
+            {"ts": "2026-02-01T00:00:00Z", "project": "OTHER", "ticket": "OTHER-1", "gate": "g", "event": "gate_declared"},
+        ]) + "\n")
+        report = json.loads(self.invoke("report", "--since", "2026-02-01", "--json").stdout)
+        self.assertEqual("PPS", report["project"])
+        self.assertEqual(1, report["gates"]["g"]["crossings"])
+
+    def test_unsafe_branch_pattern_warning(self):
+        self.manifest["conventions"]["branch_pattern"] = "^(a+)+$"
+        self.write_manifest()
+        from process_lab import manifest
+        data, _ = manifest.load_manifest(self.repo)
+        self.assertIsNone(data["conventions"]["branch_pattern"])
+        self.assertIn("Unsafe branch_pattern", data["warnings"][0])
 
 
 if __name__ == "__main__":

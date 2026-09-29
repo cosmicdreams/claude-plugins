@@ -4,6 +4,7 @@ import argparse
 import json
 import os
 import sys
+sys.dont_write_bytecode = True
 from datetime import date
 from pathlib import Path
 
@@ -54,6 +55,10 @@ def main(argv=None):
         action.add_argument("--ticket")
         action.add_argument("--actor", choices=("agent", "human"), default="agent")
         action.add_argument("--evidence" if name == "discharge" else "--reason", required=True)
+    reopen = commands.add_parser("reopen")
+    reopen.add_argument("--gate", required=True)
+    reopen.add_argument("--ticket")
+    reopen.add_argument("--reason", required=True)
     declare = commands.add_parser("declare")
     declare.add_argument("--gate", required=True)
     declare.add_argument("--ticket")
@@ -69,7 +74,12 @@ def main(argv=None):
         date.fromisoformat(args.since)
         if args.until:
             date.fromisoformat(args.until)
-        emit(status.report(args.since, args.until, args.project), args.json)
+        selected_project = args.project
+        if selected_project is None:
+            selected_manifest, _ = manifest.load_manifest(os.getcwd())
+            if selected_manifest is not None:
+                selected_project = selected_manifest["jira"]["project"]
+        emit(status.report(args.since, args.until, selected_project), args.json)
         return 0
     cwd = getattr(args, "cwd", os.getcwd())
     data, repo = context(cwd)
@@ -86,6 +96,8 @@ def main(argv=None):
     ticket = ticket_for(data, cwd, getattr(args, "ticket", None))
     if args.command == "status":
         summary = status.summarize(project, ticket)
+        cache = gates.load_cache(repo, data["confluence"]["pages"]["process"])
+        summary["cache"] = {"page_id": cache.get("page_id") if cache else None, "page_version": cache.get("page_version") if cache else None, "synced_at": cache.get("synced_at") if cache else None, "stale": True if cache is None else (date.today() - date.fromisoformat(cache["synced_at"][:10])).days >= 14}
         if args.json:
             emit(summary, True)
         else:
@@ -94,7 +106,7 @@ def main(argv=None):
                 lines.extend(gate + ": " + item["text"] for item in obligations)
             emit("\n".join(lines))
         return 0
-    cache = gates.load_cache(repo)
+    cache = gates.load_cache(repo, data["confluence"]["pages"]["process"])
     if cache is None:
         raise ValueError("process cache missing; run process-lab:initialize")
     gate = next((item for item in cache["gates"] if item["id"] == args.gate), None)
@@ -106,6 +118,20 @@ def main(argv=None):
             raise ValueError("gate is not declared")
         ledger.append(project, ticket, branch, "gate_declared", gate=gate["id"], actor="agent")
         hook._open_obligations(data, gate, ticket, branch)
+        emit(status.summarize(project, ticket), True)
+        return 0
+    if args.command == "reopen":
+        if not args.reason.strip():
+            raise ValueError("reason must be non-empty")
+        with ledger.locked() as stream:
+            if stream is None:
+                raise ValueError("ledger lock unavailable")
+            entries = ledger.read_locked(stream)
+            state = status.obligation_state(entries, project, ticket)
+            closed = [item for item in gate["obligations"] if state.get((gate["id"], item["id"]), {}).get("state") == "closed"]
+            if not closed:
+                raise ValueError("gate has no closed obligations to reopen")
+            ledger.write(stream, project, ticket, branch, "gate_reopened", gate=gate["id"], reason=args.reason.strip())
         emit(status.summarize(project, ticket), True)
         return 0
     if not any(item["id"] == args.obligation for item in gate["obligations"]):

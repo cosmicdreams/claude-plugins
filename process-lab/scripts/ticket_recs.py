@@ -7,6 +7,7 @@ import importlib.util
 import json
 import re
 import sys
+sys.dont_write_bytecode = True
 from dataclasses import asdict, dataclass, field
 from datetime import date
 from pathlib import Path

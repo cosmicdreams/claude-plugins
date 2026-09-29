@@ -14,7 +14,7 @@ The process page belongs to the team. This skill proposes edits to it from evide
 
 Sources, any of which may start this:
 
-- Waivers: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/process_lab.py" report --since <date> --json`, grouped by obligation. The same reason three or more times is a candidate for an exception written into the page.
+- Waivers: `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/process_lab.py" report --since <date> --project <jira project> --json`, grouped by obligation. The same reason three or more times is a candidate for an exception written into the page.
 - A retro's proposed process changes.
 - Something the user just ran into that the page does not cover.
 - A candidate gate from `${CLAUDE_PLUGIN_ROOT}/references/candidate-gates.md` the team wants to try.

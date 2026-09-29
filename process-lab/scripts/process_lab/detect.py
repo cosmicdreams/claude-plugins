@@ -5,51 +5,59 @@ import subprocess
 
 
 def ticket_from(value, project):
-    match = re.search(r"\b" + re.escape(project) + r"-\d+\b", value or "")
+    match = re.search(r"\b" + re.escape(project) + r"-\d+\b", (value or "")[:255])
     return match.group(0) if match else None
 
 
 def current_branch(cwd):
     try:
         result = subprocess.run(["git", "-C", str(cwd), "rev-parse", "--abbrev-ref", "HEAD"], capture_output=True, text=True, timeout=2, check=False)
-        return result.stdout.strip() if result.returncode == 0 else None
+        return result.stdout.strip()[:255] if result.returncode == 0 else None
     except (OSError, subprocess.TimeoutExpired):
         return None
 
 
-def segments(command):
-    # Keep a commit-message heredoc together while splitting shell command chains.
+def _lex(command):
+    # A here document inside command substitution is opaque to shell chain splitting.
     blocks = []
-    pattern = re.compile(r"<<['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?[^\n]*\n.*?\n\1\b", re.S)
+    pattern = re.compile(r"\$\(cat\s+<<['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?\s*\n.*?\n\1\s*\)", re.S)
     def protect(match):
         blocks.append(match.group(0))
-        return "__PROCESS_LAB_HEREDOC_" + str(len(blocks) - 1) + "__"
+        return "PROCESSLABHEREDOC" + str(len(blocks) - 1) + "TOKEN"
     protected = pattern.sub(protect, command)
-    parts = [part.strip() for part in re.split(r"&&|\|\||[;|\n]", protected) if part.strip()]
-    for index, part in enumerate(parts):
-        for number, block in enumerate(blocks):
-            part = part.replace("__PROCESS_LAB_HEREDOC_" + str(number) + "__", block)
-        parts[index] = part
-    return parts
-
-
-def _tokens(segment):
+    lexer = shlex.shlex(protected, posix=True, punctuation_chars=";&|\n")
+    lexer.whitespace_split = True
+    lexer.whitespace = " \t\r"
+    lexer.commenters = ""
     try:
-        words = shlex.split(segment)
+        words = list(lexer)
     except ValueError:
-        words = segment.split()
-    while words and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", words[0]):
-        words.pop(0)
-    while words and words[0] in ("rtk", "command"):
-        words.pop(0)
+        return []
+    for i, word in enumerate(words):
+        for number, block in enumerate(blocks):
+            word = word.replace("PROCESSLABHEREDOC" + str(number) + "TOKEN", block)
+        words[i] = word
     return words
 
 
-def _message(words, segment):
-    if "<<" in segment:
-        match = re.search(r"<<['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?\s*\n(.*?)\n\1", segment, re.S)
-        if match:
-            return match.group(2)
+def segments(command):
+    words = _lex(command)
+    result, current = [], []
+    for word in words:
+        if word in ("&&", "||", ";", "|", "\n"):
+            if current:
+                result.append((current, word))
+                current = []
+            elif result:
+                result[-1] = (result[-1][0], word)
+        else:
+            current.append(word)
+    if current:
+        result.append((current, None))
+    return result
+
+
+def _message(words):
     result = []
     for index, word in enumerate(words):
         if word in ("-m", "--message") and index + 1 < len(words):
@@ -62,34 +70,57 @@ def _message(words, segment):
 
 
 def detect(command, test_commands=()):
+    parts = segments(command)
     found = []
-    for segment in segments(command):
-        words = _tokens(segment)
+    for index, (raw, separator) in enumerate(parts):
+        words = list(raw)
+        while words and re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*=.*", words[0]):
+            words.pop(0)
+        while words and words[0] in ("rtk", "command"):
+            words.pop(0)
         if not words:
             continue
+        prior = parts[index - 1][1] if index else None
+        certain = separator in (None, "&&") and prior not in ("||", "|")
+        if separator == "&&":
+            certain = certain and all(p[1] == "&&" for p in parts[index:-1])
+        result = {"branch": None, "message": None, "index": index, "words": words, "certain": certain}
+        if words[0] == "cd":
+            found.append({**result, "detected_by": "cd", "path": words[1] if len(words) == 2 else None})
+            continue
         normalized = " ".join(words)
+        no_test = {"--collect-only", "--list", "--help", "-h", "--version"}
         for test in test_commands:
-            if normalized == test or normalized.startswith(test + " "):
-                found.append({"detected_by": "tests-passed", "branch": None, "message": None})
+            if (normalized == test or normalized.startswith(test + " ")) and not any(w == option or w.startswith(option + "=") for w in words for option in no_test):
+                found.append({**result, "detected_by": "tests-passed"})
                 break
-        if words[:1] == ["git"]:
+        git_words = words
+        git_dir = None
+        if git_words[0] == "git":
+            git_words = git_words[1:]
+            while len(git_words) >= 2 and git_words[0] == "-C":
+                git_dir = git_words[1] if git_dir is None else git_dir + "/" + git_words[1]
+                git_words = git_words[2:]
             kind, branch = None, None
-            if words[1:3] == ["checkout", "-b"] and len(words) > 3:
-                kind, branch = "branch-created", words[3]
-            elif words[1:3] == ["switch", "-c"] and len(words) > 3:
-                kind, branch = "branch-created", words[3]
-            elif words[1:2] == ["branch"] and len(words) > 2 and not words[2].startswith("-"):
-                kind, branch = "branch-created", words[2]
-            elif words[1:3] == ["worktree", "add"] and "-b" in words:
-                index = words.index("-b")
-                if index + 1 < len(words):
-                    kind, branch = "branch-created", words[index + 1]
-            elif words[1:2] == ["commit"]:
-                kind = "commit"
-            elif words[1:2] == ["push"]:
+            if git_words[:2] in (["checkout", "-b"], ["switch", "-c"]) and len(git_words) > 2:
+                kind, branch = "branch-created", git_words[2]
+            elif git_words[:1] == ["branch"] and len(git_words) > 1 and not git_words[1].startswith("-"):
+                kind, branch = "branch-created", git_words[1]
+            elif git_words[:2] == ["worktree", "add"] and "-b" in git_words:
+                pos = git_words.index("-b")
+                if pos + 1 < len(git_words):
+                    kind, branch = "branch-created", git_words[pos + 1]
+            elif git_words[:1] == ["commit"]:
+                options = git_words[1:]
+                for marker in ("-m", "--message"):
+                    if marker in options:
+                        options = options[:options.index(marker)]
+                if "--dry-run" not in options:
+                    kind = "commit"
+            elif git_words[:1] == ["push"] and not any(w in ("--dry-run", "-n") for w in git_words):
                 kind = "pushed"
             if kind:
-                found.append({"detected_by": kind, "branch": branch, "message": _message(words, segment) if kind == "commit" else None})
+                found.append({**result, "detected_by": kind, "branch": branch, "message": _message(git_words) if kind == "commit" else None, "git_dir": git_dir})
         elif words[:3] == ["gh", "pr", "create"]:
-            found.append({"detected_by": "pull-request-opened", "branch": None, "message": None})
+            found.append({**result, "detected_by": "pull-request-opened"})
     return found

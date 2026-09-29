@@ -11,6 +11,14 @@ The page is prose for people plus exactly one table the plugin reads. Extra colu
 | Jira transition | `From -> To`, or `none`. When present it is an obligation of the gate. |
 | Obligations | What is owed at this step, one per list item or line, or separated by `;`. |
 
+## Identifiers
+
+Each gate and obligation gets an identifier from its text, which the ledger uses. Rewording a gate or obligation therefore changes its identifier and orphans its history. To keep history across edits, end the text with an explicit identifier in braces, for example `Manual testing steps on the ticket {testing-steps}`. Two gates, or two obligations in one gate, with the same identifier are an error.
+
+## What the parser refuses
+
+Merged cells spanning rows, more than one table with these headers, a row whose cell count does not match the header, and duplicate identifiers all fail the sync with a message naming the row, and the previous cache stays in place. Cells spanning columns are expanded. Status macros contribute their label; other macros their plain text; a table nested in a cell becomes `;`-separated text.
+
 ## Detection keys
 
 | Key | Fires when |

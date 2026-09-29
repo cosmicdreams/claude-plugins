@@ -302,13 +302,13 @@ brew install ffmpeg
 
 ## lighthouse
 
-Web performance and accessibility auditing tool. Produces structured scores consumed by `improve` experiments.
+Web performance and accessibility auditing tool. Produces structured scores that `research-lab:experiment` can use as a metric.
 
 ```bash
 npm i -g lighthouse
 ```
 
-**Used by:** lib (`lighthouse`), improve (`accessibility-scan`, `perf-measure`)
+**Used by:** lib (`lighthouse`), test-lab (`accessibility-scan`, `perf-measure`)
 
 ---
 
