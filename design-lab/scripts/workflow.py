@@ -461,10 +461,53 @@ def site_reachable(url: str) -> tuple[bool, str]:
         return False, str(getattr(error, "reason", error))
 
 
+def runner_handshake(workspace: Path, file_key: str, figma_url: str, timeout: float,
+                     project: dict | None = None) -> dict:
+    """Start or reuse the runner server, tell the person what to do, and wait for the runner to
+    check the target file and draw a name-only Cover in it through the real cover.js. Returns
+    the handshake's outcome, with the token."""
+    import figma_build
+    import figma_runner
+    import library_counts
+    try:
+        server = figma_runner.ensure_server(workspace)
+    except (RuntimeError, OSError) as error:
+        return {"ok": False, "runnerConnected": False, "failure": f"the runner server could not start: {error}"}
+    print(f"Runner token: {server['token']}\nOpen the target file ({figma_url}) in Figma desktop and start the "
+          f"design-lab runner (Plugins, Development, design-lab runner); paste the token if it asks. "
+          f"Waiting up to {timeout:g} seconds for it to connect.", file=sys.stderr, flush=True)
+    # The Cover's name-only form: the site's name and "Component Library", nothing computed.
+    cover = {"ground": library_counts.COVER_GROUND,
+             "headline": figma_build.site_name(Path((project or {}).get("repository", {}).get("root") or workspace)),
+             "subtitle": "Component Library", "provenance": {"stage": "preflight"},
+             "version": figma_build.STANDARD_VERSION}
+    expected = (((project or {}).get("target") or {}).get("preflight") or {}).get("coverPageId")
+    figma_runner.request_handshake(workspace, cover, expected)
+    outcome = figma_runner.wait_for_handshake(workspace, timeout)
+    return {**outcome, "server": {"pid": server.get("pid"), "started": server.get("started")},
+            "token": server["token"]}
+
+
+def runner_command(args):
+    """Whether this run's runner server is alive; with --ensure, restart it if it is not, with the
+    run's stored token, so the runner in Figma desktop reconnects without the person."""
+    import figma_runner
+    path, _ = load_project(args.project)
+    if args.ensure:
+        state = figma_runner.ensure_server(path.parent)
+        state.pop("token", None)
+    else:
+        state = figma_runner.server_status(path.parent)
+    print(json.dumps(state, indent=2))
+
+
 def preflight_command(args):
     """Gather every answer the run needs in one pass, check what can be checked, and either give
     the go-ahead (recorded as the preflight phase, so the benchmark knows when the run was left to
-    itself) or list exactly what is still missing."""
+    itself) or list exactly what is still missing. The run's end product is a Figma file, so the
+    go-ahead also needs proof that the target file can be written: the runner server is started
+    (or reused), the runner in Figma desktop connects, and one check step confirms the open file
+    is the target, is empty, and accepts a node that is created and deleted again."""
     path, project = load_project(args.project)
     run = project.get("run") if isinstance(project.get("run"), dict) else {}
     missing, checks = [], {}
@@ -479,9 +522,6 @@ def preflight_command(args):
     figma_key = re.search(r"/design/([A-Za-z0-9]+)", args.figma_url or "")
     if not figma_key:
         missing.append("the target Figma file address, https://www.figma.com/design/<file-key>/... (--figma-url)")
-    if not args.runner_ready:
-        missing.append("confirmation that the design-lab runner plugin is imported in Figma desktop and the "
-                       "target file is open (--runner-ready)")
     site_label = args.site_label or run.get("siteLabel")
     operator = args.operator or run.get("operator")
     if not site_label:
@@ -498,10 +538,34 @@ def preflight_command(args):
     answers = {"siteUrl": site_url, "publicUrl": args.public_url, "figmaUrl": args.figma_url,
                "siteLabel": site_label, "operator": operator, "model": args.model,
                "planApproval": args.plan_approval, "usageFallback": args.usage_fallback,
-               "ddevRoot": args.ddev_root, "runnerReady": bool(args.runner_ready),
+               "ddevRoot": args.ddev_root,
                "schemaChurn": "recorded by the run at the benchmark, without asking"}
+    token = None
+    if figma_key:
+        # The server finds this run by its target file, so the target is recorded before it starts.
+        previous = (project.get("target") or {}).get("figmaFileKey")
+        if previous and previous != figma_key.group(1):
+            invalidate(project, ("foundation", "components", "index", "verify"),
+                       ("foundation", "build-record", "index", "verify-report"))
+        kept = (project.get("target") or {}).get("preflight") if previous == figma_key.group(1) else None
+        project["target"] = {"figmaFileKey": figma_key.group(1), "figmaUrl": args.figma_url, "recordedAt": now(),
+                             **({"preflight": kept} if kept else {})}
+        write_json(path, project)
+        handshake = runner_handshake(path.parent, figma_key.group(1), args.figma_url, args.runner_timeout, project)
+        token = handshake.pop("token", None)
+        checks["runner"] = handshake
+        if not handshake.get("ok"):
+            missing.append(handshake.get("failure") or "the Figma file could not be proven writable")
+        else:
+            # What the name-only Cover proved; the build reuses this Cover page and this address.
+            path, project = load_project(path)
+            project["target"]["preflight"] = {
+                "fileKey": figma_key.group(1), "fileUrl": args.figma_url, "coverPageId": handshake.get("coverPageId"),
+                "coverId": handshake.get("coverId"), "font": handshake.get("font"),
+                "fontLoaded": handshake.get("fontLoaded"), "at": handshake.get("at")}
+            write_json(path, project)
     if missing:
-        print(json.dumps({"ready": False, "missing": missing, "checks": checks,
+        print(json.dumps({"ready": False, "missing": missing, "checks": checks, "runnerToken": token,
                           "message": "Still needed before the run can go ahead unattended: " + "; ".join(missing) + "."},
                          indent=2))
         sys.exit(1)
@@ -510,15 +574,10 @@ def preflight_command(args):
     if args.model:
         run.setdefault("claude", {})["model"] = args.model
     project["run"] = run
-    previous = (project.get("target") or {}).get("figmaFileKey")
-    if previous and previous != figma_key.group(1):
-        invalidate(project, ("foundation", "components", "index", "verify"),
-                   ("foundation", "build-record", "index", "verify-report"))
-    project["target"] = {"figmaFileKey": figma_key.group(1), "figmaUrl": args.figma_url, "recordedAt": now()}
     go_ahead = now()
     set_phase(path, project, "preflight", "complete", {**answers, "checks": checks, "goAheadAt": go_ahead},
               at=go_ahead)
-    print(json.dumps({"ready": True, "goAheadAt": go_ahead, "checks": checks,
+    print(json.dumps({"ready": True, "goAheadAt": go_ahead, "checks": checks, "runnerToken": token,
                       "message": "I have everything I need; it's safe to let this run to completion."}, indent=2))
 
 
@@ -779,8 +838,8 @@ def main():
     command.add_argument("--site-url", help="local site address the run captures from")
     command.add_argument("--public-url", help="the site's public address, for provenance and captions")
     command.add_argument("--figma-url", help="the empty target Figma file")
-    command.add_argument("--runner-ready", action="store_true",
-                         help="the person confirms the runner plugin is imported in Figma desktop")
+    command.add_argument("--runner-timeout", type=float, default=300,
+                         help="seconds to wait for the runner in Figma desktop to connect (default 300)")
     command.add_argument("--site-label")
     command.add_argument("--operator")
     command.add_argument("--model")
@@ -790,6 +849,11 @@ def main():
     command.add_argument("--usage-fallback", choices=("stop", "untiered"), default="stop",
                          help="if the detected usage source cannot be used: stop, or build untiered")
     command.set_defaults(func=preflight_command)
+
+    command = sub.add_parser("runner", help="whether the runner server is alive; --ensure restarts it")
+    command.add_argument("--project", default=".design-lab")
+    command.add_argument("--ensure", action="store_true", help="start it again, with the stored token, if it is not alive")
+    command.set_defaults(func=runner_command)
 
     command = sub.add_parser("approve")
     command.add_argument("--project", default=".design-lab")
@@ -836,7 +900,7 @@ def main():
     args = parser.parse_args()
     try:
         args.func(args)
-    except (OSError, ValueError, KeyError, json.JSONDecodeError) as error:
+    except (OSError, ValueError, KeyError, RuntimeError, json.JSONDecodeError) as error:
         parser.exit(2, f"error: {error}\n")
 
 

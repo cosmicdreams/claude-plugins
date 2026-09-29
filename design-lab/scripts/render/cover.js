@@ -3,6 +3,9 @@
  *
  * ARGS = { pageId, ground, headline, subtitle, total: { value, label },
  *          tiers: [{ key, value, label, color }], provenance: {..}, version }
+ * Name-only form, drawn at preflight to prove the file can be written: no `total` and no tiers.
+ * It draws the ground and the title block alone, through the same fonts and layout; the build
+ * later redraws the full Cover on the same page.
  * Navy ground, 80 of margin, every text in IBM Plex Sans. The site's name and one generic line at
  * the top; at the bottom the number of components, a bar that is that total split into exact
  * shares by category, and one tile per category in the same color. The categories add up to the
@@ -22,18 +25,25 @@ function barWidths(values, width) {
   return widths;
 }
 /* END bar helpers */
-await loadKitFonts();
 /* Every text on the Cover is IBM Plex Sans. If the font cannot be loaded (not installed, or not
    available to this Figma account), the Cover keeps the kit font instead, so the build never breaks
-   over a typeface. */
+   over a typeface. Which one was used is returned, so preflight can report it. */
 const COVER_ROLES = ['coverTitle', 'coverSub', 'coverTotal', 'coverUnit', 'coverTileValue', 'coverTileLabel'];
+let plexLoaded = false;
 try {
   const plex = KIT.coverFont;
   await Promise.all(Object.values(plex.styles).map((style) => figma.loadFontAsync({ family: plex.family, style })));
   COVER_ROLES.forEach((role) => { ROLES[role] = [plex.family, plex.styles[ROLES[role][1]], ...ROLES[role].slice(2)]; });
+  plexLoaded = true;
 } catch (e) {
   /* keep the kit font */
 }
+try {
+  await loadKitFonts();
+} catch (e) {
+  throw new Error(`${plexLoaded ? 'the kit font' : 'IBM Plex Sans could not load and the fallback'} failed to load: ${e && e.message ? e.message : e}`);
+}
+const nameOnly = !ARGS.total;
 const page = await onPage(ARGS.pageId);
 return await atomic(page, [], async () => {
 clearTagged(page, 'role', 'cover');
@@ -51,7 +61,8 @@ add(top,
   fillWidth(text(ARGS.headline, 'coverTitle', { name: 'Headline', width: inner })),
   ARGS.subtitle ? text(ARGS.subtitle, 'coverSub', { name: 'Subtitle' }) : null);
 
-const lower = stack('VERTICAL', { name: 'Library', gap: KIT.space.xl, width: inner });
+const lower = nameOnly ? null : stack('VERTICAL', { name: 'Library', gap: KIT.space.xl, width: inner });
+if (!nameOnly) {
 const totalRow = stack('HORIZONTAL', { name: 'Total', gap: KIT.space.l, align: 'BASELINE' });
 add(totalRow, text(ARGS.total.value, 'coverTotal', { name: 'Value' }), text(ARGS.total.label, 'coverUnit', { name: 'Label' }));
 lower.appendChild(totalRow);
@@ -83,10 +94,13 @@ if (tiers.length) {
   });
   lower.appendChild(row);
 }
+}
 add(cover, top, lower);
 const hidden = JSON.stringify(ARGS.provenance || {});
 cover.setSharedPluginData('designlab', 'provenance', hidden);
 figma.root.setSharedPluginData('designlab', 'provenance', hidden);
 page.setSharedPluginData('designlab', 'version', ARGS.version || '');
-return { coverId: cover.id, width: cover.width, height: cover.height };
+return { coverId: cover.id, pageId: page.id, width: cover.width, height: cover.height, nameOnly,
+  font: plexLoaded ? KIT.coverFont.family : KIT.font, fontLoaded: plexLoaded,
+  pluginData: figma.root.getSharedPluginData('designlab', 'provenance') === hidden };
 });

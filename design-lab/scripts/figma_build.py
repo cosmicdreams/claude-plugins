@@ -176,6 +176,11 @@ def cmd_init(ns) -> int:
         "steps": steps,
         "done": [],
     }
+    # Preflight drew a name-only Cover to prove the file can be written; the build fills in that
+    # Cover page rather than adding a second one.
+    preflight = ((load(project, "project.json", {}).get("target") or {}).get("preflight") or {})
+    if preflight.get("coverPageId") and preflight.get("fileKey") == ns.file_key:
+        state["preflightCover"] = preflight["coverPageId"]
     (out / "state.json").write_text(json.dumps(state, indent=1) + "\n")
     print(json.dumps({"steps": len(steps), "components": len(built), "runtime": state["runtime"]}))
     return 0
@@ -796,6 +801,16 @@ def cmd_record(ns) -> int:
     key = required.get(ns.step.split(":")[0])
     if key and key not in data:
         raise SystemExit(f"{ns.step}: result has no {key}; not recording a failed step")
+    if ns.step == "pages":
+        # The file must be empty, or hold only this run's preflight Cover: anything else is
+        # someone's work, and the build does not write around it.
+        if data.get("foreign"):
+            raise SystemExit("pages: the file holds pages design-lab did not create ("
+                             + ", ".join(data["foreign"]) + "); the build needs an empty file, or one holding only "
+                             "this run's preflight Cover")
+        if state.get("preflightCover") and data["pages"].get("Cover") != state["preflightCover"]:
+            raise SystemExit(f"pages: the Cover page is {data['pages'].get('Cover')}, not the page preflight drew "
+                             f"({state['preflightCover']}); the build must fill in the preflight Cover, not add another")
     if ns.step.startswith("compare:") and data.get("file"):
         import figma_compare
         geo = result(project, "block:" + ns.step.split(":", 1)[1])["geometry"]

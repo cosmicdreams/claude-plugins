@@ -14,7 +14,7 @@ Own the whole outcome. Durable artifacts, not conversation memory, determine wha
 
 ## Establish the project
 
-Resolve the repository and an empty or existing target Figma file. Never mutate a reference file the user supplied only for comparison. Before the first Figma write, load the official Figma-use and library-generation guidance and verify that the target is writable.
+Resolve the repository and an empty or existing target Figma file. Never mutate a reference file the user supplied only for comparison. Before the first Figma write, load the official Figma-use and library-generation guidance; preflight proves the target can be written.
 
 Initialize one workspace per target library:
 
@@ -33,8 +33,7 @@ Read `detection.json`. Reconcile prior art unless the user explicitly requested 
 Before any extraction, gather every answer the run will need in one message to the person, using what the request and `detection.json` already say and asking only for the rest:
 
 - the local site address, and the public address;
-- the target Figma file: new and empty, editable by the person's account; load the official Figma-use guidance and confirm it is writable;
-- that the design-lab runner plugin is imported in Figma desktop, started with its token pasted, and the target file is open (`references/relay.md`);
+- the target Figma file: new and empty, editable by the person's account; preflight proves it can be written;
 - a neutral site label and the operator's name;
 - the component, token and usage sources: state the detector's recommendation and use it unless the person overrides it now;
 - for a database usage source, the DDEV project root, and what to do if that source cannot be used after all: stop, or build without usage tiers;
@@ -44,12 +43,12 @@ Schema churn is not a question: the run records any schema change or workaround 
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py preflight --project <artifact-directory> \
-  --site-url <local-site-url> --public-url <public-site-url> --figma-url <file-url> --runner-ready \
+  --site-url <local-site-url> --public-url <public-site-url> --figma-url <file-url> \
   --site-label "<label>" --operator "<name>" [--model <model>] [--ddev-root <path>] \
   --plan-approval proposed|review [--usage-fallback stop|untiered]
 ```
 
-It checks that the local site answers and that a DDEV project is present where the usage source needs one, records the Figma target, and either records the go-ahead (the `preflight` phase) and prints "I have everything I need; it's safe to let this run to completion", or exits with exactly what is still missing. Tell the person that sentence, or ask for the missing items and run preflight again. Persist any source override the person gave:
+It checks that the local site answers and that a DDEV project is present where the usage source needs one, and records the Figma target. The run's end product is a Figma file, so preflight also proves the file can be written before anything long starts: it starts the runner server (or reuses the one serving this run), prints the runner token with the instruction to open the target file in Figma desktop and start the design-lab runner (`references/relay.md`), and waits for the runner, up to `--runner-timeout` seconds (300 by default). Run it in the background and give the person the token and that instruction as soon as it prints them. The runner confirms the open file is the target and is empty, turns its first page into the Cover page, and draws a name-only Cover there (the site's name and "Component Library", nothing else) through the real `cover.js`: the connection, page creation, IBM Plex Sans (or its fallback, which is reported), writing and plugin data are all proved. The build later fills in that same Cover. Preflight then either records the go-ahead (the `preflight` phase, with what the handshake proved) and prints "I have everything I need; it's safe to let this run to completion", or exits with exactly what is still missing and why: no runner within the timeout, a different file open, a rejected token, a file that is not empty, or a Cover that could not be drawn. It never gives the go-ahead without the drawn Cover. Tell the person that sentence, or what is missing, and run preflight again once it is fixed; the runner stays open, so a second handshake takes seconds. Persist any source override the person gave:
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py select --project <artifact-directory> \
@@ -58,7 +57,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py select --project <artifact-dir
 
 ## After the go-ahead, run to completion
 
-After preflight, complete the whole run through the benchmark and the completion message without pausing for confirmation. Do not ask whether to continue between phases or components, and do not report progress as a question. Decide everything the standard and the preflight answers decide, and record each decision in the artifacts. Only a genuine blocker, where no path forward exists without the person, may stop the run: the site or the Figma runner has stopped and cannot be restarted from here, the runner needs its token pasted again, or a failure has no fix in the templates or rules. When that happens, say exactly what is needed; once it is provided, resume from the artifacts where the run stopped. The plan-approval stop happens only when the person chose review at preflight.
+After preflight, complete the whole run through the benchmark and the completion message without pausing for confirmation. Do not ask whether to continue between phases or components, and do not report progress as a question. Decide everything the standard and the preflight answers decide, and record each decision in the artifacts. Only a genuine blocker, where no path forward exists without the person, may stop the run: Figma desktop was closed or the person stopped the runner plugin, the local site has stopped and cannot be restarted from here, or a failure has no fix in the templates or rules. The runner server is not one of them: if it has stopped, restart it (below); it keeps its token, so the runner reconnects without the person. When that happens, say exactly what is needed; once it is provided, resume from the artifacts where the run stopped. The plan-approval stop happens only when the person chose review at preflight.
 
 ## Produce the review boundary
 
@@ -96,7 +95,11 @@ With "build the plan as proposed" this approves in the operator's name and the r
 
 Every Figma write is a fixed template filled from the artifacts; the model relays and decides nothing. That is what makes two runs over the same source produce the same file.
 
-1. The target was recorded at preflight: an empty Figma file the person can edit, in the account that owns the work.
+1. The target was recorded at preflight, which proved it can be written and drew the name-only Cover. Check the runner server first, and start it again if it has stopped; it reuses the run's stored token, so nobody needs to do anything in Figma:
+
+   ```bash
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py runner --project <artifact-directory> --ensure
+   ```
 
 2. Plan every step. This converts each captured component into its build tree and fixes the page list, order and contents:
 

@@ -8,7 +8,7 @@ Before starting:
 
 - The local site is running and answers at the address you will pass as `--site-url`.
 - The Claude account and model are the ones intended for this run; `init` records the configuration folder (`CLAUDE_CONFIG_DIR`, or `~/.claude` when unset).
-- The design-lab runner plugin is imported in Figma desktop on this machine and started with its token (see `references/relay.md`).
+- The design-lab runner plugin is imported in Figma desktop on this machine (see `references/relay.md`). Preflight starts its server, prints the token, and proves the target file can be written by drawing a name-only Cover in it.
 - The target Figma file is new and empty.
 - Screen recording is running, if the run is being recorded.
 - The workspace is new: a run that reuses another run's artifacts measures the build, not the whole pipeline.
@@ -40,7 +40,7 @@ The run asks everything up front, at preflight, and records the go-ahead as the 
 
 Start every benchmarked run with the same prompt, filling in only the bracketed values, so a second run of the same site and runs on different sites begin the same way. Do not add hints about the site.
 
-> Using design-lab, build a complete Figma component library for the repository at [absolute repository path], whose site runs locally at [local site address] and publicly at [public address]. The target Figma file is [file address], which is empty. Initialise the workspace at [workspace path] with site label "[neutral site label]", operator "[name]" and model "[model]". Work through every phase with design-lab:run, finish with design-lab:verify and the benchmark, and reply with the completion message. For preflight: the runner plugin is imported and started with the target file open, and build the plan as proposed.
+> Using design-lab, build a complete Figma component library for the repository at [absolute repository path], whose site runs locally at [local site address] and publicly at [public address]. The target Figma file is [file address], which is empty. Initialise the workspace at [workspace path] with site label "[neutral site label]", operator "[name]" and model "[model]". Work through every phase with design-lab:run, finish with design-lab:verify and the benchmark, and reply with the completion message. For preflight: build the plan as proposed.
 
 ## Two levels of repeatability
 

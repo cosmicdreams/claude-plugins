@@ -347,6 +347,67 @@ class FigmaBuildTests(unittest.TestCase):
                              state["steps"][step_index + 1]["id"])
             rec.result = str(self.project / "empty.json")
 
+    def test_build_fills_the_preflight_cover_and_refuses_other_content(self):
+        project = json.loads((self.project / "project.json").read_text())
+        project["target"] = {"figmaFileKey": "file123", "preflight": {"fileKey": "file123", "coverPageId": "0:1"}}
+        self.write("project.json", project)
+        ns = type("Args", (), {"project": str(self.project), "file_key": "file123",
+                               "site_url": "https://local.test/", "canonical_base_url": "https://public.test/"})()
+        with contextlib.redirect_stdout(io.StringIO()):
+            figma_build.cmd_init(ns)
+        self.assertEqual(json.loads((self.project / "figma/state.json").read_text())["preflightCover"], "0:1")
+        rec = type("Record", (), {"project": str(self.project), "step": "pages",
+                                  "result": str(self.project / "pages.json")})()
+        for pages, error in (({"pages": {"Cover": "0:9"}}, "not the page preflight drew"),
+                             ({"pages": {"Cover": "0:1"}, "foreign": ["Page 2"]}, "did not create")):
+            self.write("pages.json", pages)
+            with self.assertRaisesRegex(SystemExit, error):
+                figma_build.cmd_record(rec)
+            self.assertEqual(json.loads((self.project / "figma/state.json").read_text())["done"], [])
+        self.write("pages.json", {"pages": {"Cover": "0:1"}, "foreign": []})
+        with contextlib.redirect_stdout(io.StringIO()):
+            figma_build.cmd_record(rec)
+        self.assertEqual(json.loads((self.project / "figma/state.json").read_text())["done"], ["pages"])
+
+    def test_name_only_cover_draws_the_title_block_alone(self):
+        if not shutil.which("node"):
+            self.skipTest("node not installed")
+        import render_payload
+        args = {"pageId": "0:1", "ground": "#001B67", "headline": "Test Org", "subtitle": "Component Library",
+                "tiers": [], "provenance": {"stage": "preflight"}, "version": "4.1.0"}
+        code = render_payload.call_payload("cover", args)
+        # A small stand-in for the Figma plugin API: enough to run the Cover and see what it drew.
+        fake = r"""
+const made = [];
+function node(type) {
+  const data = {};
+  const n = { type, id: `n${made.length}`, children: [], removed: false, name: '', fills: [],
+    appendChild(c) { this.children.push(c); c.parent = this; }, resize(w, h) { this.width = w; this.height = h; },
+    setSharedPluginData(ns, k, v) { data[k] = v; }, getSharedPluginData(ns, k) { return data[k] || ''; },
+    findAll(f) { const out = []; const walk = (x) => x.children.forEach((c) => { if (f(c)) out.push(c); walk(c); }); walk(this); return out; },
+    remove() { this.removed = true; } };
+  made.push(n);
+  return n;
+}
+const page = Object.assign(node('PAGE'), { id: '0:1' });
+const root = node('DOCUMENT'); root.children = [page];
+const loaded = [];
+globalThis.figma = { root, createFrame: () => node('FRAME'), createText: () => node('TEXT'),
+  loadFontAsync: async (f) => { loaded.push(`${f.family} ${f.style}`); },
+  getNodeByIdAsync: async (id) => (id === '0:1' ? page : null), setCurrentPageAsync: async () => {} };
+const run = new (Object.getPrototypeOf(async function () {}).constructor)(CODE);
+run().then((r) => console.log(JSON.stringify({ r, texts: made.filter((n) => n.type === 'TEXT').map((n) => [n.characters, n.fontName.family]),
+  frames: made.filter((n) => n.type === 'FRAME').map((n) => n.name), plex: loaded.some((f) => f.startsWith('IBM Plex Sans')) })));
+""".replace("CODE", json.dumps(code))
+        out = json.loads(subprocess.run(["node", "-e", fake], capture_output=True, text=True, check=True).stdout)
+        self.assertEqual(out["texts"], [["Test Org", "IBM Plex Sans"], ["Component Library", "IBM Plex Sans"]])
+        self.assertIn("Title", out["frames"])
+        for absent in ("Library", "Total", "Tier bar", "Tiers"):
+            self.assertNotIn(absent, out["frames"])
+        self.assertEqual((out["r"]["nameOnly"], out["r"]["fontLoaded"], out["r"]["font"], out["r"]["pluginData"]),
+                         (True, True, "IBM Plex Sans", True))
+        self.assertEqual(out["r"]["pageId"], "0:1")
+
     def test_tier_description_block_and_getting_started_content(self):
         pages = {name: f"page-{i}" for i, name in enumerate(figma_build.page_list(self.project))}
         self.result("pages", {"pages": pages})

@@ -707,32 +707,74 @@ class WorkflowCaptureTest(unittest.TestCase):
         self.assertNotEqual(self.workflow("identity", "--project", str(self.ws), "--no-schema-change",
                                           "--schema-change", "x", check=False).returncode, 0)
 
-    def test_preflight_records_the_go_ahead_or_lists_what_is_missing(self):
+    def preflight(self, handshake, **answers):
+        """workflow.py preflight in this process, with the runner handshake standing in for Figma."""
+        import argparse
+        from unittest import mock
+        import workflow
+        values = {"project": str(self.ws), "site_url": self.site, "public_url": None,
+                  "figma_url": "https://www.figma.com/design/KEY9/Library", "site_label": "Example site",
+                  "operator": "A. Person", "model": None, "ddev_root": None, "plan_approval": "proposed",
+                  "usage_fallback": "stop", "runner_timeout": 1} | answers
+        out = io.StringIO()
+        with mock.patch.object(workflow, "runner_handshake", return_value=dict(handshake)) as called, \
+                contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            try:
+                workflow.preflight_command(argparse.Namespace(**values))
+                code = 0
+            except SystemExit as stop:
+                code = stop.code
+        return code, json.loads(out.getvalue()), called
+
+    def start_site(self):
         import http.server
         import threading
         server = http.server.ThreadingHTTPServer(("127.0.0.1", 0), http.server.SimpleHTTPRequestHandler)
         threading.Thread(target=server.serve_forever, daemon=True).start()
         self.addCleanup(server.shutdown)
-        site = f"http://127.0.0.1:{server.server_address[1]}/"
+        self.site = f"http://127.0.0.1:{server.server_address[1]}/"
+
+    def test_preflight_gives_the_go_ahead_only_with_a_drawn_cover(self):
+        self.start_site()
         self.workflow("init", "--repo", str(self.repo), "--workspace", str(self.ws))
-        missing = self.workflow("preflight", "--project", str(self.ws), "--site-url", "http://127.0.0.1:9/",
-                                "--site-label", "Example site", "--operator", "A. Person", check=False)
-        self.assertEqual(missing.returncode, 1)
-        answer = json.loads(missing.stdout)
-        self.assertFalse(answer["ready"])
-        self.assertEqual(len(answer["missing"]), 3)          # site not answering, no Figma file, runner not confirmed
-        self.assertNotIn('"preflight"', (self.ws / "phase-log.jsonl").read_text())
-        ready = json.loads(self.workflow("preflight", "--project", str(self.ws), "--site-url", site,
-                                         "--figma-url", "https://www.figma.com/design/KEY9/Library", "--runner-ready",
-                                         "--site-label", "Example site", "--operator", "A. Person").stdout)
-        self.assertTrue(ready["ready"])
+        proof = {"ok": True, "runnerConnected": True, "fileKey": "KEY9", "fileKeyMatches": True, "empty": True,
+                 "writable": True, "coverPageId": "0:1", "coverId": "1:2", "font": "IBM Plex Sans",
+                 "fontLoaded": True, "pluginData": True, "at": "2026-01-05T10:00:00+00:00", "token": "t"}
+        code, ready, _ = self.preflight(proof)
+        self.assertEqual(code, 0)
         self.assertEqual(ready["message"], "I have everything I need; it's safe to let this run to completion.")
         log = [json.loads(l) for l in (self.ws / "phase-log.jsonl").read_text().splitlines()]
         self.assertEqual((log[-1]["phase"], log[-1]["status"], log[-1]["at"]), ("preflight", "complete", ready["goAheadAt"]))
         project = json.loads((self.ws / "project.json").read_text())
         self.assertEqual(project["target"]["figmaFileKey"], "KEY9")
-        self.assertEqual(project["phases"]["preflight"]["detail"]["planApproval"], "proposed")
+        self.assertEqual(project["target"]["preflight"]["coverPageId"], "0:1")
+        self.assertEqual(project["target"]["preflight"]["fileUrl"], "https://www.figma.com/design/KEY9/Library")
+        self.assertTrue(project["target"]["preflight"]["fontLoaded"])
+        runner = project["phases"]["preflight"]["detail"]["checks"]["runner"]
+        self.assertTrue(runner["writable"] and runner["empty"] and runner["fileKeyMatches"])
         self.assertEqual((project["run"]["siteLabel"], project["run"]["operator"]), ("Example site", "A. Person"))
+
+    def test_preflight_records_no_go_ahead_on_any_failure(self):
+        self.start_site()
+        self.workflow("init", "--repo", str(self.repo), "--workspace", str(self.ws))
+        failures = ["no runner connected within 1 seconds; open the target file",
+                    "the runner is open in a different file ('Other', key OTHER)",
+                    "the runner's token was rejected; paste the token",
+                    "the target file 'Library' is not empty (3 page(s))",
+                    "the name-only Cover could not be drawn: IBM Plex Sans could not load and the fallback failed",
+                    "the Cover page could not be created: read-only file"]
+        for failure in failures:
+            code, answer, _ = self.preflight({"ok": False, "failure": failure, "token": "t"})
+            self.assertEqual(code, 1, failure)
+            self.assertFalse(answer["ready"])
+            self.assertIn(failure, answer["missing"])
+            self.assertNotIn('"preflight"', (self.ws / "phase-log.jsonl").read_text())
+            self.assertNotIn("preflight", json.loads((self.ws / "project.json").read_text())["target"])
+        # Other answers missing: every problem is listed together, still with no go-ahead.
+        code, answer, called = self.preflight({"ok": True}, site_url="http://127.0.0.1:9/", figma_url=None)
+        self.assertEqual((code, len(answer["missing"])), (1, 2))       # site not answering, no Figma file
+        called.assert_not_called()
+        self.assertNotIn('"preflight"', (self.ws / "phase-log.jsonl").read_text())
 
     def test_plan_approval_follows_the_preflight_choice(self):
         self.ws.mkdir()
