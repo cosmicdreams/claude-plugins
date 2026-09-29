@@ -10,9 +10,13 @@
  * report; no page draws it.
  */
 /* BEGIN bar helpers — pure, tested by tests/test_render_pipeline.py */
-/* Use is one blue, brightest where use is highest; Other is neutral, because it is not direct use. */
-const TIER_COLORS = { 'High Use': '#93c5fd', 'Medium Use': '#3b82f6', 'Low Use': '#1d4ed8', 'Other': '#71717a' };
-function tierColor(key) { return TIER_COLORS[key] || '#71717a'; }
+/* A fixed palette, the same on every run and never the site's brand: four distinct hues of similar
+   weight from the Okabe-Ito set, which stays distinguishable under the common color-vision
+   deficiencies, so every segment is seen and none reads as empty. Vermilion is reserved for
+   retirement candidates, should the Cover ever show them: it reads as a recommendation to remove. */
+const TIER_COLORS = { 'High Use': '#E69F00', 'Medium Use': '#56B4E9', 'Low Use': '#009E73', 'Other': '#CC79A7',
+  'Retirement Candidates': '#D55E00' };
+function tierColor(key) { return TIER_COLORS[key] || TIER_COLORS.Other; }
 function barWidths(values, width) {
   const total = values.reduce((s, v) => s + v, 0);
   if (!total) return values.map(() => 0);

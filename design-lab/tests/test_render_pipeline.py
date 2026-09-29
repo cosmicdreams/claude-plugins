@@ -508,6 +508,15 @@ console.log(JSON.stringify(['High Use', 'Medium Use', 'Low Use', 'Other'].map(ti
         colors = json.loads(out[1])
         self.assertEqual(len(set(colors)), 4)                          # one color per category
 
+        def luminance(hex_color):
+            channels = [int(hex_color[i:i + 2], 16) / 255 for i in (1, 3, 5)]
+            r, g, b = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in channels]
+            return 0.2126 * r + 0.7152 * g + 0.0722 * b
+        ground = luminance("#18181b")
+        for color in colors:                                           # every segment is seen on the dark ground
+            self.assertGreaterEqual((luminance(color) + 0.05) / (ground + 0.05), 4.5, color)
+        self.assertNotIn("#71717a", [c.lower() for c in colors])       # no grey: it reads as empty
+
     def test_cover_getting_started_and_report_share_every_number(self):
         cover, start, card = self.surfaces()
         cov = card["sections"]["coverage"]
