@@ -89,7 +89,7 @@ test("shows the coverage banner with the figure when coverage is low", () => {
   assert.match(html, /60%|60\b/); // coverage_pct surfaced in the banner
 });
 
-test("includes the top issue and its ticket recommendation", () => {
+test("includes the top issue", () => {
   const html = renderToTmp();
   assert.match(html, /Undefined index foo/);
 });
@@ -102,7 +102,7 @@ test("renders root-cause-summary template cleanly", () => {
   const html = renderToTmp(["--template", "root-cause-summary"]);
   assert.match(html, /Root-Cause Summary/);
   assert.match(html, /Pareto cut:/);
-  assert.match(html, /Fix undefined index/);
+  assert.doesNotMatch(html, /Recommended JIRA tickets/i);
   assert.match(html, /id="theme-toggle"/);
   assert.match(html, /class="chart interactive-chart-row"/);
   assert.match(html, /id="issue-card-0"/);
@@ -112,7 +112,7 @@ test("renders calendar-boundary template cleanly", () => {
   const html = renderToTmp(["--template", "calendar-boundary"]);
   assert.match(html, /Calendar Window Report/);
   assert.match(html, /Events by channel/);
-  assert.match(html, /Fix undefined index/);
+  assert.doesNotMatch(html, /Recommended JIRA tickets/i);
   assert.match(html, /id="theme-toggle"/);
   assert.match(html, /data-type="channel"/);
   assert.match(html, /data-type="severity"/);
@@ -595,9 +595,6 @@ test("monthly-client: hostile log text never renders as markup in the brief or c
     d.totals.by_channel = { [hostile]: 900, php: 662 };
     d.totals.by_day[hostile] = { total: 4, severities: { warning: 4 } };
     d.meta.month_label = `April ${hostile}`;
-    d.tickets[0].title = hostile;
-    d.tickets[0].description = hostile;
-    d.tickets[0].sample = hostile;
   });
   assert.doesNotMatch(html, /<script>alert\(1\)/);
   assert.doesNotMatch(html, /<img\s+src=x\s+onerror/i);

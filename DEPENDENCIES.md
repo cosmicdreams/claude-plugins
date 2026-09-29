@@ -14,12 +14,10 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 | drupal-lab | [python3](#python3), [ddev](#ddev), [jq](#jq) | [twg](#twg) (`sprint-start`, `release-cut`, `branch-audit`), [Beads](#bd-beads) (development-environment slot tracking), [Obsidian](#obsidian), [headroom and rtk](#headroom-and-rtk) |
 | ideas-funnel | [python3](#python3), [Obsidian](#obsidian) | [Beads](#bd-beads), [TypeSafe](#typesafe-api-key), [headroom](#headroom-and-rtk) |
 | ideate | [node / npm](#node--npm) (`brainstorm`), [python3](#python3) (`diagram`) | [Obsidian](#obsidian) (archiving) |
-| improve | [node / npm](#node--npm), [lighthouse](#lighthouse), [pa11y](#pa11y), [hyperfine](#hyperfine), [jq](#jq) | [Chrome or Chromium](#chrome-or-chromium), [headroom and rtk](#headroom-and-rtk) |
+| process-lab | [python3](#python3) | [headroom and rtk](#headroom-and-rtk) |
 | lib | Per skill: [gh](#gh-github-command-line-tool), [twg](#twg), [agent-slack](#agent-slack), [ddev](#ddev), [acli](#acli-acquia-command-line-tool), [python3](#python3), [ffmpeg](#ffmpeg), [lighthouse](#lighthouse), [pa11y](#pa11y), [hyperfine](#hyperfine), [jq](#jq), [Bun](#bun-and-image-tools), [TestRail credentials](#testrail-credentials), [Obsidian](#obsidian), [data analysis packages](#data-analysis-python-packages) | [op](#op-1password-command-line-tool), [Cloudflare credentials](#cloudflare-credentials), [image tools](#bun-and-image-tools), [logstream](#acli-acquia-command-line-tool) |
 | research-lab | [nlm](#nlm-notebooklm-command-line-tool), [python3](#python3) | [Obsidian](#obsidian), [headroom](#headroom-and-rtk) |
-| retro | [Beads](#bd-beads), [jq](#jq), [python3](#python3) | [Obsidian](#obsidian), [headroom](#headroom-and-rtk) |
-| sprint | [Beads](#bd-beads), [jq](#jq) | [ddev](#ddev) (Drupal work), [Obsidian](#obsidian) (`project-notes`) |
-| test-lab | [python3](#python3), [node / npm](#node--npm), [Playwright](#playwright) | [TestRail credentials](#testrail-credentials) (when TestRail is the source), [TypeSafe](#typesafe-api-key) |
+| test-lab | [python3](#python3), [node / npm](#node--npm), [Playwright](#playwright) | [lighthouse](#lighthouse), [pa11y](#pa11y), [hyperfine](#hyperfine), [jq](#jq), [Chrome or Chromium](#chrome-or-chromium), [TestRail credentials](#testrail-credentials) (when TestRail is the source), [TypeSafe](#typesafe-api-key) |
 | workshop | [python3](#python3); per integration: [gws](#gws-google-workspace-command-line-tool), [twg](#twg), [agent-slack](#agent-slack), [gh](#gh-github-command-line-tool) | [Obsidian](#obsidian), [TypeSafe](#typesafe-api-key) |
 
 ## Quick install
@@ -57,7 +55,7 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 
 ## bd (Beads)
 
-Kanban and issue-tracking database. Every sprint and retro board operation (`bd list`, `bd create`, `bd update`, and so on) depends on it.
+Kanban and issue-tracking database used by plugins that manage project work items.
 
 ```bash
 brew install beads
@@ -66,12 +64,12 @@ brew install beads
 After installing, initialize the board in your project:
 
 ```bash
-bd init --prefix sprint
+bd init --prefix project
 ```
 
-Run `bd init` once per project; a second run errors if the board already exists. Use `bd create --prefix retro` for retro cards on the same database.
+Run `bd init` once per project; a second run errors if the board already exists.
 
-**Used by:** sprint, retro; optionally admin (`scaffold`), drupal-lab (`ddev` slot tracking), ideas-funnel (`supervise`)
+**Used by:** drupal-lab (`ddev` slot tracking), ideas-funnel (`supervise`)
 
 ---
 
@@ -89,7 +87,7 @@ If missing or outdated:
 brew install python3
 ```
 
-**Used by:** admin (`bump-version`, `new-skill`), design-lab (all skills), drover (all skills), drupal-lab (`browse-drupal-issues`, `module-dev-starter`), ideas-funnel (`ingest`), ideate (`diagram`), lib (`log-analyzer`, `csv-analysis`), research-lab (notebook scripts), retro (`transcript`), test-lab (`ingest`), workshop (`sync`, `scout`, `prioritize`)
+**Used by:** admin (`bump-version`, `new-skill`), design-lab (all skills), drover (all skills), drupal-lab (`browse-drupal-issues`, `module-dev-starter`), ideas-funnel (`ingest`), ideate (`diagram`), lib (`log-analyzer`, `csv-analysis`), process-lab (runtime), research-lab (notebook scripts), test-lab (`ingest`), workshop (`sync`, `scout`, `prioritize`)
 
 ---
 
@@ -101,7 +99,7 @@ Processor for structured data on the command line.
 brew install jq
 ```
 
-**Used by:** drupal-lab (`ddev`), improve (`perf-measure`), lib (several skills), retro (`kanban`), sprint (`board`); optionally admin (scaffold detection hook)
+**Used by:** drupal-lab (`ddev`), test-lab (`perf-measure`), lib (several skills); optionally admin (scaffold detection hook)
 
 ---
 
@@ -270,7 +268,7 @@ npx playwright install chromium
 
 ## Chrome or Chromium
 
-Drover renders Portable Document Format reports with a local Chrome or Chromium. Point `DROVER_PDF_BROWSER` at the browser binary if it is not found automatically. `improve:accessibility-scan` drives Chrome through Puppeteer, which can download its own Chromium.
+Drover renders Portable Document Format reports with a local Chrome or Chromium. Point `DROVER_PDF_BROWSER` at the browser binary if it is not found automatically. `test-lab:accessibility-scan` drives Chrome through Puppeteer, which can download its own Chromium.
 
 **Used by:** optionally drover (`report`), improve (`accessibility-scan`)
 
@@ -328,7 +326,7 @@ npm i -g pa11y
 
 ## hyperfine
 
-Command-line benchmarking tool. Produces structured timing results for `improve:perf-measure` experiments.
+Command-line benchmarking tool. Produces structured timing results for `test-lab:perf-measure`.
 
 ```bash
 brew install hyperfine

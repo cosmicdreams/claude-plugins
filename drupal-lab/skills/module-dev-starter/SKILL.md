@@ -22,7 +22,7 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 Scaffold a contrib module project with DDEV and ddev-drupal-contrib, layered on top of the generic admin scaffold.
 
-**Critical constraint**: Do NOT copy agents or skills into the project. The `drupal-lab`, `sprint`, and `admin` plugins are globally installed and provide agents and skills automatically in every Claude session. Copying them locally creates stale shadow copies that confuse agents and mask plugin updates.
+**Critical constraint**: Do NOT copy agents or skills into the project. The `drupal-lab` and `admin` plugins are globally installed and provide agents and skills automatically in every Claude session. Copying them locally creates stale shadow copies that confuse agents and mask plugin updates.
 
 ## Input
 
@@ -87,20 +87,10 @@ If tests fail or phpunit is not found, run `ddev poser` again — the first run 
 
 After setup is complete, remind the user:
 
-> **Golden Rule: main stays clean.** Do not make code changes in `worktrees/main/`.
-> When you start working on an issue, create a dedicated worktree first:
-> ```
-> cd <target>/worktrees/main
-> git worktree add ../<issue-number> -b <issue-number>-<short-description> <base-branch>
-> ```
-> Then bootstrap DDEV in the issue worktree:
-> ```
-> cd <target>/worktrees/<issue-number>
-> ddev config --project-name=<module>-<issue-number> --project-type=drupal --docroot=web --php-version=8.3
-> printf 'name: <module>-<issue-number>\n' > .ddev/config.local.yaml
-> ddev add-on get ddev/ddev-drupal-contrib
-> ddev add-on get ddev/ddev-selenium-standalone-chrome
-> ddev start && ddev poser && ddev symlink-project
+> **Golden Rule: main stays clean.** Do not make code changes in `worktrees/main/`. When you start working on an issue, create a dedicated worktree first:
+> ``` cd <target>/worktrees/main git worktree add ../<issue-number> -b <issue-number>-<short-description> <base-branch>
+> ``` Then bootstrap DDEV in the issue worktree:
+> ``` cd <target>/worktrees/<issue-number> ddev config --project-name=<module>-<issue-number> --project-type=drupal --docroot=web --php-version=8.3 printf 'name: <module>-<issue-number>\n' > .ddev/config.local.yaml ddev add-on get ddev/ddev-drupal-contrib ddev add-on get ddev/ddev-selenium-standalone-chrome ddev start && ddev poser && ddev symlink-project
 > ```
 
 #### DDEV Naming Convention

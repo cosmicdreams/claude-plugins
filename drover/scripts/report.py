@@ -12,9 +12,9 @@ Templates that ship:
                        trend, coverage caveats. Plain language.
   root-cause-summary   stakeholder-facing — top 5 fingerprints driving
                        the bulk of volume, share-of-volume bar chart,
-                       JIRA ticket recommendations.
+                       diagnosed recurring issues.
   calendar-boundary    stakeholder-facing — calendar/campaign window
-                       analysis with bar chart by channel + JIRA recs.
+                       analysis with bar chart by channel.
   triage-brief         dev-facing — fingerprint-by-fingerprint detail
                        with sample lines and severity histograms.
   jira-ready           structured paste-blocks for JIRA's create-issue
@@ -22,14 +22,12 @@ Templates that ship:
 
 Stakeholder templates (monthly-client, root-cause-summary,
 calendar-boundary) embed a Velir logo header + brand colors and end
-with a structured "Recommended JIRA tickets" section plus a JSON
-sidecar (.tickets.json) for downstream programmatic creation.
+with an evidence JSON sidecar for downstream process review.
 
 CLI:
   python3 report.py [--project ROOT] [--env NAME] --month YYYY-MM
                     [--template NAME] [--out PATH]
                     [--types csv] [--prior-month YYYY-MM]
-                    [--no-tickets]   skip the JIRA recommendation block
 """
 from __future__ import annotations
 
@@ -59,19 +57,17 @@ _report_writer = importlib.util.module_from_spec(_spec2)
 sys.modules["drover_report_writer"] = _report_writer
 _spec2.loader.exec_module(_report_writer)
 
-# Branding, charts, JIRA recommendations, and cause diagnosis —
+# Branding, charts, and cause diagnosis —
 # siblings of report.py.
 import branding  # noqa: E402
 import causes  # noqa: E402
 import charts  # noqa: E402
-import jira_recs  # noqa: E402
 from pull import find_drover_root  # noqa: E402
 
 # Optional Jev judgments (TypeSafe System One). When TYPESAFE_API_KEY is
-# set and JEV_DISABLED is not "1", the report gains three added layers —
-# severity for watchdog events the log left unknown, a merge gate on
-# cause collapse, and a ticket-worthiness annotation. Without Jev every
-# artifact is byte-identical to a run before Jev existed.
+# set and JEV_DISABLED is not "1", the report gains two added layers —
+# severity for watchdog events the log left unknown and a merge gate on
+# cause collapse.
 _JEV_PATH = HERE / "jev_client.py"
 
 
@@ -213,7 +209,7 @@ def _append_supplementary_detail(lines: list[str], agg: dict) -> None:
     lines.append("## Supplementary detail (php-error)")
     lines.append("")
     lines.append(
-        "_php-error log entries are not used to rank issues or drive ticket "
+        "_php-error log entries are not used to rank issues or drive "
         "recommendations — the php-error log's multi-line stack traces are "
         "not reliably grouped, so a single recurring exception can fragment "
         "into many near-meaningless entries. Shown here only as corroborating "
@@ -411,8 +407,6 @@ def render_root_cause_summary(
     month_str: str,
     coverage: dict,
     has_prior: bool,
-    include_tickets: bool = True,
-    project_slug: str | None = None,
 ) -> str:
     """Top-N fingerprints driving the bulk of volume. Concentration
     lens — answers "what 5 things should we fix to silence most of
@@ -605,21 +599,6 @@ def render_root_cause_summary(
             )
         lines.append("")
 
-    # JIRA recommendations
-    if include_tickets:
-        specs = jira_recs.from_groups(
-            sorted_groups,
-            project_slug=project_slug or project,
-            env=env,
-            month_label=month_str,
-            total_events=total,
-            top_n=top_n,
-        )
-        lines.append(jira_recs.render_markdown(
-            specs,
-            section_title="Recommended JIRA tickets",
-        ))
-
     _append_supplementary_detail(lines, agg)
     lines.append("---")
     lines.append(
@@ -639,8 +618,6 @@ def render_calendar_boundary(
     month_str: str,
     coverage: dict,
     has_prior: bool,
-    include_tickets: bool = True,
-    project_slug: str | None = None,
 ) -> str:
     """Calendar/campaign window analysis. The bar chart by channel is
     the centerpiece — answers "what kinds of issues are happening
@@ -777,24 +754,6 @@ def render_calendar_boundary(
                 f"- ...and {len(coverage['missing_or_failed']) - 10} more."
             )
         lines.append("")
-
-    # JIRA recommendations: top issues across all channels
-    if include_tickets:
-        sorted_groups = sorted(
-            groups, key=lambda g: g.get("count", 0), reverse=True,
-        )
-        specs = jira_recs.from_groups(
-            sorted_groups,
-            project_slug=project_slug or project,
-            env=env,
-            month_label=month_str,
-            total_events=total,
-            top_n=5,
-        )
-        lines.append(jira_recs.render_markdown(
-            specs,
-            section_title="Recommended JIRA tickets",
-        ))
 
     _append_supplementary_detail(lines, agg)
     lines.append("---")
@@ -950,20 +909,9 @@ def generate_report(
     template: str = "monthly-client",
     types: list[str] | None = None,
     prior_month_str: str | None = None,
-    include_tickets: bool = True,
     jev=None,
 ) -> tuple[str, dict, list]:
-    """Returns (markdown_text, summary_dict, ticket_specs).
-
-    `ticket_specs` is a list of jira_recs.TicketSpec when the chosen
-    template supports JIRA recommendations and include_tickets is
-    True; an empty list otherwise. The CLI layer writes a sidecar
-    JSON file with these specs alongside the report.
-
-    `jev` is the jev_client module (see resolve_jev) or None. With it,
-    summary gains a "jev" block counting verdicts by source and the
-    markdown gains one footer line; without it nothing changes.
-    """
+    """Return (markdown_text, summary_dict, evidence_dict or None)."""
     if template not in RENDERERS:
         raise ValueError(
             f"unknown template {template!r}; known: {sorted(RENDERERS)}"
@@ -1026,27 +974,14 @@ def generate_report(
     # Stakeholder templates collapse fingerprints that share the same
     # diagnosed cause — so a Solr flood that surfaces in both
     # `acquia_search` and `search_api` channels appears as ONE issue,
-    # not two, and produces one JIRA ticket, not two.
+    # not two.
     if template in ("root-cause-summary", "calendar-boundary"):
         collapsed = causes.collapse_by_cause(
             agg.get("groups", []) or [], jev=jev, jev_stats=jev_stats,
         )
-        if jev is not None and include_tickets:
-            jira_recs.judge_worthiness(
-                collapsed, total_events=agg.get("events_total", 0),
-                jev=jev, jev_stats=jev_stats, top_n=5,
-            )
         agg_for_render = {**agg, "groups": collapsed}
     else:
         agg_for_render = agg
-
-    # Templates that surface JIRA recommendations also accept the
-    # include_tickets / project_slug kwargs. The shared signature
-    # supports both shapes.
-    extra_kwargs: dict = {}
-    if template in ("root-cause-summary", "calendar-boundary"):
-        extra_kwargs["include_tickets"] = include_tickets
-        extra_kwargs["project_slug"] = manifest.get("project") or project
 
     md = RENDERERS[template](
         agg_for_render,
@@ -1055,22 +990,18 @@ def generate_report(
         month_str=month_label(from_d.year, from_d.month),
         coverage=coverage,
         has_prior=has_prior,
-        **extra_kwargs,
     )
 
-    # Build the ticket specs separately for sidecar emission. The
-    # collapsed groups feed jira_recs so duplicate-cause fingerprints
-    # produce a single combined ticket.
-    ticket_specs: list = []
-    if include_tickets and template in ("root-cause-summary",
-                                        "calendar-boundary"):
-        ticket_specs = jira_recs.from_groups(
-            agg_for_render["groups"],
-            project_slug=manifest.get("project") or project,
-            env=env,
-            month_label=month_label(from_d.year, from_d.month),
-            total_events=agg.get("events_total", 0),
-            top_n=5,
+    evidence = None
+    if template in STAKEHOLDER_TEMPLATES:
+        evidence_groups = (agg_for_render["groups"] if template in
+                           ("root-cause-summary", "calendar-boundary") else
+                           causes.collapse_by_cause(agg.get("groups", []) or [],
+                                                    jev=jev, jev_stats=jev_stats))
+        evidence = make_evidence(
+            project=project, env=env, month=month, from_d=from_d, to_d=to_d,
+            total=agg.get("events_total", 0), coverage=coverage,
+            groups=evidence_groups,
         )
 
     summary = {
@@ -1082,12 +1013,47 @@ def generate_report(
             if coverage["expected_days"] else 100.0
         ),
         "template": template,
-        "ticket_count": len(ticket_specs),
     }
     if jev_stats is not None:
         summary["jev"] = jev_stats
         md = md.rstrip("\n") + "\n" + _jev_footer(jev_stats)
-    return md, summary, ticket_specs
+    return md, summary, evidence
+
+
+def make_evidence(*, project: str, env: str, month: str, from_d: date,
+                  to_d: date, total: int, coverage: dict,
+                  groups: list[dict]) -> dict:
+    """Serialize diagnosed, cause-collapsed groups for process-lab."""
+    records = []
+    for group in groups:
+        cause = group.get("cause") or causes.diagnose(group)
+        count = group.get("count", 0)
+        records.append({
+            "fingerprint": group.get("fingerprint", ""),
+            "channel": group.get("channel"),
+            "severity": group.get("severity") or "unknown",
+            "count": count,
+            "share_pct": round(100 * count / max(total, 1), 2),
+            "summary": group.get("summary") or "",
+            "first_seen": group.get("first_seen"),
+            "last_seen": group.get("last_seen"),
+            "sample": (group.get("samples") or [None])[0],
+            "delta": group.get("delta"),
+            "cause": {
+                "pattern_id": cause.pattern_id,
+                "title": cause.title,
+                "suggested_fix": cause.suggested_fix,
+                "confidence": cause.confidence,
+                "explanation": cause.explanation,
+            },
+            "member_fingerprints": group.get("member_fingerprints", [group.get("fingerprint", "")]),
+            "channels": group.get("channels", [group.get("channel")] if group.get("channel") else []),
+        })
+    return {
+        "schema": "drover-evidence/1", "project": project, "env": env,
+        "month": month, "from": from_d.isoformat(), "to": to_d.isoformat(),
+        "events_total": total, "coverage": coverage, "groups": records,
+    }
 
 
 # --- Structured-data emit (Node renderer input) ---------------------------
@@ -1102,13 +1068,12 @@ def generate_data(
     month: str,
     types: list[str] | None = None,
     prior_month_str: str | None = None,
-    include_tickets: bool = True,
     jev=None,
 ) -> dict:
     """Build the structured aggregate that downstream renderers consume.
 
     Same data pipeline as `generate_report` (aggregate → coverage → MoM
-    delta → cause-collapse → ticket recs) but returns a single JSON-safe
+    delta → cause-collapse) but returns a single JSON-safe
     dict instead of rendering markdown. The Node-based HTML renderer
     reads this dict (one file per month/env) and turns it into HTML.
     Deterministic: same inputs produce byte-identical output.
@@ -1128,7 +1093,6 @@ def generate_data(
         groups_collapsed: [...same groups collapsed by diagnosed cause,
                             for stakeholder rendering...],
         disappeared_from_prior: [...] (only when MoM data exists),
-        tickets: [...JIRA ticket specs (when include_tickets)...],
         jev: {jev, fallback, model} (only when Jev ran)
       }
     """
@@ -1193,23 +1157,6 @@ def generate_data(
         agg.get("groups", []) or [], jev=jev, jev_stats=jev_stats,
     )
 
-    tickets: list = []
-    if include_tickets:
-        if jev is not None:
-            jira_recs.judge_worthiness(
-                groups_collapsed, total_events=agg.get("events_total", 0),
-                jev=jev, jev_stats=jev_stats, top_n=5,
-            )
-        specs = jira_recs.from_groups(
-            groups_collapsed,
-            project_slug=manifest.get("project") or project,
-            env=env,
-            month_label=month_label(from_d.year, from_d.month),
-            total_events=agg.get("events_total", 0),
-            top_n=5,
-        )
-        tickets = [jira_recs.spec_to_dict(s) for s in specs]
-
     def _make_json_safe(val):
         if isinstance(val, list):
             return [_make_json_safe(x) for x in val]
@@ -1254,8 +1201,10 @@ def generate_data(
         "groups": agg.get("groups", []),
         "supplementary_groups": supplementary_groups,
         "groups_collapsed": groups_collapsed,
+        "evidence": make_evidence(project=project, env=env, month=month,
+                                  from_d=from_d, to_d=to_d, total=agg["events_total"],
+                                  coverage=coverage, groups=groups_collapsed),
         "disappeared_from_prior": agg.get("disappeared_from_prior", []),
-        "tickets": tickets,
     })
 
 
@@ -1292,11 +1241,6 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     p.add_argument(
         "--no-prior", action="store_true",
         help="skip MoM comparison even when prior data exists",
-    )
-    p.add_argument(
-        "--no-tickets", action="store_true",
-        help="skip the JIRA recommendation block + sidecar emission "
-             "(stakeholder templates only)",
     )
     p.add_argument(
         "--format", default="markdown",
@@ -1342,7 +1286,6 @@ def cli_main(argv: list[str] | None = None) -> int:
                 month=args.month,
                 types=types_override,
                 prior_month_str=prior,
-                include_tickets=not args.no_tickets,
                 jev=jev,
             )
         except (FileNotFoundError, ValueError) as e:
@@ -1360,21 +1303,19 @@ def cli_main(argv: list[str] | None = None) -> int:
         print(f"  groups:    {data['totals']['groups_total']}")
         print(f"  collapsed: {len(data['groups_collapsed'])}")
         print(f"  coverage:  {data['coverage']['coverage_pct']:.1f}%")
-        print(f"  tickets:   {len(data['tickets'])}")
         if "jev" in data:
             print(f"  jev:       {data['jev'].get('jev', 0)} verdicts from Jev, "
                   f"{data['jev'].get('fallback', 0)} fallback")
         return 0
 
     try:
-        md, summary, ticket_specs = generate_report(
+        md, summary, evidence = generate_report(
             project_root,
             env=args.env,
             month=args.month,
             template=args.template,
             types=types_override,
             prior_month_str=prior,
-            include_tickets=not args.no_tickets,
             jev=jev,
         )
     except (FileNotFoundError, ValueError) as e:
@@ -1389,15 +1330,16 @@ def cli_main(argv: list[str] | None = None) -> int:
     out.write_text(md)
 
     sidecar_path = None
-    if ticket_specs:
-        sidecar_path = jira_recs.write_sidecar(ticket_specs, out)
+    if evidence is not None:
+        sidecar_path = out.with_suffix(".evidence.json")
+        sidecar_path.write_text(json.dumps(evidence, indent=2, sort_keys=True))
 
     print(f"wrote {out}")
     print(f"  events:    {_fmt_int(summary['events_total'])}")
     print(f"  groups:    {summary['groups_total']}")
     print(f"  coverage:  {summary['coverage_pct']:.1f}%")
     if sidecar_path:
-        print(f"  tickets:   {len(ticket_specs)} suggested -> {sidecar_path}")
+        print(f"  evidence:  {sidecar_path}")
     if "jev" in summary:
         print(f"  jev:       {summary['jev'].get('jev', 0)} verdicts from Jev, "
               f"{summary['jev'].get('fallback', 0)} fallback")

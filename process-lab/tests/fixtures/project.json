@@ -1,0 +1,7 @@
+{
+  "client": "PNCB",
+  "mode": "observe",
+  "jira": {"project": "PPS", "estimate_field": null},
+  "confluence": {"space": "PWRDI", "pages": {"process": 4205052827, "call_log": 6005916207, "runbook": 139340118}},
+  "conventions": {"branch_pattern": "^(feature|bugfix|hotfix)/{ticket}-[a-z0-9-]+$", "test_commands": ["ddev phpunit", "ddev exec vendor/bin/phpunit"]}
+}

@@ -1,0 +1,11 @@
+{
+  "min_count": 50,
+  "top_n": 5,
+  "priority_thresholds": {
+    "error_p0_share_pct": 5,
+    "warning_p1_share_pct": 10,
+    "other_p1_share_pct": 20,
+    "other_p2_share_pct": 5
+  },
+  "labels": ["suggested", "drover"]
+}

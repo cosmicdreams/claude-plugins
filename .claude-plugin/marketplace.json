@@ -8,18 +8,6 @@
   },
   "plugins": [
     {
-      "name": "sprint",
-      "description": "Team sprint execution infrastructure: agents, hooks, protocols, and kanban pipeline",
-      "source": "./sprint",
-      "category": "development"
-    },
-    {
-      "name": "retro",
-      "description": "Sprint retrospective infrastructure: agent interviews via SubagentStop hook, session analysis, action cards, and retrospective kanban board",
-      "source": "./retro",
-      "category": "development"
-    },
-    {
       "name": "ideate",
       "description": "Pre-work ideation with a visual decision canvas. Generates divergent ideas, launches a local web UI for annotation, then synthesizes decisions into a concrete plan",
       "source": "./ideate",
@@ -51,7 +39,7 @@
     },
     {
       "name": "drover",
-      "description": "Automated Drupal error monitoring and self-healing pipeline: watches logs, triages errors into curated Beads tickets, autonomously implements fixes in isolated git worktrees, and notifies on ready-to-review fixes",
+      "description": "Drupal and Acquia log evidence: pulls application logs, groups and diagnoses recurring errors, and renders monthly stakeholder and operational reports with an evidence file for follow-up.",
       "source": "./drover",
       "category": "development"
     },
@@ -62,14 +50,14 @@
       "category": "development"
     },
     {
-      "name": "improve",
-      "description": "Process engineering methodology: maps process topology, makes directed fixes, runs improvement experiments, and accumulates process lint rules. Domain-agnostic \u2014 each plugin owns its own :improve skill.",
-      "source": "./improve",
+      "name": "process-lab",
+      "description": "Holds agent-assisted work to each project's own process. Reads the project's workflow from its Confluence page, notices when work crosses a step, records what the process requires and whether it was done or waived, and runs retrospectives against it.",
+      "source": "./process-lab",
       "category": "development"
     },
     {
       "name": "ideas-funnel",
-      "description": "Passive knowledge capture pipeline \u2014 Karpathy-derived LLM Wiki with Monitor-driven multi-domain ingest. Feeds land in raw/, agents compile them into a cross-linked Obsidian wiki, memory evolves via confidence decay and graph-aware consolidation.",
+      "description": "Passive knowledge capture pipeline — Karpathy-derived LLM Wiki with Monitor-driven multi-domain ingest. Feeds land in raw/, agents compile them into a cross-linked Obsidian wiki, memory evolves via confidence decay and graph-aware consolidation.",
       "source": "./ideas-funnel",
       "category": "productivity"
     },
@@ -81,7 +69,7 @@
     },
     {
       "name": "test-lab",
-      "description": "Convert a manual test corpus into an automated Playwright suite: pluggable source, authoring methodology, and a per-story conversion skill",
+      "description": "Convert a manual test corpus into an automated Playwright suite, and measure accessibility and performance: pluggable source, authoring methodology, and a per-story conversion skill",
       "source": "./test-lab",
       "category": "development"
     }

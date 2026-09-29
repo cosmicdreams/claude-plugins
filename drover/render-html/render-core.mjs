@@ -628,10 +628,6 @@ function buildMonthlyClientView(data) {
     topIssues,
     topShare,
     supplementaryGroups: buildSupplementaryGroups(data),
-    tickets: (data.tickets || []).map((t) => ({
-      ...t,
-      sample: t.sample ? truncate(t.sample, 280) : null,
-    })),
     schemaVersion: `v${data.drover_schema_version}`,
     generatedAt: String(data.generated_at).replace("T", " ").slice(0, 19) + " UTC",
   };
@@ -749,10 +745,6 @@ function buildRootCauseSummaryView(data) {
     retrievalGaps,
     hasMoreGaps,
     missingGapsCount,
-    tickets: (data.tickets || []).map((t) => ({
-      ...t,
-      sample: t.sample ? truncate(t.sample, 280) : null,
-    })),
     schemaVersion: `v${data.drover_schema_version}`,
     generatedAt: String(data.generated_at).replace("T", " ").slice(0, 19) + " UTC",
   };
@@ -846,10 +838,6 @@ function buildCalendarBoundaryView(data) {
     retrievalGaps,
     hasMoreGaps,
     missingGapsCount,
-    tickets: (data.tickets || []).map((t) => ({
-      ...t,
-      sample: t.sample ? truncate(t.sample, 280) : null,
-    })),
     schemaVersion: `v${data.drover_schema_version}`,
     generatedAt: String(data.generated_at).replace("T", " ").slice(0, 19) + " UTC",
   };
@@ -1100,6 +1088,10 @@ export function run(argv) {
     return join(dataDir, `${stem}-${args.template}.html`);
   })();
   writeFileSync(out, html);
+  if (["monthly-client", "root-cause-summary", "calendar-boundary"].includes(args.template) && data.evidence) {
+    const sidecar = out.replace(/\.[^.]+$/, ".evidence.json");
+    writeFileSync(sidecar, JSON.stringify(data.evidence, null, 2));
+  }
   console.log(`wrote ${out}`);
   console.log(`  template: ${args.template}`);
   console.log(`  data:     ${args.data}`);

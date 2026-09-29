@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# scaffold.sh — Create project directory structure for sprint/admin work
+# scaffold.sh — Create generic project directory structure
 # Usage: scaffold.sh <target> <project_name>
 # Exit codes: 0=success, 1=bad args, 2=cannot create target dir
 set -euo pipefail
@@ -45,15 +45,10 @@ write_file() {
 
 # --- Directories ---
 make_dir ".claude/memory"
-make_dir "analysis-reports/retro-session"
+make_dir "analysis-reports"
 make_dir "plans"
 make_dir "scripts"
 make_dir "worktrees"
-
-# --- Beads database ---
-if [ ! -d "$TARGET/.beads" ]; then
-  (cd "$TARGET" && bd init --prefix sprint 2>/dev/null) && created+=(".beads/ (bd init --prefix sprint)") || true
-fi
 
 # --- Progress log ---
 write_file ".claude/progress.jsonl" "" ""

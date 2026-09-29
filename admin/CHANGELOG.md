@@ -1,5 +1,14 @@
 # Changelog
 
+## 4.0.0 — 2026-09-29
+
+**Breaking: sprint mode removed.** The sprint, retro, and improve plugins are retired in favor of process-lab.
+
+- `scaffold` sets up a generic project (`.claude/`, `analysis-reports/`, `plans/`, `CLAUDE.md`) and no longer creates a sprint Beads board or the Team Sprint Mode block.
+- `optimize-agents` absorbs the definition lint rules from improve and gains two found in the 2026-09-29 agent audit: `agent-name-prefix` (a plugin-prefixed `name` registers twice-prefixed) and `unknown-agent-field` (`allowed-tools` on an agent is ignored). `model-tier-mismatch` now checks pins against the per-account model denylist. Runtime rules about agent behavior (retries, confirmations, self-reporting) are dropped. It also asks whether each agent should exist at all.
+- `new-agent` and `agent-team` lose sprint-team templates and exclusions.
+- Hardcoded plugin lists in bump-version, reinstall, update-plugins, changelog, and trigger-eval scripts drop sprint, retro, and improve and add process-lab, design-lab, and test-lab where missing.
+
 ## 3.0.3
 - Add `admin/scripts/sync-codex-manifests.sh`: copies each plugin's version into its `.codex-plugin/plugin.json` and checks that every plugin has a Codex manifest and a Codex marketplace entry. `--check` reports drift without writing.
 - `bump-version.sh` runs the sync after every bump, so Claude and Codex manifests can no longer drift apart.

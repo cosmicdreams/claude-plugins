@@ -1,15 +1,15 @@
 ---
 name: scaffold
 description: >
-  Set up a project for multi-agent sprint work using Beads: creates .claude/,
+  Set up a generic project structure for agent-assisted work: creates .claude/,
   analysis-reports/, plans/, and CLAUDE.md. Pass --silent to suppress the detection
   prompt. Not for DDEV setup, worktrees, or an already-scaffolded project.
 triggers:
   - "scaffold this project"
-  - "set up this project for sprint or admin"
-  - "prepare project for team sprint"
+  - "set up this project for agents"
+  - "prepare this project for multi-agent work"
   - "initialize project structure"
-  - "set up sprint/admin for this project"
+  - "set up admin for this project"
   - "silence scaffold prompt"
   - "don't ask about scaffolding"
   - "disable scaffold prompt"
@@ -23,11 +23,11 @@ allowed-tools: Read, Bash, Glob, Grep
 
 Full routing detail, kept out of the always-loaded skill listing:
 
-> Sets up a project directory structure for multi-agent sprint work using Beads for kanban. Creates .claude/, analysis-reports/, plans/, and CLAUDE.md. Use when a project is missing these directories, when the user wants to start using sprint or agent workflows on a new codebase, or when asked to initialize/prepare/scaffold a project for team or multi-agent use. Also use when the user says 'set up team sprint mode', 'get this project ready for agents', or 'I want to use sprint here'. Pass --silent to suppress the scaffold detection prompt without running the scaffold. Do not use if the project is already scaffolded, or for DDEV setup, git worktrees, or environment configuration.
+> Sets up a project directory structure for agent-assisted work. Creates .claude/, analysis-reports/, plans/, and CLAUDE.md. Use when a project is missing these directories or when asked to initialize, prepare, or scaffold a project for team or multi-agent use. Pass --silent to suppress the scaffold detection prompt without running the scaffold. Do not use if the project is already scaffolded, or for DDEV setup, git worktrees, or environment configuration.
 
-Set up a project directory structure for sprint/admin collaboration: Beads kanban, retrospective tracking, analysis reports, and team-sprint mode CLAUDE.md.
+Set up a generic project directory structure: configuration, analysis reports, plans, and project guidance.
 
-The `sprint` and `admin` plugins (globally installed) already provide agents, skills, and protocols in every Claude session. This skill only sets up **project-specific** artifacts.
+Globally installed plugins provide agents and skills in every Claude session. This skill only sets up **project-specific** artifacts.
 
 ## Modes
 
@@ -88,7 +88,7 @@ Run these checks in order; use the first match as `PROJECT_NAME`:
 zsh "${CLAUDE_SKILL_DIR}/scaffold.sh" "$TARGET" "$PROJECT_NAME"
 ```
 
-The script creates all directories, initializes the Beads database (`bd init --prefix sprint`), writes CLAUDE.md and MEMORY.md from templates, and marks scaffold complete in `.claude/settings.json`. It is idempotent — existing files are skipped, not overwritten.
+The script creates all directories, writes CLAUDE.md and MEMORY.md from templates, and marks scaffold complete in `.claude/settings.json`. It is idempotent — existing files are skipped, not overwritten.
 
 ### 5. Report
 

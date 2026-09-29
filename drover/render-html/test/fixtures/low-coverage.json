@@ -68,12 +68,5 @@
       ]
     }
   ],
-  "disappeared_from_prior": [],
-  "tickets": [
-    {
-      "title": "Fix undefined index",
-      "priority": "P2",
-      "sample": "Notice: Undefined index: foo"
-    }
-  ]
+  "disappeared_from_prior": []
 }

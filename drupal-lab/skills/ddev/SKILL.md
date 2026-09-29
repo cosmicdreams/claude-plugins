@@ -14,11 +14,9 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 > Run Drupal development tools (phpcs, phpstan, phpunit, drush, composer) inside DDEV containers. Use when you need to run PHP commands, coding standards checks, static analysis, tests, or drush against a Drupal worktree. Host-side PHP commands will fail -- DDEV provides PHP 8.5, database, Chrome webdriver, and test env vars. Do NOT use for DDEV lifecycle management (start/stop/setup) -- use drupal-lab:process-lifecycle instead.
 
-Run all development tools inside DDEV containers where PHP 8.5, MariaDB, Chrome webdriver,
-and test environment variables are properly configured.
+Run all development tools inside DDEV containers where PHP 8.5, MariaDB, Chrome webdriver, and test environment variables are properly configured.
 
-For general DDEV knowledge (lifecycle, database operations, troubleshooting, worktree isolation,
-providers), see `lib:ddev`. This skill covers Drupal-specific commands only.
+For general DDEV knowledge (lifecycle, database operations, troubleshooting, worktree isolation, providers), see `lib:ddev`. This skill covers Drupal-specific commands only.
 
 ## Why DDEV Instead of Host Commands
 
@@ -52,9 +50,7 @@ These are set automatically inside the DDEV container and required for functiona
 | `MINK_DRIVER_ARGS` | `["chrome", {"browserName":"chrome","goog:chromeOptions":{"args":["--disable-gpu","--headless","--no-sandbox","--disable-dev-shm-usage"]}},"http://chrome:4444/wd/hub"]` |
 | `MINK_DRIVER_CLASS` | `Drupal\FunctionalJavascriptTests\DrupalSelenium2Driver` |
 
-The `ddev phpunit` command sources these from `core/.env` automatically. Use `ddev exec -d
-/var/www/html env SIMPLETEST_BASE_URL=... SIMPLETEST_DB=... vendor/bin/phpunit ...` only when
-running phpunit directly (outside the `ddev phpunit` wrapper).
+The `ddev phpunit` command sources these from `core/.env` automatically. Use `ddev exec -d /var/www/html env SIMPLETEST_BASE_URL=... SIMPLETEST_DB=... vendor/bin/phpunit ...` only when running phpunit directly (outside the `ddev phpunit` wrapper).
 
 ## Per-Worktree Naming
 
@@ -64,19 +60,16 @@ Each worktree requires a unique DDEV project name in `.ddev/config.local.yaml`:
 name: drupal-{ISSUE}
 ```
 
-This prevents container namespace conflicts across parallel worktrees. The DDEV project name
-determines the site URL (`drupal-3274086.ddev.site`). Never skip this file.
+This prevents container namespace conflicts across parallel worktrees. The DDEV project name determines the site URL (`drupal-3274086.ddev.site`). Never skip this file.
 
 ## DDEV Slot Management
 
-Max 3 concurrent DDEV instances per sprint. Track slot usage via beads metadata:
+Run at most 3 DDEV instances at a time. Track slot usage via beads metadata:
 
 - When starting DDEV for an issue: `bd update <id> --set-metadata ddev=true`
 - When stopping DDEV: `bd update <id> --set-metadata ddev=false`
 
-Stale-slot reclaim: check for beads with `ddev=true` metadata; if the issue is closed or
-the bead is stale (no activity in the last session), the slot can be reclaimed — stop DDEV
-in that worktree and clear the metadata flag.
+Stale-slot reclaim: check for beads with `ddev=true` metadata; if the issue is closed or the bead is stale (no activity in the last session), the slot can be reclaimed — stop DDEV in that worktree and clear the metadata flag.
 
 ```bash
 # Check running DDEV instances
@@ -120,8 +113,7 @@ ddev exec vendor/bin/phpstan analyze --configuration=./core/phpstan.neon.dist co
 
 ## PHPUnit Tests
 
-The custom `ddev phpunit` command sources env vars from `core/.env` and clears stale Chrome
-sessions automatically.
+The custom `ddev phpunit` command sources env vars from `core/.env` and clears stale Chrome sessions automatically.
 
 ```bash
 # Module tests
@@ -194,5 +186,4 @@ ddev logs | tail -50
 
 ## Profiling
 
-For PHP performance profiling (xhprof, slow query log), see `drupal-lab:perf-measure`.
-For frontend performance (Lighthouse, Core Web Vitals), see `improve:perf-measure`.
+For PHP performance profiling (xhprof, slow query log), see `drupal-lab:perf-measure`. For frontend performance (Lighthouse, Core Web Vitals), see `test-lab:perf-measure`.

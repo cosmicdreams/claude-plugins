@@ -1,14 +1,12 @@
 # claude-plugins
 
-A collection of [Claude Code](https://claude.ai/code) plugins covering team sprint orchestration, Drupal development, process engineering, passive knowledge capture, and meta-tooling for plugin authoring.
+A collection of [Claude Code](https://claude.ai/code) plugins covering Drupal development, process engineering, passive knowledge capture, and meta-tooling for plugin authoring.
 
 ## Dependencies
 
-Several plugins need external tools, runtimes, or credentials (Beads, Obsidian, GitHub,
-twg, ddev, Figma, Playwright, and more).
+Several plugins need external tools, runtimes, or credentials (Beads, Obsidian, GitHub, twg, ddev, Figma, Playwright, and more).
 
-**→ See [DEPENDENCIES.md](./DEPENDENCIES.md): a per-plugin table of what is required and
-what is optional, then install steps for each one.**
+**→ See [DEPENDENCIES.md](./DEPENDENCIES.md): a per-plugin table of what is required and what is optional, then install steps for each one.**
 
 ## Installation
 
@@ -19,25 +17,16 @@ cd claude-plugins/worktrees/main
 
 # Install plugins at user scope
 claude plugin install admin@local        --scope user
-claude plugin install sprint@local       --scope user
-claude plugin install retro@local        --scope user
 claude plugin install ideate@local       --scope user
 claude plugin install drupal-lab@local   --scope user
 claude plugin install lib@local          --scope user
 claude plugin install workshop@local     --scope user
 claude plugin install drover@local       --scope user
 claude plugin install research-lab@local --scope user
-claude plugin install improve@local      --scope user
+claude plugin install process-lab@local  --scope user
 claude plugin install ideas-funnel@local --scope user
 claude plugin install design-lab@local   --scope user
 claude plugin install test-lab@local     --scope user
-```
-
-After installing, initialize the sprint board in your project:
-
-```bash
-brew install beads
-bd init --prefix sprint
 ```
 
 ## Plugins
@@ -46,16 +35,6 @@ bd init --prefix sprint
 Meta-tooling for developing and maintaining Claude Code plugins.
 
 Skills: `agent-team`, `bump-version`, `changelog`, `create-worktree`, `install`, `new-agent`, `new-skill`, `optimize-agents`, `scaffold`, `update-plugins`
-
-### `sprint`
-Team sprint execution: Workflow-driven parallel slice-workers, kanban pipeline, structured retro output.
-
-Skills: `board`, `kanban`, `plan`, `project-notes`, `run`
-
-### `retro`
-End-of-sprint retrospectives: structured interview schema in sprint Workflow output, action card management, session reports.
-
-Skills: `interviews`, `kanban`, `session`, `transcript`
 
 ### `ideate`
 Pre-work ideation: brainstorm canvas, structured comparison, reality checks, diagrams, ADRs.
@@ -87,10 +66,10 @@ Composable research pipeline built around seven knowledge-work verbs: frame, gat
 
 Skills: `experiment`, `frame`, `gather`, `interrogate`, `synthesize`, `teach`, `understand`
 
-### `improve`
-Process engineering methodology. Maps process topology, makes directed fixes, runs improvement experiments, accumulates lint rules. Domain-agnostic — each plugin can own its own `:improve` skill for domain-specific knowledge.
+### `process-lab`
+Keeps agent-assisted work aligned with each project's workflow: reads its Confluence process, records required steps and waivers, and runs retrospectives against it.
 
-Skills: `accessibility-scan`, `attach`, `experiment`, `fix`, `lint`, `perf-measure`, `self`
+Skills: `initialize`, `lint`, `advance`, `retro`, `codify`, `recommend-tickets`
 
 ### `ideas-funnel`
 Passive knowledge capture pipeline — Karpathy-derived LLM Wiki with Fable-supervised singleton Workflow, cost-aware worker delegation, bounded ingest, confidence decay, graph-aware consolidation, and Obsidian wiki output.
@@ -103,14 +82,14 @@ Build and maintain a Figma component library from a codebase. Pluggable componen
 Skills: `capture`, `detect`, `figma-component`, `figma-foundation`, `figma-index`, `inventory`, `plan`, `tokens`, `usage`, `verify`
 
 ### `test-lab`
-Convert a manual test corpus into an automated Playwright suite. The source is a plug point — TestRail today, another tool later — held separately from the authoring methodology, which is derived from a head of Quality Assurance review of a real suite.
+Convert a manual test corpus into an automated Playwright suite and measure accessibility and performance. The source is a plug point — TestRail today, another tool later — held separately from the authoring methodology, which is derived from a head of Quality Assurance review of a real suite.
 
-Skills: `automate`, `ingest`
+Skills: `accessibility-scan`, `automate`, `ingest`, `perf-measure`
 
 ## Changelog
 
 ```bash
-admin:changelog <plugin>            # e.g. admin:changelog sprint
+admin:changelog <plugin>            # e.g. admin:changelog admin
 admin:changelog <plugin> --latest   # most recent version only
 ```
 

@@ -4,7 +4,7 @@
 # Usage: read-changelog.sh <plugin-name> <admin-plugin-root> [filter]
 #
 # Arguments:
-#   plugin-name        — target plugin, e.g. "sprint", "retro", "admin"
+#   plugin-name        — target plugin, e.g. "drover", "admin"
 #   admin-plugin-root  — $CLAUDE_PLUGIN_ROOT from the admin skill context
 #   filter             — optional: "--latest", "--since X.Y.Z", or "X.Y.Z"
 #

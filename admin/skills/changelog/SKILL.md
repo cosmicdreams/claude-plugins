@@ -13,7 +13,7 @@ allowed-tools: Bash
 
 Full routing detail, kept out of the always-loaded skill listing:
 
-> Display the changelog for any installed plugin. Use whenever the user asks about a changelog, version history, or release notes — for ANY plugin. First argument is the plugin name. Optional filter: --latest, --since X.Y.Z, or X.Y.Z for a specific version. Examples: "sprint changelog", "what's new in retro", "ideate changes since 2.0.0". When no plugin is specified, list available plugins and ask the user to choose.
+> Display the changelog for any installed plugin. Use whenever the user asks about a changelog, version history, or release notes — for ANY plugin. First argument is the plugin name. Optional filter: --latest, --since X.Y.Z, or X.Y.Z for a specific version. Examples: "drover changelog", "what's new in design-lab", "ideate changes since 2.0.0". When no plugin is specified, list available plugins and ask the user to choose.
 
 Display the CHANGELOG for any installed plugin.
 
@@ -23,13 +23,13 @@ Display the CHANGELOG for any installed plugin.
 
 | Example | Behavior |
 |---------|----------|
-| `sprint` | Full sprint CHANGELOG |
-| `retro --latest` | Most recent retro version only |
+| `drover` | Full drover CHANGELOG |
+| `drover --latest` | Most recent drover version only |
 | `ideate --since 2.0.0` | ideate changes after 2.0.0 |
 | `admin 2.1.0` | Specific admin version section |
 | *(none)* | List available plugins, ask user to choose |
 
-Valid plugin names: `admin`, `sprint`, `retro`, `ideate`, `ideas-funnel`, `lib`, `workshop`, `drupal-lab`, `drover`, `research-lab`, `improve`
+Valid plugin names: `admin`, `design-lab`, `drover`, `drupal-lab`, `ideas-funnel`, `ideate`, `lib`, `process-lab`, `research-lab`, `test-lab`, `workshop`
 
 ## Procedure
 
@@ -46,7 +46,7 @@ echo "Available plugins:"
 ls "$(dirname "$(dirname "${CLAUDE_PLUGIN_ROOT}")")" 2>/dev/null | sort
 ```
 
-Tell the user: "Which plugin's changelog would you like? E.g.: `admin:changelog sprint`"
+Tell the user: "Which plugin's changelog would you like? E.g.: `admin:changelog drover`"
 
 Otherwise:
 

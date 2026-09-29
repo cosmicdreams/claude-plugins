@@ -1,7 +1,6 @@
 # Dependency Map
 
-Complete mapping of every office and research-lab skill dependency to install commands
-per environment. Organized by skill, then by dependency.
+Complete mapping of every office and research-lab skill dependency to install commands per environment. Organized by skill, then by dependency.
 
 Legend:
 - **macOS**: Assumes Homebrew is available
@@ -33,9 +32,7 @@ Legend:
 | Node.js | Pre-installed or `brew install node` | Pre-installed | — |
 | agent-slack | `npm i -g agent-slack` | `npm i -g agent-slack` | `agent-slack auth import-desktop` (macOS) or `SLACK_TOKEN` env var (Linux) |
 
-**Auth notes:** `agent-slack auth import-desktop` pulls the session from the Slack
-desktop app, which only works on macOS. In a Linux sandbox, the user would need to
-set a `SLACK_TOKEN` env var or use `agent-slack auth` with a token directly.
+**Auth notes:** `agent-slack auth import-desktop` pulls the session from the Slack desktop app, which only works on macOS. In a Linux sandbox, the user would need to set a `SLACK_TOKEN` env var or use `agent-slack auth` with a token directly.
 
 ---
 
@@ -72,8 +69,7 @@ set a `SLACK_TOKEN` env var or use `agent-slack auth` with a token directly.
 | cjpeg | Included with `libjpeg` | Included with `libjpeg-turbo-progs` | — |
 
 **Linux notes:**
-- `libavif-bin` may not be in older Ubuntu repos (needs 22.04+). If unavailable,
-  `avifenc`/`avifdec` are marked unavailable.
+- `libavif-bin` may not be in older Ubuntu repos (needs 22.04+). If unavailable, `avifenc`/`avifdec` are marked unavailable.
 - Most tools have apt equivalents. `magick` (ImageMagick) is the universal fallback.
 
 ---
@@ -86,9 +82,7 @@ set a `SLACK_TOKEN` env var or use `agent-slack auth` with a token directly.
 
 Installs to `~/.local/bin/twg`. `twg update` applies required updates.
 
-**Auth:** `twg login` opens a browser for OAuth. In a sandbox without a browser, or for a
-site outside the OAuth organization, export `TWG_USER`, `TWG_TOKEN` (an Atlassian API
-token), `TWG_SITE`, and a separate `TWG_CONFIG_DIR`.
+**Auth:** `twg login` opens a browser for OAuth. In a sandbox without a browser, or for a site outside the OAuth organization, export `TWG_USER`, `TWG_TOKEN` (an Atlassian API token), `TWG_SITE`, and a separate `TWG_CONFIG_DIR`.
 
 ---
 
@@ -107,8 +101,7 @@ token), `TWG_SITE`, and a separate `TWG_CONFIG_DIR`.
 
 ## workshop:prioritize (formerly morning-brief)
 
-Same dependencies as `lib:slack` (agent-slack). Also uses Python 3 for timestamp
-math (pre-installed in both environments).
+Same dependencies as `lib:slack` (agent-slack). Also uses Python 3 for timestamp math (pre-installed in both environments).
 
 | Dependency | macOS | Linux sandbox | Auth |
 |---|---|---|---|
@@ -123,9 +116,7 @@ math (pre-installed in both environments).
 |---|---|---|---|
 | gws CLI | `npm install -g @googleworkspace/cli` | `npm install -g @googleworkspace/cli` | `gws auth setup` (first time), `gws auth login` (subsequent) |
 
-**Auth notes:** `gws auth setup` creates a Google Cloud project and enables the
-Calendar API. This is an interactive OAuth flow that requires a browser. In a
-headless Linux sandbox, the user may need to run auth on their host machine first.
+**Auth notes:** `gws auth setup` creates a Google Cloud project and enables the Calendar API. This is an interactive OAuth flow that requires a browser. In a headless Linux sandbox, the user may need to run auth on their host machine first.
 
 ---
 
@@ -172,16 +163,13 @@ Combines dependencies from jira + slack:
 2. macOS Keychain: `security find-generic-password -s "testrail" -w`
 3. Env var: `TESTRAIL_API_KEY`
 
-**Linux sandbox workaround:** Use `export TESTRAIL_API_KEY="your-key"`. The skill
-checks env vars as a fallback automatically.
+**Linux sandbox workaround:** Use `export TESTRAIL_API_KEY="your-key"`. The skill checks env vars as a fallback automatically.
 
 ---
 
 ## lib:archive, workshop:obsidian-lint, workshop:organize, lib:vault-store
 
-These skills have **no external tool dependencies** — they only need filesystem access
-to the Obsidian vault directory. In a Linux sandbox, the vault path must either be
-mounted or passed explicitly.
+These skills have **no external tool dependencies** — they only need filesystem access to the Obsidian vault directory. In a Linux sandbox, the vault path must either be mounted or passed explicitly.
 
 | Dependency | macOS | Linux sandbox |
 |---|---|---|
@@ -196,10 +184,7 @@ mounted or passed explicitly.
 | `nlm` (NotebookLM MCP CLI) | `uv tool install notebooklm-mcp-cli` | `uv tool install notebooklm-mcp-cli` | Requires Google auth via `nlm login` |
 | python3 | Pre-installed | Pre-installed | — |
 
-**Note:** `nlm` ships in the `notebooklm-mcp-cli` package (also provides the `notebooklm-mcp` Model
-Context Protocol server). Auth is a one-time interactive browser login; cookies last ~2-4 weeks.
-The predecessor `notebooklm` CLI (package `notebooklm-py`) was archived upstream 2026-06-26 and no
-longer authenticates — do not install it.
+**Note:** `nlm` ships in the `notebooklm-mcp-cli` package (also provides the `notebooklm-mcp` Model Context Protocol server). Auth is a one-time interactive browser login; cookies last ~2-4 weeks. The predecessor `notebooklm` CLI (package `notebooklm-py`) was archived upstream 2026-06-26 and no longer authenticates — do not install it.
 
 ---
 
@@ -214,7 +199,7 @@ No external tool installs needed beyond git and Python.
 
 ---
 
-## improve:accessibility-scan
+## test-lab:accessibility-scan
 
 | Dependency | macOS | Linux sandbox |
 |---|---|---|
@@ -225,7 +210,7 @@ Note: self-installs on first run — no upfront install needed.
 
 ---
 
-## improve:perf-measure
+## test-lab:perf-measure
 
 | Dependency | macOS | Linux sandbox |
 |---|---|---|
@@ -258,8 +243,7 @@ Note: self-installs on first run — no upfront install needed.
 | `nlm` (NotebookLM MCP CLI) | See research-lab:gather | See research-lab:gather | — |
 | agent-slack | `npm i -g agent-slack` | `npm i -g agent-slack` | See deploy-post |
 
-**Linux sandbox note:** drupal-lab:optimize requires a full Drupal + DDEV environment.
-This is a macOS-host workflow. In a sandbox, only the non-Drupal phases can run.
+**Linux sandbox note:** drupal-lab:optimize requires a full Drupal + DDEV environment. This is a macOS-host workflow. In a sandbox, only the non-Drupal phases can run.
 
 ---
 
@@ -269,8 +253,7 @@ This is a macOS-host workflow. In a sandbox, only the non-Drupal phases can run.
 |---|---|---|---|
 | rtk binary | Download from GitHub releases — not on Homebrew or npm | Same | — |
 
-Check: `command -v rtk` — verify with `rtk --version` and `rtk gain`.
-Note: name collision risk with `reachingforthejack/rtk` (Rust Type Kit). Correct binary responds to `rtk gain`.
+Check: `command -v rtk` — verify with `rtk --version` and `rtk gain`. Note: name collision risk with `reachingforthejack/rtk` (Rust Type Kit). Correct binary responds to `rtk gain`.
 
 ---
 
