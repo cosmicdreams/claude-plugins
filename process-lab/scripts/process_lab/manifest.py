@@ -98,3 +98,31 @@ def branch_pattern(manifest):
     if value is None:
         return None
     return re.compile(value.replace("{ticket}", re.escape(manifest["jira"]["project"]) + r"-\d+"))
+
+
+def bounded_fullmatch(pattern, value, seconds=0.05):
+    """Match with a time limit so a pathological pattern cannot stall a hook.
+    A timeout counts as a match: never fail a check the plugin could not evaluate."""
+    import signal
+    value = value[:255]
+    if not hasattr(signal, "setitimer"):
+        return bool(pattern.fullmatch(value))
+
+    class _Timeout(Exception):
+        pass
+
+    def _raise(signum, frame):
+        raise _Timeout()
+
+    try:
+        previous = signal.signal(signal.SIGALRM, _raise)
+    except ValueError:
+        return bool(pattern.fullmatch(value))
+    try:
+        signal.setitimer(signal.ITIMER_REAL, seconds)
+        return bool(pattern.fullmatch(value))
+    except _Timeout:
+        return True
+    finally:
+        signal.setitimer(signal.ITIMER_REAL, 0)
+        signal.signal(signal.SIGALRM, previous)

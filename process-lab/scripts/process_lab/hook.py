@@ -120,7 +120,7 @@ def _process(matches, kind, effective, branch_override, stream, entries, context
                 check, detail = None, None
                 if match["detected_by"] == "branch-created":
                     pattern = manifest.branch_pattern(data)
-                    if pattern and not pattern.fullmatch((branch or "")[:255]):
+                    if pattern and not manifest.bounded_fullmatch(pattern, branch or ""):
                         check, detail = "branch_pattern", "Branch must match " + data["conventions"]["branch_pattern"]
                 elif match["detected_by"] == "commit" and match["message"] is not None and ticket and ticket not in match["message"]:
                     check, detail = "commit_message", "Commit message must contain " + ticket
@@ -140,7 +140,7 @@ def _process(matches, kind, effective, branch_override, stream, entries, context
                         contexts.append(gate["label"] + " (" + ticket + "): " + "; ".join(items) + ". Discharge with process-lab:advance or waive with a reason.")
                 else:
                     contexts.append(gate["label"] + ": no ticket key was found on the branch; no ticket obligations opened.")
-        if match["detected_by"] == "branch-created" and match["certain"]:
+        if match.get("switches") and match["certain"]:
             branch_override = branch
     return output(event_name, "\n".join(contexts))
 

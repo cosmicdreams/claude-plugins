@@ -42,6 +42,8 @@ class TableParser(HTMLParser):
             return
         if tag == "ac:structured-macro":
             self.macro.append({"status": attrs.get("ac:name") == "status", "title": "", "body": False})
+            if attrs.get("ac:name") != "status" and self.cell is not None:
+                self.unsupported.add(attrs.get("ac:name") or "unnamed")
         elif tag == "ac:parameter" and self.macro:
             self.parameter = attrs.get("ac:name")
         elif tag in ("ac:plain-text-body", "ac:rich-text-body") and self.macro:
@@ -118,6 +120,7 @@ def _expand(row, number):
 
 def parse_page(html):
     parser = TableParser()
+    parser.unsupported = set()
     parser.feed(html)
     matches = []
     for table in parser.tables:
@@ -166,7 +169,11 @@ def parse_page(html):
                     raise ValueError("row " + str(number) + ": empty or duplicate obligation id: " + identifier)
                 obligation_ids.add(identifier)
                 obligations.append({"id": identifier, "text": item})
+        if not obligations:
+            warnings.append("Gate " + label + " has no obligations; check the row for content the parser cannot read")
         gates.append({"id": gate_id, "label": label, "detected_by": detected, "jira_transition": transition, "obligations": obligations})
+    for name in sorted(parser.unsupported):
+        warnings.append("Macro '" + name + "' in the gate table contributes only its plain text; include or excerpt content is not read")
     return gates, warnings
 
 def cache_path(repo):

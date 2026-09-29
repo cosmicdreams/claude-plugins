@@ -17,43 +17,73 @@ def current_branch(cwd):
         return None
 
 
-def _lex(command):
-    # A here document inside command substitution is opaque to shell chain splitting.
-    blocks = []
-    pattern = re.compile(r"\$\(cat\s+<<['\"]?([A-Za-z_][A-Za-z0-9_]*)['\"]?\s*\n.*?\n\1\s*\)", re.S)
-    def protect(match):
-        blocks.append(match.group(0))
-        return "PROCESSLABHEREDOC" + str(len(blocks) - 1) + "TOKEN"
-    protected = pattern.sub(protect, command)
-    lexer = shlex.shlex(protected, posix=True, punctuation_chars=";&|\n")
-    lexer.whitespace_split = True
-    lexer.whitespace = " \t\r"
-    lexer.commenters = ""
-    try:
-        words = list(lexer)
-    except ValueError:
-        return []
-    for i, word in enumerate(words):
-        for number, block in enumerate(blocks):
-            word = word.replace("PROCESSLABHEREDOC" + str(number) + "TOKEN", block)
-        words[i] = word
-    return words
+_OPERATORS = ("&&", "||", ";", "|", "\n")
+
+
+def _split(command):
+    """Split a command into (text, separator) pairs at shell operators outside quotes,
+    command substitution, and escapes. Returns None if quoting is unbalanced."""
+    pairs, buf, i, quote, depth = [], [], 0, None, 0
+    while i < len(command):
+        ch = command[i]
+        if quote:
+            buf.append(ch)
+            if ch == "\\" and quote == '"' and i + 1 < len(command):
+                buf.append(command[i + 1])
+                i += 2
+                continue
+            if ch == quote:
+                quote = None
+            i += 1
+            continue
+        if ch == "\\" and i + 1 < len(command):
+            buf.append(command[i:i + 2])
+            i += 2
+            continue
+        if ch in ("'", '"') and depth == 0:
+            quote = ch
+            buf.append(ch)
+            i += 1
+            continue
+        if command.startswith("$(", i):
+            depth += 1
+            buf.append("$(")
+            i += 2
+            continue
+        if ch == ")" and depth:
+            depth -= 1
+            buf.append(ch)
+            i += 1
+            continue
+        if depth == 0:
+            op = next((o for o in ("&&", "||") if command.startswith(o, i)), None) or (ch if ch in ";|\n" else None)
+            if op:
+                pairs.append(("".join(buf), op))
+                buf = []
+                i += len(op)
+                continue
+        buf.append(ch)
+        i += 1
+    if quote or depth:
+        return None
+    pairs.append(("".join(buf), None))
+    return pairs
 
 
 def segments(command):
-    words = _lex(command)
-    result, current = [], []
-    for word in words:
-        if word in ("&&", "||", ";", "|", "\n"):
-            if current:
-                result.append((current, word))
-                current = []
-            elif result:
-                result[-1] = (result[-1][0], word)
-        else:
-            current.append(word)
-    if current:
-        result.append((current, None))
+    pairs = _split(command)
+    if pairs is None:
+        return []
+    result = []
+    for text, separator in pairs:
+        try:
+            words = shlex.split(text, posix=True)
+        except ValueError:
+            return []
+        if words:
+            result.append((words, separator))
+        elif result and separator:
+            result[-1] = (result[-1][0], separator)
     return result
 
 
@@ -102,25 +132,32 @@ def detect(command, test_commands=()):
                 git_dir = git_words[1] if git_dir is None else git_dir + "/" + git_words[1]
                 git_words = git_words[2:]
             kind, branch = None, None
+            switches = False
             if git_words[:2] in (["checkout", "-b"], ["switch", "-c"]) and len(git_words) > 2:
-                kind, branch = "branch-created", git_words[2]
+                kind, branch, switches = "branch-created", git_words[2], True
             elif git_words[:1] == ["branch"] and len(git_words) > 1 and not git_words[1].startswith("-"):
                 kind, branch = "branch-created", git_words[1]
+            elif git_words[:1] in (["checkout"], ["switch"]) and len(git_words) == 2 and not git_words[1].startswith("-"):
+                kind, branch, switches = "branch-switched", git_words[1], True
             elif git_words[:2] == ["worktree", "add"] and "-b" in git_words:
                 pos = git_words.index("-b")
                 if pos + 1 < len(git_words):
                     kind, branch = "branch-created", git_words[pos + 1]
             elif git_words[:1] == ["commit"]:
-                options = git_words[1:]
-                for marker in ("-m", "--message"):
-                    if marker in options:
-                        options = options[:options.index(marker)]
+                options, skip = [], False
+                for word in git_words[1:]:
+                    if skip:
+                        skip = False
+                    elif word in ("-m", "--message", "-F", "--file", "-C", "-c"):
+                        skip = True
+                    elif not word.startswith(("--message=", "--file=")):
+                        options.append(word)
                 if "--dry-run" not in options:
                     kind = "commit"
             elif git_words[:1] == ["push"] and not any(w in ("--dry-run", "-n") for w in git_words):
                 kind = "pushed"
             if kind:
-                found.append({**result, "detected_by": kind, "branch": branch, "message": _message(git_words) if kind == "commit" else None, "git_dir": git_dir})
+                found.append({**result, "detected_by": kind, "branch": branch, "switches": switches, "message": _message(git_words) if kind == "commit" else None, "git_dir": git_dir})
         elif words[:3] == ["gh", "pr", "create"]:
             found.append({**result, "detected_by": "pull-request-opened"})
     return found

@@ -113,7 +113,7 @@ brew install node
 
 Or use [nvm](https://github.com/nvm-sh/nvm) to manage Node versions. Drover's web-page renderer needs Node 20 or later.
 
-**Used by:** design-lab (`capture`), drover (web-page and Portable Document Format reports), ideate (`brainstorm` canvas), improve (`accessibility-scan`), test-lab (running generated suites); indirectly lib and workshop through the tools above
+**Used by:** design-lab (`capture`), drover (web-page and Portable Document Format reports), ideate (`brainstorm` canvas), test-lab (`accessibility-scan`, running generated suites); indirectly lib and workshop through the tools above
 
 ---
 
@@ -129,7 +129,7 @@ brew install ddev/ddev/ddev
 
 Drover does not need `ddev` installed; `drover:init` only reads a project's `.ddev/config.yaml` when one exists.
 
-**Used by:** drupal-lab (all development and validation skills), lib (`ddev`); optionally sprint (Drupal work)
+**Used by:** drupal-lab (all development and validation skills), lib (`ddev`)
 
 ---
 
@@ -235,7 +235,7 @@ obsidian help   # verify
 
 **Vault configuration:** skills default to a vault named `Neurons` at `~/Vaults/Neurons`. Override with the `OBSIDIAN_VAULT_NAME` environment variable.
 
-**Used by:** ideas-funnel (all skills), lib (`archive`, `vault-store`, `vault-search`, `wiki-query`), workshop (`organize`, `obsidian-lint`); optionally sprint (`project-notes`), retro (`session`), ideate (archiving), drupal-lab (`analyze-issue`, `issue-summary`), research-lab (`gather`, `understand`, `synthesize`, `teach`)
+**Used by:** ideas-funnel (all skills), lib (`archive`, `vault-store`, `vault-search`, `wiki-query`), workshop (`organize`, `obsidian-lint`); optionally ideate (archiving), drupal-lab (`analyze-issue`, `issue-summary`), research-lab (`gather`, `understand`, `synthesize`, `teach`)
 
 ---
 
@@ -270,7 +270,7 @@ npx playwright install chromium
 
 Drover renders Portable Document Format reports with a local Chrome or Chromium. Point `DROVER_PDF_BROWSER` at the browser binary if it is not found automatically. `test-lab:accessibility-scan` drives Chrome through Puppeteer, which can download its own Chromium.
 
-**Used by:** optionally drover (`report`), improve (`accessibility-scan`)
+**Used by:** optionally drover (`report`), test-lab (`accessibility-scan`)
 
 ---
 
@@ -320,7 +320,7 @@ Web Content Accessibility Guidelines audit tool.
 npm i -g pa11y
 ```
 
-**Used by:** lib (`pa11y`), improve (`accessibility-scan`)
+**Used by:** lib (`pa11y`), test-lab (`accessibility-scan`)
 
 ---
 
@@ -332,7 +332,7 @@ Command-line benchmarking tool. Produces structured timing results for `test-lab
 brew install hyperfine
 ```
 
-**Used by:** lib (`hyperfine`), improve (`perf-measure`)
+**Used by:** lib (`hyperfine`), test-lab (`perf-measure`)
 
 ---
 
@@ -417,4 +417,4 @@ npm install -g headroom-ai
 
 `rtk` shortens verbose command output. Several unrelated projects share the name; install the "Rust Token Killer" and check with `rtk gain`.
 
-**Used by:** optionally admin, drupal-lab (`ddev`), ideas-funnel (`ingest`), improve (`lint`), research-lab (`gather`), retro (`session`)
+**Used by:** optionally admin, drupal-lab (`ddev`), ideas-funnel (`ingest`), research-lab (`gather`)
