@@ -104,7 +104,10 @@ class RunnerServerTests(unittest.TestCase):
             answer = json.loads(text)
             self.assertTrue(answer["outdated"])
             self.assertEqual(answer["message"], f"Close the design-lab runner in Figma and start it again; it was "
-                             f"updated to {figma_runner.plugin_version()} and Figma loads the new code when it starts.")
+                             f"updated to {figma_runner.plugin_version()} and Figma loads the new code when it starts. "
+                             "If it still says this after a restart, Figma is loading the runner from another folder: "
+                             "import ~/.design-lab/runner/manifest.json again (Plugins, Development, Import plugin "
+                             "from manifest).")
 
     def test_each_request_notes_when_the_runner_last_asked(self):
         self.request("/next")

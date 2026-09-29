@@ -165,7 +165,9 @@ def install_runner() -> dict:
 
 def outdated_message(version: str) -> str:
     return (f"Close the design-lab runner in Figma and start it again; it was updated to {version} "
-            "and Figma loads the new code when it starts.")
+            "and Figma loads the new code when it starts. If it still says this after a restart, Figma is "
+            "loading the runner from another folder: import ~/.design-lab/runner/manifest.json again "
+            "(Plugins, Development, Import plugin from manifest).")
 
 
 def write_handshake(project: Path, result: dict) -> None:

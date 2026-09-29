@@ -639,7 +639,7 @@ def preflight_command(args):
             write_json(path, project)
     if missing:
         print(json.dumps({"ready": False, "missing": missing, "checks": checks,
-                          "message": "Still needed before the run can go ahead unattended: " + "; ".join(missing) + "."},
+                          "message": "Still needed before the run can go ahead unattended: " + "; ".join(m.rstrip(".") for m in missing) + "."},
                          indent=2))
         sys.exit(1)
     for key, value in (("siteLabel", site_label), ("siteUrl", site_url), ("operator", operator)):
