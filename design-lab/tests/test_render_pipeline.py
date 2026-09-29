@@ -6,6 +6,8 @@ import hashlib
 import io
 import base64
 import json
+import subprocess
+import shutil
 import sys
 import tempfile
 import unittest
@@ -482,6 +484,29 @@ class FigmaBuildTests(unittest.TestCase):
         template = (Path(figma_build.__file__).parent / "render" / "cover.js").read_text()
         self.assertNotIn("provDark", template)             # provenance is never drawn
         self.assertIn("figma.root.setSharedPluginData('designlab', 'provenance'", template)
+
+    def test_cover_bar_is_the_total_split_into_exact_shares(self):
+        if not shutil.which("node"):
+            self.skipTest("node not installed")
+        source = (Path(figma_build.__file__).parent / "render" / "cover.js").read_text()
+        helpers = source[source.index("/* BEGIN bar helpers"):source.index("/* END bar helpers */")]
+        script = helpers + """
+const cases = [[[3, 0, 17, 9], 1280], [[1, 1, 1], 100], [[5], 1280], [[0, 0, 0, 0], 1280], [[50, 7, 13, 1], 997]];
+console.log(JSON.stringify(cases.map(([v, w]) => barWidths(v, w))));
+console.log(JSON.stringify(['High Use', 'Medium Use', 'Low Use', 'Other'].map(tierColor)));
+"""
+        out = subprocess.run(["node", "-e", script], capture_output=True, text=True, check=True).stdout.splitlines()
+        cases = [([3, 0, 17, 9], 1280), ([1, 1, 1], 100), ([5], 1280), ([0, 0, 0, 0], 1280), ([50, 7, 13, 1], 997)]
+        for (values, width), widths in zip(cases, json.loads(out[0])):
+            total = sum(values)
+            self.assertEqual(sum(widths), width if total else 0)       # the bar is 100% of the total
+            for v, w in zip(values, widths):
+                if total:
+                    self.assertLess(abs(w - v / total * width), 1)   # each share within a pixel
+                if v == 0:
+                    self.assertEqual(w, 0)
+        colors = json.loads(out[1])
+        self.assertEqual(len(set(colors)), 4)                          # one color per category
 
     def test_cover_getting_started_and_report_share_every_number(self):
         cover, start, card = self.surfaces()
