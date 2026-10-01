@@ -759,6 +759,25 @@ def cmd_next(ns) -> int:
     return 0
 
 
+def text_masks(project: Path, cid: str, geometry: dict) -> list[list[dict]] | None:
+    """Per comparison pair, the live text boxes at that pair's breakpoint (root-relative, the
+    same coordinates as both crops), so the comparison skips glyphs and keeps layout."""
+    measurements = project / "capture" / "measurements"
+    spec_file = measurements / f"{cid.replace(':', '__').replace('/', '__')}.spec.json"
+    if not spec_file.exists():
+        return None
+    specs = json.loads(spec_file.read_text()).get("measurements") or {}
+    masks = []
+    for variant in geometry.get("variants") or []:
+        # Mobile and tablet are labelled instances; the master itself is the desktop rendering.
+        m = re.search(r"\b(Desktop|Tablet|Mobile)\b", variant.get("label") or "", re.I)
+        bp = m.group(1).lower() if m else "desktop"
+        nodes = (specs.get(f"{bp}:default") or {}).get("nodes") or []
+        masks.append([n["box"] for n in nodes
+                      if (n.get("text") or n.get("inlineText")) and spec_to_tree.visible(n)])
+    return masks
+
+
 def images_step(project: Path, sid: str, cid: str, state: dict) -> dict:
     """Image rectangles created by the build steps, filled from the site's own files. Icon
     glyphs (src `capture:<breakpoint>:x,y,w,h`) are cropped from that breakpoint's capture."""
@@ -832,8 +851,10 @@ def cmd_record(ns) -> int:
                              f"({state['preflightCover']}); the build must fill in the preflight Cover, not add another")
     if ns.step.startswith("compare:") and data.get("file"):
         import figma_compare
-        geo = result(project, "block:" + ns.step.split(":", 1)[1])["geometry"]
-        data = {"file": data["file"], **figma_compare.compare(Path(data["file"]), geo)}
+        cid = ns.step.split(":", 1)[1]
+        geo = result(project, "block:" + cid)["geometry"]
+        data = {"file": data["file"], **figma_compare.compare(Path(data["file"]), geo,
+                                                             masks=text_masks(project, cid, geo))}
     (project / "figma" / "results" / f"{safe(ns.step)}.json").write_text(json.dumps(data, indent=1, sort_keys=True) + "\n")
     state["done"].append(ns.step)
     sp.write_text(json.dumps(state, indent=1) + "\n")

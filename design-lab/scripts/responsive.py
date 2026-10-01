@@ -82,13 +82,24 @@ class Merge:
 
     # ---------------------------------------------------------------- tree
 
+    def children_of(self, bp: str, path: str) -> list[dict]:
+        """Direct children, with a pass-through wrapper (`<picture>`) replaced by its own
+        children: the wrapper draws nothing, but what it holds does."""
+        out = []
+        for k in self.index[bp].get(path, []):
+            if not any(self.visible_in(k["path"]).values()) and st.passthrough(k):
+                out.extend(self.children_of(bp, k["path"]))
+            else:
+                out.append(k)
+        return out
+
     def kids(self, bp: str, path: str) -> list[dict]:
-        return [k for k in self.index[bp].get(path, []) if st.visible(k)]
+        return [k for k in self.children_of(bp, path) if st.visible(k)]
 
     def child_paths(self, path: str) -> list[str]:
         seen: list[str] = []
         for bp in self.bps:
-            for k in self.index[bp].get(path, []):
+            for k in self.children_of(bp, path):
                 if k["path"] not in seen and any(self.visible_in(k["path"]).values()):
                     seen.append(k["path"])
         # DOM order: the measurement counter in each path segment
@@ -146,7 +157,14 @@ class Merge:
             return {**out, "kind": "image", "name": "Icon", "fit": "FIT",
                     "src": f"capture:{rb}:{st.r2(b['x'])},{st.r2(b['y'])},{st.r2(b['width'])},{st.r2(b['height'])}"}
         style = st.style_of(node)
+        shape = st.clip_shape(node["computed"].get("clipPath"), node["box"]["width"], node["box"]["height"])
+        if shape and not kid_paths and style.get("fill"):
+            return {**out, "kind": "svg", "name": name,
+                    "svg": st.shape_svg(shape, node["box"]["width"], node["box"]["height"], style["fill"])}
         if chars and (node.get("inlineText") or not kid_paths):
+            icons = {which: st.pseudo_image(node, which) for which in ("before", "after")}
+            if any(icons.values()):
+                return self.text_with_icons(out, path, chars, vchain, style, icons)
             text = self.text(path, chars, vchain)
             pads = self.padding(path)
             boxed = bool(style) or any(any(v for v in p.values()) for p in [pads.get(bp, {}) for bp in self.bps])
@@ -190,6 +208,31 @@ class Merge:
                 children.append({"kind": "frame", "name": "Spacer", "sizing": "FILL", "width": 1,
                                  "height": spacers[i], "layout": {"mode": "NONE"}, "children": [], "source": kp + "#spacer"})
         return {**out, "kind": "frame", **style, "layout": layout, "children": children}
+
+    def text_with_icons(self, out: dict, path: str, chars: str, vchain: str, style: dict,
+                        icons: dict) -> dict:
+        """Text whose element draws an icon in `::before` or `::after` (a chevron beside a link):
+        a row of icon, text, icon, spaced by the pseudo-element's margin."""
+        text = self.text(path, chars, vchain)
+        children, gap = [], 0
+        for which in ("before", "after"):
+            icon = icons.get(which)
+            if which == "after":
+                children.append({"name": "Label", "kind": "text", "text": text, "source": path + "#label",
+                                 "sizing": "FIXED" if text.get("singleLine") else "FILL"})
+            if not icon:
+                continue
+            node = {"name": "Icon", "source": f"{path}::{which}", "sizing": "FIXED",
+                    "width": icon["width"], "height": icon["height"], "x": 0, "y": 0}
+            node.update({"kind": "svg", "svg": icon["svg"]} if icon.get("svg") else
+                        {"kind": "image", "src": icon["src"], "fit": "FIT"})
+            children.append(node)
+            gap = max(gap, icon["gap"])
+        pads = self.padding(path)
+        return {**out, "kind": "frame", **style,
+                "layout": {"mode": "HORIZONTAL", "gap": gap, "primaryAlign": {"CENTER": "CENTER", "RIGHT": "MAX"}.get(text.get("align"), "MIN"),
+                           "counterAlign": "CENTER", "padding": self.padding_value(pads, vchain)},
+                "children": children}
 
     # ---------------------------------------------------------------- pieces
 

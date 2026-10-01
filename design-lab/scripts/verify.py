@@ -797,6 +797,39 @@ def check_standard_version_stamped(components, tokens, builds_dir, rep):
                 'required version stamp missing from %s' % '; '.join(missing))
 
 
+def check_fonts_available(builds_dir, rep):
+    """A font the Figma machine lacks is drawn in Inter in every component that uses it.
+
+    Reported once, by family, rather than as pixel error in each comparison (which masks text
+    for that reason). The fix is to make the family available to Figma, then rebuild.
+    """
+    if not builds_dir or not os.path.isdir(builds_dir):
+        return
+    missing = {}
+    for path in sorted(glob.glob(os.path.join(builds_dir, '*.json'))):
+        try:
+            built = (json.load(open(path)) or {}).get('built') or {}
+        except (ValueError, IOError):
+            continue
+        families = set(built.get('missingFonts') or [])
+        # Records written before 0.15.2 carry only the mapping `family weight -> Inter Style`.
+        for requested, resolved in (built.get('fonts') or {}).items():
+            family = requested.rsplit(' ', 1)[0]
+            if resolved.startswith('Inter ') and family.lower() != 'inter':
+                families.add(family)
+        for family in families:
+            missing.setdefault(family, []).append(os.path.basename(path)[:-5])
+    if missing:
+        rep.add('fonts-available', 'major', 'file',
+                '%d font famil%s used by the site %s not available to Figma, so text in %d '
+                'component(s) is drawn in Inter; make %s available to Figma and rebuild'
+                % (len(missing), 'y' if len(missing) == 1 else 'ies',
+                   'is' if len(missing) == 1 else 'are',
+                   len({c for cs in missing.values() for c in cs}),
+                   ' and '.join(sorted(missing))),
+                evidence=['%s (%d components)' % (f, len(c)) for f, c in sorted(missing.items())])
+
+
 def check_build_record_assertions(builds_dir, rep):
     """A skipped assertion is unfinished work, not a passing component receipt."""
     if not builds_dir or not os.path.isdir(builds_dir):
@@ -1192,7 +1225,7 @@ modes-earn-themselves components-built component-naming component-description
 documentation-links documentation-cards documentation-cards-unique documentation-adjacent
 layers-named mode-naming no-scratch-pages collection-strategy documentation-signal
 two-usage-numbers tier-thresholds-stated known-gaps-current standard-version-stamped
-build-record-assertions
+build-record-assertions fonts-available
 documentation-anatomy breakpoint-triad native-component-structure nested-component-coverage
 verify-report-exists bindings-match-source index-complete index-links-resolve
 variants-are-sets no-duplicate-components examples-instances-only pages-populated shot-frames-have-images breakpoints-share-scale
@@ -1276,6 +1309,7 @@ def main():
     check_tier_thresholds_stated(index, state, rep)
     check_standard_version_stamped(components, tokens, a.builds, rep)
     check_build_record_assertions(a.builds, rep)
+    check_fonts_available(a.builds, rep)
     check_component_receipt_contract(a.builds, components, rep)
     check_index_complete(index, components, state, rep)
     check_getting_started_sections(state, rep)

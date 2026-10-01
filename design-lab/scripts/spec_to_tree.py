@@ -142,6 +142,100 @@ def build_index(nodes: list[dict]) -> dict[str, list[dict]]:
     return children
 
 
+def passthrough(node: dict) -> bool:
+    """A wrapper that draws nothing itself but holds drawn children: `<picture>` around an
+    `<img>`, or `display: contents`. Zero-size, yet not hidden, so its children still show."""
+    c, b = node["computed"], node["box"]
+    if c.get("display") == "none" or c.get("visibility") == "hidden":
+        return False
+    if float(c.get("opacity") or 1) == 0:
+        return False
+    return c.get("display") == "contents" or b["width"] <= 1.5 or b["height"] <= 1.5
+
+
+def _length(value: str, whole: float) -> float:
+    value = value.strip()
+    if value.endswith("%"):
+        return float(value[:-1]) / 100 * whole
+    return px(value)
+
+
+def clip_shape(clip: str | None, width: float, height: float) -> dict | None:
+    """`clip-path: circle()`, `ellipse()` or `polygon()` as geometry in the element's own box,
+    or None for anything else (which is then drawn as its box)."""
+    if not clip or clip == "none":
+        return None
+    m = re.match(r"circle\(\s*([\d.]+(?:px|%))?\s*(?:at\s+([\d.]+(?:px|%))\s+([\d.]+(?:px|%)))?\s*\)", clip)
+    if m:
+        # A percentage radius is of sqrt(w^2 + h^2) / sqrt(2), per CSS Shapes.
+        ref = ((width ** 2 + height ** 2) / 2) ** 0.5
+        r = _length(m.group(1) or "50%", ref)
+        cx = _length(m.group(2) or "50%", width)
+        cy = _length(m.group(3) or "50%", height)
+        return {"kind": "ellipse", "cx": r2(cx), "cy": r2(cy), "rx": r2(r), "ry": r2(r)}
+    m = re.match(r"ellipse\(\s*([\d.]+(?:px|%))\s+([\d.]+(?:px|%))\s*(?:at\s+([\d.]+(?:px|%))\s+([\d.]+(?:px|%)))?\s*\)", clip)
+    if m:
+        return {"kind": "ellipse", "rx": r2(_length(m.group(1), width)),
+                "ry": r2(_length(m.group(2), height)),
+                "cx": r2(_length(m.group(3) or "50%", width)),
+                "cy": r2(_length(m.group(4) or "50%", height))}
+    m = re.match(r"polygon\((.*)\)$", clip.strip())
+    if m:
+        points = []
+        for pair in m.group(1).split(","):
+            parts = pair.split()
+            if len(parts) != 2:
+                return None
+            points.append((r2(_length(parts[0], width)), r2(_length(parts[1], height))))
+        return {"kind": "polygon", "points": points}
+    return None
+
+
+def shape_svg(shape: dict, width: float, height: float, fill: dict) -> str:
+    color = 'fill="%s" fill-opacity="%s"' % (fill["hex"], fill.get("opacity", 1))
+    if shape["kind"] == "ellipse":
+        body = '<ellipse cx="%s" cy="%s" rx="%s" ry="%s" %s/>' % (
+            shape["cx"], shape["cy"], shape["rx"], shape["ry"], color)
+    else:
+        body = '<polygon points="%s" %s/>' % (
+            " ".join("%s,%s" % point for point in shape["points"]), color)
+    # The element's box is the canvas; anything the shape draws outside it is clipped away,
+    # as the browser clips it.
+    return ('<svg xmlns="http://www.w3.org/2000/svg" width="%s" height="%s" viewBox="0 0 %s %s">'
+            '<defs><clipPath id="box"><rect width="%s" height="%s"/></clipPath></defs>'
+            '<g clip-path="url(#box)">%s</g></svg>') % (r2(width), r2(height), r2(width), r2(height),
+                                                      r2(width), r2(height), body)
+
+
+def pseudo_image(node: dict, which: str) -> dict | None:
+    """An image a `::before`/`::after` draws: `content: url(...)` or an empty content box with a
+    background image. Returns {svg|src, width, height, gap} or None."""
+    pseudo = node.get(which)
+    if not pseudo:
+        return None
+    m = re.search(r'url\("?([^")]+)"?\)', pseudo.get("content") or "")
+    if not m and (pseudo.get("content") or "").strip("'\"") == "":
+        m = re.search(r'url\("?([^")]+)"?\)', pseudo.get("backgroundImage") or "")
+    if not m:
+        return None
+    if pseudo.get("display") == "none":
+        return None
+    size = px(node["computed"].get("fontSize")) or 16
+    width = px(pseudo.get("width")) or size
+    height = px(pseudo.get("height")) or size
+    gap = px(pseudo.get("marginRight" if which == "before" else "marginLeft"))
+    url = m.group(1)
+    out = {"width": r2(width), "height": r2(height), "gap": r2(gap)}
+    if url.startswith("data:image/svg+xml"):
+        import urllib.parse, base64
+        data = url.split(",", 1)[1]
+        out["svg"] = (base64.b64decode(data).decode("utf-8", "replace") if ";base64" in url.split(",", 1)[0]
+                      else urllib.parse.unquote(data))
+    else:
+        out["src"] = url
+    return out
+
+
 def style_of(node: dict) -> dict:
     c, d = node["computed"], node.get("declared", {})
     style: dict = {}
@@ -167,6 +261,9 @@ def style_of(node: dict) -> dict:
     opacity = float(c.get("opacity") or 1)
     if opacity < 1:
         style["opacity"] = opacity
+    # The site crops this element's contents to its box; so must the frame.
+    if (c.get("overflow") or "").split()[0:1] in (["hidden"], ["clip"]):
+        style["clip"] = True
     if c.get("backgroundImage", "none") not in ("none", ""):
         m = re.search(r'url\("?([^")]+)"?\)', c["backgroundImage"])
         if m:
