@@ -79,6 +79,9 @@ def check_variable_scopes(state, rep):
     """ALL_SCOPES puts a spacing token in the colour picker."""
     for c in state.get('collections') or []:
         for v in c.get('variables') or []:
+            # Figma has no scopes for boolean variables: they are always ALL_SCOPES.
+            if v.get('type') == 'BOOLEAN':
+                continue
             if 'ALL_SCOPES' in (v.get('scopes') or []):
                 rep.add('variable-scoped', 'major', '%s::%s' % (c['name'], v['name']),
                         'scope is ALL_SCOPES, so this variable appears in every property picker')
@@ -156,8 +159,9 @@ def check_code_syntax_resolves(state, theme, rep, built=True):
                 name = m.group(0)
                 if not re.search(re.escape(name) + r'(?![A-Za-z0-9_-])', theme):
                     dangling.append('%s -> %s' % (v['name'], name))
-            elif web.startswith('$'):               # a Sass variable
-                if not re.search(re.escape(web) + r'(?![A-Za-z0-9_-])', theme):
+            elif web.startswith('$') or web.startswith('map-get('):  # a Sass variable or map entry
+                sass = re.match(r'(?:map-get\(\s*)?(\$[\w-]+)', web).group(1)
+                if not re.search(re.escape(sass) + r'(?![A-Za-z0-9_-])', theme):
                     dangling.append('%s -> %s' % (v['name'], web))
             elif re.fullmatch(r'#[0-9a-fA-F]{3,8}', web):
                 dangling.append('%s -> %s (a hex is the value repeated, not a code name)'
@@ -453,7 +457,10 @@ def check_captures_unique(shots_dir, rep):
     for h, files in by_hash.items():
         if len(files) < 2:
             continue
-        stems = {f.split('__')[0] for f in files}
+        # `<stem>__<viewport>[__<state>].png`; since 0.15.1 the stem is the component id
+        # with `:` written as `__`, so split at the viewport rather than the first `__`.
+        stems = {re.split(r'__(?:desktop|tablet|mobile)(?:__|\.png$)', f, maxsplit=1)[0]
+                 for f in files}
         if len(stems) > 1:
             rep.add('captures-unique', 'major', 'capture:' + ','.join(sorted(stems)),
                     'these components produced byte-identical captures, so their root '
@@ -647,8 +654,11 @@ def check_block_breakpoint_triad(state, rep):
                 not all(instance_mode(role) for role in ('Mobile', 'Tablet')) or
                 not all(isinstance(widths[role].get('width'), (int, float)) and
                         widths[role]['width'] > 0 for role in widths) or
-                not (widths['Mobile']['width'] < widths['Tablet']['width'] <
-                     widths['Desktop']['width']) or
+                # Desktop is not always widest: a component in a sidebar or a two-column
+                # layout at desktop is narrower than the same component full width at tablet
+                # (one site: text 623 desktop, 760 tablet). The master carries the measured
+                # desktop width; only mobile-narrower-than-tablet holds everywhere.
+                not (widths['Mobile']['width'] < widths['Tablet']['width']) or
                 captures != {'mobile', 'tablet', 'desktop'} or
                 (card or {}).get('breakpointScreenshotCount') != 3):
             bad.append(component.get('name'))

@@ -18,7 +18,12 @@ from extract_sass_style_facts import extract_file as extract_style_file
 
 
 STANDARD_VERSION = "3.0.0"
-INCLUDE = re.compile(r"(?:include|embed)\s*\(\s*['\"]([\w-]+):([\w-]+)['\"]")
+INCLUDE = re.compile(r"(?:include|embed)\s*\(\s*['\"]([\w-]+):([\w-]+)['\"]"
+                     r"|\{%-?\s*(?:include|embed)\s+['\"]([\w-]+):([\w-]+)['\"]")
+# A template whose first markup is `{% embed 'theme:name' %}` renders that component as its
+# root, so the page carries `data-component-id="theme:name"` and no bundle wrapper class.
+ROOT_EMBED = re.compile(r"\{%-?\s*embed\s+['\"]([\w-]+:[\w-]+)['\"]")
+MARKUP = re.compile(r"<[a-zA-Z]")
 FIELD = re.compile(r"\bfield_[a-z0-9_]+\b")
 ADD_CLASS = re.compile(r"addClass\(\s*['\"]([^'\"]+)['\"]")
 CLASS_ATTR = re.compile(r"class\s*=\s*['\"]([^'\"]+)['\"]")
@@ -56,6 +61,16 @@ def root_classes(body: str) -> list[str]:
     return values
 
 
+def root_sdc(body: str) -> str | None:
+    """The component a template embeds before printing any markup of its own."""
+    body = re.sub(r"\{#.*?#\}", "", body, flags=re.S)
+    embed = ROOT_EMBED.search(body)
+    if not embed:
+        return None
+    markup = MARKUP.search(body)
+    return embed.group(1) if not markup or embed.start() < markup.start() else None
+
+
 def extract(root: str | Path, components: dict) -> dict:
     root = Path(root).resolve()
     themes = root / "docroot" / "themes" / "custom"
@@ -75,7 +90,8 @@ def extract(root: str | Path, components: dict) -> dict:
 
         sdc_refs = []
         for body in bodies.values():
-            for namespace, name in INCLUDE.findall(body):
+            for match in INCLUDE.findall(body):
+                namespace, name = (match[0], match[1]) if match[0] else (match[2], match[3])
                 value = f"{namespace}:{name}"
                 if value not in sdc_refs:
                     sdc_refs.append(value)
@@ -130,6 +146,8 @@ def extract(root: str | Path, components: dict) -> dict:
             "stylesheets": sorted({relative(path, root) for path in style_files}),
             "styleFacts": style_facts,
             "rootClasses": classes,
+            "rootSdc": next((value for value in (root_sdc(body) for body in bodies.values())
+                             if value), None) if templates else None,
             "referencedFields": referenced_fields,
             "defects": [{
                 "kind": "template-field-not-in-authoring-config",

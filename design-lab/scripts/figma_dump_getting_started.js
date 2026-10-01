@@ -10,13 +10,14 @@ const section = name => {
 const index = page.findAll(node => /^index$/i.test(node.name) &&
   node.children?.some(child => child.name === 'Header'))[0];
 const indexTexts = index ? index.findAll(node => node.type === 'TEXT') : [];
-const headings = indexTexts.filter(node =>
-  /^(Placements|Component|Machine name|Tier|Type|Status|Docs)$/i.test(node.characters.trim()) &&
-  /^header\b/i.test(node.parent?.name || ''))
-  .map(node => node.characters.trim())
-  // Long, tiered indexes repeat their header for scanability. Verification cares about
-  // column order, not how often an identical header is repeated.
-  .filter((heading, index, all) => all.indexOf(heading) === index);
+// table() puts each heading in a cell frame inside the `Header` row, so read the cells of
+// the first header row in order. Long, tiered indexes repeat the header for scanability;
+// verification cares about column order, not how often it is repeated.
+const header = index ? index.findOne(node => node.name === 'Header' && 'children' in node) : null;
+const headings = header ? header.children
+  .map(cell => (cell.type === 'TEXT' ? cell : cell.findOne?.(node => node.type === 'TEXT')))
+  .filter(Boolean)
+  .map(node => node.characters.trim()) : [];
 const links = indexTexts.filter(node => node.hyperlink &&
   (node.hyperlink.type === 'NODE' || node.hyperlink.type === 'URL'))
   .map(node => ({text: node.characters, type: node.hyperlink.type,

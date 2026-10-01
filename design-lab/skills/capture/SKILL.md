@@ -42,6 +42,17 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/capture_all.py \
   --theme-root docroot/themes/custom/example --node-cwd /path/to/project-with-playwright
 ```
 
+Capture is incremental. Each component's outcome is written to `capture/records/` as soon as it finishes, together with the hash of the config it came from; a later run skips every component whose record is complete and whose config is unchanged, and rebuilds the evidence from all current records. Never delete records to "start clean"; use `--fresh` with `--only` for the components that need redoing.
+
+- `--check` runs only the selector check: one desktop page load per candidate page, reporting matches, visible matches and height. It takes about a second per component. Run it first, and fix every failure before the full capture.
+- `--only <id>[,<id>]` captures just those components, so one fix is verified in under a minute.
+- `--max-pages` (default 3) bounds how many verified example pages are tried per component.
+- `--no-check` skips the check; the check loads desktop width only, so use this for a component that is drawn only at narrower widths.
+
+Progress prints one line per component with its time and the estimated time left; quote that estimate, not a guess.
+
+A component found only inside an inactive tab or closed panel is drawn by showing its hidden ancestors (marked `data-design-lab-revealed` on the page); the selector check and the component's record say `revealed`. With Twig debug on (`development_settings.twig_debug`), usage prefers the bundle's own template suggestion over an embedded component's `data-component-id`, because one component is often embedded by several bundles. Keep Twig debug on for the whole capture: components located by template marker cannot be found without it.
+
 When that project has a system Chromium/Chrome but no Playwright-managed browser download, set `DESIGN_LAB_BROWSER_EXECUTABLE` explicitly. For manual capture or a custom config, run:
 
 ```bash

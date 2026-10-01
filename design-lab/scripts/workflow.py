@@ -357,7 +357,12 @@ def usage_command(args):
     components = load_json(components_path)
     ddev_root = Path(args.ddev_root or project["repository"]["root"]).resolve()
     extractor = extract_canvas_usage if strategy == "canvas-db" else extract_drupal_usage
-    document = extractor(ddev_root, components, args.ddev_project)
+    render_path = path.parent / "render-evidence.json"
+    if strategy == "drupal-db":
+        rendering = load_json(render_path) if render_path.is_file() else None
+        document = extractor(ddev_root, components, args.ddev_project, rendering)
+    else:
+        document = extractor(ddev_root, components, args.ddev_project)
     if args.base_url:
         evidence, details = scan_rendered(args.base_url, ddev_root, components)
         document = enrich_rendered_usage(document, evidence, details)

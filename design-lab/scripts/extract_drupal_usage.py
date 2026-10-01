@@ -23,6 +23,7 @@ from pathlib import Path
 from urllib.parse import urljoin
 
 from artifact_contracts import load_json, now, tool_version, validate, write_json
+import twig_debug
 
 
 STANDARD_VERSION = "3.0.0"
@@ -127,9 +128,15 @@ def build_usage(components: dict, rows: dict[str, list[list[str]]], source: dict
         if len(values) >= 2:
             aliases.setdefault(values[0], values[1])
 
+    published = {values[0] for values in rows.get("nodes", [])
+                 if len(values) >= 2 and values[1] == "1"}
+
     def paths_for(ids):
-        return [aliases.get("/node/" + node_id, "/node/" + node_id)
-                for node_id in sorted(ids, key=lambda value: int(value))[:3]]
+        # Newest published nodes first: the oldest ids are the likeliest to be unpublished
+        # or built with retired markup, and an unpublished page never answers anonymously.
+        ids = sorted((node_id for node_id in ids if not published or node_id in published),
+                     key=lambda value: -int(value))
+        return [aliases.get("/node/" + node_id, "/node/" + node_id) for node_id in ids[:8]]
 
     paragraphs = {}
     for values in rows.get("paragraphs", []):
@@ -299,33 +306,59 @@ def _fetch_page(url: str) -> tuple[int, str]:
         return 0, ""
 
 
-def enrich_examples(document: dict, base_url: str) -> dict:
+def enrich_examples(document: dict, base_url: str, rendering: dict | None = None) -> dict:
     """Verify DB-derived node paths anonymously against component-specific markers."""
     urls = sorted({urljoin(base_url.rstrip('/') + '/', path.lstrip('/'))
                    for value in document.get("usage", {}).values()
                    for path in value.get("exampleCandidates") or []})
     with ThreadPoolExecutor(max_workers=8) as executor:
         fetched = dict(zip(urls, executor.map(_fetch_page, urls)))
+    items = (rendering or {}).get("items") or {}
+    sdc_owners = collections.Counter(item.get("rootSdc") for item in items.values()
+                                     if item.get("rootSdc"))
+    debug = any(twig_debug.enabled(body) for _status, body in fetched.values())
     for component_id, value in document.get("usage", {}).items():
         machine = component_id.split(":", 1)[-1]
         marker = ("block--" + machine.replace("_", "-") if component_id.startswith("block:")
                   else "paragraph--type--" + machine.replace("_", "-"))
+        # Templates that embed a single-directory component print no bundle wrapper; the
+        # page marks the render with that component's id instead (render-evidence rootSdc).
+        sdc = (items.get(component_id) or {}).get("rootSdc")
+        markers = [(marker, "class", r"\b" + re.escape(marker) + r"\b", True)]
+        # The bundle's own Twig debug suggestion is the only exact marker, so with Twig debug
+        # on it comes before the component id: one single-directory component is often
+        # embedded by several bundles (`kinetic:cards` by a block and a paragraph), and its
+        # id then selects the other bundle's render too.
+        template = (twig_debug.suggestion(component_id)[1], "template", None, True)
+        if debug:
+            markers.append(template)
+        if sdc:
+            markers.append((sdc, "component", r'data-component-id="' + re.escape(sdc) + '"',
+                            sdc_owners.get(sdc) == 1))
+        if not debug:
+            markers.append(template)
         examples = []
-        for path in value.pop("exampleCandidates", []):
-            url = urljoin(base_url.rstrip('/') + '/', path.lstrip('/'))
-            status, body = fetched.get(url, (0, ""))
-            count = len(re.findall(r"\b" + re.escape(marker) + r"\b", body))
-            if status == 200 and count:
-                examples.append({
-                    "url": url, "path": path, "marker": marker, "markerKind": "class",
-                    "markerUniqueToThisComponent": True, "instancesOnPage": count,
-                    "status": status, "anonymous": True, "verifiedAt": now(),
-                })
+        candidates = value.pop("exampleCandidates", [])
+        for name, kind, pattern, unique in markers:
+            for path in candidates:
+                url = urljoin(base_url.rstrip('/') + '/', path.lstrip('/'))
+                status, body = fetched.get(url, (0, ""))
+                count = (twig_debug.count(body, component_id) if kind == "template"
+                         else len(re.findall(pattern, body)))
+                if status == 200 and count:
+                    examples.append({
+                        "url": url, "path": path, "marker": name, "markerKind": kind,
+                        "markerUniqueToThisComponent": unique, "instancesOnPage": count,
+                        "status": status, "anonymous": True, "verifiedAt": now(),
+                    })
+            if examples:
+                break
         value["examples"] = examples
         value["noExampleReason"] = None if examples else (
             "no component-specific rendered marker was found on the DB-derived anonymous pages")
     document["source"]["exampleVerification"] = {
         "baseUrl": base_url, "pagesFetched": len(urls), "anonymous": True,
+        "twigDebug": debug,
     }
     return document
 
@@ -369,7 +402,8 @@ def merge_usage(components: dict, usage_document: dict, high: int = 50,
     return result
 
 
-def extract(ddev_root: str | Path, components: dict, project: str | None = None) -> dict:
+def extract(ddev_root: str | Path, components: dict, project: str | None = None,
+            rendering: dict | None = None) -> dict:
     root = Path(ddev_root).resolve()
     rows = collect_rows(root, project)
     document = build_usage(components, rows, {
@@ -378,7 +412,7 @@ def extract(ddev_root: str | Path, components: dict, project: str | None = None)
     })
     ddev = (rows.get("__ddev") or [[project or root.name, ""]])[0]
     base_url = ddev[1] or f"https://{ddev[0]}.ddev.site"
-    return enrich_examples(document, base_url)
+    return enrich_examples(document, base_url, rendering)
 
 
 def main() -> None:
@@ -388,11 +422,13 @@ def main() -> None:
     parser.add_argument("--ddev-project")
     parser.add_argument("--output", required=True)
     parser.add_argument("--merge-components")
+    parser.add_argument("--render-evidence", help="render-evidence.json, for embedded-component markers")
     parser.add_argument("--high", type=int, default=50)
     parser.add_argument("--medium", type=int, default=10)
     args = parser.parse_args()
     components = load_json(args.components)
-    document = extract(args.ddev_root, components, args.ddev_project)
+    rendering = load_json(args.render_evidence) if args.render_evidence else None
+    document = extract(args.ddev_root, components, args.ddev_project, rendering)
     write_json(args.output, document)
     if args.merge_components:
         write_json(args.merge_components,

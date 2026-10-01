@@ -16,6 +16,7 @@ Read the `needsHuman` list it prints. Every entry there is a component that will
 produce no capture.
 """
 import json, os, re, sys, argparse, glob
+import twig_debug
 from urllib.parse import urljoin
 
 # Drupal's clean_class turns underscores into hyphens.
@@ -147,7 +148,11 @@ def main():
         why = 'Drupal SDC component id' if sel else None
         if not sel:
             sel = ('.' + marker if marker and marker_kind == 'class' else
-                   '#' + marker if marker and marker_kind == 'id' else None)
+                   '#' + marker if marker and marker_kind == 'id' else
+                   '[data-component-id="%s"]' % marker
+                   if marker and marker_kind == 'component' else
+                   twig_debug.root_selector(component_id)
+                   if marker and marker_kind == 'template' else None)
             why = 'unique rendered usage marker' if sel else None
         if not sel:
             sel, why = (sdc_selector(a.theme_root, machine) if sdc_source else
@@ -166,7 +171,9 @@ def main():
                                (display_path or '').lstrip('/')) if display_path else None,
             'rootSelector': sel,
             'nth': 0,
-            'states': [{'name': 'default'}],
+            'states': [{'name': 'default', 'setup': twig_debug.tag_script(component_id)
+                        if marker_kind == 'template' else twig_debug.reveal_script(sel)}
+                       if sel else {'name': 'default'}],
         }
         gaps = []
         if not cfg['verificationUrl'] or not cfg['path'] or not cfg['linkUrl']:

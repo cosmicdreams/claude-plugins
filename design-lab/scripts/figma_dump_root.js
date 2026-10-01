@@ -8,6 +8,7 @@ for (const collection of await figma.variables.getLocalVariableCollectionsAsync(
     if (variable) variables.push({
       name: variable.name,
       description: variable.description,
+      type: variable.resolvedType,
       scopes: variable.scopes,
       web: variable.codeSyntax?.WEB || null,
       valuesByMode: variable.valuesByMode,

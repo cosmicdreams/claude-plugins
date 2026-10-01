@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.15.1
+
+**Capture is incremental and checkable in seconds, and Drupal sites whose templates embed components are captured.** A refinement of 0.15.0 from a production run on a Drupal 11 site with Layout Builder and paragraphs, where capture was all-or-nothing and each fix cost a 30 to 60 minute run.
+
+- `capture_all.py` records each component's outcome in `capture/records/` as it finishes, with the hash of the config and scale it came from; a later run skips complete components and rebuilds evidence from every current record. `--only` captures named components, `--fresh` redoes them, `--max-pages` (default 3) bounds the page fallback, and progress prints a measured time left per component.
+- `check_selectors.mjs` and `capture_all.py --check`: one desktop page load per candidate page reports matches, visible matches and height. 40 components check in about 40 seconds.
+- Components shown only inside an inactive tab or closed panel are drawn by showing their hidden ancestors, used only when no candidate page draws them naturally, and recorded as `revealed`.
+- Measurements and screenshots are named by component id, so a block and a paragraph sharing a machine name no longer overwrite each other. `figma_build.py` still reads machine-named measurements from earlier runs.
+- Drupal rendering recognises tag-form `{% embed %}` and `{% include %}` and records the component a template embeds as its root. Usage candidates are published nodes, newest first, and markers fall back from the wrapper class to the template's Twig debug suggestion (new `twig_debug.py`) or the embedded component's id; with Twig debug on, the exact template marker comes first.
+- Variables: the breakpoint collection is `Core Breakpoint`; its variables say why they have no code name; Sass map entries take `map-get($map, key)` as their code name; the master's root width is bound to its variable; every binding is counted in the build record.
+- Layer names: text elements are named `Paragraph`, `Inline text`, `Strong text` or `Emphasis` instead of Figma's default `Text`; a class-derived name that would be a Figma default is qualified by its block (`c-card__text` is `Card text`); imported SVG parts are named after their icon.
+- Verify: boolean variables are exempt from `variable-scoped` (Figma gives them no scopes); `breakpoint-triad` no longer requires desktop to be the widest (a sidebar component is narrower at desktop than at tablet); the index headings are read from the header row's cells; the collection strategy reason reaches the verify state; `captures-unique` understands id-named files; `code-syntax-resolves` checks `map-get` names.
+- Runner: verification dumps older than the newest build result are taken again; the page dump resolves main components asynchronously; runner requests skip the payload size limit; `verify_state.py` merges the dumps.
+
 ## 0.15.0
 
 **A benchmark closes every run, and the Cover is for the library's recipient.** A run now ends by scoring itself into a report worth showing to colleagues, and every number in the file and the report comes from one place.
