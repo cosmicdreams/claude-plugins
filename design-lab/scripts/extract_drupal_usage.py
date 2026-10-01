@@ -152,6 +152,9 @@ def build_usage(components: dict, rows: dict[str, list[list[str]]], source: dict
     paragraph_pages: dict[str, set[str]] = collections.defaultdict(set)
     paragraph_unpublished = collections.Counter()
     paragraph_orphans = collections.Counter()
+    # Hosted by a menu link, a notification or another entity that is not a page: rendered in
+    # the site's chrome (a mega menu, an alert bar), so the home page is where to look for it.
+    site_wide: set[str] = set()
     for paragraph_id, row in paragraphs.items():
         component_id = "paragraph:" + row["bundle"]
         if row["parentType"] in ("paragraph", "block_content"):
@@ -167,6 +170,8 @@ def build_usage(components: dict, rows: dict[str, list[list[str]]], source: dict
         host_type, host_id = _root_of(paragraph_id, paragraphs)
         if host_type == "node" and host_id:
             paragraph_pages[component_id].add(host_id)
+        elif host_type in PAGE_HOSTS:
+            site_wide.add(component_id)
 
     by_uuid = {}
     inline_entities = collections.Counter()
@@ -228,7 +233,8 @@ def build_usage(components: dict, rows: dict[str, list[list[str]]], source: dict
             "configPlacedBlocks": int(configured_blocks[component_id]),
             "orphanInstances": int(paragraph_orphans[component_id]),
             "exampleCandidates": paths_for(
-                paragraph_pages[component_id] | block_pages[component_id]),
+                paragraph_pages[component_id] | block_pages[component_id])
+                + (["/"] if component_id in site_wide or configured_blocks[component_id] else []),
         }
 
     zero = sorted(component_id for component_id, value in usage.items()

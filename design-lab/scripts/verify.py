@@ -517,7 +517,8 @@ def check_component_description(state, rep):
         if not re.search(r'machine name\s*:', d, re.I) and not re.search(
                 r'\b' + re.escape(machine) + r'\b', d):
             missing.append('machine name')
-        if not re.search(r'(?:^|\s)/[a-z0-9][a-z0-9/_-]*', d, re.I):
+        # The home page, `/`, is as portable as any path (a component in the site's chrome).
+        if not re.search(r'(?:^|\s)/[a-z0-9][a-z0-9/_-]*|example\W*/(?=[\s.,;)]|$)', d, re.I):
             missing.append('portable example path')
         if not re.search(r'\d', d):
             missing.append('usage figure')
@@ -1080,7 +1081,10 @@ def check_variants_are_sets(state, plan, rep):
                        (c.get('description') or '').splitlines()
                        if line.lower().startswith('source id:')), None)
         real_axes = want.get(source, want.get(stem, False))
-        expected = 'COMPONENT_SET' if real_axes else 'COMPONENT'
+        # Layouts the site renders the component in (a card with fewer fields inside another
+        # block) are a real axis too, observed rather than planned.
+        layouts = bool(c.get('variantNames')) and all('Layout=' in n for n in c['variantNames'])
+        expected = 'COMPONENT_SET' if real_axes or layouts else 'COMPONENT'
         if c.get('type') != expected or any('Breakpoint' in name for name in
                                               c.get('variantNames') or []):
             wrong.append('%s: expected %s' % (c.get('name'), expected))

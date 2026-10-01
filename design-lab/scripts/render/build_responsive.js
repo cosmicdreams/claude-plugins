@@ -11,17 +11,20 @@
  */
 /* Expand the compact payload form (spec_to_tree.compact): shared text styles and padding
    arrays back into the full tree. */
-function expand(node) {
-  if (node.ts !== undefined) { node.text = { ...ARGS.styles[node.ts], characters: node.chars }; delete node.ts; delete node.chars; }
+function expand(node, styles = ARGS.styles) {
+  if (node.ts !== undefined) { node.text = { ...styles[node.ts], characters: node.chars }; delete node.ts; delete node.chars; }
   if (node.layout) {
     const [t, r, b, l] = node.layout.pad || [0, 0, 0, 0];
     node.layout.padding = { top: t, right: r, bottom: b, left: l };
     delete node.layout.pad;
   }
-  (node.children || []).forEach(expand);
+  (node.children || []).forEach((child) => expand(child, styles));
   return node;
 }
 if (ARGS.styles) expand(ARGS.tree);
+/* Other layouts the site renders this component in (a card with fewer fields inside another
+   block), each compacted with its own text styles. */
+for (const alt of ARGS.alternates || []) expand(alt.tree, alt.styles);
 
 const page = await figma.getNodeByIdAsync(ARGS.pageId);
 await figma.setCurrentPageAsync(page);
@@ -201,7 +204,11 @@ async function build(spec, parent, parentAuto) {
       else if (s.kind === 'image' && s.src && !String(s.src).startsWith('capture:')) images.push(s);
       (s.children || []).forEach(walk);
     })(spec);
-    const inst = (master.type === 'COMPONENT_SET' ? master.defaultVariant : master).createInstance();
+    const counts = (n) => [n.findAll((x) => x.type === 'TEXT').length,
+      n.findAll((x) => x.type === 'RECTANGLE' && x.getSharedPluginData('designlab', 'image') === '1').length];
+    const variants = master.type === 'COMPONENT_SET' ? master.children : [master];
+    const fits = variants.find((v) => { const [t, i] = counts(v); return t === texts.length && i === images.length; });
+    const inst = (fits || (master.type === 'COMPONENT_SET' ? master.defaultVariant : master)).createInstance();
     const instTexts = inst.findAll((n) => n.type === 'TEXT');
     const instImages = inst.findAll((n) => n.type === 'RECTANGLE' && n.getSharedPluginData('designlab', 'image') === '1');
     if (instTexts.length === texts.length && instImages.length === images.length) {
@@ -281,48 +288,61 @@ async function build(spec, parent, parentAuto) {
 }
 
 /* ---- The master: the root element's frame settings live on the component itself. */
-const tree = ARGS.tree;
 /* A master still parked on the page came from an attempt that was never recorded; replace it
    so a retried step leaves one master, not two. Masters already placed in a block are kept. */
 for (const old of page.children.filter((n) => (n.type === 'COMPONENT' || n.type === 'COMPONENT_SET') && n.name === ARGS.name)) old.remove();
-const component = figma.createComponent();
-component.name = ARGS.name;
-/* The inventory id, so a master nesting this one can say which source component it nests. */
-component.setSharedPluginData('designlab', 'sourceId', ARGS.id || '');
-component.description = ARGS.description || '';
-component.clipsContent = Boolean(tree.clip);
-component.resize(Math.max(1, num(tree.width)), Math.max(1, num(tree.height)));
-style(component, tree);
-layout(component, tree.layout);
-page.appendChild(component);
-component.x = ARGS.x;
-component.y = ARGS.y;
-const rootAuto = tree.layout && tree.layout.mode !== 'NONE';
-for (const child of tree.children || []) await build(child, component, rootAuto);
-component.resize(Math.max(1, num(tree.width)), component.height);
-if (rootAuto) {
-  if (tree.layout.mode === 'VERTICAL') { component.counterAxisSizingMode = 'FIXED'; component.primaryAxisSizingMode = 'AUTO'; }
-  else { component.primaryAxisSizingMode = 'FIXED'; component.counterAxisSizingMode = 'AUTO'; }
-} else {
-  bind(component, 'height', tree.height);
+async function makeMaster(tree, name) {
+  const component = figma.createComponent();
+  component.name = name;
+  /* The inventory id, so a master nesting this one can say which source component it nests. */
+  component.setSharedPluginData('designlab', 'sourceId', ARGS.id || '');
+  component.description = ARGS.description || '';
+  component.clipsContent = Boolean(tree.clip);
+  component.resize(Math.max(1, num(tree.width)), Math.max(1, num(tree.height)));
+  style(component, tree);
+  layout(component, tree.layout);
+  page.appendChild(component);
+  component.x = ARGS.x;
+  component.y = ARGS.y;
+  const rootAuto = tree.layout && tree.layout.mode !== 'NONE';
+  for (const child of tree.children || []) await build(child, component, rootAuto);
+  component.resize(Math.max(1, num(tree.width)), component.height);
+  if (rootAuto) {
+    if (tree.layout.mode === 'VERTICAL') { component.counterAxisSizingMode = 'FIXED'; component.primaryAxisSizingMode = 'AUTO'; }
+    else { component.primaryAxisSizingMode = 'FIXED'; component.counterAxisSizingMode = 'AUTO'; }
+  } else {
+    bind(component, 'height', tree.height);
+  }
+  /* The root's own width is usually the value that varies most between breakpoints; bound, an
+     instance switched to Tablet or Mobile takes that width without being resized by hand. */
+  if (isVar(tree.width)) bind(component, 'width', tree.width);
+  return component;
 }
-/* The root's own width is usually the value that varies most between breakpoints; bound, an
-   instance switched to Tablet or Mobile takes that width without being resized by hand. */
-if (isVar(tree.width)) bind(component, 'width', tree.width);
-if (tree.visible !== undefined) report.notes = ['root visibility varies by width'];
-/* Planned variant axes: the master is the variant capture observed, inside a set named for the
-   component, so the set carries the axes and further captured options join it as variants. */
+const component = await makeMaster(ARGS.tree, ARGS.name);
+if (ARGS.tree.visible !== undefined) report.notes = ['root visibility varies by width'];
+const alternates = [];
+for (const alt of ARGS.alternates || []) alternates.push({ label: alt.label, node: await makeMaster(alt.tree, ARGS.name) });
+/* Planned variant axes, and any other layout the site renders: the master is the captured
+   variant inside a set named for the component, each other layout a sibling variant (`Layout`),
+   so a parent can nest whichever its rendering is. */
 let owner = component;
-if (ARGS.variant && Object.keys(ARGS.variant).length) {
-  component.name = Object.entries(ARGS.variant).map(([k, v]) => `${k}=${v}`).join(', ');
-  owner = figma.combineAsVariants([component], page);
+const axes = { ...(ARGS.variant || {}) };
+if (alternates.length) axes.Layout = 'Captured';
+if (Object.keys(axes).length) {
+  const name = (values) => Object.entries(values).map(([k, v]) => `${k}=${v}`).join(', ');
+  component.name = name(axes);
+  for (const alt of alternates) {
+    alt.node.name = name({ ...Object.fromEntries(Object.keys(axes).map((k) => [k, 'As captured'])), Layout: alt.label });
+  }
+  owner = figma.combineAsVariants([component, ...alternates.map((a) => a.node)], page);
   owner.name = ARGS.name;
   owner.description = ARGS.description || '';
   owner.setSharedPluginData('designlab', 'sourceId', ARGS.id || '');
   owner.x = ARGS.x;
   owner.y = ARGS.y;
-  component.x = 0;
-  component.y = 0;
-  owner.resizeWithoutConstraints(component.width, component.height);
+  /* The captured variant first and at the origin: it is the default, the one the block shows. */
+  let x = 0;
+  for (const v of [component, ...alternates.map((a) => a.node)]) { v.x = x; v.y = 0; x += v.width + 40; }
+  owner.resizeWithoutConstraints(x - 40, Math.max(...owner.children.map((v) => v.height)));
 }
 return { componentId: owner.id, variantId: component.id, collectionId: col.id, width: component.width, height: component.height, ...report };

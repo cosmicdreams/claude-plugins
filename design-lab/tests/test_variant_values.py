@@ -54,3 +54,22 @@ class VariantValuesTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class AlternateLayoutTest(unittest.TestCase):
+    def test_signature_counts_text_layers_and_site_images(self):
+        import nesting
+        tree = {"kind": "frame", "children": [
+            {"kind": "text"}, {"kind": "frame", "children": [{"kind": "text"},
+                                                              {"kind": "image", "src": "/a.jpg"}]},
+            {"kind": "image", "src": "capture:desktop:0,0,1,1"}]}
+        self.assertEqual(nesting.signature(tree), (2, 1))
+
+    def test_a_set_of_observed_layouts_is_a_legitimate_set(self):
+        import verify
+        state = {"components": [{"name": "paragraph:card — Card", "type": "COMPONENT_SET",
+                                 "description": "Source id: paragraph:card",
+                                 "variantNames": ["Layout=Captured", "Layout=In Cards"]}]}
+        report = verify.Report()
+        verify.check_variants_are_sets(state, {"plans": [{"id": "paragraph:card", "variantAxes": []}]}, report)
+        self.assertEqual(report.findings, [])

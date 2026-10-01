@@ -21,6 +21,7 @@ from pathlib import Path
 
 from artifact_contracts import write_json
 import spec_to_tree
+import nesting
 
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -246,42 +247,10 @@ def derive_children(by_id, eligible, ready, records, measurements, shots, scale)
         for child in sorted(children - captured - set(rows_by_child)):
             if child not in eligible or child not in by_id:
                 continue
-            derived, boxes = {}, {}
-            for key, m in (spec.get("measurements") or {}).items():
-                nodes = m.get("nodes") or []
-                # The first occurrence the parent's screenshot actually shows: a carousel's later
-                # slides are drawn off to the side, outside the parent's box.
-                frame = m.get("rootBox") or (nodes[0]["box"] if nodes else {})
-                width, height = frame.get("width", 0), frame.get("height", 0)
-                # A grid's gutters let an item overhang the parent a little; take the occurrence
-                # most of which the screenshot shows, at least four fifths of it.
-                def shown(b):
-                    w = max(0, min(b["x"] + b["width"], width) - max(b["x"], 0))
-                    h = max(0, min(b["y"] + b["height"], height) - max(b["y"], 0))
-                    return w * h / max(1, b["width"] * b["height"])
-                tagged = [n for n in nodes if (n.get("attributes") or {}).get("data-design-lab-child") == child]
-                root = max(tagged, key=lambda n: shown(n["box"]), default=None)
-                if root is not None and shown(root["box"]) < 0.8:
-                    root = None
-                if root is None:
-                    break
-                ox, oy = root["box"]["x"], root["box"]["y"]
-                sub = [{**n, "path": n["path"][len(root["path"]) - len(root["path"].rsplit("/", 1)[1]) - 1:],
-                        "box": {**n["box"], "x": round(n["box"]["x"] - ox, 2), "y": round(n["box"]["y"] - oy, 2)}}
-                       for n in nodes if n["path"] == root["path"] or n["path"].startswith(root["path"] + "/")]
-                # What shows through the child is its nearest coloured ancestor inside the
-                # parent (a yellow panel), and only failing that, what showed through the parent.
-                by_path = {n["path"]: n for n in nodes}
-                backdrop, up = m.get("backdrop"), root["path"].rsplit("/", 1)[0]
-                while up:
-                    color = ((by_path.get(up) or {}).get("computed") or {}).get("backgroundColor") or ""
-                    if color and color != "transparent" and not re.match(r"rgba\(.*,\s*0\)$", color):
-                        backdrop = color
-                        break
-                    up = up.rsplit("/", 1)[0]
-                derived[key] = {"rootBox": {"width": root["box"]["width"], "height": root["box"]["height"]},
-                                "nodes": sub, "backdrop": backdrop}
-                boxes[key.split(":")[0]] = root["box"]
+            found = nesting.subtree(spec, child)
+            if not found:
+                continue
+            derived, boxes = found
             if set(boxes) != set(VIEWPORTS):
                 continue
             rows = []

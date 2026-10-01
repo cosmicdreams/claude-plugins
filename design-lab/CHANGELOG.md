@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.15.4
+
+**Every layout a component renders in is a variant, and the page names everything unresolved.** On America's Credit Unions: nested-component-coverage, example-path-portable and known-gaps-current cleared; verify open findings 5 → 3 (visual comparison, the build-record assertions that follow from it, and fonts Figma lacks); 46 components built.
+
+- A built child whose rendering inside a parent differs in structure from its own capture (a card with three text layers inside one block, seven on its own page) gets that rendering as an alternate layout: built in the child's step as a sibling variant (`Layout=In <parent>`), and the parent nests the variant whose structure matches. New `nesting.py` holds the subtree derivation shared with capture.
+- A set of observed layouts is a legitimate set for `variants-are-sets`; the block's comparison measures the captured variant, not the whole set.
+- Components hosted by a menu link, notification or other non-page entity, and configuration-placed blocks, take the home page as an example candidate; Twig debug confirms them (a mega menu's featured items).
+- `/` is a portable example path when it follows the Example label.
+- Getting Started's Known gaps names what the build measured as unresolved, by the check that reports it: components over the comparison threshold (with their worst difference) and fonts Figma lacked.
+
 ## 0.15.3
 
 **Fix and rebuild without anyone in Figma; variants, nesting and layout fallbacks resolved from evidence.** On America's Credit Unions: 45 components built (from 36), verify open findings 6 → 5 with variants-are-sets, breakpoint-triad and layout fallbacks cleared and nested-component-coverage from 20 parents to 1.
