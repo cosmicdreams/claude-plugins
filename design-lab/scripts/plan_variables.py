@@ -17,6 +17,18 @@ SLUG = re.compile(r'[^a-z0-9]+')
 slug = lambda s: SLUG.sub('-', str(s).lower()).strip('-')
 
 
+
+MAP_ENTRY = re.compile(r'^(\$[\w-]+)\[([\w.-]+)\]$')
+
+
+def code_name(token):
+    """The token's code identifier. A Sass map entry (`$spacers[1]`) has no variable of its
+    own, but `map-get($spacers, 1)` is how the code reads it, so that is its name."""
+    if token.get('codeName'):
+        return token['codeName']
+    entry = MAP_ENTRY.match(token.get('codePath') or '')
+    return 'map-get(%s, %s)' % entry.groups() if entry else None
+
 def first_code(rows):
     names = sorted({row['codeName'] for row in rows if row.get('codeName')})
     return names[0] if names else None
@@ -199,7 +211,7 @@ def _from_cssvars(tokens):
         palette.append(lead)
         aliases += [m for m in members if m is not lead]
 
-    colors = [{'name': t['name'], 'hex': val(t), 'codeName': t.get('codeName'),
+    colors = [{'name': t['name'], 'hex': val(t), 'codeName': code_name(t),
                'tags': [], 'inUse': True, 'provenance': t.get('provenance')}
               for t in palette]
 
@@ -214,7 +226,7 @@ def _from_cssvars(tokens):
         lead = sorted([m for m in members if not ROLE_WORD.search(m['name'])] or members,
                       key=lambda m: (len(m['name']), m['name']))[0]
         semantic.append({'name': path, 'type': 'COLOR', 'aliasOf': 'color/%s' % slug(lead['name']),
-                         'hex': val(t), 'codeName': t.get('codeName'), 'scopes': scopes})
+                         'hex': val(t), 'codeName': code_name(t), 'scopes': scopes})
 
     # Role-named colours that are the ONLY holder of their hex never became aliases above,
     # so they would vanish from the semantic layer. Promote them, aliasing themselves.
@@ -225,7 +237,7 @@ def _from_cssvars(tokens):
         if path:
             semantic.append({'name': path, 'type': 'COLOR',
                              'aliasOf': 'color/%s' % slug(t['name']), 'hex': val(t),
-                             'codeName': t.get('codeName'), 'scopes': scopes})
+                             'codeName': code_name(t), 'scopes': scopes})
 
     seen_paths, deduped = set(), []
     for v in semantic:
@@ -240,10 +252,10 @@ def _from_cssvars(tokens):
 
     stacks = [{'name': t['name'], 'stack': val(t),
                'primaryFamily': _primary_family(val(t)),
-               'codeName': t.get('codeName'), 'inUse': True}
+               'codeName': code_name(t), 'inUse': True}
               for t in rows if t['family'] == 'font-family']
 
-    scss = [{'name': t['name'], 'value': val(t), 'codeName': t.get('codeName')}
+    scss = [{'name': t['name'], 'value': val(t), 'codeName': code_name(t)}
             for t in rows if t['family'] == 'spacing']
 
     # font-size and line-height carry a real CSS property, so they route through the
@@ -255,7 +267,7 @@ def _from_cssvars(tokens):
         prop = {'font-size': 'font-size'}.get(t['family'])
         if not prop:
             continue
-        custom.append({'name': t['name'], 'codeName': t.get('codeName'), 'property': prop,
+        custom.append({'name': t['name'], 'codeName': code_name(t), 'property': prop,
                        'family': 'type',
                        'valuesByBreakpoint': dict(t.get('valuesByMode')
                                                   or {'Value': t.get('value')})})
@@ -271,7 +283,7 @@ def _from_cssvars(tokens):
     if ratios:
         extra['LeadingRatio'] = {'modes': ['Value'], 'variables': [
             {'name': 'leading/%s' % slug(t['name']), 'type': 'FLOAT',
-             'valuesByMode': {'Value': num(val(t))}, 'codeName': t.get('codeName'),
+             'valuesByMode': {'Value': num(val(t))}, 'codeName': code_name(t),
              'scopes': [], 'unitlessRatio': True,
              'description': 'Ratio, not a length. Multiply by the font size; never bind to '
                             'lineHeight, which Figma reads as pixels.'} for t in ratios]}
@@ -285,7 +297,7 @@ def _from_cssvars(tokens):
         vals = [(t, ms(val(t))) for t in motion]
         extra['Motion'] = {'modes': ['Value'], 'variables': [
             {'name': 'motion/%s' % slug(t['name']), 'type': 'FLOAT',
-             'valuesByMode': {'Value': n}, 'codeName': t.get('codeName'), 'scopes': [],
+             'valuesByMode': {'Value': n}, 'codeName': code_name(t), 'scopes': [],
              'description': 'Milliseconds. Figma has no duration scope, so this cannot be '
                             'bound; it is here so the value has one source.'}
             for t, n in vals if n is not None]}
@@ -299,7 +311,7 @@ def _from_cssvars(tokens):
             'modes': ['Value'],
             'variables': [{'name': '%s/%s' % (fam.split('-')[0], slug(t['name'])),
                            'type': 'FLOAT', 'valuesByMode': {'Value': number},
-                           'codeName': t.get('codeName'),
+                           'codeName': code_name(t),
                            'scopes': FAMILY_SCOPES.get(fam, [])}
                           for t, number in converted if number is not None]}
 
@@ -355,7 +367,7 @@ def _from_sass_source(tokens):
                 continue
             variables.append({
                 'name': '%s/%s' % (prefix, slug(token['name'])), 'type': 'FLOAT',
-                'valuesByMode': {'Value': number}, 'codeName': token.get('codeName'),
+                'valuesByMode': {'Value': number}, 'codeName': code_name(token),
                 'scopes': [],
                 'description': 'Reference dimension; Figma has no matching bindable scope.'})
         if variables:
@@ -390,16 +402,16 @@ def _from_sourcemap(tokens):
             'detail': 'component-local Sass variables are not the palette; see '
                       'references/tokens-and-variables.md'})
 
-    colors = [{'name': t['name'], 'hex': t['value'], 'codeName': t.get('codeName'),
+    colors = [{'name': t['name'], 'hex': t['value'], 'codeName': code_name(t),
                'tags': [], 'inUse': True, 'provenance': t.get('provenance')}
               for t in base if t.get('family') == 'color']
 
     stacks = [{'name': t['name'], 'stack': t['value'],
                'primaryFamily': _primary_family(t['value']),
-               'codeName': t.get('codeName'), 'inUse': True}
+               'codeName': code_name(t), 'inUse': True}
               for t in base if t.get('family') == 'font-family']
 
-    scss = [{'name': t['name'], 'value': t['value'], 'codeName': t.get('codeName')}
+    scss = [{'name': t['name'], 'value': t['value'], 'codeName': code_name(t)}
             for t in base if t.get('family') in ('spacing', 'number')]
 
     unresolved = [t['name'] for t in base if t.get('family') == 'unknown']

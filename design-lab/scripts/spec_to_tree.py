@@ -24,12 +24,13 @@ from pathlib import Path
 
 TOLERANCE = 2.0
 BREAKPOINT_ORDER = ("mobile", "tablet", "desktop")
+# `Text` is Figma's own default layer name, so text elements take a name Figma never assigns.
 TAG_NAMES = {
     "h1": "Heading", "h2": "Heading", "h3": "Heading", "h4": "Heading", "h5": "Heading",
-    "h6": "Heading", "p": "Text", "a": "Link", "img": "Image", "svg": "Icon", "ul": "List",
+    "h6": "Heading", "p": "Paragraph", "a": "Link", "img": "Image", "svg": "Icon", "ul": "List",
     "ol": "List", "li": "Item", "button": "Button", "figure": "Figure",
-    "figcaption": "Caption", "blockquote": "Quote", "picture": "Picture", "span": "Text",
-    "strong": "Text", "em": "Text", "time": "Date", "label": "Label", "input": "Input",
+    "figcaption": "Caption", "blockquote": "Quote", "picture": "Picture", "span": "Inline text",
+    "strong": "Strong text", "em": "Emphasis", "time": "Date", "label": "Label", "input": "Input",
     "nav": "Navigation", "header": "Header", "footer": "Footer", "section": "Section",
     "article": "Article",
 }
@@ -84,18 +85,27 @@ def parse_shadow(value: str | None) -> list[dict]:
     return effects
 
 
+# Figma's own placeholder names: a layer carrying one reads as never named.
+FIGMA_DEFAULT = {"Frame", "Group", "Rectangle", "Ellipse", "Text", "Vector", "Line", "Polygon",
+                 "Star", "Component", "Slice"}
+
+
 def node_name(node: dict, root_block: str | None) -> str:
     for cls in node.get("classes", []):
         m = re.match(r"^[a-z]+-([a-z0-9-]+?)__([a-z0-9-]+)$", cls)
         if m:
-            return m.group(2).replace("-", " ").capitalize()
+            name = m.group(2).replace("-", " ").capitalize()
+            # `c-card__text` is "Text", Figma's default; qualify it with its block instead.
+            return (m.group(1).replace("-", " ").capitalize() + " " + name.lower()
+                    if name in FIGMA_DEFAULT else name)
     for cls in node.get("classes", []):
         if root_block and cls == root_block:
             return None  # root is named by the caller
     for cls in node.get("classes", []):
         m = re.match(r"^[a-z]+-([a-z0-9-]+)$", cls)
         if m and "--" not in cls:
-            return m.group(1).replace("-", " ").capitalize()
+            name = m.group(1).replace("-", " ").capitalize()
+            return name + " element" if name in FIGMA_DEFAULT else name
     return TAG_NAMES.get(node["tag"], "Container")
 
 

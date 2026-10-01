@@ -53,6 +53,9 @@ const vars = {};
 for (const [name, spec] of Object.entries(ARGS.variables)) {
   let v = byName[name];
   if (!v) v = figma.variables.createVariable(name, col, spec.type);
+  /* Measured per breakpoint from the live site; the code computes these, it does not declare them. */
+  v.description = 'Measured from the live site at each breakpoint; no CSS custom property '
+    + 'declares this value, so there is no code name.';
   for (const role of order) v.setValueForMode(modeId[role], spec.values[role]);
   if (spec.type !== 'BOOLEAN') {
     const hit = SCOPE.find(([re]) => re.test(name));
@@ -64,7 +67,7 @@ const isVar = (v) => v && typeof v === 'object' && v.var;
 const num = (v) => (isVar(v) ? ARGS.variables[v.var].values.Desktop : v);
 const bind = (node, field, v) => {
   if (v === undefined || v === null) return;
-  if (isVar(v)) { node.setBoundVariable(field, vars[v.var]); return; }
+  if (isVar(v)) { node.setBoundVariable(field, vars[v.var]); report.bound++; return; }
   /* width and height are read-only properties: a plain size goes through resize(). */
   if (field === 'width') node.resize(Math.max(1, v), node.height);
   else if (field === 'height') node.resize(node.width, Math.max(1, v));
@@ -176,6 +179,11 @@ async function build(spec, parent, parentAuto) {
   } else if (spec.kind === 'svg') {
     try { node = figma.createNodeFromSvg(spec.svg); } catch (e) { report.svgFailures.push(spec.name); node = figma.createFrame(); node.fills = []; }
     node.resize(w0, h0);
+    /* An imported SVG keeps Figma's default names (`Vector`, `Group`); name its parts after the icon. */
+    let part = 0;
+    for (const child of node.findAll(() => true)) {
+      if (/^(Frame|Group|Rectangle|Ellipse|Vector|Line|Polygon|Star)( \d+)?$/.test(child.name)) child.name = `${spec.name} part ${++part}`;
+    }
   } else if (spec.kind === 'image') {
     node = figma.createRectangle();
     node.resize(w0, h0);
@@ -229,5 +237,8 @@ if (rootAuto) {
 } else {
   bind(component, 'height', tree.height);
 }
+/* The root's own width is usually the value that varies most between breakpoints; bound, an
+   instance switched to Tablet or Mobile takes that width without being resized by hand. */
+if (isVar(tree.width)) bind(component, 'width', tree.width);
 if (tree.visible !== undefined) report.notes = ['root visibility varies by width'];
 return { componentId: component.id, collectionId: col.id, width: component.width, height: component.height, ...report };

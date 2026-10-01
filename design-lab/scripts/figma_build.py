@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import subprocess
 import sys
@@ -147,8 +148,16 @@ def cmd_init(ns) -> int:
             continue
         if getattr(ns, "only", None) and c["id"] not in ns.only.split(","):
             continue
-        spec_file = measurements / f"{c['id'].split('.')[-1]}.spec.json"
+        # Measurements are named by machine name; a Drupal id (`paragraph:card`) has no dot, and
+        # a block and a paragraph can share a machine name, so the spec must name this source.
+        machine = c.get("machineName") or c["id"].split(":")[-1].split(".")[-1]
+        spec_file = measurements / f"{c['id'].replace(':', '__').replace('/', '__')}.spec.json"
         if not spec_file.exists():
+            spec_file = measurements / f"{machine}.spec.json"  # runs before 0.15.1
+        if not spec_file.exists():
+            continue
+        spec_source = (json.loads(spec_file.read_text()).get("source") or {}).get("sourceRef")
+        if c.get("sourceRef") and spec_source and spec_source != c["sourceRef"]:
             continue
         try:
             tree = responsive.build(json.loads(spec_file.read_text()), c.get("label") or c["id"], c["id"].split(".")[-1])
@@ -373,6 +382,11 @@ def component_page(c: dict) -> str:
     return f"Components — {short_tier((c.get('usage') or {}).get('tier'))}"
 
 
+# Prefixed like the foundation collection (`Core`), so it groups with it in the picker
+# instead of colliding with every other library's `Breakpoint`.
+BREAKPOINT_COLLECTION = "Core Breakpoint"
+
+
 def mode_names(tree: dict) -> dict:
     """`<Role> <viewport>px`, the standard's mode naming, from the capture viewports."""
     return {role: f"{role} {VIEWPORTS[role]}px" for role in ("Desktop", "Tablet", "Mobile")}
@@ -383,7 +397,7 @@ def build_args(project: Path, cid: str, state: dict) -> dict:
     comp = next(c for c in components(project) if c["id"] == cid)
     return {"pageId": page_id(project, component_page(comp)), "x": 0, "y": PARKING_Y, "id": cid,
             "name": f"{cid} — {comp.get('label') or cid}", "description": description(project, comp),
-            "collection": "Breakpoint", "modeNames": mode_names(tree),
+            "collection": BREAKPOINT_COLLECTION, "modeNames": mode_names(tree),
             "variables": tree["variables"], **spec_to_tree.compact(tree["tree"])}
 
 
@@ -453,7 +467,7 @@ def block_args(project: Path, state: dict, cid: str, order: int) -> dict:
                 "properties": [["Breakpoint", "MODE", "Desktop, Tablet, Mobile", "Desktop"]],
                 "fields": fields_rows(comp, plan), "relations": relations, "notes": notes},
         "columns": cols,
-        "collection": "Breakpoint",
+        "collection": BREAKPOINT_COLLECTION,
         "evidence": [{"label": f"{e['viewport']} {e['width']}px", "width": e["width"], "height": e["height"]}
                      for e in evidence_captures(project, cid, tree)],
         "captured": "the running site",
@@ -599,7 +613,7 @@ def examples_args(project: Path, state: dict) -> dict:
                 items.append({"missing": label})
         out.append({"address": p["address"], "title": p.get("title") or p["address"], "items": items})
     names = mode_names({})
-    return {"pageId": page_id(project, "Examples"), "collection": "Breakpoint",
+    return {"pageId": page_id(project, "Examples"), "collection": BREAKPOINT_COLLECTION,
             "desktopMode": names["Desktop"], "mobileMode": names["Mobile"], "pages": out}
 
 
@@ -679,7 +693,7 @@ def pending(state: dict) -> dict | None:
 def emit_payload(project: Path, step: str, template: str, args: dict) -> dict:
     path = project / "figma" / "payloads" / f"{safe(step)}.js"
     code = render_payload.call_payload(template, args)
-    if len(code) > render_payload.LIMIT:
+    if len(code) > render_payload.LIMIT and not os.environ.get("DESIGN_LAB_RUNNER"):
         raise SystemExit(f"{step}: payload {len(code)} characters exceeds {render_payload.LIMIT}")
     path.write_text(code)
     return {"kind": "use_figma", "step": step, "payload": str(path), "characters": len(code)}

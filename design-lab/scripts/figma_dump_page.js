@@ -4,7 +4,8 @@ if (!page || page.type !== 'PAGE') throw new Error('PAGE_ID did not resolve to a
 await figma.setCurrentPageAsync(page);
 const DEFAULT_LAYER = /^(Frame|Group|Rectangle|Ellipse|Text|Vector|Line|Polygon|Star|Component|Slice)( \d+)?$/;
 const breakpointCollection = (await figma.variables.getLocalVariableCollectionsAsync())
-  .find(item => item.name === 'Breakpoint');
+  // 'Breakpoint' is the name before 0.15.1.
+  .find(item => item.name === 'Core Breakpoint' || item.name === 'Breakpoint');
 const breakpointVariableIds = new Set(breakpointCollection?.variableIds || []);
 const varyingVariableIds = new Set();
 const variableNames = new Map();
@@ -81,7 +82,8 @@ const cards = page.findAll(node => node.type === 'FRAME' &&
     child.name === 'Component at each width');
   const breakpointNodes = shown ? shown.children.map(child => ({
     id: child.id, name: child.name, type: child.type, width: Math.round(child.width),
-    mainComponentId: child.type === 'INSTANCE' ? child.mainComponent?.id || null : null,
+    mainComponentId: null,
+    instance: child.type === 'INSTANCE' ? child : null,
     explicitModes: child.explicitVariableModes || {},
   })) : [];
   return {
@@ -128,6 +130,13 @@ if (page.name === 'Examples') {
       node.children.forEach(inspect);
   }
   page.children.forEach(inspect);
+}
+// Dynamic-page document access (the runner) forbids the synchronous `mainComponent`.
+for (const card of cards) {
+  for (const item of card.breakpointNodes) {
+    if (item.instance) item.mainComponentId = (await item.instance.getMainComponentAsync())?.id || null;
+    delete item.instance;
+  }
 }
 return {page: {id: page.id, name: page.name, children: page.children.length},
         components, cards, breakpointFrames,

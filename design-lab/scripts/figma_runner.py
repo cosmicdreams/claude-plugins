@@ -227,7 +227,10 @@ class Build:
 
     def driver(self, *args: str) -> dict:
         p = subprocess.run([sys.executable, str(BUILD), *args, "--project", str(self.project)],
-                           capture_output=True, text=True, timeout=DRIVER_TIMEOUT)
+                           capture_output=True, text=True, timeout=DRIVER_TIMEOUT,
+                           # The runner fetches code over its own connection; use_figma's size
+                           # limit applies only when a model relays the payload.
+                           env={**os.environ, "DESIGN_LAB_RUNNER": "1"})
         if p.returncode != 0:
             raise RuntimeError((p.stderr or p.stdout).strip() or f"figma_build.py {args[0]} failed")
         return json.loads(p.stdout)
@@ -271,13 +274,33 @@ class Build:
     def dump_step(self) -> dict | None:
         """After the build, export each design-lab page's node tree to W/figma/dump/ so
         compare_runs.py can compare runs; one page per step, skipped once written."""
-        pages = json.loads((self.project / "figma" / "results" / "pages.json").read_text())["pages"]
+        results = self.project / "figma" / "results"
+        pages = json.loads((results / "pages.json").read_text())["pages"]
+        # A dump older than the newest build result describes a file that has changed since,
+        # so a fix-and-reverify loop must dump again rather than reread the first answer.
+        built = max((path.stat().st_mtime for path in results.glob("*.json")), default=0)
+        stale = lambda target: not target.exists() or target.stat().st_mtime < built
         out = self.project / "figma" / "dump"
         for name, page_id in sorted(pages.items()):
             target = out / f"{name.replace('/', '-')}.json"
-            if not target.exists():
+            if stale(target):
                 code = (HERE / "figma_dump_tree.js").read_text().replace("__PAGE_ID__", page_id)
                 return {"kind": "dump", "step": f"dump:{name}", "code": code, "out": str(target)}
+        # Then the read-only state design-lab:verify needs, so verification needs no model relay
+        # either; verify_state.py merges these into verify/state.json.
+        verify = self.project / "figma" / "verify"
+        wanted = [("verify:root", verify / "root.json", (HERE / "figma_dump_root.js").read_text())]
+        for name, page_id in sorted(pages.items()):
+            wanted.append((f"verify:page:{name}", verify / f"page-{name.replace('/', '-')}.json",
+                           (HERE / "figma_dump_page.js").read_text().replace("PAGE_ID", page_id)))
+        started = next((page_id for name, page_id in pages.items() if name == "Getting Started"), None)
+        if started:
+            wanted.append(("verify:getting-started", verify / "getting-started.json",
+                           (HERE / "figma_dump_getting_started.js").read_text()
+                           .replace("PAGE_ID", started)))
+        for step, target, code in wanted:
+            if stale(target):
+                return {"kind": "dump", "step": step, "code": code, "out": str(target)}
         return None
 
     def handshake_step(self) -> dict:

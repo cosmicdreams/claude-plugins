@@ -425,7 +425,7 @@ run().then((r) => console.log(JSON.stringify({ r, texts: made.filter((n) => n.ty
         self.assertEqual(block["setId"], "component-1")
         self.assertEqual(block["doc"]["properties"],
                          [["Breakpoint", "MODE", "Desktop, Tablet, Mobile", "Desktop"]])
-        self.assertEqual(block["collection"], "Breakpoint")
+        self.assertEqual(block["collection"], "Core Breakpoint")
         self.assertEqual(block["columns"], [
             {"label": "Mobile · 375px", "width": 375, "mode": "Mobile 375px", "master": False},
             {"label": "Tablet · 800px", "width": 800, "mode": "Tablet 800px", "master": False},
