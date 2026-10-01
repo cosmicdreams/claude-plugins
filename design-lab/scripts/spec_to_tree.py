@@ -275,6 +275,46 @@ def pseudo_image(node: dict, which: str) -> dict | None:
     return out
 
 
+def positioned_out(node: dict) -> bool:
+    """Taken out of the flow by `position: absolute` or `fixed`."""
+    return (node.get("computed") or {}).get("position") in ("absolute", "fixed")
+
+
+def pseudo_geometry(node: dict, which: str) -> dict | None:
+    """A decorative pseudo-element's box inside its element, from its computed offsets: empty
+    content, a background colour, absolutely positioned, and the element itself positioned (so
+    it is the containing block the offsets are measured from)."""
+    p = node.get(which) or {}
+    if (p.get("content") or "").strip("'\"") != "" or p.get("display") == "none":
+        return None
+    fill = parse_color(p.get("backgroundColor"))
+    if not fill or p.get("position") not in ("absolute", "fixed"):
+        return None
+    if (node.get("computed") or {}).get("position") in (None, "static"):
+        return None
+    width, height = px(p.get("width")), px(p.get("height"))
+    if width <= 0 or height <= 0:
+        return None
+    box = node["box"]
+    left, right, top, bottom = (p.get(k) for k in ("left", "right", "top", "bottom"))
+    x = px(left) if left not in (None, "auto") else (box["width"] - px(right) - width if right not in (None, "auto") else 0)
+    y = px(top) if top not in (None, "auto") else (box["height"] - px(bottom) - height if bottom not in (None, "auto") else 0)
+    # A translate moves it after layout (a full-bleed field: left 580px, then -700px).
+    m = re.match(r"matrix\(\s*1,\s*0,\s*0,\s*1,\s*([-\d.e]+),\s*([-\d.e]+)\)", p.get("transform") or "")
+    if m:
+        x, y = x + float(m.group(1)), y + float(m.group(2))
+    fake = {"computed": {"position": p.get("position"), "zIndex": p.get("zIndex")}}
+    return {"x": r2(x), "y": r2(y), "width": r2(width), "height": r2(height), "fill": fill,
+            "stacking": stacking(fake)}
+
+
+def translated(node: dict) -> bool:
+    """Moved by a CSS transform's translation (`matrix(1, 0, 0, 1, -2820, 0)`)."""
+    m = re.match(r"matrix\(\s*[-\d.e]+,\s*[-\d.e]+,\s*[-\d.e]+,\s*[-\d.e]+,\s*([-\d.e]+),\s*([-\d.e]+)\)",
+                 (node.get("computed") or {}).get("transform") or "")
+    return bool(m) and (abs(float(m.group(1))) > 0.5 or abs(float(m.group(2))) > 0.5)
+
+
 def rotation(transform: str | None) -> float:
     """Clockwise degrees from a computed `transform` (`matrix(a, b, c, d, e, f)`), else 0."""
     import math

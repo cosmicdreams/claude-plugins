@@ -94,7 +94,71 @@ class Merge:
         return out
 
     def kids(self, bp: str, path: str) -> list[dict]:
-        return [k for k in self.children_of(bp, path) if st.visible(k)]
+        """Visible children that shape the layout: an absolutely positioned child takes no room
+        in the flow, so it is left out whenever any child is in flow."""
+        visible = [k for k in self.children_of(bp, path) if st.visible(k)]
+        flow = [k for k in visible if not st.positioned_out(k)]
+        return flow if flow else visible
+
+    def visual_order(self, path: str, kid_paths: list[str]) -> list[str]:
+        """Children in the order they are drawn, when that order is the same at every width and
+        differs from the DOM (`flex-direction: row-reverse`, or `order`: a teaser's photo drawn
+        left of the text that precedes it). Rows top to bottom, left to right within a row."""
+        orders = []
+        for bp in self.bps:
+            if path not in self.nodes[bp] or not st.visible(self.nodes[bp][path]):
+                continue
+            if not all(self.visible_in(k)[bp] for k in kid_paths):
+                return kid_paths
+            boxes = {k: self.box(bp, k) for k in kid_paths}
+            rows: list[list[str]] = []
+            for k in sorted(kid_paths, key=lambda k: boxes[k]["y"]):
+                b = boxes[k]
+                row = rows[-1] if rows else None
+                if row and b["y"] < max(boxes[r]["y"] + boxes[r]["height"] for r in row) - TOL:
+                    row.append(k)
+                else:
+                    rows.append([k])
+            orders.append([k for row in rows for k in sorted(row, key=lambda k: boxes[k]["x"])])
+        if orders and all(o == orders[0] for o in orders) and orders[0] != kid_paths:
+            return orders[0]
+        return kid_paths
+
+    def positioned_kids(self, path: str, kid_paths: list[str]) -> list[str]:
+        """Children placed by `position: absolute` or `fixed`, when others are in flow."""
+        out = [k for k in kid_paths if st.positioned_out(self.nodes[self.ref_bp(k)][k])]
+        return out if len(out) < len(kid_paths) else []
+
+    def pseudo_box(self, path: str, which: str, vchain: str) -> dict | None:
+        """A decorative `::before`/`::after`: empty content, a background colour, absolutely
+        positioned inside its element (one site's 1400x902 purple field behind a carousel)."""
+        per = {}
+        for bp in self.bps:
+            node = self.nodes[bp].get(path)
+            box = st.pseudo_geometry(node, which) if node and st.visible(node) else None
+            if box:
+                # Cropped to the component: its capture shows nothing beyond its own box.
+                root = self.box(bp, self.root_path)
+                ox, oy = node["box"]["x"] - root["x"], node["box"]["y"] - root["y"]
+                left, top = max(box["x"], -ox), max(box["y"], -oy)
+                right = min(box["x"] + box["width"], root["width"] - ox)
+                bottom = min(box["y"] + box["height"], root["height"] - oy)
+                if right - left <= 0 or bottom - top <= 0:
+                    continue
+                per[bp] = {**box, "x": st.r2(left), "y": st.r2(top),
+                           "width": st.r2(right - left), "height": st.r2(bottom - top)}
+        if not per:
+            return None
+        ref = per.get("desktop") or next(iter(per.values()))
+        name = f"{self.name_for(path, vchain)[1]}-{which}"
+        spec = {"kind": "frame", "name": "Decoration", "source": f"{path}::{which}", "sizing": "FIXED",
+                "absolute": True, "x": ref["x"], "y": ref["y"], "fill": ref["fill"],
+                "width": self.value({bp: b["width"] for bp, b in per.items()}, f"{name}/width"),
+                "height": self.value({bp: b["height"] for bp, b in per.items()}, f"{name}/height"),
+                "layout": {"mode": "NONE"}, "children": [], "_stacking": ref["stacking"]}
+        if set(per) != set(self.bps):
+            spec["visible"] = self.value({bp: bp in per for bp in self.bps}, f"{name}/visible", "BOOLEAN")
+        return spec
 
     def child_paths(self, path: str) -> list[str]:
         seen: list[str] = []
@@ -146,8 +210,27 @@ class Merge:
 
         tag = node["tag"]
         if tag in ("iframe", "video", "canvas", "object", "embed"):
-            return {**out, "kind": "image", "name": "Embed",
-                    "src": f"capture:{rb}:{out['x']},{out['y']},{st.r2(node['box']['width'])},{st.r2(node['box']['height'])}", "fit": "FILL"}
+            # Another document's rendering: only its picture is known, and it reflows by width
+            # (a form one column at mobile), so each width shows its own crop of its own capture.
+            shots = []
+            for bp in self.bps:
+                if not vis[bp]:
+                    continue
+                b = self.box(bp, path)
+                shot = {"kind": "image", "name": f"Embed · {MODE_NAMES[bp]}", "source": f"{path}#{bp}",
+                        "sizing": "FILL", "width": st.r2(b["width"]), "height": st.r2(b["height"]),
+                        "src": f"capture:{bp}:{st.r2(b['x'])},{st.r2(b['y'])},{st.r2(b['width'])},{st.r2(b['height'])}",
+                        "fit": "FILL", "x": 0, "y": 0}
+                if len([v for v in vis.values() if v]) > 1:
+                    shot["visible"] = self.value({m: m == bp for m in self.bps}, f"{vchain}/embed-{bp}", "BOOLEAN")
+                shots.append(shot)
+            if len(shots) == 1:
+                return {**out, **{k: v for k, v in shots[0].items() if k not in ("visible", "source", "name")},
+                        "name": "Embed"}
+            return {**out, "kind": "frame", "name": "Embed", "clip": True,
+                    "layout": {"mode": "VERTICAL", "gap": 0, "primaryAlign": "MIN", "counterAlign": "MIN",
+                               "padding": {"top": 0, "right": 0, "bottom": 0, "left": 0}},
+                    "children": shots}
         if node.get("svg"):
             return {**out, "kind": "svg", "svg": node["svg"]}
         if node.get("image") and str(node["image"].get("src") or "").startswith("data:image/svg+xml"):
@@ -188,8 +271,14 @@ class Merge:
                                "padding": self.padding_value(pads, vchain)},
                     "children": [inner]}
 
+        # Absolutely positioned children take no room in the flow: the layout comes from the
+        # others, and they are placed over it at their measured offsets.
+        positioned = self.positioned_kids(path, kid_paths)
+        kid_paths = self.visual_order(path, [k for k in kid_paths if k not in positioned])
         reordered = self.reordered_stack(path, kid_paths, vchain, style, out)
         if reordered:
+            reordered["children"] = self.stack_in(reordered["children"],
+                                                  self.placed(path, positioned, node, rb, vchain))
             return reordered
         layout, spacers = self.layout(path, kid_paths, vchain)
         if layout["mode"] == "NONE":
@@ -224,7 +313,46 @@ class Merge:
             if spacers and i < len(spacers) and spacers[i] is not None:
                 children.append({"kind": "frame", "name": "Spacer", "sizing": "FILL", "width": 1,
                                  "height": spacers[i], "layout": {"mode": "NONE"}, "children": [], "source": kp + "#spacer"})
-        return {**out, "kind": "frame", **style, "layout": layout, "children": children}
+        return {**out, "kind": "frame", **style, "layout": layout,
+                "children": self.stack_in(children, self.placed(path, positioned, node, rb, vchain))}
+
+    def placed(self, path: str, positioned: list[str], node: dict, rb: str, vchain: str) -> list[dict]:
+        """The absolutely positioned children and decorative pseudo-elements, at their offsets."""
+        out = []
+        for kp in positioned:
+            child = self.convert(kp, None, vchain)
+            if child:
+                child["absolute"] = True
+                child["x"] = st.r2(self.box(rb, kp)["x"] - node["box"]["x"]) if kp in self.nodes[rb] else 0
+                child["y"] = st.r2(self.box(rb, kp)["y"] - node["box"]["y"]) if kp in self.nodes[rb] else 0
+                child["_stacking"] = st.stacking(self.nodes[self.ref_bp(kp)][kp])
+                out.append(child)
+        for which in ("before", "after"):
+            box = self.pseudo_box(path, which, vchain)
+            if box:
+                out.insert(0, box) if which == "before" else out.append(box)
+        return out
+
+    def stack_in(self, children: list[dict], placed: list[dict]) -> list[dict]:
+        """Slot absolutely placed layers into the child order by CSS painting order. Layer order
+        is z-order in Figma; flow children keep their relative order, so the layout is unchanged."""
+        def key(child):
+            if "_stacking" in child:
+                return child["_stacking"]
+            source = (child.get("source") or "").split("#")[0].split("::")[0]
+            node = next((self.nodes[bp][source] for bp in self.bps if source in self.nodes[bp]), None)
+            return st.stacking(node) if node else (1, 0)
+        out = list(children)
+        for item in placed:
+            k = key(item)
+            # A `::before` paints ahead of its element's children at the same level; anything else
+            # after them, in document order.
+            ahead = str(item.get("source") or "").endswith("::before")
+            at = next((i for i, c in enumerate(out) if (key(c) >= k if ahead else key(c) > k)), len(out))
+            out.insert(at, item)
+        for item in out:
+            item.pop("_stacking", None)
+        return out
 
     def reordered_stack(self, path: str, kid_paths: list[str], vchain: str, style: dict,
                         out: dict) -> dict | None:
@@ -366,6 +494,11 @@ class Merge:
             per[bp] = st.infer_layout(self.nodes[bp][path], kids)
         pads = self.padding(path)
         if not kid_paths:
+            return {"mode": "NONE", "padding": self.padding_value(pads, vchain)}, None
+        # A child moved by a CSS translate (a carousel's slide track, slid 2820px left to show its
+        # third slide) sits where the transform put it, which no flow layout reproduces: place
+        # children at their measured positions. Faithful, not a fallback.
+        if any(st.translated(self.nodes[bp][k]) for k in kid_paths for bp in per if k in self.nodes[bp]):
             return {"mode": "NONE", "padding": self.padding_value(pads, vchain)}, None
         modes = {bp: l["mode"] for bp, l in per.items()}
         if "NONE" in modes.values():

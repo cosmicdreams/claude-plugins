@@ -173,3 +173,59 @@ class LayoutOrderTest(unittest.TestCase):
         link["before"] = {"content": CHEVRON, "width": "24px", "height": "24px",
                           "transform": "matrix(-1, 0, 0, -1, 0, 0)"}
         self.assertIn('<g transform="rotate(180.0 12.0 12.0)">', spec_to_tree.pseudo_image(link, "before")["svg"])
+
+
+class PositionedLayerTest(unittest.TestCase):
+    def merge(self, per_bp):
+        import responsive
+        return responsive.build({"component": "X", "machineName": "x", "measurements": {
+            f"{bp}:default": {"nodes": nodes} for bp, nodes in per_bp.items()}}, "X", "x")
+
+    def test_positioned_children_and_pseudo_boxes_are_absolute_in_stacking_order(self):
+        root = spec_node("/div[0]", 0, 0, 400, 300, position="relative")
+        root["before"] = {"content": '""', "backgroundColor": "rgb(52, 38, 73)", "position": "absolute",
+                          "width": "400px", "height": "260px", "top": "40px", "left": "0px", "zIndex": "1"}
+        nodes = [root,
+                 spec_node("/div[0]/div[1]", 200, 0, 180, 120, position="absolute", zIndex="10",
+                           backgroundColor="rgb(250, 250, 250)"),
+                 spec_node("/div[0]/div[2]", 0, 40, 400, 260, position="relative", zIndex="5",
+                           backgroundColor="rgb(9, 9, 9)")]
+        tree = self.merge({"desktop": nodes, "mobile": nodes})["tree"]
+        kinds = [(c["name"], bool(c.get("absolute"))) for c in tree["children"]]
+        self.assertEqual([k for k, _ in kinds][0], "Decoration")            # z 1, behind
+        self.assertTrue(kinds[0][1] and kinds[-1][1])                      # both absolute
+        self.assertEqual(tree["children"][-1]["source"], "/div[0]/div[1]")  # z 10, on top
+        self.assertEqual((tree["children"][0]["x"], tree["children"][0]["y"]), (0, 40))
+
+    def test_a_reversed_row_is_laid_out_in_drawn_order(self):
+        def row(width):
+            return [spec_node("/div[0]", 0, 0, width, 100),
+                    spec_node("/div[0]/div[1]", 160, 0, width - 160, 100, backgroundColor="rgb(1, 1, 1)"),
+                    spec_node("/div[0]/div[2]", 0, 0, 145, 100, backgroundColor="rgb(2, 2, 2)")]
+        out = self.merge({"desktop": row(800), "mobile": row(335)})
+        self.assertEqual(out["fallbacks"], [])
+        self.assertEqual([c["source"].split("#")[0][-6:] for c in out["tree"]["children"]], ["div[2]", "div[1]"])
+
+    def test_translated_children_are_placed_freely(self):
+        self.assertTrue(spec_to_tree.translated({"computed": {"transform": "matrix(1, 0, 0, 1, -2820, 0)"}}))
+        self.assertFalse(spec_to_tree.translated({"computed": {"transform": "matrix(-1, 0, 0, -1, 0, 0)"}}))
+        self.assertFalse(spec_to_tree.translated({"computed": {"transform": "none"}}))
+
+
+class DecorationTest(unittest.TestCase):
+    def test_translated_decoration_behind_children_and_cropped_to_the_component(self):
+        import responsive
+        root = spec_node("/div[0]", 0, 0, 1160, 400, position="relative")
+        root["before"] = {"content": '""', "backgroundColor": "rgb(52, 38, 73)", "position": "absolute",
+                          "left": "580px", "top": "0px", "width": "1400px", "height": "400px",
+                          "zIndex": "0", "transform": "matrix(1, 0, 0, 1, -700, 0)"}
+        panel = spec_node("/div[0]/div[1]", 50, 0, 1110, 400, position="relative",
+                          backgroundColor="rgb(158, 212, 213)")
+        nodes = [root, panel]
+        tree = responsive.build({"component": "X", "machineName": "x", "measurements": {
+            "desktop:default": {"nodes": nodes}, "mobile:default": {"nodes": nodes}}}, "X", "x")["tree"]
+        first, second = tree["children"][0], tree["children"][1]
+        self.assertEqual(first["name"], "Decoration")             # behind the panel
+        self.assertEqual(second["source"], "/div[0]/div[1]")
+        self.assertEqual(first["x"], 0)                           # -120 cropped to the component
+        self.assertEqual(first["width"], 1160)

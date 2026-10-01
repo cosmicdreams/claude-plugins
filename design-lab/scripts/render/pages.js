@@ -27,7 +27,10 @@ for (let i = 0; i < wanted.length; i++) {
 }
 for (const page of [...figma.root.children]) {
   if (claimed.has(page.id)) continue;
-  if (page.getSharedPluginData('designlab', 'page')) page.remove();
-  else result.foreign.push(page.name);
+  if (page.getSharedPluginData('designlab', 'page')) { page.remove(); continue; }
+  await page.loadAsync();
+  /* An empty page someone added is left where it is; one with content is reported. */
+  if (page.children.length) result.foreign.push(page.name);
+  else (result.kept = result.kept || []).push(page.name);
 }
 return result;
