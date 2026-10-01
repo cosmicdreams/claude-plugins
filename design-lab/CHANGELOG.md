@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.15.6
+
+**The last America's Credit Unions refinement: faster iteration, consistent derived layouts, cleaner reveals, sturdier runs, and skills that teach all of 0.15.x.** Benchmark against the 0.15.0 run on the same site: 46 of 61 buildable components built (from 26 of 59), carrying 91% of the site's placements (from 25%); 40 of 138 widths within tolerance (from 13 of 78).
+
+- An iterating rebuild (`--iterate`) skips the full node-tree dumps, which serve run-to-run comparison: a build-and-verify cycle went from about 15 minutes to under 5.
+- A child's rendering inside its parent uses one occurrence at every width, so the widths merge into one tree (each width picking its own merged three different cards, each shown at one width only).
+- A wrapping row's column gap leaves a pixel of slack, so half-pixel rounding no longer wraps the last item.
+- A revealed element (a closed menu's panel) is raised to the top of the stacking order for its screenshot, so other layers do not paint over it.
+- Capture: a step stopped at its limit is killed with its process group, so no browser outlives it; limits are 15 minutes to measure and 30 for screenshots, sized for a slow local site.
+- `ensure_server` refreshes the runner files whenever it runs and says when the runner must be restarted, so a server restarted after an update never meets an old runner.
+- Skills: capture (Twig debug without disabling the Twig cache, child tagging, derived children, reveals, step limits), usage (site-wide home-page candidates, template markers first) and run (waivers, and the fix-and-rebuild loop) describe what 0.15.1 to 0.15.6 added.
+
 ## 0.15.5
 
 **Positioned layers, decorations, transformed tracks and embeds drawn where the site draws them; capture can no longer hang.** On America's Credit Unions: verify open findings 3 → 2 (fonts waived by decision); live-capture comparison 25 → 27 of 46, with five components newly passing at desktop and two passing outright.

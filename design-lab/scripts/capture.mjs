@@ -139,6 +139,18 @@ for (const { file, cfg, error } of configs) {
                         error: `no element with real height matched ${cfg.rootSelector}` });
           continue;
         }
+        /* A revealed element (a closed menu's panel, an inactive tab) is not in front the way
+           the open state would put it: the page's other layers can paint over it, and an element
+           screenshot keeps whatever is drawn in that rectangle. Raise it and its positioned
+           ancestors to the top for the screenshot, as opening it would. */
+        await el.evaluate((node) => {
+          if (!document.querySelector('[data-design-lab-revealed]')) return;
+          for (let a = node; a && a !== document.body; a = a.parentElement) {
+            const style = getComputedStyle(a);
+            if (a === node && style.position === 'static') a.style.setProperty('position', 'relative', 'important');
+            if (a === node || style.position !== 'static') a.style.setProperty('z-index', '2147483647', 'important');
+          }
+        });
         const box = await el.boundingBox();
         const name = `${machine}__${vp.name.toLowerCase()}${suffix}.png`;
         await el.screenshot({ path: resolve(OUT, name), timeout: 30000 });

@@ -297,7 +297,11 @@ class Build:
         built = max((path.stat().st_mtime for path in results.glob("*.json")), default=0)
         stale = lambda target: not target.exists() or target.stat().st_mtime < built
         out = self.project / "figma" / "dump"
-        for name, page_id in sorted(pages.items()):
+        # The full node-tree dumps serve run-to-run comparison (compare_runs.py) and take minutes
+        # on large tier pages; an iterating build (a fix being tried) skips them, keeping only the
+        # light verification dumps below.
+        iterating = bool(self.state.get("iterate"))
+        for name, page_id in ([] if iterating else sorted(pages.items())):
             target = out / f"{name.replace('/', '-')}.json"
             if stale(target):
                 code = (HERE / "figma_dump_tree.js").read_text().replace("__PAGE_ID__", page_id)
@@ -609,7 +613,14 @@ def ensure_server(project: Path, wait: float = 10) -> dict:
     output in figma/runner-server.log."""
     project = Path(project).resolve()
     person_token()
-    status = server_status(project)
+    # The runner Figma loads must match this plugin's version, or it is told to restart and
+    # closes; refreshing it here means a server restarted after an update never meets an old
+    # runner. Idempotent: an unchanged runner is left alone.
+    install = install_runner()
+    if install.get("updated"):
+        print(f"the runner was updated to {install.get('version')}: close the design-lab runner in "
+              "Figma and start it again", file=sys.stderr, flush=True)
+    status = {**server_status(project), "install": install}
     if status["alive"]:
         return {**status, "started": False}
     if status["otherRun"] and run_finished(Path(status["otherRun"])):

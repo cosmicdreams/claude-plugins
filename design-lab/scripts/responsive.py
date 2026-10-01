@@ -539,7 +539,9 @@ class Merge:
             return self.slot_flow(path, kid_paths, vchain, pads)
         # Grids that wrap at every width: a wrapping row whose children take their measured
         # width at each mode.
-        col_gap = {bp: (l.get("gap", 0) if l["mode"] == "HORIZONTAL" else 0) for bp, l in per.items()}
+        # Measured widths round to half pixels, and three 397.5px cards with two 24px gaps make
+        # 1240.5px in a 1240px row: Figma wraps the third. A pixel off the gap keeps the row.
+        col_gap = {bp: max(0, (l.get("gap", 0) if l["mode"] == "HORIZONTAL" else 0) - 1) for bp, l in per.items()}
         row_gap = {bp: (l.get("counterGap", 0) if l["mode"] == "HORIZONTAL" else l.get("gap", 0)) for bp, l in per.items()}
         primary = {l.get("primaryAlign", "MIN") for l in per.values() if l["mode"] == "HORIZONTAL"}
         return {"mode": "HORIZONTAL", "wrap": True,
