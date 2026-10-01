@@ -11,7 +11,9 @@ candidate page, which finds broken selectors and hidden instances in seconds per
 import argparse
 import hashlib
 import json
+import os
 import re
+import signal
 import shutil
 import subprocess
 import sys
@@ -31,15 +33,25 @@ VIEWPORTS = ("desktop", "tablet", "mobile")
 
 # A browser step can hang (a page script that never returns has no timeout of its own); one
 # hung page must cost one component, not stop the run. Seconds per script.
-LIMITS = {"measure.mjs": 300, "capture.mjs": 600, "check_selectors.mjs": 1800}
+LIMITS = {"measure.mjs": 900, "capture.mjs": 1800, "check_selectors.mjs": 1800}
 
 
 def run(command, cwd=None):
     limit = LIMITS.get(Path(command[1]).name) if len(command) > 1 else None
+    # Its own process group, so a step stopped at its limit takes the browser it launched with
+    # it; killing only the script leaves headless browsers running for the rest of the day.
+    process = subprocess.Popen(command, cwd=cwd, text=True, stdout=subprocess.PIPE,
+                               stderr=subprocess.PIPE, start_new_session=True)
     try:
-        return subprocess.run(command, cwd=cwd, text=True, capture_output=True, timeout=limit)
-    except subprocess.TimeoutExpired as expired:
-        return subprocess.CompletedProcess(command, 124, expired.stdout or "",
+        out, err = process.communicate(timeout=limit)
+        return subprocess.CompletedProcess(command, process.returncode, out, err)
+    except subprocess.TimeoutExpired:
+        try:
+            os.killpg(process.pid, signal.SIGKILL)
+        except ProcessLookupError:
+            pass
+        out, _err = process.communicate()
+        return subprocess.CompletedProcess(command, 124, out or "",
                                            f"{Path(command[1]).name} stopped after {limit}s with no result")
 
 

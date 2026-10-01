@@ -349,6 +349,8 @@ class HandshakeTests(unittest.TestCase):
         self.assertIn("stop --project /runs/other", text)
 
     def test_the_runner_is_copied_to_a_stable_folder_with_its_version(self):
+        import shutil
+        shutil.rmtree(figma_runner.HOME / "runner", ignore_errors=True)  # ensure_server installs it too
         first = figma_runner.install_runner()
         folder = figma_runner.HOME / "runner"
         self.assertEqual(first["manifest"], str(folder / "manifest.json"))
@@ -363,3 +365,16 @@ class HandshakeTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DumpStepTest(unittest.TestCase):
+    def test_an_iterating_build_skips_the_full_tree_dumps(self):
+        with tempfile.TemporaryDirectory() as folder:
+            project = Path(folder)
+            (project / "figma" / "results").mkdir(parents=True)
+            (project / "figma" / "results" / "pages.json").write_text(json.dumps({"pages": {"Cover": "0:1"}}))
+            state = {"fileKey": "K", "steps": [], "done": []}
+            (project / "figma" / "state.json").write_text(json.dumps(state))
+            self.assertEqual(figma_runner.Build(project).dump_step()["step"], "dump:Cover")
+            (project / "figma" / "state.json").write_text(json.dumps({**state, "iterate": True}))
+            self.assertEqual(figma_runner.Build(project).dump_step()["step"], "verify:root")

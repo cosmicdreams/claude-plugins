@@ -269,3 +269,23 @@ class RecordKeyTest(unittest.TestCase):
             digest = capture_all.config_hash(old, 1)
             self.assertTrue(capture_all.record_is_current(record, digest, capture_all.legacy_hash(old, 1)))
             self.assertEqual(json.loads(record.read_text())["configHash"], digest)
+
+
+class StepLimitTest(unittest.TestCase):
+    def test_a_step_over_its_limit_is_stopped_with_its_children(self):
+        import os, time
+        with tempfile.TemporaryDirectory() as folder:
+            script = Path(folder) / "measure.mjs"
+            pid_file = Path(folder) / "child.pid"
+            # A "browser" child that would outlive a plain kill of its parent.
+            script.write_text("")
+            command = [sys.executable, "-c",
+                       f"import subprocess,time; p=subprocess.Popen(['sleep','60']); "
+                       f"open({str(pid_file)!r},'w').write(str(p.pid)); time.sleep(60)"]
+            with patch.dict(capture_all.LIMITS, {"-c": 1}):
+                result = capture_all.run(command)
+            self.assertEqual(result.returncode, 124)
+            child = int(pid_file.read_text())
+            time.sleep(0.2)
+            with self.assertRaises(ProcessLookupError):
+                os.kill(child, 0)

@@ -120,7 +120,18 @@ Every Figma write is a fixed template filled from the artifacts; the model relay
    python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.py receipts --project <artifact-directory>
    ```
 
-5. Run `design-lab:verify`; fix every open finding at its source, or reclassify the component as not built with its reason. A waiver needs the person, so it is a genuine blocker only when neither is possible.
+5. Run `design-lab:verify`; fix every open finding at its source, or reclassify the component as not built with its reason. A waiver needs the person, so it is a genuine blocker only when neither is possible. Record one in `waivers.json` in the artifact directory with the check, a narrow scope, the reason, who decided, and the date, and pass `--waivers waivers.json`; a decision the person states plainly ("the fonts cannot be made available") is that decision. Known gaps still names a waived finding.
+
+### Fix and rebuild without anyone in Figma
+
+While fixing templates or rules against a built file, rebuild in place instead of creating a new file:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.py init --project <artifact-directory> \
+  --file-key <key> --site-url <local-site-url> --canonical-base-url <public-site-url> --rebuild --iterate
+```
+
+`--rebuild` starts with a `wipe` step that removes only design-lab's pages and variable collections (an empty page someone added is left alone; a page with content stops it). `--iterate` keeps the runner connected after the build, waiting for the next one, and skips the full node-tree dumps, which serve run-to-run comparison and take minutes on large pages; a build for the benchmark is run without `--iterate`. Never edit a template while a build is running; the build stops at the next step, and the runner waits for the next `init`. The runner must be restarted in Figma whenever the plugin's version changes: `workflow.py runner --ensure` refreshes its files and says so.
 
 `design-lab:figma-foundation`, `design-lab:figma-component` and `design-lab:figma-index` describe what their steps produce and how to diagnose them; they no longer build by hand.
 
