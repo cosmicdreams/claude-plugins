@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.15.2
+
+**What the live page draws reaches the Figma master, and the visual comparison measures layout rather than fonts.** On America's Credit Unions this took the components passing the live-capture comparison from 2 of 36 to 18 of 36.
+
+- Frames crop their contents wherever the site uses `overflow: hidden` or `clip`, including the master itself.
+- Zero-size wrappers such as `<picture>` and `display: contents` pass through to their drawn children, so images inside them are no longer lost.
+- Images drawn by `::before` and `::after` (`content: url(...)`, or an empty box with a background image) become icon layers beside their text; inline SVG data is decoded.
+- `clip-path: circle()`, `ellipse()` and `polygon()` on a filled leaf are drawn as that shape, cropped to the element's box.
+- CSS background images fill their frame from the site's own file.
+- Fonts are matched by family regardless of case, spaces and hyphens (`articulat-cf` finds Articulat CF); families Figma lacks are recorded in the build record as `missingFonts`.
+- The live-capture comparison masks the live text boxes at each breakpoint, keeping the unmasked ratio as `ratioUnmasked`; the new `fonts-available` check names each missing family once instead.
+
 ## 0.15.1
 
 **Capture is incremental and checkable in seconds, and Drupal sites whose templates embed components are captured.** A refinement of 0.15.0 from a production run on a Drupal 11 site with Layout Builder and paragraphs, where capture was all-or-nothing and each fix cost a 30 to 60 minute run.

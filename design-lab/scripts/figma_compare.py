@@ -12,6 +12,12 @@ geometry.json: {"variants": [{"label", "x", "y", "width", "height"}],
                 "captures": [{"label", "x", "y", "width", "height"}]}  (same order)
 
 A pair passes when at most THRESHOLD of its pixels differ by more than TOLERANCE.
+
+Text can be masked out (`masks`, one list of root-relative boxes per pair, from the live
+measurement): both crops are painted white inside each box, so the comparison measures shapes,
+images, colours and layout, and a font the Figma machine lacks is reported once, by
+`fonts-available`, instead of as pixel error in every component. The unmasked ratio is kept
+beside it as `ratioUnmasked`.
 Antialiased text alone sits well under two percent; a wrong font, a missing image or a
 shifted block does not.
 
@@ -69,14 +75,30 @@ def compare_pair_corrected(a: Image.Image, b: Image.Image) -> dict:
             "heightDelta": round(abs(a.height - b.height), 1), "pass": ratio <= THRESHOLD}
 
 
-def compare(png: Path, geometry: dict, corrected: bool = False) -> dict:
+def masked(img: Image.Image, boxes: list[dict]) -> Image.Image:
+    img = img.copy()
+    for b in boxes:
+        x, y = round(b["x"]) - 1, round(b["y"]) - 1
+        img.paste("white", (max(0, x), max(0, y), x + round(b["width"]) + 2, y + round(b["height"]) + 2))
+    return img
+
+
+def compare(png: Path, geometry: dict, corrected: bool = False,
+            masks: list[list[dict]] | None = None) -> dict:
     with Image.open(png) as raw:
         img = Image.new("RGB", raw.size, "white")
         img.paste(raw.convert("RGBA"), mask=raw.convert("RGBA").split()[-1])
     pairs = []
-    for v, c in zip(geometry["variants"], geometry["captures"]):
+    for i, (v, c) in enumerate(zip(geometry["variants"], geometry["captures"])):
         pair = compare_pair_corrected if corrected else compare_pair
-        r = pair(region(img, v), region(img, c))
+        a, b = region(img, v), region(img, c)
+        boxes = (masks or [])[i] if masks and i < len(masks) else None
+        if boxes:
+            unmasked = pair(a, b)["ratio"]
+            a, b = masked(a, boxes), masked(b, boxes)
+        r = pair(a, b)
+        if boxes:
+            r["ratioUnmasked"], r["textMasked"] = unmasked, len(boxes)
         r["label"] = v.get("label")
         r["heightDelta"] = round(abs(v["height"] - c["height"]), 1)
         pairs.append(r)
