@@ -145,6 +145,54 @@ def build_order(comps: list[dict], plan: dict[str, dict]) -> list[dict]:
     return sorted(comps, key=key)
 
 
+def spec_file_for(measurements: Path, comp: dict) -> Path | None:
+    by_id = measurements / f"{comp['id'].replace(':', '__').replace('/', '__')}.spec.json"
+    if by_id.exists():
+        return by_id
+    machine = measurements / f"{comp.get('machineName') or comp['id'].split(':')[-1]}.spec.json"
+    return machine if machine.exists() else None
+
+
+def add_alternates(project: Path, comps: list[dict], built: list[dict], measurements: Path, trees: Path) -> None:
+    """Other layouts the site renders a built child in. Each built parent's rendering of the
+    child (its tagged subtree of the parent's measurement) becomes a tree; one whose structure
+    (text layers, images) differs from the child's own and from every layout already found is
+    stored on the child's tree as an alternate, built as a sibling variant, so that parent can
+    nest an instance of the layout it actually shows."""
+    import nesting
+    by_id = {c["id"]: c for c in comps}
+    ids = [b["id"] for b in built]
+    for child in ids:
+        tree_file = trees / f"{child}.json"
+        tree = json.loads(tree_file.read_text())
+        seen = {nesting.signature(tree["tree"])}
+        alternates = []
+        for parent in ids:
+            if parent == child or child not in {a for slot in by_id[parent].get("slots") or []
+                                                for a in slot.get("accepts") or []}:
+                continue
+            spec_file = spec_file_for(measurements, by_id[parent])
+            found = nesting.subtree(json.loads(spec_file.read_text()), child) if spec_file else None
+            if not found:
+                continue
+            key = f"{child.split(':')[-1]}@{parent.split(':')[-1]}"
+            try:
+                alt = responsive.build({"measurements": found[0]}, by_id[child].get("label") or child, key)
+            except (IndexError, KeyError, StopIteration):
+                continue
+            sig = nesting.signature(alt["tree"])
+            if sig in seen:
+                continue
+            seen.add(sig)
+            alternates.append({"label": f"In {by_id[parent].get('label') or parent}", "parent": parent,
+                               "variables": alt["variables"], "tree": alt["tree"]})
+        if alternates:
+            tree["alternates"] = alternates
+        else:
+            tree.pop("alternates", None)
+        tree_file.write_text(json.dumps(tree, indent=1, sort_keys=True) + "\n")
+
+
 def children_first(built: list[dict], comps: list[dict]) -> list[dict]:
     """Build order for the steps: a component a parent nests is built before the parent, so
     the parent can instance it; otherwise the index order."""
@@ -214,6 +262,7 @@ def cmd_init(ns) -> int:
         (out / "trees" / f"{c['id']}.json").write_text(json.dumps(tree, indent=1, sort_keys=True) + "\n")
         built.append({"id": c["id"]})
 
+    add_alternates(project, comps, built, measurements, out / "trees")
     steps = ([{"id": "wipe"}] if getattr(ns, "rebuild", False) else []) + [{"id": "pages"}, {"id": "variables"}]
     steps += [{"id": f"foundation:{d}"} for d in foundation_domains(project)]
     steps += [{"id": f"tier:{t}"} for t in tier_names(comps)]
@@ -506,7 +555,11 @@ def build_args(project: Path, cid: str, state: dict) -> dict:
             "masters": child_masters(project, comp),
             # Planned variant axes: the master becomes the one variant capture observed, in a set.
             "variant": {v["axis"]: v["value"] or "As captured" for v in variant_values(project, cid)},
-            "variables": tree["variables"], **spec_to_tree.compact(tree["tree"])}
+            "variables": {**tree["variables"], **{k: v for alt in tree.get("alternates") or []
+                                                   for k, v in alt["variables"].items()}},
+            "alternates": [{"label": alt["label"], **spec_to_tree.compact(alt["tree"])}
+                           for alt in tree.get("alternates") or []],
+            **spec_to_tree.compact(tree["tree"])}
 
 
 def description(project: Path, c: dict) -> str:
@@ -774,6 +827,31 @@ def getting_started_args(project: Path, state: dict) -> dict:
             missing = []
         for m in sorted(set(missing)):
             gaps.append(f"Foundations — {d}: {m} is not available in Figma; its specimen is drawn in Inter.")
+    # What this build itself measured as unresolved, named by the check that will report it, so
+    # the page never reads cleaner than the file is.
+    differing, missing_fonts = [], set()
+    for c in ordered:
+        if c["id"] not in built:
+            continue
+        try:
+            compare = result(project, f"compare:{c['id']}")
+        except FileNotFoundError:
+            compare = {}
+        if compare and not compare.get("pass"):
+            worst = max((p.get("ratio") or 0) for p in compare.get("pairs") or [{}])
+            differing.append(f"{c['id']} ({worst:.0%})")
+        try:
+            missing_fonts.update(result(project, f"build:{c['id']}").get("missingFonts") or [])
+        except FileNotFoundError:
+            pass
+    if differing:
+        gaps.append(f"master-matches-capture: {len(differing)} component(s) differ from their live capture by more "
+                    f"than the 6% threshold at one or more widths, so build-record-assertions records a failing "
+                    f"visual comparison for each: {', '.join(differing)}.")
+    if missing_fonts:
+        gaps.append(f"fonts-available: {', '.join(sorted(missing_fonts))} "
+                    f"{'is' if len(missing_fonts) == 1 else 'are'} not available to Figma here, so text using "
+                    f"{'it' if len(missing_fonts) == 1 else 'them'} is drawn in Inter; make the families available and rebuild.")
     for c in ordered:
         if c["id"] not in built:
             continue

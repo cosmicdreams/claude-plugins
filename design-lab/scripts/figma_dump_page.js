@@ -103,7 +103,8 @@ const cards = page.findAll(node => node.type === 'FRAME' &&
       /(desktop|tablet|mobile).*px/i.test(child.characters)).map(child => child.characters),
     breakpointNodes,
     rejectedHeadingCount: 0,
-    rootRelativeExampleCount: (text.match(/(?:^|\s)\/[a-z0-9][a-z0-9/_-]*/gi) || []).length,
+    // `/`, the home page, counts: a component in the site's chrome has it as its example.
+    rootRelativeExampleCount: (text.match(/(?:^|\s)\/[a-z0-9][a-z0-9/_-]*|example\W*\/(?=[\s.,;)]|$)/gi) || []).length,
     urlLinkCount: children.filter(child => child.type === 'TEXT' && child.hyperlink &&
       child.hyperlink.type === 'URL').length,
   };

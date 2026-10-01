@@ -99,7 +99,8 @@ const shown = stack('HORIZONTAL', { name: 'Component at each width', gap: SET_GA
 const collection = (await figma.variables.getLocalVariableCollectionsAsync()).find((c) => c.name === ARGS.collection);
 const shownNodes = [];
 for (const col of ARGS.columns) {
-  if (col.master) { shown.appendChild(set); shownNodes.push(set); continue; }
+  /* The set shows every layout; the comparison measures the captured (default) variant. */
+  if (col.master) { shown.appendChild(set); shownNodes.push(master); continue; }
   const inst = master.createInstance();
   inst.name = `${set.name} · ${col.label}`;
   shown.appendChild(inst);

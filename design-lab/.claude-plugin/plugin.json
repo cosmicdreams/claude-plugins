@@ -1,6 +1,6 @@
 {
     "name": "design-lab",
-    "version": "0.15.3",
+    "version": "0.15.4",
     "description": "Build and maintain a verified Figma component library from real code with resumable, schema-validated workflows.",
     "author": {
         "name": "Chris Weber"

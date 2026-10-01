@@ -564,6 +564,18 @@ run().then((r) => console.log(JSON.stringify({ r, texts: made.filter((n) => n.ty
         start = figma_build.getting_started_args(self.project, state)
         self.assertEqual([row[0] for row in start["coverage"]["rows"]], ["Untiered"])
 
+    def test_known_gaps_name_what_the_build_measured_unresolved(self):
+        pages = {name: f"page-{i}" for i, name in enumerate(figma_build.page_list(self.project))}
+        self.result("pages", {"pages": pages})
+        self.result("build:sdc.test.hero", {"componentId": "component-1", "missingFonts": ["articulat-cf"]})
+        self.result("block:sdc.test.hero", {"blockId": "block-1"})
+        self.result("compare:sdc.test.hero", {"pass": False, "pairs": [{"ratio": 0.12}, {"ratio": 0.31}]})
+        self.state["done"] = ["pages", "build:sdc.test.hero", "block:sdc.test.hero"]
+        gaps = "\n".join(figma_build.getting_started_args(self.project, self.state)["gaps"])
+        for named in ("master-matches-capture", "build-record-assertions", "fonts-available",
+                      "sdc.test.hero (31%)", "articulat-cf"):
+            self.assertIn(named, gaps)
+
     def surfaces(self):
         """The Cover, the Getting Started page and the benchmark scorecard, from one build."""
         pages = {name: f"page-{i}" for i, name in enumerate(figma_build.page_list(self.project))}
