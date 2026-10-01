@@ -40,6 +40,25 @@ def surrogate_crops(build: dict) -> list[str]:
     return out
 
 
+def slot_rendering(evidence: dict | None, slot: dict) -> dict:
+    """`rendered: False` only with proof: Twig debug saw the parent render on its measured page
+    and none of the slot's accepted children's own templates ran inside it; the parent prints
+    their field values itself."""
+    if not evidence or not evidence.get('parentRenders'):
+        return {'rendered': True}
+    counts = evidence.get('children') or {}
+    accepts = [c for c in slot_accepts(slot.get('accepts')) if c in counts]
+    if accepts and any(counts[c] for c in accepts):
+        # A slot accepting several types shows only some on a page; those are what render.
+        return {'rendered': True, 'renderedAccepts': [c for c in accepts if counts[c]]}
+    if accepts and not any(counts[c] for c in accepts):
+        return {'rendered': False,
+                'renderedEvidence': f"Twig debug on {evidence.get('page')}: the parent rendered "
+                                    f"{evidence['parentRenders']} time(s) and no {', '.join(accepts)} "
+                                    f"template ran inside it; the parent prints the field values itself."}
+    return {'rendered': True}
+
+
 def native_component(build: dict, block: dict, fields: list[dict], relationships: list[dict],
                      slots: list[dict]) -> dict:
     """The build record's native-component section, from what the block step measured on
@@ -81,6 +100,8 @@ def generate(project: Path) -> list[tuple[str, Path, str, str | None]]:
         return load_json(project / 'figma/results' / (safe(step) + '.json'))
     pages = result('pages')['pages']
     variables = result('variables')
+    rendering_file = project / 'capture' / 'relationships.json'
+    rendering = load_json(rendering_file) if rendering_file.is_file() else {}
     components = {c['id']: c for c in load_json(project / 'components.json')['components']}
     plans = {p['id']: p for p in load_json(project / 'plan.json').get('plans', [])}
     captures = load_json(project / 'capture-evidence.json')['captures']
@@ -151,7 +172,7 @@ def generate(project: Path) -> list[tuple[str, Path, str, str | None]]:
                   for f in comp.get('fields') or []]
         relationships = [{'field': s['name'], 'accepts': slot_accepts(s.get('accepts')),
                           'cardinality': s.get('cardinality') or 0, 'required': bool(s.get('required')),
-                          'rendered': True} for s in comp.get('slots') or []]
+                          **slot_rendering(rendering.get(cid), s)} for s in comp.get('slots') or []]
         anatomy = {'fields': fields, 'relationships': relationships}
         if not fields and not relationships:
             anatomy['emptyReason'] = 'No authored fields or relationships in the source.'
@@ -189,6 +210,9 @@ def generate(project: Path) -> list[tuple[str, Path, str, str | None]]:
                       'collectionId': build.get('collectionId'),
                       'fonts': build.get('fonts') or {},
                       'missingFonts': build.get('missingFonts') or [],
+                      # A child rendering whose structure differs from the child's master: built as
+                      # it stands rather than as an instance showing other content.
+                      'nestedMismatch': build.get('nestedMismatch') or [],
                       'images': build.get('images') or [],
                       'svgFailures': build.get('svgFailures') or []},
             'documentation': {'anatomy': anatomy, 'breakpointScreenshots': shots},

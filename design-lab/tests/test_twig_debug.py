@@ -131,3 +131,31 @@ class UsageMarkerOrderTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NestingTest(unittest.TestCase):
+    def test_child_renders_are_counted_only_inside_the_parent(self):
+        link = render("paragraph", ["paragraph--link-default.html.twig"], "<a>x</a>")
+        page = ("<html>" + render("block", ["block--banner.html.twig"], "<div>" + link + link + "</div>")
+                + link + render("block", ["block--text.html.twig"], "<p>t</p>") + "</html>")
+        self.assertEqual(twig_debug.renders_within(page, "block:banner", ["paragraph:link_default"]),
+                         {"parentRenders": 1, "children": {"paragraph:link_default": 2}})
+        self.assertEqual(twig_debug.renders_within(page, "block:text", ["paragraph:link_default"]),
+                         {"parentRenders": 1, "children": {"paragraph:link_default": 0}})
+
+    def test_slot_is_data_only_with_proof_and_rendered_otherwise(self):
+        import figma_receipts
+        slot = {"name": "field_links", "accepts": ["paragraph:link_default"]}
+        unseen = {"page": "/p", "parentRenders": 1, "children": {"paragraph:link_default": 0}}
+        self.assertFalse(figma_receipts.slot_rendering(unseen, slot)["rendered"])
+        seen = {**unseen, "children": {"paragraph:link_default": 2}}
+        self.assertTrue(figma_receipts.slot_rendering(seen, slot)["rendered"])
+        self.assertTrue(figma_receipts.slot_rendering(None, slot)["rendered"])
+        self.assertTrue(figma_receipts.slot_rendering({**unseen, "parentRenders": 0}, slot)["rendered"])
+
+    def test_children_are_built_before_parents(self):
+        import figma_build
+        comps = [{"id": "block:banner", "slots": [{"accepts": ["paragraph:link_default"]}]},
+                 {"id": "block:text"}, {"id": "paragraph:link_default"}]
+        order = figma_build.children_first([{"id": c["id"]} for c in comps], comps)
+        self.assertEqual([b["id"] for b in order], ["paragraph:link_default", "block:banner", "block:text"])

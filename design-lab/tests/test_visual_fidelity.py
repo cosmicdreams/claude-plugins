@@ -112,3 +112,64 @@ class FontsCheckTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+def spec_node(path, x, y, width, height, tag="div", **computed):
+    return {"path": path, "tag": tag, "classes": [], "box": {"x": x, "y": y, "width": width, "height": height},
+            "computed": {"display": "block", "backgroundColor": "transparent", "position": "static",
+                         "visibility": "visible", "opacity": "1", **computed}, "declared": {}}
+
+
+class LayoutOrderTest(unittest.TestCase):
+    def merge(self, per_bp):
+        import responsive
+        return responsive.build({"component": "X", "machineName": "x", "measurements": {
+            f"{bp}:default": {"nodes": nodes} for bp, nodes in per_bp.items()}}, "X", "x")
+
+    def test_a_child_that_moves_with_width_appears_in_two_slots(self):
+        def stack(width, media_first):
+            above, content, media = (30, 40, 100)
+            ys = {"media": 0, "above": 100, "content": 130} if media_first else \
+                 {"above": 0, "content": 30, "media": 90}
+            return [spec_node("/div[0]", 0, 0, width, 200),
+                    spec_node("/div[0]/div[1]", 0, ys["above"], width, above, backgroundColor="rgb(1, 2, 3)"),
+                    spec_node("/div[0]/div[2]", 0, ys["content"], width, content, backgroundColor="rgb(4, 5, 6)"),
+                    spec_node("/div[0]/div[3]", 0, ys["media"], width, media, backgroundColor="rgb(7, 8, 9)")]
+        out = self.merge({"desktop": stack(1400, True), "mobile": stack(375, False)})
+        self.assertEqual(out["fallbacks"], [])
+        slots = out["tree"]["children"]
+        self.assertEqual([s["source"].split("#")[0][-6:] for s in slots],
+                         ["div[3]", "div[1]", "div[2]", "div[3]"])
+        self.assertIn("visible", slots[0])
+        self.assertIn("visible", slots[3])
+        self.assertNotIn("visible", slots[1])
+        self.assertEqual(slots[3]["layout"]["padding"]["top"], 20)   # 90 - (30 + 40), mobile only
+
+    def test_positioned_overlap_is_faithful_and_drawn_in_stacking_order(self):
+        nodes = [spec_node("/div[0]", 0, 0, 400, 200),
+                 spec_node("/div[0]/div[1]", 300, 0, 100, 100, position="absolute", zIndex="1",
+                           backgroundColor="rgb(1, 1, 1)"),
+                 spec_node("/div[0]/div[2]", 0, 0, 400, 200, position="relative", zIndex="0",
+                           backgroundColor="rgb(2, 2, 2)"),
+                 spec_node("/div[0]/div[3]", 300, 150, 100, 50, position="absolute", zIndex="auto",
+                           backgroundColor="rgb(3, 3, 3)")]
+        out = self.merge({"desktop": nodes, "mobile": nodes})
+        self.assertEqual(out["fallbacks"], [])
+        order = [c["source"][-6:] for c in out["tree"]["children"]]
+        self.assertEqual(order, ["div[2]", "div[3]", "div[1]"])  # z 0, z auto (later), z 1
+
+    def test_inline_wrapper_without_text_passes_through(self):
+        picture = spec_node("/p", 0, 78, 335, 28, tag="picture", display="inline")
+        self.assertTrue(spec_to_tree.passthrough(picture, True))
+        self.assertFalse(spec_to_tree.passthrough(picture, False))
+        self.assertFalse(spec_to_tree.passthrough({**picture, "text": "Hi"}, True))
+        self.assertFalse(spec_to_tree.passthrough(
+            spec_node("/a", 0, 0, 50, 20, display="inline", backgroundColor="rgb(1, 2, 3)"), True))
+
+    def test_pseudo_icon_rotation_turns_inside_the_svg(self):
+        self.assertEqual(spec_to_tree.rotation("matrix(-1, 0, 0, -1, 0, 0)"), 180)
+        self.assertEqual(spec_to_tree.rotation("none"), 0)
+        link = node("a", fontSize="16px")
+        link["before"] = {"content": CHEVRON, "width": "24px", "height": "24px",
+                          "transform": "matrix(-1, 0, 0, -1, 0, 0)"}
+        self.assertIn('<g transform="rotate(180.0 12.0 12.0)">', spec_to_tree.pseudo_image(link, "before")["svg"])

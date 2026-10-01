@@ -1,5 +1,19 @@
 # Changelog
 
+## 0.15.3
+
+**Fix and rebuild without anyone in Figma; variants, nesting and layout fallbacks resolved from evidence.** On America's Credit Unions: 45 components built (from 36), verify open findings 6 → 5 with variants-are-sets, breakpoint-triad and layout fallbacks cleared and nested-component-coverage from 20 parents to 1.
+
+- `figma_build.py init --rebuild` rebuilds in the same file after a `wipe` step that removes only design-lab's pages and collections; `--iterate` keeps the runner connected between builds. A finished build answers `done` even after templates change, and a build whose templates changed mid-run makes the runner wait rather than close.
+- Inline wrappers with no text of their own pass through (an inline `<picture>` reported a 28px line box around a 188px image); absolutely placed siblings are drawn in CSS stacking order; pseudo-element icons keep their rotation; image and vector leaves bind their width variable, so instances switched to another mode resize them.
+- Measurement records the page backdrop behind each component and `object-position`; the documentation specimen paints the backdrop the live capture shows through transparent areas.
+- Layout: positioned children out of reading order are placed freely without counting as a fallback; a stack whose order changes with width becomes one slot per placement, a moving child in two, each shown only where the site draws it there.
+- Variants: each planned axis's value is read from the rendered classes (`width-default`, `banner-secondary`), unknown values stay unknown; the master becomes the observed variant inside a component set, and Known gaps names each uncaptured option.
+- Nesting: child bundles are tagged during the parent's measurement (`data-design-lab-child`); Twig debug counts each child's own renders inside the parent (`capture/relationships.json`). A subcomponent that renders through its own template is built (library-standard.md section 1.4 amended), children build first, and a parent nests instances that take its rendering's text and images as overrides; a rendering whose structure differs is built as it stands and recorded as `nestedMismatch`. A slot the parent prints itself is recorded as not rendered, with the evidence; for a multi-type slot only the types seen rendering need instances.
+- A child with no example page of its own is captured from inside its parent: its subtree of the parent's measurement and a crop of the parent's screenshots (the occurrence the screenshot shows most of, overhang painted with the child's backdrop).
+- Capture: progress estimates use each component's previous time; records are keyed by what each page script does (`setupKey`), and records made under the old key are upgraded rather than recaptured.
+- Images: a file missing locally is fetched from the public site; an `<img>` with inline SVG data is drawn as vectors. Verify: no breakpoint width order is required (sidebars and grids break any order).
+
 ## 0.15.2
 
 **What the live page draws reaches the Figma master, and the visual comparison measures layout rather than fonts.** On America's Credit Unions this took the components passing the live-capture comparison from 2 of 36 to 18 of 36.

@@ -639,26 +639,26 @@ def check_block_breakpoint_triad(state, rep):
                   for role in ('Mobile', 'Tablet')}
         widths['Desktop'] = next((node for node in nodes if
                                   node.get('id') == component.get('id') and
-                                  node.get('type') == 'COMPONENT'), None)
+                                  node.get('type') in ('COMPONENT', 'COMPONENT_SET')), None)
         def instance_mode(role):
             node = widths[role] or {}
             explicit = node.get('explicitModes') or {}
+            # An instance of a set's variant belongs to the set.
             return (node.get('type') == 'INSTANCE' and
-                    node.get('mainComponentId') == component.get('id') and
+                    component.get('id') in (node.get('mainComponentId'), node.get('mainComponentSetId')) and
                     explicit.get(collection.get('id')) == modes.get(role + ' ' +
                     {'Mobile': '375', 'Tablet': '800'}[role] + 'px'))
         if (mode_order != ['Desktop 1400px', 'Tablet 800px', 'Mobile 375px'] or
                 len(nodes) != 3 or not all(widths.values()) or
-                widths['Desktop'].get('type') != 'COMPONENT' or
+                widths['Desktop'].get('type') not in ('COMPONENT', 'COMPONENT_SET') or
                 widths['Desktop'].get('id') != component.get('id') or
                 not all(instance_mode(role) for role in ('Mobile', 'Tablet')) or
                 not all(isinstance(widths[role].get('width'), (int, float)) and
                         widths[role]['width'] > 0 for role in widths) or
-                # Desktop is not always widest: a component in a sidebar or a two-column
-                # layout at desktop is narrower than the same component full width at tablet
-                # (one site: text 623 desktop, 760 tablet). The master carries the measured
-                # desktop width; only mobile-narrower-than-tablet holds everywhere.
-                not (widths['Mobile']['width'] < widths['Tablet']['width']) or
+                # No width order holds in general: a sidebar component is narrower at desktop
+                # than at tablet (one site: text 623 and 760), and a grid item narrower at tablet
+                # than at mobile (factoids three to a row at tablet, full width at mobile). Each
+                # column carries its own measured width; that each is a real width is checked above.
                 captures != {'mobile', 'tablet', 'desktop'} or
                 (card or {}).get('breakpointScreenshotCount') != 3):
             bad.append(component.get('name'))

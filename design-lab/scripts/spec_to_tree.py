@@ -142,15 +142,47 @@ def build_index(nodes: list[dict]) -> dict[str, list[dict]]:
     return children
 
 
-def passthrough(node: dict) -> bool:
-    """A wrapper that draws nothing itself but holds drawn children: `<picture>` around an
-    `<img>`, or `display: contents`. Zero-size, yet not hidden, so its children still show."""
+def draws_nothing(node: dict) -> bool:
+    c = node["computed"]
+    return (parse_color(c.get("backgroundColor")) is None
+            and c.get("backgroundImage", "none") in ("none", "")
+            and not any(px(c.get(f"border{s}Width")) > 0 and c.get(f"border{s}Style") not in (None, "none", "hidden")
+                        for s in ("Top", "Right", "Bottom", "Left"))
+            and c.get("boxShadow", "none") in ("none", ""))
+
+
+def passthrough(node: dict, has_children: bool = True) -> bool:
+    """A wrapper that draws nothing itself but holds drawn children, so its children belong
+    to its parent: `<picture>` around an `<img>`, `display: contents`, a zero-size wrapper, or
+    an inline element with no text of its own. An inline element's box is a line fragment (one
+    site's `<picture>`: 28px tall at y 78 around a 188px image at y 0), never a container."""
+    if not has_children:
+        return False
     c, b = node["computed"], node["box"]
     if c.get("display") == "none" or c.get("visibility") == "hidden":
         return False
     if float(c.get("opacity") or 1) == 0:
         return False
-    return c.get("display") == "contents" or b["width"] <= 1.5 or b["height"] <= 1.5
+    if c.get("display") == "contents" or b["width"] <= 1.5 or b["height"] <= 1.5:
+        return True
+    return (c.get("display") == "inline" and not node.get("text") and not node.get("inlineText")
+            and draws_nothing(node))
+
+
+def stacking(node: dict) -> tuple[int, int]:
+    """CSS painting order among siblings: negative z-index, then in-flow boxes, then
+    positioned boxes with z-index auto or 0, then positive z-index; document order within."""
+    c = node["computed"]
+    positioned = c.get("position") not in (None, "static")
+    try:
+        z = int(c.get("zIndex"))
+    except (TypeError, ValueError):
+        z = 0
+    if positioned and z < 0:
+        return (0, z)
+    if not positioned:
+        return (1, 0)
+    return (3, z) if z > 0 else (2, 0)
 
 
 def _length(value: str, whole: float) -> float:
@@ -231,9 +263,26 @@ def pseudo_image(node: dict, which: str) -> dict | None:
         data = url.split(",", 1)[1]
         out["svg"] = (base64.b64decode(data).decode("utf-8", "replace") if ";base64" in url.split(",", 1)[0]
                       else urllib.parse.unquote(data))
+        angle = rotation(pseudo.get("transform"))
+        if angle:
+            # Turned inside the SVG, about its centre, so the layer keeps its box in auto layout.
+            out["svg"] = re.sub(r"(<svg\b[^>]*>)(.*)(</svg>)",
+                                lambda m: '%s<g transform="rotate(%s %s %s)">%s</g>%s' % (
+                                    m.group(1), angle, width / 2, height / 2, m.group(2), m.group(3)),
+                                out["svg"], count=1, flags=re.S)
     else:
         out["src"] = url
     return out
+
+
+def rotation(transform: str | None) -> float:
+    """Clockwise degrees from a computed `transform` (`matrix(a, b, c, d, e, f)`), else 0."""
+    import math
+    m = re.match(r"matrix\(\s*([-\d.e]+),\s*([-\d.e]+),", transform or "")
+    if not m:
+        return 0
+    angle = round(math.degrees(math.atan2(float(m.group(2)), float(m.group(1)))), 2)
+    return 0 if abs(angle) < 0.01 else angle
 
 
 def style_of(node: dict) -> dict:

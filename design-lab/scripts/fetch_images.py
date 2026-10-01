@@ -87,11 +87,21 @@ def convert(data: bytes, ctype: str) -> tuple[bytes, str, int | None, int | None
     return buf.getvalue(), "image/png", width, height
 
 
+def public_url(url: str, base: str, public: str | None) -> str | None:
+    """The same path on the public site, for a local file that is missing."""
+    if not public or not url.startswith(base.rstrip("/") + "/"):
+        return None
+    return public.rstrip("/") + url[len(base.rstrip("/")):]
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     ap.add_argument("tree")
     ap.add_argument("--base-url", required=True)
     ap.add_argument("--out", required=True)
+    ap.add_argument("--fallback-base-url",
+                    help="public site, tried when the local copy lacks a file (a production database "
+                         "whose files were not copied)")
     ns = ap.parse_args()
     tree = json.loads(Path(ns.tree).read_text())
     found: set[str] = set()
@@ -108,8 +118,15 @@ def main() -> int:
         try:
             data, ctype, width, height = convert(*fetch(url))
         except Exception as e:  # one bad source is a recorded failure, not a stopped build
-            manifest.append({"src": src, "error": f"{type(e).__name__}: {e}"[:300]})
-            continue
+            public = public_url(url, ns.base_url, ns.fallback_base_url)
+            try:
+                if not public:
+                    raise e
+                data, ctype, width, height = convert(*fetch(public))
+            except Exception as again:
+                manifest.append({"src": src, "error": f"{type(e).__name__}: {e}"[:300]
+                                 + (f"; public site: {type(again).__name__}" if public else "")})
+                continue
         stem = hashlib.sha256(src.encode()).hexdigest()[:16]
         ext = {"image/png": "png", "image/jpeg": "jpg", "image/gif": "gif"}[ctype]
         path = out / f"{stem}.{ext}"

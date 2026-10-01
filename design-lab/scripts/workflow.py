@@ -412,8 +412,14 @@ def plan_command(args):
     capture_path = path.parent / "capture-evidence.json"
     renders = load_json(render_path).get("items", {}) if render_path.is_file() else {}
     captures = load_json(capture_path).get("captures", {}) if capture_path.is_file() else {}
+    relationships_path = path.parent / "capture" / "relationships.json"
+    relationships = load_json(relationships_path) if relationships_path.is_file() else {}
+    nested = {}
+    for evidence in relationships.values():
+        for child, count in (evidence.get("children") or {}).items():
+            nested[child] = nested.get(child, 0) + count
     plans = [plan_component(component, renders.get(component["id"]),
-                            captures.get(component["id"]))
+                            captures.get(component["id"]), nested.get(component["id"], 0))
              for component in components["components"]]
     document = {"standardVersion": project["standardVersion"], "generatedAt": now(),
                 "maxVariants": 64, "plans": plans}

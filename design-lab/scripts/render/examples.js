@@ -45,7 +45,7 @@ for (const p of ARGS.pages) {
       }
       const master = await figma.getNodeByIdAsync(item.componentId);
       if (!master) continue;
-      const inst = master.createInstance();
+      const inst = (master.type === 'COMPONENT_SET' ? master.defaultVariant : master).createInstance();
       frame.appendChild(inst);
       inst.resize(Math.min(width, item[key] || master.width), inst.height);
       ids.push(inst.id);

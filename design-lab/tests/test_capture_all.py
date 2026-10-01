@@ -206,3 +206,66 @@ class CaptureAllTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DerivedChildTest(unittest.TestCase):
+    def test_a_tagged_child_gets_its_parents_subtree_and_crop(self):
+        from PIL import Image
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            measurements, shots, records = (root / name for name in ("m", "s", "r"))
+            for d in (measurements, shots, records):
+                d.mkdir()
+            by_id = {"block:p": {"id": "block:p", "slots": [{"accepts": ["paragraph:c"]}]},
+                     "paragraph:c": {"id": "paragraph:c", "label": "C", "machineName": "c"}}
+            nodes = lambda: [{"path": "/div[0]", "box": {"x": 0, "y": 0, "width": 100, "height": 60}, "attributes": {}},
+                             {"path": "/div[0]/div[1]", "box": {"x": 10, "y": 20, "width": 30, "height": 20},
+                              "attributes": {"data-design-lab-child": "paragraph:c"}},
+                             {"path": "/div[0]/div[1]/p[2]", "box": {"x": 12, "y": 22, "width": 5, "height": 5}, "attributes": {}}]
+            (measurements / "block__p.spec.json").write_text(json.dumps({"path": "/x", "measurements": {
+                f"{vp}:default": {"nodes": nodes()} for vp in capture_all.VIEWPORTS}}))
+            rows = []
+            for vp in capture_all.VIEWPORTS:
+                Image.new("RGB", (100, 60), "white").save(shots / f"block__p__{vp}.png")
+                rows.append({"componentId": "block:p", "file": f"block__p__{vp}.png", "viewport": vp.title(),
+                             "state": "default", "width": 100, "height": 60})
+            (records / "block__p.json").write_text(json.dumps({"status": "complete", "configHash": "h", "rows": rows}))
+            out = capture_all.derive_children(by_id, set(by_id), [(None, {"componentId": "block:p"}, "h")],
+                                              records, measurements, shots, 1)
+            self.assertEqual(list(out), ["paragraph:c"])
+            self.assertEqual({r["derivedFrom"] for r in out["paragraph:c"]}, {"block:p"})
+            with Image.open(shots / "paragraph__c__desktop.png") as crop:
+                self.assertEqual(crop.size, (30, 20))
+            spec = json.loads((measurements / "paragraph__c.spec.json").read_text())
+            sub = spec["measurements"]["desktop:default"]["nodes"]
+            self.assertEqual([(n["path"], n["box"]["x"], n["box"]["y"]) for n in sub],
+                             [("/div[1]", 0, 0), ("/div[1]/p[2]", 2, 2)])
+
+
+class NestedPlanTest(unittest.TestCase):
+    def test_a_rendered_subcomponent_is_built_and_a_data_only_one_is_mapped(self):
+        import plan
+        component = {"id": "paragraph:c", "label": "C", "fields": [], "slots": [],
+                     "containedBy": ["block:p"], "usage": {"placements": 0, "structuralReferences": 3}}
+        capture = {"images": [{"viewport": v, "state": "default"} for v in ("Desktop", "Tablet", "Mobile")]}
+        rendered = plan.plan_component(component, None, capture, nested_renders=3)
+        printed = plan.plan_component(component, None, capture, nested_renders=0)
+        self.assertEqual(printed["libraryRole"], "subcomponent")
+        self.assertEqual((rendered["verdict"], printed["verdict"]), ("build", "map"))
+
+
+class RecordKeyTest(unittest.TestCase):
+    def test_a_script_rewrite_that_does_the_same_keeps_the_record(self):
+        old = {"componentId": "x", "states": [{"name": "default", "setup": "(a)", "setupKey": {"own": "reveal"}}]}
+        new = {**old, "states": [{"name": "default", "setup": "(() => a)()", "setupKey": {"own": "reveal"}}]}
+        self.assertEqual(capture_all.config_hash(old, 1), capture_all.config_hash(new, 1))
+        changed = {**old, "states": [{"name": "default", "setup": "(a)", "setupKey": {"own": "template"}}]}
+        self.assertNotEqual(capture_all.config_hash(old, 1), capture_all.config_hash(changed, 1))
+        with tempfile.TemporaryDirectory() as folder:
+            record = Path(folder) / "x.json"
+            plain = {**old, "states": [{"name": "default", "setup": "(a)"}]}
+            record.write_text(json.dumps({"status": "complete",
+                                          "configHash": capture_all.legacy_hash(plain, 1)}))
+            digest = capture_all.config_hash(old, 1)
+            self.assertTrue(capture_all.record_is_current(record, digest, capture_all.legacy_hash(old, 1)))
+            self.assertEqual(json.loads(record.read_text())["configHash"], digest)

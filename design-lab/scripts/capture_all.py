@@ -11,6 +11,7 @@ candidate page, which finds broken selectors and hidden instances in seconds per
 import argparse
 import hashlib
 import json
+import re
 import shutil
 import subprocess
 import sys
@@ -19,6 +20,7 @@ from glob import escape as glob_escape
 from pathlib import Path
 
 from artifact_contracts import write_json
+import spec_to_tree
 
 
 SCRIPTS = Path(__file__).resolve().parent
@@ -48,8 +50,20 @@ def stem(component_id):
 
 
 def config_hash(cfg, scale):
-    """What an outcome was produced from: the config and the screenshot scale."""
-    return hashlib.sha256(json.dumps([cfg, scale], sort_keys=True).encode()).hexdigest()
+    """What an outcome was produced from: the config and the screenshot scale, with each page
+    script stood in for by what it does (`setupKey`), so a rewrite of the script that changes
+    nothing it does keeps every recorded capture."""
+    keyed = {**cfg, "states": [{k: v for k, v in state.items() if not (k == "setup" and "setupKey" in state)}
+                               for state in cfg.get("states") or []]}
+    return hashlib.sha256(json.dumps([keyed, scale], sort_keys=True).encode()).hexdigest()
+
+
+def legacy_hash(cfg, scale):
+    """The 0.15.1-0.15.2 key: the script text itself. A record made under it, from a config
+    whose script did the same thing, is upgraded rather than recaptured."""
+    plain = {**cfg, "states": [{k: v for k, v in state.items() if k != "setupKey"}
+                               for state in cfg.get("states") or []]}
+    return hashlib.sha256(json.dumps([plain, scale], sort_keys=True).encode()).hexdigest()
 
 
 def read_record(record_path):
@@ -87,8 +101,11 @@ def measurement_failures(spec_path):
     return failures
 
 
-def record_is_current(record_path, digest):
+def record_is_current(record_path, digest, legacy=None):
     record = read_record(record_path)
+    if record and legacy and record.get("configHash") == legacy:
+        record["configHash"] = digest
+        write_json(record_path, record)
     return bool(record) and record.get("configHash") == digest and record.get("status") == "complete"
 
 
@@ -179,6 +196,127 @@ def screenshots(cfg, configs, shots, args):
     return rows
 
 
+def fetch(url):
+    import ssl, urllib.request
+    context = ssl._create_unverified_context() if ".ddev.site" in url or "localhost" in url else None
+    try:
+        with urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": "design-lab"}),
+                                    timeout=30, context=context) as response:
+            return response.read().decode("utf-8", "replace")
+    except Exception:
+        return ""
+
+
+def write_relationships(ready, by_id, records, capture_dir, site_url):
+    """Whether each parent's slots render their children through the children's own templates,
+    on the page the parent was measured on. Needs Twig debug; without it nothing is claimed."""
+    import twig_debug
+    out = {}
+    for _path, cfg, _digest in ready:
+        cid = cfg["componentId"]
+        children = sorted({c for slot in by_id[cid].get("slots") or [] for c in slot.get("accepts") or []
+                           if ":" in c and not c.startswith("sdc.")})
+        record = read_record(records / f"{stem(cid)}.json") or {}
+        if not children or not record.get("path"):
+            continue
+        html = fetch(site_url.rstrip("/") + "/" + record["path"].lstrip("/"))
+        if not twig_debug.enabled(html):
+            continue
+        out[cid] = {"page": record["path"], **twig_debug.renders_within(html, cid, children)}
+    write_json(capture_dir / "relationships.json", out)
+
+
+def derive_children(by_id, eligible, ready, records, measurements, shots, scale):
+    """Measurements and screenshots for a child bundle that has no example page of its own
+    but renders, through its own template, inside a captured parent: its subtree of the
+    parent's measurement (tagged `data-design-lab-child` during capture), rebased to its own
+    box, and the same box cropped from the parent's screenshots. The same rendering, so the
+    same evidence. Returns capture rows by child id; the parent is named in each row."""
+    from PIL import Image
+    captured = {cfg["componentId"] for _, cfg, _ in ready}
+    rows_by_child = {}
+    for _path, cfg, digest in ready:
+        parent = cfg["componentId"]
+        record = read_record(records / f"{stem(parent)}.json") or {}
+        spec_file = measurements / f"{stem(parent)}.spec.json"
+        if record.get("status") != "complete" or record.get("configHash") != digest or not spec_file.is_file():
+            continue
+        spec = json.loads(spec_file.read_text())
+        children = {c for slot in by_id[parent].get("slots") or [] for c in slot.get("accepts") or []}
+        for child in sorted(children - captured - set(rows_by_child)):
+            if child not in eligible or child not in by_id:
+                continue
+            derived, boxes = {}, {}
+            for key, m in (spec.get("measurements") or {}).items():
+                nodes = m.get("nodes") or []
+                # The first occurrence the parent's screenshot actually shows: a carousel's later
+                # slides are drawn off to the side, outside the parent's box.
+                frame = m.get("rootBox") or (nodes[0]["box"] if nodes else {})
+                width, height = frame.get("width", 0), frame.get("height", 0)
+                # A grid's gutters let an item overhang the parent a little; take the occurrence
+                # most of which the screenshot shows, at least four fifths of it.
+                def shown(b):
+                    w = max(0, min(b["x"] + b["width"], width) - max(b["x"], 0))
+                    h = max(0, min(b["y"] + b["height"], height) - max(b["y"], 0))
+                    return w * h / max(1, b["width"] * b["height"])
+                tagged = [n for n in nodes if (n.get("attributes") or {}).get("data-design-lab-child") == child]
+                root = max(tagged, key=lambda n: shown(n["box"]), default=None)
+                if root is not None and shown(root["box"]) < 0.8:
+                    root = None
+                if root is None:
+                    break
+                ox, oy = root["box"]["x"], root["box"]["y"]
+                sub = [{**n, "path": n["path"][len(root["path"]) - len(root["path"].rsplit("/", 1)[1]) - 1:],
+                        "box": {**n["box"], "x": round(n["box"]["x"] - ox, 2), "y": round(n["box"]["y"] - oy, 2)}}
+                       for n in nodes if n["path"] == root["path"] or n["path"].startswith(root["path"] + "/")]
+                # What shows through the child is its nearest coloured ancestor inside the
+                # parent (a yellow panel), and only failing that, what showed through the parent.
+                by_path = {n["path"]: n for n in nodes}
+                backdrop, up = m.get("backdrop"), root["path"].rsplit("/", 1)[0]
+                while up:
+                    color = ((by_path.get(up) or {}).get("computed") or {}).get("backgroundColor") or ""
+                    if color and color != "transparent" and not re.match(r"rgba\(.*,\s*0\)$", color):
+                        backdrop = color
+                        break
+                    up = up.rsplit("/", 1)[0]
+                derived[key] = {"rootBox": {"width": root["box"]["width"], "height": root["box"]["height"]},
+                                "nodes": sub, "backdrop": backdrop}
+                boxes[key.split(":")[0]] = root["box"]
+            if set(boxes) != set(VIEWPORTS):
+                continue
+            rows = []
+            for row in record.get("rows") or []:
+                viewport = (row.get("viewport") or "").lower()
+                if row.get("error") or row.get("state") != "default" or viewport not in boxes:
+                    continue
+                b = boxes[viewport]
+                name = f"{stem(child)}__{viewport}.png"
+                with Image.open(shots / row["file"]) as image:
+                    # The overhang the parent's screenshot does not hold is painted with what
+                    # shows behind the child, so the image keeps the child's measured size.
+                    box = [round(v * scale) for v in (b["x"], b["y"], b["x"] + b["width"], b["y"] + b["height"])]
+                    behind = spec_to_tree.parse_color(derived[f"{viewport}:default"].get("backdrop")) or {"hex": "#ffffff"}
+                    canvas = Image.new("RGB", (box[2] - box[0], box[3] - box[1]), behind["hex"])
+                    clip = (max(0, box[0]), max(0, box[1]), min(image.width, box[2]), min(image.height, box[3]))
+                    if clip[2] > clip[0] and clip[3] > clip[1]:
+                        canvas.paste(image.crop(clip).convert("RGB"), (clip[0] - box[0], clip[1] - box[1]))
+                    canvas.save(shots / name)
+                rows.append({**row, "componentId": child, "machine": by_id[child].get("machineName"),
+                             "file": name, "width": round(b["width"]), "height": round(b["height"]),
+                             "selector": f'[data-design-lab-child="{child}"]', "derivedFrom": parent})
+            if len(rows) != len(VIEWPORTS):
+                continue
+            write_json(measurements / f"{stem(child)}.spec.json", {
+                "component": by_id[child].get("label") or child,
+                "machineName": by_id[child].get("machineName"),
+                "source": {"sourceRef": by_id[child].get("sourceRef")},
+                "path": spec.get("path"), "verificationUrl": spec.get("verificationUrl"),
+                "linkUrl": spec.get("linkUrl"), "rootSelector": f'[data-design-lab-child="{child}"]',
+                "derivedFrom": parent, "measurements": derived})
+            rows_by_child[child] = rows
+    return rows_by_child
+
+
 def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -224,7 +362,7 @@ def main(argv=None):
     if unknown:
         raise SystemExit("unknown component id(s): " + ", ".join(unknown))
     eligible = {cid for cid, c in by_id.items() if not globally_excluded(c)}
-    problems, ready = {}, []
+    problems, ready, legacy = {}, [], {}
     for path in sorted(configs.glob("*.json")):
         cfg = json.loads(path.read_text(encoding="utf-8"))
         cid = cfg["componentId"]
@@ -238,14 +376,16 @@ def main(argv=None):
             path.unlink()
         else:
             ready.append((path, cfg, config_hash(cfg, args.scale)))
+            legacy[cid] = legacy_hash(cfg, args.scale)
 
-    pending, complete = [], 0
+    pending, complete, prior_seconds = [], 0, {}
     for path, cfg, digest in ready:
         record_path = records / f"{stem(cfg['componentId'])}.json"
         chosen = selected is None or cfg["componentId"] in selected
+        prior_seconds[cfg["componentId"]] = (read_record(record_path) or {}).get("seconds")
         if chosen and args.fresh:
             record_path.unlink(missing_ok=True)
-        current = record_is_current(record_path, digest)
+        current = record_is_current(record_path, digest, legacy.get(cfg["componentId"]))
         complete += current
         if chosen and (args.check or not current):
             pending.append((path, cfg, digest))
@@ -263,6 +403,9 @@ def main(argv=None):
         return 1 if failed else 0
 
     started_all = time.monotonic()
+    # What each pending component took last time, when a record says; slow pages cluster (one
+    # site's event pages take 110s against 20s elsewhere), so the running average misleads.
+    previous = prior_seconds
     for number, (path, cfg, digest) in enumerate(pending, 1):
         started = time.monotonic()
         cid = cfg["componentId"]
@@ -307,12 +450,15 @@ def main(argv=None):
         record["seconds"] = round(time.monotonic() - started, 1)
         write_json(records / f"{stem(cid)}.json", record)
         elapsed = time.monotonic() - started_all
-        remaining = elapsed / number * (len(pending) - number)
+        rate = elapsed / number
+        remaining = sum(previous.get(c["componentId"]) or rate for _, c, _ in pending[number:])
         print(f"[{number}/{len(pending)}] {cid}: {record['status']} in {record['seconds']}s"
               + (" (revealed)" if record.get("revealed") else "")
               + f" — about {remaining / 60:.0f} min left"
               + ("" if record["status"] == "complete" else f" ({record['problems'][0]})"),
               flush=True)
+
+    write_relationships(ready, by_id, records, capture_dir, args.site_url)
 
     # Evidence is assembled from every current record, so a partial run (`--only`, or an
     # interrupted one resumed later) still produces evidence for everything finished so far.
@@ -326,6 +472,10 @@ def main(argv=None):
         rows.extend(r for r in record["rows"] if not r.get("error"))
         if record["problems"]:
             problems[cfg["componentId"]] = "; ".join(record["problems"])
+    for child, derived_rows in derive_children(by_id, eligible, ready, records, measurements,
+                                               shots, args.scale).items():
+        rows.extend(derived_rows)
+        problems.pop(child, None)
     index_path = shots / "index.json"
     write_json(index_path, rows)
 

@@ -106,7 +106,7 @@ def classify(c, rendering=None, capture=None):
     return role, identity, captured, render_signals
 
 
-def plan_component(c, rendering=None, capture=None):
+def plan_component(c, rendering=None, capture=None, nested_renders=0):
     axes, props, flags, skipped = [], [], [], []
     for f in c['fields']:
         t, n, flag = treat(f)
@@ -138,7 +138,11 @@ def plan_component(c, rendering=None, capture=None):
     elif not captured:
         refusal = ('no component-scoped screenshot exists; capture visual and behavioral '
                    'states before construction')
-    verdict = ('map' if role == 'subcomponent' and not refusal
+    # A subcomponent whose own template renders inside its parents (Twig debug counted it on
+    # the parents' pages) is a reusable visual component: built, so each parent can nest an
+    # instance of it. One its parents print from field values stays mapped into them.
+    nested = role == 'subcomponent' and nested_renders > 0
+    verdict = ('map' if role == 'subcomponent' and not nested and not refusal
                else 'refuse' if refusal else 'build')
     return {
         'id': c['id'], 'label': c['label'],

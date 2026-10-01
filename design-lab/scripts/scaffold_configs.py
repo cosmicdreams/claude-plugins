@@ -115,6 +115,17 @@ def component_selector(component_id, source_strategy):
     return None
 
 
+def own_script(component_id, marker_kind, sel, children):
+    """The page setup: the component's own script (which may reveal a hidden tab), then the
+    tags on its child bundles' renders, returning the component's own result."""
+    own = (twig_debug.tag_script(component_id) if marker_kind == 'template'
+           else twig_debug.reveal_script(sel))
+    script = twig_debug.child_tag_scripts(children)
+    if not script:
+        return '(' + own.strip() + ')'      # the form every capture before this one recorded
+    return '(() => { const own = ' + own.strip() + '; ' + script + ' return own; })()'
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('components')
@@ -142,6 +153,8 @@ def main():
             continue
 
         example = first_example(c.get('usage') or {})
+        children = sorted({cid for slot in c.get('slots') or [] for cid in slot.get('accepts') or []
+                           if cid != '*' and cid != component_id})
         marker = (example or {}).get('marker')
         marker_kind = (example or {}).get('markerKind')
         sel = component_selector(component_id, strategy)
@@ -171,8 +184,13 @@ def main():
                                (display_path or '').lstrip('/')) if display_path else None,
             'rootSelector': sel,
             'nth': 0,
-            'states': [{'name': 'default', 'setup': twig_debug.tag_script(component_id)
-                        if marker_kind == 'template' else twig_debug.reveal_script(sel)}
+            # Child bundles are tagged first; the component's own script runs last, because
+            # its result (`revealed`) is what the selector check reads.
+            'states': [{'name': 'default', 'setup': own_script(component_id, marker_kind, sel, children),
+                        # What the setup does, for deciding whether a recorded capture is still
+                        # good: rewriting the script without changing this keeps it.
+                        'setupKey': {'own': 'template' if marker_kind == 'template' else 'reveal',
+                                     'children': [c for c in children if ':' in c and not c.startswith('sdc.')]}}
                        if sel else {'name': 'default'}],
         }
         gaps = []
