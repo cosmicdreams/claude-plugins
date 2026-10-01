@@ -27,15 +27,25 @@ def subtree(spec: dict, child: str) -> tuple[dict, dict] | None:
     the parent's screenshot shows most of, or None unless every width has one at least four
     fifths shown. A carousel's later slides sit off to the side; a grid's gutters let an item
     overhang a little."""
-    derived, boxes = {}, {}
-    for key, m in (spec.get("measurements") or {}).items():
+    # One occurrence for every width: the same element, so the widths merge into one tree. (Each
+    # width picking its own best occurrence merged three different cards, each node shown at
+    # one width only.) The occurrence shown best at its worst width, at least four fifths.
+    shown_at: dict[str, list[float]] = {}
+    measurements = spec.get("measurements") or {}
+    for key, m in measurements.items():
         nodes = m.get("nodes") or []
         frame = m.get("rootBox") or (nodes[0]["box"] if nodes else {})
-        width, height = frame.get("width", 0), frame.get("height", 0)
-        tagged = [n for n in nodes if (n.get("attributes") or {}).get("data-design-lab-child") == child]
-        root = max(tagged, key=lambda n: _shown(n["box"], width, height), default=None)
-        if root is None or _shown(root["box"], width, height) < 0.8:
-            return None
+        for n in nodes:
+            if (n.get("attributes") or {}).get("data-design-lab-child") == child:
+                shown_at.setdefault(n["path"], []).append(_shown(n["box"], frame.get("width", 0), frame.get("height", 0)))
+    everywhere = {path: min(v) for path, v in shown_at.items() if len(v) == len(measurements)}
+    if not everywhere or max(everywhere.values()) < 0.8:
+        return None
+    chosen = max(everywhere, key=lambda path: (everywhere[path], -list(everywhere).index(path)))
+    derived, boxes = {}, {}
+    for key, m in measurements.items():
+        nodes = m.get("nodes") or []
+        root = next(n for n in nodes if n["path"] == chosen)
         ox, oy = root["box"]["x"], root["box"]["y"]
         cut = len(root["path"]) - len(root["path"].rsplit("/", 1)[1]) - 1
         sub = [{**n, "path": n["path"][cut:],
