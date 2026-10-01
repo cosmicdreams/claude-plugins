@@ -13,7 +13,12 @@ if (figma.fileKey && ARGS.fileKey && figma.fileKey !== ARGS.fileKey) {
 const result = { removedPages: [], clearedCover: 0, removedCollections: [], foreign: [] };
 /* Refuse before touching anything: a page design-lab did not create means this is not a file
    the run owns outright. */
-result.foreign = figma.root.children.filter((p) => !p.getSharedPluginData('designlab', 'page')).map((p) => p.name);
+const others = figma.root.children.filter((p) => !p.getSharedPluginData('designlab', 'page'));
+for (const p of others) await p.loadAsync();
+/* An empty page someone added (a note while showing the file) is not work to protect or remove:
+   it is left in place. A page with anything on it stops the wipe. */
+result.kept = others.filter((p) => p.children.length === 0).map((p) => p.name);
+result.foreign = others.filter((p) => p.children.length > 0).map((p) => p.name);
 if (result.foreign.length) {
   throw new Error(`wipe: the file holds pages design-lab did not create (${result.foreign.join(', ')}); `
     + 'rebuild in place only in a file this run owns');
@@ -21,6 +26,7 @@ if (result.foreign.length) {
 const cover = figma.root.children.find((p) => p.getSharedPluginData('designlab', 'page') === 'Cover');
 if (cover) await figma.setCurrentPageAsync(cover);
 for (const page of [...figma.root.children]) {
+  if (!page.getSharedPluginData('designlab', 'page')) continue;
   if (page === cover) {
     await page.loadAsync();
     for (const child of [...page.children]) { child.remove(); result.clearedCover++; }

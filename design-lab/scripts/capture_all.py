@@ -29,8 +29,18 @@ NO_EVIDENCE = "Not built — no visual evidence"
 VIEWPORTS = ("desktop", "tablet", "mobile")
 
 
+# A browser step can hang (a page script that never returns has no timeout of its own); one
+# hung page must cost one component, not stop the run. Seconds per script.
+LIMITS = {"measure.mjs": 300, "capture.mjs": 600, "check_selectors.mjs": 1800}
+
+
 def run(command, cwd=None):
-    return subprocess.run(command, cwd=cwd, text=True, capture_output=True)
+    limit = LIMITS.get(Path(command[1]).name) if len(command) > 1 else None
+    try:
+        return subprocess.run(command, cwd=cwd, text=True, capture_output=True, timeout=limit)
+    except subprocess.TimeoutExpired as expired:
+        return subprocess.CompletedProcess(command, 124, expired.stdout or "",
+                                           f"{Path(command[1]).name} stopped after {limit}s with no result")
 
 
 def check(result, label):

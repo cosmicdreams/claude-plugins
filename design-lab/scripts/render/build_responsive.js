@@ -276,8 +276,12 @@ async function build(spec, parent, parentAuto) {
   }
   node.name = spec.name;
   parent.appendChild(node);
-  if (!parentAuto) { node.x = spec.x || 0; node.y = spec.y || 0; }
-  size(node, spec, parentAuto, spec.kind === 'text');
+  /* Absolutely positioned on the site (a card laid over a photo, a decorative pseudo-element):
+     out of the auto layout flow, at its measured offset. */
+  const absolute = Boolean(spec.absolute && parentAuto);
+  if (absolute) node.layoutPositioning = 'ABSOLUTE';
+  if (!parentAuto || absolute) { node.x = spec.x || 0; node.y = spec.y || 0; }
+  size(node, spec, parentAuto && !absolute, spec.kind === 'text');
   if (spec.visible !== undefined) { if (isVar(spec.visible)) node.setBoundVariable('visible', vars[spec.visible.var]); else node.visible = spec.visible; }
   report.created++;
   if (spec.kind === 'frame' && !master) {

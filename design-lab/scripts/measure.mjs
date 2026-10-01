@@ -44,7 +44,7 @@ const VIEWPORTS = config.viewports ?? [
 /* Properties worth carrying into Figma. Anything not here has no Figma analogue
    or is always inherited from a parent that already records it. */
 const PROPS = [
-  'display', 'position', 'boxSizing', 'overflow',
+  'display', 'position', 'top', 'right', 'bottom', 'left', 'boxSizing', 'overflow',
   'flexDirection', 'flexWrap', 'justifyContent', 'alignItems', 'alignSelf',
   'gap', 'rowGap', 'columnGap', 'flexGrow', 'flexShrink', 'flexBasis',
   'gridTemplateColumns', 'gridTemplateRows',

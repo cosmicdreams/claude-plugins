@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.15.5
+
+**Positioned layers, decorations, transformed tracks and embeds drawn where the site draws them; capture can no longer hang.** On America's Credit Unions: verify open findings 3 → 2 (fonts waived by decision); live-capture comparison 25 → 27 of 46, with five components newly passing at desktop and two passing outright.
+
+- Absolutely positioned children no longer shape their parent's flow: the layout comes from the in-flow children, and the positioned ones are drawn over it as absolute children (`layoutPositioning: ABSOLUTE`) at their measured offsets, slotted into the layer order by CSS stacking.
+- Decorative `::before`/`::after` boxes (empty content, a background colour, absolutely positioned) become layers at their computed offsets, including any translate, cropped to the component, painted ahead of the element's children. Measurement records `top`, `right`, `bottom` and `left`.
+- A child moved by a CSS translate (a carousel's slide track) puts its parent in free placement, so the slide in view stays in view.
+- Children drawn in a different order than the DOM (`row-reverse`, `order`), the same at every width, are laid out in drawn order.
+- Embedded documents (iframes, video) show their own capture crop at each breakpoint, each visible only at its width, since another document reflows by width.
+- Rebuild in place leaves an empty page someone added (a note while showing the file) where it is, in both the wipe and the page step; a foreign page with content still stops the build.
+- Capture bounds every browser step (measure 5 minutes, screenshots 10): a page script that never returns now fails one component instead of stopping the run.
+
 ## 0.15.4
 
 **Every layout a component renders in is a variant, and the page names everything unresolved.** On America's Credit Unions: nested-component-coverage, example-path-portable and known-gaps-current cleared; verify open findings 5 → 3 (visual comparison, the build-record assertions that follow from it, and fonts Figma lacks); 46 components built.
