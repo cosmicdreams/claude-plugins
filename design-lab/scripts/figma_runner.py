@@ -250,13 +250,27 @@ class Build:
             return {"kind": "wait", "step": "wait", "retryMs": WAIT_MS,
                     "message": "Connected. Waiting for the build to start."}
         while True:
-            step = self.driver("next")
+            try:
+                step = self.driver("next")
+            except RuntimeError as error:
+                if "renderer changed" not in str(error) or not self.state.get("iterate"):
+                    raise
+                # Templates edited mid-build: an iterating run waits for the next init rather
+                # than closing the runner, so the fix-and-rebuild loop needs nobody in Figma.
+                self.current = None
+                return {"kind": "wait", "step": "wait", "retryMs": WAIT_MS,
+                        "message": "The templates changed during the build. Waiting for the next build."}
             if step["kind"] != "skip":
                 break
             self.driver("record", "--step", step["step"])
             self.log(f"skipped {step['step']}: {step.get('reason', '')}")
         if step["kind"] == "done":
             step = self.dump_step() or step
+            if step["kind"] == "done" and self.state.get("iterate"):
+                # An iterating run keeps the runner open for the next `init --rebuild`.
+                self.current = None
+                return {"kind": "wait", "step": "wait", "retryMs": WAIT_MS,
+                        "message": "Build complete. Waiting for the next build."}
             self.current = step
             if step["kind"] == "dump":
                 self.log(f"serving {step['step']}")
@@ -275,6 +289,8 @@ class Build:
         """After the build, export each design-lab page's node tree to W/figma/dump/ so
         compare_runs.py can compare runs; one page per step, skipped once written."""
         results = self.project / "figma" / "results"
+        if not (results / "pages.json").is_file():
+            return None                      # nothing was built, so there is nothing to dump
         pages = json.loads((results / "pages.json").read_text())["pages"]
         # A dump older than the newest build result describes a file that has changed since,
         # so a fix-and-reverify loop must dump again rather than reread the first answer.

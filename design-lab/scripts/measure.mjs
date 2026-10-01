@@ -61,7 +61,7 @@ const PROPS = [
   'borderTopLeftRadius', 'borderTopRightRadius',
   'borderBottomLeftRadius', 'borderBottomRightRadius',
   'boxShadow', 'opacity', 'transform', 'transition', 'zIndex',
-  'listStyleType', 'objectFit', 'aspectRatio', 'visibility', 'clip', 'clipPath', 'whiteSpace',
+  'listStyleType', 'objectFit', 'objectPosition', 'aspectRatio', 'visibility', 'clip', 'clipPath', 'whiteSpace',
 ];
 
 /* Runs inside the page. Walks the component subtree and records every node. */
@@ -178,7 +178,8 @@ function walk(rootSelector, propList, pick_) {
       id: el.id || null,
       attributes: Object.fromEntries(
         [...el.attributes]
-          .filter((a) => a.name.startsWith('aria-') || ['role', 'type', 'href', 'src', 'alt', 'for'].includes(a.name))
+          .filter((a) => a.name.startsWith('aria-') || ['role', 'type', 'href', 'src', 'alt', 'for',
+            'data-design-lab-child', 'data-component-id'].includes(a.name))
           .map((a) => [a.name, a.value])
       ),
       text: ownText || null,
@@ -222,6 +223,16 @@ function walk(rootSelector, propList, pick_) {
 
   return {
     rootBox: { width: +rootBox.width.toFixed(2), height: +rootBox.height.toFixed(2) },
+    /* What shows through where the component is transparent: the nearest ancestor with a
+       background colour (the page, usually), else the canvas. The live capture includes it, so
+       the documentation specimen paints it behind the master; the master stays transparent. */
+    backdrop: (() => {
+      for (let a = root.parentElement; a; a = a.parentElement) {
+        const bg = getComputedStyle(a).backgroundColor;
+        if (bg && !/^rgba\(.*,\s*0\)$/.test(bg) && bg !== 'transparent') return bg;
+      }
+      return 'rgb(255, 255, 255)';
+    })(),
     nodes,
   };
 }

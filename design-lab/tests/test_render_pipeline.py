@@ -222,7 +222,7 @@ class RenderPayloadTests(unittest.TestCase):
     def test_build_responsive_payload_omits_shared_kit(self):
         code = render_payload.call_payload("build_responsive", {})
         self.assertNotIn(render_payload.templates()["_kit"], code)
-        self.assertNotIn("getSharedPluginData", code)
+        self.assertNotIn("function clearTagged", code)          # a kit helper, not inlined
         self.assertTrue(code.endswith(render_payload.templates()["build_responsive"]))
 
     def test_component_block_payload_includes_shared_kit(self):
@@ -286,6 +286,46 @@ class FigmaBuildTests(unittest.TestCase):
 
     def result(self, step, value):
         self.write("figma/results/" + figma_build.safe(step) + ".json", value)
+
+    def init(self, **flags):
+        ns = type("Args", (), {"project": str(self.project), "file_key": "file123",
+                               "site_url": "https://local.test/", "canonical_base_url": "https://public.test/",
+                               **flags})()
+        with contextlib.redirect_stdout(io.StringIO()):
+            figma_build.cmd_init(ns)
+        return json.loads((self.project / "figma/state.json").read_text())
+
+    def test_rebuild_in_place_wipes_first_clears_results_and_keeps_iterating(self):
+        self.result("pages", {"pages": {"Cover": "0:1"}})
+        self.write("builds/sdc__test__hero.json", {})
+        state = self.init(rebuild=True, iterate=True)
+        self.assertEqual(state["steps"][0]["id"], "wipe")
+        self.assertTrue(state["iterate"])
+        self.assertFalse((self.project / "figma/results/pages.json").exists())
+        self.assertFalse((self.project / "builds/sdc__test__hero.json").exists())
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            figma_build.cmd_next(type("Args", (), {"project": str(self.project)})())
+        payload = Path(json.loads(out.getvalue())["payload"]).read_text()
+        self.assertIn('"file123"', payload)
+        self.assertIn("Core Breakpoint", payload)
+        # The next rebuild keeps iterating without being told again; a plain init does not.
+        self.assertTrue(self.init(rebuild=True)["iterate"])
+        self.assertFalse(self.init()["iterate"])
+
+    def test_a_finished_build_answers_done_even_after_templates_change(self):
+        state = json.loads((self.project / "figma/state.json").read_text())
+        state.update(done=[s["id"] for s in state["steps"]], runtime="older")
+        (self.project / "figma/state.json").write_text(json.dumps(state))
+        with contextlib.redirect_stdout(io.StringIO()) as out:
+            figma_build.cmd_next(type("Args", (), {"project": str(self.project)})())
+        self.assertEqual(json.loads(out.getvalue()), {"kind": "done"})
+
+    def test_rebuild_refuses_another_file(self):
+        ns = type("Args", (), {"project": str(self.project), "file_key": "other",
+                               "site_url": "https://local.test/", "canonical_base_url": "https://public.test/",
+                               "rebuild": True})()
+        with self.assertRaises(SystemExit):
+            figma_build.cmd_init(ns)
 
     def test_init_step_order_and_page_list(self):
         steps = [s["id"] for s in self.state["steps"]]

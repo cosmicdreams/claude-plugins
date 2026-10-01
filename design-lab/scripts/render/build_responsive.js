@@ -100,7 +100,7 @@ for (const v of await figma.variables.getLocalVariablesAsync()) {
   if (m) codeVars[m[1]] = v;
 }
 const hexRgb = (h) => ({ r: parseInt(h.slice(1, 3), 16) / 255, g: parseInt(h.slice(3, 5), 16) / 255, b: parseInt(h.slice(5, 7), 16) / 255 });
-const report = { created: 0, bound: 0, literal: 0, variables: Object.keys(vars).length, fonts: {}, missingFonts: [], images: [], svgFailures: [], fellBack: [] };
+const report = { created: 0, bound: 0, literal: 0, variables: Object.keys(vars).length, fonts: {}, missingFonts: [], nested: [], nestedMismatch: [], images: [], svgFailures: [], fellBack: [] };
 function paint(c) {
   let p = { type: 'SOLID', color: hexRgb(c.hex), opacity: c.opacity ?? 1 };
   const v = c.var && codeVars[c.var];
@@ -138,7 +138,11 @@ function layout(node, L) {
 function size(node, spec, parentAuto, isText) {
   const single = isText && spec.text && spec.text.singleLine && spec.sizing !== 'FILL';
   const auto = !isText && node.layoutMode && node.layoutMode !== 'NONE';
-  if (parentAuto && spec.sizing === 'FILL') node.layoutSizingHorizontal = 'FILL';
+  /* An image or vector leaf takes its measured width variable even where it fills: inside an
+     instance switched to another mode, Figma re-stretches a filling frame but leaves a filling
+     rectangle at the master's width (one site's photo: 436.5px in a 335px mobile instance). */
+  const leaf = spec.kind === 'image' || spec.kind === 'svg';
+  if (parentAuto && spec.sizing === 'FILL' && !(leaf && isVar(spec.width))) node.layoutSizingHorizontal = 'FILL';
   else if (!single) {
     /* A bound width only holds on a FIXED axis; auto layout frames otherwise hug. */
     if (parentAuto) node.layoutSizingHorizontal = 'FIXED';
@@ -161,10 +165,67 @@ function size(node, spec, parentAuto, isText) {
   } else bind(node, 'height', spec.height);
 }
 
+/* Masters already in the file, by source id, so a child component's rendering inside this one
+   becomes an instance of it (a link inside a banner is an instance of the link). */
+let mastersBySource = null;
+async function masterFor(sourceId) {
+  const known = (ARGS.masters || {})[sourceId];
+  if (known) {
+    const node = await figma.getNodeByIdAsync(known);
+    if (node && (node.type === 'COMPONENT' || node.type === 'COMPONENT_SET')) return node;
+  }
+  if (!mastersBySource) {
+    await figma.loadAllPagesAsync();
+    mastersBySource = {};
+    for (const n of figma.root.findAllWithCriteria({ types: ['COMPONENT_SET', 'COMPONENT'] })) {
+      if (n.type === 'COMPONENT' && n.parent && n.parent.type === 'COMPONENT_SET') continue;
+      const id = n.getSharedPluginData('designlab', 'sourceId');
+      if (id && id !== ARGS.id) mastersBySource[id] = n;
+    }
+  }
+  return mastersBySource[sourceId] || null;
+}
+
 async function build(spec, parent, parentAuto) {
   let node;
   const w0 = Math.max(1, num(spec.width) || 1), h0 = Math.max(1, num(spec.height) || 1);
-  if (spec.kind === 'text') {
+  let master = spec.instanceOf ? await masterFor(spec.instanceOf) : null;
+  if (master) {
+    /* An instance takes this rendering's own words and pictures as overrides, the way a
+       designer fills a card instance; the master shows another rendering's content. Only when
+       the structures match (same text layers and images, in order); otherwise this rendering
+       is built as it stands, and the mismatch is recorded. */
+    const texts = [], images = [];
+    (function walk(s) {
+      if (s.kind === 'text') texts.push(s);
+      else if (s.kind === 'image' && s.src && !String(s.src).startsWith('capture:')) images.push(s);
+      (s.children || []).forEach(walk);
+    })(spec);
+    const inst = (master.type === 'COMPONENT_SET' ? master.defaultVariant : master).createInstance();
+    const instTexts = inst.findAll((n) => n.type === 'TEXT');
+    const instImages = inst.findAll((n) => n.type === 'RECTANGLE' && n.getSharedPluginData('designlab', 'image') === '1');
+    if (instTexts.length === texts.length && instImages.length === images.length) {
+      for (let i = 0; i < texts.length; i++) {
+        const t = instTexts[i];
+        if (t.characters === texts[i].text.characters) continue;
+        const fonts = t.fontName === figma.mixed ? t.getRangeAllFontNames(0, t.characters.length) : [t.fontName];
+        for (const f of fonts) await figma.loadFontAsync(f);
+        t.characters = texts[i].text.characters;
+      }
+      images.forEach((img, i) => report.images.push({ id: instImages[i].id, src: img.src, fit: img.fit }));
+      node = inst;
+      node.resize(w0, h0);
+      report.nested.push({ sourceId: spec.instanceOf, id: node.id });
+    } else {
+      inst.remove();
+      report.nestedMismatch.push({ sourceId: spec.instanceOf, name: spec.name,
+        texts: [texts.length, instTexts.length], images: [images.length, instImages.length] });
+      master = null;
+    }
+  }
+  if (master) {
+    // the instance above
+  } else if (spec.kind === 'text') {
     const t = spec.text;
     const font = resolveFont(t.family, t.weight, t.italic);
     await figma.loadFontAsync(font);
@@ -194,6 +255,7 @@ async function build(spec, parent, parentAuto) {
     node.resize(w0, h0);
     style(node, spec);
     node.fills = [{ type: 'SOLID', color: { r: 0.87, g: 0.87, b: 0.87 } }];
+    node.setSharedPluginData('designlab', 'image', '1');   // so an instance can find its pictures
     report.images.push({ id: node.id, src: spec.src, fit: spec.fit });
   } else {
     node = figma.createFrame();
@@ -211,7 +273,7 @@ async function build(spec, parent, parentAuto) {
   size(node, spec, parentAuto, spec.kind === 'text');
   if (spec.visible !== undefined) { if (isVar(spec.visible)) node.setBoundVariable('visible', vars[spec.visible.var]); else node.visible = spec.visible; }
   report.created++;
-  if (spec.kind === 'frame') {
+  if (spec.kind === 'frame' && !master) {
     const auto = spec.layout && spec.layout.mode !== 'NONE';
     for (const child of spec.children || []) await build(child, node, auto);
   }
@@ -222,7 +284,7 @@ async function build(spec, parent, parentAuto) {
 const tree = ARGS.tree;
 /* A master still parked on the page came from an attempt that was never recorded; replace it
    so a retried step leaves one master, not two. Masters already placed in a block are kept. */
-for (const old of page.children.filter((n) => n.type === 'COMPONENT' && n.name === ARGS.name)) old.remove();
+for (const old of page.children.filter((n) => (n.type === 'COMPONENT' || n.type === 'COMPONENT_SET') && n.name === ARGS.name)) old.remove();
 const component = figma.createComponent();
 component.name = ARGS.name;
 /* The inventory id, so a master nesting this one can say which source component it nests. */
@@ -248,4 +310,19 @@ if (rootAuto) {
    instance switched to Tablet or Mobile takes that width without being resized by hand. */
 if (isVar(tree.width)) bind(component, 'width', tree.width);
 if (tree.visible !== undefined) report.notes = ['root visibility varies by width'];
-return { componentId: component.id, collectionId: col.id, width: component.width, height: component.height, ...report };
+/* Planned variant axes: the master is the variant capture observed, inside a set named for the
+   component, so the set carries the axes and further captured options join it as variants. */
+let owner = component;
+if (ARGS.variant && Object.keys(ARGS.variant).length) {
+  component.name = Object.entries(ARGS.variant).map(([k, v]) => `${k}=${v}`).join(', ');
+  owner = figma.combineAsVariants([component], page);
+  owner.name = ARGS.name;
+  owner.description = ARGS.description || '';
+  owner.setSharedPluginData('designlab', 'sourceId', ARGS.id || '');
+  owner.x = ARGS.x;
+  owner.y = ARGS.y;
+  component.x = 0;
+  component.y = 0;
+  owner.resizeWithoutConstraints(component.width, component.height);
+}
+return { componentId: owner.id, variantId: component.id, collectionId: col.id, width: component.width, height: component.height, ...report };

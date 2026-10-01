@@ -87,7 +87,7 @@ class Merge:
         children: the wrapper draws nothing, but what it holds does."""
         out = []
         for k in self.index[bp].get(path, []):
-            if not any(self.visible_in(k["path"]).values()) and st.passthrough(k):
+            if st.passthrough(k, bool(self.index[bp].get(k["path"]))):
                 out.extend(self.children_of(bp, k["path"]))
             else:
                 out.append(k)
@@ -126,6 +126,11 @@ class Merge:
         node = self.nodes[rb][path]
         name, vchain = self.name_for(path, chain)
         out: dict = {"name": name, "source": path}
+        # Tagged during measurement as the root of a child bundle's own render: the builder
+        # makes it an instance of that child's master when the file has one.
+        child_of = (node.get("attributes") or {}).get("data-design-lab-child")
+        if child_of:
+            out["instanceOf"] = child_of
         if not all(vis.values()):
             out["visible"] = self.value({bp: vis[bp] for bp in self.bps}, f"{vchain}/visible", "BOOLEAN")
 
@@ -145,6 +150,11 @@ class Merge:
                     "src": f"capture:{rb}:{out['x']},{out['y']},{st.r2(node['box']['width'])},{st.r2(node['box']['height'])}", "fit": "FILL"}
         if node.get("svg"):
             return {**out, "kind": "svg", "svg": node["svg"]}
+        if node.get("image") and str(node["image"].get("src") or "").startswith("data:image/svg+xml"):
+            import base64, urllib.parse
+            head, _, data = node["image"]["src"].partition(",")
+            svg = base64.b64decode(data).decode("utf-8", "replace") if ";base64" in head else urllib.parse.unquote(data)
+            return {**out, "kind": "svg", "svg": svg}
         if node.get("image"):
             fit = node["computed"].get("objectFit", "fill")
             return {**out, "kind": "image", "src": node["image"]["src"], "fit": "FIT" if fit == "contain" else "FILL",
@@ -178,7 +188,14 @@ class Merge:
                                "padding": self.padding_value(pads, vchain)},
                     "children": [inner]}
 
+        reordered = self.reordered_stack(path, kid_paths, vchain, style, out)
+        if reordered:
+            return reordered
         layout, spacers = self.layout(path, kid_paths, vchain)
+        if layout["mode"] == "NONE":
+            # Placed freely, children overlap: draw them in CSS painting order, so a shape with
+            # z-index 1 sits above the photo instead of under it.
+            kid_paths = sorted(kid_paths, key=lambda kp: st.stacking(self.nodes[self.ref_bp(kp)][kp]))
         inner = {bp: self.box(bp, path)["width"] - self.pads(bp, path)["left"] - self.pads(bp, path)["right"]
                  for bp in self.bps if vis[bp]}
         children = []
@@ -208,6 +225,84 @@ class Merge:
                 children.append({"kind": "frame", "name": "Spacer", "sizing": "FILL", "width": 1,
                                  "height": spacers[i], "layout": {"mode": "NONE"}, "children": [], "source": kp + "#spacer"})
         return {**out, "kind": "frame", **style, "layout": layout, "children": children}
+
+    def reordered_stack(self, path: str, kid_paths: list[str], vchain: str, style: dict,
+                        out: dict) -> dict | None:
+        """A vertical stack whose order changes with width (flex `order`, or a reversed
+        direction): the photo first at desktop, last at mobile. Figma has one child order for
+        every mode, so each placement becomes a slot, a child that moves appears in two, and a
+        Breakpoint visibility variable shows the right one; a hidden slot takes no room. Each
+        slot's top padding is the gap the site leaves above that child at that width.
+        Returns None unless every width is a clean stack and the DOM order is not."""
+        if len(kid_paths) < 2:
+            return None
+        orders = {}
+        dom_is_stack = True
+        for bp in self.bps:
+            if path not in self.nodes[bp] or not st.visible(self.nodes[bp][path]):
+                continue
+            vis = [k for k in kid_paths if self.visible_in(k)[bp]]
+            visual = sorted(vis, key=lambda k: (self.box(bp, k)["y"], self.box(bp, k)["x"]))
+            stacked = lambda seq: all(self.box(bp, b)["y"] >= self.box(bp, a)["y"] + self.box(bp, a)["height"] - TOL
+                                      for a, b in zip(seq, seq[1:]))
+            if not stacked(visual):
+                return None
+            dom_is_stack &= stacked(vis)
+            orders[bp] = visual
+        if dom_is_stack or len(orders) < 2:
+            return None
+        # Merge the per-width orders into one sequence of placements (a longest-common-
+        # subsequence merge), each placement used at the widths that draw it there.
+        bps = list(orders)
+        merged = [{"path": k, "bps": {bps[0]}} for k in orders[bps[0]]]
+        for bp in bps[1:]:
+            target, seq = orders[bp], [m["path"] for m in merged]
+            table = [[0] * (len(target) + 1) for _ in range(len(seq) + 1)]
+            for i in range(len(seq) - 1, -1, -1):
+                for j in range(len(target) - 1, -1, -1):
+                    table[i][j] = (table[i + 1][j + 1] + 1 if seq[i] == target[j]
+                                   else max(table[i + 1][j], table[i][j + 1]))
+            result, i, j = [], 0, 0
+            while i < len(seq) or j < len(target):
+                if i < len(seq) and j < len(target) and seq[i] == target[j]:
+                    merged[i]["bps"].add(bp); result.append(merged[i]); i += 1; j += 1
+                elif j < len(target) and (i == len(seq) or table[i][j + 1] >= table[i + 1][j]):
+                    result.append({"path": target[j], "bps": {bp}}); j += 1
+                else:
+                    result.append(merged[i]); i += 1
+            merged = result
+        pads = self.padding(path)
+        inner = {bp: self.box(bp, path)["width"] - pads[bp]["left"] - pads[bp]["right"] for bp in orders}
+        children, seen = [], {}
+        for m in merged:
+            kp = m["path"]
+            seen[kp] = seen.get(kp, 0) + 1
+            child = self.convert(kp, inner, vchain)
+            if not child:
+                continue
+            slot_name = f"{self.name_for(kp, vchain)[1]}-{seen[kp]}"
+            tops = {}
+            for bp in m["bps"]:
+                order = orders[bp]
+                at = order.index(kp)
+                above = (self.box(bp, order[at - 1])["y"] + self.box(bp, order[at - 1])["height"] if at
+                         else self.box(bp, path)["y"] + pads[bp]["top"])
+                tops[bp] = st.r2(max(0, self.box(bp, kp)["y"] - above))
+            slot = {"kind": "frame", "name": f"Slot · {child['name']}", "sizing": "FILL",
+                    "width": self.value({bp: st.r2(w) for bp, w in inner.items()}, f"{vchain}/inner-width"),
+                    "height": child["height"], "source": f"{kp}#order-{seen[kp]}",
+                    "layout": {"mode": "VERTICAL", "gap": 0, "primaryAlign": "MIN", "counterAlign": "MIN",
+                               "padding": {"top": self.value(tops, f"{slot_name}/order-top"),
+                                           "right": 0, "bottom": 0, "left": 0}},
+                    "children": [child]}
+            child.pop("visible", None)
+            if m["bps"] != set(orders):
+                slot["visible"] = self.value({bp: bp in m["bps"] for bp in self.bps}, f"{slot_name}/order-visible", "BOOLEAN")
+            children.append(slot)
+        return {**out, "kind": "frame", **style,
+                "layout": {"mode": "VERTICAL", "gap": 0, "primaryAlign": "MIN", "counterAlign": "MIN",
+                           "padding": self.padding_value(pads, vchain)},
+                "children": children}
 
     def text_with_icons(self, out: dict, path: str, chars: str, vchain: str, style: dict,
                         icons: dict) -> dict:
@@ -360,6 +455,13 @@ def _slot_flow(self, path: str, kid_paths: list[str], vchain: str, pads: dict) -
         left, top, right = st.r2(left), st.r2(top), st.r2(right)
         rows = _rows(rel)
         if rows is None:
+            # Children placed out of reading order. When the site positions them itself
+            # (absolute shapes over a photo, carousel slides), free placement is what the site
+            # does, not a fallback; only in-flow children that cannot be tiled fall back.
+            positioned = any(self.nodes[bp][k]["computed"].get("position") in ("absolute", "fixed")
+                             for k in vis)
+            if positioned:
+                return {"mode": "NONE", "padding": self.padding_value(pads, vchain)}, None
             self.fallbacks.append(vchain)
             return {"mode": "NONE", "fellBack": True, "padding": self.padding_value(pads, vchain)}, None
         slots = {}

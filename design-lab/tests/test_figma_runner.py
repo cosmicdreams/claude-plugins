@@ -289,6 +289,17 @@ class HandshakeTests(unittest.TestCase):
         self.record(self.step()["step"], {"fileKey": "OTHER", "fileName": "F", "pages": 1, "empty": True})
         self.assertFalse(figma_runner.wait_for_handshake(self.ws, timeout=1, poll=0.05)["ok"])
 
+    def test_an_iterating_build_keeps_the_runner_waiting_when_done(self):
+        from unittest import mock
+        (self.ws / "figma").mkdir(exist_ok=True)
+        state = {"fileKey": "KEY", "steps": [{"id": "pages"}], "done": ["pages"]}
+        (self.ws / "figma" / "state.json").write_text(json.dumps({**state, "iterate": True}))
+        with mock.patch.object(figma_runner.Build, "driver", lambda this, *a: {"kind": "done"}), \
+                mock.patch.object(figma_runner.Build, "dump_step", lambda this: None):
+            self.assertEqual(json.loads(self.call("/next")[2])["kind"], "wait")
+            (self.ws / "figma" / "state.json").write_text(json.dumps(state))
+            self.assertEqual(json.loads(self.call("/next")[2])["kind"], "done")
+
     def test_a_slow_step_is_reported_in_flight(self):
         from unittest import mock
         (self.ws / "figma").mkdir(exist_ok=True)

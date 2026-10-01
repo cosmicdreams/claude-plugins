@@ -63,6 +63,19 @@ def short_tier(tier: str | None) -> str:
 
 
 def components(project: Path) -> list[dict]:
+    return [_with_capture_path(project, c) for c in _components(project)]
+
+
+def _with_capture_path(project: Path, c: dict) -> dict:
+    """A component captured inside its parent (no example page of its own) is shown on the
+    parent's page; that page is its example."""
+    evidence = load(project, "capture-evidence.json", {"captures": {}}).get("captures", {}).get(c["id"]) or {}
+    if evidence.get("path") and any("data-design-lab-child" in (img.get("selector") or "") for img in [evidence]):
+        return {**c, "_capturePath": evidence["path"]}
+    return c
+
+
+def _components(project: Path) -> list[dict]:
     return load(project, "components.json")["components"]
 
 
@@ -113,6 +126,8 @@ def structural(c: dict) -> int:
 
 def example_path(c: dict) -> str | None:
     u = c.get("usage") or {}
+    if c.get("_capturePath") and not (u.get("examples") or u.get("renderedExamples")):
+        return c["_capturePath"]
     for key in ("examples", "renderedExamples", "exampleCandidates"):
         vals = u.get(key) or []
         if vals:
@@ -130,11 +145,44 @@ def build_order(comps: list[dict], plan: dict[str, dict]) -> list[dict]:
     return sorted(comps, key=key)
 
 
+def children_first(built: list[dict], comps: list[dict]) -> list[dict]:
+    """Build order for the steps: a component a parent nests is built before the parent, so
+    the parent can instance it; otherwise the index order."""
+    by_id = {c["id"]: c for c in comps}
+    ids = [b["id"] for b in built]
+    out, seen = [], set()
+
+    def visit(cid, path=()):
+        if cid in seen or cid in path or cid not in ids:
+            return
+        for slot in by_id.get(cid, {}).get("slots") or []:
+            for child in slot.get("accepts") or []:
+                visit(child, path + (cid,))
+        seen.add(cid)
+        out.append(next(b for b in built if b["id"] == cid))
+    for cid in ids:
+        visit(cid)
+    return out
+
+
 # ---------------------------------------------------------------- init
 
 def cmd_init(ns) -> int:
     project = Path(ns.project).resolve()
     out = project / "figma"
+    previous = json.loads((out / "state.json").read_text()) if (out / "state.json").is_file() else None
+    if getattr(ns, "rebuild", False):
+        # Rebuild in place: the same file, emptied of this run's earlier build by a first `wipe`
+        # step, so a fix can be tried without a new file or anyone restarting the runner.
+        if not previous or previous.get("fileKey") != ns.file_key:
+            raise SystemExit("--rebuild needs an earlier build of this run in the same file "
+                             f"({ns.file_key}); run init without it for a new file")
+        for folder in ("results", "payloads", "trees", "compare", "verify", "dump"):
+            for stale in (out / folder).glob("*") if (out / folder).is_dir() else []:
+                if stale.is_file():
+                    stale.unlink()
+        for stale in (project / "builds").glob("*.json") if (project / "builds").is_dir() else []:
+            stale.unlink()
     (out / "results").mkdir(parents=True, exist_ok=True)
     (out / "payloads").mkdir(exist_ok=True)
     (out / "trees").mkdir(exist_ok=True)
@@ -166,10 +214,10 @@ def cmd_init(ns) -> int:
         (out / "trees" / f"{c['id']}.json").write_text(json.dumps(tree, indent=1, sort_keys=True) + "\n")
         built.append({"id": c["id"]})
 
-    steps = [{"id": "pages"}, {"id": "variables"}]
+    steps = ([{"id": "wipe"}] if getattr(ns, "rebuild", False) else []) + [{"id": "pages"}, {"id": "variables"}]
     steps += [{"id": f"foundation:{d}"} for d in foundation_domains(project)]
     steps += [{"id": f"tier:{t}"} for t in tier_names(comps)]
-    for b in built:
+    for b in children_first(built, comps):
         steps += [{"id": f"build:{b['id']}"}, {"id": f"images:{b['id']}"},
                   {"id": f"block:{b['id']}"}, {"id": f"evidence:{b['id']}"}, {"id": f"compare:{b['id']}"}]
     if (project / "compositions.json").exists():
@@ -186,6 +234,9 @@ def cmd_init(ns) -> int:
         "planned": [b["id"] for b in built],
         "steps": steps,
         "done": [],
+        # Keep the runner connected after the build, waiting for the next one (`--iterate`).
+        "iterate": bool(getattr(ns, "iterate", False) or (previous or {}).get("iterate")
+                        and getattr(ns, "rebuild", False)),
     }
     # Preflight drew a name-only Cover to prove the file can be written; the build fills in that
     # Cover page rather than adding a second one.
@@ -392,12 +443,69 @@ def mode_names(tree: dict) -> dict:
     return {role: f"{role} {VIEWPORTS[role]}px" for role in ("Desktop", "Tablet", "Mobile")}
 
 
+# Class words that name an option differently from its stored value (Bootstrap's text-start).
+OPTION_SYNONYMS = {"left": ("start",), "right": ("end",), "center": ("middle",)}
+GENERIC_OPTIONS = {"none", "default", "auto", "normal", "inherit"}
+
+
+def variant_values(project: Path, cid: str) -> list[dict]:
+    """Each planned variant axis with the option its captured instance renders, read from the
+    rendered classes (`width-default`, `banner-secondary`, `bio--large`). An axis whose option
+    the classes do not name is recorded as unknown, never guessed."""
+    plan = plans(project).get(cid, {})
+    axes = [a for a in plan.get("variantAxes") or [] if a.get("field") != "Breakpoint"]
+    if not axes:
+        return []
+    comp = next(c for c in components(project) if c["id"] == cid)
+    fields = {f["name"]: f for f in comp.get("fields") or []}
+    spec_file = project / "capture" / "measurements" / f"{cid.replace(':', '__').replace('/', '__')}.spec.json"
+    nodes = ((json.loads(spec_file.read_text()).get("measurements") or {}).get("desktop:default") or {}).get(
+        "nodes", []) if spec_file.exists() else []
+    words = [re.split(r"[-_]+", cls.lower()) for n in nodes[:8] for cls in n.get("classes") or []]
+    out = []
+    for axis in axes:
+        options = (fields.get(axis["field"]) or {}).get("options") or []
+        field_words = set(re.split(r"[-_]+", axis["field"].lower())) - {"field"}
+        hits = []
+        for option in options:
+            value = str(option.get("value", "")).lower()
+            names = [re.split(r"[-_]+", value)] + [[s] for s in OPTION_SYNONYMS.get(value, ())]
+            # A generic word (`d-none`) names nothing unless its class also names the field
+            # (`width-default` for field_width).
+            generic = value in GENERIC_OPTIONS
+            if any(any(parts[i:i + len(name)] == name for i in range(len(parts) - len(name) + 1))
+                   and (not generic or field_words & set(parts))
+                   for parts in words for name in names if name and name != [""]):
+                hits.append(option)
+        seen = hits[0] if len(hits) == 1 else None
+        out.append({"axis": axis.get("label") or axis["field"], "field": axis["field"],
+                    "value": (seen.get("label") or seen.get("value")) if seen else None,
+                    "others": [o.get("label") or o.get("value") for o in options if o is not seen]})
+    return out
+
+
+def child_masters(project: Path, comp: dict) -> dict:
+    out = {}
+    for slot in comp.get("slots") or []:
+        for child in slot.get("accepts") or []:
+            try:
+                out[child] = result(project, f"build:{child}")["componentId"]
+            except (FileNotFoundError, KeyError):
+                pass
+    return out
+
+
 def build_args(project: Path, cid: str, state: dict) -> dict:
     tree = json.loads((project / "figma" / "trees" / f"{cid}.json").read_text())
     comp = next(c for c in components(project) if c["id"] == cid)
     return {"pageId": page_id(project, component_page(comp)), "x": 0, "y": PARKING_Y, "id": cid,
             "name": f"{cid} — {comp.get('label') or cid}", "description": description(project, comp),
             "collection": BREAKPOINT_COLLECTION, "modeNames": mode_names(tree),
+            # The masters of children this component nests, already built (children build first),
+            # so the builder fetches each by id instead of loading every page to find it.
+            "masters": child_masters(project, comp),
+            # Planned variant axes: the master becomes the one variant capture observed, in a set.
+            "variant": {v["axis"]: v["value"] or "As captured" for v in variant_values(project, cid)},
             "variables": tree["variables"], **spec_to_tree.compact(tree["tree"])}
 
 
@@ -471,8 +579,19 @@ def block_args(project: Path, state: dict, cid: str, order: int) -> dict:
         "evidence": [{"label": f"{e['viewport']} {e['width']}px", "width": e["width"], "height": e["height"]}
                      for e in evidence_captures(project, cid, tree)],
         "captured": "the running site",
+        "backdrop": backdrop(project, cid),
         "fileKey": state["fileKey"],
     }
+
+
+def backdrop(project: Path, cid: str) -> str:
+    """The desktop backdrop measured behind the component, as hex; white when unmeasured."""
+    spec_file = project / "capture" / "measurements" / f"{cid.replace(':', '__').replace('/', '__')}.spec.json"
+    if not spec_file.exists():
+        return "#ffffff"
+    m = (json.loads(spec_file.read_text()).get("measurements") or {}).get("desktop:default") or {}
+    color = spec_to_tree.parse_color(m.get("backdrop"))
+    return color["hex"] if color and color.get("opacity", 1) >= 1 else "#ffffff"
 
 
 def evidence_captures(project: Path, cid: str, tree: dict) -> list[dict]:
@@ -655,7 +774,13 @@ def getting_started_args(project: Path, state: dict) -> dict:
             missing = []
         for m in sorted(set(missing)):
             gaps.append(f"Foundations — {d}: {m} is not available in Figma; its specimen is drawn in Inter.")
-    gaps.append("Variant axes other than Breakpoint are not drawn: each component shows the option its captured instance renders. The Fields table names every axis.")
+    for c in ordered:
+        if c["id"] not in built:
+            continue
+        for v in variant_values(project, c["id"]):
+            seen = f"the captured instance is {v['value']}" if v["value"] else "the captured instance's option is not recorded in its classes"
+            gaps.append(f"{c.get('label') or c['id']} ({c['id']}) — {v['axis']}: {seen}; "
+                        f"{', '.join(v['others']) or 'no other option'} not captured, so not drawn as variants.")
     repo = repo_root(project)
     return {
         "pageId": page_id(project, "Getting Started"),
@@ -702,15 +827,21 @@ def emit_payload(project: Path, step: str, template: str, args: dict) -> dict:
 def cmd_next(ns) -> int:
     project = Path(ns.project).resolve()
     state = json.loads((project / "figma" / "state.json").read_text())
-    if state["runtime"] != render_payload.runtime_hash():
-        raise SystemExit("the renderer changed since init; re-run init so every step uses one runtime")
     step = pending(state)
     if not step:
+        # A finished build serves nothing more, so a template edited since (the next fix being
+        # tried) is no reason to refuse; the runner waits for the next init.
         print(json.dumps({"kind": "done"}))
         return 0
+    if state["runtime"] != render_payload.runtime_hash():
+        raise SystemExit("the renderer changed since init; re-run init so every step uses one runtime")
     sid = step["id"]
     head, _, rest = sid.partition(":")
-    if sid == "pages":
+    if sid == "wipe":
+        collections = list(load(project, "variable-plan.json", {"collections": {}})["collections"])
+        out = emit_payload(project, sid, "wipe", {"fileKey": state["fileKey"],
+                                                  "collections": collections + [BREAKPOINT_COLLECTION]})
+    elif sid == "pages":
         out = emit_payload(project, sid, "pages", {"pages": page_list(project)})
     elif sid == "variables":
         out = emit_payload(project, sid, "variables", variables_args(project))
@@ -784,6 +915,7 @@ def images_step(project: Path, sid: str, cid: str, state: dict) -> dict:
     tree_file = project / "figma" / "trees" / f"{cid}.json"
     img_dir = project / "figma" / "images" / cid.split(".")[-1]
     fetched = subprocess.run([sys.executable, str(HERE / "fetch_images.py"), str(tree_file),
+                              "--fallback-base-url", state["canonicalBaseUrl"],
                               "--base-url", state["siteUrl"], "--out", str(img_dir)],
                              capture_output=True, text=True, timeout=600)
     if fetched.returncode != 0:
@@ -835,7 +967,7 @@ def cmd_record(ns) -> int:
     if not step or step["id"] != ns.step:
         raise SystemExit(f"expected to record {step['id'] if step else 'nothing'}, got {ns.step}")
     data = json.loads(Path(ns.result).read_text()) if ns.result else {}
-    required = {"pages": "pages", "block": "blockId", "build": "componentId"}
+    required = {"wipe": "removedPages", "pages": "pages", "block": "blockId", "build": "componentId"}
     key = required.get(ns.step.split(":")[0])
     if key and key not in data:
         raise SystemExit(f"{ns.step}: result has no {key}; not recording a failed step")
@@ -881,6 +1013,10 @@ def main() -> int:
     i.add_argument("--site-url", required=True)
     i.add_argument("--canonical-base-url", required=True)
     i.add_argument("--only", help="comma-separated component ids: a smoke build of a subset")
+    i.add_argument("--rebuild", action="store_true",
+                   help="rebuild in the same file: a first step clears this run's earlier build")
+    i.add_argument("--iterate", action="store_true",
+                   help="keep the runner connected after the build, waiting for the next init")
     for name in ("next", "status", "receipts"):
         sub.add_parser(name).add_argument("--project", required=True)
     r = sub.add_parser("record")

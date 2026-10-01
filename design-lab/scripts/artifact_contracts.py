@@ -92,6 +92,10 @@ def missing_nested(slots: list[dict], relationships: list[dict], nested_ids) -> 
         if (documented.get(slot.get("name")) or {}).get("rendered", True) is False:
             continue
         accepts = slot_accepts(slot.get("accepts"))
+        # Only the accepted types the parent was seen rendering need an instance.
+        seen = (documented.get(slot.get("name")) or {}).get("renderedAccepts")
+        if seen:
+            accepts = [a for a in accepts if a in seen]
         if "*" in accepts:
             if not nested:
                 missing.add(f"{slot.get('name')}: any component")

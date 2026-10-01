@@ -23,6 +23,8 @@ const page = await onPage(ARGS.pageId);
 return await atomic(page, [ARGS.setId], async () => {
 const set = await figma.getNodeByIdAsync(ARGS.setId);
 if (!set || (set.type !== 'COMPONENT_SET' && set.type !== 'COMPONENT')) throw new Error(`not a component: ${ARGS.setId}`);
+/* A set's tablet and mobile columns are instances of its default (captured) variant. */
+const master = set.type === 'COMPONENT_SET' ? set.defaultVariant : set;
 
 const stackNode = page.findOne((n) => n.getSharedPluginData('designlab', 'role') === 'components');
 if (!stackNode) throw new Error('tier page has no Components stack; run tier_page first');
@@ -92,12 +94,13 @@ for (const col of ARGS.columns) {
   labels.appendChild(cell);
 }
 specimen.appendChild(labels);
-const shown = stack('HORIZONTAL', { name: 'Component at each width', gap: SET_GAP, pad: SET_PAD, fill: '#ffffff', align: 'MIN' });
+/* The page colour the live capture shows through the component's transparent areas. */
+const shown = stack('HORIZONTAL', { name: 'Component at each width', gap: SET_GAP, pad: SET_PAD, fill: ARGS.backdrop || '#ffffff', align: 'MIN' });
 const collection = (await figma.variables.getLocalVariableCollectionsAsync()).find((c) => c.name === ARGS.collection);
 const shownNodes = [];
 for (const col of ARGS.columns) {
   if (col.master) { shown.appendChild(set); shownNodes.push(set); continue; }
-  const inst = set.createInstance();
+  const inst = master.createInstance();
   inst.name = `${set.name} · ${col.label}`;
   shown.appendChild(inst);
   if (collection) {

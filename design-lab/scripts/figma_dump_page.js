@@ -134,7 +134,11 @@ if (page.name === 'Examples') {
 // Dynamic-page document access (the runner) forbids the synchronous `mainComponent`.
 for (const card of cards) {
   for (const item of card.breakpointNodes) {
-    if (item.instance) item.mainComponentId = (await item.instance.getMainComponentAsync())?.id || null;
+    if (item.instance) {
+      const main = await item.instance.getMainComponentAsync();
+      item.mainComponentId = main?.id || null;
+      item.mainComponentSetId = main?.parent?.type === 'COMPONENT_SET' ? main.parent.id : null;
+    }
     delete item.instance;
   }
 }

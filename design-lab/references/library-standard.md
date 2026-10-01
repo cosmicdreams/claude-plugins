@@ -34,7 +34,7 @@ For every **visual component** in build scope, all three exist and reference eac
 2. A documentation card, adjacent to that component on the same page.
 3. Links both ways — the component's `description` carries the searchable payload and points at the card; the component's `documentationLinks` jumps to it.
 
-A source entity that is schema-only, a subcomponent of a larger visual whole, retired, or not visually verifiable is not promoted to a Figma asset. It stays in the index with its role and reason. Inventory completeness and component-library quality are different measurements.
+A source entity that is schema-only, a subcomponent of a larger visual whole, retired, or not visually verifiable is not promoted to a Figma asset. A subcomponent whose own template renders inside its parents (Twig debug counts it within the parent's render) is not "of a larger whole": it is built, and each parent nests an instance of it; one whose fields the parent prints itself stays mapped, and that relationship is recorded as not rendered, with the evidence. It stays in the index with its role and reason. Inventory completeness and component-library quality are different measurements.
 
 ### A component is a rendered, reusable visual whole
 
