@@ -227,7 +227,7 @@ class DrupalAuthoringTests(unittest.TestCase):
                              by_id["block:accordion"]["slots"][0]["accepts"])
             self.assertEqual(["block:accordion.field_items"],
                              by_id["paragraph:item"]["containedBy"])
-            self.assertEqual("design-lab 0.16.0", result["toolVersion"])
+            self.assertEqual("design-lab 0.17.0", result["toolVersion"])
 
     def test_predefined_list_options_replace_exported_placeholder(self):
         with tempfile.TemporaryDirectory() as directory:

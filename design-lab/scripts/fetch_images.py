@@ -94,15 +94,35 @@ def public_url(url: str, base: str, public: str | None) -> str | None:
     return public.rstrip("/") + url[len(base.rstrip("/")):]
 
 
+def offline_manifest(found: set[str], out: Path) -> list[dict]:
+    """Resolve frozen files beside their manifest, never at an old absolute source path."""
+    path = out / "images.json"
+    cached = json.loads(path.read_text()) if path.is_file() else []
+    by_source = {item["src"]: item for item in cached}
+    manifest = []
+    for src in sorted(found):
+        item = by_source.get(src) or {}
+        saved = item.get("file")
+        local = out / Path(saved).name if saved else None
+        if local and local.is_file() and local.resolve().parent == out.resolve():
+            manifest.append({**item, "file": str(local.resolve())})
+        else:
+            manifest.append({"src": src, "error": "offline image is absent from the frozen cache"})
+    return manifest
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
+    ap.add_argument("--offline", action="store_true", help="resolve only existing images.json and cached files")
     ap.add_argument("tree")
-    ap.add_argument("--base-url", required=True)
+    ap.add_argument("--base-url", help="required for online image downloads")
     ap.add_argument("--out", required=True)
     ap.add_argument("--fallback-base-url",
                     help="public site, tried when the local copy lacks a file (a production database "
                          "whose files were not copied)")
     ns = ap.parse_args()
+    if not ns.offline and not ns.base_url:
+        ap.error("--base-url is required unless --offline is used")
     tree = json.loads(Path(ns.tree).read_text())
     found: set[str] = set()
     for bp in tree.get("breakpoints", []):
@@ -112,8 +132,8 @@ def main() -> int:
         sources(tree["tree"], found)
     out = Path(ns.out)
     out.mkdir(parents=True, exist_ok=True)
-    manifest = []
-    for src in sorted(found):
+    manifest = offline_manifest(found, out) if ns.offline else []
+    for src in ([] if ns.offline else sorted(found)):
         url = urllib.parse.urljoin(ns.base_url.rstrip("/") + "/", src)
         try:
             data, ctype, width, height = convert(*fetch(url))
