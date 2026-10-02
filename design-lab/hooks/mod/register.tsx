@@ -12,6 +12,7 @@ import {
 
 const PANE = 'design-lab'
 const COMMAND = 'design-lab:watch'
+const RECAP_COMMAND = 'design-lab:recap'
 export const POLL_MS = 5_000
 // The runner log is tailed only while it is small enough to read whole every poll.
 const LOG_READ_LIMIT = 1024 * 1024
@@ -63,7 +64,7 @@ export async function summarise($: EngineInterface, run: string): Promise<Summar
     phaseLog: await readText($, at(RUN_FILES.phaseLog)),
     progress: await readJson($, at(RUN_FILES.progress)),
     runnerLog: await readLog($, at(RUN_FILES.runnerLog)),
-    hasCompletion: await $.fs.exists(at(RUN_FILES.completion)),
+    completion: (await $.fs.exists(at(RUN_FILES.completion))) ? await readText($, at(RUN_FILES.completion)) : undefined,
   }
   return summaryOf(run, raw, await $.clock.now())
 }
@@ -75,6 +76,10 @@ async function refresh($: EngineInterface): Promise<void> {
   const before = await read($, summaryAtom)
   if (JSON.stringify(before) !== JSON.stringify(summary)) await update($, summaryAtom, () => summary)
   $.ui.status(statusOf(summary, await $.clock.now()))
+  // Done: say so once, the moment the recap appears.
+  if (summary.hasRecap && before && before.found && !before.hasRecap) {
+    $.ui.toast(`design-lab: ${summary.siteLabel ?? 'the run'} is done. The recap is in the design-lab pane.`, { timeoutMs: 10_000 })
+  }
   // The watchdog: once per transition, never again until the runner has come back.
   const down = isDown(summary)
   const alarmed = await read($, alarmedAtom)
@@ -140,8 +145,23 @@ export const register: Register = on => {
     return { text: opened.isPlaced ? `Watching ${summary.siteLabel ?? run}.` : plainOf(summary) }
   })
 
+  on('command.run', { command: RECAP_COMMAND }, async ($, e) => {
+    const run = await runOf($, e.args)
+    if (typeof run !== 'string') return { text: run.missing }
+    const summary = await summarise($, run)
+    if (!summary.found) return { text: plainOf(summary) }
+    return { text: summary.recap ?? `${summary.siteLabel ?? run} has no recap yet: the run has not finished its benchmark.` }
+  })
+
+  // The recap's output row, drawn as the Markdown it is, so its links are links.
+  on('ui.render', { component: 'CommandOutput', props: { command: RECAP_COMMAND } }, async ($, e, next) => {
+    if (!e.props.text) return next(e)
+    const { Markdown } = $.ui.resolve(e)
+    return <Markdown text={e.props.text} />
+  })
+
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text, Button } = $.ui.resolve(e)
+    const { Box, Text, Button, Markdown } = $.ui.resolve(e)
     const summary = await read($, summaryAtom)
     const run = await read($, runAtom)
     if (!summary || !run) return <Text dimColor>No design-lab run is being watched.</Text>
@@ -179,7 +199,13 @@ export const register: Register = on => {
             <Button key="resume" label="Runner restarted, resume" onPress={() => void resume($, run)} />
           </Box>
         )}
-        {summary.log.length > 0 && (
+        {summary.recap && (
+          <Box flexDirection="column" marginTop={1}>
+            <Text bold>Recap</Text>
+            <Markdown text={summary.recap} />
+          </Box>
+        )}
+        {summary.log.length > 0 && !summary.hasRecap && (
           <Box flexDirection="column" marginTop={1}>
             {summary.log.map((line, i) => <Text key={`log-${i}`} dimColor wrap="truncate-end">{line}</Text>)}
           </Box>

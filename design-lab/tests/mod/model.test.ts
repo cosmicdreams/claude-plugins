@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import {
-  afterFill, isDown, plainOf, RUNNER_ABSENT_MS, SERVER_FRESH_MS, statusOf, summaryOf,
+  afterFill, isDown, RECAP_LIMIT, plainOf, RUNNER_ABSENT_MS, SERVER_FRESH_MS, statusOf, summaryOf,
 } from '../../hooks/mod/model'
 
 const NOW = Date.parse('2026-10-02T12:00:00Z')
@@ -67,7 +67,7 @@ describe('summaryOf', () => {
   })
 
   test('a finished run clears the status line and is never down', () => {
-    const s = summary({ project: PROJECT, progress: progress({ lastSeen: ago(900_000) }), hasCompletion: true })
+    const s = summary({ project: PROJECT, progress: progress({ lastSeen: ago(900_000) }), completion: '# done' })
     expect(statusOf(s, NOW)).toBeUndefined()
     expect(isDown(s)).toBe(false)
   })
@@ -86,5 +86,14 @@ describe('afterFill', () => {
     expect(afterFill({ isFilled: false, refusal: 'dialog' })).toBe('explain')
     expect(afterFill({ isFilled: false })).toBe('explain')
     expect(afterFill(undefined)).toBe('explain')
+  })
+})
+
+describe('recap', () => {
+  test('the completion message is the recap, cut with a note only if it outgrows Markdown', () => {
+    expect(summary({ project: PROJECT, completion: 'design-lab finished.\n' }).recap).toBe('design-lab finished.')
+    const long = summary({ project: PROJECT, completion: 'x'.repeat(RECAP_LIMIT + 10) }).recap ?? ''
+    expect(long.length).toBeLessThan(10_000)
+    expect(long).toContain('benchmark/completion.md')
   })
 })

@@ -8,6 +8,8 @@ export const SERVER_FRESH_MS = 30_000
 // workflow.py's RUNNER_ABSENT_MINUTES: the runner must have asked for a step within two minutes.
 export const RUNNER_ABSENT_MS = 120_000
 export const LOG_LINES = 8
+// The Markdown element draws at most 10,000 characters.
+export const RECAP_LIMIT = 9_500
 
 const DONE = new Set(['complete', 'approved', 'waived'])
 
@@ -17,7 +19,7 @@ export type Raw = {
   phaseLog?: string
   progress?: unknown
   runnerLog?: string
-  hasCompletion?: boolean
+  completion?: string
 }
 
 export function parseJson(text: string | undefined): unknown {
@@ -85,7 +87,7 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
   const project = record(raw.project)
   if (raw.project === undefined) {
     return { workspace, found: false, siteLabel: null, phases: [], current: null, preflight: null,
-      runner: null, blocker: null, log: [], hasRecap: false, startedAt: null }
+      runner: null, blocker: null, log: [], hasRecap: false, recap: null, startedAt: null }
   }
   const phases: Phase[] = Object.entries(record(project.phases)).map(([name, value]) => ({
     name, status: text(record(value).status) ?? 'pending',
@@ -109,9 +111,16 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
     runner,
     blocker,
     log: tailOf(raw.runnerLog),
-    hasRecap: raw.hasCompletion === true,
+    hasRecap: raw.completion !== undefined,
+    recap: raw.completion === undefined ? null : recapOf(raw.completion),
     startedAt: text(preflight.updatedAt) ?? text(project.createdAt),
   }
+}
+
+/** The completion message as written, cut with a note if it ever outgrows what Markdown draws. */
+export function recapOf(completion: string): string {
+  const text = completion.trim()
+  return text.length <= RECAP_LIMIT ? text : `${text.slice(0, RECAP_LIMIT)}\n\n(cut here: the whole message is in benchmark/completion.md)`
 }
 
 /** Finished: the scorer has written the recap, or every build step is recorded. */

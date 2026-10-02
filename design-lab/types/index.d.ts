@@ -22,6 +22,7 @@ export type Summary = {
   blocker: string | null
   log: string[]
   hasRecap: boolean
+  recap: string | null
   startedAt: string | null
 }
 

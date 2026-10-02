@@ -152,6 +152,39 @@ describe('design-lab:watch', () => {
     expect(w.toasts.at(-1)).toContain('close the open dialog')
   })
 
+  test('when the recap appears the pane shows it and says so once', async ($, on) => {
+    const files: Record<string, string> = { [at(RUN_FILES.project)]: PROJECT, [at(RUN_FILES.progress)]: progress(5_000) }
+    const w = world(on, files)
+    await $.session.start(SESSION)
+    await $.command.run({ ...WATCH, args: RUN })
+    files[at(RUN_FILES.completion)] = 'design-lab finished the Example site component library.\n\n- Figma file: https://www.figma.com/design/KEY'
+    await w.clock.advance(POLL_MS)
+    await w.clock.advance(POLL_MS)
+    expect(w.toasts.filter(t => t.includes('is done'))).toHaveLength(1)
+    expect(w.statuses.at(-1), 'the status line clears once the run is done').toBeUndefined()
+    const ui = await $.ui.mount({
+      plugin: 'design-lab', surface: 'terminal', component: 'Pane', requestId: 'design-lab',
+      props: { title: 'design-lab', isFocused: false, bodyColumns: 60, placement: 'dock',
+        scroll: { offset: 0, bodyRows: 30 }, view: {} },
+    })
+    expect(await ui.find({ type: 'Text', text: /^Recap$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Markdown' })).toBeDefined()
+  })
+
+  test('/design-lab:recap answers with the completion message, with no Claude turn', async ($, on) => {
+    world(on, { [at(RUN_FILES.project)]: PROJECT, [at(RUN_FILES.completion)]: 'design-lab finished.\n' })
+    await $.session.start(SESSION)
+    const answer = await $.command.run({ ...WATCH, command: 'design-lab:recap', args: RUN })
+    expect(answer.text).toBe('design-lab finished.')
+  })
+
+  test('/design-lab:recap on an unfinished run says so', async ($, on) => {
+    world(on, { [at(RUN_FILES.project)]: PROJECT })
+    await $.session.start(SESSION)
+    const answer = await $.command.run({ ...WATCH, command: 'design-lab:recap', args: RUN })
+    expect(answer.text).toContain('has no recap yet')
+  })
+
   test('reads only the run folder and the pointer, never the runner token', async ($, on) => {
     const w = world(on, {
       [`${HOME}/.design-lab/active-run.json`]: JSON.stringify({ workspace: RUN }),
