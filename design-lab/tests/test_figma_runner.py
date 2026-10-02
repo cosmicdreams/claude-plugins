@@ -378,3 +378,70 @@ class DumpStepTest(unittest.TestCase):
             self.assertEqual(figma_runner.Build(project).dump_step()["step"], "dump:Cover")
             (project / "figma" / "state.json").write_text(json.dumps({**state, "iterate": True}))
             self.assertEqual(figma_runner.Build(project).dump_step()["step"], "verify:root")
+
+
+class ProgressTests(unittest.TestCase):
+    """figma/progress.json: what the pane and `workflow.py watch` read about the build."""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.root = Path(temp.name)
+        self.build = figma_runner.Build(workspace(self.root / "w", "KEY"))
+
+    def read(self) -> dict:
+        return json.loads((self.root / "w" / "figma" / figma_runner.PROGRESS_FILE).read_text())
+
+    def test_steps_are_counted_from_what_the_runner_was_told(self):
+        self.build.note({"kind": "use_figma", "step": "component:card", "done": 4, "total": 10})
+        self.build.note_recorded({"recorded": "component:card", "remaining": 5})
+        self.build.write_progress(inflight=False)
+        progress = self.read()
+        self.assertEqual((progress["state"], progress["stepsDone"], progress["stepsTotal"], progress["stepKind"]),
+                         ("building", 5, 10, "use_figma"))
+        self.assertEqual(progress["serverPid"], figma_runner.os.getpid())
+        self.assertTrue(progress["at"])
+
+    def test_waiting_dumps_and_done_keep_the_count(self):
+        self.build.note({"kind": "upload", "step": "images", "done": 9, "total": 10})
+        self.build.note({"kind": "dump", "step": "dump:Cover"})
+        self.assertEqual((self.build.progress["state"], self.build.progress["stepsTotal"]), ("building", 10))
+        self.build.note({"kind": "done", "step": "done"})
+        self.assertEqual((self.build.progress["state"], self.build.progress["stepsDone"]), ("done", 10))
+        self.build.note({"kind": "wait", "step": "wait", "message": "Build complete. Waiting for the next build."})
+        self.assertEqual(self.build.progress["state"], "waiting")
+        self.assertEqual(self.build.progress["message"], "Build complete. Waiting for the next build.")
+
+    def test_preflight_checks_show_as_preflight(self):
+        self.build.note({"kind": "check", "step": figma_runner.CHECK_STEP})
+        self.assertEqual(self.build.progress["state"], "preflight")
+
+    def test_progress_carries_when_the_runner_last_asked(self):
+        figma_runner.write_atomic(self.root / "w" / "figma" / figma_runner.SEEN_FILE, "2026-10-02T09:00:00+00:00\n")
+        self.build.write_progress(inflight=True)
+        self.assertEqual(self.read()["lastSeen"], "2026-10-02T09:00:00+00:00")
+        self.assertTrue(self.read()["inflight"])
+
+    def test_a_request_and_the_heartbeat_both_write_progress(self):
+        builds = {"KEY": self.build}
+        handler = figma_runner.make_handler(builds, TOKEN)
+        server = ThreadingHTTPServer(("127.0.0.1", 0), handler)
+        threading.Thread(target=server.serve_forever, daemon=True).start()
+        self.addCleanup(server.server_close)
+        self.addCleanup(server.shutdown)
+        url = (f"http://127.0.0.1:{server.server_address[1]}/next?fileKey=KEY&token={TOKEN}"
+               f"&version={figma_runner.plugin_version()}")
+        try:
+            urllib.request.urlopen(urllib.request.Request(url, headers={"Origin": "null"}), timeout=10).close()
+        except urllib.error.HTTPError as error:
+            error.close()
+        # The reply leaves before the request's last progress write, so wait briefly for it.
+        deadline = time.monotonic() + 5
+        while self.read()["inflight"] and time.monotonic() < deadline:
+            time.sleep(0.05)
+        progress = self.read()
+        self.assertIsNotNone(progress["lastSeen"])
+        self.assertFalse(progress["inflight"])
+        (self.root / "w" / "figma" / figma_runner.PROGRESS_FILE).unlink()
+        handler.pulse()
+        self.assertEqual(self.read()["serverPid"], figma_runner.os.getpid())

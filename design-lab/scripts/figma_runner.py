@@ -64,6 +64,11 @@ TOKEN_FILE = "runner-token"
 RUNNER_SOURCE = HERE.parent / "runner"
 PID_FILE = "runner.pid"
 SEEN_FILE = "runner-seen"
+# What the build is doing, for anything that shows the run (the design-lab pane, `workflow.py
+# watch`): rewritten whole on every request and every HEARTBEAT_SECONDS by the server itself, so a
+# fresh `at` means the server is alive even while a slow step keeps the runner waiting.
+PROGRESS_FILE = "progress.json"
+HEARTBEAT_SECONDS = 10
 SERVER_LOG = "runner-server.log"
 HANDSHAKE_REQUEST = "handshake-request.json"
 HANDSHAKE = "handshake.json"
@@ -107,6 +112,13 @@ def figma_dir(project: Path) -> Path:
     folder = Path(project) / "figma"
     folder.mkdir(parents=True, exist_ok=True)
     return folder
+
+
+def write_atomic(path: Path, text: str) -> None:
+    """Replace a file whole, so a reader polling it never sees half of it."""
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.{threading.get_ident()}")
+    temporary.write_text(text)
+    os.replace(temporary, path)
 
 
 def person_token() -> str:
@@ -231,6 +243,41 @@ class Build:
         # The step that last failed, and the build state it failed under: it is not served
         # again until a new init rewrites state.json or the server restarts with a fix.
         self.failed: dict | None = None
+        # What the last answer to the runner said, kept from the steps themselves so writing
+        # progress never re-reads state.json.
+        self.progress = {"state": "waiting", "stepsDone": None, "stepsTotal": None,
+                         "step": None, "stepKind": None, "message": None}
+
+    def note(self, step: dict) -> None:
+        """Keep what the runner was just told: waiting, a preflight check, a build step with its
+        count, a dump after the build, or done."""
+        kind = step.get("kind")
+        if kind == "wait":
+            self.progress.update(state="waiting", step=None, stepKind=None, message=step.get("message"))
+        elif kind == "done":
+            self.progress.update(state="done", step=None, stepKind=None, message=None,
+                                 stepsDone=self.progress["stepsTotal"])
+        elif kind in ("check", "dump"):
+            self.progress.update(state="preflight" if kind == "check" else "building",
+                                 step=step.get("step"), stepKind=kind, message=None)
+        else:
+            self.progress.update(state="building", step=step.get("step"), stepKind=kind, message=None,
+                                 stepsDone=step.get("done"), stepsTotal=step.get("total"))
+
+    def note_recorded(self, out: dict) -> None:
+        if "remaining" in out and self.progress["stepsTotal"] is not None:
+            self.progress["stepsDone"] = self.progress["stepsTotal"] - out["remaining"]
+
+    def write_progress(self, inflight: bool) -> None:
+        folder = figma_dir(self.project)
+        seen = folder / SEEN_FILE
+        try:
+            last_seen = seen.read_text().strip() or None
+        except OSError:
+            last_seen = None
+        write_atomic(folder / PROGRESS_FILE, json.dumps({
+            **self.progress, "inflight": inflight, "lastSeen": last_seen,
+            "at": utc_now(), "serverPid": os.getpid()}, indent=1) + "\n")
 
     def state_stamp(self) -> float:
         state = self.project / "figma" / "state.json"
@@ -477,7 +524,13 @@ def make_handler(builds: dict[str, Build], token: str):
     counter = threading.Lock()
 
     def seen(build: Build) -> None:
-        (figma_dir(build.project) / SEEN_FILE).write_text(utc_now() + "\n")
+        write_atomic(figma_dir(build.project) / SEEN_FILE, utc_now() + "\n")
+        build.write_progress(activity["inflight"] > 0)
+
+    def pulse() -> None:
+        """The server's heartbeat: rewrite every run's progress, requests or not."""
+        for build in builds.values():
+            build.write_progress(activity["inflight"] > 0)
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_):  # the builds log their own progress
@@ -546,12 +599,16 @@ def make_handler(builds: dict[str, Build], token: str):
                     if not isinstance(body, dict):
                         raise ValueError("the request body must be a JSON object")
                 if method == "GET" and url.path == "/next":
-                    return self.reply(200, json.dumps(build.next()).encode())
+                    step = build.next()
+                    build.note(step)
+                    return self.reply(200, json.dumps(step).encode())
                 if method == "GET" and url.path == "/file":
                     data, ctype = build.file(q["step"], int(q["i"]))
                     return self.reply(200, data, ctype)
                 if method == "POST" and url.path == "/record":
-                    return self.reply(200, json.dumps(build.record(q["step"], body)).encode())
+                    out = build.record(q["step"], body)
+                    build.note_recorded(out)
+                    return self.reply(200, json.dumps(out).encode())
                 if method == "POST" and url.path == "/error":
                     build.log(f"FAILED {body.get('message', body)}")
                     if body.get("step") and not body["step"].startswith("preflight"):
@@ -577,6 +634,7 @@ def make_handler(builds: dict[str, Build], token: str):
         def do_POST(self):
             self.route("POST")
 
+    Handler.pulse = staticmethod(pulse)
     return Handler
 
 
@@ -752,7 +810,16 @@ def main() -> int:
         print(f"serving {b.project} for file {key}", flush=True)
     token = person_token()   # never printed: the person copies it from the file once per machine
     print(f"runner token: in {HOME / TOKEN_FILE}", flush=True)
-    ThreadingHTTPServer(("127.0.0.1", PORT), make_handler(builds, token)).serve_forever()
+    handler = make_handler(builds, token)
+    server = ThreadingHTTPServer(("127.0.0.1", PORT), handler)
+
+    def heartbeat() -> None:
+        while True:
+            handler.pulse()
+            time.sleep(HEARTBEAT_SECONDS)
+
+    threading.Thread(target=heartbeat, daemon=True).start()
+    server.serve_forever()
     return 0
 
 

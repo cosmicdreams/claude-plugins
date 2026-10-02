@@ -173,6 +173,7 @@ def init_command(args):
     write_json(path, project)
     append_jsonl(workspace / PHASE_LOG, {"at": project["createdAt"], "phase": "init",
                                          "status": "complete"})
+    write_active_run(workspace)
     print(json.dumps({"project": str(path), "repository": project["repository"],
                       "run": project["run"]}, indent=2))
 
@@ -647,6 +648,7 @@ def preflight_command(args):
         write_json(path, project)
         handshake = runner_handshake(path.parent, figma_key.group(1), args.figma_url, args.runner_timeout, project)
         checks["runner"] = handshake
+        write_active_run(path.parent, (handshake.get("server") or {}).get("pid"))
         if not handshake.get("ok"):
             missing.append(handshake.get("failure") or "the Figma file could not be proven writable")
         elif not handshake.get("connectionOnly"):
@@ -884,6 +886,111 @@ def component_coverage(project_path_: Path, project: dict) -> dict:
     }
 
 
+ACTIVE_RUN = "active-run.json"
+SERVER_FRESH_SECONDS = 30  # three missed heartbeats (figma_runner.HEARTBEAT_SECONDS)
+
+
+def write_active_run(workspace: Path, server_pid: int | None = None) -> None:
+    """Point at the run being built, for anything that shows it without being told which run
+    (the design-lab pane). One run at a time, so one pointer; the server's process id lets a
+    reader tell a live run from one whose server is gone."""
+    import figma_runner
+    figma_runner.HOME.mkdir(mode=0o700, parents=True, exist_ok=True)
+    write_json(figma_runner.HOME / ACTIVE_RUN,
+               {"workspace": str(Path(workspace).resolve()), "serverPid": server_pid, "at": now()})
+
+
+def read_json_or(path: Path, default=None):
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return default
+
+
+def seconds_since(stamp: str | None) -> float | None:
+    import datetime as dt
+    try:
+        return (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(stamp)).total_seconds()
+    except (TypeError, ValueError):
+        return None
+
+
+def watch_summary(workspace: Path) -> dict:
+    """Where a run is, from the files the run writes: what the design-lab pane shows, as data.
+    Reads leniently, so a run in any state, or half-written, still summarises."""
+    workspace = Path(workspace).resolve()
+    project = read_json_or(workspace / "project.json")
+    if project is None:
+        return {"workspace": str(workspace), "found": False}
+    phases = project.get("phases") or {}
+    entries = []
+    try:
+        entries = [json.loads(line) for line in (workspace / PHASE_LOG).read_text().splitlines() if line.strip()]
+    except (OSError, ValueError):
+        pass
+    # The open blocker: the newest entry, when it stopped the run for the person.
+    blocker = entries[-1].get("message") if entries and entries[-1].get("status") == "stopped" else None
+    progress = read_json_or(workspace / "figma" / "progress.json")
+    runner = None
+    if progress:
+        server_age = seconds_since(progress.get("at"))
+        server_alive = server_age is not None and server_age <= SERVER_FRESH_SECONDS
+        seen_age = seconds_since(progress.get("lastSeen"))
+        connected = (seen_age is not None and seen_age <= RUNNER_ABSENT_MINUTES * 60) or \
+            (server_alive and bool(progress.get("inflight")))
+        runner = {"serverAlive": server_alive, "connected": server_alive and connected,
+                  "lastSeenSeconds": seen_age, "state": progress.get("state"),
+                  "stepsDone": progress.get("stepsDone"), "stepsTotal": progress.get("stepsTotal"),
+                  "stepKind": progress.get("stepKind"), "message": progress.get("message")}
+    if runner and runner["connected"]:
+        blocker = None   # the runner came back after the stop, and the build has carried on
+    completion = workspace / "benchmark" / "completion.md"
+    return {"workspace": str(workspace), "found": True,
+            "siteLabel": (project.get("run") or {}).get("siteLabel"),
+            "phases": [{"name": name, "status": (value or {}).get("status")} for name, value in phases.items()],
+            "nextPhase": next((name for name, value in phases.items()
+                               if (value or {}).get("status") not in ("complete", "approved", "waived")), None),
+            "runner": runner, "blocker": blocker,
+            "recap": str(completion) if completion.is_file() else None}
+
+
+def render_watch(summary: dict) -> str:
+    if not summary.get("found"):
+        return f"No design-lab run in {summary['workspace']}: it has no project.json."
+    marks = {"complete": "✓", "approved": "✓", "waived": "✓", "running": "▸", "stopped": "!"}
+    lines = [f"design-lab · {summary.get('siteLabel') or Path(summary['workspace']).name}", ""]
+    # One current phase: the one running, or else the next one due.
+    running = any(phase["status"] == "running" for phase in summary["phases"])
+    for phase in summary["phases"]:
+        mark = "▸" if not running and phase["name"] == summary["nextPhase"] and phase["status"] not in marks else \
+            marks.get(phase["status"], "·")
+        lines.append(f"  {mark} {phase['name']}")
+    runner = summary.get("runner")
+    if runner:
+        lines.append("")
+        if runner["state"] in ("building", "done") and runner["stepsTotal"]:
+            kind = f", {runner['stepKind']}" if runner["state"] == "building" and runner["stepKind"] else ""
+            lines.append(f"  steps {runner['stepsDone'] or 0}/{runner['stepsTotal']}{kind}")
+        elif runner.get("message"):
+            lines.append(f"  {runner['message']}")
+        if not runner["serverAlive"]:
+            lines.append("  runner server not responding")
+        elif runner["connected"]:
+            lines.append("  runner connected")
+        else:
+            minutes = max(1, round((runner["lastSeenSeconds"] or 0) / 60))
+            lines.append(f"  runner not seen for {minutes}m")
+    if summary.get("blocker"):
+        lines += ["", f"  Needs you: {summary['blocker']}"]
+    if summary.get("recap"):
+        lines += ["", f"  Recap: {summary['recap']}"]
+    return "\n".join(lines)
+
+
+def watch_command(args):
+    print(render_watch(watch_summary(Path(args.project))))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1014,6 +1121,10 @@ def main():
     command = sub.add_parser("status")
     command.add_argument("--project", default=".design-lab")
     command.set_defaults(func=lambda args: print(status(args.project)))
+
+    command = sub.add_parser("watch", help="where the run is, as text: phases, steps, runner, blocker, recap")
+    command.add_argument("--project", default=".design-lab")
+    command.set_defaults(func=watch_command)
 
     args = parser.parse_args()
     try:
