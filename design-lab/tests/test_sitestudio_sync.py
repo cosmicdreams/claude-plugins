@@ -8,6 +8,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import detect
 import extract_sitestudio
+import twig_debug
 
 COMPONENT = "cohesion_elements.cohesion_component.cpt_hero.yml"
 
@@ -61,6 +62,12 @@ class SiteStudioSyncTests(unittest.TestCase):
             path.write_text("id: x\njson_values: '{\"name\": \"It''s\"}'\nstatus: true\n")
             payload, _ = extract_sitestudio.load_json_values(str(path))
             self.assertEqual(payload, {"name": "It's"})
+
+    def test_twig_debug_suggestion_for_site_studio_component(self):
+        self.assertEqual(twig_debug.suggestion("cpt_callouts"),
+                         ("component__cohesion_cpt_callouts", "component--cohesion-cpt-callouts.html.twig"))
+        self.assertEqual(twig_debug.suggestion("paragraph:cpt_text"),
+                         ("paragraph", "paragraph--cpt-text.html.twig"))
 
 
 if __name__ == "__main__":

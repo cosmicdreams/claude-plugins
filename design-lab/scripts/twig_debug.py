@@ -22,6 +22,12 @@ def enabled(html: str) -> bool:
 
 
 def suggestion(component_id: str) -> tuple[str, str]:
+    if ":" not in component_id:
+        # Site Studio component ids carry no entity prefix; each compiled template,
+        # component--cohesion-<id>.html.twig, renders under its own component__cohesion_<id>
+        # theme hook.
+        return ("component__cohesion_%s" % component_id,
+                "component--cohesion-%s.html.twig" % component_id.replace("_", "-"))
     kind, machine = component_id.split(":", 1)
     return kind, "%s--%s.html.twig" % (kind, machine.replace("_", "-"))
 

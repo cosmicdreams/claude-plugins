@@ -179,6 +179,11 @@ def main():
         marker_kind = (example or {}).get('markerKind')
         sel = component_selector(component_id, strategy)
         why = 'Drupal SDC component id' if sel else None
+        if not sel and strategy == 'sitestudio' and not c.get('isCustomComponent'):
+            # A compiled Site Studio component prints no class of its own on every root;
+            # its Twig debug template suggestion is the only exact marker.
+            marker_kind = 'template'
+            sel, why = twig_debug.root_selector(component_id), 'Site Studio template marker'
         if not sel:
             sel = ('.' + marker if marker and marker_kind == 'class' else
                    '#' + marker if marker and marker_kind == 'id' else
