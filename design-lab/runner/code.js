@@ -1,9 +1,10 @@
 // design-lab runner: executes figma_build.py steps in the open file, with no model in between.
 //
 // scripts/figma_runner.py serves the steps on localhost. This loop asks for the next step,
-// runs it here, posts the result, and repeats until the build is done or a step fails. The
-// server picks the build whose file key matches this file, so the same plugin drives every
-// run. A failed step is never recorded; running the plugin again resumes from it.
+// runs it here, posts the result, and repeats until the build is done. The server picks the
+// build whose file key matches this file, so the same plugin drives every run. A failed step is
+// never recorded; the plugin stays open and waits, and the build resumes from that step once
+// the cause is fixed.
 //
 // The plugin can be started before the build: the server answers `wait` until there are
 // steps, and the plugin stays open, says it is connected, and asks again every few seconds.
@@ -143,9 +144,17 @@ async function run() {
       else if (step.kind === 'screenshot') result = await screenshot(step);
       else throw new Error(`unknown step kind ${step.kind}`);
     } catch (e) {
-      const message = `${step.step}: ${e && e.stack ? e.stack : e}`;
+      // The sandbox's stack has no message line, so both are sent: the message says what failed.
+      const detail = e && e.message ? e.message : String(e);
+      const message = `${step.step}: ${detail}${e && e.stack ? `\n${e.stack}` : ''}`;
       await call('/error', { step: step.step, message }).catch(() => {});
-      throw new Error(message);
+      // Preflight reports its own failure to the person; a check is never retried in place.
+      if (step.kind === 'check') throw new Error(message);
+      // A failed step is not recorded. The server answers `wait` until a fix lands (a new
+      // init or a restarted server), so a fix needs nobody in Figma.
+      status(`Stopped at ${step.step}: ${detail.slice(0, 160)}. Waiting for a fix.`);
+      step = await call('/next');
+      continue;
     }
     await call(`/record?step=${encodeURIComponent(step.step)}`, result === undefined ? {} : result);
     count++;

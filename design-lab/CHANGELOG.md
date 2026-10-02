@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.16.0
+
+**Unattended runs survive a failed Figma step, and Massport, the first site after America's Credit Unions, runs end to end.** A failed step no longer closes the runner: the plugin stays open and waits, so a fix to a template or the server resumes the build with nobody in Figma. Four defects the Massport run hit are fixed.
+
+- Runner: a failed step is reported with its message as well as its stack (the sandbox's stack has no message line, so two failures read only `at style (<input>:127:46)`), and the plugin waits instead of closing. The server answers "wait" for the failed step until `figma_build.py init` rewrites the build state or the server restarts. A failed preflight check still closes the plugin. The runner must be restarted once to load this.
+- Usage: refuses a site whose Twig debug is off (`--without-twig-debug` accepts it). On Massport, usage run before Twig debug was on lost every component located by its template, `feature_card` alone carrying 269 placements.
+- Usage: an enabled module with no field table no longer fails the phase; Layout Builder on with no per-node overrides never creates `node__layout_builder__layout`.
+- Usage: class markers are counted with HTML comments stripped. Twig debug comments name template files such as `block--icon-block.html.twig`, which read as a class the page never prints; three blocks (56 placements for `icon_block`) came out with selectors that matched nothing.
+- Build: an effect colour measured without an opacity gets alpha 1, as fills already did; `a: undefined` stopped the build at the first inner shadow.
+- Runner server: an image over Figma's 4096-pixel limit is scaled to fit before upload; the node it fills keeps its measured size. Full-page captures of a long accordion (4546 and 5148 pixels tall) stopped the evidence upload.
+
 ## 0.15.6
 
 **The last America's Credit Unions refinement: faster iteration, consistent derived layouts, cleaner reveals, sturdier runs, and skills that teach all of 0.15.x.** Benchmark against the 0.15.0 run on the same site: 46 of 61 buildable components built (from 26 of 59), carrying 91% of the site's placements (from 25%); 40 of 138 widths within tolerance (from 13 of 78).

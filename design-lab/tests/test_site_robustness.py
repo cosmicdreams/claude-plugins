@@ -3,6 +3,7 @@ comments that read as class markers, and captures taller than Figma accepts."""
 
 import io
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -45,6 +46,40 @@ class ClassMarkerTests(unittest.TestCase):
             extract_drupal_usage.enrich_examples(document, "https://site.test")
         kinds = {e["markerKind"] for e in document["usage"]["block:icon_block"]["examples"]}
         self.assertNotIn("class", kinds)
+
+
+class FailedStepTests(unittest.TestCase):
+    def _build(self):
+        project = Path(tempfile.mkdtemp())
+        (project / "figma").mkdir()
+        (project / "figma" / "state.json").write_text("{}")
+        return project, figma_runner.Build(project)
+
+    def test_failed_step_waits_until_the_build_is_reinitialised(self):
+        project, build = self._build()
+        build.failed = {"step": "build:x", "stamp": build.state_stamp()}
+        self.assertEqual(build.next()["kind"], "wait")
+        state = project / "figma" / "state.json"
+        state.write_text("{}")
+        os.utime(state, (build.failed["stamp"] + 5, build.failed["stamp"] + 5))
+        with mock.patch.object(build, "driver", return_value={"kind": "done"}), \
+                mock.patch.object(build, "dump_step", return_value=None):
+            self.assertEqual(build.next()["kind"], "done")
+        self.assertIsNone(build.failed)
+
+
+class TwigDebugTests(unittest.TestCase):
+    def test_usage_refuses_a_site_without_twig_debug(self):
+        import workflow
+        document = {"usage": {}, "source": {"exampleVerification": {"pagesFetched": 3, "twigDebug": False}}}
+        project = {"decisions": {"usageSource": "drupal-db"}, "repository": {"root": "/tmp"}}
+        args = mock.Mock(project="p", ddev_root="/tmp", ddev_project=None, base_url=None,
+                         without_twig_debug=False)
+        with mock.patch.object(workflow, "load_project", return_value=(Path("/tmp/p/project.json"), project)), \
+                mock.patch.object(workflow, "load_json", return_value={"components": []}), \
+                mock.patch.object(workflow, "extract_drupal_usage", return_value=document):
+            with self.assertRaisesRegex(ValueError, "Twig debug is off"):
+                workflow.usage_command(args)
 
 
 class FigmaImageLimitTests(unittest.TestCase):

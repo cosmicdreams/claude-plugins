@@ -228,6 +228,13 @@ class Build:
         self.project = project
         self.lock = threading.Lock()
         self.current: dict | None = None
+        # The step that last failed, and the build state it failed under: it is not served
+        # again until a new init rewrites state.json or the server restarts with a fix.
+        self.failed: dict | None = None
+
+    def state_stamp(self) -> float:
+        state = self.project / "figma" / "state.json"
+        return state.stat().st_mtime if state.is_file() else 0.0
 
     @property
     def state(self) -> dict:
@@ -266,6 +273,11 @@ class Build:
             self.current = self.handshake_step()
             self.log(f"serving {self.current['step']}")
             return self.current
+        if self.failed and self.failed["stamp"] == self.state_stamp():
+            self.current = None
+            return {"kind": "wait", "step": "wait", "retryMs": WAIT_MS,
+                    "message": f"Stopped at {self.failed['step']}. Waiting for a fix."}
+        self.failed = None
         if not (self.project / "figma" / "state.json").is_file():
             # Nothing to build yet: the plugin stays open, shows it is connected, and asks again.
             return {"kind": "wait", "step": "wait", "retryMs": WAIT_MS,
@@ -542,6 +554,8 @@ def make_handler(builds: dict[str, Build], token: str):
                     return self.reply(200, json.dumps(build.record(q["step"], body)).encode())
                 if method == "POST" and url.path == "/error":
                     build.log(f"FAILED {body.get('message', body)}")
+                    if body.get("step") and not body["step"].startswith("preflight"):
+                        build.failed = {"step": body["step"], "stamp": build.state_stamp()}
                     if (build.current or {}).get("kind") == "check" and build.handshake_pending():
                         build.handshake_error(str(body.get("message", body)))
                     return self.reply(200, b"{}")
