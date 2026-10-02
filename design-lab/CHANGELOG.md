@@ -2,7 +2,7 @@
 
 ## 0.16.0
 
-**Unattended runs survive a failed Figma step, and Massport, the first site after America's Credit Unions, runs end to end.** A failed step no longer closes the runner: the plugin stays open and waits, so a fix to a template or the server resumes the build with nobody in Figma. Four defects the Massport run hit are fixed.
+**Unattended runs survive a failed Figma step, and Massport, the first site after America's Credit Unions, builds end to end: 34 of 41 buildable components, carrying 82% of placements; 14 of 102 widths within tolerance, and the verify gate still open on visual fidelity.** A failed step no longer closes the runner: the plugin stays open and waits, so a fix to a template or the server resumes the build with nobody in Figma. Four defects the Massport run hit are fixed.
 
 - Runner: a failed step is reported with its message as well as its stack (the sandbox's stack has no message line, so two failures read only `at style (<input>:127:46)`), and the plugin waits instead of closing. The server answers "wait" for the failed step until `figma_build.py init` rewrites the build state or the server restarts. A failed preflight check still closes the plugin. The runner must be restarted once to load this.
 - Usage: refuses a site whose Twig debug is off (`--without-twig-debug` accepts it). On Massport, usage run before Twig debug was on lost every component located by its template, `feature_card` alone carrying 269 placements.
