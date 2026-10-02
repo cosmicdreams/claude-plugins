@@ -24,6 +24,7 @@ are emitted separately rather than mixed into the palette.
 import json, re, sys, os, glob, datetime
 from artifact_contracts import tool_version
 from detect import sitestudio_dir
+from extract_sitestudio import load_json_values
 
 # references/library-standard.md section 10: every artifact states which edition it
 # was built to, or nobody can tell whether a library predates a rule.
@@ -33,18 +34,6 @@ BREAKPOINTS = ['xxl', 'xl', 'lg', 'md', 'sm', 'xs']
 COLOR_PROPS = {'color', 'background-color', 'border-color', 'fill'}
 SPACE_PROPS = {'padding', 'margin', 'gap', 'row-gap', 'column-gap'}
 TYPE_PROPS = {'font-size', 'line-height', 'font-family', 'font-weight', 'letter-spacing'}
-
-
-def load_json_values(path):
-    """Payload is a JSON string in a single-quoted YAML scalar; doubled quotes unescape."""
-    txt = open(path, errors='ignore').read()
-    m = re.search(r"^json_values: '(.*?)'\n[a-z_]+:", txt, re.S | re.M)
-    if not m:
-        return None, txt
-    try:
-        return json.loads(m.group(1).replace("''", "'")), txt
-    except json.JSONDecodeError:
-        return None, txt
 
 
 def scalar(txt, key):

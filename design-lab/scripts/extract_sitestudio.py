@@ -45,13 +45,27 @@ def token_family(values):
     fams.discard('other') if len(fams) > 1 else None
     return fams.pop() if len(fams) == 1 else None
 
+QUOTED_JSON = re.compile(r"^json_values: '(.*?)'\n[a-z_]+:", re.S | re.M)
+# Newer exports write the payload as a literal block scalar instead:
+# json_values: |
+#   { ... }
+BLOCK_JSON = re.compile(r"^json_values: \|[-+]?\n((?:(?:[ ]+.*)?\n)+)", re.M)
+
 def load_json_values(path):
+    """Parse the JSON payload of json_values, quoted or block form, without a YAML library."""
     txt = open(path, errors='ignore').read()
-    m = re.search(r"^json_values: '(.*?)'\n[a-z_]+:", txt, re.S | re.M)
-    if not m:
-        return None, txt
+    m = QUOTED_JSON.search(txt)
+    if m:
+        payload = m.group(1).replace("''", "'")
+    else:
+        m = BLOCK_JSON.search(txt)
+        if not m:
+            return None, txt
+        lines = m.group(1).split('\n')
+        indent = min((len(l) - len(l.lstrip(' ')) for l in lines if l.strip()), default=0)
+        payload = '\n'.join(l[indent:] for l in lines)
     try:
-        return json.loads(m.group(1).replace("''", "'")), txt
+        return json.loads(payload), txt
     except json.JSONDecodeError:
         return None, txt
 

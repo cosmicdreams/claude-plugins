@@ -7,6 +7,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "scripts"))
 import detect
+import extract_sitestudio
 
 COMPONENT = "cohesion_elements.cohesion_component.cpt_hero.yml"
 
@@ -46,6 +47,20 @@ class SiteStudioSyncTests(unittest.TestCase):
             root = Path(tmp)
             (root / "config/default").mkdir(parents=True)
             self.assertEqual(detect.sitestudio_dir(str(root), "fallback"), "fallback")
+
+    def test_block_scalar_json_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "c.yml"
+            path.write_text("id: black\njson_values: |\n  {\n      \"name\": \"Black\",\n\n      \"uid\": \"black\"\n  }\njson_mapper: '{}'\n")
+            payload, _ = extract_sitestudio.load_json_values(str(path))
+            self.assertEqual(payload, {"name": "Black", "uid": "black"})
+
+    def test_quoted_json_values(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            path = Path(tmp) / "c.yml"
+            path.write_text("id: x\njson_values: '{\"name\": \"It''s\"}'\nstatus: true\n")
+            payload, _ = extract_sitestudio.load_json_values(str(path))
+            self.assertEqual(payload, {"name": "It's"})
 
 
 if __name__ == "__main__":
