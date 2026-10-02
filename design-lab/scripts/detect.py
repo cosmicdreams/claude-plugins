@@ -58,6 +58,34 @@ def config_sync(root):
     best = max(cands, key=lambda c: c['entityCount'])
     return best['path'] if best['entityCount'] else cands[0]['path']
 
+
+SITE_STUDIO_SYNC = re.compile(
+    r"""\$settings\[['"]site_studio_sync['"]\]\s*=\s*(\$app_root\s*\.\s*)?['"]([^'"]+)['"]""")
+
+def sitestudio_dir(root, cfg=None):
+    """Where Site Studio's own configuration lives, or cfg when it shares config sync.
+
+    Site Studio packages can be exported to a separate directory named by
+    $settings['site_studio_sync']. One site keeps all 168 components in
+    config/sitestudio while config/default holds none, so looking only in config
+    sync finds no component source at all.
+    """
+    pattern = 'cohesion_elements.cohesion_component.*.yml'
+    web = docroot(root)
+    for settings in sorted(glob.glob(os.path.join(web, 'sites', '*', 'settings*.php'))):
+        try:
+            text = open(settings, encoding='utf-8', errors='replace').read()
+        except OSError:
+            continue
+        for m in SITE_STUDIO_SYNC.finditer(text):
+            p = os.path.normpath(os.path.join(web if m.group(1) else root, m.group(2).lstrip('/')))
+            if glob.glob(os.path.join(p, pattern)):
+                return p
+    p = os.path.join(root, 'config', 'sitestudio')
+    if glob.glob(os.path.join(p, pattern)):
+        return p
+    return cfg
+
 # Directories and files that mean "somebody has already done this work". references/
 # prior-art.md is emphatic that skipping this produces a second, contradictory design
 # system - but the probe lived only in the skill prose, so running detect.py directly
@@ -141,11 +169,12 @@ def detect(root):
             out['componentSources'].append({
                 'strategy': 'canvas', 'count': len(canvas),
                 'evidence': 'Canvas authoring registrations joined to source SDC definitions'})
-        ss = glob.glob(os.path.join(cfg, 'cohesion_elements.cohesion_component.*.yml'))
+        ss_dir = sitestudio_dir(root, cfg)
+        ss = glob.glob(os.path.join(ss_dir, 'cohesion_elements.cohesion_component.*.yml'))
         if ss:
             out['componentSources'].append(
                 {'strategy': 'sitestudio', 'count': len(ss), 'evidence': 'cohesion_component config entities'})
-        cs = glob.glob(os.path.join(cfg, 'cohesion_custom_styles.cohesion_custom_style.*.yml'))
+        cs = glob.glob(os.path.join(ss_dir, 'cohesion_custom_styles.cohesion_custom_style.*.yml'))
         if cs:
             out['tokenSources'].append(
                 {'strategy': 'sitestudio-styles', 'count': len(cs), 'evidence': 'cohesion_custom_style config entities'})

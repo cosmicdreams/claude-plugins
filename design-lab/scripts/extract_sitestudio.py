@@ -7,6 +7,7 @@ No YAML library required, which keeps this runnable without a virtualenv.
 """
 import json, re, sys, os, glob, datetime
 from artifact_contracts import tool_version
+from detect import sitestudio_dir
 
 # references/library-standard.md section 10: every artifact states which edition it
 # was built to, or nobody can tell whether a library predates a rule.
@@ -142,6 +143,7 @@ def extract(root, config_dir=None):
             if os.path.isdir(os.path.join(root, c)):
                 config_dir = os.path.join(root, c)
                 break
+        config_dir = sitestudio_dir(root, config_dir)
     files = sorted(glob.glob(os.path.join(
         config_dir, 'cohesion_elements.cohesion_component.*.yml')))
     comps, problems = [], []

@@ -23,6 +23,7 @@ are emitted separately rather than mixed into the palette.
 """
 import json, re, sys, os, glob, datetime
 from artifact_contracts import tool_version
+from detect import sitestudio_dir
 
 # references/library-standard.md section 10: every artifact states which edition it
 # was built to, or nobody can tell whether a library predates a rule.
@@ -59,7 +60,7 @@ def config_dir(root):
             n = len(glob.glob(os.path.join(p, '*.yml')))
             if n > best_n:
                 best, best_n = p, n
-    return best
+    return sitestudio_dir(root, best)
 
 
 def flatten(v):
