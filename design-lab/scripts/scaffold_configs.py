@@ -92,6 +92,26 @@ def sdc_selector(theme_root, machine):
     return None, None
 
 
+def custom_selector(repository_root, source_ref):
+    """Read a custom component's declared Twig root, without guessing a paragraph class."""
+    from extract_sitestudio import scalar
+    definition = os.path.join(repository_root, source_ref)
+    try:
+        with open(definition) as handle:
+            template = scalar(handle.read(), 'template')
+        if not template:
+            return None, None
+        with open(os.path.join(os.path.dirname(definition), template)) as handle:
+            body = handle.read()
+    except OSError:
+        return None, None
+    # Twig comments may contain example markup that does not render.
+    body = re.sub(r'{#.*?#}', '', body, flags=re.S)
+    root = re.search(r'<[a-zA-Z][^>]*>', body)
+    match = re.search(r"\bclass\s*=\s*[\"']([a-zA-Z_][a-zA-Z0-9_-]*)(?=[\s\"'])", root.group(0)) if root else None
+    return ('.' + match.group(1).split()[0], 'root class in custom component template') if match else (None, None)
+
+
 def first_example(usage):
     """Use the first non-empty example source, preserving its recorded order."""
     for key in ('examples', 'renderedExamples', 'exampleCandidates'):
@@ -167,7 +187,10 @@ def main():
                    twig_debug.root_selector(component_id)
                    if marker and marker_kind == 'template' else None)
             why = 'unique rendered usage marker' if sel else None
-        if not sel:
+        if not sel and c.get('isCustomComponent'):
+            sel, why = custom_selector((doc.get('source') or {}).get('root', ''),
+                                       c['sourceRef'])
+        if not sel and not c.get('isCustomComponent'):
             sel, why = (sdc_selector(a.theme_root, machine) if sdc_source else
                         template_selector(a.theme_root, machine))
         display_path = (example or {}).get('path')
@@ -198,10 +221,10 @@ def main():
             gaps.append('verified example')
         if not sel:
             gaps.append('rootSelector')
-            cfg['rootSelector'] = (None if sdc_source else
+            cfg['rootSelector'] = (None if sdc_source or c.get('isCustomComponent') else
                                    '.paragraph--type--%s' % clean(machine))
             cfg['_selectorIsAGuess'] = ('No root class could be read from the SDC Twig template.'
-                                        if sdc_source else 'The default paragraph wrapper. '
+                                        if sdc_source or c.get('isCustomComponent') else 'The default paragraph wrapper. '
                                         'Verify it: a component with its own template usually '
                                         'emits no bundle class.')
         elif why:

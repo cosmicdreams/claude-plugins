@@ -1,0 +1,125 @@
+{
+  "model": {
+    "title": {
+      "settings": {
+        "machineName": "title",
+        "title": "Title",
+        "type": "cohTextBox",
+        "required": true
+      },
+      "model": {
+        "value": "Hello"
+      }
+    },
+    "description": {
+      "settings": {
+        "machineName": "description",
+        "title": "Description",
+        "type": "cohWysiwyg",
+        "required": false
+      },
+      "model": {
+        "value": {
+          "text": "<p>Rich</p>",
+          "textFormat": "cohesion"
+        }
+      }
+    },
+    "enabled": {
+      "settings": {
+        "machineName": "enabled",
+        "title": "Enabled",
+        "type": "checkboxToggle",
+        "required": false
+      },
+      "model": {
+        "value": false
+      }
+    },
+    "image": {
+      "settings": {
+        "machineName": "image",
+        "title": "Image",
+        "type": "cohFileBrowser",
+        "required": false,
+        "options": {
+          "buttonText": "Select image"
+        }
+      },
+      "model": {
+        "value": null
+      }
+    },
+    "link": {
+      "settings": {
+        "machineName": "link",
+        "title": "Link",
+        "type": "cohTypeahead",
+        "required": false
+      },
+      "model": {
+        "value": "/about"
+      }
+    },
+    "style": {
+      "settings": {
+        "machineName": "style",
+        "title": "Style",
+        "type": "cohSelect",
+        "required": false,
+        "options": [
+          {
+            "value": "left",
+            "label": "Left"
+          },
+          {
+            "value": "right",
+            "label": "Right"
+          }
+        ]
+      },
+      "model": {
+        "value": "left"
+      }
+    },
+    "items": {
+      "settings": {
+        "machineName": "items",
+        "title": "Items",
+        "type": "cohArray",
+        "required": false,
+        "min": 1,
+        "max": 5
+      },
+      "model": {
+        "value": []
+      }
+    },
+    "item-title": {
+      "settings": {
+        "machineName": "item-title",
+        "title": "Item-Title",
+        "type": "cohTextBox",
+        "required": false
+      },
+      "model": {
+        "value": null
+      }
+    }
+  },
+  "componentForm": [
+    {
+      "uuid": "items",
+      "children": [
+        {
+          "uuid": "section",
+          "children": [
+            {
+              "uuid": "item-title"
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

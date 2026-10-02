@@ -1,0 +1,8 @@
+name: 'Tiny Custom'
+category: custom_category
+form: form.json
+template: tiny.html.twig
+css:
+  tiny.css: {}
+js:
+  tiny.js: {}
