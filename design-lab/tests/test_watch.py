@@ -108,6 +108,7 @@ class WatchTests(unittest.TestCase):
         pointer = json.loads((figma_runner.HOME / workflow.ACTIVE_RUN).read_text())
         self.assertEqual(pointer["workspace"], str(self.w.resolve()))
         self.assertEqual(pointer["serverPid"], 4242)
+        self.assertEqual(workflow.active_run(), self.w.resolve())
 
 
 if __name__ == "__main__":

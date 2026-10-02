@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.18.0
+
+**A pane that tells the person where the run is and when it is done, without asking anything of them.** `/design-lab:watch` opens it beside the transcript; it is a Claude Code mod, so it needs Claude Code 2.1.287 or later, and everything works as before without it.
+
+- Pane: preflight, the phases with the current one marked, build steps done of total, whether the runner is connected, the runner log's last eight lines, and anything that needs the person. A status line such as `design-lab · steps 112/158 · runner connected · 41m` stays visible in that session and clears when the run finishes.
+- Watchdog: when the runner stops asking for steps, or the runner server stops beating, the pane raises one toast per stop and shows what to do in Figma desktop, with one button, **Runner restarted, resume**, which puts the resume request in the prompt box (or sends it where there is no prompt box).
+- Runner server: writes `figma/progress.json` atomically on every request and on a ten-second heartbeat of its own (state, steps done of total, the current step's kind, whether a step is in flight, when the runner last asked, its process id), so a slow step reads as working and a dead server as not responding. `runner-seen` is written atomically too; a poll could read it half-written.
+- `workflow.py init` and `preflight` record the active run in the person's design-lab folder (`active-run.json`); `workflow.py watch [--project]` prints the same summary as text, and is what `/design-lab:watch` answers where the mod is not loaded or nothing draws.
+- The mod reads only the run folder and the pointer, writes nothing, and never reads the runner token; a test holds it to that. `hooks.json` quotes the guard's path.
+
 ## 0.17.0
 
 **Runs can now be replayed and compared: a frozen corpus of finished runs, a property replay that needs no Figma, a rebuild in a scratch Figma file, and a scoreboard ledger with a dashboard.** The measure comes first, so the fixes that follow can be shown to help.

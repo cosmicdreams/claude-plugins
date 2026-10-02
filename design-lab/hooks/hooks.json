@@ -1,5 +1,5 @@
 {
-    "description": "Keeps Claude away from the person's design-lab runner token.",
+    "description": "Keeps Claude away from the person's design-lab runner token, and draws the run's pane: where the run is and when it is done.",
     "hooks": {
         "PreToolUse": [
             {
@@ -7,11 +7,14 @@
                 "hooks": [
                     {
                         "type": "command",
-                        "command": "python3 ${CLAUDE_PLUGIN_ROOT}/hooks/guard_runner_token.py",
+                        "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/guard_runner_token.py\"",
                         "timeout": 10
                     }
                 ]
             }
         ]
-    }
+    },
+    "modules": [
+        "./mod/register.tsx"
+    ]
 }

@@ -987,8 +987,18 @@ def render_watch(summary: dict) -> str:
     return "\n".join(lines)
 
 
+def active_run() -> Path | None:
+    """The run the active-run pointer names, if any."""
+    import figma_runner
+    pointer = read_json_or(figma_runner.HOME / ACTIVE_RUN) or {}
+    return Path(pointer["workspace"]) if isinstance(pointer.get("workspace"), str) else None
+
+
 def watch_command(args):
-    print(render_watch(watch_summary(Path(args.project))))
+    workspace = Path(args.project) if args.project else active_run()
+    if workspace is None:
+        raise ValueError("no design-lab run is active; give the run folder with --project")
+    print(render_watch(watch_summary(workspace)))
 
 
 def main():
@@ -1123,7 +1133,7 @@ def main():
     command.set_defaults(func=lambda args: print(status(args.project)))
 
     command = sub.add_parser("watch", help="where the run is, as text: phases, steps, runner, blocker, recap")
-    command.add_argument("--project", default=".design-lab")
+    command.add_argument("--project", help="the run folder (default: the active run)")
     command.set_defaults(func=watch_command)
 
     args = parser.parse_args()
