@@ -361,6 +361,15 @@ def usage_command(args):
     if strategy == "drupal-db":
         rendering = load_json(render_path) if render_path.is_file() else None
         document = extractor(ddev_root, components, args.ddev_project, rendering)
+        verification = (document.get("source") or {}).get("exampleVerification") or {}
+        if verification.get("pagesFetched") and not verification.get("twigDebug") \
+                and not args.without_twig_debug:
+            # Without the debug comments every bundle printed by its own template has no marker,
+            # and the run quietly loses those components (269 placements of one card on one site).
+            raise ValueError(
+                "Twig debug is off on the local site. Turn on Twig debug only (not the Twig cache "
+                "switch), rebuild caches, and run usage again; pass --without-twig-debug to "
+                "accept losing every component located by its template")
     else:
         document = extractor(ddev_root, components, args.ddev_project)
     if args.base_url:
@@ -925,6 +934,8 @@ def main():
     command.add_argument("--ddev-root")
     command.add_argument("--ddev-project")
     command.add_argument("--base-url", help="verify rendered SDC markers on public aliases")
+    command.add_argument("--without-twig-debug", action="store_true",
+                         help="accept a site whose Twig debug is off")
     command.add_argument("--high", type=int, default=50)
     command.add_argument("--medium", type=int, default=10)
     command.set_defaults(func=usage_command)
