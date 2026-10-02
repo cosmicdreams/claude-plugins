@@ -119,7 +119,7 @@ function style(node, s) {
   }
   if (s.radius) [node.topLeftRadius, node.topRightRadius, node.bottomRightRadius, node.bottomLeftRadius] = s.radius;
   if (s.effects) node.effects = s.effects.map((e) => ({ type: e.type, visible: true, blendMode: 'NORMAL', spread: e.spread, radius: e.blur,
-    offset: { x: e.x, y: e.y }, color: { ...hexRgb(e.color.hex), a: e.color.opacity } }));
+    offset: { x: e.x, y: e.y }, color: { ...hexRgb(e.color.hex), a: e.color.opacity ?? 1 } }));
   if (s.opacity !== undefined) node.opacity = s.opacity;
 }
 

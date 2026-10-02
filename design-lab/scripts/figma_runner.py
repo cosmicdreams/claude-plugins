@@ -35,6 +35,7 @@ from __future__ import annotations
 import argparse
 import base64
 import hmac
+import io
 import json
 import os
 import secrets
@@ -199,6 +200,26 @@ def handshake_request(project: Path) -> dict:
     path = Path(project) / "figma" / HANDSHAKE_REQUEST
     return json.loads(path.read_text()) if path.is_file() else {}
 
+
+
+# figma.createImage refuses an image larger than 4096 pixels on either side. A full-page
+# capture is often taller, so it is scaled down to fit; the node it fills keeps its size.
+FIGMA_IMAGE_LIMIT = 4096
+
+
+def fit_figma_image(path: Path) -> bytes:
+    data = path.read_bytes()
+    if path.suffix.lower() not in (".png", ".jpg", ".jpeg", ".webp"):
+        return data
+    from PIL import Image
+    with Image.open(io.BytesIO(data)) as im:
+        if max(im.size) <= FIGMA_IMAGE_LIMIT:
+            return data
+        scale = FIGMA_IMAGE_LIMIT / max(im.size)
+        out = io.BytesIO()
+        im.resize((max(1, int(im.width * scale)), max(1, int(im.height * scale))),
+                  Image.LANCZOS).save(out, format=im.format or "PNG")
+        return out.getvalue()
 
 class Build:
     """One workspace: its current step, and a lock so a file is driven by one loop at a time."""
@@ -404,7 +425,7 @@ class Build:
         if not cur or cur["step"] != step or cur["kind"] != "upload":
             raise RuntimeError(f"{step} is not the current upload step")
         f = cur["files"][i]
-        return Path(f["file"]).read_bytes(), f["contentType"]
+        return fit_figma_image(Path(f["file"])), f["contentType"]
 
     def record(self, step: str, result: dict) -> dict:
         cur = self.current

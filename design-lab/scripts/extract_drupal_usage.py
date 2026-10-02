@@ -33,6 +33,7 @@ PAGE_HOSTS = {
 }
 INLINE_BLOCK = re.compile(r"inline_block:([a-z0-9_]+)")
 BLOCK_UUID = re.compile(r"block_content:([0-9a-f-]{36})")
+HTML_COMMENT = re.compile(r"<!--.*?-->", re.S)
 TIERS = {
     "high": "Components — High Use",
     "medium": "Components — Medium Use",
@@ -75,6 +76,11 @@ WHERE status=1 AND langcode IN ('en', 'und') AND path REGEXP '^/node/[0-9]+$';
 }
 
 
+# Queries whose table exists only when a site uses the feature: Layout Builder can be enabled
+# with no node bundle storing per-node overrides, and then the field table is never created.
+OPTIONAL_TABLES = {"layout_sections": "node__layout_builder__layout"}
+
+
 def _mysql(ddev_root: Path, project: str | None, sql: str) -> list[list[str]]:
     command = ["ddev"]
     command += ["mysql", "-N", "--raw", "-e", sql.strip()]
@@ -101,7 +107,10 @@ def collect_rows(ddev_root: str | Path, project: str | None = None) -> dict[str,
     if project and raw.get("name") != project:
         raise ValueError(
             f"DDEV root resolves to project {raw.get('name')!r}, expected {project!r}")
-    rows = {name: _mysql(root, project, sql) for name, sql in QUERIES.items()}
+    present = {values[0] for values in _mysql(root, project, "SHOW TABLES;") if values}
+    rows = {name: _mysql(root, project, sql)
+            if name not in OPTIONAL_TABLES or OPTIONAL_TABLES[name] in present else []
+            for name, sql in QUERIES.items()}
     rows["__ddev"] = [[str(raw.get("name") or project or root.name),
                        str(raw.get("primary_url") or "")]]
     return rows
@@ -349,8 +358,10 @@ def enrich_examples(document: dict, base_url: str, rendering: dict | None = None
             for path in candidates:
                 url = urljoin(base_url.rstrip('/') + '/', path.lstrip('/'))
                 status, body = fetched.get(url, (0, ""))
+                # A class marker counts only in markup: Twig debug comments name template
+                # files such as `block--icon-block.html.twig`, which a class pattern also hits.
                 count = (twig_debug.count(body, component_id) if kind == "template"
-                         else len(re.findall(pattern, body)))
+                         else len(re.findall(pattern, HTML_COMMENT.sub("", body))))
                 if status == 200 and count:
                     examples.append({
                         "url": url, "path": path, "marker": name, "markerKind": kind,
