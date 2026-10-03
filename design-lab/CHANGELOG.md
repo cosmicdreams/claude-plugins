@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.19.0
+
+**One Site Studio strategy for both kinds of component, read from where the site says its configuration lives; Figma touched only when the build is ready; and a pane that no longer cries wolf.** Found while watching a real run of a Site Studio site, where 0.18.0 detected none of its 168 components.
+
+- Site Studio's configuration export is read from the folder the site's own settings declare (`$settings['site_studio_sync']`, or Drupal's `config_sync_directory` when that is absent), never guessed from folder names. The run records it as the decision `sitestudioConfig`; `workflow.py select --sitestudio-config <folder>` names another, and makes Site Studio selectable even when detection could not see it. A setting that cannot be read without running PHP, settings that disagree across sites or files, or a declared folder that is missing are reported with what to do, not guessed past. `scripts/sitestudio_source.py` holds the rule; detection, component extraction and token extraction all use it.
+- Custom components written in code are found on their own, whether or not the site has configuration-driven ones, the way Site Studio finds them: the `custom_components` folder of the site's own active modules and themes (from `core.extension.yml`) and of the Drupal root, recursively, following symlinks, skipping the folders Site Studio skips, the first definition of a name winning, `name` and `category` required. A component without a form is kept with no fields. Duplicates and refused definitions are listed as problems.
+- Kept from an earlier unmerged branch and now released: `json_values` written as a block scalar, usage counted from Site Studio's own layouts, and compiled Site Studio templates located for capture.
+- Detection recommends Site Studio over a smaller block and paragraph vocabulary beside it (one site has 2 such bundles and 146 Site Studio components).
+- Verified offline on three Site Studio sites: 168 + 4 custom, 146 + 6 custom and 101 + 3 custom components, no problems. Every earlier Site Studio library left the custom components out. Following the declared folder changes one site's custom styles from 172 to 176.
+- Site Studio defects come out in a fixed order, so the same source gives the same `components.json`.
+- Every registered artifact records which copy of design-lab wrote it (`producedBy`: folder, version, commit, whether it had uncommitted changes, or null when that could not be checked), so a fix applied mid-run can no longer hide behind the version recorded at init.
+- Pane: content starts below the close button's row; a runner that is not needed yet shows as "runner idle until the build" in grey, not "runner not seen" in yellow, and its stale "Connected" message is dropped; a `waiting` entry in the phase log (the build's wait for the runner) shows as "Needs you" with no button and one toast.
+
 ## 0.18.0
 
 **A pane that tells the person where the run is and when it is done, without asking anything of them.** `/design-lab:watch` opens it beside the transcript; it is a Claude Code mod, so it needs Claude Code 2.1.287 or later, and everything works as before without it.
