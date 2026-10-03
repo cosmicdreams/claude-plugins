@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import {
-  afterFill, isDown, RECAP_LIMIT, plainOf, RUNNER_ABSENT_MS, SERVER_FRESH_MS, statusOf, summaryOf,
+  afterFill, isDown, preflightPassed, RECAP_LIMIT, plainOf, RUNNER_ABSENT_MS, SERVER_FRESH_MS, statusOf, summaryOf,
 } from '../../hooks/mod/model'
 
 const NOW = Date.parse('2026-10-02T12:00:00Z')
@@ -32,7 +32,7 @@ describe('summaryOf', () => {
     const s = summary({ project: PROJECT, progress: progress() })
     expect(s.current).toBe('components')
     expect(s.runner?.connected).toBe(true)
-    expect(statusOf(s, NOW)).toBe('design-lab · steps 112/158 · runner connected · 41m')
+    expect(statusOf(s, NOW)).toBe('steps 112/158 · runner connected · 41m')
     expect(plainOf(s)).toContain('steps 112/158, use_figma')
     expect(isDown(s)).toBe(false)
   })
@@ -106,5 +106,30 @@ describe('recap', () => {
     expect(summary({ project: PROJECT, completion: '# done' }).hasRecap).toBe(false)
     const benchmarked = { ...PROJECT, phases: { ...PROJECT.phases, benchmark: { status: 'complete' } } }
     expect(summary({ project: benchmarked, completion: '# done' }).hasRecap).toBe(true)
+  })
+})
+
+describe('preflight checklist', () => {
+  const RUNNING = { ...PROJECT, phases: { ...PROJECT.phases, preflight: { status: 'running', updatedAt: ago(60_000) } } }
+  const check = (id: string, status: string, message: string | null = null) =>
+    ({ id, label: `the ${id}`, status, message, dependsOn: [], at: ago(1_000) })
+  const list = (...checks: ReturnType<typeof check>[]) => ({ pass: ago(5_000), at: ago(1_000), ready: null, checks })
+
+  test('the list is whatever preflight wrote, in its order, and the status line counts it', () => {
+    const s = summary({ project: RUNNING, preflightChecks: list(check('site', 'done'), check('runner', 'needs-you', 'Start the runner.'), check('cover', 'waiting')) })
+    expect(s.preflight?.checks?.map(c => c.id)).toEqual(['site', 'runner', 'cover'])
+    expect(statusOf(s, NOW)).toContain('preflight 1/3')
+    expect(plainOf(s)).toContain('! the runner: Start the runner.')
+    expect(plainOf(s)).toContain('· the cover')
+    expect(preflightPassed(s)).toBe(false)
+  })
+
+  test('a passed preflight folds to one line; a checklist older than the recorded phase is not shown', () => {
+    const passed = { ...PROJECT, phases: { ...PROJECT.phases, preflight: { status: 'complete', updatedAt: ago(2_000) } } }
+    const done = summary({ project: passed, preflightChecks: list(check('site', 'done'), check('runner', 'done')) })
+    expect(preflightPassed(done)).toBe(true)
+    const old = { ...list(check('site', 'needs-you')), at: ago(90_000_000) }
+    expect(summary({ project: passed, preflightChecks: old }).preflight?.checks).toBeNull()
+    expect(summary({ project: passed, preflightChecks: '{"checks": [' }).preflight?.checks).toBeNull()
   })
 })

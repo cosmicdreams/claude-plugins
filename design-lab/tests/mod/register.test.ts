@@ -67,7 +67,7 @@ describe('design-lab:watch', () => {
     const answer = await $.command.run(WATCH)
     expect(answer.text).toBe('Watching Example site.')
     expect(w.opened).toEqual(['design-lab'])
-    expect(w.statuses.at(-1)).toBe('design-lab · steps 3/10 · runner connected · 10m')
+    expect(w.statuses.at(-1)).toBe('steps 3/10 · runner connected · 10m')
   })
 
   test('answers in full text where nothing draws', async ($, on) => {
@@ -172,6 +172,35 @@ describe('design-lab:watch', () => {
     })
     expect(await ui.find({ type: 'Text', text: /^Recap$/ })).toBeDefined()
     expect(await ui.find({ type: 'Markdown' })).toBeDefined()
+  })
+
+  test('preflight items tick as preflight proves them, with nothing pressed', async ($, on) => {
+    const preflighting = JSON.stringify({ createdAt: CREATED, run: { siteLabel: 'Example site' },
+      phases: { preflight: { status: 'running', updatedAt: ago(60_000) } } })
+    const checks = (runner: string, message: string | null) => JSON.stringify({ pass: ago(30_000), at: ago(1_000), ready: null,
+      checks: [{ id: 'site', label: 'The local site answers', status: 'done', message: null, dependsOn: [] },
+        { id: 'runner', label: 'Runner connected to the target file', status: runner, message, dependsOn: [] }] })
+    const files: Record<string, string> = { [at(RUN_FILES.project)]: preflighting,
+      [at(RUN_FILES.preflightChecks)]: checks('needs-you', 'Open the target file and start the design-lab runner.') }
+    const w = world(on, files)
+    await $.session.start(SESSION)
+    await $.command.run({ ...WATCH, args: RUN })
+    const mount = () => $.ui.mount({
+      plugin: 'design-lab', surface: 'terminal', component: 'Pane', requestId: 'design-lab',
+      props: { title: 'design-lab', isFocused: false, bodyColumns: 60, placement: 'dock',
+        scroll: { offset: 0, bodyRows: 30 }, view: {} },
+    })
+    let ui = await mount()
+    expect(await ui.find({ type: 'Text', text: /! Runner connected/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /Open the target file and start/ })).toBeDefined()
+    expect(w.statuses.at(-1)).toContain('preflight 1/2')
+    await ui.unmount()
+    files[at(RUN_FILES.preflightChecks)] = checks('done', null)
+    await w.clock.advance(POLL_MS)
+    ui = await mount()
+    expect(await ui.find({ type: 'Text', text: /✓ Runner connected/ })).toBeDefined()
+    expect(w.statuses.at(-1)).toContain('preflight 2/2')
+    expect(w.fills).toEqual([])
   })
 
   test('a recap left from an earlier build in the same folder raises nothing', async ($, on) => {

@@ -7,7 +7,8 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import type { Summary } from '../../types'
 import {
-  afterFill, isDown, parseJson, plainOf, RESUME_PROMPT, runnerLine, statusOf, stepsLine, summaryOf,
+  afterFill, CHECK_MARKS, checkMessage, clockOf, isDown, parseJson, plainOf, preflightPassed, RESUME_PROMPT,
+  runnerLine, statusOf, stepsLine, summaryOf,
 } from './model'
 
 const PANE = 'design-lab'
@@ -29,6 +30,7 @@ export const RUN_FILES = {
   runnerLog: 'figma/runner.log',
   completion: 'benchmark/completion.md',
   scorecard: 'benchmark/scorecard.json',
+  preflightChecks: 'preflight-checks.json',
 } as const
 
 let timer: Timer | undefined
@@ -64,6 +66,7 @@ export async function summarise($: EngineInterface, run: string): Promise<Summar
     project: await readJson($, at(RUN_FILES.project)),
     phaseLog: await readText($, at(RUN_FILES.phaseLog)),
     progress: await readJson($, at(RUN_FILES.progress)),
+    preflightChecks: await readJson($, at(RUN_FILES.preflightChecks)),
     runnerLog: await readLog($, at(RUN_FILES.runnerLog)),
     ...((await $.fs.exists(at(RUN_FILES.completion)))
       ? { completion: await readText($, at(RUN_FILES.completion)), scorecard: await readJson($, at(RUN_FILES.scorecard)) }
@@ -177,11 +180,26 @@ export const register: Register = on => {
         <Text bold wrap="truncate-end">{summary.siteLabel ?? run}</Text>
         <Box flexDirection="column" marginTop={1}>
           <Text bold>Preflight</Text>
-          <Text dimColor={preflight?.status !== 'complete'}>
-            {preflight?.status === 'complete'
-              ? `✓ passed${preflight.at ? ` at ${preflight.at.slice(11, 16)}` : ''}`
-              : preflight ? `· ${preflight.status}` : '· not yet'}
-          </Text>
+          {preflight?.checks && !preflightPassed(summary)
+            ? preflight.checks.map(check => {
+              const message = checkMessage(check)
+              return (
+                <Box key={`check-${check.id}`} flexDirection="column">
+                  <Text dimColor={check.status === 'waiting'}
+                    color={check.status === 'needs-you' ? 'yellow' : check.status === 'failed' ? 'red' : undefined}>
+                    {CHECK_MARKS[check.status] ?? '·'} {check.label}
+                  </Text>
+                  {message && <Text dimColor={check.status === 'checking'}>  {message}</Text>}
+                </Box>
+              )
+            })
+            : (
+              <Text dimColor={preflight?.status !== 'complete'}>
+                {preflight?.status === 'complete'
+                  ? `✓ passed${clockOf(preflight.at) ? ` at ${clockOf(preflight.at)}` : ''}${preflight.checks ? `, ${preflight.checks.length} checks` : ''}`
+                  : preflight ? `· ${preflight.status}` : '· not yet'}
+              </Text>
+            )}
         </Box>
         <Box flexDirection="column" marginTop={1}>
           {summary.phases.filter(phase => phase.name !== 'preflight').map(phase => (

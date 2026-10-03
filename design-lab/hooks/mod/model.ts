@@ -1,7 +1,7 @@
 // What a design-lab run looks like from the files it writes, with no engine calls: the same
 // reading `workflow.py watch` does, so the pane and the text fallback agree.
 
-import type { Phase, Runner, Summary } from '../../types'
+import type { Check, Phase, Runner, Summary } from '../../types'
 
 // Three missed heartbeats (figma_runner.HEARTBEAT_SECONDS is 10).
 export const SERVER_FRESH_MS = 30_000
@@ -21,6 +21,7 @@ export type Raw = {
   runnerLog?: string
   completion?: string
   scorecard?: unknown
+  preflightChecks?: unknown
 }
 
 export function parseJson(text: string | undefined): unknown {
@@ -102,13 +103,16 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
   // come back since.
   const blocker = last && last.status === 'stopped' && !runner?.connected ? text(last.message) : null
   const preflight = record(record(project.phases).preflight)
+  const checks = checksOf(raw.preflightChecks, preflight)
   return {
     workspace,
     found: true,
     siteLabel: text(record(project.run).siteLabel),
     phases,
     current: (running ?? due)?.name ?? null,
-    preflight: preflight.status ? { status: text(preflight.status) ?? 'pending', at: text(preflight.updatedAt) } : null,
+    preflight: preflight.status || checks
+      ? { status: text(preflight.status) ?? 'running', at: text(preflight.updatedAt), checks }
+      : null,
     runner,
     blocker,
     log: tailOf(raw.runnerLog),
@@ -116,6 +120,45 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
     recap: recapIsCurrent(project, raw) ? recapOf(raw.completion!) : null,
     startedAt: text(preflight.updatedAt) ?? text(project.createdAt),
   }
+}
+
+export const CHECK_MARKS: Record<string, string> = { done: '✓', checking: '▸', 'needs-you': '!', failed: '✗', waiting: '·' }
+
+/** The checklist preflight last wrote, or null when there is none or it is older than the recorded
+ * preflight phase (a run that passed preflight before the checklist existed). */
+export function checksOf(document: unknown, phase: Record<string, unknown>): Check[] | null {
+  const d = record(document)
+  if (!Array.isArray(d.checks)) return null
+  const written = Date.parse(text(d.at) ?? '')
+  const passed = Date.parse(text(phase.updatedAt) ?? '')
+  if (phase.status === 'complete' && written < passed) return null
+  return d.checks.flatMap(value => {
+    const c = record(value)
+    const id = text(c.id)
+    return id === null ? [] : [{
+      id, label: text(c.label) ?? id, status: text(c.status) ?? 'waiting', message: text(c.message),
+      dependsOn: Array.isArray(c.dependsOn) ? c.dependsOn.filter((x): x is string => typeof x === 'string') : [],
+    }]
+  })
+}
+
+/** Preflight passed and every check is done: the group can fold to one line. */
+export function preflightPassed(summary: Summary): boolean {
+  const p = summary.preflight
+  return p?.status === 'complete' && (p.checks ?? []).every(check => check.status === 'done')
+}
+
+/** What a check says beside its label: only while it is working or needs something. */
+export function checkMessage(check: Check): string | null {
+  return ['checking', 'needs-you', 'failed'].includes(check.status) ? check.message : null
+}
+
+/** HH:MM on the person's clock. */
+export function clockOf(stamp: string | null): string | null {
+  if (!stamp) return null
+  const at = new Date(stamp)
+  if (Number.isNaN(at.getTime())) return null
+  return `${String(at.getHours()).padStart(2, '0')}:${String(at.getMinutes()).padStart(2, '0')}`
 }
 
 /** The recap belongs to this build: its scorecard names the build's creation, or, from a scorer
@@ -173,20 +216,33 @@ function elapsed(startedAt: string | null, nowMs: number): string | null {
 export function statusOf(summary: Summary, nowMs: number): string | undefined {
   if (!summary.found) return undefined
   if (isFinished(summary)) return undefined
-  const parts = ['design-lab']
+  // The engine shows the plugin's name before it: `design-lab: steps 112/158 · runner connected · 41m`.
+  const parts: string[] = []
   const runner = summary.runner
+  const checks = summary.preflight?.checks
   if (runner?.state === 'building' && runner.stepsTotal) parts.push(`steps ${runner.stepsDone ?? 0}/${runner.stepsTotal}`)
-  else if (summary.current) parts.push(summary.current)
+  else if (checks && summary.preflight?.status !== 'complete') {
+    parts.push(`preflight ${checks.filter(check => check.status === 'done').length}/${checks.length}`)
+  } else if (summary.current) parts.push(summary.current)
   if (runner) parts.push(runnerLine(runner))
   const time = elapsed(summary.startedAt, nowMs)
   if (time) parts.push(time)
-  return parts.join(' · ')
+  return parts.length > 0 ? parts.join(' · ') : undefined
 }
 
 /** The whole summary as plain text: the command's answer where nothing draws. */
 export function plainOf(summary: Summary): string {
   if (!summary.found) return `No design-lab run in ${summary.workspace}: it has no project.json.`
   const lines = [`design-lab · ${summary.siteLabel ?? summary.workspace}`, '']
+  const checks = summary.preflight?.checks
+  if (checks && checks.length > 0) {
+    lines.push('  Preflight')
+    for (const check of checks) {
+      const message = checkMessage(check)
+      lines.push(`    ${CHECK_MARKS[check.status] ?? '·'} ${check.label}${message ? `: ${message}` : ''}`)
+    }
+    lines.push('')
+  }
   for (const phase of summary.phases) {
     const mark = DONE.has(phase.status) ? '✓' : phase.name === summary.current ? '▸' : phase.status === 'stopped' ? '!' : '·'
     lines.push(`  ${mark} ${phase.name}`)

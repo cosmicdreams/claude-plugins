@@ -881,6 +881,15 @@ class WorkflowCaptureTest(unittest.TestCase):
         runner = project["phases"]["preflight"]["detail"]["checks"]["runner"]
         self.assertTrue(runner["writable"] and runner["empty"] and runner["fileKeyMatches"])
         self.assertEqual((project["run"]["siteLabel"], project["run"]["operator"]), ("Example site", "A. Person"))
+        # The checklist the pane ticks off: every check, in order, each done, and the go-ahead.
+        import workflow
+        checklist = json.loads((self.ws / workflow.PREFLIGHT_CHECKS).read_text())
+        self.assertEqual([c["id"] for c in checklist["checks"]],
+                         ["site-url", "site", "site-label", "operator", "figma-url", "runner", "cover"])
+        self.assertEqual({c["status"] for c in checklist["checks"]}, {"done"})
+        self.assertEqual((checklist["ready"], checklist["goAheadAt"]), (True, ready["goAheadAt"]))
+        self.assertEqual([c["label"] for c in workflow.watch_summary(self.ws)["preflightChecks"]][-1],
+                         "Target file accepts writes")
 
     def test_preflight_records_no_go_ahead_on_any_failure(self):
         self.start_site()
@@ -898,10 +907,23 @@ class WorkflowCaptureTest(unittest.TestCase):
             self.assertIn(failure, answer["missing"])
             self.assertNotIn('"preflight"', (self.ws / "phase-log.jsonl").read_text())
             self.assertNotIn("preflight", json.loads((self.ws / "project.json").read_text())["target"])
+            import workflow
+            cover = [c for c in json.loads((self.ws / workflow.PREFLIGHT_CHECKS).read_text())["checks"]
+                     if c["id"] == "cover"][0]
+            self.assertEqual(cover["status"], "waiting", "with no runner connected, nothing was tried in the file")
         # Other answers missing: every problem is listed together, still with no go-ahead.
         code, answer, called = self.preflight({"ok": True}, site_url="http://127.0.0.1:9/", figma_url=None)
         self.assertEqual((code, len(answer["missing"])), (1, 2))       # site not answering, no Figma file
         called.assert_not_called()
+        import workflow
+        checklist = json.loads((self.ws / workflow.PREFLIGHT_CHECKS).read_text())
+        status = {c["id"]: c["status"] for c in checklist["checks"]}
+        self.assertEqual((status["site"], status["figma-url"], status["runner"], status["cover"], status["operator"]),
+                         ("needs-you", "needs-you", "waiting", "waiting", "done"))
+        self.assertIs(checklist["ready"], False)
+        text = workflow.render_watch(workflow.watch_summary(self.ws))
+        self.assertIn("! The local site answers: Start the local site at http://127.0.0.1:9/", text)
+        self.assertIn("· Runner connected to the target file", text)
         self.assertNotIn('"preflight"', (self.ws / "phase-log.jsonl").read_text())
 
     def test_an_absent_runner_stops_the_build_with_what_to_do_first(self):
