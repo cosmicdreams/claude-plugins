@@ -89,7 +89,7 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
   const project = record(raw.project)
   if (raw.project === undefined) {
     return { workspace, found: false, siteLabel: null, phases: [], current: null, preflight: null,
-      runner: null, blocker: null, log: [], hasRecap: false, recap: null, startedAt: null }
+      runner: null, blocker: null, waiting: null, log: [], hasRecap: false, recap: null, startedAt: null }
   }
   const phases: Phase[] = Object.entries(record(project.phases)).map(([name, value]) => ({
     name, status: text(record(value).status) ?? 'pending',
@@ -102,6 +102,11 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
   // The open blocker: the newest entry stopped the run for the person, and the runner has not
   // come back since.
   const blocker = last && last.status === 'stopped' && !runner?.connected ? text(last.message) : null
+  // Waiting on the person for something the run notices by itself (the runner starting at the
+  // build's connection): what to do, with nothing to press.
+  const waiting = last && last.status === 'waiting' && !runner?.connected ? text(last.message) : null
+  // While the build waits for the person to start the runner, the runner is awaited, not idle.
+  const shown = waiting && runner && runner.state === 'waiting' ? { ...runner, state: 'connecting' } : runner
   const preflight = record(record(project.phases).preflight)
   const checks = checksOf(raw.preflightChecks, preflight)
   return {
@@ -113,8 +118,9 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
     preflight: preflight.status || checks
       ? { status: text(preflight.status) ?? 'running', at: text(preflight.updatedAt), checks }
       : null,
-    runner,
+    runner: shown,
     blocker,
+    waiting,
     log: tailOf(raw.runnerLog),
     hasRecap: recapIsCurrent(project, raw),
     recap: recapIsCurrent(project, raw) ? recapOf(raw.completion!) : null,
@@ -190,9 +196,16 @@ export function isDown(summary: Summary): boolean {
   return runner !== null && (runner.state === 'building' || runner.state === 'preflight') && !runner.connected
 }
 
+/** Before the build starts, or between builds, the runner is not needed: idle, not missing. */
+export function isIdle(runner: Runner): boolean {
+  return runner.state === 'waiting' && !runner.connected
+}
+
 export function runnerLine(runner: Runner): string {
   if (!runner.serverAlive) return 'runner server not responding'
   if (runner.connected) return 'runner connected'
+  if (isIdle(runner)) return 'runner idle until the build'
+  if (runner.state === 'connecting') return 'waiting for the runner to start'
   const minutes = Math.max(1, Math.round((runner.lastSeenMs ?? 0) / 60_000))
   return `runner not seen for ${minutes}m`
 }
@@ -202,7 +215,8 @@ export function stepsLine(runner: Runner): string | null {
     const kind = runner.state === 'building' && runner.stepKind ? `, ${runner.stepKind}` : ''
     return `steps ${runner.stepsDone ?? 0}/${runner.stepsTotal}${kind}`
   }
-  return runner.message
+  // The server's last word to a runner that has since gone quiet ("Connected. Waiting…") is stale.
+  return isIdle(runner) || runner.state === 'connecting' ? null : runner.message
 }
 
 function elapsed(startedAt: string | null, nowMs: number): string | null {
@@ -254,6 +268,7 @@ export function plainOf(summary: Summary): string {
     lines.push(`  ${runnerLine(summary.runner)}`)
   }
   if (summary.blocker) lines.push('', `  Needs you: ${summary.blocker}`)
+  else if (summary.waiting) lines.push('', `  Needs you: ${summary.waiting}`)
   if (summary.hasRecap) lines.push('', `  Recap: ${summary.workspace}/benchmark/completion.md`)
   return lines.join('\n')
 }

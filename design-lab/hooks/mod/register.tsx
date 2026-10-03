@@ -8,7 +8,7 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 import type { Summary } from '../../types'
 import {
   afterFill, CHECK_MARKS, checkMessage, clockOf, isDown, parseJson, plainOf, preflightPassed, RESUME_PROMPT,
-  runnerLine, statusOf, stepsLine, summaryOf,
+  isIdle, runnerLine, statusOf, stepsLine, summaryOf,
 } from './model'
 
 const PANE = 'design-lab'
@@ -87,10 +87,12 @@ async function refresh($: EngineInterface): Promise<void> {
     $.ui.toast(`design-lab: ${summary.siteLabel ?? 'the run'} is done. The recap is in the design-lab pane.`, { timeoutMs: 10_000 })
   }
   // The watchdog: once per transition, never again until the runner has come back.
-  const down = isDown(summary)
+  // The build's one planned wait for the person (start the runner) is told the same way, once.
+  const down = isDown(summary) || summary.waiting !== null
   const alarmed = await read($, alarmedAtom)
   if (down && !alarmed) {
-    $.ui.toast(summary.blocker ?? `design-lab: ${summary.runner ? runnerLine(summary.runner) : 'the run stopped'}`,
+    $.ui.toast(summary.blocker ?? (summary.waiting ? `design-lab needs you: ${summary.waiting}` : null)
+      ?? `design-lab: ${summary.runner ? runnerLine(summary.runner) : 'the run stopped'}`,
       { timeoutMs: 10_000 })
     await update($, alarmedAtom, () => true)
   } else if (!down && alarmed) {
@@ -170,13 +172,14 @@ export const register: Register = on => {
     const { Box, Text, Button, Markdown } = $.ui.resolve(e)
     const summary = await read($, summaryAtom)
     const run = await read($, runAtom)
-    if (!summary || !run) return <Text dimColor>No design-lab run is being watched.</Text>
-    if (!summary.found) return <Text>{plainOf(summary)}</Text>
+    // The pane's ✕ sits on its first row: start one row lower so it never covers text.
+    if (!summary || !run) return <Box marginTop={1}><Text dimColor>No design-lab run is being watched.</Text></Box>
+    if (!summary.found) return <Box marginTop={1}><Text>{plainOf(summary)}</Text></Box>
     const runner = summary.runner
     const steps = runner ? stepsLine(runner) : null
     const preflight = summary.preflight
     return (
-      <Box flexDirection="column">
+      <Box flexDirection="column" marginTop={1}>
         <Text bold wrap="truncate-end">{summary.siteLabel ?? run}</Text>
         <Box flexDirection="column" marginTop={1}>
           <Text bold>Preflight</Text>
@@ -211,7 +214,12 @@ export const register: Register = on => {
         {runner && (
           <Box flexDirection="column" marginTop={1}>
             {steps && <Text>{steps}</Text>}
-            <Text color={runner.connected ? 'green' : 'yellow'}>{runnerLine(runner)}</Text>
+            <Text color={runner.connected ? 'green' : isIdle(runner) ? undefined : 'yellow'} dimColor={isIdle(runner)}>{runnerLine(runner)}</Text>
+          </Box>
+        )}
+        {summary.waiting && !summary.blocker && (
+          <Box flexDirection="column" marginTop={1}>
+            <Text color="yellow">Needs you: {summary.waiting}</Text>
           </Box>
         )}
         {summary.blocker && (

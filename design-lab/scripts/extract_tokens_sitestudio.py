@@ -23,6 +23,8 @@ are emitted separately rather than mixed into the palette.
 """
 import json, re, sys, os, glob, datetime
 from artifact_contracts import tool_version
+import sitestudio_source
+from extract_sitestudio import load_json_values
 
 # references/library-standard.md section 10: every artifact states which edition it
 # was built to, or nobody can tell whether a library predates a rule.
@@ -34,32 +36,14 @@ SPACE_PROPS = {'padding', 'margin', 'gap', 'row-gap', 'column-gap'}
 TYPE_PROPS = {'font-size', 'line-height', 'font-family', 'font-weight', 'letter-spacing'}
 
 
-def load_json_values(path):
-    """Payload is a JSON string in a single-quoted YAML scalar; doubled quotes unescape."""
-    txt = open(path, errors='ignore').read()
-    m = re.search(r"^json_values: '(.*?)'\n[a-z_]+:", txt, re.S | re.M)
-    if not m:
-        return None, txt
-    try:
-        return json.loads(m.group(1).replace("''", "'")), txt
-    except json.JSONDecodeError:
-        return None, txt
-
-
 def scalar(txt, key):
     m = re.search(r'^%s: (.+)$' % re.escape(key), txt, re.M)
     return m.group(1).strip().strip("'\"") if m else None
 
 
 def config_dir(root):
-    best, best_n = None, -1
-    for cand in ('config/sync', 'config/default', 'config'):
-        p = os.path.join(root, cand)
-        if os.path.isdir(p):
-            n = len(glob.glob(os.path.join(p, '*.yml')))
-            if n > best_n:
-                best, best_n = p, n
-    return best
+    """The Site Studio export folder the site's settings declare."""
+    return sitestudio_source.config_dir(root)['path']
 
 
 def flatten(v):
@@ -190,10 +174,10 @@ def custom_styles(cfg):
     return order, rows, len(files)
 
 
-def extract(root):
-    cfg = config_dir(root)
+def extract(root, config_dir_=None):
+    cfg = config_dir_ or config_dir(root)
     if not cfg:
-        sys.exit('no configuration directory under %s' % root)
+        sys.exit('no Site Studio configuration folder is declared for %s; give it as the second argument' % root)
     cols = palette(cfg)
     fonts = font_stacks(cfg)
     scss = scss_variables(cfg)

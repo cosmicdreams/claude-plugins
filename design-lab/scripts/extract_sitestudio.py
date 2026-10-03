@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 """Site Studio (Acquia Cohesion) component extractor -> universal model.
 
-Reads cohesion_elements.cohesion_component.*.yml. The payload is a JSON string inside a
+Reads config components and custom_components definitions in custom themes/modules.
+The config payload is a JSON string inside a
 single-quoted YAML scalar, so doubled single quotes must be unescaped before parsing.
 No YAML library required, which keeps this runnable without a virtualenv.
 """
 import json, re, sys, os, glob, datetime
 from artifact_contracts import tool_version
+import sitestudio_source
 
 # references/library-standard.md section 10: every artifact states which edition it
 # was built to, or nobody can tell whether a library predates a rule.
@@ -14,7 +16,7 @@ STANDARD_VERSION = '3.0.0'
 
 # Site Studio widget type -> model field kind. Source widget names never leak past here.
 KIND = {
-    'cohWysiwyg': 'richtext', 'cohTextarea': 'text', 'cohSelect': 'enum',
+    'cohTextBox': 'text', 'cohWysiwyg': 'richtext', 'cohTextarea': 'text', 'cohSelect': 'enum',
     'checkboxToggle': 'boolean', 'cohColourPickerOpener': 'color',
     'cohFileBrowser': 'media', 'cohRange': 'number', 'cohTypeahead': 'reference',
     'cohHidden': 'hidden', 'cohHelpText': 'help', 'cohArray': 'array',
@@ -44,13 +46,27 @@ def token_family(values):
     fams.discard('other') if len(fams) > 1 else None
     return fams.pop() if len(fams) == 1 else None
 
+QUOTED_JSON = re.compile(r"^json_values: '(.*?)'\n[a-z_]+:", re.S | re.M)
+# Newer exports write the payload as a literal block scalar instead:
+# json_values: |
+#   { ... }
+BLOCK_JSON = re.compile(r"^json_values: \|[-+]?\n((?:(?:[ ]+.*)?\n)+)", re.M)
+
 def load_json_values(path):
+    """Parse the JSON payload of json_values, quoted or block form, without a YAML library."""
     txt = open(path, errors='ignore').read()
-    m = re.search(r"^json_values: '(.*?)'\n[a-z_]+:", txt, re.S | re.M)
-    if not m:
-        return None, txt
+    m = QUOTED_JSON.search(txt)
+    if m:
+        payload = m.group(1).replace("''", "'")
+    else:
+        m = BLOCK_JSON.search(txt)
+        if not m:
+            return None, txt
+        lines = m.group(1).split('\n')
+        indent = min((len(l) - len(l.lstrip(' ')) for l in lines if l.strip()), default=0)
+        payload = '\n'.join(l[indent:] for l in lines)
     try:
-        return json.loads(m.group(1).replace("''", "'")), txt
+        return json.loads(payload), txt
     except json.JSONDecodeError:
         return None, txt
 
@@ -63,6 +79,10 @@ def extract_component(path, root):
     if jv is None:
         return None, {'kind': 'unparseable', 'detail': os.path.relpath(path, root)}
 
+    return component_model(jv, txt, path, root)
+
+def component_model(jv, txt, path, root):
+    """Normalize config payloads and custom form JSON with the same widget mapping."""
     model = jv.get('model') or {}
     canvas_blob = json.dumps(jv.get('canvas', []))
     fields, defects = [], []
@@ -82,7 +102,7 @@ def extract_component(path, root):
                 for o in (s.get('options') or []) if isinstance(o, dict) and 'label' in o]
         default = (v.get('model') or {}).get('value')
         if isinstance(default, dict):
-            default = default.get('name') or default.get('value')
+            default = default.get('text') or default.get('name') or default.get('value')
             if isinstance(default, dict):
                 default = default.get('hex')
 
@@ -99,8 +119,25 @@ def extract_component(path, root):
             'tokenFamily': fam, 'uid': uid,
         })
 
+    # Keep the universal flat field list, while recording repeater ownership and bounds.
+    by_uid = {f['uid']: f for f in fields}
+    def walk_form(nodes, repeater=None):
+        for node in nodes:
+            field = by_uid.get(node.get('uuid'))
+            owner = repeater
+            if field:
+                if repeater:
+                    field['repeatableIn'] = repeater
+                if field['kind'] == 'array':
+                    settings = model[field['uid']]['settings']
+                    field['minItems'] = settings.get('min')
+                    field['maxItems'] = settings.get('max')
+                    owner = field['name']
+            walk_form(node.get('children') or [], owner)
+    walk_form(jv.get('componentForm') or [])
+
     # Defect: a style or condition references a field uid that is no longer in the form.
-    for uid in referenced - declared:
+    for uid in sorted(referenced - declared):   # sorted: the same source gives the same file
         hist = re.search(r'"uuid":"%s","type":"[^"]*","machineName":"([^"]+)"' % uid,
                          json.dumps(jv))
         defects.append({'kind': 'dangling-field-ref', 'detail':
@@ -135,15 +172,40 @@ def extract_component(path, root):
         'defects': defects,
     }, None
 
-def extract(root, config_dir=None):
+def extract_custom_component(path, root):
+    """A hand-written component: its definition, and its form when it has one. Site Studio gives
+    a component without a form an empty one, so it is kept with no fields, not dropped."""
+    with open(path) as stream:
+        txt = stream.read()
+    ident = sitestudio_source.custom_component_id(path)
+    form = scalar(txt, 'form')
+    payload, problem = {}, None
+    if form:
+        try:
+            with open(os.path.join(os.path.dirname(path), form)) as stream:
+                payload = json.load(stream)
+            if not isinstance(payload, dict) or not isinstance(payload.get('model', {}), dict):
+                raise ValueError('form must contain a model object')
+        except (OSError, ValueError) as error:
+            return None, {'kind': 'unparseable-custom-component',
+                          'detail': os.path.relpath(path, root) + ': ' + str(error)}
+    component, error = component_model(payload, txt, path, root)
+    component.update(id=ident, label=scalar(txt, 'name') or ident, isCustomComponent=True)
+    return component, error or problem
+
+# Called directly, with no folder given: read the one the site's settings declare.
+FROM_SETTINGS = object()
+
+
+def extract(root, config_dir=FROM_SETTINGS):
+    """Both Site Studio sources: configuration-driven components from the export folder the run
+    recorded (None when the run recorded that there is none), and custom components from the
+    site's own active modules and themes, found whether or not the export has any."""
     root = os.path.abspath(root)
-    if not config_dir:
-        for c in ('config/sync', 'config/default', 'config'):
-            if os.path.isdir(os.path.join(root, c)):
-                config_dir = os.path.join(root, c)
-                break
+    if config_dir is FROM_SETTINGS:
+        config_dir = sitestudio_source.config_dir(root)['path']
     files = sorted(glob.glob(os.path.join(
-        config_dir, 'cohesion_elements.cohesion_component.*.yml')))
+        config_dir, 'cohesion_elements.cohesion_component.*.yml'))) if config_dir else []
     comps, problems = [], []
     for f in files:
         c, err = extract_component(f, root)
@@ -151,6 +213,14 @@ def extract(root, config_dir=None):
             comps.append(c)
         if err:
             problems.append(err)
+    custom, discovery_problems, _ = sitestudio_source.custom_components(root)
+    problems.extend(discovery_problems)
+    for path in custom:
+        component, error = extract_custom_component(path, root)
+        if component:
+            comps.append(component)
+        if error:
+            problems.append(error)
     return {
         'standardVersion': STANDARD_VERSION,
         'toolVersion': tool_version(),

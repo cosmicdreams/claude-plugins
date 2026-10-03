@@ -203,6 +203,23 @@ describe('design-lab:watch', () => {
     expect(w.fills).toEqual([])
   })
 
+  test("the build's wait for the runner is told once, with no button, below the pane's close button", async ($, on) => {
+    const waiting = JSON.stringify({ phase: 'connect', status: 'waiting', message: 'Open the file and start the design-lab runner.' })
+    const w = world(on, { [at(RUN_FILES.project)]: PROJECT, [at(RUN_FILES.phaseLog)]: `${waiting}\n` })
+    await $.session.start(SESSION)
+    await $.command.run({ ...WATCH, args: RUN })
+    await w.clock.advance(POLL_MS)
+    expect(w.toasts.filter(t => t.includes('needs you'))).toHaveLength(1)
+    const ui = await $.ui.mount({
+      plugin: 'design-lab', surface: 'terminal', component: 'Pane', requestId: 'design-lab',
+      props: { title: 'design-lab', isFocused: false, bodyColumns: 60, placement: 'dock',
+        scroll: { offset: 0, bodyRows: 30 }, view: {} },
+    })
+    expect((await ui.find({ type: 'Box' }))?.props.marginTop, 'the first row is left to the close button').toBe(1)
+    expect(await ui.find({ type: 'Text', text: /Needs you: Open the file/ })).toBeDefined()
+    expect(await ui.find({ type: 'Button' })).toBeUndefined()
+  })
+
   test('a recap left from an earlier build in the same folder raises nothing', async ($, on) => {
     const w = world(on, { [at(RUN_FILES.project)]: PROJECT, [at(RUN_FILES.progress)]: progress(5_000),
       [at(RUN_FILES.completion)]: 'design-lab finished.\n', [at(RUN_FILES.scorecard)]: scorecard(ago(90_000_000)) })
