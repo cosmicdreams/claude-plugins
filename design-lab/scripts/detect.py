@@ -33,6 +33,14 @@ def docroot(root):
             return p
     return root
 
+def _read(path):
+    try:
+        with open(path, encoding='utf-8', errors='replace') as stream:
+            return stream.read()
+    except OSError:
+        return ''
+
+
 def config_dirs(root):
     """Every candidate Drupal configuration directory, with how much config each holds.
 
@@ -57,6 +65,7 @@ def config_sync(root):
         return None
     best = max(cands, key=lambda c: c['entityCount'])
     return best['path'] if best['entityCount'] else cands[0]['path']
+
 
 # Directories and files that mean "somebody has already done this work". references/
 # prior-art.md is emphatic that skipping this produces a second, contradictory design
@@ -141,14 +150,6 @@ def detect(root):
             out['componentSources'].append({
                 'strategy': 'canvas', 'count': len(canvas),
                 'evidence': 'Canvas authoring registrations joined to source SDC definitions'})
-        ss = glob.glob(os.path.join(cfg, 'cohesion_elements.cohesion_component.*.yml'))
-        if ss:
-            out['componentSources'].append(
-                {'strategy': 'sitestudio', 'count': len(ss), 'evidence': 'cohesion_component config entities'})
-        cs = glob.glob(os.path.join(cfg, 'cohesion_custom_styles.cohesion_custom_style.*.yml'))
-        if cs:
-            out['tokenSources'].append(
-                {'strategy': 'sitestudio-styles', 'count': len(cs), 'evidence': 'cohesion_custom_style config entities'})
         para = glob.glob(os.path.join(cfg, 'paragraphs.paragraphs_type.*.yml'))
         blocks = glob.glob(os.path.join(cfg, 'block_content.type.*.yml'))
         if blocks and para:
@@ -164,6 +165,27 @@ def detect(root):
                 {'strategy': 'paragraphs', 'count': len(para), 'evidence': 'paragraphs_type config entities'})
         elif para:
             out['notes'].append(f'{len(para)} paragraph type(s) present - too few to treat as the component source')
+
+    # Site Studio: its configuration export (read from the folder the site's settings declare)
+    # and the custom components in the site's own code, each found on its own.
+    from sitestudio_source import summary as sitestudio_summary
+    site_studio = sitestudio_summary(root)
+    custom = len(site_studio['customComponents'])
+    uses_site_studio = bool(site_studio['families'] or custom or 'acquia/cohesion' in _read(os.path.join(root, 'composer.json')))
+    if uses_site_studio:
+        out['siteStudio'] = site_studio
+        if site_studio['problem']:
+            out['notes'].append('Site Studio: ' + site_studio['problem'] + '.')
+    if site_studio['components'] or custom:
+        out['componentSources'].append({
+            'strategy': 'sitestudio', 'count': site_studio['components'] + custom,
+            'configComponents': site_studio['components'], 'customComponents': custom,
+            'evidence': 'cohesion_component entities in %s and custom_component definitions in custom modules and themes'
+                        % (site_studio['configFrom'] or 'no declared export')})
+    if site_studio['customStyles']:
+        out['tokenSources'].append({
+            'strategy': 'sitestudio-styles', 'count': site_studio['customStyles'],
+            'evidence': 'cohesion_custom_style entities in %s' % site_studio['configFrom']})
 
     sdc = [f for f in _walk(web, '*.component.yml')]
     if sdc:
@@ -285,6 +307,11 @@ def detect(root):
     # types.
     COMPONENT_RANK = {'canvas': 0, 'drupal-authoring': 1, 'sitestudio': 2,
                       'paragraphs': 3, 'sdc': 4}
+    # On a Site Studio site, Site Studio is what editors build pages with: a couple of block or
+    # paragraph bundles beside 146 Site Studio components must not outrank it.
+    counts = {c['strategy']: c.get('count', 0) for c in out['componentSources']}
+    if counts.get('sitestudio', 0) > counts.get('drupal-authoring', 0):
+        COMPONENT_RANK = {**COMPONENT_RANK, 'sitestudio': 1, 'drupal-authoring': 2}
     comp = min(out['componentSources'],
                key=lambda c: (COMPONENT_RANK.get(c['strategy'], 9),
                               -c.get('count', 0)), default=None)

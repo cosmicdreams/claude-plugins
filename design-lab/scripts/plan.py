@@ -83,7 +83,7 @@ def classify(c, rendering=None, capture=None):
     sdc = str(c.get('sourceRef') or '').endswith('.component.yml')
     rendered = bool(usage.get('renderedPages') or usage.get('globalTemplate') or usage.get('templateRefs'))
     render_signals = bool(rendering.get('rootClasses') or rendering.get('sdc') or
-                          rendering.get('templates') or sdc or rendered or captured)
+                          rendering.get('templates') or sdc or c.get('isCustomComponent') or rendered or captured)
     contained = bool(c.get('containedBy'))
 
     if placements == 0 and structural == 0 and not rendered:
