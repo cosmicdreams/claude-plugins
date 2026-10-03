@@ -54,7 +54,11 @@ def producer() -> dict:
         tracked = git("ls-files", "--error-unmatch", ".claude-plugin/plugin.json")
         commit = git("rev-parse", "HEAD") if tracked else None
         _PRODUCER = {"pluginDir": str(plugin), "toolVersion": tool_version(), "commit": commit,
-                     "dirty": bool(git("status", "--porcelain", "--", ".")) if commit else None}
+                     "dirty": None}
+        if commit:
+            status = git("status", "--porcelain", "--", ".")
+            # Only a status that ran says whether the copy is clean; a failed one says nothing.
+            _PRODUCER["dirty"] = None if status is None else bool(status)
     return _PRODUCER
 
 

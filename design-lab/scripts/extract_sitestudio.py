@@ -193,12 +193,16 @@ def extract_custom_component(path, root):
     component.update(id=ident, label=scalar(txt, 'name') or ident, isCustomComponent=True)
     return component, error or problem
 
-def extract(root, config_dir=None):
+# Called directly, with no folder given: read the one the site's settings declare.
+FROM_SETTINGS = object()
+
+
+def extract(root, config_dir=FROM_SETTINGS):
     """Both Site Studio sources: configuration-driven components from the export folder the run
-    recorded (or, called directly, the one the site's settings declare), and custom components
-    from the site's own modules and themes, found whether or not the export has any."""
+    recorded (None when the run recorded that there is none), and custom components from the
+    site's own active modules and themes, found whether or not the export has any."""
     root = os.path.abspath(root)
-    if not config_dir:
+    if config_dir is FROM_SETTINGS:
         config_dir = sitestudio_source.config_dir(root)['path']
     files = sorted(glob.glob(os.path.join(
         config_dir, 'cohesion_elements.cohesion_component.*.yml'))) if config_dir else []
@@ -209,7 +213,9 @@ def extract(root, config_dir=None):
             comps.append(c)
         if err:
             problems.append(err)
-    for path in sitestudio_source.custom_component_files(root):
+    custom, discovery_problems, _ = sitestudio_source.custom_components(root)
+    problems.extend(discovery_problems)
+    for path in custom:
         component, error = extract_custom_component(path, root)
         if component:
             comps.append(component)

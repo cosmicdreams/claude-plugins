@@ -19,7 +19,10 @@ FIXTURE = Path(__file__).parent / 'fixtures/sitestudio_custom'
 
 class CustomComponentTests(unittest.TestCase):
     def install(self, root, location):
-        destination = root / location / 'custom_components/tiny'
+        extension = root / location
+        extension.mkdir(parents=True, exist_ok=True)
+        (extension / f'{extension.name}.info.yml').write_text(f'name: {extension.name}\ntype: module\n')
+        destination = extension / 'custom_components/tiny'
         shutil.copytree(FIXTURE, destination)
         return destination
 
@@ -70,8 +73,9 @@ class CustomComponentTests(unittest.TestCase):
     def test_bad_form_is_reported_without_losing_other_components(self):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
-            definition = self.install(root, 'docroot/themes/custom/example')
+            definition = self.install(root, 'docroot/themes/custom/example_theme')
             (definition / 'form.json').write_text('{bad')
+            (definition / 'tiny.custom_component.yml').rename(definition / 'broken.custom_component.yml')
             self.install(root, 'docroot/modules/custom/example')
             result = extractor.extract(str(root))
             self.assertEqual(1, len(result['components']))

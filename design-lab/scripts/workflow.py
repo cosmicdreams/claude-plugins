@@ -247,6 +247,15 @@ def select_command(args):
         "usage": {x["strategy"] for x in detection.get("usageSources") or []},
     }
     previous = dict(project.get("decisions") or {})
+    if args.sitestudio_config:
+        # A folder the settings did not name is a source detection could not see: what it holds
+        # makes Site Studio selectable in this same command.
+        from sitestudio_source import summary as sitestudio_summary
+        given = sitestudio_summary(project["repository"]["root"], args.sitestudio_config)
+        if given["components"] or given["customComponents"]:
+            candidates["component"].add("sitestudio")
+        if given["customStyles"]:
+            candidates["token"].add("sitestudio-styles")
     for name, value in (("component", args.component), ("token", args.token),
                         ("usage", args.usage)):
         if value and value not in candidates[name] and value != "none":
