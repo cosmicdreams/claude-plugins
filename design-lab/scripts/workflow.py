@@ -817,12 +817,15 @@ def preflight_command(args):
 
     recorded_version = (((project.get("run") or {}).get("plugin") or {}).get("version"))
     current_version = plugin_version()
-    version_ok = recorded_version == current_version
-    version_message = (None if version_ok else
-                       f"Finish or restart the run on one plugin version. The plugin changed since this run began "
-                       f"({recorded_version or 'unknown'} to {current_version}).")
+    # A run begun before the version was recorded cannot be checked; that is not a change.
+    version_ok = recorded_version in (None, current_version)
+    version_message = (
+        f"This run began before design-lab recorded its version, so a change since then cannot be checked; "
+        f"it continues on {current_version}." if recorded_version is None else None if version_ok else
+        f"Finish or restart the run on one plugin version. The plugin changed since this run began "
+        f"({recorded_version} to {current_version}).")
     checks["pluginVersion"] = {"recorded": recorded_version, "current": current_version}
-    if version_message:
+    if not version_ok:
         missing.append(version_message)
     checklist.record_check("plugin-version", "Plugin version matches this run", "done" if version_ok else "needs-you",
                            version_message)
@@ -849,7 +852,9 @@ def connect_command(args):
     """Connect the runner when the build is ready to write to the recorded target file."""
     path, project = load_project(args.project)
     target = project.get("target") or {}
-    file_key, figma_url = target.get("figmaFileKey"), target.get("figmaUrl")
+    earlier = target.get("connection") or target.get("preflight") or {}
+    file_key = target.get("figmaFileKey") or earlier.get("fileKey")
+    figma_url = target.get("figmaUrl") or earlier.get("fileUrl")
     if not file_key or not figma_url:
         raise ValueError("the target Figma file is not recorded; run workflow.py preflight first")
 
@@ -867,10 +872,17 @@ def connect_command(args):
         print(json.dumps({"ok": False, "failure": failure, "handshake": handshake}, indent=2))
         sys.exit(1)
     path, project = load_project(path)
-    connection = {"fileKey": file_key, "fileUrl": figma_url, "coverPageId": handshake.get("coverPageId"),
-                  "coverId": handshake.get("coverId"), "font": handshake.get("font"),
-                  "fontLoaded": handshake.get("fontLoaded"), "at": handshake.get("at")}
-    project.setdefault("target", {})["connection"] = connection
+    target = project.setdefault("target", {})
+    if handshake.get("connectionOnly"):
+        # A resumed build: only the connection was proved, so the Cover proof from the first
+        # connection (or an older run's preflight) stands.
+        connection = {**(target.get("connection") or target.get("preflight") or {}),
+                      "fileKey": file_key, "fileUrl": figma_url, "reconnectedAt": handshake.get("at")}
+    else:
+        connection = {"fileKey": file_key, "fileUrl": figma_url, "coverPageId": handshake.get("coverPageId"),
+                      "coverId": handshake.get("coverId"), "font": handshake.get("font"),
+                      "fontLoaded": handshake.get("fontLoaded"), "at": handshake.get("at")}
+    target["connection"] = connection
     detail = {"fileKey": file_key, "fileUrl": figma_url,
               "runnerConnected": handshake.get("runnerConnected"),
               "fileKeyMatches": handshake.get("fileKeyMatches"), "empty": handshake.get("empty"),

@@ -696,6 +696,46 @@ class WorkingTimeTest(unittest.TestCase):
         stopped = next(item for item in attended["interruptions"] if item["kind"].startswith("stopped:"))
         self.assertFalse(stopped["planned"])
 
+    def connect_log(self, *entries):
+        (self.run_dir / "phase-log.jsonl").write_text("\n".join(json.dumps(e) for e in [
+            {"at": "2026-01-05T10:00:30+00:00", "phase": "preflight", "status": "complete"}, *entries,
+            {"at": "2026-01-05T11:00:00+00:00", "phase": "benchmark", "status": "running"}]) + "\n")
+        return score_run.score(self.run_dir, session="sess-w")["sections"]["cost"]["unattended"]
+
+    def test_a_failed_connection_closes_its_wait(self):
+        write_transcript(self.main, [entry("prompt", "2026-01-05T10:00:00Z"),
+                                     entry("ask", "2026-01-05T10:10:00Z"), entry("answer", "2026-01-05T10:11:00Z"),
+                                     entry("ask", "2026-01-05T10:40:00Z"), entry("answer", "2026-01-05T10:41:00Z"),
+                                     entry("reply", "2026-01-05T10:50:00Z")])
+        attended = self.connect_log(
+            {"at": "2026-01-05T10:05:00+00:00", "phase": "connect", "status": "waiting", "message": "m"},
+            {"at": "2026-01-05T10:30:00+00:00", "phase": "connect", "status": "stopped", "reason": "runner not connected"},
+            {"at": "2026-01-05T10:35:00+00:00", "phase": "capture", "status": "running"})
+        planned = [(i["kind"], i["planned"]) for i in attended["interruptions"]]
+        self.assertEqual(planned[:3], [("question", True), ("stopped: runner not connected", False), ("question", False)])
+
+    def test_a_retry_keeps_the_first_attempts_wait(self):
+        write_transcript(self.main, [entry("prompt", "2026-01-05T10:00:00Z"),
+                                     entry("ask", "2026-01-05T10:10:00Z"), entry("answer", "2026-01-05T10:11:00Z"),
+                                     entry("ask", "2026-01-05T10:20:00Z"), entry("answer", "2026-01-05T10:21:00Z"),
+                                     entry("reply", "2026-01-05T10:50:00Z")])
+        attended = self.connect_log(
+            {"at": "2026-01-05T10:05:00+00:00", "phase": "connect", "status": "waiting", "message": "m"},
+            {"at": "2026-01-05T10:15:00+00:00", "phase": "connect", "status": "waiting", "message": "m"},
+            {"at": "2026-01-05T10:25:00+00:00", "phase": "connect", "status": "complete"})
+        questions = [i for i in attended["interruptions"] if i["kind"] == "question"]
+        self.assertEqual([q["planned"] for q in questions], [True, True])
+
+    def test_the_wait_ends_when_the_connection_completes_to_the_fraction_of_a_second(self):
+        write_transcript(self.main, [entry("prompt", "2026-01-05T10:00:00Z"),
+                                     entry("ask", "2026-01-05T10:25:00.900Z"), entry("answer", "2026-01-05T10:26:00Z"),
+                                     entry("reply", "2026-01-05T10:50:00Z")])
+        attended = self.connect_log(
+            {"at": "2026-01-05T10:05:00+00:00", "phase": "connect", "status": "waiting", "message": "m"},
+            {"at": "2026-01-05T10:25:00+00:00", "phase": "connect", "status": "complete"})
+        question = next(i for i in attended["interruptions"] if i["kind"] == "question")
+        self.assertFalse(question["planned"])
+
     def test_an_unattended_run_says_so(self):
         write_transcript(self.main, [entry("prompt", "2026-01-05T10:00:00Z"), entry("step", "2026-01-05T10:00:40Z"),
                                      entry("result", "2026-01-05T10:30:00Z"), entry("reply", "2026-01-05T10:31:00Z")])
@@ -1048,6 +1088,35 @@ class WorkflowCaptureTest(unittest.TestCase):
         log = [json.loads(line) for line in (self.ws / "phase-log.jsonl").read_text().splitlines()]
         self.assertEqual([(item["phase"], item["status"]) for item in log[-2:]],
                          [("connect", "waiting"), ("connect", "stopped")])
+
+    def test_connect_reads_an_older_runs_file_address_and_keeps_its_cover_proof(self):
+        self.target_run()
+        manifest = json.loads((self.ws / "project.json").read_text())
+        url = manifest["target"].pop("figmaUrl")
+        manifest["target"]["preflight"] = {"fileKey": "KEY9", "fileUrl": url, "coverPageId": "0:1",
+                                            "coverId": "1:2", "font": "IBM Plex Sans", "fontLoaded": True}
+        (self.ws / "project.json").write_text(json.dumps(manifest))
+        code, _, called, _ = self.connect({"ok": True, "runnerConnected": True, "connectionOnly": True,
+                                           "at": "2026-01-05T12:00:00+00:00", "server": {"pid": 1}})
+        self.assertEqual(code, 0)
+        self.assertEqual(called.call_args.args[2], url)
+        connection = json.loads((self.ws / "project.json").read_text())["target"]["connection"]
+        self.assertEqual((connection["coverPageId"], connection["coverId"], connection["font"]),
+                         ("0:1", "1:2", "IBM Plex Sans"))
+        self.assertEqual(connection["reconnectedAt"], "2026-01-05T12:00:00+00:00")
+
+    def test_a_run_begun_before_versions_were_recorded_is_not_a_version_change(self):
+        self.start_site()
+        self.workflow("init", "--repo", str(self.repo), "--workspace", str(self.ws))
+        manifest = json.loads((self.ws / "project.json").read_text())
+        manifest["run"].pop("plugin", None)
+        (self.ws / "project.json").write_text(json.dumps(manifest))
+        code, ready, _ = self.preflight()
+        self.assertEqual(code, 0, ready)
+        import workflow
+        check = next(c for c in json.loads((self.ws / workflow.PREFLIGHT_CHECKS).read_text())["checks"]
+                     if c["id"] == "plugin-version")
+        self.assertIn("cannot be checked", check["message"])
 
     def test_resumed_legacy_target_preflight_cover_is_used_by_connect_handshake(self):
         from unittest import mock

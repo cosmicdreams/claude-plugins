@@ -655,27 +655,32 @@ def unattended(files: list[Path], run_dir: Path, since: dt.datetime | None,
     """Whether the run stayed unattended after the preflight go-ahead, until the benchmark began:
     every question tool it called, and every turn that ended and waited for a person's prompt,
     counts as an interruption, with the phase it happened in. Waits before the go-ahead are setup.
-    A plan review the person asked for at preflight and a runner connection wait are planned stops,
-    not interruptions. The connection wait remains planned until its connect phase completes."""
+    A plan review the person asked for at preflight is a planned stop, and so is the build's wait
+    for the person to start the runner: anything from a `connect` `waiting` entry until that
+    connection completes or stops (the end itself excluded) is planned. The stop of a connection
+    that failed is an interruption, as is anything after it until the next attempt waits again."""
     go, choices = preflight_go_ahead(run_dir)
     if not go:
         return not_measured("the run had no preflight go-ahead, so there is no point from which it was "
                             "left to run", "start runs with workflow.py preflight, as design-lab:run does")
     end = benchmark_start(run_dir)
     log = read_jsonl(run_dir / "phase-log.jsonl")
-    connect_windows = []
-    waiting_connect = None
-    for entry in log:
-        if entry.get("phase") != "connect":
-            continue
-        at = parse_time(entry.get("at"))
-        if entry.get("status") == "waiting" and at:
-            waiting_connect = at
-        elif entry.get("status") == "complete" and at and waiting_connect:
-            connect_windows.append((waiting_connect, at))
-            waiting_connect = None
-    if waiting_connect:
-        connect_windows.append((waiting_connect, None))
+    # Each connection attempt's wait, kept separately: a retry never erases an earlier attempt.
+    waits, opened = [], None
+    for entry in sorted((e for e in log if e.get("phase") == "connect" and parse_time(e.get("at"))),
+                        key=lambda e: parse_time(e["at"])):
+        at = parse_time(entry["at"])
+        if entry.get("status") == "waiting":
+            opened = opened or at
+        elif entry.get("status") in ("complete", "stopped") and opened:
+            waits.append((opened, at))
+            opened = None
+    if opened:
+        waits.append((opened, None))
+
+    def in_wait(moment: dt.datetime) -> bool:
+        return any(start <= moment and (until_ is None or moment < until_) for start, until_ in waits)
+
     found = []
     for path in files:
         if "subagents" in path.parts:
@@ -685,22 +690,21 @@ def unattended(files: list[Path], run_dir: Path, since: dt.datetime | None,
             if at < go or (end and at >= end):
                 continue
             if kind == "ask":
-                found.append({"at": iso(at), "kind": "question", **phase_at(log, at)})
+                found.append({"at": iso(at), "_moment": at, "kind": "question", **phase_at(log, at)})
             elif kind == "reply" and following == "prompt" and (not end or following_at < end):
-                found.append({"at": iso(at), "kind": "turn ended and waited for a prompt", **phase_at(log, at)})
+                found.append({"at": iso(at), "_moment": at, "kind": "turn ended and waited for a prompt",
+                              **phase_at(log, at)})
     # A run that stopped for the person (the runner was absent) is an interruption too.
     for entry in log:
         at = parse_time(entry.get("at"))
         if entry.get("status") == "stopped" and at and at >= go and not (end and at >= end):
-            found.append({"at": iso(at), "kind": f"stopped: {entry.get('reason') or 'waiting for the person'}",
+            found.append({"at": iso(at), "_moment": at,
+                          "kind": f"stopped: {entry.get('reason') or 'waiting for the person'}",
                           "phase": entry.get("phase") or "unknown", "status": "stopped"})
-    found.sort(key=lambda item: item["at"])
+    found.sort(key=lambda item: item["_moment"])
     for item in found:
-        moment = parse_time(item.get("at"))
-        in_connect_wait = any(start <= moment and (end is None or moment <= end)
-                              for start, end in connect_windows) if moment else False
-        connect_failed = item.get("phase") == "connect" and item.get("status") == "stopped"
-        item["planned"] = ((in_connect_wait and not connect_failed) or
+        moment = item.pop("_moment")
+        item["planned"] = ((item.get("status") != "stopped" and in_wait(moment)) or
                            (choices.get("planApproval") == "review" and item["phase"] == "plan"
                             and item["status"] == "awaiting-approval"))
     counted = [item for item in found if not item["planned"]]
