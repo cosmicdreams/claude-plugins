@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.18.0
+
+**A pane that tells the person where the run is and when it is done, without asking anything of them.** `/design-lab:watch` opens it beside the transcript; it is a Claude Code mod, so it needs Claude Code 2.1.287 or later, and everything works as before without it.
+
+- Pane: preflight, the phases with the current one marked, build steps done of total, whether the runner is connected, the runner log's last eight lines, and anything that needs the person. A status line such as `design-lab: steps 112/158 · runner connected · 41m` stays visible in that session and clears when the run finishes.
+- Watchdog: when the runner stops asking for steps, or the runner server stops beating, the pane raises one toast per stop and shows what to do in Figma desktop, with one button, **Runner restarted, resume**, which puts the resume request in the prompt box (or sends it where there is no prompt box).
+- Recap: when the benchmark writes `completion.md`, one toast says the run is done, the status line clears, and the pane shows the completion message as Markdown, links included. `/design-lab:recap [run folder]` answers with it for any finished run, with no Claude turn.
+- Preflight checklist: `workflow.py preflight` records every check as it starts and settles in `preflight-checks.json` (id, label, status, what to do, what it waits on), so the pane's Preflight group ticks each one off with nothing to press: site address, the local site answering, site label, operator, the usage source's DDEV project, the Figma file address, the runner connected, and the target file accepting writes. A check that needs the person shows preflight's own message until a later pass proves it; once preflight passes, the group folds to one line. `workflow.py watch` prints the same list, and the status line counts it (`preflight 5/7`).
+- Status line: the engine already shows the plugin's name, so the line no longer repeats it; times show on the person's clock.
+- Scorer: `scorecard.json` names the build it scored (`run.buildCreatedAt`, the project's creation time), and `report.html` and `completion.md` are written atomically, `completion.md` last. A recap left in a folder that was initialised again is not taken for the new build's; a recap from before the stamp counts once the build has recorded its benchmark as complete. The active-run pointer is left in place, so a finished run's recap stays one command away until the next run starts.
+- Tests: the SVG fixture has a size, which cairosvg 2.9 requires.
+- Runner server: writes `figma/progress.json` atomically on every request and on a ten-second heartbeat of its own (state, steps done of total, the current step's kind, whether a step is in flight, when the runner last asked, its process id), so a slow step reads as working and a dead server as not responding. `runner-seen` is written atomically too; a poll could read it half-written.
+- `workflow.py init` and `preflight` record the active run in the person's design-lab folder (`active-run.json`); `workflow.py watch [--project]` prints the same summary as text, and is what `/design-lab:watch` answers where the mod is not loaded or nothing draws.
+- The mod reads only the run folder and the pointer, writes nothing, and never reads the runner token; a test holds it to that. `hooks.json` quotes the guard's path.
+
 ## 0.17.0
 
 **Runs can now be replayed and compared: a frozen corpus of finished runs, a property replay that needs no Figma, a rebuild in a scratch Figma file, and a scoreboard ledger with a dashboard.** The measure comes first, so the fixes that follow can be shown to help.

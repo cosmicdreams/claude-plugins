@@ -43,7 +43,7 @@ Builds write into Figma through the design-lab runner, a Figma development plugi
 | `design-lab:verify` | **checks the whole file against the base expectations**; every gap ends as a fix or a recorded waiver |
 | `design-lab:evaluate` | the last step of every run: scores it into `scorecard.json`, a self-contained HTML report (coverage, accuracy against the live site, time and tokens, repeatability) and the fixed completion message |
 
-`scripts/workflow.py` is the deterministic front door. Its `init`, `identity`, `detect`, `select`, `extract`, `usage`, `plan`, `variables`, `approve`, `target`, `register`, `record`, `validate`, and `status` commands write atomically and keep artifact hashes in the project manifest. The schemas in `schemas/` are the machine-readable contracts; `references/library-standard.md` is the canonical product definition.
+`scripts/workflow.py` is the deterministic front door. Its `init`, `identity`, `detect`, `select`, `extract`, `usage`, `plan`, `variables`, `approve`, `target`, `register`, `record`, `validate`, `status`, and `watch` commands write atomically and keep artifact hashes in the project manifest. The schemas in `schemas/` are the machine-readable contracts; `references/library-standard.md` is the canonical product definition.
 
 Component extractors cover Site Studio, SDCs, Paragraphs, and combined Drupal authoring vocabularies (`block_content` + Paragraphs). Token extractors cover Site Studio styles, theme-loaded CSS custom properties, Sass source maps, and source-authored Sass. Combined Drupal extraction also writes `render-evidence.json`, a bounded map from each authoring bundle to its existing Twig, SDC, stylesheet, root-class, and referenced-field evidence. That evidence includes deterministic `styleFacts` parsed from the component's own Sass: root and nested-part declarations stay separate, retain token/literal provenance, and give the model the visual facts it needs without asking it to rediscover every stylesheet rule.
 
@@ -58,6 +58,12 @@ Token sources are ranked by evidence. A substantial theme-loaded custom-property
 `verify` is the one that runs last and the one that should have existed first. Every other skill reports on its own step, so a library can pass all of them and still be half a library — which is exactly what happened on the Paragraphs site: four empty Foundations pages, 36 of 43 components missing, no documentation links anywhere, and sixteen variables whose Dev Mode names existed nowhere in the codebase. Nothing was looking at the whole.
 
 Planned: `drift`.
+
+## Watching a run
+
+`/design-lab:watch [run folder]` opens a pane beside the transcript that stays open for the whole run: the preflight checklist, ticked off as preflight proves each check and folded to one line once it passes, the phases with the current one marked, build steps done of total, whether the runner is connected, the last lines of the runner's log, and anything that needs the person. It also keeps a status line such as `design-lab: steps 112/158 · runner connected · 41m` in that session. With no folder it watches the active run, the one `workflow.py init` or `preflight` last recorded in `~/.design-lab/active-run.json`. When the runner stops asking for steps, the pane says what to do in Figma desktop and offers one button, **Runner restarted, resume**, which puts the resume request in the prompt box. When the benchmark has written `completion.md`, a toast says the run is done, the status line clears, and the pane's Recap shows the completion message with its links. `/design-lab:recap [run folder]` shows any finished run's completion message again, with no Claude turn.
+
+The pane is a Claude Code mod (`hooks/mod/`), which needs Claude Code 2.1.287 or later and draws in the terminal and the desktop app's Code tab. It only reads the run folder and the pointer (`preflight-checks.json`, which `workflow.py preflight` rewrites as each check starts and settles, is in the run folder); it writes nothing and never reads the runner token. Everything works without it: where the mod is not loaded, or nothing draws (`claude -p`, the VS Code chat panel), the same command prints the same summary from `workflow.py watch`. Mod tests run with `claude plugin test design-lab`.
 
 ## References
 

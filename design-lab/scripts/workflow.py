@@ -173,6 +173,7 @@ def init_command(args):
     write_json(path, project)
     append_jsonl(workspace / PHASE_LOG, {"at": project["createdAt"], "phase": "init",
                                          "status": "complete"})
+    write_active_run(workspace)
     print(json.dumps({"project": str(path), "repository": project["repository"],
                       "run": project["run"]}, indent=2))
 
@@ -596,6 +597,42 @@ def runner_command(args):
     print(json.dumps(state, indent=2))
 
 
+PREFLIGHT_CHECKS = "preflight-checks.json"
+
+
+class Checklist:
+    """preflight-checks.json: every check preflight makes, in order, rewritten as each one starts
+    and settles, so anything watching the run (the design-lab pane, workflow.py watch) ticks it
+    off as it goes. Statuses: waiting (on another check), checking, done, failed, needs-you."""
+
+    def __init__(self, workspace: Path):
+        self.path = Path(workspace) / PREFLIGHT_CHECKS
+        self.document = {"pass": now(), "at": now(), "ready": None, "checks": []}
+
+    def record_check(self, id: str, label: str, status: str, message: str | None = None,
+                     depends_on: tuple[str, ...] = ()) -> None:
+        check = {"id": id, "label": label, "status": status, "message": message,
+                 "dependsOn": list(depends_on), "at": now()}
+        checks = self.document["checks"]
+        index = next((i for i, c in enumerate(checks) if c["id"] == id), None)
+        if index is None:
+            checks.append(check)
+        else:
+            checks[index] = check
+        self.write()
+
+    def status(self, id: str) -> str | None:
+        return next((c["status"] for c in self.document["checks"] if c["id"] == id), None)
+
+    def finish(self, ready: bool, go_ahead: str | None = None) -> None:
+        self.document.update({"ready": ready, "goAheadAt": go_ahead})
+        self.write()
+
+    def write(self) -> None:
+        self.document["at"] = now()
+        write_json(self.path, self.document)
+
+
 def preflight_command(args):
     """Gather every answer the run needs in one pass, check what can be checked, and either give
     the go-ahead (recorded as the preflight phase, so the benchmark knows when the run was left to
@@ -606,30 +643,55 @@ def preflight_command(args):
     path, project = load_project(args.project)
     run = project.get("run") if isinstance(project.get("run"), dict) else {}
     missing, checks = [], {}
+    checklist = Checklist(path.parent)
+
+    def answer(id, label, value, needed):
+        if not value:
+            missing.append(needed)
+        checklist.record_check(id, label, "done" if value else "needs-you",
+                               None if value else f"Still needed: {needed}.")
+
     site_url = args.site_url or run.get("siteUrl")
-    if not site_url:
-        missing.append("the local site address (--site-url)")
-    else:
+    figma_key = re.search(r"/design/([A-Za-z0-9]+)", args.figma_url or "")
+    site_label = args.site_label or run.get("siteLabel")
+    operator = args.operator or run.get("operator")
+    usage = (project.get("decisions") or {}).get("usageSource")
+    # The whole list first, so the pane shows what is coming before anything is checked.
+    checklist.record_check("site-url", "Local site address", "checking")
+    checklist.record_check("site", "The local site answers", "waiting", depends_on=("site-url",))
+    checklist.record_check("site-label", "Site label for reports", "checking")
+    checklist.record_check("operator", "Operator's name", "checking")
+    if usage and usage != "none":
+        checklist.record_check("usage", f"DDEV project for the {usage} usage source", "checking")
+    checklist.record_check("figma-url", "Target Figma file address", "checking")
+    checklist.record_check("runner", "Runner connected to the target file", "waiting", depends_on=("figma-url",))
+    checklist.record_check("cover", "Target file accepts writes", "waiting", depends_on=("runner",))
+
+    answer("site-url", "Local site address", site_url, "the local site address (--site-url)")
+    if site_url:
+        checklist.record_check("site", "The local site answers", "checking", f"Opening {site_url}.", ("site-url",))
         ok, detail = site_reachable(site_url)
         checks["site"] = {"url": site_url, "reachable": ok, "detail": detail}
         if not ok:
             missing.append(f"a running local site at {site_url} ({detail})")
-    figma_key = re.search(r"/design/([A-Za-z0-9]+)", args.figma_url or "")
-    if not figma_key:
-        missing.append("the target Figma file address, https://www.figma.com/design/<file-key>/... (--figma-url)")
-    site_label = args.site_label or run.get("siteLabel")
-    operator = args.operator or run.get("operator")
-    if not site_label:
-        missing.append("a neutral site label for reports (--site-label)")
-    if not operator:
-        missing.append("the operator's name (--operator)")
-    usage = (project.get("decisions") or {}).get("usageSource")
+        checklist.record_check("site", "The local site answers", "done" if ok else "needs-you",
+                               None if ok else f"Start the local site at {site_url}: it did not answer ({detail}).",
+                               ("site-url",))
+    answer("site-label", "Site label for reports", site_label, "a neutral site label for reports (--site-label)")
+    answer("operator", "Operator's name", operator, "the operator's name (--operator)")
     if usage and usage != "none":
         ddev_root = Path(args.ddev_root or project["repository"]["root"]).resolve()
         checks["usage"] = {"source": usage, "ddevRoot": str(ddev_root), "ddevProject": (ddev_root / ".ddev").is_dir()}
-        if not checks["usage"]["ddevProject"] and args.usage_fallback != "untiered":
+        usable = checks["usage"]["ddevProject"] or args.usage_fallback == "untiered"
+        if not usable:
             missing.append(f"a DDEV project for the {usage} usage source at {ddev_root} (--ddev-root), or "
                            "--usage-fallback untiered to build without usage tiers")
+        checklist.record_check("usage", f"DDEV project for the {usage} usage source", "done" if usable else "needs-you",
+                               None if checks["usage"]["ddevProject"] else
+                               "No DDEV project: building without usage tiers." if usable else
+                               f"Start or point at the DDEV project for the {usage} usage source ({ddev_root}).")
+    answer("figma-url", "Target Figma file address", figma_key,
+           "the target Figma file address, https://www.figma.com/design/<file-key>/... (--figma-url)")
     answers = {"siteUrl": site_url, "publicUrl": args.public_url, "figmaUrl": args.figma_url,
                "siteLabel": site_label, "operator": operator, "model": args.model,
                "planApproval": args.plan_approval, "usageFallback": args.usage_fallback,
@@ -645,10 +707,24 @@ def preflight_command(args):
         project["target"] = {"figmaFileKey": figma_key.group(1), "figmaUrl": args.figma_url, "recordedAt": now(),
                              **({"preflight": kept} if kept else {})}
         write_json(path, project)
+        checklist.record_check("runner", "Runner connected to the target file", "checking",
+                               f"Waiting for the design-lab runner in Figma desktop, with {args.figma_url} open.",
+                               ("figma-url",))
         handshake = runner_handshake(path.parent, figma_key.group(1), args.figma_url, args.runner_timeout, project)
         checks["runner"] = handshake
+        write_active_run(path.parent, (handshake.get("server") or {}).get("pid"))
+        failure = handshake.get("failure") or "the Figma file could not be proven writable"
+        connected = bool(handshake.get("runnerConnected"))
+        checklist.record_check("runner", "Runner connected to the target file", "done" if connected else "needs-you",
+                               None if connected else " ".join(handshake.get("instructions") or []) or failure,
+                               ("figma-url",))
+        checklist.record_check("cover", "Target file accepts writes",
+                               "done" if handshake.get("ok") else "waiting" if not connected else "failed",
+                               "A resumed build: the file already holds it, so only the connection is proven."
+                               if handshake.get("ok") and handshake.get("connectionOnly") else
+                               None if handshake.get("ok") or not connected else failure, ("runner",))
         if not handshake.get("ok"):
-            missing.append(handshake.get("failure") or "the Figma file could not be proven writable")
+            missing.append(failure)
         elif not handshake.get("connectionOnly"):
             # What the name-only Cover proved; the build reuses this Cover page and this address.
             path, project = load_project(path)
@@ -658,6 +734,7 @@ def preflight_command(args):
                 "fontLoaded": handshake.get("fontLoaded"), "at": handshake.get("at")}
             write_json(path, project)
     if missing:
+        checklist.finish(False)
         print(json.dumps({"ready": False, "missing": missing, "checks": checks,
                           "message": "Still needed before the run can go ahead unattended: " + "; ".join(m.rstrip(".") for m in missing) + "."},
                          indent=2))
@@ -670,6 +747,7 @@ def preflight_command(args):
     go_ahead = now()
     set_phase(path, project, "preflight", "complete", {**answers, "checks": checks, "goAheadAt": go_ahead},
               at=go_ahead)
+    checklist.finish(True, go_ahead)
     print(json.dumps({"ready": True, "goAheadAt": go_ahead, "checks": checks,
                       "message": "I have everything I need; it's safe to let this run to completion."}, indent=2))
 
@@ -884,6 +962,157 @@ def component_coverage(project_path_: Path, project: dict) -> dict:
     }
 
 
+ACTIVE_RUN = "active-run.json"
+SERVER_FRESH_SECONDS = 30  # three missed heartbeats (figma_runner.HEARTBEAT_SECONDS)
+
+
+def write_active_run(workspace: Path, server_pid: int | None = None) -> None:
+    """Point at the run being built, for anything that shows it without being told which run
+    (the design-lab pane). One run at a time, so one pointer; the server's process id lets a
+    reader tell a live run from one whose server is gone."""
+    import figma_runner
+    figma_runner.HOME.mkdir(mode=0o700, parents=True, exist_ok=True)
+    write_json(figma_runner.HOME / ACTIVE_RUN,
+               {"workspace": str(Path(workspace).resolve()), "serverPid": server_pid, "at": now()})
+
+
+def read_json_or(path: Path, default=None):
+    try:
+        return json.loads(path.read_text())
+    except (OSError, ValueError):
+        return default
+
+
+def seconds_since(stamp: str | None) -> float | None:
+    import datetime as dt
+    try:
+        return (dt.datetime.now(dt.timezone.utc) - dt.datetime.fromisoformat(stamp)).total_seconds()
+    except (TypeError, ValueError):
+        return None
+
+
+def watch_summary(workspace: Path) -> dict:
+    """Where a run is, from the files the run writes: what the design-lab pane shows, as data.
+    Reads leniently, so a run in any state, or half-written, still summarises."""
+    workspace = Path(workspace).resolve()
+    project = read_json_or(workspace / "project.json")
+    if project is None:
+        return {"workspace": str(workspace), "found": False}
+    phases = project.get("phases") or {}
+    entries = []
+    try:
+        entries = [json.loads(line) for line in (workspace / PHASE_LOG).read_text().splitlines() if line.strip()]
+    except (OSError, ValueError):
+        pass
+    # The open blocker: the newest entry, when it stopped the run for the person.
+    blocker = entries[-1].get("message") if entries and entries[-1].get("status") == "stopped" else None
+    progress = read_json_or(workspace / "figma" / "progress.json")
+    runner = None
+    if progress:
+        server_age = seconds_since(progress.get("at"))
+        server_alive = server_age is not None and server_age <= SERVER_FRESH_SECONDS
+        seen_age = seconds_since(progress.get("lastSeen"))
+        connected = (seen_age is not None and seen_age <= RUNNER_ABSENT_MINUTES * 60) or \
+            (server_alive and bool(progress.get("inflight")))
+        runner = {"serverAlive": server_alive, "connected": server_alive and connected,
+                  "lastSeenSeconds": seen_age, "state": progress.get("state"),
+                  "stepsDone": progress.get("stepsDone"), "stepsTotal": progress.get("stepsTotal"),
+                  "stepKind": progress.get("stepKind"), "message": progress.get("message")}
+    if runner and runner["connected"]:
+        blocker = None   # the runner came back after the stop, and the build has carried on
+    completion = workspace / "benchmark" / "completion.md"
+    checks = preflight_checks(workspace, phases.get("preflight") or {})
+    recap = str(completion) if completion.is_file() and recap_is_current(workspace, project) else None
+    return {"workspace": str(workspace), "found": True,
+            "siteLabel": (project.get("run") or {}).get("siteLabel"),
+            "phases": [{"name": name, "status": (value or {}).get("status")} for name, value in phases.items()],
+            "nextPhase": next((name for name, value in phases.items()
+                               if (value or {}).get("status") not in ("complete", "approved", "waived")), None),
+            "preflightChecks": checks, "runner": runner, "blocker": blocker,
+            "recap": recap}
+
+
+def preflight_checks(workspace: Path, phase: dict) -> list | None:
+    """The checklist preflight last wrote, or None when there is none or it is older than the
+    recorded preflight phase (a run that passed preflight before the checklist existed)."""
+    document = read_json_or(workspace / PREFLIGHT_CHECKS)
+    if not isinstance(document, dict) or not isinstance(document.get("checks"), list):
+        return None
+    written, passed = seconds_since(document.get("at")), seconds_since(phase.get("updatedAt"))
+    if phase.get("status") == "complete" and written is not None and passed is not None and written > passed:
+        return None
+    return [check for check in document["checks"] if isinstance(check, dict)]
+
+
+CHECK_MARKS = {"done": "✓", "checking": "▸", "needs-you": "!", "failed": "✗", "waiting": "·"}
+
+
+def recap_is_current(workspace: Path, project: dict) -> bool:
+    """The benchmark folder belongs to this build: its scorecard names the build's creation, or,
+    from a scorer before that stamp, the build has recorded its benchmark as complete. A folder
+    initialised again keeps the old benchmark/ until it is scored, and that must not read as done."""
+    card = read_json_or(workspace / "benchmark" / "scorecard.json") or {}
+    stamp = (card.get("run") or {}).get("buildCreatedAt") if isinstance(card, dict) else None
+    if isinstance(stamp, str):
+        return stamp == project.get("createdAt")
+    return ((project.get("phases") or {}).get("benchmark") or {}).get("status") == "complete"
+
+
+def render_watch(summary: dict) -> str:
+    if not summary.get("found"):
+        return f"No design-lab run in {summary['workspace']}: it has no project.json."
+    marks = {"complete": "✓", "approved": "✓", "waived": "✓", "running": "▸", "stopped": "!"}
+    lines = [f"design-lab · {summary.get('siteLabel') or Path(summary['workspace']).name}", ""]
+    if summary.get("preflightChecks"):
+        lines.append("  Preflight")
+        for check in summary["preflightChecks"]:
+            line = f"    {CHECK_MARKS.get(check.get('status'), '·')} {check.get('label') or check.get('id')}"
+            if check.get("message") and check.get("status") in ("checking", "needs-you", "failed"):
+                line += f": {check['message']}"
+            lines.append(line)
+        lines.append("")
+    # One current phase: the one running, or else the next one due.
+    running = any(phase["status"] == "running" for phase in summary["phases"])
+    for phase in summary["phases"]:
+        mark = "▸" if not running and phase["name"] == summary["nextPhase"] and phase["status"] not in marks else \
+            marks.get(phase["status"], "·")
+        lines.append(f"  {mark} {phase['name']}")
+    runner = summary.get("runner")
+    if runner:
+        lines.append("")
+        if runner["state"] in ("building", "done") and runner["stepsTotal"]:
+            kind = f", {runner['stepKind']}" if runner["state"] == "building" and runner["stepKind"] else ""
+            lines.append(f"  steps {runner['stepsDone'] or 0}/{runner['stepsTotal']}{kind}")
+        elif runner.get("message"):
+            lines.append(f"  {runner['message']}")
+        if not runner["serverAlive"]:
+            lines.append("  runner server not responding")
+        elif runner["connected"]:
+            lines.append("  runner connected")
+        else:
+            minutes = max(1, round((runner["lastSeenSeconds"] or 0) / 60))
+            lines.append(f"  runner not seen for {minutes}m")
+    if summary.get("blocker"):
+        lines += ["", f"  Needs you: {summary['blocker']}"]
+    if summary.get("recap"):
+        lines += ["", f"  Recap: {summary['recap']}"]
+    return "\n".join(lines)
+
+
+def active_run() -> Path | None:
+    """The run the active-run pointer names, if any."""
+    import figma_runner
+    pointer = read_json_or(figma_runner.HOME / ACTIVE_RUN) or {}
+    return Path(pointer["workspace"]) if isinstance(pointer.get("workspace"), str) else None
+
+
+def watch_command(args):
+    workspace = Path(args.project) if args.project else active_run()
+    if workspace is None:
+        raise ValueError("no design-lab run is active; give the run folder with --project")
+    print(render_watch(watch_summary(workspace)))
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
@@ -1014,6 +1243,10 @@ def main():
     command = sub.add_parser("status")
     command.add_argument("--project", default=".design-lab")
     command.set_defaults(func=lambda args: print(status(args.project)))
+
+    command = sub.add_parser("watch", help="where the run is, as text: phases, steps, runner, blocker, recap")
+    command.add_argument("--project", help="the run folder (default: the active run)")
+    command.set_defaults(func=watch_command)
 
     args = parser.parse_args()
     try:

@@ -16,7 +16,8 @@
       "properties": {
         "directory": {"type": "string"},
         "name": {"type": "string"},
-        "siteLabel": {"type": "string"}
+        "siteLabel": {"type": "string"},
+        "buildCreatedAt": {"$comment": "project.json createdAt of the build scored; a reader compares it with the current project.json to tell this build's scorecard from an earlier one's", "type": ["string", "null"]}
       }
     },
     "headline": {
