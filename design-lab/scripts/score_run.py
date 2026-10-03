@@ -655,13 +655,27 @@ def unattended(files: list[Path], run_dir: Path, since: dt.datetime | None,
     """Whether the run stayed unattended after the preflight go-ahead, until the benchmark began:
     every question tool it called, and every turn that ended and waited for a person's prompt,
     counts as an interruption, with the phase it happened in. Waits before the go-ahead are setup.
-    A plan review the person asked for at preflight is a planned stop, not an interruption."""
+    A plan review the person asked for at preflight and a runner connection wait are planned stops,
+    not interruptions. The connection wait remains planned until its connect phase completes."""
     go, choices = preflight_go_ahead(run_dir)
     if not go:
         return not_measured("the run had no preflight go-ahead, so there is no point from which it was "
                             "left to run", "start runs with workflow.py preflight, as design-lab:run does")
     end = benchmark_start(run_dir)
     log = read_jsonl(run_dir / "phase-log.jsonl")
+    connect_windows = []
+    waiting_connect = None
+    for entry in log:
+        if entry.get("phase") != "connect":
+            continue
+        at = parse_time(entry.get("at"))
+        if entry.get("status") == "waiting" and at:
+            waiting_connect = at
+        elif entry.get("status") == "complete" and at and waiting_connect:
+            connect_windows.append((waiting_connect, at))
+            waiting_connect = None
+    if waiting_connect:
+        connect_windows.append((waiting_connect, None))
     found = []
     for path in files:
         if "subagents" in path.parts:
@@ -682,8 +696,13 @@ def unattended(files: list[Path], run_dir: Path, since: dt.datetime | None,
                           "phase": entry.get("phase") or "unknown", "status": "stopped"})
     found.sort(key=lambda item: item["at"])
     for item in found:
-        item["planned"] = (choices.get("planApproval") == "review" and item["phase"] == "plan"
-                           and item["status"] == "awaiting-approval")
+        moment = parse_time(item.get("at"))
+        in_connect_wait = any(start <= moment and (end is None or moment <= end)
+                              for start, end in connect_windows) if moment else False
+        connect_failed = item.get("phase") == "connect" and item.get("status") == "stopped"
+        item["planned"] = ((in_connect_wait and not connect_failed) or
+                           (choices.get("planApproval") == "review" and item["phase"] == "plan"
+                            and item["status"] == "awaiting-approval"))
     counted = [item for item in found if not item["planned"]]
     return {"status": "measured", "goAheadAt": iso(go), "until": iso(end) if end else None,
             "interruptions": found, "count": len(counted), "ranUnattended": not counted}

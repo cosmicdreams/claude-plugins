@@ -658,6 +658,44 @@ class WorkingTimeTest(unittest.TestCase):
         self.assertEqual(score_run.unattended_phrase(attended),
                          "no, 1 interruption: a stop, runner not connected during components")
 
+    def test_connection_wait_is_planned_until_connect_completes(self):
+        write_transcript(self.main, [
+            entry("prompt", "2026-01-05T10:00:00Z"),
+            entry("reply", "2026-01-05T10:00:20Z"),
+            entry("prompt", "2026-01-05T10:01:00Z", text="answers"),
+            entry("ask", "2026-01-05T10:10:00Z"),
+            entry("answer", "2026-01-05T10:11:00Z"),
+            entry("reply", "2026-01-05T10:15:00Z"),
+            entry("prompt", "2026-01-05T10:25:00Z", text="runner started"),
+            entry("reply", "2026-01-05T10:26:00Z"),
+        ])
+        (self.run_dir / "phase-log.jsonl").write_text("\n".join(json.dumps(e) for e in [
+            {"at": "2026-01-05T10:00:30+00:00", "phase": "preflight", "status": "complete"},
+            {"at": "2026-01-05T10:05:00+00:00", "phase": "connect", "status": "waiting",
+             "reason": "runner connection", "message": "Open Figma and start the runner."},
+            {"at": "2026-01-05T10:25:00+00:00", "phase": "connect", "status": "complete"},
+            {"at": "2026-01-05T11:00:00+00:00", "phase": "benchmark", "status": "running"}]) + "\n")
+        attended = score_run.score(self.run_dir, session="sess-w")["sections"]["cost"]["unattended"]
+        questions = [item for item in attended["interruptions"] if item["kind"] == "question"]
+        self.assertEqual(len(questions), 1)
+        self.assertTrue(questions[0]["planned"])
+        self.assertEqual((attended["count"], attended["ranUnattended"]), (0, True))
+
+    def test_runner_that_never_connects_is_unplanned(self):
+        write_transcript(self.main, [entry("prompt", "2026-01-05T10:00:00Z"),
+                                     entry("reply", "2026-01-05T10:31:00Z")])
+        (self.run_dir / "phase-log.jsonl").write_text("\n".join(json.dumps(e) for e in [
+            {"at": "2026-01-05T10:00:30+00:00", "phase": "preflight", "status": "complete"},
+            {"at": "2026-01-05T10:05:00+00:00", "phase": "connect", "status": "waiting",
+             "message": "Open Figma and start the runner."},
+            {"at": "2026-01-05T10:30:00+00:00", "phase": "connect", "status": "stopped",
+             "reason": "runner not connected", "message": "Open Figma and start the runner."},
+            {"at": "2026-01-05T11:00:00+00:00", "phase": "benchmark", "status": "running"}]) + "\n")
+        attended = score_run.score(self.run_dir, session="sess-w")["sections"]["cost"]["unattended"]
+        self.assertEqual(attended["count"], 1)
+        stopped = next(item for item in attended["interruptions"] if item["kind"].startswith("stopped:"))
+        self.assertFalse(stopped["planned"])
+
     def test_an_unattended_run_says_so(self):
         write_transcript(self.main, [entry("prompt", "2026-01-05T10:00:00Z"), entry("step", "2026-01-05T10:00:40Z"),
                                      entry("result", "2026-01-05T10:30:00Z"), entry("reply", "2026-01-05T10:31:00Z")])
@@ -835,17 +873,24 @@ class WorkflowCaptureTest(unittest.TestCase):
         self.assertNotEqual(self.workflow("identity", "--project", str(self.ws), "--no-schema-change",
                                           "--schema-change", "x", check=False).returncode, 0)
 
-    def preflight(self, handshake, **answers):
-        """workflow.py preflight in this process, with the runner handshake standing in for Figma."""
+    def preflight(self, twig_state=None, server=None, **answers):
+        """Run preflight with machine-dependent checks isolated from this test host."""
         import argparse
         from unittest import mock
+        import figma_runner
         import workflow
         values = {"project": str(self.ws), "site_url": self.site, "public_url": None,
                   "figma_url": "https://www.figma.com/design/KEY9/Library", "site_label": "Example site",
                   "operator": "A. Person", "model": None, "ddev_root": None, "plan_approval": "proposed",
-                  "usage_fallback": "stop", "runner_timeout": 1} | answers
+                  "usage_fallback": "stop", "runner_timeout": 1, "node_cwd": None} | answers
         out = io.StringIO()
-        with mock.patch.object(workflow, "runner_handshake", return_value=dict(handshake)) as called, \
+        completed = subprocess.CompletedProcess([], 0, "playwright", "")
+        with mock.patch.object(workflow, "runner_handshake") as called, \
+                mock.patch.object(workflow.subprocess, "run", return_value=completed), \
+                mock.patch.object(figma_runner, "server_status",
+                                  return_value=server or {"portInUse": False, "alive": False}), \
+                mock.patch.object(workflow, "twig_debug_enabled", return_value=twig_state), \
+                mock.patch.object(workflow, "playwright_folder", return_value=(Path("/node/project"), None)), \
                 contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
             try:
                 workflow.preflight_command(argparse.Namespace(**values))
@@ -853,6 +898,40 @@ class WorkflowCaptureTest(unittest.TestCase):
             except SystemExit as stop:
                 code = stop.code
         return code, json.loads(out.getvalue()), called
+
+    def test_a_finished_runs_leftover_server_does_not_block_preflight(self):
+        from unittest import mock
+        import figma_runner
+        import workflow
+        self.start_site()
+        self.workflow("init", "--repo", str(self.repo), "--workspace", str(self.ws))
+        busy = {"portInUse": True, "alive": False, "otherRun": "/runs/finished"}
+        with mock.patch.object(figma_runner, "run_finished", return_value=True):
+            code, ready, _ = self.preflight(server=busy)
+        self.assertEqual(code, 0, ready)
+
+    def test_playwright_is_looked_for_in_the_repository_not_assumed_in_the_current_folder(self):
+        from unittest import mock
+        import workflow
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            (root / "frontend/node_modules/playwright").mkdir(parents=True)
+            (root / "frontend/node_modules/playwright/package.json").write_text("{}")
+            (root / "vendor/x/node_modules/playwright").mkdir(parents=True)
+            (root / "vendor/x/node_modules/playwright/package.json").write_text("{}")
+            ok = subprocess.CompletedProcess([], 0, "", "")
+            with mock.patch.object(workflow.shutil, "which", return_value="/usr/bin/node"), \
+                    mock.patch.object(workflow.subprocess, "run", return_value=ok) as run:
+                self.assertEqual(workflow.playwright_folder(None, str(root)), (root / "frontend", None))
+                self.assertEqual(run.call_args.kwargs["cwd"], root / "frontend")
+            failed = subprocess.CompletedProcess([], 1, "", "")
+            with mock.patch.object(workflow.shutil, "which", return_value="/usr/bin/node"), \
+                    mock.patch.object(workflow.subprocess, "run", return_value=failed):
+                folder, message = workflow.playwright_folder(str(root / "frontend"), str(root))
+                self.assertIsNone(folder)
+                self.assertIn("does not resolve", message)
+            with mock.patch.object(workflow.shutil, "which", return_value=None):
+                self.assertIn("Install Node.js", workflow.playwright_folder(None, str(root))[1])
 
     def start_site(self):
         import http.server
@@ -862,69 +941,133 @@ class WorkflowCaptureTest(unittest.TestCase):
         self.addCleanup(server.shutdown)
         self.site = f"http://127.0.0.1:{server.server_address[1]}/"
 
-    def test_preflight_gives_the_go_ahead_only_with_a_drawn_cover(self):
+    def test_preflight_gives_the_go_ahead_without_connecting_to_figma(self):
         self.start_site()
         self.workflow("init", "--repo", str(self.repo), "--workspace", str(self.ws))
-        proof = {"ok": True, "runnerConnected": True, "fileKey": "KEY9", "fileKeyMatches": True, "empty": True,
-                 "writable": True, "coverPageId": "0:1", "coverId": "1:2", "font": "IBM Plex Sans",
-                 "fontLoaded": True, "pluginData": True, "at": "2026-01-05T10:00:00+00:00", "token": "t"}
-        code, ready, _ = self.preflight(proof)
+        code, ready, called = self.preflight()
+        called.assert_not_called()
         self.assertEqual(code, 0)
         self.assertEqual(ready["message"], "I have everything I need; it's safe to let this run to completion.")
         log = [json.loads(l) for l in (self.ws / "phase-log.jsonl").read_text().splitlines()]
         self.assertEqual((log[-1]["phase"], log[-1]["status"], log[-1]["at"]), ("preflight", "complete", ready["goAheadAt"]))
         project = json.loads((self.ws / "project.json").read_text())
         self.assertEqual(project["target"]["figmaFileKey"], "KEY9")
-        self.assertEqual(project["target"]["preflight"]["coverPageId"], "0:1")
-        self.assertEqual(project["target"]["preflight"]["fileUrl"], "https://www.figma.com/design/KEY9/Library")
-        self.assertTrue(project["target"]["preflight"]["fontLoaded"])
-        runner = project["phases"]["preflight"]["detail"]["checks"]["runner"]
-        self.assertTrue(runner["writable"] and runner["empty"] and runner["fileKeyMatches"])
+        self.assertNotIn("preflight", project["target"])
+        self.assertNotIn("connection", project["target"])
         self.assertEqual((project["run"]["siteLabel"], project["run"]["operator"]), ("Example site", "A. Person"))
         # The checklist the pane ticks off: every check, in order, each done, and the go-ahead.
         import workflow
         checklist = json.loads((self.ws / workflow.PREFLIGHT_CHECKS).read_text())
         self.assertEqual([c["id"] for c in checklist["checks"]],
-                         ["site-url", "site", "site-label", "operator", "figma-url", "runner", "cover"])
+                         ["site-url", "site", "site-label", "operator", "figma-url", "runner-port",
+                          "browser", "cairosvg", "plugin-version"])
         self.assertEqual({c["status"] for c in checklist["checks"]}, {"done"})
         self.assertEqual((checklist["ready"], checklist["goAheadAt"]), (True, ready["goAheadAt"]))
-        self.assertEqual([c["label"] for c in workflow.watch_summary(self.ws)["preflightChecks"]][-1],
-                         "Target file accepts writes")
+        self.assertEqual({c["id"] for c in checklist["checks"][-4:]},
+                         {"runner-port", "browser", "cairosvg", "plugin-version"})
+
+    def test_twig_debug_is_information_when_disabled(self):
+        self.start_site()
+        self.workflow("init", "--repo", str(self.repo), "--workspace", str(self.ws))
+        code, ready, _ = self.preflight(twig_state=False)
+        self.assertEqual(code, 0)
+        import workflow
+        checklist = json.loads((self.ws / workflow.PREFLIGHT_CHECKS).read_text())
+        check = next(item for item in checklist["checks"] if item["id"] == "twig-debug")
+        self.assertEqual(check["status"], "done")
+        self.assertEqual(check["message"], "Twig debug is off; the run turns it on at capture.")
 
     def test_preflight_records_no_go_ahead_on_any_failure(self):
         self.start_site()
         self.workflow("init", "--repo", str(self.repo), "--workspace", str(self.ws))
-        failures = ["no runner connected within 1 seconds; open the target file",
-                    "the runner is open in a different file ('Other', key OTHER)",
-                    "the runner's token was rejected; paste the token",
-                    "the target file 'Library' is not empty (3 page(s))",
-                    "the name-only Cover could not be drawn: IBM Plex Sans could not load and the fallback failed",
-                    "the Cover page could not be created: read-only file"]
-        for failure in failures:
-            code, answer, _ = self.preflight({"ok": False, "failure": failure, "token": "t"})
-            self.assertEqual(code, 1, failure)
-            self.assertFalse(answer["ready"])
-            self.assertIn(failure, answer["missing"])
-            self.assertNotIn('"preflight"', (self.ws / "phase-log.jsonl").read_text())
-            self.assertNotIn("preflight", json.loads((self.ws / "project.json").read_text())["target"])
-            import workflow
-            cover = [c for c in json.loads((self.ws / workflow.PREFLIGHT_CHECKS).read_text())["checks"]
-                     if c["id"] == "cover"][0]
-            self.assertEqual(cover["status"], "waiting", "with no runner connected, nothing was tried in the file")
         # Other answers missing: every problem is listed together, still with no go-ahead.
-        code, answer, called = self.preflight({"ok": True}, site_url="http://127.0.0.1:9/", figma_url=None)
+        code, answer, called = self.preflight(site_url="http://127.0.0.1:9/", figma_url=None)
         self.assertEqual((code, len(answer["missing"])), (1, 2))       # site not answering, no Figma file
         called.assert_not_called()
         import workflow
         checklist = json.loads((self.ws / workflow.PREFLIGHT_CHECKS).read_text())
         status = {c["id"]: c["status"] for c in checklist["checks"]}
-        self.assertEqual((status["site"], status["figma-url"], status["runner"], status["cover"], status["operator"]),
-                         ("needs-you", "needs-you", "waiting", "waiting", "done"))
+        self.assertEqual((status["site"], status["figma-url"], status["runner-port"], status["browser"],
+                          status["cairosvg"], status["plugin-version"], status["operator"]),
+                         ("needs-you", "needs-you", "done", "done", "done", "done", "done"))
         self.assertIs(checklist["ready"], False)
         text = workflow.render_watch(workflow.watch_summary(self.ws))
         self.assertIn("! The local site answers: Start the local site at http://127.0.0.1:9/", text)
-        self.assertIn("· Runner connected to the target file", text)
+        self.assertNotIn("Runner connected to the target file", text)
         self.assertNotIn('"preflight"', (self.ws / "phase-log.jsonl").read_text())
+
+    def connect(self, handshake):
+        import argparse
+        from unittest import mock
+        import workflow
+        args = argparse.Namespace(project=str(self.ws), runner_timeout=2)
+        def answer(*args, **kwargs):
+            kwargs["on_waiting"]("Open the target file and start the runner.")
+            return dict(handshake)
+        out = io.StringIO()
+        with mock.patch.object(workflow, "runner_handshake", side_effect=answer) as called, \
+                mock.patch.object(workflow, "write_active_run") as active, \
+                contextlib.redirect_stdout(out), contextlib.redirect_stderr(io.StringIO()):
+            try:
+                workflow.connect_command(args)
+                code = 0
+            except SystemExit as stop:
+                code = stop.code
+        return code, json.loads(out.getvalue()), called, active
+
+    def target_run(self):
+        self.workflow("init", "--repo", str(self.repo), "--workspace", str(self.ws))
+        self.workflow("target", "--project", str(self.ws), "--figma-url",
+                      "https://www.figma.com/design/KEY9/Library")
+
+    def test_connect_records_target_connection_and_waiting_phase(self):
+        self.target_run()
+        proof = {"ok": True, "runnerConnected": True, "fileKey": "KEY9", "fileKeyMatches": True,
+                 "empty": True, "coverPageId": "0:1", "coverId": "1:2", "font": "IBM Plex Sans",
+                 "fontLoaded": True, "at": "2026-01-05T10:00:00+00:00",
+                 "server": {"pid": 4321}}
+        code, result, called, active = self.connect(proof)
+        self.assertEqual(code, 0)
+        called.assert_called_once()
+        active.assert_called_once_with(self.ws.resolve(), 4321)
+        self.assertTrue(result["ok"])
+        project = json.loads((self.ws / "project.json").read_text())
+        self.assertEqual(project["target"]["connection"]["coverPageId"], "0:1")
+        self.assertEqual(project["phases"]["connect"]["status"], "complete")
+        log = [json.loads(line) for line in (self.ws / "phase-log.jsonl").read_text().splitlines()]
+        self.assertEqual([(item["phase"], item["status"]) for item in log[-2:]],
+                         [("connect", "waiting"), ("connect", "complete")])
+        self.assertEqual(log[-2]["message"], "Open the target file and start the runner.")
+
+    def test_connect_failure_logs_stopped(self):
+        self.target_run()
+        code, result, _, _ = self.connect({"ok": False, "failure": "Open the target file first, then retry."})
+        self.assertEqual(code, 1)
+        self.assertFalse(result["ok"])
+        self.assertEqual(result["failure"], "Open the target file first, then retry.")
+        log = [json.loads(line) for line in (self.ws / "phase-log.jsonl").read_text().splitlines()]
+        self.assertEqual([(item["phase"], item["status"]) for item in log[-2:]],
+                         [("connect", "waiting"), ("connect", "stopped")])
+
+    def test_resumed_legacy_target_preflight_cover_is_used_by_connect_handshake(self):
+        from unittest import mock
+        import figma_runner
+        import workflow
+        self.target_run()
+        manifest = json.loads((self.ws / "project.json").read_text())
+        manifest["target"]["preflight"] = {"fileKey": "KEY9", "fileUrl": manifest["target"]["figmaUrl"],
+                                            "coverPageId": "legacy-page"}
+        (self.ws / "project.json").write_text(json.dumps(manifest))
+        with mock.patch.object(figma_runner, "install_runner", return_value={"firstInstall": False,
+                                                                               "updated": False,
+                                                                               "version": "0.19.0"}), \
+                mock.patch.object(figma_runner, "ensure_server", return_value={"pid": 7}), \
+                mock.patch.object(figma_runner, "request_handshake") as request, \
+                mock.patch.object(figma_runner, "wait_for_handshake", return_value={"ok": True,
+                    "runnerConnected": True, "connectionOnly": True, "fileKeyMatches": True,
+                    "empty": True, "at": "2026-01-05T10:00:00+00:00"}):
+            workflow.runner_handshake(self.ws, "KEY9", manifest["target"]["figmaUrl"], 2, manifest)
+        self.assertEqual(request.call_args.args[2], "legacy-page")
 
     def test_an_absent_runner_stops_the_build_with_what_to_do_first(self):
         import datetime as dt
@@ -932,7 +1075,8 @@ class WorkflowCaptureTest(unittest.TestCase):
         import figma_runner
         import workflow
         self.ws.mkdir()
-        project = legacy_project(target={"figmaFileKey": "KEY9", "figmaUrl": "https://www.figma.com/design/KEY9/Library"},
+        project = legacy_project(target={"figmaFileKey": "KEY9", "figmaUrl": None,
+                                        "preflight": {"fileUrl": "https://www.figma.com/design/KEY9/Library"}},
                                  phases={"foundation": {"status": "complete"}, "components": {"status": "running"}})
         write(self.ws / "project.json", project)
         with mock.patch.object(figma_runner, "ensure_server", return_value={"alive": True}):

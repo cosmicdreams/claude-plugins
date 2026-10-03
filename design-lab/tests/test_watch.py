@@ -83,6 +83,19 @@ class WatchTests(unittest.TestCase):
         self.progress()
         self.assertIsNone(workflow.watch_summary(self.w)["blocker"])
 
+    def test_connect_wait_is_shown_and_clears_when_the_runner_connects(self):
+        message = "Open the target file and start the design-lab runner."
+        self.log({"phase": "connect", "status": "waiting", "reason": "runner connection", "message": message})
+        self.progress(lastSeen=ago(300))
+        summary = workflow.watch_summary(self.w)
+        self.assertEqual(summary["waiting"], message)
+        self.assertIsNone(summary["blocker"])
+        text = workflow.render_watch(summary)
+        self.assertIn(f"Needs you: {message}", text)
+        self.assertNotIn("resume", text.lower())
+        self.progress()
+        self.assertIsNone(workflow.watch_summary(self.w)["waiting"])
+
     def test_waiting_shows_the_servers_message(self):
         self.progress(state="waiting", stepsDone=None, stepsTotal=None, stepKind=None,
                       message="Build complete. Waiting for the next build.")
