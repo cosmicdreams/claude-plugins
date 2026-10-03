@@ -399,7 +399,7 @@ class FigmaBuildTests(unittest.TestCase):
         self.assertEqual(json.loads((self.project / "figma/state.json").read_text())["preflightCover"], "0:1")
         rec = type("Record", (), {"project": str(self.project), "step": "pages",
                                   "result": str(self.project / "pages.json")})()
-        for pages, error in (({"pages": {"Cover": "0:9"}}, "not the page preflight drew"),
+        for pages, error in (({"pages": {"Cover": "0:9"}}, "not the page connect drew"),
                              ({"pages": {"Cover": "0:1"}, "foreign": ["Page 2"]}, "did not create")):
             self.write("pages.json", pages)
             with self.assertRaisesRegex(SystemExit, error):

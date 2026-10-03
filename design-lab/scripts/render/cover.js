@@ -3,7 +3,7 @@
  *
  * ARGS = { pageId, ground, headline, subtitle, total: { value, label },
  *          tiers: [{ key, value, label, color }], provenance: {..}, version }
- * Name-only form, drawn at preflight to prove the file can be written: no `total` and no tiers.
+ * Name-only form, drawn during connect before the build: no `total` and no tiers.
  * It draws the ground and the title block alone, through the same fonts and layout; the build
  * later redraws the full Cover on the same page.
  * Navy ground, 80 of margin, every text in IBM Plex Sans. The site's name and one generic line at
@@ -27,7 +27,7 @@ function barWidths(values, width) {
 /* END bar helpers */
 /* Every text on the Cover is IBM Plex Sans. If the font cannot be loaded (not installed, or not
    available to this Figma account), the Cover keeps the kit font instead, so the build never breaks
-   over a typeface. Which one was used is returned, so preflight can report it. */
+   over a typeface. Which one was used is returned, so connect can report it. */
 const COVER_ROLES = ['coverTitle', 'coverSub', 'coverTotal', 'coverUnit', 'coverTileValue', 'coverTileLabel'];
 let plexLoaded = false;
 try {

@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -516,11 +517,28 @@ def site_reachable(url: str) -> tuple[bool, str]:
         return False, str(getattr(error, "reason", error))
 
 
+def twig_debug_enabled(url: str) -> bool | None:
+    """Inspect one rendered local page without changing the site; None means it could not be checked."""
+    import ssl
+    import urllib.error
+    import urllib.request
+    import twig_debug
+    context = ssl._create_unverified_context() if url.startswith("https://") else None
+    try:
+        with urllib.request.urlopen(url, timeout=10, context=context) as response:
+            html = response.read().decode("utf-8", errors="replace")
+    except urllib.error.HTTPError as error:
+        html = error.read().decode("utf-8", errors="replace")
+    except (urllib.error.URLError, OSError, ValueError):
+        return None
+    return twig_debug.enabled(html)
+
+
 def runner_handshake(workspace: Path, file_key: str, figma_url: str, timeout: float,
-                     project: dict | None = None) -> dict:
+                     project: dict | None = None, on_waiting=None) -> dict:
     """Refresh the runner in ~/.design-lab/runner/, start or reuse the runner server, tell the
     person what to do, and wait for the runner to check the target file and draw a name-only
-    Cover in it through the real cover.js. The token is never printed: the person copies it
+    Cover through the real cover.js. The token is never printed: the person copies it
     from ~/.design-lab/runner-token once per machine."""
     import figma_build
     import figma_runner
@@ -541,14 +559,17 @@ def runner_handshake(workspace: Path, file_key: str, figma_url: str, timeout: fl
               f"Development, design-lab runner). If it asks for a token, paste yours (copy it with: pbcopy < {token_file}).",
               f"Waiting up to {timeout:g} seconds for it to connect."]
     print("\n".join(steps), file=sys.stderr, flush=True)
-    # The Cover's name-only form: the site's name and "Component Library", nothing computed.
+    if on_waiting:
+        on_waiting(" ".join(steps[:-1]))
+    # The initial Cover's name-only form: the site's name and "Component Library", nothing computed.
     cover = {"ground": library_counts.COVER_GROUND,
              "headline": figma_build.site_name(Path((project or {}).get("repository", {}).get("root") or workspace)),
-             "subtitle": "Component Library", "provenance": {"stage": "preflight"},
+             "subtitle": "Component Library", "provenance": {"stage": "connect"},
              "version": figma_build.STANDARD_VERSION}
-    expected = (((project or {}).get("target") or {}).get("preflight") or {}).get("coverPageId")
-    # A resumed run whose build has begun in this file: the file is no longer empty, so preflight
-    # proves only that the runner is connected to it.
+    target = (project or {}).get("target") or {}
+    expected = (target.get("connection") or target.get("preflight") or {}).get("coverPageId")
+    # A resumed run whose build has begun in this file: the file is no longer empty, so the
+    # connection check only proves that the runner is connected to it.
     try:
         begun = json.loads((workspace / "figma" / "state.json").read_text()).get("fileKey") == file_key
     except (OSError, ValueError):
@@ -557,7 +578,7 @@ def runner_handshake(workspace: Path, file_key: str, figma_url: str, timeout: fl
     outcome = figma_runner.wait_for_handshake(workspace, timeout)
     if not outcome.get("runnerConnected") and install["firstInstall"]:
         outcome["failure"] = (f"Import the runner in Figma desktop (Plugins, Development, Import plugin from manifest, "
-                              f"{install['manifest']}), open the target file and start it, then run preflight again; "
+                              f"{install['manifest']}), open the target file and start it, then run connect again; "
                               + outcome.get("failure", "no runner connected"))
     return {**outcome, "server": {"pid": server.get("pid"), "started": server.get("started")},
             "install": install, "instructions": steps[:-1]}
@@ -602,8 +623,9 @@ def await_runner(workspace: Path, project: dict, minutes: float = RUNNER_ABSENT_
             break
         time.sleep(poll)
     absent = (dt.datetime.now(dt.timezone.utc) - last).total_seconds() / 60 if last else minutes
-    address = ((project.get("target") or {}).get("figmaUrl")
-               or ((project.get("target") or {}).get("preflight") or {}).get("fileUrl") or "the target Figma file")
+    target = project.get("target") or {}
+    address = (target.get("figmaUrl") or (target.get("connection") or target.get("preflight") or {}).get("fileUrl")
+               or "the target Figma file")
     whole = max(1, round(absent))
     message = (f"Open Figma desktop, open {address}, and start the design-lab runner. The build writes the component "
                f"library into that file through the runner, and it has not connected for {whole} "
@@ -667,13 +689,37 @@ class Checklist:
         write_json(self.path, self.document)
 
 
+def playwright_folder(given: str | None, repository: str) -> tuple[Path | None, str | None]:
+    """A folder where node resolves Playwright: the one given, or the first found in the
+    repository (node_modules/playwright, a few levels down, outside vendored code)."""
+    def resolves(folder: Path) -> bool:
+        try:
+            return subprocess.run(["node", "-e", "require.resolve('playwright')"], cwd=folder, text=True,
+                                  stdout=subprocess.PIPE, stderr=subprocess.PIPE, timeout=30).returncode == 0
+        except (OSError, subprocess.SubprocessError):
+            return False
+    if not shutil.which("node"):
+        return None, "Install Node.js: capture runs Playwright through node, and node is not on this machine's path."
+    if given:
+        folder = Path(given).expanduser().resolve()
+        return (folder, None) if resolves(folder) else (
+            None, f"Playwright does not resolve in {folder}: run npm i -D playwright there, or give --node-cwd a "
+                  "folder where it does.")
+    root = Path(repository)
+    for dirpath, dirnames, _ in os.walk(root):
+        here = Path(dirpath)
+        if (here / "node_modules" / "playwright" / "package.json").is_file() and resolves(here):
+            return here, None
+        depth = len(here.relative_to(root).parts)
+        dirnames[:] = [] if depth >= 4 else sorted(d for d in dirnames if not d.startswith(".") and d not in (
+            "node_modules", "vendor", "core", "contrib", "files", "libraries"))
+    return None, ("Playwright was not found in the repository: give preflight --node-cwd <folder> where it is "
+                  "installed, or install it in a folder of the run's own with npm i -D playwright and npx "
+                  "playwright install chromium.")
+
+
 def preflight_command(args):
-    """Gather every answer the run needs in one pass, check what can be checked, and either give
-    the go-ahead (recorded as the preflight phase, so the benchmark knows when the run was left to
-    itself) or list exactly what is still missing. The run's end product is a Figma file, so the
-    go-ahead also needs proof that the target file can be written: the runner server is started
-    (or reused), the runner in Figma desktop connects, and one check step confirms the open file
-    is the target, is empty, and accepts a node that is created and deleted again."""
+    """Gather every answer and check available without the person before giving the go-ahead."""
     path, project = load_project(args.project)
     run = project.get("run") if isinstance(project.get("run"), dict) else {}
     missing, checks = [], {}
@@ -698,8 +744,11 @@ def preflight_command(args):
     if usage and usage != "none":
         checklist.record_check("usage", f"DDEV project for the {usage} usage source", "checking")
     checklist.record_check("figma-url", "Target Figma file address", "checking")
-    checklist.record_check("runner", "Runner connected to the target file", "waiting", depends_on=("figma-url",))
-    checklist.record_check("cover", "Target file accepts writes", "waiting", depends_on=("runner",))
+    for check_id, label in (("runner-port", "Runner port is available"),
+                            ("browser", "Browser automation is available"),
+                            ("cairosvg", "SVG renderer is available"),
+                            ("plugin-version", "Plugin version matches this run")):
+        checklist.record_check(check_id, label, "checking")
 
     answer("site-url", "Local site address", site_url, "the local site address (--site-url)")
     if site_url:
@@ -732,41 +781,88 @@ def preflight_command(args):
                "ddevRoot": args.ddev_root,
                "schemaChurn": "recorded by the run at the benchmark, without asking"}
     if figma_key:
-        # The server finds this run by its target file, so the target is recorded before it starts.
         previous = (project.get("target") or {}).get("figmaFileKey")
         if previous and previous != figma_key.group(1):
             invalidate(project, ("foundation", "components", "index", "verify"),
                        ("foundation", "build-record", "index", "verify-report"))
-        kept = (project.get("target") or {}).get("preflight") if previous == figma_key.group(1) else None
+        target = project.get("target") or {}
+        kept = (target.get("connection") or target.get("preflight")) if previous == figma_key.group(1) else None
         project["target"] = {"figmaFileKey": figma_key.group(1), "figmaUrl": args.figma_url, "recordedAt": now(),
-                             **({"preflight": kept} if kept else {})}
+                             **({"connection": kept} if kept else {})}
         write_json(path, project)
-        checklist.record_check("runner", "Runner connected to the target file", "checking",
-                               f"Waiting for the design-lab runner in Figma desktop, with {args.figma_url} open.",
-                               ("figma-url",))
-        handshake = runner_handshake(path.parent, figma_key.group(1), args.figma_url, args.runner_timeout, project)
-        checks["runner"] = handshake
-        write_active_run(path.parent, (handshake.get("server") or {}).get("pid"))
-        failure = handshake.get("failure") or "the Figma file could not be proven writable"
-        connected = bool(handshake.get("runnerConnected"))
-        checklist.record_check("runner", "Runner connected to the target file", "done" if connected else "needs-you",
-                               None if connected else " ".join(handshake.get("instructions") or []) or failure,
-                               ("figma-url",))
-        checklist.record_check("cover", "Target file accepts writes",
-                               "done" if handshake.get("ok") else "waiting" if not connected else "failed",
-                               "A resumed build: the file already holds it, so only the connection is proven."
-                               if handshake.get("ok") and handshake.get("connectionOnly") else
-                               None if handshake.get("ok") or not connected else failure, ("runner",))
-        if not handshake.get("ok"):
-            missing.append(failure)
-        elif not handshake.get("connectionOnly"):
-            # What the name-only Cover proved; the build reuses this Cover page and this address.
-            path, project = load_project(path)
-            project["target"]["preflight"] = {
-                "fileKey": figma_key.group(1), "fileUrl": args.figma_url, "coverPageId": handshake.get("coverPageId"),
-                "coverId": handshake.get("coverId"), "font": handshake.get("font"),
-                "fontLoaded": handshake.get("fontLoaded"), "at": handshake.get("at")}
-            write_json(path, project)
+    write_active_run(path.parent, None)
+
+    # These checks are local and never open the design file or start its runner.
+    import figma_runner
+    status = figma_runner.server_status(path.parent)
+    if not status["portInUse"] or status["alive"]:
+        checklist.record_check("runner-port", "Runner port is available", "done",
+                               "This run's server is already using the port." if status["alive"] else None)
+    elif status.get("otherRun") and figma_runner.run_finished(Path(status["otherRun"])):
+        # Left behind by a run whose build is complete: connect stops it before starting this one's.
+        checklist.record_check("runner-port", "Runner port is available", "done",
+                               f"A finished run's server ({status['otherRun']}) still holds the port; it is stopped "
+                               "when this build connects.")
+    elif status.get("otherRun"):
+        other = status["otherRun"]
+        stop = f"python3 {Path(figma_runner.__file__).resolve()} stop --project {other}"
+        message = (f"Stop the other run first with: {stop}. Another run ({other}) is using "
+                   f"127.0.0.1:{figma_runner.PORT}.")
+        missing.append(message)
+        checklist.record_check("runner-port", "Runner port is available", "needs-you", message)
+    else:
+        message = (f"Stop the program using 127.0.0.1:{figma_runner.PORT}, then retry preflight. "
+                   "The runner port is occupied by another program.")
+        missing.append(message)
+        checklist.record_check("runner-port", "Runner port is available", "needs-you", message)
+
+    # Capture runs node from a folder where Playwright resolves (capture_all.py --node-cwd); each
+    # site keeps it somewhere different, so look for one rather than assume the current folder.
+    node_cwd, browser_message = playwright_folder(args.node_cwd, project["repository"]["root"])
+    executable = os.environ.get("DESIGN_LAB_BROWSER_EXECUTABLE")
+    executable_ok = not executable or (Path(executable).is_file() and os.access(executable, os.X_OK))
+    if node_cwd and not executable_ok:
+        browser_message = (f"Set DESIGN_LAB_BROWSER_EXECUTABLE to an existing browser executable; "
+                           f"the configured path is missing or not executable: {executable}")
+    browser_ok = bool(node_cwd) and executable_ok
+    if not browser_ok:
+        missing.append(browser_message)
+    checks["browser"] = {"nodeCwd": str(node_cwd) if node_cwd else None,
+                         "executable": executable, "executableExists": executable_ok}
+    checklist.record_check("browser", "Browser automation is available", "done" if browser_ok else "needs-you",
+                           f"Playwright resolves in {node_cwd}: give capture --node-cwd {node_cwd}."
+                           if browser_ok else browser_message)
+
+    cairosvg = subprocess.run([sys.executable, "-c", "import cairosvg"], text=True,
+                              stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    cairosvg_ok = cairosvg.returncode == 0
+    cairosvg_message = None if cairosvg_ok else "Install CairoSVG with: python3 -m pip install cairosvg."
+    checks["cairosvg"] = {"available": cairosvg_ok}
+    if cairosvg_message:
+        missing.append(cairosvg_message)
+    checklist.record_check("cairosvg", "SVG renderer is available", "done" if cairosvg_ok else "needs-you",
+                           cairosvg_message)
+
+    twig_state = twig_debug_enabled(site_url) if site_url and checks.get("site", {}).get("reachable") else None
+    if twig_state is not None:
+        twig_message = None if twig_state else "Twig debug is off; the run turns it on at capture."
+        checks["twigDebug"] = {"enabled": twig_state}
+        checklist.record_check("twig-debug", "Twig debug markup is available", "done", twig_message)
+
+    recorded_version = (((project.get("run") or {}).get("plugin") or {}).get("version"))
+    current_version = plugin_version()
+    # A run begun before the version was recorded cannot be checked; that is not a change.
+    version_ok = recorded_version in (None, current_version)
+    version_message = (
+        f"This run began before design-lab recorded its version, so a change since then cannot be checked; "
+        f"it continues on {current_version}." if recorded_version is None else None if version_ok else
+        f"Finish or restart the run on one plugin version. The plugin changed since this run began "
+        f"({recorded_version} to {current_version}).")
+    checks["pluginVersion"] = {"recorded": recorded_version, "current": current_version}
+    if not version_ok:
+        missing.append(version_message)
+    checklist.record_check("plugin-version", "Plugin version matches this run", "done" if version_ok else "needs-you",
+                           version_message)
     if missing:
         checklist.finish(False)
         print(json.dumps({"ready": False, "missing": missing, "checks": checks,
@@ -784,6 +880,53 @@ def preflight_command(args):
     checklist.finish(True, go_ahead)
     print(json.dumps({"ready": True, "goAheadAt": go_ahead, "checks": checks,
                       "message": "I have everything I need; it's safe to let this run to completion."}, indent=2))
+
+
+def connect_command(args):
+    """Connect the runner when the build is ready to write to the recorded target file."""
+    path, project = load_project(args.project)
+    target = project.get("target") or {}
+    earlier = target.get("connection") or target.get("preflight") or {}
+    file_key = target.get("figmaFileKey") or earlier.get("fileKey")
+    figma_url = target.get("figmaUrl") or earlier.get("fileUrl")
+    if not file_key or not figma_url:
+        raise ValueError("the target Figma file is not recorded; run workflow.py preflight first")
+
+    def waiting(message):
+        append_jsonl(path.parent / PHASE_LOG, {"at": now(), "phase": "connect", "status": "waiting",
+                                               "reason": "runner connection", "message": message})
+
+    handshake = runner_handshake(path.parent, file_key, figma_url, args.runner_timeout, project,
+                                 on_waiting=waiting)
+    write_active_run(path.parent, (handshake.get("server") or {}).get("pid"))
+    if not handshake.get("ok"):
+        failure = handshake.get("failure") or "the target Figma file could not be connected"
+        append_jsonl(path.parent / PHASE_LOG, {"at": now(), "phase": "connect", "status": "stopped",
+                                               "reason": "runner not connected", "message": failure})
+        print(json.dumps({"ok": False, "failure": failure, "handshake": handshake}, indent=2))
+        sys.exit(1)
+    path, project = load_project(path)
+    target = project.setdefault("target", {})
+    if handshake.get("connectionOnly"):
+        # A resumed build: only the connection was proved, so the Cover proof from the first
+        # connection (or an older run's preflight) stands.
+        connection = {**(target.get("connection") or target.get("preflight") or {}),
+                      "fileKey": file_key, "fileUrl": figma_url, "reconnectedAt": handshake.get("at")}
+    else:
+        connection = {"fileKey": file_key, "fileUrl": figma_url, "coverPageId": handshake.get("coverPageId"),
+                      "coverId": handshake.get("coverId"), "font": handshake.get("font"),
+                      "fontLoaded": handshake.get("fontLoaded"), "at": handshake.get("at")}
+    target["connection"] = connection
+    detail = {"fileKey": file_key, "fileUrl": figma_url,
+              "runnerConnected": handshake.get("runnerConnected"),
+              "fileKeyMatches": handshake.get("fileKeyMatches"), "empty": handshake.get("empty"),
+              "onlyPreflightCover": handshake.get("onlyPreflightCover"),
+              "writable": handshake.get("writable"), "pluginData": handshake.get("pluginData"),
+              "connectionOnly": handshake.get("connectionOnly"), "coverPageId": handshake.get("coverPageId"),
+              "coverId": handshake.get("coverId"), "font": handshake.get("font"),
+              "fontLoaded": handshake.get("fontLoaded")}
+    set_phase(path, project, "connect", "complete", detail, at=handshake.get("at") or now())
+    print(json.dumps({"ok": True, "connection": connection, "handshake": handshake}, indent=2))
 
 
 def approve_command(args):
@@ -1040,6 +1183,7 @@ def watch_summary(workspace: Path) -> dict:
         pass
     # The open blocker: the newest entry, when it stopped the run for the person.
     blocker = entries[-1].get("message") if entries and entries[-1].get("status") == "stopped" else None
+    waiting = entries[-1].get("message") if entries and entries[-1].get("status") == "waiting" else None
     progress = read_json_or(workspace / "figma" / "progress.json")
     runner = None
     if progress:
@@ -1054,6 +1198,7 @@ def watch_summary(workspace: Path) -> dict:
                   "stepKind": progress.get("stepKind"), "message": progress.get("message")}
     if runner and runner["connected"]:
         blocker = None   # the runner came back after the stop, and the build has carried on
+        waiting = None
     completion = workspace / "benchmark" / "completion.md"
     checks = preflight_checks(workspace, phases.get("preflight") or {})
     recap = str(completion) if completion.is_file() and recap_is_current(workspace, project) else None
@@ -1062,7 +1207,7 @@ def watch_summary(workspace: Path) -> dict:
             "phases": [{"name": name, "status": (value or {}).get("status")} for name, value in phases.items()],
             "nextPhase": next((name for name, value in phases.items()
                                if (value or {}).get("status") not in ("complete", "approved", "waived")), None),
-            "preflightChecks": checks, "runner": runner, "blocker": blocker,
+            "preflightChecks": checks, "runner": runner, "blocker": blocker, "waiting": waiting,
             "recap": recap}
 
 
@@ -1128,6 +1273,8 @@ def render_watch(summary: dict) -> str:
             lines.append(f"  runner not seen for {minutes}m")
     if summary.get("blocker"):
         lines += ["", f"  Needs you: {summary['blocker']}"]
+    elif summary.get("waiting"):
+        lines += ["", f"  Needs you: {summary['waiting']}"]
     if summary.get("recap"):
         lines += ["", f"  Recap: {summary['recap']}"]
     return "\n".join(lines)
@@ -1218,8 +1365,8 @@ def main():
     command.add_argument("--site-url", help="local site address the run captures from")
     command.add_argument("--public-url", help="the site's public address, for provenance and captions")
     command.add_argument("--figma-url", help="the empty target Figma file")
-    command.add_argument("--runner-timeout", type=float, default=300,
-                         help="seconds to wait for the runner in Figma desktop to connect (default 300)")
+    command.add_argument("--node-cwd", help="a folder where node resolves Playwright, for capture "
+                         "(default: found in the repository)")
     command.add_argument("--site-label")
     command.add_argument("--operator")
     command.add_argument("--model")
@@ -1229,6 +1376,11 @@ def main():
     command.add_argument("--usage-fallback", choices=("stop", "untiered"), default="stop",
                          help="if the detected usage source cannot be used: stop, or build untiered")
     command.set_defaults(func=preflight_command)
+
+    command = sub.add_parser("connect", help="connect the runner when the build is ready to write")
+    command.add_argument("--project", required=True)
+    command.add_argument("--runner-timeout", type=float, default=300)
+    command.set_defaults(func=connect_command)
 
     command = sub.add_parser("runner", help="whether the runner server is alive; --ensure restarts it")
     command.add_argument("--project", default=".design-lab")

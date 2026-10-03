@@ -296,11 +296,12 @@ def cmd_init(ns) -> int:
         "iterate": bool(getattr(ns, "iterate", False) or (previous or {}).get("iterate")
                         and getattr(ns, "rebuild", False)),
     }
-    # Preflight drew a name-only Cover to prove the file can be written; the build fills in that
-    # Cover page rather than adding a second one.
-    preflight = ((load(project, "project.json", {}).get("target") or {}).get("preflight") or {})
-    if preflight.get("coverPageId") and preflight.get("fileKey") == ns.file_key:
-        state["preflightCover"] = preflight["coverPageId"]
+    # The connect handshake drew a name-only Cover; the build fills that page rather than
+    # adding a second one. Keep the state key for older build records.
+    target = load(project, "project.json", {}).get("target") or {}
+    connection = target.get("connection") or target.get("preflight") or {}
+    if connection.get("coverPageId") and connection.get("fileKey") == ns.file_key:
+        state["preflightCover"] = connection["coverPageId"]
     (out / "state.json").write_text(json.dumps(state, indent=1) + "\n")
     print(json.dumps({"steps": len(steps), "components": len(built), "runtime": state["runtime"]}))
     return 0
@@ -1060,15 +1061,15 @@ def cmd_record(ns) -> int:
     if key and key not in data:
         raise SystemExit(f"{ns.step}: result has no {key}; not recording a failed step")
     if ns.step == "pages":
-        # The file must be empty, or hold only this run's preflight Cover: anything else is
+        # The file must be empty, or hold only this run's initial Cover: anything else is
         # someone's work, and the build does not write around it.
         if data.get("foreign"):
             raise SystemExit("pages: the file holds pages design-lab did not create ("
                              + ", ".join(data["foreign"]) + "); the build needs an empty file, or one holding only "
-                             "this run's preflight Cover")
+                             "this run's initial Cover")
         if state.get("preflightCover") and data["pages"].get("Cover") != state["preflightCover"]:
-            raise SystemExit(f"pages: the Cover page is {data['pages'].get('Cover')}, not the page preflight drew "
-                             f"({state['preflightCover']}); the build must fill in the preflight Cover, not add another")
+            raise SystemExit(f"pages: the Cover page is {data['pages'].get('Cover')}, not the page connect drew "
+                             f"({state['preflightCover']}); the build must fill in the initial Cover, not add another")
     if ns.step.startswith("compare:") and data.get("file"):
         import figma_compare
         cid = ns.step.split(":", 1)[1]
