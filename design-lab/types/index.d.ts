@@ -29,6 +29,8 @@ export type Summary = {
   preflight: { status: string; at: string | null; checks: Check[] | null } | null
   runner: Runner | null
   blocker: string | null
+  // the run is waiting for the person to do something it will notice by itself (start the runner)
+  waiting: string | null
   log: string[]
   hasRecap: boolean
   recap: string | null

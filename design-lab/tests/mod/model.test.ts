@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import {
-  afterFill, isDown, preflightPassed, RECAP_LIMIT, plainOf, RUNNER_ABSENT_MS, SERVER_FRESH_MS, statusOf, summaryOf,
+  afterFill, isDown, runnerLine, stepsLine, preflightPassed, RECAP_LIMIT, plainOf, RUNNER_ABSENT_MS, SERVER_FRESH_MS, statusOf, summaryOf,
 } from '../../hooks/mod/model'
 
 const NOW = Date.parse('2026-10-02T12:00:00Z')
@@ -131,5 +131,24 @@ describe('preflight checklist', () => {
     const old = { ...list(check('site', 'needs-you')), at: ago(90_000_000) }
     expect(summary({ project: passed, preflightChecks: old }).preflight?.checks).toBeNull()
     expect(summary({ project: passed, preflightChecks: '{"checks": [' }).preflight?.checks).toBeNull()
+  })
+})
+
+describe('a runner that is not needed yet', () => {
+  test('before the build an absent runner is idle, not missing, and its last word is not repeated', () => {
+    const s = summary({ project: PROJECT, progress: progress({ state: 'waiting', stepsDone: null, stepsTotal: null,
+      message: 'Connected. Waiting for the build to start.', lastSeen: ago(300_000) }) })
+    expect(runnerLine(s.runner!)).toBe('runner idle until the build')
+    expect(stepsLine(s.runner!)).toBeNull()
+    expect(statusOf(s, NOW)).toContain('runner idle until the build')
+    expect(isDown(s)).toBe(false)
+  })
+
+  test("the build's wait for the runner says what to do, with nothing to press", () => {
+    const waiting = JSON.stringify({ phase: 'connect', status: 'waiting', message: 'Open the file and start the design-lab runner.' })
+    const s = summary({ project: PROJECT, phaseLog: `${waiting}\n` })
+    expect(s.waiting).toBe('Open the file and start the design-lab runner.')
+    expect(s.blocker).toBeNull()
+    expect(plainOf(s)).toContain('Needs you: Open the file')
   })
 })
