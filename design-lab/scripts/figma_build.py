@@ -215,6 +215,41 @@ def children_first(built: list[dict], comps: list[dict]) -> list[dict]:
 
 # ---------------------------------------------------------------- init
 
+def build_trees(project: Path, trees: Path, only: str | None = None) -> list[dict]:
+    """The init tree path, also usable in a temporary directory without a runner."""
+    trees.mkdir(parents=True, exist_ok=True)
+    comps = components(project)
+    plan = plans(project)
+    measurements = project / "capture" / "measurements"
+    built = []
+    for c in build_order(comps, plan):
+        p = plan.get(c["id"], {})
+        if p.get("verdict") != "build":
+            continue
+        if only and c["id"] not in only.split(","):
+            continue
+        # Measurements are named by machine name; a Drupal id (`paragraph:card`) has no dot, and
+        # a block and a paragraph can share a machine name, so the spec must name this source.
+        machine = c.get("machineName") or c["id"].split(":")[-1].split(".")[-1]
+        spec_file = measurements / f"{c['id'].replace(':', '__').replace('/', '__')}.spec.json"
+        if not spec_file.exists():
+            spec_file = measurements / f"{machine}.spec.json"  # runs before 0.15.1
+        if not spec_file.exists():
+            continue
+        spec_source = (json.loads(spec_file.read_text()).get("source") or {}).get("sourceRef")
+        if c.get("sourceRef") and spec_source and spec_source != c["sourceRef"]:
+            continue
+        try:
+            tree = responsive.build(json.loads(spec_file.read_text()), c.get("label") or c["id"], c["id"].split(".")[-1])
+        except (IndexError, KeyError, StopIteration):
+            continue  # no usable measurement at any width
+        (trees / f"{c['id']}.json").write_text(json.dumps(tree, indent=1, sort_keys=True) + "\n")
+        built.append({"id": c["id"]})
+
+    add_alternates(project, comps, built, measurements, trees)
+    return built
+
+
 def cmd_init(ns) -> int:
     project = Path(ns.project).resolve()
     out = project / "figma"
@@ -235,34 +270,7 @@ def cmd_init(ns) -> int:
     (out / "payloads").mkdir(exist_ok=True)
     (out / "trees").mkdir(exist_ok=True)
     comps = components(project)
-    plan = plans(project)
-    measurements = project / "capture" / "measurements"
-    built = []
-    for c in build_order(comps, plan):
-        p = plan.get(c["id"], {})
-        if p.get("verdict") != "build":
-            continue
-        if getattr(ns, "only", None) and c["id"] not in ns.only.split(","):
-            continue
-        # Measurements are named by machine name; a Drupal id (`paragraph:card`) has no dot, and
-        # a block and a paragraph can share a machine name, so the spec must name this source.
-        machine = c.get("machineName") or c["id"].split(":")[-1].split(".")[-1]
-        spec_file = measurements / f"{c['id'].replace(':', '__').replace('/', '__')}.spec.json"
-        if not spec_file.exists():
-            spec_file = measurements / f"{machine}.spec.json"  # runs before 0.15.1
-        if not spec_file.exists():
-            continue
-        spec_source = (json.loads(spec_file.read_text()).get("source") or {}).get("sourceRef")
-        if c.get("sourceRef") and spec_source and spec_source != c["sourceRef"]:
-            continue
-        try:
-            tree = responsive.build(json.loads(spec_file.read_text()), c.get("label") or c["id"], c["id"].split(".")[-1])
-        except (IndexError, KeyError, StopIteration):
-            continue  # no usable measurement at any width
-        (out / "trees" / f"{c['id']}.json").write_text(json.dumps(tree, indent=1, sort_keys=True) + "\n")
-        built.append({"id": c["id"]})
-
-    add_alternates(project, comps, built, measurements, out / "trees")
+    built = build_trees(project, out / "trees", getattr(ns, "only", None))
     steps = ([{"id": "wipe"}] if getattr(ns, "rebuild", False) else []) + [{"id": "pages"}, {"id": "variables"}]
     steps += [{"id": f"foundation:{d}"} for d in foundation_domains(project)]
     steps += [{"id": f"tier:{t}"} for t in tier_names(comps)]
@@ -279,6 +287,7 @@ def cmd_init(ns) -> int:
         "siteUrl": ns.site_url.rstrip("/"),
         "canonicalBaseUrl": ns.canonical_base_url.rstrip("/"),
         "runtime": render_payload.runtime_hash(),
+        "offlineImages": bool(getattr(ns, "offline_images", False) or (project / "corpus.json").is_file()),
         # The build plan, in order. What is built is read from `done` (library_counts.recorded_ids).
         "planned": [b["id"] for b in built],
         "steps": steps,
@@ -994,7 +1003,8 @@ def images_step(project: Path, sid: str, cid: str, state: dict) -> dict:
     img_dir = project / "figma" / "images" / cid.split(".")[-1]
     fetched = subprocess.run([sys.executable, str(HERE / "fetch_images.py"), str(tree_file),
                               "--fallback-base-url", state["canonicalBaseUrl"],
-                              "--base-url", state["siteUrl"], "--out", str(img_dir)],
+                              "--base-url", state["siteUrl"], "--out", str(img_dir)]
+                             + (["--offline"] if state.get("offlineImages") or (project / "corpus.json").is_file() else []),
                              capture_output=True, text=True, timeout=600)
     if fetched.returncode != 0:
         raise SystemExit(f"{sid}: fetch_images.py exited {fetched.returncode}: "
@@ -1090,6 +1100,7 @@ def main() -> int:
     i.add_argument("--file-key", required=True)
     i.add_argument("--site-url", required=True)
     i.add_argument("--canonical-base-url", required=True)
+    i.add_argument("--offline-images", action="store_true", help="use only the saved image cache")
     i.add_argument("--only", help="comma-separated component ids: a smoke build of a subset")
     i.add_argument("--rebuild", action="store_true",
                    help="rebuild in the same file: a first step clears this run's earlier build")

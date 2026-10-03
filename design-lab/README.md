@@ -72,3 +72,37 @@ Planned: `drift`.
 - `references/completion-message.md` — the fixed reply `design-lab:run` ends with
 - `references/build-records.md` — the idempotency and resume contract
 - `references/strategies/README.md` — per-strategy mapping and counting traps
+
+## Evaluation replays
+
+The corpus and scoreboard use explicit per-person locations from `~/.claude/design-lab.json`, or the file named by `DESIGN_LAB_CONFIG`:
+
+```json
+{
+  "corpus": "/path/to/corpus",
+  "scoreboard": {
+    "ledger": "/path/to/ledger.jsonl",
+    "dashboard": "/path/to/dashboard.html"
+  }
+}
+```
+
+All three keys are required. The commands never create or edit this configuration. `scoreboard.py record` appends to the ledger and redraws the dashboard from the whole ledger; `--open` shows it.
+
+```bash
+python3 scripts/corpus.py freeze --run /path/to/finished-run --label site-a
+python3 scripts/corpus.py list
+python3 scripts/tier1.py --all --out /tmp/property-results.json
+python3 scripts/tier1.py --run /path/to/run --out /tmp/property-results.json
+python3 scripts/tier2.py --site site-a --file-key SCRATCH_FILE_KEY
+python3 scripts/scoreboard.py record --run /path/to/evaluated-run --tier 2 --site site-a
+python3 scripts/scoreboard.py rows
+```
+
+Freezing copies the run and writes a manifest with artifact hashes and producer identity. An existing label is refused; use a new label to record a corpus refresh. Older manifests may have no producer commit; that absence stays explicit. Both component-id and older machine-name measurement files are supported.
+
+Tier 1 rebuilds the same trees as `figma_build.py init`, in a temporary directory, and compares their resolved breakpoint properties with the saved measurements. Its output is JSON; one summary per site goes to standard error. Geometry uses tree layout arithmetic, not font shaping or Figma rendering. Geometry needing font shaping says unmeasured. Older captures have styled inline descendants rather than exact character ranges, so text run counts identify distinct measured inline styles and flag flattening; their basis is recorded beside each result. Captured states absent from the default responsive tree are reported as unmeasured. This comparison does not change the builder or verify's gate.
+
+Tier 2 requires Figma open with the runner. It creates a new workspace under the site's `replays/` directory, clears the designated scratch file, rebuilds with frozen images, waits for the build and verification dumps, assembles measurements, verifies, and scores. The runner stays open between evaluations; for `--all`, have it open in each scratch file. The image step has no site or public fallback requests: uncached sources remain failures. For `--all`, add a `scratchFileKey` to each site's `corpus.json`; file keys are checked before any replay starts. `--timeout` limits the wait per site. Failed evaluations keep the workspace and its evidence for inspection. Verification findings do not prevent writing the scorecard. Corrected comparison results accompany the evaluation while the existing `master-matches-capture` gate continues to use its original metric.
+
+The benchmark and ledger share `run_metrics.py`; neither imports the other. Missing metrics remain unmeasured or null. Recording an evaluation is a separate explicit step, so replay does not silently append a ledger row.

@@ -154,6 +154,10 @@ The last step scores the run you just made (`design-lab:evaluate`). Record schem
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py identity --project <artifact-directory> --no-schema-change   # or --schema-change "<what>"
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py record --project <artifact-directory> --phase benchmark --status running
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/score_run.py <artifact-directory> --session current
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/scoreboard.py record --run <artifact-directory> --tier 3 --open
+open <artifact-directory>/benchmark/report.html
 ```
+
+The scoreboard records this run as one row in the person's ledger and redraws the dashboard; both live where `~/.claude/design-lab.json` says. Both pages end on the person's screen: the benchmark report for this run in detail, the dashboard for how it compares with earlier runs. Without that configuration file, skip the scoreboard step and say so; the benchmark does not depend on it.
 
 This writes `benchmark/report.html`, `benchmark/scorecard.json` and `benchmark/completion.md` inside the artifact directory. The benchmark ends when its report is finished: the scorer records that end in the phase log itself, so no separate command marks it complete, and a later re-score keeps the recorded end; a re-score runs the scorer alone, never a new start. The scorer then stops this run's runner server, so the next run's preflight finds the port free; preflight also stops a server left behind by a run whose build has every step recorded, and says so. Reply to the user with the contents of `completion.md` exactly: the fixed template in `references/completion-message.md` filled with this run's values. It gives the Figma link, the coverage line, headline accuracy, time and tokens by model for producing the library and for the benchmark, the report as a clickable link labelled as the developer audit, what was not measured, and where the known gaps are listed. Do not paraphrase it or add numbers of your own.

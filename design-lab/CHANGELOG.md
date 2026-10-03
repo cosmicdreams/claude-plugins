@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.17.0
+
+**Runs can now be replayed and compared: a frozen corpus of finished runs, a property replay that needs no Figma, a rebuild in a scratch Figma file, and a scoreboard ledger with a dashboard.** The measure comes first, so the fixes that follow can be shown to help.
+
+- Corpus: `corpus.py freeze` copies a finished run into the person's corpus with a manifest of artifact hashes and who produced it; `list` shows what is frozen. An existing label is refused.
+- Tier 1: `tier1.py` rebuilds the build trees in a temporary folder and compares their resolved breakpoint properties with the saved measurements, with no Figma and no network. Geometry that needs font shaping is reported as unmeasured.
+- Tier 2: `tier2.py` rebuilds a frozen site in its scratch Figma file through the runner, with frozen images only, then verifies and scores it. A failed evaluation keeps its workspace for inspection.
+- Scoreboard: `scoreboard.py record` appends one row per evaluation to the person's ledger and redraws the dashboard; `--open` shows it. `design-lab:run` records each finished run and opens both the benchmark report and the dashboard, and skips the step when no configuration exists.
+- Locations come from `~/.claude/design-lab.json` (or `DESIGN_LAB_CONFIG`): `corpus`, `scoreboard.ledger` and `scoreboard.dashboard`. Nothing creates or edits that file.
+- The benchmark and the ledger share `run_metrics.py`; `score_run.py` lost its private copies. `figma_build.py` exposes the tree builder on its own (`build_trees`), and `fetch_images.py --offline` resolves only frozen images.
+
 ## 0.16.0
 
 **Unattended runs survive a failed Figma step, and Massport, the first site after America's Credit Unions, builds end to end: 34 of 41 buildable components, carrying 82% of placements; 14 of 102 widths within tolerance, and the verify gate still open on visual fidelity.** A failed step no longer closes the runner: the plugin stays open and waits, so a fix to a template or the server resumes the build with nobody in Figma. Four defects the Massport run hit are fixed.
