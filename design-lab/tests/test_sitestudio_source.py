@@ -172,8 +172,11 @@ class DecisionTests(unittest.TestCase):
                     workflow.select_command(argparse.Namespace(project=str(workspace), component=None, token=None,
                                                                usage=None, degraded_reason=None, by=None,
                                                                sitestudio_config=str(root / "config/default")))
+            with contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+                workflow.detect_command(argparse.Namespace(project=str(workspace)))
             project = json.loads((workspace / "project.json").read_text())
-            self.assertEqual(project["decisions"]["sitestudioConfig"], str(other.resolve()))
+            self.assertEqual(project["decisions"]["sitestudioConfig"], str(other.resolve()),
+                             "detecting again keeps the folder a person named")
             produced = project["artifacts"]["detection"]["producedBy"]
             self.assertEqual(produced["pluginDir"], str(Path(workflow.__file__).resolve().parents[1]),
                              "every artifact names the copy of design-lab that wrote it")

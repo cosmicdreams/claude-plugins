@@ -228,7 +228,9 @@ def detect_command(args):
     project["decisions"]["usageSource"] = recommendations.get("usage")
     # Where the site keeps its Site Studio configuration: what its settings declare, recorded as
     # a decision so a person can name another folder with select --sitestudio-config.
-    project["decisions"]["sitestudioConfig"] = (document.get("siteStudio") or {}).get("configDir")
+    chosen = project["decisions"].get("sitestudioConfig")
+    if not chosen or not Path(chosen).is_dir():   # a folder a person named stands while it exists
+        project["decisions"]["sitestudioConfig"] = (document.get("siteStudio") or {}).get("configDir")
     set_phase(path, project, "discovery", "complete", {
         "priorArtCount": len(document.get("priorArt") or []),
         "componentCandidates": len(document.get("componentSources") or []),
@@ -863,6 +865,16 @@ def preflight_command(args):
         missing.append(version_message)
     checklist.record_check("plugin-version", "Plugin version matches this run", "done" if version_ok else "needs-you",
                            version_message)
+    decisions = project.get("decisions") or {}
+    if "sitestudio" in (decisions.get("componentSource") or "") + " " + (decisions.get("tokenSource") or ""):
+        folder = decisions.get("sitestudioConfig")
+        if folder and Path(folder).is_dir():
+            checklist.record_check("sitestudio-config", "Site Studio configuration folder", "done", folder)
+        else:
+            message = ("Name the folder holding the site's Site Studio configuration export with workflow.py select "
+                       "--sitestudio-config <folder>: the site's settings do not name one this run can read.")
+            missing.append(message)
+            checklist.record_check("sitestudio-config", "Site Studio configuration folder", "needs-you", message)
     if missing:
         checklist.finish(False)
         print(json.dumps({"ready": False, "missing": missing, "checks": checks,
@@ -896,8 +908,13 @@ def connect_command(args):
         append_jsonl(path.parent / PHASE_LOG, {"at": now(), "phase": "connect", "status": "waiting",
                                                "reason": "runner connection", "message": message})
 
-    handshake = runner_handshake(path.parent, file_key, figma_url, args.runner_timeout, project,
-                                 on_waiting=waiting)
+    try:
+        handshake = runner_handshake(path.parent, file_key, figma_url, args.runner_timeout, project,
+                                     on_waiting=waiting)
+    except (RuntimeError, OSError) as error:
+        # Before any wait (the port held by another run or program): still a stop, so the pane
+        # and the scorer see it.
+        handshake = {"ok": False, "failure": str(error)}
     write_active_run(path.parent, (handshake.get("server") or {}).get("pid"))
     if not handshake.get("ok"):
         failure = handshake.get("failure") or "the target Figma file could not be connected"
@@ -1268,6 +1285,10 @@ def render_watch(summary: dict) -> str:
             lines.append("  runner server not responding")
         elif runner["connected"]:
             lines.append("  runner connected")
+        elif summary.get("waiting"):
+            lines.append("  waiting for the runner to start")
+        elif runner["state"] == "waiting":
+            lines.append("  runner idle until the build")
         else:
             minutes = max(1, round((runner["lastSeenSeconds"] or 0) / 60))
             lines.append(f"  runner not seen for {minutes}m")

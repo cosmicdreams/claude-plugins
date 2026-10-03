@@ -52,8 +52,10 @@ Preflight checks that the local site answers, the required DDEV project is prese
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py select --project <artifact-directory> \
-  --component <strategy> --token <strategy> [--usage <strategy>]
+  --component <strategy> --token <strategy> [--usage <strategy>] [--sitestudio-config <folder>]
 ```
+
+On a Site Studio site, the export folder comes from the site's settings and is recorded at detection. When `detection.json` reports `siteStudio.problem`, find the folder holding the `cohesion_*.yml` export and record it with `--sitestudio-config` before preflight; preflight will not give the go-ahead without it.
 
 ## After the go-ahead, run to completion
 
@@ -97,13 +99,15 @@ With "build the plan as proposed" this approves in the operator's name and the r
 
 Every Figma write is a fixed template filled from the artifacts; the model relays and decides nothing. That is what makes two runs over the same source produce the same file.
 
-1. When the build is ready to write, run `workflow.py connect` in the background and pass its instructions to the person as soon as they print. On the first machine, the instructions ask them to import the runner from `~/.design-lab/runner/manifest.json`; after a plugin update, they ask them to close and restart it. Every time, they ask them to open the target file in Figma desktop and start the runner. If it asks for a token, the person can copy it in their own terminal with `pbcopy < ~/.design-lab/runner-token`. Never read, print, copy or paste the token yourself. The runner confirms the open file is the target, prepares its first page as the Cover page, and draws a name-only Cover through the real `cover.js`; the build fills in that Cover. After the connection succeeds, run `figma_build.py init`. When the build seems stalled, check that the runner server is alive (restarting it if needed) and that the runner has asked for a step in the last two minutes:
+1. When the build is ready to write, connect the runner. Run `workflow.py connect` in the background and pass its instructions to the person as soon as they print; this is the run's one planned wait for the person after preflight. The first time on a machine they say to import the runner from `~/.design-lab/runner/manifest.json`; after a design-lab update they say to close the runner and start it again; every time they say to open the target file in Figma desktop and start the runner. If the runner asks for a token, the person copies it in their own terminal with `pbcopy < ~/.design-lab/runner-token`. Never read, print, copy or paste the token yourself.
 
    ```bash
    python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py connect --project <artifact-directory> [--runner-timeout 300]
    ```
 
-   Start `figma_build.py init` only after `connect` succeeds. The connection check confirms the target file and, for a new build, that it is empty; it also checks the Cover font and plugin data. The runner token stays in the person's own folder and is never written to a run or log.
+   Wait for it to exit. With exit 0 the runner has confirmed the open file is the target and empty (or holds this run's own build, on a resume), made its first page the Cover page and drawn a name-only Cover through the real `cover.js`, which the build later fills in; go on to step 2. With exit 1 it prints what to do first, then why (no runner within the timeout, a different file open, a rejected token, an outdated runner, a file that is not empty, another run's server still active): reply with that message, and run `connect` again once it is fixed.
+
+   Later, whenever the build seems stalled, check that the runner server is alive (restarting it if not, with no one needed in Figma) and that the runner has asked for a step in the last two minutes:
 
    ```bash
    python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py runner --project <artifact-directory> --await-runner

@@ -939,6 +939,29 @@ class WorkflowCaptureTest(unittest.TestCase):
                 code = stop.code
         return code, json.loads(out.getvalue()), called
 
+    def test_a_site_studio_run_needs_its_export_folder_before_the_go_ahead(self):
+        self.start_site()
+        self.workflow("init", "--repo", str(self.repo), "--workspace", str(self.ws))
+        manifest = json.loads((self.ws / "project.json").read_text())
+        manifest["decisions"].update({"componentSource": "sitestudio", "tokenSource": "sitestudio-styles",
+                                      "sitestudioConfig": None})
+        (self.ws / "project.json").write_text(json.dumps(manifest))
+        code, answer, _ = self.preflight()
+        self.assertEqual(code, 1)
+        self.assertIn("--sitestudio-config", " ".join(answer["missing"]))
+
+    def test_connect_that_cannot_start_the_server_is_logged_as_a_stop(self):
+        from unittest import mock
+        import workflow
+        self.target_run()
+        with mock.patch.object(workflow, "runner_handshake", side_effect=RuntimeError("port 8765 is held")), \
+                contextlib.redirect_stdout(io.StringIO()), contextlib.redirect_stderr(io.StringIO()):
+            import argparse
+            with self.assertRaises(SystemExit):
+                workflow.connect_command(argparse.Namespace(project=str(self.ws), runner_timeout=1))
+        last = json.loads((self.ws / "phase-log.jsonl").read_text().splitlines()[-1])
+        self.assertEqual((last["phase"], last["status"], last["message"]), ("connect", "stopped", "port 8765 is held"))
+
     def test_a_finished_runs_leftover_server_does_not_block_preflight(self):
         from unittest import mock
         import figma_runner

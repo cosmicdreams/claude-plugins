@@ -105,6 +105,8 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
   // Waiting on the person for something the run notices by itself (the runner starting at the
   // build's connection): what to do, with nothing to press.
   const waiting = last && last.status === 'waiting' && !runner?.connected ? text(last.message) : null
+  // While the build waits for the person to start the runner, the runner is awaited, not idle.
+  const shown = waiting && runner && runner.state === 'waiting' ? { ...runner, state: 'connecting' } : runner
   const preflight = record(record(project.phases).preflight)
   const checks = checksOf(raw.preflightChecks, preflight)
   return {
@@ -116,7 +118,7 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
     preflight: preflight.status || checks
       ? { status: text(preflight.status) ?? 'running', at: text(preflight.updatedAt), checks }
       : null,
-    runner,
+    runner: shown,
     blocker,
     waiting,
     log: tailOf(raw.runnerLog),
@@ -203,6 +205,7 @@ export function runnerLine(runner: Runner): string {
   if (!runner.serverAlive) return 'runner server not responding'
   if (runner.connected) return 'runner connected'
   if (isIdle(runner)) return 'runner idle until the build'
+  if (runner.state === 'connecting') return 'waiting for the runner to start'
   const minutes = Math.max(1, Math.round((runner.lastSeenMs ?? 0) / 60_000))
   return `runner not seen for ${minutes}m`
 }
@@ -213,7 +216,7 @@ export function stepsLine(runner: Runner): string | null {
     return `steps ${runner.stepsDone ?? 0}/${runner.stepsTotal}${kind}`
   }
   // The server's last word to a runner that has since gone quiet ("Connected. Waiting…") is stale.
-  return isIdle(runner) ? null : runner.message
+  return isIdle(runner) || runner.state === 'connecting' ? null : runner.message
 }
 
 function elapsed(startedAt: string | null, nowMs: number): string | null {

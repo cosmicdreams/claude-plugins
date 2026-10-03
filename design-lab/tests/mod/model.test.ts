@@ -151,4 +151,14 @@ describe('a runner that is not needed yet', () => {
     expect(s.blocker).toBeNull()
     expect(plainOf(s)).toContain('Needs you: Open the file')
   })
+
+  test('while the build waits for it, the runner is awaited, not idle', () => {
+    const waiting = JSON.stringify({ phase: 'connect', status: 'waiting', message: 'Start the design-lab runner.' })
+    const s = summary({ project: PROJECT, phaseLog: `${waiting}\n`,
+      progress: progress({ state: 'waiting', stepsDone: null, stepsTotal: null, lastSeen: ago(600_000),
+        message: 'Connected. Waiting for the build to start.' }) })
+    expect(runnerLine(s.runner!)).toBe('waiting for the runner to start')
+    expect(stepsLine(s.runner!)).toBeNull()
+    expect(isDown(s)).toBe(false)
+  })
 })
