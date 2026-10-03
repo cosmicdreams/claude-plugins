@@ -10,7 +10,7 @@ description: >
 
 # Run design-lab end to end
 
-Own the whole outcome. Durable artifacts, not conversation memory, determine what is complete and where a resumed run continues. The run asks for everything it needs once, at preflight, and then completes on its own.
+Own the whole outcome. Durable artifacts, not conversation memory, determine what is complete and where a resumed run continues. Run every script with absolute paths and `--project <artifact-directory>`, never `cd` into the artifact directory: it usually lies outside the session's folder, and a `cd` there makes Claude Code ask the person to confirm, even with permission checks bypassed. The run asks for everything it needs once, at preflight, and then completes on its own.
 
 ## Establish the project
 
