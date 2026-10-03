@@ -472,6 +472,12 @@ class ScoreRunTest(unittest.TestCase):
         self.assertNotIn("http://", html.replace("http://www.w3.org", ""))   # no external assets
         card = json.loads((out / "scorecard.json").read_text())
         self.assertEqual(card["run"]["siteLabel"], "Example site")
+        project = json.loads((self.run_dir / "project.json").read_text())
+        self.assertEqual(card["run"]["buildCreatedAt"], project.get("createdAt"),
+                         "the scorecard names the build it scored")
+        self.assertTrue((out / "completion.md").is_file())
+        self.assertEqual([p.name for p in out.iterdir() if p.name.endswith(".tmp")], [],
+                         "atomic writes leave no temporary files behind")
         with self.assertRaises(SystemExit), contextlib.redirect_stderr(io.StringIO()):
             score_run.main([str(self.run_dir), "--out", str(self.run_dir / "score")])
 

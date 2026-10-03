@@ -1325,8 +1325,18 @@ def score(run_dir: Path, compare: list[Path] | None = None, transcripts=None,
             "generator": f"design-lab {plugin_version()}",
             "run": {"directory": str(run_dir), "name": run_dir.name,
                     "siteLabel": (sections["identity"].get("fields") or {}).get("siteLabel")
-                    or run_dir.name},
+                    or run_dir.name,
+                    # The build this scorecard belongs to: a folder initialised again keeps its
+                    # old benchmark/ until it is scored, and a reader must not take that for this one.
+                    "buildCreatedAt": (project or {}).get("createdAt")},
             "headline": headline(sections), "sections": sections}
+
+
+def write_text_atomic(path: Path, text: str) -> None:
+    """Replace the file in one step, so a reader never sees it half written."""
+    temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+    temporary.write_text(text, encoding="utf-8")
+    os.replace(temporary, path)
 
 
 def main(argv=None) -> int:
@@ -1384,10 +1394,11 @@ def main(argv=None) -> int:
     write_json(out / "scorecard.json", scorecard)
     written = [str(out / "scorecard.json")]
     if html is not None:
-        (out / "report.html").write_text(html, encoding="utf-8")
+        write_text_atomic(out / "report.html", html)
         written.append(str(out / "report.html"))
+        # Last, and whole: its appearance is what tells a watcher the run is done.
         message = completion_message(scorecard, out / "report.html")
-        (out / "completion.md").write_text(message, encoding="utf-8")
+        write_text_atomic(out / "completion.md", message)
         written.append(str(out / "completion.md"))
         print(message)
     if finished:

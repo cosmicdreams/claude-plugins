@@ -797,7 +797,7 @@ class FetchImagesFailureTests(unittest.TestCase):
         self.assertEqual(manifest["/c.png"]["contentType"], "image/png")
 
     def test_svg_is_never_passed_through(self):
-        manifest = self.run_fetch(lambda url: (b"<svg xmlns='http://www.w3.org/2000/svg'/>", "image/svg+xml")
+        manifest = self.run_fetch(lambda url: (b"<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 2 2'/>", "image/svg+xml")
                                   if url.endswith(".svg") else (b"bytes", "image/png"))
         svg = manifest["/b.svg"]
         try:

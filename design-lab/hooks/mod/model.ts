@@ -20,6 +20,7 @@ export type Raw = {
   progress?: unknown
   runnerLog?: string
   completion?: string
+  scorecard?: unknown
 }
 
 export function parseJson(text: string | undefined): unknown {
@@ -111,10 +112,20 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
     runner,
     blocker,
     log: tailOf(raw.runnerLog),
-    hasRecap: raw.completion !== undefined,
-    recap: raw.completion === undefined ? null : recapOf(raw.completion),
+    hasRecap: recapIsCurrent(project, raw),
+    recap: recapIsCurrent(project, raw) ? recapOf(raw.completion!) : null,
     startedAt: text(preflight.updatedAt) ?? text(project.createdAt),
   }
+}
+
+/** The recap belongs to this build: its scorecard names the build's creation, or, from a scorer
+ * before that stamp, the build has recorded its benchmark as complete. A folder initialised again
+ * keeps the old benchmark/ folder until it is scored, and that must not read as done. */
+export function recapIsCurrent(project: Record<string, unknown>, raw: Raw): boolean {
+  if (raw.completion === undefined) return false
+  const stamp = record(record(raw.scorecard).run).buildCreatedAt
+  if (typeof stamp === 'string') return stamp === text(project.createdAt)
+  return text(record(record(project.phases).benchmark).status) === 'complete'
 }
 
 /** The completion message as written, cut with a note if it ever outgrows what Markdown draws. */

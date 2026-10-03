@@ -8,8 +8,9 @@ const HOME = '/home/person'
 const NOW = Date.parse('2026-10-02T12:00:00Z')
 const ago = (ms: number) => new Date(NOW - ms).toISOString()
 
+const CREATED = ago(3_600_000)
 const PROJECT = JSON.stringify({
-  run: { siteLabel: 'Example site' },
+  createdAt: CREATED, run: { siteLabel: 'Example site' },
   phases: { capture: { status: 'complete' }, components: { status: 'running' },
     preflight: { status: 'complete', updatedAt: ago(600_000) } },
 })
@@ -49,6 +50,7 @@ function world(on: On, files: Record<string, string>, surfaces: RenderSurface[] 
 }
 
 const at = (file: string) => `${RUN}/${file}`
+const scorecard = (buildCreatedAt: string) => JSON.stringify({ run: { buildCreatedAt } })
 const SESSION = { surface: 'terminal', isInteractive: true, cwd: '/work' } as const
 const WATCH: CommandRunInput = {
   command: 'design-lab:watch', args: '', origin: { kind: 'composer' }, presentation: { isFullscreen: true, columns: 160 },
@@ -157,6 +159,7 @@ describe('design-lab:watch', () => {
     const w = world(on, files)
     await $.session.start(SESSION)
     await $.command.run({ ...WATCH, args: RUN })
+    files[at(RUN_FILES.scorecard)] = scorecard(CREATED)
     files[at(RUN_FILES.completion)] = 'design-lab finished the Example site component library.\n\n- Figma file: https://www.figma.com/design/KEY'
     await w.clock.advance(POLL_MS)
     await w.clock.advance(POLL_MS)
@@ -171,8 +174,19 @@ describe('design-lab:watch', () => {
     expect(await ui.find({ type: 'Markdown' })).toBeDefined()
   })
 
+  test('a recap left from an earlier build in the same folder raises nothing', async ($, on) => {
+    const w = world(on, { [at(RUN_FILES.project)]: PROJECT, [at(RUN_FILES.progress)]: progress(5_000),
+      [at(RUN_FILES.completion)]: 'design-lab finished.\n', [at(RUN_FILES.scorecard)]: scorecard(ago(90_000_000)) })
+    await $.session.start(SESSION)
+    await $.command.run({ ...WATCH, args: RUN })
+    await w.clock.advance(POLL_MS)
+    expect(w.toasts).toEqual([])
+    expect(w.statuses.at(-1)).toContain('steps 3/10')
+  })
+
   test('/design-lab:recap answers with the completion message, with no Claude turn', async ($, on) => {
-    world(on, { [at(RUN_FILES.project)]: PROJECT, [at(RUN_FILES.completion)]: 'design-lab finished.\n' })
+    world(on, { [at(RUN_FILES.project)]: PROJECT, [at(RUN_FILES.completion)]: 'design-lab finished.\n',
+      [at(RUN_FILES.scorecard)]: scorecard(CREATED) })
     await $.session.start(SESSION)
     const answer = await $.command.run({ ...WATCH, command: 'design-lab:recap', args: RUN })
     expect(answer.text).toBe('design-lab finished.')

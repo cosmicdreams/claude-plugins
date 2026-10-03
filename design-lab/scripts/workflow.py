@@ -945,13 +945,25 @@ def watch_summary(workspace: Path) -> dict:
     if runner and runner["connected"]:
         blocker = None   # the runner came back after the stop, and the build has carried on
     completion = workspace / "benchmark" / "completion.md"
+    recap = str(completion) if completion.is_file() and recap_is_current(workspace, project) else None
     return {"workspace": str(workspace), "found": True,
             "siteLabel": (project.get("run") or {}).get("siteLabel"),
             "phases": [{"name": name, "status": (value or {}).get("status")} for name, value in phases.items()],
             "nextPhase": next((name for name, value in phases.items()
                                if (value or {}).get("status") not in ("complete", "approved", "waived")), None),
             "runner": runner, "blocker": blocker,
-            "recap": str(completion) if completion.is_file() else None}
+            "recap": recap}
+
+
+def recap_is_current(workspace: Path, project: dict) -> bool:
+    """The benchmark folder belongs to this build: its scorecard names the build's creation, or,
+    from a scorer before that stamp, the build has recorded its benchmark as complete. A folder
+    initialised again keeps the old benchmark/ until it is scored, and that must not read as done."""
+    card = read_json_or(workspace / "benchmark" / "scorecard.json") or {}
+    stamp = (card.get("run") or {}).get("buildCreatedAt") if isinstance(card, dict) else None
+    if isinstance(stamp, str):
+        return stamp == project.get("createdAt")
+    return ((project.get("phases") or {}).get("benchmark") or {}).get("status") == "complete"
 
 
 def render_watch(summary: dict) -> str:

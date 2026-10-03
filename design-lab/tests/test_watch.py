@@ -34,7 +34,7 @@ class WatchTests(unittest.TestCase):
         self.w = Path(temp.name) / "run"
         (self.w / "figma").mkdir(parents=True)
         (self.w / "project.json").write_text(json.dumps({
-            "run": {"siteLabel": "Example site"},
+            "createdAt": "2026-10-02T09:00:00+00:00", "run": {"siteLabel": "Example site"},
             "phases": {"capture": {"status": "complete"}, "plan": {"status": "approved"},
                        "components": {"status": "pending"}, "verify": {"status": "pending"}}}))
 
@@ -89,11 +89,28 @@ class WatchTests(unittest.TestCase):
         self.assertIn("Build complete. Waiting for the next build.",
                       workflow.render_watch(workflow.watch_summary(self.w)))
 
+    def score(self, build_created_at):
+        (self.w / "benchmark").mkdir(exist_ok=True)
+        (self.w / "benchmark" / "scorecard.json").write_text(json.dumps({"run": {"buildCreatedAt": build_created_at}}))
+        (self.w / "benchmark" / "completion.md").write_text("done")
+
     def test_the_recap_is_named_once_the_scorer_has_written_it(self):
         self.assertIsNone(workflow.watch_summary(self.w)["recap"])
+        self.score("2026-10-02T09:00:00+00:00")
+        self.assertIn("Recap:", workflow.render_watch(workflow.watch_summary(self.w)))
+
+    def test_an_earlier_builds_recap_is_not_this_builds(self):
+        self.score("2026-09-30T09:00:00+00:00")
+        self.assertIsNone(workflow.watch_summary(self.w)["recap"])
+
+    def test_an_unstamped_recap_counts_once_the_benchmark_is_complete(self):
         (self.w / "benchmark").mkdir()
         (self.w / "benchmark" / "completion.md").write_text("done")
-        self.assertIn("Recap:", workflow.render_watch(workflow.watch_summary(self.w)))
+        self.assertIsNone(workflow.watch_summary(self.w)["recap"])
+        project = json.loads((self.w / "project.json").read_text())
+        project["phases"]["benchmark"] = {"status": "complete"}
+        (self.w / "project.json").write_text(json.dumps(project))
+        self.assertIsNotNone(workflow.watch_summary(self.w)["recap"])
 
     def test_half_written_or_missing_files_still_summarise(self):
         (self.w / "figma" / "progress.json").write_text('{"state": "build')

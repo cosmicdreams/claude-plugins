@@ -28,6 +28,7 @@ export const RUN_FILES = {
   progress: 'figma/progress.json',
   runnerLog: 'figma/runner.log',
   completion: 'benchmark/completion.md',
+  scorecard: 'benchmark/scorecard.json',
 } as const
 
 let timer: Timer | undefined
@@ -64,7 +65,9 @@ export async function summarise($: EngineInterface, run: string): Promise<Summar
     phaseLog: await readText($, at(RUN_FILES.phaseLog)),
     progress: await readJson($, at(RUN_FILES.progress)),
     runnerLog: await readLog($, at(RUN_FILES.runnerLog)),
-    completion: (await $.fs.exists(at(RUN_FILES.completion))) ? await readText($, at(RUN_FILES.completion)) : undefined,
+    ...((await $.fs.exists(at(RUN_FILES.completion)))
+      ? { completion: await readText($, at(RUN_FILES.completion)), scorecard: await readJson($, at(RUN_FILES.scorecard)) }
+      : {}),
   }
   return summaryOf(run, raw, await $.clock.now())
 }

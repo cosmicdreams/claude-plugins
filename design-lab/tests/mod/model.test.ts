@@ -17,6 +17,9 @@ const PROJECT = {
   },
 }
 
+// The scorecard of this build, as score_run.py stamps it.
+const SCORED = { run: { buildCreatedAt: PROJECT.createdAt } }
+
 const progress = (fields: Record<string, unknown> = {}) => ({
   state: 'building', stepsDone: 112, stepsTotal: 158, stepKind: 'use_figma', message: null,
   inflight: false, lastSeen: ago(5_000), at: ago(2_000), serverPid: 1, ...fields,
@@ -67,7 +70,7 @@ describe('summaryOf', () => {
   })
 
   test('a finished run clears the status line and is never down', () => {
-    const s = summary({ project: PROJECT, progress: progress({ lastSeen: ago(900_000) }), completion: '# done' })
+    const s = summary({ project: PROJECT, progress: progress({ lastSeen: ago(900_000) }), completion: '# done', scorecard: SCORED })
     expect(statusOf(s, NOW)).toBeUndefined()
     expect(isDown(s)).toBe(false)
   })
@@ -91,9 +94,17 @@ describe('afterFill', () => {
 
 describe('recap', () => {
   test('the completion message is the recap, cut with a note only if it outgrows Markdown', () => {
-    expect(summary({ project: PROJECT, completion: 'design-lab finished.\n' }).recap).toBe('design-lab finished.')
-    const long = summary({ project: PROJECT, completion: 'x'.repeat(RECAP_LIMIT + 10) }).recap ?? ''
+    expect(summary({ project: PROJECT, completion: 'design-lab finished.\n', scorecard: SCORED }).recap).toBe('design-lab finished.')
+    const long = summary({ project: PROJECT, completion: 'x'.repeat(RECAP_LIMIT + 10), scorecard: SCORED }).recap ?? ''
     expect(long.length).toBeLessThan(10_000)
     expect(long).toContain('benchmark/completion.md')
+  })
+
+  test("an earlier build's recap is not this one's, and an unstamped one counts once the benchmark is complete", () => {
+    const earlier = { run: { buildCreatedAt: ago(90_000_000) } }
+    expect(summary({ project: PROJECT, completion: '# done', scorecard: earlier }).hasRecap).toBe(false)
+    expect(summary({ project: PROJECT, completion: '# done' }).hasRecap).toBe(false)
+    const benchmarked = { ...PROJECT, phases: { ...PROJECT.phases, benchmark: { status: 'complete' } } }
+    expect(summary({ project: benchmarked, completion: '# done' }).hasRecap).toBe(true)
   })
 })
