@@ -137,7 +137,7 @@ def component_model(jv, txt, path, root):
     walk_form(jv.get('componentForm') or [])
 
     # Defect: a style or condition references a field uid that is no longer in the form.
-    for uid in referenced - declared:
+    for uid in sorted(referenced - declared):   # sorted: the same source gives the same file
         hist = re.search(r'"uuid":"%s","type":"[^"]*","machineName":"([^"]+)"' % uid,
                          json.dumps(jv))
         defects.append({'kind': 'dangling-field-ref', 'detail':
