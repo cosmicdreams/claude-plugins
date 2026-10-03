@@ -225,6 +225,9 @@ def detect_command(args):
     project["decisions"]["componentSource"] = recommendations.get("component")
     project["decisions"]["tokenSource"] = recommendations.get("token")
     project["decisions"]["usageSource"] = recommendations.get("usage")
+    # Where the site keeps its Site Studio configuration: what its settings declare, recorded as
+    # a decision so a person can name another folder with select --sitestudio-config.
+    project["decisions"]["sitestudioConfig"] = (document.get("siteStudio") or {}).get("configDir")
     set_phase(path, project, "discovery", "complete", {
         "priorArtCount": len(document.get("priorArt") or []),
         "componentCandidates": len(document.get("componentSources") or []),
@@ -261,6 +264,16 @@ def select_command(args):
     if args.usage and args.usage != previous.get("usageSource"):
         invalidate(project, ("usage", "capture", "plan", "components", "index", "verify"),
                    ("usage", "capture-evidence", "plan", "build-record", "index", "verify-report"))
+    if args.sitestudio_config:
+        folder = Path(args.sitestudio_config).expanduser().resolve()
+        if not folder.is_dir() or not any(folder.glob("cohesion_*.yml")):
+            raise ValueError(f"{folder} holds no Site Studio configuration (no cohesion_*.yml files)")
+        if str(folder) != previous.get("sitestudioConfig"):
+            invalidate(project, ("inventory", "usage", "capture", "tokens", "plan", "foundation", "components",
+                                 "index", "verify"),
+                       ("components", "render-evidence", "capture-evidence", "tokens", "usage", "plan",
+                        "variable-plan", "foundation", "build-record", "index", "verify-report"))
+        project["decisions"]["sitestudioConfig"] = str(folder)
     if args.component:
         project["decisions"]["componentSource"] = args.component
     if args.token:
@@ -302,6 +315,16 @@ TOKEN_EXTRACTORS = {
 }
 
 
+def sitestudio_config(decisions: dict, required: bool = False) -> str | None:
+    """The Site Studio export folder this run recorded. Custom components are found without it;
+    its styles and configuration-driven components are not."""
+    folder = decisions.get("sitestudioConfig")
+    if folder or not required:
+        return folder
+    raise ValueError("no Site Studio configuration folder is recorded for this run: the site's settings do not "
+                     "name one; give it with workflow.py select --sitestudio-config <folder>")
+
+
 def extract_command(args):
     path, project = load_project(args.project)
     root = project["repository"]["root"]
@@ -310,7 +333,8 @@ def extract_command(args):
         strategy = decisions.get("componentSource")
         if strategy not in COMPONENT_EXTRACTORS:
             raise ValueError(f"component strategy {strategy!r} has no extractor; run select")
-        document = COMPONENT_EXTRACTORS[strategy](root)
+        document = (extract_sitestudio(root, sitestudio_config(decisions)) if strategy == "sitestudio"
+                    else COMPONENT_EXTRACTORS[strategy](root))
         output = path.parent / "components.json"
         errors = validate(document, "components")
         if errors:
@@ -333,7 +357,8 @@ def extract_command(args):
         strategy = project["decisions"].get("tokenSource")
         if strategy not in TOKEN_EXTRACTORS:
             raise ValueError(f"token strategy {strategy!r} has no extractor; run select")
-        document = TOKEN_EXTRACTORS[strategy](root)
+        document = (extract_tokens_sitestudio(root, sitestudio_config(project["decisions"], required=True))
+                    if strategy == "sitestudio-styles" else TOKEN_EXTRACTORS[strategy](root))
         output = path.parent / "tokens.json"
         errors = validate(document, "tokens")
         if errors:
@@ -1151,6 +1176,8 @@ def main():
     command.add_argument("--usage")
     command.add_argument("--degraded-reason")
     command.add_argument("--by", help="human decider authorising degraded usage")
+    command.add_argument("--sitestudio-config", help="the folder holding the site's Site Studio configuration "
+                         "export, when its settings do not name one or name the wrong one")
     command.set_defaults(func=select_command)
 
     command = sub.add_parser("extract")

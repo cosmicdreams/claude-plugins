@@ -32,6 +32,32 @@ def tool_version() -> str:
     return "design-lab " + (version or "unknown")
 
 
+_PRODUCER: dict | None = None
+
+
+def producer() -> dict:
+    """Which copy of design-lab is writing: its folder, version, and git commit with whether it
+    has uncommitted changes. Recorded on every artifact, because a run can switch copies midway
+    (a fix applied in another worktree) and the version recorded at init would then hide it."""
+    global _PRODUCER
+    if _PRODUCER is None:
+        import subprocess
+        plugin = Path(__file__).resolve().parents[1]
+
+        def git(*args):
+            try:
+                result = subprocess.run(["git", "-C", str(plugin), *args], capture_output=True, text=True, timeout=10)
+            except (OSError, subprocess.SubprocessError):
+                return None
+            return result.stdout.strip() if result.returncode == 0 else None
+
+        tracked = git("ls-files", "--error-unmatch", ".claude-plugin/plugin.json")
+        commit = git("rev-parse", "HEAD") if tracked else None
+        _PRODUCER = {"pluginDir": str(plugin), "toolVersion": tool_version(), "commit": commit,
+                     "dirty": bool(git("status", "--porcelain", "--", ".")) if commit else None}
+    return _PRODUCER
+
+
 def sha256(path: str | Path) -> str:
     digest = hashlib.sha256()
     with open(path, "rb") as handle:
@@ -444,6 +470,7 @@ def register_artifact(project_path: str | Path, name: str, path: str | Path,
         "valid": not errors,
         "errors": errors,
         "updatedAt": now(),
+        "producedBy": producer(),
     }
     write_json(project_path, project)
     return project

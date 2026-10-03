@@ -8,7 +8,7 @@ No YAML library required, which keeps this runnable without a virtualenv.
 """
 import json, re, sys, os, glob, datetime
 from artifact_contracts import tool_version
-from detect import sitestudio_dir, docroot
+import sitestudio_source
 
 # references/library-standard.md section 10: every artifact states which edition it
 # was built to, or nobody can tell whether a library predates a rule.
@@ -172,44 +172,34 @@ def component_model(jv, txt, path, root):
         'defects': defects,
     }, None
 
-def custom_component_files(root):
-    """Only locally owned theme/module definitions, never contrib or core."""
-    web = docroot(root)
-    return sorted(path for kind in ('themes', 'modules')
-                  for path in glob.glob(os.path.join(
-                      web, kind, 'custom', '*', 'custom_components', '*',
-                      '*.custom_component.yml'))
-                  if os.path.basename(path) == os.path.basename(os.path.dirname(path)) +
-                  '.custom_component.yml')
-
 def extract_custom_component(path, root):
+    """A hand-written component: its definition, and its form when it has one. Site Studio gives
+    a component without a form an empty one, so it is kept with no fields, not dropped."""
     with open(path) as stream:
         txt = stream.read()
+    ident = sitestudio_source.custom_component_id(path)
     form = scalar(txt, 'form')
-    try:
-        if not form:
-            raise ValueError('missing form')
-        with open(os.path.join(os.path.dirname(path), form)) as stream:
-            payload = json.load(stream)
-        if not isinstance(payload, dict) or not isinstance(payload.get('model', {}), dict):
-            raise ValueError('form must contain a model object')
-    except (OSError, ValueError) as error:
-        return None, {'kind': 'unparseable-custom-component',
-                      'detail': os.path.relpath(path, root) + ': ' + str(error)}
+    payload, problem = {}, None
+    if form:
+        try:
+            with open(os.path.join(os.path.dirname(path), form)) as stream:
+                payload = json.load(stream)
+            if not isinstance(payload, dict) or not isinstance(payload.get('model', {}), dict):
+                raise ValueError('form must contain a model object')
+        except (OSError, ValueError) as error:
+            return None, {'kind': 'unparseable-custom-component',
+                          'detail': os.path.relpath(path, root) + ': ' + str(error)}
     component, error = component_model(payload, txt, path, root)
-    component.update(id=os.path.basename(os.path.dirname(path)),
-                     label=scalar(txt, 'name') or os.path.basename(os.path.dirname(path)),
-                     isCustomComponent=True)
-    return component, error
+    component.update(id=ident, label=scalar(txt, 'name') or ident, isCustomComponent=True)
+    return component, error or problem
 
 def extract(root, config_dir=None):
+    """Both Site Studio sources: configuration-driven components from the export folder the run
+    recorded (or, called directly, the one the site's settings declare), and custom components
+    from the site's own modules and themes, found whether or not the export has any."""
     root = os.path.abspath(root)
     if not config_dir:
-        for c in ('config/sync', 'config/default', 'config'):
-            if os.path.isdir(os.path.join(root, c)):
-                config_dir = os.path.join(root, c)
-                break
-        config_dir = sitestudio_dir(root, config_dir)
+        config_dir = sitestudio_source.config_dir(root)['path']
     files = sorted(glob.glob(os.path.join(
         config_dir, 'cohesion_elements.cohesion_component.*.yml'))) if config_dir else []
     comps, problems = [], []
@@ -219,7 +209,7 @@ def extract(root, config_dir=None):
             comps.append(c)
         if err:
             problems.append(err)
-    for path in custom_component_files(root):
+    for path in sitestudio_source.custom_component_files(root):
         component, error = extract_custom_component(path, root)
         if component:
             comps.append(component)

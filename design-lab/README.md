@@ -13,8 +13,9 @@ Component source, token source and usage source vary **separately**. A Single Di
 | Site | Components | Config path | Tokens |
 |---|---|---|---|
 | Drupal authoring site | 69 Drupal authoring bundles | `config/default` | 97 planned variables from authored Sass |
-| Site Studio site A | 146 Site Studio | `config/sync` | 129 custom style entities |
-| Site Studio site B | 101 Site Studio | `config/default` | 172 custom style entities |
+| Site Studio site A | 146 Site Studio + 6 custom | `config/packages` (declared in settings) | 129 custom style entities |
+| Site Studio site B | 101 Site Studio + 3 custom | `config/packages` (declared in settings) | 176 custom style entities |
+| Site Studio site C | 168 Site Studio + 4 custom | `config/sitestudio` (declared in settings) | 166 custom style entities |
 | Paragraphs site | 43 Paragraph types | `config/default` | 113 base tokens via Sass source map |
 | Paragraphs site, compiled-CSS branch | 43 Paragraph types | `config/default` | 94 authored custom properties |
 

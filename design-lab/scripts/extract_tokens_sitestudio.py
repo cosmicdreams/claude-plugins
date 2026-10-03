@@ -23,7 +23,7 @@ are emitted separately rather than mixed into the palette.
 """
 import json, re, sys, os, glob, datetime
 from artifact_contracts import tool_version
-from detect import sitestudio_dir
+import sitestudio_source
 from extract_sitestudio import load_json_values
 
 # references/library-standard.md section 10: every artifact states which edition it
@@ -42,14 +42,8 @@ def scalar(txt, key):
 
 
 def config_dir(root):
-    best, best_n = None, -1
-    for cand in ('config/sync', 'config/default', 'config'):
-        p = os.path.join(root, cand)
-        if os.path.isdir(p):
-            n = len(glob.glob(os.path.join(p, '*.yml')))
-            if n > best_n:
-                best, best_n = p, n
-    return sitestudio_dir(root, best)
+    """The Site Studio export folder the site's settings declare."""
+    return sitestudio_source.config_dir(root)['path']
 
 
 def flatten(v):
@@ -180,10 +174,10 @@ def custom_styles(cfg):
     return order, rows, len(files)
 
 
-def extract(root):
-    cfg = config_dir(root)
+def extract(root, config_dir_=None):
+    cfg = config_dir_ or config_dir(root)
     if not cfg:
-        sys.exit('no configuration directory under %s' % root)
+        sys.exit('no Site Studio configuration folder is declared for %s; give it as the second argument' % root)
     cols = palette(cfg)
     fonts = font_stacks(cfg)
     scss = scss_variables(cfg)
