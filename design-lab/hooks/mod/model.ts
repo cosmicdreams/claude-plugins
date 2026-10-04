@@ -265,7 +265,7 @@ export function plainOf(summary: Summary): string {
     const steps = stepsLine(summary.runner)
     lines.push('')
     if (steps) lines.push(`  ${steps}`)
-    lines.push(`  ${runnerLine(summary.runner)}`)
+    if (!summary.hasRecap) lines.push(`  ${runnerLine(summary.runner)}`)
   }
   if (summary.blocker) lines.push('', `  Needs you: ${summary.blocker}`)
   else if (summary.waiting) lines.push('', `  Needs you: ${summary.waiting}`)

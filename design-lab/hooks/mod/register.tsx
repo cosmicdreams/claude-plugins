@@ -214,7 +214,10 @@ export const register: Register = on => {
         {runner && (
           <Box flexDirection="column" marginTop={1}>
             {steps && <Text>{steps}</Text>}
-            <Text color={runner.connected ? 'green' : isIdle(runner) ? undefined : 'yellow'} dimColor={isIdle(runner)}>{runnerLine(runner)}</Text>
+            {/* A finished run's server is stopped on purpose: no runner line, no false alarm. */}
+            {!summary.hasRecap && (
+              <Text color={runner.connected ? 'green' : isIdle(runner) ? undefined : 'yellow'} dimColor={isIdle(runner)}>{runnerLine(runner)}</Text>
+            )}
           </Box>
         )}
         {summary.waiting && !summary.blocker && (

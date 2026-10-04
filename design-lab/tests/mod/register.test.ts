@@ -171,6 +171,7 @@ describe('design-lab:watch', () => {
         scroll: { offset: 0, bodyRows: 30 }, view: {} },
     })
     expect(await ui.find({ type: 'Text', text: /^Recap$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /runner/ }), 'a finished run shows no runner line').toBeUndefined()
     expect(await ui.find({ type: 'Markdown' })).toBeDefined()
   })
 

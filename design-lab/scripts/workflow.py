@@ -1281,7 +1281,9 @@ def render_watch(summary: dict) -> str:
             lines.append(f"  steps {runner['stepsDone'] or 0}/{runner['stepsTotal']}{kind}")
         elif runner.get("message"):
             lines.append(f"  {runner['message']}")
-        if not runner["serverAlive"]:
+        if summary.get("recap"):
+            pass   # a finished run's server is stopped on purpose
+        elif not runner["serverAlive"]:
             lines.append("  runner server not responding")
         elif runner["connected"]:
             lines.append("  runner connected")
