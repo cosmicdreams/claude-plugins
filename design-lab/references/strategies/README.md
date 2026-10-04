@@ -2,12 +2,12 @@
 
 A strategy implements one of the three plug points for one source shape. They compose: a site picks a component source, a token source and a usage source independently.
 
-## Verified against real repositories (2026-08-31)
+## Verified against real repositories (2026-08-31; Site Studio rows 2026-10-03)
 
 | Site | Component source | Count | Config path | Token source |
 |---|---|---|---|---|
-| Site Studio site A | sitestudio | 146 | `config/sync` | sitestudio-styles (129 entities) |
-| Site Studio site B | sitestudio | 101 | `config/default` | sitestudio-styles (172 entities) |
+| Site Studio site A | sitestudio | 146 + 6 custom | `config/packages` (declared) | sitestudio-styles (129 entities) |
+| Site Studio site B | sitestudio | 101 + 3 custom | `config/packages` (declared) | sitestudio-styles (176 entities) |
 | Paragraphs site | paragraphs | 43 | `config/default` | sass-sourcemap (113 base tokens) |
 
 The Paragraphs site row was wrong until 2026-08-31. It read `sdc / 13 / config/sync / css-custom-properties`, and **every one of those four values was an artifact of the config-directory bug in finding 1**, not an observation about the site. Corrected profile, each part verified against the repository:
@@ -20,7 +20,7 @@ Four findings shaped the detector. A naive implementation gets all four wrong.
 
 **1. Existence is not evidence: pick the config directory that holds configuration.** The Paragraphs site ships an **empty** `config/sync` next to the real `config/default`, which holds 1,087 config entities. Probing `config/sync` first and returning it because it exists found zero paragraph types, so the detector fell through to Single Directory Components and reported the Paragraphs site as a 13-component SDC site. Every downstream fact inherited the error. Choose the candidate with the most config entities; report the empty ones you skipped.
 
-**2. The configuration directory is not always `config/sync`.** Site Studio site B uses `config/default`. Probe for `config/sync`, `config/default`, then `config` - but rank by content, per finding 1.
+**2. The configuration directory is not always `config/sync`.** Drupal's own configuration is found as finding 1 says. Site Studio's is not guessed at all: where a site keeps its Site Studio configuration export is a fact about that site, declared in its settings as `$settings['site_studio_sync']` (without it, Site Studio exports alongside Drupal's configuration, `$settings['config_sync_directory']`). `scripts/sitestudio_source.py` reads that setting from the site's `settings*.php` without running PHP, and the run records the folder as the decision `sitestudioConfig`, which `workflow.py select --sitestudio-config <folder>` overrides. A setting it cannot read (built from environment variables, say) is reported, not guessed. Site Studio sites A and B declare `../config/packages`, and a third site `$app_root . '/../config/sitestudio'`; none of those is found by probing `config/sync` or `config/default`, and the third holds all 168 of its components there while `config/default` holds none.
 
 **3. Counting `*.component.yml` naively is badly wrong.** Drupal core ships its own Single Directory Components, and so does contrib. On the Paragraphs site a naive find returns 51; only **13** are the custom theme's. The other 38 are core's system module, the Umami demo profile, Olivero, and the `sdc_devel` contrib module. On Site Studio site B a naive find returns 26 and **every single one is core's** - that site has no custom Single Directory Components at all and is a Site Studio site.
 
@@ -34,7 +34,7 @@ When several component sources coexist, `detect` now ranks by count and says so 
 
 | Strategy | Detect by | Maps to the model |
 |---|---|---|
-| `sitestudio` | `cohesion_elements.cohesion_component.*.yml` | form fields -> fields; `cohSelect` options -> enum; `drop-zone` in canvas -> slots; `showCondition` -> showWhen |
+| `sitestudio` | `cohesion_elements.cohesion_component.*.yml` in the declared Site Studio export, plus `<name>.custom_component.yml` inside the `custom_components` folder of the site's own active modules and themes (or the Drupal root), found as Site Studio finds them: recursively, following symlinks, skipping the folders it skips, first definition of a name wins, `name` and `category` required. Each source is found on its own | form fields -> fields; `cohSelect` options -> enum; `drop-zone` in canvas -> slots; `showCondition` -> showWhen. A custom component's optional form JSON goes through the same mapping; one without a form has no fields, as Site Studio gives it an empty form |
 | `sdc` | custom `*.component.yml` | `props.properties.*` -> fields; `enum:` -> enum options; `slots:` -> slots; no conditional equivalent |
 | `canvas` | `canvas.component.sdc.*.yml` registrations | Joins each Canvas registration to its source Single Directory Component (SDC); uses Canvas field types, required flags, defaults, version, label, and folder; keeps per-field source file provenance |
 | `paragraphs` | `paragraphs.paragraphs_type.*.yml` plus field config | field instances -> fields; `list_string` -> enum; `entity_reference_revisions` -> slots |

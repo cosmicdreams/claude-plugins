@@ -13,8 +13,9 @@ Component source, token source and usage source vary **separately**. A Single Di
 | Site | Components | Config path | Tokens |
 |---|---|---|---|
 | Drupal authoring site | 69 Drupal authoring bundles | `config/default` | 97 planned variables from authored Sass |
-| Site Studio site A | 146 Site Studio | `config/sync` | 129 custom style entities |
-| Site Studio site B | 101 Site Studio | `config/default` | 172 custom style entities |
+| Site Studio site A | 146 Site Studio + 6 custom | `config/packages` (declared in settings) | 129 custom style entities |
+| Site Studio site B | 101 Site Studio + 3 custom | `config/packages` (declared in settings) | 176 custom style entities |
+| Site Studio site C | 168 Site Studio + 4 custom | `config/sitestudio` (declared in settings) | 166 custom style entities |
 | Paragraphs site | 43 Paragraph types | `config/default` | 113 base tokens via Sass source map |
 | Paragraphs site, compiled-CSS branch | 43 Paragraph types | `config/default` | 94 authored custom properties |
 
@@ -22,7 +23,9 @@ The Paragraphs site also has 13 custom Single Directory Components, but only 6 a
 
 ## Start here
 
-Use `design-lab:run` for a complete library. It creates `.design-lab/project.json`, records the repository commit and every strategy decision, validates artifacts before rendering, and can resume from the first incomplete phase. Use a narrower skill only when the request names a single phase.
+Run `design-lab:init` once on a new machine. It settles everything about you and the machine, asking before it installs or changes anything: where runs live (next to each project as `PROJECT/design/<date>`, or in `~/.design/<project>/<date>`; runs are personal and never committed), your name for reports, one shared Playwright and its browser for capture, the Python packages, the Figma runner, and the Claude Code setting that would otherwise make runs ask you to approve commands. `lab_setup.py check` reports the same without changing anything. Everything about one site belongs to preflight, at the start of each run.
+
+Use `design-lab:run` for a complete library. It creates a run folder outside the repository (where, `design-lab:init` decided) with its `project.json`, records the repository commit and every strategy decision, validates artifacts before rendering, and can resume from the first incomplete phase. Use a narrower skill only when the request names a single phase.
 
 Builds write into Figma through the design-lab runner, a Figma development plugin that must be imported once per machine by hand — Figma offers no command-line install. To get the steps with this machine's paths filled in, ask:
 
@@ -30,6 +33,7 @@ Builds write into Figma through the design-lab runner, a Figma development plugi
 
 | Skill | Does |
 |---|---|
+| `design-lab:init` | once per machine: where runs live, your name, capture tools, the Figma runner, Claude Code settings |
 | `design-lab:run` | end-to-end, resumable workflow and completion gate |
 | `design-lab:detect` | which strategies apply |
 | `design-lab:inventory` | components + fields + slots + source defects -> `components.json` |
@@ -43,7 +47,7 @@ Builds write into Figma through the design-lab runner, a Figma development plugi
 | `design-lab:verify` | **checks the whole file against the base expectations**; every gap ends as a fix or a recorded waiver |
 | `design-lab:evaluate` | the last step of every run: scores it into `scorecard.json`, a self-contained HTML report (coverage, accuracy against the live site, time and tokens, repeatability) and the fixed completion message |
 
-`scripts/workflow.py` is the deterministic front door. Its `init`, `identity`, `detect`, `select`, `extract`, `usage`, `plan`, `variables`, `approve`, `target`, `register`, `record`, `validate`, `status`, and `watch` commands write atomically and keep artifact hashes in the project manifest. The schemas in `schemas/` are the machine-readable contracts; `references/library-standard.md` is the canonical product definition.
+`scripts/workflow.py` is the deterministic front door. Its `init`, `identity`, `detect`, `select`, `preflight`, `connect`, `extract`, `usage`, `plan`, `variables`, `approve`, `target`, `register`, `record`, `validate`, `status`, and `watch` commands write atomically and keep artifact hashes in the project manifest. The schemas in `schemas/` are the machine-readable contracts; `references/library-standard.md` is the canonical product definition.
 
 Component extractors cover Site Studio, SDCs, Paragraphs, and combined Drupal authoring vocabularies (`block_content` + Paragraphs). Token extractors cover Site Studio styles, theme-loaded CSS custom properties, Sass source maps, and source-authored Sass. Combined Drupal extraction also writes `render-evidence.json`, a bounded map from each authoring bundle to its existing Twig, SDC, stylesheet, root-class, and referenced-field evidence. That evidence includes deterministic `styleFacts` parsed from the component's own Sass: root and nested-part declarations stay separate, retain token/literal provenance, and give the model the visual facts it needs without asking it to rediscover every stylesheet rule.
 
@@ -61,9 +65,9 @@ Planned: `drift`.
 
 ## Watching a run
 
-`/design-lab:watch [run folder]` opens a pane beside the transcript that stays open for the whole run: the preflight checklist, ticked off as preflight proves each check and folded to one line once it passes, the phases with the current one marked, build steps done of total, whether the runner is connected, the last lines of the runner's log, and anything that needs the person. It also keeps a status line such as `design-lab: steps 112/158 · runner connected · 41m` in that session. With no folder it watches the active run, the one `workflow.py init` or `preflight` last recorded in `~/.design-lab/active-run.json`. When the runner stops asking for steps, the pane says what to do in Figma desktop and offers one button, **Runner restarted, resume**, which puts the resume request in the prompt box. When the benchmark has written `completion.md`, a toast says the run is done, the status line clears, and the pane's Recap shows the completion message with its links. `/design-lab:recap [run folder]` shows any finished run's completion message again, with no Claude turn.
+`/design-lab:watch [run folder]` opens a pane beside the transcript that stays open for the whole run: the preflight checklist, ticked off as preflight proves each check and folded to one line once it passes, the phases with the current one marked, build steps done of total, whether the runner is connected, the last lines of the runner's log, and anything that needs the person. It also keeps a status line such as `design-lab: steps 112/158 · runner connected · 41m` in that session. With no folder it shows this project's newest run, found by the convention `design-lab:init` chose from the folder the session is in, and moves to each newer run there as it starts; before the first run it opens and waits for one. Outside any project it falls back to the run `workflow.py init`, `preflight` or `connect` last recorded in `~/.design-lab/active-run.json`. Figma is first touched when the build is ready to write: `workflow.py connect` asks the person to open the target file and start the runner, and the pane shows that as the one thing that needs them, with no button, until the runner connects. When the runner later stops asking for steps, the pane says what to do in Figma desktop and offers one button, **Runner restarted, resume**, which puts the resume request in the prompt box. When the benchmark has written `completion.md`, a toast says the run is done, the status line clears, and the pane's Recap shows the completion message with its links. `/design-lab:recap [run folder]` shows any finished run's completion message again, with no Claude turn.
 
-The pane is a Claude Code mod (`hooks/mod/`), which needs Claude Code 2.1.287 or later and draws in the terminal and the desktop app's Code tab. It only reads the run folder and the pointer (`preflight-checks.json`, which `workflow.py preflight` rewrites as each check starts and settles, is in the run folder); it writes nothing and never reads the runner token. Everything works without it: where the mod is not loaded, or nothing draws (`claude -p`, the VS Code chat panel), the same command prints the same summary from `workflow.py watch`. Mod tests run with `claude plugin test design-lab`.
+The pane is a Claude Code mod (`hooks/mod/`), which needs a Claude Code that loads mods (2.1.286 does; 2.1.284 does not) and draws in the terminal and the desktop app's Code tab. The desktop app runs its own copy of Claude Code, updated separately from the app; the pane draws there as a sidebar once that copy loads mods, and until then the command answers with text. It only reads the run folder and the pointer (`preflight-checks.json`, which `workflow.py preflight` rewrites as each check starts and settles, is in the run folder); it writes nothing and never reads the runner token. Everything works without it: where the mod is not loaded, or nothing draws (`claude -p`, the VS Code chat panel), the same command prints the same summary from `workflow.py watch`. Mod tests run with `claude plugin test design-lab`.
 
 ## References
 

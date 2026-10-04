@@ -83,6 +83,25 @@ class WatchTests(unittest.TestCase):
         self.progress()
         self.assertIsNone(workflow.watch_summary(self.w)["blocker"])
 
+    def test_connect_wait_is_shown_and_clears_when_the_runner_connects(self):
+        message = "Open the target file and start the design-lab runner."
+        self.log({"phase": "connect", "status": "waiting", "reason": "runner connection", "message": message})
+        self.progress(lastSeen=ago(300))
+        summary = workflow.watch_summary(self.w)
+        self.assertEqual(summary["waiting"], message)
+        self.assertIsNone(summary["blocker"])
+        text = workflow.render_watch(summary)
+        self.assertIn(f"Needs you: {message}", text)
+        self.assertNotIn("resume", text.lower())
+        self.progress()
+        self.assertIsNone(workflow.watch_summary(self.w)["waiting"])
+
+    def test_a_runner_not_needed_yet_is_idle_and_one_the_build_waits_for_is_awaited(self):
+        self.progress(state="waiting", stepsDone=None, stepsTotal=None, stepKind=None, lastSeen=ago(600))
+        self.assertIn("runner idle until the build", workflow.render_watch(workflow.watch_summary(self.w)))
+        self.log({"phase": "connect", "status": "waiting", "message": "Start the runner."})
+        self.assertIn("waiting for the runner to start", workflow.render_watch(workflow.watch_summary(self.w)))
+
     def test_waiting_shows_the_servers_message(self):
         self.progress(state="waiting", stepsDone=None, stepsTotal=None, stepKind=None,
                       message="Build complete. Waiting for the next build.")

@@ -8,7 +8,7 @@ Before starting:
 
 - The local site is running and answers at the address you will pass as `--site-url`.
 - The Claude account and model are the ones intended for this run; `init` records the configuration folder (`CLAUDE_CONFIG_DIR`, or `~/.claude` when unset).
-- The design-lab runner plugin is imported in Figma desktop on this machine, once, from `~/.design-lab/runner/` (see `references/relay.md`). Preflight starts its server and proves the target file can be written by drawing a name-only Cover in it.
+- The design-lab runner plugin is imported in Figma desktop on this machine, once, from `~/.design-lab/runner/` (see `references/relay.md`). At the start of the build, `workflow.py connect` starts its server and checks the target file by drawing a name-only Cover in it.
 - No other design-lab run is building: design-lab builds one library at a time.
 - The target Figma file is new and empty.
 - Screen recording is running, if the run is being recorded.
@@ -17,7 +17,7 @@ Before starting:
 
 During the run:
 
-- Start with `workflow.py init` and every identity flag (`--site-label`, `--site-url`, `--operator`, `--model`).
+- Start with `workflow.py init` and every identity flag (`--site-label`, `--site-url`, `--model`); the operator comes from `design-lab:init`.
 - Answer preflight once. The run asks for everything it needs in one message and records the answers and the go-ahead with `workflow.py preflight`; then it says it is safe to leave it running and completes on its own. The benchmark counts every interruption after the go-ahead.
 - Let the runner finish its compare and dump steps; they save the specimen screenshots and page dumps the scorer reads.
 - Run `design-lab:verify` and register `verify-report.json`, or the conformance section stays empty.
@@ -35,13 +35,13 @@ The report shows only time it measured, and says which. Working time is when Cla
 
 ## Unattended after preflight
 
-The run asks everything up front, at preflight, and records the go-ahead as the `preflight` phase. From then until the benchmark starts, the scorer reads the session transcript and counts every question the run asked the person (the question and plan-approval tools) and every turn that ended and waited for a person's prompt, each with the phase it happened in. None means the run stayed unattended after preflight, and the report and the completion message say "Ran unattended after preflight: yes". Waits before the go-ahead are setup, and a plan review the person chose at preflight is a planned stop rather than an interruption. When the transcript shows the session was not running with full access, the report says that tool spans may include waits for approval.
+The run asks everything up front, at preflight, records the go-ahead as the `preflight` phase, and records the target Figma URL without opening the file. From then until the benchmark starts, the scorer reads the session transcript and counts every question the run asked the person (the question and plan-approval tools) and every turn that ended and waited for a person's prompt, each with the phase it happened in. None means the run stayed unattended after preflight, and the report and the completion message say "Ran unattended after preflight: yes". Waits before the go-ahead are setup, and a plan review the person chose at preflight or the later runner connection wait is a planned stop rather than an interruption. A connection attempt that stops because the runner never came remains an interruption. When the transcript shows the session was not running with full access, the report says that tool spans may include waits for approval.
 
 ## Fixed opening prompt
 
 Start every benchmarked run with the same prompt, filling in only the bracketed values, so a second run of the same site and runs on different sites begin the same way. Do not add hints about the site.
 
-> Using design-lab, build a complete Figma component library for the repository at [absolute repository path], whose site runs locally at [local site address] and publicly at [public address]. The target Figma file is [file address], which is empty. Initialise the workspace at [workspace path] with site label "[neutral site label]", operator "[name]" and model "[model]". Work through every phase with design-lab:run, finish with design-lab:verify and the benchmark, and reply with the completion message. For preflight: build the plan as proposed.
+> Using design-lab, build a complete Figma component library for the repository at [absolute repository path], whose site runs locally at [local site address] and publicly at [public address]. The target Figma file is [file address], which is empty. Use site label "[neutral site label]" and model "[model]". Work through every phase with design-lab:run, finish with design-lab:verify and the benchmark, and reply with the completion message. For preflight: build the plan as proposed.
 
 ## Two levels of repeatability
 

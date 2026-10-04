@@ -445,3 +445,23 @@ class ProgressTests(unittest.TestCase):
         (self.root / "w" / "figma" / figma_runner.PROGRESS_FILE).unlink()
         handler.pulse()
         self.assertEqual(self.read()["serverPid"], figma_runner.os.getpid())
+
+
+class ConnectBeforePlanTests(unittest.TestCase):
+    def test_a_connection_to_a_finished_build_waits_for_the_new_plan(self):
+        import os
+        import tempfile
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            (project / "figma").mkdir()
+            state = project / "figma" / "state.json"
+            state.write_text(json.dumps({"steps": [{"id": "a"}], "done": ["a"]}))
+            build = figma_runner.Build(project)
+            build.connected_stamp = build.state_stamp()   # the connection check just succeeded
+            with mock.patch.object(figma_runner.Build, "driver", return_value={"kind": "done"}), \
+                    mock.patch.object(figma_runner.Build, "dump_step", return_value=None):
+                self.assertEqual(build.next()["kind"], "wait", "an old, finished build must not close the runner")
+                state.write_text(json.dumps({"steps": [{"id": "b"}], "done": ["b"]}))
+                os.utime(state, (build.connected_stamp + 5, build.connected_stamp + 5))
+                self.assertEqual(build.next()["kind"], "done", "a build planned after the connection finishes normally")

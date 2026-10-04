@@ -43,6 +43,12 @@ TIERS = {
 }
 
 QUERIES = {
+    "sitestudio_layouts": """
+SELECT id, IFNULL(parent_type,''), IFNULL(parent_id,''),
+       REPLACE(REPLACE(json_values, CHAR(10), ' '), CHAR(9), ' ')
+FROM cohesion_layout_field_data WHERE default_langcode=1;
+""",
+    "component_contents": "SELECT id, uuid FROM component_contents;",
     "paragraphs": """
 SELECT id, type, IFNULL(parent_type,''), IFNULL(parent_id,''), status
 FROM paragraphs_item_field_data WHERE default_langcode=1;
@@ -78,7 +84,15 @@ WHERE status=1 AND langcode IN ('en', 'und') AND path REGEXP '^/node/[0-9]+$';
 
 # Queries whose table exists only when a site uses the feature: Layout Builder can be enabled
 # with no node bundle storing per-node overrides, and then the field table is never created.
-OPTIONAL_TABLES = {"layout_sections": "node__layout_builder__layout"}
+OPTIONAL_TABLES = {
+    "layout_sections": "node__layout_builder__layout",
+    "paragraphs": "paragraphs_item_field_data",
+    "blocks": "block_content",
+    "blocks_in_paragraphs": "paragraph__field_block",
+    "block_configuration": "config",
+    "sitestudio_layouts": "cohesion_layout_field_data",
+    "component_contents": "component_contents",
+}
 
 
 def _mysql(ddev_root: Path, project: str | None, sql: str) -> list[list[str]]:
@@ -129,6 +143,64 @@ def _root_of(paragraph_id: str, paragraphs: dict[str, dict]) -> tuple[str | None
             continue
         return row["parentType"] or None, row["parentId"] or None
     return None, None
+
+
+def sitestudio_usage(rows, published):
+    """Count stored author instances once; reusable content is structural.
+
+    Follow reusable-content references for page attribution, never multiply its stored
+    instances by the number of hosts. Only canvas/children are placements, not model data.
+    """
+    direct, structural = collections.Counter(), collections.Counter()
+    pages = collections.defaultdict(set)
+    layouts = collections.defaultdict(list)
+    refs = {"cc_" + uuid: entity_id for entity_id, uuid in rows.get("component_contents", [])}
+    problems = []
+    for layout_id, host_type, host_id, blob in rows.get("sitestudio_layouts", []):
+        try:
+            data = json.loads(blob)
+            if not isinstance(data, dict) or not isinstance(data.get("canvas", []), list):
+                raise ValueError("canvas must be an array")
+        except (ValueError, TypeError) as error:
+            raise ValueError(f"Site Studio layout {layout_id}: invalid json_values: {error}") from error
+        layouts[(host_type, host_id)].append(data.get("canvas", []))
+
+    def walk(elements, nested=False):
+        for element in elements:
+            if not isinstance(element, dict):
+                continue
+            component = element.get("componentId") if element.get("type") == "component" else None
+            reference = element.get("componentContentId")
+            yield component, reference, nested
+            yield from walk(element.get("children") or [], nested or bool(component) or bool(reference))
+
+    for (host_type, host_id), canvases in layouts.items():
+        for canvas in canvases:
+            for component, _reference, nested in walk(canvas):
+                if component:
+                    (structural if nested or host_type == "component_content" else direct)[component] += 1
+
+    def attribute(host, node_id, seen):
+        if host in seen:
+            return
+        for canvas in layouts.get(host, []):
+            for component, reference, _nested in walk(canvas):
+                if component:
+                    pages[component].add(node_id)
+                if reference:
+                    entity_id = refs.get(reference) or refs.get("cc_" + reference)
+                    # Older exports used cc_<numeric entity id>.
+                    if not entity_id and str(reference).removeprefix("cc_").isdigit():
+                        entity_id = str(reference).removeprefix("cc_")
+                    if entity_id:
+                        attribute(("component_content", entity_id), node_id, seen | {host})
+                    else:
+                        problems.append({"check": "sitestudio-content-reference-unresolved",
+                                         "detail": str(reference)})
+    for host_type, host_id in layouts:
+        if host_type == "node" and host_id in published:
+            attribute((host_type, host_id), host_id, set())
+    return direct, structural, pages, problems
 
 
 def build_usage(components: dict, rows: dict[str, list[list[str]]], source: dict) -> dict:
@@ -226,30 +298,33 @@ def build_usage(components: dict, rows: dict[str, list[list[str]]], source: dict
         if match and match.group(1) in by_uuid:
             block_structural["block:" + by_uuid[match.group(1)]] += int(values[1])
 
+    ss_direct, ss_structural, ss_pages, ss_problems = sitestudio_usage(rows, published)
     component_ids = [component["id"] for component in components.get("components") or []]
     database_ids = (set(paragraph_placements) | set(paragraph_structural) |
-                    set(block_placements) | set(block_structural) | set(inline_entities))
+                    set(block_placements) | set(block_structural) | set(inline_entities) |
+                    set(ss_direct) | set(ss_structural))
     usage = {}
     for component_id in component_ids:
         usage[component_id] = {
             "placements": int(paragraph_placements[component_id] +
-                              block_placements[component_id]),
+                              block_placements[component_id] + ss_direct[component_id]),
             "structuralRefs": int(paragraph_structural[component_id] +
-                                  block_structural[component_id]),
-            "pages": len(paragraph_pages[component_id]) + len(block_pages[component_id]),
+                                  block_structural[component_id] + ss_structural[component_id]),
+            "pages": len(paragraph_pages[component_id]) + len(block_pages[component_id])
+                     + len(ss_pages[component_id]),
             "unpublishedInstances": int(paragraph_unpublished[component_id]),
             "inlineBlockEntities": int(inline_entities[component_id]),
             "configPlacedBlocks": int(configured_blocks[component_id]),
             "orphanInstances": int(paragraph_orphans[component_id]),
             "exampleCandidates": paths_for(
-                paragraph_pages[component_id] | block_pages[component_id])
+                paragraph_pages[component_id] | block_pages[component_id] | ss_pages[component_id])
                 + (["/"] if component_id in site_wide or configured_blocks[component_id] else []),
         }
 
     zero = sorted(component_id for component_id, value in usage.items()
                   if value["placements"] == 0 and value["structuralRefs"] == 0)
     extra = sorted(database_ids - set(component_ids))
-    problems = []
+    problems = list(ss_problems)
     if extra:
         problems.append({
             "check": "bundle-in-database-not-in-inventory",
@@ -279,11 +354,15 @@ def build_usage(components: dict, rows: dict[str, list[list[str]]], source: dict
             "scope": "current revisions, default language; placements and nested instances separate",
             "definitions": {
                 "placements": ("paragraphs whose immediate parent is a page-level host, plus "
-                               "blocks referenced by Layout Builder or block configuration"),
+                               "blocks referenced by Layout Builder or block configuration; "
+                               "Site Studio components without a component ancestor in host layouts"),
                 "structuralRefs": ("paragraphs whose immediate parent is another paragraph or "
-                                   "block, plus blocks embedded through a paragraph block field"),
+                                   "block, plus blocks embedded through a paragraph block field; "
+                                   "nested Site Studio components and stored reusable-content components "
+                                   "(counted once, with published host pages attributed through references)"),
             },
             "population": {
+                "siteStudioLayouts": len(rows.get("sitestudio_layouts", [])),
                 "paragraphInstances": len(paragraphs),
                 "blockContentEntities": len(by_uuid),
                 "nodes": len(rows.get("nodes", [])),
@@ -429,6 +508,12 @@ def extract(ddev_root: str | Path, components: dict, project: str | None = None,
     })
     ddev = (rows.get("__ddev") or [[project or root.name, ""]])[0]
     base_url = ddev[1] or f"https://{ddev[0]}.ddev.site"
+    if components.get("source", {}).get("strategy") == "sitestudio":
+        # Paragraph Twig/class markers cannot verify Cohesion renders. Preserve DB paths.
+        for value in document["usage"].values():
+            value["examples"] = []
+            value["noExampleReason"] = "Site Studio rendered marker verification is not supported"
+        return document
     return enrich_examples(document, base_url, rendering)
 
 

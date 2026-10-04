@@ -36,6 +36,15 @@ TAG_NAMES = {
 }
 
 
+# CSS overflow values that cut off what lies outside the box: hidden and clip, and a scrolling box,
+# which shows only its own window. The shorthand gives one value or two (x then y); either counts.
+CLIPPING_OVERFLOW = {"hidden", "clip", "auto", "scroll"}
+
+
+def clips(computed: dict) -> bool:
+    return any(value in CLIPPING_OVERFLOW for value in str(computed.get("overflow") or "").split())
+
+
 def px(value: str | None) -> float:
     if not value:
         return 0.0
@@ -351,7 +360,7 @@ def style_of(node: dict) -> dict:
     if opacity < 1:
         style["opacity"] = opacity
     # The site crops this element's contents to its box; so must the frame.
-    if (c.get("overflow") or "").split()[0:1] in (["hidden"], ["clip"]):
+    if clips(c):
         style["clip"] = True
     if c.get("backgroundImage", "none") not in ("none", ""):
         m = re.search(r'url\("?([^")]+)"?\)', c["backgroundImage"])

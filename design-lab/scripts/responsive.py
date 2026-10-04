@@ -207,6 +207,11 @@ class Merge:
         out["height"] = self.value({bp: st.r2(h) for bp, h in heights.items()}, f"{vchain}/height")
         out["x"] = st.r2(node["box"]["x"])
         out["y"] = st.r2(node["box"]["y"])
+        # What the site hides, Figma hides: a carousel's track is many slides wide (one measured
+        # 19,094px) inside a window with overflow hidden, and without the clip the component's
+        # frame sprawls across the page.
+        if st.clips(node.get("computed") or {}):
+            out["clip"] = True
 
         tag = node["tag"]
         if tag in ("iframe", "video", "canvas", "object", "embed"):

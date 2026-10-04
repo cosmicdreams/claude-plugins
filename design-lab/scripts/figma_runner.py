@@ -13,8 +13,8 @@ server is refused while one is active. The run's target file is `W/figma/state.j
 the build the `W/project.json` target. The same `next` and `record` commands a
 relaying model would call are called here, so the build is identical either way; `skip`
 steps are recorded without asking the plugin. Before the build has steps the server answers
-`wait`, and the plugin stays open and asks again; at preflight it serves one `check` step that
-proves the file is the target, is empty and can be written (the handshake).
+`wait`, and the plugin stays open and asks again; when the build is ready it serves the
+connection handshake, which checks the target file and draws its initial Cover.
 
 It listens on 127.0.0.1:8765, the one address the plugin's manifest allows. Every request
 carries `token=T`, the person's runner token in `~/.design-lab/runner-token` (mode 600), which
@@ -76,9 +76,9 @@ CHECK_STEP = "preflight:check"
 PAGE_STEP = "preflight:page"
 COVER_STEP = "preflight:cover"
 HANDSHAKE_STEPS = (CHECK_STEP, PAGE_STEP, COVER_STEP)
-# Preflight proves the file can be written by drawing a name-only Cover through the real render
+# The connection handshake checks the file and draws a name-only Cover through the real render
 # path, in three steps. First, which file is open and whether it is empty (one page with nothing
-# on it) or holds only the preflight Cover this run drew before (the same page id, with nothing
+# on it) or holds only the initial Cover this run drew before (the same page id, with nothing
 # on it but the node tagged as the Cover). Nothing is written by this step.
 CHECK_CODE = """
 const expected = __EXPECTED__;
@@ -184,15 +184,15 @@ def outdated_message(version: str) -> str:
 
 
 def write_handshake(project: Path, result: dict) -> None:
-    """The handshake's outcome, which preflight waits for; the request is then answered."""
+    """The connection handshake's outcome; the request is then answered."""
     folder = figma_dir(project)
     (folder / HANDSHAKE).write_text(json.dumps({"at": utc_now(), **result}, indent=1) + "\n")
     (folder / HANDSHAKE_REQUEST).unlink(missing_ok=True)
 
 
 def check_outcome(target: str, result: dict) -> dict:
-    """Judge the check step: the target file, and empty or holding only this run's preflight
-    Cover. Writing is proved by the steps that follow."""
+    """Judge the check step: the target file, and empty or holding only this run's initial Cover.
+    The following handshake steps prove that a Cover page can be drawn."""
     outcome = {"runnerConnected": True, "fileKey": result.get("fileKey"), "fileName": result.get("fileName"),
                "fileKeyMatches": result.get("fileKey") == target,
                "empty": bool(result.get("empty") or result.get("preflightCover")),
@@ -202,7 +202,7 @@ def check_outcome(target: str, result: dict) -> dict:
                    f"open the target file (key {target}) in Figma desktop and start the runner there")
     elif not outcome["empty"]:
         failure = (f"the target file {result.get('fileName')!r} is not empty ({result.get('pages')} page(s), or content "
-                   "on its first page that this run's preflight did not draw); give the run a new, empty Figma file")
+                   "on its first page that this run's connection check did not draw); give the run a new, empty Figma file")
     else:
         failure = None
     return {**outcome, "ok": failure is None, **({"failure": failure} if failure else {})}
@@ -247,6 +247,10 @@ class Build:
         # progress never re-reads state.json.
         self.progress = {"state": "waiting", "stepsDone": None, "stepsTotal": None,
                          "step": None, "stepKind": None, "message": None}
+        # The build state as it stood when a connection check last succeeded. A connection is
+        # made for a build about to be planned, so a build that was already complete then is not
+        # this one: the runner waits for the new plan instead of being told "done" and closing.
+        self.connected_stamp: float | None = None
 
     def note(self, step: dict) -> None:
         """Keep what the runner was just told: waiting, a preflight check, a build step with its
@@ -344,6 +348,11 @@ class Build:
                 break
             self.driver("record", "--step", step["step"])
             self.log(f"skipped {step['step']}: {step.get('reason', '')}")
+        if step["kind"] == "done" and self.connected_stamp == self.state_stamp():
+            # Complete before this connection: the build it was made for is not planned yet.
+            self.current = None
+            return {"kind": "wait", "step": "wait", "retryMs": WAIT_MS,
+                    "message": "Connected. Waiting for the build to start."}
         if step["kind"] == "done":
             step = self.dump_step() or step
             if step["kind"] == "done" and self.state.get("iterate"):
@@ -404,7 +413,7 @@ class Build:
         return None
 
     def handshake_step(self) -> dict:
-        """The next preflight step: check the file, claim its first page as the Cover page, then
+        """The next connection step: check the file, claim its first page as the Cover page, then
         draw the name-only Cover there with the real cover.js."""
         request = handshake_request(self.project)
         stage = request.get("stage", "check")
@@ -450,11 +459,13 @@ class Build:
                                       "the file may not accept design-lab's data")
             write_handshake(self.project, outcome)
         self.current = None
+        if outcome["ok"] and not self.handshake_pending():
+            self.connected_stamp = self.state_stamp()
         self.log(f"recorded {step}: {'ok' if outcome['ok'] else outcome['failure']}")
         return {"recorded": step}
 
     def handshake_error(self, message: str) -> None:
-        """A preflight step failed in Figma: stop the handshake with the exact cause."""
+        """A connection step failed in Figma: stop the handshake with the exact cause."""
         step = (self.current or {}).get("step")
         what = {CHECK_STEP: "the target file could not be inspected",
                 PAGE_STEP: "the Cover page could not be created",
@@ -556,7 +567,7 @@ def make_handler(builds: dict[str, Build], token: str):
                         write_handshake(b.project, {"runnerConnected": True, "ok": False, "fileKey": q.get("fileKey"),
                                                     "failure": "Paste your runner token into the runner when it asks "
                                                                f"(copy it with: pbcopy < {HOME / TOKEN_FILE}), then run "
-                                                               "preflight again; the runner's saved token was rejected"})
+                                                               "connect again; the runner's saved token was rejected"})
                 return self.reply(401, b"the runner token was rejected; paste the one in ~/.design-lab/runner-token", "text/plain")
             if url.path != "/health" and outdated(q.get("version")):
                 message = outdated_message(plugin_version())
@@ -732,7 +743,7 @@ def ensure_server(project: Path, wait: float = 10) -> dict:
                            "design-lab builds one library at a time, for the best results in Figma desktop; "
                            f"stop it first with: python3 {Path(__file__).resolve()} stop --project {status['otherRun']}")
     if status["portInUse"]:
-        raise RuntimeError(f"127.0.0.1:{PORT} is in use by another program; stop it, then run preflight again")
+        raise RuntimeError(f"127.0.0.1:{PORT} is in use by another program; stop it, then run connect again")
     folder = figma_dir(project)
     with os.fdopen(os.open(folder / SERVER_LOG, os.O_WRONLY | os.O_CREAT | os.O_APPEND, 0o600), "a") as log:
         os.chmod(folder / SERVER_LOG, 0o600)
@@ -751,9 +762,9 @@ def ensure_server(project: Path, wait: float = 10) -> dict:
 
 
 def default_cover() -> dict:
-    """The name-only Cover's arguments when preflight did not give them."""
+    """The name-only Cover's arguments when the workflow did not provide them."""
     return {"ground": "#001B67", "headline": "Library", "subtitle": "Component Library",
-            "provenance": {"stage": "preflight"}, "version": ""}
+            "provenance": {"stage": "connect"}, "version": ""}
 
 
 def request_handshake(project: Path, cover: dict | None = None, expected_cover_page: str | None = None,
@@ -780,7 +791,7 @@ def wait_for_handshake(project: Path, timeout: float, poll: float = 1) -> dict:
             return {"at": utc_now(), "runnerConnected": False, "ok": False,
                     "failure": f"no runner connected within {timeout:g} seconds; open the target file in Figma "
                                "desktop, start the design-lab runner (Plugins, Development, design-lab runner), "
-                               "and run preflight again"}
+                               "and run connect again"}
         time.sleep(poll)
 
 

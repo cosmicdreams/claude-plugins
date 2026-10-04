@@ -39,8 +39,10 @@ Run the full capture from a project with Playwright installed. The command scaff
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/capture_all.py \
   --project .design-lab --site-url https://example.ddev.site \
   --canonical-base-url https://www.example.org \
-  --theme-root docroot/themes/custom/example --node-cwd /path/to/project-with-playwright
+  --theme-root docroot/themes/custom/example [--node-cwd <folder>]
 ```
+
+`--node-cwd` defaults to the shared Playwright `design-lab:init` installed; give it only to use another folder where node resolves Playwright (preflight names one it found in the repository).
 
 Capture is incremental. Each component's outcome is written to `capture/records/` as soon as it finishes, together with the hash of the config it came from; a later run skips every component whose record is complete and whose config is unchanged, and rebuilds the evidence from all current records. Never delete records to "start clean"; use `--fresh` with `--only` for the components that need redoing.
 

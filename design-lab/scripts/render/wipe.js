@@ -4,7 +4,7 @@
  *
  * ARGS = { fileKey, collections: [name, ...] }
  * Removes pages carrying a design-lab page key (the Cover page itself stays, emptied, because
- * preflight recorded it), and the named variable collections. Anything design-lab did not
+ * the connection check recorded it), and the named variable collections. Anything design-lab did not
  * create is left alone and reported; deleting someone's work is never a side effect.
  */
 if (figma.fileKey && ARGS.fileKey && figma.fileKey !== ARGS.fileKey) {
