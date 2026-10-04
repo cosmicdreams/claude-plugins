@@ -799,44 +799,53 @@ def check_standard_version_stamped(components, tokens, builds_dir, rep):
 
 
 def check_fonts_available(builds_dir, rep):
-    """A font the Figma machine lacks is drawn in Inter in every component that uses it.
+    """Fonts as the build drew them, by family, rather than as pixel error in each comparison.
 
-    Reported once, by family, rather than as pixel error in each comparison (which masks text
-    for that reason). The fix is to make the family available to Figma, then rebuild.
+    A family Figma lacks is drawn in the stand-in the run's font plan (fonts.json) chose by
+    default: a decision the person can change, reported as one. A family missing with no plan, a
+    weight drawn in another style, and icon fonts drawn as text are reported for what they are.
     """
     if not builds_dir or not os.path.isdir(builds_dir):
         return
-    missing = {}
+    key = lambda name: re.sub(r'[^a-z0-9]', '', str(name or '').lower())
+    try:
+        plan = json.load(open(os.path.join(os.path.dirname(os.path.abspath(builds_dir)), 'fonts.json')))
+    except (ValueError, IOError, OSError):
+        plan = {}
+    decided = {}
+    for f in plan.get('families') or []:
+        if f.get('standIn'):
+            for name in (f.get('family'), f.get('cssFamily')):
+                decided[key(name)] = f
+    missing, styles, icons = {}, {}, {}
     for path in sorted(glob.glob(os.path.join(builds_dir, '*.json'))):
         try:
             built = (json.load(open(path)) or {}).get('built') or {}
         except (ValueError, IOError):
             continue
+        cid = os.path.basename(path)[:-5]
         families = set(built.get('missingFonts') or [])
-        # Records written before 0.15.2 carry only the mapping `family weight -> Inter Style`.
-        for requested, resolved in (built.get('fonts') or {}).items():
-            family = requested.rsplit(' ', 1)[0]
-            if resolved.startswith('Inter ') and family.lower() != 'inter':
-                families.add(family)
+        if 'standIns' not in built:
+            # Records written before 0.20.0 carry only the mapping `family weight -> Inter Style`.
+            for requested, resolved in (built.get('fonts') or {}).items():
+                family = requested.rsplit(' ', 1)[0]
+                if resolved.startswith('Inter ') and family.lower() != 'inter':
+                    families.add(family)
         for family in families:
-            missing.setdefault(family, []).append(os.path.basename(path)[:-5])
-    # The run's font plan records a stand-in for each family Figma lacks: drawn that way by
-    # default, as a decision the person can change, so it is reported as one, not as a failure.
-    try:
-        plan = json.load(open(os.path.join(os.path.dirname(os.path.abspath(builds_dir)), 'fonts.json')))
-    except (ValueError, IOError, OSError):
-        plan = {}
-    decided = {f.get('cssFamily') or f['family']: f for f in plan.get('families') or [] if f.get('standIn')}
-    decided.update({f['family']: f for f in decided.values()})
-    stand_ins = {fam: cs for fam, cs in missing.items() if fam in decided}
-    missing = {fam: cs for fam, cs in missing.items() if fam not in decided}
+            missing.setdefault(family, []).append(cid)
+        for requested, drawn in (built.get('styleFallbacks') or {}).items():
+            styles.setdefault('%s -> %s' % (requested, drawn), []).append(cid)
+        for family in built.get('iconText') or {}:
+            icons.setdefault(family, []).append(cid)
+    stand_ins = {fam: cs for fam, cs in missing.items() if key(fam) in decided}
+    missing = {fam: cs for fam, cs in missing.items() if key(fam) not in decided}
     if stand_ins:
         rep.add('fonts-stand-in', 'minor', 'file',
                 '%s drawn in %s by default, as recorded in fonts.json; to use the real font, follow '
                 '`workflow.py report fonts` and rebuild'
                 % (' and '.join(sorted(stand_ins)),
-                   ' and '.join(sorted({decided[f]['standIn']['family'] for f in stand_ins}))),
-                evidence=['%s -> %s (%d components)' % (f, decided[f]['standIn']['family'], len(c))
+                   ' and '.join(sorted({decided[key(f)]['standIn']['family'] for f in stand_ins}))),
+                evidence=['%s -> %s (%d components)' % (f, decided[key(f)]['standIn']['family'], len(c))
                           for f, c in sorted(stand_ins.items())])
     if missing:
         rep.add('fonts-available', 'major', 'file',
@@ -847,6 +856,15 @@ def check_fonts_available(builds_dir, rep):
                    len({c for cs in missing.values() for c in cs}),
                    ' and '.join(sorted(missing))),
                 evidence=['%s (%d components)' % (f, len(c)) for f, c in sorted(missing.items())])
+    if styles:
+        rep.add('fonts-style-fallback', 'minor', 'file',
+                '%d weight(s) drawn in another style of the same family, because Figma has no matching style'
+                % len(styles), evidence=['%s (%d components)' % (s, len(c)) for s, c in sorted(styles.items())])
+    if icons:
+        rep.add('fonts-icon-text', 'minor', 'file',
+                'icon font%s %s drawn as text, not as vector icons'
+                % ('' if len(icons) == 1 else 's', ' and '.join(sorted(icons))),
+                evidence=['%s (%d components)' % (f, len(c)) for f, c in sorted(icons.items())])
 
 
 def check_build_record_assertions(builds_dir, rep):
