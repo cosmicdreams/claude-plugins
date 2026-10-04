@@ -817,7 +817,7 @@ def check_fonts_available(builds_dir, rep):
         if f.get('standIn'):
             for name in (f.get('family'), f.get('cssFamily')):
                 decided[key(name)] = f
-    missing, styles, icons = {}, {}, {}
+    missing, styles, icons, drawn_as = {}, {}, {}, {}
     for path in sorted(glob.glob(os.path.join(builds_dir, '*.json'))):
         try:
             built = (json.load(open(path)) or {}).get('built') or {}
@@ -833,19 +833,29 @@ def check_fonts_available(builds_dir, rep):
                     families.add(family)
         for family in families:
             missing.setdefault(family, []).append(cid)
+        for family, drawn in (built.get('standIns') or {}).items():
+            drawn_as.setdefault(key(family), drawn)
         for requested, drawn in (built.get('styleFallbacks') or {}).items():
             styles.setdefault('%s -> %s' % (requested, drawn), []).append(cid)
         for family in built.get('iconText') or {}:
             icons.setdefault(family, []).append(cid)
     stand_ins = {fam: cs for fam, cs in missing.items() if key(fam) in decided}
     missing = {fam: cs for fam, cs in missing.items() if key(fam) not in decided}
+    # Name the font the build drew; a plan rewritten since then may name another until the rebuild.
+    def drawn_in(family):
+        return drawn_as.get(key(family)) or decided[key(family)]['standIn']['family']
+
+    def planned(family):
+        now = decided[key(family)]['standIn']['family']
+        return '' if key(now) == key(drawn_in(family)) else '; the plan now names %s, applied by the next rebuild' % now
+
     if stand_ins:
         rep.add('fonts-stand-in', 'minor', 'file',
                 '%s drawn in %s by default, as recorded in fonts.json; to use the real font, follow '
                 '`workflow.py report fonts` and rebuild'
                 % (' and '.join(sorted(stand_ins)),
-                   ' and '.join(sorted({decided[key(f)]['standIn']['family'] for f in stand_ins}))),
-                evidence=['%s -> %s (%d components)' % (f, decided[key(f)]['standIn']['family'], len(c))
+                   ' and '.join(sorted({drawn_in(f) for f in stand_ins}))),
+                evidence=['%s -> %s (%d components%s)' % (f, drawn_in(f), len(c), planned(f))
                           for f, c in sorted(stand_ins.items())])
     if missing:
         rep.add('fonts-available', 'major', 'file',

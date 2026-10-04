@@ -56,6 +56,10 @@ STYLE_WORDS = [("extralight", "ExtraLight", 200), ("ultralight", "ExtraLight", 2
 METRIC_COMPATIBLE = {"arial": "Arimo", "helvetica": "Arimo", "helvetica neue": "Arimo", "times new roman": "Tinos",
                      "times": "Tinos", "courier new": "Cousine", "courier": "Cousine", "calibri": "Carlito",
                      "cambria": "Caladea", "georgia": "Gelasio"}
+# The same design under its other macOS name: Figma desktop leaves some system fonts out of its list
+# (Courier, while it offers Courier New), so the other name is the closest stand-in when Figma has it.
+SYSTEM_RELATIVE = {"courier": "Courier New", "courier new": "Courier", "times": "Times New Roman",
+                   "times new roman": "Times", "helvetica": "Helvetica Neue", "helvetica neue": "Helvetica"}
 STAND_IN_BY_GENRE = {"sans": "Inter", "serif": "Source Serif 4", "mono": "Roboto Mono", "condensed": "Roboto Condensed"}
 # Foundries known from earlier sites: where the person can get a desktop licence or a trial.
 FOUNDRIES = {"suisse": ("Swiss Typefaces", "https://www.swisstypefaces.com/fonts/suisse/"),
@@ -328,12 +332,14 @@ def route(family: str, source: str, faces: list, adobe: dict | None) -> dict:
             f"Open https://fonts.adobe.com/fonts/{slug} signed in with an Adobe account and activate {family}"
             + (f" (it is served by the site's Adobe Fonts kit {kit})." if kit else "."),
             "Quit and reopen Figma desktop, open the target file again and start the design-lab runner, then tell Claude, which connects again and redraws with the real font."]}
-    if source in ("google", "system"):
-        what = "a Google font, which Figma always has" if source == "google" else "a macOS font"
+    if source == "system":
+        return {"kind": "figma-omits", "steps": [],
+                "note": f"{family} comes with macOS, but Figma desktop leaves it out of its font list, so there is "
+                        "nothing to install: the stand-in is the closest font Figma offers."}
+    if source == "google":
         return {"kind": "figma-problem", "steps": [
-            f"{family} is {what}: check that the build runs in Figma desktop through the design-lab runner"
-            + (" and that the font is enabled in Font Book" if source == "system" else "")
-            + ", then tell Claude, which connects again."]}
+            f"{family} is a Google font, which Figma always has: check that the build runs in Figma desktop "
+            "through the design-lab runner, then tell Claude, which connects again."]}
     covered = [f for f in faces if f.get("licence")]
     if faces and len(covered) == len(faces):
         licence = covered[0]["licence"]
@@ -450,9 +456,12 @@ def plan(run: Path, repo: Path, sitestudio: Path | None, figma: dict | None) -> 
         target = figma_family
         if figma is not None and figma_family is None:
             g = genre(entry["stack"], display)
-            stand_in = METRIC_COMPATIBLE.get(display.lower()) or STAND_IN_BY_GENRE[g]
+            relative = SYSTEM_RELATIVE.get(display.lower()) if source == "system" else None
+            relative = relative and available_family(relative, figma)
+            stand_in = relative or METRIC_COMPATIBLE.get(display.lower()) or STAND_IN_BY_GENRE[g]
             record["standIn"] = {"family": stand_in, "default": True,
-                                 "reason": ("metric-compatible with " + display) if display.lower() in METRIC_COMPATIBLE
+                                 "reason": (f"the same design as {display} under its other macOS name") if relative
+                                 else ("metric-compatible with " + display) if display.lower() in METRIC_COMPATIBLE
                                  else f"a {g} family Figma always has; widths will differ from {display}"}
             record["route"] = route(display, source, faces, adobe)
             target = stand_in
@@ -473,8 +482,8 @@ def summary_lines(document: dict) -> list[str]:
     out = [f"{len(families) - len(missing)} of {len(families)} font famil{'y' if len(families) == 1 else 'ies'} available "
            "to Figma" + (": nothing to do." if not missing else ".")]
     for f in missing:
-        out.append(f"- {f['family']} ({f['components']} component(s)) is not available to Figma: the build uses "
-                   f"{f['standIn']['family']} instead, by default. To use the real font:")
+        out.append(f"- {f['family']} (in {f['components']} captured component(s)) is not available to Figma: the build uses "
+                   f"{f['standIn']['family']} instead, by default." + (" To use the real font:" if f["route"]["steps"] else ""))
         styles = sorted({u["face"] or f"weight {u['weight']}" + (" italic" if u["italic"] else "") for u in f["uses"]})
         out.append(f"    Styles the site uses: {', '.join(styles)}.")
         if f["route"].get("note"):

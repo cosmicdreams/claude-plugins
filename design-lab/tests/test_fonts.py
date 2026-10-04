@@ -108,6 +108,23 @@ class PlanTests(Site):
         self.assertIn("Styles the site uses: Italic, SemiBold", lines)
         self.assertIn("do not install them unless the licence says you may", lines)
 
+    def test_a_macos_font_figma_omits_has_nothing_to_install(self):
+        figma = {k: v for k, v in self.FIGMA.items() if k != "Arial"}
+        arial = next(f for f in self.plan(figma)["families"] if f["family"] == "Arial")
+        self.assertEqual((arial["standIn"]["family"], arial["route"]["kind"], arial["route"]["steps"]),
+                         ("Arimo", "figma-omits", []))
+        line = next(l for l in fonts.summary_lines(self.plan(figma)) if l.startswith("- Arial"))
+        self.assertTrue(line.endswith("instead, by default."), "no steps to follow, so none are promised")
+
+    def test_a_macos_font_figma_omits_is_drawn_under_its_other_name(self):
+        self.measure(text_node("monospace"))
+        doc = self.plan({**self.FIGMA, "Courier New": ["Regular", "Bold"]})
+        courier = next(f for f in doc["families"] if f["family"] == "Courier")
+        self.assertEqual(courier["standIn"]["family"], "Courier New", "Figma lists Courier New but not Courier")
+        self.assertEqual(doc["build"]["families"]["courier"]["family"], "Courier New")
+        without = next(f for f in self.plan(self.FIGMA)["families"] if f["family"] == "Courier")
+        self.assertEqual(without["standIn"]["family"], "Cousine", "without Courier New, the metric-compatible clone")
+
     def test_an_open_licence_font_can_be_installed_from_the_site(self):
         figma = {k: v for k, v in self.FIGMA.items() if k != "Assistant"}
         assistant = next(f for f in self.plan(figma)["families"] if f["family"] == "Assistant")
@@ -311,6 +328,12 @@ class VerifyFontTests(unittest.TestCase):
         self.assertNotIn("fonts-available", found)
         self.assertIn("PT Sans 600 -> PT Sans Bold", found["fonts-style-fallback"]["evidence"][0])
 
+    def test_the_font_drawn_is_named_not_a_newer_plan(self):
+        plan = {"families": [{"family": "Courier", "cssFamily": "Courier", "standIn": {"family": "Courier New"}}]}
+        found = self.report({"a": {"missingFonts": ["Courier"], "standIns": {"Courier": "Cousine"}, "fonts": {}}}, plan)
+        self.assertIn("drawn in Cousine", found["fonts-stand-in"]["detail"])
+        self.assertIn("the plan now names Courier New, applied by the next rebuild", found["fonts-stand-in"]["evidence"][0])
+
     def test_modern_receipts_are_not_second_guessed(self):
         found = self.report({"a": {"missingFonts": [], "standIns": {}, "styleFallbacks": {},
                                    "fonts": {"Poppins 400": "Inter Regular"}}})
@@ -333,6 +356,9 @@ class CompletionFontTests(unittest.TestCase):
                 (run / f"figma/results/build_{name}.json").write_text(json.dumps({"standIns": {"Suisse Int'l": "Inter"}}))
             (run / "figma/results/build_c.json").write_text(json.dumps({"standIns": {}}))
             self.assertIn("Inter (a stand-in, by default, in 2 components)", score_run.fonts_phrase(run))
+            (run / "figma/results/build_a.json").write_text(json.dumps({"standIns": {"Suisse Int'l": "Arimo"}}))
+            (run / "figma/results/build_b.json").write_text(json.dumps({"standIns": {"Suisse Int'l": "Arimo"}}))
+            self.assertIn("Suisse Int'l drawn in Arimo", score_run.fonts_phrase(run), "the font drawn, not the plan's")
 
 
 if __name__ == "__main__":
