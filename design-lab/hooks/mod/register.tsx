@@ -149,7 +149,8 @@ export const register: Register = on => {
     watch($)
     const summary = (await read($, summaryAtom)) ?? (await summarise($, run))
     if ((await $.session.surfaces()).length === 0) return { text: plainOf(summary) }
-    const opened = await $.ui.open({ id: PANE, title: 'design-lab' })
+    // The person asked for it: bring it to the front, over any other pane already open.
+    const opened = await $.ui.open({ id: PANE, title: 'design-lab', focus: true })
     return { text: opened.isPlaced ? `Watching ${summary.siteLabel ?? run}.` : plainOf(summary) }
   })
 

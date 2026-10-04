@@ -42,7 +42,7 @@ function world(on: On, files: Record<string, string>, surfaces: RenderSurface[] 
     : { deny: 'missing' }))
   on('ui.status', ($, e) => { statuses.push(e.text); return { value: undefined } })
   on('ui.toast', ($, e) => { toasts.push(e.text); return { value: undefined } })
-  on('ui.open', ($, e) => { opened.push(e.id); return { value: { isPlaced: true } } })
+  on('ui.open', ($, e) => { opened.push(e.focus ? `${e.id} (front)` : e.id); return { value: { isPlaced: true } } })
   const submits: string[] = []
   on('prompt.fill', ($, e) => { fills.push(e.text); return composer ? { isFilled: true } : { isFilled: false } })
   on('prompt.submit', ($, e) => { submits.push(e.text); return { text: e.text } })
@@ -66,7 +66,7 @@ describe('design-lab:watch', () => {
     await $.session.start(SESSION)
     const answer = await $.command.run(WATCH)
     expect(answer.text).toBe('Watching Example site.')
-    expect(w.opened).toEqual(['design-lab'])
+    expect(w.opened, 'brought to the front, over any other pane').toEqual(['design-lab (front)'])
     expect(w.statuses.at(-1)).toBe('steps 3/10 · runner connected · 10m')
   })
 
