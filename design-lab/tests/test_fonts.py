@@ -317,5 +317,23 @@ class VerifyFontTests(unittest.TestCase):
         self.assertNotIn("fonts-available", found, "Poppins was never rendered; the plan skipped it")
 
 
+class CompletionFontTests(unittest.TestCase):
+    """The completion message's Fonts line counts what was drawn once built, as verify does."""
+
+    def test_counts_follow_the_build(self):
+        import score_run
+        with tempfile.TemporaryDirectory() as temp:
+            run = Path(temp)
+            (run / "fonts.json").write_text(json.dumps({"figmaChecked": True, "families": [
+                {"family": "Suisse Int'l", "components": 54, "standIn": {"family": "Inter"}},
+                {"family": "Arial", "components": 3}]}))
+            self.assertIn("Inter (a stand-in, by default, in 54 components)", score_run.fonts_phrase(run))
+            (run / "figma/results").mkdir(parents=True)
+            for name in ("a", "b"):
+                (run / f"figma/results/build_{name}.json").write_text(json.dumps({"standIns": {"Suisse Int'l": "Inter"}}))
+            (run / "figma/results/build_c.json").write_text(json.dumps({"standIns": {}}))
+            self.assertIn("Inter (a stand-in, by default, in 2 components)", score_run.fonts_phrase(run))
+
+
 if __name__ == "__main__":
     unittest.main()

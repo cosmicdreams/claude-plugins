@@ -1266,8 +1266,21 @@ def fonts_phrase(run_dir: Path) -> str:
         return "no text fonts found"
     if not stand_ins:
         return f"all {len(families)} font famil{'y' if len(families) == 1 else 'ies'} the site renders were available to Figma"
+    # Once built, count the components that drew the stand-in, as verify does; before, the plan's count.
+    drawn: dict[str, int] = {}
+    for result in sorted((run_dir / "figma/results").glob("build_*.json")):
+        try:
+            used = json.loads(result.read_text()).get("standIns") or {}
+        except (OSError, ValueError, AttributeError):
+            continue
+        for family in used:
+            drawn[family] = drawn.get(family, 0) + 1
+
+    def count(f: dict) -> int:
+        return drawn.get(f["family"], 0) if drawn else f["components"]
+
     return ("; ".join(f"{f['family']} drawn in {f['standIn']['family']} (a stand-in, by default, in "
-                      f"{f['components']} component{'s' if f['components'] != 1 else ''})" for f in stand_ins)
+                      f"{count(f)} component{'s' if count(f) != 1 else ''})" for f in stand_ins)
             + "; `workflow.py report fonts` says how to get the real font, then rebuild")
 
 
