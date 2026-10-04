@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.20.2
+
+**Cookie preferences panels no longer appear in captures.** A consent panel that opens on page load covered part of the page in measurements and screenshots, so the live captures beside each Figma component showed the panel instead of the component. Capture and measurement now close the panel through its own close button after each page loads, and check again just before each measurement and screenshot for a panel that arrives late. They wait until it is hidden; a panel that will not close fails that capture rather than producing a picture with it in it. The panel is never hidden with CSS, which could leave a backdrop or change the layout. The choice the site saves carries forward to the next breakpoint, so the panel is closed once per component and origin.
+
+- DataGrail's panel, including its shadow DOM, is found without any setting. Other consent tools use `cookiePreferences` (`bannerSelector`, `closeSelector`, `timeout`) in the component's capture config; `"cookiePreferences": false` keeps the panel when it is the component being captured.
+- Existing captures are not redone by themselves: recapture a run's components with `capture_all.py --fresh`, or start a new run.
+- Tested in a real browser: a shadow-DOM panel and one that appears late are both closed, a panel that will not close fails without a screenshot, the opt-out keeps the panel, and the closed choice carries to the next breakpoint.
+
 ## 0.20.1
 
 **design-lab no longer asks for your name.** The operator recorded in each run's report, and in the plan approvals preflight records, is the person signed in to Claude Code: Claude Code's own account record for the session's configuration folder (`CLAUDE_CONFIG_DIR`, or `~/.claude.json`), so each Claude Code account gives its own name. `design-lab:init` drops the question, the run skill no longer passes `--operator`, and `lab_setup.py check` shows the name it found. `lab_setup.py set operator` and `--operator` still override it; without an account name, the git user name is used as before.
