@@ -91,7 +91,10 @@ if (pages.length === 1) {
   preflightCover = !empty && pages[0].id === expected
     && kids.every((n) => n.getSharedPluginData('designlab', 'role') === 'cover');
 }
-return { fileKey: figma.fileKey, fileName: figma.root.name, pages: pages.length, empty, preflightCover };
+// What Figma can draw with here: the font picker's own list (local, shared and Google fonts).
+const fonts = {};
+for (const f of await figma.listAvailableFontsAsync()) (fonts[f.fontName.family] ||= []).push(f.fontName.style);
+return { fileKey: figma.fileKey, fileName: figma.root.name, pages: pages.length, empty, preflightCover, fonts };
 """
 # Second, the file's first page becomes the Cover page, keyed as pages.js keys it, so the build's
 # pages step reuses it rather than adding a second Cover page.
@@ -194,6 +197,7 @@ def check_outcome(target: str, result: dict) -> dict:
     """Judge the check step: the target file, and empty or holding only this run's initial Cover.
     The following handshake steps prove that a Cover page can be drawn."""
     outcome = {"runnerConnected": True, "fileKey": result.get("fileKey"), "fileName": result.get("fileName"),
+               "fonts": result.get("fonts"),
                "fileKeyMatches": result.get("fileKey") == target,
                "empty": bool(result.get("empty") or result.get("preflightCover")),
                "onlyPreflightCover": bool(result.get("preflightCover"))}

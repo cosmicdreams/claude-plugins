@@ -554,6 +554,13 @@ def child_masters(project: Path, comp: dict) -> dict:
     return out
 
 
+def font_plan(project: Path) -> dict | None:
+    try:
+        return (json.loads((project / "fonts.json").read_text()) or {}).get("build")
+    except (OSError, ValueError):
+        return None
+
+
 def build_args(project: Path, cid: str, state: dict) -> dict:
     tree = json.loads((project / "figma" / "trees" / f"{cid}.json").read_text())
     comp = next(c for c in components(project) if c["id"] == cid)
@@ -567,6 +574,9 @@ def build_args(project: Path, cid: str, state: dict) -> dict:
             "variant": {v["axis"]: v["value"] or "As captured" for v in variant_values(project, cid)},
             "variables": {**tree["variables"], **{k: v for alt in tree.get("alternates") or []
                                                    for k, v in alt["variables"].items()}},
+            # Which family each font stack draws in, with the face each weight serves and the
+            # stand-ins chosen for families Figma lacks (fonts.json, written at connect).
+            "fonts": font_plan(project),
             "alternates": [{"label": alt["label"], **spec_to_tree.compact(alt["tree"])}
                            for alt in tree.get("alternates") or []],
             **spec_to_tree.compact(tree["tree"])}
