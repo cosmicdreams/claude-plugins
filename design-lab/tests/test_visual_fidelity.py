@@ -229,3 +229,25 @@ class DecorationTest(unittest.TestCase):
         self.assertEqual(second["source"], "/div[0]/div[1]")
         self.assertEqual(first["x"], 0)                           # -120 cropped to the component
         self.assertEqual(first["width"], 1160)
+
+
+class OverflowClipTest(unittest.TestCase):
+    def test_what_the_site_hides_figma_clips(self):
+        import responsive
+
+        def carousel(width):
+            return [spec_node("/div[0]", 0, 0, width, 300),
+                    spec_node("/div[0]/div[1]", 0, 0, width, 300, overflow="hidden", backgroundColor="rgb(9, 9, 9)"),
+                    spec_node("/div[0]/div[1]/div[2]", 0, 0, 19094, 270, backgroundColor="rgb(1, 1, 1)"),
+                    spec_node("/div[0]/div[3]", 0, 300, width, 40, overflow="visible", backgroundColor="rgb(2, 2, 2)")]
+        tree = responsive.build({"component": "X", "machineName": "x", "measurements": {
+            f"{bp}:default": {"nodes": carousel(w)} for bp, w in (("desktop", 1305), ("mobile", 375))}}, "X", "x")["tree"]
+        clipped = {}
+
+        def walk(node):
+            clipped[node.get("source")] = bool(node.get("clip"))
+            for child in node.get("children") or []:
+                walk(child)
+        walk(tree)
+        self.assertTrue(clipped["/div[0]/div[1]"], "the carousel's window clips its 19,094px track")
+        self.assertFalse(clipped["/div[0]/div[3]"])
