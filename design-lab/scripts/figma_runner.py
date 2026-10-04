@@ -247,6 +247,10 @@ class Build:
         # progress never re-reads state.json.
         self.progress = {"state": "waiting", "stepsDone": None, "stepsTotal": None,
                          "step": None, "stepKind": None, "message": None}
+        # The build state as it stood when a connection check last succeeded. A connection is
+        # made for a build about to be planned, so a build that was already complete then is not
+        # this one: the runner waits for the new plan instead of being told "done" and closing.
+        self.connected_stamp: float | None = None
 
     def note(self, step: dict) -> None:
         """Keep what the runner was just told: waiting, a preflight check, a build step with its
@@ -344,6 +348,11 @@ class Build:
                 break
             self.driver("record", "--step", step["step"])
             self.log(f"skipped {step['step']}: {step.get('reason', '')}")
+        if step["kind"] == "done" and self.connected_stamp == self.state_stamp():
+            # Complete before this connection: the build it was made for is not planned yet.
+            self.current = None
+            return {"kind": "wait", "step": "wait", "retryMs": WAIT_MS,
+                    "message": "Connected. Waiting for the build to start."}
         if step["kind"] == "done":
             step = self.dump_step() or step
             if step["kind"] == "done" and self.state.get("iterate"):
@@ -450,6 +459,8 @@ class Build:
                                       "the file may not accept design-lab's data")
             write_handshake(self.project, outcome)
         self.current = None
+        if outcome["ok"] and not self.handshake_pending():
+            self.connected_stamp = self.state_stamp()
         self.log(f"recorded {step}: {'ok' if outcome['ok'] else outcome['failure']}")
         return {"recorded": step}
 
