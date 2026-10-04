@@ -32,8 +32,6 @@ import spec_to_tree as st
 
 MODES = ("desktop", "tablet", "mobile")          # desktop is the collection's default mode
 MODE_NAMES = {"desktop": "Desktop", "tablet": "Tablet", "mobile": "Mobile"}
-# CSS overflow values that cut off what lies outside the box.
-CLIPPING_OVERFLOW = {"hidden", "clip", "auto", "scroll"}
 TOL = st.TOLERANCE
 
 
@@ -212,9 +210,7 @@ class Merge:
         # What the site hides, Figma hides: a carousel's track is many slides wide (one measured
         # 19,094px) inside a window with overflow hidden, and without the clip the component's
         # frame sprawls across the page.
-        computed = node.get("computed") or {}
-        if any(str(computed.get(k) or "").split(" ")[0] in CLIPPING_OVERFLOW
-               for k in ("overflow", "overflowX", "overflowY")):
+        if st.clips(node.get("computed") or {}):
             out["clip"] = True
 
         tag = node["tag"]

@@ -103,11 +103,10 @@ def plugin_folders() -> list[Path]:
     version folder, so updates stay covered), or this working copy when run from one."""
     folders = []
     for config in claude_config_dirs():
-        cache = config / "plugins" / "cache" / "local" / "design-lab"
-        if cache.is_dir():
-            folders.append(cache.resolve())
+        folders.extend(sorted(p.resolve() for p in (config / "plugins" / "cache").glob("*/design-lab") if p.is_dir()))
+    here = PLUGIN_DIR.parent if PLUGIN_DIR.parent.name == "design-lab" else PLUGIN_DIR   # above a version folder
     if not any(PLUGIN_DIR.is_relative_to(folder) for folder in folders):
-        folders.append(PLUGIN_DIR)
+        folders.append(here)
     return folders
 
 
@@ -169,8 +168,8 @@ def checks() -> list[dict]:
                      None if convention in lab_config.CONVENTIONS else "lab_setup.py set runs project|home"))
 
     operator = config.get("operator")
-    out.append(check("operator", "ok" if operator else "missing", "Your name for reports",
-                     operator or "not set: each run would ask for it", None if operator else 'lab_setup.py set operator "<name>"'))
+    out.append(check("operator", "ok" if operator else "advice", "Your name for reports",
+                     operator or "not set: runs use your git user name", None if operator else 'lab_setup.py set operator "<name>"'))
 
     node = shutil.which("node")
     out.append(check("node", "ok" if node else "missing", "Node.js", node or "not on the path: capture runs Playwright through node",
@@ -178,8 +177,9 @@ def checks() -> list[dict]:
 
     folder = Path(config.get("nodeCwd") or playwright_folder())
     ready, detail = playwright_ready(folder)
-    out.append(check("playwright", "ok" if ready else "missing", "Playwright and its Chromium, for capture",
-                     f"{folder}: Chromium at {detail}" if ready else detail,
+    out.append(check("playwright", "ok" if ready else "advice", "Playwright and its Chromium, for capture",
+                     f"{folder}: Chromium at {detail}" if ready else
+                     f"{detail}: each run must then find a Playwright in its site's repository, as preflight does",
                      None if ready else "lab_setup.py install playwright",
                      None if ready else (f"downloads Playwright (about 20 MB) into {playwright_folder()}, and its Chromium "
                                          f"(about 150 MB) into Playwright's shared browser folder, {browser_folder()}, "

@@ -28,9 +28,9 @@ Check design-lab is set up on this machine; it changes nothing:
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.py check
 ```
 
-If anything is missing, stop and run `design-lab:init` first, then continue. Setup is about the person and the machine; preflight below is about this site.
+If anything is `missing` (✗), stop and run `design-lab:init` first, then continue; `advice` (!) does not stop a run. Setup is about the person and the machine; preflight below is about this site.
 
-To resume a run the person did not name, find this project's newest run: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py watch` (run from the project or repository folder) prints it, then resume from its artifacts. Tell the person they can watch it with `/design-lab:watch`, which with no folder shows this project's newest run.
+To resume a run the person did not name, find this project's newest run: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py watch` (run from the project or repository folder) prints its `Run folder:` line, which is `<artifact-directory>` from then on; resume from its artifacts. Tell the person they can watch it with `/design-lab:watch`, which with no folder shows this project's newest run.
 
 ## Establish the project
 

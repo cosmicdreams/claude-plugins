@@ -21,7 +21,7 @@ The answers go into the person's design-lab settings (`~/.claude/design-lab.json
 
 ## Steps
 
-Run every command with absolute paths, one command at a time; never `cd`, shell variables, loops or inline scripts.
+Run every command with absolute paths, one command at a time; never `cd`, shell variables, loops or inline scripts. If Claude Code's read-blocking setting is on, it will ask the person to approve these commands until the Claude Code check below is settled; say so up front, so the first approvals are expected.
 
 1. See where things stand. It changes nothing:
 

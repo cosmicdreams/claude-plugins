@@ -251,3 +251,7 @@ class OverflowClipTest(unittest.TestCase):
         walk(tree)
         self.assertTrue(clipped["/div[0]/div[1]"], "the carousel's window clips its 19,094px track")
         self.assertFalse(clipped["/div[0]/div[3]"])
+        import spec_to_tree
+        self.assertTrue(spec_to_tree.clips({"overflow": "visible hidden"}), "either value of the shorthand counts")
+        self.assertTrue(spec_to_tree.clips({"overflow": "auto"}))
+        self.assertFalse(spec_to_tree.clips({"overflow": "visible"}))

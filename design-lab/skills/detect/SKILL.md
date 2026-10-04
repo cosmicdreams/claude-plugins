@@ -12,9 +12,11 @@ For an end-to-end run, initialize and detect through the stateful front door:
 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py init \
-  --repo <absolute-repository-path> --workspace <artifact-directory>
+  --repo <absolute-repository-path>
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py detect --project <artifact-directory>
 ```
+
+`init` prints the run folder it created by the person's convention; that folder is `<artifact-directory>`.
 
 For an isolated probe, `scripts/detect.py <repo>` emits the same detection document to stdout.
 

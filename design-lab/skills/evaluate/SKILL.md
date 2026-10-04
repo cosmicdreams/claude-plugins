@@ -17,11 +17,11 @@ The benchmark closes a run. It turns the evidence a run left behind into one rep
 Follow `references/benchmark.md`: the run checklist and the fixed opening prompt. Start with every identity flag:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py init --repo <repository> --workspace <workspace> \
-  --site-label "<neutral site name>" --site-url <local-site-address> --operator "<name>" --model <model>
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py init --repo <repository> \
+  --site-label "<neutral site name>" --site-url <local-site-address> --model <model>
 ```
 
-`init` records run identity in `project.json`: plugin version and commit, site label, repository commit, local site address, operator, Claude configuration folder and model, transcript folder, and start time. Every phase change is appended to `phase-log.jsonl`. For a run started before 0.15, `workflow.py identity` fills in the same block afterwards.
+`init` creates the run folder by the convention `design-lab:init` chose and prints it (that is `<workspace>` below), and records run identity in `project.json`; the operator comes from setup: plugin version and commit, site label, repository commit, local site address, operator, Claude configuration folder and model, transcript folder, and start time. Every phase change is appended to `phase-log.jsonl`. For a run started before 0.15, `workflow.py identity` fills in the same block afterwards.
 
 Record schema churn with `workflow.py identity --schema-change "<what changed>"` (repeatable) when `components.json`, `tokens.json` or the build-record schema needed a change or workaround, or `--no-schema-change` when nothing did.
 

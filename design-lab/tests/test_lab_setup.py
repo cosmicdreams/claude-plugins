@@ -152,7 +152,7 @@ class SetupTests(Sandbox):
     def test_a_new_machine_needs_the_choices_and_the_tools(self):
         found = self.statuses()
         self.assertEqual((found["runs"]["status"], found["operator"]["status"], found["playwright"]["status"]),
-                         ("missing", "missing", "missing"))
+                         ("missing", "advice", "advice"), "only what a run cannot do without is missing")
         self.assertIn("150 MB", found["playwright"]["needsApproval"])
         self.assertIn("ms-playwright", found["playwright"]["needsApproval"], "it says where the browser really goes")
 
@@ -196,9 +196,6 @@ class SetupTests(Sandbox):
                               "--theme-root", "t"])
         self.assertIn("design-lab:init", err.getvalue())
 
-
-if __name__ == "__main__":
-    unittest.main()
 
 
 class AllowFoldersTests(Sandbox):
@@ -276,3 +273,7 @@ class ReviewTests(Sandbox):
             except (SystemExit, Exception):
                 pass
         self.assertNotIn("--node-cwd is needed", err.getvalue())
+
+
+if __name__ == "__main__":
+    unittest.main()

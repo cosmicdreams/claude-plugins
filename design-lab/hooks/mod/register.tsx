@@ -130,7 +130,6 @@ function watch($: EngineInterface): void {
   timer = $.clock.every(POLL_MS, () => void refresh($))
 }
 
-/** The run folder: the command's argument, else the run the active-run pointer names. */
 /** The run a command names, or with none: the newest in this project's runs folder, which the pane
  * then follows; else the run the machine-wide pointer names. */
 async function runOf($: EngineInterface, args: string): Promise<string | { missing: string; follow?: string }> {

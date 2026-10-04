@@ -152,10 +152,10 @@ def init_command(args):
     if args.workspace:
         workspace = Path(args.workspace).resolve()
         inside = lab_config.inside_repository(workspace)
-        if inside is not None and not args.force:
+        if inside is not None and not getattr(args, "allow_in_repository", False):
             raise ValueError(f"{workspace} is inside the working copy {inside}; runs are personal and never committed, so "
                              "they live outside every repository (leave --workspace out to use the folder design-lab:init "
-                             "chose; --force allows it for a run that must stay there)")
+                             "chose; --allow-in-repository allows it for a run that must stay there)")
     else:
         # Runs are personal and never committed: by the convention design-lab:init recorded,
         # next to the project (PROJECT/design/<date>) or in ~/.design/<project>/<date>.
@@ -1336,7 +1336,8 @@ def render_watch(summary: dict) -> str:
     if not summary.get("found"):
         return f"No design-lab run in {summary['workspace']}: it has no project.json."
     marks = {"complete": "✓", "approved": "✓", "waived": "✓", "running": "▸", "stopped": "!"}
-    lines = [f"design-lab · {summary.get('siteLabel') or Path(summary['workspace']).name}", ""]
+    lines = [f"design-lab · {summary.get('siteLabel') or Path(summary['workspace']).name}",
+             f"Run folder: {summary['workspace']}", ""]
     if summary.get("preflightChecks"):
         lines.append("  Preflight")
         for check in summary["preflightChecks"]:
@@ -1412,6 +1413,8 @@ def main():
     command.add_argument("--repo", required=True)
     command.add_argument("--workspace", help="the run folder (default: by the convention design-lab:init chose, PROJECT/design/<date> or ~/.design/<project>/<date>)")
     command.add_argument("--force", action="store_true")
+    command.add_argument("--allow-in-repository", action="store_true",
+                         help="allow a --workspace inside a working copy (runs normally live outside every repository)")
     command.add_argument("--site-label", help="neutral name for the site, shown in reports")
     command.add_argument("--site-url", help="local site address the run captures from")
     command.add_argument("--operator", help="person running the build (default: git user.name)")
