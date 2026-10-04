@@ -962,9 +962,13 @@ def connect_command(args):
     # The person is at Figma now: say which of the site's fonts Figma lacks, what stands in for each
     # by default, and how to get the real one (then connect again).
     figma_fonts = handshake.pop("fonts", None)
-    font_lines = font_plan(path.parent, project, figma_fonts)
+    try:
+        font_lines = font_plan(path.parent, project, figma_fonts)
+    except Exception as error:   # the run never stops for a font
+        font_lines = [f"The font plan was not written ({error}); the build draws missing fonts in Inter."]
     print("\n".join(font_lines), file=sys.stderr, flush=True)
-    print(json.dumps({"ok": True, "connection": connection, "handshake": handshake, "fonts": font_lines}, indent=2))
+    print(json.dumps({"ok": True, "connection": connection, "handshake": handshake,
+                      "fontPlan": str(path.parent / "fonts.json")}, indent=2))
 
 
 def font_plan(workspace: Path, project: dict, figma_fonts: dict | None) -> list[str]:

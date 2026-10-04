@@ -327,35 +327,37 @@ def route(family: str, source: str, faces: list, adobe: dict | None) -> dict:
         return {"kind": "adobe-fonts", "steps": [
             f"Open https://fonts.adobe.com/fonts/{slug} signed in with an Adobe account and activate {family}"
             + (f" (it is served by the site's Adobe Fonts kit {kit})." if kit else "."),
-            "Quit and reopen Figma desktop, then run workflow.py connect again."]}
+            "Quit and reopen Figma desktop, open the target file again and start the design-lab runner, then tell Claude, which connects again and redraws with the real font."]}
     if source in ("google", "system"):
         what = "a Google font, which Figma always has" if source == "google" else "a macOS font"
         return {"kind": "figma-problem", "steps": [
             f"{family} is {what}: check that the build runs in Figma desktop through the design-lab runner"
             + (" and that the font is enabled in Font Book" if source == "system" else "")
-            + ", then run workflow.py connect again."]}
+            + ", then tell Claude, which connects again."]}
     covered = [f for f in faces if f.get("licence")]
     if faces and len(covered) == len(faces):
         licence = covered[0]["licence"]
         desktop = sorted({f["file"] for f in covered if f.get("desktop")})
         web = sorted({f["file"] for f in covered if not f.get("desktop")})
-        steps = [f"{family} is under the {licence} licence, which allows installing it."]
+        steps = []
         if desktop:
             steps.append(f"Open these files in Font Book and install them: {', '.join(desktop[:6])}.")
         if web:
             steps.append(f"These are web font files, which macOS cannot install as they are: convert each to TTF first "
                          f"(for example `python3 -m fontTools.ttLib.woff2 decompress <file>`, after "
                          f"`python3 -m pip install fonttools brotli`), then install the TTF files: {', '.join(web[:6])}.")
-        steps.append("Quit and reopen Figma desktop, then run workflow.py connect again.")
-        return {"kind": "open-licence", "licence": licence, "steps": steps}
+        steps.append("Quit and reopen Figma desktop, open the target file again and start the design-lab runner, then tell Claude, which connects again and redraws with the real font.")
+        return {"kind": "open-licence", "licence": licence,
+                "note": f"{family} is under the {licence} licence, which allows installing it.", "steps": steps}
     foundry = next((v for k, v in FOUNDRIES.items() if k in norm(family)), None)
     return {"kind": "commercial", "foundry": foundry[0] if foundry else None, "steps": [
         "Ask the client (or the agency that set up its brand) for the desktop font files of "
         f"{family} (the styles above) and install them with Font Book.",
         f"Or get a desktop licence or trial from {foundry[0]}: {foundry[1]}." if foundry else
         "Or get a desktop licence or trial from its foundry.",
-        "Quit and reopen Figma desktop, then run workflow.py connect again. The site's own web font files are "
-        "licensed for the website only: do not install them unless the licence says you may."]}
+        "Quit and reopen Figma desktop, open the target file again and start the design-lab runner, then tell Claude, "
+        "which connects again and redraws with the real font. The site's own web font files are licensed for the "
+        "website only: do not install them unless the licence says you may."]}
 
 
 def choose(stack: list[str], chars: set, sources: dict, google: set, kit_css: dict, kits_unread: bool,
@@ -475,6 +477,8 @@ def summary_lines(document: dict) -> list[str]:
                    f"{f['standIn']['family']} instead, by default. To use the real font:")
         styles = sorted({u["face"] or f"weight {u['weight']}" + (" italic" if u["italic"] else "") for u in f["uses"]})
         out.append(f"    Styles the site uses: {', '.join(styles)}.")
+        if f["route"].get("note"):
+            out.append(f"    {f['route']['note']}")
         out.extend(f"    {step}" for step in f["route"]["steps"])
     if document.get("unrendered"):
         out.append("Declared but never rendered (no source on the site): "

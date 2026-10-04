@@ -1257,11 +1257,13 @@ def fonts_phrase(run_dir: Path) -> str:
     try:
         document = json.loads((run_dir / "fonts.json").read_text())
     except (OSError, ValueError):
-        return "not checked (runs before the font step, or no connection to Figma yet)"
+        return "not checked: Figma was never connected"
     if not document.get("figmaChecked"):
         return "not checked against Figma"
     families = document.get("families") or []
     stand_ins = [f for f in families if f.get("standIn")]
+    if not families:
+        return "no text fonts found"
     if not stand_ins:
         return f"all {len(families)} font famil{'y' if len(families) == 1 else 'ies'} the site renders were available to Figma"
     return ("; ".join(f"{f['family']} drawn in {f['standIn']['family']} (a stand-in, by default, in "

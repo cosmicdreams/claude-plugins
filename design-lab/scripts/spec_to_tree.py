@@ -384,7 +384,7 @@ def text_of(node: dict, chars: str) -> dict:
         "stack": c.get("fontFamily") or "",
         "familyVar": css_var(d.get("font-family")),
         "weight": int(re.sub(r"\D", "", c.get("fontWeight") or "400") or 400),
-        "italic": c.get("fontStyle") == "italic",
+        "italic": str(c.get("fontStyle") or "").startswith(("italic", "oblique")),
         "size": px(c.get("fontSize")) or 16,
         "lineHeight": None if lh == "normal" else px(lh),
         "letterSpacing": px(c.get("letterSpacing")),
