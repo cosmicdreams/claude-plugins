@@ -47,6 +47,13 @@ def cache_folder() -> Path:
     return base / "design-lab"
 
 
+def browser_folder() -> Path:
+    """Where Playwright keeps its browsers, shared by every Playwright on this machine."""
+    if os.environ.get("PLAYWRIGHT_BROWSERS_PATH"):
+        return Path(os.environ["PLAYWRIGHT_BROWSERS_PATH"]).expanduser()
+    return Path.home() / ("Library/Caches/ms-playwright" if sys.platform == "darwin" else ".cache/ms-playwright")
+
+
 def playwright_folder() -> Path:
     return cache_folder() / "playwright"
 
@@ -174,7 +181,9 @@ def checks() -> list[dict]:
     out.append(check("playwright", "ok" if ready else "missing", "Playwright and its Chromium, for capture",
                      f"{folder}: Chromium at {detail}" if ready else detail,
                      None if ready else "lab_setup.py install playwright",
-                     None if ready else f"downloads Playwright and Chromium (about 150 MB) into {playwright_folder()}",
+                     None if ready else (f"downloads Playwright (about 20 MB) into {playwright_folder()}, and its Chromium "
+                                         f"(about 150 MB) into Playwright's shared browser folder, {browser_folder()}, "
+                                         "unless a matching one is already there"),
                      nodeCwd=str(folder) if ready else None))
 
     absent = [name for module, name in PYTHON_PACKAGES.items() if importlib.util.find_spec(module) is None]

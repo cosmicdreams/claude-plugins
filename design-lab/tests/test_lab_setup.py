@@ -154,6 +154,7 @@ class SetupTests(Sandbox):
         self.assertEqual((found["runs"]["status"], found["operator"]["status"], found["playwright"]["status"]),
                          ("missing", "missing", "missing"))
         self.assertIn("150 MB", found["playwright"]["needsApproval"])
+        self.assertIn("ms-playwright", found["playwright"]["needsApproval"], "it says where the browser really goes")
 
     def test_settings_are_kept_when_others_are_written(self):
         self.configure(corpus="/c", scoreboard={"ledger": "/l", "dashboard": "/d"})
