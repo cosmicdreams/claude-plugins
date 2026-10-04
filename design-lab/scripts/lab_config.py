@@ -102,6 +102,19 @@ def project_name(start: Path) -> str:
     return (project_folder(start) or repository_root(start) or start).name
 
 
+def claude_account_name() -> str | None:
+    """The name of the person signed in to Claude Code, from Claude Code's own account record. Each
+    configuration folder (CLAUDE_CONFIG_DIR) keeps its own; the default one is ~/.claude.json."""
+    folder = os.environ.get("CLAUDE_CONFIG_DIR")
+    path = Path(folder).expanduser() / ".claude.json" if folder else Path.home() / ".claude.json"
+    try:
+        account = json.loads(path.read_text()).get("oauthAccount") or {}
+    except (OSError, ValueError, AttributeError):
+        return None
+    name = account.get("fullName") or account.get("displayName")
+    return name.strip() if isinstance(name, str) and name.strip() else None
+
+
 def runs_folder(start: Path, config: dict | None = None) -> Path:
     """Where this project's runs live, by the person's convention. Never inside the repository:
     runs are personal, like this configuration."""

@@ -17,7 +17,7 @@ Before starting:
 
 During the run:
 
-- Start with `workflow.py init` and every identity flag (`--site-label`, `--site-url`, `--model`); the operator comes from `design-lab:init`.
+- Start with `workflow.py init` and every identity flag (`--site-label`, `--site-url`, `--model`); the operator is the name signed in to Claude Code.
 - Answer preflight once. The run asks for everything it needs in one message and records the answers and the go-ahead with `workflow.py preflight`; then it says it is safe to leave it running and completes on its own. The benchmark counts every interruption after the go-ahead.
 - Let the runner finish its compare and dump steps; they save the specimen screenshots and page dumps the scorer reads.
 - Run `design-lab:verify` and register `verify-report.json`, or the conformance section stays empty.

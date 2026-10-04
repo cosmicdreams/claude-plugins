@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.20.1
+
+**design-lab no longer asks for your name.** The operator recorded in each run's report, and in the plan approvals preflight records, is the person signed in to Claude Code: Claude Code's own account record for the session's configuration folder (`CLAUDE_CONFIG_DIR`, or `~/.claude.json`), so each Claude Code account gives its own name. `design-lab:init` drops the question, the run skill no longer passes `--operator`, and `lab_setup.py check` shows the name it found. `lab_setup.py set operator` and `--operator` still override it; without an account name, the git user name is used as before.
+
 ## 0.20.0
 
 **Fonts: the family each site really renders, what Figma has, and a named stand-in for the rest, decided before the build and reported as a decision.** Every site so far had its own font trouble: a self-hosted commercial family missing from Figma (47 components drawn in Inter on one site), an Adobe Fonts kit nobody activated (a serif drawn as a sans italic on another), declared families with no source, and icon fonts drawn as text.

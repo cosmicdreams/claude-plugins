@@ -113,7 +113,8 @@ def run_identity(args, repo: Path) -> dict:
     config_dir = claude_config_dir()
     import lab_config
     operator = (getattr(args, "operator", None) or lab_config.read_config().get("operator")
-                or git_value(repo, "config", "user.name") or os.environ.get("USER"))
+                or lab_config.claude_account_name() or git_value(repo, "config", "user.name")
+                or os.environ.get("USER"))
     return {
         "startedAt": now(),
         "siteLabel": getattr(args, "site_label", None),
@@ -1452,7 +1453,7 @@ def main():
                          help="allow a --workspace inside a working copy (runs normally live outside every repository)")
     command.add_argument("--site-label", help="neutral name for the site, shown in reports")
     command.add_argument("--site-url", help="local site address the run captures from")
-    command.add_argument("--operator", help="person running the build (default: git user.name)")
+    command.add_argument("--operator", help="person running the build (default: the name signed in to Claude Code)")
     command.add_argument("--model", help="Claude model driving the run, if known")
     command.set_defaults(func=init_command)
 

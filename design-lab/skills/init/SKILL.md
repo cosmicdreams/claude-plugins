@@ -38,7 +38,6 @@ Run every command with absolute paths, one command at a time; never `cd`, shell 
      - **One folder for everything** (`home`): `~/.design/<project>/<date>`. The simple choice for anyone else.
 
      Then `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.py set runs project` (or `home`).
-   - **Your name for reports** (`operator`). Ask, offering the name from `git config user.name` as the default, then `lab_setup.py set operator "<name>"`.
    - **Node.js** (`node`). If missing, say capture runs Playwright through node, and ask before installing it (for example `brew install node`). Without it, capture cannot run.
    - **Playwright and its Chromium** (`playwright`). Say that capture measures and photographs each component in a real browser through Playwright, that design-lab keeps one shared copy for every site so no site needs its own, and what `needsApproval` says it downloads and where. Ask; on approval run `lab_setup.py install playwright`, which records the folder as capture's default.
    - **Python packages** (`python`). Say which are missing and what they are for (`cairosvg` turns a site's SVG images into pictures Figma accepts; Pillow reads and writes images), and what `needsApproval` says. Ask; on approval run `lab_setup.py install python`.

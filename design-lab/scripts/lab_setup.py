@@ -8,7 +8,7 @@ something, in which case design-lab:init asks first.
 
     lab_setup.py check [--json]                 report every check, change nothing
     lab_setup.py set runs project|home          where runs live
-    lab_setup.py set operator "<name>"          who runs design-lab, for reports
+    lab_setup.py set operator "<name>"          another name for reports than Claude Code's account
     lab_setup.py set evaluation <corpus> <ledger> <dashboard>
     lab_setup.py install playwright             a shared Playwright and Chromium for capture
     lab_setup.py install python                 the Python packages the scripts import
@@ -167,9 +167,11 @@ def checks() -> list[dict]:
                      "not chosen: runs need a folder outside every repository"),
                      None if convention in lab_config.CONVENTIONS else "lab_setup.py set runs project|home"))
 
-    operator = config.get("operator")
-    out.append(check("operator", "ok" if operator else "advice", "Your name for reports",
-                     operator or "not set: runs use your git user name", None if operator else 'lab_setup.py set operator "<name>"'))
+    operator, account = config.get("operator"), lab_config.claude_account_name()
+    out.append(check("operator", "ok", "Your name for reports",
+                     f"{operator} (set with lab_setup.py set operator)" if operator
+                     else f"{account}, signed in to Claude Code" if account
+                     else "your git user name (Claude Code's account name could not be read)"))
 
     node = shutil.which("node")
     out.append(check("node", "ok" if node else "missing", "Node.js", node or "not on the path: capture runs Playwright through node",

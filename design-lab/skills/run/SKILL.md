@@ -43,7 +43,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py init --repo <absolute-reposito
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py detect --project <artifact-directory>
 ```
 
-Without `--workspace`, `init` creates the run folder by the person's convention (next to the project, `PROJECT/design/<date>`, or `~/.design/<project>/<date>`) and prints it: that folder is `<artifact-directory>` from here on. Give `--workspace` only when the person names a folder. Pass `--site-label`, `--site-url` and `--model` to `init`; the operator's name comes from setup. Follow `references/benchmark.md`: every run ends with the benchmark.
+Without `--workspace`, `init` creates the run folder by the person's convention (next to the project, `PROJECT/design/<date>`, or `~/.design/<project>/<date>`) and prints it: that folder is `<artifact-directory>` from here on. Give `--workspace` only when the person names a folder. Pass `--site-label`, `--site-url` and `--model` to `init`; the operator's name is the one signed in to Claude Code. Follow `references/benchmark.md`: every run ends with the benchmark.
 
 Read `detection.json`. Reconcile prior art unless the user explicitly requested an independent scratch build; in that case keep comparison artifacts hidden until the build is frozen.
 
@@ -53,7 +53,7 @@ Before any extraction, gather every answer the run will need in one message to t
 
 - the local site address, and the public address;
 - the target Figma file: new and empty, editable by the person's account; it is first opened when the build is ready to write;
-- a neutral site label (the operator's name comes from setup);
+- a neutral site label (the operator's name is the one signed in to Claude Code; never ask for it);
 - the component, token and usage sources: state the detector's recommendation and use it unless the person overrides it now;
 - for a database usage source, the DDEV project root, and what to do if that source cannot be used after all: stop, or build without usage tiers;
 - how the plan is approved: build the plan as proposed (the default, for runs left unattended) or stop for the person's review before building.
@@ -63,7 +63,7 @@ Schema churn is not a question: the run records any schema change or workaround 
 ```bash
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py preflight --project <artifact-directory> \
   --site-url <local-site-url> --public-url <public-site-url> --figma-url <file-url> \
-  --site-label "<label>" --operator "<name>" [--model <model>] [--ddev-root <path>] \
+  --site-label "<label>" [--model <model>] [--ddev-root <path>] \
   --plan-approval proposed|review [--usage-fallback stop|untiered]
 ```
 

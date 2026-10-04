@@ -35,6 +35,7 @@ class Sandbox(unittest.TestCase):
         for patch in patches:
             patch.start()
             self.addCleanup(patch.stop)
+        os.environ.pop("CLAUDE_CONFIG_DIR", None)   # restored with the environment; the sandbox's own account
 
     def configure(self, **value):
         self.config.write_text(json.dumps(value))
@@ -106,6 +107,21 @@ class WorkflowTests(Sandbox):
         self.assertEqual(project["run"]["operator"], "A. Person")
         self.assertFalse(str(runs[0]).startswith(str(repo)), "runs never live inside the repository")
 
+    def test_the_operator_is_the_person_signed_in_to_claude_code(self):
+        repo = self.repo("Sites/EXAMPLE/worktrees/main")
+        self.configure(runs={"convention": "project"})
+        (self.home / ".claude.json").write_text(json.dumps({"oauthAccount": {"fullName": "Ada Lovelace", "displayName": "Ada"}}))
+        self.init(repo)
+        run = lab_config.runs_in(self.root / "Sites/EXAMPLE/design")[0]
+        self.assertEqual(json.loads((run / "project.json").read_text())["run"]["operator"], "Ada Lovelace")
+        work = self.root / "work-account"
+        work.mkdir()
+        (work / ".claude.json").write_text(json.dumps({"oauthAccount": {"displayName": "Grace"}}))
+        with mock.patch.dict(os.environ, {"CLAUDE_CONFIG_DIR": str(work)}):
+            self.assertEqual(lab_config.claude_account_name(), "Grace", "each Claude Code account keeps its own")
+        (self.home / ".claude.json").write_text("{}")
+        self.assertIsNone(lab_config.claude_account_name())
+
     def test_watch_with_no_folder_shows_this_projects_newest_run(self):
         repo = self.repo("Sites/EXAMPLE/worktrees/main")
         self.configure(runs={"convention": "project"})
@@ -152,7 +168,7 @@ class SetupTests(Sandbox):
     def test_a_new_machine_needs_the_choices_and_the_tools(self):
         found = self.statuses()
         self.assertEqual((found["runs"]["status"], found["operator"]["status"], found["playwright"]["status"]),
-                         ("missing", "advice", "advice"), "only what a run cannot do without is missing")
+                         ("missing", "ok", "advice"), "only what a run cannot do without is missing")
         self.assertIn("150 MB", found["playwright"]["needsApproval"])
         self.assertIn("ms-playwright", found["playwright"]["needsApproval"], "it says where the browser really goes")
 
