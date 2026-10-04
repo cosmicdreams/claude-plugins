@@ -15,6 +15,7 @@
  */
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
+import { dismissCookiePreferences } from './cookie_preferences.mjs';
 
 let chromium;
 try {
@@ -251,11 +252,13 @@ const spec = {
   measurements: {},
 };
 
+let sessionState;
 for (const vp of VIEWPORTS) {
   const context = await browser.newContext({
     viewport: { width: vp.width, height: vp.height },
     ignoreHTTPSErrors: true,
     deviceScaleFactor: 2,
+    storageState: config.cookiePreferences === false ? undefined : sessionState,
   });
   const page = await context.newPage();
   const verificationUrl = config.verificationUrl ?? config.url;
@@ -274,12 +277,14 @@ for (const vp of VIEWPORTS) {
       : new Promise((done) => { img.addEventListener('load', done, { once: true }); img.addEventListener('error', done, { once: true }); setTimeout(done, 15000); })));
   });
   await page.waitForTimeout(600);
+  await dismissCookiePreferences(page, config, { waitForLoad: true });
 
   for (const state of config.states ?? [{ name: 'default' }]) {
     if (state.setup) await page.evaluate(state.setup);
     if (state.hover) await page.hover(state.hover);
     /* Let transitions settle before measuring. */
     await page.waitForTimeout(state.settle ?? 500);
+    await dismissCookiePreferences(page, config);
 
     /* The walker is stringified and rebuilt inside the page, which keeps it
        readable here as a normal function instead of an inline template. */
@@ -296,6 +301,7 @@ for (const vp of VIEWPORTS) {
     spec.measurements[`${vp.name}:${state.name}`] = result;
     if (state.teardown) await page.evaluate(state.teardown);
   }
+  if (config.cookiePreferences !== false) sessionState = await context.storageState();
   await context.close();
 }
 

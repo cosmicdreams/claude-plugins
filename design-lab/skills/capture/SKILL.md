@@ -33,6 +33,15 @@ Config shape:
 
 ## Run
 
+Measurements and screenshots close DataGrail cookie preferences through its close button,
+including its shadow DOM, and wait until the panel is hidden. Cookies and local storage carry
+forward between breakpoints within each script; a final check before each capture catches
+late panels. A panel that cannot close fails that capture. Other vendors can use
+`"cookiePreferences":{"bannerSelector":"#consent","closeSelector":".close","timeout":5000}`
+in the component config. To accept once within that script instead, use DataGrail's
+`"closeSelector":"button.accept_all"`. Use `"cookiePreferences":false` when capturing the
+cookie panel itself. This setting must be identical for measurement and screenshots.
+
 Run the full capture from a project with Playwright installed. The command scaffolds configs, measures each eligible component, takes desktop/tablet/mobile screenshots, assembles evidence, and registers it in the workspace:
 
 ```bash

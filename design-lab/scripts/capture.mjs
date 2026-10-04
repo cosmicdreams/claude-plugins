@@ -18,6 +18,7 @@
  */
 import { readFileSync, mkdirSync, writeFileSync, readdirSync } from 'node:fs';
 import { resolve, join, basename } from 'node:path';
+import { dismissCookiePreferences } from './cookie_preferences.mjs';
 
 const arg = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d : process.argv[i + 1]; };
 const has = (f) => process.argv.includes(f);
@@ -93,6 +94,7 @@ async function pickRoot(page, selector, pick) {
 const executablePath = process.env.DESIGN_LAB_BROWSER_EXECUTABLE;
 const browser = await chromium.launch(executablePath ? { executablePath } : {});
 const report = [];
+const sessionStates = new Map();
 
 for (const { file, cfg, error } of configs) {
   if (error) { report.push({ config: file, error }); continue; }
@@ -100,14 +102,16 @@ for (const { file, cfg, error } of configs) {
   const viewports = cfg.viewports ?? VIEWPORTS;
 
   for (const vp of viewports) {
+    const verificationUrl = cfg.verificationUrl ?? cfg.url;
+    const origin = verificationUrl ? new URL(verificationUrl).origin : null;
     const ctx = await browser.newContext({
       viewport: { width: vp.width, height: vp.height },
       ignoreHTTPSErrors: true,
       deviceScaleFactor: SCALE,
+      storageState: cfg.cookiePreferences === false ? undefined : sessionStates.get(origin),
     });
     const page = await ctx.newPage();
     try {
-      const verificationUrl = cfg.verificationUrl ?? cfg.url;
       if (!verificationUrl) throw new Error('config has no verificationUrl');
       await page.goto(verificationUrl, { waitUntil: 'load', timeout: TIMEOUT });
       /* Some pages hold a connection open, so networkidle never fires. Wait for fonts
@@ -123,6 +127,7 @@ for (const { file, cfg, error } of configs) {
           : new Promise((done) => { img.addEventListener('load', done, { once: true }); img.addEventListener('error', done, { once: true }); setTimeout(done, 15000); })));
       });
       await page.waitForTimeout(600);
+      await dismissCookiePreferences(page, cfg, { waitForLoad: true });
 
       for (const state of cfg.states ?? [{ name: 'default' }]) {
         /* `setup` is shared with measure.mjs, so a component that needs opening to be
@@ -151,6 +156,8 @@ for (const { file, cfg, error } of configs) {
             if (a === node || style.position !== 'static') a.style.setProperty('z-index', '2147483647', 'important');
           }
         });
+        await el.scrollIntoViewIfNeeded();
+        await dismissCookiePreferences(page, cfg);
         const box = await el.boundingBox();
         const name = `${machine}__${vp.name.toLowerCase()}${suffix}.png`;
         await el.screenshot({ path: resolve(OUT, name), timeout: 30000 });
@@ -160,6 +167,7 @@ for (const { file, cfg, error } of configs) {
                       width: Math.round(box.width), height: Math.round(box.height) });
         if (state.teardown) await page.evaluate(state.teardown);
       }
+      if (cfg.cookiePreferences !== false) sessionStates.set(origin, await ctx.storageState());
     } catch (e) {
       report.push({ machine, viewport: vp.name, error: String(e).slice(0, 160) });
     }
