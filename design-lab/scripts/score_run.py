@@ -1252,6 +1252,23 @@ def working_phrase(working: dict) -> str:
                if bench.get("status") == "measured" else ""))
 
 
+def fonts_phrase(run_dir: Path) -> str:
+    """The run's font decisions in one line: which families Figma drew with a stand-in, by default."""
+    try:
+        document = json.loads((run_dir / "fonts.json").read_text())
+    except (OSError, ValueError):
+        return "not checked (runs before the font step, or no connection to Figma yet)"
+    if not document.get("figmaChecked"):
+        return "not checked against Figma"
+    families = document.get("families") or []
+    stand_ins = [f for f in families if f.get("standIn")]
+    if not stand_ins:
+        return f"all {len(families)} font famil{'y' if len(families) == 1 else 'ies'} the site renders were available to Figma"
+    return ("; ".join(f"{f['family']} drawn in {f['standIn']['family']} (a stand-in, by default, in "
+                      f"{f['components']} component{'s' if f['components'] != 1 else ''})" for f in stand_ins)
+            + "; `workflow.py report fonts` says how to get the real font, then rebuild")
+
+
 def completion_message(card: dict, report: Path) -> str:
     """Fill references/completion-message.md, the fixed reply design-lab:run ends with."""
     text = COMPLETION_TEMPLATE.read_text(encoding="utf-8")
@@ -1302,6 +1319,7 @@ def completion_message(card: dict, report: Path) -> str:
         "benchmark_tokens": (token_list((model.get("benchmark") or {}).get("byModel"))
                              if (model.get("benchmark") or {}).get("status") == "measured" else "not measured"),
         "not_measured": "; ".join(missing),
+        "fonts": fonts_phrase(Path(card["run"]["directory"])),
         # The same split and wording as the report's coverage strip and "What the run built".
         "gaps": (("not built: " + ("; ".join(f"{n} {cov['reasonLabels'][k]}" for k, n in cov["gap"].items() if n)
                                    or "none"))

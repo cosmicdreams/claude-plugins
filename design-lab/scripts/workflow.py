@@ -959,7 +959,34 @@ def connect_command(args):
               "coverId": handshake.get("coverId"), "font": handshake.get("font"),
               "fontLoaded": handshake.get("fontLoaded")}
     set_phase(path, project, "connect", "complete", detail, at=handshake.get("at") or now())
-    print(json.dumps({"ok": True, "connection": connection, "handshake": handshake}, indent=2))
+    # The person is at Figma now: say which of the site's fonts Figma lacks, what stands in for each
+    # by default, and how to get the real one (then connect again).
+    figma_fonts = handshake.pop("fonts", None)
+    font_lines = font_plan(path.parent, project, figma_fonts)
+    print("\n".join(font_lines), file=sys.stderr, flush=True)
+    print(json.dumps({"ok": True, "connection": connection, "handshake": handshake, "fonts": font_lines}, indent=2))
+
+
+def font_plan(workspace: Path, project: dict, figma_fonts: dict | None) -> list[str]:
+    """Write fonts.json: the families the site renders, which Figma has, and the stand-in and the
+    route to the real font for each it lacks. Figma's own list comes from the runner at connect."""
+    import fonts
+    listing = workspace / "figma" / "available-fonts.json"
+    if figma_fonts:
+        write_json(listing, figma_fonts)
+    elif listing.is_file():
+        figma_fonts = load_json(listing)
+    folder = (project.get("decisions") or {}).get("sitestudioConfig")
+    document = fonts.finalise(fonts.plan(workspace, Path(project["repository"]["root"]),
+                                         Path(folder) if folder else None, figma_fonts or None))
+    document["generatedAt"] = now()
+    write_json(workspace / "fonts.json", document)
+    return fonts.summary_lines(document)
+
+
+def fonts_command(args):
+    path, project = load_project(args.project)
+    print("\n".join(font_plan(path.parent, project, None)))
 
 
 def approve_command(args):
@@ -1270,7 +1297,7 @@ def recap_is_current(workspace: Path, project: dict) -> bool:
     return ((project.get("phases") or {}).get("benchmark") or {}).get("status") == "complete"
 
 
-REPORT_TOPICS = ("capture", "selectors", "plan", "verify", "build")
+REPORT_TOPICS = ("capture", "selectors", "plan", "verify", "build", "fonts")
 
 
 def report_lines(workspace: Path, topic: str) -> list[str]:
@@ -1316,6 +1343,10 @@ def report_lines(workspace: Path, topic: str) -> list[str]:
         for f in findings[:30]:
             out.append(f"  [{f.get('severity')}] {f.get('check')} {f.get('scope') or ''}: {(f.get('detail') or '')[:140]}")
         return out
+    if topic == "fonts":
+        import fonts
+        document = read_json_or(workspace / "fonts.json")
+        return fonts.summary_lines(document) if document else ["no font plan yet: workflow.py connect writes it"]
     if topic == "build":
         state = read_json_or(workspace / "figma" / "state.json", {}) or {}
         log = workspace / "figma" / "runner.log"
@@ -1489,6 +1520,10 @@ def main():
     command.add_argument("--usage-fallback", choices=("stop", "untiered"), default="stop",
                          help="if the detected usage source cannot be used: stop, or build untiered")
     command.set_defaults(func=preflight_command)
+
+    command = sub.add_parser("fonts", help="which of the site's fonts Figma has, the stand-ins, and how to get the rest")
+    command.add_argument("--project", required=True)
+    command.set_defaults(func=fonts_command)
 
     command = sub.add_parser("report", help="a short summary of one part of a run: " + ", ".join(REPORT_TOPICS))
     command.add_argument("topic", choices=REPORT_TOPICS)

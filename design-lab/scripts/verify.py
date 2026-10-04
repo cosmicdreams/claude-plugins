@@ -820,6 +820,24 @@ def check_fonts_available(builds_dir, rep):
                 families.add(family)
         for family in families:
             missing.setdefault(family, []).append(os.path.basename(path)[:-5])
+    # The run's font plan records a stand-in for each family Figma lacks: drawn that way by
+    # default, as a decision the person can change, so it is reported as one, not as a failure.
+    try:
+        plan = json.load(open(os.path.join(os.path.dirname(os.path.abspath(builds_dir)), 'fonts.json')))
+    except (ValueError, IOError, OSError):
+        plan = {}
+    decided = {f.get('cssFamily') or f['family']: f for f in plan.get('families') or [] if f.get('standIn')}
+    decided.update({f['family']: f for f in decided.values()})
+    stand_ins = {fam: cs for fam, cs in missing.items() if fam in decided}
+    missing = {fam: cs for fam, cs in missing.items() if fam not in decided}
+    if stand_ins:
+        rep.add('fonts-stand-in', 'minor', 'file',
+                '%s drawn in %s by default, as recorded in fonts.json; to use the real font, follow '
+                '`workflow.py report fonts` and rebuild'
+                % (' and '.join(sorted(stand_ins)),
+                   ' and '.join(sorted({decided[f]['standIn']['family'] for f in stand_ins}))),
+                evidence=['%s -> %s (%d components)' % (f, decided[f]['standIn']['family'], len(c))
+                          for f, c in sorted(stand_ins.items())])
     if missing:
         rep.add('fonts-available', 'major', 'file',
                 '%d font famil%s used by the site %s not available to Figma, so text in %d '

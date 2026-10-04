@@ -77,25 +77,73 @@ const bind = (node, field, v) => {
   else node[field] = v;
 };
 
-/* ---- Fonts and colours: fixed rules: nearest available weight, colours bound by code syntax. */
-const WEIGHT_STYLES = { 100: ['Thin'], 200: ['ExtraLight', 'Extra Light'], 300: ['Light'], 400: ['Regular'],
-  500: ['Medium'], 600: ['SemiBold', 'Semi Bold'], 700: ['Bold'], 800: ['ExtraBold', 'Extra Bold'], 900: ['Black'] };
+/* ---- Fonts: the run's font plan (fonts.json, made at connect) first, then name matching against
+   what this Figma can draw with. A family Figma lacks is drawn in the plan's stand-in, never silently. */
+const FONTS = ARGS.fonts || null;
 const fams = {};
 for (const f of await figma.listAvailableFontsAsync()) (fams[f.fontName.family] ||= new Set()).add(f.fontName.style);
 /* CSS names a font by its web-font id (`articulat-cf`); Figma by its family (`Articulat CF`). */
 const famKey = (name) => String(name || '').toLowerCase().replace(/[^a-z0-9]/g, '');
 const famByKey = {};
 for (const name of Object.keys(fams)) famByKey[famKey(name)] ||= name;
-function resolveFont(family, weight, italic) {
-  const fam = fams[family] ? family : (famByKey[famKey(family)] || 'Inter');
-  if (fam === 'Inter' && famKey(family) !== 'inter' && !report.missingFonts.includes(family)) report.missingFonts.push(family);
-  const styles = fams[fam];
-  const ws = Object.keys(WEIGHT_STYLES).map(Number).sort((a, b) => Math.abs(a - weight) - Math.abs(b - weight) || a - b);
-  for (const w of ws) for (const base of WEIGHT_STYLES[w]) {
-    const n = italic ? (base === 'Regular' ? 'Italic' : `${base} Italic`) : base;
-    if (styles.has(n)) return { family: fam, style: n };
+/* A family as Figma has it: exactly, ignoring case and punctuation, or with a trial or web suffix. */
+function findFamily(name) {
+  if (!name) return null;
+  if (fams[name]) return name;
+  const key = famKey(name);
+  if (famByKey[key]) return famByKey[key];
+  for (const suffix of ['trial', 'web', 'pro', 'std', 'text']) {
+    if (famByKey[key + suffix]) return famByKey[key + suffix];
+    if (key.endsWith(suffix) && famByKey[key.slice(0, -suffix.length)]) return famByKey[key.slice(0, -suffix.length)];
   }
-  return { family: fam, style: [...styles][0] };
+  return null;
+}
+/* Style names compared generously: Semibold, Semi Bold and SemiBold are one face; so are Book and
+   Regular, Demi and SemiBold, Heavy and Black, Oblique and Italic. */
+const SYNONYMS = [['ultralight', 'extralight'], ['ultrabold', 'extrabold'], ['demibold', 'semibold'], ['demi', 'semibold'],
+  ['book', 'regular'], ['normal', 'regular'], ['roman', 'regular'], ['heavy', 'black'], ['oblique', 'italic']];
+function canon(style) {
+  let k = String(style || '').toLowerCase().replace(/[^a-z]/g, '');
+  for (const [from, to] of SYNONYMS) if (k.includes(from) && !k.includes(to)) k = k.replace(from, to);
+  return k === 'regularitalic' ? 'italic' : k;
+}
+const WEIGHT_NAMES = { 100: 'thin', 200: 'extralight', 300: 'light', 400: 'regular', 500: 'medium', 600: 'semibold', 700: 'bold', 800: 'extrabold', 900: 'black' };
+const styleFor = (base, italic) => (italic ? (base === 'regular' ? 'italic' : `${base}italic`) : base);
+function pickStyle(fam, wanted, weight, italic) {
+  const styles = [...fams[fam]];
+  const byCanon = {};
+  for (const s of styles) byCanon[canon(s)] ||= s;
+  if (wanted && byCanon[wanted]) return { style: byCanon[wanted], exact: true };
+  const ws = Object.keys(WEIGHT_NAMES).map(Number).sort((a, b) => Math.abs(a - weight) - Math.abs(b - weight) || a - b);
+  for (const w of ws) {
+    const s = byCanon[styleFor(WEIGHT_NAMES[w], italic)];
+    if (s) return { style: s, exact: !wanted && w === weight };
+  }
+  return { style: styles[0], exact: false };
+}
+async function resolveFont(t) {
+  /* The family the visitor saw: the plan names it for this stack (a never-served first family is
+     skipped, as the browser skips it); an icon font stays as written. */
+  const seen = (FONTS && FONTS.stacks && FONTS.stacks[t.stack]) || t.family;
+  const plan = FONTS && FONTS.families && FONTS.families[famKey(seen)];
+  let fam = findFamily(plan ? plan.family : seen);
+  const standIn = !!(plan && plan.standIn) || !fam;
+  if (!fam) fam = findFamily('Inter') || Object.keys(fams)[0];
+  if (standIn && famKey(seen) !== famKey(fam) && !report.missingFonts.includes(seen)) report.missingFonts.push(seen);
+  if (standIn) report.standIns[seen] = fam;
+  const face = plan && plan.faces && plan.faces[`${t.weight}|${t.italic ? 1 : 0}`];
+  const wanted = face ? canon(face) : styleFor(WEIGHT_NAMES[Math.round(t.weight / 100) * 100] || 'regular', t.italic);
+  const picked = pickStyle(fam, wanted, t.weight, t.italic);
+  const font = { family: fam, style: picked.style };
+  /* A variable family draws the exact weight on its axis when no named style matches it. */
+  if (!picked.exact && typeof figma.getFontFamilyVariationAxes === 'function') {
+    try {
+      const axes = await figma.getFontFamilyVariationAxes(fam);
+      if (axes && axes.some((a) => (a.tag || a) === 'wght')) font.variationSettings = { wght: t.weight };
+    } catch (e) { /* static family */ }
+  }
+  if (!picked.exact && !font.variationSettings) report.styleFallbacks[`${seen} ${t.weight}${t.italic ? ' italic' : ''}`] = `${fam} ${picked.style}`;
+  return font;
 }
 const codeVars = {};
 for (const v of await figma.variables.getLocalVariablesAsync()) {
@@ -103,7 +151,7 @@ for (const v of await figma.variables.getLocalVariablesAsync()) {
   if (m) codeVars[m[1]] = v;
 }
 const hexRgb = (h) => ({ r: parseInt(h.slice(1, 3), 16) / 255, g: parseInt(h.slice(3, 5), 16) / 255, b: parseInt(h.slice(5, 7), 16) / 255 });
-const report = { created: 0, bound: 0, literal: 0, variables: Object.keys(vars).length, fonts: {}, missingFonts: [], nested: [], nestedMismatch: [], images: [], svgFailures: [], fellBack: [] };
+const report = { created: 0, bound: 0, literal: 0, variables: Object.keys(vars).length, fonts: {}, missingFonts: [], standIns: {}, styleFallbacks: {}, nested: [], nestedMismatch: [], images: [], svgFailures: [], fellBack: [] };
 function paint(c) {
   let p = { type: 'SOLID', color: hexRgb(c.hex), opacity: c.opacity ?? 1 };
   const v = c.var && codeVars[c.var];
@@ -234,11 +282,12 @@ async function build(spec, parent, parentAuto) {
     // the instance above
   } else if (spec.kind === 'text') {
     const t = spec.text;
-    const font = resolveFont(t.family, t.weight, t.italic);
-    await figma.loadFontAsync(font);
+    const font = await resolveFont(t);
+    await figma.loadFontAsync({ family: font.family, style: font.style });
     report.fonts[`${t.family} ${t.weight}`] = `${font.family} ${font.style}`;
     node = figma.createText();
-    node.fontName = font;
+    /* A Figma without variable-font support refuses variationSettings: draw the named style. */
+    try { node.fontName = font; } catch (e) { node.fontName = { family: font.family, style: font.style }; }
     node.characters = t.characters;
     bind(node, 'fontSize', t.size);
     if (t.lineHeight) { if (isVar(t.lineHeight)) node.setBoundVariable('lineHeight', vars[t.lineHeight.var]); else node.lineHeight = { unit: 'PIXELS', value: t.lineHeight }; }

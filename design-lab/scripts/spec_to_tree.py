@@ -379,6 +379,9 @@ def text_of(node: dict, chars: str) -> dict:
     return {
         "characters": chars,
         "family": family,
+        # The whole stack: when its first family is never served, the visitor sees a later one,
+        # and the build's font plan (fonts.json) says which.
+        "stack": c.get("fontFamily") or "",
         "familyVar": css_var(d.get("font-family")),
         "weight": int(re.sub(r"\D", "", c.get("fontWeight") or "400") or 400),
         "italic": c.get("fontStyle") == "italic",

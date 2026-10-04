@@ -210,6 +210,9 @@ def generate(project: Path) -> list[tuple[str, Path, str, str | None]]:
                       'collectionId': build.get('collectionId'),
                       'fonts': build.get('fonts') or {},
                       'missingFonts': build.get('missingFonts') or [],
+                      # Families drawn in the font plan's stand-in, and weights drawn in another style.
+                      'standIns': build.get('standIns') or {},
+                      'styleFallbacks': build.get('styleFallbacks') or {},
                       # A child rendering whose structure differs from the child's master: built as
                       # it stands rather than as an instance showing other content.
                       'nestedMismatch': build.get('nestedMismatch') or [],
