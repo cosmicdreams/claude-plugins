@@ -23,7 +23,7 @@ The Paragraphs site also has 13 custom Single Directory Components, but only 6 a
 
 ## Start here
 
-Run `design-lab:init` once on a new machine. It settles everything about you and the machine, asking before it installs or changes anything: where runs live (next to each project as `PROJECT/design/<date>`, or in `~/.design/<project>/<date>`; runs are personal and never committed), your name for reports, one shared Playwright and its browser for capture, the Python packages, the Figma runner, and the Claude Code setting that would otherwise make runs ask you to approve commands. `lab_setup.py check` reports the same without changing anything. Everything about one site belongs to preflight, at the start of each run.
+Run `design-lab:init` once on a new machine. It settles everything about you and the machine, asking before it installs or changes anything: where runs live (next to each project as `PROJECT/design/<date>`, or in `~/.design/<project>/<date>`; runs are personal and never committed), one shared Playwright and its browser for capture, the Python packages, the Figma runner, and the Claude Code setting that would otherwise make runs ask you to approve commands. `lab_setup.py check` reports the same without changing anything. Everything about one site belongs to preflight, at the start of each run.
 
 Use `design-lab:run` for a complete library. It creates a run folder outside the repository (where, `design-lab:init` decided) with its `project.json`, records the repository commit and every strategy decision, validates artifacts before rendering, and can resume from the first incomplete phase. Use a narrower skill only when the request names a single phase.
 
@@ -33,7 +33,7 @@ Builds write into Figma through the design-lab runner, a Figma development plugi
 
 | Skill | Does |
 |---|---|
-| `design-lab:init` | once per machine: where runs live, your name, capture tools, the Figma runner, Claude Code settings |
+| `design-lab:init` | once per machine: where runs live, capture tools, the Figma runner, Claude Code settings |
 | `design-lab:run` | end-to-end, resumable workflow and completion gate |
 | `design-lab:detect` | which strategies apply |
 | `design-lab:inventory` | components + fields + slots + source defects -> `components.json` |
