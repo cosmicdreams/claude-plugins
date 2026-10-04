@@ -332,6 +332,10 @@ def main(argv=None):
         import lab_config
         shared = lab_config.read_config().get("nodeCwd")
         if not shared:
+            import lab_setup
+            if (lab_setup.playwright_folder() / "node_modules" / "playwright").is_dir():
+                shared = str(lab_setup.playwright_folder())
+        if not shared:
             parser.error("--node-cwd is needed: no shared Playwright is set up; run design-lab:init, or give a "
                          "folder where node resolves Playwright")
         args.node_cwd = Path(shared)

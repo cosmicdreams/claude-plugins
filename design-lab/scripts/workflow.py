@@ -148,8 +148,14 @@ def init_command(args):
     repo = Path(args.repo).resolve()
     if not repo.is_dir():
         raise ValueError(f"repository does not exist: {repo}")
+    import lab_config
     if args.workspace:
         workspace = Path(args.workspace).resolve()
+        inside = lab_config.inside_repository(workspace)
+        if inside is not None and not args.force:
+            raise ValueError(f"{workspace} is inside the working copy {inside}; runs are personal and never committed, so "
+                             "they live outside every repository (leave --workspace out to use the folder design-lab:init "
+                             "chose; --force allows it for a run that must stay there)")
     else:
         # Runs are personal and never committed: by the convention design-lab:init recorded,
         # next to the project (PROJECT/design/<date>) or in ~/.design/<project>/<date>.
@@ -1272,11 +1278,21 @@ def report_lines(workspace: Path, topic: str) -> list[str]:
     one plain command instead of inline scripts, which Claude Code asks the person to approve."""
     import collections
     if topic == "capture":
-        log = workspace / "capture" / "capture-run.log"
-        lines = log.read_text(errors="replace").splitlines() if log.is_file() else []
-        steps = [line for line in lines if line.startswith("[")]
-        return ([f"capture log: {log}"] + (steps[-3:] or ["no component captured yet"]) + lines[-3:]) if lines else \
-            [f"capture has not started: no {log}"]
+        configs = sorted((workspace / "capture" / "configs").glob("*.json"))
+        records = {}
+        for path in sorted((workspace / "capture" / "records").glob("*.json")):
+            record = read_json_or(path, {}) or {}
+            records[record.get("componentId") or path.stem] = record
+        if not configs and not records:
+            return ["capture has not started: no capture configs or records yet"]
+        status = collections.Counter(r.get("status") or "unknown" for r in records.values())
+        out = [f"{len(records)} of {len(configs)} component(s) captured: "
+               + (", ".join(f"{n} {s}" for s, n in status.most_common()) or "none yet")]
+        for cid, record in records.items():
+            if record.get("status") != "complete":
+                problems = "; ".join(str(p) for p in (record.get("problems") or [])[:2])
+                out.append(f"  {cid}: {record.get('status')}{(' - ' + problems[:160]) if problems else ''}")
+        return out[:40]
     if topic == "selectors":
         check = read_json_or(workspace / "capture" / "selector-check.json", [])
         bad = [c for c in check if not c.get("chosen")]
@@ -1376,7 +1392,13 @@ def watch_command(args):
     import lab_config
     # With no folder: this project's newest run by the person's convention, else the run the
     # machine-wide pointer names (a session started outside any project).
-    workspace = Path(args.project) if args.project else (lab_config.current_run(Path.cwd()) or active_run())
+    if args.project:
+        workspace = Path(args.project)
+    else:
+        run, folder = lab_config.current_run(Path.cwd())
+        if folder is not None and run is None:
+            raise ValueError(f"no design-lab run yet in {folder}")
+        workspace = run or active_run()
     if workspace is None:
         raise ValueError("no design-lab run found for this folder; give the run folder with --project")
     print(render_watch(watch_summary(workspace)))

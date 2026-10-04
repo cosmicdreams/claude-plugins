@@ -54,7 +54,8 @@ def read_config() -> dict:
 
 
 def write_config(value: dict) -> Path:
-    """Replace the configuration in one step, keeping every key this call does not touch."""
+    """Replace the whole configuration in one step. Callers read it, change their keys and write
+    it back, so the keys they do not touch are kept."""
     path = config_path()
     path.parent.mkdir(parents=True, exist_ok=True)
     temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
@@ -119,8 +120,17 @@ def runs_folder(start: Path, config: dict | None = None) -> Path:
     return folder / "design"
 
 
+def inside_repository(path: Path) -> Path | None:
+    """The working copy a path would land in, every link followed, or None."""
+    resolved = Path(path).expanduser()
+    while not resolved.exists() and resolved != resolved.parent:
+        resolved = resolved.parent
+    return repository_root(resolved.resolve())
+
+
 def runs_in(folder: Path) -> list[Path]:
-    """The run folders in a runs folder, oldest first by when each run began."""
+    """The run folders in a runs folder, oldest first by when each run began, then by folder name
+    (the pane orders them the same way)."""
     found = []
     for child in folder.iterdir() if folder.is_dir() else ():
         try:
@@ -132,19 +142,31 @@ def runs_in(folder: Path) -> list[Path]:
 
 
 def next_run(start: Path, today: str, config: dict | None = None) -> Path:
-    """A new run folder for today: <runs>/<date>, then <date>-2, -3 for later runs that day."""
+    """A new run folder for today, created here so no other run can take it: <runs>/<date>, then
+    <date>-2, -3 for later runs that day."""
     folder = runs_folder(start, config)
-    candidate, n = folder / today, 1
-    while candidate.exists():
-        n += 1
-        candidate = folder / f"{today}-{n}"
-    return candidate
+    repo = inside_repository(folder)
+    if repo is not None:
+        raise ValueError(f"the runs folder {folder} is inside the working copy {repo}; runs are personal and never "
+                         "committed, so they live outside every repository")
+    folder.mkdir(parents=True, exist_ok=True)
+    n = 1
+    while True:
+        candidate = folder / (today if n == 1 else f"{today}-{n}")
+        try:
+            candidate.mkdir()
+            return candidate
+        except FileExistsError:
+            n += 1
 
 
-def current_run(start: Path) -> Path | None:
-    """The run to show for a session in `start`: the newest in this project's runs folder."""
+def current_run(start: Path) -> tuple[Path | None, Path | None]:
+    """The run to show for a session in `start`, and the runs folder it came from: the newest run
+    there, or (None, folder) when this project has no run yet; (None, None) when no runs folder
+    can be determined (no setup, or no recognisable project)."""
     try:
-        runs = runs_in(runs_folder(start))
+        folder = runs_folder(start)
     except ValueError:
-        return None
-    return runs[-1] if runs else None
+        return None, None
+    runs = runs_in(folder)
+    return (runs[-1] if runs else None), folder

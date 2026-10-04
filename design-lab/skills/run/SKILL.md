@@ -14,7 +14,7 @@ Own the whole outcome. Durable artifacts, not conversation memory, determine wha
 
 ## Commands that never need approval
 
-Run folders live outside the repository, and Claude Code asks the person to approve any command it cannot fully check (a `cd`, shell variables, loops, inline scripts), even with permission checks bypassed when its read-blocking setting is on. So:
+Run folders live outside the repository, and so do design-lab's own scripts. With Claude Code's read-blocking setting on, every command naming them waits for the person, even with permission checks bypassed, unless `design-lab:init` allowed design-lab's folders (the setup check below says so). Whatever the setting, keep commands to what Claude Code can check:
 
 - Run every script with absolute paths and `--project <artifact-directory>`, one command at a time. Never `cd`, never assign shell variables, never write loops or `python3 -c` scripts.
 - To see how a run is going, use `workflow.py report <topic> --project <artifact-directory>`, where topic is `capture` (progress), `selectors` (components with no visible match), `plan` (what is built and why the rest is refused), `verify` (open findings) or `build` (steps recorded, failures). Read artifacts with the Read tool.

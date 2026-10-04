@@ -13,7 +13,9 @@ something, in which case design-lab:init asks first.
     lab_setup.py install playwright             a shared Playwright and Chromium for capture
     lab_setup.py install python                 the Python packages the scripts import
     lab_setup.py runner [--imported]            refresh the runner copy and token; record the import
-    lab_setup.py claude-settings --allow-reads  remove the read-blocking setting (asked first)
+    lab_setup.py claude-settings --allow-folders [<projects folder> ...]
+                                                let Claude Code read design-lab's folders (asked first)
+    lab_setup.py claude-settings --allow-reads  or turn the read-blocking setting off (asked first)
 """
 from __future__ import annotations
 
@@ -87,6 +89,39 @@ def claude_config_dirs() -> list[Path]:
             seen.add(settings)
             out.append(folder)
     return out
+
+
+def plugin_folders() -> list[Path]:
+    """Where design-lab's scripts live for each account: the installed plugin's folder (above its
+    version folder, so updates stay covered), or this working copy when run from one."""
+    folders = []
+    for config in claude_config_dirs():
+        cache = config / "plugins" / "cache" / "local" / "design-lab"
+        if cache.is_dir():
+            folders.append(cache.resolve())
+    if not any(PLUGIN_DIR.is_relative_to(folder) for folder in folders):
+        folders.append(PLUGIN_DIR)
+    return folders
+
+
+def run_folders(config: dict) -> list[Path]:
+    """Where runs live: ~/.design, or the folders the person keeps projects in."""
+    if (config.get("runs") or {}).get("convention") == "home":
+        return [Path.home() / ".design"]
+    return [Path(p).expanduser() for p in (config.get("runs") or {}).get("projectsFolders") or []]
+
+
+def allowed_folders(path: Path) -> list[Path]:
+    try:
+        value = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return []
+    return [Path(p).expanduser() for p in (value.get("permissions") or {}).get("additionalDirectories") or []]
+
+
+def uncovered(needed: list[Path], allowed: list[Path]) -> list[Path]:
+    return [n for n in needed if not any(n.resolve() == a.resolve() or n.resolve().is_relative_to(a.resolve())
+                                         for a in allowed)]
 
 
 def blocking_settings() -> list[Path]:
@@ -168,13 +203,28 @@ def checks() -> list[dict]:
                      None if status == "ok" else "lab_setup.py runner, then import it in Figma desktop, then lab_setup.py runner --imported",
                      manifest=str(figma_runner.HOME / "runner" / "manifest.json")))
 
+    # With Claude Code's read-blocking setting on, every command that names a folder outside the
+    # session's own (design-lab's scripts, the run folders) waits for the person, even with
+    # permission checks bypassed: runs cannot go unattended until those folders are allowed or
+    # the setting is off. Allowing the folders keeps the protection everywhere else.
     blocking = blocking_settings()
-    out.append(check("claude-settings", "advice" if blocking else "ok", "Claude Code runs design-lab without asking",
-                     (f"{READ_BLOCK} is on in {', '.join(map(str, blocking))}: runs keep their folders outside the "
-                      "repository, so Claude Code asks you to approve any command it cannot fully check, even with "
-                      "permission checks bypassed") if blocking else f"{READ_BLOCK} is off",
-                     "lab_setup.py claude-settings --allow-reads" if blocking else None,
-                     "changes your Claude Code settings; open sessions need restarting" if blocking else None))
+    needed = plugin_folders() + run_folders(config)
+    missing_folders = sorted({str(f) for path in blocking for f in uncovered(needed, allowed_folders(path))})
+    no_projects = blocking and convention == "project" and not run_folders(config)
+    if not blocking:
+        detail, status = f"{READ_BLOCK} is off", "ok"
+    elif not missing_folders and not no_projects:
+        detail, status = f"{READ_BLOCK} is on, and design-lab's folders are allowed", "ok"
+    else:
+        detail, status = (f"{READ_BLOCK} is on in {', '.join(map(str, blocking))}: Claude Code makes you approve every "
+                          "command that names a folder outside the session's own, even with permission checks bypassed, "
+                          "so runs cannot go unattended. Not yet allowed: "
+                          + ", ".join(missing_folders + (["the folders you keep projects in"] if no_projects else []))), "missing"
+    out.append(check("claude-settings", status, "Claude Code runs design-lab without asking", detail,
+                     None if status == "ok" else "lab_setup.py claude-settings --allow-folders <the folders you keep projects in> "
+                     "(recommended: keeps the setting for everything else), or --allow-reads (turns it off)",
+                     None if status == "ok" else "changes your Claude Code settings; open sessions need restarting",
+                     neededFolders=[str(f) for f in needed]))
 
     version = claude_version()
     pane = version is not None and version >= PANE_VERSION
@@ -258,6 +308,30 @@ def runner(imported: bool) -> dict:
             "token": "ready (copy it in your own terminal with: pbcopy < ~/.design-lab/runner-token)"}
 
 
+def allow_folders(projects: list[str]) -> dict:
+    """Add design-lab's folders to Claude Code's allowed folders, in every settings file that
+    blocks reads; the project folders are remembered for the next check."""
+    config = lab_config.read_config()
+    if projects:
+        runs = config.setdefault("runs", {})
+        runs["projectsFolders"] = sorted({*runs.get("projectsFolders", []),
+                                          *(str(Path(p).expanduser().resolve()) for p in projects)})
+        lab_config.write_config(config)
+    needed = plugin_folders() + run_folders(config)
+    changed = []
+    for path in blocking_settings():
+        value = json.loads(path.read_text(encoding="utf-8"))
+        allowed = value.setdefault("permissions", {}).setdefault("additionalDirectories", [])
+        added = [str(f) for f in uncovered(needed, [Path(p).expanduser() for p in allowed])]
+        if added:
+            allowed.extend(added)
+            temporary = path.with_name(f".{path.name}.{os.getpid()}.tmp")
+            temporary.write_text(json.dumps(value, indent=2) + "\n", encoding="utf-8")
+            os.replace(temporary, path)
+            changed.append({"settings": str(path), "added": added})
+    return {"changed": changed, "restart": bool(changed)}
+
+
 def allow_reads() -> dict:
     changed = []
     for path in blocking_settings():
@@ -283,7 +357,10 @@ def main(argv=None) -> int:
     r = sub.add_parser("runner")
     r.add_argument("--imported", action="store_true", help="record that the runner is imported into Figma desktop")
     a = sub.add_parser("claude-settings")
-    a.add_argument("--allow-reads", action="store_true", required=True)
+    group = a.add_mutually_exclusive_group(required=True)
+    group.add_argument("--allow-folders", nargs="*", metavar="PROJECTS_FOLDER",
+                       help="allow design-lab's folders (and the folders you keep projects in, for the project convention)")
+    group.add_argument("--allow-reads", action="store_true", help="turn the read-blocking setting off")
     args = parser.parse_args(argv)
     try:
         if args.command == "check":
@@ -300,7 +377,8 @@ def main(argv=None) -> int:
         result = (set_value(args.key, args.values) if args.command == "set" else
                   install_playwright() if args.command == "install" and args.what == "playwright" else
                   install_python() if args.command == "install" else
-                  runner(args.imported) if args.command == "runner" else allow_reads())
+                  runner(args.imported) if args.command == "runner" else
+                  allow_folders(args.allow_folders) if args.allow_folders is not None else allow_reads())
         print(json.dumps(result, indent=2))
         return 0
     except (ValueError, RuntimeError) as error:

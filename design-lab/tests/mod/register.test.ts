@@ -20,7 +20,8 @@ const progress = (lastSeenAgoMs: number, atAgoMs = 1_000) => JSON.stringify({
 })
 
 /** A machine with one run on it, answered from memory; keeps what the mod asks of it. */
-function world(on: On, files: Record<string, string>, surfaces: RenderSurface[] = ['terminal'], composer = true, cwd = '/work') {
+function world(on: On, files: Record<string, string>, surfaces: RenderSurface[] = ['terminal'], composer = true, cwd = '/work',
+  links: Record<string, string> = {}) {
   const reads: string[] = []
   const statuses: (string | undefined)[] = []
   const toasts: string[] = []
@@ -43,9 +44,19 @@ function world(on: On, files: Record<string, string>, surfaces: RenderSurface[] 
     for (const f of Object.keys(files)) if (f.startsWith(`${e.path}/`)) names.add(f.slice(e.path.length + 1).split('/')[0]!)
     return { value: [...names].map(name => ({ name, kind: isDir(`${e.path}/${name}`) ? 'dir' as const : 'file' as const, size: 0, mtimeMs: 0, isLink: false })) }
   })
-  on('fs.stat', ($, e) => (e.path in files
-    ? { value: { kind: 'file', size: files[e.path]!.length, mtimeMs: 0, isLink: false } }
-    : { deny: 'missing' }))
+  // Links: a path under a linked folder lands under its target, as the real file system resolves it.
+  const land = (path: string) => {
+    for (const [from, to] of Object.entries(links)) if (path === from || path.startsWith(`${from}/`)) return to + path.slice(from.length)
+    return path
+  }
+  on('fs.stat', ($, e) => {
+    const target = land(e.path)
+    if (target in files) return { value: { kind: 'file' as const, size: files[target]!.length, mtimeMs: 0, isLink: target !== e.path,
+      ...(e.resolve ? { realPath: target } : {}) } }
+    if (Object.keys(files).some(f => f.startsWith(`${target}/`))) return { value: { kind: 'dir' as const, size: 0, mtimeMs: 0,
+      isLink: target !== e.path, ...(e.resolve ? { realPath: target } : {}) } }
+    return { deny: 'missing' }
+  })
   on('ui.status', ($, e) => { statuses.push(e.text); return { value: undefined } })
   on('ui.toast', ($, e) => { toasts.push(e.text); return { value: undefined } })
   on('ui.open', ($, e) => { opened.push(e.focus ? `${e.id} (front)` : e.id); return { value: { isPlaced: true } } })
@@ -307,6 +318,42 @@ describe('design-lab:watch', () => {
       world(on, { [`${REPO}/.git`]: 'gitdir: x' }, ['terminal'], true, REPO)
       await $.session.start({ ...SESSION, cwd: REPO })
       expect((await $.command.run(WATCH)).text).toContain('run design-lab:init once')
+    })
+  
+    test('an empty runs folder waits for this project, never another project the pointer names', async ($, on) => {
+      const files: Record<string, string> = { [`${HOME}/.claude/design-lab.json`]: CONFIG, [`${REPO}/.git`]: 'gitdir: x',
+        [`${PROJECT_DIR}/design/.keep`]: '',
+        [`${HOME}/.design-lab/active-run.json`]: JSON.stringify({ workspace: '/elsewhere/OTHER/design/run' }),
+        ['/elsewhere/OTHER/design/run/project.json']: JSON.stringify({ createdAt: '2026-10-01T09:00:00+00:00', run: { siteLabel: 'Other' } }) }
+      world(on, files, ['terminal'], true, REPO)
+      await $.session.start({ ...SESSION, cwd: REPO })
+      const answer = (await $.command.run(WATCH)).text
+      expect(answer).toContain(`No design-lab run yet in ${PROJECT_DIR}/design`)
+      expect(answer).not.toContain('Other')
+    })
+
+    test('runs that began in the same second are ordered by folder name, as the scripts order them', async ($, on) => {
+      const files: Record<string, string> = { [`${HOME}/.claude/design-lab.json`]: CONFIG, [`${REPO}/.git`]: 'gitdir: x',
+        ...run('2026-10-03-2', '2026-10-03T09:00:00+00:00'), ...run('2026-10-03', '2026-10-03T09:00:00+00:00') }
+      world(on, files, ['terminal'], true, REPO)
+      await $.session.start({ ...SESSION, cwd: REPO })
+      expect((await $.command.run(WATCH)).text).toBe('Watching Example 2026-10-03-2.')
+    })
+
+    test('a session in a linked folder finds the project the link leads to', async ($, on) => {
+      const files: Record<string, string> = { [`${HOME}/.claude/design-lab.json`]: CONFIG, [`${REPO}/.git`]: 'gitdir: x',
+        ...run('2026-10-03', '2026-10-03T09:00:00+00:00') }
+      world(on, files, ['terminal'], true, '/short/site', { '/short/site': REPO })
+      await $.session.start({ ...SESSION, cwd: '/short/site' })
+      expect((await $.command.run(WATCH)).text).toBe('Watching Example 2026-10-03.')
+    })
+
+    test('a file named like a marker is not a project folder', async ($, on) => {
+      const files: Record<string, string> = { [`${HOME}/.claude/design-lab.json`]: CONFIG,
+        ['/work/plain/.git']: 'gitdir: x', ['/work/plans']: 'a file, not a folder' }
+      world(on, files, ['terminal'], true, '/work/plain')
+      await $.session.start({ ...SESSION, cwd: '/work/plain' })
+      expect((await $.command.run(WATCH)).text).toContain('No design-lab run found for this folder')
     })
   })
 })

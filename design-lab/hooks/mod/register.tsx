@@ -79,7 +79,20 @@ export async function summarise($: EngineInterface, run: string): Promise<Summar
   return summaryOf(run, raw, await $.clock.now())
 }
 
+let refreshing = false
+
 async function refresh($: EngineInterface): Promise<void> {
+  // A slow file system must not stack refreshes: skip a tick while the last one is still reading.
+  if (refreshing) return
+  refreshing = true
+  try {
+    await refreshNow($)
+  } finally {
+    refreshing = false
+  }
+}
+
+async function refreshNow($: EngineInterface): Promise<void> {
   const follow = await read($, followAtom)
   if (follow) {
     const newest = await newestRun($, follow)
@@ -126,13 +139,12 @@ async function runOf($: EngineInterface, args: string): Promise<string | { missi
   const folder = await runsFolder($, await $.session.cwd())
   if (folder) {
     const newest = await newestRun($, folder)
-    if (newest) return newest
+    return newest ?? { missing: `No design-lab run yet in ${folder}. The pane shows the first one as soon as it starts.`, follow: folder }
   }
   const home = await $.env.get('HOME')
   const pointer = parseJson(home ? await readText($, `${home}/.design-lab/active-run.json`) : undefined)
   const workspace = typeof pointer === 'object' && pointer !== null ? (pointer as { workspace?: unknown }).workspace : undefined
   if (typeof workspace === 'string') return workspace
-  if (folder) return { missing: `No design-lab run yet in ${folder}. The pane shows the first one as soon as it starts.`, follow: folder }
   return { missing: (await settings($)).convention
     ? 'No design-lab run found for this folder. Give the run folder: /design-lab:watch <run folder>'
     : 'design-lab is not set up on this machine yet: run design-lab:init once. Or give the run folder: /design-lab:watch <run folder>' }
@@ -145,14 +157,26 @@ async function exists($: EngineInterface, path: string): Promise<boolean> {
   return $.fs.exists(path).catch(() => false)
 }
 
+async function isDir($: EngineInterface, path: string): Promise<boolean> {
+  const found = await $.fs.stat(path, { resolve: false }).catch(() => undefined)
+  return found?.kind === 'dir'
+}
+
 async function hasMarker($: EngineInterface, folder: string): Promise<boolean> {
-  for (const marker of MARKERS) if (await exists($, `${folder}/${marker}`)) return true
+  for (const marker of MARKERS) if (await isDir($, `${folder}/${marker}`)) return true
   return false
+}
+
+/** A path with every link followed, as the scripts resolve it; the path itself when it cannot be. */
+async function real($: EngineInterface, path: string): Promise<string> {
+  const found = await $.fs.stat(path, { resolve: true }).catch(() => undefined)
+  return (found?.realPath ?? path).replace(/\/+$/, '') || '/'
 }
 
 /** The person's design-lab settings, or {} before design-lab:init has run. */
 async function settings($: EngineInterface): Promise<{ convention?: string; home?: string }> {
-  const home = await $.env.get('HOME')
+  const rawHome = await $.env.get('HOME')
+  const home = rawHome ? await real($, rawHome) : undefined
   const path = (await $.env.get('DESIGN_LAB_CONFIG')) ?? (home ? `${home}/.claude/design-lab.json` : undefined)
   const text = path ? await $.fs.read(path).catch(() => undefined) : undefined
   const value = parseJson(typeof text === 'string' ? text : undefined) as { runs?: { convention?: unknown } } | undefined
@@ -170,7 +194,7 @@ async function projectFolder($: EngineInterface, cwd: string, home?: string): Pr
   if (!repo) {
     for (const folder of chain) {
       if (stop(folder)) return undefined
-      if (await exists($, `${folder}/worktrees`) || await hasMarker($, folder)) return folder
+      if (await isDir($, `${folder}/worktrees`) || await hasMarker($, folder)) return folder
     }
     return undefined
   }
@@ -183,8 +207,9 @@ async function projectFolder($: EngineInterface, cwd: string, home?: string): Pr
 }
 
 /** Where this project's runs live, or undefined when design-lab:init has not chosen. */
-async function runsFolder($: EngineInterface, cwd: string): Promise<string | undefined> {
+async function runsFolder($: EngineInterface, sessionCwd: string): Promise<string | undefined> {
   const { convention, home } = await settings($)
+  const cwd = await real($, sessionCwd)
   const project = await projectFolder($, cwd, home)
   if (convention === 'project') return project ? `${project}/design` : undefined
   if (convention === 'home' && home) {
@@ -195,17 +220,28 @@ async function runsFolder($: EngineInterface, cwd: string): Promise<string | und
   return undefined
 }
 
-/** The newest run in a runs folder, by when each began (its project.json createdAt). */
+// When each run began, read once per run folder: a run's start never changes, so a poll lists the
+// runs folder and reads only the project.json of runs it has not seen.
+const startedAt = new Map<string, string>()
+
+/** The newest run in a runs folder: latest start (project.json createdAt), then folder name. */
 async function newestRun($: EngineInterface, folder: string): Promise<string | undefined> {
   const entries = await $.fs.list(folder).catch(() => [])
-  let best: { created: string; path: string } | undefined
+  let best: { created: string; name: string; path: string } | undefined
   for (const entry of entries) {
     if (entry.kind !== 'dir') continue
     const path = `${folder}/${entry.name}`
-    const text = await $.fs.read(`${path}/project.json`).catch(() => undefined)
-    const created = (parseJson(typeof text === 'string' ? text : undefined) as { createdAt?: unknown } | undefined)?.createdAt
-    if (typeof created !== 'string') continue
-    if (!best || created > best.created) best = { created, path }
+    let created = startedAt.get(path)
+    if (created === undefined) {
+      const text = await $.fs.read(`${path}/project.json`).catch(() => undefined)
+      const value = (parseJson(typeof text === 'string' ? text : undefined) as { createdAt?: unknown } | undefined)?.createdAt
+      if (typeof value !== 'string') continue
+      startedAt.set(path, value)
+      created = value
+    }
+    if (!best || created > best.created || (created === best.created && entry.name > best.name)) {
+      best = { created, name: entry.name, path }
+    }
   }
   return best?.path
 }
