@@ -315,7 +315,8 @@ def main(argv=None):
     parser.add_argument("--site-url", required=True)
     parser.add_argument("--canonical-base-url", required=True)
     parser.add_argument("--theme-root", required=True, type=Path)
-    parser.add_argument("--node-cwd", required=True, type=Path)
+    parser.add_argument("--node-cwd", type=Path,
+                        help="a folder where node resolves Playwright (default: the one design-lab:init installed)")
     parser.add_argument("--scale", type=float, default=1)
     parser.add_argument("--only", help="comma-separated component ids to (re)capture")
     parser.add_argument("--check", action="store_true",
@@ -327,6 +328,13 @@ def main(argv=None):
     parser.add_argument("--max-pages", type=int, default=3,
                         help="verified example pages to try per component (default 3)")
     args = parser.parse_args(argv)
+    if args.node_cwd is None:
+        import lab_config
+        shared = lab_config.read_config().get("nodeCwd")
+        if not shared:
+            parser.error("--node-cwd is needed: no shared Playwright is set up; run design-lab:init, or give a "
+                         "folder where node resolves Playwright")
+        args.node_cwd = Path(shared)
     workspace = args.project.resolve()
     components_path = workspace / "components.json"
     components = json.loads(components_path.read_text(encoding="utf-8"))["components"]

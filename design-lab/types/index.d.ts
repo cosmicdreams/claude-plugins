@@ -43,6 +43,7 @@ declare module 'claude-code' {
       run: string | null
       summary: Summary | null
       alarmed: boolean
+      follow: string | null
     }
   }
 }

@@ -111,8 +111,9 @@ def run_identity(args, repo: Path) -> dict:
     """Who ran this, with what, against what: the evidence that makes two runs comparable."""
     cwd = os.getcwd()
     config_dir = claude_config_dir()
-    operator = (getattr(args, "operator", None) or git_value(repo, "config", "user.name")
-                or os.environ.get("USER"))
+    import lab_config
+    operator = (getattr(args, "operator", None) or lab_config.read_config().get("operator")
+                or git_value(repo, "config", "user.name") or os.environ.get("USER"))
     return {
         "startedAt": now(),
         "siteLabel": getattr(args, "site_label", None),
@@ -147,7 +148,13 @@ def init_command(args):
     repo = Path(args.repo).resolve()
     if not repo.is_dir():
         raise ValueError(f"repository does not exist: {repo}")
-    workspace = Path(args.workspace).resolve()
+    if args.workspace:
+        workspace = Path(args.workspace).resolve()
+    else:
+        # Runs are personal and never committed: by the convention design-lab:init recorded,
+        # next to the project (PROJECT/design/<date>) or in ~/.design/<project>/<date>.
+        import lab_config
+        workspace = lab_config.next_run(repo, now()[:10])
     path = workspace / "project.json"
     if path.exists() and not args.force:
         raise ValueError(f"{path} exists; use --force only to intentionally replace it")
@@ -174,6 +181,7 @@ def init_command(args):
     write_json(path, project)
     append_jsonl(workspace / PHASE_LOG, {"at": project["createdAt"], "phase": "init",
                                          "status": "complete"})
+    print(f"design-lab run folder: {workspace}", file=sys.stderr)
     write_active_run(workspace)
     print(json.dumps({"project": str(path), "repository": project["repository"],
                       "run": project["run"]}, indent=2))
@@ -820,7 +828,9 @@ def preflight_command(args):
 
     # Capture runs node from a folder where Playwright resolves (capture_all.py --node-cwd); each
     # site keeps it somewhere different, so look for one rather than assume the current folder.
-    node_cwd, browser_message = playwright_folder(args.node_cwd, project["repository"]["root"])
+    import lab_config
+    node_cwd, browser_message = playwright_folder(args.node_cwd or lab_config.read_config().get("nodeCwd"),
+                                                  project["repository"]["root"])
     executable = os.environ.get("DESIGN_LAB_BROWSER_EXECUTABLE")
     executable_ok = not executable or (Path(executable).is_file() and os.access(executable, os.X_OK))
     if node_cwd and not executable_ok:
@@ -1254,6 +1264,58 @@ def recap_is_current(workspace: Path, project: dict) -> bool:
     return ((project.get("phases") or {}).get("benchmark") or {}).get("status") == "complete"
 
 
+REPORT_TOPICS = ("capture", "selectors", "plan", "verify", "build")
+
+
+def report_lines(workspace: Path, topic: str) -> list[str]:
+    """A short, plain summary of one part of a run, so a session checks progress and results with
+    one plain command instead of inline scripts, which Claude Code asks the person to approve."""
+    import collections
+    if topic == "capture":
+        log = workspace / "capture" / "capture-run.log"
+        lines = log.read_text(errors="replace").splitlines() if log.is_file() else []
+        steps = [line for line in lines if line.startswith("[")]
+        return ([f"capture log: {log}"] + (steps[-3:] or ["no component captured yet"]) + lines[-3:]) if lines else \
+            [f"capture has not started: no {log}"]
+    if topic == "selectors":
+        check = read_json_or(workspace / "capture" / "selector-check.json", [])
+        bad = [c for c in check if not c.get("chosen")]
+        out = [f"{len(check)} component(s) checked, {len(bad)} without a visible match on any page"]
+        for c in bad[:40]:
+            pages = ", ".join(f"{p.get('path')} (matches {p.get('matches')}, visible {p.get('visible')})"
+                              for p in (c.get("pages") or [])[:3])
+            out.append(f"  {c.get('componentId')}: {pages or 'no pages tried'}")
+        return out
+    if topic == "plan":
+        plans = (read_json_or(workspace / "plan.json", {}) or {}).get("plans") or []
+        verdicts = collections.Counter(p.get("verdict") for p in plans)
+        reasons = collections.Counter((p.get("refuseReason") or "")[:90] for p in plans if p.get("verdict") != "build")
+        return ([f"{len(plans)} planned: " + ", ".join(f"{n} {v}" for v, n in verdicts.most_common())]
+                + [f"  {n} x {r}" for r, n in reasons.most_common(12)])
+    if topic == "verify":
+        report = read_json_or(workspace / "verify-report.json", {}) or {}
+        findings = report.get("open") or []
+        by = collections.Counter(f.get("severity") for f in findings)
+        out = [f"{len(findings)} open finding(s): " + ", ".join(f"{n} {s}" for s, n in by.most_common())]
+        for f in findings[:30]:
+            out.append(f"  [{f.get('severity')}] {f.get('check')} {f.get('scope') or ''}: {(f.get('detail') or '')[:140]}")
+        return out
+    if topic == "build":
+        state = read_json_or(workspace / "figma" / "state.json", {}) or {}
+        log = workspace / "figma" / "runner.log"
+        lines = log.read_text(errors="replace").splitlines() if log.is_file() else []
+        failed = [line for line in lines if "FAILED" in line]
+        return ([f"build steps: {len(state.get('done') or [])} of {len(state.get('steps') or [])} recorded",
+                 f"failures in the runner log: {len(failed)}"] + [f"  {line[:200]}" for line in failed[-5:]]
+                + [f"last: {line}" for line in lines[-2:]])
+    raise ValueError(f"unknown report {topic!r}: one of {', '.join(REPORT_TOPICS)}")
+
+
+def report_command(args):
+    path, _ = load_project(args.project)
+    print("\n".join(report_lines(path.parent, args.topic)))
+
+
 def render_watch(summary: dict) -> str:
     if not summary.get("found"):
         return f"No design-lab run in {summary['workspace']}: it has no project.json."
@@ -1311,9 +1373,12 @@ def active_run() -> Path | None:
 
 
 def watch_command(args):
-    workspace = Path(args.project) if args.project else active_run()
+    import lab_config
+    # With no folder: this project's newest run by the person's convention, else the run the
+    # machine-wide pointer names (a session started outside any project).
+    workspace = Path(args.project) if args.project else (lab_config.current_run(Path.cwd()) or active_run())
     if workspace is None:
-        raise ValueError("no design-lab run is active; give the run folder with --project")
+        raise ValueError("no design-lab run found for this folder; give the run folder with --project")
     print(render_watch(watch_summary(workspace)))
 
 
@@ -1323,7 +1388,7 @@ def main():
 
     command = sub.add_parser("init")
     command.add_argument("--repo", required=True)
-    command.add_argument("--workspace", default=".design-lab")
+    command.add_argument("--workspace", help="the run folder (default: by the convention design-lab:init chose, PROJECT/design/<date> or ~/.design/<project>/<date>)")
     command.add_argument("--force", action="store_true")
     command.add_argument("--site-label", help="neutral name for the site, shown in reports")
     command.add_argument("--site-url", help="local site address the run captures from")
@@ -1400,6 +1465,11 @@ def main():
                          help="if the detected usage source cannot be used: stop, or build untiered")
     command.set_defaults(func=preflight_command)
 
+    command = sub.add_parser("report", help="a short summary of one part of a run: " + ", ".join(REPORT_TOPICS))
+    command.add_argument("topic", choices=REPORT_TOPICS)
+    command.add_argument("--project", required=True)
+    command.set_defaults(func=report_command)
+
     command = sub.add_parser("connect", help="connect the runner when the build is ready to write")
     command.add_argument("--project", required=True)
     command.add_argument("--runner-timeout", type=float, default=300)
@@ -1456,7 +1526,7 @@ def main():
     command.set_defaults(func=lambda args: print(status(args.project)))
 
     command = sub.add_parser("watch", help="where the run is, as text: phases, steps, runner, blocker, recap")
-    command.add_argument("--project", help="the run folder (default: the active run)")
+    command.add_argument("--project", help="the run folder (default: this project's newest run, by the convention design-lab:init chose)")
     command.set_defaults(func=watch_command)
 
     args = parser.parse_args()

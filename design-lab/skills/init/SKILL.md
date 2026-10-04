@@ -1,0 +1,59 @@
+---
+name: init
+description: >
+  Set design-lab up for the person and this machine, once: where runs live, their name for
+  reports, the shared Playwright and its browser, the Python packages, the Figma runner, and
+  the Claude Code settings that would otherwise make runs ask for approval. Run it the first
+  time design-lab is used, and again whenever a run or preflight says setup is missing. Not
+  for anything about one site (design-lab:run's preflight handles that).
+---
+
+# Set up design-lab
+
+Everything here is about the person and this machine, and is settled once. Anything about one site or one run (its address, its fonts, its Figma file, its DDEV project) belongs to preflight in `design-lab:run`, never here.
+
+The answers go into the person's design-lab settings (`~/.claude/design-lab.json`, or `DESIGN_LAB_CONFIG`), which are personal and never committed. Run folders are personal too, and never live inside a repository.
+
+## Two rules
+
+1. **Nothing is installed or changed without the person's approval.** Before any install or change, say what design-lab needs, why, what will be installed or changed and where, and ask. A refusal is respected: record nothing, say what will not work, and move on.
+2. **A change to Claude Code's settings needs a new session.** After one, end with the exact steps to restart and the prompt to continue (below).
+
+## Steps
+
+Run every command with absolute paths, one command at a time; never `cd`, shell variables, loops or inline scripts.
+
+1. See where things stand. It changes nothing:
+
+   ```bash
+   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.py check --json
+   ```
+
+   Each check is `ok`, `missing` (design-lab cannot run until fixed) or `advice` (it works, with a cost the person should know). Each says how it is fixed and, in `needsApproval`, what fixing it installs or changes.
+
+2. Work through every check that is not `ok`, in this order, asking with the question tool where there is a choice:
+
+   - **Where runs live** (`runs`). Ask which convention:
+     - **Next to each project** (`project`): runs go in `PROJECT/design/<date>`, where PROJECT is the folder above `worktrees/` for code checked out as `PROJECT/worktrees/<name>`, or else the nearest folder above the repository that holds `plans/`, `analysis-reports/` or `design/`. Recommend it when the current folder is laid out that way.
+     - **One folder for everything** (`home`): `~/.design/<project>/<date>`. The simple choice for anyone else.
+
+     Then `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.py set runs project` (or `home`).
+   - **Your name for reports** (`operator`). Ask, offering the name from `git config user.name` as the default, then `lab_setup.py set operator "<name>"`.
+   - **Node.js** (`node`). If missing, say capture runs Playwright through node, and ask before installing it (for example `brew install node`). Without it, capture cannot run.
+   - **Playwright and its Chromium** (`playwright`). Say that capture measures and photographs each component in a real browser through Playwright, that design-lab keeps one shared copy for every site so no site needs its own, and what `needsApproval` says it downloads and where. Ask; on approval run `lab_setup.py install playwright`, which records the folder as capture's default.
+   - **Python packages** (`python`). Say which are missing and what they are for (`cairosvg` turns a site's SVG images into pictures Figma accepts; Pillow reads and writes images), and what `needsApproval` says. Ask; on approval run `lab_setup.py install python`.
+   - **The Figma runner** (`runner`). Run `lab_setup.py runner`: it copies the runner into design-lab's own folder and makes sure the person's runner token exists, without ever showing it. Then give the person the one-time import, which only they can do: in Figma **desktop** (the browser app cannot load development plugins), open any design file, then Plugins, Development, Import plugin from manifest, and choose the `manifest` path the check reported. When the runner first asks for a token, they copy it in their own terminal with `pbcopy < ~/.design-lab/runner-token`; never read, print, copy or paste the token yourself. Ask whether the import is done; when it is, run `lab_setup.py runner --imported`.
+   - **Claude Code runs design-lab without asking** (`claude-settings`). If the read-blocking setting is on, explain: design-lab's run folders are outside the repository, and with this setting Claude Code asks the person to approve any command it cannot fully check, even with permission checks bypassed. That is what made earlier runs need someone watching. Claude Code offers this setting once, in a one-time prompt, which is how it gets turned on. Ask whether to turn it off; on approval run `lab_setup.py claude-settings --allow-reads`, and finish with the restart steps below.
+   - **The pane** (`pane`) and **DDEV** (`ddev`) are advice only: say what they mean (the `/design-lab:watch` pane needs a newer Claude Code; without DDEV a database-backed site builds without usage tiers) and move on.
+   - **Scoreboard and corpus** (`evaluation`) are optional. Mention them only if the person wants runs kept in a ledger across sites; if so, ask for the three paths and run `lab_setup.py set evaluation <corpus> <ledger> <dashboard>`.
+
+3. Run the check again and show the result as a short list: each item, ok or what is still to do.
+
+## Restart, when Claude Code's settings changed
+
+Settings are read when a session starts, so the change applies only to new sessions. End with exactly:
+
+1. End this session (`/exit`).
+2. Start a new one in the project's folder, for example `cd <project folder> && claude`.
+3. To continue an unfinished run there, send: `Continue the design-lab run from where it stopped.` To start a new one, send the opening prompt from `references/benchmark.md`.
+4. To watch it, run `/design-lab:watch` in that session: with no folder it shows this project's newest run.

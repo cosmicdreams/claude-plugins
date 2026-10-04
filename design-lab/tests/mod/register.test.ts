@@ -20,7 +20,7 @@ const progress = (lastSeenAgoMs: number, atAgoMs = 1_000) => JSON.stringify({
 })
 
 /** A machine with one run on it, answered from memory; keeps what the mod asks of it. */
-function world(on: On, files: Record<string, string>, surfaces: RenderSurface[] = ['terminal'], composer = true) {
+function world(on: On, files: Record<string, string>, surfaces: RenderSurface[] = ['terminal'], composer = true, cwd = '/work') {
   const reads: string[] = []
   const statuses: (string | undefined)[] = []
   const toasts: string[] = []
@@ -29,14 +29,20 @@ function world(on: On, files: Record<string, string>, surfaces: RenderSurface[] 
   const clock = mock.clock(on, { now: NOW })
   on('session.start', ($, e) => ({ cwd: e.cwd }))
   on('env.get', ($, e) => ({ value: e.name === 'HOME' ? HOME : undefined }))
-  on('session.cwd', () => ({ value: '/work' }))
+  on('session.cwd', () => ({ value: cwd }))
   on('session.surfaces', () => ({ value: surfaces }))
   on('fs.read', ($, e) => {
     reads.push(e.path)
     const text = files[e.path]
     return text === undefined ? { deny: 'missing' } : { value: text }
   })
-  on('fs.exists', ($, e) => ({ value: e.path in files }))
+  const isDir = (path: string) => Object.keys(files).some(f => f.startsWith(`${path}/`))
+  on('fs.exists', ($, e) => ({ value: e.path in files || isDir(e.path) }))
+  on('fs.list', ($, e) => {
+    const names = new Set<string>()
+    for (const f of Object.keys(files)) if (f.startsWith(`${e.path}/`)) names.add(f.slice(e.path.length + 1).split('/')[0]!)
+    return { value: [...names].map(name => ({ name, kind: isDir(`${e.path}/${name}`) ? 'dir' as const : 'file' as const, size: 0, mtimeMs: 0, isLink: false })) }
+  })
   on('fs.stat', ($, e) => (e.path in files
     ? { value: { kind: 'file', size: files[e.path]!.length, mtimeMs: 0, isLink: false } }
     : { deny: 'missing' }))
@@ -258,7 +264,49 @@ describe('design-lab:watch', () => {
     expect(w.reads.length).toBeGreaterThan(0)
     for (const path of w.reads) {
       expect(path.includes('runner-token')).toBe(false)
-      expect(path.startsWith(`${RUN}/`) || path === `${HOME}/.design-lab/active-run.json`).toBe(true)
+      expect(path.startsWith(`${RUN}/`) || path === `${HOME}/.design-lab/active-run.json`
+        || path === `${HOME}/.claude/design-lab.json`, path).toBe(true)
     }
+  })
+
+  describe('with no run named', () => {
+    const PROJECT_DIR = '/sites/EXAMPLE'
+    const REPO = `${PROJECT_DIR}/worktrees/main`
+    const CONFIG = JSON.stringify({ runs: { convention: 'project' } })
+    const run = (name: string, createdAt: string) => ({
+      [`${PROJECT_DIR}/design/${name}/project.json`]: JSON.stringify({ createdAt, run: { siteLabel: `Example ${name}` },
+        phases: { capture: { status: 'running' } } }),
+    })
+
+    test('the pane finds this project\'s newest run by convention, and follows a newer one', async ($, on) => {
+      const files: Record<string, string> = { [`${HOME}/.claude/design-lab.json`]: CONFIG, [`${REPO}/.git`]: 'gitdir: x',
+        ...run('2026-10-01', '2026-10-01T09:00:00+00:00'), ...run('2026-10-03', '2026-10-03T09:00:00+00:00') }
+      const w = world(on, files, ['terminal'], true, `${REPO}/frontend`)
+      await $.session.start({ ...SESSION, cwd: `${REPO}/frontend` })
+      expect((await $.command.run(WATCH)).text).toBe('Watching Example 2026-10-03.')
+      Object.assign(files, run('2026-10-04', '2026-10-04T09:00:00+00:00'))
+      await w.clock.advance(POLL_MS)
+      const ui = await $.ui.mount({ plugin: 'design-lab', surface: 'terminal', component: 'Pane', requestId: 'design-lab',
+        props: { title: 'design-lab', isFocused: false, bodyColumns: 60, placement: 'dock', scroll: { offset: 0, bodyRows: 30 }, view: {} } })
+      expect(await ui.find({ type: 'Text', text: /Example 2026-10-04/ })).toBeDefined()
+    })
+
+    test('before the first run, the pane opens and waits for it', async ($, on) => {
+      const files: Record<string, string> = { [`${HOME}/.claude/design-lab.json`]: CONFIG, [`${REPO}/.git`]: 'gitdir: x',
+        [`${PROJECT_DIR}/design/.keep`]: '' }
+      const w = world(on, files, ['terminal'], true, REPO)
+      await $.session.start({ ...SESSION, cwd: REPO })
+      expect((await $.command.run(WATCH)).text).toContain(`No design-lab run yet in ${PROJECT_DIR}/design`)
+      expect(w.opened).toEqual(['design-lab (front)'])
+      Object.assign(files, run('2026-10-05', '2026-10-05T09:00:00+00:00'))
+      await w.clock.advance(POLL_MS)
+      expect(w.statuses.at(-1)).toContain('capture')
+    })
+
+    test('before design-lab:init, it says to run it', async ($, on) => {
+      world(on, { [`${REPO}/.git`]: 'gitdir: x' }, ['terminal'], true, REPO)
+      await $.session.start({ ...SESSION, cwd: REPO })
+      expect((await $.command.run(WATCH)).text).toContain('run design-lab:init once')
+    })
   })
 })

@@ -10,21 +10,40 @@ description: >
 
 # Run design-lab end to end
 
-Own the whole outcome. Durable artifacts, not conversation memory, determine what is complete and where a resumed run continues. Run every script with absolute paths and `--project <artifact-directory>`, never `cd` into the artifact directory: it usually lies outside the session's folder, and a `cd` there makes Claude Code ask the person to confirm, even with permission checks bypassed. The run asks for everything it needs once, at preflight, and then completes on its own.
+Own the whole outcome. Durable artifacts, not conversation memory, determine what is complete and where a resumed run continues. The run asks for everything it needs once, at preflight, and then completes on its own.
+
+## Commands that never need approval
+
+Run folders live outside the repository, and Claude Code asks the person to approve any command it cannot fully check (a `cd`, shell variables, loops, inline scripts), even with permission checks bypassed when its read-blocking setting is on. So:
+
+- Run every script with absolute paths and `--project <artifact-directory>`, one command at a time. Never `cd`, never assign shell variables, never write loops or `python3 -c` scripts.
+- To see how a run is going, use `workflow.py report <topic> --project <artifact-directory>`, where topic is `capture` (progress), `selectors` (components with no visible match), `plan` (what is built and why the rest is refused), `verify` (open findings) or `build` (steps recorded, failures). Read artifacts with the Read tool.
+- When something new goes wrong and needs diagnosing, keep to plain commands with literal paths, one at a time; a fix that will be needed again belongs in a script, not in the session.
+
+## Before anything else
+
+Check design-lab is set up on this machine; it changes nothing:
+
+```bash
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.py check
+```
+
+If anything is missing, stop and run `design-lab:init` first, then continue. Setup is about the person and the machine; preflight below is about this site.
+
+To resume a run the person did not name, find this project's newest run: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py watch` (run from the project or repository folder) prints it, then resume from its artifacts. Tell the person they can watch it with `/design-lab:watch`, which with no folder shows this project's newest run.
 
 ## Establish the project
 
 Resolve the repository and an empty or existing target Figma file. Never mutate a reference file the user supplied only for comparison. Before the first Figma write, load the official Figma-use and library-generation guidance; `workflow.py connect` checks the target when the build is ready to write.
 
-Initialize one workspace per target library:
+Initialize one run folder per target library:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py init \
-  --repo <absolute-repository-path> --workspace <artifact-directory>
+python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py init --repo <absolute-repository-path>
 python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py detect --project <artifact-directory>
 ```
 
-Pass `--site-label`, `--site-url`, `--operator` and `--model` to `init` and follow `references/benchmark.md`: every run ends with the benchmark.
+Without `--workspace`, `init` creates the run folder by the person's convention (next to the project, `PROJECT/design/<date>`, or `~/.design/<project>/<date>`) and prints it: that folder is `<artifact-directory>` from here on. Give `--workspace` only when the person names a folder. Pass `--site-label`, `--site-url` and `--model` to `init`; the operator's name comes from setup. Follow `references/benchmark.md`: every run ends with the benchmark.
 
 Read `detection.json`. Reconcile prior art unless the user explicitly requested an independent scratch build; in that case keep comparison artifacts hidden until the build is frozen.
 
@@ -34,7 +53,7 @@ Before any extraction, gather every answer the run will need in one message to t
 
 - the local site address, and the public address;
 - the target Figma file: new and empty, editable by the person's account; it is first opened when the build is ready to write;
-- a neutral site label and the operator's name;
+- a neutral site label (the operator's name comes from setup);
 - the component, token and usage sources: state the detector's recommendation and use it unless the person overrides it now;
 - for a database usage source, the DDEV project root, and what to do if that source cannot be used after all: stop, or build without usage tiers;
 - how the plan is approved: build the plan as proposed (the default, for runs left unattended) or stop for the person's review before building.
