@@ -1,7 +1,7 @@
 // What a design-lab run looks like from the files it writes, with no engine calls: the same
 // reading `workflow.py watch` does, so the pane and the text fallback agree.
 
-import type { Check, Phase, Runner, Summary } from '../../types'
+import type { Check, Facts, Findings, Phase, Runner, Scores, Summary } from '../../types'
 
 // Three missed heartbeats (figma_runner.HEARTBEAT_SECONDS is 10).
 export const SERVER_FRESH_MS = 30_000
@@ -22,6 +22,9 @@ export type Raw = {
   completion?: string
   scorecard?: unknown
   preflightChecks?: unknown
+  verifyReport?: unknown
+  // the artifact files found in the run folder, run-relative
+  present?: string[]
 }
 
 export function parseJson(text: string | undefined): unknown {
@@ -89,16 +92,34 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
   const project = record(raw.project)
   if (raw.project === undefined) {
     return { workspace, found: false, siteLabel: null, phases: [], current: null, preflight: null,
-      runner: null, blocker: null, waiting: null, log: [], hasRecap: false, recap: null, startedAt: null }
+      runner: null, blocker: null, waiting: null, log: [], hasRecap: false, recap: null, scores: null,
+      facts: { found: null, toBuild: null, built: null, expected: null, figmaUrl: null }, findings: null, startedAt: null,
+      phaseErrors: {}, present: [] }
   }
-  const phases: Phase[] = Object.entries(record(project.phases)).map(([name, value]) => ({
-    name, status: text(record(value).status) ?? 'pending',
+  const recorded: Phase[] = Object.entries(record(project.phases)).map(([name, value]) => ({
+    name, status: text(record(value).status) ?? 'pending', reused: Boolean(record(value).from),
   }))
-  const running = phases.find(phase => phase.status === 'running')
-  const due = phases.find(phase => !DONE.has(phase.status))
+  const finished = recapIsCurrent(project, raw)
+  // Preflight records its phase only once it passes, so until then a run that has not reached the
+  // build is still in preflight. A rebuild copies preflight from its source and never runs it here.
+  const preflighting = !recorded.some(phase => phase.name === 'preflight') && !recorded.some(phase => phase.reused)
+    && !finished && !recorded.some(phase => BUILD_PHASES.has(phase.name) && phase.status !== 'pending')
+  // In the order the run takes them, not the order project.json happens to hold them.
+  const phases = [...recorded, ...(preflighting ? [{ name: 'preflight', status: 'running', reused: false }] : [])]
+    .sort((a, b) => flowRank(a.name) - flowRank(b.name))
+  // A phase copied from an earlier run never takes the current phase, whatever status it copied.
+  const own = phases.filter(phase => !phase.reused)
+  const running = own.find(phase => phase.status === 'running')
+  const due = own.find(phase => !DONE.has(phase.status))
   const runner = runnerOf(raw.progress, nowMs)
   const entries = entriesOf(raw.phaseLog)
   const last = entries[entries.length - 1]
+  const phaseErrors: Record<string, string> = {}
+  for (const phase of phases) {
+    if (phase.status !== 'failed') continue
+    const said = entries.filter(entry => entry.phase === phase.name && typeof entry.message === 'string').pop()
+    if (said) phaseErrors[phase.name] = said.message as string
+  }
   // The open blocker: the newest entry stopped the run for the person, and the runner has not
   // come back since.
   const blocker = last && last.status === 'stopped' && !runner?.connected ? text(last.message) : null
@@ -123,13 +144,19 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
     blocker,
     waiting,
     log: tailOf(raw.runnerLog),
-    hasRecap: recapIsCurrent(project, raw),
-    recap: recapIsCurrent(project, raw) ? recapOf(raw.completion!) : null,
+    hasRecap: finished,
+    recap: finished ? recapOf(raw.completion!) : null,
+    scores: finished ? scoresOf(raw.scorecard) : null,
+    facts: factsOf(project, finished ? raw.completion : undefined),
+    findings: findingsOf(raw.verifyReport, text(project.createdAt)),
     startedAt: preflightAt ?? text(project.createdAt),
+    phaseErrors,
+    present: raw.present ?? [],
   }
 }
 
 export const CHECK_MARKS: Record<string, string> = { done: '✓', checking: '▸', 'needs-you': '!', failed: '✗', waiting: '·' }
+export const CHECK_COLORS: Record<string, string | undefined> = { done: 'green', checking: 'cyan', 'needs-you': 'yellow', failed: 'red' }
 
 /** The checklist preflight last wrote, or null when there is none or it is older than the recorded
  * preflight phase (a run that passed preflight before the checklist existed). */
@@ -184,9 +211,10 @@ export function recapOf(completion: string): string {
   return text.length <= RECAP_LIMIT ? text : `${text.slice(0, RECAP_LIMIT)}\n\n(cut here: the whole message is in benchmark/completion.md)`
 }
 
-/** Finished: the scorer has written the recap, or every build step is recorded. */
+/** Finished: the scorer has written this build's recap. The runner reports done once the Figma
+ * build is over, while verification and scoring still have to run. */
 export function isFinished(summary: Summary): boolean {
-  return summary.hasRecap || summary.runner?.state === 'done'
+  return summary.hasRecap
 }
 
 /** The run is stopped for the person: building or checking, and the runner is gone. */
@@ -203,6 +231,7 @@ export function isIdle(runner: Runner): boolean {
 }
 
 export function runnerLine(runner: Runner): string {
+  if (runner.state === 'done') return 'Figma build finished'
   if (!runner.serverAlive) return 'runner server not responding'
   if (runner.connected) return 'runner connected'
   if (isIdle(runner)) return 'runner idle until the build'
@@ -220,12 +249,128 @@ export function stepsLine(runner: Runner): string | null {
   return isIdle(runner) || runner.state === 'connecting' ? null : runner.message
 }
 
-function elapsed(startedAt: string | null, nowMs: number): string | null {
-  const ms = msSince(startedAt, nowMs)
-  if (ms === null || ms < 0) return null
-  const minutes = Math.floor(ms / 60_000)
+/** A length of time as the pane writes it: 41m, 3h 44m; under a minute, 40s. */
+export function durationOf(seconds: number | null): string | null {
+  if (seconds === null || seconds < 0) return null
+  if (seconds < 60) return `${Math.round(seconds)}s`
+  // Rounded, as the recap rounds it, so the two agree.
+  const minutes = Math.round(seconds / 60)
   return minutes < 60 ? `${minutes}m` : `${Math.floor(minutes / 60)}h ${minutes % 60}m`
 }
+
+/** How long the run has been going, from its start. */
+export function elapsedOf(startedAt: string | null, nowMs: number): string | null {
+  const ms = msSince(startedAt, nowMs)
+  if (ms === null || ms < 0) return null
+  return ms < 60_000 ? '0m' : durationOf(Math.floor(ms / 60_000) * 60)
+}
+
+/** The scorecard's headline figures; null when there is no scorecard to read. */
+export function scoresOf(scorecard: unknown): Scores | null {
+  const card = record(scorecard)
+  if (!('headline' in card)) return null
+  const headline = record(card.headline)
+  const coverage = record(headline.coverage)
+  const accuracy = record(record(headline.accuracy).corrected)
+  const effort = record(headline.effort)
+  const open = record(record(record(card.sections).conformance).open)
+  return {
+    built: count(coverage.built),
+    eligible: count(coverage.eligible),
+    withinTolerance: count(accuracy.pass),
+    widths: count(accuracy.total),
+    workingSeconds: count(effort.workingSeconds),
+    buildSeconds: count(effort.buildSeconds),
+    buildSteps: count(effort.buildSteps),
+    tokens: count(effort.tokens),
+    toolCalls: count(effort.toolCalls),
+    blockers: count(open.blocker),
+    majors: count(open.major),
+  }
+}
+
+/** The first Figma file link in the recap, without the punctuation of the sentence it ends. */
+export function figmaUrlOf(completion: string): string | null {
+  return /https:\/\/www\.figma\.com\/(?:design|file)\/[^\s)>\]]+/.exec(completion)?.[0].replace(/[.,;:]+$/, '') ?? null
+}
+
+/** 40013109 as 40.0M, 563519 as 564K. */
+export function compactOf(value: number | null): string | null {
+  if (value === null) return null
+  if (value >= 1_000_000) return `${(value / 1_000_000).toFixed(1)}M`
+  if (value >= 1_000) return `${Math.round(value / 1_000)}K`
+  return String(value)
+}
+
+/** A share as a whole percent, or null with nothing to divide by. */
+export function percentOf(part: number | null, whole: number | null): number | null {
+  return part === null || !whole ? null : Math.round((part / whole) * 100)
+}
+
+/** A bar of `cells` cells, filled in proportion: the filled run and the empty run, drawn apart. */
+export function barOf(done: number, total: number, cells: number): { filled: string; empty: string } {
+  const width = Math.max(4, cells)
+  const share = total > 0 ? Math.min(1, Math.max(0, done / total)) : 0
+  const filled = Math.round(share * width)
+  return { filled: '━'.repeat(filled), empty: '━'.repeat(width - filled) }
+}
+
+/** Where the run stands, in one word, and the color it is drawn in. */
+export type Tone = { label: string; color: string }
+
+export function toneOf(summary: Summary): Tone {
+  const stages = stagesOf(summary)
+  if (stages.some(stage => stage.state === 'failed')) return { label: 'Failed', color: 'red' }
+  if (needsYouOf(summary)) return { label: 'Needs you', color: 'yellow' }
+  if (isFinished(summary)) {
+    return stages.some(stage => stage.state === 'flagged') ? { label: 'Done · needs review', color: 'yellow' } : { label: 'Done', color: 'green' }
+  }
+  const active = stages.find(stage => stage.state === 'active' || stage.state === 'stopped')
+  return { label: active?.doing ?? 'Starting', color: 'cyan' }
+}
+
+/** What the person has to do, from one place, so the header, the card, the stage and the toast
+ * always agree; null when the run needs nothing from them. */
+export function needsYouOf(summary: Summary): { message: string; canResume: boolean } | null {
+  if (summary.blocker) return { message: summary.blocker, canResume: true }
+  if (summary.waiting) return { message: summary.waiting, canResume: false }
+  const check = (summary.preflight?.checks ?? []).find(c => c.status === 'needs-you')
+  if (check) return { message: `${check.label}: ${check.message ?? 'needs your attention'}`, canResume: false }
+  if (isDown(summary)) {
+    return { message: 'The Figma runner has stopped. Reopen it in Figma desktop, then press Resume run.', canResume: true }
+  }
+  return null
+}
+
+/** The first stage that failed, and what the card says about it; null when nothing failed. */
+export function failureOf(summary: Summary): { stage: string; text: string } | null {
+  const stage = stagesOf(summary).find(s => s.state === 'failed')
+  if (!stage) return null
+  const check = stage.id === 'preflight' ? (summary.preflight?.checks ?? []).find(c => c.status === 'failed') : undefined
+  const phase = stage.phases.find(p => !p.reused && p.status === 'failed')
+  const message = check ? (check.message ? `${check.label}: ${check.message}` : check.label)
+    : (phase && summary.phaseErrors[phase.name]) ?? (stage.id === 'build' && summary.runner?.state === 'failed' ? summary.runner.message : null)
+  return { stage: stage.label, text: message
+    ? `${stage.label} stopped with an error: ${message}`
+    : `${stage.label} stopped with an error. Ask Claude in the conversation what went wrong.` }
+}
+
+/** What the verdict card says when verification left blocking or major problems open; null otherwise. */
+export function verdictOf(findings: Findings | null): string | null {
+  if (!findings || findings.blocker + findings.major === 0) return null
+  const { blocker, major } = findings
+  const parts = [blocker ? `${blocker} blocking` : null, major ? `${major} major` : null].filter(Boolean)
+  const one = blocker + major === 1
+  return `${parts.join(' and ')} problem${one ? ' is' : 's are'} still open, so the library does not yet meet the design-lab standard.`
+}
+
+/** A phase name as a person reads it: figma-build as Figma build. */
+export function phaseLabel(name: string): string {
+  const words = name.replace(/[-_]/g, ' ')
+  return words.charAt(0).toUpperCase() + words.slice(1)
+}
+
+export const PHASE_DONE = DONE
 
 /** The status line, or undefined to clear it once the run is over or gone. */
 export function statusOf(summary: Summary, nowMs: number): string | undefined {
@@ -240,7 +385,7 @@ export function statusOf(summary: Summary, nowMs: number): string | undefined {
     parts.push(`preflight ${checks.filter(check => check.status === 'done').length}/${checks.length}`)
   } else if (summary.current) parts.push(summary.current)
   if (runner) parts.push(runnerLine(runner))
-  const time = elapsed(summary.startedAt, nowMs)
+  const time = elapsedOf(summary.startedAt, nowMs)
   if (time) parts.push(time)
   return parts.length > 0 ? parts.join(' · ') : undefined
 }
@@ -259,7 +404,8 @@ export function plainOf(summary: Summary): string {
     lines.push('')
   }
   for (const phase of summary.phases) {
-    const mark = DONE.has(phase.status) ? '✓' : phase.name === summary.current ? '▸' : phase.status === 'stopped' ? '!' : '·'
+    const mark = DONE.has(phase.status) ? '✓' : phase.status === 'failed' ? '✗' : phase.name === summary.current ? '▸'
+      : phase.status === 'stopped' ? '!' : '·'
     lines.push(`  ${mark} ${phase.name}`)
   }
   if (summary.runner) {
@@ -268,8 +414,10 @@ export function plainOf(summary: Summary): string {
     if (steps) lines.push(`  ${steps}`)
     if (!summary.hasRecap) lines.push(`  ${runnerLine(summary.runner)}`)
   }
-  if (summary.blocker) lines.push('', `  Needs you: ${summary.blocker}`)
-  else if (summary.waiting) lines.push('', `  Needs you: ${summary.waiting}`)
+  const failure = failureOf(summary)
+  if (failure) lines.push('', `  Failed: ${failure.text}`)
+  const need = needsYouOf(summary)
+  if (need) lines.push('', `  Needs you: ${need.message}`)
   if (summary.hasRecap) lines.push('', `  Recap: ${summary.workspace}/benchmark/completion.md`)
   return lines.join('\n')
 }
@@ -286,3 +434,132 @@ export function afterFill(filled: { isFilled: boolean; refusal?: string } | unde
 
 export const RESUME_PROMPT = (workspace: string) =>
   `The design-lab runner is open again in Figma desktop. Resume the design-lab run in ${workspace} from where it stopped.`
+
+/** What the phases recorded about the run: counts from inventory, plan and components, the file
+ * from connect (or, failing that, the recap). */
+export function factsOf(project: Record<string, unknown>, completion: string | undefined): Facts {
+  const phases = record(project.phases)
+  const detail = (name: string) => record(record(phases[name]).detail)
+  return {
+    found: count(detail('inventory').components),
+    toBuild: count(detail('plan').build),
+    built: count(detail('components').built),
+    expected: count(detail('components').expected),
+    figmaUrl: text(detail('connect').fileUrl) ?? (completion ? figmaUrlOf(completion) : null),
+  }
+}
+
+/** The open findings by severity, or null before this run's verification has written its report.
+ * A folder initialised again keeps the last run's report, so one written before this run began is
+ * not this run's. */
+export function findingsOf(report: unknown, createdAt: string | null): Findings | null {
+  const r = record(report)
+  if (!Array.isArray(r.open) || !Array.isArray(r.passed)) return null
+  const written = Date.parse(text(r.generatedAt) ?? '')
+  if (Number.isNaN(written) || written < Date.parse(createdAt ?? '')) return null
+  const by = (severity: string) => (r.open as unknown[]).filter(f => record(f).severity === severity).length
+  return { blocker: by('blocker'), major: by('major'), minor: by('minor'), passed: r.passed.length,
+    waived: Array.isArray(r.waived) ? r.waived.length : 0 }
+}
+
+/** The five stages a run moves through, and the phases each holds. A phase not named here
+ * belongs to Build, so nothing the run records goes unshown. */
+export const STAGES = [
+  { id: 'preflight', label: 'Preflight', doing: 'Preflight', phases: ['preflight'] },
+  { id: 'discovery', label: 'Discovery', doing: 'Discovering', phases: ['discovery', 'inventory', 'usage', 'capture', 'tokens', 'plan'] },
+  { id: 'build', label: 'Build', doing: 'Building', phases: ['connect', 'foundation', 'components', 'index'] },
+  { id: 'verify', label: 'Verify', doing: 'Verifying', phases: ['verify'] },
+  { id: 'report', label: 'Report', doing: 'Reporting', phases: ['benchmark'] },
+] as const
+
+export type StageId = (typeof STAGES)[number]['id']
+// flagged: finished with open blocking or major problems; failed: stopped with an error.
+export type StageState = 'done' | 'flagged' | 'active' | 'stopped' | 'failed' | 'pending' | 'reused'
+export type Stage = { id: StageId; label: string; doing: string; state: StageState; phases: Phase[]; note: string | null; noteColor?: string }
+
+// Every known phase in the order the run takes them. A phase not named here sits just after index,
+// so it stays with Build and comes before verify.
+const FLOW: string[] = STAGES.flatMap(stage => [...stage.phases])
+const BUILD_PHASES = new Set<string>(STAGES.find(stage => stage.id === 'build')!.phases)
+
+function flowRank(name: string): number {
+  const at = FLOW.indexOf(name)
+  return at >= 0 ? at : FLOW.indexOf('index') + 0.5
+}
+
+function stageOf(name: string): StageId {
+  return STAGES.find(stage => (stage.phases as readonly string[]).includes(name))?.id ?? 'build'
+}
+
+const plural = (n: number, one: string, many: string) => `${n} ${n === 1 ? one : many}`
+
+function stageNote(id: StageId, state: StageState, summary: Summary, phases: Phase[]): { note: string | null; noteColor?: string } {
+  const f = summary.facts
+  if (state === 'reused') return { note: 'reused from an earlier run' }
+  if (state === 'pending') return { note: null }
+  if (id === 'preflight') {
+    const checks = summary.preflight?.checks
+    if (!checks) return { note: state === 'done' ? 'passed' : null }
+    const done = checks.filter(check => check.status === 'done').length
+    return { note: state === 'done' ? `${checks.length} checks passed` : `${done} of ${checks.length} checks` }
+  }
+  if (id === 'discovery') {
+    if (state !== 'done') return { note: `${phases.filter(phase => DONE.has(phase.status)).length} of ${phases.length} steps` }
+    const parts = [f.found !== null ? `${f.found} found` : null, f.toBuild !== null ? `${f.toBuild} planned` : null].filter(Boolean)
+    return { note: parts.length ? parts.join(' · ') : 'complete' }
+  }
+  if (id === 'build') {
+    const runner = summary.runner
+    if (state !== 'done' && runner?.state === 'building' && runner.stepsTotal) return { note: `${percentOf(runner.stepsDone ?? 0, runner.stepsTotal)}%` }
+    if (f.built !== null && f.expected !== null) {
+      return { note: `${f.built} of ${f.expected} planned built`, noteColor: state === 'done' && f.built < f.expected ? 'yellow' : undefined }
+    }
+    return { note: state === 'done' ? 'complete' : null }
+  }
+  if (id === 'verify') {
+    const k = summary.findings
+    if (!k || (state !== 'done' && state !== 'flagged')) return { note: null }
+    // Kept short so the row fits a narrow pane; the verdict card above the figures has the rest.
+    if (state === 'flagged') {
+      const parts = [k.blocker ? plural(k.blocker, 'blocker', 'blockers') : null, k.major ? `${k.major} major` : null].filter(Boolean)
+      return { note: `${parts.join(' · ')} open`, noteColor: 'yellow' }
+    }
+    if (k.minor > 0) return { note: `${k.minor} minor open`, noteColor: 'yellow' }
+    // Checks that do not apply to this site are not problems, so the note leaves them out.
+    return { note: k.waived === 0 ? `all ${k.passed} checks pass` : `${k.passed} passed · ${k.waived} waived`, noteColor: 'green' }
+  }
+  return { note: state === 'done' ? 'report ready' : null }
+}
+
+/** Each stage with where it stands, first match winning: copied from an earlier run, failed, done
+ * (flagged when verification left problems open), stopped for the person, under way, not started.
+ * A stage is under way when it holds the run's current phase or any of its phases is running, so
+ * more than one can be. */
+export function stagesOf(summary: Summary): Stage[] {
+  const finished = isFinished(summary)
+  const need = needsYouOf(summary)
+  const checks = summary.preflight?.checks ?? []
+  const k = summary.findings
+  return STAGES.map(def => {
+    // summary.phases is already in flow order.
+    const phases = summary.phases.filter(phase => stageOf(phase.name) === def.id)
+    const own = phases.filter(phase => !phase.reused)
+    const running = own.some(phase => phase.status === 'running')
+    const holdsCurrent = phases.some(phase => phase.name === summary.current)
+    const failed = own.some(phase => phase.status === 'failed')
+      || (def.id === 'build' && summary.runner?.state === 'failed' && !finished)
+      || (def.id === 'preflight' && checks.some(check => check.status === 'failed'))
+    const done = (phases.length > 0 && phases.every(phase => DONE.has(phase.status)))
+      || (finished && def.id !== 'report' && phases.length === 0) || (def.id === 'report' && summary.hasRecap)
+    let state: StageState
+    if (phases.length > 0 && phases.every(phase => phase.reused) && !running) state = 'reused'
+    else if (failed) state = 'failed'
+    else if (done) state = def.id === 'verify' && k && k.blocker + k.major > 0 ? 'flagged' : 'done'
+    else if ((holdsCurrent || running) && !finished) {
+      const stopped = (need !== null && holdsCurrent) || (def.id === 'preflight' && checks.some(check => check.status === 'needs-you'))
+        || phases.some(phase => phase.status === 'stopped')
+      state = stopped ? 'stopped' : 'active'
+    } else state = 'pending'
+    return { id: def.id, label: def.label, doing: def.doing, state, phases, ...stageNote(def.id, state, summary, phases) }
+  })
+}

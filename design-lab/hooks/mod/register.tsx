@@ -8,8 +8,9 @@ import type { EngineInterface, Register, Timer } from 'claude-code'
 
 import type { Summary } from '../../types'
 import {
-  afterFill, CHECK_MARKS, checkMessage, clockOf, isDown, parseJson, plainOf, preflightPassed, RESUME_PROMPT,
-  isIdle, runnerLine, statusOf, stepsLine, summaryOf,
+  afterFill, barOf, CHECK_COLORS, CHECK_MARKS, checkMessage, compactOf, durationOf, elapsedOf, failureOf, needsYouOf, parseJson,
+  percentOf, PHASE_DONE, phaseLabel, plainOf, RESUME_PROMPT, isIdle, runnerLine, stagesOf, statusOf, stepsLine,
+  summaryOf, toneOf, verdictOf,
 } from './model'
 import { ancestors, base, MARKERS, parent } from './locate'
 
@@ -31,6 +32,8 @@ const followAtom = atom({ plugin: 'design-lab', key: 'follow' } as const, null)
 // A finished run the pane passes over while a run skill is starting the next one, so the pane
 // never shows the last run's recap as if it were the new run.
 const skipAtom = atom({ plugin: 'design-lab', key: 'skip' } as const, null)
+// Whether a finished run's full completion message is open under its figures.
+const recapOpenAtom = atom({ plugin: 'design-lab', key: 'recapOpen' } as const, false)
 
 // The files read under a run folder, and nothing else there.
 export const RUN_FILES = {
@@ -41,7 +44,29 @@ export const RUN_FILES = {
   completion: 'benchmark/completion.md',
   scorecard: 'benchmark/scorecard.json',
   preflightChecks: 'preflight-checks.json',
+  verifyReport: 'verify-report.json',
 } as const
+
+// The files a finished run links to, when they exist: a rebuild has no plan or components of its
+// own unless it copied them.
+export const ARTIFACT_FILES = {
+  report: 'benchmark/report.html',
+  verifyReport: 'verify-report.json',
+  plan: 'plan.json',
+  components: 'components.json',
+  scorecard: 'benchmark/scorecard.json',
+} as const
+
+// The bar's fill by the color its Text would take, and its empty track.
+const BAR_COLORS: Record<string, string> = { cyan: '#4fa8d6', green: '#3fb36b', yellow: '#d6b44f', red: '#d65f5f' }
+const BAR_TRACK = '#8888884d'
+
+/** A rounded progress bar, wide and short so it scales to the pane's width. */
+function barSvg(share: number, fill: string): string {
+  const filled = share > 0 ? `<rect width="${Math.max(12, share)}" height="12" rx="6" fill="${fill}"/>` : ''
+  return `<svg xmlns="http://www.w3.org/2000/svg" width="1000" height="12" viewBox="0 0 1000 12">`
+    + `<rect width="1000" height="12" rx="6" fill="${BAR_TRACK}"/>${filled}</svg>`
+}
 
 let timer: Timer | undefined
 // The last JSON that parsed, so a file caught half-written keeps the last good reading.
@@ -77,12 +102,21 @@ export async function summarise($: EngineInterface, run: string): Promise<Summar
     phaseLog: await readText($, at(RUN_FILES.phaseLog)),
     progress: await readJson($, at(RUN_FILES.progress)),
     preflightChecks: await readJson($, at(RUN_FILES.preflightChecks)),
+    verifyReport: await readJson($, at(RUN_FILES.verifyReport)),
     runnerLog: await readLog($, at(RUN_FILES.runnerLog)),
     ...((await $.fs.exists(at(RUN_FILES.completion)))
-      ? { completion: await readText($, at(RUN_FILES.completion)), scorecard: await readJson($, at(RUN_FILES.scorecard)) }
+      ? { completion: await readText($, at(RUN_FILES.completion)), scorecard: await readJson($, at(RUN_FILES.scorecard)),
+        present: await presentOf($, run) }
       : {}),
   }
   return summaryOf(run, raw, await $.clock.now())
+}
+
+/** Which of the run's artifact files exist, so the pane links only to those. */
+async function presentOf($: EngineInterface, run: string): Promise<string[]> {
+  const found: string[] = []
+  for (const path of Object.values(ARTIFACT_FILES)) if (await exists($, `${run}/${path}`)) found.push(path)
+  return found
 }
 
 let refreshing = false
@@ -118,16 +152,14 @@ async function refreshNow($: EngineInterface): Promise<void> {
   if (summary.hasRecap && before && before.found && !before.hasRecap) {
     $.ui.toast(`design-lab: ${summary.siteLabel ?? 'the run'} is done. The recap is in the design-lab pane.`, { timeoutMs: 10_000 })
   }
-  // The watchdog: once per transition, never again until the runner has come back.
-  // The build's one planned wait for the person (start the runner) is told the same way, once.
-  const down = isDown(summary) || summary.waiting !== null
+  // The watchdog: once per transition, never again until the run needs nothing from the person.
+  // It says what the Needs you card says.
+  const need = needsYouOf(summary)
   const alarmed = await read($, alarmedAtom)
-  if (down && !alarmed) {
-    $.ui.toast(summary.blocker ?? (summary.waiting ? `design-lab needs you: ${summary.waiting}` : null)
-      ?? `design-lab: ${summary.runner ? runnerLine(summary.runner) : 'the run stopped'}`,
-      { timeoutMs: 10_000 })
+  if (need && !alarmed) {
+    $.ui.toast(`design-lab needs you: ${need.message}`, { timeoutMs: 10_000 })
     await update($, alarmedAtom, () => true)
-  } else if (!down && alarmed) {
+  } else if (!need && alarmed) {
     await update($, alarmedAtom, () => false)
   }
 }
@@ -355,88 +387,283 @@ export const register: Register = on => {
   })
 
   on('ui.render', { component: 'Pane', requestId: PANE }, async ($, e) => {
-    const { Box, Text, Button, Markdown } = $.ui.resolve(e)
+    const elements = $.ui.resolve(e)
+    const { Box, Text, Button, Markdown } = elements
+    // Drawn surfaces (desktop, editor, phone) draw the bar as a vector; the terminal as cells.
+    const Svg = e.surface !== 'terminal' && 'Svg' in elements ? elements.Svg : undefined
     const summary = await read($, summaryAtom)
     const run = await read($, runAtom)
     // The pane's ✕ sits on its first row: start one row lower so it never covers text.
     const follow = await read($, followAtom)
     if (!summary || !run) {
       const skip = await read($, skipAtom)
-      return <Box marginTop={1}><Text dimColor>{follow
-        ? skip
-          ? 'Waiting for the new design-lab run to start. It appears here as soon as its folder is made.'
-          : `No design-lab run yet in ${follow}. It appears here as soon as one starts.`
-        : 'No design-lab run is being watched.'}</Text></Box>
+      return <Box marginTop={1} flexDirection="column" gap={1}>
+        <Text bold>design-lab</Text>
+        <Text dimColor>{follow
+          ? skip
+            ? 'Waiting for the new design-lab run to start. It appears here as soon as its folder is made.'
+            : `No design-lab run yet in ${follow}. It appears here as soon as one starts.`
+          : 'No design-lab run is being watched.'}</Text>
+      </Box>
     }
     if (!summary.found) return <Box marginTop={1}><Text>{plainOf(summary)}</Text></Box>
+    const now = await $.clock.now()
+    const columns = e.props.bodyColumns
+    // The card around the bar takes margin 2, border 2 and padding 2; the rest is slack.
+    const width = Math.max(4, columns - 10)
+    const tone = toneOf(summary)
+    const stages = stagesOf(summary)
+    const need = needsYouOf(summary)
+    const failure = failureOf(summary)
     const runner = summary.runner
-    const steps = runner ? stepsLine(runner) : null
     const preflight = summary.preflight
-    return (
-      <Box flexDirection="column" marginTop={1}>
-        <Text bold wrap="truncate-end">{summary.siteLabel ?? run}</Text>
-        <Box flexDirection="column" marginTop={1}>
-          <Text bold>Preflight</Text>
-          {preflight?.checks && !preflightPassed(summary)
-            ? preflight.checks.map(check => {
-              const message = checkMessage(check)
-              return (
-                <Box key={`check-${check.id}`} flexDirection="column">
-                  <Text dimColor={check.status === 'waiting'}
-                    color={check.status === 'needs-you' ? 'yellow' : check.status === 'failed' ? 'red' : undefined}>
-                    {CHECK_MARKS[check.status] ?? '·'} {check.label}
-                  </Text>
-                  {message && <Text dimColor={check.status === 'checking'}>  {message}</Text>}
-                </Box>
-              )
-            })
-            : (
-              <Text dimColor={preflight?.status !== 'complete'}>
-                {preflight?.status === 'complete'
-                  ? `✓ passed${clockOf(preflight.at) ? ` at ${clockOf(preflight.at)}` : ''}${preflight.checks ? `, ${preflight.checks.length} checks` : ''}`
-                  : preflight ? `· ${preflight.status}` : '· not yet'}
+    const scores = summary.scores
+    const finished = summary.hasRecap
+    const verdict = finished ? verdictOf(summary.findings) : null
+    const recapOpen = await read($, recapOpenAtom)
+    const time = finished ? durationOf(scores?.workingSeconds ?? null) : elapsedOf(summary.startedAt, now)
+    const name = run.split('/').pop()
+    // Finished with figures, the Time tile holds the time, so the subtitle does not repeat it.
+    const subtitle = finished && scores ? [name] : [name, time && `${time} ${finished ? 'working time' : 'elapsed'}`]
+    // Two tiles side by side need about 52 columns; narrower, they stack.
+    const narrowTiles = columns < 52
+    // Narrower still, a stage's steps go one per line.
+    const narrowSteps = columns < 40
+
+    // One figure in a bordered tile: the value bold in color, what it means beneath.
+    const tile = (key: string, label: string, value: string | null, details: (string | null)[], color: string | undefined) => (
+      <Box key={`tile-${key}`} flexDirection="column" flexGrow={1} flexShrink={1} width={narrowTiles ? '100%' : '50%'}
+        borderStyle="round" borderColor={color} borderDimColor paddingX={1}>
+        <Text dimColor>{label}</Text>
+        <Text bold color={color}>{value ?? '–'}</Text>
+        {details.filter(Boolean).map((detail, i) => <Text key={`${key}-${i}`} dimColor wrap="truncate-end">{detail}</Text>)}
+      </Box>
+    )
+    // Coverage and accuracy are judgments: green only when nothing is missing, yellow otherwise.
+    const judged = (share: number | null) => share === null ? undefined : share >= 100 ? 'green' : 'yellow'
+    const progress = (done: number, total: number, color: string) => {
+      if (Svg) {
+        const share = Math.round(Math.min(1, Math.max(0, total > 0 ? done / total : 0)) * 1000)
+        return <Svg alt={`${done} of ${total} steps`} source={barSvg(share, BAR_COLORS[color] ?? BAR_COLORS.cyan!)} />
+      }
+      const bar = barOf(done, total, width)
+      return <Text wrap="truncate-end"><Text color={color}>{bar.filled}</Text><Text dimColor>{bar.empty}</Text></Text>
+    }
+    // A stage's phases as ticks: done, failed, under way (or waiting on the person), still to come.
+    const steps = (phases: { name: string; status: string }[], stopped: boolean) => {
+      const ticks = phases.map(phase => {
+        const done = PHASE_DONE.has(phase.status)
+        const failed = phase.status === 'failed'
+        const current = phase.name === summary.current || phase.status === 'running'
+        const color = done ? 'green' : failed ? 'red' : current ? (stopped ? 'yellow' : 'cyan') : undefined
+        const mark = done ? '✓' : failed ? '✗' : current ? (stopped ? '!' : '▸') : '○'
+        return { key: phase.name, color, current, quiet: !done && !failed && !current, text: `${mark} ${phaseLabel(phase.name)}` }
+      })
+      if (narrowSteps) {
+        return <Box flexDirection="column">{ticks.map(t =>
+          <Text key={t.key} color={t.color} dimColor={t.quiet} bold={t.current} wrap="truncate-end">{t.text}</Text>)}</Box>
+      }
+      return <Text wrap="wrap">{ticks.map((t, i) =>
+        <Text key={t.key} color={t.color} dimColor={t.quiet} bold={t.current}>{i > 0 ? '  ' : ''}{t.text}</Text>)}</Text>
+    }
+
+    // What the open stage shows beneath its row: only the detail that stage needs.
+    const detail = (id: string, state: string, phases: { name: string; status: string }[]) => {
+      if (id === 'preflight') {
+        return preflight?.checks
+          ? preflight.checks.map(check => {
+            const message = checkMessage(check)
+            return (
+              <Box key={`check-${check.id}`} flexDirection="column">
+                <Text dimColor={check.status === 'waiting'} color={CHECK_COLORS[check.status]}>
+                  {CHECK_MARKS[check.status] ?? '·'} {check.label}
+                </Text>
+                {message && <Text dimColor={check.status === 'checking'}>  {message}</Text>}
+              </Box>
+            )
+          })
+          : <Text dimColor>Checking the site, the tools and the Figma file.</Text>
+      }
+      if (id === 'build') {
+        const stopped = state === 'stopped'
+        const building = runner && runner.state === 'building' && runner.stepsTotal
+        // Stopped, the Needs you card says what to do; the step count would only repeat the bar.
+        const line = !runner || stopped || state === 'failed' ? null
+          : runner.stepsTotal && (runner.state === 'building' || runner.state === 'done')
+            ? `${runner.stepsDone ?? 0} of ${runner.stepsTotal} steps` : stepsLine(runner)
+        return (
+          <Box flexDirection="column" gap={1}>
+            {steps(phases, stopped)}
+            {(building || line) && runner && (
+              <Box flexDirection="column">
+                {building && progress(runner.stepsDone ?? 0, runner.stepsTotal!, stopped ? 'yellow' : state === 'failed' ? 'red' : 'cyan')}
+                {line && <Text dimColor wrap="truncate-end">{line}</Text>}
+              </Box>
+            )}
+            {runner && (
+              <Text wrap="truncate-end">
+                <Text color={runner.connected || runner.state === 'done' ? 'green' : isIdle(runner) ? 'gray' : 'yellow'}>● </Text>
+                <Text dimColor={isIdle(runner)}>{runnerLine(runner)}</Text>
               </Text>
             )}
+          </Box>
+        )
+      }
+      if (id === 'verify') return <Text dimColor>Checking the file against the design-lab standard.</Text>
+      if (id === 'report') return <Text dimColor>Scoring the run and writing the report.</Text>
+      return steps(phases, state === 'stopped')
+    }
+
+    const MARK: Record<string, string> = { done: '✓', flagged: '!', active: '▸', stopped: '!', failed: '✗', pending: '○', reused: '↺' }
+    const COLOR: Record<string, string | undefined> = {
+      done: 'green', flagged: 'yellow', active: 'cyan', stopped: 'yellow', failed: 'red', pending: undefined, reused: undefined,
+    }
+    // One card opens: a failure first, then a stop for the person, then the first stage under way.
+    const opened = stages.find(stage => stage.state === 'failed') ?? stages.find(stage => stage.state === 'stopped')
+      ?? stages.find(stage => stage.state === 'active')
+
+    return (
+      <Box flexDirection="column" marginTop={1} gap={1}>
+        {/* Header: what the run is, and where it stands in one colored word. */}
+        <Box flexDirection="column">
+          <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+            <Text bold wrap="truncate-end">{summary.siteLabel ?? run}</Text>
+            <Text bold inverse color={tone.color}> {tone.label} </Text>
+          </Box>
+          <Text dimColor wrap="truncate-end">{subtitle.filter(Boolean).join(' · ')}</Text>
         </Box>
-        <Box flexDirection="column" marginTop={1}>
-          {summary.phases.filter(phase => phase.name !== 'preflight').map(phase => (
-            <Text key={phase.name} dimColor={phase.name !== summary.current && !['complete', 'approved', 'waived'].includes(phase.status)}>
-              {['complete', 'approved', 'waived'].includes(phase.status) ? '✓' : phase.name === summary.current ? '▸' : '·'} {phase.name}
-            </Text>
-          ))}
-        </Box>
-        {runner && (
-          <Box flexDirection="column" marginTop={1}>
-            {steps && <Text>{steps}</Text>}
-            {/* A finished run's server is stopped on purpose: no runner line, no false alarm. */}
-            {!summary.hasRecap && (
-              <Text color={runner.connected ? 'green' : isIdle(runner) ? undefined : 'yellow'} dimColor={isIdle(runner)}>{runnerLine(runner)}</Text>
+
+        {/* What went wrong, above everything else. */}
+        {failure && (
+          <Box key="failed" flexDirection="column" borderStyle="round" borderColor="red" paddingX={1}>
+            <Text bold color="red">Failed</Text>
+            <Text>{failure.text}</Text>
+          </Box>
+        )}
+
+        {/* The one thing the person has to do. */}
+        {need && (
+          <Box key="needs-you" flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
+            <Text bold color="yellow">Needs you</Text>
+            <Text>{need.message}</Text>
+            {need.canResume && <Text dimColor>When the runner is open again, press Resume run.</Text>}
+            {summary.facts.figmaUrl && <Markdown text={`[Open the Figma file ↗](${summary.facts.figmaUrl})`} />}
+            {need.canResume && (
+              <Box marginTop={1}>
+                <Button key="resume" label="Resume run" onPress={() => void resume($, run)} />
+              </Box>
             )}
           </Box>
         )}
-        {summary.waiting && !summary.blocker && (
-          <Box flexDirection="column" marginTop={1}>
-            <Text color="yellow">Needs you: {summary.waiting}</Text>
-          </Box>
-        )}
-        {summary.blocker && (
-          <Box flexDirection="column" marginTop={1}>
-            <Text color="yellow">Needs you: {summary.blocker}</Text>
-            <Button key="resume" label="Runner restarted, resume" onPress={() => void resume($, run)} />
-          </Box>
-        )}
-        {summary.recap && (
-          <Box flexDirection="column" marginTop={1}>
-            <Text bold>Recap</Text>
-            <Markdown text={summary.recap} />
-          </Box>
-        )}
-        {summary.log.length > 0 && !summary.hasRecap && (
-          <Box flexDirection="column" marginTop={1}>
-            {summary.log.map((line, i) => <Text key={`log-${i}`} dimColor wrap="truncate-end">{line}</Text>)}
+
+        {/* The five stages, in order: one row each, the open one with its detail beneath. */}
+        <Box flexDirection="column">
+          {stages.map((stage, i) => {
+            const lit = stage.state === 'active' || stage.state === 'stopped' || stage.state === 'failed'
+            const color = COLOR[stage.state]
+            return (
+              <Box key={`stage-${stage.id}`} flexDirection="column">
+                <Box flexDirection="row" justifyContent="space-between" gap={1}>
+                  <Box flexShrink={0}>
+                    <Text bold={lit} dimColor={stage.state === 'pending' || stage.state === 'reused'}
+                      color={lit || stage.state === 'flagged' ? color : undefined}>
+                      <Text color={color}>{MARK[stage.state]}</Text> {i + 1}  {stage.label}
+                    </Text>
+                  </Box>
+                  {stage.note ? <Text color={stage.noteColor} dimColor={!stage.noteColor && !lit}
+                    wrap={stage.id === 'verify' ? 'wrap' : 'truncate-end'}>{stage.note}</Text> : null}
+                </Box>
+                {opened === stage && (
+                  // Stopped, the card stays quiet: the Needs you card is the only yellow box.
+                  <Box key={`card-${stage.id}`} flexDirection="column" marginLeft={2} marginY={1} paddingX={1} borderStyle="round"
+                    borderColor={stage.state === 'stopped' ? undefined : color} borderDimColor>
+                    {detail(stage.id, stage.state, stage.phases)}
+                  </Box>
+                )}
+              </Box>
+            )
+          })}
+        </Box>
+
+        {/* Finished: the verdict, the report's figures, then what the run made and where it is. */}
+        {finished && (
+          <Box flexDirection="column" gap={1}>
+            {verdict && (
+              <Box key="verdict" flexDirection="column" borderStyle="round" borderColor="yellow" paddingX={1}>
+                <Text bold color="yellow">Verification found problems</Text>
+                <Text>{verdict}</Text>
+                <Markdown text={`[Open the verification findings](${fileUrl(run, ARTIFACT_FILES.verifyReport)})`} />
+              </Box>
+            )}
+            {scores && (() => {
+              const coverage = percentOf(scores.built, scores.eligible)
+              const accuracy = percentOf(scores.withinTolerance, scores.widths)
+              const missing = scores.built !== null && scores.eligible !== null && scores.eligible > scores.built
+                ? `${scores.eligible - scores.built} not built` : null
+              return (
+                <Box flexDirection="column">
+                  <Box flexDirection={narrowTiles ? 'column' : 'row'} gap={narrowTiles ? 0 : 1}>
+                    {tile('coverage', 'Coverage', coverage !== null ? `${coverage}%` : null,
+                      [scores.built !== null && scores.eligible !== null ? `${scores.built} of ${scores.eligible} buildable` : null, missing],
+                      judged(coverage))}
+                    {tile('accuracy', 'Accuracy', accuracy !== null ? `${accuracy}%` : null,
+                      [scores.withinTolerance !== null && scores.widths !== null ? `${scores.withinTolerance} of ${scores.widths} widths within tolerance` : null],
+                      judged(accuracy))}
+                  </Box>
+                  <Box flexDirection={narrowTiles ? 'column' : 'row'} gap={narrowTiles ? 0 : 1}>
+                    {tile('time', 'Time', durationOf(scores.workingSeconds),
+                      [scores.buildSeconds !== null ? `Figma build ${durationOf(scores.buildSeconds)}` : null], 'magenta')}
+                    {tile('tokens', 'Tokens', compactOf(scores.tokens),
+                      [scores.toolCalls !== null ? `${scores.toolCalls} tool calls` : null], 'blue')}
+                  </Box>
+                </Box>
+              )
+            })()}
+            {(() => {
+              const links = artifactsOf(run, summary.facts.figmaUrl, new Set(summary.present))
+              return (links.main || links.files) && (
+                <Box flexDirection="column">
+                  {links.main && <Markdown text={links.main} />}
+                  {links.files && <Text dimColor>Run files</Text>}
+                  {links.files && <Markdown text={links.files} />}
+                </Box>
+              )
+            })()}
+            {summary.recap && (
+              <Box flexDirection="column">
+                <Box flexDirection="row" justifyContent="space-between" alignItems="center">
+                  <Text bold dimColor>Recap</Text>
+                  <Button key="recap" label={recapOpen ? 'Hide' : 'Show'} onPress={() => void update($, recapOpenAtom, open => !open)} />
+                </Box>
+                {recapOpen && <Markdown text={summary.recap} />}
+              </Box>
+            )}
           </Box>
         )}
       </Box>
     )
   })
+}
+
+/** A file in the run folder as a link: each path segment encoded, so a space, #, ? or bracket in a
+ * folder name cannot end or break the link. */
+export function fileUrl(run: string, path: string): string {
+  const encode = (segment: string) => encodeURIComponent(segment).replace(/[!'()*]/g, c => `%${c.charCodeAt(0).toString(16).toUpperCase()}`)
+  return `file://${`${run}/${path}`.split('/').map(encode).join('/')}`
+}
+
+/** What a finished run made, as links: the two that matter (the Figma file and the benchmark
+ * report), then the run's own files. Only files that exist are listed. */
+export function artifactsOf(run: string, figmaUrl: string | null, present: Set<string>): { main: string | null; files: string | null } {
+  const main = [
+    figmaUrl ? `- **[Open the Figma library ↗](${figmaUrl})**` : null,
+    present.has(ARTIFACT_FILES.report) ? `- **[Open the benchmark report](${fileUrl(run, ARTIFACT_FILES.report)})**` : null,
+  ].filter(Boolean)
+  const files = ([
+    ['Verification findings', ARTIFACT_FILES.verifyReport],
+    ['Build plan', ARTIFACT_FILES.plan],
+    ['Components', ARTIFACT_FILES.components],
+    ['Scorecard', ARTIFACT_FILES.scorecard],
+  ] as const).filter(([, path]) => present.has(path)).map(([label, path]) => `- [${label}](${fileUrl(run, path)})`)
+  return { main: main.length ? main.join('\n') : null, files: files.length ? files.join('\n') : null }
 }
