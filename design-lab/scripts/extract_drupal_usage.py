@@ -49,6 +49,15 @@ SELECT id, IFNULL(parent_type,''), IFNULL(parent_id,''),
 FROM cohesion_layout_field_data WHERE default_langcode=1;
 """,
     "component_contents": "SELECT id, uuid FROM component_contents;",
+    # Master, menu, view and content templates are config entities, not layout rows, so the
+    # header and footer a master template places on every page never reach the layout table.
+    # Views are read only to find the pages that render a view template.
+    "sitestudio_templates": """
+SELECT name, REPLACE(REPLACE(REPLACE(CAST(data AS CHAR), CHAR(10), ' '), CHAR(13), ' '),
+                     CHAR(9), ' ')
+FROM config WHERE collection='' AND (name LIKE 'cohesion\\_templates.%'
+   OR (name LIKE 'views.view.%' AND CAST(data AS CHAR) LIKE '%views_template%'));
+""",
     "paragraphs": """
 SELECT id, type, IFNULL(parent_type,''), IFNULL(parent_id,''), status
 FROM paragraphs_item_field_data WHERE default_langcode=1;
@@ -90,6 +99,7 @@ OPTIONAL_TABLES = {
     "blocks": "block_content",
     "blocks_in_paragraphs": "paragraph__field_block",
     "block_configuration": "config",
+    "sitestudio_templates": "config",
     "sitestudio_layouts": "cohesion_layout_field_data",
     "component_contents": "component_contents",
 }
@@ -102,7 +112,9 @@ def _mysql(ddev_root: Path, project: str | None, sql: str) -> list[list[str]]:
                             stderr=subprocess.PIPE)
     if result.returncode:
         raise ValueError("DDEV database query failed: " + result.stderr.strip())
-    return [line.split("\t") for line in result.stdout.splitlines() if line]
+    # Rows end only at a newline: splitlines() would also split on characters such as
+    # U+2028 that are legitimate inside a stored value.
+    return [line.split("\t") for line in result.stdout.split("\n") if line]
 
 
 def collect_rows(ddev_root: str | Path, project: str | None = None) -> dict[str, list[list[str]]]:
@@ -145,6 +157,171 @@ def _root_of(paragraph_id: str, paragraphs: dict[str, dict]) -> tuple[str | None
     return None, None
 
 
+def walk(elements, nested=False):
+    """Yield (componentId, componentContentId, nested) for a Site Studio canvas."""
+    for element in elements:
+        if not isinstance(element, dict):
+            continue
+        component = element.get("componentId") if element.get("type") == "component" else None
+        reference = element.get("componentContentId")
+        yield component, reference, nested
+        yield from walk(element.get("children") or [], nested or bool(component) or bool(reference))
+
+
+def php_unserialize(data: bytes):
+    """Decode PHP serialize() output, the format Drupal stores config in.
+
+    Strings are length-prefixed in bytes, so the input stays bytes. Objects are not expected
+    in config and are rejected rather than guessed at.
+    """
+    position = 0
+
+    def read_until(stop: bytes) -> bytes:
+        nonlocal position
+        end = data.index(stop, position)
+        value = data[position:end]
+        position = end + len(stop)
+        return value
+
+    def value():
+        nonlocal position
+        kind = data[position:position + 2]
+        position += 2
+        if kind == b"N;":
+            return None
+        if kind == b"b:":
+            return read_until(b";") == b"1"
+        if kind == b"i:":
+            return int(read_until(b";"))
+        if kind == b"d:":
+            return float(read_until(b";"))
+        if kind == b"s:":
+            length = int(read_until(b":\""))
+            text = data[position:position + length]
+            position += length + 2  # closing quote and semicolon
+            return text.decode("utf-8", "replace")
+        if kind == b"a:":
+            count = int(read_until(b":{"))
+            result = {}
+            for _ in range(count):
+                key = value()
+                result[key] = value()
+            position += 1  # closing brace
+            return result
+        raise ValueError(f"unsupported serialized type {kind!r} at byte {position - 2}")
+
+    return value()
+
+
+def _view_paths(views: list[dict]) -> dict[str, set[str]]:
+    """Page paths, per view template, of the view displays that render it."""
+    paths: dict[str, set[str]] = collections.defaultdict(set)
+    for view in views:
+        if view.get("status") is False:
+            continue
+        displays = view.get("display") or {}
+        default_options = (displays.get("default") or {}).get("display_options") or {}
+        for display in displays.values():
+            if not isinstance(display, dict) or display.get("display_plugin") != "page":
+                continue
+            options = display.get("display_options") or {}
+            if options.get("enabled") is False:
+                continue
+            style = options.get("style") or default_options.get("style") or {}
+            template = (style.get("options") or {}).get("views_template")
+            path = str(options.get("path") or "").strip("/")
+            # A path with an argument placeholder names no single page to open.
+            if template and path and "%" not in path and "{" not in path:
+                paths[template].add("/" + path)
+    return paths
+
+
+def template_usage(rows, published):
+    """Components placed by Site Studio templates: structural, attributed to example pages.
+
+    Every template placement is structural: an author never placed it on a page. The default
+    master template renders on every full page that names no other master, so its components
+    are site-wide and the home page is where to look for them; another master template renders
+    on the nodes whose default full content template selects it. Menu templates render in the
+    site's chrome. A view template renders on its views' page displays. Disabled templates
+    render nowhere and are skipped.
+    """
+    structural = collections.Counter()
+    node_bundles: dict[str, set[str]] = collections.defaultdict(set)
+    paths: dict[str, set[str]] = collections.defaultdict(set)
+    site_wide: set[str] = set()
+    sources: dict[str, set[str]] = collections.defaultdict(set)
+    templates, views = {}, []
+    problems = []
+    for values in rows.get("sitestudio_templates", []):
+        if len(values) < 2:
+            continue
+        name, blob = values[0], "\t".join(values[1:])
+        try:
+            data = php_unserialize(blob.encode("utf-8"))
+            if not isinstance(data, dict):
+                raise ValueError("config is not an array")
+        except (ValueError, IndexError) as error:
+            problems.append({"check": "sitestudio-template-unreadable",
+                             "detail": f"{name}: {error}"})
+            continue
+        if name.startswith("views.view."):
+            views.append(data)
+        else:
+            templates[name] = data
+
+    bundles = collections.defaultdict(set)
+    for values in rows.get("nodes", []):
+        if len(values) >= 3 and values[0] in published:
+            bundles[values[2]].add(values[0])
+    view_paths = _view_paths(views)
+    masters_by_bundle = {}
+    for name, data in templates.items():
+        if (name.startswith("cohesion_templates.cohesion_content_templates.")
+                and data.get("status") and data.get("default")
+                and data.get("entity_type") == "node" and data.get("view_mode") == "full"):
+            masters_by_bundle[data.get("bundle")] = data.get("master_template")
+
+    for name, data in sorted(templates.items()):
+        if not data.get("status"):
+            continue
+        try:
+            canvas = json.loads(data.get("json_values") or "{}").get("canvas") or []
+        except (ValueError, AttributeError) as error:
+            problems.append({"check": "sitestudio-template-unreadable",
+                             "detail": f"{name}: invalid json_values: {error}"})
+            continue
+        kind = name.split(".")[1] if name.count(".") >= 2 else ""
+        template_id = data.get("id") or name.rsplit(".", 1)[-1]
+        if kind == "cohesion_master_templates":
+            # The default master renders on every page, so the home page is the example;
+            # naming every node of the bundles that select it explicitly adds nothing.
+            chrome = bool(data.get("default"))
+            page_bundles = set() if chrome else {
+                bundle for bundle, master in masters_by_bundle.items() if master == template_id}
+        elif kind == "cohesion_content_templates":
+            chrome = False
+            page_bundles = ({data.get("bundle")} if data.get("default")
+                            and data.get("entity_type") == "node"
+                            and data.get("view_mode") == "full" else set())
+        else:
+            chrome = kind == "cohesion_menu_templates"
+            page_bundles = set()
+        for component, _reference, _nested in walk(canvas):
+            if not component:
+                continue
+            structural[component] += 1
+            sources[component].add(name)
+            if chrome:
+                site_wide.add(component)
+            node_bundles[component] |= page_bundles
+            if kind == "cohesion_view_templates":
+                paths[component] |= view_paths.get(template_id, set())
+    pages = {component: set().union(*(bundles[bundle] for bundle in names))
+             for component, names in node_bundles.items() if names}
+    return structural, pages, paths, site_wide, sources, problems
+
+
 def sitestudio_usage(rows, published):
     """Count stored author instances once; reusable content is structural.
 
@@ -164,15 +341,6 @@ def sitestudio_usage(rows, published):
         except (ValueError, TypeError) as error:
             raise ValueError(f"Site Studio layout {layout_id}: invalid json_values: {error}") from error
         layouts[(host_type, host_id)].append(data.get("canvas", []))
-
-    def walk(elements, nested=False):
-        for element in elements:
-            if not isinstance(element, dict):
-                continue
-            component = element.get("componentId") if element.get("type") == "component" else None
-            reference = element.get("componentContentId")
-            yield component, reference, nested
-            yield from walk(element.get("children") or [], nested or bool(component) or bool(reference))
 
     for (host_type, host_id), canvases in layouts.items():
         for canvas in canvases:
@@ -299,6 +467,10 @@ def build_usage(components: dict, rows: dict[str, list[list[str]]], source: dict
             block_structural["block:" + by_uuid[match.group(1)]] += int(values[1])
 
     ss_direct, ss_structural, ss_pages, ss_problems = sitestudio_usage(rows, published)
+    (tpl_structural, tpl_pages, tpl_paths, tpl_site_wide, tpl_sources,
+     tpl_problems) = template_usage(rows, published)
+    ss_structural += tpl_structural
+    site_wide |= tpl_site_wide
     component_ids = [component["id"] for component in components.get("components") or []]
     database_ids = (set(paragraph_placements) | set(paragraph_structural) |
                     set(block_placements) | set(block_structural) | set(inline_entities) |
@@ -311,20 +483,26 @@ def build_usage(components: dict, rows: dict[str, list[list[str]]], source: dict
             "structuralRefs": int(paragraph_structural[component_id] +
                                   block_structural[component_id] + ss_structural[component_id]),
             "pages": len(paragraph_pages[component_id]) + len(block_pages[component_id])
-                     + len(ss_pages[component_id]),
+                     + len(ss_pages[component_id] | tpl_pages.get(component_id, set())),
             "unpublishedInstances": int(paragraph_unpublished[component_id]),
             "inlineBlockEntities": int(inline_entities[component_id]),
             "configPlacedBlocks": int(configured_blocks[component_id]),
             "orphanInstances": int(paragraph_orphans[component_id]),
-            "exampleCandidates": paths_for(
+            # Pages an author placed the component on come before the pages a template
+            # renders it on, so a template never displaces an example that already works.
+            "exampleCandidates": list(dict.fromkeys((paths_for(
                 paragraph_pages[component_id] | block_pages[component_id] | ss_pages[component_id])
-                + (["/"] if component_id in site_wide or configured_blocks[component_id] else []),
+                + paths_for(tpl_pages.get(component_id, set())))[:8]
+                + sorted(tpl_paths.get(component_id, ()))
+                + (["/"] if component_id in site_wide or configured_blocks[component_id] else []))),
         }
+        if tpl_sources.get(component_id):
+            usage[component_id]["templates"] = sorted(tpl_sources[component_id])
 
     zero = sorted(component_id for component_id, value in usage.items()
                   if value["placements"] == 0 and value["structuralRefs"] == 0)
     extra = sorted(database_ids - set(component_ids))
-    problems = list(ss_problems)
+    problems = list(ss_problems) + tpl_problems
     if extra:
         problems.append({
             "check": "bundle-in-database-not-in-inventory",
@@ -359,10 +537,15 @@ def build_usage(components: dict, rows: dict[str, list[list[str]]], source: dict
                 "structuralRefs": ("paragraphs whose immediate parent is another paragraph or "
                                    "block, plus blocks embedded through a paragraph block field; "
                                    "nested Site Studio components and stored reusable-content components "
-                                   "(counted once, with published host pages attributed through references)"),
+                                   "(counted once, with published host pages attributed through references), "
+                                   "plus components placed by enabled Site Studio master, content, menu "
+                                   "and view templates (listed under templates)"),
             },
             "population": {
                 "siteStudioLayouts": len(rows.get("sitestudio_layouts", [])),
+                "siteStudioTemplates": sum(
+                    1 for values in rows.get("sitestudio_templates", [])
+                    if values and values[0].startswith("cohesion_templates.")),
                 "paragraphInstances": len(paragraphs),
                 "blockContentEntities": len(by_uuid),
                 "nodes": len(rows.get("nodes", [])),

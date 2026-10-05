@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.23.1
+- Site Studio usage now reads the master, content, menu and view templates from the site's active config, so components a template places get counted. Previously the header and footer that a master template puts on every page were measured as unused and never captured. Template placements count as structural references and are listed under `templates`. The default master template and menu templates point to `/` as their example. Any other master template, and each node's default full content template, point to the published nodes of the bundles that use it. A view template points to its views' page paths. Disabled templates are skipped. Pages where an author placed a component still come before pages a template renders it on. On AHRI, `cpt_ahri_site_header` and `cpt_ahri_site_footer` now get `/` as their example, and four more template-only components get an example page.
+- When a component's first page shows no match, capture now tries its unverified example candidates after its verified examples. Site Studio usage never verifies rendered markers, and its first candidate is often a page that needs a login.
+
 ## 0.23.0
 
 **At most two variable collections, and the fixes a full PNCB run needed to reach its benchmark.** A library now carries `<Brand> Core`, one mode, and `<Brand> Breakpoint`, whose Desktop, Tablet and Mobile modes hold every value that changes with width, responsive type included. A first end-to-end run on a fully layered Drupal theme surfaced a run of builder and checker bugs; each is fixed at its source.
