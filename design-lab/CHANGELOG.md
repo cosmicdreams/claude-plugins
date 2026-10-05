@@ -14,6 +14,7 @@
 - The figures say what they measure: Coverage as "48 of 58 buildable" (with how many were not built), Accuracy as a percentage of widths within tolerance, Discovery as "155 found · 48 planned", Build as "48 of 48 planned built". Coverage and Accuracy are green only at 100% and yellow otherwise; Time and Tokens keep their own colors. The Report row reads "report ready", and the header no longer repeats the time the Time tile shows.
 - The finished run's links lead with the Figma library and the benchmark report, then list the run's own files under Run files, only those that exist. Paths with spaces, brackets, # or ? in them are encoded so the links open.
 - At narrow widths the progress bar fits the pane, the four figures stack in one column below about 52 columns, and a stage's steps go one per line below 40.
+- Preflight's checks are named for what they check (Local site, Runner port, Playwright browser, SVG renderer, Twig debug markup, Plugin version), not for a result, so a check still waiting or needing the person no longer claims it has passed. Check ids are unchanged.
 - The Build card shows the step count ("112 of 254 steps"), the bar and the runner's state, without runner log lines. Steps still to come are marked ○, as in the stage list. Times are rounded to the nearest minute, as the recap rounds them, and a Figma link at the end of a sentence no longer keeps the full stop.
 
 ## 0.21.0

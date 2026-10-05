@@ -1091,7 +1091,7 @@ class WorkflowCaptureTest(unittest.TestCase):
                          ("needs-you", "needs-you", "done", "done", "done", "done", "done"))
         self.assertIs(checklist["ready"], False)
         text = workflow.render_watch(workflow.watch_summary(self.ws))
-        self.assertIn("! The local site answers: Start the local site at http://127.0.0.1:9/", text)
+        self.assertIn("! Local site: Start the local site at http://127.0.0.1:9/", text)
         self.assertNotIn("Runner connected to the target file", text)
         self.assertNotIn('"preflight"', (self.ws / "phase-log.jsonl").read_text())
 
