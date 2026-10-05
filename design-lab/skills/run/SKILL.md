@@ -30,7 +30,11 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.py check
 
 If anything is `missing` (✗), stop and run `design-lab:init` first, then continue; `advice` (!) does not stop a run. Setup is about the person and the machine; preflight below is about this site.
 
-To resume a run the person did not name, find this project's newest run: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py watch` (run from the project or repository folder) prints its `Run folder:` line, which is `<artifact-directory>` from then on; resume from its artifacts. Tell the person they can watch it with `/design-lab:watch`, which with no folder shows this project's newest run.
+To resume a run the person did not name, find this project's newest run: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py watch` (run from the project or repository folder) prints its `Run folder:` line, which is `<artifact-directory>` from then on; resume from its artifacts.
+
+When that newest run is already finished (its benchmark is done) and the person did not ask for a fresh run, offer both choices in one message: a fresh run, which captures the site again and takes hours, or `design-lab:figma-build`, which builds that run's capture and plan into a new, empty Figma file in minutes. Ask for the new file's address either way.
+
+The design-lab pane opens beside the conversation by itself when this skill starts, and follows the run as its folder appears; never tell the person to open it. If they closed it, `/design-lab:watch` opens it again.
 
 ## Establish the project
 

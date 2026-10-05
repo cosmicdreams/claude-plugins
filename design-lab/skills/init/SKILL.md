@@ -38,6 +38,7 @@ Run every command with absolute paths, one command at a time; never `cd`, shell 
      - **One folder for everything** (`home`): `~/.design/<project>/<date>`. The simple choice for anyone else.
 
      Then `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.py set runs project` (or `home`).
+   - **This project's runs folder** (`project`), when the session is in a project. If the folder the check names does not exist yet, create it now, so every later run, and the pane, finds it without being told: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.py runs-folder --create`. It is never inside a repository, so nothing in it can be committed, and every run lands in its own dated folder there.
    - **Node.js** (`node`). If missing, say capture runs Playwright through node, and ask before installing it (for example `brew install node`). Without it, capture cannot run.
    - **Playwright and its Chromium** (`playwright`). Say that capture measures and photographs each component in a real browser through Playwright, that design-lab keeps one shared copy for every site so no site needs its own, and what `needsApproval` says it downloads and where. Ask; on approval run `lab_setup.py install playwright`, which records the folder as capture's default.
    - **Python packages** (`python`). Say which are missing and what they are for (`cairosvg` turns a site's SVG images into pictures Figma accepts; Pillow reads and writes images), and what `needsApproval` says. Ask; on approval run `lab_setup.py install python`.
@@ -47,7 +48,7 @@ Run every command with absolute paths, one command at a time; never `cd`, shell 
      - **Turn the setting off**: `lab_setup.py claude-settings --allow-reads`.
 
      Either way, finish with the restart steps below.
-   - **The pane** (`pane`) and **DDEV** (`ddev`) are advice only: say what they mean (the `/design-lab:watch` pane needs a newer Claude Code; without DDEV a database-backed site builds without usage tiers) and move on.
+   - **The pane** (`pane`) and **DDEV** (`ddev`) are advice only: say what they mean (the pane that shows a run's progress beside the conversation needs a newer Claude Code; without DDEV a database-backed site builds without usage tiers) and move on.
    - **Scoreboard and corpus** (`evaluation`) are optional. Mention them only if the person wants runs kept in a ledger across sites; if so, ask for the three paths and run `lab_setup.py set evaluation <corpus> <ledger> <dashboard>`.
 
 3. Run the check again and show the result as a short list: each item, ok or what is still to do.
@@ -59,4 +60,4 @@ Settings are read when a session starts, so the change applies only to new sessi
 1. End this session (`/exit`).
 2. Start a new one in the project's folder, for example `cd <project folder> && claude`.
 3. To continue an unfinished run there, send: `Continue the design-lab run from where it stopped.` To start a new one, send the opening prompt from `references/benchmark.md`.
-4. To watch it, run `/design-lab:watch` in that session: with no folder it shows this project's newest run.
+4. The design-lab pane opens beside the conversation by itself when `design-lab:run` or `design-lab:figma-build` starts. `/design-lab:watch` opens it again after it is closed.

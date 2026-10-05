@@ -556,6 +556,42 @@ class WorkingTimeTest(unittest.TestCase):
         ])
         write(self.run_dir / "project.json", legacy_project(run={"claude": {"configDir": str(self.config)}}))
 
+    def test_rebuild_named_current_and_transcript_scoring_excludes_other_work(self):
+        self.main.with_suffix("").rename(self.root / "held-subagents")
+        records = [entry("prompt", "2026-01-05T09:00:00Z"), entry("reply", "2026-01-05T09:01:00Z"),
+                   entry("prompt", "2026-01-05T10:10:00Z"), entry("step", "2026-01-05T10:10:10Z"),
+                   entry("reply", "2026-01-05T10:11:00Z"),
+                   entry("prompt", "2026-01-05T12:00:00Z"), entry("reply", "2026-01-05T12:01:00Z")]
+        write_transcript(self.main, records)
+        project = legacy_project(run={"startedAt": "2026-01-05T10:10:00+00:00", "rebuiltFrom": {"run": "/old"},
+                                      "claude": {"configDir": str(self.config), "transcripts": str(self.main.parent)}})
+        write(self.run_dir / "project.json", project)
+        end = score_run.parse_time("2026-01-05T10:12:00Z")
+        for session, transcripts in (("sess-w", None), ("current", None), (None, [self.main]), (None, [self.main.parent])):
+            with self.subTest(session=session, transcripts=transcripts):
+                cost = score_run.score_cost(self.run_dir, project, transcripts, None, None, session, (end, end))
+                self.assertEqual(cost["model"]["tokens"]["total"], 30)
+                self.assertEqual(cost["model"]["assistantMessages"], 2)
+                self.assertEqual(cost["working"]["workingSeconds"], 60)
+
+        # A conversation containing only this run has exactly the same totals as before.
+        write_transcript(self.main, records[2:5])
+        rebuilt = score_run.score_cost(self.run_dir, project, None, None, None, "sess-w", (end, end))
+        project["run"].pop("rebuiltFrom")
+        full = score_run.score_cost(self.run_dir, project, None, None, None, "sess-w", (end, end))
+        for key in ("tokens", "byModel", "assistantMessages", "toolCalls", "production", "benchmark"):
+            self.assertEqual(rebuilt["model"][key], full["model"][key])
+        self.assertEqual(rebuilt["working"], full["working"])
+
+    def test_copied_phase_timestamps_are_not_scoring_checkpoints(self):
+        project = legacy_project(phases={"preflight": {"status": "complete", "from": "/source",
+                                                      "updatedAt": "2020-01-01T00:00:00Z",
+                                                      "sourceUpdatedAt": "2020-01-01T00:00:00Z"},
+                                         "foundation": {"status": "complete", "updatedAt": "2026-01-05T10:01:00Z"}})
+        timings = score_run.phase_timings(self.run_dir, project)
+        self.assertEqual(timings["spanSeconds"], 60)
+        self.assertEqual([row["phase"] for row in timings["checkpoints"]], ["foundation"])
+
     def test_working_spans_waits_and_subagent_overlap(self):
         card = score_run.score(self.run_dir, session="sess-w")
         self.assertEqual(score_run.validate_scorecard(card), [])

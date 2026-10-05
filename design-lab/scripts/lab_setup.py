@@ -7,6 +7,7 @@ cost the person should know), and says how it is fixed and whether fixing instal
 something, in which case design-lab:init asks first.
 
     lab_setup.py check [--json]                 report every check, change nothing
+    lab_setup.py runs-folder [--from <folder>] [--create]  this project's runs folder
     lab_setup.py set runs project|home          where runs live
     lab_setup.py set operator "<name>"          another name for reports than Claude Code's account
     lab_setup.py set evaluation <corpus> <ledger> <dashboard>
@@ -166,6 +167,16 @@ def checks() -> list[dict]:
                       "home": "one folder for everything: ~/.design/<project>/<date>"}.get(convention,
                      "not chosen: runs need a folder outside every repository"),
                      None if convention in lab_config.CONVENTIONS else "lab_setup.py set runs project|home"))
+
+    if lab_config.project_folder(Path.cwd()) is not None:
+        try:
+            folder = lab_config.runs_folder(Path.cwd(), config)
+        except ValueError:
+            pass
+        else:
+            out.append(check("project", "advice", "This project's runs",
+                             f"{folder} ({'exists' if folder.is_dir() else 'does not exist yet'})",
+                             "lab_setup.py runs-folder --create"))
 
     operator, account = config.get("operator"), lab_config.claude_account_name()
     out.append(check("operator", "ok", "Your name for reports",
@@ -358,6 +369,9 @@ def allow_reads() -> dict:
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n")[0])
     sub = parser.add_subparsers(dest="command", required=True)
+    f = sub.add_parser("runs-folder")
+    f.add_argument("--from", dest="folder", type=Path, default=Path.cwd())
+    f.add_argument("--create", action="store_true")
     c = sub.add_parser("check")
     c.add_argument("--json", action="store_true")
     s = sub.add_parser("set")
@@ -374,6 +388,16 @@ def main(argv=None) -> int:
     group.add_argument("--allow-reads", action="store_true", help="turn the read-blocking setting off")
     args = parser.parse_args(argv)
     try:
+        if args.command == "runs-folder":
+            folder = lab_config.runs_folder(args.folder.resolve())
+            if args.create:
+                repo = lab_config.inside_repository(folder)
+                if repo is not None:
+                    raise ValueError(f"the runs folder {folder} is inside the working copy {repo}; runs are personal and "
+                                     "never committed, so they live outside every repository")
+                folder.mkdir(parents=True, exist_ok=True)
+            print(folder)
+            return 0
         if args.command == "check":
             found = checks()
             if args.json:
@@ -392,9 +416,9 @@ def main(argv=None) -> int:
                   allow_folders(args.allow_folders) if args.allow_folders is not None else allow_reads())
         print(json.dumps(result, indent=2))
         return 0
-    except (ValueError, RuntimeError) as error:
+    except (OSError, ValueError, RuntimeError) as error:
         print(f"design-lab: {error}", file=sys.stderr)
-        return 2
+        return 1 if args.command == "runs-folder" else 2
 
 
 if __name__ == "__main__":

@@ -108,6 +108,7 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
   // While the build waits for the person to start the runner, the runner is awaited, not idle.
   const shown = waiting && runner && runner.state === 'waiting' ? { ...runner, state: 'connecting' } : runner
   const preflight = record(record(project.phases).preflight)
+  const preflightAt = preflight.from ? null : text(preflight.updatedAt)
   const checks = checksOf(raw.preflightChecks, preflight)
   return {
     workspace,
@@ -116,7 +117,7 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
     phases,
     current: (running ?? due)?.name ?? null,
     preflight: preflight.status || checks
-      ? { status: text(preflight.status) ?? 'running', at: text(preflight.updatedAt), checks }
+      ? { status: text(preflight.status) ?? 'running', at: preflightAt, checks }
       : null,
     runner: shown,
     blocker,
@@ -124,7 +125,7 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
     log: tailOf(raw.runnerLog),
     hasRecap: recapIsCurrent(project, raw),
     recap: recapIsCurrent(project, raw) ? recapOf(raw.completion!) : null,
-    startedAt: text(preflight.updatedAt) ?? text(project.createdAt),
+    startedAt: preflightAt ?? text(project.createdAt),
   }
 }
 
@@ -136,7 +137,7 @@ export function checksOf(document: unknown, phase: Record<string, unknown>): Che
   const d = record(document)
   if (!Array.isArray(d.checks)) return null
   const written = Date.parse(text(d.at) ?? '')
-  const passed = Date.parse(text(phase.updatedAt) ?? '')
+  const passed = Date.parse(phase.from ? '' : text(phase.updatedAt) ?? '')
   if (phase.status === 'complete' && written < passed) return null
   return d.checks.flatMap(value => {
     const c = record(value)

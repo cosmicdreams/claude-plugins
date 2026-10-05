@@ -904,6 +904,9 @@ def identity_section(ident: dict) -> str:
             # The report describes Claude's work, so it names the model when it is a Claude model.
             ("Model", f.get("model") if str(f.get("model") or "").startswith("claude-") else None),
             ("Strategies", ", ".join(f"{k.replace('Source', '')}: {v}" for k, v in (f.get("strategies") or {}).items() if v))]
+    rebuilt = f.get("rebuiltFrom")
+    if rebuilt:
+        rows.append(("Rebuilt inputs", f"This run rebuilt an earlier run's capture and plan from {rebuilt['run']}."))
     items = "".join(f'<div><dt>{esc(k)}</dt><dd>{esc(v) if v else "<span class=na>not recorded</span>"}</dd></div>'
                     for k, v in rows)
     return section("identity", "Run identity and provenance", ident["status"], esc(ident.get("summary")),

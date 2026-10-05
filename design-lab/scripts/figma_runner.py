@@ -261,7 +261,8 @@ class Build:
         count, a dump after the build, or done."""
         kind = step.get("kind")
         if kind == "wait":
-            self.progress.update(state="waiting", step=None, stepKind=None, message=step.get("message"))
+            self.progress.update(state="failed" if self.failed else "waiting", step=None,
+                                 stepKind=None, message=step.get("message"))
         elif kind == "done":
             self.progress.update(state="done", step=None, stepKind=None, message=None,
                                  stepsDone=self.progress["stepsTotal"])
@@ -273,6 +274,9 @@ class Build:
                                  stepsDone=step.get("done"), stepsTotal=step.get("total"))
 
     def note_recorded(self, out: dict) -> None:
+        if self.progress["state"] == "failed":
+            self.progress.update(state="preflight" if self.progress["stepKind"] == "check" else "building",
+                                 message=None)
         if "remaining" in out and self.progress["stepsTotal"] is not None:
             self.progress["stepsDone"] = self.progress["stepsTotal"] - out["remaining"]
 
@@ -333,7 +337,7 @@ class Build:
             return {"kind": "wait", "step": "wait", "retryMs": WAIT_MS,
                     "message": f"Stopped at {self.failed['step']}. Waiting for a fix."}
         self.failed = None
-        if not (self.project / "figma" / "state.json").is_file():
+        if not (self.project / "figma" / "state.json").is_file() or (self.state.get("fileKey") and "steps" not in self.state):
             # Nothing to build yet: the plugin stays open, shows it is connected, and asks again.
             return {"kind": "wait", "step": "wait", "retryMs": WAIT_MS,
                     "message": "Connected. Waiting for the build to start."}
@@ -480,7 +484,7 @@ class Build:
 
     def resume(self, step: str) -> dict | None:
         """After a server restart, the step the plugin is finishing is still the build's next one."""
-        if not (self.project / "figma" / "state.json").is_file():
+        if not (self.project / "figma" / "state.json").is_file() or (self.state.get("fileKey") and "steps" not in self.state):
             return None
         try:
             pending = self.driver("next")
@@ -626,6 +630,7 @@ def make_handler(builds: dict[str, Build], token: str):
                     return self.reply(200, json.dumps(out).encode())
                 if method == "POST" and url.path == "/error":
                     build.log(f"FAILED {body.get('message', body)}")
+                    build.progress.update(state="failed", message=str(body.get("message", body)))
                     if body.get("step") and not body["step"].startswith("preflight"):
                         build.failed = {"step": body["step"], "stamp": build.state_stamp()}
                     if (build.current or {}).get("kind") == "check" and build.handshake_pending():
@@ -634,6 +639,7 @@ def make_handler(builds: dict[str, Build], token: str):
                 return self.reply(404, b"unknown route", "text/plain")
             except Exception as e:  # reported to the plugin, which stops without recording
                 build.log(f"error: {e}")
+                build.progress.update(state="failed", message=str(e))
                 return self.reply(500, str(e).encode(), "text/plain")
 
         def do_OPTIONS(self):  # preflight, in case a client sends a non-simple request

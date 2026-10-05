@@ -7,6 +7,7 @@ import argparse
 import json
 import os
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -192,6 +193,100 @@ def init_command(args):
     write_active_run(workspace)
     print(json.dumps({"project": str(path), "repository": project["repository"],
                       "run": project["run"]}, indent=2))
+
+
+def figma_build_command(args):
+    """Start another run from saved capture and an approved plan."""
+    import lab_config
+    import rebuild
+    repo = Path(args.repo).resolve()
+    if not repo.is_dir():
+        raise ValueError(f"repository does not exist: {repo}")
+    match = figma_key(args.figma_url)
+    if not match:
+        raise ValueError("give the target Figma file address, https://www.figma.com/design/<file-key>/...")
+    source = Path(args.source).resolve()
+    if args.workspace:
+        workspace = Path(args.workspace).resolve()
+        inside = lab_config.inside_repository(workspace)
+        if inside is not None:
+            raise ValueError(f"{workspace} is inside the working copy {inside}; runs are personal and never committed, "
+                             "so they live outside every repository")
+        if workspace.exists() and (not workspace.is_dir() or any(workspace.iterdir())):
+            raise ValueError(f"{workspace}: rebuild workspace must be new or empty")
+    else:
+        workspace = lab_config.next_run(repo, now()[:10])
+    try:
+        result = rebuild.prepare(source, workspace, match.group(1), args.figma_url,
+                                 identity=run_identity(args, repo))
+        append_jsonl(workspace / PHASE_LOG, {"at": now(), "phase": "init", "status": "complete",
+                                            "rebuiltFrom": result["rebuiltFrom"]})
+        write_active_run(workspace)
+        commands = [
+            ("workflow.py", "connect", "--project", workspace),
+            ("figma_build.py", "init", "--project", workspace, "--file-key", result["fileKey"],
+             "--site-url", result["siteUrl"], "--canonical-base-url", result["canonicalBaseUrl"], "--offline-images"),
+            ("workflow.py", "await-build", "--project", workspace),
+            ("workflow.py", "finish", "--project", workspace, "--session", "current"),
+        ]
+        result["next"] = [shlex.join([sys.executable, str(SCRIPT_DIR / script), *map(str, flags)])
+                          for script, *flags in commands]
+        print(f"design-lab run folder: {workspace}", file=sys.stderr)
+        print(json.dumps(result, indent=2))
+    except Exception:
+        if args.workspace:
+            workspace.mkdir(parents=True, exist_ok=True)
+            for child in workspace.iterdir():
+                if child.is_dir() and not child.is_symlink():
+                    shutil.rmtree(child)
+                else:
+                    child.unlink()
+        elif workspace.is_dir():
+            shutil.rmtree(workspace)
+        raise
+
+
+def await_build_command(args):
+    """Wait for the build and its dumps, or leave a useful stop in the phase log."""
+    import rebuild
+    import figma_runner
+    path, project = load_project(args.project)
+    if args.timeout <= 0:
+        raise ValueError("--timeout must be positive")
+    figma_runner.ensure_server(path.parent)
+    try:
+        rebuild.wait_for_build(path.parent, args.timeout)
+    except RuntimeError as error:
+        figma_runner.stop_server(path.parent)
+        path, project = load_project(path)
+        address = (project.get("target") or {}).get("figmaUrl") or "the target Figma file"
+        message = (f"Fix what {path.parent / 'figma/runner.log'} reports, then run the build again; "
+                   f"the skill will rerun await-build. The runner in Figma keeps retrying; if it closed, "
+                   f"open {address} in Figma desktop and restart it. This run's server was stopped so "
+                   f"the next wait clears the failure latch and resumes the failed step. "
+                   f"The build did not finish: {error}")
+        phase = build_phase(project)
+        state = read_json_or(path.parent / "figma/state.json", {})
+        if state.get("steps"):
+            step = next((step["id"] for step in state["steps"] if step["id"] not in state.get("done", [])), None)
+            phase = ("index" if step is None or step in ("examples", "cover", "getting-started") else
+                     "foundation" if step in ("wipe", "pages", "variables") or step.startswith("foundation:") else
+                     "components")
+        append_jsonl(path.parent / PHASE_LOG, {"at": now(), "phase": phase, "status": "stopped",
+                                               "reason": str(error), "message": message})
+        print(message, file=sys.stderr)
+        sys.exit(1)
+
+
+def finish_command(args):
+    """Write receipts, verify and score, including a report when verification has findings."""
+    import rebuild
+    path, _ = load_project(args.project)
+    result = rebuild.evaluate(path.parent, session=args.session)
+    print(json.dumps({"completion": str(path.parent / "benchmark/completion.md"),
+                      "report": str(path.parent / "benchmark/report.html"),
+                      "scorecard": result["scorecard"], "verifyReport": result["verifyReport"],
+                      "verifyExit": result["verifyExit"]}, indent=2))
 
 
 def identity_command(args):
@@ -588,7 +683,8 @@ def runner_handshake(workspace: Path, file_key: str, figma_url: str, timeout: fl
     # A resumed run whose build has begun in this file: the file is no longer empty, so the
     # connection check only proves that the runner is connected to it.
     try:
-        begun = json.loads((workspace / "figma" / "state.json").read_text()).get("fileKey") == file_key
+        state = json.loads((workspace / "figma" / "state.json").read_text())
+        begun = state.get("fileKey") == file_key and bool(state.get("steps"))
     except (OSError, ValueError):
         begun = False
     figma_runner.request_handshake(workspace, cover, expected, connection_only=begun)
@@ -735,6 +831,11 @@ def playwright_folder(given: str | None, repository: str) -> tuple[Path | None, 
                   "playwright install chromium.")
 
 
+def figma_key(url: str):
+    """The file key in the design address preflight accepts."""
+    return re.search(r"/design/([A-Za-z0-9]+)", url or "")
+
+
 def preflight_command(args):
     """Gather every answer and check available without the person before giving the go-ahead."""
     path, project = load_project(args.project)
@@ -749,7 +850,7 @@ def preflight_command(args):
                                None if value else f"Still needed: {needed}.")
 
     site_url = args.site_url or run.get("siteUrl")
-    figma_key = re.search(r"/design/([A-Za-z0-9]+)", args.figma_url or "")
+    key_match = figma_key(args.figma_url)
     site_label = args.site_label or run.get("siteLabel")
     operator = args.operator or run.get("operator")
     usage = (project.get("decisions") or {}).get("usageSource")
@@ -790,21 +891,21 @@ def preflight_command(args):
                                None if checks["usage"]["ddevProject"] else
                                "No DDEV project: building without usage tiers." if usable else
                                f"Start or point at the DDEV project for the {usage} usage source ({ddev_root}).")
-    answer("figma-url", "Target Figma file address", figma_key,
+    answer("figma-url", "Target Figma file address", key_match,
            "the target Figma file address, https://www.figma.com/design/<file-key>/... (--figma-url)")
     answers = {"siteUrl": site_url, "publicUrl": args.public_url, "figmaUrl": args.figma_url,
                "siteLabel": site_label, "operator": operator, "model": args.model,
                "planApproval": args.plan_approval, "usageFallback": args.usage_fallback,
                "ddevRoot": args.ddev_root,
                "schemaChurn": "recorded by the run at the benchmark, without asking"}
-    if figma_key:
+    if key_match:
         previous = (project.get("target") or {}).get("figmaFileKey")
-        if previous and previous != figma_key.group(1):
+        if previous and previous != key_match.group(1):
             invalidate(project, ("foundation", "components", "index", "verify"),
                        ("foundation", "build-record", "index", "verify-report"))
         target = project.get("target") or {}
-        kept = (target.get("connection") or target.get("preflight")) if previous == figma_key.group(1) else None
-        project["target"] = {"figmaFileKey": figma_key.group(1), "figmaUrl": args.figma_url, "recordedAt": now(),
+        kept = (target.get("connection") or target.get("preflight")) if previous == key_match.group(1) else None
+        project["target"] = {"figmaFileKey": key_match.group(1), "figmaUrl": args.figma_url, "recordedAt": now(),
                              **({"connection": kept} if kept else {})}
         write_json(path, project)
     write_active_run(path.parent, None)
@@ -1267,13 +1368,15 @@ def watch_summary(workspace: Path) -> dict:
     completion = workspace / "benchmark" / "completion.md"
     checks = preflight_checks(workspace, phases.get("preflight") or {})
     recap = str(completion) if completion.is_file() and recap_is_current(workspace, project) else None
+    preflight = phases.get("preflight") or {}
+    started = (None if preflight.get("from") else preflight.get("updatedAt")) or project.get("createdAt")
     return {"workspace": str(workspace), "found": True,
             "siteLabel": (project.get("run") or {}).get("siteLabel"),
             "phases": [{"name": name, "status": (value or {}).get("status")} for name, value in phases.items()],
             "nextPhase": next((name for name, value in phases.items()
                                if (value or {}).get("status") not in ("complete", "approved", "waived")), None),
             "preflightChecks": checks, "runner": runner, "blocker": blocker, "waiting": waiting,
-            "recap": recap}
+            "recap": recap, "startedAt": started, "elapsedSeconds": seconds_since(started)}
 
 
 def preflight_checks(workspace: Path, phase: dict) -> list | None:
@@ -1282,7 +1385,8 @@ def preflight_checks(workspace: Path, phase: dict) -> list | None:
     document = read_json_or(workspace / PREFLIGHT_CHECKS)
     if not isinstance(document, dict) or not isinstance(document.get("checks"), list):
         return None
-    written, passed = seconds_since(document.get("at")), seconds_since(phase.get("updatedAt"))
+    written = seconds_since(document.get("at"))
+    passed = seconds_since(None if phase.get("from") else phase.get("updatedAt"))
     if phase.get("status") == "complete" and written is not None and passed is not None and written > passed:
         return None
     return [check for check in document["checks"] if isinstance(check, dict)]
@@ -1374,6 +1478,9 @@ def render_watch(summary: dict) -> str:
     marks = {"complete": "✓", "approved": "✓", "waived": "✓", "running": "▸", "stopped": "!"}
     lines = [f"design-lab · {summary.get('siteLabel') or Path(summary['workspace']).name}",
              f"Run folder: {summary['workspace']}", ""]
+    if summary.get("elapsedSeconds") is not None and not summary.get("recap"):
+        minutes = max(0, int(summary["elapsedSeconds"] // 60))
+        lines.insert(2, f"Elapsed: {minutes // 60}h {minutes % 60}m" if minutes >= 60 else f"Elapsed: {minutes}m")
     if summary.get("preflightChecks"):
         lines.append("  Preflight")
         for check in summary["preflightChecks"]:
@@ -1441,7 +1548,29 @@ def watch_command(args):
     print(render_watch(watch_summary(workspace)))
 
 
-def main():
+def runs_command(args):
+    """List this project's runs using the same completion rule as watch's recap."""
+    import lab_config
+    folder = lab_config.runs_folder(Path.cwd())
+    rows = []
+    for workspace in reversed(lab_config.runs_in(folder)):
+        project = read_json_or(workspace / "project.json", {})
+        finished = bool(watch_summary(workspace).get("recap"))
+        if not args.finished or finished:
+            rows.append({"folder": str(workspace), "siteLabel": (project.get("run") or {}).get("siteLabel"),
+                         "createdAt": project.get("createdAt"), "finished": finished})
+    if not rows:
+        print(f"No {'finished ' if args.finished else ''}design-lab runs in {folder}.", file=sys.stderr)
+        raise SystemExit(1)
+    if args.json:
+        print(json.dumps(rows, indent=2))
+    else:
+        for row in rows:
+            print(f"{row['folder']}\t{row['siteLabel'] or Path(row['folder']).name}\t"
+                  f"{row['createdAt'] or 'unknown'}\t{'finished' if row['finished'] else 'unfinished'}")
+
+
+def main(argv=None):
     parser = argparse.ArgumentParser(description=__doc__)
     sub = parser.add_subparsers(dest="command", required=True)
 
@@ -1456,6 +1585,25 @@ def main():
     command.add_argument("--operator", help="person running the build (default: the name signed in to Claude Code)")
     command.add_argument("--model", help="Claude model driving the run, if known")
     command.set_defaults(func=init_command)
+
+    command = sub.add_parser("figma-build", help="build saved capture and an approved plan into a new Figma file")
+    command.add_argument("--from", dest="source", required=True)
+    command.add_argument("--figma-url", required=True)
+    command.add_argument("--repo", required=True)
+    command.add_argument("--site-label")
+    command.add_argument("--model")
+    command.add_argument("--workspace")
+    command.set_defaults(func=figma_build_command)
+
+    command = sub.add_parser("await-build", help="wait for the build and verification dumps")
+    command.add_argument("--project", required=True)
+    command.add_argument("--timeout", type=float, default=1800)
+    command.set_defaults(func=await_build_command)
+
+    command = sub.add_parser("finish", help="write receipts, verify and benchmark the build")
+    command.add_argument("--project", required=True)
+    command.add_argument("--session")
+    command.set_defaults(func=finish_command)
 
     command = sub.add_parser("identity", help="fill in or correct the run identity")
     command.add_argument("--project", default=".design-lab")
@@ -1594,7 +1742,12 @@ def main():
     command.add_argument("--project", help="the run folder (default: this project's newest run, by the convention design-lab:init chose)")
     command.set_defaults(func=watch_command)
 
-    args = parser.parse_args()
+    command = sub.add_parser("runs", help="list this project's runs, newest first")
+    command.add_argument("--finished", action="store_true")
+    command.add_argument("--json", action="store_true")
+    command.set_defaults(func=runs_command)
+
+    args = parser.parse_args(argv)
     try:
         args.func(args)
     except (OSError, ValueError, KeyError, RuntimeError, json.JSONDecodeError) as error:
