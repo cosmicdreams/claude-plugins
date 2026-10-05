@@ -412,6 +412,19 @@ class ProgressTests(unittest.TestCase):
         self.assertEqual(self.build.progress["state"], "waiting")
         self.assertEqual(self.build.progress["message"], "Build complete. Waiting for the next build.")
 
+    def test_failed_latch_is_published_and_successful_progress_clears_failure(self):
+        self.build.failed = {"step": "variables", "stamp": self.build.state_stamp()}
+        self.build.note({"kind": "wait", "message": "Stopped at variables. Waiting for a fix."})
+        self.build.write_progress(inflight=False)
+        self.assertEqual(self.read()["state"], "failed")
+        self.build.failed = None  # a new server starts without the latch
+        self.build.note({"kind": "use_figma", "step": "variables", "done": 1, "total": 10})
+        self.assertEqual(self.build.progress["state"], "building")
+        self.build.progress.update(state="failed", message="a transient server exception")
+        self.build.note_recorded({"remaining": 8})
+        self.assertEqual(self.build.progress["state"], "building")
+        self.assertIsNone(self.build.progress["message"])
+
     def test_preflight_checks_show_as_preflight(self):
         self.build.note({"kind": "check", "step": figma_runner.CHECK_STEP})
         self.assertEqual(self.build.progress["state"], "preflight")

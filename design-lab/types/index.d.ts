@@ -44,6 +44,7 @@ declare module 'claude-code' {
       summary: Summary | null
       alarmed: boolean
       follow: string | null
+      skip: string | null
     }
   }
 }

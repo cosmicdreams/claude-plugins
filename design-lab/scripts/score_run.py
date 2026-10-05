@@ -133,6 +133,7 @@ def score_identity(run_dir: Path, project: dict | None, site_label: str | None) 
     fields = {
         "siteLabel": site_label or run.get("siteLabel") or host or Path(repository.get("root") or run_dir).name,
         "siteLabelSource": label_source,
+        "rebuiltFrom": run.get("rebuiltFrom"),
         "publicAddress": canonical,
         "siteUrl": run.get("siteUrl") or build_state.get("siteUrl"),
         "rendererRuntime": build_state.get("runtime"),
@@ -241,6 +242,8 @@ def phase_timings(run_dir: Path, project: dict | None) -> dict | None:
                 "totalSeconds": int((ordered[-1][1] - start).total_seconds()) if ordered and start else None}
     checkpoints = []
     for phase, value in (project.get("phases") or {}).items():
+        if (value or {}).get("from"):
+            continue
         when = parse_time((value or {}).get("updatedAt"))
         if when:
             checkpoints.append({"phase": phase, "status": value.get("status"), "at": iso(when)})
@@ -727,7 +730,8 @@ def evidence_window(run_dir: Path, project: dict | None,
                     runner: dict | None) -> tuple[dt.datetime | None, dt.datetime | None]:
     project = project or {}
     start = parse_time((project.get("run") or {}).get("startedAt") or project.get("createdAt"))
-    times = [parse_time((phase or {}).get("updatedAt")) for phase in (project.get("phases") or {}).values()]
+    times = [parse_time((phase or {}).get("updatedAt")) for phase in (project.get("phases") or {}).values()
+             if not (phase or {}).get("from")]
     times += [parse_time(entry.get("at")) for entry in read_jsonl(run_dir / "phase-log.jsonl")]
     if runner:
         times += [parse_time(row["end"]) for row in runner["sessions"]]
@@ -860,13 +864,22 @@ def score_cost(run_dir: Path, project: dict | None, transcripts: list | None,
         candidates = [claude.get("configDir"), os.environ.get("CLAUDE_CONFIG_DIR"), "~/.claude", "~/.claude-work"]
         for sid in sessions:
             explicit += find_session(sid, [c for c in dict.fromkeys(candidates) if c])
-        # Named sessions or files are taken whole; a folder is cut to the run's time window.
+        # Legacy named sessions/files are taken whole. Rebuilds must exclude earlier
+        # capture work in the same conversation, regardless of how it was selected.
         start = end = None
         if folders:
             start, end = evidence_window(run_dir, project, runner)
             explicit += [f for folder in folders for f in sorted(folder.rglob("*.jsonl"))]
         start = parse_time(since) or start
         end = parse_time(until) or end
+        if ((project or {}).get("run") or {}).get("rebuiltFrom") is not None:
+            run_start = parse_time(((project or {}).get("run") or {}).get("startedAt") or
+                                   (project or {}).get("createdAt"))
+            bench = benchmark_start(run_dir)
+            scoring_end = benchmark_end(run_dir, bench) or (scorer[1] if scorer else dt.datetime.now(dt.timezone.utc))
+            requested_start = parse_time(since)
+            start = max(t for t in (requested_start, run_start) if t) if requested_start or run_start else None
+            end = min(t for t in (parse_time(until), scoring_end) if t)
         files = list(dict.fromkeys(explicit))
         usage = transcript_usage(files, start, end, benchmark_start(run_dir))
         working = working_time(files, start, end, benchmark_start(run_dir))

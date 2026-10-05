@@ -28,6 +28,18 @@ const progress = (fields: Record<string, unknown> = {}) => ({
 const summary = (raw: Parameters<typeof summaryOf>[1]) => summaryOf('/runs/example', raw, NOW)
 
 describe('summaryOf', () => {
+  test('copied preflight uses this run creation for elapsed time and has no inherited pass time', () => {
+    for (const inherited of [true, false]) {
+      const project = { ...PROJECT, phases: { ...PROJECT.phases,
+        preflight: { status: 'complete', from: '/source', sourceUpdatedAt: ago(90_000_000),
+          ...(inherited ? { updatedAt: ago(90_000_000) } : {}) } } }
+      const s = summary({ project })
+      expect(s.startedAt).toBe(PROJECT.createdAt)
+      expect(s.preflight?.at).toBeNull()
+      expect(statusOf(s, NOW)).toContain('1h')
+    }
+  })
+
   test('a building run shows its steps, its runner and its current phase', () => {
     const s = summary({ project: PROJECT, progress: progress() })
     expect(s.current).toBe('components')

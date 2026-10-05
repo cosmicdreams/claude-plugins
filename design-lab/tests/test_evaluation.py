@@ -24,6 +24,7 @@ import scoreboard
 import score_run
 import tier1
 import tier2
+import rebuild
 import verify_inputs
 
 
@@ -209,15 +210,17 @@ class EvaluationTest(unittest.TestCase):
 
     def test_tier2_waits_for_dumps_after_build_and_reports_runner_errors(self):
         status = subprocess.CompletedProcess([], 0, json.dumps({"done": 2, "total": 2, "next": None}))
-        with mock.patch.object(tier2, "command", return_value=status), \
-             mock.patch.object(tier2.figma_runner.Build, "dump_step", side_effect=[{"step": "verify:root"}, None]) as dump, \
-             mock.patch.object(tier2.time, "sleep") as sleep, contextlib.redirect_stderr(io.StringIO()):
+        with mock.patch.object(rebuild, "command", return_value=status), \
+             mock.patch.object(rebuild.figma_runner.Build, "dump_step", side_effect=[{"step": "verify:root"}, None]) as dump, \
+             mock.patch.object(rebuild.time, "sleep") as sleep, contextlib.redirect_stderr(io.StringIO()):
             tier2.wait_for_build(self.run, 10)
         self.assertEqual(dump.call_count, 2)
         sleep.assert_called_once()
-        (self.run / "figma/runner.log").write_text("2026-01-01T00:00:00 error: build failed\n")
-        with mock.patch.object(tier2, "command", return_value=status), \
-             mock.patch.object(tier2.figma_runner.Build, "dump_step", return_value={"step": "verify:root"}), \
+        def failing(*args):
+            (self.run / "figma/runner.log").write_text("2026-01-01T00:00:00 error: build failed\n")
+            return status
+        with mock.patch.object(rebuild, "command", side_effect=failing), \
+             mock.patch.object(rebuild.figma_runner.Build, "dump_step", return_value={"step": "verify:root"}), \
              contextlib.redirect_stderr(io.StringIO()), self.assertRaisesRegex(RuntimeError, "build failed"):
             tier2.wait_for_build(self.run, 10)
 
@@ -237,7 +240,7 @@ class EvaluationTest(unittest.TestCase):
                 return subprocess.CompletedProcess([], 1, "findings")
             return subprocess.CompletedProcess([], 0, "")
 
-        with mock.patch.object(tier2, "command", side_effect=execute):
+        with mock.patch.object(rebuild, "command", side_effect=execute):
             result = tier2.evaluate(self.run)
         self.assertEqual(result["verifyExit"], 1)
         self.assertEqual(calls[-1][0], "score_run.py")

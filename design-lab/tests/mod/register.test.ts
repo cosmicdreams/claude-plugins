@@ -348,6 +348,66 @@ describe('design-lab:watch', () => {
       expect((await $.command.run(WATCH)).text).toBe('Watching Example 2026-10-03.')
     })
 
+    const finished = (name: string, createdAt: string) => ({
+      ...run(name, createdAt),
+      [`${PROJECT_DIR}/design/${name}/benchmark/completion.md`]: `Example ${name} is done.`,
+      [`${PROJECT_DIR}/design/${name}/benchmark/scorecard.json`]: JSON.stringify({ run: { buildCreatedAt: createdAt } }),
+    })
+    const RUN_SKILL: CommandRunInput = { ...WATCH, command: 'design-lab:run' }
+    const pane = ($: Parameters<Parameters<typeof test>[1]>[0]) => $.ui.mount({ plugin: 'design-lab', surface: 'terminal',
+      component: 'Pane', requestId: 'design-lab', props: { title: 'design-lab', isFocused: false, bodyColumns: 60,
+        placement: 'dock', scroll: { offset: 0, bodyRows: 30 }, view: {} } })
+
+    test('design-lab:run opens the pane itself, passes over the finished run and shows the new one', async ($, on) => {
+      const files: Record<string, string> = { [`${HOME}/.claude/design-lab.json`]: CONFIG, [`${REPO}/.git`]: 'gitdir: x',
+        ...finished('2026-10-03', '2026-10-03T09:00:00+00:00') }
+      on('command.run', { command: 'design-lab:run' }, () => ({ text: '' }))
+      const w = world(on, files, ['terminal'], true, REPO)
+      await $.session.start({ ...SESSION, cwd: REPO })
+      await $.command.run(RUN_SKILL)
+      expect(w.opened, 'beside the conversation, without taking the keyboard').toEqual(['design-lab'])
+      const ui = await pane($)
+      expect(await ui.find({ type: 'Text', text: /Waiting for the new design-lab run/ })).toBeDefined()
+      expect(w.toasts, 'the old run\'s recap is not news').toEqual([])
+      Object.assign(files, run('2026-10-05', '2026-10-05T09:00:00+00:00'))
+      await w.clock.advance(POLL_MS)
+      expect(await ui.find({ type: 'Text', text: /Example 2026-10-05/ })).toBeDefined()
+      expect(w.statuses.at(-1)).toContain('capture')
+    })
+
+    test('design-lab:run on a run still going shows that run at once', async ($, on) => {
+      const files: Record<string, string> = { [`${HOME}/.claude/design-lab.json`]: CONFIG, [`${REPO}/.git`]: 'gitdir: x',
+        ...finished('2026-10-01', '2026-10-01T09:00:00+00:00'), ...run('2026-10-03', '2026-10-03T09:00:00+00:00') }
+      on('command.run', { command: 'design-lab:run' }, () => ({ text: '' }))
+      const w = world(on, files, ['terminal'], true, REPO)
+      await $.session.start({ ...SESSION, cwd: REPO })
+      await $.command.run(RUN_SKILL)
+      expect(w.opened).toEqual(['design-lab'])
+      expect(await (await pane($)).find({ type: 'Text', text: /Example 2026-10-03/ })).toBeDefined()
+    })
+
+    test('design-lab:figma-build opens it too, and so does either skill called through the Skill tool', async ($, on) => {
+      const files: Record<string, string> = { [`${HOME}/.claude/design-lab.json`]: CONFIG, [`${REPO}/.git`]: 'gitdir: x',
+        ...finished('2026-10-03', '2026-10-03T09:00:00+00:00') }
+      on('command.run', { command: 'design-lab:figma-build' }, () => ({ text: '' }))
+      on('skill.prompt', ($, e) => ({ text: e.text }))
+      const w = world(on, files, ['terminal'], true, REPO)
+      await $.session.start({ ...SESSION, cwd: REPO })
+      await $.command.run({ ...WATCH, command: 'design-lab:figma-build' })
+      expect(w.opened).toEqual(['design-lab'])
+      await $.skill.prompt({ skill: 'design-lab:run', text: 'Run design-lab end to end' })
+      await $.skill.prompt({ skill: 'commit', text: 'not ours' })
+      expect(w.opened).toEqual(['design-lab', 'design-lab'])
+    })
+
+    test('before design-lab:init, design-lab:run opens nothing: the skill sends the person to init', async ($, on) => {
+      on('command.run', { command: 'design-lab:run' }, () => ({ text: '' }))
+      const w = world(on, { [`${REPO}/.git`]: 'gitdir: x' }, ['terminal'], true, REPO)
+      await $.session.start({ ...SESSION, cwd: REPO })
+      await $.command.run(RUN_SKILL)
+      expect(w.opened).toEqual([])
+    })
+
     test('a file named like a marker is not a project folder', async ($, on) => {
       const files: Record<string, string> = { [`${HOME}/.claude/design-lab.json`]: CONFIG,
         ['/work/plain/.git']: 'gitdir: x', ['/work/plans']: 'a file, not a folder' }

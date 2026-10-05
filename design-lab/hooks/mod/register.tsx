@@ -16,6 +16,9 @@ import { ancestors, base, MARKERS, parent } from './locate'
 const PANE = 'design-lab'
 const COMMAND = 'design-lab:watch'
 const RECAP_COMMAND = 'design-lab:recap'
+// The skills that start or resume a run: each opens the pane by itself, so nobody has to know
+// about design-lab:watch to see where a run is.
+export const RUN_SKILLS = ['design-lab:run', 'design-lab:figma-build'] as const
 export const POLL_MS = 5_000
 // The runner log is tailed only while it is small enough to read whole every poll.
 const LOG_READ_LIMIT = 1024 * 1024
@@ -25,6 +28,9 @@ const summaryAtom = atom({ plugin: 'design-lab', key: 'summary' } as const, null
 const alarmedAtom = atom({ plugin: 'design-lab', key: 'alarmed' } as const, false)
 // The runs folder the pane follows when the person named no run: it moves to each newer run there.
 const followAtom = atom({ plugin: 'design-lab', key: 'follow' } as const, null)
+// A finished run the pane passes over while a run skill is starting the next one, so the pane
+// never shows the last run's recap as if it were the new run.
+const skipAtom = atom({ plugin: 'design-lab', key: 'skip' } as const, null)
 
 // The files read under a run folder, and nothing else there.
 export const RUN_FILES = {
@@ -96,8 +102,9 @@ async function refreshNow($: EngineInterface): Promise<void> {
   const follow = await read($, followAtom)
   if (follow) {
     const newest = await newestRun($, follow)
-    if (newest && newest !== (await read($, runAtom))) {
+    if (newest && newest !== (await read($, skipAtom)) && newest !== (await read($, runAtom))) {
       await update($, runAtom, () => newest)
+      await update($, skipAtom, () => null)
       await update($, alarmedAtom, () => false)
     }
   }
@@ -245,6 +252,27 @@ async function newestRun($: EngineInterface, folder: string): Promise<string | u
   return best?.path
 }
 
+/** A run skill is starting: follow this project's runs folder and open the pane beside the
+ * conversation. A newest run with no recap yet is the one being resumed, so it shows at once; a finished
+ * one is passed over until the new run's folder appears. Opened from the person's own slash
+ * command, Claude Code places the pane at any width; from the Skill tool, only in a wide window. */
+async function followRunSkill($: EngineInterface): Promise<void> {
+  const folder = await runsFolder($, await $.session.cwd())
+  // Not set up yet: the skill sends the person to design-lab:init first.
+  if (!folder) return
+  const newest = await newestRun($, folder)
+  const summary = newest ? await summarise($, newest) : undefined
+  const resuming = newest && summary?.found && !summary.hasRecap ? newest : null
+  await update($, followAtom, () => folder)
+  await update($, skipAtom, () => resuming ? null : newest ?? null)
+  await update($, runAtom, () => resuming)
+  await update($, summaryAtom, () => resuming ? summary! : null)
+  await update($, alarmedAtom, () => false)
+  watch($)
+  if (resuming) void refresh($)
+  if ((await $.session.surfaces()).length > 0) await $.ui.open({ id: PANE, title: 'design-lab' }).catch(() => undefined)
+}
+
 async function resume($: EngineInterface, run: string): Promise<void> {
   const text = RESUME_PROMPT(run)
   const step = afterFill(await $.prompt.fill({ text, mode: 'replace' }).catch(() => undefined))
@@ -274,6 +302,7 @@ export const register: Register = on => {
     const follow = e.args.trim() ? null : typeof run === 'string'
       ? (await runsFolder($, await $.session.cwd())) ?? null : run.follow ?? null
     await update($, followAtom, () => follow)
+    await update($, skipAtom, () => null)
     if (typeof run !== 'string') {
       if (!follow) return { text: run.missing }
       await update($, runAtom, () => null)
@@ -291,6 +320,23 @@ export const register: Register = on => {
     // The person asked for it: bring it to the front, over any other pane already open.
     const opened = await $.ui.open({ id: PANE, title: 'design-lab', focus: true })
     return { text: opened.isPlaced ? `Watching ${summary.siteLabel ?? run}.` : plainOf(summary) }
+  })
+
+  // Typed as a slash command: the person asked, so the pane opens at any width.
+  for (const command of RUN_SKILLS) {
+    on('command.run', { command }, async ($, e, next) => {
+      await followRunSkill($).catch(() => undefined)
+      return next(e)
+    })
+  }
+
+  // Called through the Skill tool (the person asked in their own words): the same, unasked. A typed
+  // command raises this too, after command.run; following again then changes nothing.
+  on('skill.prompt', async ($, e, next) => {
+    if ((RUN_SKILLS as readonly string[]).includes(e.skill)) {
+      await followRunSkill($).catch(() => undefined)
+    }
+    return next(e)
   })
 
   on('command.run', { command: RECAP_COMMAND }, async ($, e) => {
@@ -315,8 +361,11 @@ export const register: Register = on => {
     // The pane's ✕ sits on its first row: start one row lower so it never covers text.
     const follow = await read($, followAtom)
     if (!summary || !run) {
+      const skip = await read($, skipAtom)
       return <Box marginTop={1}><Text dimColor>{follow
-        ? `No design-lab run yet in ${follow}. It appears here as soon as one starts.`
+        ? skip
+          ? 'Waiting for the new design-lab run to start. It appears here as soon as its folder is made.'
+          : `No design-lab run yet in ${follow}. It appears here as soon as one starts.`
         : 'No design-lab run is being watched.'}</Text></Box>
     }
     if (!summary.found) return <Box marginTop={1}><Text>{plainOf(summary)}</Text></Box>
