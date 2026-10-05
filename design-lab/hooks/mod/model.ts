@@ -302,9 +302,12 @@ export function compactOf(value: number | null): string | null {
   return String(value)
 }
 
-/** A share as a whole percent, or null with nothing to divide by. */
+/** A share as a whole percent, or null with nothing to divide by. Anything short of the whole
+ * stays below 100, so 200 of 201 reads 99% and is never judged complete. */
 export function percentOf(part: number | null, whole: number | null): number | null {
-  return part === null || !whole ? null : Math.round((part / whole) * 100)
+  if (part === null || !whole) return null
+  const percent = Math.round((part / whole) * 100)
+  return part < whole && percent >= 100 ? 99 : percent
 }
 
 /** A bar of `cells` cells, filled in proportion: the filled run and the empty run, drawn apart. */
@@ -323,7 +326,7 @@ export function toneOf(summary: Summary): Tone {
   if (stages.some(stage => stage.state === 'failed')) return { label: 'Failed', color: 'red' }
   if (needsYouOf(summary)) return { label: 'Needs you', color: 'yellow' }
   if (isFinished(summary)) {
-    return stages.some(stage => stage.state === 'flagged') ? { label: 'Done · needs review', color: 'yellow' } : { label: 'Done', color: 'green' }
+    return verdictOf(summary.findings) ? { label: 'Done · needs review', color: 'yellow' } : { label: 'Done', color: 'green' }
   }
   const active = stages.find(stage => stage.state === 'active' || stage.state === 'stopped')
   return { label: active?.doing ?? 'Starting', color: 'cyan' }
@@ -332,6 +335,9 @@ export function toneOf(summary: Summary): Tone {
 /** What the person has to do, from one place, so the header, the card, the stage and the toast
  * always agree; null when the run needs nothing from them. */
 export function needsYouOf(summary: Summary): { message: string; canResume: boolean } | null {
+  // A failure outranks every request: the Failed card says what went wrong, and resuming would
+  // only run into it again.
+  if (hasFailed(summary)) return null
   if (summary.blocker) return { message: summary.blocker, canResume: true }
   if (summary.waiting) return { message: summary.waiting, canResume: false }
   const check = (summary.preflight?.checks ?? []).find(c => c.status === 'needs-you')
@@ -340,6 +346,13 @@ export function needsYouOf(summary: Summary): { message: string; canResume: bool
     return { message: 'The Figma runner has stopped. Reopen it in Figma desktop, then press Resume run.', canResume: true }
   }
   return null
+}
+
+/** Something failed: a phase run here, the runner while the run is unfinished, or a preflight check. */
+export function hasFailed(summary: Summary): boolean {
+  return summary.phases.some(phase => !phase.reused && phase.status === 'failed')
+    || (summary.runner?.state === 'failed' && !isFinished(summary))
+    || (summary.preflight?.checks ?? []).some(check => check.status === 'failed')
 }
 
 /** The first stage that failed, and what the card says about it; null when nothing failed. */
@@ -549,10 +562,11 @@ export function stagesOf(summary: Summary): Stage[] {
     const failed = own.some(phase => phase.status === 'failed')
       || (def.id === 'build' && summary.runner?.state === 'failed' && !finished)
       || (def.id === 'preflight' && checks.some(check => check.status === 'failed'))
-    const done = (phases.length > 0 && phases.every(phase => DONE.has(phase.status)))
-      || (finished && def.id !== 'report' && phases.length === 0) || (def.id === 'report' && summary.hasRecap)
+    // Once the recap is written the run is over: a stage whose phase record never caught up
+    // (verify left 'running', say) is still done, and Verify is judged by its findings.
+    const done = (phases.length > 0 && phases.every(phase => DONE.has(phase.status))) || finished
     let state: StageState
-    if (phases.length > 0 && phases.every(phase => phase.reused) && !running) state = 'reused'
+    if (phases.length > 0 && phases.every(phase => phase.reused) && !phases.some(phase => phase.status === 'running')) state = 'reused'
     else if (failed) state = 'failed'
     else if (done) state = def.id === 'verify' && k && k.blocker + k.major > 0 ? 'flagged' : 'done'
     else if ((holdsCurrent || running) && !finished) {

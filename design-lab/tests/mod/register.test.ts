@@ -4,6 +4,7 @@ import { describe, expect, mock, test } from 'claude-code/testing'
 import { ARTIFACT_FILES, artifactsOf, POLL_MS, RUN_FILES } from '../../hooks/mod/register'
 
 const RUN = '/runs/example'
+const OTHER = '/runs/other'
 const HOME = '/home/person'
 const NOW = Date.parse('2026-10-02T12:00:00Z')
 const ago = (ms: number) => new Date(NOW - ms).toISOString()
@@ -210,7 +211,10 @@ describe('design-lab:watch', () => {
       [at(RUN_FILES.scorecard)]: card, [at(RUN_FILES.completion)]: 'design-lab finished.\n',
       [at(ARTIFACT_FILES.report)]: '<html></html>',
       [at(RUN_FILES.verifyReport)]: JSON.stringify({ generatedAt: ago(60_000), passed: ['a'],
-        open: [...Array(6).fill({ severity: 'blocker' }), ...Array(2).fill({ severity: 'major' }), ...Array(2).fill({ severity: 'minor' })] }) })
+        open: [...Array(6).fill({ severity: 'blocker' }), ...Array(2).fill({ severity: 'major' }), ...Array(2).fill({ severity: 'minor' })] }),
+      // A second finished run, watched after this one's recap is opened.
+      [`${OTHER}/${RUN_FILES.project}`]: PROJECT, [`${OTHER}/${RUN_FILES.scorecard}`]: card,
+      [`${OTHER}/${RUN_FILES.completion}`]: 'design-lab finished the other library.\n' })
     await $.session.start(SESSION)
     await $.command.run({ ...WATCH, args: RUN })
     const ui = await $.ui.mount({
@@ -234,6 +238,14 @@ describe('design-lab:watch', () => {
     expect(await ui.find({ type: 'Markdown', text: /^design-lab finished/ }), 'the recap stays folded until asked for').toBeUndefined()
     await ui.press({ key: 'recap' })
     expect(await ui.findAll({ type: 'Markdown' })).toHaveLength(folded + 1)
+    await ui.unmount()
+    await $.command.run({ ...WATCH, args: OTHER })
+    const other = await $.ui.mount({
+      plugin: 'design-lab', surface: 'desktop', component: 'Pane', requestId: 'design-lab',
+      props: { title: 'design-lab', isFocused: false, bodyColumns: 60, placement: 'dock',
+        scroll: { offset: 0, bodyRows: 30 }, view: {} },
+    })
+    expect(await other.find({ type: 'Markdown', text: /^design-lab finished the other/ }), 'one run\'s open recap does not open the next').toBeUndefined()
   })
 
   test('a finished run whose verification is clean reads Done, with no verdict card', async ($, on) => {

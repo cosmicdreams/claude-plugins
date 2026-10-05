@@ -1,7 +1,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import {
-  afterFill, barOf, compactOf, durationOf, failureOf, figmaUrlOf, isDown, needsYouOf, scoresOf, stagesOf, toneOf, runnerLine, stepsLine,
+  afterFill, barOf, compactOf, percentOf, durationOf, failureOf, figmaUrlOf, isDown, needsYouOf, scoresOf, stagesOf, toneOf, runnerLine, stepsLine,
   preflightPassed, RECAP_LIMIT, plainOf, RUNNER_ABSENT_MS, SERVER_FRESH_MS, statusOf, summaryOf,
 } from '../../hooks/mod/model'
 
@@ -183,6 +183,12 @@ describe('the pane\'s figures', () => {
     expect(barOf(0, 0, 10).filled).toBe('')
   })
 
+  test('a share short of the whole never reads as 100%', () => {
+    expect(percentOf(200, 201)).toBe(99)
+    expect(percentOf(201, 201)).toBe(100)
+    expect(percentOf(48, 58)).toBe(83)
+  })
+
   test('times and token counts read short', () => {
     expect(durationOf(40)).toBe('40s')
     expect(durationOf(13_435), 'rounded to the minute, as the recap rounds it').toBe('3h 44m')
@@ -252,7 +258,7 @@ describe('preflight before it records a phase', () => {
     expect(toneOf(s).label).toBe('Preflight')
   })
 
-  test('preflight still running after discovery starts (the AHRI case)', () => {
+  test('preflight still running after discovery starts', () => {
     const s = summary({ project: fresh({ discovery: { status: 'running' } }) })
     const stages = stagesOf(s)
     expect(stages.slice(0, 2).map(stage => `${stage.label}:${stage.state}`)).toEqual(['Preflight:active', 'Discovery:active'])
@@ -287,6 +293,15 @@ describe('verification', () => {
     expect(verify(s).note).toBe('2 minor open')
     expect(verify(s).noteColor).toBe('yellow')
     expect(toneOf(s)).toEqual({ label: 'Done', color: 'green' })
+  })
+
+  test('a finished run whose verify record never caught up is judged by its findings', () => {
+    for (const status of ['pending', 'running']) {
+      const project = { ...FINISHED, phases: { ...FINISHED.phases, verify: { status } } }
+      const s = summary({ project, completion: '# done', scorecard: SCORED, verifyReport: report(['major']) })
+      expect(verify(s).state, status).toBe('flagged')
+      expect(toneOf(s), status).toEqual({ label: 'Done · needs review', color: 'yellow' })
+    }
   })
 
   test('a report written before this run began is not this run\'s', () => {
@@ -331,6 +346,17 @@ describe('needs you and failure', () => {
     expect(failureOf(s)?.text).toBe('Discovery stopped with an error: components.json did not validate.')
   })
 
+  test('a failure outranks every request for the person, so nothing offers to resume into it', () => {
+    const project = { ...PROJECT, phases: { preflight: { status: 'complete' }, inventory: { status: 'failed' }, components: { status: 'running' } } }
+    const checks = { at: ago(1_000), checks: [{ id: 'runner', label: 'Figma runner', status: 'needs-you', message: 'Start it.', dependsOn: [] }] }
+    const asking = summary({ project, preflightChecks: checks })
+    expect(needsYouOf(asking)).toBeNull()
+    expect(toneOf(asking).label).toBe('Failed')
+    const gone = summary({ project, progress: progress({ lastSeen: ago(RUNNER_ABSENT_MS + 60_000) }) })
+    expect(isDown(gone)).toBe(true)
+    expect(needsYouOf(gone), 'no Resume run over a failed phase').toBeNull()
+  })
+
   test('a runner that failed turns Build red', () => {
     const project = { ...PROJECT, phases: { ...PROJECT.phases, components: { status: 'running' } } }
     const s = summary({ project, progress: progress({ state: 'failed', message: 'The plugin closed.' }) })
@@ -353,6 +379,12 @@ describe('flow order', () => {
     const project = { ...PROJECT, phases: { preflight: { status: 'complete', from: '/earlier' }, discovery: { status: 'running', from: '/earlier' },
       components: { status: 'pending' } } }
     expect(summary({ project }).current).toBe('components')
+  })
+
+  test('a stage whose only phase was copied while running is not shown as reused', () => {
+    const project = { ...PROJECT, phases: { preflight: { status: 'complete' }, discovery: { status: 'running', from: '/earlier' },
+      components: { status: 'pending' } } }
+    expect(stagesOf(summary({ project })).find(stage => stage.id === 'discovery')?.state).not.toBe('reused')
   })
 
   test('two running stages are both active', () => {

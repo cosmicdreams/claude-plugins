@@ -33,7 +33,8 @@ const followAtom = atom({ plugin: 'design-lab', key: 'follow' } as const, null)
 // never shows the last run's recap as if it were the new run.
 const skipAtom = atom({ plugin: 'design-lab', key: 'skip' } as const, null)
 // Whether a finished run's full completion message is open under its figures.
-const recapOpenAtom = atom({ plugin: 'design-lab', key: 'recapOpen' } as const, false)
+// Named by run, so opening one run's recap never opens the next run's.
+const recapOpenAtom = atom({ plugin: 'design-lab', key: 'recapOpen' } as const, null)
 
 // The files read under a run folder, and nothing else there.
 export const RUN_FILES = {
@@ -420,7 +421,7 @@ export const register: Register = on => {
     const scores = summary.scores
     const finished = summary.hasRecap
     const verdict = finished ? verdictOf(summary.findings) : null
-    const recapOpen = await read($, recapOpenAtom)
+    const recapOpen = (await read($, recapOpenAtom)) === run
     const time = finished ? durationOf(scores?.workingSeconds ?? null) : elapsedOf(summary.startedAt, now)
     const name = run.split('/').pop()
     // Finished with figures, the Time tile holds the time, so the subtitle does not repeat it.
@@ -634,7 +635,7 @@ export const register: Register = on => {
               <Box flexDirection="column">
                 <Box flexDirection="row" justifyContent="space-between" alignItems="center">
                   <Text bold dimColor>Recap</Text>
-                  <Button key="recap" label={recapOpen ? 'Hide' : 'Show'} onPress={() => void update($, recapOpenAtom, open => !open)} />
+                  <Button key="recap" label={recapOpen ? 'Hide' : 'Show'} onPress={() => void update($, recapOpenAtom, open => open === run ? null : run)} />
                 </Box>
                 {recapOpen && <Markdown text={summary.recap} />}
               </Box>

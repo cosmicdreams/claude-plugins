@@ -80,8 +80,8 @@ declare module 'claude-code' {
       alarmed: boolean
       follow: string | null
       skip: string | null
-      // the finished run's full completion message is shown, not just its figures
-      recapOpen: boolean
+      // the run whose full completion message is shown under its figures, or null when folded
+      recapOpen: string | null
     }
   }
 }
