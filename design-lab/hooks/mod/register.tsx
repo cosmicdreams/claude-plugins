@@ -430,10 +430,11 @@ export const register: Register = on => {
     // Narrower still, a stage's steps go one per line.
     const narrowSteps = columns < 40
 
-    // One figure in a bordered tile: the value bold in color, what it means beneath.
+    // One figure in a quietly bordered tile: only the value carries color, so the tiles never
+    // compete with a card that asks for attention.
     const tile = (key: string, label: string, value: string | null, details: (string | null)[], color: string | undefined) => (
       <Box key={`tile-${key}`} flexDirection="column" flexGrow={1} flexShrink={1} width={narrowTiles ? '100%' : '50%'}
-        borderStyle="round" borderColor={color} borderDimColor paddingX={1}>
+        borderStyle="round" borderDimColor paddingX={1}>
         <Text dimColor>{label}</Text>
         <Text bold color={color}>{value ?? '–'}</Text>
         {details.filter(Boolean).map((detail, i) => <Text key={`${key}-${i}`} dimColor wrap="truncate-end">{detail}</Text>)}
@@ -528,7 +529,7 @@ export const register: Register = on => {
         <Box flexDirection="column">
           <Box flexDirection="row" justifyContent="space-between" alignItems="center">
             <Text bold wrap="truncate-end">{summary.siteLabel ?? run}</Text>
-            <Text bold inverse color={tone.color}> {tone.label} </Text>
+            <Text bold inverse color={tone.color}>{`\u00a0${tone.label}\u00a0`}</Text>
           </Box>
           <Text dimColor wrap="truncate-end">{subtitle.filter(Boolean).join(' · ')}</Text>
         </Box>

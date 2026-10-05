@@ -196,7 +196,7 @@ describe('design-lab:watch', () => {
         scroll: { offset: 0, bodyRows: 30 }, view: {} },
     })
     expect(await ui.find({ type: 'Text', text: /^Recap$/ })).toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^ Done $/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^\u00a0Done\u00a0$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /runner/ }), 'a finished run shows no runner line').toBeUndefined()
     expect(await ui.find({ type: 'Markdown' })).toBeDefined()
   })
@@ -219,14 +219,15 @@ describe('design-lab:watch', () => {
         scroll: { offset: 0, bodyRows: 30 }, view: {} },
     })
     for (const text of [/^83%$/, /^48 of 58 buildable$/, /^10 not built$/, /^15%$/, /^22 of 144 widths within tolerance$/, /^3h 44m$/,
-      /^40\.0M$/, /^6 blockers · 2 major open$/, /^ Done · needs review $/, /^Verification found problems$/, /^report ready$/]) {
+      /^40\.0M$/, /^6 blockers · 2 major open$/, /^\u00a0Done · needs review\u00a0$/, /^Verification found problems$/, /^report ready$/]) {
       expect(await ui.find({ type: 'Text', text }), String(text)).toBeDefined()
     }
     expect(await ui.find({ type: 'Text', text: /^22\/144$/ })).toBeUndefined()
     expect(await ui.find({ type: 'Text', text: /^6 blocking and 2 major problems are still open/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^example$/ }), 'the Time tile holds the time, not the subtitle').toBeDefined()
-    expect((await ui.find({ type: 'Box', key: 'tile-coverage' }))?.props.borderColor, 'short of 100% is yellow').toBe('yellow')
-    expect((await ui.find({ type: 'Box', key: 'tile-time' }))?.props.borderColor).toBe('magenta')
+    expect((await ui.find({ type: 'Box', key: 'tile-coverage' }))?.props.borderColor, 'tile borders stay quiet').toBeUndefined()
+    expect((await ui.find({ type: 'Text', text: /^83%$/ }))?.props.color, 'short of 100% is yellow').toBe('yellow')
+    expect((await ui.find({ type: 'Text', text: /^3h 44m$/ }))?.props.color).toBe('magenta')
     expect(await ui.find({ type: 'Markdown', text: /Open the benchmark report/ }), 'the artifacts are listed').toBeDefined()
     expect(await ui.find({ type: 'Markdown', text: /Build plan/ }), 'a file the run does not have is not linked').toBeUndefined()
     const folded = (await ui.findAll({ type: 'Markdown' })).length
@@ -247,10 +248,10 @@ describe('design-lab:watch', () => {
       props: { title: 'design-lab', isFocused: false, bodyColumns: 60, placement: 'dock',
         scroll: { offset: 0, bodyRows: 30 }, view: {} },
     })
-    expect(await ui.find({ type: 'Text', text: /^ Done $/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^\u00a0Done\u00a0$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^all 2 checks pass$/ })).toBeDefined()
     expect(await ui.find({ type: 'Box', key: 'verdict' })).toBeUndefined()
-    expect((await ui.find({ type: 'Box', key: 'tile-coverage' }))?.props.borderColor, 'at 100% the judgment is green').toBe('green')
+    expect((await ui.find({ type: 'Text', text: /^100%$/ }))?.props.color, 'at 100% the judgment is green').toBe('green')
   })
 
   test('a runner gone with no stop entry still asks for the person, with a button', async ($, on) => {
@@ -262,7 +263,7 @@ describe('design-lab:watch', () => {
       props: { title: 'design-lab', isFocused: false, bodyColumns: 60, placement: 'dock',
         scroll: { offset: 0, bodyRows: 30 }, view: {} },
     })
-    expect(await ui.find({ type: 'Text', text: /^ Needs you $/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^\u00a0Needs you\u00a0$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^The Figma runner has stopped/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^When the runner is open again, press Resume run\.$/ })).toBeDefined()
     await ui.press({ key: 'resume' })
@@ -343,7 +344,7 @@ describe('design-lab:watch', () => {
     expect(await ui.find({ type: 'Text', text: /! Runner connected/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Open the target file and start/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^! 1  Preflight$/ }), 'a check that needs the person stops the stage').toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^ Needs you $/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^\u00a0Needs you\u00a0$/ })).toBeDefined()
     expect(w.statuses.at(-1)).toContain('preflight 1/2')
     await ui.unmount()
     files[at(RUN_FILES.preflightChecks)] = checks('done', null)
@@ -352,7 +353,7 @@ describe('design-lab:watch', () => {
     expect(await ui.find({ type: 'Text', text: /✓ Runner connected/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^▸ 1  Preflight$/ }), 'preflight shows as running before it records a phase').toBeDefined()
     expect(await ui.find({ type: 'Box', key: 'card-preflight' }), 'its checklist is open').toBeDefined()
-    expect(await ui.find({ type: 'Text', text: /^ Preflight $/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^\u00a0Preflight\u00a0$/ })).toBeDefined()
     expect(w.statuses.at(-1)).toContain('preflight 2/2')
     expect(w.fills).toEqual([])
   })
@@ -370,7 +371,7 @@ describe('design-lab:watch', () => {
         scroll: { offset: 0, bodyRows: 30 }, view: {} },
     })
     expect((await ui.find({ type: 'Box' }))?.props.marginTop, 'the first row is left to the close button').toBe(1)
-    expect(await ui.find({ type: 'Text', text: /^ Needs you $/ }), 'the header says so in one word').toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^\u00a0Needs you\u00a0$/ }), 'the header says so in one word').toBeDefined()
     expect(await ui.find({ type: 'Text', text: /^Open the file/ })).toBeDefined()
     expect(await ui.find({ type: 'Button' })).toBeUndefined()
   })
