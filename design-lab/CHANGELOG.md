@@ -4,7 +4,8 @@
 
 **At most two variable collections, and the fixes a full PNCB run needed to reach its benchmark.** A library now carries `<Brand> Core`, one mode, and `<Brand> Breakpoint`, whose Desktop, Tablet and Mobile modes hold every value that changes with width, responsive type included. A first end-to-end run on a fully layered Drupal theme surfaced a run of builder and checker bugs; each is fixed at its source.
 
-- Responsive tokens join the breakpoint modes: a token domain whose modes are width media queries is evaluated at the capture widths, so an instance set to Mobile also gets mobile type. Collections take the run's site label as their brand, and a mode is never named after a media query.
+- Responsive tokens join the breakpoint modes: a token domain whose modes are width media queries (evaluated at the capture widths in source order, so the cascade's last match wins; commas are OR, range syntax and `print` are understood) or Site Studio breakpoints (mapped through its cascade) becomes Desktop, Tablet and Mobile values of `<Brand> Breakpoint`, so a designer reading a type token in Mobile mode reads its mobile value. Component text already switched through each component's measured sizes; this moves the tokens beside them. A mode set on another axis, such as a dark colour scheme, keeps a collection of its own with a readable mode name. Every collection carries the run's site label as its brand.
+- A rebuild in place removes only collections this run's builds emitted or marked, never one someone else added to the file.
 - Verification enforces the rule: the brand defaults to the site label, a media-query mode name fails, a second collection with modes fails, and the check for one domain split across collections is back. The tokens reference no longer prescribes a separate Type collection.
 - A collection whose modes never differ collapses to one mode and joins Core.
 - Measurement reads rules inside `@layer` blocks and `@import`ed sheets; a theme that layers everything used to read as declaring no tokens at all.
@@ -13,7 +14,9 @@
 - Klaro joins DataGrail as a consent banner capture closes on its own.
 - A child component is captured on a page other than its parent's when one exists, so a wrapper and its only child no longer photograph identically.
 - Figma lists Apple's SF fonts on a Mac but draws their text blank, so SF Pro now gets a stand-in.
-- Rebuilding in place removes collections a later plan dropped.
+- A grid with one column track at every width is a vertical stack, not a wrapping row; a grid with more tracks at any width keeps its row.
+- A single-line label that the stand-in font would wrap inside its button now hugs its words, keeping its alignment.
+- Colours written as percentages (`rgb(100% 0% 0%)`) parse, an `@import` with a media condition applies only where it matches, and a Klaro banner without a decline button is closed through its accept button.
 - Responsive geometry variables no longer count as token bindings, and a font-family token whose family never renders is not counted as drift.
 - Build receipts expect the alternate layouts' variables, and Known gaps names font stand-ins and style fallbacks under the checks that report them.
 - The fallback YAML reader treats `&amp;` inside a quoted value as text.

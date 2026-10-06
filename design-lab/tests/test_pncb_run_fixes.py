@@ -126,7 +126,8 @@ class CollectionTests(unittest.TestCase):
         self.assertEqual([figma_build.media_applies("@media (width < 48rem)", w) for w in (1400, 800, 375)],
                          [False, False, True])
         self.assertTrue(figma_build.media_applies("@media (min-width: 768px)", 800))
-        self.assertIsNone(figma_build.media_applies("@media print", 800))
+        self.assertFalse(figma_build.media_applies("@media print", 800))
+        self.assertIsNone(figma_build.media_applies("@media (orientation: landscape)", 800))
 
     def test_unused_mode_collapses_into_core(self):
         out = {"collections": {
@@ -146,6 +147,103 @@ class CollectionTests(unittest.TestCase):
         verify.check_collection_strategy(state, "PNCB", rep)
         checks = {f["check"] for f in rep.findings}
         self.assertEqual(checks, {"mode-naming", "collection-strategy"})
+
+
+class ReviewFollowUpTests(unittest.TestCase):
+    """Findings from the expert review of pull request 80."""
+
+    def project(self, plan, label="PNCB"):
+        folder = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, folder)
+        (folder / "variable-plan.json").write_text(json.dumps(plan))
+        (folder / "project.json").write_text(json.dumps({"run": {"siteLabel": label}}))
+        return folder
+
+    def test_extractor_keeps_media_modes_in_source_order(self):
+        theme = Path(tempfile.mkdtemp())
+        self.addCleanup(shutil.rmtree, theme)
+        (theme / "css").mkdir()
+        (theme / "t.libraries.yml").write_text("global:\n  css:\n    theme:\n      css/tokens.css: {}\n")
+        (theme / "css" / "tokens.css").write_text(
+            ":root { --font-size-h1: 32px; }\n"
+            "@media (min-width: 768px) { :root { --font-size-h1: 40px; } }\n"
+            "@media (min-width: 1200px) { :root { --font-size-h1: 48px; } }\n")
+        modes = extract_tokens_cssvars.extract(str(theme))["modes"]
+        self.assertEqual(modes, ["Value", "@media (min-width: 768px)", "@media (min-width: 1200px)"])
+
+    def test_cascade_last_match_wins_across_px_breakpoints(self):
+        modes = ["Value", "@media (min-width: 768px)", "@media (min-width: 1200px)"]
+        plan = {"collections": {"Type": {"modes": modes, "variables": [
+            {"name": "type/h1", "type": "FLOAT",
+             "valuesByMode": {"Value": 32, modes[1]: 40, modes[2]: 48}}]}}}
+        bp = figma_build.variables_args(self.project(plan))["collections"]["PNCB Breakpoint"]
+        self.assertEqual(bp["variables"][0]["valuesByMode"],
+                         {"Desktop 1400px": 48, "Tablet 800px": 40, "Mobile 375px": 32})
+
+    def test_media_query_syntax(self):
+        applies = figma_build.media_applies
+        self.assertTrue(applies("@media (max-width:600px), (min-width:1200px)", 1400))
+        self.assertFalse(applies("@media (max-width:600px), (min-width:1200px)", 800))
+        self.assertTrue(applies("@media (48rem <= width < 64rem)", 800))
+        self.assertFalse(applies("@media (48rem <= width < 64rem)", 1400))
+        self.assertTrue(applies("@media screen and (min-width: 40em)", 800))
+        self.assertFalse(applies("@media print", 800))
+        self.assertIsNone(applies("@media (prefers-color-scheme: dark)", 800))
+
+    def test_site_studio_breakpoints_fold_through_their_cascade(self):
+        plan = {"collections": {"Type": {"modes": ["xl", "md", "sm"], "variables": [
+            {"name": "type/h2", "type": "FLOAT", "valuesByMode": {"xl": 48, "md": 42, "sm": 36}}]}}}
+        out = figma_build.variables_args(self.project(plan))["collections"]
+        self.assertEqual(list(out), ["PNCB Breakpoint"])
+        self.assertEqual(out["PNCB Breakpoint"]["variables"][0]["valuesByMode"],
+                         {"Desktop 1400px": 48, "Tablet 800px": 42, "Mobile 375px": 36})
+
+    def test_other_axis_keeps_its_own_branded_collection_with_readable_modes(self):
+        plan = {"collections": {
+            "Core": {"modes": ["Value"], "variables": [{"name": "color/a", "type": "COLOR", "hex": "#000"}]},
+            "Scheme": {"modes": ["Value", "@media (prefers-color-scheme: dark)"], "variables": [
+                {"name": "color/bg", "type": "COLOR", "valuesByMode": {"Value": "#fff", "@media (prefers-color-scheme: dark)": "#000"}}]},
+            "Primitives": {"modes": ["Value"], "variables": [{"name": "color/b", "type": "COLOR", "hex": "#111"}]}}}
+        out = figma_build.variables_args(self.project(plan))["collections"]
+        self.assertEqual(sorted(out), ["PNCB Core", "PNCB Primitives", "PNCB Scheme"])
+        self.assertEqual(out["PNCB Scheme"]["modes"], ["Value", "Dark"])
+        self.assertEqual(out["PNCB Scheme"]["variables"][0]["valuesByMode"], {"Value": "#fff", "Dark": "#000"})
+        rep = verify.Report()
+        verify.check_mode_naming({"collections": [{"name": n, "modes": c["modes"]} for n, c in out.items()]}, rep)
+        self.assertEqual(rep.findings, [])
+
+    def test_query_only_token_never_writes_null(self):
+        modes = ["Value", "@media (max-width: 600px)"]
+        plan = {"collections": {"Type": {"modes": modes, "variables": [
+            {"name": "type/small", "type": "FLOAT", "valuesByMode": {modes[1]: 12}}]}}}
+        bp = figma_build.variables_args(self.project(plan))["collections"]["PNCB Breakpoint"]
+        self.assertNotIn(None, bp["variables"][0]["valuesByMode"].values())
+
+    def test_wipe_names_only_collections_this_run_emitted(self):
+        plan = {"collections": {"Core": {"modes": ["Value"], "variables": []}}}
+        names = figma_build.emitted_collections(self.project(plan))
+        self.assertEqual(sorted(names), ["PNCB Breakpoint", "PNCB Core"])
+        source = (SCRIPTS / "figma_build.py").read_text()
+        self.assertNotIn("verify\" / \"state.json\"", source.split("def cmd_init", 1)[1].split("def ", 1)[0])
+
+    def test_collapsed_collection_is_single_mode_whatever_its_mode_was_called(self):
+        out = {"collections": {
+            "Colour": {"modes": ["Value"], "variables": [{"name": "color/a", "type": "COLOR", "hex": "#000"}]},
+            "Spacing": {"modes": ["xl", "md"], "variables": [
+                {"name": "space/a", "type": "FLOAT", "valuesByMode": {"xl": 8, "md": 8}}]}}}
+        plan_variables._consolidate_single_mode_collections(out)
+        self.assertEqual(list(out["collections"]), ["Core"])
+
+    def test_a_dark_scheme_collection_is_not_a_second_breakpoint_collection(self):
+        rep = verify.Report()
+        state = {"collections": [{"name": "PNCB Breakpoint", "modes": ["Desktop 1400px", "Mobile 375px"]},
+                                 {"name": "PNCB Scheme", "modes": ["Value", "Dark"]}],
+                 "collectionStrategyReason": "x"}
+        verify.check_collection_strategy(state, "PNCB", rep)
+        self.assertEqual(rep.findings, [])
+
+    def test_percentage_rgb(self):
+        self.assertEqual(figma_build.expand_hex("rgb(100% 0% 0%)"), "#ff0000")
 
 
 class CaptureTests(unittest.TestCase):

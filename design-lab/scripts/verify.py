@@ -606,10 +606,17 @@ def check_collection_strategy(state, brand, rep):
     # library-standard 5 and 6.1: every value that differs between widths lives in the one
     # breakpoint collection. A second modeful collection splits the responsive domain, and an
     # instance switched to Mobile keeps its desktop values for everything in it.
-    modeful = [c['name'] for c in colls if len(c.get('modes') or []) > 1]
+    # Another axis (a colour scheme, an orientation) is a real boundary of its own; only width
+    # modes must share the one collection.
+    def width_mode(m):
+        name = (m if isinstance(m, str) else (m.get('name') or '')).strip()
+        return bool(re.search(r'\b\d+px$', name) or re.match(r'@media\b.*\bwidth\b', name, re.I)
+                    or name.lower() in ('xxl', 'xl', 'lg', 'md', 'sm', 'xs'))
+    modeful = [c['name'] for c in colls
+               if len(c.get('modes') or []) > 1 and any(width_mode(m) for m in c.get('modes') or [])]
     if len(modeful) > 1:
         rep.add('collection-strategy', 'major', 'file',
-                '%d collections carry modes; width-varying values belong in the one breakpoint '
+                '%d collections carry width modes; width-varying values belong in the one breakpoint '
                 'collection, whose Desktop/Tablet/Mobile modes the components switch' % len(modeful),
                 evidence=modeful)
     if len(colls) > 1 and not state.get('collectionStrategyReason'):

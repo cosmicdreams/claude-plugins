@@ -586,10 +586,12 @@ def _consolidate_single_mode_collections(out, limit=200):
         if any(len({json.dumps(x, sort_keys=True) for x in (v.get('valuesByMode') or {}).values()}) > 1
                for v in variables):
             continue
-        collection['modes'] = [modes[0]]
+        # One value, so one mode, named like every single-mode collection: a Site Studio `xl`
+        # left as the only mode would keep the collection out of the consolidation below.
+        collection['modes'] = ['Value']
         for v in variables:
             if v.get('valuesByMode'):
-                v['valuesByMode'] = {modes[0]: next(iter(v['valuesByMode'].values()))}
+                v['valuesByMode'] = {'Value': next(iter(v['valuesByMode'].values()))}
     total = sum(len(c.get('variables') or []) for c in collections_.values())
     if len(collections_) <= 1 or total > limit:
         out['collectionStrategy'] = {'kind': 'domain', 'reason': 'size or existing boundary'}

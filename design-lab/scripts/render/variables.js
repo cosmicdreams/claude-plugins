@@ -10,10 +10,11 @@
  */
 const hex6 = (h) => {
   // Custom properties may hold rgb()/rgba() rather than hex, e.g. a translucent border.
-  const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+%?))?\s*\)$/i.exec(h.trim());
+  const rgb = /^rgba?\(\s*([\d.]+%?)[\s,]+([\d.]+%?)[\s,]+([\d.]+%?)(?:[\s,/]+([\d.]+%?))?\s*\)$/i.exec(h.trim());
   if (rgb) {
+    const unit = (c) => Math.min(1, c.endsWith('%') ? parseFloat(c) / 100 : parseFloat(c) / 255);
     const alpha = rgb[4] === undefined ? 1 : rgb[4].endsWith('%') ? parseFloat(rgb[4]) / 100 : parseFloat(rgb[4]);
-    return { r: +rgb[1] / 255, g: +rgb[2] / 255, b: +rgb[3] / 255, a: alpha };
+    return { r: unit(rgb[1]), g: unit(rgb[2]), b: unit(rgb[3]), a: alpha };
   }
   const s = h.replace('#', '');
   const full = s.length === 3 ? s.split('').map((c) => c + c).join('') : s.slice(0, 6);
@@ -26,8 +27,12 @@ const report = { collections: {}, created: 0, updated: 0, unplanned: [], aliasMi
 const byName = {};
 
 for (const [cname, spec] of Object.entries(ARGS.collections)) {
-  let col = existing.find((c) => c.name === cname) || figma.variables.createVariableCollection(cname);
-  col.setSharedPluginData('designlab', 'collection', cname);
+  let col = existing.find((c) => c.name === cname);
+  if (!col) {
+    col = figma.variables.createVariableCollection(cname);
+    /* Only a collection this step created is marked: a same-named one someone made stays theirs. */
+    col.setSharedPluginData('designlab', 'collection', cname);
+  }
   /* Modes: rename the first, add the rest, in plan order. */
   spec.modes.forEach((m, i) => {
     if (i < col.modes.length) col.renameMode(col.modes[i].modeId, m);

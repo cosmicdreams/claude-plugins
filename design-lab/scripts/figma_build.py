@@ -260,12 +260,6 @@ def cmd_init(ns) -> int:
         if not previous or previous.get("fileKey") != ns.file_key:
             raise SystemExit("--rebuild needs an earlier build of this run in the same file "
                              f"({ns.file_key}); run init without it for a new file")
-        # Read before verify/ is cleared: collections this run built earlier and a later plan
-        # dropped (a merged-away mode collection) must still be removed by `wipe`.
-        dumped = out / "verify" / "state.json"
-        prior_collections = sorted({c["name"] for c in (json.loads(dumped.read_text()).get("collections") or []
-                                                        if dumped.is_file() else []) if c.get("name")}
-                                   | set(previous.get("priorCollections") or []))
         for folder in ("results", "payloads", "trees", "compare", "verify", "dump"):
             for stale in (out / folder).glob("*") if (out / folder).is_dir() else []:
                 if stale.is_file():
@@ -298,7 +292,11 @@ def cmd_init(ns) -> int:
         "planned": [b["id"] for b in built],
         "steps": steps,
         "done": [],
-        "priorCollections": prior_collections if getattr(ns, "rebuild", False) else [],
+        # Every collection name this run's builds emitted, so a rebuild's `wipe` removes one a
+        # later plan dropped, and never a collection design-lab did not create.
+        "emittedCollections": sorted(set(emitted_collections(project))
+                                     | (set((previous or {}).get("emittedCollections") or [])
+                                        if getattr(ns, "rebuild", False) else set())),
         # Keep the runner connected after the build, waiting for the next one (`--iterate`).
         "iterate": bool(getattr(ns, "iterate", False) or (previous or {}).get("iterate")
                         and getattr(ns, "rebuild", False)),
@@ -370,57 +368,141 @@ def breakpoint_collection(project: Path) -> str:
     return f"{brand(project)} Breakpoint" if brand(project) else "Core Breakpoint"
 
 
-MEDIA = re.compile(r"\(\s*(?:(min|max)-width\s*:\s*([\d.]+)(px|rem|em)|width\s*(<=|>=|<|>)\s*([\d.]+)(px|rem|em))\s*\)")
+LENGTH = r"([\d.]+)(px|rem|em)"
+FEATURE = re.compile(r"^(min|max)-width\s*:\s*" + LENGTH + r"$")
+RANGE = re.compile(r"^(?:" + LENGTH + r"\s*(<=|<|>=|>)\s*)?width(?:\s*(<=|<|>=|>)\s*" + LENGTH + r")?$")
+# Site Studio's default responsive grid: each breakpoint applies from its minimum width up.
+SITE_STUDIO_MIN = {"xxl": 1600, "xl": 1170, "lg": 1024, "md": 768, "sm": 565, "xs": 0}
+
+
+def _px(number: str, unit: str) -> float:
+    return float(number) * (16 if unit in ("rem", "em") else 1)
+
+
+def _compare(width: float, op: str, px: float) -> bool:
+    return {"<": width < px, "<=": width <= px, ">": width > px, ">=": width >= px}[op]
 
 
 def media_applies(condition: str, width: int) -> bool | None:
-    """Whether a width media query holds at a capture width; None when it is not a width query."""
-    found = MEDIA.findall(condition or "")
-    if not found:
+    """Whether a media query holds on screen at a capture width.
+
+    Commas are OR; `and` joins features. A print-only query never holds on screen. None when
+    any part tests something other than width (colour scheme, orientation, hover): such a mode
+    is a different axis from the breakpoints and cannot be folded into them."""
+    text = re.sub(r"^@media\s+", "", (condition or "").strip(), flags=re.I)
+    if not text:
         return None
-    ok = True
-    for kind, n1, u1, op, n2, u2 in found:
-        px = float(n1 or n2) * (16 if (u1 or u2) in ("rem", "em") else 1)
-        if kind == "min" or op == ">=":
-            ok &= width >= px
-        elif kind == "max" or op == "<=":
-            ok &= width <= px
-        elif op == "<":
-            ok &= width < px
-        elif op == ">":
-            ok &= width > px
-    return ok
+    verdicts = []
+    for query in text.split(","):
+        ok, saw_width = True, False
+        for part in re.split(r"\s+and\s+", query.strip(), flags=re.I):
+            part = part.strip().lower()
+            if part in ("screen", "all", "only screen", "only all"):
+                continue
+            if part in ("print", "only print", "speech"):
+                ok, saw_width = False, True
+                continue
+            inner = part[1:-1].strip() if part.startswith("(") and part.endswith(")") else None
+            m = FEATURE.match(inner or "")
+            r = RANGE.match(inner or "") if not m else None
+            if m:
+                ok &= _compare(width, ">=" if m.group(1) == "min" else "<=", _px(m.group(2), m.group(3)))
+            elif r and (r.group(3) or r.group(4)):
+                n1, u1, op1, op2, n2, u2 = r.groups()
+                if op1:   # `48rem <= width`: the length is on the left, so the test flips
+                    ok &= _compare(width, {"<": ">", "<=": ">=", ">": "<", ">=": "<="}[op1], _px(n1, u1))
+                if op2:
+                    ok &= _compare(width, op2, _px(n2, u2))
+            else:
+                return None
+            saw_width = True
+        if not saw_width:
+            return None
+        verdicts.append(ok)
+    return any(verdicts)
+
+
+def mode_label(mode: str) -> str:
+    """A readable mode name for a non-width media mode: never the raw `@media` text."""
+    text = re.sub(r"^@media\s+", "", mode or "", flags=re.I)
+    known = {"prefers-color-scheme: dark": "Dark", "prefers-color-scheme: light": "Light",
+             "prefers-reduced-motion: reduce": "Reduced motion", "orientation: landscape": "Landscape",
+             "orientation: portrait": "Portrait", "hover: none": "No hover"}
+    for needle, label in known.items():
+        if needle in text.replace("  ", " ").lower():
+            return label
+    return re.sub(r"[()]", "", text).replace(":", "").strip().capitalize() or "Mode"
+
+
+def _role_value(by: dict, modes: list, role: str):
+    """A variable's value at a capture width: the base, then every matching mode in plan order
+    (source order, so the cascade's last match wins). Site Studio breakpoint keys take the value
+    of the breakpoint the width falls in, cascading down from the larger ones."""
+    width = VIEWPORTS[role]
+    if all(m in SITE_STUDIO_MIN for m in modes):
+        own = max((m for m in SITE_STUDIO_MIN if SITE_STUDIO_MIN[m] <= width), key=SITE_STUDIO_MIN.get)
+        larger = sorted((m for m in modes if SITE_STUDIO_MIN[m] >= SITE_STUDIO_MIN[own]), key=SITE_STUDIO_MIN.get)
+        return next((by[m] for m in larger if by.get(m) is not None), None)
+    value = by.get(modes[0])
+    for m in modes[1:]:
+        if media_applies(m, width) and by.get(m) is not None:
+            value = by[m]
+    return value
+
+
+def foldable(modes: list) -> bool:
+    """Width modes the breakpoint collection can carry: width media queries, or Site Studio keys."""
+    return len(modes) > 1 and (all(m in SITE_STUDIO_MIN for m in modes)
+                               or all(media_applies(m, VIEWPORTS["Desktop"]) is not None for m in modes[1:]))
+
+
+def emitted_collections(project: Path) -> list[str]:
+    """The collection names this run's build writes: the variables step's and the breakpoint one."""
+    planned = list(variables_args(project)["collections"]) if (project / "variable-plan.json").is_file() else []
+    return list(dict.fromkeys(planned + [breakpoint_collection(project)]))
 
 
 def variables_args(project: Path) -> dict:
-    """Two collections at most: `<Brand> Core` for single-mode tokens, and `<Brand> Breakpoint`
-    for everything that changes with width. A responsive token domain (type sizes redeclared
-    under a media query) joins the breakpoint modes, so switching an instance to Mobile also
-    switches its type; a separate collection with its own media-query modes never would."""
+    """The variable collections the build writes, brand-prefixed (library-standard 6.1).
+
+    Single-mode tokens go to `<Brand> Core`. Width modes (media queries evaluated at the capture
+    widths, or Site Studio breakpoints) fold into `<Brand> Breakpoint`'s Desktop/Tablet/Mobile
+    modes, so the responsive token values sit beside the modes the components switch. A mode set
+    on another axis (colour scheme, orientation) stays its own collection, with readable mode
+    names. Every collection name carries the brand."""
     collections = load(project, "variable-plan.json")["collections"]
     names = mode_names({})
     roles = ("Desktop", "Tablet", "Mobile")
+    label = brand(project)
+
+    def branded(name: str) -> str:
+        if name == "Core":
+            return core_collection(project)
+        return name if not label or name.startswith(label + " ") else f"{label} {name}"
+
     out, responsive = {}, []
     for name, col in collections.items():
         modes = col.get("modes") or ["Value"]
-        conditions = {m: media_applies(m, VIEWPORTS[r]) for m in modes[1:] for r in roles[:1]}
-        if len(modes) > 1 and all(c is not None for c in conditions.values()):
+        if foldable(modes):
             for v in col["variables"]:
                 by = v.get("valuesByMode") or {}
                 row = dict(v)
                 if by:
-                    values = {}
-                    for role in roles:
-                        value = by.get(modes[0])
-                        for m in modes[1:]:
-                            if media_applies(m, VIEWPORTS[role]) and m in by:
-                                value = by[m]
-                        values[names[role]] = value
-                    row["valuesByMode"] = values
+                    values = {role: _role_value(by, modes, role) for role in roles}
+                    # A token declared only under a query has no base value: carry the nearest
+                    # declared one rather than writing null, which Figma would store as 0.
+                    known = [values[r] for r in roles if values[r] is not None]
+                    row["valuesByMode"] = {names[r]: values[r] if values[r] is not None else known[0]
+                                           for r in roles} if known else {}
                 responsive.append(row)
-        else:
-            target = core_collection(project) if name == "Core" else name
-            out[target] = {**col, "variables": list((out.get(target) or {}).get("variables") or []) + col["variables"]}
+            continue
+        target = branded(name)
+        if len(modes) > 1:
+            relabel = {m: (m if i == 0 else mode_label(m)) for i, m in enumerate(modes)}
+            col = {**col, "modes": [relabel[m] for m in modes],
+                   "variables": [{**v, "valuesByMode": {relabel.get(k, k): x for k, x in (v.get("valuesByMode") or {}).items()}}
+                                 if v.get("valuesByMode") else v for v in col["variables"]]}
+        out[target] = {**col, "variables": list((out.get(target) or {}).get("variables") or []) + col["variables"]}
     if responsive:
         out[breakpoint_collection(project)] = {"modes": [names[r] for r in roles], "variables": responsive,
                                                "modeRationale": "responsive tokens share the breakpoint modes"}
@@ -503,9 +585,10 @@ def foundation_args(project: Path, domain: str) -> dict:
 
 def expand_hex(h: str) -> str:
     # rgb()/rgba() custom properties: same treatment as 8-digit hex, alpha dropped.
-    rgb = re.match(r"\s*rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)", h)
+    rgb = re.match(r"\s*rgba?\(\s*([\d.]+%?)[\s,]+([\d.]+%?)[\s,]+([\d.]+%?)", h)
     if rgb:
-        return "#" + "".join(f"{round(float(c)):02x}" for c in rgb.groups())
+        channel = lambda c: float(c[:-1]) * 2.55 if c.endswith("%") else float(c)
+        return "#" + "".join(f"{min(255, round(channel(c))):02x}" for c in rgb.groups())
     s = h.lstrip("#")
     if len(s) == 3:
         s = "".join(ch * 2 for ch in s)
@@ -1026,11 +1109,11 @@ def cmd_next(ns) -> int:
     sid = step["id"]
     head, _, rest = sid.partition(":")
     if sid == "wipe":
-        collections = list(variables_args(project)["collections"]) + ["Core", "Core Breakpoint"]
-        # Collections this run built earlier and a later plan dropped, recorded by init.
-        collections += [name for name in state.get("priorCollections") or [] if name not in collections]
-        out = emit_payload(project, sid, "wipe", {"fileKey": state["fileKey"],
-                                                  "collections": collections + [breakpoint_collection(project)]})
+        # This build's names, those earlier builds of this run emitted, and the names design-lab
+        # used before collections were branded. wipe.js also removes any collection it marked.
+        names = set(emitted_collections(project)) | set(state.get("emittedCollections") or []) \
+            | {"Core", "Core Breakpoint"}
+        out = emit_payload(project, sid, "wipe", {"fileKey": state["fileKey"], "collections": sorted(names)})
     elif sid == "pages":
         out = emit_payload(project, sid, "pages", {"pages": page_list(project)})
     elif sid == "variables":

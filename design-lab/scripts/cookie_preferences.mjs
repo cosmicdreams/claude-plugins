@@ -6,17 +6,22 @@
  */
 const VENDORS = [
   { banner: '.dg-consent-banner', close: '.dg-header-close', script: 'script[src*="consentjs.datagrail.io"]' },
-  // Klaro (Drupal's klaro module): decline keeps the site in its no-consent state.
-  { banner: '.klaro .cookie-notice:not(.cookie-modal-notice)', close: '.cn-decline', script: 'script[src*="klaro"]' },
+  // Klaro (Drupal's klaro module): decline keeps the site in its no-consent state; a site that
+  // hides the decline button (hideDeclineAll) is closed through its accept button instead.
+  { banner: '.klaro .cookie-notice:not(.cookie-modal-notice)', close: ['.cn-decline', '.cm-btn-success', '.cn-ok'], script: 'script[src*="klaro"]' },
 ];
 
 export async function dismissCookiePreferences(page, config = {}, { waitForLoad = false } = {}) {
   if (config.cookiePreferences === false) return;
   const options = config.cookiePreferences ?? {};
   const timeout = options.timeout ?? 5000;
+  // A config naming its own banner always expects it; one naming only a close control still
+  // applies it to the DataGrail banner, as before vendors were a list.
   const vendors = options.bannerSelector
     ? [{ banner: options.bannerSelector, close: options.closeSelector ?? '.dg-header-close', expected: true }]
-    : VENDORS;
+    : options.closeSelector
+      ? [{ ...VENDORS[0], close: options.closeSelector }, ...VENDORS.slice(1)]
+      : VENDORS;
   for (const vendor of vendors) {
     const banners = page.locator(vendor.banner);
     // The vendor script loads asynchronously. Allow its initial render on navigation,
@@ -29,7 +34,12 @@ export async function dismissCookiePreferences(page, config = {}, { waitForLoad 
     for (const banner of await banners.all()) {
       if (!await banner.isVisible()) continue;
       // Playwright CSS locators pierce open shadow roots; document.querySelector does not.
-      await banner.locator(vendor.close).first().click({ timeout });
+      const controls = Array.isArray(vendor.close) ? vendor.close : [vendor.close];
+      let control = banner.locator(controls[0]).first();
+      for (const selector of controls) {
+        if (await banner.locator(selector).count()) { control = banner.locator(selector).first(); break; }
+      }
+      await control.click({ timeout });
       await banner.waitFor({ state: 'hidden', timeout });
     }
   }

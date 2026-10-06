@@ -9,10 +9,13 @@ const breakpointCollection = (await figma.variables.getLocalVariableCollectionsA
   .find(item => /(^| )Breakpoint$/.test(item.name));
 const breakpointVariableIds = new Set(breakpointCollection?.variableIds || []);
 const varyingVariableIds = new Set();
+const geometryVariableIds = new Set();
 const variableNames = new Map();
 for (const id of breakpointVariableIds) {
   const variable = await figma.variables.getVariableByIdAsync(id);
   if (variable) variableNames.set(id, variable.name);
+  // Per-component measured geometry has no code name; a folded design token does.
+  if (variable && !(variable.codeSyntax && variable.codeSyntax.WEB)) geometryVariableIds.add(id);
   if (variable && new Set(Object.values(variable.valuesByMode || {}).map(JSON.stringify)).size > 1)
     varyingVariableIds.add(id);
 }
@@ -21,10 +24,10 @@ function boundToBreakpoint(value) {
   if (value.id && breakpointVariableIds.has(value.id)) return true;
   return Object.values(value).some(boundToBreakpoint);
 }
-// A design token, not design-lab's own per-component breakpoint geometry.
+// A design token, not design-lab's own per-component breakpoint geometry (which has no code name).
 function boundToToken(value) {
   if (!value || typeof value !== 'object') return false;
-  if (value.id && value.type === 'VARIABLE_ALIAS' && !breakpointVariableIds.has(value.id)) return true;
+  if (value.id && value.type === 'VARIABLE_ALIAS' && !geometryVariableIds.has(value.id)) return true;
   return Object.values(value).some(boundToToken);
 }
 function boundToVarying(value) {

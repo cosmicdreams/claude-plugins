@@ -56,7 +56,7 @@ They are allowed to disagree, and in mature systems they usually do. What is not
 
 ## Collections, modes and scopes
 
-Structure follows what the extraction found, not a template — inside **at most two collections** (library-standard 6.1): `<Brand> Core`, one mode, holding every single-mode domain as slash groups (`Color/Primitive`, `Color/Semantic`, `Spacing`, `Typography`), and `<Brand> Breakpoint`, whose `Desktop/Tablet/Mobile <width>px` modes hold every value that differs between widths. The domains below are groups, not collections. A responsive domain never gets a collection or mode set of its own: its media-query values are evaluated at the capture widths and become breakpoint mode values.
+Structure follows what the extraction found, not a template — inside **at most two collections** (library-standard 6.1): `<Brand> Core`, one mode, holding every single-mode domain as slash groups (`Color/Primitive`, `Color/Semantic`, `Spacing`, `Typography`), and `<Brand> Breakpoint`, whose `Desktop/Tablet/Mobile <width>px` modes hold every value that differs between widths. The domains below are groups, not collections. A responsive domain never gets a collection or mode set of its own: its media-query values are evaluated at the capture widths and become breakpoint mode values. The one exception is a mode set on another axis, such as `prefers-color-scheme: dark`: it is not a width, so it keeps a `<Brand> <Domain>` collection of its own, with a readable mode name (`Dark`), never the raw `@media` text.
 
 - **Primitives** — raw values, one mode, scope `[]` so they stay out of the picker.
 - **Semantic** — aliases into primitives, never raw values. Re-theming is then one edit at the primitive layer.

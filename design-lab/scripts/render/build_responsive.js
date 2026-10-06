@@ -35,6 +35,8 @@ let col = collections.find((c) => c.name === ARGS.collection);
 const order = ['Desktop', 'Tablet', 'Mobile'];
 if (!col) {
   col = figma.variables.createVariableCollection(ARGS.collection);
+  /* Marked as design-lab's, so a rebuild's wipe removes it and nothing it did not create. */
+  col.setSharedPluginData('designlab', 'collection', ARGS.collection);
   col.renameMode(col.modes[0].modeId, ARGS.modeNames.Desktop);
   col.addMode(ARGS.modeNames.Tablet);
   col.addMode(ARGS.modeNames.Mobile);
@@ -217,9 +219,17 @@ function size(node, spec, parentAuto, isText) {
      clip the second line. It hugs its words and stays on one line instead. */
   if (isText && parentAuto && spec.sizing === 'FILL' && spec.text && spec.text.singleLine
       && node.parent && node.parent.layoutMode === 'HORIZONTAL') {
-    node.textAutoResize = 'WIDTH_AND_HEIGHT';
-    node.layoutSizingHorizontal = 'HUG';
-    return;
+    /* Only when the drawn font actually wraps it at the measured width: a label that fits keeps
+       filling its row exactly as measured. */
+    const line = typeof spec.text.lineHeight === 'number' ? spec.text.lineHeight : node.fontSize * 1.4;
+    if (node.height > line * 1.5) {
+      node.textAutoResize = 'WIDTH_AND_HEIGHT';
+      node.layoutSizingHorizontal = 'HUG';
+      /* A centred or right-aligned label alone in its row keeps its place once it hugs. */
+      const along = { CENTER: 'CENTER', RIGHT: 'MAX' }[spec.text.align];
+      if (along && node.parent.children.length === 1) node.parent.primaryAxisAlignItems = along;
+      return;
+    }
   }
   if (parentAuto && spec.sizing === 'FILL' && !(leaf && isVar(spec.width))) node.layoutSizingHorizontal = 'FILL';
   else if (!single) {

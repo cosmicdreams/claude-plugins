@@ -145,7 +145,13 @@ function walk(rootSelector, propList, pick_) {
            layers everything otherwise reads as declaring nothing. @import carries a sheet. */
         if (!rule.selectorText && rule.cssRules) { scan(rule.cssRules, depth + 1); continue; }
         if (rule.styleSheet) {
-          try { scan(rule.styleSheet.cssRules, depth + 1); } catch { out['__unreadableSheet'] = true; }
+          /* `@import url(x) print` applies only where its media list matches. */
+          const media = rule.media && rule.media.mediaText;
+          let applies = true;
+          try { applies = !media || matchMedia(media).matches; } catch { applies = false; }
+          if (applies) {
+            try { scan(rule.styleSheet.cssRules, depth + 1); } catch { out['__unreadableSheet'] = true; }
+          }
           continue;
         }
         if (!rule.selectorText) continue;
