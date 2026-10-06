@@ -354,8 +354,77 @@ def page_id(project: Path, name: str) -> str:
     return result(project, "pages")["pages"][name]
 
 
+def brand(project: Path) -> str:
+    """The run's site label prefixes every collection (library-standard 6.1), so a PNCB library
+    does not collide with every other library's `Core` in the picker."""
+    run = (load(project, "project.json", {}).get("run") or {})
+    return (run.get("siteLabel") or "").strip()
+
+
+def core_collection(project: Path) -> str:
+    return f"{brand(project)} Core".strip()
+
+
+def breakpoint_collection(project: Path) -> str:
+    """Every value that differs between widths lives here, in the Desktop/Tablet/Mobile modes."""
+    return f"{brand(project)} Breakpoint" if brand(project) else "Core Breakpoint"
+
+
+MEDIA = re.compile(r"\(\s*(?:(min|max)-width\s*:\s*([\d.]+)(px|rem|em)|width\s*(<=|>=|<|>)\s*([\d.]+)(px|rem|em))\s*\)")
+
+
+def media_applies(condition: str, width: int) -> bool | None:
+    """Whether a width media query holds at a capture width; None when it is not a width query."""
+    found = MEDIA.findall(condition or "")
+    if not found:
+        return None
+    ok = True
+    for kind, n1, u1, op, n2, u2 in found:
+        px = float(n1 or n2) * (16 if (u1 or u2) in ("rem", "em") else 1)
+        if kind == "min" or op == ">=":
+            ok &= width >= px
+        elif kind == "max" or op == "<=":
+            ok &= width <= px
+        elif op == "<":
+            ok &= width < px
+        elif op == ">":
+            ok &= width > px
+    return ok
+
+
 def variables_args(project: Path) -> dict:
-    return {"collections": load(project, "variable-plan.json")["collections"]}
+    """Two collections at most: `<Brand> Core` for single-mode tokens, and `<Brand> Breakpoint`
+    for everything that changes with width. A responsive token domain (type sizes redeclared
+    under a media query) joins the breakpoint modes, so switching an instance to Mobile also
+    switches its type; a separate collection with its own media-query modes never would."""
+    collections = load(project, "variable-plan.json")["collections"]
+    names = mode_names({})
+    roles = ("Desktop", "Tablet", "Mobile")
+    out, responsive = {}, []
+    for name, col in collections.items():
+        modes = col.get("modes") or ["Value"]
+        conditions = {m: media_applies(m, VIEWPORTS[r]) for m in modes[1:] for r in roles[:1]}
+        if len(modes) > 1 and all(c is not None for c in conditions.values()):
+            for v in col["variables"]:
+                by = v.get("valuesByMode") or {}
+                row = dict(v)
+                if by:
+                    values = {}
+                    for role in roles:
+                        value = by.get(modes[0])
+                        for m in modes[1:]:
+                            if media_applies(m, VIEWPORTS[role]) and m in by:
+                                value = by[m]
+                        values[names[role]] = value
+                    row["valuesByMode"] = values
+                responsive.append(row)
+        else:
+            target = core_collection(project) if name == "Core" else name
+            out[target] = {**col, "variables": list((out.get(target) or {}).get("variables") or []) + col["variables"]}
+    if responsive:
+        out[breakpoint_collection(project)] = {"modes": [names[r] for r in roles], "variables": responsive,
+                                               "modeRationale": "responsive tokens share the breakpoint modes"}
+    return {"collections": out}
 
 
 COVER_LABELS = library_counts.COVER_LABELS
@@ -505,7 +574,6 @@ def component_page(c: dict) -> str:
 
 # Prefixed like the foundation collection (`Core`), so it groups with it in the picker
 # instead of colliding with every other library's `Breakpoint`.
-BREAKPOINT_COLLECTION = "Core Breakpoint"
 
 
 def mode_names(tree: dict) -> dict:
@@ -577,7 +645,7 @@ def build_args(project: Path, cid: str, state: dict) -> dict:
     comp = next(c for c in components(project) if c["id"] == cid)
     return {"pageId": page_id(project, component_page(comp)), "x": 0, "y": PARKING_Y, "id": cid,
             "name": f"{cid} — {comp.get('label') or cid}", "description": description(project, comp),
-            "collection": BREAKPOINT_COLLECTION, "modeNames": mode_names(tree),
+            "collection": breakpoint_collection(project), "modeNames": mode_names(tree),
             # The masters of children this component nests, already built (children build first),
             # so the builder fetches each by id instead of loading every page to find it.
             "masters": child_masters(project, comp),
@@ -659,7 +727,7 @@ def block_args(project: Path, state: dict, cid: str, order: int) -> dict:
                 "properties": [["Breakpoint", "MODE", "Desktop, Tablet, Mobile", "Desktop"]],
                 "fields": fields_rows(comp, plan), "relations": relations, "notes": notes},
         "columns": cols,
-        "collection": BREAKPOINT_COLLECTION,
+        "collection": breakpoint_collection(project),
         "evidence": [{"label": f"{e['viewport']} {e['width']}px", "width": e["width"], "height": e["height"]}
                      for e in evidence_captures(project, cid, tree)],
         "captured": "the running site",
@@ -816,7 +884,7 @@ def examples_args(project: Path, state: dict) -> dict:
                 items.append({"missing": label})
         out.append({"address": p["address"], "title": p.get("title") or p["address"], "items": items})
     names = mode_names({})
-    return {"pageId": page_id(project, "Examples"), "collection": BREAKPOINT_COLLECTION,
+    return {"pageId": page_id(project, "Examples"), "collection": breakpoint_collection(project),
             "desktopMode": names["Desktop"], "mobileMode": names["Mobile"], "pages": out}
 
 
@@ -947,11 +1015,11 @@ def cmd_next(ns) -> int:
     sid = step["id"]
     head, _, rest = sid.partition(":")
     if sid == "wipe":
-        collections = list(load(project, "variable-plan.json", {"collections": {}})["collections"])
+        collections = list(variables_args(project)["collections"]) + ["Core", "Core Breakpoint"]
         # Collections this run built earlier and a later plan dropped, recorded by init.
         collections += [name for name in state.get("priorCollections") or [] if name not in collections]
         out = emit_payload(project, sid, "wipe", {"fileKey": state["fileKey"],
-                                                  "collections": collections + [BREAKPOINT_COLLECTION]})
+                                                  "collections": collections + [breakpoint_collection(project)]})
     elif sid == "pages":
         out = emit_payload(project, sid, "pages", {"pages": page_list(project)})
     elif sid == "variables":

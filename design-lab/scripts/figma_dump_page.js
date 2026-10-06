@@ -5,7 +5,8 @@ await figma.setCurrentPageAsync(page);
 const DEFAULT_LAYER = /^(Frame|Group|Rectangle|Ellipse|Text|Vector|Line|Polygon|Star|Component|Slice)( \d+)?$/;
 const breakpointCollection = (await figma.variables.getLocalVariableCollectionsAsync())
   // 'Breakpoint' is the name before 0.15.1.
-  .find(item => item.name === 'Core Breakpoint' || item.name === 'Breakpoint');
+  // `<Brand> Breakpoint` since 0.22.1; 'Core Breakpoint' and 'Breakpoint' before.
+  .find(item => /(^| )Breakpoint$/.test(item.name));
 const breakpointVariableIds = new Set(breakpointCollection?.variableIds || []);
 const varyingVariableIds = new Set();
 const variableNames = new Map();
