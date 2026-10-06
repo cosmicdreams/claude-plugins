@@ -1,5 +1,23 @@
 # Changelog
 
+## 0.23.0
+
+**At most two variable collections, and the fixes a full PNCB run needed to reach its benchmark.** A library now carries `<Brand> Core`, one mode, and `<Brand> Breakpoint`, whose Desktop, Tablet and Mobile modes hold every value that changes with width, responsive type included. A first end-to-end run on a fully layered Drupal theme surfaced a run of builder and checker bugs; each is fixed at its source.
+
+- Responsive tokens join the breakpoint modes: a token domain whose modes are width media queries is evaluated at the capture widths, so an instance set to Mobile also gets mobile type. Collections take the run's site label as their brand, and a mode is never named after a media query.
+- Verification enforces the rule: the brand defaults to the site label, a media-query mode name fails, a second collection with modes fails, and the check for one domain split across collections is back. The tokens reference no longer prescribes a separate Type collection.
+- A collection whose modes never differ collapses to one mode and joins Core.
+- Measurement reads rules inside `@layer` blocks and `@import`ed sheets; a theme that layers everything used to read as declaring no tokens at all.
+- `rgb()` and `rgba()` custom properties reach Figma as colours instead of failing the variables step.
+- Hex-valued `--text-*` custom properties are colours, not type sizes, so text colours bind.
+- Klaro joins DataGrail as a consent banner capture closes on its own.
+- A child component is captured on a page other than its parent's when one exists, so a wrapper and its only child no longer photograph identically.
+- Figma lists Apple's SF fonts on a Mac but draws their text blank, so SF Pro now gets a stand-in.
+- Rebuilding in place removes collections a later plan dropped.
+- Responsive geometry variables no longer count as token bindings, and a font-family token whose family never renders is not counted as drift.
+- Build receipts expect the alternate layouts' variables, and Known gaps names font stand-ins and style fallbacks under the checks that report them.
+- The fallback YAML reader treats `&amp;` inside a quoted value as text.
+
 ## 0.22.0
 
 **The pane follows the run's five stages, and says only what is true.** Instead of a list of twelve phases, the design-lab pane shows a run as Preflight, Discovery, Build, Verify and Report: one row per stage with a short result beside it, the stage under way opened beneath its row, and a colored word in the header for where the run stands. A finished run leads with its verdict and its figures, with the full recap folded away until asked for.
