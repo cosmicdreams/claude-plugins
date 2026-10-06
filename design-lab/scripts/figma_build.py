@@ -941,6 +941,10 @@ def cmd_next(ns) -> int:
     head, _, rest = sid.partition(":")
     if sid == "wipe":
         collections = list(load(project, "variable-plan.json", {"collections": {}})["collections"])
+        # Collections this run built earlier and a later plan dropped (a merged-away mode
+        # collection): the last verification recorded them in this run's own file.
+        built = load(project, "figma/verify/state.json", {}).get("collections") or []
+        collections += [c["name"] for c in built if c.get("name") and c["name"] not in collections]
         out = emit_payload(project, sid, "wipe", {"fileKey": state["fileKey"],
                                                   "collections": collections + [BREAKPOINT_COLLECTION]})
     elif sid == "pages":

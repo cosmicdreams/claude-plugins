@@ -1233,7 +1233,8 @@ def check_bindings_match_source(state, measurements, render_evidence, rep):
         elif any(re.search(r'^Source id:', component.get('description') or '', re.I | re.M)
                  for component in candidates):
             candidates = []
-        if candidates and not any(component.get('boundVariableCount') for component in candidates):
+        if candidates and not any(component.get('tokenBoundCount', component.get('boundVariableCount'))
+                                  for component in candidates):
             mismatched.append('%s: Sass/CSS evidence consumes a token, the Figma component '
                               'binds nothing' % component_id)
 
@@ -1245,7 +1246,8 @@ def check_bindings_match_source(state, measurements, render_evidence, rep):
                     if (c.get('name') or '').split(' — ')[0] == mid or c.get('name') == mid), None)
         if fig is None:
             continue
-        fig_binds = bool(fig.get('boundVariableCount'))
+        # Breakpoint geometry variables are design-lab's own; only design tokens count.
+        fig_binds = bool(fig.get('tokenBoundCount', fig.get('boundVariableCount')))
         if src_binds and not fig_binds:
             mismatched.append('%s: source resolves through custom properties, the Figma '
                               'component binds nothing' % mid)

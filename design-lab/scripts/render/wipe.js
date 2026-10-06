@@ -36,7 +36,7 @@ for (const page of [...figma.root.children]) {
   page.remove();
 }
 for (const collection of await figma.variables.getLocalVariableCollectionsAsync()) {
-  if (!ARGS.collections.includes(collection.name)) continue;
+  if (!ARGS.collections.includes(collection.name) && !collection.getSharedPluginData('designlab', 'collection')) continue;
   result.removedCollections.push(collection.name);
   collection.remove();
 }

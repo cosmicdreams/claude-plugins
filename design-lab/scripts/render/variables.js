@@ -27,6 +27,7 @@ const byName = {};
 
 for (const [cname, spec] of Object.entries(ARGS.collections)) {
   let col = existing.find((c) => c.name === cname) || figma.variables.createVariableCollection(cname);
+  col.setSharedPluginData('designlab', 'collection', cname);
   /* Modes: rename the first, add the rest, in plan order. */
   spec.modes.forEach((m, i) => {
     if (i < col.modes.length) col.renameMode(col.modes[i].modeId, m);

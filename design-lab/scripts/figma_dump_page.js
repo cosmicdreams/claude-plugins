@@ -20,6 +20,12 @@ function boundToBreakpoint(value) {
   if (value.id && breakpointVariableIds.has(value.id)) return true;
   return Object.values(value).some(boundToBreakpoint);
 }
+// A design token, not design-lab's own per-component breakpoint geometry.
+function boundToToken(value) {
+  if (!value || typeof value !== 'object') return false;
+  if (value.id && value.type === 'VARIABLE_ALIAS' && !breakpointVariableIds.has(value.id)) return true;
+  return Object.values(value).some(boundToToken);
+}
 function boundToVarying(value) {
   if (!value || typeof value !== 'object') return false;
   if (value.id && varyingVariableIds.has(value.id)) return true;
@@ -42,6 +48,8 @@ const components = page.findAllWithCriteria({types: ['COMPONENT_SET', 'COMPONENT
       variantCount: node.type === 'COMPONENT_SET' ? node.children.length : 1,
       boundVariableCount: [node, ...descendants].filter(child =>
         child.boundVariables && Object.keys(child.boundVariables).length > 0).length,
+      tokenBoundCount: [node, ...descendants].filter(child =>
+        boundToToken(child.boundVariables)).length,
       breakpointBoundCount: [node, ...descendants].filter(child =>
         boundToBreakpoint(child.boundVariables)).length,
       variesByWidth: [node, ...descendants].some(child =>
