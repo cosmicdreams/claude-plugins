@@ -856,26 +856,26 @@ def preflight_command(args):
     usage = (project.get("decisions") or {}).get("usageSource")
     # The whole list first, so the pane shows what is coming before anything is checked.
     checklist.record_check("site-url", "Local site address", "checking")
-    checklist.record_check("site", "The local site answers", "waiting", depends_on=("site-url",))
+    checklist.record_check("site", "Local site", "waiting", depends_on=("site-url",))
     checklist.record_check("site-label", "Site label for reports", "checking")
     checklist.record_check("operator", "Operator's name", "checking")
     if usage and usage != "none":
         checklist.record_check("usage", f"DDEV project for the {usage} usage source", "checking")
     checklist.record_check("figma-url", "Target Figma file address", "checking")
-    for check_id, label in (("runner-port", "Runner port is available"),
-                            ("browser", "Browser automation is available"),
-                            ("cairosvg", "SVG renderer is available"),
-                            ("plugin-version", "Plugin version matches this run")):
+    for check_id, label in (("runner-port", "Runner port"),
+                            ("browser", "Playwright browser"),
+                            ("cairosvg", "SVG renderer"),
+                            ("plugin-version", "Plugin version")):
         checklist.record_check(check_id, label, "checking")
 
     answer("site-url", "Local site address", site_url, "the local site address (--site-url)")
     if site_url:
-        checklist.record_check("site", "The local site answers", "checking", f"Opening {site_url}.", ("site-url",))
+        checklist.record_check("site", "Local site", "checking", f"Opening {site_url}.", ("site-url",))
         ok, detail = site_reachable(site_url)
         checks["site"] = {"url": site_url, "reachable": ok, "detail": detail}
         if not ok:
             missing.append(f"a running local site at {site_url} ({detail})")
-        checklist.record_check("site", "The local site answers", "done" if ok else "needs-you",
+        checklist.record_check("site", "Local site", "done" if ok else "needs-you",
                                None if ok else f"Start the local site at {site_url}: it did not answer ({detail}).",
                                ("site-url",))
     answer("site-label", "Site label for reports", site_label, "a neutral site label for reports (--site-label)")
@@ -914,11 +914,11 @@ def preflight_command(args):
     import figma_runner
     status = figma_runner.server_status(path.parent)
     if not status["portInUse"] or status["alive"]:
-        checklist.record_check("runner-port", "Runner port is available", "done",
+        checklist.record_check("runner-port", "Runner port", "done",
                                "This run's server is already using the port." if status["alive"] else None)
     elif status.get("otherRun") and figma_runner.run_finished(Path(status["otherRun"])):
         # Left behind by a run whose build is complete: connect stops it before starting this one's.
-        checklist.record_check("runner-port", "Runner port is available", "done",
+        checklist.record_check("runner-port", "Runner port", "done",
                                f"A finished run's server ({status['otherRun']}) still holds the port; it is stopped "
                                "when this build connects.")
     elif status.get("otherRun"):
@@ -927,12 +927,12 @@ def preflight_command(args):
         message = (f"Stop the other run first with: {stop}. Another run ({other}) is using "
                    f"127.0.0.1:{figma_runner.PORT}.")
         missing.append(message)
-        checklist.record_check("runner-port", "Runner port is available", "needs-you", message)
+        checklist.record_check("runner-port", "Runner port", "needs-you", message)
     else:
         message = (f"Stop the program using 127.0.0.1:{figma_runner.PORT}, then retry preflight. "
                    "The runner port is occupied by another program.")
         missing.append(message)
-        checklist.record_check("runner-port", "Runner port is available", "needs-you", message)
+        checklist.record_check("runner-port", "Runner port", "needs-you", message)
 
     # Capture runs node from a folder where Playwright resolves (capture_all.py --node-cwd); each
     # site keeps it somewhere different, so look for one rather than assume the current folder.
@@ -949,7 +949,7 @@ def preflight_command(args):
         missing.append(browser_message)
     checks["browser"] = {"nodeCwd": str(node_cwd) if node_cwd else None,
                          "executable": executable, "executableExists": executable_ok}
-    checklist.record_check("browser", "Browser automation is available", "done" if browser_ok else "needs-you",
+    checklist.record_check("browser", "Playwright browser", "done" if browser_ok else "needs-you",
                            f"Playwright resolves in {node_cwd}: give capture --node-cwd {node_cwd}."
                            if browser_ok else browser_message)
 
@@ -960,14 +960,14 @@ def preflight_command(args):
     checks["cairosvg"] = {"available": cairosvg_ok}
     if cairosvg_message:
         missing.append(cairosvg_message)
-    checklist.record_check("cairosvg", "SVG renderer is available", "done" if cairosvg_ok else "needs-you",
+    checklist.record_check("cairosvg", "SVG renderer", "done" if cairosvg_ok else "needs-you",
                            cairosvg_message)
 
     twig_state = twig_debug_enabled(site_url) if site_url and checks.get("site", {}).get("reachable") else None
     if twig_state is not None:
         twig_message = None if twig_state else "Twig debug is off; the run turns it on at capture."
         checks["twigDebug"] = {"enabled": twig_state}
-        checklist.record_check("twig-debug", "Twig debug markup is available", "done", twig_message)
+        checklist.record_check("twig-debug", "Twig debug markup", "done", twig_message)
 
     recorded_version = (((project.get("run") or {}).get("plugin") or {}).get("version"))
     current_version = plugin_version()
@@ -981,7 +981,7 @@ def preflight_command(args):
     checks["pluginVersion"] = {"recorded": recorded_version, "current": current_version}
     if not version_ok:
         missing.append(version_message)
-    checklist.record_check("plugin-version", "Plugin version matches this run", "done" if version_ok else "needs-you",
+    checklist.record_check("plugin-version", "Plugin version", "done" if version_ok else "needs-you",
                            version_message)
     decisions = project.get("decisions") or {}
     if "sitestudio" in (decisions.get("componentSource") or "") + " " + (decisions.get("tokenSource") or ""):

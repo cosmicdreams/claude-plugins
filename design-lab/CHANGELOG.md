@@ -1,5 +1,22 @@
 # Changelog
 
+## 0.22.0
+
+**The pane follows the run's five stages, and says only what is true.** Instead of a list of twelve phases, the design-lab pane shows a run as Preflight, Discovery, Build, Verify and Report: one row per stage with a short result beside it, the stage under way opened beneath its row, and a colored word in the header for where the run stands. A finished run leads with its verdict and its figures, with the full recap folded away until asked for.
+
+- The header reads Preflight, Discovering, Building, Verifying or Reporting while the run works; Needs you when it is waiting on the person; Failed when a phase, a preflight check or the Figma runner stopped with an error; and Done only once the report is written. A run whose verification left blocking or major problems open reads Done · needs review in yellow, never a green Done, matching the run's own completion check.
+- Preflight shows as under way while it runs, before it has recorded a phase, and alongside Discovery when the two overlap. A run built from an earlier run's capture never shows a preflight of its own.
+- Done is no longer taken from the Figma runner: once the build finishes, the pane shows Verify and then Report as under way, and the status line stays until the report is written ("Figma build finished").
+- One rule decides when the run needs the person, so the header, the Needs you card, the stage row and the notification always agree. It covers a stop the run recorded, a wait for the person to start the runner, a preflight check that needs an answer, and a runner that has gone quiet with no stop recorded. The card's button reads Resume run and appears only when resuming is what to do; the card links to the Figma file when the run knows it. While the card is shown, the stopped stage stays quiet: its bar and current step turn yellow, and the step count and runner log are hidden.
+- A failed stage turns red, with a Failed card saying which stage stopped and the error it reported.
+- The current phase is chosen in the order the run takes its phases, not the order the run's project file happens to hold them, and a phase copied from an earlier run never becomes the current one. Several stages can be under way at once; only the first opens. The text answer from `/design-lab:watch` lists phases in the same order.
+- A finished run with open problems shows a verdict card above its figures, with the counts and a link to the verification findings. The Verify row reads, for example, "6 blockers · 2 major open"; minor problems alone keep the green check with a yellow note; a clean run says how many checks passed and how many were waived. A verification report left from an earlier run in the same folder is ignored.
+- The figures say what they measure: Coverage as "48 of 58 buildable" (with how many were not built), Accuracy as a percentage of widths within tolerance, Discovery as "155 found · 48 planned", Build as "48 of 48 planned built". Coverage and Accuracy are green only at 100% and yellow otherwise; Time and Tokens keep their own colors. The Report row reads "report ready", and the header no longer repeats the time the Time tile shows.
+- The finished run's links lead with the Figma library and the benchmark report, then list the run's own files under Run files, only those that exist. Paths with spaces, brackets, # or ? in them are encoded so the links open.
+- At narrow widths the progress bar fits the pane, the four figures stack in one column below about 52 columns, and a stage's steps go one per line below 40.
+- Preflight's checks are named for what they check (Local site, Runner port, Playwright browser, SVG renderer, Twig debug markup, Plugin version), not for a result, so a check still waiting or needing the person no longer claims it has passed. Check ids are unchanged.
+- The Build card shows the step count ("112 of 254 steps"), the bar and the runner's state, without runner log lines. Steps still to come are marked ○, as in the stage list. Times are rounded to the nearest minute, as the recap rounds them, and a Figma link at the end of a sentence no longer keeps the full stop.
+
 ## 0.21.0
 
 **The pane opens by itself, and an earlier run can be built into a new Figma file with one command.** Seeing where a run is no longer depends on knowing about `/design-lab:watch`, and showing or redoing the Figma build no longer depends on a script no skill mentioned.

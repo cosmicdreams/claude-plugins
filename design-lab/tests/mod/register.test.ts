@@ -1,9 +1,10 @@
 import type { CommandRunInput, On, RenderSurface } from 'claude-code'
 import { describe, expect, mock, test } from 'claude-code/testing'
 
-import { POLL_MS, RUN_FILES } from '../../hooks/mod/register'
+import { ARTIFACT_FILES, artifactsOf, POLL_MS, RUN_FILES } from '../../hooks/mod/register'
 
 const RUN = '/runs/example'
+const OTHER = '/runs/other'
 const HOME = '/home/person'
 const NOW = Date.parse('2026-10-02T12:00:00Z')
 const ago = (ms: number) => new Date(NOW - ms).toISOString()
@@ -111,7 +112,7 @@ describe('design-lab:watch', () => {
     await w.clock.advance(POLL_MS)
     await w.clock.advance(POLL_MS)
     expect(w.toasts).toHaveLength(1)
-    expect(w.toasts[0]).toContain('runner not seen for 5m')
+    expect(w.toasts[0], 'the toast says what the Needs you card says').toContain('The Figma runner has stopped')
     files[at(RUN_FILES.progress)] = progress(1_000)
     await w.clock.advance(POLL_MS)
     files[at(RUN_FILES.progress)] = progress(300_000)
@@ -135,6 +136,7 @@ describe('design-lab:watch', () => {
     const w = world(on, {
       [at(RUN_FILES.project)]: PROJECT, [at(RUN_FILES.progress)]: progress(300_000),
       [at(RUN_FILES.phaseLog)]: `${stopped}\n`,
+      [at(RUN_FILES.runnerLog)]: '2026-10-02T11:50:00 serving verify:page (3/10)\n2026-10-02T11:50:01 recorded verify:page\n',
     })
     await $.session.start(SESSION)
     await $.command.run({ ...WATCH, args: RUN })
@@ -145,8 +147,14 @@ describe('design-lab:watch', () => {
           scroll: { offset: 0, bodyRows: 30 }, view: {} },
       })
       expect(await ui.find({ type: 'Text', text: /Preflight/ })).toBeDefined()
-      expect(await ui.find({ type: 'Text', text: /steps 3\/10/ })).toBeDefined()
-      expect(await ui.find({ type: 'Text', text: /Needs you: Open Figma desktop/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /^Needs you$/ })).toBeDefined()
+      expect(await ui.find({ type: 'Text', text: /^Open Figma desktop/ })).toBeDefined()
+      expect((await ui.find({ type: 'Button' }))?.props.label).toBe('Resume run')
+      expect(await ui.find({ type: 'Text', text: /serving|recorded/ }), 'no runner log in the pane').toBeUndefined()
+      expect(await ui.find({ type: 'Text', text: /3 of 10 steps/ }), 'stopped, the bar alone shows the steps').toBeUndefined()
+      const card = await ui.find({ type: 'Box', key: 'card-build' })
+      expect(card, 'the stopped Build card is open').toBeDefined()
+      expect(card?.props.borderColor, 'the Needs you card is the only yellow box').toBeUndefined()
       await ui.press({ key: 'resume' })
       await ui.unmount()
     }
@@ -166,6 +174,7 @@ describe('design-lab:watch', () => {
       props: { title: 'design-lab', isFocused: false, bodyColumns: 60, placement: 'dock',
         scroll: { offset: 0, bodyRows: 30 }, view: {} },
     })
+    expect((await ui.find({ type: 'Button', key: 'resume' }))?.props.label).toBe('Resume run')
     await ui.press({ key: 'resume' })
     expect(w.submits).toEqual([])
     expect(w.toasts.at(-1)).toContain('close the open dialog')
@@ -188,13 +197,148 @@ describe('design-lab:watch', () => {
         scroll: { offset: 0, bodyRows: 30 }, view: {} },
     })
     expect(await ui.find({ type: 'Text', text: /^Recap$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^\u00a0Done\u00a0$/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /runner/ }), 'a finished run shows no runner line').toBeUndefined()
     expect(await ui.find({ type: 'Markdown' })).toBeDefined()
   })
 
+  test('a finished run leads with its headline figures from the scorecard', async ($, on) => {
+    const card = JSON.stringify({ run: { buildCreatedAt: CREATED },
+      headline: { coverage: { built: 48, eligible: 58 }, accuracy: { corrected: { pass: 22, total: 144 } },
+        effort: { workingSeconds: 13_435, buildSeconds: 749, buildSteps: 540, tokens: 40_013_109 } },
+      sections: { conformance: { open: { blocker: 6, major: 2, minor: 2 } } } })
+    world(on, { [at(RUN_FILES.project)]: PROJECT, [at(RUN_FILES.progress)]: progress(5_000),
+      [at(RUN_FILES.scorecard)]: card, [at(RUN_FILES.completion)]: 'design-lab finished.\n',
+      [at(ARTIFACT_FILES.report)]: '<html></html>',
+      [at(RUN_FILES.verifyReport)]: JSON.stringify({ generatedAt: ago(60_000), passed: ['a'],
+        open: [...Array(6).fill({ severity: 'blocker' }), ...Array(2).fill({ severity: 'major' }), ...Array(2).fill({ severity: 'minor' })] }),
+      // A second finished run, watched after this one's recap is opened.
+      [`${OTHER}/${RUN_FILES.project}`]: PROJECT, [`${OTHER}/${RUN_FILES.scorecard}`]: card,
+      [`${OTHER}/${RUN_FILES.completion}`]: 'design-lab finished the other library.\n' })
+    await $.session.start(SESSION)
+    await $.command.run({ ...WATCH, args: RUN })
+    const ui = await $.ui.mount({
+      plugin: 'design-lab', surface: 'desktop', component: 'Pane', requestId: 'design-lab',
+      props: { title: 'design-lab', isFocused: false, bodyColumns: 60, placement: 'dock',
+        scroll: { offset: 0, bodyRows: 30 }, view: {} },
+    })
+    for (const text of [/^83%$/, /^48 of 58 buildable$/, /^10 not built$/, /^15%$/, /^22 of 144 widths within tolerance$/, /^3h 44m$/,
+      /^40\.0M$/, /^6 blockers · 2 major open$/, /^\u00a0Done · needs review\u00a0$/, /^Verification found problems$/, /^report ready$/]) {
+      expect(await ui.find({ type: 'Text', text }), String(text)).toBeDefined()
+    }
+    expect(await ui.find({ type: 'Text', text: /^22\/144$/ })).toBeUndefined()
+    expect(await ui.find({ type: 'Text', text: /^6 blocking and 2 major problems are still open/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^example$/ }), 'the Time tile holds the time, not the subtitle').toBeDefined()
+    expect((await ui.find({ type: 'Box', key: 'tile-coverage' }))?.props.borderColor, 'tile borders stay quiet').toBeUndefined()
+    expect((await ui.find({ type: 'Text', text: /^83%$/ }))?.props.color, 'short of 100% is yellow').toBe('yellow')
+    expect((await ui.find({ type: 'Text', text: /^3h 44m$/ }))?.props.color).toBe('magenta')
+    expect(await ui.find({ type: 'Markdown', text: /Open the benchmark report/ }), 'the artifacts are listed').toBeDefined()
+    expect(await ui.find({ type: 'Markdown', text: /Build plan/ }), 'a file the run does not have is not linked').toBeUndefined()
+    const folded = (await ui.findAll({ type: 'Markdown' })).length
+    expect(await ui.find({ type: 'Markdown', text: /^design-lab finished/ }), 'the recap stays folded until asked for').toBeUndefined()
+    await ui.press({ key: 'recap' })
+    expect(await ui.findAll({ type: 'Markdown' })).toHaveLength(folded + 1)
+    await ui.unmount()
+    await $.command.run({ ...WATCH, args: OTHER })
+    const other = await $.ui.mount({
+      plugin: 'design-lab', surface: 'desktop', component: 'Pane', requestId: 'design-lab',
+      props: { title: 'design-lab', isFocused: false, bodyColumns: 60, placement: 'dock',
+        scroll: { offset: 0, bodyRows: 30 }, view: {} },
+    })
+    expect(await other.find({ type: 'Markdown', text: /^design-lab finished the other/ }), 'one run\'s open recap does not open the next').toBeUndefined()
+  })
+
+  test('a finished run whose verification is clean reads Done, with no verdict card', async ($, on) => {
+    const card = JSON.stringify({ run: { buildCreatedAt: CREATED },
+      headline: { coverage: { built: 58, eligible: 58 }, accuracy: { corrected: { pass: 144, total: 144 } } } })
+    world(on, { [at(RUN_FILES.project)]: PROJECT, [at(RUN_FILES.scorecard)]: card, [at(RUN_FILES.completion)]: 'design-lab finished.\n',
+      [at(RUN_FILES.verifyReport)]: JSON.stringify({ generatedAt: ago(60_000), passed: ['a', 'b'], open: [] }) })
+    await $.session.start(SESSION)
+    await $.command.run({ ...WATCH, args: RUN })
+    const ui = await $.ui.mount({
+      plugin: 'design-lab', surface: 'desktop', component: 'Pane', requestId: 'design-lab',
+      props: { title: 'design-lab', isFocused: false, bodyColumns: 60, placement: 'dock',
+        scroll: { offset: 0, bodyRows: 30 }, view: {} },
+    })
+    expect(await ui.find({ type: 'Text', text: /^\u00a0Done\u00a0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^all 2 checks pass$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Box', key: 'verdict' })).toBeUndefined()
+    expect((await ui.find({ type: 'Text', text: /^100%$/ }))?.props.color, 'at 100% the judgment is green').toBe('green')
+  })
+
+  test('a runner gone with no stop entry still asks for the person, with a button', async ($, on) => {
+    const w = world(on, { [at(RUN_FILES.project)]: PROJECT, [at(RUN_FILES.progress)]: progress(300_000) })
+    await $.session.start(SESSION)
+    await $.command.run({ ...WATCH, args: RUN })
+    const ui = await $.ui.mount({
+      plugin: 'design-lab', surface: 'terminal', component: 'Pane', requestId: 'design-lab',
+      props: { title: 'design-lab', isFocused: false, bodyColumns: 60, placement: 'dock',
+        scroll: { offset: 0, bodyRows: 30 }, view: {} },
+    })
+    expect(await ui.find({ type: 'Text', text: /^\u00a0Needs you\u00a0$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^The Figma runner has stopped/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^When the runner is open again, press Resume run\.$/ })).toBeDefined()
+    await ui.press({ key: 'resume' })
+    expect(w.fills).toHaveLength(1)
+  })
+
+  test('two stages under way: both show as active, only the first opens', async ($, on) => {
+    const project = JSON.stringify({ createdAt: CREATED, run: { siteLabel: 'Example site' },
+      phases: { preflight: { status: 'complete' }, discovery: { status: 'running' }, components: { status: 'running' } } })
+    world(on, { [at(RUN_FILES.project)]: project, [at(RUN_FILES.progress)]: progress(5_000) })
+    await $.session.start(SESSION)
+    await $.command.run({ ...WATCH, args: RUN })
+    const ui = await $.ui.mount({
+      plugin: 'design-lab', surface: 'terminal', component: 'Pane', requestId: 'design-lab',
+      props: { title: 'design-lab', isFocused: false, bodyColumns: 60, placement: 'dock',
+        scroll: { offset: 0, bodyRows: 30 }, view: {} },
+    })
+    expect(await ui.find({ type: 'Text', text: /^▸ 2  Discovery$/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^▸ 3  Build$/ })).toBeDefined()
+    const cards = (await ui.findAll({ type: 'Box' })).filter(box => box.key?.startsWith('card-'))
+    expect(cards.map(box => box.key)).toEqual(['card-discovery'])
+  })
+
+  test('at narrow widths the bar fits, the tiles stack and the steps go one per line', async ($, on) => {
+    const card = JSON.stringify({ run: { buildCreatedAt: CREATED },
+      headline: { coverage: { built: 48, eligible: 58 }, accuracy: { corrected: { pass: 22, total: 144 } } } })
+    const files: Record<string, string> = { [at(RUN_FILES.project)]: PROJECT, [at(RUN_FILES.progress)]: progress(5_000) }
+    const w = world(on, files)
+    await $.session.start(SESSION)
+    await $.command.run({ ...WATCH, args: RUN })
+    const mount = (bodyColumns: number) => $.ui.mount({
+      plugin: 'design-lab', surface: 'terminal', component: 'Pane', requestId: 'design-lab',
+      props: { title: 'design-lab', isFocused: false, bodyColumns, placement: 'dock', scroll: { offset: 0, bodyRows: 30 }, view: {} },
+    })
+    for (const columns of [24, 32, 40]) {
+      const ui = await mount(columns)
+      const bars = await ui.findAll({ type: 'Text', text: /^━+$/ })
+      expect(bars.length, `a bar at ${columns}`).toBeGreaterThan(0)
+      for (const bar of bars) expect(bar.text.length, `bar at ${columns}`).toBeLessThanOrEqual(columns - 10)
+      // Below 40 columns each step is its own line.
+      expect((await ui.find({ type: 'Text', text: /^▸ Components$/ }))?.props.wrap, `steps at ${columns}`)
+        .toBe(columns < 40 ? 'truncate-end' : 'wrap')
+      await ui.unmount()
+    }
+    files[at(RUN_FILES.scorecard)] = card
+    files[at(RUN_FILES.completion)] = 'design-lab finished.\n'
+    await w.clock.advance(POLL_MS)
+    for (const columns of [24, 32, 40]) {
+      const ui = await mount(columns)
+      for (const key of ['tile-coverage', 'tile-accuracy', 'tile-time', 'tile-tokens']) {
+        expect((await ui.find({ type: 'Box', key }))?.props.width, `${key} at ${columns}`).toBe('100%')
+      }
+      await ui.unmount()
+    }
+    const wide = await mount(60)
+    expect((await wide.find({ type: 'Box', key: 'tile-coverage' }))?.props.width).toBe('50%')
+  })
+
   test('preflight items tick as preflight proves them, with nothing pressed', async ($, on) => {
+    // What workflow.py init seeds: preflight records its phase only once it passes.
     const preflighting = JSON.stringify({ createdAt: CREATED, run: { siteLabel: 'Example site' },
-      phases: { preflight: { status: 'running', updatedAt: ago(60_000) } } })
+      phases: Object.fromEntries(['discovery', 'inventory', 'usage', 'capture', 'tokens', 'plan', 'foundation', 'components', 'index', 'verify']
+        .map(name => [name, { status: 'pending' }])) })
     const checks = (runner: string, message: string | null) => JSON.stringify({ pass: ago(30_000), at: ago(1_000), ready: null,
       checks: [{ id: 'site', label: 'The local site answers', status: 'done', message: null, dependsOn: [] },
         { id: 'runner', label: 'Runner connected to the target file', status: runner, message, dependsOn: [] }] })
@@ -211,12 +355,17 @@ describe('design-lab:watch', () => {
     let ui = await mount()
     expect(await ui.find({ type: 'Text', text: /! Runner connected/ })).toBeDefined()
     expect(await ui.find({ type: 'Text', text: /Open the target file and start/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^! 1  Preflight$/ }), 'a check that needs the person stops the stage').toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^\u00a0Needs you\u00a0$/ })).toBeDefined()
     expect(w.statuses.at(-1)).toContain('preflight 1/2')
     await ui.unmount()
     files[at(RUN_FILES.preflightChecks)] = checks('done', null)
     await w.clock.advance(POLL_MS)
     ui = await mount()
     expect(await ui.find({ type: 'Text', text: /✓ Runner connected/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^▸ 1  Preflight$/ }), 'preflight shows as running before it records a phase').toBeDefined()
+    expect(await ui.find({ type: 'Box', key: 'card-preflight' }), 'its checklist is open').toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^\u00a0Preflight\u00a0$/ })).toBeDefined()
     expect(w.statuses.at(-1)).toContain('preflight 2/2')
     expect(w.fills).toEqual([])
   })
@@ -234,7 +383,8 @@ describe('design-lab:watch', () => {
         scroll: { offset: 0, bodyRows: 30 }, view: {} },
     })
     expect((await ui.find({ type: 'Box' }))?.props.marginTop, 'the first row is left to the close button').toBe(1)
-    expect(await ui.find({ type: 'Text', text: /Needs you: Open the file/ })).toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^\u00a0Needs you\u00a0$/ }), 'the header says so in one word').toBeDefined()
+    expect(await ui.find({ type: 'Text', text: /^Open the file/ })).toBeDefined()
     expect(await ui.find({ type: 'Button' })).toBeUndefined()
   })
 
@@ -286,7 +436,7 @@ describe('design-lab:watch', () => {
     const CONFIG = JSON.stringify({ runs: { convention: 'project' } })
     const run = (name: string, createdAt: string) => ({
       [`${PROJECT_DIR}/design/${name}/project.json`]: JSON.stringify({ createdAt, run: { siteLabel: `Example ${name}` },
-        phases: { capture: { status: 'running' } } }),
+        phases: { preflight: { status: 'complete' }, capture: { status: 'running' } } }),
     })
 
     test('the pane finds this project\'s newest run by convention, and follows a newer one', async ($, on) => {
@@ -415,5 +565,16 @@ describe('design-lab:watch', () => {
       await $.session.start({ ...SESSION, cwd: '/work/plain' })
       expect((await $.command.run(WATCH)).text).toContain('No design-lab run found for this folder')
     })
+  })
+})
+
+describe('artifact links', () => {
+  test('only files that exist are linked, each path segment encoded, the arrow inside the link', () => {
+    const run = '/runs/My site (2) #1?'
+    const links = artifactsOf(run, 'https://www.figma.com/design/KEY', new Set([ARTIFACT_FILES.report, ARTIFACT_FILES.verifyReport]))
+    expect(links.main).toContain('[Open the Figma library ↗](https://www.figma.com/design/KEY)')
+    expect(links.main).toContain('(file:///runs/My%20site%20%282%29%20%231%3F/benchmark/report.html)')
+    expect(links.files).toContain('[Verification findings](file:///runs/My%20site%20%282%29%20%231%3F/verify-report.json)')
+    expect(links.files).not.toContain('Build plan')
   })
 })
