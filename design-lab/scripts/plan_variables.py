@@ -576,6 +576,20 @@ def _consolidate_single_mode_collections(out, limit=200):
     ownership boundary. Responsive or otherwise modeful plans retain their separate collections.
     """
     collections_ = out.get('collections') or {}
+    # A mode no variable uses is not a boundary: a stylesheet's media query can redefine
+    # only type sizes while the spacing domain inherits the mode list. Collapse it first.
+    for collection in collections_.values():
+        modes = collection.get('modes') or ['Value']
+        if len(modes) < 2:
+            continue
+        variables = collection.get('variables') or []
+        if any(len({json.dumps(x, sort_keys=True) for x in (v.get('valuesByMode') or {}).values()}) > 1
+               for v in variables):
+            continue
+        collection['modes'] = [modes[0]]
+        for v in variables:
+            if v.get('valuesByMode'):
+                v['valuesByMode'] = {modes[0]: next(iter(v['valuesByMode'].values()))}
     total = sum(len(c.get('variables') or []) for c in collections_.values())
     if len(collections_) <= 1 or total > limit:
         out['collectionStrategy'] = {'kind': 'domain', 'reason': 'size or existing boundary'}

@@ -141,6 +141,13 @@ function walk(rootSelector, propList, pick_) {
           if (applies && rule.cssRules) scan(rule.cssRules, depth + 1);
           continue;
         }
+        /* @layer blocks (and other unconditional groups) hold ordinary rules; a theme that
+           layers everything otherwise reads as declaring nothing. @import carries a sheet. */
+        if (!rule.selectorText && rule.cssRules) { scan(rule.cssRules, depth + 1); continue; }
+        if (rule.styleSheet) {
+          try { scan(rule.styleSheet.cssRules, depth + 1); } catch { out['__unreadableSheet'] = true; }
+          continue;
+        }
         if (!rule.selectorText) continue;
         let hit = false;
         try { hit = el.matches(rule.selectorText); } catch { hit = false; }

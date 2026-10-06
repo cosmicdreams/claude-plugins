@@ -61,6 +61,8 @@ METRIC_COMPATIBLE = {"arial": "Arimo", "helvetica": "Arimo", "helvetica neue": "
 SYSTEM_RELATIVE = {"courier": "Courier New", "courier new": "Courier", "times": "Times New Roman",
                    "times new roman": "Times", "helvetica": "Helvetica Neue", "helvetica neue": "Helvetica"}
 STAND_IN_BY_GENRE = {"sans": "Inter", "serif": "Source Serif 4", "mono": "Roboto Mono", "condensed": "Roboto Condensed"}
+# Listed by Figma on a Mac, never drawn: Apple licenses SF only for its own platforms.
+UNDRAWABLE = {"sf pro", "sf pro text", "sf pro display", "sf pro rounded", "sf compact", "sf mono"}
 # Foundries known from earlier sites: where the person can get a desktop licence or a trial.
 FOUNDRIES = {"suisse": ("Swiss Typefaces", "https://www.swisstypefaces.com/fonts/suisse/"),
              "greta": ("Typotheque", "https://www.typotheque.com/help/licensing/testing-fonts")}
@@ -438,6 +440,10 @@ def plan(run: Path, repo: Path, sitestudio: Path | None, figma: dict | None) -> 
         adobe = kit_css.get(key)
         display = (adobe or {}).get("name") or family
         figma_family = available_family(display, figma) if figma is not None else None
+        # Figma lists Apple's system SF families on a Mac but draws their text blank (in
+        # exports and for every other viewer), so the build must use a stand-in for them.
+        if display.lower() in UNDRAWABLE:
+            figma_family = None
         face_map, variable = {}, {}
         for weight, italic in sorted(entry["uses"]):
             served = css_match(faces, weight, italic)
