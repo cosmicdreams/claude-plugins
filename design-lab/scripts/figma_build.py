@@ -260,6 +260,12 @@ def cmd_init(ns) -> int:
         if not previous or previous.get("fileKey") != ns.file_key:
             raise SystemExit("--rebuild needs an earlier build of this run in the same file "
                              f"({ns.file_key}); run init without it for a new file")
+        # Read before verify/ is cleared: collections this run built earlier and a later plan
+        # dropped (a merged-away mode collection) must still be removed by `wipe`.
+        dumped = out / "verify" / "state.json"
+        prior_collections = sorted({c["name"] for c in (json.loads(dumped.read_text()).get("collections") or []
+                                                        if dumped.is_file() else []) if c.get("name")}
+                                   | set(previous.get("priorCollections") or []))
         for folder in ("results", "payloads", "trees", "compare", "verify", "dump"):
             for stale in (out / folder).glob("*") if (out / folder).is_dir() else []:
                 if stale.is_file():
@@ -292,6 +298,7 @@ def cmd_init(ns) -> int:
         "planned": [b["id"] for b in built],
         "steps": steps,
         "done": [],
+        "priorCollections": prior_collections if getattr(ns, "rebuild", False) else [],
         # Keep the runner connected after the build, waiting for the next one (`--iterate`).
         "iterate": bool(getattr(ns, "iterate", False) or (previous or {}).get("iterate")
                         and getattr(ns, "rebuild", False)),
@@ -941,10 +948,8 @@ def cmd_next(ns) -> int:
     head, _, rest = sid.partition(":")
     if sid == "wipe":
         collections = list(load(project, "variable-plan.json", {"collections": {}})["collections"])
-        # Collections this run built earlier and a later plan dropped (a merged-away mode
-        # collection): the last verification recorded them in this run's own file.
-        built = load(project, "figma/verify/state.json", {}).get("collections") or []
-        collections += [c["name"] for c in built if c.get("name") and c["name"] not in collections]
+        # Collections this run built earlier and a later plan dropped, recorded by init.
+        collections += [name for name in state.get("priorCollections") or [] if name not in collections]
         out = emit_payload(project, sid, "wipe", {"fileKey": state["fileKey"],
                                                   "collections": collections + [BREAKPOINT_COLLECTION]})
     elif sid == "pages":

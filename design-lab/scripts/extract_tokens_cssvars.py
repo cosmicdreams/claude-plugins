@@ -87,6 +87,9 @@ def classify(name, value):
             # matches the colour prefix list but is plainly a length.
             if fam == 'color' and value_family(value) in ('spacing', 'number', 'motion'):
                 return value_family(value)
+            # And the reverse: `--text-body: #222` is a text colour, not a type size.
+            if fam != 'color' and value_family(value) == 'color':
+                return 'color'
             return fam
     return value_family(value)
 
