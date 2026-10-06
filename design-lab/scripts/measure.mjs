@@ -56,6 +56,8 @@ const PROPS = [
   'letterSpacing', 'textAlign', 'textTransform', 'textDecorationLine',
   'color', 'backgroundColor', 'backgroundImage', 'backgroundSize',
   'backgroundPosition', 'backgroundRepeat',
+  /* An icon drawn as a mask over its background colour (`mask-image: url(arrow.svg)`). */
+  'maskImage',
   'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
   'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
   'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
@@ -311,6 +313,22 @@ for (const vp of VIEWPORTS) {
       }
     );
 
+    /* A masked icon's shape lives in the SVG its mask names. Fetch each one once, from the page
+       (same origin, same cookies), and keep the markup with the measurement, so the Figma build
+       draws the icon's shape in its background colour without needing the site again. */
+    const maskUrl = (n) => (/url\("?([^")]+)"?\)/.exec((n.computed && n.computed.maskImage) || '') || [])[1];
+    const masks = {};
+    for (const n of result.nodes || []) {
+      const url = maskUrl(n);
+      if (!url || url in masks || !/\.svg([?#]|$)|^data:image\/svg\+xml/i.test(url)) continue;
+      masks[url] = await page.evaluate(async (u) => {
+        try { const r = await fetch(u); return r.ok ? await r.text() : null; } catch { return null; }
+      }, url);
+    }
+    for (const n of result.nodes || []) {
+      const url = maskUrl(n);
+      if (url && masks[url]) n.maskSvg = masks[url];
+    }
     spec.measurements[`${vp.name}:${state.name}`] = result;
     if (state.teardown) await page.evaluate(state.teardown);
   }

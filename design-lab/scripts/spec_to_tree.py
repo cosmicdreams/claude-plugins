@@ -284,6 +284,25 @@ def pseudo_image(node: dict, which: str) -> dict | None:
     return out
 
 
+def masked_icon_svg(node: dict) -> str | None:
+    """An element drawn as `mask-image: url(icon.svg)` over its background colour: the icon's
+    shape in that colour. Without this the background paints a solid box where the icon is."""
+    svg = node.get("maskSvg")
+    fill = parse_color((node.get("computed") or {}).get("backgroundColor"))
+    if not svg or not fill or "<svg" not in svg:
+        return None
+    colour, alpha = fill["hex"], fill.get("opacity", 1)
+    # Every painted shape takes the mask colour; `none` stays unpainted.
+    svg = re.sub(r'\b(fill|stroke)="(?!none)[^"]*"', lambda m: f'{m.group(1)}="{colour}"', svg)
+    svg = re.sub(r"\b(fill|stroke)\s*:\s*(?!none)[^;\"']+", lambda m: f"{m.group(1)}:{colour}", svg)
+    svg = svg.replace("currentColor", colour)
+    # Shapes with no fill of their own inherit the root's, which defaults to black.
+    svg = re.sub(r"<svg\b(?![^>]*\bfill=)", f'<svg fill="{colour}"', svg, count=1)
+    if alpha < 1:
+        svg = re.sub(r"<svg\b", f'<svg opacity="{alpha}"', svg, count=1)
+    return svg
+
+
 def positioned_out(node: dict) -> bool:
     """Taken out of the flow by `position: absolute` or `fixed`."""
     return (node.get("computed") or {}).get("position") in ("absolute", "fixed")
@@ -576,6 +595,8 @@ def convert(node: dict, index: dict, root_block: str | None, label: str | None, 
         # the capture, which is exactly what a visitor sees before interacting.
         crop = f"capture:{bp}:{base['x']},{base['y']},{base['width']},{base['height']}"
         return {**base, "kind": "image", "name": "Embed", "src": crop, "fit": "FILL"}
+    if masked_icon_svg(node):
+        return {**base, "kind": "svg", "name": "Icon", "svg": masked_icon_svg(node)}
     if node.get("svg"):
         return {**base, "kind": "svg", "svg": node["svg"],
                 "color": parse_color(node["computed"].get("color"))}
