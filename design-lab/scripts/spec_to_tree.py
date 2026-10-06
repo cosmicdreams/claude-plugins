@@ -416,12 +416,14 @@ def icon_glyph(chars: str) -> bool:
     return bool(visible_chars) and all(0xE000 <= ord(ch) <= 0xF8FF for ch in visible_chars)
 
 
-def grid_tracks(node: dict) -> int:
-    """Column tracks of a grid container, from its computed `grid-template-columns`; 0 when not a grid."""
+def grid_tracks(node: dict) -> int | None:
+    """Column tracks of a grid container, from its computed `grid-template-columns`; 0 when not
+    a grid, None when the measurement did not record the tracks (never guess a stack)."""
     c = node.get("computed") or {}
     if c.get("display") not in ("grid", "inline-grid"):
         return 0
-    return len((c.get("gridTemplateColumns") or "").split()) or 1
+    tracks = (c.get("gridTemplateColumns") or "").split()
+    return len(tracks) if tracks and tracks != ["none"] else None
 
 
 def infer_layout(node: dict, kids: list[dict], stacked_grid: bool = False) -> dict:
