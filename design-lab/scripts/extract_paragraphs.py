@@ -32,6 +32,8 @@ except ImportError:
     HAVE_YAML = False
 
 UNSUPPORTED = re.compile(r'(^|\s)(&\w+|\*\w+|<<:|\|[-+]?$|>[-+]?$)')
+# Quoted scalars are data: `&amp;` inside a quoted default value is not an anchor.
+QUOTED = re.compile(r'"(?:[^"\\]|\\.)*"|\'(?:[^\']|\'\')*\'')
 
 
 # --------------------------------------------------------------------------- parsing
@@ -62,7 +64,7 @@ def _lines(text, path):
     for lineno, raw in enumerate(text.splitlines(), 1):
         if not raw.strip() or raw.lstrip().startswith('#'):
             continue
-        if UNSUPPORTED.search(raw):
+        if UNSUPPORTED.search(QUOTED.sub('""', raw)):
             raise ValueError('%s:%d unsupported YAML construct: %s'
                              % (path, lineno, raw.strip()[:60]))
         out.append((len(raw) - len(raw.lstrip()), raw.strip(), lineno))

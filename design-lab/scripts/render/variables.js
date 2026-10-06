@@ -9,6 +9,12 @@
  * an invented one sends a developer looking for something that is not there.
  */
 const hex6 = (h) => {
+  // Custom properties may hold rgb()/rgba() rather than hex, e.g. a translucent border.
+  const rgb = /^rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)(?:[\s,/]+([\d.]+%?))?\s*\)$/i.exec(h.trim());
+  if (rgb) {
+    const alpha = rgb[4] === undefined ? 1 : rgb[4].endsWith('%') ? parseFloat(rgb[4]) / 100 : parseFloat(rgb[4]);
+    return { r: +rgb[1] / 255, g: +rgb[2] / 255, b: +rgb[3] / 255, a: alpha };
+  }
   const s = h.replace('#', '');
   const full = s.length === 3 ? s.split('').map((c) => c + c).join('') : s.slice(0, 6);
   const a = s.length === 8 ? parseInt(s.slice(6, 8), 16) / 255 : 1;

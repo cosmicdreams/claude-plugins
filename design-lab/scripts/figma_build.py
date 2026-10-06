@@ -426,6 +426,10 @@ def foundation_args(project: Path, domain: str) -> dict:
 
 
 def expand_hex(h: str) -> str:
+    # rgb()/rgba() custom properties: same treatment as 8-digit hex, alpha dropped.
+    rgb = re.match(r"\s*rgba?\(\s*([\d.]+)[\s,]+([\d.]+)[\s,]+([\d.]+)", h)
+    if rgb:
+        return "#" + "".join(f"{round(float(c)):02x}" for c in rgb.groups())
     s = h.lstrip("#")
     if len(s) == 3:
         s = "".join(ch * 2 for ch in s)
