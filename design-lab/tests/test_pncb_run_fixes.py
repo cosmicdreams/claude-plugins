@@ -252,18 +252,36 @@ class ReviewFollowUpTests(unittest.TestCase):
         source = (SCRIPTS / "figma_build.py").read_text()
         self.assertIn("legacy_collections(project)", source.split('if sid == "wipe":', 1)[1].split("elif", 1)[0])
 
-    def test_width_and_another_axis_in_one_collection_split(self):
+    def test_width_and_another_axis_in_one_collection_split_by_variable(self):
         modes = ["Value", "@media (min-width: 768px)", "@media (prefers-color-scheme: dark)"]
-        plan = {"collections": {"Type": {"modes": modes, "variables": [
-            {"name": "t/a", "type": "FLOAT", "valuesByMode": {"Value": 1, modes[1]: 2, modes[2]: 3}}]}}}
+        plan = {"collections": {"Mixed": {"modes": modes, "variables": [
+            {"name": "type/h1", "type": "FLOAT", "valuesByMode": {"Value": 32, modes[1]: 48}},
+            {"name": "color/bg", "type": "COLOR", "codeName": "--bg",
+             "valuesByMode": {"Value": "#fff", modes[2]: "#000"}}]}}}
         out = figma_build.variables_args(self.project(plan, label="Acme"))["collections"]
+        self.assertEqual([v["name"] for v in out["Acme Breakpoint"]["variables"]], ["type/h1"])
         self.assertEqual(out["Acme Breakpoint"]["variables"][0]["valuesByMode"],
-                         {"Desktop 1400px": 2, "Tablet 800px": 2, "Mobile 375px": 1})
-        self.assertEqual(out["Acme Type Dark"]["modes"], ["Value", "Dark"])
+                         {"Desktop 1400px": 48, "Tablet 800px": 48, "Mobile 375px": 32})
+        self.assertEqual(out["Acme Mixed Dark"]["modes"], ["Value", "Dark"])
+        self.assertEqual([(v["name"], v["valuesByMode"]) for v in out["Acme Mixed Dark"]["variables"]],
+                         [("color/bg", {"Value": "#fff", "Dark": "#000"})])
         rep = verify.Report()
         verify.check_collection_strategy({"collections": [{"name": n, "modes": c["modes"]} for n, c in out.items()],
                                           "collectionStrategyReason": "x"}, "Acme", rep)
         self.assertEqual(rep.findings, [])
+
+    def test_a_variable_varying_on_both_axes_keeps_the_collection_whole(self):
+        modes = ["Value", "@media (min-width: 768px)", "@media (prefers-color-scheme: dark)"]
+        plan = {"collections": {"Mixed": {"modes": modes, "variables": [
+            {"name": "t/a", "type": "FLOAT", "valuesByMode": {"Value": 1, modes[1]: 2, modes[2]: 3}}]}}}
+        out = figma_build.variables_args(self.project(plan, label="Acme"))["collections"]
+        self.assertEqual(list(out), ["Acme Mixed"])
+        self.assertEqual(out["Acme Mixed"]["variables"][0]["valuesByMode"], {"Value": 1, "Min-width 768px": 2, "Dark": 3})
+
+    def test_variables_template_keys_variables_by_collection(self):
+        src = (SCRIPTS / "render" / "variables.js").read_text()
+        self.assertIn("for (const { variable, spec, modeId } of entries)", src)
+        self.assertIn("if (!byName[v.name]) byName[v.name] = entry;", src)
 
     def test_percentage_rgb(self):
         self.assertEqual(figma_build.expand_hex("rgb(100% 0% 0%)"), "#ff0000")

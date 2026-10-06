@@ -24,6 +24,9 @@ const hex6 = (h) => {
 const existing = await figma.variables.getLocalVariableCollectionsAsync();
 const all = await figma.variables.getLocalVariablesAsync();
 const report = { collections: {}, created: 0, updated: 0, unplanned: [], aliasMisses: [] };
+/* Keyed by collection and name: one name may exist in two collections, and neither copy may
+   overwrite the other. Aliases resolve by name to the first collection that declares it. */
+const entries = [];
 const byName = {};
 
 for (const [cname, spec] of Object.entries(ARGS.collections)) {
@@ -46,14 +49,16 @@ for (const [cname, spec] of Object.entries(ARGS.collections)) {
     else report.updated++;
     variable.scopes = v.scopes || [];
     if (v.codeName) variable.setVariableCodeSyntax('WEB', `var(${v.codeName})`);
-    byName[v.name] = { variable, spec: v, modeId };
+    const entry = { variable, spec: v, modeId };
+    entries.push(entry);
+    if (!byName[v.name]) byName[v.name] = entry;
   }
   const planned = new Set(spec.variables.map((v) => v.name));
   for (const x of inCol) if (!planned.has(x.name)) report.unplanned.push(`${cname}/${x.name}`);
   report.collections[cname] = { id: col.id, modes: col.modes.map((m) => m.name), variables: spec.variables.length };
 }
 
-for (const { variable, spec, modeId } of Object.values(byName)) {
+for (const { variable, spec, modeId } of entries) {
   for (const [mode, id] of Object.entries(modeId)) {
     if (spec.aliasOf) {
       const target = byName[spec.aliasOf];

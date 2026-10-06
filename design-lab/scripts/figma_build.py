@@ -495,14 +495,25 @@ def variables_args(project: Path) -> dict:
         width = [m for m in modes[1:] if media_applies(m, VIEWPORTS["Desktop"]) is not None]
         other = [m for m in modes[1:] if m not in width]
         if width and other and not all(m in SITE_STUDIO_MIN for m in modes):
-            # Width and another axis in one collection: the width modes fold into the
-            # breakpoint collection, and the other axis keeps a collection of its own.
-            split[name] = [modes[0], *width]
-            out_other = {**col, "modes": [modes[0], *other],
-                         "variables": [{**v, "valuesByMode": {k: x for k, x in (v.get("valuesByMode") or {}).items()
-                                                              if k in (modes[0], *other)}}
-                                       for v in col["variables"]]}
-            collections = {**collections, f"{name} {mode_label(other[0])}": out_other}
+            # Width and another axis in one collection. Each variable goes to the one axis it
+            # varies on: width variation folds into the breakpoint collection, the other axis
+            # keeps a collection of its own. A variable that varies on both cannot be split
+            # without losing values, so then the collection stays whole and verify reports it.
+            def varies(v, keep):
+                by = v.get("valuesByMode") or {}
+                return len({json.dumps(by[k], sort_keys=True) for k in keep if k in by}) > 1
+            on_width = [v for v in col["variables"] if varies(v, [modes[0], *width])]
+            on_other = [v for v in col["variables"] if varies(v, [modes[0], *other])]
+            if not {id(v) for v in on_width} & {id(v) for v in on_other}:
+                other_ids = {id(v) for v in on_other}
+                split[name] = [modes[0], *width]
+                collections = {**collections, name: {**col, "variables": [v for v in col["variables"]
+                                                                           if id(v) not in other_ids]},
+                               f"{name} {mode_label(other[0])}": {
+                                   **col, "modes": [modes[0], *other],
+                                   "variables": [{**v, "valuesByMode": {k: x for k, x in (v.get("valuesByMode") or {}).items()
+                                                                       if k in (modes[0], *other)}}
+                                                 for v in on_other]}}
     for name, col in collections.items():
         modes = split.get(name) or col.get("modes") or ["Value"]
         if foldable(modes):
