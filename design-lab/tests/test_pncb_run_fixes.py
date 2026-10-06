@@ -242,6 +242,29 @@ class ReviewFollowUpTests(unittest.TestCase):
         verify.check_collection_strategy(state, "PNCB", rep)
         self.assertEqual(rep.findings, [])
 
+    def test_rebuild_of_a_pre_023_run_still_clears_its_unbranded_collections(self):
+        plan = {"collections": {"Type": {"modes": ["xl", "md"], "variables": []},
+                                "Spacing": {"modes": ["Value"], "variables": []}}}
+        folder = self.project(plan, label="Acme")
+        names = set(figma_build.emitted_collections(folder)) | set({}.get("emittedCollections") or []) \
+            | figma_build.legacy_collections(folder)
+        self.assertTrue({"Type", "Spacing", "Core", "Core Breakpoint"} <= names)
+        source = (SCRIPTS / "figma_build.py").read_text()
+        self.assertIn("legacy_collections(project)", source.split('if sid == "wipe":', 1)[1].split("elif", 1)[0])
+
+    def test_width_and_another_axis_in_one_collection_split(self):
+        modes = ["Value", "@media (min-width: 768px)", "@media (prefers-color-scheme: dark)"]
+        plan = {"collections": {"Type": {"modes": modes, "variables": [
+            {"name": "t/a", "type": "FLOAT", "valuesByMode": {"Value": 1, modes[1]: 2, modes[2]: 3}}]}}}
+        out = figma_build.variables_args(self.project(plan, label="Acme"))["collections"]
+        self.assertEqual(out["Acme Breakpoint"]["variables"][0]["valuesByMode"],
+                         {"Desktop 1400px": 2, "Tablet 800px": 2, "Mobile 375px": 1})
+        self.assertEqual(out["Acme Type Dark"]["modes"], ["Value", "Dark"])
+        rep = verify.Report()
+        verify.check_collection_strategy({"collections": [{"name": n, "modes": c["modes"]} for n, c in out.items()],
+                                          "collectionStrategyReason": "x"}, "Acme", rep)
+        self.assertEqual(rep.findings, [])
+
     def test_percentage_rgb(self):
         self.assertEqual(figma_build.expand_hex("rgb(100% 0% 0%)"), "#ff0000")
 

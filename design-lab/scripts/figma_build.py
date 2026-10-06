@@ -372,6 +372,7 @@ LENGTH = r"([\d.]+)(px|rem|em)"
 FEATURE = re.compile(r"^(min|max)-width\s*:\s*" + LENGTH + r"$")
 RANGE = re.compile(r"^(?:" + LENGTH + r"\s*(<=|<|>=|>)\s*)?width(?:\s*(<=|<|>=|>)\s*" + LENGTH + r")?$")
 # Site Studio's default responsive grid: each breakpoint applies from its minimum width up.
+# A site that changed its grid in Site Studio's settings folds at these defaults instead.
 SITE_STUDIO_MIN = {"xxl": 1600, "xl": 1170, "lg": 1024, "md": 768, "sm": 565, "xs": 0}
 
 
@@ -456,6 +457,13 @@ def foldable(modes: list) -> bool:
                                or all(media_applies(m, VIEWPORTS["Desktop"]) is not None for m in modes[1:]))
 
 
+def legacy_collections(project: Path) -> set[str]:
+    """Names builds before 0.23.0 wrote: the plan's own collection names, unbranded, and the old
+    breakpoint names. A rebuild in place of such a run must still clear them."""
+    plan = load(project, "variable-plan.json", {"collections": {}})
+    return set(plan.get("collections") or {}) | {"Core", "Core Breakpoint", "Breakpoint"}
+
+
 def emitted_collections(project: Path) -> list[str]:
     """The collection names this run's build writes: the variables step's and the breakpoint one."""
     planned = list(variables_args(project)["collections"]) if (project / "variable-plan.json").is_file() else []
@@ -481,8 +489,22 @@ def variables_args(project: Path) -> dict:
         return name if not label or name.startswith(label + " ") else f"{label} {name}"
 
     out, responsive = {}, []
+    split = {}
     for name, col in collections.items():
         modes = col.get("modes") or ["Value"]
+        width = [m for m in modes[1:] if media_applies(m, VIEWPORTS["Desktop"]) is not None]
+        other = [m for m in modes[1:] if m not in width]
+        if width and other and not all(m in SITE_STUDIO_MIN for m in modes):
+            # Width and another axis in one collection: the width modes fold into the
+            # breakpoint collection, and the other axis keeps a collection of its own.
+            split[name] = [modes[0], *width]
+            out_other = {**col, "modes": [modes[0], *other],
+                         "variables": [{**v, "valuesByMode": {k: x for k, x in (v.get("valuesByMode") or {}).items()
+                                                              if k in (modes[0], *other)}}
+                                       for v in col["variables"]]}
+            collections = {**collections, f"{name} {mode_label(other[0])}": out_other}
+    for name, col in collections.items():
+        modes = split.get(name) or col.get("modes") or ["Value"]
         if foldable(modes):
             for v in col["variables"]:
                 by = v.get("valuesByMode") or {}
@@ -1112,7 +1134,7 @@ def cmd_next(ns) -> int:
         # This build's names, those earlier builds of this run emitted, and the names design-lab
         # used before collections were branded. wipe.js also removes any collection it marked.
         names = set(emitted_collections(project)) | set(state.get("emittedCollections") or []) \
-            | {"Core", "Core Breakpoint"}
+            | legacy_collections(project)
         out = emit_payload(project, sid, "wipe", {"fileKey": state["fileKey"], "collections": sorted(names)})
     elif sid == "pages":
         out = emit_payload(project, sid, "pages", {"pages": page_list(project)})
