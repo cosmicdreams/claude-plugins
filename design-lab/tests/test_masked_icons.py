@@ -65,6 +65,11 @@ class MaskedIconTests(unittest.TestCase):
         self.assertIn('viewBox="0 0 40 20"', svg)
         self.assertNotIn('width="40"', svg)
 
+    def test_byte_order_mark_and_percentage_sizes(self):
+        svg = self.recolour('\ufeff<svg width="100%" height="100%"><path/></svg>')
+        self.assertTrue(svg.startswith("<svg"))
+        self.assertNotIn("viewBox", svg)
+
     def test_masked_element_with_children_or_text_keeps_its_frame(self):
         masked = node("/a", 0, 0, 10, 10, maskSvg=ARROW, computed={"backgroundColor": "rgb(0, 0, 0)"})
         self.assertIsNone(spec_to_tree.masked_leaf(masked, has_children=True))

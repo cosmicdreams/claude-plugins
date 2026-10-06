@@ -297,7 +297,7 @@ def masked_icon_svg(node: dict) -> str | None:
     fill = parse_color((node.get("computed") or {}).get("backgroundColor"))
     if not source or not fill:
         return None
-    source = re.sub(r"<!--.*?-->", "", source, flags=re.S)
+    source = re.sub(r"<!--.*?-->", "", source.lstrip("\ufeff"), flags=re.S)
     # An SVG document starts with its root; an HTML page (a login redirect) with a logo inside
     # is not the icon.
     source = re.sub(r"^\s*(<\?xml.*?\?>)?\s*(<!DOCTYPE[^>]*>)?\s*", "", source, flags=re.S | re.I)
@@ -316,8 +316,9 @@ def masked_icon_svg(node: dict) -> str | None:
     if width and height:
         # Keep the drawing's own coordinate system before the root takes the box's size.
         if not re.search(r"\bviewBox=", tag):
-            w = re.search(r"""\bwidth=["']?([\d.]+)""", tag)
-            h = re.search(r"""\bheight=["']?([\d.]+)""", tag)
+            # Only absolute sizes describe the drawing; `100%` says nothing about it.
+            w = re.search(r"""\bwidth=["']?([\d.]+)(?:px)?["'\s>]""", tag)
+            h = re.search(r"""\bheight=["']?([\d.]+)(?:px)?["'\s>]""", tag)
             if w and h:
                 tag = tag.replace("<svg", f'<svg viewBox="0 0 {w.group(1)} {h.group(1)}"', 1)
         tag = re.sub(r"""\s(width|height)=(["'])[^"']*\2""", "", tag)
