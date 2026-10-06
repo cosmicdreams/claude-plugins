@@ -212,6 +212,15 @@ function size(node, spec, parentAuto, isText) {
      instance switched to another mode, Figma re-stretches a filling frame but leaves a filling
      rectangle at the master's width (one site's photo: 436.5px in a 335px mobile instance). */
   const leaf = spec.kind === 'image' || spec.kind === 'svg';
+  /* A label the site draws on one line at every width, filling a row (a button, a link with an
+     icon): a stand-in font wider than the site's would wrap it inside the row's fixed box and
+     clip the second line. It hugs its words and stays on one line instead. */
+  if (isText && parentAuto && spec.sizing === 'FILL' && spec.text && spec.text.singleLine
+      && node.parent && node.parent.layoutMode === 'HORIZONTAL') {
+    node.textAutoResize = 'WIDTH_AND_HEIGHT';
+    node.layoutSizingHorizontal = 'HUG';
+    return;
+  }
   if (parentAuto && spec.sizing === 'FILL' && !(leaf && isVar(spec.width))) node.layoutSizingHorizontal = 'FILL';
   else if (!single) {
     /* A bound width only holds on a FIXED axis; auto layout frames otherwise hug. */
