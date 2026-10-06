@@ -928,7 +928,7 @@ def getting_started_args(project: Path, state: dict) -> dict:
             gaps.append(f"Foundations — {d}: {m} is not available in Figma; its specimen is drawn in Inter.")
     # What this build itself measured as unresolved, named by the check that will report it, so
     # the page never reads cleaner than the file is.
-    differing, missing_fonts = [], set()
+    differing, missing_fonts, stand_ins, style_fallbacks = [], set(), {}, {}
     for c in ordered:
         if c["id"] not in built:
             continue
@@ -940,13 +940,24 @@ def getting_started_args(project: Path, state: dict) -> dict:
             worst = max((p.get("ratio") or 0) for p in compare.get("pairs") or [{}])
             differing.append(f"{c['id']} ({worst:.0%})")
         try:
-            missing_fonts.update(result(project, f"build:{c['id']}").get("missingFonts") or [])
+            build_result = result(project, f"build:{c['id']}")
         except FileNotFoundError:
-            pass
+            build_result = {}
+        missing_fonts.update(build_result.get("missingFonts") or [])
+        for family, drawn in (build_result.get("standIns") or {}).items():
+            stand_ins.setdefault(f"{family} -> {drawn}", set()).add(c["id"])
+        for requested, drawn in (build_result.get("styleFallbacks") or {}).items():
+            style_fallbacks.setdefault(f"{requested} -> {drawn}", set()).add(c["id"])
     if differing:
         gaps.append(f"master-matches-capture: {len(differing)} component(s) differ from their live capture by more "
                     f"than the 6% threshold at one or more widths, so build-record-assertions records a failing "
                     f"visual comparison for each: {', '.join(differing)}.")
+    if stand_ins:
+        gaps.append("fonts-stand-in: " + "; ".join(f"{k} ({len(v)} components)" for k, v in sorted(stand_ins.items()))
+                    + " — the font plan's stand-in, because Figma cannot draw the family the site renders.")
+    if style_fallbacks:
+        gaps.append("fonts-style-fallback: " + "; ".join(f"{k} ({len(v)} components)" for k, v in sorted(style_fallbacks.items()))
+                    + " — Figma has no matching style, so the nearest style of the same family is drawn.")
     if missing_fonts:
         gaps.append(f"fonts-available: {', '.join(sorted(missing_fonts))} "
                     f"{'is' if len(missing_fonts) == 1 else 'are'} not available to Figma here, so text using "
