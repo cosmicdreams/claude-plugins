@@ -186,6 +186,9 @@ def generate(project: Path) -> list[tuple[str, Path, str, str | None]]:
         fell_back = build.get('fellBack') or []
         variable_count = build.get('variables', 0)
         responsive = bool(tree.get('variables'))
+        # The builder creates the alternates' variables too (figma_build.build_args).
+        expected_variables = {**(tree.get('variables') or {}),
+                              **{k: v for alt in tree.get('alternates') or [] for k, v in (alt.get('variables') or {}).items()}}
         image_statuses = images_upload.get('statuses') or []
         image_count = len(build.get('images') or [])
         manifest_path = project / 'figma/images' / cid.split('.')[-1] / 'images.json'
@@ -228,7 +231,7 @@ def generate(project: Path) -> list[tuple[str, Path, str, str | None]]:
             'assertions': {
                 'component': {'verdict': 'pass' if build.get('componentId') and block_pass else 'fail',
                               'componentId': build.get('componentId'), 'geometry': geometry},
-                'variables': {'verdict': 'pass' if variable_count == len(tree.get('variables') or {}) and
+                'variables': {'verdict': 'pass' if variable_count == len(expected_variables) and
                               (not responsive or (bound > 0 and build.get('collectionId'))) else 'fail',
                               'count': variable_count, 'collectionId': build.get('collectionId')},
                 'bindings': {'verdict': 'fail' if fell_back else 'pass',

@@ -1187,7 +1187,7 @@ def check_examples_instances_only(state, rep):
                 evidence=bad[:20])
 
 
-def check_bindings_match_source(state, measurements, render_evidence, rep):
+def check_bindings_match_source(state, measurements, render_evidence, rep, builds_dir=None):
     """Figma must bind exactly where the code binds — no more, no less.
 
     Not "is it maximally bound". A component that binds a variable the source hardcodes is a
@@ -1247,10 +1247,30 @@ def check_bindings_match_source(state, measurements, render_evidence, rep):
             mismatched.append('%s: Sass/CSS evidence consumes a token, the Figma component '
                               'binds nothing' % component_id)
 
+    # A font-family token whose family has no source on the site never renders (the browser
+    # draws the next family in the stack), so Figma cannot bind it without drawing a missing
+    # font; fonts-stand-in already reports that gap. Every other declaration still counts.
+    unbindable = set()
+    if builds_dir:
+        run = os.path.dirname(os.path.abspath(builds_dir))
+        try:
+            unrendered = {u['family'].lower() for u in
+                          json.load(open(os.path.join(run, 'fonts.json'))).get('unrendered') or []}
+            for t in json.load(open(os.path.join(run, 'tokens.json'))).get('tokens') or []:
+                first = str(t.get('value') or '').split(',')[0].strip().strip('"\'').lower()
+                if t.get('family') == 'font-family' and first in unrendered:
+                    unbindable.add(t.get('codeName'))
+        except (OSError, ValueError):
+            pass
+
+    def declares_token(prop, value):
+        names = re.findall(r'var\((--[\w-]+)', str(value))
+        return any(not (prop == 'font-family' and name in unbindable) for name in names)
+
     for mid, m in (measurements or {}).items():
         nodes = m.get('nodes') or []
-        src_binds = any('var(--' in str(v)
-                        for n in nodes for v in (n.get('declared') or {}).values())
+        src_binds = any(declares_token(p, v)
+                        for n in nodes for p, v in (n.get('declared') or {}).items())
         fig = next((c for c in comps
                     if (c.get('name') or '').split(' — ')[0] == mid or c.get('name') == mid), None)
         if fig is None:
@@ -1379,7 +1399,7 @@ def main():
     check_variants_are_sets(state, plan, rep)
     check_no_duplicate_components(state, rep)
     check_examples_instances_only(state, rep)
-    check_bindings_match_source(state, measurements, render_evidence, rep)
+    check_bindings_match_source(state, measurements, render_evidence, rep, a.builds)
     check_verify_report_exists(a.out, rep)
     check_pages_populated(state, rep)
     check_breakpoint_frames(state, rep)
