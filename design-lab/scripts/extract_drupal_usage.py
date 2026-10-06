@@ -197,16 +197,28 @@ def php_unserialize(data: bytes):
             return float(read_until(b";"))
         if kind == b"s:":
             length = int(read_until(b":\""))
+            if length < 0:
+                raise ValueError(f"negative string length at byte {position}")
             text = data[position:position + length]
-            position += length + 2  # closing quote and semicolon
+            position += length
+            # A length that does not land on the closing quote means a damaged row, not text.
+            if data[position:position + 2] != b'";':
+                raise ValueError(f"string length does not match its data at byte {position}")
+            position += 2
             return text.decode("utf-8", "replace")
         if kind == b"a:":
             count = int(read_until(b":{"))
+            if count < 0:
+                raise ValueError(f"negative array size at byte {position}")
             result = {}
             for _ in range(count):
                 key = value()
+                if not isinstance(key, (int, str)):
+                    raise ValueError(f"array key of type {type(key).__name__} at byte {position}")
                 result[key] = value()
-            position += 1  # closing brace
+            if data[position:position + 1] != b"}":
+                raise ValueError(f"array is not closed at byte {position}")
+            position += 1
             return result
         raise ValueError(f"unsupported serialized type {kind!r} at byte {position - 2}")
 
@@ -261,7 +273,8 @@ def template_usage(rows, published):
             data = php_unserialize(blob.encode("utf-8"))
             if not isinstance(data, dict):
                 raise ValueError("config is not an array")
-        except (ValueError, IndexError) as error:
+        except (ValueError, IndexError, TypeError, RecursionError) as error:
+            # A damaged row is reported, never fatal to the whole usage extraction.
             problems.append({"check": "sitestudio-template-unreadable",
                              "detail": f"{name}: {error}"})
             continue
@@ -275,12 +288,30 @@ def template_usage(rows, published):
         if len(values) >= 3 and values[0] in published:
             bundles[values[2]].add(values[0])
     view_paths = _view_paths(views)
+    # Site Studio renders a node with the enabled, modified default full template of its own
+    # bundle, else the global one (`__any__`): cohesion_templates.module selects
+    # bundle IN [bundle, '__any__'] with status and modified set.
+    def live_full_default(data):
+        return (data.get("status") and data.get("default") and data.get("modified", True)
+                and data.get("entity_type") == "node" and data.get("view_mode") == "full")
+    own_template = {data.get("bundle"): data for name, data in templates.items()
+                    if name.startswith("cohesion_templates.cohesion_content_templates.")
+                    and live_full_default(data) and data.get("bundle") != "__any__"}
+    global_template = next((data for name, data in sorted(templates.items())
+                            if name.startswith("cohesion_templates.cohesion_content_templates.")
+                            and live_full_default(data) and data.get("bundle") == "__any__"), None)
+    def rendering_bundles(data):
+        """The published bundles a content template actually renders."""
+        if not live_full_default(data):
+            return set()
+        if data.get("bundle") == "__any__":
+            return {b for b in bundles if b not in own_template} if data is global_template else set()
+        return {data.get("bundle")} if own_template.get(data.get("bundle")) is data else set()
     masters_by_bundle = {}
-    for name, data in templates.items():
-        if (name.startswith("cohesion_templates.cohesion_content_templates.")
-                and data.get("status") and data.get("default")
-                and data.get("entity_type") == "node" and data.get("view_mode") == "full"):
-            masters_by_bundle[data.get("bundle")] = data.get("master_template")
+    for bundle in bundles:
+        chosen = own_template.get(bundle) or global_template
+        if chosen:
+            masters_by_bundle[bundle] = chosen.get("master_template")
 
     for name, data in sorted(templates.items()):
         if not data.get("status"):
@@ -301,9 +332,7 @@ def template_usage(rows, published):
                 bundle for bundle, master in masters_by_bundle.items() if master == template_id}
         elif kind == "cohesion_content_templates":
             chrome = False
-            page_bundles = ({data.get("bundle")} if data.get("default")
-                            and data.get("entity_type") == "node"
-                            and data.get("view_mode") == "full" else set())
+            page_bundles = rendering_bundles(data)
         else:
             chrome = kind == "cohesion_menu_templates"
             page_bundles = set()

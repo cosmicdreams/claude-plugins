@@ -197,6 +197,44 @@ class SiteStudioUsageTests(unittest.TestCase):
         self.assertIn('sitestudio-template-unreadable',
                       [problem['check'] for problem in document['problems']])
 
+    def test_global_full_template_renders_bundles_without_their_own(self):
+        rows = {'nodes': [['30', '1', 'event'], ['31', '1', 'page']],
+            'sitestudio_templates': [
+                template('content', 'node_event_full', [component('hero_highlight')],
+                         entity_type='node', bundle='event', view_mode='full', default=True,
+                         master_template=''),
+                template('content', 'node_any_full', [component('promo')],
+                         entity_type='node', bundle='__any__', view_mode='full', default=True,
+                         master_template='master_landing'),
+                template('master', 'master_landing', [component('text_banner')])]}
+        values = usage.build_usage(self.inventory(), rows, {})['usage']
+        # The global template renders only the bundle with no template of its own.
+        self.assertEqual(['/node/31'], values['promo']['exampleCandidates'])
+        # ...and the master it selects renders there too.
+        self.assertEqual(['/node/31'], values['text_banner']['exampleCandidates'])
+        self.assertEqual(['/node/30'], values['hero_highlight']['exampleCandidates'])
+
+    def test_unmodified_default_template_renders_nothing(self):
+        rows = {'nodes': [['40', '1', 'event']],
+            'sitestudio_templates': [
+                template('content', 'node_event_full', [component('promo')],
+                         entity_type='node', bundle='event', view_mode='full', default=True,
+                         modified=False, master_template='')]}
+        values = usage.build_usage(self.inventory(), rows, {})['usage']
+        self.assertEqual([], values['promo']['exampleCandidates'])
+
+    def test_damaged_rows_are_rejected_not_misread(self):
+        for broken in (b'a:1:{a:0:{}i:1;}', b's:50:"x";', b's:-1:"";', b'a:1:{i:0;i:1;'):
+            with self.assertRaises((ValueError, IndexError, TypeError)):
+                usage.php_unserialize(broken)
+        rows = {'sitestudio_templates': [
+            ['cohesion_templates.cohesion_master_templates.bad', 'a:1:{a:0:{}i:1;}'],
+            ['cohesion_templates.cohesion_master_templates.deep', 'a:1:{i:0;' * 3000 + 'N;' + '}' * 3000],
+            template('master', 'master_template', [component('promo')], default=True)]}
+        document = usage.build_usage(self.inventory(), rows, {})
+        self.assertEqual(['/'], document['usage']['promo']['exampleCandidates'])
+        self.assertEqual(2, [p['check'] for p in document['problems']].count('sitestudio-template-unreadable'))
+
     def test_site_studio_extract_keeps_master_template_candidate(self):
         rows = {'nodes': [['1', '1', 'page']], 'sitestudio_templates': [
             template('master', 'master_template', [component('promo')], default=True)]}

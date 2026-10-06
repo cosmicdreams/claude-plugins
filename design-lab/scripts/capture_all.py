@@ -103,7 +103,7 @@ def candidate_pages(cfg, component, limit):
     examples stay candidates; the first one is often login-gated), at most `limit`."""
     pages = [cfg["path"]]
     usage = component.get("usage") or {}
-    for key in ("examples", "exampleCandidates"):
+    for key in ("examples", "renderedExamples", "exampleCandidates"):
         for example in usage.get(key) or []:
             path = example.get("path") if isinstance(example, dict) else example
             if isinstance(path, str) and path and path not in pages:
