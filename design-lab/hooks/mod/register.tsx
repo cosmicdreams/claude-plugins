@@ -151,7 +151,9 @@ async function refreshNow($: EngineInterface): Promise<void> {
   $.ui.status(statusOf(summary, await $.clock.now()))
   // Done: say so once, the moment the recap appears.
   if (summary.hasRecap && before && before.found && !before.hasRecap) {
-    $.ui.toast(`design-lab: ${summary.siteLabel ?? 'the run'} is done. The recap is in the design-lab pane.`, { timeoutMs: 10_000 })
+    // Say what the header says: a run that left problems open is done but needs review.
+    const review = verdictOf(summary.findings) ? ', with verification problems to review' : ''
+    $.ui.toast(`design-lab: ${summary.siteLabel ?? 'the run'} is done${review}. The recap is in the design-lab pane.`, { timeoutMs: 10_000 })
   }
   // The watchdog: once per transition, never again until the run needs nothing from the person.
   // It says what the Needs you card says.
@@ -438,7 +440,7 @@ export const register: Register = on => {
         borderStyle="round" borderDimColor paddingX={1}>
         <Text dimColor>{label}</Text>
         <Text bold color={color}>{value ?? '–'}</Text>
-        {details.filter(Boolean).map((detail, i) => <Text key={`${key}-${i}`} dimColor wrap="truncate-end">{detail}</Text>)}
+        {details.filter(Boolean).map((detail, i) => <Text key={`${key}-${i}`} dimColor wrap="wrap">{detail}</Text>)}
       </Box>
     )
     // Coverage and accuracy are judgments: green only when nothing is missing, yellow otherwise.
