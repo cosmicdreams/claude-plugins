@@ -286,21 +286,56 @@ def pseudo_image(node: dict, which: str) -> dict | None:
 
 def masked_icon_svg(node: dict) -> str | None:
     """An element drawn as `mask-image: url(icon.svg)` over its background colour: the icon's
-    shape in that colour. Without this the background paints a solid box where the icon is."""
-    svg = node.get("maskSvg")
+    shape in that colour. Without this the background paints a solid box where the icon is.
+
+    Only the `<svg>` element itself is kept (an XML declaration, comments, or an HTML page that
+    a login redirect returned are dropped or refused). Every painted fill and stroke, in an
+    attribute of either quote style or in CSS, takes the mask colour; `none` stays unpainted.
+    The root is sized to the measured box, so the SVG's default preserveAspectRatio (xMidYMid
+    meet) reproduces `mask-size: contain` and its centring, and Figma imports it at that size."""
+    source = node.get("maskSvg")
     fill = parse_color((node.get("computed") or {}).get("backgroundColor"))
-    if not svg or not fill or "<svg" not in svg:
+    if not source or not fill:
         return None
+    source = re.sub(r"<!--.*?-->", "", source, flags=re.S)
+    # An SVG document starts with its root; an HTML page (a login redirect) with a logo inside
+    # is not the icon.
+    source = re.sub(r"^\s*(<\?xml.*?\?>)?\s*(<!DOCTYPE[^>]*>)?\s*", "", source, flags=re.S | re.I)
+    end = source.rfind("</svg>")
+    if not source.startswith("<svg") or end < 0:
+        return None
+    svg = source[:end + len("</svg>")]
     colour, alpha = fill["hex"], fill.get("opacity", 1)
-    # Every painted shape takes the mask colour; `none` stays unpainted.
-    svg = re.sub(r'\b(fill|stroke)="(?!none)[^"]*"', lambda m: f'{m.group(1)}="{colour}"', svg)
-    svg = re.sub(r"\b(fill|stroke)\s*:\s*(?!none)[^;\"']+", lambda m: f"{m.group(1)}:{colour}", svg)
+    svg = re.sub(r"""\b(fill|stroke)=(["'])(?!none\2)[^"']*\2""", lambda m: f'{m.group(1)}="{colour}"', svg)
+    svg = re.sub(r"""\b(fill|stroke)\s*:\s*(?!none\b)[^;"'}<]+""", lambda m: f"{m.group(1)}:{colour}", svg)
     svg = svg.replace("currentColor", colour)
+    root = re.match(r"<svg\b[^>]*>", svg).group(0)
+    tag = root
+    box = node.get("box") or {}
+    width, height = r2(box.get("width") or 0), r2(box.get("height") or 0)
+    if width and height:
+        # Keep the drawing's own coordinate system before the root takes the box's size.
+        if not re.search(r"\bviewBox=", tag):
+            w = re.search(r"""\bwidth=["']?([\d.]+)""", tag)
+            h = re.search(r"""\bheight=["']?([\d.]+)""", tag)
+            if w and h:
+                tag = tag.replace("<svg", f'<svg viewBox="0 0 {w.group(1)} {h.group(1)}"', 1)
+        tag = re.sub(r"""\s(width|height)=(["'])[^"']*\2""", "", tag)
+        tag = tag.replace("<svg", f'<svg width="{width}" height="{height}"', 1)
     # Shapes with no fill of their own inherit the root's, which defaults to black.
-    svg = re.sub(r"<svg\b(?![^>]*\bfill=)", f'<svg fill="{colour}"', svg, count=1)
+    if not re.search(r"\bfill=", tag) and not re.search(r"\bfill\s*:", tag):
+        tag = tag.replace("<svg", f'<svg fill="{colour}"', 1)
     if alpha < 1:
-        svg = re.sub(r"<svg\b", f'<svg opacity="{alpha}"', svg, count=1)
-    return svg
+        tag = tag.replace("<svg", f'<svg opacity="{alpha}"', 1)
+    return svg.replace(root, tag, 1)
+
+
+def masked_leaf(node: dict, has_children: bool) -> str | None:
+    """The masked icon, for an element that is only the icon: one with children or text keeps
+    its frame (a section cut to a wave shape must not lose its content)."""
+    if has_children or (node.get("text") or "").strip():
+        return None
+    return masked_icon_svg(node)
 
 
 def positioned_out(node: dict) -> bool:
@@ -595,8 +630,9 @@ def convert(node: dict, index: dict, root_block: str | None, label: str | None, 
         # the capture, which is exactly what a visitor sees before interacting.
         crop = f"capture:{bp}:{base['x']},{base['y']},{base['width']},{base['height']}"
         return {**base, "kind": "image", "name": "Embed", "src": crop, "fit": "FILL"}
-    if masked_icon_svg(node):
-        return {**base, "kind": "svg", "name": "Icon", "svg": masked_icon_svg(node)}
+    icon = masked_leaf(node, any(visible(k) for k in index.get(node["path"], [])))
+    if icon:
+        return {**base, "kind": "svg", "name": "Icon", "svg": icon}
     if node.get("svg"):
         return {**base, "kind": "svg", "svg": node["svg"],
                 "color": parse_color(node["computed"].get("color"))}

@@ -236,7 +236,7 @@ class Merge:
                     "layout": {"mode": "VERTICAL", "gap": 0, "primaryAlign": "MIN", "counterAlign": "MIN",
                                "padding": {"top": 0, "right": 0, "bottom": 0, "left": 0}},
                     "children": shots}
-        masked = st.masked_icon_svg(node)
+        masked = st.masked_leaf(node, bool(self.child_paths(path)))
         if masked:
             return {**out, "kind": "svg", "name": "Icon", "svg": masked}
         if node.get("svg"):
