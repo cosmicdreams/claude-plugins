@@ -570,7 +570,7 @@ def check_mode_naming(state, rep):
     for c in state.get('collections') or []:
         for m in c.get('modes') or []:
             name = m if isinstance(m, str) else (m.get('name') or '')
-            if DEFAULT_MODE.match(name.strip()):
+            if DEFAULT_MODE.match(name.strip()) or name.strip().startswith('@'):
                 bad.append('%s::%s' % (c['name'], name))
     if bad:
         rep.add('mode-naming', 'blocker', 'file',
@@ -603,6 +603,15 @@ def check_collection_strategy(state, brand, rep):
                     '%d collection(s) are not prefixed `%s <Domain>`, so they collide with '
                     'every other library in the picker' % (len(unprefixed), brand),
                     evidence=unprefixed)
+    # library-standard 5 and 6.1: every value that differs between widths lives in the one
+    # breakpoint collection. A second modeful collection splits the responsive domain, and an
+    # instance switched to Mobile keeps its desktop values for everything in it.
+    modeful = [c['name'] for c in colls if len(c.get('modes') or []) > 1]
+    if len(modeful) > 1:
+        rep.add('collection-strategy', 'major', 'file',
+                '%d collections carry modes; width-varying values belong in the one breakpoint '
+                'collection, whose Desktop/Tablet/Mobile modes the components switch' % len(modeful),
+                evidence=modeful)
     if len(colls) > 1 and not state.get('collectionStrategyReason'):
         rep.add('collection-strategy', 'major', 'file',
                 '%d collections exist but the state records no distinct mode, publishing, '

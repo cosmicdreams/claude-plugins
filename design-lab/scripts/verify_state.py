@@ -21,6 +21,10 @@ def merge(folder: Path) -> dict:
             reason + "; the breakpoint collection holds the Desktop, Tablet and Mobile modes "
             "the responsive masters switch between, a mode boundary the single-mode "
             "foundation collection does not have")
+    project = folder.parent.parent / "project.json"
+    if project.is_file() and not state.get("brand"):
+        # library-standard 6.1: collections carry the brand; the run's site label is it.
+        state["brand"] = ((json.loads(project.read_text()).get("run") or {}).get("siteLabel") or "").strip() or None
     for key in LISTS:
         state.setdefault(key, [])
     children = {}

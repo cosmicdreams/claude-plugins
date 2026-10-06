@@ -56,14 +56,14 @@ They are allowed to disagree, and in mature systems they usually do. What is not
 
 ## Collections, modes and scopes
 
-Structure follows what the extraction found, not a template.
+Structure follows what the extraction found, not a template — inside **at most two collections** (library-standard 6.1): `<Brand> Core`, one mode, holding every single-mode domain as slash groups (`Color/Primitive`, `Color/Semantic`, `Spacing`, `Typography`), and `<Brand> Breakpoint`, whose `Desktop/Tablet/Mobile <width>px` modes hold every value that differs between widths. The domains below are groups, not collections. A responsive domain never gets a collection or mode set of its own: its media-query values are evaluated at the capture widths and become breakpoint mode values.
 
 - **Primitives** — raw values, one mode, scope `[]` so they stay out of the picker.
 - **Semantic** — aliases into primitives, never raw values. Re-theming is then one edit at the primitive layer.
 - **Spacing** — one mode per breakpoint where spacing genuinely scales.
 - **Type** — mode count follows the extraction, and **scaling is a per-role fact**. Do not generalise from one role. The Site Studio site A pilot measured body text (20/32 at 1440, 905 and 400 alike), concluded "type does not scale", and built a single-mode type collection. The configuration says otherwise: 13 of 43 of its font-size tokens scale, including Heading 2 at 48/48/42/36 and every button size. That collection is under-specified, and its headings are wrong at tablet and mobile. Site Studio site B is the same shape - 8 of 65.
 
-  So: give the type collection breakpoint modes whenever **any** role scales, and let the non-scaling roles carry identical values across the modes. One mode is correct only when `typeScaling.noneScale` is true.
+  So: put the type tokens in the breakpoint collection whenever **any** role scales, and let the non-scaling roles carry identical values across the modes. One mode is correct only when `typeScaling.noneScale` is true.
 
 **Set scopes on every variable.** Leaving `ALL_SCOPES` means a spacing token appears in the colour picker, which is how a designer ends up binding the wrong thing. Background fills get `FRAME_FILL, SHAPE_FILL`; text gets `TEXT_FILL`; borders get `STROKE_COLOR`; spacing gets `GAP`; radii get `CORNER_RADIUS`.
 
