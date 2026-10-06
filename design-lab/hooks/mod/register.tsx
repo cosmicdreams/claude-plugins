@@ -605,8 +605,8 @@ export const register: Register = on => {
               const missing = scores.built !== null && scores.eligible !== null && scores.eligible > scores.built
                 ? `${scores.eligible - scores.built} not built` : null
               return (
-                <Box flexDirection="column">
-                  <Box flexDirection={narrowTiles ? 'column' : 'row'} gap={narrowTiles ? 0 : 1}>
+                <Box flexDirection="column" gap={1}>
+                  <Box flexDirection={narrowTiles ? 'column' : 'row'} gap={1}>
                     {tile('coverage', 'Coverage', coverage !== null ? `${coverage}%` : null,
                       [scores.built !== null && scores.eligible !== null ? `${scores.built} of ${scores.eligible} buildable` : null, missing],
                       judged(coverage))}
@@ -614,7 +614,7 @@ export const register: Register = on => {
                       [scores.withinTolerance !== null && scores.widths !== null ? `${scores.withinTolerance} of ${scores.widths} widths within tolerance` : null],
                       judged(accuracy))}
                   </Box>
-                  <Box flexDirection={narrowTiles ? 'column' : 'row'} gap={narrowTiles ? 0 : 1}>
+                  <Box flexDirection={narrowTiles ? 'column' : 'row'} gap={1}>
                     {tile('time', 'Time', durationOf(scores.workingSeconds),
                       [scores.buildSeconds !== null ? `Figma build ${durationOf(scores.buildSeconds)}` : null], 'magenta')}
                     {tile('tokens', 'Tokens', compactOf(scores.tokens),
@@ -626,10 +626,19 @@ export const register: Register = on => {
             {(() => {
               const links = artifactsOf(run, summary.facts.figmaUrl, new Set(summary.present))
               return (links.main || links.files) && (
-                <Box flexDirection="column">
-                  {links.main && <Markdown text={links.main} />}
-                  {links.files && <Text dimColor>Run files</Text>}
-                  {links.files && <Markdown text={links.files} />}
+                <Box flexDirection="column" gap={1}>
+                  {links.main && (
+                    <Box flexDirection="column">
+                      <Text bold dimColor>Results</Text>
+                      <Markdown text={links.main} />
+                    </Box>
+                  )}
+                  {links.files && (
+                    <Box flexDirection="column">
+                      <Text bold dimColor>Run files</Text>
+                      <Markdown text={links.files} />
+                    </Box>
+                  )}
                 </Box>
               )
             })()}
@@ -660,14 +669,16 @@ export function fileUrl(run: string, path: string): string {
  * report), then the run's own files. Only files that exist are listed. */
 export function artifactsOf(run: string, figmaUrl: string | null, present: Set<string>): { main: string | null; files: string | null } {
   const main = [
-    figmaUrl ? `- **[Open the Figma library ↗](${figmaUrl})**` : null,
-    present.has(ARTIFACT_FILES.report) ? `- **[Open the benchmark report](${fileUrl(run, ARTIFACT_FILES.report)})**` : null,
+    figmaUrl ? `**[Open the Figma library ↗](${figmaUrl})**` : null,
+    present.has(ARTIFACT_FILES.report) ? `**[Open the benchmark report](${fileUrl(run, ARTIFACT_FILES.report)})**` : null,
   ].filter(Boolean)
   const files = ([
     ['Verification findings', ARTIFACT_FILES.verifyReport],
     ['Build plan', ARTIFACT_FILES.plan],
     ['Components', ARTIFACT_FILES.components],
     ['Scorecard', ARTIFACT_FILES.scorecard],
-  ] as const).filter(([, path]) => present.has(path)).map(([label, path]) => `- [${label}](${fileUrl(run, path)})`)
-  return { main: main.length ? main.join('\n') : null, files: files.length ? files.join('\n') : null }
+  ] as const).filter(([, path]) => present.has(path)).map(([label, path]) => `[${label}](${fileUrl(run, path)})`)
+  // No bullets: Markdown indents them unevenly. The two results stand one per line (a hard break
+  // is two trailing spaces); the run files share one line.
+  return { main: main.length ? main.join('  \n') : null, files: files.length ? files.join(' · ') : null }
 }
