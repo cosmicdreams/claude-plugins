@@ -14,6 +14,7 @@ import { pluginRoot } from '../../src/runtime.ts';
 import { Renderer } from '../../src/render-payload.ts';
 import { assertPayloadParity, assertTemplates, legacyRuntime } from './template-parity.ts';
 import { assertRunnerClientParity } from './runner-client-parity.ts';
+import {assertPixels,freshImages} from './image-pixels.ts';
 const currentRenderer = new Renderer(), legacyRenderer = new Renderer(undefined, 'javascript');
 const templates = assertTemplates();
 const runner = assertRunnerClientParity();
@@ -75,7 +76,7 @@ for (const run of Object.keys(sources)) {
       assert.deepEqual(normalize(load(project, manifest), project), normalize(load(oracle, manifest), oracle), run + ': ' + sid + ': asset manifest');
       if (step.kind === 'upload') for (const [i, file] of (step.files ?? []).entries()) {
         const expectedFile = row.step.kind === 'upload' ? row.step.files![i]!.file : '';
-        if (!file.file.includes('/crop-')) assert.deepEqual(readFileSync(file.file), readFileSync(expectedFile), sid + ': frozen image bytes');
+        await assertPixels(readFileSync(file.file),readFileSync(expectedFile),sid+': decoded image '+i);
       }
     }
     const data = JSON.parse(JSON.stringify(row.input).replaceAll(oracle, project)) as BuildResult;
@@ -91,4 +92,5 @@ for (const run of Object.keys(sources)) {
   for (const output of outputs) assert.deepEqual(normalize(runtime(load(project, output.path)), project), normalize(load(oracle, output.path.replace(project, oracle)), oracle), run + ': receipt ' + output.name);
   summary[run] = { stepsCompared: steps.length, stepsMatched: steps.length, payloads, images, tsMs: performance.now() - started, pythonMs: expected.ms, recordedFigmaResults: run === 'definitive', syntheticProtocolResults: run === 'pncb' };
 }
-writeOnChange(resolve(root, 'summary.json'), { root, templates, runner, summary }); console.log(JSON.stringify({ root, templates, runner, summary }, null, 2));
+const freshImageStats = await freshImages(resolve(root,'fresh-images'));
+writeOnChange(resolve(root, 'summary.json'), { root, templates, runner, summary, freshImageStats }); console.log(JSON.stringify({ root, templates, runner, summary }, null, 2));

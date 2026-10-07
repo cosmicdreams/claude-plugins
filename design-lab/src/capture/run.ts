@@ -95,62 +95,72 @@ export async function runCapture(options: CaptureOptions, adapters: CaptureAdapt
         const start = performance.now(), id = original.componentId;
         let cfg = original, measureMs = 0, captureMs = 0, spec: Spec | undefined;
         const record: CaptureRecord = { componentId: id, configHash: digest, status: 'failed', problems: [], rows: [], seconds: 0, measureMs, captureMs, durationMs: 0 };
-        const paths = candidatePages(cfg, byId.get(id) ?? { id }, maxPages);
-        let candidates = paths;
-        if (!options.noCheck) {
-          const result = await isolated(browser, options.captureTimeoutMs ?? 1800000, scoped => adapters.check(scoped, {
-            componentId: id, rootSelector: cfg.rootSelector, setup: cfg.states?.[0]?.setup, anchorText: cfg.anchorText, mustContain: cfg.mustContain,
-            pages: paths.map(page => ({ path: page, verificationUrl: move(cfg, page, options).verificationUrl })),
-          }));
-          checks.push(result); writeJson(resolve(capture, 'selector-check.json'), checks);
-          if (!result.chosen) record.problems.push('selector not found on candidate pages');
-          else { candidates = [result.chosen]; if (result.revealed) record.revealed = true; }
-        }
-        if (options.check) return record;
-        if (!record.problems.length) {
-          const measureStarted = performance.now();
-          let failures = ['measure.mjs'];
-          for (const candidate of candidates) {
-            cfg = move(original, candidate, options);
-            for (let attempt = 0; attempt < 2; attempt++) {
-              try { spec = await isolated(browser, options.measureTimeoutMs ?? 900000, scoped => adapters.measure(scoped, cfg)); failures = measurementFailures(spec, cfg); break; }
-              catch (error) { failures = ['measure.mjs']; if (attempt === 1) record.problems = ['measurement failed: ' + String(error).slice(0, 240)]; }
+        try {
+          const paths = candidatePages(cfg, byId.get(id) ?? { id }, maxPages);
+          let candidates = paths;
+          if (!options.noCheck) {
+            const result = await isolated(browser, options.captureTimeoutMs ?? 1800000, scoped => adapters.check(scoped, {
+              componentId: id, rootSelector: cfg.rootSelector, setup: cfg.states?.[0]?.setup, anchorText: cfg.anchorText, mustContain: cfg.mustContain,
+              pages: paths.map(page => ({ path: page, verificationUrl: move(cfg, page, options).verificationUrl })),
+            }));
+            checks.push(result); writeJson(resolve(capture, 'selector-check.json'), checks);
+            if (!result.chosen) record.problems.push('selector not found on candidate pages');
+            else { candidates = [result.chosen]; if (result.revealed) record.revealed = true; }
+          }
+          if (options.check) return record;
+          if (!record.problems.length) {
+            const measureStarted = performance.now();
+            let failures = ['measure.mjs'];
+            for (const candidate of candidates) {
+              cfg = move(original, candidate, options);
+              for (let attempt = 0; attempt < 2; attempt++) {
+                try { spec = await isolated(browser, options.measureTimeoutMs ?? 900000, scoped => adapters.measure(scoped, cfg)); failures = measurementFailures(spec, cfg); break; }
+                catch (error) { failures = ['measure.mjs']; if (attempt === 1) record.problems = ['measurement failed: ' + String(error).slice(0, 240)]; }
+              }
+              if (!failures.length) { record.problems = []; break; }
             }
-            if (!failures.length) { record.problems = []; break; }
+            record.path = cfg.path; writeJson(path, cfg);
+            if (spec) writeJson(resolve(measurements, stem(id) + '.spec.json'), spec);
+            if (failures.length && !record.problems.length) record.problems.push('measurement failed: ' + failures.sort().join(', '));
+            measureMs = performance.now() - measureStarted;
+            const shotStarted = performance.now(), work = resolve(shots, '.work', stem(id));
+            rmSync(work, { force: true, recursive: true }); mkdirSync(work, { recursive: true });
+            let rows: CaptureRow[] = [];
+            for (let attempt = 0; attempt < 2; attempt++) {
+              try { rows = await isolated(browser, options.captureTimeoutMs ?? 1800000, scoped => adapters.capture(scoped, cfg, work, scale)); }
+              catch (error) { rows = [{ componentId: id, machine: cfg.machineName, viewport: '', error: String(error) }]; }
+              if (!rows.some(r => r.error)) break;
+            }
+            for (const row of rows) if (row.file) {
+              const name = stem(id) + row.file.slice(cfg.machineName.length);
+              renameSync(resolve(work, row.file), resolve(shots, name)); row.file = name;
+            }
+            rmSync(work, { force: true, recursive: true }); record.rows = rows;
+            record.problems.push(...rows.filter(r => r.error).map(r => `capture failed at ${r.viewport || '?'} (${r.state || 'default'}): ${r.error}`));
+            const observed = new Set(rows.filter(r => !r.error && r.state === 'default').map(r => r.viewport.toLowerCase()));
+            const missing = (cfg.viewports ?? MEASURE_VIEWPORTS).map(v => v.name.toLowerCase()).filter(v => !observed.has(v)).sort();
+            if (missing.length) record.problems.push('default capture missing: ' + missing.join(', '));
+            captureMs = performance.now() - shotStarted;
+            if (!record.problems.length) record.status = 'complete';
           }
-          record.path = cfg.path; writeJson(path, cfg);
-          if (spec) writeJson(resolve(measurements, stem(id) + '.spec.json'), spec);
-          if (failures.length && !record.problems.length) record.problems.push('measurement failed: ' + failures.sort().join(', '));
-          measureMs = performance.now() - measureStarted;
-          const shotStarted = performance.now(), work = resolve(shots, '.work', stem(id));
-          rmSync(work, { force: true, recursive: true }); mkdirSync(work, { recursive: true });
-          let rows: CaptureRow[] = [];
-          for (let attempt = 0; attempt < 2; attempt++) {
-            try { rows = await isolated(browser, options.captureTimeoutMs ?? 1800000, scoped => adapters.capture(scoped, cfg, work, scale)); }
-            catch (error) { rows = [{ componentId: id, machine: cfg.machineName, viewport: '', error: String(error) }]; }
-            if (!rows.some(r => r.error)) break;
+        } catch (error) {
+          const detail = String(error).slice(0, 240);
+          record.problems.push('capture item failed: ' + detail);
+          if (options.check || !options.noCheck && !checks.some(c => c.componentId === id)) {
+            checks.push({componentId:id,chosen:null,revealed:false,seconds:(performance.now()-start)/1000,pages:[{path:original.path,error:detail,seconds:(performance.now()-start)/1000}]});
+            writeJson(resolve(capture, 'selector-check.json'), checks);
           }
-          for (const row of rows) if (row.file) {
-            const name = stem(id) + row.file.slice(cfg.machineName.length);
-            renameSync(resolve(work, row.file), resolve(shots, name)); row.file = name;
-          }
-          rmSync(work, { force: true, recursive: true }); record.rows = rows;
-          record.problems.push(...rows.filter(r => r.error).map(r => `capture failed at ${r.viewport || '?'} (${r.state || 'default'}): ${r.error}`));
-          const observed = new Set(rows.filter(r => !r.error && r.state === 'default').map(r => r.viewport.toLowerCase()));
-          const missing = (cfg.viewports ?? MEASURE_VIEWPORTS).map(v => v.name.toLowerCase()).filter(v => !observed.has(v)).sort();
-          if (missing.length) record.problems.push('default capture missing: ' + missing.join(', '));
-          captureMs = performance.now() - shotStarted;
-          if (!record.problems.length) record.status = 'complete';
+        } finally {
+          record.durationMs = performance.now() - start;
+          record.seconds = roundEven(record.durationMs / 100) / 10;
+          record.measureMs = measureMs; record.captureMs = captureMs;
+          writeJson(resolve(records, stem(id) + '.json'), record);
         }
-        record.durationMs = performance.now() - start;
-        record.seconds = roundEven(record.durationMs / 100) / 10;
-        record.measureMs = measureMs; record.captureMs = captureMs;
-        writeJson(resolve(records, stem(id) + '.json'), record);
         return record;
       });
     } finally { await browser.close(); }
   }
-  if (options.check) return { checks, captures: {}, problems: checks.filter(c => !c.chosen).map(c => ({ componentId: c.componentId, detail: 'selector not found' })) };
+  if (options.check) return { checks, captures: {}, problems: checks.filter(c => !c.chosen).map(c => ({ componentId: c.componentId, detail: c.pages.find(p => p.error)?.error ?? 'selector not found' })) };
   const rows: CaptureRow[] = [];
   for (const { cfg, digest } of ready) {
     const record = readRecord(resolve(records, stem(cfg.componentId) + '.json'));

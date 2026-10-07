@@ -1,0 +1,58 @@
+import assert from 'node:assert/strict';
+import {mkdirSync,readFileSync,writeFileSync} from 'node:fs';
+import {resolve} from 'node:path';
+import {spawnSync} from 'node:child_process';
+import {sharedRequire,pluginRoot} from '../../src/runtime.ts';
+import {fetchImages} from '../../src/fetch-images.ts';
+import {fitFigmaImage} from '../../src/figma-runner.ts';
+const sharp=sharedRequire()('sharp') as typeof import('sharp').default;
+export interface PixelTolerance {mean:number;max:number;fraction:number;above:number}
+export const EXACT:PixelTolerance={mean:0,max:0,fraction:0,above:0};
+// Independent Lanczos implementations and SVG antialiasing can disagree at edges.
+// Mean error <= 1/255, no more than 1% channels > 16, and max <= 64/255.
+// JPEG also differs through decoder/encoder quantization (separate, stricter max bound).
+export const JPEG:PixelTolerance={mean:2,max:32,fraction:0.01,above:16};
+export const EDGE:PixelTolerance={mean:1,max:64,fraction:0.01,above:16};
+export async function assertPixels(actual:Buffer,expected:Buffer,label:string,tolerance:PixelTolerance=EXACT) {
+  const decode=async(data:Buffer)=>sharp(data).toColourspace('srgb').ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  const [a,b]=await Promise.all([decode(actual),decode(expected)]);
+  assert.deepEqual(a.info,b.info,label+': decoded shape');
+  let sum=0,max=0,above=0;
+  for(let i=0;i<a.data.length;i++){const d=Math.abs(a.data[i]!-b.data[i]!);sum+=d;max=Math.max(max,d);if(d>tolerance.above)above++;}
+  const stats={mean:sum/a.data.length,max,fraction:above/a.data.length};
+  assert.ok(stats.mean<=tolerance.mean&&stats.max<=tolerance.max&&stats.fraction<=tolerance.fraction,label+': '+JSON.stringify(stats)+' tolerance '+JSON.stringify(tolerance));
+  return stats;
+}
+export interface OracleImage {source:string;target:string;action:'fit'|'convert';contentType?:string}
+export function oracleImages(rows:OracleImage[],root:string) {
+  assert.ok(root.startsWith('/tmp/'));mkdirSync(root,{recursive:true});const input=resolve(root,'image-oracle-input.json');writeFileSync(input,JSON.stringify(rows));
+  const out=spawnSync(process.env['DESIGN_LAB_PYTHON']??'python3',[resolve(pluginRoot,'tests/equivalence/image-oracle.py'),input],{encoding:'utf8',env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}});
+  assert.equal(out.status,0,out.stderr);
+}
+export async function freshImages(root:string) {
+  mkdirSync(root,{recursive:true});
+  const svg=resolve(root,'fresh.svg');writeFileSync(svg,'<svg xmlns="http://www.w3.org/2000/svg" width="128" height="96"><rect width="128" height="96" fill="#245678"/><circle cx="64" cy="48" r="31" fill="#efbc23"/></svg>');
+  const raw=Buffer.alloc(5000*24*4);
+  for(let i=0;i<raw.length;i+=4){const x=i/4%5000,y=Math.floor(i/4/5000);raw[i]=x%256;raw[i+1]=y*10;raw[i+2]=Math.floor(x/20)%256;raw[i+3]=100+x%156;}
+  const png=resolve(root,'fresh-wide.png'),webp=resolve(root,'fresh.webp'),jpeg=resolve(root,'fresh-wide.jpg');
+  await sharp(raw,{raw:{width:5000,height:24,channels:4}}).png().toFile(png);
+  await sharp(raw,{raw:{width:5000,height:24,channels:4}}).webp({lossless:true}).toFile(webp);
+  await sharp(raw,{raw:{width:5000,height:24,channels:4}}).jpeg({quality:90}).toFile(jpeg);
+  const rows:OracleImage[]=[{source:svg,action:'convert',contentType:'image/svg+xml',target:resolve(root,'svg-oracle.png')},{source:webp,action:'convert',contentType:'image/webp',target:resolve(root,'webp-oracle.png')},...[png,jpeg].map((source,i)=>({source,action:'fit' as const,target:resolve(root,`fit-${i}.${i?'jpg':'png'}`)}))];
+  oracleImages(rows,root);const stats=[];
+  for(const row of rows){
+    let actual:Buffer;
+    if(row.action==='fit') actual=await fitFigmaImage(row.source);
+    else {
+      // Exercise fresh fetch/conversion/artifact dispatch, with injected raw responses and no network.
+      const manifest=await fetchImages({tree:{kind:'image',src:'/fresh',name:'fresh',source:'/img',sizing:'FIXED'}},{out:resolve(root,'fetch-'+stats.length),baseUrl:'https://fixture.test'},async()=>({data:readFileSync(row.source),contentType:row.contentType!}));
+      actual=readFileSync(manifest[0]!.file!);
+      const fitted=resolve(root,'served-'+stats.length+'.png');
+      oracleImages([{source:row.target,target:fitted,action:'fit'}],root);
+      const served=await fitFigmaImage(manifest[0]!.file!);
+      stats.push({source:row.source,phase:'served',...await assertPixels(served,readFileSync(fitted),'fresh served '+row.source,EDGE)});
+    }
+    stats.push({source:row.source,phase:row.action,...await assertPixels(actual,readFileSync(row.target),'fresh '+row.source,row.contentType==='image/webp'?EXACT:row.source.endsWith('.jpg')?JPEG:EDGE)});
+  }
+  return stats;
+}

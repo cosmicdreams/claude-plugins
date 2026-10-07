@@ -8,7 +8,7 @@ export function concurrency(value: unknown = 4): number {
 export async function pool<T, R>(items: readonly T[], limit: number, work: (item: T, index: number) => Promise<R>, completed: (result: R, index: number) => void | Promise<void> = () => {}): Promise<R[]> {
   const results = new Array<R>(items.length);
   let next = 0;
-  await Promise.all(Array.from({ length: Math.min(concurrency(limit), items.length) }, async () => {
+  const workers = await Promise.allSettled(Array.from({ length: Math.min(concurrency(limit), items.length) }, async () => {
     for (;;) {
       const i = next++;
       if (i >= items.length) return;
@@ -16,6 +16,8 @@ export async function pool<T, R>(items: readonly T[], limit: number, work: (item
       await completed(results[i]!, i);
     }
   }));
+  const failure = workers.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+  if (failure) throw failure.reason;
   return results;
 }
 export type ContextFactory = Pick<Browser, 'newContext'>;

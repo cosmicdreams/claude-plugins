@@ -14,6 +14,7 @@ import type { BuildState, BuildResult } from '../../src/build-artifacts.ts';
 import type { RunnerStep } from '../../src/generated/runner-step.ts';
 import { pluginRoot } from '../../src/runtime.ts';
 import { Renderer } from '../../src/render-payload.ts';
+import {assertPixels,oracleImages,EDGE,JPEG} from './image-pixels.ts';
 import { legacyRuntime } from './template-parity.ts';
 
 const replay = resolve(process.argv[2] ?? ''), oracle = resolve(replay, 'definitive/python');
@@ -21,6 +22,11 @@ assert.ok(replay.startsWith('/tmp/') && existsSync(resolve(oracle, 'oracle.json'
 const source = resolve(homedir(), 'Sites/DEFINITIVEHC/design/2026-10-05');
 const scratch = mkdtempSync('/tmp/design-lab-round3-http-');
 const expected = load<{transcript:{step:RunnerStep; input:BuildResult}[]}>(oracle, 'oracle.json');
+const fitted = new Map<string,string>();
+for(const row of expected.transcript) if(row.step.kind==='upload') for(const file of row.step.files??[]) {
+  if(!fitted.has(file.file)) fitted.set(file.file,resolve(scratch,'oracle-served',String(fitted.size)+'.bin'));
+}
+oracleImages([...fitted].map(([source,target])=>({source,target,action:'fit'})),scratch);
 const rows = new Map(expected.transcript.map(row => [row.step.step!, row]));
 function relocate(folder: string, old: string, target: string): void {
   for (const entry of readdirSync(folder, {withFileTypes:true})) {
@@ -51,16 +57,19 @@ function comparison(project: string, other: string, runtime = current, oracleRun
 }
 async function drive(port: number, version: string, project: string): Promise<Record<string,unknown>> {
   const key = load<BuildState>(project,'figma/state.json').fileKey;
-  const endpoint = (path:string, extra:Record<string,string>={}) => `http://127.0.0.1:${port}${path}?`+new URLSearchParams({token:'smoke-token',fileKey:key,version,...extra});
+  let work:Record<string,string>={};
+  const endpoint = (path:string, extra:Record<string,string>={}) => `http://127.0.0.1:${port}${path}?`+new URLSearchParams({token:'smoke-token',fileKey:key,version,client:'smoke-client',...work,...extra});
   const request = async (path:string, extra:Record<string,string>={}, body?:unknown) => {
     const reply = await fetch(endpoint(path,extra),{headers:{Origin:'null'},...(body===undefined?{}:{method:'POST',body:JSON.stringify(body)})});
     if (reply.status!==200) assert.fail(path+' '+reply.status+' '+await reply.text()); return reply;
   };
-  const started=performance.now(); let served=0, uploads=0, files=0, dumps=0, screenshots=0, maxCharacters=0;
+  const started=performance.now(); let served=0, uploads=0, files=0, dumps=0, screenshots=0, maxCharacters=0,exactBytes=0,maxPixelMean=0,maxPixelDelta=0;
   const order:string[]=[];
   for (let i=0;i<500;i++) {
+    work={};
     const step=await (await request('/next')).json() as RunnerStep;
-    if (step.kind==='done') return {ms:performance.now()-started,served,uploads,files,dumps,screenshots,maxCharacters,order};
+    if(step.generation && step.stepToken) work={generation:String(step.generation),stepToken:String(step.stepToken)};
+    if (step.kind==='done') return {ms:performance.now()-started,served,uploads,files,dumps,screenshots,maxCharacters,exactBytes,maxPixelMean,maxPixelDelta,order};
     assert.notEqual(step.kind,'wait','build must progress'); assert.ok(step.step); order.push(step.step); served++;
     let data:unknown;
     if (step.kind==='dump') {
@@ -76,7 +85,11 @@ async function drive(port: number, version: string, project: string): Promise<Re
         uploads++;
         for (const [i] of (step.nodeIds??[]).entries()) {
           const response=await request('/file',{step:step.step,i:String(i)});
-          assert.ok((await response.arrayBuffer()).byteLength>0); files++;
+          const actual=Buffer.from(await response.arrayBuffer()),sourceFile=row.step.kind==='upload'?row.step.files![i]!.file:'';
+          const expectedBytes=readFileSync(fitted.get(sourceFile)!);
+          if(actual.equals(expectedBytes)) exactBytes++;
+          else { const stats=await assertPixels(actual,expectedBytes,step.step+': served '+i,/\.jpe?g$/i.test(sourceFile)?JPEG:EDGE);maxPixelMean=Math.max(maxPixelMean,stats.mean);maxPixelDelta=Math.max(maxPixelDelta,stats.max); }
+          files++;
         }
       }
       if (step.kind==='screenshot') { data={png:readFileSync(row.input.file!).toString('base64')}; screenshots++; }
@@ -111,7 +124,13 @@ const project=prepare('ts'),home=resolve(scratch,'ts-home');
 const ctx={home,port:0};const install=installRunner(ctx);
 const old=load<BuildState>(project,'figma/state.json');
 new BuildDriver(project,{runner:true}).init({fileKey:old.fileKey,siteUrl:old.siteUrl,canonicalBaseUrl:old.canonicalBaseUrl,offlineImages:true,iterate:false,...load<{rebuild:boolean}>(project,'replay-options.json')});
-const server=makeServer(new Map([[old.fileKey,new Build(project,{echo:false})]]),'smoke-token',{ctx});
+const build=new Build(project,{echo:false});
+// Negative acceptance probe: the old nonempty-byte check incorrectly accepted this.
+if(process.env['DESIGN_LAB_SMOKE_CORRUPT_FILE']==='1') {
+  const original=build.file.bind(build);let corrupt=true;
+  build.file=async(step,i)=>{const file=await original(step,i);if(corrupt){corrupt=false;return {...file,data:Buffer.from('nonempty corrupted served bytes')};}return file;};
+}
+const server=makeServer(new Map([[old.fileKey,build]]),'smoke-token',{ctx});
 let tsSummary:Record<string,unknown>;
 try { tsSummary=await drive(await server.listen(0),pluginVersion(),project); } finally { await server.close(); }
 const python=await pythonLane('python',resolve(pluginRoot,'scripts'));
@@ -119,9 +138,11 @@ const time=new Date(load<{generatedAt:string}>(python.project,'index.json').gene
 const receipts=generate(project,time);writeOnChange(resolve(project,'smoke-receipts.json'),receipts.map(r=>relative(project,r.path)));
 tsSummary['receipts']=receipts.length;comparison(project,python.project);
 assert.deepEqual(tsSummary['order'],python.summary['order']);
-const armScripts=resolve(pluginRoot,'../../design-lab-arch/design-lab/scripts');
+// Additional controls are opt-in scratch copies; never import another live worktree.
+const armScripts=process.env['DESIGN_LAB_SMOKE_ARM_B_SCRIPTS'];
 const arms:Record<string,unknown>={ts:tsSummary,python:python.summary};
-if (existsSync(armScripts)) {
+if (armScripts) {
+  assert.ok(armScripts.startsWith('/tmp/') && existsSync(armScripts),'optional arm B scripts must be copied to /tmp');
   const arm=await pythonLane('arm-b',armScripts);
   const armState=load<BuildState>(arm.project,'figma/state.json');
   // Arm B has a cache-specific renderer hash. All other values must match.

@@ -1,9 +1,8 @@
 import type { BuildCache } from "../../src/figma/types.ts";
 export async function template(ARGS: Record<string, never>) {
 // DESIGN_LAB_TEMPLATE_BEGIN
-// Only the runner opts into cross-step state. use_figma gets a local cache.
-const DL_CACHE: BuildCache = (typeof globalThis !== 'undefined' && globalThis.__designLabBuildCache)
-  || { loadedFonts: new Map() };
+// Only successful font loads persist. Host inventories are a fresh lazy snapshot per payload.
+const DL_CACHE: BuildCache = { loadedFonts: (typeof globalThis !== 'undefined' && globalThis.__designLabBuildCache?.loadedFonts) || new Map() };
 const DL_API = {
   async fonts() {
     if (!DL_CACHE.fonts) DL_CACHE.fonts = await figma.listAvailableFontsAsync();
@@ -28,12 +27,14 @@ const DL_API = {
   },
   invalidateVariables() { delete DL_CACHE.variables; delete DL_CACHE.collections; },
   createVariable(...args: Parameters<PluginAPI["variables"]["createVariable"]>) {
-    this.invalidateVariables();
-    return figma.variables.createVariable(...args);
+    const variable = figma.variables.createVariable(...args);
+    DL_CACHE.variables?.push(variable);
+    return variable;
   },
   createCollection(...args: Parameters<PluginAPI["variables"]["createVariableCollection"]>) {
-    this.invalidateVariables();
-    return figma.variables.createVariableCollection(...args);
+    const collection = figma.variables.createVariableCollection(...args);
+    DL_CACHE.collections?.push(collection);
+    return collection;
   },
 };
 

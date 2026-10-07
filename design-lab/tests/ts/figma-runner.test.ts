@@ -28,16 +28,20 @@ interface Reply { status: number; headers: http.IncomingHttpHeaders; text: strin
 type Call = (path: string, options?: { token?: string | null; origin?: string | null; body?: string | Json; key?: string; version?: string | null }) => Promise<Reply>;
 /** Everything lives under /tmp; the person's real ~/.design-lab is never read or written. */
 const scratch = (t: { after(fn: () => void): void }): string => { const root = mkdtempSync('/tmp/design-lab-runner-'); t.after(() => rmSync(root, { recursive: true, force: true })); return root; };
-const request = (port: number): Call => (path, options = {}) => new Promise((done, fail) => {
+const request = (port: number): Call => {
+ let work: Json = {};
+ return (path, options = {}) => new Promise((done, fail) => {
   const { token = TOKEN, origin = 'null', body, key = 'KEY', version = VERSION } = options;
-  const query = `fileKey=${key}${token === null ? '' : `&token=${token}`}${version === null ? '' : `&version=${version}`}`;
+  const identity = new URLSearchParams({client:'test-client',generation:String(work['generation'] ?? ''),stepToken:String(work['stepToken'] ?? '')}).toString();
+  if (path === '/error' && typeof body === 'object' && body?.['step']) path += '?step=' + encodeURIComponent(String(body['step']));
+  const query = `${identity}&fileKey=${key}${token === null ? '' : `&token=${token}`}${version === null ? '' : `&version=${version}`}`;
   const data = body === undefined ? undefined : typeof body === 'string' ? body : JSON.stringify(body);
   const req = http.request({ host: '127.0.0.1', port, path: `${path}${path.includes('?') ? '&' : '?'}${query}`, method: data === undefined ? 'GET' : 'POST', headers: origin === null ? {} : { Origin: origin } }, res => {
     const chunks: Buffer[] = []; res.on('data', (chunk: Buffer) => chunks.push(chunk));
-    res.on('end', () => { const buffer = Buffer.concat(chunks), text = buffer.toString('utf8'); done({ status: res.statusCode!, headers: res.headers, text, buffer, json: () => JSON.parse(text) as Json }); });
+    res.on('end', () => { const buffer = Buffer.concat(chunks), text = buffer.toString('utf8'); if (path === '/next' && res.statusCode === 200) work = JSON.parse(text) as Json; done({ status: res.statusCode!, headers: res.headers, text, buffer, json: () => JSON.parse(text) as Json }); });
   });
   req.on('error', fail); req.end(data);
-});
+}); };
 function listen(t: { after(fn: () => void): void }, root: string, workspace: string, build: Build, version = VERSION): Promise<Harness> {
   const ctx: RunnerContext = { home: resolve(root, '.design-lab'), port: 0 }, runner = makeServer(new Map([[build.key ?? 'KEY', build]]), TOKEN, { ctx, version });
   return runner.listen(0).then(port => { t.after(() => { void runner.close(); }); return { root, ctx, workspace, build, port, runner, call: request(port) }; });
@@ -68,7 +72,7 @@ test('only the plugin origin is allowed, and the build rejects a step it did not
   const bad = await h.call('/next', { origin: 'https://attacker.example' });
   assert.equal(bad.status, 403); assert.equal(bad.headers['access-control-allow-origin'], 'null');
   const ok = await h.call('/record?step=pages', { body: '{}' }); // there is no current step: refused by the build, not the gate
-  assert.equal(ok.status, 500); assert.match(ok.text, /not the current step/); assert.equal(ok.headers['access-control-allow-origin'], 'null');
+  assert.equal(ok.status, 500); assert.match(ok.text, /missing query parameter/); assert.equal(ok.headers['access-control-allow-origin'], 'null');
   assert.equal((await h.call('/next', { origin: null })).status, 200); // no Origin header at all (not a browser) is allowed
 });
 test('malformed or non-object bodies get an error reply and corrupt nothing', async t => {
@@ -187,10 +191,10 @@ test('the token belongs to the person, not the run', async t => {
   assert.equal(personToken(h.ctx), first); assert.equal(existsSync(resolve(h.workspace, 'figma', TOKEN_FILE)), false);
   chmodSync(h.ctx.home, 0o755); writeFileSync(path, '\n'); const fresh = personToken(h.ctx); assert.notEqual(fresh, ''); assert.equal(statSync(h.ctx.home).mode & 0o777, 0o700);
 });
-test('a check recorded after preflight gave up is ignored', async t => {
+test('a check recorded after preflight gave up is rejected', async t => {
   const h = await handshake(t); requestHandshake(h.workspace); const step = await h.step();
   rmSync(resolve(h.workspace, 'figma', HANDSHAKE_REQUEST)); // preflight timed out and withdrew
-  await h.record(step.step!, check);
+  assert.equal((await h.call(`/record?step=${step.step}`, {body:check})).status,409);
   assert.equal(existsSync(resolve(h.workspace, 'figma', HANDSHAKE_REQUEST)), false); assert.equal((await h.step('wait')).kind, 'wait');
 });
 test('a resumed build proves only the connection, and still rejects the wrong file', async t => {
@@ -239,7 +243,8 @@ test('a connection to a finished build waits for the new plan', async t => {
 });
 test('a Figma error publishes the latch and a new server resumes the failed step', async t => {
   const root = scratch(t), ws = workspace(resolve(root, 'w'), 'NEW', { fileKey: 'NEW', steps: [{ id: 'pages' }, { id: 'variables' }], done: ['pages'] });
-  const h = await listen(t, root, ws, new Build(ws, { ...quiet, driver: fakeDriver([]) }));
+  const h = await listen(t, root, ws, new Build(ws, { ...quiet, driver: fakeDriver([{kind:'check',step:'variables',code:'return {};'}]) }));
+  await h.call('/next',{key:'NEW'});
   assert.equal((await h.call('/error', { key: 'NEW', body: { step: 'variables', message: 'font missing' } })).status, 200);
   assert.deepEqual([h.build.progress.state, h.build.progress.message, h.build.failed?.step], ['failed', 'font missing', 'variables']);
   const waiting = await h.call('/next', { key: 'NEW' }); assert.equal(waiting.json()['kind'], 'wait'); assert.match(String(waiting.json()['message']), /Stopped at variables/);
@@ -306,7 +311,7 @@ test('a screenshot, a timed result and an upload file travel through the server'
   assert.equal((await sharp(file.buffer).metadata()).width, 4096); // figma.createImage refuses more than 4096 pixels
   assert.equal((await h.call('/file?step=images:a&i=0junk')).status, 500);
   assert.deepEqual((await h.call('/file?step=images:a&i=-1')).buffer,file.buffer); // Python indexing parity
-  assert.equal((await h.call('/file?step=images:a&i=3')).status, 500); assert.equal((await h.call('/file?step=other&i=0')).status, 500);
+  assert.equal((await h.call('/file?step=images:a&i=3')).status, 500); assert.equal((await h.call('/file?step=other&i=0')).status, 409);
   assert.equal((await h.call('/record?step=images:a', { body: { __designLabTiming: { durationMs: 12.5 }, result: { statuses: [200] } } })).status, 200);
   assert.deepEqual(recorded[0], ['images:a', { statuses: [200] }]);
   assert.deepEqual(JSON.parse(readFileSync(resolve(h.workspace, 'figma/timings.jsonl'), 'utf8').trim()), { step: 'images:a', phase: 'figma', ms: 12.5 });
@@ -350,10 +355,10 @@ test('the real driver serves a step inline, records it with its timing, and a re
   const total = (JSON.parse(readFileSync(resolve(project, 'figma/state.json'), 'utf8')) as { steps: unknown[] }).steps.length;
   assert.deepEqual([step['kind'], step['step'], step['done'], step['total'], 'payload' in step], ['use_figma', 'pages', 0, total, false]);
   assert.match(String(step['code']), /^const ARGS = /);
-  const bad = await h.call('/record?step=variables', { key: 'FILE', body: {} }); assert.equal(bad.status, 500); assert.match(bad.text, /not the current step|expected to record pages/);
+  const bad = await h.call('/record?step=variables', { key: 'FILE', body: {} }); assert.equal(bad.status, 409); assert.match(bad.text, /stale or unissued/);
   const pages = { pages: Object.fromEntries(c.pageList(project).map((n, i) => [n, `0:${i + 1}`])), foreign: [] };
   const restarted = await listen(t, scratch(t), project, new Build(project, quiet)); // this server never served `pages`
-  const done = await restarted.call('/record?step=pages', { key: 'FILE', body: { __designLabTiming: { durationMs: 7 }, result: pages } });
+  const done = await restarted.call(`/record?step=pages&generation=${step['generation']}&stepToken=${step['stepToken']}`, { key: 'FILE', body: { __designLabTiming: { durationMs: 7 }, result: pages } });
   assert.equal(done.status, 200, done.text); assert.deepEqual([done.json()['recorded'], done.json()['remaining']], ['pages', total - 1]);
   assert.equal(progress(project)['stepsDone'], null); // nothing was served to this server, so there is no total to count against
   assert.ok(existsSync(resolve(project, 'figma/results/pages.json')));

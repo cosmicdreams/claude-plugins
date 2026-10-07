@@ -25,7 +25,7 @@ export function withoutCache(source: string, cache: string): string {
 }
 export function legacyRuntime(value: unknown, current: string, legacy: string): unknown {
   if (Array.isArray(value)) return value.map(v => legacyRuntime(v, current, legacy));
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([k]) => k !== 'buildId').map(([k, v]) => [k, k === 'runtime' && v === current ? legacy : legacyRuntime(v, current, legacy)]));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([k]) => !['buildId','executionRevision'].includes(k)).map(([k, v]) => [k, k === 'runtime' && v === current ? legacy : legacyRuntime(v, current, legacy)]));
   return value;
 }
 export function assertPayloadParity(actual: string, expected: string, current: Renderer, legacy: Renderer, message: string): void {

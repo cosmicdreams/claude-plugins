@@ -155,3 +155,25 @@ test('ambiguous and unrelated generic variant words remain unknown', async () =>
   const out = variantValues([{ name: 'field_mask', options: [{ value: 'none', label: 'None' }, { value: 'circle', label: 'Circle' }] }, { name: 'field_shape', options: [{ value: 'circle', label: 'Circle' }, { value: 'square', label: 'Square' }] }], [{ field: 'field_mask', label: 'Mask' }, { field: 'field_shape', label: 'Shape' }], [{ classes: ['d-none', 'circle', 'square'] }]);
   assert.equal(out[0]!.value, 'Circle'); assert.equal(out[1]!.value, null); assert.deepEqual(out[1]!.others, ['Circle', 'Square']);
 });
+
+
+for (const checkOnly of [true,false]) test(`selector timeout checkpoints failure and drains healthy siblings (check=${checkOnly})`, async () => {
+  const f=fixture(); let closed=false, healthyFinished=false;
+  const adapters: CaptureAdapters = {...f.adapters,
+    launch:async()=>({close:async()=>{assert.equal(healthyFinished,true);closed=true;}} as unknown as Browser),
+    check:async(_browser, input)=>{
+      if(input.componentId.endsWith('alpha')) await new Promise(()=>{});
+      await new Promise(r=>setTimeout(r,10)); assert.equal(closed,false); healthyFinished=true;
+      return {componentId:input.componentId,chosen:input.pages[0]!.path,revealed:false,seconds:0,pages:[]};
+    }};
+  const output=await runCapture({...f.options,check:checkOnly,captureTimeoutMs:25,concurrency:2},adapters);
+  assert.equal(closed,true); assert.ok(output.problems.some(p=>p.componentId==='sdc.demo.alpha'));
+  const failed=JSON.parse(readFileSync(resolve(f.root,'capture/records/sdc.demo.alpha.json'),'utf8'));
+  assert.equal(failed.status,'failed');assert.match(failed.problems.join(';'),/stopped after/);
+  if(!checkOnly) assert.ok('sdc.demo.zeta' in output.captures);
+});
+test('pool drains siblings before propagating an unexpected item exception', async()=>{
+  let finished=false;
+  await assert.rejects(pool([0,1],2,async i=>{if(!i) throw new Error('bad item');await new Promise(r=>setTimeout(r,15));finished=true;return i;}),/bad item/);
+  assert.equal(finished,true);
+});

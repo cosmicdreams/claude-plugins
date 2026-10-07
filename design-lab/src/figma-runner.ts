@@ -236,6 +236,10 @@ export interface BuildOptions {
   /** Print each log line to stdout as well as runner.log; the foreground server does. */
   echo?: boolean;
 }
+interface WorkIdentity { step: string; generation: string; stepToken: string; client: string }
+interface WorkAck { digest: string; out: Json; client: string; step: string }
+interface WorkLedger { generation: string; active?: { step: Step; token: string; client: string; intent?: { digest: string; result: Json; out?: Json } }; completed: Record<string, WorkAck> }
+class WorkConflict extends Error { status = 409; }
 interface Progress { state: string; stepsDone: number | null; stepsTotal: number | null; step: string | null; stepKind: string | null; message: string | null }
 const wait = (message: string): Step => ({ kind: 'wait', step: 'wait', retryMs: WAIT_MS, message });
 
@@ -263,6 +267,69 @@ export class Build {
     if (this.stateCache?.stamp !== stamp) this.stateCache = { stamp, state: readJson(this.statePath) };
     return this.stateCache.state;
   }
+  private get workPath(): string { return resolve(figmaDir(this.project), 'runner-work.json'); }
+  private generation(): string {
+    const state = this.stateExists() ? this.state : {};
+    const handshake = this.handshakePending() ? handshakeRequest(this.project)['requestedAt'] : null;
+    return createHash('sha256').update(JSON.stringify([this.key, state['buildId'] ?? [state['runtime'], state['steps']], handshake])).digest('hex');
+  }
+  private work(): WorkLedger {
+    const generation = this.generation();
+    const saved = existsSync(this.workPath) ? readJson(this.workPath) as unknown as WorkLedger : undefined;
+    if (saved?.generation === generation) return saved;
+    this.current = null; this.failed = null;
+    const ledger: WorkLedger = { generation, completed: {} }; this.saveWork(ledger); return ledger;
+  }
+  private saveWork(ledger: WorkLedger): void { writeAtomic(this.workPath, JSON.stringify(ledger) + '\n'); }
+  validateWork(identity: WorkIdentity, allowCompleted = false): WorkLedger {
+    const ledger = this.work(), active = ledger.active, ack = ledger.completed[identity.stepToken];
+    if (identity.generation !== ledger.generation || !identity.stepToken ||
+      !(active?.token === identity.stepToken && active.client === identity.client && active.step.step === identity.step ||
+        allowCompleted && ack?.client === identity.client && ack.step === identity.step)) throw new WorkConflict('stale or unissued generation/session/step token');
+    if (active?.token === identity.stepToken) this.current = active.step;
+    return ledger;
+  }
+  async issue(client: string): Promise<Step> {
+    const ledger = this.work();
+    if (ledger.active) return wait('A runner is executing the issued step.');
+    const step = await this.next();
+    if (ledger.generation !== this.generation()) throw new WorkConflict('build changed while issuing work');
+    if (['done', 'wait'].includes(step.kind)) return step;
+    const token = randomBytes(24).toString('base64url');
+    ledger.active = {step: this.current!, token, client}; this.saveWork(ledger);
+    return {...step, generation: ledger.generation, stepToken: token};
+  }
+  async recordWork(identity: WorkIdentity, result: Json): Promise<Json> {
+    const ledger = this.validateWork(identity, true);
+    const timing = result['__designLabTiming'];
+    if (timing !== undefined && (!isObject(timing) || typeof timing['durationMs'] !== 'number' || !Number.isFinite(timing['durationMs']) || timing['durationMs'] < 0)) throw new Error('invalid step durationMs');
+    if (timing !== undefined && !isObject(result['result'])) throw new Error('the timed result must be a JSON object');
+    // Timing is transport metadata. A retry of the same result may report a different duration.
+    const actual = result['__designLabTiming'] === undefined ? result : result['result'];
+    const digest = createHash('sha256').update(JSON.stringify(sorted(actual))).digest('hex');
+    const ack = ledger.completed[identity.stepToken];
+    if (ack) { if (ack.digest !== digest) throw new WorkConflict('record retry has a different result digest'); return ack.out; }
+    const active = ledger.active!;
+    if (active.intent && active.intent.digest !== digest) throw new WorkConflict('record retry has a different result digest');
+    // Journal before commit. A restart after state commit recovers the acknowledgement.
+    const committed = active.intent && this.stateExists() && Array.isArray(this.state['done']) && this.state['done'].includes(identity.step);
+    let out: Json;
+    if (committed) out = active.intent!.out ?? {recorded: identity.step, remaining: (this.state['steps'] as unknown[]).length - (this.state['done'] as unknown[]).length};
+    else {
+      active.intent = {digest, result}; this.saveWork(ledger);
+      try { out = await this.record(identity.step, result); }
+      catch (error) {
+        // Validation failed before commit: the client may correct its result under this token.
+        if (!this.stateExists() || !(this.state['done'] as string[] | undefined)?.includes(identity.step)) { delete active.intent; this.saveWork(ledger); }
+        throw error;
+      }
+      if (ledger.generation !== this.generation() && active.step.kind !== 'check') throw new WorkConflict('build changed while recording work');
+    }
+    ledger.completed[identity.stepToken] = {digest, out, client:identity.client, step:identity.step};
+    delete ledger.active; this.current = null; this.saveWork(ledger); return out;
+  }
+  releaseWork(identity: WorkIdentity): void { const ledger = this.validateWork(identity); delete ledger.active; this.saveWork(ledger); }
+
   /** The target file: the build's, once init has run, else the run's target. */
   get key(): string | null {
     if (this.stateExists()) return text(this.state['fileKey']);
@@ -350,9 +417,11 @@ export class Build {
     const results = resolve(this.project, 'figma/results');
     if (!existsSync(resolve(results, 'pages.json'))) return null; // nothing was built, so there is nothing to dump
     const pages = Object.entries(readJson(resolve(results, 'pages.json'))['pages'] as Record<string, string>).sort(byName);
-    // A dump older than the newest build result describes a file that has changed since.
+    // Mutating executions advance revision even when write-on-change preserves result mtimes.
+    // Older builds without revisions retain the original freshness rule until their next mutation.
     const built = Math.max(0, ...readdirSync(results).filter(n => n.endsWith('.json')).map(n => statSync(resolve(results, n)).mtimeMs));
-    const stale = (target: string): boolean => !existsSync(target) || statSync(target).mtimeMs < built;
+    const revision = this.state['executionRevision'];
+    const stale = (target: string): boolean => !existsSync(target) || (revision ? !existsSync(target + '.revision') || readJson(target + '.revision')['revision'] !== revision : statSync(target).mtimeMs < built);
     const out = resolve(this.project, 'figma/dump'), safe = (name: string) => name.replaceAll('/', '-');
     // Full tree dumps take minutes on large tier pages; an iterating build keeps only the light verification dumps.
     for (const [name, id] of this.state['iterate'] ? [] : pages) {
@@ -444,7 +513,7 @@ export class Build {
       const kind: DumpKind = step === 'verify:root' ? 'root' : step === 'verify:getting-started' ? 'getting-started' : step.startsWith('verify:page:') ? 'page' : 'tree';
       const errors = validateRunnerRecord('dump', result, kind); if (errors.length) throw new Error(`${step}: invalid ${kind} dump:\n${errors.join('\n')}`);
       const target = String(cur['out']); mkdirSync(dirname(target), { recursive: true });
-      writeFileSync(target, pyJson(result, 1, true) + '\n'); this.current = null; this.log(`recorded ${step}`); // always written: a dump's age is compared with the results
+      writeAtomic(target, pyJson(result, 1, true) + '\n'); writeAtomic(target + '.revision', JSON.stringify({ revision: this.state['executionRevision'] }) + '\n'); this.current = null; this.log(`recorded ${step}`); // revision tracks execution even when result JSON stays identical
       return { recorded: step };
     }
     const out: Json = cur.kind === 'screenshot' ? await this.driver().recordScreenshot(step, result) : await this.driver().record(step, result as BuildResult);
@@ -454,7 +523,7 @@ export class Build {
 }
 
 export function findBuild(builds: Map<string, Build>, key: string): Build | undefined {
-  return builds.get(key) ?? [...builds.values()].find(b => b.key === key);
+  return [...builds.values()].find(b => b.key === key);
 }
 /** The one run this server serves, by its target file key; a second run is refused. */
 export function loadBuilds(projects: string[], options: BuildOptions = {}): Map<string, Build> {
@@ -495,23 +564,32 @@ export function makeServer(builds: Map<string, Build>, token: string, options: S
   async function serve(req: http.IncomingMessage, res: http.ServerResponse, build: Build, path: string, q: Record<string, string>): Promise<void> {
     try {
       const need = (name: string): string => { const v = q[name]; if (v === undefined) throw new Error(`missing query parameter ${name}`); return v; };
+      if (build.key !== q['fileKey']) { req.resume(); return reply(res, 404, 'build retargeted', 'text/plain'); }
       const body = req.method === 'POST' ? await readBody(req) : null;
-      if (req.method === 'GET' && path === '/next') { const step = await build.next(); build.note(step); return reply(res, 200, JSON.stringify(step)); }
+      const identity = (): WorkIdentity => ({ step: need('step'), generation: need('generation'), stepToken: need('stepToken'), client: need('client') });
+      if (req.method === 'GET' && path === '/next') { seen(build); const step = await build.issue(need('client')); build.note(step); return reply(res, 200, JSON.stringify(step)); }
       if (req.method === 'GET' && path === '/file') {
+        build.validateWork(identity()); seen(build);
         const index = need('i').trim();
         if (!/^[+-]?\d+$/.test(index)) throw new Error('invalid file index');
         const f = await build.file(need('step'), Number(index)); return reply(res, 200, f.data, f.contentType);
       }
-      if (req.method === 'POST' && path === '/record') { const out = await build.record(need('step'), body!); build.noteRecorded(out); return reply(res, 200, JSON.stringify(out)); }
+      if (req.method === 'POST' && path === '/record') { const out = await build.recordWork(identity(), body!); seen(build); build.noteRecorded(out); return reply(res, 200, JSON.stringify(out)); }
+      if (req.method === 'GET' && path === '/heartbeat') { build.validateWork(identity()); seen(build); return reply(res, 200, '{}'); }
       if (req.method === 'POST' && path === '/error') {
+        const work = identity(); build.validateWork(work); seen(build);
+        if (body!['step'] !== work.step) throw new WorkConflict('error step does not match issued work');
         const message = String(body!['message'] ?? JSON.stringify(body)), step = text(body!['step']);
         build.log(`FAILED ${message}`); build.progress.state = 'failed'; build.progress.message = message;
         if (step && !step.startsWith('preflight')) build.failed = { step, stamp: build.stateStamp() };
+        build.releaseWork(work);
         if (build.current?.kind === 'check' && build.handshakePending()) build.handshakeError(message);
+        build.current = null;
         return reply(res, 200, '{}');
       }
       return reply(res, 404, 'unknown route', 'text/plain');
     } catch (error) { // reported to the plugin, which stops without recording
+      if (error instanceof WorkConflict) return reply(res, 409, error.message, 'text/plain');
       const message = (error as Error).message; build.log(`error: ${message}`); Object.assign(build.progress, { state: 'failed', message });
       return reply(res, 500, message, 'text/plain');
     }
@@ -541,9 +619,9 @@ export function makeServer(builds: Map<string, Build>, token: string, options: S
       rejectHandshakes(b => ({ fileKey: q['fileKey'], fileKeyMatches: false, failure: `the runner is open in a different file (key ${q['fileKey']}); open the target file (key ${b.key}) in Figma desktop and start the runner there` }));
       return reply(res, 404, `no build for file ${repr(q['fileKey'] ?? '')}; serving [${[...builds.values()].map(b => b.key ?? '?').sort().map(repr).join(', ')}]`, 'text/plain');
     }
-    activity.inflight++; seen(build); // when the runner last asked, so the run can tell it is still there
+    activity.inflight++; // slow server-side work is visible while valid clients renew lastSeen
     try { await build.lock.run(() => serve(req, res, build, url.pathname, q)); }
-    finally { activity.inflight--; seen(build); }
+    finally { activity.inflight--; build.writeProgress(activity.inflight > 0); }
   }
   const server = http.createServer((req, res) => {
     if (req.method === 'OPTIONS') { // preflight, in case a client sends a non-simple request
