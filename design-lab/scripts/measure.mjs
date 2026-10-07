@@ -17,6 +17,38 @@ import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { dismissCookiePreferences } from './cookie_preferences.mjs';
 
+/* The URL inside a computed `mask-image` (`url("...")`, `url('...')` or bare), with CSS
+   escapes undone. A quoted data: URL may contain parentheses, so the quote ends it, not `)`. */
+export function maskUrl(value) {
+  const m = /url\(\s*(?:"((?:\\.|[^"\\])*)"|'((?:\\.|[^'\\])*)'|([^)\s]+))\s*\)/.exec(value || '');
+  if (!m) return null;
+  return (m[1] ?? m[2] ?? m[3]).replace(/\\(.)/g, '$1');
+}
+
+const maskCache = {};
+
+async function fetchSvg(context, url) {
+  try {
+    if (url.startsWith('data:')) {
+      const comma = url.indexOf(',');
+      const head = url.slice(0, comma), body = url.slice(comma + 1);
+      return /;base64/i.test(head) ? Buffer.from(body, 'base64').toString('utf8') : decodeURIComponent(body);
+    }
+    const response = await context.request.get(url);
+    const type = response.headers()['content-type'] || '';
+    const text = response.ok() ? await response.text() : '';
+    /* A server may label an SVG file text/plain or octet-stream; the body decides then. */
+    if (!response.ok() || !(/svg/i.test(type) || /^\s*(\ufeff)?\s*(<\?xml[^>]*>\s*)?(<!--[\s\S]*?-->\s*)*<svg\b/i.test(text))) {
+      console.error(`mask not used: ${url} (${response.status()} ${type || 'no content type'})`);
+      return null;
+    }
+    return text;
+  } catch (error) {
+    console.error(`mask not fetched: ${url} (${error.message})`);
+    return null;
+  }
+}
+
 let chromium;
 try {
   const { createRequire } = await import('node:module');
@@ -56,6 +88,8 @@ const PROPS = [
   'letterSpacing', 'textAlign', 'textTransform', 'textDecorationLine',
   'color', 'backgroundColor', 'backgroundImage', 'backgroundSize',
   'backgroundPosition', 'backgroundRepeat',
+  /* An icon drawn as a mask over its background colour (`mask-image: url(arrow.svg)`). */
+  'maskImage',
   'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
   'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
   'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
@@ -311,6 +345,19 @@ for (const vp of VIEWPORTS) {
       }
     );
 
+    /* A masked icon's shape lives in the SVG its mask names. Fetch each one once and keep the
+       markup with the measurement, so the Figma build draws the icon's shape in its background
+       colour without needing the site again. The browser context's request API shares the
+       page's cookies and is not subject to cross-origin rules, so a mask served from another
+       host still arrives; a data: URL is decoded here. Only an SVG response is kept, and a mask
+       that cannot be had is recorded on the node rather than silently drawn as a box. */
+    for (const n of result.nodes || []) {
+      const url = maskUrl((n.computed && n.computed.maskImage) || '');
+      if (!url || !/\.svg([?#]|$)|^data:image\/svg\+xml/i.test(url)) continue;
+      if (!(url in maskCache)) maskCache[url] = await fetchSvg(context, url);
+      if (maskCache[url]) n.maskSvg = maskCache[url];
+      else n.maskUnfetched = url;
+    }
     spec.measurements[`${vp.name}:${state.name}`] = result;
     if (state.teardown) await page.evaluate(state.teardown);
   }

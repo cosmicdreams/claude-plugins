@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.23.2
+- Icons drawn as a CSS mask over a background colour (`mask-image: url(arrow.svg)`) are built as their SVG shape in that colour. They used to come out as solid squares: on PNCB, every arrow and icon in the 2026 theme, 27 icon layers across 11 components. Capture records each element's `mask-image`, fetches the masked SVG once from the page and keeps it with the measurement, so a rebuild without the site still has it.
+
 ## 0.23.1
 - Site Studio usage now reads the master, content, menu and view templates from the site's active config, so components a template places get counted. Previously the header and footer that a master template puts on every page were measured as unused and never captured. Template placements count as structural references and are listed under `templates`. The default master template and menu templates point to `/` as their example. Any other master template, and the full content template that actually renders a content type (its own enabled, modified default template, else the global `__any__` one, as Site Studio itself chooses), point to the published nodes of the bundles it renders. A view template points to its views' page paths. Disabled templates are skipped. Pages where an author placed a component still come before pages a template renders it on. On AHRI, `cpt_ahri_site_header` and `cpt_ahri_site_footer` now get `/` as their example, and four more template-only components get an example page.
 - A damaged serialized template row is reported and skipped; it no longer aborts the usage extraction.
