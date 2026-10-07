@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import { hashLayout } from '../../src/determinism.ts';
+import { hashLayout } from '../../../src/determinism.ts';
 import { pyJson } from './python-oracle.ts';
 
 // Each case is raw JSON text, so -0, -0.0, 1e400 and emoji keys reach both parsers unchanged.

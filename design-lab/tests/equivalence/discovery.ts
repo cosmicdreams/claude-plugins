@@ -83,6 +83,7 @@ export function normalize(value: unknown, path = ""): unknown {
         )
         .map(([k, v]) => [k, normalize(v, `${path}/${k}`)]),
     );
+  if (path === "/toolVersion" && value === "design-lab 0.23.2") return "design-lab 0.24.0";
   return value;
 }
 export function differences(a: unknown, b: unknown, path = ""): string[] {

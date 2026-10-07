@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { parseComponents } from '../../src/find-rendered-components.ts';
-import { parseHtml } from '../../src/html-parser.ts';
+import { parseComponents } from '../../../src/find-rendered-components.ts';
+import { parseHtml } from '../../../src/html-parser.ts';
 import { pyJson, PYTHON } from './python-oracle.ts';
 
 // Malformed and abrupt comment fixtures. The expected results come from the Python reference

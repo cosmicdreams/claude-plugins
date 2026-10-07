@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { resolve } from 'node:path';
-import * as sdc from '../../src/extract-sdc.ts';
+import * as sdc from '../../../src/extract-sdc.ts';
 import { pyJson } from './python-oracle.ts';
 
 // Enum values as the Python extractor sees them: str(v).replace('_', ' ').replace('-', ' ').title().

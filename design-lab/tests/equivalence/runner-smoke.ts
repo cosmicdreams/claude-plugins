@@ -21,7 +21,8 @@ import { legacyRuntime } from './template-parity.ts';
 const replay = resolve(process.argv[2] ?? ''), oracle = resolve(replay, 'definitive/python');
 assert.ok(replay.startsWith('/tmp/') && existsSync(resolve(oracle, 'oracle.json')), 'supply successful driver replay root');
 const source = resolve(homedir(), 'Sites/DEFINITIVEHC/design/2026-10-05');
-const scratch = mkdtempSync('/tmp/design-lab-round3-http-');
+const scratch = process.argv[3] ?? mkdtempSync('/tmp/design-lab-round3-http-');
+assert.ok(scratch.startsWith('/tmp/'));mkdirSync(scratch,{recursive:true});
 const expected = load<{transcript:{step:RunnerStep; input:BuildResult}[]}>(oracle, 'oracle.json');
 const fitted = new Map<string,string>();
 for(const row of expected.transcript) if(row.step.kind==='upload') for(const file of row.step.files??[]) {

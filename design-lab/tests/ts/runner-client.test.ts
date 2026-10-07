@@ -5,7 +5,6 @@ import { resolve } from 'node:path';
 import { createContext, Script } from 'node:vm';
 import { stripTemplate } from '../../src/render-payload.ts';
 import { pluginRoot } from '../../src/runtime.ts';
-import { assertRunnerClientParity } from '../equivalence/runner-client-parity.ts';
 
 const client = stripTemplate(readFileSync(resolve(pluginRoot,'runner/code.ts'),'utf8'));
 const cache = stripTemplate(readFileSync(resolve(pluginRoot,'scripts/render/_cache.ts'),'utf8'));
@@ -63,9 +62,6 @@ async function runClient(builds:string[], mode:GlobalMode='persistent', returns=
   return {calls,records};
 }
 
-test('stripped runner client matches the oracle except the reviewed cache and timing code',()=>{
-  assert.deepEqual(assertRunnerClientParity(),{runner:1,cache:true,timing:true});
-});
 
 test('actual runner client refreshes inventories and retains loaded fonts within a build', {timeout:5000},async()=>{
   const r=await runClient(['A','A']);

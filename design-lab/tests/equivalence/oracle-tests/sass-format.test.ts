@@ -3,7 +3,7 @@ import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import * as sass from "../../src/extract-tokens-sass.ts";
+import * as sass from "../../../src/extract-tokens-sass.ts";
 import { pyJson } from "./python-oracle.ts";
 
 // Values as text so -0.0, 1e-5 and 999999.5 reach Python unchanged.

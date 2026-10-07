@@ -14,13 +14,14 @@ import { tokens, withoutCache } from './template-parity.ts';
 import type { Spec } from '../../src/generated/spec.ts';
 const sources = { pncb: resolve(homedir(), '.design/pncb/2026-10-06'), definitive: resolve(homedir(), 'Sites/DEFINITIVEHC/design/2026-10-05'),
   massport: resolve(homedir(), 'Tools/design-lab-corpus/massport'), kingtec: resolve(homedir(), 'Tools/design-lab-corpus/kingtec'), acu: resolve(homedir(), 'Tools/design-lab-corpus/americas-credit-unions') };
-const root = mkdtempSync('/tmp/design-lab-p2-trees-');
+const root = process.argv[2] ?? mkdtempSync('/tmp/design-lab-p2-trees-');
+assert.ok(root.startsWith('/tmp/'));mkdirSync(root,{recursive:true});
 const manifest: { run: string; copy: string; oracle: string; label: string; key: string; original: string }[] = [];
 for (const [run, source] of Object.entries(sources)) {
   const measurements = resolve(source, 'capture/measurements');
   assert.equal(existsSync(measurements), true, measurements);
   const components = JSON.parse(readFileSync(resolve(source, 'components.json'), 'utf8')) as { components: { id: string; label?: string; machineName?: string }[] };
-  const dir = resolve(root, run); mkdirSync(dir);
+  const dir = resolve(root, run); mkdirSync(dir,{recursive:true});
   for (const file of readdirSync(measurements).filter(name => name.endsWith('.spec.json')).sort()) {
     const original = resolve(measurements, file), copy = resolve(dir, file); copyFileSync(original, copy);
     const spec = JSON.parse(readFileSync(copy, 'utf8')) as Spec;

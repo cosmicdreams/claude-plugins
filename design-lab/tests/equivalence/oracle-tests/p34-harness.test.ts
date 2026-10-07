@@ -1,12 +1,12 @@
-import {oracleScript,oracleExecutable} from '../equivalence/oracle.ts';
+import {oracleScript,oracleExecutable} from '../oracle.ts';
 import {test,after} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {resolve,join} from 'node:path';
 import {spawnSync} from 'node:child_process';
-import {differences,evaluationExitCode} from '../equivalence/evaluation.ts';
-import {portableParity,portableManifest} from '../equivalence/portable.ts';
-import {validate} from '../../src/contracts.ts';
+import {differences,evaluationExitCode} from '../evaluation.ts';
+import {portableParity,portableManifest} from '../portable.ts';
+import {validate} from '../../../src/contracts.ts';
 const scratch='/tmp/design-lab-merge-tests/harness';mkdirSync(scratch,{recursive:true});
 const temp=()=>mkdtempSync(scratch+'/case-');
 after(()=>rmSync(scratch,{recursive:true,force:true}));

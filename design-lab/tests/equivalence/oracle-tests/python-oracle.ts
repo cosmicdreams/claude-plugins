@@ -4,7 +4,7 @@
  * `scripts` folder already on sys.path. */
 import { spawnSync } from 'node:child_process';
 import { resolve } from 'node:path';
-import { oracleScripts,oracleExecutable } from '../equivalence/oracle.ts';
+import { oracleScripts,oracleExecutable } from '../oracle.ts';
 
 export const PYTHON = oracleExecutable;
 
@@ -14,7 +14,7 @@ sys.path.insert(0, _input['scripts'])
 `;
 
 export function pyJson<T = any>(body: string, input: Record<string, unknown> = {}): T {
-  const run = spawnSync(PYTHON, ['-I', '-c', PREAMBLE + body], {
+  const run = spawnSync(PYTHON, ['-I', '-B', '-c', PREAMBLE + body], {
     input: JSON.stringify({ scripts: oracleScripts, ...input }),
     encoding: 'utf8',
   });
