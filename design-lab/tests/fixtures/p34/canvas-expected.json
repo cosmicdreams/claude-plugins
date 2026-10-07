@@ -1,0 +1,191 @@
+{
+  "usage": {
+    "standardVersion": "3.0.0",
+    "toolVersion": "design-lab 0.23.2",
+    "generatedAt": "oracle-clock",
+    "source": {
+      "ddevProject": "portable-canvas",
+      "root": "/tmp/canvas-oracle",
+      "strategy": "canvas-db",
+      "scope": "published Canvas pages, current revisions and content templates",
+      "definitions": {
+        "placements": "top-level page placements plus template nodes",
+        "structuralRefs": "nested page placements",
+        "templatePlacements": "one per content-template tree entry"
+      },
+      "population": {
+        "publishedPages": 4,
+        "pagePlacementRows": 5,
+        "templateNodes": 1
+      }
+    },
+    "usage": {
+      "sdc.demo.card": {
+        "placements": 1,
+        "structuralRefs": 2,
+        "templatePlacements": 0,
+        "pages": 2,
+        "exampleCandidates": [
+          "/resources",
+          "/programs"
+        ],
+        "templateBundles": [],
+        "templateRefs": [],
+        "globalTemplate": false
+      },
+      "sdc.demo.hero": {
+        "placements": 2,
+        "structuralRefs": 0,
+        "templatePlacements": 1,
+        "pages": 1,
+        "exampleCandidates": [
+          "/page/2"
+        ],
+        "templateBundles": [
+          "program"
+        ],
+        "templateRefs": [
+          "config/sync/canvas.content_template.node.program.full.yml"
+        ],
+        "globalTemplate": false
+      },
+      "sdc.demo.layout": {
+        "placements": 1,
+        "structuralRefs": 0,
+        "templatePlacements": 0,
+        "pages": 1,
+        "exampleCandidates": [
+          "/resources"
+        ],
+        "templateBundles": [],
+        "templateRefs": [
+          {
+            "file": "web/themes/custom/demo/templates/layout/page.html.twig",
+            "line": 2,
+            "global": true
+          }
+        ],
+        "globalTemplate": true
+      },
+      "sdc.demo.retired": {
+        "placements": 0,
+        "structuralRefs": 0,
+        "templatePlacements": 0,
+        "pages": 0,
+        "exampleCandidates": [],
+        "templateBundles": [],
+        "templateRefs": [],
+        "globalTemplate": false
+      }
+    },
+    "problems": []
+  },
+  "merged": {
+    "components": [
+      {
+        "id": "sdc.demo.card",
+        "sourceSdcId": "demo:card",
+        "fields": [],
+        "usage": {
+          "placements": 1,
+          "structuralRefs": 2,
+          "templatePlacements": 0,
+          "pages": 2,
+          "exampleCandidates": [
+            "/resources",
+            "/programs"
+          ],
+          "templateBundles": [],
+          "templateRefs": [],
+          "globalTemplate": false,
+          "tier": "Components \u2014 Low Use",
+          "source": "canvas-db",
+          "measuredAt": "oracle-clock",
+          "structuralReferences": 2
+        },
+        "category": "Components \u2014 Low Use"
+      },
+      {
+        "id": "sdc.demo.layout",
+        "sourceSdcId": "demo:layout",
+        "fields": [],
+        "usage": {
+          "placements": 1,
+          "structuralRefs": 0,
+          "templatePlacements": 0,
+          "pages": 1,
+          "exampleCandidates": [
+            "/resources"
+          ],
+          "templateBundles": [],
+          "templateRefs": [
+            {
+              "file": "web/themes/custom/demo/templates/layout/page.html.twig",
+              "line": 2,
+              "global": true
+            }
+          ],
+          "globalTemplate": true,
+          "tier": "Components \u2014 High Use",
+          "source": "canvas-db",
+          "measuredAt": "oracle-clock",
+          "structuralReferences": 0,
+          "tierReason": "referenced by a global theme template"
+        },
+        "category": "Components \u2014 High Use"
+      },
+      {
+        "id": "sdc.demo.hero",
+        "sourceSdcId": "demo:hero",
+        "fields": [],
+        "usage": {
+          "placements": 2,
+          "structuralRefs": 0,
+          "templatePlacements": 1,
+          "pages": 1,
+          "exampleCandidates": [
+            "/page/2"
+          ],
+          "templateBundles": [
+            "program"
+          ],
+          "templateRefs": [
+            "config/sync/canvas.content_template.node.program.full.yml"
+          ],
+          "globalTemplate": false,
+          "tier": "Components \u2014 Low Use",
+          "source": "canvas-db",
+          "measuredAt": "oracle-clock",
+          "structuralReferences": 0,
+          "tierReason": "referenced by a theme or content template"
+        },
+        "category": "Components \u2014 Low Use"
+      },
+      {
+        "id": "sdc.demo.retired",
+        "sourceSdcId": "demo:retired",
+        "fields": [],
+        "usage": {
+          "placements": 0,
+          "structuralRefs": 0,
+          "templatePlacements": 0,
+          "pages": 0,
+          "exampleCandidates": [],
+          "templateBundles": [],
+          "templateRefs": [],
+          "globalTemplate": false,
+          "tier": "Components \u2014 Retirement Candidates",
+          "source": "canvas-db",
+          "measuredAt": "oracle-clock",
+          "structuralReferences": 0
+        },
+        "category": "Components \u2014 Retirement Candidates"
+      }
+    ],
+    "totals": {
+      "placements": 4,
+      "structuralRefs": 2
+    },
+    "problems": []
+  }
+}

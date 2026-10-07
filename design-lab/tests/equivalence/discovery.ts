@@ -15,6 +15,8 @@ import type { Components } from "../../src/generated/components.ts";
 import type { ArtifactKind } from "../../src/contracts.ts";
 import type { RenderingSignals, CaptureSignals } from "../../src/plan.ts";
 
+import {portableManifest} from './portable.ts';
+
 const home = homedir();
 export const sites = [
   ["pncb", join(home, ".design/pncb/2026-10-06")],
@@ -106,6 +108,7 @@ export function differences(a: unknown, b: unknown, path = ""): string[] {
     .slice(0, 50);
 }
 export async function main(rootArg?: string, usage = false): Promise<void> {
+  portableManifest();
   const output = rootArg
     ? resolve(rootArg)
     : mkdtempSync(join(tmpdir(), "design-lab-p3-equivalence-"));
@@ -136,8 +139,8 @@ export async function main(rootArg?: string, usage = false): Promise<void> {
         "variable-plan",
       ])
         result.artifacts[name] = {
-          status: "skipped",
-          reason: "site repository missing",
+          status: "mismatch",
+          reason: "required site repository missing",
         };
       continue;
     }
@@ -272,6 +275,8 @@ export async function main(rootArg?: string, usage = false): Promise<void> {
       console.log("usage acceptance is run separately after core parity");
     writeJson(join(output, "summary.json"), { ignoredFields, results });
   }
+  const strict=spawnSync(process.env.DESIGN_LAB_PYTHON??'python3',[join(pluginRoot,'tests/equivalence/discovery-compare.py'),output],{encoding:'utf8'});
+  console.log(strict.stdout);if(strict.status!==0)throw new Error('strict discovery manifest acceptance failed: '+strict.stderr);
   console.log("equivalence scratch:", output);
   if (
     results.some((r) =>

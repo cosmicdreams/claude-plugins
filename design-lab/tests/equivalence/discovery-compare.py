@@ -42,21 +42,26 @@ def main():
     root = Path(sys.argv[1]).resolve()
     if not str(root).startswith(('/tmp/', '/private/tmp/')):
         raise ValueError('only scratch runs under /tmp may be compared')
-    artifacts = ['detection', 'components', 'tokens', 'render-evidence', 'plan', 'variable-plan']
-    if '--live' in sys.argv:
-        artifacts = ['usage', 'enriched-components', 'published-addresses', 'published-pages',
-                     'rendered-components', 'voice', 'compositions', 'examples']
+    manifest_path = Path(sys.argv[sys.argv.index('--manifest') + 1]) if '--manifest' in sys.argv else Path(__file__).with_name('discovery-artifacts.json')
+    manifests = json.loads(manifest_path.read_text())
+    manifest = manifests['live' if '--live' in sys.argv else 'core']
+    if not manifest or any(not artifacts for artifacts in manifest.values()):
+        raise ValueError('expected-artifact manifest must be non-empty')
     results = []
-    for folder in sorted(root.iterdir()):
-        if not folder.is_dir() or not (folder / 'python').is_dir():
-            continue
+    for site, artifacts in sorted(manifest.items()):
+        folder = root / site
         for artifact in artifacts:
             paths = [folder / arm / (artifact + '.json') for arm in ('python', 'ts')]
-            if not all(path.is_file() for path in paths):
+            missing = [str(path.relative_to(root)) for path in paths if not path.is_file()]
+            if missing:
+                results.append({'site': site, 'artifact': artifact, 'status': 'mismatch', 'differences': ['missing required artifact: ' + path for path in missing]})
                 continue
-            a, b = [normalize(json.loads(path.read_text())) for path in paths]
-            diff = differences(a, b)
-            results.append({'site': folder.name, 'artifact': artifact,
+            try:
+                a, b = [normalize(json.loads(path.read_text())) for path in paths]
+                diff = differences(a, b)
+            except Exception as error:
+                diff = ['invalid artifact: ' + str(error)]
+            results.append({'site': site, 'artifact': artifact,
                             'status': 'mismatch' if diff else 'match', 'differences': diff[:50]})
     result = {'ignoredFields': IGNORED, 'comparisons': len(results), 'results': results}
     target = root / ('strict-live-summary.json' if '--live' in sys.argv else 'strict-summary.json')

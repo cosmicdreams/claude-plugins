@@ -23,12 +23,15 @@ import type { Dict } from "../../src/discovery-io.ts";
 import type { Page } from "../../src/find-rendered-components.ts";
 import { findExamplesMain } from "./network-cli.ts";
 
+import {portableParity} from './portable.ts';
+
 const python = process.env["DESIGN_LAB_PYTHON"] ?? "python3";
 export async function main(output: string): Promise<void> {
   output = resolve(output);
   if (!/^\/(private\/)?tmp\//.test(output))
     throw new Error("live output must be under /tmp");
-  const summary: Dict = { ignoredFields, results: [] };
+  const portable=await portableParity(join(output,'portable'));
+  const summary: Dict = { ignoredFields, results: [], coverage:portable.matrix, portable:portable.results };
   for (const [name, frozen] of sites) {
     const scratch = join(output, name!),
       request = JSON.parse(

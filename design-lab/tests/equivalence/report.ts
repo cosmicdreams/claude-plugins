@@ -27,7 +27,7 @@ export async function compareReports(python:string,ts:string,out:string) {
     };
     const [a,b]=await Promise.all([inspect(python,'python'),inspect(ts,'typescript')]);
     const differences:string[]=[];
-    function diff(a:any,b:any,p='') {if(differences.length>=60)return;if(Object.is(a,b))return;if(!a||!b||typeof a!=='object'||typeof b!=='object'){differences.push(p+': '+JSON.stringify(a)+' != '+JSON.stringify(b));return;}for(const k of new Set([...Object.keys(a),...Object.keys(b)]))diff(a[k],b[k],p+'/'+k);}
+    function diff(a:any,b:any,p='') {if(differences.length>=60)return;if(Object.is(a,b))return;if(!a||!b||typeof a!=='object'||typeof b!=='object'||Array.isArray(a)!==Array.isArray(b)){differences.push(p+': '+JSON.stringify(a)+' != '+JSON.stringify(b));return;}for(const k of new Set([...Object.keys(a),...Object.keys(b)]))diff(a[k],b[k],p+'/'+k);}
     diff(a.tree,b.tree);writeFileSync(resolve(out,'dom-differences.json'),JSON.stringify(differences,null,2));
     const images=[];assert.equal(a.images.length,b.images.length,'embedded image count');
     for(let i=0;i<a.images.length;i++) {const bytes=(s:string)=>Buffer.from(s.split(',')[1]!,'base64');try{images.push({index:i,...await assertPixels(bytes(b.images[i]!),bytes(a.images[i]!),'thumbnail '+i,JPEG),match:true});}catch(error){images.push({index:i,match:false,error:String(error)});}}
