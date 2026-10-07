@@ -46,7 +46,7 @@ export async function measureConfig(browser: ContextFactory, config: CaptureConf
   let sessionState: Awaited<ReturnType<BrowserContext['storageState']>> | undefined;
   for (const vp of config.viewports ?? MEASURE_VIEWPORTS) {
     const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, ignoreHTTPSErrors: true, deviceScaleFactor: 2,
-      storageState: config.cookiePreferences === false ? undefined : sessionState });
+      ...(config.cookiePreferences !== false && sessionState !== undefined ? { storageState: sessionState } : {}) });
     try {
       const page = await context.newPage();
       await settle(page, config);
@@ -89,7 +89,7 @@ export async function captureConfig(browser: ContextFactory, cfg: CaptureConfig,
   let sessionState: Awaited<ReturnType<BrowserContext['storageState']>> | undefined;
   for (const vp of cfg.viewports ?? SHOT_VIEWPORTS) {
     const context = await browser.newContext({ viewport: { width: vp.width, height: vp.height }, ignoreHTTPSErrors: true, deviceScaleFactor: scale,
-      storageState: cfg.cookiePreferences === false ? undefined : sessionState });
+      ...(cfg.cookiePreferences !== false && sessionState !== undefined ? { storageState: sessionState } : {}) });
     try {
       const page = await context.newPage();
       await settle(page, cfg);

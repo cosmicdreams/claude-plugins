@@ -82,6 +82,9 @@ npm run contracts:reality
 
 `typecheck` checks **tsconfig.src.json and tsconfig.figma.json**, using temporary overlays
 with types resolved from the shared cache. The pane retains the host-owned `tsconfig.json`.
+Both development configs also enable `exactOptionalPropertyTypes`, `noImplicitOverride`,
+`noImplicitReturns`, `noFallthroughCasesInSwitch` and `useUnknownInCatchVariables`.
+Optional artifact fields are omitted when absent; explicit `null` keeps its recorded meaning.
 `npm test` runs `node --test` across both `tests/ts` and the four browser consent tests;
 `npm run test:unit` selects only unit tests. No tests silently skip when Chromium is missing.
 `tests/keep-coverage.json` maps all 330 retained baseline scenarios to their TS suites;

@@ -79,6 +79,7 @@ if (isEntrypoint(import.meta.url)) {
   const args = process.argv.slice(2), get = (flag: string): string | undefined => args[args.indexOf(flag) + 1];
   const treePath = args.find((arg, i) => !arg.startsWith('--') && (i === 0 || !['--out', '--base-url', '--fallback-base-url'].includes(args[i - 1]!)))!;
   if (!args.includes('--out')) throw new Error('usage: fetch-images.ts TREE.json --out DIR [--base-url URL] [--fallback-base-url URL] [--offline]');
-  const manifest = await fetchImages(JSON.parse(readFileSync(treePath, 'utf8')) as Tree, { out: get('--out')!, offline: args.includes('--offline'), baseUrl: args.includes('--base-url') ? get('--base-url') : undefined, fallbackBaseUrl: args.includes('--fallback-base-url') ? get('--fallback-base-url') : undefined });
+  const baseUrl = args.includes('--base-url') ? get('--base-url') : undefined, fallbackBaseUrl = args.includes('--fallback-base-url') ? get('--fallback-base-url') : undefined;
+  const manifest = await fetchImages(JSON.parse(readFileSync(treePath, 'utf8')) as Tree, { out: get('--out')!, offline: args.includes('--offline'), ...(baseUrl !== undefined ? { baseUrl } : {}), ...(fallbackBaseUrl !== undefined ? { fallbackBaseUrl } : {}) });
   console.log(`${manifest.filter(m => !m.error).length} images; ${manifest.filter(m => m.error).length} failed`);
 }

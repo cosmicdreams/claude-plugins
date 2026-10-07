@@ -31,7 +31,7 @@ export function prepare(site: string, key: string, options: { timestamp?: string
   const stamp = options.timestamp ?? replayStamp(new Date());
   const workspace = join(site, 'replays', stamp);
   mkdirSync(join(site, 'replays'), { recursive: true });
-  prepareWorkspace(site, workspace, key, options.figmaUrl ?? `https://www.figma.com/design/${key}`, { at: options.at });
+  prepareWorkspace(site, workspace, key, options.figmaUrl ?? `https://www.figma.com/design/${key}`, options.at ? { at: options.at } : {});
   writeJson(join(workspace, 'corpus.json'), manifest);
   return workspace;
 }
@@ -42,16 +42,16 @@ export async function waitForBuild(workspace: string, timeout: number, callbacks
     if (!callbacks.status || !callbacks.dumpStep) throw new Error('tier2 wait callbacks must provide both status and dumpStep');
   }
   await waitForRebuild(workspace, timeout, (callbacks.pollMs ?? 2000) / 1000, {
-    status: callbacks.status as ((workspace: string) => any) | undefined,
-    dumpStep: callbacks.dumpStep as ((workspace: string) => any) | undefined,
-    sleep: callbacks.sleep,
-    now: callbacks.now,
-    pollMs: callbacks.pollMs,
+    ...(callbacks.status ? { status: callbacks.status as (workspace: string) => any } : {}),
+    ...(callbacks.dumpStep ? { dumpStep: callbacks.dumpStep as (workspace: string) => any } : {}),
+    ...(callbacks.sleep !== undefined ? { sleep: callbacks.sleep } : {}),
+    ...(callbacks.now !== undefined ? { now: callbacks.now } : {}),
+    ...(callbacks.pollMs !== undefined ? { pollMs: callbacks.pollMs } : {}),
   });
 }
 
 export async function replay(site: string, key: string, timeout: number, callbacks: Tier2Callbacks = {}): Promise<any> {
-  const workspace = await (callbacks.prepare ? callbacks.prepare(site, key, join(resolve(site), 'replays', replayStamp(new Date()))) : prepare(site, key, { at: callbacks.at }));
+  const workspace = await (callbacks.prepare ? callbacks.prepare(site, key, join(resolve(site), 'replays', replayStamp(new Date()))) : prepare(site, key, callbacks.at ? { at: callbacks.at } : {}));
   const [siteUrl, canonicalBaseUrl] = siteUrls(resolve(site));
   if (callbacks.init) await callbacks.init(workspace, key, siteUrl, canonicalBaseUrl);
   else if (callbacks.command) await callbacks.command('figma_build.ts', 'init', '--project', workspace, '--file-key', key, '--site-url', siteUrl, '--canonical-base-url', canonicalBaseUrl, '--rebuild', '--offline-images', '--iterate');
