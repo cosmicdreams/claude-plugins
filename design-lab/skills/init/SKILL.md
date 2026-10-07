@@ -26,8 +26,10 @@ Run every command with absolute paths, one command at a time; never `cd`, shell 
 1. See where things stand. It changes nothing:
 
    ```bash
-   node ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.ts check --json
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/require-node.mjs && node ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.ts check --json
    ```
+
+   The first part stops with a plain message when Node is older than 24, before any TypeScript loads.
 
    Each check is `ok`, `missing` (design-lab cannot run until fixed) or `advice` (it works, with a cost the person should know). Each says how it is fixed and, in `needsApproval`, what fixing it installs or changes.
 
