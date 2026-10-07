@@ -1,7 +1,7 @@
 #!/usr/bin/env node
+import { isEntrypoint } from './entrypoint.ts';
 import { readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { runCapture } from './capture/run.ts';
 import type { CaptureConfig } from './capture/types.ts';
 export { runCapture } from './capture/run.ts';
@@ -19,4 +19,4 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
   console.log(JSON.stringify({ captures: Object.keys(result.captures).length, problems: result.problems }, null, 2));
   return result.problems.length ? 1 : 0;
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) process.exitCode = await main();
+if (isEntrypoint(import.meta.url)) process.exitCode = await main();

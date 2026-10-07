@@ -1,3 +1,4 @@
+import { isEntrypoint } from './entrypoint.ts';
 /**
  * Serve build steps to the design-lab runner plugin from one process, so no model relays a build.
  * Port of scripts/figma_runner.ts (the migration oracle): the same routes, token and origin lock,
@@ -29,7 +30,7 @@ import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { appendFileSync, chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { basename, dirname, resolve, isAbsolute } from 'node:path';
-import { fileURLToPath, pathToFileURL } from 'node:url';
+import { fileURLToPath } from 'node:url';
 import { BuildDriver } from './figma-build.ts';
 import type { DriverOptions } from './figma-build.ts';
 import type { BuildResult } from './build-artifacts.ts';
@@ -739,4 +740,4 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
   }
   return 0;
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) process.exitCode = await main();
+if (isEntrypoint(import.meta.url)) process.exitCode = await main();

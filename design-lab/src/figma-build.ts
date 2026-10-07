@@ -1,7 +1,7 @@
+import { isEntrypoint } from './entrypoint.ts';
 /** In-process, resumable deterministic library driver; baseline is the migration oracle. */
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync, appendFileSync } from 'node:fs';
 import { resolve, basename } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { Renderer, LIMIT } from './render-payload.ts';
@@ -202,4 +202,4 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
   else throw new Error('usage: figma-build.ts init|next|record|receipts|status --project RUN');
   console.log(JSON.stringify(out)); return 0;
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) process.exitCode = await main();
+if (isEntrypoint(import.meta.url)) process.exitCode = await main();

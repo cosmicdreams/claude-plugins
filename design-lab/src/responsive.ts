@@ -1,3 +1,4 @@
+import { isEntrypoint } from './entrypoint.ts';
 import type { Spec, MeasuredNode } from './generated/spec.ts';
 import type { Tree, TreeNode, Layout, Text, VariableBinding } from './generated/tree.ts';
 import * as st from './spec-to-tree.ts';
@@ -5,7 +6,6 @@ import type { Box, Index, Padding, PseudoGeometry, PseudoImage, Rect } from './s
 import { sorted } from './json.ts';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { writeJson } from './contracts.ts';
 export const MODES = ['desktop', 'tablet', 'mobile'];
 export const MODE_NAMES: Record<string, string> = { desktop: 'Desktop', tablet: 'Tablet', mobile: 'Mobile' };
@@ -298,7 +298,7 @@ export function build(spec: Spec, label: string, key?: string | null): Tree {
   return { component: spec.component, machineName: spec.machineName!, label, modes: MODES.map(bp => MODE_NAMES[bp]!), measured: m.bps,
     widths: Object.fromEntries(m.bps.map(bp => [MODE_NAMES[bp]!, m.widths[bp]!])), variables: sorted(m.variables) as Tree['variables'], fallbacks: [...new Set(m.fallbacks)].sort(), notes: m.notes, tree };
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (isEntrypoint(import.meta.url)) {
   const args = process.argv.slice(2), get = (flag: string): string | undefined => args[args.indexOf(flag) + 1];
   const spec = JSON.parse(readFileSync(args[0]!, 'utf8')) as Spec, label = args.includes('--label') ? get('--label')! : spec.component;
   const tree = build(spec, label, args.includes('--key') ? get('--key') : undefined);

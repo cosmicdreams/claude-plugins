@@ -1,6 +1,6 @@
+import { isEntrypoint } from './entrypoint.ts';
 import { readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { stripTypeScriptTypes } from 'node:module';
 import { pluginRoot } from './runtime.ts';
 import { ascii, sorted } from './json.ts';
@@ -83,4 +83,4 @@ export function main(args = process.argv.slice(2)): number {
   if ([...code].length > LIMIT) { console.error(`payload is ${[...code].length} characters; use_figma accepts ${LIMIT}`); return 2; }
   const index = args.indexOf('--out'); if (index >= 0) writeFileSync(args[index + 1]!, code); else process.stdout.write(code); return 0;
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) process.exitCode = main();
+if (isEntrypoint(import.meta.url)) process.exitCode = main();
