@@ -205,7 +205,7 @@ export function selectProject(value: string, args: Selection): unknown {
   const previous = { ...project.decisions };
   let folder: string | undefined;
   if (args.sitestudioConfig) {
-    folder = resolve(args.sitestudioConfig.replace(/^~(?=\/|$)/, homedir()));
+    folder = resolve(args.sitestudioConfig.replace(/^~(?=\/|$)/, () => homedir()));
     if (
       !existsSync(folder) ||
       !statSync(folder).isDirectory() ||

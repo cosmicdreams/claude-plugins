@@ -1142,7 +1142,7 @@ export function completionMessage(card: Json, report: string): string {
           : '')
       : 'not measured',
   };
-  for (const [key, value] of Object.entries(values)) template = template.replaceAll(`{${key}}`, value);
+  for (const [key, value] of Object.entries(values)) template = template.replaceAll(`{${key}}`, () => value);
   return template + '\n';
 }
 

@@ -113,19 +113,19 @@ export function maskedIconSvg(node: MeasuredNode): string | null {
   const end = source.lastIndexOf('</svg>'); if (!source.startsWith('<svg') || end < 0) return null;
   let svg = source.slice(0, end + 6); const colour = fill.hex, alpha = fill.opacity ?? 1;
   svg = svg.replace(/\b(fill|stroke)=(["'])(?!none\2)[^"']*\2/g, (_, prop: string) => `${prop}="${colour}"`)
-    .replace(/\b(fill|stroke)\s*:\s*(?!none\b)[^;"'}<]+/g, (_, prop: string) => `${prop}:${colour}`).replaceAll('currentColor', colour);
+    .replace(/\b(fill|stroke)\s*:\s*(?!none\b)[^;"'}<]+/g, (_, prop: string) => `${prop}:${colour}`).replaceAll('currentColor', () => colour);
   const root = /^<svg\b[^>]*>/.exec(svg)![0]; let tag = root;
   const width = r2(node.box.width || 0), height = r2(node.box.height || 0);
   if (width && height) {
     if (!/\bviewBox=/.test(tag)) {
       const w = /\bwidth=["']?([\d.]+)(?:px)?["'\s>]/.exec(tag), h = /\bheight=["']?([\d.]+)(?:px)?["'\s>]/.exec(tag);
-      if (w && h) tag = tag.replace('<svg', `<svg viewBox="0 0 ${w[1]} ${h[1]}"`);
+      if (w && h) tag = tag.replace('<svg', () => `<svg viewBox="0 0 ${w[1]} ${h[1]}"`);
     }
-    tag = tag.replace(/\s(width|height)=(["'])[^"']*\2/g, '').replace('<svg', `<svg width="${fnum(width)}" height="${fnum(height)}"`);
+    tag = tag.replace(/\s(width|height)=(["'])[^"']*\2/g, '').replace('<svg', () => `<svg width="${fnum(width)}" height="${fnum(height)}"`);
   }
-  if (!/\bfill=/.test(tag) && !/\bfill\s*:/.test(tag)) tag = tag.replace('<svg', `<svg fill="${colour}"`);
-  if (alpha < 1) tag = tag.replace('<svg', `<svg opacity="${alpha}"`);
-  return svg.replace(root, tag);
+  if (!/\bfill=/.test(tag) && !/\bfill\s*:/.test(tag)) tag = tag.replace('<svg', () => `<svg fill="${colour}"`);
+  if (alpha < 1) tag = tag.replace('<svg', () => `<svg opacity="${alpha}"`);
+  return svg.replace(root, () => tag);
 }
 export const maskedLeaf = (node: MeasuredNode, hasChildren: boolean): string | null => hasChildren || node.text?.trim() ? null : maskedIconSvg(node);
 export const positionedOut = (node: MeasuredNode): boolean => ['absolute', 'fixed'].includes(node.computed['position'] ?? '');

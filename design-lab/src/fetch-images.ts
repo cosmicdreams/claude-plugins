@@ -24,7 +24,9 @@ async function get(url: string, redirects = 5): Promise<{ data: Buffer; contentT
     const req = (parsed.protocol === 'https:' ? httpsRequest : httpRequest)(parsed, { headers: { 'User-Agent': 'design-lab' }, rejectUnauthorized: verifyTls(parsed) }, response => {
       const status = response.statusCode ?? 0;
       if (status >= 300 && status < 400 && response.headers.location) {
-        response.resume(); if (!redirects) reject(new Error('too many redirects')); else get(new URL(response.headers.location, parsed).href, redirects - 1).then(resolveResult, reject); return;
+        response.resume();
+        try { if (!redirects) reject(new Error('too many redirects')); else get(new URL(response.headers.location, parsed).href, redirects - 1).then(resolveResult, reject); } catch (error) { reject(error); }
+        return;
       }
       if (status >= 400) { response.resume(); reject(new HttpError(status)); return; }
       const chunks: Buffer[] = [];

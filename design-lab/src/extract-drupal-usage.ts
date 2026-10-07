@@ -946,10 +946,13 @@ export function httpGet(
               });
               return;
             }
-            hop(new URL(location, parsed).href, hops + 1).then(
-              resolveResult,
-              reject,
-            );
+            try {
+              const redirected = new URL(location, parsed);
+              // urllib refuses unsafe redirect schemes as an HTTPError at the original status.
+              if (!['http:', 'https:', 'ftp:'].includes(redirected.protocol)) {
+                resolveResult({status,headers:response.headers,body:Buffer.alloc(0)});
+              } else hop(redirected.href, hops + 1).then(resolveResult, reject);
+            } catch (error) { reject(error); }
             return;
           }
           const chunks: Buffer[] = [];
@@ -993,7 +996,7 @@ export function urljoin(base: string, path: string): string {
   for (const char of new Set(
     [...base, ...path].filter((c) => /[^\x00-\x7f]/.test(c)),
   ))
-    joined = joined.replaceAll(encodeURIComponent(char), char);
+    joined = joined.replaceAll(encodeURIComponent(char), () => char);
   return joined;
 }
 const joinBase = (baseUrl: string, path: string): string =>

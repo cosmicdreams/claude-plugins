@@ -34,7 +34,7 @@ function any(v: any): boolean { return iterable(v).some(truth); }
 function enumerate(v: any): any[] { return iterable(v).map((x,i)=>[i,x]); }
 function zip(a: any,b: any): any[] { return iterable(a).slice(0,len(b)).map((x,i)=>[x,b[i]]); }
 function range(a: number,b?:number): number[] { return Array.from({length:Math.max(0,b===undefined?a:b-a)},(_,i)=>i+(b===undefined?0:a)); }
-function replace(s: string,a:string,b:string,count?:number): string { return count===1 ? s.replace(a,b) : s.replaceAll(a,b); }
+function replace(s: string,a:string,b:string,count?:number): string { return count===1 ? s.replace(a,()=>b) : s.replaceAll(a,()=>b); }
 function pyString(v: any): string { return v == null ? 'None' : v === true ? 'True' : v === false ? 'False' : String(v); }
 /** Python's fixed point format rounds ties to even (including binary decimal representation). */
 function fixed(v: number,digits: number): string {

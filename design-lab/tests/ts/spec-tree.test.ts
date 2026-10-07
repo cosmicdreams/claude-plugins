@@ -148,3 +148,6 @@ test('multiple tracks at any width retain a wrapping row', () => {
   assert.equal(result.tree.layout!.mode, 'HORIZONTAL'); assert.equal(result.tree.layout!.wrap, true);
 });
 test('unrecorded grid tracks never imply a single column', () => { assert.equal(st.gridTracks(node('/a', 0, 0, 20, 10, { display: 'grid' })), null); assert.equal(st.gridTracks(node()), 0); assert.equal(st.gridTracks(node('/a', 0, 0, 20, 10, { display: 'grid', gridTemplateColumns: '1px 2px' })), 2); });
+test('SVG root attributes retain replacement metacharacters literally',()=>{
+ for(const marker of ["$'",'$&','$$','$`']){const source=`<svg data-label="${marker}" viewBox="0 0 24 24"><path d="M4 11h12z"/></svg>`,out=recolour(source)!;assert.equal((out.match(/<\/svg>/g)??[]).length,1);assert.ok(out.includes(`data-label="${marker}"`));}
+});

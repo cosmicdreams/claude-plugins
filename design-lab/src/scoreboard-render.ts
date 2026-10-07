@@ -42,5 +42,5 @@ function pythonDump(value: any, key = ''): string {
 export function render(rows: any[], title = 'design-lab scoreboard'): string {
   const data = normalise(rows);
   const payload = pythonDump({ rows: data, metrics: METRICS.map(({ id, title: metricTitle, note, unit }) => ({ id, title: metricTitle, note, unit })) });
-  return PAGE.replaceAll('{{TITLE}}', escapeHtml(title)).replace('{{DATA}}', payload.replace(/<\//g, '<\\/'));
+  return PAGE.replaceAll('{{TITLE}}', () => escapeHtml(title)).replace('{{DATA}}', () => payload.replace(/<\//g, '<\\/'));
 }
