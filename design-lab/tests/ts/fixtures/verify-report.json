@@ -1,0 +1,89 @@
+{
+  "standardVersion": "4.1.0",
+  "generatedAt": "2026-10-06T21:51:56Z",
+  "open": [
+    {
+      "check": "master-matches-capture",
+      "severity": "blocker",
+      "scope": "file",
+      "detail": "1 built component(s) lack a passing live-capture comparison",
+      "evidence": [
+        "paragraph:motivation_card"
+      ]
+    },
+    {
+      "check": "build-record-assertions",
+      "severity": "blocker",
+      "scope": "file",
+      "detail": "1 build record(s) contain empty, skipped, not-run, or failing assertions; they cannot prove those component transactions completed",
+      "evidence": [
+        "paragraph__motivation_card.json (visual-comparison)"
+      ]
+    },
+    {
+      "check": "fonts-stand-in",
+      "severity": "minor",
+      "scope": "file",
+      "detail": "SF Pro drawn in Inter by default, as recorded in fonts.json; to use the real font, follow `workflow.py report fonts` and rebuild",
+      "evidence": [
+        "SF Pro -> Inter (11 components)"
+      ]
+    }
+  ],
+  "waived": [],
+  "passed": [
+    "foundation-exists",
+    "variable-scoped",
+    "code-syntax-set"
+  ],
+  "inapplicable": [
+    "breakpoints-share-scale",
+    "shot-frames-have-images"
+  ],
+  "completeness": {
+    "built": 17,
+    "expected": 53,
+    "byTier": {
+      "Components \u2014 Retirement Candidates": [
+        0,
+        8,
+        [
+          "block:basic",
+          "paragraph:betty_bot_studyguide",
+          "paragraph:board_member_content"
+        ]
+      ],
+      "Components \u2014 Low Use": [
+        7,
+        18,
+        [
+          "block:betty_bot_nav_item",
+          "block:contact_and_follow",
+          "block:faces_of_certification"
+        ]
+      ],
+      "Components \u2014 Medium Use": [
+        0,
+        2,
+        [
+          "block:sidebar_promo",
+          "block:sitewide_alert"
+        ]
+      ],
+      "Components \u2014 Structural Only": [
+        8,
+        23,
+        [
+          "paragraph:accordion_callout",
+          "paragraph:accordion_links",
+          "paragraph:card"
+        ]
+      ],
+      "Components \u2014 High Use": [
+        2,
+        2,
+        []
+      ]
+    }
+  }
+}

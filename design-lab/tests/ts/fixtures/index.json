@@ -1,0 +1,130 @@
+{
+  "standardVersion": "4.1.0",
+  "generatedAt": "2026-10-06T21:51:45Z",
+  "thresholds": {
+    "high": 50,
+    "medium": 10,
+    "default": true
+  },
+  "totals": {
+    "components": 3,
+    "built": 17,
+    "notBuilt": 36,
+    "byTier": {
+      "Components \u2014 High Use": {
+        "components": 2,
+        "built": 2
+      },
+      "Components \u2014 Medium Use": {
+        "components": 2,
+        "built": 0
+      },
+      "Components \u2014 Low Use": {
+        "components": 18,
+        "built": 7
+      },
+      "Components \u2014 Structural Only": {
+        "components": 23,
+        "built": 8
+      },
+      "Components \u2014 Retirement Candidates": {
+        "components": 8,
+        "built": 0
+      }
+    }
+  },
+  "rows": [
+    {
+      "id": "paragraph:full_width_row",
+      "machineName": "full_width_row",
+      "label": "Full Width Row",
+      "tier": "Components \u2014 High Use",
+      "placements": 620,
+      "structuralRefs": 0,
+      "built": true,
+      "type": "component",
+      "status": "Built",
+      "figma": {
+        "pageId": "13:43173",
+        "componentNodeId": "13:45876",
+        "documentationCardId": "13:45958"
+      },
+      "componentLinkTarget": "13:45876",
+      "documentationLinkTarget": "13:45958",
+      "reason": null,
+      "deferred": 0,
+      "unsupported": 0
+    },
+    {
+      "id": "paragraph:split_60_40",
+      "machineName": "split_60_40",
+      "label": "Split 60/40",
+      "tier": "Components \u2014 High Use",
+      "placements": 65,
+      "structuralRefs": 0,
+      "built": true,
+      "type": "component",
+      "status": "Built",
+      "figma": {
+        "pageId": "13:43173",
+        "componentNodeId": "13:46243",
+        "documentationCardId": "13:46254"
+      },
+      "componentLinkTarget": "13:46243",
+      "documentationLinkTarget": "13:46254",
+      "reason": null,
+      "deferred": 0,
+      "unsupported": 0
+    },
+    {
+      "id": "block:sidebar_promo",
+      "machineName": "sidebar_promo",
+      "label": "Sidebar Promo",
+      "tier": "Components \u2014 Medium Use",
+      "placements": 46,
+      "structuralRefs": 0,
+      "built": false,
+      "type": "schema-only",
+      "status": "Not built",
+      "figma": {
+        "pageId": null,
+        "componentNodeId": null,
+        "documentationCardId": null
+      },
+      "componentLinkTarget": null,
+      "documentationLinkTarget": null,
+      "reason": "source entity is schema-only, not an evidenced reusable visual component",
+      "deferred": 0,
+      "unsupported": 0
+    }
+  ],
+  "notBuilt": [
+    {
+      "id": "block:sidebar_promo",
+      "machineName": "sidebar_promo",
+      "label": "Sidebar Promo",
+      "tier": "Components \u2014 Medium Use",
+      "reason": "source entity is schema-only, not an evidenced reusable visual component"
+    },
+    {
+      "id": "block:sitewide_alert",
+      "machineName": "sitewide_alert",
+      "label": "Sitewide Alert",
+      "tier": "Components \u2014 Medium Use",
+      "reason": "no component-scoped screenshot exists; capture visual and behavioral states before construction"
+    },
+    {
+      "id": "block:faces_of_certification",
+      "machineName": "faces_of_certification",
+      "label": "Faces of Certification",
+      "tier": "Components \u2014 Low Use",
+      "reason": "source entity is schema-only, not an evidenced reusable visual component"
+    }
+  ],
+  "problems": [
+    {
+      "check": "machine-name-collision",
+      "detail": "1 machine name(s) are used by more than one component, so they cannot each be named \"machine_name \u2014 Human Label\": faces_of_certification (block:faces_of_certification, paragraph:faces_of_certification)"
+    }
+  ]
+}

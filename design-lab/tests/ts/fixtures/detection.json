@@ -1,0 +1,69 @@
+{
+  "root": "/fixture/Sites/PNCB/worktrees/pncb-2026-merge",
+  "docroot": "/fixture/Sites/PNCB/worktrees/pncb-2026-merge/docroot",
+  "configSync": "/fixture/Sites/PNCB/worktrees/pncb-2026-merge/config/default",
+  "configCandidates": [
+    {
+      "path": "/fixture/Sites/PNCB/worktrees/pncb-2026-merge/config/sync",
+      "entityCount": 0
+    },
+    {
+      "path": "/fixture/Sites/PNCB/worktrees/pncb-2026-merge/config/default",
+      "entityCount": 1163
+    },
+    {
+      "path": "/fixture/Sites/PNCB/worktrees/pncb-2026-merge/config",
+      "entityCount": 0
+    }
+  ],
+  "componentSources": [
+    {
+      "strategy": "drupal-authoring",
+      "count": 53,
+      "blocks": 9,
+      "paragraphs": 44,
+      "evidence": "editor-facing block_content and paragraph bundle entities; treat SDCs as their rendering layer"
+    },
+    {
+      "strategy": "paragraphs",
+      "count": 44,
+      "evidence": "paragraphs_type config entities"
+    },
+    {
+      "strategy": "sdc",
+      "count": 27,
+      "evidence": "Single Directory Component definitions",
+      "withEnumProps": 9,
+      "withSlots": 11
+    }
+  ],
+  "tokenSources": [
+    {
+      "strategy": "css-custom-properties",
+      "filesWithVars": 18,
+      "filesLoadedByTheme": 7,
+      "variablesLoadedByTheme": 196
+    }
+  ],
+  "usageSources": [
+    {
+      "strategy": "storybook",
+      "count": 8
+    },
+    {
+      "strategy": "drupal-db",
+      "evidence": "requires a running database; counts real placements"
+    }
+  ],
+  "notes": [
+    "Empty configuration directories ignored: /fixture/Sites/PNCB/worktrees/pncb-2026-merge/config/sync, /fixture/Sites/PNCB/worktrees/pncb-2026-merge/config. Using /fixture/Sites/PNCB/worktrees/pncb-2026-merge/config/default.",
+    "8 Storybook stor(ies) found - usable as a usage signal",
+    "Ignoring 3 stylesheet(s) with many custom properties that no *.libraries.yml loads - likely scaffolding, not the design system: docroot/libraries/klaro/dist/assets/bootstrap.min.css (28), docroot/themes/custom/pncb/components/incoming/global.css (69), docroot/themes/custom/pncb/components/incoming/dist/index.css (58)"
+  ],
+  "priorArt": [],
+  "recommended": {
+    "component": "drupal-authoring",
+    "token": "css-custom-properties",
+    "usage": "drupal-db"
+  }
+}
