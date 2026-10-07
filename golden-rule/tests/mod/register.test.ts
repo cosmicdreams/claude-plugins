@@ -3,7 +3,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { SHORT_RULE } from '../../hooks/mod/rule'
-import { FEATURE, HOME, MAIN, NESTED, world } from './world'
+import { BASE, FEATURE, HOME, MAIN, NESTED, world } from './world'
 
 describe('Layer 2: structured tools', () => {
   test('a Write into the main worktree is refused with the worktree command in the reason', async ($, on) => {
@@ -52,6 +52,35 @@ describe('Layer 2: structured tools', () => {
     expect(answer.deny).toMatch(/never works inside it/)
   })
 
+  test('a MAIN spelling of the main worktree is the same folder on a case-insensitive volume', async ($, on) => {
+    world(on, { files: { [`${HOME}/Sites/P/worktrees/MAIN/.git`]: '' } })
+    const answer = await $.tool.call({ tool: 'Write', file_path: `${HOME}/Sites/P/worktrees/MAIN/x.txt`, content: 'x' })
+    expect(answer.deny).toMatch(/main worktree/)
+  })
+
+  test("a linked main worktree's git metadata outside its folder is refused", async ($, on) => {
+    world(on)
+    for (const file_path of [`${BASE}/.git/config`, `${BASE}/.git/worktrees/main/HEAD`]) {
+      const answer = await $.tool.call({ tool: 'Write', file_path, content: 'x' })
+      expect(answer.deny).toMatch(/git metadata of a repository with a main worktree/)
+    }
+  })
+
+  test('an Edit is judged by the settings file it would leave', async ($, on) => {
+    const settings = `${HOME}/.claude/settings.json`
+    world(on, { files: { [settings]: '{\n  "enabledPlugins": { "golden-rule@local": true }\n}\n' } })
+    const answer = await $.tool.call({ tool: 'Edit', file_path: settings, old_string: 'true', new_string: 'false' })
+    expect(answer.deny).toMatch(/switch the golden rule guard off/)
+  })
+
+  test('an MCP tool naming a main worktree is refused unless policy lists it as read-only', async ($, on) => {
+    const seen = world(on)
+    const refused = await $.tool.call({ tool: 'mcp__files__get_file', path: `${MAIN}/README.md` } as never)
+    expect(refused.deny).toMatch(/main worktree/)
+    await $.tool.call({ tool: 'mcp__reader__read', path: `${MAIN}/README.md` } as never)
+    expect(seen.calls.length).toBe(1)
+  })
+
   test('when the guard itself fails, the edit is refused, not let through', async ($, on) => {
     const seen = world(on, { failEnv: true })
     const answer = await $.tool.call({ tool: 'Write', file_path: `${FEATURE}/new.txt`, content: 'x' })
@@ -70,20 +99,6 @@ describe('Layer 3: commands', () => {
     expect(ran).not.toContain('echo hi')
   })
 
-  test('a push to main is refused before anything runs', async ($, on) => {
-    const seen = world(on)
-    for (const command of ['git push origin HEAD:main', 'git push origin main', 'git push --mirror origin', 'gh pr merge 12 --admin --squash']) {
-      const answer = await $.tool.call({ tool: 'Bash', command })
-      expect(answer.deny).toMatch(/pull request/)
-    }
-    expect(seen.calls.length).toBe(0)
-  })
-
-  test('a push of a feature branch runs', async ($, on) => {
-    const seen = world(on)
-    await $.tool.call({ tool: 'Bash', command: 'git push origin HEAD:feature/t' })
-    expect(seen.calls.length).toBe(1)
-  })
 })
 
 describe('Layer 1 and subagents', () => {

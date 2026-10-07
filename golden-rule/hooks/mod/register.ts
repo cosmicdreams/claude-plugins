@@ -1,37 +1,49 @@
 // The golden rule mod: main is never the operating surface. Every gate fails closed (its .catch refuses);
 // the shell layer hands each command to hooks/sandbox/run.py, which runs it inside a write-denying
-// sandbox. Plan: ~/Tools/CLAUDE-PLUGINS/plans/2026-10-06-golden-rule-mod.md.
+// sandbox and refuses pushes to main from governed repositories.
+// Plan: ~/Tools/CLAUDE-PLUGINS/plans/2026-10-06-golden-rule-mod.md.
 
 import type { EngineInterface, Register } from 'claude-code'
 
-import { type Io, type Policy, expandHome, isGuardPath, mainWorktreeOf, normalize, pathLiterals, placed } from './paths'
+import {
+  type Io, type Policy, expandHome, governedGitPath, isGuardPath, isSettingsFile, mainWorktreeOf, pathLiterals,
+  placed, relativeMainTokens,
+} from './paths'
 import { RULE, SECTION_ID, SHORT_RULE } from './rule'
-import { trunkViolation, wrapArgv, wrapCommand } from './shell'
+import { wrapArgv, wrapCommand } from './shell'
 
 const NAME = 'golden-rule'
-// What the wrapped command starts with, so the final check can tell a stripped wrapper.
-const WRAPPED = '__gr=$(/usr/bin/mktemp -t golden-rule)'
-// MCP tools whose names say they only read; any other MCP tool that names a main worktree is refused.
-const READS = /(^|_)(get|read|list|search|find|query|view|show|fetch|describe|stat|status|diff|log)(_|$)/i
 
 export type Refusal = { at: string; tool: string; what: string; why: string }
+type Settings = { enabledPlugins?: Record<string, unknown>; disableAllHooks?: unknown }
+type Registry = { plugins?: Record<string, unknown> }
 
 let policy: Policy | undefined
 let home = ''
 // Whether prompt.compose reached the system prompt in this load. On a Team seat the built-in guard skips
 // it, so the short rule rides on each prompt and on each subagent's prompt instead.
 let composed = false
+// The command each wrapped call must arrive with at the shell, by tool call id, for the final check.
+const expected = new Map<string, string>()
 
 function io($: EngineInterface): Io {
   return {
-    realPath: path => $.fs.stat(path, { resolve: true }).then(stat => stat.realPath, () => undefined),
-    exists: path => $.fs.exists(path).catch(() => false),
+    // Only "not there" reads as absent; any other failure propagates and the gate's .catch refuses.
+    realPath: path => $.fs.stat(path, { resolve: true }).then(
+      stat => stat.realPath,
+      (error: unknown) => {
+        if (/ENOENT|not found|no such/i.test(String(error))) return undefined
+        throw error
+      },
+    ),
+    exists: path => $.fs.exists(path),
   }
 }
 
 async function setup($: EngineInterface): Promise<Policy> {
   if (!policy) {
     home = (await $.env.get('HOME')) ?? ''
+    if (!home) throw new Error('HOME is not set')
     policy = JSON.parse(await $.fs.read(`${$.plugin.root}/hooks/policy.json`)) as Policy
   }
   return policy
@@ -48,58 +60,101 @@ async function refuse($: EngineInterface, tool: string, what: string, why: strin
 const worktreeHint = (root: string): string =>
   `Make this change in a sibling worktree: git -C ${root} worktree add ../<topic> -b feature/<topic> --no-track origin/main`
 
-/** Why writing to `path` is refused, or undefined when it is allowed. */
-async function judgeWrite($: EngineInterface, path: string): Promise<string | undefined> {
+/** Why writing `text` (when known) to `path` is refused, or undefined when it is allowed. */
+async function judgeWrite($: EngineInterface, path: string, text?: string): Promise<string | undefined> {
   const rules = await setup($)
   const real = await placed(path, await $.session.cwd(), home, io($))
   const root = await mainWorktreeOf(real, io($))
   if (root) return `${real} is in the main worktree ${root}, the reference, which is never written to. ${worktreeHint(root)}`
+  const gitDir = await governedGitPath(real, io($))
+  if (gitDir) return `${real} is git metadata of a repository with a main worktree (${gitDir}); only git itself writes there.`
   if (isGuardPath(real, rules, home, $.plugin.root)) return `${real} belongs to the golden rule's guard, which a session never changes.`
+  if (text !== undefined && isSettingsFile(real) && switchesOff(text, rules.pluginId)) {
+    return `that change to ${real} would switch the golden rule guard off, which a session never does.`
+  }
   return undefined
 }
 
-// ---- Settings that would switch the guard off -------------------------------------------------------
+// ---- Settings and the plugin registry ---------------------------------------------------------------
 
-const SETTINGS = /\/\.claude\/settings(\.local)?\.json$/
-
-/** Whether a settings file's JSON switches this plugin off. */
-function disables(json: unknown, pluginId: string): boolean {
-  if (typeof json !== 'object' || json === null) return false
-  const settings = json as { enabledPlugins?: Record<string, unknown>; disableAllHooks?: unknown }
-  return settings.disableAllHooks === true || settings.enabledPlugins?.[pluginId] === false
-}
-
-async function settingsFiles($: EngineInterface): Promise<string[]> {
-  const cwd = await $.session.cwd()
-  return [`${home}/.claude/settings.json`, `${home}/.claude/settings.local.json`, `${cwd}/.claude/settings.json`, `${cwd}/.claude/settings.local.json`]
-}
-
-async function readJson($: EngineInterface, path: string): Promise<{ text: string; json: unknown } | undefined> {
-  const text = await $.fs.read(path).catch(() => undefined)
+function parse(text: string | undefined): unknown {
   if (text === undefined) return undefined
   try {
-    return { text, json: JSON.parse(text) }
+    return JSON.parse(text)
   } catch {
-    return { text, json: undefined }
+    return undefined
   }
 }
 
-/** Undoes a command's switching the guard off: only the two keys that do it, and says so. */
-async function restoreSettings($: EngineInterface, before: Map<string, unknown>): Promise<string[]> {
+function disables(json: unknown, pluginId: string): boolean {
+  if (typeof json !== 'object' || json === null) return false
+  const settings = json as Settings
+  return settings.disableAllHooks === true || settings.enabledPlugins?.[pluginId] === false
+}
+
+/** Whether a settings file's proposed text switches the plugin off. Text that is not JSON is judged by
+ * its words, since Claude Code may still read a settings file a later write repairs. */
+function switchesOff(text: string, pluginId: string): boolean {
+  const json = parse(text)
+  if (json !== undefined) return disables(json, pluginId)
+  const id = pluginId.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')
+  return /"disableAllHooks"\s*:\s*true/.test(text) || new RegExp(`"${id}"\\s*:\\s*false`).test(text)
+}
+
+/** The text an Edit would leave in a file, from its current text. */
+function edited(current: string, oldString: string, newString: string, all: boolean): string {
+  return all ? current.split(oldString).join(newString) : current.replace(oldString, () => newString)
+}
+
+/** Every Claude configuration folder this session's settings and registry live in. */
+async function configDirs($: EngineInterface): Promise<string[]> {
+  const configured = await $.env.get('CLAUDE_CONFIG_DIR')
+  return [...new Set([configured, `${home}/.claude`, `${home}/.claude-work`].filter((dir): dir is string => Boolean(dir)))]
+}
+
+async function watchedFiles($: EngineInterface): Promise<{ settings: string[]; registries: string[] }> {
+  const dirs = await configDirs($)
+  const cwd = await $.session.cwd()
+  return {
+    settings: [...dirs.flatMap(dir => [`${dir}/settings.json`, `${dir}/settings.local.json`]), `${cwd}/.claude/settings.json`, `${cwd}/.claude/settings.local.json`],
+    registries: dirs.map(dir => `${dir}/plugins/installed_plugins.json`),
+  }
+}
+
+async function snapshot($: EngineInterface): Promise<Map<string, string | undefined>> {
+  const { settings, registries } = await watchedFiles($)
+  const out = new Map<string, string | undefined>()
+  for (const path of [...settings, ...registries]) out.set(path, await $.fs.read(path).catch(() => undefined))
+  return out
+}
+
+/** Undoes a command's switching the guard off or uninstalling it: only the keys that do it. */
+async function restore($: EngineInterface, before: Map<string, string | undefined>): Promise<string[]> {
   const rules = await setup($)
+  const { settings, registries } = await watchedFiles($)
   const restored: string[] = []
-  for (const path of await settingsFiles($)) {
-    const now = await readJson($, path)
-    if (!now || !disables(now.json, rules.pluginId) || disables(before.get(path), rules.pluginId)) continue
-    const was = (before.get(path) ?? {}) as { enabledPlugins?: Record<string, unknown>; disableAllHooks?: unknown }
-    const json = now.json as { enabledPlugins?: Record<string, unknown>; disableAllHooks?: unknown }
-    if (json.enabledPlugins && json.enabledPlugins[rules.pluginId] === false) {
-      if (was.enabledPlugins && rules.pluginId in was.enabledPlugins) json.enabledPlugins[rules.pluginId] = was.enabledPlugins[rules.pluginId]
+  const indentOf = (text: string): string => /\n( +)"/.exec(text)?.[1] ?? '  '
+  for (const path of settings) {
+    const now = await $.fs.read(path).catch(() => undefined)
+    const was = parse(before.get(path)) as Settings | undefined
+    const json = parse(now) as Settings | undefined
+    if (now === undefined || !json || !disables(json, rules.pluginId) || disables(was, rules.pluginId)) continue
+    if (json.enabledPlugins?.[rules.pluginId] === false) {
+      if (was?.enabledPlugins && rules.pluginId in was.enabledPlugins) json.enabledPlugins[rules.pluginId] = was.enabledPlugins[rules.pluginId]
       else delete json.enabledPlugins[rules.pluginId]
     }
-    if (json.disableAllHooks === true && was.disableAllHooks !== true) delete json.disableAllHooks
-    const indent = /\n( +)"/.exec(now.text)?.[1] ?? '  '
-    await $.fs.write(path, `${JSON.stringify(json, null, indent)}\n`)
+    if (json.disableAllHooks === true && was?.disableAllHooks !== true) delete json.disableAllHooks
+    await $.fs.write(path, `${JSON.stringify(json, null, indentOf(now))}\n`)
+    restored.push(path)
+  }
+  for (const path of registries) {
+    const was = parse(before.get(path)) as Registry | undefined
+    const now = await $.fs.read(path).catch(() => undefined)
+    const json = (parse(now) ?? {}) as Registry
+    const entry = was?.plugins?.[rules.pluginId]
+    if (entry === undefined || json.plugins?.[rules.pluginId] !== undefined) continue
+    json.plugins = { ...json.plugins, [rules.pluginId]: entry }
+    await $.fs.write(path, `${JSON.stringify(json, null, indentOf(now ?? before.get(path) ?? ''))}\n`)
     restored.push(path)
   }
   return restored
@@ -116,45 +171,60 @@ function strings(value: unknown): string[] {
 
 // ---- Status and the /golden-rule command -------------------------------------------------------------
 
+/** Every main worktree in the person's project folders: each container's children with worktrees/main. */
 async function guarded($: EngineInterface): Promise<string[]> {
   const rules = await setup($)
-  const roots: string[] = []
+  const containers: string[] = []
   for (const container of rules.containers) {
-    const folder = expandHome(container, home)
+    const path = expandHome(container, home)
+    if (!path.endsWith('/*')) containers.push(path)
+    else for (const entry of await $.fs.list(path.slice(0, -2)).catch(() => [])) if (entry.kind === 'dir') containers.push(`${path.slice(0, -2)}/${entry.name}`)
+  }
+  const roots: string[] = []
+  for (const folder of containers) {
     for (const entry of await $.fs.list(folder).catch(() => [])) {
       const root = `${folder}/${entry.name}/worktrees/main`
-      if (await $.fs.exists(`${root}/.git`).catch(() => false)) roots.push(root)
+      if (entry.kind === 'dir' && await $.fs.exists(`${root}/.git`).catch(() => false)) roots.push(root)
     }
   }
   return roots
 }
 
-async function quarantine($: EngineInterface): Promise<Record<string, { at: string; path: string; command: string }>> {
+type Quarantine = Record<string, { at: string; path: string; command: string }>
+
+async function quarantine($: EngineInterface): Promise<Quarantine | 'unreadable'> {
   const rules = await setup($)
-  const file = await readJson($, expandHome(rules.quarantineFile, home))
-  return (file?.json ?? {}) as Record<string, { at: string; path: string; command: string }>
+  const text = await $.fs.read(expandHome(rules.quarantineFile, home)).catch(() => undefined)
+  if (text === undefined) return {}
+  const json = parse(text)
+  return typeof json === 'object' && json !== null ? json as Quarantine : 'unreadable'
 }
 
 async function showStatus($: EngineInterface): Promise<void> {
-  const held = Object.keys(await quarantine($))
+  const held = await quarantine($)
   const count = (await guarded($)).length
-  $.ui.status(held.length > 0
-    ? `golden rule: ${held.length} main worktree quarantined, run /golden-rule`
-    : `golden rule: ${count} main worktrees guarded${composed ? '' : ' (rule on each prompt)'}`)
+  if (held === 'unreadable') $.ui.status('golden rule: quarantine record unreadable, commands in main worktrees refused; run /golden-rule')
+  else if (Object.keys(held).length > 0) $.ui.status(`golden rule: ${Object.keys(held).length} main worktree quarantined, run /golden-rule`)
+  else $.ui.status(`golden rule: ${count} main worktrees guarded${composed ? '' : ' (rule on each prompt)'}`)
 }
 
 async function report($: EngineInterface): Promise<string> {
   const roots = await guarded($)
   const held = await quarantine($)
   const refusals = (((await $.store.get('refusals').catch(() => undefined)) as Refusal[] | undefined) ?? []).slice(-10)
+  const heldLines = held === 'unreadable'
+    ? ['The quarantine record is unreadable: commands touching main worktrees are refused until /golden-rule clear.']
+    : Object.keys(held).length > 0
+      ? ['Quarantined (a change was observed; run /golden-rule clear once you have looked):',
+        ...Object.entries(held).map(([root, entry]) => `  ${root}: ${entry.path} at ${entry.at}, during: ${entry.command}`)]
+      : ['Nothing quarantined.']
   return [
     `Golden rule: main is never the operating surface. ${roots.length} main worktrees guarded:`,
     `  ${roots.map(root => root.split('/').slice(-3, -2)[0]).join(', ')}`,
-    Object.keys(held).length > 0 ? 'Quarantined (a change was observed; run /golden-rule clear once you have looked):' : 'Nothing quarantined.',
-    ...Object.entries(held).map(([root, entry]) => `  ${root}: ${entry.path} at ${entry.at}, during: ${entry.command}`),
+    ...heldLines,
     refusals.length > 0 ? 'Recent refusals:' : 'No refusals yet.',
     ...refusals.map(entry => `  ${entry.at} ${entry.tool}: ${entry.why.split('.')[0]}`),
-    `Rule as the model reads it: system prompt${composed ? '' : ' (skipped on this account; a short form rides on each prompt)'}.`,
+    `Rule as the model reads it: ${composed ? 'system prompt' : 'a short form on each prompt (the system prompt is not open to mods on this account)'}.`,
   ].join('\n')
 }
 
@@ -189,17 +259,17 @@ export const register: Register = on => {
 
   // ---- Layer 2: structured tools ----
   on('tool.call', { tool: ['Edit', 'Write', 'NotebookEdit'] }, async ($, e, next) => {
-    const path = e.tool === 'NotebookEdit' ? e.notebook_path : e.file_path
-    const why = await judgeWrite($, path)
-    if (why) return refuse($, e.tool, path, why)
-    const rules = await setup($)
-    if (SETTINGS.test(normalize(path))) {
-      const switchesOff = e.tool === 'Write'
-        ? (() => { try { return disables(JSON.parse(e.content), rules.pluginId) } catch { return false } })()
-        : e.tool === 'Edit' && /disableAllHooks|golden-rule/.test(e.new_string)
-      if (switchesOff) return refuse($, e.tool, path, 'that change would switch the golden rule guard off, which a session never does.')
+    let path: string
+    let text: string | undefined
+    if (e.tool === 'NotebookEdit') path = e.notebook_path
+    else if (e.tool === 'Write') [path, text] = [e.file_path, e.content]
+    else {
+      path = e.file_path
+      const current = await $.fs.read(path).catch(() => undefined)
+      text = current === undefined ? undefined : edited(current, e.old_string, e.new_string, e.replace_all === true)
     }
-    return next(e)
+    const why = await judgeWrite($, path, text)
+    return why ? refuse($, e.tool, path, why) : next(e)
   }).catch(($, e, next) => (next.called ? next(e) : { deny: 'golden-rule: the edit guard failed, so this edit was not made.' }))
 
   on('tool.call', { tool: 'EnterWorktree' }, async ($, e, next) => {
@@ -218,32 +288,45 @@ export const register: Register = on => {
   // ---- Layer 3: every command runs sandboxed ----
   on('tool.call', { tool: ['Bash', 'Monitor'] }, async ($, e, next) => {
     if (typeof e.command !== 'string') return next(e)
-    const trunk = trunkViolation(e.command)
-    if (trunk) return refuse($, e.tool, e.command, `this ${trunk}; changes reach main only through a pull request.`)
     const rules = await setup($)
-    const before = new Map<string, unknown>()
-    for (const path of await settingsFiles($)) before.set(path, (await readJson($, path))?.json)
-    const result = await next({ ...e, command: wrapCommand($.plugin.root, e.command) })
-    const restored = await restoreSettings($, before).catch(() => [] as string[])
+    const before = await snapshot($)
+    const wrapped = wrapCommand($.plugin.root, e.command)
+    if (e.tool_use_id) expected.set(e.tool_use_id, wrapped)
+    const result = await next({ ...e, command: wrapped })
+    if (e.tool_use_id) expected.delete(e.tool_use_id)
+    let restored: string[]
+    try {
+      restored = await restore($, before)
+    } catch (error) {
+      await refuse($, e.tool, e.command, `the guard could not check whether that command switched it off (${String(error).slice(0, 120)}).`)
+      return { deny: 'golden-rule: the command ran, but the guard could not confirm it is still switched on; tell Chris.' }
+    }
     if (restored.length === 0) return result
     await refuse($, e.tool, e.command, `that command switched the golden rule guard off in ${restored.join(', ')}; the setting was put back.`)
     return { deny: `golden-rule: that command switched the guard off (${rules.pluginId}); the setting was put back. A session never disables the guard.` }
   }).catch(($, e, next) => (next.called ? next(e) : { deny: `golden-rule: the shell guard failed (${next.error.kind}), so this command was not run.` }))
 
-  // The last word on what runs, beneath every plugin's rewrite (skipped on a Team seat by the built-in guard).
+  // The last word on what runs, beneath every plugin's rewrite: exactly the wrapped command, or nothing
+  // (skipped on a Team seat by the built-in guard).
   on('classic.PreToolUse', async ($, e, next) => {
-    if ((e.tool === 'Bash' || e.tool === 'Monitor') && typeof e.command === 'string' && !e.command.startsWith(WRAPPED)) {
-      return { deny: 'golden-rule: this command lost its sandbox on the way to the shell, so it was not run.' }
+    if ((e.tool === 'Bash' || e.tool === 'Monitor') && typeof e.command === 'string') {
+      const want = e.tool_use_id ? expected.get(e.tool_use_id) : undefined
+      if (want === undefined ? !e.command.startsWith('__gr=$(/usr/bin/mktemp -t golden-rule)') : e.command !== want) {
+        return { deny: 'golden-rule: this command was changed on its way to the shell after the guard wrapped it, so it was not run.' }
+      }
     }
     return next(e)
   }).catch(($, e, next) => (next.called ? next(e) : { deny: 'golden-rule: the final command check failed, so this command was not run.' }))
 
   // ---- Layer 4: MCP tools that name a main worktree ----
   on('tool.call', { tool: /^mcp__/ }, async ($, e, next) => {
-    if (String(e.tool).startsWith(`mcp__${NAME}__`) || READS.test(String(e.tool))) return next(e)
-    for (const path of strings(e).flatMap(pathLiterals)) {
+    const tool = String(e.tool)
+    const rules = await setup($)
+    if (tool.startsWith(`mcp__${NAME}__`) || rules.mcpReadTools.some(pattern => new RegExp(pattern).test(tool))) return next(e)
+    const texts = strings(e)
+    for (const path of [...texts.flatMap(pathLiterals), ...texts.flatMap(relativeMainTokens)]) {
       const why = await judgeWrite($, path)
-      if (why) return refuse($, String(e.tool), path, why)
+      if (why) return refuse($, tool, path, `${why} (MCP tools are refused for main worktrees unless listed as read-only in policy.json)`)
     }
     return next(e)
   }).catch(($, e, next) => (next.called ? next(e) : { deny: 'golden-rule: the MCP guard failed, so this call was not made.' }))
@@ -251,7 +334,7 @@ export const register: Register = on => {
   // ---- Layer 5: other plugins' files and processes ----
   on('fs.write', async ($, e, next) => {
     if (next.origin.plugin === NAME) return next(e)
-    const why = await judgeWrite($, e.path)
+    const why = await judgeWrite($, e.path, e.text)
     return why ? { deny: `golden-rule (refusing ${next.origin.plugin}): ${why}` } : next(e)
   }).catch(($, e, next) => (next.called ? next(e) : { deny: 'golden-rule: the file guard failed, so this write was not made.' }))
 
@@ -265,4 +348,11 @@ export const register: Register = on => {
     if (next.called) return yield* next(e)
     return { deny: 'golden-rule: the process guard failed, so this program was not started.' }
   })
+
+  // ---- Settings rows that would switch hooks or plugins off ----
+  on('config.set', async ($, e, next) =>
+    /hook|plugin|golden/i.test(String((e as { key?: unknown }).key ?? ''))
+      ? { deny: 'golden-rule: a session never changes hook or plugin settings; Chris can change this himself.' }
+      : next(e),
+  ).catch(($, e, next) => (next.called ? next(e) : { deny: 'golden-rule: the settings guard failed, so this setting was not changed.' }))
 }

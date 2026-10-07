@@ -1,8 +1,8 @@
-// The pure helpers: path placement, main-worktree detection and push recognition.
+// The pure helpers: path placement, main-worktree and git-metadata detection, the command wrapper.
 import { describe, expect, test } from 'claude-code/testing'
 
-import { mainWorktreeOf, normalize, pathLiterals, placed } from '../../hooks/mod/paths'
-import { trunkViolation, wrapCommand } from '../../hooks/mod/shell'
+import { governedGitPath, mainWorktreeOf, normalize, pathLiterals, placed, relativeMainTokens } from '../../hooks/mod/paths'
+import { wrapCommand } from '../../hooks/mod/shell'
 
 const tree = new Set(['/', '/p', '/p/worktrees', '/p/worktrees/main', '/p/worktrees/main/.git', '/p/worktrees/main/src',
   '/p/worktrees/main/src/main', '/p/worktrees/feat', '/p/worktrees/feat/.git', '/p/worktrees/feat/src', '/p/worktrees/feat/src/main'])
@@ -27,18 +27,19 @@ describe('paths', () => {
   })
 })
 
-describe('pushes to main', () => {
-  test('every spelling of a push to main is recognised', () => {
-    for (const command of ['git push origin main', 'git push origin HEAD:main', 'git push origin +x:refs/heads/main',
-      'cd x && git push --all origin', 'gh api -X PATCH repos/a/b/git/refs/heads/main -f sha=1']) {
-      expect(trunkViolation(command)).toBeDefined()
-    }
+describe('git metadata and tokens', () => {
+  test("a main worktree's own .git is governed; a feature worktree's is not", async () => {
+    expect(await governedGitPath('/p/worktrees/main/.git/config', io)).toBe('/p/worktrees/main/.git')
+    expect(await governedGitPath('/p/worktrees/feat/.git/config', io)).toBeUndefined()
   })
 
-  test('feature pushes and reads are not', () => {
-    for (const command of ['git push origin HEAD:feature/x', 'git push', 'git log main', 'gh pr merge 3 --squash', 'gh api repos/a/b/git/refs/heads/main']) {
-      expect(trunkViolation(command)).toBeUndefined()
-    }
+  test('a repository nested inside the main worktree is inside it', async () => {
+    const nested = { ...io, exists: async (path: string) => tree.has(path) || path === '/p/worktrees/main/src/main/.git' }
+    expect(await mainWorktreeOf('/p/worktrees/main/src/main/x', nested)).toBe('/p/worktrees/main/src/main')
+  })
+
+  test('relative tokens that name main are found', () => {
+    expect(relativeMainTokens('cd ../main && cat README.md src/main.ts')).toEqual(['../main'])
   })
 
   test('the wrapper never carries the command in clear text', () => {

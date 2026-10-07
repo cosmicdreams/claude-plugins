@@ -8,19 +8,24 @@ export const HOME = '/Users/t'
 export const MAIN = `${HOME}/Sites/P/worktrees/main`
 export const FEATURE = `${HOME}/Sites/P/worktrees/feat`
 export const NESTED = `${HOME}/Sites/R/worktrees/T-1`
+// A linked main worktree: the repository's first checkout is `base`, whose .git is shared.
+export const BASE = `${HOME}/Sites/L/base`
+export const LINKED = `${HOME}/Sites/L/worktrees/main`
 
 // The test's copy of hooks/policy.json (tests have no file system to read it from).
 export const POLICY = {
-  containers: ['~/Sites', '~/Tools', '~/OpenSource'],
+  containers: ['~/*'],
   guardFiles: ['~/.claude/hooks/golden-rule.sh', '~/.claude/AGENTS.md', '~/.codex/write-guard', '~/.codex/hooks.json',
     '~/.codex/config.toml', '~/.codex/AGENTS.md', '~/.gitconfig', '~/.git-hooks', '~/.golden-rule'],
   guardPatterns: ['^/.+/\\.claude/skills/[^/]+/hooks(/|$)'],
+  mcpReadTools: ['^mcp__reader__'],
   pluginId: 'golden-rule@local',
   quarantineFile: '~/.golden-rule/quarantine.json',
 }
 
 const FILES = [`${MAIN}/.git`, `${MAIN}/README.md`, `${FEATURE}/.git`, `${HOME}/Sites/R/.git`, `${NESTED}/.git`,
-  `${HOME}/.claude/hooks/golden-rule.sh`, `${HOME}/.claude/settings.json`]
+  `${HOME}/.claude/hooks/golden-rule.sh`, `${HOME}/.claude/settings.json`, `${BASE}/.git/config`, `${BASE}/.git/worktrees/main/HEAD`,
+  `${LINKED}/.git`]
 
 function withAncestors(paths: string[]): Set<string> {
   const out = new Set<string>(['/'])

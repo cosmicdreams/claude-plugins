@@ -56,6 +56,7 @@ gr $M 'git merge -q --ff-only origin/main'; unchanged $M $HEAD0 && ok "local mer
 gr $M 'git config core.fsmonitor evil'; [ -z "$(git -C $M config core.fsmonitor)" ] && ok "config write in main refused" || no "config write in main"
 gr $M 'echo x > .git/hooks/post-checkout'; [ ! -e $M/.git/hooks/post-checkout ] && ok "planting a hook refused" || no "planting a hook"
 gr $M 'git branch -m main renamed'; unchanged $M $HEAD0 && ok "renaming the main branch refused" || no "renaming the main branch"
+gr $M 'mv .git/refs .git/objects/saved-refs'; [ -d $M/.git/refs/heads ] && ok "renaming main's refs folder refused" || no "renaming refs folder"
 
 # ---- the reference cannot be moved ----
 gr $root/p 'mv worktrees/main worktrees/old'; [ -d $M/.git ] && ok "moving worktrees/main refused" || no "moving worktrees/main"
@@ -80,14 +81,26 @@ for i in 1 2 3 4 5; do gr $F 'true'; done
 per=$(/usr/bin/python3 -c "import time; print(round((time.time()-$start)/5, 3))")
 /usr/bin/python3 -c "import sys; sys.exit(0 if $per < 0.5 else 1)" && ok "a command costs ${per}s through the sandbox" || no "per-command cost ${per}s"
 
+# ---- pushes to main ----
+gr $F 'git push origin HEAD:main'; s=$?; [ $s -eq 126 ] && [ "$(git -C $root/origin.git rev-parse main)" = "$HEAD0" ] && grep -q "pull request" $root/out && ok "push to main from a governed repository refused" || no "governed push to main" "$(tail -2 $root/out)"
+gr $root "git -C $F push origin +HEAD:refs/heads/main"; [ $? -eq 126 ] && ok "push to main via git -C and a full refspec refused" || no "git -C push to main"
+git init -q --bare -b main $root/free.git; git init -q -b main $root/free; git -C $root/free commit -q --allow-empty -m "chore: free"; git -C $root/free remote add origin $root/free.git
+gr $root/free 'git push -q origin main'; [ $? -eq 0 ] && ok "push to main in an ungoverned repository allowed (decision 5)" || no "ungoverned push" "$(tail -2 $root/out)"
+gr $F 'gh pr merge 1 --admin --squash'; [ $? -eq 126 ] && ok "gh pr merge --admin refused in a governed repository" || no "gh --admin"
+
 # ---- shell semantics ----
 gr $root/p 'cd worktrees/feat'; [ "$GR_PWD" = "$F" ] && ok "cd is carried back to the shell" || no "cd carried back" "$GR_PWD"
 gr $root 'exit 7'; [ $? -eq 7 ] && ok "exit status passes through" || no "exit status"
+gr $root/p "cd $F; exit 0"; [ "$GR_PWD" = "$F" ] && ok "cd is carried back even when the command exits" || no "cd before exit" "$GR_PWD"
+( gr $M "echo '~nobody-gr-e2e/x'" ) & pid=$!; ( sleep 10; kill $pid 2>/dev/null ) & killer=$!
+wait $pid; s=$?; kill $killer 2>/dev/null; [ $s -eq 0 ] && ok "a ~user token does not hang the bootstrap" || no "~user token" "exit $s"
 
 # ---- linked main worktree ----
 gr $L 'echo x > f && git add f && git -c user.email=e@e -c user.name=e commit -q -m "chore: x"'
 [ "$(git -C $L rev-parse HEAD)" = "$LHEAD" ] && [ -z "$(git -C $L status --porcelain)" ] && ok "linked main worktree refused" || no "linked main worktree"
 gr $root/l/base 'git checkout -q -b other'; [ $? -eq 0 ] && ok "the linked repository's own first checkout is not main and stays writable" || no "linked base checkout" "$(tail -2 $root/out)"
+gr $root/l/base 'git config core.fsmonitor evil'; [ -z "$(git -C $root/l/base config core.fsmonitor)" ] && ok "a linked main worktree's shared config refused" || no "linked shared config"
+gr $root "echo x > $root/l/base/.git/worktrees/main/HEAD"; [ "$(git -C $L rev-parse HEAD)" = "$LHEAD" ] && ok "a linked main worktree's own HEAD refused from anywhere" || no "linked HEAD"
 
 # ---- another plugin's process ----
 argv $root '["/bin/sh","-c","echo x > '$M'/plugin.txt"]'; [ ! -e $M/plugin.txt ] && ok "another plugin's process cannot write into main" || no "plugin process write"
@@ -96,6 +109,7 @@ argv $root '["/bin/sh","-c","echo x > '$M'/plugin.txt"]'; [ ! -e $M/plugin.txt ]
 gr $root "touch '$plugin/hooks/e2e-probe'"; [ ! -e "$plugin/hooks/e2e-probe" ] && ok "the plugin's own files refused" || { no "plugin files"; /bin/rm -f "$plugin/hooks/e2e-probe"; }
 gr $root 'mkdir -p ~/.claude/skills/gr-e2e-probe/hooks'; [ ! -e ~/.claude/skills/gr-e2e-probe/hooks ] && ok "a new hooks module in a skills folder refused" || { no "skills hooks"; /bin/rm -rf ~/.claude/skills/gr-e2e-probe; }
 /bin/rmdir ~/.claude/skills/gr-e2e-probe 2>/dev/null
+gr $root 'mv ~/.claude/hooks ~/.claude/hooks-gr-e2e'; if [ -d ~/.claude/hooks-gr-e2e ]; then /bin/mv ~/.claude/hooks-gr-e2e ~/.claude/hooks; no "moving a guard folder"; else ok "moving a folder that holds the guard refused"; fi
 
 # ---- tripwire: a writer the sandbox cannot see ----
 ( sleep 0.5; echo outside > $M/from-outside.txt ) &
@@ -109,9 +123,15 @@ gr $M 'sleep 1; ls >/dev/null'; s=$?; wait; /bin/rm -f $M/unwatched.txt
 [ $s -eq 0 ] && ! grep -q "change was observed" $root/out && ok "a plain read in main is not scanned (only out-of-sandbox commands are)" || no "plain read scanned"
 gr $M 'ls >/dev/null'; [ $? -eq 0 ] && ok "a read-only command in main is fine and trips nothing" || no "read-only in main" "$(tail -2 $root/out)"
 forget
+# A corrupt quarantine record refuses commands in main worktrees instead of clearing every quarantine.
+mkdir -p $HOME/.golden-rule; [ -f $qfile ] && /bin/cp -p $qfile $root/quarantine.backup
+echo '{not json' > $qfile
+gr $M 'ls >/dev/null'; s=$?
+if [ -f $root/quarantine.backup ]; then /bin/cp -p $root/quarantine.backup $qfile; else /bin/rm -f $qfile; fi
+[ $s -eq 126 ] && ok "an unreadable quarantine record refuses rather than clears" || no "corrupt quarantine" "exit $s"
 
-# ---- known limit, reported, not failed ----
-gr $root "ln $M/README.md $root/hard && echo linked"; [ -e $root/hard ] && print -- "note  hard link into main was created (documented residual limit)" || print -- "note  hard link into main refused"
+# ---- hard links ----
+gr $root "ln $M/README.md $root/hard"; [ ! -e $root/hard ] && ok "a hard link to a file in main refused" || no "hard link into main created"
 
 print -- "\n$pass passed, $fail failed"
 [ $fail -eq 0 ]

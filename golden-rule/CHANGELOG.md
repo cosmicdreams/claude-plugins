@@ -7,8 +7,9 @@
 - The rule reaches the model in the system prompt, or, on a Team seat where the built-in guard keeps mods out of it, on each prompt and each subagent's prompt.
 - Edit, Write, NotebookEdit and EnterWorktree into a main worktree are refused, with the worktree command to use instead.
 - Bash and Monitor commands run inside a macOS sandbox that denies writes to main worktrees, their git state and the folders that hold them, while feature-worktree work (fetch, `worktree add --no-track`, commit, push, branch deletion) still works. Profiles for the fifty-odd main worktrees in the project folders compile in milliseconds through chunked regex rules.
-- Pushes to `main`, `gh pr merge --admin` and API writes to `refs/heads/main` are refused.
+- From a governed repository, pushes to `main`, `gh pr merge --admin` and API writes to `refs/heads/main` are refused; ungoverned repositories are left alone.
 - MCP tools that would write to a main worktree, and other plugins' file writes and processes, are covered.
 - The guard protects itself and puts back a setting a command used to switch it off.
 - A tripwire quarantines a main worktree when a container or another outside process changes it during a command; `/golden-rule clear` lifts it, from the person only.
-- Tests: 20 mocked hook tests, 33 end-to-end sandbox tests on fixture repositories, and a live headless run on the personal and Team accounts.
+- Edits are judged case-insensitively and by the file they would leave; a linked main worktree's metadata outside its folder is protected; the folders holding protected files cannot be moved; failures refuse or quarantine instead of passing.
+- Tests: 23 mocked hook tests, 45 end-to-end sandbox tests on fixture repositories (normal and linked main worktrees), and a live headless run on the personal and Team accounts.
