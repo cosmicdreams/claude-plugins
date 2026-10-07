@@ -9,7 +9,7 @@ description: >
 
 # Getting Started
 
-Built by `render/getting_started.js` from `figma_build.ts`'s recorded results, so it always matches what is actually in the file. It holds no state of its own and is rebuilt whole.
+Built by `scripts/render/getting_started.ts` from `figma_build.ts`'s recorded results, so it always matches what is actually in the file. It holds no state of its own and is rebuilt whole.
 
 - **Index**: every source component, in tier order and then by placements. A built component's name links to its master and "Open" jumps to its block. A component that was not built links to nothing and says why.
 - **Known gaps**: every component not built with its reason, every omitted Foundations page, missing fonts, and anything measured rather than tokenised.

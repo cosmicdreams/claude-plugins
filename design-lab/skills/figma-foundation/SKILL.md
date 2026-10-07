@@ -9,7 +9,7 @@ description: >
 
 # Foundations
 
-Built by fixed templates from the artifacts: `render/pages.js` (page list and order), `render/variables.js` (collections, modes, scopes and code syntax from `variable-plan.json`), `render/foundation.js` (the specimen pages) and `render/voice.js` (Brand Voice & Language from `voice.json`). The model relays the steps; it never lays anything out.
+Built by fixed templates from the artifacts: `scripts/render/pages.ts` (page list and order), `scripts/render/variables.ts` (collections, modes, scopes and code syntax from `variable-plan.json`), `scripts/render/foundation.ts` (the specimen pages) and `scripts/render/voice.ts` (Brand Voice & Language from `voice.json`). The model relays the steps; it never lays anything out.
 
 ## What decides each page
 

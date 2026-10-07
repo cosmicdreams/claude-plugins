@@ -12,7 +12,7 @@ export async function template(ARGS: GettingStartedArgs) {
  *   blockGuide: [[section, meaning]],
  *   index: [{ placements, label, machine, tier, type, status, setId, blockId }],
  *   gaps: [line], changelog: [[date, entry]], regenerate: [command] }
- * Provenance is hidden plugin data on the document (cover.js), never drawn on a page.
+ * Provenance is hidden plugin data on the document (cover.ts), never drawn on a page.
  * Index names link to the component set, Documentation links to its block; a row that was
  * not built links to nothing rather than to a placeholder.
  */
