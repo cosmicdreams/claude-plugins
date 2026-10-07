@@ -16,7 +16,7 @@ export type Tokens = {
       family?: string;
       isAlias?: boolean;
       layer?: string;
-      media?: null;
+      media?: string | null;
       name?: string;
       provenance?: {
         kind?: string;
@@ -27,9 +27,7 @@ export type Tokens = {
       selector?: string;
       value?: string;
       valuesByMode?: {
-        "@media (width < 48rem)"?: string;
-        Value?: string;
-        [k: string]: unknown;
+        [k: string]: string;
       };
       [k: string]: unknown;
     },
@@ -40,7 +38,7 @@ export type Tokens = {
       family?: string;
       isAlias?: boolean;
       layer?: string;
-      media?: null;
+      media?: string | null;
       name?: string;
       provenance?: {
         kind?: string;
@@ -51,9 +49,7 @@ export type Tokens = {
       selector?: string;
       value?: string;
       valuesByMode?: {
-        "@media (width < 48rem)"?: string;
-        Value?: string;
-        [k: string]: unknown;
+        [k: string]: string;
       };
       [k: string]: unknown;
     }[]

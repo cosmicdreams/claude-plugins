@@ -1,0 +1,18 @@
+{
+  "standardVersion": "1.0",
+  "toolVersion": "fixture",
+  "tokens": [
+    {
+      "name": "--media-only-gap",
+      "value": "12px",
+      "media": "@media (min-width: 43rem)",
+      "selector": ":root",
+      "layer": "component",
+      "valuesByMode": {
+        "Narrow portrait": "12px",
+        "@media (min-width: 43rem)": "16px",
+        "Cinema landscape": "24px"
+      }
+    }
+  ]
+}

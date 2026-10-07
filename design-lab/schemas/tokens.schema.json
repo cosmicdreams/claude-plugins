@@ -46,7 +46,10 @@
             "type": "string"
           },
           "media": {
-            "type": "null"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "name": {
             "type": "string"
@@ -73,13 +76,8 @@
           },
           "valuesByMode": {
             "type": "object",
-            "properties": {
-              "@media (width < 48rem)": {
-                "type": "string"
-              },
-              "Value": {
-                "type": "string"
-              }
+            "additionalProperties": {
+              "type": "string"
             }
           }
         }
