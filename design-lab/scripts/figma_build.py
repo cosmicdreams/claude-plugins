@@ -292,6 +292,11 @@ def cmd_init(ns) -> int:
         "planned": [b["id"] for b in built],
         "steps": steps,
         "done": [],
+        # Every collection name this run's builds emitted, so a rebuild's `wipe` removes one a
+        # later plan dropped, and never a collection design-lab did not create.
+        "emittedCollections": sorted(set(emitted_collections(project))
+                                     | (set((previous or {}).get("emittedCollections") or [])
+                                        if getattr(ns, "rebuild", False) else set())),
         # Keep the runner connected after the build, waiting for the next one (`--iterate`).
         "iterate": bool(getattr(ns, "iterate", False) or (previous or {}).get("iterate")
                         and getattr(ns, "rebuild", False)),
@@ -347,8 +352,194 @@ def page_id(project: Path, name: str) -> str:
     return result(project, "pages")["pages"][name]
 
 
+def brand(project: Path) -> str:
+    """The run's site label prefixes every collection (library-standard 6.1), so a PNCB library
+    does not collide with every other library's `Core` in the picker."""
+    run = (load(project, "project.json", {}).get("run") or {})
+    return (run.get("siteLabel") or "").strip()
+
+
+def core_collection(project: Path) -> str:
+    return f"{brand(project)} Core".strip()
+
+
+def breakpoint_collection(project: Path) -> str:
+    """Every value that differs between widths lives here, in the Desktop/Tablet/Mobile modes."""
+    return f"{brand(project)} Breakpoint" if brand(project) else "Core Breakpoint"
+
+
+LENGTH = r"([\d.]+)(px|rem|em)"
+FEATURE = re.compile(r"^(min|max)-width\s*:\s*" + LENGTH + r"$")
+RANGE = re.compile(r"^(?:" + LENGTH + r"\s*(<=|<|>=|>)\s*)?width(?:\s*(<=|<|>=|>)\s*" + LENGTH + r")?$")
+# Site Studio's default responsive grid: each breakpoint applies from its minimum width up.
+# A site that changed its grid in Site Studio's settings folds at these defaults instead.
+SITE_STUDIO_MIN = {"xxl": 1600, "xl": 1170, "lg": 1024, "md": 768, "sm": 565, "xs": 0}
+
+
+def _px(number: str, unit: str) -> float:
+    return float(number) * (16 if unit in ("rem", "em") else 1)
+
+
+def _compare(width: float, op: str, px: float) -> bool:
+    return {"<": width < px, "<=": width <= px, ">": width > px, ">=": width >= px}[op]
+
+
+def media_applies(condition: str, width: int) -> bool | None:
+    """Whether a media query holds on screen at a capture width.
+
+    Commas are OR; `and` joins features. A print-only query never holds on screen. None when
+    any part tests something other than width (colour scheme, orientation, hover): such a mode
+    is a different axis from the breakpoints and cannot be folded into them."""
+    text = re.sub(r"^@media\s+", "", (condition or "").strip(), flags=re.I)
+    if not text:
+        return None
+    verdicts = []
+    for query in text.split(","):
+        ok, saw_width = True, False
+        for part in re.split(r"\s+and\s+", query.strip(), flags=re.I):
+            part = part.strip().lower()
+            if part in ("screen", "all", "only screen", "only all"):
+                continue
+            if part in ("print", "only print", "speech"):
+                ok, saw_width = False, True
+                continue
+            inner = part[1:-1].strip() if part.startswith("(") and part.endswith(")") else None
+            m = FEATURE.match(inner or "")
+            r = RANGE.match(inner or "") if not m else None
+            if m:
+                ok &= _compare(width, ">=" if m.group(1) == "min" else "<=", _px(m.group(2), m.group(3)))
+            elif r and (r.group(3) or r.group(4)):
+                n1, u1, op1, op2, n2, u2 = r.groups()
+                if op1:   # `48rem <= width`: the length is on the left, so the test flips
+                    ok &= _compare(width, {"<": ">", "<=": ">=", ">": "<", ">=": "<="}[op1], _px(n1, u1))
+                if op2:
+                    ok &= _compare(width, op2, _px(n2, u2))
+            else:
+                return None
+            saw_width = True
+        if not saw_width:
+            return None
+        verdicts.append(ok)
+    return any(verdicts)
+
+
+def mode_label(mode: str) -> str:
+    """A readable mode name for a non-width media mode: never the raw `@media` text."""
+    text = re.sub(r"^@media\s+", "", mode or "", flags=re.I)
+    known = {"prefers-color-scheme: dark": "Dark", "prefers-color-scheme: light": "Light",
+             "prefers-reduced-motion: reduce": "Reduced motion", "orientation: landscape": "Landscape",
+             "orientation: portrait": "Portrait", "hover: none": "No hover"}
+    for needle, label in known.items():
+        if needle in text.replace("  ", " ").lower():
+            return label
+    return re.sub(r"[()]", "", text).replace(":", "").strip().capitalize() or "Mode"
+
+
+def _role_value(by: dict, modes: list, role: str):
+    """A variable's value at a capture width: the base, then every matching mode in plan order
+    (source order, so the cascade's last match wins). Site Studio breakpoint keys take the value
+    of the breakpoint the width falls in, cascading down from the larger ones."""
+    width = VIEWPORTS[role]
+    if all(m in SITE_STUDIO_MIN for m in modes):
+        own = max((m for m in SITE_STUDIO_MIN if SITE_STUDIO_MIN[m] <= width), key=SITE_STUDIO_MIN.get)
+        larger = sorted((m for m in modes if SITE_STUDIO_MIN[m] >= SITE_STUDIO_MIN[own]), key=SITE_STUDIO_MIN.get)
+        return next((by[m] for m in larger if by.get(m) is not None), None)
+    value = by.get(modes[0])
+    for m in modes[1:]:
+        if media_applies(m, width) and by.get(m) is not None:
+            value = by[m]
+    return value
+
+
+def foldable(modes: list) -> bool:
+    """Width modes the breakpoint collection can carry: width media queries, or Site Studio keys."""
+    return len(modes) > 1 and (all(m in SITE_STUDIO_MIN for m in modes)
+                               or all(media_applies(m, VIEWPORTS["Desktop"]) is not None for m in modes[1:]))
+
+
+def legacy_collections(project: Path) -> set[str]:
+    """Names builds before 0.23.0 wrote: the plan's own collection names, unbranded, and the old
+    breakpoint names. A rebuild in place of such a run must still clear them."""
+    plan = load(project, "variable-plan.json", {"collections": {}})
+    return set(plan.get("collections") or {}) | {"Core", "Core Breakpoint", "Breakpoint"}
+
+
+def emitted_collections(project: Path) -> list[str]:
+    """The collection names this run's build writes: the variables step's and the breakpoint one."""
+    planned = list(variables_args(project)["collections"]) if (project / "variable-plan.json").is_file() else []
+    return list(dict.fromkeys(planned + [breakpoint_collection(project)]))
+
+
 def variables_args(project: Path) -> dict:
-    return {"collections": load(project, "variable-plan.json")["collections"]}
+    """The variable collections the build writes, brand-prefixed (library-standard 6.1).
+
+    Single-mode tokens go to `<Brand> Core`. Width modes (media queries evaluated at the capture
+    widths, or Site Studio breakpoints) fold into `<Brand> Breakpoint`'s Desktop/Tablet/Mobile
+    modes, so the responsive token values sit beside the modes the components switch. A mode set
+    on another axis (colour scheme, orientation) stays its own collection, with readable mode
+    names. Every collection name carries the brand."""
+    collections = load(project, "variable-plan.json")["collections"]
+    names = mode_names({})
+    roles = ("Desktop", "Tablet", "Mobile")
+    label = brand(project)
+
+    def branded(name: str) -> str:
+        if name == "Core":
+            return core_collection(project)
+        return name if not label or name.startswith(label + " ") else f"{label} {name}"
+
+    out, responsive = {}, []
+    split = {}
+    for name, col in collections.items():
+        modes = col.get("modes") or ["Value"]
+        width = [m for m in modes[1:] if media_applies(m, VIEWPORTS["Desktop"]) is not None]
+        other = [m for m in modes[1:] if m not in width]
+        if width and other and not all(m in SITE_STUDIO_MIN for m in modes):
+            # Width and another axis in one collection. Each variable goes to the one axis it
+            # varies on: width variation folds into the breakpoint collection, the other axis
+            # keeps a collection of its own. A variable that varies on both cannot be split
+            # without losing values, so then the collection stays whole and verify reports it.
+            def varies(v, keep):
+                by = v.get("valuesByMode") or {}
+                return len({json.dumps(by[k], sort_keys=True) for k in keep if k in by}) > 1
+            on_width = [v for v in col["variables"] if varies(v, [modes[0], *width])]
+            on_other = [v for v in col["variables"] if varies(v, [modes[0], *other])]
+            if not {id(v) for v in on_width} & {id(v) for v in on_other}:
+                other_ids = {id(v) for v in on_other}
+                split[name] = [modes[0], *width]
+                collections = {**collections, name: {**col, "variables": [v for v in col["variables"]
+                                                                           if id(v) not in other_ids]},
+                               f"{name} {mode_label(other[0])}": {
+                                   **col, "modes": [modes[0], *other],
+                                   "variables": [{**v, "valuesByMode": {k: x for k, x in (v.get("valuesByMode") or {}).items()
+                                                                       if k in (modes[0], *other)}}
+                                                 for v in on_other]}}
+    for name, col in collections.items():
+        modes = split.get(name) or col.get("modes") or ["Value"]
+        if foldable(modes):
+            for v in col["variables"]:
+                by = v.get("valuesByMode") or {}
+                row = dict(v)
+                if by:
+                    values = {role: _role_value(by, modes, role) for role in roles}
+                    # A token declared only under a query has no base value: carry the nearest
+                    # declared one rather than writing null, which Figma would store as 0.
+                    known = [values[r] for r in roles if values[r] is not None]
+                    row["valuesByMode"] = {names[r]: values[r] if values[r] is not None else known[0]
+                                           for r in roles} if known else {}
+                responsive.append(row)
+            continue
+        target = branded(name)
+        if len(modes) > 1:
+            relabel = {m: (m if i == 0 else mode_label(m)) for i, m in enumerate(modes)}
+            col = {**col, "modes": [relabel[m] for m in modes],
+                   "variables": [{**v, "valuesByMode": {relabel.get(k, k): x for k, x in (v.get("valuesByMode") or {}).items()}}
+                                 if v.get("valuesByMode") else v for v in col["variables"]]}
+        out[target] = {**col, "variables": list((out.get(target) or {}).get("variables") or []) + col["variables"]}
+    if responsive:
+        out[breakpoint_collection(project)] = {"modes": [names[r] for r in roles], "variables": responsive,
+                                               "modeRationale": "responsive tokens share the breakpoint modes"}
+    return {"collections": out}
 
 
 COVER_LABELS = library_counts.COVER_LABELS
@@ -426,6 +617,11 @@ def foundation_args(project: Path, domain: str) -> dict:
 
 
 def expand_hex(h: str) -> str:
+    # rgb()/rgba() custom properties: same treatment as 8-digit hex, alpha dropped.
+    rgb = re.match(r"\s*rgba?\(\s*([\d.]+%?)[\s,]+([\d.]+%?)[\s,]+([\d.]+%?)", h)
+    if rgb:
+        channel = lambda c: float(c[:-1]) * 2.55 if c.endswith("%") else float(c)
+        return "#" + "".join(f"{min(255, round(channel(c))):02x}" for c in rgb.groups())
     s = h.lstrip("#")
     if len(s) == 3:
         s = "".join(ch * 2 for ch in s)
@@ -494,7 +690,6 @@ def component_page(c: dict) -> str:
 
 # Prefixed like the foundation collection (`Core`), so it groups with it in the picker
 # instead of colliding with every other library's `Breakpoint`.
-BREAKPOINT_COLLECTION = "Core Breakpoint"
 
 
 def mode_names(tree: dict) -> dict:
@@ -566,7 +761,7 @@ def build_args(project: Path, cid: str, state: dict) -> dict:
     comp = next(c for c in components(project) if c["id"] == cid)
     return {"pageId": page_id(project, component_page(comp)), "x": 0, "y": PARKING_Y, "id": cid,
             "name": f"{cid} — {comp.get('label') or cid}", "description": description(project, comp),
-            "collection": BREAKPOINT_COLLECTION, "modeNames": mode_names(tree),
+            "collection": breakpoint_collection(project), "modeNames": mode_names(tree),
             # The masters of children this component nests, already built (children build first),
             # so the builder fetches each by id instead of loading every page to find it.
             "masters": child_masters(project, comp),
@@ -648,7 +843,7 @@ def block_args(project: Path, state: dict, cid: str, order: int) -> dict:
                 "properties": [["Breakpoint", "MODE", "Desktop, Tablet, Mobile", "Desktop"]],
                 "fields": fields_rows(comp, plan), "relations": relations, "notes": notes},
         "columns": cols,
-        "collection": BREAKPOINT_COLLECTION,
+        "collection": breakpoint_collection(project),
         "evidence": [{"label": f"{e['viewport']} {e['width']}px", "width": e["width"], "height": e["height"]}
                      for e in evidence_captures(project, cid, tree)],
         "captured": "the running site",
@@ -805,7 +1000,7 @@ def examples_args(project: Path, state: dict) -> dict:
                 items.append({"missing": label})
         out.append({"address": p["address"], "title": p.get("title") or p["address"], "items": items})
     names = mode_names({})
-    return {"pageId": page_id(project, "Examples"), "collection": BREAKPOINT_COLLECTION,
+    return {"pageId": page_id(project, "Examples"), "collection": breakpoint_collection(project),
             "desktopMode": names["Desktop"], "mobileMode": names["Mobile"], "pages": out}
 
 
@@ -849,7 +1044,7 @@ def getting_started_args(project: Path, state: dict) -> dict:
             gaps.append(f"Foundations — {d}: {m} is not available in Figma; its specimen is drawn in Inter.")
     # What this build itself measured as unresolved, named by the check that will report it, so
     # the page never reads cleaner than the file is.
-    differing, missing_fonts = [], set()
+    differing, missing_fonts, stand_ins, style_fallbacks = [], set(), {}, {}
     for c in ordered:
         if c["id"] not in built:
             continue
@@ -861,13 +1056,24 @@ def getting_started_args(project: Path, state: dict) -> dict:
             worst = max((p.get("ratio") or 0) for p in compare.get("pairs") or [{}])
             differing.append(f"{c['id']} ({worst:.0%})")
         try:
-            missing_fonts.update(result(project, f"build:{c['id']}").get("missingFonts") or [])
+            build_result = result(project, f"build:{c['id']}")
         except FileNotFoundError:
-            pass
+            build_result = {}
+        missing_fonts.update(build_result.get("missingFonts") or [])
+        for family, drawn in (build_result.get("standIns") or {}).items():
+            stand_ins.setdefault(f"{family} -> {drawn}", set()).add(c["id"])
+        for requested, drawn in (build_result.get("styleFallbacks") or {}).items():
+            style_fallbacks.setdefault(f"{requested} -> {drawn}", set()).add(c["id"])
     if differing:
         gaps.append(f"master-matches-capture: {len(differing)} component(s) differ from their live capture by more "
                     f"than the 6% threshold at one or more widths, so build-record-assertions records a failing "
                     f"visual comparison for each: {', '.join(differing)}.")
+    if stand_ins:
+        gaps.append("fonts-stand-in: " + "; ".join(f"{k} ({len(v)} components)" for k, v in sorted(stand_ins.items()))
+                    + " — the font plan's stand-in, because Figma cannot draw the family the site renders.")
+    if style_fallbacks:
+        gaps.append("fonts-style-fallback: " + "; ".join(f"{k} ({len(v)} components)" for k, v in sorted(style_fallbacks.items()))
+                    + " — Figma has no matching style, so the nearest style of the same family is drawn.")
     if missing_fonts:
         gaps.append(f"fonts-available: {', '.join(sorted(missing_fonts))} "
                     f"{'is' if len(missing_fonts) == 1 else 'are'} not available to Figma here, so text using "
@@ -936,9 +1142,11 @@ def cmd_next(ns) -> int:
     sid = step["id"]
     head, _, rest = sid.partition(":")
     if sid == "wipe":
-        collections = list(load(project, "variable-plan.json", {"collections": {}})["collections"])
-        out = emit_payload(project, sid, "wipe", {"fileKey": state["fileKey"],
-                                                  "collections": collections + [BREAKPOINT_COLLECTION]})
+        # This build's names, those earlier builds of this run emitted, and the names design-lab
+        # used before collections were branded. wipe.js also removes any collection it marked.
+        names = set(emitted_collections(project)) | set(state.get("emittedCollections") or []) \
+            | legacy_collections(project)
+        out = emit_payload(project, sid, "wipe", {"fileKey": state["fileKey"], "collections": sorted(names)})
     elif sid == "pages":
         out = emit_payload(project, sid, "pages", {"pages": page_list(project)})
     elif sid == "variables":

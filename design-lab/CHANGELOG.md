@@ -1,5 +1,28 @@
 # Changelog
 
+## 0.23.0
+
+**At most two variable collections, and the fixes a full PNCB run needed to reach its benchmark.** A library now carries `<Brand> Core`, one mode, and `<Brand> Breakpoint`, whose Desktop, Tablet and Mobile modes hold every value that changes with width, responsive type included. A first end-to-end run on a fully layered Drupal theme surfaced a run of builder and checker bugs; each is fixed at its source.
+
+- Responsive tokens join the breakpoint modes: a token domain whose modes are width media queries (evaluated at the capture widths in source order, so the cascade's last match wins; commas are OR, range syntax and `print` are understood) or Site Studio breakpoints (mapped through its cascade) becomes Desktop, Tablet and Mobile values of `<Brand> Breakpoint`, so a designer reading a type token in Mobile mode reads its mobile value. Component text already switched through each component's measured sizes; this moves the tokens beside them. A mode set on another axis, such as a dark colour scheme, keeps a collection of its own with a readable mode name. Every collection carries the run's site label as its brand.
+- A rebuild in place removes only collections this run's builds emitted or marked, plus the plain names earlier versions wrote, never one someone else added to the file.
+- Site Studio breakpoints fold at Site Studio's default responsive grid widths (xl from 1170px, lg 1024px, md 768px, sm 565px); a site that changed its grid folds at those defaults.
+- A Klaro banner without a decline button is closed by accepting, so embeds that wait for consent may load in that site's captures.
+- Verification enforces the rule: the brand defaults to the site label, a media-query mode name fails, a second collection with width modes fails, and the check for one domain split across collections is back. The tokens reference no longer prescribes a separate Type collection.
+- A collection whose modes never differ collapses to one mode and joins Core.
+- Measurement reads rules inside `@layer` blocks and `@import`ed sheets; a theme that layers everything used to read as declaring no tokens at all.
+- `rgb()` and `rgba()` custom properties reach Figma as colours instead of failing the variables step.
+- Hex-valued `--text-*` custom properties are colours, not type sizes, so text colours bind.
+- Klaro joins DataGrail as a consent banner capture closes on its own.
+- A child component is captured on a page other than its parent's when one exists, so a wrapper and its only child no longer photograph identically.
+- Figma lists Apple's SF fonts on a Mac but draws their text blank, so SF Pro now gets a stand-in.
+- A grid with one column track at every width is a vertical stack, not a wrapping row; a grid with more tracks at any width keeps its row.
+- A single-line label that the stand-in font would wrap inside its button now hugs its words, keeping its alignment.
+- Colours written as percentages (`rgb(100% 0% 0%)`) parse, an `@import` with a media condition applies only where it matches, and a Klaro banner without a decline button is closed through its accept button.
+- Responsive geometry variables no longer count as token bindings, and a font-family token whose family never renders is not counted as drift.
+- Build receipts expect the alternate layouts' variables, and Known gaps names font stand-ins and style fallbacks under the checks that report them.
+- The fallback YAML reader treats `&amp;` inside a quoted value as text.
+
 ## 0.22.0
 
 **The pane follows the run's five stages, and says only what is true.** Instead of a list of twelve phases, the design-lab pane shows a run as Preflight, Discovery, Build, Verify and Report: one row per stage with a short result beside it, the stage under way opened beneath its row, and a colored word in the header for where the run stands. A finished run leads with its verdict and its figures, with the full recap folded away until asked for.

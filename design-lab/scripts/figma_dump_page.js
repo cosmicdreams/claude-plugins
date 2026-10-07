@@ -5,13 +5,17 @@ await figma.setCurrentPageAsync(page);
 const DEFAULT_LAYER = /^(Frame|Group|Rectangle|Ellipse|Text|Vector|Line|Polygon|Star|Component|Slice)( \d+)?$/;
 const breakpointCollection = (await figma.variables.getLocalVariableCollectionsAsync())
   // 'Breakpoint' is the name before 0.15.1.
-  .find(item => item.name === 'Core Breakpoint' || item.name === 'Breakpoint');
+  // `<Brand> Breakpoint` since 0.22.1; 'Core Breakpoint' and 'Breakpoint' before.
+  .find(item => /(^| )Breakpoint$/.test(item.name));
 const breakpointVariableIds = new Set(breakpointCollection?.variableIds || []);
 const varyingVariableIds = new Set();
+const geometryVariableIds = new Set();
 const variableNames = new Map();
 for (const id of breakpointVariableIds) {
   const variable = await figma.variables.getVariableByIdAsync(id);
   if (variable) variableNames.set(id, variable.name);
+  // Per-component measured geometry has no code name; a folded design token does.
+  if (variable && !(variable.codeSyntax && variable.codeSyntax.WEB)) geometryVariableIds.add(id);
   if (variable && new Set(Object.values(variable.valuesByMode || {}).map(JSON.stringify)).size > 1)
     varyingVariableIds.add(id);
 }
@@ -19,6 +23,12 @@ function boundToBreakpoint(value) {
   if (!value || typeof value !== 'object') return false;
   if (value.id && breakpointVariableIds.has(value.id)) return true;
   return Object.values(value).some(boundToBreakpoint);
+}
+// A design token, not design-lab's own per-component breakpoint geometry (which has no code name).
+function boundToToken(value) {
+  if (!value || typeof value !== 'object') return false;
+  if (value.id && value.type === 'VARIABLE_ALIAS' && !geometryVariableIds.has(value.id)) return true;
+  return Object.values(value).some(boundToToken);
 }
 function boundToVarying(value) {
   if (!value || typeof value !== 'object') return false;
@@ -42,6 +52,8 @@ const components = page.findAllWithCriteria({types: ['COMPONENT_SET', 'COMPONENT
       variantCount: node.type === 'COMPONENT_SET' ? node.children.length : 1,
       boundVariableCount: [node, ...descendants].filter(child =>
         child.boundVariables && Object.keys(child.boundVariables).length > 0).length,
+      tokenBoundCount: [node, ...descendants].filter(child =>
+        boundToToken(child.boundVariables)).length,
       breakpointBoundCount: [node, ...descendants].filter(child =>
         boundToBreakpoint(child.boundVariables)).length,
       variesByWidth: [node, ...descendants].some(child =>

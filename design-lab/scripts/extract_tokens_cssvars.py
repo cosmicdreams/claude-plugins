@@ -87,6 +87,9 @@ def classify(name, value):
             # matches the colour prefix list but is plainly a length.
             if fam == 'color' and value_family(value) in ('spacing', 'number', 'motion'):
                 return value_family(value)
+            # And the reverse: `--text-body: #222` is a text colour, not a type size.
+            if fam != 'color' and value_family(value) == 'color':
+                return 'color'
             return fam
     return value_family(value)
 
@@ -253,7 +256,9 @@ def extract(root):
             })
 
     # Modes come from evidence: a name redeclared under different media queries scales.
-    medias = sorted({r['media'] for r in rows if r['media']})
+    # Source order, not sorted text: the cascade applies later matching queries over earlier
+    # ones, and a string sort puts (min-width: 1200px) before (min-width: 768px).
+    medias = list(dict.fromkeys(r['media'] for r in rows if r['media']))
     scaling_names = {r['name'] for r in rows if r['media']} & \
                     {r['name'] for r in rows if not r['media']}
     modes = ['Value'] + medias if medias and scaling_names else ['Value']

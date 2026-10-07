@@ -492,11 +492,13 @@ class Merge:
 
     def layout(self, path: str, kid_paths: list[str], vchain: str) -> tuple[dict, list | None]:
         per = {}
-        for bp in self.bps:
-            if path not in self.nodes[bp] or not st.visible(self.nodes[bp][path]):
-                continue
+        shown = [bp for bp in self.bps if path in self.nodes[bp] and st.visible(self.nodes[bp][path])]
+        # One column track at every width: a vertical stack, not a wrapping row. A grid with more
+        # tracks at any width (three cards on desktop, one on mobile) keeps the wrapping row.
+        stacked = bool(shown) and all(st.grid_tracks(self.nodes[bp][path]) == 1 for bp in shown)
+        for bp in shown:
             kids = self.kids(bp, path)
-            per[bp] = st.infer_layout(self.nodes[bp][path], kids)
+            per[bp] = st.infer_layout(self.nodes[bp][path], kids, stacked_grid=stacked)
         pads = self.padding(path)
         if not kid_paths:
             return {"mode": "NONE", "padding": self.padding_value(pads, vchain)}, None

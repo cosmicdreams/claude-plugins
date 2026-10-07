@@ -570,7 +570,7 @@ def check_mode_naming(state, rep):
     for c in state.get('collections') or []:
         for m in c.get('modes') or []:
             name = m if isinstance(m, str) else (m.get('name') or '')
-            if DEFAULT_MODE.match(name.strip()):
+            if DEFAULT_MODE.match(name.strip()) or name.strip().startswith('@'):
                 bad.append('%s::%s' % (c['name'], name))
     if bad:
         rep.add('mode-naming', 'blocker', 'file',
@@ -603,6 +603,22 @@ def check_collection_strategy(state, brand, rep):
                     '%d collection(s) are not prefixed `%s <Domain>`, so they collide with '
                     'every other library in the picker' % (len(unprefixed), brand),
                     evidence=unprefixed)
+    # library-standard 5 and 6.1: every value that differs between widths lives in the one
+    # breakpoint collection. A second modeful collection splits the responsive domain, and an
+    # instance switched to Mobile keeps its desktop values for everything in it.
+    # Another axis (a colour scheme, an orientation) is a real boundary of its own; only width
+    # modes must share the one collection.
+    def width_mode(m):
+        name = (m if isinstance(m, str) else (m.get('name') or '')).strip()
+        return bool(re.search(r'\b\d+px$', name) or re.match(r'@media\b.*\bwidth\b', name, re.I)
+                    or name.lower() in ('xxl', 'xl', 'lg', 'md', 'sm', 'xs'))
+    modeful = [c['name'] for c in colls
+               if len(c.get('modes') or []) > 1 and any(width_mode(m) for m in c.get('modes') or [])]
+    if len(modeful) > 1:
+        rep.add('collection-strategy', 'major', 'file',
+                '%d collections carry width modes; width-varying values belong in the one breakpoint '
+                'collection, whose Desktop/Tablet/Mobile modes the components switch' % len(modeful),
+                evidence=modeful)
     if len(colls) > 1 and not state.get('collectionStrategyReason'):
         rep.add('collection-strategy', 'major', 'file',
                 '%d collections exist but the state records no distinct mode, publishing, '
@@ -1178,7 +1194,7 @@ def check_examples_instances_only(state, rep):
                 evidence=bad[:20])
 
 
-def check_bindings_match_source(state, measurements, render_evidence, rep):
+def check_bindings_match_source(state, measurements, render_evidence, rep, builds_dir=None):
     """Figma must bind exactly where the code binds — no more, no less.
 
     Not "is it maximally bound". A component that binds a variable the source hardcodes is a
@@ -1233,19 +1249,41 @@ def check_bindings_match_source(state, measurements, render_evidence, rep):
         elif any(re.search(r'^Source id:', component.get('description') or '', re.I | re.M)
                  for component in candidates):
             candidates = []
-        if candidates and not any(component.get('boundVariableCount') for component in candidates):
+        if candidates and not any(component.get('tokenBoundCount', component.get('boundVariableCount'))
+                                  for component in candidates):
             mismatched.append('%s: Sass/CSS evidence consumes a token, the Figma component '
                               'binds nothing' % component_id)
 
+    # A font-family token whose family has no source on the site never renders (the browser
+    # draws the next family in the stack), so Figma cannot bind it without drawing a missing
+    # font; fonts-stand-in already reports that gap. Every other declaration still counts.
+    unbindable = set()
+    if builds_dir:
+        run = os.path.dirname(os.path.abspath(builds_dir))
+        try:
+            unrendered = {u['family'].lower() for u in
+                          json.load(open(os.path.join(run, 'fonts.json'))).get('unrendered') or []}
+            for t in json.load(open(os.path.join(run, 'tokens.json'))).get('tokens') or []:
+                first = str(t.get('value') or '').split(',')[0].strip().strip('"\'').lower()
+                if t.get('family') == 'font-family' and first in unrendered:
+                    unbindable.add(t.get('codeName'))
+        except (OSError, ValueError):
+            pass
+
+    def declares_token(prop, value):
+        names = re.findall(r'var\((--[\w-]+)', str(value))
+        return any(not (prop == 'font-family' and name in unbindable) for name in names)
+
     for mid, m in (measurements or {}).items():
         nodes = m.get('nodes') or []
-        src_binds = any('var(--' in str(v)
-                        for n in nodes for v in (n.get('declared') or {}).values())
+        src_binds = any(declares_token(p, v)
+                        for n in nodes for p, v in (n.get('declared') or {}).items())
         fig = next((c for c in comps
                     if (c.get('name') or '').split(' — ')[0] == mid or c.get('name') == mid), None)
         if fig is None:
             continue
-        fig_binds = bool(fig.get('boundVariableCount'))
+        # Breakpoint geometry variables are design-lab's own; only design tokens count.
+        fig_binds = bool(fig.get('tokenBoundCount', fig.get('boundVariableCount')))
         if src_binds and not fig_binds:
             mismatched.append('%s: source resolves through custom properties, the Figma '
                               'component binds nothing' % mid)
@@ -1368,7 +1406,7 @@ def main():
     check_variants_are_sets(state, plan, rep)
     check_no_duplicate_components(state, rep)
     check_examples_instances_only(state, rep)
-    check_bindings_match_source(state, measurements, render_evidence, rep)
+    check_bindings_match_source(state, measurements, render_evidence, rep, a.builds)
     check_verify_report_exists(a.out, rep)
     check_pages_populated(state, rep)
     check_breakpoint_frames(state, rep)

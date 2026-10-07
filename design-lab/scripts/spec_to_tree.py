@@ -416,8 +416,23 @@ def icon_glyph(chars: str) -> bool:
     return bool(visible_chars) and all(0xE000 <= ord(ch) <= 0xF8FF for ch in visible_chars)
 
 
-def infer_layout(node: dict, kids: list[dict]) -> dict:
-    """Auto layout settings if they reproduce the measured positions, else absolute."""
+def grid_tracks(node: dict) -> int | None:
+    """Column tracks of a grid container, from its computed `grid-template-columns`; 0 when not
+    a grid, None when the measurement did not record the tracks (never guess a stack)."""
+    c = node.get("computed") or {}
+    if c.get("display") not in ("grid", "inline-grid"):
+        return 0
+    tracks = (c.get("gridTemplateColumns") or "").split()
+    return len(tracks) if tracks and tracks != ["none"] else None
+
+
+def infer_layout(node: dict, kids: list[dict], stacked_grid: bool = False) -> dict:
+    """Auto layout settings if they reproduce the measured positions, else absolute.
+
+    `stacked_grid`: the caller found this grid has one column track at every width, so it is a
+    vertical stack drawn with grid gaps, not a row that wraps. Laid out as a wrapping row, its
+    children sit side by side in Figma and their text wraps a word per line.
+    """
     c = node["computed"]
     b = node["box"]
     pad = {k: px(c.get(f"padding{k.capitalize()}")) + px(c.get(f"border{k.capitalize()}Width"))
@@ -427,6 +442,8 @@ def infer_layout(node: dict, kids: list[dict]) -> dict:
     rel = [(k["box"]["x"] - b["x"], k["box"]["y"] - b["y"], k["box"]["width"], k["box"]["height"])
            for k in kids]
     display = c.get("display", "block")
+    if stacked_grid and display in ("grid", "inline-grid"):
+        display = "block"
     horizontal = (display in ("flex", "inline-flex") and c.get("flexDirection", "row").startswith("row")) \
         or display in ("grid", "inline-grid")
     wrap = display in ("grid", "inline-grid") or c.get("flexWrap") == "wrap"

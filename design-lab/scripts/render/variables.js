@@ -9,6 +9,13 @@
  * an invented one sends a developer looking for something that is not there.
  */
 const hex6 = (h) => {
+  // Custom properties may hold rgb()/rgba() rather than hex, e.g. a translucent border.
+  const rgb = /^rgba?\(\s*([\d.]+%?)[\s,]+([\d.]+%?)[\s,]+([\d.]+%?)(?:[\s,/]+([\d.]+%?))?\s*\)$/i.exec(h.trim());
+  if (rgb) {
+    const unit = (c) => Math.min(1, c.endsWith('%') ? parseFloat(c) / 100 : parseFloat(c) / 255);
+    const alpha = rgb[4] === undefined ? 1 : rgb[4].endsWith('%') ? parseFloat(rgb[4]) / 100 : parseFloat(rgb[4]);
+    return { r: unit(rgb[1]), g: unit(rgb[2]), b: unit(rgb[3]), a: alpha };
+  }
   const s = h.replace('#', '');
   const full = s.length === 3 ? s.split('').map((c) => c + c).join('') : s.slice(0, 6);
   const a = s.length === 8 ? parseInt(s.slice(6, 8), 16) / 255 : 1;
@@ -17,10 +24,18 @@ const hex6 = (h) => {
 const existing = await figma.variables.getLocalVariableCollectionsAsync();
 const all = await figma.variables.getLocalVariablesAsync();
 const report = { collections: {}, created: 0, updated: 0, unplanned: [], aliasMisses: [] };
+/* Keyed by collection and name: one name may exist in two collections, and neither copy may
+   overwrite the other. Aliases resolve by name to the first collection that declares it. */
+const entries = [];
 const byName = {};
 
 for (const [cname, spec] of Object.entries(ARGS.collections)) {
-  let col = existing.find((c) => c.name === cname) || figma.variables.createVariableCollection(cname);
+  let col = existing.find((c) => c.name === cname);
+  if (!col) {
+    col = figma.variables.createVariableCollection(cname);
+    /* Only a collection this step created is marked: a same-named one someone made stays theirs. */
+    col.setSharedPluginData('designlab', 'collection', cname);
+  }
   /* Modes: rename the first, add the rest, in plan order. */
   spec.modes.forEach((m, i) => {
     if (i < col.modes.length) col.renameMode(col.modes[i].modeId, m);
@@ -34,14 +49,16 @@ for (const [cname, spec] of Object.entries(ARGS.collections)) {
     else report.updated++;
     variable.scopes = v.scopes || [];
     if (v.codeName) variable.setVariableCodeSyntax('WEB', `var(${v.codeName})`);
-    byName[v.name] = { variable, spec: v, modeId };
+    const entry = { variable, spec: v, modeId };
+    entries.push(entry);
+    if (!byName[v.name]) byName[v.name] = entry;
   }
   const planned = new Set(spec.variables.map((v) => v.name));
   for (const x of inCol) if (!planned.has(x.name)) report.unplanned.push(`${cname}/${x.name}`);
   report.collections[cname] = { id: col.id, modes: col.modes.map((m) => m.name), variables: spec.variables.length };
 }
 
-for (const { variable, spec, modeId } of Object.values(byName)) {
+for (const { variable, spec, modeId } of entries) {
   for (const [mode, id] of Object.entries(modeId)) {
     if (spec.aliasOf) {
       const target = byName[spec.aliasOf];

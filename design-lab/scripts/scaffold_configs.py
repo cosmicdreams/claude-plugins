@@ -112,9 +112,15 @@ def custom_selector(repository_root, source_ref):
     return ('.' + match.group(1).split()[0], 'root class in custom component template') if match else (None, None)
 
 
-def first_example(usage):
-    """Use the first non-empty example source, preserving its recorded order."""
+def first_example(usage, avoid=()):
+    """Use the first non-empty example source, preserving its recorded order.
+
+    `avoid` holds pages a parent that can contain this component is captured on. A parent
+    wrapping one child with no chrome of its own photographs identically to that child, so
+    a later example page is preferred when one exists.
+    """
     for key in ('examples', 'renderedExamples', 'exampleCandidates'):
+        found = []
         for item in usage.get(key) or []:
             if isinstance(item, str):
                 path = item
@@ -123,7 +129,9 @@ def first_example(usage):
             else:
                 path = None
             if path:
-                return item if isinstance(item, dict) else {'path': path}
+                found.append(item if isinstance(item, dict) else {'path': path})
+        if found:
+            return next((item for item in found if item['path'] not in avoid), found[0])
     return None
 
 
@@ -164,6 +172,13 @@ def main():
     os.makedirs(a.out, exist_ok=True)
 
     written, skipped, needs_human = [], [], []
+    parent_pages = {}
+    for parent in doc.get('components') or []:
+        page = (first_example(parent.get('usage') or {}) or {}).get('path')
+        for slot in parent.get('slots') or []:
+            for child in slot.get('accepts') or []:
+                if page and child != parent['id']:
+                    parent_pages.setdefault(child, set()).add(page)
     for c in sorted(doc.get('components') or [], key=lambda item: item['id']):
         component_id = c['id']
         machine = c.get('machineName') or component_id.split(':')[-1]
@@ -172,7 +187,7 @@ def main():
             skipped.append(machine)
             continue
 
-        example = first_example(c.get('usage') or {})
+        example = first_example(c.get('usage') or {}, parent_pages.get(component_id, ()))
         children = sorted({cid for slot in c.get('slots') or [] for cid in slot.get('accepts') or []
                            if cid != '*' and cid != component_id})
         marker = (example or {}).get('marker')
