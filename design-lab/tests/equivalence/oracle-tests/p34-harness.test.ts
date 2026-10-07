@@ -3,6 +3,7 @@ import {test,after} from 'node:test';
 import assert from 'node:assert/strict';
 import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {resolve,join} from 'node:path';
+import {fileURLToPath} from 'node:url';
 import {spawnSync} from 'node:child_process';
 import {differences,evaluationExitCode} from '../evaluation.ts';
 import {portableParity,portableManifest} from '../portable.ts';
@@ -11,7 +12,7 @@ const scratch='/tmp/design-lab-merge-tests/harness';mkdirSync(scratch,{recursive
 const temp=()=>mkdtempSync(scratch+'/case-');
 after(()=>rmSync(scratch,{recursive:true,force:true}));
 const good=()=>({site:'fixture',artifacts:{scorecard:{status:'match'},report:{status:'match'},completion:{status:'match'}}} as any);
-const exit=(row:any)=>{const root=temp(),path=join(root,'summary.json');writeFileSync(path,JSON.stringify({results:[row]}));return spawnSync(process.execPath,[resolve('design-lab/tests/equivalence/evaluation.ts'),'--check-summary',path],{env:process.env,encoding:'utf8'});};
+const exit=(row:any)=>{const root=temp(),path=join(root,'summary.json');writeFileSync(path,JSON.stringify({results:[row]}));return spawnSync(process.execPath,[fileURLToPath(new URL('../evaluation.ts', import.meta.url)),'--check-summary',path],{env:process.env,encoding:'utf8'});};
 for(const error of ['rendering exception','browser launch failure','embedded image count assertion'])test('harness exits nonzero after '+error,()=>{const row=good();row.error=error;assert.equal(exit(row).status,1);});
 test('harness exits nonzero for actual Ajv errors after a JSON match',()=>{const row=good();row.artifacts.scorecard.ajv=validate('scorecard',{});assert.ok(row.artifacts.scorecard.ajv.length);assert.equal(exit(row).status,1);});
 for(const name of ['report','completion','scorecard'])test('harness exits nonzero for absent '+name,()=>{const row=good();delete row.artifacts[name];assert.equal(exit(row).status,1);});
