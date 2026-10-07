@@ -25,6 +25,7 @@ const TOKEN_KEY = 'design-lab-runner-token';
 const RUNNER_VERSION = 'source';
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (...args: string[]) => () => Promise<unknown>;
 let token = '';
+const session = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
 const RETRY_MS = 5000;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -40,7 +41,23 @@ function status(text: string) {
 }
 
 function url(path: string) {
-  return `${SERVER}${path}${path.includes('?') ? '&' : '?'}fileKey=${encodeURIComponent(figma.fileKey!)}&token=${encodeURIComponent(token)}&version=${encodeURIComponent(RUNNER_VERSION)}`;
+  return `${SERVER}${path}${path.includes('?') ? '&' : '?'}fileKey=${encodeURIComponent(figma.fileKey!)}&token=${encodeURIComponent(token)}&version=${encodeURIComponent(RUNNER_VERSION)}&client=${encodeURIComponent(session)}`;
+}
+
+function workPath(path: string, step: RunnerStep) {
+  return `${path}${path.includes('?') ? '&' : '?'}step=${encodeURIComponent(step.step!)}&generation=${encodeURIComponent(String(step.generation))}&stepToken=${encodeURIComponent(String(step.stepToken))}`;
+}
+function heartbeat(step: RunnerStep) {
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout>;
+  const pulse = async () => {
+    if (stopped) return;
+    // Independent of call(): a disconnected server must not leave an endless heartbeat retry.
+    await fetch(url(workPath('/heartbeat', step))).catch(() => {});
+    if (!stopped) timer = setTimeout(pulse, 10000);
+  };
+  timer = setTimeout(pulse, 10000);
+  return () => { stopped = true; clearTimeout(timer); };
 }
 
 async function call(path: string, body?: unknown): Promise<RunnerReply> {
@@ -89,7 +106,7 @@ async function upload(step: Extract<RunnerStep, { kind: 'upload' }>) {
   const failures = [];
   for (let i = 0; i < step.nodeIds.length; i++) {
     try {
-      const res = await fetch(url(`/file?step=${encodeURIComponent(step.step)}&i=${i}`));
+      const res = await fetch(url(workPath(`/file?i=${i}`, step)));
       if (res.status !== 200) throw new Error(`file ${i}: HTTP ${res.status} ${await res.text()}`);
       const node = await figma.getNodeByIdAsync(step.nodeIds[i]!) as (SceneNode & GeometryMixin) | null;
       if (!node) throw new Error(`file ${i}: node ${step.nodeIds[i]} not found`);
@@ -145,6 +162,7 @@ async function run() {
       globalThis.__designLabBuildCache = { buildId: cacheId, loadedFonts: new Map() };
     } } catch { /* A sandbox without persistent globals uses the template-local cache. */ }
     const started = Date.now();
+    const stopHeartbeat = heartbeat(step);
     let result;
     try {
       if (step.kind === 'use_figma' || step.kind === 'dump' || step.kind === 'check') result = await new AsyncFunction(step.code!)();
@@ -155,7 +173,8 @@ async function run() {
       // The sandbox's stack has no message line, so both are sent: the message says what failed.
       const detail = e && (e as Error).message ? (e as Error).message : String(e);
       const message = `${step.step}: ${detail}${e && (e as Error).stack ? `\n${(e as Error).stack}` : ''}`;
-      await call('/error', { step: step.step, message }).catch(() => {});
+      stopHeartbeat();
+      await call(workPath('/error', step), { step: step.step, message }).catch(() => {});
       // Preflight reports its own failure to the person; a check is never retried in place.
       if (step.kind === 'check') throw new Error(message);
       // A failed step is not recorded. The server answers `wait` until a fix lands (a new
@@ -164,10 +183,13 @@ async function run() {
       step = await call('/next');
       continue;
     }
-    await call(`/record?step=${encodeURIComponent(step.step)}`, {
+    try { await call(workPath('/record', step), {
       __designLabTiming: { durationMs: Date.now() - started },
       result: result === undefined ? {} : result,
-    });
+    }); } catch (error) {
+      if ((error as Error & {status?:number}).status !== 409) throw error;
+      status('The build changed. Asking for current work.');
+    } finally { stopHeartbeat(); }
     count++;
     step = await call('/next');
   }

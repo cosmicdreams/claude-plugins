@@ -2,6 +2,7 @@
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync, appendFileSync } from 'node:fs';
 import { resolve, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';
+import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { Renderer, LIMIT } from './render-payload.ts';
 import { build as responsive } from './responsive.ts';
@@ -177,7 +178,11 @@ export class BuildDriver {
       const errors = validateRunnerRecord(kind, data); if (errors.length) throw new Error(`${sid}: invalid ${kind} result:\n${errors.join('\n')}`);
     }
     if (this.stamp() !== originalStamp) throw new Error('build state changed while recording; retry against the current build');
-    writeOnChange(resolve(this.project, `figma/results/${safe(sid)}.json`), data); state.done.push(sid); this.save(state); this.timing(sid, 'record', performance.now() - started); return { recorded: sid, remaining: state.steps.length - state.done.length };
+    writeOnChange(resolve(this.project, `figma/results/${safe(sid)}.json`), data);
+    state.done.push(sid);
+    if (!['skip', 'screenshot'].includes(expected.kind)) state['executionRevision'] = randomUUID();
+    this.save(state); this.timing(sid, 'record', performance.now() - started);
+    return { recorded: sid, remaining: state.steps.length - state.done.length };
   }
   recordScreenshot(sid: string, data: unknown) { return this.mutate(async () => {
     const errors = validateRunnerRecord('screenshot', data); if (errors.length) throw new Error(errors.join('\n'));

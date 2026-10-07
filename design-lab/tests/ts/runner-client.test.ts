@@ -33,7 +33,7 @@ async function runClient(builds:string[], mode:GlobalMode='persistent', returns=
       getLocalVariableCollectionsAsync:async()=>{calls.collections++;return [];},
     },
   };
-  const context = createContext({figma,Date:{now:()=>++tick*7},setTimeout});
+  const context = createContext({figma,Date:{now:()=>++tick*7},setTimeout,clearTimeout});
   if (mode==='absent') new Script('globalThis = undefined;').runInContext(context);
   if (mode==='protected') new Script('Object.defineProperty(globalThis,"__designLabBuildCache",{value:undefined,writable:false});').runInContext(context);
   context['fetch'] = async (value:string,init?:{body?:string}) => {
@@ -89,4 +89,28 @@ for (const mode of ['nonpersistent','absent','protected'] as const) {
 test('actual runner client sends an empty result and finite per-step duration for an undefined return',{timeout:5000},async()=>{
   const r=await runClient(['A'],'persistent',false);
   assert.deepEqual(r.records[0]!.body,{__designLabTiming:{durationMs:7},result:{}});
+});
+
+test('actual stripped client heartbeats a long active step with its issued token and stops after record', async()=>{
+  let finish!:()=>void,close!:()=>void;const pending=new Promise<void>(r=>{finish=r;}),closed=new Promise<void>(r=>{close=r;});
+  const timers=new Map<number,()=>Promise<void>>();let id=0,records=0;const pulses:URL[]=[];
+  const step={kind:'use_figma',step:'slow',generation:'G',stepToken:'T',buildId:'B',done:0,total:1,code:'await figma.slow();return {};'};
+  const context=createContext({Date,Math,figma:{fileKey:'FILE',slow:()=>pending,clientStorage:{getAsync:async()=> 'token'},showUI:()=>{},ui:{postMessage:()=>{}},closePlugin:()=>close()},
+    setTimeout:(fn:()=>Promise<void>,ms:number)=>{assert.equal(ms,10000);timers.set(++id,fn);return id;},clearTimeout:(n:number)=>{timers.delete(n);},
+    fetch:async(value:string)=>{const url=new URL(value);let body:unknown={};
+      if(url.pathname==='/next') body=records?{kind:'done'}:step;
+      else if(url.pathname==='/heartbeat') pulses.push(url);
+      else if(url.pathname==='/record') {records++;assert.equal(url.searchParams.get('stepToken'),'T');}
+      else throw Error('unexpected '+url.pathname);
+      return {status:200,text:async()=>JSON.stringify(body)};
+    }});
+  new Script(client).runInContext(context);await new Promise(r=>setImmediate(r));
+  assert.equal(timers.size,1,'heartbeat scheduled while payload is awaiting the host');
+  const pulse=[...timers.values()][0]!;
+  // Thirteen scheduled intervals represent 130 seconds of host execution.
+  for(let i=0;i<13;i++) await pulse();assert.equal(pulses.length,13);
+  for(const [key,value] of Object.entries({step:'slow',generation:'G',stepToken:'T'})) assert.equal(pulses[0]!.searchParams.get(key),value);
+  assert.ok(pulses[0]!.searchParams.get('client'));finish();await closed;
+  // Invoke a callback already queued before cancellation: it must send nothing.
+  await pulse();assert.equal(pulses.length,13);assert.equal(records,1);
 });

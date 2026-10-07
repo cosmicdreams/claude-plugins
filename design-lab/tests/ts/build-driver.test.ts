@@ -2,6 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, statSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { Build } from '../../src/figma-runner.ts';
 import { BuildDriver, cropCapture } from '../../src/figma-build.ts';
 import { load, writeOnChange } from '../../src/build-artifacts.ts';
 import type { Component, BuildState, BuildResult } from '../../src/build-artifacts.ts';
@@ -164,4 +165,40 @@ test('concurrent duplicate records are serialized and a rejected record does not
   const { project, driver } = fixture(t), outcomes = await Promise.allSettled([driver.record('pages', pages(project)), driver.record('pages', pages(project))]);
   assert.equal(outcomes.filter(r => r.status === 'fulfilled').length, 1); assert.equal(driver.status().done, 1);
   await assert.rejects(driver.record('variables', { png: 'wrong kind' }), /invalid use_figma/); await driver.record('variables', { collections: {} }); assert.equal(driver.status().done, 2);
+});
+
+
+test('identical results after repeated init invalidate dumps despite unchanged result mtime', async t => {
+  const {project, driver, options} = fixture(t);
+  await driver.record('pages', pages(project));
+  const build = new Build(project, {echo:false});
+  for (;;) {
+    const step = build.dumpStep(); if (!step) break;
+    build.current = step;
+    const data = step.step === 'verify:root' ? {pages:[],collections:[]} : step.step === 'verify:getting-started' ? {text:[]} : step.step!.startsWith('verify:page:') ? {id:'0:1',name:'old',children:[]} : {id:'0:1',name:'old',type:'PAGE',children:[]};
+    // This regression tests freshness, independently of dump record schemas.
+    writeOnChange(String(step['out']), data);
+    writeOnChange(String(step['out']) + '.revision', {revision: driver.state()['executionRevision']});
+  }
+  const resultFile = resolve(project,'figma/results/pages.json'), before = statSync(resultFile,{bigint:true}).mtimeNs;
+  driver.init(options); await driver.record('pages', pages(project));
+  assert.equal(statSync(resultFile,{bigint:true}).mtimeNs,before);
+  assert.ok(build.dumpStep(), 'host content can change while pages result identities stay identical');
+});
+
+
+test('subset rebuild with identical master result refreshes changed host dump content',async t=>{
+  const {project,driver,options}=fixture(t),data={componentId:'master',images:[]};
+  writeOnChange(resolve(project,'figma/results/pages.json'),pages(project));
+  writeOnChange(resolve(project,'figma/results/build_card.json'),data);
+  const state=driver.state();state.done=state.steps.map(s=>s.id);state['executionRevision']='prior';writeOnChange(resolve(project,'figma/state.json'),state);
+  const build=new Build(project,{echo:false});
+  for(;;){const step=build.dumpStep();if(!step)break;writeOnChange(String(step['out']),{host:'old'});writeOnChange(String(step['out'])+'.revision',{revision:'prior'});}
+  const file=resolve(project,'figma/results/build_card.json'),mtime=statSync(file,{bigint:true}).mtimeNs;
+  driver.init({...options,only:'card'});const subset=driver.state();subset.done=subset.steps.filter(s=>s.id!=='build:card').map(s=>s.id);writeOnChange(resolve(project,'figma/state.json'),subset);
+  await driver.next();await driver.record('build:card',data);
+  assert.equal(statSync(file,{bigint:true}).mtimeNs,mtime);
+  const dump=build.dumpStep()!;assert.ok(dump);build.current=dump;
+  await build.record(dump.step!,{page:'changed host content',pageIndex:0,nodes:[],_ids:{}});
+  assert.equal(load<{page:string}>(String(dump['out']),'').page,'changed host content');
 });
