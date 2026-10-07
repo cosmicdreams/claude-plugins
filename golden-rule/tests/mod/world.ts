@@ -25,7 +25,12 @@ export const POLICY = {
 
 const FILES = [`${MAIN}/.git`, `${MAIN}/README.md`, `${FEATURE}/.git`, `${HOME}/Sites/R/.git`, `${NESTED}/.git`,
   `${HOME}/.claude/hooks/golden-rule.sh`, `${HOME}/.claude/settings.json`, `${BASE}/.git/config`, `${BASE}/.git/worktrees/main/HEAD`,
-  `${LINKED}/.git`]
+  `${BASE}/.git/worktrees/main/commondir`, `${LINKED}/.git`]
+// File contents the guard reads to find a linked main worktree's git directories.
+const CONTENTS: Record<string, string> = {
+  [`${LINKED}/.git`]: `gitdir: ${BASE}/.git/worktrees/main\n`,
+  [`${BASE}/.git/worktrees/main/commondir`]: '../..\n',
+}
 
 function withAncestors(paths: string[]): Set<string> {
   const out = new Set<string>(['/'])
@@ -38,10 +43,14 @@ function withAncestors(paths: string[]): Set<string> {
 
 export type Recorded = { calls: Array<Record<string, unknown>>; toasts: string[]; writes: Array<{ path: string; text: string }> }
 
-export function world(on: On, options: { cwd?: string; files?: Record<string, string>; failEnv?: boolean } = {}): Recorded {
+export function world(on: On, options: { cwd?: string; files?: Record<string, string>; links?: Record<string, string>; failEnv?: boolean } = {}): Recorded {
   const recorded: Recorded = { calls: [], toasts: [], writes: [] }
-  const files = { ...options.files }
-  const existing = withAncestors([...FILES, ...Object.keys(files)])
+  const files: Record<string, string> = { ...CONTENTS, ...options.files }
+  const links = options.links ?? {}
+  const existing = withAncestors([...FILES, ...Object.keys(files), ...Object.keys(links), ...Object.values(links)])
+  // A path is a file when it is listed, or has contents; every other existing path is a folder.
+  // A plain `.git` marker is a folder; a linked worktree's `.git` has contents and is a file.
+  const isFile = (path: string): boolean => path in files || (FILES.includes(path) && !path.endsWith('/.git'))
   mock.clock(on, { now: Date.UTC(2026, 9, 7) })
   mock.store(on)
   if (options.failEnv) on('env.get', () => ({ deny: 'no environment in this test' }))
@@ -51,9 +60,15 @@ export function world(on: On, options: { cwd?: string; files?: Record<string, st
     if (e.path.endsWith('/hooks/policy.json')) return { value: JSON.stringify(POLICY) }
     return e.path in files ? { value: files[e.path] } : { deny: `ENOENT: ${e.path}` }
   })
-  on('fs.stat', ($, e) => (existing.has(e.path) ? { value: { kind: 'file', size: 0, mtimeMs: 0, isLink: false, realPath: e.path } } : { deny: `ENOENT: ${e.path}` }))
+  on('fs.stat', ($, e) => (existing.has(e.path)
+    ? { value: { kind: isFile(e.path) ? 'file' : 'dir', size: 0, mtimeMs: 0, isLink: e.path in links, realPath: links[e.path] ?? e.path } }
+    : { deny: `ENOENT: ${e.path}` }))
   on('fs.exists', ($, e) => ({ value: existing.has(e.path) }))
-  on('fs.list', () => ({ value: [] }))
+  on('fs.list', ($, e) => {
+    const folder = String((e as { path?: unknown }).path ?? '/')
+    const children = [...existing].filter(path => path !== folder && path.startsWith(`${folder}/`) && !path.slice(folder.length + 1).includes('/'))
+    return { value: children.map(path => ({ name: path.slice(folder.length + 1), kind: isFile(path) ? 'file' : 'dir', size: 0, mtimeMs: 0, isLink: false })) }
+  })
   on('fs.write', ($, e) => {
     recorded.writes.push({ path: e.path, text: e.text })
     return { value: undefined }

@@ -6,8 +6,8 @@
 import type { EngineInterface, Register } from 'claude-code'
 
 import {
-  type Io, type Policy, expandHome, governedGitPath, isGuardPath, isSettingsFile, mainWorktreeOf, pathLiterals,
-  placed, relativeMainTokens,
+  type GitDirs, type Io, type Policy, expandHome, gitDirsOf, governedGitPath, isGuardPath, isIdentityPath, isSettingsFile,
+  mainWorktreeOf, normalize, pathLiterals, placed, relativeMainTokens,
 } from './paths'
 import { RULE, SECTION_ID, SHORT_RULE } from './rule'
 import { wrapArgv, wrapCommand } from './shell'
@@ -25,6 +25,9 @@ let home = ''
 let composed = false
 // The command each wrapped call must arrive with at the shell, by tool call id, for the final check.
 const expected = new Map<string, string>()
+// The guard's own paths as written and as resolved, and every known main worktree's git directories.
+let guardRoots: string[] = []
+let gitDirs: GitDirs[] = []
 
 function io($: EngineInterface): Io {
   return {
@@ -44,9 +47,23 @@ async function setup($: EngineInterface): Promise<Policy> {
   if (!policy) {
     home = (await $.env.get('HOME')) ?? ''
     if (!home) throw new Error('HOME is not set')
-    policy = JSON.parse(await $.fs.read(`${$.plugin.root}/hooks/policy.json`)) as Policy
+    const rules = JSON.parse(await $.fs.read(`${$.plugin.root}/hooks/policy.json`)) as Policy
+    const written = [$.plugin.root, ...rules.guardFiles.map(file => normalize(expandHome(file, home)))]
+    const resolved = await Promise.all(written.map(path => io($).realPath(path)))
+    guardRoots = [...new Set([...written, ...resolved.filter((path): path is string => path !== undefined)])]
+    policy = rules
+    gitDirs = await knownGitDirs($, await guarded($))
   }
   return policy
+}
+
+const readText = ($: EngineInterface) => (path: string): Promise<string | undefined> =>
+  $.fs.stat(path).then(stat => (stat.kind === 'file' ? $.fs.read(path) : undefined), () => undefined)
+
+async function knownGitDirs($: EngineInterface, roots: readonly string[]): Promise<GitDirs[]> {
+  const out: GitDirs[] = []
+  for (const root of roots) out.push(await gitDirsOf(root, readText($), io($)))
+  return out
 }
 
 async function refuse($: EngineInterface, tool: string, what: string, why: string): Promise<{ deny: string }> {
@@ -63,13 +80,17 @@ const worktreeHint = (root: string): string =>
 /** Why writing `text` (when known) to `path` is refused, or undefined when it is allowed. */
 async function judgeWrite($: EngineInterface, path: string, text?: string): Promise<string | undefined> {
   const rules = await setup($)
-  const real = await placed(path, await $.session.cwd(), home, io($))
+  const cwd = await $.session.cwd()
+  const spelled = normalize(expandHome(path, home), cwd)
+  if (isIdentityPath(spelled)) return `${path} names a file by its identity (/.vol), which the guard cannot place; use its real path.`
+  const real = await placed(path, cwd, home, io($))
+  if (isIdentityPath(real)) return `${path} lands on a file-identity path (${real}), which the guard cannot place; use its real path.`
   const root = await mainWorktreeOf(real, io($))
   if (root) return `${real} is in the main worktree ${root}, the reference, which is never written to. ${worktreeHint(root)}`
-  const gitDir = await governedGitPath(real, io($))
-  if (gitDir) return `${real} is git metadata of a repository with a main worktree (${gitDir}); only git itself writes there.`
-  if (isGuardPath(real, rules, home, $.plugin.root)) return `${real} belongs to the golden rule's guard, which a session never changes.`
-  if (text !== undefined && isSettingsFile(real) && switchesOff(text, rules.pluginId)) {
+  const owner = governedGitPath(real, gitDirs)
+  if (owner) return `${real} is git metadata of the main worktree ${owner.root}; only git itself writes there.`
+  if (isGuardPath([spelled, real], guardRoots, rules)) return `${real} belongs to the golden rule's guard, which a session never changes.`
+  if (text !== undefined && (isSettingsFile(spelled) || isSettingsFile(real)) && switchesOff(text, rules.pluginId)) {
     return `that change to ${real} would switch the golden rule guard off, which a session never does.`
   }
   return undefined
@@ -319,12 +340,20 @@ export const register: Register = on => {
   }).catch(($, e, next) => (next.called ? next(e) : { deny: 'golden-rule: the final command check failed, so this command was not run.' }))
 
   // ---- Layer 4: MCP tools that name a main worktree ----
+  // Every string argument is judged as a path where it could be one: whole (a path with spaces), each path
+  // token inside it, and a bare relative name against the session's folder. A destination split across
+  // arguments or computed by the server cannot be seen; that residual is documented.
   on('tool.call', { tool: /^mcp__/ }, async ($, e, next) => {
     const tool = String(e.tool)
     const rules = await setup($)
-    if (tool.startsWith(`mcp__${NAME}__`) || rules.mcpReadTools.some(pattern => new RegExp(pattern).test(tool))) return next(e)
-    const texts = strings(e)
-    for (const path of [...texts.flatMap(pathLiterals), ...texts.flatMap(relativeMainTokens)]) {
+    if (rules.mcpReadTools.some(pattern => new RegExp(pattern).test(tool))) return next(e)
+    const texts = strings(Object.fromEntries(Object.entries(e).filter(([key]) => key !== 'tool' && key !== 'tool_use_id' && key !== 'agentId')))
+    // Whole strings that look like paths: absolute or home-relative (spaces allowed), or a relative name
+    // with a folder or an extension. Ordinary text is not judged as a path.
+    const looksLikePath = (text: string): boolean => text.length < 4096 && !text.includes('\n')
+      && (/^[~/]/.test(text) || /^[^\s]+$/.test(text) && (/\//.test(text) || /\.[A-Za-z0-9]{1,8}$/.test(text)))
+    const whole = texts.filter(looksLikePath)
+    for (const path of [...new Set([...whole, ...texts.flatMap(pathLiterals), ...texts.flatMap(relativeMainTokens)])]) {
       const why = await judgeWrite($, path)
       if (why) return refuse($, tool, path, `${why} (MCP tools are refused for main worktrees unless listed as read-only in policy.json)`)
     }
@@ -350,9 +379,10 @@ export const register: Register = on => {
   })
 
   // ---- Settings rows that would switch hooks or plugins off ----
+  // The person's own changes in the menu pass; a plugin's are refused for hook and plugin rows.
   on('config.set', async ($, e, next) =>
-    /hook|plugin|golden/i.test(String((e as { key?: unknown }).key ?? ''))
-      ? { deny: 'golden-rule: a session never changes hook or plugin settings; Chris can change this himself.' }
+    e.origin.kind !== 'composer' && /hook|plugin|golden/i.test(e.key)
+      ? { deny: 'golden-rule: a plugin never changes hook or plugin settings; Chris can change this in /config himself.' }
       : next(e),
   ).catch(($, e, next) => (next.called ? next(e) : { deny: 'golden-rule: the settings guard failed, so this setting was not changed.' }))
 }

@@ -62,7 +62,7 @@ describe('Layer 2: structured tools', () => {
     world(on)
     for (const file_path of [`${BASE}/.git/config`, `${BASE}/.git/worktrees/main/HEAD`]) {
       const answer = await $.tool.call({ tool: 'Write', file_path, content: 'x' })
-      expect(answer.deny).toMatch(/git metadata of a repository with a main worktree/)
+      expect(answer.deny).toMatch(/git metadata of the main worktree .*Sites\/L\/worktrees\/main/)
     }
   })
 
@@ -71,6 +71,24 @@ describe('Layer 2: structured tools', () => {
     world(on, { files: { [settings]: '{\n  "enabledPlugins": { "golden-rule@local": true }\n}\n' } })
     const answer = await $.tool.call({ tool: 'Edit', file_path: settings, old_string: 'true', new_string: 'false' })
     expect(answer.deny).toMatch(/switch the golden rule guard off/)
+  })
+
+  test('a symlink followed by .. is resolved before the .. is applied', async ($, on) => {
+    world(on, { links: { [`${FEATURE}/link`]: `${MAIN}/sub` } })
+    const answer = await $.tool.call({ tool: 'Write', file_path: `${FEATURE}/link/../escaped.txt`, content: 'x' })
+    expect(answer.deny).toMatch(/main worktree/)
+  })
+
+  test('a file-identity path is refused', async ($, on) => {
+    world(on)
+    const answer = await $.tool.call({ tool: 'Write', file_path: '/.vol/16777234/123456', content: 'x' })
+    expect(answer.deny).toMatch(/identity/)
+  })
+
+  test('ordinary text in an MCP call is not judged as a path', async ($, on) => {
+    const seen = world(on, { cwd: MAIN })
+    await $.tool.call({ tool: 'mcp__chat__send_message', text: 'the build is green' } as never)
+    expect(seen.calls.length).toBe(1)
   })
 
   test('an MCP tool naming a main worktree is refused unless policy lists it as read-only', async ($, on) => {

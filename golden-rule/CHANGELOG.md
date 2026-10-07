@@ -12,4 +12,5 @@
 - The guard protects itself and puts back a setting a command used to switch it off.
 - A tripwire quarantines a main worktree when a container or another outside process changes it during a command; `/golden-rule clear` lifts it, from the person only.
 - Edits are judged case-insensitively and by the file they would leave; a linked main worktree's metadata outside its folder is protected; the folders holding protected files cannot be moved; failures refuse or quarantine instead of passing.
-- Tests: 23 mocked hook tests, 45 end-to-end sandbox tests on fixture repositories (normal and linked main worktrees), and a live headless run on the personal and Team accounts.
+- Paths are resolved component by component (symlinks before `..`), file-identity paths are refused, git metadata is found from each main worktree's actual layout (separate git dirs, any linked-worktree id), and pushes are judged per command segment in the directory they run in.
+- Tests: 26 mocked hook tests, 51 end-to-end sandbox tests on fixture repositories (normal, linked and long-path main worktrees), and a live headless run on the personal and Team accounts.

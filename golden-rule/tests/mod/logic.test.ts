@@ -28,9 +28,15 @@ describe('paths', () => {
 })
 
 describe('git metadata and tokens', () => {
-  test("a main worktree's own .git is governed; a feature worktree's is not", async () => {
-    expect(await governedGitPath('/p/worktrees/main/.git/config', io)).toBe('/p/worktrees/main/.git')
-    expect(await governedGitPath('/p/worktrees/feat/.git/config', io)).toBeUndefined()
+  test("a main worktree's git directories are governed wherever git keeps them; a feature worktree's are not", () => {
+    const dirs = [
+      { root: '/p/worktrees/main', gitdir: '/p/worktrees/main/.git', common: '/p/worktrees/main/.git' },
+      { root: '/q/worktrees/main', gitdir: '/q/repo.git/worktrees/main1', common: '/q/repo.git' },
+    ]
+    expect(governedGitPath('/p/worktrees/main/.git/config', dirs)?.root).toBe('/p/worktrees/main')
+    expect(governedGitPath('/q/repo.git/worktrees/main1/HEAD', dirs)?.root).toBe('/q/worktrees/main')
+    expect(governedGitPath('/Q/REPO.GIT/config', dirs)?.root).toBe('/q/worktrees/main')
+    expect(governedGitPath('/p/worktrees/feat/.git/config', dirs)).toBeUndefined()
   })
 
   test('a repository nested inside the main worktree is inside it', async () => {

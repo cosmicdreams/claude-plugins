@@ -8,7 +8,7 @@ root=/private/tmp/gr-e2e
 # fixture's main worktrees are found the way the person's real projects are. Same code, one more path.
 plugin=/private/tmp/gr-e2e-plugin
 /bin/rm -rf $plugin; mkdir -p $plugin; /bin/cp -R $source_plugin/hooks $plugin/
-/usr/bin/python3 -I -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["containers"].append("/private/tmp/gr-e2e"); json.dump(d,open(p,"w"),indent=2)' $plugin/hooks/policy.json
+/usr/bin/python3 -I -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["containers"] += ["/private/tmp/gr-e2e", "/private/tmp/gr-e2e/*"]; json.dump(d,open(p,"w"),indent=2)' $plugin/hooks/policy.json
 runpy=$plugin/hooks/sandbox/run.py
 qfile=$HOME/.golden-rule/quarantine.json
 pass=0; fail=0
@@ -87,6 +87,8 @@ gr $root "git -C $F push origin +HEAD:refs/heads/main"; [ $? -eq 126 ] && ok "pu
 git init -q --bare -b main $root/free.git; git init -q -b main $root/free; git -C $root/free commit -q --allow-empty -m "chore: free"; git -C $root/free remote add origin $root/free.git
 gr $root/free 'git push -q origin main'; [ $? -eq 0 ] && ok "push to main in an ungoverned repository allowed (decision 5)" || no "ungoverned push" "$(tail -2 $root/out)"
 gr $F 'gh pr merge 1 --admin --squash'; [ $? -eq 126 ] && ok "gh pr merge --admin refused in a governed repository" || no "gh --admin"
+gr $F "cd $root/free && git push -q origin main"; [ $? -eq 0 ] && ok "a push after cd into an ungoverned repository is judged there (allowed)" || no "cd then ungoverned push" "$(tail -2 $root/out)"
+gr $root/free "git status -s >/dev/null; git -C '$F' push origin HEAD:main"; [ $? -eq 126 ] && ok "a later governed push is judged in its own repository (refused)" || no "per-segment governed push"
 
 # ---- shell semantics ----
 gr $root/p 'cd worktrees/feat'; [ "$GR_PWD" = "$F" ] && ok "cd is carried back to the shell" || no "cd carried back" "$GR_PWD"
@@ -129,6 +131,25 @@ echo '{not json' > $qfile
 gr $M 'ls >/dev/null'; s=$?
 if [ -f $root/quarantine.backup ]; then /bin/cp -p $root/quarantine.backup $qfile; else /bin/rm -f $qfile; fi
 [ $s -eq 126 ] && ok "an unreadable quarantine record refuses rather than clears" || no "corrupt quarantine" "exit $s"
+
+# ---- an outside writer editing a hook in place ----
+( sleep 0.5; echo "# changed outside" >> $M/.git/hooks/pre-commit.sample ) &
+gr $M 'command -v docker >/dev/null; sleep 1.5'; s=$?; wait
+grep -q "pre-commit.sample" $root/out && [ $s -ne 0 ] && ok "tripwire sees a hook edited in place" || no "hook edited in place" "$(tail -2 $root/out)"
+forget
+
+# ---- a main worktree whose path is too long for a shared regex rule ----
+long=$root/$(printf 'c%.0s' {1..240})/$(printf 'p%.0s' {1..240})
+mkdir -p $long/worktrees; git init -q -b main $long/worktrees/main
+gr $root 'true'; [ $? -eq 0 ] && ok "a profile with a very long main worktree path compiles" || no "long path profile" "$(tail -2 $root/out)"
+gr $root "echo x > $long/worktrees/main/f"; [ ! -e $long/worktrees/main/f ] && ok "a very long main worktree path is still protected" || no "long path protection"
+
+# ---- a linked main worktree registered under another administrative id ----
+git clone -q "$root/origin.git" "$root/m/base"; git -C "$root/m/base" checkout -q -b base2
+git -C "$root/m/base" worktree add -q "$root/m/elsewhere/main" -b other-main origin/main
+git -C "$root/m/base" worktree add -q "$root/m/worktrees/main" main
+id=$(basename $(sed 's/^gitdir: //' "$root/m/worktrees/main/.git"))
+gr $root/m/base 'git config core.fsmonitor evil'; [ -z "$(git -C $root/m/base config core.fsmonitor)" ] && ok "shared config of a linked main worktree with id $id refused" || no "linked id $id config"
 
 # ---- hard links ----
 gr $root "ln $M/README.md $root/hard"; [ ! -e $root/hard ] && ok "a hard link to a file in main refused" || no "hard link into main created"

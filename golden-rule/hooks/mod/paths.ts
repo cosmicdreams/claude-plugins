@@ -47,20 +47,32 @@ export function ancestorsOf(path: string): string[] {
 }
 
 /**
- * Where a path a tool names would land: the file's real path if it exists, else its deepest existing
- * folder's real path plus the rest. A file-system error other than "not there" propagates, so the
+ * Where a path a tool names would land, resolved the way the file system walks it: component by
+ * component, each existing one replaced by its real path before the next `..` is applied (so
+ * `link/../x` lands beside the link's target, not beside the link). Past the first component that does
+ * not exist the rest is joined as written. A file-system error other than "not there" propagates, so the
  * calling gate's `.catch` refuses instead of judging a path it could not place.
  */
 export async function placed(path: string, cwd: string, home: string, io: Io): Promise<string> {
-  const spelled = normalize(expandHome(path, home), cwd)
-  const rest: string[] = []
-  for (let at = spelled; ; at = parentOf(at)) {
-    const real = await io.realPath(at)
-    if (real !== undefined) return normalize([real, ...rest].join('/'))
-    if (at === '/') return spelled
-    rest.unshift(baseOf(at))
+  const expanded = expandHome(path, home)
+  let at = expanded.startsWith('/') ? '/' : (await io.realPath(cwd)) ?? normalize(cwd)
+  let exists = true
+  for (const part of expanded.split('/')) {
+    if (part === '' || part === '.') continue
+    if (part === '..') {
+      at = parentOf(at)
+      continue
+    }
+    const next = at === '/' ? `/${part}` : `${at}/${part}`
+    const real = exists ? await io.realPath(next) : undefined
+    if (real === undefined) exists = false
+    at = real ?? next
   }
+  return at
 }
+
+/** A spelling that reaches a file by its identity (`/.vol/<device>/<inode>`), which no path check can judge. */
+export const isIdentityPath = (path: string): boolean => /^\/\.vol(\/|$)/i.test(path)
 
 /**
  * The main worktree a real path is inside, if any: the nearest ancestor that is a working-tree root named
@@ -75,27 +87,47 @@ export async function mainWorktreeOf(real: string, io: Io): Promise<string | und
   return undefined
 }
 
+/** A main worktree's git directories as git lays them out: its own (`gitdir`) and the shared one. */
+export type GitDirs = { root: string; gitdir: string; common: string }
+
 /**
- * Whether a real path is inside the git directory of a repository that has a main worktree: its own
- * `.git` (the main worktree's) or a shared one whose linked worktree `main` lives elsewhere. Git writes
- * these itself; a session's Edit or Write never needs to.
+ * Where a main worktree keeps its git metadata: a `.git` folder, or a `.git` file naming a directory
+ * elsewhere (a linked worktree under any administrative id, a separate git dir, a bare repository's
+ * worktree), whose `commondir` names the shared directory.
  */
-export async function governedGitPath(real: string, io: Io): Promise<string | undefined> {
-  for (const dir of ancestorsOf(real)) {
-    if (!named(dir, '.git')) continue
-    if (named(parentOf(dir), 'main') || await io.exists(`${dir}/worktrees/main`)) return dir
+export async function gitDirsOf(root: string, read: (path: string) => Promise<string | undefined>, io: Io): Promise<GitDirs> {
+  const marker = `${root}/.git`
+  const text = await read(marker)
+  if (text === undefined) {
+    const real = (await io.realPath(marker)) ?? marker
+    return { root, gitdir: real, common: real }
   }
-  return undefined
+  const pointer = /^gitdir: (.+)$/m.exec(text)?.[1]?.trim()
+  if (!pointer) throw new Error(`cannot read ${marker}`)
+  const gitdir = (await io.realPath(normalize(pointer, root))) ?? normalize(pointer, root)
+  const commondir = (await read(`${gitdir}/commondir`))?.trim()
+  const common = commondir ? (await io.realPath(normalize(commondir, gitdir))) ?? normalize(commondir, gitdir) : gitdir
+  return { root, gitdir, common }
+}
+
+/** Which main worktree's git metadata a real path is inside, if any. Git writes there itself; a session's
+ * Edit or Write never needs to. */
+export function governedGitPath(real: string, dirs: readonly GitDirs[]): GitDirs | undefined {
+  const path = real.toLowerCase()
+  return dirs.find(({ gitdir, common }) => [gitdir, common].some(dir => path === dir.toLowerCase() || path.startsWith(`${dir.toLowerCase()}/`)))
 }
 
 const lower = (path: string): string => path.toLowerCase()
 
-/** Whether a real path is one of the guard's own files, or a place that would load a new hooks module. */
-export function isGuardPath(real: string, policy: Policy, home: string, pluginRoot: string): boolean {
-  const roots = [pluginRoot, ...policy.guardFiles.map(file => normalize(expandHome(file, home)))].map(lower)
-  const path = lower(real)
-  if (roots.some(root => path === root || path.startsWith(`${root}/`))) return true
-  return policy.guardPatterns.some(pattern => new RegExp(pattern, 'i').test(real))
+/** Whether a path is one of the guard's own files, or a place that would load a new hooks module.
+ * `roots` holds the guard's paths both as written and resolved, and callers pass both spellings. */
+export function isGuardPath(paths: readonly string[], roots: readonly string[], policy: Policy): boolean {
+  const guarded = roots.map(lower)
+  return paths.some(candidate => {
+    const path = lower(candidate)
+    return guarded.some(root => path === root || path.startsWith(`${root}/`))
+      || policy.guardPatterns.some(pattern => new RegExp(pattern, 'i').test(candidate))
+  })
 }
 
 /** Settings files that could switch a plugin off, in any Claude configuration folder (`~/.claude-work` too). */

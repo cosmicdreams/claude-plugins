@@ -22,6 +22,7 @@ from __future__ import annotations
 import base64
 import fcntl
 import glob
+import hashlib
 import json
 import os
 import pwd
@@ -125,15 +126,26 @@ def repository_of(cwd: str) -> tuple[str, str] | None:
     return None
 
 
-def governed_repository(common: str) -> str | None:
-    """The main worktree of the repository whose common git directory this is, if it has one."""
+def governed_repository(common: str, every: set[str] = frozenset()) -> str | None:
+    """The main worktree of the repository whose common git directory this is, if it has one: a known main
+    worktree sharing this directory (own .git, separate git dir, bare repository), or any worktree registered
+    here, under whatever administrative id, whose folder is a main worktree."""
+    common = os.path.realpath(common)
+    for root in sorted(every):
+        try:
+            if git_dirs(root)[1] == common:
+                return root
+        except (OSError, Refused):
+            continue
     owner = os.path.dirname(common)
-    if os.path.basename(common) == ".git" and is_main(owner):
+    if is_main(owner) and os.path.realpath(os.path.join(owner, ".git")) == common:
         return owner
-    pointer = os.path.join(common, "worktrees", "main", "gitdir")
-    if os.path.isfile(pointer):
-        with open(pointer) as handle:
-            root = os.path.dirname(os.path.realpath(handle.read().strip()))
+    for pointer in glob.glob(os.path.join(common, "worktrees", "*", "gitdir")):
+        try:
+            with open(pointer) as handle:
+                root = os.path.dirname(os.path.realpath(handle.read().strip()))
+        except OSError:
+            continue
         if is_main(root):
             return root
     return None
@@ -171,7 +183,7 @@ def discover(policy: dict, cwd: str, text: str) -> tuple[set[str], set[str]]:
             touched.add(os.path.realpath(root))
     repo = repository_of(cwd)
     if repo:
-        owner = governed_repository(repo[1])
+        owner = governed_repository(repo[1], every)
         if owner:
             touched.add(owner)
     # A linked main worktree keeps its git metadata outside its folder: give it the exact rules always.
@@ -208,10 +220,29 @@ def trunk_violation(text: str) -> str | None:
     return None
 
 
-def push_target_repository(text: str, cwd: str) -> str:
-    """The working tree a push runs in: a `git -C <dir>` argument, else the command's directory."""
-    match = re.search(r"git\s+-C\s+(\S+)", text)
-    return absolute(match.group(1).strip("'\""), cwd) if match else cwd
+def governed_pushes(text: str, cwd: str, every: set[str]) -> str | None:
+    """Why the command would put work on a governed main without a pull request, or None. Each segment is
+    judged in the directory it runs in: `cd` moves it, and `git -C <dir>` (quoted paths included) sets it
+    for that segment. Repositories without a main worktree are left alone (decision 5)."""
+    here = cwd
+    for segment in SEGMENT.split(text):
+        w = words(segment)
+        if w[:1] == ["cd"]:
+            here = absolute(w[1], here) if len(w) > 1 and w[1] != "-" else HOME
+            continue
+        why = trunk_violation(segment)
+        if not why:
+            continue
+        where = here
+        if "git" in w and "-C" in w[w.index("git"):]:
+            at = w.index("-C", w.index("git"))
+            if at + 1 < len(w):
+                where = absolute(w[at + 1], here)
+        repo = repository_of(deepest_real(where))
+        owner = governed_repository(repo[1], every) if repo else None
+        if owner:
+            return f"this {why}; changes reach main only through a pull request (repository of {owner})."
+    return None
 
 
 # ---- the sandbox profile --------------------------------------------------------------------------
@@ -225,9 +256,14 @@ def rx(path: str) -> str:
     return re.sub(r'([.^$*+?()\[\]{}|\\"])', r"\\\1", path)
 
 
+REGEX_LIMIT = 1023
+
+
 def chunks(paths: list[str]) -> list[str]:
+    """Alternations of paths for regex rules. A path too long to share a rule is left out: callers give it
+    literal rules (fits_regex)."""
     out, current = [], []
-    for path in paths:
+    for path in (path for path in paths if fits_regex(path)):
         if current and len("|".join([*current, rx(path)]).encode()) > REGEX_BUDGET:
             out.append("|".join(current))
             current = []
@@ -235,6 +271,19 @@ def chunks(paths: list[str]) -> list[str]:
     if current:
         out.append("|".join(current))
     return out
+
+
+def fits_regex(path: str) -> bool:
+    return len(rx(path).encode()) <= REGEX_BUDGET // 2
+
+
+def checked(rules: list[str]) -> list[str]:
+    """Every regex string within the profile reader's limit, or the profile is not built."""
+    for rule in rules:
+        for pattern in re.findall(r'#"((?:[^"\\]|\\.)*)"', rule):
+            if len(pattern.encode()) > REGEX_LIMIT:
+                raise Refused(f"a sandbox rule is {len(pattern.encode())} bytes, over the reader's {REGEX_LIMIT}")
+    return rules
 
 
 def metadata_nodes(common: str) -> list[str]:
@@ -297,7 +346,7 @@ def profile(policy: dict, every: set[str], touched: set[str]) -> str:
     deny = []
     for root in sorted(touched):
         deny += precise(root)
-    rest = sorted(root for root in every - touched if len(rx(root).encode()) <= REGEX_BUDGET // 2)
+    rest = sorted(root for root in every - touched if fits_regex(root))
     for root in sorted(every - touched - set(rest)):  # a path too long for a regex gets exact rules
         deny += precise(root)
     deny += compact(rest)
@@ -314,7 +363,8 @@ def profile(policy: dict, every: set[str], touched: set[str]) -> str:
                      {folder for path in guarded for folder in protected_ancestors(path)})
     for alternation in chunks(folders):
         deny.append(f'(regex #"^({alternation})$")')
-    return "(version 1)\n(allow default)\n(deny file-write*\n  " + "\n  ".join(deny) + ")\n"
+    deny += [f"(literal {sb(folder)})" for folder in folders if not fits_regex(folder)]
+    return "(version 1)\n(allow default)\n(deny file-write*\n  " + "\n  ".join(checked(deny)) + ")\n"
 
 
 # ---- quarantine -----------------------------------------------------------------------------------
@@ -363,13 +413,29 @@ def hands_outside(text: str) -> bool:
     return any(os.path.basename(token) in OUTSIDE for token in TOKEN.findall(text))
 
 
-def changed_since(root: str, stamp: str) -> str | None:
-    """The first path under a main worktree, or in its protected git state, changed after the stamp."""
+def metadata_state(root: str) -> dict:
+    """What the protected git state holds: each file's presence and content digest, hooks included."""
     gitdir, common = git_dirs(root)
-    since = os.path.getmtime(stamp)
-    for path in {os.path.join(gitdir, "HEAD"), os.path.join(gitdir, "index"), os.path.join(common, "config"),
-                 os.path.join(common, "packed-refs"), os.path.join(common, "refs", "heads", "main"), os.path.join(common, "hooks")}:
-        if os.path.exists(path) and max(os.path.getmtime(path), os.path.getctime(path)) > since:
+    paths = [os.path.join(gitdir, "HEAD"), os.path.join(gitdir, "index"), os.path.join(common, "config"),
+             os.path.join(common, "packed-refs"), os.path.join(common, "refs", "heads", "main")]
+    for folder in (os.path.join(common, "hooks"), os.path.join(common, "info")):
+        for directory, _, names in os.walk(folder):
+            paths += [os.path.join(directory, name) for name in names]
+    state = {}
+    for path in paths:
+        try:
+            with open(path, "rb") as handle:
+                state[path] = hashlib.sha256(handle.read()).hexdigest()
+        except FileNotFoundError:
+            state[path] = None
+    return state
+
+
+def changed_since(root: str, stamp: str, before: dict) -> str | None:
+    """The first path under a main worktree, or in its protected git state, changed after the stamp."""
+    after = metadata_state(root)
+    for path in sorted(set(before) | set(after)):
+        if before.get(path) != after.get(path):
             return path
     found = subprocess.run(["/usr/bin/find", root, "-path", os.path.join(root, ".git"), "-prune", "-o",
                             "(", "-newer", stamp, "-o", "-cnewer", stamp, ")", "-print", "-quit"],
@@ -411,12 +477,9 @@ def main() -> int:
         policy = json.load(handle)
     cwd = os.path.realpath(os.getcwd())
     every, touched = discover(policy, cwd, text)
-    trunk = trunk_violation(text)
+    trunk = governed_pushes(text, cwd, every)
     if trunk:
-        repo = repository_of(push_target_repository(text, cwd))
-        owner = governed_repository(repo[1]) if repo else None
-        if owner:
-            raise Refused(f"this {trunk}; changes reach main only through a pull request (repository of {owner}).")
+        raise Refused(trunk)
     watch = tied(touched, cwd, text)
     held = load_quarantine(policy)
     for root in watch:
@@ -427,30 +490,46 @@ def main() -> int:
     sandbox = [SANDBOX_EXEC, "-p", profile(policy, every, touched), *inner]
     watch = watch if hands_outside(text) else []
     stamp = None
+    before = {root: metadata_state(root) for root in watch}
     if watch:
         fd, stamp = tempfile.mkstemp(prefix="golden-rule-stamp")
         os.close(fd)
         time.sleep(0.01)  # file times have a coarse grain: let the stamp be strictly older than any change
     status = run(sandbox)
+    # From here the command has run: nothing below may report it as not run.
     try:
-        for root in watch:
-            path = changed_since(root, stamp)
-            if path:
-                record_quarantine(policy, root, path, text)
-                print(f"\n{PREFIX} a change was observed in the main worktree {root} ({path}) while this command ran. "
-                      "Report it to Chris and leave it: remediation is his. Commands touching it are refused until "
-                      "he clears it with /golden-rule clear.", file=sys.stderr)
-                status = status or 1
-    except Exception as error:  # the command ran; an unobserved outcome quarantines rather than passes
-        for root in watch:
-            record_quarantine(policy, root, "(could not be checked)", text)
-        print(f"\n{PREFIX} the command ran, but the check of {', '.join(watch)} failed ({error}); "
-              "quarantined until Chris has looked.", file=sys.stderr)
+        if observe(policy, watch, stamp, before, text):
+            status = status or 1
+    except Exception as error:
+        print(f"\n{PREFIX} the command ran, but the guard could not check or record the main worktrees it "
+              f"touched ({', '.join(watch)}): {error}. Tell Chris before doing anything else there.", file=sys.stderr)
         status = status or 1
     finally:
-        if stamp:
+        if stamp and os.path.exists(stamp):
             os.unlink(stamp)
     return status
+
+
+def observe(policy: dict, watch: list[str], stamp: str | None, before: dict, text: str) -> bool:
+    """After a watched command: quarantine every main worktree that changed, or that could not be checked.
+    Answers whether any was quarantined."""
+    held = False
+    for root in watch:
+        try:
+            path = changed_since(root, stamp, before[root])
+        except Exception as error:  # an unobserved outcome quarantines rather than passes
+            record_quarantine(policy, root, f"(could not be checked: {error})", text)
+            held = True
+            print(f"\n{PREFIX} the command ran, but the check of {root} failed ({error}); quarantined until Chris "
+                  "has looked.", file=sys.stderr)
+            continue
+        if path:
+            record_quarantine(policy, root, path, text)
+            held = True
+            print(f"\n{PREFIX} a change was observed in the main worktree {root} ({path}) while this command ran. "
+                  "Report it to Chris and leave it: remediation is his. Commands touching it are refused until "
+                  "he clears it with /golden-rule clear.", file=sys.stderr)
+    return held
 
 
 if __name__ == "__main__":
