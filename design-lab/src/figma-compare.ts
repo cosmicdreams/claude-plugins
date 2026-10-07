@@ -30,10 +30,15 @@ export function comparePair(a: Pixels, b: Pixels, corrected = false) {
   }
   return { width, height, changed, ratio: roundDecimal(changed / total, 4), ...(corrected ? { widthDelta: Math.abs(a.width - b.width) } : {}), heightDelta: corrected ? Math.abs(a.height - b.height) : 0, pass: changed / total <= THRESHOLD };
 }
+/** Pillow's paste(mask=alpha) of RGBA onto white, returning RGB. Used instead of libvips flatten, whose rounding differs. */
+export function flattenRgbaOverWhite(rgba: Uint8Array): Uint8Array {
+  const data = new Uint8Array(rgba.length / 4 * 3);
+  for (let p = 0; p < data.length / 3; p++) { const a = rgba[p * 4 + 3]!; for (let c = 0; c < 3; c++) data[p * 3 + c] = Math.floor((rgba[p * 4 + c]! * a + 255 * (255 - a) + 127) / 255); }
+  return data;
+}
 export async function compare(png: string | Buffer, geometry: Geometry, corrected = false, masks?: GeometryBox[][] | null) {
   // Use raw RGBA and Pillow's alpha-compositing rounding, independent of libvips flatten.
-  const decoded = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true }), data = new Uint8Array(decoded.info.width * decoded.info.height * 3);
-  for (let p = 0; p < data.length / 3; p++) { const a = decoded.data[p * 4 + 3]!; for (let c = 0; c < 3; c++) data[p * 3 + c] = Math.floor((decoded.data[p * 4 + c]! * a + 255 * (255 - a) + 127) / 255); }
+  const decoded = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true }), data = flattenRgbaOverWhite(decoded.data);
   const img: Pixels = { width: decoded.info.width, height: decoded.info.height, data }, pairs = [];
   for (let i = 0; i < Math.min(geometry.variants?.length ?? 0, geometry.captures?.length ?? 0); i++) {
     const v = geometry.variants![i]!, c = geometry.captures![i]!, boxes = masks?.[i]; let a = region(img, v), b = region(img, c);
