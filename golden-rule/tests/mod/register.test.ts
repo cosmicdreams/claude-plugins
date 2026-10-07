@@ -120,6 +120,12 @@ describe('Layer 2: structured tools', () => {
     expect(seen.calls.length).toBe(1)
   })
 
+  test('a path-like token past the system limits inside content is not placed', async ($, on) => {
+    const seen = world(on, { cwd: FEATURE })
+    await $.tool.call({ tool: 'mcp__files__write_file', path: 'note.txt', content: `Example path: /${'a'.repeat(300)}` } as never)
+    expect(seen.calls.length).toBe(1)
+  })
+
   test('a file-identity path is refused', async ($, on) => {
     world(on)
     const answer = await $.tool.call({ tool: 'Write', file_path: '/.vol/16777234/123456', content: 'x' })

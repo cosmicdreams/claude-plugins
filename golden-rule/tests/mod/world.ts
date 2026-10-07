@@ -44,6 +44,8 @@ function withAncestors(paths: string[]): Set<string> {
 export type Recorded = { calls: Array<Record<string, unknown>>; toasts: string[]; writes: Array<{ path: string; text: string }> }
 
 export function world(on: On, options: { cwd?: string; files?: Record<string, string>; links?: Record<string, string | null>; failEnv?: boolean } = {}): Recorded {
+  // As the real file system: a name over 255 bytes fails with ENAMETOOLONG, not ENOENT.
+  const tooLong = (path: string): boolean => path.split('/').some(name => name.length > 255)
   const recorded: Recorded = { calls: [], toasts: [], writes: [] }
   const files: Record<string, string> = { ...CONTENTS, ...options.files }
   const links = options.links ?? {}
@@ -60,7 +62,7 @@ export function world(on: On, options: { cwd?: string; files?: Record<string, st
     if (e.path.endsWith('/hooks/policy.json')) return { value: JSON.stringify(POLICY) }
     return e.path in files ? { value: files[e.path] } : { deny: `ENOENT: ${e.path}` }
   })
-  on('fs.stat', ($, e) => (existing.has(e.path)
+  on('fs.stat', ($, e) => (tooLong(e.path) ? { deny: `ENAMETOOLONG: ${e.path}` } : existing.has(e.path)
     ? { value: { kind: isFile(e.path) ? 'file' : 'dir', size: 0, mtimeMs: 0, isLink: e.path in links, ...(links[e.path] === null ? {} : { realPath: links[e.path] ?? e.path }) } }
     : { deny: `ENOENT: ${e.path}` }))
   on('fs.exists', ($, e) => ({ value: existing.has(e.path) }))

@@ -378,7 +378,7 @@ export const register: Register = on => {
     // protected. A string past the system's path limits (1,024 bytes, 255 per name) cannot be a
     // destination and is not placed, so long content never fails the call.
     const whole = texts.filter(couldBePath)
-    for (const path of [...new Set([...whole, ...texts.flatMap(pathLiterals), ...texts.flatMap(relativeMainTokens)])]) {
+    for (const path of [...new Set([...whole, ...texts.flatMap(pathLiterals), ...texts.flatMap(relativeMainTokens)])].filter(couldBePath)) {
       const why = await judgeWrite($, path)
       if (why) return refuse($, tool, path, `${why} (MCP tools are refused for main worktrees unless listed as read-only in policy.json)`)
     }
