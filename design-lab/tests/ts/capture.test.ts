@@ -17,6 +17,26 @@ import { node, spec } from './p2-fixtures.ts';
 const sharp = sharedRequire()('sharp') as typeof import('sharp').default;
 const temporary = () => mkdtempSync('/tmp/design-lab-p2-test-');
 const config = (id = 'sdc.demo.alpha'): CaptureConfig => ({ component: id, componentId: id, machineName: id.split('.').at(-1)!, path: '/one', verificationUrl: 'https://site.test/one', linkUrl: 'https://public.test/one', rootSelector: '#x', states: [{ name: 'default' }] });
+for (const outcome of ['success', 'miss', 'exception', 'timeout']) test(`phase 5 check-only preserves existing records byte-for-byte (${outcome})`, async () => {
+  const f = fixture(); await runCapture(f.options, f.adapters);
+  const paths = f.configs.map(c => resolve(f.root, 'capture/records', c.componentId + '.json'));
+  // Include a legacy hash on an unselected item: checks must not migrate records either.
+  const legacy = JSON.parse(readFileSync(paths[1]!, 'utf8')); legacy.configHash = legacyHash(f.configs[1]!, 1); writeJson(paths[1]!, legacy);
+  const before = paths.map(path => ({ bytes: readFileSync(path, 'utf8'), stamp: statSync(path).mtimeMs }));
+  const result = await runCapture({ ...f.options, check: true, fresh: true, only: [f.configs[0]!.componentId], captureTimeoutMs: 10 }, {
+    ...f.adapters, check: async (browser, input) => {
+      if (outcome === 'exception') throw new Error('synthetic check failure');
+      if (outcome === 'timeout') await new Promise(() => {});
+      const checked = await f.adapters.check(browser, input); return { ...checked, chosen: outcome === 'miss' ? null : checked.chosen };
+    },
+  });
+  assert.equal(result.checks.length, 1); assert.equal(result.problems.length, outcome === 'success' ? 0 : 1);
+  assert.deepEqual(paths.map(path => ({ bytes: readFileSync(path, 'utf8'), stamp: statSync(path).mtimeMs })), before);
+});
+test('phase 5 check-only does not create capture records', async () => {
+  const f = fixture(); await runCapture({ ...f.options, check: true }, f.adapters);
+  for (const c of f.configs) assert.equal(existsSync(resolve(f.root, 'capture/records', c.componentId + '.json')), false);
+});
 function fixture() {
   const root = temporary(), configs = [config(), config('sdc.demo.zeta')];
   writeJson(resolve(root, 'components.json'), { source: { strategy: 'canvas' }, components: configs.map(c => ({ id: c.componentId, machineName: c.machineName, usage: { examples: [c.path, '/two', '/three', '/four'] } })) });
@@ -168,8 +188,14 @@ for (const checkOnly of [true,false]) test(`selector timeout checkpoints failure
     }};
   const output=await runCapture({...f.options,check:checkOnly,captureTimeoutMs:25,concurrency:2},adapters);
   assert.equal(closed,true); assert.ok(output.problems.some(p=>p.componentId==='sdc.demo.alpha'));
-  const failed=JSON.parse(readFileSync(resolve(f.root,'capture/records/sdc.demo.alpha.json'),'utf8'));
-  assert.equal(failed.status,'failed');assert.match(failed.problems.join(';'),/stopped after/);
+  if (checkOnly) {
+    assert.equal(existsSync(resolve(f.root,'capture/records/sdc.demo.alpha.json')), false);
+    const checks=JSON.parse(readFileSync(resolve(f.root,'capture/selector-check.json'),'utf8'));
+    assert.match(checks.find((c:any)=>c.componentId==='sdc.demo.alpha').pages[0].error,/stopped after/);
+  } else {
+    const failed=JSON.parse(readFileSync(resolve(f.root,'capture/records/sdc.demo.alpha.json'),'utf8'));
+    assert.equal(failed.status,'failed');assert.match(failed.problems.join(';'),/stopped after/);
+  }
   if(!checkOnly) assert.ok('sdc.demo.zeta' in output.captures);
 });
 test('pool drains siblings before propagating an unexpected item exception', async()=>{

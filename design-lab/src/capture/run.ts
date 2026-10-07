@@ -82,6 +82,8 @@ export async function runCapture(options: CaptureOptions, adapters: CaptureAdapt
     const path = resolve(records, stem(cfg.componentId) + '.json');
     const selected = !options.only || options.only.includes(cfg.componentId);
     if (selected && options.fresh && !options.check) rmSync(path, { force: true });
+    // Selector checks must not migrate, replace or create capture records.
+    if (options.check) return selected;
     const record = readRecord(path);
     if (record && record.configHash !== digest && record.configHash === legacyHash(cfg, scale)) { record.configHash = digest; writeJson(path, record); }
     if (!selected) return false;
@@ -154,7 +156,7 @@ export async function runCapture(options: CaptureOptions, adapters: CaptureAdapt
           record.durationMs = performance.now() - start;
           record.seconds = roundEven(record.durationMs / 100) / 10;
           record.measureMs = measureMs; record.captureMs = captureMs;
-          writeJson(resolve(records, stem(id) + '.json'), record);
+          if (!options.check) writeJson(resolve(records, stem(id) + '.json'), record);
         }
         return record;
       });
