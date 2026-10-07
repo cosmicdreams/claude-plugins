@@ -11,6 +11,13 @@ import { load, writeOnChange } from '../../src/build-artifacts.ts';
 import type { BuildState, BuildResult } from '../../src/build-artifacts.ts';
 import type { RunnerStep } from '../../src/generated/runner-step.ts';
 import { pluginRoot } from '../../src/runtime.ts';
+import { Renderer } from '../../src/render-payload.ts';
+import { assertPayloadParity, assertTemplates, legacyRuntime } from './template-parity.ts';
+import { assertRunnerClientParity } from './runner-client-parity.ts';
+const currentRenderer = new Renderer(), legacyRenderer = new Renderer(undefined, 'javascript');
+const templates = assertTemplates();
+const runner = assertRunnerClientParity();
+const runtime = (value: unknown): unknown => legacyRuntime(value, currentRenderer.runtimeHash(), legacyRenderer.runtimeHash());
 const sources = { definitive: resolve(homedir(), 'Sites/DEFINITIVEHC/design/2026-10-05'), pncb: resolve(homedir(), '.design/pncb/2026-10-06') };
 const root = process.argv[2] ?? mkdtempSync('/tmp/design-lab-round2-driver-');
 assert.ok(root.startsWith('/tmp/'));
@@ -49,15 +56,18 @@ const summary: Record<string, unknown> = {};
 for (const run of Object.keys(sources)) {
   const project = resolve(root, run, 'ts'), oracle = resolve(root, run, 'python'), expected = load<{ init: unknown; state: BuildState; transcript: { step: RunnerStep; input: BuildResult; result: BuildResult; recorded: unknown }[]; ms: number }>(oracle, 'oracle.json'), old = load<BuildState>(project, 'figma/state.json'), driver = new BuildDriver(project, { runner: true }), started = performance.now();
   const init = driver.init({ fileKey: old.fileKey, siteUrl: old.siteUrl, canonicalBaseUrl: old.canonicalBaseUrl, offlineImages: true, iterate: old.iterate, ...load<{ rebuild: boolean }>(project, 'replay-options.json') });
-  assert.deepEqual(init, expected.init, run + ': init');
+  assert.deepEqual(runtime(init), expected.init, run + ': init');
   const steps: string[] = []; let payloads = 0, images = 0;
   for (const row of expected.transcript) {
     const sid = row.step.step!, step = await driver.next();
-    assert.deepEqual(normalize(step, project), normalize(row.step, oracle), run + ': ' + sid + ': step');
+    // Payload size differs only by the proven cache code and type-strip trivia.
+    const envelope = (s: RunnerStep): unknown => s.kind === 'use_figma' ? Object.fromEntries(Object.entries(s).filter(([k]) => k !== 'characters')) : s;
+    assert.deepEqual(normalize(envelope(step), project), normalize(envelope(row.step), oracle), run + ': ' + sid + ': step');
     if (step.kind === 'use_figma') {
       const actual = readFileSync(step.payload!, 'utf8'), py = readFileSync((row.step as typeof step).payload!, 'utf8');
-      // Exact source proves both the normalized ARGS and unchanged oracle JS bodies.
-      assert.equal(actual, py, run + ': ' + sid + ': payload'); payloads++;
+      assert.equal(step.characters, [...actual].length);
+      assert.equal(row.step.characters, [...py].length);
+      assertPayloadParity(actual, py, currentRenderer, legacyRenderer, run + ': ' + sid); payloads++;
     }
     if (sid.startsWith('images:')) {
       images++;
@@ -75,10 +85,10 @@ for (const run of Object.keys(sources)) {
     assert.deepEqual(normalize(load(project, `figma/results/${sid.replace(/[^A-Za-z0-9_.-]+/g, '_')}.json`), project), normalize(row.result, oracle), run + ': ' + sid + ': result'); steps.push(sid);
   }
   assert.deepEqual(await driver.next(), { kind: 'done' });
-  assert.deepEqual(driver.state(), JSON.parse(JSON.stringify(expected.state).replaceAll(oracle, project)));
+  assert.deepEqual(runtime(driver.state()), JSON.parse(JSON.stringify(expected.state).replaceAll(oracle, project)));
   const oracleIndex = load<{ generatedAt: string }>(oracle, 'index.json');
   const outputs = receipts(project, new Date(oracleIndex.generatedAt));
-  for (const output of outputs) assert.deepEqual(normalize(load(project, output.path), project), normalize(load(oracle, output.path.replace(project, oracle)), oracle), run + ': receipt ' + output.name);
+  for (const output of outputs) assert.deepEqual(normalize(runtime(load(project, output.path)), project), normalize(load(oracle, output.path.replace(project, oracle)), oracle), run + ': receipt ' + output.name);
   summary[run] = { stepsCompared: steps.length, stepsMatched: steps.length, payloads, images, tsMs: performance.now() - started, pythonMs: expected.ms, recordedFigmaResults: run === 'definitive', syntheticProtocolResults: run === 'pncb' };
 }
-writeOnChange(resolve(root, 'summary.json'), { root, summary }); console.log(JSON.stringify({ root, summary }, null, 2));
+writeOnChange(resolve(root, 'summary.json'), { root, templates, runner, summary }); console.log(JSON.stringify({ root, templates, runner, summary }, null, 2));

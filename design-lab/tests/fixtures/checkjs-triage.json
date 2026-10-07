@@ -1,0 +1,2978 @@
+{
+  "baseline": {
+    "report": "/Users/Chris.Weber/Tools/CLAUDE-PLUGINS/analysis-reports/design-lab-p2-port-round2-2026-10-07.md",
+    "compilerLog": "/tmp/design-lab-round3-check-js.log",
+    "total": 156
+  },
+  "counts": {
+    "a": 0,
+    "b": 145,
+    "c": 11
+  },
+  "diagnostics": [
+    {
+      "id": 1,
+      "location": "design-lab/runner/code.js:30:28",
+      "code": "TS2339",
+      "message": "Property 'open' does not exist on type '(text: any) => void'.",
+      "rawDiagnostic": "design-lab/runner/code.js(30,28): error TS2339: Property 'open' does not exist on type '(text: any) => void'.",
+      "class": "b",
+      "counterpart": "design-lab/runner/code.ts",
+      "rationale": "declare dynamically assigned log.open property",
+      "evidence": [
+        {
+          "file": "design-lab/runner/code.ts",
+          "needle": "open?: boolean",
+          "claim": "The TypeScript runner represents the dynamic property or narrows the returned Figma node before use."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 2,
+      "location": "design-lab/runner/code.js:34:12",
+      "code": "TS2339",
+      "message": "Property 'open' does not exist on type '(text: any) => void'.",
+      "rawDiagnostic": "design-lab/runner/code.js(34,12): error TS2339: Property 'open' does not exist on type '(text: any) => void'.",
+      "class": "b",
+      "counterpart": "design-lab/runner/code.ts",
+      "rationale": "declare dynamically assigned log.open property",
+      "evidence": [
+        {
+          "file": "design-lab/runner/code.ts",
+          "needle": "open?: boolean",
+          "claim": "The TypeScript runner represents the dynamic property or narrows the returned Figma node before use."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 3,
+      "location": "design-lab/runner/code.js:77:10",
+      "code": "TS2339",
+      "message": "Property 'open' does not exist on type '(text: any) => void'.",
+      "rawDiagnostic": "design-lab/runner/code.js(77,10): error TS2339: Property 'open' does not exist on type '(text: any) => void'.",
+      "class": "b",
+      "counterpart": "design-lab/runner/code.ts",
+      "rationale": "declare dynamically assigned log.open property",
+      "evidence": [
+        {
+          "file": "design-lab/runner/code.ts",
+          "needle": "open?: boolean",
+          "claim": "The TypeScript runner represents the dynamic property or narrows the returned Figma node before use."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 4,
+      "location": "design-lab/runner/code.js:94:12",
+      "code": "TS2339",
+      "message": "Property 'fills' does not exist on type 'BaseNode'.",
+      "rawDiagnostic": "design-lab/runner/code.js(94,12): error TS2339: Property 'fills' does not exist on type 'BaseNode'.",
+      "class": "b",
+      "counterpart": "design-lab/runner/code.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/runner/code.ts",
+          "needle": "as (SceneNode & GeometryMixin) | null",
+          "claim": "The TypeScript runner represents the dynamic property or narrows the returned Figma node before use."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 5,
+      "location": "design-lab/runner/code.js:108:28",
+      "code": "TS2339",
+      "message": "Property 'exportAsync' does not exist on type 'BaseNode'.",
+      "rawDiagnostic": "design-lab/runner/code.js(108,28): error TS2339: Property 'exportAsync' does not exist on type 'BaseNode'.",
+      "class": "b",
+      "counterpart": "design-lab/runner/code.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/runner/code.ts",
+          "needle": "as SceneNode | null",
+          "claim": "The TypeScript runner represents the dynamic property or narrows the returned Figma node before use."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 6,
+      "location": "design-lab/scripts/cookie_preferences.mjs:29:29",
+      "code": "TS2339",
+      "message": "Property 'expected' does not exist on type '{ banner: any; close: any; expected: boolean; } | { banner: string; script: string; close: any; }'.",
+      "rawDiagnostic": "design-lab/scripts/cookie_preferences.mjs(29,29): error TS2339: Property 'expected' does not exist on type '{ banner: any; close: any; expected: boolean; } | { banner: string; script: string; close: any; }'.",
+      "class": "b",
+      "counterpart": "design-lab/src/capture/cookies.ts",
+      "rationale": "TS counterpart: optional Vendor.expected/script declarations + script guard; unchanged valid behavior",
+      "evidence": [
+        {
+          "file": "design-lab/src/capture/cookies.ts",
+          "needle": "type Vendor =",
+          "claim": "Vendor variants explicitly declare optional expected/script fields and guard use by the selected variant."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 7,
+      "location": "design-lab/scripts/cookie_preferences.mjs:29:67",
+      "code": "TS2339",
+      "message": "Property 'script' does not exist on type '{ banner: any; close: any; expected: boolean; } | { banner: string; script: string; close: any; }'.",
+      "rawDiagnostic": "design-lab/scripts/cookie_preferences.mjs(29,67): error TS2339: Property 'script' does not exist on type '{ banner: any; close: any; expected: boolean; } | { banner: string; script: string; close: any; }'.",
+      "class": "b",
+      "counterpart": "design-lab/src/capture/cookies.ts",
+      "rationale": "TS counterpart: optional Vendor.expected/script declarations + script guard; unchanged valid behavior",
+      "evidence": [
+        {
+          "file": "design-lab/src/capture/cookies.ts",
+          "needle": "type Vendor =",
+          "claim": "Vendor variants explicitly declare optional expected/script fields and guard use by the selected variant."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 8,
+      "location": "design-lab/scripts/render/_kit.js:75:35",
+      "code": "TS2339",
+      "message": "Property 'name' does not exist on type '{}'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(75,35): error TS2339: Property 'name' does not exist on type '{}'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare optional options/receiver shape inferred without contract",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type TextOptions =",
+          "claim": "The text helper options are a shared explicit contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 9,
+      "location": "design-lab/scripts/render/_kit.js:75:41",
+      "code": "TS2339",
+      "message": "Property 'width' does not exist on type '{}'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(75,41): error TS2339: Property 'width' does not exist on type '{}'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare optional options/receiver shape inferred without contract",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type TextOptions =",
+          "claim": "The text helper options are a shared explicit contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 10,
+      "location": "design-lab/scripts/render/_kit.js:75:48",
+      "code": "TS2339",
+      "message": "Property 'link' does not exist on type '{}'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(75,48): error TS2339: Property 'link' does not exist on type '{}'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare optional options/receiver shape inferred without contract",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type TextOptions =",
+          "claim": "The text helper options are a shared explicit contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 11,
+      "location": "design-lab/scripts/render/_kit.js:75:54",
+      "code": "TS2339",
+      "message": "Property 'align' does not exist on type '{}'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(75,54): error TS2339: Property 'align' does not exist on type '{}'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare optional options/receiver shape inferred without contract",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type TextOptions =",
+          "claim": "The text helper options are a shared explicit contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 12,
+      "location": "design-lab/scripts/render/_kit.js:84:3",
+      "code": "TS2322",
+      "message": "Type '{ type: string; color: { r: number; g: number; b: number; }; opacity: number; }[]' is not assignable to type 'unique symbol | readonly Paint[]'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(84,3): error TS2322: Type '{ type: string; color: { r: number; g: number; b: number; }; opacity: number; }[]' is not assignable to type 'unique symbol | readonly Paint[]'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "preserve SOLID literal and optional paint fields",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/_kit.ts",
+          "needle": "SolidPaint[]",
+          "claim": "Paint values retain the Figma SOLID literal and declared paint type."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 13,
+      "location": "design-lab/scripts/render/_kit.js:101:29",
+      "code": "TS2339",
+      "message": "Property 'name' does not exist on type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(101,29): error TS2339: Property 'name' does not exist on type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare optional options/receiver shape inferred without contract",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The stack options and Figma enum fields have an explicit shared contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 14,
+      "location": "design-lab/scripts/render/_kit.js:101:53",
+      "code": "TS2339",
+      "message": "Property 'fill' does not exist on type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(101,53): error TS2339: Property 'fill' does not exist on type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare optional options/receiver shape inferred without contract",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The stack options and Figma enum fields have an explicit shared contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 15,
+      "location": "design-lab/scripts/render/_kit.js:101:59",
+      "code": "TS2339",
+      "message": "Property 'radius' does not exist on type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(101,59): error TS2339: Property 'radius' does not exist on type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare optional options/receiver shape inferred without contract",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The stack options and Figma enum fields have an explicit shared contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 16,
+      "location": "design-lab/scripts/render/_kit.js:101:67",
+      "code": "TS2339",
+      "message": "Property 'stroke' does not exist on type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(101,67): error TS2339: Property 'stroke' does not exist on type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare optional options/receiver shape inferred without contract",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The stack options and Figma enum fields have an explicit shared contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 17,
+      "location": "design-lab/scripts/render/_kit.js:101:75",
+      "code": "TS2339",
+      "message": "Property 'width' does not exist on type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(101,75): error TS2339: Property 'width' does not exist on type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare optional options/receiver shape inferred without contract",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The stack options and Figma enum fields have an explicit shared contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 18,
+      "location": "design-lab/scripts/render/_kit.js:101:82",
+      "code": "TS2339",
+      "message": "Property 'height' does not exist on type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(101,82): error TS2339: Property 'height' does not exist on type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare optional options/receiver shape inferred without contract",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The stack options and Figma enum fields have an explicit shared contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 19,
+      "location": "design-lab/scripts/render/_kit.js:101:136",
+      "code": "TS2339",
+      "message": "Property 'rowGap' does not exist on type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(101,136): error TS2339: Property 'rowGap' does not exist on type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare optional options/receiver shape inferred without contract",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The stack options and Figma enum fields have an explicit shared contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 20,
+      "location": "design-lab/scripts/render/_kit.js:108:3",
+      "code": "TS2322",
+      "message": "Type 'string' is not assignable to type '\"BASELINE\" | \"CENTER\" | \"MAX\" | \"MIN\"'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(108,3): error TS2322: Type 'string' is not assignable to type '\"BASELINE\" | \"CENTER\" | \"MAX\" | \"MIN\"'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "typed options or literal enum union; inferred default is too narrow/wide",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The stack options and Figma enum fields have an explicit shared contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 21,
+      "location": "design-lab/scripts/render/_kit.js:109:3",
+      "code": "TS2322",
+      "message": "Type 'string' is not assignable to type '\"CENTER\" | \"MAX\" | \"MIN\" | \"SPACE_AROUND\" | \"SPACE_BETWEEN\" | \"SPACE_EVENLY\"'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(109,3): error TS2322: Type 'string' is not assignable to type '\"CENTER\" | \"MAX\" | \"MIN\" | \"SPACE_AROUND\" | \"SPACE_BETWEEN\" | \"SPACE_EVENLY\"'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "typed options or literal enum union; inferred default is too narrow/wide",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The stack options and Figma enum fields have an explicit shared contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 22,
+      "location": "design-lab/scripts/render/_kit.js:111:3",
+      "code": "TS2322",
+      "message": "Type '{ type: string; color: { r: number; g: number; b: number; }; opacity: number; }[]' is not assignable to type 'unique symbol | readonly Paint[]'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(111,3): error TS2322: Type '{ type: string; color: { r: number; g: number; b: number; }; opacity: number; }[]' is not assignable to type 'unique symbol | readonly Paint[]'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "preserve SOLID literal and optional paint fields",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/_kit.ts",
+          "needle": "SolidPaint[]",
+          "claim": "Paint values retain the Figma SOLID literal and declared paint type."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 23,
+      "location": "design-lab/scripts/render/_kit.js:113:17",
+      "code": "TS2322",
+      "message": "Type '{ type: string; color: { r: number; g: number; b: number; }; opacity: number; }[]' is not assignable to type 'readonly Paint[]'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(113,17): error TS2322: Type '{ type: string; color: { r: number; g: number; b: number; }; opacity: number; }[]' is not assignable to type 'readonly Paint[]'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "preserve SOLID literal and optional paint fields",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/_kit.ts",
+          "needle": "SolidPaint[]",
+          "claim": "Paint values retain the Figma SOLID literal and declared paint type."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 24,
+      "location": "design-lab/scripts/render/_kit.js:147:61",
+      "code": "TS2322",
+      "message": "Type '{ t: number; r: number; b: number; l: number; }' is not assignable to type 'number'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(147,61): error TS2322: Type '{ t: number; r: number; b: number; l: number; }' is not assignable to type 'number'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare number-or-side-padding option already handled at runtime",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The option contract admits scalar and per-side padding."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 25,
+      "location": "design-lab/scripts/render/_kit.js:155:3",
+      "code": "TS2322",
+      "message": "Type '{ type: string; color: { r: number; g: number; b: number; }; opacity: number; }[]' is not assignable to type 'unique symbol | readonly Paint[]'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(155,3): error TS2322: Type '{ type: string; color: { r: number; g: number; b: number; }; opacity: number; }[]' is not assignable to type 'unique symbol | readonly Paint[]'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "preserve SOLID literal and optional paint fields",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/_kit.ts",
+          "needle": "SolidPaint[]",
+          "claim": "Paint values retain the Figma SOLID literal and declared paint type."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 26,
+      "location": "design-lab/scripts/render/_kit.js:163:49",
+      "code": "TS2339",
+      "message": "Property 'width' does not exist on type '{ name?: string; }'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(163,49): error TS2339: Property 'width' does not exist on type '{ name?: string; }'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare optional options/receiver shape inferred without contract",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The stack options and Figma enum fields have an explicit shared contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 27,
+      "location": "design-lab/scripts/render/_kit.js:165:33",
+      "code": "TS2353",
+      "message": "Object literal may only specify known properties, and 'name' does not exist in type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(165,33): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "typed options or literal enum union; inferred default is too narrow/wide",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The stack options and Figma enum fields have an explicit shared contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 28,
+      "location": "design-lab/scripts/render/_kit.js:167:77",
+      "code": "TS2322",
+      "message": "Type '{ t: number; r: number; b: number; l: number; }' is not assignable to type 'number'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(167,77): error TS2322: Type '{ t: number; r: number; b: number; l: number; }' is not assignable to type 'number'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare number-or-side-padding option already handled at runtime",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The option contract admits scalar and per-side padding."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 29,
+      "location": "design-lab/scripts/render/_kit.js:171:90",
+      "code": "TS2322",
+      "message": "Type '{ t: number; r: number; b: number; l: number; }' is not assignable to type 'number'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(171,90): error TS2322: Type '{ t: number; r: number; b: number; l: number; }' is not assignable to type 'number'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "declare number-or-side-padding option already handled at runtime",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The option contract admits scalar and per-side padding."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 30,
+      "location": "design-lab/scripts/render/_kit.js:187:33",
+      "code": "TS2353",
+      "message": "Object literal may only specify known properties, and 'name' does not exist in type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(187,33): error TS2353: Object literal may only specify known properties, and 'name' does not exist in type '{ align?: string; gap?: number; justify?: string; pad?: number; wrap?: boolean; }'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "typed options or literal enum union; inferred default is too narrow/wide",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StackOptions =",
+          "claim": "The stack options and Figma enum fields have an explicit shared contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 31,
+      "location": "design-lab/scripts/render/_kit.js:202:3",
+      "code": "TS2322",
+      "message": "Type '{ type: string; color: { r: number; g: number; b: number; }; opacity: number; }[]' is not assignable to type 'readonly Paint[]'.",
+      "rawDiagnostic": "design-lab/scripts/render/_kit.js(202,3): error TS2322: Type '{ type: string; color: { r: number; g: number; b: number; }; opacity: number; }[]' is not assignable to type 'readonly Paint[]'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/_kit.ts",
+      "rationale": "preserve SOLID literal and optional paint fields",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/_kit.ts",
+          "needle": "SolidPaint[]",
+          "claim": "Paint values retain the Figma SOLID literal and declared paint type."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 32,
+      "location": "design-lab/scripts/render/build_responsive.js:14:32",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(14,32): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 33,
+      "location": "design-lab/scripts/render/build_responsive.js:24:5",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(24,5): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 34,
+      "location": "design-lab/scripts/render/build_responsive.js:24:25",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(24,25): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 35,
+      "location": "design-lab/scripts/render/build_responsive.js:27:19",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(27,19): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 36,
+      "location": "design-lab/scripts/render/build_responsive.js:29:43",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(29,43): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 37,
+      "location": "design-lab/scripts/render/build_responsive.js:30:33",
+      "code": "TS2345",
+      "message": "Argument of type 'BaseNode' is not assignable to parameter of type 'PageNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(30,33): error TS2345: Argument of type 'BaseNode' is not assignable to parameter of type 'PageNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 38,
+      "location": "design-lab/scripts/render/build_responsive.js:34:46",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(34,46): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 39,
+      "location": "design-lab/scripts/render/build_responsive.js:37:50",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(37,50): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 40,
+      "location": "design-lab/scripts/render/build_responsive.js:39:54",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(39,54): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 41,
+      "location": "design-lab/scripts/render/build_responsive.js:40:39",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(40,39): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 42,
+      "location": "design-lab/scripts/render/build_responsive.js:41:15",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(41,15): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 43,
+      "location": "design-lab/scripts/render/build_responsive.js:42:15",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(42,15): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 44,
+      "location": "design-lab/scripts/render/build_responsive.js:45:53",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(45,53): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 45,
+      "location": "design-lab/scripts/render/build_responsive.js:47:28",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(47,28): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 46,
+      "location": "design-lab/scripts/render/build_responsive.js:48:30",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(48,30): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 47,
+      "location": "design-lab/scripts/render/build_responsive.js:48:66",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(48,66): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 48,
+      "location": "design-lab/scripts/render/build_responsive.js:56:46",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(56,46): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 49,
+      "location": "design-lab/scripts/render/build_responsive.js:57:64",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(57,64): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 50,
+      "location": "design-lab/scripts/render/build_responsive.js:68:43",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(68,43): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 51,
+      "location": "design-lab/scripts/render/build_responsive.js:76:41",
+      "code": "TS2339",
+      "message": "Property 'test' does not exist on type 'string[] | RegExp'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(76,41): error TS2339: Property 'test' does not exist on type 'string[] | RegExp'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "type RegExp/scopes pair as a tuple and scopes as enum literals",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "SCOPE: [RegExp,VariableScope[]][]",
+          "claim": "Each matcher and scope list is represented as a tuple with Figma scope literals."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 52,
+      "location": "design-lab/scripts/render/build_responsive.js:77:5",
+      "code": "TS2322",
+      "message": "Type 'string[] | RegExp' is not assignable to type 'VariableScope[]'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(77,5): error TS2322: Type 'string[] | RegExp' is not assignable to type 'VariableScope[]'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "type RegExp/scopes pair as a tuple and scopes as enum literals",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "SCOPE: [RegExp,VariableScope[]][]",
+          "claim": "Each matcher and scope list is represented as a tuple with Figma scope literals."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 53,
+      "location": "design-lab/scripts/render/build_responsive.js:82:32",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(82,32): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 54,
+      "location": "design-lab/scripts/render/build_responsive.js:94:15",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(94,15): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 55,
+      "location": "design-lab/scripts/render/build_responsive.js:173:39",
+      "code": "TS2339",
+      "message": "Property 'tag' does not exist on type 'string'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(173,39): error TS2339: Property 'tag' does not exist on type 'string'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow axis string versus tagged axis object; string.tag read is harmless undefined",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "tag?: string",
+          "claim": "The variation-axis string/object union is narrowed before reading its optional tag."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 56,
+      "location": "design-lab/scripts/render/build_responsive.js:189:12",
+      "code": "TS2322",
+      "message": "Type 'SolidPaint' is not assignable to type '{ type: string; color: { r: number; g: number; b: number; }; opacity: any; }'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(189,12): error TS2322: Type 'SolidPaint' is not assignable to type '{ type: string; color: { r: number; g: number; b: number; }; opacity: any; }'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "preserve SOLID literal and optional paint fields",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "let p: SolidPaint",
+          "claim": "Paint construction keeps the Figma paint discriminant and field type."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 57,
+      "location": "design-lab/scripts/render/build_responsive.js:189:57",
+      "code": "TS2345",
+      "message": "Argument of type '{ type: string; color: { r: number; g: number; b: number; }; opacity: any; }' is not assignable to parameter of type 'SolidPaint'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(189,57): error TS2345: Argument of type '{ type: string; color: { r: number; g: number; b: number; }; opacity: any; }' is not assignable to parameter of type 'SolidPaint'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "preserve SOLID literal and optional paint fields",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "let p: SolidPaint",
+          "claim": "Paint construction keeps the Figma paint discriminant and field type."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 58,
+      "location": "design-lab/scripts/render/build_responsive.js:271:18",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(271,18): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 59,
+      "location": "design-lab/scripts/render/build_responsive.js:282:24",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(282,24): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 60,
+      "location": "design-lab/scripts/render/build_responsive.js:394:23",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(394,23): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 61,
+      "location": "design-lab/scripts/render/build_responsive.js:394:79",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(394,79): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 62,
+      "location": "design-lab/scripts/render/build_responsive.js:395:5",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(395,5): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 63,
+      "location": "design-lab/scripts/render/build_responsive.js:396:30",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(396,30): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 64,
+      "location": "design-lab/scripts/render/build_responsive.js:396:65",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(396,65): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 65,
+      "location": "design-lab/scripts/render/build_responsive.js:401:47",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(401,47): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 66,
+      "location": "design-lab/scripts/render/build_responsive.js:406:22",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(406,22): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 67,
+      "location": "design-lab/scripts/render/build_responsive.js:407:8",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(407,8): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 68,
+      "location": "design-lab/scripts/render/build_responsive.js:409:38",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(409,38): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 69,
+      "location": "design-lab/scripts/render/build_responsive.js:414:24",
+      "code": "TS2339",
+      "message": "Property 'children' does not exist on type 'BaseNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(414,24): error TS2339: Property 'children' does not exist on type 'BaseNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type RenderTree =",
+          "claim": "The compact component tree explicitly carries recursive children."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 70,
+      "location": "design-lab/scripts/render/build_responsive.js:414:139",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(414,139): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 71,
+      "location": "design-lab/scripts/render/build_responsive.js:417:37",
+      "code": "TS2339",
+      "message": "Property 'children' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(417,37): error TS2339: Property 'children' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type RenderTree =",
+          "claim": "The compact component tree explicitly carries recursive children."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 72,
+      "location": "design-lab/scripts/render/build_responsive.js:419:57",
+      "code": "TS2339",
+      "message": "Property 'boundVariables' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(419,57): error TS2339: Property 'boundVariables' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type BindingNode =",
+          "claim": "Variable binding operations are constrained to the typed node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 73,
+      "location": "design-lab/scripts/render/build_responsive.js:420:86",
+      "code": "TS2339",
+      "message": "Property 'setBoundVariable' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(420,86): error TS2339: Property 'setBoundVariable' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type BindingNode =",
+          "claim": "Variable binding operations are constrained to the typed node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 74,
+      "location": "design-lab/scripts/render/build_responsive.js:422:13",
+      "code": "TS2339",
+      "message": "Property 'layoutMode' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(422,13): error TS2339: Property 'layoutMode' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StyledNode =",
+          "claim": "Style operations use the Figma properties contract rather than the broad BaseNode union."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 75,
+      "location": "design-lab/scripts/render/build_responsive.js:423:13",
+      "code": "TS2339",
+      "message": "Property 'strokes' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(423,13): error TS2339: Property 'strokes' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StyledNode =",
+          "claim": "Style operations use the Figma properties contract rather than the broad BaseNode union."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 76,
+      "location": "design-lab/scripts/render/build_responsive.js:423:37",
+      "code": "TS2339",
+      "message": "Property 'effects' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(423,37): error TS2339: Property 'effects' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StyledNode =",
+          "claim": "Style operations use the Figma properties contract rather than the broad BaseNode union."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 77,
+      "location": "design-lab/scripts/render/build_responsive.js:423:61",
+      "code": "TS2339",
+      "message": "Property 'cornerRadius' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(423,61): error TS2339: Property 'cornerRadius' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StyledNode =",
+          "claim": "Style operations use the Figma properties contract rather than the broad BaseNode union."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 78,
+      "location": "design-lab/scripts/render/build_responsive.js:423:89",
+      "code": "TS2339",
+      "message": "Property 'opacity' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(423,89): error TS2339: Property 'opacity' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type StyledNode =",
+          "claim": "Style operations use the Figma properties contract rather than the broad BaseNode union."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 79,
+      "location": "design-lab/scripts/render/build_responsive.js:426:58",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(426,58): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 80,
+      "location": "design-lab/scripts/render/build_responsive.js:427:13",
+      "code": "TS2339",
+      "message": "Property 'description' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(427,13): error TS2339: Property 'description' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 81,
+      "location": "design-lab/scripts/render/build_responsive.js:427:27",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(427,27): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 82,
+      "location": "design-lab/scripts/render/build_responsive.js:428:13",
+      "code": "TS2339",
+      "message": "Property 'clipsContent' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(428,13): error TS2339: Property 'clipsContent' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 83,
+      "location": "design-lab/scripts/render/build_responsive.js:429:13",
+      "code": "TS2339",
+      "message": "Property 'resize' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(429,13): error TS2339: Property 'resize' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 84,
+      "location": "design-lab/scripts/render/build_responsive.js:432:26",
+      "code": "TS2345",
+      "message": "Argument of type 'DocumentNode | PageNode | SceneNode' is not assignable to parameter of type 'BooleanOperationNode | CodeBlockNode | ComponentNode | ConnectorNode | EllipseNode | EmbedNode | ... 26 more ... | WidgetNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(432,26): error TS2345: Argument of type 'DocumentNode | PageNode | SceneNode' is not assignable to parameter of type 'BooleanOperationNode | CodeBlockNode | ComponentNode | ConnectorNode | EllipseNode | EmbedNode | ... 26 more ... | WidgetNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 85,
+      "location": "design-lab/scripts/render/build_responsive.js:432:43",
+      "code": "TS2339",
+      "message": "Property 'appendChild' does not exist on type 'BaseNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(432,43): error TS2339: Property 'appendChild' does not exist on type 'BaseNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "parent: FrameNode|ComponentNode",
+          "claim": "Component construction requires a child-capable parent."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 86,
+      "location": "design-lab/scripts/render/build_responsive.js:433:13",
+      "code": "TS2339",
+      "message": "Property 'x' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(433,13): error TS2339: Property 'x' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 87,
+      "location": "design-lab/scripts/render/build_responsive.js:433:17",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(433,17): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 88,
+      "location": "design-lab/scripts/render/build_responsive.js:434:13",
+      "code": "TS2339",
+      "message": "Property 'y' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(434,13): error TS2339: Property 'y' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 89,
+      "location": "design-lab/scripts/render/build_responsive.js:434:17",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(434,17): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 90,
+      "location": "design-lab/scripts/render/build_responsive.js:437:13",
+      "code": "TS2339",
+      "message": "Property 'resize' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(437,13): error TS2339: Property 'resize' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 91,
+      "location": "design-lab/scripts/render/build_responsive.js:437:60",
+      "code": "TS2339",
+      "message": "Property 'height' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(437,60): error TS2339: Property 'height' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 92,
+      "location": "design-lab/scripts/render/build_responsive.js:439:54",
+      "code": "TS2339",
+      "message": "Property 'counterAxisSizingMode' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(439,54): error TS2339: Property 'counterAxisSizingMode' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 93,
+      "location": "design-lab/scripts/render/build_responsive.js:439:97",
+      "code": "TS2339",
+      "message": "Property 'primaryAxisSizingMode' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(439,97): error TS2339: Property 'primaryAxisSizingMode' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 94,
+      "location": "design-lab/scripts/render/build_responsive.js:440:22",
+      "code": "TS2339",
+      "message": "Property 'primaryAxisSizingMode' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(440,22): error TS2339: Property 'primaryAxisSizingMode' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 95,
+      "location": "design-lab/scripts/render/build_responsive.js:440:65",
+      "code": "TS2339",
+      "message": "Property 'counterAxisSizingMode' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(440,65): error TS2339: Property 'counterAxisSizingMode' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 96,
+      "location": "design-lab/scripts/render/build_responsive.js:449:36",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(449,36): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 97,
+      "location": "design-lab/scripts/render/build_responsive.js:449:47",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(449,47): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 98,
+      "location": "design-lab/scripts/render/build_responsive.js:450:5",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(450,5): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 99,
+      "location": "design-lab/scripts/render/build_responsive.js:452:19",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(452,19): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 100,
+      "location": "design-lab/scripts/render/build_responsive.js:452:111",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(452,111): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 101,
+      "location": "design-lab/scripts/render/build_responsive.js:457:20",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(457,20): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 102,
+      "location": "design-lab/scripts/render/build_responsive.js:465:99",
+      "code": "TS2345",
+      "message": "Argument of type 'BaseNode' is not assignable to parameter of type 'BaseNode & ChildrenMixin'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(465,99): error TS2345: Argument of type 'BaseNode' is not assignable to parameter of type 'BaseNode & ChildrenMixin'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 103,
+      "location": "design-lab/scripts/render/build_responsive.js:466:89",
+      "code": "TS2339",
+      "message": "Property 'appendChild' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(466,89): error TS2339: Property 'appendChild' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "parent: FrameNode|ComponentNode",
+          "claim": "Component construction requires a child-capable parent."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 104,
+      "location": "design-lab/scripts/render/build_responsive.js:467:16",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(467,16): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 105,
+      "location": "design-lab/scripts/render/build_responsive.js:468:9",
+      "code": "TS2339",
+      "message": "Property 'description' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(468,9): error TS2339: Property 'description' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 106,
+      "location": "design-lab/scripts/render/build_responsive.js:468:23",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(468,23): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 107,
+      "location": "design-lab/scripts/render/build_responsive.js:469:54",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(469,54): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 108,
+      "location": "design-lab/scripts/render/build_responsive.js:470:9",
+      "code": "TS2339",
+      "message": "Property 'x' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(470,9): error TS2339: Property 'x' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 109,
+      "location": "design-lab/scripts/render/build_responsive.js:470:13",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(470,13): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 110,
+      "location": "design-lab/scripts/render/build_responsive.js:471:9",
+      "code": "TS2339",
+      "message": "Property 'y' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(471,9): error TS2339: Property 'y' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 111,
+      "location": "design-lab/scripts/render/build_responsive.js:471:13",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(471,13): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(ARGS: BuildResponsiveArgs)",
+          "claim": "The injected build payload is typed at the template entry point."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 112,
+      "location": "design-lab/scripts/render/build_responsive.js:475:9",
+      "code": "TS2339",
+      "message": "Property 'resizeWithoutConstraints' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(475,9): error TS2339: Property 'resizeWithoutConstraints' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type SizedNode =",
+          "claim": "Geometry writes use an explicit sized-node contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 113,
+      "location": "design-lab/scripts/render/build_responsive.js:475:60",
+      "code": "TS2339",
+      "message": "Property 'children' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(475,60): error TS2339: Property 'children' does not exist on type 'DocumentNode | PageNode | SceneNode'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export type RenderTree =",
+          "claim": "The compact component tree explicitly carries recursive children."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 114,
+      "location": "design-lab/scripts/render/build_responsive.js:477:1",
+      "code": "TS1108",
+      "message": "A 'return' statement can only be used within a function body.",
+      "rawDiagnostic": "design-lab/scripts/render/build_responsive.js(477,1): error TS1108: A 'return' statement can only be used within a function body.",
+      "class": "c",
+      "counterpart": "design-lab/scripts/render/build_responsive.ts",
+      "rationale": "async-body snippet, standalone-module context false positive",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/build_responsive.ts",
+          "needle": "export async function template(",
+          "claim": "The port wraps the executable snippet in its actual async template function; the standalone-JS return diagnostic does not describe its execution context."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 115,
+      "location": "design-lab/scripts/render/component_block.js:21:7",
+      "code": "TS2304",
+      "message": "Cannot find name 'loadKitFonts'.",
+      "rawDiagnostic": "design-lab/scripts/render/component_block.js(21,7): error TS2304: Cannot find name 'loadKitFonts'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/component_block.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare function loadKitFonts()",
+          "claim": "The injected font loader is declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 116,
+      "location": "design-lab/scripts/render/component_block.js:22:20",
+      "code": "TS2552",
+      "message": "Cannot find name 'onPage'. Did you mean 'page'?",
+      "rawDiagnostic": "design-lab/scripts/render/component_block.js(22,20): error TS2552: Cannot find name 'onPage'. Did you mean 'page'?",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/component_block.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare function onPage(",
+          "claim": "The injected page helper is declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 117,
+      "location": "design-lab/scripts/render/component_block.js:22:27",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/component_block.js(22,27): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/component_block.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/component_block.ts",
+          "needle": "export async function template(ARGS:",
+          "claim": "The Figma-injected payload is an explicit typed template parameter."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 118,
+      "location": "design-lab/scripts/render/component_block.js:23:1",
+      "code": "TS1108",
+      "message": "A 'return' statement can only be used within a function body.",
+      "rawDiagnostic": "design-lab/scripts/render/component_block.js(23,1): error TS1108: A 'return' statement can only be used within a function body.",
+      "class": "c",
+      "counterpart": "design-lab/scripts/render/component_block.ts",
+      "rationale": "async-body snippet, standalone-module context false positive",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/component_block.ts",
+          "needle": "export async function template(",
+          "claim": "The port wraps the executable snippet in its actual async template function; the standalone-JS return diagnostic does not describe its execution context."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 119,
+      "location": "design-lab/scripts/render/cover.js:34:16",
+      "code": "TS2304",
+      "message": "Cannot find name 'KIT'.",
+      "rawDiagnostic": "design-lab/scripts/render/cover.js(34,16): error TS2304: Cannot find name 'KIT'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/cover.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare const KIT:",
+          "claim": "Shared kit constants are declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 120,
+      "location": "design-lab/scripts/render/cover.js:36:35",
+      "code": "TS2552",
+      "message": "Cannot find name 'ROLES'. Did you mean 'role'?",
+      "rawDiagnostic": "design-lab/scripts/render/cover.js(36,35): error TS2552: Cannot find name 'ROLES'. Did you mean 'role'?",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/cover.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare const ROLES:",
+          "claim": "Shared text roles are declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 121,
+      "location": "design-lab/scripts/render/cover.js:36:75",
+      "code": "TS2552",
+      "message": "Cannot find name 'ROLES'. Did you mean 'role'?",
+      "rawDiagnostic": "design-lab/scripts/render/cover.js(36,75): error TS2552: Cannot find name 'ROLES'. Did you mean 'role'?",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/cover.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare const ROLES:",
+          "claim": "Shared text roles are declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 122,
+      "location": "design-lab/scripts/render/cover.js:36:95",
+      "code": "TS2552",
+      "message": "Cannot find name 'ROLES'. Did you mean 'role'?",
+      "rawDiagnostic": "design-lab/scripts/render/cover.js(36,95): error TS2552: Cannot find name 'ROLES'. Did you mean 'role'?",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/cover.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare const ROLES:",
+          "claim": "Shared text roles are declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 123,
+      "location": "design-lab/scripts/render/cover.js:42:9",
+      "code": "TS2304",
+      "message": "Cannot find name 'loadKitFonts'.",
+      "rawDiagnostic": "design-lab/scripts/render/cover.js(42,9): error TS2304: Cannot find name 'loadKitFonts'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/cover.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare function loadKitFonts()",
+          "claim": "The injected font loader is declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 124,
+      "location": "design-lab/scripts/render/cover.js:46:19",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/cover.js(46,19): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/cover.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/cover.ts",
+          "needle": "export async function template(ARGS:",
+          "claim": "The Figma-injected payload is an explicit typed template parameter."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 125,
+      "location": "design-lab/scripts/render/cover.js:47:20",
+      "code": "TS2552",
+      "message": "Cannot find name 'onPage'. Did you mean 'page'?",
+      "rawDiagnostic": "design-lab/scripts/render/cover.js(47,20): error TS2552: Cannot find name 'onPage'. Did you mean 'page'?",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/cover.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare function onPage(",
+          "claim": "The injected page helper is declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 126,
+      "location": "design-lab/scripts/render/cover.js:47:27",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/cover.js(47,27): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/cover.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/cover.ts",
+          "needle": "export async function template(ARGS:",
+          "claim": "The Figma-injected payload is an explicit typed template parameter."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 127,
+      "location": "design-lab/scripts/render/cover.js:48:1",
+      "code": "TS1108",
+      "message": "A 'return' statement can only be used within a function body.",
+      "rawDiagnostic": "design-lab/scripts/render/cover.js(48,1): error TS1108: A 'return' statement can only be used within a function body.",
+      "class": "c",
+      "counterpart": "design-lab/scripts/render/cover.ts",
+      "rationale": "async-body snippet, standalone-module context false positive",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/cover.ts",
+          "needle": "export async function template(",
+          "claim": "The port wraps the executable snippet in its actual async template function; the standalone-JS return diagnostic does not describe its execution context."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 128,
+      "location": "design-lab/scripts/render/examples.js:10:7",
+      "code": "TS2304",
+      "message": "Cannot find name 'loadKitFonts'.",
+      "rawDiagnostic": "design-lab/scripts/render/examples.js(10,7): error TS2304: Cannot find name 'loadKitFonts'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/examples.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare function loadKitFonts()",
+          "claim": "The injected font loader is declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 129,
+      "location": "design-lab/scripts/render/examples.js:11:20",
+      "code": "TS2552",
+      "message": "Cannot find name 'onPage'. Did you mean 'page'?",
+      "rawDiagnostic": "design-lab/scripts/render/examples.js(11,20): error TS2552: Cannot find name 'onPage'. Did you mean 'page'?",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/examples.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare function onPage(",
+          "claim": "The injected page helper is declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 130,
+      "location": "design-lab/scripts/render/examples.js:11:27",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/examples.js(11,27): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/examples.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/examples.ts",
+          "needle": "export async function template(ARGS:",
+          "claim": "The Figma-injected payload is an explicit typed template parameter."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 131,
+      "location": "design-lab/scripts/render/examples.js:12:1",
+      "code": "TS1108",
+      "message": "A 'return' statement can only be used within a function body.",
+      "rawDiagnostic": "design-lab/scripts/render/examples.js(12,1): error TS1108: A 'return' statement can only be used within a function body.",
+      "class": "c",
+      "counterpart": "design-lab/scripts/render/examples.ts",
+      "rationale": "async-body snippet, standalone-module context false positive",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/examples.ts",
+          "needle": "export async function template(",
+          "claim": "The port wraps the executable snippet in its actual async template function; the standalone-JS return diagnostic does not describe its execution context."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 132,
+      "location": "design-lab/scripts/render/foundation.js:15:7",
+      "code": "TS2304",
+      "message": "Cannot find name 'loadKitFonts'.",
+      "rawDiagnostic": "design-lab/scripts/render/foundation.js(15,7): error TS2304: Cannot find name 'loadKitFonts'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/foundation.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare function loadKitFonts()",
+          "claim": "The injected font loader is declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 133,
+      "location": "design-lab/scripts/render/foundation.js:16:20",
+      "code": "TS2552",
+      "message": "Cannot find name 'onPage'. Did you mean 'page'?",
+      "rawDiagnostic": "design-lab/scripts/render/foundation.js(16,20): error TS2552: Cannot find name 'onPage'. Did you mean 'page'?",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/foundation.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare function onPage(",
+          "claim": "The injected page helper is declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 134,
+      "location": "design-lab/scripts/render/foundation.js:16:27",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/foundation.js(16,27): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/foundation.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/foundation.ts",
+          "needle": "export async function template(ARGS:",
+          "claim": "The Figma-injected payload is an explicit typed template parameter."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 135,
+      "location": "design-lab/scripts/render/foundation.js:17:1",
+      "code": "TS1108",
+      "message": "A 'return' statement can only be used within a function body.",
+      "rawDiagnostic": "design-lab/scripts/render/foundation.js(17,1): error TS1108: A 'return' statement can only be used within a function body.",
+      "class": "c",
+      "counterpart": "design-lab/scripts/render/foundation.ts",
+      "rationale": "async-body snippet, standalone-module context false positive",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/foundation.ts",
+          "needle": "export async function template(",
+          "claim": "The port wraps the executable snippet in its actual async template function; the standalone-JS return diagnostic does not describe its execution context."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 136,
+      "location": "design-lab/scripts/render/getting_started.js:15:7",
+      "code": "TS2304",
+      "message": "Cannot find name 'loadKitFonts'.",
+      "rawDiagnostic": "design-lab/scripts/render/getting_started.js(15,7): error TS2304: Cannot find name 'loadKitFonts'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/getting_started.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare function loadKitFonts()",
+          "claim": "The injected font loader is declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 137,
+      "location": "design-lab/scripts/render/getting_started.js:16:20",
+      "code": "TS2552",
+      "message": "Cannot find name 'onPage'. Did you mean 'page'?",
+      "rawDiagnostic": "design-lab/scripts/render/getting_started.js(16,20): error TS2552: Cannot find name 'onPage'. Did you mean 'page'?",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/getting_started.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare function onPage(",
+          "claim": "The injected page helper is declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 138,
+      "location": "design-lab/scripts/render/getting_started.js:16:27",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/getting_started.js(16,27): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/getting_started.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/getting_started.ts",
+          "needle": "export async function template(ARGS:",
+          "claim": "The Figma-injected payload is an explicit typed template parameter."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 139,
+      "location": "design-lab/scripts/render/getting_started.js:17:1",
+      "code": "TS1108",
+      "message": "A 'return' statement can only be used within a function body.",
+      "rawDiagnostic": "design-lab/scripts/render/getting_started.js(17,1): error TS1108: A 'return' statement can only be used within a function body.",
+      "class": "c",
+      "counterpart": "design-lab/scripts/render/getting_started.ts",
+      "rationale": "async-body snippet, standalone-module context false positive",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/getting_started.ts",
+          "needle": "export async function template(",
+          "claim": "The port wraps the executable snippet in its actual async template function; the standalone-JS return diagnostic does not describe its execution context."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 140,
+      "location": "design-lab/scripts/render/pages.js:11:16",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/pages.js(11,16): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/pages.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/pages.ts",
+          "needle": "export async function template(ARGS:",
+          "claim": "The Figma-injected payload is an explicit typed template parameter."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 141,
+      "location": "design-lab/scripts/render/pages.js:36:1",
+      "code": "TS1108",
+      "message": "A 'return' statement can only be used within a function body.",
+      "rawDiagnostic": "design-lab/scripts/render/pages.js(36,1): error TS1108: A 'return' statement can only be used within a function body.",
+      "class": "c",
+      "counterpart": "design-lab/scripts/render/pages.ts",
+      "rationale": "async-body snippet, standalone-module context false positive",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/pages.ts",
+          "needle": "export async function template(",
+          "claim": "The port wraps the executable snippet in its actual async template function; the standalone-JS return diagnostic does not describe its execution context."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 142,
+      "location": "design-lab/scripts/render/tier_page.js:10:7",
+      "code": "TS2304",
+      "message": "Cannot find name 'loadKitFonts'.",
+      "rawDiagnostic": "design-lab/scripts/render/tier_page.js(10,7): error TS2304: Cannot find name 'loadKitFonts'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/tier_page.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare function loadKitFonts()",
+          "claim": "The injected font loader is declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 143,
+      "location": "design-lab/scripts/render/tier_page.js:11:20",
+      "code": "TS2552",
+      "message": "Cannot find name 'onPage'. Did you mean 'page'?",
+      "rawDiagnostic": "design-lab/scripts/render/tier_page.js(11,20): error TS2552: Cannot find name 'onPage'. Did you mean 'page'?",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/tier_page.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare function onPage(",
+          "claim": "The injected page helper is declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 144,
+      "location": "design-lab/scripts/render/tier_page.js:11:27",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/tier_page.js(11,27): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/tier_page.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/tier_page.ts",
+          "needle": "export async function template(ARGS:",
+          "claim": "The Figma-injected payload is an explicit typed template parameter."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 145,
+      "location": "design-lab/scripts/render/tier_page.js:12:1",
+      "code": "TS1108",
+      "message": "A 'return' statement can only be used within a function body.",
+      "rawDiagnostic": "design-lab/scripts/render/tier_page.js(12,1): error TS1108: A 'return' statement can only be used within a function body.",
+      "class": "c",
+      "counterpart": "design-lab/scripts/render/tier_page.ts",
+      "rationale": "async-body snippet, standalone-module context false positive",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/tier_page.ts",
+          "needle": "export async function template(",
+          "claim": "The port wraps the executable snippet in its actual async template function; the standalone-JS return diagnostic does not describe its execution context."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 146,
+      "location": "design-lab/scripts/render/variables.js:32:44",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/variables.js(32,44): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/variables.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/variables.ts",
+          "needle": "export async function template(ARGS:",
+          "claim": "The Figma-injected payload is an explicit typed template parameter."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 147,
+      "location": "design-lab/scripts/render/variables.js:76:1",
+      "code": "TS1108",
+      "message": "A 'return' statement can only be used within a function body.",
+      "rawDiagnostic": "design-lab/scripts/render/variables.js(76,1): error TS1108: A 'return' statement can only be used within a function body.",
+      "class": "c",
+      "counterpart": "design-lab/scripts/render/variables.ts",
+      "rationale": "async-body snippet, standalone-module context false positive",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/variables.ts",
+          "needle": "export async function template(",
+          "claim": "The port wraps the executable snippet in its actual async template function; the standalone-JS return diagnostic does not describe its execution context."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 148,
+      "location": "design-lab/scripts/render/voice.js:14:7",
+      "code": "TS2304",
+      "message": "Cannot find name 'loadKitFonts'.",
+      "rawDiagnostic": "design-lab/scripts/render/voice.js(14,7): error TS2304: Cannot find name 'loadKitFonts'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/voice.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare function loadKitFonts()",
+          "claim": "The injected font loader is declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 149,
+      "location": "design-lab/scripts/render/voice.js:15:20",
+      "code": "TS2552",
+      "message": "Cannot find name 'onPage'. Did you mean 'page'?",
+      "rawDiagnostic": "design-lab/scripts/render/voice.js(15,20): error TS2552: Cannot find name 'onPage'. Did you mean 'page'?",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/voice.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/src/figma/types.ts",
+          "needle": "export declare function onPage(",
+          "claim": "The injected page helper is declared by the Figma helper contract."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 150,
+      "location": "design-lab/scripts/render/voice.js:15:27",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/voice.js(15,27): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/voice.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/voice.ts",
+          "needle": "export async function template(ARGS:",
+          "claim": "The Figma-injected payload is an explicit typed template parameter."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 151,
+      "location": "design-lab/scripts/render/voice.js:16:1",
+      "code": "TS1108",
+      "message": "A 'return' statement can only be used within a function body.",
+      "rawDiagnostic": "design-lab/scripts/render/voice.js(16,1): error TS1108: A 'return' statement can only be used within a function body.",
+      "class": "c",
+      "counterpart": "design-lab/scripts/render/voice.ts",
+      "rationale": "async-body snippet, standalone-module context false positive",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/voice.ts",
+          "needle": "export async function template(",
+          "claim": "The port wraps the executable snippet in its actual async template function; the standalone-JS return diagnostic does not describe its execution context."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 152,
+      "location": "design-lab/scripts/render/wipe.js:10:22",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/wipe.js(10,22): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/wipe.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/wipe.ts",
+          "needle": "export async function template(ARGS:",
+          "claim": "The Figma-injected payload is an explicit typed template parameter."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 153,
+      "location": "design-lab/scripts/render/wipe.js:10:56",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/wipe.js(10,56): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/wipe.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/wipe.ts",
+          "needle": "export async function template(ARGS:",
+          "claim": "The Figma-injected payload is an explicit typed template parameter."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 154,
+      "location": "design-lab/scripts/render/wipe.js:11:73",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/wipe.js(11,73): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/wipe.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/wipe.ts",
+          "needle": "export async function template(ARGS:",
+          "claim": "The Figma-injected payload is an explicit typed template parameter."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 155,
+      "location": "design-lab/scripts/render/wipe.js:39:8",
+      "code": "TS2304",
+      "message": "Cannot find name 'ARGS'.",
+      "rawDiagnostic": "design-lab/scripts/render/wipe.js(39,8): error TS2304: Cannot find name 'ARGS'.",
+      "class": "b",
+      "counterpart": "design-lab/scripts/render/wipe.ts",
+      "rationale": "declare injected ARGS or prepended kit/helper symbol",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/wipe.ts",
+          "needle": "export async function template(ARGS:",
+          "claim": "The Figma-injected payload is an explicit typed template parameter."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    },
+    {
+      "id": 156,
+      "location": "design-lab/scripts/render/wipe.js:43:1",
+      "code": "TS1108",
+      "message": "A 'return' statement can only be used within a function body.",
+      "rawDiagnostic": "design-lab/scripts/render/wipe.js(43,1): error TS1108: A 'return' statement can only be used within a function body.",
+      "class": "c",
+      "counterpart": "design-lab/scripts/render/wipe.ts",
+      "rationale": "async-body snippet, standalone-module context false positive",
+      "evidence": [
+        {
+          "file": "design-lab/scripts/render/wipe.ts",
+          "needle": "export async function template(",
+          "claim": "The port wraps the executable snippet in its actual async template function; the standalone-JS return diagnostic does not describe its execution context."
+        }
+      ],
+      "behaviorBug": null,
+      "portStatus": "ported"
+    }
+  ]
+}
