@@ -94,7 +94,7 @@ export class BuildDriver {
       let size = -1; while (size !== selected.size) { size = selected.size; for (const c of content.components(project)) if (planned.includes(c.id) && c.slots.some(s => (typeof s.accepts === 'string' ? [...s.accepts] : s.accepts ?? []).some(child => selected.has(child)))) selected.add(c.id); }
       for (const cid of [...selected].sort()) if (!load<BuildResult>(project, `figma/results/${safe('build:' + cid)}.json`, {}).componentId) throw new Error(`missing saved master identity for ${cid}; rebuild in a fresh file`);
       const built = buildTrees(project, resolve(out, 'trees'), [...selected].sort().join(',')); if (keyOf(built.map(b => b.id).sort()) !== keyOf([...selected].sort())) throw new Error('subset has missing measurements or is no longer buildable; keep the current library and rebuild in a fresh file');
-      const refreshed = new Set(['cover', 'getting-started', 'examples', ...[...selected].flatMap(cid => ['build', 'images', 'block', 'evidence', 'compare'].map(p => p + ':' + cid))]), state = { ...previous, runtime: this.renderer.runtimeHash(), subset: [...selected].sort(), done: previous.done!.filter(s => !refreshed.has(s)) } as BuildState;
+      const refreshed = new Set(['cover', 'getting-started', 'examples', ...[...selected].flatMap(cid => ['build', 'images', 'block', 'evidence', 'compare'].map(p => p + ':' + cid))]), state = { ...previous, runtime: this.renderer.runtimeHash(), buildId: process.hrtime.bigint().toString(), subset: [...selected].sort(), done: previous.done!.filter(s => !refreshed.has(s)) } as BuildState;
       const completion = resolve(project, 'benchmark/completion.md'); if (existsSync(completion)) renameSync(completion, resolve(project, `benchmark/completion-before-subset-${process.hrtime.bigint()}.md`));
       this.save(state);
       const manifest = load<{ phases?: Record<string, { status: string }>; artifacts?: Record<string, { kind: string }> }>(project, 'project.json', {});
@@ -113,6 +113,7 @@ export class BuildDriver {
     const state: BuildState = { standardVersion: content.STANDARD_VERSION, fileKey: o.fileKey, siteUrl: o.siteUrl.replace(/\/+$/, ''), canonicalBaseUrl: o.canonicalBaseUrl.replace(/\/+$/, ''), runtime: this.renderer.runtimeHash(), offlineImages: !!o.offlineImages || existsSync(resolve(project, 'corpus.json')), planned: built.map(b => b.id), steps, done: [], emittedCollections: [...new Set([...content.emittedCollections(project), ...(o.rebuild ? previous.emittedCollections ?? [] : [])])].sort(), iterate: !!o.iterate || !!previous.iterate && !!o.rebuild };
     const target = load<{ target?: { connection?: { coverPageId?: string; fileKey?: string }; preflight?: { coverPageId?: string; fileKey?: string } } }>(project, 'project.json', {}).target, connection = target?.connection ?? target?.preflight;
     if (connection?.coverPageId && connection.fileKey === o.fileKey) state.preflightCover = connection.coverPageId;
+    state['buildId'] = process.hrtime.bigint().toString();
     this.save(state); return { steps: steps.length, components: built.length, runtime: state.runtime };
   }
   private payload(sid: string, template: string, args: unknown): RunnerStep {
