@@ -66,7 +66,7 @@ export async function waitForBuild(workspace:string,timeout:number,poll=2,option
  const clock=options.now??(()=>performance.now()),sleep=options.sleep??(ms=>new Promise<void>(done=>setTimeout(done,ms))),deadline=clock()+timeout*1000,build=new Build(workspace),driver=new BuildDriver(workspace),log=resolve(workspace,'figma/runner.log');
  let position=existsSync(log)?statSync(log).size:0;
  while(clock()<deadline) {
-  const status=await(options.status?.(workspace)??driver.status());if(status.next===null&&await(options.dumpStep?.(workspace)??build.dumpStep())===null)return;
+  const status=await(options.status?.(workspace)??driver.status());if(status.next===null&&(options.dumpStep?await options.dumpStep(workspace):build.dumpStep())===null)return;
   let failure:string|null=null;
   if(existsSync(log)){const size=statSync(log).size;if(size<position)position=0;const bytes=readFileSync(log),tail=bytes.subarray(position).toString();position=bytes.length;for(const line of tail.split('\n')){const event=line.slice(line.indexOf(' ')+1).trim();if(event.startsWith('FAILED ')||event.startsWith('error:'))failure=line.trim();else if(event.startsWith('recorded ')||event.startsWith('skipped '))failure=null;}}
   const heartbeat=optional(resolve(workspace,'figma/progress.json')),pidPath=resolve(workspace,'figma',PID_FILE),pid=existsSync(pidPath)?readFileSync(pidPath,'utf8').trim():null;
@@ -102,6 +102,7 @@ export async function evaluate(workspace:string,session?:string|string[]):Promis
  const gate=validateProject(workspace),gateExit=gate.valid?0:1,accepted=verifyExit===0&&receiptsExit===0&&gateExit===0;
  setPhase(workspace,project,'verify',accepted?'complete':'failed',{execution:'finished',quality:accepted?'passed':'failed',verifyExit,receiptsExit,gateExit,gate:JSON.stringify(gate,null,2)});
  if(session!==undefined||project.run?.claude!=null)setPhase(workspace,project,'benchmark','running');
- await writeScore(workspace,{session,out:resolve(workspace,'benchmark')});
+ const scored=await writeScore(workspace,{session,out:resolve(workspace,'benchmark')});
+ if(scored.code!==0)throw new Error(`score_run failed (${scored.code}): ${scored.errors.join('; ')}`);
  return {workspace,scorecard:resolve(workspace,'benchmark/scorecard.json'),verifyReport:options.out,verifyExit,quality:accepted?'passed':'failed',gateExit};
 }

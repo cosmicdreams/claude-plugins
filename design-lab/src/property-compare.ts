@@ -14,6 +14,7 @@ export function layoutNodes(tree: Record<string, any>): LayoutRow[] {
   const rows: LayoutRow[] = [];
   const walk = (node: Record<string, any>, x: number | null, y: number | null, width: number | null = node.width ?? null, height: number | null = node.height ?? null): void => {
     if (node.visible === false) return;
+    width ??= node.width ?? null; height ??= node.height ?? null;
     rows.push({ node, box: { x, y, width, height } });
     const layout = node.layout ?? {}, mode = layout.mode ?? 'NONE', kids = (node.children ?? []).filter((c: any) => c.visible !== false);
     if (mode === 'NONE') { for (const child of kids) walk(child, x === null ? null : x + (child.x ?? 0), y === null ? null : y + (child.y ?? 0)); return; }
@@ -45,7 +46,7 @@ export function layoutNodes(tree: Record<string, any>): LayoutRow[] {
 export function metric(checks: Record<string, any>[]) { return { passed: checks.filter(c => c.pass === true).length, total: checks.length, unmeasured: checks.filter(c => c.pass === null).length, checks }; }
 export function numericCheck(source: string, property: string, expected: unknown, actual: unknown, tolerance: number) {
   const measured = typeof expected === 'number' && typeof actual === 'number';
-  return { source, property, expected, actual, pass: measured ? Math.abs((expected as number) - (actual as number)) <= tolerance : null as boolean | null };
+  return { source, property, expected: expected ?? null, actual: actual ?? null, pass: measured ? Math.abs((expected as number) - (actual as number)) <= tolerance : null as boolean | null };
 }
 export function alignment(value: any) { return ({ start: 'LEFT', end: 'RIGHT', left: 'LEFT', right: 'RIGHT', center: 'CENTER', justify: 'JUSTIFIED' } as Record<string, string>)[value] ?? value; }
 export function compare(tree: Record<string, any>, spec: Record<string, any>): Record<string, any> {
@@ -60,11 +61,11 @@ export function compare(tree: Record<string, any>, spec: Record<string, any>): R
     for (const node of nodes) {
       const path = node.path, candidates = bySource.get(path) ?? [], row = candidates[0], consumed = inline.some((n: any) => path.startsWith(n.path + '/'));
       if (!consumed) for (const property of ['x', 'y', 'width', 'height'] as const) { const expected = node.box[property] - (property === 'x' || property === 'y' ? rootBox[property] : 0), check = numericCheck(path, property, expected, row?.box[property], GEOMETRY_TOLERANCE); if (!row) check.pass = false; geometry.push(check); }
-      const texts = rendered.filter(r => [path, path + '#label'].includes(r.node.source) && r.node.kind === 'text').map(r => r.node), leafText = node.inlineText || (!nodes.some((n: any) => n.path.startsWith(path + '/')) ? node.text : null);
+      const texts = rendered.filter(r => [path, path + '#label'].includes(r.node.source) && r.node.kind === 'text').map(r => r.node.text ?? {}), leafText = node.inlineText || (!nodes.some((n: any) => n.path.startsWith(path + '/')) ? node.text : null);
       if (leafText && !consumed && !iconGlyph(leafText)) {
         const text = texts[0] ?? {}, font = numericCheck(path, 'fontSize', px(node.computed?.fontSize), text.size, FONT_TOLERANCE); if (!texts.length) font.pass = false; fonts.push(font);
-        const expectedAlign = alignment(node.computed?.textAlign ?? 'start'); aligns.push({ source: path, expected: expectedAlign, actual: text.align, pass: expectedAlign === text.align });
-        const styles = new Set(nodes.filter((n: any) => n.path === path || (node.inlineText && n.path.startsWith(path + '/') && n.text)).map((n: any) => JSON.stringify(['fontWeight', 'fontStyle', 'color', 'textDecorationLine'].map(p => n.computed?.[p])))), expectedRuns = (node.textRuns ?? node.runs ?? []).length || Math.max(1, styles.size), actualRuns = (text.runs ?? []).length || (texts.length ? 1 : 0);
+        const expectedAlign = alignment(node.computed?.textAlign ?? 'start'); aligns.push({ source: path, expected: expectedAlign, actual: text.align ?? null, pass: expectedAlign === text.align });
+        const styles = new Set(nodes.filter((n: any) => n.path === path || (node.inlineText && n.path.startsWith(path + '/') && n.text)).map((n: any) => JSON.stringify(['fontWeight', 'fontStyle', 'color', 'textDecorationLine'].map(p => n.computed?.[p])))), expectedRuns = (node.textRuns ?? node.runs ?? []).length || Math.max(1, styles.size), actualRuns = (text.runs ?? []).length || (Object.keys(text).length ? 1 : 0);
         runs.push({ source: path, expected: expectedRuns, actual: actualRuns, basis: node.textRuns?.length || node.runs?.length ? 'recorded runs' : 'distinct measured inline styles', pass: expectedRuns === actualRuns, flattened: expectedRuns > actualRuns });
       }
       const src = node.image?.src, background = node.computed?.backgroundImage ?? 'none', match = /url\(['"]?(.*?)['"]?\)/.exec(background);

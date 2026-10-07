@@ -68,7 +68,7 @@ test('property comparisons retain variable breakpoints and inline text measureme
   const strong = { ...node('/div[0]/p[1]/strong[2]', 0, 40), tag: 'strong', text: 'world', computed: { display: 'inline', visibility: 'visible', opacity: '1', fontSize: '18px', textAlign: 'center', fontWeight: '700' } };
   const image = { ...node('/div[0]/img[3]', 20, 100), tag: 'img', image: { src: '/sample.png' } };
   const spec = { measurements: { 'desktop:default': { nodes: [node('/div[0]'), text, strong, image] } } };
-  const tree = { measured: ['desktop'], variables: {}, tree: { kind: 'frame', source: '/div[0]', width: 90, height: 50, layout: { mode: 'NONE' }, children: [{ kind: 'text', source: text.path, x: 4, y: 0, width: 100, height: 20, text: { characters: 'Hello world', size: 18, align: 'LEFT' } }] } };
+  const tree = { measured: ['desktop'], variables: {}, tree: { kind: 'frame', source: '/div[0]', width: 90, height: 50, layout: { mode: 'NONE' }, children: [{ kind: 'text', source: text.path, x: 4, y: 0, width: 100, height: 20, text: { characters: 'Hello world', size: 16, align: 'LEFT' } }] } };
   const report = compareProperties(tree, spec)['desktop:default']!;
   for (const name of ['geometry', 'fontSize', 'textAlignment', 'textRunCount', 'imagesPresent']) assert.ok(report[name].passed < report[name].total);
   assert.equal(report.textRunCount.checks[0].flattened, true);
@@ -113,4 +113,14 @@ test('scoreboard appends shared metrics and renders a self-contained dashboard',
     const page = readFileSync(config.scoreboard.dashboard, 'utf8'); assert.doesNotMatch(page, /<script src/);
     const standalone = render([{ timestamp: first.timestamp, site: 'site-a', pluginVersion: '1.0', tier: 2 }]); assert.match(standalone, /not measured/);
   } finally { rmSync(root, { recursive: true, force: true }); }
+});
+
+
+test('property comparison reads typography from the text payload and preserves absent actuals',()=>{
+ const measured={...node('/label'),text:'Hello',computed:{display:'block',visibility:'visible',opacity:'1',fontSize:'18px',textAlign:'center'}};
+ const tree={measured:['desktop'],variables:{},tree:{kind:'text',source:'/label',width:100,height:20,text:{characters:'Hello',size:18,align:'CENTER'}}};
+ const good=compareProperties(tree,{measurements:{'desktop:default':{nodes:[measured]}}})['desktop:default']!;
+ assert.equal(good.fontSize.passed,1);assert.equal(good.textAlignment.passed,1);assert.equal(good.textRunCount.passed,1);
+ const missing=compareProperties({...tree,tree:{kind:'frame',width:100,height:20}},{measurements:{'desktop:default':{nodes:[measured]}}})['desktop:default']!;
+ assert.equal(missing.fontSize.checks[0].actual,null);assert.equal(missing.textAlignment.checks[0].actual,null);assert.equal(missing.geometry.checks[0].actual,null);
 });

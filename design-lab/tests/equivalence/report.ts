@@ -35,4 +35,12 @@ export async function compareReports(python:string,ts:string,out:string) {
     const result={domMatch:differences.length===0,differences,images,screenshot};writeFileSync(resolve(out,'summary.json'),JSON.stringify(result,null,2));return result;
   }finally{await browser.close();}
 }
+/** completion.md is the plain-text chat reply; inspect its text/DOM and render that reply verbatim. */
+export async function compareCompletion(python:string,ts:string,out:string) {
+  assert.ok(out.startsWith('/tmp/'));mkdirSync(out,{recursive:true});
+  const escape=(text:string)=>text.replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;');
+  const html=(path:string)=>'<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><title>Completion reply</title><style>body{margin:32px;background:#fff;color:#111}pre{white-space:pre-wrap;font:16px/1.5 monospace}</style></head><body><pre>'+escape(readFileSync(path,'utf8'))+'</pre></body></html>';
+  const pyView=resolve(out,'python.html'),tsView=resolve(out,'typescript.html');writeFileSync(pyView,html(python));writeFileSync(tsView,html(ts));
+  return {textMatch:readFileSync(python,'utf8')===readFileSync(ts,'utf8'),...await compareReports(pyView,tsView,out)};
+}
 if(process.argv[1]===new URL(import.meta.url).pathname)console.log(JSON.stringify(await compareReports(process.argv[2]!,process.argv[3]!,process.argv[4]!),null,2));

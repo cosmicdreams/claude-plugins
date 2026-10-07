@@ -1,10 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {mkdtempSync,mkdirSync,writeFileSync} from 'node:fs';
+import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
 import {sharedRequire} from '../../src/runtime.ts';
-import {esc,num,pct,duration,split_duration,day,coverage_strip,field,thumbnails,absent} from '../../src/score-report.ts';
+import {esc,num,pct,duration,split_duration,day,coverage_strip,field,thumbnails,absent,cost_section} from '../../src/score-report.ts';
 const sharp=sharedRequire()('sharp') as typeof import('sharp').default;
 test('report escapes source labels and keeps Python numeric/time formatting',()=>{
  assert.equal(esc('<a "x">&\''),'&lt;a &quot;x&quot;&gt;&amp;&#x27;');assert.equal(esc(null),'');
@@ -29,5 +29,19 @@ test('thumbnail crop pads out-of-bounds black and flattens transparency onto whi
  const result=await thumbnails(run,[{component:'button',breakpoint:'desktop',evidence:{specimen:'figma/specimen.png',geometry:'figma/geometry.json',index:0}}],'desktop');
  const shot=result.button!.live!;assert.equal(shot.w,1);assert.equal(shot.h,1);assert.equal(shot.cropped,false);
  const decoded=await sharp(Buffer.from(shot.src.split(',')[1]!,'base64')).removeAlpha().raw().toBuffer();assert.deepEqual([...decoded],[255,255,255]);
- const padding=result.button!.figma!;assert.equal(padding.w,2);
+ const padding=result.button!.figma!;assert.equal(padding.w,2);rmSync(run,{recursive:true,force:true});
+});
+
+
+test('cost report discloses ambiguous sessions, approval limits and genuine interruptions',()=>{
+ const card=JSON.parse(readFileSync(new URL('./fixtures/scorecard.json',import.meta.url),'utf8')),cost=card.sections.cost;
+ cost.working.fullAccess=false;cost.developer={sessionWarning:'Two current sessions <ambiguous>'};
+ cost.unattended={status:'measured',ranUnattended:false,count:2,goAheadAt:'2026-10-07T10:00:00Z',interruptions:[{at:'2026-10-07T10:01:00Z',kind:'question',phase:'capture',planned:false},{at:'2026-10-07T10:02:00Z',kind:'turn ended and waited for a prompt',phase:'capture',planned:false}]};
+ const html=cost_section(cost);assert.match(html,/Which session was scored/);assert.match(html,/Two current sessions &lt;ambiguous&gt;/);assert.match(html,/did not run with full access throughout/);assert.match(html,/2 interruptions after preflight/);assert.match(html,/A question to the person/);assert.match(html,/A turn that ended and waited for a prompt/);
+});
+
+test('cost report renders model totals without exposing transcript tool input',()=>{
+ const card=JSON.parse(readFileSync(new URL('./fixtures/scorecard.json',import.meta.url),'utf8')),cost=card.sections.cost;
+ cost.toolInput={secret:'DO_NOT_RENDER_TOOL_INPUT'};cost.model.toolInput={secret:'DO_NOT_RENDER_MODEL_INPUT'};
+ const html=cost_section(cost);assert.doesNotMatch(html,/DO_NOT_RENDER/);assert.match(html,/Tokens/);
 });

@@ -99,3 +99,6 @@ export function renderReport(runs: string[]): string {
   for (const a of runs) lines.push(`| ${a} | ${runs.map(b => report.summary_matrix[a]![b]!.toFixed(2)).join(' | ')} |`);
   return lines.join('\n') + '\n';
 }
+
+/** Python-facing operation name used by benchmark repeatability scoring. */
+export const compare = compareRuns;
