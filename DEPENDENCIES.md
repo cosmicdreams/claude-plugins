@@ -10,6 +10,7 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 |--------|----------|----------|
 | admin | [python3](#python3) | [Beads](#bd-beads) (`scaffold`), [jq](#jq) (scaffold detection hook), [headroom](#headroom-and-rtk) |
 | design-lab | [python3](#python3), [Figma](#figma) | [node / npm](#node--npm) and [Playwright](#playwright) (`capture`), [ddev](#ddev) (Drupal usage counts) |
+| golden-rule | macOS (`/usr/bin/sandbox-exec`), [python3](#python3) (`/usr/bin/python3`), Claude Code 2.1.287 or later (mods) | none |
 | drover | [python3](#python3), [Acquia credentials](#acli-acquia-command-line-tool) | [node / npm](#node--npm) (web-page reports), [Chrome or Chromium](#chrome-or-chromium) (Portable Document Format reports), [TypeSafe](#typesafe-api-key) |
 | drupal-lab | [python3](#python3), [ddev](#ddev), [jq](#jq) | [twg](#twg) (`sprint-start`, `release-cut`, `branch-audit`), [Beads](#bd-beads) (development-environment slot tracking), [Obsidian](#obsidian), [headroom and rtk](#headroom-and-rtk) |
 | ideas-funnel | [python3](#python3), [Obsidian](#obsidian) | [Beads](#bd-beads), [TypeSafe](#typesafe-api-key), [headroom](#headroom-and-rtk) |
@@ -87,7 +88,7 @@ If missing or outdated:
 brew install python3
 ```
 
-**Used by:** admin (`bump-version`, `new-skill`), design-lab (all skills), drover (all skills), drupal-lab (`browse-drupal-issues`, `module-dev-starter`), ideas-funnel (`ingest`), ideate (`diagram`), lib (`log-analyzer`, `csv-analysis`), process-lab (runtime), research-lab (notebook scripts), test-lab (`ingest`), workshop (`sync`, `scout`, `prioritize`)
+**Used by:** admin (`bump-version`, `new-skill`), design-lab (all skills), golden-rule (the shell sandbox bootstrap), drover (all skills), drupal-lab (`browse-drupal-issues`, `module-dev-starter`), ideas-funnel (`ingest`), ideate (`diagram`), lib (`log-analyzer`, `csv-analysis`), process-lab (runtime), research-lab (notebook scripts), test-lab (`ingest`), workshop (`sync`, `scout`, `prioritize`)
 
 ---
 

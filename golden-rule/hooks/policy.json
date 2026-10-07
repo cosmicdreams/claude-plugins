@@ -1,0 +1,21 @@
+{
+  "$comment": "One policy, read by the hooks module (mod/register.ts) and the shell bootstrap (sandbox/run.py). Paths starting ~/ are under the person's home. A container's children are projects; a project is governed when it has worktrees/main. `~/*` makes every folder in the home a container (~/Sites, ~/Tools, ~/OpenSource, ...).",
+  "containers": ["~/*"],
+  "guardFiles": [
+    "~/.claude/hooks/golden-rule.sh",
+    "~/.claude/AGENTS.md",
+    "~/.codex/write-guard",
+    "~/.codex/hooks.json",
+    "~/.codex/config.toml",
+    "~/.codex/AGENTS.md",
+    "~/.gitconfig",
+    "~/.git-hooks",
+    "~/.golden-rule"
+  ],
+  "guardPatterns": [
+    "^/.+/\\.claude/skills/[^/]+/hooks(/|$)"
+  ],
+  "mcpReadTools": [],
+  "pluginId": "golden-rule@local",
+  "quarantineFile": "~/.golden-rule/quarantine.json"
+}
