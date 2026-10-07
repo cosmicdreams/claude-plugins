@@ -8,7 +8,7 @@ export type { ArtifactMap } from './generated/artifacts.ts';
 export type ArtifactKind = keyof ArtifactMap;
 const { Ajv2020 } = sharedRequire()('ajv/dist/2020.js') as typeof import('ajv/dist/2020.js');
 // The legacy schemas intentionally leave some properties unconstrained. No coercion/defaults.
-const ajv = new Ajv2020({ allErrors: true, strict: false });
+const ajv = new Ajv2020({ allErrors: true, strict: false, discriminator: true });
 const schemaFolder = resolve(pluginRoot, 'schemas');
 export const artifactKinds = readdirSync(schemaFolder).filter(name => name.endsWith('.schema.json'))
   .map(name => name.replace('.schema.json', '') as ArtifactKind).sort();
@@ -30,6 +30,17 @@ export function validate<K extends ArtifactKind>(kind: K, value: unknown): strin
 export function assertValid<K extends ArtifactKind>(kind: K, value: unknown): asserts value is ArtifactMap[K] {
   const errors = validate(kind, value);
   if (errors.length) throw new Error(`${kind}:\n${errors.join('\n')}`);
+}
+export type RecordKind = 'use_figma' | 'upload' | 'screenshot' | 'check' | 'dump' | 'skip';
+export type DumpKind = 'root' | 'tree' | 'page' | 'getting-started';
+/** The body has no discriminator: only the server's pending step selects its contract. */
+export function validateRunnerRecord(kind: RecordKind, value: unknown, dump: DumpKind = 'root'): string[] {
+  const definition = kind === 'upload' ? 'UploadResult' : kind === 'screenshot' ? 'Screenshot' : kind === 'skip' ? 'EmptySkip'
+    : kind === 'check' ? 'Check' : kind === 'dump'
+      ? ({ root: 'RootDump', tree: 'TreeDump', page: 'PageDump', 'getting-started': 'GettingStartedDump' } as const)[dump]
+      : 'BuildResult';
+  const validator = ajv.getSchema(`https://design-lab.local/schemas/runner-record.schema.json#/$defs/${definition}`)!;
+  return validator(value) ? [] : (validator.errors ?? []).map(describe);
 }
 /** Serialize before touching disk, fsync a private sibling file, then atomically replace. */
 export function writeJson(path: string, value: unknown): string {

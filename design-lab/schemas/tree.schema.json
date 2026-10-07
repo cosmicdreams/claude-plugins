@@ -185,10 +185,22 @@
       "type": "object",
       "properties": {
         "align": {
-          "type": "string"
+          "enum": [
+            "LEFT",
+            "CENTER",
+            "RIGHT",
+            "JUSTIFIED"
+          ]
         },
         "case": {
-          "type": "string"
+          "enum": [
+            "ORIGINAL",
+            "UPPER",
+            "LOWER",
+            "TITLE",
+            "SMALL_CAPS",
+            "SMALL_CAPS_FORCED"
+          ]
         },
         "characters": {
           "type": "string"
@@ -270,13 +282,28 @@
       "type": "object",
       "properties": {
         "mode": {
-          "type": "string"
+          "enum": [
+            "NONE",
+            "HORIZONTAL",
+            "VERTICAL",
+            "GRID"
+          ]
         },
         "counterAlign": {
-          "type": "string"
+          "enum": [
+            "MIN",
+            "CENTER",
+            "MAX",
+            "BASELINE"
+          ]
         },
         "primaryAlign": {
-          "type": "string"
+          "enum": [
+            "MIN",
+            "CENTER",
+            "MAX",
+            "SPACE_BETWEEN"
+          ]
         },
         "gap": {
           "anyOf": [
@@ -361,16 +388,37 @@
       "additionalProperties": true
     },
     "TreeNode": {
+      "description": "Discriminated nodes. Historical auto-sized text labels may omit width/height; frame children/layout and paint bindings remain optional. A frame may carry instanceOf to request native nesting with its measured fallback.",
+      "oneOf": [
+        {
+          "$ref": "#/$defs/FrameNode"
+        },
+        {
+          "$ref": "#/$defs/TextNode"
+        },
+        {
+          "$ref": "#/$defs/ImageNode"
+        },
+        {
+          "$ref": "#/$defs/SvgNode"
+        },
+        {
+          "$ref": "#/$defs/InstanceNode"
+        }
+      ],
+      "type": "object",
+      "required": [
+        "kind"
+      ],
+      "discriminator": {
+        "propertyName": "kind"
+      }
+    },
+    "FrameNode": {
       "type": "object",
       "properties": {
         "kind": {
-          "enum": [
-            "frame",
-            "text",
-            "image",
-            "svg",
-            "instance"
-          ]
+          "const": "frame"
         },
         "name": {
           "type": "string"
@@ -379,7 +427,11 @@
           "type": "string"
         },
         "sizing": {
-          "type": "string"
+          "enum": [
+            "FIXED",
+            "FILL",
+            "HUG"
+          ]
         },
         "width": {
           "anyOf": [
@@ -457,7 +509,12 @@
           "type": "boolean"
         },
         "fit": {
-          "type": "string"
+          "enum": [
+            "FIT",
+            "FILL",
+            "CROP",
+            "TILE"
+          ]
         },
         "src": {
           "type": "string"
@@ -480,7 +537,10 @@
             "type": "object",
             "properties": {
               "type": {
-                "type": "string"
+                "enum": [
+                  "DROP_SHADOW",
+                  "INNER_SHADOW"
+                ]
               },
               "color": {
                 "$ref": "#/$defs/Color"
@@ -498,7 +558,14 @@
                 "type": "number"
               }
             },
-            "required": [],
+            "required": [
+              "type",
+              "color",
+              "x",
+              "y",
+              "blur",
+              "spread"
+            ],
             "additionalProperties": true
           }
         },
@@ -525,10 +592,13 @@
               "type": "string"
             },
             "fit": {
-              "type": "string"
+              "type": "string",
+              "description": "CSS background-size; converted to FIT/FILL, never assigned directly to a Figma enum."
             }
           },
-          "required": [],
+          "required": [
+            "src"
+          ],
           "additionalProperties": true
         }
       },
@@ -537,6 +607,794 @@
         "name",
         "source",
         "sizing"
+      ],
+      "additionalProperties": true
+    },
+    "TextNode": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "text"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "sizing": {
+          "enum": [
+            "FIXED",
+            "FILL",
+            "HUG"
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TreeNode"
+          }
+        },
+        "fill": {
+          "$ref": "#/$defs/Color"
+        },
+        "stroke": {
+          "type": "object",
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/Color"
+            },
+            "width": {
+              "type": "number"
+            },
+            "weights": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "top": {
+              "type": "number"
+            },
+            "right": {
+              "type": "number"
+            },
+            "bottom": {
+              "type": "number"
+            },
+            "left": {
+              "type": "number"
+            }
+          },
+          "required": [],
+          "additionalProperties": true
+        },
+        "radius": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "clip": {
+          "type": "boolean"
+        },
+        "fit": {
+          "enum": [
+            "FIT",
+            "FILL",
+            "CROP",
+            "TILE"
+          ]
+        },
+        "src": {
+          "type": "string"
+        },
+        "text": {
+          "$ref": "#/$defs/Text"
+        },
+        "layout": {
+          "$ref": "#/$defs/Layout"
+        },
+        "instanceOf": {
+          "type": "string"
+        },
+        "svg": {
+          "type": "string"
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "DROP_SHADOW",
+                  "INNER_SHADOW"
+                ]
+              },
+              "color": {
+                "$ref": "#/$defs/Color"
+              },
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "blur": {
+                "type": "number"
+              },
+              "spread": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "type",
+              "color",
+              "x",
+              "y",
+              "blur",
+              "spread"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "absolute": {
+          "type": "boolean"
+        },
+        "opacity": {
+          "type": "number"
+        },
+        "backgroundImage": {
+          "type": "object",
+          "properties": {
+            "src": {
+              "type": "string"
+            },
+            "fit": {
+              "type": "string",
+              "description": "CSS background-size; converted to FIT/FILL, never assigned directly to a Figma enum."
+            }
+          },
+          "required": [
+            "src"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "source",
+        "sizing",
+        "text"
+      ],
+      "additionalProperties": true
+    },
+    "ImageNode": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "image"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "sizing": {
+          "enum": [
+            "FIXED",
+            "FILL",
+            "HUG"
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TreeNode"
+          }
+        },
+        "fill": {
+          "$ref": "#/$defs/Color"
+        },
+        "stroke": {
+          "type": "object",
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/Color"
+            },
+            "width": {
+              "type": "number"
+            },
+            "weights": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "top": {
+              "type": "number"
+            },
+            "right": {
+              "type": "number"
+            },
+            "bottom": {
+              "type": "number"
+            },
+            "left": {
+              "type": "number"
+            }
+          },
+          "required": [],
+          "additionalProperties": true
+        },
+        "radius": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "clip": {
+          "type": "boolean"
+        },
+        "fit": {
+          "enum": [
+            "FIT",
+            "FILL",
+            "CROP",
+            "TILE"
+          ]
+        },
+        "src": {
+          "type": "string"
+        },
+        "text": {
+          "$ref": "#/$defs/Text"
+        },
+        "layout": {
+          "$ref": "#/$defs/Layout"
+        },
+        "instanceOf": {
+          "type": "string"
+        },
+        "svg": {
+          "type": "string"
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "DROP_SHADOW",
+                  "INNER_SHADOW"
+                ]
+              },
+              "color": {
+                "$ref": "#/$defs/Color"
+              },
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "blur": {
+                "type": "number"
+              },
+              "spread": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "type",
+              "color",
+              "x",
+              "y",
+              "blur",
+              "spread"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "absolute": {
+          "type": "boolean"
+        },
+        "opacity": {
+          "type": "number"
+        },
+        "backgroundImage": {
+          "type": "object",
+          "properties": {
+            "src": {
+              "type": "string"
+            },
+            "fit": {
+              "type": "string",
+              "description": "CSS background-size; converted to FIT/FILL, never assigned directly to a Figma enum."
+            }
+          },
+          "required": [
+            "src"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "source",
+        "sizing",
+        "src"
+      ],
+      "additionalProperties": true
+    },
+    "SvgNode": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "svg"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "sizing": {
+          "enum": [
+            "FIXED",
+            "FILL",
+            "HUG"
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TreeNode"
+          }
+        },
+        "fill": {
+          "$ref": "#/$defs/Color"
+        },
+        "stroke": {
+          "type": "object",
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/Color"
+            },
+            "width": {
+              "type": "number"
+            },
+            "weights": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "top": {
+              "type": "number"
+            },
+            "right": {
+              "type": "number"
+            },
+            "bottom": {
+              "type": "number"
+            },
+            "left": {
+              "type": "number"
+            }
+          },
+          "required": [],
+          "additionalProperties": true
+        },
+        "radius": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "clip": {
+          "type": "boolean"
+        },
+        "fit": {
+          "enum": [
+            "FIT",
+            "FILL",
+            "CROP",
+            "TILE"
+          ]
+        },
+        "src": {
+          "type": "string"
+        },
+        "text": {
+          "$ref": "#/$defs/Text"
+        },
+        "layout": {
+          "$ref": "#/$defs/Layout"
+        },
+        "instanceOf": {
+          "type": "string"
+        },
+        "svg": {
+          "type": "string"
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "DROP_SHADOW",
+                  "INNER_SHADOW"
+                ]
+              },
+              "color": {
+                "$ref": "#/$defs/Color"
+              },
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "blur": {
+                "type": "number"
+              },
+              "spread": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "type",
+              "color",
+              "x",
+              "y",
+              "blur",
+              "spread"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "absolute": {
+          "type": "boolean"
+        },
+        "opacity": {
+          "type": "number"
+        },
+        "backgroundImage": {
+          "type": "object",
+          "properties": {
+            "src": {
+              "type": "string"
+            },
+            "fit": {
+              "type": "string",
+              "description": "CSS background-size; converted to FIT/FILL, never assigned directly to a Figma enum."
+            }
+          },
+          "required": [
+            "src"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "source",
+        "sizing",
+        "svg"
+      ],
+      "additionalProperties": true
+    },
+    "InstanceNode": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "const": "instance"
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "sizing": {
+          "enum": [
+            "FIXED",
+            "FILL",
+            "HUG"
+          ]
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TreeNode"
+          }
+        },
+        "fill": {
+          "$ref": "#/$defs/Color"
+        },
+        "stroke": {
+          "type": "object",
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/Color"
+            },
+            "width": {
+              "type": "number"
+            },
+            "weights": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "top": {
+              "type": "number"
+            },
+            "right": {
+              "type": "number"
+            },
+            "bottom": {
+              "type": "number"
+            },
+            "left": {
+              "type": "number"
+            }
+          },
+          "required": [],
+          "additionalProperties": true
+        },
+        "radius": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "clip": {
+          "type": "boolean"
+        },
+        "fit": {
+          "enum": [
+            "FIT",
+            "FILL",
+            "CROP",
+            "TILE"
+          ]
+        },
+        "src": {
+          "type": "string"
+        },
+        "text": {
+          "$ref": "#/$defs/Text"
+        },
+        "layout": {
+          "$ref": "#/$defs/Layout"
+        },
+        "instanceOf": {
+          "type": "string"
+        },
+        "svg": {
+          "type": "string"
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "enum": [
+                  "DROP_SHADOW",
+                  "INNER_SHADOW"
+                ]
+              },
+              "color": {
+                "$ref": "#/$defs/Color"
+              },
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "blur": {
+                "type": "number"
+              },
+              "spread": {
+                "type": "number"
+              }
+            },
+            "required": [
+              "type",
+              "color",
+              "x",
+              "y",
+              "blur",
+              "spread"
+            ],
+            "additionalProperties": true
+          }
+        },
+        "visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "absolute": {
+          "type": "boolean"
+        },
+        "opacity": {
+          "type": "number"
+        },
+        "backgroundImage": {
+          "type": "object",
+          "properties": {
+            "src": {
+              "type": "string"
+            },
+            "fit": {
+              "type": "string",
+              "description": "CSS background-size; converted to FIT/FILL, never assigned directly to a Figma enum."
+            }
+          },
+          "required": [
+            "src"
+          ],
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "source",
+        "sizing",
+        "instanceOf"
       ],
       "additionalProperties": true
     }

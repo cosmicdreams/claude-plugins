@@ -28,7 +28,7 @@ export function parseShadow(value?: string): NonNullable<TreeNode['effects']> {
   if (!value || value === 'none') return [];
   return value.split(/,(?![^(]*\))/).flatMap(part => {
     const color = parseColor(/rgba?\([^)]*\)/.exec(part)?.[0]), nums = [...part.matchAll(/(-?[\d.]+)px/g)].map(m => Number(m[1]));
-    return color && nums.length >= 2 ? [{ type: part.includes('inset') ? 'INNER_SHADOW' : 'DROP_SHADOW', color, x: nums[0], y: nums[1], blur: nums[2] ?? 0, spread: nums[3] ?? 0 }] : [];
+    return color && nums.length >= 2 ? [{ type: part.includes('inset') ? 'INNER_SHADOW' : 'DROP_SHADOW', color, x: nums[0]!, y: nums[1]!, blur: nums[2] ?? 0, spread: nums[3] ?? 0 }] : [];
   });
 }
 export function nodeName(node: MeasuredNode, rootBlock: string | null): string | null {
@@ -164,7 +164,7 @@ export function styleOf(node: MeasuredNode): Style {
   const effects = parseShadow(c['boxShadow']); if (effects.length) style.effects = effects;
   const opacity = Number(c['opacity'] || 1); if (opacity < 1) style.opacity = opacity;
   if (clips(c)) style.clip = true;
-  if (!['none', ''].includes(c['backgroundImage'] ?? 'none')) { const m = /url\("?([^")]+)"?\)/.exec(c['backgroundImage']!); if (m) style.backgroundImage = { src: m[1], fit: c['backgroundSize'] ?? 'cover' }; }
+  if (!['none', ''].includes(c['backgroundImage'] ?? 'none')) { const m = /url\("?([^")]+)"?\)/.exec(c['backgroundImage']!); if (m) style.backgroundImage = { src: m[1]!, fit: c['backgroundSize'] ?? 'cover' }; }
   return style;
 }
 export function textOf(node: MeasuredNode, chars: string): Text {
@@ -172,8 +172,8 @@ export function textOf(node: MeasuredNode, chars: string): Text {
   color.var = cssVar(d['color']);
   return { characters: chars, family, stack: c['fontFamily'] || '', familyVar: cssVar(d['font-family']), weight: Number((c['fontWeight'] || '400').replace(/\D/g, '') || 400),
     italic: /^(italic|oblique)/.test(c['fontStyle'] ?? ''), size: px(c['fontSize']) || 16, lineHeight: (c['lineHeight'] ?? 'normal') === 'normal' ? null : px(c['lineHeight']), letterSpacing: px(c['letterSpacing']),
-    align: ({ center: 'CENTER', right: 'RIGHT', end: 'RIGHT', justify: 'JUSTIFIED' } as Record<string, string>)[c['textAlign'] ?? 'left'] ?? 'LEFT',
-    case: ({ uppercase: 'UPPER', lowercase: 'LOWER', capitalize: 'TITLE' } as Record<string, string>)[c['textTransform'] ?? 'none'] ?? 'ORIGINAL',
+    align: ({ center: 'CENTER', right: 'RIGHT', end: 'RIGHT', justify: 'JUSTIFIED' } as Record<string, Text['align']>)[c['textAlign'] ?? 'left'] ?? 'LEFT',
+    case: ({ uppercase: 'UPPER', lowercase: 'LOWER', capitalize: 'TITLE' } as Record<string, Text['case']>)[c['textTransform'] ?? 'none'] ?? 'ORIGINAL',
     underline: (c['textDecorationLine'] ?? '').includes('underline'), color, singleLine: singles(node, c) };
 }
 export function singles(node: MeasuredNode, c: Record<string, string>): boolean {
@@ -183,7 +183,7 @@ export function singles(node: MeasuredNode, c: Record<string, string>): boolean 
 export function iconGlyph(chars: string): boolean { const shown = [...chars].filter(c => !/\s/u.test(c)); return !!shown.length && shown.every(c => c.codePointAt(0)! >= 0xe000 && c.codePointAt(0)! <= 0xf8ff); }
 export function gridTracks(node: MeasuredNode): number | null { const c = node.computed; if (!['grid', 'inline-grid'].includes(c['display'] ?? '')) return 0; const tracks = (c['gridTemplateColumns'] ?? '').trim().split(/\s+/).filter(Boolean); return tracks.length && !(tracks.length === 1 && tracks[0] === 'none') ? tracks.length : null; }
 export function padding(node: MeasuredNode): Padding { return Object.fromEntries(SIDES.map(side => [side, px(node.computed[`padding${cap(side)}`]) + px(node.computed[`border${cap(side)}Width`])])) as Padding; }
-export function primaryAlign(offsets: number[], sizes: number[], start: number, avail: number, justify?: string): [string, number] | null {
+export function primaryAlign(offsets: number[], sizes: number[], start: number, avail: number, justify?: string): [NonNullable<Layout['primaryAlign']>, number] | null {
   const gaps = offsets.slice(1).map((o, i) => o - (offsets[i]! + sizes[i]!)), gap = gaps[0] ?? 0;
   if (gaps.some(g => Math.abs(g - gap) > TOLERANCE)) return null;
   const lead = offsets[0]! - start, trail = avail - (offsets.at(-1)! + sizes.at(-1)! - start);
@@ -193,7 +193,7 @@ export function primaryAlign(offsets: number[], sizes: number[], start: number, 
   if (Math.abs(trail) <= TOLERANCE) return ['MAX', r2(gap)];
   return null;
 }
-export function crossAlign(offsets: number[], sizes: number[], start: number, avail: number): string | null {
+export function crossAlign(offsets: number[], sizes: number[], start: number, avail: number): NonNullable<Layout['counterAlign']> | null {
   if (offsets.every(o => Math.abs(o - start) <= TOLERANCE)) return 'MIN';
   if (offsets.every((o, i) => Math.abs(o - start + sizes[i]! / 2 - avail / 2) <= TOLERANCE)) return 'CENTER';
   if (offsets.every((o, i) => Math.abs(o - start + sizes[i]! - avail) <= TOLERANCE)) return 'MAX';
@@ -203,7 +203,7 @@ export type Rect = [number, number, number, number];
 export function wrappedRows(rel: Rect[], pad: Padding, box: Box, justify?: string) {
   const rows: Rect[][] = [];
   for (const item of rel) { const prev = rows.at(-1)?.at(-1); if (prev && item[0] > prev[0] + prev[2] - TOLERANCE) rows.at(-1)!.push(item); else rows.push([item]); }
-  let primary: string | null = null, cross: string | null = null; const gaps: number[] = [];
+  let primary: Layout['primaryAlign'] | null = null, cross: Layout['counterAlign'] | null = null; const gaps: number[] = [];
   for (const row of rows) {
     const fit = primaryAlign(row.map(r => r[0]), row.map(r => r[2]), pad.left, box.width - pad.left - pad.right, justify);
     if (!fit || primary && fit[0] !== primary) return null; primary = fit[0]; if (row.length > 1) gaps.push(fit[1]);

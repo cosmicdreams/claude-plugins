@@ -114,7 +114,7 @@ test('tagged child subtree is rebased and crops keep backdrop overhang', async (
 });
 test('nested signatures count site images, not capture surrogates', () => {
   const tree = mergeTree(); assert.deepEqual(signature(tree), [1, 1]);
-  function mergeTree() { return { kind: 'frame' as const, name: 'x', source: '/x', sizing: 'FIXED', children: [{ kind: 'text' as const, name: 't', source: '/t', sizing: 'FIXED' }, { kind: 'image' as const, name: 'i', source: '/i', sizing: 'FIXED', src: '/site.png' }, { kind: 'image' as const, name: 'c', source: '/c', sizing: 'FIXED', src: 'capture:desktop:0,0,2,2' }] }; }
+  function mergeTree() { return { kind: 'frame' as const, name: 'x', source: '/x', sizing: 'FIXED' as const, children: [{ kind: 'text' as const, name: 't', source: '/t', sizing: 'FIXED' as const, text: { characters: 'x', family: 'Inter', size: 12, weight: 400 } }, { kind: 'image' as const, name: 'i', source: '/i', sizing: 'FIXED' as const, src: '/site.png' }, { kind: 'image' as const, name: 'c', source: '/c', sizing: 'FIXED' as const, src: 'capture:desktop:0,0,2,2' }] }; }
 });
 const render = (hook: string, name: string, body: string) => `<!-- THEME DEBUG -->\n<!-- THEME HOOK: '${hook}' -->\n<!-- FILE NAME SUGGESTIONS:\n * ${name}\n-->\n<!-- BEGIN OUTPUT from '${name}' -->\n${body}\n<!-- END OUTPUT from '${name}' -->`;
 test('Twig suggestions use Drupal hyphens and preserve namespaces', () => {

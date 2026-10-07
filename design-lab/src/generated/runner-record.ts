@@ -1,58 +1,11 @@
 // Generated from schemas/runner-record.schema.json. Do not edit.
 
 /**
- * POST /record sends a result directly, never an envelope: build result, screenshot png, preflight check, or dump. fileKey/step/token/version are query parameters. Empty objects represent skipped steps. Dump records retain their exported fields.
+ * Direct POST /record body. The receiver must also validate the definition selected by the expected step kind; the union alone cannot authorize a different kind. No unrestricted fallback.
  */
 export type RunnerRecord =
-  | StepResult
-  | {
-      fileKey: string;
-      fileName: string;
-      pages: number;
-      empty: boolean;
-      preflightCover: boolean;
-      fonts: {
-        [k: string]: string[];
-      };
-      [k: string]: unknown;
-    }
-  | {
-      pages: {
-        [k: string]: unknown;
-      }[];
-      collections: {
-        [k: string]: unknown;
-      }[];
-      [k: string]: unknown;
-    }
-  | {
-      page: string;
-      pageIndex: number;
-      nodes: {
-        [k: string]: unknown;
-      }[];
-      _ids: {
-        [k: string]: unknown;
-      };
-      [k: string]: unknown;
-    };
-
-export interface StepResult {
-  statuses?: number[];
-  file?: string;
-  png?: string;
-  pairs?: {
-    label: string;
-    changed: number;
-    height: number;
-    width: number;
-    heightDelta?: number;
-    ratio: number;
-    pass?: boolean;
-    [k: string]: unknown;
-  }[];
-  threshold?: number;
-  tolerance?: number;
+  BuildResult | Screenshot | EmptySkip | Check | RootDump | TreeDump | PageDump | GettingStartedDump | UploadResult;
+export type BuildResult = BuildResult1 & {
   width?: number;
   height?: number;
   blockId?: string;
@@ -185,6 +138,82 @@ export interface StepResult {
   )[];
   removedCollections?: string[];
   removedPages?: string[];
-  pass?: boolean;
+};
+export type BuildResult1 = {
   [k: string]: unknown;
+};
+
+export interface Screenshot {
+  png: string;
+}
+export interface EmptySkip {
+  [k: string]: unknown;
+}
+export interface Check {
+  fileKey: string;
+  fileName: string;
+  pages: number;
+  empty: boolean;
+  preflightCover: boolean;
+  fonts: {
+    [k: string]: string[];
+  };
+}
+export interface RootDump {
+  pages: {
+    id: string;
+    name: string;
+  }[];
+  collections: {
+    [k: string]: unknown;
+  }[];
+}
+export interface TreeDump {
+  page: string;
+  pageIndex: number;
+  nodes: {
+    [k: string]: unknown;
+  }[];
+  _ids: {
+    [k: string]: unknown;
+  };
+}
+export interface PageDump {
+  page: {
+    id: string;
+    name: string;
+    children: number;
+  };
+  components: {
+    [k: string]: unknown;
+  }[];
+  cards: {
+    [k: string]: unknown;
+  }[];
+  breakpointFrames: {
+    [k: string]: unknown;
+  }[];
+  exampleInvalidNodes: {
+    [k: string]: unknown;
+  }[];
+  breakpointCollection: {
+    [k: string]: unknown;
+  } | null;
+}
+export interface GettingStartedDump {
+  gettingStarted: {
+    sections: string[];
+    indexRowCount: number | null;
+    knownGapsText: string | null;
+    thresholdsText: string | null;
+    indexHeadings: string[];
+    indexNodeLinks: {
+      text: string;
+      type: "NODE" | "URL";
+      value: string;
+    }[];
+  };
+}
+export interface UploadResult {
+  statuses: number[];
 }

@@ -129,7 +129,7 @@ class Merge {
       if (icons.before || icons.after) return this.textWithIcons(out, path, chars, vchain, style, icons);
       const text = this.text(path, chars, vchain), pads = this.padding(path);
       if (!Object.keys(style).length && !Object.values(pads).some(p => Object.values(p).some(Boolean))) return { ...out, kind: 'text', text };
-      return { ...out, kind: 'frame', ...style, layout: { mode: 'VERTICAL', gap: 0, counterAlign: text.align === 'CENTER' ? 'CENTER' : text.align === 'RIGHT' ? 'MAX' : 'MIN', padding: this.paddingValue(pads, vchain) },
+      return { ...out, ...style, kind: 'frame', layout: { mode: 'VERTICAL', gap: 0, counterAlign: text.align === 'CENTER' ? 'CENTER' : text.align === 'RIGHT' ? 'MAX' : 'MIN', padding: this.paddingValue(pads, vchain) },
         children: [{ name: 'Label', kind: 'text', text, source: path + '#label', sizing: text['singleLine'] ? 'FIXED' : 'FILL' }] };
     }
     const positioned = this.positionedKids(kidPaths); kidPaths = this.visualOrder(path, kidPaths.filter(k => !positioned.includes(k)));
@@ -203,7 +203,7 @@ class Merge {
       delete child.visible; if (m.bps.size !== bps.length) slot.visible = this.value(Object.fromEntries(this.bps.map(bp => [bp, m.bps.has(bp)])), `${name}/order-visible`, 'BOOLEAN')!;
       children.push(slot);
     }
-    return { ...out, kind: 'frame', ...style, layout: { mode: 'VERTICAL', gap: 0, primaryAlign: 'MIN', counterAlign: 'MIN', padding: this.paddingValue(pads, chain) }, children };
+    return { ...out, ...style, kind: 'frame', layout: { mode: 'VERTICAL', gap: 0, primaryAlign: 'MIN', counterAlign: 'MIN', padding: this.paddingValue(pads, chain) }, children };
   }
   textWithIcons(out: TreeNode, path: string, chars: string, chain: string, style: Partial<TreeNode>, icons: Record<'before' | 'after', PseudoImage | null>): TreeNode {
     const text = this.text(path, chars, chain), children: TreeNode[] = []; let gap = 0;
@@ -211,9 +211,9 @@ class Merge {
       if (which === 'after') children.push({ name: 'Label', kind: 'text', text, source: path + '#label', sizing: text['singleLine'] ? 'FIXED' : 'FILL' });
       const icon = icons[which]; if (!icon) continue;
       children.push({ name: 'Icon', source: `${path}::${which}`, sizing: 'FIXED', width: icon.width, height: icon.height, x: 0, y: 0,
-        ...(icon.svg ? { kind: 'svg', svg: icon.svg } : { kind: 'image', src: icon.src, fit: 'FIT' }) }); gap = Math.max(gap, icon.gap);
+        ...(icon.svg ? { kind: 'svg', svg: icon.svg } : { kind: 'image', src: icon.src!, fit: 'FIT' }) }); gap = Math.max(gap, icon.gap);
     }
-    return { ...out, kind: 'frame', ...style, layout: { mode: 'HORIZONTAL', gap, primaryAlign: text.align === 'CENTER' ? 'CENTER' : text.align === 'RIGHT' ? 'MAX' : 'MIN', counterAlign: 'CENTER', padding: this.paddingValue(this.padding(path), chain) }, children };
+    return { ...out, ...style, kind: 'frame', layout: { mode: 'HORIZONTAL', gap, primaryAlign: text.align === 'CENTER' ? 'CENTER' : text.align === 'RIGHT' ? 'MAX' : 'MIN', counterAlign: 'CENTER', padding: this.paddingValue(this.padding(path), chain) }, children };
   }
   pads(bp: string, path: string): Padding { return st.padding(this.nodes[bp]![path]!); }
   padding(path: string): Record<string, Padding> { return Object.fromEntries(this.bps.filter(bp => this.nodes[bp]![path] && st.visible(this.nodes[bp]![path]!)).map(bp => [bp, this.pads(bp, path)])); }
