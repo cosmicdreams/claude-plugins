@@ -6,6 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { pluginRoot } from '../../src/runtime.ts';
 
 for (const [entry, args, expected] of [
+  ['scripts/detect.ts', [], /usage: detect.ts <repository>/],
   ['scripts/workflow.ts', ['--help'], /workflow.ts <command>/],
   ['scripts/evaluation.ts', ['--help'], /usage:/],
   ['src/capture.ts', [], /usage: capture.ts/],
