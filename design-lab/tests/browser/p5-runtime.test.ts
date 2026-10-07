@@ -40,3 +40,18 @@ test('phase 5 documented standalone browser scripts use only shared packages and
     assert.equal(existsSync(resolve(copy, 'node_modules')), false); assert.equal(existsSync(resolve(cwd, 'node_modules')), false);
   } finally { await new Promise<void>(r => server.close(() => r())); rmSync(root, { recursive: true, force: true }); }
 });
+
+test('phase 5 capture CLI prints per-component timing and ETA before its summary', async () => {
+  const root = mkdtempSync('/tmp/design-lab-p5-progress-');
+  const server = createServer((_req, res) => { res.setHeader('Content-Type', 'text/html'); res.end('<style>#card{width:120px;height:50px;background:blue}</style><div id="card">Local fixture</div>'); });
+  await new Promise<void>(r => server.listen(0, '127.0.0.1', r));
+  try {
+    const configs = resolve(root, 'configs'), project = resolve(root, 'run'); mkdirSync(configs); mkdirSync(project);
+    const url = `http://127.0.0.1:${(server.address() as AddressInfo).port}/fixture`;
+    for (const id of ['card', 'other']) writeFileSync(resolve(configs, id + '.json'), JSON.stringify({ component: id, componentId: id, machineName: id, path: '/fixture', verificationUrl: url, linkUrl: "https://public.test/fixture", rootSelector: '#card', cookiePreferences: false, viewports: [{ name: 'desktop', width: 400, height: 300 }], states: [{ name: 'default', settle: 0 }] }));
+    const result = await cli(resolve(pluginRoot, 'scripts/capture_all.ts'), ['--project', project, '--configs', configs, '--canonical-base-url', 'https://public.test', '--concurrency', '2'], root);
+    assert.equal(result.code, 0, result.stderr);
+    assert.equal((result.stdout.match(/\[\d\/2\] (card|other): complete in \d+(?:\.\d+)?s — about \d+ min left/g) ?? []).length, 2, result.stdout);
+    assert.ok(result.stdout.indexOf('[2/2]') < result.stdout.indexOf('"captures"'), result.stdout);
+  } finally { await new Promise<void>(r => server.close(() => r())); rmSync(root, { recursive: true, force: true }); }
+});

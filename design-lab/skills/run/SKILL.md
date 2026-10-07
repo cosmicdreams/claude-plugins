@@ -71,7 +71,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts preflight --project <artifact-dir
   --plan-approval proposed|review [--usage-fallback stop|untiered]
 ```
 
-Preflight checks that the local site answers, the required DDEV project is present, the runner port is free (or held only by a finished run's server, which `connect` stops later), node resolves Playwright in the folder given as `--node-cwd` or found in the repository (pass that folder to capture as `--node-cwd`), CairoSVG imports in baseline, and the plugin version matches the one recorded when this run began. When it can inspect the rendered page, it reports whether Twig debug markup is present; this check is informational. It records the target Figma URL but does not open Figma or start the runner. It prints the same go-ahead when every check passes, or lists what to fix first and why. Persist any source override the person gave:
+Preflight checks that the local site answers, the required DDEV project is present, the runner port is free (or held only by a finished run's server, which `connect` stops later), the shared Playwright installation is ready, and the plugin version matches the one recorded when this run began. An explicit `--node-cwd` probes an alternate project installation; capture commands use the shared packages and browser installed by `design-lab:init`. When it can inspect the rendered page, it reports whether Twig debug markup is present; this check is informational. It records the target Figma URL but does not open Figma or start the runner. It prints the same go-ahead when every check passes, or lists what to fix first and why. Persist any source override the person gave:
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts select --project <artifact-directory> \
@@ -93,7 +93,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts extract --project <artifact-direc
 node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts usage --project <artifact-directory> \
   --ddev-root <running-ddev-project-root> [--ddev-project <name>]
 node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts variables --project <artifact-directory>
-Run `design-lab:capture` and register `capture-evidence.json`.
+Run `design-lab:capture` and register `capture-evidence.json`. As each component finishes, quote the capture command's timing and estimated time left; do not invent an ETA.
 node ${CLAUDE_PLUGIN_ROOT}/scripts/extract_voice.ts --project <artifact-directory> --base-url <local-site-url>
 node ${CLAUDE_PLUGIN_ROOT}/scripts/extract_compositions.ts --project <artifact-directory> --base-url <local-site-url>
 node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts plan --project <artifact-directory>

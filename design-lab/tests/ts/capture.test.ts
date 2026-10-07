@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 import type { Browser, BrowserContext } from 'playwright';
 import { pool, isolated, concurrency } from '../../src/capture/pool.ts';
 import { runCapture, candidatePages, configHash, legacyHash } from '../../src/capture/run.ts';
-import type { CaptureOptions, CaptureAdapters } from '../../src/capture/run.ts';
+import type { CaptureOptions, CaptureAdapters, CaptureProgress } from '../../src/capture/run.ts';
 import type { CaptureConfig } from '../../src/capture/types.ts';
 import { scaffold, firstExample, templateSelector, sdcSelector, customSelector } from '../../src/capture/scaffold.ts';
 import { writeJson } from '../../src/contracts.ts';
@@ -30,7 +30,7 @@ for (const outcome of ['success', 'miss', 'exception', 'timeout']) test(`phase 5
       const checked = await f.adapters.check(browser, input); return { ...checked, chosen: outcome === 'miss' ? null : checked.chosen };
     },
   });
-  assert.equal(result.checks.length, 1); assert.equal(result.problems.length, outcome === 'success' ? 0 : 1);
+  assert.ok(Array.isArray(result.checks)); assert.equal(result.checks.length, 1); assert.equal(result.problems.length, outcome === 'success' ? 0 : 1);
   assert.deepEqual(paths.map(path => ({ bytes: readFileSync(path, 'utf8'), stamp: statSync(path).mtimeMs })), before);
 });
 test('phase 5 check-only does not create capture records', async () => {
@@ -202,4 +202,29 @@ test('pool drains siblings before propagating an unexpected item exception', asy
   let finished=false;
   await assert.rejects(pool([0,1],2,async i=>{if(!i) throw new Error('bad item');await new Promise(r=>setTimeout(r,15));finished=true;return i;}),/bad item/);
   assert.equal(finished,true);
+});
+
+test('phase 5 completion callback checkpoints in finish order and estimates remaining work', async () => {
+  const f = fixture(); const progress: CaptureProgress[] = [];
+  const options = { ...f.options, concurrency: 2, onComplete: (event: CaptureProgress) => {
+    assert.equal(JSON.parse(readFileSync(resolve(f.root, 'capture/records', event.record.componentId + '.json'), 'utf8')).status, event.record.status);
+    progress.push(event);
+  } };
+  await runCapture(options, { ...f.adapters, measure: async (browser, cfg) => {
+    if (cfg.componentId.endsWith('alpha')) await new Promise(r => setTimeout(r, 30));
+    return f.adapters.measure(browser, cfg);
+  } });
+  assert.deepEqual(progress.map(p => p.record.componentId), ['sdc.demo.zeta', 'sdc.demo.alpha']);
+  assert.deepEqual(progress.map(p => [p.completed, p.total]), [[1, 2], [2, 2]]);
+  assert.ok(progress[0]!.remainingSeconds > 0); assert.equal(progress[1]!.remainingSeconds, 0);
+  await runCapture({ ...options, check: true }, f.adapters); assert.equal(progress.length, 2);
+  await runCapture(options, f.adapters); assert.equal(progress.length, 2, 'resumed records emit no new completions');
+});
+test('phase 5 fresh capture ETA retains previous timings for unfinished components', async () => {
+  const f = fixture(); await runCapture(f.options, f.adapters);
+  const path = resolve(f.root, 'capture/records/sdc.demo.zeta.json');
+  const prior = JSON.parse(readFileSync(path, 'utf8')); prior.seconds = 120; writeJson(path, prior);
+  const progress: CaptureProgress[] = [];
+  await runCapture({ ...f.options, fresh: true, onComplete: event => { progress.push(event); } }, f.adapters);
+  assert.equal(progress[0]!.remainingSeconds, 120); assert.equal(progress[1]!.remainingSeconds, 0);
 });
