@@ -101,19 +101,23 @@ for the older JS sources, with its known context diagnostics; it is not a CI gat
 
 The **external Python oracle** is simply a read-only checkout of the previous implementation.
 It supplies the reference results for migration comparisons; it is not used by the plugin,
-ordinary Node tests, or CI. No `.py` file ships in this plugin. TS harness launchers materialize
+ordinary Node tests, or CI. Fresh on-demand oracle regression tests require the prepared interpreter. No `.py` file ships in this plugin. TS harness launchers materialize
 their small baseline adapters under `/tmp`, invoke the external interpreter, and import only
 from the external checkout. Bytecode writes there are disabled.
 
-`DESIGN_LAB_ORACLE_ROOT` is the absolute **checkout root**, containing `design-lab/scripts/`.
-Its default is `/Users/Chris.Weber/Tools/CLAUDE-PLUGINS/worktrees/design-lab-oracle`, the
+`DESIGN_LAB_ORACLE_ROOT` accepts the absolute **plugin directory** containing `scripts/`,
+or its parent checkout containing `design-lab/scripts/`. Its default is
+`/Users/Chris.Weber/Tools/CLAUDE-PLUGINS/worktrees/design-lab-oracle/design-lab`, in the
 read-only detached checkout at `4176de29`. `DESIGN_LAB_PYTHON` selects its prepared
-interpreter and defaults to `/tmp/dl-venv/bin/python`. It needs the baseline's Pillow,
+interpreter and defaults to `/tmp/dl-venv/bin/python` (**Python 3.14.8**). Pin the
+patch version: `html.parser` comment handling differs between Python 3.14 patch releases
+(including 3.14.5 and 3.14.8). It needs the baseline's Pillow,
 CairoSVG and YAML dependencies. Harnesses compare copied runs and write only under `/tmp`.
 
 ```sh
 export DESIGN_LAB_ORACLE_ROOT=/path/to/read-only/baseline-checkout
 export DESIGN_LAB_PYTHON=/path/to/prepared/baseline-venv/bin/python
+node --test tests/equivalence/oracle-tests/*.test.ts
 node tests/equivalence/driver.ts
 node tests/equivalence/trees.ts
 node tests/equivalence/runner-smoke.ts /tmp/driver-replay-root

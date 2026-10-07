@@ -2,6 +2,7 @@
  *
  * Syllables use vowel groups after silent terminal e removal, with one syllable minimum.
  * This is an approximation for comparative Flesch-Kincaid grades, not a dictionary. */
+import { pyFormatG as formatG } from './extract-tokens-sass.ts';
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { writeJson } from "./contracts.ts";
@@ -333,23 +334,7 @@ export function isSentenceCase(text: string): boolean {
   return found.length > 0 && /[A-Z]/.test(found[0]![0]!) && !isTitleCase(text);
 }
 /** baseline's format(value, 'g'): six significant digits, trailing zeros removed. */
-export function formatG(value: number): string {
-  if (value === 0) return "0";
-  if (!Number.isFinite(value))
-    return Number.isNaN(value) ? "nan" : value > 0 ? "inf" : "-inf";
-  const exponent = Number(value.toExponential(5).split("e")[1]);
-  if (exponent < -4 || exponent >= 6) {
-    const [mantissa, power] = value.toExponential(5).split("e") as [
-      string,
-      string,
-    ];
-    const sign = power.startsWith("-") ? "-" : "+",
-      digits = power.replace(/^[+-]/, "").padStart(2, "0");
-    return `${mantissa.includes(".") ? mantissa.replace(/\.?0+$/, "") : mantissa}e${sign}${digits}`;
-  }
-  const fixed = value.toFixed(Math.max(0, 5 - exponent));
-  return fixed.includes(".") ? fixed.replace(/\.?0+$/, "") : fixed;
-}
+export { pyFormatG as formatG } from './extract-tokens-sass.ts';
 const byCountThenText =
   <T>(count: (item: T) => number, text: (item: T) => string) =>
   (a: T, b: T): number =>

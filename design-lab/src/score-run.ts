@@ -5,6 +5,7 @@
  * evidence says "not measured" and why; it never guesses. The first scoring of a run records the
  * benchmark's end in the run's phase log; apart from that, and the run's own benchmark/ folder,
  * scoring never writes into the run directory, so it can be re-run whenever the scorer improves. */
+import { pyFormatG as formatG } from './extract-tokens-sass.ts';
 import { appendFileSync, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, readFileSync, readdirSync,
   realpathSync, renameSync, statSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, isAbsolute, join, normalize, resolve, sep } from 'node:path';
@@ -958,17 +959,7 @@ export function scoreSchemaChurn(project: Json | null): Json {
 // ---------------------------------------------------------------------------- headline
 
 /** f"{x:g}": six significant digits, trailing zeros dropped. */
-export function formatG(value: number): string {
-  if (!Number.isFinite(value)) return value > 0 ? 'inf' : value < 0 ? '-inf' : 'nan';
-  if (value === 0) return Object.is(value, -0) ? '-0' : '0';
-  const exponent = Number(value.toExponential(5).split('e')[1]);
-  const strip = (text: string): string => text.includes('.') ? text.replace(/\.?0+$/, '') : text;
-  if (exponent < -4 || exponent >= 6) {
-    const [mantissa] = value.toExponential(5).split('e');
-    return `${strip(mantissa!)}e${exponent < 0 ? '-' : '+'}${String(Math.abs(exponent)).padStart(2, '0')}`;
-  }
-  return strip(fixed(value, 5 - exponent));
-}
+export { pyFormatG as formatG } from './extract-tokens-sass.ts';
 
 export function headline(sections: Json): Json {
   const library = sections['library'], accuracy = sections['accuracy'], cost = sections['cost'], repeat = sections['repeatability'];
