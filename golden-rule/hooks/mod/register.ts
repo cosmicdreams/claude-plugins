@@ -198,6 +198,13 @@ async function restore($: EngineInterface, before: Map<string, string | undefine
 
 // ---- Strings inside a tool's arguments ---------------------------------------------------------------
 
+const bytes = (text: string): number => new TextEncoder().encode(text).length
+
+/** Whether a string is within macOS's limits for a path (PATH_MAX 1,024, NAME_MAX 255, no NUL). */
+export function couldBePath(text: string): boolean {
+  return text.length > 0 && !text.includes('\0') && bytes(text) <= 1024 && text.split('/').every(name => bytes(name) <= 255)
+}
+
 function strings(value: unknown): string[] {
   if (typeof value === 'string') return [value]
   if (Array.isArray(value)) return value.flatMap(strings)
@@ -366,9 +373,11 @@ export const register: Register = on => {
     const inside = await mainWorktreeOf(await placed('.', await $.session.cwd(), home, io($)), io($))
     if (inside) return refuse($, tool, inside, `this session's folder is inside the main worktree ${inside}, so this MCP call could write there. ${worktreeHint(inside)}`)
     const texts = strings(Object.fromEntries(Object.entries(e).filter(([key]) => key !== 'tool' && key !== 'tool_use_id' && key !== 'agentId')))
-    // Every single-line string is placed as a path, links followed, and judged by where it lands: a
-    // destination reached through a link into main is caught, and ordinary text lands nowhere protected.
-    const whole = texts.filter(text => text.length > 0 && text.length < 4096 && !text.includes('\n'))
+    // Every string that could name a file is placed as a path, links followed, and judged by where it
+    // lands: a destination reached through a link into main is caught, and ordinary text lands nowhere
+    // protected. A string past the system's path limits (1,024 bytes, 255 per name) cannot be a
+    // destination and is not placed, so long content never fails the call.
+    const whole = texts.filter(couldBePath)
     for (const path of [...new Set([...whole, ...texts.flatMap(pathLiterals), ...texts.flatMap(relativeMainTokens)])]) {
       const why = await judgeWrite($, path)
       if (why) return refuse($, tool, path, `${why} (MCP tools are refused for main worktrees unless listed as read-only in policy.json)`)

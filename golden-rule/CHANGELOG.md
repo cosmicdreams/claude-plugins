@@ -14,5 +14,5 @@
 - Edits are judged case-insensitively and by the file they would leave; a linked main worktree's metadata outside its folder is protected; the folders holding protected files cannot be moved; failures refuse or quarantine instead of passing.
 - Paths are resolved component by component (symlinks before `..`), file-identity paths are refused, git metadata is found from each main worktree's actual layout (separate git dirs, any linked-worktree id), and pushes are judged per command segment in the directory they run in.
 - A link that leads nowhere is refused; MCP calls are refused while the session works inside a main worktree; a separate git dir's `.git` pointer is protected; settings are recognised by their resolved file; pushes follow every `git -C` and treat directory changes they cannot follow conservatively.
-- MCP string arguments are placed with links followed; settings files are resolved at each write.
-- Tests: 30 mocked hook tests, 56 end-to-end sandbox tests on fixture repositories (normal, linked, separate-git-dir and long-path main worktrees), and a live headless run on the personal and Team accounts.
+- MCP string arguments within the system's path limits are placed with links followed (newlines included), longer content is never mistaken for a path; settings files are resolved at each write.
+- Tests: 32 mocked hook tests, 56 end-to-end sandbox tests on fixture repositories (normal, linked, separate-git-dir and long-path main worktrees), and a live headless run on the personal and Team accounts.

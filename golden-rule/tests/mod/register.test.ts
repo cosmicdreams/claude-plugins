@@ -108,6 +108,18 @@ describe('Layer 2: structured tools', () => {
     expect(answer.deny).toMatch(/switch the golden rule guard off/)
   })
 
+  test('an MCP destination with a newline in its name is still placed and judged', async ($, on) => {
+    world(on, { cwd: FEATURE, links: { [`${FEATURE}/docs`]: MAIN } })
+    const answer = await $.tool.call({ tool: 'mcp__files__write_file', path: 'docs/My\nFile.md', content: 'x' } as never)
+    expect(answer.deny).toMatch(/main worktree/)
+  })
+
+  test('long content in an MCP call is not mistaken for a path', async ($, on) => {
+    const seen = world(on, { cwd: FEATURE })
+    await $.tool.call({ tool: 'mcp__files__write_file', path: 'note.txt', content: 'This is ordinary prose. '.repeat(60) } as never)
+    expect(seen.calls.length).toBe(1)
+  })
+
   test('a file-identity path is refused', async ($, on) => {
     world(on)
     const answer = await $.tool.call({ tool: 'Write', file_path: '/.vol/16777234/123456', content: 'x' })
