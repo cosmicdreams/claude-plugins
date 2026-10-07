@@ -42,3 +42,5 @@ For each open finding:
 - waive a non-visual finding only with the person's decision, recording check, narrow scope, reason, decider, and date; in an unattended run, prefer a fix or a not-built classification, and stop for a waiver only when neither is possible.
 
 After fixes, recapture affected Figma state and rerun the full gate. Record report hash, coverage, severity counts, unavailable checks, and target file in the project manifest. Do not call the library complete while any unwaived blocker or major remains. Also report objective quality measures: built assets with capture evidence, passing visual comparisons, portable live links, index-link correctness, duplicate captures, and collection count with its justification.
+
+New build comparisons use the corrected pixel metric, including unmatched area and per-channel differences. Reports may finish with findings; verification quality remains failed until the shared workflow completion gate passes. Check collection consolidation: invariant and responsive variables can share Core, and every additional collection needs an independent boundary.

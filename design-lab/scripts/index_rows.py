@@ -38,8 +38,8 @@ def tier_of(comp, high, medium):
     placements but is High Use). Recomputing from placements alone put such components on a
     different tier here than on their Figma page, so the index and the file disagreed."""
     usage = comp.get('usage')
-    if not usage:
-        return None
+    if not usage or usage.get('status') in ('unavailable', 'unknown', 'partial') or usage.get('placements') is None:
+        return 'Components — Untiered'
     if usage.get('tier') in TIER_ORDER:
         return usage['tier']
     placements = usage.get('placements') or 0

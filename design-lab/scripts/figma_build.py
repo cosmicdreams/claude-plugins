@@ -29,12 +29,14 @@ import subprocess
 import sys
 from datetime import date
 from pathlib import Path
+from time import time_ns
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE))
 import render_payload  # noqa: E402
 import spec_to_tree  # noqa: E402
 import responsive  # noqa: E402
+from artifact_contracts import write_json
 import library_counts  # noqa: E402  the one source of every count on Cover and Getting Started
 
 STANDARD_VERSION = "4.1.0"
@@ -254,6 +256,53 @@ def cmd_init(ns) -> int:
     project = Path(ns.project).resolve()
     out = project / "figma"
     previous = json.loads((out / "state.json").read_text()) if (out / "state.json").is_file() else None
+    only = getattr(ns, "only", None)
+    if only:
+        if getattr(ns, "rebuild", False):
+            raise SystemExit("--only cannot be combined with --rebuild (which clears the file)")
+        if not previous or previous.get("fileKey") != ns.file_key or not previous.get("steps"):
+            raise SystemExit("--only needs an existing build in this run's target file")
+        selected = set(only.split(","))
+        planned = library_counts.planned_ids(previous)
+        if not selected <= set(planned):
+            raise SystemExit("--only must name components already in this library's build plan")
+        # A changed child can change its parents' geometry and evidence too.
+        comps = components(project)
+        while True:
+            parents = {c["id"] for c in comps if c["id"] in planned and any(
+                child in selected for slot in c.get("slots") or [] for child in slot.get("accepts") or [])}
+            expanded = selected | parents
+            if expanded == selected:
+                break
+            selected = expanded
+        for cid in sorted(selected):
+            prior = load(project, "figma/results/" + safe("build:" + cid) + ".json", {})
+            if not prior.get("componentId"):
+                raise SystemExit(f"missing saved master identity for {cid}; rebuild in a fresh file")
+        built = build_trees(project, out / "trees", ",".join(sorted(selected)))
+        if {c["id"] for c in built} != selected:
+            raise SystemExit("subset has missing measurements or is no longer buildable; keep the current library and rebuild in a fresh file")
+        refreshed = {f"{phase}:{cid}" for cid in selected
+                     for phase in ("build", "images", "block", "evidence", "compare")}
+        refreshed.update(("cover", "getting-started", "examples"))
+        state = {**previous, "runtime": render_payload.runtime_hash(), "subset": sorted(selected),
+                 "done": [sid for sid in previous.get("done", []) if sid not in refreshed]}
+        # The pane treats completion.md as a finished run even when its phase is reset.
+        # Preserve the old recap, but do not advertise it as the active build's result.
+        completion = project / "benchmark/completion.md"
+        if completion.is_file():
+            completion.rename(completion.with_name(f"completion-before-subset-{time_ns()}.md"))
+        # Retain the global queue, recorded components, and all untouched result files.
+        write_json(out / "state.json", state)
+        manifest = load(project, "project.json", {})
+        for phase in ("components", "index", "verify", "benchmark"):
+            manifest.setdefault("phases", {})[phase] = {"status": "running" if phase == "components" else "pending"}
+        manifest["artifacts"] = {name: artifact for name, artifact in manifest.get("artifacts", {}).items()
+                                 if name not in {"build:" + cid for cid in selected}
+                                 and artifact.get("kind") not in ("index", "verify-report")}
+        write_json(project / "project.json", manifest)
+        print(json.dumps({"steps": len(state["steps"]), "components": len(selected), "subset": sorted(selected)}))
+        return 0
     if getattr(ns, "rebuild", False):
         # Rebuild in place: the same file, emptied of this run's earlier build by a first `wipe`
         # step, so a fix can be tried without a new file or anyone restarting the runner.
@@ -365,7 +414,13 @@ def core_collection(project: Path) -> str:
 
 def breakpoint_collection(project: Path) -> str:
     """Every value that differs between widths lives here, in the Desktop/Tablet/Mobile modes."""
-    return f"{brand(project)} Breakpoint" if brand(project) else "Core Breakpoint"
+    state = load(project, "figma/state.json", {})
+    if state.get("subset"):
+        # A subset must keep bindings to the older library's collection intact.
+        legacy = f"{brand(project)} Breakpoint" if brand(project) else "Core Breakpoint"
+        if legacy in state.get("emittedCollections", []):
+            return legacy
+    return core_collection(project)
 
 
 LENGTH = r"([\d.]+)(px|rem|em)"
@@ -461,24 +516,25 @@ def legacy_collections(project: Path) -> set[str]:
     """Names builds before 0.23.0 wrote: the plan's own collection names, unbranded, and the old
     breakpoint names. A rebuild in place of such a run must still clear them."""
     plan = load(project, "variable-plan.json", {"collections": {}})
-    return set(plan.get("collections") or {}) | {"Core", "Core Breakpoint", "Breakpoint"}
+    return set(plan.get("collections") or {}) | {"Core", "Core Breakpoint", "Breakpoint",
+            f"{brand(project)} Breakpoint".strip()}
 
 
 def emitted_collections(project: Path) -> list[str]:
     """The collection names this run's build writes: the variables step's and the breakpoint one."""
-    planned = list(variables_args(project)["collections"]) if (project / "variable-plan.json").is_file() else []
-    return list(dict.fromkeys(planned + [breakpoint_collection(project)]))
+    planned = list(variables_args(project, primary=core_collection(project))["collections"]) if (project / "variable-plan.json").is_file() else []
+    return list(dict.fromkeys(planned + [core_collection(project)]))
 
 
-def variables_args(project: Path) -> dict:
+def variables_args(project: Path, primary: str | None = None) -> dict:
     """The variable collections the build writes, brand-prefixed (library-standard 6.1).
 
-    Single-mode tokens go to `<Brand> Core`. Width modes (media queries evaluated at the capture
-    widths, or Site Studio breakpoints) fold into `<Brand> Breakpoint`'s Desktop/Tablet/Mobile
-    modes, so the responsive token values sit beside the modes the components switch. A mode set
-    on another axis (colour scheme, orientation) stays its own collection, with readable mode
-    names. Every collection name carries the brand."""
+    Invariant and width-dependent values share Core's Desktop/Tablet/Mobile modes.
+    Independently switchable axes retain separate collections. Subset updates preserve
+    the existing library's collection names and bindings.
+    """
     collections = load(project, "variable-plan.json")["collections"]
+    primary = primary or breakpoint_collection(project)
     names = mode_names({})
     roles = ("Desktop", "Tablet", "Mobile")
     label = brand(project)
@@ -530,6 +586,12 @@ def variables_args(project: Path) -> dict:
                 responsive.append(row)
             continue
         target = branded(name)
+        # Core is reserved for the width axis. A source collection named Core may
+        # instead represent a colour scheme; keep its independent modes intact.
+        if target == primary and len(modes) > 1:
+            target = f"{target} {mode_label(modes[1])}"
+            if target in out or any(branded(other) == target for other in collections if other != name):
+                raise ValueError(f"collection name collision {target!r}; name independent mode collections distinctly")
         if len(modes) > 1:
             relabel = {m: (m if i == 0 else mode_label(m)) for i, m in enumerate(modes)}
             col = {**col, "modes": [relabel[m] for m in modes],
@@ -537,8 +599,31 @@ def variables_args(project: Path) -> dict:
                                  if v.get("valuesByMode") else v for v in col["variables"]]}
         out[target] = {**col, "variables": list((out.get(target) or {}).get("variables") or []) + col["variables"]}
     if responsive:
-        out[breakpoint_collection(project)] = {"modes": [names[r] for r in roles], "variables": responsive,
+        out[primary] = {"modes": [names[r] for r in roles], "variables": list((out.get(primary) or {}).get("variables") or []) + responsive,
                                                "modeRationale": "responsive tokens share the breakpoint modes"}
+    # Invariant tokens can share width modes: repeat their value rather than opening
+    # another collection. Only independently switchable axes keep separate collections.
+    merged = []
+    kept = {}
+    for name, col in out.items():
+        if name == primary or len(col.get("modes") or ["Value"]) == 1:
+            for variable in col["variables"]:
+                row = dict(variable)
+                by = row.get("valuesByMode") or {}
+                if by and (len(col.get("modes") or ["Value"]) == 1 or not any(names[r] in by for r in roles)) and len({json.dumps(v, sort_keys=True) for v in by.values()}) == 1:
+                    row["valuesByMode"] = {names[r]: next(iter(by.values())) for r in roles}
+                merged.append(row)
+        else:
+            kept[name] = col
+    if merged:
+        seen = set()
+        for variable in merged:
+            if variable["name"] in seen:
+                raise ValueError(f"duplicate variable name {variable['name']!r} while consolidating; use distinct slash groups")
+            seen.add(variable["name"])
+        kept = {primary: {"modes": [names[r] for r in roles], "variables": merged,
+                          "modeRationale": "one shared collection; invariant values repeat across width modes"}, **kept}
+    out = kept
     return {"collections": out}
 
 
@@ -759,7 +844,11 @@ def font_plan(project: Path) -> dict | None:
 def build_args(project: Path, cid: str, state: dict) -> dict:
     tree = json.loads((project / "figma" / "trees" / f"{cid}.json").read_text())
     comp = next(c for c in components(project) if c["id"] == cid)
+    previous = load(project, "figma/results/" + safe("build:" + cid) + ".json", {}) if cid in state.get("subset", []) else {}
+    if cid in state.get("subset", []) and not previous.get("componentId"):
+        raise ValueError(f"missing saved master identity for {cid}; rebuild in a fresh file")
     return {"pageId": page_id(project, component_page(comp)), "x": 0, "y": PARKING_Y, "id": cid,
+            "existingComponentId": previous.get("componentId"),
             "name": f"{cid} — {comp.get('label') or cid}", "description": description(project, comp),
             "collection": breakpoint_collection(project), "modeNames": mode_names(tree),
             # The masters of children this component nests, already built (children build first),
@@ -1292,7 +1381,7 @@ def cmd_record(ns) -> int:
         import figma_compare
         cid = ns.step.split(":", 1)[1]
         geo = result(project, "block:" + cid)["geometry"]
-        data = {"file": data["file"], **figma_compare.compare(Path(data["file"]), geo,
+        data = {"file": data["file"], **figma_compare.compare(Path(data["file"]), geo, corrected=True,
                                                              masks=text_masks(project, cid, geo))}
     (project / "figma" / "results" / f"{safe(ns.step)}.json").write_text(json.dumps(data, indent=1, sort_keys=True) + "\n")
     state["done"].append(ns.step)

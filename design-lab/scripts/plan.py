@@ -86,7 +86,10 @@ def classify(c, rendering=None, capture=None):
                           rendering.get('templates') or sdc or c.get('isCustomComponent') or rendered or captured)
     contained = bool(c.get('containedBy'))
 
-    if placements == 0 and structural == 0 and not rendered:
+    measured = (usage.get('status') not in ('unavailable', 'partial', 'unknown')
+                and isinstance(usage.get('placements'), int)
+                and isinstance(usage.get('structuralRefs', usage.get('structuralReferences')), int))
+    if measured and placements == 0 and structural == 0 and not rendered and not captured:
         role = 'retirement'
     elif not render_signals:
         role = 'schema-only'

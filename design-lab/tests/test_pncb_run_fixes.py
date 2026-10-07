@@ -109,8 +109,8 @@ class CollectionTests(unittest.TestCase):
                 {"name": "type/size/h1", "type": "FLOAT", "valuesByMode": {"Value": 40, "@media (width < 48rem)": 28}},
                 {"name": "type/size/body", "type": "FLOAT", "valuesByMode": {"Value": 16}}]}}}
         args = figma_build.variables_args(self.project(plan))["collections"]
-        self.assertEqual(sorted(args), ["PNCB Breakpoint", "PNCB Core"])
-        bp = args["PNCB Breakpoint"]
+        self.assertEqual(sorted(args), ["PNCB Core"])
+        bp = args["PNCB Core"]
         self.assertEqual(bp["modes"], ["Desktop 1400px", "Tablet 800px", "Mobile 375px"])
         h1 = next(v for v in bp["variables"] if v["name"] == "type/size/h1")
         self.assertEqual(h1["valuesByMode"], {"Desktop 1400px": 40, "Tablet 800px": 40, "Mobile 375px": 28})
@@ -119,7 +119,7 @@ class CollectionTests(unittest.TestCase):
 
     def test_no_brand_keeps_the_old_names(self):
         folder = self.project({"collections": {}}, label="")
-        self.assertEqual(figma_build.breakpoint_collection(folder), "Core Breakpoint")
+        self.assertEqual(figma_build.breakpoint_collection(folder), "Core")
         self.assertEqual(figma_build.core_collection(folder), "Core")
 
     def test_media_applies(self):
@@ -176,7 +176,7 @@ class ReviewFollowUpTests(unittest.TestCase):
         plan = {"collections": {"Type": {"modes": modes, "variables": [
             {"name": "type/h1", "type": "FLOAT",
              "valuesByMode": {"Value": 32, modes[1]: 40, modes[2]: 48}}]}}}
-        bp = figma_build.variables_args(self.project(plan))["collections"]["PNCB Breakpoint"]
+        bp = figma_build.variables_args(self.project(plan))["collections"]["PNCB Core"]
         self.assertEqual(bp["variables"][0]["valuesByMode"],
                          {"Desktop 1400px": 48, "Tablet 800px": 40, "Mobile 375px": 32})
 
@@ -194,8 +194,8 @@ class ReviewFollowUpTests(unittest.TestCase):
         plan = {"collections": {"Type": {"modes": ["xl", "md", "sm"], "variables": [
             {"name": "type/h2", "type": "FLOAT", "valuesByMode": {"xl": 48, "md": 42, "sm": 36}}]}}}
         out = figma_build.variables_args(self.project(plan))["collections"]
-        self.assertEqual(list(out), ["PNCB Breakpoint"])
-        self.assertEqual(out["PNCB Breakpoint"]["variables"][0]["valuesByMode"],
+        self.assertEqual(list(out), ["PNCB Core"])
+        self.assertEqual(out["PNCB Core"]["variables"][0]["valuesByMode"],
                          {"Desktop 1400px": 48, "Tablet 800px": 42, "Mobile 375px": 36})
 
     def test_other_axis_keeps_its_own_branded_collection_with_readable_modes(self):
@@ -205,7 +205,7 @@ class ReviewFollowUpTests(unittest.TestCase):
                 {"name": "color/bg", "type": "COLOR", "valuesByMode": {"Value": "#fff", "@media (prefers-color-scheme: dark)": "#000"}}]},
             "Primitives": {"modes": ["Value"], "variables": [{"name": "color/b", "type": "COLOR", "hex": "#111"}]}}}
         out = figma_build.variables_args(self.project(plan))["collections"]
-        self.assertEqual(sorted(out), ["PNCB Core", "PNCB Primitives", "PNCB Scheme"])
+        self.assertEqual(sorted(out), ["PNCB Core", "PNCB Scheme"])
         self.assertEqual(out["PNCB Scheme"]["modes"], ["Value", "Dark"])
         self.assertEqual(out["PNCB Scheme"]["variables"][0]["valuesByMode"], {"Value": "#fff", "Dark": "#000"})
         rep = verify.Report()
@@ -216,13 +216,13 @@ class ReviewFollowUpTests(unittest.TestCase):
         modes = ["Value", "@media (max-width: 600px)"]
         plan = {"collections": {"Type": {"modes": modes, "variables": [
             {"name": "type/small", "type": "FLOAT", "valuesByMode": {modes[1]: 12}}]}}}
-        bp = figma_build.variables_args(self.project(plan))["collections"]["PNCB Breakpoint"]
+        bp = figma_build.variables_args(self.project(plan))["collections"]["PNCB Core"]
         self.assertNotIn(None, bp["variables"][0]["valuesByMode"].values())
 
     def test_wipe_names_only_collections_this_run_emitted(self):
         plan = {"collections": {"Core": {"modes": ["Value"], "variables": []}}}
         names = figma_build.emitted_collections(self.project(plan))
-        self.assertEqual(sorted(names), ["PNCB Breakpoint", "PNCB Core"])
+        self.assertEqual(sorted(names), ["PNCB Core"])
         source = (SCRIPTS / "figma_build.py").read_text()
         self.assertNotIn("verify\" / \"state.json\"", source.split("def cmd_init", 1)[1].split("def ", 1)[0])
 
@@ -259,8 +259,8 @@ class ReviewFollowUpTests(unittest.TestCase):
             {"name": "color/bg", "type": "COLOR", "codeName": "--bg",
              "valuesByMode": {"Value": "#fff", modes[2]: "#000"}}]}}}
         out = figma_build.variables_args(self.project(plan, label="Acme"))["collections"]
-        self.assertEqual([v["name"] for v in out["Acme Breakpoint"]["variables"]], ["type/h1"])
-        self.assertEqual(out["Acme Breakpoint"]["variables"][0]["valuesByMode"],
+        self.assertEqual([v["name"] for v in out["Acme Core"]["variables"]], ["type/h1"])
+        self.assertEqual(out["Acme Core"]["variables"][0]["valuesByMode"],
                          {"Desktop 1400px": 48, "Tablet 800px": 48, "Mobile 375px": 32})
         self.assertEqual(out["Acme Mixed Dark"]["modes"], ["Value", "Dark"])
         self.assertEqual([(v["name"], v["valuesByMode"]) for v in out["Acme Mixed Dark"]["variables"]],

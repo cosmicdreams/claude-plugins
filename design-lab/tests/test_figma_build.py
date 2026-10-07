@@ -150,7 +150,12 @@ class PrepareTests(Sandbox):
         self.assertEqual(project["target"], {"figmaFileKey": "NEW", "figmaUrl": result["figmaUrl"]})
         self.assertNotEqual(project["createdAt"], self.project["createdAt"])
         self.assertEqual(project["pluginVersion"], workflow.plugin_version())
-        self.assertEqual(project["artifacts"], {"inventory": self.project["artifacts"]["inventory"]})
+        self.assertEqual(set(project["artifacts"]), {"inventory"})
+        receipt = project["artifacts"]["inventory"]
+        self.assertEqual(receipt["path"], "components.json")
+        from artifact_contracts import sha256
+        self.assertEqual(receipt["sha256"], sha256(self.workspace / "components.json"))
+        self.assertFalse(receipt["valid"], "the deliberately incomplete fixture must not be marked valid")
         self.assertEqual(project["run"]["operator"], "A. Person")
         self.assertEqual(project["run"]["siteLabel"], "Saved site")
         self.assertEqual(project["run"]["evaluationTier"], 2)
@@ -591,7 +596,10 @@ class WorkflowTests(Sandbox):
                 return subprocess.CompletedProcess([], 1, "findings")
             if script == "workflow.py":
                 with contextlib.redirect_stdout(io.StringIO()):
-                    workflow.main(list(map(str, args)))
+                    try:
+                        workflow.main(list(map(str, args)))
+                    except SystemExit as error:
+                        return subprocess.CompletedProcess([], error.code, "gate failed")
             return subprocess.CompletedProcess([], 0, "")
 
         out = io.StringIO()
@@ -604,8 +612,13 @@ class WorkflowTests(Sandbox):
         self.assertEqual(calls[-1], ("score_run.py", [str(self.workspace), "--out", str(self.workspace / "benchmark"), "--session", "current"]))
         self.assertEqual(calls[-2], ("workflow.py", ["record", "--project", str(self.workspace), "--phase", "benchmark", "--status", "running"]))
         log = [json.loads(line) for line in (self.workspace / workflow.PHASE_LOG).read_text().splitlines()]
-        for phase in ("foundation", "components", "index"):
+        for phase in ("foundation", "index"):
             self.assertEqual(len([row for row in log if row["phase"] == phase and row["status"] == "complete"]), 1)
+        self.assertFalse(any(row["phase"] == "components" and row["status"] == "complete" for row in log))
+        manifest = json.loads((self.workspace / "project.json").read_text())
+        self.assertEqual(manifest["phases"]["verify"]["status"], "failed")
+        self.assertIn("sha256", manifest["artifacts"]["verifyReport"])
+        self.assertEqual(result["quality"], "failed")
         self.assertEqual(log[-1]["phase"], "benchmark")
         self.assertEqual(log[-1]["status"], "running")
         self.assertTrue((self.workspace / "figma/compare/corrected.json").is_file())

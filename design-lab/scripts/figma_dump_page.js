@@ -6,7 +6,8 @@ const DEFAULT_LAYER = /^(Frame|Group|Rectangle|Ellipse|Text|Vector|Line|Polygon|
 const breakpointCollection = (await figma.variables.getLocalVariableCollectionsAsync())
   // 'Breakpoint' is the name before 0.15.1.
   // `<Brand> Breakpoint` since 0.22.1; 'Core Breakpoint' and 'Breakpoint' before.
-  .find(item => /(^| )Breakpoint$/.test(item.name));
+  .find(item => item.modes.some(m => /^Desktop \d+px$/.test(m.name)))
+  || (await figma.variables.getLocalVariableCollectionsAsync()).find(item => /(^| )Breakpoint$/.test(item.name));
 const breakpointVariableIds = new Set(breakpointCollection?.variableIds || []);
 const varyingVariableIds = new Set();
 const geometryVariableIds = new Set();

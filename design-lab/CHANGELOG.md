@@ -1,5 +1,13 @@
 # Changelog
 
+## Unreleased
+
+- New build receipts use the corrected visual comparison: unmatched area and per-channel differences count toward acceptance.
+- Subset rebuilds retain the full library plan and reuse master and variant IDs, refreshing dependent parents. Missing master identities or changed variant structures require a fresh-file rebuild.
+- Finish registers verification evidence and applies the shared completion gate. Reports still finish when quality fails; a completed build queue alone cannot mark the run accepted.
+- Unavailable or partial usage stays unknown rather than becoming zero-use retirement. The approved untiered fallback survives inventory extraction.
+- New builds consolidate invariant and width-dependent variables into one branded Core collection with slash groups, regardless of token count. Independent mode axes remain separate, including source collections named Core. Subset updates retain legacy collection bindings.
+
 ## 0.23.2
 - Icons drawn as a CSS mask over a background colour (`mask-image: url(arrow.svg)`) are built as their SVG shape in that colour. They used to come out as solid squares: on PNCB, every arrow and icon in the 2026 theme, 27 icon layers across 11 components. Capture records each element's `mask-image`, fetches the masked SVG once from the page and keeps it with the measurement, so a rebuild without the site still has it.
 

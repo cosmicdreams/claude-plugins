@@ -307,7 +307,7 @@ class FigmaBuildTests(unittest.TestCase):
             figma_build.cmd_next(type("Args", (), {"project": str(self.project)})())
         payload = Path(json.loads(out.getvalue())["payload"]).read_text()
         self.assertIn('"file123"', payload)
-        self.assertIn("Core Breakpoint", payload)
+        self.assertIn("Core", payload)
         # The next rebuild keeps iterating without being told again; a plain init does not.
         self.assertTrue(self.init(rebuild=True)["iterate"])
         self.assertFalse(self.init()["iterate"])
@@ -465,7 +465,7 @@ run().then((r) => console.log(JSON.stringify({ r, texts: made.filter((n) => n.ty
         self.assertEqual(block["setId"], "component-1")
         self.assertEqual(block["doc"]["properties"],
                          [["Breakpoint", "MODE", "Desktop, Tablet, Mobile", "Desktop"]])
-        self.assertEqual(block["collection"], "Core Breakpoint")
+        self.assertEqual(block["collection"], "Core")
         self.assertEqual(block["columns"], [
             {"label": "Mobile · 375px", "width": 375, "mode": "Mobile 375px", "master": False},
             {"label": "Tablet · 800px", "width": 800, "mode": "Tablet 800px", "master": False},
