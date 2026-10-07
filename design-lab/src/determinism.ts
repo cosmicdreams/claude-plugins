@@ -13,14 +13,23 @@ export function normalize(value: unknown): unknown {
   return value;
 }
 export function canonicalHash(layout: unknown): string {
-  assertFinite(layout);
   const canonical = canonicalNumbers(normalize(layout));
   return createHash('sha256').update(canonical, 'utf8').digest('hex');
 }
-function assertFinite(value: unknown): void {
-  if (typeof value === 'number' && !Number.isFinite(value)) throw new TypeError('Out of range float values are not JSON compliant');
-  if (Array.isArray(value)) for (const item of value) assertFinite(item);
-  else if (value && typeof value === 'object' && !isTaggedNumber(value)) for (const item of Object.values(value)) assertFinite(item);
+/** json.dumps(allow_nan=False) rejects non-finite floats, reporting them with Python's repr. */
+function assertFinite(value: number): void {
+  if (Number.isFinite(value)) return;
+  const repr = Number.isNaN(value) ? 'nan' : value > 0 ? 'inf' : '-inf';
+  throw new RangeError(`Out of range float values are not JSON compliant: ${repr}`);
+}
+/** Python sorts str keys by code point; UTF-16 unit order differs for astral characters. */
+function compareCodePoints(a: string, b: string): number {
+  const x = [...a], y = [...b];
+  for (let i = 0; i < Math.min(x.length, y.length); i++) {
+    const difference = x[i]!.codePointAt(0)! - y[i]!.codePointAt(0)!;
+    if (difference !== 0) return difference;
+  }
+  return x.length - y.length;
 }
 function canonicalFloat(value: number): string {
   if (Object.is(value, -0)) return '-0.0';
@@ -34,13 +43,21 @@ function canonicalFloat(value: number): string {
   return Number.isInteger(value) ? `${text}.0` : text;
 }
 function canonicalNumbers(value: unknown): string {
-  if (isTaggedNumber(value)) return typeof value.value === 'bigint' ? value.value.toString() : value.floating ? canonicalFloat(value.value) : String(value.value);
+  if (isTaggedNumber(value)) {
+    if (typeof value.value === 'bigint') return value.value.toString();
+    assertFinite(value.value);
+    return value.floating ? canonicalFloat(value.value) : String(value.value);
+  }
   if (value === null) return 'null';
   if (typeof value === 'string') return JSON.stringify(value);
   if (typeof value === 'boolean') return value ? 'true' : 'false';
-  if (typeof value === 'number') return Number.isInteger(value) && !Object.is(value, -0) ? String(value) : canonicalFloat(value);
+  if (typeof value === 'number') {
+    assertFinite(value);
+    // Python parses an integer token such as -0 as int 0, so integral values never carry a sign.
+    return Number.isInteger(value) ? String(value) : canonicalFloat(value);
+  }
   if (Array.isArray(value)) return `[${value.map(canonicalNumbers).join(',')}]`;
-  if (value && typeof value === 'object') return `{${Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0).map(([key, item]) => `${JSON.stringify(key)}:${canonicalNumbers(item)}`).join(',')}}`;
+  if (value && typeof value === 'object') return `{${Object.entries(value).sort(([a], [b]) => compareCodePoints(a, b)).map(([key, item]) => `${JSON.stringify(key)}:${canonicalNumbers(item)}`).join(',')}}`;
   throw new TypeError('value is not JSON serializable');
 }
 export function hashLayout(path: string): string {

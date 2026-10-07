@@ -5,6 +5,7 @@ import { sharedRequire } from './runtime.ts';
 import { roundEven } from './json.ts';
 import { resizeRgb } from './report-images.ts';
 import * as library_counts from './library-counts.ts';
+import { flattenRgbaOverWhite } from './figma-compare.ts';
 const sharp = sharedRequire()('sharp') as typeof import('sharp').default;
 
 // Small value helpers preserve empty-container truthiness and lexicographic tuple ordering.
@@ -68,7 +69,7 @@ export async function thumbnails(runDir:string,pairs:any[],breakpoint:string):Pr
   // Geometry-file read errors deliberately propagate, matching the oracle.
   const geometry=JSON.parse(readFileSync(resolve(runDir,ev.geometry),'utf8')).geometry??{};
   let canvas:Buffer,info:{width:number;height:number;channels:number};let variant:any,capture:any;
-  try{variant=geometry.variants[ev.index];capture=geometry.captures[ev.index];if(!variant||!capture)continue;const decoded=await sharp(resolve(runDir,ev.specimen)).flatten({background:'#fff'}).removeAlpha().toColourspace('srgb').raw().toBuffer({resolveWithObject:true});canvas=decoded.data;info=decoded.info;}catch{continue;}
+  try{variant=geometry.variants[ev.index];capture=geometry.captures[ev.index];if(!variant||!capture)continue;const decoded=await sharp(resolve(runDir,ev.specimen)).toColourspace('srgb').ensureAlpha().raw().toBuffer({resolveWithObject:true});canvas=Buffer.from(flattenRgbaOverWhite(decoded.data));info=decoded.info;}catch{continue;}
   const shots:Record<string,Thumbnail>={};
   for(const [side,box] of [['figma',variant],['live',capture]] as const){
    const x=roundEven(box.x),y=roundEven(box.y),w=roundEven(box.width),h=roundEven(box.height);

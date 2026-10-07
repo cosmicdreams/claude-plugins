@@ -34,14 +34,19 @@ export function comparePair(a: Pixels, b: Pixels, corrected = false) {
   }
   return { width, height, changed, ratio: roundDecimal(changed / total, 4), ...(corrected ? { widthDelta: Math.abs(a.width - b.width) } : {}), heightDelta: corrected ? Math.abs(a.height - b.height) : 0, pass: changed / total <= THRESHOLD };
 }
-async function decode(png:string|Buffer):Promise<Pixels> {
-  const decoded=await sharp(png).ensureAlpha().raw().toBuffer({resolveWithObject:true}),data=new Uint8Array(decoded.info.width*decoded.info.height*3);
+/** Pillow-compatible alpha rounding shared by metrics and report thumbnails. */
+export function flattenRgbaOverWhite(rgba:Uint8Array):Uint8Array {
+  const data=new Uint8Array(rgba.length/4*3);
   // Exactly Pillow's integer rounding; opaque pixels need no arithmetic.
-  for(let i=0,j=0;i<decoded.data.length;i+=4,j+=3){const a=decoded.data[i+3]!;
-    if(a===255){data[j]=decoded.data[i]!;data[j+1]=decoded.data[i+1]!;data[j+2]=decoded.data[i+2]!;}
-    else {const white=255*(255-a)+127;data[j]=Math.floor((decoded.data[i]!*a+white)/255);data[j+1]=Math.floor((decoded.data[i+1]!*a+white)/255);data[j+2]=Math.floor((decoded.data[i+2]!*a+white)/255);}
+  for(let i=0,j=0;i<rgba.length;i+=4,j+=3){const a=rgba[i+3]!;
+    if(a===255){data[j]=rgba[i]!;data[j+1]=rgba[i+1]!;data[j+2]=rgba[i+2]!;}
+    else {const white=255*(255-a)+127;data[j]=Math.floor((rgba[i]!*a+white)/255);data[j+1]=Math.floor((rgba[i+1]!*a+white)/255);data[j+2]=Math.floor((rgba[i+2]!*a+white)/255);}
   }
-  return {width:decoded.info.width,height:decoded.info.height,data};
+  return data;
+}
+async function decode(png:string|Buffer):Promise<Pixels> {
+  const decoded=await sharp(png).ensureAlpha().raw().toBuffer({resolveWithObject:true});
+  return {width:decoded.info.width,height:decoded.info.height,data:flattenRgbaOverWhite(decoded.data)};
 }
 function prepare(img:Pixels,geometry:Geometry,masks?:GeometryBox[][]|null) {
   return Array.from({length:Math.min(geometry.variants?.length??0,geometry.captures?.length??0)},(_,i)=>{
