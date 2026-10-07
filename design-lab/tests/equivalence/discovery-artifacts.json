@@ -1,0 +1,13 @@
+{
+  "core": {
+    "pncb": ["detection", "components", "tokens", "render-evidence", "plan", "variable-plan"],
+    "definitivehc": ["detection", "components", "tokens", "plan", "variable-plan"],
+    "massport": ["detection", "components", "tokens", "render-evidence", "plan", "variable-plan"],
+    "kingtec": ["detection", "components", "tokens", "plan", "variable-plan"],
+    "americas-credit-unions": ["detection", "components", "tokens", "render-evidence", "plan", "variable-plan"]
+  },
+  "live": {
+    "pncb": ["usage", "enriched-components", "published-addresses", "published-pages", "rendered-components", "voice", "compositions", "examples"],
+    "definitivehc": ["usage", "enriched-components", "published-addresses", "published-pages", "rendered-components", "voice", "compositions", "examples"]
+  }
+}

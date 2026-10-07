@@ -1,0 +1,354 @@
+{
+  "provenance": "Synthesized Canvas current/published SQL replay; not a captured production DB",
+  "components": {
+    "components": [
+      {
+        "id": "sdc.demo.card",
+        "sourceSdcId": "demo:card",
+        "fields": []
+      },
+      {
+        "id": "sdc.demo.layout",
+        "sourceSdcId": "demo:layout",
+        "fields": []
+      },
+      {
+        "id": "sdc.demo.hero",
+        "sourceSdcId": "demo:hero",
+        "fields": []
+      },
+      {
+        "id": "sdc.demo.retired",
+        "sourceSdcId": "demo:retired",
+        "fields": []
+      }
+    ]
+  },
+  "raw": {
+    "pages": [
+      {
+        "id": 1,
+        "revision": 11,
+        "status": 1,
+        "lang": "en"
+      },
+      {
+        "id": 1,
+        "revision": 10,
+        "status": 1,
+        "lang": "en"
+      },
+      {
+        "id": 1,
+        "revision": 12,
+        "status": 0,
+        "lang": "en"
+      },
+      {
+        "id": 2,
+        "revision": 22,
+        "status": 1,
+        "lang": "fr"
+      },
+      {
+        "id": 3,
+        "revision": 33,
+        "status": 1,
+        "lang": "en"
+      },
+      {
+        "id": 4,
+        "revision": 44,
+        "status": 0,
+        "lang": "en"
+      }
+    ],
+    "placements": [
+      [
+        "page",
+        "0",
+        "1",
+        "11",
+        "en",
+        "0",
+        "",
+        "",
+        "uuid-1-11-0",
+        "sdc.demo.layout",
+        "v1",
+        "{\"title\":\"Demo\"}",
+        ""
+      ],
+      [
+        "page",
+        "0",
+        "1",
+        "11",
+        "en",
+        "1",
+        "parent-a",
+        "content",
+        "uuid-1-11-1",
+        "sdc.demo.card",
+        "v1",
+        "{\"title\":\"Demo\"}",
+        "Nested card"
+      ],
+      [
+        "page",
+        "0",
+        "1",
+        "11",
+        "en",
+        "2",
+        "parent-a",
+        "content",
+        "uuid-1-11-2",
+        "sdc.demo.card",
+        "v1",
+        "{\"title\":\"Demo\"}",
+        "Nested card"
+      ],
+      [
+        "page",
+        "0",
+        "1",
+        "12",
+        "en",
+        "0",
+        "",
+        "",
+        "uuid-1-12-0",
+        "sdc.demo.retired",
+        "v1",
+        "{\"title\":\"Demo\"}",
+        ""
+      ],
+      [
+        "page",
+        "0",
+        "1",
+        "9",
+        "en",
+        "0",
+        "",
+        "",
+        "uuid-1-9-0",
+        "sdc.demo.retired",
+        "v1",
+        "{\"title\":\"Demo\"}",
+        ""
+      ],
+      [
+        "page",
+        "0",
+        "2",
+        "22",
+        "fr",
+        "0",
+        "",
+        "",
+        "uuid-2-22-0",
+        "sdc.demo.hero",
+        "v1",
+        "{\"title\":\"Demo\"}",
+        ""
+      ],
+      [
+        "page",
+        "0",
+        "3",
+        "33",
+        "en",
+        "0",
+        "",
+        "",
+        "uuid-3-33-0",
+        "sdc.demo.card",
+        "v1",
+        "{\"title\":\"Demo\"}",
+        ""
+      ],
+      [
+        "page",
+        "0",
+        "4",
+        "44",
+        "en",
+        "0",
+        "",
+        "",
+        "uuid-4-44-0",
+        "sdc.demo.retired",
+        "v1",
+        "{\"title\":\"Demo\"}",
+        ""
+      ]
+    ],
+    "aliases": [
+      {
+        "path": "/page/1",
+        "alias": "/resources",
+        "lang": "en",
+        "status": 1
+      },
+      {
+        "path": "/page/1",
+        "alias": "/ressources",
+        "lang": "fr",
+        "status": 1
+      },
+      {
+        "path": "/page/2",
+        "alias": "/bienvenue",
+        "lang": "fr",
+        "status": 1
+      },
+      {
+        "path": "/page/3",
+        "alias": "/programs",
+        "lang": "und",
+        "status": 1
+      },
+      {
+        "path": "/page/4",
+        "alias": "/draft",
+        "lang": "en",
+        "status": 0
+      }
+    ]
+  },
+  "sql": {
+    "placements": "page\t0\t1\t11\ten\t0\t\t\tuuid-1-11-0\tsdc.demo.layout\tv1\t{\"title\":\"Demo\"}\t\npage\t0\t1\t11\ten\t1\tparent-a\tcontent\tuuid-1-11-1\tsdc.demo.card\tv1\t{\"title\":\"Demo\"}\tNested card\npage\t0\t1\t11\ten\t2\tparent-a\tcontent\tuuid-1-11-2\tsdc.demo.card\tv1\t{\"title\":\"Demo\"}\tNested card\npage\t0\t2\t22\tfr\t0\t\t\tuuid-2-22-0\tsdc.demo.hero\tv1\t{\"title\":\"Demo\"}\t\npage\t0\t3\t33\ten\t0\t\t\tuuid-3-33-0\tsdc.demo.card\tv1\t{\"title\":\"Demo\"}\t\n",
+    "pages": "1\t11\n1\t10\n2\t22\n3\t33\n",
+    "aliases": "/page/1\t/resources\n/page/3\t/programs\n"
+  },
+  "rows": {
+    "placements": [
+      [
+        "page",
+        "0",
+        "1",
+        "11",
+        "en",
+        "0",
+        "",
+        "",
+        "uuid-1-11-0",
+        "sdc.demo.layout",
+        "v1",
+        "{\"title\":\"Demo\"}",
+        ""
+      ],
+      [
+        "page",
+        "0",
+        "1",
+        "11",
+        "en",
+        "1",
+        "parent-a",
+        "content",
+        "uuid-1-11-1",
+        "sdc.demo.card",
+        "v1",
+        "{\"title\":\"Demo\"}",
+        "Nested card"
+      ],
+      [
+        "page",
+        "0",
+        "1",
+        "11",
+        "en",
+        "2",
+        "parent-a",
+        "content",
+        "uuid-1-11-2",
+        "sdc.demo.card",
+        "v1",
+        "{\"title\":\"Demo\"}",
+        "Nested card"
+      ],
+      [
+        "page",
+        "0",
+        "2",
+        "22",
+        "fr",
+        "0",
+        "",
+        "",
+        "uuid-2-22-0",
+        "sdc.demo.hero",
+        "v1",
+        "{\"title\":\"Demo\"}",
+        ""
+      ],
+      [
+        "page",
+        "0",
+        "3",
+        "33",
+        "en",
+        "0",
+        "",
+        "",
+        "uuid-3-33-0",
+        "sdc.demo.card",
+        "v1",
+        "{\"title\":\"Demo\"}",
+        ""
+      ]
+    ],
+    "pages": [
+      [
+        "1",
+        "11"
+      ],
+      [
+        "1",
+        "10"
+      ],
+      [
+        "2",
+        "22"
+      ],
+      [
+        "3",
+        "33"
+      ]
+    ],
+    "aliases": [
+      [
+        "/page/1",
+        "/resources"
+      ],
+      [
+        "/page/3",
+        "/programs"
+      ]
+    ],
+    "templates": [
+      [
+        "sdc.demo.hero",
+        "node.program.full",
+        "program",
+        "config/sync/canvas.content_template.node.program.full.yml"
+      ]
+    ],
+    "twig_refs": {
+      "demo:layout": [
+        {
+          "file": "web/themes/custom/demo/templates/layout/page.html.twig",
+          "line": 2,
+          "global": true
+        }
+      ]
+    }
+  },
+  "source": {
+    "ddevProject": "portable-canvas",
+    "root": "/tmp/canvas-oracle"
+  }
+}

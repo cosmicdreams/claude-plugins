@@ -2,7 +2,7 @@
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { counts, coverageSentence } from './library-counts.ts';
-import { compare as figmaCompare, THRESHOLD, TOLERANCE } from './figma-compare.ts';
+import { compareBoth as figmaCompare, THRESHOLD, TOLERANCE } from './figma-compare.ts';
 import type { Geometry } from './build-artifacts.ts';
 import { roundDecimal, roundEven } from './json.ts';
 
@@ -167,7 +167,7 @@ export async function accuracyPairs(runDir: string): Promise<Json[]> {
     const specimen = resolve(runDir, 'figma/compare', `${component}.png`);
     const geometry = obj(obj(readJson(block))['geometry']) as Geometry & Json;
     if (!isFile(specimen) || !truthy(geometry.variants)) continue;
-    const original = await figmaCompare(specimen, geometry), corrected = await figmaCompare(specimen, geometry, true);
+    const {original,corrected} = await figmaCompare(specimen, geometry);
     const captures = list(geometry.captures), variants = list(geometry.variants);
     for (let index = 0; index < Math.min(original.pairs.length, corrected.pairs.length); index++) {
       const old = original.pairs[index]!, now = corrected.pairs[index]!;

@@ -153,7 +153,7 @@ export function installRunner(ctx: RunnerContext = defaultContext()): { folder: 
     if (!/\.(json|js|html|ts)$/.test(name) || name.endsWith('.ts') && name !== 'code.ts' || name === 'code.js' && typed) continue;
     let content = readFileSync(resolve(source, name), 'utf8');
     if (name === 'code.ts') content = stripTemplate(content);
-    if (out === 'code.js') content = content.replace("const RUNNER_VERSION = 'source';", `const RUNNER_VERSION = '${version}';`);
+    if (out === 'code.js') content = content.replace("const RUNNER_VERSION = 'source';", () => `const RUNNER_VERSION = '${version}';`);
     const path = resolve(target, out);
     if (!existsSync(path) || readFileSync(path, 'utf8') !== content) { writeFileSync(path, content); changed = true; }
   }

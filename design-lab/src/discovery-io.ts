@@ -1,3 +1,4 @@
+import { parsePyYaml } from './pyyaml.ts';
 import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { dirname, join, relative as rel, resolve, sep } from "node:path";
 import { sharedRequire } from "./runtime.ts";
@@ -64,11 +65,7 @@ export function walk(
 export function loadYaml(path: string): any {
   const text = readText(path);
   if (!text) return null;
-  return yaml.parse(text, {
-    schema: "yaml-1.1",
-    prettyErrors: false,
-    uniqueKeys: false,
-  });
+  return parsePyYaml(text);
 }
 export function docroot(root: string): string {
   for (const cand of ["docroot", "web", ""]) {
