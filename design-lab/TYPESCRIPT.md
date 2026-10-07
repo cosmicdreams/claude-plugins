@@ -94,8 +94,9 @@ tests. If Claude Code is available it also runs `claude plugin validate .` and
 `claude plugin test` there; the host cannot load Node test files). Standard GitHub runners do not ship that CLI;
 CI explicitly reports the omission. Run validation and `node scripts/test-mod.ts` locally with a mod-capable Claude Code
 before release. Equivalence harnesses and the local six-site reality scan are separate
-acceptance gates and are not run in CI. `benchmark:check-js` remains a diagnostic command
-for the older JS sources, with its known context diagnostics; it is not a CI gate.
+acceptance gates and are not run in CI. `benchmark:check-js` is a diagnostic over the original
+JavaScript, read from the baseline checkout: it needs `DESIGN_LAB_ORACLE_ROOT` and checks no file
+shipped in this plugin. It has known context diagnostics and is not a CI gate.
 
 ## On-demand comparison with the saved baseline
 

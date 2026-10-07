@@ -52,11 +52,10 @@ function readUnit(path: string, ts: boolean): string {
 }
 export class Renderer {
   readonly units: ReadonlyMap<string, string>;
-  constructor(folder = resolve(pluginRoot, 'scripts/render'), sourceKind: 'auto' | 'javascript' = 'auto') {
-    const files = readdirSync(folder).filter(f => sourceKind === 'javascript' ? f.endsWith('.js') : /\.(js|ts)$/.test(f)).sort(), units = new Map<string, string>();
+  constructor(folder = resolve(pluginRoot, 'scripts/render'), sourceKind: 'typescript' | 'javascript' = 'typescript') {
+    const files = readdirSync(folder).filter(f => sourceKind === 'javascript' ? f.endsWith('.js') : f.endsWith('.ts')).sort(), units = new Map<string, string>();
     for (const file of files) {
       const name = file.replace(/\.(js|ts)$/, ''), ts = file.endsWith('.ts');
-      if (!ts && files.includes(name + '.ts')) continue;
       units.set(name, readUnit(resolve(folder, file), ts));
     }
     this.units = new Map([...units].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
