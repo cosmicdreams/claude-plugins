@@ -45,7 +45,7 @@ export type Recorded = { calls: Array<Record<string, unknown>>; toasts: string[]
 
 export function world(on: On, options: { cwd?: string; files?: Record<string, string>; links?: Record<string, string | null>; failEnv?: boolean } = {}): Recorded {
   // As the real file system: a name over 255 bytes fails with ENAMETOOLONG, not ENOENT.
-  const tooLong = (path: string): boolean => path.split('/').some(name => name.length > 255)
+  const tooLong = (path: string): boolean => path.split('/').some(name => new TextEncoder().encode(name).length > 255)
   const recorded: Recorded = { calls: [], toasts: [], writes: [] }
   const files: Record<string, string> = { ...CONTENTS, ...options.files }
   const links = options.links ?? {}
