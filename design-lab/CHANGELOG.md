@@ -23,6 +23,7 @@
    - The Python packages Pillow and CairoSVG that 0.23 installed with `pip install --user` for the Python it found. Remove them with `python3 -m pip uninstall pillow cairosvg` (add `--break-system-packages` if your Python refuses), unless something else uses them.
    - The old Playwright folder at `<cache>/playwright`, where `<cache>` is the cache path in step 2. Delete it. The shared `ms-playwright` browser folder may serve other tools, so leave it unless you know it does not.
 7. **Calls to the removed scripts must change.** Use `capture_all.ts` in place of the four `.mjs` capture scripts, and `figma_snippet.ts` in place of the `figma_dump_*.js` files.
+8. **Artifacts reject fields they don't declare.** Run artifacts and runner records are now validated against closed schemas, so a field added by hand to `project.json`, `plan.json` or another artifact fails validation instead of being carried along silently. The fields 0.23 runs actually write are declared, and every saved run checked (2,190 files) still validates. Remove hand-added fields, or ask for them to be added to the schema.
 
 ### Verified and not yet verified
 
