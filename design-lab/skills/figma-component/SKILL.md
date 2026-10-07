@@ -13,7 +13,7 @@ Every component is built by fixed code from its measurements, never drawn by han
 
 ## What gets built
 
-- **One responsive master.** `scripts/responsive.py` merges the desktop, tablet and mobile measurements into one tree; `render/build_responsive.js` builds it. Values that change with width are variables in the `Core Breakpoint` collection. There is exactly one Figma component per source component: no per-viewport copies, no breakpoint variants.
+- **One responsive master.** `scripts/responsive.py` merges the desktop, tablet and mobile measurements into one tree; `render/build_responsive.js` builds it. Values that change with width are variables in the shared `<Brand> Core` collection. There is exactly one Figma component per source component: no per-viewport copies, no breakpoint variants.
 - **Its block** (`render/component_block.js`): the documentation panel, then the master at desktop beside instances of it resized to tablet and mobile with their Breakpoint mode set, then the live captures in the same columns.
 - **A visual comparison** (`scripts/figma_compare.py`) of each width against its capture, from one screenshot of the block's specimen.
 
@@ -26,7 +26,7 @@ python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.py init --project <W> --file-k
   --site-url <local-site-url> --canonical-base-url <public-url> --only <component-id>
 ```
 
-The templates replace the component's previous block and keep a master that already exists in place. Re-run `design-lab:figma-index` afterwards so the index points at the new nodes.
+The subset keeps the full library manifest, untouched receipts and existing master/variant IDs. It also rebuilds dependent parents, refreshes coverage, and invalidates earlier verification and benchmark claims. A changed component/set shape or variant identity requires a fresh-file build; never delete the existing master to get past that refusal. The templates replace the documentation block while retaining its master. Re-run `design-lab:figma-index` afterwards so the index points at the new nodes.
 
 ## Diagnose a failing comparison
 

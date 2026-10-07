@@ -11,7 +11,7 @@ from pathlib import Path
 
 import figma_runner
 import run_metrics
-from artifact_contracts import now, write_json
+from artifact_contracts import now, write_json, register_artifact, sha256, validate
 from verify_inputs import build_measurements
 
 HERE = Path(__file__).resolve().parent
@@ -147,6 +147,13 @@ def prepare(source: Path, workspace: Path, key: str, figma_url: str, *,
                                   for name in ("foundation", "components", "index", "verify")})
     project["artifacts"] = {k: v for k, v in project.get("artifacts", {}).items()
                             if v.get("kind") not in ("build-record", "foundation", "index", "verify-report")}
+    # Relocation changes bytes in copied artifacts. Register the copy's bytes, retaining
+    # source provenance, so the same completion gate can validate fresh and replayed runs.
+    for artifact in project["artifacts"].values():
+        target = workspace / artifact.get("path", "")
+        if target.is_file():
+            errors = validate(json.loads(target.read_text()), artifact.get("kind"), str(target))
+            artifact.update(sha256=sha256(target), valid=not errors, errors=errors)
     write_json(workspace / "figma/state.json", {"fileKey": key})
     # Publishing the manifest makes this run discoverable. All inputs must be ready first.
     write_json(workspace / "project.json", project)
@@ -202,16 +209,14 @@ def wait_for_build(workspace: Path, timeout: float, poll: float = 2) -> None:
 
 
 def evaluate(workspace: Path, session=None) -> dict:
-    command("figma_build.py", "receipts", "--project", workspace)
+    receipts = command("figma_build.py", "receipts", "--project", workspace, allowed=(0, 1))
     import workflow
     project_path = workspace / "project.json"
     project = json.loads(project_path.read_text())
-    state = json.loads((workspace / "figma/state.json").read_text()) if (workspace / "figma/state.json").is_file() else {}
-    finished = bool(state.get("steps")) and all(step["id"] in state.get("done", []) for step in state["steps"])
-    if finished:
-        for phase in ("foundation", "components", "index"):
-            if ((project.get("phases") or {}).get(phase) or {}).get("status") != "complete":
-                workflow.set_phase(project_path, project, phase, "complete")
+    coverage = workflow.component_coverage(project_path, project)
+    if coverage["planAvailable"] and not any(coverage[k] for k in ("missing", "unexpected", "invalid")):
+        if (project.get("phases", {}).get("components") or {}).get("status") != "complete":
+            workflow.set_phase(project_path, project, "components", "complete", coverage)
     command("verify_state.py", "--project", workspace)
     measurements = workspace / "figma/verify/measurements.json"
     write_json(measurements, build_measurements(workspace))
@@ -230,15 +235,23 @@ def evaluate(workspace: Path, session=None) -> dict:
     state = json.loads((workspace / "figma/verify/state.json").read_text())
     if state.get("brand"):
         args.extend(["--brand", state["brand"]])
-    # The corrected results accompany verification; its original capture gate stays unchanged.
+    # Keep corrected scoring alongside the same metric used by new build receipts.
     accuracy = run_metrics.score_accuracy(workspace)
     write_json(workspace / "figma/compare/corrected.json", accuracy)
     result = command("verify.py", *args, allowed=(0, 1))
     if not (workspace / "verify-report.json").is_file():
         raise RuntimeError(f"verify did not write a report: {result.stderr}")
-    project.setdefault("artifacts", {})["verifyReport"] = {"kind": "verify-report", "path": "verify-report.json"}
+    project = register_artifact(project_path, "verifyReport", workspace / "verify-report.json", "verify-report")
+    # Execution can finish with findings; quality is accepted only by the shared gate.
     project.setdefault("phases", {})["verify"] = {"status": "complete", "updatedAt": now()}
-    write_json(workspace / "project.json", project)
+    write_json(project_path, project)
+    gate = command("workflow.py", "validate", "--project", workspace, allowed=(0, 1))
+    accepted = result.returncode == 0 and receipts.returncode == 0 and gate.returncode == 0
+    project = json.loads(project_path.read_text())
+    workflow.set_phase(project_path, project, "verify", "complete" if accepted else "failed",
+                       {"execution": "finished", "quality": "passed" if accepted else "failed",
+                        "verifyExit": result.returncode, "receiptsExit": receipts.returncode,
+                        "gateExit": gate.returncode, "gate": gate.stdout.strip()})
     score_args = [workspace, "--out", workspace / "benchmark"]
     if session is not None or (project.get("run") or {}).get("claude") is not None:
         command("workflow.py", "record", "--project", workspace, "--phase", "benchmark", "--status", "running")
@@ -246,4 +259,5 @@ def evaluate(workspace: Path, session=None) -> dict:
         score_args.extend(["--session", *([session] if isinstance(session, str) else session)])
     command("score_run.py", *score_args)
     return {"workspace": str(workspace), "scorecard": str(workspace / "benchmark/scorecard.json"),
-            "verifyReport": str(workspace / "verify-report.json"), "verifyExit": result.returncode}
+            "verifyReport": str(workspace / "verify-report.json"), "verifyExit": result.returncode,
+            "quality": "passed" if accepted else "failed", "gateExit": gate.returncode}

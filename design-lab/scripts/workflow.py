@@ -286,7 +286,8 @@ def finish_command(args):
     print(json.dumps({"completion": str(path.parent / "benchmark/completion.md"),
                       "report": str(path.parent / "benchmark/report.html"),
                       "scorecard": result["scorecard"], "verifyReport": result["verifyReport"],
-                      "verifyExit": result["verifyExit"]}, indent=2))
+                      "verifyExit": result["verifyExit"], "quality": result["quality"],
+                      "gateExit": result["gateExit"]}, indent=2))
 
 
 def identity_command(args):
@@ -348,6 +349,14 @@ def detect_command(args):
     })
     print(json.dumps({"output": str(output), "recommended": recommendations,
                       "priorArt": document.get("priorArt") or []}, indent=2))
+
+
+def mark_untiered(document: dict) -> None:
+    """A degraded run preserves examples, but never promotes unknown counts to zero."""
+    for component in document.get("components", []):
+        component["usage"] = {**(component.get("usage") or {}), "status": "unavailable",
+                              "placements": None, "structuralRefs": None, "structuralReferences": None,
+                              "tier": "Untiered"}
 
 
 def select_command(args):
@@ -414,6 +423,12 @@ def select_command(args):
                 "effect": "usage tiers and prioritisation are unverified",
             })
             path, project = load_project(path)
+            inventory = path.parent / "components.json"
+            if inventory.is_file():
+                document = load_json(inventory)
+                mark_untiered(document)
+                write_json(inventory, document)
+                project = register_artifact(path, "components", inventory, "components")
         else:
             project["decisions"]["usageSource"] = args.usage
             project["phases"]["usage"] = {"status": "pending"}
@@ -457,12 +472,17 @@ def extract_command(args):
             raise ValueError(f"component strategy {strategy!r} has no extractor; run select")
         document = (extract_sitestudio(root, sitestudio_config(decisions)) if strategy == "sitestudio"
                     else COMPONENT_EXTRACTORS[strategy](root))
+        if decisions.get("usageSource") == "none":
+            mark_untiered(document)
         output = path.parent / "components.json"
         errors = validate(document, "components")
         if errors:
             raise ValueError("invalid components: " + "; ".join(errors))
         write_json(output, document)
-        invalidate(project, ("usage", "capture", "plan", "components", "index", "verify"),
+        phases = ("capture", "plan", "components", "index", "verify")
+        if decisions.get("usageSource") != "none":
+            phases = ("usage", *phases)
+        invalidate(project, phases,
                    ("usage", "capture-evidence", "plan", "build-record", "index", "verify-report"))
         write_json(path, project)
         register_artifact(path, "components", output, "components")
@@ -1225,7 +1245,7 @@ def validate_command(args):
                            "foundation", "components", "index")
         incomplete = [phase for phase in required_phases
                       if (project.get("phases", {}).get(phase) or {}).get("status")
-                      not in ("complete", "approved")]
+                      not in (("complete", "approved", "waived") if phase == "usage" else ("complete", "approved"))]
         if incomplete:
             completion_errors.append("required phases are not resolved: " + ", ".join(incomplete))
         if not (project.get("target") or {}).get("figmaFileKey"):
@@ -1288,7 +1308,8 @@ def component_coverage(project_path_: Path, project: dict) -> dict:
             target = (project_path_.parent / artifact["path"]).resolve()
             record = load_json(target)
             errors = validate(record, "build-record", filename=str(target))
-            if (errors or not artifact.get("valid") or
+            if (errors or any(a.get("verdict") != "pass" for a in record.get("assertions", {}).values())
+                    or not artifact.get("valid") or
                     artifact.get("sha256") != sha256(target)):
                 invalid.append(name)
             else:

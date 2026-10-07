@@ -18,9 +18,7 @@ def merge(folder: Path) -> dict:
     if reason and len(state.get("collections") or []) > 1:
         # The responsive masters' collection is the one boundary the plan does not create.
         state["collectionStrategyReason"] = (
-            reason + "; the breakpoint collection holds the Desktop, Tablet and Mobile modes "
-            "the responsive masters switch between, a mode boundary the single-mode "
-            "foundation collection does not have")
+            reason + "; separate collections are reserved for an independent mode boundary")
     project = folder.parent.parent / "project.json"
     if project.is_file() and not state.get("brand"):
         # library-standard 6.1: collections carry the brand; the run's site label is it.

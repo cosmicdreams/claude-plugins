@@ -568,7 +568,7 @@ GROUP_PREFIX = {
 }
 
 
-def _consolidate_single_mode_collections(out, limit=200):
+def _consolidate_single_mode_collections(out, limit=None):
     """Use slash groups when collections do not represent a real behavioral boundary.
 
     Figma groups are encoded in variable names. Splitting nine Value-only domains into nine
@@ -592,9 +592,8 @@ def _consolidate_single_mode_collections(out, limit=200):
         for v in variables:
             if v.get('valuesByMode'):
                 v['valuesByMode'] = {'Value': next(iter(v['valuesByMode'].values()))}
-    total = sum(len(c.get('variables') or []) for c in collections_.values())
-    if len(collections_) <= 1 or total > limit:
-        out['collectionStrategy'] = {'kind': 'domain', 'reason': 'size or existing boundary'}
+    if len(collections_) <= 1:
+        out['collectionStrategy'] = {'kind': 'grouped-single-collection', 'reason': 'one collection is sufficient'}
         return
     single_names = [name for name, collection in collections_.items()
                     if (collection.get('modes') or ['Value']) == ['Value']]
@@ -623,8 +622,11 @@ def _consolidate_single_mode_collections(out, limit=200):
             variable['aliasOf'] = renamed[variable['aliasOf']]
     retained = {name: collection for name, collection in collections_.items()
                 if name not in single_names}
+    core_name = 'Core'
+    while core_name in retained:
+        core_name += ' Invariant'
     out['collections'] = {
-        'Core': {
+        core_name: {
             'modes': ['Value'],
             'variables': uniquify(rows),
             'modeRationale': 'single-mode source domains share one publication lifecycle; '

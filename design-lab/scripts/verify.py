@@ -190,11 +190,6 @@ def check_modes_earn_themselves(state, rep):
         if not varying:
             rep.add('modes-earn-themselves', 'major', 'collection:' + c['name'],
                     'has %d modes but not one variable differs between them' % len(modes))
-        elif len(varying) < len(vars_) / 2:
-            rep.add('modes-earn-themselves', 'minor', 'collection:' + c['name'],
-                    'only %d of %d variables differ across %d modes; the rest are one value '
-                    'wearing %d hats' % (len(varying), len(vars_), len(modes), len(modes)),
-                    evidence=varying)
 
 
 def built_keys(state):
@@ -619,6 +614,11 @@ def check_collection_strategy(state, brand, rep):
                 '%d collections carry width modes; width-varying values belong in the one breakpoint '
                 'collection, whose Desktop/Tablet/Mobile modes the components switch' % len(modeful),
                 evidence=modeful)
+    single = [c['name'] for c in colls if len(c.get('modes') or []) == 1]
+    if len(single) > 1 or (single and modeful):
+        rep.add('collection-strategy', 'major', 'file',
+                'invariant variables should share the primary collection; use slash groups instead of domain collections',
+                evidence=single + modeful)
     if len(colls) > 1 and not state.get('collectionStrategyReason'):
         rep.add('collection-strategy', 'major', 'file',
                 '%d collections exist but the state records no distinct mode, publishing, '

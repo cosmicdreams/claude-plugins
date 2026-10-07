@@ -41,6 +41,16 @@ if (!col) {
   col.addMode(ARGS.modeNames.Tablet);
   col.addMode(ARGS.modeNames.Mobile);
 }
+// A Core collection created from invariant tokens can acquire width modes on first use.
+if (col.modes.length === 1 && col.modes[0].name !== ARGS.modeNames.Desktop) {
+  const original = col.modes[0].modeId;
+  col.renameMode(original, ARGS.modeNames.Desktop);
+  const added = [col.addMode(ARGS.modeNames.Tablet), col.addMode(ARGS.modeNames.Mobile)];
+  for (const variable of await figma.variables.getLocalVariablesAsync()) {
+    if (variable.variableCollectionId === col.id)
+      for (const id of added) variable.setValueForMode(id, variable.valuesByMode[original]);
+  }
+}
 const modeId = {};
 for (const role of order) {
   const m = col.modes.find((x) => x.name === ARGS.modeNames[role]);
@@ -381,9 +391,36 @@ async function build(spec, parent, parentAuto) {
 /* ---- The master: the root element's frame settings live on the component itself. */
 /* A master still parked on the page came from an attempt that was never recorded; replace it
    so a retried step leaves one master, not two. Masters already placed in a block are kept. */
-for (const old of page.children.filter((n) => (n.type === 'COMPONENT' || n.type === 'COMPONENT_SET') && n.name === ARGS.name)) old.remove();
+const previousOwner = ARGS.existingComponentId ? await figma.getNodeByIdAsync(ARGS.existingComponentId) : null;
+if (ARGS.existingComponentId && !previousOwner) throw new Error('The previous master is missing; rebuild in a fresh file');
+const wantsSet = Object.keys(ARGS.variant || {}).length > 0 || (ARGS.alternates || []).length > 0;
+if (previousOwner && previousOwner.type !== (wantsSet ? 'COMPONENT_SET' : 'COMPONENT')) {
+  throw new Error('The component/set shape changed; rebuild in a fresh file to preserve existing instance references');
+}
+const reusable = previousOwner ? (previousOwner.type === 'COMPONENT_SET' ? [...previousOwner.children] : [previousOwner]) : [];
+if (previousOwner && reusable.length !== 1 + (ARGS.alternates || []).length) {
+  throw new Error('The variant layout count changed; rebuild in a fresh file');
+}
+// Preserve variant identities only when their ordered labels still match.
+if (previousOwner?.type === 'COMPONENT_SET') {
+  const axes = { ...(ARGS.variant || {}) };
+  if ((ARGS.alternates || []).length) axes.Layout = 'Captured';
+  const label = values => Object.entries(values).map(([k, v]) => `${k}=${v}`).join(', ');
+  const expected = [label(axes), ...(ARGS.alternates || []).map(a => label({
+    ...Object.fromEntries(Object.keys(axes).map(k => [k, 'As captured'])), Layout: a.label }))];
+  if (reusable.some((v, i) => v.name !== expected[i])) throw new Error('Variant identities changed; rebuild in a fresh file');
+}
+let reuseIndex = 0;
+for (const old of page.children.filter((n) => n !== previousOwner && (n.type === 'COMPONENT' || n.type === 'COMPONENT_SET') && n.name === ARGS.name)) old.remove();
 async function makeMaster(tree, name) {
-  const component = figma.createComponent();
+  const component = reusable[reuseIndex++] || figma.createComponent();
+  for (const child of [...component.children]) child.remove();
+  // Reused roots must not retain a border, layout or binding absent from the new capture.
+  for (const [field, value] of Object.entries(component.boundVariables || {})) {
+    if (value && !Array.isArray(value) && value.type === 'VARIABLE_ALIAS') component.setBoundVariable(field, null);
+  }
+  component.layoutMode = 'NONE';
+  component.strokes = []; component.effects = []; component.cornerRadius = 0; component.opacity = 1;
   component.name = name;
   /* The inventory id, so a master nesting this one can say which source component it nests. */
   component.setSharedPluginData('designlab', 'sourceId', ARGS.id || '');
@@ -392,7 +429,7 @@ async function makeMaster(tree, name) {
   component.resize(Math.max(1, num(tree.width)), Math.max(1, num(tree.height)));
   style(component, tree);
   layout(component, tree.layout);
-  page.appendChild(component);
+  if (!reusable.includes(component)) page.appendChild(component);
   component.x = ARGS.x;
   component.y = ARGS.y;
   const rootAuto = tree.layout && tree.layout.mode !== 'NONE';
@@ -425,7 +462,8 @@ if (Object.keys(axes).length) {
   for (const alt of alternates) {
     alt.node.name = name({ ...Object.fromEntries(Object.keys(axes).map((k) => [k, 'As captured'])), Layout: alt.label });
   }
-  owner = figma.combineAsVariants([component, ...alternates.map((a) => a.node)], page);
+  owner = previousOwner || figma.combineAsVariants([component, ...alternates.map((a) => a.node)], page);
+  if (previousOwner) for (const v of [component, ...alternates.map(a => a.node)]) owner.appendChild(v);
   owner.name = ARGS.name;
   owner.description = ARGS.description || '';
   owner.setSharedPluginData('designlab', 'sourceId', ARGS.id || '');
