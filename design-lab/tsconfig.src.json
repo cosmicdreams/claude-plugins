@@ -12,5 +12,5 @@
     "types": ["node"],
     "skipLibCheck": false
   },
-  "include": ["src/**/*.ts", "scripts/*-ts.ts", "scripts/ts-tool.ts", "scripts/launch.ts", "scripts/generate-contracts.ts", "scripts/check-artifacts.ts", "tests/ts/**/*.ts"]
+  "include": ["src/**/*.ts", "scripts/*-ts.ts", "scripts/ts-tool.ts", "scripts/launch.ts", "scripts/generate-contracts.ts", "scripts/check-artifacts.ts", "tests/ts/**/*.ts", "tests/equivalence/**/*.ts", "tests/browser/**/*.ts"]
 }
