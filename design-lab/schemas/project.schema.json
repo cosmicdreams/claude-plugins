@@ -3,80 +3,189 @@
   "$id": "https://design-lab.local/schemas/project.schema.json",
   "title": "design-lab project manifest",
   "type": "object",
-  "required": ["schemaVersion", "standardVersion", "pluginVersion", "repository", "decisions", "phases", "artifacts"],
+  "required": [
+    "schemaVersion",
+    "standardVersion",
+    "pluginVersion",
+    "repository",
+    "decisions",
+    "phases",
+    "artifacts"
+  ],
   "properties": {
-    "schemaVersion": {"const": 1},
-    "standardVersion": {"type": "string"},
-    "pluginVersion": {"type": "string"},
+    "schemaVersion": {
+      "const": 1
+    },
+    "standardVersion": {
+      "type": "string"
+    },
+    "pluginVersion": {
+      "type": "string"
+    },
     "repository": {
       "type": "object",
-      "required": ["root", "commit", "dirty"],
+      "required": [
+        "root",
+        "commit",
+        "dirty"
+      ],
       "properties": {
-        "root": {"type": "string"},
-        "commit": {"type": ["string", "null"]},
-        "dirty": {"type": "boolean"}
+        "root": {
+          "type": "string"
+        },
+        "commit": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "dirty": {
+          "type": "boolean"
+        }
       }
     },
-    "decisions": {"type": "object"},
+    "decisions": {
+      "type": "object",
+      "properties": {}
+    },
     "phases": {
       "type": "object",
       "additionalProperties": {
         "type": "object",
         "properties": {
-          "status": {"type": "string"},
-          "detail": {"type": "object"}
+          "status": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "object",
+            "properties": {}
+          }
         },
         "if": {
-          "required": ["status"],
-          "properties": {"status": {"const": "waived"}}
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "const": "waived"
+            }
+          }
         },
         "then": {
-          "required": ["detail"],
+          "required": [
+            "detail"
+          ],
           "properties": {
             "detail": {
               "type": "object",
-              "required": ["reason", "by"],
+              "required": [
+                "reason",
+                "by"
+              ],
               "properties": {
-                "reason": {"type": "string", "minLength": 1},
-                "by": {"type": "string", "minLength": 1}
+                "reason": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "by": {
+                  "type": "string",
+                  "minLength": 1
+                }
               }
             }
           }
         }
-      }
+      },
+      "properties": {}
     },
-    "artifacts": {"type": "object"},
+    "artifacts": {
+      "type": "object",
+      "properties": {}
+    },
     "run": {
       "description": "Run identity, written by workflow.py init (0.15 and later) or workflow.py identity. Optional so older manifests stay valid.",
       "type": "object",
       "properties": {
-        "startedAt": {"type": "string"},
-        "siteLabel": {"type": ["string", "null"]},
-        "siteUrl": {"type": ["string", "null"]},
-        "operator": {"type": ["string", "null"]},
-        "recordedLate": {"type": "boolean"},
+        "startedAt": {
+          "type": "string"
+        },
+        "siteLabel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "siteUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "operator": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "recordedLate": {
+          "type": "boolean"
+        },
         "plugin": {
           "type": "object",
           "properties": {
-            "version": {"type": "string"},
-            "commit": {"type": ["string", "null"]},
-            "dirty": {"type": ["boolean", "null"]}
+            "version": {
+              "type": "string"
+            },
+            "commit": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "dirty": {
+              "type": [
+                "boolean",
+                "null"
+              ]
+            }
           }
         },
         "claude": {
           "type": "object",
           "properties": {
-            "configDir": {"type": "string"},
-            "model": {"type": ["string", "null"]},
-            "insideClaudeCode": {"type": "boolean"},
-            "workingDirectory": {"type": "string"},
-            "transcripts": {"type": "string"}
+            "configDir": {
+              "type": "string"
+            },
+            "model": {
+              "type": [
+                "string",
+                "null"
+              ]
+            },
+            "insideClaudeCode": {
+              "type": "boolean"
+            },
+            "workingDirectory": {
+              "type": "string"
+            },
+            "transcripts": {
+              "type": "string"
+            }
           }
         },
         "schemaChurn": {
           "type": "object",
-          "required": ["changed"],
-          "properties": {"changed": {"type": "boolean"}, "recordedAt": {"type": "string"}}
+          "required": [
+            "changed"
+          ],
+          "properties": {
+            "changed": {
+              "type": "boolean"
+            },
+            "recordedAt": {
+              "type": "string"
+            }
+          }
         }
       }
     }

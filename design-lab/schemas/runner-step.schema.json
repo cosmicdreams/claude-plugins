@@ -1,0 +1,292 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/runner-step.schema.json",
+  "title": "RunnerStep",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "done"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "wait"
+        },
+        "retryMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "message": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "step",
+        "retryMs",
+        "message"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "check"
+        },
+        "code": {
+          "type": "string"
+        },
+        "out": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "step",
+        "code"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "dump"
+        },
+        "code": {
+          "type": "string"
+        },
+        "out": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "step",
+        "code"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "use_figma"
+        },
+        "code": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "string"
+        },
+        "characters": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "step"
+      ],
+      "additionalProperties": true,
+      "anyOf": [
+        {
+          "required": [
+            "code"
+          ]
+        },
+        {
+          "required": [
+            "payload"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "upload"
+        },
+        "nodeIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scaleMode": {
+          "enum": [
+            "FIT",
+            "FILL"
+          ]
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "contentType": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file",
+              "contentType"
+            ],
+            "additionalProperties": true
+          }
+        }
+      },
+      "required": [
+        "kind",
+        "step",
+        "nodeIds",
+        "scaleMode"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "screenshot"
+        },
+        "nodeId": {
+          "type": "string"
+        },
+        "out": {
+          "type": "string"
+        },
+        "maxDimension": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      "required": [
+        "kind",
+        "step",
+        "nodeId",
+        "out"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "skip"
+        },
+        "reason": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "step",
+        "reason"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

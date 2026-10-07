@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/progress.schema.json",
+  "title": "Progress",
+  "type": "object",
+  "properties": {
+    "state": {
+      "enum": [
+        "waiting",
+        "preflight",
+        "building",
+        "done",
+        "failed"
+      ]
+    },
+    "stepsDone": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "stepsTotal": {
+      "type": [
+        "integer",
+        "null"
+      ],
+      "minimum": 0
+    },
+    "step": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "stepKind": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "message": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "inflight": {
+      "type": "boolean"
+    },
+    "lastSeen": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "at": {
+      "type": "string"
+    },
+    "serverPid": {
+      "type": "integer",
+      "minimum": 1
+    }
+  },
+  "required": [
+    "state",
+    "stepsDone",
+    "stepsTotal",
+    "step",
+    "stepKind",
+    "message",
+    "inflight",
+    "lastSeen",
+    "at",
+    "serverPid"
+  ],
+  "additionalProperties": true
+}

@@ -3,25 +3,114 @@
   "$id": "https://design-lab.local/schemas/index.schema.json",
   "title": "design-lab component index receipt",
   "type": "object",
-  "required": ["standardVersion", "generatedAt", "totals", "rows", "notBuilt", "problems"],
+  "required": [
+    "standardVersion",
+    "generatedAt",
+    "totals",
+    "rows",
+    "notBuilt",
+    "problems"
+  ],
   "properties": {
-    "standardVersion": {"type": "string"},
-    "generatedAt": {"type": "string"},
-    "totals": {"type": "object", "required": ["components"]},
+    "standardVersion": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "totals": {
+      "type": "object",
+      "required": [
+        "components"
+      ],
+      "properties": {
+        "components": {
+          "type": "integer"
+        }
+      }
+    },
     "rows": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "placements", "built", "type", "status", "componentLinkTarget", "documentationLinkTarget"],
+        "required": [
+          "id",
+          "placements",
+          "built",
+          "type",
+          "status",
+          "componentLinkTarget",
+          "documentationLinkTarget"
+        ],
         "properties": {
-          "componentLinkTarget": {"type": ["string", "null"]},
-          "documentationLinkTarget": {"type": ["string", "null"]}
+          "componentLinkTarget": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "documentationLinkTarget": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "placements": {
+            "type": "integer"
+          },
+          "built": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          }
         },
         "additionalProperties": true
       }
     },
-    "notBuilt": {"type": "array"},
-    "problems": {"type": "array"}
+    "notBuilt": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "machineName": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          }
+        }
+      }
+    }
   },
   "additionalProperties": true
 }

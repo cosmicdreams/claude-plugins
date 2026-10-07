@@ -3,20 +3,56 @@
   "$id": "https://design-lab.local/schemas/detection.schema.json",
   "title": "design-lab strategy detection",
   "type": "object",
-  "required": ["root", "componentSources", "tokenSources", "usageSources", "recommended", "priorArt"],
+  "required": [
+    "root",
+    "componentSources",
+    "tokenSources",
+    "usageSources",
+    "recommended",
+    "priorArt"
+  ],
   "properties": {
-    "root": {"type": "string"},
-    "componentSources": {"type": "array", "items": {"$ref": "#/$defs/strategy"}},
-    "tokenSources": {"type": "array", "items": {"$ref": "#/$defs/strategy"}},
-    "usageSources": {"type": "array", "items": {"$ref": "#/$defs/strategy"}},
-    "recommended": {"type": "object"},
-    "priorArt": {"type": "array"}
+    "root": {
+      "type": "string"
+    },
+    "componentSources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/strategy"
+      }
+    },
+    "tokenSources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/strategy"
+      }
+    },
+    "usageSources": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/strategy"
+      }
+    },
+    "recommended": {
+      "type": "object",
+      "properties": {}
+    },
+    "priorArt": {
+      "type": "array",
+      "items": {}
+    }
   },
   "$defs": {
     "strategy": {
       "type": "object",
-      "required": ["strategy"],
-      "properties": {"strategy": {"type": "string"}},
+      "required": [
+        "strategy"
+      ],
+      "properties": {
+        "strategy": {
+          "type": "string"
+        }
+      },
       "additionalProperties": true
     }
   },

@@ -3,22 +3,146 @@
   "$id": "https://design-lab.local/schemas/render-evidence.schema.json",
   "title": "design-lab Drupal rendering evidence",
   "type": "object",
-  "required": ["standardVersion", "generatedAt", "source", "items", "totals", "problems"],
+  "required": [
+    "standardVersion",
+    "generatedAt",
+    "source",
+    "items",
+    "totals",
+    "problems"
+  ],
   "properties": {
-    "standardVersion": {"type": "string"},
-    "generatedAt": {"type": "string"},
-    "source": {"type": "object", "required": ["strategy", "root"]},
+    "standardVersion": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "strategy",
+        "root"
+      ],
+      "properties": {
+        "strategy": {
+          "type": "string"
+        },
+        "root": {
+          "type": "string"
+        }
+      }
+    },
     "items": {
       "type": "object",
       "minProperties": 1,
       "additionalProperties": {
         "type": "object",
-        "required": ["templates", "sdc", "sdcDefinitions", "stylesheets", "styleFacts",
-          "rootClasses", "referencedFields", "defects", "confidence"]
-      }
+        "required": [
+          "templates",
+          "sdc",
+          "sdcDefinitions",
+          "stylesheets",
+          "styleFacts",
+          "rootClasses",
+          "referencedFields",
+          "defects",
+          "confidence"
+        ],
+        "properties": {
+          "templates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sdc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sdcDefinitions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stylesheets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "styleFacts": {
+            "type": "object",
+            "properties": {
+              "mediaQueries": {
+                "type": "integer"
+              },
+              "partRules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {}
+                }
+              },
+              "rootRules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {}
+                }
+              }
+            }
+          },
+          "rootClasses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "referencedFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "defects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "detail": {
+                  "type": "string"
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "kind": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "confidence": {
+            "type": "string"
+          }
+        }
+      },
+      "properties": {}
     },
-    "totals": {"type": "object"},
-    "problems": {"type": "array"}
+    "totals": {
+      "type": "object",
+      "properties": {}
+    },
+    "problems": {
+      "type": "array",
+      "items": {}
+    }
   },
   "additionalProperties": true
 }

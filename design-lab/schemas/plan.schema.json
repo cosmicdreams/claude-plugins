@@ -3,26 +3,151 @@
   "$id": "https://design-lab.local/schemas/plan.schema.json",
   "title": "design-lab build plan",
   "type": "object",
-  "required": ["standardVersion", "plans"],
+  "required": [
+    "standardVersion",
+    "plans"
+  ],
   "properties": {
-    "standardVersion": {"type": "string"},
+    "standardVersion": {
+      "type": "string"
+    },
     "plans": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "libraryRole", "visualIdentity", "visualEvidence", "variantAxes", "variants", "properties", "verdict"],
+        "required": [
+          "id",
+          "libraryRole",
+          "visualIdentity",
+          "visualEvidence",
+          "variantAxes",
+          "variants",
+          "properties",
+          "verdict"
+        ],
         "properties": {
-          "id": {"type": "string"},
-          "variantAxes": {"type": "array"},
-          "variants": {"type": "integer", "minimum": 1},
-          "properties": {"type": "array"},
-          "libraryRole": {"enum": ["component", "subcomponent", "schema-only", "retirement"]},
-          "visualIdentity": {"enum": ["independent", "embedded", "unverified", "none"]},
+          "id": {
+            "type": "string"
+          },
+          "variantAxes": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "options": {
+                  "type": "integer"
+                }
+              }
+            }
+          },
+          "variants": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "properties": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "treatment": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "libraryRole": {
+            "enum": [
+              "component",
+              "subcomponent",
+              "schema-only",
+              "retirement"
+            ]
+          },
+          "visualIdentity": {
+            "enum": [
+              "independent",
+              "embedded",
+              "unverified",
+              "none"
+            ]
+          },
           "visualEvidence": {
             "type": "object",
-            "required": ["captured", "renderSignals", "path", "states", "images"]
+            "required": [
+              "captured",
+              "renderSignals",
+              "path",
+              "states",
+              "images"
+            ],
+            "properties": {
+              "captured": {
+                "type": "boolean"
+              },
+              "renderSignals": {
+                "type": "boolean"
+              },
+              "path": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "states": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "images": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "file": {
+                      "type": "string"
+                    },
+                    "hash": {
+                      "type": "string"
+                    },
+                    "height": {
+                      "type": "integer"
+                    },
+                    "state": {
+                      "type": "string"
+                    },
+                    "viewport": {
+                      "type": "string"
+                    },
+                    "width": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              }
+            }
           },
-          "verdict": {"enum": ["build", "map", "document", "refuse"]}
+          "verdict": {
+            "enum": [
+              "build",
+              "map",
+              "document",
+              "refuse"
+            ]
+          }
         },
         "additionalProperties": true
       }

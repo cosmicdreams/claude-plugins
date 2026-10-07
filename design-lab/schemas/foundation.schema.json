@@ -3,17 +3,47 @@
   "$id": "https://design-lab.local/schemas/foundation.schema.json",
   "title": "design-lab Figma foundation receipt",
   "type": "object",
-  "required": ["standardVersion", "toolVersion", "figmaFileKey", "pages", "collections", "validation"],
+  "required": [
+    "standardVersion",
+    "toolVersion",
+    "figmaFileKey",
+    "pages",
+    "collections",
+    "validation"
+  ],
   "properties": {
-    "standardVersion": {"type": "string"},
-    "toolVersion": {"type": "string"},
-    "figmaFileKey": {"type": "string", "minLength": 1},
-    "pages": {"type": "object", "minProperties": 1},
-    "collections": {"type": "object", "minProperties": 1},
+    "standardVersion": {
+      "type": "string"
+    },
+    "toolVersion": {
+      "type": "string"
+    },
+    "figmaFileKey": {
+      "type": "string",
+      "minLength": 1
+    },
+    "pages": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {}
+    },
+    "collections": {
+      "type": "object",
+      "minProperties": 1,
+      "properties": {}
+    },
     "validation": {
       "type": "object",
-      "required": ["errors"],
-      "properties": {"errors": {"type": "array", "maxItems": 0}}
+      "required": [
+        "errors"
+      ],
+      "properties": {
+        "errors": {
+          "type": "array",
+          "maxItems": 0,
+          "items": {}
+        }
+      }
     }
   },
   "additionalProperties": true

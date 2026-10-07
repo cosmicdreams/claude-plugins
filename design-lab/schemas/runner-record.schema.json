@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/runner-record.schema.json",
+  "title": "RunnerRecord",
+  "description": "POST /record sends a result directly, never an envelope: build result, screenshot png, preflight check, or dump. fileKey/step/token/version are query parameters. Empty objects represent skipped steps. Dump records retain their exported fields.",
+  "anyOf": [
+    {
+      "$ref": "https://design-lab.local/schemas/step-result.schema.json"
+    },
+    {
+      "type": "object",
+      "properties": {
+        "fileKey": {
+          "type": "string"
+        },
+        "fileName": {
+          "type": "string"
+        },
+        "pages": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "empty": {
+          "type": "boolean"
+        },
+        "preflightCover": {
+          "type": "boolean"
+        },
+        "fonts": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
+        }
+      },
+      "required": [
+        "fileKey",
+        "fileName",
+        "pages",
+        "empty",
+        "preflightCover",
+        "fonts"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "pages": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "collections": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        }
+      },
+      "required": [
+        "pages",
+        "collections"
+      ],
+      "additionalProperties": true
+    },
+    {
+      "type": "object",
+      "properties": {
+        "page": {
+          "type": "string"
+        },
+        "pageIndex": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "nodes": {
+          "type": "array",
+          "items": {
+            "type": "object"
+          }
+        },
+        "_ids": {
+          "type": "object"
+        }
+      },
+      "required": [
+        "page",
+        "pageIndex",
+        "nodes",
+        "_ids"
+      ],
+      "additionalProperties": true
+    }
+  ]
+}

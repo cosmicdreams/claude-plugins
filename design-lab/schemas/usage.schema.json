@@ -3,25 +3,100 @@
   "$id": "https://design-lab.local/schemas/usage.schema.json",
   "title": "design-lab component usage evidence",
   "type": "object",
-  "required": ["standardVersion", "toolVersion", "generatedAt", "source", "usage", "problems"],
+  "required": [
+    "standardVersion",
+    "toolVersion",
+    "generatedAt",
+    "source",
+    "usage",
+    "problems"
+  ],
   "properties": {
-    "standardVersion": {"type": "string"},
-    "toolVersion": {"type": "string"},
-    "generatedAt": {"type": "string"},
-    "source": {"type": "object", "required": ["strategy", "scope", "definitions"]},
+    "standardVersion": {
+      "type": "string"
+    },
+    "toolVersion": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "strategy",
+        "scope",
+        "definitions"
+      ],
+      "properties": {
+        "strategy": {
+          "type": "string"
+        },
+        "scope": {
+          "type": "string"
+        },
+        "definitions": {
+          "type": "object",
+          "properties": {
+            "placements": {
+              "type": "string"
+            },
+            "structuralRefs": {
+              "type": "string"
+            },
+            "templatePlacements": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
     "usage": {
       "type": "object",
       "additionalProperties": {
         "type": "object",
-        "required": ["placements", "structuralRefs", "pages"],
+        "required": [
+          "placements",
+          "structuralRefs",
+          "pages"
+        ],
         "properties": {
-          "placements": {"type": "integer", "minimum": 0},
-          "structuralRefs": {"type": "integer", "minimum": 0},
-          "pages": {"type": "integer", "minimum": 0}
+          "placements": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "structuralRefs": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "pages": {
+            "type": "integer",
+            "minimum": 0
+          }
+        }
+      },
+      "properties": {}
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          }
         }
       }
-    },
-    "problems": {"type": "array"}
+    }
   },
   "additionalProperties": true
 }

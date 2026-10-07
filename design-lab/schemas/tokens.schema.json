@@ -3,22 +3,192 @@
   "$id": "https://design-lab.local/schemas/tokens.schema.json",
   "title": "design-lab token inventory",
   "type": "object",
-  "required": ["standardVersion", "toolVersion"],
+  "required": [
+    "standardVersion",
+    "toolVersion"
+  ],
   "properties": {
-    "standardVersion": {"type": "string"},
-    "toolVersion": {"type": "string"},
-    "tokens": {"type": "array", "minItems": 1},
-    "colors": {"type": "array"},
-    "schemes": {"type": "array"},
-    "spacing": {"type": "array"},
-    "type": {"type": "array"},
-    "radii": {"type": "array"},
-    "elevation": {"type": "array"},
-    "motion": {"type": "array"}
+    "standardVersion": {
+      "type": "string"
+    },
+    "toolVersion": {
+      "type": "string"
+    },
+    "tokens": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "properties": {
+          "codeName": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "codePath": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string"
+          },
+          "isAlias": {
+            "type": "boolean"
+          },
+          "layer": {
+            "type": "string"
+          },
+          "media": {
+            "type": "null"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "ref": {
+                "type": "string"
+              }
+            }
+          },
+          "raw": {
+            "type": "string"
+          },
+          "selector": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "valuesByMode": {
+            "type": "object",
+            "properties": {
+              "@media (width < 48rem)": {
+                "type": "string"
+              },
+              "Value": {
+                "type": "string"
+              }
+            }
+          }
+        }
+      }
+    },
+    "colors": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "className": {
+            "type": "string"
+          },
+          "codeName": {
+            "type": "string"
+          },
+          "hex": {
+            "type": "string"
+          },
+          "inUse": {
+            "type": "boolean"
+          },
+          "name": {
+            "type": "string"
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "ref": {
+                "type": "string"
+              }
+            }
+          },
+          "tags": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "uid": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "schemes": {
+      "type": "array",
+      "items": {}
+    },
+    "spacing": {
+      "type": "array",
+      "items": {}
+    },
+    "type": {
+      "type": "array",
+      "items": {}
+    },
+    "radii": {
+      "type": "array",
+      "items": {}
+    },
+    "elevation": {
+      "type": "array",
+      "items": {}
+    },
+    "motion": {
+      "type": "array",
+      "items": {}
+    }
   },
   "anyOf": [
-    {"required": ["tokens"]}, {"required": ["colors"]}, {"required": ["spacing"]}, {"required": ["type"]},
-    {"required": ["radii"]}, {"required": ["elevation"]}, {"required": ["motion"]}
+    {
+      "required": [
+        "tokens"
+      ]
+    },
+    {
+      "required": [
+        "colors"
+      ]
+    },
+    {
+      "required": [
+        "spacing"
+      ]
+    },
+    {
+      "required": [
+        "type"
+      ]
+    },
+    {
+      "required": [
+        "radii"
+      ]
+    },
+    {
+      "required": [
+        "elevation"
+      ]
+    },
+    {
+      "required": [
+        "motion"
+      ]
+    }
   ],
   "additionalProperties": true
 }

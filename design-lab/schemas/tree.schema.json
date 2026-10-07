@@ -1,0 +1,544 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/tree.schema.json",
+  "title": "Tree",
+  "type": "object",
+  "properties": {
+    "component": {
+      "type": "string"
+    },
+    "machineName": {
+      "type": "string"
+    },
+    "label": {
+      "type": "string"
+    },
+    "measured": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "modes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "fallbacks": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "widths": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "number"
+      }
+    },
+    "variables": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "enum": [
+              "FLOAT",
+              "BOOLEAN",
+              "COLOR",
+              "STRING"
+            ]
+          },
+          "values": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "number",
+                "boolean",
+                "string",
+                "object"
+              ]
+            }
+          }
+        },
+        "required": [
+          "type",
+          "values"
+        ],
+        "additionalProperties": true
+      }
+    },
+    "tree": {
+      "$ref": "#/$defs/TreeNode"
+    },
+    "alternates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "label": {
+            "type": "string"
+          },
+          "parent": {
+            "type": "string"
+          },
+          "variables": {
+            "type": "object",
+            "additionalProperties": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "enum": [
+                    "FLOAT",
+                    "BOOLEAN",
+                    "COLOR",
+                    "STRING"
+                  ]
+                },
+                "values": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": [
+                      "number",
+                      "boolean",
+                      "string",
+                      "object"
+                    ]
+                  }
+                }
+              },
+              "required": [
+                "type",
+                "values"
+              ],
+              "additionalProperties": true
+            }
+          },
+          "tree": {
+            "$ref": "#/$defs/TreeNode"
+          }
+        },
+        "required": [
+          "label",
+          "variables",
+          "tree"
+        ],
+        "additionalProperties": true
+      }
+    }
+  },
+  "required": [
+    "component",
+    "machineName",
+    "label",
+    "measured",
+    "modes",
+    "fallbacks",
+    "notes",
+    "widths",
+    "variables",
+    "tree"
+  ],
+  "additionalProperties": true,
+  "$defs": {
+    "VariableBinding": {
+      "type": "object",
+      "properties": {
+        "var": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "var"
+      ],
+      "additionalProperties": true
+    },
+    "Color": {
+      "type": "object",
+      "properties": {
+        "hex": {
+          "type": "string"
+        },
+        "opacity": {
+          "type": "number"
+        },
+        "var": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "required": [
+        "hex"
+      ],
+      "additionalProperties": true
+    },
+    "Text": {
+      "type": "object",
+      "properties": {
+        "align": {
+          "type": "string"
+        },
+        "case": {
+          "type": "string"
+        },
+        "characters": {
+          "type": "string"
+        },
+        "color": {
+          "$ref": "#/$defs/Color"
+        },
+        "family": {
+          "type": "string"
+        },
+        "familyVar": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "italic": {
+          "type": "boolean"
+        },
+        "letterSpacing": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "lineHeight": {
+          "anyOf": [
+            {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/VariableBinding"
+                }
+              ]
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "singleLine": {
+          "type": "boolean"
+        },
+        "size": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "stack": {
+          "type": "string"
+        },
+        "underline": {
+          "type": "boolean"
+        },
+        "weight": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "characters",
+        "family",
+        "size",
+        "weight"
+      ],
+      "additionalProperties": true
+    },
+    "Layout": {
+      "type": "object",
+      "properties": {
+        "mode": {
+          "type": "string"
+        },
+        "counterAlign": {
+          "type": "string"
+        },
+        "primaryAlign": {
+          "type": "string"
+        },
+        "gap": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "counterGap": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "padding": {
+          "type": "object",
+          "properties": {
+            "top": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/VariableBinding"
+                }
+              ]
+            },
+            "right": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/VariableBinding"
+                }
+              ]
+            },
+            "bottom": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/VariableBinding"
+                }
+              ]
+            },
+            "left": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "$ref": "#/$defs/VariableBinding"
+                }
+              ]
+            }
+          },
+          "required": [],
+          "additionalProperties": true
+        },
+        "wrap": {
+          "type": "boolean"
+        },
+        "slots": {
+          "type": "boolean"
+        },
+        "fellBack": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "mode"
+      ],
+      "additionalProperties": true
+    },
+    "TreeNode": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "enum": [
+            "frame",
+            "text",
+            "image",
+            "svg",
+            "instance"
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "source": {
+          "type": "string"
+        },
+        "sizing": {
+          "type": "string"
+        },
+        "width": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "height": {
+          "anyOf": [
+            {
+              "type": "number"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "x": {
+          "type": "number"
+        },
+        "y": {
+          "type": "number"
+        },
+        "children": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/TreeNode"
+          }
+        },
+        "fill": {
+          "$ref": "#/$defs/Color"
+        },
+        "stroke": {
+          "type": "object",
+          "properties": {
+            "color": {
+              "$ref": "#/$defs/Color"
+            },
+            "width": {
+              "type": "number"
+            },
+            "weights": {
+              "type": "array",
+              "items": {
+                "type": "number"
+              }
+            },
+            "top": {
+              "type": "number"
+            },
+            "right": {
+              "type": "number"
+            },
+            "bottom": {
+              "type": "number"
+            },
+            "left": {
+              "type": "number"
+            }
+          },
+          "required": [],
+          "additionalProperties": true
+        },
+        "radius": {
+          "type": "array",
+          "items": {
+            "type": "number"
+          }
+        },
+        "clip": {
+          "type": "boolean"
+        },
+        "fit": {
+          "type": "string"
+        },
+        "src": {
+          "type": "string"
+        },
+        "text": {
+          "$ref": "#/$defs/Text"
+        },
+        "layout": {
+          "$ref": "#/$defs/Layout"
+        },
+        "instanceOf": {
+          "type": "string"
+        },
+        "svg": {
+          "type": "string"
+        },
+        "effects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string"
+              },
+              "color": {
+                "$ref": "#/$defs/Color"
+              },
+              "x": {
+                "type": "number"
+              },
+              "y": {
+                "type": "number"
+              },
+              "blur": {
+                "type": "number"
+              },
+              "spread": {
+                "type": "number"
+              }
+            },
+            "required": [],
+            "additionalProperties": true
+          }
+        },
+        "visible": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "$ref": "#/$defs/VariableBinding"
+            }
+          ]
+        },
+        "absolute": {
+          "type": "boolean"
+        },
+        "opacity": {
+          "type": "number"
+        },
+        "backgroundImage": {
+          "type": "object",
+          "properties": {
+            "src": {
+              "type": "string"
+            },
+            "fit": {
+              "type": "string"
+            }
+          },
+          "required": [],
+          "additionalProperties": true
+        }
+      },
+      "required": [
+        "kind",
+        "name",
+        "source",
+        "sizing"
+      ],
+      "additionalProperties": true
+    }
+  }
+}

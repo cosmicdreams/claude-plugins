@@ -4,93 +4,1019 @@
   "title": "design-lab run scorecard",
   "description": "Written by scripts/score_run.py. Each section is scored on its own; a section without evidence carries status not-measured and a reason instead of a guess.",
   "type": "object",
-  "required": ["scorecardVersion", "generatedAt", "generator", "run", "headline", "sections"],
+  "required": [
+    "scorecardVersion",
+    "generatedAt",
+    "generator",
+    "run",
+    "headline",
+    "sections"
+  ],
   "additionalProperties": false,
   "properties": {
-    "scorecardVersion": {"const": 1},
-    "generatedAt": {"type": "string"},
-    "generator": {"type": "string"},
+    "scorecardVersion": {
+      "const": 1
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "generator": {
+      "type": "string"
+    },
     "run": {
       "type": "object",
-      "required": ["directory", "name", "siteLabel"],
+      "required": [
+        "directory",
+        "name",
+        "siteLabel"
+      ],
       "properties": {
-        "directory": {"type": "string"},
-        "name": {"type": "string"},
-        "siteLabel": {"type": "string"},
-        "buildCreatedAt": {"$comment": "project.json createdAt of the build scored; a reader compares it with the current project.json to tell this build's scorecard from an earlier one's", "type": ["string", "null"]}
+        "directory": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "siteLabel": {
+          "type": "string"
+        },
+        "buildCreatedAt": {
+          "$comment": "project.json createdAt of the build scored; a reader compares it with the current project.json to tell this build's scorecard from an earlier one's",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
       }
     },
     "headline": {
       "type": "object",
-      "required": ["coverage", "built", "accuracy", "effort", "highlights"],
+      "required": [
+        "coverage",
+        "built",
+        "accuracy",
+        "effort",
+        "highlights"
+      ],
       "properties": {
-        "coverage": {"type": ["object", "null"]},
-        "built": {"type": "object"},
-        "accuracy": {"type": "object"},
-        "effort": {"type": "object"},
-        "highlights": {"type": "array", "items": {"type": "string"}}
+        "coverage": {
+          "type": [
+            "object",
+            "null"
+          ]
+        },
+        "built": {
+          "type": "object",
+          "properties": {}
+        },
+        "accuracy": {
+          "type": "object",
+          "properties": {}
+        },
+        "effort": {
+          "type": "object",
+          "properties": {}
+        },
+        "highlights": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
       }
     },
     "sections": {
       "type": "object",
-      "required": ["identity", "cost", "library", "coverage", "conformance", "accuracy", "repeatability", "schemaChurn", "foundationsVoice", "blindedJudgement"],
+      "required": [
+        "identity",
+        "cost",
+        "library",
+        "coverage",
+        "conformance",
+        "accuracy",
+        "repeatability",
+        "schemaChurn",
+        "foundationsVoice",
+        "blindedJudgement"
+      ],
       "additionalProperties": false,
       "properties": {
-        "identity": {"$comment": "run identity", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "partial", "not-measured"]}, "fields": {"type": "object"}, "missing": {"type": "array", "items": {"type": "string"}}}, "allOf": [{"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]},
-        "cost": {"$comment": "cost and effort", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "partial", "not-measured"]}, "runner": {"type": "object"}, "timings": {"type": "object"}, "definition": {"type": "string"}, "clock": {"$comment": "wall time, a clock on the wall from workflow.py init to the end of the benchmark; null unless both ends were recorded; the first scoring records the benchmark's end in the phase log", "type": "object", "required": ["wallSeconds", "scorerSeconds"], "properties": {"wallSeconds": {"type": ["integer", "null"]}, "libraryWallSeconds": {"type": ["integer", "null"]}, "benchmarkWallSeconds": {"type": ["integer", "null"]}, "scorerSeconds": {"type": "number"}, "runStart": {"type": ["string", "null"]}, "benchmarkStart": {"type": ["string", "null"]}, "benchmarkEnd": {"type": ["string", "null"]}, "benchmarkEndSource": {"enum": ["phase log", "this scoring", null]}, "notShownBecause": {"type": "string"}}}, "working": {"$comment": "time Claude or its tools were working, from the session transcript; working plus the three kinds of waiting add up to the transcript's span", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "spanSeconds": {"type": "integer"}, "workingSeconds": {"type": "integer"}, "waitingOnPersonSeconds": {"type": "integer"}, "waitingOnLimitsSeconds": {"type": "integer"}, "waitingOnServiceSeconds": {"type": "integer"}, "limitEvents": {"type": "integer"}, "serviceEvents": {"type": "integer"}, "questionsToPerson": {"type": "integer"}, "fullAccess": {"type": ["boolean", "null"]}, "developer": {"$comment": "for developers only, never rendered", "type": "object"}, "production": {"type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "workingSeconds": {"type": "integer"}, "waitingOnPersonSeconds": {"type": "integer"}, "waitingOnLimitsSeconds": {"type": "integer"}, "waitingOnServiceSeconds": {"type": "integer"}}}, "benchmark": {"type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "workingSeconds": {"type": "integer"}}}}, "allOf": [{"if": {"properties": {"status": {"const": "measured"}}}, "then": {"required": ["spanSeconds", "workingSeconds", "waitingOnPersonSeconds", "waitingOnLimitsSeconds", "waitingOnServiceSeconds", "production", "benchmark"]}}, {"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]}, "unattended": {"$comment": "whether the run stayed unattended after the preflight go-ahead, until the benchmark began", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "goAheadAt": {"type": "string"}, "count": {"type": "integer"}, "ranUnattended": {"type": "boolean"}, "interruptions": {"type": "array", "items": {"type": "object", "required": ["at", "kind", "phase", "planned"], "properties": {"at": {"type": ["string", "null"]}, "kind": {"type": "string"}, "phase": {"type": "string"}, "status": {"type": ["string", "null"]}, "planned": {"type": "boolean"}}}}}, "allOf": [{"if": {"properties": {"status": {"const": "measured"}}}, "then": {"required": ["goAheadAt", "count", "ranUnattended", "interruptions"]}}, {"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]}, "model": {"type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "toolCalls": {"type": "integer"}, "tokens": {"type": "object", "additionalProperties": {"type": "integer"}}, "configDirs": {"type": "array", "items": {"type": "string"}}, "developer": {"$comment": "for developers only, never rendered", "type": "object", "properties": {"unattributedEntries": {"type": "integer"}}}, "production": {"type": "object", "required": ["status"]}, "benchmark": {"type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}}}, "byModel": {"type": "array", "items": {"type": "object", "required": ["model", "name", "input", "output", "cacheWrite", "cacheRead", "total", "turns", "toolCalls"], "properties": {"model": {"type": "string"}, "name": {"type": "string"}, "input": {"type": "integer"}, "output": {"type": "integer"}, "cacheWrite": {"type": "integer"}, "cacheRead": {"type": "integer"}, "total": {"type": "integer"}, "turns": {"type": "integer"}, "toolCalls": {"type": "integer"}}}}}}}},
-        "library": {"$comment": "library contents", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "components": {"type": "object"}, "tiers": {"type": "array"}}, "allOf": [{"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]},
-        "coverage": {"$comment": "built out of what could have been built, gap by reason, usage-weighted share", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "found": {"type": "integer"}, "eligible": {"type": "integer"}, "built": {"type": "integer"}, "ratio": {"type": ["number", "null"]}, "gap": {"type": "object", "additionalProperties": {"type": "integer"}}, "excluded": {"type": "object", "additionalProperties": {"type": "integer"}}, "usageWeighted": {"type": "object"}}, "allOf": [{"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]},
-        "conformance": {"$comment": "verify-report findings by severity", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "open": {"type": "object", "additionalProperties": {"type": "integer"}}, "waived": {"type": "integer"}}, "allOf": [{"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]},
-        "accuracy": {
-          "$comment": "accuracy against the live site: original metric kept beside the corrected one",
+        "identity": {
+          "$comment": "run identity",
           "type": "object",
-          "required": ["status"],
+          "required": [
+            "status"
+          ],
           "properties": {
-            "status": {"enum": ["measured", "partial", "not-measured"]},
-            "threshold": {"type": "number"},
-            "tolerance": {"type": "number"},
-            "overall": {"type": "object"},
-            "byBreakpoint": {"type": "object"},
-            "pairs": {
+            "status": {
+              "enum": [
+                "measured",
+                "partial",
+                "not-measured"
+              ]
+            },
+            "fields": {
+              "type": "object",
+              "properties": {}
+            },
+            "missing": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ]
+        },
+        "cost": {
+          "$comment": "cost and effort",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "partial",
+                "not-measured"
+              ]
+            },
+            "runner": {
+              "type": "object",
+              "properties": {}
+            },
+            "timings": {
+              "type": "object",
+              "properties": {}
+            },
+            "definition": {
+              "type": "string"
+            },
+            "clock": {
+              "$comment": "wall time, a clock on the wall from workflow.py init to the end of the benchmark; null unless both ends were recorded; the first scoring records the benchmark's end in the phase log",
+              "type": "object",
+              "required": [
+                "wallSeconds",
+                "scorerSeconds"
+              ],
+              "properties": {
+                "wallSeconds": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "libraryWallSeconds": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "benchmarkWallSeconds": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "scorerSeconds": {
+                  "type": "number"
+                },
+                "runStart": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "benchmarkStart": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "benchmarkEnd": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "benchmarkEndSource": {
+                  "enum": [
+                    "phase log",
+                    "this scoring",
+                    null
+                  ]
+                },
+                "notShownBecause": {
+                  "type": "string"
+                }
+              }
+            },
+            "working": {
+              "$comment": "time Claude or its tools were working, from the session transcript; working plus the three kinds of waiting add up to the transcript's span",
+              "type": "object",
+              "required": [
+                "status"
+              ],
+              "properties": {
+                "status": {
+                  "enum": [
+                    "measured",
+                    "not-measured"
+                  ]
+                },
+                "spanSeconds": {
+                  "type": "integer"
+                },
+                "workingSeconds": {
+                  "type": "integer"
+                },
+                "waitingOnPersonSeconds": {
+                  "type": "integer"
+                },
+                "waitingOnLimitsSeconds": {
+                  "type": "integer"
+                },
+                "waitingOnServiceSeconds": {
+                  "type": "integer"
+                },
+                "limitEvents": {
+                  "type": "integer"
+                },
+                "serviceEvents": {
+                  "type": "integer"
+                },
+                "questionsToPerson": {
+                  "type": "integer"
+                },
+                "fullAccess": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "developer": {
+                  "$comment": "for developers only, never rendered",
+                  "type": "object",
+                  "properties": {}
+                },
+                "production": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "measured",
+                        "not-measured"
+                      ]
+                    },
+                    "workingSeconds": {
+                      "type": "integer"
+                    },
+                    "waitingOnPersonSeconds": {
+                      "type": "integer"
+                    },
+                    "waitingOnLimitsSeconds": {
+                      "type": "integer"
+                    },
+                    "waitingOnServiceSeconds": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "benchmark": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "measured",
+                        "not-measured"
+                      ]
+                    },
+                    "workingSeconds": {
+                      "type": "integer"
+                    }
+                  }
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "measured"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "spanSeconds",
+                      "workingSeconds",
+                      "waitingOnPersonSeconds",
+                      "waitingOnLimitsSeconds",
+                      "waitingOnServiceSeconds",
+                      "production",
+                      "benchmark"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "not-measured"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "reason"
+                    ]
+                  }
+                }
+              ]
+            },
+            "unattended": {
+              "$comment": "whether the run stayed unattended after the preflight go-ahead, until the benchmark began",
+              "type": "object",
+              "required": [
+                "status"
+              ],
+              "properties": {
+                "status": {
+                  "enum": [
+                    "measured",
+                    "not-measured"
+                  ]
+                },
+                "goAheadAt": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer"
+                },
+                "ranUnattended": {
+                  "type": "boolean"
+                },
+                "interruptions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "at",
+                      "kind",
+                      "phase",
+                      "planned"
+                    ],
+                    "properties": {
+                      "at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "phase": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "planned": {
+                        "type": "boolean"
+                      }
+                    }
+                  }
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "measured"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "goAheadAt",
+                      "count",
+                      "ranUnattended",
+                      "interruptions"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "not-measured"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "reason"
+                    ]
+                  }
+                }
+              ]
+            },
+            "model": {
+              "type": "object",
+              "required": [
+                "status"
+              ],
+              "properties": {
+                "status": {
+                  "enum": [
+                    "measured",
+                    "not-measured"
+                  ]
+                },
+                "toolCalls": {
+                  "type": "integer"
+                },
+                "tokens": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "properties": {}
+                },
+                "configDirs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "developer": {
+                  "$comment": "for developers only, never rendered",
+                  "type": "object",
+                  "properties": {
+                    "unattributedEntries": {
+                      "type": "integer"
+                    }
+                  }
+                },
+                "production": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "benchmark": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "measured",
+                        "not-measured"
+                      ]
+                    }
+                  }
+                },
+                "byModel": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "model",
+                      "name",
+                      "input",
+                      "output",
+                      "cacheWrite",
+                      "cacheRead",
+                      "total",
+                      "turns",
+                      "toolCalls"
+                    ],
+                    "properties": {
+                      "model": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "input": {
+                        "type": "integer"
+                      },
+                      "output": {
+                        "type": "integer"
+                      },
+                      "cacheWrite": {
+                        "type": "integer"
+                      },
+                      "cacheRead": {
+                        "type": "integer"
+                      },
+                      "total": {
+                        "type": "integer"
+                      },
+                      "turns": {
+                        "type": "integer"
+                      },
+                      "toolCalls": {
+                        "type": "integer"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        "library": {
+          "$comment": "library contents",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "not-measured"
+              ]
+            },
+            "components": {
+              "type": "object",
+              "properties": {}
+            },
+            "tiers": {
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["component", "breakpoint", "original"],
                 "properties": {
-                  "component": {"type": "string"},
-                  "breakpoint": {"type": "string"},
-                  "original": {"type": "object", "required": ["ratio", "pass"]},
-                  "corrected": {"type": ["object", "null"]},
-                  "heightDelta": {"type": ["number", "null"]}
+                  "built": {
+                    "type": "integer"
+                  },
+                  "components": {
+                    "type": "integer"
+                  },
+                  "tier": {
+                    "type": "string"
+                  }
                 }
               }
             }
           },
-          "allOf": [{"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ]
         },
-        "repeatability": {"$comment": "compare_runs.py across runs", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "partial", "not-measured"]}, "level": {"enum": ["build", "pipeline"]}, "comparisons": {"type": "array"}}, "allOf": [{"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]},
-        "schemaChurn": {"$comment": "did the run need a schema change or workaround", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "changed": {"type": "boolean"}, "changes": {"type": "array"}}, "allOf": [{"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]},
+        "coverage": {
+          "$comment": "built out of what could have been built, gap by reason, usage-weighted share",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "not-measured"
+              ]
+            },
+            "found": {
+              "type": "integer"
+            },
+            "eligible": {
+              "type": "integer"
+            },
+            "built": {
+              "type": "integer"
+            },
+            "ratio": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "gap": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "properties": {}
+            },
+            "excluded": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "properties": {}
+            },
+            "usageWeighted": {
+              "type": "object",
+              "properties": {}
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ]
+        },
+        "conformance": {
+          "$comment": "verify-report findings by severity",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "not-measured"
+              ]
+            },
+            "open": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "properties": {}
+            },
+            "waived": {
+              "type": "integer"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ]
+        },
+        "accuracy": {
+          "$comment": "accuracy against the live site: original metric kept beside the corrected one",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "partial",
+                "not-measured"
+              ]
+            },
+            "threshold": {
+              "type": "number"
+            },
+            "tolerance": {
+              "type": "number"
+            },
+            "overall": {
+              "type": "object",
+              "properties": {}
+            },
+            "byBreakpoint": {
+              "type": "object",
+              "properties": {}
+            },
+            "pairs": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "component",
+                  "breakpoint",
+                  "original"
+                ],
+                "properties": {
+                  "component": {
+                    "type": "string"
+                  },
+                  "breakpoint": {
+                    "type": "string"
+                  },
+                  "original": {
+                    "type": "object",
+                    "required": [
+                      "ratio",
+                      "pass"
+                    ],
+                    "properties": {
+                      "ratio": {
+                        "type": "number"
+                      },
+                      "pass": {
+                        "type": "boolean"
+                      }
+                    }
+                  },
+                  "corrected": {
+                    "type": [
+                      "object",
+                      "null"
+                    ]
+                  },
+                  "heightDelta": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  }
+                }
+              }
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ]
+        },
+        "repeatability": {
+          "$comment": "compare_runs.py across runs",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "partial",
+                "not-measured"
+              ]
+            },
+            "level": {
+              "enum": [
+                "build",
+                "pipeline"
+              ]
+            },
+            "comparisons": {
+              "type": "array",
+              "items": {}
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ]
+        },
+        "schemaChurn": {
+          "$comment": "did the run need a schema change or workaround",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "not-measured"
+              ]
+            },
+            "changed": {
+              "type": "boolean"
+            },
+            "changes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "at": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                }
+              }
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ]
+        },
         "foundationsVoice": {
           "$comment": "slot for the foundations-and-voice rubric, scored by a person later",
           "type": "object",
-          "required": ["status", "rubric", "scores"],
+          "required": [
+            "status",
+            "rubric",
+            "scores"
+          ],
           "properties": {
-            "status": {"enum": ["scored-later", "measured"]},
-            "rubric": {"type": ["object", "null"]},
-            "scores": {"type": "array", "items": {"type": "object", "required": ["criterion", "score"], "properties": {"criterion": {"type": "string"}, "score": {"type": "number"}, "scorer": {"type": "string"}, "note": {"type": "string"}}}},
-            "scorers": {"type": "array", "items": {"type": "string"}}
+            "status": {
+              "enum": [
+                "scored-later",
+                "measured"
+              ]
+            },
+            "rubric": {
+              "type": [
+                "object",
+                "null"
+              ]
+            },
+            "scores": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "criterion",
+                  "score"
+                ],
+                "properties": {
+                  "criterion": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": "number"
+                  },
+                  "scorer": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "scorers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         },
         "blindedJudgement": {
           "$comment": "slot for blinded visual judgement, 1 to 5 per criterion, scored later",
           "type": "object",
-          "required": ["status", "criteria", "scores"],
+          "required": [
+            "status",
+            "criteria",
+            "scores"
+          ],
           "properties": {
-            "status": {"enum": ["scored-later", "measured"]},
-            "scale": {"type": "object"},
-            "criteria": {"type": "array", "items": {"type": "object", "required": ["id", "label"]}},
-            "scores": {"type": "array", "items": {"type": "object", "required": ["criterion", "score", "scorer"], "properties": {"criterion": {"type": "string"}, "score": {"type": "integer"}, "scorer": {"type": "string"}}}},
-            "scorers": {"type": "array", "items": {"type": "string"}}
+            "status": {
+              "enum": [
+                "scored-later",
+                "measured"
+              ]
+            },
+            "scale": {
+              "type": "object",
+              "properties": {}
+            },
+            "criteria": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "label"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "scores": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "criterion",
+                  "score",
+                  "scorer"
+                ],
+                "properties": {
+                  "criterion": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": "integer"
+                  },
+                  "scorer": {
+                    "type": "string"
+                  }
+                }
+              }
+            },
+            "scorers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
           }
         }
       }

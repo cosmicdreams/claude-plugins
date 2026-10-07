@@ -1,0 +1,62 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/phase-log-entry.schema.json",
+  "title": "PhaseLogEntry",
+  "type": "object",
+  "properties": {
+    "at": {
+      "type": "string"
+    },
+    "phase": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string"
+    },
+    "message": {
+      "type": "string"
+    },
+    "reason": {
+      "type": "string"
+    },
+    "by": {
+      "type": "string"
+    },
+    "rebuiltFrom": {
+      "anyOf": [
+        {
+          "type": "string"
+        },
+        {
+          "type": "object",
+          "properties": {
+            "run": {
+              "type": "string"
+            },
+            "createdAt": {
+              "type": "string"
+            },
+            "pluginVersion": {
+              "type": "string"
+            },
+            "corpusLabel": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          }
+        }
+      ]
+    },
+    "detail": {
+      "type": "object"
+    }
+  },
+  "required": [
+    "at",
+    "phase",
+    "status"
+  ],
+  "additionalProperties": true
+}

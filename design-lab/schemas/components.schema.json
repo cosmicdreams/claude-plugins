@@ -3,25 +3,303 @@
   "$id": "https://design-lab.local/schemas/components.schema.json",
   "title": "design-lab component inventory",
   "type": "object",
-  "required": ["standardVersion", "toolVersion", "generatedAt", "source", "components"],
+  "required": [
+    "standardVersion",
+    "toolVersion",
+    "generatedAt",
+    "source",
+    "components"
+  ],
   "properties": {
-    "standardVersion": {"type": "string"},
-    "toolVersion": {"type": "string"},
-    "generatedAt": {"type": "string"},
-    "source": {"type": "object", "required": ["strategy", "root"]},
+    "standardVersion": {
+      "type": "string"
+    },
+    "toolVersion": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "strategy",
+        "root"
+      ],
+      "properties": {
+        "strategy": {
+          "type": "string"
+        },
+        "root": {
+          "type": "string"
+        }
+      }
+    },
     "components": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "label", "sourceRef", "fields", "slots", "defects"],
+        "required": [
+          "id",
+          "label",
+          "sourceRef",
+          "fields",
+          "slots",
+          "defects"
+        ],
         "properties": {
-          "id": {"type": "string", "minLength": 1},
-          "machineName": {"type": "string"},
-          "label": {"type": "string"},
-          "sourceRef": {"type": "string"},
-          "fields": {"type": "array"},
-          "slots": {"type": "array"},
-          "defects": {"type": "array"}
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "machineName": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "sourceRef": {
+            "type": "string"
+          },
+          "fields": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "appliesToken": {
+                  "type": "null"
+                },
+                "canvasFieldType": {
+                  "type": "string"
+                },
+                "cardinality": {
+                  "type": "integer"
+                },
+                "default": {
+                  "anyOf": [
+                    {
+                      "type": "boolean"
+                    },
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "options": {
+                          "type": "object"
+                        },
+                        "uri": {
+                          "type": "string"
+                        }
+                      }
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "defaultSource": {
+                  "type": "string"
+                },
+                "description": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "kind": {
+                  "type": "string"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "maxItems": {
+                  "anyOf": [
+                    {
+                      "type": "integer"
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "minItems": {
+                  "type": "integer"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "options": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "object"
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "optionsSource": {
+                  "type": "string"
+                },
+                "provenance": {
+                  "type": "object",
+                  "properties": {
+                    "default": {
+                      "type": "string"
+                    },
+                    "kind": {
+                      "type": "string"
+                    },
+                    "label": {
+                      "type": "string"
+                    },
+                    "options": {
+                      "type": "string"
+                    },
+                    "required": {
+                      "type": "string"
+                    },
+                    "sourceWidget": {
+                      "type": "string"
+                    }
+                  }
+                },
+                "repeatableIn": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "showWhen": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "sourceRef": {
+                  "type": "string"
+                },
+                "sourceType": {
+                  "type": "string"
+                },
+                "sourceWidget": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "targetBundles": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "type": "null"
+                    }
+                  ]
+                },
+                "targetType": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "tokenFamily": {
+                  "anyOf": [
+                    {
+                      "type": "null"
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "uid": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "slots": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "accepts": {
+                  "anyOf": [
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                },
+                "cardinality": {
+                  "type": "integer"
+                },
+                "label": {
+                  "type": "string"
+                },
+                "name": {
+                  "type": "string"
+                },
+                "required": {
+                  "type": "boolean"
+                },
+                "sourceRef": {
+                  "type": "string"
+                }
+              }
+            }
+          },
+          "defects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "detail": {
+                  "type": "string"
+                },
+                "evidence": {
+                  "type": "string"
+                },
+                "kind": {
+                  "type": "string"
+                }
+              }
+            }
+          }
         },
         "additionalProperties": true
       }
