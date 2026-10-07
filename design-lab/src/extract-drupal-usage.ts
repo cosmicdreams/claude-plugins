@@ -909,7 +909,9 @@ export function httpGet(
   options: HttpOptions = {},
 ): Promise<HttpResult> {
   const timeoutMs = options.timeoutMs ?? 20000,
-    relax = options.relaxLocalTls ?? true;
+    relax = options.relaxLocalTls ?? true,
+    // urllib creates one SSL context for the initial URL and reuses it on redirects.
+    rejectUnauthorized = relax ? verifyTls(url) : true;
   const hop = (target: string, hops: number): Promise<HttpResult> =>
     new Promise((resolveResult, reject) => {
       // urllib does not implicitly percent-encode authored aliases. The oracle treats a raw
@@ -929,7 +931,7 @@ export function httpGet(
         {
           method: "GET",
           headers: { "Accept-Encoding": "identity", ...options.headers },
-          rejectUnauthorized: relax ? verifyTls(target) : true,
+          rejectUnauthorized,
         },
         (response) => {
           const status = response.statusCode ?? 0,
