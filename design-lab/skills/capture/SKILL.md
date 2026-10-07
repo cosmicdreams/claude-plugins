@@ -9,7 +9,7 @@ description: >
 
 # Capture rendered components
 
-`measure.mjs` records box model, type, fills, borders, and declared versus computed values. `capture.mjs` records element-scoped PNGs. Use the same config and named states for both so the picture and measurements describe the same render.
+Capture records two things per component from one config: measurements (box model, type, fills, borders, and declared versus computed values) and element-scoped PNGs. Both use the same config and named states, so the picture and the measurements describe the same render.
 
 ## Configure
 
@@ -24,7 +24,7 @@ Resolve every stub the scaffolder reports. `path` comes from the first available
 Config shape:
 
 ```json
-{"component":"FAQ","machineName":"faq","path":"/help/faq",
+{"component":"FAQ","componentId":"faq","machineName":"faq","path":"/help/faq",
  "verificationUrl":"https://example.ddev.site/help/faq",
  "linkUrl":"https://www.example.org/help/faq",
  "rootSelector":".faq","anchorText":null,"mustContain":null,"nth":0,
@@ -33,7 +33,7 @@ Config shape:
 
 ## Run
 
-Measurements and screenshots close DataGrail cookie preferences through its close button, including its shadow DOM, and wait until the panel is hidden. Cookies and local storage carry forward between breakpoints within each script; a final check before each capture catches late panels. A panel that cannot close fails that capture. Other vendors can use `"cookiePreferences":{"bannerSelector":"#consent","closeSelector":".close","timeout":5000}` in the component config. To accept once within that script instead, use DataGrail's `"closeSelector":"button.accept_all"`. Use `"cookiePreferences":false` when capturing the cookie panel itself. This setting must be identical for measurement and screenshots.
+Measurements and screenshots close DataGrail cookie preferences through its close button, including its shadow DOM, and wait until the panel is hidden. Cookies and local storage carry forward between breakpoints within one component; a final check before each capture catches late panels. A panel that cannot close fails that capture. Other vendors can use `"cookiePreferences":{"bannerSelector":"#consent","closeSelector":".close","timeout":5000}` in the component config. To accept once within that script instead, use DataGrail's `"closeSelector":"button.accept_all"`. Use `"cookiePreferences":false` when capturing the cookie panel itself. This setting must be identical for measurement and screenshots.
 
 Run the full capture after `design-lab:init` installs the pinned Playwright packages and Chromium in the shared cache. The command works from any directory, scaffolds configs, measures each eligible component, takes desktop/tablet/mobile screenshots, assembles evidence, and registers it in the workspace:
 
@@ -44,7 +44,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/capture_all.ts \
   --theme-root docroot/themes/custom/example
 ```
 
-The full capture and the standalone measurement, screenshot and selector-check commands all use that shared installation. Keep the same absolute `DESIGN_LAB_CACHE` when overriding the default cache location; no project-local Playwright installation is needed.
+Capture, including the selector check, uses that shared installation. Keep the same absolute `DESIGN_LAB_CACHE` when overriding the default cache location; no project-local Playwright installation is needed.
 
 Capture is incremental. Each component's outcome is written to `capture/records/` as soon as it finishes, together with the hash of the config it came from; a later run skips every component whose record is complete and whose config is unchanged, and rebuilds the evidence from all current records. Never delete records to "start clean"; use `--fresh` with `--only` for the components that need redoing.
 
@@ -61,14 +61,17 @@ Child bundles are tagged during each parent's measurement (`data-design-lab-chil
 
 Every browser step has a time limit (measure 15 minutes, screenshots 30), killed with its browser: a page that never answers fails one component, and the run moves on. On a slow local site, a single component can take minutes; the progress line's estimate uses each remaining component's previous time when available, otherwise the completed components' average, adjusted for active workers. Read it rather than guessing.
 
-When that project has a system Chromium/Chrome but no Playwright-managed browser download, set `DESIGN_LAB_BROWSER_EXECUTABLE` explicitly. For manual capture or a custom config, run:
+When that project has a system Chromium/Chrome but no Playwright-managed browser download, set `DESIGN_LAB_BROWSER_EXECUTABLE` explicitly. For a hand-written or edited config, pass the folder of config files with `--configs` and name the component with `--only`. Measurements land in `capture/measurements/<id>.spec.json` and screenshots in `capture/shots/` inside the project folder:
 
 ```bash
 export DESIGN_LAB_BROWSER_EXECUTABLE="/path/to/Chrome"
-node ${CLAUDE_PLUGIN_ROOT}/scripts/measure.mjs --config components/faq.json --out measurements/
-node ${CLAUDE_PLUGIN_ROOT}/scripts/capture.mjs --configs components/ --out shots/
+node ${CLAUDE_PLUGIN_ROOT}/scripts/capture_all.ts \
+  --project .design-lab --configs components/ --only faq \
+  --canonical-base-url https://www.example.org
 ```
 
-Use `anchorText`, `mustContain`, or `nth` when selectors collide. Both scripts ignore zero-height matches before disambiguation. Capture the default state at desktop, tablet, and mobile for every component. Capture additional states that materially change appearance or behavior at the same three widths. A component with no reachable selector is ineligible to be built; record `Not built — no visual evidence` and never substitute another component's capture.
+Add `--check` for the selector check alone. Old releases shipped separate `measure.mjs`, `capture.mjs` and `check_selectors.mjs` scripts; they are gone, and `capture_all.ts` does all three.
+
+Use `anchorText`, `mustContain`, or `nth` when selectors collide. Measurement and screenshots both ignore zero-height matches before disambiguation. Capture the default state at desktop, tablet, and mobile for every component. Capture additional states that materially change appearance or behavior at the same three widths. A component with no reachable selector is ineligible to be built; record `Not built — no visual evidence` and never substitute another component's capture.
 
 Verify that captures are non-empty and unique, states agree between measurement and screenshot, and all breakpoint images use their real dimensions. Register `capture-evidence.json` before planning. Its entry for each component is the permission to create a visual master; capture is not a completion-waivable phase.

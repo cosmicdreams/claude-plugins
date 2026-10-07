@@ -35,9 +35,9 @@ Read `W/figma/results/compare_<id>.json` and the screenshot beside it in `W/figm
 | Symptom | Where the fix belongs |
 | --- | --- |
 | Text wraps where the site does not | single-line detection in `spec_to_tree.ts` |
-| An element the site hides is drawn | visibility in `spec_to_tree.visible` / `measure.mjs` |
+| An element the site hides is drawn | visibility in `spec_to_tree.visible` / `src/capture/walk.ts` |
 | Items in the wrong place at one width | layout inference or slot flow in `responsive.ts` |
 | A box is the wrong height | sizing in `render/build_responsive.js` |
-| A lazy image missing or different | the image wait in `measure.mjs` and `capture.mjs` |
+| A lazy image missing or different | the image wait in `src/capture/browser.ts` |
 
 Never repair a component by editing the Figma file. A hand fix is gone on the next run and makes two runs differ, which is the one thing this pipeline exists to prevent.

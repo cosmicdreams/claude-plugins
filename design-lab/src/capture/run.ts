@@ -120,12 +120,12 @@ export async function runCapture(options: CaptureOptions, adapters: CaptureAdapt
           if (options.check) return record;
           if (!record.problems.length) {
             const measureStarted = performance.now();
-            let failures = ['measure.mjs'];
+            let failures = ['measurement'];
             for (const candidate of candidates) {
               cfg = move(original, candidate, options);
               for (let attempt = 0; attempt < 2; attempt++) {
                 try { spec = await isolated(browser, options.measureTimeoutMs ?? 900000, scoped => adapters.measure(scoped, cfg)); failures = measurementFailures(spec, cfg); break; }
-                catch (error) { failures = ['measure.mjs']; if (attempt === 1) record.problems = ['measurement failed: ' + String(error).slice(0, 240)]; }
+                catch (error) { failures = ['measurement']; if (attempt === 1) record.problems = ['measurement failed: ' + String(error).slice(0, 240)]; }
               }
               if (!failures.length) { record.problems = []; break; }
             }
