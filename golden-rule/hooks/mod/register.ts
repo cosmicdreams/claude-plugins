@@ -25,15 +25,21 @@ let home = ''
 let composed = false
 // The command each wrapped call must arrive with at the shell, by tool call id, for the final check.
 const expected = new Map<string, string>()
-// The guard's own paths as written and as resolved, and every known main worktree's git directories.
+// The guard's own paths as written and as resolved, every known main worktree's git directories, and the
+// watched settings files' resolved paths (a settings file may be a link to a file named anything).
 let guardRoots: string[] = []
 let gitDirs: GitDirs[] = []
+let settingsReal = new Set<string>()
 
 function io($: EngineInterface): Io {
   return {
-    // Only "not there" reads as absent; any other failure propagates and the gate's .catch refuses.
+    // Only "not there" reads as absent. A link that exists but leads nowhere (or nowhere the engine can
+    // name) cannot be placed, so it throws, as does any other failure: the gate's .catch refuses.
     realPath: path => $.fs.stat(path, { resolve: true }).then(
-      stat => stat.realPath,
+      stat => {
+        if (stat.realPath === undefined) throw new Error(`${path} cannot be resolved (a link that leads nowhere)`)
+        return stat.realPath
+      },
       (error: unknown) => {
         if (/ENOENT|not found|no such/i.test(String(error))) return undefined
         throw error
@@ -53,6 +59,9 @@ async function setup($: EngineInterface): Promise<Policy> {
     guardRoots = [...new Set([...written, ...resolved.filter((path): path is string => path !== undefined)])]
     policy = rules
     gitDirs = await knownGitDirs($, await guarded($))
+    const { settings } = await watchedFiles($)
+    const resolvedSettings = await Promise.all(settings.map(path => io($).realPath(path).catch(() => undefined)))
+    settingsReal = new Set(resolvedSettings.filter((path): path is string => path !== undefined).map(path => path.toLowerCase()))
   }
   return policy
 }
@@ -90,7 +99,8 @@ async function judgeWrite($: EngineInterface, path: string, text?: string): Prom
   const owner = governedGitPath(real, gitDirs)
   if (owner) return `${real} is git metadata of the main worktree ${owner.root}; only git itself writes there.`
   if (isGuardPath([spelled, real], guardRoots, rules)) return `${real} belongs to the golden rule's guard, which a session never changes.`
-  if (text !== undefined && (isSettingsFile(spelled) || isSettingsFile(real)) && switchesOff(text, rules.pluginId)) {
+  const settingsFile = isSettingsFile(spelled) || isSettingsFile(real) || settingsReal.has(real.toLowerCase())
+  if (text !== undefined && settingsFile && switchesOff(text, rules.pluginId)) {
     return `that change to ${real} would switch the golden rule guard off, which a session never does.`
   }
   return undefined
@@ -347,6 +357,9 @@ export const register: Register = on => {
     const tool = String(e.tool)
     const rules = await setup($)
     if (rules.mcpReadTools.some(pattern => new RegExp(pattern).test(tool))) return next(e)
+    // A session working inside a main worktree: any relative destination an MCP server takes lands there.
+    const inside = await mainWorktreeOf(await placed('.', await $.session.cwd(), home, io($)), io($))
+    if (inside) return refuse($, tool, inside, `this session's folder is inside the main worktree ${inside}, so this MCP call could write there. ${worktreeHint(inside)}`)
     const texts = strings(Object.fromEntries(Object.entries(e).filter(([key]) => key !== 'tool' && key !== 'tool_use_id' && key !== 'agentId')))
     // Whole strings that look like paths: absolute or home-relative (spaces allowed), or a relative name
     // with a folder or an extension. Ordinary text is not judged as a path.

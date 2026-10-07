@@ -220,28 +220,70 @@ def trunk_violation(text: str) -> str | None:
     return None
 
 
+SEQUENCE = re.compile(r"\s*(?:;|&&|\|\||\n)\s*")
+PIPE = re.compile(r"(?<!\|)\|(?!\|)")
+# Constructs that change directories in ways a flat reading cannot follow.
+SCOPES = re.compile(r"\(|\)|\bpushd\b|\bpopd\b|\$\(|`|\bexec\b|\bsource\b|(^|\s)\.\s")
+
+
+def git_directory(w: list[str], here: str) -> str:
+    """The directory a git command runs in: every `-C <dir>` applies in order, each relative to the last."""
+    where = here
+    if "git" not in w:
+        return where
+    args = w[w.index("git") + 1:]
+    for i, arg in enumerate(args):
+        if arg == "-C" and i + 1 < len(args):
+            where = absolute(args[i + 1], where)
+        elif not arg.startswith("-") and (i == 0 or args[i - 1] != "-C"):
+            break  # the subcommand: options after it are its own
+    return where
+
+
+def governed_owner(directory: str, every: set[str]) -> str | None:
+    repo = repository_of(deepest_real(directory))
+    return governed_repository(repo[1], every) if repo else None
+
+
 def governed_pushes(text: str, cwd: str, every: set[str]) -> str | None:
-    """Why the command would put work on a governed main without a pull request, or None. Each segment is
-    judged in the directory it runs in: `cd` moves it, and `git -C <dir>` (quoted paths included) sets it
-    for that segment. Repositories without a main worktree are left alone (decision 5)."""
+    """Why the command would put work on a governed main without a pull request, or None. Each push is
+    judged in the directory it runs in: `cd` in a plain sequence moves it, and every `git -C <dir>` applies.
+    Where the command changes directories in a way a reading cannot follow (a `cd` inside a pipeline or
+    subshell, pushd, eval and the like), every directory it could be in is judged, and any governed one
+    refuses. Repositories without a main worktree are left alone (decision 5)."""
+    if not trunk_violation(text):
+        return None
+    candidates = {cwd}
     here = cwd
-    for segment in SEGMENT.split(text):
-        w = words(segment)
-        if w[:1] == ["cd"]:
-            here = absolute(w[1], here) if len(w) > 1 and w[1] != "-" else HOME
-            continue
-        why = trunk_violation(segment)
-        if not why:
-            continue
-        where = here
-        if "git" in w and "-C" in w[w.index("git"):]:
-            at = w.index("-C", w.index("git"))
-            if at + 1 < len(w):
-                where = absolute(w[at + 1], here)
-        repo = repository_of(deepest_real(where))
-        owner = governed_repository(repo[1], every) if repo else None
+    ambiguous = bool(SCOPES.search(text)) or bool(re.search(r"\beval\b", text))
+    pushes = []
+    for sequence in SEQUENCE.split(text):
+        stages = PIPE.split(sequence)
+        for stage in stages:
+            w = words(stage)
+            if w[:1] == ["cd"]:
+                target = absolute(w[1], here) if len(w) > 1 and w[1] != "-" else HOME
+                candidates.add(target)
+                if len(stages) > 1:
+                    ambiguous = True  # whether a pipeline's cd persists depends on the shell and its place
+                else:
+                    here = target
+                continue
+            why = trunk_violation(stage)
+            if why:
+                where = git_directory(w, here)
+                candidates.add(where)
+                pushes.append((why, where))
+    for why, where in pushes:
+        owner = governed_owner(where, every)
         if owner:
             return f"this {why}; changes reach main only through a pull request (repository of {owner})."
+    if ambiguous and pushes:
+        for directory in sorted(candidates):
+            owner = governed_owner(directory, every)
+            if owner:
+                return (f"this {pushes[0][0]}, and the command changes directories in a way the guard cannot follow, "
+                        f"so it may run in the repository of {owner}; changes reach main only through a pull request.")
     return None
 
 
@@ -298,8 +340,11 @@ def precise(root: str) -> list[str]:
     deny = []
     gitdir, common = git_dirs(root)
     marker = os.path.join(root, ".git")
-    # The tree itself, every file and folder but its .git.
+    # The tree itself, every file and folder but its .git; a .git file (linked worktree, separate git dir)
+    # is itself protected, since rewriting it would redirect the main worktree to another repository.
     deny.append(f"(require-all (subpath {sb(root)}) (require-not (subpath {sb(marker)})))")
+    if os.path.isfile(marker):
+        deny.append(f"(literal {sb(marker)})")
     if gitdir == common:
         # Its own git directory: only what a feature worktree must write. HEAD, index, config, hooks,
         # info and the main branch stay denied. packed-refs is writable only while main is a loose ref,
@@ -310,9 +355,8 @@ def precise(root: str) -> list[str]:
             allowed += [f"(literal {sb(os.path.join(common, name))})" for name in ("packed-refs", "packed-refs.lock")]
         deny.append(f"(require-all (subpath {sb(common)}) " + " ".join(f"(require-not {item})" for item in allowed) + ")")
     else:
-        # A linked main worktree: its own HEAD and index live in <common>/worktrees/main; the shared
+        # A linked main worktree: its own HEAD and index live in <common>/worktrees/<id>; the shared
         # directory's HEAD and index belong to the repository's first checkout and stay writable.
-        deny.append(f"(literal {sb(marker)})")
         deny.append(f"(subpath {sb(gitdir)})")
         for name in ("config", "hooks", "info"):
             deny.append(f"(subpath {sb(os.path.join(common, name))})")

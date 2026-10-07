@@ -151,6 +151,17 @@ git -C "$root/m/base" worktree add -q "$root/m/worktrees/main" main
 id=$(basename $(sed 's/^gitdir: //' "$root/m/worktrees/main/.git"))
 gr $root/m/base 'git config core.fsmonitor evil'; [ -z "$(git -C $root/m/base config core.fsmonitor)" ] && ok "shared config of a linked main worktree with id $id refused" || no "linked id $id config"
 
+# ---- a main worktree with a separate git directory ----
+mkdir -p $root/s/worktrees; git init -q -b main --separate-git-dir=$root/s/repo.git $root/s/worktrees/main
+SEP=$(cat $root/s/worktrees/main/.git)
+gr $root "echo 'gitdir: /tmp' > $root/s/worktrees/main/.git"; [ "$(cat $root/s/worktrees/main/.git)" = "$SEP" ] && ok "a separate-git-dir main worktree's .git pointer refused" || no "separate git dir pointer"
+gr $root "git -C $root/s/worktrees/main config core.fsmonitor evil"; [ -z "$(git -C $root/s/worktrees/main config core.fsmonitor)" ] && ok "a separate-git-dir main worktree's config refused" || no "separate git dir config"
+
+# ---- push directory tracking ----
+gr $root "git -C $root/free -C $F push origin HEAD:main"; [ $? -eq 126 ] && ok "every git -C applies in order (refused in the governed one)" || no "-C ordering"
+gr $root "git -C $F -C $root/free push -q origin main"; [ $? -eq 0 ] && ok "the last git -C decides (ungoverned push allowed)" || no "-C ordering reversed" "$(tail -2 $root/out)"
+gr $F "cd $root/free | cat; git push origin HEAD:main"; [ $? -eq 126 ] && ok "a cd inside a pipeline does not carry a push out of its repository" || no "pipeline cd"
+
 # ---- hard links ----
 gr $root "ln $M/README.md $root/hard"; [ ! -e $root/hard ] && ok "a hard link to a file in main refused" || no "hard link into main created"
 

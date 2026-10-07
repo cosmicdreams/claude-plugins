@@ -79,6 +79,20 @@ describe('Layer 2: structured tools', () => {
     expect(answer.deny).toMatch(/main worktree/)
   })
 
+  test('a link that leads nowhere is refused rather than placed by its own spelling', async ($, on) => {
+    const seen = world(on, { links: { [`${FEATURE}/dangling`]: null } })
+    const answer = await $.tool.call({ tool: 'Write', file_path: `${FEATURE}/dangling`, content: 'x' })
+    expect(answer.deny).toBeDefined()
+    expect(seen.calls.length).toBe(0)
+  })
+
+  test('MCP calls are refused while the session works inside a main worktree', async ($, on) => {
+    const seen = world(on, { cwd: MAIN })
+    const answer = await $.tool.call({ tool: 'mcp__files__write_file', path: 'LICENSE', content: 'x' } as never)
+    expect(answer.deny).toMatch(/session's folder is inside the main worktree/)
+    expect(seen.calls.length).toBe(0)
+  })
+
   test('a file-identity path is refused', async ($, on) => {
     world(on)
     const answer = await $.tool.call({ tool: 'Write', file_path: '/.vol/16777234/123456', content: 'x' })
@@ -86,7 +100,7 @@ describe('Layer 2: structured tools', () => {
   })
 
   test('ordinary text in an MCP call is not judged as a path', async ($, on) => {
-    const seen = world(on, { cwd: MAIN })
+    const seen = world(on, { cwd: FEATURE })
     await $.tool.call({ tool: 'mcp__chat__send_message', text: 'the build is green' } as never)
     expect(seen.calls.length).toBe(1)
   })

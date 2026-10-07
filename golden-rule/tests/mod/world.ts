@@ -43,11 +43,11 @@ function withAncestors(paths: string[]): Set<string> {
 
 export type Recorded = { calls: Array<Record<string, unknown>>; toasts: string[]; writes: Array<{ path: string; text: string }> }
 
-export function world(on: On, options: { cwd?: string; files?: Record<string, string>; links?: Record<string, string>; failEnv?: boolean } = {}): Recorded {
+export function world(on: On, options: { cwd?: string; files?: Record<string, string>; links?: Record<string, string | null>; failEnv?: boolean } = {}): Recorded {
   const recorded: Recorded = { calls: [], toasts: [], writes: [] }
   const files: Record<string, string> = { ...CONTENTS, ...options.files }
   const links = options.links ?? {}
-  const existing = withAncestors([...FILES, ...Object.keys(files), ...Object.keys(links), ...Object.values(links)])
+  const existing = withAncestors([...FILES, ...Object.keys(files), ...Object.keys(links), ...Object.values(links).filter((to): to is string => to !== null)])
   // A path is a file when it is listed, or has contents; every other existing path is a folder.
   // A plain `.git` marker is a folder; a linked worktree's `.git` has contents and is a file.
   const isFile = (path: string): boolean => path in files || (FILES.includes(path) && !path.endsWith('/.git'))
@@ -61,7 +61,7 @@ export function world(on: On, options: { cwd?: string; files?: Record<string, st
     return e.path in files ? { value: files[e.path] } : { deny: `ENOENT: ${e.path}` }
   })
   on('fs.stat', ($, e) => (existing.has(e.path)
-    ? { value: { kind: isFile(e.path) ? 'file' : 'dir', size: 0, mtimeMs: 0, isLink: e.path in links, realPath: links[e.path] ?? e.path } }
+    ? { value: { kind: isFile(e.path) ? 'file' : 'dir', size: 0, mtimeMs: 0, isLink: e.path in links, ...(links[e.path] === null ? {} : { realPath: links[e.path] ?? e.path }) } }
     : { deny: `ENOENT: ${e.path}` }))
   on('fs.exists', ($, e) => ({ value: existing.has(e.path) }))
   on('fs.list', ($, e) => {
