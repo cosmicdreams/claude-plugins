@@ -1,3 +1,4 @@
+import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
 /** Every queue step, including images, with immutable source runs copied to /tmp. */
 import assert from 'node:assert/strict';
 import { cpSync, existsSync, readFileSync, readdirSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -15,7 +16,7 @@ import { Renderer } from '../../src/render-payload.ts';
 import { assertPayloadParity, assertTemplates, legacyRuntime } from './template-parity.ts';
 import { assertRunnerClientParity } from './runner-client-parity.ts';
 import {assertPixels,freshImages} from './image-pixels.ts';
-const currentRenderer = new Renderer(), legacyRenderer = new Renderer(undefined, 'javascript');
+const currentRenderer = new Renderer(), legacyRenderer = new Renderer(resolve(oracleScripts, 'render'), 'javascript');
 const templates = assertTemplates();
 const runner = assertRunnerClientParity();
 const runtime = (value: unknown): unknown => legacyRuntime(value, currentRenderer.runtimeHash(), legacyRenderer.runtimeHash());
@@ -50,7 +51,7 @@ const pendingRuns = Object.entries(sources).filter(([run, source]) => {
   const path = resolve(root, run, 'python/oracle.json'); return !existsSync(path) || load<{ transcript: unknown[] }>(path, '').transcript.length !== initial.steps.length;
 }).map(([run]) => run);
 if (pendingRuns.length) {
-  const python = spawnSync(process.env['DESIGN_LAB_PYTHON'] ?? 'python3', [resolve(pluginRoot, 'tests/equivalence/driver-oracle.py'), ...pendingRuns.map(run => resolve(root, run, 'python'))], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' }, maxBuffer: 8 * 1024 * 1024 });
+  const python = spawnSync(oracleExecutable, [oracleScript('driver-oracle.py'), ...pendingRuns.map(run => resolve(root, run, 'python'))], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' }, maxBuffer: 8 * 1024 * 1024 });
   assert.equal(python.status, 0, python.stdout + '\n' + python.stderr);
 }
 const summary: Record<string, unknown> = {};

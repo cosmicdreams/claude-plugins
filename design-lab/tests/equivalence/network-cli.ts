@@ -1,5 +1,6 @@
+import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
 import { writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve } from "node:path";
 import { spawnSync } from "node:child_process";
 import { pluginRoot } from "../../src/runtime.ts";
 export async function findExamplesMain(args: {
@@ -32,7 +33,7 @@ export async function findExamplesMain(args: {
   ];
   const python = spawnSync(
     args.python,
-    [join(pluginRoot, "scripts/find_examples.py"), ...flags],
+    [resolve(oracleScripts, 'find_examples.py'), ...flags],
     {
       encoding: "utf8",
       env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" },

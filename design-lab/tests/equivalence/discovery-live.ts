@@ -1,3 +1,4 @@
+import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
 /** DB and bounded local HTTP oracle acceptance. Run after discovery.ts in the same scratch tree. */
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
@@ -23,7 +24,7 @@ import type { Dict } from "../../src/discovery-io.ts";
 import type { Page } from "../../src/find-rendered-components.ts";
 import { findExamplesMain } from "./network-cli.ts";
 
-const python = process.env["DESIGN_LAB_PYTHON"] ?? "python3";
+const python = oracleExecutable;
 export async function main(output: string): Promise<void> {
   output = resolve(output);
   if (!/^\/(private\/)?tmp\//.test(output))
@@ -77,7 +78,7 @@ export async function main(output: string): Promise<void> {
       const p = spawnSync(
         python,
         [
-          join(pluginRoot, "tests/equivalence/discovery-oracle.py"),
+          oracleScript('discovery-oracle.py'),
           join(scratch, `request-${stage}.json`),
         ],
         {

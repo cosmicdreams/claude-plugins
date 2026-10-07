@@ -1,3 +1,4 @@
+import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
 /** Real local HTTP, recorded Figma results, isolated scratch runs. Never executes Figma code. */
 import assert from 'node:assert/strict';
 import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
@@ -43,7 +44,7 @@ function normalize(value: unknown, project: string): unknown {
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).map(([k,v]) => [k,normalize(v,project)]));
   return value;
 }
-const current = new Renderer().runtimeHash(), legacy = new Renderer(undefined, 'javascript').runtimeHash();
+const current = new Renderer().runtimeHash(), legacy = new Renderer(resolve(oracleScripts, 'render'), 'javascript').runtimeHash();
 function comparison(project: string, other: string, runtime = current, oracleRuntime = legacy): void {
   const comparable = (value:unknown) => legacyRuntime(value,runtime,oracleRuntime);
   assert.deepEqual(normalize(comparable(load(project,'figma/state.json')),project), normalize(load(other,'figma/state.json'),other), 'final state');
@@ -107,7 +108,7 @@ function prepare(lane:string):string {
 }
 async function pythonLane(lane:string,scripts:string):Promise<{project:string;summary:Record<string,unknown>}> {
   const project=prepare(lane),home=resolve(scratch,lane+'-home');mkdirSync(home,{recursive:true});
-  const child=spawn(process.env['DESIGN_LAB_PYTHON']??'python3',[resolve(pluginRoot,'tests/equivalence/runner-control.py'),scripts,project],{env:{...process.env,DESIGN_LAB_HOME:home,PYTHONDONTWRITEBYTECODE:'1',SMOKE_GENERATED_AT:'2026-10-07T00:00:00Z'},stdio:['pipe','pipe','pipe']});
+  const child=spawn(oracleExecutable,[oracleScript('runner-control.py'),scripts,project],{env:{...process.env,DESIGN_LAB_HOME:home,PYTHONDONTWRITEBYTECODE:'1',SMOKE_GENERATED_AT:'2026-10-07T00:00:00Z'},stdio:['pipe','pipe','pipe']});
   let errors='';child.stderr.on('data',chunk=>{errors+=String(chunk)});
   const lines=createInterface({input:child.stdout}); const iterator=lines[Symbol.asyncIterator]();
   const nextJson=async (field:string):Promise<Record<string,unknown>> => {
@@ -133,7 +134,7 @@ if(process.env['DESIGN_LAB_SMOKE_CORRUPT_FILE']==='1') {
 const server=makeServer(new Map([[old.fileKey,build]]),'smoke-token',{ctx});
 let tsSummary:Record<string,unknown>;
 try { tsSummary=await drive(await server.listen(0),pluginVersion(),project); } finally { await server.close(); }
-const python=await pythonLane('python',resolve(pluginRoot,'scripts'));
+const python=await pythonLane('python',oracleScripts);
 const time=new Date(load<{generatedAt:string}>(python.project,'index.json').generatedAt);
 const receipts=generate(project,time);writeOnChange(resolve(project,'smoke-receipts.json'),receipts.map(r=>relative(project,r.path)));
 tsSummary['receipts']=receipts.length;comparison(project,python.project);

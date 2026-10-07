@@ -1,3 +1,4 @@
+import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
 /** Compare every measured component in five read-only runs; all writes go to /tmp. */
 import { readFileSync, existsSync, readdirSync, mkdirSync, copyFileSync, mkdtempSync } from 'node:fs';
 import { homedir } from 'node:os';
@@ -30,8 +31,8 @@ for (const [run, source] of Object.entries(sources)) {
   }
 }
 writeJson(resolve(root, 'manifest.json'), manifest);
-const python = process.env['DESIGN_LAB_PYTHON'] ?? 'python3';
-const oracle = spawnSync(python, [resolve(pluginRoot, 'tests/equivalence/trees-oracle.py'), resolve(root, 'manifest.json')], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
+const python = oracleExecutable;
+const oracle = spawnSync(python, [oracleScript('trees-oracle.py'), resolve(root, 'manifest.json')], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
 assert.equal(oracle.status, 0, oracle.stderr);
 const renderer = new Renderer();
 const normalizePayloadSource = (source: string): string => tokens(withoutCache(source.split('\n').slice(4).join('\n'), renderer.units.get('_cache') ?? ''));

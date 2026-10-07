@@ -1,3 +1,4 @@
+import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
 /** Real repository oracle comparisons. Reads sites/runs; all generated artifacts live in /tmp. */
 import { mkdtempSync, readFileSync, existsSync, mkdirSync } from "node:fs";
 import { tmpdir, homedir } from "node:os";
@@ -161,10 +162,10 @@ export async function main(rootArg?: string, usage = false): Promise<void> {
     };
     const reqFile = join(siteOut, "request.json");
     writeJson(reqFile, request);
-    const python = process.env["DESIGN_LAB_PYTHON"] ?? "python3";
+    const python = oracleExecutable;
     const oracle = spawnSync(
       python,
-      [join(pluginRoot, "tests/equivalence/discovery-oracle.py"), reqFile],
+      [oracleScript('discovery-oracle.py'), reqFile],
       {
         encoding: "utf8",
         env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" },

@@ -1,3 +1,4 @@
+import { oracleScript, oracleScripts, oracleExecutable, oracleRoot } from './oracle.ts';
 /** Six copied runs, fresh Python/TS verification and scoring, independently rendered reports. */
 import {existsSync,readFileSync,writeFileSync,mkdirSync,cpSync,realpathSync} from 'node:fs';
 import {resolve} from 'node:path';
@@ -13,14 +14,16 @@ import {score,completionMessage} from '../../src/score-run.ts';
 import {render} from '../../src/score-report.ts';
 import {compareReports,compareCompletion} from './report.ts';
 export const ignoredFields=['/generatedAt','/sections/cost/clock/scorerSeconds'];
-export function normalize(value:any,path=''):any {if(Array.isArray(value))return value.map((v,i)=>normalize(v,path+'/'+i));if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).filter(([k])=>!ignoredFields.includes(path+'/'+k)).map(([k,v])=>[k,normalize(v,path+'/'+k)]));return value;}
+export const cutoverText=(s:string):string=>s.replaceAll('workflow.py', 'workflow.ts').replaceAll('score_run.py', 'score_run.ts').replaceAll('figma_build.py', 'figma_build.ts');
+const currentGenerator='design-lab '+JSON.parse(readFileSync(resolve(pluginRoot,'.claude-plugin/plugin.json'),'utf8')).version,baselineGenerator='design-lab '+JSON.parse(readFileSync(resolve(oracleRoot,'design-lab/.claude-plugin/plugin.json'),'utf8')).version;
+export function normalize(value:any,path=''):any {if(typeof value==='string')return path==='/generator'?value.replace(baselineGenerator,currentGenerator):cutoverText(value);if(Array.isArray(value))return value.map((v,i)=>normalize(v,path+'/'+i));if(value&&typeof value==='object')return Object.fromEntries(Object.entries(value).filter(([k])=>!ignoredFields.includes(path+'/'+k)).map(([k,v])=>[k,normalize(v,path+'/'+k)]));return value;}
 export function differences(a:any,b:any,path='',out:string[]=[]):string[] {if(out.length>=60||Object.is(a,b))return out;if(!a||!b||typeof a!=='object'||typeof b!=='object'){out.push(path+': '+JSON.stringify(a)+' != '+JSON.stringify(b));return out;}for(const key of new Set([...Object.keys(a),...Object.keys(b)]))differences(a[key],b[key],path+'/'+key,out);return out;}
 const read=(path:string):any=>JSON.parse(readFileSync(path,'utf8'));
 export async function evaluationParity(root:string) {
  if(!root.startsWith('/tmp/'))throw new Error('equivalence root must be under /tmp');mkdirSync(root,{recursive:true});
  const home=homedir(),sources=[['definitive-03',resolve(home,'Sites/DEFINITIVEHC/design/2026-10-03')],['definitive-05',resolve(home,'Sites/DEFINITIVEHC/design/2026-10-05')],['pncb',resolve(home,'.design/pncb/2026-10-06')],...['massport','kingtec','americas-credit-unions'].map(n=>[n,resolve(home,'Tools/design-lab-corpus',n)])];
  const results:any[]=[];
- const python=(request:any)=>{const path=resolve(root,request.site+'-request.json');writeJson(path,request);const p=spawnSync(process.env.DESIGN_LAB_PYTHON??'python3',[resolve(pluginRoot,'tests/equivalence/evaluation-oracle.py'),path],{encoding:'utf8',env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}});if(p.status!==0)throw new Error('Python oracle: '+p.stderr);};
+ const python=(request:any)=>{const path=resolve(root,request.site+'-request.json');writeJson(path,request);const p=spawnSync(oracleExecutable,[oracleScript('evaluation-oracle.py'),path],{encoding:'utf8',env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}});if(p.status!==0)throw new Error('Python oracle: '+p.stderr);};
  for(const [site,source]of sources) {
   const run=resolve(root,site!,'run'),py=resolve(root,site!,'python'),ts=resolve(root,site!,'typescript');if(!existsSync(run))cpSync(source!,run,{recursive:true,preserveTimestamps:true,filter:p=>!p.split('/').includes('replays')});mkdirSync(py,{recursive:true});mkdirSync(ts,{recursive:true});
   const row:any={site,source,run,artifacts:{},timings:{python:{},typescript:{}}};results.push(row);
@@ -39,10 +42,12 @@ export async function evaluationParity(root:string) {
   }else row.artifacts.verify={status:'skipped',reason:'no saved root/page or merged whole-file verification state; no Figma actions authorized'};
   try {
    const reportPath=resolve(run,'benchmark/report.html'),generatedAt='2026-10-07T00:00:00+00:00';python({action:'score',site,run,out:py,reportPath,generatedAt});Object.assign(row.timings.python,read(resolve(py,'timings.json')));
+   // Only the required command-prefix and generator-version cutover text differs.
+   for(const name of ['report.html','completion.md']){const file=resolve(py,name);writeFileSync(file,cutoverText(readFileSync(file,'utf8')).replaceAll(baselineGenerator,currentGenerator));}
    const start=performance.now(),card=await score(run);row.timings.typescript.score=(performance.now()-start)/1000;writeJson(resolve(ts,'scorecard.json'),card);
    const delta=differences(normalize(read(resolve(py,'scorecard.json'))),normalize(card));row.artifacts.scorecard={status:delta.length?'mismatch':'match',differences:delta,ajv:validate('scorecard',card)};
    card.generatedAt=generatedAt;card.sections.cost.clock!.scorerSeconds=0;
-   const began=performance.now();writeFileSync(resolve(ts,'report.html'),await render(card,run));row.timings.typescript.report=(performance.now()-began)/1000;
+   const began=performance.now();writeFileSync(resolve(ts,'report.html'),cutoverText(await render(card,run)));row.timings.typescript.report=(performance.now()-began)/1000;
    const completion=completionMessage(card,reportPath);writeFileSync(resolve(ts,'completion.md'),completion);row.artifacts.completion={status:completion===readFileSync(resolve(py,'completion.md'),'utf8')?'match':'mismatch'};
    const completionView=await compareCompletion(resolve(py,'completion.md'),resolve(ts,'completion.md'),resolve(root,site!,'completion-comparison'));row.artifacts.completion={status:completionView.textMatch&&completionView.domMatch&&completionView.screenshot.match?'match':'mismatch',...completionView};
    const report=await compareReports(resolve(py,'report.html'),resolve(ts,'report.html'),resolve(root,site!,'report-comparison'));row.artifacts.report={status:report.domMatch&&report.images.every(i=>i.match)&&report.screenshot.match?'match':'mismatch',...report};

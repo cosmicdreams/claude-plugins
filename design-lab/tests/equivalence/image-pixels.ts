@@ -1,3 +1,4 @@
+import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
 import assert from 'node:assert/strict';
 import {mkdirSync,readFileSync,writeFileSync} from 'node:fs';
 import {resolve} from 'node:path';
@@ -6,27 +7,12 @@ import {sharedRequire,pluginRoot} from '../../src/runtime.ts';
 import {fetchImages} from '../../src/fetch-images.ts';
 import {fitFigmaImage} from '../../src/figma-runner.ts';
 const sharp=sharedRequire()('sharp') as typeof import('sharp').default;
-export interface PixelTolerance {mean:number;max:number;fraction:number;above:number}
-export const EXACT:PixelTolerance={mean:0,max:0,fraction:0,above:0};
-// Independent Lanczos implementations and SVG antialiasing can disagree at edges.
-// Mean error <= 1/255, no more than 1% channels > 16, and max <= 64/255.
-// JPEG also differs through decoder/encoder quantization (separate, stricter max bound).
-export const JPEG:PixelTolerance={mean:2,max:32,fraction:0.01,above:16};
-export const EDGE:PixelTolerance={mean:1,max:64,fraction:0.01,above:16};
-export async function assertPixels(actual:Buffer,expected:Buffer,label:string,tolerance:PixelTolerance=EXACT) {
-  const decode=async(data:Buffer)=>sharp(data).toColourspace('srgb').ensureAlpha().raw().toBuffer({resolveWithObject:true});
-  const [a,b]=await Promise.all([decode(actual),decode(expected)]);
-  assert.deepEqual(a.info,b.info,label+': decoded shape');
-  let sum=0,max=0,above=0;
-  for(let i=0;i<a.data.length;i++){const d=Math.abs(a.data[i]!-b.data[i]!);sum+=d;max=Math.max(max,d);if(d>tolerance.above)above++;}
-  const stats={mean:sum/a.data.length,max,fraction:above/a.data.length};
-  assert.ok(stats.mean<=tolerance.mean&&stats.max<=tolerance.max&&stats.fraction<=tolerance.fraction,label+': '+JSON.stringify(stats)+' tolerance '+JSON.stringify(tolerance));
-  return stats;
-}
+export {assertPixels,EXACT,JPEG,EDGE} from './pixel-compare.ts';
+import {assertPixels,EXACT,JPEG,EDGE} from './pixel-compare.ts';
 export interface OracleImage {source:string;target:string;action:'fit'|'convert';contentType?:string}
 export function oracleImages(rows:OracleImage[],root:string) {
   assert.ok(root.startsWith('/tmp/'));mkdirSync(root,{recursive:true});const input=resolve(root,'image-oracle-input.json');writeFileSync(input,JSON.stringify(rows));
-  const out=spawnSync(process.env['DESIGN_LAB_PYTHON']??'python3',[resolve(pluginRoot,'tests/equivalence/image-oracle.py'),input],{encoding:'utf8',env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}});
+  const out=spawnSync(oracleExecutable,[oracleScript('image-oracle.py'),input],{encoding:'utf8',env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}});
   assert.equal(out.status,0,out.stderr);
 }
 export async function freshImages(root:string) {

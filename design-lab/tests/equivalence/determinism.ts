@@ -1,3 +1,4 @@
+import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
 /** Cross-run determinism verdicts, including a differing layout pair, against the Python oracle. */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -13,7 +14,7 @@ for(const [a,b] of [['definitive-03','definitive-05'],['definitive-05','massport
  const out=resolve(root,'determinism',a+'-'+b);mkdirSync(out,{recursive:true});const hashes=[];
  for(const [i,path] of paths.entries()) {
   const request=resolve(out,'request.json');writeFileSync(request,JSON.stringify({action:'determinism',run:path,out}));
-  const py=spawnSync(process.env.DESIGN_LAB_PYTHON??'python3',[resolve(pluginRoot,'tests/equivalence/evaluation-oracle.py'),request],{encoding:'utf8',env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}});assert.equal(py.status,0,py.stderr);
+  const py=spawnSync(oracleExecutable,[oracleScript('evaluation-oracle.py'),request],{encoding:'utf8',env:{...process.env,PYTHONDONTWRITEBYTECODE:'1'}});assert.equal(py.status,0,py.stderr);
   hashes[i]=JSON.parse(readFileSync(resolve(out,'determinism.json'),'utf8')).hash as string;
  }
  const expectedFile=resolve(out,'expected.txt');writeFileSync(expectedFile,hashes[1]!);const expected={expected:hashes[1],actual:hashes[0],pass:hashes[0]===hashes[1]},actual=checkHash(paths[0]!,expectedFile);assert.deepEqual(actual,expected);

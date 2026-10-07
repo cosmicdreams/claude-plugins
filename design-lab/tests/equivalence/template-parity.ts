@@ -1,3 +1,4 @@
+import { oracleScripts, oracleRoot } from './oracle.ts';
 /** Compare parsed executable bodies after type stripping, preserving literal values. */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
@@ -24,8 +25,9 @@ export function withoutCache(source: string, cache: string): string {
     .replaceAll('DL_API.invalidateVariables();', '');
 }
 export function legacyRuntime(value: unknown, current: string, legacy: string): unknown {
+  if (typeof value === 'string') return value.replaceAll('figma_build.ts init, then next/record until done', 'figma_build.py init, then next/record until done');
   if (Array.isArray(value)) return value.map(v => legacyRuntime(v, current, legacy));
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([k]) => !['buildId','executionRevision'].includes(k)).map(([k, v]) => [k, k === 'runtime' && v === current ? legacy : legacyRuntime(v, current, legacy)]));
+  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([k]) => !['buildId','executionRevision'].includes(k)).map(([k, v]) => [k, k === 'runtime' && v === current ? legacy : ['toolVersion', 'generator'].includes(k) && v === 'design-lab ' + JSON.parse(readFileSync(resolve(pluginRoot, '.claude-plugin/plugin.json'), 'utf8')).version ? 'design-lab ' + JSON.parse(readFileSync(resolve(oracleRoot, 'design-lab/.claude-plugin/plugin.json'), 'utf8')).version : legacyRuntime(v, current, legacy)]));
   return value;
 }
 export function assertPayloadParity(actual: string, expected: string, current: Renderer, legacy: Renderer, message: string): void {
@@ -40,14 +42,14 @@ export function assertPayloadParity(actual: string, expected: string, current: R
   assert.deepEqual(tokens(withoutCache(body(actual), current.units.get('_cache') ?? '')), tokens(body(expected)), message + ': executable body');
 }
 export function assertTemplates(): { units: number; dumps: number } {
-  const current = new Renderer(), legacy = new Renderer(undefined, 'javascript');
+  const current = new Renderer(), legacy = new Renderer(resolve(oracleScripts, 'render'), 'javascript');
   for (const [name, source] of legacy.units) assert.deepEqual(tokens(withoutCache(current.units.get(name)!, '')), tokens(source), name);
   let dumps = 0;
   for (const name of ['root', 'tree', 'page', 'getting_started']) {
     const file = `figma_dump_${name}`;
     // Dump templates use the same marked async-body extraction as render units.
     const source = stripTemplate(readFileSync(resolve(pluginRoot, 'templates/figma', file + '.ts'), 'utf8'));
-    assert.deepEqual(tokens(withoutCache(source, '')), tokens(readFileSync(resolve(pluginRoot, 'scripts', file + '.js'), 'utf8')), file); dumps++;
+    assert.deepEqual(tokens(withoutCache(source, '')), tokens(readFileSync(resolve(oracleScripts, file + '.js'), 'utf8')), file); dumps++;
   }
   return { units: legacy.units.size, dumps };
 }

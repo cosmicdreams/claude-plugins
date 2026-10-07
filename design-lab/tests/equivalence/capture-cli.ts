@@ -1,3 +1,4 @@
+import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
 /** Exercise the complete TS capture CLI against saved, independently captured Python/mjs fixtures. */
 import { strict as assert } from 'node:assert';
 import { readFileSync, readdirSync, mkdtempSync } from 'node:fs';
@@ -21,9 +22,9 @@ for (const concurrency of [1, 4]) {
     '--fresh', '--concurrency', String(concurrency)], { encoding: 'utf8', timeout: 600000 });
   assert.equal(command.status, 0, command.stdout + command.stderr);
   const wallMs = performance.now() - start;
-  const hashes = spawnSync(process.env['DESIGN_LAB_PYTHON'] ?? 'python3', ['-c',
+  const hashes = spawnSync(oracleExecutable, ['-c',
     'import json,sys; from pathlib import Path; sys.path.insert(0,sys.argv[1]); import capture_all; configs=[json.loads(p.read_text()) for p in Path(sys.argv[2]).glob("*.json")]; print(json.dumps({c["componentId"]:capture_all.config_hash(c,1.0) for c in configs}))',
-    resolve(pluginRoot, 'scripts'), resolve(fixtures, 'configs')], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
+    oracleScripts, resolve(fixtures, 'configs')], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
   assert.equal(hashes.status, 0, hashes.stderr);
   const oracleHashes = JSON.parse(hashes.stdout) as Record<string, string>;
   const index = resolve(project, 'capture/shots/index.json');
@@ -47,7 +48,7 @@ for (const concurrency of [1, 4]) {
   }
   // The same index/files isolate evidence assembly from temporary path differences.
   const oracleFile = resolve(project, 'evidence.oracle.json');
-  const oracle = spawnSync(process.env['DESIGN_LAB_PYTHON'] ?? 'python3', [resolve(pluginRoot, 'scripts/assemble_capture_evidence.py'),
+  const oracle = spawnSync(oracleExecutable, [resolve(oracleScripts, 'assemble_capture_evidence.py'),
     index, '--out', oracleFile, '--canonical-base-url', 'https://www.pncb.org'], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
   assert.equal(oracle.status, 0, oracle.stdout + oracle.stderr);
   const expected = JSON.parse(readFileSync(oracleFile, 'utf8')) as Record<string, unknown>;

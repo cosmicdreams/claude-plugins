@@ -1,3 +1,4 @@
+import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
 /** Compare full offline font plans and summaries with unchanged Python on scratch inputs. */
 import assert from 'node:assert/strict';
 import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
@@ -18,7 +19,7 @@ interface ExpectedCase {
 }
 const root = resolve(process.argv[2] ?? mkdtempSync('/tmp/design-lab-font-equivalence-'));
 assert.ok(root.startsWith('/tmp/') || root.startsWith('/private/tmp/'), `scratch path must be under /tmp: ${root}`);
-const started = performance.now(), python = spawnSync(process.env['DESIGN_LAB_PYTHON'] ?? 'python3', [resolve(pluginRoot, 'tests/equivalence/fonts-oracle.py'), root], {
+const started = performance.now(), python = spawnSync(oracleExecutable, [oracleScript('fonts-oracle.py'), root], {
   encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' }, maxBuffer: 8 * 1024 * 1024,
 });
 assert.equal(python.status, 0, python.stdout + '\n' + python.stderr);
