@@ -98,11 +98,16 @@ def read_record(record_path):
 
 
 def candidate_pages(cfg, component, limit):
-    """The scaffolded page first, then the other verified example pages, at most `limit`."""
+    """The scaffolded page first, then the other verified example pages, then the
+    unverified candidates (Site Studio usage cannot verify rendered markers, so its
+    examples stay candidates; the first one is often login-gated), at most `limit`."""
     pages = [cfg["path"]]
-    for example in (component.get("usage") or {}).get("examples") or []:
-        if isinstance(example, dict) and example.get("path") and example["path"] not in pages:
-            pages.append(example["path"])
+    usage = component.get("usage") or {}
+    for key in ("examples", "renderedExamples", "exampleCandidates"):
+        for example in usage.get(key) or []:
+            path = example.get("path") if isinstance(example, dict) else example
+            if isinstance(path, str) and path and path not in pages:
+                pages.append(path)
     return pages[:limit]
 
 

@@ -55,6 +55,20 @@ class CaptureAllTest(unittest.TestCase):
                 "renderedExamples": [], "exampleCandidates": ["/candidate", "/later"]}),
                 {"path": "/candidate"})
 
+    def test_candidate_pages_fall_back_to_unverified_candidates(self):
+        component = {"usage": {"examples": [{"path": "/verified"}],
+                               "exampleCandidates": ["/login-gated", "/", {"path": "/verified"}]}}
+        self.assertEqual(["/login-gated", "/verified", "/"],
+                         capture_all.candidate_pages({"path": "/login-gated"}, component, 5))
+        self.assertEqual(["/login-gated", "/verified"],
+                         capture_all.candidate_pages({"path": "/login-gated"}, component, 2))
+        self.assertEqual(["/x"], capture_all.candidate_pages({"path": "/x"}, {}, 3))
+
+    def test_scaffold_finds_the_master_template_page_for_site_studio(self):
+        self.assertEqual({"path": "/"}, scaffold_configs.first_example({
+            "examples": [], "exampleCandidates": ["/"],
+            "templates": ["cohesion_templates.cohesion_master_templates.master_template"]}))
+
     def fake_runner(self, workspace, calls, visible=None, measure_fails=()):
         """Stand in for the node scripts. `visible` maps a component id to the page the
         selector check finds it on (None: found nowhere); `measure_fails` lists pages
