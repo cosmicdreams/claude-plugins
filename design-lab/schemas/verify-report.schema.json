@@ -31,9 +31,15 @@
             "type": "string"
           },
           "evidence": {
-            "type": "array",
+            "type": [
+              "array",
+              "null"
+            ],
             "items": {
-              "type": "string"
+              "type": [
+                "string",
+                "number"
+              ]
             }
           },
           "scope": {
@@ -57,9 +63,15 @@
             "type": "string"
           },
           "evidence": {
-            "type": "array",
+            "type": [
+              "array",
+              "null"
+            ],
             "items": {
-              "type": "string"
+              "type": [
+                "string",
+                "number"
+              ]
             }
           },
           "scope": {

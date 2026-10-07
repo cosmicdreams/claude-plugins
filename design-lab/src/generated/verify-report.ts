@@ -6,7 +6,7 @@ export interface VerifyReport {
   open: {
     check?: string;
     detail?: string;
-    evidence?: string[];
+    evidence?: (string | number)[] | null;
     scope?: string;
     severity?: string;
     [k: string]: unknown;
@@ -14,7 +14,7 @@ export interface VerifyReport {
   waived: {
     check?: string;
     detail?: string;
-    evidence?: string[];
+    evidence?: (string | number)[] | null;
     scope?: string;
     severity?: string;
     waiver?: {
