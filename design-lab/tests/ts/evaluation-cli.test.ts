@@ -10,7 +10,7 @@ import { validate } from '../../src/contracts.ts';
 import { hashLayout } from '../../src/determinism.ts';
 import { evaluate, waitForBuild } from '../../src/rebuild.ts';
 const write=(path:string,data:unknown)=>{mkdirSync(resolve(path,'..'),{recursive:true});writeFileSync(path,JSON.stringify(data));};
-const cli=(args:string[])=>spawnSync(process.execPath,[resolve(pluginRoot,'scripts/evaluation.ts'),...args],{encoding:'utf8',env:process.env});
+const cli=(args:string[],env:Record<string,string>={})=>spawnSync(process.execPath,[resolve(pluginRoot,'scripts/evaluation.ts'),...args],{encoding:'utf8',env:{...process.env,...env}});
 
 test('run-mode verification honors explicit waivers and output paths',()=>{
  const root=mkdtempSync(resolve(tmpdir(),'design-lab-verify-cli-'));
@@ -51,5 +51,16 @@ test('in-process evaluation records failed quality and still produces the benchm
   const result=await evaluate(root),project=JSON.parse(readFileSync(resolve(root,'project.json'),'utf8'));
   assert.equal(result.quality,'failed');assert.equal(project.phases.verify.status,'failed');assert.equal(project.phases.verify.detail.execution,'finished');assert.equal(project.artifacts.verifyReport.valid,true);
   const card=JSON.parse(readFileSync(result.scorecard,'utf8'));assert.deepEqual(validate('scorecard',card),[]);assert.match(readFileSync(resolve(root,'benchmark/report.html'),'utf8'),/<!DOCTYPE html>/i);assert.match(readFileSync(resolve(root,'benchmark/completion.md'),'utf8'),/report/i);
+ }finally{rmSync(root,{recursive:true,force:true});}
+});
+
+
+test('comparison CLI writes Markdown and scoreboard rows remain streamable JSONL',()=>{
+ const root=mkdtempSync(resolve(tmpdir(),'design-lab-evaluation-cli-'));
+ try {
+  const a=resolve(root,'a'),b=resolve(root,'b'),markdown=resolve(root,'comparison.md');mkdirSync(resolve(a,'figma'),{recursive:true});mkdirSync(resolve(b,'figma'),{recursive:true});
+  const result=cli(['compare-runs',a,b,'--md',markdown]);assert.equal(result.status,0,result.stderr);assert.match(readFileSync(markdown,'utf8'),/# Repeatability across runs/);
+  const ledger=resolve(root,'ledger.jsonl'),config=resolve(root,'config.json');writeFileSync(ledger,'{"site":"first"}\n{"site":"second"}\n');write(config,{corpus:resolve(root,'corpus'),scoreboard:{ledger,dashboard:resolve(root,'dashboard.html')}});
+  const rows=cli(['scoreboard','rows'],{DESIGN_LAB_CONFIG:config});assert.equal(rows.status,0,rows.stderr);assert.deepEqual(rows.stdout.trim().split('\n').map(line=>JSON.parse(line).site),['first','second']);
  }finally{rmSync(root,{recursive:true,force:true});}
 });

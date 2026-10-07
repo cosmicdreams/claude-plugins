@@ -94,8 +94,8 @@ export function renderPair(report: ReturnType<typeof compareRuns>): string {
   for (const [name, item] of Object.entries(report.page_differences) as [string, any][]) { lines.push(`#### ${name}`, '', `Added: ${item.added.join(', ') || 'none'}; removed: ${item.removed.join(', ') || 'none'}`); for (const [path, groups] of Object.entries(item.changes) as [string, any][]) { lines.push(`- \`${path}\``); for (const [category, changes] of Object.entries(groups) as [string, Difference[]][]) for (const c of changes) lines.push(`  - ${category} \`${c.path}\`: ${JSON.stringify(c.a)} → ${JSON.stringify(c.b)}`); } lines.push(''); }
   lines.push('Category counts: ' + Object.entries(s.category_counts).map(([k, v]) => `${k} ${v}`).join(', '), 'Ratios: ' + Object.entries(s.ratios).map(([k, v]) => `${k} ${v.toFixed(4)}`).join(', '), ''); return lines.join('\n');
 }
-export function renderReport(runs: string[]): string {
-  const report = compareMany(runs), lines = ['# Repeatability across runs', '', ...report.comparisons.map(renderPair), '## Summary matrix', '', `| Run | ${runs.join(' | ')} |`, `|---|${'---:|'.repeat(runs.length)}`];
+export function renderReport(runs: string[], report = compareMany(runs)): string {
+  const lines = ['# Repeatability across runs', '', ...report.comparisons.map(renderPair), '## Summary matrix', '', `| Run | ${runs.join(' | ')} |`, `|---|${'---:|'.repeat(runs.length)}`];
   for (const a of runs) lines.push(`| ${a} | ${runs.map(b => report.summary_matrix[a]![b]!.toFixed(2)).join(' | ')} |`);
   return lines.join('\n') + '\n';
 }

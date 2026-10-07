@@ -1,13 +1,14 @@
 #!/usr/bin/env node
 /** Phase-four CLI; the existing skills remain on Python until the phase-five cutover. */
-import {readFileSync} from 'node:fs';
+import {readFileSync,writeFileSync} from 'node:fs';
+import {spawnSync} from 'node:child_process';
 import {resolve} from 'node:path';
 import {pathToFileURL} from 'node:url';
 import {writeJson} from '../src/contracts.ts';
 
 export async function main(argv=process.argv.slice(2)):Promise<number> {
  const [command,...args]=argv,positionals:string[]=[],options:Record<string,string[]|boolean>={};
- for(let i=0;i<args.length;i++){const arg=args[i]!;if(!arg.startsWith('--')){positionals.push(arg);continue;}const name=arg.slice(2);if(['all','json','no-html'].includes(name)){options[name]=true;continue;}const values=[];while(i+1<args.length&&!args[i+1]!.startsWith('--')){values.push(args[++i]!);if(!['compare','session','transcripts','run'].includes(name))break;}if(!values.length)throw new Error('missing value for '+arg);options[name]=values;}
+ for(let i=0;i<args.length;i++){const arg=args[i]!;if(!arg.startsWith('--')){positionals.push(arg);continue;}const name=arg.slice(2);if(['all','json','no-html','open'].includes(name)){options[name]=true;continue;}const values=[];while(i+1<args.length&&!args[i+1]!.startsWith('--')){values.push(args[++i]!);if(!['compare','session','transcripts','run'].includes(name))break;}if(!values.length)throw new Error('missing value for '+arg);options[name]=values;}
  const flag=(name:string,fallback?:string)=>Array.isArray(options[name])?(options[name] as string[])[0]:fallback;
  const run=()=>{const value=flag('run')??flag('project')??positionals[0];if(!value)throw new Error('pass a run directory');return resolve(value);};
  let result:unknown;
@@ -24,9 +25,9 @@ export async function main(argv=process.argv.slice(2)):Promise<number> {
  }
  case 'verify-state':{const {merge}=await import('../src/verify-state.ts');const folder=resolve(run(),'figma/verify'),path=resolve(folder,'state.json');writeJson(path,merge(folder));result={state:path};break;}
  case 'evaluate':{const {evaluate}=await import('../src/rebuild.ts');result=await evaluate(run(),options.session as string[]|undefined);break;}
- case 'compare-runs':case 'compare_runs':{const {compareMany}=await import('../src/compare-runs.ts');const runs=options.run as string[]|undefined??positionals;if(runs.length<2)throw new Error('compare-runs requires at least two run directories');result=compareMany(runs.map(p=>resolve(p)));break;}
+ case 'compare-runs':case 'compare_runs':{const {compareMany,renderReport}=await import('../src/compare-runs.ts');const runs=options.run as string[]|undefined??positionals;if(runs.length<2)throw new Error('compare-runs requires at least two run directories');const paths=runs.map(p=>resolve(p));const comparison=compareMany(paths);result=comparison;const markdown=flag('md');if(markdown)writeFileSync(resolve(markdown),renderReport(paths,comparison));if(!flag('out')&&options.json!==true){if(!markdown)console.log(renderReport(paths,comparison));return 0;}break;}
  case 'determinism':{const {hashLayout,checkHash}=await import('../src/determinism.ts');const operation=positionals[0]==='check'?positionals.shift():undefined;const path=flag('layout')??positionals[0];if(!path)throw new Error('pass a layout JSON path');const baseline=flag('check')??(operation==='check'?positionals[1]:undefined);if(operation&&!baseline)throw new Error('determinism check requires an expected hash file');result=baseline?checkHash(path,baseline):{hash:hashLayout(path)};if(baseline&&!(result as {pass:boolean}).pass){console.log(JSON.stringify(result));return 1;}break;}
- case 'scoreboard':{const {record,rows,render}=await import('../src/scoreboard.ts');const op=positionals.shift();if(op==='record')result=await record(run(),Number(flag('tier')),flag('site'));else if(op==='rows')result=rows();else if(op==='render')result={dashboard:render()};else throw new Error('scoreboard record|rows|render');break;}
+ case 'scoreboard':{const {record,rows,render}=await import('../src/scoreboard.ts');const op=positionals.shift();let dashboard:string|undefined;if(op==='record'){result=await record(run(),Number(flag('tier')),flag('site'));if(options.open)dashboard=render();}else if(op==='rows'){console.log(rows().map(row=>JSON.stringify(row)).join('\n'));return 0;}else if(op==='render'){dashboard=render();console.log(dashboard);}else throw new Error('scoreboard record|rows|render');if(options.open&&dashboard)spawnSync(process.platform==='darwin'?'open':'xdg-open',[dashboard],{stdio:'ignore'});if(op==='render')return 0;break;}
  case 'corpus':{const {freeze,list}=await import('../src/corpus.ts');const op=positionals.shift();if(op==='freeze'){const label=flag('label');if(!label)throw new Error('pass --label');result=freeze(run(),label);}else if(op==='list')result=list();else throw new Error('corpus freeze|list');break;}
  case 'tier1':case 'tier2':{
   const {sites,sitePath}=await import('../src/corpus.ts');const site=flag('site'),paths=flag('run')?[run()]:options.all===true?sites():site?[sitePath(site)]:[];if(!paths.length)throw new Error('pass --run, --site or --all');
