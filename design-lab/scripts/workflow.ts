@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { failureCode } from '../src/exit-code.ts';
 import { isEntrypoint } from '../src/entrypoint.ts';
 import { parseArgs } from 'node:util';
 import { dirname } from 'node:path';
@@ -68,4 +69,4 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
   console.log(plain ? result : JSON.stringify(result, null, 2)); return code;
 }
-if (isEntrypoint(import.meta.url)) try { process.exitCode = await main(); } catch (error) { console.error(`error: ${(error as Error).message}`); process.exitCode = 2; }
+if (isEntrypoint(import.meta.url)) try { process.exitCode = await main(); } catch (error) { console.error(`error: ${(error as Error).message}`); process.exitCode = failureCode(error); }
