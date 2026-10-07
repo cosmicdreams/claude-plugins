@@ -30,11 +30,11 @@ jobs:
         run: npm run typecheck
       - name: Run Node and browser tests
         run: npm test
-      - name: Validate plugin and test mod when Claude Code is available
+      - name: Install Claude Code CLI
+        run: npm install --global @anthropic-ai/claude-code@2.1.293
+      - name: Validate plugin and test mod
         run: |
-          if command -v claude >/dev/null 2>&1; then
-            claude plugin validate .
-            node scripts/test-mod.ts
-          else
-            echo 'Claude Code is unavailable on this runner; validate and mod tests require the local Claude Code CLI. See TYPESCRIPT.md.'
-          fi
+          command -v claude >/dev/null || { echo 'Claude Code CLI is missing after install; plugin validation cannot run.' >&2; exit 1; }
+          claude --version
+          claude plugin validate .
+          node scripts/test-mod.ts

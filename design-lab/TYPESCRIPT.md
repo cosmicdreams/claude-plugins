@@ -89,11 +89,10 @@ related scenarios can share a behavioral test. The 34 output-equivalence scenari
 on-demand frozen-run harnesses below. The 132 obsolete cases were removed.
 
 CI uses Node 24, cached lockfile installation, both typechecks, contract drift and Node/browser
-tests. If Claude Code is available it also runs `claude plugin validate .` and
-`node scripts/test-mod.ts` (which stages the mod-only tests under `/tmp` and invokes
-`claude plugin test` there; the host cannot load Node test files). Standard GitHub runners do not ship that CLI;
-CI explicitly reports the omission. Run validation and `node scripts/test-mod.ts` locally with a mod-capable Claude Code
-before release. Equivalence harnesses and the local six-site reality scan are separate
+tests. It then installs the pinned Claude Code CLI (`@anthropic-ai/claude-code@2.1.293`) and runs
+`claude plugin validate .` and `node scripts/test-mod.ts` (which stages the mod-only tests under `/tmp` and invokes
+`claude plugin test` there; the host cannot load Node test files). Both run without login and need no secret; a missing
+CLI fails the job. Bump the pinned version deliberately and rerun both commands locally after a bump. Equivalence harnesses and the local six-site reality scan are separate
 acceptance gates and are not run in CI. `benchmark:check-js` remains a diagnostic command
 for the older JS sources, with its known context diagnostics; it is not a CI gate.
 
