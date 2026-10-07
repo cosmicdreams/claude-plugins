@@ -423,7 +423,7 @@ export class Build {
   async file(step: string, i: number): Promise<{ data: Buffer; contentType: string }> {
     const cur = this.current;
     if (!cur || cur.step !== step || cur.kind !== 'upload') throw new Error(`${step} is not the current upload step`);
-    const f = (cur['files'] as { file: string; contentType: string }[] | undefined)?.[i]; if (!f) throw new Error(`${step} has no file ${i}`);
+    const f = (cur['files'] as { file: string; contentType: string }[] | undefined)?.at(i); if (!f) throw new Error(`${step} has no file ${i}`);
     return { data: await fitFigmaImage(f.file), contentType: f.contentType };
   }
 

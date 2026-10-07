@@ -305,6 +305,7 @@ test('a screenshot, a timed result and an upload file travel through the server'
   const file = await h.call('/file?step=images:a&i=0'); assert.equal(file.status, 200); assert.equal(file.headers['content-type'], 'image/png');
   assert.equal((await sharp(file.buffer).metadata()).width, 4096); // figma.createImage refuses more than 4096 pixels
   assert.equal((await h.call('/file?step=images:a&i=0junk')).status, 500);
+  assert.deepEqual((await h.call('/file?step=images:a&i=-1')).buffer,file.buffer); // Python indexing parity
   assert.equal((await h.call('/file?step=images:a&i=3')).status, 500); assert.equal((await h.call('/file?step=other&i=0')).status, 500);
   assert.equal((await h.call('/record?step=images:a', { body: { __designLabTiming: { durationMs: 12.5 }, result: { statuses: [200] } } })).status, 200);
   assert.deepEqual(recorded[0], ['images:a', { statuses: [200] }]);
