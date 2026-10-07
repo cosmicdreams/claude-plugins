@@ -870,7 +870,7 @@ export const fileKey = (run: string): string | null => obj(obj(readJson(resolve(
 
 /** compare_runs.compare's report, in its Python (snake_case) shape. */
 export interface RunComparison {
-  summary: { score: number; total_nodes: number; identical_nodes: number; matched_nodes: number; category_counts: Json };
+  summary: { score: number | null; reason?: string; total_nodes: number; identical_nodes: number; matched_nodes: number; category_counts: Json };
   artifacts: Record<string, { present: boolean[]; normalized_equal: boolean; differences: Json[] }>;
   page_differences: Record<string, { changes: Record<string, Record<string, Json[]>> }>;
   pages: { order_equal: boolean };
@@ -889,6 +889,7 @@ export async function scoreRepeatability(runDir: string, others: string[], accur
     const row: Json = { run: basename(other), path: other };
     try {
       const report = await compareRuns(runDir, other), summary = report.summary;
+      if(summary.score===null) throw new Error(summary.reason??'incomplete dump evidence');
       const swaps: [string | null, string | null][] = [[runDir, other], [fileKey(runDir), fileKey(other)]];
       const artifacts = Object.entries(report.artifacts);
       let addressOnly = 0;
@@ -926,6 +927,7 @@ export async function scoreRepeatability(runDir: string, others: string[], accur
     comparisons.push(row);
   }
   const scored = comparisons.filter(row => 'score' in row);
+  if(!scored.length)return notMeasured('complete dump evidence is unavailable for the compared runs', null, {comparisons});
   const sharedInputs = scored.length > 0 && scored.every(row => ['components.json', 'tokens.json', 'plan.json'].every(n => row['artifactsEquivalent'].includes(n)));
   return {
     status: scored.length ? 'measured' : 'partial',
