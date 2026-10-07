@@ -4,7 +4,7 @@ export async function template(ARGS: TierPageArgs) {
 // DESIGN_LAB_TEMPLATE_BEGIN
 /**
  * Prepare one component tier page: a header panel and an empty `Components` stack that
- * component_block.js fills. Idempotent: re-running refreshes the header text and keeps
+ * component_block.ts fills. Idempotent: re-running refreshes the header text and keeps
  * any blocks already placed.
  *
  * ARGS = { pageId, title, summary: [line], thresholds, emptyLine? }

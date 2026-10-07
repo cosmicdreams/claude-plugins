@@ -128,7 +128,7 @@ Every Figma write is a fixed template filled from the artifacts; the model relay
    node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts connect --project <artifact-directory> [--runner-timeout 300]
    ```
 
-   Wait for it to exit. With exit 0 the runner has confirmed the open file is the target and empty (or holds this run's own build, on a resume), made its first page the Cover page and drawn a name-only Cover through the real `cover.js`, which the build later fills in; go on to step 2. With exit 1 it prints what to do first, then why (no runner within the timeout, a different file open, a rejected token, an outdated runner, a file that is not empty, another run's server still active): reply with that message, and run `connect` again once it is fixed.
+   Wait for it to exit. With exit 0 the runner has confirmed the open file is the target and empty (or holds this run's own build, on a resume), made its first page the Cover page and drawn a name-only Cover through the real `scripts/render/cover.ts`, which the build later fills in; go on to step 2. With exit 1 it prints what to do first, then why (no runner within the timeout, a different file open, a rejected token, an outdated runner, a file that is not empty, another run's server still active): reply with that message, and run `connect` again once it is fixed.
 
    After exit 0, `connect` has also asked Figma which fonts it can draw with and written the run's font plan, `fonts.json` (with Figma's list in `figma/available-fonts.json` and any Adobe Fonts kit read in `fonts-kits.json`). It prints the plan's lines to stderr: every family the site renders, and for each one Figma lacks, the stand-in the build uses by default and the steps to get the real font. Pass those lines to the person as they are, then go on to step 2. Never stop for a font. If the person later says they installed one, run `connect` again (it rewrites the plan from Figma's new list) and rebuild. `workflow.ts report fonts --project <artifact-directory>` shows the plan again at any time.
 
@@ -170,7 +170,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.ts init --project <artifact-direc
 
 `design-lab:figma-foundation`, `design-lab:figma-component` and `design-lab:figma-index` describe what their steps produce and how to diagnose them; they no longer build by hand.
 
-Each component is built ONCE, as a responsive master (`src/responsive.ts`, `render/build_responsive.js`). Mobile and tablet are instances of it with the Breakpoint mode set — never separate components, never variants. `voice.json` adds the Brand Voice & Language foundation and `compositions.json` adds the Examples page, both built from instances and measured data only.
+Each component is built ONCE, as a responsive master (`src/responsive.ts`, `scripts/render/build_responsive.ts`). Mobile and tablet are instances of it with the Breakpoint mode set — never separate components, never variants. `voice.json` adds the Brand Voice & Language foundation and `compositions.json` adds the Examples page, both built from instances and measured data only.
 
 ## Completion gate
 

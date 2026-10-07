@@ -54,8 +54,9 @@ On Linux, Playwright also needs operating-system browser libraries. CI runs
 `node scripts/setup-browser-deps.ts` for those libraries; ordinary setup never invokes sudo.
 
 All scripts resolve dependencies from this cache independently of cwd. A site needs no
-`node_modules`, symlink, or npm install. Capture's old `--node-cwd` flag remains accepted
-for command compatibility; normal capture uses the pinned shared dependency resolver.
+`node_modules`, symlink, or npm install. `workflow.ts preflight --node-cwd` is still accepted
+for command compatibility, and only changes which folder the preflight Playwright check probes;
+capture ignores it and uses the pinned shared dependency resolver.
 
 ## Commands and contracts
 
@@ -93,8 +94,38 @@ tests. It then installs the pinned Claude Code CLI (`@anthropic-ai/claude-code@2
 `claude plugin validate .` and `node scripts/test-mod.ts` (which stages the mod-only tests under `/tmp` and invokes
 `claude plugin test` there; the host cannot load Node test files). Both run without login and need no secret; a missing
 CLI fails the job. Bump the pinned version deliberately and rerun both commands locally after a bump. Equivalence harnesses and the local six-site reality scan are separate
-acceptance gates and are not run in CI. `benchmark:check-js` remains a diagnostic command
-for the older JS sources, with its known context diagnostics; it is not a CI gate.
+acceptance gates and are not run in CI. `benchmark:check-js` is a diagnostic over the original
+JavaScript, read from the baseline checkout: it needs `DESIGN_LAB_ORACLE_ROOT` and checks no file
+shipped in this plugin. It has known context diagnostics and is not a CI gate.
+
+## Verified and not yet verified
+
+The port reproduces the previous release's results where they were compared. It has not run end
+to end on a live Figma file. Keep this list in step with `CHANGELOG.md`.
+
+Verified against the previous release (the read-only baseline checkout):
+- Component trees and Figma payloads, on 202 recorded specs.
+- Driver replay of two recorded builds, 293 and 101 steps.
+- Component and token discovery on five repositories, and on two live local sites.
+- Six scorecards and reports, with pixel-identical thumbnails.
+- Every baseline workflow subcommand (24 of 24) and flag (44 of 44), and every skill, command, reference and hook, has a TypeScript counterpart.
+
+Checked only on synthetic or replayed data:
+- A recorded driver transcript for one real library.
+- Canvas usage, from a replay of the Structured Query Language (SQL) queries and never a real Canvas database.
+- Fonts, from injected Adobe kit responses.
+- The runner protocol, from a fake client over HTTP; no Figma code ran.
+
+Not yet verified:
+- A live Figma build with the new runner protocol and the per-step inventory refresh.
+- A fresh whole-file verification for two real libraries.
+- A continuous integration (CI) run on GitHub's x86_64 Ubuntu runner. The workflow steps pass in a native arm64 Debian container with Node 24; the x86_64 Claude Code CLI binary and `scripts/setup-browser-deps.ts` have not run on a real runner.
+- A `.ts` skill invoked from an installed copy of the plugin, on either Claude account.
+- Any invocation from Codex.
+- The TypeScript capture on a large site. Only five components have been captured live with it.
+
+Release gates: a stage-2 build on a live Figma file with the new runner, a CI run on a pull
+request, and one `.ts` skill run from an installed copy on each Claude account.
 
 ## On-demand comparison with the saved baseline
 

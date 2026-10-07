@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { isEntrypoint } from '../src/entrypoint.ts';
+import { failureCode } from '../src/exit-code.ts';
 /** Phase-four CLI; the existing skills remain on baseline until the phase-five cutover. */
 import {readFileSync,writeFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
@@ -37,4 +38,4 @@ export async function main(argv=process.argv.slice(2)):Promise<number> {
  }
  const output=flag('out');if(output&&!['score-run','score_run'].includes(command!))writeJson(resolve(output),result);else console.log(JSON.stringify(result,null,2));return 0;
 }
-if(isEntrypoint(import.meta.url))try{process.exitCode=await main();}catch(error){console.error((error as Error).message);process.exitCode=2;}
+if(isEntrypoint(import.meta.url))try{process.exitCode=await main();}catch(error){console.error((error as Error).message);process.exitCode=failureCode(error);}

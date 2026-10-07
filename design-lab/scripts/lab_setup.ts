@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { failureCode } from '../src/exit-code.ts';
 import { parseArgs } from 'node:util';
 import * as setup from '../src/lab-setup.ts';
 import { runsFolder } from '../src/lab-config.ts';
@@ -14,4 +15,4 @@ try {
   else if (command === 'claude-settings') { if (!!values['allow-reads'] === !!values['allow-folders']) throw new Error('choose --allow-folders or --allow-reads'); result = values['allow-reads'] ? setup.allowReads() : setup.allowFolders(positionals); }
   else throw new Error('usage: lab_setup.ts check|runs-folder|set|install|runner|claude-settings');
   if (result !== undefined) console.log(JSON.stringify(result, null, 2));
-} catch (error) { console.error(`error: ${(error as Error).message}`); process.exitCode = 2; }
+} catch (error) { console.error(`error: ${(error as Error).message}`); process.exitCode = failureCode(error); }

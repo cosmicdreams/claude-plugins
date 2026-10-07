@@ -141,17 +141,17 @@ export const outdatedMessage = (version: string): string => `Close the design-la
 
 /**
  * Copy the runner into DESIGN_LAB_HOME/runner/, the stable folder Figma desktop imports it from
- * once. `code.js` is stripped from runner/code.ts (or copied from runner/code.js while that is the
- * source) and carries this plugin's version, which it sends with every request.
+ * once. `code.js` is stripped from runner/code.ts and carries this plugin's version, which it sends
+ * with every request.
  */
 export function installRunner(ctx: RunnerContext = defaultContext()): { folder: string; manifest: string; version: string; firstInstall: boolean; updated: boolean } {
   const target = resolve(ctx.home, 'runner'), source = resolve(pluginRoot, 'runner'), first = !existsSync(resolve(target, 'manifest.json'));
   mkdirSync(target, { recursive: true });
-  const version = pluginVersion(), files = readdirSync(source).sort(), typed = files.includes('code.ts');
+  const version = pluginVersion(), files = readdirSync(source).sort();
   let changed = false;
   for (const name of files) {
     const out = name === 'code.ts' ? 'code.js' : name;
-    if (!/\.(json|js|html|ts)$/.test(name) || name.endsWith('.ts') && name !== 'code.ts' || name === 'code.js' && typed) continue;
+    if (!/\.(json|js|html|ts)$/.test(name) || name.endsWith('.ts') && name !== 'code.ts') continue;
     let content = readFileSync(resolve(source, name), 'utf8');
     if (name === 'code.ts') content = stripTemplate(content);
     if (out === 'code.js') content = content.replace("const RUNNER_VERSION = 'source';", () => `const RUNNER_VERSION = '${version}';`)
@@ -211,12 +211,15 @@ export async function fitFigmaImage(path: string): Promise<Buffer> {
   return sharp(data).resize(Math.max(1, Math.trunc(width * scale)), Math.max(1, Math.trunc(height * scale)), { fit: 'fill', kernel: 'lanczos3' }).toFormat((meta.format ?? 'png') as 'png' | 'jpeg' | 'webp').toBuffer();
 }
 
-/** The Figma-side snippets: ported TypeScript templates when present, else the original scripts. */
+/** The Figma-side snippets: the TypeScript templates, stripped to plain JavaScript with the shared cache prepended. */
 const snippets = new Map<string, { source: string; body: string }>();
 export function snippet(name: string): string {
-  const ts = resolve(pluginRoot, 'templates/figma', name + '.ts'), path = existsSync(ts) ? ts : resolve(pluginRoot, 'scripts', name + '.js'), source = readFileSync(path, 'utf8');
-  if (path === ts) { const cache = new Renderer().units.get('_cache') ?? ''; const key = source + cache; const cached = snippets.get(path); if (cached?.source === key) return cached.body; const body = cache + '\n' + stripTemplate(source); snippets.set(path, { source: key, body }); return body; }
-  return source;
+  const path = resolve(pluginRoot, 'templates/figma', name + '.ts'), source = readFileSync(path, 'utf8');
+  const cache = new Renderer().units.get('_cache') ?? '', key = source + cache, cached = snippets.get(path);
+  if (cached?.source === key) return cached.body;
+  const body = cache + '\n' + stripTemplate(source);
+  snippets.set(path, { source: key, body });
+  return body;
 }
 const fill = (code: string, placeholder: string, value: string): string => code.split(placeholder).join(value);
 

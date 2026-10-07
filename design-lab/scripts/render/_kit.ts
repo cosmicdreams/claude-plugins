@@ -14,7 +14,7 @@ export async function template(ARGS: KitArgs) {
 const KIT = {
   font: 'Inter',
   mono: 'Roboto Mono',
-  /* The Cover alone is set in IBM Plex Sans; cover.js loads it and falls back to `font`. Kit
+  /* The Cover alone is set in IBM Plex Sans; cover.ts loads it and falls back to `font`. Kit
      style names map to Plex's own. */
   coverFont: { family: 'IBM Plex Sans', styles: { 'Semi Bold': 'SemiBold', 'Medium': 'Medium', 'Regular': 'Regular' } },
   coverInk: '#E6E8FF',

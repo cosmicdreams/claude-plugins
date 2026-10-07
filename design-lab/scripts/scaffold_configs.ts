@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { failureCode } from '../src/exit-code.ts';
 import { parseArgs } from 'node:util';
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
@@ -10,4 +11,4 @@ try {
   const configs = scaffold(JSON.parse(readFileSync(positionals[0]!, 'utf8')), { siteUrl: values['site-url'], canonicalBaseUrl: values['canonical-base-url'], themeRoot: values['theme-root'] }); let written = 0, skipped = 0;
   for (const config of configs) { const path = resolve(values.out, `${config.machineName}.json`); if (existsSync(path) && !values.force) { skipped++; continue; } writeJson(path, config); written++; }
   console.log(`wrote ${written} config(s), skipped ${skipped} that already existed`);
-} catch (error) { console.error(String(error)); process.exitCode = 2; }
+} catch (error) { console.error(String(error)); process.exitCode = failureCode(error); }
