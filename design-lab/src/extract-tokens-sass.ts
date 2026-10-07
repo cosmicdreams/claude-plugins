@@ -79,6 +79,36 @@ export function mapEntries(body: string): [string, string][] {
   }
   return entries;
 }
+/** Python's format(value, 'g'): six significant digits, half-to-even on the exact binary value,
+ * exponent form below 1e-4 or from 1e6, and trailing zeros and point removed. */
+export function pyFormatG(value: number): string {
+  if (Number.isNaN(value)) return "nan";
+  if (!Number.isFinite(value)) return value > 0 ? "inf" : "-inf";
+  const sign = value < 0 || Object.is(value, -0) ? "-" : "";
+  if (value === 0) return sign + "0";
+  // toExponential(100) gives the exact decimal digits needed to detect a tie at the sixth digit.
+  const [mantissa, exponentText] = Math.abs(value).toExponential(100).split("e");
+  const digits = mantissa!.replace(".", "");
+  let exponent = Number(exponentText);
+  let significand = BigInt(digits.slice(0, 6));
+  const rest = digits.slice(6), lastDigit = Number(digits[5]);
+  if (rest[0]! > "5" || (rest[0] === "5" && (/[1-9]/.test(rest.slice(1)) || lastDigit % 2 === 1)))
+    significand += 1n;
+  if (significand === 1000000n) {
+    significand = 100000n;
+    exponent += 1;
+  }
+  const sig = significand.toString();
+  const strip = (text: string): string =>
+    text.includes(".") ? text.replace(/0+$/, "").replace(/\.$/, "") : text;
+  if (exponent < -4 || exponent >= 6)
+    return `${sign}${strip(`${sig[0]}.${sig.slice(1)}`)}e${exponent < 0 ? "-" : "+"}${String(Math.abs(exponent)).padStart(2, "0")}`;
+  const fixed =
+    exponent >= 0
+      ? `${sig.slice(0, exponent + 1)}.${sig.slice(exponent + 1)}`
+      : `0.${"0".repeat(-exponent - 1)}${sig}`;
+  return sign + strip(fixed);
+}
 function makeResolver(table: Map<string, string>): (raw: string) => string {
   const cache = new Map<string, string>(),
     resolving = new Set<string>();
@@ -99,7 +129,7 @@ function makeResolver(table: Map<string, string>): (raw: string) => string {
     const multiplication =
       /^\s*(-?[\d.]+)(px|rem|em)?\s*\*\s*(-?[\d.]+)\s*$/.exec(resolved);
     return multiplication
-      ? `${Number.parseFloat(multiplication[1]!) * Number.parseFloat(multiplication[3]!)}${multiplication[2] ?? ""}`
+      ? `${pyFormatG(Number.parseFloat(multiplication[1]!) * Number.parseFloat(multiplication[3]!))}${multiplication[2] ?? ""}`
       : resolved;
   };
   return expression;
