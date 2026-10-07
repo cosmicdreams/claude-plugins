@@ -25,11 +25,9 @@ let home = ''
 let composed = false
 // The command each wrapped call must arrive with at the shell, by tool call id, for the final check.
 const expected = new Map<string, string>()
-// The guard's own paths as written and as resolved, every known main worktree's git directories, and the
-// watched settings files' resolved paths (a settings file may be a link to a file named anything).
+// The guard's own paths as written and as resolved, and every known main worktree's git directories.
 let guardRoots: string[] = []
 let gitDirs: GitDirs[] = []
-let settingsReal = new Set<string>()
 
 function io($: EngineInterface): Io {
   return {
@@ -59,9 +57,6 @@ async function setup($: EngineInterface): Promise<Policy> {
     guardRoots = [...new Set([...written, ...resolved.filter((path): path is string => path !== undefined)])]
     policy = rules
     gitDirs = await knownGitDirs($, await guarded($))
-    const { settings } = await watchedFiles($)
-    const resolvedSettings = await Promise.all(settings.map(path => io($).realPath(path).catch(() => undefined)))
-    settingsReal = new Set(resolvedSettings.filter((path): path is string => path !== undefined).map(path => path.toLowerCase()))
   }
   return policy
 }
@@ -99,14 +94,24 @@ async function judgeWrite($: EngineInterface, path: string, text?: string): Prom
   const owner = governedGitPath(real, gitDirs)
   if (owner) return `${real} is git metadata of the main worktree ${owner.root}; only git itself writes there.`
   if (isGuardPath([spelled, real], guardRoots, rules)) return `${real} belongs to the golden rule's guard, which a session never changes.`
-  const settingsFile = isSettingsFile(spelled) || isSettingsFile(real) || settingsReal.has(real.toLowerCase())
-  if (text !== undefined && settingsFile && switchesOff(text, rules.pluginId)) {
+  if (text !== undefined && switchesOff(text, rules.pluginId) && (isSettingsFile(spelled) || isSettingsFile(real) || await isWatchedSettings($, real))) {
     return `that change to ${real} would switch the golden rule guard off, which a session never does.`
   }
   return undefined
 }
 
 // ---- Settings and the plugin registry ---------------------------------------------------------------
+
+/** Whether a real path is where one of the watched settings files resolves to now (a settings file may be a
+ * link to a file named anything, and may be retargeted during the session). */
+async function isWatchedSettings($: EngineInterface, real: string): Promise<boolean> {
+  const { settings } = await watchedFiles($)
+  for (const path of settings) {
+    const resolved = await io($).realPath(path).catch(() => undefined)
+    if (resolved !== undefined && resolved.toLowerCase() === real.toLowerCase()) return true
+  }
+  return false
+}
 
 function parse(text: string | undefined): unknown {
   if (text === undefined) return undefined
@@ -361,11 +366,9 @@ export const register: Register = on => {
     const inside = await mainWorktreeOf(await placed('.', await $.session.cwd(), home, io($)), io($))
     if (inside) return refuse($, tool, inside, `this session's folder is inside the main worktree ${inside}, so this MCP call could write there. ${worktreeHint(inside)}`)
     const texts = strings(Object.fromEntries(Object.entries(e).filter(([key]) => key !== 'tool' && key !== 'tool_use_id' && key !== 'agentId')))
-    // Whole strings that look like paths: absolute or home-relative (spaces allowed), or a relative name
-    // with a folder or an extension. Ordinary text is not judged as a path.
-    const looksLikePath = (text: string): boolean => text.length < 4096 && !text.includes('\n')
-      && (/^[~/]/.test(text) || /^[^\s]+$/.test(text) && (/\//.test(text) || /\.[A-Za-z0-9]{1,8}$/.test(text)))
-    const whole = texts.filter(looksLikePath)
+    // Every single-line string is placed as a path, links followed, and judged by where it lands: a
+    // destination reached through a link into main is caught, and ordinary text lands nowhere protected.
+    const whole = texts.filter(text => text.length > 0 && text.length < 4096 && !text.includes('\n'))
     for (const path of [...new Set([...whole, ...texts.flatMap(pathLiterals), ...texts.flatMap(relativeMainTokens)])]) {
       const why = await judgeWrite($, path)
       if (why) return refuse($, tool, path, `${why} (MCP tools are refused for main worktrees unless listed as read-only in policy.json)`)

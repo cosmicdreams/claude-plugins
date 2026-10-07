@@ -93,6 +93,21 @@ describe('Layer 2: structured tools', () => {
     expect(seen.calls.length).toBe(0)
   })
 
+  test('an MCP destination reached through a link into main is refused, whatever its name looks like', async ($, on) => {
+    world(on, { cwd: FEATURE, links: { [`${FEATURE}/LICENSE`]: `${MAIN}/LICENSE`, [`${FEATURE}/docs`]: MAIN } })
+    for (const path of ['LICENSE', 'docs/My File.md']) {
+      const answer = await $.tool.call({ tool: 'mcp__files__write_file', path, content: 'x' } as never)
+      expect(answer.deny).toMatch(/main worktree/)
+    }
+  })
+
+  test('a settings file is recognised by where its link resolves at the time of the write', async ($, on) => {
+    world(on, { links: { [`${HOME}/.claude/settings.json`]: '/config/claude-settings.json' }, files: { '/config/claude-settings.json': '{}' } })
+    const content = JSON.stringify({ enabledPlugins: { 'golden-rule@local': false } })
+    const answer = await $.tool.call({ tool: 'Write', file_path: '/config/claude-settings.json', content })
+    expect(answer.deny).toMatch(/switch the golden rule guard off/)
+  })
+
   test('a file-identity path is refused', async ($, on) => {
     world(on)
     const answer = await $.tool.call({ tool: 'Write', file_path: '/.vol/16777234/123456', content: 'x' })
