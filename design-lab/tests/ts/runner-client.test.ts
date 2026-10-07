@@ -67,15 +67,15 @@ test('stripped runner client matches the oracle except the reviewed cache and ti
   assert.deepEqual(assertRunnerClientParity(),{runner:1,cache:true,timing:true});
 });
 
-test('actual runner client retains font and variable caches within a build', {timeout:5000},async()=>{
+test('actual runner client refreshes inventories and retains loaded fonts within a build', {timeout:5000},async()=>{
   const r=await runClient(['A','A']);
-  assert.deepEqual(r.calls,{fonts:1,loads:1,variables:1,collections:1});
+  assert.deepEqual(r.calls,{fonts:2,loads:1,variables:2,collections:2});
   assert.deepEqual(r.records.map(v=>v.body.result['buildId']),['A','A']);
 });
 
 test('actual runner client resets every cache when the build identity changes', {timeout:5000},async()=>{
   const r=await runClient(['A','A','B','B']);
-  assert.deepEqual(r.calls,{fonts:2,loads:2,variables:2,collections:2});
+  assert.deepEqual(r.calls,{fonts:4,loads:2,variables:4,collections:4});
   assert.deepEqual(r.records.map(v=>v.body.result['buildId']),['A','A','B','B']);
 });
 
