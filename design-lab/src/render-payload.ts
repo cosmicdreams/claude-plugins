@@ -24,19 +24,32 @@ export function strip(value: unknown): unknown {
 }
 export const decoded = (args: unknown): string => JSON.stringify(sorted(strip(args)));
 export const literal = (args: unknown): string => ascii(decoded(args));
+/** Node 24 announces stripTypeScriptTypes as experimental. The plugin uses it on purpose, so only that notice is dropped, and only while the call runs. */
+const TYPE_STRIPPING_NOTICE = /^stripTypeScriptTypes is an experimental feature\b/;
+/** Node emits the notice synchronously through process.emitWarning, before any 'warning' listener could run, so the filter wraps emitWarning for this call alone. */
+function stripTypes(source: string): string {
+  const emit = process.emitWarning;
+  process.emitWarning = function (this: unknown, warning: string | Error, ...rest: unknown[]) {
+    const message = typeof warning === 'string' ? warning : warning.message;
+    if (rest[0] === 'ExperimentalWarning' && TYPE_STRIPPING_NOTICE.test(message)) return;
+    return (emit as (...args: unknown[]) => void).call(this, warning, ...rest);
+  } as typeof process.emitWarning;
+  try { return stripTypeScriptTypes(source, { mode: 'strip' }); } finally { process.emitWarning = emit; }
+}
+
 /** Templates remain async function bodies. Strip inside a wrapper, then recover its body. */
 export function stripTemplate(source: string): string {
   // Ported sources are valid modules for tsc; only this marked async body is
   // shipped to Figma. Imports and declarations outside it never enter payloads.
   if (source.includes('// DESIGN_LAB_TEMPLATE_BEGIN\n')) {
-    const stripped = stripTypeScriptTypes(source, { mode: 'strip' });
+    const stripped = stripTypes(source);
     const start = stripped.indexOf('// DESIGN_LAB_TEMPLATE_BEGIN\n');
     const end = stripped.lastIndexOf('// DESIGN_LAB_TEMPLATE_END');
     if (start < 0 || end < start) throw new Error('invalid template boundaries');
     return stripped.slice(start + '// DESIGN_LAB_TEMPLATE_BEGIN\n'.length, end);
   }
   const prefix = 'async function __template__() {\n', suffix = '\n}';
-  const stripped = stripTypeScriptTypes(prefix + source + suffix, { mode: 'strip' });
+  const stripped = stripTypes(prefix + source + suffix);
   if (!stripped.startsWith(prefix) || !stripped.endsWith(suffix)) throw new Error('type stripper changed wrapper boundaries');
   return stripped.slice(prefix.length, -suffix.length);
 }
