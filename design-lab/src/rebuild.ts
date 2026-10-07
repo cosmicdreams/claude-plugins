@@ -1,5 +1,5 @@
 /** Filesystem-only rebuild preparation and in-process receipt/verify/scoring evaluation. */
-import {appendFileSync,cpSync,existsSync,mkdirSync,readFileSync,readdirSync,realpathSync,statSync} from 'node:fs';
+import {appendFileSync,copyFileSync,existsSync,lstatSync,mkdirSync,readFileSync,readdirSync,readlinkSync,realpathSync,statSync,symlinkSync,utimesSync} from 'node:fs';
 import {basename,dirname,isAbsolute,relative,resolve,sep} from 'node:path';
 import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
@@ -36,16 +36,37 @@ export function planApproved(source:string,project:Dict):boolean {
  const log=resolve(source,'phase-log.jsonl');if(!existsSync(log))return false;
  return readFileSync(log,'utf8').split(/\r?\n/).some(line=>{try{const e=JSON.parse(line);return e.phase==='plan'&&['approved','complete'].includes(e.status);}catch{return false;}});
 }
+/** Resolves symlinks through the nearest existing ancestor, so a path that does not exist yet still compares by its real location. */
+function canonical(path:string):string {
+ let probe=resolve(path);const missing:string[]=[];
+ while(!existsSync(probe)&&dirname(probe)!==probe){missing.unshift(basename(probe));probe=dirname(probe);}
+ return resolve(realpathSync(probe),...missing);
+}
+/** True when child is parent or lies beneath it. Compares whole path segments, so /a/bc is not inside /a/b. */
+function contains(parent:string,child:string):boolean {
+ const rel=relative(parent,child);return rel===''||!isAbsolute(rel)&&rel.split(sep)[0]!=='..';
+}
+/** Copies the entries keep() accepts, preserving timestamps. Unlike cpSync it has no self-copy guard, so a replay workspace may sit inside the source it copies. */
+function copyTree(from:string,to:string,keep:(path:string)=>boolean):void {
+ for(const entry of readdirSync(from,{withFileTypes:true})){
+  const src=resolve(from,entry.name),dst=resolve(to,entry.name);if(!keep(src))continue;
+  const stat=lstatSync(src);
+  if(stat.isSymbolicLink())symlinkSync(readlinkSync(src),dst);
+  else if(stat.isDirectory()){mkdirSync(dst);copyTree(src,dst,keep);utimesSync(dst,stat.atime,stat.mtime);}
+  else if(stat.isFile()){copyFileSync(src,dst);utimesSync(dst,stat.atime,stat.mtime);}
+ }
+}
 export interface PrepareOptions {identity?:Dict|null;evaluationTier?:number;at?:()=>string}
 export function prepare(source:string,workspace:string,key:string,figmaUrl:string,options:PrepareOptions={}):Dict {
- source=realpathSync(source);workspace=resolve(workspace);const manifest=optional(resolve(source,'corpus.json')),original=read(resolve(source,'project.json')),identity=options.identity??null;
+ source=realpathSync(source);const destination=canonical(workspace);workspace=resolve(workspace);const manifest=optional(resolve(source,'corpus.json')),original=read(resolve(source,'project.json')),identity=options.identity??null;
  if(key===original.target?.figmaFileKey)throw new Error("scratch file key must differ from the frozen run's original Figma file");
  if(identity!==null){const missing=['components.json','plan.json','tokens.json','capture-evidence.json'].filter(n=>!existsSync(resolve(source,n)));if(!existsSync(resolve(source,'capture/measurements')))missing.push('capture/measurements/');if(missing.length)throw new Error(`${source}: figma-build needs ${missing.join(', ')}`);if(!planApproved(source,original))throw new Error(`${source}: approve the plan before figma-build; the plan phase is not approved or complete`);}
- const [siteUrl,canonicalBaseUrl]=siteUrls(source),replay=identity===null&&dirname(workspace)===resolve(source,'replays');
- if(workspace===source||workspace.startsWith(source+sep)&&!replay)throw new Error('copy destination must be outside the source run');
+ const [siteUrl,canonicalBaseUrl]=siteUrls(source),replay=identity===null&&dirname(destination)===resolve(source,'replays');
+ if(destination===source||contains(source,destination)&&!replay)throw new Error('copy destination must be outside the source run');
  if(existsSync(workspace)&&(!statSync(workspace).isDirectory()||readdirSync(workspace).length))throw new Error(`${workspace}: rebuild workspace must be new or empty`);
  const topSkip=new Set(['project.json','benchmark','builds','phase-log.jsonl','verify-report.json','preflight-checks.json']);
- cpSync(source,workspace,{recursive:true,preserveTimestamps:true,filter:from=>{const rel=relative(source,from),parts=rel.split(sep);if(parts.some(p=>p==='replays'||p==='corpus.json'))return false;if(parts.length===1&&topSkip.has(rel))return false;if(parts[0]==='figma'&&parts.length>1&&parts[1]!=='images')return false;return true;}});
+ mkdirSync(workspace,{recursive:true});
+ copyTree(source,workspace,from=>{const rel=relative(source,from),parts=rel.split(sep);if(parts.some(p=>p==='replays'||p==='corpus.json'))return false;if(parts.length===1&&topSkip.has(rel))return false;if(parts[0]==='figma'&&parts.length>1&&parts[1]!=='images')return false;return true;});
  const roots=[source,...manifest.sourceRun?[manifest.sourceRun]:[]];
  const files=(dir:string):string[]=>readdirSync(dir,{withFileTypes:true}).flatMap(e=>e.isDirectory()?files(resolve(dir,e.name)):e.name.endsWith('.json')?[resolve(dir,e.name)]:[]);
  for(const path of files(workspace))writeJson(path,relocate(read(path),roots,workspace));
