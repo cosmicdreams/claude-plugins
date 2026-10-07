@@ -10,7 +10,7 @@
 - Remove the unused legacy JavaScript the plugin used to ship next to the TypeScript that replaced it: `scripts/render/*.js`, `scripts/figma_dump_*.js` and `runner/code.js`. Production already ran the TypeScript sources.
 - Replace `scripts/measure.mjs`, `scripts/capture.mjs`, `scripts/check_selectors.mjs` and `scripts/cookie_preferences.mjs` with `scripts/capture_all.ts`, which runs the same measurement, screenshot, selector check and consent dismissal from one copy of the code. For a hand-written config, pass `--configs <folder> --only <id>`; for the selector check alone, add `--check`.
 - Add `scripts/figma_snippet.ts`, which prints a read-only Figma dump as plain JavaScript for `use_figma`. `design-lab:verify` uses it in place of the removed `figma_dump_*.js` files.
-- Run Node and browser tests, both TypeScript typechecks and contract drift in continuous integration (CI); validate and test the mod when Claude Code is available.
+- Run Node and browser tests, both TypeScript typechecks and contract drift in continuous integration (CI); install a pinned Claude Code CLI to validate and test the mod, and fail the job if it cannot run.
 
 ### Upgrading from 0.23
 
@@ -43,7 +43,7 @@ Checked only on synthetic or replayed data:
 Not yet verified:
 - A live Figma build with the new runner protocol and the per-step inventory refresh.
 - A fresh whole-file verification for two real libraries.
-- A CI run on Linux. The workflow has never run, and `scripts/setup-browser-deps.ts` is untested.
+- A CI run on GitHub's x86_64 Ubuntu runner. The workflow steps pass in a native arm64 Debian container with Node 24; the x86_64 Claude Code CLI binary and `scripts/setup-browser-deps.ts` have not run on a real runner.
 - A `.ts` skill invoked from an installed copy of the plugin, on either Claude account.
 - Any invocation from Codex.
 - The TypeScript capture on a large site. Only five components have been captured live with it.
