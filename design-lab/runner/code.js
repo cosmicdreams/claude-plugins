@@ -20,6 +20,7 @@
 const SERVER = 'http://localhost:8765';
 const TOKEN_KEY = 'design-lab-runner-token';
 const RUNNER_VERSION = 'source';
+const TOKEN_PATH = '~/.design-lab/runner-token'; // installRunner replaces this with the person's real token file
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 let token = '';
 const RETRY_MS = 5000;
@@ -67,7 +68,7 @@ async function call(path, body) {
 
 async function askToken(reason) {
   figma.showUI(`<form id="f" style="font:12px sans-serif;margin:12px">
-    <p>${reason} Paste your runner token, from ~/.design-lab/runner-token on this machine.</p>
+    <p>${reason} Paste your runner token, from ${TOKEN_PATH} on this machine.</p>
     <input id="t" style="width:100%;box-sizing:border-box" autofocus>
     <p><button>Connect</button></p></form>
     <script>f.onsubmit = (e) => { e.preventDefault(); parent.postMessage({ pluginMessage: t.value.trim() }, '*'); };</script>`,
