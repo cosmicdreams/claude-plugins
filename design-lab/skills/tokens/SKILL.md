@@ -11,9 +11,9 @@ description: >
 Use the selected token strategy from detection:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py extract \
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts extract \
   --project <artifact-directory> --kind tokens
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py variables --project <artifact-directory>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts variables --project <artifact-directory>
 ```
 
 Read `references/tokens-and-variables.md` when reviewing the result. Prefer authored loaded configuration/custom properties to recovered source maps and measurement. Measurement may validate a token but must not silently replace a configured value.

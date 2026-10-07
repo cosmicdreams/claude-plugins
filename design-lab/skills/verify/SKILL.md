@@ -23,7 +23,7 @@ Merge the returned pages, collections, components, tagged component blocks (`car
 ## Run the gate
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/verify.py \
+node ${CLAUDE_PLUGIN_ROOT}/scripts/verify.ts \
   --state state.json --components components.json --tokens tokens.json \
   --render-evidence render-evidence.json \
   --capture-evidence capture-evidence.json \

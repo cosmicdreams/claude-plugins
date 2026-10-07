@@ -18,7 +18,7 @@ const PROJECT = {
   },
 }
 
-// The scorecard of this build, as score_run.py stamps it.
+// The scorecard of this build, as score_run.ts stamps it.
 const SCORED = { run: { buildCreatedAt: PROJECT.createdAt } }
 
 const progress = (fields: Record<string, unknown> = {}) => ({
@@ -243,7 +243,7 @@ describe('stages', () => {
 })
 
 describe('preflight before it records a phase', () => {
-  // What workflow.py init seeds: no preflight entry until preflight passes.
+  // What workflow.ts init seeds: no preflight entry until preflight passes.
   const INIT = Object.fromEntries(['discovery', 'inventory', 'usage', 'capture', 'tokens', 'plan', 'foundation', 'components', 'index', 'verify']
     .map(name => [name, { status: 'pending' }]))
   const fresh = (phases: Record<string, unknown> = {}) => ({ ...PROJECT, phases: { ...INIT, ...phases } })

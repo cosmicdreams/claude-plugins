@@ -335,7 +335,7 @@ describe('design-lab:watch', () => {
   })
 
   test('preflight items tick as preflight proves them, with nothing pressed', async ($, on) => {
-    // What workflow.py init seeds: preflight records its phase only once it passes.
+    // What workflow.ts init seeds: preflight records its phase only once it passes.
     const preflighting = JSON.stringify({ createdAt: CREATED, run: { siteLabel: 'Example site' },
       phases: Object.fromEntries(['discovery', 'inventory', 'usage', 'capture', 'tokens', 'plan', 'foundation', 'components', 'index', 'verify']
         .map(name => [name, { status: 'pending' }])) })

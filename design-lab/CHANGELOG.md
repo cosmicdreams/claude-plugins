@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.24.0 — 2026-10-07
+
+- Rewrite the extraction, capture, build, workflow, setup, verification and benchmark pipeline in TypeScript. Remove all Python source and tests from the plugin; retained behavior is covered by Node tests and separate comparisons against a read-only baseline checkout.
+- Require Node 24 for native TypeScript execution. Install the committed Node lockfile and Playwright Chromium once with `node scripts/lab_setup.ts install playwright`, into an immutable shared cache with locked, atomic setup. No packages are installed in site repositories or the plugin copy.
+- Preserve workflow command names and flags, Figma output, benchmark HTML and the completion message; update every skill, command and token-protection hook to Node. Align Claude Code and Codex manifests.
+- Run Node and browser tests, both TS typechecks and contract drift in CI; validate/test the mod when Claude Code is available.
+
 ## Unreleased
 
 - New build receipts use the corrected visual comparison: unmatched area and per-channel differences count toward acceptance.

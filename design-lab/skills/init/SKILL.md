@@ -2,7 +2,7 @@
 name: init
 description: >
   Set design-lab up for the person and this machine, once: where runs live, their name for
-  reports, the shared Playwright and its browser, the Python packages, the Figma runner, and
+  reports, the shared Playwright and its browser, the pinned Node dependencies, the Figma runner, and
   the Claude Code settings that would otherwise make runs ask for approval. Run it the first
   time design-lab is used, and again whenever a run or preflight says setup is missing. Not
   for anything about one site (design-lab:run's preflight handles that).
@@ -26,7 +26,7 @@ Run every command with absolute paths, one command at a time; never `cd`, shell 
 1. See where things stand. It changes nothing:
 
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.py check --json
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.ts check --json
    ```
 
    Each check is `ok`, `missing` (design-lab cannot run until fixed) or `advice` (it works, with a cost the person should know). Each says how it is fixed and, in `needsApproval`, what fixing it installs or changes.
@@ -37,19 +37,19 @@ Run every command with absolute paths, one command at a time; never `cd`, shell 
      - **Next to each project** (`project`): runs go in `PROJECT/design/<date>`, where PROJECT is the folder above `worktrees/` for code checked out as `PROJECT/worktrees/<name>`, or else the nearest folder above the repository that holds `plans/`, `analysis-reports/` or `design/`. Recommend it when the current folder is laid out that way.
      - **One folder for everything** (`home`): `~/.design/<project>/<date>`. The simple choice for anyone else.
 
-     Then `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.py set runs project` (or `home`).
-   - **This project's runs folder** (`project`), when the session is in a project. If the folder the check names does not exist yet, create it now, so every later run, and the pane, finds it without being told: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.py runs-folder --create`. It is never inside a repository, so nothing in it can be committed, and every run lands in its own dated folder there.
-   - **Node.js** (`node`). If missing, say capture runs Playwright through node, and ask before installing it (for example `brew install node`). Without it, capture cannot run.
-   - **Playwright and its Chromium** (`playwright`). Say that capture measures and photographs each component in a real browser through Playwright, that design-lab keeps one shared copy for every site so no site needs its own, and what `needsApproval` says it downloads and where. Ask; on approval run `lab_setup.py install playwright`, which records the folder as capture's default.
-   - **Python packages** (`python`). Say which are missing and what they are for (`cairosvg` turns a site's SVG images into pictures Figma accepts; Pillow reads and writes images), and what `needsApproval` says. Ask; on approval run `lab_setup.py install python`.
-   - **The Figma runner** (`runner`). Run `lab_setup.py runner`: it copies the runner into design-lab's own folder and makes sure the person's runner token exists, without ever showing it. Then give the person the one-time import, which only they can do: in Figma **desktop** (the browser app cannot load development plugins), open any design file, then Plugins, Development, Import plugin from manifest, and choose the `manifest` path the check reported. When the runner first asks for a token, they copy it in their own terminal with `pbcopy < ~/.design-lab/runner-token`; never read, print, copy or paste the token yourself. Ask whether the import is done; when it is, run `lab_setup.py runner --imported`.
+     Then `node ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.ts set runs project` (or `home`).
+   - **This project's runs folder** (`project`), when the session is in a project. If the folder the check names does not exist yet, create it now, so every later run, and the pane, finds it without being told: `node ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.ts runs-folder --create`. It is never inside a repository, so nothing in it can be committed, and every run lands in its own dated folder there.
+   - **Node.js 24** (`node`). If missing, say design-lab runs TypeScript directly through Node 24, and ask before installing it (for example `brew install node`). Without it, capture cannot run.
+   - **Playwright and its Chromium** (`playwright`). Say that capture measures and photographs each component in a real browser through Playwright, that design-lab keeps one shared copy for every site so no site needs its own, and what `needsApproval` says it downloads and where. Ask; on approval run `lab_setup.ts install playwright`, which records the folder as capture's default.
+   - **Pinned Node dependencies** (`dependencies`). Sharp reads, writes and rasterizes images; YAML reads configuration. Ask for the download described by `needsApproval`; on approval run `lab_setup.ts install dependencies`. `install playwright` installs these same dependencies plus Chromium from the committed lockfile.
+   - **The Figma runner** (`runner`). Run `lab_setup.ts runner`: it copies the runner into design-lab's own folder and makes sure the person's runner token exists, without ever showing it. Then give the person the one-time import, which only they can do: in Figma **desktop** (the browser app cannot load development plugins), open any design file, then Plugins, Development, Import plugin from manifest, and choose the `manifest` path the check reported. When the runner first asks for a token, they copy it in their own terminal with `pbcopy < ~/.design-lab/runner-token`; never read, print, copy or paste the token yourself. Ask whether the import is done; when it is, run `lab_setup.ts runner --imported`.
    - **Claude Code runs design-lab without asking** (`claude-settings`). If Claude Code's read-blocking setting is on, explain: with it, Claude Code makes the person approve every command that names a folder outside the session's own, even with permission checks bypassed, and design-lab's scripts and run folders are both outside it. Runs cannot go unattended until that is settled. Claude Code offers the setting once, in a one-time prompt, which is how it usually gets turned on. Offer two fixes and ask which:
-     - **Allow design-lab's folders** (recommended: the protection stays for everything else). For the `project` convention, ask which folders the person keeps projects in (for example `~/Sites`), then run `lab_setup.py claude-settings --allow-folders <folder> [<folder> ...]`; for `home`, run it with no folders. It adds design-lab's installed folder and the runs folders to `permissions.additionalDirectories`.
-     - **Turn the setting off**: `lab_setup.py claude-settings --allow-reads`.
+     - **Allow design-lab's folders** (recommended: the protection stays for everything else). For the `project` convention, ask which folders the person keeps projects in (for example `~/Sites`), then run `lab_setup.ts claude-settings --allow-folders <folder> [<folder> ...]`; for `home`, run it with no folders. It adds design-lab's installed folder and the runs folders to `permissions.additionalDirectories`.
+     - **Turn the setting off**: `lab_setup.ts claude-settings --allow-reads`.
 
      Either way, finish with the restart steps below.
    - **The pane** (`pane`) and **DDEV** (`ddev`) are advice only: say what they mean (the pane that shows a run's progress beside the conversation needs a newer Claude Code; without DDEV a database-backed site builds without usage tiers) and move on.
-   - **Scoreboard and corpus** (`evaluation`) are optional. Mention them only if the person wants runs kept in a ledger across sites; if so, ask for the three paths and run `lab_setup.py set evaluation <corpus> <ledger> <dashboard>`.
+   - **Scoreboard and corpus** (`evaluation`) are optional. Mention them only if the person wants runs kept in a ledger across sites; if so, ask for the three paths and run `lab_setup.ts set evaluation <corpus> <ledger> <dashboard>`.
 
 3. Run the check again and show the result as a short list: each item, ok or what is still to do.
 

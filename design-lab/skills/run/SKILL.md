@@ -16,8 +16,8 @@ Own the whole outcome. Durable artifacts, not conversation memory, determine wha
 
 Run folders live outside the repository, and so do design-lab's own scripts. With Claude Code's read-blocking setting on, every command naming them waits for the person, even with permission checks bypassed, unless `design-lab:init` allowed design-lab's folders (the setup check below says so). Whatever the setting, keep commands to what Claude Code can check:
 
-- Run every script with absolute paths and `--project <artifact-directory>`, one command at a time. Never `cd`, never assign shell variables, never write loops or `python3 -c` scripts.
-- To see how a run is going, use `workflow.py report <topic> --project <artifact-directory>`, where topic is `capture` (progress), `selectors` (components with no visible match), `plan` (what is built and why the rest is refused), `verify` (open findings) or `build` (steps recorded, failures). Read artifacts with the Read tool.
+- Run every script with absolute paths and `--project <artifact-directory>`, one command at a time. Never `cd`, never assign shell variables, never write loops or `node -c` scripts.
+- To see how a run is going, use `workflow.ts report <topic> --project <artifact-directory>`, where topic is `capture` (progress), `selectors` (components with no visible match), `plan` (what is built and why the rest is refused), `verify` (open findings) or `build` (steps recorded, failures). Read artifacts with the Read tool.
 - When something new goes wrong and needs diagnosing, keep to plain commands with literal paths, one at a time; a fix that will be needed again belongs in a script, not in the session.
 
 ## Before anything else
@@ -25,12 +25,12 @@ Run folders live outside the repository, and so do design-lab's own scripts. Wit
 Check design-lab is set up on this machine; it changes nothing:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.py check
+node ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.ts check
 ```
 
 If anything is `missing` (✗), stop and run `design-lab:init` first, then continue; `advice` (!) does not stop a run. Setup is about the person and the machine; preflight below is about this site.
 
-To resume a run the person did not name, find this project's newest run: `python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py watch` (run from the project or repository folder) prints its `Run folder:` line, which is `<artifact-directory>` from then on; resume from its artifacts.
+To resume a run the person did not name, find this project's newest run: `node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts watch` (run from the project or repository folder) prints its `Run folder:` line, which is `<artifact-directory>` from then on; resume from its artifacts.
 
 When that newest run is already finished (its benchmark is done) and the person did not ask for a fresh run, offer both choices in one message: a fresh run, which captures the site again and takes hours, or `design-lab:figma-build`, which builds that run's capture and plan into a new, empty Figma file in minutes. Ask for the new file's address either way.
 
@@ -38,13 +38,13 @@ The design-lab pane opens beside the conversation by itself when this skill star
 
 ## Establish the project
 
-Resolve the repository and an empty or existing target Figma file. Never mutate a reference file the user supplied only for comparison. Before the first Figma write, load the official Figma-use and library-generation guidance; `workflow.py connect` checks the target when the build is ready to write.
+Resolve the repository and an empty or existing target Figma file. Never mutate a reference file the user supplied only for comparison. Before the first Figma write, load the official Figma-use and library-generation guidance; `workflow.ts connect` checks the target when the build is ready to write.
 
 Initialize one run folder per target library:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py init --repo <absolute-repository-path>
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py detect --project <artifact-directory>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts init --repo <absolute-repository-path>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts detect --project <artifact-directory>
 ```
 
 Without `--workspace`, `init` creates the run folder by the person's convention (next to the project, `PROJECT/design/<date>`, or `~/.design/<project>/<date>`) and prints it: that folder is `<artifact-directory>` from here on. Give `--workspace` only when the person names a folder. Pass `--site-label`, `--site-url` and `--model` to `init`; the operator's name is the one signed in to Claude Code. Follow `references/benchmark.md`: every run ends with the benchmark.
@@ -65,16 +65,16 @@ Before any extraction, gather every answer the run will need in one message to t
 Schema churn is not a question: the run records any schema change or workaround it made, at the benchmark. Then record the answers and check what can be checked:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py preflight --project <artifact-directory> \
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts preflight --project <artifact-directory> \
   --site-url <local-site-url> --public-url <public-site-url> --figma-url <file-url> \
   --site-label "<label>" [--model <model>] [--ddev-root <path>] \
   --plan-approval proposed|review [--usage-fallback stop|untiered]
 ```
 
-Preflight checks that the local site answers, the required DDEV project is present, the runner port is free (or held only by a finished run's server, which `connect` stops later), node resolves Playwright in the folder given as `--node-cwd` or found in the repository (pass that folder to capture as `--node-cwd`), CairoSVG imports in Python, and the plugin version matches the one recorded when this run began. When it can inspect the rendered page, it reports whether Twig debug markup is present; this check is informational. It records the target Figma URL but does not open Figma or start the runner. It prints the same go-ahead when every check passes, or lists what to fix first and why. Persist any source override the person gave:
+Preflight checks that the local site answers, the required DDEV project is present, the runner port is free (or held only by a finished run's server, which `connect` stops later), node resolves Playwright in the folder given as `--node-cwd` or found in the repository (pass that folder to capture as `--node-cwd`), CairoSVG imports in baseline, and the plugin version matches the one recorded when this run began. When it can inspect the rendered page, it reports whether Twig debug markup is present; this check is informational. It records the target Figma URL but does not open Figma or start the runner. It prints the same go-ahead when every check passes, or lists what to fix first and why. Persist any source override the person gave:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py select --project <artifact-directory> \
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts select --project <artifact-directory> \
   --component <strategy> --token <strategy> [--usage <strategy>] [--sitestudio-config <folder>]
 ```
 
@@ -89,21 +89,21 @@ After preflight, complete the whole run through the benchmark and the completion
 ## Produce the review boundary
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py extract --project <artifact-directory>
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py usage --project <artifact-directory> \
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts extract --project <artifact-directory>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts usage --project <artifact-directory> \
   --ddev-root <running-ddev-project-root> [--ddev-project <name>]
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py variables --project <artifact-directory>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts variables --project <artifact-directory>
 Run `design-lab:capture` and register `capture-evidence.json`.
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/extract_voice.py --project <artifact-directory> --base-url <local-site-url>
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/extract_compositions.py --project <artifact-directory> --base-url <local-site-url>
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py plan --project <artifact-directory>
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py validate --project <artifact-directory>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/extract_voice.ts --project <artifact-directory> --base-url <local-site-url>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/extract_compositions.ts --project <artifact-directory> --base-url <local-site-url>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts plan --project <artifact-directory>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts validate --project <artifact-directory>
 ```
 
 Usage is a plan prerequisite whenever detection finds a credible source. The deterministic Drupal extractor records direct placements and nested structural instances separately and merges them into canonical `components.json`. Do not substitute an ad-hoc query. Start DDEV if it is stopped. If the source genuinely cannot be made available, follow the choice made at preflight: with `--usage-fallback untiered`, record the degraded approval in the operator's name and continue; with `stop`, stop and ask for that approval, a genuine blocker:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py select --project <artifact-directory> \
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts select --project <artifact-directory> \
   --usage none --degraded-reason "<why the detected source cannot be used>" \
   --by "<operator> (preflight: build untiered)"
 ```
@@ -113,7 +113,7 @@ That waiver requires a named human decision, which the preflight answer supplies
 Review `plan.json` flags, refusals, variant arithmetic, `variable-plan.json` warnings, and `render-evidence.json` yourself. The rendering artifact resolves each Drupal bundle to concrete Twig, SDC, stylesheet, root-class, and field-reference evidence; inspect those bounded paths for visual judgment instead of launching broad repository-search agents. Flags keep the treatment the plan proposes; components over the variant limit stay refused. The approval choice recorded at preflight governs the plan:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py approve --project <artifact-directory> --from-preflight
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts approve --project <artifact-directory> --from-preflight
 ```
 
 With "build the plan as proposed" this approves in the operator's name and the run continues. With "stop for my review" it refuses: show the person the plan summary, wait for their approval, record it with `--by <name>`, and continue.
@@ -122,20 +122,20 @@ With "build the plan as proposed" this approves in the operator's name and the r
 
 Every Figma write is a fixed template filled from the artifacts; the model relays and decides nothing. That is what makes two runs over the same source produce the same file.
 
-1. When the build is ready to write, connect the runner. Run `workflow.py connect` in the background and pass its instructions to the person as soon as they print; this is the run's one planned wait for the person after preflight. The first time on a machine they say to import the runner from `~/.design-lab/runner/manifest.json`; after a design-lab update they say to close the runner and start it again; every time they say to open the target file in Figma desktop and start the runner. If the runner asks for a token, the person copies it in their own terminal with `pbcopy < ~/.design-lab/runner-token`. Never read, print, copy or paste the token yourself.
+1. When the build is ready to write, connect the runner. Run `workflow.ts connect` in the background and pass its instructions to the person as soon as they print; this is the run's one planned wait for the person after preflight. The first time on a machine they say to import the runner from `~/.design-lab/runner/manifest.json`; after a design-lab update they say to close the runner and start it again; every time they say to open the target file in Figma desktop and start the runner. If the runner asks for a token, the person copies it in their own terminal with `pbcopy < ~/.design-lab/runner-token`. Never read, print, copy or paste the token yourself.
 
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py connect --project <artifact-directory> [--runner-timeout 300]
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts connect --project <artifact-directory> [--runner-timeout 300]
    ```
 
    Wait for it to exit. With exit 0 the runner has confirmed the open file is the target and empty (or holds this run's own build, on a resume), made its first page the Cover page and drawn a name-only Cover through the real `cover.js`, which the build later fills in; go on to step 2. With exit 1 it prints what to do first, then why (no runner within the timeout, a different file open, a rejected token, an outdated runner, a file that is not empty, another run's server still active): reply with that message, and run `connect` again once it is fixed.
 
-   After exit 0, `connect` has also asked Figma which fonts it can draw with and written the run's font plan, `fonts.json` (with Figma's list in `figma/available-fonts.json` and any Adobe Fonts kit read in `fonts-kits.json`). It prints the plan's lines to stderr: every family the site renders, and for each one Figma lacks, the stand-in the build uses by default and the steps to get the real font. Pass those lines to the person as they are, then go on to step 2. Never stop for a font. If the person later says they installed one, run `connect` again (it rewrites the plan from Figma's new list) and rebuild. `workflow.py report fonts --project <artifact-directory>` shows the plan again at any time.
+   After exit 0, `connect` has also asked Figma which fonts it can draw with and written the run's font plan, `fonts.json` (with Figma's list in `figma/available-fonts.json` and any Adobe Fonts kit read in `fonts-kits.json`). It prints the plan's lines to stderr: every family the site renders, and for each one Figma lacks, the stand-in the build uses by default and the steps to get the real font. Pass those lines to the person as they are, then go on to step 2. Never stop for a font. If the person later says they installed one, run `connect` again (it rewrites the plan from Figma's new list) and rebuild. `workflow.ts report fonts --project <artifact-directory>` shows the plan again at any time.
 
    Later, whenever the build seems stalled, check that the runner server is alive (restarting it if not, with no one needed in Figma) and that the runner has asked for a step in the last two minutes:
 
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py runner --project <artifact-directory> --await-runner
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts runner --project <artifact-directory> --await-runner
    ```
 
    It returns at once while the runner is connected. If the runner has not asked for a step for about two minutes, it stops the run, logs the stop as an interruption with its phase, and prints the message to give the person, first what and then why: "Open Figma desktop, open <file address>, and start the design-lab runner. The build writes the component library into that file through the runner, and it has not connected for N minutes." Reply with that message. On resume, run the same command; once the runner connects, the build continues where it stopped.
@@ -143,7 +143,7 @@ Every Figma write is a fixed template filled from the artifacts; the model relay
 2. Plan every step. This converts each captured component into its build tree and fixes the page list, order and contents:
 
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.py init --project <artifact-directory> \
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.ts init --project <artifact-directory> \
      --file-key <key> --site-url <local-site-url> --canonical-base-url <public-site-url>
    ```
 
@@ -152,7 +152,7 @@ Every Figma write is a fixed template filled from the artifacts; the model relay
 4. Write and register the receipts the manifest needs (foundation, index, one build record per component):
 
    ```bash
-   python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.py receipts --project <artifact-directory>
+   node ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.ts receipts --project <artifact-directory>
    ```
 
 5. Run `design-lab:verify`; fix every open finding at its source, or reclassify the component as not built with its reason. A waiver needs the person, so it is a genuine blocker only when neither is possible. Record one in `waivers.json` in the artifact directory with the check, a narrow scope, the reason, who decided, and the date, and pass `--waivers waivers.json`; a decision the person states plainly ("the fonts cannot be made available") is that decision. Known gaps still names a waived finding.
@@ -162,21 +162,21 @@ Every Figma write is a fixed template filled from the artifacts; the model relay
 While fixing templates or rules against a built file, rebuild in place instead of creating a new file:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.py init --project <artifact-directory> \
+node ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.ts init --project <artifact-directory> \
   --file-key <key> --site-url <local-site-url> --canonical-base-url <public-site-url> --rebuild --iterate
 ```
 
-`--rebuild` starts with a `wipe` step that removes only design-lab's pages and variable collections (an empty page someone added is left alone; a page with content stops it). `--iterate` keeps the runner connected after the build, waiting for the next one, and skips the full node-tree dumps, which serve run-to-run comparison and take minutes on large pages; a build for the benchmark is run without `--iterate`. Never edit a template while a build is running; the build stops at the next step, and the runner waits for the next `init`. The runner must be restarted in Figma whenever the plugin's version changes: `workflow.py runner --ensure` refreshes its files and says so.
+`--rebuild` starts with a `wipe` step that removes only design-lab's pages and variable collections (an empty page someone added is left alone; a page with content stops it). `--iterate` keeps the runner connected after the build, waiting for the next one, and skips the full node-tree dumps, which serve run-to-run comparison and take minutes on large pages; a build for the benchmark is run without `--iterate`. Never edit a template while a build is running; the build stops at the next step, and the runner waits for the next `init`. The runner must be restarted in Figma whenever the plugin's version changes: `workflow.ts runner --ensure` refreshes its files and says so.
 
 `design-lab:figma-foundation`, `design-lab:figma-component` and `design-lab:figma-index` describe what their steps produce and how to diagnose them; they no longer build by hand.
 
-Each component is built ONCE, as a responsive master (`scripts/responsive.py`, `render/build_responsive.js`). Mobile and tablet are instances of it with the Breakpoint mode set — never separate components, never variants. `voice.json` adds the Brand Voice & Language foundation and `compositions.json` adds the Examples page, both built from instances and measured data only.
+Each component is built ONCE, as a responsive master (`src/responsive.ts`, `render/build_responsive.js`). Mobile and tablet are instances of it with the Breakpoint mode set — never separate components, never variants. `voice.json` adds the Brand Voice & Language foundation and `compositions.json` adds the Examples page, both built from instances and measured data only.
 
 ## Completion gate
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py validate --project <artifact-directory>
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py status --project <artifact-directory>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts validate --project <artifact-directory>
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts status --project <artifact-directory>
 ```
 
 Do not call the library complete unless the manifest identifies the target Figma file, every in-scope visual component has a passing build record backed by capture evidence or an accurate not-built classification, and the saved whole-file verification report has no unwaived blocker or major finding.
@@ -186,10 +186,10 @@ Do not call the library complete unless the manifest identifies the target Figma
 The last step scores the run you just made (`design-lab:evaluate`). Record schema churn first, from what this run changed, without asking, then time the benchmark as its own step so library production and benchmarking stay separate in time and tokens:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py identity --project <artifact-directory> --no-schema-change   # or --schema-change "<what>"
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py record --project <artifact-directory> --phase benchmark --status running
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/score_run.py <artifact-directory> --session current
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/scoreboard.py record --run <artifact-directory> --tier 3 --open
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts identity --project <artifact-directory> --no-schema-change   # or --schema-change "<what>"
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts record --project <artifact-directory> --phase benchmark --status running
+node ${CLAUDE_PLUGIN_ROOT}/scripts/score_run.ts <artifact-directory> --session current
+node ${CLAUDE_PLUGIN_ROOT}/scripts/scoreboard.ts record --run <artifact-directory> --tier 3 --open
 open <artifact-directory>/benchmark/report.html
 ```
 

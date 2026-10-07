@@ -2,11 +2,11 @@
 
 ## Repeatability across runs
 
-A run is a design-lab workspace after its build. When the runner plugin finishes the last step, `figma_runner.py` exports every design-lab page with `scripts/figma_dump_tree.js` to `<run>/figma/dump/<page-name>.json` (a `/` in a page name becomes `-`); the variables step's result is already at `<run>/figma/results/variables.json`. A build relayed by a model gets the same files by running `figma_dump_tree.js` once per page through `use_figma`, with the literal `__PAGE_ID__` replaced by that page's id, and saving each result under that name. The tree dump records page order, namespaced node paths, geometry rounded to half pixels, styles, text, properties, docs, and variable names. Figma node ids live only in `_ids` and are ignored in comparisons.
+A run is a design-lab workspace after its build. When the runner plugin finishes the last step, `figma_runner.ts` exports every design-lab page with `scripts/figma_dump_tree.js` to `<run>/figma/dump/<page-name>.json` (a `/` in a page name becomes `-`); the variables step's result is already at `<run>/figma/results/variables.json`. A build relayed by a model gets the same files by running `figma_dump_tree.js` once per page through `use_figma`, with the literal `__PAGE_ID__` replaced by that page's id, and saving each result under that name. The tree dump records page order, namespaced node paths, geometry rounded to half pixels, styles, text, properties, docs, and variable names. Figma node ids live only in `_ids` and are ignored in comparisons.
 
-Run `python3 scripts/compare_runs.py run-a run-b --out report.json --md report.md` to compare artifacts and every page node. Supply three or more run directories for all pairwise comparisons and a score matrix. The score formula and category definitions are documented in the script. Absent optional artifacts are reported as absent; a file present in only one run is a difference.
+Run `node scripts/compare_runs.ts run-a run-b --out report.json --md report.md` to compare artifacts and every page node. Supply three or more run directories for all pairwise comparisons and a score matrix. The score formula and category definitions are documented in the script. Absent optional artifacts are reported as absent; a file present in only one run is a difference.
 
-To gate a repeated build of one page, save the expected SHA-256 digest in a text file and run `python3 scripts/determinism.py check run-b/figma/dump/<page-name>.json expected.sha256`. The hash is computed from sorted JSON keys after removing timestamp and run-id metadata and the dump's `_ids`. Documentation links carry the block's node id, so a page whose components link to their blocks hashes the same only when rebuilt into the same file. A mismatch exits with status 1. This gate is separate from `verify.py`.
+To gate a repeated build of one page, save the expected SHA-256 digest in a text file and run `node scripts/determinism.ts check run-b/figma/dump/<page-name>.json expected.sha256`. The hash is computed from sorted JSON keys after removing timestamp and run-id metadata and the dump's `_ids`. Documentation links carry the block's node id, so a page whose components link to their blocks hashes the same only when rebuilt into the same file. A mismatch exits with status 1. This gate is separate from `verify.ts`.
 
 Nobody is going to reconstruct 146 components from memory. Verification therefore combines **machine comparisons for every component** with a consistent visual receipt a human can audit: desktop, tablet, and mobile screenshots next to the native Figma component.
 
@@ -30,7 +30,7 @@ Run all three at the end of every `design-lab:figma-component` invocation and wr
 
 ### 1. Structure matches the plan
 
-Cheap, exact, no external dependency. Compare the built component against the entry `plan.py` and the source anatomy produced for it:
+Cheap, exact, no external dependency. Compare the built component against the entry `plan.ts` and the source anatomy produced for it:
 
 - one `COMPONENT` exists per source component, with no Breakpoint variant axis
 - a `COMPONENT_SET` is used only when the plan has a real, non-Breakpoint variant axis
@@ -61,7 +61,7 @@ Exceptions still have to be declared in the plan rather than discovered at asser
 
 ### 3. Fidelity against the source of truth
 
-Only this class needs the live site, and only for components that have a verified anonymous example address — see `usage.examples` in `references/model.md`. The block returns bounding boxes for the mobile instance, tablet instance, desktop master, and their three live captures. `figma_compare.py` crops matched pairs from one specimen screenshot. Each pair passes when no more than 6% of its pixels differ by over 40 in a colour channel. The receipt records each pair's ratio, verdict, threshold, and tolerance. That original measure compares only the area both crops share and applies the tolerance to a greyscale difference, so a master that is too short can still pass; `figma_compare.py --corrected` also counts unmatched area and applies the tolerance per colour channel, and `design-lab:evaluate` reports both.
+Only this class needs the live site, and only for components that have a verified anonymous example address — see `usage.examples` in `references/model.md`. The block returns bounding boxes for the mobile instance, tablet instance, desktop master, and their three live captures. `figma_compare.ts` crops matched pairs from one specimen screenshot. Each pair passes when no more than 6% of its pixels differ by over 40 in a colour channel. The receipt records each pair's ratio, verdict, threshold, and tolerance. That original measure compares only the area both crops share and applies the tolerance to a greyscale difference, so a master that is too short can still pass; `figma_compare.ts --corrected` also counts unmatched area and applies the tolerance per colour channel, and `design-lab:evaluate` reports both.
 
 If no anonymous example exists, record the component as not built and explain why in the index. `fidelity: "unverified"` is useful diagnostic evidence but cannot complete a build receipt.
 

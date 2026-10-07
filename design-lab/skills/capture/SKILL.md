@@ -14,7 +14,7 @@ description: >
 ## Configure
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold_configs.py components.json \
+node ${CLAUDE_PLUGIN_ROOT}/scripts/scaffold_configs.ts components.json \
   --out components/ --theme-root <theme-root> \
   --site-url https://example.ddev.site --canonical-base-url https://www.example.org
 ```
@@ -38,7 +38,7 @@ Measurements and screenshots close DataGrail cookie preferences through its clos
 Run the full capture from a project with Playwright installed. The command scaffolds configs, measures each eligible component, takes desktop/tablet/mobile screenshots, assembles evidence, and registers it in the workspace:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/capture_all.py \
+node ${CLAUDE_PLUGIN_ROOT}/scripts/capture_all.ts \
   --project .design-lab --site-url https://example.ddev.site \
   --canonical-base-url https://www.example.org \
   --theme-root docroot/themes/custom/example [--node-cwd <folder>]

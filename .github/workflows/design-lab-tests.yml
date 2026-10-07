@@ -7,26 +7,11 @@ on:
       - '.github/workflows/design-lab-tests.yml'
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-      - name: Install test dependencies
-        run: python -m pip install --quiet pillow
-      - name: Run the design-lab tests
-        working-directory: design-lab
-        run: python -m unittest discover -s tests
-
   typescript:
     runs-on: ubuntu-latest
     env:
       DESIGN_LAB_CACHE: ${{ runner.temp }}/design-lab-cache
+      DESIGN_LAB_HOME: ${{ runner.temp }}/design-lab-home
     defaults:
       run:
         working-directory: design-lab
@@ -35,11 +20,21 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
-      - name: Install pinned dependencies into shared cache
-        run: npm run setup
+      - name: Install pinned packages and Chromium into shared cache
+        run: node scripts/setup-ts.ts --chromium
+      - name: Install Chromium system libraries
+        run: node scripts/setup-browser-deps.ts
       - name: Check generated contracts
         run: npm run contracts:check
-      - name: Typecheck TypeScript source
+      - name: Typecheck Node and Figma environments
         run: npm run typecheck
-      - name: Run Node tests
+      - name: Run Node and browser tests
         run: npm test
+      - name: Validate plugin and test mod when Claude Code is available
+        run: |
+          if command -v claude >/dev/null 2>&1; then
+            claude plugin validate .
+            node scripts/test-mod.ts
+          else
+            echo 'Claude Code is unavailable on this runner; validate and mod tests require the local Claude Code CLI. See TYPESCRIPT.md.'
+          fi

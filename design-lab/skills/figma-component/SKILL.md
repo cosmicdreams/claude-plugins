@@ -13,16 +13,16 @@ Every component is built by fixed code from its measurements, never drawn by han
 
 ## What gets built
 
-- **One responsive master.** `scripts/responsive.py` merges the desktop, tablet and mobile measurements into one tree; `render/build_responsive.js` builds it. Values that change with width are variables in the shared `<Brand> Core` collection. There is exactly one Figma component per source component: no per-viewport copies, no breakpoint variants.
+- **One responsive master.** `src/responsive.ts` merges the desktop, tablet and mobile measurements into one tree; `render/build_responsive.js` builds it. Values that change with width are variables in the shared `<Brand> Core` collection. There is exactly one Figma component per source component: no per-viewport copies, no breakpoint variants.
 - **Its block** (`render/component_block.js`): the documentation panel, then the master at desktop beside instances of it resized to tablet and mobile with their Breakpoint mode set, then the live captures in the same columns.
-- **A visual comparison** (`scripts/figma_compare.py`) of each width against its capture, from one screenshot of the block's specimen.
+- **A visual comparison** (`scripts/figma_compare.ts`) of each width against its capture, from one screenshot of the block's specimen.
 
 ## Build or rebuild one component
 
 The library must already exist (built by `design-lab:run`). Initialise a subset build in the same workspace and relay it exactly as `references/relay.md` describes:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.py init --project <W> --file-key <key> \
+node ${CLAUDE_PLUGIN_ROOT}/scripts/figma_build.ts init --project <W> --file-key <key> \
   --site-url <local-site-url> --canonical-base-url <public-url> --only <component-id>
 ```
 
@@ -34,9 +34,9 @@ Read `W/figma/results/compare_<id>.json` and the screenshot beside it in `W/figm
 
 | Symptom | Where the fix belongs |
 | --- | --- |
-| Text wraps where the site does not | single-line detection in `spec_to_tree.py` |
+| Text wraps where the site does not | single-line detection in `spec_to_tree.ts` |
 | An element the site hides is drawn | visibility in `spec_to_tree.visible` / `measure.mjs` |
-| Items in the wrong place at one width | layout inference or slot flow in `responsive.py` |
+| Items in the wrong place at one width | layout inference or slot flow in `responsive.ts` |
 | A box is the wrong height | sizing in `render/build_responsive.js` |
 | A lazy image missing or different | the image wait in `measure.mjs` and `capture.mjs` |
 

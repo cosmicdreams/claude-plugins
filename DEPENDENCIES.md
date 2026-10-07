@@ -9,7 +9,7 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 | Plugin | Required | Optional |
 |--------|----------|----------|
 | admin | [python3](#python3) | [Beads](#bd-beads) (`scaffold`), [jq](#jq) (scaffold detection hook), [headroom](#headroom-and-rtk) |
-| design-lab | [python3](#python3), [Figma](#figma) | [node / npm](#node--npm) and [Playwright](#playwright) (`capture`), [ddev](#ddev) (Drupal usage counts) |
+| design-lab | Node 24 / npm, [Figma](#figma) | Pinned Node dependencies and Chromium via `node scripts/lab_setup.ts install playwright` (shared cache); [ddev](#ddev) (Drupal usage counts) |
 | golden-rule | macOS (`/usr/bin/sandbox-exec`), [python3](#python3) (`/usr/bin/python3`), Claude Code 2.1.287 or later (mods) | none |
 | drover | [python3](#python3), [Acquia credentials](#acli-acquia-command-line-tool) | [node / npm](#node--npm) (web-page reports), [Chrome or Chromium](#chrome-or-chromium) (Portable Document Format reports), [TypeSafe](#typesafe-api-key) |
 | drupal-lab | [python3](#python3), [ddev](#ddev), [jq](#jq) | [twg](#twg) (`sprint-start`, `release-cut`, `branch-audit`), [Beads](#bd-beads) (development-environment slot tracking), [Obsidian](#obsidian), [headroom and rtk](#headroom-and-rtk) |

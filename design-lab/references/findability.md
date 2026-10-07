@@ -31,7 +31,7 @@ Assets panel search is substring matching, so one name serves both audiences: ty
 - Spell the human half out — `Call To Action Banner`, never `CTA Banner`. An abbreviation is a word nobody searches for.
 - **Category is carried by the page, not by a slash prefix.** The Assets panel groups local components by the page they live on, so the page list does that work and the name stays clean.
 - **Sub-components and internal parts keep the `_` prefix** (`_Accordion/Item`), which hides them from the Assets panel.
-- Where one machine name is used by two components — a block and a paragraph both called `accordion` — qualify it, because two Figma components cannot share a name and an index row would jump to the wrong one. `scripts/index_rows.py` reports this as `machine-name-collision`.
+- Where one machine name is used by two components — a block and a paragraph both called `accordion` — qualify it, because two Figma components cannot share a name and an index row would jump to the wrong one. `src/index-rows.ts` reports this as `machine-name-collision`.
 
 ### 2. Description — for confirming, and for the words nobody put in the name
 
@@ -61,7 +61,7 @@ Thresholds are **absolute, not relative**. Bucketing by thirds of the ranked dis
 
 Some repositories have no way to count placements. Then tiers cannot be computed, and the answer is **not** to invent a second organising scheme — it is to say so. Collapse the five tier pages to one page named `Components — Untiered`, order it by the source's own grouping, and state on Getting Started that no usage source was available and what that costs the reader. One shape that admits a gap beats two shapes that compete.
 
-Do not route around missing usage data quietly. `scripts/index_rows.py` reports it as `usage-data-missing`, and on most Drupal sources the real fix is to run `design-lab:usage`.
+Do not route around missing usage data quietly. `src/index-rows.ts` reports it as `usage-data-missing`, and on most Drupal sources the real fix is to run `design-lab:usage`.
 
 ## Why a library feels unmanageable
 

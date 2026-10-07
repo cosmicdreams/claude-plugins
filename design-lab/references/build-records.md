@@ -10,7 +10,7 @@ It does three jobs at once, and all three matter:
 2. **Resume point.** Context runs out. A batch dies halfway. The set of records on disk is the answer to "what is already done", and it survives everything.
 3. **Verification evidence.** The assertion results from `references/verification.md` live here, so "built" is a claim with a receipt attached.
 
-`figma.documentationCardId` is what the Getting Started index hyperlinks each row to, so a record without it produces a row that cannot be jumped to. `scripts/index_rows.py` reads these records and nothing else to decide what exists.
+`figma.documentationCardId` is what the Getting Started index hyperlinks each row to, so a record without it produces a row that cannot be jumped to. `src/index-rows.ts` reads these records and nothing else to decide what exists.
 
 The receipt also separates three things that were previously easy to conflate:
 
