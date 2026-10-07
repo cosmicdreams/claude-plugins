@@ -1,7 +1,7 @@
+import { isEntrypoint } from './entrypoint.ts';
 /** Discover the fonts a site renders and plan how its components should draw them in Figma. */
 import { readdirSync, readFileSync, statSync, existsSync, writeFileSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import type { Fonts } from './generated/fonts.ts';
 import type { MeasuredNode, Spec } from './generated/spec.ts';
 import type { Project } from './generated/project.ts';
@@ -206,4 +206,4 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
   const run = resolve(runArg), project = JSON.parse(readFileSync(join(run, 'project.json'), 'utf8')) as Project, fontPath = join(run, 'figma', 'available-fonts.json'), figma = existsSync(fontPath) ? JSON.parse(readFileSync(fontPath, 'utf8')) as AvailableFonts : null, sitestudioConfig = project.decisions?.['sitestudioConfig'], folder = typeof sitestudioConfig === 'string' ? sitestudioConfig : null;
   const document = finalise(await plan({ run, repo: resolve(project.repository.root), sitestudio: folder ? resolve(folder) : null, figma })); writeFileSync(join(run, 'fonts.json'), JSON.stringify(document, null, 2) + '\n'); console.log(summaryLines(document).join('\n')); return 0;
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) process.exitCode = await main();
+if (isEntrypoint(import.meta.url)) process.exitCode = await main();

@@ -1,8 +1,8 @@
+import { isEntrypoint } from './entrypoint.ts';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
 import { readFileSync, writeFileSync, mkdirSync, existsSync, realpathSync } from 'node:fs';
 import { basename, dirname, resolve } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { createHash } from 'node:crypto';
 import { setTimeout as delay } from 'node:timers/promises';
 import { sharedRequire } from './runtime.ts';
@@ -75,7 +75,7 @@ export async function fetchImages(tree: { tree?: TreeNode; breakpoints?: { tree?
   }
   writeJson(resolve(options.out, 'images.json'), manifest); return manifest;
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
+if (isEntrypoint(import.meta.url)) {
   const args = process.argv.slice(2), get = (flag: string): string | undefined => args[args.indexOf(flag) + 1];
   const treePath = args.find((arg, i) => !arg.startsWith('--') && (i === 0 || !['--out', '--base-url', '--fallback-base-url'].includes(args[i - 1]!)))!;
   if (!args.includes('--out')) throw new Error('usage: fetch-images.ts TREE.json --out DIR [--base-url URL] [--fallback-base-url URL] [--offline]');

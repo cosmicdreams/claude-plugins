@@ -55,6 +55,10 @@ export interface CaptureOptions {
   project: string; canonicalBaseUrl: string; siteUrl?: string; themeRoot?: string; configs?: CaptureConfig[];
   concurrency?: number; scale?: number; only?: string[]; fresh?: boolean; check?: boolean; noCheck?: boolean; maxPages?: number;
   measureTimeoutMs?: number; captureTimeoutMs?: number;
+  onComplete?: (progress: CaptureProgress) => void | Promise<void>;
+}
+export interface CaptureProgress {
+  record: CaptureRecord; completed: number; total: number; remainingSeconds: number;
 }
 export interface CaptureAdapters {
   launch: typeof launchBrowser; measure: typeof measureConfig; capture: typeof captureConfig; check: typeof checkSelectors;
@@ -78,16 +82,22 @@ export async function runCapture(options: CaptureOptions, adapters: CaptureAdapt
     writeJson(path, complete);
     ready.push({ cfg: complete, digest: configHash(complete, scale), path });
   }
+  const previous = new Map<string, number>();
   const pending = ready.filter(({ cfg, digest }) => {
     const path = resolve(records, stem(cfg.componentId) + '.json');
     const selected = !options.only || options.only.includes(cfg.componentId);
-    if (selected && options.fresh && !options.check) rmSync(path, { force: true });
-    const record = readRecord(path);
+    // Selector checks must not migrate, replace or create capture records.
+    if (options.check) return selected;
+    let record = readRecord(path);
+    if (record && Number.isFinite(record.seconds) && record.seconds > 0) previous.set(cfg.componentId, record.seconds);
+    if (selected && options.fresh) { rmSync(path, { force: true }); record = null; }
     if (record && record.configHash !== digest && record.configHash === legacyHash(cfg, scale)) { record.configHash = digest; writeJson(path, record); }
     if (!selected) return false;
     return options.check || record?.status !== 'complete' || record.configHash !== digest;
   });
   const checks: Awaited<ReturnType<typeof checkSelectors>>[] = [];
+  const remaining = new Set(pending.map(({ cfg }) => cfg.componentId));
+  let completed = 0, totalSeconds = 0;
   if (pending.length) {
     const browser = await adapters.launch();
     try {
@@ -154,9 +164,16 @@ export async function runCapture(options: CaptureOptions, adapters: CaptureAdapt
           record.durationMs = performance.now() - start;
           record.seconds = roundEven(record.durationMs / 100) / 10;
           record.measureMs = measureMs; record.captureMs = captureMs;
-          writeJson(resolve(records, stem(id) + '.json'), record);
+          if (!options.check) writeJson(resolve(records, stem(id) + '.json'), record);
         }
         return record;
+      }, async record => {
+        if (options.check || !options.onComplete) return;
+        remaining.delete(record.componentId); completed++;
+        totalSeconds += record.durationMs / 1000;
+        const average = totalSeconds / completed;
+        const remainingSeconds = remaining.size ? [...remaining].reduce((sum, id) => sum + (previous.get(id) ?? average), 0) / Math.min(limit, remaining.size) : 0;
+        await options.onComplete({ record, completed, total: pending.length, remainingSeconds });
       });
     } finally { await browser.close(); }
   }

@@ -1,8 +1,7 @@
 #!/usr/bin/env node
-import { realpathSync } from 'node:fs';
+import { isEntrypoint } from '../src/entrypoint.ts';
 import { parseArgs } from 'node:util';
 import { dirname } from 'node:path';
-import { pathToFileURL } from 'node:url';
 import { resolve } from 'node:path';
 import * as workflow from '../src/workflow.ts';
 import * as discovery from '../src/discovery-workflow.ts';
@@ -69,4 +68,4 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   }
   console.log(plain ? result : JSON.stringify(result, null, 2)); return code;
 }
-if (process.argv[1] && import.meta.url === pathToFileURL(realpathSync(resolve(process.argv[1]))).href) try { process.exitCode = await main(); } catch (error) { console.error(`error: ${(error as Error).message}`); process.exitCode = 2; }
+if (isEntrypoint(import.meta.url)) try { process.exitCode = await main(); } catch (error) { console.error(`error: ${(error as Error).message}`); process.exitCode = 2; }

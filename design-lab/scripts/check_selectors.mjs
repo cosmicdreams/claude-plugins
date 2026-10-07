@@ -13,20 +13,13 @@
  * pages: [{path, verificationUrl}]}. Pages are tried in order and the first page with a
  * visible match wins.
  */
+import { sharedRequire } from '../src/runtime.ts';
 import { readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 const arg = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d : process.argv[i + 1]; };
 
-let chromium;
-try {
-  const { createRequire } = await import('node:module');
-  const req = createRequire(resolve(process.cwd(), 'noop.mjs'));
-  ({ chromium } = req('playwright'));
-} catch {
-  console.error('playwright is not resolvable from this directory');
-  process.exit(2);
-}
+const { chromium } = sharedRequire()('playwright');
 
 const checks = JSON.parse(readFileSync(resolve(arg('--input')), 'utf8'));
 const OUT = resolve(arg('--out'));
