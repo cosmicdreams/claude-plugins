@@ -16,7 +16,8 @@ export async function main(argv=process.argv.slice(2)):Promise<number> {
  switch(command) {
  case 'score-run':case 'score_run': {
   const {writeScore}=await import('../src/score-run.ts');
-  const scored=await writeScore(run(),{compare:options.compare as string[]|undefined,session:options.session as string[]|undefined,transcripts:options.transcripts as string[]|undefined,since:flag('since'),until:flag('until'),siteLabel:flag('site-label'),out:flag('out'),noHtml:options['no-html']===true});if(scored.message)console.log(scored.message);console.log(JSON.stringify({written:scored.written,errors:scored.errors},null,2));return scored.code;
+  const compare=options.compare as string[]|undefined, session=options.session as string[]|undefined, transcripts=options.transcripts as string[]|undefined, since=flag('since'), until=flag('until'), siteLabel=flag('site-label'), out=flag('out');
+  const scored=await writeScore(run(),{...(compare !== undefined ? {compare} : {}), ...(session !== undefined ? {session} : {}), ...(transcripts !== undefined ? {transcripts} : {}), ...(since !== undefined ? {since} : {}), ...(until !== undefined ? {until} : {}), ...(siteLabel !== undefined ? {siteLabel} : {}), ...(out !== undefined ? {out} : {}),noHtml:options['no-html']===true});if(scored.message)console.log(scored.message);console.log(JSON.stringify({written:scored.written,errors:scored.errors},null,2));return scored.code;
  }
  case 'verify': {
   const {verify,verifyFromFiles}=await import('../src/verify.ts');const state=flag('state');

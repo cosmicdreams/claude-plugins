@@ -378,7 +378,7 @@ function fromCssvars(tokens: TokenInput): [TokenInput, Warning[]] {
     });
   return [
     {
-      source: tokens.source,
+      ...(tokens.source !== undefined ? { source: tokens.source } : {}),
       modes: tokens.modes?.length ? tokens.modes : ["Value"],
       modeRationale: tokens.modeRationale,
       typeScaling: tokens.typeScaling,
@@ -469,7 +469,7 @@ function fromSourcemap(tokens: TokenInput): [TokenInput, Warning[]] {
   });
   return [
     {
-      source: tokens.source,
+      ...(tokens.source !== undefined ? { source: tokens.source } : {}),
       modes: ["Value"],
       modeRationale:
         "a Sass source map declares each variable once; it carries no breakpoint cascade to build modes from",
@@ -585,8 +585,8 @@ export function build(input: TokenInput): VariablePlan {
           name,
           type: "COLOR",
           aliasOf: hit.name,
-          hex: hit.hex,
-          codeName: hit.codeName,
+          ...(hit.hex !== undefined ? { hex: hit.hex } : {}),
+          ...(hit.codeName !== undefined ? { codeName: hit.codeName } : {}),
           scopes: name.startsWith("text/")
             ? ["TEXT_FILL"]
             : ["FRAME_FILL", "SHAPE_FILL"],

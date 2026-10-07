@@ -218,7 +218,6 @@ export function writePlanJson(
   path: string,
   document: {
     plans: ReturnType<typeof planComponent>[];
-    [key: string]: unknown;
   },
 ): string {
   const rawJSON = (JSON as typeof JSON & { rawJSON(text: string): unknown })

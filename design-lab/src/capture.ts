@@ -21,8 +21,9 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
   const required = (flag: string): string => { const result = value(flag); if (!result) throw new Error(`missing ${flag}`); return result; };
   const dir = value('--configs');
   const configs = dir ? readdirSync(dir).filter(f => f.endsWith('.json')).sort().map(file => JSON.parse(readFileSync(resolve(dir, file), 'utf8')) as CaptureConfig) : undefined;
-  const result = await runCapture({ project: required('--project'), canonicalBaseUrl: required('--canonical-base-url'), siteUrl: value('--site-url'), themeRoot: value('--theme-root'), configs,
-    concurrency: Number(value('--concurrency', '4')), scale: Number(value('--scale', '1')), only: value('--only')?.split(','), fresh: args.includes('--fresh'), check: args.includes('--check'), noCheck: args.includes('--no-check'), maxPages: Number(value('--max-pages', '3')),
+  const siteUrl = value('--site-url'), themeRoot = value('--theme-root'), only = value('--only')?.split(',');
+  const result = await runCapture({ project: required('--project'), canonicalBaseUrl: required('--canonical-base-url'), ...(siteUrl !== undefined ? { siteUrl } : {}), ...(themeRoot !== undefined ? { themeRoot } : {}), ...(configs !== undefined ? { configs } : {}),
+    concurrency: Number(value('--concurrency', '4')), scale: Number(value('--scale', '1')), ...(only !== undefined ? { only } : {}), fresh: args.includes('--fresh'), check: args.includes('--check'), noCheck: args.includes('--no-check'), maxPages: Number(value('--max-pages', '3')),
     onComplete: progress => console.log(progressLine(progress)) });
   console.log(JSON.stringify({ captures: Object.keys(result.captures).length, problems: result.problems }, null, 2));
   return result.problems.length ? 1 : 0;

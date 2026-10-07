@@ -35,11 +35,125 @@
     },
     "recommended": {
       "type": "object",
-      "properties": {}
+      "properties": {
+        "component": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "token": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "usage": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
     },
     "priorArt": {
       "type": "array",
-      "items": {}
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "path",
+          "kind"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "docroot": {
+      "type": "string"
+    },
+    "configSync": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "configCandidates": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "entityCount": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "notes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "siteStudio": {
+      "type": "object",
+      "properties": {
+        "configDir": {
+          "type": "null"
+        },
+        "configFrom": {
+          "type": "null"
+        },
+        "problem": {
+          "type": "string"
+        },
+        "declared": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "families": {
+          "type": "object",
+          "properties": {},
+          "required": [],
+          "additionalProperties": false
+        },
+        "components": {
+          "type": "number"
+        },
+        "customStyles": {
+          "type": "number"
+        },
+        "customComponents": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "customComponentProblems": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "customComponentsFromActiveExtensionsOnly": {
+          "type": "boolean"
+        }
+      },
+      "required": [],
+      "additionalProperties": false
     }
   },
   "$defs": {
@@ -51,10 +165,67 @@
       "properties": {
         "strategy": {
           "type": "string"
+        },
+        "count": {
+          "type": "number"
+        },
+        "blocks": {
+          "type": "number"
+        },
+        "paragraphs": {
+          "type": "number"
+        },
+        "evidence": {
+          "type": "string"
+        },
+        "withEnumProps": {
+          "type": "number"
+        },
+        "withSlots": {
+          "type": "number"
+        },
+        "filesWithVars": {
+          "type": "number"
+        },
+        "filesLoadedByTheme": {
+          "type": "number"
+        },
+        "variablesLoadedByTheme": {
+          "type": "number"
+        },
+        "files": {
+          "type": "number"
+        },
+        "variables": {
+          "type": "number"
+        },
+        "maps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "ref": {
+                "type": "string"
+              },
+              "variables": {
+                "type": "number"
+              },
+              "sources": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "configComponents": {
+          "type": "number"
+        },
+        "customComponents": {
+          "type": "number"
         }
       },
-      "additionalProperties": true
+      "additionalProperties": false
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

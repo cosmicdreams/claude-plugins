@@ -47,9 +47,99 @@
             "templatePlacements": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
+        },
+        "ddevProject": {
+          "anyOf": [
+            {
+              "type": "null"
+            },
+            {
+              "type": "string"
+            }
+          ]
+        },
+        "approot": {
+          "type": "string"
+        },
+        "population": {
+          "type": "object",
+          "properties": {
+            "siteStudioLayouts": {
+              "type": "number"
+            },
+            "paragraphInstances": {
+              "type": "number"
+            },
+            "blockContentEntities": {
+              "type": "number"
+            },
+            "nodes": {
+              "type": "number"
+            },
+            "layoutBuilderSections": {
+              "type": "number"
+            },
+            "publishedPages": {
+              "type": "number"
+            },
+            "pagePlacementRows": {
+              "type": "number"
+            },
+            "templateNodes": {
+              "type": "number"
+            },
+            "siteStudioTemplates": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "exampleVerification": {
+          "type": "object",
+          "properties": {
+            "baseUrl": {
+              "type": "string"
+            },
+            "pagesFetched": {
+              "type": "number"
+            },
+            "anonymous": {
+              "type": "boolean"
+            },
+            "twigDebug": {
+              "type": "boolean"
+            }
+          },
+          "additionalProperties": false
+        },
+        "renderedVerification": {
+          "type": "object",
+          "properties": {
+            "baseUrl": {
+              "type": "string"
+            },
+            "pathsSelected": {
+              "type": "number"
+            },
+            "pagesFetched": {
+              "type": "number"
+            },
+            "pathsFailed": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          },
+          "additionalProperties": false
+        },
+        "root": {
+          "type": "string"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "usage": {
       "type": "object",
@@ -72,8 +162,128 @@
           "pages": {
             "type": "integer",
             "minimum": 0
+          },
+          "unpublishedInstances": {
+            "type": "number"
+          },
+          "inlineBlockEntities": {
+            "type": "number"
+          },
+          "configPlacedBlocks": {
+            "type": "number"
+          },
+          "orphanInstances": {
+            "type": "number"
+          },
+          "examples": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "url": {
+                  "type": "string"
+                },
+                "path": {
+                  "type": "string"
+                },
+                "marker": {
+                  "type": "string"
+                },
+                "markerKind": {
+                  "type": "string"
+                },
+                "markerUniqueToThisComponent": {
+                  "type": "boolean"
+                },
+                "instancesOnPage": {
+                  "type": "number"
+                },
+                "status": {
+                  "type": "number"
+                },
+                "anonymous": {
+                  "type": "boolean"
+                },
+                "verifiedAt": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "noExampleReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "exampleCandidates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "templatePlacements": {
+            "type": "number"
+          },
+          "templateBundles": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "templateRefs": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "object",
+                  "properties": {
+                    "file": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "number"
+                    },
+                    "global": {
+                      "type": "boolean"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                {
+                  "type": "string"
+                }
+              ]
+            }
+          },
+          "globalTemplate": {
+            "type": "boolean"
+          },
+          "renderedPages": {
+            "type": "number"
+          },
+          "renderedInstances": {
+            "type": "number"
+          },
+          "renderedExamples": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "templates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
           }
-        }
+        },
+        "additionalProperties": false
       },
       "properties": {}
     },
@@ -94,9 +304,10 @@
               "type": "string"
             }
           }
-        }
+        },
+        "additionalProperties": false
       }
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

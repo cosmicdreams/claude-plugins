@@ -50,7 +50,7 @@ const boundaryCases: [ArtifactKind, unknown][] = [
   ['runner-record', { png: 'iVBORw0KGgo=' }],
   ['runner-record', { fileKey: 'test', fileName: 'Test', pages: 1, empty: true, preflightCover: false, fonts: { Inter: ['Regular'] } }],
   ['runner-record', { pages: [], collections: [] }],
-  ['runner-record', { page: 'Cover', pageIndex: 0, nodes: [], _ids: { page: '0:1', nodes: [] } }],
+  ['runner-record', { page: 'Cover', pageIndex: 0, nodes: [], _ids: { page: '0:1', nodes: {} } }],
   ['runner-record-response', { recorded: 'pages', remaining: 1 }],
   ['runner-record-response', { recorded: 'preflight:check', ignored: true }],
   ['runner-error', { step: 'pages', message: 'failed' }], ['runner-error-response', {}],
@@ -132,4 +132,48 @@ test('media-only tokens accept arbitrary mode names with string values', () => {
   // @ts-expect-error all mode values are strings, including previously unseen keys
   modes['Another breakpoint'] = 12;
   void modes;
+});
+
+
+test('owned artifact records reject root and nested field drift', () => {
+  for (const kind of durableKinds) {
+    const fixture = JSON.parse(readFileSync(new URL(`./fixtures/${kind}.json`, import.meta.url), 'utf8'));
+    assert.ok(validate(kind, { ...fixture, unexpectedField: true }).some(error => error.includes('/unexpectedField')), kind);
+  }
+  assert.ok(validate('tree', { ...tree, tree: { ...tree.tree, widht: 10 } }).some(error => error.includes('/tree/widht')));
+  assert.ok(validate('tree', { ...tree, tree: { ...tree.tree, fill: { ...tree.tree.fill, opactiy: 1 } } }).some(error => error.includes('/tree/fill/opactiy')));
+  assert.ok(validate('runner-step', { kind: 'upload', step: 'images', nodeIds: [], nodeIDs: [], scaleMode: 'FILL' }).some(error => error.includes('/nodeIDs')));
+  assert.ok(validate('step-result', { geometry: { captures: [{ x: 0, y: 0, width: 10, height: 10, lable: 'Desktop' }] } }).some(error => error.includes('/geometry/captures/0/lable')));
+});
+
+test('explicit dictionaries accept new keys and validate their values without defaults', () => {
+  const value = structuredClone(spec);
+  value.measurements['desktop:default'].nodes = [];
+  assert.deepEqual(validate('spec', value), []);
+  const variables = { 'a new/component id': { type: 'FLOAT', values: { 'A new mode': 10 } } };
+  assert.deepEqual(validate('tree', { ...tree, variables }), []);
+  assert.ok(validate('tree', { ...tree, variables: { bad: { type: 'FLOAT', values: { Value: { typo: 10 } } } } }).length);
+  assert.deepEqual(validate('runner-record', { pages: { 'A user page name': '0:2' } }), []);
+  assert.ok(validate('runner-record', { pages: { 'A user page name': 2 } }).length);
+  const receipt = JSON.parse(readFileSync(new URL('./fixtures/build-record.json', import.meta.url), 'utf8'));
+  assert.deepEqual(validate('build-record', { ...receipt, built: { fonts: { 'A new font 400': 'Regular' }, standIns: { 'A new font': 'Inter' } } }), []);
+  assert.deepEqual(validate('tokens', { standardVersion: '1', toolVersion: 'test', spacing: [], customStyles: [{ valuesByBreakpoint: { 'A new breakpoint': null } }] }), []);
+  const before = JSON.stringify(value);
+  validate('spec', value);
+  assert.equal(JSON.stringify(value), before);
+});
+
+test('generated contracts reject typos, missing variant fields and present undefined', () => {
+  // @ts-expect-error nodeIDs is not a writer field; the generated union must stay closed.
+  const typo: ArtifactMap['runner-step'] = { kind: 'upload', step: 'images', nodeIDs: [], scaleMode: 'FILL' };
+  // @ts-expect-error The required-only schema union must require code or payload in its generated type too.
+  const missing: ArtifactMap['runner-step'] = { kind: 'use_figma', step: 'pages' };
+  // @ts-expect-error Persisted optional properties mean missing, never a present undefined value.
+  const absent: ArtifactMap['runner-step'] = { kind: 'done', buildId: undefined };
+  assert.ok(validate('runner-step', typo).length);
+  assert.ok(validate('runner-step', missing).length);
+  // Ajv accepts an undefined optional key as missing and does not remove it; the compiler
+  // guards in-memory producers while serialization is the JSON boundary.
+  assert.deepEqual(validate('runner-step', absent), []);
+  assert.ok(Object.hasOwn(absent, 'buildId'));
 });

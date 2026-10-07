@@ -12,7 +12,8 @@ export interface StepResult {
     heightDelta?: number;
     ratio: number;
     pass?: boolean;
-    [k: string]: unknown;
+    ratioUnmasked?: number;
+    textMasked?: number;
   }[];
   threshold?: number;
   tolerance?: number;
@@ -27,24 +28,29 @@ export interface StepResult {
       y: number;
       width: number;
       height: number;
-      [k: string]: unknown;
+      label?: string;
     }[];
     variants?: {
       x: number;
       y: number;
       width: number;
       height: number;
-      [k: string]: unknown;
+      label?: string;
     }[];
     specimen?: {
       width: number;
       height: number;
-      [k: string]: unknown;
     };
-    [k: string]: unknown;
   };
   native?: {
-    [k: string]: unknown;
+    nodeType?: string;
+    rootHasImageFill?: boolean;
+    nestedInstances?: {
+      instanceId?: string;
+      mainComponentId?: string | null;
+      sourceId?: string | null;
+    }[];
+    documentedFields?: (string | null)[];
   };
   setId?: string;
   specimenId?: string;
@@ -67,37 +73,25 @@ export interface StepResult {
     [k: string]: string;
   };
   iconText?: {
-    [k: string]: string;
+    [k: string]: string | number;
   };
   images?: {
     id: string;
     src: string;
     fit?: string;
-    [k: string]: unknown;
   }[];
   nested?: {
     id: string;
     sourceId: string;
-    [k: string]: unknown;
   }[];
-  nestedMismatch?: (
-    | {
-        [k: string]: unknown;
-      }
-    | string
-  )[];
-  svgFailures?: (
-    | {
-        [k: string]: unknown;
-      }
-    | string
-  )[];
-  fellBack?: (
-    | {
-        [k: string]: unknown;
-      }
-    | string
-  )[];
+  nestedMismatch?: {
+    sourceId?: string;
+    name?: string;
+    texts?: number[];
+    images?: number[];
+  }[];
+  svgFailures?: string[];
+  fellBack?: string[];
   rootId?: string;
   headerId?: string;
   componentsId?: string;
@@ -109,30 +103,14 @@ export interface StepResult {
       id: string;
       modes: string[];
       variables: number;
-      [k: string]: unknown;
     };
   };
-  aliasMisses?: (
-    | {
-        [k: string]: unknown;
-      }
-    | string
-  )[];
-  unplanned?: (
-    | {
-        [k: string]: unknown;
-      }
-    | string
-  )[];
+  aliasMisses?: string[];
+  unplanned?: string[];
   pages?: {
     [k: string]: string;
   };
-  foreign?: (
-    | {
-        [k: string]: unknown;
-      }
-    | string
-  )[];
+  foreign?: string[];
   coverId?: string;
   font?: string;
   fontLoaded?: boolean;
@@ -140,14 +118,8 @@ export interface StepResult {
   pageId?: string;
   pluginData?: boolean;
   clearedCover?: number;
-  kept?: (
-    | {
-        [k: string]: unknown;
-      }
-    | string
-  )[];
+  kept?: string[];
   removedCollections?: string[];
   removedPages?: string[];
   pass?: boolean;
-  [k: string]: unknown;
 }

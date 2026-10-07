@@ -70,7 +70,7 @@ export async function runCapture(options: CaptureOptions, adapters: CaptureAdapt
   const scale = options.scale ?? 1, limit = options.concurrency ?? 4, maxPages = options.maxPages ?? 3;
   const doc = existsSync(resolve(project, 'components.json')) ? JSON.parse(readFileSync(resolve(project, 'components.json'), 'utf8')) as ComponentDocument : {};
   const byId = new Map((doc.components ?? []).map(c => [c.id, c]));
-  const proposed = options.configs ?? scaffold(doc, { siteUrl: options.siteUrl, canonicalBaseUrl: options.canonicalBaseUrl, themeRoot: options.themeRoot });
+  const proposed = options.configs ?? scaffold(doc, { ...(options.siteUrl !== undefined ? { siteUrl: options.siteUrl } : {}), canonicalBaseUrl: options.canonicalBaseUrl, ...(options.themeRoot !== undefined ? { themeRoot: options.themeRoot } : {}) });
   const problems: Record<string, string> = {}, ready: { cfg: CaptureConfig; digest: string; path: string }[] = [];
   if (options.only) for (const id of options.only) if (!byId.has(id) && !proposed.some(c => c.componentId === id)) throw new Error('unknown component id: ' + id);
   for (const cfg of proposed) {
@@ -110,7 +110,7 @@ export async function runCapture(options: CaptureOptions, adapters: CaptureAdapt
           let candidates = paths;
           if (!options.noCheck) {
             const result = await isolated(browser, options.captureTimeoutMs ?? 1800000, scoped => adapters.check(scoped, {
-              componentId: id, rootSelector: cfg.rootSelector, setup: cfg.states?.[0]?.setup, anchorText: cfg.anchorText, mustContain: cfg.mustContain,
+              componentId: id, rootSelector: cfg.rootSelector, ...(cfg.states?.[0]?.setup !== undefined ? { setup: cfg.states?.[0]?.setup } : {}), ...(cfg.anchorText !== undefined ? { anchorText: cfg.anchorText } : {}), ...(cfg.mustContain !== undefined ? { mustContain: cfg.mustContain } : {}),
               pages: paths.map(page => ({ path: page, verificationUrl: move(cfg, page, options).verificationUrl })),
             }));
             checks.push(result); writeJson(resolve(capture, 'selector-check.json'), checks);

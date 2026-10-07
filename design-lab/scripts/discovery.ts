@@ -39,21 +39,21 @@ try {
       ? detectProject(project)
       : command === "select"
         ? selectProject(project, {
-            component: values.component,
-            token: values.token,
-            usage: values.usage,
-            sitestudioConfig: values["sitestudio-config"],
-            degradedReason: values["degraded-reason"],
-            by: values.by,
+            ...(values.component !== undefined ? { component: values.component } : {}),
+            ...(values.token !== undefined ? { token: values.token } : {}),
+            ...(values.usage !== undefined ? { usage: values.usage } : {}),
+            ...(values["sitestudio-config"] !== undefined ? { sitestudioConfig: values["sitestudio-config"] } : {}),
+            ...(values["degraded-reason"] !== undefined ? { degradedReason: values["degraded-reason"] } : {}),
+            ...(values.by !== undefined ? { by: values.by } : {}),
           })
         : command === "extract"
           ? await extractProject(project, values.kind)
           : command === "usage"
             ? await usageProject(project, {
-                ddevRoot: values["ddev-root"],
-                ddevProject: values["ddev-project"],
-                baseUrl: values["base-url"],
-                withoutTwigDebug: values["without-twig-debug"],
+                ...(values["ddev-root"] !== undefined ? { ddevRoot: values["ddev-root"] } : {}),
+                ...(values["ddev-project"] !== undefined ? { ddevProject: values["ddev-project"] } : {}),
+                ...(values["base-url"] !== undefined ? { baseUrl: values["base-url"] } : {}),
+                ...(values["without-twig-debug"] !== undefined ? { withoutTwigDebug: values["without-twig-debug"] } : {}),
                 high: integer(values.high),
                 medium: integer(values.medium),
               })

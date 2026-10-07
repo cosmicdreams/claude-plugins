@@ -149,7 +149,7 @@ test('child renders count only within their own parent', () => {
   assert.deepEqual(twig.rendersWithin(html, 'block:parent', ['paragraph:child']), { parentRenders: 1, children: { 'paragraph:child': 2 } });
 });
 test('scaffold maps each marker to selector and reveal setup', () => {
-  for (const [markerKind, marker, expected] of [['class', 'card', '.card'], ['id', 'id', '#id'], ['component', 'demo:card', '[data-component-id="demo:card"]'], ['template', 'paragraph--card.html.twig', '[data-design-lab-root="paragraph:card"]']]) {
+  for (const [markerKind, marker, expected] of [['class', 'card', '.card'], ['id', 'id', '#id'], ['component', 'demo:card', '[data-component-id="demo:card"]'], ['template', 'paragraph--card.html.twig', '[data-design-lab-root="paragraph:card"]']] as const) {
     const c = scaffold({ components: [{ id: 'paragraph:card', usage: { examples: [{ path: '/x', markerKind, marker }] } }] }, { canonicalBaseUrl: 'https://public.test' })[0]!;
     assert.equal(c.rootSelector, expected); assert.ok(c['states']);
   }

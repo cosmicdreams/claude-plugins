@@ -8,13 +8,11 @@ export interface Plan {
       field?: string;
       label?: string;
       options?: number;
-      [k: string]: unknown;
     }[];
     variants: number;
     properties: {
       field?: string;
       treatment?: string;
-      [k: string]: unknown;
     }[];
     libraryRole: "component" | "subcomponent" | "schema-only" | "retirement";
     visualIdentity: "independent" | "embedded" | "unverified" | "none";
@@ -30,12 +28,23 @@ export interface Plan {
         state?: string;
         viewport?: string;
         width?: number;
-        [k: string]: unknown;
       }[];
-      [k: string]: unknown;
     };
     verdict: "build" | "map" | "document" | "refuse";
-    [k: string]: unknown;
+    label?: string;
+    naiveVariants?: number;
+    flags?: {
+      field?: string;
+      note?: string;
+    }[];
+    skippedFields?: string[];
+    refuseReason?: string | null;
+    defects?: {
+      kind?: string;
+      detail?: string;
+      evidence?: string;
+    }[];
   }[];
-  [k: string]: unknown;
+  generatedAt?: string;
+  maxVariants?: number;
 }

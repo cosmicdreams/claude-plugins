@@ -45,7 +45,7 @@
                 "italic",
                 "face"
               ],
-              "additionalProperties": true
+              "additionalProperties": false
             }
           },
           "available": {
@@ -76,7 +76,7 @@
             "required": [
               "family"
             ],
-            "additionalProperties": true
+            "additionalProperties": false
           },
           "route": {
             "type": "object",
@@ -92,13 +92,22 @@
               },
               "note": {
                 "type": "string"
+              },
+              "foundry": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "licence": {
+                "type": "string"
               }
             },
             "required": [
               "kind",
               "steps"
             ],
-            "additionalProperties": true
+            "additionalProperties": false
           },
           "adobeKit": {
             "type": "string"
@@ -114,7 +123,7 @@
           "components",
           "uses"
         ],
-        "additionalProperties": true
+        "additionalProperties": false
       }
     },
     "unrendered": {
@@ -133,7 +142,7 @@
           "family",
           "why"
         ],
-        "additionalProperties": true
+        "additionalProperties": false
       }
     },
     "icons": {
@@ -194,7 +203,7 @@
               "variable",
               "display"
             ],
-            "additionalProperties": true
+            "additionalProperties": false
           }
         },
         "stacks": {
@@ -225,7 +234,7 @@
               }
             },
             "required": [],
-            "additionalProperties": true
+            "additionalProperties": false
           }
         },
         "skip": {
@@ -247,7 +256,7 @@
         "skip",
         "icons"
       ],
-      "additionalProperties": true
+      "additionalProperties": false
     }
   },
   "required": [
@@ -258,5 +267,5 @@
     "figmaChecked",
     "build"
   ],
-  "additionalProperties": true
+  "additionalProperties": false
 }

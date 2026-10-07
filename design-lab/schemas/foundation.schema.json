@@ -25,12 +25,33 @@
     "pages": {
       "type": "object",
       "minProperties": 1,
-      "properties": {}
+      "properties": {},
+      "additionalProperties": {
+        "type": "string"
+      }
     },
     "collections": {
       "type": "object",
       "minProperties": 1,
-      "properties": {}
+      "properties": {},
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false
+      }
     },
     "validation": {
       "type": "object",
@@ -41,10 +62,13 @@
         "errors": {
           "type": "array",
           "maxItems": 0,
-          "items": {}
+          "items": {
+            "type": "string"
+          }
         }
-      }
+      },
+      "additionalProperties": false
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

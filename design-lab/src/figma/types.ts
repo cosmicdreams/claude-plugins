@@ -14,8 +14,10 @@ export declare const DL_API: {
 };
 export type RoleName = 'display'|'lede'|'eyebrowDk'|'statNote'|'provDark'|'coverTitle'|'coverSub'|'coverTotal'|'coverUnit'|'coverTileValue'|'coverTileLabel'|'title'|'heading'|'eyebrow'|'body'|'bodyStrong'|'small'|'code'|'cell'|'cellHead'|'cellCode'|'chip'|'column'|'bandLine'|'bandNote'|'stat'|'observed'|'watch'|'defect'|'quote';
 export type Role = [string, string, number, number, string, number, TextNode['textCase']];
-export type TextOptions = { name?: string; width?: number; link?: HyperlinkTarget | null; align?: TextNode['textAlignHorizontal'] };
-export type StackOptions = { name?: string; gap?: number; pad?: number | {t:number;r:number;b:number;l:number}; fill?: string; radius?: number; stroke?: string; width?: number; height?: number; align?: FrameNode['counterAxisAlignItems']; justify?: FrameNode['primaryAxisAlignItems']; wrap?: boolean; rowGap?: number };
+// In-process helper options use explicit undefined as the unset sentinel, like omitted keys.
+// They are never persisted; generated artifact types still require absent optional keys.
+export type TextOptions = { name?: string; width?: number; link?: HyperlinkTarget | null | undefined; align?: TextNode['textAlignHorizontal'] };
+export type StackOptions = { name?: string | undefined; gap?: number; pad?: number | {t:number;r:number;b:number;l:number}; fill?: string | undefined; radius?: number; stroke?: string; width?: number; height?: number; align?: FrameNode['counterAxisAlignItems']; justify?: FrameNode['primaryAxisAlignItems']; wrap?: boolean; rowGap?: number };
 export type Child = SceneNode | null | undefined | false | Child[];
 export type TableCell = string | number | boolean | null | undefined | { text: unknown; role?: RoleName; link?: HyperlinkTarget | null };
 export interface Column { title: string; width: number; role?: RoleName }
@@ -64,4 +66,6 @@ export type BindingValue = number|boolean|{var:string}|null|undefined;
 export type BindingNode = BaseNode & Pick<LayoutMixin,'resize'|'width'|'height'> & {setBoundVariable(field:VariableBindableNodeField|VariableBindableTextField, variable:Variable|null):void};
 export type StyledNode = Pick<FrameNode,'fills'|'strokes'|'strokeAlign'|'strokeTopWeight'|'strokeRightWeight'|'strokeBottomWeight'|'strokeLeftWeight'|'topLeftRadius'|'topRightRadius'|'bottomRightRadius'|'bottomLeftRadius'|'effects'|'opacity'>;
 export type SizedNode = BindingNode & Pick<FrameNode,'layoutMode'|'layoutSizingHorizontal'|'layoutSizingVertical'|'primaryAxisSizingMode'|'counterAxisSizingMode'|'height'|'parent'> & Pick<TextNode,'fontSize'|'textAutoResize'>;
-export interface RenderReport {created:number;bound:number;literal:number;variables:number;fonts:Record<string,string>;missingFonts:string[];standIns:Record<string,string>;styleFallbacks:Record<string,string>;iconText:Record<string,number>;nested:{sourceId?:string;id:string}[];nestedMismatch:{sourceId?:string;name:string;texts:number[];images:number[]}[];images:{id:string;src:string;fit?:string}[];svgFailures:string[];fellBack:string[];notes?:string[]}
+// These report entries always construct the keys in memory; JSON serialization omits
+// undefined fit/sourceId values before the generated closed result contract is validated.
+export interface RenderReport {created:number;bound:number;literal:number;variables:number;fonts:Record<string,string>;missingFonts:string[];standIns:Record<string,string>;styleFallbacks:Record<string,string>;iconText:Record<string,number>;nested:{sourceId:string|undefined;id:string}[];nestedMismatch:{sourceId:string|undefined;name:string;texts:number[];images:number[]}[];images:{id:string;src:string;fit:string|undefined}[];svgFailures:string[];fellBack:string[];notes?:string[]}

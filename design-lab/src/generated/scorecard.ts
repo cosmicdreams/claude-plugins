@@ -12,40 +12,150 @@ export interface Scorecard {
     name: string;
     siteLabel: string;
     buildCreatedAt?: string | null;
-    [k: string]: unknown;
   };
   headline: {
     coverage: {
-      [k: string]: unknown;
+      built?: number;
+      eligible?: number;
+      ratio?: number;
+      gap?: {
+        [k: string]: number;
+      };
+      excluded?: {
+        [k: string]: number;
+      };
+      placements?: number | null;
     } | null;
     built: {
-      [k: string]: unknown;
+      components?: number | null;
+      variants?: number | null;
+      pages?: number | null;
+      variables?: number | null;
+      nodes?: null | number;
     };
     accuracy: {
-      [k: string]: unknown;
+      original?: {
+        pass?: number;
+        total?: number;
+        medianRatio?: number;
+        p75Ratio?: number;
+        maxRatio?: number;
+      } | null;
+      corrected?: {
+        pass?: number;
+        total?: number;
+        medianRatio?: number;
+        p75Ratio?: number;
+        maxRatio?: number;
+      } | null;
     };
     effort: {
-      [k: string]: unknown;
+      workingSeconds?: number | null;
+      waitingOnPersonSeconds?: number | null;
+      waitingOnLimitsSeconds?: number | null;
+      waitingOnServiceSeconds?: number | null;
+      benchmarkWorkingSeconds?: number | null;
+      wallSeconds?: number | null;
+      buildSeconds?: number | null;
+      buildSteps?: number | null;
+      tokens?: number | null;
+      tokensByModel?: {
+        name?: string;
+        total?: number;
+      }[];
+      libraryTokensByModel?: {
+        name?: string;
+        total?: number;
+      }[];
+      benchmarkTokensByModel?:
+        | {
+            name?: string;
+            total?: number;
+          }[]
+        | null;
+      toolCalls?: number | null;
     };
     highlights: string[];
-    [k: string]: unknown;
   };
   sections: {
     identity: {
       status: "measured" | "partial" | "not-measured";
       fields?: {
-        [k: string]: unknown;
+        siteLabel?: string;
+        siteLabelSource?: string;
+        rebuiltFrom?: null | {
+          run?: string;
+          createdAt?: string;
+          pluginVersion?: string;
+          corpusLabel?: null;
+        };
+        publicAddress?: string | null;
+        siteUrl?: string | null;
+        rendererRuntime?: string | null;
+        builtToStandard?: string | null;
+        operator?: string | null;
+        startedAt?: string | null;
+        pluginVersion?: string;
+        pluginCommit?: string | null;
+        standardVersion?: string;
+        repositoryCommit?: string | null;
+        repositoryDirty?: boolean;
+        figmaFileKey?: string | null;
+        figmaUrl?: string | null;
+        claudeConfigDir?: string | null;
+        model?: string | null;
+        strategies?: {
+          componentSource?: string;
+          tokenSource?: string;
+          usageSource?: string;
+        };
       };
       missing?: string[];
-      [k: string]: unknown;
+      summary?: string;
+      recordedAtStart?: boolean;
     };
     cost: {
       status: "measured" | "partial" | "not-measured";
       runner?: {
-        [k: string]: unknown;
+        clock?: string;
+        sessions?: {
+          start?: string;
+          end?: string;
+          seconds?: number;
+          steps?: number;
+        }[];
+        activeSeconds?: number;
+        steps?: number;
+        errors?: number;
+        skipped?: number;
+        medianStepSeconds?: number;
+        secondsByKind?: {
+          [k: string]: number;
+        };
+        stepsByKind?: {
+          [k: string]: number;
+        };
+        status?: string;
+        reason?: string;
       };
       timings?: {
-        [k: string]: unknown;
+        source?: string;
+        exact?: boolean;
+        phases?: {
+          phase?: string;
+          start?: string;
+          end?: string;
+          seconds?: number;
+        }[];
+        totalSeconds?: number | null;
+        checkpoints?: {
+          phase?: string;
+          status?: string;
+          at?: string;
+        }[];
+        start?: string;
+        spanSeconds?: number;
+        note?: string;
       };
       definition?: string;
       clock?: {
@@ -58,7 +168,6 @@ export interface Scorecard {
         benchmarkEnd?: string | null;
         benchmarkEndSource?: "phase log" | "this scoring" | null;
         notShownBecause?: string;
-        [k: string]: unknown;
       };
       working?: {
         status: "measured" | "not-measured";
@@ -72,7 +181,9 @@ export interface Scorecard {
         questionsToPerson?: number;
         fullAccess?: boolean | null;
         developer?: {
-          [k: string]: unknown;
+          permissionModes?: {
+            [k: string]: number;
+          };
         };
         production?: {
           status: "measured" | "not-measured";
@@ -80,14 +191,27 @@ export interface Scorecard {
           waitingOnPersonSeconds?: number;
           waitingOnLimitsSeconds?: number;
           waitingOnServiceSeconds?: number;
-          [k: string]: unknown;
+          start?: string;
+          end?: string;
+          spanSeconds?: number;
         };
         benchmark?: {
           status: "measured" | "not-measured";
           workingSeconds?: number;
-          [k: string]: unknown;
+          start?: string;
+          end?: string;
+          spanSeconds?: number;
+          waitingOnLimitsSeconds?: number;
+          waitingOnServiceSeconds?: number;
+          waitingOnPersonSeconds?: number;
+          reason?: string;
+          howToMeasure?: string;
         };
-        [k: string]: unknown;
+        start?: string;
+        end?: string;
+        definition?: string;
+        reason?: string;
+        howToMeasure?: string;
       };
       unattended?: {
         status: "measured" | "not-measured";
@@ -100,9 +224,10 @@ export interface Scorecard {
           phase: string;
           status?: string | null;
           planned: boolean;
-          [k: string]: unknown;
         }[];
-        [k: string]: unknown;
+        until?: string;
+        reason?: string;
+        howToMeasure?: string;
       };
       model?: {
         status: "measured" | "not-measured";
@@ -113,15 +238,55 @@ export interface Scorecard {
         configDirs?: string[];
         developer?: {
           unattributedEntries?: number;
-          [k: string]: unknown;
         };
         production?: {
           status: string;
-          [k: string]: unknown;
+          byModel?: {
+            model?: string;
+            name?: string;
+            input?: number;
+            output?: number;
+            cacheWrite?: number;
+            cacheRead?: number;
+            total?: number;
+            turns?: number;
+            toolCalls?: number;
+          }[];
+          tokens?: {
+            input?: number;
+            output?: number;
+            cacheWrite?: number;
+            cacheRead?: number;
+            total?: number;
+          };
+          turns?: number;
+          toolCalls?: number;
         };
         benchmark?: {
           status: "measured" | "not-measured";
-          [k: string]: unknown;
+          since?: string;
+          byModel?: {
+            model?: string;
+            name?: string;
+            input?: number;
+            output?: number;
+            cacheWrite?: number;
+            cacheRead?: number;
+            total?: number;
+            turns?: number;
+            toolCalls?: number;
+          }[];
+          tokens?: {
+            input?: number;
+            output?: number;
+            cacheWrite?: number;
+            cacheRead?: number;
+            total?: number;
+          };
+          turns?: number;
+          toolCalls?: number;
+          reason?: string;
+          howToMeasure?: string;
         };
         byModel?: {
           model: string;
@@ -133,24 +298,68 @@ export interface Scorecard {
           total: number;
           turns: number;
           toolCalls: number;
-          [k: string]: unknown;
         }[];
-        [k: string]: unknown;
+        source?: string;
+        files?: number;
+        sessions?: number;
+        assistantMessages?: number;
+        models?: {
+          [k: string]: number;
+        };
+        window?: {
+          since?: null;
+          until?: null;
+        };
+        firstMessage?: string;
+        lastMessage?: string;
+        benchmarkNote?: string;
+        reason?: string;
+        howToMeasure?: string;
       };
-      [k: string]: unknown;
     };
     library: {
       status: "measured" | "not-measured";
       components?: {
-        [k: string]: unknown;
+        found?: number;
+        planned?: number;
+        built?: number | null;
+        notBuilt?: number;
+        refused?: number;
       };
       tiers?: {
         built?: number;
         components?: number;
         tier?: string;
-        [k: string]: unknown;
       }[];
-      [k: string]: unknown;
+      summary?: string;
+      variants?: number | null;
+      properties?: number | null;
+      variables?: number | null;
+      collections?: number | null;
+      pages?: number | null;
+      pageNames?: string[];
+      nodes?: null | number;
+      captures?: number | null;
+      tierTable?: {
+        tier?: string;
+        label?: string;
+        color?: string;
+        built?: number;
+        counted?: boolean;
+        found?: number;
+        holds?: {
+          tier?: string;
+          built?: number;
+          found?: number;
+        }[];
+      }[];
+      voicePage?: boolean;
+      examplesPage?: boolean;
+      notBuiltReasons?: {
+        id?: string;
+        label?: string;
+        reason?: string;
+      }[];
     };
     coverage: {
       status: "measured" | "not-measured";
@@ -165,9 +374,42 @@ export interface Scorecard {
         [k: string]: number;
       };
       usageWeighted?: {
-        [k: string]: unknown;
+        placements?: number;
+        covered?: number;
+        ratio?: number;
+        structuralRefs?: number;
+        structuralCovered?: number;
+        status?: string;
+        reason?: string;
       };
-      [k: string]: unknown;
+      reasonLabels?: {
+        [k: string]: string;
+      };
+      summary?: string;
+      items?: {
+        id?: string;
+        label?: string;
+        reason?: string;
+        detail?: string | null;
+      }[];
+      byTier?: {
+        tier?: string;
+        found?: number;
+        built?: number;
+        notBuilt?: number;
+        placements?: number;
+        structural?: number;
+      }[];
+      coverBreakdown?: {
+        tier?: string;
+        built?: number;
+      }[];
+      outsideInventory?: {
+        id?: string;
+        placements?: number;
+        structural?: number;
+      }[];
+      reason?: string;
     };
     conformance: {
       status: "measured" | "not-measured";
@@ -175,17 +417,67 @@ export interface Scorecard {
         [k: string]: number;
       };
       waived?: number;
-      [k: string]: unknown;
+      summary?: string;
+      openOther?: number;
+      passed?: number;
+      inapplicable?: number;
+      completeness?: {
+        built?: number;
+        expected?: number;
+        byTier?: {
+          [k: string]: (number | string[])[];
+        };
+      };
+      findings?: {
+        severity?: string;
+        check?: string;
+        message?: string;
+      }[];
+      reason?: string;
+      howToMeasure?: string;
     };
     accuracy: {
       status: "measured" | "partial" | "not-measured";
       threshold?: number;
       tolerance?: number;
       overall?: {
-        [k: string]: unknown;
+        original?: {
+          pass?: number;
+          total?: number;
+          medianRatio?: number;
+          p75Ratio?: number;
+          maxRatio?: number;
+        };
+        corrected?: {
+          pass?: number;
+          total?: number;
+          medianRatio?: number;
+          p75Ratio?: number;
+          maxRatio?: number;
+        };
       };
       byBreakpoint?: {
-        [k: string]: unknown;
+        [k: string]: {
+          original?: {
+            pass?: number;
+            total?: number;
+            medianRatio?: number;
+            p75Ratio?: number;
+            maxRatio?: number;
+          };
+          corrected?: {
+            pass?: number;
+            total?: number;
+            medianRatio?: number;
+            p75Ratio?: number;
+            maxRatio?: number;
+          };
+          heightDelta?: {
+            median?: number;
+            max?: number;
+            over10px?: number;
+          };
+        };
       };
       pairs?: {
         component: string;
@@ -193,21 +485,63 @@ export interface Scorecard {
         original: {
           ratio: number;
           pass: boolean;
-          [k: string]: unknown;
         };
         corrected?: {
-          [k: string]: unknown;
+          ratio?: number;
+          pass?: boolean;
         } | null;
         heightDelta?: number | null;
-        [k: string]: unknown;
+        label?: string;
+        width?: number;
+        widthDelta?: number;
+        figmaHeight?: number;
+        liveHeight?: number;
+        evidence?: {
+          specimen?: string;
+          geometry?: string;
+          index?: number;
+        };
       }[];
-      [k: string]: unknown;
+      source?: string;
+      metrics?: {
+        [k: string]: string;
+      };
+      components?: number;
+      reason?: string;
+      howToMeasure?: string;
     };
     repeatability: {
       status: "measured" | "partial" | "not-measured";
       level?: "build" | "pipeline";
-      comparisons?: unknown[];
-      [k: string]: unknown;
+      comparisons?: {
+        run?: string;
+        path?: string;
+        score?: number | null;
+        error?: string;
+        totalNodes?: number;
+        identicalNodes?: number;
+        identicalApartFromAddresses?: number;
+        matchedNodes?: number;
+        categoryCounts?: {
+          [k: string]: number;
+        };
+        artifactsEqual?: string[];
+        artifactsDiffer?: string[];
+        artifactsEquivalent?: string[];
+        artifactDifferences?: {
+          artifact?: string;
+          path?: string;
+        }[];
+        pageOrderEqual?: boolean;
+        accuracyAgreement?: {
+          metric?: string;
+          pairs?: number;
+          sameVerdict?: number;
+          maxRatioDifference?: number;
+        };
+      }[];
+      reason?: string;
+      howToMeasure?: string;
     };
     schemaChurn: {
       status: "measured" | "not-measured";
@@ -215,43 +549,45 @@ export interface Scorecard {
       changes?: {
         at?: string;
         text?: string;
-        [k: string]: unknown;
       }[];
-      [k: string]: unknown;
+      summary?: string;
+      reason?: string;
+      howToMeasure?: string;
     };
     foundationsVoice: {
       status: "scored-later" | "measured";
-      rubric: {
-        [k: string]: unknown;
-      } | null;
+      rubric: null | {
+        r: number;
+        g: number;
+        b: number;
+        a?: number;
+      };
       scores: {
         criterion: string;
         score: number;
         scorer?: string;
         note?: string;
-        [k: string]: unknown;
       }[];
       scorers?: string[];
-      [k: string]: unknown;
+      reason?: string;
     };
     blindedJudgement: {
       status: "scored-later" | "measured";
       scale?: {
-        [k: string]: unknown;
+        min?: number;
+        max?: number;
       };
       criteria: {
         id: string;
         label: string;
-        [k: string]: unknown;
       }[];
       scores: {
         criterion: string;
         score: number;
         scorer: string;
-        [k: string]: unknown;
       }[];
       scorers?: string[];
-      [k: string]: unknown;
+      reason?: string;
     };
   };
 }

@@ -63,7 +63,8 @@
               "ref": {
                 "type": "string"
               }
-            }
+            },
+            "additionalProperties": false
           },
           "raw": {
             "type": "string"
@@ -80,7 +81,8 @@
               "type": "string"
             }
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
     "colors": {
@@ -112,7 +114,8 @@
               "ref": {
                 "type": "string"
               }
-            }
+            },
+            "additionalProperties": false
           },
           "tags": {
             "type": "array",
@@ -123,32 +126,416 @@
           "uid": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
     "schemes": {
       "type": "array",
-      "items": {}
+      "items": {
+        "type": "string"
+      }
     },
     "spacing": {
       "type": "array",
-      "items": {}
+      "items": {
+        "type": "string"
+      }
     },
     "type": {
       "type": "array",
-      "items": {}
+      "items": {
+        "type": "string"
+      }
     },
     "radii": {
       "type": "array",
-      "items": {}
+      "items": {
+        "type": "string"
+      }
     },
     "elevation": {
       "type": "array",
-      "items": {}
+      "items": {
+        "type": "string"
+      }
     },
     "motion": {
       "type": "array",
-      "items": {}
+      "items": {
+        "type": "string"
+      }
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "source": {
+      "type": "object",
+      "properties": {
+        "strategy": {
+          "type": "string"
+        },
+        "root": {
+          "type": "string"
+        },
+        "stylesheets": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "librariesFiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "ignoredNotLoaded": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "configDir": {
+          "type": "string"
+        },
+        "entities": {
+          "type": "object",
+          "properties": {
+            "colors": {
+              "type": "number"
+            },
+            "fontStacks": {
+              "type": "number"
+            },
+            "scssVariables": {
+              "type": "number"
+            },
+            "customStyles": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "modes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "modeRationale": {
+      "type": "string"
+    },
+    "typeScaling": {
+      "type": "object",
+      "properties": {
+        "observable": {
+          "type": "boolean"
+        },
+        "noneScale": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "reason": {
+          "type": "string"
+        },
+        "roleLevelCaveat": {
+          "type": "string"
+        },
+        "fontSizeTokens": {
+          "type": "number"
+        },
+        "scaling": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "totals": {
+      "type": "object",
+      "properties": {
+        "tokens": {
+          "type": "number"
+        },
+        "base": {
+          "type": "number"
+        },
+        "component": {
+          "type": "number"
+        },
+        "shadowed": {
+          "type": "number"
+        },
+        "byFamily": {
+          "type": "object",
+          "properties": {
+            "color": {
+              "type": "number"
+            },
+            "font-family": {
+              "type": "number"
+            },
+            "font-size": {
+              "type": "number"
+            },
+            "font-weight": {
+              "type": "number"
+            },
+            "letter-spacing": {
+              "type": "number"
+            },
+            "line-height": {
+              "type": "number"
+            },
+            "motion": {
+              "type": "number"
+            },
+            "number": {
+              "type": "number"
+            },
+            "radius": {
+              "type": "number"
+            },
+            "spacing": {
+              "type": "number"
+            },
+            "breakpoint": {
+              "type": "number"
+            },
+            "container-width": {
+              "type": "number"
+            },
+            "flag": {
+              "type": "number"
+            },
+            "unknown": {
+              "type": "number"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
+    },
+    "shadowed": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "layer": {
+            "type": "string"
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "ref": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "codeName": {
+            "type": "string"
+          },
+          "raw": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string"
+          },
+          "isAlias": {
+            "type": "boolean"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceRef": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    },
+    "fontStacks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          },
+          "stack": {
+            "type": "string"
+          },
+          "primaryFamily": {
+            "type": "string"
+          },
+          "codeName": {
+            "type": "string"
+          },
+          "systemFont": {
+            "type": "boolean"
+          },
+          "inUse": {
+            "type": "boolean"
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "ref": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "scssVariables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "uid": {
+            "type": "string"
+          },
+          "value": {
+            "type": "string"
+          },
+          "codeName": {
+            "type": "string"
+          },
+          "inUse": {
+            "type": "boolean"
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "ref": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "customStyles": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "name": {
+            "type": "string"
+          },
+          "codeName": {
+            "type": "string"
+          },
+          "property": {
+            "type": "string"
+          },
+          "family": {
+            "type": "string"
+          },
+          "valuesByBreakpoint": {
+            "type": "object",
+            "additionalProperties": {
+              "type": [
+                "string",
+                "null"
+              ]
+            }
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "ref": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "sourcesWithVariables": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "source": {
+            "type": "string"
+          },
+          "variables": {
+            "type": "number"
+          }
+        },
+        "additionalProperties": false
+      }
     }
   },
   "anyOf": [
@@ -188,5 +575,5 @@
       ]
     }
   ],
-  "additionalProperties": true
+  "additionalProperties": false
 }

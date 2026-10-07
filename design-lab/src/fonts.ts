@@ -125,7 +125,7 @@ export async function adobeKit(kit: string, timeout = 8): Promise<Record<string,
   try {
     const response = await fetch(`https://typekit.com/api/v1/json/kits/${kit}/published`, { signal: AbortSignal.timeout(timeout * 1000) }); if (!response.ok) return null;
     const value = await response.json() as AdobePublishedResponse, out: Record<string, AdobeFamily> = {};
-    for (const family of value.kit?.families ?? []) if (family.name) out[family.name] = { cssNames: family.css_names ?? [], slug: family.slug, variations: family.variations ?? [] };
+    for (const family of value.kit?.families ?? []) if (family.name) out[family.name] = { cssNames: family.css_names ?? [], ...(family.slug !== undefined ? { slug: family.slug } : {}), variations: family.variations ?? [] };
     return out;
   } catch { return null; }
 }

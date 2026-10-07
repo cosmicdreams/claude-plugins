@@ -12,7 +12,12 @@
     "types": [
       "node"
     ],
-    "skipLibCheck": false
+    "skipLibCheck": false,
+    "noImplicitOverride": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "useUnknownInCatchVariables": true,
+    "exactOptionalPropertyTypes": true
   },
   "include": [
     "src/**/*.ts",

@@ -3,5 +3,4 @@
 export interface RunnerError {
   step: string;
   message: string;
-  [k: string]: unknown;
 }

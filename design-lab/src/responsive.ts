@@ -21,6 +21,7 @@ type Slot = Record<'width' | 'padLeft' | 'padTop', Value>;
 class Merge {
   label: string; key: string; bps: string[]; nodes: Record<string, Record<string, MeasuredNode>> = {}; index: Record<string, Index> = {};
   widths: Record<string, number> = {}; variables: Tree['variables'] = {}; slotted: Record<string, Record<string, Slot>> = {};
+  private stacking = new WeakMap<TreeNode, number[]>();
   fallbacks: string[] = []; notes: string[] = []; rootPath: string; rootBlock: string | null;
   constructor(spec: Spec, label: string, key: string) {
     this.label = label; this.key = key;
@@ -78,7 +79,8 @@ class Merge {
     if (!Object.keys(by).length) return null;
     const ref = by['desktop'] ?? first(by), name = `${this.nameFor(path, chain)[1]}-${which}`;
     const out: TreeNode = { kind: 'frame', name: 'Decoration', source: `${path}::${which}`, sizing: 'FIXED', absolute: true, x: ref.x, y: ref.y, fill: ref.fill,
-      width: this.value(per(by, b => b.width), `${name}/width`)!, height: this.value(per(by, b => b.height), `${name}/height`)!, layout: { mode: 'NONE' }, children: [], _stacking: ref.stacking };
+      width: this.value(per(by, b => b.width), `${name}/width`)!, height: this.value(per(by, b => b.height), `${name}/height`)!, layout: { mode: 'NONE' }, children: [] };
+    this.stacking.set(out, ref.stacking);
     if (Object.keys(by).length !== this.bps.length) out.visible = this.value(Object.fromEntries(this.bps.map(bp => [bp, bp in by])), `${name}/visible`, 'BOOLEAN')!;
     return out;
   }
@@ -142,7 +144,7 @@ class Merge {
     kidPaths.forEach((kp, i) => {
       if (layout.slots) {
         const child = this.convert(kp, null, vchain); if (!child) return; const slot = this.slotted[path]![kp]!;
-        const wrapper: TreeNode = { kind: 'frame', name: `Slot · ${child.name}`, sizing: 'FIXED', width: slot.width, height: child.height, source: kp + '#slot',
+        const wrapper: TreeNode = { kind: 'frame', name: `Slot · ${child.name}`, sizing: 'FIXED', width: slot.width, ...(child.height !== undefined ? { height: child.height } : {}), source: kp + '#slot',
           layout: { mode: 'HORIZONTAL', gap: 0, primaryAlign: 'MIN', counterAlign: 'MIN', padding: { top: slot.padTop, right: 0, bottom: 0, left: slot.padLeft } }, children: [child] };
         if ('visible' in child) { wrapper.visible = child.visible; delete child.visible; } children.push(wrapper); return;
       }
@@ -157,19 +159,19 @@ class Merge {
     const out: TreeNode[] = [];
     for (const kp of positioned) { const child = this.convert(kp, null, chain); if (!child) continue; child.absolute = true;
       child.x = kp in this.nodes[rb]! ? st.r2(this.box(rb, kp).x - node.box.x) : 0; child.y = kp in this.nodes[rb]! ? st.r2(this.box(rb, kp).y - node.box.y) : 0;
-      child['_stacking'] = st.stacking(this.nodes[this.refBp(kp)]![kp]!); out.push(child); }
+      this.stacking.set(child, st.stacking(this.nodes[this.refBp(kp)]![kp]!)); out.push(child); }
     for (const which of ['before', 'after'] as const) { const box = this.pseudoBox(path, which, chain); if (box) which === 'before' ? out.unshift(box) : out.push(box); }
     return out;
   }
   stackIn(children: TreeNode[], placed: TreeNode[]): TreeNode[] {
     const key = (child: TreeNode): number[] => {
-      if (child['_stacking']) return child['_stacking'] as number[];
+      const stacking = this.stacking.get(child); if (stacking) return stacking;
       const source = (child.source ?? '').split('#')[0]!.split('::')[0]!, node = this.bps.map(bp => this.nodes[bp]![source]).find(Boolean);
       return node ? st.stacking(node) : [1, 0];
     };
     const out = [...children];
     for (const item of placed) { const k = key(item), ahead = item.source?.endsWith('::before'), at = out.findIndex(c => ahead ? compare(key(c), k) >= 0 : compare(key(c), k) > 0); out.splice(at < 0 ? out.length : at, 0, item); }
-    for (const item of out) delete item['_stacking']; return out;
+    for (const item of out) this.stacking.delete(item); return out;
   }
   reorderedStack(path: string, kidPaths: string[], chain: string, style: Partial<TreeNode>, out: TreeNode): TreeNode | null {
     if (kidPaths.length < 2) return null;
@@ -198,7 +200,7 @@ class Merge {
       const kp = m.path; seen[kp] = (seen[kp] ?? 0) + 1; const child = this.convert(kp, inner, chain); if (!child) continue;
       const name = `${this.nameFor(kp, chain)[1]}-${seen[kp]}`, tops: Record<string, number> = {};
       for (const bp of m.bps) { const order = orders[bp]!, at = order.indexOf(kp), above = at ? this.box(bp, order[at - 1]!).y + this.box(bp, order[at - 1]!).height : this.box(bp, path).y + pads[bp]!.top; tops[bp] = st.r2(Math.max(0, this.box(bp, kp).y - above)); }
-      const slot: TreeNode = { kind: 'frame', name: `Slot · ${child.name}`, sizing: 'FILL', width: this.value(per(inner, st.r2), `${chain}/inner-width`)!, height: child.height, source: `${kp}#order-${seen[kp]}`,
+      const slot: TreeNode = { kind: 'frame', name: `Slot · ${child.name}`, sizing: 'FILL', width: this.value(per(inner, st.r2), `${chain}/inner-width`)!, ...(child.height !== undefined ? { height: child.height } : {}), source: `${kp}#order-${seen[kp]}`,
         layout: { mode: 'VERTICAL', gap: 0, primaryAlign: 'MIN', counterAlign: 'MIN', padding: { top: this.value(tops, `${name}/order-top`)!, right: 0, bottom: 0, left: 0 } }, children: [child] };
       delete child.visible; if (m.bps.size !== bps.length) slot.visible = this.value(Object.fromEntries(this.bps.map(bp => [bp, m.bps.has(bp)])), `${name}/order-visible`, 'BOOLEAN')!;
       children.push(slot);

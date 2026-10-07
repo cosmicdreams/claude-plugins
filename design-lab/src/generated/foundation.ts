@@ -5,17 +5,19 @@ export interface Foundation {
   toolVersion: string;
   figmaFileKey: string;
   pages: {
-    [k: string]: unknown;
+    [k: string]: string;
   };
   collections: {
-    [k: string]: unknown;
+    [k: string]: {
+      id?: string;
+      modes?: string[];
+      variables?: number;
+    };
   };
   validation: {
     /**
      * @maxItems 0
      */
     errors: [];
-    [k: string]: unknown;
   };
-  [k: string]: unknown;
 }

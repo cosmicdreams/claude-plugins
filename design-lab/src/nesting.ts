@@ -13,7 +13,7 @@ function shown(box: MeasuredNode['box'], width: number, height: number): number 
 }
 export function subtree(spec: Spec, child: string): [Record<string, Measured>, Record<string, MeasuredNode['box']>] | null {
   const shownAt = new Map<string, number[]>();
-  const measurements = Object.entries(spec.measurements).filter((entry): entry is [string, Measured] => Array.isArray(entry[1]['nodes']));
+  const measurements = Object.entries(spec.measurements).filter((entry): entry is [string, Measured] => 'nodes' in entry[1] && Array.isArray(entry[1].nodes));
   for (const [, m] of measurements) {
     const frame = m.rootBox ?? m.nodes[0]?.box;
     for (const n of m.nodes) if (n.attributes?.['data-design-lab-child'] === child) { const values = shownAt.get(n.path) ?? []; values.push(shown(n.box, frame?.width ?? 0, frame?.height ?? 0)); shownAt.set(n.path, values); }
@@ -26,7 +26,7 @@ export function subtree(spec: Spec, child: string): [Record<string, Measured>, R
     const nodes = m.nodes.filter(n => n.path === root.path || n.path.startsWith(root.path + '/')).map(n => ({ ...n, path: n.path.slice(cut), box: { ...n.box, x: roundDecimal(n.box.x - ox, 2), y: roundDecimal(n.box.y - oy, 2) } }));
     const byPath = new Map(m.nodes.map(n => [n.path, n])); let backdrop = m.backdrop, up = root.path.slice(0, cut);
     while (up) { const color = byPath.get(up)?.computed['backgroundColor'] ?? ''; if (color && color !== 'transparent' && !/^rgba\(.*,\s*0\)$/.test(color)) { backdrop = color; break; } up = up.slice(0, up.lastIndexOf('/')); }
-    derived[key] = { rootBox: { width: root.box.width, height: root.box.height }, nodes, backdrop }; boxes[key.split(':')[0]!] = root.box;
+    derived[key] = { rootBox: { width: root.box.width, height: root.box.height }, nodes, ...(backdrop !== undefined ? { backdrop } : {}) }; boxes[key.split(':')[0]!] = root.box;
   }
   return measurements.length ? [derived, boxes] : null;
 }

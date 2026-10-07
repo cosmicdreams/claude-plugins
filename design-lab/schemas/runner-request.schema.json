@@ -19,6 +19,15 @@
     },
     "i": {
       "type": "string"
+    },
+    "client": {
+      "type": "string"
+    },
+    "generation": {
+      "type": "string"
+    },
+    "stepToken": {
+      "type": "string"
     }
   },
   "required": [
@@ -26,5 +35,5 @@
     "token",
     "version"
   ],
-  "additionalProperties": true
+  "additionalProperties": false
 }

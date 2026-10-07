@@ -5,7 +5,7 @@ const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as
 interface Text { stack: string; family: string; weight: number; italic: boolean; characters?: string }
 interface Font { family: string; style: string; variationSettings?: { wght: number } }
 interface FontReport { missingFonts: string[]; standIns: Record<string, string>; styleFallbacks: Record<string, string>; iconText: Record<string, number> }
-const text = (stack: string, weight: number, italic = false, characters?: string): Text => ({ stack, family: stack.split(',')[0]!.replaceAll('"', ''), weight, italic, characters });
+const text = (stack: string, weight: number, italic = false, characters?: string): Text => ({ stack, family: stack.split(',')[0]!.replaceAll('"', ''), weight, italic, ...(characters !== undefined ? { characters } : {}) });
 async function fonts(plan: unknown, available: Record<string, string[]>, texts: Text[], axes: Record<string, unknown[]> = {}) {
   const renderer = new Renderer(), source = renderer.units.get('build_responsive')!, start = source.indexOf("/* ---- Fonts: the run's font plan"), section = source.slice(start, source.indexOf('const codeVars', start));
   const figma = { listAvailableFontsAsync: async () => Object.entries(available).flatMap(([family, styles]) => styles.map(style => ({ fontName: { family, style } }))), getFontFamilyVariationAxes: async (family: string) => axes[family] ?? null };

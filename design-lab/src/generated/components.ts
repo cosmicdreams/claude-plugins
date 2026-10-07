@@ -1,5 +1,15 @@
 // Generated from schemas/components.schema.json. Do not edit.
 
+/**
+ * External site configuration or third-party JSON values, with explicitly typed recursive values.
+ */
+export type JsonValue =
+  | (string | number | boolean | null)
+  | JsonValue[]
+  | {
+      [k: string]: JsonValue;
+    };
+
 export interface Components {
   standardVersion: string;
   toolVersion: string;
@@ -7,7 +17,9 @@ export interface Components {
   source: {
     strategy: string;
     root: string;
-    [k: string]: unknown;
+    configDir?: string | null;
+    config?: string | null;
+    sdcParser?: string;
   };
   components: {
     id: string;
@@ -24,10 +36,9 @@ export interface Components {
         | null
         | {
             options?: {
-              [k: string]: unknown;
+              [k: string]: JsonValue;
             };
             uri?: string;
-            [k: string]: unknown;
           }
         | string;
       defaultSource?: string;
@@ -39,7 +50,8 @@ export interface Components {
       name?: string;
       options?:
         | {
-            [k: string]: unknown;
+            value?: string | number;
+            label?: string;
           }[]
         | null;
       optionsSource?: string;
@@ -50,7 +62,6 @@ export interface Components {
         options?: string;
         required?: string;
         sourceWidget?: string;
-        [k: string]: unknown;
       };
       repeatableIn?: string;
       required?: boolean;
@@ -62,7 +73,6 @@ export interface Components {
       targetType?: null | string;
       tokenFamily?: null | string;
       uid?: string;
-      [k: string]: unknown;
     }[];
     slots: {
       accepts?: string[] | string;
@@ -71,15 +81,84 @@ export interface Components {
       name?: string;
       required?: boolean;
       sourceRef?: string;
-      [k: string]: unknown;
     }[];
     defects: {
       detail?: string;
       evidence?: string;
       kind?: string;
-      [k: string]: unknown;
     }[];
-    [k: string]: unknown;
+    description?: string | null;
+    group?: string | null;
+    category?: string;
+    aliases?: string[];
+    usage?: {
+      placements?: number | null;
+      structuralRefs?: number | null;
+      pages?: number;
+      unpublishedInstances?: number;
+      inlineBlockEntities?: number;
+      configPlacedBlocks?: number;
+      orphanInstances?: number;
+      examples?: {
+        url?: string;
+        path?: string;
+        marker?: string;
+        markerKind?: string;
+        markerUniqueToThisComponent?: boolean;
+        instancesOnPage?: number;
+        status?: number;
+        anonymous?: boolean;
+        verifiedAt?: string;
+      }[];
+      noExampleReason?: string | null;
+      tier?: string;
+      source?: string;
+      measuredAt?: string;
+      exampleCandidates?: string[];
+      templatePlacements?: number;
+      templateBundles?: string[];
+      templateRefs?: (
+        | {
+            file?: string;
+            line?: number;
+            global?: boolean;
+          }
+        | string
+      )[];
+      globalTemplate?: boolean;
+      renderedPages?: number;
+      renderedInstances?: number;
+      renderedExamples?: string[];
+      structuralReferences?: number | null;
+      tierReason?: string;
+      status?: string;
+    } | null;
+    status?: boolean | string | null;
+    containedBy?: string[];
+    isCustomComponent?: boolean;
+    sourceSdcId?: string;
+    componentVersion?: string | number | null;
+    canvasRef?: string;
+    folder?: string;
+    folderRef?: string;
+    provenance?: {
+      definition?: string;
+      label?: string;
+      componentVersion?: string;
+      group?: string;
+    };
   }[];
-  [k: string]: unknown;
+  totals?: {
+    all?: number;
+    blocks?: number;
+    paragraphs?: number;
+    withDefects?: number;
+    placements?: number;
+    structuralRefs?: number;
+  };
+  problems?: {
+    check?: string;
+    detail?: string;
+    evidence?: string[];
+  }[];
 }

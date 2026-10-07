@@ -157,7 +157,7 @@ export function styleOf(node: MeasuredNode): Style {
   const widths = SIDES.map(s => px(c[`border${cap(s)}Width`])), styles = SIDES.map(s => c[`border${cap(s)}Style`]);
   if (widths.some((w, i) => w > 0 && !['none', 'hidden'].includes(styles[i] ?? ''))) {
     const color = parseColor(c['borderTopColor']) ?? parseColor(c['borderBottomColor']);
-    if (color) { color.var = cssVar(d['border-top-color'] || d['border-bottom-color']); style.stroke = { color, top: widths[0], right: widths[1], bottom: widths[2], left: widths[3] }; }
+    if (color) { color.var = cssVar(d['border-top-color'] || d['border-bottom-color']); const [top = 0, right = 0, bottom = 0, left = 0] = widths; style.stroke = { color, top, right, bottom, left }; }
   }
   const radii = ['borderTopLeftRadius', 'borderTopRightRadius', 'borderBottomRightRadius', 'borderBottomLeftRadius'].map(k => px(c[k]));
   if (radii.some(Boolean)) style.radius = radii;
@@ -305,7 +305,7 @@ export function compact(tree: TreeNode | FlatNode): { styles: Omit<Text, 'charac
     }
     if (node.layout) {
       const { padding: pad, ...layout } = node.layout, values = SIDES.map(s => pad?.[s] ?? 0);
-      if (values.some(Boolean)) layout['pad'] = values; out['layout'] = layout;
+      out['layout'] = values.some(Boolean) ? { ...layout, pad: values } : layout;
     }
     if (node.children) out['children'] = node.children.map(walk); return out;
   };

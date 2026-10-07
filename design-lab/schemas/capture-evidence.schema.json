@@ -84,11 +84,12 @@
                 "width": {
                   "type": "integer"
                 }
-              }
+              },
+              "additionalProperties": false
             }
           }
         },
-        "additionalProperties": true
+        "additionalProperties": false
       },
       "properties": {}
     },
@@ -103,9 +104,64 @@
           "detail": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
+      }
+    },
+    "checks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "componentId": {
+            "type": "string"
+          },
+          "chosen": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "revealed": {
+            "type": "boolean"
+          },
+          "seconds": {
+            "type": "number"
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "matches": {
+                  "type": "number"
+                },
+                "visible": {
+                  "type": "number"
+                },
+                "height": {
+                  "type": "number"
+                },
+                "revealed": {
+                  "type": "boolean"
+                },
+                "error": {
+                  "type": "string"
+                },
+                "seconds": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
+            }
+          }
+        },
+        "additionalProperties": false
       }
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

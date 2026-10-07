@@ -15,5 +15,5 @@
     "step",
     "message"
   ],
-  "additionalProperties": true
+  "additionalProperties": false
 }

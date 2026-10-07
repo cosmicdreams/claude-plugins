@@ -32,8 +32,24 @@
         },
         "root": {
           "type": "string"
+        },
+        "configDir": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "config": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "sdcParser": {
+          "type": "string"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "components": {
       "type": "array",
@@ -90,12 +106,17 @@
                       "type": "object",
                       "properties": {
                         "options": {
-                          "type": "object"
+                          "type": "object",
+                          "additionalProperties": {
+                            "$ref": "#/$defs/JsonValue"
+                          },
+                          "properties": {}
                         },
                         "uri": {
                           "type": "string"
                         }
-                      }
+                      },
+                      "additionalProperties": false
                     },
                     {
                       "type": "string"
@@ -142,7 +163,23 @@
                     {
                       "type": "array",
                       "items": {
-                        "type": "object"
+                        "type": "object",
+                        "properties": {
+                          "value": {
+                            "anyOf": [
+                              {
+                                "type": "string"
+                              },
+                              {
+                                "type": "number"
+                              }
+                            ]
+                          },
+                          "label": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
                       }
                     },
                     {
@@ -174,7 +211,8 @@
                     "sourceWidget": {
                       "type": "string"
                     }
-                  }
+                  },
+                  "additionalProperties": false
                 },
                 "repeatableIn": {
                   "type": "string"
@@ -244,7 +282,8 @@
                 "uid": {
                   "type": "string"
                 }
-              }
+              },
+              "additionalProperties": false
             }
           },
           "slots": {
@@ -280,7 +319,8 @@
                 "sourceRef": {
                   "type": "string"
                 }
-              }
+              },
+              "additionalProperties": false
             }
           },
           "defects": {
@@ -297,13 +337,332 @@
                 "kind": {
                   "type": "string"
                 }
+              },
+              "additionalProperties": false
+            }
+          },
+          "description": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
               }
+            ]
+          },
+          "group": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "category": {
+            "type": "string"
+          },
+          "aliases": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "usage": {
+            "type": [
+              "object",
+              "null"
+            ],
+            "properties": {
+              "placements": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "structuralRefs": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "pages": {
+                "type": "number"
+              },
+              "unpublishedInstances": {
+                "type": "number"
+              },
+              "inlineBlockEntities": {
+                "type": "number"
+              },
+              "configPlacedBlocks": {
+                "type": "number"
+              },
+              "orphanInstances": {
+                "type": "number"
+              },
+              "examples": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "url": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        },
+                        "marker": {
+                          "type": "string"
+                        },
+                        "markerKind": {
+                          "type": "string"
+                        },
+                        "markerUniqueToThisComponent": {
+                          "type": "boolean"
+                        },
+                        "instancesOnPage": {
+                          "type": "number"
+                        },
+                        "status": {
+                          "type": "number"
+                        },
+                        "anonymous": {
+                          "type": "boolean"
+                        },
+                        "verifiedAt": {
+                          "type": "string"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  ]
+                }
+              },
+              "noExampleReason": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "tier": {
+                "type": "string"
+              },
+              "source": {
+                "type": "string"
+              },
+              "measuredAt": {
+                "type": "string"
+              },
+              "exampleCandidates": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "templatePlacements": {
+                "type": "number"
+              },
+              "templateBundles": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "templateRefs": {
+                "type": "array",
+                "items": {
+                  "anyOf": [
+                    {
+                      "type": "object",
+                      "properties": {
+                        "file": {
+                          "type": "string"
+                        },
+                        "line": {
+                          "type": "number"
+                        },
+                        "global": {
+                          "type": "boolean"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": "string"
+                    }
+                  ]
+                }
+              },
+              "globalTemplate": {
+                "type": "boolean"
+              },
+              "renderedPages": {
+                "type": "number"
+              },
+              "renderedInstances": {
+                "type": "number"
+              },
+              "renderedExamples": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "structuralReferences": {
+                "type": [
+                  "number",
+                  "null"
+                ]
+              },
+              "tierReason": {
+                "type": "string"
+              },
+              "status": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "status": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "containedBy": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "isCustomComponent": {
+            "type": "boolean"
+          },
+          "sourceSdcId": {
+            "type": "string"
+          },
+          "componentVersion": {
+            "type": [
+              "string",
+              "number",
+              "null"
+            ]
+          },
+          "canvasRef": {
+            "type": "string"
+          },
+          "folder": {
+            "type": "string"
+          },
+          "folderRef": {
+            "type": "string"
+          },
+          "provenance": {
+            "type": "object",
+            "properties": {
+              "definition": {
+                "type": "string"
+              },
+              "label": {
+                "type": "string"
+              },
+              "componentVersion": {
+                "type": "string"
+              },
+              "group": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "totals": {
+      "type": "object",
+      "properties": {
+        "all": {
+          "type": "number"
+        },
+        "blocks": {
+          "type": "number"
+        },
+        "paragraphs": {
+          "type": "number"
+        },
+        "withDefects": {
+          "type": "number"
+        },
+        "placements": {
+          "type": "number"
+        },
+        "structuralRefs": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
             }
           }
         },
-        "additionalProperties": true
+        "additionalProperties": false
       }
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false,
+  "$defs": {
+    "JsonValue": {
+      "description": "External site configuration or third-party JSON values, with explicitly typed recursive values.",
+      "anyOf": [
+        {
+          "type": [
+            "string",
+            "number",
+            "boolean",
+            "null"
+          ]
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/JsonValue"
+          }
+        },
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/JsonValue"
+          }
+        }
+      ]
+    }
+  }
 }

@@ -9,7 +9,6 @@ export interface VerifyReport {
     evidence?: (string | number)[] | null;
     scope?: string;
     severity?: string;
-    [k: string]: unknown;
   }[];
   waived: {
     check?: string;
@@ -23,14 +22,15 @@ export interface VerifyReport {
       decidedBy?: string;
       reason?: string;
       scope?: string;
-      [k: string]: unknown;
     };
-    [k: string]: unknown;
   }[];
   passed: string[];
   inapplicable: string[];
   completeness: {
-    [k: string]: unknown;
+    built?: number;
+    expected?: number;
+    byTier?: {
+      [k: string]: (number | string[])[];
+    };
   };
-  [k: string]: unknown;
 }
