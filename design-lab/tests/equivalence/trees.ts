@@ -9,6 +9,7 @@ import { writeJson } from '../../src/contracts.ts';
 import { build as flat, compact } from '../../src/spec-to-tree.ts';
 import { build as responsive } from '../../src/responsive.ts';
 import { Renderer, literal } from '../../src/render-payload.ts';
+import { tokens, withoutCache } from './template-parity.ts';
 import type { Spec } from '../../src/generated/spec.ts';
 const sources = { pncb: resolve(homedir(), '.design/pncb/2026-10-06'), definitive: resolve(homedir(), 'Sites/DEFINITIVEHC/design/2026-10-05'),
   massport: resolve(homedir(), 'Tools/design-lab-corpus/massport'), kingtec: resolve(homedir(), 'Tools/design-lab-corpus/kingtec'), acu: resolve(homedir(), 'Tools/design-lab-corpus/americas-credit-unions') };
@@ -33,6 +34,8 @@ const python = process.env['DESIGN_LAB_PYTHON'] ?? 'python3';
 const oracle = spawnSync(python, [resolve(pluginRoot, 'tests/equivalence/trees-oracle.py'), resolve(root, 'manifest.json')], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
 assert.equal(oracle.status, 0, oracle.stderr);
 const renderer = new Renderer();
+const normalizePayloadSource = (source: string): string => tokens(withoutCache(source.split('\n').slice(4).join('\n'), renderer.units.get('_cache') ?? ''));
+let checkedPayloadMutation = false;
 const started = performance.now(), summary: Record<string, { components: number; flat: number; responsive: number; payloads: number; rejected: number; oracleErrors: string[] }> = {}, failures: unknown[] = [];
 for (const item of manifest) {
   const spec = JSON.parse(readFileSync(item.copy, 'utf8')) as Spec;
@@ -55,7 +58,16 @@ for (const item of manifest) {
       assert.deepEqual(JSON.parse(JSON.stringify(args)), expected['responsive'].args, item.original + ': compact ARGS');
       const payload = renderer.call('build_responsive', args), python = readFileSync(item.copy + '.payload.oracle.js', 'utf8');
       assert.deepEqual(JSON.parse(literal(args)), JSON.parse(/^const ARGS = (.*);$/m.exec(python)![1]!), item.original + ': payload ARGS');
-      assert.equal(payload, python, item.original + ': payload source');
+      if (!checkedPayloadMutation) {
+        const cache = renderer.units.get('_cache') ?? '', cacheEnd = payload.indexOf(cache) + cache.length;
+        assert.ok(cache && cacheEnd > cache.length, 'reviewed cache block must exist in generated payload');
+        const tail = payload.slice(cacheEnd), changedTail = tail.replace('figma.', 'figna.');
+        assert.notEqual(changedTail, tail, 'mutation target must exist after the reviewed cache block');
+        const changed = payload.slice(0, cacheEnd) + changedTail;
+        assert.notEqual(normalizePayloadSource(changed), normalizePayloadSource(payload), 'payload source normalization must detect a one-character change outside the reviewed cache block');
+        checkedPayloadMutation = true;
+      }
+      assert.equal(normalizePayloadSource(payload), normalizePayloadSource(python), item.original + ': payload source');
       row.payloads++;
     } catch (error) { failures.push({ file: item.original, kind: 'payload', error: String(error).slice(0, 4000) }); }
   }
