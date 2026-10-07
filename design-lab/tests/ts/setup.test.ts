@@ -63,9 +63,14 @@ test('two setup processes publish one complete install; reuse and production nev
     assert.ok(existsSync(resolve(f.folder, completionMarker)));
     assert.equal(existsSync(`${f.folder}.lock`), false);
     const marker = statSync(resolve(f.folder, completionMarker));
+    const markerBytes = readFileSync(resolve(f.folder, completionMarker));
     const reused = await f.start({}, ['--production']).done;
     assert.equal(reused.status, 0, reused.output);
-    assert.deepEqual(statSync(resolve(f.folder, completionMarker)), marker);
+    const after = statSync(resolve(f.folder, completionMarker));
+    // Reading the readiness marker can update atime. Reuse must preserve its
+    // content, identity, permissions and all modification-related timestamps.
+    for (const key of ['ino', 'size', 'mode', 'mtimeMs', 'ctimeMs', 'birthtimeMs'] as const) assert.equal(after[key], marker[key], key);
+    assert.deepEqual(readFileSync(resolve(f.folder, completionMarker)), markerBytes);
     const calls = readFileSync(f.calls, 'utf8').trim().split('\n').map(row => JSON.parse(row) as { cwd: string; args: string[] });
     assert.equal(calls.length, 1);
     assert.notEqual(calls[0]!.cwd, f.folder);
