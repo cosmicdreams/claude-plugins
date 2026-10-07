@@ -57,7 +57,7 @@ if (pendingRuns.length) {
 const summary: Record<string, unknown> = {};
 for (const run of Object.keys(sources)) {
   const project = resolve(root, run, 'ts'), oracle = resolve(root, run, 'python'), expected = load<{ init: unknown; state: BuildState; transcript: { step: RunnerStep; input: BuildResult; result: BuildResult; recorded: unknown }[]; ms: number }>(oracle, 'oracle.json'), old = load<BuildState>(project, 'figma/state.json'), driver = new BuildDriver(project, { runner: true }), started = performance.now();
-  const init = driver.init({ fileKey: old.fileKey, siteUrl: old.siteUrl, canonicalBaseUrl: old.canonicalBaseUrl, offlineImages: true, iterate: old.iterate, ...load<{ rebuild: boolean }>(project, 'replay-options.json') });
+  const init = driver.init({ fileKey: old.fileKey, siteUrl: old.siteUrl, canonicalBaseUrl: old.canonicalBaseUrl, offlineImages: true, iterate: old.iterate ?? false, ...load<{ rebuild: boolean }>(project, 'replay-options.json') });
   assert.deepEqual(runtime(init), expected.init, run + ': init');
   const steps: string[] = []; let payloads = 0, images = 0;
   for (const row of expected.transcript) {
@@ -68,7 +68,7 @@ for (const run of Object.keys(sources)) {
     if (step.kind === 'use_figma') {
       const actual = readFileSync(step.payload!, 'utf8'), py = readFileSync((row.step as typeof step).payload!, 'utf8');
       assert.equal(step.characters, [...actual].length);
-      assert.equal(row.step.characters, [...py].length);
+      assert.equal(row.step.kind === 'use_figma' ? row.step.characters : undefined, [...py].length);
       assertPayloadParity(actual, py, currentRenderer, legacyRenderer, run + ': ' + sid); payloads++;
     }
     if (sid.startsWith('images:')) {

@@ -43,7 +43,8 @@
                 "options": {
                   "type": "integer"
                 }
-              }
+              },
+              "additionalProperties": false
             }
           },
           "variants": {
@@ -61,7 +62,8 @@
                 "treatment": {
                   "type": "string"
                 }
-              }
+              },
+              "additionalProperties": false
             }
           },
           "libraryRole": {
@@ -135,10 +137,12 @@
                     "width": {
                       "type": "integer"
                     }
-                  }
+                  },
+                  "additionalProperties": false
                 }
               }
-            }
+            },
+            "additionalProperties": false
           },
           "verdict": {
             "enum": [
@@ -147,11 +151,72 @@
               "document",
               "refuse"
             ]
+          },
+          "label": {
+            "type": "string"
+          },
+          "naiveVariants": {
+            "type": "number"
+          },
+          "flags": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "field": {
+                  "type": "string"
+                },
+                "note": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "skippedFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "refuseReason": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "defects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "kind": {
+                  "type": "string"
+                },
+                "detail": {
+                  "type": "string"
+                },
+                "evidence": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
           }
         },
-        "additionalProperties": true
+        "additionalProperties": false
       }
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "maxVariants": {
+      "type": "number"
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

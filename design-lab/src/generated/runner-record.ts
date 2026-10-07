@@ -17,24 +17,29 @@ export type BuildResult = BuildResult1 & {
       y: number;
       width: number;
       height: number;
-      [k: string]: unknown;
+      label?: string;
     }[];
     variants?: {
       x: number;
       y: number;
       width: number;
       height: number;
-      [k: string]: unknown;
+      label?: string;
     }[];
     specimen?: {
       width: number;
       height: number;
-      [k: string]: unknown;
     };
-    [k: string]: unknown;
   };
   native?: {
-    [k: string]: unknown;
+    nodeType?: string;
+    rootHasImageFill?: boolean;
+    nestedInstances?: {
+      instanceId?: string;
+      mainComponentId?: string | null;
+      sourceId?: string | null;
+    }[];
+    documentedFields?: (string | null)[];
   };
   setId?: string;
   specimenId?: string;
@@ -57,37 +62,25 @@ export type BuildResult = BuildResult1 & {
     [k: string]: string;
   };
   iconText?: {
-    [k: string]: string;
+    [k: string]: string | number;
   };
   images?: {
     id: string;
     src: string;
     fit?: string;
-    [k: string]: unknown;
   }[];
   nested?: {
     id: string;
     sourceId: string;
-    [k: string]: unknown;
   }[];
-  nestedMismatch?: (
-    | {
-        [k: string]: unknown;
-      }
-    | string
-  )[];
-  svgFailures?: (
-    | {
-        [k: string]: unknown;
-      }
-    | string
-  )[];
-  fellBack?: (
-    | {
-        [k: string]: unknown;
-      }
-    | string
-  )[];
+  nestedMismatch?: {
+    sourceId?: string;
+    name?: string;
+    texts?: number[];
+    images?: number[];
+  }[];
+  svgFailures?: string[];
+  fellBack?: string[];
   rootId?: string;
   headerId?: string;
   componentsId?: string;
@@ -99,30 +92,14 @@ export type BuildResult = BuildResult1 & {
       id: string;
       modes: string[];
       variables: number;
-      [k: string]: unknown;
     };
   };
-  aliasMisses?: (
-    | {
-        [k: string]: unknown;
-      }
-    | string
-  )[];
-  unplanned?: (
-    | {
-        [k: string]: unknown;
-      }
-    | string
-  )[];
+  aliasMisses?: string[];
+  unplanned?: string[];
   pages?: {
     [k: string]: string;
   };
-  foreign?: (
-    | {
-        [k: string]: unknown;
-      }
-    | string
-  )[];
+  foreign?: string[];
   coverId?: string;
   font?: string;
   fontLoaded?: boolean;
@@ -130,25 +107,51 @@ export type BuildResult = BuildResult1 & {
   pageId?: string;
   pluginData?: boolean;
   clearedCover?: number;
-  kept?: (
-    | {
-        [k: string]: unknown;
-      }
-    | string
-  )[];
+  kept?: string[];
   removedCollections?: string[];
   removedPages?: string[];
 };
-export type BuildResult1 = {
-  [k: string]: unknown;
-};
+export type BuildResult1 =
+  | {
+      pages: {
+        [k: string]: string;
+      };
+    }
+  | {
+      collections: {
+        [k: string]: {
+          id: string;
+          modes: string[];
+          variables: number;
+        };
+      };
+    }
+  | {
+      componentId: string;
+    }
+  | {
+      blockId: string;
+    }
+  | {
+      rootId: string;
+    }
+  | {
+      coverId: string;
+    }
+  | {
+      removedPages: string[];
+    };
+export type ResolvedBinding =
+  | (string | null)
+  | (string | null)[]
+  | {
+      [k: string]: ResolvedBinding;
+    };
 
 export interface Screenshot {
   png: string;
 }
-export interface EmptySkip {
-  [k: string]: unknown;
-}
+export interface EmptySkip {}
 export interface Check {
   fileKey: string;
   fileName: string;
@@ -165,17 +168,106 @@ export interface RootDump {
     name: string;
   }[];
   collections: {
-    [k: string]: unknown;
+    name?: string;
+    modes?: string[];
+    variables?: {
+      name?: string;
+      description?: string;
+      type?: string;
+      scopes?: string[];
+      web?: string | null;
+      valuesByMode?: {
+        [k: string]:
+          | string
+          | number
+          | boolean
+          | {
+              r: number;
+              g: number;
+              b: number;
+              a?: number;
+            }
+          | {
+              type: "VARIABLE_ALIAS";
+              id: string;
+            };
+      };
+    }[];
   }[];
 }
 export interface TreeDump {
   page: string;
   pageIndex: number;
   nodes: {
-    [k: string]: unknown;
+    x?: number | null;
+    y?: number | null;
+    width?: number | null;
+    height?: number | null;
+    paddingTop?: number | null;
+    paddingRight?: number | null;
+    paddingBottom?: number | null;
+    paddingLeft?: number | null;
+    itemSpacing?: number | null;
+    cornerRadius?: number | null;
+    fontSize?: number | null;
+    layoutMode?: string | null;
+    layoutSizingHorizontal?: string | null;
+    layoutSizingVertical?: string | null;
+    characters?: string | null;
+    textStyle?: string | null;
+    path?: string;
+    type?: string;
+    fills?: {
+      type?: string;
+      visible?: boolean;
+      color?: string | null;
+      boundVariables?: {
+        [k: string]: ResolvedBinding;
+      };
+    }[];
+    strokes?: {
+      type?: string;
+      visible?: boolean;
+      color?: string | null;
+      boundVariables?: {
+        [k: string]: ResolvedBinding;
+      };
+    }[];
+    fontName?: {
+      family?: string;
+      style?: string;
+      variationSettings?: {
+        [k: string]: number;
+      };
+    } | null;
+    lineHeight?: {
+      unit?: string;
+      value?: number;
+    } | null;
+    componentPropertyDefinitions?: {
+      [k: string]: {
+        type?: string;
+        defaultValue?: string | boolean | null;
+        preferredValues?: {
+          type?: string;
+        }[];
+        description?: string;
+      };
+    };
+    variantProperties?: {
+      [k: string]: string;
+    };
+    description?: string;
+    documentationLinks?: string[];
+    boundVariables?: {
+      [k: string]: ResolvedBinding;
+    };
   }[];
   _ids: {
-    [k: string]: unknown;
+    page?: string;
+    nodes?: {
+      [k: string]: string;
+    };
   };
 }
 export interface PageDump {
@@ -185,19 +277,77 @@ export interface PageDump {
     children: number;
   };
   components: {
-    [k: string]: unknown;
+    id?: string;
+    name?: string;
+    page?: string;
+    pageId?: string;
+    description?: string;
+    type?: string;
+    docLinks?: number;
+    variantCount?: number;
+    boundVariableCount?: number;
+    tokenBoundCount?: number;
+    breakpointBoundCount?: number;
+    responsiveVariableCount?: number;
+    imageCount?: number;
+    nestedInstanceCount?: number;
+    visibleTextCount?: number;
+    schemaLabelCount?: number;
+    variesByWidth?: boolean;
+    rootHasImageFill?: boolean;
+    variantNames?: string[];
+    componentProperties?: {
+      name?: string;
+      type?: string;
+    }[];
   }[];
   cards: {
-    [k: string]: unknown;
+    name?: string;
+    blockId?: string;
+    blockName?: string;
+    component?: string;
+    order?: string;
+    pageId?: string;
+    id?: string | null;
+    defaultNamedLayers?: number;
+    breakpointScreenshotCount?: number;
+    rejectedHeadingCount?: number;
+    rootRelativeExampleCount?: number;
+    urlLinkCount?: number;
+    sections?: string[];
+    hasPreviewImage?: boolean;
+    captureLabels?: string[];
+    breakpointLabels?: string[];
+    breakpointNodes?: {
+      id?: string;
+      name?: string;
+      type?: string;
+      width?: number;
+      mainComponentId?: string | null;
+      mainComponentSetId?: string | null;
+      explicitModes?: {
+        [k: string]: string;
+      };
+    }[];
   }[];
   breakpointFrames: {
-    [k: string]: unknown;
+    name?: string;
+    width?: number;
+    height?: number;
+    hasImage?: boolean;
+    labelWidth?: number | null;
   }[];
   exampleInvalidNodes: {
-    [k: string]: unknown;
+    name?: string;
+    type?: string;
   }[];
   breakpointCollection: {
-    [k: string]: unknown;
+    id?: string;
+    name?: string;
+    modes?: {
+      id?: string;
+      name?: string;
+    }[];
   } | null;
 }
 export interface GettingStartedDump {

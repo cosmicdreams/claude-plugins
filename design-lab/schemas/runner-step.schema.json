@@ -19,12 +19,21 @@
         },
         "kind": {
           "const": "done"
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
         }
       },
       "required": [
         "kind"
       ],
-      "additionalProperties": true
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -49,6 +58,15 @@
         },
         "message": {
           "type": "string"
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
         }
       },
       "required": [
@@ -57,7 +75,7 @@
         "retryMs",
         "message"
       ],
-      "additionalProperties": true
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -81,6 +99,15 @@
         },
         "out": {
           "type": "string"
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
         }
       },
       "required": [
@@ -88,7 +115,7 @@
         "step",
         "code"
       ],
-      "additionalProperties": true
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -112,6 +139,15 @@
         },
         "out": {
           "type": "string"
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
         }
       },
       "required": [
@@ -119,7 +155,7 @@
         "step",
         "code"
       ],
-      "additionalProperties": true
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -147,13 +183,22 @@
         "characters": {
           "type": "integer",
           "minimum": 0
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
         }
       },
       "required": [
         "kind",
         "step"
       ],
-      "additionalProperties": true,
+      "additionalProperties": false,
       "anyOf": [
         {
           "required": [
@@ -212,8 +257,17 @@
               "file",
               "contentType"
             ],
-            "additionalProperties": true
+            "additionalProperties": false
           }
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
         }
       },
       "required": [
@@ -222,7 +276,7 @@
         "nodeIds",
         "scaleMode"
       ],
-      "additionalProperties": true
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -250,6 +304,15 @@
         "maxDimension": {
           "type": "integer",
           "minimum": 0
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
         }
       },
       "required": [
@@ -258,7 +321,7 @@
         "nodeId",
         "out"
       ],
-      "additionalProperties": true
+      "additionalProperties": false
     },
     {
       "type": "object",
@@ -279,6 +342,15 @@
         },
         "reason": {
           "type": "string"
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
         }
       },
       "required": [
@@ -286,7 +358,7 @@
         "step",
         "reason"
       ],
-      "additionalProperties": true
+      "additionalProperties": false
     }
   ]
 }

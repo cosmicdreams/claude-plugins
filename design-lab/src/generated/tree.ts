@@ -25,10 +25,12 @@ export interface Tree {
           | boolean
           | string
           | {
-              [k: string]: unknown;
+              r: number;
+              g: number;
+              b: number;
+              a?: number;
             };
       };
-      [k: string]: unknown;
     };
   };
   tree: TreeNode;
@@ -44,16 +46,16 @@ export interface Tree {
             | boolean
             | string
             | {
-                [k: string]: unknown;
+                r: number;
+                g: number;
+                b: number;
+                a?: number;
               };
         };
-        [k: string]: unknown;
       };
     };
     tree: TreeNode;
-    [k: string]: unknown;
   }[];
-  [k: string]: unknown;
 }
 export interface FrameNode {
   kind: "frame";
@@ -74,7 +76,6 @@ export interface FrameNode {
     right?: number;
     bottom?: number;
     left?: number;
-    [k: string]: unknown;
   };
   radius?: number[];
   clip?: boolean;
@@ -91,7 +92,6 @@ export interface FrameNode {
     y: number;
     blur: number;
     spread: number;
-    [k: string]: unknown;
   }[];
   visible?: boolean | VariableBinding;
   absolute?: boolean;
@@ -102,19 +102,15 @@ export interface FrameNode {
      * CSS background-size; converted to FIT/FILL, never assigned directly to a Figma enum.
      */
     fit?: string;
-    [k: string]: unknown;
   };
-  [k: string]: unknown;
 }
 export interface VariableBinding {
   var: string;
-  [k: string]: unknown;
 }
 export interface Color {
   hex: string;
   opacity?: number;
   var?: string | null;
-  [k: string]: unknown;
 }
 export interface Text {
   align?: "LEFT" | "CENTER" | "RIGHT" | "JUSTIFIED";
@@ -131,7 +127,6 @@ export interface Text {
   stack?: string;
   underline?: boolean;
   weight: number;
-  [k: string]: unknown;
 }
 export interface Layout {
   mode: "NONE" | "HORIZONTAL" | "VERTICAL" | "GRID";
@@ -144,12 +139,10 @@ export interface Layout {
     right?: number | VariableBinding;
     bottom?: number | VariableBinding;
     left?: number | VariableBinding;
-    [k: string]: unknown;
   };
   wrap?: boolean;
   slots?: boolean;
   fellBack?: boolean;
-  [k: string]: unknown;
 }
 export interface TextNode {
   kind: "text";
@@ -170,7 +163,6 @@ export interface TextNode {
     right?: number;
     bottom?: number;
     left?: number;
-    [k: string]: unknown;
   };
   radius?: number[];
   clip?: boolean;
@@ -187,7 +179,6 @@ export interface TextNode {
     y: number;
     blur: number;
     spread: number;
-    [k: string]: unknown;
   }[];
   visible?: boolean | VariableBinding;
   absolute?: boolean;
@@ -198,9 +189,7 @@ export interface TextNode {
      * CSS background-size; converted to FIT/FILL, never assigned directly to a Figma enum.
      */
     fit?: string;
-    [k: string]: unknown;
   };
-  [k: string]: unknown;
 }
 export interface ImageNode {
   kind: "image";
@@ -221,7 +210,6 @@ export interface ImageNode {
     right?: number;
     bottom?: number;
     left?: number;
-    [k: string]: unknown;
   };
   radius?: number[];
   clip?: boolean;
@@ -238,7 +226,6 @@ export interface ImageNode {
     y: number;
     blur: number;
     spread: number;
-    [k: string]: unknown;
   }[];
   visible?: boolean | VariableBinding;
   absolute?: boolean;
@@ -249,9 +236,7 @@ export interface ImageNode {
      * CSS background-size; converted to FIT/FILL, never assigned directly to a Figma enum.
      */
     fit?: string;
-    [k: string]: unknown;
   };
-  [k: string]: unknown;
 }
 export interface SvgNode {
   kind: "svg";
@@ -272,7 +257,6 @@ export interface SvgNode {
     right?: number;
     bottom?: number;
     left?: number;
-    [k: string]: unknown;
   };
   radius?: number[];
   clip?: boolean;
@@ -289,7 +273,6 @@ export interface SvgNode {
     y: number;
     blur: number;
     spread: number;
-    [k: string]: unknown;
   }[];
   visible?: boolean | VariableBinding;
   absolute?: boolean;
@@ -300,9 +283,7 @@ export interface SvgNode {
      * CSS background-size; converted to FIT/FILL, never assigned directly to a Figma enum.
      */
     fit?: string;
-    [k: string]: unknown;
   };
-  [k: string]: unknown;
 }
 export interface InstanceNode {
   kind: "instance";
@@ -323,7 +304,6 @@ export interface InstanceNode {
     right?: number;
     bottom?: number;
     left?: number;
-    [k: string]: unknown;
   };
   radius?: number[];
   clip?: boolean;
@@ -340,7 +320,6 @@ export interface InstanceNode {
     y: number;
     blur: number;
     spread: number;
-    [k: string]: unknown;
   }[];
   visible?: boolean | VariableBinding;
   absolute?: boolean;
@@ -351,7 +330,5 @@ export interface InstanceNode {
      * CSS background-size; converted to FIT/FILL, never assigned directly to a Figma enum.
      */
     fit?: string;
-    [k: string]: unknown;
   };
-  [k: string]: unknown;
 }

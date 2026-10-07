@@ -74,5 +74,5 @@
     "at",
     "serverPid"
   ],
-  "additionalProperties": true
+  "additionalProperties": false
 }

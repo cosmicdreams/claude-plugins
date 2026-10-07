@@ -5,7 +5,14 @@ export interface Index {
   generatedAt: string;
   totals: {
     components: number;
-    [k: string]: unknown;
+    built?: number;
+    notBuilt?: number;
+    byTier?: {
+      [k: string]: {
+        components?: number;
+        built?: number;
+      };
+    };
   };
   rows: {
     componentLinkTarget: string | null;
@@ -15,7 +22,18 @@ export interface Index {
     built: boolean;
     type: string;
     status: string;
-    [k: string]: unknown;
+    machineName?: string;
+    label?: string;
+    tier?: string;
+    structuralRefs?: number;
+    figma?: {
+      pageId?: string | null;
+      componentNodeId?: string | null;
+      documentationCardId?: string | null;
+    };
+    reason?: null | string;
+    deferred?: number;
+    unsupported?: number;
   }[];
   notBuilt: {
     id?: string;
@@ -23,12 +41,14 @@ export interface Index {
     machineName?: string;
     reason?: string;
     tier?: string;
-    [k: string]: unknown;
   }[];
   problems: {
     check?: string;
     detail?: string;
-    [k: string]: unknown;
   }[];
-  [k: string]: unknown;
+  thresholds?: {
+    high?: number;
+    medium?: number;
+    default?: boolean;
+  };
 }

@@ -4,7 +4,7 @@ export interface Spec {
   component: string;
   machineName: string | null;
   source: {
-    [k: string]: unknown;
+    sourceRef?: string;
   } | null;
   path: string;
   verificationUrl: string;
@@ -18,19 +18,15 @@ export interface Spec {
           rootBox: {
             width: number;
             height: number;
-            [k: string]: unknown;
           };
           backdrop?: string;
           nodes: MeasuredNode[];
-          [k: string]: unknown;
         }
       | {
           error: string;
           totalMatches?: number;
-          [k: string]: unknown;
         };
   };
-  [k: string]: unknown;
 }
 export interface MeasuredNode {
   path: string;
@@ -46,7 +42,6 @@ export interface MeasuredNode {
     y: number;
     width: number;
     height: number;
-    [k: string]: unknown;
   };
   computed: {
     [k: string]: string;
@@ -66,10 +61,8 @@ export interface MeasuredNode {
     src: string;
     naturalWidth: number;
     naturalHeight: number;
-    [k: string]: unknown;
   } | null;
   inlineText: string | null;
   maskSvg?: string;
   maskUnfetched?: string;
-  [k: string]: unknown;
 }

@@ -6,7 +6,6 @@ export interface RenderEvidence {
   source: {
     strategy: string;
     root: string;
-    [k: string]: unknown;
   };
   items: {
     [k: string]: {
@@ -17,12 +16,23 @@ export interface RenderEvidence {
       styleFacts: {
         mediaQueries?: number;
         partRules?: {
-          [k: string]: unknown;
+          selector?: string;
+          declarations?: {
+            property?: string;
+            value?: string;
+            resolution?: string;
+          }[];
+          sourceRef?: string;
         }[];
         rootRules?: {
-          [k: string]: unknown;
+          selector?: string;
+          declarations?: {
+            property?: string;
+            value?: string;
+            resolution?: string;
+          }[];
+          sourceRef?: string;
         }[];
-        [k: string]: unknown;
       };
       rootClasses: string[];
       referencedFields: string[];
@@ -30,15 +40,24 @@ export interface RenderEvidence {
         detail?: string;
         evidence?: string[];
         kind?: string;
-        [k: string]: unknown;
       }[];
       confidence: string;
-      [k: string]: unknown;
+      genericTemplate?: string | null;
+      rootSdc?: null | string;
     };
   };
   totals: {
-    [k: string]: unknown;
+    components?: number;
+    directTemplates?: number;
+    sdcLinks?: number;
+    styleLinks?: number;
+    defects?: number;
   };
-  problems: unknown[];
-  [k: string]: unknown;
+  problems: {
+    check?: string;
+    detail?: string;
+    evidence?: string[];
+    sourceRef?: string;
+    kind?: string;
+  }[];
 }

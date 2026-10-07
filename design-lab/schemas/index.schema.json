@@ -26,8 +26,30 @@
       "properties": {
         "components": {
           "type": "integer"
+        },
+        "built": {
+          "type": "number"
+        },
+        "notBuilt": {
+          "type": "number"
+        },
+        "byTier": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "components": {
+                "type": "number"
+              },
+              "built": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "rows": {
       "type": "array",
@@ -69,9 +91,73 @@
           },
           "status": {
             "type": "string"
+          },
+          "machineName": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string"
+          },
+          "structuralRefs": {
+            "type": "number"
+          },
+          "figma": {
+            "type": "object",
+            "properties": {
+              "pageId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "componentNodeId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "documentationCardId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "deferred": {
+            "type": "number"
+          },
+          "unsupported": {
+            "type": "number"
           }
         },
-        "additionalProperties": true
+        "additionalProperties": false
       }
     },
     "notBuilt": {
@@ -94,7 +180,8 @@
           "tier": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
     "problems": {
@@ -108,9 +195,25 @@
           "detail": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       }
+    },
+    "thresholds": {
+      "type": "object",
+      "properties": {
+        "high": {
+          "type": "number"
+        },
+        "medium": {
+          "type": "number"
+        },
+        "default": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

@@ -17,7 +17,13 @@
       "type": [
         "object",
         "null"
-      ]
+      ],
+      "properties": {
+        "sourceRef": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     },
     "path": {
       "type": "string"
@@ -58,7 +64,7 @@
                   "width",
                   "height"
                 ],
-                "additionalProperties": true
+                "additionalProperties": false
               },
               "backdrop": {
                 "type": "string"
@@ -74,7 +80,7 @@
               "rootBox",
               "nodes"
             ],
-            "additionalProperties": true
+            "additionalProperties": false
           },
           {
             "type": "object",
@@ -90,7 +96,7 @@
             "required": [
               "error"
             ],
-            "additionalProperties": true
+            "additionalProperties": false
           }
         ]
       }
@@ -106,7 +112,7 @@
     "rootSelector",
     "measurements"
   ],
-  "additionalProperties": true,
+  "additionalProperties": false,
   "$defs": {
     "MeasuredNode": {
       "type": "object",
@@ -163,7 +169,7 @@
             "width",
             "height"
           ],
-          "additionalProperties": true
+          "additionalProperties": false
         },
         "computed": {
           "type": "object",
@@ -238,7 +244,7 @@
                 "naturalWidth",
                 "naturalHeight"
               ],
-              "additionalProperties": true
+              "additionalProperties": false
             },
             {
               "type": "null"
@@ -274,7 +280,7 @@
         "image",
         "inlineText"
       ],
-      "additionalProperties": true
+      "additionalProperties": false
     }
   }
 }

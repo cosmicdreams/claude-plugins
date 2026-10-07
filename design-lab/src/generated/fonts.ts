@@ -10,7 +10,6 @@ export interface Fonts {
       weight: number;
       italic: boolean;
       face: string | null;
-      [k: string]: unknown;
     }[];
     available?: boolean | null;
     figmaFamily?: string | null;
@@ -18,22 +17,20 @@ export interface Fonts {
       family: string;
       default?: boolean;
       reason?: string;
-      [k: string]: unknown;
     };
     route?: {
       kind: string;
       steps: string[];
       note?: string;
-      [k: string]: unknown;
+      foundry?: string | null;
+      licence?: string;
     };
     adobeKit?: string;
     note?: string;
-    [k: string]: unknown;
   }[];
   unrendered: {
     family: string;
     why: string;
-    [k: string]: unknown;
   }[];
   icons: string[];
   kits: {
@@ -53,7 +50,6 @@ export interface Fonts {
           [k: string]: number;
         };
         display: string;
-        [k: string]: unknown;
       };
     };
     stacks: {
@@ -62,12 +58,9 @@ export interface Fonts {
         icon?: string;
         ranges?: number[][] | null;
         otherwise?: string;
-        [k: string]: unknown;
       };
     };
     skip: string[];
     icons: string[];
-    [k: string]: unknown;
   };
-  [k: string]: unknown;
 }

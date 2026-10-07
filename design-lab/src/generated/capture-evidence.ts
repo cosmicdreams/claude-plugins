@@ -26,7 +26,6 @@ export interface CaptureEvidence {
           state?: string;
           viewport?: string;
           width?: number;
-          [k: string]: unknown;
         },
         ...{
           file?: string;
@@ -35,16 +34,27 @@ export interface CaptureEvidence {
           state?: string;
           viewport?: string;
           width?: number;
-          [k: string]: unknown;
         }[]
       ];
-      [k: string]: unknown;
     };
   };
   problems: {
     componentId?: string;
     detail?: string;
-    [k: string]: unknown;
   }[];
-  [k: string]: unknown;
+  checks?: {
+    componentId?: string;
+    chosen?: string | null;
+    revealed?: boolean;
+    seconds?: number;
+    pages?: {
+      path?: string;
+      matches?: number;
+      visible?: number;
+      height?: number;
+      revealed?: boolean;
+      error?: string;
+      seconds?: number;
+    }[];
+  }[];
 }

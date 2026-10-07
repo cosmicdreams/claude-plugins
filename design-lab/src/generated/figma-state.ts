@@ -14,12 +14,13 @@ export type FigmaState =
       planned?: string[];
       steps: {
         id: string;
-        [k: string]: unknown;
       }[];
       done: string[];
       emittedCollections?: string[];
       iterate?: boolean;
       subset?: string[];
       preflightCover?: string;
-      [k: string]: unknown;
+      built?: string[];
+      buildId?: string;
+      executionRevision?: string;
     };

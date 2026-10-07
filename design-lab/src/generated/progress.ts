@@ -11,5 +11,4 @@ export interface Progress {
   lastSeen: string | null;
   at: string;
   serverPid: number;
-  [k: string]: unknown;
 }

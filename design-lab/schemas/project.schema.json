@@ -42,11 +42,44 @@
         "dirty": {
           "type": "boolean"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "decisions": {
       "type": "object",
-      "properties": {}
+      "properties": {
+        "componentSource": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tokenSource": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "usageSource": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "pageStrategy": {
+          "type": "string"
+        },
+        "sitestudioConfig": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "selectedAt": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
     },
     "phases": {
       "type": "object",
@@ -58,7 +91,479 @@
           },
           "detail": {
             "type": "object",
-            "properties": {}
+            "properties": {
+              "priorArtCount": {
+                "type": "number"
+              },
+              "componentCandidates": {
+                "type": "number"
+              },
+              "tokenCandidates": {
+                "type": "number"
+              },
+              "strategy": {
+                "type": "string"
+              },
+              "components": {
+                "type": "number"
+              },
+              "artifact": {
+                "type": "string"
+              },
+              "ddevRoot": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ],
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "ddevProject": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "string"
+                  }
+                ]
+              },
+              "placements": {
+                "type": "number"
+              },
+              "structuralRefs": {
+                "type": "number"
+              },
+              "thresholds": {
+                "type": "object",
+                "properties": {
+                  "high": {
+                    "type": "number"
+                  },
+                  "medium": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              },
+              "build": {
+                "type": "number"
+              },
+              "refuse": {
+                "type": "number"
+              },
+              "flags": {
+                "type": "number"
+              },
+              "siteUrl": {
+                "type": "string"
+              },
+              "publicUrl": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "figmaUrl": {
+                "type": "string"
+              },
+              "siteLabel": {
+                "type": "string"
+              },
+              "operator": {
+                "type": "string"
+              },
+              "model": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "planApproval": {
+                "type": "string"
+              },
+              "usageFallback": {
+                "type": "string"
+              },
+              "schemaChurn": {
+                "type": "string"
+              },
+              "checks": {
+                "type": "object",
+                "properties": {
+                  "site": {
+                    "type": "object",
+                    "properties": {
+                      "url": {
+                        "type": "string"
+                      },
+                      "reachable": {
+                        "type": "boolean"
+                      },
+                      "detail": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "usage": {
+                    "type": "object",
+                    "properties": {
+                      "source": {
+                        "type": "string"
+                      },
+                      "ddevRoot": {
+                        "type": "string"
+                      },
+                      "ddevProject": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "browser": {
+                    "type": "object",
+                    "properties": {
+                      "nodeCwd": {
+                        "type": "string"
+                      },
+                      "executable": {
+                        "type": "null"
+                      },
+                      "executableExists": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "cairosvg": {
+                    "type": "object",
+                    "properties": {
+                      "available": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "twigDebug": {
+                    "type": "object",
+                    "properties": {
+                      "enabled": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "pluginVersion": {
+                    "type": "object",
+                    "properties": {
+                      "recorded": {
+                        "type": "string"
+                      },
+                      "current": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "runner": {
+                    "type": "object",
+                    "properties": {
+                      "at": {
+                        "type": "string"
+                      },
+                      "runnerConnected": {
+                        "type": "boolean"
+                      },
+                      "fileKey": {
+                        "type": "string"
+                      },
+                      "fileName": {
+                        "type": "string"
+                      },
+                      "fileKeyMatches": {
+                        "type": "boolean"
+                      },
+                      "empty": {
+                        "type": "boolean"
+                      },
+                      "onlyPreflightCover": {
+                        "type": "boolean"
+                      },
+                      "ok": {
+                        "type": "boolean"
+                      },
+                      "writable": {
+                        "type": "boolean"
+                      },
+                      "coverPageId": {
+                        "type": "string"
+                      },
+                      "coverId": {
+                        "type": "string"
+                      },
+                      "font": {
+                        "type": "string"
+                      },
+                      "fontLoaded": {
+                        "type": "boolean"
+                      },
+                      "pluginData": {
+                        "type": "boolean"
+                      },
+                      "server": {
+                        "type": "object",
+                        "properties": {
+                          "pid": {
+                            "type": "number"
+                          },
+                          "started": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "install": {
+                        "type": "object",
+                        "properties": {
+                          "folder": {
+                            "type": "string"
+                          },
+                          "manifest": {
+                            "type": "string"
+                          },
+                          "version": {
+                            "type": "string"
+                          },
+                          "firstInstall": {
+                            "type": "boolean"
+                          },
+                          "updated": {
+                            "type": "boolean"
+                          }
+                        },
+                        "additionalProperties": false
+                      },
+                      "instructions": {
+                        "type": "array",
+                        "items": {
+                          "type": "string"
+                        }
+                      },
+                      "alive": {
+                        "type": "boolean"
+                      },
+                      "portInUse": {
+                        "type": "boolean"
+                      },
+                      "inflight": {
+                        "type": "boolean"
+                      },
+                      "pid": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "otherPid": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "otherRun": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "log": {
+                        "type": "string"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "sharp": {
+                    "type": "object",
+                    "properties": {
+                      "available": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              },
+              "goAheadAt": {
+                "type": "string"
+              },
+              "fileKey": {
+                "type": "string"
+              },
+              "fileUrl": {
+                "type": "string"
+              },
+              "runnerConnected": {
+                "type": "boolean"
+              },
+              "fileKeyMatches": {
+                "type": "boolean"
+              },
+              "empty": {
+                "type": "boolean"
+              },
+              "onlyPreflightCover": {
+                "type": "boolean"
+              },
+              "writable": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "pluginData": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "connectionOnly": {
+                "anyOf": [
+                  {
+                    "type": "null"
+                  },
+                  {
+                    "type": "boolean"
+                  }
+                ]
+              },
+              "coverPageId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "coverId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "font": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "fontLoaded": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "recordedBy": {
+                "type": "string"
+              },
+              "planAvailable": {
+                "type": "boolean"
+              },
+              "expected": {
+                "type": "number"
+              },
+              "built": {
+                "type": "number"
+              },
+              "missing": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "unexpected": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "invalid": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "id": {
+                      "type": "string"
+                    },
+                    "errors": {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
+                    }
+                  },
+                  "required": [],
+                  "additionalProperties": false
+                }
+              },
+              "reason": {
+                "type": "string"
+              },
+              "by": {
+                "type": "string"
+              },
+              "waivedAt": {
+                "type": "string"
+              },
+              "effect": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "approvedAt": {
+            "type": "string"
+          },
+          "approvedBy": {
+            "type": "string"
+          },
+          "from": {
+            "type": "string"
+          },
+          "sourceUpdatedAt": {
+            "type": "string"
           }
         },
         "if": {
@@ -94,13 +599,76 @@
               }
             }
           }
-        }
+        },
+        "additionalProperties": false
       },
       "properties": {}
     },
     "artifacts": {
       "type": "object",
-      "properties": {}
+      "properties": {},
+      "additionalProperties": {
+        "type": "object",
+        "properties": {
+          "path": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "sha256": {
+            "type": "string"
+          },
+          "valid": {
+            "type": "boolean"
+          },
+          "errors": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "updatedAt": {
+            "type": "string"
+          },
+          "producedBy": {
+            "type": "object",
+            "properties": {
+              "pluginDir": {
+                "type": "string"
+              },
+              "toolVersion": {
+                "type": "string"
+              },
+              "commit": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "dirty": {
+                "anyOf": [
+                  {
+                    "type": "boolean"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "version": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
     },
     "run": {
       "description": "Run identity, written by workflow.ts init (0.15 and later) or workflow.ts identity. Optional so older manifests stay valid.",
@@ -148,7 +716,8 @@
                 "null"
               ]
             }
-          }
+          },
+          "additionalProperties": false
         },
         "claude": {
           "type": "object",
@@ -171,7 +740,8 @@
             "transcripts": {
               "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "schemaChurn": {
           "type": "object",
@@ -184,11 +754,130 @@
             },
             "recordedAt": {
               "type": "string"
+            },
+            "changes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "at": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
             }
-          }
+          },
+          "additionalProperties": false
+        },
+        "evaluationTier": {
+          "type": "number"
+        },
+        "rebuiltFrom": {
+          "type": "object",
+          "properties": {
+            "run": {
+              "type": "string"
+            },
+            "createdAt": {
+              "type": "string"
+            },
+            "pluginVersion": {
+              "type": "string"
+            },
+            "corpusLabel": {
+              "type": "null"
+            }
+          },
+          "additionalProperties": false
         }
-      }
+      },
+      "additionalProperties": false
+    },
+    "createdAt": {
+      "type": "string"
+    },
+    "target": {
+      "type": "object",
+      "properties": {
+        "figmaFileKey": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "figmaUrl": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "recordedAt": {
+          "type": "string"
+        },
+        "connection": {
+          "type": "object",
+          "properties": {
+            "fileKey": {
+              "type": "string"
+            },
+            "fileUrl": {
+              "type": "string"
+            },
+            "coverPageId": {
+              "type": "string"
+            },
+            "coverId": {
+              "type": "string"
+            },
+            "font": {
+              "type": "string"
+            },
+            "fontLoaded": {
+              "type": "boolean"
+            },
+            "at": {
+              "type": "string"
+            },
+            "reconnectedAt": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        },
+        "preflight": {
+          "type": "object",
+          "properties": {
+            "fileKey": {
+              "type": "string"
+            },
+            "fileUrl": {
+              "type": "string"
+            },
+            "coverPageId": {
+              "type": "string"
+            },
+            "coverId": {
+              "type": "string"
+            },
+            "font": {
+              "type": "string"
+            },
+            "fontLoaded": {
+              "type": "boolean"
+            },
+            "at": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": false
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

@@ -54,7 +54,7 @@
             "required": [
               "id"
             ],
-            "additionalProperties": true
+            "additionalProperties": false
           }
         },
         "done": {
@@ -80,6 +80,18 @@
         },
         "preflightCover": {
           "type": "string"
+        },
+        "built": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "executionRevision": {
+          "type": "string"
         }
       },
       "required": [
@@ -91,7 +103,7 @@
         "steps",
         "done"
       ],
-      "additionalProperties": true
+      "additionalProperties": false
     }
   ]
 }

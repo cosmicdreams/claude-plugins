@@ -4,5 +4,4 @@ export interface RunnerRecordResponse {
   recorded: string;
   remaining?: number;
   ignored?: boolean;
-  [k: string]: unknown;
 }

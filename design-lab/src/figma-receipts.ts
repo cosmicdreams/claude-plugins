@@ -81,7 +81,7 @@ export function receiptErrors(kind: ArtifactKind, value: unknown): string[] {
     const e = r.visualEvidence;
     if (!e || !String(e.path || '').startsWith('/')) errors.push('visualEvidence.path must be root-relative');
     if (!e || (e.captureFiles?.length ?? 0) < 3) errors.push('visualEvidence needs three capture files');
-    for (const bp of BREAKPOINTS) {
+    for (const bp of ['desktop', 'tablet', 'mobile'] as const) {
       const breakpoint = e?.breakpoints?.[bp] as { captureFile?: string; viewportWidth?: number } | undefined;
       if (!breakpoint?.captureFile || !breakpoint.viewportWidth) errors.push('visualEvidence missing ' + bp);
       if (!r.documentation.breakpointScreenshots?.[bp]) errors.push('documentation missing screenshot ' + bp);

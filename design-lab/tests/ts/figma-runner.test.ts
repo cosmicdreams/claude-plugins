@@ -219,7 +219,7 @@ test('an iterating build keeps the runner waiting when done; a plain one is told
 test('a renderer edited mid-build makes an iterating run wait instead of closing', async t => {
   const ws = workspace(resolve(scratch(t), 'w'), 'KEY', { fileKey: 'KEY', steps: [{ id: 'pages' }], done: [], iterate: true });
   const driver: DriverLike = { next: () => Promise.reject(new Error('the renderer changed since init')), record: () => Promise.reject(new Error('unused')), recordScreenshot: () => Promise.reject(new Error('unused')) };
-  const build = new Build(ws, { ...quiet, driver }); assert.match(String((await build.next())['message']), /templates changed/);
+  const build = new Build(ws, { ...quiet, driver }), waiting = await build.next(); assert.equal(waiting.kind, 'wait'); if (waiting.kind !== 'wait') throw new Error('expected wait'); assert.match(waiting.message, /templates changed/);
   writeFileSync(resolve(ws, 'figma/state.json'), JSON.stringify({ fileKey: 'KEY', steps: [{ id: 'pages' }], done: [] })); // not iterating: the error surfaces
   await assert.rejects(build.next(), /renderer changed/);
 });
@@ -251,7 +251,8 @@ test('a Figma error publishes the latch and a new server resumes the failed step
   assert.equal(progress(ws)['state'], 'failed');
   const payload = resolve(ws, 'figma/variables.js'); writeFileSync(payload, '// variables payload'); // a new server starts without the latch
   const resumed = new Build(ws, { ...quiet, driver: fakeDriver([{ kind: 'use_figma', step: 'variables', payload }]) }), step = await resumed.next();
-  assert.deepEqual([step.step, step['done'], step['total'], step['code'], 'payload' in step], ['variables', 1, 2, '// variables payload', false]); assert.equal(resumed.failed, null);
+  assert.equal(step.kind, 'use_figma'); if (step.kind !== 'use_figma') throw new Error('expected use_figma');
+  assert.deepEqual([step.step, step.done, step.total, step.code, 'payload' in step], ['variables', 1, 2, '// variables payload', false]); assert.equal(resumed.failed, null);
 });
 test('a fix (a new init rewriting state) clears the latch for the same server', async t => {
   const ws = workspace(resolve(scratch(t), 'w'), 'K', { fileKey: 'K', steps: [{ id: 'a' }], done: [] }), payload = resolve(ws, 'figma/a.js'); writeFileSync(payload, 'x');

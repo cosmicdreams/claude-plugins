@@ -6,7 +6,6 @@ export interface VariablePlan {
     reason?: string;
     sourceCollections?: string[];
     retainedModeCollections?: string[];
-    [k: string]: unknown;
   };
   collections:
     | {
@@ -18,15 +17,13 @@ export interface VariablePlan {
     kind: string;
     value?: string | number;
     detail?: string;
-    [k: string]: unknown;
   }[];
-  [k: string]: unknown;
 }
 export interface VariableCollection {
   name?: string;
   modes: string[];
   variables: PlannedVariable[];
-  [k: string]: unknown;
+  modeRationale?: string;
 }
 export interface PlannedVariable {
   name: string;
@@ -43,15 +40,17 @@ export interface PlannedVariable {
       | number
       | string
       | boolean
+      | null
       | {
-          [k: string]: unknown;
-        }
-      | null;
+          r: number;
+          g: number;
+          b: number;
+          a?: number;
+        };
   };
   scales?: boolean;
   unitlessRatio?: boolean;
   description?: string;
   stack?: string;
   nameDisambiguated?: boolean;
-  [k: string]: unknown;
 }

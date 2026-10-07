@@ -31,7 +31,8 @@
         "root": {
           "type": "string"
         }
-      }
+      },
+      "additionalProperties": false
     },
     "items": {
       "type": "object",
@@ -84,17 +85,70 @@
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "properties": {}
+                  "properties": {
+                    "selector": {
+                      "type": "string"
+                    },
+                    "declarations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "property": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          },
+                          "resolution": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "sourceRef": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
                 }
               },
               "rootRules": {
                 "type": "array",
                 "items": {
                   "type": "object",
-                  "properties": {}
+                  "properties": {
+                    "selector": {
+                      "type": "string"
+                    },
+                    "declarations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "property": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          },
+                          "resolution": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "sourceRef": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
                 }
               }
-            }
+            },
+            "additionalProperties": false
           },
           "rootClasses": {
             "type": "array",
@@ -125,24 +179,87 @@
                 "kind": {
                   "type": "string"
                 }
-              }
+              },
+              "additionalProperties": false
             }
           },
           "confidence": {
             "type": "string"
+          },
+          "genericTemplate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rootSdc": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
           }
-        }
+        },
+        "additionalProperties": false
       },
       "properties": {}
     },
     "totals": {
       "type": "object",
-      "properties": {}
+      "properties": {
+        "components": {
+          "type": "number"
+        },
+        "directTemplates": {
+          "type": "number"
+        },
+        "sdcLinks": {
+          "type": "number"
+        },
+        "styleLinks": {
+          "type": "number"
+        },
+        "defects": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
     },
     "problems": {
       "type": "array",
-      "items": {}
+      "items": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceRef": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

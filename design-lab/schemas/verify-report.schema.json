@@ -48,7 +48,8 @@
           "severity": {
             "type": "string"
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
     "waived": {
@@ -98,9 +99,11 @@
               "scope": {
                 "type": "string"
               }
-            }
+            },
+            "additionalProperties": false
           }
-        }
+        },
+        "additionalProperties": false
       }
     },
     "passed": {
@@ -117,8 +120,35 @@
     },
     "completeness": {
       "type": "object",
-      "properties": {}
+      "properties": {
+        "built": {
+          "type": "number"
+        },
+        "expected": {
+          "type": "number"
+        },
+        "byTier": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "additionalProperties": false
     }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

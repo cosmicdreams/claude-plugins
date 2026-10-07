@@ -6,7 +6,9 @@ export type RunnerStep =
       done?: number;
       total?: number;
       kind: "done";
-      [k: string]: unknown;
+      buildId?: string;
+      generation?: string;
+      stepToken?: string;
     }
   | {
       step: string;
@@ -15,7 +17,9 @@ export type RunnerStep =
       kind: "wait";
       retryMs: number;
       message: string;
-      [k: string]: unknown;
+      buildId?: string;
+      generation?: string;
+      stepToken?: string;
     }
   | {
       step: string;
@@ -24,7 +28,9 @@ export type RunnerStep =
       kind: "check";
       code: string;
       out?: string;
-      [k: string]: unknown;
+      buildId?: string;
+      generation?: string;
+      stepToken?: string;
     }
   | {
       step: string;
@@ -33,11 +39,18 @@ export type RunnerStep =
       kind: "dump";
       code: string;
       out?: string;
-      [k: string]: unknown;
+      buildId?: string;
+      generation?: string;
+      stepToken?: string;
     }
-  | ({
-      [k: string]: unknown;
-    } & {
+  | ((
+      | {
+          code: string;
+        }
+      | {
+          payload: string;
+        }
+    ) & {
       step: string;
       done?: number;
       total?: number;
@@ -45,7 +58,9 @@ export type RunnerStep =
       code?: string;
       payload?: string;
       characters?: number;
-      [k: string]: unknown;
+      buildId?: string;
+      generation?: string;
+      stepToken?: string;
     })
   | {
       step: string;
@@ -57,9 +72,10 @@ export type RunnerStep =
       files?: {
         file: string;
         contentType: string;
-        [k: string]: unknown;
       }[];
-      [k: string]: unknown;
+      buildId?: string;
+      generation?: string;
+      stepToken?: string;
     }
   | {
       step: string;
@@ -69,7 +85,9 @@ export type RunnerStep =
       nodeId: string;
       out: string;
       maxDimension?: number;
-      [k: string]: unknown;
+      buildId?: string;
+      generation?: string;
+      stepToken?: string;
     }
   | {
       step: string;
@@ -77,5 +95,7 @@ export type RunnerStep =
       total?: number;
       kind: "skip";
       reason: string;
-      [k: string]: unknown;
+      buildId?: string;
+      generation?: string;
+      stepToken?: string;
     };

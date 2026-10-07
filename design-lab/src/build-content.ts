@@ -190,8 +190,8 @@ export function measuredType(project: string) {
     const desk = (v: Text['size'] | Text['lineHeight']): number | null => typeof v === 'object' && v !== null ? tree.variables[v.var]!.values['Desktop'] as number : v ?? null;
     const stack: TreeNode[] = [tree.tree];
     while (stack.length) { const n = stack.pop()!; stack.push(...[...n.children ?? []].reverse()); if (n.kind !== 'text') continue; const t = n.text, size = desk(t.size)!, lh = desk(t.lineHeight), key = keyOf([t.family, t.weight, size, lh]);
-      const measurement = spec?.measurements['desktop:default'] ?? (spec ? Object.values(spec.measurements).find(m => Array.isArray(m['nodes'])) : undefined);
-      const measuredNodes = measurement?.['nodes']; const source = Array.isArray(measuredNodes) ? measuredNodes.find(node => node.path === n.source.replace(/#label$/, '')) : undefined;
+      const measurement = spec?.measurements['desktop:default'] ?? (spec ? Object.values(spec.measurements).find(m => 'nodes' in m && Array.isArray(m.nodes)) : undefined);
+      const measuredNodes = measurement && 'nodes' in measurement ? measurement.nodes : undefined; const source = Array.isArray(measuredNodes) ? measuredNodes.find(node => node.path === n.source.replace(/#label$/, '')) : undefined;
       const sizeText = source ? cssPixels(source.computed['fontSize']) ? floatText(size) : String(size) : numberText(t.size, 'size', t);
       const lhText = lh ? source ? floatText(lh) : numberText(t.lineHeight, 'lineHeight', t) : 'normal';
       if (!seen.has(key)) seen.set(key, { family: t.family, weight: t.weight, size, lh, sizeText, lhText, sample: t.characters.slice(0, 60), from: tree.label }); }
@@ -221,8 +221,10 @@ export function tierArgs(project: string, state: BuildState, tier: string) {
   return { pageId: pageId(project, `Components — ${tier}`), title: `Components — ${tier}`, summary: [`${comps.length} component${comps.length === 1 ? '' : 's'} in this tier. ${total.toLocaleString('en-US')} author placement${total === 1 ? '' : 's'} between them.`], thresholds: tier === 'Untiered' ? "No usage source counted these components' placements, so they have no tier." : 'Tiers by author placements: High Use 50 or more · Medium Use 10 to 49 · Low Use 1 to 9 · Structural Only when placed only inside other components · Retirement Candidates when placed nowhere.', emptyLine: planned.length ? null : !comps.length ? 'No component in this tier is in the source.' : `None of the ${comps.length} components in this tier is part of the library. The index on Getting Started gives each one's reason.` };
 }
 export function variants(project: string, cid: string) {
-  const comp = components(project).find(c => c.id === cid)!, axes = plans(project)[cid]?.variantAxes ?? [], f = resolve(project, `capture/measurements/${cid.replace(/[:/]/g, '__')}.spec.json`), nodes = existsSync(f) ? (JSON.parse(readFileSync(f, 'utf8')) as Spec).measurements['desktop:default']?.['nodes'] ?? [] : [];
-  return variantValues(comp.fields.map(f => ({ name: f.name, options: f.options ?? [] })), axes.map(a => ({ field: a.field!, label: a.label })), (nodes as { classes?: string[] }[]).map(n => ({ classes: n.classes ?? [] })));
+  const comp = components(project).find(c => c.id === cid)!, axes = plans(project)[cid]?.variantAxes ?? [], f = resolve(project, `capture/measurements/${cid.replace(/[:/]/g, '__')}.spec.json`);
+  const measurement = existsSync(f) ? (JSON.parse(readFileSync(f, 'utf8')) as Spec).measurements['desktop:default'] : undefined;
+  const nodes = measurement && 'nodes' in measurement ? measurement.nodes : [];
+  return variantValues(comp.fields.map(f => ({ name: f.name, options: f.options ?? [] })), axes.map(a => ({ field: a.field!, ...(a.label !== undefined ? { label: a.label } : {}) })), (nodes as { classes?: string[] }[]).map(n => ({ classes: n.classes ?? [] })));
 }
 export function fontPlan(project: string): Fonts['build'] | null { try { return load<Fonts>(project, 'fonts.json').build ?? null; } catch { return null; } }
 export function description(project: string, c: Component): string {
@@ -233,7 +235,7 @@ export function buildArgs(project: string, cid: string, state: BuildState) {
   const tree = treeFor(project, cid), comp = components(project).find(c => c.id === cid)!, previous = state.subset?.includes(cid) ? load(project, `figma/results/${safe('build:' + cid)}.json`, {}) as ReturnType<typeof result> : {};
   if (state.subset?.includes(cid) && !previous.componentId) throw new Error(`missing saved master identity for ${cid}; rebuild in a fresh file`);
   const masters: Record<string, string> = {}; for (const slot of comp.slots) for (const child of typeof slot.accepts === 'string' ? slot.accepts : slot.accepts ?? []) try { const id = result(project, 'build:' + child).componentId; if (id) masters[child] = id; } catch {}
-  return { pageId: pageId(project, componentPage(comp)), x: 0, y: -6000, id: cid, existingComponentId: previous.componentId ?? null, name: `${cid} — ${comp.label || cid}`, description: description(project, comp), collection: breakpointCollection(project), modeNames: modeNames(), masters, variant: Object.fromEntries(variants(project, cid).map(v => [v.axis, v.value || 'As captured'])), variables: Object.assign({}, tree.variables, ...(tree.alternates ?? []).map(a => a.variables)), fonts: fontPlan(project), alternates: (tree.alternates ?? []).map(a => ({ label: a.label, ...compact(a.tree) })), ...compact(tree.tree) };
+  return { pageId: pageId(project, componentPage(comp)), x: 0, y: -6000, id: cid, existingComponentId: previous.componentId ?? null, name: `${cid} — ${comp.label || cid}`, description: description(project, comp), collection: breakpointCollection(project), modeNames: modeNames(), masters, variant: Object.fromEntries(variants(project, cid).map(v => [v.axis, v.value || 'As captured'])), variables: Object.assign({}, tree.variables, ...(tree.alternates ?? []).map(a => a.variables)), fonts: fontPlan(project), alternates: (tree.alternates ?? []).map(a => ({ ...(a.label !== undefined ? { label: a.label } : {}), ...compact(a.tree) })), ...compact(tree.tree) };
 }
 export function fieldsRows(c: Component, plan: ComponentPlan | undefined): string[][] {
   const treat = Object.fromEntries((plan?.properties ?? []).map(p => [p.field!, p.treatment])), axes = new Set(plan?.variantAxes.map(a => a.field)), treatments: Record<string, string> = { text: 'text in the drawn instance', boolean: 'shown as rendered', variable: 'value as rendered', swap: 'nested content as rendered', manual: 'as rendered; not a Figma property', skip: 'not visible' };
@@ -241,7 +243,8 @@ export function fieldsRows(c: Component, plan: ComponentPlan | undefined): strin
 }
 export function backdrop(project: string, cid: string): string {
   const f = resolve(project, `capture/measurements/${cid.replace(/[:/]/g, '__')}.spec.json`); if (!existsSync(f)) return '#ffffff';
-  const color = parseColor((JSON.parse(readFileSync(f, 'utf8')) as Spec).measurements['desktop:default']?.['backdrop'] as string | undefined); return color && (color.opacity ?? 1) >= 1 ? color.hex : '#ffffff';
+  const measurement = (JSON.parse(readFileSync(f, 'utf8')) as Spec).measurements['desktop:default'];
+  const color = parseColor(measurement && 'backdrop' in measurement ? measurement.backdrop : undefined); return color && (color.opacity ?? 1) >= 1 ? color.hex : '#ffffff';
 }
 export async function captureImages(project: string, cid: string) {
   const ev = load<Pick<CaptureEvidence, 'captures'>>(project, 'capture-evidence.json', { captures: {} }).captures[cid], imgs = (ev?.images ?? []).filter(i => (i.state || 'default') === 'default');
@@ -259,7 +262,7 @@ export async function blockArgs(project: string, state: BuildState, cid: string,
   const facts = [['Author placements', String(lc.placements(comp))], ['Structural references', String(lc.structural(comp))], ['Rendered on', `${u.renderedPages || 0} public pages`]];
   if (ex) facts.push(['Example', ex, state.canonicalBaseUrl + ex]); facts.push(['Source', dirname(comp.sourceRef || '')]);
   const relations: string[] = []; if (comp.contains?.length) relations.push('Contains: ' + [...comp.contains].sort().join(', ') + '.'); if (comp.containedBy?.length) relations.push('Placed inside: ' + [...comp.containedBy].sort().join(', ') + '.');
-  for (const ref of [...new Set((u.templateRefs ?? []).map(r => typeof r === 'string' ? r : r.file))].sort()) relations.push(`Rendered by the ${ref.endsWith('.twig') ? 'theme template' : 'Canvas content template'} ${ref}.`);
+  for (const ref of [...new Set((u.templateRefs ?? []).flatMap(r => typeof r === 'string' ? [r] : r.file ? [r.file] : []))].sort()) relations.push(`Rendered by the ${ref.endsWith('.twig') ? 'theme template' : 'Canvas content template'} ${ref}.`);
   const names = modeNames();
   return { pageId: pageId(project, componentPage(comp)), setId: result(project, 'build:' + cid).componentId, id: cid, order, doc: { label: comp.label || cid, machine: cid, tier: lc.shortTier(u.tier), purpose: comp.description ?? null, chips: [comp.group, u.globalTemplate ? 'Global chrome' : null].filter(Boolean), facts, properties: [['Breakpoint', 'MODE', 'Desktop, Tablet, Mobile', 'Desktop']], fields: fieldsRows(comp, plan), relations, notes: comp.defects.map(d => d.detail || String(d)).slice(0, 4) }, columns: COLUMN_ORDER.filter(r => tree.measured.includes(r.toLowerCase())).map(r => ({ label: `${r} · ${tree.widths[r]}px`, width: tree.widths[r], mode: names[r], master: r === 'Desktop' })), collection: breakpointCollection(project), evidence: (await evidenceCaptures(project, cid, tree)).map(e => ({ label: `${e.viewport} ${e.width}px`, width: e.width, height: e.height })), captured: 'the running site', backdrop: backdrop(project, cid), fileKey: state.fileKey };
 }

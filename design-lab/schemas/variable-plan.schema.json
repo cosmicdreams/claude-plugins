@@ -25,7 +25,8 @@
             "type": "string"
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "collections": {
       "anyOf": [
@@ -69,14 +70,15 @@
         },
         "required": [
           "kind"
-        ]
+        ],
+        "additionalProperties": false
       }
     }
   },
   "required": [
     "collections"
   ],
-  "additionalProperties": true,
+  "additionalProperties": false,
   "$defs": {
     "PlannedVariable": {
       "type": "object",
@@ -122,12 +124,38 @@
         "valuesByMode": {
           "type": "object",
           "additionalProperties": {
-            "type": [
-              "number",
-              "string",
-              "boolean",
-              "object",
-              "null"
+            "anyOf": [
+              {
+                "type": [
+                  "number",
+                  "string",
+                  "boolean",
+                  "null"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "r": {
+                    "type": "number"
+                  },
+                  "g": {
+                    "type": "number"
+                  },
+                  "b": {
+                    "type": "number"
+                  },
+                  "a": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "r",
+                  "g",
+                  "b"
+                ],
+                "additionalProperties": false
+              }
             ]
           }
         },
@@ -151,7 +179,7 @@
         "name",
         "type"
       ],
-      "additionalProperties": true
+      "additionalProperties": false
     },
     "VariableCollection": {
       "type": "object",
@@ -170,13 +198,16 @@
           "items": {
             "$ref": "#/$defs/PlannedVariable"
           }
+        },
+        "modeRationale": {
+          "type": "string"
         }
       },
       "required": [
         "modes",
         "variables"
       ],
-      "additionalProperties": true
+      "additionalProperties": false
     }
   }
 }

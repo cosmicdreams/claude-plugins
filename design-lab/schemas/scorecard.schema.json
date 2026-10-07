@@ -47,7 +47,8 @@
             "null"
           ]
         }
-      }
+      },
+      "additionalProperties": false
     },
     "headline": {
       "type": "object",
@@ -63,19 +64,419 @@
           "type": [
             "object",
             "null"
-          ]
+          ],
+          "properties": {
+            "built": {
+              "type": "number"
+            },
+            "eligible": {
+              "type": "number"
+            },
+            "ratio": {
+              "type": "number"
+            },
+            "gap": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number"
+              }
+            },
+            "excluded": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number"
+              }
+            },
+            "placements": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
         },
         "built": {
           "type": "object",
-          "properties": {}
+          "properties": {
+            "components": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "variants": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "pages": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "variables": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                }
+              ]
+            },
+            "nodes": {
+              "anyOf": [
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
         },
         "accuracy": {
           "type": "object",
-          "properties": {}
+          "properties": {
+            "original": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "pass": {
+                  "type": "number"
+                },
+                "total": {
+                  "type": "number"
+                },
+                "medianRatio": {
+                  "type": "number"
+                },
+                "p75Ratio": {
+                  "type": "number"
+                },
+                "maxRatio": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
+            },
+            "corrected": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "pass": {
+                  "type": "number"
+                },
+                "total": {
+                  "type": "number"
+                },
+                "medianRatio": {
+                  "type": "number"
+                },
+                "p75Ratio": {
+                  "type": "number"
+                },
+                "maxRatio": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
         },
         "effort": {
           "type": "object",
-          "properties": {}
+          "properties": {
+            "workingSeconds": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "waitingOnPersonSeconds": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "waitingOnLimitsSeconds": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "waitingOnServiceSeconds": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "benchmarkWorkingSeconds": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                }
+              ]
+            },
+            "wallSeconds": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "buildSeconds": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "buildSteps": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "tokens": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "tokensByModel": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "total": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "libraryTokensByModel": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "total": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "benchmarkTokensByModel": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "total": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                }
+              ]
+            },
+            "toolCalls": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
         },
         "highlights": {
           "type": "array",
@@ -83,7 +484,8 @@
             "type": "string"
           }
         }
-      }
+      },
+      "additionalProperties": false
     },
     "sections": {
       "type": "object",
@@ -117,13 +519,175 @@
             },
             "fields": {
               "type": "object",
-              "properties": {}
+              "properties": {
+                "siteLabel": {
+                  "type": "string"
+                },
+                "siteLabelSource": {
+                  "type": "string"
+                },
+                "rebuiltFrom": {
+                  "anyOf": [
+                    {
+                      "type": [
+                        "null"
+                      ]
+                    },
+                    {
+                      "type": "object",
+                      "properties": {
+                        "run": {
+                          "type": "string"
+                        },
+                        "createdAt": {
+                          "type": "string"
+                        },
+                        "pluginVersion": {
+                          "type": "string"
+                        },
+                        "corpusLabel": {
+                          "type": "null"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    {
+                      "type": [
+                        "null"
+                      ]
+                    },
+                    {
+                      "type": [
+                        "null"
+                      ]
+                    },
+                    {
+                      "type": [
+                        "null"
+                      ]
+                    },
+                    {
+                      "type": [
+                        "null"
+                      ]
+                    },
+                    {
+                      "type": [
+                        "null"
+                      ]
+                    }
+                  ]
+                },
+                "publicAddress": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "siteUrl": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "rendererRuntime": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "builtToStandard": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "operator": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "startedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pluginVersion": {
+                  "type": "string"
+                },
+                "pluginCommit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "standardVersion": {
+                  "type": "string"
+                },
+                "repositoryCommit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "repositoryDirty": {
+                  "type": "boolean"
+                },
+                "figmaFileKey": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figmaUrl": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "claudeConfigDir": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "model": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "strategies": {
+                  "type": "object",
+                  "properties": {
+                    "componentSource": {
+                      "type": "string"
+                    },
+                    "tokenSource": {
+                      "type": "string"
+                    },
+                    "usageSource": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
             },
             "missing": {
               "type": "array",
               "items": {
                 "type": "string"
               }
+            },
+            "summary": {
+              "type": "string"
+            },
+            "recordedAtStart": {
+              "type": "boolean"
             }
           },
           "allOf": [
@@ -141,7 +705,8 @@
                 ]
               }
             }
-          ]
+          ],
+          "additionalProperties": false
         },
         "cost": {
           "$comment": "cost and effort",
@@ -159,11 +724,133 @@
             },
             "runner": {
               "type": "object",
-              "properties": {}
+              "properties": {
+                "clock": {
+                  "type": "string"
+                },
+                "sessions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "start": {
+                        "type": "string"
+                      },
+                      "end": {
+                        "type": "string"
+                      },
+                      "seconds": {
+                        "type": "number"
+                      },
+                      "steps": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "activeSeconds": {
+                  "type": "number"
+                },
+                "steps": {
+                  "type": "number"
+                },
+                "errors": {
+                  "type": "number"
+                },
+                "skipped": {
+                  "type": "number"
+                },
+                "medianStepSeconds": {
+                  "type": "number"
+                },
+                "secondsByKind": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number"
+                  }
+                },
+                "stepsByKind": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number"
+                  }
+                },
+                "status": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
             },
             "timings": {
               "type": "object",
-              "properties": {}
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "exact": {
+                  "type": "boolean"
+                },
+                "phases": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "phase": {
+                        "type": "string"
+                      },
+                      "start": {
+                        "type": "string"
+                      },
+                      "end": {
+                        "type": "string"
+                      },
+                      "seconds": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "totalSeconds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "checkpoints": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "phase": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": "string"
+                      },
+                      "at": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [],
+                    "additionalProperties": false
+                  }
+                },
+                "start": {
+                  "type": "string"
+                },
+                "spanSeconds": {
+                  "type": "number"
+                },
+                "note": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
             },
             "definition": {
               "type": "string"
@@ -225,7 +912,8 @@
                 "notShownBecause": {
                   "type": "string"
                 }
-              }
+              },
+              "additionalProperties": false
             },
             "working": {
               "$comment": "time Claude or its tools were working, from the session transcript; working plus the three kinds of waiting add up to the transcript's span",
@@ -273,7 +961,15 @@
                 "developer": {
                   "$comment": "for developers only, never rendered",
                   "type": "object",
-                  "properties": {}
+                  "properties": {
+                    "permissionModes": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
                 },
                 "production": {
                   "type": "object",
@@ -298,8 +994,18 @@
                     },
                     "waitingOnServiceSeconds": {
                       "type": "integer"
+                    },
+                    "start": {
+                      "type": "string"
+                    },
+                    "end": {
+                      "type": "string"
+                    },
+                    "spanSeconds": {
+                      "type": "number"
                     }
-                  }
+                  },
+                  "additionalProperties": false
                 },
                 "benchmark": {
                   "type": "object",
@@ -315,8 +1021,48 @@
                     },
                     "workingSeconds": {
                       "type": "integer"
+                    },
+                    "start": {
+                      "type": "string"
+                    },
+                    "end": {
+                      "type": "string"
+                    },
+                    "spanSeconds": {
+                      "type": "number"
+                    },
+                    "waitingOnLimitsSeconds": {
+                      "type": "number"
+                    },
+                    "waitingOnServiceSeconds": {
+                      "type": "number"
+                    },
+                    "waitingOnPersonSeconds": {
+                      "type": "number"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "howToMeasure": {
+                      "type": "string"
                     }
-                  }
+                  },
+                  "additionalProperties": false
+                },
+                "start": {
+                  "type": "string"
+                },
+                "end": {
+                  "type": "string"
+                },
+                "definition": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "howToMeasure": {
+                  "type": "string"
                 }
               },
               "allOf": [
@@ -354,7 +1100,8 @@
                     ]
                   }
                 }
-              ]
+              ],
+              "additionalProperties": false
             },
             "unattended": {
               "$comment": "whether the run stayed unattended after the preflight go-ahead, until the benchmark began",
@@ -410,8 +1157,18 @@
                       "planned": {
                         "type": "boolean"
                       }
-                    }
+                    },
+                    "additionalProperties": false
                   }
+                },
+                "until": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "howToMeasure": {
+                  "type": "string"
                 }
               },
               "allOf": [
@@ -446,7 +1203,8 @@
                     ]
                   }
                 }
-              ]
+              ],
+              "additionalProperties": false
             },
             "model": {
               "type": "object",
@@ -483,7 +1241,8 @@
                     "unattributedEntries": {
                       "type": "integer"
                     }
-                  }
+                  },
+                  "additionalProperties": false
                 },
                 "production": {
                   "type": "object",
@@ -493,8 +1252,72 @@
                   "properties": {
                     "status": {
                       "type": "string"
+                    },
+                    "byModel": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "model": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "input": {
+                            "type": "number"
+                          },
+                          "output": {
+                            "type": "number"
+                          },
+                          "cacheWrite": {
+                            "type": "number"
+                          },
+                          "cacheRead": {
+                            "type": "number"
+                          },
+                          "total": {
+                            "type": "number"
+                          },
+                          "turns": {
+                            "type": "number"
+                          },
+                          "toolCalls": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "tokens": {
+                      "type": "object",
+                      "properties": {
+                        "input": {
+                          "type": "number"
+                        },
+                        "output": {
+                          "type": "number"
+                        },
+                        "cacheWrite": {
+                          "type": "number"
+                        },
+                        "cacheRead": {
+                          "type": "number"
+                        },
+                        "total": {
+                          "type": "number"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "turns": {
+                      "type": "number"
+                    },
+                    "toolCalls": {
+                      "type": "number"
                     }
-                  }
+                  },
+                  "additionalProperties": false
                 },
                 "benchmark": {
                   "type": "object",
@@ -507,8 +1330,81 @@
                         "measured",
                         "not-measured"
                       ]
+                    },
+                    "since": {
+                      "type": "string"
+                    },
+                    "byModel": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "model": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "input": {
+                            "type": "number"
+                          },
+                          "output": {
+                            "type": "number"
+                          },
+                          "cacheWrite": {
+                            "type": "number"
+                          },
+                          "cacheRead": {
+                            "type": "number"
+                          },
+                          "total": {
+                            "type": "number"
+                          },
+                          "turns": {
+                            "type": "number"
+                          },
+                          "toolCalls": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "tokens": {
+                      "type": "object",
+                      "properties": {
+                        "input": {
+                          "type": "number"
+                        },
+                        "output": {
+                          "type": "number"
+                        },
+                        "cacheWrite": {
+                          "type": "number"
+                        },
+                        "cacheRead": {
+                          "type": "number"
+                        },
+                        "total": {
+                          "type": "number"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "turns": {
+                      "type": "number"
+                    },
+                    "toolCalls": {
+                      "type": "number"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "howToMeasure": {
+                      "type": "string"
                     }
-                  }
+                  },
+                  "additionalProperties": false
                 },
                 "byModel": {
                   "type": "array",
@@ -553,12 +1449,64 @@
                       "toolCalls": {
                         "type": "integer"
                       }
-                    }
+                    },
+                    "additionalProperties": false
                   }
+                },
+                "source": {
+                  "type": "string"
+                },
+                "files": {
+                  "type": "number"
+                },
+                "sessions": {
+                  "type": "number"
+                },
+                "assistantMessages": {
+                  "type": "number"
+                },
+                "models": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number"
+                  }
+                },
+                "window": {
+                  "type": "object",
+                  "properties": {
+                    "since": {
+                      "type": [
+                        "null"
+                      ]
+                    },
+                    "until": {
+                      "type": [
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "firstMessage": {
+                  "type": "string"
+                },
+                "lastMessage": {
+                  "type": "string"
+                },
+                "benchmarkNote": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "howToMeasure": {
+                  "type": "string"
                 }
-              }
+              },
+              "additionalProperties": false
             }
-          }
+          },
+          "additionalProperties": false
         },
         "library": {
           "$comment": "library contents",
@@ -575,7 +1523,27 @@
             },
             "components": {
               "type": "object",
-              "properties": {}
+              "properties": {
+                "found": {
+                  "type": "number"
+                },
+                "planned": {
+                  "type": "number"
+                },
+                "built": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "notBuilt": {
+                  "type": "number"
+                },
+                "refused": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
             },
             "tiers": {
               "type": "array",
@@ -591,7 +1559,140 @@
                   "tier": {
                     "type": "string"
                   }
+                },
+                "additionalProperties": false
+              }
+            },
+            "summary": {
+              "type": "string"
+            },
+            "variants": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "properties": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "variables": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
                 }
+              ]
+            },
+            "collections": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "pages": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "pageNames": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "nodes": {
+              "anyOf": [
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "captures": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "tierTable": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tier": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "color": {
+                    "type": "string"
+                  },
+                  "built": {
+                    "type": "number"
+                  },
+                  "counted": {
+                    "type": "boolean"
+                  },
+                  "found": {
+                    "type": "number"
+                  },
+                  "holds": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "tier": {
+                          "type": "string"
+                        },
+                        "built": {
+                          "type": "number"
+                        },
+                        "found": {
+                          "type": "number"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "voicePage": {
+              "type": "boolean"
+            },
+            "examplesPage": {
+              "type": "boolean"
+            },
+            "notBuiltReasons": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
               }
             }
           },
@@ -610,7 +1711,8 @@
                 ]
               }
             }
-          ]
+          ],
+          "additionalProperties": false
         },
         "coverage": {
           "$comment": "built out of what could have been built, gap by reason, usage-weighted share",
@@ -656,7 +1758,158 @@
             },
             "usageWeighted": {
               "type": "object",
-              "properties": {}
+              "properties": {
+                "placements": {
+                  "type": "number"
+                },
+                "covered": {
+                  "type": "number"
+                },
+                "ratio": {
+                  "type": "number"
+                },
+                "structuralRefs": {
+                  "type": "number"
+                },
+                "structuralCovered": {
+                  "type": "number"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "reasonLabels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "summary": {
+              "type": "string"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "detail": {
+                    "anyOf": [
+                      {
+                        "type": "string"
+                      },
+                      {
+                        "type": [
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": [
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": [
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": [
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": [
+                          "null"
+                        ]
+                      },
+                      {
+                        "type": [
+                          "null"
+                        ]
+                      }
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "byTier": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tier": {
+                    "type": "string"
+                  },
+                  "found": {
+                    "type": "number"
+                  },
+                  "built": {
+                    "type": "number"
+                  },
+                  "notBuilt": {
+                    "type": "number"
+                  },
+                  "placements": {
+                    "type": "number"
+                  },
+                  "structural": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "coverBreakdown": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tier": {
+                    "type": "string"
+                  },
+                  "built": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "outsideInventory": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "placements": {
+                    "type": "number"
+                  },
+                  "structural": {
+                    "type": "number"
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            },
+            "reason": {
+              "type": "string"
             }
           },
           "allOf": [
@@ -674,7 +1927,8 @@
                 ]
               }
             }
-          ]
+          ],
+          "additionalProperties": false
         },
         "conformance": {
           "$comment": "verify-report findings by severity",
@@ -698,6 +1952,73 @@
             },
             "waived": {
               "type": "integer"
+            },
+            "summary": {
+              "type": "string"
+            },
+            "openOther": {
+              "type": "number"
+            },
+            "passed": {
+              "type": "number"
+            },
+            "inapplicable": {
+              "type": "number"
+            },
+            "completeness": {
+              "type": "object",
+              "properties": {
+                "built": {
+                  "type": "number"
+                },
+                "expected": {
+                  "type": "number"
+                },
+                "byTier": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "findings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "severity": {
+                    "type": "string"
+                  },
+                  "check": {
+                    "type": "string"
+                  },
+                  "message": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "reason": {
+              "type": "string"
+            },
+            "howToMeasure": {
+              "type": "string"
             }
           },
           "allOf": [
@@ -715,7 +2036,8 @@
                 ]
               }
             }
-          ]
+          ],
+          "additionalProperties": false
         },
         "accuracy": {
           "$comment": "accuracy against the live site: original metric kept beside the corrected one",
@@ -739,11 +2061,118 @@
             },
             "overall": {
               "type": "object",
-              "properties": {}
+              "properties": {
+                "original": {
+                  "type": "object",
+                  "properties": {
+                    "pass": {
+                      "type": "number"
+                    },
+                    "total": {
+                      "type": "number"
+                    },
+                    "medianRatio": {
+                      "type": "number"
+                    },
+                    "p75Ratio": {
+                      "type": "number"
+                    },
+                    "maxRatio": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "corrected": {
+                  "type": "object",
+                  "properties": {
+                    "pass": {
+                      "type": "number"
+                    },
+                    "total": {
+                      "type": "number"
+                    },
+                    "medianRatio": {
+                      "type": "number"
+                    },
+                    "p75Ratio": {
+                      "type": "number"
+                    },
+                    "maxRatio": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
             },
             "byBreakpoint": {
               "type": "object",
-              "properties": {}
+              "properties": {},
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "original": {
+                    "type": "object",
+                    "properties": {
+                      "pass": {
+                        "type": "number"
+                      },
+                      "total": {
+                        "type": "number"
+                      },
+                      "medianRatio": {
+                        "type": "number"
+                      },
+                      "p75Ratio": {
+                        "type": "number"
+                      },
+                      "maxRatio": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "corrected": {
+                    "type": "object",
+                    "properties": {
+                      "pass": {
+                        "type": "number"
+                      },
+                      "total": {
+                        "type": "number"
+                      },
+                      "medianRatio": {
+                        "type": "number"
+                      },
+                      "p75Ratio": {
+                        "type": "number"
+                      },
+                      "maxRatio": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "heightDelta": {
+                    "type": "object",
+                    "properties": {
+                      "median": {
+                        "type": "number"
+                      },
+                      "max": {
+                        "type": "number"
+                      },
+                      "over10px": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
             },
             "pairs": {
               "type": "array",
@@ -774,22 +2203,81 @@
                       "pass": {
                         "type": "boolean"
                       }
-                    }
+                    },
+                    "additionalProperties": false
                   },
                   "corrected": {
                     "type": [
                       "object",
                       "null"
-                    ]
+                    ],
+                    "properties": {
+                      "ratio": {
+                        "type": "number"
+                      },
+                      "pass": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
                   },
                   "heightDelta": {
                     "type": [
                       "number",
                       "null"
                     ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "width": {
+                    "type": "number"
+                  },
+                  "widthDelta": {
+                    "type": "number"
+                  },
+                  "figmaHeight": {
+                    "type": "number"
+                  },
+                  "liveHeight": {
+                    "type": "number"
+                  },
+                  "evidence": {
+                    "type": "object",
+                    "properties": {
+                      "specimen": {
+                        "type": "string"
+                      },
+                      "geometry": {
+                        "type": "string"
+                      },
+                      "index": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
                   }
-                }
+                },
+                "additionalProperties": false
               }
+            },
+            "source": {
+              "type": "string"
+            },
+            "metrics": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "components": {
+              "type": "number"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "howToMeasure": {
+              "type": "string"
             }
           },
           "allOf": [
@@ -807,7 +2295,8 @@
                 ]
               }
             }
-          ]
+          ],
+          "additionalProperties": false
         },
         "repeatability": {
           "$comment": "compare_runs.ts across runs",
@@ -831,7 +2320,108 @@
             },
             "comparisons": {
               "type": "array",
-              "items": {}
+              "items": {
+                "type": "object",
+                "properties": {
+                  "run": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "error": {
+                    "type": "string"
+                  },
+                  "totalNodes": {
+                    "type": "number"
+                  },
+                  "identicalNodes": {
+                    "type": "number"
+                  },
+                  "identicalApartFromAddresses": {
+                    "type": "number"
+                  },
+                  "matchedNodes": {
+                    "type": "number"
+                  },
+                  "categoryCounts": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "number"
+                    }
+                  },
+                  "artifactsEqual": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "artifactsDiffer": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "artifactsEquivalent": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "artifactDifferences": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "artifact": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "additionalProperties": false
+                    }
+                  },
+                  "pageOrderEqual": {
+                    "type": "boolean"
+                  },
+                  "accuracyAgreement": {
+                    "type": "object",
+                    "properties": {
+                      "metric": {
+                        "type": "string"
+                      },
+                      "pairs": {
+                        "type": "number"
+                      },
+                      "sameVerdict": {
+                        "type": "number"
+                      },
+                      "maxRatioDifference": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            },
+            "reason": {
+              "type": "string"
+            },
+            "howToMeasure": {
+              "type": "string"
             }
           },
           "allOf": [
@@ -849,7 +2439,8 @@
                 ]
               }
             }
-          ]
+          ],
+          "additionalProperties": false
         },
         "schemaChurn": {
           "$comment": "did the run need a schema change or workaround",
@@ -878,8 +2469,18 @@
                   "text": {
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
+            },
+            "summary": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "howToMeasure": {
+              "type": "string"
             }
           },
           "allOf": [
@@ -897,7 +2498,8 @@
                 ]
               }
             }
-          ]
+          ],
+          "additionalProperties": false
         },
         "foundationsVoice": {
           "$comment": "slot for the foundations-and-voice rubric, scored by a person later",
@@ -915,9 +2517,63 @@
               ]
             },
             "rubric": {
-              "type": [
-                "object",
-                "null"
+              "anyOf": [
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "r": {
+                      "type": "number"
+                    },
+                    "g": {
+                      "type": "number"
+                    },
+                    "b": {
+                      "type": "number"
+                    },
+                    "a": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "r",
+                    "g",
+                    "b"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
               ]
             },
             "scores": {
@@ -941,7 +2597,8 @@
                   "note": {
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "scorers": {
@@ -949,8 +2606,12 @@
               "items": {
                 "type": "string"
               }
+            },
+            "reason": {
+              "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         },
         "blindedJudgement": {
           "$comment": "slot for blinded visual judgement, 1 to 5 per criterion, scored later",
@@ -969,7 +2630,15 @@
             },
             "scale": {
               "type": "object",
-              "properties": {}
+              "properties": {
+                "min": {
+                  "type": "number"
+                },
+                "max": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
             },
             "criteria": {
               "type": "array",
@@ -986,7 +2655,8 @@
                   "label": {
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "scores": {
@@ -1008,7 +2678,8 @@
                   "scorer": {
                     "type": "string"
                   }
-                }
+                },
+                "additionalProperties": false
               }
             },
             "scorers": {
@@ -1016,8 +2687,12 @@
               "items": {
                 "type": "string"
               }
+            },
+            "reason": {
+              "type": "string"
             }
-          }
+          },
+          "additionalProperties": false
         }
       }
     }

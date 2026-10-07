@@ -9,5 +9,7 @@ export interface RunnerRequest {
   version: string;
   step?: string;
   i?: string;
-  [k: string]: unknown;
+  client?: string;
+  generation?: string;
+  stepToken?: string;
 }

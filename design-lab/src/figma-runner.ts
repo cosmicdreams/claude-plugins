@@ -94,7 +94,7 @@ export const defaultContext = (): RunnerContext => ({ home: designLabHome(), por
 export class RunnerExit extends Error {}
 
 type Json = Record<string, unknown>;
-type Step = Json & { kind: string; step?: string };
+type Step = RunnerStep;
 const isObject = (value: unknown): value is Json => typeof value === 'object' && value !== null && !Array.isArray(value);
 const text = (value: unknown): string | null => typeof value === 'string' ? value : null;
 const repr = (value: unknown): string => typeof value === 'string' ? `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'` : value === undefined || value === null ? 'None' : String(value);
@@ -386,7 +386,7 @@ export class Build {
     if (this.unplanned()) return wait('Connected. Waiting for the build to start.');
     let step: Step;
     for (;;) {
-      try { step = await this.driver().next() as Step; }
+      try { step = await this.driver().next(); }
       catch (error) {
         if (!/renderer changed/.test(String((error as Error).message)) || !this.state['iterate']) throw error;
         // Templates edited mid-build: an iterating run waits for the next init rather than closing the runner.
@@ -401,20 +401,26 @@ export class Build {
     if (step.kind === 'done') {
       step = this.dumpStep() ?? step;
       if (step.kind === 'done' && this.state['iterate']) { this.current = null; return wait('Build complete. Waiting for the next build.'); }
-      if (step.kind === 'dump') step['buildId'] = this.state['buildId'] || this.state['runtime'];
+      const buildId = text(this.state['buildId']) || text(this.state['runtime']);
+      if (step.kind === 'dump' && buildId !== null) step.buildId = buildId;
       this.current = step; if (step.kind === 'dump') this.log(`serving ${step.step}`);
       return step;
     }
     const state = this.state; Object.assign(step, { done: (state['done'] as unknown[]).length, total: (state['steps'] as unknown[]).length, buildId: state['buildId'] || state['runtime'] });
     this.current = step; this.log(`serving ${step.step} (${(step['done'] as number) + 1}/${step['total']})`);
-    const { payload, files: _files, ...rest } = step;
-    if (step.kind === 'use_figma') return { ...rest, kind: 'use_figma', code: readFileSync(String(payload), 'utf8') } as Step;
-    if (step.kind === 'upload') return { ...rest, kind: 'upload' } as Step;
+    if (step.kind === 'use_figma') {
+      const { payload, ...rest } = step;
+      return { ...rest, code: readFileSync(String(payload), 'utf8') };
+    }
+    if (step.kind === 'upload') {
+      const { files: _files, ...rest } = step;
+      return rest;
+    }
     return step;
   }
 
   /** After the build, export each page's node tree for run-to-run comparison, then the read-only state verification needs. */
-  dumpStep(): Step | null {
+  dumpStep(): Extract<Step, { kind: 'dump' }> | null {
     const results = resolve(this.project, 'figma/results');
     if (!existsSync(resolve(results, 'pages.json'))) return null; // nothing was built, so there is nothing to dump
     const pages = Object.entries(readJson(resolve(results, 'pages.json'))['pages'] as Record<string, string>).sort(byName);
@@ -485,7 +491,7 @@ export class Build {
   async resume(step: string): Promise<Step | null> {
     if (this.unplanned()) return null;
     let pending: Step;
-    try { pending = await this.driver().next() as Step; } catch { return null; }
+    try { pending = await this.driver().next(); } catch { return null; }
     if (pending.step === step && pending.kind !== 'skip' && pending.kind !== 'done') this.current = pending;
     else if (pending.kind === 'done') { const dump = this.dumpStep(); if (dump?.step === step) this.current = dump; }
     return this.current;
