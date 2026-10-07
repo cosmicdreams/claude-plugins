@@ -13,9 +13,9 @@
  *                    [--viewports "Desktop:1400x1200,Tablet:800x1200,Mobile:375x1200"]
  *                    [--scale 2] [--timeout 60000]
  *
- * Requires playwright to be resolvable from the working directory. It is not vendored:
- * a browser binary has no business inside a plugin.
+ * Uses the pinned Playwright packages and Chromium installed in the shared design-lab cache.
  */
+import { sharedRequire } from '../src/runtime.ts';
 import { readFileSync, mkdirSync, writeFileSync, readdirSync } from 'node:fs';
 import { resolve, join, basename } from 'node:path';
 import { dismissCookiePreferences } from './cookie_preferences.mjs';
@@ -23,19 +23,7 @@ import { dismissCookiePreferences } from './cookie_preferences.mjs';
 const arg = (f, d) => { const i = process.argv.indexOf(f); return i === -1 ? d : process.argv[i + 1]; };
 const has = (f) => process.argv.includes(f);
 
-/* Resolve playwright from the working directory, not from this file. The plugin ships no
-   node_modules on purpose, so a bare `import 'playwright'` resolves against the plugin
-   directory and always fails however well the calling project is set up. */
-let chromium;
-try {
-  const { createRequire } = await import('node:module');
-  const req = createRequire(resolve(process.cwd(), 'noop.mjs'));
-  ({ chromium } = req('playwright'));
-} catch {
-  console.error('playwright is not resolvable from this directory.\n'
-    + 'Run this from a project that has it, or: npm i -D playwright && npx playwright install chromium');
-  process.exit(2);
-}
+const { chromium } = sharedRequire()('playwright');
 
 const CONFIG_DIR = resolve(arg('--configs', 'components'));
 const OUT = resolve(arg('--out', 'shots'));

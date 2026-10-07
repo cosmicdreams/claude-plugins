@@ -13,6 +13,7 @@
  * Usage:
  *   node extract.mjs --config components/<name>.json [--out ../../reports/figma-spec]
  */
+import { sharedRequire } from '../src/runtime.ts';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { dismissCookiePreferences } from './cookie_preferences.mjs';
@@ -49,15 +50,7 @@ async function fetchSvg(context, url) {
   }
 }
 
-let chromium;
-try {
-  const { createRequire } = await import('node:module');
-  const req = createRequire(resolve(process.cwd(), 'noop.mjs'));
-  ({ chromium } = req('playwright'));
-} catch {
-  console.error('playwright is not resolvable from this directory');
-  process.exit(2);
-}
+const { chromium } = sharedRequire()('playwright');
 
 const arg = (flag, fallback) => {
   const i = process.argv.indexOf(flag);

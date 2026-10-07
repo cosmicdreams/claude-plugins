@@ -35,16 +35,16 @@ Config shape:
 
 Measurements and screenshots close DataGrail cookie preferences through its close button, including its shadow DOM, and wait until the panel is hidden. Cookies and local storage carry forward between breakpoints within each script; a final check before each capture catches late panels. A panel that cannot close fails that capture. Other vendors can use `"cookiePreferences":{"bannerSelector":"#consent","closeSelector":".close","timeout":5000}` in the component config. To accept once within that script instead, use DataGrail's `"closeSelector":"button.accept_all"`. Use `"cookiePreferences":false` when capturing the cookie panel itself. This setting must be identical for measurement and screenshots.
 
-Run the full capture from a project with Playwright installed. The command scaffolds configs, measures each eligible component, takes desktop/tablet/mobile screenshots, assembles evidence, and registers it in the workspace:
+Run the full capture after `design-lab:init` installs the pinned Playwright packages and Chromium in the shared cache. The command works from any directory, scaffolds configs, measures each eligible component, takes desktop/tablet/mobile screenshots, assembles evidence, and registers it in the workspace:
 
 ```bash
 node ${CLAUDE_PLUGIN_ROOT}/scripts/capture_all.ts \
   --project .design-lab --site-url https://example.ddev.site \
   --canonical-base-url https://www.example.org \
-  --theme-root docroot/themes/custom/example [--node-cwd <folder>]
+  --theme-root docroot/themes/custom/example
 ```
 
-`--node-cwd` defaults to the shared Playwright `design-lab:init` installed; give it only to use another folder where node resolves Playwright (preflight names one it found in the repository).
+The full capture and the standalone measurement, screenshot and selector-check commands all use that shared installation. Keep the same absolute `DESIGN_LAB_CACHE` when overriding the default cache location; no project-local Playwright installation is needed.
 
 Capture is incremental. Each component's outcome is written to `capture/records/` as soon as it finishes, together with the hash of the config it came from; a later run skips every component whose record is complete and whose config is unchanged, and rebuilds the evidence from all current records. Never delete records to "start clean"; use `--fresh` with `--only` for the components that need redoing.
 
