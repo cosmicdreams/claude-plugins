@@ -25,7 +25,7 @@ Run folders live outside the repository, and so do design-lab's own scripts. Wit
 Check design-lab is set up on this machine; it changes nothing:
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.ts check
+node ${CLAUDE_PLUGIN_ROOT}/scripts/require-node.mjs && node ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.ts check
 ```
 
 If anything is `missing` (✗), stop and run `design-lab:init` first, then continue; `advice` (!) does not stop a run. Setup is about the person and the machine; preflight below is about this site.

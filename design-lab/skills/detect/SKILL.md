@@ -18,7 +18,7 @@ node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts detect --project <artifact-direct
 
 `init` prints the run folder it created by the person's convention; that folder is `<artifact-directory>`.
 
-For an isolated probe, `src/detect.ts <repo>` emits the same detection document to stdout.
+For an isolated probe, `node ${CLAUDE_PLUGIN_ROOT}/scripts/detect.ts <repository>` emits the same detection document to stdout.
 
 Read `priorArt` before extraction. Reconcile existing conventions and generated artifacts unless the user explicitly requested an independent scratch build. See `references/prior-art.md`.
 

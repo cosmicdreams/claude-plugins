@@ -21,7 +21,7 @@ Keep to commands Claude Code can check: every script with absolute paths and `--
 ## Before anything else
 
 ```bash
-node ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.ts check
+node ${CLAUDE_PLUGIN_ROOT}/scripts/require-node.mjs && node ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.ts check
 ```
 
 If anything is `missing` (✗), stop and run `design-lab:init` first, then continue.
