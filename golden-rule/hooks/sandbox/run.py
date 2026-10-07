@@ -499,22 +499,223 @@ def run(argv: list[str]) -> int:
     return 128 - status if status < 0 else status  # a signal reads as the shell reports it
 
 
-def prepare(args: list[str]) -> tuple[list[str], str]:
+def prepare(args: list[str]) -> tuple[list[str], str, str | None]:
     if len(args) == 4 and args[0] == "--command" and args[2] == "--state":
         command, state = base64.b64decode(args[1]).decode(), args[3]
         # The final directory is written on any exit, `exit` inside the command included.
         script = 'trap \'pwd >"$__gr_state"\' EXIT; eval "$1"'
-        return ["/usr/bin/env", f"__gr_state={state}", "/bin/zsh", "-c", script, "golden-rule", command], command
+        return ["/usr/bin/env", f"__gr_state={state}", "/bin/zsh", "-c", script, "golden-rule", command], command, state
     if len(args) == 2 and args[0] == "--argv":
         inner = json.loads(base64.b64decode(args[1]).decode())
         if not isinstance(inner, list) or not inner or not all(isinstance(item, str) for item in inner):
             raise Refused("the argument vector is not a list of strings")
-        return inner, " ".join(inner)
+        return inner, " ".join(inner), None
     raise Refused("unrecognised arguments")
 
 
+# ---- Codex: the one program that runs outside the sandbox ------------------------------------------
+#
+# `codex exec` sandboxes its own commands with sandbox-exec, which macOS refuses inside another sandbox,
+# so under this guard Codex could not run a single command. Codex carries its own write guard
+# (~/.codex/write-guard, wired in ~/.codex/hooks.json) that enforces the same rule on everything it runs.
+# So a plain Codex invocation runs outside this sandbox, and only when every condition below holds;
+# anything else runs sandboxed as usual.
+
+CODEX_RELEASES = os.path.join(HOME, ".codex", "packages", "standalone", "releases")
+CODEX_SUBCOMMANDS = {"exec", "e", "review"}
+CODEX_SANDBOXES = {"read-only", "workspace-write"}
+CODEX_RISKY_CONFIG = re.compile(r"hook|guard|sandbox|features|shell_environment|notify|mcp_servers|profiles", re.IGNORECASE)
+
+
+def simple_command(command: str) -> tuple[list[str], list[tuple[str, str]]] | None:
+    """The raw words and redirections of a single simple command, or None for anything else (several
+    commands, pipes, background jobs, subshells). Quoting and command substitutions inside words are kept
+    as written; they are expanded later, inside the sandbox."""
+    words, redirects, word, i = [], [], "", 0
+    quote, depth = None, 0
+    while i < len(command):
+        c = command[i]
+        if quote == "'":
+            word += c
+            quote = None if c == "'" else quote
+        elif c == "\\" and i + 1 < len(command):
+            word += command[i:i + 2]
+            i += 1
+        elif quote == '"':
+            word += c
+            if c == '"' and depth == 0:
+                quote = None
+            elif command.startswith("$(", i):
+                depth += 1
+            elif c == ")" and depth:
+                depth -= 1
+        elif depth:
+            word += c
+            if command.startswith("$(", i):
+                depth += 1
+            elif c == ")":
+                depth -= 1
+        elif c in "'\"":
+            word += c
+            quote = c
+        elif command.startswith("$(", i):
+            word += "$("
+            depth += 1
+            i += 1
+        elif c == "`":
+            return None  # backquotes: not worth parsing; the command runs sandboxed
+        elif c in " \t":
+            if word:
+                words.append(word)
+                word = ""
+        elif c in "<>":
+            fd = word if word.isdigit() else ""
+            if word and not fd:
+                words.append(word)
+            word = ""
+            op = c
+            if command.startswith(">>", i) or command.startswith(">&", i):
+                op = command[i:i + 2]
+                i += 1
+            i += 1
+            while i < len(command) and command[i] in " \t":
+                i += 1
+            start = i
+            while i < len(command) and command[i] not in " \t;&|()<>":
+                i += 1
+            target = command[start:i]
+            if not target or re.search(r"[$`'\"*?\[]", target):
+                return None
+            redirects.append((fd + op, target))
+            continue
+        elif c in ";&|()\n":
+            return None
+        else:
+            word += c
+        i += 1
+    if quote or depth:
+        return None
+    if word:
+        words.append(word)
+    return (words, redirects) if words else None
+
+
+def expand_in_sandbox(words: list[str], cwd: str, profile_text: str) -> list[str] | None:
+    """The command's arguments as the shell would pass them, expanded inside the sandbox: a command
+    substitution such as "$(cat prompt.md)" runs there, unable to write anywhere protected."""
+    script = "printf '%s\\0' " + " ".join(words)
+    done = subprocess.run([SANDBOX_EXEC, "-p", profile_text, "/bin/zsh", "-c", script], cwd=cwd,
+                          capture_output=True, timeout=60)
+    if done.returncode != 0:
+        return None
+    return done.stdout.decode().split("\0")[:-1]
+
+
+def codex_guard_installed() -> bool:
+    try:
+        with open(os.path.join(HOME, ".codex", "hooks.json")) as handle:
+            hooks = json.load(handle).get("hooks", {}).get("PreToolUse", [])
+    except (OSError, ValueError, AttributeError):
+        return False
+    commands = [hook.get("command", "") for group in hooks for hook in group.get("hooks", [])]
+    return os.path.isfile(os.path.join(HOME, ".codex", "write-guard", "guard.py")) and \
+        any("write-guard/guard.py" in command for command in commands)
+
+
+def codex_binary() -> str | None:
+    """The Codex release the PATH resolves to, only if it is a pinned standalone release."""
+    for folder in os.environ.get("PATH", "").split(os.pathsep):
+        candidate = os.path.join(folder, "codex")
+        if os.path.isfile(candidate) and os.access(candidate, os.X_OK):
+            real = os.path.realpath(candidate)
+            return real if real.startswith(CODEX_RELEASES + os.sep) else None
+    return None
+
+
+def codex_refusal(argv: list[str]) -> str | None:
+    """Why this Codex invocation must stay sandboxed, or None when it may run outside."""
+    if len(argv) < 2 or argv[1] not in CODEX_SUBCOMMANDS:
+        return "only `codex exec` and `codex review` run outside the sandbox"
+    for i, arg in enumerate(argv):
+        if arg.startswith("--dangerously"):
+            return f"{arg} switches Codex's own protections off"
+        if arg in ("-c", "--config") or arg.startswith("--config="):
+            value = arg.split("=", 1)[1] if arg.startswith("--config=") else (argv[i + 1] if i + 1 < len(argv) else "")
+            if CODEX_RISKY_CONFIG.search(value.split("=", 1)[0]):
+                return f"the override `{value}` could change Codex's guard or sandbox"
+        if arg in ("-s", "--sandbox") or arg.startswith("--sandbox="):
+            value = arg.split("=", 1)[1] if arg.startswith("--sandbox=") else (argv[i + 1] if i + 1 < len(argv) else "")
+            if value not in CODEX_SANDBOXES:
+                return f"Codex's `{value}` sandbox mode is not allowed outside this sandbox"
+    codex_home = os.environ.get("CODEX_HOME")
+    if codex_home and os.path.realpath(codex_home) != os.path.realpath(os.path.join(HOME, ".codex")):
+        return "CODEX_HOME points away from ~/.codex and its guard"
+    if not codex_guard_installed():
+        return "Codex's write guard (~/.codex/write-guard) is not installed"
+    return None
+
+
+def is_guarded(path: str, policy: dict) -> bool:
+    guarded = [PLUGIN_ROOT, *(os.path.realpath(expand(item)) for item in policy["guardFiles"])]
+    if any(path == root or path.startswith(root + "/") for root in guarded):
+        return True
+    return any(re.search(pattern, path) for pattern in policy["guardPatterns"])
+
+
+def run_codex(command: str, state: str | None, cwd: str, policy: dict, profile_text: str) -> int | None:
+    """Run a plain Codex invocation outside the sandbox, or answer None to run the command sandboxed."""
+    parsed = simple_command(command)
+    if not parsed or parsed[0][0] != "codex":
+        return None
+    words, redirects = parsed
+    binary = codex_binary()
+    argv = expand_in_sandbox(words, cwd, profile_text)
+    why = ("the codex on the PATH is not a pinned release under ~/.codex/packages" if not binary
+           else "its arguments could not be expanded in the sandbox" if argv is None
+           else codex_refusal(argv))
+    streams = {}
+    if not why:
+        for op, target in redirects:
+            fd = int(op[:-1] or (0 if op.startswith("<") else 1)) if op[0].isdigit() else (0 if op.startswith("<") else 1)
+            if op.endswith(">&") or op == ">&":
+                if target not in ("1", "2"):
+                    why = f"the redirection {op}{target} is not supported outside the sandbox"
+                    break
+                streams[fd] = ("dup", int(target))
+                continue
+            path = deepest_real(absolute(target, cwd))
+            if not op.startswith("<") and target != "/dev/null" and (main_worktree_of(path, cwd) or is_guarded(path, policy)):
+                why = f"its output would be written to {path}, which is protected"
+                break
+            streams[fd] = ("file", path, op)
+    if why:
+        print(f"{PREFIX} Codex runs inside this sandbox, so it cannot run commands of its own, because {why}.", file=sys.stderr)
+        return None
+    opened = {}
+    try:
+        for fd, spec in streams.items():
+            if spec[0] == "file":
+                mode = "rb" if spec[2].startswith("<") else ("ab" if spec[2].endswith(">>") else "wb")
+                opened[fd] = open(spec[1], mode)
+        io = {0: opened.get(0, sys.stdin), 1: opened.get(1, sys.stdout), 2: opened.get(2, sys.stderr)}
+        for fd, spec in streams.items():
+            if spec[0] == "dup":
+                io[fd] = io[spec[1]]
+        child = subprocess.Popen([binary, *argv[1:]], cwd=cwd, stdin=io[0], stdout=io[1], stderr=io[2])
+        for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
+            signal.signal(sig, lambda number, _frame: child.send_signal(number))
+        status = child.wait()
+    finally:
+        for handle in opened.values():
+            handle.close()
+    if state:
+        with open(state, "w") as handle:
+            handle.write(cwd + "\n")
+    return 128 - status if status < 0 else status
+
+
 def main() -> int:
-    inner, text = prepare(sys.argv[1:])
+    inner, text, state = prepare(sys.argv[1:])
     if not os.access(SANDBOX_EXEC, os.X_OK):
         raise Refused("macOS sandbox-exec is not available")
     with open(os.path.join(os.path.dirname(HERE), "policy.json")) as handle:
@@ -531,7 +732,12 @@ def main() -> int:
             raise Refused(f"{root} is quarantined: a change was observed there on {held[root].get('at', '?')}. "
                           "Commands touching it are refused until Chris clears it with /golden-rule clear. "
                           "Report it to Chris and leave it.")
-    sandbox = [SANDBOX_EXEC, "-p", profile(policy, every, touched), *inner]
+    profile_text = profile(policy, every, touched)
+    if state is not None:
+        codex_status = run_codex(text, state, cwd, policy, profile_text)
+        if codex_status is not None:
+            return codex_status
+    sandbox = [SANDBOX_EXEC, "-p", profile_text, *inner]
     watch = watch if hands_outside(text) else []
     stamp = None
     before = {root: metadata_state(root) for root in watch}

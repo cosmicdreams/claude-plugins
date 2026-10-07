@@ -162,6 +162,20 @@ gr $root "git -C $root/free -C $F push origin HEAD:main"; [ $? -eq 126 ] && ok "
 gr $root "git -C $F -C $root/free push -q origin main"; [ $? -eq 0 ] && ok "the last git -C decides (ungoverned push allowed)" || no "-C ordering reversed" "$(tail -2 $root/out)"
 gr $F "cd $root/free | cat; git push origin HEAD:main"; [ $? -eq 126 ] && ok "a cd inside a pipeline does not carry a push out of its repository" || no "pipeline cd"
 
+# ---- Codex runs outside the sandbox, only as a plain, pinned, guarded invocation ----
+gr $root "codex exec --help > $root/codex-help.txt"; [ $? -eq 0 ] && grep -qi "usage" $root/codex-help.txt && ok "a plain codex exec runs outside the sandbox" || no "plain codex exec" "$(tail -2 $root/out)"
+gr $root "codex exec --help > $M/codex-help.txt"; [ ! -e $M/codex-help.txt ] && grep -q "is protected" $root/out && ok "codex output redirected into main stays sandboxed" || no "codex redirect into main"
+gr $root "codex exec --help; echo x > $M/codex-chained"; [ ! -e $M/codex-chained ] && ok "a chained codex command stays sandboxed" || no "chained codex"
+gr $root "codex exec --dangerously-bypass-approvals-and-sandbox --help >/dev/null"; grep -q "switches Codex's own protections off" $root/out && ok "codex with its protections off stays sandboxed" || no "codex bypass flag" "$(tail -2 $root/out)"
+gr $root "codex exec -c hooks.PreToolUse=[] --help >/dev/null"; grep -q "could change Codex's guard" $root/out && ok "codex with a guard override stays sandboxed" || no "codex config override"
+gr $root "codex exec \"\$(echo x > $M/codex-subst)\" --help >/dev/null"; [ ! -e $M/codex-subst ] && ok "command substitutions in codex arguments run sandboxed" || no "codex substitution"
+mkdir -p $root/bin; printf '#!/bin/sh\necho fake > %s/codex-fake\n' $M > $root/bin/codex; chmod +x $root/bin/codex
+( export PATH=$root/bin:$PATH; gr $root "codex exec --help" ); [ ! -e $M/codex-fake ] && grep -q "not a pinned release" $root/out && ok "a codex earlier on the PATH is not trusted" || no "fake codex"
+if [ -n "${GR_E2E_LIVE_CODEX:-}" ]; then
+  gr $root "codex exec -s read-only -m gpt-6-luna --skip-git-repo-check 'Run the shell command ls $M and reply with the file names only.' < /dev/null > $root/codex-live.md 2> $root/codex-live.log"
+  grep -q README $root/codex-live.md && ! grep -q "sandbox_apply" $root/codex-live.log && ok "codex runs its own commands (live, uses the model)" || no "live codex" "$(tail -2 $root/codex-live.log)"
+fi
+
 # ---- hard links ----
 gr $root "ln $M/README.md $root/hard"; [ ! -e $root/hard ] && ok "a hard link to a file in main refused" || no "hard link into main created"
 

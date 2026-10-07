@@ -46,7 +46,7 @@ gh pr create --head feature/<topic>
 
 ```bash
 claude plugin test .          # hook decisions, mocked engine
-zsh tests/e2e/run.zsh         # the real sandbox against fixture repositories
+zsh tests/e2e/run.zsh         # the real sandbox against fixture repositories (outside Claude Code: a terminal)
 zsh tests/live/run.zsh <out>  # the mod in a real headless session (uses the model)
 ```
 

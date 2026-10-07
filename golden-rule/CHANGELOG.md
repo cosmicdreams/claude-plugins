@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.1.1
+
+**Codex works again under the guard.** `codex exec` sandboxes its own commands with sandbox-exec, which macOS refuses inside another sandbox, so in 0.1.0 Codex could not run a single command. (0.1.0's spike tested Codex answering a question, not running a command.) A plain `codex exec` or `codex review` now runs outside the guard's sandbox, under Codex's own write guard, when every condition holds: one simple command with no chaining or pipes; its arguments expanded inside the sandbox, so `"$(cat prompt.md)"` works and cannot write; the `codex` on the PATH resolving to a pinned release under `~/.codex/packages`, which is now write-protected; no `--dangerously-*` flag, no `-c` override touching hooks, guards or sandboxes, and only the read-only or workspace-write sandbox; `CODEX_HOME` unset or `~/.codex`; Codex's write guard installed; and no output redirected into a main worktree or the guard's files. Anything else runs sandboxed, with a line saying why.
+
+- The end-to-end suite now runs only outside Claude Code (a terminal, or the `!` prompt): under the guard, a session's commands cannot start a sandbox of their own.
+
 ## 0.1.0
 
 **First release: the golden rule as a mod.** Main is never the operating surface, enforced in process on every tool call rather than asked for in an instruction file that may not load.
