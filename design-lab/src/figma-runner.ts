@@ -28,8 +28,7 @@ import net from 'node:net';
 import { spawn } from 'node:child_process';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { appendFileSync, chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
-import { basename, dirname, resolve, isAbsolute } from 'node:path';
+import { basename, dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { BuildDriver } from './figma-build.ts';
 import type { DriverOptions } from './figma-build.ts';
@@ -37,6 +36,7 @@ import type { BuildResult } from './build-artifacts.ts';
 import { ascii, sorted } from './json.ts';
 import { callPayload, stripTemplate, Renderer } from './render-payload.ts';
 import { pluginRoot, sharedRequire } from './runtime.ts';
+import { designLabHome, TOKEN_FILE } from './design-lab-home.ts';
 import { validateRunnerRecord } from './contracts.ts';
 import type { DumpKind } from './contracts.ts';
 import type { RunnerStep } from './generated/runner-step.ts';
@@ -47,7 +47,7 @@ export const PORT = 8765; // runner/manifest.json and the plugin allow this port
 export const ORIGIN = 'null'; // a Figma plugin's fetch comes from a sandboxed iframe with an opaque origin
 export const WAIT_MS = 5000; // how long the plugin pauses before asking again while there is nothing to build
 export const HEARTBEAT_SECONDS = 10;
-export const TOKEN_FILE = 'runner-token';
+export { TOKEN_FILE };
 export const PID_FILE = 'runner.pid';
 export const SEEN_FILE = 'runner-seen';
 export const PROGRESS_FILE = 'progress.json';
@@ -88,7 +88,7 @@ return { pageId: page.id };
 
 /** The person's own design-lab folder and the port to serve; tests point both somewhere private. */
 export interface RunnerContext { home: string; port: number }
-export const designLabHome = (): string => { const home = process.env['DESIGN_LAB_HOME']; if (home && !isAbsolute(home)) throw new Error('DESIGN_LAB_HOME must be an absolute path (for example /tmp/design-lab-home)'); return home || resolve(homedir(), '.design-lab'); };
+export { designLabHome };
 export const defaultContext = (): RunnerContext => ({ home: designLabHome(), port: PORT });
 /** What the command line reports and exits with (baseline's SystemExit). */
 export class RunnerExit extends Error {}
@@ -154,7 +154,8 @@ export function installRunner(ctx: RunnerContext = defaultContext()): { folder: 
     if (!/\.(json|js|html|ts)$/.test(name) || name.endsWith('.ts') && name !== 'code.ts' || name === 'code.js' && typed) continue;
     let content = readFileSync(resolve(source, name), 'utf8');
     if (name === 'code.ts') content = stripTemplate(content);
-    if (out === 'code.js') content = content.replace("const RUNNER_VERSION = 'source';", () => `const RUNNER_VERSION = '${version}';`);
+    if (out === 'code.js') content = content.replace("const RUNNER_VERSION = 'source';", () => `const RUNNER_VERSION = '${version}';`)
+      .replace("const TOKEN_PATH = '~/.design-lab/runner-token';", () => `const TOKEN_PATH = ${JSON.stringify(resolve(ctx.home, TOKEN_FILE))};`);
     const path = resolve(target, out);
     if (!existsSync(path) || readFileSync(path, 'utf8') !== content) { writeFileSync(path, content); changed = true; }
   }
@@ -604,7 +605,7 @@ export function makeServer(builds: Map<string, Build>, token: string, options: S
       req.resume(); // a handshake in progress reports the rejected token
       rejectHandshakes(() => ({ fileKey: q['fileKey'], failure: `Paste your runner token into the runner when it asks (copy it with: pbcopy < ${resolve(ctx.home, TOKEN_FILE)}), then run connect again; the runner's saved token was rejected` }),
         b => [b.key, undefined, ''].includes(q['fileKey']));
-      return reply(res, 401, 'the runner token was rejected; paste the one in ~/.design-lab/runner-token', 'text/plain');
+      return reply(res, 401, `the runner token was rejected; paste the one in ${resolve(ctx.home, TOKEN_FILE)}`, 'text/plain');
     }
     if (url.pathname !== '/health' && outdated(q['version'], current)) {
       req.resume(); const message = outdatedMessage(current);

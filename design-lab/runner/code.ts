@@ -23,6 +23,7 @@ export async function template(ARGS: Record<string, never>) {
 const SERVER = 'http://localhost:8765';
 const TOKEN_KEY = 'design-lab-runner-token';
 const RUNNER_VERSION = 'source';
+const TOKEN_PATH = '~/.design-lab/runner-token'; // installRunner replaces this with the person's real token file
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (...args: string[]) => () => Promise<unknown>;
 let token = '';
 const session = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
@@ -87,7 +88,7 @@ async function call(path: string, body?: unknown): Promise<RunnerReply> {
 
 async function askToken(reason: string): Promise<string> {
   figma.showUI(`<form id="f" style="font:12px sans-serif;margin:12px">
-    <p>${reason} Paste your runner token, from ~/.design-lab/runner-token on this machine.</p>
+    <p>${reason} Paste your runner token, from ${TOKEN_PATH} on this machine.</p>
     <input id="t" style="width:100%;box-sizing:border-box" autofocus>
     <p><button>Connect</button></p></form>
     <script>f.onsubmit = (e) => { e.preventDefault(); parent.postMessage({ pluginMessage: t.value.trim() }, '*'); };</script>`,

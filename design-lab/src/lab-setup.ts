@@ -6,7 +6,7 @@ import { spawnSync } from 'node:child_process';
 import { cacheRoot, dependencyFolder, dependenciesReady, pluginRoot, sharedRequire, chromiumFolder } from './runtime.ts';
 import { writeJson } from './contracts.ts';
 import * as config from './lab-config.ts';
-const designLabHome = (): string => { const home = process.env['DESIGN_LAB_HOME']; if (home && !isAbsolute(home)) throw new Error('DESIGN_LAB_HOME must be an absolute path (for example /tmp/design-lab-home)'); return home || resolve(homedir(), '.design-lab'); };
+import { designLabHome, TOKEN_FILE } from './design-lab-home.ts';
 
 export const READ_BLOCK = 'blockReadsOutsideWorkingDirectories';
 export const browserFolder = chromiumFolder;
@@ -75,5 +75,5 @@ export function installDependencies(chromium = false): unknown {
   const value = config.readConfig(); value.nodeCwd = dependencyFolder(); value.browserPath = browserFolder(); config.writeConfig(value);
   return { nodeCwd: dependencyFolder(), browserPath: browserFolder(), ...(chromium ? { chromium: playwrightReady()[1] } : {}) };
 }
-export async function runner(imported: boolean): Promise<unknown> { const {installRunner, personToken} = await import('./figma-runner.ts'); const install = installRunner(); personToken(); const value = config.readConfig(); if (imported) { value.runner = { imported: true }; config.writeConfig(value); } return { ...install, imported: !!value.runner?.imported, token: 'ready (copy it in your own terminal with: pbcopy < ~/.design-lab/runner-token)' }; }
+export async function runner(imported: boolean): Promise<unknown> { const {installRunner, personToken} = await import('./figma-runner.ts'); const install = installRunner(); personToken(); const value = config.readConfig(); if (imported) { value.runner = { imported: true }; config.writeConfig(value); } const tokenPath = resolve(designLabHome(), TOKEN_FILE); return { ...install, imported: !!value.runner?.imported, token: `ready (copy it in your own terminal with: pbcopy < ${tokenPath})` }; }
 export function createRunsFolder(from: string): string { const folder = config.runsFolder(from), inside = config.insideRepository(folder); if (inside) throw new Error(`${folder} is inside the working copy ${inside}`); mkdirSync(folder, { recursive: true }); return folder; }
