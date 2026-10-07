@@ -27,6 +27,7 @@ claude plugin install process-lab@local  --scope user
 claude plugin install ideas-funnel@local --scope user
 claude plugin install design-lab@local   --scope user
 claude plugin install test-lab@local     --scope user
+claude plugin install golden-rule@local  --scope user
 ```
 
 ## Plugins
@@ -55,6 +56,9 @@ Skills: `archive`, `babysit-pr`, `csv-analysis`, `ddev`, `ffmpeg`, `github`, `hy
 Process automation built on top of `lib`: work prioritization, deploy checklist, knowledge radar, Obsidian maintenance, calendar/email helpers.
 
 Skills: `config`, `deploy-post`, `obsidian-lint`, `organize`, `personal-calendar`, `personal-email`, `prioritize`, `scout`, `knowledge-check`
+
+### `golden-rule`
+A mod that enforces the golden rule: main is never the operating surface. Every write into `<project>/worktrees/main` is refused (edits, shell commands run in a macOS sandbox, other plugins' file and process calls), pushes to `main` go through pull requests, and the guard cannot be switched off from inside a session. No skills: it runs in process on every tool call.
 
 ### `drover`
 Drupal and Acquia log reporting. Fetches Acquia logs by date, groups errors into fingerprints, diagnoses causes, and renders a calendar-month report as a web page, a Portable Document Format file, or markdown, plus an evidence file that `process-lab:recommend-tickets` turns into Jira ticket recommendations.

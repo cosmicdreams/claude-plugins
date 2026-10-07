@@ -1,0 +1,20 @@
+{
+  "$comment": "One policy, read by the hooks module (mod/register.ts) and the shell bootstrap (sandbox/run.py). Paths starting ~/ are under the person's home.",
+  "containers": ["~/Sites", "~/Tools", "~/OpenSource"],
+  "guardFiles": [
+    "~/.claude/hooks/golden-rule.sh",
+    "~/.claude/AGENTS.md",
+    "~/.codex/write-guard",
+    "~/.codex/hooks.json",
+    "~/.codex/config.toml",
+    "~/.codex/AGENTS.md",
+    "~/.gitconfig",
+    "~/.git-hooks",
+    "~/.golden-rule"
+  ],
+  "guardPatterns": [
+    "^/.+/\\.claude/skills/[^/]+/hooks(/|$)"
+  ],
+  "pluginId": "golden-rule@local",
+  "quarantineFile": "~/.golden-rule/quarantine.json"
+}

@@ -57,7 +57,7 @@
     },
     {
       "name": "ideas-funnel",
-      "description": "Passive knowledge capture pipeline — Karpathy-derived LLM Wiki with Monitor-driven multi-domain ingest. Feeds land in raw/, agents compile them into a cross-linked Obsidian wiki, memory evolves via confidence decay and graph-aware consolidation.",
+      "description": "Passive knowledge capture pipeline \u2014 Karpathy-derived LLM Wiki with Monitor-driven multi-domain ingest. Feeds land in raw/, agents compile them into a cross-linked Obsidian wiki, memory evolves via confidence decay and graph-aware consolidation.",
       "source": "./ideas-funnel",
       "category": "productivity"
     },
@@ -71,6 +71,12 @@
       "name": "test-lab",
       "description": "Convert a manual test corpus into an automated Playwright suite, and measure accessibility and performance: pluggable source, authoring methodology, and a per-story conversion skill",
       "source": "./test-lab",
+      "category": "development"
+    },
+    {
+      "name": "golden-rule",
+      "description": "Main is never the operating surface: a mod that keeps every write out of <project>/worktrees/main (sandboxed shell, guarded edits, fail-closed) and sends changes through feature worktrees and pull requests",
+      "source": "./golden-rule",
       "category": "development"
     }
   ]
