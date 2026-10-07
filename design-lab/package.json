@@ -3,7 +3,9 @@
   "version": "0.0.0",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "setup": "node scripts/setup-ts.ts",
     "test": "node --test tests/ts/*.test.ts",
@@ -21,6 +23,7 @@
   "devDependencies": {
     "@figma/plugin-typings": "1.141.0",
     "@types/node": "24.19.1",
+    "acorn": "8.17.0",
     "json-schema-to-typescript": "16.0.0",
     "typescript": "7.0.2"
   }

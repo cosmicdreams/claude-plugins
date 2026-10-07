@@ -26,19 +26,38 @@ export const decoded = (args: unknown): string => JSON.stringify(sorted(strip(ar
 export const literal = (args: unknown): string => ascii(decoded(args));
 /** Templates remain async function bodies. Strip inside a wrapper, then recover its body. */
 export function stripTemplate(source: string): string {
+  // Ported sources are valid modules for tsc; only this marked async body is
+  // shipped to Figma. Imports and declarations outside it never enter payloads.
+  if (source.includes('// DESIGN_LAB_TEMPLATE_BEGIN\n')) {
+    const stripped = stripTypeScriptTypes(source, { mode: 'strip' });
+    const start = stripped.indexOf('// DESIGN_LAB_TEMPLATE_BEGIN\n');
+    const end = stripped.lastIndexOf('// DESIGN_LAB_TEMPLATE_END');
+    if (start < 0 || end < start) throw new Error('invalid template boundaries');
+    return stripped.slice(start + '// DESIGN_LAB_TEMPLATE_BEGIN\n'.length, end);
+  }
   const prefix = 'async function __template__() {\n', suffix = '\n}';
   const stripped = stripTypeScriptTypes(prefix + source + suffix, { mode: 'strip' });
   if (!stripped.startsWith(prefix) || !stripped.endsWith(suffix)) throw new Error('type stripper changed wrapper boundaries');
   return stripped.slice(prefix.length, -suffix.length);
 }
+const strippedUnits = new Map<string, { source: string; body: string }>();
+function readUnit(path: string, ts: boolean): string {
+  const source = readFileSync(path, 'utf8');
+  if (!ts) return source;
+  const cached = strippedUnits.get(path);
+  if (cached?.source === source) return cached.body;
+  const body = stripTemplate(source);
+  strippedUnits.set(path, { source, body });
+  return body;
+}
 export class Renderer {
   readonly units: ReadonlyMap<string, string>;
-  constructor(folder = resolve(pluginRoot, 'scripts/render')) {
-    const files = readdirSync(folder).filter(f => /\.(js|ts)$/.test(f)).sort(), units = new Map<string, string>();
+  constructor(folder = resolve(pluginRoot, 'scripts/render'), sourceKind: 'auto' | 'javascript' = 'auto') {
+    const files = readdirSync(folder).filter(f => sourceKind === 'javascript' ? f.endsWith('.js') : /\.(js|ts)$/.test(f)).sort(), units = new Map<string, string>();
     for (const file of files) {
       const name = file.replace(/\.(js|ts)$/, ''), ts = file.endsWith('.ts');
       if (!ts && files.includes(name + '.ts')) continue;
-      units.set(name, ts ? stripTemplate(readFileSync(resolve(folder, file), 'utf8')) : readFileSync(resolve(folder, file), 'utf8'));
+      units.set(name, readUnit(resolve(folder, file), ts));
     }
     this.units = new Map([...units].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
   }
@@ -46,7 +65,7 @@ export class Renderer {
   runtimeHash(): string { return fnv1a([...this.units].map(([name, source]) => `${name}\n${source}`).join('')); }
   call(template: string, args: unknown): string {
     const source = this.units.get(template); if (!source) throw new Error('unknown template: ' + template);
-    const sig = fnv1a(decoded(args)), shared = USES_KIT.has(template) ? this.libraries().map(u => this.units.get(u)! + '\n').join('') : '';
+    const sig = fnv1a(decoded(args)), shared = this.libraries().filter(u => u === '_cache' || USES_KIT.has(template)).map(u => this.units.get(u)! + '\n').join('');
     return `const ARGS = ${literal(args)};\nlet __h = 0x811c9dc5; const __s = JSON.stringify(ARGS);\nfor (let i = 0; i < __s.length; i++) { __h ^= __s.charCodeAt(i); __h = Math.imul(__h, 0x01000193) >>> 0; }\nif (__h.toString(16).padStart(8, '0') !== '${sig}') throw new Error('design-lab arguments were altered in transit: checksum ' + __h.toString(16) + ', expected ${sig}');\n` + shared + source;
   }
   inline(template: string, args: unknown): string {
