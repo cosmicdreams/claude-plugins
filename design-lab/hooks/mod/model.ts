@@ -1,11 +1,11 @@
 // What a design-lab run looks like from the files it writes, with no engine calls: the same
-// reading `workflow.py watch` does, so the pane and the text fallback agree.
+// reading `workflow.ts watch` does, so the pane and the text fallback agree.
 
 import type { Check, Facts, Findings, Phase, Runner, Scores, Summary } from '../../types'
 
 // Three missed heartbeats (figma_runner.HEARTBEAT_SECONDS is 10).
 export const SERVER_FRESH_MS = 30_000
-// workflow.py's RUNNER_ABSENT_MINUTES: the runner must have asked for a step within two minutes.
+// workflow.ts's RUNNER_ABSENT_MINUTES: the runner must have asked for a step within two minutes.
 export const RUNNER_ABSENT_MS = 120_000
 export const LOG_LINES = 8
 // The Markdown element draws at most 10,000 characters.

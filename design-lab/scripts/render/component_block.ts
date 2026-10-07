@@ -19,7 +19,7 @@ export async function template(ARGS: ComponentBlockArgs) {
  * its index order, inside the page's `Components` stack. Re-running replaces the block and
  * keeps the set. Blocks are re-sorted by order after every insert, so a resumed run lands
  * in the same place as an uninterrupted one. Returns the evidence rectangle ids for
- * upload_assets, and what the master measurably is (`native`): figma_receipts.py derives the
+ * upload_assets, and what the master measurably is (`native`): figma_receipts.ts derives the
  * build record's native-component validation from it rather than asserting it.
  */
 await loadKitFonts();
@@ -150,7 +150,7 @@ const firstBlockIndex = stackNode.children.findIndex((n) => n.getSharedPluginDat
 ordered.forEach((n, i) => stackNode.insertChild(firstBlockIndex + i, n));
 
 /* Where each variant and each capture sits inside the specimen, so one screenshot of the
-   specimen can be cut into matched pairs by figma_compare.py. */
+   specimen can be cut into matched pairs by figma_compare.ts. */
 const origin = specimen.absoluteBoundingBox!;
 const rel = (n: SceneNode) => { const b = n.absoluteBoundingBox!; return { label: n.name, x: b.x - origin.x, y: b.y - origin.y, width: b.width, height: b.height }; };
 const geometry = {

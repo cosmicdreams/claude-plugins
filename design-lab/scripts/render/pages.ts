@@ -6,7 +6,7 @@ export async function template(ARGS: PagesArgs) {
  * Create, rename and order the library's pages. Run first, and again whenever the page list
  * changes.
  *
- * ARGS = { pages: [name, ...] }   // exact names, in order, from layout.py
+ * ARGS = { pages: [name, ...] }   // exact names, in order, from layout.ts
  * Existing pages are matched by their design-lab key, then by exact name; the file's
  * default first page is reused for the first entry. Pages not in the list that design-lab
  * created are removed; pages it did not create are left alone and reported, because deleting

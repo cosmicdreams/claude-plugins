@@ -100,5 +100,5 @@ export function renderReport(runs: string[], report = compareMany(runs)): string
   return lines.join('\n') + '\n';
 }
 
-/** Python-facing operation name used by benchmark repeatability scoring. */
+/** baseline-facing operation name used by benchmark repeatability scoring. */
 export const compare = compareRuns;

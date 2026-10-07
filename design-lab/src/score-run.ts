@@ -1,5 +1,5 @@
 /** Score a completed design-lab run: scorecard.json, plus the report and completion message
- * (port of scripts/score_run.py).
+ * (port of scripts/score_run.ts).
  *
  * Every section is scored on its own from whatever evidence the run left behind. A section with no
  * evidence says "not measured" and why; it never guesses. The first scoring of a run records the
@@ -35,7 +35,7 @@ export const RECORDED_BY = 'score-run.ts';
 
 // ---------------------------------------------------------------------------- time
 
-/** Microseconds since the epoch: Python datetime's resolution, so sub-second boundaries agree. */
+/** Microseconds since the epoch: baseline datetime's resolution, so sub-second boundaries agree. */
 export type Time = number;
 const SECOND = 1_000_000, MINUTE = 60 * SECOND;
 export const SESSION_GAP = 15 * MINUTE;
@@ -87,7 +87,7 @@ export function realpath(path: string): string {
   return parent === resolve(path) ? parent : join(realpath(parent), basename(path));
 }
 const expandUser = (path: string): string => path === '~' ? homedir() : path.startsWith('~/') ? join(homedir(), path.slice(2)) : path;
-/** Python's Path ordering: part by part. */
+/** baseline's Path ordering: part by part. */
 export function comparePaths(a: string, b: string): number {
   const pa = a.split('/'), pb = b.split('/');
   for (let i = 0; i < Math.min(pa.length, pb.length); i++) if (pa[i] !== pb[i]) return pa[i]! < pb[i]! ? -1 : 1;
@@ -114,7 +114,7 @@ const stemOf = (path: string): string => basename(withoutSuffix(path));
 // ---------------------------------------------------------------------------- identity
 
 export function scoreIdentity(runDir: string, project: Json | null, siteLabel?: string | null): Json {
-  if (!truthy(project)) return notMeasured('project.json is missing, so nothing identifies this run', 'start runs with workflow.py init');
+  if (!truthy(project)) return notMeasured('project.json is missing, so nothing identifies this run', 'start runs with workflow.ts init');
   const p = project!, run = obj(p['run']);
   const capture = obj(readJson(resolve(runDir, 'capture-evidence.json')));
   const canonical = capture['canonicalBaseUrl'] ?? null;
@@ -326,7 +326,7 @@ export function byModel(messages: Message[]): Json {
     turns: sum('turns'), toolCalls: sum('toolCalls') };
 }
 
-const BENCHMARK_HOW = 'record it with workflow.py record --phase benchmark --status running before scoring';
+const BENCHMARK_HOW = 'record it with workflow.ts record --phase benchmark --status running before scoring';
 
 /** Tokens by model; with splitAt, also library production (before) and benchmark (after). */
 export function transcriptUsage(files: string[], since: Time | null, until: Time | null, splitAt: Time | null = null): Json {
@@ -367,7 +367,7 @@ export const TIME_DEFINITION =
   "waiting on usage limits, after a record reporting a rate, session, usage or spend limit, until " +
   "the limit resets; and waiting on the service, after a record reporting it overloaded or " +
   "unavailable. Working time and the three kinds of waiting add up to the transcript's span. Wall " +
-  "time is a clock on the wall from workflow.py init to the end of the benchmark, which ends when " +
+  "time is a clock on the wall from workflow.ts init to the end of the benchmark, which ends when " +
   "its report is finished; the first scoring records that end in the run's phase log and later " +
   "re-scores keep it. The Figma build time comes from the runner's log, with no model in the loop: " +
   "each unbroken stretch of steps, from the first served to the last recorded, added up, where a " +
@@ -578,7 +578,7 @@ export function unattended(files: string[], runDir: string, since: Time | null, 
   const [go, choices] = preflightGoAhead(runDir);
   if (go === null) {
     return notMeasured('the run had no preflight go-ahead, so there is no point from which it was left to run',
-      'start runs with workflow.py preflight, as design-lab:run does');
+      'start runs with workflow.ts preflight, as design-lab:run does');
   }
   const end = benchmarkStart(runDir), log = readJsonl(resolve(runDir, 'phase-log.jsonl'));
   // Each connection attempt's wait, kept separately: a retry never erases an earlier attempt.
@@ -667,7 +667,7 @@ export function wallClock(runDir: string, project: Json | null, scorer: [Time, T
   if (bench !== null && end === null && !scoredBefore(runDir) && scorerEnd >= bench) { end = scorerEnd; source = 'this scoring'; }
   const span = (a: Time | null, b: Time | null): number | null => a !== null && b !== null ? Math.trunc(seconds(a, b)) : null;
   const wall = start !== null && bench !== null && end !== null ? span(start, end) : null;
-  const reason = wall !== null ? null : start === null ? "the run's start was not recorded by workflow.py init"
+  const reason = wall !== null ? null : start === null ? "the run's start was not recorded by workflow.ts init"
     : bench === null ? "the benchmark step's start was not recorded" : "the benchmark step's end was not recorded when it was first scored";
   return {
     runStart: iso(start), benchmarkStart: iso(bench),
@@ -868,7 +868,7 @@ export function incidental(change: Json, swaps: [string | null, string | null][]
 }
 export const fileKey = (run: string): string | null => obj(obj(readJson(resolve(run, 'project.json')))['target'])['figmaFileKey'] ?? null;
 
-/** compare_runs.compare's report, in its Python (snake_case) shape. */
+/** compare_runs.compare's report, in its baseline (snake_case) shape. */
 export interface RunComparison {
   summary: { score: number; total_nodes: number; identical_nodes: number; matched_nodes: number; category_counts: Json };
   artifacts: Record<string, { present: boolean[]; normalized_equal: boolean; differences: Json[] }>;
@@ -950,7 +950,7 @@ export function scoreSchemaChurn(project: Json | null): Json {
     return { status: 'measured', changed: false, changes: [], summary: 'No schema change or workaround was needed.' };
   }
   return notMeasured('not recorded for this run',
-    'record it with workflow.py identity --schema-change "<what>", or confirm none with workflow.py identity --no-schema-change');
+    'record it with workflow.ts identity --schema-change "<what>", or confirm none with workflow.ts identity --no-schema-change');
 }
 
 // ---------------------------------------------------------------------------- headline
@@ -1083,7 +1083,7 @@ export function fontsPhrase(runDir: string): string {
   }
   const count = (f: Json): number => drawn.size ? drawn.get(f['family']) ?? 0 : f['components'];
   return standIns.map(f => `${pyStr(f['family'])} drawn in ${pyStr(drawnIn.has(f['family']) ? drawnIn.get(f['family']) : f['standIn']['family'])} (a stand-in, by default, in ` +
-    `${pyStr(count(f))} component${count(f) !== 1 ? 's' : ''})`).join('; ') + '; `workflow.py report fonts` says how to get the real font, then rebuild';
+    `${pyStr(count(f))} component${count(f) !== 1 ? 's' : ''})`).join('; ') + '; `workflow.ts report fonts` says how to get the real font, then rebuild';
 }
 
 /** file:// address as pathlib's as_uri writes it: every byte outside A-Z a-z 0-9 _.-~/ escaped. */
@@ -1233,7 +1233,7 @@ export interface WriteScoreResult {
 /** A misuse the command line reports as a usage error (exit 2). */
 export class ScoreUsageError extends Error {}
 
-/** What `score_run.py <run> ...` did: score, render, fix the benchmark's end on the first scoring,
+/** What `score_run.ts <run> ...` did: score, render, fix the benchmark's end on the first scoring,
  * write scorecard.json, report.html and completion.md, and stop the run's runner server once the
  * benchmark has ended. Printing is the caller's: `message`, then `{"written": [...]}`. */
 export async function writeScore(runDir: string, options: WriteScoreOptions = {}): Promise<WriteScoreResult> {

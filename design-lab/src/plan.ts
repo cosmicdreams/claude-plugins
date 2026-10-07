@@ -1,4 +1,4 @@
-/** Component build proposals. Keep variant arithmetic and evidence gates identical to plan.py. */
+/** Component build proposals. Keep variant arithmetic and evidence gates identical to plan.ts. */
 import type { Components } from "./generated/components.ts";
 import { writeJson } from "./contracts.ts";
 
@@ -30,7 +30,7 @@ const truthy = (v: unknown): boolean =>
       ? Object.keys(v).length > 0
       : !!v;
 export const MAX_VARIANTS = 64;
-const exactNaiveCount = Symbol("Python integer variant product");
+const exactNaiveCount = Symbol("baseline integer variant product");
 export function naiveVariantCount(component: Component): bigint {
   return component.fields.reduce(
     (n, f) =>
@@ -211,7 +211,7 @@ export function planComponent(
   Object.defineProperty(result, exactNaiveCount, { value: exactNaive });
   return result;
 }
-/** Preserve Python's arbitrary integer arithmetic on disk, including informational products
+/** Preserve baseline's arbitrary integer arithmetic on disk, including informational products
  * above Number.MAX_SAFE_INTEGER. In-process consumers retain the existing number-shaped API;
  * callers requiring the exact product can use naiveVariantCount(). */
 export function writePlanJson(

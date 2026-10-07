@@ -2,7 +2,7 @@ import { existsSync, readFileSync, readdirSync, mkdirSync, renameSync, rmSync } 
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { Spec } from '../generated/spec.ts';
-import { pythonJson, roundEven } from '../json.ts';
+import { canonicalJson, roundEven } from '../json.ts';
 import { writeJson } from '../contracts.ts';
 import { launchBrowser, measureConfig, captureConfig, MEASURE_VIEWPORTS } from './browser.ts';
 import { checkSelectors } from './selectors.ts';
@@ -25,13 +25,13 @@ export function legacyHash(cfg: CaptureConfig, scale: number): string {
   const plain = { ...cfg, states: (cfg.states ?? []).map(state => Object.fromEntries(Object.entries(state).filter(([key]) => key !== 'setupKey'))) };
   return digest(plain, scale);
 }
-// argparse parses screenshot scale as a float: Python serializes 1 as 1.0 here.
+// argparse parses screenshot scale as a float: baseline serializes 1 as 1.0 here.
 function digest(cfg: unknown, scale: number): string {
   if (!Number.isFinite(scale) || scale <= 0) throw new Error('scale must be positive and finite');
   let value = scale < 1e-4 || scale >= 1e16 ? scale.toExponential() : String(scale);
   if (value.includes('e')) value = value.replace(/e([+-]?)(\d+)$/, (_all, sign: string, exponent: string) => 'e' + (sign || '+') + exponent.padStart(2, '0'));
   else if (Number.isInteger(scale)) value += '.0';
-  return createHash('sha256').update('[' + pythonJson(cfg) + ', ' + value + ']').digest('hex');
+  return createHash('sha256').update('[' + canonicalJson(cfg) + ', ' + value + ']').digest('hex');
 }
 export function candidatePages(cfg: Pick<CaptureConfig, 'path'>, component: Component, limit: number): string[] {
   const paths = [cfg.path];

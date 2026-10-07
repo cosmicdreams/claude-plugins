@@ -1,4 +1,4 @@
-// Run read-only through use_figma. Returns the file-wide state verify.py needs first.
+// Run read-only through use_figma. Returns the file-wide state verify.ts needs first.
 const pages = figma.root.children.map(page => ({id: page.id, name: page.name}));
 const collections = [];
 for (const collection of await figma.variables.getLocalVariableCollectionsAsync()) {

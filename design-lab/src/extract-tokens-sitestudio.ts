@@ -53,7 +53,7 @@ function flatten(value: any): any {
       if (key in value) return flatten(value[key]);
     return null;
   }
-  // Python treats bool as an int in flatten(), so authored false values remain rows.
+  // baseline treats bool as an int in flatten(), so authored false values remain rows.
   return typeof value === "string" ||
     typeof value === "number" ||
     typeof value === "boolean"

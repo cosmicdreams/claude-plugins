@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Phase-four CLI; the existing skills remain on Python until the phase-five cutover. */
+/** Phase-four CLI; the existing skills remain on baseline until the phase-five cutover. */
 import {readFileSync,writeFileSync} from 'node:fs';
 import {spawnSync} from 'node:child_process';
 import {resolve} from 'node:path';

@@ -1,4 +1,4 @@
-/** In-process, resumable deterministic library driver; Python is the migration oracle. */
+/** In-process, resumable deterministic library driver; baseline is the migration oracle. */
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync, appendFileSync } from 'node:fs';
 import { resolve, basename } from 'node:path';
 import { pathToFileURL } from 'node:url';

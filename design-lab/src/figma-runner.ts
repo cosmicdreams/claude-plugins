@@ -1,6 +1,6 @@
 /**
  * Serve build steps to the design-lab runner plugin from one process, so no model relays a build.
- * Port of scripts/figma_runner.py (the migration oracle): the same routes, token and origin lock,
+ * Port of scripts/figma_runner.ts (the migration oracle): the same routes, token and origin lock,
  * handshake, dump steps, progress heartbeat and start/status/stop/serve commands, with the build
  * driver called in process instead of once per request in a subprocess.
  *
@@ -28,7 +28,7 @@ import { spawn } from 'node:child_process';
 import { createHash, randomBytes, timingSafeEqual } from 'node:crypto';
 import { appendFileSync, chmodSync, closeSync, existsSync, mkdirSync, openSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync } from 'node:fs';
 import { homedir } from 'node:os';
-import { basename, dirname, resolve } from 'node:path';
+import { basename, dirname, resolve, isAbsolute } from 'node:path';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { BuildDriver } from './figma-build.ts';
 import type { DriverOptions } from './figma-build.ts';
@@ -87,9 +87,9 @@ return { pageId: page.id };
 
 /** The person's own design-lab folder and the port to serve; tests point both somewhere private. */
 export interface RunnerContext { home: string; port: number }
-export const designLabHome = (): string => process.env['DESIGN_LAB_HOME'] || resolve(homedir(), '.design-lab');
+export const designLabHome = (): string => { const home = process.env['DESIGN_LAB_HOME']; if (home && !isAbsolute(home)) throw new Error('DESIGN_LAB_HOME must be an absolute path (for example /tmp/design-lab-home)'); return home || resolve(homedir(), '.design-lab'); };
 export const defaultContext = (): RunnerContext => ({ home: designLabHome(), port: PORT });
-/** What the command line reports and exits with (Python's SystemExit). */
+/** What the command line reports and exits with (baseline's SystemExit). */
 export class RunnerExit extends Error {}
 
 type Json = Record<string, unknown>;
@@ -99,7 +99,7 @@ const text = (value: unknown): string | null => typeof value === 'string' ? valu
 const repr = (value: unknown): string => typeof value === 'string' ? `'${value.replace(/\\/g, '\\\\').replace(/'/g, "\\'")}'` : value === undefined || value === null ? 'None' : String(value);
 export const utcNow = (): string => new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
 const localNow = (): string => { const d = new Date(), p = (n: number) => String(n).padStart(2, '0'); return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}T${p(d.getHours())}:${p(d.getMinutes())}:${p(d.getSeconds())}`; };
-/** Python's json.dumps(value, indent=1/2, sort_keys=?) for the files its readers already parse. */
+/** baseline's json.dumps(value, indent=1/2, sort_keys=?) for the files its readers already parse. */
 const pyJson = (value: unknown, indent: number, sortKeys = false): string => ascii(JSON.stringify(sortKeys ? sorted(value) : value, null, indent));
 const readJson = (path: string): Json => JSON.parse(readFileSync(path, 'utf8')) as Json;
 const byName = ([a]: [string, unknown], [b]: [string, unknown]): number => a < b ? -1 : a > b ? 1 : 0;
@@ -130,7 +130,7 @@ export function versionTuple(value: string | null | undefined): number[] {
   const parts = String(value).split('.');
   return parts.every(part => /^\s*[+-]?\d+\s*$/.test(part)) ? parts.map(Number) : [];
 }
-/** Python's tuple ordering: a shorter prefix is the lesser. */
+/** baseline's tuple ordering: a shorter prefix is the lesser. */
 function tupleLess(a: number[], b: number[]): boolean {
   for (let i = 0; i < Math.min(a.length, b.length); i++) if (a[i] !== b[i]) return a[i]! < b[i]!;
   return a.length < b.length;
@@ -530,7 +530,7 @@ export function loadBuilds(projects: string[], options: BuildOptions = {}): Map<
   const runs = [...new Set(projects.map(p => resolve(p)))].sort();
   if (runs.length !== 1) throw new RunnerExit(`one run at a time: a runner server serves exactly one run; finish or stop the other before starting it (${runs.join(', ')})`);
   const build = new Build(runs[0]!, options);
-  if (!build.key) throw new RunnerExit(`${build.project} has no target Figma file yet; record it with workflow.py preflight`);
+  if (!build.key) throw new RunnerExit(`${build.project} has no target Figma file yet; record it with workflow.ts preflight`);
   return new Map([[build.key, build]]);
 }
 
@@ -714,12 +714,12 @@ export async function ensureServer(project: string, waitSeconds = 10, ctx: Runne
 
 export async function main(args = process.argv.slice(2)): Promise<number> {
   const usage = 'usage: figma-runner.ts {serve --project W [--project W ...] | start|status|stop --project W}';
-  const cmd = args[0], projects: string[] = [], extra: string[] = [];
-  for (let i = 1; i < args.length; i++) { if (args[i] === '--project' && args[i + 1] !== undefined) projects.push(args[++i]!); else extra.push(args[i]!); }
+  const cmd = args[0], projects: string[] = [], extra: string[] = []; let servePort = PORT;
+  for (let i = 1; i < args.length; i++) { if (args[i] === '--project' && args[i + 1] !== undefined) projects.push(args[++i]!); else if (cmd === 'serve' && args[i] === '--port' && args[i + 1] !== undefined) { servePort = Number(args[++i]); if (servePort !== 0) { console.error(usage + '\nerror: unrecognized port; --port 0 is reserved for an isolated smoke'); return 2; } } else extra.push(args[i]!); }
   if (!['serve', 'start', 'status', 'stop'].includes(cmd ?? '') || !projects.length || extra.length || cmd !== 'serve' && projects.length > 1) {
     console.error(extra.length ? `${usage}\nerror: unrecognized arguments: ${extra.join(' ')}` : usage); return 2;
   }
-  const ctx = defaultContext(), print = (value: unknown): void => console.log(pyJson(value, 2));
+  const ctx = { ...defaultContext(), ...(cmd === 'serve' ? { port: servePort } : {}) }, print = (value: unknown): void => console.log(pyJson(value, 2));
   try {
     if (cmd === 'stop') { print(await stopServer(projects[0]!, ctx)); return 0; }
     if (cmd === 'status') { print(await serverStatus(projects[0]!, ctx)); return 0; }
@@ -731,7 +731,7 @@ export async function main(args = process.argv.slice(2)): Promise<number> {
     for (const [key, b] of builds) console.log(`serving ${b.project} for file ${key}`);
     const token = personToken(ctx); // never printed: the person copies it from the file once per machine
     console.log(`runner token: in ${resolve(ctx.home, TOKEN_FILE)}`);
-    const runner = makeServer(builds, token, { ctx }); await runner.listen(); runner.pulse();
+    const runner = makeServer(builds, token, { ctx }); const port = await runner.listen(); console.log(`runner listening on 127.0.0.1:${port}`); runner.pulse();
     await new Promise(() => undefined); // serve until killed
   } catch (error) {
     if (error instanceof RunnerExit) { console.error(error.message); return 1; }

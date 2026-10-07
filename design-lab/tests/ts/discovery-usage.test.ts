@@ -149,7 +149,7 @@ test("twig references and the Canvas merge preserve the structural count", () =>
 });
 
 test("twig scanning orders files by path segment, not by joined string", () => {
-  assert.ok(canvas.comparePaths("a/x.twig", "a-b/x.twig") < 0); // Python: ['a','x.twig'] < ['a-b','x.twig']
+  assert.ok(canvas.comparePaths("a/x.twig", "a-b/x.twig") < 0); // baseline: ['a','x.twig'] < ['a-b','x.twig']
   assert.ok("a-b/x.twig" < "a/x.twig"); // the joined-string order it must not use
 });
 

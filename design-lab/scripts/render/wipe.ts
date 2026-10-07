@@ -4,7 +4,7 @@ export async function template(ARGS: WipeArgs) {
 // DESIGN_LAB_TEMPLATE_BEGIN
 /**
  * Clear what an earlier design-lab build wrote, so the next build starts as if the file were
- * new. Used only by `figma_build.py init --rebuild`, on a file this run already built.
+ * new. Used only by `figma_build.ts init --rebuild`, on a file this run already built.
  *
  * ARGS = { fileKey, collections: [name, ...] }
  * Removes pages carrying a design-lab page key (the Cover page itself stays, emptied, because

@@ -152,7 +152,7 @@ test("Site Studio custom fixture retains the authored form in the inventory", as
   assert.equal(inventory.components[0].isCustomComponent, true);
   assert.ok(inventory.components[0].fields.length > 0);
 });
-test("large naive variant products are written as exact Python integers", () => {
+test("large naive variant products are written as exact baseline integers", () => {
   const component = {
     id: "large",
     label: "Large",
@@ -183,7 +183,7 @@ test("raw Unicode aliases retain urllib unavailable-page behavior", async () => 
     "https://example.test/encoded/%E2%80%99",
   );
 });
-test("SDC empty enums and authored enum labels retain Python behavior", () => {
+test("SDC empty enums and authored enum labels retain baseline behavior", () => {
   const root = temp(),
     file = join(root, "label.component.yml");
   put(
@@ -197,5 +197,5 @@ test("SDC empty enums and authored enum labels retain Python behavior", () => {
     ["Hero Banner", "Two Words", "None", "True"],
   );
 });
-test("Sass color lightness uses Python's even half-tie rounding", () =>
+test("Sass color lightness uses baseline's even half-tie rounding", () =>
   assert.equal(resolveToken("lighten(#000000, 30%)", new Map()), "#4c4c4c"));

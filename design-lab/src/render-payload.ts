@@ -13,13 +13,13 @@ export function fnv1a(text: string): string {
   for (let i = 0; i < text.length; i++) hash = Math.imul(hash ^ text.charCodeAt(i), 0x01000193) >>> 0;
   return hash.toString(16).padStart(8, '0');
 }
-function pythonEqual(a: unknown, b: unknown): boolean {
+function baselineEqual(a: unknown, b: unknown): boolean {
   if (typeof a === 'boolean' && typeof b === 'number' || typeof a === 'number' && typeof b === 'boolean') return Number(a) === Number(b);
   return a === b;
 }
 export function strip(value: unknown): unknown {
   if (Array.isArray(value)) return value.map(strip);
-  if (value !== null && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([k, v]) => !DROP.has(k) && !(k in DEFAULTS && pythonEqual(v, DEFAULTS[k]))).map(([k, v]) => [k, strip(v)]));
+  if (value !== null && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([k, v]) => !DROP.has(k) && !(k in DEFAULTS && baselineEqual(v, DEFAULTS[k]))).map(([k, v]) => [k, strip(v)]));
   return value;
 }
 export const decoded = (args: unknown): string => JSON.stringify(sorted(strip(args)));

@@ -27,13 +27,13 @@ test('determinism normalization ignores run metadata but retains ordered layout 
   assert.notEqual(canonicalHash(a), canonicalHash({ ...a, layout: [{ width: 11, x: 1 }] }));
 });
 
-test('layout file hashing preserves Python integer and float JSON semantics', () => {
+test('layout file hashing preserves baseline integer and float JSON semantics', () => {
   const root = mkdtempSync(join(tmpdir(), 'design-lab-layout-hash-'));
   try {
     const floatPath = join(root, 'float.json'), integerPath = join(root, 'integer.json');
     writeFileSync(floatPath, '{"value":10.0}'); writeFileSync(integerPath, '{"value":10}');
-    const pythonFloatDigest = createHash('sha256').update('{"value":10.0}').digest('hex');
-    assert.equal(hashLayout(floatPath), pythonFloatDigest); assert.notEqual(hashLayout(floatPath), hashLayout(integerPath));
+    const baselineFloatDigest = createHash('sha256').update('{"value":10.0}').digest('hex');
+    assert.equal(hashLayout(floatPath), baselineFloatDigest); assert.notEqual(hashLayout(floatPath), hashLayout(integerPath));
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 

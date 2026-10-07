@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://design-lab.local/schemas/scorecard.schema.json",
   "title": "design-lab run scorecard",
-  "description": "Written by scripts/score_run.py. Each section is scored on its own; a section without evidence carries status not-measured and a reason instead of a guess.",
+  "description": "Written by scripts/score_run.ts. Each section is scored on its own; a section without evidence carries status not-measured and a reason instead of a guess.",
   "type": "object",
   "required": [
     "scorecardVersion",
@@ -169,7 +169,7 @@
               "type": "string"
             },
             "clock": {
-              "$comment": "wall time, a clock on the wall from workflow.py init to the end of the benchmark; null unless both ends were recorded; the first scoring records the benchmark's end in the phase log",
+              "$comment": "wall time, a clock on the wall from workflow.ts init to the end of the benchmark; null unless both ends were recorded; the first scoring records the benchmark's end in the phase log",
               "type": "object",
               "required": [
                 "wallSeconds",
@@ -810,7 +810,7 @@
           ]
         },
         "repeatability": {
-          "$comment": "compare_runs.py across runs",
+          "$comment": "compare_runs.ts across runs",
           "type": "object",
           "required": [
             "status"

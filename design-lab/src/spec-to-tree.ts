@@ -1,7 +1,7 @@
-/** Deterministic geometry conversion. Python remains the oracle until phase 5. */
+/** Deterministic geometry conversion. baseline remains the oracle until phase 5. */
 import type { Spec, MeasuredNode } from './generated/spec.ts';
 import type { Color, Text, TreeNode, Layout } from './generated/tree.ts';
-import { roundEven, roundDecimal, pythonJson } from './json.ts';
+import { roundEven, roundDecimal, canonicalJson } from './json.ts';
 export const TOLERANCE = 2;
 export const SIDES = ['top', 'right', 'bottom', 'left'] as const;
 export type Side = typeof SIDES[number];
@@ -299,7 +299,7 @@ export function compact(tree: TreeNode | FlatNode): { styles: Omit<Text, 'charac
   const walk = (node: TreeNode | FlatNode): Record<string, unknown> => {
     const out = Object.fromEntries(Object.entries(node).filter(([k]) => !['children', 'text', 'layout'].includes(k)));
     if (node.text) {
-      const { characters, ...style } = node.text, key = pythonJson(style);
+      const { characters, ...style } = node.text, key = canonicalJson(style);
       if (!keys.has(key)) { keys.set(key, styles.length); styles.push(style); }
       out['chars'] = characters; out['ts'] = keys.get(key);
     }

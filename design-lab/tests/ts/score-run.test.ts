@@ -555,7 +555,7 @@ test('a rebuild, however its transcript is named, excludes other work in the con
   assert.deepEqual(rebuilt['working'], full['working']);
 });
 
-test('ISO times keep Python\'s naive-local and sub-second semantics', () => {
+test('ISO times keep baseline\'s naive-local and sub-second semantics', () => {
   assert.equal(S.parseTime('2026-01-05T10:25:00.900Z')! - S.parseTime('2026-01-05T10:25:00+00:00')!, 900_000);
   assert.equal(S.parseTime('2026-01-05T12:00:00+02:00'), S.parseTime('2026-01-05T10:00:00Z'));
   assert.equal(S.parseTime('2026-01-05T11:00:00'), new Date(2026, 0, 5, 11).getTime() * 1000);

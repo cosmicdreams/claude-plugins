@@ -6,7 +6,7 @@ import {resolve} from 'node:path';
 import {sharedRequire} from '../../src/runtime.ts';
 import {esc,num,pct,duration,split_duration,day,coverage_strip,field,thumbnails,absent,cost_section} from '../../src/score-report.ts';
 const sharp=sharedRequire()('sharp') as typeof import('sharp').default;
-test('report escapes source labels and keeps Python numeric/time formatting',()=>{
+test('report escapes source labels and keeps baseline numeric/time formatting',()=>{
  assert.equal(esc('<a "x">&\''),'&lt;a &quot;x&quot;&gt;&amp;&#x27;');assert.equal(esc(null),'');
  assert.equal(num(1234.25),'1,234.2');assert.equal(num(1234),'1,234');assert.equal(pct(.005),'0%');
  assert.equal(duration(3750),'1 h 2 min');assert.deepEqual(split_duration(3750),['1',' h 2 min']);

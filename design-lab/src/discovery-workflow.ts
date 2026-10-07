@@ -1,4 +1,4 @@
-/** Stateful phase-three operations. Later workflow phases remain on the Python front door. */
+/** Stateful phase-three operations. Later workflow phases remain on the baseline front door. */
 import {
   existsSync,
   readFileSync,

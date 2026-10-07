@@ -1,4 +1,4 @@
-/** Token normalization and Figma variable planning, equivalent to plan_variables.py. */
+/** Token normalization and Figma variable planning, equivalent to plan_variables.ts. */
 import { sorted } from "./json.ts";
 
 interface Source {

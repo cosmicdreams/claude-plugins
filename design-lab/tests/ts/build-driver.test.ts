@@ -153,7 +153,7 @@ test('missing or partial capture evidence generates failed receipt assertions wi
     writeOnChange(resolve(project, 'capture-evidence.json'), { captures }); const outputs = generate(project); assert.equal(outputs.length, 3); const record = load<{ assertions: Record<string, { verdict: string; missing?: string[] }>; nativeComponent: { validation: Record<string, boolean> } }>(project, 'builds/card.json'); assert.equal(record.assertions['breakpoint-evidence']!.verdict, 'fail'); assert.equal(record.assertions['evidence-upload']!.verdict, 'fail'); assert.ok(Object.values(record.nativeComponent.validation).every(v => !v));
   }
 });
-test('measured typography preserves Python float labels and historical integer defaults', t => {
+test('measured typography preserves baseline float labels and historical integer defaults', t => {
   const { project } = fixture(t), text = { kind: 'text', name: 'Label', source: '/div[0]/p[0]', sizing: 'FIXED', text: { characters: 'Hello', family: 'Inter', weight: 400, size: 16, lineHeight: 20 } };
   const tree = c.treeFor(project, 'card'); tree.tree.children = [text as NonNullable<typeof tree.tree.children>[number]]; writeOnChange(resolve(project, 'figma/trees/card.json'), tree);
   const measuredText = node('/div[0]/p[0]', 0, 0, 10, 20, { fontSize: '16px', lineHeight: '20px' });

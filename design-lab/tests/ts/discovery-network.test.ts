@@ -27,8 +27,8 @@ const events = (html: string): unknown[] => {
   return out;
 };
 
-// ---- the HTML tokenizer, against the event streams Python 3.14's HTMLParser produced ----
-test("HTML tokenizer reproduces Python html.parser events", () => {
+// ---- the HTML tokenizer, against the event streams baseline 3.14's HTMLParser produced ----
+test("HTML tokenizer reproduces baseline html.parser events", () => {
   assert.deepEqual(
     events('<p class="a&amp;b" hidden data-x="1"/>x &lt; y<br>'),
     [
@@ -349,7 +349,7 @@ test("the body is the fallback when there is no main, and navigation is excluded
     "Useful copy.",
   );
 });
-test("voice numbers use Python formatting and rounding", () => {
+test("voice numbers use baseline formatting and rounding", () => {
   assert.deepEqual(
     [0, 14, 12.5, 0.00001, 123456.7, 1234567, -3.4, 100].map(voice.formatG),
     ["0", "14", "12.5", "1e-05", "123457", "1.23457e+06", "-3.4", "100"],

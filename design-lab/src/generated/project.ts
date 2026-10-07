@@ -26,7 +26,7 @@ export interface Project {
     [k: string]: unknown;
   };
   /**
-   * Run identity, written by workflow.py init (0.15 and later) or workflow.py identity. Optional so older manifests stay valid.
+   * Run identity, written by workflow.ts init (0.15 and later) or workflow.ts identity. Optional so older manifests stay valid.
    */
   run?: {
     startedAt?: string;

@@ -1,6 +1,6 @@
 /** RGB Lanczos resampling with the oracle's coefficient quantization and two 8-bit passes.
  * Mathematical behavior follows Pillow 12.3's Resample.c; Sharp supplies decoding/WebP encoding.
- * https://github.com/python-pillow/Pillow/blob/12.3.0/src/libImaging/Resample.c
+ * https://github.com/baseline-pillow/Pillow/blob/12.3.0/src/libImaging/Resample.c
  */
 const precision=2**22;
 function coefficients(input:number,output:number,count=output) {

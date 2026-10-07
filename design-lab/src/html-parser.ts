@@ -1,7 +1,7 @@
-/** A port of Python 3.14's html.parser.HTMLParser event stream (convert_charrefs=True), and of
- * html.unescape, so the published-page extractors see the same tags and text as the Python
+/** A port of baseline 3.14's html.parser.HTMLParser event stream (convert_charrefs=True), and of
+ * html.unescape, so the published-page extractors see the same tags and text as the baseline
  * extractors did. Only start tags, end tags and text are reported: comments, declarations and
- * processing instructions are consumed and dropped, as the Python subclasses ignore them.
+ * processing instructions are consumed and dropped, as the baseline subclasses ignore them.
  * Like feed() without close(), a construct the input ends inside is dropped. */
 import { html5Entities } from "./html-entities.ts";
 
@@ -14,7 +14,7 @@ export interface HtmlHandler {
   startendtag?(tag: string, attrs: Attrs): void;
 }
 
-/** What Python's str.split() / str.strip() treat as whitespace; JS \s differs at both ends. */
+/** What baseline's str.split() / str.strip() treat as whitespace; JS \s differs at both ends. */
 export const PY_SPACE =
   "\\t\\n\\v\\f\\r\\x1c-\\x1f \\x85\\xa0\\u1680\\u2000-\\u200a\\u2028\\u2029\\u202f\\u205f\\u3000";
 const SPACE_RUN = new RegExp(`[${PY_SPACE}]+`, "gu"),

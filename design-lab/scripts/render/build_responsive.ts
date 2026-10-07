@@ -3,7 +3,7 @@ import { DL_API, KIT, ROLES, rgb, solid, loadKitFonts, text, stack, add, fillWid
 export async function template(ARGS: BuildResponsiveArgs) {
 // DESIGN_LAB_TEMPLATE_BEGIN
 /**
- * Build ONE responsive master for one component from a responsive.py tree.
+ * Build ONE responsive master for one component from a responsive.ts tree.
  *
  * ARGS = { pageId, x, y, id, name, description, collection, modeNames: { Desktop, Tablet, Mobile },
  *          variables: { <name>: { type, values: { Desktop, Tablet, Mobile } } }, tree }

@@ -9,7 +9,7 @@ import { mergeVerifyState } from '../../src/verify-state.ts';
 
 const run = (state: any, more: any = {}) => verify({ state, generatedAt: '2026-01-01T00:00:00Z', out: '/tmp/verify-report.json', ...more });
 
-test('verify returns the Python report envelope and distinguishes empty subjects', () => {
+test('verify returns the baseline report envelope and distinguishes empty subjects', () => {
   const report = run({});
   assert.deepEqual(Object.keys(report), ['standardVersion', 'generatedAt', 'open', 'waived', 'passed', 'inapplicable', 'completeness']);
   assert.equal(report.standardVersion, '4.1.0');
@@ -195,7 +195,7 @@ test('planned documentation approval matches either the inventory id or machineN
   assert.equal(preferredId.open.some(f => f.check === 'documentation-cards'), false);
 });
 
-test('empty measurements are Python-falsy and leave source binding comparison unperformed', () => {
+test('empty measurements are baseline-falsy and leave source binding comparison unperformed', () => {
   const report = run({ components: [{ name: 'hero — Hero', tokenBoundCount: 0 }] }, { measurements: {} });
   assert.deepEqual(report.open.filter(f => f.check === 'bindings-match-source').map(f => [f.severity, f.detail]), [[
     'minor', 'not checked - pass --render-evidence or --measurements so source token use can be compared against the Figma bindings',

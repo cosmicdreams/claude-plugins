@@ -94,7 +94,7 @@ test('Adobe kit results are cached under the run and unreadable results are retr
 test('configuration decoding follows HTML5 named and numeric character references', () => {
   assert.equal(unescape('A&amp;B &NotEqualTilde; &#128; &#1; &notit;'), 'A&B ≂̸ €  ¬it;');
 });
-test('CSS discovery keeps Python regex case behavior and requires source and license files', t => {
+test('CSS discovery keeps baseline regex case behavior and requires source and license files', t => {
   const f = fixture(t), directoryFont = join(f.theme, 'fonts/open/directory.woff2'); mkdirSync(directoryFont);
   writeFileSync(join(f.theme, 'css/case.css'), '@FONT-FACE { font-family: Upper; src: url(Upper.woff2); }\n@font-face { FONT-FAMILY: UpperProperty; src: url(Upper.woff2); }\n@font-face { font-family: Directory; src: url(../fonts/open/directory.woff2); }');
   const sources = declared(f.repo); assert.equal(sources.faces.upper, undefined); assert.equal(sources.faces.upperproperty, undefined); assert.equal(sources.faces.directory?.[0]?.exists, false); assert.equal(sources.faces.directory?.[0]?.licence, null);

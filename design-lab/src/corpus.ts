@@ -4,18 +4,8 @@ import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 export interface EvaluationConfig { corpus: string; scoreboard: { ledger: string; dashboard: string } }
-export function loadConfig(): EvaluationConfig {
-  const setting = process.env['DESIGN_LAB_CONFIG'] ?? '~/.claude/design-lab.json';
-  const expanded = setting === '~' ? homedir() : setting.startsWith('~/') ? join(homedir(), setting.slice(2)) : setting;
-  const path = resolve(expanded);
-  let value: any;
-  try { value = JSON.parse(readFileSync(path, 'utf8')); } catch (error) {
-    if ((error as NodeJS.ErrnoException).code === 'ENOENT') throw new Error(`missing configuration file ${path}; required keys: corpus, scoreboard.ledger, scoreboard.dashboard`);
-    throw new Error(`cannot read configuration ${path}: ${(error as Error).message}`);
-  }
-  for (const key of ['corpus', 'scoreboard.ledger', 'scoreboard.dashboard']) { let item = value; for (const part of key.split('.')) item = item && typeof item === 'object' ? item[part] : null; if (typeof item !== 'string' || !item.trim()) throw new Error(`${path}: missing or invalid configuration key ${key}`); }
-  return { corpus: resolve(value.corpus), scoreboard: { ledger: resolve(value.scoreboard.ledger), dashboard: resolve(value.scoreboard.dashboard) } };
-}
+export { loadConfig } from './lab-config.ts';
+import { loadConfig } from './lab-config.ts';
 export function sitePath(label: string, config = loadConfig()): string {
   if (!label || label === '.' || label === '..' || basename(label) !== label || label.includes('\\') || isAbsolute(label)) throw new Error('site label must be a single directory name');
   return resolve(config.corpus, label);

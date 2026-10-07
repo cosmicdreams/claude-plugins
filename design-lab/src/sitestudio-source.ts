@@ -229,7 +229,7 @@ export function configDir(root: string, folder?: string): any {
       problem: null,
     };
   const override =
-    "name the folder with workflow.py select --sitestudio-config <folder>";
+    "name the folder with workflow.ts select --sitestudio-config <folder>";
   for (const name of ["site_studio_sync", "config_sync_directory"]) {
     const found = locate(abs, name);
     if (!found.length) continue;

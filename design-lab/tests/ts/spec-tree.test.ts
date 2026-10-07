@@ -9,7 +9,7 @@ import { fnv1a, callPayload, stripTemplate } from '../../src/render-payload.ts';
 const merge = (nodes: ReturnType<typeof node>[]) => build(spec({ desktop: nodes, mobile: nodes }), 'X', 'x');
 const arrow = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11h12z"/></svg>';
 const recolour = (source: string, width = 24, height = 24, color = 'rgb(28, 110, 107)') => st.maskedIconSvg(node('/a', 0, 0, width, height, { backgroundColor: color }, { maskSvg: source }));
-test('Python half-even geometry and decimal rounding', () => {
+test('baseline half-even geometry and decimal rounding', () => {
   assert.deepEqual([0.5, 1.5, -0.5, -1.5, 2.5].map(roundEven), [0, 2, 0, -2, 2]);
   assert.deepEqual([1.005, 2.675, 0.125, 0.375].map(n => roundDecimal(n, 2)), [1, 2.67, 0.12, 0.38]);
 });

@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Phase-three CLI, retaining workflow.py's detect/extract/usage/plan/variables flags. */
+/** Phase-three CLI, retaining workflow.ts's detect/extract/usage/plan/variables flags. */
 import { parseArgs } from "node:util";
 import {
   detectProject,

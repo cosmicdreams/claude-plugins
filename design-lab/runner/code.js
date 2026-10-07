@@ -1,6 +1,6 @@
-// design-lab runner: executes figma_build.py steps in the open file, with no model in between.
+// design-lab runner: executes figma_build.ts steps in the open file, with no model in between.
 //
-// scripts/figma_runner.py serves the steps on localhost. This loop asks for the next step,
+// scripts/figma_runner.ts serves the steps on localhost. This loop asks for the next step,
 // runs it here, posts the result, and repeats until the build is done. The server picks the
 // build whose file key matches this file, so the same plugin drives every run. A failed step is
 // never recorded; the plugin stays open and waits, and the build resumes from that step once

@@ -1,0 +1,3037 @@
+{
+  "retained": 330,
+  "equivalence": 34,
+  "deleted": 132,
+  "mapping": [
+    {
+      "original": "test_canvas.CanvasTest.test_sqlq_headerless_tab_rows_keep_first_row_and_empty_columns",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-usage.test.ts",
+        "tests/ts/discovery-network.test.ts"
+      ],
+      "behavior": "Preserve headerless rows and empty columns; extract_canvas_usage.ts."
+    },
+    {
+      "original": "test_canvas.CanvasTest.test_twig_references_and_canvas_merge_preserve_structural_count",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-usage.test.ts",
+        "tests/ts/discovery-network.test.ts"
+      ],
+      "behavior": "Distinguish structural references from authored placements; extract_canvas_usage.ts."
+    },
+    {
+      "original": "test_canvas.CanvasTest.test_rendered_markers_paths_and_example_fallback",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-usage.test.ts",
+        "tests/ts/discovery-network.test.ts"
+      ],
+      "behavior": "Ignore failed pages and retain rendered example fallback; find_rendered_components.ts."
+    },
+    {
+      "original": "test_canvas.CanvasTest.test_canvas_inventory_and_detection",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-usage.test.ts",
+        "tests/ts/discovery-network.test.ts"
+      ],
+      "behavior": "Exclude unregistered Canvas components and preserve field semantics; extract_canvas.ts."
+    },
+    {
+      "original": "test_canvas.CanvasTest.test_template_nodes_skip_disabled_templates_and_root_selector",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-usage.test.ts",
+        "tests/ts/discovery-network.test.ts"
+      ],
+      "behavior": "Skip disabled templates and macro markup when choosing roots; extract_canvas_usage.ts/scaffold_configs.ts."
+    },
+    {
+      "original": "test_canvas.CanvasTest.test_published_current_page_rows_templates_and_non_sdc",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-usage.test.ts",
+        "tests/ts/discovery-network.test.ts"
+      ],
+      "behavior": "Count current published placements, nested slots and non-SDC entries correctly; extract_canvas_usage.ts."
+    },
+    {
+      "original": "test_capture_all.CaptureAllTest.test_scaffold_prefers_first_populated_example_source_and_sdc_selector",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/browser/cookies.test.ts"
+      ],
+      "behavior": "Prefer verified examples and keep local capture versus portable documentation URLs; scaffold_configs.ts."
+    },
+    {
+      "original": "test_capture_all.CaptureAllTest.test_candidate_pages_fall_back_to_unverified_candidates",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/browser/cookies.test.ts"
+      ],
+      "behavior": "Try bounded, deduplicated fallback pages after a failed candidate; capture_all.ts."
+    },
+    {
+      "original": "test_capture_all.CaptureAllTest.test_second_run_skips_complete_components_and_keeps_their_evidence",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/browser/cookies.test.ts"
+      ],
+      "behavior": "Reuse completed captures without losing prior evidence; capture_all.ts."
+    },
+    {
+      "original": "test_capture_all.CaptureAllTest.test_changed_config_makes_the_recorded_outcome_stale",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/browser/cookies.test.ts"
+      ],
+      "behavior": "Invalidate capture reuse when the configuration changes; capture_all.ts."
+    },
+    {
+      "original": "test_capture_all.CaptureAllTest.test_only_redoes_the_named_component",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/browser/cookies.test.ts"
+      ],
+      "behavior": "Limit recapture to requested components and reject unknown IDs; capture_all.ts."
+    },
+    {
+      "original": "test_capture_all.CaptureAllTest.test_selector_check_failure_skips_measurement_and_check_mode_captures_nothing",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/browser/cookies.test.ts"
+      ],
+      "behavior": "A selector miss must not produce measurement or screenshot evidence; capture_all.ts."
+    },
+    {
+      "original": "test_capture_all.CaptureAllTest.test_without_the_check_fallback_stops_at_max_pages",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/browser/cookies.test.ts"
+      ],
+      "behavior": "Bound fallback attempts when selector checking is unavailable; capture_all.ts."
+    },
+    {
+      "original": "test_capture_all.DerivedChildTest.test_a_tagged_child_gets_its_parents_subtree_and_crop",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/browser/cookies.test.ts"
+      ],
+      "behavior": "Derive the child crop and translate its geometry relative to the child; nesting.ts/capture_all.ts."
+    },
+    {
+      "original": "test_capture_all.NestedPlanTest.test_a_rendered_subcomponent_is_built_and_a_data_only_one_is_mapped",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/browser/cookies.test.ts"
+      ],
+      "behavior": "Build rendered subcomponents but map proven data-only children; plan.ts."
+    },
+    {
+      "original": "test_compare_runs.CompareRunsTest.test_identical_runs_score_100_and_ignore_ids",
+      "suites": [
+        "tests/ts/compare-runs.test.ts"
+      ],
+      "behavior": "Ignore ephemeral Figma IDs when comparing identical output; compare_runs.ts."
+    },
+    {
+      "original": "test_compare_runs.CompareRunsTest.test_every_category_and_exact_scores",
+      "suites": [
+        "tests/ts/compare-runs.test.ts"
+      ],
+      "behavior": "Detect every node difference category and preserve comparison scoring; compare_runs.ts."
+    },
+    {
+      "original": "test_compare_runs.CompareRunsTest.test_missing_node_and_page_order",
+      "suites": [
+        "tests/ts/compare-runs.test.ts"
+      ],
+      "behavior": "Detect missing nodes and page-order drift; compare_runs.ts."
+    },
+    {
+      "original": "test_compositions.CompositionTests.test_nested_components_and_void_elements",
+      "suites": [
+        "tests/ts/discovery-network.test.ts"
+      ],
+      "behavior": "Exclude nested components while preserving outer page composition order; extract_compositions.ts."
+    },
+    {
+      "original": "test_cookie_preferences.CookiePreferencesTests.test_shadow_panel_and_late_panel_are_closed",
+      "suites": [
+        "tests/browser/cookies.test.ts"
+      ],
+      "behavior": "Real consent-panel regression including late and shadow-DOM panels; cookie_preferences.ts, separate browser integration lane."
+    },
+    {
+      "original": "test_cookie_preferences.CookiePreferencesTests.test_unclosable_panel_fails_without_screenshot",
+      "suites": [
+        "tests/browser/cookies.test.ts"
+      ],
+      "behavior": "An unclosable panel must fail capture rather than contaminate the Figma evidence; cookie_preferences.ts, browser lane."
+    },
+    {
+      "original": "test_cookie_preferences.CookiePreferencesTests.test_cookie_component_can_opt_out",
+      "suites": [
+        "tests/browser/cookies.test.ts"
+      ],
+      "behavior": "Consent components can explicitly opt out of dismissal; cookie_preferences.ts, browser lane."
+    },
+    {
+      "original": "test_cookie_preferences.CookiePreferencesTests.test_saved_choice_carries_to_next_breakpoint",
+      "suites": [
+        "tests/browser/cookies.test.ts"
+      ],
+      "behavior": "Reuse saved consent across breakpoints; cookie_preferences.ts, browser lane."
+    },
+    {
+      "original": "test_evaluation.EvaluationTest.test_freeze_preserves_source_and_all_artifacts",
+      "suites": [
+        "tests/ts/evaluation.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/rebuild.test.ts"
+      ],
+      "behavior": "Freeze inputs without modifying the source and reject overwriting an existing fixture; corpus.ts."
+    },
+    {
+      "original": "test_evaluation.EvaluationTest.test_labels_cannot_escape_corpus",
+      "suites": [
+        "tests/ts/evaluation.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/rebuild.test.ts"
+      ],
+      "behavior": "Reject corpus labels that escape the fixture directory; lab_config.ts."
+    },
+    {
+      "original": "test_evaluation.EvaluationTest.test_offline_images_make_zero_network_calls_and_do_not_read_source",
+      "suites": [
+        "tests/ts/evaluation.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/rebuild.test.ts"
+      ],
+      "behavior": "Offline rebuilds use frozen images without network or original-source reads; fetch_images.ts."
+    },
+    {
+      "original": "test_evaluation.EvaluationTest.test_tier2_waits_for_dumps_after_build_and_reports_runner_errors",
+      "suites": [
+        "tests/ts/evaluation.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/rebuild.test.ts"
+      ],
+      "behavior": "Wait for verification dumps and propagate runner failure instead of scoring too early; rebuild.ts."
+    },
+    {
+      "original": "test_evaluation.EvaluationTest.test_shared_cost_metrics_keep_recorded_values",
+      "suites": [
+        "tests/ts/evaluation.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/rebuild.test.ts"
+      ],
+      "behavior": "Reuse recorded cost values instead of recomputing later costs; run_metrics.ts."
+    },
+    {
+      "original": "test_evaluation.PropertyCompareTest.test_seeded_geometry_font_alignment_image_and_inline_loss",
+      "suites": [
+        "tests/ts/evaluation.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/rebuild.test.ts"
+      ],
+      "behavior": "Property comparison detects seeded geometry, typography, text and image losses; property_compare.ts."
+    },
+    {
+      "original": "test_evaluation.PropertyCompareTest.test_breakpoint_variables_and_missing_state_are_measured_honestly",
+      "suites": [
+        "tests/ts/evaluation.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/rebuild.test.ts"
+      ],
+      "behavior": "Resolve breakpoint values and mark missing states unmeasured; property_compare.ts."
+    },
+    {
+      "original": "test_evaluation.PropertyCompareTest.test_layout_positions_come_from_flow_not_saved_coordinates",
+      "suites": [
+        "tests/ts/evaluation.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/rebuild.test.ts"
+      ],
+      "behavior": "Compute geometry from actual layout flow, not stale saved coordinates; property_compare.ts."
+    },
+    {
+      "original": "test_evaluation.PropertyCompareTest.test_missing_font_shaping_geometry_is_not_a_pass",
+      "suites": [
+        "tests/ts/evaluation.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/rebuild.test.ts"
+      ],
+      "behavior": "Missing font-shaping geometry is unknown rather than a pass; property_compare.ts."
+    },
+    {
+      "original": "test_figma_compare.CompareTests.test_missing_content_fails",
+      "suites": [
+        "tests/ts/figma-compare.test.ts"
+      ],
+      "behavior": "Missing visual content must fail comparison; figma_compare.ts."
+    },
+    {
+      "original": "test_figma_compare.CompareTests.test_shift_is_measured",
+      "suites": [
+        "tests/ts/figma-compare.test.ts"
+      ],
+      "behavior": "Measure displacement rather than silently accepting shifted content; figma_compare.ts."
+    },
+    {
+      "original": "test_figma_compare.CorrectedMetricTests.test_short_master_passes_original_but_fails_corrected",
+      "suites": [
+        "tests/ts/figma-compare.test.ts"
+      ],
+      "behavior": "Count unmatched height and area in corrected acceptance; figma_compare.ts."
+    },
+    {
+      "original": "test_figma_compare.CorrectedMetricTests.test_tolerance_applies_per_channel",
+      "suites": [
+        "tests/ts/figma-compare.test.ts"
+      ],
+      "behavior": "Apply color tolerance per channel rather than grayscale; figma_compare.ts."
+    },
+    {
+      "original": "test_figma_compare.CorrectedMetricTests.test_identical_pair_passes_both",
+      "suites": [
+        "tests/ts/figma-compare.test.ts"
+      ],
+      "behavior": "An identical pair passes the corrected metric; figma_compare.ts."
+    },
+    {
+      "original": "test_figma_build.PrepareTests.test_manifest_is_published_last_and_is_never_copied",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Publish a rebuilt run only after all inputs are ready; rebuild.ts."
+    },
+    {
+      "original": "test_figma_build.PrepareTests.test_same_file_is_refused_before_copying",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "A fresh-file replay must refuse the source Figma file; rebuild.ts."
+    },
+    {
+      "original": "test_figma_build.PrepareTests.test_unapproved_plan_is_refused",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Refuse an unapproved plan before any build; rebuild.ts."
+    },
+    {
+      "original": "test_figma_build.PrepareTests.test_an_approval_the_phase_log_kept_or_a_scored_build_counts",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Honor recorded approval after recapture resets phase state; rebuild.ts."
+    },
+    {
+      "original": "test_figma_build.PrepareTests.test_a_plan_already_built_and_scored_counts_as_approved",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "An already built and scored plan retains approval; rebuild.ts."
+    },
+    {
+      "original": "test_figma_build.PrepareTests.test_nested_or_used_workspaces_are_refused",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Reject nested or occupied workspaces without damaging inputs or existing work; rebuild.ts."
+    },
+    {
+      "original": "test_figma_build.PrepareTests.test_site_addresses_fall_back_to_capture_and_missing_is_plain",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Use captured site addresses when available and reject absent reconstruction context; rebuild.ts."
+    },
+    {
+      "original": "test_figma_build.WaitTests.test_figma_error_publishes_latch_and_a_new_server_resumes_failed_step",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Latch a failed step and resume it after server restart; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_build.WaitTests.test_server_exception_is_structured_and_recovery_clears_it",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Surface server exceptions and clear the failure on successful progress; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_build.WaitTests.test_current_figma_and_server_failures_are_prompt",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Stop promptly on a current build failure; rebuild.ts."
+    },
+    {
+      "original": "test_figma_build.WaitTests.test_historical_failure_does_not_stop_resumed_wait",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Ignore historical failures when resuming a build; rebuild.ts."
+    },
+    {
+      "original": "test_figma_build.WaitTests.test_new_failure_followed_by_recorded_progress_is_recovered",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Successful progress clears a recovered failure; rebuild.ts."
+    },
+    {
+      "original": "test_figma_build.WaitTests.test_existing_latch_in_structured_progress_fails_even_before_wait",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Honor an existing active failure before waiting; rebuild.ts."
+    },
+    {
+      "original": "test_figma_build.WaitTests.test_failed_heartbeat_from_previous_server_is_ignored",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Ignore failure evidence belonging to a previous server instance; rebuild.ts."
+    },
+    {
+      "original": "test_figma_build.WorkflowTests.test_failed_prepare_removes_allocated_run_or_empties_given_workspace",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Clean only the new workspace when preparation fails; workflow.ts/rebuild.ts."
+    },
+    {
+      "original": "test_figma_build.WorkflowTests.test_await_stops_server_before_logging_and_ensures_again_on_retry",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Release the failed server so retry starts fresh; workflow.ts/rebuild.ts."
+    },
+    {
+      "original": "test_figma_build.WorkflowTests.test_copied_phases_do_not_count_as_production_time_and_report_names_reused_inputs",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Exclude copied phase time from current production time and explain reuse; score_run.ts/score_report.ts."
+    },
+    {
+      "original": "test_figma_build.RunsFolderTests.test_create_refuses_a_runs_folder_linked_into_a_repository",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/rebuild.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Reject run destinations whose symlink resolves into a repository; lab_config.ts."
+    },
+    {
+      "original": "test_figma_runner.RunnerServerTests.test_requests_without_the_token_are_refused",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Reject unauthorized requests before touching build state; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.RunnerServerTests.test_only_the_plugin_origin_is_allowed",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Reject non-plugin origins before running a Figma operation; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.RunnerServerTests.test_malformed_json_gets_an_error_reply",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Reject malformed or non-object messages without corrupting a build; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.RunnerServerTests.test_a_server_serves_exactly_one_run",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Never route one runner server across unrelated runs; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.RunnerServerTests.test_an_outdated_runner_is_told_to_restart",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Reject an incompatible runner before executing payloads; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.HandshakeTests.test_the_runner_waits_before_there_are_build_steps",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "An empty build waits rather than closing its Figma runner; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.HandshakeTests.test_a_file_holding_only_this_runs_preflight_cover_counts_as_empty",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Permit only this run's preflight cover when testing fresh-file emptiness; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.HandshakeTests.test_a_file_that_is_not_empty_fails",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Refuse a foreign nonempty Figma file before writing; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.HandshakeTests.test_a_cover_that_cannot_be_drawn_fails_with_its_cause",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Fail handshake when the cover cannot actually be drawn; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.HandshakeTests.test_a_page_that_cannot_be_created_fails",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Fail handshake on a read-only file or page-creation error; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.HandshakeTests.test_a_cover_whose_plugin_data_does_not_read_back_fails",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Require successful plugin-data readback before trusting the handshake; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.HandshakeTests.test_a_different_open_file_fails",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Refuse operations against a different open Figma file; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.HandshakeTests.test_no_runner_within_the_timeout_fails",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Expire an unanswered handshake and clear its pending request; figma_runner.ts, fake clock."
+    },
+    {
+      "original": "test_figma_runner.HandshakeTests.test_the_token_belongs_to_the_person_not_the_run",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Keep one private per-person token across runs without copying it into run artifacts; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.HandshakeTests.test_a_check_recorded_after_preflight_gave_up_is_ignored",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Ignore a late handshake result after cancellation; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.HandshakeTests.test_a_resumed_build_proves_only_the_connection",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Resume connection to a populated target but still reject the wrong file; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.HandshakeTests.test_an_iterating_build_keeps_the_runner_waiting_when_done",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Keep an iterating runner alive until the next build; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.HandshakeTests.test_a_slow_step_is_reported_in_flight",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Treat an active long step as in flight rather than disconnected; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.HandshakeTests.test_preflight_stops_the_server_a_finished_run_left_behind",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Release the server of a completed build before starting the next run; figma_runner.ts."
+    },
+    {
+      "original": "test_figma_runner.ConnectBeforePlanTests.test_a_connection_to_a_finished_build_waits_for_the_new_plan",
+      "suites": [
+        "tests/ts/figma-runner.test.ts",
+        "tests/ts/runner-work.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "A connection to an old completed build must wait for a newly planned build; figma_runner.ts."
+    },
+    {
+      "original": "test_fonts.PlanTests.test_faces_follow_the_file_served_not_the_weight_number",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Choose the served face using CSS weight/style matching; fonts.ts."
+    },
+    {
+      "original": "test_fonts.PlanTests.test_a_missing_family_gets_a_stand_in_by_genre_and_a_route",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Choose genre-appropriate stand-ins and explain acquisition routes; fonts.ts."
+    },
+    {
+      "original": "test_fonts.PlanTests.test_a_macos_font_figma_omits_has_nothing_to_install",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Do not promise installation for a system font unavailable in Figma; fonts.ts."
+    },
+    {
+      "original": "test_fonts.PlanTests.test_a_macos_font_figma_omits_is_drawn_under_its_other_name",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Resolve Courier to Courier New, then its compatible clone; fonts.ts."
+    },
+    {
+      "original": "test_fonts.PlanTests.test_an_open_licence_font_can_be_installed_from_the_site",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Use discovered open-license desktop files as the font acquisition route; fonts.ts."
+    },
+    {
+      "original": "test_fonts.PlanTests.test_a_trial_name_is_the_same_family",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Match trial/web family names to the same available family; fonts.ts."
+    },
+    {
+      "original": "test_fonts.BuildFontTests.test_a_missing_family_is_drawn_in_its_stand_in_with_the_face_it_serves",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Draw the selected stand-in with the actual served face; render/build_responsive.ts."
+    },
+    {
+      "original": "test_fonts.BuildFontTests.test_once_installed_the_real_face_is_used_not_the_nearest_weight",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Use an installed real family and served face instead of nearest named weight; render/build_responsive.ts."
+    },
+    {
+      "original": "test_fonts.BuildFontTests.test_a_never_served_first_family_is_skipped_and_a_variable_font_draws_the_exact_weight",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Skip unserved families and use exact variable-font weight; render/build_responsive.ts."
+    },
+    {
+      "original": "test_fonts.BuildFontTests.test_without_a_plan_names_still_match_and_a_style_fallback_is_recorded",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Match names without a plan and record style fallback; render/build_responsive.ts."
+    },
+    {
+      "original": "test_fonts.ReviewTests.test_weights_between_faces_follow_css_matching",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Respect CSS matching around 400/500 and variable weight ranges; fonts.ts."
+    },
+    {
+      "original": "test_fonts.ReviewTests.test_config_only_google_fonts_are_found_through_escaped_json",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Discover Google font references inside escaped configuration JSON; fonts.ts."
+    },
+    {
+      "original": "test_fonts.ReviewTests.test_an_unreadable_kit_keeps_its_families",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Retain known families and honest warnings when an Adobe kit is unreadable; fonts.ts."
+    },
+    {
+      "original": "test_fonts.ReviewTests.test_a_cdn_file_name_still_names_the_face",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Read served face names from CDN URLs with query strings; fonts.ts."
+    },
+    {
+      "original": "test_fonts.ReviewTests.test_icon_fonts_by_name_not_by_letters",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Identify icon fonts without rejecting ordinary similarly named fonts; fonts.ts."
+    },
+    {
+      "original": "test_fonts.ReviewTests.test_text_outside_a_faces_range_is_drawn_in_the_next_family",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Fall through the CSS stack outside a face's Unicode range; fonts.ts."
+    },
+    {
+      "original": "test_fonts.ReviewTests.test_an_open_licence_must_cover_every_face_and_web_files_need_converting",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Require a license for every face and explain web-file conversion; fonts.ts."
+    },
+    {
+      "original": "test_fonts.ReviewBuildTests.test_heavy_and_black_are_different_faces",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Keep Heavy and Black as distinct drawable faces; render/build_responsive.ts."
+    },
+    {
+      "original": "test_fonts.ReviewBuildTests.test_an_icon_font_is_counted_not_reported_missing",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Count icon-font text without reporting it as a missing ordinary font; render/build_responsive.ts."
+    },
+    {
+      "original": "test_fonts.ReviewBuildTests.test_text_outside_the_range_uses_the_next_family",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Draw characters outside a face range using the next family; render/build_responsive.ts."
+    },
+    {
+      "original": "test_fonts.VerifyFontTests.test_a_planned_stand_in_is_a_decision_and_style_losses_are_reported",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "A declared stand-in is minor and style losses remain explicit; verify.ts."
+    },
+    {
+      "original": "test_fonts.VerifyFontTests.test_the_font_drawn_is_named_not_a_newer_plan",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Report the font actually drawn when the current plan has changed; verify.ts."
+    },
+    {
+      "original": "test_fonts.VerifyFontTests.test_modern_receipts_are_not_second_guessed",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Do not invent missing-font drift for a declared family never rendered; verify.ts."
+    },
+    {
+      "original": "test_fonts.CompletionFontTests.test_counts_follow_the_build",
+      "suites": [
+        "tests/ts/fonts.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/score-run.test.ts"
+      ],
+      "behavior": "Font counts and labels describe actual builds rather than planned stand-ins; score_run.ts."
+    },
+    {
+      "original": "test_guard_runner_token.GuardRunnerTokenTest.test_blocks_every_way_of_reaching_the_token",
+      "suites": [
+        "tests/ts/guard-runner-token.test.ts"
+      ],
+      "behavior": "Block token disclosure including traversal and shell/function aliases; hooks/guard_runner_token.ts."
+    },
+    {
+      "original": "test_guard_runner_token.GuardRunnerTokenTest.test_allows_the_runner_plugin_and_everything_else",
+      "suites": [
+        "tests/ts/guard-runner-token.test.ts"
+      ],
+      "behavior": "Allow ordinary scripts and runner assets while enforcing token secrecy; hooks/guard_runner_token.ts."
+    },
+    {
+      "original": "test_lab_setup.WorkflowTests.test_the_operator_is_the_person_signed_in_to_claude_code",
+      "suites": [
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Report the account-specific signed-in operator with explicit fallback; lab_config.ts."
+    },
+    {
+      "original": "test_lab_setup.SetupTests.test_settings_are_kept_when_others_are_written",
+      "suites": [
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Updating one setting must preserve unrelated configuration; lab_setup.ts."
+    },
+    {
+      "original": "test_lab_setup.SetupTests.test_the_read_blocking_setting_is_found_and_removed_only_when_asked",
+      "suites": [
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Read-blocking settings change only on explicit request; lab_setup.ts."
+    },
+    {
+      "original": "test_lab_setup.SetupTests.test_capture_uses_the_shared_playwright_or_says_how_to_get_one",
+      "suites": [
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Resolve the shared Playwright dependency or report how to configure it; lab_setup.ts/capture_all.ts."
+    },
+    {
+      "original": "test_lab_setup.AllowFoldersTests.test_allowing_design_labs_folders_keeps_the_setting_and_ends_the_need_to_approve",
+      "suites": [
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Allow requested folders idempotently without clearing the user's read guard or symlink; lab_setup.ts."
+    },
+    {
+      "original": "test_lab_setup.ReviewTests.test_runs_never_land_inside_a_working_copy",
+      "suites": [
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Keep generated runs outside repository working copies; lab_config.ts."
+    },
+    {
+      "original": "test_lab_setup.ReviewTests.test_two_runs_started_at_once_get_two_folders",
+      "suites": [
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Allocate concurrent run folders without collisions; lab_config.ts."
+    },
+    {
+      "original": "test_masked_icons.MaskedIconTests.test_mask_takes_the_background_colour",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "CSS mask paths use the measured background color instead of a solid square; spec_to_tree.ts."
+    },
+    {
+      "original": "test_masked_icons.MaskedIconTests.test_painted_shapes_are_recoloured_and_none_stays_unpainted",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Recolor painted shapes while preserving no-paint and opacity; spec_to_tree.ts."
+    },
+    {
+      "original": "test_masked_icons.MaskedIconTests.test_no_mask_or_no_colour_is_not_an_icon",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Do not create a mask icon without both mask evidence and a visible color; spec_to_tree.ts."
+    },
+    {
+      "original": "test_masked_icons.MaskedIconTests.test_style_block_without_trailing_semicolon_keeps_the_svg_whole",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Recolor stylesheet fills without truncating the SVG; spec_to_tree.ts."
+    },
+    {
+      "original": "test_masked_icons.MaskedIconTests.test_single_quotes_comments_and_xml_declaration",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Handle XML declarations, comments and single-quoted SVG safely; spec_to_tree.ts."
+    },
+    {
+      "original": "test_masked_icons.MaskedIconTests.test_html_page_is_not_an_icon",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Reject an HTML/login response masquerading as SVG; spec_to_tree.ts."
+    },
+    {
+      "original": "test_masked_icons.MaskedIconTests.test_root_takes_the_measured_box_and_keeps_its_drawing_size",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Use measured icon size while preserving its drawing viewBox; spec_to_tree.ts."
+    },
+    {
+      "original": "test_masked_icons.MaskedIconTests.test_byte_order_mark_and_percentage_sizes",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Handle BOM and percentage-sized SVG without inventing invalid bounds; spec_to_tree.ts."
+    },
+    {
+      "original": "test_masked_icons.MaskedIconTests.test_masked_element_with_children_or_text_keeps_its_frame",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Preserve masked frames that contain text or children; spec_to_tree.ts."
+    },
+    {
+      "original": "test_masked_icons.MaskedIconTests.test_mask_url_parsing",
+      "suites": [
+        "tests/ts/capture.test.ts",
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Parse CSS mask URLs with quoting, spaces and embedded SVG data; measure.ts."
+    },
+    {
+      "original": "test_model_native.ArtifactContractTests.test_atomic_write_preserves_previous_file_on_serialisation_error",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "An unsuccessful serialization must preserve the previous stored data; artifact_contracts.ts."
+    },
+    {
+      "original": "test_model_native.ArtifactContractTests.test_duplicate_component_ids_fail_validation",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Reject duplicate component identities before building; artifact_contracts.ts."
+    },
+    {
+      "original": "test_model_native.ArtifactContractTests.test_unknown_explicit_kind_fails_closed",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Reject unsupported explicitly requested contract kinds; artifact_contracts.ts."
+    },
+    {
+      "original": "test_model_native.ArtifactContractTests.test_capture_evidence_rejects_local_documentation_link",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Keep DDEV/local addresses out of published documentation links; artifact_contracts.ts."
+    },
+    {
+      "original": "test_model_native.ArtifactContractTests.test_build_record_requires_visual_comparison",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Require actual visual evidence before a build can be accepted; artifact_contracts.ts."
+    },
+    {
+      "original": "test_model_native.ArtifactContractTests.test_build_record_rejects_screenshot_component_and_incomplete_breakpoints",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Reject screenshot surrogates and incomplete breakpoint evidence; artifact_contracts.ts."
+    },
+    {
+      "original": "test_model_native.VisualPlanningTests.test_rendering_without_capture_is_refused",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Refuse visual build without captured visual evidence; plan.ts."
+    },
+    {
+      "original": "test_model_native.VisualPlanningTests.test_index_keeps_component_and_documentation_destinations_separate",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Keep component and documentation link destinations distinct in Figma; index_rows.ts."
+    },
+    {
+      "original": "test_model_native.DrupalAuthoringTests.test_authoring_source_outranks_more_numerous_sdcs",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Prefer the authoring source over incidental SDC counts; detect.ts."
+    },
+    {
+      "original": "test_model_native.DrupalAuthoringTests.test_predefined_list_options_replace_exported_placeholder",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Replace exported list placeholders with actual predefined options; extract_drupal_authoring.ts."
+    },
+    {
+      "original": "test_model_native.DrupalAuthoringTests.test_common_contrib_contact_date_and_block_fields_have_model_kinds",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Map supported contrib field types without false defects; extract_drupal_authoring.ts."
+    },
+    {
+      "original": "test_model_native.DrupalAuthoringTests.test_render_evidence_bounds_twig_sdc_and_style_search",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Bound render evidence to the correct bundle/template/style sources; extract_drupal_rendering.ts."
+    },
+    {
+      "original": "test_model_native.DrupalAuthoringTests.test_bundle_stylesheet_is_additive_to_child_sdc_stylesheet",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Retain both bundle and child stylesheets as additive evidence; extract_drupal_rendering.ts."
+    },
+    {
+      "original": "test_model_native.DrupalUsageTests.test_usage_separates_direct_and_nested_instances",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Separate direct placements from structural/nested usage; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_model_native.TokenStrategyTests.test_loaded_stylesheets_match_paths_not_only_basenames",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Match loaded stylesheets by full path to avoid basename collisions; detect.ts."
+    },
+    {
+      "original": "test_model_native.TokenStrategyTests.test_sass_root_declarations_do_not_leak_into_part_selectors",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Prevent root Sass declarations leaking into part-selector facts; extract_sass_style_facts.ts."
+    },
+    {
+      "original": "test_model_native.WorkflowTests.test_plan_blocks_when_detected_usage_was_not_measured",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Require measured usage or an authorized fallback before planning; workflow.ts."
+    },
+    {
+      "original": "test_model_native.WorkflowTests.test_model_cannot_self_authorise_a_waiver",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "A model cannot grant itself a human waiver; workflow.ts."
+    },
+    {
+      "original": "test_model_native.WorkflowTests.test_component_phase_completes_only_after_every_build_receipt",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Do not complete a component phase until all builds have receipts; workflow.ts."
+    },
+    {
+      "original": "test_model_native.VerifyRegressionTests.test_find_oriented_documentation_card_name_is_recognised",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Recognize the real documentation card naming convention; verify.ts."
+    },
+    {
+      "original": "test_model_native.VerifyRegressionTests.test_generated_plans_key_enforces_completeness",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Generated plans must not silently disable the completeness gate; verify.ts."
+    },
+    {
+      "original": "test_model_native.VerifyRegressionTests.test_receipt_contract_requires_source_anatomy_triad_and_nested_instances",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Require source anatomy, breakpoint evidence and nested-instance coverage; verify.ts."
+    },
+    {
+      "original": "test_model_native.VerifyRegressionTests.test_sass_token_evidence_blocks_an_unbound_component_without_capture",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Unbound source tokens remain a verification blocker without capture; verify.ts."
+    },
+    {
+      "original": "test_model_native.VerifyRegressionTests.test_refused_inventory_does_not_require_full_documentation_card",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Refused components do not require full built documentation; verify.ts."
+    },
+    {
+      "original": "test_model_native.VerifyRegressionTests.test_completeness_requires_qualified_source_id_for_namespace_collision",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Qualify source IDs so same-named Drupal bundles cannot satisfy one another; verify.ts."
+    },
+    {
+      "original": "test_model_native.VerifyRegressionTests.test_render_evidence_does_not_cross_drupal_source_namespaces",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "Do not borrow render evidence from another Drupal namespace; verify.ts."
+    },
+    {
+      "original": "test_model_native.VerifyRegressionTests.test_whole_file_verify_rejects_not_run_build_assertion",
+      "suites": [
+        "tests/ts/contracts.test.ts",
+        "tests/ts/artifact-policy.test.ts",
+        "tests/ts/record-tree-contracts.test.ts",
+        "tests/ts/discovery-workflow.test.ts",
+        "tests/ts/discovery-planning.test.ts",
+        "tests/ts/verify.test.ts",
+        "tests/ts/workflow.test.ts",
+        "tests/ts/build-driver.test.ts"
+      ],
+      "behavior": "A not-run build assertion cannot pass whole-file verification; verify.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.GridLayoutTests.test_one_track_at_every_width_is_a_vertical_stack",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "A one-track grid at every width becomes a vertical stack; responsive.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.GridLayoutTests.test_more_tracks_at_any_width_keeps_the_wrapping_row",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Any multi-track width retains wrapping-row layout; responsive.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.GridLayoutTests.test_unrecorded_tracks_never_guess_a_stack",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Do not infer grid tracks from absent measurement; spec_to_tree.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.TokenAndColourTests.test_hex_valued_text_token_is_a_colour",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Hex --text-* values are colors rather than type sizes; extract_tokens_cssvars.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.TokenAndColourTests.test_expand_hex_accepts_rgb_functions",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Accept rgb/rgba colors at token conversion; figma_build.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.TokenAndColourTests.test_variables_template_reads_rgba",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Preserve rgba alpha when drawing Figma variables; render/variables.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.CollectionTests.test_media_query_modes_fold_into_brand_breakpoint_modes",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Fold responsive token values into the branded Core collection; figma_build.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.CollectionTests.test_unused_mode_collapses_into_core",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Collapse invariant mode collections into Core; plan_variables.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.CollectionTests.test_verify_rejects_media_mode_names_and_a_second_modeful_collection",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Reject raw media names and multiple width-mode collections; verify.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_extractor_keeps_media_modes_in_source_order",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Preserve CSS source order for responsive cascades; extract_tokens_cssvars.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_cascade_last_match_wins_across_px_breakpoints",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Use the cascade's last matching media rule; figma_build.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_media_query_syntax",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Handle comma OR, range syntax, units and print in media queries; figma_build.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_site_studio_breakpoints_fold_through_their_cascade",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Fold Site Studio breakpoints through their documented cascade; figma_build.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_other_axis_keeps_its_own_branded_collection_with_readable_modes",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Keep independent mode axes as branded readable collections; figma_build.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_query_only_token_never_writes_null",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "A query-only token must not produce null values for other widths; figma_build.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_wipe_names_only_collections_this_run_emitted",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "A rebuild removes only collections owned by this run; figma_build.ts/render/wipe.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_width_and_another_axis_in_one_collection_split_by_variable",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Split width and theme variables by their actual axis; figma_build.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_a_variable_varying_on_both_axes_keeps_the_collection_whole",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Keep a genuinely mixed-axis variable intact rather than lose values; figma_build.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_variables_template_keys_variables_by_collection",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Distinguish same-named variables in different collections; render/variables.ts; rewrite source assertions as runtime checks."
+    },
+    {
+      "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_percentage_rgb",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Parse percentage RGB channels correctly; figma_build.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.CaptureTests.test_child_avoids_its_parents_page",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Prefer a child's own example page over its parent's when available; scaffold_configs.ts."
+    },
+    {
+      "original": "test_pncb_run_fixes.CaptureTests.test_apple_system_fonts_are_never_drawable",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Do not select SF Pro that Figma lists but draws blank; fonts.ts."
+    },
+    {
+      "original": "test_render_pipeline.SpecToTreeTests.test_colors_and_css_variables",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Parse colors and CSS variable references used by native Figma layers; spec_to_tree.ts."
+    },
+    {
+      "original": "test_render_pipeline.SpecToTreeTests.test_flex_gap_and_center_alignment",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Map flex gaps and alignment correctly; spec_to_tree.ts."
+    },
+    {
+      "original": "test_render_pipeline.SpecToTreeTests.test_grid_rows_wrap_and_counter_gap",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Map wrapping-grid row and column gaps correctly; spec_to_tree.ts."
+    },
+    {
+      "original": "test_render_pipeline.SpecToTreeTests.test_block_margin_absorbed_into_padding_and_unequal_gaps_get_spacers",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Preserve block margins and unequal sibling gaps in drawn geometry; spec_to_tree.ts."
+    },
+    {
+      "original": "test_render_pipeline.SpecToTreeTests.test_misaligned_children_fall_back_to_absolute",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Use absolute placement when measured children cannot fit a faithful flow; spec_to_tree.ts."
+    },
+    {
+      "original": "test_render_pipeline.SpecToTreeTests.test_bem_name_and_wrapper_collapse",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Collapse wrappers without losing text and preserve meaningful layer names; spec_to_tree.ts."
+    },
+    {
+      "original": "test_render_pipeline.ResponsiveTests.test_hidden_mobile_child_uses_boolean_visible_variable",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Preserve per-width hidden children through visibility bindings; responsive.ts."
+    },
+    {
+      "original": "test_render_pipeline.RenderPayloadTests.test_fnv_known_vector_including_utf16",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Match checksum UTF-16 semantics across payload builder and Figma runtime; render_payload.ts."
+    },
+    {
+      "original": "test_render_pipeline.FigmaBuildTests.test_rebuild_in_place_wipes_first_clears_results_and_keeps_iterating",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Rebuild only owned content, invalidate prior results and retain iteration; figma_build.ts."
+    },
+    {
+      "original": "test_render_pipeline.FigmaBuildTests.test_a_finished_build_answers_done_even_after_templates_change",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "A completed build remains done after templates change; figma_build.ts."
+    },
+    {
+      "original": "test_render_pipeline.FigmaBuildTests.test_next_pages_and_record_rejects_missing_ids_then_advances",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Do not advance a build after a result missing required identities; figma_build.ts."
+    },
+    {
+      "original": "test_render_pipeline.FigmaBuildTests.test_build_fills_the_preflight_cover_and_refuses_other_content",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Reuse this run's preflight cover and reject foreign content; figma_build.ts."
+    },
+    {
+      "original": "test_render_pipeline.FigmaBuildTests.test_evidence_files_follow_the_drawn_columns",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Keep captures attached to the matching drawn breakpoint columns; figma_build.ts."
+    },
+    {
+      "original": "test_render_pipeline.FigmaBuildTests.test_untiered_components_get_the_untiered_page",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Place components of unknown usage on the Untiered page; figma_build.ts."
+    },
+    {
+      "original": "test_render_pipeline.FigmaBuildTests.test_known_gaps_name_what_the_build_measured_unresolved",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Known gaps must identify measured visual/font losses; figma_build.ts."
+    },
+    {
+      "original": "test_render_pipeline.FigmaBuildTests.test_cover_bar_is_the_total_split_into_exact_shares",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Keep category shares totaling the built count and readable against the cover; render/cover.ts."
+    },
+    {
+      "original": "test_render_pipeline.FigmaBuildTests.test_cover_getting_started_and_report_share_every_number",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Cover, Getting Started and report must share one set of truthful counts; library_counts.ts."
+    },
+    {
+      "original": "test_render_pipeline.FigmaBuildTests.test_index_tier_follows_the_merged_usage_tier",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Respect merged structural usage tier rather than recomputing from placements alone; index_rows.ts."
+    },
+    {
+      "original": "test_render_pipeline.FigmaBuildTests.test_images_step_skips_failed_fetches_and_surfaces_fetch_errors",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Unavailable image assets must surface an honest failure/skip without aborting unrelated images; figma_build.ts."
+    },
+    {
+      "original": "test_render_pipeline.FigmaBuildTests.test_examples_map_rendered_ids_through_the_inventory",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Resolve rendered source IDs through inventory identities for Examples instances; figma_build.ts."
+    },
+    {
+      "original": "test_render_pipeline.FetchImagesTests.test_sources_collect_nested_images_and_backgrounds",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Collect nested image and background assets needed by the Figma build; fetch_images.ts."
+    },
+    {
+      "original": "test_render_pipeline.FetchImagesFailureTests.test_one_missing_image_does_not_stop_the_rest",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "One missing asset must not discard successful assets; fetch_images.ts."
+    },
+    {
+      "original": "test_render_pipeline.FetchImagesFailureTests.test_svg_is_never_passed_through",
+      "suites": [
+        "tests/ts/figma-behavior.test.ts",
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/templates.test.ts"
+      ],
+      "behavior": "Rasterize SVG assets before raster upload instead of passing SVG bytes as PNG; fetch_images.ts."
+    },
+    {
+      "original": "test_review_objectives.ReviewObjectives.test_corrected_comparison_reaches_receipt_and_gate",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/score-run.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Corrected visual comparison must drive receipt and acceptance gate; figma_receipts.ts/verify.ts."
+    },
+    {
+      "original": "test_review_objectives.ReviewObjectives.test_unknown_and_partial_usage_are_not_retirement",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/score-run.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Unknown or partial usage must never cause zero-use retirement; plan.ts/extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_review_objectives.ReviewObjectives.test_subset_keeps_unrelated_component_and_rebuilds_parent",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/score-run.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Subset builds preserve unrelated work and refresh dependent parents using existing IDs; figma_build.ts."
+    },
+    {
+      "original": "test_review_objectives.ReviewObjectives.test_large_token_inventory_consolidates_and_preserves_aliases",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/score-run.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Consolidate large inventories without losing aliases or responsive values; plan_variables.ts/figma_build.ts."
+    },
+    {
+      "original": "test_review_objectives.ReviewObjectives.test_independent_core_modes_survive_consolidation",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/score-run.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Preserve independent Core mode axes while consolidating width/invariant values; plan_variables.ts/figma_build.ts."
+    },
+    {
+      "original": "test_review_objectives.ReviewObjectives.test_finish_never_accepts_a_failed_gate_and_always_scores",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/score-run.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Always write the report but never accept a failed completion gate; workflow.ts."
+    },
+    {
+      "original": "test_review_objectives.ReviewObjectives.test_native_rebuild_preserves_master_and_variant_node_ids",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/score-run.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Native rebuilds preserve master, variant and consumer instance identities; render/build_responsive.ts."
+    },
+    {
+      "original": "test_review_objectives.ReviewObjectives.test_extraction_preserves_approved_untiered_fallback",
+      "suites": [
+        "tests/ts/build-driver.test.ts",
+        "tests/ts/build-collections.test.ts",
+        "tests/ts/evaluation-cli.test.ts",
+        "tests/ts/score-run.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Extraction must preserve an approved unknown-usage fallback; workflow.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_accuracy_keeps_original_and_adds_corrected",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Keep original comparison for history and corrected accuracy for truthful report scores; run_metrics.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_missing_evidence_is_not_measured_with_a_reason",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Absent evidence must read not measured with a reason; score_run.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_runner_sessions_and_steps",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Count runner sessions, step time and errors from recorded events; score_run.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_recorded_schema_change",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Report explicitly recorded schema changes; score_run.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_confirmed_no_schema_change",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Distinguish confirmed no change from unmeasured schema churn; score_run.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_transcript_tokens_are_deduplicated_and_windowed",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Deduplicate and time-window transcript token usage; score_run.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_friendly_model_names",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Render readable model labels in the benchmark report; score_run.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_tokens_by_model_for_a_named_session",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Count only the selected session and its subagents by model; score_run.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_unknown_session_is_not_measured",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "An unknown session produces unknown cost rather than guessed totals; score_run.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_coverage_counts_eligible_components_and_placements",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Coverage separates eligible, excluded, missing and usage-weighted components; library_counts.ts/run_metrics.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_every_refused_count_matches_the_coverage_gap",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Refused counts exclude retirement and agree across all report surfaces; library_counts.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_benchmark_step_splits_time_and_tokens",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Separate production and benchmark time/token costs; score_run.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_first_scoring_fixes_the_benchmark_end",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "First scoring fixes the benchmark end and later scoring preserves it; score_run.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_the_first_scoring_stops_the_runs_server",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Stop this run's server after first report generation; score_run.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_an_ambiguous_current_session_is_named_in_the_report",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Disclose an ambiguous current-session selection in the HTML report; score_run.ts."
+    },
+    {
+      "original": "test_score_run.ScoreRunTest.test_incidental_differences_ignore_paths_links_and_times",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Ignore incidental location/time/link changes but retain substantive hash differences; score_run.ts."
+    },
+    {
+      "original": "test_score_run.WorkingTimeTest.test_rebuild_named_current_and_transcript_scoring_excludes_other_work",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Exclude other work from a rebuilt run's time and token attribution; score_run.ts."
+    },
+    {
+      "original": "test_score_run.WorkingTimeTest.test_working_spans_waits_and_subagent_overlap",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Union overlapping subagent spans and partition working versus waiting time; score_run.ts."
+    },
+    {
+      "original": "test_score_run.WorkingTimeTest.test_overload_counts_as_waiting_on_the_service",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Classify service overload separately from usage-limit waiting; score_run.ts."
+    },
+    {
+      "original": "test_score_run.WorkingTimeTest.test_a_question_to_the_person_is_waiting_not_working",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Classify user-answer waits correctly and explain permission limits in the report; score_run.ts."
+    },
+    {
+      "original": "test_score_run.WorkingTimeTest.test_interruptions_after_the_preflight_go_ahead",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Count genuine post-preflight interruptions rather than treating the run as unattended; score_run.ts."
+    },
+    {
+      "original": "test_score_run.WorkingTimeTest.test_a_stop_for_the_runner_counts_as_an_interruption",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "A later runner stop counts as an interruption; score_run.ts."
+    },
+    {
+      "original": "test_score_run.WorkingTimeTest.test_connection_wait_is_planned_until_connect_completes",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Expected initial connection waits do not count as interruptions; score_run.ts."
+    },
+    {
+      "original": "test_score_run.WorkingTimeTest.test_runner_that_never_connects_is_unplanned",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "A connection that never completes remains an unplanned interruption; score_run.ts."
+    },
+    {
+      "original": "test_score_run.WorkingTimeTest.test_a_failed_connection_closes_its_wait",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "A failed connection ends the planned-wait window; score_run.ts."
+    },
+    {
+      "original": "test_score_run.WorkingTimeTest.test_a_retry_keeps_the_first_attempts_wait",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Connection retries preserve the initial planned wait; score_run.ts."
+    },
+    {
+      "original": "test_score_run.WorkingTimeTest.test_the_wait_ends_when_the_connection_completes_to_the_fraction_of_a_second",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Use subsecond boundaries when deciding whether a wait was planned; score_run.ts."
+    },
+    {
+      "original": "test_score_run.WorkingTimeTest.test_benchmark_start_splits_working_time",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Split working and waiting intervals at benchmark start; score_run.ts."
+    },
+    {
+      "original": "test_score_run.WorkingTimeTest.test_without_a_transcript_only_measured_intervals_are_shown",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Without a transcript report only measured intervals, without invented idle/work time; score_run.ts."
+    },
+    {
+      "original": "test_score_run.ClaudeTokensTest.test_only_claude_models_and_no_tool_input",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Attribute Claude model tokens and never render tool input in the HTML report; score_run.ts."
+    },
+    {
+      "original": "test_score_run.RecordedBuildTest.test_a_build_that_stopped_after_the_cover_built_nothing",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "A plan or completed cover cannot inflate built-component counts; library_counts.ts."
+    },
+    {
+      "original": "test_score_run.MalformedTranscriptTest.test_a_line_whose_message_is_not_an_object_is_skipped",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Skip malformed transcript message records without losing valid cost data; score_run.ts."
+    },
+    {
+      "original": "test_score_run.WorkflowCaptureTest.test_a_site_studio_run_needs_its_export_folder_before_the_go_ahead",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "A Site Studio run requires a resolved source before the go-ahead; workflow.ts."
+    },
+    {
+      "original": "test_score_run.WorkflowCaptureTest.test_connect_that_cannot_start_the_server_is_logged_as_a_stop",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "An unstartable runner server must stop the run rather than claim connection; workflow.ts."
+    },
+    {
+      "original": "test_score_run.WorkflowCaptureTest.test_preflight_gives_the_go_ahead_without_connecting_to_figma",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Preflight readiness must not initiate Figma writes prematurely; workflow.ts."
+    },
+    {
+      "original": "test_score_run.WorkflowCaptureTest.test_twig_debug_is_information_when_disabled",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Disabled Twig debug is capture setup information rather than preflight failure; workflow.ts."
+    },
+    {
+      "original": "test_score_run.WorkflowCaptureTest.test_preflight_records_no_go_ahead_on_any_failure",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Any failed prerequisite prevents the run go-ahead; workflow.ts."
+    },
+    {
+      "original": "test_score_run.WorkflowCaptureTest.test_an_absent_runner_stops_the_build_with_what_to_do_first",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "A disconnected runner stops execution while an active in-flight step remains connected; workflow.ts."
+    },
+    {
+      "original": "test_score_run.WorkflowCaptureTest.test_plan_approval_follows_the_preflight_choice",
+      "suites": [
+        "tests/ts/score-run.test.ts",
+        "tests/ts/score-report.test.ts",
+        "tests/ts/workflow.test.ts"
+      ],
+      "behavior": "Only the user's preflight choice can authorize plan approval; workflow.ts."
+    },
+    {
+      "original": "test_site_robustness.OptionalTableTests.test_layout_sections_skipped_when_table_is_absent",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-network.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/fetch-images.test.ts",
+        "tests/ts/figma-runner.test.ts"
+      ],
+      "behavior": "Skip optional Drupal tables that do not exist; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_site_robustness.ClassMarkerTests.test_template_file_name_in_a_debug_comment_is_not_a_class",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-network.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/fetch-images.test.ts",
+        "tests/ts/figma-runner.test.ts"
+      ],
+      "behavior": "Do not mistake Twig debug comment filenames for rendered CSS classes; find_examples.ts."
+    },
+    {
+      "original": "test_site_robustness.FailedStepTests.test_failed_step_waits_until_the_build_is_reinitialised",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-network.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/fetch-images.test.ts",
+        "tests/ts/figma-runner.test.ts"
+      ],
+      "behavior": "A failed step remains paused until a new build state is installed; figma_runner.ts."
+    },
+    {
+      "original": "test_site_robustness.TwigDebugTests.test_usage_refuses_a_site_without_twig_debug",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-network.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/fetch-images.test.ts",
+        "tests/ts/figma-runner.test.ts"
+      ],
+      "behavior": "Do not silently undercount template-only usage when Twig debug is absent; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_site_robustness.FigmaImageLimitTests.test_tall_capture_is_scaled_to_fit",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-network.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/fetch-images.test.ts",
+        "tests/ts/figma-runner.test.ts"
+      ],
+      "behavior": "Scale captures to Figma's image limit while preserving aspect ratio; figma_runner.ts."
+    },
+    {
+      "original": "test_site_robustness.FigmaImageLimitTests.test_image_within_limit_is_unchanged",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-network.test.ts",
+        "tests/ts/capture.test.ts",
+        "tests/ts/fetch-images.test.ts",
+        "tests/ts/figma-runner.test.ts"
+      ],
+      "behavior": "Leave already supported image sizes unchanged; figma_runner.ts."
+    },
+    {
+      "original": "test_sitestudio_custom.CustomComponentTests.test_modules_and_web_root_skip_contrib_core",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts"
+      ],
+      "behavior": "Ignore contrib/core components when discovering custom sources; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_custom.CustomComponentTests.test_bad_form_is_reported_without_losing_other_components",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts"
+      ],
+      "behavior": "Report malformed custom forms without dropping valid components; extract_sitestudio.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ExportFolderTests.test_every_form_of_the_setting_is_read_without_running_php",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Parse supported literal Site Studio settings without executing PHP; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ExportFolderTests.test_the_setting_wins_over_any_folder_name",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Explicit export settings take precedence over folder guesses; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ExportFolderTests.test_no_guessing_from_folder_names",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Ambiguous export discovery must require a decision rather than guess; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ExportFolderTests.test_without_the_setting_site_studio_exports_with_drupal_config",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Use Drupal config export when no separate Site Studio sync setting exists; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ExportFolderTests.test_a_setting_that_needs_php_is_reported_not_guessed",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Report dynamic PHP settings rather than invent an export path; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ExportFolderTests.test_commented_out_and_environment_generated_settings_are_ignored",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Ignore commented and environment-generated assignments; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_source.CustomComponentTests.test_a_site_with_only_custom_components_is_a_site_studio_site",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Recognize a Site Studio site with only custom components; detect.ts."
+    },
+    {
+      "original": "test_sitestudio_source.CustomComponentTests.test_found_at_any_depth_and_named_by_their_file",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Find custom components at supported depths and use source identity; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_source.CustomComponentTests.test_a_component_without_a_form_is_kept_with_no_fields",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Keep fieldless custom components buildable; extract_sitestudio.ts."
+    },
+    {
+      "original": "test_sitestudio_source.RecommendationTests.test_site_studio_outranks_a_few_authoring_bundles",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Prefer the active Site Studio source over a few incidental authoring bundles; detect.ts."
+    },
+    {
+      "original": "test_sitestudio_source.DecisionTests.test_the_folder_is_a_decision_a_person_can_override",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Honor the user's export-folder choice consistently during extraction; workflow.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ReviewRegressionTests.test_strings_keep_what_looks_like_comments_quotes_and_semicolons",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Preserve quoted comment-like characters in literal PHP settings; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ReviewRegressionTests.test_an_unreadable_assignment_is_never_hidden_by_a_readable_one",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Do not hide an unreadable assignment behind a readable one; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ReviewRegressionTests.test_a_declared_folder_that_is_missing_does_not_fall_back_to_drupal_config",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "A declared missing export cannot silently fall back to another source; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ReviewRegressionTests.test_sites_that_disagree_need_a_person_to_choose",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Conflicting multisite exports require a source choice; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ReviewRegressionTests.test_naming_the_folder_makes_an_undetected_site_studio_selectable",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Allow an explicit valid Site Studio source even when automatic detection missed it; workflow.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ReviewRegressionTests.test_a_run_that_recorded_no_export_never_reads_the_settings_again",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "An explicitly recorded no-export choice must not be re-guessed; extract_sitestudio.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ReviewRegressionTests.test_symlinked_extensions_and_folders_are_followed",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Follow valid symlinked extensions and component folders; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ReviewRegressionTests.test_discovery_follows_site_studios_own_rules",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Use Site Studio's own extension/duplicate discovery precedence; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_source.ReviewRegressionTests.test_inactive_extensions_are_left_out_when_drupal_config_says_so",
+      "suites": [
+        "tests/ts/discovery-inventory.test.ts",
+        "tests/ts/discovery-workflow.test.ts"
+      ],
+      "behavior": "Exclude inactive extensions when active config is known; sitestudio_source.ts."
+    },
+    {
+      "original": "test_sitestudio_sync.SiteStudioSyncTests.test_twig_debug_suggestion_for_site_studio_component",
+      "suites": [
+        "tests/ts/discovery-usage.test.ts"
+      ],
+      "behavior": "Generate the correct Site Studio Twig suggestion while preserving Drupal bundle namespaces; twig_debug.ts."
+    },
+    {
+      "original": "test_sitestudio_usage.SiteStudioUsageTests.test_direct_nested_reusable_and_published_pages",
+      "suites": [
+        "tests/ts/discovery-usage.test.ts"
+      ],
+      "behavior": "Count direct/nested/reusable placements and published example pages separately; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_sitestudio_usage.SiteStudioUsageTests.test_no_published_nodes_has_no_pages",
+      "suites": [
+        "tests/ts/discovery-usage.test.ts"
+      ],
+      "behavior": "Do not invent example pages for unpublished-only placements; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_sitestudio_usage.SiteStudioUsageTests.test_invalid_json_identifies_layout",
+      "suites": [
+        "tests/ts/discovery-usage.test.ts"
+      ],
+      "behavior": "Name the offending layout when source JSON cannot be parsed; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_sitestudio_usage.SiteStudioUsageTests.test_mixed_inventory_keeps_paragraphs",
+      "suites": [
+        "tests/ts/discovery-usage.test.ts"
+      ],
+      "behavior": "Keep authoring-bundle usage alongside Site Studio component usage; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_sitestudio_usage.SiteStudioUsageTests.test_site_studio_preserves_candidates_without_paragraph_markers",
+      "suites": [
+        "tests/ts/discovery-usage.test.ts"
+      ],
+      "behavior": "Preserve unverified Site Studio candidates without applying paragraph marker assumptions; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_sitestudio_usage.SiteStudioUsageTests.test_php_unserialize_reads_byte_lengths_and_nesting",
+      "suites": [
+        "tests/ts/discovery-usage.test.ts"
+      ],
+      "behavior": "Parse PHP serialized byte lengths, Unicode and nested template values; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_sitestudio_usage.SiteStudioUsageTests.test_master_template_components_are_structural_and_site_wide",
+      "suites": [
+        "tests/ts/discovery-usage.test.ts"
+      ],
+      "behavior": "Count master-template headers/footers as structural and supply site-wide examples; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_sitestudio_usage.SiteStudioUsageTests.test_content_menu_and_view_templates",
+      "suites": [
+        "tests/ts/discovery-usage.test.ts"
+      ],
+      "behavior": "Use enabled content, menu and view templates to find examples and structural use; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_sitestudio_usage.SiteStudioUsageTests.test_unreadable_template_is_reported_not_fatal",
+      "suites": [
+        "tests/ts/discovery-usage.test.ts"
+      ],
+      "behavior": "A damaged template row must not abort usage extraction; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_sitestudio_usage.SiteStudioUsageTests.test_global_full_template_renders_bundles_without_their_own",
+      "suites": [
+        "tests/ts/discovery-usage.test.ts"
+      ],
+      "behavior": "Global full templates render bundles lacking an enabled modified default; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_sitestudio_usage.SiteStudioUsageTests.test_unmodified_default_template_renders_nothing",
+      "suites": [
+        "tests/ts/discovery-usage.test.ts"
+      ],
+      "behavior": "Do not count an unmodified default template as rendering a bundle; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_sitestudio_usage.SiteStudioUsageTests.test_damaged_rows_are_rejected_not_misread",
+      "suites": [
+        "tests/ts/discovery-usage.test.ts"
+      ],
+      "behavior": "Reject damaged serialization instead of silently misreading usage; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_sitestudio_usage.SiteStudioUsageTests.test_site_studio_extract_keeps_master_template_candidate",
+      "suites": [
+        "tests/ts/discovery-usage.test.ts"
+      ],
+      "behavior": "Keep the master-template example through extraction into capture planning; extract_drupal_usage.ts."
+    },
+    {
+      "original": "test_twig_debug.TwigDebugTest.test_suggestion_uses_drupal_hyphens",
+      "suites": [
+        "tests/ts/capture.test.ts"
+      ],
+      "behavior": "Convert Drupal underscores to the actual hyphenated Twig suggestion; twig_debug.ts."
+    },
+    {
+      "original": "test_twig_debug.TwigDebugTest.test_count_matches_the_bundle_hook_only",
+      "suites": [
+        "tests/ts/capture.test.ts"
+      ],
+      "behavior": "Count only the matching bundle hook, preserving namespaces; twig_debug.ts."
+    },
+    {
+      "original": "test_twig_debug.RenderingMarkerTest.test_root_sdc_requires_the_embed_before_any_markup",
+      "suites": [
+        "tests/ts/capture.test.ts"
+      ],
+      "behavior": "Use a root embedded SDC only when it precedes wrapper markup; extract_drupal_rendering.ts."
+    },
+    {
+      "original": "test_twig_debug.RenderingMarkerTest.test_include_matches_function_and_tag_forms",
+      "suites": [
+        "tests/ts/capture.test.ts"
+      ],
+      "behavior": "Recognize both function and tag include forms; extract_drupal_rendering.ts."
+    },
+    {
+      "original": "test_twig_debug.UsageMarkerOrderTest.test_with_twig_debug_the_template_marker_beats_a_shared_component_id",
+      "suites": [
+        "tests/ts/capture.test.ts"
+      ],
+      "behavior": "Prefer exact Twig template markers over a shared embedded component marker; find_examples.ts."
+    },
+    {
+      "original": "test_twig_debug.UsageMarkerOrderTest.test_without_twig_debug_the_component_id_is_used",
+      "suites": [
+        "tests/ts/capture.test.ts"
+      ],
+      "behavior": "Use component markers when Twig debug is unavailable; find_examples.ts."
+    },
+    {
+      "original": "test_twig_debug.UsageMarkerOrderTest.test_scaffold_turns_each_marker_kind_into_a_selector_and_setup",
+      "suites": [
+        "tests/ts/capture.test.ts"
+      ],
+      "behavior": "Turn each marker kind into a valid capture selector and reveal setup; scaffold_configs.ts."
+    },
+    {
+      "original": "test_twig_debug.NestingTest.test_child_renders_are_counted_only_inside_the_parent",
+      "suites": [
+        "tests/ts/capture.test.ts"
+      ],
+      "behavior": "Count child renders within the correct parent's bounds; twig_debug.ts."
+    },
+    {
+      "original": "test_twig_debug.NestingTest.test_slot_is_data_only_with_proof_and_rendered_otherwise",
+      "suites": [
+        "tests/ts/capture.test.ts"
+      ],
+      "behavior": "Treat a slot as data-only only with positive rendering evidence; figma_receipts.ts."
+    },
+    {
+      "original": "test_twig_debug.NestingTest.test_children_are_built_before_parents",
+      "suites": [
+        "tests/ts/capture.test.ts"
+      ],
+      "behavior": "Build child masters before their parent instances; nesting.ts."
+    },
+    {
+      "original": "test_variant_values.VariantValuesTest.test_classes_name_the_option_and_synonyms_count",
+      "suites": [
+        "tests/ts/discovery-planning.test.ts"
+      ],
+      "behavior": "Resolve variant options from field-qualified rendered classes and synonyms; nesting.ts."
+    },
+    {
+      "original": "test_variant_values.VariantValuesTest.test_generic_words_need_the_field_and_ambiguity_stays_unknown",
+      "suites": [
+        "tests/ts/discovery-planning.test.ts"
+      ],
+      "behavior": "Keep ambiguous option values unknown and ignore unrelated generic classes; nesting.ts."
+    },
+    {
+      "original": "test_variant_values.AlternateLayoutTest.test_signature_counts_text_layers_and_site_images",
+      "suites": [
+        "tests/ts/discovery-planning.test.ts"
+      ],
+      "behavior": "Distinguish observed layouts by text and image structure; nesting.ts."
+    },
+    {
+      "original": "test_variant_values.AlternateLayoutTest.test_a_set_of_observed_layouts_is_a_legitimate_set",
+      "suites": [
+        "tests/ts/discovery-planning.test.ts"
+      ],
+      "behavior": "Accept sets representing measured alternate layouts; verify.ts."
+    },
+    {
+      "original": "test_verify_blocks.BlockChecks.test_missing_section_and_capture_fail",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Missing documentation sections or captured breakpoints fail verification; verify.ts."
+    },
+    {
+      "original": "test_verify_blocks.BlockChecks.test_wrong_page_and_default_layer_fail",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Require correct documentation placement and meaningful layer names; verify.ts."
+    },
+    {
+      "original": "test_verify_blocks.BlockChecks.test_missing_instance_mode_fails",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Require breakpoint instance mode assignment; verify.ts."
+    },
+    {
+      "original": "test_verify_blocks.BlockChecks.test_wrong_default_mode_fails",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Reject an incorrect default breakpoint mode; verify.ts."
+    },
+    {
+      "original": "test_verify_blocks.BlockChecks.test_unbound_responsive_variable_fails",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Require responsive variables to be bound; verify.ts."
+    },
+    {
+      "original": "test_verify_blocks.BlockChecks.test_component_set_without_real_axis_fails",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Reject component sets without a real or observed axis; verify.ts."
+    },
+    {
+      "original": "test_verify_blocks.BlockChecks.test_duplicates_and_examples_components_fail",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Forbid duplicate masters and components on instance-only Examples pages; verify.ts."
+    },
+    {
+      "original": "test_verify_blocks.MeasuredReceiptTests.test_slot_without_a_nested_instance_fails_relationship_coverage",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "A rendered slot without a nested instance fails relationship coverage; figma_receipts.ts."
+    },
+    {
+      "original": "test_verify_blocks.MeasuredReceiptTests.test_nested_instance_satisfies_wildcard_and_named_slots",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Match nested instances against wildcard and named slot allowances; figma_receipts.ts."
+    },
+    {
+      "original": "test_verify_blocks.MeasuredReceiptTests.test_unmeasured_block_fails_closed",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Unmeasured native evidence fails closed instead of inventing a valid component; figma_receipts.ts."
+    },
+    {
+      "original": "test_verify_blocks.MeasuredReceiptTests.test_measured_image_fill_and_missing_field_rows_fail",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Screenshot-filled roots and missing field documentation fail native acceptance; figma_receipts.ts."
+    },
+    {
+      "original": "test_verify_blocks.MeasuredReceiptTests.test_full_width_capture_crop_is_a_screenshot_surrogate",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "A full-width capture crop cannot masquerade as an editable native component; figma_receipts.ts."
+    },
+    {
+      "original": "test_verify_blocks.MeasuredReceiptTests.test_partial_capture_is_a_failing_assertion_not_a_crash",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Partial captures produce a failing assertion rather than crash; figma_receipts.ts."
+    },
+    {
+      "original": "test_verify_blocks.MeasuredReceiptTests.test_capture_evidence_without_the_component_does_not_crash",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Absent component capture evidence produces failure rather than crash; figma_receipts.ts."
+    },
+    {
+      "original": "test_verify_refinements.VariableChecksTest.test_boolean_variables_are_exempt_from_scoping",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Boolean visibility variables are exempt from numeric scope restrictions; verify.ts."
+    },
+    {
+      "original": "test_verify_refinements.VariableChecksTest.test_measured_breakpoint_description_explains_the_blank_code_name",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Measured responsive geometry can explain intentionally blank code syntax; verify.ts."
+    },
+    {
+      "original": "test_verify_refinements.VariableChecksTest.test_sass_map_entries_take_map_get_names_that_resolve",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Generate resolvable Sass map-get code names and reject unknown references; plan_variables.ts/verify.ts."
+    },
+    {
+      "original": "test_verify_refinements.LayerNameTest.test_names_never_repeat_figma_defaults",
+      "suites": [
+        "tests/ts/verify.test.ts"
+      ],
+      "behavior": "Never emit default Figma layer names for semantic source elements; spec_to_tree.ts."
+    },
+    {
+      "original": "test_visual_fidelity.ConversionPiecesTest.test_zero_size_wrapper_passes_through_but_hidden_does_not",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Pass through zero-size/contents wrappers without reviving hidden elements; spec_to_tree.ts."
+    },
+    {
+      "original": "test_visual_fidelity.ConversionPiecesTest.test_clip_path_shapes",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Render supported clip-path geometry as correctly bounded vectors; spec_to_tree.ts."
+    },
+    {
+      "original": "test_visual_fidelity.ConversionPiecesTest.test_pseudo_element_images",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Turn pseudo-element image content/backgrounds into visible layers; spec_to_tree.ts."
+    },
+    {
+      "original": "test_visual_fidelity.ComparisonMaskTest.test_text_masks_make_glyph_differences_disappear",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Mask glyph differences while retaining the unmasked comparison ratio; figma_compare.ts."
+    },
+    {
+      "original": "test_visual_fidelity.ComparisonMaskTest.test_masks_come_from_the_live_text_at_each_breakpoint",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Build text masks from the live geometry at each breakpoint; figma_compare.ts."
+    },
+    {
+      "original": "test_visual_fidelity.LayoutOrderTest.test_a_child_that_moves_with_width_appears_in_two_slots",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Preserve child reorder across widths through visible placement slots; responsive.ts."
+    },
+    {
+      "original": "test_visual_fidelity.LayoutOrderTest.test_inline_wrapper_without_text_passes_through",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Do not let empty inline wrappers distort image geometry; spec_to_tree.ts."
+    },
+    {
+      "original": "test_visual_fidelity.LayoutOrderTest.test_pseudo_icon_rotation_turns_inside_the_svg",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Preserve pseudo-icon rotation inside its SVG; spec_to_tree.ts."
+    },
+    {
+      "original": "test_visual_fidelity.PositionedLayerTest.test_positioned_children_and_pseudo_boxes_are_absolute_in_stacking_order",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Exclude positioned layers from flow and retain their measured stacking order; responsive.ts."
+    },
+    {
+      "original": "test_visual_fidelity.PositionedLayerTest.test_a_reversed_row_is_laid_out_in_drawn_order",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Lay out row-reverse children in visual rather than DOM order; responsive.ts."
+    },
+    {
+      "original": "test_visual_fidelity.PositionedLayerTest.test_translated_children_are_placed_freely",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Use free placement for translated children without confusing pure rotations; spec_to_tree.ts."
+    },
+    {
+      "original": "test_visual_fidelity.DecorationTest.test_translated_decoration_behind_children_and_cropped_to_the_component",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Draw translated decoration behind content and crop to component bounds; spec_to_tree.ts."
+    },
+    {
+      "original": "test_visual_fidelity.OverflowClipTest.test_what_the_site_hides_figma_clips",
+      "suites": [
+        "tests/ts/spec-tree.test.ts",
+        "tests/ts/figma-behavior.test.ts"
+      ],
+      "behavior": "Clip overflow-hidden/auto carousel content exactly as the site does; responsive.ts/spec_to_tree.ts."
+    },
+    {
+      "original": "test_voice.VoiceTests.test_parser_uses_main_and_preserves_authored_labels",
+      "suites": [
+        "tests/ts/discovery-network.test.ts"
+      ],
+      "behavior": "Extract authored main-content headings/labels without navigation or hidden chrome; extract_voice.ts."
+    },
+    {
+      "original": "test_voice.VoiceTests.test_positioning_skips_stats_and_uses_long_paragraphs",
+      "suites": [
+        "tests/ts/discovery-network.test.ts"
+      ],
+      "behavior": "Choose positioning prose rather than short statistics; extract_voice.ts."
+    },
+    {
+      "original": "test_voice.VoiceTests.test_positioning_falls_back_to_long_prose_sentences",
+      "suites": [
+        "tests/ts/discovery-network.test.ts"
+      ],
+      "behavior": "Use substantive prose when paragraph evidence is unavailable; extract_voice.ts."
+    },
+    {
+      "original": "test_voice.VoiceTests.test_templated_data_does_not_enter_vocabulary",
+      "suites": [
+        "tests/ts/discovery-network.test.ts"
+      ],
+      "behavior": "Exclude templated data labels from the brand vocabulary; extract_voice.ts."
+    },
+    {
+      "original": "test_voice.VoiceTests.test_project_config_and_bounded_homepage_addresses",
+      "suites": [
+        "tests/ts/discovery-network.test.ts"
+      ],
+      "behavior": "Bound published-page selection and use the site's configured homepage; published_pages.ts."
+    },
+    {
+      "original": "test_voice.VoiceTests.test_body_fallback_excludes_navigation",
+      "suites": [
+        "tests/ts/discovery-network.test.ts"
+      ],
+      "behavior": "Exclude navigation when main-content markup is absent; extract_voice.ts."
+    }
+  ]
+}

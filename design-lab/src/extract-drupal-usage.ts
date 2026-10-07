@@ -1,10 +1,10 @@
-/** Measure Drupal component usage from a running DDEV database (port of extract_drupal_usage.py).
+/** Measure Drupal component usage from a running DDEV database (port of extract_drupal_usage.ts).
  *
  * The output keeps direct author placements separate from nested structural instances. This is
  * the distinction that prevents an inner paragraph such as a link from looking independently
  * placeable merely because thousands of parent components render one.
  *
- * Database access is synchronous `ddev` child processes with the same arguments the Python
+ * Database access is synchronous `ddev` child processes with the same arguments the baseline
  * used; pass a `Runner` to substitute them. Network access is asynchronous. */
 import { spawnSync } from "node:child_process";
 import { realpathSync, readFileSync } from "node:fs";
@@ -99,11 +99,11 @@ export const OPTIONAL_TABLES: Record<string, string> = {
   component_contents: "component_contents",
 };
 
-// ---- small Python-semantics helpers shared by the usage extractors ----
+// ---- small baseline-semantics helpers shared by the usage extractors ----
 export type Rows = Record<string, string[][]>;
 export const isDict = (value: unknown): value is Dict =>
   typeof value === "object" && value !== null && !Array.isArray(value);
-/** Python truthiness. */
+/** baseline truthiness. */
 export function truthy(value: unknown): boolean {
   if (
     value === null ||
@@ -135,7 +135,7 @@ const setOf = <K>(map: Map<K, Set<string>>, key: K): Set<string> => {
   }
   return found;
 };
-/** Python int(): optional sign and digits, surrounding whitespace allowed. */
+/** baseline int(): optional sign and digits, surrounding whitespace allowed. */
 export function pyInt(text: string): number {
   if (!/^\s*[+-]?\d+\s*$/.test(text))
     throw new Error(`invalid literal for int() with base 10: '${text}'`);
@@ -143,7 +143,7 @@ export function pyInt(text: string): number {
 }
 export const now = (): string =>
   new Date().toISOString().replace(/\.\d{3}Z$/, "+00:00");
-/** Python str.splitlines(). */
+/** baseline str.splitlines(). */
 export function splitlines(text: string): string[] {
   const lines = text.split(/\r\n|[\n\r\v\f\x1c\x1d\x1e\x85\u2028\u2029]/);
   if (lines.at(-1) === "") lines.pop();
@@ -176,7 +176,7 @@ export const spawnRunner: Runner = (command, args, cwd) => {
     stdio: ["ignore", "pipe", "pipe"],
   });
   if (result.error) throw result.error;
-  // Python's text=True applies universal newlines.
+  // baseline's text=True applies universal newlines.
   return {
     status: result.status,
     stdout: result.stdout.replace(/\r\n?/g, "\n"),
@@ -303,7 +303,7 @@ const MAX_PHP_DEPTH = 900;
  *
  * Strings are length-prefixed in bytes, so the input stays bytes. Objects are not expected in
  * config and are rejected rather than guessed at. Nesting past MAX_PHP_DEPTH is rejected as
- * Python's recursion limit rejected it. */
+ * baseline's recursion limit rejected it. */
 export function phpUnserialize(data: Buffer): any {
   let position = 0;
   const bytes = (start: number, end: number): string =>

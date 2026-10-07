@@ -1,4 +1,4 @@
-/** Find Drupal SDC markers on a bounded set of anonymous public pages (port of find_rendered_components.py). */
+/** Find Drupal SDC markers on a bounded set of anonymous public pages (port of find_rendered_components.ts). */
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { writeJson } from "./contracts.ts";

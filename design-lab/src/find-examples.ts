@@ -1,4 +1,4 @@
-/** Find a verified, anonymously-reachable page address for every component (port of find_examples.py).
+/** Find a verified, anonymously-reachable page address for every component (port of find_examples.ts).
  *
  * The specification file that shipped with one Site Studio library listed live example paths,
  * and they could not be trusted: two were behind login and at least one named a page the

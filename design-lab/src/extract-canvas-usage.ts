@@ -1,4 +1,4 @@
-/** Count published Canvas page placements and configured content-template nodes (port of extract_canvas_usage.py). */
+/** Count published Canvas page placements and configured content-template nodes (port of extract_canvas_usage.ts). */
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { isDeepStrictEqual, parseArgs } from "node:util";
@@ -76,7 +76,7 @@ export function sqlqRows(
   return parseSqlqRows(result.stdout, columns);
 }
 
-/** Python's Path ordering compares path segments, not the joined string. */
+/** baseline's Path ordering compares path segments, not the joined string. */
 export function comparePaths(a: string, b: string): number {
   const left = a.split(sep),
     right = b.split(sep);

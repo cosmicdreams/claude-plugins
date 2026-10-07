@@ -1,4 +1,4 @@
-/** Read-only adapters for the verification inputs assembled by the Python workflow. */
+/** Read-only adapters for the verification inputs assembled by the baseline workflow. */
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve, dirname, basename } from 'node:path';
 import type { Component } from './build-artifacts.ts';
@@ -29,7 +29,7 @@ export function mergeVerifyState(folder: string): JsonObject {
   return state;
 }
 
-/** Build the same accepted desktop measurement map as verify_inputs.py. */
+/** Build the same accepted desktop measurement map as verify_inputs.ts. */
 export function buildMeasurements(project: string, componentInput?: Component[]): JsonObject {
   const components = componentInput ?? readJson<{ components: Component[] }>(resolve(project, 'components.json'))?.components ?? [];
   const folder = resolve(project, 'capture/measurements'), out: JsonObject = {};

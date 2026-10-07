@@ -1,7 +1,7 @@
 // Generated from schemas/scorecard.schema.json. Do not edit.
 
 /**
- * Written by scripts/score_run.py. Each section is scored on its own; a section without evidence carries status not-measured and a reason instead of a guess.
+ * Written by scripts/score_run.ts. Each section is scored on its own; a section without evidence carries status not-measured and a reason instead of a guess.
  */
 export interface Scorecard {
   scorecardVersion: 1;

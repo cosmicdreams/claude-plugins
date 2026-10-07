@@ -1,6 +1,6 @@
-/** Dependencies live outside the plain-copy plugin, following lab_setup.py's cache root. */
+/** Dependencies live outside the plain-copy plugin, following lab_setup.ts's cache root. */
 import { homedir } from 'node:os';
-import { resolve, isAbsolute, sep } from 'node:path';
+import { resolve, isAbsolute, sep, basename } from 'node:path';
 import { createRequire, registerHooks, isBuiltin } from 'node:module';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { readFileSync, existsSync } from 'node:fs';
@@ -14,12 +14,19 @@ export function cacheRoot(): string {
   }
   return override ?? resolve(homedir(), process.platform === 'darwin' ? 'Library/Caches' : '.cache', 'design-lab');
 }
-/** Lock-addressed installs can coexist with lab_setup.py's unpinned playwright folder. */
+/** Lock-addressed installs can coexist with lab_setup.ts's unpinned playwright folder. */
 export function dependencyFolder(): string {
   const hash = createHash('sha256').update(readFileSync(resolve(pluginRoot, 'package-lock.json'))).digest('hex').slice(0, 16);
   return resolve(cacheRoot(), 'typescript', `v2-${hash}`);
 }
 export const completionMarker = '.design-lab-complete';
+export function chromiumFolder(): string {
+  const override = process.env['PLAYWRIGHT_BROWSERS_PATH'];
+  if (override !== undefined && !isAbsolute(override)) throw new Error('PLAYWRIGHT_BROWSERS_PATH must be an absolute path');
+  return override ?? resolve(cacheRoot(), 'browsers', basename(dependencyFolder()));
+}
+// Playwright reads this at module load. All direct scripts share setup's location.
+process.env['PLAYWRIGHT_BROWSERS_PATH'] ??= chromiumFolder();
 export function dependenciesReady(folder = dependencyFolder()): boolean {
   return existsSync(resolve(folder, completionMarker)) && existsSync(resolve(folder, 'node_modules'));
 }

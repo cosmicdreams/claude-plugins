@@ -24,7 +24,7 @@
       "check": "fonts-stand-in",
       "severity": "minor",
       "scope": "file",
-      "detail": "SF Pro drawn in Inter by default, as recorded in fonts.json; to use the real font, follow `workflow.py report fonts` and rebuild",
+      "detail": "SF Pro drawn in Inter by default, as recorded in fonts.json; to use the real font, follow `workflow.ts report fonts` and rebuild",
       "evidence": [
         "SF Pro -> Inter (11 components)"
       ]

@@ -1,4 +1,4 @@
-/** Deterministic, rule-based account of the copy on published pages (port of extract_voice.py).
+/** Deterministic, rule-based account of the copy on published pages (port of extract_voice.ts).
  *
  * Syllables use vowel groups after silent terminal e removal, with one syllable minimum.
  * This is an approximation for comparative Flesch-Kincaid grades, not a dictionary. */
@@ -13,7 +13,7 @@ import { collapse, parseHtml, pyStrip } from "./html-parser.ts";
 import { roundDecimal, roundEven } from "./json.ts";
 import { addresses, fetchPages, siteConfig } from "./published-pages.ts";
 
-// Python's \w, \d, \b and \s are Unicode-aware; JS's are ASCII. These are the Python meanings.
+// baseline's \w, \d, \b and \s are Unicode-aware; JS's are ASCII. These are the baseline meanings.
 const W = "[\\p{L}\\p{N}_]",
   B = `(?:(?<=${W})(?!${W})|(?<!${W})(?=${W}))`,
   D = "\\p{Nd}",
@@ -332,7 +332,7 @@ export function isSentenceCase(text: string): boolean {
   const found = words(text);
   return found.length > 0 && /[A-Z]/.test(found[0]![0]!) && !isTitleCase(text);
 }
-/** Python's format(value, 'g'): six significant digits, trailing zeros removed. */
+/** baseline's format(value, 'g'): six significant digits, trailing zeros removed. */
 export function formatG(value: number): string {
   if (value === 0) return "0";
   if (!Number.isFinite(value))

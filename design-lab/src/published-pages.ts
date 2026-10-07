@@ -1,4 +1,4 @@
-/** Thin public-page input shared by deterministic published-site extractors (port of published_pages.py). */
+/** Thin public-page input shared by deterministic published-site extractors (port of published_pages.ts). */
 import { createHash } from "node:crypto";
 import { readFileSync, readdirSync, statSync } from "node:fs";
 import { basename, join } from "node:path";

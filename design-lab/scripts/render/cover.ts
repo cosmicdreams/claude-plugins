@@ -13,12 +13,12 @@ export async function template(ARGS: CoverArgs) {
  * Navy ground, 80 of margin, every text in IBM Plex Sans. The site's name and one generic line at
  * the top; at the bottom the number of components, a bar that is that total split into exact
  * shares by category, and one tile per category in the same color. The categories add up to the
- * total. The ground and the category colors come from library_counts.py (COVER_GROUND and
+ * total. The ground and the category colors come from library_counts.ts (COVER_GROUND and
  * TIER_COLORS), the definition the benchmark report also draws from, so the two cannot drift.
  * Provenance is stored as hidden plugin data on the document and on the cover, for refreshes and
  * the benchmark report; no page draws it.
  */
-/* BEGIN bar helpers — pure, tested by tests/test_render_pipeline.py */
+/* BEGIN bar helpers — pure, tested by tests/test_render_pipeline.ts */
 function barWidths(values: number[], width: number) {
   const total = values.reduce((s, v) => s + v, 0);
   if (!total) return values.map(() => 0);

@@ -1,4 +1,4 @@
-/** Shared run metrics for the benchmark and the evaluation ledger (port of scripts/run_metrics.py). */
+/** Shared run metrics for the benchmark and the evaluation ledger (port of src/run-metrics.ts). */
 import { readFileSync, readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { counts, coverageSentence } from './library-counts.ts';
@@ -10,23 +10,23 @@ export const BREAKPOINTS = ['desktop', 'tablet', 'mobile'] as const;
 // Scorecard sections are open JSON documents; the scorecard schema checks their shape.
 export type Json = Record<string, any>;
 
-// ---------------------------------------------------------------------------- Python value semantics
+// ---------------------------------------------------------------------------- baseline value semantics
 
-/** Python truthiness: empty strings, lists and objects are false, as are 0, null and false. */
+/** baseline truthiness: empty strings, lists and objects are false, as are 0, null and false. */
 export function truthy(value: unknown): boolean {
   if (Array.isArray(value)) return value.length > 0;
   if (value && typeof value === 'object') return Object.keys(value).length > 0;
   return !!value;
 }
-/** Python's `a or b or c`: the first truthy value, else the last one (undefined read as None). */
+/** baseline's `a or b or c`: the first truthy value, else the last one (undefined read as None). */
 export function or(...values: unknown[]): any {
   for (const value of values) if (truthy(value)) return value;
   return values.at(-1) ?? null;
 }
-/** Python's dict view of a value that may not be an object: `x or {}` for documents read from disk. */
+/** baseline's dict view of a value that may not be an object: `x or {}` for documents read from disk. */
 export const obj = (value: unknown): Json => value && typeof value === 'object' && !Array.isArray(value) ? value as Json : {};
 export const list = (value: unknown): any[] => Array.isArray(value) ? value : [];
-/** str() of a scalar as Python formats it in an f-string. */
+/** str() of a scalar as baseline formats it in an f-string. */
 export function pyStr(value: unknown): string {
   if (value === null || value === undefined) return 'None';
   if (typeof value === 'boolean') return value ? 'True' : 'False';
@@ -37,9 +37,9 @@ export function commas(value: unknown): string {
   const [whole = '', fraction] = String(value).split('.');
   return whole.replace(/\B(?=(\d{3})+(?!\d))/g, ',') + (fraction === undefined ? '' : '.' + fraction);
 }
-/** f"{x:.Nf}", with Python's even ties on the exact binary value. */
+/** f"{x:.Nf}", with baseline's even ties on the exact binary value. */
 export const fixed = (value: number, digits: number): string => roundDecimal(Number(value), digits).toFixed(digits);
-/** Python's str.capitalize(). */
+/** baseline's str.capitalize(). */
 export const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1).toLowerCase();
 
 // ---------------------------------------------------------------------------- files
@@ -102,7 +102,7 @@ export function scoreCoverage(runDir: string): Json {
   if (c === null) return notMeasured('no components.json, so nothing says what the source holds');
   if (!c.builtKnown) {
     return notMeasured('no Figma build state, index or build records, so nothing says what was built',
-      'let the build write its receipts (figma_build.py receipts)');
+      'let the build write its receipts (figma_build.ts receipts)');
   }
   const section: Json = {
     status: 'measured', found: c.found, eligible: c.eligible, built: c.built,

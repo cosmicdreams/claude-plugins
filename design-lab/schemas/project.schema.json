@@ -103,7 +103,7 @@
       "properties": {}
     },
     "run": {
-      "description": "Run identity, written by workflow.py init (0.15 and later) or workflow.py identity. Optional so older manifests stay valid.",
+      "description": "Run identity, written by workflow.ts init (0.15 and later) or workflow.ts identity. Optional so older manifests stay valid.",
       "type": "object",
       "properties": {
         "startedAt": {

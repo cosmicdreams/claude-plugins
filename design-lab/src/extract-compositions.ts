@@ -1,4 +1,4 @@
-/** Extract top-level rendered component sequences from published pages (port of extract_compositions.py). */
+/** Extract top-level rendered component sequences from published pages (port of extract_compositions.ts). */
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { writeJson } from "./contracts.ts";

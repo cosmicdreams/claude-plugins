@@ -9,7 +9,9 @@
     "verbatimModuleSyntax": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "skipLibCheck": false
   },
   "include": [
@@ -18,7 +20,8 @@
     "templates/**/*.ts",
     "tests/ts/**/*.ts",
     "tests/equivalence/**/*.ts",
-    "tests/browser/**/*.ts"
+    "tests/browser/**/*.ts",
+    "hooks/*.ts"
   ],
   "exclude": [
     "src/figma/**/*.ts",

@@ -1,10 +1,10 @@
 #!/usr/bin/env node
 /** Publish immutable complete installs; never run npm inside a published folder. */
-import { copyFileSync, mkdirSync, mkdtempSync, renameSync, rmSync, readdirSync, writeFileSync, rmdirSync, unlinkSync } from 'node:fs';
+import { existsSync, copyFileSync, mkdirSync, mkdtempSync, renameSync, rmSync, readdirSync, writeFileSync, rmdirSync, unlinkSync } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
 import { setTimeout } from 'node:timers/promises';
-import { dependencyFolder, dependenciesReady, completionMarker, pluginRoot } from '../src/runtime.ts';
+import { dependencyFolder, dependenciesReady, completionMarker, pluginRoot, sharedRequire, chromiumFolder } from '../src/runtime.ts';
 
 const folder = dependencyFolder();
 const lock = `${folder}.lock`;
@@ -18,7 +18,8 @@ function alive(pid: number): boolean {
 /** A prepared nonempty directory is atomically renamed to claim the lock. Stale
  * recovery only unlinks the observed dead owner's file and removes EMPTY dirs,
  * so competing recoverers cannot recursively remove a new owner's lock. */
-async function acquire(): Promise<() => void> {
+async function acquire(lockPath = lock): Promise<() => void> {
+  const lock = lockPath;
   const candidate = mkdtempSync(`${lock}-`);
   const owner = `${process.pid}.json`;
   writeFileSync(resolve(candidate, owner), JSON.stringify({ pid: process.pid }));
@@ -78,3 +79,25 @@ if (!dependenciesReady(folder)) {
   }
 }
 console.log(`design-lab dependencies: ${folder}`);
+
+if (process.argv.includes('--chromium')) {
+  const browser = chromiumFolder(), marker = resolve(browser, completionMarker);
+  mkdirSync(dirname(browser), { recursive: true });
+  const release = await acquire(`${browser}.lock`);
+  let stage: string | undefined;
+  try {
+    const probe = () => spawn('node', ['-e', "const fs=require('node:fs'),p=require('playwright');process.exit(fs.existsSync(p.chromium.executablePath())?0:1)"], { cwd: folder, env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browser }, stdio: 'ignore' });
+    const complete = existsSync(marker) && await new Promise<boolean>((done, reject) => { const child = probe(); child.once('error', reject); child.once('exit', status => done(status === 0)); });
+    if (!complete) {
+      stage = mkdtempSync(`${browser}.install-`);
+      const cli = resolve(dirname(sharedRequire().resolve('playwright/package.json')), 'cli.js');
+      const installer = spawn(process.execPath, [cli, 'install', 'chromium'], { env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: stage }, stdio: 'inherit' });
+      const status = await new Promise<number>((done, reject) => { installer.once('error', reject); installer.once('exit', (status, signal) => signal ? reject(new Error(`Chromium setup interrupted by ${signal}`)) : done(status ?? 1)); });
+      if (status !== 0) throw new Error(`Chromium setup failed (${status}); no browser install was published`);
+      writeFileSync(resolve(stage, completionMarker), 'complete\n');
+      try { renameSync(browser, `${stage}.incomplete`); } catch (error) { if (code(error) !== 'ENOENT') throw error; }
+      renameSync(stage, browser);
+    }
+  } finally { if (stage) rmSync(stage, { recursive: true, force: true }); release(); }
+  console.log(`design-lab Chromium: ${browser}`);
+}

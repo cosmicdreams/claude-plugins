@@ -192,7 +192,7 @@ async function runOf($: EngineInterface, args: string): Promise<string | { missi
 }
 
 // Which run to watch when the person names none: the newest in this project's runs folder, by
-// the convention design-lab:init recorded (scripts/lab_config.py holds the same rule).
+// the convention design-lab:init recorded (src/lab-config.ts holds the same rule).
 
 async function exists($: EngineInterface, path: string): Promise<boolean> {
   return $.fs.exists(path).catch(() => false)
