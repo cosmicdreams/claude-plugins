@@ -122,3 +122,14 @@ function typedContracts(value: unknown): void {
   void invalid; void badKind;
 }
 void typedContracts;
+
+test('media-only tokens accept arbitrary mode names with string values', () => {
+  const fixture = JSON.parse(readFileSync(new URL('./fixtures/tokens-media-only.json', import.meta.url), 'utf8'));
+  assert.deepEqual(validate('tokens', fixture), []);
+  fixture.tokens[0].valuesByMode['Unseen breakpoint'] = 42;
+  assert.ok(validate('tokens', fixture).some(error => error.includes('/tokens/0/valuesByMode/Unseen breakpoint')));
+  const modes: NonNullable<NonNullable<ArtifactMap['tokens']['tokens']>[number]['valuesByMode']> = { 'Arbitrary typed breakpoint': '12px' };
+  // @ts-expect-error all mode values are strings, including previously unseen keys
+  modes['Another breakpoint'] = 12;
+  void modes;
+});
