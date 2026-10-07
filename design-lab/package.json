@@ -1,0 +1,27 @@
+{
+  "name": "design-lab",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=24" },
+  "scripts": {
+    "setup": "node scripts/setup-ts.ts",
+    "test": "node --test tests/ts/*.test.ts",
+    "typecheck": "node scripts/ts-tool.ts check",
+    "contracts:generate": "node scripts/generate-contracts.ts",
+    "contracts:check": "node scripts/generate-contracts.ts --check",
+    "contracts:reality": "node scripts/check-artifacts.ts",
+    "benchmark:check-js": "node scripts/ts-tool.ts check-js"
+  },
+  "dependencies": {
+    "ajv": "8.20.0",
+    "playwright": "1.63.0",
+    "sharp": "0.35.5"
+  },
+  "devDependencies": {
+    "@figma/plugin-typings": "1.141.0",
+    "@types/node": "24.19.1",
+    "json-schema-to-typescript": "16.0.0",
+    "typescript": "7.0.2"
+  }
+}

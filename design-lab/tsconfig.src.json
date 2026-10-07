@@ -1,0 +1,16 @@
+{
+  "compilerOptions": {
+    "target": "ES2024",
+    "module": "NodeNext",
+    "moduleResolution": "NodeNext",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "erasableSyntaxOnly": true,
+    "verbatimModuleSyntax": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
+    "types": ["node"],
+    "skipLibCheck": false
+  },
+  "include": ["src/**/*.ts", "scripts/*-ts.ts", "scripts/ts-tool.ts", "scripts/launch.ts", "scripts/generate-contracts.ts", "scripts/check-artifacts.ts", "tests/ts/**/*.ts"]
+}
