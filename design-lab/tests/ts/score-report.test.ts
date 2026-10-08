@@ -4,7 +4,8 @@ import {mkdtempSync,mkdirSync,writeFileSync,readFileSync,rmSync} from 'node:fs';
 import {tmpdir} from 'node:os';
 import {resolve} from 'node:path';
 import {sharedRequire} from '../../src/runtime.ts';
-import {coverageStrip,field,thumbnails,absent,costSection,renderReport,type ReportCard} from '../../src/score-report.ts';
+import {coverageStrip,field,thumbnails,absent,costSection,renderReport} from '../../src/score-report.ts';
+import type {Scorecard} from '../../src/generated/scorecard.ts';
 import {esc,num,pct,duration,splitDuration,day} from '../../src/report-format.ts';
 const sharp=sharedRequire()('sharp') as typeof import('sharp').default;
 test('report escapes source labels and keeps baseline numeric/time formatting',()=>{
@@ -47,10 +48,10 @@ test('cost report renders model totals without exposing transcript tool input',(
  const html=costSection(cost);assert.doesNotMatch(html,/DO_NOT_RENDER/);assert.match(html,/Tokens/);
 });
 
-const fixtureCard=():ReportCard=>JSON.parse(readFileSync(new URL('./fixtures/scorecard.json',import.meta.url),'utf8'));
+const fixtureCard=():Scorecard=>JSON.parse(readFileSync(new URL('./fixtures/scorecard.json',import.meta.url),'utf8'));
 test('schema-valid cards with optional evidence left out still render',()=>{
  // Each of these made the Python-emulating renderer throw a TypeError.
- const cases:[string,(card:ReportCard)=>void][]=[
+ const cases:[string,(card:Scorecard)=>void][]=[
   ['corrected accuracy without an original headline',card=>{card.headline.accuracy.original=null;}],
   ['measured coverage without a gap record',card=>{delete card.sections.coverage.gap;}],
   ['partly measured accuracy without totals',card=>{card.sections.accuracy={status:'partial'};}],
