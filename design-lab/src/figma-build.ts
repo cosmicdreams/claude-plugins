@@ -83,7 +83,7 @@ export class BuildDriver {
   state(): BuildState {
     const stamp = this.stamp(); if (!this.stateCache || stamp !== this.stateStamp) { const state: unknown = load(this.project, 'figma/state.json'); assertValid('figma-state', state); if (!('steps' in state)) throw new Error('build has not been initialized'); this.stateCache = state; this.stateStamp = stamp; } return structuredClone(this.stateCache);
   }
-  private save(state: BuildState): void { writeOnChange(this.statePath, state); this.stateCache = structuredClone(state); this.stateStamp = this.stamp(); }
+  private save(state: BuildState): void { writeArtifactOnChange('figma-state', this.statePath, state); this.stateCache = structuredClone(state); this.stateStamp = this.stamp(); }
   private today(): string { return this.options.today?.() ?? new Date().toLocaleDateString('en-CA'); }
   private timing(step: string, phase: string, ms: number): void { if (this.options.timings === false) return; appendFileSync(resolve(this.project, 'figma/timings.jsonl'), JSON.stringify({ step, phase, ms }) + '\n'); }
   init(o: InitOptions) {
