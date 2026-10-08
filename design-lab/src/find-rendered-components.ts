@@ -2,7 +2,8 @@
 import { readFileSync } from "node:fs";
 import { parseArgs } from "node:util";
 import { writeJson } from "./contracts.ts";
-import type { Dict } from "./discovery-io.ts";
+import type { Usage } from "./generated/usage.ts";
+import type {UsageInventory,RenderedEvidence,RenderedScan,ExampleDocument} from "./usage-types.ts";
 import { sqlqRows } from "./extract-canvas-usage.ts";
 import {
   compareStrings,
@@ -94,8 +95,8 @@ export const comparePages = (a: Page, b: Page): number =>
 /** Pure reducer of [path, status, HTML] results against inventory SDC IDs. */
 export function summarizePages(
   pages: Page[],
-  components: Dict,
-): Record<string, Dict> {
+  components: UsageInventory,
+): Record<string, RenderedEvidence> {
   const idBySdc = new Map<string, string>();
   for (const component of components["components"] || []) {
     let sourceId: string | undefined = component["sourceSdcId"];
@@ -108,7 +109,7 @@ export function summarizePages(
     }
     idBySdc.set(sourceId!, component["id"]);
   }
-  const evidence: Record<string, Dict> = {};
+  const evidence: Record<string, RenderedEvidence> = {};
   for (const id of idBySdc.values())
     evidence[id] = {
       renderedPages: 0,
@@ -137,10 +138,10 @@ export interface ScanHooks {
 export async function scan(
   baseUrl: string,
   ddevRoot: string,
-  components: Dict,
+  components: UsageInventory,
   limit = 60,
   hooks: ScanHooks = {},
-): Promise<[Record<string, Dict>, Dict]> {
+): Promise<[Record<string, RenderedEvidence>, RenderedScan]> {
   const rows = sqlqRows(resolveReal(ddevRoot), ALIASES_SQL, 2, hooks.run);
   const paths = publicPaths(rows, limit),
     get = hooks.fetch ?? fetchPage;
@@ -158,14 +159,14 @@ export async function scan(
   ];
 }
 
-export function enrichUsage(
-  document: Dict,
-  evidence: Record<string, Dict>,
-  scanDetails: Dict,
-): Dict {
+export function enrichUsage<D extends ExampleDocument>(
+  document: D,
+  evidence: Record<string, RenderedEvidence>,
+  scanDetails: Partial<RenderedScan>,
+): D {
   document["source"]["renderedVerification"] = scanDetails;
   for (const [id, rendered] of Object.entries(evidence)) {
-    const value: Dict | undefined = Object.hasOwn(document["usage"], id)
+    const value: ExampleDocument['usage'][string] | undefined = Object.hasOwn(document["usage"], id)
       ? document["usage"][id]
       : undefined;
     if (!value) continue;

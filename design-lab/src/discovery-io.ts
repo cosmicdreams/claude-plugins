@@ -3,7 +3,7 @@ import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
 import { dirname, join, relative as rel, resolve, sep } from "node:path";
 import { sharedRequire } from "./runtime.ts";
 
-export type Dict = Record<string, any>;
+export type Dict = Record<string, unknown>;
 export const yaml = sharedRequire()("yaml") as {
   parse(text: string, options?: unknown): unknown;
 };

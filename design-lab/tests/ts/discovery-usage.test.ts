@@ -9,7 +9,7 @@ import * as canvas from "../../src/extract-canvas-usage.ts";
 import * as twig from "../../src/capture/twig.ts";
 import { validate } from "../../src/contracts.ts";
 
-type Dict = Record<string, any>;
+type Dict = Record<string, unknown>;
 const fixtures = resolve(
   fileURLToPath(new URL(".", import.meta.url)),
   "../fixtures",
@@ -142,10 +142,10 @@ test("twig references and the Canvas merge preserve the structural count", () =>
     canvas.buildUsage(components, rows, { approot: root }),
   );
   const [header, photo] = merged["components"];
-  assert.equal(header.category, usage.TIERS.high);
-  assert.equal(photo.usage.structuralReferences, 1);
-  assert.equal(photo.category, usage.TIERS.structural);
-  assert.deepEqual(photo.usage.exampleCandidates, ["/resources"]);
+  assert.equal(header?.category, usage.TIERS.high);
+  assert.equal(photo?.usage?.structuralReferences, 1);
+  assert.equal(photo?.category, usage.TIERS.structural);
+  assert.deepEqual(photo?.usage.exampleCandidates, ["/resources"]);
 });
 
 test("twig scanning orders files by path segment, not by joined string", () => {
@@ -247,28 +247,28 @@ test("published current-page rows, templates and non-SDC entries count correctly
   };
   const result = canvas.buildUsage(components, rows, { approot: "/fixture" });
   assert.deepEqual(validate("usage", result), []);
-  assert.equal(result["source"].population.publishedPages, 16);
-  assert.equal(result["usage"]["sdc.mytheme.formatted-section"].placements, 82);
+  assert.equal(result?.["source"]?.population?.publishedPages, 16);
+  assert.equal(result?.["usage"]?.["sdc.mytheme.formatted-section"]?.placements, 82);
   const column = result["usage"]["sdc.mytheme.content-column"];
   assert.deepEqual(
-    [column.placements, column.structuralRefs, column.pages],
+    [column?.placements, column?.structuralRefs, column?.pages],
     [10, 20, 16],
   );
-  assert.ok(column.exampleCandidates.includes("/welcome"));
+  assert.ok(column?.exampleCandidates?.includes("/welcome"));
   const link = result["usage"]["sdc.mytheme.program-link"];
   assert.deepEqual(
-    [link.placements, link.templatePlacements, link.templateBundles],
+    [link?.placements, link?.templatePlacements, link?.templateBundles],
     [8, 1, ["program"]],
   );
-  assert.equal(result["usage"]["js.bullseye"].placements, 1);
-  assert.deepEqual(result["problems"][0].evidence, [
+  assert.equal(result?.["usage"]?.["js.bullseye"]?.placements, 1);
+  assert.deepEqual(result?.["problems"]?.[0]?.evidence, [
     "block.mytheme_contact_form",
     "js.bullseye",
   ]);
   const section = usage
     .mergeUsage(components, result)
-    ["components"].find((c: Dict) => c.id.endsWith("formatted-section"));
-  assert.equal(section.category, usage.TIERS.high);
+    ["components"].find((c) => c.id.endsWith("formatted-section"));
+  assert.equal(section?.category, usage.TIERS.high);
   assert.throws(
     () => canvas.buildUsage(components, { placements: [["short"]] }, {}),
     /fewer than 13 columns/,
@@ -353,7 +353,7 @@ const template = (
     ...settings,
   }),
 ];
-const inventory = (): Dict => ({
+const inventory = ():import('../../src/usage-types.ts').UsageInventory => ({
   source: { strategy: "sitestudio" },
   components: [
     "hero_highlight",
@@ -366,7 +366,7 @@ const inventory = (): Dict => ({
     sourceRef: `cohesion_elements.cohesion_component.${name}.yml`,
   })),
 });
-const build = (rows: usage.Rows, inv = inventory()): Dict =>
+const build = (rows: usage.Rows, inv = inventory()) =>
   usage.buildUsage(inv, rows, {});
 
 test("Site Studio counts direct, nested and reusable placements and published pages separately", () => {
@@ -397,28 +397,28 @@ test("Site Studio counts direct, nested and reusable placements and published pa
   };
   const document = build(rows),
     values = document["usage"];
-  assert.equal(values.hero_highlight.placements, 1);
-  assert.equal(values.cpt_callouts.placements, 0);
-  assert.equal(values.cpt_callouts.structuralRefs, 1);
-  assert.deepEqual(values.cpt_callouts.exampleCandidates, ["/home"]);
-  assert.equal(values.text_banner.placements, 2);
-  assert.equal(values.text_banner.pages, 1);
-  assert.equal(values.promo.structuralRefs, 1);
-  assert.equal(values.promo.pages, 2);
-  assert.deepEqual(values.promo.exampleCandidates, ["/home", "/node/3"]);
+  assert.equal(values?.['hero_highlight']?.placements, 1);
+  assert.equal(values?.['cpt_callouts']?.placements, 0);
+  assert.equal(values?.['cpt_callouts']?.structuralRefs, 1);
+  assert.deepEqual(values?.['cpt_callouts']?.exampleCandidates, ["/home"]);
+  assert.equal(values?.['text_banner']?.placements, 2);
+  assert.equal(values?.['text_banner']?.pages, 1);
+  assert.equal(values?.['promo']?.structuralRefs, 1);
+  assert.equal(values?.['promo']?.pages, 2);
+  assert.deepEqual(values?.['promo']?.exampleCandidates, ["/home", "/node/3"]);
   assert.ok(!JSON.stringify(document["problems"]).includes("model_only"));
   const merged = usage.mergeUsage(inventory(), document);
-  assert.equal(merged["components"][2].category, usage.TIERS.structural);
-  assert.equal(merged["components"][4].category, usage.TIERS.retirement);
+  assert.equal(merged?.["components"]?.[2]?.category, usage.TIERS.structural);
+  assert.equal(merged?.["components"]?.[4]?.category, usage.TIERS.retirement);
 });
 
 test("unpublished-only placements invent no example pages", () => {
   const value = build({
     nodes: [["2", "0", "page"]],
     sitestudio_layouts: [layout(1, "node", 2, [component("hero_highlight")])],
-  })["usage"].hero_highlight;
+  })["usage"]['hero_highlight'];
   assert.deepEqual(
-    [value.placements, value.pages, value.exampleCandidates],
+    [value?.placements, value?.pages, value?.exampleCandidates],
     [1, 0, []],
   );
 });
@@ -445,8 +445,8 @@ test("authoring bundles keep their usage alongside Site Studio components", () =
     },
     {},
   );
-  assert.equal(document["usage"]["paragraph:card"].placements, 1);
-  assert.equal(document["usage"]["hero_highlight"].placements, 1);
+  assert.equal(document?.["usage"]?.["paragraph:card"]?.placements, 1);
+  assert.equal(document?.["usage"]?.["hero_highlight"]?.placements, 1);
 });
 
 test("a Site Studio extraction keeps database candidates and applies no paragraph markers", async () => {
@@ -465,12 +465,12 @@ test("a Site Studio extraction keeps database candidates and applies no paragrap
     },
   });
   assert.equal(enriched, false);
-  assert.deepEqual(document["usage"].hero_highlight.exampleCandidates, [
+  assert.deepEqual(document?.["usage"]?.['hero_highlight']?.exampleCandidates, [
     "/node/14631",
   ]);
-  assert.deepEqual(document["usage"].hero_highlight.examples, []);
+  assert.deepEqual(document?.["usage"]?.['hero_highlight']?.examples, []);
   assert.match(
-    document["usage"].hero_highlight.noExampleReason,
+    document?.["usage"]?.['hero_highlight']?.noExampleReason??'',
     /not supported/,
   );
   const master = await usage.extract(tmpdir(), inventory(), null, null, {
@@ -483,8 +483,8 @@ test("a Site Studio extraction keeps database candidates and applies no paragrap
       ],
     }),
   });
-  assert.deepEqual(master["usage"].promo.exampleCandidates, ["/"]);
-  assert.deepEqual(master["usage"].promo.examples, []);
+  assert.deepEqual(master?.["usage"]?.['promo']?.exampleCandidates, ["/"]);
+  assert.deepEqual(master?.["usage"]?.['promo']?.examples, []);
 });
 
 test("PHP unserialize reads byte lengths and nesting and rejects what it does not know", () => {
@@ -512,7 +512,7 @@ test("PHP unserialize reads byte lengths and nesting and rejects what it does no
     );
   assert.deepEqual(
     Object.keys(
-      usage.phpUnserialize(Buffer.from('a:1:{s:9:"__proto__";i:1;}')),
+      Object(usage.phpUnserialize(Buffer.from('a:1:{s:9:"__proto__";i:1;}'))),
     ),
     ["__proto__"],
   );
@@ -564,30 +564,30 @@ test("master templates are structural and site-wide; a non-default master follow
   inv["components"].push({ id: "site_header" }, { id: "site_footer" });
   const document = usage.buildUsage(inv, rows, {}),
     values = document["usage"],
-    header = values.site_header;
+    header = values['site_header'];
   assert.deepEqual(
-    [header.placements, header.structuralRefs, header.pages],
+    [header?.placements, header?.structuralRefs, header?.pages],
     [0, 1, 0],
   );
-  assert.deepEqual(header.exampleCandidates, ["/"]); // even when a content template names the default master
+  assert.deepEqual(header?.exampleCandidates, ["/"]); // even when a content template names the default master
   assert.deepEqual(header.templates, [
     "cohesion_templates.cohesion_master_templates.master_template",
   ]);
-  assert.deepEqual(values.site_footer.exampleCandidates, ["/"]);
-  assert.deepEqual(values.promo.exampleCandidates, ["/"]);
-  assert.deepEqual(values.text_banner.exampleCandidates, ["/events/expo"]);
-  assert.equal(values.text_banner.pages, 1);
-  assert.equal(values.cpt_callouts.structuralRefs, 0);
-  assert.ok(!("templates" in values.cpt_callouts)); // a disabled master renders nowhere
-  assert.equal(document["source"].population.siteStudioTemplates, 5);
+  assert.deepEqual(values?.['site_footer']?.exampleCandidates, ["/"]);
+  assert.deepEqual(values?.['promo']?.exampleCandidates, ["/"]);
+  assert.deepEqual(values?.['text_banner']?.exampleCandidates, ["/events/expo"]);
+  assert.equal(values?.['text_banner']?.pages, 1);
+  assert.equal(values?.['cpt_callouts']?.structuralRefs, 0);
+  assert.ok(!("templates" in values?.['cpt_callouts'])); // a disabled master renders nowhere
+  assert.equal(document?.["source"]?.population?.siteStudioTemplates, 5);
   const absent = document["problems"].filter(
-    (p: Dict) => p.check === "inventoried-bundle-absent-from-database",
+    (p) => p.check === "inventoried-bundle-absent-from-database",
   );
   assert.ok(!(absent[0]?.evidence ?? []).includes("site_header"));
   const tiers = Object.fromEntries(
     usage
       .mergeUsage(inv, document)
-      ["components"].map((c: Dict) => [c.id, c.category]),
+      ["components"].map((c) => [c.id, c.category]),
   );
   assert.equal(tiers["site_header"], usage.TIERS.structural);
   assert.equal(tiers["site_footer"], usage.TIERS.structural);
@@ -659,17 +659,17 @@ test("content, menu and view templates find examples and structural use", () => 
     sitestudio_layouts: [layout(1, "node", 22, [component("hero_highlight")])],
   };
   const values = build(rows)["usage"];
-  assert.deepEqual(values.hero_highlight.exampleCandidates, [
+  assert.deepEqual(values?.['hero_highlight']?.exampleCandidates, [
     "/node/22",
     "/node/21",
     "/node/20",
   ]); // the author's page stays first
-  assert.equal(values.hero_highlight.pages, 3);
-  assert.equal(values.promo.structuralRefs, 1);
-  assert.deepEqual(values.promo.exampleCandidates, []); // a teaser names no page of its own
-  assert.deepEqual(values.text_banner.exampleCandidates, ["/"]);
-  assert.deepEqual(values.cpt_callouts.exampleCandidates, ["/search"]);
-  assert.equal(values.cpt_callouts.structuralRefs, 1);
+  assert.equal(values?.['hero_highlight']?.pages, 3);
+  assert.equal(values?.['promo']?.structuralRefs, 1);
+  assert.deepEqual(values?.['promo']?.exampleCandidates, []); // a teaser names no page of its own
+  assert.deepEqual(values?.['text_banner']?.exampleCandidates, ["/"]);
+  assert.deepEqual(values?.['cpt_callouts']?.exampleCandidates, ["/search"]);
+  assert.equal(values?.['cpt_callouts']?.structuralRefs, 1);
 });
 
 test("an unreadable or damaged template row is reported, never fatal", () => {
@@ -681,10 +681,10 @@ test("an unreadable or damaged template row is reported, never fatal", () => {
       }),
     ],
   });
-  assert.deepEqual(document["usage"].promo.exampleCandidates, ["/"]);
+  assert.deepEqual(document?.["usage"]?.['promo']?.exampleCandidates, ["/"]);
   assert.ok(
     document["problems"].some(
-      (p: Dict) => p.check === "sitestudio-template-unreadable",
+      (p) => p.check === "sitestudio-template-unreadable",
     ),
   );
   document = build({
@@ -699,10 +699,10 @@ test("an unreadable or damaged template row is reported, never fatal", () => {
       }),
     ],
   });
-  assert.deepEqual(document["usage"].promo.exampleCandidates, ["/"]);
+  assert.deepEqual(document?.["usage"]?.['promo']?.exampleCandidates, ["/"]);
   assert.equal(
     document["problems"].filter(
-      (p: Dict) => p.check === "sitestudio-template-unreadable",
+      (p) => p.check === "sitestudio-template-unreadable",
     ).length,
     2,
   );
@@ -733,9 +733,9 @@ test("a global full template renders only bundles without their own; an unmodifi
     ],
   };
   const values = build(rows)["usage"];
-  assert.deepEqual(values.promo.exampleCandidates, ["/node/31"]);
-  assert.deepEqual(values.text_banner.exampleCandidates, ["/node/31"]);
-  assert.deepEqual(values.hero_highlight.exampleCandidates, ["/node/30"]);
+  assert.deepEqual(values?.['promo']?.exampleCandidates, ["/node/31"]);
+  assert.deepEqual(values?.['text_banner']?.exampleCandidates, ["/node/31"]);
+  assert.deepEqual(values?.['hero_highlight']?.exampleCandidates, ["/node/30"]);
   const unmodified = build({
     nodes: [["40", "1", "event"]],
     sitestudio_templates: [
@@ -749,7 +749,7 @@ test("a global full template renders only bundles without their own; an unmodifi
       }),
     ],
   });
-  assert.deepEqual(unmodified["usage"].promo.exampleCandidates, []);
+  assert.deepEqual(unmodified?.["usage"]?.['promo']?.exampleCandidates, []);
 });
 
 // ---- database collection ----
@@ -837,12 +837,12 @@ const PAGE =
     "<a href='/x'>x</a>",
   ) +
   "</body></html>";
-const enrich = (page: string, ids: string[], rendering: Dict | null) =>
+const enrich = (page: string, ids: string[], rendering:{items?:Record<string,{rootSdc?:string}>}|null) =>
   usage.enrichExamples(
     {
       source: {},
       usage: Object.fromEntries(
-        ids.map((id) => [id, { exampleCandidates: ["/node/1"] }]),
+        ids.map((id) => [id, { exampleCandidates: ["/node/1"] } as Partial<import('../../src/usage-types.ts').UsageEntry>]),
       ),
     },
     "https://site.ddev.site",
@@ -899,11 +899,11 @@ test("with Twig debug the template marker beats a shared component id", async ()
   const result = await enrich(PAGE, ["paragraph:cards", "block:cards"], {
     items: { "paragraph:cards": { rootSdc: "kinetic:cards" } },
   });
-  const cards = result["usage"]["paragraph:cards"].examples[0];
-  assert.deepEqual([cards.markerKind, cards.instancesOnPage], ["template", 2]);
-  assert.equal(result["usage"]["block:cards"].examples[0].markerKind, "class");
-  assert.equal(result["source"].exampleVerification.twigDebug, true);
-  assert.ok(!("exampleCandidates" in result["usage"]["paragraph:cards"]));
+  const cards = result?.["usage"]?.["paragraph:cards"]?.examples?.[0];
+  assert.deepEqual([cards?.markerKind, cards?.instancesOnPage], ["template", 2]);
+  assert.equal(result?.["usage"]?.["block:cards"]?.examples?.[0]?.markerKind, "class");
+  assert.equal(result?.["source"]?.exampleVerification?.twigDebug, true);
+  assert.ok(!("exampleCandidates" in (result?.["usage"]?.["paragraph:cards"]??{})));
 });
 
 test("without Twig debug the component id is used", async () => {
@@ -912,12 +912,12 @@ test("without Twig debug the component id is used", async () => {
     ["paragraph:cards"],
     { items: { "paragraph:cards": { rootSdc: "kinetic:cards" } } },
   );
-  const example = result["usage"]["paragraph:cards"].examples[0];
+  const example = result?.["usage"]?.["paragraph:cards"]?.examples?.[0];
   assert.deepEqual(
-    [example.markerKind, example.marker, example.markerUniqueToThisComponent],
+    [example?.markerKind, example?.marker, example?.markerUniqueToThisComponent],
     ["component", "kinetic:cards", true],
   );
-  assert.equal(result["source"].exampleVerification.twigDebug, false);
+  assert.equal(result?.["source"]?.exampleVerification?.twigDebug, false);
 });
 
 test("a template file name in a debug comment is not a class", async () => {
@@ -926,8 +926,8 @@ test("a template file name in a debug comment is not a class", async () => {
     "<div class=\"block--block-content--type--icon-block\">Icons</div>\n<!-- END OUTPUT from 'themes/x/templates/block/block--icon-block.html.twig' -->";
   const result = await enrich(html, ["block:icon_block"], null);
   assert.ok(
-    !result["usage"]["block:icon_block"].examples.some(
-      (e: Dict) => e.markerKind === "class",
+    !result?.["usage"]?.["block:icon_block"]?.examples?.some(
+      (e) => e.markerKind === "class",
     ),
   );
   const real = await enrich(
@@ -936,11 +936,11 @@ test("a template file name in a debug comment is not a class", async () => {
     null,
   );
   assert.equal(
-    real["usage"]["block:icon_block"].examples[0].markerKind,
+    real?.["usage"]?.["block:icon_block"]?.examples?.[0]?.markerKind,
     "class",
   );
   assert.equal(
-    real["usage"]["block:icon_block"].examples[0].instancesOnPage,
+    real?.["usage"]?.["block:icon_block"]?.examples?.[0]?.instancesOnPage,
     1,
   );
 });
@@ -950,15 +950,15 @@ test("a page that cannot be fetched yields no example and says why", async () =>
     {
       source: {},
       usage: { "paragraph:x": { exampleCandidates: ["/node/1", "/node/2"] } },
-    },
+    } as import('../../src/usage-types.ts').ExampleDocument,
     "https://site.test/",
     null,
     async (url) => (url.endsWith("/1") ? [500, ""] : [0, ""]),
   );
   const value = result["usage"]["paragraph:x"];
-  assert.deepEqual(value.examples, []);
-  assert.match(value.noExampleReason, /no component-specific rendered marker/);
-  assert.equal(result["source"].exampleVerification.pagesFetched, 2);
+  assert.deepEqual(value?.examples, []);
+  assert.match(value?.noExampleReason??'', /no component-specific rendered marker/);
+  assert.equal(result?.["source"]?.exampleVerification?.pagesFetched, 2);
 });
 
 test("usage tiers use absolute thresholds", () => {

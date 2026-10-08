@@ -6,7 +6,7 @@ import { pyFormatG as formatG } from './extract-tokens-sass.ts';
 import { join } from "node:path";
 import { parseArgs } from "node:util";
 import { writeJson } from "./contracts.ts";
-import type { Dict } from "./discovery-io.ts";
+
 import { compareStrings } from "./extract-drupal-usage.ts";
 import { comparePages } from "./find-rendered-components.ts";
 import type { Page } from "./find-rendered-components.ts";
@@ -303,7 +303,7 @@ const stat = (
   numerator: number,
   denominator: number,
   qualifier: string,
-): Dict => ({ value, numerator, denominator, qualifier });
+) => ({ value, numerator, denominator, qualifier });
 const percent = (numerator: number, denominator: number): string =>
   denominator ? `${roundEven((100 * numerator) / denominator)}%` : "0%";
 const casefold = (text: string): string =>
@@ -344,8 +344,8 @@ function quotesFor(
   rows: Array<[string, ParsedPage]>,
   predicate: (value: ParsedPage) => string[],
   limit = 2,
-): Dict[] {
-  const result: Dict[] = [];
+): {quote:string;address:string}[] {
+  const result: {quote:string;address:string}[] = [];
   for (const [path, value] of rows)
     for (const quote of predicate(value)) {
       if (
@@ -365,8 +365,8 @@ const rule = (
   name: string,
   numerator: number,
   denominator: number,
-  quotes: Dict[] = [],
-): Dict => ({
+  quotes: {quote:string;address:string}[] = [],
+): {section:string;kind:string;rule:string;evidence:{numerator:number;denominator:number;quotes:{quote:string;address:string}[];value?:number}} => ({
   section,
   kind,
   rule: name,
@@ -388,7 +388,7 @@ export function buildVoice(
   siteName: string,
   generatedAt: string,
   front = "/",
-): Dict {
+) {
   const rows: Array<[string, ParsedPage]> = [],
     failed: string[] = [];
   for (const [path, status, html] of [...pages].sort(comparePages)) {
@@ -526,7 +526,7 @@ export function buildVoice(
   const homepage =
     rows.find(([path]) => path === "/") ??
     rows.find(([path]) => path === front);
-  let positioning: Dict;
+  let positioning: {address:string|null;h1:string;paragraphs:string[]};
   if (homepage) {
     const longParagraphs = homepage[1].paragraphs.filter(
       (p) => words(p).length >= 8,
@@ -707,7 +707,7 @@ export function buildVoice(
   ];
   // Observations report the dominant measured pattern in each populated section.
   // Watches retain the fixed defect thresholds documented in the reference.
-  let rules: Dict[] = [];
+  let rules: ReturnType<typeof rule>[] = [];
   if (allWords.length) {
     const voiceName =
       reader > organisation

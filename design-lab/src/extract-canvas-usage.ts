@@ -4,11 +4,13 @@ import { join, relative, sep } from "node:path";
 import { isDeepStrictEqual, parseArgs } from "node:util";
 import { validate, writeJson } from "./contracts.ts";
 import { configSync, docroot } from "./detect.ts";
-import type { Dict } from "./discovery-io.ts";
+import type {Usage} from "./generated/usage.ts";
+import type {UsageInventory,UsageEntry,UsageSource} from "./usage-types.ts";
 import { load } from "./extract-sdc.ts";
 import { toolVersion } from "./figma-receipts.ts";
 import {
   TIERS,
+  isDict,
   compareStrings,
   describeProject,
   mergeUsage,
@@ -46,7 +48,7 @@ export type CanvasRows = {
   pages?: string[][];
   aliases?: string[][];
   templates?: string[][];
-  twig_refs?: Record<string, unknown[]>;
+  twig_refs?: Record<string, TwigRef[]>;
 };
 
 /** Drush sqlq emits headerless tab-separated rows, including empty columns. */
@@ -108,13 +110,13 @@ function twigFiles(folder: string): string[] {
 /** Find literal SDC references in the active theme's Twig files. */
 export function scanThemeTemplates(
   root: string,
-  components: Dict,
+  components: UsageInventory,
 ): Record<string, TwigRef[]> {
   const web = docroot(root);
   const names = new Set<string>(
     (components["components"] || [])
-      .map((component: Dict) => component["sourceSdcId"])
-      .filter(Boolean),
+      .map((component) => component["sourceSdcId"])
+      .filter((value):value is string=>typeof value==='string'),
   );
   const providers = new Set(
     [...names]
@@ -175,17 +177,17 @@ export function templateRows(root: string): string[][] {
     .sort(compareStrings);
   for (const name of files) {
     const path = join(config, name),
-      data = load(path);
+      raw:unknown = load(path),
+      data=isDict(raw)?raw:{};
     if (data["status"] === false) continue;
     const entries = truthy(data["component_tree"])
       ? data["component_tree"]
       : {};
-    for (const entry of Object.values<any>(entries)) {
+    for (const entry of Object.values(isDict(entries)?entries:{})) {
       if (
-        entry &&
-        typeof entry === "object" &&
-        !Array.isArray(entry) &&
-        truthy(entry["component_id"])
+        isDict(entry) &&
+        typeof entry["component_id"]==='string' && truthy(entry["component_id"]) &&
+        typeof data["id"]==='string' && typeof data["content_entity_type_bundle"]==='string'
       )
         rows.push([
           entry["component_id"],
@@ -200,19 +202,19 @@ export function templateRows(root: string): string[][] {
 
 /** Pure row reducer. `rows` contains query and content-template fixture rows. */
 export function buildUsage(
-  components: Dict,
+  components: UsageInventory,
   rows: CanvasRows,
-  source: Dict,
-): Dict {
-  const inventory: Dict[] = components["components"] || [],
+  source: UsageSource,
+) {
+  const inventory = components["components"] || [],
     ids = new Set(inventory.map((component) => component["id"]));
   const aliases = new Map(
     (rows.aliases ?? []).map(([path, alias]) => [path!, alias!]),
   );
   const twigRefs = rows.twig_refs ?? {};
-  const usage = new Map<string, Dict>(),
+  const usage = new Map<string, Required<Pick<UsageEntry,'placements'|'structuralRefs'|'templatePlacements'|'pages'|'exampleCandidates'|'templateBundles'|'templateRefs'>>&UsageEntry>(),
     pages = new Map<string, Set<string>>();
-  const entry = (id: string): Dict => {
+  const entry = (id: string) => {
     let value = usage.get(id);
     if (!value) {
       value = {
@@ -248,10 +250,10 @@ export function buildUsage(
     const value = entry(componentId!);
     value["placements"] += 1;
     value["templatePlacements"] += 1;
-    if (!value["templateBundles"].includes(bundle))
-      value["templateBundles"].push(bundle);
-    if (!value["templateRefs"].includes(reference))
-      value["templateRefs"].push(reference);
+    if (!value["templateBundles"].includes(bundle!))
+      value["templateBundles"].push(bundle!);
+    if (!value["templateRefs"].includes(reference!))
+      value["templateRefs"].push(reference!);
   }
   const numeric = (text: string): boolean => /^\d+$/.test(text);
   for (const component of inventory) {
@@ -280,13 +282,13 @@ export function buildUsage(
           isDeepStrictEqual(have, reference),
         )
       )
-        value["templateRefs"].push(reference);
+        value["templateRefs"].push(reference!);
     value["globalTemplate"] = value["templateRefs"].some(
-      (ref: any) =>
+      (ref) =>
         ref &&
         typeof ref === "object" &&
         !Array.isArray(ref) &&
-        truthy(ref["global"]),
+        truthy(ref.global),
     );
   }
   const extra = [...usage.keys()]
@@ -301,7 +303,7 @@ export function buildUsage(
         },
       ]
     : [];
-  const document: Dict = {
+  const document: Usage = {
     standardVersion: "3.0.0",
     toolVersion: toolVersion(),
     generatedAt: now(),
@@ -333,10 +335,10 @@ export function buildUsage(
 
 export function extract(
   ddevRoot: string,
-  components: Dict,
+  components: UsageInventory,
   project?: string | null,
   run: Runner = spawnRunner,
-): Dict {
+) {
   const root = resolveReal(ddevRoot),
     rows: CanvasRows = collectRows(root, project, run);
   rows.templates = templateRows(root);
@@ -348,15 +350,15 @@ export function extract(
 }
 
 export function mergeCanvasUsage(
-  components: Dict,
-  document: Dict,
+  components: UsageInventory,
+  document: Usage,
   high = 50,
   medium = 10,
-): Dict {
+) {
   const merged = mergeUsage(components, document, high, medium);
   for (const component of merged["components"]) {
-    const evidence: Dict = component["usage"];
-    evidence["structuralReferences"] = evidence["structuralRefs"];
+    const evidence = component["usage"]!;
+    evidence["structuralReferences"] = evidence["structuralRefs"]??null;
     evidence["source"] = "canvas-db";
     let tier: string;
     if (evidence["globalTemplate"]) {
@@ -364,15 +366,15 @@ export function mergeCanvasUsage(
       evidence["tierReason"] = "referenced by a global theme template";
     } else if (truthy(evidence["templateRefs"]) || evidence["renderedPages"]) {
       tier = usageTier(
-        evidence["placements"],
-        Math.max(1, evidence["structuralRefs"]),
+        evidence["placements"]??0,
+        Math.max(1, evidence["structuralRefs"]??0),
         high,
         medium,
       );
       evidence["tierReason"] = truthy(evidence["templateRefs"])
         ? "referenced by a theme or content template"
         : "observed on a public rendered page";
-    } else tier = evidence["tier"];
+    } else tier = evidence["tier"]??TIERS.retirement;
     evidence["tier"] = tier;
     component["category"] = tier;
   }
@@ -396,7 +398,7 @@ export function main(argv = process.argv.slice(2)): void {
     throw new Error(
       "usage: extract-canvas-usage.ts COMPONENTS --ddev-root DIR --output FILE [--ddev-project NAME] [--merge-components FILE]",
     );
-  const components: Dict = JSON.parse(readFileSync(positionals[0], "utf8"));
+  const components: UsageInventory = JSON.parse(readFileSync(positionals[0], "utf8"));
   const document = extract(
     values["ddev-root"],
     components,
@@ -413,13 +415,13 @@ export function main(argv = process.argv.slice(2)): void {
         Number(values.medium),
       ),
     );
-  const entries = Object.values<Dict>(document["usage"]),
-    total = (key: string): number =>
+  const entries = Object.values(document["usage"]),
+    total = (key: 'placements'|'structuralRefs'): number =>
       entries.reduce((sum, value) => sum + value[key], 0);
   console.log(
     JSON.stringify({
       components: entries.length,
-      publishedPages: document["source"]["population"]["publishedPages"],
+      publishedPages: document["source"].population?.publishedPages,
       placements: total("placements"),
       structuralRefs: total("structuralRefs"),
     }),

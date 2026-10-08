@@ -1,3 +1,4 @@
+import {assertValid} from '../../src/contracts.ts';
 import test from "node:test";
 import assert from "node:assert/strict";
 import { mkdtempSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
@@ -120,14 +121,15 @@ test("source maps resolve aliases, em values and Sass lightness functions", () =
         ],
       }),
     );
-    const result = extractSourceMap(root) as any;
+    const result = extractSourceMap(root);
+    assertValid('tokens',result);assert.ok(result.tokens);
     const byName = Object.fromEntries(
-      result.tokens.map((token: any) => [token.name, token]),
+      result['tokens'].map((token) => [token.name, token]),
     );
-    assert.equal(byName["primary-hover"].value, "#7c92e5");
-    assert.equal(byName.space.value, "16px");
-    assert.equal(byName["card-color"].value, "#7c92e5");
-    assert.equal(byName.brand.layer, "base");
+    assert.equal(byName["primary-hover"]!.value, "#7c92e5");
+    assert.equal(byName['space']!.value, "16px");
+    assert.equal(byName["card-color"]!.value, "#7c92e5");
+    assert.equal(byName['brand']!.layer, "base");
   }));
 
 test("Site Studio tokens keep website settings separate from responsive custom styles", () =>

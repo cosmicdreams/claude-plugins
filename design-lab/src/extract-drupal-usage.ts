@@ -15,6 +15,9 @@ import type { IncomingHttpHeaders } from "node:http";
 import { parseArgs } from "node:util";
 import { validate, writeJson } from "./contracts.ts";
 import type { Dict } from "./discovery-io.ts";
+import type {Usage} from "./generated/usage.ts";
+import type {RenderEvidence} from "./generated/render-evidence.ts";
+import type {UsageInventory,UsageEntry,UsageSource,UsageProblem,ExampleDocument} from "./usage-types.ts";
 import * as twig from "./capture/twig.ts";
 import { toolVersion } from "./figma-receipts.ts";
 
@@ -101,6 +104,7 @@ export const OPTIONAL_TABLES: Record<string, string> = {
 
 // ---- small baseline-semantics helpers shared by the usage extractors ----
 export type Rows = Record<string, string[][]>;
+const dict = (value:unknown):Dict => isDict(value)?value:{};
 export const isDict = (value: unknown): value is Dict =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 /** baseline truthiness. */
@@ -215,7 +219,8 @@ export function describeProject(
     throw new Error("DDEV project is unavailable: " + status.stderr.trim());
   let raw: Dict;
   try {
-    raw = JSON.parse(status.stdout)?.raw ?? {};
+    const parsed:unknown=JSON.parse(status.stdout);
+    raw = isDict(parsed) && isDict(parsed['raw'])?parsed['raw']:{};
   } catch {
     throw new Error("DDEV describe did not return JSON");
   }
@@ -258,9 +263,10 @@ export function collectRows(
   return rows;
 }
 
+interface Paragraph {bundle:string;parentType:string;parentId:string;status:string}
 function rootOf(
   paragraphId: string,
-  paragraphs: Map<string, Dict>,
+  paragraphs: Map<string, Paragraph>,
 ): [string | null, string | null] {
   let current = paragraphId;
   const seen = new Set<string>();
@@ -290,7 +296,7 @@ export function* walk(
           ? (element["componentId"] ?? null)
           : null,
       reference = element["componentContentId"] ?? null;
-    yield [component, reference, nested];
+    yield [typeof component==='string'?component:null, typeof reference==='string'?reference:null, nested];
     yield* walk(
       element["children"] || [],
       nested || truthy(component) || truthy(reference),
@@ -304,7 +310,7 @@ const MAX_PHP_DEPTH = 900;
  * Strings are length-prefixed in bytes, so the input stays bytes. Objects are not expected in
  * config and are rejected rather than guessed at. Nesting past MAX_PHP_DEPTH is rejected as
  * baseline's recursion limit rejected it. */
-export function phpUnserialize(data: Buffer): any {
+export function phpUnserialize(data: Buffer): unknown {
   let position = 0;
   const bytes = (start: number, end: number): string =>
     data.subarray(start, end).toString("latin1");
@@ -326,7 +332,7 @@ export function phpUnserialize(data: Buffer): any {
       });
     else target[key] = value;
   };
-  function value(depth: number): any {
+  function value(depth: number): unknown {
     if (depth > MAX_PHP_DEPTH)
       throw new Error("maximum recursion depth exceeded");
     const kind = bytes(position, position + 2);
@@ -368,7 +374,7 @@ export function phpUnserialize(data: Buffer): any {
           throw new Error(
             `array key of type ${key === null ? "NoneType" : typeof key === "boolean" ? "bool" : typeof key === "number" ? "float" : "dict"} at byte ${position}`,
           );
-        assign(result, key, value(depth + 1));
+        assign(result, key as string|number, value(depth + 1));
       }
       if (bytes(position, position + 1) !== "}")
         throw new Error(`array is not closed at byte ${position}`);
@@ -387,16 +393,16 @@ function viewPaths(views: Dict[]): Map<string, Set<string>> {
   const paths = new Map<string, Set<string>>();
   for (const view of views) {
     if (view["status"] === false) continue;
-    const displays = view["display"] || {},
-      defaultOptions = displays["default"]?.["display_options"] || {};
-    for (const display of Object.values<any>(
+    const displays = dict(view["display"]),
+      defaultOptions = dict(dict(displays["default"])["display_options"]);
+    for (const display of Object.values(
       isDict(displays) ? displays : {},
     )) {
       if (!isDict(display) || display["display_plugin"] !== "page") continue;
-      const options = display["display_options"] || {};
+      const options = dict(display["display_options"]);
       if (options["enabled"] === false) continue;
-      const style = options["style"] || defaultOptions["style"] || {},
-        template = (style["options"] || {})["views_template"];
+      const style = dict(options["style"] || defaultOptions["style"]),
+        template = dict(style["options"])["views_template"];
       const path = (
         truthy(options["path"]) ? String(options["path"]) : ""
       ).replace(/^\/+|\/+$/g, "");
@@ -419,7 +425,7 @@ interface TemplateUsage {
   paths: Map<string, Set<string>>;
   siteWide: Set<string>;
   sources: Map<string, Set<string>>;
-  problems: Dict[];
+  problems:UsageProblem[];
 }
 /** Components placed by Site Studio templates: structural, attributed to example pages.
  *
@@ -440,12 +446,12 @@ export function templateUsage(
     sources = new Map<string, Set<string>>(),
     templates = new Map<string, Dict>(),
     views: Dict[] = [],
-    problems: Dict[] = [];
+    problems:UsageProblem[] = [];
   for (const values of rows["sitestudio_templates"] ?? []) {
     if (values.length < 2) continue;
     const name = values[0]!,
       blob = values.slice(1).join("\t");
-    let data: any;
+    let data: unknown;
     try {
       data = phpUnserialize(Buffer.from(blob, "utf8"));
       if (!isDict(data)) throw new Error("config is not an array");
@@ -496,7 +502,7 @@ export function templateUsage(
           )
         : new Set();
     return ownTemplate.get(data["bundle"]) === data
-      ? new Set([data["bundle"]])
+      ? new Set(typeof data["bundle"]==='string'?[data["bundle"]]:[])
       : new Set();
   };
   const mastersByBundle = new Map<string, unknown>();
@@ -511,7 +517,7 @@ export function templateUsage(
     let canvas: unknown;
     try {
       const parsed = JSON.parse(
-        truthy(data["json_values"]) ? data["json_values"] : "{}",
+        typeof data["json_values"]==='string' && truthy(data["json_values"]) ? data["json_values"] : "{}",
       );
       if (!isDict(parsed)) throw new Error("json_values is not an object");
       canvas = truthy(parsed["canvas"]) ? parsed["canvas"] : [];
@@ -579,7 +585,7 @@ export function sitestudioUsage(rows: Rows, published: Set<string>) {
     structural = new Map<string, number>(),
     pages = new Map<string, Set<string>>();
   const layouts = new Map<string, unknown[][]>(),
-    problems: Dict[] = [];
+    problems:UsageProblem[] = [];
   const hostKey = (type: string, id: string): string =>
     JSON.stringify([type, id]);
   const refs = new Map(
@@ -598,7 +604,7 @@ export function sitestudioUsage(rows: Rows, published: Set<string>) {
         (Object.hasOwn(data, "canvas") && !Array.isArray(data["canvas"]))
       )
         throw new Error("canvas must be an array");
-      canvas = Object.hasOwn(data, "canvas") ? data["canvas"] : [];
+      canvas = Array.isArray(data["canvas"]) ? data["canvas"] : [];
     } catch (error) {
       throw new Error(
         `Site Studio layout ${layoutId}: invalid json_values: ${(error as Error).message}`,
@@ -648,7 +654,7 @@ export function sitestudioUsage(rows: Rows, published: Set<string>) {
   return { direct, structural, pages, problems };
 }
 
-export function buildUsage(components: Dict, rows: Rows, source: Dict): Dict {
+export function buildUsage(components: UsageInventory, rows: Rows, source: UsageSource):Usage {
   const aliases = new Map<string, string>();
   for (const values of rows["path_aliases"] ?? [])
     if (values.length >= 2 && !aliases.has(values[0]!))
@@ -668,14 +674,14 @@ export function buildUsage(components: Dict, rows: Rows, source: Dict): Dict {
       .slice(0, 8)
       .map((id) => aliases.get("/node/" + id) ?? "/node/" + id);
   };
-  const paragraphs = new Map<string, Dict>();
+  const paragraphs = new Map<string, Paragraph>();
   for (const values of rows["paragraphs"] ?? [])
     if (values.length >= 5)
       paragraphs.set(values[0]!, {
-        bundle: values[1],
-        parentType: values[2],
-        parentId: values[3],
-        status: values[4],
+        bundle: values[1]!,
+        parentType: values[2]!,
+        parentId: values[3]!,
+        status: values[4]!,
       });
   const paragraphPlacements = new Map<string, number>(),
     paragraphStructural = new Map<string, number>(),
@@ -759,7 +765,7 @@ export function buildUsage(components: Dict, rows: Rows, source: Dict): Dict {
     bump(ss.structural, component, value);
   for (const component of tpl.siteWide) siteWide.add(component);
   const componentIds: string[] = (components["components"] || []).map(
-    (component: Dict) => component["id"],
+    (component) => component["id"],
   );
   const databaseIds = new Set([
     ...paragraphPlacements.keys(),
@@ -770,7 +776,7 @@ export function buildUsage(components: Dict, rows: Rows, source: Dict): Dict {
     ...ss.direct.keys(),
     ...ss.structural.keys(),
   ]);
-  const usage: Dict = {};
+  const usage:Usage['usage'] = {};
   const union = (...sets: Array<Set<string> | undefined>): Set<string> =>
     new Set(sets.flatMap((set) => [...(set ?? [])]));
   for (const id of componentIds) {
@@ -810,9 +816,9 @@ export function buildUsage(components: Dict, rows: Rows, source: Dict): Dict {
       ],
     };
     if (tpl.sources.get(id)?.size)
-      usage[id]["templates"] = sortedStrings(tpl.sources.get(id)!);
+      usage[id]!["templates"] = sortedStrings(tpl.sources.get(id)!);
   }
-  const zero = Object.entries<Dict>(usage)
+  const zero = Object.entries(usage)
     .filter(
       ([, value]) => value["placements"] === 0 && value["structuralRefs"] === 0,
     )
@@ -821,7 +827,7 @@ export function buildUsage(components: Dict, rows: Rows, source: Dict): Dict {
   const extra = sortedStrings(
     [...databaseIds].filter((id) => !componentIds.includes(id)),
   );
-  const problems: Dict[] = [...ss.problems, ...tpl.problems];
+  const problems:UsageProblem[] = [...ss.problems, ...tpl.problems];
   if (extra.length)
     problems.push({
       check: "bundle-in-database-not-in-inventory",
@@ -843,7 +849,7 @@ export function buildUsage(components: Dict, rows: Rows, source: Dict): Dict {
       check: "paragraph-without-parent",
       detail: `${orphanTotal} paragraph instance(s) have no attributable parent`,
     });
-  const document: Dict = {
+  const document:Usage = {
     standardVersion: STANDARD_VERSION,
     toolVersion: toolVersion(),
     generatedAt: now(),
@@ -1025,16 +1031,16 @@ type Marker = [
   unique: boolean,
 ];
 /** Verify DB-derived node paths anonymously against component-specific markers. */
-export async function enrichExamples(
-  document: Dict,
+export async function enrichExamples<D extends ExampleDocument>(
+  document:D,
   baseUrl: string,
-  rendering?: Dict | null,
+  rendering?:{items?:Record<string,Pick<RenderEvidence['items'][string],'rootSdc'>>}|null,
   fetcher: PageFetcher = fetchPage,
-): Promise<Dict> {
-  const usage: Dict = document["usage"] ?? {};
+): Promise<D & ExampleDocument> {
+  const usage:ExampleDocument['usage'] = document['usage'] ?? {};
   const urls = sortedStrings(
     new Set(
-      Object.values<Dict>(usage).flatMap((value) =>
+      Object.values(usage).flatMap((value) =>
         (value["exampleCandidates"] || []).map((path: string) =>
           joinBase(baseUrl, path),
         ),
@@ -1043,19 +1049,19 @@ export async function enrichExamples(
   );
   const fetched = new Map(urls.map((url, index) => [url, index] as const));
   const results = await mapLimit(urls, 8, fetcher);
-  const items: Dict = rendering?.["items"] || {};
+  const items = rendering?.["items"] || {};
   const sdcOwners = new Map<string, number>();
-  for (const item of Object.values<Dict>(items))
-    if (truthy(item["rootSdc"])) bump(sdcOwners, item["rootSdc"]);
+  for (const item of Object.values(items))
+    if (truthy(item["rootSdc"])) bump(sdcOwners, item["rootSdc"]!);
   const debug = results.some(([, body]) => twig.enabled(body));
-  for (const [componentId, value] of Object.entries<Dict>(usage)) {
+  for (const [componentId, value] of Object.entries(usage)) {
     const machine = componentId.slice(componentId.indexOf(":") + 1);
     const marker = componentId.startsWith("block:")
       ? "block--" + machine.replaceAll("_", "-")
       : "paragraph--type--" + machine.replaceAll("_", "-");
     // Templates that embed a single-directory component print no bundle wrapper; the
     // page marks the render with that component's id instead (render-evidence rootSdc).
-    const sdc: string | undefined = items[componentId]?.["rootSdc"];
+    const sdc: string | undefined = items[componentId]?.["rootSdc"]??undefined;
     const markers: Marker[] = [
       [marker, "class", "\\b" + escapeRegExp(marker) + "\\b", true],
     ];
@@ -1078,7 +1084,7 @@ export async function enrichExamples(
         sdcOwners.get(sdc) === 1,
       ]);
     if (!debug) markers.push(template);
-    const examples: Dict[] = [],
+    const examples:NonNullable<UsageEntry['examples']> = [],
       candidates: string[] = value["exampleCandidates"] ?? [];
     delete value["exampleCandidates"];
     for (const [name, kind, pattern, unique] of markers) {
@@ -1141,21 +1147,21 @@ export function usageTier(
 }
 
 export function mergeUsage(
-  components: Dict,
-  usageDocument: Dict,
+  components:UsageInventory,
+  usageDocument:Pick<Usage,'generatedAt'|'usage'> & Partial<Usage>,
   high = 50,
   medium = 10,
-): Dict {
+) {
   const result = structuredClone(components),
     measuredAt = usageDocument["generatedAt"],
-    byId: Dict = usageDocument["usage"];
+    byId: Usage['usage'] = usageDocument["usage"];
   for (const component of result["components"] ?? []) {
     if (!Object.hasOwn(byId, component["id"]))
       throw new Error(`usage has no row for ${component["id"]}`);
-    const evidence = structuredClone(byId[component["id"]]);
+    const evidence:NonNullable<typeof component.usage> = structuredClone(byId[component['id']]!);
     evidence["tier"] = usageTier(
-      evidence["placements"],
-      evidence["structuralRefs"],
+      evidence["placements"]??0,
+      evidence["structuralRefs"]??0,
       high,
       medium,
     );
@@ -1164,16 +1170,16 @@ export function mergeUsage(
     component["usage"] = evidence;
     component["category"] = evidence["tier"];
   }
-  const sum = (key: string): number =>
+  const sum = (key: 'placements'|'structuralRefs'): number =>
     (result["components"] ?? []).reduce(
-      (total: number, component: Dict) => total + component["usage"][key],
+      (total, component) => total + (component.usage?.[key]??0),
       0,
     );
   result["totals"] = { ...result["totals"], placements: sum("placements") };
   result["totals"]["structuralRefs"] = sum("structuralRefs");
   result["problems"] = [
     ...(result["problems"] ?? []).filter(
-      (problem: Dict) => problem["check"] !== "usage-data-missing",
+      (problem) => problem["check"] !== "usage-data-missing",
     ),
     ...structuredClone(usageDocument["problems"] ?? []),
   ];
@@ -1186,11 +1192,11 @@ export interface ExtractHooks {
 }
 export async function extract(
   ddevRoot: string,
-  components: Dict,
+  components:UsageInventory,
   project?: string | null,
-  rendering?: Dict | null,
+  rendering?:{items?:Record<string,Pick<RenderEvidence['items'][string],'rootSdc'>>}|null,
   hooks: ExtractHooks = {},
-): Promise<Dict> {
+): Promise<Usage> {
   const root = resolveReal(ddevRoot),
     rows = (hooks.collectRows ?? collectRows)(root, project);
   const document = buildUsage(components, rows, {
@@ -1201,14 +1207,14 @@ export async function extract(
   const baseUrl = ddev[1] || `https://${ddev[0]}.ddev.site`;
   if (components["source"]?.["strategy"] === "sitestudio") {
     // Paragraph Twig/class markers cannot verify Cohesion renders. Preserve DB paths.
-    for (const value of Object.values<Dict>(document["usage"])) {
+    for (const value of Object.values(document["usage"])) {
       value["examples"] = [];
       value["noExampleReason"] =
         "Site Studio rendered marker verification is not supported";
     }
     return document;
   }
-  return (hooks.enrichExamples ?? enrichExamples)(document, baseUrl, rendering);
+  await (hooks.enrichExamples ?? enrichExamples)(document, baseUrl, rendering);return document;
 }
 
 export async function main(argv = process.argv.slice(2)): Promise<void> {
@@ -1229,10 +1235,10 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     throw new Error(
       "usage: extract-drupal-usage.ts COMPONENTS --ddev-root DIR --output FILE [--ddev-project NAME] [--merge-components FILE] [--render-evidence FILE]",
     );
-  const load = (path: string): Dict => JSON.parse(readFileSync(path, "utf8"));
-  const components = load(positionals[0]),
+  const load = <T>(path: string): T => JSON.parse(readFileSync(path, "utf8"));
+  const components = load<UsageInventory>(positionals[0]),
     rendering = values["render-evidence"]
-      ? load(values["render-evidence"])
+      ? load<RenderEvidence>(values["render-evidence"])
       : null;
   const document = await extract(
     values["ddev-root"],
@@ -1251,8 +1257,8 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
         Number(values.medium),
       ),
     );
-  const entries = Object.values<Dict>(document["usage"]),
-    total = (key: string): number =>
+  const entries = Object.values(document["usage"]),
+    total = (key:'placements'|'structuralRefs'): number =>
       entries.reduce((sum, value) => sum + value[key], 0);
   console.log(
     JSON.stringify(
