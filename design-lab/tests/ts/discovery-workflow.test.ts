@@ -159,3 +159,27 @@ void test('SDC empty enums and authored enum labels retain baseline behavior', (
 });
 void test("Sass color lightness uses baseline's even half-tie rounding", () =>
   assert.equal(resolveToken('lighten(#000000, 30%)', new Map()), '#4c4c4c'));
+
+void test('re-extracting components keeps an approved Untiered usage waiver', async () => {
+  const root = temp();
+  cpSync(join(pluginRoot, 'tests/fixtures/canvas-site'), root, {
+    recursive: true,
+  });
+  put(join(root, 'web/themes/custom/demo/demo.libraries.yml'), 'global:\n  css:\n    theme:\n      tokens.css: {}\n');
+  put(join(root, 'web/themes/custom/demo/tokens.css'), ':root {--color-blue:#123456;--space-small:1rem}');
+  const run = project(root);
+  detectProject(run);
+  selectProject(run, { component: 'canvas', token: 'css-custom-properties' });
+  await extractProject(run, 'components');
+  selectProject(run, {
+    usage: 'none',
+    degradedReason: 'fixture has no database',
+    by: 'test operator',
+  });
+  await extractProject(run, 'components');
+  const saved = JSON.parse(readFileSync(join(run, 'project.json'), 'utf8'));
+  assert.equal(saved.phases.usage.status, 'waived');
+  const components = JSON.parse(readFileSync(join(run, 'components.json'), 'utf8'));
+  assert.equal(components.components[0].usage.placements, null);
+  assert.equal(components.components[0].usage.tier, 'Untiered');
+});

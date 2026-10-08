@@ -2016,8 +2016,12 @@
     {
       "original": "test_review_objectives.ReviewObjectives.test_extraction_preserves_approved_untiered_fallback",
       "behavior": "Extraction must preserve an approved unknown-usage fallback; workflow.ts.",
-      "tests": [],
-      "uncovered": "The waiver pipeline tests unknown usage initially, but does not re-extract after approving an Untiered fallback and assert it is preserved."
+      "tests": [
+        {
+          "file": "tests/ts/discovery-workflow.test.ts",
+          "name": "re-extracting components keeps an approved Untiered usage waiver"
+        }
+      ]
     },
     {
       "original": "test_score_run.ScoreRunTest.test_accuracy_keeps_original_and_adds_corrected",
