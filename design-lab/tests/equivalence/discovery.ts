@@ -187,7 +187,7 @@ export async function main(rootArg?: string, usage = false): Promise<void> {
       if (artifact === "plan")
         writePlanJson(
           join(ts, artifact + ".json"),
-          doc as { plans: ReturnType<typeof planComponent>[] },
+          doc as import("../../src/generated/plan.ts").Plan,
         );
       else writeJson(join(ts, artifact + ".json"), doc);
       result.timings.ts[artifact] = (performance.now() - started) / 1000;

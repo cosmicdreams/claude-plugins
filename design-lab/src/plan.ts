@@ -1,17 +1,19 @@
 /** Component build proposals. Keep variant arithmetic and evidence gates identical to plan.ts. */
 import type { Components } from "./generated/components.ts";
-import { writeJson } from "./contracts.ts";
+import type { Plan } from "./generated/plan.ts";
+import { writeArtifact } from "./contracts.ts";
 
 type Component = Components["components"][number];
 type Field = Component["fields"][number];
+type PlanEntry = Plan["plans"][number];
 export interface RenderingSignals {
   rootClasses?: unknown[];
   sdc?: unknown;
   templates?: unknown[];
 }
 export interface CaptureSignals {
-  images?: unknown[];
-  states?: unknown[];
+  images?: PlanEntry["visualEvidence"]["images"];
+  states?: string[];
   path?: string | null;
 }
 interface UsageSignals {
@@ -97,7 +99,7 @@ export function classify(
   component: Component,
   rendering: RenderingSignals = {},
   capture: CaptureSignals = {},
-): [string, string, boolean, boolean] {
+): [PlanEntry["libraryRole"], PlanEntry["visualIdentity"], boolean, boolean] {
   const usage = (component["usage"] ?? {}) as UsageSignals;
   const placements = usage.placements || 0,
     structural = usage.structuralRefs || usage.structuralReferences || 0;
@@ -145,26 +147,23 @@ export function planComponent(
   rendering: RenderingSignals = {},
   capture: CaptureSignals = {},
   nestedRenders = 0,
-) {
-  const axes: {
-      field: string | undefined;
-      label: string | undefined;
-      options: number;
-    }[] = [],
-    properties: { field: string | undefined; treatment: string }[] = [],
-    flags: { field: string | undefined; note: string }[] = [],
-    skipped: (string | undefined)[] = [];
+): PlanEntry {
+  const axes: PlanEntry["variantAxes"] = [],
+    properties: PlanEntry["properties"] = [],
+    flags: NonNullable<PlanEntry["flags"]> = [],
+    skipped: string[] = [];
   for (const field of component.fields) {
     const [treatment, n, flag] = treat(field);
-    if (flag) flags.push({ field: field.name, note: flag });
+    const named = field.name === undefined ? {} : { field: field.name };
+    if (flag) flags.push({ ...named, note: flag });
     if (treatment === "variant")
-      axes.push({ field: field.name, label: field.label, options: n });
-    else if (treatment === "skip") skipped.push(field.name);
-    else properties.push({ field: field.name, treatment });
+      axes.push({ ...named, ...(field.label === undefined ? {} : { label: field.label }), options: n });
+    else if (treatment === "skip") { if (field.name !== undefined) skipped.push(field.name); }
+    else properties.push({ ...named, treatment });
   }
   for (const slot of component.slots ?? [])
-    properties.push({ field: slot.name, treatment: "swap" });
-  const total = axes.reduce((n, a) => n * a.options, 1);
+    properties.push({ ...(slot.name === undefined ? {} : { field: slot.name }), treatment: "swap" });
+  const total = axes.reduce((n, a) => n * (a.options ?? 1), 1);
   const exactNaive = naiveVariantCount(component),
     naive = Number(exactNaive);
   const [role, identity, captured, signals] = classify(
@@ -186,7 +185,7 @@ export function planComponent(
       : refusal
         ? "refuse"
         : "build";
-  const result = {
+  const result: PlanEntry = {
     id: component.id,
     label: component.label,
     libraryRole: role,
@@ -214,19 +213,14 @@ export function planComponent(
 /** Preserve baseline's arbitrary integer arithmetic on disk, including informational products
  * above Number.MAX_SAFE_INTEGER. In-process consumers retain the existing number-shaped API;
  * callers requiring the exact product can use naiveVariantCount(). */
-export function writePlanJson(
-  path: string,
-  document: {
-    plans: ReturnType<typeof planComponent>[];
-  },
-): string {
+export function writePlanJson(path: string, document: Plan): string {
   const rawJSON = (JSON as typeof JSON & { rawJSON(text: string): unknown })
     .rawJSON;
   const plans = document.plans.map((plan) => {
     const exact = (plan as unknown as Record<symbol, bigint>)[exactNaiveCount];
     return exact === undefined
       ? plan
-      : { ...plan, naiveVariants: rawJSON(exact.toString()) };
+      : { ...plan, naiveVariants: rawJSON(exact.toString()) as number };
   });
-  return writeJson(path, { ...document, plans });
+  return writeArtifact("plan", path, { ...document, plans });
 }
