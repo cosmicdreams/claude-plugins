@@ -9,14 +9,15 @@ on:
 jobs:
   typescript:
     runs-on: ubuntu-latest
-    env:
-      DESIGN_LAB_CACHE: ${{ runner.temp }}/design-lab-cache
-      DESIGN_LAB_HOME: ${{ runner.temp }}/design-lab-home
     defaults:
       run:
         working-directory: design-lab
     steps:
       - uses: actions/checkout@v4
+      - name: Configure isolated cache and home
+        run: |
+          echo "DESIGN_LAB_CACHE=$RUNNER_TEMP/design-lab-cache" >> "$GITHUB_ENV"
+          echo "DESIGN_LAB_HOME=$RUNNER_TEMP/design-lab-home" >> "$GITHUB_ENV"
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
