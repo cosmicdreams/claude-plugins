@@ -1,10 +1,12 @@
 #!/usr/bin/env node
 import { resolve } from 'node:path';
-import { scanArtifacts, defaultRoots } from '../src/artifact-scan.ts';
+import { scanArtifacts } from '../src/artifact-scan.ts';
 const args = process.argv.slice(2);
 const json = args.includes('--json');
 const roots = args.filter((arg) => arg !== '--json').map((p) => resolve(p));
-const results = scanArtifacts(roots.length ? roots : defaultRoots);
+if (!roots.length)
+  throw new Error('contracts:reality requires explicit run folders: npm run contracts:reality -- /path/to/run');
+const results = scanArtifacts(roots);
 if (json) console.log(JSON.stringify(results, null, 2));
 else {
   for (const result of results)

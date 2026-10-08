@@ -1,8 +1,8 @@
+import { savedRun } from './saved-runs.ts';
 import { restoreSeams, assertExpansionParity } from './typed-seams-parity.ts';
 import { oracleScript, oracleExecutable } from './oracle.ts';
 /** Compare every measured component in five read-only runs; all writes go to /tmp. */
 import { readFileSync, existsSync, readdirSync, mkdirSync, copyFileSync, mkdtempSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { strict as assert } from 'node:assert';
@@ -13,11 +13,11 @@ import { Renderer, literal } from '../../src/render-payload.ts';
 import { tokens, withoutCache } from './template-parity.ts';
 import type { Spec } from '../../src/generated/spec.ts';
 const sources = {
-  pncb: resolve(homedir(), '.design/pncb/2026-10-06'),
-  definitive: resolve(homedir(), 'Sites/DEFINITIVEHC/design/2026-10-05'),
-  massport: resolve(homedir(), 'Tools/design-lab-corpus/massport'),
-  kingtec: resolve(homedir(), 'Tools/design-lab-corpus/kingtec'),
-  acu: resolve(homedir(), 'Tools/design-lab-corpus/americas-credit-unions'),
+  pncb: savedRun('pncb'),
+  definitive: savedRun('definitive'),
+  massport: savedRun('massport'),
+  kingtec: savedRun('kingtec'),
+  acu: savedRun('americas-credit-unions'),
 };
 const root = process.argv[2] ?? mkdtempSync('/tmp/design-lab-p2-trees-');
 assert.ok(root.startsWith('/tmp/'));

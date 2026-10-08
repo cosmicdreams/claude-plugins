@@ -1,9 +1,9 @@
+import { savedRun } from './saved-runs.ts';
 import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
 /** Real local HTTP, recorded Figma results, isolated scratch runs. Never executes Figma code. */
 import assert from 'node:assert/strict';
 import { cpSync, existsSync, mkdtempSync, readFileSync, readdirSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve, relative } from 'node:path';
-import { homedir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { createInterface } from 'node:readline';
 import { once } from 'node:events';
@@ -23,7 +23,7 @@ assert.ok(
   replay.startsWith('/tmp/') && existsSync(resolve(oracle, 'oracle.json')),
   'supply successful driver replay root',
 );
-const source = resolve(homedir(), 'Sites/DEFINITIVEHC/design/2026-10-05');
+const source = savedRun('definitive');
 const scratch = process.argv[3] ?? mkdtempSync('/tmp/design-lab-round3-http-');
 assert.ok(scratch.startsWith('/tmp/'));
 mkdirSync(scratch, { recursive: true });

@@ -1,7 +1,7 @@
+import { savedRun } from './saved-runs.ts';
 /** Manual acceptance lane: oracle and TS write only into a fresh /tmp folder. */
 import { readFileSync, mkdirSync, mkdtempSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { strict as assert } from 'node:assert';
 import { pluginRoot, dependencyFolder, sharedRequire } from '../../src/runtime.ts';
@@ -10,7 +10,7 @@ import { isolated, pool } from '../../src/capture/pool.ts';
 import { writeJson } from '../../src/contracts.ts';
 import type { CaptureConfig, CaptureRow } from '../../src/capture/types.ts';
 const sharp = sharedRequire()('sharp') as typeof import('sharp').default;
-const source = resolve(homedir(), '.design/pncb/2026-10-06/capture/configs');
+const source = resolve(savedRun('pncb'), 'capture/configs');
 const names = [
   'paragraph__card',
   'paragraph__icon_callout',

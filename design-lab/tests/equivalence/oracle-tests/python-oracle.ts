@@ -1,6 +1,5 @@
 /** Runs a snippet of the original Python reference and returns its JSON result.
- * The interpreter comes from DESIGN_LAB_PYTHON (for example /tmp/dl-venv/bin/python) and
- * defaults to python3. The snippet receives its input as the JSON object on stdin, with the
+ * The interpreter must be supplied explicitly through DESIGN_LAB_PYTHON. The snippet receives its input as the JSON object on stdin, with the
  * `scripts` folder already on sys.path. */
 import { spawnSync } from 'node:child_process';
 import { oracleScripts, oracleExecutable } from '../oracle.ts';

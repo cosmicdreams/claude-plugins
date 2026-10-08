@@ -4,7 +4,7 @@ import { existsSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { render } from '../../src/scoreboard-render.ts';
-import { differences } from '../equivalence/evaluation.ts';
+import { differences } from '../equivalence/differences.ts';
 void test('finding 1: replacement metacharacters cannot duplicate markup or corrupt scoreboard JSON', () => {
   for (const label of ["$'<img src=x onerror=alert(1)>", '$&', '$$', '$`', '</script><img src=x onerror=alert(1)>']) {
     const html = render([{ site: label }], label);

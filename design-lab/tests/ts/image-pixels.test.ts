@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { assertPixels } from '../equivalence/image-pixels.ts';
+import { assertPixels } from '../equivalence/pixel-compare.ts';
 import { sharedRequire } from '../../src/runtime.ts';
 const sharp = sharedRequire()('sharp') as typeof import('sharp').default;
 void test('served-image verification rejects nonempty wrong pixels and accepts different PNG compression', async () => {

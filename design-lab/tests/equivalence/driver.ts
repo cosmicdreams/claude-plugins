@@ -1,9 +1,9 @@
+import { savedRun } from './saved-runs.ts';
 import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
 /** Every queue step, including images, with immutable source runs copied to /tmp. */
 import assert from 'node:assert/strict';
 import { cpSync, existsSync, readFileSync, readdirSync, mkdtempSync, mkdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { homedir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import { generate as receipts } from '../../src/figma-receipts.ts';
@@ -22,8 +22,8 @@ const runner = assertRunnerClientParity();
 const runtime = (value: unknown): unknown =>
   legacyRuntime(value, currentRenderer.runtimeHash(), legacyRenderer.runtimeHash());
 const sources = {
-  definitive: resolve(homedir(), 'Sites/DEFINITIVEHC/design/2026-10-05'),
-  pncb: resolve(homedir(), '.design/pncb/2026-10-06'),
+  definitive: savedRun('definitive'),
+  pncb: savedRun('pncb'),
 };
 const root = process.argv[2] ?? mkdtempSync('/tmp/design-lab-round2-driver-');
 assert.ok(root.startsWith('/tmp/'));

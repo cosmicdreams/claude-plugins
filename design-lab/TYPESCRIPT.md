@@ -43,7 +43,7 @@ npm run contracts:generate
 npm run contracts:check
 npm run typecheck
 npm test
-npm run contracts:reality
+npm run contracts:reality -- /path/to/saved/run /path/to/another/run
 ```
 
 `typecheck` checks **tsconfig.src.json and tsconfig.figma.json**, using temporary overlays with types resolved from the shared cache. The pane retains the host-owned `tsconfig.json`. Both development configs also enable `exactOptionalPropertyTypes`, `noImplicitOverride`, `noImplicitReturns`, `noFallthroughCasesInSwitch` and `useUnknownInCatchVariables`. Optional artifact fields are omitted when absent; explicit `null` keeps its recorded meaning. `npm test` runs `node --test` across both `tests/ts` and the four browser consent tests; `npm run test:unit` selects only unit tests. No tests silently skip when Chromium is missing. `tests/keep-coverage.json` maps all 330 retained baseline scenarios to their TS suites; related scenarios can share a behavioral test. The 34 output-equivalence scenarios use the on-demand frozen-run harnesses below. The 132 obsolete cases were removed.
@@ -98,11 +98,12 @@ Evidence is retained outside the plugin repository in `analysis-reports/design-l
 
 The **external Python oracle** is simply a read-only checkout of the previous implementation. It supplies the reference results for migration comparisons; it is not used by the plugin, ordinary Node tests, or CI. Fresh on-demand oracle regression tests require the prepared interpreter. No `.py` file ships in this plugin. TS harness launchers materialize their small baseline adapters under `/tmp`, invoke the external interpreter, and import only from the external checkout. Bytecode writes there are disabled.
 
-`DESIGN_LAB_ORACLE_ROOT` accepts the absolute **plugin directory** containing `scripts/`, or its parent checkout containing `design-lab/scripts/`. Its default is `/Users/Chris.Weber/Tools/CLAUDE-PLUGINS/worktrees/design-lab-oracle/design-lab`, in the read-only detached checkout at `4176de29`. `DESIGN_LAB_PYTHON` selects its prepared interpreter and defaults to `/tmp/dl-venv/bin/python` (**Python 3.14.8**). Pin the patch version: `html.parser` comment handling differs between Python 3.14 patch releases (including 3.14.5 and 3.14.8). It needs the baseline's Pillow, CairoSVG and YAML dependencies. Harnesses compare copied runs and write only under `/tmp`.
+`DESIGN_LAB_ORACLE_ROOT` accepts the absolute **plugin directory** containing `scripts/`, or its parent checkout containing `design-lab/scripts/`. Both `DESIGN_LAB_ORACLE_ROOT` and `DESIGN_LAB_PYTHON` are required: the equivalence harness fails immediately with the missing variable's name if either is unset or blank. `DESIGN_LAB_PYTHON` selects the prepared interpreter (**Python 3.14.8**). The saved baseline is `4176de29`. Pin the patch version: `html.parser` comment handling differs between Python 3.14 patch releases (including 3.14.5 and 3.14.8). It needs the baseline's Pillow, CairoSVG and YAML dependencies. Harnesses compare copied runs and write only under `/tmp`.
 
 ```sh
 export DESIGN_LAB_ORACLE_ROOT=/path/to/read-only/baseline-checkout
 export DESIGN_LAB_PYTHON=/path/to/prepared/baseline-venv/bin/python
+export DESIGN_LAB_SAVED_RUNS=/path/to/saved-runs.json
 node --test tests/equivalence/oracle-tests/*.test.ts
 node tests/equivalence/driver.ts
 node tests/equivalence/trees.ts
@@ -114,6 +115,8 @@ node tests/equivalence/tier1.ts /tmp/evaluation-results
 node tests/equivalence/discovery.ts /tmp/discovery-results
 node tests/equivalence/oracle-cli.ts discovery-compare /tmp/discovery-results
 ```
+
+`DESIGN_LAB_SAVED_RUNS` explicitly supplies the frozen run folders used by the saved-run harnesses. Its JSON object maps `pncb`, `definitive`, `definitive-03`, `massport`, `kingtec` and `americas-credit-unions` to absolute `/path/to/saved/run` paths; each harness requires only the keys it reads. The font harness uses those frozen runs only when the manifest is supplied. No harness guesses personal run folders.
 
 Former standalone adapter commands are `node tests/equivalence/oracle-cli.ts <adapter-name> [args...]`; the name omits its old suffix. Discovery's optional live harness needs the site's already running DDEV environment. The baseline checkout is always read-only.
 

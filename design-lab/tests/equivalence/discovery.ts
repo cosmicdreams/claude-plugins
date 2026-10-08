@@ -1,7 +1,8 @@
+import { savedRun } from './saved-runs.ts';
 import { oracleScript, oracleExecutable } from './oracle.ts';
 /** Real repository oracle comparisons. Reads sites/runs; all generated artifacts live in /tmp. */
 import { mkdtempSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
-import { tmpdir, homedir } from 'node:os';
+import { tmpdir } from 'node:os';
 import { resolve, join } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
@@ -18,15 +19,11 @@ import type { RenderingSignals, CaptureSignals } from '../../src/plan.ts';
 
 import { portableManifest } from './portable.ts';
 
-const home = homedir();
-export const sites = [
-  ['pncb', join(home, '.design/pncb/2026-10-06')],
-  ['definitivehc', join(home, 'Sites/DEFINITIVEHC/design/2026-10-05')],
-  ...['massport', 'kingtec', 'americas-credit-unions'].map((name) => [
-    name,
-    join(home, 'Tools/design-lab-corpus', name),
-  ]),
-] as string[][];
+export const sites = (): string[][] => [
+  ['pncb', savedRun('pncb')],
+  ['definitivehc', savedRun('definitive')],
+  ...['massport', 'kingtec', 'americas-credit-unions'].map((name) => [name, savedRun(name)]),
+];
 interface Manifest {
   repository: { root: string };
   decisions: {
@@ -99,7 +96,7 @@ export async function main(rootArg?: string, usage = false): Promise<void> {
   if (!/^\/(private\/)?tmp\//.test(output)) throw new Error('equivalence output must be under /tmp');
   mkdirSync(output, { recursive: true });
   const results: Result[] = [];
-  for (const [name, frozen] of sites) {
+  for (const [name, frozen] of sites()) {
     if (!name || !frozen) continue;
     const project = JSON.parse(readFileSync(join(frozen, 'project.json'), 'utf8')) as Manifest;
     const siteRoot = project.repository.root;

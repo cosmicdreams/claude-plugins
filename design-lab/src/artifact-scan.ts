@@ -1,16 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { resolve, relative, basename } from 'node:path';
-import { homedir } from 'node:os';
 import { artifactKinds, validate } from './contracts.ts';
 import type { ArtifactKind } from './contracts.ts';
-export const defaultRoots = [
-  '.design/pncb/2026-10-06',
-  'Sites/DEFINITIVEHC/design/2026-10-03',
-  'Sites/DEFINITIVEHC/design/2026-10-05',
-  'Tools/design-lab-corpus/massport',
-  'Tools/design-lab-corpus/kingtec',
-  'Tools/design-lab-corpus/americas-credit-unions',
-].map((p) => resolve(homedir(), p));
 export interface FileResult {
   root: string;
   file: string;

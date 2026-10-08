@@ -1,9 +1,9 @@
+import { savedRun } from './saved-runs.ts';
 import { oracleScript, oracleExecutable } from './oracle.ts';
 /** Six copied runs, fresh Python/TS verification and scoring, independently rendered reports. */
 import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { homedir } from 'node:os';
 import { performance } from 'node:perf_hooks';
 import { pluginRoot } from '../../src/runtime.ts';
 import { validate, writeJson } from '../../src/contracts.ts';
@@ -59,20 +59,8 @@ export function normalize(value: unknown, path = ''): unknown {
     );
   return value;
 }
-export function differences(a: unknown, b: unknown, path = '', out: string[] = []): string[] {
-  if (out.length >= 60 || Object.is(a, b)) return out;
-  if (!a || !b || typeof a !== 'object' || typeof b !== 'object' || Array.isArray(a) !== Array.isArray(b)) {
-    out.push(path + ': ' + JSON.stringify(a) + ' != ' + JSON.stringify(b));
-    return out;
-  }
-  const left = a as Record<string, unknown>,
-    right = b as Record<string, unknown>;
-  for (const key of new Set([...Object.keys(left), ...Object.keys(right)])) {
-    if (!Object.hasOwn(left, key) || !Object.hasOwn(right, key)) out.push(path + '/' + key + ': missing key');
-    else differences(left[key], right[key], path + '/' + key, out);
-  }
-  return out;
-}
+import { differences } from './differences.ts';
+export { differences } from './differences.ts';
 export function evaluationExitCode(result: { results: EvaluationRow[]; coverage?: Coverage }): number {
   return !result.results.length ||
     (result.coverage &&
@@ -91,16 +79,12 @@ export async function evaluationParity(root: string) {
   portableManifest();
   if (!root.startsWith('/tmp/')) throw new Error('equivalence root must be under /tmp');
   mkdirSync(root, { recursive: true });
-  const home = homedir(),
-    sources: Array<[string, string]> = [
-      ['definitive-03', resolve(home, 'Sites/DEFINITIVEHC/design/2026-10-03')],
-      ['definitive-05', resolve(home, 'Sites/DEFINITIVEHC/design/2026-10-05')],
-      ['pncb', resolve(home, '.design/pncb/2026-10-06')],
-      ...['massport', 'kingtec', 'americas-credit-unions'].map((n): [string, string] => [
-        n,
-        resolve(home, 'Tools/design-lab-corpus', n),
-      ]),
-    ];
+  const sources: Array<[string, string]> = [
+    ['definitive-03', savedRun('definitive-03')],
+    ['definitive-05', savedRun('definitive')],
+    ['pncb', savedRun('pncb')],
+    ...['massport', 'kingtec', 'americas-credit-unions'].map((n): [string, string] => [n, savedRun(n)]),
+  ];
   const portable = await portableParity(resolve(root, 'portable'));
   const results: EvaluationRow[] = [];
   const python = (request: { site: string; [key: string]: unknown }) => {

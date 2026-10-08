@@ -38,7 +38,7 @@ export async function main(output: string): Promise<void> {
     coverage: portable.matrix,
     portable: portable.results,
   };
-  for (const [name, frozen] of sites) {
+  for (const [name, frozen] of sites()) {
     const scratch = join(output, name!),
       request = JSON.parse(readFileSync(join(scratch, 'request.json'), 'utf8')) as Request,
       project = JSON.parse(readFileSync(join(frozen!, 'project.json'), 'utf8')) as Project;
