@@ -1,4 +1,4 @@
-import { _REVEAL_JS, _TAG_JS, _SELECTOR_REVEAL_JS } from './twig-scripts.ts';
+import { inject, tagRenders, revealMatches } from './twig-scripts.ts';
 export function enabled(html: string): boolean { return html.includes('<!-- THEME DEBUG -->') || /<!-- [^\n]*BEGIN [^\n]*OUTPUT from '[^']+' -->/.test(html); }
 export function suggestion(id: string): [string, string] {
   const colon = id.indexOf(':');
@@ -33,11 +33,10 @@ export function rendersWithin(html: string, parent: string, children: string[]) 
   }
   return { parentRenders, children: counts };
 }
-function format(source: string, values: Record<string, string>): string { return source.replace(/%\((\w+)\)s/g, (_, key: string) => values[key]!); }
 export function tagScript(id: string, attribute = 'data-design-lab-root', reveal = true): string {
   const [hook, wanted] = suggestion(id);
-  return format(_TAG_JS, { id: JSON.stringify(id), hook: JSON.stringify(hook), wanted: JSON.stringify(wanted), attr: JSON.stringify(attribute), reveal: _REVEAL_JS, reveal_on: String(reveal) });
+  return inject(tagRenders, { id, hook, wanted, attr: attribute, mayReveal: reveal });
 }
 export function childTagScripts(ids: string[]): string { return ids.filter(id => id.includes(':') && !id.startsWith('sdc.')).map(id => tagScript(id, 'data-design-lab-child', false).trim() + ';\n').join(''); }
-export function revealScript(selector: string): string { return format(_SELECTOR_REVEAL_JS, { selector: JSON.stringify(selector), reveal: _REVEAL_JS }); }
+export function revealScript(selector: string): string { return inject(revealMatches, selector); }
 export function rootSelector(id: string): string { return `[data-design-lab-root="${id}"]`; }

@@ -1,0 +1,67 @@
+[
+  {
+    "id": "paragraph:cards",
+    "kind": "template",
+    "selector": "[data-design-lab-root=\"paragraph:cards\"]",
+    "children": [],
+    "setupSha256": "002c7ff8715ae8f678a91fb1e1839d466d6c2a727005807c77029f6f99953231",
+    "setupLength": 2253,
+    "configHash": "72c17d5aaffeb8b569e65f997f811298858404e93712011ec1bb3b58c7805a33",
+    "legacyHash": "0f02664c61579ecf5841ad4450e6df6a35f1092170cfb37d33278f75d0146117",
+    "legacyHashScale2": "f0894738243ecc1c8f1a977747c1328119d4fceac8c508ce4412126add4b775c"
+  },
+  {
+    "id": "block:hero",
+    "kind": "template",
+    "selector": "[data-design-lab-root=\"block:hero\"]",
+    "children": [
+      "paragraph:child",
+      "sdc.demo.alpha",
+      "block:inner"
+    ],
+    "setupSha256": "f19d844ab4d900c47cc2c3ff16f11fc3463e9c78a5be3b232c1bfba33c8beff0",
+    "setupLength": 6775,
+    "configHash": "0d56d7bbdadbc03d41e45e36084700378008105bfe5a4271a9ff393196e5a98a",
+    "legacyHash": "7d31130275bbb6251a839098407596a58e8174cc21999e65c9cec99884751184",
+    "legacyHashScale2": "6b2d2d7fc64860f21e100c89b12e6471c055a9298dbe2f9cf714b791fa784dcc"
+  },
+  {
+    "id": "sdc.demo.alpha",
+    "kind": "class",
+    "selector": ".alpha",
+    "children": [],
+    "setupSha256": "1924dd200e1bb8c7dfb86940bdf6cd6a7a3322067aa3271aa7188961d1fe85f9",
+    "setupLength": 618,
+    "configHash": "9836407bd5934d6a0d22ee3e06915794ba3891191237f1b770fbb7fc5cd10e50",
+    "legacyHash": "968f4e4da02f7b16e252d8793acddd8898c9485de9f51ee8255fc48f7bb3c367",
+    "legacyHashScale2": "574b3e90d34595461e711ef308f361c3788161b9dc2b04159a8508ad4c622035"
+  },
+  {
+    "id": "paragraph:row",
+    "kind": "id",
+    "selector": "#row",
+    "children": [
+      "paragraph:cell",
+      "paragraph:other"
+    ],
+    "setupSha256": "0fa2807e8ae488ba23ff912367bad279c9733be6adc68d22de85f5d37cb36378",
+    "setupLength": 5162,
+    "configHash": "f1a85aa63fd27c170cf02380fef36035a0ac0f539e2b6da32c7c3eb2f6083ea9",
+    "legacyHash": "5ae7369370eb26a5e7e34f3c11a9b02d05bac90831e35aae68790744a0ecca02",
+    "legacyHashScale2": "b5bf6a4945cb8128b2b49488f3122a13f6c699b3e4087cba76712d8842275530"
+  },
+  {
+    "id": "block:quote",
+    "kind": null,
+    "selector": "[data-component-id=\"demo:quote\"]",
+    "children": [
+      "sdc.x",
+      "*"
+    ],
+    "setupSha256": "9e8edd12653705104f9183693be37af5bef1007510d766293fe4b00b621c4823",
+    "setupLength": 646,
+    "configHash": "5879fbfdf8ea58bc6387599d4490c48c2922bcbd480794e494b7c6f29761d77e",
+    "legacyHash": "0fe5807d923b5482093959043a60c93435415d0607491f6ad6976059d44e653e",
+    "legacyHashScale2": "845a64448e6394f0fac99442e99055f009f1ca64a4964d94990efaa569c96509"
+  }
+]
