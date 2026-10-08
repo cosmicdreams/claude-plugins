@@ -875,19 +875,34 @@ export const buildPhase = (project: Project): PhaseName =>
   (['foundation', 'components', 'index'] as const).find(
     (name) => !['complete', 'approved', 'waived'].includes(project.phases?.[name]?.status ?? ''),
   ) ?? 'components';
-export async function awaitRunner(workspace: string, project: Project, minutes = 2, pollMs = 5000) {
+export async function awaitRunner(
+  workspace: string,
+  project: Project,
+  minutes = 2,
+  pollMs = 5000,
+  dependencies: {
+    ensureServer?: (workspace: string) => Promise<unknown>;
+    serverStatus?: (workspace: string) => Promise<Pick<runner.ServerStatus, 'inflight'>>;
+    clock?: () => number;
+    sleep?: (milliseconds: number) => Promise<void>;
+  } = {},
+) {
   if (!(minutes > 0)) throw new Error('--minutes must be positive');
-  await runner.ensureServer(workspace);
-  const deadline = performance.now() + minutes * 60_000;
+  await (dependencies.ensureServer ?? runner.ensureServer)(workspace);
+  const clock = dependencies.clock ?? (() => performance.now()),
+    sleep =
+      dependencies.sleep ?? ((milliseconds: number) => new Promise<void>((done) => setTimeout(done, milliseconds))),
+    deadline = clock() + minutes * 60_000;
   let last: string | null = null;
   do {
     try {
       last = readFileSync(resolve(workspace, 'figma', runner.SEEN_FILE), 'utf8').trim();
     } catch {}
     if (secondsSince(last) !== null && secondsSince(last)! <= minutes * 60) return { connected: true, lastSeen: last };
-    if ((await runner.serverStatus(workspace)).inflight) return { connected: true, inflight: true, lastSeen: last };
-    if (performance.now() >= deadline) break;
-    await new Promise((done) => setTimeout(done, Math.min(pollMs, deadline - performance.now())));
+    if ((await (dependencies.serverStatus ?? runner.serverStatus)(workspace)).inflight)
+      return { connected: true, inflight: true, lastSeen: last };
+    if (clock() >= deadline) break;
+    await sleep(Math.min(pollMs, deadline - clock()));
   } while (true);
   const whole = Math.max(1, Math.round((secondsSince(last) ?? minutes * 60) / 60)),
     address = project.target?.figmaUrl || 'the target Figma file',
