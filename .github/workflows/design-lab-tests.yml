@@ -28,6 +28,10 @@ jobs:
         run: npm run contracts:check
       - name: Typecheck Node and Figma environments
         run: npm run typecheck
+      - name: Lint TypeScript
+        run: npm run lint
+      - name: Check TypeScript formatting
+        run: npm run format:check
       - name: Run Node and browser tests
         run: npm test
       - name: Install Claude Code CLI
