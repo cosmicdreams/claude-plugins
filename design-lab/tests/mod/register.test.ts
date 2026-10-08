@@ -421,6 +421,53 @@ describe('design-lab:watch', () => {
     expect((await $.command.run({ ...WATCH, command: 'design-lab:recap' })).text).toContain('could not answer design-lab:recap')
   })
 
+  test('a failing run skill falls through to its command, tells the person once and never hangs', async ($, on) => {
+    const toasts: string[] = []
+    on('session.start', ($, e) => ({ cwd: e.cwd }))
+    on('session.cwd', () => { throw new Error('boom') })
+    on('ui.toast', ($, e) => { toasts.push(e.text); return { value: undefined } })
+    on('command.run', { command: 'design-lab:run' }, () => ({ text: 'the run skill ran' }))
+    on('command.run', { command: 'design-lab:figma-build' }, () => ({ text: 'the build skill ran' }))
+    on('skill.prompt', ($, e) => ({ text: e.text }))
+    await $.session.start(SESSION)
+    expect((await $.command.run({ ...WATCH, command: 'design-lab:run' })).text).toBe('the run skill ran')
+    expect((await $.command.run({ ...WATCH, command: 'design-lab:figma-build' })).text).toBe('the build skill ran')
+    expect(toasts).toEqual([
+      'design-lab: design-lab:run failed; claude --debug has the error',
+      'design-lab: design-lab:figma-build failed; claude --debug has the error',
+    ])
+    // The same skill called through the Skill tool: the prompt still goes on to Claude.
+    expect((await $.skill.prompt({ skill: 'design-lab:run', text: 'Run design-lab' })).text).toBe('Run design-lab')
+    expect(toasts).toHaveLength(3)
+    expect(toasts[2]).toContain('design-lab:run failed')
+  })
+
+  test('a refresh that fails on the timer is told once and never rejects unhandled', async ($, on) => {
+    const files: Record<string, string> = { [at(RUN_FILES.project)]: PROJECT, [at(RUN_FILES.progress)]: progress(5_000) }
+    // The refresh reads the clock after the run; once `broken`, that throws.
+    let broken = false
+    const failing = ((name: string, ...rest: unknown[]) => {
+      if (name !== 'clock.now') return (on as (...a: unknown[]) => unknown)(name, ...rest)
+      const [handler] = rest as [(...a: unknown[]) => unknown]
+      return (on as (...a: unknown[]) => unknown)(name, (...a: unknown[]) => { if (broken) throw new Error('boom'); return handler(...a) })
+    }) as unknown as On
+    const w = world(failing, files)
+    await $.session.start(SESSION)
+    await $.command.run({ ...WATCH, args: RUN })
+    w.toasts.length = 0
+    broken = true
+    await w.clock.advance(POLL_MS)
+    await w.clock.advance(POLL_MS)
+    await w.clock.advance(POLL_MS)
+    expect(w.toasts).toEqual(['design-lab: refreshing the pane failed; claude --debug has the error'])
+    // Once a refresh works again, a later failure is told again.
+    broken = false
+    await w.clock.advance(POLL_MS)
+    broken = true
+    await w.clock.advance(POLL_MS)
+    expect(w.toasts).toHaveLength(2)
+  })
+
   test('reads only the run folder and the pointer, never the runner token', async ($, on) => {
     const w = world(on, {
       [`${HOME}/.design-lab/active-run.json`]: JSON.stringify({ workspace: RUN }),
