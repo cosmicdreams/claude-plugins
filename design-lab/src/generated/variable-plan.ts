@@ -15,7 +15,7 @@ export interface VariablePlan {
   modes?: string[];
   warnings?: {
     kind: string;
-    value?: string | number;
+    value?: string | number | null;
     detail?: string;
   }[];
 }
@@ -28,9 +28,9 @@ export interface VariableCollection {
 export interface PlannedVariable {
   name: string;
   type: "COLOR" | "FLOAT" | "STRING" | "BOOLEAN";
-  hex?: string;
-  codeName?: string;
-  tags?: string[];
+  hex?: string | null;
+  codeName?: string | null;
+  tags?: (string | null)[];
   inUse?: boolean;
   scopes?: string[];
   sourceCollection?: string;
@@ -51,6 +51,6 @@ export interface PlannedVariable {
   scales?: boolean;
   unitlessRatio?: boolean;
   description?: string;
-  stack?: string;
+  stack?: string | null;
   nameDisambiguated?: boolean;
 }
