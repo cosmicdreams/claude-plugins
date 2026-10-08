@@ -8,6 +8,7 @@ import {
   walk,
 } from "./discovery-io.ts";
 import { summary as siteStudioSummary } from "./sitestudio-source.ts";
+import type { Detection, Strategy } from "./generated/detection.ts";
 export { configDirs, docroot } from "./discovery-io.ts";
 export const configSync = configSyncIo;
 const GENERATED = /\/sites\/[^/]+\/files\//;
@@ -39,12 +40,13 @@ function osWalkFiles(root: string, skip: RegExp): string[] {
   visit(root);
   return result;
 }
-export function detect(root: string): any {
+export function detect(root: string): Detection {
   const abs = resolve(root),
     web = findDocroot(abs),
     cfg = configSyncIo(abs),
     candidates = configDirs(abs);
-  const out: any = {
+  const notes: string[] = [];
+  const out: Detection = {
     root: abs,
     docroot: web,
     configSync: cfg,
@@ -52,21 +54,22 @@ export function detect(root: string): any {
     componentSources: [],
     tokenSources: [],
     usageSources: [],
-    notes: [],
+    notes,
     priorArt: priorArt(abs),
+    recommended: {},
   };
   if (out.priorArt.length)
-    out.notes.push(
+    notes.push(
       `PRIOR ART: ${out.priorArt.length} existing design-system artifact(s) found, starting with ${out.priorArt
         .slice(0, 4)
-        .map((h: any) => h.path)
+        .map((h) => h.path)
         .join(
           ", ",
         )}. Read references/prior-art.md and reconcile against them BEFORE extracting - the code is authoritative on values, existing work on organisation and naming.`,
     );
   const empty = candidates.filter((c) => !c.entityCount).map((c) => c.path);
   if (empty.length && cfg)
-    out.notes.push(
+    notes.push(
       `Empty configuration director${empty.length === 1 ? "y" : "ies"} ignored: ${empty.join(", ")}. Using ${cfg}.`,
     );
   const configs = cfg ? directYml(cfg) : [];
@@ -118,7 +121,7 @@ export function detect(root: string): any {
       evidence: "paragraphs_type config entities",
     });
   else if (paras.length)
-    out.notes.push(
+    notes.push(
       `${paras.length} paragraph type(s) present - too few to treat as the component source`,
     );
   const ss = siteStudioSummary(abs),
@@ -130,7 +133,7 @@ export function detect(root: string): any {
     );
   if (uses) {
     out.siteStudio = ss;
-    if (ss.problem) out.notes.push("Site Studio: " + ss.problem + ".");
+    if (ss.problem) notes.push("Site Studio: " + ss.problem + ".");
   }
   if (ss.components || custom)
     out.componentSources.push({
@@ -165,7 +168,7 @@ export function detect(root: string): any {
   }
   const stories = files.filter((p) => /\.stories\./.test(p));
   if (stories.length) {
-    out.notes.push(
+    notes.push(
       `${stories.length} Storybook stor(ies) found - usable as a usage signal`,
     );
     out.usageSources.push({ strategy: "storybook", count: stories.length });
@@ -195,7 +198,7 @@ export function detect(root: string): any {
   let cssFiles = 0,
     cssLoaded = 0,
     cssValues = 0;
-  const unloaded: any[] = [];
+  const unloaded: { ref: string; customProperties: number }[] = [];
   for (const p of osWalkFiles(
     web,
     /(^|\/)(node_modules|vendor|\.git|\.design-lab|contrib|core)(\/|$)/,
@@ -217,7 +220,7 @@ export function detect(root: string): any {
     } else if (vars.size >= 20)
       unloaded.push({ ref: rel(abs, p), customProperties: vars.size });
   }
-  const maps: any[] = [];
+  const maps: NonNullable<Strategy["maps"]> = [];
   for (const p of files.filter(
     (x) => x.endsWith(".css.map") && !GENERATED.test(x),
   )) {
@@ -240,7 +243,7 @@ export function detect(root: string): any {
   if (maps.length)
     out.tokenSources.push({
       strategy: "sass-sourcemap",
-      variables: maps.reduce((a, b) => a + b.variables, 0),
+      variables: maps.reduce((a, b) => a + (b.variables ?? 0), 0),
       maps,
     });
   if (cssFiles)
@@ -251,7 +254,7 @@ export function detect(root: string): any {
       variablesLoadedByTheme: cssValues,
     });
   if (unloaded.length)
-    out.notes.push(
+    notes.push(
       `Ignoring ${unloaded.length} stylesheet(s) with many custom properties that no *.libraries.yml loads - likely scaffolding, not the design system: ${unloaded
         .slice(0, 3)
         .map((x) => `${x.ref} (${x.customProperties})`)
@@ -284,7 +287,7 @@ export function detect(root: string): any {
         evidence: "published Canvas page placements and content templates",
       });
   }
-  const ranks: any = {
+  const ranks: Record<string, number> = {
     canvas: 0,
     "drupal-authoring": 1,
     sitestudio: 2,
@@ -292,25 +295,25 @@ export function detect(root: string): any {
     sdc: 4,
   };
   if (
-    (out.componentSources.find((s: any) => s.strategy === "sitestudio")
+    (out.componentSources.find((s) => s.strategy === "sitestudio")
       ?.count || 0) >
-    (out.componentSources.find((s: any) => s.strategy === "drupal-authoring")
+    (out.componentSources.find((s) => s.strategy === "drupal-authoring")
       ?.count || 0)
   ) {
-    ranks.sitestudio = 1;
+    ranks["sitestudio"] = 1;
     ranks["drupal-authoring"] = 2;
   }
   const comp = [...out.componentSources].sort(
-    (a: any, b: any) =>
-      (ranks[a.strategy] ?? 9) - (ranks[b.strategy] ?? 9) || b.count - a.count,
+    (a, b) =>
+      (ranks[a.strategy] ?? 9) - (ranks[b.strategy] ?? 9) || (b.count ?? 0) - (a.count ?? 0),
   )[0];
-  const tr = (s: any) =>
+  const tr = (s: Strategy) =>
     s.strategy === "sitestudio-styles"
       ? 0
       : s.strategy === "sass-source"
         ? 1
         : s.strategy === "css-custom-properties" &&
-            s.variablesLoadedByTheme >= 20
+            (s.variablesLoadedByTheme ?? 0) >= 20
           ? 2
           : s.strategy === "sass-sourcemap"
             ? 3
@@ -319,10 +322,10 @@ export function detect(root: string): any {
               : s.strategy === "css-custom-properties"
                 ? 5
                 : 9;
-  const tok = [...out.tokenSources].sort((a: any, b: any) => tr(a) - tr(b))[0],
-    ur: any = { "canvas-db": 0, "drupal-db": 1, storybook: 2 },
+  const tok = [...out.tokenSources].sort((a, b) => tr(a) - tr(b))[0],
+    ur: Record<string, number> = { "canvas-db": 0, "drupal-db": 1, storybook: 2 },
     usage = [...out.usageSources].sort(
-      (a: any, b: any) => (ur[a.strategy] ?? 9) - (ur[b.strategy] ?? 9),
+      (a, b) => (ur[a.strategy] ?? 9) - (ur[b.strategy] ?? 9),
     )[0];
   out.recommended = {
     component: comp?.strategy ?? null,
@@ -331,9 +334,9 @@ export function detect(root: string): any {
   };
   if (out.componentSources.length > 1) {
     const listed = out.componentSources
-      .map((c: any) => `${c.strategy} (${c.count})`)
+      .map((c) => `${c.strategy} (${c.count})`)
       .join(", ");
-    out.notes.push(
+    notes.push(
       `Multiple component sources present - ${listed}. Recommending ${out.recommended.component} because authoring vocabularies outrank rendering primitives; confirm only when repository evidence contradicts that relationship.`,
     );
   }

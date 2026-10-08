@@ -110,25 +110,62 @@
       "type": "object",
       "properties": {
         "configDir": {
-          "type": "null"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "configFrom": {
-          "type": "null"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "problem": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "declared": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "object",
+            "required": [
+              "file",
+              "line",
+              "path",
+              "expression",
+              "exists"
+            ],
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer"
+              },
+              "path": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "expression": {
+                "type": "string"
+              },
+              "exists": {
+                "type": "boolean"
+              }
+            },
+            "additionalProperties": false
           }
         },
         "families": {
           "type": "object",
-          "properties": {},
-          "required": [],
-          "additionalProperties": false
+          "additionalProperties": {
+            "type": "integer"
+          }
         },
         "components": {
           "type": "number"
@@ -145,7 +182,20 @@
         "customComponentProblems": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": "object",
+            "required": [
+              "kind",
+              "detail"
+            ],
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "detail": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
           }
         },
         "customComponentsFromActiveExtensionsOnly": {

@@ -15,6 +15,11 @@ import {
   sep,
 } from "node:path";
 import { configDirs, docroot, readText, walk } from "./discovery-io.ts";
+import type { Detection } from "./generated/detection.ts";
+export type SiteStudioSummary = Required<NonNullable<Detection["siteStudio"]>>;
+export type Declared = SiteStudioSummary["declared"][number];
+export type CustomComponentProblem = SiteStudioSummary["customComponentProblems"][number];
+export interface Located { path: string | null; from: string | null; problem: string | null; declared: Declared[] }
 const SUFFIX = ".custom_component.yml",
   BLOCKED = new Set([
     "src",
@@ -172,7 +177,7 @@ function locate(root: string, name: string): any[] {
       }
     })
     .sort();
-  const out: any[] = [];
+  const out: Declared[] = [];
   const re = new RegExp(
     "\\$settings\\s*\\[\\s*(['\\\"])(" + name + ")\\1\\s*\\]\\s*=(?!=)",
     "g",
@@ -219,7 +224,7 @@ function locate(root: string, name: string): any[] {
   }
   return out;
 }
-export function configDir(root: string, folder?: string): any {
+export function configDir(root: string, folder?: string): Located {
   const abs = resolve(root);
   if (folder)
     return {
@@ -340,7 +345,7 @@ function scan(folder: string): Map<string, string> {
   visit(folder);
   return out;
 }
-export function customComponents(root: string): [string[], any[], boolean] {
+export function customComponents(root: string): [string[], CustomComponentProblem[], boolean] {
   const abs = resolve(root),
     web = docroot(abs),
     active = activeExtensions(abs),
@@ -350,7 +355,7 @@ export function customComponents(root: string): [string[], any[], boolean] {
       .map(([, p]) => join(p, "custom_components"));
   folders.push(join(web, "custom_components"));
   const chosen = new Map<string, string>(),
-    problems: any[] = [];
+    problems: CustomComponentProblem[] = [];
   for (const folder of folders) {
     if (!existsSync(folder)) continue;
     for (const [name, path] of scan(folder)) {
@@ -408,7 +413,7 @@ export function families(folder: string | null): Record<string, number> {
     ),
   );
 }
-export function summary(root: string, folder?: string): any {
+export function summary(root: string, folder?: string): SiteStudioSummary {
   const abs = resolve(root),
     located = folder ? configDir(abs, folder) : configDir(abs),
     counts = families(located.path),
