@@ -1,0 +1,109 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/figma-state.schema.json",
+  "title": "FigmaState",
+  "anyOf": [
+    {
+      "type": "object",
+      "properties": {
+        "fileKey": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "fileKey"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "fileKey": {
+          "type": "string"
+        },
+        "standardVersion": {
+          "type": "string"
+        },
+        "siteUrl": {
+          "type": "string"
+        },
+        "canonicalBaseUrl": {
+          "type": "string"
+        },
+        "runtime": {
+          "type": "string"
+        },
+        "offlineImages": {
+          "type": "boolean"
+        },
+        "planned": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "steps": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "id"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "done": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "emittedCollections": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "iterate": {
+          "type": "boolean"
+        },
+        "subset": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "preflightCover": {
+          "type": "string"
+        },
+        "built": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "executionRevision": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "fileKey",
+        "standardVersion",
+        "siteUrl",
+        "canonicalBaseUrl",
+        "runtime",
+        "steps",
+        "done"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

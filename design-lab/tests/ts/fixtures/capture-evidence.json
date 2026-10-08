@@ -1,0 +1,1002 @@
+{
+  "standardVersion": "3.0.0",
+  "toolVersion": "design-lab 0.23.1",
+  "generatedAt": "2026-10-06T23:10:34Z",
+  "canonicalBaseUrl": "https://www.pncb.org",
+  "captures": {
+    "paragraph:accordion": {
+      "path": "/safeguarding-future-pediatric-care",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/safeguarding-future-pediatric-care",
+      "linkUrl": "https://www.pncb.org/safeguarding-future-pediatric-care",
+      "selector": "[data-design-lab-root=\"paragraph:accordion\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__accordion__desktop.png",
+          "hash": "sha256:6e380521ddeb1f69077c7751be4723e0a62b85df8e78674416f7819b7e3cabfb",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 792,
+          "height": 2431
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__accordion__tablet.png",
+          "hash": "sha256:a6d2d14e7546665364fe8f976cb31729304a8fd9a2778a78616aa6c754677a06",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 640,
+          "height": 2753
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__accordion__mobile.png",
+          "hash": "sha256:6269b9a7375a76ea50e8be4caa79261caf43427ff0a2b8d3532a13fa49d11149",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 5676
+        }
+      ]
+    },
+    "paragraph:accordion_callout": {
+      "path": "/cpn-exam-resources",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/cpn-exam-resources",
+      "linkUrl": "https://www.pncb.org/cpn-exam-resources",
+      "selector": "[data-design-lab-root=\"paragraph:accordion_callout\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__accordion_callout__desktop.png",
+          "hash": "sha256:392a2fa1aebc691496a91ad9eb95b6a621a2e6bd879f72fb4f9d359138c8e32e",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 742,
+          "height": 112
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__accordion_callout__tablet.png",
+          "hash": "sha256:a635bfa4f226d8af23a0b293ed845547758fb5161a10a687e3b8cb5d526e3756",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 590,
+          "height": 112
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__accordion_callout__mobile.png",
+          "hash": "sha256:b12146345db8c779588f5d7eabc67f7b72f336891855be19c82ab98b4658706b",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 245,
+          "height": 112
+        }
+      ]
+    },
+    "paragraph:accordion_item": {
+      "path": "/pediatric-nurse-interviews",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/pediatric-nurse-interviews",
+      "linkUrl": "https://www.pncb.org/pediatric-nurse-interviews",
+      "selector": "[data-design-lab-root=\"paragraph:accordion_item\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__accordion_item__desktop.png",
+          "hash": "sha256:5dfc74bebb6b681c254a93bfd78733de3edb93eb824a45b290383cb32acf19de",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 792,
+          "height": 2221
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__accordion_item__tablet.png",
+          "hash": "sha256:bbd73a9fe6cd5fc74c93059de018f6ebd5c03fb8e6142cca41dc3d3d0c848386",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 640,
+          "height": 2567
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__accordion_item__mobile.png",
+          "hash": "sha256:2fd102f595c8dede4a8ccbdcceaaab2ec391269f77c63afd2cf21b6405943142",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 5782
+        }
+      ]
+    },
+    "paragraph:betty_bot": {
+      "path": "/ask-pncbee",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/ask-pncbee",
+      "linkUrl": "https://www.pncb.org/ask-pncbee",
+      "selector": "[data-design-lab-root=\"paragraph:betty_bot\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__betty_bot__desktop.png",
+          "hash": "sha256:b0ec268c9bbf5e28b7c264cd59e43c62a76952385295363c3311d6e44fc1289c",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 792,
+          "height": 659
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__betty_bot__tablet.png",
+          "hash": "sha256:f581d681cb41190fb49ad8493bbb089ad118956df2f10262865d65b798ab35d9",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 640,
+          "height": 615
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__betty_bot__mobile.png",
+          "hash": "sha256:32b45c1ae236d10f3336a05a5997924c061cd2753e386ea3902d35854f7a3253",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 951
+        }
+      ]
+    },
+    "paragraph:card": {
+      "path": "/news/exam-candidate-faqs",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/news/exam-candidate-faqs",
+      "linkUrl": "https://www.pncb.org/news/exam-candidate-faqs",
+      "selector": "[data-design-lab-root=\"paragraph:card\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__card__desktop.png",
+          "hash": "sha256:4e5fc697392d436490cb28fe07dfc6b2a9c81c6c787d1e3f4c1e67725a9c535f",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 460,
+          "height": 477
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__card__tablet.png",
+          "hash": "sha256:b15f7b3c1651eb2f98078a243769744923d3585785e88cce75d1331edc507024",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 368,
+          "height": 592
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__card__mobile.png",
+          "hash": "sha256:b1ea7351bb8c668bbf666c8f61dd30130ed8031c0ee9ffded2c05b94623fe6a4",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 253,
+          "height": 972
+        }
+      ]
+    },
+    "paragraph:cta_block": {
+      "path": "/homepage",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/homepage",
+      "linkUrl": "https://www.pncb.org/homepage",
+      "selector": "[data-design-lab-root=\"paragraph:cta_block\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__cta_block__desktop.png",
+          "hash": "sha256:227935a24c0a25120f7072de4e41b00b4663765509f65d61a35991b277ae5a25",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 397,
+          "height": 440
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__cta_block__tablet.png",
+          "hash": "sha256:beb595f2c4f6becf39e5649ca8d0ece62a0b79294ed3e3acff139813a903f8e0",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 197,
+          "height": 373
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__cta_block__mobile.png",
+          "hash": "sha256:92e6413377403605abb59a4a286adf4b50e62cf1a464b74238a0836b4d153c49",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 380
+        }
+      ]
+    },
+    "paragraph:cta_grid": {
+      "path": "/homepage",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/homepage",
+      "linkUrl": "https://www.pncb.org/homepage",
+      "selector": "[data-design-lab-root=\"paragraph:cta_grid\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__cta_grid__desktop.png",
+          "hash": "sha256:31dcc7132c4ec62cb58864b3a9074015f3a4ca83bbcc28d9858060c8da8f5311",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 1320,
+          "height": 1119
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__cta_grid__tablet.png",
+          "hash": "sha256:ff82c5564f2f1e5343b8eea8f1cd6e8c4095ef25133fd56671715b240b9f1731",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 720,
+          "height": 1059
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__cta_grid__mobile.png",
+          "hash": "sha256:da56157d4a2bb0efdd6020a5400998a1707fedecb6a781abc3023626926e1ad3",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 335,
+          "height": 2233
+        }
+      ]
+    },
+    "paragraph:faces_of_certification": {
+      "path": "/faces-certification",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/faces-certification",
+      "linkUrl": "https://www.pncb.org/faces-certification",
+      "selector": ".paragraph--type--faces-of-certification",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__faces_of_certification__desktop.png",
+          "hash": "sha256:03383a0d5d4b78fb471a35d41939e5b20d502b1922bc7b8bf3940ff434a9c097",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 792,
+          "height": 557
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__faces_of_certification__tablet.png",
+          "hash": "sha256:f5c4e3765a4f1525775c2c5ce6a41fb3d323f01a220085e184364e08d499aba4",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 640,
+          "height": 584
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__faces_of_certification__mobile.png",
+          "hash": "sha256:67dfbb58bbaed41c0e198252db4f4afc9c24362edde10b4c5c6228ae2af06f51",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 712
+        }
+      ]
+    },
+    "paragraph:faq": {
+      "path": "/pmhs-recert-faqs",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/pmhs-recert-faqs",
+      "linkUrl": "https://www.pncb.org/pmhs-recert-faqs",
+      "selector": "[data-design-lab-root=\"paragraph:faq\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__faq__desktop.png",
+          "hash": "sha256:9cd6ec6fc412983990f91e30cff476c8454654be3b300c60626e10722515f217",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 792,
+          "height": 180
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__faq__tablet.png",
+          "hash": "sha256:dca99e23edb2b8a644f814f786a3933f2caa36d9d7e0f1af3c3020e864d3b98e",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 640,
+          "height": 180
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__faq__mobile.png",
+          "hash": "sha256:e8bea1a95d3647bb206b1bdb804ee0a9c6cf0fa3e6c688aab464ad1aabff2e88",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 309
+        }
+      ]
+    },
+    "paragraph:full_width_row": {
+      "path": "/pncb-award-and-scholarship-programs",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/pncb-award-and-scholarship-programs",
+      "linkUrl": "https://www.pncb.org/pncb-award-and-scholarship-programs",
+      "selector": "[data-design-lab-root=\"paragraph:full_width_row\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__full_width_row__desktop.png",
+          "hash": "sha256:b418e089820df371addc598a0e08d40532907217c50593a8bc7f51314374109c",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 792,
+          "height": 1984
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__full_width_row__tablet.png",
+          "hash": "sha256:2c0a1587192c4a0eae88ef845cd5d1b5136a2ca29e1d1ed5b906ac5382ac0ac3",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 640,
+          "height": 2198
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__full_width_row__mobile.png",
+          "hash": "sha256:a36d2b92bfa73cec2e4eba6ab1b21ddcea48f5de2c36b7a384b528145636ea3d",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 4356
+        }
+      ]
+    },
+    "paragraph:highlight": {
+      "path": "/homepage",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/homepage",
+      "linkUrl": "https://www.pncb.org/homepage",
+      "selector": "[data-design-lab-root=\"paragraph:highlight\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__highlight__desktop.png",
+          "hash": "sha256:c4a2c42ae12eed303eeb1f77f62a19fd48be53cf5a7d2c44f76bc1f81c1f5557",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 1320,
+          "height": 935
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__highlight__tablet.png",
+          "hash": "sha256:36dc70bbd0aaea22399551b3e3ec028a2ffdf9d0ec142b42480e32468c2a5951",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 720,
+          "height": 1120
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__highlight__mobile.png",
+          "hash": "sha256:7bcf9ca9b5181b5ab3b7911bb189e87ad99eea91e923bc1a78dc08bfd408da38",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 335,
+          "height": 1546
+        }
+      ]
+    },
+    "paragraph:highlight_news": {
+      "path": "/homepage",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/homepage",
+      "linkUrl": "https://www.pncb.org/homepage",
+      "selector": "[data-design-lab-root=\"paragraph:highlight_news\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__highlight_news__desktop.png",
+          "hash": "sha256:75f0f3e475de90e5d0276bfea8c14a84dc3d51396175882436b201d6d1d76b36",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 1320,
+          "height": 934
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__highlight_news__tablet.png",
+          "hash": "sha256:18a5befedaca997aed91d023cb6098b835565a02f0f536999e36a14bdf4291e9",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 720,
+          "height": 1457
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__highlight_news__mobile.png",
+          "hash": "sha256:4aa135fe4e0c9e3cb9201c185691c5cbb4bbd7082efa6be5f43a4b59ff09d935",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 335,
+          "height": 2451
+        }
+      ]
+    },
+    "paragraph:hl_hl_news": {
+      "path": "/homepage",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/homepage",
+      "linkUrl": "https://www.pncb.org/homepage",
+      "selector": "[data-design-lab-root=\"paragraph:hl_hl_news\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__hl_hl_news__desktop.png",
+          "hash": "sha256:60679d96c9674277f776394648ceb81c01a15abb69db35acd9106e7c83ddafe1",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 1320,
+          "height": 1869
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__hl_hl_news__tablet.png",
+          "hash": "sha256:d22597bb981c8871da0e4d7d53286ad768fe3add2cb95174ca7582f15f4031ae",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 720,
+          "height": 2577
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__hl_hl_news__mobile.png",
+          "hash": "sha256:9ebca2fa560faba9bd331212ee8f42cabead4ca0ef5d3c7f5533c0534366235e",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 335,
+          "height": 3997
+        }
+      ]
+    },
+    "paragraph:icon_callout": {
+      "path": "/pncb-scholarships",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/pncb-scholarships",
+      "linkUrl": "https://www.pncb.org/pncb-scholarships",
+      "selector": "[data-design-lab-root=\"paragraph:icon_callout\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__icon_callout__desktop.png",
+          "hash": "sha256:93c3e45f4c547e29cc4b5a7b10f7a4d9246fed9b634364830aed61b28dd8ab29",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 792,
+          "height": 444
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__icon_callout__tablet.png",
+          "hash": "sha256:e7f9f9b4c829357187ee1a9e6929ca24fb37228ed1f500d91b28b0ab1d7000f4",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 640,
+          "height": 536
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__icon_callout__mobile.png",
+          "hash": "sha256:45a993e55eb8cf49788072e374a9d1358cb57c4c3b3179ec2b0f1aaad6225544",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 1013
+        }
+      ]
+    },
+    "paragraph:motivation_card": {
+      "path": "/pmhs",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/pmhs",
+      "linkUrl": "https://www.pncb.org/pmhs",
+      "selector": "[data-design-lab-root=\"paragraph:motivation_card\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__motivation_card__desktop.png",
+          "hash": "sha256:0125d631bcc3a16ddca9b9276a609ec0993a5476df8faf1c6451738b62f4858c",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 384,
+          "height": 505
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__motivation_card__tablet.png",
+          "hash": "sha256:fd5d9d441431e1b96023829213557a5b9c7ba190a4296fa670de4af0039798ad",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 308,
+          "height": 620
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__motivation_card__mobile.png",
+          "hash": "sha256:834bf0d4d47734d9d6677a778b583451618f84f6b94e44616bd3dbea3a030ac3",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 649
+        }
+      ]
+    },
+    "paragraph:multicolored_three_up_component": {
+      "path": "/homepage",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/homepage",
+      "linkUrl": "https://www.pncb.org/homepage",
+      "selector": "[data-design-lab-root=\"paragraph:multicolored_three_up_component\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__multicolored_three_up_component__desktop.png",
+          "hash": "sha256:4dd92e77c9489071ca00f18a78a83759227da6eac15c653e56afd88fdcf3c6a2",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 1320,
+          "height": 641
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__multicolored_three_up_component__tablet.png",
+          "hash": "sha256:2d322f4a93551fa0fceb90c247fe1942a9d0f708fef20a09e38e1b80f9a82d0d",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 720,
+          "height": 658
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__multicolored_three_up_component__mobile.png",
+          "hash": "sha256:27fb8c10da034dd3da3edbe9db865b26f52c418b3a4e6579041798f1e01c09e3",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 335,
+          "height": 1467
+        }
+      ]
+    },
+    "paragraph:pic_desc_link": {
+      "path": "/homepage",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/homepage",
+      "linkUrl": "https://www.pncb.org/homepage",
+      "selector": "[data-design-lab-root=\"paragraph:pic_desc_link\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__pic_desc_link__desktop.png",
+          "hash": "sha256:f91e5c7424755fa4deefd969937a1470e5c9672b0ab299fd8c1d69d0b84d2735",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 397,
+          "height": 465
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__pic_desc_link__tablet.png",
+          "hash": "sha256:e6b46e5f48c04c1f91bd7844a4a53fa289ff11e442c31a3931c50bb95dc91993",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 197,
+          "height": 482
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__pic_desc_link__mobile.png",
+          "hash": "sha256:9cc1f600afe61c5ca4bb87b4b7d07aa4863531d4ddf034acc686df512963cbd0",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 430
+        }
+      ]
+    },
+    "paragraph:related_resources": {
+      "path": "/pmhs-success-stories",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/pmhs-success-stories",
+      "linkUrl": "https://www.pncb.org/pmhs-success-stories",
+      "selector": "[data-design-lab-root=\"paragraph:related_resources\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__related_resources__desktop.png",
+          "hash": "sha256:822ea04d604df18cd417d6e62f42e851305349ca9c7714469b7f9c1b9c76324a",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 307,
+          "height": 231
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__related_resources__tablet.png",
+          "hash": "sha256:a007d7fd40909c5e51ae21974d6415700e1f285e0092e21febb79224a5957dbe",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 246,
+          "height": 322
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__related_resources__mobile.png",
+          "hash": "sha256:0dbac703dbb1f027f49f119a6f5412b3c1e02eec61de7f55e6995c6b004c5f64",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 231
+        }
+      ]
+    },
+    "paragraph:resource": {
+      "path": "/employers",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/employers",
+      "linkUrl": "https://www.pncb.org/employers",
+      "selector": "[data-design-lab-root=\"paragraph:resource\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__resource__desktop.png",
+          "hash": "sha256:3e1e6dcdb7cd52190822674ed02466932803c564531422395cc67d45ed689c9e",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 307,
+          "height": 471
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__resource__tablet.png",
+          "hash": "sha256:15173e83f0f5fd9b315fc6b06b487eca2704f7d66f93080c1669974eaa5683a7",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 246,
+          "height": 471
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__resource__mobile.png",
+          "hash": "sha256:636d9b9fd719052f821218dad1b13ee227a8b33b4f0dfb973c86012a25eb587d",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 471
+        }
+      ]
+    },
+    "paragraph:sample_question": {
+      "path": "/pmhs-exam-resources",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/pmhs-exam-resources",
+      "linkUrl": "https://www.pncb.org/pmhs-exam-resources",
+      "selector": "[data-design-lab-root=\"paragraph:sample_question\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__sample_question__desktop.png",
+          "hash": "sha256:ef59984570b20721ae1fcb74a994737a243d8db4e9e72c32fefe4c78df6ead66",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 792,
+          "height": 117
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__sample_question__tablet.png",
+          "hash": "sha256:9705cd38f3714a40c35b2384cb1eb6d668200a3956815baa195f3ff8987644f5",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 640,
+          "height": 117
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__sample_question__mobile.png",
+          "hash": "sha256:2c9aafac400064b0d2cbc0b8d19047b5b96808fe56dde6edc826dd6c512924ec",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 252
+        }
+      ]
+    },
+    "paragraph:sample_questions": {
+      "path": "/cpnp-ac-exam-resources",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/cpnp-ac-exam-resources",
+      "linkUrl": "https://www.pncb.org/cpnp-ac-exam-resources",
+      "selector": "[data-design-lab-root=\"paragraph:sample_questions\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__sample_questions__desktop.png",
+          "hash": "sha256:7777fab7fe1969bdaeceab0589e408dfc9a10756d2ad672e5bf3717870f0e53a",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 792,
+          "height": 912
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__sample_questions__tablet.png",
+          "hash": "sha256:eab1fbba9087419b6e89cb6dd36972f8091faefea65019af80b6f8e42e3c38ce",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 640,
+          "height": 1080
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__sample_questions__mobile.png",
+          "hash": "sha256:c66273079485ab87477ee16c9c8fdb3f201e256187069929cbd0f1d33101713d",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 2251
+        }
+      ]
+    },
+    "paragraph:split_60_40": {
+      "path": "/kick-start-your-pediatric-nursing-career",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/kick-start-your-pediatric-nursing-career",
+      "linkUrl": "https://www.pncb.org/kick-start-your-pediatric-nursing-career",
+      "selector": "[data-design-lab-root=\"paragraph:split_60_40\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__split_60_40__desktop.png",
+          "hash": "sha256:d627f7a191234c6f26868e34a16a5c392647304af7cd2002aeab041fd4266a4a",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 506,
+          "height": 474
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__split_60_40__tablet.png",
+          "hash": "sha256:e50dc66a1ba04709e6eaf37c934712e67bbf6261f6abfa493f085ea77ad70529",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 640,
+          "height": 358
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__split_60_40__mobile.png",
+          "hash": "sha256:292bce67b506694c480b13fad4980fb1de082e7e9d79d73b901a0e157a100175",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 445
+        }
+      ]
+    },
+    "paragraph:table": {
+      "path": "/pncb-continuing-competence-summit",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/pncb-continuing-competence-summit",
+      "linkUrl": "https://www.pncb.org/pncb-continuing-competence-summit",
+      "selector": "[data-design-lab-root=\"paragraph:table\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__table__desktop.png",
+          "hash": "sha256:cce3fe59812ad6c7eb078af820fe6dd5f300dc9b8b621fb89fff14c3e9b2f2b0",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 792,
+          "height": 700
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__table__tablet.png",
+          "hash": "sha256:d6302e5b8a2da713d50d6010b4e367dfd34a80fda1ecd8a844145c6410d582df",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 640,
+          "height": 931
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__table__mobile.png",
+          "hash": "sha256:5148a23243f1a6b23df33cda7c787508c6db147d9a11a327cacddb2dc588dfb4",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 1334
+        }
+      ]
+    },
+    "paragraph:table_row": {
+      "path": "/about/pncb-exam-development",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/about/pncb-exam-development",
+      "linkUrl": "https://www.pncb.org/about/pncb-exam-development",
+      "selector": "[data-design-lab-root=\"paragraph:table_row\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__table_row__desktop.png",
+          "hash": "sha256:b8956e8854f86f39740ea6ff80db88c07085acfe23fb2f8f6f547902fe866984",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 791,
+          "height": 374
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__table_row__tablet.png",
+          "hash": "sha256:a28e807647389a39330420831313c9cbc88afdac21e07de4c90939b260466c09",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 639,
+          "height": 460
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__table_row__mobile.png",
+          "hash": "sha256:10be7a2da5b6cce2ffe069000e8fb579c69f87dda6be9a8615f3ed5d5dcef4fc",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 301,
+          "height": 1324
+        }
+      ]
+    },
+    "paragraph:text_editor": {
+      "path": "/international",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/international",
+      "linkUrl": "https://www.pncb.org/international",
+      "selector": "[data-design-lab-root=\"paragraph:text_editor\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__text_editor__desktop.png",
+          "hash": "sha256:23d950829c7834fae2bd9ab410388994ec23233c9ca561401982b675f6d82c26",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 792,
+          "height": 1829
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__text_editor__tablet.png",
+          "hash": "sha256:111c7a5493d126ea3fdd631524966113ee9b459c8d4e474ca215ef1c953d15db",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 640,
+          "height": 2190
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__text_editor__mobile.png",
+          "hash": "sha256:bd7acfa415f650aa2ee9082f9fc789b06a4595ee16c5753e02626d7dded7eb52",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 4414
+        }
+      ]
+    },
+    "paragraph:text_with_cta": {
+      "path": "/ask-pncbee",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/ask-pncbee",
+      "linkUrl": "https://www.pncb.org/ask-pncbee",
+      "selector": "[data-design-lab-root=\"paragraph:text_with_cta\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__text_with_cta__desktop.png",
+          "hash": "sha256:f4c3819208cbfddc99aba4a56b5deb090d8efbad95b2d01f014ece933c66741b",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 792,
+          "height": 156
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__text_with_cta__tablet.png",
+          "hash": "sha256:35f5dfaaa94d3e952959056a5752ace85c4e3504c06068dfa41f68f9a108581a",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 640,
+          "height": 156
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__text_with_cta__mobile.png",
+          "hash": "sha256:a85268767a255f4cefaac135e900ecfa1eaadde637eae80c4becc7781d442216",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 184
+        }
+      ]
+    },
+    "paragraph:user_motivation": {
+      "path": "/renew-certifications",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/renew-certifications",
+      "linkUrl": "https://www.pncb.org/renew-certifications",
+      "selector": "[data-design-lab-root=\"paragraph:user_motivation\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__user_motivation__desktop.png",
+          "hash": "sha256:ce5ec99cf3a86ee8d115be0a391148d2cc16b17a02cabfd807b6298e981fce9a",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 792,
+          "height": 796
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__user_motivation__tablet.png",
+          "hash": "sha256:0cfee75ee3b37334a32e122ef817193b4229bca3612475c10f63fbdc1029ab54",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 640,
+          "height": 796
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__user_motivation__mobile.png",
+          "hash": "sha256:158d8dcd9ef6b44592f57c44b081d62b49357fda3fcbacada516e7c7eaab4c96",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 622
+        }
+      ]
+    },
+    "paragraph:video": {
+      "path": "/webinars",
+      "verificationUrl": "https://pncb-2026-merge.ddev.site/webinars",
+      "linkUrl": "https://www.pncb.org/webinars",
+      "selector": "[data-design-lab-root=\"paragraph:video\"]",
+      "states": [
+        "default"
+      ],
+      "images": [
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__video__desktop.png",
+          "hash": "sha256:bf38bf25d8bf9b33f202b9926d48c5b4166f62841f493db4144b4e6b5e6ad1de",
+          "viewport": "Desktop",
+          "state": "default",
+          "width": 461,
+          "height": 352
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__video__tablet.png",
+          "hash": "sha256:ead556a7f075ddd0f4f6777b66667217a18d2e9531a313e546e278b182dadc24",
+          "viewport": "Tablet",
+          "state": "default",
+          "width": 370,
+          "height": 289
+        },
+        {
+          "file": "/fixture/.design/pncb/2026-10-06/capture/shots/paragraph__video__mobile.png",
+          "hash": "sha256:dff2b9a61c8cf34cac94f1483438407443415657271fbb3ea373d18ec9b86df9",
+          "viewport": "Mobile",
+          "state": "default",
+          "width": 295,
+          "height": 237
+        }
+      ]
+    }
+  },
+  "problems": [
+    {
+      "componentId": "block:basic",
+      "detail": "Not built \u2014 no visual evidence"
+    },
+    {
+      "componentId": "block:betty_bot_nav_item",
+      "detail": "Not built \u2014 no visual evidence"
+    },
+    {
+      "componentId": "block:contact_and_follow",
+      "detail": "Not built \u2014 no visual evidence"
+    }
+  ]
+}

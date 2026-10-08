@@ -121,6 +121,6 @@ Three conditions, all required:
 - carries the markup marker, so the instance is findable on a long page
 - carries `verifiedAt`, because a content edit can remove the last instance at any time
 
-`scripts/find_examples.py` produces these by crawling the public site. A component with no anonymous example gets an empty list and a stated reason - that is a real finding about the site, and it is also the reason four of the fourteen components built on that site could only be derived from tokens rather than measured.
+`scripts/find_examples.ts` produces these by crawling the public site. A component with no anonymous example gets an empty list and a stated reason - that is a real finding about the site, and it is also the reason four of the fourteen components built on that site could only be derived from tokens rather than measured.
 
 **Placement counts are a lower bound.** They cover only the pages scanned. Never present one as a site total unless the whole sitemap was walked, and record `pagesScanned` alongside so the number can be interpreted.

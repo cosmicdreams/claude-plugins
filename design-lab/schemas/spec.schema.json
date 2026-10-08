@@ -1,0 +1,289 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/spec.schema.json",
+  "title": "Spec",
+  "type": "object",
+  "properties": {
+    "component": {
+      "type": "string"
+    },
+    "machineName": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "source": {
+      "type": [
+        "object",
+        "null"
+      ],
+      "properties": {
+        "sourceRef": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "path": {
+      "type": "string"
+    },
+    "verificationUrl": {
+      "type": "string"
+    },
+    "linkUrl": {
+      "type": "string"
+    },
+    "rootSelector": {
+      "type": "string"
+    },
+    "extractedAt": {
+      "type": "string"
+    },
+    "derivedFrom": {
+      "type": "string"
+    },
+    "measurements": {
+      "type": "object",
+      "additionalProperties": {
+        "anyOf": [
+          {
+            "type": "object",
+            "properties": {
+              "rootBox": {
+                "type": "object",
+                "properties": {
+                  "width": {
+                    "type": "number"
+                  },
+                  "height": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "width",
+                  "height"
+                ],
+                "additionalProperties": false
+              },
+              "backdrop": {
+                "type": "string"
+              },
+              "nodes": {
+                "type": "array",
+                "items": {
+                  "$ref": "#/$defs/MeasuredNode"
+                }
+              }
+            },
+            "required": [
+              "rootBox",
+              "nodes"
+            ],
+            "additionalProperties": false
+          },
+          {
+            "type": "object",
+            "properties": {
+              "error": {
+                "type": "string"
+              },
+              "totalMatches": {
+                "type": "integer",
+                "minimum": 0
+              }
+            },
+            "required": [
+              "error"
+            ],
+            "additionalProperties": false
+          }
+        ]
+      }
+    }
+  },
+  "required": [
+    "component",
+    "machineName",
+    "source",
+    "path",
+    "verificationUrl",
+    "linkUrl",
+    "rootSelector",
+    "measurements"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "MeasuredNode": {
+      "type": "object",
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "tag": {
+          "type": "string"
+        },
+        "classes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "attributes": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "text": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "box": {
+          "type": "object",
+          "properties": {
+            "x": {
+              "type": "number"
+            },
+            "y": {
+              "type": "number"
+            },
+            "width": {
+              "type": "number"
+            },
+            "height": {
+              "type": "number"
+            }
+          },
+          "required": [
+            "x",
+            "y",
+            "width",
+            "height"
+          ],
+          "additionalProperties": false
+        },
+        "computed": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "declared": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "boolean"
+            ]
+          }
+        },
+        "before": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "after": {
+          "anyOf": [
+            {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "rendered": {
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "svg": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "image": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "src": {
+                  "type": "string"
+                },
+                "naturalWidth": {
+                  "type": "number"
+                },
+                "naturalHeight": {
+                  "type": "number"
+                }
+              },
+              "required": [
+                "src",
+                "naturalWidth",
+                "naturalHeight"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "inlineText": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "maskSvg": {
+          "type": "string"
+        },
+        "maskUnfetched": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "path",
+        "tag",
+        "classes",
+        "id",
+        "attributes",
+        "text",
+        "box",
+        "computed",
+        "declared",
+        "before",
+        "after",
+        "svg",
+        "image",
+        "inlineText"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

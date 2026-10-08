@@ -1,0 +1,201 @@
+{
+  "standardVersion": "3.0.0",
+  "toolVersion": "design-lab 0.22.0",
+  "generatedAt": "2026-10-06T20:23:18+00:00",
+  "source": {
+    "strategy": "drupal-authoring",
+    "root": "/fixture/Sites/PNCB/worktrees/pncb-2026-merge",
+    "configDir": "config/default"
+  },
+  "totals": {
+    "all": 53,
+    "blocks": 9,
+    "paragraphs": 44,
+    "withDefects": 0,
+    "placements": 791,
+    "structuralRefs": 1705
+  },
+  "components": [
+    {
+      "id": "block:basic",
+      "machineName": "basic",
+      "label": "Basic block",
+      "description": "A basic block contains a title and a body.",
+      "group": "Blocks",
+      "category": "Components \u2014 Retirement Candidates",
+      "aliases": [],
+      "sourceRef": "config/default/block_content.type.basic.yml",
+      "fields": [
+        {
+          "name": "body",
+          "label": "Body",
+          "kind": "richtext",
+          "required": false,
+          "default": null,
+          "defaultSource": "unset",
+          "optionsSource": "config",
+          "options": null,
+          "showWhen": null,
+          "tokenFamily": null,
+          "appliesToken": null,
+          "sourceType": "text_with_summary",
+          "cardinality": 1,
+          "targetType": null,
+          "targetBundles": null,
+          "description": "test",
+          "sourceRef": "config/default/field.field.block_content.basic.body.yml"
+        }
+      ],
+      "slots": [],
+      "usage": {
+        "placements": 0,
+        "structuralRefs": 0,
+        "pages": 0,
+        "unpublishedInstances": 0,
+        "inlineBlockEntities": 0,
+        "configPlacedBlocks": 0,
+        "orphanInstances": 0,
+        "examples": [],
+        "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages",
+        "tier": "Components \u2014 Retirement Candidates",
+        "source": "drupal-db",
+        "measuredAt": "2026-10-06T20:23:38+00:00"
+      },
+      "defects": [],
+      "status": true,
+      "containedBy": []
+    },
+    {
+      "id": "block:betty_bot_nav_item",
+      "machineName": "betty_bot_nav_item",
+      "label": "Betty Bot Nav Item",
+      "description": "",
+      "group": "Blocks",
+      "category": "Components \u2014 Low Use",
+      "aliases": [],
+      "sourceRef": "config/default/block_content.type.betty_bot_nav_item.yml",
+      "fields": [
+        {
+          "name": "field_link",
+          "label": "Link",
+          "kind": "reference",
+          "required": false,
+          "default": null,
+          "defaultSource": "unset",
+          "optionsSource": "config",
+          "options": null,
+          "showWhen": null,
+          "tokenFamily": null,
+          "appliesToken": null,
+          "sourceType": "link",
+          "cardinality": 1,
+          "targetType": null,
+          "targetBundles": null,
+          "description": null,
+          "sourceRef": "config/default/field.field.block_content.betty_bot_nav_item.field_link.yml"
+        },
+        {
+          "name": "field_logo_image",
+          "label": "Logo",
+          "kind": "media",
+          "required": false,
+          "default": null,
+          "defaultSource": "unset",
+          "optionsSource": "config",
+          "options": null,
+          "showWhen": null,
+          "tokenFamily": null,
+          "appliesToken": null,
+          "sourceType": "image",
+          "cardinality": 1,
+          "targetType": "file",
+          "targetBundles": null,
+          "description": "Upload the IPN logo.",
+          "sourceRef": "config/default/field.field.block_content.betty_bot_nav_item.field_logo_image.yml"
+        }
+      ],
+      "slots": [],
+      "usage": {
+        "placements": 2,
+        "structuralRefs": 0,
+        "pages": 0,
+        "unpublishedInstances": 0,
+        "inlineBlockEntities": 0,
+        "configPlacedBlocks": 2,
+        "orphanInstances": 0,
+        "examples": [],
+        "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages",
+        "tier": "Components \u2014 Low Use",
+        "source": "drupal-db",
+        "measuredAt": "2026-10-06T20:23:38+00:00"
+      },
+      "defects": [],
+      "status": true,
+      "containedBy": []
+    },
+    {
+      "id": "block:contact_and_follow",
+      "machineName": "contact_and_follow",
+      "label": "Contact and Follow",
+      "description": "Used for the 'contact and follow' area in the middle footer.",
+      "group": "Blocks",
+      "category": "Components \u2014 Low Use",
+      "aliases": [],
+      "sourceRef": "config/default/block_content.type.contact_and_follow.yml",
+      "fields": [
+        {
+          "name": "body",
+          "label": "Body",
+          "kind": "richtext",
+          "required": false,
+          "default": null,
+          "defaultSource": "unset",
+          "optionsSource": "config",
+          "options": null,
+          "showWhen": null,
+          "tokenFamily": null,
+          "appliesToken": null,
+          "sourceType": "text_with_summary",
+          "cardinality": 1,
+          "targetType": null,
+          "targetBundles": null,
+          "description": null,
+          "sourceRef": "config/default/field.field.block_content.contact_and_follow.body.yml"
+        }
+      ],
+      "slots": [],
+      "usage": {
+        "placements": 2,
+        "structuralRefs": 0,
+        "pages": 0,
+        "unpublishedInstances": 0,
+        "inlineBlockEntities": 0,
+        "configPlacedBlocks": 2,
+        "orphanInstances": 0,
+        "examples": [],
+        "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages",
+        "tier": "Components \u2014 Low Use",
+        "source": "drupal-db",
+        "measuredAt": "2026-10-06T20:23:38+00:00"
+      },
+      "defects": [],
+      "status": true,
+      "containedBy": []
+    }
+  ],
+  "problems": [
+    {
+      "check": "inventoried-bundle-absent-from-database",
+      "detail": "8 inventoried bundle(s) have zero measured instances",
+      "evidence": [
+        "block:basic",
+        "paragraph:betty_bot_studyguide",
+        "paragraph:board_member_content"
+      ]
+    },
+    {
+      "check": "paragraph-without-parent",
+      "detail": "8 paragraph instance(s) have no attributable parent"
+    }
+  ]
+}

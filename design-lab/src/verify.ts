@@ -1,0 +1,1441 @@
+/** In-process TypeScript port of scripts/verify.ts. Findings intentionally retain its JSON contract. */
+import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
+import { resolve, dirname, basename } from 'node:path';
+import { createHash } from 'node:crypto';
+import { readJson, mergeVerifyState, buildMeasurements } from './verify-inputs.ts';
+import type { VerifyState, Measurements, PartialArtifact } from './verify-inputs.ts';
+import type { ArtifactMap } from './generated/artifacts.ts';
+import type { VerifyReport } from './generated/verify-report.ts';
+type Input<K extends keyof ArtifactMap> = PartialArtifact<ArtifactMap[K]>;
+type Inventory = Input<'components'>;
+type InventoryComponent = NonNullable<Inventory['components']>[number];
+type PlanEntry = NonNullable<Input<'plan'>['plans']>[number] & {
+  machineName?: string;
+  decision?: string;
+  action?: string;
+};
+type VerifyPlan = Omit<Input<'plan'>, 'plans'> & { plans?: PlanEntry[]; components?: PlanEntry[]; plan?: PlanEntry[] };
+type Receipt = Omit<Input<'build-record'>, 'assertions'> & {
+  assertions?: Record<string, boolean | { pass?: boolean; verdict?: string }>;
+};
+type Waiver = NonNullable<ArtifactMap['verify-report']['waived'][number]['waiver']>;
+
+import { keyOf, slotAccepts } from './build-artifacts.ts';
+import { roundDecimal, roundEven } from './json.ts';
+
+export const STANDARD_VERSION = '4.1.0';
+export const CHECKS =
+  `foundation-exists variable-scoped code-syntax-set code-syntax-resolves modes-earn-themselves components-built component-naming component-description documentation-links documentation-cards documentation-cards-unique documentation-adjacent layers-named mode-naming no-scratch-pages collection-strategy documentation-signal two-usage-numbers tier-thresholds-stated known-gaps-current standard-version-stamped build-record-assertions fonts-available documentation-anatomy breakpoint-triad native-component-structure nested-component-coverage verify-report-exists bindings-match-source index-complete index-links-resolve variants-are-sets no-duplicate-components examples-instances-only pages-populated shot-frames-have-images breakpoints-share-scale captures-unique visual-evidence-present master-matches-capture no-authoring-diagrams index-component-links example-path-portable getting-started-sections`.split(
+    ' ',
+  );
+const EXPLAINS_BLANK =
+  /no (css )?(custom propert|code name|equivalent|such propert)|not set here|deliberately|no name (for|in) (this|the) (value|codebase)|stale/i;
+const COMPONENT_NAME = /^[a-z0-9_:.-]+\s+—\s+\S/;
+const DEFAULT_MODE = /^(Mode\s*\d*|Default|Value \d+)$/i;
+const DIVIDER_PAGE = /^[\s—\-=_·•]+[A-Z\s]*[\s—\-=_·•]+$/;
+const SCRATCH_PAGE =
+  /internal only|scratch|draft|wip|work in progress|sandbox|test|temp|components\s*—\s*built|untitled/i;
+
+export interface VerifyOptions {
+  state: VerifyState;
+  components?: Inventory | null;
+  tokens?: Input<'tokens'> | null;
+  plan?: VerifyPlan | null;
+  index?: Input<'index'> | null;
+  measurements?: PartialArtifact<Measurements> | null;
+  renderEvidence?: Input<'render-evidence'> | null;
+  captureEvidence?: Input<'capture-evidence'> | null;
+  waivers?: { waivers?: Waiver[] } | Waiver[] | null;
+  brand?: string;
+  themeRoot?: string;
+  shotsDir?: string;
+  builds?: string;
+  out?: string;
+  project?: string;
+  generatedAt?: string;
+}
+export interface Finding {
+  check: string;
+  severity: 'blocker' | 'major' | 'minor';
+  scope: string;
+  detail: string;
+  evidence?: (string | number)[] | null;
+  waiver?: Waiver;
+}
+export class Report {
+  findings: Finding[] = [];
+  add(
+    check: string,
+    severity: Finding['severity'],
+    scope: string,
+    detail: string,
+    evidence: readonly (string | number | undefined)[] | null = null,
+  ) {
+    this.findings.push({
+      check,
+      severity,
+      scope,
+      detail,
+      evidence: evidence && evidence.filter((e): e is string | number => e !== undefined),
+    });
+  }
+}
+const arr = <T>(x: T[] | null | undefined): T[] => (Array.isArray(x) ? x : []);
+const norm = (s: unknown): string =>
+  String(s ?? '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '');
+const files = (folder?: string): string[] =>
+  folder && existsSync(folder)
+    ? readdirSync(folder)
+        .filter((n) => n.endsWith('.json'))
+        .sort()
+        .map((n) => resolve(folder, n))
+    : [];
+const load = <T extends object = Receipt>(p: string): T => {
+  try {
+    return JSON.parse(readFileSync(p, 'utf8')) as T;
+  } catch {
+    return {} as T;
+  }
+};
+const cardKeys = (name: string): Set<string> => {
+  const stem = name.replace(/\s+—\s+documentation$/i, ''),
+    parts = stem
+      .split(/\s+[—·]\s+/)
+      .map((x) => x.trim())
+      .filter(Boolean),
+    keys = new Set([norm(stem)]);
+  let family = '',
+    machine = '';
+  for (let p of parts) {
+    const m = /^(.*?)\s+\((Block|Paragraph)\)$/i.exec(p);
+    if (m) {
+      p = m[1]!.trim();
+      family = m[2]!.toLowerCase();
+    }
+    if (/^[a-z0-9_]+$/.test(p)) machine = p;
+    keys.add(norm(p));
+  }
+  if (family && machine) keys.add(norm((family === 'block' ? 'block:' : 'paragraph:') + machine));
+  return keys;
+};
+const missingNested = (
+  slots: NonNullable<InventoryComponent['slots']>,
+  relationships: NonNullable<NonNullable<NonNullable<Receipt['documentation']>['anatomy']>['relationships']>,
+  nested: (string | undefined)[],
+): string[] => {
+  const documented = new Map(relationships.map((x) => [x.field, x])),
+    children = new Set(nested.filter(Boolean)),
+    missing = new Set<string>();
+  for (const slot of slots) {
+    const rel = documented.get(slot.name);
+    if (rel?.rendered === false) continue;
+    let accepts: string[] = Array.isArray(slot.accepts) ? slot.accepts : slot.accepts ? [slot.accepts] : [];
+    accepts = [...new Set(accepts.map((x) => (x === 'any' ? '*' : x)))];
+    if (!accepts.length) accepts = ['*'];
+    if (rel?.renderedAccepts?.length) accepts = accepts.filter((a) => (rel.renderedAccepts ?? []).includes(a));
+    if (accepts.includes('*')) {
+      if (!children.size) missing.add(slot.name + ': any component');
+    } else for (const a of accepts) if (!children.has(a)) missing.add(a);
+  }
+  return [...missing].sort();
+};
+
+function themeText(root?: string): string | null {
+  if (!root || !existsSync(root)) return null;
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const ent of readdirSync(dir, { withFileTypes: true })) {
+      const path = resolve(dir, ent.name);
+      if (ent.isDirectory()) {
+        if (!['node_modules', 'vendor', '.git'].includes(ent.name)) walk(path);
+      } else if (/\.(css|scss|twig|js|yml)$/.test(ent.name)) {
+        try {
+          out.push(readFileSync(path, 'utf8'));
+        } catch {}
+      }
+    }
+  };
+  walk(root);
+  return out.join('\n');
+}
+function builtKeys(state: VerifyState): Set<string> {
+  const built = new Set<string>();
+  for (const c of arr(state.components)) {
+    const name = c.name || '';
+    built.add(name);
+    const m = /^([a-z0-9_:.-]+)\s+—\s+/.exec(name);
+    if (m) {
+      built.add(m[1]!);
+      built.add(norm(m[1]));
+    }
+    for (const d of String(c.description || '').split('\n')) {
+      const machine = /^\s*Machine name:\s*([a-z0-9_]+)/.exec(d),
+        source = /^\s*Source id:\s*([a-z0-9_]+:[a-z0-9_]+)/.exec(d);
+      if (machine) {
+        built.add(machine[1]!);
+        built.add(norm(machine[1]));
+      }
+      if (source) {
+        built.add(source[1]!);
+        built.add(norm(source[1]));
+      }
+    }
+  }
+  return built;
+}
+function componentKeys(c: InventoryComponent): Set<string> {
+  const keys = new Set([c.id, c.machineName, c.id ? String(c.id).split(':').at(-1) : null].filter(Boolean).map(String));
+  return new Set([...keys, ...[...keys].map(norm)]);
+}
+function completeness(state: VerifyState, components?: Inventory | null, _plan?: VerifyPlan | null) {
+  const comps = arr(components?.components),
+    built = builtKeys(state),
+    collisions: Record<string, number> = {};
+  for (const c of comps) {
+    const machine = String(
+      c.machineName ||
+        String(c.id || '')
+          .split(':')
+          .at(-1),
+    );
+    collisions[machine] = (collisions[machine] || 0) + 1;
+  }
+  const tiers: Record<string, [number, number, string[]]> = {};
+  for (const c of comps) {
+    const tier = c.usage?.tier || 'untiered',
+      machine = String(
+        c.machineName ||
+          String(c.id || '')
+            .split(':')
+            .at(-1),
+      ),
+      keys = collisions[machine]! > 1 ? new Set([c.id ?? '', norm(c.id)]) : componentKeys(c),
+      ok = [...keys].some((k) => built.has(k));
+    tiers[tier] ??= [0, 0, []];
+    tiers[tier][1]++;
+    if (ok) tiers[tier][0]++;
+    else tiers[tier][2].push(c.id ?? '');
+  }
+  const total = Object.values(tiers).reduce((n, v) => n + v[0], 0);
+  return { built: total, expected: comps.length, byTier: tiers };
+}
+
+function runChecks(o: VerifyOptions, rep: Report) {
+  const s = o.state,
+    comps = arr(s.components),
+    cols = arr(s.collections),
+    cards = arr(s.cards),
+    inv = arr(o.components?.components),
+    plans = arr(o.plan?.plans ?? o.plan?.components ?? o.plan?.plan),
+    index = o.index,
+    bdir = o.builds;
+  if (comps.length && !cols.length)
+    rep.add(
+      'foundation-exists',
+      'blocker',
+      'file',
+      `${comps.length} component(s) exist but the file has no variable collections at all. Every visual value in them is hardcoded.`,
+    );
+  for (const c of cols)
+    for (const v of arr(c.variables))
+      if (v.type !== 'BOOLEAN' && arr(v.scopes).includes('ALL_SCOPES'))
+        rep.add(
+          'variable-scoped',
+          'major',
+          `${c.name}::${v.name}`,
+          'scope is ALL_SCOPES, so this variable appears in every property picker',
+        );
+  for (const c of cols) {
+    const blank = arr(c.variables).filter((v) => !v.web),
+      bad = blank.filter((v) => !EXPLAINS_BLANK.test(v.description || '')).map((v) => v.name),
+      explained = blank.length - bad.length;
+    if (bad.length)
+      rep.add(
+        'code-syntax-set',
+        'major',
+        'collection:' + c.name,
+        `${bad.length} of ${arr(c.variables).length} variables have no Web code syntax and no description saying why; Dev Mode shows a bare value${explained ? ` (${explained} more are blank but explained)` : ''}`,
+        bad.slice(0, 12),
+      );
+  }
+  const theme = themeText(o.themeRoot),
+    built = !!(
+      o.themeRoot &&
+      existsSync(o.themeRoot) &&
+      (() => {
+        const scan = (d: string): boolean =>
+          readdirSync(d, { withFileTypes: true }).some((e) =>
+            e.isDirectory()
+              ? !['node_modules', 'vendor', '.git'].includes(e.name) && scan(resolve(d, e.name))
+              : /\.(min\.)?css$/.test(e.name) &&
+                (/(^|\/)(dist|build|compiled)(\/|$)/.test(resolve(d, e.name)) || /^(index|.+\.min)\.css$/.test(e.name)),
+          );
+        return scan(o.themeRoot);
+      })()
+    );
+  if (theme === null)
+    rep.add(
+      'code-syntax-resolves',
+      'minor',
+      'file',
+      'not checked - pass --theme-root to verify code syntax against the codebase',
+    );
+  else
+    for (const c of cols) {
+      const dangling: string[] = [];
+      for (const v of arr(c.variables)) {
+        const web = String(v.web || '').trim();
+        if (!web) continue;
+        const m = /--[A-Za-z0-9_-]+/.exec(web);
+        if (m && !new RegExp(m[0].replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Za-z0-9_-])').test(theme))
+          dangling.push(`${v.name} -> ${m[0]}`);
+        else if (web.startsWith('$') || web.startsWith('map-get(')) {
+          const sass = /^(?:map-get\(\s*)?(\$[\w-]+)/.exec(web)?.[1];
+          if (sass && !new RegExp(sass.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![A-Za-z0-9_-])').test(theme))
+            dangling.push(`${v.name} -> ${web}`);
+        } else if (/^#[0-9a-fA-F]{3,8}$/.test(web))
+          dangling.push(`${v.name} -> ${web} (a hex is the value repeated, not a code name)`);
+      }
+      if (dangling.length)
+        rep.add(
+          'code-syntax-resolves',
+          built ? 'blocker' : 'minor',
+          'collection:' + c.name,
+          `${dangling.length} code syntax value(s) name something that does not exist in the codebase${built ? '' : ' — but this theme root has no compiled CSS, so a framework-emitted property cannot be confirmed either way. Build the theme and re-run before treating these as wrong.'}`,
+          dangling.slice(0, 16),
+        );
+    }
+  for (const c of cols) {
+    const modes = arr(c.modes);
+    if (
+      modes.length > 1 &&
+      !arr(c.variables).some((v) => new Set(Object.values(v.valuesByMode || {}).map(keyOf)).size > 1)
+    )
+      rep.add(
+        'modes-earn-themselves',
+        'major',
+        'collection:' + c.name,
+        `has ${modes.length} modes but not one variable differs between them`,
+      );
+  }
+  const want = new Set<string>();
+  let entries: PlanEntry[] | null = null;
+  if (o.plan) {
+    entries = plans;
+    for (const e of plans)
+      if ([null, 'build'].includes(e.verdict ?? e.decision ?? e.action ?? null)) want.add(e.id || e.machineName || '');
+  } else if (o.components) for (const c of inv) want.add(c.id ?? '');
+  want.delete('undefined');
+  if (!want.size) {
+    if (o.plan && !entries?.length)
+      rep.add(
+        'components-built',
+        'blocker',
+        'file',
+        'the plan file carries no recognisable entries, so completeness could not be checked at all; expected a `plans`, `components` or `plan` key',
+        Object.keys(o.plan || {}),
+      );
+  } else {
+    const b = builtKeys(s),
+      miss = [...want].filter((w) => ![w, String(w).split(':').at(-1), norm(w)].some((x) => b.has(String(x)))).sort();
+    if (miss.length)
+      rep.add(
+        'components-built',
+        'blocker',
+        'file',
+        `${miss.length} of ${want.size} planned components are not in the file`,
+        miss.slice(0, 20),
+      );
+  }
+  const naming = comps.filter((c) => !COMPONENT_NAME.test(c.name || '')).map((c) => c.name);
+  if (naming.length)
+    rep.add(
+      'component-naming',
+      'blocker',
+      'file',
+      `${naming.length} component(s) are not named machine_name — Human Label. A machine-name-only name matches nothing a designer types; a label-only name matches nothing a developer traces.`,
+      naming.slice(0, 20),
+    );
+  const thin: string[] = [];
+  for (const c of comps) {
+    const d = c.description || '';
+    if (!d.trim()) {
+      thin.push(`${c.name} (empty)`);
+      continue;
+    }
+    const missing: string[] = [];
+    const machine = (c.name || '').split(' — ')[0] ?? '';
+    if (
+      !/machine name\s*:/i.test(d) &&
+      !new RegExp('\\b' + machine.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\b').test(d)
+    )
+      missing.push('machine name');
+    if (!/(?:^|\s)\/[a-z0-9][a-z0-9/_-]*|example\W*\/(?=[\s.,;)]|$)/i.test(d)) missing.push('portable example path');
+    if (!/\d/.test(d)) missing.push('usage figure');
+    if (missing.length) thin.push(`${c.name} (no ${missing.join(', ')})`);
+  }
+  if (thin.length)
+    rep.add(
+      'component-description',
+      'blocker',
+      'file',
+      `${thin.length} component description(s) do not carry the searchable payload from library-standard.md section 4.2`,
+      thin.slice(0, 20),
+    );
+  const noLinks = comps.filter((c) => !c.docLinks).map((c) => c.name);
+  if (noLinks.length)
+    rep.add(
+      'documentation-links',
+      'blocker',
+      'file',
+      `${noLinks.length} component(s) have no documentationLinks, so nothing in the Assets panel leads to their documentation`,
+      noLinks.slice(0, 20),
+    );
+  const have = new Set<string>();
+  for (const c of cards) {
+    if (c.component && c.name === 'Documentation · ' + c.component) {
+      have.add(norm(c.component));
+      for (const x of cardKeys(c.blockName || '')) have.add(x);
+    } else if (!c.component) for (const x of cardKeys(c.name || '')) have.add(x);
+  }
+  let approved = inv;
+  if (o.plan)
+    approved = inv.filter((c) =>
+      plans.some(
+        (e) =>
+          [null, 'build'].includes(e.verdict ?? e.decision ?? e.action ?? null) &&
+          [c.id, c.machineName].includes(e.id || e.machineName),
+      ),
+    );
+  const missingCards = approved
+    .filter((c) => ![c.id, c.machineName, c.label, String(c.id).replaceAll('_', ' ')].some((x) => have.has(norm(x))))
+    .map((c) => c.id);
+  if (inv.length && missingCards.length)
+    rep.add(
+      'documentation-cards',
+      'major',
+      'file',
+      `${missingCards.length} of ${approved.length} approved components have no documentation card`,
+      missingCards.slice(0, 20),
+    );
+  const dups = [...new Set(cards.map((c) => c.name).filter((n, i, a) => a.indexOf(n) !== i))];
+  if (dups.length)
+    rep.add(
+      'documentation-cards-unique',
+      'major',
+      'file',
+      `${dups.length} card name(s) appear more than once`,
+      dups.sort(),
+    );
+  const cardMap = new Map(cards.filter((c) => c.component).map((c) => [c.component, c]));
+  const apart: string[] = [];
+  for (const c of comps) {
+    const machine = (c.name || '').split(' — ')[0] ?? '',
+      card = cardMap.get(machine),
+      legacy = cards.find((x) => !x.component && cardKeys(x.name || '').has(norm(machine)));
+    if (card && card.pageId === c.pageId && (c.page || '').startsWith('Components — ')) continue;
+    if (legacy && legacy.pageId === c.pageId) continue;
+    apart.push(c.name ?? '');
+  }
+  if (apart.length)
+    rep.add(
+      'documentation-adjacent',
+      'blocker',
+      'file',
+      `${apart.length} component(s) lack a tagged documentation block on the same tier page`,
+      apart.slice(0, 20),
+    );
+  const docsBad = cards.filter((c) => c.defaultNamedLayers).map((c) => `${c.name || '?'} (${c.defaultNamedLayers})`);
+  if (docsBad.length)
+    rep.add(
+      'layers-named',
+      'blocker',
+      'file',
+      `${docsBad.length} card(s) contain layers still carrying a Figma default name such as Frame`,
+      docsBad.slice(0, 20),
+    );
+  const badModes: string[] = [];
+  for (const c of cols)
+    for (const m of arr(c.modes)) {
+      const n = m.trim();
+      if (DEFAULT_MODE.test(n) || n.startsWith('@')) badModes.push(`${c.name}::${n}`);
+    }
+  if (badModes.length)
+    rep.add(
+      'mode-naming',
+      'blocker',
+      'file',
+      `${badModes.length} mode(s) still carry a Figma placeholder name. A mode name states what the mode holds — Desktop 1440px, not Mode 1.`,
+      badModes.slice(0, 20),
+    );
+  const scratch = arr(s.pages)
+    .map((p) => (p.name || '').trim())
+    .filter((n) => DIVIDER_PAGE.test(n) || SCRATCH_PAGE.test(n));
+  if (scratch.length)
+    rep.add(
+      'no-scratch-pages',
+      'blocker',
+      'file',
+      `${scratch.length} page(s) are working surfaces or typographic dividers`,
+      scratch,
+    );
+  collectionStrategy(s, o.brand, rep);
+  const required = ['Head', 'Usage', 'Figma properties', 'Fields'],
+    badCards = cards
+      .map(
+        (c) =>
+          `${c.name || '?'} (missing ${required
+            .filter((x) => !arr(c.sections).includes(x))
+            .sort()
+            .join(', ')})`,
+      )
+      .filter((x) => !x.endsWith('(missing )'));
+  if (badCards.length)
+    rep.add(
+      'documentation-signal',
+      'major',
+      'file',
+      `${badCards.length} documentation panel(s) lack required component block sections`,
+      badCards.slice(0, 20),
+    );
+  breakpointTriad(s, rep);
+  noAuthoring(s, rep);
+  visualEvidence(bdir, o.captureEvidence, rep);
+  const badExamples = cards.filter((c) => !c.rootRelativeExampleCount || !c.urlLinkCount).map((c) => c.name || '?');
+  if (badExamples.length)
+    rep.add(
+      'example-path-portable',
+      'blocker',
+      'file',
+      `${badExamples.length} card(s) have no portable root-relative example label`,
+      badExamples.slice(0, 20),
+    );
+  twoUsage(o.components, rep);
+  tierThresholds(index, s, rep);
+  standardStamped(o.components, o.tokens, bdir, rep);
+  buildAssertions(bdir, rep);
+  fontsAvailable(bdir, rep);
+  componentReceiptContract(bdir, o.components, rep);
+  indexComplete(index, o.components, s, rep);
+  const gs = s.gettingStarted || {},
+    requiredSections = [
+      'Coverage',
+      'How this file is organised',
+      'What each component block shows',
+      'Index',
+      'Known gaps',
+      'Regeneration',
+    ],
+    absent = requiredSections.filter((x) => !arr(gs.sections).includes(x)).sort();
+  if (absent.length)
+    rep.add('getting-started-sections', 'major', 'Getting Started', 'Getting Started lacks required sections', absent);
+  indexLinks(index, rep);
+  indexComponentLinks(index, s, rep);
+  variants(s, o.plan, rep);
+  duplicates(s, rep);
+  examples(s, rep);
+  bindings(s, o.measurements, o.renderEvidence, rep, bdir);
+  if (!o.out)
+    rep.add(
+      'verify-report-exists',
+      'blocker',
+      'file',
+      'this run was not given --out, so it leaves no verify report. A library that has never produced one is not a finished library.',
+    );
+  const unmeasured = arr(s.pages)
+    .filter((p) => p.children == null)
+    .map((p) => p.name);
+  if (unmeasured.length)
+    rep.add(
+      'pages-populated',
+      'minor',
+      'file',
+      `${unmeasured.length} page(s) were never loaded, so whether they are empty is unknown. Make each page current before counting its children.`,
+      unmeasured.slice(0, 20),
+    );
+  const empty = arr(s.pages)
+    .filter((p) => p.children === 0)
+    .map((p) => p.name);
+  if (empty.length)
+    rep.add(
+      'pages-populated',
+      'major',
+      'file',
+      `${empty.length} page(s) are empty. An empty page in a published library reads as a section that exists and has nothing in it.`,
+      empty,
+    );
+  frameChecks(s, rep);
+  captureUnique(o.shotsDir, rep);
+  knownGaps(s, rep.findings, rep);
+}
+function collectionStrategy(s: VerifyState, brand: string | undefined, r: Report) {
+  const c = arr(s.collections);
+  if (brand) {
+    const un = c.filter((x) => !norm(x.name).startsWith(norm(brand))).map((x) => x.name);
+    if (un.length)
+      r.add(
+        'collection-strategy',
+        'major',
+        'file',
+        `${un.length} collection(s) are not prefixed \`${brand} <Domain>\`, so they collide with every other library in the picker`,
+        un,
+      );
+  }
+  const width = (m: string | { name?: string }) => {
+    const n = (typeof m === 'string' ? m : m.name || '').trim();
+    return /\b\d+px$/.test(n) || /@media\b.*\bwidth\b/i.test(n) || /^(xxl|xl|lg|md|sm|xs)$/i.test(n);
+  };
+  const modeful = c.filter((x) => arr(x.modes).length > 1 && arr(x.modes).some(width)).map((x) => x.name);
+  if (modeful.length > 1)
+    r.add(
+      'collection-strategy',
+      'major',
+      'file',
+      `${modeful.length} collections carry width modes; width-varying values belong in the one breakpoint collection, whose Desktop/Tablet/Mobile modes the components switch`,
+      modeful,
+    );
+  const single = c.filter((x) => arr(x.modes).length === 1).map((x) => x.name);
+  if (single.length > 1 || (single.length && modeful.length))
+    r.add(
+      'collection-strategy',
+      'major',
+      'file',
+      'invariant variables should share the primary collection; use slash groups instead of domain collections',
+      single.concat(modeful),
+    );
+  if (c.length > 1 && !s.collectionStrategyReason)
+    r.add(
+      'collection-strategy',
+      'major',
+      'file',
+      `${c.length} collections exist but the state records no distinct mode, publishing, ownership, or lifecycle boundary`,
+      c.map((x) => x.name),
+    );
+}
+function breakpointTriad(s: VerifyState, r: Report) {
+  const cards = arr(s.cards),
+    col = s.breakpointCollection || {},
+    modes = Object.fromEntries(arr(col.modes).map((m) => [m.name ?? '', m.id])),
+    modeOrder = arr(col.modes).map((m) => m.name),
+    bad: string[] = [];
+  for (const component of arr(s.components)) {
+    const card = cards.find((x) => x.component === (component.name || '').split(' — ')[0]),
+      nodes = arr(card?.breakpointNodes),
+      captures = new Set(
+        arr(card?.captureLabels)
+          .map((name) => /^(Mobile|Tablet|Desktop)\b/i.exec(name)?.[1]?.toLowerCase())
+          .filter(Boolean),
+      ),
+      widths: Record<
+        'Mobile' | 'Tablet' | 'Desktop',
+        NonNullable<NonNullable<VerifyState['cards']>[number]['breakpointNodes']>[number] | undefined
+      > = {
+        Mobile: nodes.find((n) => /\bMobile\b/i.test(n.name || '')),
+        Tablet: nodes.find((n) => /\bTablet\b/i.test(n.name || '')),
+        Desktop: nodes.find((n) => n.id === component.id && ['COMPONENT', 'COMPONENT_SET'].includes(n.type ?? '')),
+      };
+    const instanceMode = (role: 'Mobile' | 'Tablet') => {
+      const node = widths[role] || {},
+        mode = role === 'Mobile' ? 'Mobile 375px' : 'Tablet 800px';
+      return (
+        node.type === 'INSTANCE' &&
+        [node.mainComponentId, node.mainComponentSetId].includes(component.id) &&
+        node.explicitModes?.[col.id ?? ''] === modes[mode]
+      );
+    };
+    const fail =
+      JSON.stringify(modeOrder) !== JSON.stringify(['Desktop 1400px', 'Tablet 800px', 'Mobile 375px']) ||
+      nodes.length !== 3 ||
+      !widths.Mobile ||
+      !widths.Tablet ||
+      !widths.Desktop ||
+      !['COMPONENT', 'COMPONENT_SET'].includes(widths.Desktop?.type ?? '') ||
+      widths.Desktop?.id !== component.id ||
+      !(['Mobile', 'Tablet'] as const).every(instanceMode) ||
+      !(['Mobile', 'Tablet', 'Desktop'] as const).every(
+        (role) => typeof widths[role]?.width === 'number' && widths[role].width > 0,
+      ) ||
+      JSON.stringify([...captures].sort()) !== JSON.stringify(['desktop', 'mobile', 'tablet']) ||
+      card?.breakpointScreenshotCount !== 3;
+    if (fail) bad.push(component.name ?? '');
+  }
+  if (bad.length)
+    r.add(
+      'breakpoint-triad',
+      'blocker',
+      'file',
+      `${bad.length} component block(s) lack a master, two mode-set instances, or three image-filled captures`,
+      bad.slice(0, 20),
+    );
+}
+function noAuthoring(s: VerifyState, r: Report) {
+  const bad = arr(s.components)
+    .filter(
+      (c) =>
+        (c.schemaLabelCount || 0) >= 2 && (c.schemaLabelCount || 0) >= Math.max(2, (c.visibleTextCount || 0) * 0.4),
+    )
+    .map((c) => `${c.name} (${c.schemaLabelCount} of ${c.visibleTextCount} text layers are authoring labels)`);
+  if (bad.length)
+    r.add(
+      'no-authoring-diagrams',
+      'blocker',
+      'file',
+      `${bad.length} published master(s) look like field-schema diagrams rather than rendered interfaces`,
+      bad.slice(0, 20),
+    );
+}
+function visualEvidence(dir: string | undefined, ev: Input<'capture-evidence'> | null | undefined, r: Report) {
+  if (!dir || !existsSync(dir)) return;
+  const captures = ev?.captures || {},
+    missing: string[] = [],
+    failed: string[] = [];
+  for (const p of files(dir)) {
+    let x: Receipt;
+    try {
+      x = load(p);
+    } catch {
+      missing.push(basename(p) + ' (unreadable)');
+      continue;
+    }
+    const id = x.id,
+      e = x.visualEvidence || {};
+    if (!(String(id) in captures) || !arr(e.captureFiles).length) missing.push(id || basename(p));
+    if (e.comparison?.verdict !== 'pass') failed.push(id || basename(p));
+  }
+  if (missing.length)
+    r.add(
+      'visual-evidence-present',
+      'blocker',
+      'file',
+      `${missing.length} built component(s) lack registered live visual evidence`,
+      missing.slice(0, 20),
+    );
+  if (failed.length)
+    r.add(
+      'master-matches-capture',
+      'blocker',
+      'file',
+      `${failed.length} built component(s) lack a passing live-capture comparison`,
+      failed.slice(0, 20),
+    );
+}
+function twoUsage(input: Inventory | null | undefined, r: Report) {
+  const cs = arr(input?.components),
+    withU = cs.filter((c) => c.usage);
+  if (!withU.length) return;
+  const missing = withU
+    .filter((c) => c.usage?.structuralRefs == null && c.usage?.structuralReferences == null)
+    .map((c) => c.id);
+  if (missing.length)
+    r.add(
+      'two-usage-numbers',
+      'major',
+      'file',
+      `${missing.length} of ${withU.length} components record placements but no structuralReferences. Collapsed into one number, a component with zero placements and dozens of structural references reads as dead.`,
+      missing.slice(0, 20),
+    );
+}
+function tierThresholds(index: Input<'index'> | null | undefined, s: VerifyState, r: Report) {
+  if (!index) return;
+  const th = index.thresholds || {};
+  if (th.default !== false) return;
+  const text = s.gettingStarted?.thresholdsText || '';
+  if (!new RegExp(`\\b${th.high ?? -1}\\b`).test(text) || !/(because|reason|since|so that|distribution)/i.test(text))
+    r.add(
+      'tier-thresholds-stated',
+      'major',
+      'file',
+      `tier thresholds are overridden (High >= ${th.high}, Medium >= ${th.medium}) but Getting Started does not state them together with the reason`,
+    );
+}
+function knownGaps(s: VerifyState, findings: Finding[], r: Report) {
+  const text = s.gettingStarted?.knownGapsText;
+  if (text == null) {
+    r.add(
+      'known-gaps-current',
+      'major',
+      'file',
+      'the Getting Started page has no Known gaps section, so nothing in the file tells a reader what is unresolved',
+    );
+    return;
+  }
+  const un = [
+    ...new Set(findings.filter((f) => f.check !== 'known-gaps-current' && !text.includes(f.check)).map((f) => f.check)),
+  ].sort();
+  if (un.length)
+    r.add(
+      'known-gaps-current',
+      'major',
+      'file',
+      `${un.length} open finding(s) are not named in Known gaps, so the page understates what is unresolved`,
+      un.slice(0, 20),
+    );
+}
+function standardStamped(
+  comps: Inventory | null | undefined,
+  tokens: Input<'tokens'> | null | undefined,
+  dir: string | undefined,
+  r: Report,
+) {
+  const missing: string[] = [];
+  for (const [name, doc] of [
+    ['components.json', comps],
+    ['tokens.json', tokens],
+  ] as const)
+    if (doc) {
+      const absent = (['standardVersion', 'toolVersion'] as const).filter((k) => !doc[k]);
+      if (absent.length) missing.push(`${name} (${absent.join(', ')})`);
+    }
+  if (dir && existsSync(dir)) {
+    const bad: string[] = [];
+    for (const p of files(dir)) {
+      const x = load(p),
+        absent = (['standardVersion', 'toolVersion'] as const).filter((k) => !x[k]);
+      if (absent.length) bad.push(`${basename(p)} (${absent.join(', ')})`);
+    }
+    if (bad.length) missing.push(`${bad.length} build record(s): ${bad.slice(0, 6).join(', ')}`);
+  }
+  if (missing.length)
+    r.add('standard-version-stamped', 'blocker', 'file', `required version stamp missing from ${missing.join('; ')}`);
+}
+function buildAssertions(dir: string | undefined, r: Report) {
+  if (!dir || !existsSync(dir)) return;
+  const invalid: string[] = [];
+  for (const p of files(dir)) {
+    const x = load(p),
+      a = x.assertions;
+    if (!a || typeof a !== 'object' || Array.isArray(a) || !Object.keys(a).length) {
+      invalid.push(basename(p) + ' (empty assertions)');
+      continue;
+    }
+    const bad = Object.entries(a)
+      .filter(
+        ([, v]) =>
+          !(
+            v === true ||
+            (typeof v === 'object' && (v?.pass === true || ['pass', 'passed'].includes(v?.verdict ?? '')))
+          ),
+      )
+      .map(([n]) => n);
+    if (bad.length) invalid.push(`${basename(p)} (${bad.join(', ')})`);
+  }
+  if (invalid.length)
+    r.add(
+      'build-record-assertions',
+      'blocker',
+      'file',
+      `${invalid.length} build record(s) contain empty, skipped, not-run, or failing assertions; they cannot prove those component transactions completed`,
+      invalid.slice(0, 20),
+    );
+}
+function fontsAvailable(dir: string | undefined, r: Report) {
+  if (!dir || !existsSync(dir)) return;
+  const key = (name: unknown) =>
+      String(name || '')
+        .replace(/[^a-z0-9]/gi, '')
+        .toLowerCase(),
+    run = dirname(resolve(dir)),
+    plan = load<Input<'fonts'>>(resolve(run, 'fonts.json')),
+    decided: Record<string, NonNullable<Input<'fonts'>['families']>[number]> = {};
+  for (const f of arr(plan.families)) if (f.standIn) for (const n of [f.family, f.cssFamily]) decided[key(n)] = f;
+  const missing: Record<string, string[]> = {},
+    styles: Record<string, string[]> = {},
+    icons: Record<string, string[]> = {},
+    drawn: Record<string, string> = {};
+  for (const path of files(dir)) {
+    const b = load(path).built || {},
+      id = basename(path, '.json'),
+      families = new Set(arr(b.missingFonts));
+    if (!('standIns' in b))
+      for (const [requested, resolved] of Object.entries(b.fonts || {})) {
+        if (
+          String(resolved).startsWith('Inter ') &&
+          String(requested).split(' ').slice(0, -1).join(' ').toLowerCase() !== 'inter'
+        )
+          families.add(String(requested).split(' ').slice(0, -1).join(' '));
+      }
+    for (const f of families) (missing[String(f)] ??= []).push(id);
+    for (const [f, d] of Object.entries(b.standIns || {})) drawn[key(f)] = String(d);
+    for (const [f, d] of Object.entries(b.styleFallbacks || {})) (styles[`${f} -> ${d}`] ??= []).push(id);
+    for (const f of Object.keys(b.iconText || {})) (icons[f] ??= []).push(id);
+  }
+  const stand = Object.fromEntries(Object.entries(missing).filter(([f]) => key(f) in decided)),
+    unavailable = Object.fromEntries(Object.entries(missing).filter(([f]) => !(key(f) in decided)));
+  if (Object.keys(stand).length) {
+    const drawnIn = (f: string) => drawn[key(f)] || decided[key(f)]!.standIn!.family,
+      planned = (f: string) =>
+        key(decided[key(f)]!.standIn!.family) === key(drawnIn(f))
+          ? ''
+          : `; the plan now names ${decided[key(f)]!.standIn!.family}, applied by the next rebuild`;
+    r.add(
+      'fonts-stand-in',
+      'minor',
+      'file',
+      `${Object.keys(stand).sort().join(' and ')} drawn in ${[...new Set(Object.keys(stand).map(drawnIn))].sort().join(' and ')} by default, as recorded in fonts.json; to use the real font, follow \`workflow.ts report fonts\` and rebuild`,
+      Object.entries(stand)
+        .sort()
+        .map(([f, cs]) => `${f} -> ${drawnIn(f)} (${cs.length} components${planned(f)})`),
+    );
+  }
+  if (Object.keys(unavailable).length)
+    r.add(
+      'fonts-available',
+      'major',
+      'file',
+      `${Object.keys(unavailable).length} font famil${Object.keys(unavailable).length === 1 ? 'y' : 'ies'} used by the site ${Object.keys(unavailable).length === 1 ? 'is' : 'are'} not available to Figma, so text in ${new Set(Object.values(unavailable).flat()).size} component(s) is drawn in Inter; make ${Object.keys(unavailable).sort().join(' and ')} available to Figma and rebuild`,
+      Object.entries(unavailable)
+        .sort()
+        .map(([f, cs]) => `${f} (${cs.length} components)`),
+    );
+  if (Object.keys(styles).length)
+    r.add(
+      'fonts-style-fallback',
+      'minor',
+      'file',
+      `${Object.keys(styles).length} weight(s) drawn in another style of the same family, because Figma has no matching style`,
+      Object.entries(styles)
+        .sort()
+        .map(([f, cs]) => `${f} (${cs.length} components)`),
+    );
+  if (Object.keys(icons).length)
+    r.add(
+      'fonts-icon-text',
+      'minor',
+      'file',
+      `icon font${Object.keys(icons).length === 1 ? '' : 's'} ${Object.keys(icons).sort().join(' and ')} drawn as text, not as vector icons`,
+      Object.entries(icons)
+        .sort()
+        .map(([f, cs]) => `${f} (${cs.length} components)`),
+    );
+}
+function componentReceiptContract(dir: string | undefined, inv: Inventory | null | undefined, r: Report) {
+  if (!dir || !existsSync(dir)) return;
+  const src = new Map(arr(inv?.components).map((c) => [c.id, c])),
+    anatomyBad: string[] = [],
+    triad: string[] = [],
+    nativeBad: string[] = [],
+    nestedBad: string[] = [];
+  for (const p of files(dir)) {
+    const rec = load(p),
+      id = rec.id || basename(p),
+      c: InventoryComponent = src.get(id) || {},
+      anatomy = rec.documentation?.anatomy || {},
+      fieldItems = arr(anatomy.fields),
+      relItems = arr(anatomy.relationships),
+      df = new Map(fieldItems.filter((x) => x.field).map((x) => [x.field, x])),
+      dr = new Map(relItems.filter((x) => x.field).map((x) => [x.field, x])),
+      ef = new Map(
+        arr(c.fields)
+          .filter((x) => x.name)
+          .map((x) => [x.name, x]),
+      ),
+      es = new Map(
+        arr(c.slots)
+          .filter((x) => x.name)
+          .map((x) => [x.name, x]),
+      );
+    const mf = [...ef.keys()].filter((x) => !df.has(x)).sort(),
+      ms = [...es.keys()].filter((x) => !dr.has(x)).sort(),
+      wf: string[] = [],
+      ws: string[] = [];
+    for (const n of [...ef.keys()].filter((x) => df.has(x))) {
+      const e = ef.get(n)!,
+        d = df.get(n)!;
+      if (
+        d.kind !== e.kind ||
+        d.required !== !!e.required ||
+        keyOf(d.default ?? null) !== keyOf(e.default ?? null) ||
+        !d.figmaTreatment
+      ) {
+        wf.push(n ?? '');
+        continue;
+      }
+      if (e.kind === 'enum') {
+        const a = new Set(arr(e.options).map((x) => String(x.value))),
+          b = new Set(arr(d.options).map((x) => String(x && typeof x === 'object' && 'value' in x ? x.value : x)));
+        if (a.size !== b.size || [...a].some((x) => !b.has(x))) wf.push(n ?? '');
+      }
+    }
+    for (const n of [...es.keys()].filter((x) => dr.has(x))) {
+      const e = es.get(n)!,
+        d = dr.get(n)!,
+        accept = slotAccepts(e.accepts);
+      if (
+        !Array.isArray(d.accepts) ||
+        new Set(d.accepts).size !== new Set(accept).size ||
+        accept.some((x: string) => !(d.accepts ?? []).includes(x)) ||
+        d.cardinality !== (e.cardinality ?? null) ||
+        d.required !== !!e.required ||
+        !('rendered' in d)
+      )
+        ws.push(n ?? '');
+    }
+    if (
+      mf.length ||
+      ms.length ||
+      wf.length ||
+      ws.length ||
+      (!fieldItems.length && !relItems.length && !anatomy.emptyReason)
+    )
+      anatomyBad.push(
+        `${id} (missing fields: ${mf.join(', ') || 'none'}; incorrect fields: ${wf.join(', ') || 'none'}; missing relationships: ${ms.join(', ') || 'none'}; incorrect relationships: ${ws.join(', ') || 'none'})`,
+      );
+    const shots = rec.documentation?.breakpointScreenshots || {},
+      evidence = rec.visualEvidence?.breakpoints || {},
+      need = ['desktop', 'tablet', 'mobile'] as const;
+    if (need.some((x) => !shots[x] || !evidence[x])) triad.push(id);
+    const native = rec.nativeComponent || {},
+      v = native.validation || {};
+    if (
+      !['COMPONENT', 'COMPONENT_SET'].includes(native.nodeType ?? '') ||
+      native.rootHasImageFill !== false ||
+      v.nativeNode !== true ||
+      v.noScreenshotSurrogate !== true ||
+      v.authoringCoverage !== true
+    )
+      nativeBad.push(id);
+    const unmet = missingNested(
+      [...es.values()],
+      [...dr.values()],
+      arr(native.nestedInstances).map((x) => x.sourceId),
+    );
+    if (unmet.length || v.relationshipCoverage !== true)
+      nestedBad.push(`${id} (${unmet.join(', ') || 'relationshipCoverage did not pass'})`);
+  }
+  if (anatomyBad.length)
+    r.add(
+      'documentation-anatomy',
+      'blocker',
+      'file',
+      `${anatomyBad.length} built component(s) do not document every authored field and relationship`,
+      anatomyBad.slice(0, 20),
+    );
+  if (triad.length)
+    r.add(
+      'breakpoint-triad',
+      'blocker',
+      'file',
+      `${triad.length} built component(s) lack mobile, tablet, and desktop screenshot evidence with a passing comparison at each width`,
+      triad.slice(0, 20),
+    );
+  if (nativeBad.length)
+    r.add(
+      'native-component-structure',
+      'blocker',
+      'file',
+      `${nativeBad.length} built asset(s) are not proven native editable components or use a screenshot as the component root`,
+      nativeBad.slice(0, 20),
+    );
+  if (nestedBad.length)
+    r.add(
+      'nested-component-coverage',
+      'blocker',
+      'file',
+      `${nestedBad.length} built component(s) do not instantiate their rendered source relationships`,
+      nestedBad.slice(0, 20),
+    );
+}
+function indexComplete(
+  index: Input<'index'> | null | undefined,
+  inv: Inventory | null | undefined,
+  s: VerifyState,
+  r: Report,
+) {
+  const cs = arr(inv?.components);
+  if (!cs.length) return;
+  if (!index) {
+    r.add(
+      'index-complete',
+      'minor',
+      'file',
+      'not checked - pass --index (index_rows.ts output) to confirm the Getting Started index covers every component',
+    );
+    return;
+  }
+  const rows = arr(index.rows),
+    listed = new Set(rows.map((x) => x.id)),
+    missing = cs
+      .filter((c) => !listed.has(c.id))
+      .map((c) => c.id)
+      .sort();
+  if (missing.length)
+    r.add(
+      'index-complete',
+      'blocker',
+      'file',
+      `${missing.length} of ${cs.length} components have no row in the index, so the one page that claims to list the library does not`,
+      missing.slice(0, 20),
+    );
+  const rendered = s.gettingStarted?.indexRowCount;
+  if (rendered == null)
+    r.add(
+      'index-complete',
+      'minor',
+      'file',
+      'the rendered index was not counted, so the page in Figma could be stale against index_rows.ts and nothing would say so',
+    );
+  else if (rendered !== rows.length)
+    r.add(
+      'index-complete',
+      'blocker',
+      'file',
+      `the Getting Started page renders ${rendered} index rows but the inventory produces ${rows.length}. The page is stale - re-run design-lab:figma-index.`,
+    );
+}
+function indexLinks(index: Input<'index'> | null | undefined, r: Report) {
+  if (!index) return;
+  const rows = arr(index.rows);
+  if (!rows.length) return;
+  const bad = rows
+    .filter((x) => x.built && (!x.componentLinkTarget || !x.documentationLinkTarget))
+    .map((x) => x.machineName);
+  if (bad.length)
+    r.add(
+      'index-links-resolve',
+      'blocker',
+      'file',
+      `${bad.length} built component(s) have an index row with nothing to link to. Record both component and documentation node ids in the build record.`,
+      bad.slice(0, 20),
+    );
+}
+function indexComponentLinks(index: Input<'index'> | null | undefined, s: VerifyState, r: Report) {
+  if (!index) return;
+  const wrong: string[] = [];
+  for (const row of arr(index.rows))
+    if (row.built && (!row.componentLinkTarget || row.componentLinkTarget === row.documentationLinkTarget))
+      wrong.push(row.machineName || row.id || '');
+  const heads = s.gettingStarted?.indexHeadings || [],
+    expected = ['Placements', 'Component', 'Machine name', 'Tier', 'Type', 'Status', 'Docs'];
+  if (JSON.stringify(heads) !== JSON.stringify(expected)) wrong.push('index headings/order: ' + heads.join(', '));
+  if (wrong.length)
+    r.add(
+      'index-component-links',
+      'blocker',
+      'file',
+      'the index does not keep placement-first columns and separate master/docs destinations',
+      wrong.slice(0, 20),
+    );
+}
+function variants(s: VerifyState, plan: VerifyPlan | null | undefined, r: Report) {
+  const cs = arr(s.components);
+  if (!cs.length) return;
+  const want: Record<string, boolean> = {};
+  for (const e of arr(plan?.plans ?? plan?.components)) {
+    const axes = arr(e.variantAxes).filter((a) => a.field !== 'Breakpoint');
+    want[e.id || e.machineName || ''] = !!axes.length;
+  }
+  const bad: string[] = [];
+  for (const c of cs) {
+    const stem = (c.name || '').split(' — ')[0] ?? '',
+      source = String(c.description || '')
+        .split('\n')
+        .find((x) => x.toLowerCase().startsWith('source id:'))
+        ?.split(':')
+        .slice(1)
+        .join(':')
+        .trim(),
+      axes = want[String(source ?? '')] ?? want[stem] ?? false,
+      layouts = arr(c.variantNames).length > 0 && arr(c.variantNames).every((n) => n.includes('Layout=')),
+      expected = axes || layouts ? 'COMPONENT_SET' : 'COMPONENT';
+    if (c.type !== expected || arr(c.variantNames).some((n) => n.includes('Breakpoint')))
+      bad.push(`${c.name}: expected ${expected}`);
+    if ((c.breakpointBoundCount || 0) === 0 && (c.responsiveVariableCount || 0))
+      bad.push(`${c.name}: width varies but no Breakpoint variable is bound`);
+  }
+  if (bad.length)
+    r.add(
+      'variants-are-sets',
+      'blocker',
+      'file',
+      `${bad.length} component(s) violate the planned native component or Breakpoint binding contract`,
+      bad.slice(0, 20),
+    );
+}
+function duplicates(s: VerifyState, r: Report) {
+  const seen = new Map<string, string>(),
+    bad: string[] = [];
+  for (const c of arr(s.components)) {
+    const name = c.name || '',
+      d = c.description || '',
+      source = /^\s*Source id:\s*(\S+)/im.exec(d)?.[1] || /\b([\w.-]+:[\w.-]+|sdc\.[\w.-]+)\b/.exec(d)?.[1],
+      stem = (name.split(' — ')[0] ?? '').split(' · ')[0];
+    for (const [kind, v] of [
+      ['source', source],
+      ['stem', stem],
+    ] as const) {
+      if (!v) continue;
+      const k = kind + ':' + v,
+        old = seen.get(k);
+      if (old) bad.push(`${old} and ${name} share ${kind} ${v}`);
+      else seen.set(k, name);
+    }
+  }
+  if (bad.length)
+    r.add(
+      'no-duplicate-components',
+      'blocker',
+      'file',
+      `${bad.length} duplicate component identity or name stem(s)`,
+      bad.slice(0, 20),
+    );
+}
+function examples(s: VerifyState, r: Report) {
+  const bad = arr(s.components)
+    .filter((c) => c.page === 'Examples')
+    .map((c) => c.name);
+  bad.push(...arr(s.exampleInvalidNodes).map((n) => `${n.name} (${n.type})`));
+  if (bad.length)
+    r.add(
+      'examples-instances-only',
+      'blocker',
+      'page:Examples',
+      'Examples contains component definitions instead of only instances',
+      bad.slice(0, 20),
+    );
+}
+function bindings(
+  s: VerifyState,
+  measure: PartialArtifact<Measurements> | null | undefined,
+  render: Input<'render-evidence'> | null | undefined,
+  r: Report,
+  builds?: string,
+) {
+  const hasMeasurements = !!measure && Object.keys(measure).length > 0,
+    hasRender = !!render && Object.keys(render).length > 0;
+  if (!hasMeasurements && !hasRender) {
+    r.add(
+      'bindings-match-source',
+      'minor',
+      'file',
+      'not checked - pass --render-evidence or --measurements so source token use can be compared against the Figma bindings',
+    );
+    return;
+  }
+  const cs = arr(s.components),
+    bad: string[] = [];
+  if (!cs.length) return;
+  for (const [id, item] of Object.entries(render?.items || {})) {
+    const rules = [...arr(item.styleFacts?.rootRules), ...arr(item.styleFacts?.partRules)],
+      uses = rules.some((rule) =>
+        arr(rule.declarations).some((d) => ['css-custom-property', 'sass-variable'].includes(d.resolution ?? '')),
+      );
+    if (!uses) continue;
+    const machine = id.split(':').at(-1),
+      candidates = cs.filter((c) => (c.name || '').split(' — ')[0] === machine);
+    let selected = candidates;
+    if (candidates.length > 1) {
+      const marker = (id.startsWith('block:') ? 'block_content.type.' : 'paragraphs.paragraphs_type.') + machine,
+        exact = candidates.filter((c) => (c.description || '').includes(marker));
+      if (exact.length) selected = exact;
+    }
+    const qualified = selected.filter((c) =>
+      new RegExp('^Source id:\\s*' + id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '\\s*$', 'im').test(
+        c.description || '',
+      ),
+    );
+    if (qualified.length) selected = qualified;
+    else if (selected.some((c) => /^Source id:/im.test(c.description || ''))) selected = [];
+    if (selected.length && !selected.some((c) => c.tokenBoundCount ?? c.boundVariableCount))
+      bad.push(`${id}: Sass/CSS evidence consumes a token, the Figma component binds nothing`);
+  }
+  const unbindable = new Set<string>();
+  if (builds) {
+    const run = dirname(resolve(builds)),
+      fonts = load<Input<'fonts'>>(resolve(run, 'fonts.json')),
+      tokens = load<Input<'tokens'>>(resolve(run, 'tokens.json'));
+    for (const u of arr(fonts.unrendered))
+      for (const t of arr(tokens.tokens)) {
+        const first =
+          String(t.value || '')
+            .split(',')[0]
+            ?.trim()
+            .replace(/^['"]|['"]$/g, '')
+            .toLowerCase() || '';
+        if (t.family === 'font-family' && first === String(u.family).toLowerCase()) unbindable.add(t.codeName ?? '');
+      }
+  }
+  const declares = (prop: string, val: unknown) =>
+    [...String(val).matchAll(/var\((--[\w-]+)/g)].some((m) => !(prop === 'font-family' && unbindable.has(m[1]!)));
+  for (const [id, m] of Object.entries(measure || {})) {
+    const source = arr(m.nodes).some((n) => Object.entries(n.declared || {}).some(([p, v]) => declares(p, v))),
+      fig = cs.find((c) => (c.name || '').split(' — ')[0] === id || c.name === id);
+    if (!fig) continue;
+    const binds = !!(fig.tokenBoundCount ?? fig.boundVariableCount);
+    if (source && !binds)
+      bad.push(`${id}: source resolves through custom properties, the Figma component binds nothing`);
+    else if (binds && !source)
+      bad.push(
+        `${id}: the Figma component binds variables, the source hardcodes every value - the defect has been tidied away`,
+      );
+  }
+  if (bad.length)
+    r.add(
+      'bindings-match-source',
+      'blocker',
+      'file',
+      `${bad.length} component(s) do not mirror the source's binding state`,
+      [...new Set(bad)].sort().slice(0, 20),
+    );
+  if (!hasMeasurements)
+    r.add(
+      'bindings-match-source',
+      'minor',
+      'file',
+      'positive token use was checked from Sass evidence; reverse and per-property fidelity were not checked because design-lab:capture measurements are absent',
+    );
+}
+function frameChecks(s: VerifyState, r: Report) {
+  const frames = arr(s.breakpointFrames),
+    fake = frames.filter((f) => String(f.name).startsWith('shot:') && !f.hasImage).map((f) => f.name);
+  if (fake.length)
+    r.add(
+      'shot-frames-have-images',
+      'major',
+      'file',
+      `${fake.length} frame(s) named shot: hold no image, so they claim a capture they do not have`,
+      fake.slice(0, 20),
+    );
+  const by: Record<string, NonNullable<VerifyState['breakpointFrames']>> = {};
+  for (const f of frames) {
+    const p = String(f.name).split(':');
+    if (p.length === 3) (by[p[1]!] ??= []).push(f);
+  }
+  for (const [id, fs] of Object.entries(by)) {
+    const ratios = fs
+      .filter((f) => f.labelWidth && f.width)
+      .map((f) => (f.width ?? 0) / (f.labelWidth ?? 1))
+      .sort((a, b) => a - b);
+    if (ratios.length < 2) continue;
+    const spread = ratios.at(-1)! / ratios[0]!;
+    if (spread > 1.05)
+      r.add(
+        'breakpoints-share-scale',
+        'major',
+        'component:' + id,
+        `breakpoint frames differ in scale by ${roundEven((spread - 1) * 100)}%, so their widths cannot be compared`,
+        ratios.map((x) => roundDecimal(x, 3)),
+      );
+  }
+}
+function captureUnique(dir: string | undefined, r: Report) {
+  if (!dir || !existsSync(dir)) return;
+  const groups: Record<string, string[]> = {};
+  for (const p of readdirSync(dir).filter((x) => x.endsWith('.png'))) {
+    const hash = createHash('md5')
+      .update(readFileSync(resolve(dir, p)))
+      .digest('hex');
+    (groups[hash] ??= []).push(p);
+  }
+  for (const fs of Object.values(groups)) {
+    if (fs.length < 2) continue;
+    const stems = new Set(
+      fs.map((f) =>
+        f.replace(/__(desktop|tablet|mobile)(__|\.png$).*/i, '').replace(/__(desktop|tablet|mobile)\.png$/i, ''),
+      ),
+    );
+    if (stems.size > 1)
+      r.add(
+        'captures-unique',
+        'major',
+        'capture:' + [...stems].sort().join(','),
+        'these components produced byte-identical captures, so their root selectors resolve to the same element',
+        [...fs].sort(),
+      );
+  }
+}
+
+export function verify(options: VerifyOptions): VerifyReport {
+  const o = { ...options };
+  if (o.project) {
+    o.components ??= readJson<Inventory>(resolve(o.project, 'components.json'));
+    o.tokens ??= readJson<Input<'tokens'>>(resolve(o.project, 'tokens.json'));
+    o.plan ??= readJson<VerifyPlan>(resolve(o.project, 'plan.json'));
+    o.index ??= readJson<Input<'index'>>(resolve(o.project, 'index.json'));
+    if (!o.measurements && o.components)
+      o.measurements = buildMeasurements(
+        o.project,
+        arr(o.components.components).flatMap((c) =>
+          c.id
+            ? [
+                {
+                  id: c.id,
+                  ...(c.machineName !== undefined ? { machineName: c.machineName } : {}),
+                  ...(c.sourceRef !== undefined ? { sourceRef: c.sourceRef } : {}),
+                },
+              ]
+            : [],
+        ),
+      );
+    o.captureEvidence ??= readJson<Input<'capture-evidence'>>(resolve(o.project, 'capture-evidence.json'));
+  }
+  const rep = new Report();
+  runChecks(o, rep);
+  const waivers = Array.isArray(o.waivers) ? o.waivers : arr(o.waivers?.waivers),
+    open: Finding[] = [],
+    waived: Finding[] = [];
+  for (const f of rep.findings) {
+    const w = ['visual-evidence-present', 'master-matches-capture', 'no-authoring-diagrams'].includes(f.check)
+      ? null
+      : waivers.find((x) => x.check === f.check && [undefined, null, '*', f.scope].includes(x.scope));
+    if (w) waived.push({ ...f, waiver: w });
+    else open.push(f);
+  }
+  const subjects = {
+    component: arr(o.state.components).length,
+    card: arr(o.state.cards).length,
+    shot: arr(o.state.breakpointFrames).length,
+    collection: arr(o.state.collections).length,
+  };
+  const needs: Record<string, keyof typeof subjects> = {
+    'component-naming': 'component',
+    'component-description': 'component',
+    'documentation-links': 'component',
+    'documentation-adjacent': 'component',
+    'layers-named': 'card',
+    'documentation-signal': 'card',
+    'documentation-cards-unique': 'card',
+    'shot-frames-have-images': 'shot',
+    'breakpoints-share-scale': 'shot',
+    'variable-scoped': 'collection',
+    'code-syntax-set': 'collection',
+    'modes-earn-themselves': 'collection',
+    'mode-naming': 'collection',
+    'collection-strategy': 'collection',
+    'variants-are-sets': 'component',
+    'no-duplicate-components': 'component',
+    'bindings-match-source': 'component',
+  };
+  const inapplicable = Object.keys(needs)
+      .filter((c) => !subjects[needs[c]!] && !rep.findings.some((f) => f.check === c))
+      .sort(),
+    passed = CHECKS.filter((c) => !inapplicable.includes(c) && !rep.findings.some((f) => f.check === c));
+  const report: VerifyReport = {
+    standardVersion: STANDARD_VERSION,
+    generatedAt: o.generatedAt ?? new Date().toISOString().replace(/\.\d{3}Z$/, 'Z'),
+    open,
+    waived,
+    passed,
+    inapplicable,
+    completeness: completeness(o.state, o.components, o.plan),
+  };
+  if (o.out) {
+    mkdirSync(dirname(resolve(o.out)), { recursive: true });
+    writeFileSync(o.out, JSON.stringify(report, null, 2));
+  }
+  return report;
+}
+export function verifyFromFiles(project: string, extras: Partial<VerifyOptions> = {}) {
+  const root = resolve(project),
+    folder = resolve(root, 'figma/verify'),
+    state = readJson<VerifyState>(resolve(folder, 'state.json')) ?? mergeVerifyState(folder);
+  return verify({
+    ...extras,
+    project: root,
+    state,
+    builds: extras.builds ?? resolve(root, 'builds'),
+    shotsDir: extras.shotsDir ?? resolve(root, 'capture/shots'),
+    out: extras.out ?? resolve(root, 'verify-report.json'),
+  });
+}

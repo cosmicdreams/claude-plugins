@@ -1,0 +1,1339 @@
+{
+  "standardVersion": "3.0.0",
+  "toolVersion": "design-lab 0.22.0",
+  "generatedAt": "2026-10-06T20:23:38+00:00",
+  "source": {
+    "ddevProject": null,
+    "approot": "/fixture/Sites/PNCB/worktrees/pncb-2026-merge",
+    "strategy": "drupal-db",
+    "scope": "current revisions, default language; placements and nested instances separate",
+    "definitions": {
+      "placements": "paragraphs whose immediate parent is a page-level host, plus blocks referenced by Layout Builder or block configuration; Site Studio components without a component ancestor in host layouts",
+      "structuralRefs": "paragraphs whose immediate parent is another paragraph or block, plus blocks embedded through a paragraph block field; nested Site Studio components and stored reusable-content components (counted once, with published host pages attributed through references)"
+    },
+    "population": {
+      "siteStudioLayouts": 0,
+      "paragraphInstances": 2418,
+      "blockContentEntities": 46,
+      "nodes": 1622,
+      "layoutBuilderSections": 0
+    },
+    "exampleVerification": {
+      "baseUrl": "https://pncb-2026-merge.ddev.site",
+      "pagesFetched": 77,
+      "anonymous": true,
+      "twigDebug": true
+    }
+  },
+  "usage": {
+    "block:basic": {
+      "placements": 0,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "block:betty_bot_nav_item": {
+      "placements": 2,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 2,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "block:contact_and_follow": {
+      "placements": 2,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 2,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "block:faces_of_certification": {
+      "placements": 6,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 6,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "block:footer_top_cta": {
+      "placements": 6,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 6,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "block:ipn_logo": {
+      "placements": 2,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 2,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "block:sidebar_promo": {
+      "placements": 46,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 46,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "block:site_copyright": {
+      "placements": 2,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 2,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "block:sitewide_alert": {
+      "placements": 20,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 20,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:accordion": {
+      "placements": 1,
+      "structuralRefs": 57,
+      "pages": 46,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/safeguarding-future-pediatric-care",
+          "path": "/safeguarding-future-pediatric-care",
+          "marker": "paragraph--accordion.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pediatric-nurse-interviews",
+          "path": "/pediatric-nurse-interviews",
+          "marker": "paragraph--accordion.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/residency-success",
+          "path": "/residency-success",
+          "marker": "paragraph--accordion.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:accordion_callout": {
+      "placements": 0,
+      "structuralRefs": 4,
+      "pages": 2,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/cpn-exam-resources",
+          "path": "/cpn-exam-resources",
+          "marker": "paragraph--accordion-callout.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:accordion_item": {
+      "placements": 0,
+      "structuralRefs": 397,
+      "pages": 46,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/safeguarding-future-pediatric-care",
+          "path": "/safeguarding-future-pediatric-care",
+          "marker": "paragraph--accordion-item.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 11,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pediatric-nurse-interviews",
+          "path": "/pediatric-nurse-interviews",
+          "marker": "paragraph--accordion-item.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 12,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/residency-success",
+          "path": "/residency-success",
+          "marker": "paragraph--accordion-item.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 5,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:accordion_links": {
+      "placements": 0,
+      "structuralRefs": 7,
+      "pages": 2,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/cpn-exam-resources",
+          "path": "/cpn-exam-resources",
+          "marker": "paragraph--accordion-links.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:betty_bot": {
+      "placements": 2,
+      "structuralRefs": 0,
+      "pages": 2,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/ask-pncbee",
+          "path": "/ask-pncbee",
+          "marker": "paragraph--betty-bot.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:betty_bot_studyguide": {
+      "placements": 0,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:board_member_content": {
+      "placements": 0,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:card": {
+      "placements": 0,
+      "structuralRefs": 13,
+      "pages": 8,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/news/exam-candidate-faqs",
+          "path": "/news/exam-candidate-faqs",
+          "marker": "paragraph--card.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/how-do-we-enroll",
+          "path": "/how-do-we-enroll",
+          "marker": "paragraph--card.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/no-pass-no-pay-next-steps",
+          "path": "/no-pass-no-pay-next-steps",
+          "marker": "paragraph--card.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 2,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:committee_member_content": {
+      "placements": 0,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:cta_block": {
+      "placements": 0,
+      "structuralRefs": 5,
+      "pages": 1,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/homepage",
+          "path": "/homepage",
+          "marker": "paragraph--cta-block.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 5,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:cta_grid": {
+      "placements": 1,
+      "structuralRefs": 0,
+      "pages": 1,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/homepage",
+          "path": "/homepage",
+          "marker": "paragraph--cta-grid.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:detail_table": {
+      "placements": 0,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:faces_of_certification": {
+      "placements": 0,
+      "structuralRefs": 1,
+      "pages": 1,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/faces-certification",
+          "path": "/faces-certification",
+          "marker": "paragraph--type--faces-of-certification",
+          "markerKind": "class",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 2,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:faq": {
+      "placements": 0,
+      "structuralRefs": 84,
+      "pages": 16,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pmhs-recert-faqs",
+          "path": "/pmhs-recert-faqs",
+          "marker": "paragraph--faq.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pmhs-exam-administration",
+          "path": "/pmhs-exam-administration",
+          "marker": "paragraph--faq.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/cpnp-ac-exam-administration",
+          "path": "/cpnp-ac-exam-administration",
+          "marker": "paragraph--faq.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:featured_courses": {
+      "placements": 0,
+      "structuralRefs": 4,
+      "pages": 3,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 1,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:featured_nurse": {
+      "placements": 2,
+      "structuralRefs": 0,
+      "pages": 1,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:full_band": {
+      "placements": 0,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:full_width_row": {
+      "placements": 620,
+      "structuralRefs": 0,
+      "pages": 475,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pncb-award-and-scholarship-programs",
+          "path": "/pncb-award-and-scholarship-programs",
+          "marker": "paragraph--full-width-row.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 4,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/news/sidra-medicine-earns-inaugural-pediatric-nursing-certification-board-activate-workforce-leader",
+          "path": "/news/sidra-medicine-earns-inaugural-pediatric-nursing-certification-board-activate-workforce-leader",
+          "marker": "paragraph--full-width-row.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/news/pediatric-nursing-certification-board-achieves-fourth-consecutive-great-place-work",
+          "path": "/news/pediatric-nursing-certification-board-achieves-fourth-consecutive-great-place-work",
+          "marker": "paragraph--full-width-row.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:highlight": {
+      "placements": 0,
+      "structuralRefs": 1,
+      "pages": 1,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/homepage",
+          "path": "/homepage",
+          "marker": "paragraph--highlight.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:highlight_news": {
+      "placements": 0,
+      "structuralRefs": 1,
+      "pages": 1,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/homepage",
+          "path": "/homepage",
+          "marker": "paragraph--highlight-news.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:hl_hl_news": {
+      "placements": 1,
+      "structuralRefs": 0,
+      "pages": 1,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/homepage",
+          "path": "/homepage",
+          "marker": "paragraph--hl-hl-news.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:homepage_featured_courses": {
+      "placements": 2,
+      "structuralRefs": 0,
+      "pages": 1,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:homepage_news": {
+      "placements": 1,
+      "structuralRefs": 0,
+      "pages": 1,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 1,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:icon_callout": {
+      "placements": 0,
+      "structuralRefs": 24,
+      "pages": 17,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pncb-scholarships",
+          "path": "/pncb-scholarships",
+          "marker": "paragraph--icon-callout.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/continuing-education-all-ce-topics-availability-dates",
+          "path": "/continuing-education-all-ce-topics-availability-dates",
+          "marker": "paragraph--icon-callout.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/resourcescommunity-home/resources/pncb-recognized-primary-care-pnp-programs",
+          "path": "/resourcescommunity-home/resources/pncb-recognized-primary-care-pnp-programs",
+          "marker": "paragraph--icon-callout.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 2,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:item_writer_content": {
+      "placements": 0,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:motivation_card": {
+      "placements": 0,
+      "structuralRefs": 33,
+      "pages": 11,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/renew-certifications",
+          "path": "/renew-certifications",
+          "marker": "paragraph--motivation-card.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 3,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pmhs",
+          "path": "/pmhs",
+          "marker": "paragraph--motivation-card.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 2,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/verification",
+          "path": "/verification",
+          "marker": "paragraph--motivation-card.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 2,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:multicolored_three_up_component": {
+      "placements": 1,
+      "structuralRefs": 0,
+      "pages": 1,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/homepage",
+          "path": "/homepage",
+          "marker": "paragraph--multicolored-three-up-component.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:news_resources": {
+      "placements": 1,
+      "structuralRefs": 0,
+      "pages": 1,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 2,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:pic_desc_link": {
+      "placements": 0,
+      "structuralRefs": 3,
+      "pages": 1,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/homepage",
+          "path": "/homepage",
+          "marker": "paragraph--pic-desc-link.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 3,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:product_listing": {
+      "placements": 0,
+      "structuralRefs": 2,
+      "pages": 2,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:related_resources": {
+      "placements": 0,
+      "structuralRefs": 3,
+      "pages": 3,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 1,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pmhs-success-stories",
+          "path": "/pmhs-success-stories",
+          "marker": "paragraph--related-resources.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pncb-board-directors",
+          "path": "/pncb-board-directors",
+          "marker": "paragraph--related-resources.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:resource": {
+      "placements": 0,
+      "structuralRefs": 37,
+      "pages": 19,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/employers",
+          "path": "/employers",
+          "marker": "paragraph--resource.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/your-pmhs-exam-appointment",
+          "path": "/your-pmhs-exam-appointment",
+          "marker": "paragraph--resource.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pmhs-exam-administration",
+          "path": "/pmhs-exam-administration",
+          "marker": "paragraph--resource.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:sample_question": {
+      "placements": 0,
+      "structuralRefs": 25,
+      "pages": 7,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/cpnp-ac-exam-resources",
+          "path": "/cpnp-ac-exam-resources",
+          "marker": "paragraph--sample-question.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 5,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pmhs-exam-resources",
+          "path": "/pmhs-exam-resources",
+          "marker": "paragraph--sample-question.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 5,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/cpnp-pc-exam-resources",
+          "path": "/cpnp-pc-exam-resources",
+          "marker": "paragraph--sample-question.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 5,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:sample_questions": {
+      "placements": 0,
+      "structuralRefs": 8,
+      "pages": 7,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 1,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/cpnp-ac-exam-resources",
+          "path": "/cpnp-ac-exam-resources",
+          "marker": "paragraph--sample-questions.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pmhs-exam-resources",
+          "path": "/pmhs-exam-resources",
+          "marker": "paragraph--sample-questions.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/cpnp-pc-exam-resources",
+          "path": "/cpnp-pc-exam-resources",
+          "marker": "paragraph--sample-questions.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:simple_table": {
+      "placements": 0,
+      "structuralRefs": 0,
+      "pages": 0,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:split_60_40": {
+      "placements": 65,
+      "structuralRefs": 0,
+      "pages": 37,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/kick-start-your-pediatric-nursing-career",
+          "path": "/kick-start-your-pediatric-nursing-career",
+          "marker": "paragraph--split-60-40.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/rotation-ideas",
+          "path": "/rotation-ideas",
+          "marker": "paragraph--split-60-40.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/news/exam-candidate-faqs",
+          "path": "/news/exam-candidate-faqs",
+          "marker": "paragraph--split-60-40.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:table": {
+      "placements": 0,
+      "structuralRefs": 30,
+      "pages": 22,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 1,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pncb-continuing-competence-summit",
+          "path": "/pncb-continuing-competence-summit",
+          "marker": "paragraph--table.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/about/pncb-exam-development",
+          "path": "/about/pncb-exam-development",
+          "marker": "paragraph--table.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/choosing-testing-option",
+          "path": "/choosing-testing-option",
+          "marker": "paragraph--table.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:table_row": {
+      "placements": 0,
+      "structuralRefs": 181,
+      "pages": 22,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pncb-continuing-competence-summit",
+          "path": "/pncb-continuing-competence-summit",
+          "marker": "paragraph--table-row.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 12,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/about/pncb-exam-development",
+          "path": "/about/pncb-exam-development",
+          "marker": "paragraph--table-row.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 7,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/choosing-testing-option",
+          "path": "/choosing-testing-option",
+          "marker": "paragraph--table-row.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:text_editor": {
+      "placements": 5,
+      "structuralRefs": 739,
+      "pages": 479,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pncb-award-and-scholarship-programs",
+          "path": "/pncb-award-and-scholarship-programs",
+          "marker": "paragraph--text-editor.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 4,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/international",
+          "path": "/international",
+          "marker": "paragraph--text-editor.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/no-pass-no-pay",
+          "path": "/no-pass-no-pay",
+          "marker": "paragraph--text-editor.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:text_with_cta": {
+      "placements": 2,
+      "structuralRefs": 0,
+      "pages": 2,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/ask-pncbee",
+          "path": "/ask-pncbee",
+          "marker": "paragraph--text-with-cta.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:three_up_component": {
+      "placements": 0,
+      "structuralRefs": 6,
+      "pages": 1,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:three_up_homepage": {
+      "placements": 1,
+      "structuralRefs": 0,
+      "pages": 1,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 1,
+      "examples": [],
+      "noExampleReason": "no component-specific rendered marker was found on the DB-derived anonymous pages"
+    },
+    "paragraph:user_motivation": {
+      "placements": 0,
+      "structuralRefs": 14,
+      "pages": 9,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/renew-certifications",
+          "path": "/renew-certifications",
+          "marker": "paragraph--user-motivation.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 3,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pmhs",
+          "path": "/pmhs",
+          "marker": "paragraph--user-motivation.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/verification",
+          "path": "/verification",
+          "marker": "paragraph--user-motivation.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    },
+    "paragraph:video": {
+      "placements": 0,
+      "structuralRefs": 26,
+      "pages": 10,
+      "unpublishedInstances": 0,
+      "inlineBlockEntities": 0,
+      "configPlacedBlocks": 0,
+      "orphanInstances": 0,
+      "examples": [
+        {
+          "url": "https://pncb-2026-merge.ddev.site/webinars",
+          "path": "/webinars",
+          "marker": "paragraph--video.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 2,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pmhs-success-stories",
+          "path": "/pmhs-success-stories",
+          "marker": "paragraph--video.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 1,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        },
+        {
+          "url": "https://pncb-2026-merge.ddev.site/pmhs-role",
+          "path": "/pmhs-role",
+          "marker": "paragraph--video.html.twig",
+          "markerKind": "template",
+          "markerUniqueToThisComponent": true,
+          "instancesOnPage": 2,
+          "status": 200,
+          "anonymous": true,
+          "verifiedAt": "2026-10-06T20:23:40+00:00"
+        }
+      ],
+      "noExampleReason": null
+    }
+  },
+  "problems": [
+    {
+      "check": "inventoried-bundle-absent-from-database",
+      "detail": "8 inventoried bundle(s) have zero measured instances",
+      "evidence": [
+        "block:basic",
+        "paragraph:betty_bot_studyguide",
+        "paragraph:board_member_content"
+      ]
+    },
+    {
+      "check": "paragraph-without-parent",
+      "detail": "8 paragraph instance(s) have no attributable parent"
+    }
+  ]
+}

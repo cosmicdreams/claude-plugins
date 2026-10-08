@@ -1,0 +1,41 @@
+{
+  "standardVersion": "4.1.0",
+  "toolVersion": "design-lab 0.23.0",
+  "figmaFileKey": "yqZMFW3NKVFWszUgPNUeaM",
+  "pages": {
+    "Components \u2014 High Use": "13:43173",
+    "Components \u2014 Low Use": "13:43175",
+    "Components \u2014 Medium Use": "13:43174",
+    "Components \u2014 Retirement Candidates": "13:43177",
+    "Components \u2014 Structural Only": "13:43176",
+    "Cover": "0:1",
+    "Examples": "13:43178",
+    "Foundations \u2014 Brand Voice & Language": "13:43172",
+    "Foundations \u2014 Color": "13:43168",
+    "Foundations \u2014 Elevation & Shape": "13:43171",
+    "Foundations \u2014 Spacing & Layout": "13:43170",
+    "Foundations \u2014 Typography": "13:43169",
+    "Getting Started": "13:43167"
+  },
+  "collections": {
+    "PNCB Breakpoint": {
+      "id": "VariableCollectionId:13:43179",
+      "modes": [
+        "Desktop 1400px",
+        "Tablet 800px",
+        "Mobile 375px"
+      ],
+      "variables": 18
+    },
+    "PNCB Core": {
+      "id": "VariableCollectionId:13:43198",
+      "modes": [
+        "Value"
+      ],
+      "variables": 168
+    }
+  },
+  "validation": {
+    "errors": []
+  }
+}

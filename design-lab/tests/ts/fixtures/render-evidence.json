@@ -1,0 +1,1409 @@
+{
+  "standardVersion": "3.0.0",
+  "generatedAt": "2026-10-06T20:23:29+00:00",
+  "source": {
+    "strategy": "drupal-render-evidence",
+    "root": "/fixture/Sites/PNCB/worktrees/pncb-2026-merge"
+  },
+  "items": {
+    "block:basic": {
+      "templates": [],
+      "genericTemplate": "docroot/themes/custom/pncb/templates/block/block.html.twig",
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [],
+      "defects": [],
+      "confidence": "low"
+    },
+    "block:betty_bot_nav_item": {
+      "templates": [],
+      "genericTemplate": "docroot/themes/custom/pncb/templates/block/block.html.twig",
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [],
+      "defects": [],
+      "confidence": "low"
+    },
+    "block:contact_and_follow": {
+      "templates": [
+        "docroot/themes/custom/ipn/templates/block/block--contact-and-follow.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "footer-connect__contact",
+        "footer-connect__follow",
+        "share-module"
+      ],
+      "rootSdc": null,
+      "referencedFields": [],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "block:faces_of_certification": {
+      "templates": [],
+      "genericTemplate": "docroot/themes/custom/pncb/templates/block/block.html.twig",
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/faces-of-certification/faces-of-certification.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [],
+      "defects": [],
+      "confidence": "low"
+    },
+    "block:footer_top_cta": {
+      "templates": [],
+      "genericTemplate": "docroot/themes/custom/pncb/templates/block/block.html.twig",
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [],
+      "defects": [],
+      "confidence": "low"
+    },
+    "block:ipn_logo": {
+      "templates": [],
+      "genericTemplate": "docroot/themes/custom/pncb/templates/block/block.html.twig",
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [],
+      "defects": [],
+      "confidence": "low"
+    },
+    "block:sidebar_promo": {
+      "templates": [],
+      "genericTemplate": "docroot/themes/custom/pncb/templates/block/block.html.twig",
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [],
+      "defects": [],
+      "confidence": "low"
+    },
+    "block:site_copyright": {
+      "templates": [],
+      "genericTemplate": "docroot/themes/custom/pncb/templates/block/block.html.twig",
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [],
+      "defects": [],
+      "confidence": "low"
+    },
+    "block:sitewide_alert": {
+      "templates": [
+        "docroot/themes/custom/ipn/templates/block/block--sitewide-alert.html.twig",
+        "docroot/themes/custom/pncb/templates/block/block--sitewide-alert.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "c-message-bar__header",
+        "c-message-bar__copy",
+        "is-white"
+      ],
+      "rootSdc": null,
+      "referencedFields": [],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:accordion": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--accordion.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:heading",
+        "pncb:accordion"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/heading/heading.component.yml",
+        "docroot/themes/custom/pncb/components/accordion/accordion.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/accordion/accordion.css",
+        "docroot/themes/custom/pncb/components/heading/heading.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": "pncb:accordion",
+      "referencedFields": [
+        "field_accordion_item",
+        "field_header"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:accordion_callout": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--accordion-callout.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-cards"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_callout"
+      ],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:accordion_item": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--accordion-item.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:accordion-item",
+        "pncb:prose"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/accordion-item/accordion-item.component.yml",
+        "docroot/themes/custom/pncb/components/prose/prose.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/accordion-item/accordion-item.css",
+        "docroot/themes/custom/pncb/components/prose/prose.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": "pncb:accordion-item",
+      "referencedFields": [
+        "field_accordion_body",
+        "field_callouts_and_links"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:accordion_links": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--accordion-links.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-panel"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_links"
+      ],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:betty_bot": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--betty-bot.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:betty-bot"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/betty-bot/betty-bot.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/betty-bot/betty-bot.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": "pncb:betty-bot",
+      "referencedFields": [
+        "field_heading",
+        "field_intro_text",
+        "field_suggested_questions"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:betty_bot_studyguide": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--betty-bot-studyguide.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:betty-bot-studyguide"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/betty-bot-studyguide/betty-bot-studyguide.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/betty-bot-studyguide/betty-bot-studyguide.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": "pncb:betty-bot-studyguide",
+      "referencedFields": [
+        "field_destination_url",
+        "field_eyebrow",
+        "field_heading"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:board_member_content": {
+      "templates": [],
+      "genericTemplate": "docroot/themes/custom/pncb/templates/paragraphs/paragraph.html.twig",
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/board-member-content/board-member-content.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_example"
+      ],
+      "defects": [
+        {
+          "kind": "template-field-not-in-authoring-config",
+          "detail": "template references field_example, absent from the bundle inventory",
+          "evidence": [
+            "docroot/themes/custom/pncb/templates/paragraphs/paragraph.html.twig"
+          ]
+        }
+      ],
+      "confidence": "low"
+    },
+    "paragraph:card": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--card.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/card/card.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-card-reference"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_cta_reference"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:committee_member_content": {
+      "templates": [],
+      "genericTemplate": "docroot/themes/custom/pncb/templates/paragraphs/paragraph.html.twig",
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_example"
+      ],
+      "defects": [
+        {
+          "kind": "template-field-not-in-authoring-config",
+          "detail": "template references field_example, absent from the bundle inventory",
+          "evidence": [
+            "docroot/themes/custom/pncb/templates/paragraphs/paragraph.html.twig"
+          ]
+        }
+      ],
+      "confidence": "low"
+    },
+    "paragraph:cta_block": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--cta-block.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:card"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/card/card.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/card/card.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:cta_grid": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--cta-grid.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:heading"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/heading/heading.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/heading/heading.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-home-band",
+        "pncb-container",
+        "pncb-legacy-cards"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_items",
+        "field_title"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:detail_table": {
+      "templates": [],
+      "genericTemplate": "docroot/themes/custom/pncb/templates/paragraphs/paragraph.html.twig",
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_example"
+      ],
+      "defects": [
+        {
+          "kind": "template-field-not-in-authoring-config",
+          "detail": "template references field_example, absent from the bundle inventory",
+          "evidence": [
+            "docroot/themes/custom/pncb/templates/paragraphs/paragraph.html.twig"
+          ]
+        }
+      ],
+      "confidence": "low"
+    },
+    "paragraph:faces_of_certification": {
+      "templates": [],
+      "genericTemplate": "docroot/themes/custom/pncb/templates/paragraphs/paragraph.html.twig",
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/faces-of-certification/faces-of-certification.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_example"
+      ],
+      "defects": [
+        {
+          "kind": "template-field-not-in-authoring-config",
+          "detail": "template references field_example, absent from the bundle inventory",
+          "evidence": [
+            "docroot/themes/custom/pncb/templates/paragraphs/paragraph.html.twig"
+          ]
+        }
+      ],
+      "confidence": "low"
+    },
+    "paragraph:faq": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--faq.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:heading",
+        "pncb:prose"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/heading/heading.component.yml",
+        "docroot/themes/custom/pncb/components/prose/prose.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/heading/heading.css",
+        "docroot/themes/custom/pncb/components/prose/prose.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-section",
+        "pncb-accordion"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_faq_header",
+        "field_faq_item",
+        "field_faq_subheader"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:featured_courses": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--featured-courses.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-home-band",
+        "pncb-container",
+        "pncb-legacy-section"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_description",
+        "field_link",
+        "field_products"
+      ],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:featured_nurse": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--featured-nurse.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:prose"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/prose/prose.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/prose/prose.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-home-band",
+        "pncb-container",
+        "pncb-face__layout"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_link",
+        "field_nurse_image",
+        "field_rich_text"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:full_band": {
+      "templates": [],
+      "genericTemplate": "docroot/themes/custom/pncb/templates/paragraphs/paragraph.html.twig",
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_example"
+      ],
+      "defects": [
+        {
+          "kind": "template-field-not-in-authoring-config",
+          "detail": "template references field_example, absent from the bundle inventory",
+          "evidence": [
+            "docroot/themes/custom/pncb/templates/paragraphs/paragraph.html.twig"
+          ]
+        }
+      ],
+      "confidence": "low"
+    },
+    "paragraph:full_width_row": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--full-width-row.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-row"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_content"
+      ],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:highlight": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--highlight.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:band",
+        "pncb:heading",
+        "pncb:prose"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/band/band.component.yml",
+        "docroot/themes/custom/pncb/components/heading/heading.component.yml",
+        "docroot/themes/custom/pncb/components/prose/prose.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/band/band.css",
+        "docroot/themes/custom/pncb/components/heading/heading.css",
+        "docroot/themes/custom/pncb/components/prose/prose.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-statement",
+        "pncb-legacy-statement__subtitle"
+      ],
+      "rootSdc": "pncb:band",
+      "referencedFields": [
+        "field_rich_text",
+        "field_title",
+        "field_title_2"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:highlight_news": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--highlight-news.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:band",
+        "pncb:heading",
+        "pncb:button"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/band/band.component.yml",
+        "docroot/themes/custom/pncb/components/heading/heading.component.yml",
+        "docroot/themes/custom/pncb/components/button/button.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/band/band.css",
+        "docroot/themes/custom/pncb/components/button/button.css",
+        "docroot/themes/custom/pncb/components/heading/heading.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-section",
+        "pncb-legacy-cards",
+        "pncb-legacy-cards--three"
+      ],
+      "rootSdc": "pncb:band",
+      "referencedFields": [
+        "field_articles",
+        "field_news_link",
+        "field_title"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:hl_hl_news": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--hl-hl-news.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-highlight-news"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_first_column",
+        "field_second_column"
+      ],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:homepage_featured_courses": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--homepage-featured-courses.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:prose"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/prose/prose.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/prose/prose.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-home-band",
+        "pncb-container",
+        "pncb-legacy-section"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_cta_link",
+        "field_description",
+        "field_products"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:homepage_news": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--homepage-news.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-home-band",
+        "pncb-container",
+        "pncb-legacy-home-news"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_homepage_news_description",
+        "field_homepage_news_image",
+        "field_homepage_news_image_link"
+      ],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:icon_callout": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--icon-callout.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:card"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/card/card.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/card/card.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-cards"
+      ],
+      "rootSdc": null,
+      "referencedFields": [],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:item_writer_content": {
+      "templates": [],
+      "genericTemplate": "docroot/themes/custom/pncb/templates/paragraphs/paragraph.html.twig",
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_example"
+      ],
+      "defects": [
+        {
+          "kind": "template-field-not-in-authoring-config",
+          "detail": "template references field_example, absent from the bundle inventory",
+          "evidence": [
+            "docroot/themes/custom/pncb/templates/paragraphs/paragraph.html.twig"
+          ]
+        }
+      ],
+      "confidence": "low"
+    },
+    "paragraph:motivation_card": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--motivation-card.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:prose",
+        "pncb:button"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/prose/prose.component.yml",
+        "docroot/themes/custom/pncb/components/button/button.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/button/button.css",
+        "docroot/themes/custom/pncb/components/prose/prose.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-panel",
+        "pncb-legacy-links"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_link",
+        "field_rich_text",
+        "field_title"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:multicolored_three_up_component": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--multicolored-three-up-component.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-home-band",
+        "pncb-container",
+        "pncb-legacy-cards"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_pic_desc_link"
+      ],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:news_resources": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--news-resources.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/news-resources/news-resources.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-section",
+        "pncb-legacy-cards",
+        "pncb-legacy-cards--three"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_articles",
+        "field_description",
+        "field_news_link"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:pic_desc_link": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--pic-desc-link.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:card"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/card/card.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/card/card.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:product_listing": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--product-listing.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-section",
+        "pncb-legacy-cards",
+        "pncb-legacy-cards--three"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_product_listing"
+      ],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:related_resources": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--related-resources.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-panel"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_resource_link"
+      ],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:resource": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--resource.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-resource-list"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_resource"
+      ],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:sample_question": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--sample-question.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:accordion-item"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/accordion-item/accordion-item.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/accordion-item/accordion-item.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-content"
+      ],
+      "rootSdc": "pncb:accordion-item",
+      "referencedFields": [
+        "field_question",
+        "field_question_options"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:sample_questions": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--sample-questions.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:heading"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/heading/heading.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/heading/heading.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-section",
+        "pncb-accordion"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_questions",
+        "field_title"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:simple_table": {
+      "templates": [],
+      "genericTemplate": "docroot/themes/custom/pncb/templates/paragraphs/paragraph.html.twig",
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_example"
+      ],
+      "defects": [
+        {
+          "kind": "template-field-not-in-authoring-config",
+          "detail": "template references field_example, absent from the bundle inventory",
+          "evidence": [
+            "docroot/themes/custom/pncb/templates/paragraphs/paragraph.html.twig"
+          ]
+        }
+      ],
+      "confidence": "low"
+    },
+    "paragraph:split_60_40": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--split-60-40.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/split-60-40/split-60-40.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-row"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_content_limit_2"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:table": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--table.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/table/table.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-table"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_header_left",
+        "field_header_right",
+        "field_table_row"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:table_row": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--table-row.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_cell_left",
+        "field_cell_right"
+      ],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:text_editor": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--text-editor.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:prose"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/prose/prose.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/prose/prose.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_rich_text"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:text_with_cta": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--text-with-cta.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:prose"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/prose/prose.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/prose/prose.css",
+        "docroot/themes/custom/pncb/components/text-with-cta/text-with-cta.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-panel"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_cta_link",
+        "field_text"
+      ],
+      "defects": [],
+      "confidence": "high"
+    },
+    "paragraph:three_up_component": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--three-up-component.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-panel"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_3u_link",
+        "field_end_description",
+        "field_rich_text"
+      ],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:three_up_homepage": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--three-up-homepage.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-home-band",
+        "pncb-container",
+        "pncb-legacy-cards"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_three_up_component"
+      ],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:user_motivation": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--user-motivation.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [],
+      "sdcDefinitions": [],
+      "stylesheets": [],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [
+        "pncb-legacy-cards"
+      ],
+      "rootSdc": null,
+      "referencedFields": [
+        "field_motivation_card"
+      ],
+      "defects": [],
+      "confidence": "medium"
+    },
+    "paragraph:video": {
+      "templates": [
+        "docroot/themes/custom/pncb/templates/paragraphs/paragraph--video.html.twig"
+      ],
+      "genericTemplate": null,
+      "sdc": [
+        "pncb:media"
+      ],
+      "sdcDefinitions": [
+        "docroot/themes/custom/pncb/components/media/media.component.yml"
+      ],
+      "stylesheets": [
+        "docroot/themes/custom/pncb/components/media/media.css"
+      ],
+      "styleFacts": {
+        "rootRules": [],
+        "partRules": [],
+        "mediaQueries": 0
+      },
+      "rootClasses": [],
+      "rootSdc": null,
+      "referencedFields": [],
+      "defects": [],
+      "confidence": "high"
+    }
+  },
+  "totals": {
+    "components": 53,
+    "directTemplates": 39,
+    "sdcLinks": 19,
+    "styleLinks": 26,
+    "defects": 7
+  },
+  "problems": []
+}

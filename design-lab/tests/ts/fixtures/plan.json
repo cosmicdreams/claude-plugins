@@ -1,0 +1,92 @@
+{
+  "standardVersion": "4.1.0",
+  "generatedAt": "2026-10-06T23:10:57+00:00",
+  "maxVariants": 64,
+  "plans": [
+    {
+      "id": "block:basic",
+      "label": "Basic block",
+      "libraryRole": "retirement",
+      "visualIdentity": "none",
+      "visualEvidence": {
+        "captured": false,
+        "renderSignals": false,
+        "path": null,
+        "states": [],
+        "images": []
+      },
+      "variantAxes": [],
+      "variants": 1,
+      "naiveVariants": 1,
+      "properties": [
+        {
+          "field": "body",
+          "treatment": "text"
+        }
+      ],
+      "flags": [],
+      "skippedFields": [],
+      "verdict": "refuse",
+      "refuseReason": "source entity is retirement, not an evidenced reusable visual component",
+      "defects": []
+    },
+    {
+      "id": "block:betty_bot_nav_item",
+      "label": "Betty Bot Nav Item",
+      "libraryRole": "schema-only",
+      "visualIdentity": "none",
+      "visualEvidence": {
+        "captured": false,
+        "renderSignals": false,
+        "path": null,
+        "states": [],
+        "images": []
+      },
+      "variantAxes": [],
+      "variants": 1,
+      "naiveVariants": 1,
+      "properties": [
+        {
+          "field": "field_link",
+          "treatment": "manual"
+        },
+        {
+          "field": "field_logo_image",
+          "treatment": "manual"
+        }
+      ],
+      "flags": [],
+      "skippedFields": [],
+      "verdict": "refuse",
+      "refuseReason": "source entity is schema-only, not an evidenced reusable visual component",
+      "defects": []
+    },
+    {
+      "id": "block:contact_and_follow",
+      "label": "Contact and Follow",
+      "libraryRole": "component",
+      "visualIdentity": "unverified",
+      "visualEvidence": {
+        "captured": false,
+        "renderSignals": true,
+        "path": null,
+        "states": [],
+        "images": []
+      },
+      "variantAxes": [],
+      "variants": 1,
+      "naiveVariants": 1,
+      "properties": [
+        {
+          "field": "body",
+          "treatment": "text"
+        }
+      ],
+      "flags": [],
+      "skippedFields": [],
+      "verdict": "refuse",
+      "refuseReason": "no component-scoped screenshot exists; capture visual and behavioral states before construction",
+      "defects": []
+    }
+  ]
+}

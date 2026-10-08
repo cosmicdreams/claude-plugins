@@ -9,6 +9,6 @@
   "networkAccess": {
     "allowedDomains": ["none"],
     "devAllowedDomains": ["http://localhost:8765"],
-    "reasoning": "Fetches build steps from figma_runner.py on this machine and posts results back."
+    "reasoning": "Fetches build steps from figma_runner.ts on this machine and posts results back."
   }
 }

@@ -1,0 +1,9 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/runner-error-response.schema.json",
+  "title": "RunnerErrorResponse",
+  "type": "object",
+  "properties": {},
+  "required": [],
+  "additionalProperties": false
+}

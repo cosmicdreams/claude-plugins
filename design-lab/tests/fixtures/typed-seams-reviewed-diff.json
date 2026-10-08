@@ -1,0 +1,34 @@
+{
+  "helper": {
+    "current": "function assertNever(value       )        {\n  throw new Error(`unexpected variant: ${JSON.stringify(value)}`);\n}\n",
+    "previous": ""
+  },
+  "responsive": [
+    {
+      "current": "function expand(node            , styles = ARGS.styles)                                     {\n    // Mutation uses an optional view; the input union still requires text or ts/chars.\n    const wire                                                   = node;\n    switch (node.kind) {\n      case 'text':\n      case 'frame':\n      case 'image':\n      case 'svg':\n      case 'instance':\n        if (wire.ts !== undefined) {\n          wire.text = { ...styles [wire.ts] , characters: wire.chars  };\n          delete wire.ts;\n          delete wire.chars;\n        }\n        break;\n      default:\n        assertNever(node);\n    }\n    if (node.layout) {\n      const [t, r, b, l] = node.layout.pad || [0, 0, 0, 0];\n      node.layout.padding = { top: t, right: r, bottom: b, left: l };\n      delete node.layout.pad;\n    }\n    (node.children || []).forEach((child) => expand(child, styles));\n  }\n",
+      "previous": "function expand(node            , styles = ARGS.styles) {\n  if (node.ts !== undefined) { node.text = { ...styles [node.ts] , characters: node.chars  }; delete node.ts; delete node.chars; }\n  if (node.layout) {\n    const [t, r, b, l] = node.layout.pad || [0, 0, 0, 0];\n    node.layout.padding = { top: t, right: r, bottom: b, left: l };\n    delete node.layout.pad;\n  }\n  (node.children || []).forEach((child) => expand(child, styles));\n  return node;\n}\n"
+    },
+    {
+      "current": "function assertExpanded(node            )                                     {\n    if (node.kind === 'text' && !node.text) throw new Error(`text node ${node.source} was not expanded`);\n    for (const child of node.children ?? []) assertExpanded(child);\n  }\n",
+      "previous": ""
+    },
+    {
+      "current": "// Expansion above restored text styles; verify that contract before drawing.\n    assertExpanded(tree);\n",
+      "previous": ""
+    }
+  ],
+  "runner": [
+    {
+      "current": "switch (step.kind) {\n          case 'use_figma':\n          case 'dump':\n          case 'check':\n            result = await new AsyncFunction(step.code )();\n            break;\n          case 'upload':\n            result = await upload(step);\n            break;\n          case 'screenshot':\n            result = await screenshot(step);\n            break;\n          // Normally consumed by the server, but part of the shared wire contract.\n          case 'skip':\n            result = {};\n            break;\n          default:\n            assertNever(step);\n        }",
+      "previous": "      if (step.kind === 'use_figma' || step.kind === 'dump' || step.kind === 'check') result = await new AsyncFunction(step.code )();\n      else if (step.kind === 'upload') result = await upload(step);\n      else if (step.kind === 'screenshot') result = await screenshot(step);\n      else throw new Error(`unknown step kind ${step.kind}`);"
+    },
+    {
+      "current": "const TOKEN_PATH = '~/.design-lab/runner-token'; // installRunner replaces this with the person's real token file\n",
+      "previous": ""
+    },
+    {
+      "current": "from ${TOKEN_PATH} on this machine.",
+      "previous": "from ~/.design-lab/runner-token on this machine."
+    }
+  ]
+}

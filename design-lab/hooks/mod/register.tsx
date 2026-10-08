@@ -4,9 +4,10 @@
 // the runner has stopped, a button that puts the resume request in the prompt.
 
 import { atom, read, update } from 'claude-code'
-import type { EngineInterface, Register, Timer } from 'claude-code'
+import type { CommandRunInput, EngineInterface, Register, Timer } from 'claude-code'
 
-import type { Summary } from '../../types'
+import type { Summary as RunSummary } from '../../src/protocol'
+type Summary = RunSummary<'mod'>
 import {
   afterFill, barOf, CHECK_COLORS, CHECK_MARKS, checkMessage, compactOf, durationOf, elapsedOf, failureOf, needsYouOf, parseJson,
   percentOf, PHASE_DONE, phaseLabel, plainOf, RESUME_PROMPT, isIdle, runnerLine, stagesOf, statusOf, stepsLine,
@@ -20,7 +21,8 @@ const RECAP_COMMAND = 'design-lab:recap'
 // The skills that start or resume a run: each opens the pane by itself, so nobody has to know
 // about design-lab:watch to see where a run is.
 export const RUN_SKILLS = ['design-lab:run', 'design-lab:figma-build'] as const
-export const POLL_MS = 5_000
+import { POLL_MS } from '../../src/protocol.ts'
+export { POLL_MS } from '../../src/protocol.ts'
 // The runner log is tailed only while it is small enough to read whole every poll.
 const LOG_READ_LIMIT = 1024 * 1024
 
@@ -133,6 +135,16 @@ async function refresh($: EngineInterface): Promise<void> {
   }
 }
 
+// Nothing awaits a refresh the timer or an event starts, so a failure there would be an unhandled
+// rejection. It is told once, as a toast, and again only after a refresh worked in between.
+let refreshFailed = false
+function refreshInBackground($: EngineInterface): void {
+  void refresh($).then(
+    () => { refreshFailed = false },
+    () => { if (!refreshFailed) { refreshFailed = true; reportFailure($, 'refreshing the pane') } },
+  )
+}
+
 async function refreshNow($: EngineInterface): Promise<void> {
   const follow = await read($, followAtom)
   if (follow) {
@@ -169,7 +181,7 @@ async function refreshNow($: EngineInterface): Promise<void> {
 
 function watch($: EngineInterface): void {
   timer?.cancel()
-  timer = $.clock.every(POLL_MS, () => void refresh($))
+  timer = $.clock.every(POLL_MS, () => refreshInBackground($))
 }
 
 /** The run a command names, or with none: the newest in this project's runs folder, which the pane
@@ -192,7 +204,7 @@ async function runOf($: EngineInterface, args: string): Promise<string | { missi
 }
 
 // Which run to watch when the person names none: the newest in this project's runs folder, by
-// the convention design-lab:init recorded (scripts/lab_config.py holds the same rule).
+// the convention design-lab:init recorded (src/lab-config.ts holds the same rule).
 
 async function exists($: EngineInterface, path: string): Promise<boolean> {
   return $.fs.exists(path).catch(() => false)
@@ -304,7 +316,7 @@ async function followRunSkill($: EngineInterface): Promise<void> {
   await update($, summaryAtom, () => resuming ? summary! : null)
   await update($, alarmedAtom, () => false)
   watch($)
-  if (resuming) void refresh($)
+  if (resuming) refreshInBackground($)
   if ((await $.session.surfaces()).length > 0) await $.ui.open({ id: PANE, title: 'design-lab' }).catch(() => undefined)
 }
 
@@ -315,12 +327,57 @@ async function resume($: EngineInterface, run: string): Promise<void> {
   if (step === 'explain') $.ui.toast('design-lab: close the open dialog, then press resume again.')
 }
 
+/** A hook whose registration catches a failure says so once, as a toast; the engine logs the error itself. */
+function reportFailure($: EngineInterface, what: string): void {
+  $.ui.toast(`design-lab: ${what} failed; claude --debug has the error`, { timeoutMs: 10_000 })
+}
+
+/** A gating command hook must answer, so a failure becomes the command's answer rather than a hang. */
+function answerFailure($: EngineInterface, command: string): { text: string } {
+  reportFailure($, command)
+  return { text: `design-lab could not answer ${command}; claude --debug has the error.` }
+}
+
+async function watchCommand($: EngineInterface, e: CommandRunInput): Promise<{ text: string }> {
+  const run = await runOf($, e.args)
+  // Named, a run is watched as named; found by convention, the pane follows the runs folder.
+  const follow = e.args.trim() ? null : typeof run === 'string'
+    ? (await runsFolder($, await $.session.cwd())) ?? null : run.follow ?? null
+  await update($, followAtom, () => follow)
+  await update($, skipAtom, () => null)
+  if (typeof run !== 'string') {
+    if (!follow) return { text: run.missing }
+    await update($, runAtom, () => null)
+    await update($, summaryAtom, () => null)
+    watch($)
+    if ((await $.session.surfaces()).length > 0) await $.ui.open({ id: PANE, title: 'design-lab', focus: true })
+    return { text: run.missing }
+  }
+  await update($, runAtom, () => run)
+  await update($, alarmedAtom, () => false)
+  await refresh($)
+  watch($)
+  const summary = (await read($, summaryAtom)) ?? (await summarise($, run))
+  if ((await $.session.surfaces()).length === 0) return { text: plainOf(summary) }
+  // The person asked for it: bring it to the front, over any other pane already open.
+  const opened = await $.ui.open({ id: PANE, title: 'design-lab', focus: true })
+  return { text: opened.isPlaced ? `Watching ${summary.siteLabel ?? run}.` : plainOf(summary) }
+}
+
+async function recapCommand($: EngineInterface, e: CommandRunInput): Promise<{ text: string }> {
+  const run = await runOf($, e.args)
+  if (typeof run !== 'string') return { text: run.missing }
+  const summary = await summarise($, run)
+  if (!summary.found) return { text: plainOf(summary) }
+  return { text: summary.recap ?? `${summary.siteLabel ?? run} has no recap yet: the run has not finished its benchmark.` }
+}
+
 export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     // After a reload the run is still in state; pick the watch back up.
     if ((await read($, runAtom)) || (await read($, followAtom))) {
       watch($)
-      void refresh($)
+      refreshInBackground($)
     }
     return next(e)
   })
@@ -331,36 +388,18 @@ export const register: Register = on => {
     return next(e)
   })
 
-  on('command.run', { command: COMMAND }, async ($, e) => {
-    const run = await runOf($, e.args)
-    // Named, a run is watched as named; found by convention, the pane follows the runs folder.
-    const follow = e.args.trim() ? null : typeof run === 'string'
-      ? (await runsFolder($, await $.session.cwd())) ?? null : run.follow ?? null
-    await update($, followAtom, () => follow)
-    await update($, skipAtom, () => null)
-    if (typeof run !== 'string') {
-      if (!follow) return { text: run.missing }
-      await update($, runAtom, () => null)
-      await update($, summaryAtom, () => null)
-      watch($)
-      if ((await $.session.surfaces()).length > 0) await $.ui.open({ id: PANE, title: 'design-lab', focus: true })
-      return { text: run.missing }
-    }
-    await update($, runAtom, () => run)
-    await update($, alarmedAtom, () => false)
-    await refresh($)
-    watch($)
-    const summary = (await read($, summaryAtom)) ?? (await summarise($, run))
-    if ((await $.session.surfaces()).length === 0) return { text: plainOf(summary) }
-    // The person asked for it: bring it to the front, over any other pane already open.
-    const opened = await $.ui.open({ id: PANE, title: 'design-lab', focus: true })
-    return { text: opened.isPlaced ? `Watching ${summary.siteLabel ?? run}.` : plainOf(summary) }
-  })
+  // A gating hook: its registration's .catch answers in its place when the work throws.
+  on('command.run', { command: COMMAND }, ($, e) => watchCommand($, e))
+    .catch(($) => answerFailure($, COMMAND))
 
-  // Typed as a slash command: the person asked, so the pane opens at any width.
+  // Typed as a slash command: the person asked, so the pane opens at any width. A failure here is
+  // reported, and the command still runs through next.
   for (const command of RUN_SKILLS) {
     on('command.run', { command }, async ($, e, next) => {
-      await followRunSkill($).catch(() => undefined)
+      await followRunSkill($)
+      return next(e)
+    }).catch(($, e, next) => {
+      reportFailure($, command)
       return next(e)
     })
   }
@@ -369,18 +408,13 @@ export const register: Register = on => {
   // command raises this too, after command.run; following again then changes nothing.
   on('skill.prompt', async ($, e, next) => {
     if ((RUN_SKILLS as readonly string[]).includes(e.skill)) {
-      await followRunSkill($).catch(() => undefined)
+      await followRunSkill($).catch(() => reportFailure($, e.skill))
     }
     return next(e)
   })
 
-  on('command.run', { command: RECAP_COMMAND }, async ($, e) => {
-    const run = await runOf($, e.args)
-    if (typeof run !== 'string') return { text: run.missing }
-    const summary = await summarise($, run)
-    if (!summary.found) return { text: plainOf(summary) }
-    return { text: summary.recap ?? `${summary.siteLabel ?? run} has no recap yet: the run has not finished its benchmark.` }
-  })
+  on('command.run', { command: RECAP_COMMAND }, ($, e) => recapCommand($, e))
+    .catch(($) => answerFailure($, RECAP_COMMAND))
 
   // The recap's output row, drawn as the Markdown it is, so its links are links.
   on('ui.render', { component: 'CommandOutput', props: { command: RECAP_COMMAND } }, async ($, e, next) => {

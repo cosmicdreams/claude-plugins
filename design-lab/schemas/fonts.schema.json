@@ -1,0 +1,271 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/fonts.schema.json",
+  "title": "Fonts",
+  "type": "object",
+  "properties": {
+    "families": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "family": {
+            "type": "string"
+          },
+          "cssFamily": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string"
+          },
+          "components": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "uses": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "weight": {
+                  "type": "number"
+                },
+                "italic": {
+                  "type": "boolean"
+                },
+                "face": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "required": [
+                "weight",
+                "italic",
+                "face"
+              ],
+              "additionalProperties": false
+            }
+          },
+          "available": {
+            "type": [
+              "boolean",
+              "null"
+            ]
+          },
+          "figmaFamily": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "standIn": {
+            "type": "object",
+            "properties": {
+              "family": {
+                "type": "string"
+              },
+              "default": {
+                "type": "boolean"
+              },
+              "reason": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "family"
+            ],
+            "additionalProperties": false
+          },
+          "route": {
+            "type": "object",
+            "properties": {
+              "kind": {
+                "type": "string"
+              },
+              "steps": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "note": {
+                "type": "string"
+              },
+              "foundry": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "licence": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "kind",
+              "steps"
+            ],
+            "additionalProperties": false
+          },
+          "adobeKit": {
+            "type": "string"
+          },
+          "note": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "family",
+          "cssFamily",
+          "source",
+          "components",
+          "uses"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "unrendered": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "family": {
+            "type": "string"
+          },
+          "why": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "family",
+          "why"
+        ],
+        "additionalProperties": false
+      }
+    },
+    "icons": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "kits": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "boolean"
+      }
+    },
+    "figmaChecked": {
+      "type": "boolean"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "build": {
+      "type": "object",
+      "properties": {
+        "families": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "family": {
+                "type": [
+                  "string",
+                  "null"
+                ]
+              },
+              "standIn": {
+                "type": "boolean"
+              },
+              "faces": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "string"
+                }
+              },
+              "variable": {
+                "type": "object",
+                "additionalProperties": {
+                  "type": "number"
+                }
+              },
+              "display": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "family",
+              "standIn",
+              "faces",
+              "variable",
+              "display"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "stacks": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "family": {
+                "type": "string"
+              },
+              "icon": {
+                "type": "string"
+              },
+              "ranges": {
+                "type": [
+                  "array",
+                  "null"
+                ],
+                "items": {
+                  "type": "array",
+                  "items": {
+                    "type": "integer"
+                  }
+                }
+              },
+              "otherwise": {
+                "type": "string"
+              }
+            },
+            "required": [],
+            "additionalProperties": false
+          }
+        },
+        "skip": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "icons": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "required": [
+        "families",
+        "stacks",
+        "skip",
+        "icons"
+      ],
+      "additionalProperties": false
+    }
+  },
+  "required": [
+    "families",
+    "unrendered",
+    "icons",
+    "kits",
+    "figmaChecked",
+    "build"
+  ],
+  "additionalProperties": false
+}

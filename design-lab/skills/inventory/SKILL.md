@@ -11,7 +11,7 @@ description: >
 Use the strategy persisted in the project manifest:
 
 ```bash
-python3 ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.py extract \
+node ${CLAUDE_PLUGIN_ROOT}/scripts/workflow.ts extract \
   --project <artifact-directory> --kind components
 ```
 

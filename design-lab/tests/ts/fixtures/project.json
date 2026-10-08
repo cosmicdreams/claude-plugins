@@ -1,0 +1,330 @@
+{
+  "schemaVersion": 1,
+  "standardVersion": "4.1.0",
+  "pluginVersion": "0.22.0",
+  "createdAt": "2026-10-06T19:00:51+00:00",
+  "repository": {
+    "root": "/fixture/Sites/PNCB/worktrees/pncb-2026-merge",
+    "commit": "0877680ac5f81803b6ac1555b798d14e17bfc682",
+    "dirty": true
+  },
+  "target": {
+    "figmaFileKey": "yqZMFW3NKVFWszUgPNUeaM",
+    "figmaUrl": "https://www.figma.com/design/yqZMFW3NKVFWszUgPNUeaM",
+    "recordedAt": "2026-10-06T19:30:20+00:00",
+    "connection": {
+      "fileKey": "yqZMFW3NKVFWszUgPNUeaM",
+      "fileUrl": "https://www.figma.com/design/yqZMFW3NKVFWszUgPNUeaM",
+      "coverPageId": "0:1",
+      "coverId": "2:2",
+      "font": "IBM Plex Sans",
+      "fontLoaded": true,
+      "at": "2026-10-06T19:31:04+00:00"
+    }
+  },
+  "decisions": {
+    "componentSource": "drupal-authoring",
+    "tokenSource": "css-custom-properties",
+    "usageSource": "drupal-db",
+    "pageStrategy": "usage-tier",
+    "sitestudioConfig": null
+  },
+  "phases": {
+    "discovery": {
+      "status": "complete",
+      "updatedAt": "2026-10-06T19:01:00+00:00",
+      "detail": {
+        "priorArtCount": 0,
+        "componentCandidates": 3,
+        "tokenCandidates": 1
+      }
+    },
+    "inventory": {
+      "status": "complete",
+      "updatedAt": "2026-10-06T20:23:29+00:00",
+      "detail": {
+        "strategy": "drupal-authoring",
+        "components": 53
+      }
+    },
+    "usage": {
+      "status": "complete",
+      "updatedAt": "2026-10-06T20:23:40+00:00",
+      "detail": {
+        "strategy": "drupal-db",
+        "artifact": "usage",
+        "ddevRoot": "/fixture/Sites/PNCB/worktrees/pncb-2026-merge",
+        "ddevProject": null,
+        "components": 53,
+        "placements": 791,
+        "structuralRefs": 1705,
+        "thresholds": {
+          "high": 50,
+          "medium": 10
+        }
+      }
+    },
+    "capture": {
+      "status": "complete",
+      "updatedAt": "2026-10-06T23:10:35+00:00",
+      "detail": {
+        "artifact": "captureEvidence"
+      }
+    },
+    "tokens": {
+      "status": "complete",
+      "updatedAt": "2026-10-06T20:23:29+00:00",
+      "detail": {
+        "strategy": "css-custom-properties"
+      }
+    },
+    "plan": {
+      "status": "approved",
+      "updatedAt": "2026-10-06T23:10:57+00:00",
+      "detail": {
+        "build": 17,
+        "refuse": 25,
+        "flags": 2
+      },
+      "approvedAt": "2026-10-06T23:10:57+00:00",
+      "approvedBy": "Chris Weber (preflight: build the plan as proposed)"
+    },
+    "foundation": {
+      "status": "complete",
+      "updatedAt": "2026-10-06T21:51:45+00:00",
+      "detail": {
+        "artifact": "foundation"
+      }
+    },
+    "components": {
+      "status": "pending"
+    },
+    "index": {
+      "status": "pending"
+    },
+    "verify": {
+      "status": "pending"
+    },
+    "preflight": {
+      "status": "complete",
+      "updatedAt": "2026-10-06T19:30:21+00:00",
+      "detail": {
+        "siteUrl": "https://pncb-2026-merge.ddev.site",
+        "publicUrl": "https://www.pncb.org",
+        "figmaUrl": "https://www.figma.com/design/yqZMFW3NKVFWszUgPNUeaM",
+        "siteLabel": "PNCB",
+        "operator": "Chris Weber",
+        "model": "claude-opus-5-5",
+        "planApproval": "proposed",
+        "usageFallback": "untiered",
+        "ddevRoot": "/fixture/Sites/PNCB/worktrees/pncb-2026-merge",
+        "schemaChurn": "recorded by the run at the benchmark, without asking",
+        "checks": {
+          "site": {
+            "url": "https://pncb-2026-merge.ddev.site",
+            "reachable": true,
+            "detail": "HTTP 200"
+          },
+          "usage": {
+            "source": "drupal-db",
+            "ddevRoot": "/fixture/Sites/PNCB/worktrees/pncb-2026-merge",
+            "ddevProject": true
+          },
+          "browser": {
+            "nodeCwd": "/fixture/Library/Caches/design-lab/playwright",
+            "executable": null,
+            "executableExists": true
+          },
+          "cairosvg": {
+            "available": true
+          },
+          "twigDebug": {
+            "enabled": true
+          },
+          "pluginVersion": {
+            "recorded": "0.22.0",
+            "current": "0.22.0"
+          }
+        },
+        "goAheadAt": "2026-10-06T19:30:21+00:00"
+      }
+    },
+    "connect": {
+      "status": "complete",
+      "updatedAt": "2026-10-06T19:31:04+00:00",
+      "detail": {
+        "fileKey": "yqZMFW3NKVFWszUgPNUeaM",
+        "fileUrl": "https://www.figma.com/design/yqZMFW3NKVFWszUgPNUeaM",
+        "runnerConnected": true,
+        "fileKeyMatches": true,
+        "empty": true,
+        "onlyPreflightCover": false,
+        "writable": true,
+        "pluginData": true,
+        "connectionOnly": null,
+        "coverPageId": "0:1",
+        "coverId": "2:2",
+        "font": "IBM Plex Sans",
+        "fontLoaded": true
+      }
+    },
+    "benchmark": {
+      "status": "complete",
+      "updatedAt": "2026-10-06T20:41:33+00:00",
+      "detail": {
+        "recordedBy": "score_run.ts"
+      }
+    }
+  },
+  "artifacts": {
+    "detection": {
+      "path": "detection.json",
+      "kind": "detection",
+      "sha256": "sha256:07298fe4db0545009e3bc225bb0d0f6eec487e67443f57ac25ce54af4e58d86e",
+      "valid": true,
+      "errors": [],
+      "updatedAt": "2026-10-06T19:00:59+00:00",
+      "producedBy": {
+        "pluginDir": "/fixture/Tools/CLAUDE-PLUGINS/worktrees/main/design-lab",
+        "toolVersion": "design-lab 0.22.0",
+        "commit": "167755fae476e27a09a4d31364224a6c0bb643de",
+        "dirty": false
+      }
+    },
+    "components": {
+      "path": "components.json",
+      "kind": "components",
+      "sha256": "sha256:53df6b79c16684cb604b5684864fd1c1930187e0bca1f1681eb11492c124dc64",
+      "valid": true,
+      "errors": [],
+      "updatedAt": "2026-10-06T20:23:40+00:00",
+      "producedBy": {
+        "pluginDir": "/fixture/Tools/CLAUDE-PLUGINS/worktrees/design-lab-css-colors/design-lab",
+        "toolVersion": "design-lab 0.22.0",
+        "commit": "1a177ac7f4f5d73433b85726ff1a271944302727",
+        "dirty": true
+      }
+    },
+    "renderEvidence": {
+      "path": "render-evidence.json",
+      "kind": "render-evidence",
+      "sha256": "sha256:1a098f36d09407534da167b923447e75a9ef78a06beabe003c15ee98b5aa9662",
+      "valid": true,
+      "errors": [],
+      "updatedAt": "2026-10-06T20:23:29+00:00",
+      "producedBy": {
+        "pluginDir": "/fixture/Tools/CLAUDE-PLUGINS/worktrees/design-lab-css-colors/design-lab",
+        "toolVersion": "design-lab 0.22.0",
+        "commit": "1a177ac7f4f5d73433b85726ff1a271944302727",
+        "dirty": true
+      }
+    },
+    "tokens": {
+      "path": "tokens.json",
+      "kind": "tokens",
+      "sha256": "sha256:55ac19d3df158e5a456f23b6457106fc96171c09a5e8764e538535aa4da5ea4f",
+      "valid": true,
+      "errors": [],
+      "updatedAt": "2026-10-06T20:23:29+00:00",
+      "producedBy": {
+        "pluginDir": "/fixture/Tools/CLAUDE-PLUGINS/worktrees/design-lab-css-colors/design-lab",
+        "toolVersion": "design-lab 0.22.0",
+        "commit": "1a177ac7f4f5d73433b85726ff1a271944302727",
+        "dirty": true
+      }
+    },
+    "usage": {
+      "path": "usage.json",
+      "kind": "usage",
+      "sha256": "sha256:ce819bd5126c894030892287ab7672c1430f9fc145909034541ed532410aeec2",
+      "valid": true,
+      "errors": [],
+      "updatedAt": "2026-10-06T20:23:40+00:00",
+      "producedBy": {
+        "pluginDir": "/fixture/Tools/CLAUDE-PLUGINS/worktrees/design-lab-css-colors/design-lab",
+        "toolVersion": "design-lab 0.22.0",
+        "commit": "1a177ac7f4f5d73433b85726ff1a271944302727",
+        "dirty": true
+      }
+    },
+    "variablePlan": {
+      "path": "variable-plan.json",
+      "kind": "variable-plan",
+      "sha256": "sha256:cfc541944886d77e31d84ecde3bf5da861417435274391c372a8d6638c4e0f4b",
+      "valid": true,
+      "errors": [],
+      "updatedAt": "2026-10-06T20:23:41+00:00",
+      "producedBy": {
+        "pluginDir": "/fixture/Tools/CLAUDE-PLUGINS/worktrees/design-lab-css-colors/design-lab",
+        "toolVersion": "design-lab 0.22.0",
+        "commit": "1a177ac7f4f5d73433b85726ff1a271944302727",
+        "dirty": true
+      }
+    },
+    "captureEvidence": {
+      "path": "capture-evidence.json",
+      "kind": "capture-evidence",
+      "sha256": "sha256:06e92593b8d11a510d92d0d9818651c0a605c253b03e52318bf8dc691a52e702",
+      "valid": true,
+      "errors": [],
+      "updatedAt": "2026-10-06T23:10:35+00:00",
+      "producedBy": {
+        "pluginDir": "/fixture/Tools/CLAUDE-PLUGINS/worktrees/design-lab-masked-icons/design-lab",
+        "toolVersion": "design-lab 0.23.1",
+        "commit": "ee69ffb532f8e5950356c99507124d88bab08b66",
+        "dirty": true
+      }
+    },
+    "foundation": {
+      "path": "foundation.json",
+      "kind": "foundation",
+      "sha256": "sha256:31586f3def3f2ef253dd283f8dc5e9e4f49c92016cf08548109ebdb1d50901ff",
+      "valid": true,
+      "errors": [],
+      "updatedAt": "2026-10-06T21:51:45+00:00",
+      "producedBy": {
+        "pluginDir": "/fixture/Tools/CLAUDE-PLUGINS/worktrees/design-lab-css-colors/design-lab",
+        "toolVersion": "design-lab 0.23.0",
+        "commit": "557ffb1f57cbe5bba2ec58a36eac41e684eb5a9d",
+        "dirty": false
+      }
+    },
+    "plan": {
+      "path": "plan.json",
+      "kind": "plan",
+      "sha256": "sha256:73f2047a6177d66b8ac7d154aa75d5e1b4316818fea913cc9dd38e28dad6c1e4",
+      "valid": true,
+      "errors": [],
+      "updatedAt": "2026-10-06T23:10:57+00:00",
+      "producedBy": {
+        "pluginDir": "/fixture/Tools/CLAUDE-PLUGINS/worktrees/design-lab-masked-icons/design-lab",
+        "toolVersion": "design-lab 0.23.1",
+        "commit": "e5a9bcc306704b6277333ace6109fab9b405a66d",
+        "dirty": false
+      }
+    }
+  },
+  "run": {
+    "startedAt": "2026-10-06T19:00:51+00:00",
+    "siteLabel": "PNCB",
+    "siteUrl": "https://pncb-2026-merge.ddev.site",
+    "operator": "Chris Weber",
+    "plugin": {
+      "version": "0.22.0",
+      "commit": "167755fae476e27a09a4d31364224a6c0bb643de",
+      "dirty": false
+    },
+    "claude": {
+      "configDir": "/fixture/.claude",
+      "model": "claude-opus-5-5",
+      "insideClaudeCode": true,
+      "workingDirectory": "/fixture/Sites/PNCB/worktrees/pncb-2026-merge",
+      "transcripts": "/fixture/.claude/projects/-Users-Chris-Weber-Sites-PNCB-worktrees-pncb-2026-merge"
+    },
+    "schemaChurn": {
+      "changed": false,
+      "changes": [],
+      "recordedAt": "2026-10-06T20:41:19+00:00"
+    }
+  }
+}

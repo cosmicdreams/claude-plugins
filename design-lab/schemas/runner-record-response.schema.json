@@ -1,0 +1,22 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/runner-record-response.schema.json",
+  "title": "RunnerRecordResponse",
+  "type": "object",
+  "properties": {
+    "recorded": {
+      "type": "string"
+    },
+    "remaining": {
+      "type": "integer",
+      "minimum": 0
+    },
+    "ignored": {
+      "type": "boolean"
+    }
+  },
+  "required": [
+    "recorded"
+  ],
+  "additionalProperties": false
+}

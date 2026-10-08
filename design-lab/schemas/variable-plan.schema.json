@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/variable-plan.schema.json",
+  "title": "VariablePlan",
+  "type": "object",
+  "properties": {
+    "collectionStrategy": {
+      "type": "object",
+      "properties": {
+        "kind": {
+          "type": "string"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "sourceCollections": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "retainedModeCollections": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "collections": {
+      "anyOf": [
+        {
+          "type": "object",
+          "additionalProperties": {
+            "$ref": "#/$defs/VariableCollection"
+          }
+        },
+        {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/VariableCollection"
+          }
+        }
+      ]
+    },
+    "modes": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "kind": {
+            "type": "string"
+          },
+          "value": {
+            "type": [
+              "string",
+              "number",
+              "null"
+            ]
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "kind"
+        ],
+        "additionalProperties": false
+      }
+    }
+  },
+  "required": [
+    "collections"
+  ],
+  "additionalProperties": false,
+  "$defs": {
+    "PlannedVariable": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "type": {
+          "enum": [
+            "COLOR",
+            "FLOAT",
+            "STRING",
+            "BOOLEAN"
+          ]
+        },
+        "hex": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "codeName": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "tags": {
+          "type": "array",
+          "items": {
+            "type": [
+              "string",
+              "null"
+            ]
+          }
+        },
+        "inUse": {
+          "type": "boolean"
+        },
+        "scopes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sourceCollection": {
+          "type": "string"
+        },
+        "aliasOf": {
+          "type": "string"
+        },
+        "valuesByMode": {
+          "type": "object",
+          "additionalProperties": {
+            "anyOf": [
+              {
+                "type": [
+                  "number",
+                  "string",
+                  "boolean",
+                  "null"
+                ]
+              },
+              {
+                "type": "object",
+                "properties": {
+                  "r": {
+                    "type": "number"
+                  },
+                  "g": {
+                    "type": "number"
+                  },
+                  "b": {
+                    "type": "number"
+                  },
+                  "a": {
+                    "type": "number"
+                  }
+                },
+                "required": [
+                  "r",
+                  "g",
+                  "b"
+                ],
+                "additionalProperties": false
+              }
+            ]
+          }
+        },
+        "scales": {
+          "type": "boolean"
+        },
+        "unitlessRatio": {
+          "type": "boolean"
+        },
+        "description": {
+          "type": "string"
+        },
+        "stack": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "nameDisambiguated": {
+          "type": "boolean"
+        }
+      },
+      "required": [
+        "name",
+        "type"
+      ],
+      "additionalProperties": false
+    },
+    "VariableCollection": {
+      "type": "object",
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "modes": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "variables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/PlannedVariable"
+          }
+        },
+        "modeRationale": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "modes",
+        "variables"
+      ],
+      "additionalProperties": false
+    }
+  }
+}

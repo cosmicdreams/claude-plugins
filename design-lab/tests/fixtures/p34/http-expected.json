@@ -1,0 +1,135 @@
+[
+  {
+    "path": "/redirect",
+    "result": [
+      200,
+      "<html><title>Page 0</title><main><h1>Program 0</h1><p>Published content</p></main></html>"
+    ]
+  },
+  {
+    "path": "/relative",
+    "result": [
+      200,
+      "<html><title>Page 0</title><main><h1>Program 0</h1><p>Published content</p></main></html>"
+    ]
+  },
+  {
+    "path": "/malformed",
+    "result": [
+      0,
+      "Invalid IPv6 URL"
+    ]
+  },
+  {
+    "path": "/unsupported",
+    "result": [
+      302,
+      ""
+    ]
+  },
+  {
+    "path": "/error",
+    "result": [
+      503,
+      ""
+    ]
+  },
+  {
+    "path": "/missing",
+    "result": [
+      404,
+      ""
+    ]
+  },
+  {
+    "path": "/drop",
+    "result": [
+      0,
+      "Remote end closed connection without response"
+    ]
+  },
+  {
+    "path": "/pages/0",
+    "result": [
+      200,
+      "<html><title>Page 0</title><main><h1>Program 0</h1><p>Published content</p></main></html>"
+    ]
+  },
+  {
+    "path": "/pages/1",
+    "result": [
+      200,
+      "<html><title>Page 1</title><main><h1>Program 1</h1><p>Published content</p></main></html>"
+    ]
+  },
+  {
+    "path": "/pages/2",
+    "result": [
+      200,
+      "<html><title>Page 2</title><main><h1>Program 2</h1><p>Published content</p></main></html>"
+    ]
+  },
+  {
+    "path": "/pages/3",
+    "result": [
+      200,
+      "<html><title>Page 3</title><main><h1>Program 3</h1><p>Published content</p></main></html>"
+    ]
+  },
+  {
+    "path": "/pages/4",
+    "result": [
+      200,
+      "<html><title>Page 4</title><main><h1>Program 4</h1><p>Published content</p></main></html>"
+    ]
+  },
+  {
+    "path": "/pages/5",
+    "result": [
+      200,
+      "<html><title>Page 5</title><main><h1>Program 5</h1><p>Published content</p></main></html>"
+    ]
+  },
+  {
+    "path": "/pages/6",
+    "result": [
+      200,
+      "<html><title>Page 6</title><main><h1>Program 6</h1><p>Published content</p></main></html>"
+    ]
+  },
+  {
+    "path": "/pages/7",
+    "result": [
+      200,
+      "<html><title>Page 7</title><main><h1>Program 7</h1><p>Published content</p></main></html>"
+    ]
+  },
+  {
+    "path": "/pages/8",
+    "result": [
+      200,
+      "<html><title>Page 8</title><main><h1>Program 8</h1><p>Published content</p></main></html>"
+    ]
+  },
+  {
+    "path": "/pages/9",
+    "result": [
+      200,
+      "<html><title>Page 9</title><main><h1>Program 9</h1><p>Published content</p></main></html>"
+    ]
+  },
+  {
+    "path": "/pages/10",
+    "result": [
+      200,
+      "<html><title>Page 10</title><main><h1>Program 10</h1><p>Published content</p></main></html>"
+    ]
+  },
+  {
+    "path": "/pages/11",
+    "result": [
+      200,
+      "<html><title>Page 11</title><main><h1>Program 11</h1><p>Published content</p></main></html>"
+    ]
+  }
+]

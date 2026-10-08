@@ -1,0 +1,846 @@
+{
+  "scorecardVersion": 1,
+  "generatedAt": "2026-10-06T21:52:01+00:00",
+  "generator": "design-lab 0.23.0",
+  "run": {
+    "directory": "/fixture/.design/pncb/2026-10-06",
+    "name": "2026-10-06",
+    "siteLabel": "PNCB",
+    "buildCreatedAt": "2026-10-06T19:00:51+00:00"
+  },
+  "headline": {
+    "coverage": {
+      "built": 17,
+      "eligible": 28,
+      "ratio": 0.6071,
+      "gap": {
+        "refused": 11,
+        "failed": 0,
+        "unplanned": 0
+      },
+      "excluded": {
+        "retirement": 8,
+        "schema-only": 6,
+        "not-visual": 11
+      },
+      "placements": 0.8824
+    },
+    "built": {
+      "components": 17,
+      "variants": 17,
+      "pages": 13,
+      "variables": 186,
+      "nodes": null
+    },
+    "accuracy": {
+      "original": {
+        "pass": 5,
+        "total": 51,
+        "medianRatio": 0.1186,
+        "p75Ratio": 0.1601,
+        "maxRatio": 0.2516
+      },
+      "corrected": {
+        "pass": 2,
+        "total": 51,
+        "medianRatio": 0.1277,
+        "p75Ratio": 0.165,
+        "maxRatio": 0.3955
+      }
+    },
+    "effort": {
+      "workingSeconds": 4849,
+      "waitingOnPersonSeconds": 6752,
+      "waitingOnLimitsSeconds": 0,
+      "waitingOnServiceSeconds": 0,
+      "benchmarkWorkingSeconds": 1023,
+      "wallSeconds": 6042,
+      "buildSeconds": 2333,
+      "buildSteps": 776,
+      "tokens": 87746423,
+      "tokensByModel": [
+        {
+          "name": "Opus 5.5",
+          "total": 87746423
+        }
+      ],
+      "libraryTokensByModel": [
+        {
+          "name": "Opus 5.5",
+          "total": 66869501
+        }
+      ],
+      "benchmarkTokensByModel": [
+        {
+          "name": "Opus 5.5",
+          "total": 20876922
+        }
+      ],
+      "toolCalls": 376
+    },
+    "highlights": [
+      "Every planned component was built: 17 of 17.",
+      "Desktop is the closest match: 1 of 17 components within tolerance.",
+      "Mobile needs the most work: 0 of 17 match, median 16% of pixels differ."
+    ]
+  },
+  "sections": {
+    "identity": {
+      "status": "measured",
+      "summary": "Run identity recorded at start.",
+      "fields": {
+        "siteLabel": "PNCB",
+        "siteLabelSource": "manifest",
+        "rebuiltFrom": null,
+        "publicAddress": "https://www.pncb.org",
+        "siteUrl": "https://pncb-2026-merge.ddev.site",
+        "rendererRuntime": "5af3fb52",
+        "builtToStandard": "4.1.0",
+        "operator": "Chris Weber",
+        "startedAt": "2026-10-06T19:00:51+00:00",
+        "pluginVersion": "0.22.0",
+        "pluginCommit": "167755fae476e27a09a4d31364224a6c0bb643de",
+        "standardVersion": "4.1.0",
+        "repositoryCommit": "0877680ac5f81803b6ac1555b798d14e17bfc682",
+        "repositoryDirty": true,
+        "figmaFileKey": "yqZMFW3NKVFWszUgPNUeaM",
+        "figmaUrl": "https://www.figma.com/design/yqZMFW3NKVFWszUgPNUeaM",
+        "claudeConfigDir": "/fixture/.claude",
+        "model": "claude-opus-5-5",
+        "strategies": {
+          "componentSource": "drupal-authoring",
+          "tokenSource": "css-custom-properties",
+          "usageSource": "drupal-db"
+        }
+      },
+      "missing": [],
+      "recordedAtStart": true
+    },
+    "cost": {
+      "status": "measured",
+      "definition": "Working time is when Claude or its tools were working, read from the session transcript: every span from a person's prompt or a tool result to the end of the assistant's response counts, and the main session's spans and its subagents' spans are merged, so overlapping time counts once. The rest of the time between the transcript's first and last events is waiting, of three kinds: waiting on the person, when the assistant had finished its turn and the next event is a person's prompt, or when a tool was waiting for the person's answer (a question, or approval of a plan); waiting on usage limits, after a record reporting a rate, session, usage or spend limit, until the limit resets; and waiting on the service, after a record reporting it overloaded or unavailable. Working time and the three kinds of waiting add up to the transcript's span. Wall time is a clock on the wall from workflow.ts init to the end of the benchmark, which ends when its report is finished; the first scoring records that end in the run's phase log and later re-scores keep it. The Figma build time comes from the runner's log, with no model in the loop: each unbroken stretch of steps, from the first served to the last recorded, added up, where a pause of more than 15 minutes starts a new stretch.",
+      "clock": {
+        "runStart": "2026-10-06T19:00:51+00:00",
+        "benchmarkStart": "2026-10-06T20:41:19+00:00",
+        "benchmarkEnd": "2026-10-06T20:41:33+00:00",
+        "benchmarkEndSource": "phase log",
+        "wallSeconds": 6042,
+        "libraryWallSeconds": 6028,
+        "benchmarkWallSeconds": 14,
+        "scorerSeconds": 4.7
+      },
+      "working": {
+        "status": "measured",
+        "start": "2026-10-06T17:27:58+00:00",
+        "end": "2026-10-06T21:51:44+00:00",
+        "spanSeconds": 15827,
+        "workingSeconds": 5872,
+        "waitingOnLimitsSeconds": 0,
+        "waitingOnServiceSeconds": 0,
+        "waitingOnPersonSeconds": 9955,
+        "limitEvents": 0,
+        "serviceEvents": 0,
+        "questionsToPerson": 6,
+        "fullAccess": true,
+        "developer": {
+          "permissionModes": {
+            "bypassPermissions": 40
+          }
+        },
+        "definition": "Working time is when Claude or its tools were working, read from the session transcript: every span from a person's prompt or a tool result to the end of the assistant's response counts, and the main session's spans and its subagents' spans are merged, so overlapping time counts once. The rest of the time between the transcript's first and last events is waiting, of three kinds: waiting on the person, when the assistant had finished its turn and the next event is a person's prompt, or when a tool was waiting for the person's answer (a question, or approval of a plan); waiting on usage limits, after a record reporting a rate, session, usage or spend limit, until the limit resets; and waiting on the service, after a record reporting it overloaded or unavailable. Working time and the three kinds of waiting add up to the transcript's span. Wall time is a clock on the wall from workflow.ts init to the end of the benchmark, which ends when its report is finished; the first scoring records that end in the run's phase log and later re-scores keep it. The Figma build time comes from the runner's log, with no model in the loop: each unbroken stretch of steps, from the first served to the last recorded, added up, where a pause of more than 15 minutes starts a new stretch.",
+        "production": {
+          "status": "measured",
+          "start": "2026-10-06T17:27:58+00:00",
+          "end": "2026-10-06T20:41:19+00:00",
+          "spanSeconds": 11601,
+          "workingSeconds": 4849,
+          "waitingOnLimitsSeconds": 0,
+          "waitingOnServiceSeconds": 0,
+          "waitingOnPersonSeconds": 6752
+        },
+        "benchmark": {
+          "status": "measured",
+          "start": "2026-10-06T20:41:19+00:00",
+          "end": "2026-10-06T21:51:44+00:00",
+          "spanSeconds": 4226,
+          "workingSeconds": 1023,
+          "waitingOnLimitsSeconds": 0,
+          "waitingOnServiceSeconds": 0,
+          "waitingOnPersonSeconds": 3203
+        }
+      },
+      "unattended": {
+        "status": "measured",
+        "goAheadAt": "2026-10-06T19:30:21+00:00",
+        "until": "2026-10-06T20:41:19+00:00",
+        "interruptions": [
+          {
+            "at": "2026-10-06T19:36:19+00:00",
+            "kind": "question",
+            "phase": "index",
+            "status": "complete",
+            "planned": false
+          },
+          {
+            "at": "2026-10-06T19:49:22+00:00",
+            "kind": "turn ended and waited for a prompt",
+            "phase": "index",
+            "status": "complete",
+            "planned": false
+          },
+          {
+            "at": "2026-10-06T20:13:09+00:00",
+            "kind": "turn ended and waited for a prompt",
+            "phase": "index",
+            "status": "complete",
+            "planned": false
+          }
+        ],
+        "count": 6,
+        "ranUnattended": false
+      },
+      "runner": {
+        "clock": "local time of the machine that ran the build",
+        "sessions": [
+          {
+            "start": "2026-10-06T19:31:04+00:00",
+            "end": "2026-10-06T19:34:32+00:00",
+            "seconds": 208,
+            "steps": 117
+          },
+          {
+            "start": "2026-10-06T20:08:45+00:00",
+            "end": "2026-10-06T20:40:43+00:00",
+            "seconds": 1918,
+            "steps": 450
+          },
+          {
+            "start": "2026-10-06T21:22:37+00:00",
+            "end": "2026-10-06T21:24:28+00:00",
+            "seconds": 111,
+            "steps": 106
+          }
+        ],
+        "activeSeconds": 2333,
+        "steps": 776,
+        "errors": 0,
+        "skipped": 72,
+        "medianStepSeconds": 0.0,
+        "secondsByKind": {
+          "compare": 181.0,
+          "build": 142.0,
+          "block": 60.0,
+          "foundation": 43.0,
+          "verify": 24.0,
+          "evidence": 23.0,
+          "getting-started": 20.0,
+          "dump": 10.0,
+          "tier": 8.0,
+          "variables": 5.0,
+          "images": 5.0,
+          "wipe": 4.0,
+          "examples": 2.0,
+          "pages": 1.0,
+          "cover": 1.0
+        },
+        "stepsByKind": {
+          "build": 119,
+          "block": 119,
+          "evidence": 119,
+          "compare": 119,
+          "verify": 104,
+          "images": 47,
+          "dump": 38,
+          "tier": 35,
+          "foundation": 34,
+          "pages": 8,
+          "variables": 7,
+          "examples": 7,
+          "cover": 7,
+          "getting-started": 7,
+          "wipe": 6
+        }
+      },
+      "timings": {
+        "source": "phase log",
+        "exact": true,
+        "phases": [
+          {
+            "phase": "discovery",
+            "start": "2026-10-06T17:30:45+00:00",
+            "end": "2026-10-06T19:01:00+00:00",
+            "seconds": 5415
+          },
+          {
+            "phase": "preflight",
+            "start": "2026-10-06T19:01:00+00:00",
+            "end": "2026-10-06T19:30:21+00:00",
+            "seconds": 1761
+          },
+          {
+            "phase": "connect",
+            "start": "2026-10-06T19:26:59+00:00",
+            "end": "2026-10-06T19:31:04+00:00",
+            "seconds": 245
+          }
+        ],
+        "totalSeconds": 10260
+      },
+      "model": {
+        "status": "measured",
+        "source": "/fixture/.claude/projects/-Users-Chris-Weber-Sites-PNCB/a176bb0b-c2c8-451c-97ad-4a19955fa2e9.jsonl",
+        "files": 3,
+        "sessions": 1,
+        "assistantMessages": 383,
+        "toolCalls": 376,
+        "byModel": [
+          {
+            "model": "claude-opus-5-5",
+            "name": "Opus 5.5",
+            "input": 822,
+            "output": 185595,
+            "cacheWrite": 653224,
+            "cacheRead": 86906782,
+            "total": 87746423,
+            "turns": 383,
+            "toolCalls": 376
+          }
+        ],
+        "tokens": {
+          "input": 822,
+          "output": 185595,
+          "cacheWrite": 653224,
+          "cacheRead": 86906782,
+          "total": 87746423
+        },
+        "models": {
+          "Opus 5.5": 383
+        },
+        "configDirs": [
+          "/fixture/.claude"
+        ],
+        "window": {
+          "since": null,
+          "until": null
+        },
+        "firstMessage": "2026-10-06T17:28:03+00:00",
+        "lastMessage": "2026-10-06T21:51:43+00:00",
+        "developer": {
+          "unattributedEntries": 0
+        },
+        "production": {
+          "status": "measured",
+          "byModel": [
+            {
+              "model": "claude-opus-5-5",
+              "name": "Opus 5.5",
+              "input": 678,
+              "output": 148027,
+              "cacheWrite": 496809,
+              "cacheRead": 66223987,
+              "total": 66869501,
+              "turns": 314,
+              "toolCalls": 309
+            }
+          ],
+          "tokens": {
+            "input": 678,
+            "output": 148027,
+            "cacheWrite": 496809,
+            "cacheRead": 66223987,
+            "total": 66869501
+          },
+          "turns": 314,
+          "toolCalls": 309
+        },
+        "benchmark": {
+          "status": "measured",
+          "since": "2026-10-06T20:41:19+00:00",
+          "byModel": [
+            {
+              "model": "claude-opus-5-5",
+              "name": "Opus 5.5",
+              "input": 144,
+              "output": 37568,
+              "cacheWrite": 156415,
+              "cacheRead": 20682795,
+              "total": 20876922,
+              "turns": 69,
+              "toolCalls": 67
+            }
+          ],
+          "tokens": {
+            "input": 144,
+            "output": 37568,
+            "cacheWrite": 156415,
+            "cacheRead": 20682795,
+            "total": 20876922
+          },
+          "turns": 69,
+          "toolCalls": 67
+        },
+        "benchmarkNote": "The scorer is a plain script with no model in the loop, so the benchmark's tokens are only the orchestration turns around it. The completion message written after the report is not included, because it did not exist yet."
+      }
+    },
+    "library": {
+      "status": "measured",
+      "summary": "17 components built from 53 found in the source.",
+      "components": {
+        "found": 53,
+        "planned": 17,
+        "built": 17,
+        "notBuilt": 36,
+        "refused": 11
+      },
+      "variants": 17,
+      "properties": 42,
+      "variables": 186,
+      "collections": 2,
+      "pages": 13,
+      "pageNames": [
+        "Components \u2014 High Use",
+        "Components \u2014 Low Use",
+        "Components \u2014 Medium Use"
+      ],
+      "nodes": null,
+      "captures": 84,
+      "tiers": [
+        {
+          "tier": "High Use",
+          "components": 2,
+          "built": 2
+        },
+        {
+          "tier": "Medium Use",
+          "components": 2,
+          "built": 0
+        },
+        {
+          "tier": "Low Use",
+          "components": 18,
+          "built": 7
+        }
+      ],
+      "tierTable": [
+        {
+          "tier": "High Use",
+          "label": "High use",
+          "color": "#FAD200",
+          "built": 2,
+          "counted": true,
+          "found": 2
+        },
+        {
+          "tier": "Medium Use",
+          "label": "Medium use",
+          "color": "#00AEEF",
+          "built": 0,
+          "counted": true,
+          "found": 2
+        },
+        {
+          "tier": "Low Use",
+          "label": "Low use",
+          "color": "#00A457",
+          "built": 7,
+          "counted": true,
+          "found": 18
+        }
+      ],
+      "voicePage": true,
+      "examplesPage": true,
+      "notBuiltReasons": [
+        {
+          "id": "block:sidebar_promo",
+          "label": "Sidebar Promo",
+          "reason": "source entity is schema-only, not an evidenced reusable visual component"
+        },
+        {
+          "id": "block:sitewide_alert",
+          "label": "Sitewide Alert",
+          "reason": "no component-scoped screenshot exists; capture visual and behavioral states before construction"
+        },
+        {
+          "id": "block:faces_of_certification",
+          "label": "Faces of Certification",
+          "reason": "source entity is schema-only, not an evidenced reusable visual component"
+        }
+      ]
+    },
+    "coverage": {
+      "status": "measured",
+      "found": 53,
+      "eligible": 28,
+      "built": 17,
+      "ratio": 0.6071,
+      "gap": {
+        "refused": 11,
+        "failed": 0,
+        "unplanned": 0
+      },
+      "excluded": {
+        "retirement": 8,
+        "schema-only": 6,
+        "not-visual": 11
+      },
+      "reasonLabels": {
+        "refused": "refused by the plan",
+        "failed": "planned but not built",
+        "unplanned": "not in the plan",
+        "retirement": "retirement candidate",
+        "schema-only": "schema-only",
+        "not-visual": "mapped or documented, not built as a component"
+      },
+      "summary": "Built 17 of 28 components it could have built (61%).",
+      "items": [
+        {
+          "id": "block:basic",
+          "label": "Basic block",
+          "reason": "retirement",
+          "detail": "source entity is retirement, not an evidenced reusable visual component"
+        },
+        {
+          "id": "block:betty_bot_nav_item",
+          "label": "Betty Bot Nav Item",
+          "reason": "schema-only",
+          "detail": "source entity is schema-only, not an evidenced reusable visual component"
+        },
+        {
+          "id": "block:contact_and_follow",
+          "label": "Contact and Follow",
+          "reason": "refused",
+          "detail": "no component-scoped screenshot exists; capture visual and behavioral states before construction"
+        }
+      ],
+      "byTier": [
+        {
+          "tier": "High Use",
+          "found": 2,
+          "built": 2,
+          "notBuilt": 0,
+          "placements": 685,
+          "structural": 0
+        },
+        {
+          "tier": "Medium Use",
+          "found": 2,
+          "built": 0,
+          "notBuilt": 2,
+          "placements": 66,
+          "structural": 0
+        },
+        {
+          "tier": "Low Use",
+          "found": 18,
+          "built": 7,
+          "notBuilt": 11,
+          "placements": 40,
+          "structural": 796
+        }
+      ],
+      "coverBreakdown": [
+        {
+          "tier": "High Use",
+          "built": 2
+        },
+        {
+          "tier": "Medium Use",
+          "built": 0
+        },
+        {
+          "tier": "Low Use",
+          "built": 7
+        }
+      ],
+      "outsideInventory": [],
+      "usageWeighted": {
+        "placements": 791,
+        "covered": 698,
+        "ratio": 0.8824,
+        "structuralRefs": 1705,
+        "structuralCovered": 1442
+      }
+    },
+    "conformance": {
+      "status": "measured",
+      "summary": "4 open finding(s), 0 waived.",
+      "open": {
+        "blocker": 2,
+        "major": 0,
+        "minor": 2
+      },
+      "openOther": 0,
+      "waived": 0,
+      "passed": 40,
+      "inapplicable": 2,
+      "completeness": {
+        "built": 17,
+        "expected": 53,
+        "byTier": {
+          "Components \u2014 Retirement Candidates": [
+            0,
+            8,
+            [
+              "block:basic",
+              "paragraph:betty_bot_studyguide",
+              "paragraph:board_member_content"
+            ]
+          ],
+          "Components \u2014 Low Use": [
+            7,
+            18,
+            [
+              "block:betty_bot_nav_item",
+              "block:contact_and_follow",
+              "block:faces_of_certification"
+            ]
+          ],
+          "Components \u2014 Medium Use": [
+            0,
+            2,
+            [
+              "block:sidebar_promo",
+              "block:sitewide_alert"
+            ]
+          ],
+          "Components \u2014 Structural Only": [
+            8,
+            23,
+            [
+              "paragraph:accordion_callout",
+              "paragraph:accordion_links",
+              "paragraph:card"
+            ]
+          ],
+          "Components \u2014 High Use": [
+            2,
+            2,
+            []
+          ]
+        }
+      },
+      "findings": [
+        {
+          "severity": "blocker",
+          "check": "master-matches-capture",
+          "message": "1 built component(s) lack a passing live-capture comparison"
+        },
+        {
+          "severity": "blocker",
+          "check": "build-record-assertions",
+          "message": "1 build record(s) contain empty, skipped, not-run, or failing assertions; they cannot prove those component transactions completed"
+        },
+        {
+          "severity": "minor",
+          "check": "fonts-stand-in",
+          "message": "SF Pro drawn in Inter by default, as recorded in fonts.json; to use the real font, follow `workflow.ts report fonts` and rebuild"
+        }
+      ]
+    },
+    "accuracy": {
+      "status": "measured",
+      "source": "recomputed from specimen screenshots",
+      "threshold": 0.06,
+      "tolerance": 40,
+      "metrics": {
+        "original": "Shared top-left area only; greyscale difference over the tolerance. Kept so earlier results stay comparable.",
+        "corrected": "Larger of the two boxes; area only one side covers counts as changed; tolerance applied per colour channel."
+      },
+      "overall": {
+        "original": {
+          "pass": 5,
+          "total": 51,
+          "medianRatio": 0.1186,
+          "p75Ratio": 0.1601,
+          "maxRatio": 0.2516
+        },
+        "corrected": {
+          "pass": 2,
+          "total": 51,
+          "medianRatio": 0.1277,
+          "p75Ratio": 0.165,
+          "maxRatio": 0.3955
+        }
+      },
+      "byBreakpoint": {
+        "desktop": {
+          "original": {
+            "pass": 3,
+            "total": 17,
+            "medianRatio": 0.0898,
+            "p75Ratio": 0.148,
+            "maxRatio": 0.2084
+          },
+          "corrected": {
+            "pass": 1,
+            "total": 17,
+            "medianRatio": 0.1062,
+            "p75Ratio": 0.1484,
+            "maxRatio": 0.3509
+          },
+          "heightDelta": {
+            "median": 3.5,
+            "max": 484.5,
+            "over10px": 6
+          }
+        },
+        "tablet": {
+          "original": {
+            "pass": 1,
+            "total": 17,
+            "medianRatio": 0.1227,
+            "p75Ratio": 0.1408,
+            "maxRatio": 0.2186
+          },
+          "corrected": {
+            "pass": 1,
+            "total": 17,
+            "medianRatio": 0.1362,
+            "p75Ratio": 0.1618,
+            "maxRatio": 0.3611
+          },
+          "heightDelta": {
+            "median": 3,
+            "max": 568.5,
+            "over10px": 6
+          }
+        },
+        "mobile": {
+          "original": {
+            "pass": 1,
+            "total": 17,
+            "medianRatio": 0.145,
+            "p75Ratio": 0.189,
+            "maxRatio": 0.2516
+          },
+          "corrected": {
+            "pass": 0,
+            "total": 17,
+            "medianRatio": 0.1569,
+            "p75Ratio": 0.2025,
+            "maxRatio": 0.3955
+          },
+          "heightDelta": {
+            "median": 3,
+            "max": 1368,
+            "over10px": 7
+          }
+        }
+      },
+      "components": 17,
+      "pairs": [
+        {
+          "component": "paragraph_accordion",
+          "label": "paragraph_accordion",
+          "breakpoint": "mobile",
+          "width": 295,
+          "original": {
+            "ratio": 0.2021,
+            "pass": false
+          },
+          "corrected": {
+            "ratio": 0.2025,
+            "pass": false
+          },
+          "heightDelta": 0.5,
+          "widthDelta": 0,
+          "figmaHeight": 5676.5,
+          "liveHeight": 5676,
+          "evidence": {
+            "specimen": "figma/compare/paragraph_accordion.png",
+            "geometry": "figma/results/block_paragraph_accordion.json",
+            "index": 0
+          }
+        },
+        {
+          "component": "paragraph_accordion",
+          "label": "paragraph_accordion",
+          "breakpoint": "tablet",
+          "width": 640,
+          "original": {
+            "ratio": 0.1614,
+            "pass": false
+          },
+          "corrected": {
+            "ratio": 0.1618,
+            "pass": false
+          },
+          "heightDelta": 1.5,
+          "widthDelta": 0,
+          "figmaHeight": 2751.5,
+          "liveHeight": 2753,
+          "evidence": {
+            "specimen": "figma/compare/paragraph_accordion.png",
+            "geometry": "figma/results/block_paragraph_accordion.json",
+            "index": 1
+          }
+        },
+        {
+          "component": "paragraph_accordion",
+          "label": "paragraph_accordion",
+          "breakpoint": "desktop",
+          "width": 792,
+          "original": {
+            "ratio": 0.148,
+            "pass": false
+          },
+          "corrected": {
+            "ratio": 0.1484,
+            "pass": false
+          },
+          "heightDelta": 0.5,
+          "widthDelta": 0,
+          "figmaHeight": 2430.5,
+          "liveHeight": 2431,
+          "evidence": {
+            "specimen": "figma/compare/paragraph_accordion.png",
+            "geometry": "figma/results/block_paragraph_accordion.json",
+            "index": 2
+          }
+        }
+      ]
+    },
+    "repeatability": {
+      "status": "not-measured",
+      "reason": "no other runs were given to compare against",
+      "howToMeasure": "score with --compare <other-run-dir> after a second run"
+    },
+    "schemaChurn": {
+      "status": "measured",
+      "changed": false,
+      "changes": [],
+      "summary": "No schema change or workaround was needed."
+    },
+    "foundationsVoice": {
+      "status": "scored-later",
+      "reason": "Scored by a person against the foundations-and-voice rubric after the run.",
+      "rubric": null,
+      "scores": [],
+      "scorers": []
+    },
+    "blindedJudgement": {
+      "status": "scored-later",
+      "reason": "Scored 1 to 5 by people who do not know which run or version produced the file.",
+      "scale": {
+        "min": 1,
+        "max": 5
+      },
+      "criteria": [
+        {
+          "id": "looksLikeSite",
+          "label": "Looks like the site"
+        },
+        {
+          "id": "finishedLibrary",
+          "label": "Reads as a finished library"
+        },
+        {
+          "id": "findability",
+          "label": "Findability"
+        }
+      ],
+      "scores": [],
+      "scorers": []
+    }
+  }
+}

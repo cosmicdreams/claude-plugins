@@ -3,25 +3,223 @@
   "$id": "https://design-lab.local/schemas/index.schema.json",
   "title": "design-lab component index receipt",
   "type": "object",
-  "required": ["standardVersion", "generatedAt", "totals", "rows", "notBuilt", "problems"],
+  "required": [
+    "standardVersion",
+    "generatedAt",
+    "totals",
+    "rows",
+    "notBuilt",
+    "problems"
+  ],
   "properties": {
-    "standardVersion": {"type": "string"},
-    "generatedAt": {"type": "string"},
-    "totals": {"type": "object", "required": ["components"]},
+    "standardVersion": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "totals": {
+      "type": "object",
+      "required": [
+        "components"
+      ],
+      "properties": {
+        "components": {
+          "type": "integer"
+        },
+        "built": {
+          "type": "number"
+        },
+        "notBuilt": {
+          "type": "number"
+        },
+        "byTier": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "components": {
+                "type": "number"
+              },
+              "built": {
+                "type": "number"
+              }
+            },
+            "additionalProperties": false
+          }
+        }
+      },
+      "additionalProperties": false
+    },
     "rows": {
       "type": "array",
       "items": {
         "type": "object",
-        "required": ["id", "placements", "built", "type", "status", "componentLinkTarget", "documentationLinkTarget"],
+        "required": [
+          "id",
+          "placements",
+          "built",
+          "type",
+          "status",
+          "componentLinkTarget",
+          "documentationLinkTarget"
+        ],
         "properties": {
-          "componentLinkTarget": {"type": ["string", "null"]},
-          "documentationLinkTarget": {"type": ["string", "null"]}
+          "componentLinkTarget": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "documentationLinkTarget": {
+            "type": [
+              "string",
+              "null"
+            ]
+          },
+          "id": {
+            "type": "string"
+          },
+          "placements": {
+            "type": [
+              "integer",
+              "null"
+            ]
+          },
+          "built": {
+            "type": "boolean"
+          },
+          "type": {
+            "type": "string"
+          },
+          "status": {
+            "type": "string"
+          },
+          "machineName": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string"
+          },
+          "structuralRefs": {
+            "type": [
+              "number",
+              "null"
+            ]
+          },
+          "figma": {
+            "type": "object",
+            "properties": {
+              "pageId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "componentNodeId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              },
+              "documentationCardId": {
+                "anyOf": [
+                  {
+                    "type": "string"
+                  },
+                  {
+                    "type": "null"
+                  }
+                ]
+              }
+            },
+            "additionalProperties": false
+          },
+          "reason": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          },
+          "deferred": {
+            "type": "number"
+          },
+          "unsupported": {
+            "type": "number"
+          }
         },
-        "additionalProperties": true
+        "additionalProperties": false
       }
     },
-    "notBuilt": {"type": "array"},
-    "problems": {"type": "array"}
+    "notBuilt": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "machineName": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          },
+          "tier": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "thresholds": {
+      "type": "object",
+      "properties": {
+        "high": {
+          "type": "number"
+        },
+        "medium": {
+          "type": "number"
+        },
+        "default": {
+          "type": "boolean"
+        }
+      },
+      "additionalProperties": false
+    }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

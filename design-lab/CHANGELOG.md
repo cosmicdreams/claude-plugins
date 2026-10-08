@@ -1,5 +1,54 @@
 # Changelog
 
+## 0.24.0 — 2026-10-07
+
+**BREAKING: design-lab now runs on Node 24 and TypeScript, and needs a one-time setup before the first run.** Read "Upgrading from 0.23" below first.
+
+- Rewrite the extraction, capture, build, workflow, setup, verification and benchmark pipeline in TypeScript. Remove all Python source and tests from the plugin; retained behavior is covered by Node tests and by comparisons against a read-only checkout of 0.23.
+- Require Node 24 for native TypeScript execution. Install the committed Node lockfile and Playwright Chromium once with `node scripts/lab_setup.ts install playwright`, into an immutable shared cache with locked, atomic setup. No packages are installed in site repositories or the plugin copy.
+- Keep the workflow command names and flags (all 24 subcommands and 44 flags are present), the Figma output, the benchmark HTML and the completion message. This is checked against 0.23 on recorded and synthetic data and on live Figma builds of PNCB and DEFINITIVE; see "Verified and not yet verified" below.
+- Remove the unused legacy JavaScript the plugin used to ship next to the TypeScript that replaced it: `scripts/render/*.js`, `scripts/figma_dump_*.js` and `runner/code.js`. Production already ran the TypeScript sources.
+- Replace `scripts/measure.mjs`, `scripts/capture.mjs`, `scripts/check_selectors.mjs` and `scripts/cookie_preferences.mjs` with `scripts/capture_all.ts`, which runs the same measurement, screenshot, selector check and consent dismissal from one copy of the code. For a hand-written config, pass `--configs <folder> --only <id>`; for the selector check alone, add `--check`.
+- Add `scripts/figma_snippet.ts`, which prints a read-only Figma dump as plain JavaScript for `use_figma`. `design-lab:verify` uses it in place of the removed `figma_dump_*.js` files.
+- Run Node and browser tests, both TypeScript typechecks and contract drift in continuous integration (CI); install a pinned Claude Code CLI to validate and test the mod, and fail the job if it cannot run.
+- Measure sequential local workflows through capture against the original and architecture-improved Python versions. TypeScript's observed total is 3.41× faster than original Python on PNCB (two-sample mean) and 3.78× on DEFINITIVE (one sample). These compare whole implementations under an owner-approved elevated-load waiver; Figma build time remains unmeasured. See `TYPESCRIPT.md` for the protocol and equality qualifications.
+
+### Upgrading from 0.23
+
+1. **Install Node 24 or later.** The skills' first command, `node scripts/require-node.mjs`, stops with install steps for Node Version Manager (nvm), Homebrew and the nodejs.org installer when Node is older. Older Node cannot load the TypeScript files at all.
+2. **Run the setup once per machine:** `node ${CLAUDE_PLUGIN_ROOT}/scripts/lab_setup.ts install playwright` (or let `design-lab:init` run it). It installs the pinned packages and Playwright Chromium into the shared cache: `~/Library/Caches/design-lab` on macOS, `~/.cache/design-lab` elsewhere, or the absolute path in `DESIGN_LAB_CACHE`. Until you do, commands that need the packages stop with a message that the dependencies are incomplete.
+3. **Restart the Figma runner.** The runner protocol gained session and generation tokens, so a runner started under 0.23 gets an "outdated" reply (HTTP 426) and stops with a message. Close the design-lab runner in Figma and start it again. If Figma still reports an old runner, import `~/.design-lab/runner/manifest.json` again (Plugins, Development, Import plugin from manifest).
+4. **`--node-cwd` no longer affects capture.** Capture always uses the shared cache. `workflow.ts preflight --node-cwd` is still accepted, and only changes which folder the preflight Playwright check probes.
+5. **Exit codes.** A failed command exits 1 and a command-line usage error (an unknown flag, a missing value) exits 2, the same as 0.23. The runner-token hook `hooks/guard_runner_token.ts` still exits 2 when it blocks a command, which Claude Code requires.
+6. **Clean up what 0.23 left behind (optional).** Nothing in 0.24.0 reads these:
+   - The Python packages Pillow and CairoSVG that 0.23 installed with `pip install --user` for the Python it found. Remove them with `python3 -m pip uninstall pillow cairosvg` (add `--break-system-packages` if your Python refuses), unless something else uses them.
+   - The old Playwright folder at `<cache>/playwright`, where `<cache>` is the cache path in step 2. Delete it. The shared `ms-playwright` browser folder may serve other tools, so leave it unless you know it does not.
+7. **Calls to the removed scripts must change.** Use `capture_all.ts` in place of the four `.mjs` capture scripts, and `figma_snippet.ts` in place of the `figma_dump_*.js` files.
+8. **Artifacts reject fields they don't declare.** Run artifacts and runner records are now validated against closed schemas, so a field added by hand to `project.json`, `plan.json` or another artifact fails validation instead of being carried along silently. The fields 0.23 runs actually write are declared, and every saved run checked (2,190 files) still validates. Remove hand-added fields, or ask for them to be added to the schema.
+
+### Verified and not yet verified
+
+0.24.0 reproduces 0.23's results where it was compared, including live Figma builds of two real libraries.
+
+Verified against 0.23 (a read-only checkout at commit `4176de29`):
+- Component trees and Figma payloads, on 202 recorded specs.
+- Driver replay of two recorded builds, 293 and 101 steps.
+- Component and token discovery on five repositories, and on two live local sites.
+- Full CLI walks through capture on local PNCB and DEFINITIVE with identical approved inputs across all three benchmark arms. PNCB screenshots match byte for byte; DEFINITIVE retains small image and measurement differences documented in `TYPESCRIPT.md`.
+- Six scorecards and reports, with pixel-identical thumbnails.
+- Live Figma builds of PNCB and DEFINITIVE with the new runner protocol and per-step inventory refresh (2026-10-08, one build per version on new empty files; 98 and 291 steps, no failures). Whole-file dumps compared node by node against 0.23: PNCB is identical after documented normalization; DEFINITIVE differs in 17 nodes, centred on one hero component (a half-pixel frame height and image-size variables), with matching fonts and decoded image pixels.
+- A CI run on GitHub's x86_64 Ubuntu runner, on pull request 84.
+
+Checked only on synthetic or replayed data:
+- A recorded driver transcript for one real library.
+- Canvas usage, from a replay of the Structured Query Language (SQL) queries and never a real Canvas database.
+- Fonts, from injected Adobe kit responses.
+- The runner protocol, from a fake client over HTTP; no Figma code ran.
+
+Not yet verified:
+- A `.ts` skill invoked from an installed copy of the plugin, on either Claude account.
+- Any invocation from Codex.
+
 ## Unreleased
 
 - New build receipts use the corrected visual comparison: unmatched area and per-channel differences count toward acceptance.

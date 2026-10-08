@@ -1,0 +1,230 @@
+{
+  "standardVersion": "4.0.0",
+  "toolVersion": "design-lab 0.14.0",
+  "id": "sdc.kingtec.content-column",
+  "figma": {
+    "fileKey": "vSy0pvrZjWssFOpPOABDt0",
+    "pageId": "3:9",
+    "pageName": "Components \u2014 Structural Only",
+    "documentationCardId": "23:5182",
+    "blockId": "23:5181",
+    "componentId": "23:5172"
+  },
+  "built": {
+    "variables": 14,
+    "created": 8,
+    "bindings": 2,
+    "literals": 1,
+    "fellBack": [],
+    "collectionId": "VariableCollectionId:17:2",
+    "fonts": {
+      "PT Sans 400": "PT Sans Regular",
+      "PT Sans 500": "PT Sans Regular"
+    },
+    "images": [
+      {
+        "fit": "FILL",
+        "id": "23:5178",
+        "src": "capture:desktop:35.0,144.0,560.0,315.0"
+      }
+    ],
+    "svgFailures": []
+  },
+  "documentation": {
+    "anatomy": {
+      "fields": [],
+      "relationships": [
+        {
+          "field": "content",
+          "accepts": "any",
+          "cardinality": 0,
+          "required": false,
+          "rendered": true
+        }
+      ]
+    },
+    "breakpointScreenshots": {
+      "mobile": "23:5302",
+      "tablet": "23:5303",
+      "desktop": "23:5304"
+    }
+  },
+  "nativeComponent": {
+    "nodeType": "COMPONENT",
+    "rootHasImageFill": false,
+    "componentProperties": [],
+    "nestedInstances": [],
+    "validation": {
+      "nativeNode": true,
+      "noScreenshotSurrogate": true,
+      "authoringCoverage": true,
+      "relationshipCoverage": false
+    }
+  },
+  "visualEvidence": {
+    "path": "/cad-for-fll-teams",
+    "captureFiles": [
+      "/fixture/OpenSource/KINGTEC/design-lab-runs/run-3/capture/shots/content-column__mobile.png",
+      "/fixture/OpenSource/KINGTEC/design-lab-runs/run-3/capture/shots/content-column__tablet.png",
+      "/fixture/OpenSource/KINGTEC/design-lab-runs/run-3/capture/shots/content-column__desktop.png"
+    ],
+    "states": [
+      "default"
+    ],
+    "breakpoints": {
+      "mobile": {
+        "captureFile": "/fixture/OpenSource/KINGTEC/design-lab-runs/run-3/capture/shots/content-column__mobile.png",
+        "viewportWidth": 345,
+        "state": "default"
+      },
+      "tablet": {
+        "captureFile": "/fixture/OpenSource/KINGTEC/design-lab-runs/run-3/capture/shots/content-column__tablet.png",
+        "viewportWidth": 432,
+        "state": "default"
+      },
+      "desktop": {
+        "captureFile": "/fixture/OpenSource/KINGTEC/design-lab-runs/run-3/capture/shots/content-column__desktop.png",
+        "viewportWidth": 630,
+        "state": "default"
+      }
+    },
+    "comparison": {
+      "verdict": "fail",
+      "breakpoints": {
+        "mobile": "fail",
+        "tablet": "fail",
+        "desktop": "pass"
+      },
+      "metrics": {
+        "file": "/fixture/OpenSource/KINGTEC/design-lab-runs/run-3/figma/compare/sdc.kingtec.content-column.png",
+        "pairs": [
+          {
+            "changed": 17816,
+            "height": 404,
+            "heightDelta": 39,
+            "label": "sdc.kingtec.content-column \u2014 Content column \u00b7 Mobile \u00b7 345px",
+            "pass": false,
+            "ratio": 0.1278,
+            "width": 345
+          },
+          {
+            "changed": 16046,
+            "height": 429,
+            "heightDelta": 39,
+            "label": "sdc.kingtec.content-column \u2014 Content column \u00b7 Tablet \u00b7 431.66px",
+            "pass": false,
+            "ratio": 0.0866,
+            "width": 432
+          },
+          {
+            "changed": 17522,
+            "height": 494,
+            "heightDelta": 39,
+            "label": "sdc.kingtec.content-column \u2014 Content column",
+            "pass": true,
+            "ratio": 0.0563,
+            "width": 630
+          }
+        ],
+        "pass": false,
+        "threshold": 0.06,
+        "tolerance": 40
+      }
+    }
+  },
+  "assertions": {
+    "component": {
+      "verdict": "pass",
+      "componentId": "23:5172",
+      "geometry": {
+        "captures": [
+          {
+            "height": 443,
+            "label": "Capture \u00b7 Mobile 345px",
+            "width": 345,
+            "x": 40,
+            "y": 702
+          },
+          {
+            "height": 468,
+            "label": "Capture \u00b7 Tablet 432px",
+            "width": 432,
+            "x": 465,
+            "y": 702
+          },
+          {
+            "height": 533,
+            "label": "Capture \u00b7 Desktop 630px",
+            "width": 630,
+            "x": 977,
+            "y": 702
+          }
+        ],
+        "specimen": {
+          "height": 1235,
+          "width": 1646.6600341796875
+        },
+        "variants": [
+          {
+            "height": 404,
+            "label": "sdc.kingtec.content-column \u2014 Content column \u00b7 Mobile \u00b7 345px",
+            "width": 345,
+            "x": 40,
+            "y": 80
+          },
+          {
+            "height": 429,
+            "label": "sdc.kingtec.content-column \u2014 Content column \u00b7 Tablet \u00b7 431.66px",
+            "width": 431.6600036621094,
+            "x": 465,
+            "y": 80
+          },
+          {
+            "height": 494,
+            "label": "sdc.kingtec.content-column \u2014 Content column",
+            "width": 630,
+            "x": 976.6600341796875,
+            "y": 80
+          }
+        ]
+      }
+    },
+    "variables": {
+      "verdict": "pass",
+      "count": 14,
+      "collectionId": "VariableCollectionId:17:2"
+    },
+    "bindings": {
+      "verdict": "pass",
+      "bound": 2,
+      "literal": 1,
+      "fellBack": []
+    },
+    "image-upload": {
+      "verdict": "pass",
+      "statuses": [
+        200
+      ],
+      "expected": 1
+    },
+    "evidence-upload": {
+      "verdict": "pass",
+      "statuses": [
+        200,
+        200,
+        200
+      ]
+    },
+    "visual-comparison": {
+      "verdict": "fail",
+      "breakpoints": {
+        "mobile": "fail",
+        "tablet": "fail",
+        "desktop": "pass"
+      }
+    }
+  },
+  "sourceRef": "web/themes/custom/kingtec/components/content-column/content-column.component.yml",
+  "sourceHash": "sha256:2ff19bf35ed4c015b35fd1adff70bcc11e1588e11f6d8552b5988f5898c6e7bc",
+  "sourceHashBasis": "sourceRef"
+}

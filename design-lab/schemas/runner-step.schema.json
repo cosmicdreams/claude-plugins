@@ -1,0 +1,364 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://design-lab.local/schemas/runner-step.schema.json",
+  "title": "RunnerStep",
+  "oneOf": [
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "done"
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "wait"
+        },
+        "retryMs": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "message": {
+          "type": "string"
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "step",
+        "retryMs",
+        "message"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "check"
+        },
+        "code": {
+          "type": "string"
+        },
+        "out": {
+          "type": "string"
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "step",
+        "code"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "dump"
+        },
+        "code": {
+          "type": "string"
+        },
+        "out": {
+          "type": "string"
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "step",
+        "code"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "use_figma"
+        },
+        "code": {
+          "type": "string"
+        },
+        "payload": {
+          "type": "string"
+        },
+        "characters": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "step"
+      ],
+      "additionalProperties": false,
+      "anyOf": [
+        {
+          "required": [
+            "code"
+          ]
+        },
+        {
+          "required": [
+            "payload"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "upload"
+        },
+        "nodeIds": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "scaleMode": {
+          "enum": [
+            "FIT",
+            "FILL"
+          ]
+        },
+        "files": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "contentType": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "file",
+              "contentType"
+            ],
+            "additionalProperties": false
+          }
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "step",
+        "nodeIds",
+        "scaleMode"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "screenshot"
+        },
+        "nodeId": {
+          "type": "string"
+        },
+        "out": {
+          "type": "string"
+        },
+        "maxDimension": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "step",
+        "nodeId",
+        "out"
+      ],
+      "additionalProperties": false
+    },
+    {
+      "type": "object",
+      "properties": {
+        "step": {
+          "type": "string"
+        },
+        "done": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "total": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "kind": {
+          "const": "skip"
+        },
+        "reason": {
+          "type": "string"
+        },
+        "buildId": {
+          "type": "string"
+        },
+        "generation": {
+          "type": "string"
+        },
+        "stepToken": {
+          "type": "string"
+        }
+      },
+      "required": [
+        "kind",
+        "step",
+        "reason"
+      ],
+      "additionalProperties": false
+    }
+  ]
+}

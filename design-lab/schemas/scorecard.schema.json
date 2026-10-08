@@ -2,96 +2,2875 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://design-lab.local/schemas/scorecard.schema.json",
   "title": "design-lab run scorecard",
-  "description": "Written by scripts/score_run.py. Each section is scored on its own; a section without evidence carries status not-measured and a reason instead of a guess.",
+  "description": "Written by scripts/score_run.ts. Each section is scored on its own; a section without evidence carries status not-measured and a reason instead of a guess.",
   "type": "object",
-  "required": ["scorecardVersion", "generatedAt", "generator", "run", "headline", "sections"],
+  "required": [
+    "scorecardVersion",
+    "generatedAt",
+    "generator",
+    "run",
+    "headline",
+    "sections"
+  ],
   "additionalProperties": false,
   "properties": {
-    "scorecardVersion": {"const": 1},
-    "generatedAt": {"type": "string"},
-    "generator": {"type": "string"},
+    "scorecardVersion": {
+      "const": 1
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "generator": {
+      "type": "string"
+    },
     "run": {
       "type": "object",
-      "required": ["directory", "name", "siteLabel"],
+      "required": [
+        "directory",
+        "name",
+        "siteLabel"
+      ],
       "properties": {
-        "directory": {"type": "string"},
-        "name": {"type": "string"},
-        "siteLabel": {"type": "string"},
-        "buildCreatedAt": {"$comment": "project.json createdAt of the build scored; a reader compares it with the current project.json to tell this build's scorecard from an earlier one's", "type": ["string", "null"]}
-      }
+        "directory": {
+          "type": "string"
+        },
+        "name": {
+          "type": "string"
+        },
+        "siteLabel": {
+          "type": "string"
+        },
+        "buildCreatedAt": {
+          "$comment": "project.json createdAt of the build scored; a reader compares it with the current project.json to tell this build's scorecard from an earlier one's",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
     },
     "headline": {
       "type": "object",
-      "required": ["coverage", "built", "accuracy", "effort", "highlights"],
+      "required": [
+        "coverage",
+        "built",
+        "accuracy",
+        "effort",
+        "highlights"
+      ],
       "properties": {
-        "coverage": {"type": ["object", "null"]},
-        "built": {"type": "object"},
-        "accuracy": {"type": "object"},
-        "effort": {"type": "object"},
-        "highlights": {"type": "array", "items": {"type": "string"}}
-      }
+        "coverage": {
+          "type": [
+            "object",
+            "null"
+          ],
+          "properties": {
+            "built": {
+              "type": "number"
+            },
+            "eligible": {
+              "type": "number"
+            },
+            "ratio": {
+              "type": "number"
+            },
+            "gap": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number"
+              }
+            },
+            "excluded": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "number"
+              }
+            },
+            "placements": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "built": {
+          "type": "object",
+          "properties": {
+            "components": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "variants": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "pages": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "variables": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                }
+              ]
+            },
+            "nodes": {
+              "anyOf": [
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "accuracy": {
+          "type": "object",
+          "properties": {
+            "original": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "pass": {
+                  "type": "number"
+                },
+                "total": {
+                  "type": "number"
+                },
+                "medianRatio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "p75Ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "maxRatio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            },
+            "corrected": {
+              "type": [
+                "object",
+                "null"
+              ],
+              "properties": {
+                "pass": {
+                  "type": "number"
+                },
+                "total": {
+                  "type": "number"
+                },
+                "medianRatio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "p75Ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "maxRatio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false
+        },
+        "effort": {
+          "type": "object",
+          "properties": {
+            "workingSeconds": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "waitingOnPersonSeconds": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "waitingOnLimitsSeconds": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "waitingOnServiceSeconds": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "benchmarkWorkingSeconds": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                }
+              ]
+            },
+            "wallSeconds": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "buildSeconds": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "buildSteps": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "tokens": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "tokensByModel": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "total": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "libraryTokensByModel": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "name": {
+                    "type": "string"
+                  },
+                  "total": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "benchmarkTokensByModel": {
+              "anyOf": [
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "name": {
+                        "type": "string"
+                      },
+                      "total": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                }
+              ]
+            },
+            "toolCalls": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            }
+          },
+          "additionalProperties": false
+        },
+        "highlights": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      },
+      "additionalProperties": false
     },
     "sections": {
       "type": "object",
-      "required": ["identity", "cost", "library", "coverage", "conformance", "accuracy", "repeatability", "schemaChurn", "foundationsVoice", "blindedJudgement"],
+      "required": [
+        "identity",
+        "cost",
+        "library",
+        "coverage",
+        "conformance",
+        "accuracy",
+        "repeatability",
+        "schemaChurn",
+        "foundationsVoice",
+        "blindedJudgement"
+      ],
       "additionalProperties": false,
       "properties": {
-        "identity": {"$comment": "run identity", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "partial", "not-measured"]}, "fields": {"type": "object"}, "missing": {"type": "array", "items": {"type": "string"}}}, "allOf": [{"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]},
-        "cost": {"$comment": "cost and effort", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "partial", "not-measured"]}, "runner": {"type": "object"}, "timings": {"type": "object"}, "definition": {"type": "string"}, "clock": {"$comment": "wall time, a clock on the wall from workflow.py init to the end of the benchmark; null unless both ends were recorded; the first scoring records the benchmark's end in the phase log", "type": "object", "required": ["wallSeconds", "scorerSeconds"], "properties": {"wallSeconds": {"type": ["integer", "null"]}, "libraryWallSeconds": {"type": ["integer", "null"]}, "benchmarkWallSeconds": {"type": ["integer", "null"]}, "scorerSeconds": {"type": "number"}, "runStart": {"type": ["string", "null"]}, "benchmarkStart": {"type": ["string", "null"]}, "benchmarkEnd": {"type": ["string", "null"]}, "benchmarkEndSource": {"enum": ["phase log", "this scoring", null]}, "notShownBecause": {"type": "string"}}}, "working": {"$comment": "time Claude or its tools were working, from the session transcript; working plus the three kinds of waiting add up to the transcript's span", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "spanSeconds": {"type": "integer"}, "workingSeconds": {"type": "integer"}, "waitingOnPersonSeconds": {"type": "integer"}, "waitingOnLimitsSeconds": {"type": "integer"}, "waitingOnServiceSeconds": {"type": "integer"}, "limitEvents": {"type": "integer"}, "serviceEvents": {"type": "integer"}, "questionsToPerson": {"type": "integer"}, "fullAccess": {"type": ["boolean", "null"]}, "developer": {"$comment": "for developers only, never rendered", "type": "object"}, "production": {"type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "workingSeconds": {"type": "integer"}, "waitingOnPersonSeconds": {"type": "integer"}, "waitingOnLimitsSeconds": {"type": "integer"}, "waitingOnServiceSeconds": {"type": "integer"}}}, "benchmark": {"type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "workingSeconds": {"type": "integer"}}}}, "allOf": [{"if": {"properties": {"status": {"const": "measured"}}}, "then": {"required": ["spanSeconds", "workingSeconds", "waitingOnPersonSeconds", "waitingOnLimitsSeconds", "waitingOnServiceSeconds", "production", "benchmark"]}}, {"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]}, "unattended": {"$comment": "whether the run stayed unattended after the preflight go-ahead, until the benchmark began", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "goAheadAt": {"type": "string"}, "count": {"type": "integer"}, "ranUnattended": {"type": "boolean"}, "interruptions": {"type": "array", "items": {"type": "object", "required": ["at", "kind", "phase", "planned"], "properties": {"at": {"type": ["string", "null"]}, "kind": {"type": "string"}, "phase": {"type": "string"}, "status": {"type": ["string", "null"]}, "planned": {"type": "boolean"}}}}}, "allOf": [{"if": {"properties": {"status": {"const": "measured"}}}, "then": {"required": ["goAheadAt", "count", "ranUnattended", "interruptions"]}}, {"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]}, "model": {"type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "toolCalls": {"type": "integer"}, "tokens": {"type": "object", "additionalProperties": {"type": "integer"}}, "configDirs": {"type": "array", "items": {"type": "string"}}, "developer": {"$comment": "for developers only, never rendered", "type": "object", "properties": {"unattributedEntries": {"type": "integer"}}}, "production": {"type": "object", "required": ["status"]}, "benchmark": {"type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}}}, "byModel": {"type": "array", "items": {"type": "object", "required": ["model", "name", "input", "output", "cacheWrite", "cacheRead", "total", "turns", "toolCalls"], "properties": {"model": {"type": "string"}, "name": {"type": "string"}, "input": {"type": "integer"}, "output": {"type": "integer"}, "cacheWrite": {"type": "integer"}, "cacheRead": {"type": "integer"}, "total": {"type": "integer"}, "turns": {"type": "integer"}, "toolCalls": {"type": "integer"}}}}}}}},
-        "library": {"$comment": "library contents", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "components": {"type": "object"}, "tiers": {"type": "array"}}, "allOf": [{"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]},
-        "coverage": {"$comment": "built out of what could have been built, gap by reason, usage-weighted share", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "found": {"type": "integer"}, "eligible": {"type": "integer"}, "built": {"type": "integer"}, "ratio": {"type": ["number", "null"]}, "gap": {"type": "object", "additionalProperties": {"type": "integer"}}, "excluded": {"type": "object", "additionalProperties": {"type": "integer"}}, "usageWeighted": {"type": "object"}}, "allOf": [{"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]},
-        "conformance": {"$comment": "verify-report findings by severity", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "open": {"type": "object", "additionalProperties": {"type": "integer"}}, "waived": {"type": "integer"}}, "allOf": [{"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]},
+        "identity": {
+          "$comment": "run identity",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "partial",
+                "not-measured"
+              ]
+            },
+            "fields": {
+              "type": "object",
+              "properties": {
+                "siteLabel": {
+                  "type": "string"
+                },
+                "siteLabelSource": {
+                  "type": "string"
+                },
+                "rebuiltFrom": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "run": {
+                      "type": "string"
+                    },
+                    "createdAt": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "pluginVersion": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "corpusLabel": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "publicAddress": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "siteUrl": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "rendererRuntime": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "builtToStandard": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "operator": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "startedAt": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pluginVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "pluginCommit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "standardVersion": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "repositoryCommit": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "repositoryDirty": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "figmaFileKey": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "figmaUrl": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "claudeConfigDir": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "model": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "strategies": {
+                  "type": "object",
+                  "properties": {
+                    "componentSource": {
+                      "type": "string"
+                    },
+                    "tokenSource": {
+                      "type": "string"
+                    },
+                    "usageSource": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "missing": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "summary": {
+              "type": "string"
+            },
+            "recordedAtStart": {
+              "type": "boolean"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "howToMeasure": {
+              "type": "string"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ],
+          "additionalProperties": false
+        },
+        "cost": {
+          "$comment": "cost and effort",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "partial",
+                "not-measured"
+              ]
+            },
+            "runner": {
+              "type": "object",
+              "properties": {
+                "clock": {
+                  "type": "string"
+                },
+                "sessions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "start": {
+                        "type": "string"
+                      },
+                      "end": {
+                        "type": "string"
+                      },
+                      "seconds": {
+                        "type": "number"
+                      },
+                      "steps": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "activeSeconds": {
+                  "type": "number"
+                },
+                "steps": {
+                  "type": "number"
+                },
+                "errors": {
+                  "type": "number"
+                },
+                "skipped": {
+                  "type": "number"
+                },
+                "medianStepSeconds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "secondsByKind": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number"
+                  }
+                },
+                "stepsByKind": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number"
+                  }
+                },
+                "status": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "timings": {
+              "type": "object",
+              "properties": {
+                "source": {
+                  "type": "string"
+                },
+                "exact": {
+                  "type": "boolean"
+                },
+                "phases": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "phase": {
+                        "type": "string"
+                      },
+                      "start": {
+                        "type": "string"
+                      },
+                      "end": {
+                        "type": "string"
+                      },
+                      "seconds": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "totalSeconds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "checkpoints": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "properties": {
+                      "phase": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "at": {
+                        "type": "string"
+                      }
+                    },
+                    "required": [],
+                    "additionalProperties": false
+                  }
+                },
+                "start": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "spanSeconds": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "note": {
+                  "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "not-measured"
+                  ]
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "required": [
+                      "status"
+                    ],
+                    "properties": {
+                      "status": {
+                        "const": "not-measured"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "reason"
+                    ]
+                  }
+                }
+              ]
+            },
+            "definition": {
+              "type": "string"
+            },
+            "clock": {
+              "$comment": "wall time, a clock on the wall from workflow.ts init to the end of the benchmark; null unless both ends were recorded; the first scoring records the benchmark's end in the phase log",
+              "type": "object",
+              "required": [
+                "wallSeconds",
+                "scorerSeconds"
+              ],
+              "properties": {
+                "wallSeconds": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "libraryWallSeconds": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "benchmarkWallSeconds": {
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
+                },
+                "scorerSeconds": {
+                  "type": "number"
+                },
+                "runStart": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "benchmarkStart": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "benchmarkEnd": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "benchmarkEndSource": {
+                  "enum": [
+                    "phase log",
+                    "this scoring",
+                    null
+                  ]
+                },
+                "notShownBecause": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "working": {
+              "$comment": "time Claude or its tools were working, from the session transcript; working plus the three kinds of waiting add up to the transcript's span",
+              "type": "object",
+              "required": [
+                "status"
+              ],
+              "properties": {
+                "status": {
+                  "enum": [
+                    "measured",
+                    "not-measured"
+                  ]
+                },
+                "spanSeconds": {
+                  "type": "integer"
+                },
+                "workingSeconds": {
+                  "type": "integer"
+                },
+                "waitingOnPersonSeconds": {
+                  "type": "integer"
+                },
+                "waitingOnLimitsSeconds": {
+                  "type": "integer"
+                },
+                "waitingOnServiceSeconds": {
+                  "type": "integer"
+                },
+                "limitEvents": {
+                  "type": "integer"
+                },
+                "serviceEvents": {
+                  "type": "integer"
+                },
+                "questionsToPerson": {
+                  "type": "integer"
+                },
+                "fullAccess": {
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
+                },
+                "developer": {
+                  "$comment": "for developers only, never rendered",
+                  "type": "object",
+                  "properties": {
+                    "permissionModes": {
+                      "type": "object",
+                      "additionalProperties": {
+                        "type": "number"
+                      }
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "production": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "measured",
+                        "not-measured"
+                      ]
+                    },
+                    "workingSeconds": {
+                      "type": "integer"
+                    },
+                    "waitingOnPersonSeconds": {
+                      "type": "integer"
+                    },
+                    "waitingOnLimitsSeconds": {
+                      "type": "integer"
+                    },
+                    "waitingOnServiceSeconds": {
+                      "type": "integer"
+                    },
+                    "start": {
+                      "type": "string"
+                    },
+                    "end": {
+                      "type": "string"
+                    },
+                    "spanSeconds": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "benchmark": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "measured",
+                        "not-measured"
+                      ]
+                    },
+                    "workingSeconds": {
+                      "type": "integer"
+                    },
+                    "start": {
+                      "type": "string"
+                    },
+                    "end": {
+                      "type": "string"
+                    },
+                    "spanSeconds": {
+                      "type": "number"
+                    },
+                    "waitingOnLimitsSeconds": {
+                      "type": "number"
+                    },
+                    "waitingOnServiceSeconds": {
+                      "type": "number"
+                    },
+                    "waitingOnPersonSeconds": {
+                      "type": "number"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "howToMeasure": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "start": {
+                  "type": "string"
+                },
+                "end": {
+                  "type": "string"
+                },
+                "definition": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "howToMeasure": {
+                  "type": "string"
+                },
+                "caveat": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "measured"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "spanSeconds",
+                      "workingSeconds",
+                      "waitingOnPersonSeconds",
+                      "waitingOnLimitsSeconds",
+                      "waitingOnServiceSeconds",
+                      "production",
+                      "benchmark"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "not-measured"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "reason"
+                    ]
+                  }
+                }
+              ],
+              "additionalProperties": false
+            },
+            "unattended": {
+              "$comment": "whether the run stayed unattended after the preflight go-ahead, until the benchmark began",
+              "type": "object",
+              "required": [
+                "status"
+              ],
+              "properties": {
+                "status": {
+                  "enum": [
+                    "measured",
+                    "not-measured"
+                  ]
+                },
+                "goAheadAt": {
+                  "type": "string"
+                },
+                "count": {
+                  "type": "integer"
+                },
+                "ranUnattended": {
+                  "type": "boolean"
+                },
+                "interruptions": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "at",
+                      "kind",
+                      "phase",
+                      "planned"
+                    ],
+                    "properties": {
+                      "at": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "kind": {
+                        "type": "string"
+                      },
+                      "phase": {
+                        "type": "string"
+                      },
+                      "status": {
+                        "type": [
+                          "string",
+                          "null"
+                        ]
+                      },
+                      "planned": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "until": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "howToMeasure": {
+                  "type": "string"
+                }
+              },
+              "allOf": [
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "measured"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "goAheadAt",
+                      "count",
+                      "ranUnattended",
+                      "interruptions"
+                    ]
+                  }
+                },
+                {
+                  "if": {
+                    "properties": {
+                      "status": {
+                        "const": "not-measured"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "reason"
+                    ]
+                  }
+                }
+              ],
+              "additionalProperties": false
+            },
+            "model": {
+              "type": "object",
+              "required": [
+                "status"
+              ],
+              "properties": {
+                "status": {
+                  "enum": [
+                    "measured",
+                    "not-measured"
+                  ]
+                },
+                "toolCalls": {
+                  "type": "integer"
+                },
+                "tokens": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "integer"
+                  },
+                  "properties": {}
+                },
+                "configDirs": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "developer": {
+                  "$comment": "for developers only, never rendered",
+                  "type": "object",
+                  "properties": {
+                    "unattributedEntries": {
+                      "type": "integer"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "production": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "type": "string"
+                    },
+                    "byModel": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "model": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "input": {
+                            "type": "number"
+                          },
+                          "output": {
+                            "type": "number"
+                          },
+                          "cacheWrite": {
+                            "type": "number"
+                          },
+                          "cacheRead": {
+                            "type": "number"
+                          },
+                          "total": {
+                            "type": "number"
+                          },
+                          "turns": {
+                            "type": "number"
+                          },
+                          "toolCalls": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "tokens": {
+                      "type": "object",
+                      "properties": {
+                        "input": {
+                          "type": "number"
+                        },
+                        "output": {
+                          "type": "number"
+                        },
+                        "cacheWrite": {
+                          "type": "number"
+                        },
+                        "cacheRead": {
+                          "type": "number"
+                        },
+                        "total": {
+                          "type": "number"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "turns": {
+                      "type": "number"
+                    },
+                    "toolCalls": {
+                      "type": "number"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "benchmark": {
+                  "type": "object",
+                  "required": [
+                    "status"
+                  ],
+                  "properties": {
+                    "status": {
+                      "enum": [
+                        "measured",
+                        "not-measured"
+                      ]
+                    },
+                    "since": {
+                      "type": "string"
+                    },
+                    "byModel": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "model": {
+                            "type": "string"
+                          },
+                          "name": {
+                            "type": "string"
+                          },
+                          "input": {
+                            "type": "number"
+                          },
+                          "output": {
+                            "type": "number"
+                          },
+                          "cacheWrite": {
+                            "type": "number"
+                          },
+                          "cacheRead": {
+                            "type": "number"
+                          },
+                          "total": {
+                            "type": "number"
+                          },
+                          "turns": {
+                            "type": "number"
+                          },
+                          "toolCalls": {
+                            "type": "number"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "tokens": {
+                      "type": "object",
+                      "properties": {
+                        "input": {
+                          "type": "number"
+                        },
+                        "output": {
+                          "type": "number"
+                        },
+                        "cacheWrite": {
+                          "type": "number"
+                        },
+                        "cacheRead": {
+                          "type": "number"
+                        },
+                        "total": {
+                          "type": "number"
+                        }
+                      },
+                      "additionalProperties": false
+                    },
+                    "turns": {
+                      "type": "number"
+                    },
+                    "toolCalls": {
+                      "type": "number"
+                    },
+                    "reason": {
+                      "type": "string"
+                    },
+                    "howToMeasure": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "byModel": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "required": [
+                      "model",
+                      "name",
+                      "input",
+                      "output",
+                      "cacheWrite",
+                      "cacheRead",
+                      "total",
+                      "turns",
+                      "toolCalls"
+                    ],
+                    "properties": {
+                      "model": {
+                        "type": "string"
+                      },
+                      "name": {
+                        "type": "string"
+                      },
+                      "input": {
+                        "type": "integer"
+                      },
+                      "output": {
+                        "type": "integer"
+                      },
+                      "cacheWrite": {
+                        "type": "integer"
+                      },
+                      "cacheRead": {
+                        "type": "integer"
+                      },
+                      "total": {
+                        "type": "integer"
+                      },
+                      "turns": {
+                        "type": "integer"
+                      },
+                      "toolCalls": {
+                        "type": "integer"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "source": {
+                  "type": "string"
+                },
+                "files": {
+                  "type": "number"
+                },
+                "sessions": {
+                  "type": "number"
+                },
+                "assistantMessages": {
+                  "type": "number"
+                },
+                "models": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "number"
+                  }
+                },
+                "window": {
+                  "type": "object",
+                  "properties": {
+                    "since": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    },
+                    "until": {
+                      "type": [
+                        "string",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "firstMessage": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "lastMessage": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
+                },
+                "benchmarkNote": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                },
+                "howToMeasure": {
+                  "type": "string"
+                },
+                "caveat": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "reason": {
+              "type": "string"
+            },
+            "developer": {
+              "type": "object",
+              "properties": {
+                "sessionWarning": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ]
+        },
+        "library": {
+          "$comment": "library contents",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "not-measured"
+              ]
+            },
+            "components": {
+              "type": "object",
+              "properties": {
+                "found": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "planned": {
+                  "type": "number"
+                },
+                "built": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "notBuilt": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "refused": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
+            },
+            "tiers": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "built": {
+                    "type": "integer"
+                  },
+                  "components": {
+                    "type": "integer"
+                  },
+                  "tier": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "summary": {
+              "type": "string"
+            },
+            "variants": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "properties": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "variables": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                }
+              ]
+            },
+            "collections": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "pages": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "pageNames": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "nodes": {
+              "anyOf": [
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "number"
+                }
+              ]
+            },
+            "captures": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "tierTable": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tier": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "color": {
+                    "type": "string"
+                  },
+                  "built": {
+                    "type": "number"
+                  },
+                  "counted": {
+                    "type": "boolean"
+                  },
+                  "found": {
+                    "type": "number"
+                  },
+                  "holds": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "tier": {
+                          "type": "string"
+                        },
+                        "built": {
+                          "type": "number"
+                        },
+                        "found": {
+                          "type": "number"
+                        }
+                      },
+                      "additionalProperties": false
+                    }
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "voicePage": {
+              "type": "boolean"
+            },
+            "examplesPage": {
+              "type": "boolean"
+            },
+            "notBuiltReasons": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "label": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "reason": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ],
+          "additionalProperties": false
+        },
+        "coverage": {
+          "$comment": "built out of what could have been built, gap by reason, usage-weighted share",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "not-measured"
+              ]
+            },
+            "found": {
+              "type": "integer"
+            },
+            "eligible": {
+              "type": "integer"
+            },
+            "built": {
+              "type": "integer"
+            },
+            "ratio": {
+              "type": [
+                "number",
+                "null"
+              ]
+            },
+            "gap": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "properties": {}
+            },
+            "excluded": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "properties": {}
+            },
+            "usageWeighted": {
+              "type": "object",
+              "properties": {
+                "placements": {
+                  "type": "number"
+                },
+                "covered": {
+                  "type": "number"
+                },
+                "ratio": {
+                  "type": [
+                    "number",
+                    "null"
+                  ]
+                },
+                "structuralRefs": {
+                  "type": "number"
+                },
+                "structuralCovered": {
+                  "type": "number"
+                },
+                "status": {
+                  "type": "string"
+                },
+                "reason": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "reasonLabels": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "summary": {
+              "type": "string"
+            },
+            "items": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "reason": {
+                    "type": "string"
+                  },
+                  "detail": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "byTier": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tier": {
+                    "type": "string"
+                  },
+                  "found": {
+                    "type": "number"
+                  },
+                  "built": {
+                    "type": "number"
+                  },
+                  "notBuilt": {
+                    "type": "number"
+                  },
+                  "placements": {
+                    "type": "number"
+                  },
+                  "structural": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "coverBreakdown": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "tier": {
+                    "type": "string"
+                  },
+                  "built": {
+                    "type": "number"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "outsideInventory": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "placements": {
+                    "type": "number"
+                  },
+                  "structural": {
+                    "type": "number"
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            },
+            "reason": {
+              "type": "string"
+            },
+            "howToMeasure": {
+              "type": "string"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ],
+          "additionalProperties": false
+        },
+        "conformance": {
+          "$comment": "verify-report findings by severity",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "not-measured"
+              ]
+            },
+            "open": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "integer"
+              },
+              "properties": {}
+            },
+            "waived": {
+              "type": "integer"
+            },
+            "summary": {
+              "type": "string"
+            },
+            "openOther": {
+              "type": "number"
+            },
+            "passed": {
+              "type": "number"
+            },
+            "inapplicable": {
+              "type": "number"
+            },
+            "completeness": {
+              "type": "object",
+              "properties": {
+                "built": {
+                  "type": "number"
+                },
+                "expected": {
+                  "type": "number"
+                },
+                "byTier": {
+                  "type": "object",
+                  "additionalProperties": {
+                    "type": "array",
+                    "items": {
+                      "anyOf": [
+                        {
+                          "type": "number"
+                        },
+                        {
+                          "type": "array",
+                          "items": {
+                            "type": "string"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              },
+              "additionalProperties": false
+            },
+            "findings": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "severity": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "check": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  },
+                  "message": {
+                    "type": [
+                      "string",
+                      "null"
+                    ]
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "reason": {
+              "type": "string"
+            },
+            "howToMeasure": {
+              "type": "string"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ],
+          "additionalProperties": false
+        },
         "accuracy": {
           "$comment": "accuracy against the live site: original metric kept beside the corrected one",
           "type": "object",
-          "required": ["status"],
+          "required": [
+            "status"
+          ],
           "properties": {
-            "status": {"enum": ["measured", "partial", "not-measured"]},
-            "threshold": {"type": "number"},
-            "tolerance": {"type": "number"},
-            "overall": {"type": "object"},
-            "byBreakpoint": {"type": "object"},
+            "status": {
+              "enum": [
+                "measured",
+                "partial",
+                "not-measured"
+              ]
+            },
+            "threshold": {
+              "type": "number"
+            },
+            "tolerance": {
+              "type": "number"
+            },
+            "overall": {
+              "type": "object",
+              "properties": {
+                "original": {
+                  "type": "object",
+                  "properties": {
+                    "pass": {
+                      "type": "number"
+                    },
+                    "total": {
+                      "type": "number"
+                    },
+                    "medianRatio": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "p75Ratio": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "maxRatio": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                },
+                "corrected": {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "pass": {
+                      "type": "number"
+                    },
+                    "total": {
+                      "type": "number"
+                    },
+                    "medianRatio": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "p75Ratio": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    },
+                    "maxRatio": {
+                      "type": [
+                        "number",
+                        "null"
+                      ]
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "additionalProperties": false
+            },
+            "byBreakpoint": {
+              "type": "object",
+              "properties": {},
+              "additionalProperties": {
+                "type": "object",
+                "properties": {
+                  "original": {
+                    "type": "object",
+                    "properties": {
+                      "pass": {
+                        "type": "number"
+                      },
+                      "total": {
+                        "type": "number"
+                      },
+                      "medianRatio": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "p75Ratio": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "maxRatio": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "corrected": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "pass": {
+                        "type": "number"
+                      },
+                      "total": {
+                        "type": "number"
+                      },
+                      "medianRatio": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "p75Ratio": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "maxRatio": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "heightDelta": {
+                    "type": "object",
+                    "properties": {
+                      "median": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "max": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "over10px": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
             "pairs": {
               "type": "array",
               "items": {
                 "type": "object",
-                "required": ["component", "breakpoint", "original"],
+                "required": [
+                  "component",
+                  "breakpoint",
+                  "original"
+                ],
                 "properties": {
-                  "component": {"type": "string"},
-                  "breakpoint": {"type": "string"},
-                  "original": {"type": "object", "required": ["ratio", "pass"]},
-                  "corrected": {"type": ["object", "null"]},
-                  "heightDelta": {"type": ["number", "null"]}
-                }
+                  "component": {
+                    "type": "string"
+                  },
+                  "breakpoint": {
+                    "type": "string"
+                  },
+                  "original": {
+                    "type": "object",
+                    "required": [
+                      "ratio",
+                      "pass"
+                    ],
+                    "properties": {
+                      "ratio": {
+                        "type": [
+                          "number",
+                          "null"
+                        ]
+                      },
+                      "pass": {
+                        "type": [
+                          "boolean",
+                          "null"
+                        ]
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "corrected": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "ratio": {
+                        "type": "number"
+                      },
+                      "pass": {
+                        "type": "boolean"
+                      }
+                    },
+                    "additionalProperties": false
+                  },
+                  "heightDelta": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "label": {
+                    "type": "string"
+                  },
+                  "width": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "widthDelta": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "figmaHeight": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "liveHeight": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "evidence": {
+                    "type": [
+                      "object",
+                      "null"
+                    ],
+                    "properties": {
+                      "specimen": {
+                        "type": "string"
+                      },
+                      "geometry": {
+                        "type": "string"
+                      },
+                      "index": {
+                        "type": "number"
+                      }
+                    },
+                    "additionalProperties": false
+                  }
+                },
+                "additionalProperties": false
               }
+            },
+            "source": {
+              "type": "string"
+            },
+            "metrics": {
+              "type": "object",
+              "additionalProperties": {
+                "type": "string"
+              }
+            },
+            "components": {
+              "type": "number"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "howToMeasure": {
+              "type": "string"
             }
           },
-          "allOf": [{"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ],
+          "additionalProperties": false
         },
-        "repeatability": {"$comment": "compare_runs.py across runs", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "partial", "not-measured"]}, "level": {"enum": ["build", "pipeline"]}, "comparisons": {"type": "array"}}, "allOf": [{"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]},
-        "schemaChurn": {"$comment": "did the run need a schema change or workaround", "type": "object", "required": ["status"], "properties": {"status": {"enum": ["measured", "not-measured"]}, "changed": {"type": "boolean"}, "changes": {"type": "array"}}, "allOf": [{"if": {"properties": {"status": {"const": "not-measured"}}}, "then": {"required": ["reason"]}}]},
+        "repeatability": {
+          "$comment": "compare_runs.ts across runs",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "partial",
+                "not-measured"
+              ]
+            },
+            "level": {
+              "enum": [
+                "build",
+                "pipeline"
+              ]
+            },
+            "comparisons": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "run": {
+                    "type": "string"
+                  },
+                  "path": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": [
+                      "number",
+                      "null"
+                    ]
+                  },
+                  "error": {
+                    "type": "string"
+                  },
+                  "totalNodes": {
+                    "type": "number"
+                  },
+                  "identicalNodes": {
+                    "type": "number"
+                  },
+                  "identicalApartFromAddresses": {
+                    "type": "number"
+                  },
+                  "matchedNodes": {
+                    "type": "number"
+                  },
+                  "categoryCounts": {
+                    "type": "object",
+                    "additionalProperties": {
+                      "type": "number"
+                    }
+                  },
+                  "artifactsEqual": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "artifactsDiffer": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "artifactsEquivalent": {
+                    "type": "array",
+                    "items": {
+                      "type": "string"
+                    }
+                  },
+                  "artifactDifferences": {
+                    "type": "array",
+                    "items": {
+                      "type": "object",
+                      "properties": {
+                        "artifact": {
+                          "type": "string"
+                        },
+                        "path": {
+                          "type": "string"
+                        }
+                      },
+                      "required": [],
+                      "additionalProperties": false
+                    }
+                  },
+                  "pageOrderEqual": {
+                    "type": "boolean"
+                  },
+                  "accuracyAgreement": {
+                    "type": "object",
+                    "properties": {
+                      "metric": {
+                        "type": "string"
+                      },
+                      "pairs": {
+                        "type": "number"
+                      },
+                      "sameVerdict": {
+                        "type": "number"
+                      },
+                      "maxRatioDifference": {
+                        "type": "number"
+                      }
+                    },
+                    "required": [],
+                    "additionalProperties": false
+                  }
+                },
+                "required": [],
+                "additionalProperties": false
+              }
+            },
+            "reason": {
+              "type": "string"
+            },
+            "howToMeasure": {
+              "type": "string"
+            },
+            "levelNote": {
+              "type": "string"
+            },
+            "minScore": {
+              "type": [
+                "number",
+                "null"
+              ]
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ],
+          "additionalProperties": false
+        },
+        "schemaChurn": {
+          "$comment": "did the run need a schema change or workaround",
+          "type": "object",
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "measured",
+                "not-measured"
+              ]
+            },
+            "changed": {
+              "type": "boolean"
+            },
+            "changes": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "at": {
+                    "type": "string"
+                  },
+                  "text": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "summary": {
+              "type": "string"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "howToMeasure": {
+              "type": "string"
+            }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ],
+          "additionalProperties": false
+        },
         "foundationsVoice": {
           "$comment": "slot for the foundations-and-voice rubric, scored by a person later",
           "type": "object",
-          "required": ["status", "rubric", "scores"],
+          "required": [
+            "status",
+            "rubric",
+            "scores"
+          ],
           "properties": {
-            "status": {"enum": ["scored-later", "measured"]},
-            "rubric": {"type": ["object", "null"]},
-            "scores": {"type": "array", "items": {"type": "object", "required": ["criterion", "score"], "properties": {"criterion": {"type": "string"}, "score": {"type": "number"}, "scorer": {"type": "string"}, "note": {"type": "string"}}}},
-            "scorers": {"type": "array", "items": {"type": "string"}}
-          }
+            "status": {
+              "enum": [
+                "scored-later",
+                "measured"
+              ]
+            },
+            "rubric": {
+              "anyOf": [
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "object",
+                  "properties": {
+                    "r": {
+                      "type": "number"
+                    },
+                    "g": {
+                      "type": "number"
+                    },
+                    "b": {
+                      "type": "number"
+                    },
+                    "a": {
+                      "type": "number"
+                    }
+                  },
+                  "required": [
+                    "r",
+                    "g",
+                    "b"
+                  ],
+                  "additionalProperties": false
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": [
+                    "null"
+                  ]
+                },
+                {
+                  "type": "null"
+                }
+              ]
+            },
+            "scores": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "criterion",
+                  "score"
+                ],
+                "properties": {
+                  "criterion": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": "number"
+                  },
+                  "scorer": {
+                    "type": "string"
+                  },
+                  "note": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "scorers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
         },
         "blindedJudgement": {
           "$comment": "slot for blinded visual judgement, 1 to 5 per criterion, scored later",
           "type": "object",
-          "required": ["status", "criteria", "scores"],
+          "required": [
+            "status",
+            "criteria",
+            "scores"
+          ],
           "properties": {
-            "status": {"enum": ["scored-later", "measured"]},
-            "scale": {"type": "object"},
-            "criteria": {"type": "array", "items": {"type": "object", "required": ["id", "label"]}},
-            "scores": {"type": "array", "items": {"type": "object", "required": ["criterion", "score", "scorer"], "properties": {"criterion": {"type": "string"}, "score": {"type": "integer"}, "scorer": {"type": "string"}}}},
-            "scorers": {"type": "array", "items": {"type": "string"}}
-          }
+            "status": {
+              "enum": [
+                "scored-later",
+                "measured"
+              ]
+            },
+            "scale": {
+              "type": "object",
+              "properties": {
+                "min": {
+                  "type": "number"
+                },
+                "max": {
+                  "type": "number"
+                }
+              },
+              "additionalProperties": false
+            },
+            "criteria": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "id",
+                  "label"
+                ],
+                "properties": {
+                  "id": {
+                    "type": "string"
+                  },
+                  "label": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "scores": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "required": [
+                  "criterion",
+                  "score",
+                  "scorer"
+                ],
+                "properties": {
+                  "criterion": {
+                    "type": "string"
+                  },
+                  "score": {
+                    "type": "integer"
+                  },
+                  "scorer": {
+                    "type": "string"
+                  }
+                },
+                "additionalProperties": false
+              }
+            },
+            "scorers": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            },
+            "reason": {
+              "type": "string"
+            }
+          },
+          "additionalProperties": false
         }
       }
     }

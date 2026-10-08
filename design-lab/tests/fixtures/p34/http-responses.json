@@ -1,0 +1,140 @@
+[
+  {
+    "path": "/redirect",
+    "status": 302,
+    "headers": {
+      "Location": "/pages/0"
+    }
+  },
+  {
+    "path": "/relative",
+    "status": 301,
+    "headers": {
+      "Location": "redirect"
+    }
+  },
+  {
+    "path": "/malformed",
+    "status": 302,
+    "headers": {
+      "Location": "http://["
+    }
+  },
+  {
+    "path": "/unsupported",
+    "status": 302,
+    "headers": {
+      "Location": "file:///tmp/private"
+    }
+  },
+  {
+    "path": "/error",
+    "status": 503,
+    "body": "Unavailable"
+  },
+  {
+    "path": "/missing",
+    "status": 404,
+    "body": "Not found"
+  },
+  {
+    "path": "/drop",
+    "drop": true
+  },
+  {
+    "path": "/pages/0",
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/html"
+    },
+    "body": "<html><title>Page 0</title><main><h1>Program 0</h1><p>Published content</p></main></html>"
+  },
+  {
+    "path": "/pages/1",
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/html"
+    },
+    "body": "<html><title>Page 1</title><main><h1>Program 1</h1><p>Published content</p></main></html>"
+  },
+  {
+    "path": "/pages/2",
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/html"
+    },
+    "body": "<html><title>Page 2</title><main><h1>Program 2</h1><p>Published content</p></main></html>"
+  },
+  {
+    "path": "/pages/3",
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/html"
+    },
+    "body": "<html><title>Page 3</title><main><h1>Program 3</h1><p>Published content</p></main></html>"
+  },
+  {
+    "path": "/pages/4",
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/html"
+    },
+    "body": "<html><title>Page 4</title><main><h1>Program 4</h1><p>Published content</p></main></html>"
+  },
+  {
+    "path": "/pages/5",
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/html"
+    },
+    "body": "<html><title>Page 5</title><main><h1>Program 5</h1><p>Published content</p></main></html>"
+  },
+  {
+    "path": "/pages/6",
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/html"
+    },
+    "body": "<html><title>Page 6</title><main><h1>Program 6</h1><p>Published content</p></main></html>"
+  },
+  {
+    "path": "/pages/7",
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/html"
+    },
+    "body": "<html><title>Page 7</title><main><h1>Program 7</h1><p>Published content</p></main></html>"
+  },
+  {
+    "path": "/pages/8",
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/html"
+    },
+    "body": "<html><title>Page 8</title><main><h1>Program 8</h1><p>Published content</p></main></html>"
+  },
+  {
+    "path": "/pages/9",
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/html"
+    },
+    "body": "<html><title>Page 9</title><main><h1>Program 9</h1><p>Published content</p></main></html>"
+  },
+  {
+    "path": "/pages/10",
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/html"
+    },
+    "body": "<html><title>Page 10</title><main><h1>Program 10</h1><p>Published content</p></main></html>"
+  },
+  {
+    "path": "/pages/11",
+    "status": 200,
+    "headers": {
+      "Content-Type": "text/html"
+    },
+    "body": "<html><title>Page 11</title><main><h1>Program 11</h1><p>Published content</p></main></html>"
+  }
+]

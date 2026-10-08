@@ -8,7 +8,7 @@ The source data will differ wildly. The result must not.
 
 ## How to use this document
 
-- `verify.py` checks against this file. A finding is a **blocker** or a **major**. A visual-fidelity blocker cannot be waived while the component is reported as built.
+- `verify.ts` checks against this file. A finding is a **blocker** or a **major**. A visual-fidelity blocker cannot be waived while the component is reported as built.
 - Every artifact stamps `standardVersion` so a library can state which edition it was built to.
 - Deviations are permitted where a codebase genuinely cannot supply something. They are **recorded on the Getting Started page in plain language**, not left for a reader to discover.
 
@@ -107,7 +107,7 @@ Rules:
 
 - **A Foundations page exists only if the token source has values for it.** Omit `Elevation & Shape` when the codebase defines no shadows or radii — and say so under Known gaps. Never publish an empty page; an empty page reads as "this system has none of these", which is a different claim from "we could not find any".
 - **A component tier page always exists**, even at zero components, because absence is the finding. Its header panel states the count, placements and thresholds; an empty tier says why in one line.
-- **Every page is drawn by a fixed template** from `scripts/render/`: `pages.js` creates and orders them, `cover.js`, `getting_started.js`, `foundation.js` and `tier_page.js` draw them. A Foundations page is one 1440-wide panel; colour swatches are 152 × 96 and bound to their variable; type is shown at true size with a one-line specification; spacing as bars whose width is bound to the variable.
+- **Every page is drawn by a fixed template** from `scripts/render/`: `pages.ts` creates and orders them, `cover.ts`, `getting_started.ts`, `foundation.ts` and `tier_page.ts` draw them. A Foundations page is one 1440-wide panel; colour swatches are 152 × 96 and bound to their variable; type is shown at true size with a one-line specification; spacing as bars whose width is bound to the variable.
 - **Foundations — Brand Voice & Language** exists when the published pages could be read. Every statement on it is measured from the site's copy (§9.1); it is never taken from a brand document and never invented.
 - **Examples** exists when page compositions were read. It recomposes up to three real pages from INSTANCES of the library components, in the order the live page renders them, at desktop and at mobile. It holds no components.
 - **No divider pages.** Typographic separators like `——— FOUNDATIONS ———` are unnavigable, appear in Find results as noise, and do not survive a rename.
@@ -161,7 +161,7 @@ Variant axes follow `variant-policy.md`. A component whose axes would explode is
 
 One block per built component, on its tier page. The block is the component's documentation and its specimen in one frame, so the two cannot drift apart. It follows the pattern the best single-site libraries share (Ontario, the United States Web Design System, GOV.UK, figma.com): the real component at real breakpoints, side by side, with a short fixed documentation panel beside it. Heavier documentation belongs in `components.json`, where a machine can read it.
 
-The block is drawn by `scripts/render/component_block.js` from arguments `figma_build.py` computes. Nothing in it is laid out by hand, so it is identical on every run.
+The block is drawn by `scripts/render/component_block.ts` from arguments `figma_build.ts` computes. Nothing in it is laid out by hand, so it is identical on every run.
 
 Left, the **documentation panel** (560 wide, white, 40 of padding), sections in this order:
 
@@ -174,11 +174,11 @@ Left, the **documentation panel** (560 wide, white, 40 of padding), sections in 
 | `Relationships` | components it contains, components it is placed inside, theme templates that render it |
 | `Notes` | only recorded source defects, at most four |
 
-Right, the **specimen**: breakpoint column labels (`Mobile · 345px`, narrowest first), then the ONE component shown at every width — instances resized to mobile and tablet with their Breakpoint mode set, and the master itself at desktop — then `Live reference`: the captured screenshots in the same columns at the same scale, so a reader compares by looking down. The automatic comparison (`figma_compare.py`) measures each pair from one screenshot of the specimen and records the result in the build record.
+Right, the **specimen**: breakpoint column labels (`Mobile · 345px`, narrowest first), then the ONE component shown at every width — instances resized to mobile and tablet with their Breakpoint mode set, and the master itself at desktop — then `Live reference`: the captured screenshots in the same columns at the same scale, so a reader compares by looking down. The automatic comparison (`figma_compare.ts`) measures each pair from one screenshot of the specimen and records the result in the build record.
 
 Rules:
 
-- **The component is the rendered interface.** Built by `scripts/responsive.py` from the three measured widths: auto layout wherever auto layout reproduces the measured positions within two pixels at every width; otherwise a wrapping row of slots whose widths and offsets are Breakpoint variables; absolute positions only when neither can, and the choice recorded.
+- **The component is the rendered interface.** Built by `src/responsive.ts` from the three measured widths: auto layout wherever auto layout reproduces the measured positions within two pixels at every width; otherwise a wrapping row of slots whose widths and offsets are Breakpoint variables; absolute positions only when neither can, and the choice recorded.
 - **The desktop, tablet and mobile trio is required** for every asset reported as built, as the master plus two instances and as live reference. A width without a trustworthy capture makes the component `Not built — incomplete visual evidence`.
 - **Fields are source-complete.** A component with no fields says so. An option axis the capture cannot show (only the rendered option is drawn) is named in `Fields` and under Known gaps, never silently dropped.
 - **No authoring diagrams.** Field names never appear inside the component master.
@@ -205,7 +205,7 @@ Documentation is neutral and belongs to design-lab, not to the site. The site's 
 | Page background | #f4f4f5 |
 | Spacing | 4, 8, 16, 24, 32, 48, 80, 160 — nothing else |
 
-These values live in `scripts/render/_kit.js` and only there.
+These values live in `scripts/render/_kit.ts` and only there.
 
 ---
 
@@ -243,7 +243,7 @@ The library's authority rests on every number being traceable. Nothing here is e
 
 ### 7.1 Provenance
 
-Recorded where developers look, not on any page: as hidden plugin data on the document and the Cover (`designlab` / `provenance`, written by `cover.js`), and in the benchmark report (`design-lab:evaluate`). It holds the source and commit, the site the captures came from, the capture widths, the standard version, the renderer runtime, the build date and the command to regenerate. Getting Started keeps only the regeneration commands (§8). Every count any page shows comes from `scripts/library_counts.py`, the same module the benchmark report uses.
+Recorded where developers look, not on any page: as hidden plugin data on the document and the Cover (`designlab` / `provenance`, written by `cover.ts`), and in the benchmark report (`design-lab:evaluate`). It holds the source and commit, the site the captures came from, the capture widths, the standard version, the renderer runtime, the build date and the command to regenerate. Getting Started keeps only the regeneration commands (§8). Every count any page shows comes from `src/library-counts.ts`, the same module the benchmark report uses.
 
 ### 7.2 Usage tiers
 
@@ -278,7 +278,7 @@ The orientation page and the index, merged. It is where a reader lands second an
 Sections in order:
 
 1. **Header** — what this file is, and one line on what it is not.
-2. **Coverage** — components, placements, and **built versus not built**, per tier, from `scripts/library_counts.py`, so the numbers agree with the Cover and the benchmark report.
+2. **Coverage** — components, placements, and **built versus not built**, per tier, from `src/library-counts.ts`, so the numbers agree with the Cover and the benchmark report.
 3. **How this file is organised** — tier thresholds with any override and its reason (§7.2); the two usage axes and why (§7.3); the note that non-tier axes are chips.
 4. **What each card tells you** — the sections of §5, so a reader knows what they are looking at.
 5. **Index** — the jump list, sorted by placements descending within tier. Columns are `Placements`, `Component`, `Tier`, `Type`, `Status`, and `Documentation`, in that order. The component name links to the Figma master; Documentation links to its card. Not-built rows have no fake destination. This is a table of contents, not documentation and not a search index.
@@ -293,20 +293,20 @@ The index lives here, under the summary that gives it meaning, rather than alone
 
 ## 9. The Cover
 
-A poster, the file thumbnail, and the only page a stakeholder may ever see. It is written for the library's recipient, so it carries nothing about how the file was made. One 1440 × 900 frame on a Velir Navy `#001B67` ground with 80 of margin, drawn by `scripts/render/cover.js`, containing only the items below. The ground is dark enough that a white logo placed on it later keeps about 16 to 1 contrast, so it is never lightened. Every text on the Cover is IBM Plex Sans; if Figma cannot load it, the Cover falls back to the kit font rather than failing the build.
+A poster, the file thumbnail, and the only page a stakeholder may ever see. It is written for the library's recipient, so it carries nothing about how the file was made. One 1440 × 900 frame on a Velir Navy `#001B67` ground with 80 of margin, drawn by `scripts/render/cover.ts`, containing only the items below. The ground is dark enough that a white logo placed on it later keeps about 16 to 1 contrast, so it is never lightened. Every text on the Cover is IBM Plex Sans; if Figma cannot load it, the Cover falls back to the kit font rather than failing the build.
 
 - **Headline** — the site's own name, IBM Plex Sans SemiBold 128, white.
 - **Subtitle** — at most one generic line, `Component Library`, Regular 28 in `#E6E8FF`.
 - **Total** — the number of components the library holds, SemiBold 176 white, followed on the same baseline, 24 apart, by the word `components` in Medium 48 white.
-- **Tier breakdown** — that total split into four categories, always in this order: High use, Medium use, Low use and Other. Other holds every built component that is not High, Medium or Low use: Structural Only, and any with no usage data or no usage. Each component has one tier, so it is counted once, and the four add up to the total; a component placed on pages and also nested in others counts by its placements. A bar under the total is the total: its full width is 100%, and each category's segment is its exact share, with no gaps and widths that add up to the bar to the pixel. Each category has one color, used for its segment and for the 4 px top edge of its tile, so the bar reads without a legend. The bar is 16 px tall with a radius of 8, clipped, and its widths are rounded by largest remainder. The palette is fixed, the same on every run and never the site's brand; it is adapted from the Velir chart palette with gold moved to High use: High use `#FAD200` gold, Medium use `#00AEEF` cyan, Low use `#00A457` green and Other `#417DFC` blue. Each has at least 3 to 1 contrast against the ground, the threshold for graphics, so every segment is seen and none reads as empty; Other is deliberately the lowest of the four, and grey is never used. Crimson `#B9003F` is reserved for retirement candidates, should the Cover ever show them, because it reads as a recommendation to remove. The ground and the palette are defined once, in `scripts/library_counts.py` (`COVER_GROUND`, `TIER_COLORS`), and reach `cover.js` through the cover arguments; the benchmark report's coverage strip uses the same definition. One tile per category, each a frame named `Tier / <tier>` with its number in SemiBold 44 white and its label in Medium 16 `#E6E8FF` with about 0.04 em letter spacing.
+- **Tier breakdown** — that total split into four categories, always in this order: High use, Medium use, Low use and Other. Other holds every built component that is not High, Medium or Low use: Structural Only, and any with no usage data or no usage. Each component has one tier, so it is counted once, and the four add up to the total; a component placed on pages and also nested in others counts by its placements. A bar under the total is the total: its full width is 100%, and each category's segment is its exact share, with no gaps and widths that add up to the bar to the pixel. Each category has one color, used for its segment and for the 4 px top edge of its tile, so the bar reads without a legend. The bar is 16 px tall with a radius of 8, clipped, and its widths are rounded by largest remainder. The palette is fixed, the same on every run and never the site's brand; it is adapted from the Velir chart palette with gold moved to High use: High use `#FAD200` gold, Medium use `#00AEEF` cyan, Low use `#00A457` green and Other `#417DFC` blue. Each has at least 3 to 1 contrast against the ground, the threshold for graphics, so every segment is seen and none reads as empty; Other is deliberately the lowest of the four, and grey is never used. Crimson `#B9003F` is reserved for retirement candidates, should the Cover ever show them, because it reads as a recommendation to remove. The ground and the palette are defined once, in `src/library-counts.ts` (`COVER_GROUND`, `TIER_COLORS`), and reach `cover.ts` through the cover arguments; the benchmark report's coverage strip uses the same definition. One tile per category, each a frame named `Tier / <tier>` with its number in SemiBold 44 white and its label in Medium 16 `#E6E8FF` with about 0.04 em letter spacing.
 
-Nothing else: no eyebrow naming the platform, no lede, no not-built count (Getting Started carries it), no placement or reference counts, no token count, and no provenance. Provenance is stored as hidden plugin data (§7.1). The numbers come from `scripts/library_counts.py`.
+Nothing else: no eyebrow naming the platform, no lede, no not-built count (Getting Started carries it), no placement or reference counts, no token count, and no provenance. Provenance is stored as hidden plugin data (§7.1). The numbers come from `src/library-counts.ts`.
 
 ---
 
 ### 9.1 Brand Voice & Language
 
-Drawn by `scripts/render/voice.js` from `voice.json` (`scripts/extract_voice.py`), which reads the published pages. Sections in order: a lede stating the corpus (pages, sentences, calls to action, date); a positioning band quoting the homepage heading and opening paragraphs; five evidence tiles; OBSERVED and WATCH rows for Voice, Naming & terminology, Headlines, Calls to action, Readability and Search; vocabulary chips; a mechanics table; and published inconsistencies on their own panel, recorded as defects, never as guidance.
+Drawn by `scripts/render/voice.ts` from `voice.json` (`scripts/extract_voice.ts`), which reads the published pages. Sections in order: a lede stating the corpus (pages, sentences, calls to action, date); a positioning band quoting the homepage heading and opening paragraphs; five evidence tiles; OBSERVED and WATCH rows for Voice, Naming & terminology, Headlines, Calls to action, Readability and Search; vocabulary chips; a mechanics table; and published inconsistencies on their own panel, recorded as defects, never as guidance.
 
 - Every number carries its denominator. Every quote names its page.
 - An OBSERVED row states what the majority of the site does and never contradicts its own numbers. WATCH rows are threshold-based and documented in `references/voice.md`.

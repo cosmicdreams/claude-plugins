@@ -3,22 +3,263 @@
   "$id": "https://design-lab.local/schemas/render-evidence.schema.json",
   "title": "design-lab Drupal rendering evidence",
   "type": "object",
-  "required": ["standardVersion", "generatedAt", "source", "items", "totals", "problems"],
+  "required": [
+    "standardVersion",
+    "generatedAt",
+    "source",
+    "items",
+    "totals",
+    "problems"
+  ],
   "properties": {
-    "standardVersion": {"type": "string"},
-    "generatedAt": {"type": "string"},
-    "source": {"type": "object", "required": ["strategy", "root"]},
+    "standardVersion": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "strategy",
+        "root"
+      ],
+      "properties": {
+        "strategy": {
+          "type": "string"
+        },
+        "root": {
+          "type": "string"
+        }
+      },
+      "additionalProperties": false
+    },
     "items": {
       "type": "object",
       "minProperties": 1,
       "additionalProperties": {
         "type": "object",
-        "required": ["templates", "sdc", "sdcDefinitions", "stylesheets", "styleFacts",
-          "rootClasses", "referencedFields", "defects", "confidence"]
-      }
+        "required": [
+          "templates",
+          "sdc",
+          "sdcDefinitions",
+          "stylesheets",
+          "styleFacts",
+          "rootClasses",
+          "referencedFields",
+          "defects",
+          "confidence"
+        ],
+        "properties": {
+          "templates": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sdc": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sdcDefinitions": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "stylesheets": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "styleFacts": {
+            "type": "object",
+            "properties": {
+              "mediaQueries": {
+                "type": "integer"
+              },
+              "partRules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "selector": {
+                      "type": "string"
+                    },
+                    "declarations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "property": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          },
+                          "resolution": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "sourceRef": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              },
+              "rootRules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "selector": {
+                      "type": "string"
+                    },
+                    "declarations": {
+                      "type": "array",
+                      "items": {
+                        "type": "object",
+                        "properties": {
+                          "property": {
+                            "type": "string"
+                          },
+                          "value": {
+                            "type": "string"
+                          },
+                          "resolution": {
+                            "type": "string"
+                          }
+                        },
+                        "additionalProperties": false
+                      }
+                    },
+                    "sourceRef": {
+                      "type": "string"
+                    }
+                  },
+                  "additionalProperties": false
+                }
+              }
+            },
+            "additionalProperties": false
+          },
+          "rootClasses": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "referencedFields": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "defects": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "detail": {
+                  "type": "string"
+                },
+                "evidence": {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                },
+                "kind": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            }
+          },
+          "confidence": {
+            "type": "string"
+          },
+          "genericTemplate": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ]
+          },
+          "rootSdc": {
+            "anyOf": [
+              {
+                "type": "null"
+              },
+              {
+                "type": "string"
+              }
+            ]
+          }
+        },
+        "additionalProperties": false
+      },
+      "properties": {}
     },
-    "totals": {"type": "object"},
-    "problems": {"type": "array"}
+    "totals": {
+      "type": "object",
+      "properties": {
+        "components": {
+          "type": "number"
+        },
+        "directTemplates": {
+          "type": "number"
+        },
+        "sdcLinks": {
+          "type": "number"
+        },
+        "styleLinks": {
+          "type": "number"
+        },
+        "defects": {
+          "type": "number"
+        }
+      },
+      "additionalProperties": false
+    },
+    "problems": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceRef": {
+            "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          }
+        },
+        "required": [],
+        "additionalProperties": false
+      }
+    }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }

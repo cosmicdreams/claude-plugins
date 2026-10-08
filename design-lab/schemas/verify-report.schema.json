@@ -3,15 +3,152 @@
   "$id": "https://design-lab.local/schemas/verify-report.schema.json",
   "title": "design-lab whole-file verification receipt",
   "type": "object",
-  "required": ["standardVersion", "generatedAt", "open", "waived", "passed", "inapplicable", "completeness"],
+  "required": [
+    "standardVersion",
+    "generatedAt",
+    "open",
+    "waived",
+    "passed",
+    "inapplicable",
+    "completeness"
+  ],
   "properties": {
-    "standardVersion": {"type": "string"},
-    "generatedAt": {"type": "string"},
-    "open": {"type": "array"},
-    "waived": {"type": "array"},
-    "passed": {"type": "array"},
-    "inapplicable": {"type": "array"},
-    "completeness": {"type": "object"}
+    "standardVersion": {
+      "type": "string"
+    },
+    "generatedAt": {
+      "type": "string"
+    },
+    "open": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          },
+          "scope": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "waived": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "properties": {
+          "check": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "evidence": {
+            "type": [
+              "array",
+              "null"
+            ],
+            "items": {
+              "type": [
+                "string",
+                "number"
+              ]
+            }
+          },
+          "scope": {
+            "type": "string"
+          },
+          "severity": {
+            "type": "string"
+          },
+          "waiver": {
+            "type": "object",
+            "properties": {
+              "check": {
+                "type": "string"
+              },
+              "date": {
+                "type": "string"
+              },
+              "decidedBy": {
+                "type": "string"
+              },
+              "reason": {
+                "type": "string"
+              },
+              "scope": {
+                "type": "string"
+              }
+            },
+            "additionalProperties": false
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "passed": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "inapplicable": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "completeness": {
+      "type": "object",
+      "properties": {
+        "built": {
+          "type": "number"
+        },
+        "expected": {
+          "type": "number"
+        },
+        "byTier": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "anyOf": [
+                {
+                  "type": "number"
+                },
+                {
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
+                }
+              ]
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    }
   },
-  "additionalProperties": true
+  "additionalProperties": false
 }
