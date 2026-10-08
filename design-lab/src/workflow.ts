@@ -7,7 +7,7 @@ import { request as httpsRequest } from 'node:https';
 import { request as httpRequest } from 'node:http';
 import { createHash } from 'node:crypto';
 import { pluginRoot, dependencyFolder, sharedRequire } from './runtime.ts';
-import { validate, writeJson } from './contracts.ts';
+import { validate, writeJson, writeArtifact } from './contracts.ts';
 import type { ArtifactKind } from './contracts.ts';
 import { loadProject, invalidate, now } from './discovery-workflow.ts';
 import * as config from './lab-config.ts';
@@ -40,8 +40,8 @@ export const pluginVersion = (): string => read<{version:string}>(resolve(plugin
 export function gitValue(repo: string, ...args: string[]): string | null { const p = spawnSync('git', ['-C', repo, ...args], { encoding: 'utf8' }); return p.status === 0 ? p.stdout.trim() : null; }
 export function pluginSource(): Required<NonNullable<RunIdentity['plugin']>> { const tracked = gitValue(pluginRoot, 'ls-files', '--error-unmatch', '.claude-plugin/plugin.json'), commit = tracked ? gitValue(pluginRoot, 'rev-parse', 'HEAD') : null; return { version: pluginVersion(), commit, dirty: commit ? !!gitValue(pluginRoot, 'status', '--porcelain', '--', '.') : null }; }
 export function appendJsonl(path: string, entry: PhaseLogEntry): void { mkdirSync(dirname(path), { recursive: true }); const fd = openSync(path, 'a'); try { writeSync(fd, JSON.stringify(entry) + '\n'); fsyncSync(fd); } finally { closeSync(fd); } }
-export function setPhase(path: string, project: Project, phase: PhaseName, status: PhaseStatus, detail?: PhaseDetail, at = now()): void { project.phases ??= {}; project.phases[phase] = { status, updatedAt: at, ...(detail && Object.keys(detail).length ? { detail } : {}) }; writeJson(path, project); appendJsonl(resolve(dirname(path), 'phase-log.jsonl'), { at, phase, status }); }
-export function runIdentity(args: Pick<CommandArgs<'identity'>,'site-label'|'site-url'|'operator'|'model'>, repo: string) {
+export function setPhase(path: string, project: Project, phase: PhaseName, status: PhaseStatus, detail?: PhaseDetail, at = now()): void { project.phases ??= {}; project.phases[phase] = { status, updatedAt: at, ...(detail && Object.keys(detail).length ? { detail } : {}) }; writeArtifact('project', path, project); appendJsonl(resolve(dirname(path), 'phase-log.jsonl'), { at, phase, status }); }
+export function runIdentity(args: Pick<CommandArgs<'identity'>,'site-label'|'site-url'|'operator'|'model'>, repo: string): RunIdentity {
   const cwd = process.cwd(), configDir = process.env['CLAUDE_CONFIG_DIR'] || resolve(homedir(), '.claude');
   return { startedAt: now(), siteLabel: args['site-label'] ?? null, siteUrl: args['site-url'] ?? null, operator: args.operator || config.readConfig().operator || config.claudeAccountName() || gitValue(repo, 'config', 'user.name') || process.env['USER'] || null, plugin: pluginSource(), claude: { configDir, model: args.model || process.env['ANTHROPIC_MODEL'] || process.env['CLAUDE_MODEL'] || null, insideClaudeCode: !!process.env['CLAUDECODE'], workingDirectory: cwd, transcripts: resolve(configDir, 'projects', cwd.replace(/[^A-Za-z0-9]/g, '-')) } };
 }
@@ -52,8 +52,8 @@ export function init(args: CommandArgs<'init'>) {
   if (inside && !args['allow-in-repository']) throw new Error(`${workspace} is inside the working copy ${inside}; runs are personal and never committed, so they live outside every repository`);
   const path = resolve(workspace, 'project.json'); if (existsSync(path) && !args.force) throw new Error(`${path} exists; use --force only to intentionally replace it`);
   const standard = readFileSync(resolve(pluginRoot, 'references/library-standard.md'), 'utf8').split('**Standard version: ')[1]!.split('**')[0];
-  const project: Project & {run:ReturnType<typeof runIdentity>;createdAt:string} = { schemaVersion: 1, standardVersion: standard ?? '', pluginVersion: pluginVersion(), createdAt: now(), repository: { root: repo, commit: gitValue(repo, 'rev-parse', 'HEAD'), dirty: !!gitValue(repo, 'status', '--porcelain') }, target: { figmaFileKey: null, figmaUrl: null }, decisions: { componentSource: null, tokenSource: null, usageSource: null, pageStrategy: 'usage-tier' }, phases: Object.fromEntries(['discovery', 'inventory', 'usage', 'capture', 'tokens', 'plan', 'foundation', 'components', 'index', 'verify'].map(name => [name, { status: 'pending' }])), artifacts: {}, run: runIdentity(args, repo) };
-  writeJson(path, project); appendJsonl(resolve(workspace, 'phase-log.jsonl'), { at: project.createdAt, phase: 'init', status: 'complete' }); writeActiveRun(workspace); console.error(`design-lab run folder: ${workspace}`); return { project: path, repository: project.repository, run: project.run };
+  const createdAt = now(), run = runIdentity(args, repo), project: Project = { schemaVersion: 1, standardVersion: standard ?? '', pluginVersion: pluginVersion(), createdAt, repository: { root: repo, commit: gitValue(repo, 'rev-parse', 'HEAD'), dirty: !!gitValue(repo, 'status', '--porcelain') }, target: { figmaFileKey: null, figmaUrl: null }, decisions: { componentSource: null, tokenSource: null, usageSource: null, pageStrategy: 'usage-tier' }, phases: Object.fromEntries(['discovery', 'inventory', 'usage', 'capture', 'tokens', 'plan', 'foundation', 'components', 'index', 'verify'].map(name => [name, { status: 'pending' }])), artifacts: {}, run };
+  writeArtifact('project', path, project); appendJsonl(resolve(workspace, 'phase-log.jsonl'), { at: createdAt, phase: 'init', status: 'complete' }); writeActiveRun(workspace); console.error(`design-lab run folder: ${workspace}`); return { project: path, repository: project.repository, run };
 }
 export const figmaKey = (url: string | undefined): string | null => /\/design\/([A-Za-z0-9]+)/.exec(url ?? '')?.[1] ?? null;
 export function figmaBuild(args: CommandArgs<'figma-build'>) {
@@ -76,26 +76,26 @@ export function identity(value: string, args: CommandArgs<'identity'>) {
   if (args['no-schema-change'] && args['schema-change']?.length) throw new Error('use --no-schema-change or --schema-change, not both');
   if (args['no-schema-change']) run.schemaChurn = { changed: false, changes: [], recordedAt: now() };
   if (args['schema-change']?.length) run.schemaChurn = { changed: true, changes: [...(run.schemaChurn?.changed ? run.schemaChurn.changes ?? [] : []), ...args['schema-change'].map((text: string) => ({ at: now(), text }))], recordedAt: now() };
-  p.run = run; writeJson(path, p); return run;
+  p.run = run; writeArtifact('project', path, p); return run;
 }
 export function approve(value: string, args: CommandArgs<'approve'>) {
   const [path, project] = loadProject(value), p = project;
   if (p.phases['plan']?.status !== 'awaiting-approval') throw new Error('plan is not awaiting approval'); let by = args.by;
   if (args['from-preflight']) { const detail = p.phases['preflight']?.detail ?? {}; if (detail.planApproval !== 'proposed') throw new Error('preflight chose to review the plan before building: approve with --by <name>'); by = `${detail.operator} (preflight: build the plan as proposed)`; }
-  if (!by) throw new Error('approve needs --by <name> or --from-preflight'); Object.assign(p.phases['plan'], { status: 'approved', approvedAt: now(), approvedBy: by }); writeJson(path, p); appendJsonl(resolve(dirname(path), 'phase-log.jsonl'), { at: p.phases['plan'].approvedAt!, phase: 'plan', status: 'approved' }); return p.phases['plan'];
+  if (!by) throw new Error('approve needs --by <name> or --from-preflight'); Object.assign(p.phases['plan'], { status: 'approved', approvedAt: now(), approvedBy: by }); writeArtifact('project', path, p); appendJsonl(resolve(dirname(path), 'phase-log.jsonl'), { at: p.phases['plan'].approvedAt!, phase: 'plan', status: 'approved' }); return p.phases['plan'];
 }
 export function target(value: string, url: string) {
   const [path, project] = loadProject(value), key = figmaKey(url); if (!key) throw new Error('Figma URL does not contain a /design/<file-key> target');
   if (project.target?.figmaFileKey && project.target?.figmaFileKey !== key) invalidate(project, ['foundation', 'components', 'index', 'verify'], ['foundation', 'build-record', 'index', 'verify-report']);
-  project.target = { figmaFileKey: key, figmaUrl: url, recordedAt: now() }; writeJson(path, project); return project.target;
+  project.target = { figmaFileKey: key, figmaUrl: url, recordedAt: now() }; writeArtifact('project', path, project); return project.target;
 }
 export function register(value: string, args: CommandArgs<'register'>) {
   const [path, project] = loadProject(value), workspace = dirname(path), file = resolve(args.path);
-  if (args.phase === 'capture') { invalidate(project, ['plan', 'components', 'index', 'verify'], ['plan', 'build-record', 'index', 'verify-report']); writeJson(path, project); }
+  if (args.phase === 'capture') { invalidate(project, ['plan', 'components', 'index', 'verify'], ['plan', 'build-record', 'index', 'verify-report']); writeArtifact('project', path, project); }
   const kind = args.kind ?? basename(file).replace(/\.json$/, '');
   const errors = validate(kind as ArtifactKind, read(file));
   const artifact = { path: relative(workspace, file), kind, sha256: 'sha256:' + createHash('sha256').update(readFileSync(file)).digest('hex'), valid: !errors.length, errors, updatedAt: now(), producedBy: { pluginDir: resolve(pluginRoot), toolVersion: `design-lab ${pluginVersion()}`, ...pluginSource() } };
-  project.artifacts[args.name] = artifact; writeJson(path, project); if (errors.length) throw new Error(`invalid ${args.name} artifact: ${errors.join('; ')}`);
+  project.artifacts[args.name] = artifact; writeArtifact('project', path, project); if (errors.length) throw new Error(`invalid ${args.name} artifact: ${errors.join('; ')}`);
   let coverage; if (args.phase === 'components') { coverage = componentCoverage(workspace, project); setPhase(path, project, 'components', coverage.planAvailable && !coverage.missing.length && !coverage.unexpected.length && !coverage.invalid.length ? 'complete' : 'running', coverage); } else if (args.phase) setPhase(path, project, args.phase, 'complete', { artifact: args.name });
   return { name: args.name, path: file, sha256: artifact.sha256, ...(coverage ? { componentCoverage: coverage } : {}) };
 }
@@ -145,7 +145,7 @@ export function reportLines(workspace: string, topic: string): string[] {
 }
 export async function fontPlan(workspace: string, project: Project, available: fonts.AvailableFonts | null): Promise<string[]> {
   const listing = resolve(workspace, 'figma/available-fonts.json'); if (available) writeJson(listing, available); else available = optional<fonts.AvailableFonts>(listing);
-  const doc = fonts.finalise(await fonts.plan({ run: workspace, repo: project.repository.root, ...(project.decisions?.sitestudioConfig!==undefined?{sitestudio:project.decisions.sitestudioConfig}:{}), figma: available })); doc.generatedAt = now(); writeJson(resolve(workspace, 'fonts.json'), doc); return fonts.summaryLines(doc);
+  const doc = fonts.finalise(await fonts.plan({ run: workspace, repo: project.repository.root, ...(project.decisions?.sitestudioConfig!==undefined?{sitestudio:project.decisions.sitestudioConfig}:{}), figma: available })); doc.generatedAt = now(); writeArtifact('fonts', resolve(workspace, 'fonts.json'), doc); return fonts.summaryLines(doc);
 }
 export async function siteResponse(url: string): Promise<{ reachable: boolean; detail: string; html?: string }> {
   return await new Promise(done => { let request: import('node:http').ClientRequest; try { request = (url.startsWith('https:') ? httpsRequest : httpRequest)(url, { rejectUnauthorized: false, timeout: 10_000 }, response => { const chunks: Buffer[] = []; response.on('data', chunk => chunks.push(Buffer.from(chunk))); response.on('end', () => done({ reachable: (response.statusCode ?? 500) < 500, detail: `HTTP ${response.statusCode}`, html: Buffer.concat(chunks).toString('utf8') })); response.on('error', error => done({ reachable: false, detail: error.message })); }); request.on('error', error => done({ reachable: false, detail: error.message })); request.on('timeout', () => request.destroy(new Error('site request timed out'))); request.end(); } catch (error) { done({ reachable: false, detail: String(error) }); } });
@@ -167,7 +167,7 @@ export async function preflight(value: string, args: CommandArgs<'preflight'>, d
   if (siteUrl) { const result = await (deps.siteResponse ?? siteResponse)(siteUrl); checks.site = { url: siteUrl, reachable:result.reachable, detail:result.detail }; answer('site', 'Local site', result.reachable, `a running local site at ${siteUrl} (${result.detail})`); if (result.html !== undefined) { const { enabled } = await import('./capture/twig.ts'); checks.twigDebug = { enabled: enabled(result.html) }; checklist.record('twig-debug', 'Twig debug markup', 'done', checks.twigDebug?.enabled ? null : 'Twig debug is off; the run turns it on at capture.'); } }
   answer('site-label', 'Site label for reports', siteLabel, 'a neutral site label for reports (--site-label)'); answer('operator', "Operator's name", operator, "the operator's name (--operator)"); answer('figma-url', 'Target Figma file address', key, 'the target Figma file address, https://www.figma.com/design/<file-key>/... (--figma-url)');
   if (usage && usage !== 'none') { const root = resolve(args['ddev-root'] || p.repository.root), ddevProject = existsSync(resolve(root, '.ddev')); checks.usage = { source: usage, ddevRoot: root, ddevProject }; answer('usage', `DDEV project for the ${usage} usage source`, ddevProject || args['usage-fallback'] === 'untiered', `a DDEV project at ${root}, or --usage-fallback untiered`); }
-  if (key) { const previous = p.target?.figmaFileKey; if (previous && previous !== key) invalidate(project, ['foundation', 'components', 'index', 'verify'], ['foundation', 'build-record', 'index', 'verify-report']); const connection = previous === key ? p.target?.connection || p.target?.preflight : null; p.target = { figmaFileKey: key, ...(args['figma-url']!==undefined?{figmaUrl:args['figma-url']} : {}), recordedAt: now(), ...(connection ? { connection } : {}) }; writeJson(path, p); } writeActiveRun(workspace);
+  if (key) { const previous = p.target?.figmaFileKey; if (previous && previous !== key) invalidate(project, ['foundation', 'components', 'index', 'verify'], ['foundation', 'build-record', 'index', 'verify-report']); const connection = previous === key ? p.target?.connection || p.target?.preflight : null; p.target = { figmaFileKey: key, ...(args['figma-url']!==undefined?{figmaUrl:args['figma-url']} : {}), recordedAt: now(), ...(connection ? { connection } : {}) }; writeArtifact('project', path, p); } writeActiveRun(workspace);
   const state = await (deps.serverStatus ?? runner.serverStatus)(workspace); checks.runner = state; const usable = !state.portInUse || state.alive || !!state.otherRun && runner.runFinished(state.otherRun);
   answer('runner-port', 'Runner port', usable, state.otherRun ? `Stop the other run with node ${resolve(pluginRoot, 'scripts/figma_runner.ts')} stop --project ${state.otherRun}` : `Stop the program using 127.0.0.1:${runner.PORT}`);
   const [browserOk, browserDetail] = (deps.browserReady ?? playwrightReady)(); let nodeCwd: string | null = dependencyFolder(), ready = browserOk;

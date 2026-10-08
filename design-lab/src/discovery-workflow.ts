@@ -10,11 +10,11 @@ import { dirname, resolve, relative } from "node:path";
 import { homedir } from "node:os";
 import { createHash } from "node:crypto";
 import { spawnSync } from "node:child_process";
-import { pathToFileURL } from "node:url";
-import { assertValid, validate, writeJson } from "./contracts.ts";
-import type { ArtifactKind } from "./contracts.ts";
+import { assertValid, validate, writeArtifact, appendPhaseLog } from "./contracts.ts";
+import type { ArtifactKind, ArtifactMap } from "./contracts.ts";
 import type { Project } from "./generated/project.ts";
 import type { Components } from "./generated/components.ts";
+import type { Tokens } from "./generated/tokens.ts";
 import { pluginRoot } from "./runtime.ts";
 import { detect } from "./detect.ts";
 import { summary } from "./sitestudio-source.ts";
@@ -24,6 +24,7 @@ import { build } from "./plan-variables.ts";
 import type { TokenInput } from "./plan-variables.ts";
 
 type JsonObject = Record<string, unknown>;
+type PhaseDetail = NonNullable<Project["phases"][string]["detail"]>;
 export const now = (): string =>
   new Date().toISOString().replace(/\.\d{3}Z$/, "+00:00");
 const read = <T>(path: string): T =>
@@ -55,7 +56,7 @@ function setPhase(
   project: Project,
   phase: string,
   status: string,
-  detail?: JsonObject,
+  detail?: PhaseDetail,
 ): void {
   const at = now();
   project.phases[phase] = {
@@ -63,11 +64,8 @@ function setPhase(
     updatedAt: at,
     ...(detail && Object.keys(detail).length ? { detail } : {}),
   };
-  writeJson(path, project);
-  appendFileSync(
-    resolve(dirname(path), "phase-log.jsonl"),
-    JSON.stringify({ at, phase, status }) + "\n",
-  );
+  writeArtifact("project", path, project);
+  appendPhaseLog(resolve(dirname(path), "phase-log.jsonl"), { at, phase, status });
 }
 function register(
   path: string,
@@ -103,18 +101,18 @@ function register(
       dirty: commit ? !!git(["status", "--porcelain", "--", "."]) : null,
     },
   };
-  writeJson(path, project);
+  writeArtifact("project", path, project);
 }
-function artifact(
+function artifact<K extends ArtifactKind>(
   path: string,
   project: Project,
   name: string,
-  kind: ArtifactKind,
-  document: unknown,
+  kind: K,
+  document: ArtifactMap[K],
 ): void {
   assertValid(kind, document);
   const output = resolve(dirname(path), `${kind}.json`);
-  writeJson(output, document);
+  writeArtifact(kind, output, document);
   register(path, project, name, output, kind);
 }
 export function markUntiered(document: Components): void {
@@ -224,7 +222,8 @@ export function selectProject(value: string, args: Selection): unknown {
       throw new Error(
         `${args[key]} is not a detected ${key} strategy: ${[...candidates[key]].sort().join(", ")}`,
       );
-  if (args.usage === "none" && (!args.degradedReason || !args.by))
+  const waiver = args.degradedReason && args.by ? { reason: args.degradedReason, by: args.by } : null;
+  if (args.usage === "none" && !waiver)
     throw new Error(
       args.degradedReason
         ? "--usage none requires --by <human-decider>"
@@ -314,10 +313,9 @@ export function selectProject(value: string, args: Selection): unknown {
   if (args.token) project.decisions["tokenSource"] = args.token;
   if (args.usage) {
     project.decisions["usageSource"] = args.usage;
-    if (args.usage === "none") {
+    if (args.usage === "none" && waiver) {
       setPhase(path, project, "usage", "waived", {
-        reason: args.degradedReason,
-        by: args.by,
+        ...waiver,
         waivedAt: now(),
         effect: "usage tiers and prioritisation are unverified",
       });
@@ -330,21 +328,38 @@ export function selectProject(value: string, args: Selection): unknown {
     } else project.phases["usage"] = { status: "pending" };
   }
   project.decisions["selectedAt"] = now();
-  writeJson(path, project);
+  writeArtifact("project", path, project);
   return project.decisions;
 }
-const componentModules: Record<string, string> = {
-  canvas: "extract-canvas",
-  "drupal-authoring": "extract-drupal-authoring",
-  paragraphs: "extract-paragraphs",
-  sdc: "extract-sdc",
-  sitestudio: "extract-sitestudio",
+/** Each extractor is imported by name, so the compiler checks that it returns the artifact it is written as. */
+const componentExtractors: Record<
+  string,
+  (root: string, config: string | null) => Promise<Components>
+> = {
+  canvas: async (root) => (await import("./extract-canvas.ts")).extract(root),
+  "drupal-authoring": async (root) =>
+    (await import("./extract-drupal-authoring.ts")).extract(root),
+  paragraphs: async (root) =>
+    (await import("./extract-paragraphs.ts")).extract(root),
+  sdc: async (root) => (await import("./extract-sdc.ts")).extract(root),
+  sitestudio: async (root, config) =>
+    (await import("./extract-sitestudio.ts")).extract(root, config),
 };
-const tokenModules: Record<string, string> = {
-  "css-custom-properties": "extract-tokens-cssvars",
-  "sass-sourcemap": "extract-tokens-sourcemap",
-  "sass-source": "extract-tokens-sass",
-  "sitestudio-styles": "extract-tokens-sitestudio",
+const tokenExtractors: Record<
+  string,
+  (root: string, config: string | null) => Promise<Tokens>
+> = {
+  "css-custom-properties": async (root) =>
+    (await import("./extract-tokens-cssvars.ts")).extract(root),
+  "sass-sourcemap": async (root) =>
+    (await import("./extract-tokens-sourcemap.ts")).extract(root),
+  "sass-source": async (root) =>
+    (await import("./extract-tokens-sass.ts")).extract(root),
+  "sitestudio-styles": async (root, config) =>
+    (await import("./extract-tokens-sitestudio.ts")).extract(
+      root,
+      config ?? undefined,
+    ),
 };
 export async function extractProject(
   value: string,
@@ -356,22 +371,15 @@ export async function extractProject(
     root = project.repository.root;
   if (kind === "components" || kind === "all") {
     const strategy = String(project.decisions["componentSource"]);
-    if (!componentModules[strategy])
+    const extractor = componentExtractors[strategy];
+    if (!extractor)
       throw new Error(
         `component strategy ${strategy} has no extractor; run select`,
       );
-    const module = (await import(
-      pathToFileURL(
-        resolve(pluginRoot, "src", componentModules[strategy]! + ".ts"),
-      ).href
-    )) as { extract(root: string, config?: string | null): Components };
-    const document =
-      strategy === "sitestudio"
-        ? module.extract(
-            root,
-            (project.decisions["sitestudioConfig"] as string | null) ?? null,
-          )
-        : module.extract(root);
+    const document = await extractor(
+      root,
+      project.decisions["sitestudioConfig"] ?? null,
+    );
     if (project.decisions["usageSource"] === "none") markUntiered(document);
     invalidate(
       project,
@@ -410,24 +418,17 @@ export async function extractProject(
   }
   if (kind === "tokens" || kind === "all") {
     const strategy = String(project.decisions["tokenSource"]);
-    if (!tokenModules[strategy])
+    const extractor = tokenExtractors[strategy];
+    if (!extractor)
       throw new Error(
         `token strategy ${strategy} has no extractor; run select`,
       );
-    const config = project.decisions["sitestudioConfig"] as
-      string | null | undefined;
+    const config = project.decisions["sitestudioConfig"];
     if (strategy === "sitestudio-styles" && !config)
       throw new Error(
         "no Site Studio configuration folder is recorded for this run: the site's settings do not name one; give it with select --sitestudio-config <folder>",
       );
-    const module = (await import(
-      pathToFileURL(resolve(pluginRoot, "src", tokenModules[strategy]! + ".ts"))
-        .href
-    )) as { extract(root: string, config?: string | null): unknown };
-    const document =
-      strategy === "sitestudio-styles"
-        ? module.extract(root, config)
-        : module.extract(root);
+    const document = await extractor(root, config ?? null);
     invalidate(
       project,
       ["plan", "foundation", "components", "index", "verify"],
@@ -578,7 +579,7 @@ export function planProject(value: string): unknown {
   setPhase(path, project, "plan", "awaiting-approval", {
     build: plans.filter((p) => p.verdict === "build").length,
     refuse: plans.filter((p) => p.verdict === "refuse").length,
-    flags: plans.reduce((s, p) => s + p.flags.length, 0),
+    flags: plans.reduce((s, p) => s + (p.flags?.length ?? 0), 0),
   });
   return project.phases["plan"];
 }
@@ -591,7 +592,7 @@ export function variablesProject(value: string): unknown {
     ["foundation", "components", "index", "verify"],
     ["foundation", "build-record", "index", "verify-report"],
   );
-  writeJson(path, project);
+  writeArtifact("project", path, project);
   return {
     output: resolve(dirname(path), "variable-plan.json"),
     collections: Object.keys(document.collections).length,

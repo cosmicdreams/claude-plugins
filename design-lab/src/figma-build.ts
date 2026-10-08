@@ -11,6 +11,7 @@ import { childrenFirst, signature, subtree } from './nesting.ts';
 import { visible } from './spec-to-tree.ts';
 import { fetchImages } from './fetch-images.ts';
 import { sharedRequire } from './runtime.ts';
+import type { Project } from './generated/project.ts';
 import { validateRunnerRecord, assertValid } from './contracts.ts';
 import { load, result, safe, writeOnChange, writeArtifactOnChange, keyOf } from './build-artifacts.ts';
 import type { BuildState, BuildResult, Geometry, GeometryBox, Component } from './build-artifacts.ts';
@@ -99,9 +100,9 @@ export class BuildDriver {
       const refreshed = new Set(['cover', 'getting-started', 'examples', ...[...selected].flatMap(cid => ['build', 'images', 'block', 'evidence', 'compare'].map(p => p + ':' + cid))]), state = { ...previous, runtime: this.renderer.runtimeHash(), buildId: process.hrtime.bigint().toString(), subset: [...selected].sort(), done: previous.done!.filter(s => !refreshed.has(s)) } as BuildState;
       const completion = resolve(project, 'benchmark/completion.md'); if (existsSync(completion)) renameSync(completion, resolve(project, `benchmark/completion-before-subset-${process.hrtime.bigint()}.md`));
       this.save(state);
-      const manifest = load<{ phases?: Record<string, { status: string }>; artifacts?: Record<string, { kind: string }> }>(project, 'project.json', {});
+      const manifest = load<Project>(project, 'project.json');
       for (const p of ['components', 'index', 'verify', 'benchmark']) (manifest.phases ??= {})[p] = { status: p === 'components' ? 'running' : 'pending' };
-      manifest.artifacts = Object.fromEntries(Object.entries(manifest.artifacts ?? {}).filter(([n, a]) => ![...selected].map(cid => 'build:' + cid).includes(n) && !['index', 'verify-report'].includes(a.kind))); writeOnChange(resolve(project, 'project.json'), manifest);
+      manifest.artifacts = Object.fromEntries(Object.entries(manifest.artifacts ?? {}).filter(([n, a]) => ![...selected].map(cid => 'build:' + cid).includes(n) && !['index', 'verify-report'].includes(a.kind ?? ''))); writeArtifactOnChange('project', resolve(project, 'project.json'), manifest);
       return { steps: state.steps.length, components: selected.size, subset: [...selected].sort() };
     }
     if (o.rebuild) {

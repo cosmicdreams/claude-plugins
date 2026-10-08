@@ -5,7 +5,7 @@ import {execFileSync} from 'node:child_process';
 import {createHash} from 'node:crypto';
 import {performance} from 'node:perf_hooks';
 import {pluginRoot} from './runtime.ts';
-import {validate,writeJson} from './contracts.ts';
+import {validate,writeJson,writeArtifact,appendPhaseLog} from './contracts.ts';
 import type {ArtifactKind} from './contracts.ts';
 import {componentCoverage,receipts,registerOutputs} from './figma-receipts.ts';
 import {BuildDriver} from './figma-build.ts';
@@ -88,7 +88,7 @@ export function prepare(source:string,workspace:string,key:string,figmaUrl:strin
  if(identity!==null){for(const name of ['discovery','inventory','usage','capture','tokens','plan','preflight'])if(phases[name]){const phase={...phases[name],from:source};if('updatedAt'in phase){phase.sourceUpdatedAt=phase.updatedAt;delete phase.updatedAt;}project.phases[name]=phase;}project.phases['plan']={...project.phases['plan'],status:'approved',from:source};for(const name of ['foundation','components','index','verify'])project.phases[name]={status:'pending'};}
  project.artifacts=Object.fromEntries(Object.entries(project.artifacts??{}).filter(([,a])=>!['build-record','foundation','index','verify-report'].includes(a.kind??'')));
  for(const artifact of Object.values(project.artifacts)){const file=resolve(workspace,artifact.path??'');if(existsSync(file)&&statSync(file).isFile()){const errors=validate(artifact.kind as ArtifactKind,read(file));Object.assign(artifact,{sha256:hash(file),valid:!errors.length,errors});}}
- writeJson(resolve(workspace,'figma/state.json'),{fileKey:key});writeJson(resolve(workspace,'project.json'),project);
+ writeArtifact('figma-state',resolve(workspace,'figma/state.json'),{fileKey:key});writeArtifact('project',resolve(workspace,'project.json'),project);
  return {workspace,fileKey:key,figmaUrl,siteUrl,canonicalBaseUrl,rebuiltFrom};
 }
 export interface WaitOptions {status?:(workspace:string)=>Pick<ReturnType<BuildDriver['status']>,'next'>|Promise<Pick<ReturnType<BuildDriver['status']>,'next'>>;dumpStep?:(workspace:string)=>{step:string}|null|Promise<{step:string}|null>;now?:()=>number;sleep?:(ms:number)=>Promise<void>;pollMs?:number}
@@ -107,7 +107,7 @@ export async function waitForBuild(workspace:string,timeout:number,poll=2,option
  throw new Error(`replay timed out after ${timeout}s; see ${log}`);
 }
 function setPhase(workspace:string,project:Project,phase:PhaseName,status:PhaseStatus,detail?:NonNullable<Project['phases'][string]['detail']>) {
- const at=now();project.phases??={};project.phases[phase]={status,updatedAt:at,...detail&&Object.keys(detail).length?{detail}:{}};writeJson(resolve(workspace,'project.json'),project);appendFileSync(resolve(workspace,'phase-log.jsonl'),JSON.stringify({at,phase,status})+'\n');
+ const at=now();project.phases??={};project.phases[phase]={status,updatedAt:at,...detail&&Object.keys(detail).length?{detail}:{}};writeArtifact('project',resolve(workspace,'project.json'),project);appendPhaseLog(resolve(workspace,'phase-log.jsonl'),{at,phase,status});
 }
 export function validateProject(workspace:string):{valid:boolean;results:Record<string,string[]>} {
  const project=read<Project>(resolve(workspace,'project.json')),results:Record<string,string[]>={project:validate('project',project)};
@@ -128,8 +128,8 @@ export async function evaluate(workspace:string,session?:string|string[]) {
  for(const [key,name] of [['shotsDir','capture/shots'],['builds','builds']] as const)if(existsSync(resolve(workspace,name)))options[key]=resolve(workspace,name);
  project=read<Project>(resolve(workspace,'project.json'));const theme=project.repository?.root;if(theme&&existsSync(theme)&&statSync(theme).isDirectory())options.themeRoot=theme;if(state.brand)options.brand=state.brand;
  writeJson(resolve(workspace,'figma/compare/corrected.json'),await scoreAccuracy(workspace));
- const report=await verify(options);writeJson(options.out!,report);const verifyExit=report.open.length?1:0;
- registerOutputs(workspace,[{name:'verifyReport',path:options.out!,kind:'verify-report',phase:'verify'}]);project=read<Project>(resolve(workspace,'project.json'));project.phases['verify']={status:'complete',updatedAt:now()};writeJson(resolve(workspace,'project.json'),project);
+ const report=await verify(options);writeArtifact('verify-report',options.out!,report);const verifyExit=report.open.length?1:0;
+ registerOutputs(workspace,[{name:'verifyReport',path:options.out!,kind:'verify-report',phase:'verify'}]);project=read<Project>(resolve(workspace,'project.json'));project.phases['verify']={status:'complete',updatedAt:now()};writeArtifact('project',resolve(workspace,'project.json'),project);
  const gate=validateProject(workspace),gateExit=gate.valid?0:1,accepted=verifyExit===0&&receiptsExit===0&&gateExit===0;
  setPhase(workspace,project,'verify',accepted?'complete':'failed',{execution:'finished',quality:accepted?'passed':'failed',verifyExit,receiptsExit,gateExit,gate:JSON.stringify(gate,null,2)});
  if(session!==undefined||project.run?.claude!=null)setPhase(workspace,project,'benchmark','running');
