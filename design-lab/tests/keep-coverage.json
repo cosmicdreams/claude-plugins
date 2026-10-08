@@ -1320,8 +1320,12 @@
     {
       "original": "test_model_native.DrupalUsageTests.test_usage_separates_direct_and_nested_instances",
       "behavior": "Separate direct placements from structural/nested usage; extract_drupal_usage.ts.",
-      "tests": [],
-      "uncovered": "Site Studio and Canvas usage tests cover related nesting, but no test covers the Drupal authoring direct/nested placement fixture."
+      "tests": [
+        {
+          "file": "tests/ts/discovery-usage.test.ts",
+          "name": "Drupal usage separates direct placements from structural and nested instances"
+        }
+      ]
     },
     {
       "original": "test_model_native.TokenStrategyTests.test_loaded_stylesheets_match_paths_not_only_basenames",

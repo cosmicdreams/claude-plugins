@@ -765,3 +765,39 @@ void test('usage tiers use absolute thresholds', () => {
     /usage has no row for a/,
   );
 });
+
+void test('Drupal usage separates direct placements from structural and nested instances', () => {
+  const entry = (id: string, label: string): ExternalObject => ({
+    id,
+    label,
+    sourceRef: `${label.toLowerCase()}.yml`,
+    fields: [],
+    slots: [],
+    defects: [],
+  });
+  const inventory = {
+    source: { strategy: 'drupal-db' },
+    components: [entry('block:hero', 'Hero'), entry('paragraph:item', 'Item'), entry('paragraph:card', 'Card')],
+  } as unknown as import('../../src/usage-types.ts').UsageInventory;
+  const uuid = '11111111-1111-1111-1111-111111111111';
+  const rows: usage.Rows = {
+    paragraphs: [
+      ['1', 'item', 'paragraph', '2', '1'],
+      ['2', 'card', 'node', '9', '1'],
+    ],
+    layout_sections: [['9', 'inline_block:hero']],
+    blocks: [['5', uuid, 'hero', '0', '1']],
+    blocks_in_paragraphs: [[`block_content:${uuid}`, '2']],
+    block_configuration: [],
+    nodes: [['9', '1', 'page']],
+  };
+  const document = usage.buildUsage(inventory, rows, { ddevProject: 'test' });
+  assert.equal(document.usage['paragraph:card']?.placements, 1);
+  assert.equal(document.usage['paragraph:item']?.structuralRefs, 1);
+  assert.equal(document.usage['block:hero']?.placements, 1);
+  assert.equal(document.usage['block:hero']?.structuralRefs, 2);
+  const merged = usage.mergeUsage(inventory, document);
+  const tiers = Object.fromEntries((merged.components ?? []).map((c) => [c.id, c.usage?.tier]));
+  assert.equal(tiers['paragraph:card'], usage.TIERS.low);
+  assert.equal(tiers['paragraph:item'], usage.TIERS.structural);
+});
