@@ -1,26 +1,87 @@
 import type { MeasuredNode } from '../generated/spec.ts';
 import type { Measurement, PickRoot } from './types.ts';
 export const PROPS = [
-  'display', 'position', 'top', 'right', 'bottom', 'left', 'boxSizing', 'overflow',
-  'flexDirection', 'flexWrap', 'justifyContent', 'alignItems', 'alignSelf',
-  'gap', 'rowGap', 'columnGap', 'flexGrow', 'flexShrink', 'flexBasis',
-  'gridTemplateColumns', 'gridTemplateRows',
-  'width', 'height', 'minWidth', 'maxWidth', 'minHeight', 'maxHeight',
-  'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft',
-  'marginTop', 'marginRight', 'marginBottom', 'marginLeft',
-  'fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'lineHeight',
-  'letterSpacing', 'textAlign', 'textTransform', 'textDecorationLine',
-  'color', 'backgroundColor', 'backgroundImage', 'backgroundSize',
-  'backgroundPosition', 'backgroundRepeat',
+  'display',
+  'position',
+  'top',
+  'right',
+  'bottom',
+  'left',
+  'boxSizing',
+  'overflow',
+  'flexDirection',
+  'flexWrap',
+  'justifyContent',
+  'alignItems',
+  'alignSelf',
+  'gap',
+  'rowGap',
+  'columnGap',
+  'flexGrow',
+  'flexShrink',
+  'flexBasis',
+  'gridTemplateColumns',
+  'gridTemplateRows',
+  'width',
+  'height',
+  'minWidth',
+  'maxWidth',
+  'minHeight',
+  'maxHeight',
+  'paddingTop',
+  'paddingRight',
+  'paddingBottom',
+  'paddingLeft',
+  'marginTop',
+  'marginRight',
+  'marginBottom',
+  'marginLeft',
+  'fontFamily',
+  'fontSize',
+  'fontWeight',
+  'fontStyle',
+  'lineHeight',
+  'letterSpacing',
+  'textAlign',
+  'textTransform',
+  'textDecorationLine',
+  'color',
+  'backgroundColor',
+  'backgroundImage',
+  'backgroundSize',
+  'backgroundPosition',
+  'backgroundRepeat',
   /* An icon drawn as a mask over its background colour (`mask-image: url(arrow.svg)`). */
   'maskImage',
-  'borderTopWidth', 'borderRightWidth', 'borderBottomWidth', 'borderLeftWidth',
-  'borderTopStyle', 'borderRightStyle', 'borderBottomStyle', 'borderLeftStyle',
-  'borderTopColor', 'borderRightColor', 'borderBottomColor', 'borderLeftColor',
-  'borderTopLeftRadius', 'borderTopRightRadius',
-  'borderBottomLeftRadius', 'borderBottomRightRadius',
-  'boxShadow', 'opacity', 'transform', 'transition', 'zIndex',
-  'listStyleType', 'objectFit', 'objectPosition', 'aspectRatio', 'visibility', 'clip', 'clipPath', 'whiteSpace',
+  'borderTopWidth',
+  'borderRightWidth',
+  'borderBottomWidth',
+  'borderLeftWidth',
+  'borderTopStyle',
+  'borderRightStyle',
+  'borderBottomStyle',
+  'borderLeftStyle',
+  'borderTopColor',
+  'borderRightColor',
+  'borderBottomColor',
+  'borderLeftColor',
+  'borderTopLeftRadius',
+  'borderTopRightRadius',
+  'borderBottomLeftRadius',
+  'borderBottomRightRadius',
+  'boxShadow',
+  'opacity',
+  'transform',
+  'transition',
+  'zIndex',
+  'listStyleType',
+  'objectFit',
+  'objectPosition',
+  'aspectRatio',
+  'visibility',
+  'clip',
+  'clipPath',
+  'whiteSpace',
 ];
 
 /* Runs inside the page. Walks the component subtree and records every node. */
@@ -30,9 +91,8 @@ export function walk(rootSelector: string, propList: string[], pick_: PickRoot):
     /* Several pages hold both empty and populated instances of the same
        component, and several components share a root class. Filter by real
        height first, then by the disambiguators the config supplies. */
-    let candidates = [...document.querySelectorAll(rootSelector)]
-      .filter((el) => el.getBoundingClientRect().height > 4);
-    if (anchorText) candidates = candidates.filter((el) => (el.textContent ?? "").includes(anchorText));
+    let candidates = [...document.querySelectorAll(rootSelector)].filter((el) => el.getBoundingClientRect().height > 4);
+    if (anchorText) candidates = candidates.filter((el) => (el.textContent ?? '').includes(anchorText));
     if (mustContain) candidates = candidates.filter((el) => el.querySelector(mustContain));
     return candidates[nth ?? 0] ?? null;
   })();
@@ -46,9 +106,7 @@ export function walk(rootSelector: string, propList: string[], pick_: PickRoot):
   const rootBox = root.getBoundingClientRect();
   const pick = (style: CSSStyleDeclaration): Record<string, string> => {
     const out: Record<string, string> = {};
-    for (const p of propList) out[p] = style.getPropertyValue(
-      p.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase())
-    );
+    for (const p of propList) out[p] = style.getPropertyValue(p.replace(/[A-Z]/g, (c) => '-' + c.toLowerCase()));
     return out;
   };
   const pseudo = (el: Element, which: string) => {
@@ -62,13 +120,32 @@ export function walk(rootSelector: string, propList: string[], pick_: PickRoot):
   /* The properties that map to a Figma variable. Only these need a declared value; the
      rest are geometry that no token governs. */
   const TOKEN_PROPS = [
-    'color', 'background-color', 'font-size', 'line-height', 'font-family', 'font-weight',
-    'letter-spacing', 'gap', 'row-gap', 'column-gap',
-    'padding-top', 'padding-right', 'padding-bottom', 'padding-left',
-    'border-top-color', 'border-right-color', 'border-bottom-color', 'border-left-color',
-    'border-top-width', 'border-right-width', 'border-bottom-width', 'border-left-width',
-    'border-top-left-radius', 'border-top-right-radius',
-    'border-bottom-left-radius', 'border-bottom-right-radius',
+    'color',
+    'background-color',
+    'font-size',
+    'line-height',
+    'font-family',
+    'font-weight',
+    'letter-spacing',
+    'gap',
+    'row-gap',
+    'column-gap',
+    'padding-top',
+    'padding-right',
+    'padding-bottom',
+    'padding-left',
+    'border-top-color',
+    'border-right-color',
+    'border-bottom-color',
+    'border-left-color',
+    'border-top-width',
+    'border-right-width',
+    'border-bottom-width',
+    'border-left-width',
+    'border-top-left-radius',
+    'border-top-right-radius',
+    'border-bottom-left-radius',
+    'border-bottom-right-radius',
   ];
 
   /* getComputedStyle resolves var(--bs-purple) and #342649 to the same rgb() string, so a
@@ -92,30 +169,55 @@ export function walk(rootSelector: string, propList: string[], pick_: PickRoot):
     const scan = (rules: CSSRuleList, depth: number) => {
       if (depth > 4) return;
       for (const baseRule of rules) {
-        const rule = baseRule as CSSRule & {selectorText?: string; cssRules?: CSSRuleList; conditionText?: string; style?: CSSStyleDeclaration; styleSheet?: CSSStyleSheet; media?: MediaList};
+        const rule = baseRule as CSSRule & {
+          selectorText?: string;
+          cssRules?: CSSRuleList;
+          conditionText?: string;
+          style?: CSSStyleDeclaration;
+          styleSheet?: CSSStyleSheet;
+          media?: MediaList;
+        };
         if (rule.type === CSSRule.MEDIA_RULE || rule.conditionText !== undefined) {
           let applies = true;
-          try { applies = !rule.conditionText || matchMedia(rule.conditionText).matches; }
-          catch { applies = false; }
+          try {
+            applies = !rule.conditionText || matchMedia(rule.conditionText).matches;
+          } catch {
+            applies = false;
+          }
           if (applies && rule.cssRules) scan(rule.cssRules, depth + 1);
           continue;
         }
         /* @layer blocks (and other unconditional groups) hold ordinary rules; a theme that
            layers everything otherwise reads as declaring nothing. @import carries a sheet. */
-        if (!rule.selectorText && rule.cssRules) { scan(rule.cssRules, depth + 1); continue; }
+        if (!rule.selectorText && rule.cssRules) {
+          scan(rule.cssRules, depth + 1);
+          continue;
+        }
         if (rule.styleSheet) {
           /* `@import url(x) print` applies only where its media list matches. */
           const media = rule.media && rule.media.mediaText;
           let applies = true;
-          try { applies = !media || matchMedia(media).matches; } catch { applies = false; }
+          try {
+            applies = !media || matchMedia(media).matches;
+          } catch {
+            applies = false;
+          }
           if (applies) {
-            try { scan(rule.styleSheet.cssRules, depth + 1); } catch { out['__unreadableSheet'] = true; }
+            try {
+              scan(rule.styleSheet.cssRules, depth + 1);
+            } catch {
+              out['__unreadableSheet'] = true;
+            }
           }
           continue;
         }
         if (!rule.selectorText) continue;
         let hit = false;
-        try { hit = el.matches(rule.selectorText); } catch { hit = false; }
+        try {
+          hit = el.matches(rule.selectorText);
+        } catch {
+          hit = false;
+        }
         if (hit) take(rule.style!);
       }
     };
@@ -123,7 +225,12 @@ export function walk(rootSelector: string, propList: string[], pick_: PickRoot):
       /* Cross-origin sheets throw on .cssRules. A stylesheet we cannot read is a gap in the
          answer, so record it rather than silently returning fewer declarations. */
       let rules = null;
-      try { rules = sheet.cssRules; } catch { out['__unreadableSheet'] = true; continue; }
+      try {
+        rules = sheet.cssRules;
+      } catch {
+        out['__unreadableSheet'] = true;
+        continue;
+      }
       if (rules) scan(rules, 0);
     }
     if ((el as HTMLElement).style && (el as HTMLElement).style.length) take((el as HTMLElement).style);
@@ -140,7 +247,7 @@ export function walk(rootSelector: string, propList: string[], pick_: PickRoot):
     /* Direct text content only — text owned by a child belongs to the child. */
     const ownText = [...el.childNodes]
       .filter((n) => n.nodeType === Node.TEXT_NODE)
-      .map((n) => (n.textContent ?? "").trim())
+      .map((n) => (n.textContent ?? '').trim())
       .filter(Boolean)
       .join(' ');
 
@@ -151,9 +258,14 @@ export function walk(rootSelector: string, propList: string[], pick_: PickRoot):
       id: el.id || null,
       attributes: Object.fromEntries(
         [...el.attributes]
-          .filter((a) => a.name.startsWith('aria-') || ['role', 'type', 'href', 'src', 'alt', 'for',
-            'data-design-lab-child', 'data-component-id'].includes(a.name))
-          .map((a) => [a.name, a.value])
+          .filter(
+            (a) =>
+              a.name.startsWith('aria-') ||
+              ['role', 'type', 'href', 'src', 'alt', 'for', 'data-design-lab-child', 'data-component-id'].includes(
+                a.name,
+              ),
+          )
+          .map((a) => [a.name, a.value]),
       ),
       text: ownText || null,
       /* Coordinates relative to the component root, which is what Figma wants. */
@@ -173,20 +285,27 @@ export function walk(rootSelector: string, propList: string[], pick_: PickRoot):
       /* An inline SVG is imported whole as vectors, so its markup is the measurement. */
       /* The browser's own answer to "can a sighted visitor see this?": false inside a closed
          <details>, under content-visibility, display:none, visibility:hidden or opacity 0. */
-      rendered: typeof el.checkVisibility === 'function'
-        ? el.checkVisibility({ contentVisibilityAuto: true, opacityProperty: true, visibilityProperty: true })
-        : null,
+      rendered:
+        typeof el.checkVisibility === 'function'
+          ? el.checkVisibility({ contentVisibilityAuto: true, opacityProperty: true, visibilityProperty: true })
+          : null,
       svg: el.tagName.toLowerCase() === 'svg' ? el.outerHTML : null,
       /* The file the browser actually chose from srcset, so the Figma fill is the same image. */
-      image: el.tagName.toLowerCase() === 'img'
-        ? { src: (el as HTMLImageElement).currentSrc || (el as HTMLImageElement).src, naturalWidth: (el as HTMLImageElement).naturalWidth, naturalHeight: (el as HTMLImageElement).naturalHeight }
-        : null,
+      image:
+        el.tagName.toLowerCase() === 'img'
+          ? {
+              src: (el as HTMLImageElement).currentSrc || (el as HTMLImageElement).src,
+              naturalWidth: (el as HTMLImageElement).naturalWidth,
+              naturalHeight: (el as HTMLImageElement).naturalHeight,
+            }
+          : null,
       /* Text interleaved with element children (a link inside a sentence) cannot be split
          into sibling text layers without losing the sentence, so the whole run is kept. */
-      inlineText: [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? "").trim())
-        && [...el.children].length > 0
-        ? (el as HTMLElement).innerText.trim()
-        : null,
+      inlineText:
+        [...el.childNodes].some((n) => n.nodeType === Node.TEXT_NODE && (n.textContent ?? '').trim()) &&
+        [...el.children].length > 0
+          ? (el as HTMLElement).innerText.trim()
+          : null,
     });
 
     if (el.tagName.toLowerCase() === 'svg') return;

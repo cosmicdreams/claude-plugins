@@ -1,15 +1,38 @@
 import { createHash } from 'node:crypto';
 import { readFileSync } from 'node:fs';
 
-export const IGNORED_KEYS = new Set(['generatedAt', 'generated_at', 'timestamp', 'createdAt', 'updatedAt', 'runId', 'run_id', 'runID', '_ids']);
+export const IGNORED_KEYS = new Set([
+  'generatedAt',
+  'generated_at',
+  'timestamp',
+  'createdAt',
+  'updatedAt',
+  'runId',
+  'run_id',
+  'runID',
+  '_ids',
+]);
 const numericKind = Symbol('parsed JSON numeric kind');
-interface TaggedNumber { readonly [numericKind]: true; readonly value: number | bigint; readonly floating: boolean }
-function taggedNumber(value: number | bigint, floating: boolean): TaggedNumber { return { [numericKind]: true, value, floating }; }
-function isTaggedNumber(value: unknown): value is TaggedNumber { return !!value && typeof value === 'object' && (value as Partial<TaggedNumber>)[numericKind] === true; }
+interface TaggedNumber {
+  readonly [numericKind]: true;
+  readonly value: number | bigint;
+  readonly floating: boolean;
+}
+function taggedNumber(value: number | bigint, floating: boolean): TaggedNumber {
+  return { [numericKind]: true, value, floating };
+}
+function isTaggedNumber(value: unknown): value is TaggedNumber {
+  return !!value && typeof value === 'object' && (value as Partial<TaggedNumber>)[numericKind] === true;
+}
 export function normalize(value: unknown): unknown {
   if (isTaggedNumber(value)) return value;
   if (Array.isArray(value)) return value.map(normalize);
-  if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([key]) => !IGNORED_KEYS.has(key)).map(([key, item]) => [key, normalize(item)]));
+  if (value && typeof value === 'object')
+    return Object.fromEntries(
+      Object.entries(value)
+        .filter(([key]) => !IGNORED_KEYS.has(key))
+        .map(([key, item]) => [key, normalize(item)]),
+    );
   return value;
 }
 export function canonicalHash(layout: unknown): string {
@@ -24,7 +47,8 @@ function assertFinite(value: number): void {
 }
 /** Python sorts str keys by code point; UTF-16 unit order differs for astral characters. */
 function compareCodePoints(a: string, b: string): number {
-  const x = [...a], y = [...b];
+  const x = [...a],
+    y = [...b];
   for (let i = 0; i < Math.min(x.length, y.length); i++) {
     const difference = x[i]!.codePointAt(0)! - y[i]!.codePointAt(0)!;
     if (difference !== 0) return difference;
@@ -36,7 +60,9 @@ function canonicalFloat(value: number): string {
   const magnitude = Math.abs(value);
   if (magnitude !== 0 && (magnitude < 1e-4 || magnitude >= 1e16)) {
     const [mantissa, exponentText] = value.toExponential().split('e');
-    const exponent = Number(exponentText), sign = exponent >= 0 ? '+' : '-', digits = String(Math.abs(exponent)).padStart(2, '0');
+    const exponent = Number(exponentText),
+      sign = exponent >= 0 ? '+' : '-',
+      digits = String(Math.abs(exponent)).padStart(2, '0');
     return `${mantissa}e${sign}${digits}`;
   }
   const text = String(value);
@@ -57,7 +83,11 @@ function canonicalNumbers(value: unknown): string {
     return Number.isInteger(value) ? String(value) : canonicalFloat(value);
   }
   if (Array.isArray(value)) return `[${value.map(canonicalNumbers).join(',')}]`;
-  if (value && typeof value === 'object') return `{${Object.entries(value).sort(([a], [b]) => compareCodePoints(a, b)).map(([key, item]) => `${JSON.stringify(key)}:${canonicalNumbers(item)}`).join(',')}}`;
+  if (value && typeof value === 'object')
+    return `{${Object.entries(value)
+      .sort(([a], [b]) => compareCodePoints(a, b))
+      .map(([key, item]) => `${JSON.stringify(key)}:${canonicalNumbers(item)}`)
+      .join(',')}}`;
   throw new TypeError('value is not JSON serializable');
 }
 export function hashLayout(path: string): string {
@@ -73,7 +103,10 @@ export function hashLayout(path: string): string {
   const parsed = JSON.parse(raw, reviver as (this: any, key: string, value: any) => any);
   return canonicalHash(parsed);
 }
-export function checkHash(layoutPath: string, expectedPath: string): { expected: string; actual: string; pass: boolean } {
+export function checkHash(
+  layoutPath: string,
+  expectedPath: string,
+): { expected: string; actual: string; pass: boolean } {
   const expected = readFileSync(expectedPath, 'utf8').trim().toLowerCase();
   if (!/^[0-9a-f]{64}$/.test(expected)) throw new Error('expected hash file must contain one SHA-256 hex digest');
   const actual = hashLayout(layoutPath);

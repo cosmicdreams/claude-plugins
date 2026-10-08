@@ -11,31 +11,71 @@ import { validate, writeJson } from '../../src/contracts.ts';
 import { sharedRequire } from '../../src/runtime.ts';
 import { spec, node } from './p2-fixtures.ts';
 const sharp = sharedRequire()('sharp') as typeof import('sharp').default;
-test('derived specs preserve nullable source references and fill absent machine names through the real writer', async t => {
+test('derived specs preserve nullable source references and fill absent machine names through the real writer', async (t) => {
   const root = mkdtempSync('/tmp/design-lab-writer-capture-');
   t.after(() => rmSync(root, { recursive: true, force: true }));
-  const records = resolve(root, 'records'), measurements = resolve(root, 'measurements'), shots = resolve(root, 'shots');
+  const records = resolve(root, 'records'),
+    measurements = resolve(root, 'measurements'),
+    shots = resolve(root, 'shots');
   for (const dir of [records, measurements, shots]) mkdirSync(dir);
-  const cfg: CaptureConfig = { component: 'Parent', componentId: 'parent', machineName: 'parent', rootSelector: '#parent', path: '/one', verificationUrl: 'https://site.test/one', linkUrl: 'https://public.test/one' };
+  const cfg: CaptureConfig = {
+    component: 'Parent',
+    componentId: 'parent',
+    machineName: 'parent',
+    rootSelector: '#parent',
+    path: '/one',
+    verificationUrl: 'https://site.test/one',
+    linkUrl: 'https://public.test/one',
+  };
   const rows: CaptureRow[] = [];
   for (const viewport of ['Desktop', 'Tablet', 'Mobile']) {
     const file = viewport + '.png';
-    await sharp({ create: { width: 100, height: 60, channels: 3, background: 'white' } }).png().toFile(resolve(shots, file));
-    rows.push({ componentId: 'parent', machine: 'parent', viewport, file, state: 'default', path: cfg.path, verificationUrl: cfg.verificationUrl, linkUrl: cfg.linkUrl, selector: cfg.rootSelector });
+    await sharp({ create: { width: 100, height: 60, channels: 3, background: 'white' } })
+      .png()
+      .toFile(resolve(shots, file));
+    rows.push({
+      componentId: 'parent',
+      machine: 'parent',
+      viewport,
+      file,
+      state: 'default',
+      path: cfg.path,
+      verificationUrl: cfg.verificationUrl,
+      linkUrl: cfg.linkUrl,
+      selector: cfg.rootSelector,
+    });
   }
-  const parent = node('/div[0]', 0, 0, 100, 60), child = node('/div[0]/div[1]', 10, 10, 30, 20, {}, { attributes: { 'data-design-lab-child': 'child' } });
+  const parent = node('/div[0]', 0, 0, 100, 60),
+    child = node('/div[0]/div[1]', 10, 10, 30, 20, {}, { attributes: { 'data-design-lab-child': 'child' } });
   writeJson(resolve(records, 'parent.json'), { status: 'complete', configHash: 'hash', rows });
-  writeJson(resolve(measurements, 'parent.spec.json'), spec({ desktop: [parent, child], tablet: [parent, child], mobile: [parent, child] }));
-  const byId = new Map<string, Component>([['parent', { id: 'parent', slots: [{ accepts: ['child'] }] }], ['child', { id: 'child' }]]);
-  assert.equal((await deriveChildren(byId, new Set(['child']), [{ cfg, digest: 'hash' }], records, measurements, shots, 1)).get('child')?.length, 3);
+  writeJson(
+    resolve(measurements, 'parent.spec.json'),
+    spec({ desktop: [parent, child], tablet: [parent, child], mobile: [parent, child] }),
+  );
+  const byId = new Map<string, Component>([
+    ['parent', { id: 'parent', slots: [{ accepts: ['child'] }] }],
+    ['child', { id: 'child' }],
+  ]);
+  assert.equal(
+    (await deriveChildren(byId, new Set(['child']), [{ cfg, digest: 'hash' }], records, measurements, shots, 1)).get(
+      'child',
+    )?.length,
+    3,
+  );
   const result: unknown = JSON.parse(readFileSync(resolve(measurements, 'child.spec.json'), 'utf8'));
   assert.deepEqual(validate('spec', result), []);
-  assert.deepEqual(result && typeof result === 'object' && 'source' in result ? result['source'] : null, { sourceRef: null });
+  assert.deepEqual(result && typeof result === 'object' && 'source' in result ? result['source'] : null, {
+    sourceRef: null,
+  });
   const configs = scaffold({ components: [{ id: 'child' }] }, { canonicalBaseUrl: 'https://public.test' });
   assert.deepEqual(configs[0]?.['source'], { sourceRef: null });
-  const evidence = assembleEvidence(resolve(shots, 'index.json'), [...rows, { ...rows[0]!, componentId: 'bad', linkUrl: '' }], 'https://public.test');
+  const evidence = assembleEvidence(
+    resolve(shots, 'index.json'),
+    [...rows, { ...rows[0]!, componentId: 'bad', linkUrl: '' }],
+    'https://public.test',
+  );
   assert.deepEqual(validate('capture-evidence', evidence), []);
-  assert.ok(evidence.problems.some(p => p.componentId === 'bad'));
+  assert.ok(evidence.problems.some((p) => p.componentId === 'bad'));
   assert.equal(evidence.captures['bad'], undefined);
   assert.equal(evidence.captures['parent']?.images[0]?.width, undefined);
 });

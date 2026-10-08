@@ -61,7 +61,9 @@ test('abrupt and malformed comments match Python html.parser component counts an
     t.skip(`the Python reference must be 3.14 (DESIGN_LAB_PYTHON=${PYTHON}, found ${version})`);
     return;
   }
-  const reference = pyJson<Array<{ components: Record<string, number>; events: unknown[] }>>(PY_TAGS, { cases: FIXTURES });
+  const reference = pyJson<Array<{ components: Record<string, number>; events: unknown[] }>>(PY_TAGS, {
+    cases: FIXTURES,
+  });
   FIXTURES.forEach((text, index) => {
     assert.deepEqual(parseComponents(text), reference[index]!.components, `components for ${JSON.stringify(text)}`);
     assert.deepEqual(tsEvents(text), reference[index]!.events, `tag events for ${JSON.stringify(text)}`);

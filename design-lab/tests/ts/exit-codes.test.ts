@@ -6,7 +6,8 @@ import { resolve } from 'node:path';
 import { pluginRoot } from '../../src/runtime.ts';
 import { failureCode, FAILURE, USAGE } from '../../src/exit-code.ts';
 
-const run = (script: string, args: string[]) => spawnSync(process.execPath, [resolve(pluginRoot, 'scripts', script), ...args], { encoding: 'utf8', cwd: '/tmp' });
+const run = (script: string, args: string[]) =>
+  spawnSync(process.execPath, [resolve(pluginRoot, 'scripts', script), ...args], { encoding: 'utf8', cwd: '/tmp' });
 
 test('an ordinary failure exits 1, as the Python baseline did', () => {
   assert.equal(FAILURE, 1);
@@ -35,7 +36,7 @@ test('a command-line usage error exits 2, as argparse did', () => {
 
 test('no launcher hard-codes exit code 2 for failures', () => {
   const folder = resolve(pluginRoot, 'scripts');
-  for (const name of readdirSync(folder).filter(file => file.endsWith('.ts'))) {
+  for (const name of readdirSync(folder).filter((file) => file.endsWith('.ts'))) {
     const source = readFileSync(resolve(folder, name), 'utf8');
     assert.ok(!/exitCode\s*=\s*2\b|process\.exit\(2\)/.test(source), `${name} hard-codes exit code 2`);
   }

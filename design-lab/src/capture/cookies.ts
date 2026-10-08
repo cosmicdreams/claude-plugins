@@ -11,10 +11,18 @@ const VENDORS: Vendor[] = [
   { banner: '.dg-consent-banner', close: '.dg-header-close', script: 'script[src*="consentjs.datagrail.io"]' },
   // Klaro (Drupal's klaro module): decline keeps the site in its no-consent state; a site that
   // hides the decline button (hideDeclineAll) is closed through its accept button instead.
-  { banner: '.klaro .cookie-notice:not(.cookie-modal-notice)', close: ['.cn-decline', '.cm-btn-success', '.cn-ok'], script: 'script[src*="klaro"]' },
+  {
+    banner: '.klaro .cookie-notice:not(.cookie-modal-notice)',
+    close: ['.cn-decline', '.cm-btn-success', '.cn-ok'],
+    script: 'script[src*="klaro"]',
+  },
 ];
 
-export async function dismissCookiePreferences(page: Page, config: Pick<CaptureConfig, "cookiePreferences"> = {}, { waitForLoad = false } = {}) {
+export async function dismissCookiePreferences(
+  page: Page,
+  config: Pick<CaptureConfig, 'cookiePreferences'> = {},
+  { waitForLoad = false } = {},
+) {
   if (config.cookiePreferences === false) return;
   const options = config.cookiePreferences ?? {};
   const timeout = options.timeout ?? 5000;
@@ -31,16 +39,22 @@ export async function dismissCookiePreferences(page: Page, config: Pick<CaptureC
     // then check again immediately before each measurement/screenshot for late arrivals.
     const expected = vendor.expected || (vendor.script ? await page.locator(vendor.script).count() : 0);
     if (waitForLoad && expected) {
-      try { await banners.first().waitFor({ state: 'visible', timeout }); }
-      catch (error) { if ((error as Error).name !== 'TimeoutError') throw error; }
+      try {
+        await banners.first().waitFor({ state: 'visible', timeout });
+      } catch (error) {
+        if ((error as Error).name !== 'TimeoutError') throw error;
+      }
     }
     for (const banner of await banners.all()) {
-      if (!await banner.isVisible()) continue;
+      if (!(await banner.isVisible())) continue;
       // Playwright CSS locators pierce open shadow roots; document.querySelector does not.
       const controls = Array.isArray(vendor.close) ? vendor.close : [vendor.close];
       let control = banner.locator(controls[0]!).first();
       for (const selector of controls) {
-        if (await banner.locator(selector).count()) { control = banner.locator(selector).first(); break; }
+        if (await banner.locator(selector).count()) {
+          control = banner.locator(selector).first();
+          break;
+        }
       }
       await control.click({ timeout });
       await banner.waitFor({ state: 'hidden', timeout });

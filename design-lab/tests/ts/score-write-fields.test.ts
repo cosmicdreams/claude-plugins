@@ -12,22 +12,38 @@ process.env['HOME'] = join(scratch, 'home');
 process.env['DESIGN_LAB_HOME'] = join(scratch, 'design-lab-home');
 delete process.env['CLAUDE_CONFIG_DIR'];
 let root = '';
-beforeEach(() => { root = mkdtempSync(join(scratch, 'case-')); });
+beforeEach(() => {
+  root = mkdtempSync(join(scratch, 'case-'));
+});
 
-const write = (path: string, value: unknown): void => { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, JSON.stringify(value)); };
-const lines = (path: string, records: unknown[]): void => { mkdirSync(dirname(path), { recursive: true }); writeFileSync(path, records.map(r => JSON.stringify(r)).join('\n') + '\n'); };
+const write = (path: string, value: unknown): void => {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, JSON.stringify(value));
+};
+const lines = (path: string, records: unknown[]): void => {
+  mkdirSync(dirname(path), { recursive: true });
+  writeFileSync(path, records.map((r) => JSON.stringify(r)).join('\n') + '\n');
+};
 const noServer = async () => ({ stopped: false, pid: null });
 const stubRender = async () => '<html>report</html>';
 
 /** A manifest as 0.14 wrote it: no run identity block. */
 function project(extra: Json = {}): Json {
-  return { schemaVersion: 1, standardVersion: '4.0.0', pluginVersion: '0.14.0', createdAt: '2026-01-05T10:00:00+00:00',
+  return {
+    schemaVersion: 1,
+    standardVersion: '4.0.0',
+    pluginVersion: '0.14.0',
+    createdAt: '2026-01-05T10:00:00+00:00',
     repository: { root: '/repo/mytheme', commit: 'abc1234def', dirty: false },
     target: { figmaFileKey: 'KEY1', figmaUrl: 'https://www.figma.com/design/KEY1' },
     decisions: { componentSource: 'sdc', tokenSource: 'css-custom-properties', usageSource: 'none' },
-    phases: { discovery: { status: 'complete', updatedAt: '2026-01-05T10:00:01+00:00' },
-      plan: { status: 'approved', updatedAt: '2026-01-05T10:20:00+00:00' } },
-    artifacts: {}, ...extra };
+    phases: {
+      discovery: { status: 'complete', updatedAt: '2026-01-05T10:00:01+00:00' },
+      plan: { status: 'approved', updatedAt: '2026-01-05T10:20:00+00:00' },
+    },
+    artifacts: {},
+    ...extra,
+  };
 }
 
 /** Scores and writes the run through the real writeScore(); the scorecard is written only when it validates. */
@@ -54,12 +70,15 @@ test('writeScore accepts a run with no components, plan or index (library reason
 
 // 3. --compare with a second run, not a shared build: repeatability levelNote and minScore.
 test('writeScore accepts --compare repeatability (levelNote and minScore)', async () => {
-  const run = join(root, 'run'), other = join(root, 'other');
+  const run = join(root, 'run'),
+    other = join(root, 'other');
   write(join(run, 'project.json'), project());
   write(join(other, 'project.json'), project());
   const compareRuns = async (): Promise<RunComparison> => ({
     summary: { score: 98.5, total_nodes: 10, identical_nodes: 9, matched_nodes: 10, category_counts: {} },
-    artifacts: {}, page_differences: {}, pages: { order_equal: true },
+    artifacts: {},
+    page_differences: {},
+    pages: { order_equal: true },
   });
   const result = await scoreRun(run, { compare: [other], compareRuns });
   assert.deepEqual(result.errors, []);
@@ -72,10 +91,17 @@ test('writeScore accepts --compare repeatability (levelNote and minScore)', asyn
 
 // 4. --transcripts naming a folder: caveat on cost.model and cost.working.
 test('writeScore accepts --transcripts folders (caveat on model and working)', async () => {
-  const run = join(root, 'run'), folder = join(root, 'transcripts');
+  const run = join(root, 'run'),
+    folder = join(root, 'transcripts');
   write(join(run, 'project.json'), project());
-  lines(join(folder, 'session-a.jsonl'), [{ type: 'assistant', timestamp: '2026-01-05T10:05:00+00:00', sessionId: 'session-a',
-    message: { id: 'msg-1', model: 'claude-opus-5-5', usage: { input_tokens: 10, output_tokens: 5 }, content: [] } }]);
+  lines(join(folder, 'session-a.jsonl'), [
+    {
+      type: 'assistant',
+      timestamp: '2026-01-05T10:05:00+00:00',
+      sessionId: 'session-a',
+      message: { id: 'msg-1', model: 'claude-opus-5-5', usage: { input_tokens: 10, output_tokens: 5 }, content: [] },
+    },
+  ]);
   const result = await scoreRun(run, { transcripts: folder });
   assert.deepEqual(result.errors, []);
   assert.equal(result.code, 0);
@@ -86,9 +112,15 @@ test('writeScore accepts --transcripts folders (caveat on model and working)', a
 
 // 5. --session current with two sessions written during the run: cost.developer.sessionWarning.
 test('writeScore accepts --session current with several sessions (sessionWarning)', async () => {
-  const run = join(root, 'run'), folder = join(root, 'transcripts');
-  write(join(run, 'project.json'), project({ run: { startedAt: '2026-01-05T10:00:00+00:00', claude: { transcripts: folder } } }));
-  const record = [{ type: 'user', timestamp: '2026-01-05T10:05:00+00:00', message: { role: 'user', content: 'build it' } }];
+  const run = join(root, 'run'),
+    folder = join(root, 'transcripts');
+  write(
+    join(run, 'project.json'),
+    project({ run: { startedAt: '2026-01-05T10:00:00+00:00', claude: { transcripts: folder } } }),
+  );
+  const record = [
+    { type: 'user', timestamp: '2026-01-05T10:05:00+00:00', message: { role: 'user', content: 'build it' } },
+  ];
   lines(join(folder, 'sess-a.jsonl'), record);
   lines(join(folder, 'sess-b.jsonl'), record);
   const result = await scoreRun(run, { session: 'current' });
@@ -99,16 +131,21 @@ test('writeScore accepts --session current with several sessions (sessionWarning
 
 // Varied inputs for the other-writers check: the same writer on the paths that do not write these fields.
 test('writeScore accepts a measured library and a shared-build repeatability', async () => {
-  const run = join(root, 'run'), other = join(root, 'other');
+  const run = join(root, 'run'),
+    other = join(root, 'other');
   write(join(run, 'project.json'), project());
   write(join(other, 'project.json'), project());
   write(join(run, 'components.json'), { components: [{ id: 'mytheme.card', label: 'Card' }] });
-  write(join(run, 'plan.json'), { plans: [{ id: 'mytheme.card', verdict: 'build', variants: 3, properties: [{ field: 'title' }] }] });
+  write(join(run, 'plan.json'), {
+    plans: [{ id: 'mytheme.card', verdict: 'build', variants: 3, properties: [{ field: 'title' }] }],
+  });
   write(join(run, 'index.json'), { totals: { components: 1, built: 1, notBuilt: 0 }, rows: [], notBuilt: [] });
   const same = { present: [true, true], normalized_equal: true, differences: [] };
   const compareRuns = async (): Promise<RunComparison> => ({
     summary: { score: 100, total_nodes: 4, identical_nodes: 4, matched_nodes: 4, category_counts: {} },
-    artifacts: { 'components.json': same, 'tokens.json': same, 'plan.json': same }, page_differences: {}, pages: { order_equal: true },
+    artifacts: { 'components.json': same, 'tokens.json': same, 'plan.json': same },
+    page_differences: {},
+    pages: { order_equal: true },
   });
   const result = await scoreRun(run, { compare: [other], compareRuns });
   assert.deepEqual(result.errors, []);
@@ -119,10 +156,17 @@ test('writeScore accepts a measured library and a shared-build repeatability', a
 });
 
 test('writeScore accepts an explicit transcript file (no caveat)', async () => {
-  const run = join(root, 'run'), file = join(root, 'transcripts', 'one.jsonl');
+  const run = join(root, 'run'),
+    file = join(root, 'transcripts', 'one.jsonl');
   write(join(run, 'project.json'), project());
-  lines(file, [{ type: 'assistant', timestamp: '2026-01-05T10:05:00+00:00', sessionId: 'one',
-    message: { id: 'msg-1', model: 'claude-opus-5-5', usage: { input_tokens: 10, output_tokens: 5 }, content: [] } }]);
+  lines(file, [
+    {
+      type: 'assistant',
+      timestamp: '2026-01-05T10:05:00+00:00',
+      sessionId: 'one',
+      message: { id: 'msg-1', model: 'claude-opus-5-5', usage: { input_tokens: 10, output_tokens: 5 }, content: [] },
+    },
+  ]);
   const result = await scoreRun(run, { transcripts: file });
   assert.deepEqual(result.errors, []);
   assert.equal(result.code, 0);
@@ -141,7 +185,12 @@ test('writeScore accepts accuracy recorded only in build records (no corrected m
   const run = join(root, 'run');
   write(join(run, 'project.json'), project());
   buildRecord(run, [{ label: 'desktop', ratio: 0.1, pass: true, width: 1200 }]);
-  const result = await S.writeScore(run, { warn: () => {}, out: join(root, 'out'), stopServer: noServer, ...realRender() });
+  const result = await S.writeScore(run, {
+    warn: () => {},
+    out: join(root, 'out'),
+    stopServer: noServer,
+    ...realRender(),
+  });
   assert.deepEqual(result.errors, []);
   assert.equal(result.code, 0);
   const accuracy = result.scorecard.sections.accuracy;
@@ -157,7 +206,12 @@ test('writeScore accepts a recorded comparison pair that has no ratio (null rati
   const run = join(root, 'run');
   write(join(run, 'project.json'), project());
   buildRecord(run, [{ label: 'desktop', pass: true, width: 1200, heightDelta: 3 }]);
-  const result = await S.writeScore(run, { warn: () => {}, out: join(root, 'out'), stopServer: noServer, ...realRender() });
+  const result = await S.writeScore(run, {
+    warn: () => {},
+    out: join(root, 'out'),
+    stopServer: noServer,
+    ...realRender(),
+  });
   assert.deepEqual(result.errors, []);
   assert.equal(result.code, 0);
   const original = result.scorecard.sections.accuracy.overall?.original;
@@ -169,8 +223,14 @@ test('writeScore accepts a project manifest that predates run identity and a reb
   const run = join(root, 'run');
   const { pluginVersion: _p, standardVersion: _s, repository, ...rest } = project() as Json & { repository: Json };
   const { dirty: _d, ...repo } = repository;
-  write(join(run, 'project.json'), { ...rest, repository: repo, run: { startedAt: '2026-01-05T10:00:00+00:00',
-    rebuiltFrom: { run: '/runs/earlier', createdAt: null, pluginVersion: null, corpusLabel: 'massport' } } });
+  write(join(run, 'project.json'), {
+    ...rest,
+    repository: repo,
+    run: {
+      startedAt: '2026-01-05T10:00:00+00:00',
+      rebuiltFrom: { run: '/runs/earlier', createdAt: null, pluginVersion: null, corpusLabel: 'massport' },
+    },
+  });
   const result = await scoreRun(run);
   assert.deepEqual(result.errors, []);
   assert.equal(result.code, 0);
@@ -183,15 +243,24 @@ test('writeScore accepts a project manifest that predates run identity and a reb
 });
 
 test('writeScore accepts a library with only a plan and a run with no benchmark step (null found, null until, no median step)', async () => {
-  const run = join(root, 'run'), file = join(root, 'transcripts', 'one.jsonl');
+  const run = join(root, 'run'),
+    file = join(root, 'transcripts', 'one.jsonl');
   write(join(run, 'project.json'), project({ run: { startedAt: '2026-01-05T10:00:00+00:00' } }));
-  write(join(run, 'plan.json'), { plans: [{ id: 'mytheme.card', verdict: 'build', variants: 3, properties: [{ field: 'title' }] }] });
+  write(join(run, 'plan.json'), {
+    plans: [{ id: 'mytheme.card', verdict: 'build', variants: 3, properties: [{ field: 'title' }] }],
+  });
   write(join(run, 'index.json'), { notBuilt: [{ id: 'mytheme.hero' }] });
   lines(join(run, 'phase-log.jsonl'), [{ at: '2026-01-05T10:01:00+00:00', phase: 'preflight', status: 'complete' }]);
   mkdirSync(join(run, 'figma'), { recursive: true });
   writeFileSync(join(run, 'figma', 'runner.log'), '2026-01-05T10:10:00+00:00 recorded block:card\n');
   // An assistant message without a timestamp: the transcript is measured but has no first or last message time.
-  lines(file, [{ type: 'assistant', sessionId: 'one', message: { id: 'msg-1', model: 'claude-opus-5-5', usage: { input_tokens: 10, output_tokens: 5 }, content: [] } }]);
+  lines(file, [
+    {
+      type: 'assistant',
+      sessionId: 'one',
+      message: { id: 'msg-1', model: 'claude-opus-5-5', usage: { input_tokens: 10, output_tokens: 5 }, content: [] },
+    },
+  ]);
   const result = await scoreRun(run, { transcripts: file });
   assert.deepEqual(result.errors, []);
   assert.equal(result.code, 0);

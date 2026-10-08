@@ -17,11 +17,19 @@ const manifest = JSON.parse(readFileSync(resolve(pluginRoot, 'package.json'), 'u
   dependencies: Record<string, string>;
   devDependencies: Record<string, string>;
 };
-const paths = Object.fromEntries(Object.keys({ ...manifest.dependencies, ...manifest.devDependencies }).flatMap(name => {
-  const folder = resolve(modules, name);
-  const pkg = JSON.parse(readFileSync(resolve(folder, 'package.json'), 'utf8')) as { types?: string; typings?: string };
-  return [[name, [resolve(folder, pkg.types ?? pkg.typings ?? 'index.d.ts')]], [`${name}/*`, [resolve(folder, '*')]]];
-}));
+const paths = Object.fromEntries(
+  Object.keys({ ...manifest.dependencies, ...manifest.devDependencies }).flatMap((name) => {
+    const folder = resolve(modules, name);
+    const pkg = JSON.parse(readFileSync(resolve(folder, 'package.json'), 'utf8')) as {
+      types?: string;
+      typings?: string;
+    };
+    return [
+      [name, [resolve(folder, pkg.types ?? pkg.typings ?? 'index.d.ts')]],
+      [`${name}/*`, [resolve(folder, '*')]],
+    ];
+  }),
+);
 
 function run(command: string, args: string[], env = process.env): void {
   const result = spawnSync(process.execPath, [command, ...args], { cwd: pluginRoot, env, stdio: 'inherit' });

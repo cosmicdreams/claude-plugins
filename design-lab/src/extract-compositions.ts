@@ -1,19 +1,15 @@
 /** Extract top-level rendered component sequences from published pages (port of extract_compositions.ts). */
-import { join } from "node:path";
-import { parseArgs } from "node:util";
-import { writeJson } from "./contracts.ts";
-import { compareStrings } from "./extract-drupal-usage.ts";
-import { comparePages } from "./find-rendered-components.ts";
-import type { Page } from "./find-rendered-components.ts";
-import { collapse, parseHtml } from "./html-parser.ts";
-import type { Attrs } from "./html-parser.ts";
-import { addresses, fetchPages, siteConfig } from "./published-pages.ts";
+import { join } from 'node:path';
+import { parseArgs } from 'node:util';
+import { writeJson } from './contracts.ts';
+import { compareStrings } from './extract-drupal-usage.ts';
+import { comparePages } from './find-rendered-components.ts';
+import type { Page } from './find-rendered-components.ts';
+import { collapse, parseHtml } from './html-parser.ts';
+import type { Attrs } from './html-parser.ts';
+import { addresses, fetchPages, siteConfig } from './published-pages.ts';
 
-export const VOID = new Set(
-  "area base br col embed hr img input link meta param source track wbr".split(
-    " ",
-  ),
-);
+export const VOID = new Set('area base br col embed hr img input link meta param source track wbr'.split(' '));
 
 export interface ParsedComposition {
   title: string;
@@ -27,8 +23,7 @@ export function parsePage(html: string): ParsedComposition {
   const component = (attrs: Attrs): string | null => {
     // dict(attrs): a repeated attribute keeps its last value.
     let found: string | null = null;
-    for (const [key, value] of attrs)
-      if (key === "data-component-id") found = value;
+    for (const [key, value] of attrs) if (key === 'data-component-id') found = value;
     return found;
   };
   parseHtml(html, {
@@ -36,7 +31,7 @@ export function parsePage(html: string): ParsedComposition {
       const id = component(attrs);
       if (id && !stack.some(([, marked]) => marked)) components.push(id);
       if (!VOID.has(tag)) stack.push([tag, Boolean(id)]);
-      if (tag === "title") titleDepth++;
+      if (tag === 'title') titleDepth++;
     },
     startendtag(_tag, attrs) {
       const id = component(attrs);
@@ -48,13 +43,13 @@ export function parsePage(html: string): ParsedComposition {
           stack.length = index;
           break;
         }
-      if (tag === "title" && titleDepth) titleDepth--;
+      if (tag === 'title' && titleDepth) titleDepth--;
     },
     data(text) {
       if (titleDepth) titleParts.push(text);
     },
   });
-  return { title: collapse(titleParts.join(" ")), components };
+  return { title: collapse(titleParts.join(' ')), components };
 }
 
 export interface Compositions {
@@ -63,7 +58,7 @@ export interface Compositions {
   pagesFailed: string[];
 }
 export function buildCompositions(pages: Page[]): Compositions {
-  const result: Compositions["pages"] = [],
+  const result: Compositions['pages'] = [],
     byComponent = new Map<string, string[]>(),
     failed: string[] = [];
   for (const [path, status, html] of [...pages].sort(comparePages)) {
@@ -81,9 +76,7 @@ export function buildCompositions(pages: Page[]): Compositions {
   }
   return {
     pages: result,
-    components: Object.fromEntries(
-      [...byComponent].sort((a, b) => compareStrings(a[0], b[0])),
-    ),
+    components: Object.fromEntries([...byComponent].sort((a, b) => compareStrings(a[0], b[0]))),
     pagesFailed: failed,
   };
 }
@@ -91,20 +84,13 @@ export function buildCompositions(pages: Page[]): Compositions {
 export async function main(argv = process.argv.slice(2)): Promise<void> {
   const { values } = parseArgs({
     args: argv,
-    options: { project: { type: "string" }, "base-url": { type: "string" } },
+    options: { project: { type: 'string' }, 'base-url': { type: 'string' } },
   });
-  if (!values.project || !values["base-url"])
-    throw new Error(
-      "usage: extract-compositions.ts --project DIR --base-url URL",
-    );
+  if (!values.project || !values['base-url'])
+    throw new Error('usage: extract-compositions.ts --project DIR --base-url URL');
   const { root, front } = siteConfig(values.project);
-  const output = join(values.project, "compositions.json");
-  writeJson(
-    output,
-    buildCompositions(
-      await fetchPages(values["base-url"], addresses(root, front)),
-    ),
-  );
+  const output = join(values.project, 'compositions.json');
+  writeJson(output, buildCompositions(await fetchPages(values['base-url'], addresses(root, front))));
   console.log(output);
 }
 

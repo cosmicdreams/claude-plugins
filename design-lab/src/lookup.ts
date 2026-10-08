@@ -1,6 +1,9 @@
 /** Checked lookups. Each replaces a non-null assertion: a missing entry throws a `LookupError` that says what was looked up. */
 export class LookupError extends Error {
-  constructor(message: string) { super(message); this.name = 'LookupError'; }
+  constructor(message: string) {
+    super(message);
+    this.name = 'LookupError';
+  }
 }
 /** The item at `index`; `what` names the list for the message. */
 export function at<T>(items: readonly T[], index: number, what: string): T {

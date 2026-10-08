@@ -1,70 +1,70 @@
 import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
 /** DB and bounded local HTTP oracle acceptance. Run after discovery.ts in the same scratch tree. */
-import { readFileSync, existsSync } from "node:fs";
-import { join, resolve } from "node:path";
-import { spawnSync } from "node:child_process";
-import { performance } from "node:perf_hooks";
-import { writeJson } from "../../src/contracts.ts";
-import { pluginRoot } from "../../src/runtime.ts";
-import { extract, mergeUsage } from "../../src/extract-drupal-usage.ts";
-import {
-  extract as canvasExtract,
-  mergeCanvasUsage,
-} from "../../src/extract-canvas-usage.ts";
-import { scan } from "../../src/find-rendered-components.ts";
-import {
-  addresses,
-  siteConfig,
-  fetchPages,
-} from "../../src/published-pages.ts";
-import { buildVoice } from "../../src/extract-voice.ts";
-import { buildCompositions } from "../../src/extract-compositions.ts";
-import { sites, differences, normalize, ignoredFields } from "./discovery.ts";
-import type {Project} from '../../src/generated/project.ts';
-import type {UsageInventory} from '../../src/usage-types.ts';
-type LiveEntry={site?:string;baseUrl?:string;status?:string;reason?:string;artifacts?:Record<string,{status:string;diff?:unknown}>;timings?:{ts:Record<string,number>;python:Record<string,number>};sameResponseReplay?:{voice:unknown;compositions:unknown}};
-type Request={root:string;decisions:NonNullable<Project['decisions']>};
-import type { Page } from "../../src/find-rendered-components.ts";
-import { findExamplesMain } from "./network-cli.ts";
+import { readFileSync, existsSync } from 'node:fs';
+import { join, resolve } from 'node:path';
+import { spawnSync } from 'node:child_process';
+import { performance } from 'node:perf_hooks';
+import { writeJson } from '../../src/contracts.ts';
+import { pluginRoot } from '../../src/runtime.ts';
+import { extract, mergeUsage } from '../../src/extract-drupal-usage.ts';
+import { extract as canvasExtract, mergeCanvasUsage } from '../../src/extract-canvas-usage.ts';
+import { scan } from '../../src/find-rendered-components.ts';
+import { addresses, siteConfig, fetchPages } from '../../src/published-pages.ts';
+import { buildVoice } from '../../src/extract-voice.ts';
+import { buildCompositions } from '../../src/extract-compositions.ts';
+import { sites, differences, normalize, ignoredFields } from './discovery.ts';
+import type { Project } from '../../src/generated/project.ts';
+import type { UsageInventory } from '../../src/usage-types.ts';
+type LiveEntry = {
+  site?: string;
+  baseUrl?: string;
+  status?: string;
+  reason?: string;
+  artifacts?: Record<string, { status: string; diff?: unknown }>;
+  timings?: { ts: Record<string, number>; python: Record<string, number> };
+  sameResponseReplay?: { voice: unknown; compositions: unknown };
+};
+type Request = { root: string; decisions: NonNullable<Project['decisions']> };
+import type { Page } from '../../src/find-rendered-components.ts';
+import { findExamplesMain } from './network-cli.ts';
 
-import {portableParity} from './portable.ts';
+import { portableParity } from './portable.ts';
 const python = oracleExecutable;
 export async function main(output: string): Promise<void> {
   output = resolve(output);
-  if (!/^\/(private\/)?tmp\//.test(output))
-    throw new Error("live output must be under /tmp");
-  const portable=await portableParity(join(output,'portable'));
-  const summary: {ignoredFields:string[];results:LiveEntry[];coverage:unknown;portable:unknown} = { ignoredFields, results: [], coverage:portable.matrix, portable:portable.results };
+  if (!/^\/(private\/)?tmp\//.test(output)) throw new Error('live output must be under /tmp');
+  const portable = await portableParity(join(output, 'portable'));
+  const summary: { ignoredFields: string[]; results: LiveEntry[]; coverage: unknown; portable: unknown } = {
+    ignoredFields,
+    results: [],
+    coverage: portable.matrix,
+    portable: portable.results,
+  };
   for (const [name, frozen] of sites) {
     const scratch = join(output, name!),
-      request = JSON.parse(
-        readFileSync(join(scratch, "request.json"), "utf8"),
-      ) as Request,
-      project = JSON.parse(
-        readFileSync(join(frozen!, "project.json"), "utf8"),
-      ) as Project;
-    const root = request["root"],
-      py = join(scratch, "python"),
-      ts = join(scratch, "ts");
-    const describe = spawnSync("ddev", ["describe", "-j"], {
+      request = JSON.parse(readFileSync(join(scratch, 'request.json'), 'utf8')) as Request,
+      project = JSON.parse(readFileSync(join(frozen!, 'project.json'), 'utf8')) as Project;
+    const root = request['root'],
+      py = join(scratch, 'python'),
+      ts = join(scratch, 'ts');
+    const describe = spawnSync('ddev', ['describe', '-j'], {
       cwd: root,
-      encoding: "utf8",
+      encoding: 'utf8',
       maxBuffer: 8 * 1024 * 1024,
     });
-    let status: Record<string,string> = {};
+    let status: Record<string, string> = {};
     try {
-      status = JSON.parse(describe.stdout)["raw"] ?? {};
+      status = JSON.parse(describe.stdout)['raw'] ?? {};
     } catch {}
-    if (describe.status !== 0 || status["status"] !== "running") {
+    if (describe.status !== 0 || status['status'] !== 'running') {
       summary.results.push({
         site: name!,
-        status: "skipped",
-        reason:
-          "DDEV project not running; start authorized only for PNCB/DEFINITIVEHC",
+        status: 'skipped',
+        reason: 'DDEV project not running; start authorized only for PNCB/DEFINITIVEHC',
       });
       continue;
     }
-    const base = status["primary_url"] as string,
+    const base = status['primary_url'] as string,
       entry: LiveEntry = {
         site: name!,
         baseUrl: base,
@@ -72,154 +72,100 @@ export async function main(output: string): Promise<void> {
         timings: { ts: {}, python: {} },
       };
     summary.results.push(entry);
-    for (const arm of [py, ts]) writeJson(join(arm, "project.json"), project);
+    for (const arm of [py, ts]) writeJson(join(arm, 'project.json'), project);
     const runOracle = (stage: string): void => {
       writeJson(join(scratch, `request-${stage}.json`), {
         ...request,
         stage,
         baseUrl: base,
-        ddevProject: project["phases"]?.['usage']?.detail?.ddevProject ?? null,
+        ddevProject: project['phases']?.['usage']?.detail?.ddevProject ?? null,
       });
-      const p = spawnSync(
-        python,
-        [
-          oracleScript('discovery-oracle.py'),
-          join(scratch, `request-${stage}.json`),
-        ],
-        {
-          encoding: "utf8",
-          env: { ...process.env, PYTHONDONTWRITEBYTECODE: "1" },
-          maxBuffer: 16 * 1024 * 1024,
-        },
-      );
-      if (p.status !== 0)
-        throw new Error(`${name} ${stage} Python failed: ${p.stderr}`);
-      Object.assign(
-        entry["timings"]!.python,
-        JSON.parse(readFileSync(join(py, `timings-${stage}.json`), "utf8")),
-      );
+      const p = spawnSync(python, [oracleScript('discovery-oracle.py'), join(scratch, `request-${stage}.json`)], {
+        encoding: 'utf8',
+        env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' },
+        maxBuffer: 16 * 1024 * 1024,
+      });
+      if (p.status !== 0) throw new Error(`${name} ${stage} Python failed: ${p.stderr}`);
+      Object.assign(entry['timings']!.python, JSON.parse(readFileSync(join(py, `timings-${stage}.json`), 'utf8')));
     };
-    const save = async <T>(
-      artifact: string,
-      operation: () => T | Promise<T>,
-    ): Promise<T> => {
+    const save = async <T>(artifact: string, operation: () => T | Promise<T>): Promise<T> => {
       const start = performance.now(),
         doc = await operation();
-      writeJson(join(ts, artifact + ".json"), doc);
-      entry["timings"]!.ts[artifact] = (performance.now() - start) / 1000;
+      writeJson(join(ts, artifact + '.json'), doc);
+      entry['timings']!.ts[artifact] = (performance.now() - start) / 1000;
       return doc;
     };
     const compare = (artifact: string): void => {
       const diff = differences(
-        normalize(JSON.parse(readFileSync(join(py, artifact + ".json"), "utf8"))),
-        normalize(JSON.parse(readFileSync(join(ts, artifact + ".json"), "utf8"))),
+        normalize(JSON.parse(readFileSync(join(py, artifact + '.json'), 'utf8'))),
+        normalize(JSON.parse(readFileSync(join(ts, artifact + '.json'), 'utf8'))),
       );
-      entry["artifacts"]![artifact] = {
-        status: diff.length ? "mismatch" : "match",
+      entry['artifacts']![artifact] = {
+        status: diff.length ? 'mismatch' : 'match',
         ...(diff.length ? { diff } : {}),
       };
     };
-    runOracle("usage");
+    runOracle('usage');
     const components = JSON.parse(
-        readFileSync(join(ts, "components.json"), "utf8"),
+        readFileSync(join(ts, 'components.json'), 'utf8'),
       ) as import('../../src/usage-types.ts').UsageInventory,
-      rendering = existsSync(join(ts, "render-evidence.json"))
+      rendering = existsSync(join(ts, 'render-evidence.json'))
         ? (JSON.parse(
-            readFileSync(join(ts, "render-evidence.json"), "utf8"),
+            readFileSync(join(ts, 'render-evidence.json'), 'utf8'),
           ) as import('../../src/generated/render-evidence.ts').RenderEvidence)
         : null;
-    const usage = await save("usage", () =>
-      request["decisions"].usageSource === "canvas-db"
-        ? canvasExtract(
-            root,
-            components,
-            project["phases"]?.['usage']?.detail?.ddevProject,
-          )
-        : extract(
-            root,
-            components,
-            project["phases"]?.['usage']?.detail?.ddevProject,
-            rendering,
-          ),
+    const usage = await save('usage', () =>
+      request['decisions'].usageSource === 'canvas-db'
+        ? canvasExtract(root, components, project['phases']?.['usage']?.detail?.ddevProject)
+        : extract(root, components, project['phases']?.['usage']?.detail?.ddevProject, rendering),
     );
-    await save("enriched-components", () =>
-      request["decisions"].usageSource === "canvas-db"
+    await save('enriched-components', () =>
+      request['decisions'].usageSource === 'canvas-db'
         ? mergeCanvasUsage(components, usage)
         : mergeUsage(components, usage),
     );
-    compare("usage");
-    compare("enriched-components");
-    runOracle("network");
+    compare('usage');
+    compare('enriched-components');
+    runOracle('network');
     const { root: cfgRoot, name: siteName, front } = siteConfig(ts),
-      paths = await save("published-addresses", () => ({
+      paths = await save('published-addresses', () => ({
         paths: addresses(cfgRoot, front, 3),
       }));
     const pages = await fetchPages(base, paths.paths);
-    await save("published-pages", () => ({ pages }));
+    await save('published-pages', () => ({ pages }));
     const [evidence, details] = await scan(base, root, components, 3);
-    await save("rendered-components", () => ({
+    await save('rendered-components', () => ({
       components: evidence,
       source: details,
     }));
-    await save("voice", () =>
-      buildVoice(pages, siteName, "oracle-clock", front),
-    );
-    await save("compositions", () => buildCompositions(pages));
-    for (const artifact of [
-      "published-addresses",
-      "published-pages",
-      "rendered-components",
-      "voice",
-      "compositions",
-    ])
+    await save('voice', () => buildVoice(pages, siteName, 'oracle-clock', front));
+    await save('compositions', () => buildCompositions(pages));
+    for (const artifact of ['published-addresses', 'published-pages', 'rendered-components', 'voice', 'compositions'])
       compare(artifact);
     // The original find_examples verifies normal TLS; use DDEV's HTTP address in both arms.
     await findExamplesMain({
       scratch,
       py,
       ts,
-      base: status["httpurl"]!,
+      base: status['httpurl']!,
       paths: paths.paths,
-      components: join(ts, "components.json"),
-      strategy:
-        request["decisions"].componentSource === "sitestudio"
-          ? "sitestudio"
-          : "paragraphs",
+      components: join(ts, 'components.json'),
+      strategy: request['decisions'].componentSource === 'sitestudio' ? 'sitestudio' : 'paragraphs',
       python,
     });
-    compare("examples");
-    const snapshots = JSON.parse(
-      readFileSync(join(py, "network-responses.json"), "utf8"),
-    ) as { pages: Page[] };
-    const replayVoice = buildVoice(
-        snapshots.pages,
-        siteName,
-        "oracle-clock",
-        front,
-      ),
+    compare('examples');
+    const snapshots = JSON.parse(readFileSync(join(py, 'network-responses.json'), 'utf8')) as { pages: Page[] };
+    const replayVoice = buildVoice(snapshots.pages, siteName, 'oracle-clock', front),
       replayCompositions = buildCompositions(snapshots.pages);
-    entry["sameResponseReplay"] = {
-      voice: differences(
-        normalize(JSON.parse(readFileSync(join(py, "voice.json"), "utf8"))),
-        normalize(replayVoice),
-      ),
-      compositions: differences(
-        JSON.parse(readFileSync(join(py, "compositions.json"), "utf8")),
-        replayCompositions,
-      ),
+    entry['sameResponseReplay'] = {
+      voice: differences(normalize(JSON.parse(readFileSync(join(py, 'voice.json'), 'utf8'))), normalize(replayVoice)),
+      compositions: differences(JSON.parse(readFileSync(join(py, 'compositions.json'), 'utf8')), replayCompositions),
     };
-    writeJson(join(output, "live-summary.json"), summary);
-    console.log(name, JSON.stringify(entry["artifacts"]));
+    writeJson(join(output, 'live-summary.json'), summary);
+    console.log(name, JSON.stringify(entry['artifacts']));
   }
-  writeJson(join(output, "live-summary.json"), summary);
-  if (
-    summary.results.some((r) =>
-      Object.values(r["artifacts"] ?? {}).some(
-        (a) => a["status"] === "mismatch",
-      ),
-    )
-  )
+  writeJson(join(output, 'live-summary.json'), summary);
+  if (summary.results.some((r) => Object.values(r['artifacts'] ?? {}).some((a) => a['status'] === 'mismatch')))
     process.exitCode = 1;
 }
-if (import.meta.main)
-  await main(process.argv[2] ?? "/tmp/design-lab-p3-equivalence");
+if (import.meta.main) await main(process.argv[2] ?? '/tmp/design-lab-p3-equivalence');

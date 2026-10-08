@@ -1,13 +1,18 @@
-import type {Tokens} from './generated/tokens.ts';
-type SassToken=Required<Pick<NonNullable<Tokens['tokens']>[number],'name'|'codeName'|'raw'|'value'|'family'|'isAlias'|'layer'|'provenance'>> & {codeName:string};
+import type { Tokens } from './generated/tokens.ts';
+type SassToken = Required<
+  Pick<
+    NonNullable<Tokens['tokens']>[number],
+    'name' | 'codeName' | 'raw' | 'value' | 'family' | 'isAlias' | 'layer' | 'provenance'
+  >
+> & { codeName: string };
 /** Recover source-authored Sass tokens embedded in CSS source maps. */
-import { readdirSync, readFileSync } from "node:fs";
-import { join, relative, resolve as pathResolve } from "node:path";
-import { pluginRoot } from "./runtime.ts";
-import { roundEven } from "./json.ts";
-import { nonEmpty } from "./lookup.ts";
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, relative, resolve as pathResolve } from 'node:path';
+import { pluginRoot } from './runtime.ts';
+import { roundEven } from './json.ts';
+import { nonEmpty } from './lookup.ts';
 
-export const STANDARD_VERSION = "3.0.0";
+export const STANDARD_VERSION = '3.0.0';
 const SKIP = /\/(node_modules|vendor|\.git)\//;
 export const VAR = /^\s*\$([a-zA-Z0-9_-]+)\s*:\s*(.+?)\s*;/gm;
 export const FLAGS = /\s*!(default|global)\b/g;
@@ -24,58 +29,46 @@ function files(root: string): string[] {
   for (const entry of readdirSync(root, { withFileTypes: true })) {
     const path = join(root, entry.name);
     if (entry.isDirectory()) {
-      if (!SKIP.test(path.replaceAll("\\", "/") + "/"))
-        out.push(...files(path));
-    } else if (entry.isFile() && entry.name.endsWith(".css.map"))
-      out.push(path);
+      if (!SKIP.test(path.replaceAll('\\', '/') + '/')) out.push(...files(path));
+    } else if (entry.isFile() && entry.name.endsWith('.css.map')) out.push(path);
   }
   return out.sort();
 }
 function toolVersion(): string {
   try {
     return (
-      "design-lab " +
-      JSON.parse(
-        readFileSync(
-          pathResolve(pluginRoot, ".claude-plugin/plugin.json"),
-          "utf8",
-        ),
-      ).version
+      'design-lab ' + JSON.parse(readFileSync(pathResolve(pluginRoot, '.claude-plugin/plugin.json'), 'utf8')).version
     );
   } catch {
-    return "design-lab unknown";
+    return 'design-lab unknown';
   }
 }
 export function classify(value: string): string {
   const v = value.trim();
-  if (HEX.test(v) || RGB.test(v)) return "color";
-  if (EMFN.test(v) || LEN.test(v)) return "spacing";
-  if (
-    FONTSTACK.test(v) ||
-    ["serif", "sans-serif", "monospace"].includes(v.toLowerCase())
-  )
-    return "font-family";
-  if (["true", "false"].includes(v.toLowerCase())) return "flag";
-  if (NUM.test(v)) return "number";
-  return "unknown";
+  if (HEX.test(v) || RGB.test(v)) return 'color';
+  if (EMFN.test(v) || LEN.test(v)) return 'spacing';
+  if (FONTSTACK.test(v) || ['serif', 'sans-serif', 'monospace'].includes(v.toLowerCase())) return 'font-family';
+  if (['true', 'false'].includes(v.toLowerCase())) return 'flag';
+  if (NUM.test(v)) return 'number';
+  return 'unknown';
 }
 function hexToRgb(value: string): [number, number, number] | null {
-  let h = value.replace(/^#/, "");
-  if (h.length === 3) h = [...h].map((c) => c + c).join("");
+  let h = value.replace(/^#/, '');
+  if (h.length === 3) h = [...h].map((c) => c + c).join('');
   if (h.length < 6) return null;
   const n = [0, 2, 4].map((i) => Number.parseInt(h.slice(i, i + 2), 16));
   return n.some(Number.isNaN) ? null : [n[0]! / 255, n[1]! / 255, n[2]! / 255];
 }
 function rgbToHex(r: number, g: number, b: number): string {
   return (
-    "#" +
+    '#' +
     [r, g, b]
       .map((c) =>
         Math.max(0, Math.min(255, roundEven(c * 255)))
           .toString(16)
-          .padStart(2, "0"),
+          .padStart(2, '0'),
       )
-      .join("")
+      .join('')
   );
 }
 function adjustLightness(value: string, delta: number): string | null {
@@ -116,11 +109,7 @@ function adjustLightness(value: string, delta: number): string | null {
   }
   return rgbToHex(rr, gg, bb);
 }
-export function resolve(
-  raw: string,
-  table: Map<string, string>,
-  depth = 0,
-): string {
+export function resolve(raw: string, table: Map<string, string>, depth = 0): string {
   const value = raw.trim();
   if (depth > 8) return value;
   const direct = /^\$([a-zA-Z0-9_-]+)$/.exec(value);
@@ -135,48 +124,33 @@ export function resolve(
     const base = resolve(color[2]!, table, depth + 1);
     if (HEX.test(base))
       return (
-        adjustLightness(
-          base,
-          Number.parseFloat(color[3]!) *
-            (color[1]!.toLowerCase() === "lighten" ? 1 : -1),
-        ) ?? value
+        adjustLightness(base, Number.parseFloat(color[3]!) * (color[1]!.toLowerCase() === 'lighten' ? 1 : -1)) ?? value
       );
     return value;
   }
-  if (value.includes("$")) {
-    const substituted = value.replace(
-      /\$([a-zA-Z0-9_-]+)/g,
-      (all, name: string) => {
-        const target = table.get(name);
-        return target === undefined ? all : resolve(target, table, depth + 1);
-      },
-    );
-    return substituted !== value
-      ? resolve(substituted, table, depth + 1)
-      : substituted;
+  if (value.includes('$')) {
+    const substituted = value.replace(/\$([a-zA-Z0-9_-]+)/g, (all, name: string) => {
+      const target = table.get(name);
+      return target === undefined ? all : resolve(target, table, depth + 1);
+    });
+    return substituted !== value ? resolve(substituted, table, depth + 1) : substituted;
   }
   return value;
 }
-export function extract(
-  rootInput: string,
-  baseHint = "base/",
-): Tokens {
+export function extract(rootInput: string, baseHint = 'base/'): Tokens {
   const root = resolvePath(rootInput),
     maps = files(root);
-  if (!maps.length)
-    throw new Error(
-      `no .css.map found under ${root} - this strategy does not apply`,
-    );
-  const tokens:SassToken[]=[],
-    sourcesSeen:NonNullable<Tokens['sourcesWithVariables']>=[],
-    problems:NonNullable<Tokens['problems']>=[];
+  if (!maps.length) throw new Error(`no .css.map found under ${root} - this strategy does not apply`);
+  const tokens: SassToken[] = [],
+    sourcesSeen: NonNullable<Tokens['sourcesWithVariables']> = [],
+    problems: NonNullable<Tokens['problems']> = [];
   for (const mapPath of maps) {
     let data: { sources?: string[]; sourcesContent?: (string | null)[] };
     try {
-      data = JSON.parse(readFileSync(mapPath, "utf8"));
+      data = JSON.parse(readFileSync(mapPath, 'utf8'));
     } catch (error) {
       problems.push({
-        kind: "unreadable-sourcemap",
+        kind: 'unreadable-sourcemap',
         ref: relative(root, mapPath),
         detail: String(error).slice(0, 200),
       });
@@ -186,80 +160,74 @@ export function extract(
       contents = data.sourcesContent ?? [];
     if (!contents.length) {
       problems.push({
-        kind: "sourcemap-without-content",
+        kind: 'sourcemap-without-content',
         ref: relative(root, mapPath),
-        detail: "no sourcesContent - original Sass is not recoverable",
+        detail: 'no sourcesContent - original Sass is not recoverable',
       });
       continue;
     }
     const pairs = sources
       .map((source, i) => [source, contents[i]] as const)
-      .filter(
-        (p): p is readonly [string, string] =>
-          !!p[1] && !p[0].includes("node_modules"),
-      );
+      .filter((p): p is readonly [string, string] => !!p[1] && !p[0].includes('node_modules'));
     const table = new Map<string, string>();
     for (const [, body] of pairs)
-      for (const m of body.matchAll(VAR))
-        if (!table.has(m[1]!))
-          table.set(m[1]!, m[2]!.replace(FLAGS, "").trim());
+      for (const m of body.matchAll(VAR)) if (!table.has(m[1]!)) table.set(m[1]!, m[2]!.replace(FLAGS, '').trim());
     for (const [source, body] of pairs) {
       const found = [...body.matchAll(VAR)];
       if (!found.length) continue;
       sourcesSeen.push({ source, variables: found.length });
       for (const m of found) {
         const name = m[1]!,
-          raw = m[2]!.replace(FLAGS, "").trim(),
+          raw = m[2]!.replace(FLAGS, '').trim(),
           value = resolve(raw, table);
         tokens.push({
           name,
-          codeName: "$" + name,
+          codeName: '$' + name,
           raw,
           value,
           family: classify(value),
           isAlias: raw !== value,
-          layer: source.includes(baseHint) ? "base" : "component",
+          layer: source.includes(baseHint) ? 'base' : 'component',
           provenance: {
-            kind: "config",
+            kind: 'config',
             ref: `${relative(root, mapPath)}#${source}`,
           },
         });
       }
     }
   }
-  const byName = new Map<string,SassToken>(),
-    dupes:SassToken[]=[];
+  const byName = new Map<string, SassToken>(),
+    dupes: SassToken[] = [];
   for (const t of tokens) {
-    const name = t["name"],
+    const name = t['name'],
       prev = byName.get(name);
     if (!prev) byName.set(name, t);
-    else if (prev["layer"] !== "base" && t["layer"] === "base") {
+    else if (prev['layer'] !== 'base' && t['layer'] === 'base') {
       dupes.push(prev);
       byName.set(name, t);
     } else dupes.push(t);
   }
   const kept = [...byName.values()].sort(
     (a, b) =>
-      Number(a["layer"] !== "base") - Number(b["layer"] !== "base") ||
-      compare(String(a["family"]), String(b["family"])) ||
-      compare(String(a["name"]), String(b["name"])),
+      Number(a['layer'] !== 'base') - Number(b['layer'] !== 'base') ||
+      compare(String(a['family']), String(b['family'])) ||
+      compare(String(a['name']), String(b['name'])),
   );
   const families: Record<string, number> = {};
-  for (const t of kept)
-    families[String(t["family"])] = (families[String(t["family"])] ?? 0) + 1;
+  for (const t of kept) families[String(t['family'])] = (families[String(t['family'])] ?? 0) + 1;
   return {
     standardVersion: STANDARD_VERSION,
     toolVersion: toolVersion(),
-    generatedAt: new Date().toISOString().replace(/\.\d{3}Z$/, ""),
+    generatedAt: new Date().toISOString().replace(/\.\d{3}Z$/, ''),
     source: {
-      strategy: "sass-sourcemap",
+      strategy: 'sass-sourcemap',
       root,
       maps: maps.map((p) => relative(root, p)),
     },
     totals: {
       tokens: kept.length,
-      base: kept.filter((t) => t["layer"] === "base").length,
-      component: kept.filter((t) => t["layer"] === "component").length,
+      base: kept.filter((t) => t['layer'] === 'base').length,
+      component: kept.filter((t) => t['layer'] === 'component').length,
       shadowed: dupes.length,
       byFamily: families,
     },
@@ -267,13 +235,11 @@ export function extract(
       observable: false,
       noneScale: null,
       reason:
-        "Sass source maps carry variable declarations without the CSS property or breakpoint they apply at; per-role scaling cannot be derived. Measure the rendered type ramp, or read the theme breakpoints, before choosing modes for the Type collection.",
+        'Sass source maps carry variable declarations without the CSS property or breakpoint they apply at; per-role scaling cannot be derived. Measure the rendered type ramp, or read the theme breakpoints, before choosing modes for the Type collection.',
     },
-    tokens: nonEmpty(kept, "no Sass variable could be recovered from the source maps"),
+    tokens: nonEmpty(kept, 'no Sass variable could be recovered from the source maps'),
     shadowed: dupes,
-    sourcesWithVariables: sourcesSeen.sort(
-      (a, b) => Number(b["variables"]) - Number(a["variables"]),
-    ),
+    sourcesWithVariables: sourcesSeen.sort((a, b) => Number(b['variables']) - Number(a['variables'])),
     problems,
   };
 }
