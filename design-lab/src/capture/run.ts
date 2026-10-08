@@ -3,7 +3,7 @@ import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { Spec } from '../generated/spec.ts';
 import { canonicalJson, roundEven } from '../json.ts';
-import { writeJson } from '../contracts.ts';
+import { writeArtifact, writeJson } from '../contracts.ts';
 import { launchBrowser, measureConfig, captureConfig, MEASURE_VIEWPORTS } from './browser.ts';
 import { checkSelectors } from './selectors.ts';
 import { pool, isolated } from './pool.ts';
@@ -141,7 +141,7 @@ export async function runCapture(options: CaptureOptions, adapters: CaptureAdapt
               if (!failures.length) { record.problems = []; break; }
             }
             record.path = cfg.path; writeJson(path, cfg);
-            if (spec) writeJson(resolve(measurements, stem(id) + '.spec.json'), spec);
+            if (spec) writeArtifact('spec', resolve(measurements, stem(id) + '.spec.json'), spec);
             if (failures.length && !record.problems.length) record.problems.push('measurement failed: ' + failures.sort().join(', '));
             measureMs = performance.now() - measureStarted;
             const shotStarted = performance.now(), work = resolve(shots, '.work', stem(id));

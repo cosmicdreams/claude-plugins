@@ -7,7 +7,7 @@ export interface CaptureState { name: string; setup?: string; teardown?: string;
 export interface CaptureConfig extends PickRoot {
   component: string; componentId: string; machineName: string; rootSelector: string;
   path: string; verificationUrl: string; url?: string; linkUrl: string;
-  source?: Record<string, unknown> | null; states?: CaptureState[]; viewports?: Viewport[];
+  source?: Spec['source']; states?: CaptureState[]; viewports?: Viewport[];
   cookiePreferences?: false | { timeout?: number; bannerSelector?: string; closeSelector?: string };
   [key: string]: unknown;
 }

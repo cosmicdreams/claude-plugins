@@ -4,7 +4,7 @@ export interface Spec {
   component: string;
   machineName: string | null;
   source: {
-    sourceRef?: string;
+    sourceRef?: string | null;
   } | null;
   path: string;
   verificationUrl: string;

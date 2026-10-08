@@ -20,7 +20,10 @@
       ],
       "properties": {
         "sourceRef": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         }
       },
       "additionalProperties": false

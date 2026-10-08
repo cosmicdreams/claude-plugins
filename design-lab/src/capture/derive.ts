@@ -4,7 +4,7 @@ import { sharedRequire } from '../runtime.ts';
 import { roundEven } from '../json.ts';
 import { subtree } from '../nesting.ts';
 import { parseColor } from '../spec-to-tree.ts';
-import { writeJson } from '../contracts.ts';
+import { writeArtifact } from '../contracts.ts';
 import type { Spec } from '../generated/spec.ts';
 import type { Component } from './scaffold.ts';
 import type { CaptureConfig, CaptureRow } from './types.ts';
@@ -44,7 +44,7 @@ export async function deriveChildren(byId: Map<string, Component>, eligible: Set
       }
       if (rows.length !== 3) continue;
       const c = byId.get(child)!;
-      writeJson(resolve(measurements, stem(child) + '.spec.json'), { component: c.label || child, machineName: c.machineName, source: { sourceRef: c.sourceRef ?? null }, path: spec.path, verificationUrl: spec.verificationUrl, linkUrl: spec.linkUrl, rootSelector: `[data-design-lab-child="${child}"]`, derivedFrom: parent, measurements: derived });
+      writeArtifact('spec', resolve(measurements, stem(child) + '.spec.json'), { component: c.label || child, machineName: c.machineName ?? null, source: { sourceRef: c.sourceRef ?? null }, path: spec.path, verificationUrl: spec.verificationUrl, linkUrl: spec.linkUrl, rootSelector: `[data-design-lab-child="${child}"]`, derivedFrom: parent, measurements: derived });
       rowsByChild.set(child, rows);
     }
   }
