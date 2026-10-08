@@ -56,13 +56,13 @@ function assertSameHash(name: string): void {
 }
 
 test('integer -0 hashes like integer 0 in the Python reference and in TypeScript', () => {
-  assert.equal(REFERENCE.integerNegativeZero!.hash, REFERENCE.integerZero!.hash);
+  assert.equal(REFERENCE['integerNegativeZero']!.hash, REFERENCE['integerZero']!.hash);
   assertSameHash('integerNegativeZero');
 });
 
 test('float -0.0 keeps its sign, and its hash differs from integer 0', () => {
   assertSameHash('floatNegativeZero');
-  assert.notEqual(tsHash('f', CASES.floatNegativeZero!).hash, tsHash('i', CASES.integerZero!).hash);
+  assert.notEqual(tsHash('f', CASES['floatNegativeZero']!).hash, tsHash('i', CASES['integerZero']!).hash);
 });
 
 test('object keys sort by code point, so U+FFFD precedes an emoji and "" sorts first', () => {
@@ -86,11 +86,11 @@ test('out-of-range floats are rejected with the Python error message, including 
 });
 
 test('an out-of-range float under an ignored key is accepted, as Python drops that key first', () => {
-  assert.equal(REFERENCE.overflowInIgnoredKey!.hash !== undefined, true);
+  assert.equal(REFERENCE['overflowInIgnoredKey']!.hash !== undefined, true);
   assertSameHash('overflowInIgnoredKey');
 });
 
 test('NaN literals are rejected by both implementations', () => {
-  assert.notEqual(REFERENCE.nanLiteral!.error, undefined);
-  assert.notEqual(tsHash('nan', CASES.nanLiteral!).error, undefined);
+  assert.notEqual(REFERENCE['nanLiteral']!.error, undefined);
+  assert.notEqual(tsHash('nan', CASES['nanLiteral']!).error, undefined);
 });

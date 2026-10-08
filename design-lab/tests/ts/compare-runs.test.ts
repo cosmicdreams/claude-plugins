@@ -44,8 +44,8 @@ test('identical run output scores 100 despite fresh Figma node ids', () => {
   try {
     fixture(join(root, 'a')); fixture(join(root, 'b'));
     const report = compareRuns(join(root, 'a'), join(root, 'b'));
-    assert.equal(report.summary.score, 100); assert.equal(report.summary.ratios.identical_node, 1);
-    assert.deepEqual(report.page_differences.Main!.changes, {});
+    assert.equal(report.summary.score, 100); assert.equal(report.summary.ratios['identical_node'], 1);
+    assert.deepEqual(report.page_differences['Main']!.changes, {});
     assert.equal(compareMany([join(root, 'a'), join(root, 'b')]).summary_matrix[join(root, 'a')]![join(root, 'a')], 100);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
@@ -59,7 +59,7 @@ test('comparison detects every node category and retains its exact score', () =>
     changed.componentPropertyDefinitions = { Label: { type: 'TEXT' } }; changed.boundVariables = { width: 'Other' }; changed.fills[0].boundVariables = { color: 'Blue' };
     writeFileSync(dumpPath, JSON.stringify(dump));
     writeFileSync(join(root, 'b/components.json'), JSON.stringify({ generatedAt: 'later', components: [1] }));
-    const report = compareRuns(join(root, 'a'), join(root, 'b')), categories = report.page_differences.Main!.changes['Main#0/Label#0']!;
+    const report = compareRuns(join(root, 'a'), join(root, 'b')), categories = report.page_differences['Main']!.changes['Main#0/Label#0']!;
     assert.deepEqual(Object.keys(categories).sort(), ['bindings', 'docs', 'geometry', 'layout', 'properties/variants', 'style', 'text', 'typography'].sort());
     assert.deepEqual(report.summary.category_counts, { geometry: 1, layout: 1, style: 1, text: 1, typography: 1, bindings: 1, 'properties/variants': 1, docs: 1 });
     assert.equal(report.summary.score, 25.76); assert.deepEqual(report.summary.ratios, { identical_node: 0, geometry_exact: 0, text_exact: 0, binding_exact: 0 });
@@ -73,7 +73,7 @@ test('comparison detects missing nodes and page ordering drift', () => {
     fixture(join(root, 'a')); fixture(join(root, 'b'));
     const main = join(root, 'b/figma/dump/Main.json'), dump = JSON.parse(readFileSync(main, 'utf8')); dump.nodes.push(node('Main#0/Extra#0')); writeFileSync(main, JSON.stringify(dump));
     let report = compareRuns(join(root, 'a'), join(root, 'b'));
-    assert.deepEqual(report.page_differences.Main!.added, ['Main#0/Extra#0']); assert.equal(report.summary.score, 59.09);
+    assert.deepEqual(report.page_differences['Main']!.added, ['Main#0/Extra#0']); assert.equal(report.summary.score, 59.09);
     writeFileSync(join(root, 'a/figma/dump/Next.json'), JSON.stringify({ page: 'Next', pageIndex: 1, nodes: [] }));
     for(const side of ['a','b'])writeFileSync(join(root,side,'figma/verify/root.json'), JSON.stringify({pages:[{name:'Main'},{name:'Next'}]}));
     writeFileSync(join(root, 'b/figma/dump/Next.json'), JSON.stringify({ page: 'Next', pageIndex: -1, nodes: [] }));
@@ -86,9 +86,9 @@ const temp=()=>mkdtempSync('/tmp/design-lab-compare-review-');
 const dumps=(root:string,a:string,b:string)=>{for(const [side,node]of [['a',a],['b',b]]){mkdirSync(join(root,side!,'figma/dump'),{recursive:true});mkdirSync(join(root,side!,'figma/verify'),{recursive:true});writeFileSync(join(root,side!,'figma/verify/root.json'),JSON.stringify({pages:[{name:'Main'}]}));writeFileSync(join(root,side!,'figma/dump/Main.json'),`{"page":"Main","nodes":[{"path":"Main#0",${node}}]}`);}return compareRuns(join(root,'a'),join(root,'b'));};
 test('finding 4: missing properties project to Python None',()=>{const root=temp();const report=dumps(root,'"fontSize":null','"fontName":null');assert.equal(report.summary.score,100);});
 test('finding 4: JSON floating token type survives dump comparison',()=>{assert.equal(dumps(temp(),'"width":10.0','"width":10').summary.score,90.91);});
-test('finding 6: absent dump evidence is not measured',async()=>{const root=temp();for(const side of ['a','b'])mkdirSync(join(root,side,'figma'),{recursive:true});const comparison=compareRuns(join(root,'a'),join(root,'b'));assert.notEqual(comparison.summary.score,100);const repeat=await scoreRepeatability(join(root,'a'),[join(root,'b')],{});assert.equal(repeat.status,'not-measured');assert.match(repeat.reason,/dump/i);});
+test('finding 6: absent dump evidence is not measured',async()=>{const root=temp();for(const side of ['a','b'])mkdirSync(join(root,side,'figma'),{recursive:true});const comparison=compareRuns(join(root,'a'),join(root,'b'));assert.notEqual(comparison.summary.score,100);const repeat=await scoreRepeatability(join(root,'a'),[join(root,'b')],{});assert.equal(repeat['status'],'not-measured');assert.match(repeat['reason'] ?? '',/dump/i);});
 test('finding 6: an explicit verified empty file is measured but incomplete pages are not',async()=>{
  const root=temp();for(const side of ['a','b']){mkdirSync(join(root,side,'figma/verify'),{recursive:true});writeFileSync(join(root,side,'figma/verify/root.json'),'{"pages":[]}');}
- assert.equal(compareRuns(join(root,'a'),join(root,'b')).summary.score,100);assert.equal((await scoreRepeatability(join(root,'a'),[join(root,'b')],{})).status,'measured');
+ assert.equal(compareRuns(join(root,'a'),join(root,'b')).summary.score,100);assert.equal((await scoreRepeatability(join(root,'a'),[join(root,'b')],{}))['status'],'measured');
  writeFileSync(join(root,'b/figma/verify/root.json'),'{"pages":[{"name":"missing"}]}');assert.equal(compareRuns(join(root,'a'),join(root,'b')).summary.score,null);
 });

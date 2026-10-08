@@ -59,8 +59,8 @@ export interface Project {
             ddevProject?: boolean;
           };
           browser?: {
-            nodeCwd?: string;
-            executable?: null;
+            nodeCwd?: string | null;
+            executable?: string | null;
             executableExists?: boolean;
           };
           cairosvg?: {
@@ -70,7 +70,7 @@ export interface Project {
             enabled?: boolean;
           };
           pluginVersion?: {
-            recorded?: string;
+            recorded?: string | null;
             current?: string;
           };
           runner?: {
@@ -115,10 +115,10 @@ export interface Project {
         goAheadAt?: string;
         fileKey?: string;
         fileUrl?: string;
-        runnerConnected?: boolean;
-        fileKeyMatches?: boolean;
-        empty?: boolean;
-        onlyPreflightCover?: boolean;
+        runnerConnected?: boolean | null;
+        fileKeyMatches?: boolean | null;
+        empty?: boolean | null;
+        onlyPreflightCover?: boolean | null;
         writable?: boolean | null;
         pluginData?: boolean | null;
         connectionOnly?: null | boolean;
@@ -132,14 +132,23 @@ export interface Project {
         built?: number;
         missing?: string[];
         unexpected?: string[];
-        invalid?: {
-          id?: string;
-          errors?: string[];
-        }[];
+        invalid?: (
+          | string
+          | {
+              id?: string;
+              errors?: string[];
+            }
+        )[];
         reason?: string;
         by?: string;
         waivedAt?: string;
         effect?: string;
+        execution?: string;
+        quality?: string;
+        gate?: string;
+        verifyExit?: number;
+        receiptsExit?: number;
+        gateExit?: number;
       };
       updatedAt?: string;
       approvedAt?: string;
@@ -197,9 +206,9 @@ export interface Project {
     evaluationTier?: number;
     rebuiltFrom?: {
       run?: string;
-      createdAt?: string;
-      pluginVersion?: string;
-      corpusLabel?: null;
+      createdAt?: string | null;
+      pluginVersion?: string | null;
+      corpusLabel?: string | null;
     };
   };
   createdAt?: string;
@@ -210,21 +219,21 @@ export interface Project {
     connection?: {
       fileKey?: string;
       fileUrl?: string;
-      coverPageId?: string;
-      coverId?: string;
-      font?: string;
-      fontLoaded?: boolean;
-      at?: string;
+      coverPageId?: string | null;
+      coverId?: string | null;
+      font?: string | null;
+      fontLoaded?: boolean | null;
+      at?: string | null;
       reconnectedAt?: string;
     };
     preflight?: {
       fileKey?: string;
       fileUrl?: string;
-      coverPageId?: string;
-      coverId?: string;
-      font?: string;
-      fontLoaded?: boolean;
-      at?: string;
+      coverPageId?: string | null;
+      coverId?: string | null;
+      font?: string | null;
+      fontLoaded?: boolean | null;
+      at?: string | null;
     };
   };
 }

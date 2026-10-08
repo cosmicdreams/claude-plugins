@@ -1,3 +1,4 @@
+import type { Handshake } from './protocol.ts';
 import { isEntrypoint } from './entrypoint.ts';
 /**
  * Serve build steps to the design-lab runner plugin from one process, so no model relays a build.
@@ -190,10 +191,10 @@ export function requestHandshake(project: string, cover: Omit<CoverArgs,'pageId'
   writeFileSync(resolve(folder, HANDSHAKE_REQUEST), JSON.stringify({ requestedAt: utcNow(), stage: 'check', expectedCoverPageId: expectedCoverPage, connectionOnly, cover: cover ?? defaultCover() }) + '\n');
 }
 /** The handshake's outcome, or a timeout failure; the request is withdrawn either way. */
-export async function waitForHandshake(project: string, timeoutSeconds: number, pollSeconds = 1): Promise<Json> {
+export async function waitForHandshake(project: string, timeoutSeconds: number, pollSeconds = 1): Promise<Handshake> {
   const folder = figmaDir(project), deadline = performance.now() + timeoutSeconds * 1000;
   for (;;) {
-    if (existsSync(resolve(folder, HANDSHAKE))) return readJson(resolve(folder, HANDSHAKE));
+    if (existsSync(resolve(folder, HANDSHAKE))) return JSON.parse(readFileSync(resolve(folder,HANDSHAKE),'utf8')) as Handshake;
     if (performance.now() >= deadline) {
       try { unlinkSync(resolve(folder, HANDSHAKE_REQUEST)); } catch { /* already gone */ }
       return { at: utcNow(), runnerConnected: false, ok: false, failure: `no runner connected within ${timeoutSeconds} seconds; open the target file in Figma desktop, start the design-lab runner (Plugins, Development, design-lab runner), and run connect again` };
@@ -457,9 +458,10 @@ export class Build {
     const pageId = text(request['pageId']), ground = text(cover.ground), headline = text(cover.headline);
     if (pageId === null || ground === null || headline === null) throw new Error('invalid handshake cover: pageId, ground and headline must be strings');
     const total = cover.total;
-    if (total !== undefined && (!isObject(total) || typeof total.label !== 'string' || typeof total.value !== 'string' && typeof total.value !== 'number')) throw new Error('invalid handshake cover: total needs a string label and string or numeric value');
+    const isCoverTotal = (value:unknown):value is {label:string;value:string|number} => isObject(value)&&typeof value['label']==='string'&&(typeof value['value']==='string'||typeof value['value']==='number');
+    if (total !== undefined && !isCoverTotal(total)) throw new Error('invalid handshake cover: total needs a string label and string or numeric value');
     const args: CoverArgs = { pageId, ground, headline, tiers: [],
-      ...(isObject(total) && typeof total.label === 'string' && (typeof total.value === 'string' || typeof total.value === 'number') ? {total:{label:total.label,value:total.value}} : {}),
+      ...(isCoverTotal(total) ? {total:{label:total.label,value:total.value}} : {}),
       ...(typeof cover.subtitle === 'string' ? {subtitle:cover.subtitle} : {}),
       ...(typeof cover.version === 'string' ? {version:cover.version} : {}),
       ...(isObject(cover.provenance) ? {provenance:cover.provenance} : {}) };

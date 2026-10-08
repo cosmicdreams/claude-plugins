@@ -1,3 +1,5 @@
+import type {ComparisonTree,WidthReport} from '../../src/property-compare.ts';
+function measuredReport(value:WidthReport|undefined){assert.ok(value?.status==='measured');return value;}
 import { existsSync, mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -12,7 +14,7 @@ import { render } from '../../src/scoreboard-render.ts';
 import { elapsedTime, tokens } from '../../src/run-metrics.ts';
 
 const writeJson = (path: string, value: unknown) => { mkdirSync(join(path, '..'), { recursive: true }); writeFileSync(path, JSON.stringify(value)); };
-const node = (path: string, x = 0, width = 100) => ({ path, box: { x, y: 0, width, height: 20 }, computed: { display: 'block', visibility: 'visible', opacity: '1', fontSize: '16px', textAlign: 'left' }, tag: 'div' });
+const node = (path: string, x = 0, width = 100) => ({ classes:[],id:'',attributes:{},text:'',declared:{},role:null,accessibleName:null,children:0,image:null,before:null,after:null,svg:null,inlineText:null,path, box: { x, y: 0, width, height: 20 }, computed: { display: 'block', visibility: 'visible', opacity: '1', fontSize: '16px', textAlign: 'left' }, tag: 'div' });
 function runFixture(root: string) {
   const run = join(root, 'run'); mkdirSync(join(run, 'capture/measurements'), { recursive: true }); mkdirSync(join(run, 'capture/shots'), { recursive: true }); mkdirSync(join(run, 'figma/images'), { recursive: true });
   const component = { id: 'block:sample', machineName: 'sample', label: 'Sample' };
@@ -33,7 +35,7 @@ test('corpus freezes source artifacts, hashes JSON, and lists only frozen sites'
     const run = runFixture(root), config = { corpus: join(root, 'corpus'), scoreboard: { ledger: join(root, 'ledger.jsonl'), dashboard: join(root, 'dashboard.html') } };
     const manifest = freeze(run, 'site-a', config);
     assert.equal(manifest.pluginCommit, 'abc12345'); assert.equal(manifest.fileCount, 8); assert.ok(manifest.artifacts['project.json']);
-    assert.deepEqual(sites(config), [join(root, 'corpus/site-a')]); assert.equal(list(config)[0].label, 'site-a');
+    assert.deepEqual(sites(config), [join(root, 'corpus/site-a')]); assert.equal(list(config)[0]!.label, 'site-a');
     assert.throws(() => freeze(run, 'site-a', config), /already exists/);
     for (const label of ['..', '../outside', '/absolute', 'a/b', 'a\\b']) assert.throws(() => sitePath(label, config), /site label/);
   } finally { rmSync(root, { recursive: true, force: true }); }
@@ -48,8 +50,8 @@ test('tier 1 replays through injected tree builder without mutating the saved ru
       plans: () => ({ 'block:sample': { verdict: 'build' } } as any),
       buildTrees: (_run, trees) => { mkdirSync(trees, { recursive: true }); writeJson(join(trees, 'block:sample.json'), { measured: ['desktop'], variables: {}, tree: { kind:'frame', source: '/root', width: 100, height: 20, children: [{ kind:'frame',source: '/root/child', x: 10, y: 0, width: 20, height: 10 }] } }); return [{ id: 'block:sample' }]; },
     });
-    assert.equal(result.tier, 1); assert.equal(result.components['block:sample']['desktop:default'].status, 'measured');
-    assert.equal(result.metrics.geometry!.total, 8); assert.equal(readFileSync(join(run, 'project.json'), 'utf8'), before);
+    assert.equal(result.tier, 1); assert.equal(measuredReport((result.components['block:sample'] as Record<string,WidthReport>)['desktop:default']).status, 'measured');
+    assert.equal(result.metrics['geometry']!.total, 8); assert.equal(readFileSync(join(run, 'project.json'), 'utf8'), before);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -58,7 +60,7 @@ test('property comparisons report flow positions and unknown numeric checks as u
   assert.deepEqual(rows.map(row => row.box.x), [0, 0, 30]);
   assert.equal(numericCheck('text', 'height', 20, null, 2).pass, null);
   const result = compareProperties({ measured: ['desktop'], variables: {}, tree: { kind:'frame', source: '/root', width: 100, height: 20 } }, { measurements: { 'desktop:expanded': { nodes: [node('/root')] } } });
-  assert.equal(result['desktop:expanded'].status, 'unmeasured');
+  assert.equal(result['desktop:expanded']!.status, 'unmeasured');
   const missingFont = numericCheck('text', 'height', 20, null, 2);
   assert.equal(metric([missingFont]).unmeasured, 1);
 });
@@ -66,16 +68,16 @@ test('property comparisons report flow positions and unknown numeric checks as u
 test('property comparisons retain variable breakpoints and inline text measurement gaps', () => {
   const text = { ...node('/div[0]/p[1]', 0, 100), tag: 'p', inlineText: 'Hello world', text: 'Hello world', computed: { display: 'block', visibility: 'visible', opacity: '1', fontSize: '18px', textAlign: 'center' } };
   const strong = { ...node('/div[0]/p[1]/strong[2]', 0, 40), tag: 'strong', text: 'world', computed: { display: 'inline', visibility: 'visible', opacity: '1', fontSize: '18px', textAlign: 'center', fontWeight: '700' } };
-  const image = { ...node('/div[0]/img[3]', 20, 100), tag: 'img', image: { src: '/sample.png' } };
+  const image = { ...node('/div[0]/img[3]', 20, 100), tag: 'img', image: { src: '/sample.png',naturalWidth:100,naturalHeight:20 } };
   const spec = { measurements: { 'desktop:default': { nodes: [node('/div[0]'), text, strong, image] } } };
-  const tree = { measured: ['desktop'], variables: {}, tree: { kind: 'frame', source: '/div[0]', width: 90, height: 50, layout: { mode: 'NONE' }, children: [{ kind: 'text', source: text.path, x: 4, y: 0, width: 100, height: 20, text: { characters: 'Hello world', size: 16, align: 'LEFT' } }] } };
-  const report = compareProperties(tree, spec)['desktop:default']!;
-  for (const name of ['geometry', 'fontSize', 'textAlignment', 'textRunCount', 'imagesPresent']) assert.ok(report[name].passed < report[name].total);
-  assert.equal(report.textRunCount.checks[0].flattened, true);
-  const variableTree = { measured: ['desktop', 'mobile'], variables: { width: { values: { Desktop: 100, Mobile: 50 } } }, tree: { kind:'frame', source: '/root', width: { var: 'width' }, height: 50 } };
+  const tree:ComparisonTree = { measured: ['desktop'], variables: {}, tree: { kind: 'frame', source: '/div[0]', width: 90, height: 50, layout: { mode: 'NONE' }, children: [{ kind: 'text', source: text.path, x: 4, y: 0, width: 100, height: 20, text: { family:'Inter',weight:400,characters: 'Hello world', size: 16, align: 'LEFT' } }] } };
+  const report = measuredReport(compareProperties(tree, spec)['desktop:default']);
+  for (const name of ['geometry', 'fontSize', 'textAlignment', 'textRunCount', 'imagesPresent'] as const) assert.ok(report[name].passed < report[name].total);
+  assert.equal(report.textRunCount.checks[0]!.flattened, true);
+  const variableTree:ComparisonTree = { measured: ['desktop', 'mobile'], variables: { width: { values: { Desktop: 100, Mobile: 50 } } }, tree: { kind:'frame', source: '/root', width: { var: 'width' }, height: 50 } };
   const mobile = node('/root', 0, 50); mobile.box.height = 50;
   const breakpoints = compareProperties(variableTree, { measurements: { 'desktop:default': { nodes: [node('/root')] }, 'mobile:default': { nodes: [mobile] }, 'desktop:expanded': { nodes: [node('/root')] } } });
-  assert.equal(breakpoints['mobile:default']!.geometry.passed, 4); assert.equal(breakpoints['desktop:expanded']!.status, 'unmeasured');
+  assert.equal(measuredReport(breakpoints['mobile:default']).geometry.passed, 4); assert.equal(breakpoints['desktop:expanded']!.status, 'unmeasured');
 });
 
 test('tier 2 prepares a relocated scratch copy and waits until dumps settle', async () => {
@@ -118,9 +120,9 @@ test('scoreboard appends shared metrics and renders a self-contained dashboard',
 
 test('property comparison reads typography from the text payload and preserves absent actuals',()=>{
  const measured={...node('/label'),text:'Hello',computed:{display:'block',visibility:'visible',opacity:'1',fontSize:'18px',textAlign:'center'}};
- const tree={measured:['desktop'],variables:{},tree:{kind:'text',source:'/label',width:100,height:20,text:{characters:'Hello',size:18,align:'CENTER'}}};
- const good=compareProperties(tree,{measurements:{'desktop:default':{nodes:[measured]}}})['desktop:default']!;
+ const tree:ComparisonTree={measured:['desktop'],variables:{},tree:{kind:'text',source:'/label',width:100,height:20,text:{family:'Inter',weight:400,characters:'Hello',size:18,align:'CENTER'}}};
+ const good=measuredReport(compareProperties(tree,{measurements:{'desktop:default':{nodes:[measured]}}})['desktop:default']);
  assert.equal(good.fontSize.passed,1);assert.equal(good.textAlignment.passed,1);assert.equal(good.textRunCount.passed,1);
- const missing=compareProperties({...tree,tree:{kind:'frame',width:100,height:20}},{measurements:{'desktop:default':{nodes:[measured]}}})['desktop:default']!;
- assert.equal(missing.fontSize.checks[0].actual,null);assert.equal(missing.textAlignment.checks[0].actual,null);assert.equal(missing.geometry.checks[0].actual,null);
+ const missing=measuredReport(compareProperties({...tree,tree:{kind:'frame',width:100,height:20}},{measurements:{'desktop:default':{nodes:[measured]}}})['desktop:default']);
+ assert.equal(missing.fontSize.checks[0]!.actual,null);assert.equal(missing.textAlignment.checks[0]!.actual,null);assert.equal(missing.geometry.checks[0]!.actual,null);
 });

@@ -11,8 +11,8 @@ export interface PhaseLogEntry {
     | string
     | {
         run?: string;
-        createdAt?: string;
-        pluginVersion?: string;
+        createdAt?: string | null;
+        pluginVersion?: string | null;
         corpusLabel?: string | null;
       };
   detail?: Detail;
@@ -56,8 +56,8 @@ export interface Detail {
       ddevProject?: boolean;
     };
     browser?: {
-      nodeCwd?: string;
-      executable?: null;
+      nodeCwd?: string | null;
+      executable?: string | null;
       executableExists?: boolean;
     };
     cairosvg?: {
@@ -67,7 +67,7 @@ export interface Detail {
       enabled?: boolean;
     };
     pluginVersion?: {
-      recorded?: string;
+      recorded?: string | null;
       current?: string;
     };
     runner?: {
@@ -112,10 +112,10 @@ export interface Detail {
   goAheadAt?: string;
   fileKey?: string;
   fileUrl?: string;
-  runnerConnected?: boolean;
-  fileKeyMatches?: boolean;
-  empty?: boolean;
-  onlyPreflightCover?: boolean;
+  runnerConnected?: boolean | null;
+  fileKeyMatches?: boolean | null;
+  empty?: boolean | null;
+  onlyPreflightCover?: boolean | null;
   writable?: boolean | null;
   pluginData?: boolean | null;
   connectionOnly?: null | boolean;
@@ -129,12 +129,21 @@ export interface Detail {
   built?: number;
   missing?: string[];
   unexpected?: string[];
-  invalid?: {
-    id?: string;
-    errors?: string[];
-  }[];
+  invalid?: (
+    | string
+    | {
+        id?: string;
+        errors?: string[];
+      }
+  )[];
   reason?: string;
   by?: string;
   waivedAt?: string;
   effect?: string;
+  execution?: string;
+  quality?: string;
+  gate?: string;
+  verifyExit?: number;
+  receiptsExit?: number;
+  gateExit?: number;
 }

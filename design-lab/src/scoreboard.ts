@@ -2,20 +2,22 @@ import { closeSync, existsSync, fsyncSync, mkdirSync, openSync, readFileSync, wr
 import { dirname, join, resolve } from 'node:path';
 import { identity, loadConfig, sitePath, type EvaluationConfig } from './corpus.ts';
 import * as scoreboardRender from './scoreboard-render.ts';
+import type {ProjectView} from './run-metrics.ts';
+import type {CorpusManifest} from './corpus.ts';
 import { metrics as sharedMetrics } from './run-metrics.ts';
 
 export interface ScoreboardOptions {
   config?: EvaluationConfig;
-  getMetrics?: (run: string) => Promise<Record<string, any>> | Record<string, any>;
+  getMetrics?: (run: string) => Promise<Record<string, unknown>> | Record<string, unknown>;
   now?: () => string;
 }
-export function rows(config = loadConfig()): any[] { return existsSync(config.scoreboard!.ledger) ? scoreboardRender.loadRows(config.scoreboard!.ledger) : []; }
-export async function record(runPath: string, tier: number, site?: string, options: ScoreboardOptions = {}): Promise<Record<string, any>> {
+export function rows(config = loadConfig()): unknown[] { return existsSync(config.scoreboard!.ledger) ? scoreboardRender.loadRows(config.scoreboard!.ledger) : []; }
+export async function record(runPath: string, tier: number, site?: string, options: ScoreboardOptions = {}) {
   if (tier !== 2 && tier !== 3) throw new Error('scoreboard tier must be 2 or 3');
-  const run = resolve(runPath), config = options.config ?? loadConfig(), project = JSON.parse(readFileSync(join(run, 'project.json'), 'utf8'));
+  const run = resolve(runPath), config = options.config ?? loadConfig(), project = JSON.parse(readFileSync(join(run,'project.json'),'utf8')) as ProjectView;
   let label: string | undefined = site;
-  if (!label) { try { const manifest = JSON.parse(readFileSync(join(run, 'corpus.json'), 'utf8')); label = manifest.label; } catch { /* fallback to project metadata */ } }
-  label ||= project.run?.siteLabel;
+  if (!label) { try { const manifest = JSON.parse(readFileSync(join(run,'corpus.json'),'utf8')) as Partial<CorpusManifest>; label = manifest.label; } catch { /* fallback to project metadata */ } }
+  label ||= project.run?.siteLabel ?? undefined;
   if (!label) throw new Error('missing site label; pass --site <neutral-label>');
   sitePath(label, config);
   const metrics = await (options.getMetrics ?? sharedMetrics)(run), row = { timestamp: (options.now ?? (() => new Date().toISOString()))(), ...identity(project), site: label, tier, ...metrics };

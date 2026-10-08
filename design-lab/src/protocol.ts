@@ -16,6 +16,26 @@ export const STEP_KINDS = {wait:'wait',done:'done',check:'check',dump:'dump',use
 export const isProgressState = (value: string): value is ProgressState => Object.values(PROGRESS_STATES).some(state => state === value);
 export const isStepKind = (value: string): value is StepKind => Object.values(STEP_KINDS).some(kind => kind === value);
 
+/** Finite workflow vocabulary; dynamic artifact paths remain generated typed maps. */
+export const PHASE_NAMES = ['init','discovery','inventory','usage','capture','tokens','plan','variables','preflight','connect','foundation','components','index','verify','benchmark'] as const;
+export type PhaseName = typeof PHASE_NAMES[number];
+export const REGISTRABLE_PHASES=['usage','capture','foundation','components','index','verify'] as const satisfies readonly PhaseName[];
+export type RegistrablePhase=typeof REGISTRABLE_PHASES[number];
+export const RECORDABLE_PHASES=[...REGISTRABLE_PHASES,'benchmark'] as const satisfies readonly PhaseName[];
+export type RecordablePhase=typeof RECORDABLE_PHASES[number];
+export const PHASE_STATUSES = ['pending','running','complete','failed','waived','awaiting-approval','approved','waiting','stopped','invalidated'] as const;
+export type PhaseStatus = typeof PHASE_STATUSES[number];
+export type CheckStatus = 'done'|'checking'|'needs-you'|'failed'|'waiting';
+export interface ChecklistDocument {pass:string;at:string;ready:boolean|null;goAheadAt?:string|null;checks:(Omit<Check,'status'> & {status:CheckStatus;at:string})[]}
+export interface Handshake {
+  ok:boolean;at?:string;failure?:string;runnerConnected?:boolean;fileKey?:string|null;fileName?:string|null;
+  fileKeyMatches?:boolean;empty?:boolean;onlyPreflightCover?:boolean;writable?:boolean;pluginData?:boolean;
+  connectionOnly?:boolean;coverPageId?:string;coverId?:string;font?:string;fontLoaded?:boolean;
+  fonts?:Record<string,string[]>|null;server?:{pid:number|null;started:boolean};
+  install?:{folder:string;manifest:string;version:string;firstInstall:boolean;updated:boolean};instructions?:string[];
+  outdated?:boolean;runnerVersion?:string;
+}
+
 // DESIGN_LAB_MOD_CONTRACT_BEGIN
 // reused: copied from an earlier run (design-lab:figma-build), not run again here
 export type Phase = { name: string; status: string; reused: boolean }

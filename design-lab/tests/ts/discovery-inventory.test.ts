@@ -684,11 +684,11 @@ test("Drupal authoring replaces list placeholders with predefined options and ma
   );
   const c = extractAuthoring(root).components[0],
     fields = Object.fromEntries(c.fields.map((f: any) => [f.name, f]));
-  assert.deepEqual(fields.field_style.options, [
+  assert.deepEqual(fields['field_style'].options, [
     { value: "plain", label: "Plain" },
     { value: "feature", label: "Feature" },
   ]);
-  assert.equal(fields.field_email.kind, "text");
-  assert.equal(fields.field_date.kind, "text");
+  assert.equal(fields['field_email'].kind, "text");
+  assert.equal(fields['field_date'].kind, "text");
   assert.equal(c.defects.length, 0);
 });

@@ -20,7 +20,10 @@ import {
 import { buildVoice } from "../../src/extract-voice.ts";
 import { buildCompositions } from "../../src/extract-compositions.ts";
 import { sites, differences, normalize, ignoredFields } from "./discovery.ts";
-import type { Dict } from "../../src/discovery-io.ts";
+import type {Project} from '../../src/generated/project.ts';
+import type {UsageInventory} from '../../src/usage-types.ts';
+type LiveEntry={site?:string;baseUrl?:string;status?:string;reason?:string;artifacts?:Record<string,{status:string;diff?:unknown}>;timings?:{ts:Record<string,number>;python:Record<string,number>};sameResponseReplay?:{voice:unknown;compositions:unknown}};
+type Request={root:string;decisions:NonNullable<Project['decisions']>};
 import type { Page } from "../../src/find-rendered-components.ts";
 import { findExamplesMain } from "./network-cli.ts";
 
@@ -31,15 +34,15 @@ export async function main(output: string): Promise<void> {
   if (!/^\/(private\/)?tmp\//.test(output))
     throw new Error("live output must be under /tmp");
   const portable=await portableParity(join(output,'portable'));
-  const summary: Dict = { ignoredFields, results: [], coverage:portable.matrix, portable:portable.results };
+  const summary: {ignoredFields:string[];results:LiveEntry[];coverage:unknown;portable:unknown} = { ignoredFields, results: [], coverage:portable.matrix, portable:portable.results };
   for (const [name, frozen] of sites) {
     const scratch = join(output, name!),
       request = JSON.parse(
         readFileSync(join(scratch, "request.json"), "utf8"),
-      ) as Dict,
+      ) as Request,
       project = JSON.parse(
         readFileSync(join(frozen!, "project.json"), "utf8"),
-      ) as Dict;
+      ) as Project;
     const root = request["root"],
       py = join(scratch, "python"),
       ts = join(scratch, "ts");
@@ -48,13 +51,13 @@ export async function main(output: string): Promise<void> {
       encoding: "utf8",
       maxBuffer: 8 * 1024 * 1024,
     });
-    let status: Dict = {};
+    let status: Record<string,string> = {};
     try {
       status = JSON.parse(describe.stdout)["raw"] ?? {};
     } catch {}
     if (describe.status !== 0 || status["status"] !== "running") {
       summary.results.push({
-        site: name,
+        site: name!,
         status: "skipped",
         reason:
           "DDEV project not running; start authorized only for PNCB/DEFINITIVEHC",
@@ -62,8 +65,8 @@ export async function main(output: string): Promise<void> {
       continue;
     }
     const base = status["primary_url"] as string,
-      entry: Dict = {
-        site: name,
+      entry: LiveEntry = {
+        site: name!,
         baseUrl: base,
         artifacts: {},
         timings: { ts: {}, python: {} },
@@ -75,7 +78,7 @@ export async function main(output: string): Promise<void> {
         ...request,
         stage,
         baseUrl: base,
-        ddevProject: project["phases"]?.usage?.detail?.ddevProject ?? null,
+        ddevProject: project["phases"]?.['usage']?.detail?.ddevProject ?? null,
       });
       const p = spawnSync(
         python,
@@ -92,7 +95,7 @@ export async function main(output: string): Promise<void> {
       if (p.status !== 0)
         throw new Error(`${name} ${stage} Python failed: ${p.stderr}`);
       Object.assign(
-        entry["timings"].python,
+        entry["timings"]!.python,
         JSON.parse(readFileSync(join(py, `timings-${stage}.json`), "utf8")),
       );
     };
@@ -103,7 +106,7 @@ export async function main(output: string): Promise<void> {
       const start = performance.now(),
         doc = await operation();
       writeJson(join(ts, artifact + ".json"), doc);
-      entry["timings"].ts[artifact] = (performance.now() - start) / 1000;
+      entry["timings"]!.ts[artifact] = (performance.now() - start) / 1000;
       return doc;
     };
     const compare = (artifact: string): void => {
@@ -111,7 +114,7 @@ export async function main(output: string): Promise<void> {
         normalize(JSON.parse(readFileSync(join(py, artifact + ".json"), "utf8"))),
         normalize(JSON.parse(readFileSync(join(ts, artifact + ".json"), "utf8"))),
       );
-      entry["artifacts"][artifact] = {
+      entry["artifacts"]![artifact] = {
         status: diff.length ? "mismatch" : "match",
         ...(diff.length ? { diff } : {}),
       };
@@ -119,23 +122,23 @@ export async function main(output: string): Promise<void> {
     runOracle("usage");
     const components = JSON.parse(
         readFileSync(join(ts, "components.json"), "utf8"),
-      ) as Dict,
+      ) as import('../../src/usage-types.ts').UsageInventory,
       rendering = existsSync(join(ts, "render-evidence.json"))
         ? (JSON.parse(
             readFileSync(join(ts, "render-evidence.json"), "utf8"),
-          ) as Dict)
+          ) as import('../../src/generated/render-evidence.ts').RenderEvidence)
         : null;
     const usage = await save("usage", () =>
       request["decisions"].usageSource === "canvas-db"
         ? canvasExtract(
             root,
             components,
-            project["phases"]?.usage?.detail?.ddevProject,
+            project["phases"]?.['usage']?.detail?.ddevProject,
           )
         : extract(
             root,
             components,
-            project["phases"]?.usage?.detail?.ddevProject,
+            project["phases"]?.['usage']?.detail?.ddevProject,
             rendering,
           ),
     );
@@ -175,7 +178,7 @@ export async function main(output: string): Promise<void> {
       scratch,
       py,
       ts,
-      base: status["httpurl"],
+      base: status["httpurl"]!,
       paths: paths.paths,
       components: join(ts, "components.json"),
       strategy:
@@ -210,8 +213,8 @@ export async function main(output: string): Promise<void> {
   }
   writeJson(join(output, "live-summary.json"), summary);
   if (
-    summary.results.some((r: Dict) =>
-      Object.values<Dict>(r["artifacts"] ?? {}).some(
+    summary.results.some((r) =>
+      Object.values(r["artifacts"] ?? {}).some(
         (a) => a["status"] === "mismatch",
       ),
     )

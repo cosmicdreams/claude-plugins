@@ -14,7 +14,6 @@ import * as usage from "../../src/extract-drupal-usage.ts";
 import { parseHtml, unescape } from "../../src/html-parser.ts";
 import type { Page } from "../../src/find-rendered-components.ts";
 
-type Dict = Record<string, any>;
 const temp = (): string => mkdtempSync(join(tmpdir(), "design-lab-p3-"));
 const events = (html: string): unknown[] => {
   const out: unknown[] = [];
@@ -138,7 +137,7 @@ test("rendered markers, public paths and example fallback", () => {
     ],
     2,
   );
-  const document: Dict = {
+  const document:import('../../src/usage-types.ts').ExampleDocument = {
     source: {},
     usage: {
       "sdc.demo.photo-slide": {
@@ -151,11 +150,11 @@ test("rendered markers, public paths and example fallback", () => {
   };
   rendered.enrichUsage(document, evidence, { baseUrl: "https://example.test" });
   assert.deepEqual(
-    document["usage"]["sdc.demo.photo-slide"].exampleCandidates,
+    document?.["usage"]?.["sdc.demo.photo-slide"]?.exampleCandidates,
     ["/a", "/b"],
   );
   assert.equal(
-    document["source"].renderedVerification.baseUrl,
+    document?.["source"]?.renderedVerification?.baseUrl,
     "https://example.test",
   );
 });
@@ -264,15 +263,15 @@ test("the voice reducer reports the core sections and is stable", () => {
   assert.equal(first["nameForms"].multipleForms, true);
   assert.ok(
     first["rules"].every(
-      (row: Dict) =>
+      (row) =>
         row.evidence.quotes.length <= 2 && "numerator" in row.evidence,
     ),
   );
   assert.deepEqual(
     new Set(
       first["rules"]
-        .filter((row: Dict) => row.kind === "OBSERVED")
-        .map((row: Dict) => row.section),
+        .filter((row) => row.kind === "OBSERVED")
+        .map((row) => row.section),
     ),
     new Set([
       "Voice",
@@ -286,7 +285,7 @@ test("the voice reducer reports the core sections and is stable", () => {
   assert.equal(first["stats"].length, 5);
   assert.ok(
     first["stats"].every(
-      (tile: Dict) =>
+      (tile) =>
         Object.keys(tile).sort().join() === "label,qualifier,value" &&
         typeof tile.value === "string",
     ),
@@ -328,7 +327,7 @@ test("templated data does not enter the vocabulary", () => {
   const phrases = new Set(
     voice
       .buildVoice(pages, "Team", AT)
-      ["vocabulary"].phrases.map((item: Dict) => item.phrase),
+      ["vocabulary"].phrases.map((item) => item.phrase),
   );
   assert.ok(phrases.has("students build creative"));
   assert.ok(
@@ -603,7 +602,9 @@ test("crawl rehosts addresses, records failures, and the report tiers components
       ],
     },
   });
-  const [card, ghost, nobody] = report["components"];
+  assert.ok(report.components);
+  const [card, ghost, nobody] = report.components;
+  assert.ok(card?.usage?.examples?.[0] && ghost?.usage && nobody?.usage);
   assert.deepEqual(
     [card.usage.tier, card.usage.placements, card.usage.examples[0].marker],
     ["low", 2, "paragraph--type--card"],
@@ -612,7 +613,7 @@ test("crawl rehosts addresses, records failures, and the report tiers components
     [ghost.usage.tier, nobody.usage.tier],
     ["structural only", "unused"],
   );
-  assert.match(ghost.usage.note, /not observed on any of the 1 pages/);
+  assert.match(ghost.usage.note ?? '', /not observed on any of the 1 pages/);
   assert.deepEqual(
     [
       report["usageScan"].addressesRehostedOnto,

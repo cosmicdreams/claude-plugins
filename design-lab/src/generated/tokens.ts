@@ -160,6 +160,7 @@ export type Tokens = (
       customStyles?: number;
     };
     files?: string[];
+    maps?: string[];
   };
   modes?: string[];
   modeRationale?: string;
@@ -212,6 +213,7 @@ export type Tokens = (
     evidence?: string[];
     sourceRef?: string;
     kind?: string;
+    ref?: string;
   }[];
   fontStacks?: {
     name?: string;

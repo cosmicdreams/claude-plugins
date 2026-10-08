@@ -7,8 +7,8 @@ const script = fileURLToPath(new URL("../../scripts/require-node.mjs", import.me
 
 function run(fakeVersion?: string) {
   const env: NodeJS.ProcessEnv = { ...process.env };
-  delete env.DESIGN_LAB_TEST_NODE_VERSION;
-  if (fakeVersion) env.DESIGN_LAB_TEST_NODE_VERSION = fakeVersion;
+  delete env['DESIGN_LAB_TEST_NODE_VERSION'];
+  if (fakeVersion) env['DESIGN_LAB_TEST_NODE_VERSION'] = fakeVersion;
   return spawnSync(process.execPath, [script], { encoding: "utf8", env });
 }
 

@@ -96,7 +96,7 @@ test('cover and getting-started use recorded master+block counts rather than pla
   const { project, driver } = fixture(t), state = driver.state(); writeOnChange(resolve(project, 'figma/results/pages.json'), pages(project));
   assert.equal(c.coverArgs(project, state, '2026-10-07').total.value, '0'); state.done.push('build:card'); assert.equal(lc.recordedIds(state).size, 0); state.done.push('block:card');
   writeOnChange(resolve(project, 'figma/results/build_card.json'), { componentId: 'master' }); writeOnChange(resolve(project, 'figma/results/block_card.json'), { blockId: 'block' });
-  const counts = lc.counts(project, lc.recordedIds(state))!; assert.equal(counts.built, 1); assert.equal(counts.gap.refused, 1); assert.equal(counts.coverBreakdown.reduce((s, r) => s + r.built, 0), 1);
+  const counts = lc.counts(project, lc.recordedIds(state))!; assert.equal(counts.built, 1); assert.equal(counts.gap['refused'], 1); assert.equal(counts.coverBreakdown.reduce((s, r) => s + r.built, 0), 1);
   assert.equal(c.coverArgs(project, state, '2026-10-07').total.value, '1'); const started = c.gettingStartedArgs(project, state, '2026-10-07'); assert.equal(started.index[0]!.setId, 'master'); assert.ok(started.gaps.some(g => g.includes('no verified capture'))); assert.equal(lc.TIER_COLORS['High Use'], '#FAD200'); assert.equal(lc.tierTable(counts)[0]!.built, 1);
 });
 test('index preserves the merged usage tier, treats partial data as untiered and separates links', t => {

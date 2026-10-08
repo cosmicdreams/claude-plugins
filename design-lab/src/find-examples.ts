@@ -15,7 +15,7 @@ import { readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { parseArgs } from "node:util";
 import { gunzipSync } from "node:zlib";
-import type { Dict } from "./discovery-io.ts";
+import type { UsageInventory } from "./usage-types.ts";
 import { compareStrings, httpGet } from "./extract-drupal-usage.ts";
 
 export const UA =
@@ -175,9 +175,14 @@ export function scanParagraphs(
   return [presence, counts];
 }
 
+type CrawlExample = {url:string;marker:string;instancesOnPage:number;status:number;anonymous:boolean};
+type CrawlUsage = {placements:number;tier:keyof typeof TIER_PAGE;figmaPage:string} & {examples:CrawlExample[];structuralRefs?:number;note?:string};
+type UsageScan = {base:string;strategy:Strategy;pagesScanned:number;pagesFailed:{url:string;status:number}[];pagesFailedCount:number;placementsAreLowerBound:boolean;addressesRehostedOnto:string|null;addressesRehostedCount:number;componentsSeen:number;componentsUnseen:string[]};
+type CrawlInventory = Omit<UsageInventory,'components'> & {components:(Omit<UsageInventory['components'][number],'usage'> & {usage?:Partial<CrawlUsage>})[];usageScan?:Partial<UsageScan>};
+export type CrawlReport = {usageScan:UsageScan;usage?:Record<string,CrawlUsage>;components?:CrawlInventory['components']};
 export interface Crawl {
   placements: Map<string, number>;
-  examples: Map<string, Dict[]>;
+  examples: Map<string, CrawlExample[]>;
   scanned: number;
   failed: Array<{ url: string; status: number }>;
   rehosted: number;
@@ -191,7 +196,7 @@ export async function crawl(
 ): Promise<Crawl> {
   const scan = strategy === "sitestudio" ? scanSitestudio : scanParagraphs;
   const placements = new Map<string, number>(),
-    examples = new Map<string, Dict[]>(),
+    examples = new Map<string, CrawlExample[]>(),
     failed: Crawl["failed"] = [];
   let scanned = 0,
     rehosted = 0;
@@ -257,14 +262,14 @@ export interface ReportOptions {
   base: string;
   strategy: Strategy;
   examplesPerComponent?: number;
-  components?: Dict;
+  components?: CrawlInventory;
   merge?: boolean;
 }
 /** The JSON `main` prints: usage per observed component, optionally merged into components.json. */
-export function buildReport(result: Crawl, options: ReportOptions): Dict {
+export function buildReport(result: Crawl, options: ReportOptions): CrawlReport {
   const perComponent = options.examplesPerComponent ?? 3,
     baseHost = new URL(options.base).host;
-  const usage: Dict = {};
+  const usage: Record<string,CrawlUsage> = {};
   for (const [name, n] of result.placements) {
     const best = [...result.examples.get(name)!].sort(
       (a, b) => b["instancesOnPage"] - a["instancesOnPage"],
@@ -276,12 +281,12 @@ export function buildReport(result: Crawl, options: ReportOptions): Dict {
       examples: best.slice(0, perComponent),
     };
   }
-  let doc: Dict | null = null,
+  let doc: CrawlInventory | null = null,
     unseen: string[] = [];
   if (options.components) {
     doc = structuredClone(options.components);
     const known = new Set<string>(
-      doc["components"].map((component: Dict) => component["id"]),
+      doc["components"].map((component) => component["id"]),
     );
     unseen = [...known]
       .filter((id) => !Object.hasOwn(usage, id))
@@ -322,7 +327,7 @@ export function buildReport(result: Crawl, options: ReportOptions): Dict {
   };
   if (options.merge && doc) {
     doc["usageScan"] = { ...doc["usageScan"], ...meta };
-    return doc;
+    return {...doc,usageScan:{...doc.usageScan,...meta}};
   }
   return { usageScan: meta, usage };
 }

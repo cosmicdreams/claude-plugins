@@ -27,7 +27,19 @@ const TYPE_PROPS = new Set([
   "font-weight",
   "letter-spacing",
 ]);
-type JsonObject = Record<string, any>;
+type JsonObject = Record<string,unknown>;
+interface StyleRow {name:string|null;codeName:string|null;property:string;family:string;valuesByBreakpoint:Record<string,Scalar|null>;provenance:{kind:string;ref:string}}
+type Scalar=string|number|boolean;
+interface SiteStudioEntity {name?:string;uid?:string;variable?:string;class?:string;value?:unknown;tags?:{value?:string}[];inuse?:unknown;systemfont?:unknown;fontStack?:string;styles?:{styles?:Record<string,unknown>}}
+const object=(value:unknown):JsonObject|null=>value&&typeof value==='object'&&!Array.isArray(value)?value as JsonObject:null;
+/** Explicit external configuration narrowing; property trees remain unknown until walked. */
+function entity(value:unknown):SiteStudioEntity|null {
+ const raw=object(value);if(!raw)return null;
+ for(const key of ['name','uid','variable','class','fontStack'])if(raw[key]!==undefined&&typeof raw[key]!=='string')throw new Error(`Site Studio ${key} must be a string`);
+ if(raw['tags']!==undefined&&(!Array.isArray(raw['tags'])||raw['tags'].some(tag=>!object(tag)||object(tag)?.['value']!==undefined&&typeof object(tag)?.['value']!=='string')))throw new Error('Site Studio tags must carry string values');
+ if(raw['styles']!==undefined){const styles=object(raw['styles']);if(!styles||styles['styles']!==undefined&&!object(styles['styles']))throw new Error('Site Studio styles must be property maps');}
+ return raw as SiteStudioEntity;
+}
 function toolVersion(): string {
   try {
     return (
@@ -47,10 +59,10 @@ function scalar(text: string, key: string): string | null {
   ).exec(text);
   return m?.[1]?.trim().replace(/^['"]|['"]$/g, "") ?? null;
 }
-function flatten(value: any): any {
+function flatten(value: unknown):Scalar|null {
   if (value && typeof value === "object" && !Array.isArray(value)) {
     for (const key of ["rgba", "hex", "value"])
-      if (key in value) return flatten(value[key]);
+      if (key in value) return flatten((value as JsonObject)[key]);
     return null;
   }
   // baseline treats bool as an int in flatten(), so authored false values remain rows.
@@ -71,7 +83,7 @@ function rgbaToHex(value: unknown): string | null {
           .toUpperCase()
     : null;
 }
-export function* walkProps(node: any, prefix = ""): Generator<[string, any]> {
+export function* walkProps(node: unknown, prefix = ""): Generator<[string, Scalar]> {
   if (!node || typeof node !== "object" || Array.isArray(node)) return;
   for (const [key, value] of Object.entries(node)) {
     const name = prefix ? `${prefix}-${key}` : key,
@@ -81,13 +93,13 @@ export function* walkProps(node: any, prefix = ""): Generator<[string, any]> {
   }
 }
 export function cascade(
-  perBreakpoint: Record<string, any>,
+  perBreakpoint: Record<string, Scalar>,
   order: string[],
-): Record<string, any> {
-  const out: Record<string, any> = {};
-  let last: any = null;
+): Record<string, Scalar|null> {
+  const out: Record<string, Scalar|null> = {};
+  let last:Scalar|null = null;
   for (const bp of order) {
-    if (bp in perBreakpoint) last = perBreakpoint[bp];
+    if (bp in perBreakpoint) last = perBreakpoint[bp]!;
     out[bp] = last;
   }
   return out;
@@ -98,19 +110,19 @@ function yamlFiles(cfg: string, prefix: string): string[] {
     .sort()
     .map((name) => resolve(cfg, name));
 }
-function readEntity(path: string): [JsonObject | null, string] {
-  const [value, text] = loadJsonValues(path) as [JsonObject | null, string];
-  return [value && typeof value === "object" ? value : null, text];
+function readEntity(path: string): [SiteStudioEntity | null, string] {
+  const [value, text] = loadJsonValues(path);
+  return [entity(value), text];
 }
-function palette(cfg: string): JsonObject[] {
-  const out: JsonObject[] = [];
+function palette(cfg: string) {
+  const out: {name:string|null;uid:string|undefined;hex:string|null;codeName:string|undefined;className:string|undefined;tags:(string|undefined)[];inUse:boolean;provenance:{kind:string;ref:string}}[] = [];
   for (const path of yamlFiles(
     cfg,
     "cohesion_website_settings.cohesion_color.",
   )) {
     const [jv, text] = readEntity(path);
     if (!jv) continue;
-    const first = flatten(jv["value"]?.["value"] ?? {}),
+    const first = flatten(object(jv["value"])?.["value"] ?? {}),
       hex =
         typeof first === "string" && first.startsWith("#")
           ? first
@@ -122,16 +134,16 @@ function palette(cfg: string): JsonObject[] {
       codeName: jv["variable"],
       className: jv["class"],
       tags: (jv["tags"] ?? [])
-        .filter((tag: any) => tag && typeof tag === "object")
-        .map((tag: any) => tag["value"]),
+        .filter((tag) => tag && typeof tag === "object")
+        .map((tag) => tag["value"]),
       inUse: Boolean(jv["inuse"]),
       provenance: { kind: "config", ref: basename(path) },
     });
   }
   return out;
 }
-function fontStacks(cfg: string): JsonObject[] {
-  const out: JsonObject[] = [];
+function fontStacks(cfg: string) {
+  const out: {name:string|null;uid:string|undefined;stack:string;primaryFamily:string;codeName:string|undefined;systemFont:boolean;inUse:boolean;provenance:{kind:string;ref:string}}[] = [];
   for (const path of yamlFiles(
     cfg,
     "cohesion_website_settings.cohesion_font_stack.",
@@ -155,8 +167,8 @@ function fontStacks(cfg: string): JsonObject[] {
   }
   return out;
 }
-function scssVariables(cfg: string): JsonObject[] {
-  const out: JsonObject[] = [];
+function scssVariables(cfg: string) {
+  const out: {name:string|null;uid:string|null;value:Scalar|null;codeName:string;inUse:boolean;provenance:{kind:string;ref:string}}[] = [];
   for (const path of yamlFiles(
     cfg,
     "cohesion_website_settings.cohesion_scss_variable.",
@@ -177,11 +189,11 @@ function scssVariables(cfg: string): JsonObject[] {
 }
 function customStyles(cfg: string): {
   order: string[];
-  rows: JsonObject[];
+  rows:StyleRow[];
   count: number;
 } {
   const files = yamlFiles(cfg, "cohesion_custom_styles.cohesion_custom_style."),
-    parsed: [string, JsonObject | null, string][] = [],
+    parsed: [string, SiteStudioEntity | null, string][] = [],
     seen = new Set<string>();
   for (const path of files) {
     const [jv, text] = readEntity(path);
@@ -192,13 +204,13 @@ function customStyles(cfg: string): {
   }
   const order = BREAKPOINTS.filter((bp) => seen.has(bp));
   if (!order.length) order.push("xl");
-  const rows: JsonObject[] = [];
+  const rows:StyleRow[] = [];
   for (const [path, jv, text] of parsed) {
     if (!jv) continue;
     const label = scalar(text, "label"),
       klass = scalar(text, "class_name"),
       styles = jv["styles"]?.["styles"] ?? {},
-      collected: Record<string, Record<string, any>> = {};
+      collected: Record<string, Record<string, Scalar>> = {};
     for (const [bp, tree] of Object.entries(styles))
       for (const [prop, value] of walkProps(tree))
         (collected[prop] ??= {})[bp] = value;
@@ -230,7 +242,7 @@ function customStyles(cfg: string): {
 export function extract(
   rootInput: string,
   configDir?: string,
-): Record<string, unknown> {
+) {
   const root = resolve(rootInput),
     selected = configDir
       ? { path: resolve(configDir) }
@@ -248,7 +260,7 @@ export function extract(
   const scaling = sizes.filter(
     (style) =>
       new Set(
-        Object.values(style["valuesByBreakpoint"] as JsonObject).map(String),
+        Object.values(style["valuesByBreakpoint"]).map(String),
       ).size > 1,
   );
   return {

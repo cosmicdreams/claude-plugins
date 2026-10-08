@@ -1,0 +1,239 @@
+{
+  "init": {
+    "flags": [
+      "repo",
+      "workspace",
+      "force",
+      "allow-in-repository",
+      "site-label",
+      "site-url",
+      "operator",
+      "model"
+    ],
+    "required": [
+      "repo"
+    ],
+    "help": "Create a personal run folder"
+  },
+  "figma-build": {
+    "flags": [
+      "from",
+      "figma-url",
+      "repo",
+      "site-label",
+      "model",
+      "workspace"
+    ],
+    "required": [
+      "from",
+      "figma-url",
+      "repo"
+    ],
+    "help": "Rebuild saved capture and an approved plan"
+  },
+  "await-build": {
+    "flags": [
+      "project",
+      "timeout"
+    ],
+    "required": [
+      "project"
+    ],
+    "help": "Wait for build and verification dumps"
+  },
+  "finish": {
+    "flags": [
+      "project",
+      "session"
+    ],
+    "required": [
+      "project"
+    ],
+    "help": "Write receipts, verify and benchmark"
+  },
+  "identity": {
+    "flags": [
+      "project",
+      "site-label",
+      "site-url",
+      "operator",
+      "model",
+      "no-schema-change",
+      "schema-change"
+    ],
+    "help": "Correct run identity"
+  },
+  "detect": {
+    "flags": [
+      "project"
+    ],
+    "help": "Detect source strategies"
+  },
+  "select": {
+    "flags": [
+      "project",
+      "component",
+      "token",
+      "usage",
+      "degraded-reason",
+      "by",
+      "sitestudio-config"
+    ],
+    "help": "Select detected sources"
+  },
+  "extract": {
+    "flags": [
+      "project",
+      "kind"
+    ],
+    "help": "Extract inventory and tokens"
+  },
+  "usage": {
+    "flags": [
+      "project",
+      "ddev-root",
+      "ddev-project",
+      "base-url",
+      "without-twig-debug",
+      "high",
+      "medium"
+    ],
+    "help": "Extract site usage"
+  },
+  "plan": {
+    "flags": [
+      "project"
+    ],
+    "help": "Plan components"
+  },
+  "variables": {
+    "flags": [
+      "project"
+    ],
+    "help": "Plan variables"
+  },
+  "preflight": {
+    "flags": [
+      "project",
+      "site-label",
+      "site-url",
+      "operator",
+      "model",
+      "public-url",
+      "figma-url",
+      "node-cwd",
+      "ddev-root",
+      "plan-approval",
+      "usage-fallback"
+    ],
+    "help": "Check answers before an unattended run"
+  },
+  "fonts": {
+    "flags": [
+      "project"
+    ],
+    "required": [
+      "project"
+    ],
+    "help": "Report Figma font availability and stand-ins"
+  },
+  "report": {
+    "flags": [
+      "project"
+    ],
+    "required": [
+      "project"
+    ],
+    "help": "Summarize capture|selectors|plan|verify|build|fonts"
+  },
+  "connect": {
+    "flags": [
+      "project",
+      "runner-timeout"
+    ],
+    "required": [
+      "project"
+    ],
+    "help": "Connect the runner to the target file"
+  },
+  "runner": {
+    "flags": [
+      "project",
+      "ensure",
+      "await-runner",
+      "minutes"
+    ],
+    "help": "Check or restart the runner"
+  },
+  "approve": {
+    "flags": [
+      "project",
+      "by",
+      "from-preflight"
+    ],
+    "help": "Approve the proposed plan"
+  },
+  "target": {
+    "flags": [
+      "project",
+      "figma-url"
+    ],
+    "required": [
+      "figma-url"
+    ],
+    "help": "Record target Figma file"
+  },
+  "register": {
+    "flags": [
+      "project",
+      "name",
+      "path",
+      "kind",
+      "phase"
+    ],
+    "required": [
+      "name",
+      "path"
+    ],
+    "help": "Register validated artifact"
+  },
+  "record": {
+    "flags": [
+      "project",
+      "phase",
+      "status",
+      "detail",
+      "by"
+    ],
+    "required": [
+      "phase",
+      "status"
+    ],
+    "help": "Record phase status"
+  },
+  "validate": {
+    "flags": [
+      "project"
+    ],
+    "help": "Validate manifests, receipts and completion"
+  },
+  "status": {
+    "flags": [
+      "project"
+    ],
+    "help": "Show run state"
+  },
+  "watch": {
+    "flags": [
+      "project"
+    ],
+    "help": "Show phases, runner, blocker and recap"
+  },
+  "runs": {
+    "flags": [
+      "finished",
+      "json"
+    ],
+    "help": "List project runs newest first"
+  }
+}

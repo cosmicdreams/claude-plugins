@@ -1,3 +1,6 @@
+import type {Tokens} from './generated/tokens.ts';
+type SassToken=Required<Pick<NonNullable<Tokens['tokens']>[number],'name'|'codeName'|'raw'|'value'|'family'|'isAlias'|'layer'|'provenance'>> & {codeName:string};
+export type SourceMapTokens=Omit<Tokens,'tokens'>&{tokens:SassToken[]};
 /** Recover source-authored Sass tokens embedded in CSS source maps. */
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, resolve as pathResolve } from "node:path";
@@ -157,16 +160,16 @@ export function resolve(
 export function extract(
   rootInput: string,
   baseHint = "base/",
-): Record<string, unknown> {
+): SourceMapTokens {
   const root = resolvePath(rootInput),
     maps = files(root);
   if (!maps.length)
     throw new Error(
       `no .css.map found under ${root} - this strategy does not apply`,
     );
-  const tokens: Record<string, unknown>[] = [],
-    sourcesSeen: Record<string, unknown>[] = [],
-    problems: Record<string, unknown>[] = [];
+  const tokens:SassToken[]=[],
+    sourcesSeen:NonNullable<Tokens['sourcesWithVariables']>=[],
+    problems:NonNullable<Tokens['problems']>=[];
   for (const mapPath of maps) {
     let data: { sources?: string[]; sourcesContent?: (string | null)[] };
     try {
@@ -224,10 +227,10 @@ export function extract(
       }
     }
   }
-  const byName = new Map<string, Record<string, unknown>>(),
-    dupes: Record<string, unknown>[] = [];
+  const byName = new Map<string,SassToken>(),
+    dupes:SassToken[]=[];
   for (const t of tokens) {
-    const name = t["name"] as string,
+    const name = t["name"],
       prev = byName.get(name);
     if (!prev) byName.set(name, t);
     else if (prev["layer"] !== "base" && t["layer"] === "base") {

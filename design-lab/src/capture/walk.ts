@@ -55,7 +55,7 @@ export function walk(rootSelector: string, propList: string[], pick_: PickRoot):
     const s = getComputedStyle(el, which);
     if (s.content === 'none' || s.content === 'normal') return null;
     const p = pick(s);
-    p.content = s.content;
+    p['content'] = s.content;
     return p;
   };
 
