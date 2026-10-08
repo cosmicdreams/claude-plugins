@@ -11,7 +11,7 @@ import { appendFileSync, closeSync, fsyncSync, lstatSync, mkdirSync, openSync, r
 import { basename, dirname, extname, isAbsolute, join, normalize, resolve, sep } from 'node:path';
 import { homedir } from 'node:os';
 import { performance } from 'node:perf_hooks';
-import { assertValid, validate, writeJson } from './contracts.ts';
+import { assertValid, validate, writeJson, writeArtifact } from './contracts.ts';
 import type {Fonts} from './generated/fonts.ts';
 import type {BuildRecord} from './generated/build-record.ts';
 import type {Components} from './generated/components.ts';
@@ -713,9 +713,10 @@ export function recordBenchmarkEnd(runDir: string, clock:Clock): boolean {
   assertValid('project', project);
   const at = String(clock['benchmarkEnd']);
   project.phases['benchmark'] = { status: 'complete', updatedAt: at, detail: { recordedBy: RECORDED_BY } };
-  writeJson(path, project);
+  writeArtifact('project', path, project);
   const fd = openSync(resolve(runDir, 'phase-log.jsonl'), 'a');
-  try { appendFileSync(fd, JSON.stringify({ at, phase: 'benchmark', status: 'complete' }) + '\n'); fsyncSync(fd); } finally { closeSync(fd); }
+  const entry: PhaseLogEntry = { at, phase: 'benchmark', status: 'complete' };
+  try { appendFileSync(fd, JSON.stringify(entry) + '\n'); fsyncSync(fd); } finally { closeSync(fd); }
   return true;
 }
 
@@ -1280,7 +1281,7 @@ export async function writeScore(runDir: string, options: WriteScoreOptions = {}
   } else if (clock['benchmarkEndSource'] === 'this scoring') finishClock(clock, nowTime());
   const finished = recordBenchmarkEnd(run, clock);
   mkdirSync(out, { recursive: true });
-  writeJson(join(out, 'scorecard.json'), scorecard);
+  writeArtifact('scorecard', join(out, 'scorecard.json'), scorecard);
   const written = [join(out, 'scorecard.json')];
   let message: string | null = null;
   if (html !== null) {
