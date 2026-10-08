@@ -12,7 +12,7 @@ import { visible } from './spec-to-tree.ts';
 import { fetchImages } from './fetch-images.ts';
 import { sharedRequire } from './runtime.ts';
 import { validateRunnerRecord, assertValid } from './contracts.ts';
-import { load, result, safe, writeOnChange, keyOf } from './build-artifacts.ts';
+import { load, result, safe, writeOnChange, writeArtifactOnChange, keyOf } from './build-artifacts.ts';
 import type { BuildState, BuildResult, Geometry, GeometryBox, Component } from './build-artifacts.ts';
 import type { Spec } from './generated/spec.ts';
 import type { Tree } from './generated/tree.ts';
@@ -37,7 +37,7 @@ export function buildTrees(project: string, trees: string, only?: string): { id:
     let tree: Tree;
     try { tree = responsive(spec, c.label || c.id, c.id.split('.').at(-1)!); }
     catch (error) { if (error instanceof Error && /missing root|no usable|no measurement|no nodes|root measurement/.test(error.message)) continue; throw error; }
-    writeOnChange(resolve(trees, c.id + '.json'), tree); built.push({ id: c.id });
+    writeArtifactOnChange('tree', resolve(trees, c.id + '.json'), tree); built.push({ id: c.id });
   }
   const by = new Map(comps.map(c => [c.id, c])), ids = built.map(b => b.id);
   for (const child of ids) {
@@ -48,7 +48,7 @@ export function buildTrees(project: string, trees: string, only?: string): { id:
       let alt: Tree; try { alt = responsive({ measurements: found[0] } as Spec, by.get(child)!.label || child, `${child.split(':').at(-1)}@${parent.split(':').at(-1)}`); } catch (error) { if (error instanceof Error && /missing root|no usable|no measurement|no nodes/.test(error.message)) continue; throw error; }
       const sig = keyOf(signature(alt.tree)); if (seen.has(sig)) continue; seen.add(sig); alternates.push({ label: `In ${by.get(parent)!.label || parent}`, parent, variables: alt.variables, tree: alt.tree });
     }
-    if (alternates.length) tree.alternates = alternates; else delete tree.alternates; writeOnChange(resolve(trees, child + '.json'), tree);
+    if (alternates.length) tree.alternates = alternates; else delete tree.alternates; writeArtifactOnChange('tree', resolve(trees, child + '.json'), tree);
   }
   return built;
 }
