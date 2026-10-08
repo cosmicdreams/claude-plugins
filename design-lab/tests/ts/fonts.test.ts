@@ -338,3 +338,15 @@ void test('CLI reads project inputs, writes fonts.json, and prints its summary',
   assert.equal(saved.families[0].family, 'Arial');
   assert.equal(saved.figmaChecked, false);
 });
+
+void test('Apple system fonts listed by Figma remain undrawable', async (t) => {
+  const f = fixture(t);
+  for (const family of ['system-ui', '-apple-system', 'BlinkMacSystemFont']) {
+    f.saveNodes({ text: 'System text', computed: { fontFamily: family, fontWeight: '400', fontStyle: 'normal' } });
+    const document = await f.makePlan({ 'SF Pro': ['Regular'], Inter: ['Regular'] });
+    const record = document.families.find((entry) => entry.family === 'SF Pro');
+    assert.equal(record?.available, false);
+    assert.equal(record.figmaFamily, null);
+    assert.ok(record.standIn);
+  }
+});

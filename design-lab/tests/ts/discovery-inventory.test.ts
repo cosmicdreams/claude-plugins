@@ -8,7 +8,7 @@ import { extract as extractSiteStudio } from '../../src/extract-sitestudio.ts';
 import { extract as extractSdc } from '../../src/extract-sdc.ts';
 import { extract as extractCanvas } from '../../src/extract-canvas.ts';
 import { extract as extractAuthoring } from '../../src/extract-drupal-authoring.ts';
-import { extract as extractRendering } from '../../src/extract-drupal-rendering.ts';
+import { extract as extractRendering, rootSdc } from '../../src/extract-drupal-rendering.ts';
 import { extractFile } from '../../src/extract-sass-style-facts.ts';
 
 const temp = () => mkdtempSync('/tmp/design-lab-p3-discovery-');
@@ -411,12 +411,20 @@ void test('Drupal authoring resolves paragraph slots and predefined field kinds;
   assert.equal(layout!.slots[0]!.accepts![0], 'paragraph:text');
   const sass = put(
     root,
-    'docroot/themes/custom/theme/templates/paragraph/paragraph--layout.scss',
+    'docroot/themes/custom/theme/components/layout/layout.scss',
     '.layout { color: red; .part { gap: 1rem; } }',
   );
   const facts = extractFile(sass);
   assert.equal(facts.rootRules[0]!.selector, '.layout');
   assert.equal(facts.partRules[0]!.selector, '.part');
+  assert.deepEqual(
+    facts.partRules[0]?.declarations?.map((d) => d.property),
+    ['gap'],
+  );
+  assert.deepEqual(
+    facts.rootRules[0]?.declarations?.map((d) => d.property),
+    ['color'],
+  );
   put(
     root,
     'docroot/themes/custom/theme/templates/paragraph/paragraph--layout.html.twig',
@@ -431,6 +439,7 @@ void test('Drupal authoring resolves paragraph slots and predefined field kinds;
   assert.equal(item.rootSdc, 'theme:card');
   assert.deepEqual(item.sdc, ['theme:card', 'theme:button']);
   assert.ok(item.stylesheets.includes('docroot/themes/custom/theme/components/card/card.scss'));
+  assert.ok(item.stylesheets.includes('docroot/themes/custom/theme/components/layout/layout.scss'));
   assert.equal(item.referencedFields[0], 'field_items');
 });
 
@@ -473,4 +482,10 @@ void test('Drupal authoring replaces list placeholders with predefined options a
   assert.equal(fields['field_email'].kind, 'text');
   assert.equal(fields['field_date'].kind, 'text');
   assert.equal(c.defects.length, 0);
+});
+
+void test('root SDC embeds must precede wrapper markup and ignore Twig comments', () => {
+  assert.equal(rootSdc("{# <aside> #}{% embed 'theme:card' %}<div>content</div>{% endembed %}"), 'theme:card');
+  assert.equal(rootSdc("<section>{% embed 'theme:card' %}{% endembed %}</section>"), null);
+  assert.equal(rootSdc("{{ include('theme:card') }}"), null);
 });

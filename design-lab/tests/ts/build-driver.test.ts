@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync, statSync, readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Build } from '../../src/figma-runner.ts';
-import { BuildDriver, cropCapture } from '../../src/figma-build.ts';
+import { BuildDriver, cropCapture, textMasks } from '../../src/figma-build.ts';
 import { load, writeOnChange } from '../../src/build-artifacts.ts';
 import type { Component } from '../../src/build-artifacts.ts';
 import { spec, node } from './p2-fixtures.ts';
@@ -546,4 +546,23 @@ void test('foundation rejects a STRING font-family variable with a numeric value
     },
   });
   assert.throws(() => c.foundationArgs(project, 'Typography'), /font family Typography\/Body must be a string/);
+});
+
+void test('text masks use visible live text geometry independently at each breakpoint', (t) => {
+  const { project } = fixture(t);
+  const desktop = { ...node('/text', 3, 4, 20, 10), text: 'Desktop' };
+  const mobile = { ...node('/inline', 1, 2, 12, 8), inlineText: 'Mobile' };
+  writeOnChange(resolve(project, 'capture/measurements/block__hero.spec.json'), {
+    measurements: {
+      'desktop:default': { nodes: [desktop, node('/decoration'), { ...desktop, computed: { display: 'none' } }] },
+      'mobile:default': { nodes: [mobile] },
+    },
+  });
+  assert.deepEqual(
+    textMasks(project, 'block:hero', {
+      variants: ['Desktop', 'Mobile', 'Tablet'].map((label) => ({ label, x: 0, y: 0, width: 100, height: 50 })),
+    }),
+    [[desktop.box], [mobile.box], []],
+  );
+  assert.equal(textMasks(project, 'missing', { variants: [] }), null);
 });
