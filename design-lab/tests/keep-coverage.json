@@ -1630,8 +1630,12 @@
     {
       "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_wipe_names_only_collections_this_run_emitted",
       "behavior": "A rebuild removes only collections owned by this run; figma_build.ts/render/wipe.ts.",
-      "tests": [],
-      "uncovered": "Rebuild ordering and cache invalidation tests exist, but neither asserts the wipe collection list is limited to collections emitted by this run."
+      "tests": [
+        {
+          "file": "tests/ts/build-collections.test.ts",
+          "name": "a rebuild wipes only the collections this run emits, not every name in the plan"
+        }
+      ]
     },
     {
       "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_width_and_another_axis_in_one_collection_split_by_variable",

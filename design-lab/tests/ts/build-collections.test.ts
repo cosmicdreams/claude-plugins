@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { variablesArgs, mediaApplies, expandHex } from '../../src/build-content.ts';
+import { variablesArgs, mediaApplies, expandHex, emittedCollections } from '../../src/build-content.ts';
 import { writeOnChange } from '../../src/build-artifacts.ts';
 import type { VariableCollection } from '../../src/generated/variable-plan.ts';
 function plan(t: { after(fn: () => void): void }, collections: Record<string, VariableCollection>) {
@@ -124,4 +124,11 @@ void test('large consolidation preserves all aliases and rgba/percentage color v
   assert.equal(out['Acme Core']!.variables[299]!.aliasOf, 'space/0');
   assert.equal(expandHex('rgba(100%, 0%, 50%, .5)'), '#ff007f');
   assert.equal(expandHex('#AbC8'), '#abc8');
+});
+void test('a rebuild wipes only the collections this run emits, not every name in the plan', (t) => {
+  const root = mkdtempSync('/tmp/design-lab-round2-emitted-');
+  t.after(() => rmSync(root, { recursive: true, force: true }));
+  writeOnChange(resolve(root, 'project.json'), { run: { siteLabel: 'PNCB' } });
+  writeOnChange(resolve(root, 'variable-plan.json'), { collections: { Core: { modes: ['Value'], variables: [] } } });
+  assert.deepEqual(emittedCollections(root), ['PNCB Core']);
 });
