@@ -36,8 +36,10 @@ try {
     // first Figma TS entrypoint exists. No Node declarations enter this config.
     files: [resolve(modules, '@figma/plugin-typings/index.d.ts')],
   };
+  // The baseline has no package.json, so NodeNext would read its templates as CommonJS and reject
+  // their top-level await (TS1309). They run inside an async function body, so check them as ES modules.
   const jsConfig = () => { const legacy = oraclePlugin(); return {
-    compilerOptions: { target: 'ES2024', module: 'NodeNext', moduleResolution: 'NodeNext',
+    compilerOptions: { target: 'ES2024', module: 'ESNext', moduleResolution: 'bundler', moduleDetection: 'force',
       allowJs: true, checkJs: true, noEmit: true, strict: false, skipLibCheck: true,
       allowImportingTsExtensions: true, types: ['node'], typeRoots: [resolve(modules, '@types')], paths },
     files: [resolve(modules, '@figma/plugin-typings/index.d.ts'), resolve(legacy, 'runner/code.js'),

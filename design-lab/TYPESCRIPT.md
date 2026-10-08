@@ -99,7 +99,8 @@ tests. It then installs the pinned Claude Code CLI (`@anthropic-ai/claude-code@2
 CLI fails the job. Bump the pinned version deliberately and rerun both commands locally after a bump. Equivalence harnesses and the local six-site reality scan are separate
 acceptance gates and are not run in CI. `benchmark:check-js` is a diagnostic over the original
 JavaScript, read from the baseline checkout: it needs `DESIGN_LAB_ORACLE_ROOT` and checks no file
-shipped in this plugin. It has known context diagnostics and is not a CI gate.
+shipped in this plugin. It reports exactly the 156 diagnostics triaged in `tests/fixtures/checkjs-triage.json`
+(the baseline templates are checked as ES modules, because they run inside an async function body) and is not a CI gate.
 
 ## Verified and not yet verified
 
