@@ -1,3 +1,4 @@
+import type { Project } from './generated/project.ts';
 /** Durable receipts from observed build results; absent measurements fail closed. */
 import { existsSync, readFileSync, statSync, realpathSync, appendFileSync } from 'node:fs';
 import { resolve, relative, dirname } from 'node:path';
@@ -97,12 +98,12 @@ export function receiptErrors(kind: ArtifactKind, value: unknown): string[] {
   return errors;
 }
 interface RegistryEntry { path: string; kind: string; sha256?: string; valid: boolean; errors?: string[]; updatedAt?: string; producedBy?: unknown }
-interface Registry { artifacts: Record<string, RegistryEntry>; phases: Record<string, unknown> }
+type Registry = Project;
 export function componentCoverage(project: string, registry: Registry) {
   const planReceipt = registry.artifacts['plan']; let planAvailable = false; const expected = new Set<string>(), built = new Set<string>(), invalid: string[] = [];
-  if (planReceipt?.kind === 'plan' && planReceipt.valid) try { const plan = load<{ plans: { id: string; verdict: string }[] }>(project, planReceipt.path); for (const p of plan.plans) if (p.verdict === 'build') expected.add(p.id); planAvailable = true; } catch {}
+  if (planReceipt?.kind === 'plan' && planReceipt.valid) try { const plan = load<{ plans: { id: string; verdict: string }[] }>(project, planReceipt.path ?? ''); for (const p of plan.plans) if (p.verdict === 'build') expected.add(p.id); planAvailable = true; } catch {}
   for (const [name, artifact] of Object.entries(registry.artifacts)) if (artifact.kind === 'build-record') try {
-    const target = resolve(project, artifact.path), bytes = readFileSync(target), r = JSON.parse(bytes.toString()) as { id: string; assertions: Record<string, { verdict: string }> };
+    const target = resolve(project, artifact.path ?? ''), bytes = readFileSync(target), r = JSON.parse(bytes.toString()) as { id: string; assertions: Record<string, { verdict: string }> };
     if (receiptErrors('build-record', r).length || Object.values(r.assertions).some(a => a.verdict !== 'pass') || !artifact.valid || artifact.sha256 !== hash(bytes)) invalid.push(name); else built.add(r.id);
   } catch { invalid.push(name); }
   return { planAvailable, expected: expected.size, built: [...built].filter(id => expected.has(id)).length, missing: [...expected].filter(id => !built.has(id)).sort(), unexpected: [...built].filter(id => !expected.has(id)).sort(), invalid: invalid.sort() };

@@ -8,6 +8,7 @@ import { writeJson } from './contracts.ts';
 import * as config from './lab-config.ts';
 import { designLabHome, TOKEN_FILE } from './design-lab-home.ts';
 
+export interface SetupCheck {id:string;status:'ok'|'missing'|'advice';label:string;detail:string;fix:string|null;needsApproval:string|null;nodeCwd?:string|null;manifest?:string;neededFolders?:string[]}
 export const READ_BLOCK = 'blockReadsOutsideWorkingDirectories';
 export const browserFolder = chromiumFolder;
 export function playwrightReady(): [boolean, string] {
@@ -34,9 +35,9 @@ export const uncovered = (needed: string[], allowed: string[]): string[] => need
 export function blockingSettings(dirs = claudeConfigDirs()): string[] { return [...new Set(dirs.flatMap(dir => { const path = resolve(dir, 'settings.json'); try { return JSON.parse(readFileSync(path, 'utf8')).permissions?.[READ_BLOCK] === true ? [realpathSync(path)] : []; } catch { return []; } }))]; }
 export function setValue(key: string, values: string[]): unknown {
   const value = config.readConfig();
-  if (key === 'runs') { if (!config.CONVENTIONS.includes(values[0] as 'project' | 'home')) throw new Error('runs takes one of: project, home'); value.runs = { convention: values[0] }; }
+  if (key === 'runs') { if (!config.CONVENTIONS.includes(values[0] as 'project' | 'home')) throw new Error('runs takes one of: project, home'); value.runs = { convention: values[0]! }; }
   else if (key === 'operator') { if (!values[0]?.trim()) throw new Error('operator takes a name'); value.operator = values[0].trim(); }
-  else if (key === 'evaluation') { if (values.length !== 3) throw new Error('evaluation takes three paths: corpus, scoreboard ledger, scoreboard dashboard'); value.corpus = values[0]; value.scoreboard = { ledger: values[1], dashboard: values[2] }; }
+  else if (key === 'evaluation') { if (values.length !== 3) throw new Error('evaluation takes three paths: corpus, scoreboard ledger, scoreboard dashboard'); value.corpus = values[0]!; value.scoreboard = { ledger: values[1]!, dashboard: values[2]! }; }
   else throw new Error(`unknown setting ${key}`);
   return { written: config.writeConfig(value), [key]: key === 'evaluation' ? values : value[key] };
 }
@@ -48,10 +49,10 @@ export function allowFolders(projects: string[], dirs = claudeConfigDirs(), plug
   return { changed, restart: !!changed.length };
 }
 export function allowReads(dirs = claudeConfigDirs()): unknown { const changed = blockingSettings(dirs); for (const path of changed) { const value = JSON.parse(readFileSync(path, 'utf8')); delete value.permissions[READ_BLOCK]; writeJson(path, value); } return { changed, restart: !!changed.length }; }
-export function checks(): config.Settings[] {
-  const value = config.readConfig(), out: config.Settings[] = [], convention = value.runs?.convention;
-  const check = (id: string, status: string, label: string, detail: string, fix: string | null = null, needsApproval: string | null = null, extra = {}) => out.push({ id, status, label, detail, fix, needsApproval, ...extra });
-  check('runs', config.CONVENTIONS.includes(convention) ? 'ok' : 'missing', 'Where runs live', convention ?? 'not chosen: runs need a folder outside every repository', 'lab_setup.ts set runs project|home');
+export function checks(): SetupCheck[] {
+  const value = config.readConfig(), out: SetupCheck[] = [], convention = value.runs?.convention;
+  const check = (id: string, status: SetupCheck['status'], label: string, detail: string, fix: string | null = null, needsApproval: string | null = null, extra:Partial<SetupCheck> = {}) => out.push({ id, status, label, detail, fix, needsApproval, ...extra });
+  check('runs', config.CONVENTIONS.some(c=>c===convention) ? 'ok' : 'missing', 'Where runs live', convention ?? 'not chosen: runs need a folder outside every repository', 'lab_setup.ts set runs project|home');
   if (config.projectFolder(process.cwd())) try { const folder = config.runsFolder(process.cwd(), value); check('project', 'advice', "This project's runs", `${folder} (${existsSync(folder) ? 'exists' : 'does not exist yet'})`, 'lab_setup.ts runs-folder --create'); } catch {}
   check('operator', 'ok', 'Your name for reports', value.operator ?? config.claudeAccountName() ?? 'your git user name');
   const node = Number(process.versions.node.split('.')[0]); check('node', node >= 24 ? 'ok' : 'missing', 'Node.js 24', process.version, node >= 24 ? null : 'install Node.js 24');
@@ -63,7 +64,7 @@ export function checks(): config.Settings[] {
   const needed = [...pluginFolders(), ...runFolders(value)], blocked = blockingSettings(), missing = blocked.flatMap(path => uncovered(needed, JSON.parse(readFileSync(path, 'utf8')).permissions?.additionalDirectories ?? []));
   const noProjects = blocked.length && convention === 'project' && !runFolders(value).length;
   check('claude-settings', missing.length || noProjects ? 'missing' : 'ok', 'Claude Code runs design-lab without asking', missing.length || noProjects ? `${READ_BLOCK} is on; not yet allowed: ${missing.join(', ')}${noProjects ? '; the folders you keep projects in' : ''}` : `${READ_BLOCK} is off or design-lab folders are allowed`, 'lab_setup.ts claude-settings --allow-folders <projects> or --allow-reads', 'changes Claude Code settings; open sessions need restarting', { neededFolders: needed });
-  const probe = spawnSync('claude', ['--version'], { encoding: 'utf8', timeout: 20_000 }), match = probe.stdout?.match(/(\d+)\.(\d+)\.(\d+)/), parts = match?.slice(1).map(Number);
+  const probe = spawnSync('claude', ['--model','claude-haiku-5-5','--version'], { encoding: 'utf8', timeout: 20_000 }), match = probe.stdout?.match(/(\d+)\.(\d+)\.(\d+)/), parts = match?.slice(1).map(Number);
   const pane = !!parts && (parts[0]! > 2 || parts[0] === 2 && (parts[1]! > 1 || parts[1] === 1 && parts[2]! >= 286)); check('pane', pane ? 'ok' : 'advice', 'Claude Code can draw the design-lab pane', pane ? match![0] : 'the pane needs Claude Code 2.1.286 or later; runs work without it', pane ? null : 'update Claude Code');
   let evaluation = true; try { config.loadConfig(); } catch { evaluation = false; } check('evaluation', evaluation ? 'ok' : 'advice', 'Scoreboard and corpus (optional)', evaluation ? 'set' : 'runs work and score without them', evaluation ? null : 'lab_setup.ts set evaluation <corpus> <ledger> <dashboard>');
   return out;

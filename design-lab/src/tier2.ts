@@ -3,6 +3,7 @@ import { join, resolve } from 'node:path';
 import { writeJson } from './corpus.ts';
 import { BuildDriver } from './figma-build.ts';
 import { ensureServer } from './figma-runner.ts';
+import type { WaitOptions } from './rebuild.ts';
 import { prepare as prepareWorkspace, siteUrls, waitForBuild as waitForRebuild, evaluate as evaluateWorkspace } from './rebuild.ts';
 
 export interface Tier2Callbacks {
@@ -10,8 +11,8 @@ export interface Tier2Callbacks {
   command?: (script: string, ...args: string[]) => Promise<unknown> | unknown;
   init?: (workspace: string, key: string, siteUrl: string, canonicalBaseUrl: string) => Promise<unknown> | unknown;
   waitForBuild?: (workspace: string, timeout: number) => Promise<void> | void;
-  status?: (workspace: string) => Promise<unknown> | unknown;
-  dumpStep?: (workspace: string) => Promise<unknown> | unknown;
+  status?:WaitOptions['status'];
+  dumpStep?:WaitOptions['dumpStep'];
   evaluate?: (workspace: string) => Promise<unknown> | unknown;
   sleep?: (ms: number) => Promise<void>;
   now?: () => number;
@@ -42,15 +43,15 @@ export async function waitForBuild(workspace: string, timeout: number, callbacks
     if (!callbacks.status || !callbacks.dumpStep) throw new Error('tier2 wait callbacks must provide both status and dumpStep');
   }
   await waitForRebuild(workspace, timeout, (callbacks.pollMs ?? 2000) / 1000, {
-    ...(callbacks.status ? { status: callbacks.status as (workspace: string) => any } : {}),
-    ...(callbacks.dumpStep ? { dumpStep: callbacks.dumpStep as (workspace: string) => any } : {}),
+    ...(callbacks.status ? { status: callbacks.status } : {}),
+    ...(callbacks.dumpStep ? { dumpStep: callbacks.dumpStep } : {}),
     ...(callbacks.sleep !== undefined ? { sleep: callbacks.sleep } : {}),
     ...(callbacks.now !== undefined ? { now: callbacks.now } : {}),
     ...(callbacks.pollMs !== undefined ? { pollMs: callbacks.pollMs } : {}),
   });
 }
 
-export async function replay(site: string, key: string, timeout: number, callbacks: Tier2Callbacks = {}): Promise<any> {
+export async function replay(site: string, key: string, timeout: number, callbacks: Tier2Callbacks = {}): Promise<unknown> {
   const workspace = await (callbacks.prepare ? callbacks.prepare(site, key, join(resolve(site), 'replays', replayStamp(new Date()))) : prepare(site, key, callbacks.at ? { at: callbacks.at } : {}));
   const [siteUrl, canonicalBaseUrl] = siteUrls(resolve(site));
   if (callbacks.init) await callbacks.init(workspace, key, siteUrl, canonicalBaseUrl);

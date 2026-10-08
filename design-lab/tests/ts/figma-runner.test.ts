@@ -121,7 +121,7 @@ async function handshake(t: { after(fn: () => void): void }) {
   const h = await serverFor(t, root => preflight(root, 'KEY'));
   const step = async (kind = 'check'): Promise<Step> => { const r = await h.call('/next'); const s = r.json() as Step; assert.deepEqual([r.status, s.kind], [200, kind], r.text); return s; };
   const record = async (name: string, result: unknown): Promise<void> => { const r = await h.call(`/record?step=${name}`, { body: result as Json }); assert.equal(r.status, 200, r.text); };
-  const run = async (probe: Json = {}, cover: Json | 'error' | null = null, expected: string | null = null): Promise<Json> => {
+  const run = async (probe: Json = {}, cover: Json | 'error' | null = null, expected: string | null = null): Promise<import('../../src/protocol.ts').Handshake> => {
     requestHandshake(h.workspace, { ground: '#001B67', headline: 'Example', subtitle: 'Component Library', provenance: { stage: 'preflight' }, version: '4.1.0' }, expected);
     const first = await step(); assert.equal(first.step, CHECK_STEP); assert.ok(!String(first['code']).includes('createRectangle'));
     await record(first.step!, { ...check, ...probe });
@@ -144,7 +144,7 @@ test('the runner waits before there are build steps', async t => {
 });
 test('the handshake draws a name-only Cover and the runner stays open', async t => {
   const h = await handshake(t), outcome = await h.run();
-  assert.equal(outcome['ok'], true); for (const k of ['runnerConnected', 'fileKeyMatches', 'empty', 'writable', 'pluginData']) assert.equal(outcome[k], true, k);
+  assert.equal(outcome['ok'], true); for (const k of ['runnerConnected', 'fileKeyMatches', 'empty', 'writable', 'pluginData'] as const) assert.equal(outcome[k], true, k);
   assert.deepEqual([outcome['coverPageId'], outcome['font'], outcome['fontLoaded']], ['0:1', 'IBM Plex Sans', true]);
   assert.equal(existsSync(resolve(h.workspace, 'figma', HANDSHAKE_REQUEST)), false); assert.equal((await h.step('wait')).kind, 'wait');
 });
