@@ -1,7 +1,8 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, cpSync } from 'node:fs';
-import { join, resolve } from 'node:path';
+import { createServer } from 'node:http';
+import { delimiter, join, resolve } from 'node:path';
 import { pluginRoot } from '../../src/runtime.ts';
 import { writeJson } from '../../src/contracts.ts';
 import {
@@ -10,6 +11,7 @@ import {
   extractProject,
   planProject,
   variablesProject,
+  usageProject,
 } from '../../src/discovery-workflow.ts';
 import { planComponent, naiveVariantCount, writePlanJson } from '../../src/plan.ts';
 import { fetchPage, urljoin } from '../../src/extract-drupal-usage.ts';
@@ -182,4 +184,51 @@ void test('re-extracting components keeps an approved Untiered usage waiver', as
   const components = JSON.parse(readFileSync(join(run, 'components.json'), 'utf8'));
   assert.equal(components.components[0].usage.placements, null);
   assert.equal(components.components[0].usage.tier, 'Untiered');
+});
+
+void test('usage refuses template-only evidence when Twig debug is off on the local site', async (t) => {
+  const root = temp(),
+    bin = temp(),
+    page = createServer((request, response) => {
+      response.setHeader('content-type', 'text/html');
+      response.end(request.url === '/node/9' ? '<div class="paragraph paragraph--type--hero">Hero</div>' : '');
+    });
+  await new Promise<void>((done) => page.listen(0, '127.0.0.1', done));
+  t.after(() => page.close());
+  const address = page.address();
+  const port = typeof address === 'object' && address ? address.port : 0;
+  // A stand-in `ddev` on PATH: it reports the project and answers the three queries the extractor issues.
+  const fake = [
+    `#!${process.execPath}`,
+    'const args = process.argv.slice(2);',
+    "if (args[0] === 'describe') {",
+    `  process.stdout.write(JSON.stringify({ raw: { status: 'running', name: 'site', primary_url: 'http://127.0.0.1:${port}' } }));`,
+    "} else if (args[0] === 'mysql') {",
+    '  const sql = args.at(-1);',
+    "  if (sql === 'SHOW TABLES;') process.stdout.write('paragraphs_item_field_data\\nnode_field_data\\n');",
+    "  else if (sql.includes('FROM paragraphs_item_field_data')) process.stdout.write('1\\thero\\tnode\\t9\\t1\\n');",
+    "  else if (sql.includes('FROM node_field_data')) process.stdout.write('9\\t1\\tpage\\n');",
+    '}',
+    '',
+  ].join('\n');
+  writeFileSync(join(bin, 'ddev'), fake, { mode: 0o755 });
+  const previousPath = process.env['PATH'];
+  process.env['PATH'] = `${bin}${delimiter}${previousPath ?? ''}`;
+  t.after(() => {
+    process.env['PATH'] = previousPath;
+  });
+  const run = temp();
+  writeJson(join(run, 'components.json'), {
+    components: [{ id: 'paragraph:hero', label: 'Hero', sourceRef: 'hero.yml', fields: [], slots: [], defects: [] }],
+  });
+  writeJson(join(run, 'project.json'), {
+    schemaVersion: 1,
+    standardVersion: '3.0.0',
+    pluginVersion: 'test',
+    repository: { root, commit: null, dirty: false },
+    decisions: { usageSource: 'drupal-db' },
+    phases: { usage: { status: 'pending' } },
+    artifacts: {},
+  });
+  await assert.rejects(usageProject(run), /Twig debug is off on the local site/);
 });

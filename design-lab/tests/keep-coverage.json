@@ -2446,8 +2446,12 @@
     {
       "original": "test_site_robustness.TwigDebugTests.test_usage_refuses_a_site_without_twig_debug",
       "behavior": "Do not silently undercount template-only usage when Twig debug is absent; extract_drupal_usage.ts.",
-      "tests": [],
-      "uncovered": "Marker and usage parsing tests exist, but no test asserts extraction refuses template-only usage when Twig debug is absent."
+      "tests": [
+        {
+          "file": "tests/ts/discovery-workflow.test.ts",
+          "name": "usage refuses template-only evidence when Twig debug is off on the local site"
+        }
+      ]
     },
     {
       "original": "test_site_robustness.FigmaImageLimitTests.test_tall_capture_is_scaled_to_fit",
