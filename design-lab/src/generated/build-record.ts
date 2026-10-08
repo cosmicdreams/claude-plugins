@@ -145,7 +145,7 @@ export interface BuildRecord {
         }[];
       };
       count?: number;
-      collectionId?: string;
+      collectionId?: string | null;
       bound?: number;
       literal?: number;
       fellBack?: string[];
@@ -375,7 +375,7 @@ export interface BuildRecord {
     bindings?: number;
     literals?: number;
     fellBack?: string[];
-    collectionId?: string;
+    collectionId?: string | null;
     fonts?: {
       [k: string]: string;
     };
@@ -415,7 +415,7 @@ export interface StepResult {
   file?: string;
   png?: string;
   pairs?: {
-    label: string;
+    label: string | null;
     changed: number;
     height: number;
     width: number;
@@ -424,6 +424,7 @@ export interface StepResult {
     pass?: boolean;
     ratioUnmasked?: number;
     textMasked?: number;
+    widthDelta?: number;
   }[];
   threshold?: number;
   tolerance?: number;
@@ -532,22 +533,13 @@ export interface StepResult {
   removedCollections?: string[];
   removedPages?: string[];
   pass?: boolean;
+  metric?: string;
 }
 export interface DocumentationField {
   field: string;
   kind: string;
   required: boolean;
-  default:
-    | string
-    | null
-    | boolean
-    | number
-    | {
-        uri?: string;
-        options?: {
-          [k: string]: JsonValue;
-        };
-      };
+  default: JsonValue;
   options?: unknown[] | null;
   figmaTreatment: string;
   figmaProperty?: string;
