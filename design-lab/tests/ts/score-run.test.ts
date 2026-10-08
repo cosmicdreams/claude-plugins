@@ -1088,3 +1088,33 @@ void test("ISO times keep baseline's naive-local and sub-second semantics", () =
 });
 
 process.on('exit', () => rmSync(scratch, { recursive: true, force: true }));
+
+void test('every refused count in the report, completion and scorecard matches the coverage gap', async () => {
+  const run = await makeRun(root);
+  const comp = (id: string) => ({ id, label: id.toUpperCase(), usage: { placements: 0, structuralRefs: 0 } });
+  write(join(run, 'components.json'), { components: ['a', 'b', 'c', 'd', 'e'].map(comp) });
+  write(join(run, 'plan.json'), {
+    plans: [
+      { id: 'a', verdict: 'build', libraryRole: 'component' },
+      { id: 'b', verdict: 'refuse', libraryRole: 'component', refuseReason: 'no capture' },
+      { id: 'c', verdict: 'refuse', libraryRole: 'component', refuseReason: 'no capture' },
+      { id: 'd', verdict: 'refuse', libraryRole: 'retirement' },
+      { id: 'e', verdict: 'refuse', libraryRole: 'retirement' },
+    ],
+  });
+  const out = join(root, 'out'),
+    result = await S.writeScore(run, { ...quiet, out, stopServer: noServer });
+  const card = JSON.parse(readFileSync(join(out, 'scorecard.json'), 'utf8')) as Json;
+  const coverage = obj(obj(card['sections'])['coverage']);
+  const gap = obj(coverage['gap'])['refused'];
+  const components = obj(obj(obj(card['sections'])['library'])['components']);
+  assert.deepEqual([gap, components['refused']], [2, 2]);
+  const html = readFileSync(join(out, 'report.html'), 'utf8').replace(/<[^>]+>/g, ' ');
+  const message = result.message ?? '';
+  for (const text of [html, message]) {
+    const found = [...text.matchAll(/(\d+)\s+refused by the plan/g)].map((m) => Number(m[1]));
+    assert.ok(found.length, 'a refused count is shown');
+    assert.deepEqual(new Set(found), new Set([2]), found.join(','));
+    assert.match(text, /2 retirement candidates/);
+  }
+});

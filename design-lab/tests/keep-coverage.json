@@ -2126,8 +2126,12 @@
     {
       "original": "test_score_run.ScoreRunTest.test_every_refused_count_matches_the_coverage_gap",
       "behavior": "Refused counts exclude retirement and agree across all report surfaces; library_counts.ts.",
-      "tests": [],
-      "uncovered": "Count helpers and report rendering are tested separately; no retained test reconciles all refused counts with the gap while excluding retirement."
+      "tests": [
+        {
+          "file": "tests/ts/score-run.test.ts",
+          "name": "every refused count in the report, completion and scorecard matches the coverage gap"
+        }
+      ]
     },
     {
       "original": "test_score_run.ScoreRunTest.test_benchmark_step_splits_time_and_tokens",
