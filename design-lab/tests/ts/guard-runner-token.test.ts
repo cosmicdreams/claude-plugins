@@ -62,6 +62,9 @@ void test('token guard blocks paths, globs, traversal, edits and function disclo
     { file_path: '/Users/someone/.design-lab/runner/../runner-token' },
     { command: 'node -e "print(personToken())"' },
     { command: 'echo $(node -e "person_token()")' },
+    // A long word elsewhere in the command does not hide the token path.
+    { command: `echo ${'a'.repeat(300)} && cat ~/.design-lab/runner-token` },
+    { command: `cat ~/.design-lab/runner-token${'a'.repeat(300)}` },
   ])
     assert.equal(touchesToken(input), true, JSON.stringify(input));
   const result = spawnSync(process.execPath, [resolve(pluginRoot, 'hooks/guard_runner_token.ts')], {
@@ -81,6 +84,9 @@ void test('token guard allows runner assets, ordinary script execution and malfo
     { command: 'node scripts/figma_runner.ts start --project W' },
     { command: 'node scripts/workflow.ts runner --project W --await-runner' },
     { command: 'node --test tests/ts/*.test.ts' },
+    // Words past NAME_MAX or PATH_MAX name no file, so they cannot be the token.
+    { command: `echo ${'a'.repeat(300)}` },
+    { command: `echo /${'b/'.repeat(600)}` },
   ])
     assert.equal(touchesToken(input), false, JSON.stringify(input));
   for (const input of ['{', '{}', 'null']) {

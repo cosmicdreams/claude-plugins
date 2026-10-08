@@ -37,6 +37,10 @@ function canonical(path: string, depth = 0): string {
   }
 }
 const within = (path: string, root: string): boolean => path === root || path.startsWith(root + sep);
+// A word past the system's path limits (NAME_MAX 255 bytes per name, PATH_MAX 1,024) names no file.
+const bytes = (text: string): number => Buffer.byteLength(text);
+const couldBePath = (path: string): boolean =>
+  !path.includes('\0') && bytes(path) <= 1024 && path.split(sep).every((name) => bytes(name) <= 255);
 function protectedPath(value: string, cwd: string): boolean {
   const home = process.env['DESIGN_LAB_HOME'] || resolve(homedir(), '.design-lab');
   const expanded = value
@@ -50,6 +54,8 @@ function protectedPath(value: string, cwd: string): boolean {
     root = resolve(home),
     runner = resolve(root, 'runner');
   if (within(path, root) && !within(path, runner)) return true;
+  // The kernel applies the limits to the word as given, not to the working directory joined to it.
+  if (!couldBePath(expanded)) return false;
   const physicalPath = isAbsolute(expanded) ? expanded : `${cwd}/${expanded}`;
   const actual = canonical(physicalPath);
   // An inaccessible home must not turn every unrelated tool call into a denial.
@@ -70,36 +76,7 @@ function protectedPath(value: string, cwd: string): boolean {
   return actual === token || (within(actual, actualRoot) && !within(actual, actualRunner));
 }
 
-/** Golden-rule's tool.call rewrite precedes classic PreToolUse command hooks. */
-function wrappedCommands(command: string): string[] {
-  const tokens = words(command),
-    decoded: string[] = [];
-  for (let index = 0; index < tokens.length; index++) {
-    if (
-      tokens[index - 1] !== '-I' ||
-      !/(?:^|\/)python3$/.test(tokens[index - 2] ?? '') ||
-      !/(?:^|\/)golden-rule(?:\/[^/]+)*\/hooks\/sandbox\/run\.py$/.test(tokens[index]!)
-    )
-      continue;
-    const mode = tokens[index + 1],
-      payload = tokens[index + 2];
-    if ((mode !== '--command' && mode !== '--argv') || !payload) throw new Error('uninspectable golden-rule wrapper');
-    // Buffer's base64 decoder is permissive; require an intact, canonical envelope.
-    const bytes = Buffer.from(payload, 'base64');
-    if (bytes.toString('base64') !== payload || bytes.toString('utf8').includes('\uFFFD'))
-      throw new Error('invalid golden-rule payload');
-    if (mode === '--command') decoded.push(bytes.toString('utf8'));
-    else {
-      const argv: unknown = JSON.parse(bytes.toString('utf8'));
-      if (!Array.isArray(argv) || !argv.length || !argv.every((arg) => typeof arg === 'string'))
-        throw new Error('invalid golden-rule argv');
-      decoded.push(argv.map((arg) => `'${arg.replace(/'/g, `'"'"'`)}'`).join(' '));
-    }
-  }
-  return decoded;
-}
-
-export function touchesToken(input: Record<string, unknown>, cwd = process.cwd(), depth = 0): boolean {
+export function touchesToken(input: Record<string, unknown>, cwd = process.cwd()): boolean {
   for (const field of ['file_path', 'notebook_path', 'path', 'pattern', 'glob', 'command']) {
     const value = input[field];
     if (typeof value !== 'string') continue;
@@ -127,14 +104,7 @@ export function touchesToken(input: Record<string, unknown>, cwd = process.cwd()
   }
   const command = input['command'];
   if (typeof command !== 'string') return false;
-  if (/runner-token|person_token|personToken/.test(command) && SHOWS.test(command)) return true;
-  try {
-    const nested = wrappedCommands(command);
-    // Fail closed for an opaque known launcher, never for ordinary commands.
-    return nested.length > 0 && (depth >= 8 || nested.some((command) => touchesToken({ command }, cwd, depth + 1)));
-  } catch {
-    return true;
-  }
+  return /runner-token|person_token|personToken/.test(command) && SHOWS.test(command);
 }
 export function guard(event: string): number {
   let value: unknown;
