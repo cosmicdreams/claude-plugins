@@ -161,7 +161,9 @@ describe('Layer 3: commands', () => {
     const ran = String(seen.calls[0]?.command)
     expect(ran.startsWith('__gr=$(/usr/bin/mktemp -t golden-rule)')).toBe(true)
     expect(ran).toContain('/hooks/sandbox/run.py')
-    expect(ran).not.toContain('echo hi')
+    // The command appears only as the bootstrap's heredoc input, which the outer shell never runs.
+    expect(ran).toContain("--stdin --state \"$__gr\" <<'GOLDEN_RULE_EOF'\necho hi\nGOLDEN_RULE_EOF\n")
+    expect(ran.split('echo hi').length).toBe(2)
   })
 
 })

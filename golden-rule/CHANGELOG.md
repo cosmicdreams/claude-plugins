@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- Other plugins' PreToolUse hooks run after the guard wraps a Bash or Monitor command, so they now read the command as written. The wrapper carries it verbatim as the body of a quoted heredoc that the outer shell never expands, instead of as base64. Before, every command-inspecting hook saw only an encoded blob, and a hook that checks words as paths refused long commands.
+- The bootstrap reads the command from that heredoc (`run.py --stdin`) and gives it no input, as the Bash tool gives none. `--command <base64>` still works for a mod loaded before this version.
+
 ## 0.1.0
 
 **First release: the golden rule as a mod.** Main is never the operating surface, enforced in process on every tool call rather than asked for in an instruction file that may not load.

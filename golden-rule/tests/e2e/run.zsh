@@ -18,7 +18,7 @@ no() { print -- "FAIL  $1${2:+ ($2)}"; fail=$((fail + 1)) }
 # gr <cwd> <command>: run a command through the bootstrap the way the mod's wrapper does.
 gr() {
   local state=$(/usr/bin/mktemp -t gr-e2e)
-  (cd "$1" && /usr/bin/python3 -I "$runpy" --command "$(printf %s "$2" | /usr/bin/base64)" --state "$state") >"$root/out" 2>&1
+  (cd "$1" && printf '%s\n' "$2" | /usr/bin/python3 -I "$runpy" --stdin --state "$state") >"$root/out" 2>&1
   local s=$?
   GR_PWD=$(/bin/cat "$state" 2>/dev/null); /bin/rm -f "$state"
   return $s
@@ -96,6 +96,23 @@ gr $root 'exit 7'; [ $? -eq 7 ] && ok "exit status passes through" || no "exit s
 gr $root/p "cd $F; exit 0"; [ "$GR_PWD" = "$F" ] && ok "cd is carried back even when the command exits" || no "cd before exit" "$GR_PWD"
 ( gr $M "echo '~nobody-gr-e2e/x'" ) & pid=$!; ( sleep 10; kill $pid 2>/dev/null ) & killer=$!
 wait $pid; s=$?; kill $killer 2>/dev/null; [ $s -eq 0 ] && ok "a ~user token does not hang the bootstrap" || no "~user token" "exit $s"
+gr $root 'cat; echo done'; [ $? -eq 0 ] && [ "$(cat $root/out)" = done ] && ok "the command reads no input (not the wrapper's heredoc)" || no "stdin" "$(cat $root/out)"
+state=$(/usr/bin/mktemp -t gr-e2e)
+(cd $root && /usr/bin/python3 -I "$runpy" --command "$(printf %s 'echo legacy' | /usr/bin/base64)" --state "$state") >"$root/out" 2>&1
+[ $? -eq 0 ] && [ "$(cat $root/out)" = legacy ] && ok "the --command form from an older mod still runs" || no "--command form" "$(cat $root/out)"
+/bin/rm -f "$state"
+
+# ---- the mod's own wrapper, run by a shell as the Bash tool runs it ----
+# The command as written must come out byte for byte: quotes, expansions, its own heredoc, a line that is
+# the wrapper's delimiter, and no trailing newline.
+tricky=$'printf \'%s|\' "it\'s" \'$HOME\' "`echo tick`"\ncat <<\'EOF\'\n$HOME `x`\nEOF\necho GOLDEN_RULE_EOF\ncat <<\'X\'\nGOLDEN_RULE_EOF\nX'
+expected=$(cd $root && /bin/zsh -c "$tricky")
+wrapped=$(node --input-type=module -e "import { wrapCommand } from '$source_plugin/hooks/mod/shell.ts'; process.stdout.write(wrapCommand(process.argv[1], process.argv[2]))" "$plugin" "$tricky")
+got=$(cd $root && /bin/zsh -c "$wrapped" 2>&1)
+[ "$got" = "$expected" ] && ok "the mod's wrapper runs the command exactly as written" || no "wrapper fidelity" "$got"
+[[ "$wrapped" == *"$tricky"* ]] && ok "the wrapper carries the command verbatim for other hooks to read" || no "wrapper verbatim"
+(cd $root && /bin/zsh -c "$(node --input-type=module -e "import { wrapCommand } from '$source_plugin/hooks/mod/shell.ts'; process.stdout.write(wrapCommand(process.argv[1], 'cd $F; exit 3'))" "$plugin"); print -r -- \$PWD") >"$root/out" 2>&1
+[ "$(cat $root/out)" = "$F" ] && ok "the wrapper carries cd back to the shell" || no "wrapper cd" "$(cat $root/out)"
 
 # ---- linked main worktree ----
 gr $L 'echo x > f && git add f && git -c user.email=e@e -c user.name=e commit -q -m "chore: x"'
