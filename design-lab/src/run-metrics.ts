@@ -18,7 +18,7 @@ export type ProjectView=PartialArtifact<Project>;
 export type RatioSummary={pass:number;total:number;medianRatio:number|null;p75Ratio:number|null;maxRatio:number|null};
 export type AccuracyPair={component:string;label:string;breakpoint:string;width:number|null;original:{ratio:number|null;pass:boolean|null};corrected:{ratio:number;pass:boolean}|null;heightDelta:number|null;widthDelta:number|null;figmaHeight?:number|null;liveHeight?:number|null;evidence:{specimen:string;geometry:string;index:number}|null};
 export type AccuracySection={status:'measured'|'partial';source:string;threshold:number;tolerance:number;metrics:Record<'original'|'corrected',string>;overall:{original:RatioSummary;corrected:RatioSummary|null};byBreakpoint:Record<string,{original:RatioSummary;corrected:RatioSummary|null;heightDelta:{median:number|null;max:number|null;over10px:number}}> ;components:number;pairs:AccuracyPair[];reason?:string};
-export type Accuracy=Omit<Partial<AccuracySection>,'status'>&{status?:'measured'|'partial'|'not-measured';reason?:string;howToMeasure?:string};
+export type Accuracy=Omit<Partial<AccuracySection>,'status'>&{status:'measured'|'partial'|'not-measured';reason?:string;howToMeasure?:string};
 
 // ---------------------------------------------------------------------------- baseline value semantics
 
@@ -158,7 +158,7 @@ function scoreConformanceResult(runDir: string, project:ProjectView|null) {
     waived: list(report['waived']).length,
     passed: list(report['passed']).length,
     inapplicable: list(report['inapplicable']).length,
-    completeness: or(report['completeness'], {}),
+    completeness: or(report['completeness'], {}) ?? {},
     findings: open.slice(0, 40).map(item => ({ severity: item['severity'] ?? null, check: or(item['check'], item['id']),
       message: or(item['message'], item['detail']) })),
   };

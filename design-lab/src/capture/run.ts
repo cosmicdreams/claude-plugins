@@ -10,19 +10,30 @@ import { pool, isolated } from './pool.ts';
 import type { ContextFactory } from './pool.ts';
 import { registerCapture } from './register.ts';
 import { assembleEvidence } from './evidence.ts';
-import type { CaptureConfig, CaptureRecord, CaptureRow } from './types.ts';
+import type { CaptureConfig, CaptureRecord, CaptureRow, CaptureState } from './types.ts';
 import type { Component, ComponentDocument } from './scaffold.ts';
 import { deriveChildren } from './derive.ts';
 import { enabled, rendersWithin } from './twig.ts';
 import { fetchImage } from '../fetch-images.ts';
-import { scaffold } from './scaffold.ts';
+import { scaffold, ownScript } from './scaffold.ts';
+import { legacyOwnScript } from './twig-legacy.ts';
 export const stem = (id: string): string => id.replaceAll(':', '__').replaceAll('/', '__');
 export function configHash(cfg: CaptureConfig, scale: number): string {
   const keyed = { ...cfg, states: (cfg.states ?? []).map(state => Object.fromEntries(Object.entries(state).filter(([key]) => key !== 'setup' || !('setupKey' in state)))) };
   return digest(keyed, scale);
 }
+/** What an earlier capture hashed: the state's setup text, without its setupKey. A scaffolded setup is
+ * rebuilt as the baseline's script text (twig-legacy.ts), so records written before setupKey existed
+ * still match although the browser now runs typed functions. A setup someone edited is hashed as it is. */
+function legacySetup(cfg: CaptureConfig, state: CaptureState): CaptureState {
+  const key = state.setupKey as { own?: unknown; children?: unknown } | undefined;
+  const own = key?.own === 'template' || key?.own === 'reveal' ? key.own : null;
+  const children = Array.isArray(key?.children) && key.children.every((c): c is string => typeof c === 'string') ? key.children : null;
+  if (own === null || children === null || state.setup !== ownScript(cfg.componentId, own, cfg.rootSelector, children)) return state;
+  return { ...state, setup: legacyOwnScript(cfg.componentId, own, cfg.rootSelector, children) };
+}
 export function legacyHash(cfg: CaptureConfig, scale: number): string {
-  const plain = { ...cfg, states: (cfg.states ?? []).map(state => Object.fromEntries(Object.entries(state).filter(([key]) => key !== 'setupKey'))) };
+  const plain = { ...cfg, states: (cfg.states ?? []).map(state => Object.fromEntries(Object.entries(legacySetup(cfg, state)).filter(([key]) => key !== 'setupKey'))) };
   return digest(plain, scale);
 }
 // argparse parses screenshot scale as a float: baseline serializes 1 as 1.0 here.

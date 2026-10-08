@@ -37,16 +37,16 @@ export interface Scorecard {
       original?: {
         pass?: number;
         total?: number;
-        medianRatio?: number;
-        p75Ratio?: number;
-        maxRatio?: number;
+        medianRatio?: number | null;
+        p75Ratio?: number | null;
+        maxRatio?: number | null;
       } | null;
       corrected?: {
         pass?: number;
         total?: number;
-        medianRatio?: number;
-        p75Ratio?: number;
-        maxRatio?: number;
+        medianRatio?: number | null;
+        p75Ratio?: number | null;
+        maxRatio?: number | null;
       } | null;
     };
     effort: {
@@ -83,23 +83,23 @@ export interface Scorecard {
       fields?: {
         siteLabel?: string;
         siteLabelSource?: string;
-        rebuiltFrom?: null | {
+        rebuiltFrom?: {
           run?: string;
-          createdAt?: string;
-          pluginVersion?: string;
-          corpusLabel?: null;
-        };
+          createdAt?: string | null;
+          pluginVersion?: string | null;
+          corpusLabel?: string | null;
+        } | null;
         publicAddress?: string | null;
         siteUrl?: string | null;
         rendererRuntime?: string | null;
         builtToStandard?: string | null;
         operator?: string | null;
         startedAt?: string | null;
-        pluginVersion?: string;
+        pluginVersion?: string | null;
         pluginCommit?: string | null;
-        standardVersion?: string;
+        standardVersion?: string | null;
         repositoryCommit?: string | null;
-        repositoryDirty?: boolean;
+        repositoryDirty?: boolean | null;
         figmaFileKey?: string | null;
         figmaUrl?: string | null;
         claudeConfigDir?: string | null;
@@ -130,7 +130,7 @@ export interface Scorecard {
         steps?: number;
         errors?: number;
         skipped?: number;
-        medianStepSeconds?: number;
+        medianStepSeconds?: number | null;
         secondsByKind?: {
           [k: string]: number;
         };
@@ -152,11 +152,11 @@ export interface Scorecard {
         totalSeconds?: number | null;
         checkpoints?: {
           phase?: string;
-          status?: string;
+          status?: string | null;
           at?: string;
         }[];
-        start?: string;
-        spanSeconds?: number;
+        start?: string | null;
+        spanSeconds?: number | null;
         note?: string;
         status?: "not-measured";
         reason?: string;
@@ -230,7 +230,7 @@ export interface Scorecard {
           status?: string | null;
           planned: boolean;
         }[];
-        until?: string;
+        until?: string | null;
         reason?: string;
         howToMeasure?: string;
       };
@@ -315,8 +315,8 @@ export interface Scorecard {
           since?: string | null;
           until?: string | null;
         };
-        firstMessage?: string;
-        lastMessage?: string;
+        firstMessage?: string | null;
+        lastMessage?: string | null;
         benchmarkNote?: string;
         reason?: string;
         howToMeasure?: string;
@@ -330,10 +330,10 @@ export interface Scorecard {
     library: {
       status: "measured" | "not-measured";
       components?: {
-        found?: number;
+        found?: number | null;
         planned?: number;
         built?: number | null;
-        notBuilt?: number;
+        notBuilt?: number | null;
         refused?: number;
       };
       tiers?: {
@@ -366,9 +366,9 @@ export interface Scorecard {
       voicePage?: boolean;
       examplesPage?: boolean;
       notBuiltReasons?: {
-        id?: string;
-        label?: string;
-        reason?: string;
+        id?: string | null;
+        label?: string | null;
+        reason?: string | null;
       }[];
       reason?: string;
     };
@@ -387,7 +387,7 @@ export interface Scorecard {
       usageWeighted?: {
         placements?: number;
         covered?: number;
-        ratio?: number;
+        ratio?: number | null;
         structuralRefs?: number;
         structuralCovered?: number;
         status?: string;
@@ -441,9 +441,9 @@ export interface Scorecard {
         };
       };
       findings?: {
-        severity?: string;
-        check?: string;
-        message?: string;
+        severity?: string | null;
+        check?: string | null;
+        message?: string | null;
       }[];
       reason?: string;
       howToMeasure?: string;
@@ -456,37 +456,37 @@ export interface Scorecard {
         original?: {
           pass?: number;
           total?: number;
-          medianRatio?: number;
-          p75Ratio?: number;
-          maxRatio?: number;
+          medianRatio?: number | null;
+          p75Ratio?: number | null;
+          maxRatio?: number | null;
         };
         corrected?: {
           pass?: number;
           total?: number;
-          medianRatio?: number;
-          p75Ratio?: number;
-          maxRatio?: number;
-        };
+          medianRatio?: number | null;
+          p75Ratio?: number | null;
+          maxRatio?: number | null;
+        } | null;
       };
       byBreakpoint?: {
         [k: string]: {
           original?: {
             pass?: number;
             total?: number;
-            medianRatio?: number;
-            p75Ratio?: number;
-            maxRatio?: number;
+            medianRatio?: number | null;
+            p75Ratio?: number | null;
+            maxRatio?: number | null;
           };
           corrected?: {
             pass?: number;
             total?: number;
-            medianRatio?: number;
-            p75Ratio?: number;
-            maxRatio?: number;
-          };
+            medianRatio?: number | null;
+            p75Ratio?: number | null;
+            maxRatio?: number | null;
+          } | null;
           heightDelta?: {
-            median?: number;
-            max?: number;
+            median?: number | null;
+            max?: number | null;
             over10px?: number;
           };
         };
@@ -495,8 +495,8 @@ export interface Scorecard {
         component: string;
         breakpoint: string;
         original: {
-          ratio: number;
-          pass: boolean;
+          ratio: number | null;
+          pass: boolean | null;
         };
         corrected?: {
           ratio?: number;
@@ -504,15 +504,15 @@ export interface Scorecard {
         } | null;
         heightDelta?: number | null;
         label?: string;
-        width?: number;
-        widthDelta?: number;
-        figmaHeight?: number;
-        liveHeight?: number;
+        width?: number | null;
+        widthDelta?: number | null;
+        figmaHeight?: number | null;
+        liveHeight?: number | null;
         evidence?: {
           specimen?: string;
           geometry?: string;
           index?: number;
-        };
+        } | null;
       }[];
       source?: string;
       metrics?: {

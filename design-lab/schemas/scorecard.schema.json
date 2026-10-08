@@ -160,13 +160,22 @@
                   "type": "number"
                 },
                 "medianRatio": {
-                  "type": "number"
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "p75Ratio": {
-                  "type": "number"
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "maxRatio": {
-                  "type": "number"
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 }
               },
               "additionalProperties": false
@@ -184,13 +193,22 @@
                   "type": "number"
                 },
                 "medianRatio": {
-                  "type": "number"
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "p75Ratio": {
-                  "type": "number"
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "maxRatio": {
-                  "type": "number"
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 }
               },
               "additionalProperties": false
@@ -527,56 +545,34 @@
                   "type": "string"
                 },
                 "rebuiltFrom": {
-                  "anyOf": [
-                    {
+                  "type": [
+                    "object",
+                    "null"
+                  ],
+                  "properties": {
+                    "run": {
+                      "type": "string"
+                    },
+                    "createdAt": {
                       "type": [
+                        "string",
                         "null"
                       ]
                     },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "run": {
-                          "type": "string"
-                        },
-                        "createdAt": {
-                          "type": "string"
-                        },
-                        "pluginVersion": {
-                          "type": "string"
-                        },
-                        "corpusLabel": {
-                          "type": "null"
-                        }
-                      },
-                      "additionalProperties": false
-                    },
-                    {
+                    "pluginVersion": {
                       "type": [
+                        "string",
                         "null"
                       ]
                     },
-                    {
+                    "corpusLabel": {
                       "type": [
-                        "null"
-                      ]
-                    },
-                    {
-                      "type": [
-                        "null"
-                      ]
-                    },
-                    {
-                      "type": [
-                        "null"
-                      ]
-                    },
-                    {
-                      "type": [
+                        "string",
                         "null"
                       ]
                     }
-                  ]
+                  },
+                  "additionalProperties": false
                 },
                 "publicAddress": {
                   "type": [
@@ -615,7 +611,10 @@
                   ]
                 },
                 "pluginVersion": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "pluginCommit": {
                   "type": [
@@ -624,7 +623,10 @@
                   ]
                 },
                 "standardVersion": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "repositoryCommit": {
                   "type": [
@@ -633,7 +635,10 @@
                   ]
                 },
                 "repositoryDirty": {
-                  "type": "boolean"
+                  "type": [
+                    "boolean",
+                    "null"
+                  ]
                 },
                 "figmaFileKey": {
                   "type": [
@@ -768,7 +773,10 @@
                   "type": "number"
                 },
                 "medianStepSeconds": {
-                  "type": "number"
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "secondsByKind": {
                   "type": "object",
@@ -836,7 +844,10 @@
                         "type": "string"
                       },
                       "status": {
-                        "type": "string"
+                        "type": [
+                          "string",
+                          "null"
+                        ]
                       },
                       "at": {
                         "type": "string"
@@ -847,10 +858,16 @@
                   }
                 },
                 "start": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "spanSeconds": {
-                  "type": "number"
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "note": {
                   "type": "string"
@@ -1201,7 +1218,10 @@
                   }
                 },
                 "until": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "reason": {
                   "type": "string"
@@ -1529,10 +1549,16 @@
                   "additionalProperties": false
                 },
                 "firstMessage": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "lastMessage": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "benchmarkNote": {
                   "type": "string"
@@ -1597,7 +1623,10 @@
               "type": "object",
               "properties": {
                 "found": {
-                  "type": "number"
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "planned": {
                   "type": "number"
@@ -1609,7 +1638,10 @@
                   ]
                 },
                 "notBuilt": {
-                  "type": "number"
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "refused": {
                   "type": "number"
@@ -1755,13 +1787,22 @@
                 "type": "object",
                 "properties": {
                   "id": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "label": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "reason": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -1841,7 +1882,10 @@
                   "type": "number"
                 },
                 "ratio": {
-                  "type": "number"
+                  "type": [
+                    "number",
+                    "null"
+                  ]
                 },
                 "structuralRefs": {
                   "type": "number"
@@ -1882,40 +1926,9 @@
                     "type": "string"
                   },
                   "detail": {
-                    "anyOf": [
-                      {
-                        "type": "string"
-                      },
-                      {
-                        "type": [
-                          "null"
-                        ]
-                      },
-                      {
-                        "type": [
-                          "null"
-                        ]
-                      },
-                      {
-                        "type": [
-                          "null"
-                        ]
-                      },
-                      {
-                        "type": [
-                          "null"
-                        ]
-                      },
-                      {
-                        "type": [
-                          "null"
-                        ]
-                      },
-                      {
-                        "type": [
-                          "null"
-                        ]
-                      }
+                    "type": [
+                      "string",
+                      "null"
                     ]
                   }
                 },
@@ -2080,13 +2093,22 @@
                 "type": "object",
                 "properties": {
                   "severity": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "check": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   },
                   "message": {
-                    "type": "string"
+                    "type": [
+                      "string",
+                      "null"
+                    ]
                   }
                 },
                 "additionalProperties": false
@@ -2150,19 +2172,31 @@
                       "type": "number"
                     },
                     "medianRatio": {
-                      "type": "number"
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     },
                     "p75Ratio": {
-                      "type": "number"
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     },
                     "maxRatio": {
-                      "type": "number"
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     }
                   },
                   "additionalProperties": false
                 },
                 "corrected": {
-                  "type": "object",
+                  "type": [
+                    "object",
+                    "null"
+                  ],
                   "properties": {
                     "pass": {
                       "type": "number"
@@ -2171,13 +2205,22 @@
                       "type": "number"
                     },
                     "medianRatio": {
-                      "type": "number"
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     },
                     "p75Ratio": {
-                      "type": "number"
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     },
                     "maxRatio": {
-                      "type": "number"
+                      "type": [
+                        "number",
+                        "null"
+                      ]
                     }
                   },
                   "additionalProperties": false
@@ -2201,19 +2244,31 @@
                         "type": "number"
                       },
                       "medianRatio": {
-                        "type": "number"
+                        "type": [
+                          "number",
+                          "null"
+                        ]
                       },
                       "p75Ratio": {
-                        "type": "number"
+                        "type": [
+                          "number",
+                          "null"
+                        ]
                       },
                       "maxRatio": {
-                        "type": "number"
+                        "type": [
+                          "number",
+                          "null"
+                        ]
                       }
                     },
                     "additionalProperties": false
                   },
                   "corrected": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "pass": {
                         "type": "number"
@@ -2222,13 +2277,22 @@
                         "type": "number"
                       },
                       "medianRatio": {
-                        "type": "number"
+                        "type": [
+                          "number",
+                          "null"
+                        ]
                       },
                       "p75Ratio": {
-                        "type": "number"
+                        "type": [
+                          "number",
+                          "null"
+                        ]
                       },
                       "maxRatio": {
-                        "type": "number"
+                        "type": [
+                          "number",
+                          "null"
+                        ]
                       }
                     },
                     "additionalProperties": false
@@ -2237,10 +2301,16 @@
                     "type": "object",
                     "properties": {
                       "median": {
-                        "type": "number"
+                        "type": [
+                          "number",
+                          "null"
+                        ]
                       },
                       "max": {
-                        "type": "number"
+                        "type": [
+                          "number",
+                          "null"
+                        ]
                       },
                       "over10px": {
                         "type": "number"
@@ -2276,10 +2346,16 @@
                     ],
                     "properties": {
                       "ratio": {
-                        "type": "number"
+                        "type": [
+                          "number",
+                          "null"
+                        ]
                       },
                       "pass": {
-                        "type": "boolean"
+                        "type": [
+                          "boolean",
+                          "null"
+                        ]
                       }
                     },
                     "additionalProperties": false
@@ -2309,19 +2385,34 @@
                     "type": "string"
                   },
                   "width": {
-                    "type": "number"
+                    "type": [
+                      "number",
+                      "null"
+                    ]
                   },
                   "widthDelta": {
-                    "type": "number"
+                    "type": [
+                      "number",
+                      "null"
+                    ]
                   },
                   "figmaHeight": {
-                    "type": "number"
+                    "type": [
+                      "number",
+                      "null"
+                    ]
                   },
                   "liveHeight": {
-                    "type": "number"
+                    "type": [
+                      "number",
+                      "null"
+                    ]
                   },
                   "evidence": {
-                    "type": "object",
+                    "type": [
+                      "object",
+                      "null"
+                    ],
                     "properties": {
                       "specimen": {
                         "type": "string"

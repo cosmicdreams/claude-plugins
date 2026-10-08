@@ -135,6 +135,16 @@ async function refresh($: EngineInterface): Promise<void> {
   }
 }
 
+// Nothing awaits a refresh the timer or an event starts, so a failure there would be an unhandled
+// rejection. It is told once, as a toast, and again only after a refresh worked in between.
+let refreshFailed = false
+function refreshInBackground($: EngineInterface): void {
+  void refresh($).then(
+    () => { refreshFailed = false },
+    () => { if (!refreshFailed) { refreshFailed = true; reportFailure($, 'refreshing the pane') } },
+  )
+}
+
 async function refreshNow($: EngineInterface): Promise<void> {
   const follow = await read($, followAtom)
   if (follow) {
@@ -171,7 +181,7 @@ async function refreshNow($: EngineInterface): Promise<void> {
 
 function watch($: EngineInterface): void {
   timer?.cancel()
-  timer = $.clock.every(POLL_MS, () => void refresh($))
+  timer = $.clock.every(POLL_MS, () => refreshInBackground($))
 }
 
 /** The run a command names, or with none: the newest in this project's runs folder, which the pane
@@ -306,7 +316,7 @@ async function followRunSkill($: EngineInterface): Promise<void> {
   await update($, summaryAtom, () => resuming ? summary! : null)
   await update($, alarmedAtom, () => false)
   watch($)
-  if (resuming) void refresh($)
+  if (resuming) refreshInBackground($)
   if ((await $.session.surfaces()).length > 0) await $.ui.open({ id: PANE, title: 'design-lab' }).catch(() => undefined)
 }
 
@@ -367,7 +377,7 @@ export const register: Register = on => {
     // After a reload the run is still in state; pick the watch back up.
     if ((await read($, runAtom)) || (await read($, followAtom))) {
       watch($)
-      void refresh($)
+      refreshInBackground($)
     }
     return next(e)
   })

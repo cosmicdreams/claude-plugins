@@ -48,14 +48,20 @@ export function counts(run: string, built?: Set<string> | string[]) {
   const coverBreakdown = [...USE_TIERS, 'Other'].map(t => ({ tier: t, built: rows.filter(r => r.built && (t === 'Other' ? !USE_TIERS.includes(r.tier) : r.tier === t)).length }));
   return { builtKnown, found, built: builtN, eligible, ratio: eligible ? roundDecimal(builtN / eligible, 4) : null, gap, excluded, reasonLabels: { ...GAP_REASONS, ...EXCLUDED_REASONS }, notBuilt: rows.filter(r => !r.built), placements: { total: sum('placements'), covered: sum('placements', true), ratio: sum('placements') ? roundDecimal(sum('placements', true) / sum('placements'), 4) : null }, structural: { total: sum('structural'), covered: sum('structural', true) }, outsideInventory, tiered: rows.some(r => TIERS.includes(r.tier)), byTier, coverBreakdown, components: rows };
 }
+/** A tier's label or colour; every tier the tables are asked about is one of their own keys. */
+function forTier(table: Record<string, string>, tier: string, what: string): string {
+  const value = table[tier];
+  if (value === undefined) throw new Error(`library-counts has no ${what} for tier "${tier}"`);
+  return value;
+}
 export function tierTable(c: NonNullable<ReturnType<typeof counts>>) {
   const by = new Map(c.byTier.map(r => [r.tier, r]));
   const rows = c.coverBreakdown.map(r => {
     const held = c.byTier.filter(t => !USE_TIERS.includes(t.tier) && (t.tier !== 'Retirement Candidates' || t.built) && t.found);
-    return { tier: r.tier, label: COVER_LABELS[r.tier], color: TIER_COLORS[r.tier], built: r.built, counted: true, found: r.tier === 'Other' ? held.reduce((n, t) => n + t.found, 0) : by.get(r.tier)?.found ?? 0, ...(r.tier === 'Other' ? { holds: held.map(t => ({ tier: t.tier, built: t.built, found: t.found })) } : {}) };
+    return { tier: r.tier, label: forTier(COVER_LABELS, r.tier, 'label'), color: forTier(TIER_COLORS, r.tier, 'colour'), built: r.built, counted: true, found: r.tier === 'Other' ? held.reduce((n, t) => n + t.found, 0) : by.get(r.tier)?.found ?? 0, ...(r.tier === 'Other' ? { holds: held.map(t => ({ tier: t.tier, built: t.built, found: t.found })) } : {}) };
   });
   const retired = by.get('Retirement Candidates');
-  if (retired?.found) rows.push({ tier: retired.tier, label: 'Retirement candidates', color: TIER_COLORS[retired.tier], built: retired.built, found: retired.found, counted: false });
+  if (retired?.found) rows.push({ tier: retired.tier, label: 'Retirement candidates', color: forTier(TIER_COLORS, retired.tier, 'colour'), built: retired.built, found: retired.found, counted: false });
   return rows;
 }
 export const coverageSentence = (c: NonNullable<ReturnType<typeof counts>>): string => `Built ${c.built} of ${c.eligible} components it could have built${c.ratio === null ? '' : ` (${Math.round(c.ratio * 100)}%)`}.`;
