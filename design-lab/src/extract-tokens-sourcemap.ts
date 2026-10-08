@@ -1,11 +1,11 @@
 import type {Tokens} from './generated/tokens.ts';
 type SassToken=Required<Pick<NonNullable<Tokens['tokens']>[number],'name'|'codeName'|'raw'|'value'|'family'|'isAlias'|'layer'|'provenance'>> & {codeName:string};
-export type SourceMapTokens=Omit<Tokens,'tokens'>&{tokens:SassToken[]};
 /** Recover source-authored Sass tokens embedded in CSS source maps. */
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, resolve as pathResolve } from "node:path";
 import { pluginRoot } from "./runtime.ts";
 import { roundEven } from "./json.ts";
+import { nonEmpty } from "./lookup.ts";
 
 export const STANDARD_VERSION = "3.0.0";
 const SKIP = /\/(node_modules|vendor|\.git)\//;
@@ -160,7 +160,7 @@ export function resolve(
 export function extract(
   rootInput: string,
   baseHint = "base/",
-): SourceMapTokens {
+): Tokens {
   const root = resolvePath(rootInput),
     maps = files(root);
   if (!maps.length)
@@ -269,7 +269,7 @@ export function extract(
       reason:
         "Sass source maps carry variable declarations without the CSS property or breakpoint they apply at; per-role scaling cannot be derived. Measure the rendered type ramp, or read the theme breakpoints, before choosing modes for the Type collection.",
     },
-    tokens: kept,
+    tokens: nonEmpty(kept, "no Sass variable could be recovered from the source maps"),
     shadowed: dupes,
     sourcesWithVariables: sourcesSeen.sort(
       (a, b) => Number(b["variables"]) - Number(a["variables"]),

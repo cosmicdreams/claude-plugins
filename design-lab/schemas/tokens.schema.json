@@ -97,13 +97,19 @@
             "type": "string"
           },
           "hex": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "inUse": {
             "type": "boolean"
           },
           "name": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "provenance": {
             "type": "object",
@@ -120,7 +126,10 @@
           "tags": {
             "type": "array",
             "items": {
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
             }
           },
           "uid": {
@@ -365,7 +374,10 @@
             "additionalProperties": false
           },
           "codeName": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "raw": {
             "type": "string"
@@ -375,6 +387,12 @@
           },
           "isAlias": {
             "type": "boolean"
+          },
+          "codePath": {
+            "type": "string"
+          },
+          "description": {
+            "type": "string"
           }
         },
         "additionalProperties": false
@@ -417,7 +435,10 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "uid": {
             "type": "string"
@@ -459,13 +480,24 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "uid": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "value": {
-            "type": "string"
+            "type": [
+              "string",
+              "number",
+              "boolean",
+              "null"
+            ]
           },
           "codeName": {
             "type": "string"
@@ -495,10 +527,16 @@
         "type": "object",
         "properties": {
           "name": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "codeName": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "property": {
             "type": "string"
@@ -511,6 +549,8 @@
             "additionalProperties": {
               "type": [
                 "string",
+                "number",
+                "boolean",
                 "null"
               ]
             }
