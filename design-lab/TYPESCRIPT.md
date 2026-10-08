@@ -119,6 +119,7 @@ Verified against the previous release (the read-only baseline checkout):
 - Component trees and Figma payloads, on 202 recorded specs.
 - Driver replay of two recorded builds, 293 and 101 steps.
 - Component and token discovery on five repositories, and on two live local sites.
+- Sequential CLI walks through capture on PNCB and DEFINITIVE, with the same approved inputs and browser version across three frozen implementations; see "Workflow timing" below.
 - Six scorecards and reports, with pixel-identical thumbnails.
 - Every baseline workflow subcommand (24 of 24) and flag (44 of 44), and every skill, command, reference and hook, has a TypeScript counterpart.
 
@@ -134,10 +135,48 @@ Not yet verified:
 - A continuous integration (CI) run on GitHub's x86_64 Ubuntu runner. The workflow steps pass in a native arm64 Debian container with Node 24; the x86_64 Claude Code CLI binary and `scripts/setup-browser-deps.ts` have not run on a real runner.
 - A `.ts` skill invoked from an installed copy of the plugin, on either Claude account.
 - Any invocation from Codex.
-- The TypeScript capture on a large site. Only five components have been captured live with it.
 
 Release gates: a stage-2 build on a live Figma file with the new runner, a CI run on a pull
 request, and one `.ts` skill run from an installed copy on each Claude account.
+
+### Workflow timing — 2026-10-08
+
+The observed workflow through capture was faster in the final TypeScript implementation.
+These totals sum the timed CLI invocations through capture; they exclude setup, output
+comparison and Figma builds. Each implementation used the same approved selections and
+plan decisions, isolated caches/homes and Playwright 1.63.0 with the same Chromium revision.
+No other agent or benchmark task ran alongside a timed command.
+
+| Local site | Original Python A | Improved Python B | TypeScript C | C versus A | C versus B |
+| --- | ---: | ---: | ---: | ---: | ---: |
+| PNCB, mean of two samples | 1157.524 s | 531.113 s | 339.752 s | 3.41× | 1.56× |
+| DEFINITIVE, one sample | 1701.100 s | 779.935 s | 450.483 s | 3.78× | 1.73× |
+
+A is `4176de29`, B is `d836d3a9` with concurrency 4, and C is `1d79e165` with
+concurrency 4. B's architecture changes already improve the baseline by about 2.18×.
+C also changes capture scheduling, so this comparison measures the implementations,
+not an isolated effect of the programming language.
+
+The owner's explicit go-ahead waived the original load-below-4 waiting gate. Every
+one-minute start load remained above that gate (13.12–27.15), and all were recorded.
+PNCB ran A/B/C then C/B/A; DEFINITIVE ran B/C/A. The one-sample DEFINITIVE result retains
+an uncorrected fresh-cache/order bias. Earlier overloaded stage-1 timings and the initial
+pilot with a different Playwright version are excluded.
+
+Components, tokens and variable plans matched across arms. All 84 PNCB PNGs were
+byte-identical across arms and repeats; measurement specs matched after a secondary
+comparison normalized only Drupal's random view-instance class. On DEFINITIVE, A/C
+differed in 4 of 195 PNGs, and some measurements had subpixel geometry differences.
+All approved build inputs have captures, but every capture CLI also reported refusals
+for components without examples or visible selectors. Final Figma output equality and
+build timing remain unmeasured. The owner runbook provides six fresh-file builds, one
+per site and implementation; their completion is pending.
+
+Evidence is retained outside the plugin repository in
+`analysis-reports/design-lab-bench-final-2026-10-08.md` and
+`analysis-reports/design-lab-figma-runbook-2026-10-08.md` at the project workspace root,
+with raw commands, timings, comparisons and checkpoints under `/tmp/design-lab-bench-final`.
+The original Python, improved Python and measured TypeScript worktrees remain unchanged.
 
 ## On-demand comparison with the saved baseline
 

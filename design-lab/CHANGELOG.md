@@ -11,6 +11,7 @@
 - Replace `scripts/measure.mjs`, `scripts/capture.mjs`, `scripts/check_selectors.mjs` and `scripts/cookie_preferences.mjs` with `scripts/capture_all.ts`, which runs the same measurement, screenshot, selector check and consent dismissal from one copy of the code. For a hand-written config, pass `--configs <folder> --only <id>`; for the selector check alone, add `--check`.
 - Add `scripts/figma_snippet.ts`, which prints a read-only Figma dump as plain JavaScript for `use_figma`. `design-lab:verify` uses it in place of the removed `figma_dump_*.js` files.
 - Run Node and browser tests, both TypeScript typechecks and contract drift in continuous integration (CI); install a pinned Claude Code CLI to validate and test the mod, and fail the job if it cannot run.
+- Measure sequential local workflows through capture against the original and architecture-improved Python versions. TypeScript's observed total is 3.41× faster than original Python on PNCB (two-sample mean) and 3.78× on DEFINITIVE (one sample). These compare whole implementations under an owner-approved elevated-load waiver; Figma build time remains unmeasured. See `TYPESCRIPT.md` for the protocol and equality qualifications.
 
 ### Upgrading from 0.23
 
@@ -33,6 +34,7 @@ Verified against 0.23 (a read-only checkout at commit `4176de29`):
 - Component trees and Figma payloads, on 202 recorded specs.
 - Driver replay of two recorded builds, 293 and 101 steps.
 - Component and token discovery on five repositories, and on two live local sites.
+- Full CLI walks through capture on local PNCB and DEFINITIVE with identical approved inputs across all three benchmark arms. PNCB screenshots match byte for byte; DEFINITIVE retains small image and measurement differences documented in `TYPESCRIPT.md`.
 - Six scorecards and reports, with pixel-identical thumbnails.
 
 Checked only on synthetic or replayed data:
@@ -47,7 +49,6 @@ Not yet verified:
 - A CI run on GitHub's x86_64 Ubuntu runner. The workflow steps pass in a native arm64 Debian container with Node 24; the x86_64 Claude Code CLI binary and `scripts/setup-browser-deps.ts` have not run on a real runner.
 - A `.ts` skill invoked from an installed copy of the plugin, on either Claude account.
 - Any invocation from Codex.
-- The TypeScript capture on a large site. Only five components have been captured live with it.
 
 ## Unreleased
 
