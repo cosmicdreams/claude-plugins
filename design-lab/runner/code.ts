@@ -1,7 +1,7 @@
 import { PORT as PROTOCOL_PORT, RETRY_MS as PROTOCOL_RETRY_MS, HEARTBEAT_SECONDS } from '../src/protocol.ts';
 import { assertNever } from '../src/assert-never.ts';
 import type { RunnerStep, RunnerReply } from '../src/figma/types.ts';
-export async function template(ARGS: Record<string, never>) {
+export async function template(_ARGS: Record<string, never>) {
   // DESIGN_LAB_TEMPLATE_BEGIN
   // design-lab runner: executes figma_build.ts steps in the open file, with no model in between.
   //

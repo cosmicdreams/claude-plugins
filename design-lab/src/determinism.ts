@@ -94,7 +94,7 @@ export function hashLayout(path: string): string {
   const raw = readFileSync(path, 'utf8');
   // Node 24 supplies the original number token to the reviver. Preserve baseline's distinction
   // between JSON integers and floats (for example, 10 versus 10.0) before canonical encoding.
-  const reviver = (key: string, value: unknown, context?: { source?: string }): unknown => {
+  const reviver = (_key: string, value: unknown, context?: { source?: string }): unknown => {
     if (typeof value !== 'number' || context?.source === undefined) return value;
     if (/[.eE]/.test(context.source)) return taggedNumber(value, true);
     if (!Number.isSafeInteger(value)) return taggedNumber(BigInt(context.source), false);

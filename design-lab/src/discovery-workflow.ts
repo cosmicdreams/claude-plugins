@@ -1,5 +1,5 @@
 /** Stateful phase-three operations. Later workflow phases remain on the baseline front door. */
-import { existsSync, readFileSync, statSync, appendFileSync, readdirSync } from 'node:fs';
+import { existsSync, readFileSync, statSync, readdirSync } from 'node:fs';
 import { dirname, resolve, relative } from 'node:path';
 import { homedir } from 'node:os';
 import { createHash } from 'node:crypto';

@@ -65,8 +65,7 @@ function tokenFamily(values: unknown[]): string | null {
   const families = new Set<string>();
   for (const v of values) {
     const x = String(v);
-    let m: RegExpMatchArray | null;
-    if ((m = x.match(/^coh-style-(padding|margin|spacing)/))) families.add('spacing');
+    if (/^coh-style-(padding|margin|spacing)/.test(x)) families.add('spacing');
     else if (/^coh-style-color-scheme/.test(x)) families.add('color-scheme');
     else if (/^coh-style-(multi-column|boxed-width|fluid)/.test(x)) families.add('layout');
     else if (/^coh-style-text-color/.test(x)) families.add('color');

@@ -1,11 +1,10 @@
-import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
+import { oracleScript, oracleExecutable } from './oracle.ts';
 /** DB and bounded local HTTP oracle acceptance. Run after discovery.ts in the same scratch tree. */
 import { readFileSync, existsSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import { writeJson } from '../../src/contracts.ts';
-import { pluginRoot } from '../../src/runtime.ts';
 import { extract, mergeUsage } from '../../src/extract-drupal-usage.ts';
 import { extract as canvasExtract, mergeCanvasUsage } from '../../src/extract-canvas-usage.ts';
 import { scan } from '../../src/find-rendered-components.ts';
@@ -14,7 +13,6 @@ import { buildVoice } from '../../src/extract-voice.ts';
 import { buildCompositions } from '../../src/extract-compositions.ts';
 import { sites, differences, normalize, ignoredFields } from './discovery.ts';
 import type { Project } from '../../src/generated/project.ts';
-import type { UsageInventory } from '../../src/usage-types.ts';
 type LiveEntry = {
   site?: string;
   baseUrl?: string;

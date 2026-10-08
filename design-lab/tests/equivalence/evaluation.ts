@@ -1,6 +1,6 @@
-import { oracleScript, oracleScripts, oracleExecutable, oracleRoot } from './oracle.ts';
+import { oracleScript, oracleExecutable } from './oracle.ts';
 /** Six copied runs, fresh Python/TS verification and scoring, independently rendered reports. */
-import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync, realpathSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync, mkdirSync, cpSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { homedir } from 'node:os';

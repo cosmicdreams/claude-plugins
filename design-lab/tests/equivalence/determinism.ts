@@ -1,11 +1,10 @@
-import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
+import { oracleScript, oracleExecutable } from './oracle.ts';
 /** Cross-run determinism verdicts, including a differing layout pair, against the Python oracle. */
 import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import assert from 'node:assert/strict';
 import { checkHash } from '../../src/determinism.ts';
-import { pluginRoot } from '../../src/runtime.ts';
 const root = process.argv[2] ?? '/tmp/design-lab-p4-equivalence';
 assert.ok(root.startsWith('/tmp/'));
 const results = [];

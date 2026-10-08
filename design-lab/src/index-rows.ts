@@ -1,6 +1,5 @@
 import { existsSync, readFileSync } from 'node:fs';
 import { resolve, basename } from 'node:path';
-import { slotAccepts } from './build-artifacts.ts';
 import type { Component, ComponentPlan, Usage } from './build-artifacts.ts';
 import type { BuildRecord } from './generated/build-record.ts';
 import type { Index } from './generated/index.ts';

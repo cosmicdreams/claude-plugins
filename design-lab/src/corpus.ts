@@ -11,7 +11,6 @@ export interface CorpusManifest {
 }
 import { createHash } from 'node:crypto';
 import { cpSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs';
-import { homedir } from 'node:os';
 import { basename, dirname, isAbsolute, join, relative, resolve, sep } from 'node:path';
 
 export interface EvaluationConfig {

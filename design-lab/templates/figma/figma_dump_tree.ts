@@ -1,6 +1,5 @@
 import type { DumpNode, Binding, ResolvedBindings } from '../../src/figma/dump-types.ts';
-import { DL_API } from '../../src/figma/types.ts';
-export async function template(ARGS: Record<string, never>) {
+export async function template(_ARGS: Record<string, never>) {
   // DESIGN_LAB_TEMPLATE_BEGIN
   // Replace __PAGE_ID__ with one literal page id; run once through read-only use_figma.
   // The page order comes from figma.root, while _ids is diagnostic and excluded from comparison.

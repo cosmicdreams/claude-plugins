@@ -24,7 +24,7 @@ import { loadProject, invalidate, now } from './discovery-workflow.ts';
 import * as config from './lab-config.ts';
 import * as runner from './figma-runner.ts';
 import * as rebuild from './rebuild.ts';
-import { componentCoverage, registerOutputs } from './figma-receipts.ts';
+import { componentCoverage } from './figma-receipts.ts';
 import { siteName, STANDARD_VERSION } from './build-content.ts';
 import { COVER_GROUND } from './library-counts.ts';
 import * as fonts from './fonts.ts';

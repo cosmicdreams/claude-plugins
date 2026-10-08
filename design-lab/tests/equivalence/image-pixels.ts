@@ -1,9 +1,9 @@
-import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
+import { oracleScript, oracleExecutable } from './oracle.ts';
 import assert from 'node:assert/strict';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
-import { sharedRequire, pluginRoot } from '../../src/runtime.ts';
+import { sharedRequire } from '../../src/runtime.ts';
 import { fetchImages } from '../../src/fetch-images.ts';
 import { fitFigmaImage } from '../../src/figma-runner.ts';
 const sharp = sharedRequire()('sharp') as typeof import('sharp').default;

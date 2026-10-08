@@ -4,7 +4,7 @@ import { readdirSync, readFileSync, statSync, existsSync, writeFileSync } from '
 import { basename, dirname, extname, join, resolve } from 'node:path';
 import { writeArtifact } from './contracts.ts';
 import type { Fonts } from './generated/fonts.ts';
-import type { MeasuredNode, Spec } from './generated/spec.ts';
+import type { Spec } from './generated/spec.ts';
 import type { Project } from './generated/project.ts';
 import { roundEven } from './json.ts';
 import { html5Entities } from './html-entities.ts';

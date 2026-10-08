@@ -12,7 +12,7 @@ import {
   writeFileSync,
   appendFileSync,
 } from 'node:fs';
-import { resolve, basename } from 'node:path';
+import { resolve } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { performance } from 'node:perf_hooks';
 import { Renderer, LIMIT } from './render-payload.ts';

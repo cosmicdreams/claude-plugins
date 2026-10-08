@@ -1,24 +1,4 @@
 import type { PagesArgs } from '../../src/figma/types.ts';
-import {
-  DL_API,
-  KIT,
-  ROLES,
-  rgb,
-  solid,
-  loadKitFonts,
-  text,
-  stack,
-  add,
-  fillWidth,
-  chip,
-  rule,
-  table,
-  section,
-  tag,
-  onPage,
-  clearTagged,
-  atomic,
-} from '../../src/figma/types.ts';
 export async function template(ARGS: PagesArgs) {
   // DESIGN_LAB_TEMPLATE_BEGIN
   /**

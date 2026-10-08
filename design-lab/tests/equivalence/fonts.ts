@@ -1,13 +1,12 @@
-import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
+import { oracleScript, oracleExecutable } from './oracle.ts';
 /** Compare full offline font plans and summaries with unchanged Python on scratch inputs. */
 import assert from 'node:assert/strict';
-import { existsSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { performance } from 'node:perf_hooks';
 import { finalise, plan, summaryLines, type AvailableFonts } from '../../src/fonts.ts';
 import type { Fonts } from '../../src/generated/fonts.ts';
-import { pluginRoot } from '../../src/runtime.ts';
 
 interface ExpectedCase {
   plan: Fonts;

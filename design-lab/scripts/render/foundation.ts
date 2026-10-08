@@ -2,7 +2,6 @@ import type { FoundationArgs } from '../../src/figma/types.ts';
 import {
   DL_API,
   KIT,
-  ROLES,
   rgb,
   solid,
   loadKitFonts,
@@ -10,9 +9,7 @@ import {
   stack,
   add,
   fillWidth,
-  chip,
   rule,
-  table,
   section,
   tag,
   onPage,

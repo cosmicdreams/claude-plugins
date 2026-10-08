@@ -1,6 +1,6 @@
-import { existsSync, lstatSync, readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { existsSync, readdirSync, realpathSync, statSync } from 'node:fs';
 import { basename, dirname, join, relative as rel, resolve, sep } from 'node:path';
-import { configDirs, docroot, readText, walk } from './discovery-io.ts';
+import { docroot, readText, walk } from './discovery-io.ts';
 import type { Detection } from './generated/detection.ts';
 export type SiteStudioSummary = Required<NonNullable<Detection['siteStudio']>>;
 export type Declared = SiteStudioSummary['declared'][number];

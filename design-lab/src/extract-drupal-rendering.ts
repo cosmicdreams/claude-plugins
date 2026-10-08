@@ -1,4 +1,4 @@
-import { readdirSync, statSync } from 'node:fs';
+import { readdirSync } from 'node:fs';
 import { basename, dirname, extname, join, resolve, relative as rel, sep } from 'node:path';
 import { readText } from './discovery-io.ts';
 import { extractFile } from './extract-sass-style-facts.ts';

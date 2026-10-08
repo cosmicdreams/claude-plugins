@@ -5,7 +5,6 @@ import * as st from './spec-to-tree.ts';
 import type { Box, Index, Padding, PseudoGeometry, PseudoImage, Rect } from './spec-to-tree.ts';
 import { sorted } from './json.ts';
 import { readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
 import { writeArtifact } from './contracts.ts';
 import { LookupError, at, lastOf, pick } from './lookup.ts';
 export const MODES = ['desktop', 'tablet', 'mobile'];

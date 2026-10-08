@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import { strict as assert } from 'node:assert';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, existsSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
-import { join, resolve } from 'node:path';
+import { join } from 'node:path';
 import {
   availableFamily,
   cssMatch,

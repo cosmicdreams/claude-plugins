@@ -6,7 +6,7 @@ import { variantValues } from './nesting.ts';
 import { roundEven } from './json.ts';
 import { at, lastOf, pick, required } from './lookup.ts';
 import { sharedRequire } from './runtime.ts';
-import { load, result, safe, nullable, keyOf, jsonFiles } from './build-artifacts.ts';
+import { load, result, safe, keyOf, jsonFiles } from './build-artifacts.ts';
 import type { Component, ComponentPlan, BuildState } from './build-artifacts.ts';
 import type { Tree, Text, TreeNode } from './generated/tree.ts';
 import type { Spec } from './generated/spec.ts';
@@ -654,7 +654,7 @@ export function fontPlan(project: string): Fonts['build'] | null {
     return null;
   }
 }
-export function description(project: string, c: Component): string {
+export function description(_project: string, c: Component): string {
   const u = c.usage ?? {},
     fields = c.fields.map((f) => `${f.label || f.name} (${f.kind})`).join(', ') || 'none';
   return `${c.label || c.id} — ${c.id} (${c.group || 'ungrouped'}).\nUsage: ${lc.shortTier(u.tier)}; ${lc.placements(c)} author placements, ${lc.structural(c)} structural references, rendered on ${u.renderedPages || 0} public pages.\nFields: ${fields}.\nResponsive: one component; resize an instance and set its Breakpoint mode (Desktop, Tablet, Mobile).\nExample: ${examplePath(c) || 'none verified'}\nDocumentation: the block beside this component on its tier page.`;

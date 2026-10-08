@@ -1,4 +1,4 @@
-import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
+import { oracleScript, oracleExecutable } from './oracle.ts';
 /** Real repository oracle comparisons. Reads sites/runs; all generated artifacts live in /tmp. */
 import { mkdtempSync, readFileSync, existsSync, mkdirSync } from 'node:fs';
 import { tmpdir, homedir } from 'node:os';

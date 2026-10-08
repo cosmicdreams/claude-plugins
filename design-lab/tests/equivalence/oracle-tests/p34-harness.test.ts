@@ -2,7 +2,7 @@ import { oracleScript, oracleExecutable } from '../oracle.ts';
 import { test, after } from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync } from 'node:fs';
-import { resolve, join } from 'node:path';
+import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { differences, evaluationExitCode } from '../evaluation.ts';

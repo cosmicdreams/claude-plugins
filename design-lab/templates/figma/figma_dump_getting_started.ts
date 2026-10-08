@@ -1,5 +1,4 @@
-import { DL_API } from '../../src/figma/types.ts';
-export async function template(ARGS: Record<string, never>) {
+export async function template(_ARGS: Record<string, never>) {
   // DESIGN_LAB_TEMPLATE_BEGIN
   // Replace PAGE_ID with the Getting Started page id, then run read-only through use_figma.
   const page = await figma.getNodeByIdAsync('PAGE_ID');

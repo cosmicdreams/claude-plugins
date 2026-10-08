@@ -4,9 +4,7 @@ import { readFileSync, writeFileSync, mkdirSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { compareRuns } from '../../src/compare-runs.ts';
-import { hashLayout } from '../../src/determinism.ts';
 import { render } from '../../src/scoreboard-render.ts';
-import { pluginRoot } from '../../src/runtime.ts';
 import { score, headline } from '../../src/score-run.ts';
 import { checkHash } from '../../src/determinism.ts';
 const root = process.argv[2] ?? '/tmp/design-lab-p4-equivalence',

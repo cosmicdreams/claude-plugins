@@ -9,7 +9,7 @@ import type {
   TableCell,
 } from '../../src/figma/types.ts';
 import { DL_API } from '../../src/figma/types.ts';
-export async function template(ARGS: KitArgs) {
+export async function template(_ARGS: KitArgs) {
   // DESIGN_LAB_TEMPLATE_BEGIN
   /**
    * design-lab documentation kit. Prepended to every render template at install time.
@@ -25,7 +25,10 @@ export async function template(ARGS: KitArgs) {
     mono: 'Roboto Mono',
     /* The Cover alone is set in IBM Plex Sans; cover.ts loads it and falls back to `font`. Kit
      style names map to Plex's own. */
-    coverFont: { family: 'IBM Plex Sans', styles: { 'Semi Bold': 'SemiBold', Medium: 'Medium', Regular: 'Regular' } },
+    coverFont: {
+      family: 'IBM Plex Sans',
+      styles: { 'Semi Bold': 'SemiBold', 'Medium': 'Medium', 'Regular': 'Regular' },
+    },
     coverInk: '#E6E8FF',
     ink: { strong: '#18181b', body: '#3f3f46', muted: '#71717a', faint: '#a1a1aa', inverse: '#ffffff' },
     surface: {

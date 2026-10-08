@@ -1,12 +1,11 @@
 import { restoreSeams, assertExpansionParity } from './typed-seams-parity.ts';
-import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
+import { oracleScript, oracleExecutable } from './oracle.ts';
 /** Compare every measured component in five read-only runs; all writes go to /tmp. */
 import { readFileSync, existsSync, readdirSync, mkdirSync, copyFileSync, mkdtempSync } from 'node:fs';
 import { homedir } from 'node:os';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { strict as assert } from 'node:assert';
-import { pluginRoot } from '../../src/runtime.ts';
 import { writeJson } from '../../src/contracts.ts';
 import { build as flat, compact } from '../../src/spec-to-tree.ts';
 import { build as responsive } from '../../src/responsive.ts';

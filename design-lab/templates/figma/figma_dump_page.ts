@@ -1,6 +1,6 @@
 import type { Binding, BreakpointNode } from '../../src/figma/dump-types.ts';
 import { DL_API } from '../../src/figma/types.ts';
-export async function template(ARGS: Record<string, never>) {
+export async function template(_ARGS: Record<string, never>) {
   // DESIGN_LAB_TEMPLATE_BEGIN
   // Replace PAGE_ID, then run once per page through parallel read-only use_figma calls.
   const page = await figma.getNodeByIdAsync('PAGE_ID');

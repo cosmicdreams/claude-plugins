@@ -1,7 +1,7 @@
 import { oracleScript, oracleExecutable, oracleRoot } from './oracle.ts';
 /** Required acceptance independent of DDEV availability. All output confined to /tmp. */
 import assert from 'node:assert/strict';
-import { readFileSync, writeFileSync, mkdirSync, existsSync } from 'node:fs';
+import { readFileSync, mkdirSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawn, spawnSync } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -20,7 +20,7 @@ import {
 import { httpGet } from '../../src/extract-drupal-usage.ts';
 import { fetchUrl } from '../../src/find-examples.ts';
 import { fetchImage } from '../../src/fetch-images.ts';
-import { differences, normalize } from './discovery.ts';
+import { differences } from './discovery.ts';
 const folder = resolve(pluginRoot, 'tests/fixtures/p34');
 type CoverageRow = {
   id: string;

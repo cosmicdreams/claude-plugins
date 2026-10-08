@@ -1,9 +1,8 @@
-import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
+import { oracleScript, oracleExecutable } from './oracle.ts';
 import { readFileSync, writeFileSync, mkdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { replay } from '../../src/tier1.ts';
-import { pluginRoot } from '../../src/runtime.ts';
 const root = process.argv[2] ?? '/tmp/design-lab-p4-equivalence',
   results: unknown[] = [];
 if (!root.startsWith('/tmp/')) throw new Error('scratch root must be under /tmp');

@@ -1,17 +1,11 @@
 import type { GettingStartedArgs, PartialColumn, TableCell } from '../../src/figma/types.ts';
 import {
-  DL_API,
   KIT,
-  ROLES,
-  rgb,
-  solid,
   loadKitFonts,
   text,
   stack,
   add,
   fillWidth,
-  chip,
-  rule,
   table,
   section,
   tag,

@@ -1,10 +1,11 @@
 import type { BuildCache } from '../../src/figma/types.ts';
-export async function template(ARGS: Record<string, never>) {
+export async function template(_ARGS: Record<string, never>) {
   // DESIGN_LAB_TEMPLATE_BEGIN
   // Only successful font loads persist. Host inventories are a fresh lazy snapshot per payload.
   const DL_CACHE: BuildCache = {
     loadedFonts: (typeof globalThis !== 'undefined' && globalThis.__designLabBuildCache?.loadedFonts) || new Map(),
   };
+  // @ts-expect-error TS6133 -- the composed renderer units reference this shared injected binding.
   const DL_API = {
     async fonts() {
       if (!DL_CACHE.fonts) DL_CACHE.fonts = await figma.listAvailableFontsAsync();

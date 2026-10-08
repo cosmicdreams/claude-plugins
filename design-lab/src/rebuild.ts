@@ -1,6 +1,5 @@
 /** Filesystem-only rebuild preparation and in-process receipt/verify/scoring evaluation. */
 import {
-  appendFileSync,
   copyFileSync,
   existsSync,
   lstatSync,

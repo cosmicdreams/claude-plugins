@@ -1,12 +1,11 @@
 /** In-process TypeScript port of scripts/verify.ts. Findings intentionally retain its JSON contract. */
-import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync, statSync } from 'node:fs';
-import { resolve, dirname, basename, relative } from 'node:path';
+import { existsSync, readFileSync, readdirSync, writeFileSync, mkdirSync } from 'node:fs';
+import { resolve, dirname, basename } from 'node:path';
 import { createHash } from 'node:crypto';
-import { readJson, readDirJson, mergeVerifyState, buildMeasurements } from './verify-inputs.ts';
+import { readJson, mergeVerifyState, buildMeasurements } from './verify-inputs.ts';
 import type { VerifyState, Measurements, PartialArtifact } from './verify-inputs.ts';
 import type { ArtifactMap } from './generated/artifacts.ts';
 import type { VerifyReport } from './generated/verify-report.ts';
-import type { PageDump } from './generated/runner-record.ts';
 type Input<K extends keyof ArtifactMap> = PartialArtifact<ArtifactMap[K]>;
 type Inventory = Input<'components'>;
 type InventoryComponent = NonNullable<Inventory['components']>[number];
@@ -190,7 +189,7 @@ function componentKeys(c: InventoryComponent): Set<string> {
   const keys = new Set([c.id, c.machineName, c.id ? String(c.id).split(':').at(-1) : null].filter(Boolean).map(String));
   return new Set([...keys, ...[...keys].map(norm)]);
 }
-function completeness(state: VerifyState, components?: Inventory | null, plan?: VerifyPlan | null) {
+function completeness(state: VerifyState, components?: Inventory | null, _plan?: VerifyPlan | null) {
   const comps = arr(components?.components),
     built = builtKeys(state),
     collisions: Record<string, number> = {};

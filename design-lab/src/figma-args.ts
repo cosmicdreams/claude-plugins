@@ -1,4 +1,4 @@
-import type { VariableCollection, PlannedVariable } from './generated/variable-plan.ts';
+import type { VariableCollection } from './generated/variable-plan.ts';
 import { VARIABLE_SCOPES } from './figma/payload-types.ts';
 import type { WireVariableScope, VariablesArgs } from './figma/payload-types.ts';
 const isScope = (scope: string): scope is WireVariableScope => VARIABLE_SCOPES.some((value) => value === scope);

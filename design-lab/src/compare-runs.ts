@@ -37,7 +37,6 @@ export const CATEGORIES: Record<string, string[]> = {
   'properties/variants': ['componentPropertyDefinitions', 'variantProperties'],
   docs: ['description', 'documentationLinks'],
 };
-type Json = null | boolean | number | string | Json[] | { [key: string]: Json };
 class JsonFloat extends Number {
   toJSON(): number {
     return Number(this);

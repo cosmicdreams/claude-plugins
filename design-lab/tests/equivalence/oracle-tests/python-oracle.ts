@@ -3,7 +3,6 @@
  * defaults to python3. The snippet receives its input as the JSON object on stdin, with the
  * `scripts` folder already on sys.path. */
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
 import { oracleScripts, oracleExecutable } from '../oracle.ts';
 
 export const PYTHON = oracleExecutable;

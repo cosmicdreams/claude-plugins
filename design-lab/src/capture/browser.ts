@@ -47,7 +47,7 @@ async function settle(page: Page, config: CaptureConfig): Promise<void> {
 }
 async function setup(
   page: Page,
-  config: CaptureConfig,
+  _config: CaptureConfig,
   state: NonNullable<CaptureConfig['states']>[number],
 ): Promise<void> {
   if (state.setup) await page.evaluate(state.setup);

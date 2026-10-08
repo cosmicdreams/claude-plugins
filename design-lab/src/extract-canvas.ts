@@ -1,4 +1,4 @@
-import { basename, join, resolve, relative as rel, sep } from 'node:path';
+import { join, resolve, relative as rel, sep } from 'node:path';
 import { configSync, docroot } from './detect.ts';
 import { load, extract as extractSdc, KIND } from './extract-sdc.ts';
 import type { Entry } from './extract-sdc.ts';

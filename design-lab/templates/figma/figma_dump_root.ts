@@ -1,5 +1,5 @@
 import { DL_API } from '../../src/figma/types.ts';
-export async function template(ARGS: Record<string, never>) {
+export async function template(_ARGS: Record<string, never>) {
   // DESIGN_LAB_TEMPLATE_BEGIN
   // Run read-only through use_figma. Returns the file-wide state verify.ts needs first.
   const pages = figma.root.children.map((page) => ({ id: page.id, name: page.name }));

@@ -2,7 +2,6 @@
 import { readFileSync } from 'node:fs';
 import { parseArgs } from 'node:util';
 import { writeJson } from './contracts.ts';
-import type { Usage } from './generated/usage.ts';
 import type { UsageInventory, RenderedEvidence, RenderedScan, ExampleDocument } from './usage-types.ts';
 import { sqlqRows } from './extract-canvas-usage.ts';
 import { compareStrings, httpGet, mapLimit, resolveReal, urljoin } from './extract-drupal-usage.ts';

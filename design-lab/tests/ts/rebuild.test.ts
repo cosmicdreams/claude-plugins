@@ -6,7 +6,6 @@ import {
   readFileSync,
   writeFileSync,
   existsSync,
-  readdirSync,
   realpathSync,
   rmSync,
   symlinkSync,

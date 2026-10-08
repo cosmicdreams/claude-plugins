@@ -1,4 +1,4 @@
-import { basename, join, resolve, relative as rel, sep } from 'node:path';
+import { basename, resolve, relative as rel } from 'node:path';
 import { loadYaml, walk } from './discovery-io.ts';
 import { configSync } from './detect.ts';
 import { toolVersion } from './figma-receipts.ts';

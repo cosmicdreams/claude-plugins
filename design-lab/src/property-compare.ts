@@ -169,7 +169,6 @@ export function metric<T extends { pass: boolean | null }>(checks: T[]) {
   };
 }
 export function numericCheck(source: string, property: string, expected: unknown, actual: unknown, tolerance: number) {
-  const measured = typeof expected === 'number' && typeof actual === 'number';
   return {
     source,
     property,

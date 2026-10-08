@@ -23,9 +23,8 @@ import {
 import { basename, dirname, extname, isAbsolute, join, normalize, resolve, sep } from 'node:path';
 import { homedir } from 'node:os';
 import { performance } from 'node:perf_hooks';
-import { assertValid, validate, writeJson, writeArtifact } from './contracts.ts';
+import { assertValid, validate, writeArtifact } from './contracts.ts';
 import type { Fonts } from './generated/fonts.ts';
-import type { BuildRecord } from './generated/build-record.ts';
 import type { Components } from './generated/components.ts';
 import type { CaptureEvidence } from './generated/capture-evidence.ts';
 import type { Foundation } from './generated/foundation.ts';

@@ -1,7 +1,7 @@
 import type { Project } from './generated/project.ts';
 /** Durable receipts from observed build results; absent measurements fail closed. */
-import { existsSync, readFileSync, statSync, realpathSync, appendFileSync } from 'node:fs';
-import { resolve, relative, dirname } from 'node:path';
+import { existsSync, readFileSync, statSync, realpathSync } from 'node:fs';
+import { resolve, relative } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
 import { load, result, safe, slotAccepts, writeArtifactOnChange, writeOnChange, nullable } from './build-artifacts.ts';
@@ -356,15 +356,6 @@ export function receiptErrors(kind: ArtifactKind, value: unknown): string[] {
     if (!Object.keys(r.assertions ?? {}).length) errors.push('assertions must be non-empty');
   }
   return errors;
-}
-interface RegistryEntry {
-  path: string;
-  kind: string;
-  sha256?: string;
-  valid: boolean;
-  errors?: string[];
-  updatedAt?: string;
-  producedBy?: unknown;
 }
 type Registry = Project;
 export function componentCoverage(project: string, registry: Registry) {

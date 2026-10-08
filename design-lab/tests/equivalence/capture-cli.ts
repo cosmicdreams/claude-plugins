@@ -1,4 +1,4 @@
-import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
+import { oracleScripts, oracleExecutable } from './oracle.ts';
 /** Exercise the complete TS capture CLI against saved, independently captured Python/mjs fixtures. */
 import { strict as assert } from 'node:assert';
 import { readFileSync, readdirSync, mkdtempSync } from 'node:fs';

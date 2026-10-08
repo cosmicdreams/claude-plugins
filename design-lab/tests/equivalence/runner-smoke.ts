@@ -13,7 +13,6 @@ import { generate } from '../../src/figma-receipts.ts';
 import { load, writeOnChange } from '../../src/build-artifacts.ts';
 import type { BuildState, BuildResult } from '../../src/build-artifacts.ts';
 import type { RunnerStep } from '../../src/generated/runner-step.ts';
-import { pluginRoot } from '../../src/runtime.ts';
 import { Renderer } from '../../src/render-payload.ts';
 import { assertPixels, oracleImages, EDGE, JPEG } from './image-pixels.ts';
 import { legacyRuntime } from './template-parity.ts';

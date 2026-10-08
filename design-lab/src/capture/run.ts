@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, readdirSync, mkdirSync, renameSync, rmSync } from 'node:fs';
+import { existsSync, readFileSync, mkdirSync, renameSync, rmSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { createHash } from 'node:crypto';
 import type { Spec } from '../generated/spec.ts';
@@ -7,7 +7,6 @@ import { writeArtifact, writeJson } from '../contracts.ts';
 import { launchBrowser, measureConfig, captureConfig, MEASURE_VIEWPORTS } from './browser.ts';
 import { checkSelectors } from './selectors.ts';
 import { pool, isolated } from './pool.ts';
-import type { ContextFactory } from './pool.ts';
 import { registerCapture } from './register.ts';
 import { assembleEvidence } from './evidence.ts';
 import type { CaptureConfig, CaptureRecord, CaptureRow, CaptureState } from './types.ts';

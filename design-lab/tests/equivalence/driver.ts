@@ -11,7 +11,6 @@ import { BuildDriver } from '../../src/figma-build.ts';
 import { load, writeOnChange } from '../../src/build-artifacts.ts';
 import type { BuildState, BuildResult } from '../../src/build-artifacts.ts';
 import type { RunnerStep } from '../../src/generated/runner-step.ts';
-import { pluginRoot } from '../../src/runtime.ts';
 import { Renderer } from '../../src/render-payload.ts';
 import { assertPayloadParity, assertTemplates, legacyRuntime } from './template-parity.ts';
 import { assertRunnerClientParity } from './runner-client-parity.ts';

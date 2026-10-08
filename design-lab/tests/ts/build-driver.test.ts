@@ -1,11 +1,11 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtempSync, rmSync, statSync, readFileSync, existsSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, rmSync, statSync, readFileSync, existsSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { Build } from '../../src/figma-runner.ts';
 import { BuildDriver, cropCapture } from '../../src/figma-build.ts';
 import { load, writeOnChange } from '../../src/build-artifacts.ts';
-import type { Component, BuildState, BuildResult } from '../../src/build-artifacts.ts';
+import type { Component } from '../../src/build-artifacts.ts';
 import { spec, node } from './p2-fixtures.ts';
 import * as c from '../../src/build-content.ts';
 import * as lc from '../../src/library-counts.ts';
@@ -84,8 +84,6 @@ const pages = (project: string) => ({
   pages: Object.fromEntries(c.pageList(project).map((n, i) => [n, `0:${i + 1}`])),
   foreign: [],
 });
-const payloadArgs = (path: string) =>
-  JSON.parse(readFileSync(path, 'utf8').split('\n')[0]!.slice(13, -1)) as Record<string, unknown>;
 void test('init orders pages, foundations, tiers, native build and receipts by the plan', (t) => {
   const { project, driver } = fixture(t),
     state = driver.state();
