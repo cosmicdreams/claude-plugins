@@ -57,9 +57,9 @@ export function renderedText(run: string): Rendered {
     for (const measurement of Object.values(spec.measurements ?? {})) {
       if (!('nodes' in measurement) || !Array.isArray(measurement.nodes)) continue;
       for (const node of measurement.nodes as MeasuredNode[]) {
-      const text = node.text ?? '', computed = node.computed, css = computed.fontFamily;
+      const text = node.text ?? '', computed = node.computed, css = computed['fontFamily'];
       if (!text.trim() || !css) continue;
-      const weight = weightOf(computed.fontWeight), italic = italicOf(computed.fontStyle), key = JSON.stringify([css, weight, italic]);
+      const weight = weightOf(computed['fontWeight']), italic = italicOf(computed['fontStyle']), key = JSON.stringify([css, weight, italic]);
       const entry = used.get(key) ?? { components: new Set<string>(), chars: new Set<string>(), weight, italic };
       entry.components.add(component); for (const char of text) if (!/\s/u.test(char)) entry.chars.add(char); used.set(key, entry);
       }

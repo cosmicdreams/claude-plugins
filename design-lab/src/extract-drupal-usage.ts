@@ -14,7 +14,7 @@ import { request as httpsRequest } from "node:https";
 import type { IncomingHttpHeaders } from "node:http";
 import { parseArgs } from "node:util";
 import { validate, writeJson } from "./contracts.ts";
-import type { Dict } from "./discovery-io.ts";
+import type { ExternalObject } from "./discovery-io.ts";
 import type {Usage} from "./generated/usage.ts";
 import type {RenderEvidence} from "./generated/render-evidence.ts";
 import type {UsageInventory,UsageEntry,UsageSource,UsageProblem,ExampleDocument} from "./usage-types.ts";
@@ -104,8 +104,8 @@ export const OPTIONAL_TABLES: Record<string, string> = {
 
 // ---- small baseline-semantics helpers shared by the usage extractors ----
 export type Rows = Record<string, string[][]>;
-const dict = (value:unknown):Dict => isDict(value)?value:{};
-export const isDict = (value: unknown): value is Dict =>
+const dict = (value:unknown):ExternalObject => isDict(value)?value:{};
+export const isDict = (value: unknown): value is ExternalObject =>
   typeof value === "object" && value !== null && !Array.isArray(value);
 /** baseline truthiness. */
 export function truthy(value: unknown): boolean {
@@ -213,11 +213,11 @@ export function describeProject(
   root: string,
   project: string | null | undefined,
   run: Runner,
-): Dict {
+): ExternalObject {
   const status = run("ddev", ["describe", "-j"], root);
   if (status.status !== 0)
     throw new Error("DDEV project is unavailable: " + status.stderr.trim());
-  let raw: Dict;
+  let raw: ExternalObject;
   try {
     const parsed:unknown=JSON.parse(status.stdout);
     raw = isDict(parsed) && isDict(parsed['raw'])?parsed['raw']:{};
@@ -322,7 +322,7 @@ export function phpUnserialize(data: Buffer): unknown {
     return value;
   };
   const integer = (): number => pyInt(readUntil(";").toString("latin1"));
-  const assign = (target: Dict, key: string | number, value: unknown): void => {
+  const assign = (target: ExternalObject, key: string | number, value: unknown): void => {
     if (key === "__proto__")
       Object.defineProperty(target, key, {
         value,
@@ -366,7 +366,7 @@ export function phpUnserialize(data: Buffer): unknown {
     if (kind === "a:") {
       const size = pyInt(readUntil(":{").toString("latin1"));
       if (size < 0) throw new Error(`negative array size at byte ${position}`);
-      const result: Dict = {};
+      const result: ExternalObject = {};
       for (let item = 0; item < size; item++) {
         const keyKind = bytes(position, position + 2),
           key = value(depth + 1);
@@ -389,7 +389,7 @@ export function phpUnserialize(data: Buffer): unknown {
 }
 
 /** Page paths, per view template, of the view displays that render it. */
-function viewPaths(views: Dict[]): Map<string, Set<string>> {
+function viewPaths(views: ExternalObject[]): Map<string, Set<string>> {
   const paths = new Map<string, Set<string>>();
   for (const view of views) {
     if (view["status"] === false) continue;
@@ -444,8 +444,8 @@ export function templateUsage(
     paths = new Map<string, Set<string>>();
   const siteWide = new Set<string>(),
     sources = new Map<string, Set<string>>(),
-    templates = new Map<string, Dict>(),
-    views: Dict[] = [],
+    templates = new Map<string, ExternalObject>(),
+    views: ExternalObject[] = [],
     problems:UsageProblem[] = [];
   for (const values of rows["sitestudio_templates"] ?? []) {
     if (values.length < 2) continue;
@@ -472,7 +472,7 @@ export function templateUsage(
       setOf(bundles, values[2]!).add(values[0]!);
   const viewPathMap = viewPaths(views),
     sortedTemplates = [...templates].sort((a, b) => compareStrings(a[0], b[0]));
-  const live = (data: Dict): boolean =>
+  const live = (data: ExternalObject): boolean =>
     truthy(data["status"]) &&
     truthy(data["default"]) &&
     truthy(Object.hasOwn(data, "modified") ? data["modified"] : true) &&
@@ -483,7 +483,7 @@ export function templateUsage(
   // bundle IN [bundle, '__any__'] with status and modified set.
   const contentTemplate = (name: string): boolean =>
     name.startsWith("cohesion_templates.cohesion_content_templates.");
-  const ownTemplate = new Map<unknown, Dict>();
+  const ownTemplate = new Map<unknown, ExternalObject>();
   for (const [name, data] of templates)
     if (contentTemplate(name) && live(data) && data["bundle"] !== "__any__")
       ownTemplate.set(data["bundle"], data);
@@ -492,7 +492,7 @@ export function templateUsage(
       ([name, data]) =>
         contentTemplate(name) && live(data) && data["bundle"] === "__any__",
     )?.[1] ?? null;
-  const renderingBundles = (data: Dict): Set<string> => {
+  const renderingBundles = (data: ExternalObject): Set<string> => {
     // The published bundles a content template actually renders.
     if (!live(data)) return new Set();
     if (data["bundle"] === "__any__")

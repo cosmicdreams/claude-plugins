@@ -414,7 +414,7 @@ if (previousOwner && reusable.length !== 1 + (ARGS.alternates || []).length) {
 }
 // Preserve variant identities only when their ordered labels still match.
 if (previousOwner?.type === 'COMPONENT_SET') {
-  const axes = { ...(ARGS.variant || {}) };
+  const axes: Record<string,string> & {Layout?:string} = { ...(ARGS.variant || {}) };
   if ((ARGS.alternates || []).length) axes.Layout = 'Captured';
   const label = (values: Record<string,string>) => Object.entries(values).map(([k, v]) => `${k}=${v}`).join(', ');
   const expected = [label(axes), ...(ARGS.alternates || []).map(a => label({
@@ -472,7 +472,7 @@ for (const alt of ARGS.alternates || []) alternates.push({ label: alt.label, nod
    variant inside a set named for the component, each other layout a sibling variant (`Layout`),
    so a parent can nest whichever its rendering is. */
 let owner: ComponentNode|ComponentSetNode = component;
-const axes = { ...(ARGS.variant || {}) };
+const axes: Record<string,string> & {Layout?:string} = { ...(ARGS.variant || {}) };
 if (alternates.length) axes.Layout = 'Captured';
 if (Object.keys(axes).length) {
   const name = (values: Record<string,string>) => Object.entries(values).map(([k, v]) => `${k}=${v}`).join(', ');

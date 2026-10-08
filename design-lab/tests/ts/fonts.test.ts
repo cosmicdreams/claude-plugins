@@ -35,7 +35,7 @@ test('planner selects served families, skips undeclared CSS names, and records s
   assert.deepEqual(doc.unrendered.map(x => x.family), ['Poppins']); assert.deepEqual(doc.icons, ['icomoon']); assert.deepEqual(doc.build.stacks['Poppins, Arial, sans-serif'], { family: 'Arial' }); assert.equal(doc.figmaChecked, false);
 });
 test('served file names determine CSS face matching, including variable and italic faces', async t => {
-  const f = fixture(t), doc = await f.makePlan(null), faces = doc.build.families.suisseintl!.faces;
+  const f = fixture(t), doc = await f.makePlan(null), faces = doc.build.families['suisseintl']!.faces;
   assert.equal(faces['500|0'], 'SemiBold'); assert.equal(faces['700|0'], 'SemiBold'); assert.equal(faces['400|1'], 'Italic');
   const ordinary = [{ weight: 300, weightMax: 300, italic: false, style: 'Light' }, { weight: 450, weightMax: 450, italic: false, style: 'Book' }, { weight: 500, weightMax: 500, italic: false, style: 'Medium' }];
   assert.equal(cssMatch(ordinary, 400, false)?.style, 'Book'); assert.equal(cssMatch(ordinary, 425, false)?.style, 'Book'); assert.equal(cssMatch(ordinary, 350, false)?.style, 'Light');
@@ -45,27 +45,27 @@ test('served file names determine CSS face matching, including variable and ital
 test('missing families receive genre-aware stand-ins, useful routes, and a concise summary', async t => {
   const f = fixture(t), doc = await f.makePlan(FIGMA), by = Object.fromEntries(doc.families.map(x => [x.family, x]));
   assert.deepEqual([by["Suisse Int'l"]?.available, by["Suisse Int'l"]?.standIn?.family, by["Suisse Int'l"]?.route?.kind, by["Suisse Int'l"]?.route?.foundry], [false, 'Inter', 'commercial', 'Swiss Typefaces']);
-  assert.deepEqual([by['Freight Text Pro']?.standIn?.family, by['Freight Text Pro']?.route?.kind], ['Source Serif 4', 'adobe-fonts']); assert.ok((by['Freight Text Pro']?.route?.steps.join(' ') ?? '').includes('https://fonts.adobe.com/fonts/freight-text')); assert.equal(by.Figtree?.available, true); assert.equal(by.Assistant?.available, true);
+  assert.deepEqual([by['Freight Text Pro']?.standIn?.family, by['Freight Text Pro']?.route?.kind], ['Source Serif 4', 'adobe-fonts']); assert.ok((by['Freight Text Pro']?.route?.steps.join(' ') ?? '').includes('https://fonts.adobe.com/fonts/freight-text')); assert.equal(by['Figtree']?.available, true); assert.equal(by['Assistant']?.available, true);
   const summary = summaryLines(doc).join('\n'); assert.ok(summary.includes('the build uses Inter instead, by default')); assert.ok(summary.includes('Styles the site uses: Italic, SemiBold')); assert.ok(summary.includes('do not install them unless the licence says you may'));
 });
 test('macOS names omitted by Figma have no installation route and may use their listed relative name', async t => {
-  const f = fixture(t), figma: Record<string, string[]> = { ...FIGMA }; delete figma.Arial; const arial = (await f.makePlan(figma)).families.find(x => x.family === 'Arial')!;
+  const f = fixture(t), figma: Record<string, string[]> = { ...FIGMA }; delete figma['Arial']; const arial = (await f.makePlan(figma)).families.find(x => x.family === 'Arial')!;
   assert.deepEqual([arial.standIn?.family, arial.route?.kind, arial.route?.steps], ['Arimo', 'figma-omits', []]); assert.ok(summaryLines(await f.makePlan(figma)).find(s => s.startsWith('- Arial'))?.endsWith('instead, by default.'));
   f.saveNodes({ text: 'type', computed: { fontFamily: 'monospace', fontWeight: '400', fontStyle: 'normal' } });
   const withRelative = await plan({ run: f.run, repo: f.repo, figma: { ...FIGMA, 'Courier New': ['Regular', 'Bold'] }, fetchAdobeKit: async () => ({}) });
-  assert.equal(withRelative.families[0]?.standIn?.family, 'Courier New'); assert.equal(withRelative.build.families.courier?.family, 'Courier New');
+  assert.equal(withRelative.families[0]?.standIn?.family, 'Courier New'); assert.equal(withRelative.build.families['courier']?.family, 'Courier New');
   const without = await plan({ run: f.run, repo: f.repo, figma: FIGMA, fetchAdobeKit: async () => ({}) }); assert.equal(without.families[0]?.standIn?.family, 'Cousine');
 });
 test('system family trial names and open-licence sources are resolved', async t => {
   const f = fixture(t), trial = { ...FIGMA, 'Suisse Intl Trial': ['Regular', 'Semibold'] }, doc = await f.makePlan(trial), suisse = doc.families.find(x => x.family === "Suisse Int'l")!;
   assert.equal(suisse.available, true); assert.equal(suisse.figmaFamily, 'Suisse Intl Trial'); assert.equal(suisse.standIn, undefined);
-  const figma: Record<string, string[]> = { ...FIGMA }; delete figma.Assistant; const assistant = (await f.makePlan(figma)).families.find(x => x.family === 'Assistant')!; assert.deepEqual([assistant.route?.kind, assistant.route?.licence], ['open-licence', 'OFL']);
+  const figma: Record<string, string[]> = { ...FIGMA }; delete figma['Assistant']; const assistant = (await f.makePlan(figma)).families.find(x => x.family === 'Assistant')!; assert.deepEqual([assistant.route?.kind, assistant.route?.licence], ['open-licence', 'OFL']);
   assert.equal(availableFamily('Brand', { 'Brand Web': [] }), 'Brand Web'); assert.equal(faceStyle('Brand-Semibold.woff2', 500, false), 'SemiBold');
 });
 test('Google references inside escaped configuration and remote CDN face names are discovered', async t => {
   const f = fixture(t), config = join(f.repo, 'config/sitestudio'); mkdirSync(config, { recursive: true }); writeFileSync(join(config, 'font.yml'), 'json_values: \'{"url":"https:\\/\\/fonts.googleapis.com\\/css2?family=Noto+Serif&display=swap"}\'\n');
   writeFileSync(join(f.theme, 'css/cdn.css'), '@font-face { font-family: Brand; src: url("https://cdn.example/fonts/Brand-Semibold.woff2?v=2"); font-weight: 500; }'); f.saveNodes({ text: 'serif', computed: { fontFamily: 'Noto Serif, serif', fontWeight: '400', fontStyle: 'normal' } }, { text: 'bold', computed: { fontFamily: 'Brand, sans-serif', fontWeight: '500', fontStyle: 'normal' } });
-  const sources = declared(f.repo, config); assert.ok(sources.google.includes('Noto Serif')); assert.equal(sources.faces.brand?.[0]?.style, 'SemiBold');
+  const sources = declared(f.repo, config); assert.ok(sources.google.includes('Noto Serif')); assert.equal(sources.faces['brand']?.[0]?.style, 'SemiBold');
   const doc = await f.makePlan(null, true, { sitestudio: config }); assert.equal(doc.families.find(x => x.family === 'Noto Serif')?.source, 'google');
 });
 test('an unreachable Adobe kit preserves possible families and reports the cache state', async t => {
@@ -81,7 +81,7 @@ test('icon names avoid false positives and unicode ranges fall through the decla
 });
 test('open licences must cover every served face and web formats explain conversion', async t => {
   const f = fixture(t), open = join(f.theme, 'fonts/open'); writeFileSync(join(open, 'Assistant.woff2'), 'font'); const css = join(f.theme, 'css/fonts.css');
-  writeFileSync(css, readFileSync(css, 'utf8') + '@font-face { font-family: Assistant; src: url(../fonts/open/Assistant.woff2); font-weight: 900; }'); const figma: Record<string, string[]> = { ...FIGMA }; delete figma.Assistant;
+  writeFileSync(css, readFileSync(css, 'utf8') + '@font-face { font-family: Assistant; src: url(../fonts/open/Assistant.woff2); font-weight: 900; }'); const figma: Record<string, string[]> = { ...FIGMA }; delete figma['Assistant'];
   let assistant = (await f.makePlan(figma)).families.find(x => x.family === 'Assistant')!; assert.ok(assistant.route?.steps.join(' ').includes('convert each to TTF first'));
   mkdirSync(join(f.theme, 'fonts/other')); writeFileSync(join(f.theme, 'fonts/other/Assistant-Black.woff2'), 'font'); writeFileSync(css, readFileSync(css, 'utf8') + '@font-face { font-family: Assistant; src: url(../fonts/other/Assistant-Black.woff2); font-weight: 950; }');
   assistant = (await f.makePlan(figma)).families.find(x => x.family === 'Assistant')!; assert.equal(assistant.route?.kind, 'commercial');
@@ -97,7 +97,7 @@ test('configuration decoding follows HTML5 named and numeric character reference
 test('CSS discovery keeps baseline regex case behavior and requires source and license files', t => {
   const f = fixture(t), directoryFont = join(f.theme, 'fonts/open/directory.woff2'); mkdirSync(directoryFont);
   writeFileSync(join(f.theme, 'css/case.css'), '@FONT-FACE { font-family: Upper; src: url(Upper.woff2); }\n@font-face { FONT-FAMILY: UpperProperty; src: url(Upper.woff2); }\n@font-face { font-family: Directory; src: url(../fonts/open/directory.woff2); }');
-  const sources = declared(f.repo); assert.equal(sources.faces.upper, undefined); assert.equal(sources.faces.upperproperty, undefined); assert.equal(sources.faces.directory?.[0]?.exists, false); assert.equal(sources.faces.directory?.[0]?.licence, null);
+  const sources = declared(f.repo); assert.equal(sources.faces['upper'], undefined); assert.equal(sources.faces['upperproperty'], undefined); assert.equal(sources.faces['directory']?.[0]?.exists, false); assert.equal(sources.faces['directory']?.[0]?.licence, null);
 });
 test('CLI reads project inputs, writes fonts.json, and prints its summary', async t => {
   const root = mkdtempSync(join(tmpdir(), 'design-lab-fonts-cli-')), run = join(root, 'run'), repo = join(root, 'repo'); t.after(() => rmSync(root, { recursive: true, force: true }));

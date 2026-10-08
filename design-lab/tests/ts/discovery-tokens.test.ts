@@ -121,8 +121,11 @@ test("source maps resolve aliases, em values and Sass lightness functions", () =
         ],
       }),
     );
+    put(root, 'css/broken.css.map', '{bad json');
     const result = extractSourceMap(root);
-    assertValid('tokens',result);assert.ok(result.tokens);
+    assertValid('tokens',result);assert.ok(result.tokens);assert.ok(result.source);
+    assert.deepEqual(result.source.maps, ['css/broken.css.map', 'css/theme.css.map']);
+    assert.equal(result.problems?.[0]?.ref, 'css/broken.css.map');
     const byName = Object.fromEntries(
       result['tokens'].map((token) => [token.name, token]),
     );

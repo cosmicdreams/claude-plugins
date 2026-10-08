@@ -9,7 +9,7 @@ import * as canvas from "../../src/extract-canvas-usage.ts";
 import * as twig from "../../src/capture/twig.ts";
 import { validate } from "../../src/contracts.ts";
 
-type Dict = Record<string, unknown>;
+type ExternalObject = Record<string, unknown>;
 const fixtures = resolve(
   fileURLToPath(new URL(".", import.meta.url)),
   "../fixtures",
@@ -310,7 +310,7 @@ test("Canvas collection runs the same ddev drush arguments and reports a stopped
 });
 
 // ---- Site Studio ----
-const component = (name: string, children: Dict[] = []): Dict => ({
+const component = (name: string, children: ExternalObject[] = []): ExternalObject => ({
   type: "component",
   componentId: name,
   children,
@@ -319,7 +319,7 @@ const layout = (
   number: number,
   host: string,
   parent: number,
-  canvasTree: Dict[],
+  canvasTree: ExternalObject[],
 ): string[] => [
   String(number),
   host,
@@ -336,14 +336,14 @@ function php(value: unknown): string {
   if (typeof value === "number") return `i:${value};`;
   if (typeof value === "string")
     return `s:${Buffer.byteLength(value)}:"${value}";`;
-  const entries = Object.entries(value as Dict);
+  const entries = Object.entries(value as ExternalObject);
   return `a:${entries.length}:{${entries.map(([k, v]) => (/^\d+$/.test(k) ? php(Number(k)) : php(k)) + php(v)).join("")}}`;
 }
 const template = (
   kind: string,
   name: string,
-  canvasTree: Dict[],
-  settings: Dict = {},
+  canvasTree: ExternalObject[],
+  settings: ExternalObject = {},
 ): string[] => [
   `cohesion_templates.cohesion_${kind}_templates.${name}`,
   php({

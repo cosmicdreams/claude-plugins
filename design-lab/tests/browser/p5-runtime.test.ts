@@ -8,7 +8,7 @@ import { resolve } from 'node:path';
 import { pluginRoot } from '../../src/runtime.ts';
 
 const cli = (script: string, args: string[], cwd: string) => new Promise<{ code: number | null; stdout: string; stderr: string }>((done, reject) => {
-  const env = { ...process.env }; delete env.PLAYWRIGHT_BROWSERS_PATH; delete env.DESIGN_LAB_BROWSER_EXECUTABLE;
+  const env = { ...process.env }; delete env['PLAYWRIGHT_BROWSERS_PATH']; delete env['DESIGN_LAB_BROWSER_EXECUTABLE'];
   const child = spawn(process.execPath, [script, ...args], { cwd, env, stdio: ['ignore', 'pipe', 'pipe'] });
   let stdout = '', stderr = ''; child.stdout.on('data', text => stdout += text); child.stderr.on('data', text => stderr += text);
   const timer = setTimeout(() => child.kill(), 45000);
