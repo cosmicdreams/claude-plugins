@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import { compact, parseColor, px as cssPixels } from './spec-to-tree.ts';
 import { variantValues } from './nesting.ts';
 import { roundEven } from './json.ts';
+import { at, lastOf, pick, required } from './lookup.ts';
 import { sharedRequire } from './runtime.ts';
 import { load, result, safe, nullable, keyOf, jsonFiles } from './build-artifacts.ts';
 import type { Component, ComponentPlan, BuildState } from './build-artifacts.ts';
@@ -17,7 +18,8 @@ import { requiredValue, stringValue, variableCollections } from './figma-args.ts
 import * as lc from './library-counts.ts';
 const sharp = sharedRequire()('sharp') as typeof import('sharp').default;
 export const STANDARD_VERSION = '4.1.0';
-export const VIEWPORTS: Record<string, number> = { Desktop: 1400, Tablet: 800, Mobile: 375 };
+const DESKTOP_WIDTH = 1400;
+export const VIEWPORTS: Record<string, number> = { Desktop: DESKTOP_WIDTH, Tablet: 800, Mobile: 375 };
 export const COLUMN_ORDER = ['Mobile', 'Tablet', 'Desktop'];
 export const BREAKPOINTS = ['mobile', 'tablet', 'desktop'];
 export const FOUNDATION_ORDER = ['Color', 'Typography', 'Spacing & Layout', 'Elevation & Shape'];
@@ -30,7 +32,9 @@ export function components(project: string): Component[] {
 export const plans = (project: string): Record<string, ComponentPlan> => Object.fromEntries(load<{ plans: ComponentPlan[] }>(project, 'plan.json', { plans: [] }).plans.map(p => [p.id, p]));
 export const treeFor = (project: string, cid: string): Tree => load(project, `figma/trees/${cid}.json`);
 export const componentPage = (c: Component): string => `Components — ${lc.shortTier(c.usage?.tier)}`;
-export const pageId = (project: string, name: string): string => result(project, 'pages').pages![name]!;
+export const pageId = (project: string, name: string): string => pick(result(project, 'pages').pages ?? {}, name, 'Figma pages recorded for this run');
+export const componentOf = (project: string, cid: string): Component => required(components(project).find(c => c.id === cid), `component "${cid}" in components.json`);
+const countsFor = (project: string, built: Set<string>): NonNullable<ReturnType<typeof lc.counts>> => required(lc.counts(project, built), 'library counts (components.json)');
 export const brand = (project: string): string => (load<{ run?: { siteLabel?: string } }>(project, 'project.json', {}).run?.siteLabel ?? '').trim();
 export const coreCollection = (project: string): string => `${brand(project)} Core`.trim();
 export function breakpointCollection(project: string): string {
@@ -67,7 +71,8 @@ const length = '([\\d.]+)(px|rem|em)';
 const feature = new RegExp('^(min|max)-width\\s*:\\s*' + length + '$');
 const range = new RegExp('^(?:' + length + '\\s*(<=|<|>=|>)\\s*)?width(?:\\s*(<=|<|>=|>)\\s*' + length + ')?$');
 const px = (n: string, unit: string): number => Number(n) * (['em', 'rem'].includes(unit) ? 16 : 1);
-const compare = (width: number, op: string, n: number): boolean => ({ '<': width < n, '<=': width <= n, '>': width > n, '>=': width >= n })[op]!;
+const compare = (width: number, op: string, n: number): boolean => required(({ '<': width < n, '<=': width <= n, '>': width > n, '>=': width >= n } as Record<string, boolean>)[op], `media comparison "${op}"`);
+const group = (match: RegExpExecArray, index: number): string => required(match[index], `media query group ${index}`);
 export function mediaApplies(condition: string, width: number): boolean | null {
   const text = condition.trim().replace(/^@media\s+/i, ''); if (!text) return null;
   const verdicts = [];
@@ -78,10 +83,10 @@ export function mediaApplies(condition: string, width: number): boolean | null {
       if (['screen', 'all', 'only screen', 'only all'].includes(part)) continue;
       if (['print', 'only print', 'speech'].includes(part)) { ok = false; saw = true; continue; }
       const inner = part.startsWith('(') && part.endsWith(')') ? part.slice(1, -1).trim() : '', f = feature.exec(inner), r = f ? null : range.exec(inner);
-      if (f) ok = compare(width, f[1] === 'min' ? '>=' : '<=', px(f[2]!, f[3]!)) && ok;
+      if (f) ok = compare(width, f[1] === 'min' ? '>=' : '<=', px(group(f, 2), group(f, 3))) && ok;
       else if (r && (r[3] || r[4])) {
-        if (r[3]) ok = compare(width, ({ '<': '>', '<=': '>=', '>': '<', '>=': '<=' } as Record<string, string>)[r[3]]!, px(r[1]!, r[2]!)) && ok;
-        if (r[4]) ok = compare(width, r[4], px(r[5]!, r[6]!)) && ok;
+        if (r[3]) ok = compare(width, pick({ '<': '>', '<=': '>=', '>': '<', '>=': '<=' }, r[3], 'mirrored media comparison'), px(group(r, 1), group(r, 2))) && ok;
+        if (r[4]) ok = compare(width, r[4], px(group(r, 5), group(r, 6))) && ok;
       } else return null;
       saw = true;
     }
@@ -92,33 +97,37 @@ export function mediaApplies(condition: string, width: number): boolean | null {
 export function modeLabel(mode: string): string {
   const text = mode.replace(/^@media\s+/i, ''), known: Record<string, string> = { 'prefers-color-scheme: dark': 'Dark', 'prefers-color-scheme: light': 'Light', 'prefers-reduced-motion: reduce': 'Reduced motion', 'orientation: landscape': 'Landscape', 'orientation: portrait': 'Portrait', 'hover: none': 'No hover' };
   for (const [needle, label] of Object.entries(known)) if (text.replaceAll('  ', ' ').toLowerCase().includes(needle)) return label;
-  const stripped = text.replace(/[()]/g, '').replaceAll(':', '').trim().toLowerCase(); return stripped ? stripped[0]!.toUpperCase() + stripped.slice(1) : 'Mode';
+  const stripped = text.replace(/[()]/g, '').replaceAll(':', '').trim().toLowerCase(); return stripped ? stripped.charAt(0).toUpperCase() + stripped.slice(1) : 'Mode';
 }
 type Values = NonNullable<PlannedVariable['valuesByMode']>;
 export function roleValue(by: Values, modes: string[], role: string): Values[string] {
-  const width = VIEWPORTS[role]!;
+  const width = pick(VIEWPORTS, role, 'viewport width');
   if (modes.every(m => m in SITE_STUDIO_MIN)) {
-    const own = Object.keys(SITE_STUDIO_MIN).filter(m => SITE_STUDIO_MIN[m]! <= width).sort((a, b) => SITE_STUDIO_MIN[b]! - SITE_STUDIO_MIN[a]!)[0]!;
-    for (const m of modes.filter(m => SITE_STUDIO_MIN[m]! >= SITE_STUDIO_MIN[own]!).sort((a, b) => SITE_STUDIO_MIN[a]! - SITE_STUDIO_MIN[b]!)) if (by[m] != null) return by[m]!;
+    const minOf = (m: string): number => pick(SITE_STUDIO_MIN, m, 'Site Studio minimum width');
+    // No mode at or below the viewport leaves nothing to inherit from.
+    const own = Object.keys(SITE_STUDIO_MIN).filter(m => minOf(m) <= width).sort((a, b) => minOf(b) - minOf(a))[0];
+    if (own === undefined) return null;
+    for (const m of modes.filter(m => minOf(m) >= minOf(own)).sort((a, b) => minOf(a) - minOf(b))) { const value = by[m]; if (value != null) return value; }
     return null;
   }
-  let value = by[modes[0]!] ?? null;
-  for (const m of modes.slice(1)) if (mediaApplies(m, width) && by[m] != null) value = by[m]!;
+  const base = modes[0];
+  let value = base === undefined ? null : by[base] ?? null;
+  for (const m of modes.slice(1)) { const next = by[m]; if (mediaApplies(m, width) && next != null) value = next; }
   return value;
 }
-export const foldable = (modes: string[]): boolean => modes.length > 1 && (modes.every(m => m in SITE_STUDIO_MIN) || modes.slice(1).every(m => mediaApplies(m, VIEWPORTS['Desktop']!) !== null));
+export const foldable = (modes: string[]): boolean => modes.length > 1 && (modes.every(m => m in SITE_STUDIO_MIN) || modes.slice(1).every(m => mediaApplies(m, DESKTOP_WIDTH) !== null));
 export function variablesArgs(project: string, primary = breakpointCollection(project)): TemplateArgs['variables'] {
-  let collections = variablePlan(project); const names = modeNames(), roles: (keyof TemplateArgs['build_responsive']['modeNames'])[] = ['Desktop', 'Tablet', 'Mobile'], label = brand(project), split: Record<string, string[]> = {};
+  let collections = variablePlan(project); const names = modeNames(), roles: (keyof TemplateArgs['build_responsive']['modeNames'])[] = ['Desktop', 'Tablet', 'Mobile'], label = brand(project), split: Record<string, string[]> = {}, modeName = (r: string): string => pick(names, r, 'responsive mode name');
   const branded = (name: string): string => name === 'Core' ? coreCollection(project) : !label || name.startsWith(label + ' ') ? name : `${label} ${name}`;
   const out: Record<string, VariableCollection> = {}, responsive: PlannedVariable[] = [];
   for (const [name, col] of Object.entries(collections)) {
-    const modes = col.modes?.length ? col.modes : ['Value'], width = modes.slice(1).filter(m => mediaApplies(m, VIEWPORTS['Desktop']!) !== null), other = modes.slice(1).filter(m => !width.includes(m));
+    const modes = col.modes?.length ? col.modes : ['Value'], first = at(modes, 0, 'collection modes'), width = modes.slice(1).filter(m => mediaApplies(m, DESKTOP_WIDTH) !== null), other = modes.slice(1).filter(m => !width.includes(m));
     if (width.length && other.length && !modes.every(m => m in SITE_STUDIO_MIN)) {
-      const varies = (v: PlannedVariable, keep: string[]): boolean => new Set(keep.filter(k => k in (v.valuesByMode ?? {})).map(k => keyOf(v.valuesByMode![k]))).size > 1;
-      const onWidth = col.variables.filter(v => varies(v, [modes[0]!, ...width])), onOther = col.variables.filter(v => varies(v, [modes[0]!, ...other]));
+      const varies = (v: PlannedVariable, keep: string[]): boolean => new Set(keep.filter(k => k in (v.valuesByMode ?? {})).map(k => keyOf(pick(v.valuesByMode ?? {}, k, 'variable mode value')))).size > 1;
+      const onWidth = col.variables.filter(v => varies(v, [first, ...width])), onOther = col.variables.filter(v => varies(v, [first, ...other]));
       if (!onWidth.some(v => onOther.includes(v))) {
-        split[name] = [modes[0]!, ...width];
-        collections = { ...collections, [name]: { ...col, variables: col.variables.filter(v => !onOther.includes(v)) }, [`${name} ${modeLabel(other[0]!)}`]: { ...col, modes: [modes[0]!, ...other], variables: onOther.map(v => ({ ...v, valuesByMode: Object.fromEntries(Object.entries(v.valuesByMode ?? {}).filter(([k]) => [modes[0]!, ...other].includes(k))) })) } };
+        split[name] = [first, ...width];
+        collections = { ...collections, [name]: { ...col, variables: col.variables.filter(v => !onOther.includes(v)) }, [`${name} ${modeLabel(at(other, 0, 'non-width modes'))}`]: { ...col, modes: [first, ...other], variables: onOther.map(v => ({ ...v, valuesByMode: Object.fromEntries(Object.entries(v.valuesByMode ?? {}).filter(([k]) => [first, ...other].includes(k))) })) } };
       }
     }
   }
@@ -127,28 +136,28 @@ export function variablesArgs(project: string, primary = breakpointCollection(pr
     if (foldable(modes)) {
       for (const v of col.variables) {
         const by = v.valuesByMode ?? {}, row = { ...v };
-        if (Object.keys(by).length) { const values = Object.fromEntries(roles.map(r => [r, roleValue(by, modes, r)])), known = roles.map(r => values[r]).filter(v => v != null); row.valuesByMode = known.length ? Object.fromEntries(roles.map(r => [names[r]!, values[r] ?? known[0]!])) : {}; }
+        if (Object.keys(by).length) { const values = Object.fromEntries(roles.map(r => [r, roleValue(by, modes, r)])), known = roles.map(r => values[r]).filter(v => v != null); row.valuesByMode = known.length ? Object.fromEntries(roles.map(r => [modeName(r), values[r] ?? at(known, 0, 'known role values')])) : {}; }
         responsive.push(row);
       }
       continue;
     }
     let target = branded(name);
-    if (target === primary && modes.length > 1) { target += ' ' + modeLabel(modes[1]!); if (target in out || Object.keys(collections).some(other => other !== name && branded(other) === target)) throw new Error(`collection name collision ${JSON.stringify(target)}; name independent mode collections distinctly`); }
-    if (modes.length > 1) { const relabel = Object.fromEntries(modes.map((m, i) => [m, i ? modeLabel(m) : m])); col = { ...col, modes: modes.map(m => relabel[m]!), variables: col.variables.map(v => Object.keys(v.valuesByMode ?? {}).length ? { ...v, valuesByMode: Object.fromEntries(Object.entries(v.valuesByMode!).map(([k, x]) => [relabel[k] ?? k, x])) } : v) }; }
+    if (target === primary && modes.length > 1) { target += ' ' + modeLabel(at(modes, 1, 'collection modes')); if (target in out || Object.keys(collections).some(other => other !== name && branded(other) === target)) throw new Error(`collection name collision ${JSON.stringify(target)}; name independent mode collections distinctly`); }
+    if (modes.length > 1) { const relabel = Object.fromEntries(modes.map((m, i) => [m, i ? modeLabel(m) : m])); col = { ...col, modes: modes.map(m => pick(relabel, m, 'relabelled mode')), variables: col.variables.map(v => Object.keys(v.valuesByMode ?? {}).length ? { ...v, valuesByMode: Object.fromEntries(Object.entries(v.valuesByMode ?? {}).map(([k, x]) => [relabel[k] ?? k, x])) } : v) }; }
     out[target] = { ...col, variables: [...out[target]?.variables ?? [], ...col.variables] };
   }
-  if (responsive.length) out[primary] = { modes: roles.map(r => names[r]!), variables: [...out[primary]?.variables ?? [], ...responsive], modeRationale: 'responsive tokens share the breakpoint modes' };
+  if (responsive.length) out[primary] = { modes: roles.map(modeName), variables: [...out[primary]?.variables ?? [], ...responsive], modeRationale: 'responsive tokens share the breakpoint modes' };
   const merged: PlannedVariable[] = [], kept: Record<string, VariableCollection> = {};
   for (const [name, col] of Object.entries(out)) {
     if (name === primary || (col.modes?.length || 1) === 1) for (const v of col.variables) {
       const row = { ...v }, by = row.valuesByMode ?? {};
-      if (Object.keys(by).length && ((col.modes?.length || 1) === 1 || !roles.some(r => names[r]! in by)) && new Set(Object.values(by).map(keyOf)).size === 1) row.valuesByMode = Object.fromEntries(roles.map(r => [names[r]!, Object.values(by)[0]!]));
+      if (Object.keys(by).length && ((col.modes?.length || 1) === 1 || !roles.some(r => modeName(r) in by)) && new Set(Object.values(by).map(keyOf)).size === 1) row.valuesByMode = Object.fromEntries(roles.map(r => [modeName(r), at(Object.values(by), 0, 'variable values')]));
       merged.push(row);
     } else kept[name] = col;
   }
   if (merged.length) {
     const seen = new Set<string>(); for (const v of merged) { if (seen.has(v.name)) throw new Error(`duplicate variable name ${v.name} while consolidating; use distinct slash groups`); seen.add(v.name); }
-    return { collections: variableCollections({ [primary]: { modes: roles.map(r => names[r]!), variables: merged, modeRationale: 'one shared collection; invariant values repeat across width modes' }, ...kept }) };
+    return { collections: variableCollections({ [primary]: { modes: roles.map(modeName), variables: merged, modeRationale: 'one shared collection; invariant values repeat across width modes' }, ...kept }) };
   }
   return { collections: variableCollections(kept) };
 }
@@ -157,7 +166,7 @@ export const legacyCollections = (project: string): string[] => [...Object.keys(
 export function repoRoot(project: string): string { const repo = load<{ repository?: string | { root: string } }>(project, 'project.json').repository; return resolve(typeof repo === 'object' ? repo.root : repo || '.'); }
 export function siteName(repo: string): string {
   const config = resolve(repo, 'config');
-  for (const entry of existsSync(config) ? readdirSync(config).sort() : []) { const f = resolve(config, entry, 'system.site.yml'); if (existsSync(f)) { const match = /^name:\s*'?(.+?)'?\s*$/m.exec(readFileSync(f, 'utf8')); if (match) return match[1]!; } }
+  for (const entry of existsSync(config) ? readdirSync(config).sort() : []) { const f = resolve(config, entry, 'system.site.yml'); if (existsSync(f)) { const match = /^name:\s*'?(.+?)'?\s*$/m.exec(readFileSync(f, 'utf8')); if (match) return required(match[1], 'site name'); } }
   return basename(repo);
 }
 export function provenance(project: string, state: BuildState, today: string) {
@@ -165,7 +174,7 @@ export function provenance(project: string, state: BuildState, today: string) {
   return { source: basename(repo), commit, siteUrl: state.siteUrl, captureWidths: Object.values(VIEWPORTS).sort((a, b) => a - b), standardVersion: STANDARD_VERSION, runtime: state.runtime, builtOn: today, regenerate: 'design-lab:run' };
 }
 export function coverArgs(project: string, state: BuildState, today: string): TemplateArgs['cover'] & {total: NonNullable<TemplateArgs['cover']['total']>} {
-  const c = lc.counts(project, lc.recordedIds(state))!;
+  const c = countsFor(project, lc.recordedIds(state));
   return { pageId: pageId(project, 'Cover'), ground: lc.COVER_GROUND, headline: siteName(repoRoot(project)), subtitle: 'Component Library', total: { value: String(c.built), label: c.built === 1 ? 'component' : 'components' }, tiers: c.tiered ? c.coverBreakdown.map(r => ({ key: r.tier, value: String(r.built), label: lc.COVER_LABELS[r.tier] ?? r.tier, color: requiredValue(lc.TIER_COLORS[r.tier], `cover color for ${r.tier}`) })) : [], provenance: provenance(project, state, today), version: STANDARD_VERSION };
 }
 export function expandHex(h: string): string {
@@ -183,15 +192,15 @@ export function measuredType(project: string) {
       if (typeof value === 'number' && context?.source) { const entries = numericSources.get(this) ?? new Map(); entries.set(key, context.source); numericSources.set(this, entries); } return value;
     }) as Tree;
     const cid = basename(f, '.json'), comp = components(project).find(c => c.id === cid);
-    const paths = [cid.replace(/[:/]/g, '__'), comp?.machineName || cid.split(':').at(-1)!.split('.').at(-1)!].map(n => resolve(project, 'capture/measurements', n + '.spec.json'));
+    const paths = [cid.replace(/[:/]/g, '__'), comp?.machineName || lastOf(lastOf(cid.split(':'), 'component id').split('.'), 'component id')].map(n => resolve(project, 'capture/measurements', n + '.spec.json'));
     const measured = paths.find(existsSync), spec = measured ? JSON.parse(readFileSync(measured, 'utf8')) as Spec : null;
     const numberText = (value: Text['size'] | Text['lineHeight'], field: string, text: Text): string => {
-      if (typeof value === 'object' && value !== null) { const values = tree.variables[value.var]!.values; return numericSources.get(values)?.get('Desktop') ?? String(values['Desktop']); }
+      if (typeof value === 'object' && value !== null) { const values = pick(tree.variables, value.var, 'tree variable').values; return numericSources.get(values)?.get('Desktop') ?? String(values['Desktop']); }
       return numericSources.get(text)?.get(field) ?? String(value);
     };
-    const desk = (v: Text['size'] | Text['lineHeight']): number | null => typeof v === 'object' && v !== null ? tree.variables[v.var]!.values['Desktop'] as number : v ?? null;
+    const desk = (v: Text['size'] | Text['lineHeight']): number | null => typeof v === 'object' && v !== null ? pick(tree.variables, v.var, 'tree variable').values['Desktop'] as number : v ?? null;
     const stack: TreeNode[] = [tree.tree];
-    while (stack.length) { const n = stack.pop()!; stack.push(...[...n.children ?? []].reverse()); if (n.kind !== 'text') continue; const t = n.text, size = desk(t.size)!, lh = desk(t.lineHeight), key = keyOf([t.family, t.weight, size, lh]);
+    for (let n = stack.pop(); n; n = stack.pop()) { stack.push(...[...n.children ?? []].reverse()); if (n.kind !== 'text') continue; const t = n.text, size = required(desk(t.size), 'text size'), lh = desk(t.lineHeight), key = keyOf([t.family, t.weight, size, lh]);
       const measurement = spec?.measurements['desktop:default'] ?? (spec ? Object.values(spec.measurements).find(m => 'nodes' in m && Array.isArray(m.nodes)) : undefined);
       const measuredNodes = measurement && 'nodes' in measurement ? measurement.nodes : undefined; const source = Array.isArray(measuredNodes) ? measuredNodes.find(node => node.path === n.source.replace(/#label$/, '')) : undefined;
       const sizeText = source ? cssPixels(source.computed['fontSize']) ? floatText(size) : String(size) : numberText(t.size, 'size', t);
@@ -223,10 +232,10 @@ export function tierArgs(project: string, state: BuildState, tier: string): Temp
   return { pageId: pageId(project, `Components — ${tier}`), title: `Components — ${tier}`, summary: [`${comps.length} component${comps.length === 1 ? '' : 's'} in this tier. ${total.toLocaleString('en-US')} author placement${total === 1 ? '' : 's'} between them.`], thresholds: tier === 'Untiered' ? "No usage source counted these components' placements, so they have no tier." : 'Tiers by author placements: High Use 50 or more · Medium Use 10 to 49 · Low Use 1 to 9 · Structural Only when placed only inside other components · Retirement Candidates when placed nowhere.', emptyLine: planned.length ? null : !comps.length ? 'No component in this tier is in the source.' : `None of the ${comps.length} components in this tier is part of the library. The index on Getting Started gives each one's reason.` };
 }
 export function variants(project: string, cid: string) {
-  const comp = components(project).find(c => c.id === cid)!, axes = plans(project)[cid]?.variantAxes ?? [], f = resolve(project, `capture/measurements/${cid.replace(/[:/]/g, '__')}.spec.json`);
+  const comp = componentOf(project, cid), axes = plans(project)[cid]?.variantAxes ?? [], f = resolve(project, `capture/measurements/${cid.replace(/[:/]/g, '__')}.spec.json`);
   const measurement = existsSync(f) ? (JSON.parse(readFileSync(f, 'utf8')) as Spec).measurements['desktop:default'] : undefined;
   const nodes = measurement && 'nodes' in measurement ? measurement.nodes : [];
-  return variantValues(comp.fields.map(f => ({ name: f.name, options: f.options ?? [] })), axes.map(a => ({ field: a.field!, ...(a.label !== undefined ? {label:a.label} : {}) })), (nodes ?? []).map(n => ({ classes: n.classes ?? [] })));
+  return variantValues(comp.fields.map(f => ({ name: f.name, options: f.options ?? [] })), axes.map(a => ({ field: required(a.field, `variant axis field of ${cid}`), ...(a.label !== undefined ? {label:a.label} : {}) })), (nodes ?? []).map(n => ({ classes: n.classes ?? [] })));
 }
 export function fontPlan(project: string): Fonts['build'] | null { try { return load<Fonts>(project, 'fonts.json').build ?? null; } catch { return null; } }
 export function description(project: string, c: Component): string {
@@ -234,13 +243,13 @@ export function description(project: string, c: Component): string {
   return `${c.label || c.id} — ${c.id} (${c.group || 'ungrouped'}).\nUsage: ${lc.shortTier(u.tier)}; ${lc.placements(c)} author placements, ${lc.structural(c)} structural references, rendered on ${u.renderedPages || 0} public pages.\nFields: ${fields}.\nResponsive: one component; resize an instance and set its Breakpoint mode (Desktop, Tablet, Mobile).\nExample: ${examplePath(c) || 'none verified'}\nDocumentation: the block beside this component on its tier page.`;
 }
 export function buildArgs(project: string, cid: string, state: BuildState): TemplateArgs['build_responsive'] {
-  const tree = treeFor(project, cid), comp = components(project).find(c => c.id === cid)!, previous = state.subset?.includes(cid) ? load<ReturnType<typeof result>>(project, `figma/results/${safe('build:' + cid)}.json`, {}) : {};
+  const tree = treeFor(project, cid), comp = componentOf(project, cid), previous = state.subset?.includes(cid) ? load<ReturnType<typeof result>>(project, `figma/results/${safe('build:' + cid)}.json`, {}) : {};
   if (state.subset?.includes(cid) && !previous.componentId) throw new Error(`missing saved master identity for ${cid}; rebuild in a fresh file`);
   const masters: Record<string, string> = {}; for (const slot of comp.slots) for (const child of typeof slot.accepts === 'string' ? slot.accepts : slot.accepts ?? []) try { const id = result(project, 'build:' + child).componentId; if (id) masters[child] = id; } catch {}
   return { pageId: pageId(project, componentPage(comp)), x: 0, y: -6000, id: cid, existingComponentId: previous.componentId ?? null, name: `${cid} — ${comp.label || cid}`, description: description(project, comp), collection: breakpointCollection(project), modeNames: modeNames(), masters, variant: Object.fromEntries(variants(project, cid).map(v => [v.axis, v.value || 'As captured'])), variables: (tree.alternates ?? []).reduce<TemplateArgs['build_responsive']['variables']>((variables, alternate) => ({...variables, ...alternate.variables}), {...tree.variables}), fonts: fontPlan(project), alternates: (tree.alternates ?? []).map(a => ({ label: a.label, ...compact(a.tree) })), ...compact(tree.tree) };
 }
 export function fieldsRows(c: Component, plan: ComponentPlan | undefined): string[][] {
-  const treat = Object.fromEntries((plan?.properties ?? []).map(p => [p.field!, p.treatment])), axes = new Set(plan?.variantAxes.map(a => a.field)), treatments: Record<string, string> = { text: 'text in the drawn instance', boolean: 'shown as rendered', variable: 'value as rendered', swap: 'nested content as rendered', manual: 'as rendered; not a Figma property', skip: 'not visible' };
+  const treat = Object.fromEntries((plan?.properties ?? []).map(p => [required(p.field, `property field of ${c.id}`), p.treatment])), axes = new Set(plan?.variantAxes.map(a => a.field)), treatments: Record<string, string> = { text: 'text in the drawn instance', boolean: 'shown as rendered', variable: 'value as rendered', swap: 'nested content as rendered', manual: 'as rendered; not a Figma property', skip: 'not visible' };
   return [...c.fields.map(f => [f.name, f.kind, f.required ? 'yes' : 'no', axes.has(f.name) ? 'variant axis — only the rendered option is drawn' : treatments[treat[f.name] ?? ''] ?? 'as rendered']), ...c.slots.map(s => [s.name, 'slot', s.required ? 'yes' : 'no', 'nested content as rendered'])];
 }
 export function backdrop(project: string, cid: string): string {
@@ -253,14 +262,14 @@ export async function captureImages(project: string, cid: string) {
   const rank = (v: string): number => { const i = BREAKPOINTS.indexOf(v.toLowerCase()); return i < 0 ? 9 : i; };
   return Promise.all([...imgs].sort((a, b) => rank(a.viewport ?? '') - rank(b.viewport ?? '')).map(async i => {
     let width = i.width, height = i.height; if (!width || !height) { const meta = await sharp(i.file).metadata(); width = meta.width; height = meta.height; }
-    const view = i.viewport ?? ''; return { viewport: view ? view[0]!.toUpperCase() + view.slice(1).toLowerCase() : '', file: i.file!, width: width!, height: height! };
+    const view = i.viewport ?? ''; return { viewport: view ? view.charAt(0).toUpperCase() + view.slice(1).toLowerCase() : '', file: required(i.file, `image file of ${cid}`), width: required(width, `image width of ${cid}`), height: required(height, `image height of ${cid}`) };
   }));
 }
 export async function evidenceCaptures(project: string, cid: string, tree: Tree) {
-  const by = new Map((await captureImages(project, cid)).map(e => [e.viewport.toLowerCase(), e])); return COLUMN_ORDER.filter(r => tree.measured.includes(r.toLowerCase()) && by.has(r.toLowerCase())).map(r => by.get(r.toLowerCase())!);
+  const by = new Map((await captureImages(project, cid)).map(e => [e.viewport.toLowerCase(), e])); return COLUMN_ORDER.filter(r => tree.measured.includes(r.toLowerCase()) && by.has(r.toLowerCase())).flatMap(r => { const image = by.get(r.toLowerCase()); return image ? [image] : []; });
 }
 export async function blockArgs(project: string, state: BuildState, cid: string, order: number): Promise<TemplateArgs['component_block']> {
-  const comp = components(project).find(c => c.id === cid)!, plan = plans(project)[cid], tree = treeFor(project, cid), u = comp.usage ?? {}, ex = examplePath(comp);
+  const comp = componentOf(project, cid), plan = plans(project)[cid], tree = treeFor(project, cid), u = comp.usage ?? {}, ex = examplePath(comp);
   const facts: TemplateArgs['component_block']['doc']['facts'] = [['Author placements', String(lc.placements(comp))], ['Structural references', String(lc.structural(comp))], ['Rendered on', `${u.renderedPages || 0} public pages`]];
   if (ex) facts.push(['Example', ex, state.canonicalBaseUrl + ex]); facts.push(['Source', dirname(comp.sourceRef || '')]);
   const relations: string[] = []; if (comp.contains?.length) relations.push('Contains: ' + [...comp.contains].sort().join(', ') + '.'); if (comp.containedBy?.length) relations.push('Placed inside: ' + [...comp.containedBy].sort().join(', ') + '.');
@@ -291,11 +300,11 @@ export function examplesArgs(project: string, state: BuildState): TemplateArgs['
   return { pageId: pageId(project, 'Examples'), collection: breakpointCollection(project), desktopMode: modeNames()['Desktop'], mobileMode: modeNames()['Mobile'], pages: chosen.map(p => ({ address: p.address, title: p.title || p.address, items: p.components.map(r => { const cid = componentId(r, ids), label = comps[cid]?.label || cid; if (!built.has(cid)) return { missing: label }; const tree = treeFor(project, cid); return { componentId: requiredValue(result(project, 'build:' + cid).componentId, `componentId for ${cid}`), label, desktop: tree.widths['Desktop'] ?? null, mobile: tree.widths['Mobile'] ?? null }; }) })) };
 }
 export function gettingStartedArgs(project: string, state: BuildState, today: string): TemplateArgs['getting_started'] {
-  const comps = components(project), plan = plans(project), built = lc.recordedIds(state), ordered = buildOrder(comps), counted = lc.counts(project, built)!, shown = new Set(tierNames(comps)), gaps: string[] = [];
+  const comps = components(project), plan = plans(project), built = lc.recordedIds(state), ordered = buildOrder(comps), counted = countsFor(project, built), shown = new Set(tierNames(comps)), gaps: string[] = [];
   const coverage = counted.byTier.filter(r => shown.has(r.tier)).map(r => [r.tier, String(r.found), String(r.built), String(r.notBuilt), r.placements.toLocaleString('en-US')]);
   const index = ordered.map(c => {
     const p = plan[c.id]; let status: string, setId: string | null, blockId: string | null;
-    if (built.has(c.id)) { status = 'Built'; setId = result(project, 'build:' + c.id).componentId!; blockId = result(project, 'block:' + c.id).blockId!; }
+    if (built.has(c.id)) { status = 'Built'; setId = required(result(project, 'build:' + c.id).componentId, `component id of build:${c.id}`); blockId = required(result(project, 'block:' + c.id).blockId, `block id of block:${c.id}`); }
     else { const reason = p?.refuseReason || (p?.verdict === 'map' ? 'mapped into its parent' : 'no capture'); status = p?.verdict === 'map' ? 'Mapped into parent' : 'Not built'; setId = blockId = null; gaps.push(`${c.label || c.id} (${c.id}): ${status.toLowerCase()} — ${reason}.`); }
     return { placements: lc.placements(c), label: c.label || c.id, machine: c.id, tier: lc.shortTier(c.usage?.tier), type: c.group || '—', status, setId, blockId };
   });

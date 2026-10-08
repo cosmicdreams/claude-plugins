@@ -15,7 +15,7 @@ for (const [entry, args, expected] of [
   ['src/figma-runner.ts', ['--help'], /usage:/],
   ['src/fonts.ts', [], /usage: fonts.ts/],
   ['src/render-payload.ts', ['hash'], /^[a-f0-9]+/],
-  ['src/responsive.ts', [], /TypeError|ERR_INVALID_ARG_TYPE/],
+  ['src/responsive.ts', [], /usage: responsive.ts SPEC.json/],
 ] as const) test(`phase 5 entrypoint executes through symlink: ${entry}`, () => {
   const root = mkdtempSync('/tmp/design-lab-p5-entry-');
   try {
