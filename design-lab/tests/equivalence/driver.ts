@@ -11,87 +11,164 @@ import { BuildDriver } from '../../src/figma-build.ts';
 import { load, writeOnChange } from '../../src/build-artifacts.ts';
 import type { BuildState, BuildResult } from '../../src/build-artifacts.ts';
 import type { RunnerStep } from '../../src/generated/runner-step.ts';
-import { pluginRoot } from '../../src/runtime.ts';
 import { Renderer } from '../../src/render-payload.ts';
 import { assertPayloadParity, assertTemplates, legacyRuntime } from './template-parity.ts';
 import { assertRunnerClientParity } from './runner-client-parity.ts';
-import {assertPixels,freshImages} from './image-pixels.ts';
-const currentRenderer = new Renderer(), legacyRenderer = new Renderer(resolve(oracleScripts, 'render'), 'javascript');
+import { assertPixels, freshImages } from './image-pixels.ts';
+const currentRenderer = new Renderer(),
+  legacyRenderer = new Renderer(resolve(oracleScripts, 'render'), 'javascript');
 const templates = assertTemplates();
 const runner = assertRunnerClientParity();
-const runtime = (value: unknown): unknown => legacyRuntime(value, currentRenderer.runtimeHash(), legacyRenderer.runtimeHash());
-const sources = { definitive: resolve(homedir(), 'Sites/DEFINITIVEHC/design/2026-10-05'), pncb: resolve(homedir(), '.design/pncb/2026-10-06') };
+const runtime = (value: unknown): unknown =>
+  legacyRuntime(value, currentRenderer.runtimeHash(), legacyRenderer.runtimeHash());
+const sources = {
+  definitive: resolve(homedir(), 'Sites/DEFINITIVEHC/design/2026-10-05'),
+  pncb: resolve(homedir(), '.design/pncb/2026-10-06'),
+};
 const root = process.argv[2] ?? mkdtempSync('/tmp/design-lab-round2-driver-');
 assert.ok(root.startsWith('/tmp/'));
 const normalize = (v: unknown, folder: string): unknown => {
-  if (typeof v === 'string') return v.replaceAll(folder.startsWith('/private') ? folder : '/private' + folder, '<RUN>').replaceAll(folder.startsWith('/private') ? folder.slice(8) : folder, '<RUN>');
-  if (Array.isArray(v)) return v.map(x => normalize(x, folder));
-  if (v && typeof v === 'object') return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, normalize(x, folder)]));
+  if (typeof v === 'string')
+    return v
+      .replaceAll(folder.startsWith('/private') ? folder : '/private' + folder, '<RUN>')
+      .replaceAll(folder.startsWith('/private') ? folder.slice(8) : folder, '<RUN>');
+  if (Array.isArray(v)) return v.map((x) => normalize(x, folder));
+  if (v && typeof v === 'object')
+    return Object.fromEntries(Object.entries(v).map(([k, x]) => [k, normalize(x, folder)]));
   return v;
 };
 function relocate(folder: string, old: string, replacement: string): void {
   for (const n of readdirSync(folder, { withFileTypes: true })) {
-    const p = resolve(folder, n.name); if (n.isDirectory()) relocate(p, old, replacement);
-    else if (n.isFile() && n.name.endsWith('.json')) { const text = readFileSync(p, 'utf8'); if (text.includes(old)) writeFileSync(p, text.replaceAll(old, replacement)); }
+    const p = resolve(folder, n.name);
+    if (n.isDirectory()) relocate(p, old, replacement);
+    else if (n.isFile() && n.name.endsWith('.json')) {
+      const text = readFileSync(p, 'utf8');
+      if (text.includes(old)) writeFileSync(p, text.replaceAll(old, replacement));
+    }
   }
 }
 if (!existsSync(resolve(root, 'prepared.json'))) {
   for (const [run, source] of Object.entries(sources)) {
-    const oracle = resolve(root, run, 'python'), target = resolve(root, run, 'ts'); mkdirSync(resolve(root, run), { recursive: true });
+    const oracle = resolve(root, run, 'python'),
+      target = resolve(root, run, 'ts');
+    mkdirSync(resolve(root, run), { recursive: true });
     cpSync(source, oracle, { recursive: true });
     // Move saved results aside before init while preserving frozen fetched files.
-    if (existsSync(resolve(oracle, 'figma/results'))) cpSync(resolve(oracle, 'figma/results'), resolve(oracle, 'recorded-results'), { recursive: true });
-    relocate(oracle, source, oracle); cpSync(oracle, target, { recursive: true }); relocate(target, oracle, target);
+    if (existsSync(resolve(oracle, 'figma/results')))
+      cpSync(resolve(oracle, 'figma/results'), resolve(oracle, 'recorded-results'), { recursive: true });
+    relocate(oracle, source, oracle);
+    cpSync(oracle, target, { recursive: true });
+    relocate(target, oracle, target);
   }
   writeOnChange(resolve(root, 'prepared.json'), {});
 }
-const pendingRuns = Object.entries(sources).filter(([run, source]) => {
-  const initial = load<BuildState>(source, 'figma/state.json'), options = { rebuild: initial.steps[0]?.id === 'wipe' };
-  for (const lane of ['python', 'ts']) writeOnChange(resolve(root, run, lane, 'replay-options.json'), options);
-  const path = resolve(root, run, 'python/oracle.json'); return !existsSync(path) || load<{ transcript: unknown[] }>(path, '').transcript.length !== initial.steps.length;
-}).map(([run]) => run);
+const pendingRuns = Object.entries(sources)
+  .filter(([run, source]) => {
+    const initial = load<BuildState>(source, 'figma/state.json'),
+      options = { rebuild: initial.steps[0]?.id === 'wipe' };
+    for (const lane of ['python', 'ts']) writeOnChange(resolve(root, run, lane, 'replay-options.json'), options);
+    const path = resolve(root, run, 'python/oracle.json');
+    return !existsSync(path) || load<{ transcript: unknown[] }>(path, '').transcript.length !== initial.steps.length;
+  })
+  .map(([run]) => run);
 if (pendingRuns.length) {
-  const python = spawnSync(oracleExecutable, [oracleScript('driver-oracle.py'), ...pendingRuns.map(run => resolve(root, run, 'python'))], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' }, maxBuffer: 8 * 1024 * 1024 });
+  const python = spawnSync(
+    oracleExecutable,
+    [oracleScript('driver-oracle.py'), ...pendingRuns.map((run) => resolve(root, run, 'python'))],
+    { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' }, maxBuffer: 8 * 1024 * 1024 },
+  );
   assert.equal(python.status, 0, python.stdout + '\n' + python.stderr);
 }
 const summary: Record<string, unknown> = {};
 for (const run of Object.keys(sources)) {
-  const project = resolve(root, run, 'ts'), oracle = resolve(root, run, 'python'), expected = load<{ init: unknown; state: BuildState; transcript: { step: RunnerStep; input: BuildResult; result: BuildResult; recorded: unknown }[]; ms: number }>(oracle, 'oracle.json'), old = load<BuildState>(project, 'figma/state.json'), driver = new BuildDriver(project, { runner: true }), started = performance.now();
-  const init = driver.init({ fileKey: old.fileKey, siteUrl: old.siteUrl, canonicalBaseUrl: old.canonicalBaseUrl, offlineImages: true, iterate: old.iterate ?? false, ...load<{ rebuild: boolean }>(project, 'replay-options.json') });
+  const project = resolve(root, run, 'ts'),
+    oracle = resolve(root, run, 'python'),
+    expected = load<{
+      init: unknown;
+      state: BuildState;
+      transcript: { step: RunnerStep; input: BuildResult; result: BuildResult; recorded: unknown }[];
+      ms: number;
+    }>(oracle, 'oracle.json'),
+    old = load<BuildState>(project, 'figma/state.json'),
+    driver = new BuildDriver(project, { runner: true }),
+    started = performance.now();
+  const init = driver.init({
+    fileKey: old.fileKey,
+    siteUrl: old.siteUrl,
+    canonicalBaseUrl: old.canonicalBaseUrl,
+    offlineImages: true,
+    iterate: old.iterate ?? false,
+    ...load<{ rebuild: boolean }>(project, 'replay-options.json'),
+  });
   assert.deepEqual(runtime(init), expected.init, run + ': init');
-  const steps: string[] = []; let payloads = 0, images = 0;
+  const steps: string[] = [];
+  let payloads = 0,
+    images = 0;
   for (const row of expected.transcript) {
-    const sid = row.step.step!, step = await driver.next();
+    const sid = row.step.step!,
+      step = await driver.next();
     // Payload size differs only by the proven cache code and type-strip trivia.
-    const envelope = (s: RunnerStep): unknown => s.kind === 'use_figma' ? Object.fromEntries(Object.entries(s).filter(([k]) => k !== 'characters')) : s;
-    assert.deepEqual(normalize(envelope(step), project), normalize(envelope(row.step), oracle), run + ': ' + sid + ': step');
+    const envelope = (s: RunnerStep): unknown =>
+      s.kind === 'use_figma' ? Object.fromEntries(Object.entries(s).filter(([k]) => k !== 'characters')) : s;
+    assert.deepEqual(
+      normalize(envelope(step), project),
+      normalize(envelope(row.step), oracle),
+      run + ': ' + sid + ': step',
+    );
     if (step.kind === 'use_figma') {
-      const actual = readFileSync(step.payload!, 'utf8'), py = readFileSync((row.step as typeof step).payload!, 'utf8');
+      const actual = readFileSync(step.payload!, 'utf8'),
+        py = readFileSync((row.step as typeof step).payload!, 'utf8');
       assert.equal(step.characters, [...actual].length);
       assert.equal(row.step.kind === 'use_figma' ? row.step.characters : undefined, [...py].length);
-      assertPayloadParity(actual, py, currentRenderer, legacyRenderer, run + ': ' + sid); payloads++;
+      assertPayloadParity(actual, py, currentRenderer, legacyRenderer, run + ': ' + sid);
+      payloads++;
     }
     if (sid.startsWith('images:')) {
       images++;
       const manifest = `figma/images/${sid.slice(7).split('.').at(-1)}/images.json`;
-      assert.deepEqual(normalize(load(project, manifest), project), normalize(load(oracle, manifest), oracle), run + ': ' + sid + ': asset manifest');
-      if (step.kind === 'upload') for (const [i, file] of (step.files ?? []).entries()) {
-        const expectedFile = row.step.kind === 'upload' ? row.step.files![i]!.file : '';
-        await assertPixels(readFileSync(file.file),readFileSync(expectedFile),sid+': decoded image '+i);
-      }
+      assert.deepEqual(
+        normalize(load(project, manifest), project),
+        normalize(load(oracle, manifest), oracle),
+        run + ': ' + sid + ': asset manifest',
+      );
+      if (step.kind === 'upload')
+        for (const [i, file] of (step.files ?? []).entries()) {
+          const expectedFile = row.step.kind === 'upload' ? row.step.files![i]!.file : '';
+          await assertPixels(readFileSync(file.file), readFileSync(expectedFile), sid + ': decoded image ' + i);
+        }
     }
     const data = JSON.parse(JSON.stringify(row.input).replaceAll(oracle, project)) as BuildResult;
     if (step.kind === 'screenshot') cpSync(row.input.file!, data.file!);
     const recorded = await driver.record(sid, data);
     assert.deepEqual(recorded, row.recorded, run + ': ' + sid + ': recorded');
-    assert.deepEqual(normalize(load(project, `figma/results/${sid.replace(/[^A-Za-z0-9_.-]+/g, '_')}.json`), project), normalize(row.result, oracle), run + ': ' + sid + ': result'); steps.push(sid);
+    assert.deepEqual(
+      normalize(load(project, `figma/results/${sid.replace(/[^A-Za-z0-9_.-]+/g, '_')}.json`), project),
+      normalize(row.result, oracle),
+      run + ': ' + sid + ': result',
+    );
+    steps.push(sid);
   }
   assert.deepEqual(await driver.next(), { kind: 'done' });
   assert.deepEqual(runtime(driver.state()), JSON.parse(JSON.stringify(expected.state).replaceAll(oracle, project)));
   const oracleIndex = load<{ generatedAt: string }>(oracle, 'index.json');
   const outputs = receipts(project, new Date(oracleIndex.generatedAt));
-  for (const output of outputs) assert.deepEqual(normalize(runtime(load(project, output.path)), project), normalize(load(oracle, output.path.replace(project, oracle)), oracle), run + ': receipt ' + output.name);
-  summary[run] = { stepsCompared: steps.length, stepsMatched: steps.length, payloads, images, tsMs: performance.now() - started, pythonMs: expected.ms, recordedFigmaResults: run === 'definitive', syntheticProtocolResults: run === 'pncb' };
+  for (const output of outputs)
+    assert.deepEqual(
+      normalize(runtime(load(project, output.path)), project),
+      normalize(load(oracle, output.path.replace(project, oracle)), oracle),
+      run + ': receipt ' + output.name,
+    );
+  summary[run] = {
+    stepsCompared: steps.length,
+    stepsMatched: steps.length,
+    payloads,
+    images,
+    tsMs: performance.now() - started,
+    pythonMs: expected.ms,
+    recordedFigmaResults: run === 'definitive',
+    syntheticProtocolResults: run === 'pncb',
+  };
 }
-const freshImageStats = await freshImages(resolve(root,'fresh-images'));
-writeOnChange(resolve(root, 'summary.json'), { root, templates, runner, summary, freshImageStats }); console.log(JSON.stringify({ root, templates, runner, summary }, null, 2));
+const freshImageStats = await freshImages(resolve(root, 'fresh-images'));
+writeOnChange(resolve(root, 'summary.json'), { root, templates, runner, summary, freshImageStats });
+console.log(JSON.stringify({ root, templates, runner, summary }, null, 2));

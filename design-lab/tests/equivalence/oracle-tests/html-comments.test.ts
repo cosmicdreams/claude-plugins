@@ -55,19 +55,21 @@ function tsEvents(text: string): unknown[] {
   return events;
 }
 
-test('abrupt and malformed comments match Python html.parser component counts and tag events', (t) => {
+void test('abrupt and malformed comments match Python html.parser component counts and tag events', (t) => {
   const version = pyJson<string>(`print(json.dumps(sys.version))`);
   if (!version.startsWith('3.14.')) {
     t.skip(`the Python reference must be 3.14 (DESIGN_LAB_PYTHON=${PYTHON}, found ${version})`);
     return;
   }
-  const reference = pyJson<Array<{ components: Record<string, number>; events: unknown[] }>>(PY_TAGS, { cases: FIXTURES });
+  const reference = pyJson<Array<{ components: Record<string, number>; events: unknown[] }>>(PY_TAGS, {
+    cases: FIXTURES,
+  });
   FIXTURES.forEach((text, index) => {
     assert.deepEqual(parseComponents(text), reference[index]!.components, `components for ${JSON.stringify(text)}`);
     assert.deepEqual(tsEvents(text), reference[index]!.events, `tag events for ${JSON.stringify(text)}`);
   });
 });
 
-test('abrupt comment fixture renders the component that Python 3.14 reports', () => {
+void test('abrupt comment fixture renders the component that Python 3.14 reports', () => {
   assert.deepEqual(parseComponents('<!--><div data-component-id="demo:card"></div>-->'), { 'demo:card': 1 });
 });

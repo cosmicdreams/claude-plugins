@@ -1,21 +1,21 @@
 import { parsePyYaml } from './pyyaml.ts';
-import { readdirSync, readFileSync, realpathSync, statSync } from "node:fs";
-import { dirname, join, relative as rel, resolve, sep } from "node:path";
-import { sharedRequire } from "./runtime.ts";
+import { readdirSync, readFileSync, realpathSync, statSync } from 'node:fs';
+import { dirname, join, relative as rel, resolve, sep } from 'node:path';
+import { sharedRequire } from './runtime.ts';
 
 export type ExternalObject = Record<string, unknown>;
-export const yaml = sharedRequire()("yaml") as {
+export const yaml = sharedRequire()('yaml') as {
   parse(text: string, options?: unknown): unknown;
 };
 export function readText(path: string): string {
   try {
-    return readFileSync(path, "utf8");
+    return readFileSync(path, 'utf8');
   } catch {
-    return "";
+    return '';
   }
 }
 export function relative(root: string, path: string): string {
-  return rel(root, path).split(sep).join("/");
+  return rel(root, path).split(sep).join('/');
 }
 export function walk(
   root: string,
@@ -23,12 +23,10 @@ export function walk(
 ): string[] {
   const out: string[] = [],
     base = resolve(root),
-    skip =
-      options.skip ??
-      /(^|\/)(node_modules|vendor|\.git|\.design-lab|contrib|core)(\/|$)/,
+    skip = options.skip ?? /(^|\/)(node_modules|vendor|\.git|\.design-lab|contrib|core)(\/|$)/,
     visited = new Set<string>();
   const visit = (dir: string) => {
-    if (skip.test(dir.replaceAll(sep, "/"))) return;
+    if (skip.test(dir.replaceAll(sep, '/'))) return;
     let real: string;
     try {
       real = realpathSync(dir);
@@ -62,16 +60,16 @@ export function walk(
   visit(base);
   return out.sort();
 }
-export function loadYaml(path: string): any {
+export function loadYaml(path: string): unknown {
   const text = readText(path);
   if (!text) return null;
   return parsePyYaml(text);
 }
 export function docroot(root: string): string {
-  for (const cand of ["docroot", "web", ""]) {
+  for (const cand of ['docroot', 'web', '']) {
     const p = cand ? join(root, cand) : root;
     if (
-      ["modules", "themes"].some((x) => {
+      ['modules', 'themes'].some((x) => {
         try {
           return statSync(join(p, x)).isDirectory();
         } catch {
@@ -83,17 +81,15 @@ export function docroot(root: string): string {
   }
   return root;
 }
-export function configDirs(
-  root: string,
-): Array<{ path: string; entityCount: number }> {
-  return ["config/sync", "config/default", "config"].flatMap((c) => {
+export function configDirs(root: string): Array<{ path: string; entityCount: number }> {
+  return ['config/sync', 'config/default', 'config'].flatMap((c) => {
     const p = join(root, c);
     try {
       if (!statSync(p).isDirectory()) return [];
       return [
         {
           path: p,
-          entityCount: readdirSync(p).filter((n) => n.endsWith(".yml")).length,
+          entityCount: readdirSync(p).filter((n) => n.endsWith('.yml')).length,
         },
       ];
     } catch {

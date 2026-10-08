@@ -10,6 +10,9 @@
     "setup": "node scripts/setup-ts.ts",
     "test": "node --test tests/ts/*.test.ts tests/browser/*.test.ts",
     "typecheck": "node scripts/ts-tool.ts check",
+    "lint": "node scripts/lint-tool.ts lint",
+    "format": "node scripts/lint-tool.ts format",
+    "format:check": "node scripts/lint-tool.ts format:check",
     "contracts:generate": "node scripts/generate-contracts.ts && node scripts/generate-mod-contract.ts",
     "contracts:check": "node scripts/generate-contracts.ts --check && node scripts/generate-mod-contract.ts --check",
     "contracts:reality": "node scripts/check-artifacts.ts",
@@ -23,10 +26,14 @@
     "yaml": "2.9.1"
   },
   "devDependencies": {
+    "@typescript/native": "npm:typescript@7.0.2",
     "@figma/plugin-typings": "1.141.0",
     "@types/node": "24.19.1",
     "acorn": "8.17.0",
+    "eslint": "10.12.0",
     "json-schema-to-typescript": "16.0.0",
-    "typescript": "7.0.2"
+    "prettier": "3.9.9",
+    "typescript": "npm:@typescript/typescript6@6.0.2",
+    "typescript-eslint": "8.71.1"
   }
 }

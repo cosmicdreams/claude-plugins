@@ -1,0 +1,4 @@
+src/generated/**
+types/index.d.ts
+**/*.md
+**/*.json

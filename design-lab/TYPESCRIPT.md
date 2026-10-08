@@ -22,6 +22,14 @@ through the remaining personal choices (run placement, optional operator, runner
 and optional corpus/scoreboard). A run with an explicit `--workspace` needs no run-placement
 configuration. Importing or executing Figma code is never part of dependency setup.
 
+Development pins the native TypeScript 7 compiler as `@typescript/native` and runs both
+project typechecks through its `tsc`. Typed ESLint resolves `typescript` to the official
+`@typescript/typescript6` compatibility API package because TypeScript 7.0 does not expose a
+programmatic API yet. This is the TypeScript team's documented side-by-side setup for tools
+such as typescript-eslint; it keeps TypeScript 7 as the compiler while giving those tools the
+TypeScript 6 API they require. When TypeScript 7's new API is supported by typescript-eslint,
+the compatibility alias can be removed.
+
 Packages live in a lock-addressed `typescript/v2-<lock-hash>/` directory under the shared
 cache: `~/Library/Caches/design-lab` on macOS, `~/.cache/design-lab` elsewhere. Chromium
 lives in `browsers/v2-<lock-hash>/` in that cache. `DESIGN_LAB_CACHE` overrides the cache root

@@ -15,7 +15,7 @@ canvas.paste(image, mask=image.split()[-1])
 print(json.dumps(list(canvas.tobytes())))
 `;
 
-test('flattening RGBA onto white matches Pillow paste(mask=alpha) for every gray and alpha', async () => {
+void test('flattening RGBA onto white matches Pillow paste(mask=alpha) for every gray and alpha', async () => {
   const { flattenRgbaOverWhite } = await import('../../../src/figma-compare.ts');
   const pillow = pyJson<number[]>(PY);
   const rgba = new Uint8Array(256 * 256 * 4);
@@ -24,13 +24,16 @@ test('flattening RGBA onto white matches Pillow paste(mask=alpha) for every gray
   const flat = flattenRgbaOverWhite(rgba);
   assert.equal(flat.length, pillow.length);
   const mismatches: string[] = [];
-  for (let i = 0; i < pillow.length; i++) if (flat[i] !== pillow[i]) mismatches.push(`pixel ${i / 3 | 0} channel ${i % 3}: ${flat[i]} != ${pillow[i]}`);
+  for (let i = 0; i < pillow.length; i++)
+    if (flat[i] !== pillow[i]) mismatches.push(`pixel ${(i / 3) | 0} channel ${i % 3}: ${flat[i]} != ${pillow[i]}`);
   assert.deepEqual(mismatches.slice(0, 5), [], `${mismatches.length} mismatches`);
 });
 
-test('the thumbnail decode path yields 255 for gray 128 at alpha 1 over white, as Pillow does', async () => {
+void test('the thumbnail decode path yields 255 for gray 128 at alpha 1 over white, as Pillow does', async () => {
   const { flattenRgbaOverWhite } = await import('../../../src/figma-compare.ts');
-  const png = await sharp(Buffer.from([128, 128, 128, 1]), { raw: { width: 1, height: 1, channels: 4 } }).png().toBuffer();
+  const png = await sharp(Buffer.from([128, 128, 128, 1]), { raw: { width: 1, height: 1, channels: 4 } })
+    .png()
+    .toBuffer();
   const raw = await sharp(png).ensureAlpha().raw().toBuffer();
   assert.deepEqual([...flattenRgbaOverWhite(new Uint8Array(raw))], [255, 255, 255]);
 });

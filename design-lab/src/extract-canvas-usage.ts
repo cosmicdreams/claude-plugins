@@ -1,14 +1,14 @@
 /** Count published Canvas page placements and configured content-template nodes (port of extract_canvas_usage.ts). */
-import { readdirSync, readFileSync } from "node:fs";
-import { join, relative, sep } from "node:path";
-import { isDeepStrictEqual, parseArgs } from "node:util";
-import { validate, writeArtifact } from "./contracts.ts";
-import { configSync, docroot } from "./detect.ts";
-import type {Usage} from "./generated/usage.ts";
-import type {Components} from "./generated/components.ts";
-import type {UsageInventory,UsageEntry,UsageSource} from "./usage-types.ts";
-import { load } from "./extract-sdc.ts";
-import { toolVersion } from "./figma-receipts.ts";
+import { readdirSync, readFileSync } from 'node:fs';
+import { join, relative, sep } from 'node:path';
+import { isDeepStrictEqual, parseArgs } from 'node:util';
+import { validate, writeArtifact } from './contracts.ts';
+import { configSync, docroot } from './detect.ts';
+import type { Usage } from './generated/usage.ts';
+import type { Components } from './generated/components.ts';
+import type { UsageInventory, UsageEntry, UsageSource } from './usage-types.ts';
+import { load } from './extract-sdc.ts';
+import { toolVersion } from './figma-receipts.ts';
 import {
   TIERS,
   isDict,
@@ -21,8 +21,8 @@ import {
   splitlines,
   truthy,
   usageTier,
-} from "./extract-drupal-usage.ts";
-import type { Runner } from "./extract-drupal-usage.ts";
+} from './extract-drupal-usage.ts';
+import type { Runner } from './extract-drupal-usage.ts';
 
 export const PLACEMENTS_SQL = `
 SELECT c.bundle, c.deleted, c.entity_id, c.revision_id, c.langcode, c.delta,
@@ -35,8 +35,7 @@ JOIN canvas_page_field_data p ON p.id=c.entity_id
  AND p.revision_id=c.revision_id AND p.langcode=c.langcode
 WHERE c.deleted=0 AND p.status=1;
 `;
-export const PAGES_SQL =
-  "SELECT DISTINCT id, revision_id FROM canvas_page_field_data WHERE status=1;";
+export const PAGES_SQL = 'SELECT DISTINCT id, revision_id FROM canvas_page_field_data WHERE status=1;';
 export const ALIASES_SQL = `
 SELECT path, alias FROM path_alias WHERE status=1
  AND langcode IN ('en','und') AND path REGEXP '^/page/[0-9]+$';
@@ -57,25 +56,17 @@ export function parseSqlqRows(output: string, columns: number): string[][] {
   const rows: string[][] = [];
   splitlines(output).forEach((line, index) => {
     if (!line.trim()) return;
-    const row = line.replace(/\r+$/, "").split("\t");
+    const row = line.replace(/\r+$/, '').split('\t');
     if (row.length !== columns)
-      throw new Error(
-        `sqlq row ${index + 1}: expected ${columns} columns, got ${row.length}`,
-      );
+      throw new Error(`sqlq row ${index + 1}: expected ${columns} columns, got ${row.length}`);
     rows.push(row);
   });
   return rows;
 }
 
-export function sqlqRows(
-  root: string,
-  sql: string,
-  columns: number,
-  run: Runner = spawnRunner,
-): string[][] {
-  const result = run("ddev", ["drush", "sqlq", sql.trim()], root);
-  if (result.status !== 0)
-    throw new Error("DDEV database query failed: " + result.stderr.trim());
+export function sqlqRows(root: string, sql: string, columns: number, run: Runner = spawnRunner): string[][] {
+  const result = run('ddev', ['drush', 'sqlq', sql.trim()], root);
+  if (result.status !== 0) throw new Error('DDEV database query failed: ' + result.stderr.trim());
   return parseSqlqRows(result.stdout, columns);
 }
 
@@ -101,7 +92,7 @@ function twigFiles(folder: string): string[] {
     for (const entry of entries) {
       const path = join(dir, entry.name);
       if (entry.isDirectory()) visit(path);
-      else if (entry.name.endsWith(".twig")) found.push(path);
+      else if (entry.name.endsWith('.twig')) found.push(path);
     }
   };
   visit(folder);
@@ -109,38 +100,28 @@ function twigFiles(folder: string): string[] {
 }
 
 /** Find literal SDC references in the active theme's Twig files. */
-export function scanThemeTemplates(
-  root: string,
-  components: UsageInventory,
-): Record<string, TwigRef[]> {
+export function scanThemeTemplates(root: string, components: UsageInventory): Record<string, TwigRef[]> {
   const web = docroot(root);
   const names = new Set<string>(
-    (components["components"] || [])
-      .map((component) => component["sourceSdcId"])
-      .filter((value):value is string=>typeof value==='string'),
+    (components['components'] || [])
+      .map((component) => component['sourceSdcId'])
+      .filter((value): value is string => typeof value === 'string'),
   );
-  const providers = new Set(
-    [...names]
-      .filter((name) => name.includes(":"))
-      .map((name) => name.split(":", 1)[0]!),
-  );
+  const providers = new Set([...names].filter((name) => name.includes(':')).map((name) => name.split(':', 1)[0]!));
   const refs: Record<string, TwigRef[]> = {};
   for (const provider of [...providers].sort(compareStrings)) {
-    const theme = join(web, "themes", "custom", provider);
-    const paths = [
-      ...twigFiles(join(theme, "templates")),
-      ...twigFiles(join(theme, "components")),
-    ].sort(comparePaths);
+    const theme = join(web, 'themes', 'custom', provider);
+    const paths = [...twigFiles(join(theme, 'templates')), ...twigFiles(join(theme, 'components'))].sort(comparePaths);
     for (const path of paths) {
-      const file = relative(root, path).split(sep).join("/"),
-        themeRelative = relative(theme, path).split(sep).join("/");
+      const file = relative(root, path).split(sep).join('/'),
+        themeRelative = relative(theme, path).split(sep).join('/');
       const globalTemplate =
         /^templates\/(?:layout\/page[^/]*\.html\.twig|(?:[^/]+\/)?html\.html\.twig|(?:[^/]+\/)?region--[^/]*\.html\.twig)$/.test(
           themeRelative,
         );
-      splitlines(readFileSync(path, "utf8")).forEach((line, index) => {
+      splitlines(readFileSync(path, 'utf8')).forEach((line, index) => {
         for (const match of line.matchAll(TWIG_SDC)) {
-          const sdcId = match[1] + ":" + match[2];
+          const sdcId = match[1] + ':' + match[2];
           if (names.has(sdcId))
             (refs[sdcId] ??= []).push({
               file,
@@ -159,7 +140,7 @@ export function collectRows(
   ddevRoot: string,
   project?: string | null,
   run: Runner = spawnRunner,
-): Required<Pick<CanvasRows, "placements" | "pages" | "aliases">> {
+): Required<Pick<CanvasRows, 'placements' | 'pages' | 'aliases'>> {
   const root = resolveReal(ddevRoot);
   describeProject(root, project, run);
   return {
@@ -178,23 +159,23 @@ export function templateRows(root: string): string[][] {
     .sort(compareStrings);
   for (const name of files) {
     const path = join(config, name),
-      raw:unknown = load(path),
-      data=isDict(raw)?raw:{};
-    if (data["status"] === false) continue;
-    const entries = truthy(data["component_tree"])
-      ? data["component_tree"]
-      : {};
-    for (const entry of Object.values(isDict(entries)?entries:{})) {
+      raw: unknown = load(path),
+      data = isDict(raw) ? raw : {};
+    if (data['status'] === false) continue;
+    const entries = truthy(data['component_tree']) ? data['component_tree'] : {};
+    for (const entry of Object.values(isDict(entries) ? entries : {})) {
       if (
         isDict(entry) &&
-        typeof entry["component_id"]==='string' && truthy(entry["component_id"]) &&
-        typeof data["id"]==='string' && typeof data["content_entity_type_bundle"]==='string'
+        typeof entry['component_id'] === 'string' &&
+        truthy(entry['component_id']) &&
+        typeof data['id'] === 'string' &&
+        typeof data['content_entity_type_bundle'] === 'string'
       )
         rows.push([
-          entry["component_id"],
-          data["id"],
-          data["content_entity_type_bundle"],
-          relative(root, path).split(sep).join("/"),
+          entry['component_id'],
+          data['id'],
+          data['content_entity_type_bundle'],
+          relative(root, path).split(sep).join('/'),
         ]);
     }
   }
@@ -202,18 +183,27 @@ export function templateRows(root: string): string[][] {
 }
 
 /** Pure row reducer. `rows` contains query and content-template fixture rows. */
-export function buildUsage(
-  components: UsageInventory,
-  rows: CanvasRows,
-  source: UsageSource,
-) {
-  const inventory = components["components"] || [],
-    ids = new Set(inventory.map((component) => component["id"]));
-  const aliases = new Map(
-    (rows.aliases ?? []).map(([path, alias]) => [path!, alias!]),
-  );
+export function buildUsage(components: UsageInventory, rows: CanvasRows, source: UsageSource) {
+  const inventory = components['components'] || [],
+    ids = new Set(inventory.map((component) => component['id']));
+  const aliases = new Map((rows.aliases ?? []).map(([path, alias]) => [path!, alias!]));
   const twigRefs = rows.twig_refs ?? {};
-  const usage = new Map<string, Required<Pick<UsageEntry,'placements'|'structuralRefs'|'templatePlacements'|'pages'|'exampleCandidates'|'templateBundles'|'templateRefs'>>&UsageEntry>(),
+  const usage = new Map<
+      string,
+      Required<
+        Pick<
+          UsageEntry,
+          | 'placements'
+          | 'structuralRefs'
+          | 'templatePlacements'
+          | 'pages'
+          | 'exampleCandidates'
+          | 'templateBundles'
+          | 'templateRefs'
+        >
+      > &
+        UsageEntry
+    >(),
     pages = new Map<string, Set<string>>();
   const entry = (id: string) => {
     let value = usage.get(id);
@@ -240,82 +230,59 @@ export function buildUsage(
     return found;
   };
   for (const row of rows.placements ?? []) {
-    if (row.length < 13)
-      throw new Error("Canvas placement row has fewer than 13 columns");
+    if (row.length < 13) throw new Error('Canvas placement row has fewer than 13 columns');
     const [, deleted, pageId, , , , parent, , , componentId] = row;
-    if (deleted !== "0") continue;
-    entry(componentId!)[parent ? "structuralRefs" : "placements"] += 1;
+    if (deleted !== '0') continue;
+    entry(componentId!)[parent ? 'structuralRefs' : 'placements'] += 1;
     pagesOf(componentId!).add(pageId!);
   }
   for (const [componentId, , bundle, reference] of rows.templates ?? []) {
     const value = entry(componentId!);
-    value["placements"] += 1;
-    value["templatePlacements"] += 1;
-    if (!value["templateBundles"].includes(bundle!))
-      value["templateBundles"].push(bundle!);
-    if (!value["templateRefs"].includes(reference!))
-      value["templateRefs"].push(reference!);
+    value['placements'] += 1;
+    value['templatePlacements'] += 1;
+    if (!value['templateBundles'].includes(bundle!)) value['templateBundles'].push(bundle!);
+    if (!value['templateRefs'].includes(reference!)) value['templateRefs'].push(reference!);
   }
   const numeric = (text: string): boolean => /^\d+$/.test(text);
   for (const component of inventory) {
-    const id: string = component["id"],
+    const id: string = component['id'],
       value = entry(id),
       pageIds = [...pagesOf(id)];
-    value["pages"] = pageIds.length;
+    value['pages'] = pageIds.length;
     pageIds.sort((a, b) =>
-      numeric(a) && numeric(b)
-        ? Number(a) - Number(b)
-        : numeric(a)
-          ? -1
-          : numeric(b)
-            ? 1
-            : compareStrings(a, b),
+      numeric(a) && numeric(b) ? Number(a) - Number(b) : numeric(a) ? -1 : numeric(b) ? 1 : compareStrings(a, b),
     );
-    value["exampleCandidates"] = pageIds
-      .slice(0, 3)
-      .map((item) => aliases.get("/page/" + item) ?? "/page/" + item);
-    const sdc: string | undefined = component["sourceSdcId"];
-    for (const reference of sdc !== undefined && Object.hasOwn(twigRefs, sdc)
-      ? twigRefs[sdc]!
-      : [])
-      if (
-        !value["templateRefs"].some((have: unknown) =>
-          isDeepStrictEqual(have, reference),
-        )
-      )
-        value["templateRefs"].push(reference!);
-    value["globalTemplate"] = value["templateRefs"].some(
-      (ref) =>
-        ref &&
-        typeof ref === "object" &&
-        !Array.isArray(ref) &&
-        truthy(ref.global),
+    value['exampleCandidates'] = pageIds.slice(0, 3).map((item) => aliases.get('/page/' + item) ?? '/page/' + item);
+    const sdc: string | undefined = component['sourceSdcId'];
+    for (const reference of sdc !== undefined && Object.hasOwn(twigRefs, sdc) ? twigRefs[sdc]! : [])
+      if (!value['templateRefs'].some((have: unknown) => isDeepStrictEqual(have, reference)))
+        value['templateRefs'].push(reference);
+    value['globalTemplate'] = value['templateRefs'].some(
+      (ref) => ref && typeof ref === 'object' && !Array.isArray(ref) && truthy(ref.global),
     );
   }
-  const extra = [...usage.keys()]
-    .filter((id) => !ids.has(id))
-    .sort(compareStrings);
+  const extra = [...usage.keys()].filter((id) => !ids.has(id)).sort(compareStrings);
   const problems = extra.length
     ? [
         {
-          check: "component-in-placements-not-in-inventory",
-          detail: "Canvas contains components absent from the inventory",
+          check: 'component-in-placements-not-in-inventory',
+          detail: 'Canvas contains components absent from the inventory',
           evidence: extra,
         },
       ]
     : [];
   const document: Usage = {
-    standardVersion: "3.0.0",
+    standardVersion: '3.0.0',
     toolVersion: toolVersion(),
     generatedAt: now(),
     source: {
       ...source,
-      strategy: "canvas-db",
-      scope: "published Canvas pages, current revisions and content templates",
+      strategy: 'canvas-db',
+      scope: 'published Canvas pages, current revisions and content templates',
       definitions: {
-        placements: "top-level page placements plus template nodes",
-        structuralRefs: "nested page placements",
-        templatePlacements: "one per content-template tree entry",
+        placements: 'top-level page placements plus template nodes',
+        structuralRefs: 'nested page placements',
+        templatePlacements: 'one per content-template tree entry',
       },
       population: {
         publishedPages: (rows.pages ?? []).length,
@@ -323,14 +290,11 @@ export function buildUsage(
         templateNodes: (rows.templates ?? []).length,
       },
     },
-    usage: Object.fromEntries(
-      [...usage].sort((a, b) => compareStrings(a[0], b[0])),
-    ),
+    usage: Object.fromEntries([...usage].sort((a, b) => compareStrings(a[0], b[0]))),
     problems,
   };
-  const errors = validate("usage", document);
-  if (errors.length)
-    throw new Error("invalid Canvas usage: " + errors.join("; "));
+  const errors = validate('usage', document);
+  if (errors.length) throw new Error('invalid Canvas usage: ' + errors.join('; '));
   return document;
 }
 
@@ -351,35 +315,30 @@ export function extract(
 }
 
 export function mergeCanvasUsage(components: Components, document: Usage, high?: number, medium?: number): Components;
-export function mergeCanvasUsage(components: UsageInventory, document: Usage, high?: number, medium?: number): UsageInventory;
 export function mergeCanvasUsage(
   components: UsageInventory,
   document: Usage,
-  high = 50,
-  medium = 10,
-): UsageInventory {
+  high?: number,
+  medium?: number,
+): UsageInventory;
+export function mergeCanvasUsage(components: UsageInventory, document: Usage, high = 50, medium = 10): UsageInventory {
   const merged = mergeUsage(components, document, high, medium);
-  for (const component of merged["components"]) {
-    const evidence = component["usage"]!;
-    evidence["structuralReferences"] = evidence["structuralRefs"]??null;
-    evidence["source"] = "canvas-db";
+  for (const component of merged['components']) {
+    const evidence = component['usage']!;
+    evidence['structuralReferences'] = evidence['structuralRefs'] ?? null;
+    evidence['source'] = 'canvas-db';
     let tier: string;
-    if (evidence["globalTemplate"]) {
+    if (evidence['globalTemplate']) {
       tier = TIERS.high;
-      evidence["tierReason"] = "referenced by a global theme template";
-    } else if (truthy(evidence["templateRefs"]) || evidence["renderedPages"]) {
-      tier = usageTier(
-        evidence["placements"]??0,
-        Math.max(1, evidence["structuralRefs"]??0),
-        high,
-        medium,
-      );
-      evidence["tierReason"] = truthy(evidence["templateRefs"])
-        ? "referenced by a theme or content template"
-        : "observed on a public rendered page";
-    } else tier = evidence["tier"]??TIERS.retirement;
-    evidence["tier"] = tier;
-    component["category"] = tier;
+      evidence['tierReason'] = 'referenced by a global theme template';
+    } else if (truthy(evidence['templateRefs']) || evidence['renderedPages']) {
+      tier = usageTier(evidence['placements'] ?? 0, Math.max(1, evidence['structuralRefs'] ?? 0), high, medium);
+      evidence['tierReason'] = truthy(evidence['templateRefs'])
+        ? 'referenced by a theme or content template'
+        : 'observed on a public rendered page';
+    } else tier = evidence['tier'] ?? TIERS.retirement;
+    evidence['tier'] = tier;
+    component['category'] = tier;
   }
   return merged;
 }
@@ -389,45 +348,35 @@ export function main(argv = process.argv.slice(2)): void {
     args: argv,
     allowPositionals: true,
     options: {
-      "ddev-root": { type: "string" },
-      "ddev-project": { type: "string" },
-      output: { type: "string" },
-      "merge-components": { type: "string" },
-      high: { type: "string", default: "50" },
-      medium: { type: "string", default: "10" },
+      'ddev-root': { type: 'string' },
+      'ddev-project': { type: 'string' },
+      output: { type: 'string' },
+      'merge-components': { type: 'string' },
+      high: { type: 'string', default: '50' },
+      medium: { type: 'string', default: '10' },
     },
   });
-  if (!positionals[0] || !values["ddev-root"] || !values.output)
+  if (!positionals[0] || !values['ddev-root'] || !values.output)
     throw new Error(
-      "usage: extract-canvas-usage.ts COMPONENTS --ddev-root DIR --output FILE [--ddev-project NAME] [--merge-components FILE]",
+      'usage: extract-canvas-usage.ts COMPONENTS --ddev-root DIR --output FILE [--ddev-project NAME] [--merge-components FILE]',
     );
-  const components: Components = JSON.parse(readFileSync(positionals[0], "utf8"));
-  const document = extract(
-    values["ddev-root"],
-    components,
-    values["ddev-project"],
-  );
-  writeArtifact("usage", values.output, document);
-  if (values["merge-components"])
+  const components: Components = JSON.parse(readFileSync(positionals[0], 'utf8'));
+  const document = extract(values['ddev-root'], components, values['ddev-project']);
+  writeArtifact('usage', values.output, document);
+  if (values['merge-components'])
     writeArtifact(
-      "components",
-      values["merge-components"],
-      mergeCanvasUsage(
-        components,
-        document,
-        Number(values.high),
-        Number(values.medium),
-      ),
+      'components',
+      values['merge-components'],
+      mergeCanvasUsage(components, document, Number(values.high), Number(values.medium)),
     );
-  const entries = Object.values(document["usage"]),
-    total = (key: 'placements'|'structuralRefs'): number =>
-      entries.reduce((sum, value) => sum + value[key], 0);
+  const entries = Object.values(document['usage']),
+    total = (key: 'placements' | 'structuralRefs'): number => entries.reduce((sum, value) => sum + value[key], 0);
   console.log(
     JSON.stringify({
       components: entries.length,
-      publishedPages: document["source"].population?.publishedPages,
-      placements: total("placements"),
-      structuralRefs: total("structuralRefs"),
+      publishedPages: document['source'].population?.publishedPages,
+      placements: total('placements'),
+      structuralRefs: total('structuralRefs'),
     }),
   );
 }

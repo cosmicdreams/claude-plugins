@@ -3,8 +3,7 @@
  * defaults to python3. The snippet receives its input as the JSON object on stdin, with the
  * `scripts` folder already on sys.path. */
 import { spawnSync } from 'node:child_process';
-import { resolve } from 'node:path';
-import { oracleScripts,oracleExecutable } from '../oracle.ts';
+import { oracleScripts, oracleExecutable } from '../oracle.ts';
 
 export const PYTHON = oracleExecutable;
 
@@ -13,7 +12,7 @@ _input = json.load(sys.stdin)
 sys.path.insert(0, _input['scripts'])
 `;
 
-export function pyJson<T = any>(body: string, input: Record<string, unknown> = {}): T {
+export function pyJson<T = unknown>(body: string, input: Record<string, unknown> = {}): T {
   const run = spawnSync(PYTHON, ['-I', '-B', '-c', PREAMBLE + body], {
     input: JSON.stringify({ scripts: oracleScripts, ...input }),
     encoding: 'utf8',

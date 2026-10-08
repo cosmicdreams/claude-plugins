@@ -16,13 +16,21 @@ for (const [entry, args, expected] of [
   ['src/fonts.ts', [], /usage: fonts.ts/],
   ['src/render-payload.ts', ['hash'], /^[a-f0-9]+/],
   ['src/responsive.ts', [], /usage: responsive.ts SPEC.json/],
-] as const) test(`phase 5 entrypoint executes through symlink: ${entry}`, () => {
-  const root = mkdtempSync('/tmp/design-lab-p5-entry-');
-  try {
-    const link = resolve(root, 'plugin'); symlinkSync(pluginRoot, link);
-    const direct = spawnSync(process.execPath, [resolve(pluginRoot, entry), ...args], { encoding: 'utf8', timeout: 10000 });
-    assert.match(direct.stdout + direct.stderr, expected, 'positive control');
-    const linked = spawnSync(process.execPath, [resolve(link, entry), ...args], { encoding: 'utf8', timeout: 10000 });
-    assert.equal(linked.status, direct.status, linked.stderr); assert.match(linked.stdout + linked.stderr, expected);
-  } finally { rmSync(root, { recursive: true, force: true }); }
-});
+] as const)
+  void test(`phase 5 entrypoint executes through symlink: ${entry}`, () => {
+    const root = mkdtempSync('/tmp/design-lab-p5-entry-');
+    try {
+      const link = resolve(root, 'plugin');
+      symlinkSync(pluginRoot, link);
+      const direct = spawnSync(process.execPath, [resolve(pluginRoot, entry), ...args], {
+        encoding: 'utf8',
+        timeout: 10000,
+      });
+      assert.match(direct.stdout + direct.stderr, expected, 'positive control');
+      const linked = spawnSync(process.execPath, [resolve(link, entry), ...args], { encoding: 'utf8', timeout: 10000 });
+      assert.equal(linked.status, direct.status, linked.stderr);
+      assert.match(linked.stdout + linked.stderr, expected);
+    } finally {
+      rmSync(root, { recursive: true, force: true });
+    }
+  });

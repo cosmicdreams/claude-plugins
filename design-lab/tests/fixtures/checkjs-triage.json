@@ -972,7 +972,7 @@
       "evidence": [
         {
           "file": "design-lab/scripts/render/build_responsive.ts",
-          "needle": "satisfies [RegExp,VariableScope[]][]",
+          "needle": "satisfies [RegExp, VariableScope[]][]",
           "claim": "Each matcher and scope list is represented as a tuple with Figma scope literals."
         }
       ],
@@ -991,7 +991,7 @@
       "evidence": [
         {
           "file": "design-lab/scripts/render/build_responsive.ts",
-          "needle": "satisfies [RegExp,VariableScope[]][]",
+          "needle": "satisfies [RegExp, VariableScope[]][]",
           "claim": "Each matcher and scope list is represented as a tuple with Figma scope literals."
         }
       ],
@@ -1618,7 +1618,7 @@
       "evidence": [
         {
           "file": "design-lab/scripts/render/build_responsive.ts",
-          "needle": "parent: FrameNode|ComponentNode",
+          "needle": "parent: FrameNode | ComponentNode",
           "claim": "Component construction requires a child-capable parent."
         }
       ],
@@ -1960,7 +1960,7 @@
       "evidence": [
         {
           "file": "design-lab/scripts/render/build_responsive.ts",
-          "needle": "parent: FrameNode|ComponentNode",
+          "needle": "parent: FrameNode | ComponentNode",
           "claim": "Component construction requires a child-capable parent."
         }
       ],

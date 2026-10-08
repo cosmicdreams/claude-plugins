@@ -1,19 +1,44 @@
 #!/usr/bin/env node
 /** Publish immutable complete installs; never run npm inside a published folder. */
-import { existsSync, copyFileSync, mkdirSync, mkdtempSync, renameSync, rmSync, readdirSync, writeFileSync, rmdirSync, unlinkSync } from 'node:fs';
+import {
+  existsSync,
+  copyFileSync,
+  mkdirSync,
+  mkdtempSync,
+  renameSync,
+  rmSync,
+  readdirSync,
+  writeFileSync,
+  rmdirSync,
+  unlinkSync,
+} from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { spawn } from 'node:child_process';
 import { setTimeout } from 'node:timers/promises';
-import { dependencyFolder, dependenciesReady, completionMarker, pluginRoot, sharedRequire, chromiumFolder } from '../src/runtime.ts';
+import {
+  dependencyFolder,
+  dependenciesReady,
+  completionMarker,
+  pluginRoot,
+  sharedRequire,
+  chromiumFolder,
+} from '../src/runtime.ts';
 
 const folder = dependencyFolder();
 const lock = `${folder}.lock`;
 mkdirSync(dirname(folder), { recursive: true });
 
-function code(error: unknown): string | undefined { return (error as NodeJS.ErrnoException).code; }
+function code(error: unknown): string | undefined {
+  return (error as NodeJS.ErrnoException).code;
+}
 function alive(pid: number): boolean {
-  try { process.kill(pid, 0); return true; }
-  catch (error) { if (code(error) === 'ESRCH') return false; throw error; }
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch (error) {
+    if (code(error) === 'ESRCH') return false;
+    throw error;
+  }
 }
 /** A prepared nonempty directory is atomically renamed to claim the lock. Stale
  * recovery only unlinks the observed dead owner's file and removes EMPTY dirs,
@@ -31,23 +56,43 @@ async function acquire(lockPath = lock): Promise<() => void> {
         return () => {
           unlinkSync(resolve(lock, owner));
           // A waiter may already have replaced the now-empty lock directory.
-          try { rmdirSync(lock); } catch (error) { if (!['ENOENT', 'ENOTEMPTY'].includes(code(error) ?? '')) throw error; }
+          try {
+            rmdirSync(lock);
+          } catch (error) {
+            if (!['ENOENT', 'ENOTEMPTY'].includes(code(error) ?? '')) throw error;
+          }
         };
       } catch (error) {
         if (!['EEXIST', 'ENOTEMPTY'].includes(code(error) ?? '')) throw error;
       }
       let owners: string[];
-      try { owners = readdirSync(lock); } catch (error) { if (code(error) === 'ENOENT') continue; throw error; }
+      try {
+        owners = readdirSync(lock);
+      } catch (error) {
+        if (code(error) === 'ENOENT') continue;
+        throw error;
+      }
       for (const name of owners) {
         const pid = Number(name.replace(/\.json$/, ''));
         if (!Number.isSafeInteger(pid) || pid <= 0 || alive(pid)) continue;
-        try { unlinkSync(resolve(lock, name)); } catch (error) { if (code(error) !== 'ENOENT') throw error; }
+        try {
+          unlinkSync(resolve(lock, name));
+        } catch (error) {
+          if (code(error) !== 'ENOENT') throw error;
+        }
       }
-      try { rmdirSync(lock); } catch (error) { if (!['ENOTEMPTY', 'ENOENT'].includes(code(error) ?? '')) throw error; }
-      if (Date.now() >= deadline) throw new Error(`Timed out waiting for design-lab setup lock ${lock}; another setup may still be running.`);
+      try {
+        rmdirSync(lock);
+      } catch (error) {
+        if (!['ENOTEMPTY', 'ENOENT'].includes(code(error) ?? '')) throw error;
+      }
+      if (Date.now() >= deadline)
+        throw new Error(`Timed out waiting for design-lab setup lock ${lock}; another setup may still be running.`);
       await setTimeout(50);
     }
-  } finally { rmSync(candidate, { recursive: true, force: true }); }
+  } finally {
+    rmSync(candidate, { recursive: true, force: true });
+  }
 }
 
 // --production remains compatible, but always includes dev packages. One complete
@@ -58,19 +103,28 @@ if (!dependenciesReady(folder)) {
   try {
     if (!dependenciesReady(folder)) {
       stage = mkdtempSync(`${folder}.install-`);
-      for (const name of ['package.json', 'package-lock.json']) copyFileSync(resolve(pluginRoot, name), resolve(stage, name));
+      for (const name of ['package.json', 'package-lock.json'])
+        copyFileSync(resolve(pluginRoot, name), resolve(stage, name));
       const installer = spawn('npm', ['ci', '--include=dev', '--no-audit', '--no-fund'], {
-        cwd: stage, stdio: 'inherit', env: { ...process.env, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1' },
+        cwd: stage,
+        stdio: 'inherit',
+        env: { ...process.env, PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD: '1' },
       });
       const status = await new Promise<number>((done, reject) => {
         installer.once('error', reject);
-        installer.once('exit', (status, signal) => signal ? reject(new Error(`npm ci interrupted by ${signal}`)) : done(status ?? 1));
+        installer.once('exit', (status, signal) =>
+          signal ? reject(new Error(`npm ci interrupted by ${signal}`)) : done(status ?? 1),
+        );
       });
       if (status !== 0) throw new Error(`npm ci failed with exit code ${status}; no dependency install was published.`);
       writeFileSync(resolve(stage, completionMarker), 'complete\n');
       // An incomplete target is never usable by this runtime. Preserve it for
       // inspection; completed targets are never moved, deleted, or reinstalled.
-      try { renameSync(folder, `${stage}.incomplete`); } catch (error) { if (code(error) !== 'ENOENT') throw error; }
+      try {
+        renameSync(folder, `${stage}.incomplete`);
+      } catch (error) {
+        if (code(error) !== 'ENOENT') throw error;
+      }
       renameSync(stage, folder);
     }
   } finally {
@@ -81,23 +135,53 @@ if (!dependenciesReady(folder)) {
 console.log(`design-lab dependencies: ${folder}`);
 
 if (process.argv.includes('--chromium')) {
-  const browser = chromiumFolder(), marker = resolve(browser, completionMarker);
+  const browser = chromiumFolder(),
+    marker = resolve(browser, completionMarker);
   mkdirSync(dirname(browser), { recursive: true });
   const release = await acquire(`${browser}.lock`);
   let stage: string | undefined;
   try {
-    const probe = () => spawn('node', ['-e', "const fs=require('node:fs'),p=require('playwright');process.exit(fs.existsSync(p.chromium.executablePath())?0:1)"], { cwd: folder, env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browser }, stdio: 'ignore' });
-    const complete = existsSync(marker) && await new Promise<boolean>((done, reject) => { const child = probe(); child.once('error', reject); child.once('exit', status => done(status === 0)); });
+    const probe = () =>
+      spawn(
+        'node',
+        [
+          '-e',
+          "const fs=require('node:fs'),p=require('playwright');process.exit(fs.existsSync(p.chromium.executablePath())?0:1)",
+        ],
+        { cwd: folder, env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: browser }, stdio: 'ignore' },
+      );
+    const complete =
+      existsSync(marker) &&
+      (await new Promise<boolean>((done, reject) => {
+        const child = probe();
+        child.once('error', reject);
+        child.once('exit', (status) => done(status === 0));
+      }));
     if (!complete) {
       stage = mkdtempSync(`${browser}.install-`);
       const cli = resolve(dirname(sharedRequire().resolve('playwright/package.json')), 'cli.js');
-      const installer = spawn(process.execPath, [cli, 'install', 'chromium'], { env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: stage }, stdio: 'inherit' });
-      const status = await new Promise<number>((done, reject) => { installer.once('error', reject); installer.once('exit', (status, signal) => signal ? reject(new Error(`Chromium setup interrupted by ${signal}`)) : done(status ?? 1)); });
+      const installer = spawn(process.execPath, [cli, 'install', 'chromium'], {
+        env: { ...process.env, PLAYWRIGHT_BROWSERS_PATH: stage },
+        stdio: 'inherit',
+      });
+      const status = await new Promise<number>((done, reject) => {
+        installer.once('error', reject);
+        installer.once('exit', (status, signal) =>
+          signal ? reject(new Error(`Chromium setup interrupted by ${signal}`)) : done(status ?? 1),
+        );
+      });
       if (status !== 0) throw new Error(`Chromium setup failed (${status}); no browser install was published`);
       writeFileSync(resolve(stage, completionMarker), 'complete\n');
-      try { renameSync(browser, `${stage}.incomplete`); } catch (error) { if (code(error) !== 'ENOENT') throw error; }
+      try {
+        renameSync(browser, `${stage}.incomplete`);
+      } catch (error) {
+        if (code(error) !== 'ENOENT') throw error;
+      }
       renameSync(stage, browser);
     }
-  } finally { if (stage) rmSync(stage, { recursive: true, force: true }); release(); }
+  } finally {
+    if (stage) rmSync(stage, { recursive: true, force: true });
+    release();
+  }
   console.log(`design-lab Chromium: ${browser}`);
 }
