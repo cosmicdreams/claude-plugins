@@ -14,7 +14,8 @@ Anything that goes wrong before the command runs refuses it (exit 126): the guar
 that goes wrong after it ran quarantines the main worktrees it was tied to.
 
 Usage:
-  run.py --command <base64 command> --state <file>   the Bash tool's command; final directory to <file>
+  run.py --stdin --state <file>                      the Bash tool's command, on stdin; final directory to <file>
+  run.py --command <base64 command> --state <file>   the same, from a mod loaded before --stdin existed
   run.py --argv <base64 JSON argument vector>         another plugin's $.process.run / spawn
 """
 from __future__ import annotations
@@ -491,20 +492,30 @@ def changed_since(root: str, stamp: str, before: dict) -> str | None:
 
 # ---- running --------------------------------------------------------------------------------------
 
-def run(argv: list[str]) -> int:
-    child = subprocess.Popen(argv)
+def run(argv: list[str], stdin=None) -> int:
+    child = subprocess.Popen(argv, stdin=stdin)
     for sig in (signal.SIGTERM, signal.SIGINT, signal.SIGHUP):
         signal.signal(sig, lambda number, _frame: child.send_signal(number))
     status = child.wait()
     return 128 - status if status < 0 else status  # a signal reads as the shell reports it
 
 
+def shell(command: str, state: str) -> list[str]:
+    # The final directory is written on any exit, `exit` inside the command included.
+    script = 'trap \'pwd >"$__gr_state"\' EXIT; eval "$1"'
+    return ["/usr/bin/env", f"__gr_state={state}", "/bin/zsh", "-c", script, "golden-rule", command]
+
+
 def prepare(args: list[str]) -> tuple[list[str], str]:
+    if len(args) == 3 and args[0] == "--stdin" and args[1] == "--state":
+        # The command is the body of the wrapper's heredoc, which ends in the one newline it adds.
+        command = sys.stdin.buffer.read().decode()
+        if not command.endswith("\n"):
+            raise Refused("the command did not arrive whole")
+        return shell(command[:-1], args[2]), command[:-1]
     if len(args) == 4 and args[0] == "--command" and args[2] == "--state":
-        command, state = base64.b64decode(args[1]).decode(), args[3]
-        # The final directory is written on any exit, `exit` inside the command included.
-        script = 'trap \'pwd >"$__gr_state"\' EXIT; eval "$1"'
-        return ["/usr/bin/env", f"__gr_state={state}", "/bin/zsh", "-c", script, "golden-rule", command], command
+        command = base64.b64decode(args[1]).decode()
+        return shell(command, args[3]), command
     if len(args) == 2 and args[0] == "--argv":
         inner = json.loads(base64.b64decode(args[1]).decode())
         if not isinstance(inner, list) or not inner or not all(isinstance(item, str) for item in inner):
@@ -539,7 +550,8 @@ def main() -> int:
         fd, stamp = tempfile.mkstemp(prefix="golden-rule-stamp")
         os.close(fd)
         time.sleep(0.01)  # file times have a coarse grain: let the stamp be strictly older than any change
-    status = run(sandbox)
+    # The heredoc was this process's input; the command gets none, as the Bash tool gives none.
+    status = run(sandbox, subprocess.DEVNULL if sys.argv[1] == "--stdin" else None)
     # From here the command has run: nothing below may report it as not run.
     try:
         if observe(policy, watch, stamp, before, text):

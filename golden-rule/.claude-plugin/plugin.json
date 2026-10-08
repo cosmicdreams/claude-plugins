@@ -1,6 +1,6 @@
 {
     "name": "golden-rule",
-    "version": "0.1.0",
+    "version": "0.1.1",
     "description": "Main is never the operating surface: a mod that keeps every write out of <project>/worktrees/main and sends changes through feature worktrees and pull requests.",
     "author": {
         "name": "Chris Weber"

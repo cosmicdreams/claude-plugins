@@ -2,7 +2,7 @@
 import { describe, expect, test } from 'claude-code/testing'
 
 import { governedGitPath, mainWorktreeOf, normalize, pathLiterals, placed, relativeMainTokens } from '../../hooks/mod/paths'
-import { wrapCommand } from '../../hooks/mod/shell'
+import { delimiterFor, wrapCommand } from '../../hooks/mod/shell'
 
 const tree = new Set(['/', '/p', '/p/worktrees', '/p/worktrees/main', '/p/worktrees/main/.git', '/p/worktrees/main/src',
   '/p/worktrees/main/src/main', '/p/worktrees/feat', '/p/worktrees/feat/.git', '/p/worktrees/feat/src', '/p/worktrees/feat/src/main'])
@@ -48,9 +48,18 @@ describe('git metadata and tokens', () => {
     expect(relativeMainTokens('cd ../main && cat README.md src/main.ts')).toEqual(['../main'])
   })
 
-  test('the wrapper never carries the command in clear text', () => {
-    const wrapped = wrapCommand('/plugin', "echo 'quoted' && rm -rf x")
-    expect(wrapped).not.toContain('rm -rf')
-    expect(wrapped).toContain("'/plugin/hooks/sandbox/run.py'")
+  test("the wrapper carries the command verbatim in a quoted heredoc, for other plugins' hooks to read", () => {
+    const command = "echo 'quoted' && rm -rf x"
+    const wrapped = wrapCommand('/plugin', command)
+    expect(wrapped).toContain(`<<'GOLDEN_RULE_EOF'\n${command}\nGOLDEN_RULE_EOF\n`)
+    expect(wrapped).toContain("'/plugin/hooks/sandbox/run.py' --stdin")
+    expect(wrapped.startsWith('__gr=$(/usr/bin/mktemp -t golden-rule)')).toBe(true)
+  })
+
+  test("the heredoc's delimiter is no line of the command", () => {
+    expect(delimiterFor('echo GOLDEN_RULE_EOF')).toBe('GOLDEN_RULE_EOF')
+    expect(delimiterFor('cat <<X\nGOLDEN_RULE_EOF\nGOLDEN_RULE_EOF_1\nX')).toBe('GOLDEN_RULE_EOF_2')
+    // The shells end a heredoc only on an exact line: these near misses stay body text.
+    for (const line of ['GOLDEN_RULE_EOF\r', 'GOLDEN_RULE_EOF ', '\tGOLDEN_RULE_EOF']) expect(delimiterFor(line)).toBe('GOLDEN_RULE_EOF')
   })
 })
