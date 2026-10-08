@@ -24,7 +24,7 @@ test('visual fidelity requires registered capture files and a passing live compa
     const builds = resolve(root, 'builds'); mkdirSync(builds);
     writeFileSync(resolve(builds, 'hero.json'), JSON.stringify({ id: 'hero', visualEvidence: { captureFiles: ['hero.png'], comparison: { verdict: 'fail' } } }));
     const report = run({ components: [], cards: [], collections: [], pages: [] }, { builds, captureEvidence: { captures: {} } });
-    assert.deepEqual(report.open.filter(f => f.check.startsWith('visual-') || f.check === 'master-matches-capture').map(f => f.check), ['visual-evidence-present', 'master-matches-capture']);
+    assert.deepEqual(report.open.filter(f => f.check?.startsWith('visual-') || f.check === 'master-matches-capture').map(f => f.check), ['visual-evidence-present', 'master-matches-capture']);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
 
@@ -273,7 +273,7 @@ test('receipt contract requires source anatomy, breakpoint triad, and nested ins
         { name: 'field_items', accepts: ['paragraph:item'] },
       ] }] },
     });
-    assert.deepEqual(report.open.filter(f => ['documentation-anatomy', 'breakpoint-triad', 'nested-component-coverage'].includes(f.check)).map(f => f.check),
+    assert.deepEqual(report.open.filter(f => ['documentation-anatomy', 'breakpoint-triad', 'nested-component-coverage'].includes(f.check!)).map(f => f.check),
       ['documentation-anatomy', 'breakpoint-triad', 'nested-component-coverage']);
   } finally { rmSync(root, { recursive: true, force: true }); }
 });
@@ -305,7 +305,7 @@ test('font receipts report planned stand-ins, actual drawn family, and ignore un
     } }));
     const report = run({ components: [], cards: [], collections: [] }, { builds });
     const standIn = report.open.find(f => f.check === 'fonts-stand-in');
-    assert.ok(standIn?.detail.includes("Courier and Suisse Int'l drawn in Cousine and Inter"));
+    assert.ok(standIn?.detail?.includes("Courier and Suisse Int'l drawn in Cousine and Inter"));
     const standEvidence = standIn?.evidence as string[];
     assert.ok(standEvidence[0]?.includes('Courier -> Cousine'));
     assert.ok(standEvidence[0]?.includes('the plan now names Courier New'));
