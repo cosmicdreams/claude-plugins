@@ -5,7 +5,7 @@ import { dirname, join } from 'node:path';
 import { sharedRequire } from '../../src/runtime.ts';
 import * as S from '../../src/score-run.ts';
 import { counts, coverageSentence } from '../../src/library-counts.ts';
-import { tokens, elapsedTime } from '../../src/run-metrics.ts';
+import { tokens, elapsedTime, obj } from '../../src/run-metrics.ts';
 import type { Json } from '../../src/run-metrics.ts';
 const sharp = sharedRequire()('sharp') as typeof import('sharp').default;
 
@@ -24,8 +24,8 @@ const noServer = async () => ({ stopped: false, pid: null });
 const stubRender = async () => '<html>report</html>';
 
 /** A manifest as 0.14 wrote it: no run identity block. */
-function legacyProject(extra: Json = {}): Json {
-  return { schemaVersion: 1, standardVersion: '4.0.0', pluginVersion: '0.14.0', createdAt: '2026-01-05T10:00:00+00:00',
+function legacyProject<E extends object=Record<never,never>>(extra: E = {} as E) {
+  return { schemaVersion: 1 as const, standardVersion: '4.0.0', pluginVersion: '0.14.0', createdAt: '2026-01-05T10:00:00+00:00',
     repository: { root: '/repo/mytheme', commit: 'abc1234def', dirty: false },
     target: { figmaFileKey: 'KEY1', figmaUrl: 'https://www.figma.com/design/KEY1' },
     decisions: { componentSource: 'sdc', tokenSource: 'css-custom-properties', usageSource: 'none' },
@@ -104,22 +104,22 @@ function entry(kind: string, at: string, extra: Json = {}): Json {
 test('accuracy keeps the original metric and adds the corrected one', async () => {
   const run = await makeRun(root), card = await S.score(run, quiet);
   assert.deepEqual(S.validateScorecard(card), []);
-  const acc = card.sections['accuracy'] as Json;
+  const acc = card.sections['accuracy'];
   assert.equal(acc['status'], 'measured');
-  assert.equal(acc['overall']['original']['pass'], 2); // height ignored
-  assert.equal(acc['overall']['corrected']['pass'], 1); // mobile now fails
-  assert.equal(acc['byBreakpoint']['mobile']['heightDelta']['over10px'], 1);
-  const pair = acc['pairs'].find((p: Json) => p['breakpoint'] === 'mobile');
-  assert.deepEqual([pair['figmaHeight'], pair['liveHeight']], [50, 80]);
+  assert.equal(acc!['overall']!['original']!['pass']!, 2); // height ignored
+  assert.equal(acc!['overall']!['corrected']!['pass']!, 1); // mobile now fails
+  assert.equal(acc!['byBreakpoint']!['mobile']!['heightDelta']!['over10px']!, 1);
+  const pair = acc!['pairs']!.find!((p) => p['breakpoint'] === 'mobile');
+  assert.deepEqual([pair!['figmaHeight']!, pair!['liveHeight']!], [50, 80]);
   assert.ok(card.headline.highlights.some(h => h.startsWith('Biggest single gap: Card at mobile is 30 px shorter')));
 });
 
 test('missing evidence is not measured, with a reason', async () => {
-  const sections = (await S.score(await makeRun(root), quiet)).sections as Json;
-  for (const name of ['conformance', 'schemaChurn']) { assert.equal(sections[name]['status'], 'not-measured'); assert.ok(sections[name]['reason']); }
+  const sections = (await S.score(await makeRun(root), quiet)).sections;
+  for (const name of (['conformance', 'schemaChurn'] as const)) { assert.equal(sections[name]['status'], 'not-measured'); assert.ok(sections[name]['reason']); }
   assert.ok(!('interventions' in sections['cost']));
   assert.equal(sections['cost']['clock']['wallSeconds'], null); // no benchmark step recorded
-  assert.match(sections['cost']['clock']['notShownBecause'], /benchmark/);
+  assert.match(sections['cost']['clock']['notShownBecause'] ?? '', /benchmark/);
   assert.equal(sections['cost']['working']['status'], 'not-measured');
   assert.equal(sections['cost']['model']['status'], 'not-measured');
   assert.equal(sections['repeatability']['status'], 'not-measured');
@@ -128,20 +128,20 @@ test('missing evidence is not measured, with a reason', async () => {
 });
 
 test('runner sessions, step time and errors come from the runner log', async () => {
-  const runner = ((await S.score(await makeRun(root), quiet)).sections as Json)['cost']['runner'];
-  assert.equal(runner['sessions'].length, 2);
-  assert.deepEqual([runner['sessions'][0]['steps'], runner['sessions'][0]['seconds']], [2, 12]);
+  const runner = obj(((await S.score(await makeRun(root), quiet)).sections)['cost']['runner']);
+  assert.equal(runner!['sessions']!.length!, 2);
+  assert.deepEqual([runner!['sessions']![0]!['steps']!, runner!['sessions']![0]!['seconds']!], [2, 12]);
   assert.equal(runner['errors'], 1);
-  assert.equal(runner['secondsByKind']['build'], 10);
+  assert.equal(runner!['secondsByKind']!['build']!, 10);
 });
 
 test('schema churn: a recorded change, and a confirmed absence of one', async () => {
   const run = await makeRun(root);
   write(join(run, 'project.json'), legacyProject({ run: { schemaChurn: { changed: true, changes: [{ at: '2026-01-05T10:40:00+00:00', text: 'new slot kind' }] } } }));
-  let churn = ((await S.score(run, quiet)).sections as Json)['schemaChurn'];
-  assert.deepEqual([churn['status'], churn['changed'], churn['changes'][0]['text']], ['measured', true, 'new slot kind']);
+  let churn = ((await S.score(run, quiet)).sections)['schemaChurn'];
+  assert.deepEqual([churn['status'], churn['changed'], churn['changes']![0]!['text']], ['measured', true, 'new slot kind']);
   write(join(run, 'project.json'), legacyProject({ run: { schemaChurn: { changed: false } } }));
-  churn = ((await S.score(run, quiet)).sections as Json)['schemaChurn'];
+  churn = ((await S.score(run, quiet)).sections)['schemaChurn'];
   assert.deepEqual([churn['status'], churn['changed']], ['measured', false]);
 });
 
@@ -155,12 +155,12 @@ test('coverage counts eligible components and usage-weighted placements', async 
   write(join(run, 'figma/state.json'), { planned: ['a', 'b'], done: ['build:a', 'block:a', 'build:b'] });
   // usage.json also saw something outside the inventory; it must not enter the totals
   write(join(run, 'usage.json'), { usage: { a: { placements: 6, structuralRefs: 1 }, 'stray.script': { placements: 5, structuralRefs: 0 } } });
-  const card = await S.score(run, quiet), cov = (card.sections as Json)['coverage'];
+  const card = await S.score(run, quiet), cov = {...card.sections.coverage,usageWeighted:obj(card.sections.coverage.usageWeighted)};
   assert.deepEqual([cov['found'], cov['eligible'], cov['built'], cov['ratio']], [5, 3, 1, 0.3333]);
   assert.deepEqual(cov['gap'], { refused: 1, failed: 1, unplanned: 0 });
   assert.deepEqual(cov['excluded'], { retirement: 1, 'schema-only': 1, 'not-visual': 0 });
-  assert.equal(cov['usageWeighted']['ratio'], 0.75);
-  assert.deepEqual([cov['usageWeighted']['structuralCovered'], cov['usageWeighted']['structuralRefs']], [1, 4]);
+  assert.equal(cov!['usageWeighted']!['ratio']!, 0.75);
+  assert.deepEqual([cov!['usageWeighted']!['structuralCovered']!, cov!['usageWeighted']!['structuralRefs']!], [1, 4]);
   assert.deepEqual(cov['outsideInventory'], [{ id: 'stray.script', placements: 5, structural: 0 }]);
   assert.equal(card.headline.coverage!['placements'], 0.75);
   assert.equal(cov['summary'], 'Built 1 of 3 components it could have built (33%).');
@@ -216,12 +216,12 @@ test('copied phases are not scoring checkpoints, and the phase log times only th
     foundation: { status: 'complete', updatedAt: '2026-01-05T10:01:00Z' } } });
   const fallback = S.phaseTimings(root, project)!;
   assert.equal(fallback['spanSeconds'], 60);
-  assert.deepEqual(fallback['checkpoints'].map((r: Json) => r['phase']), ['foundation']);
+  assert.deepEqual(fallback['checkpoints'].map((r) => r['phase']), ['foundation']);
   lines(join(root, 'phase-log.jsonl'), [{ at: '2026-01-05T09:00:00+00:00', phase: 'init', status: 'complete' },
     { at: '2026-01-05T10:00:05+00:00', phase: 'foundation', status: 'complete' }]);
   const timings = S.phaseTimings(root, project)!;
   assert.equal(timings['source'], 'phase log');
-  assert.deepEqual(timings['phases'].map((r: Json) => r['phase']), ['foundation']);
+  assert.deepEqual(timings!['phases']!.map!((r) => r['phase']), ['foundation']);
   assert.equal(timings['totalSeconds'], 5);
 });
 
@@ -245,10 +245,10 @@ test('transcript tokens are deduplicated and windowed', async () => {
     { type: 'assistant', timestamp: '2026-01-05T10:05:01Z', sessionId: 's1', message: { id: 'm1', model: 'claude-test', usage, content: [{ type: 'tool_use', id: 't1' }] } },
     { type: 'assistant', timestamp: '2025-12-01T10:00:00Z', sessionId: 's0', message: { id: 'm0', model: 'claude-test', usage, content: [] } },
     { type: 'user', timestamp: '2026-01-05T10:06:00Z', message: {} }]);
-  const model = ((await S.score(run, { ...quiet, transcripts: folder })).sections as Json)['cost']['model'];
+  const model = ((await S.score(run, { ...quiet, transcripts: folder })).sections)['cost']['model'];
   assert.equal(model['status'], 'measured');
   assert.deepEqual([model['assistantMessages'], model['toolCalls'], model['sessions']], [1, 1, 1]);
-  assert.equal(model['tokens']['total'], 115);
+  assert.equal(model!['tokens']!['total']!, 115);
   assert.ok(model['caveat']);
 });
 
@@ -265,15 +265,15 @@ test('a named session counts only itself and its subagents, by model; an unknown
   write(join(run, 'project.json'), legacyProject({ run: { claude: { configDir: config } } }));
   const card = await S.score(run, { ...quiet, session: 'sess-1' });
   assert.deepEqual(S.validateScorecard(card), []);
-  const model = (card.sections as Json)['cost']['model'];
+  const model = (card.sections)['cost']['model'];
   assert.equal(model['files'], 2); // main plus subagent, not the other session
   assert.deepEqual(model['configDirs'], [S.realpath(config)]);
-  const [opus, haiku] = model['byModel'];
-  assert.deepEqual([opus.name, opus.input, opus.output, opus.cacheWrite, opus.cacheRead, opus.total, opus.turns, opus.toolCalls], ['Opus 5.5', 20, 40, 60, 80, 200, 2, 3]);
-  assert.deepEqual([haiku.name, haiku.total, haiku.turns, haiku.toolCalls], ['Haiku 4.5', 10, 1, 1]);
-  assert.equal(model['tokens']['total'], 210);
+  const [opus, haiku] = model['byModel']!;
+  assert.deepEqual([opus!.name!, opus!.input!, opus!.output!, opus!.cacheWrite!, opus!.cacheRead!, opus!.total!, opus!.turns!, opus!.toolCalls!], ['Opus 5.5', 20, 40, 60, 80, 200, 2, 3]);
+  assert.deepEqual([haiku!.name!, haiku!.total!, haiku!.turns!, haiku!.toolCalls!], ['Haiku 4.5', 10, 1, 1]);
+  assert.equal(model!['tokens']!['total']!, 210);
   assert.deepEqual(card.headline.effort['tokensByModel'], [{ name: 'Opus 5.5', total: 200 }, { name: 'Haiku 4.5', total: 10 }]);
-  const unknown = ((await S.score(run, { ...quiet, session: 'no-such-session' })).sections as Json)['cost']['model'];
+  const unknown = ((await S.score(run, { ...quiet, session: 'no-such-session' })).sections)['cost']['model'];
   assert.equal(unknown['status'], 'not-measured');
 });
 
@@ -287,11 +287,11 @@ test('the benchmark step splits wall time and tokens', async () => {
     text.at(-1)!.replace('2020-01-01T00:00:00Z', '2020-01-01T00:05:00Z')].join('\n') + '\n');
   const sub = join(dirname(main), 'sess-1/subagents/agent-1.jsonl');
   writeFileSync(sub, readFileSync(sub, 'utf8').replace('2020-01-01T00:00:00Z', '2019-12-31T23:45:00Z'));
-  const card = await S.score(run, { ...quiet, session: 'sess-1' }), cost = (card.sections as Json)['cost'];
+  const card = await S.score(run, { ...quiet, session: 'sess-1' }), cost = (card.sections)['cost'];
   assert.deepEqual(S.validateScorecard(card), []);
   assert.deepEqual([cost.clock.wallSeconds, cost.clock.libraryWallSeconds, cost.clock.benchmarkWallSeconds, cost.clock.benchmarkEndSource], [4200, 3540, 660, 'phase log']);
-  assert.deepEqual(cost.model.production.byModel.map((r: Json) => [r['name'], r['turns']]), [['Opus 5.5', 1], ['Haiku 4.5', 1]]);
-  assert.deepEqual(cost.model.benchmark.byModel.map((r: Json) => [r['name'], r['turns'], r['total']]), [['Opus 5.5', 1, 100]]);
+  assert.deepEqual(cost!.model!.production!.byModel!.map!((r) => [r['name'], r['turns']]), [['Opus 5.5', 1], ['Haiku 4.5', 1]]);
+  assert.deepEqual(cost!.model!.benchmark!.byModel!.map!((r) => [r['name'], r['turns'], r['total']]), [['Opus 5.5', 1, 100]]);
   assert.deepEqual(card.headline.effort['benchmarkTokensByModel'], [{ name: 'Opus 5.5', total: 100 }]);
 });
 
@@ -302,9 +302,9 @@ test('only Claude models are counted, and tool input never reaches the completio
     entry('result', '2026-01-05T10:01:00Z', x), entry('reply', '2026-01-05T10:01:10Z', { ...x, model: 'other-model-1' }), entry('reply', '2026-01-05T10:01:20Z', x)]);
   write(join(run, 'project.json'), legacyProject({ run: { claude: { configDir: config, model: 'other-model-1' } } }));
   const result = await S.writeScore(run, { ...quiet, session: 'sess-x', out: join(root, 'out'), render: stubRender, stopServer: noServer });
-  const model = (result.scorecard.sections as Json)['cost']['model'];
-  assert.deepEqual(model['byModel'].map((r: Json) => r['name']), ['Opus 5.5']);
-  assert.equal(model['developer']['unattributedEntries'], 1);
+  const model = (result.scorecard.sections)['cost']['model'];
+  assert.deepEqual(model!['byModel']!.map!((r) => r['name']), ['Opus 5.5']);
+  assert.equal(model!['developer']!['unattributedEntries']!, 1);
   for (const hidden of ['other-model-1', 'example-cli']) assert.ok(!result.message!.includes(hidden));
 });
 
@@ -317,7 +317,7 @@ test('a line whose message is not an object is skipped', () => {
     { type: 'assistant', timestamp: '2026-09-29T10:00:09Z', message: { model: 'claude-opus-5-5', content: [{ type: 'text', text: 'done' }], usage: { output_tokens: 3 } } }]);
   assert.equal(S.workingTime([f], null, null)['status'], 'measured');
   const usage = S.transcriptUsage([f], null, null);
-  assert.deepEqual([usage['assistantMessages'], usage['tokens']['output']], [1, 3]);
+  assert.deepEqual([usage['assistantMessages'], usage['tokens']!['output']], [1, 3]);
 });
 
 // ---------------------------------------------------------------------------- the benchmark's end
@@ -349,7 +349,7 @@ test('the first scoring fixes the benchmark end and stops the server; a re-score
   assert.equal(stops, 1);
   // Even a later start written straight into the log never moves the first pair.
   writeFileSync(join(run, 'phase-log.jsonl'), readFileSync(join(run, 'phase-log.jsonl'), 'utf8') + JSON.stringify({ at: '2099-01-01T00:00:00+00:00', phase: 'benchmark', status: 'running' }) + '\n');
-  assert.equal(((await S.score(run, quiet)).sections as Json)['cost']['clock']['wallSeconds'], clock.wallSeconds);
+  assert.equal(((await S.score(run, quiet)).sections)['cost']['clock']['wallSeconds'], clock.wallSeconds);
 });
 
 test('writeScore writes outside the run or into its benchmark folder only, atomically', async () => {
@@ -375,7 +375,7 @@ test('an ambiguous current session is named for developers', async () => {
   const warned: string[] = [];
   const card = await S.score(run, { session: 'current', warn: m => warned.push(m) });
   assert.match(warned[0]!, /--session current chose newer/);
-  assert.match((card.sections as Json)['cost']['developer']['sessionWarning'], /newest of 2 sessions/);
+  assert.match((card.sections)['cost']['developer']!['sessionWarning'] ?? '', /newest of 2 sessions/);
 });
 
 // ---------------------------------------------------------------------------- working time
@@ -393,14 +393,14 @@ async function workingRun(): Promise<{ run: string; config: string; main: string
   return { run, config, main };
 }
 const subagent = (main: string) => join(main.replace(/\.jsonl$/, ''), 'subagents/agent-1.jsonl');
-const cost = async (run: string): Promise<Json> => ((await S.score(run, { ...quiet, session: 'sess-w' })).sections as Json)['cost'];
+const cost = async (run: string) => ((await S.score(run, { ...quiet, session: 'sess-w' })).sections)['cost'];
 const connectLog = (run: string, ...entries: Json[]) => lines(join(run, 'phase-log.jsonl'), [
   { at: '2026-01-05T10:00:30+00:00', phase: 'preflight', status: 'complete' }, ...entries, { at: '2026-01-05T11:00:00+00:00', phase: 'benchmark', status: 'running' }]);
 
 test('working spans, waits and subagent overlap partition the transcript span', async () => {
   const { run } = await workingRun(), card = await S.score(run, { ...quiet, session: 'sess-w' });
   assert.deepEqual(S.validateScorecard(card), []);
-  const work = (card.sections as Json)['cost']['working'];
+  const work = (card.sections)['cost']['working'];
   assert.equal(work.spanSeconds, 5430);
   assert.equal(work.workingSeconds, 150 + 40 + 30);
   assert.equal(work.waitingOnLimitsSeconds, 48 * 60);
@@ -428,7 +428,7 @@ test('a question to the person is waiting, not working, and partial access is re
   const work = (await cost(run))['working'];
   assert.deepEqual([work.workingSeconds, work.waitingOnPersonSeconds], [10 + 60 + 10, 300 - 60]);
   assert.equal(work.questionsToPerson, 1);
-  assert.deepEqual(work.developer.permissionModes, { default: 1 });
+  assert.deepEqual(work!.developer!.permissionModes!, { default: 1 });
   assert.equal(work.fullAccess, false);
 });
 
@@ -444,9 +444,9 @@ test('interruptions after the preflight go-ahead are counted with their phase', 
   write(join(run, 'project.json'), legacyProject({ run: { claude: { configDir: config } }, phases: { preflight: { status: 'complete', detail: { planApproval: 'proposed' } } } }));
   const result = await S.writeScore(run, { ...quiet, session: 'sess-w', out: join(root, 'out'), render: stubRender, stopServer: noServer });
   assert.equal(result.code, 0);
-  const attended = (result.scorecard.sections as Json)['cost']['unattended'];
+  const attended = (result.scorecard.sections)['cost']['unattended'];
   assert.deepEqual([attended.count, attended.ranUnattended], [2, false]);
-  assert.deepEqual(attended.interruptions.map((i: Json) => [i['kind'], i['phase']]), [['question', 'capture'], ['turn ended and waited for a prompt', 'capture']]);
+  assert.deepEqual(attended!.interruptions!.map!((i) => [i['kind'], i['phase']]), [['question', 'capture'], ['turn ended and waited for a prompt', 'capture']]);
   assert.match(result.message!, /Ran unattended after preflight: no, 2 interruptions: a question during capture; a turn that waited for a prompt during capture\./);
 });
 
@@ -467,9 +467,9 @@ test('the wait for a runner connection is planned until it completes', async () 
     entry('prompt', '2026-01-05T10:25:00Z', { text: 'runner started' }), entry('reply', '2026-01-05T10:26:00Z')]);
   connectLog(run, { at: '2026-01-05T10:05:00+00:00', phase: 'connect', status: 'waiting', reason: 'runner connection' },
     { at: '2026-01-05T10:25:00+00:00', phase: 'connect', status: 'complete' });
-  const attended = (await cost(run))['unattended'], questions = attended.interruptions.filter((i: Json) => i['kind'] === 'question');
+  const attended = (await cost(run))['unattended'], questions = attended!.interruptions!.filter!((i) => i['kind'] === 'question');
   assert.equal(questions.length, 1);
-  assert.equal(questions[0].planned, true);
+  assert.equal(questions![0]!.planned!, true);
   assert.deepEqual([attended.count, attended.ranUnattended], [0, true]);
   assert.equal(S.unattendedPhrase(attended), 'yes');
 });
@@ -481,7 +481,7 @@ test('a runner that never connects is an unplanned stop', async () => {
     { at: '2026-01-05T10:30:00+00:00', phase: 'connect', status: 'stopped', reason: 'runner not connected' });
   const attended = (await cost(run))['unattended'];
   assert.equal(attended.count, 1);
-  assert.equal(attended.interruptions.find((i: Json) => String(i['kind']).startsWith('stopped:')).planned, false);
+  assert.equal(attended!.interruptions!.find!!((i) => String(i['kind']).startsWith('stopped:'))!.planned, false);
 });
 
 test('a failed connection closes its wait; a retry keeps the first attempt\'s', async () => {
@@ -492,7 +492,7 @@ test('a failed connection closes its wait; a retry keeps the first attempt\'s', 
     { at: '2026-01-05T10:30:00+00:00', phase: 'connect', status: 'stopped', reason: 'runner not connected' },
     { at: '2026-01-05T10:35:00+00:00', phase: 'capture', status: 'running' });
   let attended = (await cost(run))['unattended'];
-  assert.deepEqual(attended.interruptions.slice(0, 3).map((i: Json) => [i['kind'], i['planned']]),
+  assert.deepEqual(attended!.interruptions!.slice!(0, 3).map((i) => [i['kind'], i['planned']]),
     [['question', true], ['stopped: runner not connected', false], ['question', false]]);
 
   lines(main, [entry('prompt', '2026-01-05T10:00:00Z'), entry('ask', '2026-01-05T10:10:00Z'), entry('answer', '2026-01-05T10:11:00Z'),
@@ -500,31 +500,31 @@ test('a failed connection closes its wait; a retry keeps the first attempt\'s', 
   connectLog(run, { at: '2026-01-05T10:05:00+00:00', phase: 'connect', status: 'waiting' }, { at: '2026-01-05T10:15:00+00:00', phase: 'connect', status: 'waiting' },
     { at: '2026-01-05T10:25:00+00:00', phase: 'connect', status: 'complete' });
   attended = (await cost(run))['unattended'];
-  assert.deepEqual(attended.interruptions.filter((i: Json) => i['kind'] === 'question').map((q: Json) => q['planned']), [true, true]);
+  assert.deepEqual(attended!.interruptions!.filter!((i) => i['kind'] === 'question').map((q) => q['planned']), [true, true]);
 });
 
 test('the wait ends when the connection completes, to the fraction of a second', async () => {
   const { run, main } = await workingRun();
   lines(main, [entry('prompt', '2026-01-05T10:00:00Z'), entry('ask', '2026-01-05T10:25:00.900Z'), entry('answer', '2026-01-05T10:26:00Z'), entry('reply', '2026-01-05T10:50:00Z')]);
   connectLog(run, { at: '2026-01-05T10:05:00+00:00', phase: 'connect', status: 'waiting' }, { at: '2026-01-05T10:25:00+00:00', phase: 'connect', status: 'complete' });
-  assert.equal((await cost(run))['unattended'].interruptions.find((i: Json) => i['kind'] === 'question').planned, false);
+  assert.equal((await cost(run))['unattended'].interruptions!.find((i) => i['kind'] === 'question')!.planned, false);
 });
 
 test('the benchmark start splits working time', async () => {
   const { run } = await workingRun();
   lines(join(run, 'phase-log.jsonl'), [{ at: '2026-01-05T11:30:00+00:00', phase: 'benchmark', status: 'running' }]);
   const work = (await cost(run))['working'];
-  assert.equal(work.production.workingSeconds, 190);
-  assert.equal(work.benchmark.workingSeconds, 30);
+  assert.equal(work!.production!.workingSeconds!, 190);
+  assert.equal(work!.benchmark!.workingSeconds!, 30);
   for (const part of [work.production, work.benchmark]) {
-    assert.equal(part.workingSeconds + part.waitingOnPersonSeconds + part.waitingOnLimitsSeconds + part.waitingOnServiceSeconds, part.spanSeconds);
+    assert.equal(part!.workingSeconds! + part!.waitingOnPersonSeconds! + part!.waitingOnLimitsSeconds! + part!.waitingOnServiceSeconds!, part!.spanSeconds!);
   }
 });
 
 test('without a transcript only measured intervals are shown', async () => {
   const { run } = await workingRun();
   const result = await S.writeScore(run, { ...quiet, out: join(root, 'out'), render: stubRender, stopServer: noServer });
-  assert.equal((result.scorecard.sections as Json)['cost']['working']['status'], 'not-measured');
+  assert.equal((result.scorecard.sections)['cost']['working']['status'], 'not-measured');
   assert.equal(result.scorecard.headline.effort['workingSeconds'], null);
   assert.equal(result.scorecard.headline.effort['buildSeconds'], 13); // the runner's own log
   assert.ok(!result.message!.includes('idle time'));
@@ -542,16 +542,18 @@ test('a rebuild, however its transcript is named, excludes other work in the con
   const end = S.parseTime('2026-01-05T10:12:00Z')!;
   for (const [sessionId, transcripts] of [['sess-w', null], ['current', null], [null, [main]], [null, [dirname(main)]]] as const) {
     const c = S.scoreCost(run, project, transcripts as string[] | null, null, null, sessionId, [end, end], () => {});
-    assert.equal(c['model']['tokens']['total'], 30, String(sessionId ?? transcripts));
+    assert.equal(c!['model']!['tokens']!['total']!, 30, String(sessionId ?? transcripts));
     assert.equal(c['model']['assistantMessages'], 2);
     assert.equal(c['working']['workingSeconds'], 60);
   }
   // A conversation containing only this run has exactly the same totals as before.
   lines(main, records.slice(2, 5));
   const rebuilt = S.scoreCost(run, project, null, null, null, 'sess-w', [end, end]);
-  delete project['run']['rebuiltFrom'];
+  const {rebuiltFrom,...withoutRebuild}=project.run;
+  Object.assign(project,{run:withoutRebuild});
+  delete (project.run as {rebuiltFrom?:unknown}).rebuiltFrom;
   const full = S.scoreCost(run, project, null, null, null, 'sess-w', [end, end]);
-  for (const key of ['tokens', 'byModel', 'assistantMessages', 'toolCalls', 'production', 'benchmark']) assert.deepEqual(rebuilt['model'][key], full['model'][key]);
+  for (const key of (['tokens', 'byModel', 'assistantMessages', 'toolCalls', 'production', 'benchmark'] as const)) assert.deepEqual(rebuilt['model'][key], full['model'][key]);
   assert.deepEqual(rebuilt['working'], full['working']);
 });
 

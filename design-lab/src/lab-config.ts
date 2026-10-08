@@ -4,7 +4,10 @@ import { basename, dirname, isAbsolute, resolve } from 'node:path';
 import { homedir } from 'node:os';
 import { writeJson } from './contracts.ts';
 
-export type Settings = Record<string, any>;
+export interface Settings {
+ runs?:{convention?:string;projectsFolders?:string[]};operator?:string;corpus?:string;scoreboard?:{ledger?:string;dashboard?:string};
+ runner?:{imported?:boolean};nodeCwd?:string;browserPath?:string;[key:string]:unknown;
+}
 export const CONVENTIONS = ['project', 'home'] as const;
 export const expand = (path: string): string => resolve(path.replace(/^~(?=\/|$)/, homedir()));
 export function configPath(): string {
@@ -21,11 +24,8 @@ export function writeConfig(value: Settings): string { const path = configPath()
 export function loadConfig(): { corpus: string; scoreboard: { ledger: string; dashboard: string } } {
   if (!existsSync(configPath())) throw new Error(`missing configuration file ${configPath()}; required keys: corpus, scoreboard.ledger, scoreboard.dashboard`);
   const value = readConfig();
-  for (const key of ['corpus', 'scoreboard.ledger', 'scoreboard.dashboard']) {
-    let item: any = value; for (const part of key.split('.')) item = item && typeof item === 'object' ? item[part] : null;
-    if (typeof item !== 'string' || !item.trim()) throw new Error(`${configPath()}: missing or invalid configuration key ${key}`);
-  }
-  return { corpus: expand(value.corpus), scoreboard: { ledger: expand(value.scoreboard.ledger), dashboard: expand(value.scoreboard.dashboard) } };
+  const required=(key:string,item:unknown):string=>{if(typeof item!=='string'||!item.trim())throw new Error(`${configPath()}: missing or invalid configuration key ${key}`);return expand(item);};
+  return {corpus:required('corpus',value.corpus),scoreboard:{ledger:required('scoreboard.ledger',value.scoreboard?.ledger),dashboard:required('scoreboard.dashboard',value.scoreboard?.dashboard)}};
 }
 export function repositoryRoot(start: string): string | null {
   for (let folder = resolve(start);;) { if (existsSync(resolve(folder, '.git'))) return folder; const parent = dirname(folder); if (parent === folder) return null; folder = parent; }
@@ -45,7 +45,7 @@ export function claudeAccountName(): string | null {
 }
 export function runsFolder(start: string, config = readConfig()): string {
   const convention = config.runs?.convention;
-  if (!CONVENTIONS.includes(convention)) throw new Error('design-lab has not been set up on this machine: run design-lab:init once, which decides where runs live (or give --workspace)');
+  if (!CONVENTIONS.some(c=>c===convention)) throw new Error('design-lab has not been set up on this machine: run design-lab:init once, which decides where runs live (or give --workspace)');
   if (convention === 'home') return resolve(homedir(), '.design', projectName(start));
   const folder = projectFolder(start);
   if (!folder) throw new Error(`cannot tell which folder holds the project for ${start}: create PROJECT/design, give --workspace, or switch design-lab:init to the home convention`);

@@ -27,9 +27,9 @@ test('thumbnail crop pads out-of-bounds black and flattens transparency onto whi
  await sharp(Buffer.from([0,0,0,0,255,0,0,255]),{raw:{width:2,height:1,channels:4}}).png().toFile(resolve(run,'figma/specimen.png'));
  writeFileSync(resolve(run,'figma/geometry.json'),JSON.stringify({geometry:{variants:[{x:-1,y:0,width:2,height:1}],captures:[{x:0,y:0,width:1,height:1}]}}));
  const result=await thumbnails(run,[{component:'button',breakpoint:'desktop',evidence:{specimen:'figma/specimen.png',geometry:'figma/geometry.json',index:0}}],'desktop');
- const shot=result.button!.live!;assert.equal(shot.w,1);assert.equal(shot.h,1);assert.equal(shot.cropped,false);
+ const shot=result['button']!['live']!;assert.equal(shot.w,1);assert.equal(shot.h,1);assert.equal(shot.cropped,false);
  const decoded=await sharp(Buffer.from(shot.src.split(',')[1]!,'base64')).removeAlpha().raw().toBuffer();assert.deepEqual([...decoded],[255,255,255]);
- const padding=result.button!.figma!;assert.equal(padding.w,2);rmSync(run,{recursive:true,force:true});
+ const padding=result['button']!['figma']!;assert.equal(padding.w,2);rmSync(run,{recursive:true,force:true});
 });
 
 

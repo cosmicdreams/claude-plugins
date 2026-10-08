@@ -12,6 +12,18 @@ import { basename, dirname, extname, isAbsolute, join, normalize, resolve, sep }
 import { homedir } from 'node:os';
 import { performance } from 'node:perf_hooks';
 import { assertValid, validate, writeJson } from './contracts.ts';
+import type {Fonts} from './generated/fonts.ts';
+import type {BuildRecord} from './generated/build-record.ts';
+import type {Components} from './generated/components.ts';
+import type {CaptureEvidence} from './generated/capture-evidence.ts';
+import type {Foundation} from './generated/foundation.ts';
+import type {Index} from './generated/index.ts';
+import type {Plan} from './generated/plan.ts';
+import type {VariablePlan} from './generated/variable-plan.ts';
+import type {BuildState} from './build-artifacts.ts';
+import type {PartialArtifact} from './verify-inputs.ts';
+import type {PhaseLogEntry,Detail} from './generated/phase-log-entry.ts';
+import type {Difference} from './compare-runs.ts';
 import type { Scorecard } from './generated/scorecard.ts';
 import { counts, tierTable } from './library-counts.ts';
 import { roundDecimal, roundEven } from './json.ts';
@@ -20,7 +32,7 @@ import {
   accuracyPairs, capitalize, commas, elapsedTime, fixed, globSorted, isDir, isFile, list, notMeasured, median, obj,
   or, pyStr, readJson, readJsonl, scoreAccuracy, scoreConformance, scoreCoverage, tokens, truthy,
 } from './run-metrics.ts';
-import type { Json } from './run-metrics.ts';
+import type { Json,ProjectView,Accuracy,AccuracyPair,RatioSummary,View } from './run-metrics.ts';
 
 export const SCORECARD_VERSION = 1;
 export const BENCHMARK_DIR = 'benchmark';
@@ -76,7 +88,7 @@ const seconds = (from: Time, to: Time): number => (to - from) / SECOND;
 const fromTimestamp = (value: number): Time => Math.round(value * SECOND);
 
 export function pluginVersion(): string {
-  return or(obj(readJson(resolve(pluginRoot, '.claude-plugin/plugin.json')))['version'], 'unknown');
+  return or(obj(readJson<{version:string}>(resolve(pluginRoot, '.claude-plugin/plugin.json')))['version'], 'unknown')!;
 }
 
 // ---------------------------------------------------------------------------- paths
@@ -114,16 +126,16 @@ const stemOf = (path: string): string => basename(withoutSuffix(path));
 
 // ---------------------------------------------------------------------------- identity
 
-export function scoreIdentity(runDir: string, project: Json | null, siteLabel?: string | null): Json {
+function scoreIdentityResult(runDir: string, project:ProjectView|null, siteLabel?: string | null) {
   if (!truthy(project)) return notMeasured('project.json is missing, so nothing identifies this run', 'start runs with workflow.ts init');
   const p = project!, run = obj(p['run']);
-  const capture = obj(readJson(resolve(runDir, 'capture-evidence.json')));
+  const capture = obj(readJson<PartialArtifact<CaptureEvidence>>(resolve(runDir, 'capture-evidence.json')));
   const canonical = capture['canonicalBaseUrl'] ?? null;
   const host = String(or(canonical, '')).replace(/^https?:\/\//, '').replace(/^\/+|\/+$/g, '') || null;
   const target = obj(p['target']), repository = obj(p['repository']), claude = obj(run['claude']), plugin = obj(run['plugin']);
-  const buildState = obj(readJson(resolve(runDir, 'figma/state.json')));
+  const buildState = obj(readJson<Partial<BuildState>>(resolve(runDir, 'figma/state.json')));
   const labelSource = siteLabel ? 'argument' : truthy(run['siteLabel']) ? 'manifest' : host ? 'public address' : 'repository folder';
-  const fields: Json = {
+  const fields = {
     siteLabel: or(siteLabel, run['siteLabel'], host, basename(String(or(repository['root'], runDir)))),
     siteLabelSource: labelSource,
     rebuiltFrom: run['rebuiltFrom'] ?? null,
@@ -144,9 +156,9 @@ export function scoreIdentity(runDir: string, project: Json | null, siteLabel?: 
     model: claude['model'] ?? null,
     strategies: Object.fromEntries(Object.entries(obj(p['decisions'])).filter(([k]) => ['componentSource', 'tokenSource', 'usageSource'].includes(k))),
   };
-  const missing = ['siteUrl', 'operator', 'pluginCommit', 'repositoryCommit', 'figmaFileKey', 'claudeConfigDir', 'model'].filter(k => !truthy(fields[k]));
+  const missing = ['siteUrl', 'operator', 'pluginCommit', 'repositoryCommit', 'figmaFileKey', 'claudeConfigDir', 'model'].filter(k => !truthy(fields[k as keyof typeof fields]));
   return {
-    status: truthy(run) && !missing.length ? 'measured' : 'partial',
+    status: truthy(run) && !missing.length ? 'measured' as const : 'partial' as const,
     summary: truthy(run) ? 'Run identity recorded at start.' : 'This run predates recorded run identity; details come from the manifest.',
     fields, missing, recordedAtStart: truthy(run) && !truthy(run['recordedLate']),
   };
@@ -158,7 +170,7 @@ const RUNNER_LINE = /^(\S+)\s+(serving|recorded|skipped|error:?)\s*(.*)$/;
 const LINES = /\r\n|[\n\r\v\f\x1c-\x1e\x85\u2028\u2029]/;
 
 /** The runner's own log: stretches of steps, their time by kind, errors and skips. */
-export function runnerSteps(log: string): Json | null {
+export function runnerSteps(log: string) {
   if (!isFile(log)) return null;
   const events: [Time, string, string][] = [];
   for (const line of readFileSync(log, 'utf8').split(LINES)) {
@@ -200,21 +212,21 @@ export function runnerSteps(log: string): Json | null {
   };
 }
 
-const runStart = (project: Json | null): Time | null => parseTime(or(obj(obj(project)['run'])['startedAt'], obj(project)['createdAt']));
+const runStart = (project:ProjectView|null): Time | null => parseTime(or(obj(obj(project)['run'])['startedAt'], obj(project)['createdAt']));
 
-export function phaseTimings(runDir: string, project: Json | null): Json | null {
+export function phaseTimings(runDir: string, project:ProjectView|null) {
   if (!truthy(project)) return null;
-  const log = readJsonl(resolve(runDir, 'phase-log.jsonl')), start = runStart(project);
+  const log = readJsonl<Partial<PhaseLogEntry>>(resolve(runDir,'phase-log.jsonl')), start = runStart(project);
   if (log.length) {
     const first = new Map<unknown, Time>(), last = new Map<unknown, Time>();
     for (const entry of log) {
       const when = parseTime(entry['at']), phase = entry['phase'];
       if (when === null || !truthy(phase) || phase === 'init') continue;
       if (!first.has(phase)) first.set(phase, when);
-      if (['complete', 'approved', 'waived'].includes(entry['status'])) last.set(phase, when);
+      if (['complete', 'approved', 'waived'].includes(pyStr(entry['status']))) last.set(phase, when);
     }
     // A phase starts when the previous phase ended (or when it was first touched).
-    const ordered = [...last].sort((a, b) => a[1] - b[1]), rows: Json[] = [];
+    const ordered = [...last].sort((a, b) => a[1] - b[1]), rows: {phase:unknown;start:string|null;end:string|null;seconds:number}[] = [];
     let previous = start;
     for (const [phase, end] of ordered) {
       const begin = Math.min(first.get(phase) ?? end, previous ?? end);
@@ -224,14 +236,14 @@ export function phaseTimings(runDir: string, project: Json | null): Json | null 
     return { source: 'phase log', exact: true, phases: rows,
       totalSeconds: ordered.length && start !== null ? Math.trunc(seconds(start, ordered.at(-1)![1])) : null };
   }
-  const checkpoints: Json[] = [];
+  const checkpoints: {phase:string;status:string|null;at:string|null}[] = [];
   for (const [phase, raw] of Object.entries(obj(project!['phases']))) {
     const value = obj(raw);
     if (truthy(value['from'])) continue;
     const when = parseTime(value['updatedAt']);
     if (when !== null) checkpoints.push({ phase, status: value['status'] ?? null, at: iso(when) });
   }
-  checkpoints.sort((a, b) => a['at'] < b['at'] ? -1 : a['at'] > b['at'] ? 1 : 0);
+  checkpoints.sort((a, b) => a['at']! < b['at']! ? -1 : a['at']! > b['at']! ? 1 : 0);
   if (!checkpoints.length) return null;
   const lastAt = parseTime(checkpoints.at(-1)!['at']);
   return { source: 'manifest checkpoints', exact: false, checkpoints, start: iso(start),
@@ -291,7 +303,7 @@ export function readMessages(files: string[], since: Time | null, until: Time | 
         continue;
       }
       const key = or(message['id'], entry['uuid'], `${path}:${messages.size}`);
-      if (!messages.has(key)) messages.set(key, { model, usage: {}, tools: new Set(), at: when, session: or(entry['sessionId'], stemOf(path)) });
+      if (!messages.has(key)) messages.set(key, { model:pyStr(model), usage: {}, tools: new Set(), at: when, session: or(entry['sessionId'], stemOf(path)) });
       const kept = messages.get(key)!;
       if (when !== null && (kept.at === null || when < kept.at)) kept.at = when;
       const usage = obj(message['usage']);
@@ -307,8 +319,8 @@ export function readMessages(files: string[], since: Time | null, until: Time | 
   return [...messages.values()];
 }
 
-export function byModel(messages: Message[]): Json {
-  const rows = new Map<string, Json>();
+export function byModel(messages: Message[]) {
+  const rows = new Map<string,ModelRow>();
   for (const item of messages) {
     if (!rows.has(item.model)) rows.set(item.model, { model: item.model, name: friendlyModel(item.model), input: 0, output: 0,
       cacheWrite: 0, cacheRead: 0, total: 0, turns: 0, toolCalls: 0 });
@@ -322,23 +334,23 @@ export function byModel(messages: Message[]): Json {
   }
   for (const row of rows.values()) row['total'] = row['input'] + row['output'] + row['cacheWrite'] + row['cacheRead'];
   const ordered = [...rows.values()].sort((a, b) => b['total'] - a['total']);
-  const sum = (key: string): number => ordered.reduce((n, r) => n + r[key], 0);
-  return { byModel: ordered, tokens: Object.fromEntries(['input', 'output', 'cacheWrite', 'cacheRead', 'total'].map(k => [k, sum(k)])),
+  const sum = (key:Exclude<keyof ModelRow,'name'|'model'>): number => ordered.reduce((n, r) => n + r[key], 0);
+  return { byModel: ordered, tokens: Object.fromEntries((['input', 'output', 'cacheWrite', 'cacheRead', 'total'] as const).map(k => [k, sum(k)])),
     turns: sum('turns'), toolCalls: sum('toolCalls') };
 }
 
 const BENCHMARK_HOW = 'record it with workflow.ts record --phase benchmark --status running before scoring';
 
 /** Tokens by model; with splitAt, also library production (before) and benchmark (after). */
-export function transcriptUsage(files: string[], since: Time | null, until: Time | null, splitAt: Time | null = null): Json {
+export function transcriptUsage(files: string[], since: Time | null, until: Time | null, splitAt: Time | null = null) {
   const unattributed = new Map<unknown, number>();
   const messages = readMessages(files, since, until, unattributed);
   const times = messages.map(m => m.at).filter((t): t is Time => t !== null), whole = byModel(messages);
-  const result: Json = {
+  const result:TranscriptUsage = {
     files: files.length, sessions: new Set(messages.map(m => m.session)).size,
     assistantMessages: messages.length, toolCalls: whole['toolCalls'],
     byModel: whole['byModel'], tokens: whole['tokens'],
-    models: Object.fromEntries(whole['byModel'].map((r: Json) => [r['name'], r['turns']])),
+    models: Object.fromEntries(whole['byModel'].map((r) => [r['name'], r['turns']])),
     configDirs: [...new Set(files.map(configDirOf).filter((d): d is string => !!d))].sort(),
     window: { since: iso(since), until: iso(until) },
     firstMessage: times.length ? iso(Math.min(...times)) : null,
@@ -347,10 +359,10 @@ export function transcriptUsage(files: string[], since: Time | null, until: Time
     developer: { unattributedEntries: unattributed.size },
   };
   if (splitAt !== null) {
-    result['production'] = { status: 'measured', ...byModel(messages.filter(m => m.at === null || m.at < splitAt)) };
-    result['benchmark'] = { status: 'measured', since: iso(splitAt), ...byModel(messages.filter(m => m.at !== null && m.at >= splitAt)) };
+    result['production'] = { status: 'measured' as const, ...byModel(messages.filter(m => m.at === null || m.at < splitAt)) };
+    result['benchmark'] = { status: 'measured' as const, since: iso(splitAt), ...byModel(messages.filter(m => m.at !== null && m.at >= splitAt)) };
   } else {
-    result['production'] = { status: 'measured', ...whole };
+    result['production'] = { status: 'measured' as const, ...whole };
     result['benchmark'] = notMeasured("the benchmark step's start was not recorded, so its tokens cannot be told apart", BENCHMARK_HOW);
   }
   return result;
@@ -397,7 +409,7 @@ export function apiWait(entry: Json): [string | null, Time | null] {
     const error = obj(entry['error']);
     if (error['status'] === 429) return ['limit', null];
     const message = or(error['message'], '');
-    if (error['status'] === 529 || (typeof message === 'string' ? message : JSON.stringify(message)).includes('overloaded_error')) return ['service', null];
+    if (error['status'] === 529 || (typeof message === 'string' ? message : JSON.stringify(message) ?? '').includes('overloaded_error')) return ['service', null];
   }
   return [null, null];
 }
@@ -429,13 +441,13 @@ export type Interval = [Time, Time];
 export function transcriptEvents(path: string, since: Time | null, until: Time | null, modes?: Map<unknown, number>): [Event[], Interval[]] {
   const events: Event[] = [], pending = new Map<unknown, Time>(), asks: Interval[] = [];
   for (const entry of readJsonl(path)) {
-    if (modes && truthy(entry['permissionMode']) && ['user', 'permission-mode'].includes(entry['type'])) modes.set(entry['permissionMode'], (modes.get(entry['permissionMode']) ?? 0) + 1);
+    if (modes && truthy(entry['permissionMode']) && ['user', 'permission-mode'].includes(pyStr(entry['type']))) modes.set(entry['permissionMode'], (modes.get(entry['permissionMode']) ?? 0) + 1);
     const when = parseTime(entry['timestamp']);
     if (when === null || (since !== null && when < since) || (until !== null && when > until)) continue;
     let [kind, resets] = apiWait(entry);
     const blocks = blocksOf(messageOf(entry)['content']);
     if (kind) { /* a wait */ } else if (entry['type'] === 'assistant') {
-      const calls = blocks.filter(b => b['type'] === 'tool_use'), asking = calls.filter(b => ASKS_PERSON.includes(b['name']));
+      const calls = blocks.filter(b => b['type'] === 'tool_use'), asking = calls.filter(b => ASKS_PERSON.includes(pyStr(b['name'])));
       for (const block of asking) pending.set(block['id'] ?? null, when);
       kind = asking.length ? 'ask' : calls.length ? 'step' : 'reply';
     } else if (entry['type'] === 'user') {
@@ -497,7 +509,7 @@ export const totalSeconds = (intervals: Interval[]): number => roundEven(interva
 
 /** Working time and the kinds of waiting, from a session's transcripts. Subagent spans overlap the
  * main session's; intervals are merged, so no second is counted twice. */
-export function workingTime(files: string[], since: Time | null, until: Time | null, splitAt: Time | null = null): Json {
+function workingTimeResult(files: string[], since: Time | null, until: Time | null, splitAt: Time | null = null) {
   let working: Interval[] = [], limits: Interval[] = [], service: Interval[] = [], first: Time | null = null, last: Time | null = null;
   const counted = new Map<string, number>(), modes = new Map<unknown, number>();
   for (const path of files) {
@@ -518,14 +530,14 @@ export function workingTime(files: string[], since: Time | null, until: Time | n
   working = union(working);
   limits = subtract(union(limits), working);
   service = subtract(subtract(union(service), working), limits);
-  const part = (start: Time, end: Time): Json => {
+  const part = (start: Time, end: Time) => {
     const span = roundEven(seconds(start, end)), w = totalSeconds(clip(working, start, end));
     const l = totalSeconds(clip(limits, start, end)), v = totalSeconds(clip(service, start, end));
     return { start: iso(start), end: iso(end), spanSeconds: span, workingSeconds: w, waitingOnLimitsSeconds: l,
       waitingOnServiceSeconds: v, waitingOnPersonSeconds: span - w - l - v };
   };
-  const result: Json = {
-    status: 'measured', ...part(first, last), limitEvents: counted.get('limit') ?? 0,
+  const result:Working = {
+    status: 'measured' as const, ...part(first, last), limitEvents: counted.get('limit') ?? 0,
     serviceEvents: counted.get('service') ?? 0, questionsToPerson: counted.get('ask') ?? 0,
     fullAccess: modes.size ? modes.size === 1 && modes.has(FULL_ACCESS) : null,
     // For developers: the permission modes the transcripts recorded, with how often.
@@ -533,32 +545,32 @@ export function workingTime(files: string[], since: Time | null, until: Time | n
     definition: TIME_DEFINITION,
   };
   if (splitAt === null) {
-    result['production'] = { status: 'measured', ...part(first, last) };
+    result['production'] = { status: 'measured' as const, ...part(first, last) };
     result['benchmark'] = notMeasured("the benchmark step's start was not recorded, so its working time cannot be told apart", BENCHMARK_HOW);
   } else if (splitAt <= first) {
     result['production'] = notMeasured('the transcript starts after the benchmark step began');
-    result['benchmark'] = { status: 'measured', ...part(first, last) };
+    result['benchmark'] = { status: 'measured' as const, ...part(first, last) };
   } else if (splitAt >= last) {
-    result['production'] = { status: 'measured', ...part(first, last) };
+    result['production'] = { status: 'measured' as const, ...part(first, last) };
     result['benchmark'] = notMeasured('the transcript ends before the benchmark step began');
   } else {
-    result['production'] = { status: 'measured', ...part(first, splitAt) };
-    result['benchmark'] = { status: 'measured', ...part(splitAt, last) };
+    result['production'] = { status: 'measured' as const, ...part(first, splitAt) };
+    result['benchmark'] = { status: 'measured' as const, ...part(splitAt, last) };
   }
   return result;
 }
 
 /** When the person gave the run its go-ahead (workflow preflight), and what they chose. */
-export function preflightGoAhead(runDir: string): [Time | null, Json] {
-  const project = obj(readJson(resolve(runDir, 'project.json')));
+export function preflightGoAhead(runDir: string): [Time | null, Partial<Detail>] {
+  const project = obj(readJson<ProjectView>(resolve(runDir, 'project.json')));
   const detail = obj(or(obj(obj(project['phases'])['preflight'])['detail'], {}));
-  const times = readJsonl(resolve(runDir, 'phase-log.jsonl')).filter(e => e['phase'] === 'preflight' && e['status'] === 'complete')
+  const times = readJsonl<Partial<PhaseLogEntry>>(resolve(runDir,'phase-log.jsonl')).filter(e => e['phase'] === 'preflight' && e['status'] === 'complete')
     .map(e => parseTime(e['at'])).filter((t): t is Time => t !== null);
   return [times.length ? Math.max(...times) : null, detail];
 }
 /** The run's phase at a moment: the latest phase-log entry at or before it. */
-export function phaseAt(log: Json[], when: Time): Json {
-  let current: Json = { phase: 'preflight', status: 'complete' };
+export function phaseAt(log:Partial<PhaseLogEntry>[], when: Time) {
+  let current: {phase:string;status:string|null} = { phase: 'preflight', status: 'complete' };
   for (const entry of log) {
     const at = parseTime(entry['at']);
     if (at !== null && at <= when && entry['phase'] !== undefined && entry['phase'] !== null && entry['phase'] !== 'init') {
@@ -575,13 +587,13 @@ export function phaseAt(log: Json[], when: Time): Json {
  * the runner: anything from a `connect` `waiting` entry until that connection completes or stops (the
  * end itself excluded) is planned. The stop of a connection that failed is an interruption, as is
  * anything after it until the next attempt waits again. */
-export function unattended(files: string[], runDir: string, since: Time | null, until: Time | null): Json {
+function unattendedResult(files: string[], runDir: string, since: Time | null, until: Time | null) {
   const [go, choices] = preflightGoAhead(runDir);
   if (go === null) {
     return notMeasured('the run had no preflight go-ahead, so there is no point from which it was left to run',
       'start runs with workflow.ts preflight, as design-lab:run does');
   }
-  const end = benchmarkStart(runDir), log = readJsonl(resolve(runDir, 'phase-log.jsonl'));
+  const end = benchmarkStart(runDir), log = readJsonl<Partial<PhaseLogEntry>>(resolve(runDir,'phase-log.jsonl'));
   // Each connection attempt's wait, kept separately: a retry never erases an earlier attempt.
   const waits: [Time, Time | null][] = [];
   let opened: Time | null = null;
@@ -594,7 +606,7 @@ export function unattended(files: string[], runDir: string, since: Time | null, 
   if (opened !== null) waits.push([opened, null]);
   const inWait = (moment: Time): boolean => waits.some(([start, stop]) => start <= moment && (stop === null || moment < stop));
 
-  const found: (Json & { _moment: Time })[] = [];
+  const found: ({at:string|null;kind:string;phase:string;status:string|null;_moment:Time})[] = [];
   for (const path of files) {
     if (path.split(sep).includes('subagents')) continue;
     const [events] = transcriptEvents(path, since, until);
@@ -612,7 +624,7 @@ export function unattended(files: string[], runDir: string, since: Time | null, 
     const at = parseTime(entry['at']);
     if (entry['status'] === 'stopped' && at !== null && at >= go && !(end !== null && at >= end)) {
       found.push({ at: iso(at), _moment: at, kind: `stopped: ${pyStr(or(entry['reason'], 'waiting for the person'))}`,
-        phase: or(entry['phase'], 'unknown'), status: 'stopped' });
+        phase: or(entry['phase'], 'unknown')!, status: 'stopped' });
     }
   }
   found.sort((a, b) => a._moment - b._moment);
@@ -620,11 +632,11 @@ export function unattended(files: string[], runDir: string, since: Time | null, 
     planned: (item['status'] !== 'stopped' && inWait(_moment)) ||
       (choices['planApproval'] === 'review' && item['phase'] === 'plan' && item['status'] === 'awaiting-approval') }));
   const unplanned = interruptions.filter(item => !item.planned);
-  return { status: 'measured', goAheadAt: iso(go), until: end !== null ? iso(end) : null,
+  return { status: 'measured' as const, goAheadAt: iso(go), until: end !== null ? iso(end) : null,
     interruptions, count: unplanned.length, ranUnattended: !unplanned.length };
 }
 
-export function unattendedPhrase(section: Json): string {
+export function unattendedPhrase(section:View<ReturnType<typeof unattended>>): string {
   if (section['status'] !== 'measured') return `not measured, because ${pyStr(section['reason'])}`;
   if (section['ranUnattended']) return 'yes';
   const items = list(section['interruptions']).filter(i => !i['planned']);
@@ -632,18 +644,18 @@ export function unattendedPhrase(section: Json): string {
     `${i['kind'] === 'question' ? 'a question' : String(i['kind']).startsWith('stopped: ') ? 'a stop, ' + String(i['kind']).slice(9) : 'a turn that waited for a prompt'} during ${pyStr(i['phase'])}`).join('; ');
 }
 
-export function evidenceWindow(runDir: string, project: Json | null, runner: Json | null): [Time | null, Time | null] {
+export function evidenceWindow(runDir: string, project:ProjectView|null, runner:ReturnType<typeof runnerSteps>): [Time | null, Time | null] {
   const start = runStart(project);
   const times = [
     ...Object.values(obj(obj(project)['phases'])).filter(p => !truthy(obj(p)['from'])).map(p => parseTime(obj(p)['updatedAt'])),
-    ...readJsonl(resolve(runDir, 'phase-log.jsonl')).map(e => parseTime(e['at'])),
+    ...readJsonl<Partial<PhaseLogEntry>>(resolve(runDir,'phase-log.jsonl')).map(e => parseTime(e['at'])),
     ...(runner ? list(runner['sessions']).map(r => parseTime(r['end'])) : []),
   ].filter((t): t is Time => t !== null);
   return [start, times.length ? Math.max(...times) + 5 * MINUTE : null];
 }
 
 export function benchmarkMarks(runDir: string, status: string): Time[] {
-  return readJsonl(resolve(runDir, 'phase-log.jsonl')).filter(e => e['phase'] === 'benchmark' && e['status'] === status)
+  return readJsonl<Partial<PhaseLogEntry>>(resolve(runDir,'phase-log.jsonl')).filter(e => e['phase'] === 'benchmark' && e['status'] === status)
     .map(e => parseTime(e['at'])).filter((t): t is Time => t !== null).sort((a, b) => a - b);
 }
 /** The benchmark's start. Once a completion is recorded, the benchmark is the first start-and-completion
@@ -662,7 +674,7 @@ export const scoredBefore = (runDir: string): boolean => isFile(resolve(runDir, 
 /** Wall time, a clock on the wall from init to the end of the benchmark. The benchmark ends when its
  * report is finished: the first scoring of a run takes the end of its own scoring as that end, and
  * writeScore records it in the phase log, where every later re-score reads it and never moves it. */
-export function wallClock(runDir: string, project: Json | null, scorer: [Time, Time]): Json {
+export function wallClock(runDir: string, project:ProjectView|null, scorer: [Time, Time]) {
   const start = runStart(project), bench = benchmarkStart(runDir), [scorerStart, scorerEnd] = scorer;
   let end = benchmarkEnd(runDir, bench), source = 'phase log';
   if (bench !== null && end === null && !scoredBefore(runDir) && scorerEnd >= bench) { end = scorerEnd; source = 'this scoring'; }
@@ -682,7 +694,7 @@ export function wallClock(runDir: string, project: Json | null, scorer: [Time, T
   };
 }
 /** Move the end this scoring fixed to when its report is finished, and recompute what depends on it. */
-export function finishClock(clock: Json, end: Time): void {
+export function finishClock(clock:Clock, end: Time): void {
   clock['benchmarkEnd'] = iso(end);
   const start = parseTime(clock['runStart']), bench = parseTime(clock['benchmarkStart']);
   if (start !== null && bench !== null) {
@@ -692,7 +704,7 @@ export function finishClock(clock: Json, end: Time): void {
 }
 /** Record the benchmark's end in the run's phase log, as `record --phase benchmark --status complete`
  * does, when this scoring fixed it. Nothing else in the run is written. */
-export function recordBenchmarkEnd(runDir: string, clock: Json): boolean {
+export function recordBenchmarkEnd(runDir: string, clock:Clock): boolean {
   if (clock['benchmarkEndSource'] !== 'this scoring') return false;
   const path = resolve(runDir, 'project.json'), project: unknown = JSON.parse(readFileSync(path, 'utf8'));
   assertValid('project', project);
@@ -725,9 +737,9 @@ export function currentSession(folder: string | null | undefined, since: Time | 
 
 export type Session = string | string[] | null | undefined;
 
-export function scoreCost(runDir: string, project: Json | null, transcripts: string[] | null | undefined,
+export function scoreCost(runDir: string, project:ProjectView|null, transcripts: string[] | null | undefined,
   since: string | null | undefined, until: string | null | undefined, session?: Session,
-  scorer?: [Time, Time] | null, warn: (message: string) => void = m => process.stderr.write(`warning: ${m}\n`)): Json {
+  scorer?: [Time, Time] | null, warn: (message: string) => void = m => process.stderr.write(`warning: ${m}\n`)) {
   const runner = runnerSteps(resolve(runDir, 'figma/runner.log')), timings = phaseTimings(runDir, project);
   const run = obj(obj(project)['run']), claude = obj(run['claude']);
   let sessions: string[] = typeof session === 'string' ? [session] : [...(session ?? [])];
@@ -739,7 +751,7 @@ export function scoreCost(runDir: string, project: Json | null, transcripts: str
     if (sessionWarning) warn(sessionWarning);
   }
   sessions = sessions.filter(Boolean);
-  let model: Json, working: Json, attended: Json;
+  let model:Model, working:View<Working>&{status:WorkingPart['status']}, attended:ReturnType<typeof unattended>;
   if (truthy(transcripts) || sessions.length) {
     let explicit: string[] = [];
     const folders: string[] = [];
@@ -773,13 +785,13 @@ export function scoreCost(runDir: string, project: Json | null, transcripts: str
     attended = unattended(files, runDir, start, end);
     const what = sessions.length ? 'session ' + sessions.join(', ') : (transcripts ?? []).join(', ');
     model = usage['assistantMessages']
-      ? { status: 'measured', source: what, ...usage }
+      ? { status: 'measured' as const, source: what, ...usage }
       : notMeasured(`no assistant messages found in ${what}` + (start !== null || end !== null ? ` between ${pyStr(iso(start))} and ${pyStr(iso(end))}` : ''),
         'pass --session <id> for the session that ran the build');
     if (usage['assistantMessages'] && folders.length) {
       model['caveat'] = 'Counts every session in the folder inside the run\'s time window; unrelated work in the same window is included. Use --session to name the run\'s session instead.';
     }
-    if (usage['assistantMessages'] && usage['benchmark']['status'] === 'measured') {
+    if (usage['assistantMessages'] && usage['benchmark']!['status'] === 'measured') {
       model['benchmarkNote'] = "The scorer is a plain script with no model in the loop, so the benchmark's tokens are only the " +
         'orchestration turns around it. The completion message written after the report is not included, because it did not exist yet.';
     }
@@ -794,7 +806,7 @@ export function scoreCost(runDir: string, project: Json | null, transcripts: str
   const now = nowTime(), clock = wallClock(runDir, project, scorer ?? [now, now]);
   const parts = [runner !== null, timings !== null, model['status'] === 'measured', working['status'] === 'measured'];
   const status = parts.every(Boolean) ? 'measured' : parts.some(Boolean) ? 'partial' : 'not-measured';
-  const section: Json = { status, definition: TIME_DEFINITION, clock, working, unattended: attended,
+  const section:Cost = { status, definition: TIME_DEFINITION, clock, working, unattended: attended,
     runner: runner ?? notMeasured('figma/runner.log is missing'),
     timings: timings ?? notMeasured('project.json has no phase times'), model };
   Object.assign(section, elapsedTime(runDir, section) ?? {});
@@ -806,18 +818,18 @@ export function scoreCost(runDir: string, project: Json | null, transcripts: str
 
 // ---------------------------------------------------------------------------- library contents
 
-export function scoreLibrary(runDir: string, project: Json | null): Json {
-  const components = obj(readJson(resolve(runDir, 'components.json'))), plan = obj(readJson(resolve(runDir, 'plan.json')));
-  const index = obj(readJson(resolve(runDir, 'index.json'))), foundation = obj(readJson(resolve(runDir, 'foundation.json')));
-  const variables = obj(readJson(resolve(runDir, 'figma/results/variables.json'))), variablePlan = obj(readJson(resolve(runDir, 'variable-plan.json')));
+function scoreLibraryResult(runDir: string, project:ProjectView|null) {
+  const components = obj(readJson<PartialArtifact<Components>>(resolve(runDir, 'components.json'))), plan = obj(readJson<PartialArtifact<Plan>>(resolve(runDir, 'plan.json')));
+  const index = obj(readJson<PartialArtifact<Index>>(resolve(runDir, 'index.json'))), foundation = obj(readJson<PartialArtifact<Foundation>>(resolve(runDir, 'foundation.json')));
+  const variables = obj(readJson<PartialArtifact<Foundation>>(resolve(runDir,'figma/results/variables.json'))), variablePlan = obj(readJson<PartialArtifact<VariablePlan>>(resolve(runDir, 'variable-plan.json')));
   if (!(truthy(components) || truthy(plan) || truthy(index))) return notMeasured('no components.json, plan.json or index.json in the run');
-  const plans = list(plan['plans']).map(obj), build = plans.filter(p => p['verdict'] === 'build'), totals = obj(index['totals']);
+  const plans = list(plan['plans']).map(p=>obj(p)), build = plans.filter(p => p['verdict'] === 'build'), totals = obj(index['totals']);
   const dumps = globSorted(resolve(runDir, 'figma/dump'), '', '.json');
   const pages = dumps.map(p => basename(p, '.json')).sort((a, b) => a < b ? -1 : a > b ? 1 : 0);
-  const nodes = dumps.reduce((n, p) => n + list(obj(readJson(p))['nodes']).length, 0);
+  const nodes = dumps.reduce((n, p) => n + list(obj(readJson<{nodes:unknown[]}>(p))['nodes']).length, 0);
   const collections = obj(or(foundation['collections'], variables['collections'], {}));
   let variableCount = Object.values(collections).filter(c => c && typeof c === 'object' && !Array.isArray(c))
-    .reduce((n: number, c) => n + Math.trunc(Number(or(c['variables'], 0))), 0);
+    .reduce((n: number, c) => n + Math.trunc(Number(or(obj(c)['variables'], 0))), 0);
   if (!variableCount) {
     const raw = or(variablePlan['collections'], {}), planned: unknown[] = Array.isArray(raw) ? raw : Object.values(obj(raw));
     variableCount = planned.reduce((n: number, c) => { const v = or(obj(c)['variables'], []); return n + (Array.isArray(v) ? v.length : Object.keys(obj(v)).length); }, 0);
@@ -831,7 +843,7 @@ export function scoreLibrary(runDir: string, project: Json | null): Json {
   const found = or(list(components['components']).length, totals['components']);
   const foundationPages = obj(foundation['pages']);
   return {
-    status: 'measured',
+    status: 'measured' as const,
     summary: `${built !== null ? pyStr(built) : 'No'} components built from ${pyStr(found)} found in the source.`,
     components: { found, planned: build.length, built, notBuilt: totals['notBuilt'] ?? null,
       // From library-counts, so it matches the coverage strip: refused by the plan, not retirement
@@ -856,10 +868,12 @@ export function scoreLibrary(runDir: string, project: Json | null): Json {
 // ---------------------------------------------------------------------------- repeatability
 
 /** A difference that only reflects when or where a run happened, not what it built. */
-export function incidental(change: Json, swaps: [string | null, string | null][]): boolean {
+export function incidental(change:{path?:string;a?:unknown;b?:unknown}, swaps: [string | null, string | null][]): boolean {
   // Timestamps, and ids Figma assigns afresh in every new file.
   if (/(At|_at|Time|timestamp|^id|Id)$/.test(String(change['path'] ?? '').split('/').at(-1)!)) return true;
-  let a = change['a'], b = change['b'];
+  const rawA=change['a'],rawB=change['b'];
+  if(typeof rawA!=='string'||typeof rawB!=='string')return false;
+  let a=rawA,b=rawB;
   if (typeof a !== 'string' || typeof b !== 'string') return false;
   // A link into the run's own Figma file carries that file's key and node ids.
   const figma = /https:\/\/www\.figma\.com\/design\/[A-Za-z0-9]+(\?node-id=[0-9-]+)?/g;
@@ -867,13 +881,13 @@ export function incidental(change: Json, swaps: [string | null, string | null][]
   for (const [left, right] of swaps) if (left && right) { a = a.replaceAll(left, '<run>'); b = b.replaceAll(right, '<run>'); }
   return a === b;
 }
-export const fileKey = (run: string): string | null => obj(obj(readJson(resolve(run, 'project.json')))['target'])['figmaFileKey'] ?? null;
+export const fileKey = (run: string): string | null => obj(obj(readJson<ProjectView>(resolve(run,'project.json')))['target'])['figmaFileKey'] ?? null;
 
 /** compare_runs.compare's report, in its baseline (snake_case) shape. */
 export interface RunComparison {
-  summary: { score: number | null; reason?: string; total_nodes: number; identical_nodes: number; matched_nodes: number; category_counts: Json };
-  artifacts: Record<string, { present: boolean[]; normalized_equal: boolean; differences: Json[] }>;
-  page_differences: Record<string, { changes: Record<string, Record<string, Json[]>> }>;
+  summary: { score: number | null; reason?: string; total_nodes: number; identical_nodes: number; matched_nodes: number; category_counts: Record<string,number> };
+  artifacts: Record<string, { present: boolean[]; normalized_equal: boolean; differences: Difference[] }>;
+  page_differences: Record<string, { changes: Record<string, Record<string, Difference[]>> }>;
   pages: { order_equal: boolean };
 }
 export type CompareRuns = (a: string, b: string) => RunComparison | Promise<RunComparison>;
@@ -883,11 +897,11 @@ async function defaultCompareRuns(a: string, b: string): Promise<RunComparison> 
   return module.compare(a, b);
 }
 
-export async function scoreRepeatability(runDir: string, others: string[], accuracy: Json, compareRuns: CompareRuns = defaultCompareRuns): Promise<Json> {
+async function scoreRepeatabilityResult(runDir: string, others: string[], accuracy:Accuracy, compareRuns: CompareRuns = defaultCompareRuns) {
   if (!others.length) return notMeasured('no other runs were given to compare against', 'score with --compare <other-run-dir> after a second run');
-  const comparisons: Json[] = [];
+  const comparisons:RepeatRow[] = [];
   for (const other of others) {
-    const row: Json = { run: basename(other), path: other };
+    const row:RepeatRow = { run: basename(other), path: other };
     try {
       const report = await compareRuns(runDir, other), summary = report.summary;
       if(summary.score===null) throw new Error(summary.reason??'incomplete dump evidence');
@@ -913,15 +927,15 @@ export async function scoreRepeatability(runDir: string, others: string[], accur
       row['error'] = error instanceof Error ? error.message : String(error);
     }
     if (accuracy['status'] === 'measured' || accuracy['status'] === 'partial') {
-      let theirs = new Map<string, Json>();
+      let theirs = new Map<string, AccuracyPair>();
       try { theirs = new Map((await accuracyPairs(other)).map(p => [JSON.stringify([p['component'], p['breakpoint']]), p])); } catch { /* agreement is a bonus, never fatal */ }
-      const ours = new Map<string, Json>(list(accuracy['pairs']).map(p => [JSON.stringify([p['component'], p['breakpoint']]), p]));
+      const ours = new Map<string, AccuracyPair>(list(accuracy['pairs']).map(p => [JSON.stringify([p['component'], p['breakpoint']]), p]));
       const shared = [...ours.keys()].filter(k => theirs.has(k));
       if (shared.length) {
-        const metric = truthy(accuracy['pairs'][0]['corrected']) ? 'corrected' : 'original';
-        const deltas = shared.map(k => Math.abs(ours.get(k)![metric]['ratio'] - theirs.get(k)![metric]['ratio']));
+        const metric = truthy(accuracy['pairs']![0]!['corrected']) ? 'corrected' : 'original';
+        const deltas = shared.map(k => Math.abs(ours.get(k)![metric]!['ratio']! - theirs.get(k)![metric]!['ratio']!));
         row['accuracyAgreement'] = { metric, pairs: shared.length,
-          sameVerdict: shared.filter(k => ours.get(k)![metric]['pass'] === theirs.get(k)![metric]['pass']).length,
+          sameVerdict: shared.filter(k => ours.get(k)![metric]!['pass'] === theirs.get(k)![metric]!['pass']).length,
           maxRatioDifference: roundDecimal(Math.max(...deltas), 4) };
       }
     }
@@ -929,28 +943,28 @@ export async function scoreRepeatability(runDir: string, others: string[], accur
   }
   const scored = comparisons.filter(row => 'score' in row);
   if(!scored.length)return notMeasured('complete dump evidence is unavailable for the compared runs', null, {comparisons});
-  const sharedInputs = scored.length > 0 && scored.every(row => ['components.json', 'tokens.json', 'plan.json'].every(n => row['artifactsEquivalent'].includes(n)));
+  const sharedInputs = scored.length > 0 && scored.every(row => ['components.json', 'tokens.json', 'plan.json'].every(n => row['artifactsEquivalent']!.includes(n)));
   return {
-    status: scored.length ? 'measured' : 'partial',
+    status: scored.length ? 'measured' as const : 'partial' as const,
     level: sharedInputs ? 'build' : 'pipeline',
     levelNote: sharedInputs
       ? 'The compared runs hold identical extracted artifacts apart from timestamps and folder paths, so this measures the Figma build. Whole-pipeline repeatability needs two runs that each start from an empty workspace.'
       : 'The compared runs hold artifacts that differ beyond timestamps and folder paths, so differences can come from any phase, not only the Figma build.',
     comparisons,
-    minScore: scored.length ? Math.min(...scored.map(row => row['score'])) : null,
+    minScore: scored.length ? Math.min(...scored.map(row => row['score']!)) : null,
   };
 }
 
 // ---------------------------------------------------------------------------- schema churn
 
-export function scoreSchemaChurn(project: Json | null): Json {
+function scoreSchemaChurnResult(project:ProjectView|null) {
   const churn = obj(obj(project)['run'])['schemaChurn'];
   if (churn && typeof churn === 'object' && churn['changed'] === true) {
     const changes = or(churn['changes'], []);
-    return { status: 'measured', changed: true, changes, summary: `${pyStr(or(list(changes).length, 'A'))} schema change(s) or workaround(s) were needed.` };
+    return { status: 'measured' as const, changed: true, changes, summary: `${pyStr(or(list(changes).length, 'A'))} schema change(s) or workaround(s) were needed.` };
   }
   if (churn && typeof churn === 'object' && churn['changed'] === false) {
-    return { status: 'measured', changed: false, changes: [], summary: 'No schema change or workaround was needed.' };
+    return { status: 'measured' as const, changed: false, changes: [], summary: 'No schema change or workaround was needed.' };
   }
   return notMeasured('not recorded for this run',
     'record it with workflow.ts identity --schema-change "<what>", or confirm none with workflow.ts identity --no-schema-change');
@@ -961,48 +975,48 @@ export function scoreSchemaChurn(project: Json | null): Json {
 /** f"{x:g}": six significant digits, trailing zeros dropped. */
 export { pyFormatG as formatG } from './extract-tokens-sass.ts';
 
-export function headline(sections: Json): Json {
+export function headline(sections:Sections) {
   const library = sections['library'], accuracy = sections['accuracy'], cost = sections['cost'], repeat = sections['repeatability'];
   const highlights: string[] = [];
   if (library['status'] === 'measured') {
-    const comp = library['components'];
+    const comp = library['components']!;
     if (truthy(comp['planned']) && comp['built'] === comp['planned']) highlights.push(`Every planned component was built: ${pyStr(comp['built'])} of ${pyStr(comp['planned'])}.`);
     else if (truthy(comp['planned']) && comp['built'] === null) highlights.push(`${pyStr(comp['planned'])} components were planned; no build receipts were recorded.`);
     else if (truthy(comp['planned'])) highlights.push(`${pyStr(comp['built'])} of ${pyStr(comp['planned'])} planned components were built.`);
   }
   if (accuracy['status'] === 'measured' || accuracy['status'] === 'partial') {
     const metric = truthy(obj(accuracy['overall'])['corrected']) ? 'corrected' : 'original';
-    const ranked = Object.entries(obj(accuracy['byBreakpoint'])).filter(([, value]) => truthy(value[metric]))
-      .map(([name, value]) => [name, value[metric]] as [string, Json])
+    const ranked = Object.entries(obj(accuracy['byBreakpoint'])).filter(([, value]) => truthy(value?.[metric]))
+      .map(([name, value]) => [name, value![metric]!] as [string, RatioSummary])
       .sort((a, b) => -a[1]['pass'] / Math.max(1, a[1]['total']) - -b[1]['pass'] / Math.max(1, b[1]['total']));
     if (ranked.length) {
       const best = ranked[0]!, worst = ranked.at(-1)!;
       highlights.push(`${capitalize(best[0])} is the closest match: ${best[1]['pass']} of ${best[1]['total']} components within tolerance.`);
       if (worst[0] !== best[0]) {
-        highlights.push(`${capitalize(worst[0])} needs the most work: ${worst[1]['pass']} of ${worst[1]['total']} match, median ${fixed(worst[1]['medianRatio'] * 100, 0)}% of pixels differ.`);
+        highlights.push(`${capitalize(worst[0])} needs the most work: ${worst[1]['pass']} of ${worst[1]['total']} match, median ${fixed(worst[1]['medianRatio']! * 100, 0)}% of pixels differ.`);
       }
     }
   }
   if (repeat['status'] === 'measured') {
     const scored = list(repeat['comparisons']).filter(row => 'score' in row);
-    const identical = Math.min(...scored.map(row => row['identicalApartFromAddresses'])), total = Math.max(...scored.map(row => row['totalNodes']));
+    const identical = Math.min(...scored.map(row => row['identicalApartFromAddresses']!)), total = Math.max(...scored.map(row => row['totalNodes']!));
     highlights.push(`Rebuilding gives the same file: ${commas(identical)} of ${commas(total)} nodes identical across ${scored.length + 1} runs, apart from each file's own links.`);
   }
   const runner = obj(cost['runner']);
   if (truthy(runner['steps'])) highlights.push(`The Figma build ran without a model in the loop: ${runner['steps']} steps in ${humanDuration(runner['activeSeconds'])}.`);
   if (truthy(accuracy['pairs'])) {
-    const worst = (accuracy['pairs'] as Json[]).reduce((a, b) => (or(b['heightDelta'], 0) > or(a['heightDelta'], 0) ? b : a));
-    if (or(worst['heightDelta'], 0) > 10) {
+    const worst = (accuracy['pairs'] as AccuracyPair[]).reduce((a, b) => (or(b['heightDelta'], 0)! > or(a['heightDelta'], 0)! ? b : a));
+    if (or(worst['heightDelta'], 0)! > 10) {
       const figma = worst['figmaHeight'], live = worst['liveHeight'];
       const direction = figma !== null && figma !== undefined && live !== null && live !== undefined ? (figma < live ? 'shorter' : 'taller') : 'off';
-      highlights.push(`Biggest single gap: ${pyStr(worst['label'])} at ${pyStr(worst['breakpoint'])} is ${formatG(worst['heightDelta'])} px ${direction} in Figma than on the live site.`);
+      highlights.push(`Biggest single gap: ${pyStr(worst['label'])} at ${pyStr(worst['breakpoint'])} is ${formatG(worst['heightDelta']!)} px ${direction} in Figma than on the live site.`);
     }
   }
   const model = obj(cost['model']), working = obj(cost['working']), production = obj(working['production']), coverage = obj(sections['coverage']);
-  const totals = (rows: unknown): Json[] => list(rows).map(r => ({ name: r['name'], total: r['total'] }));
+  const totals = (rows:ModelRow[]|undefined) => list(rows).map(r => ({ name: r['name'], total: r['total'] }));
   return {
     coverage: coverage['status'] === 'measured'
-      ? { ...Object.fromEntries(['built', 'eligible', 'ratio', 'gap', 'excluded'].map(k => [k, coverage[k] ?? null])), placements: obj(coverage['usageWeighted'])['ratio'] ?? null }
+      ? { ...Object.fromEntries((['built', 'eligible', 'ratio', 'gap', 'excluded'] as const).map(k => [k, coverage[k] ?? null])), placements: obj(coverage['usageWeighted'])['ratio'] ?? null }
       : null,
     built: { components: obj(library['components'])['built'] ?? null, variants: library['variants'] ?? null, pages: library['pages'] ?? null,
       variables: library['variables'] ?? null, nodes: library['nodes'] ?? null },
@@ -1041,10 +1055,10 @@ export function humanDuration(value: number | null | undefined): string | null {
   if (hours) return `${hours} h ${roundEven(rest / 60)} min`;
   return rest % 60 ? `${Math.floor(rest / 60)} min ${rest % 60} s` : `${Math.floor(rest / 60)} min`;
 }
-export const tokenList = (rows: unknown): string => list(rows).map(r => `${commas(r['total'])} ${pyStr(r['name'])}`).join(', ') || 'none';
+export const tokenList = (rows: unknown): string => list(rows).map(r => `${commas(obj(r)['total'])} ${pyStr(obj(r)['name'])}`).join(', ') || 'none';
 
 /** The completion message's working time: library production, then the benchmark's own. */
-export function workingPhrase(working: Json): string {
+export function workingPhrase(working:Partial<Working>): string {
   const production = obj(working['production']), bench = obj(working['benchmark']);
   if (working['status'] !== 'measured' || production['status'] !== 'measured') {
     return 'working time was not measured for this run (score it with --session <id> to measure when Claude or its tools were working)';
@@ -1058,7 +1072,7 @@ export function workingPhrase(working: Json): string {
 
 /** The run's font decisions in one line: which families Figma drew with a stand-in, by default. */
 export function fontsPhrase(runDir: string): string {
-  let document: Json;
+  let document:PartialArtifact<Fonts>;
   try { document = JSON.parse(readFileSync(resolve(runDir, 'fonts.json'), 'utf8')); } catch { return 'not checked: Figma was never connected'; }
   if (!truthy(obj(document)['figmaChecked'])) return 'not checked against Figma';
   const families = list(document['families']), standIns = families.filter(f => truthy(f['standIn']));
@@ -1067,15 +1081,15 @@ export function fontsPhrase(runDir: string): string {
   // Once built, the font and count the build drew, as verify reports them; before, the plan's.
   const drawn = new Map<string, number>(), drawnIn = new Map<string, unknown>();
   for (const result of globSorted(resolve(runDir, 'figma/results'), 'build_', '.json')) {
-    let used: Json;
-    try { used = obj(or(obj(JSON.parse(readFileSync(result, 'utf8')))['standIns'], {})); } catch { continue; }
+    let used:NonNullable<import('./generated/build-record.ts').StepResult['standIns']>;
+    try { used = obj(JSON.parse(readFileSync(result, 'utf8')) as Partial<import('./generated/build-record.ts').StepResult>).standIns ?? {}; } catch { continue; }
     for (const [family, font] of Object.entries(used)) {
       drawn.set(family, (drawn.get(family) ?? 0) + 1);
       if (!drawnIn.has(family)) drawnIn.set(family, font);
     }
   }
-  const count = (f: Json): number => drawn.size ? drawn.get(f['family']) ?? 0 : f['components'];
-  return standIns.map(f => `${pyStr(f['family'])} drawn in ${pyStr(drawnIn.has(f['family']) ? drawnIn.get(f['family']) : f['standIn']['family'])} (a stand-in, by default, in ` +
+  const count = (f:PartialArtifact<Fonts['families'][number]>): number => drawn.size ? drawn.get(f['family']!) ?? 0 : f['components']!;
+  return standIns.map(f => `${pyStr(f['family'])} drawn in ${pyStr(drawnIn.has(f['family']!) ? drawnIn.get(f['family']!) : f['standIn']!['family'])} (a stand-in, by default, in ` +
     `${pyStr(count(f))} component${count(f) !== 1 ? 's' : ''})`).join('; ') + '; `workflow.ts report fonts` says how to get the real font, then rebuild';
 }
 
@@ -1090,12 +1104,12 @@ export function fileUri(path: string): string {
 }
 
 /** Fill references/completion-message.md, the fixed reply design-lab:run ends with. */
-export function completionMessage(card: Json, report: string): string {
+export function completionMessage(card:ScoreDocument, report: string): string {
   let template = readFileSync(COMPLETION_TEMPLATE, 'utf8').split('```text\n').slice(1).join('```text\n').split('\n```')[0]!;
   const s = card['sections'], ident = obj(s['identity']['fields']);
   const cov = s['coverage'], acc = s['accuracy'], cost = s['cost'];
   const clock = obj(cost['clock']), model = obj(cost['model']), runner = obj(cost['runner']);
-  const missing = ([['conformance', s['conformance']], ['schema churn', s['schemaChurn']], ['repeatability', s['repeatability']], ['accuracy', acc]] as [string, Json][])
+  const missing:string[] = ([['conformance', s['conformance']], ['schema churn', s['schemaChurn']], ['repeatability', s['repeatability']], ['accuracy', acc]] as const)
     .filter(([, sec]) => sec['status'] === 'not-measured').map(([name]) => name);
   if (model['status'] !== 'measured') missing.push('model tokens');
   else if (obj(model['benchmark'])['status'] !== 'measured') missing.push('benchmark tokens (step start not recorded)');
@@ -1108,14 +1122,14 @@ export function completionMessage(card: Json, report: string): string {
   const values: Record<string, string> = {
     site: pyStr(or(obj(s['identity']['fields'])['siteLabel'], card['run']['siteLabel'])),
     figma_url: pyStr(or(ident['figmaUrl'], 'not recorded')),
-    coverage: measured ? `built ${pyStr(cov['built'])} of ${pyStr(cov['eligible'])} buildable components (${fixed(cov['ratio'] * 100, 0)}%)` : 'not measured',
+    coverage: measured ? `built ${pyStr(cov['built'])} of ${pyStr(cov['eligible'])} buildable components (${fixed(cov['ratio']! * 100, 0)}%)` : 'not measured',
     placements: truthy(usage['placements'])
-      ? `${fixed(usage['ratio'] * 100, 0)}% of placements on the site (${commas(usage['covered'])} of ${commas(usage['placements'])})`
+      ? `${fixed(usage['ratio']! * 100, 0)}% of placements on the site (${commas(usage['covered'])} of ${commas(usage['placements'])})`
       : 'an unmeasured share of placements (no usage data)',
     report_url: fileUri(report),
     accuracy: truthy(corrected)
-      ? `${corrected['pass']} of ${corrected['total']} widths within tolerance (corrected measure); ${original['pass']} of ${original['total']} on the original measure`
-      : truthy(original) ? `${original['pass']} of ${original['total']} widths within tolerance (original measure)` : 'not measured',
+      ? `${corrected!['pass']} of ${corrected!['total']} widths within tolerance (corrected measure); ${original!['pass']} of ${original!['total']} on the original measure`
+      : truthy(original) ? `${original!['pass']} of ${original!['total']} widths within tolerance (original measure)` : 'not measured',
     working_time: workingPhrase(working),
     unattended: unattendedPhrase(obj(cost['unattended'])),
     wall_time: clock['wallSeconds'] !== null && clock['wallSeconds'] !== undefined
@@ -1128,10 +1142,10 @@ export function completionMessage(card: Json, report: string): string {
     fonts: fontsPhrase(card['run']['directory']),
     // The same split and wording as the report's coverage strip and "What the run built".
     gaps: measured
-      ? 'not built: ' + (Object.entries(obj(cov['gap'])).filter(([, n]) => truthy(n)).map(([k, n]) => `${pyStr(n)} ${pyStr(cov['reasonLabels'][k])}`).join('; ') || 'none') +
+      ? 'not built: ' + (Object.entries(obj(cov['gap'])).filter(([, n]) => truthy(n)).map(([k, n]) => `${pyStr(n)} ${pyStr(cov['reasonLabels']![k as keyof typeof cov.reasonLabels])}`).join('; ') || 'none') +
         (Object.values(obj(cov['excluded'])).some(truthy)
           ? '; not counted: ' + Object.entries(obj(cov['excluded'])).filter(([, n]) => truthy(n))
-            .map(([k, n]) => `${pyStr(n)} ${pyStr(cov['reasonLabels'][k])}${n !== 1 && k === 'retirement' ? 's' : ''}`).join('; ')
+            .map(([k, n]) => `${pyStr(n)} ${pyStr(cov['reasonLabels']![k as keyof typeof cov.reasonLabels])}${n !== 1 && k === 'retirement' ? 's' : ''}`).join('; ')
           : '')
       : 'not measured',
   };
@@ -1155,35 +1169,31 @@ export interface ScoreOptions {
   warn?: (message: string) => void;
 }
 
-export async function score(runDir: string, options: ScoreOptions = {}): Promise<Scorecard & Json> {
+export async function score(runDir: string, options: ScoreOptions = {}): Promise<ScoreDocument> {
   const scorerStart = nowTime();
   runDir = realpath(runDir);
-  const project = readJson(resolve(runDir, 'project.json'));
-  const sections: Json = {
+  const project = readJson<ProjectView>(resolve(runDir, 'project.json'));
+  const initial = {
     identity: scoreIdentity(runDir, project, options.siteLabel),
-    cost: null,
     library: scoreLibrary(runDir, project),
     coverage: scoreCoverage(runDir),
     conformance: scoreConformance(runDir, project),
   };
-  sections['accuracy'] = await scoreAccuracy(runDir);
-  sections['repeatability'] = await scoreRepeatability(runDir, (options.compare ?? []).map(realpath), sections['accuracy'], options.compareRuns);
-  sections['schemaChurn'] = scoreSchemaChurn(project);
-  sections['foundationsVoice'] = { status: 'scored-later', reason: 'Scored by a person against the foundations-and-voice rubric after the run.',
-    rubric: null, scores: [], scorers: [] };
-  // Cost last, so the scorer's own running time is inside the benchmark step it reports.
-  const transcripts = typeof options.transcripts === 'string' ? [options.transcripts] : options.transcripts;
-  sections['cost'] = scoreCost(runDir, project, transcripts, options.since, options.until, options.session, [scorerStart, nowTime()], options.warn);
-  sections['blindedJudgement'] = { status: 'scored-later',
-    reason: 'Scored 1 to 5 by people who do not know which run or version produced the file.',
-    scale: { min: 1, max: 5 }, criteria: BLINDED_CRITERIA.map(([id, label]) => ({ id, label })), scores: [], scorers: [] };
+  const accuracy = await scoreAccuracy(runDir);
+  const repeatability = await scoreRepeatability(runDir,(options.compare??[]).map(realpath),accuracy,options.compareRuns);
+  const schemaChurn = scoreSchemaChurn(project);
+  const foundationsVoice:Scorecard['sections']['foundationsVoice']={status:'scored-later',reason:'Scored by a person against the foundations-and-voice rubric after the run.',rubric:null,scores:[],scorers:[]};
+  const transcripts = typeof options.transcripts==='string'?[options.transcripts]:options.transcripts;
+  const cost=scoreCost(runDir,project,transcripts,options.since,options.until,options.session,[scorerStart,nowTime()],options.warn);
+  const blindedJudgement:Scorecard['sections']['blindedJudgement']={status:'scored-later',reason:'Scored 1 to 5 by people who do not know which run or version produced the file.',scale:{min:1,max:5},criteria:BLINDED_CRITERIA.map(([id,label])=>({id,label})),scores:[],scorers:[]};
+  const sections:Sections={...initial,accuracy,repeatability,schemaChurn,foundationsVoice,cost,blindedJudgement};
   return {
     scorecardVersion: SCORECARD_VERSION, generatedAt: iso(nowTime())!, generator: `design-lab ${pluginVersion()}`,
-    run: { directory: runDir, name: basename(runDir), siteLabel: or(obj(sections['identity']['fields'])['siteLabel'], basename(runDir)),
+    run: { directory: runDir, name: basename(runDir), siteLabel: or(obj(sections['identity']['fields'])['siteLabel'], basename(runDir))!,
       // The build this scorecard belongs to: a folder initialised again keeps its old benchmark/ until
       // it is scored, and a reader must not take that for this one.
       buildCreatedAt: obj(project)['createdAt'] ?? null },
-    headline: headline(sections) as Scorecard['headline'], sections: sections as Scorecard['sections'],
+    headline: headline(sections), sections,
   };
 }
 
@@ -1194,9 +1204,21 @@ export function writeTextAtomic(path: string, text: string): void {
   renameSync(temporary, path);
 }
 
-export type Render = (card: Json, runDir: string) => Promise<string> | string;
+export type Render = (card:ScoreDocument, runDir: string) => Promise<string> | string;
+type NotMeasured=ReturnType<typeof notMeasured>;
+type ModelRow={model:string;name:string;input:number;output:number;cacheWrite:number;cacheRead:number;total:number;turns:number;toolCalls:number};
+type ModelPart={status:'measured'|'not-measured';byModel?:ModelRow[];tokens?:Record<string,number>|null;turns?:number;toolCalls?:number;since?:string|null;reason?:string;howToMeasure?:string};
+type TranscriptUsage={files:number;sessions:number;assistantMessages:number;toolCalls:number;byModel:ModelRow[];tokens:Record<string,number>|null;models:Record<string,number>;configDirs:string[];window:{since:string|null;until:string|null};firstMessage:string|null;lastMessage:string|null;developer:{unattributedEntries:number};production?:ModelPart;benchmark?:ModelPart};
+type Model=Partial<TranscriptUsage>&{status:'measured'|'not-measured';source?:string;reason?:string;howToMeasure?:string;caveat?:string|null;benchmarkNote?:string};
+type WorkingPart={status:'measured'|'not-measured';start?:string|null;end?:string|null;spanSeconds?:number;workingSeconds?:number;waitingOnLimitsSeconds?:number;waitingOnServiceSeconds?:number;waitingOnPersonSeconds?:number;reason?:string;howToMeasure?:string};
+type Working=WorkingPart&{limitEvents:number;serviceEvents:number;questionsToPerson:number;fullAccess:boolean|null;developer:{permissionModes:Record<string,number>};definition:string;production?:WorkingPart;benchmark?:WorkingPart;caveat?:string|null};
+type Clock=ReturnType<typeof wallClock>;
+export type Cost={status:Scorecard['sections']['cost']['status'];definition:string;clock:Clock;working:View<Working>&{status:WorkingPart['status']};unattended:ReturnType<typeof unattended>;runner:NonNullable<ReturnType<typeof runnerSteps>>|NotMeasured;timings:NonNullable<ReturnType<typeof phaseTimings>>|NotMeasured;model:Model;developer?:{sessionWarning:string};reason?:string};
+type RepeatRow={run:string;path:string;score?:number;error?:string;artifactsEquivalent?:string[];accuracyAgreement?:{metric:string;pairs:number;sameVerdict:number;maxRatioDifference:number};identicalApartFromAddresses?:number;totalNodes?:number};
+type Sections={identity:ReturnType<typeof scoreIdentity>;cost:Cost;library:ReturnType<typeof scoreLibrary>;coverage:ReturnType<typeof scoreCoverage>;conformance:ReturnType<typeof scoreConformance>;accuracy:Accuracy;repeatability:Awaited<ReturnType<typeof scoreRepeatability>>;schemaChurn:ReturnType<typeof scoreSchemaChurn>;foundationsVoice:Scorecard['sections']['foundationsVoice'];blindedJudgement:Scorecard['sections']['blindedJudgement']};
+export type ScoreDocument=Omit<Scorecard,'sections'|'headline'>&{sections:Sections;headline:ReturnType<typeof headline>};
 const REPORT_MODULE = './score-report.ts';
-async function defaultRender(card: Json, runDir: string): Promise<string> {
+async function defaultRender(card:ScoreDocument, runDir: string): Promise<string> {
   const module = await import(new URL(REPORT_MODULE, import.meta.url).href) as { render: Render };
   return module.render(card, runDir);
 }
@@ -1216,7 +1238,7 @@ export interface WriteScoreOptions extends ScoreOptions {
 export interface WriteScoreResult {
   /** 0 written; 2 the scorecard broke its contract and nothing was written. */
   code: 0 | 2;
-  scorecard: Scorecard & Json;
+  scorecard:ScoreDocument;
   errors: string[];
   written: string[];
   /** The completion message (also completion.md), when the report was written. */
@@ -1243,7 +1265,7 @@ export async function writeScore(runDir: string, options: WriteScoreOptions = {}
   // The benchmark ends when its report is finished, rendering included. When this scoring fixes the
   // end, the report is rendered once to time it, the end is set to when a second render of the same
   // length will finish, and that second render is written; re-scores keep the recorded end.
-  const clock = (scorecard as Json)['sections']['cost']['clock'] as Json, render = options.render ?? defaultRender;
+  const clock = scorecard.sections.cost.clock, render = options.render ?? defaultRender;
   let html: string | null = null;
   if (!options.noHtml) {
     html = await render(scorecard, run);
@@ -1275,3 +1297,15 @@ export async function writeScore(runDir: string, options: WriteScoreOptions = {}
   }
   return { code: 0, scorecard, errors: [], written, message, out };
 }
+
+export function scoreIdentity(...args:Parameters<typeof scoreIdentityResult>):View<ReturnType<typeof scoreIdentityResult>> & {status:ReturnType<typeof scoreIdentityResult>['status']} { return scoreIdentityResult(...args); }
+
+export function scoreLibrary(...args:Parameters<typeof scoreLibraryResult>):View<ReturnType<typeof scoreLibraryResult>> & {status:ReturnType<typeof scoreLibraryResult>['status']} { return scoreLibraryResult(...args); }
+
+export async function scoreRepeatability(...args:Parameters<typeof scoreRepeatabilityResult>):Promise<View<Awaited<ReturnType<typeof scoreRepeatabilityResult>>> & {status:Awaited<ReturnType<typeof scoreRepeatabilityResult>>['status']}> { return await scoreRepeatabilityResult(...args); }
+
+export function scoreSchemaChurn(...args:Parameters<typeof scoreSchemaChurnResult>):View<ReturnType<typeof scoreSchemaChurnResult>> & {status:ReturnType<typeof scoreSchemaChurnResult>['status']} { return scoreSchemaChurnResult(...args); }
+
+export function workingTime(...args:Parameters<typeof workingTimeResult>):View<ReturnType<typeof workingTimeResult>> & {status:ReturnType<typeof workingTimeResult>['status']} { return workingTimeResult(...args); }
+
+export function unattended(...args:Parameters<typeof unattendedResult>):View<ReturnType<typeof unattendedResult>> & {status:ReturnType<typeof unattendedResult>['status']} { return unattendedResult(...args); }

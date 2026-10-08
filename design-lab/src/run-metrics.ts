@@ -7,8 +7,18 @@ import type { Geometry } from './build-artifacts.ts';
 import { roundDecimal, roundEven } from './json.ts';
 
 export const BREAKPOINTS = ['desktop', 'tablet', 'mobile'] as const;
-// Scorecard sections are open JSON documents; the scorecard schema checks their shape.
-export type Json = Record<string, any>;
+// Open external JSON is narrowed before use; owned metrics have named shapes.
+export type Json = Record<string, unknown>;
+import type {Components} from './generated/components.ts';
+import type {VerifyReport} from './generated/verify-report.ts';
+import type {BuildRecord} from './generated/build-record.ts';
+import type {Project} from './generated/project.ts';
+import type {PartialArtifact} from './verify-inputs.ts';
+export type ProjectView=PartialArtifact<Project>;
+export type RatioSummary={pass:number;total:number;medianRatio:number|null;p75Ratio:number|null;maxRatio:number|null};
+export type AccuracyPair={component:string;label:string;breakpoint:string;width:number|null;original:{ratio:number|null;pass:boolean|null};corrected:{ratio:number;pass:boolean}|null;heightDelta:number|null;widthDelta:number|null;figmaHeight?:number|null;liveHeight?:number|null;evidence:{specimen:string;geometry:string;index:number}|null};
+export type AccuracySection={status:'measured'|'partial';source:string;threshold:number;tolerance:number;metrics:Record<'original'|'corrected',string>;overall:{original:RatioSummary;corrected:RatioSummary|null};byBreakpoint:Record<string,{original:RatioSummary;corrected:RatioSummary|null;heightDelta:{median:number|null;max:number|null;over10px:number}}> ;components:number;pairs:AccuracyPair[];reason?:string};
+export type Accuracy=Omit<Partial<AccuracySection>,'status'>&{status?:'measured'|'partial'|'not-measured';reason?:string;howToMeasure?:string};
 
 // ---------------------------------------------------------------------------- baseline value semantics
 
@@ -19,13 +29,20 @@ export function truthy(value: unknown): boolean {
   return !!value;
 }
 /** baseline's `a or b or c`: the first truthy value, else the last one (undefined read as None). */
-export function or(...values: unknown[]): any {
-  for (const value of values) if (truthy(value)) return value;
-  return values.at(-1) ?? null;
+export function or<const V extends unknown[]>(...values: V): Exclude<V[number],undefined>|null {
+  for (const value of values) if (truthy(value)) return value as Exclude<V[number],undefined>;
+  return values.at(-1) as Exclude<V[number],undefined> ?? null;
 }
 /** baseline's dict view of a value that may not be an object: `x or {}` for documents read from disk. */
-export const obj = (value: unknown): Json => value && typeof value === 'object' && !Array.isArray(value) ? value as Json : {};
-export const list = (value: unknown): any[] => Array.isArray(value) ? value : [];
+type Keys<T> = T extends unknown ? keyof T : never;
+type Value<T,K extends PropertyKey> = T extends unknown ? K extends keyof T ? T[K] : never : never;
+export type View<T> = {[K in Keys<T>]?:Value<T,K>};
+export function obj<T extends object>(value:T|null|undefined):View<T>;
+export function obj(value:unknown):Json;
+export function obj(value:unknown):Json { return value && typeof value==='object' && !Array.isArray(value) ? value as Json : {}; }
+export function list<T>(value:readonly T[]|null|undefined):T[];
+export function list(value:unknown):unknown[];
+export function list(value:unknown):unknown[] { return Array.isArray(value)?value:[]; }
 /** str() of a scalar as baseline formats it in an f-string. */
 export function pyStr(value: unknown): string {
   if (value === null || value === undefined) return 'None';
@@ -44,20 +61,20 @@ export const capitalize = (text: string): string => text.charAt(0).toUpperCase()
 
 // ---------------------------------------------------------------------------- files
 
-export function readJson(path: string): any {
-  try { return JSON.parse(readFileSync(path, 'utf8')); } catch { return null; }
+export function readJson<T=unknown>(path: string): T|null {
+  try { return JSON.parse(readFileSync(path, 'utf8')) as T; } catch { return null; }
 }
 /** Object lines of a JSON Lines file; blank, damaged and non-object lines are skipped. */
-export function readJsonl(path: string): Json[] {
+export function readJsonl<T extends object=Json>(path: string): T[] {
   let text: string;
   try { text = readFileSync(path, 'utf8'); } catch { return []; }
-  const entries: Json[] = [];
+  const entries:T[] = [];
   for (const raw of text.split('\n')) {
     const line = raw.trim();
     if (!line) continue;
     try {
       const value: unknown = JSON.parse(line);
-      if (value && typeof value === 'object' && !Array.isArray(value)) entries.push(value as Json);
+      if (value && typeof value === 'object' && !Array.isArray(value)) entries.push(value as T);
     } catch { /* a damaged line */ }
   }
   return entries;
@@ -75,7 +92,7 @@ export const stem = (name: string, suffix: string): string => name.slice(0, name
 
 // ---------------------------------------------------------------------------- statistics
 
-export function notMeasured(reason: string, how?: string | null, extra: Json = {}): Json {
+export function notMeasured<E extends object = Record<never,never>>(reason: string, how?: string | null, extra: E = {} as E): {status:'not-measured';reason:string;howToMeasure?:string} & E {
   return { status: 'not-measured', reason, ...(how ? { howToMeasure: how } : {}), ...extra };
 }
 /** statistics.median rounded to four places; None for no values. */
@@ -97,46 +114,44 @@ const maxOf = (values: number[]): number | null => values.length ? values.reduce
 
 /** Built out of what the run could have built; every number from library-counts, the module the
  * Figma Cover and Getting Started page are drawn from. */
-export function scoreCoverage(runDir: string): Json {
+const pUsage = (c:NonNullable<ReturnType<typeof counts>>) => c.placements.total ? {placements:c.placements.total,covered:c.placements.covered,ratio:c.placements.ratio,structuralRefs:c.structural.total,structuralCovered:c.structural.covered} : notMeasured('no usage placements were recorded for this run');
+function scoreCoverageResult(runDir: string) {
   const c = counts(runDir);
   if (c === null) return notMeasured('no components.json, so nothing says what the source holds');
   if (!c.builtKnown) {
     return notMeasured('no Figma build state, index or build records, so nothing says what was built',
       'let the build write its receipts (figma_build.ts receipts)');
   }
-  const section: Json = {
-    status: 'measured', found: c.found, eligible: c.eligible, built: c.built,
+  const section = {
+    status: 'measured' as const, found: c.found, eligible: c.eligible, built: c.built,
     ratio: c.ratio, gap: c.gap, excluded: c.excluded,
     reasonLabels: c.reasonLabels, summary: coverageSentence(c),
     items: c.notBuilt.map(r => ({ id: r.id, label: r.label, reason: r.status, detail: r.detail })),
     byTier: c.byTier, coverBreakdown: c.coverBreakdown,
     outsideInventory: c.outsideInventory,
+    usageWeighted:pUsage(c),
   };
-  const p = c.placements;
-  section['usageWeighted'] = p.total
-    ? { placements: p.total, covered: p.covered, ratio: p.ratio, structuralRefs: c.structural.total, structuralCovered: c.structural.covered }
-    : notMeasured('no usage placements were recorded for this run');
   return section;
 }
 
 // ---------------------------------------------------------------------------- conformance
 
-export function scoreConformance(runDir: string, project: Json | null): Json {
+function scoreConformanceResult(runDir: string, project:ProjectView|null) {
   let reportPath: string | null = null;
   for (const artifact of Object.values(obj(obj(project)['artifacts']))) {
-    if (obj(artifact)['kind'] === 'verify-report') reportPath = resolve(runDir, String(artifact['path']));
+    if (obj(artifact)['kind'] === 'verify-report') reportPath = resolve(runDir, String(obj(artifact)['path']));
   }
-  const report = readJson(reportPath ?? resolve(runDir, 'verify-report.json'));
-  if (!truthy(report)) {
+  const report = readJson<Omit<PartialArtifact<VerifyReport>,'open'> & {open?:(PartialArtifact<VerifyReport['open'][number]> & {id?:string;message?:string})[]}>(reportPath ?? resolve(runDir, 'verify-report.json'));
+  if (!report || !truthy(report)) {
     const status = obj(obj(obj(project)['phases'])['verify'])['status'];
     return notMeasured(`no verification report; the verify phase is ${or(status, 'unrecorded')}`,
       'run design-lab:verify and register verify-report.json');
   }
   const open = list(report['open']), severities = new Map<string, number>();
-  for (const item of open) { const key = or(obj(item)['severity'], 'unrated'); severities.set(key, (severities.get(key) ?? 0) + 1); }
+  for (const item of open) { const key = or(obj(item)['severity'], 'unrated')!; severities.set(key, (severities.get(key) ?? 0) + 1); }
   const main = ['blocker', 'major', 'minor'];
   return {
-    status: 'measured',
+    status: 'measured' as const,
     summary: `${open.length} open finding(s), ${list(report['waived']).length} waived.`,
     open: Object.fromEntries(main.map(s => [s, severities.get(s) ?? 0])),
     openOther: [...severities].filter(([k]) => !main.includes(k)).reduce((n, [, v]) => n + v, 0),
@@ -158,14 +173,14 @@ export function breakpointOf(label: string | null | undefined, index: number, co
 }
 
 /** Both metrics recomputed from each component's specimen screenshot and recorded geometry. */
-export async function accuracyPairs(runDir: string): Promise<Json[]> {
-  const labels = new Map<unknown, unknown>(list(obj(readJson(resolve(runDir, 'components.json')))['components'])
+export async function accuracyPairs(runDir: string): Promise<AccuracyPair[]> {
+  const labels = new Map<string|null,string|null>(list(obj(readJson<PartialArtifact<Components>>(resolve(runDir, 'components.json')))['components'])
     .map(c => [obj(c)['id'] ?? null, obj(c)['label'] ?? null]));
-  const pairs: Json[] = [];
+  const pairs: AccuracyPair[] = [];
   for (const block of globSorted(resolve(runDir, 'figma/results'), 'block_', '.json')) {
     const name = block.slice(block.lastIndexOf('/') + 1), component = stem(name, '.json').slice('block_'.length);
     const specimen = resolve(runDir, 'figma/compare', `${component}.png`);
-    const geometry = obj(obj(readJson(block))['geometry']) as Geometry & Json;
+    const geometry = obj(readJson<{geometry?:Geometry}>(block)).geometry ?? {} as Geometry;
     if (!isFile(specimen) || !truthy(geometry.variants)) continue;
     const {original,corrected} = await figmaCompare(specimen, geometry);
     const captures = list(geometry.captures), variants = list(geometry.variants);
@@ -173,9 +188,9 @@ export async function accuracyPairs(runDir: string): Promise<Json[]> {
       const old = original.pairs[index]!, now = corrected.pairs[index]!;
       const capture = obj(captures[index]), variant = obj(variants[index]);
       pairs.push({
-        component, label: or(labels.get(component), component),
+        component, label: or(labels.get(component), component)!,
         breakpoint: breakpointOf(capture['label'] ?? '', index, captures.length),
-        width: roundEven(or(capture['width'], now.width)),
+        width: roundEven(or(capture['width'], now.width)!),
         original: { ratio: old.ratio, pass: old.pass },
         corrected: { ratio: now.ratio, pass: now.pass },
         heightDelta: now.heightDelta, widthDelta: now.widthDelta ?? null,
@@ -188,10 +203,10 @@ export async function accuracyPairs(runDir: string): Promise<Json[]> {
 }
 
 /** Fallback: the original-metric results already stored in build records. */
-export function recordedPairs(runDir: string): Json[] {
-  const pairs: Json[] = [];
+export function recordedPairs(runDir: string): AccuracyPair[] {
+  const pairs: AccuracyPair[] = [];
   for (const record of globSorted(resolve(runDir, 'builds'), '', '.json')) {
-    const data = obj(readJson(record)), id = or(data['id'], stem(record.slice(record.lastIndexOf('/') + 1), '.json'));
+    const data = obj(readJson<PartialArtifact<BuildRecord>>(record)), id = or(data['id'], stem(record.slice(record.lastIndexOf('/') + 1), '.json'))!;
     const items = list(obj(obj(obj(data['visualEvidence'])['comparison'])['metrics'])['pairs']);
     items.forEach((raw, index) => {
       const pair = obj(raw);
@@ -203,13 +218,13 @@ export function recordedPairs(runDir: string): Json[] {
   return pairs;
 }
 
-export function summarise(pairs: Json[], metric: 'original' | 'corrected'): Json {
-  const rows = pairs.filter(p => truthy(p[metric])), ratios = rows.map(p => p[metric]['ratio'] as number);
-  return { pass: rows.filter(p => p[metric]['pass']).length, total: rows.length,
+export function summarise(pairs: AccuracyPair[], metric: 'original' | 'corrected') {
+  const rows = pairs.filter(p => truthy(p[metric])), ratios = rows.map(p => p[metric]!['ratio'] as number);
+  return { pass: rows.filter(p => p[metric]!['pass']).length, total: rows.length,
     medianRatio: median(ratios), p75Ratio: quantile(ratios, 0.75), maxRatio: maxOf(ratios) };
 }
 
-export async function scoreAccuracy(runDir: string): Promise<Json> {
+async function scoreAccuracyResult(runDir: string) {
   let pairs = await accuracyPairs(runDir), source = 'recomputed from specimen screenshots';
   if (!pairs.length) {
     pairs = recordedPairs(runDir);
@@ -222,7 +237,7 @@ export async function scoreAccuracy(runDir: string): Promise<Json> {
   const present = new Set(pairs.map(p => p['breakpoint'] as string));
   const names: string[] = BREAKPOINTS.filter(b => present.has(b));
   names.push(...[...present].filter(b => !names.includes(b)).sort());
-  const byBreakpoint: Json = {};
+  const byBreakpoint: Record<string,{original:RatioSummary;corrected:RatioSummary|null;heightDelta:{median:number|null;max:number|null;over10px:number}}> = {};
   for (const name of names) {
     const subset = pairs.filter(p => p['breakpoint'] === name);
     const heights = subset.filter(p => p['heightDelta'] !== null && p['heightDelta'] !== undefined).map(p => p['heightDelta'] as number);
@@ -233,7 +248,7 @@ export async function scoreAccuracy(runDir: string): Promise<Json> {
     };
   }
   const corrected = pairs[0]!['corrected'] !== null && pairs[0]!['corrected'] !== undefined;
-  const section: Json = {
+  const section: AccuracySection = {
     status: corrected ? 'measured' : 'partial',
     source,
     threshold: THRESHOLD, tolerance: TOLERANCE,
@@ -252,38 +267,45 @@ export async function scoreAccuracy(runDir: string): Promise<Json> {
 
 // ---------------------------------------------------------------------------- the evaluation ledger's metrics
 
-export function coverage(runDir: string): Json {
+export function coverage(runDir: string) {
   const section = scoreCoverage(resolve(runDir));
   if (section['status'] !== 'measured') return section;
   return { built: section['built'], inventoried: section['found'], buildable: section['eligible'], ratio: section['ratio'],
-    placementShare: section['usageWeighted']['ratio'] ?? null };
+    placementShare: ('ratio' in section.usageWeighted! ? section.usageWeighted.ratio : null) };
 }
-export async function correctedWidths(runDir: string, accuracy?: Json): Promise<Json | null> {
+export async function correctedWidths(runDir: string, accuracy?: Awaited<ReturnType<typeof scoreAccuracy>>): Promise<RatioSummary | null> {
   const section = accuracy ?? await scoreAccuracy(resolve(runDir));
-  return obj(section['overall'])['corrected'] ?? null;
+  return 'overall' in section ? section.overall?.corrected ?? null : null;
 }
-export async function originalWidths(runDir: string, accuracy?: Json): Promise<Json | null> {
+export async function originalWidths(runDir: string, accuracy?: Awaited<ReturnType<typeof scoreAccuracy>>): Promise<RatioSummary | null> {
   const section = accuracy ?? await scoreAccuracy(resolve(runDir));
-  return obj(section['overall'])['original'] ?? null;
+  return 'overall' in section ? section.overall?.original ?? null : null;
 }
-export function openFindings(runDir: string): Json | null {
-  const section = scoreConformance(resolve(runDir), readJson(resolve(runDir, 'project.json')));
+export function openFindings(runDir: string) {
+  const section = scoreConformance(resolve(runDir), readJson<ProjectView>(resolve(runDir, 'project.json')));
   return section['status'] === 'measured' ? { ...section['open'], other: section['openOther'] } : null;
 }
-const recordedCost = (runDir: string): Json => obj(obj(obj(readJson(resolve(runDir, 'benchmark/scorecard.json')))['sections'])['cost']);
+type CostView=Partial<Pick<import('./score-run.ts').Cost,'clock'|'working'|'runner'|'model'>>;
+const recordedCost = (runDir:string):CostView => obj(obj(readJson<{sections?:{cost?:CostView}}>(resolve(runDir,'benchmark/scorecard.json'))).sections).cost ?? {};
 /** Recorded token totals: a later scoring's model is never recomputed for the ledger. */
-export function tokens(runDir: string, cost?: Json): any {
+export function tokens(runDir: string, cost?: CostView) {
   const model = obj((cost ?? recordedCost(runDir))['model']);
   return model['status'] === 'measured' ? model['tokens'] ?? null : null;
 }
-export function elapsedTime(runDir: string, cost?: Json): Json | null {
+export function elapsedTime(runDir: string, cost?: CostView) {
   const section = cost ?? recordedCost(runDir);
-  const kept = Object.fromEntries(['clock', 'working', 'runner'].filter(k => truthy(section[k])).map(k => [k, section[k]]));
+  const kept = Object.fromEntries((['clock','working','runner'] as const).filter(k=>truthy(section[k])).map(k=>[k,section[k]]));
   return truthy(kept) ? kept : null;
 }
-export async function metrics(runDir: string): Promise<Json> {
+export async function metrics(runDir: string) {
   const accuracy = await scoreAccuracy(resolve(runDir));
   return { coverage: coverage(runDir), correctedWidths: await correctedWidths(runDir, accuracy),
     originalWidths: await originalWidths(runDir, accuracy), openFindings: openFindings(runDir),
     tokens: tokens(runDir), time: elapsedTime(runDir) };
 }
+
+export function scoreCoverage(...args:Parameters<typeof scoreCoverageResult>):View<ReturnType<typeof scoreCoverageResult>> & {status:ReturnType<typeof scoreCoverageResult>['status']} { return scoreCoverageResult(...args); }
+
+export function scoreConformance(...args:Parameters<typeof scoreConformanceResult>):View<ReturnType<typeof scoreConformanceResult>> & {status:ReturnType<typeof scoreConformanceResult>['status']} { return scoreConformanceResult(...args); }
+
+export async function scoreAccuracy(...args:Parameters<typeof scoreAccuracyResult>):Promise<View<Awaited<ReturnType<typeof scoreAccuracyResult>>> & {status:Awaited<ReturnType<typeof scoreAccuracyResult>>['status']}> { return await scoreAccuracyResult(...args); }
