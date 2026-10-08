@@ -64,7 +64,10 @@ test('writeScore accepts --compare repeatability (levelNote and minScore)', asyn
   const result = await scoreRun(run, { compare: [other], compareRuns });
   assert.deepEqual(result.errors, []);
   assert.equal(result.code, 0);
-  assert.match(String((result.scorecard as Json)['sections']['repeatability']['levelNote']), /beyond timestamps/);
+  const repeatability = result.scorecard.sections.repeatability;
+  assert.ok('levelNote' in repeatability);
+  assert.match(repeatability.levelNote, /beyond timestamps/);
+  assert.equal(repeatability.minScore, 98.5);
 });
 
 // 4. --transcripts naming a folder: caveat on cost.model and cost.working.
@@ -76,7 +79,9 @@ test('writeScore accepts --transcripts folders (caveat on model and working)', a
   const result = await scoreRun(run, { transcripts: folder });
   assert.deepEqual(result.errors, []);
   assert.equal(result.code, 0);
-  assert.match(String((result.scorecard as Json)['sections']['cost']['model']['caveat']), /every session in the folder/);
+  const model = result.scorecard.sections.cost.model;
+  assert.equal(model.status, 'measured');
+  assert.match(model.caveat ?? '', /every session in the folder/);
 });
 
 // 5. --session current with two sessions written during the run: cost.developer.sessionWarning.
@@ -89,7 +94,7 @@ test('writeScore accepts --session current with several sessions (sessionWarning
   const result = await scoreRun(run, { session: 'current' });
   assert.deepEqual(result.errors, []);
   assert.equal(result.code, 0);
-  assert.match(String((result.scorecard as Json)['sections']['cost']['developer']['sessionWarning']), /newest of 2 sessions/);
+  assert.match(result.scorecard.sections.cost.developer?.sessionWarning ?? '', /newest of 2 sessions/);
 });
 
 // Varied inputs for the other-writers check: the same writer on the paths that do not write these fields.
@@ -108,7 +113,9 @@ test('writeScore accepts a measured library and a shared-build repeatability', a
   const result = await scoreRun(run, { compare: [other], compareRuns });
   assert.deepEqual(result.errors, []);
   assert.equal(result.code, 0);
-  assert.match(String((result.scorecard as Json)['sections']['repeatability']['levelNote']), /measures the Figma build/);
+  const repeatability = result.scorecard.sections.repeatability;
+  assert.ok('levelNote' in repeatability);
+  assert.match(repeatability.levelNote, /measures the Figma build/);
 });
 
 test('writeScore accepts an explicit transcript file (no caveat)', async () => {
@@ -119,4 +126,82 @@ test('writeScore accepts an explicit transcript file (no caveat)', async () => {
   const result = await scoreRun(run, { transcripts: file });
   assert.deepEqual(result.errors, []);
   assert.equal(result.code, 0);
+});
+
+// The accuracy fields and identity fields the writer sets to null when its inputs are partial.
+// Each case is written through the real writeScore() and must validate, or scoring exits 2.
+const buildRecord = (run: string, pairs: unknown[]): void =>
+  write(join(run, 'builds', 'card.json'), { id: 'card', visualEvidence: { comparison: { metrics: { pairs } } } });
+const realRender = (options: Partial<S.WriteScoreOptions> = {}): Partial<S.WriteScoreOptions> => {
+  const { render: _stub, ...rest } = { render: undefined, ...options };
+  return rest;
+};
+
+test('writeScore accepts accuracy recorded only in build records (no corrected measure, no height delta)', async () => {
+  const run = join(root, 'run');
+  write(join(run, 'project.json'), project());
+  buildRecord(run, [{ label: 'desktop', ratio: 0.1, pass: true, width: 1200 }]);
+  const result = await S.writeScore(run, { warn: () => {}, out: join(root, 'out'), stopServer: noServer, ...realRender() });
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.code, 0);
+  const accuracy = result.scorecard.sections.accuracy;
+  assert.equal(accuracy.status, 'partial');
+  assert.equal(accuracy.overall?.corrected, null);
+  assert.equal(accuracy.byBreakpoint?.['desktop']?.corrected, null);
+  assert.deepEqual(accuracy.byBreakpoint?.['desktop']?.heightDelta, { median: null, max: null, over10px: 0 });
+  assert.equal(accuracy.pairs?.[0]?.widthDelta, null);
+  assert.equal(accuracy.pairs?.[0]?.evidence, null);
+});
+
+test('writeScore accepts a recorded comparison pair that has no ratio (null ratio summaries)', async () => {
+  const run = join(root, 'run');
+  write(join(run, 'project.json'), project());
+  buildRecord(run, [{ label: 'desktop', pass: true, width: 1200, heightDelta: 3 }]);
+  const result = await S.writeScore(run, { warn: () => {}, out: join(root, 'out'), stopServer: noServer, ...realRender() });
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.code, 0);
+  const original = result.scorecard.sections.accuracy.overall?.original;
+  assert.deepEqual(original, { pass: 1, total: 1, medianRatio: null, p75Ratio: null, maxRatio: null });
+  assert.deepEqual(result.scorecard.headline.accuracy.original, original);
+});
+
+test('writeScore accepts a project manifest that predates run identity and a rebuild with a corpus label', async () => {
+  const run = join(root, 'run');
+  const { pluginVersion: _p, standardVersion: _s, repository, ...rest } = project() as Json & { repository: Json };
+  const { dirty: _d, ...repo } = repository;
+  write(join(run, 'project.json'), { ...rest, repository: repo, run: { startedAt: '2026-01-05T10:00:00+00:00',
+    rebuiltFrom: { run: '/runs/earlier', createdAt: null, pluginVersion: null, corpusLabel: 'massport' } } });
+  const result = await scoreRun(run);
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.code, 0);
+  const identity = result.scorecard.sections.identity;
+  assert.ok('fields' in identity);
+  assert.equal(identity.fields.pluginVersion, null);
+  assert.equal(identity.fields.standardVersion, null);
+  assert.equal(identity.fields.repositoryDirty, null);
+  assert.equal(identity.fields.rebuiltFrom?.corpusLabel, 'massport');
+});
+
+test('writeScore accepts a library with only a plan and a run with no benchmark step (null found, null until, no median step)', async () => {
+  const run = join(root, 'run'), file = join(root, 'transcripts', 'one.jsonl');
+  write(join(run, 'project.json'), project({ run: { startedAt: '2026-01-05T10:00:00+00:00' } }));
+  write(join(run, 'plan.json'), { plans: [{ id: 'mytheme.card', verdict: 'build', variants: 3, properties: [{ field: 'title' }] }] });
+  write(join(run, 'index.json'), { notBuilt: [{ id: 'mytheme.hero' }] });
+  lines(join(run, 'phase-log.jsonl'), [{ at: '2026-01-05T10:01:00+00:00', phase: 'preflight', status: 'complete' }]);
+  mkdirSync(join(run, 'figma'), { recursive: true });
+  writeFileSync(join(run, 'figma', 'runner.log'), '2026-01-05T10:10:00+00:00 recorded block:card\n');
+  // An assistant message without a timestamp: the transcript is measured but has no first or last message time.
+  lines(file, [{ type: 'assistant', sessionId: 'one', message: { id: 'msg-1', model: 'claude-opus-5-5', usage: { input_tokens: 10, output_tokens: 5 }, content: [] } }]);
+  const result = await scoreRun(run, { transcripts: file });
+  assert.deepEqual(result.errors, []);
+  assert.equal(result.code, 0);
+  const { library, cost } = result.scorecard.sections;
+  assert.ok('components' in library);
+  assert.equal(library.components.found, null);
+  assert.equal(library.components.notBuilt, null);
+  assert.ok('runner' in cost && 'medianStepSeconds' in cost.runner);
+  assert.equal(cost.runner.medianStepSeconds, null);
+  assert.ok('until' in cost.unattended);
+  assert.equal(cost.unattended.until, null);
+  assert.equal(cost.model.firstMessage, null);
 });

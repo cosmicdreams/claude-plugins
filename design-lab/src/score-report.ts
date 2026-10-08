@@ -21,7 +21,7 @@ type Runner = NonNullable<Cost['runner']>;
 type Working = NonNullable<Cost['working']>;
 type ModelUsage = NonNullable<Cost['model']>;
 type Metric = 'original' | 'corrected';
-interface Measure { ratio?: number; pass?: boolean }
+interface Measure { ratio?: number | null; pass?: boolean | null }
 /** The part of a section the "not measured" panel reads. */
 interface Absence { status?: string; reason?: string; howToMeasure?: string }
 /** One side of a figma/live thumbnail pair, as an embedded WebP data URI. */
@@ -184,7 +184,7 @@ export function field(accuracy: Accuracy): string {
         + (metric === 'corrected' ? ` (original measure ${pct(pair.original.ratio, 1)})` : '')
         + (pair.heightDelta ? ` · ${num(pair.heightDelta)}px height difference` : '')
         + (value?.pass ? ' · within tolerance' : '');
-      out.push(`<g class="f-cell" tabindex="0" data-tip="${esc(tip)}"><rect class="${binOf(value?.ratio)}" x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3"/>`
+      out.push(`<g class="f-cell" tabindex="0" data-tip="${esc(tip)}"><rect class="${binOf(value?.ratio ?? undefined)}" x="${x}" y="${y}" width="${cell}" height="${cell}" rx="3"/>`
         + (value?.pass ? `<path class="f-check" d="M${x + 9} ${y + 15.5}l4.5 4.5 8-9"/>` : '') + '</g>');
     });
   });
@@ -195,7 +195,7 @@ export function field(accuracy: Accuracy): string {
 
 function fieldDesc(accuracy: Accuracy, metric: Metric): string {
   const parts = Object.entries(accuracy.byBreakpoint ?? {}).map(([name, value]) => {
-    const m: { pass?: number; total?: number; medianRatio?: number } = value[metric] ?? {};
+    const m: { pass?: number; total?: number; medianRatio?: number | null } = value[metric] ?? {};
     return `${bpName(name)}: ${pyStr(m.pass)} of ${pyStr(m.total)} within tolerance, median ${pct(m.medianRatio, 1)} of pixels differ`;
   });
   return parts.join('; ') + '.';
@@ -404,7 +404,7 @@ function accuracySection(acc: Accuracy, thumbs: Thumbnails): string {
   const perBreakpoint = Math.floor((orig?.total ?? 0) / Math.max(1, Object.keys(byBreakpoint).length));
   const chart = `<figure class="chart"><figcaption><h3>Widths within tolerance</h3><p>Out of ${num(perBreakpoint)} components per breakpoint.</p></figcaption>${passBars(acc)}</figure>`;
   const metric: Metric = hasEntries(corrected) ? 'corrected' : 'original';
-  const ratios = (subset: readonly Pair[]) => subset.map(p => measureOf(p, metric)?.ratio), heights = (subset: readonly Pair[]) => subset.map(p => p.heightDelta || 0);
+  const ratios = (subset: readonly Pair[]) => subset.map(p => measureOf(p, metric)?.ratio ?? undefined), heights = (subset: readonly Pair[]) => subset.map(p => p.heightDelta || 0);
   const groups = Object.keys(byBreakpoint).map(n => pairs.filter(p => p.breakpoint === n));
   const ratioRows = tallestBin(groups.map(ratios), RATIO_EDGES), heightRows = tallestBin(groups.map(heights), HEIGHT_EDGES);
   const passingBins = RATIO_EDGES.filter(e => e <= (acc.threshold ?? 0)).length;

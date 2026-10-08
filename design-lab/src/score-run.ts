@@ -30,7 +30,7 @@ import { roundDecimal, roundEven } from './json.ts';
 import { pluginRoot } from './runtime.ts';
 import {
   accuracyPairs, capitalize, commas, elapsedTime, fixed, globSorted, isDir, isFile, list, notMeasured, median, obj,
-  or, pyStr, readJson, readJsonl, scoreAccuracy, scoreConformance, scoreCoverage, tokens, truthy,
+  or, pyStr, readJson, readJsonl, scoreAccuracy, scoreConformance, scoreCoverage, truthy,
 } from './run-metrics.ts';
 import type { Json,ProjectView,Accuracy,AccuracyPair,RatioSummary,View } from './run-metrics.ts';
 
@@ -79,6 +79,8 @@ export function parseTime(value: unknown): Time | null {
   return utc.getTime() * 1000 + fraction - offset;
 }
 /** UTC, whole seconds, "+00:00": the scorecard's time format. */
+export function iso(value: Time): string;
+export function iso(value: Time | null | undefined): string | null;
 export function iso(value: Time | null | undefined): string | null {
   if (value === null || value === undefined) return null;
   return new Date(Math.floor(value / SECOND) * 1000).toISOString().replace(/\.\d{3}Z$/, '+00:00');
@@ -136,7 +138,8 @@ function scoreIdentityResult(runDir: string, project:ProjectView|null, siteLabel
   const buildState = obj(readJson<Partial<BuildState>>(resolve(runDir, 'figma/state.json')));
   const labelSource = siteLabel ? 'argument' : truthy(run['siteLabel']) ? 'manifest' : host ? 'public address' : 'repository folder';
   const fields = {
-    siteLabel: or(siteLabel, run['siteLabel'], host, basename(String(or(repository['root'], runDir)))),
+    // The last alternative is always a string, so `or` cannot return null here.
+    siteLabel: or(siteLabel, run['siteLabel'], host, basename(String(or(repository['root'], runDir)))) ?? '',
     siteLabelSource: labelSource,
     rebuiltFrom: run['rebuiltFrom'] ?? null,
     publicAddress: canonical,
@@ -218,15 +221,15 @@ export function phaseTimings(runDir: string, project:ProjectView|null) {
   if (!truthy(project)) return null;
   const log = readJsonl<Partial<PhaseLogEntry>>(resolve(runDir,'phase-log.jsonl')), start = runStart(project);
   if (log.length) {
-    const first = new Map<unknown, Time>(), last = new Map<unknown, Time>();
+    const first = new Map<string, Time>(), last = new Map<string, Time>();
     for (const entry of log) {
       const when = parseTime(entry['at']), phase = entry['phase'];
-      if (when === null || !truthy(phase) || phase === 'init') continue;
+      if (when === null || typeof phase !== 'string' || !phase || phase === 'init') continue;
       if (!first.has(phase)) first.set(phase, when);
       if (['complete', 'approved', 'waived'].includes(pyStr(entry['status']))) last.set(phase, when);
     }
     // A phase starts when the previous phase ended (or when it was first touched).
-    const ordered = [...last].sort((a, b) => a[1] - b[1]), rows: {phase:unknown;start:string|null;end:string|null;seconds:number}[] = [];
+    const ordered = [...last].sort((a, b) => a[1] - b[1]), rows: {phase:string;start:string;end:string;seconds:number}[] = [];
     let previous = start;
     for (const [phase, end] of ordered) {
       const begin = Math.min(first.get(phase) ?? end, previous ?? end);
@@ -236,14 +239,14 @@ export function phaseTimings(runDir: string, project:ProjectView|null) {
     return { source: 'phase log', exact: true, phases: rows,
       totalSeconds: ordered.length && start !== null ? Math.trunc(seconds(start, ordered.at(-1)![1])) : null };
   }
-  const checkpoints: {phase:string;status:string|null;at:string|null}[] = [];
+  const checkpoints: {phase:string;status:string|null;at:string}[] = [];
   for (const [phase, raw] of Object.entries(obj(project!['phases']))) {
     const value = obj(raw);
     if (truthy(value['from'])) continue;
     const when = parseTime(value['updatedAt']);
     if (when !== null) checkpoints.push({ phase, status: value['status'] ?? null, at: iso(when) });
   }
-  checkpoints.sort((a, b) => a['at']! < b['at']! ? -1 : a['at']! > b['at']! ? 1 : 0);
+  checkpoints.sort((a, b) => a.at < b.at ? -1 : a.at > b.at ? 1 : 0);
   if (!checkpoints.length) return null;
   const lastAt = parseTime(checkpoints.at(-1)!['at']);
   return { source: 'manifest checkpoints', exact: false, checkpoints, start: iso(start),
@@ -676,7 +679,7 @@ export const scoredBefore = (runDir: string): boolean => isFile(resolve(runDir, 
  * writeScore records it in the phase log, where every later re-score reads it and never moves it. */
 export function wallClock(runDir: string, project:ProjectView|null, scorer: [Time, Time]) {
   const start = runStart(project), bench = benchmarkStart(runDir), [scorerStart, scorerEnd] = scorer;
-  let end = benchmarkEnd(runDir, bench), source = 'phase log';
+  let end = benchmarkEnd(runDir, bench), source: 'phase log' | 'this scoring' = 'phase log';
   if (bench !== null && end === null && !scoredBefore(runDir) && scorerEnd >= bench) { end = scorerEnd; source = 'this scoring'; }
   const span = (a: Time | null, b: Time | null): number | null => a !== null && b !== null ? Math.trunc(seconds(a, b)) : null;
   const wall = start !== null && bench !== null && end !== null ? span(start, end) : null;
@@ -810,7 +813,6 @@ export function scoreCost(runDir: string, project:ProjectView|null, transcripts:
     runner: runner ?? notMeasured('figma/runner.log is missing'),
     timings: timings ?? notMeasured('project.json has no phase times'), model };
   Object.assign(section, elapsedTime(runDir, section) ?? {});
-  if (model['status'] === 'measured') section['model']['tokens'] = tokens(runDir, section);
   if (sessionWarning) section['developer'] = { sessionWarning };
   if (status === 'not-measured') section['reason'] = 'no timing, runner or transcript evidence';
   return section;
@@ -848,7 +850,7 @@ function scoreLibraryResult(runDir: string, project:ProjectView|null) {
     components: { found, planned: build.length, built, notBuilt: totals['notBuilt'] ?? null,
       // From library-counts, so it matches the coverage strip: refused by the plan, not retirement
       // candidates or schema-only entries, which are not counted.
-      refused: counted ? counted.gap['refused'] : plans.filter(p => p['verdict'] === 'refuse').length },
+      refused: counted ? counted.gap['refused'] ?? 0 : plans.filter(p => p['verdict'] === 'refuse').length },
     variants: build.reduce((n, p) => n + Math.trunc(Number(or(p['variants'], 0))), 0) || null,
     properties: build.reduce((n, p) => n + list(or(p['properties'], [])).length, 0) || null,
     variables: variableCount || null,
@@ -946,7 +948,7 @@ async function scoreRepeatabilityResult(runDir: string, others: string[], accura
   const sharedInputs = scored.length > 0 && scored.every(row => ['components.json', 'tokens.json', 'plan.json'].every(n => row['artifactsEquivalent']!.includes(n)));
   return {
     status: scored.length ? 'measured' as const : 'partial' as const,
-    level: sharedInputs ? 'build' : 'pipeline',
+    level: sharedInputs ? 'build' as const : 'pipeline' as const,
     levelNote: sharedInputs
       ? 'The compared runs hold identical extracted artifacts apart from timestamps and folder paths, so this measures the Figma build. Whole-pipeline repeatability needs two runs that each start from an empty workspace.'
       : 'The compared runs hold artifacts that differ beyond timestamps and folder paths, so differences can come from any phase, not only the Figma build.',
@@ -960,7 +962,7 @@ async function scoreRepeatabilityResult(runDir: string, others: string[], accura
 function scoreSchemaChurnResult(project:ProjectView|null) {
   const churn = obj(obj(project)['run'])['schemaChurn'];
   if (churn && typeof churn === 'object' && churn['changed'] === true) {
-    const changes = or(churn['changes'], []);
+    const changes = churn['changes'] ?? [];
     return { status: 'measured' as const, changed: true, changes, summary: `${pyStr(or(list(changes).length, 'A'))} schema change(s) or workaround(s) were needed.` };
   }
   if (churn && typeof churn === 'object' && churn['changed'] === false) {
@@ -1207,10 +1209,10 @@ export function writeTextAtomic(path: string, text: string): void {
 export type Render = (card:ScoreDocument, runDir: string) => Promise<string> | string;
 type NotMeasured=ReturnType<typeof notMeasured>;
 type ModelRow={model:string;name:string;input:number;output:number;cacheWrite:number;cacheRead:number;total:number;turns:number;toolCalls:number};
-type ModelPart={status:'measured'|'not-measured';byModel?:ModelRow[];tokens?:Record<string,number>|null;turns?:number;toolCalls?:number;since?:string|null;reason?:string;howToMeasure?:string};
-type TranscriptUsage={files:number;sessions:number;assistantMessages:number;toolCalls:number;byModel:ModelRow[];tokens:Record<string,number>|null;models:Record<string,number>;configDirs:string[];window:{since:string|null;until:string|null};firstMessage:string|null;lastMessage:string|null;developer:{unattributedEntries:number};production?:ModelPart;benchmark?:ModelPart};
-type Model=Partial<TranscriptUsage>&{status:'measured'|'not-measured';source?:string;reason?:string;howToMeasure?:string;caveat?:string|null;benchmarkNote?:string};
-type WorkingPart={status:'measured'|'not-measured';start?:string|null;end?:string|null;spanSeconds?:number;workingSeconds?:number;waitingOnLimitsSeconds?:number;waitingOnServiceSeconds?:number;waitingOnPersonSeconds?:number;reason?:string;howToMeasure?:string};
+type ModelPart={status:'measured'|'not-measured';byModel?:ModelRow[];tokens?:Record<string,number>;turns?:number;toolCalls?:number;since?:string;reason?:string;howToMeasure?:string};
+type TranscriptUsage={files:number;sessions:number;assistantMessages:number;toolCalls:number;byModel:ModelRow[];tokens:Record<string,number>;models:Record<string,number>;configDirs:string[];window:{since:string|null;until:string|null};firstMessage:string|null;lastMessage:string|null;developer:{unattributedEntries:number};production?:ModelPart;benchmark?:ModelPart};
+type Model=Partial<TranscriptUsage>&{status:'measured'|'not-measured';source?:string;reason?:string;howToMeasure?:string;caveat?:string;benchmarkNote?:string};
+type WorkingPart={status:'measured'|'not-measured';start?:string;end?:string;spanSeconds?:number;workingSeconds?:number;waitingOnLimitsSeconds?:number;waitingOnServiceSeconds?:number;waitingOnPersonSeconds?:number;reason?:string;howToMeasure?:string};
 type Working=WorkingPart&{limitEvents:number;serviceEvents:number;questionsToPerson:number;fullAccess:boolean|null;developer:{permissionModes:Record<string,number>};definition:string;production?:WorkingPart;benchmark?:WorkingPart;caveat?:string|null};
 type Clock=ReturnType<typeof wallClock>;
 export type Cost={status:Scorecard['sections']['cost']['status'];definition:string;clock:Clock;working:View<Working>&{status:WorkingPart['status']};unattended:ReturnType<typeof unattended>;runner:NonNullable<ReturnType<typeof runnerSteps>>|NotMeasured;timings:NonNullable<ReturnType<typeof phaseTimings>>|NotMeasured;model:Model;developer?:{sessionWarning:string};reason?:string};
