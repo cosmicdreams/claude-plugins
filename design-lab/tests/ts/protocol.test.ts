@@ -54,14 +54,10 @@ void test('mod manifest contract is derived, self-contained and current', () => 
 });
 void test('literal reviewed seam substitutions fail on an unreviewed executable edit', () => {
   assert.doesNotThrow(() => restoreSeams(client, 'runner'));
-  assert.throws(
-    () =>
-      restoreSeams(
-        client.replace("case 'upload': result = await upload(step);", "case 'upload': result = {};"),
-        'runner',
-      ),
-    /present exactly/,
-  );
+  const dispatch = reviewedSeams.runner[0];
+  if (!dispatch) throw new Error('runner dispatch seam is missing');
+  const changedDispatch = dispatch.current.replace('result = await new AsyncFunction(step.code )();', 'result = {};');
+  assert.throws(() => restoreSeams(client.replace(dispatch.current, changedDispatch), 'runner'), /present exactly/);
 });
 void test('exhaustive runner dispatch preserves every previously reachable work variant', async () => {
   const edit = reviewedSeams.runner[0]!;

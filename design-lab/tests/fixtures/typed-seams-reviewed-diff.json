@@ -19,7 +19,7 @@
   ],
   "runner": [
     {
-      "current": "      switch (step.kind) {\n        case 'use_figma': case 'dump': case 'check': result = await new AsyncFunction(step.code )(); break;\n        case 'upload': result = await upload(step); break;\n        case 'screenshot': result = await screenshot(step); break;\n        // Normally consumed by the server, but part of the shared wire contract.\n        case 'skip': result = {}; break;\n        default: assertNever(step);\n      }",
+      "current": "switch (step.kind) {\n          case 'use_figma':\n          case 'dump':\n          case 'check':\n            result = await new AsyncFunction(step.code )();\n            break;\n          case 'upload':\n            result = await upload(step);\n            break;\n          case 'screenshot':\n            result = await screenshot(step);\n            break;\n          // Normally consumed by the server, but part of the shared wire contract.\n          case 'skip':\n            result = {};\n            break;\n          default:\n            assertNever(step);\n        }",
       "previous": "      if (step.kind === 'use_figma' || step.kind === 'dump' || step.kind === 'check') result = await new AsyncFunction(step.code )();\n      else if (step.kind === 'upload') result = await upload(step);\n      else if (step.kind === 'screenshot') result = await screenshot(step);\n      else throw new Error(`unknown step kind ${step.kind}`);"
     },
     {

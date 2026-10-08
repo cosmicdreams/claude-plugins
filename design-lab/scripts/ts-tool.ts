@@ -93,7 +93,7 @@ try {
     writeFileSync(path, JSON.stringify(config, null, 2));
     const result = spawnSync(
       process.execPath,
-      [resolve(modules, 'typescript/bin/tsc'), '--noEmit', '-p', path, '--pretty', 'false'],
+      [resolve(modules, '@typescript/native/bin/tsc'), '--noEmit', '-p', path, '--pretty', 'false'],
       { stdio: 'inherit' },
     );
     if (result.error) throw result.error;

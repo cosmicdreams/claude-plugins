@@ -1,6 +1,6 @@
 // Generated from src/protocol.ts by scripts/generate-mod-contract.ts. Do not edit.
-export type ProgressState = 'waiting' | 'preflight' | 'building' | 'done' | 'failed';
-export type StepKind = 'wait' | 'done' | 'check' | 'dump' | 'use_figma' | 'upload' | 'screenshot' | 'skip';
+export type ProgressState = "waiting" | "preflight" | "building" | "done" | "failed";
+export type StepKind = "wait" | "done" | "check" | "dump" | "use_figma" | "upload" | "screenshot" | "skip";
 
 // reused: copied from an earlier run (design-lab:figma-build), not run again here
 export type Phase = { name: string; status: string; reused: boolean };
@@ -79,13 +79,13 @@ export type Summary = {
 declare module 'claude-code' {
   interface PluginState {
     'design-lab': {
-      run: string | null;
-      summary: Summary | null;
-      alarmed: boolean;
-      follow: string | null;
-      skip: string | null;
+      run: string | null
+      summary: Summary | null
+      alarmed: boolean
+      follow: string | null
+      skip: string | null
       // the run whose full completion message is shown under its figures, or null when folded
-      recapOpen: string | null;
-    };
+      recapOpen: string | null
+    }
   }
 }
