@@ -51,7 +51,7 @@ test("Site Studio folder selection reads literal PHP values and refuses ambiguou
   );
   const result = configDir(dynamic);
   assert.equal(result.path, null);
-  assert.match(result.problem, /cannot be read without running PHP/);
+  assert.match(result.problem!, /cannot be read without running PHP/);
 });
 
 test("Site Studio resolves each supported static expression, ignores comments, and excludes generated settings", () => {
@@ -105,7 +105,7 @@ test("Site Studio requires an explicit export choice for missing, unreadable, or
   );
   mkdirSync(join(unreadable, "config/packages"), { recursive: true });
   assert.match(
-    configDir(unreadable).problem,
+    configDir(unreadable).problem!,
     /cannot be read without running PHP/,
   );
   const missing = site(
@@ -113,7 +113,7 @@ test("Site Studio requires an explicit export choice for missing, unreadable, or
     "$settings['site_studio_sync'] = '../config/gone';\n$settings['config_sync_directory'] = '../config/packages';",
   );
   mkdirSync(join(missing, "config/packages"), { recursive: true });
-  assert.match(configDir(missing).problem, /does not exist/);
+  assert.match(configDir(missing).problem!, /does not exist/);
   const multi = site(
     temp(),
     "$settings['site_studio_sync'] = '../config/packages';",
@@ -125,11 +125,11 @@ test("Site Studio requires an explicit export choice for missing, unreadable, or
     join(multi, "docroot/sites/other/settings.php"),
     "<?php\n$settings['site_studio_sync'] = '../config/other';\n",
   );
-  assert.match(configDir(multi).problem, /2 different values/);
+  assert.match(configDir(multi).problem!, /2 different values/);
   const noGuess = site(temp());
   mkdirSync(join(noGuess, "config/sitestudio"), { recursive: true });
   assert.equal(configDir(noGuess).path, null);
-  assert.match(configDir(noGuess).problem, /--sitestudio-config/);
+  assert.match(configDir(noGuess).problem!, /--sitestudio-config/);
 });
 
 test("literal settings preserve quotes, slashes, semicolons, and other comment-like characters", () => {
@@ -162,7 +162,7 @@ test("Drupal config setting can select a Site Studio export when no dedicated se
   );
   const chosen = configDir(root);
   assert.equal(relative(root, chosen.path!), "config/sync");
-  assert.match(chosen.from, /config_sync_directory/);
+  assert.match(chosen.from!, /config_sync_directory/);
 });
 
 test("custom Site Studio components obey extension precedence, filename identity, and no-form behavior", () => {
@@ -242,7 +242,7 @@ test("a malformed custom form becomes a scoped problem while other components re
     result.components.map((c: any) => c.id),
     ["tiny"],
   );
-  assert.equal(result.problems[0]!.kind, "unparseable-custom-component");
+  assert.equal(result.problems![0]!.kind, "unparseable-custom-component");
 });
 
 test("custom Site Studio search follows symlinked extensions and reports duplicate names by precedence", () => {
@@ -352,11 +352,11 @@ test("Site Studio config components retain field and option semantics", () => {
     "config/packages/cohesion_elements.cohesion_component.hero.yml",
     'id: hero\nlabel: Hero\njson_values: \'{"model": {"title-uid": {"settings": {"machineName": "title", "title": "Title", "type": "cohTextBox", "required": true}, "model": {"value": "Hello"}}, "style-uid": {"settings": {"machineName": "style", "title": "Style", "type": "cohSelect", "options": [{"value": "left", "label": "Left"}]}, "model": {"value": "left"}}}}\'\nstatus: true\n',
   );
-  const c = extractSiteStudio(root).components[0];
+  const c = extractSiteStudio(root).components[0]!;
   assert.equal(c.id, "hero");
-  assert.equal(c.fields[0].kind, "text");
-  assert.equal(c.fields[0].required, true);
-  assert.deepEqual(c.fields[1].options, [{ value: "left", label: "Left" }]);
+  assert.equal(c.fields[0]!.kind, "text");
+  assert.equal(c.fields[0]!.required, true);
+  assert.deepEqual(c.fields[1]!.options, [{ value: "left", label: "Left" }]);
 });
 
 test("Site Studio renders multiple drop-zone markers as one universal slot", () => {
@@ -370,7 +370,7 @@ test("Site Studio renders multiple drop-zone markers as one universal slot", () 
     "config/packages/cohesion_elements.cohesion_component.layout.yml",
     `id: layout\nlabel: Layout\njson_values: '{"canvas": [{"uid": "component-drop-zone"}, {"uid": "component-drop-zone"}], "model": {}}'\nstatus: true\n`,
   );
-  const c = extractSiteStudio(root).components[0];
+  const c = extractSiteStudio(root).components[0]!;
   assert.deepEqual(c.slots, [
     { name: "content", label: "Component drop zone", accepts: ["*"] },
   ]);
@@ -389,7 +389,7 @@ test("detection chooses authoring bundles over a larger incidental SDC inventory
   const out = detect(root);
   assert.equal(out.recommended.component, "drupal-authoring");
   assert.equal(
-    out.componentSources.find((x: any) => x.strategy === "sdc").count,
+    out.componentSources.find((x) => x.strategy === "sdc")!.count,
     3,
   );
   assert.equal(configSync(root), join(root, "config/default"));
@@ -477,7 +477,7 @@ test("token detection uses loaded stylesheet paths and excludes the active works
     css = out.tokenSources.find(
       (x: any) => x.strategy === "css-custom-properties",
     );
-  assert.equal(css.variablesLoadedByTheme, 0);
+  assert.equal(css!.variablesLoadedByTheme, 0);
   assert.equal(out.recommended.token, "sass-source");
   assert.equal(
     out.priorArt.some((x: any) => x.path.startsWith(".design-lab")),
@@ -522,7 +522,7 @@ test("Canvas detection sees custom theme directories without info files and only
   );
   const out = detect(root),
     canvas = out.componentSources.find((x: any) => x.strategy === "canvas");
-  assert.equal(canvas.count, 1);
+  assert.equal(canvas!.count, 1);
 });
 
 test("Site Studio family detection uses direct export entries, not nested lookalikes", () => {
@@ -600,15 +600,15 @@ test("Drupal authoring resolves paragraph slots and predefined field kinds; Twig
   const layout = authored.components.find(
     (c: any) => c.id === "paragraph:layout",
   );
-  assert.equal(layout.slots[0].accepts[0], "paragraph:text");
+  assert.equal(layout!.slots[0]!.accepts![0], "paragraph:text");
   const sass = put(
     root,
     "docroot/themes/custom/theme/templates/paragraph/paragraph--layout.scss",
     ".layout { color: red; .part { gap: 1rem; } }",
   );
   const facts = extractFile(sass);
-  assert.equal(facts.rootRules[0].selector, ".layout");
-  assert.equal(facts.partRules[0].selector, ".part");
+  assert.equal(facts.rootRules[0]!.selector, ".layout");
+  assert.equal(facts.partRules[0]!.selector, ".part");
   put(
     root,
     "docroot/themes/custom/theme/templates/paragraph/paragraph--layout.html.twig",
@@ -629,7 +629,7 @@ test("Drupal authoring resolves paragraph slots and predefined field kinds; Twig
       { id: "paragraph:layout", fields: [], slots: [{ name: "field_items" }] },
     ],
   });
-  const item = rendered.items["paragraph:layout"];
+  const item = rendered.items["paragraph:layout"]!;
   assert.equal(item.rootSdc, "theme:card");
   assert.deepEqual(item.sdc, ["theme:card", "theme:button"]);
   assert.ok(
@@ -682,7 +682,7 @@ test("Drupal authoring replaces list placeholders with predefined options and ma
     "docroot/modules/custom/example/src/Plugin/ListOptions/Styles.php",
     "<?php\n/** @ListOptions(\n * id = 'example_styles'\n * )\n */\npublic function getListOptions() { return ['plain' => $this->t('Plain'), 'feature' => $this->t('Feature')]; }\n",
   );
-  const c = extractAuthoring(root).components[0],
+  const c = extractAuthoring(root).components[0]!,
     fields = Object.fromEntries(c.fields.map((f: any) => [f.name, f]));
   assert.deepEqual(fields['field_style'].options, [
     { value: "plain", label: "Plain" },

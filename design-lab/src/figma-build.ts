@@ -12,7 +12,8 @@ import { visible } from './spec-to-tree.ts';
 import { fetchImages } from './fetch-images.ts';
 import { sharedRequire } from './runtime.ts';
 import { validateRunnerRecord, assertValid } from './contracts.ts';
-import { load, result, safe, writeOnChange, keyOf } from './build-artifacts.ts';
+import type { Project } from './generated/project.ts';
+import { load, result, safe, writeArtifactOnChange, keyOf } from './build-artifacts.ts';
 import type { BuildState, BuildResult, Geometry, GeometryBox, Component } from './build-artifacts.ts';
 import type { Spec } from './generated/spec.ts';
 import type { Tree } from './generated/tree.ts';
@@ -37,7 +38,7 @@ export function buildTrees(project: string, trees: string, only?: string): { id:
     let tree: Tree;
     try { tree = responsive(spec, c.label || c.id, c.id.split('.').at(-1)!); }
     catch (error) { if (error instanceof Error && /missing root|no usable|no measurement|no nodes|root measurement/.test(error.message)) continue; throw error; }
-    writeOnChange(resolve(trees, c.id + '.json'), tree); built.push({ id: c.id });
+    writeArtifactOnChange('tree', resolve(trees, c.id + '.json'), tree); built.push({ id: c.id });
   }
   const by = new Map(comps.map(c => [c.id, c])), ids = built.map(b => b.id);
   for (const child of ids) {
@@ -48,7 +49,7 @@ export function buildTrees(project: string, trees: string, only?: string): { id:
       let alt: Tree; try { alt = responsive({ measurements: found[0] } as Spec, by.get(child)!.label || child, `${child.split(':').at(-1)}@${parent.split(':').at(-1)}`); } catch (error) { if (error instanceof Error && /missing root|no usable|no measurement|no nodes/.test(error.message)) continue; throw error; }
       const sig = keyOf(signature(alt.tree)); if (seen.has(sig)) continue; seen.add(sig); alternates.push({ label: `In ${by.get(parent)!.label || parent}`, parent, variables: alt.variables, tree: alt.tree });
     }
-    if (alternates.length) tree.alternates = alternates; else delete tree.alternates; writeOnChange(resolve(trees, child + '.json'), tree);
+    if (alternates.length) tree.alternates = alternates; else delete tree.alternates; writeArtifactOnChange('tree', resolve(trees, child + '.json'), tree);
   }
   return built;
 }
@@ -83,7 +84,7 @@ export class BuildDriver {
   state(): BuildState {
     const stamp = this.stamp(); if (!this.stateCache || stamp !== this.stateStamp) { const state: unknown = load(this.project, 'figma/state.json'); assertValid('figma-state', state); if (!('steps' in state)) throw new Error('build has not been initialized'); this.stateCache = state; this.stateStamp = stamp; } return structuredClone(this.stateCache);
   }
-  private save(state: BuildState): void { writeOnChange(this.statePath, state); this.stateCache = structuredClone(state); this.stateStamp = this.stamp(); }
+  private save(state: BuildState): void { writeArtifactOnChange('figma-state', this.statePath, state); this.stateCache = structuredClone(state); this.stateStamp = this.stamp(); }
   private today(): string { return this.options.today?.() ?? new Date().toLocaleDateString('en-CA'); }
   private timing(step: string, phase: string, ms: number): void { if (this.options.timings === false) return; appendFileSync(resolve(this.project, 'figma/timings.jsonl'), JSON.stringify({ step, phase, ms }) + '\n'); }
   init(o: InitOptions) {
@@ -99,9 +100,9 @@ export class BuildDriver {
       const refreshed = new Set(['cover', 'getting-started', 'examples', ...[...selected].flatMap(cid => ['build', 'images', 'block', 'evidence', 'compare'].map(p => p + ':' + cid))]), state = { ...previous, runtime: this.renderer.runtimeHash(), buildId: process.hrtime.bigint().toString(), subset: [...selected].sort(), done: previous.done!.filter(s => !refreshed.has(s)) } as BuildState;
       const completion = resolve(project, 'benchmark/completion.md'); if (existsSync(completion)) renameSync(completion, resolve(project, `benchmark/completion-before-subset-${process.hrtime.bigint()}.md`));
       this.save(state);
-      const manifest = load<{ phases?: Record<string, { status: string }>; artifacts?: Record<string, { kind: string }> }>(project, 'project.json', {});
+      const manifest = load<Project>(project, 'project.json');
       for (const p of ['components', 'index', 'verify', 'benchmark']) (manifest.phases ??= {})[p] = { status: p === 'components' ? 'running' : 'pending' };
-      manifest.artifacts = Object.fromEntries(Object.entries(manifest.artifacts ?? {}).filter(([n, a]) => ![...selected].map(cid => 'build:' + cid).includes(n) && !['index', 'verify-report'].includes(a.kind))); writeOnChange(resolve(project, 'project.json'), manifest);
+      manifest.artifacts = Object.fromEntries(Object.entries(manifest.artifacts ?? {}).filter(([n, a]) => ![...selected].map(cid => 'build:' + cid).includes(n) && !['index', 'verify-report'].includes(a.kind ?? ''))); writeArtifactOnChange('project', resolve(project, 'project.json'), manifest);
       return { steps: state.steps.length, components: selected.size, subset: [...selected].sort() };
     }
     if (o.rebuild) {
@@ -172,14 +173,14 @@ export class BuildDriver {
     if (sid === 'pages') { if (data.foreign?.length) throw new Error('pages: the file holds pages design-lab did not create (' + data.foreign.join(', ') + '); the build needs an empty file, or one holding only this run\'s initial Cover'); if (state.preflightCover && data.pages?.['Cover'] !== state.preflightCover) throw new Error('pages: the build must fill in the initial Cover, not add another'); }
     const expected = this.issued?.stamp === this.stateStamp && this.issued.step.step === sid ? this.issued.step : await this.next();
     if (head === 'compare' && data.file) {
-      if (expected.kind !== 'screenshot') throw new Error('expected an empty skipped comparison'); const cid = sid.slice(sid.indexOf(':') + 1), geo = result(this.project, 'block:' + cid).geometry!; data = { file: data.file, ...await compare(data.file, geo, true, textMasks(this.project, cid, geo)) } as BuildResult; }
+      if (expected.kind !== 'screenshot') throw new Error('expected an empty skipped comparison'); const cid = sid.slice(sid.indexOf(':') + 1), geo = result(this.project, 'block:' + cid).geometry!; data = { file: data.file, ...await compare(data.file, geo, true, textMasks(this.project, cid, geo)) }; }
     else {
       const kind = expected.kind;
       if (kind === 'done' || kind === 'wait' || kind === 'check' || kind === 'dump' || kind === 'screenshot') throw new Error(`cannot record ${kind} without its expected result`);
       const errors = validateRunnerRecord(kind, data); if (errors.length) throw new Error(`${sid}: invalid ${kind} result:\n${errors.join('\n')}`);
     }
     if (this.stamp() !== originalStamp) throw new Error('build state changed while recording; retry against the current build');
-    writeOnChange(resolve(this.project, `figma/results/${safe(sid)}.json`), data);
+    writeArtifactOnChange('step-result', resolve(this.project, `figma/results/${safe(sid)}.json`), data);
     state.done.push(sid);
     if (!['skip', 'screenshot'].includes(expected.kind)) state['executionRevision'] = randomUUID();
     this.save(state); this.timing(sid, 'record', performance.now() - started);

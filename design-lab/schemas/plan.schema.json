@@ -38,7 +38,10 @@
                   "type": "string"
                 },
                 "label": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "options": {
                   "type": "integer"
@@ -153,7 +156,10 @@
             ]
           },
           "label": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "naiveVariants": {
             "type": "number"

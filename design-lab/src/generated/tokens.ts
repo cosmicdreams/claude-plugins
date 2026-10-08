@@ -52,14 +52,14 @@ export type Tokens = (
       colors: {
         className?: string;
         codeName?: string;
-        hex?: string;
+        hex?: string | null;
         inUse?: boolean;
-        name?: string;
+        name?: string | null;
         provenance?: {
           kind?: string;
           ref?: string;
         };
-        tags?: string[];
+        tags?: (string | null)[];
         uid?: string;
       }[];
     }
@@ -129,14 +129,14 @@ export type Tokens = (
   colors?: {
     className?: string;
     codeName?: string;
-    hex?: string;
+    hex?: string | null;
     inUse?: boolean;
-    name?: string;
+    name?: string | null;
     provenance?: {
       kind?: string;
       ref?: string;
     };
-    tags?: string[];
+    tags?: (string | null)[];
     uid?: string;
   }[];
   schemes?: string[];
@@ -202,10 +202,12 @@ export type Tokens = (
       kind?: string;
       ref?: string;
     };
-    codeName?: string;
+    codeName?: string | null;
     raw?: string;
     family?: string;
     isAlias?: boolean;
+    codePath?: string;
+    description?: string;
   }[];
   problems?: {
     check?: string;
@@ -216,7 +218,7 @@ export type Tokens = (
     ref?: string;
   }[];
   fontStacks?: {
-    name?: string;
+    name?: string | null;
     uid?: string;
     stack?: string;
     primaryFamily?: string;
@@ -229,9 +231,9 @@ export type Tokens = (
     };
   }[];
   scssVariables?: {
-    name?: string;
-    uid?: string;
-    value?: string;
+    name?: string | null;
+    uid?: string | null;
+    value?: string | number | boolean | null;
     codeName?: string;
     inUse?: boolean;
     provenance?: {
@@ -240,12 +242,12 @@ export type Tokens = (
     };
   }[];
   customStyles?: {
-    name?: string;
-    codeName?: string;
+    name?: string | null;
+    codeName?: string | null;
     property?: string;
     family?: string;
     valuesByBreakpoint?: {
-      [k: string]: string | null;
+      [k: string]: string | number | boolean | null;
     };
     provenance?: {
       kind?: string;

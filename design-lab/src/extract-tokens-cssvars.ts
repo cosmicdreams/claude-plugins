@@ -2,6 +2,11 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { pluginRoot } from "./runtime.ts";
+import { nonEmpty } from "./lookup.ts";
+import type { Tokens } from "./generated/tokens.ts";
+type Row = NonNullable<Tokens["tokens"]>[number];
+type Problem = NonNullable<Tokens["problems"]>[number];
+type Shadowed = NonNullable<Tokens["shadowed"]>[number];
 
 const STANDARD_VERSION = "3.0.0";
 const SKIP = /\/(node_modules|vendor|\.git|contrib|core)\//;
@@ -166,12 +171,12 @@ export function themeStylesheets(root: string): {
     loaded.add(resolve(join(resolve(lib, ".."), ref.replace(/^\//, ""))));
   return { loaded, libraries };
 }
-export function extract(rootInput: string): Record<string, unknown> {
+export function extract(rootInput: string): Tokens {
   const root = resolve(rootInput),
     { loaded, libraries } = themeStylesheets(root);
   const sheets: [string, string][] = [],
     ignored: [string, string][] = [],
-    problems: Record<string, unknown>[] = [];
+    problems: Problem[] = [];
   for (const path of walk(root)) {
     if (!path.endsWith(".css") || path.endsWith(".min.css")) continue;
     let body: string;
@@ -197,7 +202,7 @@ export function extract(rootInput: string): Record<string, unknown> {
       `no theme-loaded stylesheet declares custom properties under ${root} - this strategy does not apply. ${ignored.length} stylesheet(s) declare them but no *.libraries.yml loads them.`,
     );
   const table = new Map<string, string>(),
-    rows: Record<string, unknown>[] = [];
+    rows: Row[] = [];
   for (const [, body] of sheets)
     for (const d of declarations(body))
       if (!table.has(d.name)) table.set(d.name, d.raw);
@@ -223,46 +228,46 @@ export function extract(rootInput: string): Record<string, unknown> {
   const medias = [
     ...new Set(
       rows
-        .map((r) => r["media"])
+        .map((r) => r.media)
         .filter((m): m is string => typeof m === "string" && !!m),
     ),
   ];
   const scalingNames = new Set(
-    rows.filter((r) => r["media"]).map((r) => r["name"]),
+    rows.filter((r) => r.media).map((r) => r.name),
   );
   const baseNames = new Set(
-    rows.filter((r) => !r["media"]).map((r) => r["name"]),
+    rows.filter((r) => !r.media).map((r) => r.name),
   );
   for (const name of baseNames)
     if (!scalingNames.has(name)) scalingNames.delete(name);
   const scaled = new Set([...scalingNames].filter((n) => baseNames.has(n)));
   const modes = medias.length && scaled.size ? ["Value", ...medias] : ["Value"];
-  const byName = new Map<string, Record<string, unknown>>(),
-    dupes: Record<string, unknown>[] = [];
+  const byName = new Map<string, Row>(),
+    dupes: Shadowed[] = [];
+  const shadow = (r: Row): Shadowed => ({
+    ...(r.name !== undefined ? { name: r.name } : {}),
+    ...(r.value !== undefined ? { value: r.value } : {}),
+    ...(r.layer !== undefined ? { layer: r.layer } : {}),
+    ...(r.provenance !== undefined ? { provenance: r.provenance } : {}),
+  });
   for (const row of rows) {
-    const name = row["name"] as string,
-      mode = (row["media"] as string | null) || "Value",
+    const name = row.name ?? "",
+      mode = row.media || "Value",
       prev = byName.get(name);
     if (!prev)
-      byName.set(name, { ...row, valuesByMode: { [mode]: row["value"] } });
+      byName.set(name, {
+        ...row,
+        valuesByMode: row.value === undefined ? {} : { [mode]: row.value },
+      });
     else {
-      const values = prev["valuesByMode"] as Record<string, unknown>;
-      values[mode] ??= row["value"];
-      if (prev["layer"] !== "base" && row["layer"] === "base") {
+      const values = (prev.valuesByMode ??= {});
+      if (row.value !== undefined) values[mode] ??= row.value;
+      if (prev.layer !== "base" && row.layer === "base") {
         const merged = values;
         byName.set(name, { ...row, valuesByMode: merged });
-        merged[mode] = row["value"];
-        dupes.push(
-          Object.fromEntries(
-            ["name", "value", "layer", "provenance"].map((k) => [k, prev[k]]),
-          ),
-        );
-      } else
-        dupes.push(
-          Object.fromEntries(
-            ["name", "value", "layer", "provenance"].map((k) => [k, row[k]]),
-          ),
-        );
+        if (row.value !== undefined) merged[mode] = row.value;
+        dupes.push(shadow(prev));
+      } else dupes.push(shadow(row));
     }
   }
   const kept = [...byName.values()].sort(
@@ -312,7 +317,7 @@ export function extract(rootInput: string): Record<string, unknown> {
       shadowed: dupes.length,
       byFamily,
     },
-    tokens: kept,
+    tokens: nonEmpty(kept, "no custom property could be read"),
     shadowed: dupes,
     problems,
   };

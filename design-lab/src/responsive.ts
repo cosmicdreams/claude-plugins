@@ -6,7 +6,7 @@ import type { Box, Index, Padding, PseudoGeometry, PseudoImage, Rect } from './s
 import { sorted } from './json.ts';
 import { readFileSync } from 'node:fs';
 import { resolve } from 'node:path';
-import { writeJson } from './contracts.ts';
+import { writeArtifact } from './contracts.ts';
 import { LookupError, at, lastOf, pick } from './lookup.ts';
 export const MODES = ['desktop', 'tablet', 'mobile'];
 export const MODE_NAMES: Record<string, string> = { desktop: 'Desktop', tablet: 'Tablet', mobile: 'Mobile' };
@@ -355,5 +355,5 @@ if (isEntrypoint(import.meta.url)) {
   if (specPath === undefined) throw new Error('usage: responsive.ts SPEC.json [--label NAME] [--key KEY] [--out FILE]');
   const spec = JSON.parse(readFileSync(specPath, 'utf8')) as Spec, label = get('--label') ?? spec.component;
   const tree = build(spec, label, args.includes('--key') ? get('--key') : undefined), out = get('--out');
-  if (out !== undefined) writeJson(out, tree); else console.log(JSON.stringify(tree, null, 1));
+  if (out !== undefined) writeArtifact('tree', out, tree); else console.log(JSON.stringify(tree, null, 1));
 }

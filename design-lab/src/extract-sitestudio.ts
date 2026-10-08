@@ -14,6 +14,11 @@ import {
   customComponentId,
 } from "./sitestudio-source.ts";
 import { toolVersion } from "./figma-receipts.ts";
+import type { Components } from "./generated/components.ts";
+type Entry = Components["components"][number];
+type Field = Entry["fields"][number];
+type Defect = Entry["defects"][number];
+type Problem = NonNullable<Components["problems"]>[number];
 const KIND: Record<string, string> = {
   cohTextBox: "text",
   cohWysiwyg: "richtext",
@@ -72,9 +77,9 @@ function tokenFamily(values: any[]): string | null {
   if (families.size > 1) families.delete("other");
   return families.size === 1 ? [...families][0]! : null;
 }
-function componentModel(jv: any, txt: string, path: string, root: string): any {
+function componentModel(jv: any, txt: string, path: string, root: string): Entry {
   const model = jv.model || {},
-    fields: any[] = [],
+    fields: (Field & { name: string; uid: string })[] = [],
     declared = new Set<string>(),
     referenced = new Set(
       (JSON.stringify(jv).match(/\[field\.([0-9a-f-]{36})\]/g) || []).map((x) =>
@@ -126,7 +131,7 @@ function componentModel(jv: any, txt: string, path: string, root: string): any {
     }
   };
   form(jv.componentForm);
-  const defects: any[] = [];
+  const defects: Defect[] = [];
   for (const uid of [...referenced].filter((x) => !declared.has(x)).sort()) {
     defects.push({
       kind: "dangling-field-ref",
@@ -153,7 +158,7 @@ function componentModel(jv: any, txt: string, path: string, root: string): any {
       accepts: ["*"],
     }));
   return {
-    id: scalar(txt, "id") || basename(path).split(".").at(-2),
+    id: scalar(txt, "id") || basename(path).split(".").at(-2)!,
     label: scalar(txt, "label"),
     group: scalar(txt, "category"),
     sourceRef: rel(root, path).split(sep).join("/"),
@@ -166,13 +171,13 @@ function componentModel(jv: any, txt: string, path: string, root: string): any {
 function extractComponent(
   path: string,
   root: string,
-): [any | null, any | null] {
+): [Entry | null, Problem | null] {
   const [jv, txt] = loadJsonValues(path);
   if (jv === null)
     return [null, { kind: "unparseable", detail: rel(root, path) }];
   return [componentModel(jv, txt, path, root), null];
 }
-function customComponent(path: string, root: string): [any | null, any | null] {
+function customComponent(path: string, root: string): [Entry | null, Problem | null] {
   const txt = readText(path),
     form = scalar(txt, "form");
   let payload: any = {};
@@ -209,7 +214,7 @@ const FROM_SETTINGS = Symbol("from-settings");
 export function extract(
   root: string,
   config?: string | null | typeof FROM_SETTINGS,
-): any {
+): Components {
   const abs = resolve(root),
     folder =
       config === undefined || config === FROM_SETTINGS
@@ -229,8 +234,8 @@ export function extract(
           }
         })()
       : [],
-    components: any[] = [],
-    problems: any[] = [];
+    components: Entry[] = [],
+    problems: Problem[] = [];
   for (const p of files) {
     const [c, e] = extractComponent(p, abs);
     if (c) components.push(c);

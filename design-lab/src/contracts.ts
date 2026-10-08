@@ -1,10 +1,11 @@
 import { policyErrors } from './artifact-policy.ts';
-import { readFileSync, readdirSync, mkdirSync, openSync, writeFileSync, fsyncSync, closeSync, renameSync, unlinkSync } from 'node:fs';
+import { readFileSync, readdirSync, mkdirSync, openSync, writeFileSync, fsyncSync, closeSync, renameSync, unlinkSync, appendFileSync } from 'node:fs';
 import { dirname, resolve, basename } from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { pluginRoot, sharedRequire } from './runtime.ts';
 import type { ValidateFunction, ErrorObject } from 'ajv';
 import type { ArtifactMap } from './generated/artifacts.ts';
+import type { PhaseLogEntry } from './generated/phase-log-entry.ts';
 export type { ArtifactMap } from './generated/artifacts.ts';
 export type ArtifactKind = keyof ArtifactMap;
 // Setup and atomic JSON writes work before the first dependency install.
@@ -50,6 +51,13 @@ export function validateRunnerRecord(kind: RecordKind, value: unknown, dump: Dum
   const validator = schemaValidator().getSchema(`https://design-lab.local/schemas/runner-record.schema.json#/$defs/${definition}`)!;
   return validator(value) ? [] : (validator.errors ?? []).map(describe);
 }
+/**
+ * Typed artifact write boundary: the compiler checks the value against the generated type for `kind`. This is a structural type check, not an exact-object or runtime proof;
+ * external inputs, spread properties and schema constraints still need validation and branch tests.
+ */
+export function writeArtifact<K extends ArtifactKind>(_kind: K, path: string, value: ArtifactMap[K]): string { return writeJson(path, value); }
+/** Typed boundary for one phase-log.jsonl entry; runtime schema constraints still need validation. */
+export function appendPhaseLog(path: string, entry: PhaseLogEntry): void { appendFileSync(path, JSON.stringify(entry) + '\n'); }
 /** Serialize before touching disk, fsync a private sibling file, then atomically replace. */
 export function writeJson(path: string, value: unknown): string {
   const payload = JSON.stringify(value, null, 2);

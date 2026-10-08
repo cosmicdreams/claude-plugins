@@ -167,7 +167,7 @@ test("large naive variant products are written as exact baseline integers", () =
   };
   const count = naiveVariantCount(component),
     file = join(temp(), "plan.json");
-  writePlanJson(file, { plans: [planComponent(component)] });
+  writePlanJson(file, { standardVersion: "3.0.0", plans: [planComponent(component)] });
   assert.equal(count, 3n ** 40n);
   assert.match(
     readFileSync(file, "utf8"),
@@ -191,9 +191,9 @@ test("SDC empty enums and authored enum labels retain baseline behavior", () => 
     "name: Labels\nprops:\n  properties:\n    empty:\n      type: string\n      enum: []\n    mode:\n      type: string\n      enum: [HERO_BANNER, two-words, null, true]\n",
   );
   const component = extractComponent(file, root);
-  assert.equal(component.fields[0].kind, "text");
+  assert.equal(component.fields[0]!.kind, "text");
   assert.deepEqual(
-    component.fields[1].options.map((o: { label: string }) => o.label),
+    component.fields[1]!.options!.map((o) => o.label),
     ["Hero Banner", "Two Words", "None", "True"],
   );
 });

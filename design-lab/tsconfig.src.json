@@ -27,6 +27,7 @@
     "tests/ts/**/*.ts",
     "tests/equivalence/**/*.ts",
     "tests/browser/**/*.ts",
+    "tests/support/**/*.ts",
     "tests/token-guard-e2e.ts",
     "hooks/*.ts"
   ],

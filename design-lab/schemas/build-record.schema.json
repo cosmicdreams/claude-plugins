@@ -525,7 +525,10 @@
               "type": "number"
             },
             "collectionId": {
-              "type": "string"
+              "type": [
+                "string",
+                "null"
+              ]
             },
             "bound": {
               "type": "number"
@@ -1328,7 +1331,10 @@
           }
         },
         "collectionId": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "fonts": {
           "type": "object",
@@ -1447,35 +1453,7 @@
           "type": "boolean"
         },
         "default": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            },
-            {
-              "type": "boolean"
-            },
-            {
-              "type": "number"
-            },
-            {
-              "type": "object",
-              "properties": {
-                "uri": {
-                  "type": "string"
-                },
-                "options": {
-                  "type": "object",
-                  "additionalProperties": {
-                    "$ref": "#/$defs/JsonValue"
-                  }
-                }
-              },
-              "additionalProperties": false
-            }
-          ]
+          "$ref": "#/$defs/JsonValue"
         },
         "options": {
           "type": [

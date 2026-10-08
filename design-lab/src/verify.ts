@@ -5,6 +5,7 @@ import { createHash } from 'node:crypto';
 import { readJson, readDirJson, mergeVerifyState, buildMeasurements } from './verify-inputs.ts';
 import type { VerifyState, Measurements, PartialArtifact } from './verify-inputs.ts';
 import type { ArtifactMap } from './generated/artifacts.ts';
+import type { VerifyReport } from './generated/verify-report.ts';
 import type { PageDump } from './generated/runner-record.ts';
 type Input<K extends keyof ArtifactMap> = PartialArtifact<ArtifactMap[K]>;
 type Inventory = Input<'components'>;
@@ -30,8 +31,8 @@ export interface VerifyOptions {
   measurements?: PartialArtifact<Measurements> | null; renderEvidence?: Input<'render-evidence'> | null; captureEvidence?: Input<'capture-evidence'> | null; waivers?: {waivers?:Waiver[]} | Waiver[] | null;
   brand?: string; themeRoot?: string; shotsDir?: string; builds?: string; out?: string; project?: string; generatedAt?: string;
 }
-export interface Finding { check: string; severity: 'blocker'|'major'|'minor'; scope: string; detail: string; evidence?: unknown; waiver?: Waiver }
-export class Report { findings: Finding[] = []; add(check: string, severity: Finding['severity'], scope: string, detail: string, evidence: unknown = null) { this.findings.push({ check, severity, scope, detail, evidence }); } }
+export interface Finding { check: string; severity: 'blocker'|'major'|'minor'; scope: string; detail: string; evidence?: (string | number)[] | null; waiver?: Waiver }
+export class Report { findings: Finding[] = []; add(check: string, severity: Finding['severity'], scope: string, detail: string, evidence: readonly (string | number | undefined)[] | null = null) { this.findings.push({ check, severity, scope, detail, evidence: evidence && evidence.filter((e): e is string | number => e !== undefined) }); } }
 const arr = <T>(x: T[] | null | undefined): T[] => Array.isArray(x) ? x : [];
 const norm = (s: unknown): string => String(s ?? '').toLowerCase().replace(/[^a-z0-9]+/g, '');
 const files = (folder?: string): string[] => folder && existsSync(folder) ? readdirSync(folder).filter(n => n.endsWith('.json')).sort().map(n => resolve(folder, n)) : [];
@@ -103,7 +104,7 @@ function bindings(s:VerifyState,measure:PartialArtifact<Measurements>|null|undef
 function frameChecks(s:VerifyState,r:Report){const frames=arr(s.breakpointFrames),fake=frames.filter(f=>String(f.name).startsWith('shot:')&&!f.hasImage).map(f=>f.name);if(fake.length)r.add('shot-frames-have-images','major','file',`${fake.length} frame(s) named shot: hold no image, so they claim a capture they do not have`,fake.slice(0,20));const by:Record<string,NonNullable<VerifyState['breakpointFrames']>>={};for(const f of frames){const p=String(f.name).split(':');if(p.length===3)(by[p[1]!]??=[]).push(f);}for(const [id,fs]of Object.entries(by)){const ratios=fs.filter(f=>f.labelWidth&&f.width).map(f=>(f.width??0)/(f.labelWidth??1)).sort((a,b)=>a-b);if(ratios.length<2)continue;const spread=ratios.at(-1)!/ratios[0]!;if(spread>1.05)r.add('breakpoints-share-scale','major','component:'+id,`breakpoint frames differ in scale by ${roundEven((spread-1)*100)}%, so their widths cannot be compared`,ratios.map(x=>roundDecimal(x,3)));}}
 function captureUnique(dir:string|undefined,r:Report){if(!dir||!existsSync(dir))return;const groups:Record<string,string[]>={};for(const p of readdirSync(dir).filter(x=>x.endsWith('.png'))){const hash=createHash('md5').update(readFileSync(resolve(dir,p))).digest('hex');(groups[hash]??=[]).push(p);}for(const fs of Object.values(groups)){if(fs.length<2)continue;const stems=new Set(fs.map(f=>f.replace(/__(desktop|tablet|mobile)(__|\.png$).*/i,'').replace(/__(desktop|tablet|mobile)\.png$/i,'')));if(stems.size>1)r.add('captures-unique','major','capture:'+[...stems].sort().join(','),'these components produced byte-identical captures, so their root selectors resolve to the same element',[...fs].sort());}}
 
-export function verify(options: VerifyOptions): { standardVersion:string; generatedAt:string; open:Finding[]; waived:Finding[]; passed:string[]; inapplicable:string[]; completeness:ReturnType<typeof completeness> } {
+export function verify(options: VerifyOptions): VerifyReport {
   const o={...options};
   if(o.project){o.components??=readJson<Inventory>(resolve(o.project,'components.json'));o.tokens??=readJson<Input<'tokens'>>(resolve(o.project,'tokens.json'));o.plan??=readJson<VerifyPlan>(resolve(o.project,'plan.json'));o.index??=readJson<Input<'index'>>(resolve(o.project,'index.json'));if(!o.measurements&&o.components)o.measurements=buildMeasurements(o.project,arr(o.components.components).flatMap(c=>c.id?[{id:c.id,...(c.machineName!==undefined?{machineName:c.machineName}:{}),...(c.sourceRef!==undefined?{sourceRef:c.sourceRef}:{})}]:[]));o.captureEvidence??=readJson<Input<'capture-evidence'>>(resolve(o.project,'capture-evidence.json'));}
   const rep=new Report();runChecks(o,rep);
@@ -112,7 +113,7 @@ export function verify(options: VerifyOptions): { standardVersion:string; genera
   const subjects={component:arr(o.state.components).length,card:arr(o.state.cards).length,shot:arr(o.state.breakpointFrames).length,collection:arr(o.state.collections).length};
   const needs:Record<string,keyof typeof subjects>={'component-naming':'component','component-description':'component','documentation-links':'component','documentation-adjacent':'component','layers-named':'card','documentation-signal':'card','documentation-cards-unique':'card','shot-frames-have-images':'shot','breakpoints-share-scale':'shot','variable-scoped':'collection','code-syntax-set':'collection','modes-earn-themselves':'collection','mode-naming':'collection','collection-strategy':'collection','variants-are-sets':'component','no-duplicate-components':'component','bindings-match-source':'component'};
   const inapplicable=Object.keys(needs).filter(c=>!subjects[needs[c]!]&&!rep.findings.some(f=>f.check===c)).sort(),passed=CHECKS.filter(c=>!inapplicable.includes(c)&&!rep.findings.some(f=>f.check===c));
-  const report={standardVersion:STANDARD_VERSION,generatedAt:o.generatedAt??new Date().toISOString().replace(/\.\d{3}Z$/,'Z'),open,waived,passed,inapplicable,completeness:completeness(o.state,o.components,o.plan)};
+  const report:VerifyReport={standardVersion:STANDARD_VERSION,generatedAt:o.generatedAt??new Date().toISOString().replace(/\.\d{3}Z$/,'Z'),open,waived,passed,inapplicable,completeness:completeness(o.state,o.components,o.plan)};
   if(o.out){mkdirSync(dirname(resolve(o.out)),{recursive:true});writeFileSync(o.out,JSON.stringify(report,null,2));}
   return report;
 }

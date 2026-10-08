@@ -5,7 +5,7 @@ export interface StepResult {
   file?: string;
   png?: string;
   pairs?: {
-    label: string;
+    label: string | null;
     changed: number;
     height: number;
     width: number;
@@ -14,6 +14,7 @@ export interface StepResult {
     pass?: boolean;
     ratioUnmasked?: number;
     textMasked?: number;
+    widthDelta?: number;
   }[];
   threshold?: number;
   tolerance?: number;
@@ -122,4 +123,5 @@ export interface StepResult {
   removedCollections?: string[];
   removedPages?: string[];
   pass?: boolean;
+  metric?: string;
 }

@@ -61,7 +61,8 @@
           "value": {
             "type": [
               "string",
-              "number"
+              "number",
+              "null"
             ]
           },
           "detail": {
@@ -95,15 +96,24 @@
           ]
         },
         "hex": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "codeName": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "tags": {
           "type": "array",
           "items": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           }
         },
         "inUse": {
@@ -169,7 +179,10 @@
           "type": "string"
         },
         "stack": {
-          "type": "string"
+          "type": [
+            "string",
+            "null"
+          ]
         },
         "nameDisambiguated": {
           "type": "boolean"

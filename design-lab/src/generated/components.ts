@@ -20,37 +20,28 @@ export interface Components {
     configDir?: string | null;
     config?: string | null;
     sdcParser?: string;
+    parser?: string;
   };
   components: {
     id: string;
     machineName?: string;
-    label: string;
+    label: string | null;
     sourceRef: string;
     fields: {
       appliesToken?: null;
       canvasFieldType?: string;
-      cardinality?: number;
-      default?:
-        | boolean
-        | number
-        | null
-        | {
-            options?: {
-              [k: string]: JsonValue;
-            };
-            uri?: string;
-          }
-        | string;
+      cardinality?: number | null;
+      default?: JsonValue;
       defaultSource?: string;
       description?: null | string;
       kind?: string;
-      label?: string;
+      label?: string | null;
       maxItems?: number | null;
-      minItems?: number;
+      minItems?: number | null;
       name?: string;
       options?:
         | {
-            value?: string | number;
+            value?: JsonValue;
             label?: string;
           }[]
         | null;
@@ -68,7 +59,7 @@ export interface Components {
       showWhen?: null | string;
       sourceRef?: string;
       sourceType?: string;
-      sourceWidget?: null | string;
+      sourceWidget?: null | string | string[];
       targetBundles?: string[] | null;
       targetType?: null | string;
       tokenFamily?: null | string;
@@ -76,8 +67,8 @@ export interface Components {
     }[];
     slots: {
       accepts?: string[] | string;
-      cardinality?: number;
-      label?: string;
+      cardinality?: number | null;
+      label?: string | null;
       name?: string;
       required?: boolean;
       sourceRef?: string;
@@ -132,6 +123,7 @@ export interface Components {
       structuralReferences?: number | null;
       tierReason?: string;
       status?: string;
+      templates?: string[];
     } | null;
     status?: boolean | string | null;
     containedBy?: string[];
@@ -147,6 +139,8 @@ export interface Components {
       componentVersion?: string;
       group?: string;
     };
+    groupEvidence?: string;
+    isEntryPoint?: boolean;
   }[];
   totals?: {
     all?: number;
@@ -155,10 +149,23 @@ export interface Components {
     withDefects?: number;
     placements?: number;
     structuralRefs?: number;
+    layout?: number;
+    content?: number;
   };
   problems?: {
     check?: string;
     detail?: string;
     evidence?: string[];
+    kind?: string;
+    sourceRef?: string;
+    ref?: string;
+  }[];
+  entryPoints?: {
+    hostEntityType: string;
+    hostBundle: string;
+    field: string;
+    label: string;
+    accepts: string[];
+    sourceRef: string;
   }[];
 }

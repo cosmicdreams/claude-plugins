@@ -22,15 +22,26 @@ export interface Detection {
   }[];
   notes?: string[];
   siteStudio?: {
-    configDir?: null;
-    configFrom?: null;
-    problem?: string;
-    declared?: string[];
-    families?: {};
+    configDir?: string | null;
+    configFrom?: string | null;
+    problem?: string | null;
+    declared?: {
+      file: string;
+      line: number;
+      path: string | null;
+      expression: string;
+      exists: boolean;
+    }[];
+    families?: {
+      [k: string]: number;
+    };
     components?: number;
     customStyles?: number;
     customComponents?: string[];
-    customComponentProblems?: string[];
+    customComponentProblems?: {
+      kind: string;
+      detail: string;
+    }[];
     customComponentsFromActiveExtensionsOnly?: boolean;
   };
 }

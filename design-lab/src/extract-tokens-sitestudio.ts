@@ -4,6 +4,7 @@ import { basename, resolve } from "node:path";
 import { pluginRoot } from "./runtime.ts";
 import { configDir as discoverConfigDir } from "./sitestudio-source.ts";
 import { loadJsonValues } from "./extract-sitestudio.ts";
+import type { Tokens } from "./generated/tokens.ts";
 
 const STANDARD_VERSION = "3.0.0";
 const BREAKPOINTS = ["xxl", "xl", "lg", "md", "sm", "xs"];
@@ -115,7 +116,7 @@ function readEntity(path: string): [SiteStudioEntity | null, string] {
   return [entity(value), text];
 }
 function palette(cfg: string) {
-  const out: {name:string|null;uid:string|undefined;hex:string|null;codeName:string|undefined;className:string|undefined;tags:(string|undefined)[];inUse:boolean;provenance:{kind:string;ref:string}}[] = [];
+  const out: {name:string|null;uid?:string;hex:string|null;codeName?:string;className?:string;tags:(string|null)[];inUse:boolean;provenance:{kind:string;ref:string}}[] = [];
   for (const path of yamlFiles(
     cfg,
     "cohesion_website_settings.cohesion_color.",
@@ -129,13 +130,11 @@ function palette(cfg: string) {
           : rgbaToHex(flatten(jv["value"]));
     out.push({
       name: jv["name"] ?? scalar(text, "label"),
-      uid: jv["uid"],
+      ...(jv["uid"] !== undefined ? { uid: jv["uid"] } : {}),
       hex: (hex ?? "").toUpperCase() || null,
-      codeName: jv["variable"],
-      className: jv["class"],
-      tags: (jv["tags"] ?? [])
-        .filter((tag) => tag && typeof tag === "object")
-        .map((tag) => tag["value"]),
+      ...(jv["variable"] !== undefined ? { codeName: jv["variable"] } : {}),
+      ...(jv["class"] !== undefined ? { className: jv["class"] } : {}),
+      tags: (jv["tags"] ?? []).filter((tag) => tag && typeof tag === "object").map((tag) => tag["value"] ?? null),
       inUse: Boolean(jv["inuse"]),
       provenance: { kind: "config", ref: basename(path) },
     });
@@ -143,7 +142,7 @@ function palette(cfg: string) {
   return out;
 }
 function fontStacks(cfg: string) {
-  const out: {name:string|null;uid:string|undefined;stack:string;primaryFamily:string;codeName:string|undefined;systemFont:boolean;inUse:boolean;provenance:{kind:string;ref:string}}[] = [];
+  const out: {name:string|null;uid?:string;stack:string;primaryFamily:string;codeName?:string;systemFont:boolean;inUse:boolean;provenance:{kind:string;ref:string}}[] = [];
   for (const path of yamlFiles(
     cfg,
     "cohesion_website_settings.cohesion_font_stack.",
@@ -153,13 +152,13 @@ function fontStacks(cfg: string) {
     const stack = jv["fontStack"] ?? "";
     out.push({
       name: jv["name"] ?? scalar(text, "label"),
-      uid: jv["uid"],
+      ...(jv["uid"] !== undefined ? { uid: jv["uid"] } : {}),
       stack,
       primaryFamily: String(stack)
         .split(",")[0]!
         .trim()
         .replace(/^['"]|['"]$/g, ""),
-      codeName: jv["variable"],
+      ...(jv["variable"] !== undefined ? { codeName: jv["variable"] } : {}),
       systemFont: Boolean(jv["systemfont"]),
       inUse: Boolean(jv["inuse"]),
       provenance: { kind: "config", ref: basename(path) },
@@ -242,7 +241,7 @@ function customStyles(cfg: string): {
 export function extract(
   rootInput: string,
   configDir?: string,
-) {
+): Tokens {
   const root = resolve(rootInput),
     selected = configDir
       ? { path: resolve(configDir) }

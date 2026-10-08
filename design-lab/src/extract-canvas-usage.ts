@@ -2,9 +2,10 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, sep } from "node:path";
 import { isDeepStrictEqual, parseArgs } from "node:util";
-import { validate, writeJson } from "./contracts.ts";
+import { validate, writeArtifact } from "./contracts.ts";
 import { configSync, docroot } from "./detect.ts";
 import type {Usage} from "./generated/usage.ts";
+import type {Components} from "./generated/components.ts";
 import type {UsageInventory,UsageEntry,UsageSource} from "./usage-types.ts";
 import { load } from "./extract-sdc.ts";
 import { toolVersion } from "./figma-receipts.ts";
@@ -349,12 +350,14 @@ export function extract(
   });
 }
 
+export function mergeCanvasUsage(components: Components, document: Usage, high?: number, medium?: number): Components;
+export function mergeCanvasUsage(components: UsageInventory, document: Usage, high?: number, medium?: number): UsageInventory;
 export function mergeCanvasUsage(
   components: UsageInventory,
   document: Usage,
   high = 50,
   medium = 10,
-) {
+): UsageInventory {
   const merged = mergeUsage(components, document, high, medium);
   for (const component of merged["components"]) {
     const evidence = component["usage"]!;
@@ -398,15 +401,16 @@ export function main(argv = process.argv.slice(2)): void {
     throw new Error(
       "usage: extract-canvas-usage.ts COMPONENTS --ddev-root DIR --output FILE [--ddev-project NAME] [--merge-components FILE]",
     );
-  const components: UsageInventory = JSON.parse(readFileSync(positionals[0], "utf8"));
+  const components: Components = JSON.parse(readFileSync(positionals[0], "utf8"));
   const document = extract(
     values["ddev-root"],
     components,
     values["ddev-project"],
   );
-  writeJson(values.output, document);
+  writeArtifact("usage", values.output, document);
   if (values["merge-components"])
-    writeJson(
+    writeArtifact(
+      "components",
       values["merge-components"],
       mergeCanvasUsage(
         components,

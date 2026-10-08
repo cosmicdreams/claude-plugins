@@ -2,6 +2,10 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { join, relative, resolve } from "node:path";
 import { pluginRoot } from "./runtime.ts";
+import { nonEmpty } from "./lookup.ts";
+import type { Tokens } from "./generated/tokens.ts";
+type Row = NonNullable<Tokens["tokens"]>[number];
+type Shadowed = NonNullable<Tokens["shadowed"]>[number];
 import {
   classify as valueFamily,
   FLAGS,
@@ -160,7 +164,7 @@ function mapFamily(name: string, value: string): string {
     )[name] ?? family(name, value)
   );
 }
-export function extract(rootInput: string): Record<string, unknown> {
+export function extract(rootInput: string): Tokens {
   const root = resolve(rootInput),
     texts = new Map<string, string>(),
     table = new Map<string, string>(),
@@ -189,7 +193,7 @@ export function extract(rootInput: string): Record<string, unknown> {
   if (!table.size)
     throw new Error(`no source-authored Sass variables found under ${root}`);
   const resolveValue = makeResolver(table),
-    all: Record<string, unknown>[] = [];
+    all: Row[] = [];
   for (const [path, body] of texts) {
     const ref = posix(relative(root, path)),
       layer = /\/source\/(00-config|01-base)\//.test("/" + ref)
@@ -231,25 +235,25 @@ export function extract(rootInput: string): Record<string, unknown> {
       }
     }
   }
-  const byName = new Map<string, Record<string, unknown>>(),
-    shadowed: Record<string, unknown>[] = [];
+  const byName = new Map<string, Row>(),
+    shadowed: Shadowed[] = [];
   for (const token of all) {
-    const name = token["name"] as string,
+    const name = token.name ?? "",
       prev = byName.get(name);
-    if (!prev || (prev["layer"] !== "base" && token["layer"] === "base")) {
+    if (!prev || (prev.layer !== "base" && token.layer === "base")) {
       if (prev) shadowed.push(prev);
       byName.set(name, token);
     } else shadowed.push(token);
   }
   const kept = [...byName.values()].sort(
     (a, b) =>
-      Number(a["layer"] !== "base") - Number(b["layer"] !== "base") ||
-      compare(String(a["family"]), String(b["family"])) ||
-      compare(String(a["name"]), String(b["name"])),
+      Number(a.layer !== "base") - Number(b.layer !== "base") ||
+      compare(String(a.family), String(b.family)) ||
+      compare(String(a.name), String(b.name)),
   );
   const byFamily: Record<string, number> = {};
   for (const t of kept)
-    byFamily[String(t["family"])] = (byFamily[String(t["family"])] ?? 0) + 1;
+    byFamily[String(t.family)] = (byFamily[String(t.family)] ?? 0) + 1;
   return {
     standardVersion: STANDARD_VERSION,
     toolVersion: toolVersion(),
@@ -261,8 +265,8 @@ export function extract(rootInput: string): Record<string, unknown> {
     },
     totals: {
       tokens: kept.length,
-      base: kept.filter((t) => t["layer"] === "base").length,
-      component: kept.filter((t) => t["layer"] === "component").length,
+      base: kept.filter((t) => t.layer === "base").length,
+      component: kept.filter((t) => t.layer === "component").length,
       shadowed: shadowed.length,
       byFamily,
     },
@@ -272,7 +276,7 @@ export function extract(rootInput: string): Record<string, unknown> {
       reason:
         "Sass declarations do not state every consuming breakpoint; measure rendered roles.",
     },
-    tokens: kept,
+    tokens: nonEmpty(kept, "no Sass variable could be read"),
     shadowed,
     sourcesWithVariables: [...sources].sort(
       (a, b) => b.variables - a.variables,

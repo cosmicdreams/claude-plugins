@@ -47,6 +47,9 @@
         },
         "sdcParser": {
           "type": "string"
+        },
+        "parser": {
+          "type": "string"
         }
       },
       "additionalProperties": false
@@ -72,7 +75,10 @@
             "type": "string"
           },
           "label": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "sourceRef": {
             "type": "string"
@@ -89,39 +95,13 @@
                   "type": "string"
                 },
                 "cardinality": {
-                  "type": "integer"
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
                 },
                 "default": {
-                  "anyOf": [
-                    {
-                      "type": "boolean"
-                    },
-                    {
-                      "type": "integer"
-                    },
-                    {
-                      "type": "null"
-                    },
-                    {
-                      "type": "object",
-                      "properties": {
-                        "options": {
-                          "type": "object",
-                          "additionalProperties": {
-                            "$ref": "#/$defs/JsonValue"
-                          },
-                          "properties": {}
-                        },
-                        "uri": {
-                          "type": "string"
-                        }
-                      },
-                      "additionalProperties": false
-                    },
-                    {
-                      "type": "string"
-                    }
-                  ]
+                  "$ref": "#/$defs/JsonValue"
                 },
                 "defaultSource": {
                   "type": "string"
@@ -140,7 +120,10 @@
                   "type": "string"
                 },
                 "label": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "maxItems": {
                   "anyOf": [
@@ -153,7 +136,10 @@
                   ]
                 },
                 "minItems": {
-                  "type": "integer"
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
                 },
                 "name": {
                   "type": "string"
@@ -166,14 +152,7 @@
                         "type": "object",
                         "properties": {
                           "value": {
-                            "anyOf": [
-                              {
-                                "type": "string"
-                              },
-                              {
-                                "type": "number"
-                              }
-                            ]
+                            "$ref": "#/$defs/JsonValue"
                           },
                           "label": {
                             "type": "string"
@@ -243,6 +222,12 @@
                     },
                     {
                       "type": "string"
+                    },
+                    {
+                      "type": "array",
+                      "items": {
+                        "type": "string"
+                      }
                     }
                   ]
                 },
@@ -305,10 +290,16 @@
                   ]
                 },
                 "cardinality": {
-                  "type": "integer"
+                  "type": [
+                    "integer",
+                    "null"
+                  ]
                 },
                 "label": {
-                  "type": "string"
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 },
                 "name": {
                   "type": "string"
@@ -524,6 +515,12 @@
               },
               "status": {
                 "type": "string"
+              },
+              "templates": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
               }
             },
             "additionalProperties": false
@@ -586,6 +583,12 @@
               }
             },
             "additionalProperties": false
+          },
+          "groupEvidence": {
+            "type": "string"
+          },
+          "isEntryPoint": {
+            "type": "boolean"
           }
         },
         "additionalProperties": false
@@ -611,6 +614,12 @@
         },
         "structuralRefs": {
           "type": "number"
+        },
+        "layout": {
+          "type": "number"
+        },
+        "content": {
+          "type": "number"
         }
       },
       "additionalProperties": false
@@ -631,6 +640,53 @@
             "items": {
               "type": "string"
             }
+          },
+          "kind": {
+            "type": "string"
+          },
+          "sourceRef": {
+            "type": "string"
+          },
+          "ref": {
+            "type": "string"
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "entryPoints": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "hostEntityType",
+          "hostBundle",
+          "field",
+          "label",
+          "accepts",
+          "sourceRef"
+        ],
+        "properties": {
+          "hostEntityType": {
+            "type": "string"
+          },
+          "hostBundle": {
+            "type": "string"
+          },
+          "field": {
+            "type": "string"
+          },
+          "label": {
+            "type": "string"
+          },
+          "accepts": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "sourceRef": {
+            "type": "string"
           }
         },
         "additionalProperties": false

@@ -46,6 +46,8 @@ const sharp = sharedRequire()('sharp') as typeof import('sharp').default;
 
 import { PORT, WAIT_MS, HEARTBEAT_SECONDS } from './protocol.ts';
 import type { ProgressState, StepKind } from './protocol.ts';
+import type { Progress as ProgressDocument } from './generated/progress.ts';
+import type { RunnerRecordResponse } from './generated/runner-record-response.ts';
 import type { CoverArgs, TemplateArgs } from './figma/payload-types.ts';
 export { PORT, WAIT_MS, HEARTBEAT_SECONDS } from './protocol.ts';
 export const ORIGIN = 'null'; // a Figma plugin's fetch comes from a sandboxed iframe with an opaque origin
@@ -244,8 +246,9 @@ export interface BuildOptions {
   echo?: boolean;
 }
 interface WorkIdentity { step: string; generation: string; stepToken: string; client: string }
-interface WorkAck { digest: string; out: Json; client: string; step: string }
-interface WorkLedger { generation: string; active?: { step: Step; token: string; client: string; intent?: { digest: string; result: Json; out?: Json } }; completed: Record<string, WorkAck> }
+type RecordResponse = RunnerRecordResponse;
+interface WorkAck { digest: string; out: RecordResponse; client: string; step: string }
+interface WorkLedger { generation: string; active?: { step: Step; token: string; client: string; intent?: { digest: string; result: Json; out?: RecordResponse } }; completed: Record<string, WorkAck> }
 class WorkConflict extends Error { status = 409; }
 interface Progress { state: ProgressState; stepsDone: number | null; stepsTotal: number | null; step: string | null; stepKind: StepKind | null; message: string | null }
 const wait = (message: string): Step => ({ kind: 'wait', step: 'wait', retryMs: WAIT_MS, message });
@@ -306,7 +309,7 @@ export class Build {
     ledger.active = {step: this.current!, token, client}; this.saveWork(ledger);
     return {...step, generation: ledger.generation, stepToken: token};
   }
-  async recordWork(identity: WorkIdentity, result: Json): Promise<Json> {
+  async recordWork(identity: WorkIdentity, result: Json): Promise<RecordResponse> {
     const ledger = this.validateWork(identity, true);
     const timing = result['__designLabTiming'];
     if (timing !== undefined && (!isObject(timing) || typeof timing['durationMs'] !== 'number' || !Number.isFinite(timing['durationMs']) || timing['durationMs'] < 0)) throw new Error('invalid step durationMs');
@@ -320,7 +323,7 @@ export class Build {
     if (active.intent && active.intent.digest !== digest) throw new WorkConflict('record retry has a different result digest');
     // Journal before commit. A restart after state commit recovers the acknowledgement.
     const committed = active.intent && this.stateExists() && Array.isArray(this.state['done']) && this.state['done'].includes(identity.step);
-    let out: Json;
+    let out: RecordResponse;
     if (committed) out = active.intent!.out ?? {recorded: identity.step, remaining: (this.state['steps'] as unknown[]).length - (this.state['done'] as unknown[]).length};
     else {
       active.intent = {digest, result}; this.saveWork(ledger);
@@ -371,7 +374,7 @@ export class Build {
     else if (kind === 'check' || kind === 'dump') Object.assign(p, { state: kind === 'check' ? 'preflight' : 'building', step: text(step['step']), stepKind: kind, message: null });
     else Object.assign(p, { state: 'building', step: text(step['step']), stepKind: kind, message: null, stepsDone: typeof step['done'] === 'number' ? step['done'] : null, stepsTotal: typeof step['total'] === 'number' ? step['total'] : null });
   }
-  noteRecorded(out: Json): void {
+  noteRecorded(out: RecordResponse): void {
     const p = this.progress;
     if (p.state === 'failed') Object.assign(p, { state: p.stepKind === 'check' ? 'preflight' : 'building', message: null });
     if (typeof out['remaining'] === 'number' && p.stepsTotal !== null) p.stepsDone = p.stepsTotal - out['remaining'];
@@ -379,7 +382,8 @@ export class Build {
   writeProgress(inflight: boolean): void {
     const folder = figmaDir(this.project); let lastSeen: string | null = null;
     try { lastSeen = readFileSync(resolve(folder, SEEN_FILE), 'utf8').trim() || null; } catch { /* never asked */ }
-    writeAtomic(resolve(folder, PROGRESS_FILE), pyJson({ ...this.progress, inflight, lastSeen, at: utcNow(), serverPid: process.pid }, 1) + '\n');
+    const document: ProgressDocument = { ...this.progress, inflight, lastSeen, at: utcNow(), serverPid: process.pid };
+    writeAtomic(resolve(folder, PROGRESS_FILE), pyJson(document, 1) + '\n');
   }
 
   async next(): Promise<Step> {
@@ -469,7 +473,7 @@ export class Build {
     return { kind: 'check', step: COVER_STEP, code: callPayload('cover', args) };
   }
 
-  handshakeRecord(step: string, result: Json): Json {
+  handshakeRecord(step: string, result: Json): RecordResponse {
     const request = handshakeRequest(this.project), path = resolve(this.project, 'figma', HANDSHAKE_REQUEST);
     if (!existsSync(path)) { // Preflight stopped waiting and withdrew its request; nobody wants this answer now.
       this.current = null; this.log(`ignored ${step}: preflight is no longer waiting for it`); return { recorded: step, ignored: true };
@@ -520,7 +524,7 @@ export class Build {
     return { data: await fitFigmaImage(f.file), contentType: f.contentType };
   }
 
-  async record(step: string, result: Json): Promise<Json> {
+  async record(step: string, result: Json): Promise<RecordResponse> {
     const timing = result['__designLabTiming'];
     if (timing === undefined) return this.recordStep(step, result);
     const duration = isObject(timing) ? timing['durationMs'] : undefined;
@@ -528,7 +532,7 @@ export class Build {
     if (!isObject(result['result'])) throw new Error('the timed result must be a JSON object');
     const out = await this.recordStep(step, result['result']); this.timing(step, duration); return out;
   }
-  private async recordStep(step: string, result: Json): Promise<Json> {
+  private async recordStep(step: string, result: Json): Promise<RecordResponse> {
     let cur = this.current;
     if ((!cur || cur.step !== step) && !HANDSHAKE_STEPS.includes(step)) cur = await this.resume(step); // a restarted server lost the step it served
     if (!cur || cur.step !== step) throw new Error(`${step} is not the current step`);
@@ -540,7 +544,7 @@ export class Build {
       writeAtomic(target, pyJson(result, 1, true) + '\n'); writeAtomic(target + '.revision', JSON.stringify({ revision: this.state['executionRevision'] }) + '\n'); this.current = null; this.log(`recorded ${step}`); // revision tracks execution even when result JSON stays identical
       return { recorded: step };
     }
-    const out: Json = cur.kind === 'screenshot' ? await this.driver().recordScreenshot(step, result) : await this.driver().record(step, result as BuildResult);
+    const out: RecordResponse = cur.kind === 'screenshot' ? await this.driver().recordScreenshot(step, result) : await this.driver().record(step, result as BuildResult);
     this.current = null; this.log(`recorded ${step} (${out['remaining']} remaining)`);
     return out;
   }

@@ -1,5 +1,6 @@
 /** Token normalization and Figma variable planning, equivalent to plan_variables.ts. */
 import { sorted } from "./json.ts";
+import type { PlannedVariable, VariableCollection, VariablePlan as GeneratedPlan } from "./generated/variable-plan.ts";
 
 interface Source {
   strategy?: string;
@@ -8,24 +9,24 @@ interface Source {
 interface Token {
   name: string;
   family: string;
-  value?: string | number | null;
+  value?: string | null;
   layer?: string;
   codeName?: string | null;
   codePath?: string;
   provenance?: unknown;
-  valuesByMode?: Record<string, string | number | null>;
+  valuesByMode?: Record<string, string>;
 }
 interface Color {
   name: string;
-  hex?: string | number | null;
+  hex?: string | null;
   codeName?: string | null;
-  tags?: string[];
+  tags?: (string | null)[];
   inUse?: boolean;
   provenance?: unknown;
 }
 interface FontStack {
   name: string;
-  stack?: string | number | null;
+  stack?: string | null;
   primaryFamily?: string | null;
   codeName?: string | null;
   inUse?: boolean;
@@ -42,33 +43,9 @@ interface CustomStyle {
   codeName?: string | null;
   valuesByBreakpoint: Record<string, string | number | null>;
 }
-export interface Variable {
-  name: string;
-  type: "COLOR" | "FLOAT" | "STRING" | "BOOLEAN";
-  hex?: string | number | null;
-  codeName?: string | null;
-  tags?: string[];
-  inUse?: boolean;
-  aliasOf?: string;
-  valuesByMode?: Record<string, string | number | boolean | null>;
-  scopes?: string[];
-  scales?: boolean;
-  unitlessRatio?: boolean;
-  nameDisambiguated?: boolean;
-  stack?: string | number | null;
-  description?: string;
-  sourceCollection?: string;
-}
-export interface Collection {
-  modes: string[];
-  variables: Variable[];
-  modeRationale?: string;
-}
-export interface Warning {
-  kind: string;
-  value?: string | number | null;
-  detail?: string;
-}
+export type Variable = PlannedVariable;
+export type Collection = VariableCollection;
+export type Warning = NonNullable<GeneratedPlan["warnings"]>[number];
 export interface TokenInput {
   source?: Source;
   modes?: string[];
@@ -82,17 +59,11 @@ export interface TokenInput {
   _semantic?: Variable[];
   _extraCollections?: Record<string, Collection>;
 }
-export interface VariablePlan {
+export type VariablePlan = Omit<GeneratedPlan, "collections" | "modes" | "warnings"> & {
   modes: string[];
   collections: Record<string, Collection>;
   warnings: Warning[];
-  collectionStrategy?: {
-    kind: string;
-    reason: string;
-    sourceCollections?: string[];
-    retainedModeCollections?: string[];
-  };
-}
+};
 export const slug = (value: unknown): string =>
   String(value)
     .toLowerCase()
@@ -202,7 +173,7 @@ const shortest = <T>(values: T[], name: (v: T) => string): T =>
 function fromCssvars(tokens: TokenInput): [TokenInput, Warning[]] {
   const rows = (tokens.tokens ?? []).filter((t) => t.layer === "base"),
     warnings: Warning[] = [];
-  const value = (t: Token): string | number | null | undefined =>
+  const value = (t: Token): string | null | undefined =>
     t.valuesByMode && "Value" in t.valuesByMode
       ? t.valuesByMode["Value"]
       : t.value;

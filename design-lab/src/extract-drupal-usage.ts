@@ -13,9 +13,10 @@ import { request as httpRequest } from "node:http";
 import { request as httpsRequest } from "node:https";
 import type { IncomingHttpHeaders } from "node:http";
 import { parseArgs } from "node:util";
-import { validate, writeJson } from "./contracts.ts";
+import { validate, writeArtifact } from "./contracts.ts";
 import type { ExternalObject } from "./discovery-io.ts";
 import type {Usage} from "./generated/usage.ts";
+import type {Components} from "./generated/components.ts";
 import type {RenderEvidence} from "./generated/render-evidence.ts";
 import type {UsageInventory,UsageEntry,UsageSource,UsageProblem,ExampleDocument} from "./usage-types.ts";
 import * as twig from "./capture/twig.ts";
@@ -1146,12 +1147,14 @@ export function usageTier(
   return structuralRefs ? TIERS.structural : TIERS.retirement;
 }
 
+export function mergeUsage(components:Components,usageDocument:Pick<Usage,'generatedAt'|'usage'> & Partial<Usage>,high?:number,medium?:number):Components;
+export function mergeUsage(components:UsageInventory,usageDocument:Pick<Usage,'generatedAt'|'usage'> & Partial<Usage>,high?:number,medium?:number):UsageInventory;
 export function mergeUsage(
   components:UsageInventory,
   usageDocument:Pick<Usage,'generatedAt'|'usage'> & Partial<Usage>,
   high = 50,
   medium = 10,
-) {
+):UsageInventory {
   const result = structuredClone(components),
     measuredAt = usageDocument["generatedAt"],
     byId: Usage['usage'] = usageDocument["usage"];
@@ -1236,7 +1239,7 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
       "usage: extract-drupal-usage.ts COMPONENTS --ddev-root DIR --output FILE [--ddev-project NAME] [--merge-components FILE] [--render-evidence FILE]",
     );
   const load = <T>(path: string): T => JSON.parse(readFileSync(path, "utf8"));
-  const components = load<UsageInventory>(positionals[0]),
+  const components = load<Components>(positionals[0]),
     rendering = values["render-evidence"]
       ? load<RenderEvidence>(values["render-evidence"])
       : null;
@@ -1246,9 +1249,10 @@ export async function main(argv = process.argv.slice(2)): Promise<void> {
     values["ddev-project"],
     rendering,
   );
-  writeJson(values.output, document);
+  writeArtifact("usage", values.output, document);
   if (values["merge-components"])
-    writeJson(
+    writeArtifact(
+      "components",
       values["merge-components"],
       mergeUsage(
         components,

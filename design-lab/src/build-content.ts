@@ -235,7 +235,7 @@ export function variants(project: string, cid: string) {
   const comp = componentOf(project, cid), axes = plans(project)[cid]?.variantAxes ?? [], f = resolve(project, `capture/measurements/${cid.replace(/[:/]/g, '__')}.spec.json`);
   const measurement = existsSync(f) ? (JSON.parse(readFileSync(f, 'utf8')) as Spec).measurements['desktop:default'] : undefined;
   const nodes = measurement && 'nodes' in measurement ? measurement.nodes : [];
-  return variantValues(comp.fields.map(f => ({ name: f.name, options: f.options ?? [] })), axes.map(a => ({ field: required(a.field, `variant axis field of ${cid}`), ...(a.label !== undefined ? {label:a.label} : {}) })), (nodes ?? []).map(n => ({ classes: n.classes ?? [] })));
+  return variantValues(comp.fields.map(f => ({ name: f.name, options: f.options ?? [] })), axes.map(a => ({ field: required(a.field, `variant axis field of ${cid}`), ...(a.label != null ? {label:a.label} : {}) })), (nodes ?? []).map(n => ({ classes: n.classes ?? [] })));
 }
 export function fontPlan(project: string): Fonts['build'] | null { try { return load<Fonts>(project, 'fonts.json').build ?? null; } catch { return null; } }
 export function description(project: string, c: Component): string {

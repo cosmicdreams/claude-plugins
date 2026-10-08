@@ -1,6 +1,10 @@
 import { basename, resolve } from "node:path";
 import { loadYaml, relative, walk } from "./discovery-io.ts";
 import { toolVersion } from "./figma-receipts.ts";
+import type { Components } from "./generated/components.ts";
+export type Entry = Components["components"][number];
+type Field = Entry["fields"][number];
+type Problem = NonNullable<Components["problems"]>[number];
 export const KIND: Record<string, string> = {
   string: "text",
   number: "number",
@@ -48,13 +52,13 @@ function isFinalSigma(chars: string[], i: number): boolean {
 export function load(path: string): any {
   return loadYaml(path);
 }
-export function extractComponent(path: string, root: string): any {
+export function extractComponent(path: string, root: string): Entry {
   const data = load(path);
   if (!data || typeof data !== "object" || Array.isArray(data))
     throw new Error(`${path} did not parse to a mapping`);
   const props = data.props?.properties ?? {},
     required = data.props?.required ?? [];
-  const fields = Object.entries(props).flatMap(([name, raw]) => {
+  const fields = Object.entries(props).flatMap(([name, raw]): Field[] => {
     if (!raw || typeof raw !== "object" || Array.isArray(raw)) return [];
     const spec = raw as any,
       opts = Array.isArray(spec.enum)
@@ -92,7 +96,7 @@ export function extractComponent(path: string, root: string): any {
     label: raw && typeof raw === "object" ? ((raw as any).title ?? null) : name,
     accepts: ["*"],
   }));
-  return {
+  const entry: Entry = {
     id: basename(path).replace(/\.component\.yml$/, ""),
     label: data.name ?? null,
     description: data.description ?? null,
@@ -104,12 +108,13 @@ export function extractComponent(path: string, root: string): any {
     defects: [],
     status: data.status ?? null,
   };
+  return entry;
 }
-export function extract(root: string): any {
+export function extract(root: string): Components {
   const abs = resolve(root);
   const files = walk(abs).filter((f) => f.endsWith(".component.yml")),
-    components: any[] = [],
-    problems: any[] = [];
+    components: Entry[] = [],
+    problems: Problem[] = [];
   for (const file of files)
     try {
       components.push(extractComponent(file, abs));

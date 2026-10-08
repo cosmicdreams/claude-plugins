@@ -2,6 +2,12 @@ import { basename, join, resolve, relative as rel, sep } from "node:path";
 import { loadYaml, walk } from "./discovery-io.ts";
 import { configSync } from "./detect.ts";
 import { toolVersion } from "./figma-receipts.ts";
+import type { Components } from "./generated/components.ts";
+type Entry = Components["components"][number];
+type Field = Entry["fields"][number];
+type Slot = Entry["slots"][number];
+type Defect = Entry["defects"][number];
+type Problem = NonNullable<Components["problems"]>[number];
 const KIND: Record<string, string> = {
   string: "text",
   string_long: "text",
@@ -59,7 +65,7 @@ function family(name: string, label: string): string | null {
         ? "layout"
         : null;
 }
-export function extract(root: string, cfg?: string | null): any {
+export function extract(root: string, cfg?: string | null): Components {
   const abs = resolve(root),
     configuration = cfg || configSync(abs);
   if (!configuration)
@@ -93,8 +99,8 @@ export function extract(root: string, cfg?: string | null): any {
           ] as [string, any];
         }),
     ),
-    components: any[] = [],
-    problems: any[] = [];
+    components: Entry[] = [],
+    problems: Problem[] = [];
   for (const tpath of types) {
     let t: any;
     try {
@@ -109,9 +115,9 @@ export function extract(root: string, cfg?: string | null): any {
     }
     const bundle =
         t.id || basename(tpath).slice("paragraphs.paragraphs_type.".length, -4),
-      fields: any[] = [],
-      slots: any[] = [],
-      defects: any[] = [];
+      fields: Field[] = [],
+      slots: Slot[] = [],
+      defects: Defect[] = [];
     const fieldFiles = files
       .filter(
         (p) =>
@@ -222,9 +228,9 @@ export function extract(root: string, cfg?: string | null): any {
   const contained = new Map(components.map((c) => [c.id, [] as string[]]));
   for (const c of components)
     for (const s of c.slots)
-      for (const t of s.accepts)
+      for (const t of [s.accepts ?? []].flat())
         contained.set(t, [...(contained.get(t) || []), `${c.id}.${s.name}`]);
-  const entryPoints: any[] = [];
+  const entryPoints: NonNullable<Components["entryPoints"]> = [];
   for (const p of files
     .filter((x) => basename(x).startsWith("field.field.") && x.endsWith(".yml"))
     .sort()) {
@@ -246,8 +252,8 @@ export function extract(root: string, cfg?: string | null): any {
         Array.isArray(targets) ? [...targets] : Object.keys(targets)
       ).sort();
     entryPoints.push({
-      hostEntityType: parts[0],
-      hostBundle: parts[1],
+      hostEntityType: parts[0]!,
+      hostBundle: parts[1]!,
       field: name,
       label: d.label || name,
       accepts: accepts.length ? accepts : ["*"],

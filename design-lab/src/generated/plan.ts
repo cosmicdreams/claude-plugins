@@ -6,7 +6,7 @@ export interface Plan {
     id: string;
     variantAxes: {
       field?: string;
-      label?: string;
+      label?: string | null;
       options?: number;
     }[];
     variants: number;
@@ -31,7 +31,7 @@ export interface Plan {
       }[];
     };
     verdict: "build" | "map" | "document" | "refuse";
-    label?: string;
+    label?: string | null;
     naiveVariants?: number;
     flags?: {
       field?: string;

@@ -4,7 +4,7 @@ import { existsSync, readFileSync, statSync, realpathSync, appendFileSync } from
 import { resolve, relative, dirname } from 'node:path';
 import { execFileSync } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { load, result, safe, slotAccepts, writeOnChange, nullable } from './build-artifacts.ts';
+import { load, result, safe, slotAccepts, writeArtifactOnChange, writeOnChange, nullable } from './build-artifacts.ts';
 import type { BuildResult, BuildState, Component, ComponentPlan } from './build-artifacts.ts';
 import type { CaptureEvidence } from './generated/capture-evidence.ts';
 import { plannedIds, recordedIds } from './library-counts.ts';
@@ -12,7 +12,7 @@ import { buildIndex } from './index-rows.ts';
 import { componentPage, STANDARD_VERSION, BREAKPOINTS, repoRoot } from './build-content.ts';
 import { canonicalJson } from './json.ts';
 import { pluginRoot } from './runtime.ts';
-import { validate } from './contracts.ts';
+import { validate, appendPhaseLog } from './contracts.ts';
 import type { ArtifactKind } from './contracts.ts';
 export const toolVersion = (): string => 'design-lab ' + (load<{ version?: string }>(pluginRoot, '.claude-plugin/plugin.json', {}).version || 'unknown');
 const hash = (bytes: Buffer | string): string => 'sha256:' + createHash('sha256').update(bytes).digest('hex');
@@ -59,10 +59,12 @@ export function generate(project: string, now = new Date()): ReceiptOutput[] {
     const fields = c.fields.map(f => ({ field: f.name, kind: f.kind, required: !!f.required, default: nullable(f.default), options: nullable(f.options), figmaTreatment: plan?.properties.find(p => p.field === f.name)?.treatment ?? 'as rendered' })), relationships = c.slots.map(s => ({ field: s.name, accepts: slotAccepts(s.accepts), cardinality: s.cardinality || 0, required: !!s.required, ...slotRendering(rendering[cid], s) })), anatomy = { fields, relationships, ...(!fields.length && !relationships.length ? { emptyReason: 'No authored fields or relationships in the source.' } : {}) };
     const source = resolve(repo, c.sourceRef || ''), hasSource = existsSync(source) && statSync(source).isFile(), sourceHash = hasSource ? hash(readFileSync(source)) : hash(canonicalJson(c));
     const bound = build.bound ?? 0, literal = build.literal ?? 0, fellBack = build.fellBack ?? [], variableCount = build.variables ?? 0, expectedVariables = Object.assign({}, tree.variables, ...(tree.alternates ?? []).map(a => a.variables)), imageStatuses = imagesUpload.statuses ?? [], imageCount = build.images?.length ?? 0, imageManifest = load<{ src: string; error?: string }[]>(project, `figma/images/${cid.split('.').at(-1)}/images.json`, []), imageFailures = imageManifest.filter(m => m.error).map(m => ({ src: m.src, error: m.error })), geo = block.geometry ?? {}, blockPass = block.setId === build.componentId && !!block.specimenId && geo.variants?.length === 3 && geo.captures?.length === 3, imagePass = imageStatuses.length === imageCount && imageStatuses.every(s => s === 200);
+    /* A receipt is written whether or not the evidence is complete: receiptErrors() then refuses to register an
+       incomplete one, so this literal is deliberately not typed as BuildRecord (nulls and gaps are the signal). */
     const record = { standardVersion: STANDARD_VERSION, toolVersion: version, id: cid, figma: { fileKey: state.fileKey, pageId: pages[componentPage(c)], pageName: componentPage(c), documentationCardId: block.docId, blockId: block.blockId, componentId: build.componentId }, built: { variables: variableCount, created: build.created ?? 0, bindings: bound, literals: literal, fellBack, collectionId: build.collectionId ?? null, fonts: build.fonts ?? {}, missingFonts: build.missingFonts ?? [], standIns: build.standIns ?? {}, styleFallbacks: build.styleFallbacks ?? {}, iconText: build.iconText ?? {}, nestedMismatch: build.nestedMismatch ?? [], images: build.images ?? [], svgFailures: build.svgFailures ?? [] }, documentation: { anatomy, breakpointScreenshots: shots }, nativeComponent: nativeComponent(build, block, fields, relationships, c.slots), visualEvidence: { path: ev?.path ?? null, captureFiles: BREAKPOINTS.filter(bp => images[bp]).map(bp => images[bp]!.file), states: ['default'], breakpoints: bpEvidence, comparison }, assertions: { component: { verdict: build.componentId && blockPass ? 'pass' : 'fail', componentId: build.componentId ?? null, geometry: geo }, variables: { verdict: variableCount === Object.keys(expectedVariables).length && (!Object.keys(tree.variables).length || bound > 0 && build.collectionId) ? 'pass' : 'fail', count: variableCount, collectionId: build.collectionId ?? null }, bindings: { verdict: fellBack.length ? 'fail' : 'pass', bound, literal, fellBack }, 'image-upload': { verdict: imagePass ? 'pass' : 'fail', statuses: imageStatuses, expected: imageCount, failed: imageFailures }, 'breakpoint-evidence': { verdict: missingBreakpoints.length ? 'fail' : 'pass', missing: missingBreakpoints }, 'evidence-upload': { verdict: statuses.length === ids.length && ids.length === 3 && statuses.every(s => s === 200) ? 'pass' : 'fail', statuses }, 'visual-comparison': { verdict: comparison.verdict, breakpoints: comparison.breakpoints } }, sourceRef: c.sourceRef ?? null, sourceHash, sourceHashBasis: hasSource ? 'sourceRef' : 'components.json entry' };
     const path = resolve(project, `builds/${cid.replaceAll(':', '__').replaceAll('/', '_')}.json`); writeOnChange(path, record); outputs.push({ name: 'build:' + cid, path, kind: 'build-record', phase: 'components' });
   }
-  const index = buildIndex(inventory, resolve(project, 'builds'), 50, 10, plans, now); index.standardVersion = STANDARD_VERSION; const path = resolve(project, 'index.json'); writeOnChange(path, index); outputs.push({ name: 'index', path, kind: 'index', phase: 'index' }); return outputs;
+  const index = buildIndex(inventory, resolve(project, 'builds'), 50, 10, plans, now); index.standardVersion = STANDARD_VERSION; const path = resolve(project, 'index.json'); writeArtifactOnChange('index', path, index); outputs.push({ name: 'index', path, kind: 'index', phase: 'index' }); return outputs;
 }
 /** Writer-policy checks supplement the structural schemas, as in the baseline oracle. */
 export function receiptErrors(kind: ArtifactKind, value: unknown): string[] {
@@ -121,8 +123,8 @@ export function registerOutputs(project: string, outputs: ReceiptOutput[], now =
     registry.artifacts[output.name] = { path: relative(project, target), kind: output.kind, sha256: hash(bytes), valid: true, errors: [], updatedAt: at, producedBy };
     if (output.phase === 'components') { const coverage = componentCoverage(project, registry); registry.phases['components'] = { status: coverage.planAvailable && !coverage.missing.length && !coverage.unexpected.length && !coverage.invalid.length ? 'complete' : 'running', updatedAt: at, detail: coverage }; }
     else registry.phases[output.phase] = { status: 'complete', updatedAt: at, detail: { artifact: output.name } };
-    writeOnChange(path, registry);
-    appendFileSync(resolve(project, 'phase-log.jsonl'), JSON.stringify({ at, phase: output.phase, status: (registry.phases[output.phase] as { status: string }).status }) + '\n'); registered.push(output.name);
+    writeArtifactOnChange('project', path, registry);
+    appendPhaseLog(resolve(project, 'phase-log.jsonl'), { at, phase: output.phase, status: registry.phases[output.phase]?.status ?? 'complete' }); registered.push(output.name);
   }
   return { registered, invalid };
 }
