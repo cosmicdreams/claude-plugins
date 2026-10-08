@@ -1656,8 +1656,12 @@
     {
       "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_variables_template_keys_variables_by_collection",
       "behavior": "Distinguish same-named variables in different collections; render/variables.ts; rewrite source assertions as runtime checks.",
-      "tests": [],
-      "uncovered": "Payload reconciliation tests use distinct variable names in one collection; none asserts equal names remain distinct across collections."
+      "tests": [
+        {
+          "file": "tests/ts/templates.test.ts",
+          "name": "variables sharing a name in two collections keep their own values"
+        }
+      ]
     },
     {
       "original": "test_pncb_run_fixes.ReviewFollowUpTests.test_percentage_rgb",

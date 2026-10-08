@@ -374,3 +374,30 @@ void test('variables payload draws rgb and rgba colours with their own alpha', a
   assert.equal(drawn('color/blue').a, 0.5);
   assert.deepEqual(drawn('color/red'), { r: 1, g: 0, b: 0, a: 1 });
 });
+
+void test('variables sharing a name in two collections keep their own values', async () => {
+  const { host, writes } = variableHost();
+  const report = await runVariablesTemplate(
+    {
+      collections: {
+        Core: {
+          modes: ['Value'],
+          variables: [{ name: 'color/bg', type: 'COLOR', valuesByMode: { Value: '#ffffff' } }],
+        },
+        Scheme: {
+          modes: ['Value'],
+          variables: [{ name: 'color/bg', type: 'COLOR', valuesByMode: { Value: '#000000' } }],
+        },
+      },
+    },
+    host,
+  );
+  assert.equal(report.created, 2);
+  assert.deepEqual(
+    writes.map((w) => [w.collection, w.name, JSON.stringify(w.value)]),
+    [
+      ['Core', 'color/bg', '{"r":1,"g":1,"b":1,"a":1}'],
+      ['Scheme', 'color/bg', '{"r":0,"g":0,"b":0,"a":1}'],
+    ],
+  );
+});
