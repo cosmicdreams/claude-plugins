@@ -24,3 +24,9 @@ export function required<T>(value: T | null | undefined, what: string): T {
   if (value === undefined || value === null) throw new LookupError(`${what} is missing`);
   return value;
 }
+/** A list the schema requires to be non-empty, as the tuple type its generated interface declares. */
+export function nonEmpty<T>(items: readonly T[], what: string): [T, ...T[]] {
+  const [first, ...rest] = items;
+  if (first === undefined) throw new LookupError(`${what}: no entries`);
+  return [first, ...rest];
+}

@@ -2,6 +2,7 @@
 import { existsSync, readFileSync, readdirSync } from 'node:fs';
 import { resolve } from 'node:path';
 import { writeJson } from './contracts.ts';
+import type { ArtifactKind, ArtifactMap } from './contracts.ts';
 import { sorted } from './json.ts';
 import type { Components } from './generated/components.ts';
 import type { Plan } from './generated/plan.ts';
@@ -28,6 +29,8 @@ export function writeOnChange(path: string, value: unknown): boolean {
   if (existsSync(path) && readFileSync(path, 'utf8') === text) return false;
   writeJson(path, value); return true;
 }
+/** The artifact write of a deterministic build: the value is the generated type for `kind`. */
+export function writeArtifactOnChange<K extends ArtifactKind>(_kind: K, path: string, value: ArtifactMap[K]): boolean { return writeOnChange(path, value); }
 export const safe = (step: string): string => step.replace(/[^A-Za-z0-9_.-]+/g, '_');
 export const result = (project: string, step: string): BuildResult => load(project, `figma/results/${safe(step)}.json`);
 export const nullable = <T>(value: T | undefined): T | null => value === undefined ? null : value;
