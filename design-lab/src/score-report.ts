@@ -11,23 +11,12 @@ import { compact, day, duration, esc, fixed, floatString, num, own, pct, pyStr, 
 const sharp = sharedRequire()('sharp') as typeof import('sharp').default;
 
 type Sections = Scorecard['sections'];
-interface Explained { reason?: string; howToMeasure?: string }
-/** Fields score-run writes that the closed scorecard schema does not declare yet. The report reads them. */
-interface Undeclared {
-  identity: Explained;
-  library: Explained;
-  repeatability: { levelNote?: string };
-  cost: { developer?: { sessionWarning?: string }; model?: { caveat?: string | null } };
-}
-export type ReportSections = { [K in keyof Sections]: K extends keyof Undeclared ? Sections[K] & Undeclared[K] : Sections[K] };
-/** The scorecard as the report reads it: every Scorecard, plus the undeclared fields above. */
-export type ReportCard = Omit<Scorecard, 'sections'> & { sections: ReportSections };
 
-type Coverage = ReportSections['coverage'];
-type Library = ReportSections['library'];
-type Accuracy = ReportSections['accuracy'];
+type Coverage = Sections['coverage'];
+type Library = Sections['library'];
+type Accuracy = Sections['accuracy'];
 type Pair = NonNullable<Accuracy['pairs']>[number];
-type Cost = ReportSections['cost'];
+type Cost = Sections['cost'];
 type Runner = NonNullable<Cost['runner']>;
 type Working = NonNullable<Cost['working']>;
 type ModelUsage = NonNullable<Cost['model']>;
@@ -299,7 +288,7 @@ function verdict(label: string, figure: string, unit: string, caption: string, s
 const WAITS = [['waitingOnPersonSeconds', 'the person'], ['waitingOnLimitsSeconds', 'usage limits'], ['waitingOnServiceSeconds', 'the service']] as const;
 const modelTotals = (rows: readonly { total?: number; name?: string }[]): string => rows.map(r => `${num(r.total)} ${esc(r.name)}`).join(', ');
 
-function hero(card: ReportCard): string {
+function hero(card: Scorecard): string {
   const s = card.sections, head = card.headline, identity = s.identity.fields ?? {}, built = head.built, cov = s.coverage;
   const { corrected: corr, original: orig } = head.accuracy;
   let title: string;
@@ -482,7 +471,7 @@ function galleryHtml(acc: Accuracy, thumbs: Thumbnails, metric: Metric): string 
   return parts.join('');
 }
 
-function repeatSection(rep: ReportSections['repeatability']): string {
+function repeatSection(rep: Sections['repeatability']): string {
   if (rep.status === 'not-measured') return section('repeatability', 'Repeatability', 'not-measured', 'One run cannot show that a second would match.', absent('Repeatability', rep));
   const comparisons = rep.comparisons ?? [];
   const rows = comparisons.map(row => {
@@ -591,7 +580,7 @@ export function costSection(cost: Cost): string {
   return section('cost', 'Time and tokens', cost.status, esc(lead), parts.join(''));
 }
 
-function conformanceSection(conf: ReportSections['conformance']): string {
+function conformanceSection(conf: Sections['conformance']): string {
   if (conf.status === 'not-measured') return section('conformance', 'Conformance to the library standard', 'not-measured', 'Whole-file verification was not run.', absent('Verification findings', conf));
   let body = '<dl class="yield small">' + Object.entries(conf.open ?? {}).map(([k, v]) => `<div class="y"><dt>${k} open</dt><dd>${num(v)}</dd></div>`).join('')
     + `<div class="y"><dt>waived</dt><dd>${num(conf.waived)}</dd></div><div class="y"><dt>checks passed</dt><dd>${num(conf.passed)}</dd></div></dl>`;
@@ -599,13 +588,13 @@ function conformanceSection(conf: ReportSections['conformance']): string {
   return section('conformance', 'Conformance to the library standard', 'measured', esc(conf.summary), body);
 }
 
-function churnSection(churn: ReportSections['schemaChurn']): string {
+function churnSection(churn: Sections['schemaChurn']): string {
   if (churn.status === 'not-measured') return section('churn', 'Schema churn', 'not-measured', 'Whether this run needed a schema change was not recorded.', absent('Schema churn', churn));
   const items = (churn.changes ?? []).map(c => `<li>${esc(c.text)}</li>`).join('');
   return section('churn', 'Schema churn', 'measured', esc(churn.summary), items ? `<ul class="plain">${items}</ul>` : '');
 }
 
-function laterSection(fv: ReportSections['foundationsVoice'], blind: ReportSections['blindedJudgement'], pages: readonly string[]): string {
+function laterSection(fv: Sections['foundationsVoice'], blind: Sections['blindedJudgement'], pages: readonly string[]): string {
   const { min = 1, max = 5 } = hasEntries(blind.scale) ? blind.scale : {};
   const boxes = Array.from({ length: Math.max(0, max + 1 - min) }, (_, i) => `<span>${min + i}</span>`).join('');
   const criteria = blind.criteria.map(c => `<li><span>${esc(c.label)}</span><span class="scale" aria-label="not yet scored">${boxes}</span></li>`).join('');
@@ -616,7 +605,7 @@ function laterSection(fv: ReportSections['foundationsVoice'], blind: ReportSecti
   return section('later', 'Judged by people', 'scored-later', 'Two parts of the benchmark need human eyes and are added after the run.', body);
 }
 
-function identitySection(ident: ReportSections['identity']): string {
+function identitySection(ident: Sections['identity']): string {
   if (ident.status === 'not-measured') return section('identity', 'Run identity', 'not-measured', 'Nothing identifies this run.', absent('Run identity', ident));
   const f = ident.fields ?? {};
   const figmaBuild = [f.builtToStandard ? `standard ${f.builtToStandard}` : '', f.rendererRuntime ? `renderer runtime ${f.rendererRuntime}` : ''].filter(Boolean).join(' · ');
@@ -850,7 +839,7 @@ document.addEventListener('focusout',function(){t.classList.remove('on')});})();
 const TOC = [['library', 'What the run built'], ['accuracy', 'Accuracy'], ['repeatability', 'Repeatability'], ['cost', 'Time and tokens'], ['conformance', 'Conformance'], ['churn', 'Schema churn'], ['later', 'Judged by people'], ['identity', 'Identity and provenance']] as const;
 
 /** The report page for a scorecard and its already cut thumbnails. */
-export function renderReport(card: ReportCard, thumbs: Thumbnails): string {
+export function renderReport(card: Scorecard, thumbs: Thumbnails): string {
   const s = card.sections, identity = s.identity.fields ?? {};
   const body = [`<header class="mast"><p>design-lab · run report</p><dl><div><dt>run</dt><dd>${esc(card.run.name)}</dd></div><div><dt>built</dt><dd>${esc(day(identity.startedAt))}</dd></div><div><dt>version</dt><dd>${esc(identity.pluginVersion || '–')}</dd></div><div><dt>scored</dt><dd>${esc(day(card.generatedAt))}</dd></div></dl></header>`,
     '<main>', hero(card), '<nav class="toc" aria-label="Sections">' + TOC.map(([id, title]) => `<a href="#${id}">${esc(title)}</a>`).join('') + '</nav>',
@@ -861,7 +850,7 @@ export function renderReport(card: ReportCard, thumbs: Thumbnails): string {
 }
 
 /** The self-contained report for a scored run, with thumbnails cut from the run's specimen screenshots. */
-export async function render(card: ReportCard, runDir: string): Promise<string> {
+export async function render(card: Scorecard, runDir: string): Promise<string> {
   const pairs = card.sections.accuracy.pairs ?? [];
   const thumbs: Thumbnails = hasEntries(pairs[0]?.evidence) ? await thumbnails(runDir, pairs, 'desktop') : new Map();
   return renderReport(card, thumbs);

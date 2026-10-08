@@ -113,6 +113,8 @@ export interface Scorecard {
       missing?: string[];
       summary?: string;
       recordedAtStart?: boolean;
+      reason?: string;
+      howToMeasure?: string;
     };
     cost: {
       status: "measured" | "partial" | "not-measured";
@@ -156,6 +158,8 @@ export interface Scorecard {
         start?: string;
         spanSeconds?: number;
         note?: string;
+        status?: "not-measured";
+        reason?: string;
       };
       definition?: string;
       clock?: {
@@ -212,6 +216,7 @@ export interface Scorecard {
         definition?: string;
         reason?: string;
         howToMeasure?: string;
+        caveat?: string | null;
       };
       unattended?: {
         status: "measured" | "not-measured";
@@ -307,14 +312,19 @@ export interface Scorecard {
           [k: string]: number;
         };
         window?: {
-          since?: null;
-          until?: null;
+          since?: string | null;
+          until?: string | null;
         };
         firstMessage?: string;
         lastMessage?: string;
         benchmarkNote?: string;
         reason?: string;
         howToMeasure?: string;
+        caveat?: string;
+      };
+      reason?: string;
+      developer?: {
+        sessionWarning?: string;
       };
     };
     library: {
@@ -360,6 +370,7 @@ export interface Scorecard {
         label?: string;
         reason?: string;
       }[];
+      reason?: string;
     };
     coverage: {
       status: "measured" | "not-measured";
@@ -410,6 +421,7 @@ export interface Scorecard {
         structural?: number;
       }[];
       reason?: string;
+      howToMeasure?: string;
     };
     conformance: {
       status: "measured" | "not-measured";
@@ -542,6 +554,8 @@ export interface Scorecard {
       }[];
       reason?: string;
       howToMeasure?: string;
+      levelNote?: string;
+      minScore?: number | null;
     };
     schemaChurn: {
       status: "measured" | "not-measured";

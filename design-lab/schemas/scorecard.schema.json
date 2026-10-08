@@ -688,6 +688,12 @@
             },
             "recordedAtStart": {
               "type": "boolean"
+            },
+            "reason": {
+              "type": "string"
+            },
+            "howToMeasure": {
+              "type": "string"
             }
           },
           "allOf": [
@@ -848,9 +854,36 @@
                 },
                 "note": {
                   "type": "string"
+                },
+                "status": {
+                  "enum": [
+                    "not-measured"
+                  ]
+                },
+                "reason": {
+                  "type": "string"
                 }
               },
-              "additionalProperties": false
+              "additionalProperties": false,
+              "allOf": [
+                {
+                  "if": {
+                    "required": [
+                      "status"
+                    ],
+                    "properties": {
+                      "status": {
+                        "const": "not-measured"
+                      }
+                    }
+                  },
+                  "then": {
+                    "required": [
+                      "reason"
+                    ]
+                  }
+                }
+              ]
             },
             "definition": {
               "type": "string"
@@ -1063,6 +1096,12 @@
                 },
                 "howToMeasure": {
                   "type": "string"
+                },
+                "caveat": {
+                  "type": [
+                    "string",
+                    "null"
+                  ]
                 }
               },
               "allOf": [
@@ -1476,11 +1515,13 @@
                   "properties": {
                     "since": {
                       "type": [
+                        "string",
                         "null"
                       ]
                     },
                     "until": {
                       "type": [
+                        "string",
                         "null"
                       ]
                     }
@@ -1501,12 +1542,43 @@
                 },
                 "howToMeasure": {
                   "type": "string"
+                },
+                "caveat": {
+                  "type": "string"
+                }
+              },
+              "additionalProperties": false
+            },
+            "reason": {
+              "type": "string"
+            },
+            "developer": {
+              "type": "object",
+              "properties": {
+                "sessionWarning": {
+                  "type": "string"
                 }
               },
               "additionalProperties": false
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "status": {
+                    "const": "not-measured"
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "reason"
+                ]
+              }
+            }
+          ]
         },
         "library": {
           "$comment": "library contents",
@@ -1694,6 +1766,9 @@
                 },
                 "additionalProperties": false
               }
+            },
+            "reason": {
+              "type": "string"
             }
           },
           "allOf": [
@@ -1909,6 +1984,9 @@
               }
             },
             "reason": {
+              "type": "string"
+            },
+            "howToMeasure": {
               "type": "string"
             }
           },
@@ -2422,6 +2500,15 @@
             },
             "howToMeasure": {
               "type": "string"
+            },
+            "levelNote": {
+              "type": "string"
+            },
+            "minScore": {
+              "type": [
+                "number",
+                "null"
+              ]
             }
           },
           "allOf": [
