@@ -19,6 +19,8 @@ import { COVER_GROUND } from './library-counts.ts';
 import * as fonts from './fonts.ts';
 import { playwrightReady } from './lab-setup.ts';
 
+import { SERVER_FRESH_MS, RUNNER_ABSENT_MS } from './protocol.ts';
+import type { Summary } from './protocol.ts';
 export type Dict = Record<string, any>;
 export const read = (path: string): any => JSON.parse(readFileSync(path, 'utf8'));
 export function optional(path: string, fallback: any = null): any { try { return read(path); } catch { return fallback; } }
@@ -94,20 +96,20 @@ export function record(value: string, args: Dict): Dict {
 }
 export function status(value: string): Dict { const [path, p] = loadProject(value); return { project: path, pluginVersion: p.pluginVersion, standardVersion: p.standardVersion, repository: p.repository, decisions: p.decisions, nextPhase: Object.entries(p.phases).find(([, phase]) => !['complete', 'approved', 'waived'].includes(phase.status ?? 'pending'))?.[0] ?? null, phases: p.phases, artifacts: Object.fromEntries(Object.entries(p.artifacts).map(([name, a]: any) => [name, { path: a.path, valid: a.valid }])) }; }
 export const secondsSince = (stamp: unknown): number | null => typeof stamp === 'string' && Number.isFinite(Date.parse(stamp)) ? (Date.now() - Date.parse(stamp)) / 1000 : null;
-export function watchSummary(workspace: string): Dict {
+export function watchSummary(workspace: string): Summary {
   workspace = resolve(workspace); const p = optional(resolve(workspace, 'project.json')); if (!p) return { found: false, workspace };
   const progress = optional(resolve(workspace, 'figma/progress.json')), log = entries(workspace), last = log.at(-1), card = optional(resolve(workspace, 'benchmark/scorecard.json'), {}), checks = optional(resolve(workspace, 'preflight-checks.json'));
-  const serverAge = secondsSince(progress?.at), seenAge = secondsSince(progress?.lastSeen), serverAlive = serverAge !== null && serverAge <= 30, connected = serverAlive && (seenAge !== null && seenAge <= 120 || !!progress?.inflight);
+  const serverAge = secondsSince(progress?.at), seenAge = secondsSince(progress?.lastSeen), serverAlive = serverAge !== null && serverAge * 1000 <= SERVER_FRESH_MS, connected = serverAlive && (seenAge !== null && seenAge * 1000 <= RUNNER_ABSENT_MS || !!progress?.inflight);
   const phases = Object.entries(p.phases ?? {}).map(([name, phase]: any) => ({ name, status: phase?.status })), stamp = card.run?.buildCreatedAt, recap = resolve(workspace, 'benchmark/completion.md');
   const startedAt = (p.phases?.preflight?.from ? null : p.phases?.preflight?.updatedAt) || p.createdAt;
   const oldChecks = p.phases?.preflight?.status === 'complete' && !p.phases?.preflight?.from && secondsSince(checks?.at) !== null && secondsSince(p.phases.preflight.updatedAt) !== null && secondsSince(checks.at)! > secondsSince(p.phases.preflight.updatedAt)!;
-  return { found: true, workspace, siteLabel: p.run?.siteLabel, phases, nextPhase: phases.find(phase => !['complete', 'approved', 'waived'].includes(phase.status))?.name ?? null, preflightChecks: oldChecks ? null : checks?.checks ?? null, runner: progress ? { serverAlive, connected, lastSeenSeconds: seenAge, state: progress.state, stepsDone: progress.stepsDone, stepsTotal: progress.stepsTotal, stepKind: progress.stepKind, message: progress.message } : null, blocker: !connected && last?.status === 'stopped' ? last.message : null, waiting: !connected && last?.status === 'waiting' ? last.message : null, recap: existsSync(recap) && (typeof stamp === 'string' ? stamp === p.createdAt : p.phases?.benchmark?.status === 'complete') ? recap : null, startedAt, elapsedSeconds: secondsSince(startedAt) };
+  return { found: true, workspace, siteLabel: p.run?.siteLabel, phases, nextPhase: phases.find(phase => !['complete', 'approved', 'waived'].includes(phase.status))?.name ?? null, preflightChecks: oldChecks ? null : checks?.checks ?? null, runner: progress ? { serverAlive, connected, lastSeenSeconds: seenAge, state: progress.state, stepsDone: progress.stepsDone, stepsTotal: progress.stepsTotal, stepKind: progress.stepKind, message: progress.message } : null, blocker: !connected && last?.status === 'stopped' ? last.message : null, waiting: !connected && last?.status === 'waiting' ? last.message : null, recap: existsSync(recap) && (typeof stamp === 'string' ? stamp === p.createdAt : p.phases?.benchmark?.status === 'complete') ? recap : null, startedAt: startedAt ?? null, elapsedSeconds: secondsSince(startedAt) };
 }
 export function watchWorkspace(given?: string, cwd = process.cwd()): string {
   if (given) return resolve(given); const [run, folder] = config.currentRun(cwd); if (folder && !run) throw new Error(`no design-lab run yet in ${folder}`);
   const workspace = run || optional(resolve(runner.designLabHome(), 'active-run.json'), {}).workspace; if (!workspace) throw new Error('no design-lab run found for this folder; give the run folder with --project'); return workspace;
 }
-export function renderWatch(summary: Dict): string {
+export function renderWatch(summary: Summary): string {
   if (!summary.found) return `No design-lab run in ${summary.workspace}: it has no project.json.`;
   const marks: Dict = { complete: '✓', approved: '✓', waived: '✓', running: '▸', stopped: '!' }, checks: Dict = { done: '✓', checking: '▸', 'needs-you': '!', failed: '✗', waiting: '·' };
   const lines = [`design-lab · ${summary.siteLabel || basename(summary.workspace)}`, `Run folder: ${summary.workspace}`];

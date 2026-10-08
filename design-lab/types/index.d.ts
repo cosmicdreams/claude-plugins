@@ -1,3 +1,7 @@
+// Generated from src/protocol.ts by scripts/generate-mod-contract.ts. Do not edit.
+export type ProgressState = "waiting" | "preflight" | "building" | "done" | "failed";
+export type StepKind = "wait" | "done" | "check" | "dump" | "use_figma" | "upload" | "screenshot" | "skip";
+
 // reused: copied from an earlier run (design-lab:figma-build), not run again here
 export type Phase = { name: string; status: string; reused: boolean }
 
@@ -14,10 +18,10 @@ export type Facts = {
 export type Findings = { blocker: number; major: number; minor: number; passed: number; waived: number }
 
 export type Runner = {
-  state: string
+  state: ProgressState | 'connecting'
   stepsDone: number | null
   stepsTotal: number | null
-  stepKind: string | null
+  stepKind: StepKind | null
   message: string | null
   serverAlive: boolean
   connected: boolean

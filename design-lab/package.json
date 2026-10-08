@@ -10,8 +10,8 @@
     "setup": "node scripts/setup-ts.ts",
     "test": "node --test tests/ts/*.test.ts tests/browser/*.test.ts",
     "typecheck": "node scripts/ts-tool.ts check",
-    "contracts:generate": "node scripts/generate-contracts.ts",
-    "contracts:check": "node scripts/generate-contracts.ts --check",
+    "contracts:generate": "node scripts/generate-contracts.ts && node scripts/generate-mod-contract.ts",
+    "contracts:check": "node scripts/generate-contracts.ts --check && node scripts/generate-mod-contract.ts --check",
     "contracts:reality": "node scripts/check-artifacts.ts",
     "benchmark:check-js": "node scripts/ts-tool.ts check-js",
     "test:unit": "node --test tests/ts/*.test.ts"

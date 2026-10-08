@@ -6,7 +6,8 @@
 import { atom, read, update } from 'claude-code'
 import type { EngineInterface, Register, Timer } from 'claude-code'
 
-import type { Summary } from '../../types'
+import type { Summary as RunSummary } from '../../src/protocol'
+type Summary = RunSummary<'mod'>
 import {
   afterFill, barOf, CHECK_COLORS, CHECK_MARKS, checkMessage, compactOf, durationOf, elapsedOf, failureOf, needsYouOf, parseJson,
   percentOf, PHASE_DONE, phaseLabel, plainOf, RESUME_PROMPT, isIdle, runnerLine, stagesOf, statusOf, stepsLine,
@@ -20,7 +21,8 @@ const RECAP_COMMAND = 'design-lab:recap'
 // The skills that start or resume a run: each opens the pane by itself, so nobody has to know
 // about design-lab:watch to see where a run is.
 export const RUN_SKILLS = ['design-lab:run', 'design-lab:figma-build'] as const
-export const POLL_MS = 5_000
+import { POLL_MS } from '../../src/protocol.ts'
+export { POLL_MS } from '../../src/protocol.ts'
 // The runner log is tailed only while it is small enough to read whole every poll.
 const LOG_READ_LIMIT = 1024 * 1024
 

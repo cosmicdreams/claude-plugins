@@ -46,7 +46,7 @@ test('tier 1 replays through injected tree builder without mutating the saved ru
     const result = replayTier1(run, 'site-a', {
       components: () => [{ id: 'block:sample', machineName: 'sample', label: 'Sample' } as any],
       plans: () => ({ 'block:sample': { verdict: 'build' } } as any),
-      buildTrees: (_run, trees) => { mkdirSync(trees, { recursive: true }); writeJson(join(trees, 'block:sample.json'), { measured: ['desktop'], variables: {}, tree: { source: '/root', width: 100, height: 20, children: [{ source: '/root/child', x: 10, y: 0, width: 20, height: 10 }] } }); return [{ id: 'block:sample' }]; },
+      buildTrees: (_run, trees) => { mkdirSync(trees, { recursive: true }); writeJson(join(trees, 'block:sample.json'), { measured: ['desktop'], variables: {}, tree: { kind:'frame', source: '/root', width: 100, height: 20, children: [{ kind:'frame',source: '/root/child', x: 10, y: 0, width: 20, height: 10 }] } }); return [{ id: 'block:sample' }]; },
     });
     assert.equal(result.tier, 1); assert.equal(result.components['block:sample']['desktop:default'].status, 'measured');
     assert.equal(result.metrics.geometry!.total, 8); assert.equal(readFileSync(join(run, 'project.json'), 'utf8'), before);
@@ -54,10 +54,10 @@ test('tier 1 replays through injected tree builder without mutating the saved ru
 });
 
 test('property comparisons report flow positions and unknown numeric checks as unmeasured', () => {
-  const rows = layoutNodes({ width: 100, height: 40, layout: { mode: 'HORIZONTAL', gap: 10 }, children: [{ source: 'a', width: 20, height: 10 }, { source: 'b', width: 30, height: 10, x: 700 }] });
+  const rows = layoutNodes({ kind:'frame',name:'root',source:'/root',sizing:'FIXED',width: 100, height: 40, layout: { mode: 'HORIZONTAL', gap: 10 }, children: [{ kind:'frame',name:'a',sizing:'FIXED',source: 'a', width: 20, height: 10 }, { kind:'frame',name:'b',sizing:'FIXED',source: 'b', width: 30, height: 10, x: 700 }] });
   assert.deepEqual(rows.map(row => row.box.x), [0, 0, 30]);
   assert.equal(numericCheck('text', 'height', 20, null, 2).pass, null);
-  const result = compareProperties({ measured: ['desktop'], variables: {}, tree: { source: '/root', width: 100, height: 20 } }, { measurements: { 'desktop:expanded': { nodes: [node('/root')] } } });
+  const result = compareProperties({ measured: ['desktop'], variables: {}, tree: { kind:'frame', source: '/root', width: 100, height: 20 } }, { measurements: { 'desktop:expanded': { nodes: [node('/root')] } } });
   assert.equal(result['desktop:expanded'].status, 'unmeasured');
   const missingFont = numericCheck('text', 'height', 20, null, 2);
   assert.equal(metric([missingFont]).unmeasured, 1);
@@ -72,7 +72,7 @@ test('property comparisons retain variable breakpoints and inline text measureme
   const report = compareProperties(tree, spec)['desktop:default']!;
   for (const name of ['geometry', 'fontSize', 'textAlignment', 'textRunCount', 'imagesPresent']) assert.ok(report[name].passed < report[name].total);
   assert.equal(report.textRunCount.checks[0].flattened, true);
-  const variableTree = { measured: ['desktop', 'mobile'], variables: { width: { values: { Desktop: 100, Mobile: 50 } } }, tree: { source: '/root', width: { var: 'width' }, height: 50 } };
+  const variableTree = { measured: ['desktop', 'mobile'], variables: { width: { values: { Desktop: 100, Mobile: 50 } } }, tree: { kind:'frame', source: '/root', width: { var: 'width' }, height: 50 } };
   const mobile = node('/root', 0, 50); mobile.box.height = 50;
   const breakpoints = compareProperties(variableTree, { measurements: { 'desktop:default': { nodes: [node('/root')] }, 'mobile:default': { nodes: [mobile] }, 'desktop:expanded': { nodes: [node('/root')] } } });
   assert.equal(breakpoints['mobile:default']!.geometry.passed, 4); assert.equal(breakpoints['desktop:expanded']!.status, 'unmeasured');
