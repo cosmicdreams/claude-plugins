@@ -18,14 +18,14 @@ export interface Index {
     componentLinkTarget: string | null;
     documentationLinkTarget: string | null;
     id: string;
-    placements: number;
+    placements: number | null;
     built: boolean;
     type: string;
     status: string;
     machineName?: string;
     label?: string;
     tier?: string;
-    structuralRefs?: number;
+    structuralRefs?: number | null;
     figma?: {
       pageId?: string | null;
       componentNodeId?: string | null;
