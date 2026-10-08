@@ -276,7 +276,7 @@ test('progress counts what the runner was told, keeps the count through dumps an
   build.note({ kind: 'wait', step: 'wait', message: 'Build complete. Waiting for the next build.' }); assert.deepEqual([build.progress.state, build.progress.message], ['waiting', 'Build complete. Waiting for the next build.']);
   build.note({ kind: 'check', step: CHECK_STEP }); assert.equal(build.progress.state, 'preflight');
   build.failed = { step: 'v', stamp: 0 }; build.note({ kind: 'wait', message: 'Stopped' }); assert.equal(build.progress.state, 'failed');
-  build.failed = null; build.progress.state = 'failed'; build.noteRecorded({ remaining: 8 }); assert.deepEqual([build.progress.state, build.progress.message], ['building', null]);
+  build.failed = null; build.progress.state = 'failed'; build.noteRecorded({ recorded: 'x', remaining: 8 }); assert.deepEqual([build.progress.state, build.progress.message], ['building', null]);
   writeAtomic(resolve(ws, 'figma', SEEN_FILE), '2026-10-02T09:00:00+00:00\n'); build.writeProgress(true); assert.deepEqual([progress(ws)['lastSeen'], progress(ws)['inflight']], ['2026-10-02T09:00:00+00:00', true]);
 });
 
