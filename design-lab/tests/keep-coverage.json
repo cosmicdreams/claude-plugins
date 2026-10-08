@@ -2400,8 +2400,12 @@
     {
       "original": "test_score_run.WorkflowCaptureTest.test_an_absent_runner_stops_the_build_with_what_to_do_first",
       "behavior": "A disconnected runner stops execution while an active in-flight step remains connected; workflow.ts.",
-      "tests": [],
-      "uncovered": "Connection and in-flight protocol tests exist, but no test asserts the workflow build refusal and actionable message with an absent runner."
+      "tests": [
+        {
+          "file": "tests/ts/workflow.test.ts",
+          "name": "an absent runner stops the build with what to do first and resumes on a heartbeat or in-flight step"
+        }
+      ]
     },
     {
       "original": "test_score_run.WorkflowCaptureTest.test_plan_approval_follows_the_preflight_choice",

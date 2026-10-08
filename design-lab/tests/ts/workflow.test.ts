@@ -17,6 +17,7 @@ import { spawn, spawnSync } from 'node:child_process';
 import * as config from '../../src/lab-config.ts';
 import * as setup from '../../src/lab-setup.ts';
 import * as workflow from '../../src/workflow.ts';
+import { SEEN_FILE } from '../../src/figma-runner.ts';
 import { COMMANDS } from '../../scripts/workflow.ts';
 import { pluginRoot } from '../../src/runtime.ts';
 function sandbox(t: { after(fn: () => void): void }) {
@@ -276,6 +277,72 @@ void test('connection startup failures leave a stopped log and no false connecti
   assert.equal(result.ok, false);
   assert.match(workflow.entries(workspace).at(-1)!.message ?? '', /port is occupied/);
   assert.equal(workflow.entries(workspace).at(-1)!.status, 'stopped');
+});
+void test('an absent runner stops the build with what to do first and resumes on a heartbeat or in-flight step', async (t) => {
+  const root = sandbox(t),
+    repo = resolve(root, 'repo'),
+    workspace = resolve(root, 'run'),
+    url = 'https://www.figma.com/design/KEY9/Library';
+  mkdirSync(repo);
+  workflow.init({ repo, workspace });
+  workflow.target(workspace, url);
+  const project = workflow.read<Project>(resolve(workspace, 'project.json'));
+  project.phases['foundation'] = { status: 'complete' };
+  project.phases['components'] = { status: 'running' };
+  let elapsed = 0,
+    starts = 0,
+    probes = 0,
+    inflight = false;
+  const sleeps: number[] = [],
+    dependencies = {
+      ensureServer: async (path: string) => {
+        assert.equal(path, workspace);
+        starts++;
+      },
+      serverStatus: async (path: string) => {
+        assert.equal(path, workspace);
+        probes++;
+        return { inflight };
+      },
+      clock: () => elapsed,
+      sleep: async (milliseconds: number) => {
+        sleeps.push(milliseconds);
+        elapsed += milliseconds;
+      },
+    };
+  const stopped = await workflow.awaitRunner(workspace, project, 0.002, 10, dependencies);
+  assert.equal(stopped.connected, false);
+  assert.equal(stopped.phase, 'components');
+  assert.equal(
+    stopped.message,
+    `Open Figma desktop, open ${url}, and start the design-lab runner. The build writes the component library into that file through the runner, and it has not connected for 1 minute.`,
+  );
+  const entries = workflow.entries(workspace),
+    last = entries.at(-1);
+  assert.ok(last);
+  assert.deepEqual([last.phase, last.status, last.reason], ['components', 'stopped', 'runner not connected']);
+  assert.equal(last.message, stopped.message);
+  assert.equal(elapsed, 120);
+  assert.deepEqual(sleeps, Array<number>(12).fill(10));
+  assert.equal(probes, 13);
+
+  const seen = resolve(workspace, 'figma', SEEN_FILE);
+  mkdirSync(resolve(workspace, 'figma'), { recursive: true });
+  const recent = new Date().toISOString();
+  writeFileSync(seen, recent);
+  const resumed = await workflow.awaitRunner(workspace, project, 2, 10, dependencies);
+  assert.deepEqual(resumed, { connected: true, lastSeen: recent });
+  assert.equal(probes, 13);
+
+  const stale = '2026-01-01T00:00:00+00:00';
+  writeFileSync(seen, stale);
+  inflight = true;
+  const active = await workflow.awaitRunner(workspace, project, 0.002, 10, dependencies);
+  assert.deepEqual(active, { connected: true, inflight: true, lastSeen: stale });
+  assert.equal(starts, 3);
+  assert.equal(probes, 14);
+  assert.equal(sleeps.length, 12);
+  assert.deepEqual(workflow.entries(workspace), entries);
 });
 void test('failed build wait stops the server before logging; retry ensures a fresh server', async (t) => {
   const root = sandbox(t),
