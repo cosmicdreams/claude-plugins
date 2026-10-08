@@ -46,6 +46,7 @@ const sharp = sharedRequire()('sharp') as typeof import('sharp').default;
 
 import { PORT, WAIT_MS, HEARTBEAT_SECONDS } from './protocol.ts';
 import type { ProgressState, StepKind } from './protocol.ts';
+import type { Progress as ProgressDocument } from './generated/progress.ts';
 import type { CoverArgs, TemplateArgs } from './figma/payload-types.ts';
 export { PORT, WAIT_MS, HEARTBEAT_SECONDS } from './protocol.ts';
 export const ORIGIN = 'null'; // a Figma plugin's fetch comes from a sandboxed iframe with an opaque origin
@@ -379,7 +380,8 @@ export class Build {
   writeProgress(inflight: boolean): void {
     const folder = figmaDir(this.project); let lastSeen: string | null = null;
     try { lastSeen = readFileSync(resolve(folder, SEEN_FILE), 'utf8').trim() || null; } catch { /* never asked */ }
-    writeAtomic(resolve(folder, PROGRESS_FILE), pyJson({ ...this.progress, inflight, lastSeen, at: utcNow(), serverPid: process.pid }, 1) + '\n');
+    const document: ProgressDocument = { ...this.progress, inflight, lastSeen, at: utcNow(), serverPid: process.pid };
+    writeAtomic(resolve(folder, PROGRESS_FILE), pyJson(document, 1) + '\n');
   }
 
   async next(): Promise<Step> {
