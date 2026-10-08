@@ -1,3 +1,5 @@
+import type { TreeNode, Text, Layout } from './generated/tree.ts';
+import { assertNever } from './assert-never.ts';
 import { iconGlyph, px, visible } from './spec-to-tree.ts';
 
 export const GEOMETRY_TOLERANCE = 2, FONT_TOLERANCE = 0.5;
@@ -9,14 +11,25 @@ export function resolveVariables(value: any, variables: Record<string, any>, bre
   }
   return value;
 }
-export interface LayoutRow { node: Record<string, any>; box: { x: number | null; y: number | null; width: number | null; height: number | null } }
-export function layoutNodes(tree: Record<string, any>): LayoutRow[] {
+/** Layout comparison runs after variable resolution: geometry/visibility are scalar. */
+type ResolvedTreeNode = TreeNode extends infer Node ? Node extends TreeNode
+  ? Omit<Node,'width'|'height'|'visible'|'children'|'layout'> & {width?:number;height?:number;visible?:boolean;children?:ResolvedTreeNode[];layout?:Omit<Layout,'padding'|'gap'|'counterGap'> & {padding?:Partial<Record<'top'|'right'|'bottom'|'left',number>>;gap?:number;counterGap?:number}}
+  : never : never;
+function renderedText(node: ResolvedTreeNode): Text | undefined {
+  switch (node.kind) {
+    case 'text': return node.text;
+    case 'frame': case 'image': case 'svg': case 'instance': return undefined;
+    default: return assertNever(node);
+  }
+}
+export interface LayoutRow { node: ResolvedTreeNode; box: { x: number | null; y: number | null; width: number | null; height: number | null } }
+export function layoutNodes(tree: ResolvedTreeNode): LayoutRow[] {
   const rows: LayoutRow[] = [];
-  const walk = (node: Record<string, any>, x: number | null, y: number | null, width: number | null = node.width ?? null, height: number | null = node.height ?? null): void => {
+  const walk = (node: ResolvedTreeNode, x: number | null, y: number | null, width: number | null = node.width ?? null, height: number | null = node.height ?? null): void => {
     if (node.visible === false) return;
     width ??= node.width ?? null; height ??= node.height ?? null;
     rows.push({ node, box: { x, y, width, height } });
-    const layout = node.layout ?? {}, mode = layout.mode ?? 'NONE', kids = (node.children ?? []).filter((c: any) => c.visible !== false);
+    const layout: Partial<NonNullable<ResolvedTreeNode['layout']>> = node.layout ?? {}, mode = layout.mode ?? 'NONE', kids = (node.children ?? []).filter((c: any) => c.visible !== false);
     if (mode === 'NONE') { for (const child of kids) walk(child, x === null ? null : x + (child.x ?? 0), y === null ? null : y + (child.y ?? 0)); return; }
     const pad = layout.padding ?? {}, left = pad.left ?? 0, top = pad.top ?? 0, innerW = width === null ? null : Math.max(0, width - left - (pad.right ?? 0)), innerH = height === null ? null : Math.max(0, height - top - (pad.bottom ?? 0)), horizontal = mode === 'HORIZONTAL', primary = horizontal ? innerW : innerH, cross = horizontal ? innerH : innerW, gap = layout.gap ?? 0;
     const flow = kids.filter((c: any) => !c.absolute), sizes: [number | null, number | null][] = flow.map((child: any) => [child.sizing === 'FILL' && !horizontal ? innerW : child.width ?? null, child.height ?? null]);
@@ -61,9 +74,9 @@ export function compare(tree: Record<string, any>, spec: Record<string, any>): R
     for (const node of nodes) {
       const path = node.path, candidates = bySource.get(path) ?? [], row = candidates[0], consumed = inline.some((n: any) => path.startsWith(n.path + '/'));
       if (!consumed) for (const property of ['x', 'y', 'width', 'height'] as const) { const expected = node.box[property] - (property === 'x' || property === 'y' ? rootBox[property] : 0), check = numericCheck(path, property, expected, row?.box[property], GEOMETRY_TOLERANCE); if (!row) check.pass = false; geometry.push(check); }
-      const texts = rendered.filter(r => [path, path + '#label'].includes(r.node.source) && r.node.kind === 'text').map(r => r.node.text ?? {}), leafText = node.inlineText || (!nodes.some((n: any) => n.path.startsWith(path + '/')) ? node.text : null);
+      const texts = rendered.flatMap(r => { if (![path, path + '#label'].includes(r.node.source)) return []; const text = renderedText(r.node); return text ? [text] : []; }), leafText = node.inlineText || (!nodes.some((n: any) => n.path.startsWith(path + '/')) ? node.text : null);
       if (leafText && !consumed && !iconGlyph(leafText)) {
-        const text = texts[0] ?? {}, font = numericCheck(path, 'fontSize', px(node.computed?.fontSize), text.size, FONT_TOLERANCE); if (!texts.length) font.pass = false; fonts.push(font);
+        const text: Partial<Text> & {runs?:{text?:string}[]} = texts[0] ?? {}, font = numericCheck(path, 'fontSize', px(node.computed?.fontSize), text.size, FONT_TOLERANCE); if (!texts.length) font.pass = false; fonts.push(font);
         const expectedAlign = alignment(node.computed?.textAlign ?? 'start'); aligns.push({ source: path, expected: expectedAlign, actual: text.align ?? null, pass: expectedAlign === text.align });
         const styles = new Set(nodes.filter((n: any) => n.path === path || (node.inlineText && n.path.startsWith(path + '/') && n.text)).map((n: any) => JSON.stringify(['fontWeight', 'fontStyle', 'color', 'textDecorationLine'].map(p => n.computed?.[p])))), expectedRuns = (node.textRuns ?? node.runs ?? []).length || Math.max(1, styles.size), actualRuns = (text.runs ?? []).length || (Object.keys(text).length ? 1 : 0);
         runs.push({ source: path, expected: expectedRuns, actual: actualRuns, basis: node.textRuns?.length || node.runs?.length ? 'recorded runs' : 'distinct measured inline styles', pass: expectedRuns === actualRuns, flattened: expectedRuns > actualRuns });

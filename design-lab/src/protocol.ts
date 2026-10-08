@@ -1,7 +1,22 @@
-// Generated from src/protocol.ts by scripts/generate-mod-contract.ts. Do not edit.
-export type ProgressState = "waiting" | "preflight" | "building" | "done" | "failed";
-export type StepKind = "wait" | "done" | "check" | "dump" | "use_figma" | "upload" | "screenshot" | "skip";
+/** Self-contained values: safe in the Node server, Figma stripping and the no-Node mod host.
+ * The only imports are erased types generated from our JSON schemas. */
+import type { Progress } from './generated/progress.ts';
+import type { RunnerStep } from './generated/runner-step.ts';
+export const PORT = 8765;
+export const WAIT_MS = 5000;
+export const RETRY_MS = WAIT_MS;
+export const HEARTBEAT_SECONDS = 10;
+export const SERVER_FRESH_MS = 3 * HEARTBEAT_SECONDS * 1000;
+export const RUNNER_ABSENT_MS = 120_000;
+export const POLL_MS = WAIT_MS;
+export type ProgressState = Progress['state'];
+export type StepKind = RunnerStep['kind'];
+export const PROGRESS_STATES = {waiting:'waiting',preflight:'preflight',building:'building',done:'done',failed:'failed'} as const satisfies {[State in ProgressState]:State};
+export const STEP_KINDS = {wait:'wait',done:'done',check:'check',dump:'dump',use_figma:'use_figma',upload:'upload',screenshot:'screenshot',skip:'skip'} as const satisfies {[Kind in StepKind]:Kind};
+export const isProgressState = (value: string): value is ProgressState => Object.values(PROGRESS_STATES).some(state => state === value);
+export const isStepKind = (value: string): value is StepKind => Object.values(STEP_KINDS).some(kind => kind === value);
 
+// DESIGN_LAB_MOD_CONTRACT_BEGIN
 // reused: copied from an earlier run (design-lab:figma-build), not run again here
 export type Phase = { name: string; status: string; reused: boolean }
 
@@ -51,7 +66,7 @@ export type Scores = {
   majors: number | null
 }
 
-export type Summary = {
+type ModSummary = {
   workspace: string
   found: boolean
   siteLabel: string | null
@@ -76,16 +91,17 @@ export type Summary = {
   present: string[]
 }
 
-declare module 'claude-code' {
-  interface PluginState {
-    'design-lab': {
-      run: string | null
-      summary: Summary | null
-      alarmed: boolean
-      follow: string | null
-      skip: string | null
-      // the run whose full completion message is shown under its figures, or null when folded
-      recapOpen: string | null
-    }
-  }
-}
+// DESIGN_LAB_MOD_CONTRACT_END
+
+/** Both readers describe one run, but the CLI keeps its historical file-path/seconds
+ * projection; the pane adds presentation facts and recap text. The surface parameter
+ * makes these differences explicit without weakening either contract. */
+type CliRunner = Omit<Runner, 'lastSeenMs'> & {lastSeenSeconds:number|null};
+type CliSummary = {found:false;workspace:string;recap?:never} | {
+  found:true;workspace:string;siteLabel?:string;
+  phases:Omit<Phase,'reused'>[];nextPhase:string|null;
+  preflightChecks:Check[]|null;runner:CliRunner|null;
+  blocker:string|null;waiting:string|null;recap:string|null;
+  startedAt:string|null;elapsedSeconds:number|null;
+};
+export type Summary<Surface extends 'cli'|'mod' = 'cli'> = Surface extends 'mod' ? ModSummary : CliSummary;

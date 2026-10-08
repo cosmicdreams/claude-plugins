@@ -1,12 +1,17 @@
 // What a design-lab run looks like from the files it writes, with no engine calls: the same
 // reading `workflow.ts watch` does, so the pane and the text fallback agree.
 
-import type { Check, Facts, Findings, Phase, Runner, Scores, Summary } from '../../types'
+import type { Check, Facts, Findings, Phase, Runner, Scores, Summary as RunSummary } from '../../src/protocol'
+import type { Summary as ManifestSummary } from '../../types'
+type Summary = RunSummary<'mod'>;
+type Assignable<Expected, Actual extends Expected> = Actual;
+// Both directions enforce the generated host contract without runtime dependencies.
+export type HostSummaryMatchesProtocol = Assignable<Summary, ManifestSummary>;
+export type ProtocolSummaryMatchesHost = Assignable<ManifestSummary, Summary>;
 
-// Three missed heartbeats (figma_runner.HEARTBEAT_SECONDS is 10).
-export const SERVER_FRESH_MS = 30_000
-// workflow.ts's RUNNER_ABSENT_MINUTES: the runner must have asked for a step within two minutes.
-export const RUNNER_ABSENT_MS = 120_000
+// protocol.ts has no runtime dependencies, so these values are safe in the mod host.
+import { SERVER_FRESH_MS, RUNNER_ABSENT_MS, isProgressState, isStepKind } from '../../src/protocol.ts'
+export { SERVER_FRESH_MS, RUNNER_ABSENT_MS } from '../../src/protocol.ts'
 export const LOG_LINES = 8
 // The Markdown element draws at most 10,000 characters.
 export const RECAP_LIMIT = 9_500
@@ -77,10 +82,10 @@ export function runnerOf(progress: unknown, nowMs: number): Runner | null {
   const asked = seenAge !== null && seenAge <= RUNNER_ABSENT_MS
   const connected = serverAlive && (asked || p.inflight === true)
   return {
-    state: text(p.state) ?? 'waiting',
+    state: typeof p.state === 'string' && isProgressState(p.state) ? p.state : 'waiting',
     stepsDone: count(p.stepsDone),
     stepsTotal: count(p.stepsTotal),
-    stepKind: text(p.stepKind),
+    stepKind: typeof p.stepKind === 'string' && isStepKind(p.stepKind) ? p.stepKind : null,
     message: text(p.message),
     serverAlive,
     connected,
@@ -127,7 +132,7 @@ export function summaryOf(workspace: string, raw: Raw, nowMs: number): Summary {
   // build's connection): what to do, with nothing to press.
   const waiting = last && last.status === 'waiting' && !runner?.connected ? text(last.message) : null
   // While the build waits for the person to start the runner, the runner is awaited, not idle.
-  const shown = waiting && runner && runner.state === 'waiting' ? { ...runner, state: 'connecting' } : runner
+  const shown = waiting && runner && runner.state === 'waiting' ? { ...runner, state: 'connecting' as const } : runner
   const preflight = record(record(project.phases).preflight)
   const preflightAt = preflight.from ? null : text(preflight.updatedAt)
   const checks = checksOf(raw.preflightChecks, preflight)

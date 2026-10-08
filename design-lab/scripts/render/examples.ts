@@ -47,7 +47,7 @@ for (const p of ARGS.pages) {
         frame.appendChild(note);
         continue;
       }
-      const master = await figma.getNodeByIdAsync(item.componentId) as ComponentNode|ComponentSetNode|null;
+      const master = await figma.getNodeByIdAsync(item.componentId!) as ComponentNode|ComponentSetNode|null;
       if (!master) continue;
       const inst = (master.type === 'COMPONENT_SET' ? master.defaultVariant : master).createInstance();
       frame.appendChild(inst);

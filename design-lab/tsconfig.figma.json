@@ -26,6 +26,7 @@
     "src/figma/**/*.ts",
     "scripts/render/**/*.ts",
     "runner/**/*.ts",
-    "templates/figma/**/*.ts"
+    "templates/figma/**/*.ts",
+    "tests/figma/**/*.ts"
   ]
 }

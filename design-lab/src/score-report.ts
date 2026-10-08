@@ -87,7 +87,7 @@ export async function thumbnails(runDir:string,pairs:any[],breakpoint:string):Pr
  return result;
 }
 
-const BREAKPOINT_NAMES: any = {["desktop"]: "Desktop", ["tablet"]: "Tablet", ["mobile"]: "Mobile"};
+const BREAKPOINT_NAMES = {desktop: "Desktop", tablet: "Tablet", mobile: "Mobile"} satisfies Record<"desktop"|"tablet"|"mobile", string>;
 
 const BP_ORDER: any = {["desktop"]: 0, ["tablet"]: 1, ["mobile"]: 2};
 

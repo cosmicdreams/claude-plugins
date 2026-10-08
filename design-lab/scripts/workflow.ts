@@ -11,7 +11,9 @@ import * as rebuild from '../src/rebuild.ts';
 import * as config from '../src/lab-config.ts';
 
 const common = ['project'], identity = ['site-label', 'site-url', 'operator', 'model'];
-export const COMMANDS: Record<string, { flags: string[]; required?: string[]; help: string }> = {
+type CommandName = 'init'|'figma-build'|'await-build'|'finish'|'identity'|'detect'|'select'|'extract'|'usage'|'plan'|'variables'|'preflight'|'fonts'|'report'|'connect'|'runner'|'approve'|'target'|'register'|'record'|'validate'|'status'|'watch'|'runs';
+type CommandSpec = {flags:string[];required?:string[];help:string};
+export const COMMANDS = {
   init: { flags: ['repo', 'workspace', 'force', 'allow-in-repository', ...identity], required: ['repo'], help: 'Create a personal run folder' },
   'figma-build': { flags: ['from', 'figma-url', 'repo', 'site-label', 'model', 'workspace'], required: ['from', 'figma-url', 'repo'], help: 'Rebuild saved capture and an approved plan' },
   'await-build': { flags: [...common, 'timeout'], required: common, help: 'Wait for build and verification dumps' },
@@ -26,11 +28,12 @@ export const COMMANDS: Record<string, { flags: string[]; required?: string[]; he
   approve: { flags: [...common, 'by', 'from-preflight'], help: 'Approve the proposed plan' }, target: { flags: [...common, 'figma-url'], required: ['figma-url'], help: 'Record target Figma file' },
   register: { flags: [...common, 'name', 'path', 'kind', 'phase'], required: ['name', 'path'], help: 'Register validated artifact' }, record: { flags: [...common, 'phase', 'status', 'detail', 'by'], required: ['phase', 'status'], help: 'Record phase status' },
   validate: { flags: common, help: 'Validate manifests, receipts and completion' }, status: { flags: common, help: 'Show run state' }, watch: { flags: common, help: 'Show phases, runner, blocker and recap' }, runs: { flags: ['finished', 'json'], help: 'List project runs newest first' },
-};
+} satisfies Record<CommandName,CommandSpec>;
+const commandSpecs: Record<string,CommandSpec> = COMMANDS;
 const booleans = new Set(['force', 'allow-in-repository', 'no-schema-change', 'without-twig-debug', 'ensure', 'await-runner', 'from-preflight', 'finished', 'json']);
 const choices: Record<string, string[]> = { kind: ['components', 'tokens', 'all'], 'plan-approval': ['proposed', 'review'], 'usage-fallback': ['stop', 'untiered'], status: ['pending', 'running', 'complete', 'failed', 'waived'] };
 export async function main(argv = process.argv.slice(2)): Promise<number> {
-  const [command, ...args] = argv, spec = COMMANDS[command ?? ''];
+  const [command, ...args] = argv, spec = commandSpecs[command ?? ''];
   if (!command || command === '--help' || command === '-h') { console.log('usage: workflow.ts <command> [flags]\n' + Object.entries(COMMANDS).map(([name, spec]) => `  ${name.padEnd(14)} ${spec.help}`).join('\n')); return 0; }
   if (!spec) throw new Error(`unknown command: ${command}`);
   if (args.includes('--help') || args.includes('-h')) { console.log(`usage: workflow.ts ${command}${command === 'report' ? ' TOPIC' : ''} [flags]\n${spec.help}\n` + spec.flags.map(f => `  --${f}${booleans.has(f) ? '' : ' VALUE'}${spec.required?.includes(f) ? ' (required)' : ''}`).join('\n')); return 0; }

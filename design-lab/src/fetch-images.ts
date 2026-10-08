@@ -1,3 +1,4 @@
+import { assertNever } from './assert-never.ts';
 import { isEntrypoint } from './entrypoint.ts';
 import { request as httpRequest } from 'node:http';
 import { request as httpsRequest } from 'node:https';
@@ -11,7 +12,11 @@ import type { Tree, TreeNode } from './generated/tree.ts';
 const sharp = sharedRequire()('sharp') as typeof import('sharp').default;
 export interface ImageEntry { src: string; file?: string; contentType?: string; width?: number | null; height?: number | null; bytes?: number; error?: string; [key: string]: unknown }
 export function sources(node: TreeNode, found = new Set<string>()): Set<string> {
-  if (node.kind === 'image' && node.src && !node.src.startsWith('capture:')) found.add(node.src);
+  switch (node.kind) {
+    case 'image': if (node.src && !node.src.startsWith('capture:')) found.add(node.src); break;
+    case 'frame': case 'text': case 'svg': case 'instance': break;
+    default: assertNever(node);
+  }
   if (node.backgroundImage?.src) found.add(node.backgroundImage.src);
   for (const child of node.children ?? []) sources(child, found); return found;
 }

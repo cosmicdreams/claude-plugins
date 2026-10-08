@@ -1,3 +1,5 @@
+import { PORT as PROTOCOL_PORT, RETRY_MS as PROTOCOL_RETRY_MS, HEARTBEAT_SECONDS } from '../src/protocol.ts';
+import { assertNever } from '../src/assert-never.ts';
 import type { RunnerStep, RunnerReply } from "../src/figma/types.ts";
 export async function template(ARGS: Record<string, never>) {
 // DESIGN_LAB_TEMPLATE_BEGIN
@@ -20,14 +22,14 @@ export async function template(ARGS: Record<string, never>) {
 // clientStorage. Every request also carries this runner's version; preflight copies this file
 // into ~/.design-lab/runner/ with the plugin's version filled in, and a runner older than the
 // plugin is told to restart, which loads the new code.
-const SERVER = 'http://localhost:8765';
+const SERVER = 'http://localhost:' + PROTOCOL_PORT;
 const TOKEN_KEY = 'design-lab-runner-token';
 const RUNNER_VERSION = 'source';
 const TOKEN_PATH = '~/.design-lab/runner-token'; // installRunner replaces this with the person's real token file
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (...args: string[]) => () => Promise<unknown>;
 let token = '';
 const session = `${Date.now()}-${Math.random().toString(36).slice(2)}`;
-const RETRY_MS = 5000;
+const RETRY_MS = PROTOCOL_RETRY_MS;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 // A small status panel, so the person can see the runner is alive while it waits.
@@ -55,9 +57,9 @@ function heartbeat(step: RunnerStep) {
     if (stopped) return;
     // Independent of call(): a disconnected server must not leave an endless heartbeat retry.
     await fetch(url(workPath('/heartbeat', step))).catch(() => {});
-    if (!stopped) timer = setTimeout(pulse, 10000);
+    if (!stopped) timer = setTimeout(pulse, HEARTBEAT_SECONDS * 1000);
   };
-  timer = setTimeout(pulse, 10000);
+  timer = setTimeout(pulse, HEARTBEAT_SECONDS * 1000);
   return () => { stopped = true; clearTimeout(timer); };
 }
 
@@ -166,10 +168,14 @@ async function run() {
     const stopHeartbeat = heartbeat(step);
     let result;
     try {
-      if (step.kind === 'use_figma' || step.kind === 'dump' || step.kind === 'check') result = await new AsyncFunction(step.code!)();
-      else if (step.kind === 'upload') result = await upload(step);
-      else if (step.kind === 'screenshot') result = await screenshot(step);
-      else throw new Error(`unknown step kind ${step.kind}`);
+      switch (step.kind) {
+        case 'use_figma': case 'dump': case 'check': result = await new AsyncFunction(step.code!)(); break;
+        case 'upload': result = await upload(step); break;
+        case 'screenshot': result = await screenshot(step); break;
+        // Normally consumed by the server, but part of the shared wire contract.
+        case 'skip': result = {}; break;
+        default: assertNever(step);
+      }
     } catch (e) {
       // The sandbox's stack has no message line, so both are sent: the message says what failed.
       const detail = e && (e as Error).message ? (e as Error).message : String(e);

@@ -1,3 +1,4 @@
+import { restoreSeams, assertExpansionParity } from './typed-seams-parity.ts';
 import { oracleScripts, oracleRoot } from './oracle.ts';
 /** Compare parsed executable bodies after type stripping, preserving literal values. */
 import assert from 'node:assert/strict';
@@ -30,20 +31,22 @@ export function legacyRuntime(value: unknown, current: string, legacy: string): 
   if (value && typeof value === 'object') return Object.fromEntries(Object.entries(value).filter(([k]) => !['buildId','executionRevision'].includes(k)).map(([k, v]) => [k, k === 'runtime' && v === current ? legacy : ['toolVersion', 'generator'].includes(k) && v === 'design-lab ' + JSON.parse(readFileSync(resolve(pluginRoot, '.claude-plugin/plugin.json'), 'utf8')).version ? 'design-lab ' + JSON.parse(readFileSync(resolve(oracleRoot, 'design-lab/.claude-plugin/plugin.json'), 'utf8')).version : legacyRuntime(v, current, legacy)]));
   return value;
 }
+const bodyHasExpansion=(source:string)=>source.includes('function assertExpanded(');
 export function assertPayloadParity(actual: string, expected: string, current: Renderer, legacy: Renderer, message: string): void {
   const readArgs = (code: string): unknown => JSON.parse(code.split('\n')[0]!.slice('const ARGS = '.length, -1));
   const args = readArgs(actual), old = readArgs(expected);
   assert.deepEqual(legacyRuntime(args, current.runtimeHash(), legacy.runtimeHash()), old, message + ': ARGS');
+  if (bodyHasExpansion(actual)) assertExpansionParity(args);
   // Check the literal and integrity header before comparing the template bodies.
   const signature = fnv1a(decoded(args));
   assert.ok(actual.includes(`!== '${signature}'`), message + ': current checksum');
   assert.ok(expected.includes(`!== '${fnv1a(decoded(old))}'`), message + ': oracle checksum');
   const body = (code: string): string => code.split('\n').slice(4).join('\n');
-  assert.deepEqual(tokens(withoutCache(body(actual), current.units.get('_cache') ?? '')), tokens(body(expected)), message + ': executable body');
+  assert.deepEqual(tokens(withoutCache(body(actual).includes('function assertExpanded(') ? restoreSeams(body(actual),'responsive') : body(actual), current.units.get('_cache') ?? '')), tokens(body(expected)), message + ': executable body');
 }
 export function assertTemplates(): { units: number; dumps: number } {
   const current = new Renderer(), legacy = new Renderer(resolve(oracleScripts, 'render'), 'javascript');
-  for (const [name, source] of legacy.units) assert.deepEqual(tokens(withoutCache(current.units.get(name)!, '')), tokens(source), name);
+  for (const [name, source] of legacy.units) assert.deepEqual(tokens(withoutCache(name === 'build_responsive' ? restoreSeams(current.units.get(name)!,'responsive') : current.units.get(name)!, '')), tokens(source), name);
   let dumps = 0;
   for (const name of ['root', 'tree', 'page', 'getting_started']) {
     const file = `figma_dump_${name}`;

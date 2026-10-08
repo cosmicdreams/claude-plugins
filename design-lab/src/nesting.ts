@@ -1,10 +1,16 @@
+import { assertNever } from './assert-never.ts';
 import type { Spec, MeasuredNode } from './generated/spec.ts';
 import type { TreeNode } from './generated/tree.ts';
 import { roundDecimal } from './json.ts';
 import type { Measured } from './capture/types.ts';
 export function signature(tree: TreeNode): [number, number] {
   let texts = 0, images = 0; const stack = [tree];
-  while (stack.length) { const node = stack.pop()!; if (node.kind === 'text') texts++; else if (node.kind === 'image' && node.src && !node.src.startsWith('capture:')) images++; stack.push(...node.children ?? []); }
+  while (stack.length) { const node = stack.pop()!; switch (node.kind) {
+    case 'text': texts++; break;
+    case 'image': if (node.src && !node.src.startsWith('capture:')) images++; break;
+    case 'frame': case 'svg': case 'instance': break;
+    default: assertNever(node);
+  } stack.push(...node.children ?? []); }
   return [texts, images];
 }
 function shown(box: MeasuredNode['box'], width: number, height: number): number {

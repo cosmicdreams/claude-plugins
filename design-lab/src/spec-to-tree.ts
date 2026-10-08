@@ -1,3 +1,5 @@
+import type { RenderTree, RenderTextStyle, PaddingValue } from './figma/payload-types.ts';
+import { assertNever } from './assert-never.ts';
 /** Deterministic geometry conversion. baseline remains the oracle until phase 5. */
 import type { Spec, MeasuredNode } from './generated/spec.ts';
 import type { Color, Text, TreeNode, Layout } from './generated/tree.ts';
@@ -294,20 +296,32 @@ export function build(spec: Spec, label?: string | null) {
   });
   return { component: spec.component, machineName: spec.machineName, label: label || spec.component, breakpoints };
 }
-export function compact(tree: TreeNode | FlatNode): { styles: Omit<Text, 'characters'>[]; tree: Record<string, unknown> } {
-  const styles: Omit<Text, 'characters'>[] = [], keys = new Map<string, number>();
-  const walk = (node: TreeNode | FlatNode): Record<string, unknown> => {
-    const out = Object.fromEntries(Object.entries(node).filter(([k]) => !['children', 'text', 'layout'].includes(k)));
-    if (node.text) {
-      const { characters, ...style } = node.text, key = canonicalJson(style);
-      if (!keys.has(key)) { keys.set(key, styles.length); styles.push(style); }
-      out['chars'] = characters; out['ts'] = keys.get(key);
+export function compact(tree: TreeNode): { styles: RenderTextStyle[]; tree: RenderTree } {
+  const styles: RenderTextStyle[] = [], keys = new Map<string, number>();
+  const walk = (node: TreeNode): RenderTree => {
+    const {children, text, layout, ...base} = node;
+    let compactText: {ts:number;chars:string} | undefined;
+    if (text) {
+      const {characters, ...style} = text, key = canonicalJson(style);
+      let index = keys.get(key);
+      if (index === undefined) { index = styles.length; keys.set(key, index); styles.push(style); }
+      compactText = {chars:characters, ts:index};
     }
-    if (node.layout) {
-      const { padding: pad, ...layout } = node.layout, values = SIDES.map(s => pad?.[s] ?? 0);
-      out['layout'] = values.some(Boolean) ? { ...layout, pad: values } : layout;
+    const compactLayout = () => {
+      if (!layout) return {};
+      const {padding, ...rest} = layout;
+      const pad: [PaddingValue,PaddingValue,PaddingValue,PaddingValue] = [padding?.top ?? 0, padding?.right ?? 0, padding?.bottom ?? 0, padding?.left ?? 0];
+      return {layout:pad.some(Boolean) ? {...rest, pad} : rest};
+    };
+    const rest = {...compactLayout(), ...(children !== undefined ? {children:children.map(walk)} : {})};
+    switch (base.kind) {
+      case 'text':
+        if (!compactText) throw new Error(`text node ${base.source} has no text`);
+        return {...base, ...compactText, ...rest};
+      case 'frame': case 'image': case 'svg': case 'instance':
+        return {...base, ...compactText, ...rest};
+      default: return assertNever(base);
     }
-    if (node.children) out['children'] = node.children.map(walk); return out;
   };
-  return { styles, tree: walk(tree) };
+  return {styles, tree:walk(tree)};
 }

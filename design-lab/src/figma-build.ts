@@ -1,3 +1,4 @@
+import type { TemplateArgs } from './figma/payload-types.ts';
 import { isEntrypoint } from './entrypoint.ts';
 /** In-process, resumable deterministic library driver; baseline is the migration oracle. */
 import { existsSync, mkdirSync, readFileSync, readdirSync, renameSync, statSync, unlinkSync, writeFileSync, appendFileSync } from 'node:fs';
@@ -117,7 +118,7 @@ export class BuildDriver {
     state['buildId'] = process.hrtime.bigint().toString();
     this.save(state); return { steps: steps.length, components: built.length, runtime: state.runtime };
   }
-  private payload(sid: string, template: string, args: unknown): RunnerStep {
+  private payload<K extends keyof TemplateArgs>(sid: string, template: K, args: TemplateArgs[K]): RunnerStep {
     const code = this.renderer.call(template, args), characters = [...code].length;
     if (characters > LIMIT && !this.options.runner) throw new Error(`${sid}: payload ${characters} characters exceeds ${LIMIT}`);
     const path = resolve(this.project, `figma/payloads/${safe(sid)}.js`);
@@ -134,7 +135,7 @@ export class BuildDriver {
     else if (sid === 'pages') out = this.payload(sid, 'pages', { pages: content.pageList(project) });
     else if (sid === 'variables') out = this.payload(sid, 'variables', content.variablesArgs(project));
     else if (sid === 'cover') out = this.payload(sid, 'cover', content.coverArgs(project, state, this.today()));
-    else if (head === 'foundation') out = this.payload(sid, rest === 'Brand Voice & Language' ? 'voice' : 'foundation', rest === 'Brand Voice & Language' ? content.voiceArgs(project) : content.foundationArgs(project, rest));
+    else if (head === 'foundation') out = rest === 'Brand Voice & Language' ? this.payload(sid, 'voice', content.voiceArgs(project)) : this.payload(sid, 'foundation', content.foundationArgs(project, rest));
     else if (sid === 'examples') out = this.payload(sid, 'examples', content.examplesArgs(project, state));
     else if (head === 'tier') out = this.payload(sid, 'tier_page', content.tierArgs(project, state, rest));
     else if (head === 'build') out = this.payload(sid, 'build_responsive', content.buildArgs(project, rest, state));
