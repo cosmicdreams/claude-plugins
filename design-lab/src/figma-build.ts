@@ -11,9 +11,9 @@ import { childrenFirst, signature, subtree } from './nesting.ts';
 import { visible } from './spec-to-tree.ts';
 import { fetchImages } from './fetch-images.ts';
 import { sharedRequire } from './runtime.ts';
-import type { Project } from './generated/project.ts';
 import { validateRunnerRecord, assertValid } from './contracts.ts';
-import { load, result, safe, writeOnChange, writeArtifactOnChange, keyOf } from './build-artifacts.ts';
+import type { Project } from './generated/project.ts';
+import { load, result, safe, writeArtifactOnChange, keyOf } from './build-artifacts.ts';
 import type { BuildState, BuildResult, Geometry, GeometryBox, Component } from './build-artifacts.ts';
 import type { Spec } from './generated/spec.ts';
 import type { Tree } from './generated/tree.ts';
@@ -173,14 +173,14 @@ export class BuildDriver {
     if (sid === 'pages') { if (data.foreign?.length) throw new Error('pages: the file holds pages design-lab did not create (' + data.foreign.join(', ') + '); the build needs an empty file, or one holding only this run\'s initial Cover'); if (state.preflightCover && data.pages?.['Cover'] !== state.preflightCover) throw new Error('pages: the build must fill in the initial Cover, not add another'); }
     const expected = this.issued?.stamp === this.stateStamp && this.issued.step.step === sid ? this.issued.step : await this.next();
     if (head === 'compare' && data.file) {
-      if (expected.kind !== 'screenshot') throw new Error('expected an empty skipped comparison'); const cid = sid.slice(sid.indexOf(':') + 1), geo = result(this.project, 'block:' + cid).geometry!; data = { file: data.file, ...await compare(data.file, geo, true, textMasks(this.project, cid, geo)) } as BuildResult; }
+      if (expected.kind !== 'screenshot') throw new Error('expected an empty skipped comparison'); const cid = sid.slice(sid.indexOf(':') + 1), geo = result(this.project, 'block:' + cid).geometry!; data = { file: data.file, ...await compare(data.file, geo, true, textMasks(this.project, cid, geo)) }; }
     else {
       const kind = expected.kind;
       if (kind === 'done' || kind === 'wait' || kind === 'check' || kind === 'dump' || kind === 'screenshot') throw new Error(`cannot record ${kind} without its expected result`);
       const errors = validateRunnerRecord(kind, data); if (errors.length) throw new Error(`${sid}: invalid ${kind} result:\n${errors.join('\n')}`);
     }
     if (this.stamp() !== originalStamp) throw new Error('build state changed while recording; retry against the current build');
-    writeOnChange(resolve(this.project, `figma/results/${safe(sid)}.json`), data);
+    writeArtifactOnChange('step-result', resolve(this.project, `figma/results/${safe(sid)}.json`), data);
     state.done.push(sid);
     if (!['skip', 'screenshot'].includes(expected.kind)) state['executionRevision'] = randomUUID();
     this.save(state); this.timing(sid, 'record', performance.now() - started);

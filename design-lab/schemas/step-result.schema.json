@@ -23,7 +23,10 @@
         "type": "object",
         "properties": {
           "label": {
-            "type": "string"
+            "type": [
+              "string",
+              "null"
+            ]
           },
           "changed": {
             "type": "integer",
@@ -48,6 +51,9 @@
             "type": "number"
           },
           "textMasked": {
+            "type": "number"
+          },
+          "widthDelta": {
             "type": "number"
           }
         },
@@ -480,6 +486,9 @@
     },
     "pass": {
       "type": "boolean"
+    },
+    "metric": {
+      "type": "string"
     }
   },
   "required": [],
