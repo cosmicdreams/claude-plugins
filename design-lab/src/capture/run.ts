@@ -211,7 +211,7 @@ export async function runCapture(options: CaptureOptions, adapters: CaptureAdapt
   const evidence = assembleEvidence(index, rows, options.canonicalBaseUrl);
   for (const problem of evidence.problems) problems[problem.componentId!] = [problems[problem.componentId!], problem.detail].filter(Boolean).join('; ');
   evidence.problems = Object.entries(problems).sort(([a], [b]) => a < b ? -1 : 1).map(([componentId, detail]) => ({ componentId, detail }));
-  writeJson(resolve(project, 'capture-evidence.json'), evidence);
+  writeArtifact('capture-evidence', resolve(project, 'capture-evidence.json'), evidence);
   registerCapture(project);
   return evidence;
 }

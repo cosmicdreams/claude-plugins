@@ -1,10 +1,10 @@
 /** Capture's narrow workflow boundary; the general workflow CLI belongs to phase 5. */
-import { readFileSync, existsSync, appendFileSync, realpathSync } from 'node:fs';
+import { readFileSync, existsSync, realpathSync } from 'node:fs';
 import { resolve, relative, dirname } from 'node:path';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { pluginRoot } from '../runtime.ts';
-import { assertValid, writeJson } from '../contracts.ts';
+import { assertValid, writeArtifact, appendPhaseLog } from '../contracts.ts';
 import type { Project } from '../generated/project.ts';
 export function registerCapture(projectDir: string): void {
   const path = resolve(projectDir, 'project.json'); if (!existsSync(path)) return;
@@ -21,6 +21,6 @@ export function registerCapture(projectDir: string): void {
   project.artifacts['captureEvidence'] = { path: relative(dirname(realpathSync(path)), evidencePath), kind: 'capture-evidence', sha256: 'sha256:' + createHash('sha256').update(data).digest('hex'), valid: true, errors: [], updatedAt: at,
     producedBy: { pluginDir: realpathSync(pluginRoot), toolVersion: 'design-lab ' + manifest.version, commit, dirty: status === null ? null : Boolean(status) } };
   project.phases['capture'] = { status: 'complete', updatedAt: at, detail: { artifact: 'captureEvidence' } };
-  assertValid('project', project); writeJson(path, project);
-  appendFileSync(resolve(projectDir, 'phase-log.jsonl'), JSON.stringify({ at, phase: 'capture', status: 'complete' }) + '\n');
+  assertValid('project', project); writeArtifact('project', path, project);
+  appendPhaseLog(resolve(projectDir, 'phase-log.jsonl'), { at, phase: 'capture', status: 'complete' });
 }
