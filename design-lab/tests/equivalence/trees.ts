@@ -1,3 +1,4 @@
+import {restoreSeams,assertExpansionParity} from './typed-seams-parity.ts';
 import { oracleScript, oracleScripts, oracleExecutable } from './oracle.ts';
 /** Compare every measured component in five read-only runs; all writes go to /tmp. */
 import { readFileSync, existsSync, readdirSync, mkdirSync, copyFileSync, mkdtempSync } from 'node:fs';
@@ -36,7 +37,7 @@ const python = oracleExecutable;
 const oracle = spawnSync(python, [oracleScript('trees-oracle.py'), resolve(root, 'manifest.json')], { encoding: 'utf8', env: { ...process.env, PYTHONDONTWRITEBYTECODE: '1' } });
 assert.equal(oracle.status, 0, oracle.stderr);
 const renderer = new Renderer();
-const normalizePayloadSource = (source: string): string => tokens(withoutCache(source.split('\n').slice(4).join('\n'), renderer.units.get('_cache') ?? ''));
+const normalizePayloadSource = (source: string): string => {const body=source.split('\n').slice(4).join('\n');return tokens(withoutCache(body.includes('function assertExpanded(') ? restoreSeams(body,'responsive') : body,renderer.units.get('_cache') ?? ''));};
 let checkedPayloadMutation = false;
 const started = performance.now(), summary: Record<string, { components: number; flat: number; responsive: number; payloads: number; rejected: number; oracleErrors: string[] }> = {}, failures: unknown[] = [];
 for (const item of manifest) {
@@ -57,8 +58,9 @@ for (const item of manifest) {
     try {
       const tree = responsive(spec, item.label, item.key);
       const args = { id: item.key, pageId: 'equivalence-fixture', variables: tree.variables, ...compact(tree.tree) };
+      assertExpansionParity(args);
       assert.deepEqual(JSON.parse(JSON.stringify(args)), expected['responsive'].args, item.original + ': compact ARGS');
-      const payload = renderer.call('build_responsive', args), python = readFileSync(item.copy + '.payload.oracle.js', 'utf8');
+      const payload = renderer.callJson('build_responsive', args), python = readFileSync(item.copy + '.payload.oracle.js', 'utf8');
       assert.deepEqual(JSON.parse(literal(args)), JSON.parse(/^const ARGS = (.*);$/m.exec(python)![1]!), item.original + ': payload ARGS');
       if (!checkedPayloadMutation) {
         const cache = renderer.units.get('_cache') ?? '', cacheEnd = payload.indexOf(cache) + cache.length;

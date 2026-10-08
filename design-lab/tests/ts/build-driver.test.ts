@@ -202,3 +202,9 @@ test('subset rebuild with identical master result refreshes changed host dump co
   await build.record(dump.step!,{page:'changed host content',pageIndex:0,nodes:[],_ids:{}});
   assert.equal(load<{page:string}>(String(dump['out']),'').page,'changed host content');
 });
+test('foundation rejects a STRING font-family variable with a numeric value at the payload seam',t=>{
+ const {project}=fixture(t);
+ writeOnChange(resolve(project,'figma/results/pages.json'),pages(project));
+ writeOnChange(resolve(project,'variable-plan.json'),{collections:{Core:{modes:['Value'],variables:[{name:'Typography/Body',type:'STRING',scopes:['FONT_FAMILY'],valuesByMode:{Value:42}}]}}});
+ assert.throws(()=>c.foundationArgs(project,'Typography'),/font family Typography\/Body must be a string/);
+});
