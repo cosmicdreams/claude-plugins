@@ -3,6 +3,11 @@ import { readText, walk, loadYaml } from "./discovery-io.ts";
 import { configSync } from "./detect.ts";
 import { validate } from "./contracts.ts";
 import { toolVersion } from "./figma-receipts.ts";
+import type { Components } from "./generated/components.ts";
+type Entry = Components["components"][number];
+type Field = Entry["fields"][number];
+type Slot = Entry["slots"][number];
+type Defect = Entry["defects"][number];
 const KIND: Record<string, string> = {
   string: "text",
   string_long: "text",
@@ -94,7 +99,7 @@ function predefined(root: string): Map<string, any[]> {
   }
   return out;
 }
-export function extract(root: string, cfg?: string | null): any {
+export function extract(root: string, cfg?: string | null): Components {
   const abs = resolve(root),
     configuration = cfg || configSync(abs);
   if (!configuration)
@@ -118,7 +123,7 @@ export function extract(root: string, cfg?: string | null): any {
     }
   }
   const plugins = predefined(abs),
-    components: any[] = [];
+    components: Entry[] = [];
   for (const def of definitions) {
     const storagePrefix = `field.storage.${def.entity}.`,
       storage = new Map(
@@ -132,9 +137,9 @@ export function extract(root: string, cfg?: string | null): any {
             return [n, d] as [string, any];
           }),
       ),
-      fields: any[] = [],
-      slots: any[] = [],
-      defects: any[] = [];
+      fields: Field[] = [],
+      slots: Slot[] = [],
+      defects: Defect[] = [];
     for (const p of files.filter(
       (x) =>
         basename(x).startsWith(`field.field.${def.entity}.${def.bundle}.`) &&
@@ -241,11 +246,11 @@ export function extract(root: string, cfg?: string | null): any {
   const contained = new Map(components.map((c) => [c.id, [] as string[]]));
   for (const c of components)
     for (const s of c.slots)
-      for (const t of s.accepts)
+      for (const t of [s.accepts ?? []].flat())
         contained.set(t, [...(contained.get(t) || []), `${c.id}.${s.name}`]);
   for (const c of components)
     c.containedBy = (contained.get(c.id) || []).sort();
-  const document = {
+  const document: Components = {
     standardVersion: "3.0.0",
     toolVersion: toolVersion(),
     generatedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "+00:00"),

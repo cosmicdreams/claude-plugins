@@ -28,9 +28,9 @@ test('option labels follow Python label normalisation before title casing', () =
       `print(json.dumps([str(v).replace('_', ' ').replace('-', ' ').title() for v in _input['values']]))`,
       { values: VALUES },
     );
-    const field = sdc.extractComponent(path, dir).fields.find((f: { name: string }) => f.name === 'flavour');
-    assert.deepEqual(field.options.map((o: { label: string }) => o.label), expected);
-    assert.equal(field.options[0].value, 'éclair');
+    const field = sdc.extractComponent(path, dir).fields.find((f) => f.name === 'flavour');
+    assert.deepEqual(field!.options!.map((o) => o.label), expected);
+    assert.equal(field!.options![0]!.value, 'éclair');
   } finally {
     rmSync(dir, { recursive: true, force: true });
   }

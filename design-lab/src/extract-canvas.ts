@@ -1,14 +1,17 @@
 import { basename, join, resolve, relative as rel, sep } from "node:path";
 import { configSync, docroot } from "./detect.ts";
 import { load, extract as extractSdc, KIND } from "./extract-sdc.ts";
+import type { Entry } from "./extract-sdc.ts";
+import type { Components } from "./generated/components.ts";
+type Problem = NonNullable<Components["problems"]>[number];
 import { validate } from "./contracts.ts";
-export function extract(root: string): any {
+export function extract(root: string): Components {
   const abs = resolve(root),
     web = docroot(abs),
     cfg = configSync(abs);
   if (!cfg) throw new Error("Canvas configuration directory not found");
   const raw = extractSdc(abs),
-    byName = new Map(raw.components.map((c: any) => [c.id, c])),
+    byName = new Map(raw.components.map((c) => [c.id, c])),
     folders = new Map<string, [string, string]>();
   const fs = awaitImportFs();
   for (const n of fs
@@ -22,8 +25,8 @@ export function extract(root: string): any {
       if (!folders.has(item))
         folders.set(item, [d.name, rel(abs, p).split(sep).join("/")]);
   }
-  const components: any[] = [],
-    problems = [...raw.problems];
+  const components: Entry[] = [],
+    problems: Problem[] = [...(raw.problems ?? [])];
   for (const n of fs
     .readdirSync(cfg)
     .filter(
@@ -38,7 +41,7 @@ export function extract(root: string): any {
       provider = sepAt < 0 ? "" : sourceId.slice(0, sepAt),
       machine = sepAt < 0 ? "" : sourceId.slice(sepAt + 1);
     if (!provider || !isDir(join(web, "themes/custom", provider))) continue;
-    const base = byName.get(machine) as any;
+    const base = byName.get(machine);
     if (!base) {
       problems.push({
         kind: "missing-source-sdc",
@@ -134,7 +137,7 @@ export function extract(root: string): any {
       );
     components.push(c);
   }
-  const document = {
+  const document: Components = {
     standardVersion: raw.standardVersion,
     toolVersion: raw.toolVersion,
     generatedAt: raw.generatedAt,
@@ -142,7 +145,7 @@ export function extract(root: string): any {
       strategy: "canvas",
       root: abs,
       config: cfg,
-      sdcParser: raw.source.parser,
+      ...(raw.source.parser !== undefined ? { sdcParser: raw.source.parser } : {}),
     },
     components,
     problems,
