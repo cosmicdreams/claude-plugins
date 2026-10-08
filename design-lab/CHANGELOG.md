@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.24.1
+
+- The runner-token guard no longer refuses a command because one of its words is too long to be a file name (over 255 bytes in a name, or 1,024 in a path). It treated the system's "name too long" error as a possible token read, so long commands were refused at random, including `workflow.ts figma-build` with its required arguments.
+- The guard no longer decodes another plugin's command wrapper. It checks the command it is given; golden-rule 0.1.1 now passes the command to hooks verbatim. Install golden-rule 0.1.1 before this version: against golden-rule 0.1.0 the guard sees only an encoded command.
+
 ## 0.24.0 — 2026-10-07
 
 **BREAKING: design-lab now runs on Node 24 and TypeScript, and needs a one-time setup before the first run.** Read "Upgrading from 0.23" below first.

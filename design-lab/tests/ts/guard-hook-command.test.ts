@@ -15,11 +15,7 @@ import {
 import { resolve } from 'node:path';
 import { pluginRoot } from '../../src/runtime.ts';
 
-// Same launcher as the marker captured in Claude Code 2.1.293. It is never executed here.
-const wrap = (command: string, mode = '--command'): string =>
-  `__gr=$(/usr/bin/mktemp -t golden-rule); /usr/bin/python3 -I '/fixture/golden-rule/hooks/sandbox/run.py' ${mode} '${Buffer.from(command).toString('base64')}' --state "$__gr"; __s=$?; [ -s "$__gr" ] && cd "$(/bin/cat "$__gr")" 2>/dev/null; /bin/rm -f "$__gr"; (exit $__s)`;
-
-void test('registered hook command enforces documented and rewritten PreToolUse input in a plain copy', () => {
+void test('registered hook command enforces documented PreToolUse input in a plain copy', () => {
   const root = mkdtempSync('/tmp/design-lab-hook-command-'),
     copy = resolve(root, 'design-lab');
   try {
@@ -84,19 +80,12 @@ void test('registered hook command enforces documented and rewritten PreToolUse 
       `cat '${home}/'*`,
       `cat '${runner}/back-home/runner-token'`,
       'cat fixture',
-    ]) {
+    ])
       invoke('Bash', { command }, 2);
-      invoke('Bash', { command: wrap(command) }, 2);
-    }
-    invoke('Monitor', { command: wrap(`cat '${home}/runner-token'`) }, 2);
-    invoke('Bash', { command: wrap(wrap(`cat '${root}/innocent'`)) }, 2);
-    invoke('Bash', { command: wrap(JSON.stringify(['cat', resolve(root, 'innocent')]), '--argv') }, 2);
-    invoke('Bash', { command: wrap('echo ok').replace(Buffer.from('echo ok').toString('base64'), 'not-base64!') }, 2);
-    invoke('Bash', { command: wrap('not JSON', '--argv') }, 2);
-    invoke('Bash', { command: wrap('echo ok').replace('--command', '--unknown') }, 2);
-    let nested = 'echo ok';
-    for (let n = 0; n < 10; n++) nested = wrap(nested);
-    invoke('Bash', { command: nested }, 2);
+    invoke('Monitor', { command: `cat '${home}/runner-token'` }, 2);
+    invoke('Bash', { command: `echo ${'a'.repeat(300)}; cat '${root}/innocent'` }, 2);
+    // A relative word under the limits still resolves, however long the working directory makes it.
+    invoke('Bash', { command: `cat ${'./'.repeat(505)}fixture` }, 2);
     for (const [tool, input] of [
       ['Read', { file_path: resolve(root, 'innocent') }],
       ['Edit', { file_path: resolve(home, 'runner-token') }],
@@ -112,19 +101,18 @@ void test('registered hook command enforces documented and rewritten PreToolUse 
     invoke('Bash', { command: 'cat *' }, 2, copy, home);
     invoke('Glob', { pattern: '**/*' }, 2, copy, home);
     invoke('Grep', { pattern: '.' }, 2, copy, home);
-    invoke('Bash', { command: wrap(`cat '${root}/innocent'`) }, 2, resolve(root, 'plugin-link'));
+    invoke('Bash', { command: `cat '${root}/innocent'` }, 2, resolve(root, 'plugin-link'));
     for (const command of [
       'echo ok',
       'node scripts/workflow.ts preflight --project W',
       'node --test tests/ts/*.test.ts',
       `cat '${runner}/manifest.json'`,
-      'cat /repo/golden-rule/hooks/sandbox/run.py',
-    ]) {
+      // A word past the system's path limits names no file; it must not refuse the command.
+      `echo ${'a'.repeat(300)}`,
+      `echo '${Buffer.from('x'.repeat(400)).toString('base64')}'`,
+    ])
       invoke('Bash', { command }, 0);
-      invoke('Bash', { command: wrap(command) }, 0);
-    }
     invoke('Read', { file_path: resolve(runner, 'manifest.json') }, 0);
-    invoke('Bash', { command: wrap(JSON.stringify(['echo', 'ok']), '--argv') }, 0);
     // Malformed unrelated input has no actionable path; do not break ordinary sessions.
     for (const input of [null, [], 'wrong shape']) invoke('Bash', input, 0);
     unlinkSync(resolve(home, 'runner-token'));
