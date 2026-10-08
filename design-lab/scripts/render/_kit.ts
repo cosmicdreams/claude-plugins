@@ -238,4 +238,5 @@ async function atomic<T>(page: PageNode, keep: string[], body: () => Promise<T>)
 }
 
 // DESIGN_LAB_TEMPLATE_END
+return { KIT, ROLES, rgb, solid, loadKitFonts, text, stack, add, fillWidth, chip, rule, table, section, tag, onPage, clearTagged, atomic };
 }

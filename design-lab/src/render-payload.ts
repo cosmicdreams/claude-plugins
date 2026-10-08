@@ -4,9 +4,13 @@ import { resolve } from 'node:path';
 import { stripTypeScriptTypes } from 'node:module';
 import { pluginRoot } from './runtime.ts';
 import { ascii, sorted } from './json.ts';
+import { PORT, RETRY_MS, HEARTBEAT_SECONDS } from './protocol.ts';
+import { assertNever } from './assert-never.ts';
+import type { TemplateArgs } from './figma/payload-types.ts';
 export const LIMIT = 50000;
 const DROP = new Set(['source', 'tag']);
 const DEFAULTS: Record<string, unknown> = { italic: false, underline: false, letterSpacing: 0, case: 'ORIGINAL', align: 'LEFT', familyVar: null, var: null, opacity: 1, wrap: false, primaryAlign: 'MIN', counterAlign: 'MIN', gap: 0, fellBack: false };
+const DUMPS = new Set<string>(['figma_dump_root','figma_dump_tree','figma_dump_page','figma_dump_getting_started'] satisfies Extract<keyof TemplateArgs, `figma_dump_${string}`>[]);
 const USES_KIT = new Set(['cover', 'foundation', 'tier_page', 'component_block', 'getting_started', 'voice', 'examples']);
 export function fnv1a(text: string): string {
   let hash = 0x811c9dc5;
@@ -46,7 +50,13 @@ export function stripTemplate(source: string): string {
     const start = stripped.indexOf('// DESIGN_LAB_TEMPLATE_BEGIN\n');
     const end = stripped.lastIndexOf('// DESIGN_LAB_TEMPLATE_END');
     if (start < 0 || end < start) throw new Error('invalid template boundaries');
-    return stripped.slice(start + '// DESIGN_LAB_TEMPLATE_BEGIN\n'.length, end);
+    let body = stripped.slice(start + '// DESIGN_LAB_TEMPLATE_BEGIN\n'.length, end);
+    if (source.includes("from '../src/protocol.ts'")) body = body
+      .replace("'http://localhost:' + PROTOCOL_PORT", `'http://localhost:${PORT}'`)
+      .replace('PROTOCOL_RETRY_MS', String(RETRY_MS))
+      .replaceAll('HEARTBEAT_SECONDS * 1000', String(HEARTBEAT_SECONDS * 1000));
+    if (/\bassertNever\(/.test(body)) body = assertNever.toString() + '\n' + body;
+    return body;
   }
   const prefix = 'async function __template__() {\n', suffix = '\n}';
   const stripped = stripTypes(prefix + source + suffix);
@@ -73,25 +83,32 @@ export class Renderer {
     }
     this.units = new Map([...units].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
   }
+  private source(template: string): string | undefined {
+    return this.units.get(template) ?? (DUMPS.has(template) ? readUnit(resolve(pluginRoot,'templates/figma',template+'.ts'),true) : undefined);
+  }
   libraries(): string[] { return [...this.units.keys()].filter(name => name.startsWith('_')); }
   runtimeHash(): string { return fnv1a([...this.units].map(([name, source]) => `${name}\n${source}`).join('')); }
-  call(template: string, args: unknown): string {
-    const source = this.units.get(template); if (!source) throw new Error('unknown template: ' + template);
+  call<K extends keyof TemplateArgs>(template: K, args: TemplateArgs[K]): string { return this.callJson(template, args); }
+  /** Unvalidated external JSON, only for the CLI boundary and diagnostic fixtures. */
+  callJson(template: string, args: unknown): string {
+    const source = this.source(template); if (!source) throw new Error('unknown template: ' + template);
     const sig = fnv1a(decoded(args)), shared = this.libraries().filter(u => u === '_cache' || USES_KIT.has(template)).map(u => this.units.get(u)! + '\n').join('');
     return `const ARGS = ${literal(args)};\nlet __h = 0x811c9dc5; const __s = JSON.stringify(ARGS);\nfor (let i = 0; i < __s.length; i++) { __h ^= __s.charCodeAt(i); __h = Math.imul(__h, 0x01000193) >>> 0; }\nif (__h.toString(16).padStart(8, '0') !== '${sig}') throw new Error('design-lab arguments were altered in transit: checksum ' + __h.toString(16) + ', expected ${sig}');\n` + shared + source;
   }
-  inline(template: string, args: unknown): string {
-    const source = this.units.get(template); if (!source) throw new Error('unknown template: ' + template);
+  inline<K extends keyof TemplateArgs>(template: K, args: TemplateArgs[K]): string { return this.inlineJson(template, args); }
+  /** Unvalidated external JSON; production producers use inline(). */
+  inlineJson(template: string, args: unknown): string {
+    const source = this.source(template); if (!source) throw new Error('unknown template: ' + template);
     return `const ARGS = ${literal(args)};\n` + this.libraries().map(u => this.units.get(u)! + '\n').join('') + source;
   }
 }
 const renderer = (): Renderer => new Renderer();
-export const callPayload = (template: string, args: unknown): string => renderer().call(template, args);
-export const inlinePayload = (template: string, args: unknown): string => renderer().inline(template, args);
+export const callPayload = <K extends keyof TemplateArgs>(template: K, args: TemplateArgs[K]): string => renderer().call(template, args);
+export const inlinePayload = <K extends keyof TemplateArgs>(template: K, args: TemplateArgs[K]): string => renderer().inline(template, args);
 export function main(args = process.argv.slice(2)): number {
   const r = renderer(); if (args[0] === 'hash') { console.log(r.runtimeHash()); return 0; }
   if (!['call', 'inline'].includes(args[0] ?? '') || !args[1] || !args[2]) throw new Error('usage: render-payload.ts call|inline TEMPLATE ARGS.json [--out FILE] | hash');
-  const data: unknown = JSON.parse(readFileSync(args[2], 'utf8')), code = args[0] === 'call' ? r.call(args[1], data) : r.inline(args[1], data);
+  const data: unknown = JSON.parse(readFileSync(args[2], 'utf8')), code = args[0] === 'call' ? r.callJson(args[1], data) : r.inlineJson(args[1], data);
   if ([...code].length > LIMIT) { console.error(`payload is ${[...code].length} characters; use_figma accepts ${LIMIT}`); return 2; }
   const index = args.indexOf('--out'); if (index >= 0) writeFileSync(args[index + 1]!, code); else process.stdout.write(code); return 0;
 }

@@ -972,7 +972,7 @@
       "evidence": [
         {
           "file": "design-lab/scripts/render/build_responsive.ts",
-          "needle": "SCOPE: [RegExp,VariableScope[]][]",
+          "needle": "satisfies [RegExp,VariableScope[]][]",
           "claim": "Each matcher and scope list is represented as a tuple with Figma scope literals."
         }
       ],
@@ -991,7 +991,7 @@
       "evidence": [
         {
           "file": "design-lab/scripts/render/build_responsive.ts",
-          "needle": "SCOPE: [RegExp,VariableScope[]][]",
+          "needle": "satisfies [RegExp,VariableScope[]][]",
           "claim": "Each matcher and scope list is represented as a tuple with Figma scope literals."
         }
       ],
@@ -1313,7 +1313,7 @@
       "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
       "evidence": [
         {
-          "file": "design-lab/src/figma/types.ts",
+          "file": "design-lab/src/figma/payload-types.ts",
           "needle": "export type RenderTree =",
           "claim": "The compact component tree explicitly carries recursive children."
         }
@@ -1351,7 +1351,7 @@
       "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
       "evidence": [
         {
-          "file": "design-lab/src/figma/types.ts",
+          "file": "design-lab/src/figma/payload-types.ts",
           "needle": "export type RenderTree =",
           "claim": "The compact component tree explicitly carries recursive children."
         }
@@ -2149,7 +2149,7 @@
       "rationale": "narrow Figma node/container/scene lookup to contracted receiver",
       "evidence": [
         {
-          "file": "design-lab/src/figma/types.ts",
+          "file": "design-lab/src/figma/payload-types.ts",
           "needle": "export type RenderTree =",
           "claim": "The compact component tree explicitly carries recursive children."
         }

@@ -1,4 +1,5 @@
-import type { BuildResponsiveArgs, RenderTree, TreeText, Layout, Color, RenderReport, BindingValue, BindingNode, StyledNode, SizedNode } from "../../src/figma/types.ts";
+import { assertNever } from '../../src/assert-never.ts';
+import type { BuildResponsiveArgs, RenderTree, ExpandedRenderTree, TreeText, Layout, Color, RenderReport, BindingValue, BindingNode, StyledNode, SizedNode } from "../../src/figma/types.ts";
 import { DL_API, KIT, ROLES, rgb, solid, loadKitFonts, text, stack, add, fillWidth, chip, rule, table, section, tag, onPage, clearTagged, atomic } from "../../src/figma/types.ts";
 export async function template(ARGS: BuildResponsiveArgs) {
 // DESIGN_LAB_TEMPLATE_BEGIN
@@ -15,15 +16,21 @@ export async function template(ARGS: BuildResponsiveArgs) {
  */
 /* Expand the compact payload form (spec_to_tree.compact): shared text styles and padding
    arrays back into the full tree. */
-function expand(node: RenderTree, styles = ARGS.styles) {
-  if (node.ts !== undefined) { node.text = { ...styles![node.ts]!, characters: node.chars! }; delete node.ts; delete node.chars; }
+function expand(node: RenderTree, styles = ARGS.styles): asserts node is ExpandedRenderTree {
+  // Mutation uses an optional view; the input union still requires text or ts/chars.
+  const wire: {text?:TreeText;ts?:number;chars?:string} = node;
+  switch (node.kind) {
+    case 'text': case 'frame': case 'image': case 'svg': case 'instance':
+      if (wire.ts !== undefined) { wire.text = { ...styles![wire.ts]!, characters: wire.chars! }; delete wire.ts; delete wire.chars; }
+      break;
+    default: assertNever(node);
+  }
   if (node.layout) {
     const [t, r, b, l] = node.layout.pad || [0, 0, 0, 0];
     node.layout.padding = { top: t, right: r, bottom: b, left: l };
     delete node.layout.pad;
   }
   (node.children || []).forEach((child) => expand(child, styles));
-  return node;
 }
 if (ARGS.styles) expand(ARGS.tree);
 /* Other layouts the site renders this component in (a card with fewer fields inside another
@@ -63,11 +70,11 @@ for (const role of order) {
 }
 const existing = (await DL_API.variables()).filter((v) => v.variableCollectionId === col.id);
 const byName = Object.fromEntries(existing.map((v) => [v.name, v]));
-const SCOPE: [RegExp,VariableScope[]][] = [
+const SCOPE = [
   [/\/(width|height)$/, ['WIDTH_HEIGHT']], [/\/(gap|column-gap|row-gap|spacer-\d+)$/, ['GAP']],
   [/\/padding-/, ['GAP']], [/\/size$/, ['FONT_SIZE']], [/\/lineheight$/, ['LINE_HEIGHT']],
   [/\/letterspacing$/, ['LETTER_SPACING']],
-];
+] satisfies [RegExp,VariableScope[]][];
 const vars: Record<string,Variable> = {};
 for (const [name, spec] of Object.entries(ARGS.variables)) {
   let v = byName[name]!;
@@ -193,7 +200,7 @@ function paint(c: Color) {
   if (v) { p = figma.variables.setBoundVariableForPaint(p, 'color', v); report.bound++; } else report.literal++;
   return p;
 }
-function style(node: StyledNode, s: RenderTree) {
+function style(node: StyledNode, s: ExpandedRenderTree) {
   node.fills = s.fill ? [paint(s.fill)] : [];
   if (s.stroke) {
     node.strokes = [paint(s.stroke.color!)]; node.strokeAlign = 'INSIDE';
@@ -221,7 +228,7 @@ function layout(node: FrameNode|ComponentNode, L?: Layout) {
 
 /* Size a node once it has a parent: FILL in auto layout, else a fixed (possibly bound)
    width; auto layout frames hug their height, everything else takes its measured height. */
-function size(node: SizedNode, spec: RenderTree, parentAuto: boolean|undefined, isText: boolean) {
+function size(node: SizedNode, spec: ExpandedRenderTree, parentAuto: boolean|undefined, isText: boolean) {
   const single = isText && spec.text && spec.text.singleLine && spec.sizing !== 'FILL';
   const auto = !isText && node.layoutMode && node.layoutMode !== 'NONE';
   /* An image or vector leaf takes its measured width variable even where it fills: inside an
@@ -289,7 +296,7 @@ async function masterFor(sourceId: string) {
   return mastersBySource[sourceId] || null;
 }
 
-async function build(spec: RenderTree, parent: FrameNode|ComponentNode, parentAuto: boolean|undefined): Promise<SceneNode> {
+async function build(spec: ExpandedRenderTree, parent: FrameNode|ComponentNode, parentAuto: boolean|undefined): Promise<SceneNode> {
   let node!: FrameNode|RectangleNode|TextNode|InstanceNode;
   const w0 = Math.max(1, num(spec.width) || 1), h0 = Math.max(1, num(spec.height) || 1);
   let master = spec.instanceOf ? await masterFor(spec.instanceOf) : null;
@@ -298,8 +305,8 @@ async function build(spec: RenderTree, parent: FrameNode|ComponentNode, parentAu
        designer fills a card instance; the master shows another rendering's content. Only when
        the structures match (same text layers and images, in order); otherwise this rendering
        is built as it stands, and the mismatch is recorded. */
-    const texts: Extract<RenderTree,{kind:"text"}>[] = [], images: Extract<RenderTree,{kind:"image"}>[] = [];
-    (function walk(s: RenderTree) {
+    const texts: Extract<ExpandedRenderTree,{kind:"text"}>[] = [], images: Extract<ExpandedRenderTree,{kind:"image"}>[] = [];
+    (function walk(s: ExpandedRenderTree) {
       if (s.kind === 'text') texts.push(s);
       else if (s.kind === 'image' && s.src && !String(s.src).startsWith('capture:')) images.push(s);
       (s.children || []).forEach(walk);
@@ -416,7 +423,14 @@ if (previousOwner?.type === 'COMPONENT_SET') {
 }
 let reuseIndex = 0;
 for (const old of page.children.filter((n) => n !== previousOwner && (n.type === 'COMPONENT' || n.type === 'COMPONENT_SET') && n.name === ARGS.name)) old.remove();
+function assertExpanded(node: RenderTree): asserts node is ExpandedRenderTree {
+  if (node.kind === 'text' && !node.text) throw new Error(`text node ${node.source} was not expanded`);
+  for (const child of node.children ?? []) assertExpanded(child);
+}
+
 async function makeMaster(tree: RenderTree, name: string) {
+  // Expansion above restored text styles; verify that contract before drawing.
+  assertExpanded(tree);
   const component = reusable[reuseIndex++] || figma.createComponent();
   for (const child of [...component.children]) child.remove();
   // Reused roots must not retain a border, layout or binding absent from the new capture.

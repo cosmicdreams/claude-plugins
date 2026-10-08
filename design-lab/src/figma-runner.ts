@@ -43,10 +43,11 @@ import type { RunnerStep } from './generated/runner-step.ts';
 
 const sharp = sharedRequire()('sharp') as typeof import('sharp').default;
 
-export const PORT = 8765; // runner/manifest.json and the plugin allow this port and no other
+import { PORT, WAIT_MS, HEARTBEAT_SECONDS } from './protocol.ts';
+import type { ProgressState, StepKind } from './protocol.ts';
+import type { CoverArgs, TemplateArgs } from './figma/payload-types.ts';
+export { PORT, WAIT_MS, HEARTBEAT_SECONDS } from './protocol.ts';
 export const ORIGIN = 'null'; // a Figma plugin's fetch comes from a sandboxed iframe with an opaque origin
-export const WAIT_MS = 5000; // how long the plugin pauses before asking again while there is nothing to build
-export const HEARTBEAT_SECONDS = 10;
 export { TOKEN_FILE };
 export const PID_FILE = 'runner.pid';
 export const SEEN_FILE = 'runner-seen';
@@ -181,9 +182,9 @@ export function handshakeRequest(project: string): Json {
   return existsSync(path) ? readJson(path) : {};
 }
 /** The name-only Cover's arguments when the workflow did not provide them. */
-export const defaultCover = (): Json => ({ ground: '#001B67', headline: 'Library', subtitle: 'Component Library', provenance: { stage: 'connect' }, version: '' });
+export const defaultCover = (): Omit<CoverArgs,'pageId'> => ({ ground: '#001B67', headline: 'Library', subtitle: 'Component Library', provenance: { stage: 'connect' }, version: '' });
 /** Ask the server to run the handshake the next time the runner asks for a step. */
-export function requestHandshake(project: string, cover: Json | null = null, expectedCoverPage: string | null = null, connectionOnly = false): void {
+export function requestHandshake(project: string, cover: Omit<CoverArgs,'pageId'> | null = null, expectedCoverPage: string | null = null, connectionOnly = false): void {
   const folder = figmaDir(project);
   try { unlinkSync(resolve(folder, HANDSHAKE)); } catch { /* none yet */ }
   writeFileSync(resolve(folder, HANDSHAKE_REQUEST), JSON.stringify({ requestedAt: utcNow(), stage: 'check', expectedCoverPageId: expectedCoverPage, connectionOnly, cover: cover ?? defaultCover() }) + '\n');
@@ -213,7 +214,7 @@ export async function fitFigmaImage(path: string): Promise<Buffer> {
 
 /** The Figma-side snippets: the TypeScript templates, stripped to plain JavaScript with the shared cache prepended. */
 const snippets = new Map<string, { source: string; body: string }>();
-export function snippet(name: string): string {
+export function snippet(name: Extract<keyof TemplateArgs, `figma_dump_${string}`>): string {
   const path = resolve(pluginRoot, 'templates/figma', name + '.ts'), source = readFileSync(path, 'utf8');
   const cache = new Renderer().units.get('_cache') ?? '', key = source + cache, cached = snippets.get(path);
   if (cached?.source === key) return cached.body;
@@ -245,7 +246,7 @@ interface WorkIdentity { step: string; generation: string; stepToken: string; cl
 interface WorkAck { digest: string; out: Json; client: string; step: string }
 interface WorkLedger { generation: string; active?: { step: Step; token: string; client: string; intent?: { digest: string; result: Json; out?: Json } }; completed: Record<string, WorkAck> }
 class WorkConflict extends Error { status = 409; }
-interface Progress { state: string; stepsDone: number | null; stepsTotal: number | null; step: string | null; stepKind: string | null; message: string | null }
+interface Progress { state: ProgressState; stepsDone: number | null; stepsTotal: number | null; step: string | null; stepKind: StepKind | null; message: string | null }
 const wait = (message: string): Step => ({ kind: 'wait', step: 'wait', retryMs: WAIT_MS, message });
 
 /** One workspace: its current step, its failure latch and its progress. Requests are serialized by `lock`. */
@@ -452,7 +453,17 @@ export class Build {
     const request = handshakeRequest(this.project), stage = text(request['stage']) ?? 'check';
     if (stage === 'check') return { kind: 'check', step: CHECK_STEP, code: fill(CHECK_CODE, '__EXPECTED__', JSON.stringify(request['expectedCoverPageId'] ?? null)) };
     if (stage === 'page') return { kind: 'check', step: PAGE_STEP, code: PAGE_CODE };
-    const args = { ...(isObject(request['cover']) ? request['cover'] : defaultCover()), pageId: request['pageId'], tiers: [] };
+    const cover = isObject(request['cover']) ? request['cover'] : defaultCover();
+    const pageId = text(request['pageId']), ground = text(cover.ground), headline = text(cover.headline);
+    if (pageId === null || ground === null || headline === null) throw new Error('invalid handshake cover: pageId, ground and headline must be strings');
+    const total = cover.total;
+    if (total !== undefined && (!isObject(total) || typeof total.label !== 'string' || typeof total.value !== 'string' && typeof total.value !== 'number')) throw new Error('invalid handshake cover: total needs a string label and string or numeric value');
+    const args: CoverArgs = { pageId, ground, headline, tiers: [],
+      ...(isObject(total) && typeof total.label === 'string' && (typeof total.value === 'string' || typeof total.value === 'number') ? {total:{label:total.label,value:total.value}} : {}),
+      ...(typeof cover.subtitle === 'string' ? {subtitle:cover.subtitle} : {}),
+      ...(typeof cover.version === 'string' ? {version:cover.version} : {}),
+      ...(isObject(cover.provenance) ? {provenance:cover.provenance} : {}) };
+
     return { kind: 'check', step: COVER_STEP, code: callPayload('cover', args) };
   }
 
