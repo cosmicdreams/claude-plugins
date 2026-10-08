@@ -6,7 +6,7 @@
 
 - Rewrite the extraction, capture, build, workflow, setup, verification and benchmark pipeline in TypeScript. Remove all Python source and tests from the plugin; retained behavior is covered by Node tests and by comparisons against a read-only checkout of 0.23.
 - Require Node 24 for native TypeScript execution. Install the committed Node lockfile and Playwright Chromium once with `node scripts/lab_setup.ts install playwright`, into an immutable shared cache with locked, atomic setup. No packages are installed in site repositories or the plugin copy.
-- Keep the workflow command names and flags (all 24 subcommands and 44 flags are present), the Figma output, the benchmark HTML and the completion message. This is checked against 0.23 on recorded and synthetic data, not proven on a live Figma build; see "Verified and not yet verified" below.
+- Keep the workflow command names and flags (all 24 subcommands and 44 flags are present), the Figma output, the benchmark HTML and the completion message. This is checked against 0.23 on recorded and synthetic data and on live Figma builds of PNCB and DEFINITIVE; see "Verified and not yet verified" below.
 - Remove the unused legacy JavaScript the plugin used to ship next to the TypeScript that replaced it: `scripts/render/*.js`, `scripts/figma_dump_*.js` and `runner/code.js`. Production already ran the TypeScript sources.
 - Replace `scripts/measure.mjs`, `scripts/capture.mjs`, `scripts/check_selectors.mjs` and `scripts/cookie_preferences.mjs` with `scripts/capture_all.ts`, which runs the same measurement, screenshot, selector check and consent dismissal from one copy of the code. For a hand-written config, pass `--configs <folder> --only <id>`; for the selector check alone, add `--check`.
 - Add `scripts/figma_snippet.ts`, which prints a read-only Figma dump as plain JavaScript for `use_figma`. `design-lab:verify` uses it in place of the removed `figma_dump_*.js` files.
@@ -28,7 +28,7 @@
 
 ### Verified and not yet verified
 
-0.24.0 reproduces 0.23's results where it was compared. It has not run end to end on a live Figma file.
+0.24.0 reproduces 0.23's results where it was compared, including live Figma builds of two real libraries.
 
 Verified against 0.23 (a read-only checkout at commit `4176de29`):
 - Component trees and Figma payloads, on 202 recorded specs.
@@ -36,6 +36,8 @@ Verified against 0.23 (a read-only checkout at commit `4176de29`):
 - Component and token discovery on five repositories, and on two live local sites.
 - Full CLI walks through capture on local PNCB and DEFINITIVE with identical approved inputs across all three benchmark arms. PNCB screenshots match byte for byte; DEFINITIVE retains small image and measurement differences documented in `TYPESCRIPT.md`.
 - Six scorecards and reports, with pixel-identical thumbnails.
+- Live Figma builds of PNCB and DEFINITIVE with the new runner protocol and per-step inventory refresh (2026-10-08, one build per version on new empty files; 98 and 291 steps, no failures). Whole-file dumps compared node by node against 0.23: PNCB is identical after documented normalization; DEFINITIVE differs in 17 nodes, centred on one hero component (a half-pixel frame height and image-size variables), with matching fonts and decoded image pixels.
+- A CI run on GitHub's x86_64 Ubuntu runner, on pull request 84.
 
 Checked only on synthetic or replayed data:
 - A recorded driver transcript for one real library.
@@ -44,9 +46,6 @@ Checked only on synthetic or replayed data:
 - The runner protocol, from a fake client over HTTP; no Figma code ran.
 
 Not yet verified:
-- A live Figma build with the new runner protocol and the per-step inventory refresh.
-- A fresh whole-file verification for two real libraries.
-- A CI run on GitHub's x86_64 Ubuntu runner. The workflow steps pass in a native arm64 Debian container with Node 24; the x86_64 Claude Code CLI binary and `scripts/setup-browser-deps.ts` have not run on a real runner.
 - A `.ts` skill invoked from an installed copy of the plugin, on either Claude account.
 - Any invocation from Codex.
 

@@ -52,7 +52,7 @@ CI uses Node 24, cached lockfile installation, both typechecks, contract drift a
 
 ## Verified and not yet verified
 
-The port reproduces the previous release's results where they were compared. It has not run end to end on a live Figma file. Keep this list in step with `CHANGELOG.md`.
+The port reproduces the previous release's results where they were compared, including live Figma builds of two real libraries. Keep this list in step with `CHANGELOG.md`.
 
 Verified against the previous release (the read-only baseline checkout):
 - Component trees and Figma payloads, on 202 recorded specs.
@@ -60,6 +60,8 @@ Verified against the previous release (the read-only baseline checkout):
 - Component and token discovery on five repositories, and on two live local sites.
 - Sequential CLI walks through capture on PNCB and DEFINITIVE, with the same approved inputs and browser version across three frozen implementations; see "Workflow timing" below.
 - Six scorecards and reports, with pixel-identical thumbnails.
+- Live Figma builds of PNCB and DEFINITIVE with the new runner protocol and per-step inventory refresh (2026-10-08, one build per version on new empty files; 98 and 291 steps, no failures). Whole-file dumps compared node by node against 0.23: PNCB is identical after documented normalization; DEFINITIVE differs in 17 nodes, centred on one hero component (a half-pixel frame height and image-size variables), with matching fonts and decoded image pixels.
+- A CI run on GitHub's x86_64 Ubuntu runner, on pull request 84.
 - Every baseline workflow subcommand (24 of 24) and flag (44 of 44), and every skill, command, reference and hook, has a TypeScript counterpart.
 
 Checked only on synthetic or replayed data:
@@ -69,13 +71,10 @@ Checked only on synthetic or replayed data:
 - The runner protocol, from a fake client over HTTP; no Figma code ran.
 
 Not yet verified:
-- A live Figma build with the new runner protocol and the per-step inventory refresh.
-- A fresh whole-file verification for two real libraries.
-- A continuous integration (CI) run on GitHub's x86_64 Ubuntu runner. The workflow steps pass in a native arm64 Debian container with Node 24; the x86_64 Claude Code CLI binary and `scripts/setup-browser-deps.ts` have not run on a real runner.
 - A `.ts` skill invoked from an installed copy of the plugin, on either Claude account.
 - Any invocation from Codex.
 
-Release gates: a stage-2 build on a live Figma file with the new runner, a CI run on a pull request, and one `.ts` skill run from an installed copy on each Claude account.
+Release gates: the live Figma build and the CI run on a pull request have passed. A `.ts` skill run from an installed copy is checked after release, from the merged plugin.
 
 ### Workflow timing — 2026-10-08
 
