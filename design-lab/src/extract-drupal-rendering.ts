@@ -11,6 +11,12 @@ import {
 import { readText } from "./discovery-io.ts";
 import { extractFile } from "./extract-sass-style-facts.ts";
 import { validate } from "./contracts.ts";
+import type { RenderEvidence } from "./generated/render-evidence.ts";
+type Item = RenderEvidence["items"][string];
+/** The slice of the component inventory this extractor reads. */
+export interface RenderInventory {
+  components?: { id: string; fields?: { name?: string }[]; slots?: { name?: string }[] }[];
+}
 const INC =
     /(?:include|embed)\s*\(\s*['"]([\w-]+):([\w-]+)['"]|\{%-?\s*(?:include|embed)\s+['"]([\w-]+):([\w-]+)['"]/g,
   ROOT = /\{%-?\s*embed\s+['"]([\w-]+:[\w-]+)['"]/,
@@ -52,7 +58,7 @@ function rootSdc(body: string): string | null {
 function ref(root: string, p: string) {
   return rel(root, p).split(sep).join("/");
 }
-export function extract(root: string, components: any): any {
+export function extract(root: string, components: RenderInventory): RenderEvidence {
   const abs = resolve(root),
     themes = join(abs, "docroot/themes/custom"),
     files = walk(themes),
@@ -61,7 +67,7 @@ export function extract(root: string, components: any): any {
     byKey = new Map(
       defs.map((p) => [basename(p).slice(0, -".component.yml".length), p]),
     ),
-    items: any = {};
+    items: RenderEvidence["items"] = {};
   for (const c of components.components || []) {
     const [kind, machine] = String(c.id).split(":", 2),
       slug = (machine || "").replaceAll("_", "-"),
@@ -113,8 +119,8 @@ export function extract(root: string, components: any): any {
         styleFiles.push(p);
     }
     const declared = new Set([
-        ...(c.fields || []).map((f: any) => f.name),
-        ...(c.slots || []).map((s: any) => s.name),
+        ...(c.fields || []).map((f) => f.name),
+        ...(c.slots || []).map((s) => s.name),
       ]),
       referenced = [
         ...new Set(
@@ -124,15 +130,17 @@ export function extract(root: string, components: any): any {
       missing = referenced.filter((n) => !declared.has(n)),
       classes = [...new Set(bodies.flatMap(rootClasses))],
       sass = styleFiles.filter((p) => p.endsWith(".scss")),
-      styleFacts: any = { rootRules: [], partRules: [], mediaQueries: 0 };
+      styleFacts: Item["styleFacts"] = { rootRules: [], partRules: [], mediaQueries: 0 };
+    const rootRules = (styleFacts.rootRules ??= []),
+      partRules = (styleFacts.partRules ??= []);
+    let mediaQueries = 0;
     for (const p of sass) {
       const f = extractFile(p);
-      for (const k of ["rootRules", "partRules"])
-        styleFacts[k].push(
-          ...f[k].map((r: any) => ({ ...r, sourceRef: ref(abs, p) })),
-        );
-      styleFacts.mediaQueries += f.mediaQueries;
+      rootRules.push(...f.rootRules.map((r) => ({ ...r, sourceRef: ref(abs, p) })));
+      partRules.push(...f.partRules.map((r) => ({ ...r, sourceRef: ref(abs, p) })));
+      mediaQueries += f.mediaQueries;
     }
+    styleFacts.mediaQueries = mediaQueries;
     items[c.id] = {
       templates: templates.map((p) => ref(abs, p)),
       genericTemplate:
@@ -159,8 +167,8 @@ export function extract(root: string, components: any): any {
             : "low",
     };
   }
-  const itemsArr = Object.values(items) as any[],
-    document = {
+  const itemsArr = Object.values(items),
+    document: RenderEvidence = {
       standardVersion: "3.0.0",
       generatedAt: new Date().toISOString().replace(/\.\d{3}Z$/, "+00:00"),
       source: { strategy: "drupal-render-evidence", root: abs },

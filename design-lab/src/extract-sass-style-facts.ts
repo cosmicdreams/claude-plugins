@@ -1,4 +1,8 @@
 import { readFileSync } from "node:fs";
+import type { RenderEvidence } from "./generated/render-evidence.ts";
+export type StyleFacts = Required<RenderEvidence["items"][string]["styleFacts"]>;
+export type StyleRule = Omit<StyleFacts["rootRules"][number], "sourceRef">;
+export type Declaration = NonNullable<StyleRule["declarations"]>[number];
 export const VISUAL_PROPERTIES = new Set([
   "display",
   "flex-direction",
@@ -63,7 +67,7 @@ export function blocks(text: string): Array<[number, string, string]> {
   }
   return result;
 }
-export function ownDeclarations(body: string): any[] {
+export function ownDeclarations(body: string): Declaration[] {
   let depth = 0,
     current: string[] = [],
     quote = "",
@@ -92,7 +96,7 @@ export function ownDeclarations(body: string): any[] {
     }
   }
   if (current.length) declarations.push(current.join(""));
-  const out = [];
+  const out: Declaration[] = [];
   for (const s of declarations) {
     const v = s.trim().replace(/;$/, "").trim();
     if (!v || !v.includes(":") || v.startsWith("//") || v.startsWith("@"))
@@ -113,10 +117,10 @@ export function ownDeclarations(body: string): any[] {
   }
   return out;
 }
-export function extractFile(path: string): any {
+export function extractFile(path: string): StyleFacts {
   const text = stripComments(readFileSync(path, "utf8")),
-    rootRules: any[] = [],
-    partRules: any[] = [];
+    rootRules: StyleRule[] = [],
+    partRules: StyleRule[] = [];
   for (const [depth, selector, body] of blocks(text)) {
     const declarations = ownDeclarations(body);
     if (declarations.length)
