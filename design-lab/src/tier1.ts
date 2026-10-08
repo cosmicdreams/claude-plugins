@@ -3,6 +3,7 @@ import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { buildTrees, specFileFor } from './figma-build.ts';
 import * as content from './build-content.ts';
+import type {WidthReport} from './property-compare.ts';
 import { compare as propertyCompare } from './property-compare.ts';
 
 export interface Tier1Options {
@@ -12,9 +13,9 @@ export interface Tier1Options {
   compare?: typeof propertyCompare;
   tempRoot?: string;
 }
-const metricNames = ['geometry', 'fontSize', 'textAlignment', 'textRunCount', 'imagesPresent'];
+const metricNames = ['geometry', 'fontSize', 'textAlignment', 'textRunCount', 'imagesPresent'] as const;
 export function replay(runPath: string, label?: string, options: Tier1Options = {}) {
-  const run = resolve(runPath), components = (options.components ?? content.components)(run), plan = (options.plans ?? content.plans)(run), reports: Record<string, any> = {}, temp = mkdtempSync(join(options.tempRoot ?? tmpdir(), 'design-lab-tier1-'));
+  const run = resolve(runPath), components = (options.components ?? content.components)(run), plan = (options.plans ?? content.plans)(run), reports: Record<string,Record<string,WidthReport>|{status:'unmeasured';reason:string}> = {}, temp = mkdtempSync(join(options.tempRoot ?? tmpdir(), 'design-lab-tier1-'));
   let built: { id: string }[];
   try {
     built = (options.buildTrees ?? buildTrees)(run, temp);
@@ -27,10 +28,11 @@ export function replay(runPath: string, label?: string, options: Tier1Options = 
   } finally { rmSync(temp, { recursive: true, force: true }); }
   const totals: Record<string, { passed: number; total: number; unmeasured: number }> = Object.fromEntries(metricNames.map(name => [name, { passed: 0, total: 0, unmeasured: 0 }]));
   let widths = 0;
-  for (const report of Object.values(reports) as any[]) for (const width of Object.values(report) as any[]) {
-    if (!width || width.status !== 'measured') continue;
+  for (const report of Object.values(reports)) { if('status' in report && report.status==='unmeasured') continue; for (const width of Object.values(report)) {
+    if (!width || typeof width==='string' || width.status !== 'measured') continue;
     widths++;
     for (const name of metricNames) for (const key of ['passed', 'total', 'unmeasured'] as const) totals[name]![key] += width[name][key];
+  }
   }
   const site = label || run.split(/[\\/]/).at(-1)!;
   const summary = `${site}: ${built!.length}/${Object.keys(reports).length} components rebuilt; ${widths} widths; ` + metricNames.map(name => `${name} ${totals[name]!.passed}/${totals[name]!.total} (${totals[name]!.unmeasured} unmeasured)`).join('; ');
