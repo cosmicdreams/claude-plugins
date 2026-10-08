@@ -11,9 +11,9 @@ import { score, headline } from '../../src/score-run.ts';
 import { checkHash } from '../../src/determinism.ts';
 const root = process.argv[2] ?? '/tmp/design-lab-p4-equivalence',
   oracle = oracleScript('evaluation-oracle.py'),
-  results: any[] = [];
+  results: unknown[] = [];
 if (!root.startsWith('/tmp/')) throw new Error('scratch root must be under /tmp');
-function py(request: any) {
+function py(request: unknown) {
   const path = resolve(root, 'aux-request.json');
   writeFileSync(path, JSON.stringify(request));
   const p = spawnSync(oracleExecutable, [oracle, path], {
@@ -85,7 +85,7 @@ for (const [a, b] of [
     assert.match(String(actualCard.sections.repeatability.reason), /dump/);
     const repeated = actualCard.sections.repeatability.comparisons;
     assert.ok(repeated?.length);
-    assert.ok(repeated.every((r: any) => r.error && !('score' in r)));
+    assert.ok(repeated.every((r) => r.error && !('score' in r)));
     expectedCard.sections.repeatability = actualCard.sections.repeatability;
     expectedCard.headline = headline(expectedCard.sections);
   }
@@ -171,4 +171,10 @@ results.push({ operation: 'scoreboard', match: readFileSync(out + '/report.html'
 writeFileSync(root + '/aux-summary.json', JSON.stringify(results, null, 2));
 console.log(JSON.stringify(results, null, 2));
 
-process.exitCode = results.some((r) => r.match === false || r.diffs?.length) ? 1 : 0;
+process.exitCode = results.some((row) => {
+  if (!row || typeof row !== 'object') return false;
+  const result = row as { match?: boolean; diffs?: unknown[] };
+  return result.match === false || Boolean(result.diffs?.length);
+})
+  ? 1
+  : 0;

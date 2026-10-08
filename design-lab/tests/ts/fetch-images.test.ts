@@ -24,12 +24,12 @@ const tree = (...children: TreeNode[]): TreeNode => ({
   sizing: 'FIXED',
   children,
 });
-test('collect nested images and backgrounds but exclude capture crops', () => {
+void test('collect nested images and backgrounds but exclude capture crops', () => {
   const root = tree(image('/a.jpg'), tree(image('https://x.test/b.webp')), image('capture:desktop:0,0,10,10'));
   root.backgroundImage = { src: '/bg.png' };
   assert.deepEqual([...sources(root)].sort(), ['/a.jpg', '/bg.png', 'https://x.test/b.webp']);
 });
-test('one missing asset preserves successful converted assets', async () => {
+void test('one missing asset preserves successful converted assets', async () => {
   const out = mkdtempSync('/tmp/design-lab-p2-image-'),
     svg = Buffer.from(
       '<svg xmlns="http://www.w3.org/2000/svg" width="8" height="6"><rect width="8" height="6" fill="red"/></svg>',
@@ -52,7 +52,7 @@ test('one missing asset preserves successful converted assets', async () => {
   for (let i = 0; i < pixels.data.length; i += 4)
     assert.deepEqual([...pixels.data.subarray(i, i + 4)], [255, 0, 0, 255]);
 });
-test('SVG is rasterized and WebP converted; accepted bytes stay untouched', async () => {
+void test('SVG is rasterized and WebP converted; accepted bytes stay untouched', async () => {
   const original = await sharp({ create: { width: 8, height: 6, channels: 3, background: '#123456' } })
     .png()
     .toBuffer();
@@ -63,7 +63,7 @@ test('SVG is rasterized and WebP converted; accepted bytes stay untouched', asyn
   assert.deepEqual([converted.width, converted.height], [8, 6]);
   assert.deepEqual(await sharp(converted.data).raw().toBuffer(), await sharp(original).raw().toBuffer());
 });
-test('public fallback retries only a local missing path', async () => {
+void test('public fallback retries only a local missing path', async () => {
   const out = mkdtempSync('/tmp/design-lab-p2-image-'),
     visited: string[] = [];
   const manifest = await fetchImages(
@@ -79,7 +79,7 @@ test('public fallback retries only a local missing path', async () => {
   assert.deepEqual(visited, ['https://local.test/missing.png', 'https://public.test/missing.png']);
   assert.equal(publicUrl('https://other.test/a', 'https://local.test', 'https://public.test'), null);
 });
-test('offline cache resolves copied basenames and refuses escaping symlinks', () => {
+void test('offline cache resolves copied basenames and refuses escaping symlinks', () => {
   const out = mkdtempSync('/tmp/design-lab-p2-image-'),
     foreign = mkdtempSync('/tmp/design-lab-p2-image-');
   writeFileSync(resolve(out, 'one.png'), 'image');
@@ -97,13 +97,13 @@ test('offline cache resolves copied basenames and refuses escaping symlinks', ()
   assert.ok(manifest.find((m) => m.src === '/two')!.error);
   assert.ok(manifest.find((m) => m.src === '/absent')!.error);
 });
-test('TLS verification exceptions are limited to actual development hosts', () => {
+void test('TLS verification exceptions are limited to actual development hosts', () => {
   for (const host of ['localhost', '127.0.0.1', '[::1]', 'demo.ddev.site', 'demo.localhost'])
     assert.equal(verifyTls(new URL('https://' + host)), false);
   for (const host of ['public.test', 'not-ddev.site', 'ddev.site.attacker.test'])
     assert.equal(verifyTls(new URL('https://' + host)), true);
 });
-test('HTTP fetch follows redirects and does not retry missing files', async () => {
+void test('HTTP fetch follows redirects and does not retry missing files', async () => {
   let misses = 0;
   const server = createServer((req, res) => {
     if (req.url === '/redirect') {

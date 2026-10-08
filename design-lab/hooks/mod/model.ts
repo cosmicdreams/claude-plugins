@@ -64,7 +64,7 @@ export function entriesOf(log: string | undefined): Record<string, unknown>[] {
   if (!log) return [];
   return log.split('\n').flatMap((line) => {
     const value = parseJson(line.trim() || undefined);
-    return typeof value === 'object' && value !== null ? [value as Record<string, unknown>] : [];
+    return typeof value === 'object' && value !== null ? [value] : [];
   });
 }
 

@@ -308,11 +308,12 @@ function directYml(folder: string): string[] {
     return [];
   }
 }
-function priorArt(root: string): any[] {
+type PriorArt = { path: string; kind: 'directory' | 'file' };
+function priorArt(root: string): PriorArt[] {
   const dirs = ['build', 'reports', 'analysis-reports', 'docs', 'design', '.storybook'],
     name = /(component[-_ ]?librar|design[-_ ]?system|figma|design[-_ ]?token)/i,
     skip = /(^|\/)(node_modules|vendor|\.git|\.design-lab|contrib|core)(\/|$)/,
-    hits: any[] = [],
+    hits: PriorArt[] = [],
     visit = (base: string, depth: number, includeFiles: boolean, prune: boolean) => {
       if (depth > 3 || (prune && skip.test(base.replaceAll('\\', '/')))) return;
       let entries;

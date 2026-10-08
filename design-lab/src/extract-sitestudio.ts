@@ -4,10 +4,26 @@ import { readText } from './discovery-io.ts';
 import { configDir, customComponents, customComponentId } from './sitestudio-source.ts';
 import { toolVersion } from './figma-receipts.ts';
 import type { Components } from './generated/components.ts';
+import type { JsonValue } from './generated/components.ts';
 type Entry = Components['components'][number];
 type Field = Entry['fields'][number];
 type Defect = Entry['defects'][number];
 type Problem = NonNullable<Components['problems']>[number];
+type SiteField = {
+  settings?: {
+    machineName?: string;
+    options?: unknown[];
+    title?: string | null;
+    type?: string;
+    required?: boolean;
+    showCondition?: string | null;
+    min?: number | null;
+    max?: number | null;
+  };
+  model?: { value?: unknown };
+};
+type SiteNode = { uuid?: string; children?: SiteNode[] };
+type SiteJson = { model?: Record<string, SiteField>; componentForm?: SiteNode[]; canvas?: unknown[] };
 const KIND: Record<string, string> = {
   cohTextBox: 'text',
   cohWysiwyg: 'richtext',
@@ -23,7 +39,7 @@ const KIND: Record<string, string> = {
   cohArray: 'array',
   '': 'text',
 };
-export function loadJsonValues(path: string): [any | null, string] {
+export function loadJsonValues(path: string): [unknown | null, string] {
   const txt = readText(path),
     q = /^json_values: '(.*?)'\n[a-z_]+:/ms.exec(txt),
     b = /^json_values: \|[-+]?\n((?:(?:[ ]+.*)?\n)+)/m.exec(txt);
@@ -45,7 +61,7 @@ function scalar(text: string, key: string): string | null {
   const m = new RegExp('^' + key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ': (.+)$', 'm').exec(text);
   return m?.[1]?.trim().replace(/^['"]|['"]$/g, '') ?? null;
 }
-function tokenFamily(values: any[]): string | null {
+function tokenFamily(values: unknown[]): string | null {
   const families = new Set<string>();
   for (const v of values) {
     const x = String(v);
@@ -59,31 +75,35 @@ function tokenFamily(values: any[]): string | null {
   if (families.size > 1) families.delete('other');
   return families.size === 1 ? [...families][0]! : null;
 }
-function componentModel(jv: any, txt: string, path: string, root: string): Entry {
+function componentModel(jv: SiteJson, txt: string, path: string, root: string): Entry {
   const model = jv.model || {},
     fields: (Field & { name: string; uid: string })[] = [],
     declared = new Set<string>(),
     referenced = new Set((JSON.stringify(jv).match(/\[field\.([0-9a-f-]{36})\]/g) || []).map((x) => x.slice(7, -1)));
-  for (const [uid, v] of Object.entries(model) as [string, any][]) {
+  for (const [uid, v] of Object.entries(model) as [string, unknown][]) {
     if (!v || typeof v !== 'object') continue;
-    const s = v.settings || {},
+    const field = v as SiteField,
+      s = field.settings || {},
       mn = s.machineName;
     if (!mn) continue;
     declared.add(uid);
     const opts = (Array.isArray(s.options) ? s.options : [])
-      .filter((o: any) => o && typeof o === 'object' && 'label' in o)
-      .map((o: any) => ({ value: o.value, label: o.label }));
-    let d = v.model?.value;
-    if (d && typeof d === 'object') d = d.text || d.name || d.value;
-    if (d && typeof d === 'object') d = d.hex;
-    const tv = opts.map((o: any) => o.value).filter((x: any) => x && /^coh-style-/.test(String(x)));
+      .filter((o): o is { value?: unknown; label: unknown } => !!o && typeof o === 'object' && 'label' in o)
+      .map((o) => ({ value: o.value as JsonValue, label: String(o.label) }));
+    let d: unknown = field.model?.value;
+    if (d && typeof d === 'object') {
+      const value = d as Record<string, unknown>;
+      d = value['text'] || value['name'] || value['value'];
+    }
+    if (d && typeof d === 'object') d = (d as Record<string, unknown>)['hex'];
+    const tv = opts.map((o) => o.value).filter((x) => x && /^coh-style-/.test(String(x)));
     fields.push({
       name: mn,
       label: s.title ?? null,
-      kind: KIND[s.type] || 'text',
+      kind: KIND[s.type ?? ''] || 'text',
       sourceWidget: s.type ?? null,
       required: !!s.required,
-      default: d === '' || JSON.stringify(d) === '{}' ? null : (d ?? null),
+      default: d === '' || JSON.stringify(d) === '{}' ? null : ((d ?? null) as JsonValue),
       options: opts.length ? opts : null,
       showWhen: s.showCondition ?? null,
       tokenFamily: tv.length ? tokenFamily(tv) : null,
@@ -91,9 +111,9 @@ function componentModel(jv: any, txt: string, path: string, root: string): Entry
     });
   }
   const byUid = new Map(fields.map((f) => [f.uid, f]));
-  const form = (nodes: any[], owner?: string) => {
+  const form = (nodes: SiteNode[] | undefined, owner?: string) => {
     for (const node of nodes || []) {
-      const f = byUid.get(node.uuid);
+      const f = node.uuid ? byUid.get(node.uuid) : undefined;
       let next = owner;
       if (f) {
         if (owner) f.repeatableIn = owner;
@@ -146,12 +166,12 @@ function componentModel(jv: any, txt: string, path: string, root: string): Entry
 function extractComponent(path: string, root: string): [Entry | null, Problem | null] {
   const [jv, txt] = loadJsonValues(path);
   if (jv === null) return [null, { kind: 'unparseable', detail: rel(root, path) }];
-  return [componentModel(jv, txt, path, root), null];
+  return [componentModel(jv as SiteJson, txt, path, root), null];
 }
 function customComponent(path: string, root: string): [Entry | null, Problem | null] {
   const txt = readText(path),
     form = scalar(txt, 'form');
-  let payload: any = {};
+  let payload: unknown = {};
   if (form) {
     try {
       payload = JSON.parse(readText(join(dirname(path), form)));
@@ -172,7 +192,7 @@ function customComponent(path: string, root: string): [Entry | null, Problem | n
       ];
     }
   }
-  const c = componentModel(payload, txt, path, root);
+  const c = componentModel(payload as SiteJson, txt, path, root);
   c.id = customComponentId(path);
   c.label = scalar(txt, 'name') || c.id;
   c.isCustomComponent = true;

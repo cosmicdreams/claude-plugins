@@ -138,7 +138,7 @@ function statementEnd(code: string, start: number): number {
   }
   return -1;
 }
-function locate(root: string, name: string): any[] {
+function locate(root: string, name: string): Declared[] {
   const web = docroot(root),
     siteRoot = join(web, 'sites');
   let siteDirs: string[] = [];
@@ -226,7 +226,8 @@ export function configDir(root: string, folder?: string): Located {
         declared: found,
         problem: `$settings['${name}'] at ${unread.file}:${unread.line} is ${unread.expression}, which cannot be read without running PHP; ${override}`,
       };
-    const paths = [...new Set(found.map((x) => x.path))].sort();
+    const resolved = found.filter((x): x is Declared & { path: string } => x.path !== null),
+      paths = [...new Set(resolved.map((x) => x.path))].sort();
     if (paths.length > 1)
       return {
         path: null,
@@ -234,7 +235,7 @@ export function configDir(root: string, folder?: string): Located {
         declared: found,
         problem: `the settings give $settings['${name}'] ${paths.length} different values (${paths.map((p) => rel(abs, p)).join(', ')}), and which applies depends on the site and environment; ${override}`,
       };
-    const item = found[0]!;
+    const item = resolved[0]!;
     if (!item.exists)
       return {
         path: null,
@@ -279,9 +280,13 @@ function roots(web: string): Map<string, string> {
 }
 function activeExtensions(root: string): Set<string> | null {
   const found = locate(resolve(root), 'config_sync_directory'),
-    paths = [...new Set(found.filter((x) => x.exists).map((x) => x.path))];
+    paths = [
+      ...new Set(found.filter((x): x is Declared & { path: string } => x.exists && x.path !== null).map((x) => x.path)),
+    ];
   if (paths.length !== 1) return null;
-  const file = join(paths[0]!, 'core.extension.yml');
+  const path = paths[0];
+  if (!path) return null;
+  const file = join(path, 'core.extension.yml');
   if (!existsSync(file)) return null;
   const text = readText(file);
   return new Set([...text.matchAll(/^  ([a-z0-9_]+):/gm)].map((m) => m[1]!));

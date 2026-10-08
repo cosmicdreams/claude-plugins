@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import * as sass from '../../src/extract-tokens-sass.ts';
-test('score and voice report numbers share exact six-digit tie rounding', async () => {
+void test('score and voice report numbers share exact six-digit tie rounding', async () => {
   const score = await import('../../src/score-run.ts'),
     voice = await import('../../src/extract-voice.ts');
   assert.equal(score.formatG, sass.pyFormatG);

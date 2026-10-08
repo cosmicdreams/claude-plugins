@@ -29,9 +29,7 @@
     "tests/browser/**/*.ts",
     "tests/support/**/*.ts",
     "tests/token-guard-e2e.ts",
-    "hooks/*.ts",
-    "hooks/mod/**/*.ts",
-    "types/**/*.d.ts"
+    "hooks/*.ts"
   ],
   "exclude": [
     "src/figma/**/*.ts",

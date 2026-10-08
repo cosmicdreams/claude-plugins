@@ -215,9 +215,9 @@ function completeness(state: VerifyState, components?: Inventory | null, plan?: 
       keys = collisions[machine]! > 1 ? new Set([c.id ?? '', norm(c.id)]) : componentKeys(c),
       ok = [...keys].some((k) => built.has(k));
     tiers[tier] ??= [0, 0, []];
-    tiers[tier]![1]++;
-    if (ok) tiers[tier]![0]++;
-    else tiers[tier]![2].push(c.id ?? '');
+    tiers[tier][1]++;
+    if (ok) tiers[tier][0]++;
+    else tiers[tier][2].push(c.id ?? '');
   }
   const total = Object.values(tiers).reduce((n, v) => n + v[0], 0);
   return { built: total, expected: comps.length, byTier: tiers };
@@ -273,7 +273,7 @@ function runChecks(o: VerifyOptions, rep: Report) {
               : /\.(min\.)?css$/.test(e.name) &&
                 (/(^|\/)(dist|build|compiled)(\/|$)/.test(resolve(d, e.name)) || /^(index|.+\.min)\.css$/.test(e.name)),
           );
-        return scan(o.themeRoot!);
+        return scan(o.themeRoot);
       })()
     );
   if (theme === null)

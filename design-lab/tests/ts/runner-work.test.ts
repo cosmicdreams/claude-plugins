@@ -82,7 +82,7 @@ async function fixture(t: { after(fn: () => void): void }) {
     },
   };
 }
-test('overlapping clients receive only one issued step with persisted identity', async (t) => {
+void test('overlapping clients receive only one issued step with persisted identity', async (t) => {
   const h = await fixture(t);
   const [a, b] = await Promise.all([h.call('/next'), h.call('/next', {}, undefined, 'FILE', 'C2')]);
   assert.deepEqual([a.json().kind, b.json().kind].sort(), ['upload', 'wait']);
@@ -92,7 +92,7 @@ test('overlapping clients receive only one issued step with persisted identity',
   assert.equal((await h.call('/file', { ...work, stepToken: 'wrong' })).status, 409);
   assert.equal((await h.call('/record', work, { statuses: [200] }, 'FILE', 'C2')).status, 409);
 });
-test('retarget rejects every route through the original map key', async (t) => {
+void test('retarget rejects every route through the original map key', async (t) => {
   const h = await fixture(t),
     work = (await h.call('/next')).json();
   h.state.fileKey = 'NEWFILE';
@@ -117,7 +117,7 @@ test('retarget rejects every route through the original map key', async (t) => {
   assert.equal((await h.call('/next', {}, undefined, 'NEWFILE')).json().kind, 'upload');
   assert.equal(h.commits(), 0);
 });
-test('re-init rejects old file, record, error and heartbeat tokens without completing new work', async (t) => {
+void test('re-init rejects old file, record, error and heartbeat tokens without completing new work', async (t) => {
   const h = await fixture(t),
     old = (await h.call('/next')).json();
   h.state.buildId = 'G2';
@@ -143,7 +143,7 @@ test('re-init rejects old file, record, error and heartbeat tokens without compl
   assert.equal(h.commits(), 0);
   assert.equal((await h.call('/record', current, { statuses: [200] })).status, 200);
 });
-test('restart during upload recovers files and committed record retries are digest-idempotent', async (t) => {
+void test('restart during upload recovers files and committed record retries are digest-idempotent', async (t) => {
   const h = await fixture(t),
     work = (await h.call('/next')).json();
   await h.restart();
@@ -160,7 +160,7 @@ test('restart during upload recovers files and committed record retries are dige
   assert.equal(h.commits(), 1);
   assert.equal((await h.call('/record', work, { statuses: [0] })).status, 409);
 });
-test('record journal recovers a crash after driver commit and before acknowledgement', async (t) => {
+void test('record journal recovers a crash after driver commit and before acknowledgement', async (t) => {
   const h = await fixture(t),
     work = (await h.call('/next')).json();
   assert.equal((await h.call('/record', work, { statuses: [200] })).status, 200);
@@ -179,7 +179,7 @@ test('record journal recovers a crash after driver commit and before acknowledge
   assert.equal((await h.call('/record', work, { statuses: [200] })).status, 200);
   assert.equal(h.commits(), 1);
 });
-test('active token heartbeats renew lastSeen and stale tokens cannot renew it', async (t) => {
+void test('active token heartbeats renew lastSeen and stale tokens cannot renew it', async (t) => {
   const h = await fixture(t),
     work = (await h.call('/next')).json(),
     path = resolve(h.root, 'figma', SEEN_FILE);

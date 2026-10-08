@@ -21,8 +21,10 @@ for (const [query, width, expected] of [
   ['@media print', 800, false],
   ['@media (prefers-color-scheme: dark)', 800, null],
 ] as const)
-  test('width-query semantics: ' + query + ' at ' + width, () => assert.equal(mediaApplies(query, width), expected));
-test('cascade keeps source order, independent axes, invariant tokens and aliases', (t) => {
+  void test('width-query semantics: ' + query + ' at ' + width, () =>
+    assert.equal(mediaApplies(query, width), expected),
+  );
+void test('cascade keeps source order, independent axes, invariant tokens and aliases', (t) => {
   const modes = ['Value', '@media (min-width: 768px)', '@media (min-width: 1000px)'];
   const out = plan(t, {
     Type: {
@@ -55,7 +57,7 @@ test('cascade keeps source order, independent axes, invariant tokens and aliases
   assert.deepEqual(out['Acme Scheme']!.modes, ['Value', 'Dark']);
   assert.equal(out['Acme Core']!.variables.find((v) => v.name === 'space/alias')!.aliasOf, 'space/base');
 });
-test('Site Studio ranges cascade down and query-only declarations never write null', (t) => {
+void test('Site Studio ranges cascade down and query-only declarations never write null', (t) => {
   const out = plan(t, {
     Type: {
       modes: ['xl', 'md', 'sm'],
@@ -73,7 +75,7 @@ test('Site Studio ranges cascade down and query-only declarations never write nu
   });
   assert.deepEqual(Object.values(out['Acme Core']!.variables[1]!.valuesByMode!), [12, 12, 12]);
 });
-test('mixed axes split by variable, while a variable on both axes preserves its collection', (t) => {
+void test('mixed axes split by variable, while a variable on both axes preserves its collection', (t) => {
   const width = '@media (min-width:768px)',
     dark = '@media (prefers-color-scheme: dark)',
     modes = ['Value', width, dark];
@@ -95,7 +97,7 @@ test('mixed axes split by variable, while a variable on both axes preserves its 
   assert.deepEqual(Object.keys(both), ['Acme Mixed']);
   assert.equal(both['Acme Mixed']!.variables[0]!.valuesByMode!['Dark'], 3);
 });
-test('independent Core modes survive, duplicate names and generated-name collisions are refused', (t) => {
+void test('independent Core modes survive, duplicate names and generated-name collisions are refused', (t) => {
   const dark = '@media (prefers-color-scheme: dark)',
     col: VariableCollection = {
       modes: ['Value', dark],
@@ -106,7 +108,7 @@ test('independent Core modes survive, duplicate names and generated-name collisi
   const base: VariableCollection = { modes: ['Value'], variables: [{ name: 'duplicate', type: 'FLOAT' }] };
   assert.throws(() => plan(t, { A: base, B: base }), /duplicate variable name/);
 });
-test('large consolidation preserves all aliases and rgba/percentage color values', (t) => {
+void test('large consolidation preserves all aliases and rgba/percentage color values', (t) => {
   const out = plan(t, {
     A: {
       modes: ['Value'],

@@ -54,7 +54,7 @@ function entity(value: unknown): SiteStudioEntity | null {
     if (!styles || (styles['styles'] !== undefined && !object(styles['styles'])))
       throw new Error('Site Studio styles must be property maps');
   }
-  return raw as SiteStudioEntity;
+  return raw;
 }
 function toolVersion(): string {
   try {

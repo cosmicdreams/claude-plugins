@@ -29,7 +29,7 @@ const fixture = JSON.parse(readFileSync(fixturePath, 'utf8')) as {
   diagnostics: Diagnostic[];
 };
 
-test('all 156 checkJs diagnostics retain their exact location and compiler message', () => {
+void test('all 156 checkJs diagnostics retain their exact location and compiler message', () => {
   assert.equal(fixture.diagnostics.length, fixture.baseline.total);
   assert.deepEqual(
     fixture.diagnostics.map((d) => d.id),
@@ -51,7 +51,7 @@ test('all 156 checkJs diagnostics retain their exact location and compiler messa
   }
 });
 
-test('all triage entries have ported TypeScript counterparts and evidence, with no pending rows', () => {
+void test('all triage entries have ported TypeScript counterparts and evidence, with no pending rows', () => {
   const counts = { a: 0, b: 0, c: 0 };
   for (const diagnostic of fixture.diagnostics) {
     counts[diagnostic.class]++;

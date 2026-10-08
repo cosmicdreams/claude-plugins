@@ -178,7 +178,7 @@ function fakeDriver(steps: Json[], recorded: [string, unknown][] = []): DriverLi
 }
 const check = { fileKey: 'KEY', fileName: 'Library', pages: 1, empty: true, preflightCover: false, fonts: {} };
 
-test('requests without the token are refused before touching build state', async (t) => {
+void test('requests without the token are refused before touching build state', async (t) => {
   const h = await serverFor(t, (root) => workspace(root, 'KEY'));
   for (const token of [null, 'wrong']) {
     const r = await h.call('/next', { token });
@@ -188,7 +188,7 @@ test('requests without the token are refused before touching build state', async
   assert.equal((await h.call('/record?step=pages', { token: null, body: '{}' })).status, 401);
   assert.equal(existsSync(resolve(h.workspace, 'figma/results')), false);
 });
-test('only the plugin origin is allowed, and the build rejects a step it did not serve', async (t) => {
+void test('only the plugin origin is allowed, and the build rejects a step it did not serve', async (t) => {
   const h = await serverFor(t, (root) => workspace(root, 'KEY'));
   const bad = await h.call('/next', { origin: 'https://attacker.example' });
   assert.equal(bad.status, 403);
@@ -199,7 +199,7 @@ test('only the plugin origin is allowed, and the build rejects a step it did not
   assert.equal(ok.headers['access-control-allow-origin'], 'null');
   assert.equal((await h.call('/next', { origin: null })).status, 200); // no Origin header at all (not a browser) is allowed
 });
-test('malformed or non-object bodies get an error reply and corrupt nothing', async (t) => {
+void test('malformed or non-object bodies get an error reply and corrupt nothing', async (t) => {
   const h = await serverFor(t, (root) => workspace(root, 'KEY'));
   const malformed = await h.call('/record?step=pages', { body: '{not json' });
   assert.equal(malformed.status, 500);
@@ -211,7 +211,7 @@ test('malformed or non-object bodies get an error reply and corrupt nothing', as
   }
   assert.equal(progress(h.workspace)['state'], 'failed');
 });
-test('OPTIONS preflight answers for the plugin origin and other methods are refused', async (t) => {
+void test('OPTIONS preflight answers for the plugin origin and other methods are refused', async (t) => {
   const h = await serverFor(t, (root) => workspace(root, 'KEY'));
   const res = await new Promise<http.IncomingMessage>((done) =>
     http.request({ host: '127.0.0.1', port: h.port, method: 'OPTIONS', path: '/next' }, done).end(),
@@ -226,7 +226,7 @@ test('OPTIONS preflight answers for the plugin origin and other methods are refu
   assert.equal(put.statusCode, 501);
   put.resume();
 });
-test('a server serves exactly one run', (t) => {
+void test('a server serves exactly one run', (t) => {
   const root = scratch(t),
     a = workspace(resolve(root, 'a'), 'KEYA'),
     b = workspace(resolve(root, 'b'), 'KEYB');
@@ -237,7 +237,7 @@ test('a server serves exactly one run', (t) => {
   assert.deepEqual([...loadBuilds([a, a]).keys()], ['KEYA']);
   assert.throws(() => loadBuilds([resolve(root, 'none')]), /no target Figma file/);
 });
-test('an outdated runner is told to restart, and /health needs no version', async (t) => {
+void test('an outdated runner is told to restart, and /health needs no version', async (t) => {
   const h = await serverFor(t, (root) => workspace(root, 'KEY'));
   for (const version of [null, '0.1.0', 'source', '']) {
     const r = await h.call('/next', { version });
@@ -249,7 +249,7 @@ test('an outdated runner is told to restart, and /health needs no version', asyn
   assert.equal(outdated('0'), true);
   assert.equal((await h.call('/health', { version: null })).status, 200);
 });
-test('each request notes when the runner last asked, and a request and the heartbeat both write progress', async (t) => {
+void test('each request notes when the runner last asked, and a request and the heartbeat both write progress', async (t) => {
   const h = await serverFor(t, (root) => workspace(root, 'KEY'));
   await h.call('/next');
   const folder = resolve(h.workspace, 'figma');
@@ -264,7 +264,7 @@ test('each request notes when the runner last asked, and a request and the heart
   h.runner.pulse();
   assert.equal(progress(h.workspace)['serverPid'], process.pid);
 });
-test('an unchanged file is not rewritten', (t) => {
+void test('an unchanged file is not rewritten', (t) => {
   const root = scratch(t),
     file = resolve(root, 'f.json');
   writeAtomic(file, 'a\n');
@@ -309,11 +309,11 @@ async function handshake(t: { after(fn: () => void): void }) {
     const first = await step();
     assert.equal(first.step, CHECK_STEP);
     assert.ok(!String(first['code']).includes('createRectangle'));
-    await record(first.step!, { ...check, ...probe });
+    await record(first.step, { ...check, ...probe });
     if (!existsSync(resolve(h.workspace, 'figma', HANDSHAKE))) {
       const page = await step();
       assert.equal(page.step, PAGE_STEP);
-      await record(page.step!, { pageId: '0:1' });
+      await record(page.step, { pageId: '0:1' });
       const draw = await step();
       assert.equal(draw.step, COVER_STEP);
       // The real cover template, in its name-only form: the run's name and nothing computed.
@@ -332,7 +332,7 @@ async function handshake(t: { after(fn: () => void): void }) {
         );
       else
         await record(
-          draw.step!,
+          draw.step,
           cover ?? {
             coverId: '1:2',
             pageId: '0:1',
@@ -347,7 +347,7 @@ async function handshake(t: { after(fn: () => void): void }) {
   };
   return { ...h, step, record, run };
 }
-test('the runner waits before there are build steps', async (t) => {
+void test('the runner waits before there are build steps', async (t) => {
   const h = await handshake(t),
     r = await h.call('/next'),
     step = r.json();
@@ -356,7 +356,7 @@ test('the runner waits before there are build steps', async (t) => {
     [200, 'wait', 5000, 'Connected. Waiting for the build to start.'],
   );
 });
-test('the handshake draws a name-only Cover and the runner stays open', async (t) => {
+void test('the handshake draws a name-only Cover and the runner stays open', async (t) => {
   const h = await handshake(t),
     outcome = await h.run();
   assert.equal(outcome['ok'], true);
@@ -366,17 +366,17 @@ test('the handshake draws a name-only Cover and the runner stays open', async (t
   assert.equal(existsSync(resolve(h.workspace, 'figma', HANDSHAKE_REQUEST)), false);
   assert.equal((await h.step('wait')).kind, 'wait');
 });
-test("a file holding only this run's preflight Cover counts as empty", async (t) => {
+void test("a file holding only this run's preflight Cover counts as empty", async (t) => {
   const outcome = await (await handshake(t)).run({ empty: false, preflightCover: true }, null, '0:1');
   assert.equal(outcome['ok'], true);
   assert.equal(outcome['onlyPreflightCover'], true);
 });
-test('a file that is not empty fails', async (t) => {
+void test('a file that is not empty fails', async (t) => {
   const outcome = await (await handshake(t)).run({ empty: false, pages: 3 });
   assert.equal(outcome['ok'], false);
   assert.match(String(outcome['failure']), /not empty/);
 });
-test('a Cover that cannot be drawn fails with its cause', async (t) => {
+void test('a Cover that cannot be drawn fails with its cause', async (t) => {
   const outcome = await (await handshake(t)).run({}, 'error');
   assert.equal(outcome['ok'], false);
   assert.ok(
@@ -385,7 +385,7 @@ test('a Cover that cannot be drawn fails with its cause', async (t) => {
     ),
   );
 });
-test('a page that cannot be created fails', async (t) => {
+void test('a page that cannot be created fails', async (t) => {
   const h = await handshake(t);
   requestHandshake(h.workspace);
   await h.record((await h.step()).step!, check);
@@ -396,14 +396,14 @@ test('a page that cannot be created fails', async (t) => {
     /the Cover page could not be created: read-only file/,
   );
 });
-test('a Cover whose plugin data does not read back fails', async (t) => {
+void test('a Cover whose plugin data does not read back fails', async (t) => {
   const outcome = await (
     await handshake(t)
   ).run({}, { coverId: '1:2', pageId: '0:1', fontLoaded: false, font: 'Inter', pluginData: false });
   assert.equal(outcome['ok'], false);
   assert.match(String(outcome['failure']), /plugin data/);
 });
-test('a different open file fails and the handshake says which', async (t) => {
+void test('a different open file fails and the handshake says which', async (t) => {
   const h = await handshake(t);
   requestHandshake(h.workspace);
   assert.equal((await h.call('/next', { key: 'OTHER' })).status, 404);
@@ -411,7 +411,7 @@ test('a different open file fails and the handshake says which', async (t) => {
   assert.equal(outcome['ok'], false);
   assert.match(String(outcome['failure']), /different file \(key OTHER\)/);
 });
-test('a rejected token and an outdated runner both fail an open handshake', async (t) => {
+void test('a rejected token and an outdated runner both fail an open handshake', async (t) => {
   const h = await handshake(t);
   requestHandshake(h.workspace);
   assert.equal((await h.call('/next', { token: 'stale' })).status, 401);
@@ -424,7 +424,7 @@ test('a rejected token and an outdated runner both fail an open handshake', asyn
   assert.equal(old['ok'], false);
   assert.ok(String(old['failure']).startsWith('Close the design-lab runner in Figma and start it again'));
 });
-test('no runner within the timeout fails and clears its pending request', async (t) => {
+void test('no runner within the timeout fails and clears its pending request', async (t) => {
   const h = await handshake(t);
   requestHandshake(h.workspace);
   const outcome = await waitForHandshake(h.workspace, 0.2, 0.05);
@@ -433,7 +433,7 @@ test('no runner within the timeout fails and clears its pending request', async 
   assert.equal(existsSync(resolve(h.workspace, 'figma', HANDSHAKE_REQUEST)), false);
   assert.equal((await h.step('wait')).kind, 'wait');
 });
-test('the token belongs to the person, not the run', async (t) => {
+void test('the token belongs to the person, not the run', async (t) => {
   const h = await handshake(t),
     first = personToken(h.ctx),
     path = resolve(h.ctx.home, TOKEN_FILE);
@@ -446,7 +446,7 @@ test('the token belongs to the person, not the run', async (t) => {
   assert.notEqual(fresh, '');
   assert.equal(statSync(h.ctx.home).mode & 0o777, 0o700);
 });
-test('a check recorded after preflight gave up is rejected', async (t) => {
+void test('a check recorded after preflight gave up is rejected', async (t) => {
   const h = await handshake(t);
   requestHandshake(h.workspace);
   const step = await h.step();
@@ -455,7 +455,7 @@ test('a check recorded after preflight gave up is rejected', async (t) => {
   assert.equal(existsSync(resolve(h.workspace, 'figma', HANDSHAKE_REQUEST)), false);
   assert.equal((await h.step('wait')).kind, 'wait');
 });
-test('a resumed build proves only the connection, and still rejects the wrong file', async (t) => {
+void test('a resumed build proves only the connection, and still rejects the wrong file', async (t) => {
   const h = await handshake(t);
   requestHandshake(h.workspace, null, null, true);
   await h.record((await h.step()).step!, { ...check, fileName: 'F', pages: 9, empty: false });
@@ -465,7 +465,7 @@ test('a resumed build proves only the connection, and still rejects the wrong fi
   await h.record((await h.step()).step!, { ...check, fileKey: 'OTHER', fileName: 'F' });
   assert.equal((await waitForHandshake(h.workspace, 1, 0.05))['ok'], false);
 });
-test('a malformed check result is rejected instead of trusted', async (t) => {
+void test('a malformed check result is rejected instead of trusted', async (t) => {
   const h = await handshake(t);
   requestHandshake(h.workspace);
   await h.step();
@@ -474,7 +474,7 @@ test('a malformed check result is rejected instead of trusted', async (t) => {
   assert.match(r.text, /invalid check result/);
 });
 
-test('an iterating build keeps the runner waiting when done; a plain one is told done', async (t) => {
+void test('an iterating build keeps the runner waiting when done; a plain one is told done', async (t) => {
   const ws = workspace(resolve(scratch(t), 'w'), 'KEY', {
     fileKey: 'KEY',
     steps: [{ id: 'pages' }],
@@ -489,7 +489,7 @@ test('an iterating build keeps the runner waiting when done; a plain one is told
   );
   assert.equal((await build.next()).kind, 'done');
 });
-test('a renderer edited mid-build makes an iterating run wait instead of closing', async (t) => {
+void test('a renderer edited mid-build makes an iterating run wait instead of closing', async (t) => {
   const ws = workspace(resolve(scratch(t), 'w'), 'KEY', {
     fileKey: 'KEY',
     steps: [{ id: 'pages' }],
@@ -512,7 +512,7 @@ test('a renderer edited mid-build makes an iterating run wait instead of closing
   ); // not iterating: the error surfaces
   await assert.rejects(build.next(), /renderer changed/);
 });
-test('a slow step is reported in flight, and a skip step is recorded without asking the plugin', async (t) => {
+void test('a slow step is reported in flight, and a skip step is recorded without asking the plugin', async (t) => {
   const release = Promise.withResolvers<void>(),
     recorded: [string, unknown][] = [];
   const driver = fakeDriver([], recorded);
@@ -539,7 +539,7 @@ test('a slow step is reported in flight, and a skip step is recorded without ask
   assert.deepEqual(recorded, [['images:a', undefined]]);
   assert.equal((await h.call('/health', { version: null })).json()['inflight'], false);
 });
-test('a connection to a finished build waits for the new plan', async (t) => {
+void test('a connection to a finished build waits for the new plan', async (t) => {
   const ws = workspace(resolve(scratch(t), 'w'), 'KEY'),
     state = resolve(ws, 'figma/state.json');
   writeFileSync(state, JSON.stringify({ steps: [{ id: 'a' }], done: ['a'] }));
@@ -551,7 +551,7 @@ test('a connection to a finished build waits for the new plan', async (t) => {
   utimesSync(state, later, later);
   assert.equal((await build.next()).kind, 'done', 'a build planned after the connection finishes normally');
 });
-test('a Figma error publishes the latch and a new server resumes the failed step', async (t) => {
+void test('a Figma error publishes the latch and a new server resumes the failed step', async (t) => {
   const root = scratch(t),
     ws = workspace(resolve(root, 'w'), 'NEW', {
       fileKey: 'NEW',
@@ -589,7 +589,7 @@ test('a Figma error publishes the latch and a new server resumes the failed step
   );
   assert.equal(resumed.failed, null);
 });
-test('a fix (a new init rewriting state) clears the latch for the same server', async (t) => {
+void test('a fix (a new init rewriting state) clears the latch for the same server', async (t) => {
   const ws = workspace(resolve(scratch(t), 'w'), 'K', { fileKey: 'K', steps: [{ id: 'a' }], done: [] }),
     payload = resolve(ws, 'figma/a.js');
   writeFileSync(payload, 'x');
@@ -600,7 +600,7 @@ test('a fix (a new init rewriting state) clears the latch for the same server', 
   utimesSync(resolve(ws, 'figma/state.json'), later, later);
   assert.equal((await build.next()).kind, 'use_figma');
 });
-test('a server exception is structured and recovery clears it', async (t) => {
+void test('a server exception is structured and recovery clears it', async (t) => {
   const driver = fakeDriver([]);
   driver.next = () => Promise.reject(new Error('server exception'));
   const h = await serverFor(t, (root) => workspace(root, 'KEY', { fileKey: 'KEY', steps: [{ id: 'a' }], done: [] }), {
@@ -612,7 +612,7 @@ test('a server exception is structured and recovery clears it', async (t) => {
   h.build.note({ kind: 'use_figma', step: 'variables', done: 1, total: 2 });
   assert.deepEqual([h.build.progress.state, h.build.progress.message], ['building', null]);
 });
-test('progress counts what the runner was told, keeps the count through dumps and done, and clears failure', (t) => {
+void test('progress counts what the runner was told, keeps the count through dumps and done, and clears failure', (t) => {
   const ws = workspace(resolve(scratch(t), 'w'), 'KEY'),
     build = new Build(ws, quiet);
   build.note({ kind: 'use_figma', step: 'component:card', done: 4, total: 10 });
@@ -647,7 +647,7 @@ test('progress counts what the runner was told, keeps the count through dumps an
   assert.deepEqual([progress(ws)['lastSeen'], progress(ws)['inflight']], ['2026-10-02T09:00:00+00:00', true]);
 });
 
-test('dump steps follow the pages: full trees first, none when iterating, then the verification dumps', async (t) => {
+void test('dump steps follow the pages: full trees first, none when iterating, then the verification dumps', async (t) => {
   const ws = workspace(resolve(scratch(t), 'w'), 'K', { fileKey: 'K', steps: [], done: [] });
   mkdirSync(resolve(ws, 'figma/results'), { recursive: true });
   writeFileSync(
@@ -665,7 +665,7 @@ test('dump steps follow the pages: full trees first, none when iterating, then t
   for (let i = 0; i < 6; i++) {
     const s = light.dumpStep();
     if (!s) break;
-    order.push(s.step!);
+    order.push(s.step);
     mkdirSync(resolve(ws, 'figma/verify'), { recursive: true });
     writeFileSync(String(s['out']), '{}');
   }
@@ -681,7 +681,7 @@ test('dump steps follow the pages: full trees first, none when iterating, then t
   utimesSync(resolve(ws, 'figma/verify/root.json'), older, older);
   assert.equal(light.dumpStep()!.step, 'verify:root'); // an older dump describes a changed file
 });
-test('a dump is validated by its kind, written sorted, and a restarted server resumes it', async (t) => {
+void test('a dump is validated by its kind, written sorted, and a restarted server resumes it', async (t) => {
   const ws = workspace(resolve(scratch(t), 'w'), 'K', {
       fileKey: 'K',
       steps: [{ id: 'a' }],
@@ -712,7 +712,7 @@ test('a dump is validated by its kind, written sorted, and a restarted server re
   assert.equal(page.step, 'verify:page:Cover');
   assert.equal(await fresh.resume('nothing'), null);
 });
-test('a screenshot, a timed result and an upload file travel through the server', async (t) => {
+void test('a screenshot, a timed result and an upload file travel through the server', async (t) => {
   const recorded: [string, unknown][] = [],
     png = resolve(scratch(t), 'wide.png');
   await sharp({ create: { width: 5000, height: 40, channels: 3, background: '#fff' } })
@@ -772,7 +772,7 @@ test('a screenshot, a timed result and an upload file travel through the server'
     ['failed', 'invalid step durationMs'],
   );
 });
-test('malformed timed results cannot advance the served step or write non-finite timings', async (t) => {
+void test('malformed timed results cannot advance the served step or write non-finite timings', async (t) => {
   const driver = fakeDriver([{ kind: 'use_figma', step: 'variables', payload: resolve(scratch(t), 'payload.js') }]);
   // This tests record admission independently of serving a payload.
   const h = await serverFor(t, (root) => workspace(root, 'KEY'), { driver });
@@ -786,7 +786,7 @@ test('malformed timed results cannot advance the served step or write non-finite
   assert.equal(driver.recorded.length, 0);
   assert.equal(existsSync(resolve(h.workspace, 'figma/timings.jsonl')), false);
 });
-test('small images are returned as stored', async (t) => {
+void test('small images are returned as stored', async (t) => {
   const png = resolve(scratch(t), 'small.png');
   await sharp({ create: { width: 8, height: 8, channels: 3, background: '#000' } })
     .png()
@@ -850,7 +850,7 @@ function realBuild(t: { after(fn: () => void): void }) {
   });
   return project;
 }
-test('the real driver serves a step inline, records it with its timing, and a restarted server resumes', async (t) => {
+void test('the real driver serves a step inline, records it with its timing, and a restarted server resumes', async (t) => {
   const project = realBuild(t),
     root = scratch(t),
     h = await listen(t, root, project, new Build(project, quiet));
@@ -886,7 +886,7 @@ test('the real driver serves a step inline, records it with its timing, and a re
   assert.equal(next['done'], 1);
   assert.equal(progress(project)['stepsDone'], 1);
 });
-test('concurrent requests for one run are served one at a time', async (t) => {
+void test('concurrent requests for one run are served one at a time', async (t) => {
   const order: string[] = [],
     driver = fakeDriver([]);
   let calls = 0;
@@ -907,7 +907,7 @@ test('concurrent requests for one run are served one at a time', async (t) => {
 });
 
 /** The install and process-management paths, against a private home and injected process control. */
-test('the runner is copied to a stable folder with its version', (t) => {
+void test('the runner is copied to a stable folder with its version', (t) => {
   const ctx: RunnerContext = { home: resolve(scratch(t), '.design-lab'), port: 0 },
     first = installRunner(ctx),
     folder = resolve(ctx.home, 'runner');
@@ -941,7 +941,7 @@ const status = (over: Partial<ServerStatus>): ServerStatus => ({
   log: '',
   ...over,
 });
-test('preflight stops the server a finished run left behind', async (t) => {
+void test('preflight stops the server a finished run left behind', async (t) => {
   const root = scratch(t),
     ctx: RunnerContext = { home: resolve(root, '.h'), port: 0 },
     mine = preflight(resolve(root, 'w'), 'KEY'),
@@ -965,7 +965,7 @@ test('preflight stops the server a finished run left behind', async (t) => {
   assert.equal(out.started, false);
   assert.deepEqual(stopped, [finished]);
 });
-test('another active run is refused by name, and a program holding the port is refused', async (t) => {
+void test('another active run is refused by name, and a program holding the port is refused', async (t) => {
   const root = scratch(t),
     ctx: RunnerContext = { home: resolve(root, '.h'), port: 0 },
     mine = preflight(resolve(root, 'w'), 'KEY');
@@ -982,7 +982,7 @@ test('another active run is refused by name, and a program holding the port is r
     /in use by another program/,
   );
 });
-test('a server that starts is detected, and one that exits at once is reported', async (t) => {
+void test('a server that starts is detected, and one that exits at once is reported', async (t) => {
   const root = scratch(t),
     ctx: RunnerContext = { home: resolve(root, '.h'), port: 0 },
     mine = preflight(resolve(root, 'w'), 'KEY');
@@ -1004,7 +1004,7 @@ test('a server that starts is detected, and one that exits at once is reported',
     /exited at once/,
   );
 });
-test('the command line rejects unknown arguments and a fixed port', () => {
+void test('the command line rejects unknown arguments and a fixed port', () => {
   const script = fileURLToPath(new URL('../../src/figma-runner.ts', import.meta.url));
   for (const extra of [['serve', '--project', '/tmp/none', '--port', '9999'], ['bogus'], ['status']]) {
     const done = spawnSync(process.execPath, [script, ...extra], {

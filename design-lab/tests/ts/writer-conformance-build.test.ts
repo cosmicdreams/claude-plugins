@@ -226,7 +226,7 @@ const variations: Variation[] = [
   },
 ];
 for (const variation of variations) {
-  test(`receipts register: ${variation.name}`, async (t) => {
+  void test(`receipts register: ${variation.name}`, async (t) => {
     const { project, driver } = observed(t, variation);
     if (variation.realCompare) {
       const png = await sharp({ create: { width: 300, height: 50, channels: 3, background: '#ffffff' } })
@@ -238,7 +238,7 @@ for (const variation of variations) {
   });
 }
 
-test('foundation errors remain an intentional rejected receipt, with their evidence preserved', (t) => {
+void test('foundation errors remain an intentional rejected receipt, with their evidence preserved', (t) => {
   const { project } = observed(t, { name: 'unplanned variables' });
   writeOnChange(resolve(project, 'figma/results/variables.json'), {
     collections: { Core: { id: 'c1', modes: ['Value'], variables: 1 } },

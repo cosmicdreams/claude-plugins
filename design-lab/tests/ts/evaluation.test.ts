@@ -15,6 +15,7 @@ import { prepare, waitForBuild } from '../../src/tier2.ts';
 import { record, rows } from '../../src/scoreboard.ts';
 import { render } from '../../src/scoreboard-render.ts';
 import { elapsedTime, tokens } from '../../src/run-metrics.ts';
+import type { Component, ComponentPlan } from '../../src/build-artifacts.ts';
 
 const writeJson = (path: string, value: unknown) => {
   mkdirSync(join(path, '..'), { recursive: true });
@@ -63,7 +64,7 @@ function runFixture(root: string) {
   return run;
 }
 
-test('corpus freezes source artifacts, hashes JSON, and lists only frozen sites', () => {
+void test('corpus freezes source artifacts, hashes JSON, and lists only frozen sites', () => {
   const root = mkdtempSync(join(tmpdir(), 'design-lab-corpus-'));
   try {
     const run = runFixture(root),
@@ -85,14 +86,14 @@ test('corpus freezes source artifacts, hashes JSON, and lists only frozen sites'
   }
 });
 
-test('tier 1 replays through injected tree builder without mutating the saved run', () => {
+void test('tier 1 replays through injected tree builder without mutating the saved run', () => {
   const root = mkdtempSync(join(tmpdir(), 'design-lab-tier1-test-'));
   try {
     const run = runFixture(root),
       before = readFileSync(join(run, 'project.json'), 'utf8');
     const result = replayTier1(run, 'site-a', {
-      components: () => [{ id: 'block:sample', machineName: 'sample', label: 'Sample' } as any],
-      plans: () => ({ 'block:sample': { verdict: 'build' } }) as any,
+      components: () => [{ id: 'block:sample', machineName: 'sample', label: 'Sample' } as Component],
+      plans: () => ({ 'block:sample': { verdict: 'build' } }) as unknown as Record<string, ComponentPlan>,
       buildTrees: (_run, trees) => {
         mkdirSync(trees, { recursive: true });
         writeJson(join(trees, 'block:sample.json'), {
@@ -121,7 +122,7 @@ test('tier 1 replays through injected tree builder without mutating the saved ru
   }
 });
 
-test('property comparisons report flow positions and unknown numeric checks as unmeasured', () => {
+void test('property comparisons report flow positions and unknown numeric checks as unmeasured', () => {
   const rows = layoutNodes({
     kind: 'frame',
     name: 'root',
@@ -149,7 +150,7 @@ test('property comparisons report flow positions and unknown numeric checks as u
   assert.equal(metric([missingFont]).unmeasured, 1);
 });
 
-test('property comparisons retain variable breakpoints and inline text measurement gaps', () => {
+void test('property comparisons retain variable breakpoints and inline text measurement gaps', () => {
   const text = {
     ...node('/div[0]/p[1]', 0, 100),
     tag: 'p',
@@ -220,7 +221,7 @@ test('property comparisons retain variable breakpoints and inline text measureme
   assert.equal(breakpoints['desktop:expanded']!.status, 'unmeasured');
 });
 
-test('tier 2 prepares a relocated scratch copy and waits until dumps settle', async () => {
+void test('tier 2 prepares a relocated scratch copy and waits until dumps settle', async () => {
   const root = mkdtempSync(join(tmpdir(), 'design-lab-tier2-test-'));
   try {
     const run = runFixture(root),
@@ -255,7 +256,7 @@ test('tier 2 prepares a relocated scratch copy and waits until dumps settle', as
   }
 });
 
-test('shared run cost helpers preserve recorded values', () => {
+void test('shared run cost helpers preserve recorded values', () => {
   const root = mkdtempSync(join(tmpdir(), 'design-lab-cost-'));
   try {
     const cost = { model: { status: 'measured', tokens: 23 }, clock: { wallSeconds: 12 } };
@@ -267,7 +268,7 @@ test('shared run cost helpers preserve recorded values', () => {
   }
 });
 
-test('scoreboard appends shared metrics and renders a self-contained dashboard', async () => {
+void test('scoreboard appends shared metrics and renders a self-contained dashboard', async () => {
   const root = mkdtempSync(join(tmpdir(), 'design-lab-scoreboard-'));
   try {
     const run = runFixture(root),
@@ -297,7 +298,7 @@ test('scoreboard appends shared metrics and renders a self-contained dashboard',
   }
 });
 
-test('property comparison reads typography from the text payload and preserves absent actuals', () => {
+void test('property comparison reads typography from the text payload and preserves absent actuals', () => {
   const measured = {
     ...node('/label'),
     text: 'Hello',

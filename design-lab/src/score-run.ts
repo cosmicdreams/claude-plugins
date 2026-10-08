@@ -93,24 +93,24 @@ export function parseTime(value: unknown): Time | null {
   if (typeof value !== 'string' || !value) return null;
   const m = ISO.exec(value);
   if (!m) return null;
-  const [year, month, day, hour, minute, second] = [m[1], m[2], m[3], m[4], m[5], m[6]].map((v) =>
+  const [year, month, day, hour, minute, second] = [m[1], m[2], m[3], m[4], m[5], m[6]].map<number>((v) =>
     Number(v ?? 0),
-  ) as number[];
+  );
   const daysIn =
-    new Date(Date.UTC(2000, month!, 0)).getUTCDate() +
+    new Date(Date.UTC(2000, month, 0)).getUTCDate() +
     (month === 2 && !(year! % 4 === 0 && (year! % 100 !== 0 || year! % 400 === 0)) ? -1 : 0);
   if (month! < 1 || month! > 12 || day! < 1 || day! > daysIn || hour! > 23 || minute! > 59 || second! > 59) return null;
   const fraction = micros(m[7]),
     zone = m[8];
   if (!zone) {
     const local = new Date(2000, 0, 1);
-    local.setFullYear(year!, month! - 1, day!);
-    local.setHours(hour!, minute!, second!, 0);
+    local.setFullYear(year!, month! - 1, day);
+    local.setHours(hour!, minute, second, 0);
     return local.getTime() * 1000 + fraction;
   }
   const utc = new Date(0);
-  utc.setUTCFullYear(year!, month! - 1, day!);
-  utc.setUTCHours(hour!, minute!, second!, 0);
+  utc.setUTCFullYear(year!, month! - 1, day);
+  utc.setUTCHours(hour!, minute, second, 0);
   let offset = 0;
   if (zone !== 'Z') {
     const z = /^([+-])(\d{2}):?(\d{2})?:?(\d{2})?(?:[.,](\d+))?$/.exec(zone)!;
@@ -888,7 +888,7 @@ function unattendedResult(files: string[], runDir: string, since: Time | null, u
       const [followingAt, following] = events[i + 1] ?? [null, null];
       if (at < go || (end !== null && at >= end)) return;
       if (kind === 'ask') found.push({ at: iso(at), _moment: at, kind: 'question', ...phaseAt(log, at) });
-      else if (kind === 'reply' && following === 'prompt' && (end === null || followingAt! < end)) {
+      else if (kind === 'reply' && following === 'prompt' && (end === null || followingAt < end)) {
         found.push({ at: iso(at), _moment: at, kind: 'turn ended and waited for a prompt', ...phaseAt(log, at) });
       }
     });
@@ -1819,7 +1819,7 @@ export async function score(runDir: string, options: ScoreOptions = {}): Promise
   };
   return {
     scorecardVersion: SCORECARD_VERSION,
-    generatedAt: iso(nowTime())!,
+    generatedAt: iso(nowTime()),
     generator: `design-lab ${pluginVersion()}`,
     run: {
       directory: runDir,

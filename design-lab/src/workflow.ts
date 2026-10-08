@@ -367,7 +367,7 @@ export function record(value: string, args: CommandArgs<'record'>) {
     const value: unknown = JSON.parse(args.detail);
     if (!value || typeof value !== 'object' || Array.isArray(value))
       throw new Error('--detail must be a phase detail object');
-    detail = value as PhaseDetail;
+    detail = value;
   }
   if (args.status === 'waived') {
     if (!args.by) throw new Error('waived status requires --by <human-decider>');

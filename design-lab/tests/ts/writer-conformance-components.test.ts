@@ -59,7 +59,7 @@ async function written(folder: string): Promise<Components> {
   return document as Components;
 }
 
-test('SDC: components with no name, no title, array types, mixed enums, float defaults and an unreadable file all write', async () => {
+void test('SDC: components with no name, no title, array types, mixed enums, float defaults and an unreadable file all write', async () => {
   const root = drupal(temp());
   put(
     root,
@@ -74,7 +74,7 @@ test('SDC: components with no name, no title, array types, mixed enums, float de
   assert.equal(document.problems?.[0]?.kind, 'unparseable');
 });
 
-test('paragraphs: entry points, containment, dangling storage, unmapped types, enums without options and unreadable bundles all write', async () => {
+void test('paragraphs: entry points, containment, dangling storage, unmapped types, enums without options and unreadable bundles all write', async () => {
   const root = drupal(temp());
   const cfg = (name: string, text: string) => put(root, `config/default/${name}`, text);
   cfg('paragraphs.paragraphs_type.layout.yml', 'id: layout\nlabel: Layout\nstatus: false\n');
@@ -119,7 +119,7 @@ test('paragraphs: entry points, containment, dangling storage, unmapped types, e
   assert.equal(document.components.find((c) => c.id === 'layout')?.isEntryPoint, true);
 });
 
-test('Drupal authoring: static and plugin enums, dangling references, media targets and a bundle with no label all write', async () => {
+void test('Drupal authoring: static and plugin enums, dangling references, media targets and a bundle with no label all write', async () => {
   const root = drupal(temp());
   const cfg = (name: string, text: string) => put(root, `config/default/${name}`, text);
   cfg('block_content.type.basic.yml', 'id: basic\nlabel: Basic\nstatus: false\n');
@@ -161,7 +161,7 @@ test('Drupal authoring: static and plugin enums, dangling references, media targ
   assert.equal(document.components.find((c) => c.id === 'block:basic')?.status, false);
 });
 
-test('Canvas: a component config whose SDC is missing, a folder, a field only the config defines and an array default all write', async () => {
+void test('Canvas: a component config whose SDC is missing, a folder, a field only the config defines and an array default all write', async () => {
   const root = drupal(temp());
   put(
     root,
@@ -187,7 +187,7 @@ test('Canvas: a component config whose SDC is missing, a folder, a field only th
   );
 });
 
-test('Site Studio: untitled fields, repeaters without limits, shared show conditions, removed references and drop zones all write', async () => {
+void test('Site Studio: untitled fields, repeaters without limits, shared show conditions, removed references and drop zones all write', async () => {
   const root = drupal(temp());
   put(root, 'docroot/sites/default/settings.php', "<?php\n$settings['site_studio_sync'] = '../config/packages';\n");
   const values = JSON.stringify({

@@ -9,7 +9,7 @@ import { failureCode, FAILURE, USAGE } from '../../src/exit-code.ts';
 const run = (script: string, args: string[]) =>
   spawnSync(process.execPath, [resolve(pluginRoot, 'scripts', script), ...args], { encoding: 'utf8', cwd: '/tmp' });
 
-test('an ordinary failure exits 1, as the Python baseline did', () => {
+void test('an ordinary failure exits 1, as the Python baseline did', () => {
   assert.equal(FAILURE, 1);
   for (const [script, args] of [
     ['workflow.ts', ['status', '--project', '/nonexistent-design-lab-run']],
@@ -23,7 +23,7 @@ test('an ordinary failure exits 1, as the Python baseline did', () => {
   }
 });
 
-test('a command-line usage error exits 2, as argparse did', () => {
+void test('a command-line usage error exits 2, as argparse did', () => {
   assert.equal(USAGE, 2);
   const result = run('workflow.ts', ['status', '--no-such-flag']);
   assert.equal(result.status, 2, result.stderr);
@@ -34,7 +34,7 @@ test('a command-line usage error exits 2, as argparse did', () => {
   assert.equal(failureCode(null), 1);
 });
 
-test('no launcher hard-codes exit code 2 for failures', () => {
+void test('no launcher hard-codes exit code 2 for failures', () => {
   const folder = resolve(pluginRoot, 'scripts');
   for (const name of readdirSync(folder).filter((file) => file.endsWith('.ts'))) {
     const source = readFileSync(resolve(folder, name), 'utf8');

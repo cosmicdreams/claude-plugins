@@ -55,7 +55,7 @@ const scalarTags = [
   { tag: 'tag:yaml.org,2002:int', default: true, test: integer, resolve: parseIntYaml },
   { tag: 'tag:yaml.org,2002:float', default: true, test: float, resolve: parseFloatYaml },
 ];
-function keyString(key: any): string {
+function keyString(key: unknown): string {
   if (key === null) return 'null';
   if (typeof key === 'boolean') return key ? 'true' : 'false';
   if (key instanceof YamlFloat) {
@@ -73,9 +73,9 @@ function keyString(key: any): string {
 
   return String(key);
 }
-function convert(value: any): any {
+function convert(value: unknown): unknown {
   if (value instanceof Map) {
-    const entries = new Map<string, { key: string; value: any }>();
+    const entries = new Map<string, { key: string; value: unknown }>();
     for (const [key, item] of value) {
       // Python dictionaries coalesce bool/int/float keys (True == 1 == 1.0).
       const identity =
@@ -94,14 +94,17 @@ function convert(value: any): any {
   if (value instanceof YamlFloat) return Number(value);
   return value;
 }
-export function parsePyYaml(text: string): any {
+export function parsePyYaml(text: string): unknown {
   return convert(
     yaml.parse(text, {
       schema: 'yaml-1.1',
       prettyErrors: false,
       uniqueKeys: false,
       mapAsMap: true,
-      customTags: (tags: any[]) => [...tags.filter((t) => !scalarTags.some((s) => s.tag === t.tag)), ...scalarTags],
+      customTags: (tags: Array<{ tag: string }>) => [
+        ...tags.filter((t) => !scalarTags.some((s) => s.tag === t.tag)),
+        ...scalarTags,
+      ],
     }),
   );
 }

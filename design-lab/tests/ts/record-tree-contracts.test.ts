@@ -14,7 +14,7 @@ const root = {
   variables: {},
 };
 const node = { kind: 'frame', name: 'Card', source: '/card', sizing: 'FIXED' };
-test('runner records cannot use a permissive branch to evade specialized validation', () => {
+void test('runner records cannot use a permissive branch to evade specialized validation', () => {
   for (const bad of [{ pgn: 'base64' }, { page: 42, pageIndex: 'bad', nodes: 'oops', _ids: false }]) {
     assert.ok(validate('runner-record', bad).length);
     for (const kind of ['use_figma', 'screenshot', 'dump', 'check', 'skip', 'upload'] as const)
@@ -35,7 +35,7 @@ test('runner records cannot use a permissive branch to evade specialized validat
   ] as const)
     assert.ok(validateRunnerRecord(kind, body).length);
 });
-test('each dump and preflight contract is selected by the expected operation', () => {
+void test('each dump and preflight contract is selected by the expected operation', () => {
   const check = {
     fileKey: 'test',
     fileName: 'Test',
@@ -72,7 +72,7 @@ test('each dump and preflight contract is selected by the expected operation', (
   assert.ok(validateRunnerRecord('check', tree).length);
   assert.ok(validateRunnerRecord('dump', tree, 'page').length);
 });
-test('tree node discriminators require their payloads, including nested and alternate nodes', () => {
+void test('tree node discriminators require their payloads, including nested and alternate nodes', () => {
   for (const [kind, field, payload] of [
     ['text', 'text', { characters: 'Hello', family: 'Inter', size: 16, weight: 400 }],
     ['image', 'src', '/a.png'],
@@ -95,7 +95,7 @@ test('tree node discriminators require their payloads, including nested and alte
   // keep their measured fallback tree instead of being forced to change discriminator.
   assert.deepEqual(validate('tree', { ...root, tree: { ...node, instanceOf: 'child' } }), []);
 });
-test('every directly assigned tree enum rejects unknown values', () => {
+void test('every directly assigned tree enum rejects unknown values', () => {
   for (const invalid of [
     { sizing: 'TYPO' },
     { fit: 'TYPO' },

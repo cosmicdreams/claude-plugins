@@ -251,21 +251,21 @@ function entry(kind: string, at: string, extra: Json = {}): Json {
 
 // ---------------------------------------------------------------------------- sections
 
-test('accuracy keeps the original metric and adds the corrected one', async () => {
+void test('accuracy keeps the original metric and adds the corrected one', async () => {
   const run = await makeRun(root),
     card = await S.score(run, quiet);
   assert.deepEqual(S.validateScorecard(card), []);
   const acc = card.sections['accuracy'];
   assert.equal(acc['status'], 'measured');
-  assert.equal(acc!['overall']!['original']!['pass']!, 2); // height ignored
-  assert.equal(acc!['overall']!['corrected']!['pass']!, 1); // mobile now fails
-  assert.equal(acc!['byBreakpoint']!['mobile']!['heightDelta']!['over10px']!, 1);
-  const pair = acc!['pairs']!.find!((p) => p['breakpoint'] === 'mobile');
+  assert.equal(acc['overall']!['original']['pass'], 2); // height ignored
+  assert.equal(acc['overall']!['corrected']!['pass'], 1); // mobile now fails
+  assert.equal(acc['byBreakpoint']!['mobile']!['heightDelta']['over10px'], 1);
+  const pair = acc['pairs']!.find((p) => p['breakpoint'] === 'mobile');
   assert.deepEqual([pair!['figmaHeight']!, pair!['liveHeight']!], [50, 80]);
   assert.ok(card.headline.highlights.some((h) => h.startsWith('Biggest single gap: Card at mobile is 30 px shorter')));
 });
 
-test('missing evidence is not measured, with a reason', async () => {
+void test('missing evidence is not measured, with a reason', async () => {
   const sections = (await S.score(await makeRun(root), quiet)).sections;
   for (const name of ['conformance', 'schemaChurn'] as const) {
     assert.equal(sections[name]['status'], 'not-measured');
@@ -281,15 +281,15 @@ test('missing evidence is not measured, with a reason', async () => {
   assert.equal(sections['blindedJudgement']['criteria'].length, 4);
 });
 
-test('runner sessions, step time and errors come from the runner log', async () => {
+void test('runner sessions, step time and errors come from the runner log', async () => {
   const runner = obj((await S.score(await makeRun(root), quiet)).sections['cost']['runner']);
-  assert.equal(runner!['sessions']!.length!, 2);
-  assert.deepEqual([runner!['sessions']![0]!['steps']!, runner!['sessions']![0]!['seconds']!], [2, 12]);
+  assert.equal(runner['sessions']!.length, 2);
+  assert.deepEqual([runner['sessions']![0]!['steps'], runner['sessions']![0]!['seconds']], [2, 12]);
   assert.equal(runner['errors'], 1);
-  assert.equal(runner!['secondsByKind']!['build']!, 10);
+  assert.equal(runner['secondsByKind']!['build']!, 10);
 });
 
-test('schema churn: a recorded change, and a confirmed absence of one', async () => {
+void test('schema churn: a recorded change, and a confirmed absence of one', async () => {
   const run = await makeRun(root);
   write(
     join(run, 'project.json'),
@@ -307,7 +307,7 @@ test('schema churn: a recorded change, and a confirmed absence of one', async ()
   assert.deepEqual([churn['status'], churn['changed']], ['measured', false]);
 });
 
-test('coverage counts eligible components and usage-weighted placements', async () => {
+void test('coverage counts eligible components and usage-weighted placements', async () => {
   const run = await makeRun(root);
   const comp = (id: string, placements = 0, refs = 0) => ({
     id,
@@ -336,8 +336,8 @@ test('coverage counts eligible components and usage-weighted placements', async 
   assert.deepEqual([cov['found'], cov['eligible'], cov['built'], cov['ratio']], [5, 3, 1, 0.3333]);
   assert.deepEqual(cov['gap'], { refused: 1, failed: 1, unplanned: 0 });
   assert.deepEqual(cov['excluded'], { retirement: 1, 'schema-only': 1, 'not-visual': 0 });
-  assert.equal(cov!['usageWeighted']!['ratio']!, 0.75);
-  assert.deepEqual([cov!['usageWeighted']!['structuralCovered']!, cov!['usageWeighted']!['structuralRefs']!], [1, 4]);
+  assert.equal(cov['usageWeighted']['ratio']!, 0.75);
+  assert.deepEqual([cov['usageWeighted']['structuralCovered']!, cov['usageWeighted']['structuralRefs']!], [1, 4]);
   assert.deepEqual(cov['outsideInventory'], [{ id: 'stray.script', placements: 5, structural: 0 }]);
   assert.equal(card.headline.coverage!['placements'], 0.75);
   assert.equal(cov['summary'], 'Built 1 of 3 components it could have built (33%).');
@@ -362,7 +362,7 @@ test('coverage counts eligible components and usage-weighted placements', async 
   assert.match(result.message!, /2 retirement candidates/);
 });
 
-test('a build that stopped after the cover built nothing; built needs both receipts', () => {
+void test('a build that stopped after the cover built nothing; built needs both receipts', () => {
   const workspace = (state: Json) => {
     const w = mkdtempSync(join(root, 'w-'));
     write(join(w, 'components.json'), {
@@ -395,7 +395,7 @@ test('a build that stopped after the cover built nothing; built needs both recei
   assert.equal(coverageSentence(c), 'Built 1 of 2 components it could have built (50%).');
 });
 
-test('incidental differences ignore paths, links and times but not hashes', () => {
+void test('incidental differences ignore paths, links and times but not hashes', () => {
   const swaps: [string, string][] = [
     ['/a/run-1', '/a/run-2'],
     ['KEY1', 'KEY2'],
@@ -415,14 +415,14 @@ test('incidental differences ignore paths, links and times but not hashes', () =
   assert.ok(!S.incidental({ path: '/hash', a: 'sha256:1', b: 'sha256:2' }, swaps));
 });
 
-test('shared cost metrics keep the recorded values', () => {
+void test('shared cost metrics keep the recorded values', () => {
   const cost = { model: { status: 'measured', tokens: 23 }, clock: { wallSeconds: 12 } };
   write(join(root, 'benchmark/scorecard.json'), { sections: { cost } });
   assert.equal(tokens(root), 23);
   assert.deepEqual(elapsedTime(root), { clock: cost.clock });
 });
 
-test('copied phases are not scoring checkpoints, and the phase log times only this run', () => {
+void test('copied phases are not scoring checkpoints, and the phase log times only this run', () => {
   const project = legacyProject({
     phases: {
       preflight: { status: 'complete', from: '/source', updatedAt: '2020-01-01T00:00:00Z' },
@@ -442,13 +442,13 @@ test('copied phases are not scoring checkpoints, and the phase log times only th
   const timings = S.phaseTimings(root, project)!;
   assert.equal(timings['source'], 'phase log');
   assert.deepEqual(
-    timings!['phases']!.map!((r) => r['phase']),
+    timings['phases']!.map((r) => r['phase']),
     ['foundation'],
   );
   assert.equal(timings['totalSeconds'], 5);
 });
 
-test('font counts follow the build, naming the font it drew', () => {
+void test('font counts follow the build, naming the font it drew', () => {
   write(join(root, 'fonts.json'), {
     figmaChecked: true,
     families: [
@@ -468,7 +468,7 @@ test('font counts follow the build, naming the font it drew', () => {
 
 // ---------------------------------------------------------------------------- tokens
 
-test('transcript tokens are deduplicated and windowed', async () => {
+void test('transcript tokens are deduplicated and windowed', async () => {
   const run = await makeRun(root),
     folder = join(root, 'transcripts');
   const usage = { input_tokens: 10, output_tokens: 5, cache_read_input_tokens: 100 };
@@ -496,11 +496,11 @@ test('transcript tokens are deduplicated and windowed', async () => {
   const model = (await S.score(run, { ...quiet, transcripts: folder })).sections['cost']['model'];
   assert.equal(model['status'], 'measured');
   assert.deepEqual([model['assistantMessages'], model['toolCalls'], model['sessions']], [1, 1, 1]);
-  assert.equal(model!['tokens']!['total']!, 115);
+  assert.equal(model['tokens']!['total']!, 115);
   assert.ok(model['caveat']);
 });
 
-test('friendly model names', () => {
+void test('friendly model names', () => {
   for (const [raw, name] of [
     ['claude-opus-5-5', 'Opus 5.5'],
     ['claude-sonnet-5-5', 'Sonnet 5.5'],
@@ -513,7 +513,7 @@ test('friendly model names', () => {
   }
 });
 
-test('a named session counts only itself and its subagents, by model; an unknown one is not measured', async () => {
+void test('a named session counts only itself and its subagents, by model; an unknown one is not measured', async () => {
   const run = await makeRun(root),
     config = join(root, 'config');
   session(config);
@@ -526,19 +526,19 @@ test('a named session counts only itself and its subagents, by model; an unknown
   const [opus, haiku] = model['byModel']!;
   assert.deepEqual(
     [
-      opus!.name!,
-      opus!.input!,
-      opus!.output!,
-      opus!.cacheWrite!,
-      opus!.cacheRead!,
-      opus!.total!,
-      opus!.turns!,
-      opus!.toolCalls!,
+      opus!.name,
+      opus!.input,
+      opus!.output,
+      opus!.cacheWrite,
+      opus!.cacheRead,
+      opus!.total,
+      opus!.turns,
+      opus!.toolCalls,
     ],
     ['Opus 5.5', 20, 40, 60, 80, 200, 2, 3],
   );
-  assert.deepEqual([haiku!.name!, haiku!.total!, haiku!.turns!, haiku!.toolCalls!], ['Haiku 4.5', 10, 1, 1]);
-  assert.equal(model!['tokens']!['total']!, 210);
+  assert.deepEqual([haiku!.name, haiku!.total, haiku!.turns, haiku!.toolCalls], ['Haiku 4.5', 10, 1, 1]);
+  assert.equal(model['tokens']!['total']!, 210);
   assert.deepEqual(card.headline.effort['tokensByModel'], [
     { name: 'Opus 5.5', total: 200 },
     { name: 'Haiku 4.5', total: 10 },
@@ -547,7 +547,7 @@ test('a named session counts only itself and its subagents, by model; an unknown
   assert.equal(unknown['status'], 'not-measured');
 });
 
-test('the benchmark step splits wall time and tokens', async () => {
+void test('the benchmark step splits wall time and tokens', async () => {
   const run = await makeRun(root),
     config = join(root, 'config'),
     main = session(config);
@@ -583,20 +583,20 @@ test('the benchmark step splits wall time and tokens', async () => {
     [4200, 3540, 660, 'phase log'],
   );
   assert.deepEqual(
-    cost!.model!.production!.byModel!.map!((r) => [r['name'], r['turns']]),
+    cost.model.production!.byModel!.map((r) => [r['name'], r['turns']]),
     [
       ['Opus 5.5', 1],
       ['Haiku 4.5', 1],
     ],
   );
   assert.deepEqual(
-    cost!.model!.benchmark!.byModel!.map!((r) => [r['name'], r['turns'], r['total']]),
+    cost.model.benchmark!.byModel!.map((r) => [r['name'], r['turns'], r['total']]),
     [['Opus 5.5', 1, 100]],
   );
   assert.deepEqual(card.headline.effort['benchmarkTokensByModel'], [{ name: 'Opus 5.5', total: 100 }]);
 });
 
-test('only Claude models are counted, and tool input never reaches the completion message', async () => {
+void test('only Claude models are counted, and tool input never reaches the completion message', async () => {
   const run = await makeRun(root),
     config = join(root, 'config'),
     main = join(config, 'projects/-repo/sess-x.jsonl');
@@ -618,14 +618,14 @@ test('only Claude models are counted, and tool input never reaches the completio
   });
   const model = result.scorecard.sections['cost']['model'];
   assert.deepEqual(
-    model!['byModel']!.map!((r) => r['name']),
+    model['byModel']!.map((r) => r['name']),
     ['Opus 5.5'],
   );
-  assert.equal(model!['developer']!['unattributedEntries']!, 1);
+  assert.equal(model['developer']!['unattributedEntries'], 1);
   for (const hidden of ['other-model-1', 'example-cli']) assert.ok(!result.message!.includes(hidden));
 });
 
-test('a line whose message is not an object is skipped', () => {
+void test('a line whose message is not an object is skipped', () => {
   const f = join(root, 's.jsonl');
   lines(f, [
     { type: 'user', timestamp: '2026-09-29T10:00:00Z', message: { role: 'user', content: 'hi' } },
@@ -640,12 +640,12 @@ test('a line whose message is not an object is skipped', () => {
   ]);
   assert.equal(S.workingTime([f], null, null)['status'], 'measured');
   const usage = S.transcriptUsage([f], null, null);
-  assert.deepEqual([usage['assistantMessages'], usage['tokens']!['output']], [1, 3]);
+  assert.deepEqual([usage['assistantMessages'], usage['tokens']['output']], [1, 3]);
 });
 
 // ---------------------------------------------------------------------------- the benchmark's end
 
-test('the first scoring fixes the benchmark end and stops the server; a re-score moves neither', async () => {
+void test('the first scoring fixes the benchmark end and stops the server; a re-score moves neither', async () => {
   const run = await makeRun(root);
   write(join(run, 'project.json'), legacyProject({ run: { startedAt: '2026-01-05T10:00:00+00:00' } }));
   const start = new Date(Math.floor(Date.now() / 1000) * 1000 - 120_000).toISOString().replace('.000Z', '+00:00');
@@ -696,7 +696,7 @@ test('the first scoring fixes the benchmark end and stops the server; a re-score
   assert.equal((await S.score(run, quiet)).sections['cost']['clock']['wallSeconds'], clock.wallSeconds);
 });
 
-test('writeScore writes outside the run or into its benchmark folder only, atomically', async () => {
+void test('writeScore writes outside the run or into its benchmark folder only, atomically', async () => {
   const run = await makeRun(root),
     out = join(root, 'out');
   const result = await S.writeScore(run, {
@@ -719,7 +719,7 @@ test('writeScore writes outside the run or into its benchmark folder only, atomi
   );
 });
 
-test('an ambiguous current session is named for developers', async () => {
+void test('an ambiguous current session is named for developers', async () => {
   const run = await makeRun(root),
     folder = join(root, 'transcripts');
   for (const name of ['older', 'newer']) {
@@ -776,7 +776,7 @@ const connectLog = (run: string, ...entries: Json[]) =>
     { at: '2026-01-05T11:00:00+00:00', phase: 'benchmark', status: 'running' },
   ]);
 
-test('working spans, waits and subagent overlap partition the transcript span', async () => {
+void test('working spans, waits and subagent overlap partition the transcript span', async () => {
   const { run } = await workingRun(),
     card = await S.score(run, { ...quiet, session: 'sess-w' });
   assert.deepEqual(S.validateScorecard(card), []);
@@ -790,7 +790,7 @@ test('working spans, waits and subagent overlap partition the transcript span', 
   assert.equal(card.headline.effort['workingSeconds'], 220);
 });
 
-test('an overload is waiting on the service', async () => {
+void test('an overload is waiting on the service', async () => {
   const { run, main } = await workingRun();
   lines(main, [
     entry('prompt', '2026-01-05T10:00:00Z'),
@@ -806,7 +806,7 @@ test('an overload is waiting on the service', async () => {
   assert.deepEqual([work.limitEvents, work.serviceEvents], [0, 1]);
 });
 
-test('a question to the person is waiting, not working, and partial access is recorded', async () => {
+void test('a question to the person is waiting, not working, and partial access is recorded', async () => {
   const { run, main } = await workingRun();
   lines(main, [
     entry('prompt', '2026-01-05T10:00:00Z'),
@@ -823,11 +823,11 @@ test('a question to the person is waiting, not working, and partial access is re
   const work = (await cost(run))['working'];
   assert.deepEqual([work.workingSeconds, work.waitingOnPersonSeconds], [10 + 60 + 10, 300 - 60]);
   assert.equal(work.questionsToPerson, 1);
-  assert.deepEqual(work!.developer!.permissionModes!, { default: 1 });
+  assert.deepEqual(work.developer!.permissionModes, { default: 1 });
   assert.equal(work.fullAccess, false);
 });
 
-test('interruptions after the preflight go-ahead are counted with their phase', async () => {
+void test('interruptions after the preflight go-ahead are counted with their phase', async () => {
   const { run, config, main } = await workingRun();
   lines(main, [
     entry('prompt', '2026-01-05T10:00:00Z'),
@@ -868,7 +868,7 @@ test('interruptions after the preflight go-ahead are counted with their phase', 
   const attended = result.scorecard.sections['cost']['unattended'];
   assert.deepEqual([attended.count, attended.ranUnattended], [2, false]);
   assert.deepEqual(
-    attended!.interruptions!.map!((i) => [i['kind'], i['phase']]),
+    attended.interruptions!.map((i) => [i['kind'], i['phase']]),
     [
       ['question', 'capture'],
       ['turn ended and waited for a prompt', 'capture'],
@@ -880,7 +880,7 @@ test('interruptions after the preflight go-ahead are counted with their phase', 
   );
 });
 
-test('a stop for the runner counts as an interruption', async () => {
+void test('a stop for the runner counts as an interruption', async () => {
   const { run, main } = await workingRun();
   lines(main, [
     entry('prompt', '2026-01-05T10:00:00Z'),
@@ -897,7 +897,7 @@ test('a stop for the runner counts as an interruption', async () => {
   assert.equal(S.unattendedPhrase(attended), 'no, 1 interruption: a stop, runner not connected during components');
 });
 
-test('the wait for a runner connection is planned until it completes', async () => {
+void test('the wait for a runner connection is planned until it completes', async () => {
   const { run, main } = await workingRun();
   lines(main, [
     entry('prompt', '2026-01-05T10:00:00Z'),
@@ -915,14 +915,14 @@ test('the wait for a runner connection is planned until it completes', async () 
     { at: '2026-01-05T10:25:00+00:00', phase: 'connect', status: 'complete' },
   );
   const attended = (await cost(run))['unattended'],
-    questions = attended!.interruptions!.filter!((i) => i['kind'] === 'question');
+    questions = attended.interruptions!.filter((i) => i['kind'] === 'question');
   assert.equal(questions.length, 1);
-  assert.equal(questions![0]!.planned!, true);
+  assert.equal(questions[0]!.planned, true);
   assert.deepEqual([attended.count, attended.ranUnattended], [0, true]);
   assert.equal(S.unattendedPhrase(attended), 'yes');
 });
 
-test('a runner that never connects is an unplanned stop', async () => {
+void test('a runner that never connects is an unplanned stop', async () => {
   const { run, main } = await workingRun();
   lines(main, [entry('prompt', '2026-01-05T10:00:00Z'), entry('reply', '2026-01-05T10:31:00Z')]);
   connectLog(
@@ -932,10 +932,10 @@ test('a runner that never connects is an unplanned stop', async () => {
   );
   const attended = (await cost(run))['unattended'];
   assert.equal(attended.count, 1);
-  assert.equal(attended!.interruptions!.find!!((i) => String(i['kind']).startsWith('stopped:'))!.planned, false);
+  assert.equal(attended.interruptions!.find((i) => String(i['kind']).startsWith('stopped:'))!.planned, false);
 });
 
-test("a failed connection closes its wait; a retry keeps the first attempt's", async () => {
+void test("a failed connection closes its wait; a retry keeps the first attempt's", async () => {
   const { run, main } = await workingRun();
   lines(main, [
     entry('prompt', '2026-01-05T10:00:00Z'),
@@ -953,7 +953,7 @@ test("a failed connection closes its wait; a retry keeps the first attempt's", a
   );
   let attended = (await cost(run))['unattended'];
   assert.deepEqual(
-    attended!.interruptions!.slice!(0, 3).map((i) => [i['kind'], i['planned']]),
+    attended.interruptions!.slice(0, 3).map((i) => [i['kind'], i['planned']]),
     [
       ['question', true],
       ['stopped: runner not connected', false],
@@ -977,12 +977,12 @@ test("a failed connection closes its wait; a retry keeps the first attempt's", a
   );
   attended = (await cost(run))['unattended'];
   assert.deepEqual(
-    attended!.interruptions!.filter!((i) => i['kind'] === 'question').map((q) => q['planned']),
+    attended.interruptions!.filter((i) => i['kind'] === 'question').map((q) => q['planned']),
     [true, true],
   );
 });
 
-test('the wait ends when the connection completes, to the fraction of a second', async () => {
+void test('the wait ends when the connection completes, to the fraction of a second', async () => {
   const { run, main } = await workingRun();
   lines(main, [
     entry('prompt', '2026-01-05T10:00:00Z'),
@@ -998,12 +998,12 @@ test('the wait ends when the connection completes, to the fraction of a second',
   assert.equal((await cost(run))['unattended'].interruptions!.find((i) => i['kind'] === 'question')!.planned, false);
 });
 
-test('the benchmark start splits working time', async () => {
+void test('the benchmark start splits working time', async () => {
   const { run } = await workingRun();
   lines(join(run, 'phase-log.jsonl'), [{ at: '2026-01-05T11:30:00+00:00', phase: 'benchmark', status: 'running' }]);
   const work = (await cost(run))['working'];
-  assert.equal(work!.production!.workingSeconds!, 190);
-  assert.equal(work!.benchmark!.workingSeconds!, 30);
+  assert.equal(work.production!.workingSeconds!, 190);
+  assert.equal(work.benchmark!.workingSeconds!, 30);
   for (const part of [work.production, work.benchmark]) {
     assert.equal(
       part!.workingSeconds! +
@@ -1015,7 +1015,7 @@ test('the benchmark start splits working time', async () => {
   }
 });
 
-test('without a transcript only measured intervals are shown', async () => {
+void test('without a transcript only measured intervals are shown', async () => {
   const { run } = await workingRun();
   const result = await S.writeScore(run, {
     ...quiet,
@@ -1030,7 +1030,7 @@ test('without a transcript only measured intervals are shown', async () => {
   assert.match(result.message!, /working time was not measured for this run/);
 });
 
-test('a rebuild, however its transcript is named, excludes other work in the conversation', async () => {
+void test('a rebuild, however its transcript is named, excludes other work in the conversation', async () => {
   const { run, config, main } = await workingRun();
   renameSync(main.replace(/\.jsonl$/, ''), join(root, 'held-subagents'));
   const records = [
@@ -1059,7 +1059,7 @@ test('a rebuild, however its transcript is named, excludes other work in the con
     [null, [dirname(main)]],
   ] as const) {
     const c = S.scoreCost(run, project, transcripts as string[] | null, null, null, sessionId, [end, end], () => {});
-    assert.equal(c!['model']!['tokens']!['total']!, 30, String(sessionId ?? transcripts));
+    assert.equal(c['model']['tokens']!['total']!, 30, String(sessionId ?? transcripts));
     assert.equal(c['model']['assistantMessages'], 2);
     assert.equal(c['working']['workingSeconds'], 60);
   }
@@ -1075,7 +1075,7 @@ test('a rebuild, however its transcript is named, excludes other work in the con
   assert.deepEqual(rebuilt['working'], full['working']);
 });
 
-test("ISO times keep baseline's naive-local and sub-second semantics", () => {
+void test("ISO times keep baseline's naive-local and sub-second semantics", () => {
   assert.equal(S.parseTime('2026-01-05T10:25:00.900Z')! - S.parseTime('2026-01-05T10:25:00+00:00')!, 900_000);
   assert.equal(S.parseTime('2026-01-05T12:00:00+02:00'), S.parseTime('2026-01-05T10:00:00Z'));
   assert.equal(S.parseTime('2026-01-05T11:00:00'), new Date(2026, 0, 5, 11).getTime() * 1000);

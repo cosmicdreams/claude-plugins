@@ -46,7 +46,7 @@ const configFor = (g: Golden, setup: string): CaptureConfig => ({
 });
 
 for (const g of golden)
-  test(`scaffolded setup keeps its stored capture hashes: ${g.id}`, () => {
+  void test(`scaffolded setup keeps its stored capture hashes: ${g.id}`, () => {
     const own = g.kind === 'template' ? 'template' : 'reveal';
     assert.equal(sha(legacyOwnScript(g.id, own, g.selector, g.children)), g.setupSha256, 'frozen baseline text');
     const cfg = configFor(g, ownScript(g.id, g.kind ?? undefined, g.selector, g.children));
@@ -57,7 +57,7 @@ for (const g of golden)
     assert.equal(legacyHash(configFor(g, legacyOwnScript(g.id, own, g.selector, g.children)), 1), g.legacyHash);
   });
 
-test('the browser runs typed functions, not the baseline text', () => {
+void test('the browser runs typed functions, not the baseline text', () => {
   const g = golden[1]!;
   const setup = ownScript(g.id, g.kind ?? undefined, g.selector, g.children);
   assert.notEqual(sha(setup), g.setupSha256);
@@ -65,7 +65,7 @@ test('the browser runs typed functions, not the baseline text', () => {
   assert.match(setup, /function tagRenders\(/);
 });
 
-test('an edited setup is hashed as written', () => {
+void test('an edited setup is hashed as written', () => {
   const g = golden[0]!;
   const cfg = configFor(g, '(() => 1)()');
   assert.notEqual(legacyHash(cfg, 1), g.legacyHash);

@@ -19,13 +19,13 @@ const capture = {
   states: ['default'],
   images: [{ file: 'hero.png' }],
 };
-test('rendering without capture is refused, verified capture authorizes build', () => {
+void test('rendering without capture is refused, verified capture authorizes build', () => {
   const c = component();
   assert.match(planComponent(c, { rootClasses: ['hero'] }).refuseReason!, /screenshot/);
   assert.equal(planComponent(c, { rootClasses: ['hero'] }, capture).verdict, 'build');
   assert.equal(planComponent(c, { sdc: [], templates: [], rootClasses: [] }).libraryRole, 'schema-only');
 });
-test('unknown and partial usage never authorizes retirement', () => {
+void test('unknown and partial usage never authorizes retirement', () => {
   for (const status of ['unknown', 'partial', 'unavailable'])
     assert.equal(
       planComponent(component({ usage: { placements: 0, structuralRefs: 0, status } }), { rootClasses: ['hero'] })
@@ -38,7 +38,7 @@ test('unknown and partial usage never authorizes retirement', () => {
     'schema-only',
   );
 });
-test('a nested rendered subcomponent is built; a data-only captured part is mapped', () => {
+void test('a nested rendered subcomponent is built; a data-only captured part is mapped', () => {
   const c = component({
     containedBy: ['parent'],
     usage: { placements: 0, structuralRefs: 1 },
@@ -46,7 +46,7 @@ test('a nested rendered subcomponent is built; a data-only captured part is mapp
   assert.equal(planComponent(c, { rootClasses: ['hero'] }, capture, 1).verdict, 'build');
   assert.equal(planComponent(c, { rootClasses: ['hero'] }, capture).verdict, 'map');
 });
-test('variant policies account for implicit unset, bounded axes, spacing sides and swaps', () => {
+void test('variant policies account for implicit unset, bounded axes, spacing sides and swaps', () => {
   assert.equal(
     effectiveOptions({
       options: [{ value: 'a' }, { value: 'b' }],
@@ -109,7 +109,7 @@ test('variant policies account for implicit unset, bounded axes, spacing sides a
   assert.match(p.refuseReason!, /maxVariants/);
   assert.deepEqual(p.properties, [{ field: 'inner', treatment: 'swap' }]);
 });
-test('unit-aware values and Sass map-get names resolve', () => {
+void test('unit-aware values and Sass map-get names resolve', () => {
   assert.equal(num('2.25rem'), 36);
   assert.equal(num('1em'), 16);
   assert.equal(num('50%'), null);
@@ -129,7 +129,7 @@ test('unit-aware values and Sass map-get names resolve', () => {
   });
   assert.equal(plan.collections['Core']!.variables[0]!.codeName, 'map-get($spacers, 1)');
 });
-test('unused breakpoint modes collapse into Core', () => {
+void test('unused breakpoint modes collapse into Core', () => {
   const plan: VariablePlan = {
     modes: ['Value'],
     warnings: [],
@@ -158,7 +158,7 @@ test('unused breakpoint modes collapse into Core', () => {
   assert.deepEqual(Object.keys(plan.collections), ['Core']);
   assert.deepEqual(plan.collections['Core']!.variables.find((v) => v.type === 'FLOAT')!.valuesByMode, { Value: 2 });
 });
-test('large token inventory consolidates aliases and preserves responsive values', () => {
+void test('large token inventory consolidates aliases and preserves responsive values', () => {
   const plan = build({
     source: { strategy: 'css-custom-properties' },
     modes: ['Value', '(min-width: 60em)'],
@@ -194,7 +194,7 @@ test('large token inventory consolidates aliases and preserves responsive values
     '(min-width: 60em)': 48,
   });
 });
-test('independent responsive mode axes remain independent', () => {
+void test('independent responsive mode axes remain independent', () => {
   const plan = build({
     modes: ['Light', 'Dark'],
     colors: [],
@@ -217,5 +217,5 @@ test('independent responsive mode axes remain independent', () => {
   assert.deepEqual(plan.collections['Type']!.modes, ['Light', 'Dark']);
   assert.equal(plan.collectionStrategy!.kind, 'grouped-by-mode-boundary');
 });
-test('unknown token schema fails closed', () =>
+void test('unknown token schema fails closed', () =>
   assert.throws(() => build({ source: { strategy: 'unrecognized' } }), /unrecognised/));

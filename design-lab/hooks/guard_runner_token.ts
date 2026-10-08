@@ -137,17 +137,22 @@ export function touchesToken(input: Record<string, unknown>, cwd = process.cwd()
   }
 }
 export function guard(event: string): number {
-  let value: any;
+  let value: unknown;
   try {
     value = JSON.parse(event);
   } catch {
     return 0;
   }
-  const input = value?.tool_input;
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return 0;
+  const eventData = value as Record<string, unknown>;
+  const input = eventData['tool_input'];
   if (!input || typeof input !== 'object' || Array.isArray(input)) return 0;
-  const cwd = typeof value.cwd === 'string' && isAbsolute(value.cwd) ? value.cwd : process.cwd();
+  const inputRecord = input as Record<string, unknown>;
+  const cwd = typeof eventData['cwd'] === 'string' && isAbsolute(eventData['cwd']) ? eventData['cwd'] : process.cwd();
   const scoped =
-    ['Grep', 'Glob'].includes(value.tool_name) && input.path === undefined ? { ...input, path: cwd } : input;
+    ['Grep', 'Glob'].includes(String(eventData['tool_name'])) && inputRecord['path'] === undefined
+      ? { ...inputRecord, path: cwd }
+      : inputRecord;
   if (touchesToken(scoped, cwd)) {
     console.error(MESSAGE);
     return 2;

@@ -239,7 +239,7 @@ export function renderedText(run: string): Rendered {
     const component = name.slice(0, -'.spec.json'.length);
     for (const measurement of Object.values(spec.measurements ?? {})) {
       if (!('nodes' in measurement) || !Array.isArray(measurement.nodes)) continue;
-      for (const node of measurement.nodes as MeasuredNode[]) {
+      for (const node of measurement.nodes) {
         const text = node.text ?? '',
           computed = node.computed,
           css = computed['fontFamily'];
@@ -440,7 +440,7 @@ export function declared(repo: string, sitestudio?: string | null): Sources {
       (faces[norm(name)] ??= []).push(face);
     }
     for (const [, query] of text.matchAll(/fonts\.googleapis\.com\/css2?\?([^"'\s)<>]+)/g))
-      for (const values of new URLSearchParams(query!).getAll('family'))
+      for (const values of new URLSearchParams(query).getAll('family'))
         for (const item of values.split('|')) google.add((item.split(':')[0] ?? '').replaceAll('+', ' ').trim());
     for (const [, kit] of text.matchAll(/use\.typekit\.net\/([a-z0-9]+)\.(?:css|js)/g)) kits.add(kit!);
   }

@@ -17,7 +17,7 @@ const isolatedEnv = (home: string): NodeJS.ProcessEnv => {
 };
 const TYPE_STRIPPING = /ExperimentalWarning|stripTypeScriptTypes/;
 
-test('runner install prints no type-stripping ExperimentalWarning and names the configured token path', () => {
+void test('runner install prints no type-stripping ExperimentalWarning and names the configured token path', () => {
   const home = scratch();
   try {
     const result = spawnSync(process.execPath, [resolve(pluginRoot, 'scripts/lab_setup.ts'), 'runner'], {
@@ -41,7 +41,7 @@ test('runner install prints no type-stripping ExperimentalWarning and names the 
   }
 });
 
-test('the type-stripping notice is dropped while other warnings still reach the process', () => {
+void test('the type-stripping notice is dropped while other warnings still reach the process', () => {
   const home = scratch();
   try {
     const script = `
@@ -63,7 +63,7 @@ test('the type-stripping notice is dropped while other warnings still reach the 
   }
 });
 
-test('a rejected runner token is answered with the configured token path, never the token', async () => {
+void test('a rejected runner token is answered with the configured token path, never the token', async () => {
   const home = scratch();
   const runner = makeServer(new Map(), 'real-token', {
     ctx: { home: resolve(home, '.design-lab'), port: 0 },

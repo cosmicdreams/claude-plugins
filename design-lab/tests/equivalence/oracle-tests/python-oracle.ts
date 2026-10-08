@@ -13,7 +13,7 @@ _input = json.load(sys.stdin)
 sys.path.insert(0, _input['scripts'])
 `;
 
-export function pyJson<T = any>(body: string, input: Record<string, unknown> = {}): T {
+export function pyJson<T = unknown>(body: string, input: Record<string, unknown> = {}): T {
   const run = spawnSync(PYTHON, ['-I', '-B', '-c', PREAMBLE + body], {
     input: JSON.stringify({ scripts: oracleScripts, ...input }),
     encoding: 'utf8',

@@ -40,7 +40,7 @@ const VALUES: unknown[] = [
   'ÿes',
 ];
 
-test('pyTitle matches Python str.title() for accented, digit-prefixed, apostrophe and hyphenated text', () => {
+void test('pyTitle matches Python str.title() for accented, digit-prefixed, apostrophe and hyphenated text', () => {
   const expected = pyJson<string[]>(`print(json.dumps([str(v).title() for v in _input['values']]))`, {
     values: VALUES.filter((v) => typeof v === 'string'),
   });
@@ -48,7 +48,7 @@ test('pyTitle matches Python str.title() for accented, digit-prefixed, apostroph
   assert.deepEqual(strings.map(sdc.pyTitle), expected);
 });
 
-test('option labels follow Python label normalisation before title casing', () => {
+void test('option labels follow Python label normalisation before title casing', () => {
   const dir = mkdtempSync(resolve(tmpdir(), 'design-lab-title-'));
   try {
     const path = resolve(dir, 'component.yml');
@@ -71,7 +71,7 @@ test('option labels follow Python label normalisation before title casing', () =
   }
 });
 
-test("explicit spot checks from the report: éclair, 123abc, don't, hyphen-case", () => {
+void test("explicit spot checks from the report: éclair, 123abc, don't, hyphen-case", () => {
   assert.equal(sdc.pyTitle('éclair'), 'Éclair');
   assert.equal(sdc.pyTitle('123abc'), '123Abc');
   assert.equal(sdc.pyTitle("don't"), "Don'T");

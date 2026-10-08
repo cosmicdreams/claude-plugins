@@ -67,32 +67,32 @@ if (log) {
       });
     }
   };
-  fs.writeFileSync = ((path: unknown, data: unknown, ...rest: unknown[]) => {
+  fs.writeFileSync = (path: unknown, data: unknown, ...rest: unknown[]) => {
     const result = (writeFileSync as (...args: unknown[]) => void)(path, data, ...rest);
     if (typeof path === 'string') check(path, toText(data));
     return result;
-  }) as typeof fs.writeFileSync;
-  fs.appendFileSync = ((path: unknown, data: unknown, ...rest: unknown[]) => {
+  };
+  fs.appendFileSync = (path: unknown, data: unknown, ...rest: unknown[]) => {
     const result = (appendFileSync as (...args: unknown[]) => void)(path, data, ...rest);
     if (typeof path === 'string' && path !== log) check(path, toText(data));
     else if (typeof path === 'number' && appended.has(path)) check(appended.get(path)!, toText(data));
     return result;
-  }) as typeof fs.appendFileSync;
-  fs.openSync = ((path: unknown, flags?: unknown, ...rest: unknown[]) => {
+  };
+  fs.openSync = (path: unknown, flags?: unknown, ...rest: unknown[]) => {
     const fd = (openSync as (...args: unknown[]) => number)(path, flags, ...rest);
     if (typeof path === 'string' && typeof flags === 'string' && flags.startsWith('a')) appended.set(fd, path);
     return fd;
-  }) as typeof fs.openSync;
-  fs.writeSync = ((fd: number, data: unknown, ...rest: unknown[]) => {
+  };
+  fs.writeSync = (fd: number, data: unknown, ...rest: unknown[]) => {
     const result = (writeSync as (...args: unknown[]) => number)(fd, data, ...rest);
     if (appended.has(fd)) check(appended.get(fd)!, toText(data));
     return result;
-  }) as typeof fs.writeSync;
-  fs.closeSync = ((fd: number) => {
+  };
+  fs.closeSync = (fd: number) => {
     appended.delete(fd);
     return closeSync(fd);
-  }) as typeof fs.closeSync;
-  fs.renameSync = ((from: unknown, to: unknown) => {
+  };
+  fs.renameSync = (from: unknown, to: unknown) => {
     let text: string | undefined;
     if (typeof from === 'string' && typeof to === 'string' && kindForPath(to)) {
       try {
@@ -104,7 +104,7 @@ if (log) {
     const result = renameSync(from as string, to as string);
     if (typeof to === 'string') check(to, text);
     return result;
-  }) as typeof fs.renameSync;
+  };
   // Audit successful schema-governed HTTP sends too. Do not log request query strings (they contain tokens).
   const end = ServerResponse.prototype.end;
   ServerResponse.prototype.end = function (this: ServerResponse, ...args: unknown[]) {

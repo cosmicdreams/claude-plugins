@@ -51,7 +51,7 @@ const scoreRun = (run: string, options: Partial<S.WriteScoreOptions> = {}): Prom
   S.writeScore(run, { warn: () => {}, out: join(root, 'out'), render: stubRender, stopServer: noServer, ...options });
 
 // 1. No project.json: identity reason, and the cost section's reason (the same not-measured shape).
-test('writeScore accepts a run with no project.json (identity and cost reasons)', async () => {
+void test('writeScore accepts a run with no project.json (identity and cost reasons)', async () => {
   const run = join(root, 'run');
   mkdirSync(run, { recursive: true });
   const result = await scoreRun(run);
@@ -60,7 +60,7 @@ test('writeScore accepts a run with no project.json (identity and cost reasons)'
 });
 
 // 2. No components, plan or index files: library reason.
-test('writeScore accepts a run with no components, plan or index (library reason)', async () => {
+void test('writeScore accepts a run with no components, plan or index (library reason)', async () => {
   const run = join(root, 'run');
   write(join(run, 'project.json'), project());
   const result = await scoreRun(run);
@@ -69,7 +69,7 @@ test('writeScore accepts a run with no components, plan or index (library reason
 });
 
 // 3. --compare with a second run, not a shared build: repeatability levelNote and minScore.
-test('writeScore accepts --compare repeatability (levelNote and minScore)', async () => {
+void test('writeScore accepts --compare repeatability (levelNote and minScore)', async () => {
   const run = join(root, 'run'),
     other = join(root, 'other');
   write(join(run, 'project.json'), project());
@@ -90,7 +90,7 @@ test('writeScore accepts --compare repeatability (levelNote and minScore)', asyn
 });
 
 // 4. --transcripts naming a folder: caveat on cost.model and cost.working.
-test('writeScore accepts --transcripts folders (caveat on model and working)', async () => {
+void test('writeScore accepts --transcripts folders (caveat on model and working)', async () => {
   const run = join(root, 'run'),
     folder = join(root, 'transcripts');
   write(join(run, 'project.json'), project());
@@ -111,7 +111,7 @@ test('writeScore accepts --transcripts folders (caveat on model and working)', a
 });
 
 // 5. --session current with two sessions written during the run: cost.developer.sessionWarning.
-test('writeScore accepts --session current with several sessions (sessionWarning)', async () => {
+void test('writeScore accepts --session current with several sessions (sessionWarning)', async () => {
   const run = join(root, 'run'),
     folder = join(root, 'transcripts');
   write(
@@ -130,7 +130,7 @@ test('writeScore accepts --session current with several sessions (sessionWarning
 });
 
 // Varied inputs for the other-writers check: the same writer on the paths that do not write these fields.
-test('writeScore accepts a measured library and a shared-build repeatability', async () => {
+void test('writeScore accepts a measured library and a shared-build repeatability', async () => {
   const run = join(root, 'run'),
     other = join(root, 'other');
   write(join(run, 'project.json'), project());
@@ -155,7 +155,7 @@ test('writeScore accepts a measured library and a shared-build repeatability', a
   assert.match(repeatability.levelNote, /measures the Figma build/);
 });
 
-test('writeScore accepts an explicit transcript file (no caveat)', async () => {
+void test('writeScore accepts an explicit transcript file (no caveat)', async () => {
   const run = join(root, 'run'),
     file = join(root, 'transcripts', 'one.jsonl');
   write(join(run, 'project.json'), project());
@@ -181,7 +181,7 @@ const realRender = (options: Partial<S.WriteScoreOptions> = {}): Partial<S.Write
   return rest;
 };
 
-test('writeScore accepts accuracy recorded only in build records (no corrected measure, no height delta)', async () => {
+void test('writeScore accepts accuracy recorded only in build records (no corrected measure, no height delta)', async () => {
   const run = join(root, 'run');
   write(join(run, 'project.json'), project());
   buildRecord(run, [{ label: 'desktop', ratio: 0.1, pass: true, width: 1200 }]);
@@ -202,7 +202,7 @@ test('writeScore accepts accuracy recorded only in build records (no corrected m
   assert.equal(accuracy.pairs?.[0]?.evidence, null);
 });
 
-test('writeScore accepts a recorded comparison pair that has no ratio (null ratio summaries)', async () => {
+void test('writeScore accepts a recorded comparison pair that has no ratio (null ratio summaries)', async () => {
   const run = join(root, 'run');
   write(join(run, 'project.json'), project());
   buildRecord(run, [{ label: 'desktop', pass: true, width: 1200, heightDelta: 3 }]);
@@ -219,7 +219,7 @@ test('writeScore accepts a recorded comparison pair that has no ratio (null rati
   assert.deepEqual(result.scorecard.headline.accuracy.original, original);
 });
 
-test('writeScore accepts a project manifest that predates run identity and a rebuild with a corpus label', async () => {
+void test('writeScore accepts a project manifest that predates run identity and a rebuild with a corpus label', async () => {
   const run = join(root, 'run');
   const { pluginVersion: _p, standardVersion: _s, repository, ...rest } = project() as Json & { repository: Json };
   const { dirty: _d, ...repo } = repository;
@@ -242,7 +242,7 @@ test('writeScore accepts a project manifest that predates run identity and a reb
   assert.equal(identity.fields.rebuiltFrom?.corpusLabel, 'massport');
 });
 
-test('writeScore accepts a library with only a plan and a run with no benchmark step (null found, null until, no median step)', async () => {
+void test('writeScore accepts a library with only a plan and a run with no benchmark step (null found, null until, no median step)', async () => {
   const run = join(root, 'run'),
     file = join(root, 'transcripts', 'one.jsonl');
   write(join(run, 'project.json'), project({ run: { startedAt: '2026-01-05T10:00:00+00:00' } }));

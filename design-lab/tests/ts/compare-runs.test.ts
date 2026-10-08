@@ -51,7 +51,7 @@ function fixture(root: string) {
   );
 }
 
-test('determinism normalization ignores run metadata but retains ordered layout values', () => {
+void test('determinism normalization ignores run metadata but retains ordered layout values', () => {
   const a = { generatedAt: 'old', runId: 'A', layout: [{ width: 10, x: 1 }] };
   const b = { runId: 'B', layout: [{ x: 1, width: 10 }], generatedAt: 'new' };
   assert.deepEqual(normalize(a), normalize(b));
@@ -59,7 +59,7 @@ test('determinism normalization ignores run metadata but retains ordered layout 
   assert.notEqual(canonicalHash(a), canonicalHash({ ...a, layout: [{ width: 11, x: 1 }] }));
 });
 
-test('layout file hashing preserves baseline integer and float JSON semantics', () => {
+void test('layout file hashing preserves baseline integer and float JSON semantics', () => {
   const root = mkdtempSync(join(tmpdir(), 'design-lab-layout-hash-'));
   try {
     const floatPath = join(root, 'float.json'),
@@ -74,7 +74,7 @@ test('layout file hashing preserves baseline integer and float JSON semantics', 
   }
 });
 
-test('identical run output scores 100 despite fresh Figma node ids', () => {
+void test('identical run output scores 100 despite fresh Figma node ids', () => {
   const root = mkdtempSync(join(tmpdir(), 'design-lab-compare-'));
   try {
     fixture(join(root, 'a'));
@@ -92,7 +92,7 @@ test('identical run output scores 100 despite fresh Figma node ids', () => {
   }
 });
 
-test('comparison detects every node category and retains its exact score', () => {
+void test('comparison detects every node category and retains its exact score', () => {
   const root = mkdtempSync(join(tmpdir(), 'design-lab-compare-categories-'));
   try {
     fixture(join(root, 'a'));
@@ -135,7 +135,7 @@ test('comparison detects every node category and retains its exact score', () =>
   }
 });
 
-test('comparison detects missing nodes and page ordering drift', () => {
+void test('comparison detects missing nodes and page ordering drift', () => {
   const root = mkdtempSync(join(tmpdir(), 'design-lab-compare-pages-'));
   try {
     fixture(join(root, 'a'));
@@ -176,15 +176,15 @@ const dumps = (root: string, a: string, b: string) => {
   }
   return compareRuns(join(root, 'a'), join(root, 'b'));
 };
-test('finding 4: missing properties project to Python None', () => {
+void test('finding 4: missing properties project to Python None', () => {
   const root = temp();
   const report = dumps(root, '"fontSize":null', '"fontName":null');
   assert.equal(report.summary.score, 100);
 });
-test('finding 4: JSON floating token type survives dump comparison', () => {
+void test('finding 4: JSON floating token type survives dump comparison', () => {
   assert.equal(dumps(temp(), '"width":10.0', '"width":10').summary.score, 90.91);
 });
-test('finding 6: absent dump evidence is not measured', async () => {
+void test('finding 6: absent dump evidence is not measured', async () => {
   const root = temp();
   for (const side of ['a', 'b']) mkdirSync(join(root, side, 'figma'), { recursive: true });
   const comparison = compareRuns(join(root, 'a'), join(root, 'b'));
@@ -196,7 +196,7 @@ test('finding 6: absent dump evidence is not measured', async () => {
   assert.equal(repeat['status'], 'not-measured');
   assert.match(repeat['reason'] ?? '', /dump/i);
 });
-test('finding 6: an explicit verified empty file is measured but incomplete pages are not', async () => {
+void test('finding 6: an explicit verified empty file is measured but incomplete pages are not', async () => {
   const root = temp();
   for (const side of ['a', 'b']) {
     mkdirSync(join(root, side, 'figma/verify'), { recursive: true });

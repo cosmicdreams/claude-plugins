@@ -711,7 +711,7 @@ export function convert(
               y: r2(child.y + child.height),
               layout: { mode: 'NONE', padding: { top: 0, right: 0, bottom: 0, left: 0 } },
               children: [],
-            } as FlatNode,
+            },
           ]
         : [child],
     );
@@ -729,7 +729,7 @@ export function build(spec: Spec, label?: string | null) {
     .map(([key, measurement]) => {
       const [breakpoint, state] = key.split(':');
       if ('error' in measurement) return { breakpoint, state, error: measurement.error };
-      const nodes = measurement.nodes as MeasuredNode[],
+      const nodes = measurement.nodes,
         root = nodes[0]!;
       const block = root.classes.find((c) => !c.includes('__') && !c.includes('--')) ?? null;
       return { breakpoint, state, tree: convert(root, buildIndex(nodes), block, label || spec.component, breakpoint) };

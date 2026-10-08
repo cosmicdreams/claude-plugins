@@ -60,7 +60,7 @@ export function walk(
   visit(base);
   return out.sort();
 }
-export function loadYaml(path: string): any {
+export function loadYaml(path: string): unknown {
   const text = readText(path);
   if (!text) return null;
   return parsePyYaml(text);

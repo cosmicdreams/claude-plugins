@@ -18,7 +18,7 @@ export function count(html: string, id: string): number {
     if (
       names &&
       /<!-- [^\n]*BEGIN [^\n]*OUTPUT from '[^']+' -->/.test(rest) &&
-      (Array.from(names[1]!.match(/[\w-]+\.html\.twig/g) ?? []) as string[]).includes(wanted)
+      Array.from(names[1]!.match(/[\w-]+\.html\.twig/g) ?? []).includes(wanted)
     )
       total++;
   }

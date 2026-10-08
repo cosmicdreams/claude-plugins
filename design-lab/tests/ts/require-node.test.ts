@@ -12,7 +12,7 @@ function run(fakeVersion?: string) {
   return spawnSync(process.execPath, [script], { encoding: 'utf8', env });
 }
 
-test('an older Node gets an actionable message and a non-zero exit', () => {
+void test('an older Node gets an actionable message and a non-zero exit', () => {
   const result = run('20.11.1');
   assert.equal(result.status, 1);
   assert.equal(result.stdout, '');
@@ -24,7 +24,7 @@ test('an older Node gets an actionable message and a non-zero exit', () => {
   assert.doesNotMatch(result.stderr, /ERR_UNKNOWN_FILE_EXTENSION/);
 });
 
-test('Node 22 and 23 are refused, Node 24 and later pass silently', () => {
+void test('Node 22 and 23 are refused, Node 24 and later pass silently', () => {
   for (const version of ['18.20.4', '22.19.0', '23.11.0']) {
     const result = run(version);
     assert.equal(result.status, 1, `Node ${version} must be refused`);
@@ -38,7 +38,7 @@ test('Node 22 and 23 are refused, Node 24 and later pass silently', () => {
   }
 });
 
-test('the real Node version takes the same path the bootstrap reports', () => {
+void test('the real Node version takes the same path the bootstrap reports', () => {
   const major = Number(process.versions.node.split('.')[0]);
   const result = run();
   assert.equal(result.status, major >= 24 ? 0 : 1);

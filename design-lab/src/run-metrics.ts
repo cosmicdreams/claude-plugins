@@ -293,7 +293,7 @@ export async function accuracyPairs(runDir: string): Promise<AccuracyPair[]> {
     const name = block.slice(block.lastIndexOf('/') + 1),
       component = stem(name, '.json').slice('block_'.length);
     const specimen = resolve(runDir, 'figma/compare', `${component}.png`);
-    const geometry = obj(readJson<{ geometry?: Geometry }>(block)).geometry ?? ({} as Geometry);
+    const geometry = obj(readJson<{ geometry?: Geometry }>(block)).geometry ?? {};
     if (!isFile(specimen) || !truthy(geometry.variants)) continue;
     const { original, corrected } = await figmaCompare(specimen, geometry);
     const captures = list(geometry.captures),
@@ -371,7 +371,7 @@ async function scoreAccuracyResult(runDir: string) {
       'let the runner finish its compare steps, which save both',
     );
   }
-  const present = new Set(pairs.map((p) => p['breakpoint'] as string));
+  const present = new Set(pairs.map((p) => p['breakpoint']));
   const names: string[] = BREAKPOINTS.filter((b) => present.has(b));
   names.push(...[...present].filter((b) => !names.includes(b)).sort());
   const byBreakpoint: Record<

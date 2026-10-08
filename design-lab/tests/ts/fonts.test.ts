@@ -89,7 +89,7 @@ const FIGMA = {
   Helvetica: ['Regular'],
 };
 
-test('planner selects served families, skips undeclared CSS names, and records stack build behavior', async (t) => {
+void test('planner selects served families, skips undeclared CSS names, and records stack build behavior', async (t) => {
   const f = fixture(t),
     doc = await f.makePlan(null),
     by = Object.fromEntries(doc.families.map((x) => [x.family, x]));
@@ -113,7 +113,7 @@ test('planner selects served families, skips undeclared CSS names, and records s
   assert.deepEqual(doc.build.stacks['Poppins, Arial, sans-serif'], { family: 'Arial' });
   assert.equal(doc.figmaChecked, false);
 });
-test('served file names determine CSS face matching, including variable and italic faces', async (t) => {
+void test('served file names determine CSS face matching, including variable and italic faces', async (t) => {
   const f = fixture(t),
     doc = await f.makePlan(null),
     faces = doc.build.families['suisseintl']!.faces;
@@ -138,7 +138,7 @@ test('served file names determine CSS face matching, including variable and ital
   assert.equal(weightOf('451.5'), 452);
   assert.equal(faceStyle('', 250, false), 'ExtraLight');
 });
-test('missing families receive genre-aware stand-ins, useful routes, and a concise summary', async (t) => {
+void test('missing families receive genre-aware stand-ins, useful routes, and a concise summary', async (t) => {
   const f = fixture(t),
     doc = await f.makePlan(FIGMA),
     by = Object.fromEntries(doc.families.map((x) => [x.family, x]));
@@ -165,7 +165,7 @@ test('missing families receive genre-aware stand-ins, useful routes, and a conci
   assert.ok(summary.includes('Styles the site uses: Italic, SemiBold'));
   assert.ok(summary.includes('do not install them unless the licence says you may'));
 });
-test('macOS names omitted by Figma have no installation route and may use their listed relative name', async (t) => {
+void test('macOS names omitted by Figma have no installation route and may use their listed relative name', async (t) => {
   const f = fixture(t),
     figma: Record<string, string[]> = { ...FIGMA };
   delete figma['Arial'];
@@ -188,7 +188,7 @@ test('macOS names omitted by Figma have no installation route and may use their 
   const without = await plan({ run: f.run, repo: f.repo, figma: FIGMA, fetchAdobeKit: async () => ({}) });
   assert.equal(without.families[0]?.standIn?.family, 'Cousine');
 });
-test('system family trial names and open-licence sources are resolved', async (t) => {
+void test('system family trial names and open-licence sources are resolved', async (t) => {
   const f = fixture(t),
     trial = { ...FIGMA, 'Suisse Intl Trial': ['Regular', 'Semibold'] },
     doc = await f.makePlan(trial),
@@ -203,7 +203,7 @@ test('system family trial names and open-licence sources are resolved', async (t
   assert.equal(availableFamily('Brand', { 'Brand Web': [] }), 'Brand Web');
   assert.equal(faceStyle('Brand-Semibold.woff2', 500, false), 'SemiBold');
 });
-test('Google references inside escaped configuration and remote CDN face names are discovered', async (t) => {
+void test('Google references inside escaped configuration and remote CDN face names are discovered', async (t) => {
   const f = fixture(t),
     config = join(f.repo, 'config/sitestudio');
   mkdirSync(config, { recursive: true });
@@ -225,7 +225,7 @@ test('Google references inside escaped configuration and remote CDN face names a
   const doc = await f.makePlan(null, true, { sitestudio: config });
   assert.equal(doc.families.find((x) => x.family === 'Noto Serif')?.source, 'google');
 });
-test('an unreachable Adobe kit preserves possible families and reports the cache state', async (t) => {
+void test('an unreachable Adobe kit preserves possible families and reports the cache state', async (t) => {
   const f = fixture(t),
     doc = await f.makePlan(FIGMA, false),
     freight = doc.families.find((x) => x.cssFamily === 'freight-text-pro')!;
@@ -236,7 +236,7 @@ test('an unreachable Adobe kit preserves possible families and reports the cache
   assert.ok(!doc.unrendered.some((x) => x.family === 'freight-text-pro'));
   assert.ok(summaryLines(doc).join('\n').includes('could not be read'));
 });
-test('icon names avoid false positives and unicode ranges fall through the declared stack', async (t) => {
+void test('icon names avoid false positives and unicode ranges fall through the declared stack', async (t) => {
   for (const name of ['icomoon', 'Font Awesome 6 Free', 'site-icons']) assert.equal(isIcon(name), true);
   for (const name of ['Lexicon', 'Fabiola']) assert.equal(isIcon(name), false);
   assert.deepEqual(rangesOf('U+0000-00FF, U+0131'), [
@@ -257,7 +257,7 @@ test('icon names avoid false positives and unicode ranges fall through the decla
   assert.equal(stack?.otherwise, 'Arial');
   assert.deepEqual(stack?.ranges, [[0, 255]]);
 });
-test('open licences must cover every served face and web formats explain conversion', async (t) => {
+void test('open licences must cover every served face and web formats explain conversion', async (t) => {
   const f = fixture(t),
     open = join(f.theme, 'fonts/open');
   writeFileSync(join(open, 'Assistant.woff2'), 'font');
@@ -281,7 +281,7 @@ test('open licences must cover every served face and web formats explain convers
   assistant = (await f.makePlan(figma)).families.find((x) => x.family === 'Assistant')!;
   assert.equal(assistant.route?.kind, 'commercial');
 });
-test('Adobe kit results are cached under the run and unreadable results are retried', async (t) => {
+void test('Adobe kit results are cached under the run and unreadable results are retried', async (t) => {
   const f = fixture(t),
     fetched: string[] = [],
     fetcher = async (id: string) => {
@@ -296,10 +296,10 @@ test('Adobe kit results are cached under the run and unreadable results are retr
   await kitsFor(f.run, ['abc'], fetcher);
   assert.deepEqual(fetched, ['abc', 'abc']);
 });
-test('configuration decoding follows HTML5 named and numeric character references', () => {
+void test('configuration decoding follows HTML5 named and numeric character references', () => {
   assert.equal(unescape('A&amp;B &NotEqualTilde; &#128; &#1; &notit;'), 'A&B ≂̸ €  ¬it;');
 });
-test('CSS discovery keeps baseline regex case behavior and requires source and license files', (t) => {
+void test('CSS discovery keeps baseline regex case behavior and requires source and license files', (t) => {
   const f = fixture(t),
     directoryFont = join(f.theme, 'fonts/open/directory.woff2');
   mkdirSync(directoryFont);
@@ -313,7 +313,7 @@ test('CSS discovery keeps baseline regex case behavior and requires source and l
   assert.equal(sources.faces['directory']?.[0]?.exists, false);
   assert.equal(sources.faces['directory']?.[0]?.licence, null);
 });
-test('CLI reads project inputs, writes fonts.json, and prints its summary', async (t) => {
+void test('CLI reads project inputs, writes fonts.json, and prints its summary', async (t) => {
   const root = mkdtempSync(join(tmpdir(), 'design-lab-fonts-cli-')),
     run = join(root, 'run'),
     repo = join(root, 'repo');

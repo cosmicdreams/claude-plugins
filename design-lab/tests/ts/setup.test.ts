@@ -71,10 +71,10 @@ setTimeout(() => process.exit(process.env.FAKE_FAIL ? 2 : 0), process.env.FAKE_P
       });
       children.push(child);
       let output = '';
-      child.stdout!.on('data', (data) => {
+      child.stdout.on('data', (data) => {
         output += String(data);
       });
-      child.stderr!.on('data', (data) => {
+      child.stderr.on('data', (data) => {
         output += String(data);
       });
       const done = new Promise<{ status: number | null; output: string }>((done, reject) => {
@@ -97,7 +97,7 @@ async function until(predicate: () => boolean): Promise<void> {
   }
 }
 
-test(
+void test(
   'two setup processes publish one complete install; reuse and production never mutate it',
   { timeout: 15_000 },
   async () => {
@@ -135,7 +135,7 @@ test(
   },
 );
 
-test('failed install never publishes a marker and a later setup can retry', { timeout: 15_000 }, async () => {
+void test('failed install never publishes a marker and a later setup can retry', { timeout: 15_000 }, async () => {
   const f = fixture();
   try {
     const failed = await f.start({ FAKE_FAIL: '1' }).done;
@@ -152,7 +152,7 @@ test('failed install never publishes a marker and a later setup can retry', { ti
   }
 });
 
-test('unmarked install is refused by runtime and safely replaced by setup', { timeout: 15_000 }, async () => {
+void test('unmarked install is refused by runtime and safely replaced by setup', { timeout: 15_000 }, async () => {
   const f = fixture();
   try {
     mkdirSync(resolve(f.folder, 'node_modules'), { recursive: true });
@@ -178,7 +178,7 @@ test('unmarked install is refused by runtime and safely replaced by setup', { ti
   }
 });
 
-test(
+void test(
   'killed setup leaves no published install; next setup recovers its dead-owner lock',
   { timeout: 15_000 },
   async () => {

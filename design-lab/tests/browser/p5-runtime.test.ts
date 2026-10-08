@@ -25,7 +25,7 @@ const cli = (script: string, args: string[], cwd: string) =>
     });
   });
 
-test('documented manual capture and selector check use only shared packages and Chromium from an unrelated cwd', async () => {
+void test('documented manual capture and selector check use only shared packages and Chromium from an unrelated cwd', async () => {
   const root = mkdtempSync('/tmp/design-lab-p5-browser-');
   const server = createServer((_req, res) => {
     res.setHeader('Content-Type', 'text/html');
@@ -81,7 +81,7 @@ test('documented manual capture and selector check use only shared packages and 
   }
 });
 
-test('phase 5 capture CLI prints per-component timing and ETA before its summary', async () => {
+void test('phase 5 capture CLI prints per-component timing and ETA before its summary', async () => {
   const root = mkdtempSync('/tmp/design-lab-p5-progress-');
   const server = createServer((_req, res) => {
     res.setHeader('Content-Type', 'text/html');

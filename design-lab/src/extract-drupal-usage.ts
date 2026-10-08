@@ -667,7 +667,7 @@ export function buildUsage(components: UsageInventory, rows: Rows, source: Usage
         ]),
       ],
     };
-    if (tpl.sources.get(id)?.size) usage[id]!['templates'] = sortedStrings(tpl.sources.get(id)!);
+    if (tpl.sources.get(id)?.size) usage[id]['templates'] = sortedStrings(tpl.sources.get(id)!);
   }
   const zero = Object.entries(usage)
     .filter(([, value]) => value['placements'] === 0 && value['structuralRefs'] === 0)

@@ -228,8 +228,8 @@ describe('a runner that is not needed yet', () => {
         lastSeen: ago(300_000),
       }),
     });
-    expect(runnerLine(s.runner!)).toBe('runner idle until the build');
-    expect(stepsLine(s.runner!)).toBeNull();
+    expect(runnerLine(s.runner)).toBe('runner idle until the build');
+    expect(stepsLine(s.runner)).toBeNull();
     expect(statusOf(s, NOW)).toContain('runner idle until the build');
     expect(isDown(s)).toBe(false);
   });
@@ -259,8 +259,8 @@ describe('a runner that is not needed yet', () => {
         message: 'Connected. Waiting for the build to start.',
       }),
     });
-    expect(runnerLine(s.runner!)).toBe('waiting for the runner to start');
-    expect(stepsLine(s.runner!)).toBeNull();
+    expect(runnerLine(s.runner)).toBe('waiting for the runner to start');
+    expect(stepsLine(s.runner)).toBeNull();
     expect(isDown(s)).toBe(false);
   });
 });

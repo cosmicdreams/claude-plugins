@@ -119,14 +119,14 @@ export function layoutNodes(tree: ResolvedTreeNode): LayoutRow[] {
       const extents = current.map((r) => r.size[horizontal ? 0 : 1]),
         crosses = current.map((r) => r.size[horizontal ? 1 : 0]),
         known = extents.every((v) => v !== null),
-        occupied = known ? extents.reduce((n, v) => n + v!, 0) + gap * Math.max(0, current.length - 1) : null,
+        occupied = known ? extents.reduce((n, v) => n + v, 0) + gap * Math.max(0, current.length - 1) : null,
         spare = primary !== null && occupied !== null ? Math.max(0, primary - occupied) : null,
         align = layout.primaryAlign ?? 'MIN';
       let cursor: number | null =
         align === 'MIN' ? 0 : align === 'CENTER' ? (spare === null ? null : spare / 2) : spare;
       const spacing =
           align === 'SPACE_BETWEEN' && spare !== null && current.length > 1 ? spare / (current.length - 1) : 0,
-        lineCross = crosses.every((v) => v !== null) ? Math.max(...(crosses as number[])) : null,
+        lineCross = crosses.every((v) => v !== null) ? Math.max(...crosses) : null,
         availableCross = layout.wrap ? lineCross : cross;
       for (const {
         child,

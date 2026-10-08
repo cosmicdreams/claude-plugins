@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { pluginRoot } from '../../src/runtime.ts';
 
-test(
+void test(
   'directory includes catch future Node entrypoints; Figma config permits API and rejects Node globals',
   { timeout: 30_000 },
   () => {

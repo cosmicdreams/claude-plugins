@@ -126,7 +126,7 @@ export async function template(ARGS: Record<string, never>) {
     nodes.push(entry);
     if ('children' in node) {
       const counts = new Map();
-      for (const child of node.children!) {
+      for (const child of node.children) {
         const index = counts.get(child.name) || 0;
         counts.set(child.name, index + 1);
         await visit(child, path + '/' + child.name + '#' + index);

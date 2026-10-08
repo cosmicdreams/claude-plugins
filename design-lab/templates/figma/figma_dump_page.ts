@@ -92,9 +92,7 @@ export async function template(ARGS: Record<string, never>) {
         })),
         visibleTextCount: texts.length,
         schemaLabelCount: texts.filter((child) =>
-          /^(field|caption|placeholder|required|optional|constraint|default)\s*:/i.test(
-            (child as TextNode).characters.trim(),
-          ),
+          /^(field|caption|placeholder|required|optional|constraint|default)\s*:/i.test(child.characters.trim()),
         ).length,
       };
     });
@@ -113,7 +111,7 @@ export async function template(ARGS: Record<string, never>) {
     const children = node ? node.findAll(() => true) : [];
     const text = children
       .filter((child) => child.type === 'TEXT')
-      .map((child) => (child as TextNode).characters)
+      .map((child) => child.characters)
       .join('\n');
     const sections = node ? node.children.map((child) => child.name) : [];
     const captures = block.findAll((child) => child.type === 'RECTANGLE' && /^Capture · /.test(child.name));
@@ -134,8 +132,7 @@ export async function template(ARGS: Record<string, never>) {
           width: Math.round((child as LayoutMixin).width),
           mainComponentId: null,
           instance: child.type === 'INSTANCE' ? child : null,
-          explicitModes:
-            (child as SceneNode & { explicitVariableModes?: Record<string, string> }).explicitVariableModes || {},
+          explicitModes: child.explicitVariableModes || {},
         }))
       : [];
     return {
@@ -152,9 +149,7 @@ export async function template(ARGS: Record<string, never>) {
       breakpointScreenshotCount: breakpointImages.length,
       captureLabels: captures.map((child) => child.name.replace(/^Capture · /, '')),
       breakpointLabels: block
-        .findAll(
-          (child) => child.type === 'TEXT' && /(desktop|tablet|mobile).*px/i.test((child as TextNode).characters),
-        )
+        .findAll((child) => child.type === 'TEXT' && /(desktop|tablet|mobile).*px/i.test(child.characters))
         .map((child) => (child as TextNode).characters),
       breakpointNodes,
       rejectedHeadingCount: 0,
@@ -162,10 +157,7 @@ export async function template(ARGS: Record<string, never>) {
       rootRelativeExampleCount: (text.match(/(?:^|\s)\/[a-z0-9][a-z0-9/_-]*|example\W*\/(?=[\s.,;)]|$)/gi) || [])
         .length,
       urlLinkCount: children.filter(
-        (child) =>
-          child.type === 'TEXT' &&
-          (child as TextNode).hyperlink &&
-          ((child as TextNode).hyperlink as HyperlinkTarget).type === 'URL',
+        (child) => child.type === 'TEXT' && child.hyperlink && (child.hyperlink as HyperlinkTarget).type === 'URL',
       ).length,
     };
   });
@@ -179,7 +171,7 @@ export async function template(ARGS: Record<string, never>) {
     height: Math.round(node.height),
     hasImage: Array.isArray(node.fills) && node.fills.some((fill) => fill.type === 'IMAGE'),
     labelWidth: (() => {
-      const text = (node.parent as (BaseNode & ChildrenMixin) | null)
+      const text = node.parent
         ?.findAll((child) => child.type === 'TEXT')
         .map((child) => (child as TextNode).characters)
         .join(' ');

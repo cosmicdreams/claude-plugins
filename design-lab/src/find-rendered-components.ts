@@ -80,7 +80,7 @@ export function summarizePages(pages: Page[], components: UsageInventory): Recor
       );
       sourceId = match ? match[1] + ':' + match[2] : component['id'];
     }
-    idBySdc.set(sourceId!, component['id']);
+    idBySdc.set(sourceId, component['id']);
   }
   const evidence: Record<string, RenderedEvidence> = {};
   for (const id of idBySdc.values())

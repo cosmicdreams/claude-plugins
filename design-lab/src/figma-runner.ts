@@ -332,7 +332,7 @@ export async function fitFigmaImage(path: string): Promise<Buffer> {
       fit: 'fill',
       kernel: 'lanczos3',
     })
-    .toFormat((meta.format ?? 'png') as 'png' | 'jpeg' | 'webp')
+    .toFormat(meta.format ?? 'png')
     .toBuffer();
 }
 
@@ -678,7 +678,7 @@ export class Build {
         return wait('The templates changed during the build. Waiting for the next build.');
       }
       if (step.kind !== 'skip') break;
-      await this.driver().record(step.step!);
+      await this.driver().record(step.step);
       this.log(`skipped ${step.step}: ${text(step['reason']) ?? ''}`);
     }
     if (step.kind === 'done' && this.connectedStamp === this.stateStamp()) {
@@ -934,7 +934,7 @@ export class Build {
     const out: RecordResponse =
       cur.kind === 'screenshot'
         ? await this.driver().recordScreenshot(step, result)
-        : await this.driver().record(step, result as BuildResult);
+        : await this.driver().record(step, result);
     this.current = null;
     this.log(`recorded ${step} (${out['remaining']} remaining)`);
     return out;

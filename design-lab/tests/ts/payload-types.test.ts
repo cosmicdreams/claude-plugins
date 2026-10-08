@@ -18,7 +18,7 @@ function compileOnly() {
   void tree;
 }
 void compileOnly;
-test('compact payload preserves variable padding, shared styles and the text discriminant', () => {
+void test('compact payload preserves variable padding, shared styles and the text discriminant', () => {
   const compacted = compact({
     kind: 'frame',
     name: 'root',
@@ -46,7 +46,7 @@ test('compact payload preserves variable padding, shared styles and the text dis
   });
   assert.deepEqual(compacted.styles, [{ family: 'Inter', weight: 400, size: 16 }]);
 });
-test('every dump name is available through the typed renderer seam', () => {
+void test('every dump name is available through the typed renderer seam', () => {
   for (const name of ['figma_dump_root', 'figma_dump_tree', 'figma_dump_page', 'figma_dump_getting_started'] as const) {
     const code = callPayload(name, {});
     assert.ok(code.startsWith('const ARGS = {};'));

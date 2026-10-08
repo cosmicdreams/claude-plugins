@@ -23,7 +23,7 @@ const durableKinds = [
   'scorecard',
 ] as const;
 for (const kind of durableKinds)
-  test(`real artifact excerpt: ${kind}`, () => {
+  void test(`real artifact excerpt: ${kind}`, () => {
     const fixture = JSON.parse(readFileSync(new URL(`./fixtures/${kind}.json`, import.meta.url), 'utf8')) as unknown;
     assert.deepEqual(validate(kind, fixture), []);
     assert.ok(validate(kind, {}).length);
@@ -179,14 +179,14 @@ const boundaryCases: [ArtifactKind, unknown][] = [
   ['runner-request', { fileKey: 'test', token: 'test-only', version: '0.23.2', step: 'pages', i: '0' }],
 ];
 for (const [index, [kind, fixture]] of boundaryCases.entries())
-  test(`boundary fixture ${index}: ${kind}`, () => assert.deepEqual(validate(kind, fixture), []));
+  void test(`boundary fixture ${index}: ${kind}`, () => assert.deepEqual(validate(kind, fixture), []));
 
-test('every schema is covered and rejects non-object roots', () => {
+void test('every schema is covered and rejects non-object roots', () => {
   assert.deepEqual([...new Set([...durableKinds, ...boundaryCases.map(([kind]) => kind)])].sort(), artifactKinds);
   for (const kind of artifactKinds)
     for (const value of [null, false, 'text', []]) assert.ok(validate(kind, value).length, kind);
 });
-test('nested corruption has a readable path and never coerces input', () => {
+void test('nested corruption has a readable path and never coerces input', () => {
   const value = structuredClone(tree);
   value.tree.width = { var: 5 as unknown as string };
   const before = JSON.stringify(value);
@@ -201,7 +201,7 @@ test('nested corruption has a readable path and never coerces input', () => {
   assert.ok(validate('runner-error', { step: 'pages' }).some((error) => error.includes('/message')));
   assert.match(validate('unknown' as ArtifactKind, {})[0]!, /unsupported/);
 });
-test('atomic writes replace complete JSON, use private files, and clean up failures', () => {
+void test('atomic writes replace complete JSON, use private files, and clean up failures', () => {
   const dir = mkdtempSync(resolve(tmpdir(), 'design-lab-write-'));
   try {
     const file = resolve(dir, 'nested', 'artifact.json');
@@ -219,7 +219,7 @@ test('atomic writes replace complete JSON, use private files, and clean up failu
     rmSync(dir, { recursive: true, force: true });
   }
 });
-test('read-only scanner reports all files and JSONL entries, distinguishes screenshot manifests', () => {
+void test('read-only scanner reports all files and JSONL entries, distinguishes screenshot manifests', () => {
   const dir = mkdtempSync(resolve(tmpdir(), 'design-lab-scan-'));
   try {
     mkdirSync(resolve(dir, 'figma/trees'), { recursive: true });
@@ -253,7 +253,7 @@ function typedContracts(value: unknown): void {
 }
 void typedContracts;
 
-test('media-only tokens accept arbitrary mode names with string values', () => {
+void test('media-only tokens accept arbitrary mode names with string values', () => {
   const fixture = JSON.parse(readFileSync(new URL('./fixtures/tokens-media-only.json', import.meta.url), 'utf8'));
   assert.deepEqual(validate('tokens', fixture), []);
   fixture.tokens[0].valuesByMode['Unseen breakpoint'] = 42;
@@ -266,7 +266,7 @@ test('media-only tokens accept arbitrary mode names with string values', () => {
   void modes;
 });
 
-test('owned artifact records reject root and nested field drift', () => {
+void test('owned artifact records reject root and nested field drift', () => {
   for (const kind of durableKinds) {
     const fixture = JSON.parse(readFileSync(new URL(`./fixtures/${kind}.json`, import.meta.url), 'utf8'));
     assert.ok(
@@ -294,7 +294,7 @@ test('owned artifact records reject root and nested field drift', () => {
   );
 });
 
-test('explicit dictionaries accept new keys and validate their values without defaults', () => {
+void test('explicit dictionaries accept new keys and validate their values without defaults', () => {
   const value = structuredClone(spec);
   value.measurements['desktop:default'].nodes = [];
   assert.deepEqual(validate('spec', value), []);
@@ -327,7 +327,7 @@ test('explicit dictionaries accept new keys and validate their values without de
   assert.equal(JSON.stringify(value), before);
 });
 
-test('generated contracts reject typos, missing variant fields and present undefined', () => {
+void test('generated contracts reject typos, missing variant fields and present undefined', () => {
   // @ts-expect-error nodeIDs is not a writer field; the generated union must stay closed.
   const typo: ArtifactMap['runner-step'] = { kind: 'upload', step: 'images', nodeIDs: [], scaleMode: 'FILL' };
   // @ts-expect-error The required-only schema union must require code or payload in its generated type too.

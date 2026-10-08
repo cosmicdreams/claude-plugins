@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs';
 import { COMMANDS, BOOLEAN_FLAGS, CHOICES, NUMBER_DEFAULTS, parseCommand } from '../../scripts/workflow.ts';
 import type { CommandArgs } from '../../scripts/workflow.ts';
 
-test('workflow retains all 24 commands and 44 flags, required flags, choices and defaults', () => {
+void test('workflow retains all 24 commands and 44 flags, required flags, choices and defaults', () => {
   assert.deepEqual(
     COMMANDS,
     JSON.parse(readFileSync(new URL('../fixtures/workflow-commands.json', import.meta.url), 'utf8')),

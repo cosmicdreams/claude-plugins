@@ -3,7 +3,19 @@ import { configSync, docroot } from './detect.ts';
 import { load, extract as extractSdc, KIND } from './extract-sdc.ts';
 import type { Entry } from './extract-sdc.ts';
 import type { Components } from './generated/components.ts';
+import type { JsonValue } from './generated/components.ts';
 type Problem = NonNullable<Components['problems']>[number];
+type CanvasYaml = {
+  configEntityTypeId?: string;
+  name?: string;
+  items?: string[];
+  source_local_id?: string;
+  id?: string;
+  label?: string;
+  active_version?: string;
+  versioned_properties?: { active?: { settings?: { prop_field_definitions?: Record<string, unknown> } } };
+};
+type CanvasProperty = { field_type?: string; required?: boolean; field_widget?: string; default_value?: unknown };
 import { validate } from './contracts.ts';
 export function extract(root: string): Components {
   const abs = resolve(root),
@@ -19,10 +31,10 @@ export function extract(root: string): Components {
     .filter((n: string) => n.startsWith('canvas.folder.') && n.endsWith('.yml'))
     .sort()) {
     const p = join(cfg, n),
-      d = load(p);
+      d = load(p) as CanvasYaml;
     if (d.configEntityTypeId !== 'component') continue;
     for (const item of d.items || [])
-      if (!folders.has(item)) folders.set(item, [d.name, rel(abs, p).split(sep).join('/')]);
+      if (!folders.has(item)) folders.set(item, [d.name as string, rel(abs, p).split(sep).join('/')]);
   }
   const components: Entry[] = [],
     problems: Problem[] = [...(raw.problems ?? [])];
@@ -31,7 +43,7 @@ export function extract(root: string): Components {
     .filter((n: string) => n.startsWith('canvas.component.sdc.') && n.endsWith('.yml'))
     .sort()) {
     const p = join(cfg, n),
-      d = load(p),
+      d = load(p) as CanvasYaml,
       sourceId = d.source_local_id || '',
       sepAt = sourceId.indexOf(':'),
       provider = sepAt < 0 ? '' : sourceId.slice(0, sepAt),
@@ -70,10 +82,11 @@ export function extract(root: string): Components {
       group: folder ? folder[1] : c.sourceRef,
     };
     const defs = d.versioned_properties?.active?.settings?.prop_field_definitions || {},
-      fields = new Map(c.fields.map((f: any) => [f.name, f]));
-    for (const [name, spec] of Object.entries(defs) as [string, any][]) {
+      fields = new Map(c.fields.map((f) => [f.name, f]));
+    for (const [name, rawSpec] of Object.entries(defs)) {
+      const spec = rawSpec as CanvasProperty;
       if (!spec || typeof spec !== 'object') continue;
-      let f = fields.get(name) as any;
+      let f = fields.get(name);
       if (!f) {
         f = {
           name,
@@ -96,16 +109,18 @@ export function extract(root: string): Components {
           ? 'enum'
           : type.startsWith('entity_reference')
             ? 'reference'
-            : KIND[type] || f.kind;
+            : KIND[type] || f.kind || 'text';
         f.canvasFieldType = type;
       }
       f.required = !!spec.required;
-      f.sourceWidget = spec.field_widget || f.sourceWidget;
+      f.sourceWidget = spec.field_widget || f.sourceWidget || null;
       let value = spec.default_value;
       if (Array.isArray(value) && value.length === 1 && value[0] && typeof value[0] === 'object')
         value = value[0].value ?? value[0];
       f.default =
-        value === undefined || JSON.stringify(value) === '{}' || JSON.stringify(value) === '[]' ? null : value;
+        value === undefined || JSON.stringify(value) === '{}' || JSON.stringify(value) === '[]'
+          ? null
+          : (value as JsonValue);
       f.provenance = {
         label: c.sourceRef,
         options: c.sourceRef,

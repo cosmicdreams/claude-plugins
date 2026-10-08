@@ -322,7 +322,7 @@ export function renderPair(report: ReturnType<typeof compareRuns>): string {
       '### Artifacts',
       '',
     ];
-  for (const [name, item] of Object.entries(report.artifacts) as [string, (typeof report.artifacts)[string]][]) {
+  for (const [name, item] of Object.entries(report.artifacts)) {
     const status =
       item.present[0] === false && item.present[1] === false
         ? 'absent in both'
@@ -344,7 +344,7 @@ export function renderPair(report: ReturnType<typeof compareRuns>): string {
     );
     for (const [path, groups] of Object.entries(item.changes)) {
       lines.push(`- \`${path}\``);
-      for (const [category, changes] of Object.entries(groups) as [string, Difference[]][])
+      for (const [category, changes] of Object.entries<Difference[]>(groups))
         for (const c of changes)
           lines.push(`  - ${category} \`${c.path}\`: ${JSON.stringify(c.a)} → ${JSON.stringify(c.b)}`);
     }

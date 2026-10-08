@@ -13,12 +13,14 @@ const { values } = parseArgs({
     port: { type: 'string' },
   },
 });
+type TranscriptRow = { step: { step: string; files: Array<{ file: string }> }; input: { file: string } };
+type Transcript = { transcript: TranscriptRow[] };
 for (const flag of ['project', 'transcript', 'source', 'port'] as const)
   assert.ok(values[flag], `--${flag} is required`);
 const project = resolve(values.project!),
   source = resolve(values.source!),
-  data = JSON.parse(readFileSync(values.transcript!, 'utf8')),
-  rows = new Map<string, any>(data.transcript.map((row: any) => [row.step.step, row])),
+  data = JSON.parse(readFileSync(values.transcript!, 'utf8')) as Transcript,
+  rows = new Map(data.transcript.map((row) => [row.step.step, row])),
   key = JSON.parse(readFileSync(resolve(project, 'figma/state.json'), 'utf8')).fileKey;
 const token = personToken(); // stays inside this process; never printed
 let work: Record<string, string> = {},
@@ -46,7 +48,7 @@ const request = async (path: string, extra: Record<string, string> = {}, body?: 
 const start = performance.now();
 for (let i = 0; i < 600; i++) {
   work = {};
-  const step = (await (await request('/next')).json()) as any;
+  const step = await (await request('/next')).json();
   if (step.kind === 'done') {
     console.log(
       JSON.stringify({
@@ -66,7 +68,7 @@ for (let i = 0; i < 600; i++) {
   served++;
   if (step.generation && step.stepToken)
     work = { generation: String(step.generation), stepToken: String(step.stepToken) };
-  let result: any;
+  let result: unknown;
   if (step.kind === 'dump') {
     const name = step.step.startsWith('dump:')
       ? `figma/dump/${step.step.slice(5).replaceAll('/', '-')}.json`
@@ -80,9 +82,10 @@ for (let i = 0; i < 600; i++) {
   } else {
     const row = rows.get(step.step);
     assert.ok(row, 'recorded result for ' + step.step);
-    result = structuredClone(row.input);
+    const recorded = row;
+    result = structuredClone(recorded.input);
     if (step.kind === 'screenshot') {
-      result = { png: readFileSync(row.input.file).toString('base64') };
+      result = { png: readFileSync(recorded.input.file).toString('base64') };
       screenshots++;
     }
     if (step.kind === 'upload') {
@@ -90,18 +93,18 @@ for (let i = 0; i < 600; i++) {
       for (let n = 0; n < step.nodeIds.length; n++) {
         const reply = await request('/file', { step: step.step, i: String(n) }),
           actual = Buffer.from(await reply.arrayBuffer()),
-          expected = await fitFigmaImage(row.step.files[n].file);
+          expected = await fitFigmaImage(recorded.step.files[n]!.file);
         await assertPixels(
           actual,
           expected,
           `${step.step} file ${n}`,
-          /\.jpe?g$/i.test(row.step.files[n].file) ? JPEG : EDGE,
+          /\.jpe?g$/i.test(recorded.step.files[n]!.file) ? JPEG : EDGE,
         );
         files++;
       }
     }
   }
-  const recorded = (await (await request('/record', { step: step.step }, result)).json()) as any;
+  const recorded = await (await request('/record', { step: step.step }, result)).json();
   assert.equal(recorded.recorded, step.step);
   if (i === 599) throw new Error('HTTP replay did not reach done');
 }

@@ -72,7 +72,7 @@ export async function template(ARGS: CoverArgs) {
     const plex = KIT.coverFont;
     await Promise.all(Object.values(plex.styles).map((style) => DL_API.loadFont({ family: plex.family, style })));
     COVER_ROLES.forEach((role) => {
-      ROLES[role]! = [plex.family, plex.styles[ROLES[role]![1]], ...ROLES[role]!.slice(2)] as Role;
+      ROLES[role] = [plex.family, plex.styles[ROLES[role][1]], ...ROLES[role].slice(2)] as Role;
     });
     plexLoaded = true;
   } catch (e) {

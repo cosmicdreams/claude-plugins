@@ -8,6 +8,8 @@ import { performance } from 'node:perf_hooks';
 import { pluginRoot } from '../../src/runtime.ts';
 import { validate, writeJson } from '../../src/contracts.ts';
 import { verify } from '../../src/verify.ts';
+import type { VerifyOptions } from '../../src/verify.ts';
+import type { Project } from '../../src/generated/project.ts';
 import { merge } from '../../src/verify-state.ts';
 import { buildMeasurements } from '../../src/verify-inputs.ts';
 import { score, completionMessage } from '../../src/score-run.ts';
@@ -15,6 +17,28 @@ import { render } from '../../src/score-report.ts';
 import { portableManifest, portableParity } from './portable.ts';
 import { compareReports, compareCompletion } from './report.ts';
 export const ignoredFields = ['/generatedAt', '/sections/cost/clock/scorerSeconds'];
+type Coverage = { required: Array<{ id: string; expected: number }> };
+type ArtifactResult = { status: string; error?: string; ajv?: unknown[]; [key: string]: unknown };
+type EvaluationArtifacts = {
+  verify?: ArtifactResult;
+  verifyState?: ArtifactResult;
+  verifyInputs?: ArtifactResult;
+  scorecard?: ArtifactResult;
+  completion?: ArtifactResult;
+  report?: ArtifactResult;
+  [key: string]: ArtifactResult | undefined;
+};
+type EvaluationRow = {
+  site: string;
+  source: string;
+  run: string;
+  artifacts: EvaluationArtifacts;
+  timings: {
+    python: Record<string, unknown>;
+    typescript: { verify?: number; score?: number; report?: number; [key: string]: unknown };
+  };
+  error?: string;
+};
 export const cutoverText = (s: string): string =>
   s
     .replaceAll('workflow.py', 'workflow.ts')
@@ -23,7 +47,7 @@ export const cutoverText = (s: string): string =>
 const currentGenerator =
     'design-lab ' + JSON.parse(readFileSync(resolve(pluginRoot, '.claude-plugin/plugin.json'), 'utf8')).version,
   baselineGenerator = 'design-lab 0.23.2';
-export function normalize(value: any, path = ''): any {
+export function normalize(value: unknown, path = ''): unknown {
   if (typeof value === 'string')
     return path === '/generator' ? value.replace(baselineGenerator, currentGenerator) : cutoverText(value);
   if (Array.isArray(value)) return value.map((v, i) => normalize(v, path + '/' + i));
@@ -35,46 +59,51 @@ export function normalize(value: any, path = ''): any {
     );
   return value;
 }
-export function differences(a: any, b: any, path = '', out: string[] = []): string[] {
+export function differences(a: unknown, b: unknown, path = '', out: string[] = []): string[] {
   if (out.length >= 60 || Object.is(a, b)) return out;
   if (!a || !b || typeof a !== 'object' || typeof b !== 'object' || Array.isArray(a) !== Array.isArray(b)) {
     out.push(path + ': ' + JSON.stringify(a) + ' != ' + JSON.stringify(b));
     return out;
   }
-  for (const key of new Set([...Object.keys(a), ...Object.keys(b)])) {
-    if (!Object.hasOwn(a, key) || !Object.hasOwn(b, key)) out.push(path + '/' + key + ': missing key');
-    else differences(a[key], b[key], path + '/' + key, out);
+  const left = a as Record<string, unknown>,
+    right = b as Record<string, unknown>;
+  for (const key of new Set([...Object.keys(left), ...Object.keys(right)])) {
+    if (!Object.hasOwn(left, key) || !Object.hasOwn(right, key)) out.push(path + '/' + key + ': missing key');
+    else differences(left[key], right[key], path + '/' + key, out);
   }
   return out;
 }
-export function evaluationExitCode(result: { results: any[]; coverage?: any }): number {
+export function evaluationExitCode(result: { results: EvaluationRow[]; coverage?: Coverage }): number {
   return !result.results.length ||
     (result.coverage &&
-      result.results.length !== result.coverage.required.find((r: any) => r.id === 'six-run-evaluation')?.expected) ||
+      result.results.length !== result.coverage.required.find((r) => r.id === 'six-run-evaluation')?.expected) ||
     result.results.some(
       (row) =>
         row.error ||
         ['scorecard', 'report', 'completion'].some((name) => row.artifacts?.[name]?.status !== 'match') ||
-        Object.values(row.artifacts ?? {}).some((a: any) => a.status === 'mismatch' || a.error || a.ajv?.length),
+        Object.values(row.artifacts ?? {}).some((a) => a?.status === 'mismatch' || a?.error || a?.ajv?.length),
     )
     ? 1
     : 0;
 }
-const read = (path: string): any => JSON.parse(readFileSync(path, 'utf8'));
+const read = <T = unknown>(path: string): T => JSON.parse(readFileSync(path, 'utf8')) as T;
 export async function evaluationParity(root: string) {
   portableManifest();
   if (!root.startsWith('/tmp/')) throw new Error('equivalence root must be under /tmp');
   mkdirSync(root, { recursive: true });
   const home = homedir(),
-    sources = [
+    sources: Array<[string, string]> = [
       ['definitive-03', resolve(home, 'Sites/DEFINITIVEHC/design/2026-10-03')],
       ['definitive-05', resolve(home, 'Sites/DEFINITIVEHC/design/2026-10-05')],
       ['pncb', resolve(home, '.design/pncb/2026-10-06')],
-      ...['massport', 'kingtec', 'americas-credit-unions'].map((n) => [n, resolve(home, 'Tools/design-lab-corpus', n)]),
+      ...['massport', 'kingtec', 'americas-credit-unions'].map((n): [string, string] => [
+        n,
+        resolve(home, 'Tools/design-lab-corpus', n),
+      ]),
     ];
   const portable = await portableParity(resolve(root, 'portable'));
-  const results: any[] = [];
-  const python = (request: any) => {
+  const results: EvaluationRow[] = [];
+  const python = (request: { site: string; [key: string]: unknown }) => {
     const path = resolve(root, request.site + '-request.json');
     writeJson(path, request);
     const p = spawnSync(oracleExecutable, [oracleScript('evaluation-oracle.py'), path], {
@@ -84,18 +113,18 @@ export async function evaluationParity(root: string) {
     if (p.status !== 0) throw new Error('Python oracle: ' + p.stderr);
   };
   for (const [site, source] of sources) {
-    const run = resolve(root, site!, 'run'),
-      py = resolve(root, site!, 'python'),
-      ts = resolve(root, site!, 'typescript');
+    const run = resolve(root, site, 'run'),
+      py = resolve(root, site, 'python'),
+      ts = resolve(root, site, 'typescript');
     if (!existsSync(run))
-      cpSync(source!, run, {
+      cpSync(source, run, {
         recursive: true,
         preserveTimestamps: true,
         filter: (p) => !p.split('/').includes('replays'),
       });
     mkdirSync(py, { recursive: true });
     mkdirSync(ts, { recursive: true });
-    const row: any = { site, source, run, artifacts: {}, timings: { python: {}, typescript: {} } };
+    const row: EvaluationRow = { site, source, run, artifacts: {}, timings: { python: {}, typescript: {} } };
     results.push(row);
     const stateDir = resolve(run, 'figma/verify'),
       stateFile = resolve(stateDir, 'state.json'),
@@ -104,10 +133,10 @@ export async function evaluationParity(root: string) {
       try {
         python({ action: 'verify', site, run, out: py });
         Object.assign(row.timings.python, read(resolve(py, 'timings.json')));
-        const state = existsSync(rootFile) ? merge(stateDir) : read(stateFile),
+        const state = existsSync(rootFile) ? merge(stateDir) : read<VerifyOptions['state']>(stateFile),
           measurements = buildMeasurements(run),
-          project = read(resolve(run, 'project.json')),
-          opts: any = { state, measurements, out: resolve(run, 'verify-report.json') };
+          project = read<Project>(resolve(run, 'project.json')),
+          opts: VerifyOptions = { state, measurements, out: resolve(run, 'verify-report.json') };
         for (const [key, name] of [
           ['components', 'components.json'],
           ['tokens', 'tokens.json'],
@@ -117,17 +146,19 @@ export async function evaluationParity(root: string) {
           ['renderEvidence', 'render-evidence.json'],
           ['captureEvidence', 'capture-evidence.json'],
         ])
-          if (existsSync(resolve(run, name!))) opts[key!] = read(resolve(run, name!));
+          if (existsSync(resolve(run, name!)))
+            (opts as VerifyOptions & Record<string, unknown>)[key!] = read(resolve(run, name!));
         for (const [key, name] of [
           ['shotsDir', 'capture/shots'],
           ['builds', 'builds'],
         ])
-          if (existsSync(resolve(run, name!))) opts[key!] = resolve(run, name!);
+          if (existsSync(resolve(run, name!)))
+            (opts as VerifyOptions & Record<string, unknown>)[key!] = resolve(run, name!);
         if (project.repository?.root && existsSync(project.repository.root)) opts.themeRoot = project.repository.root;
         if (state.brand) opts.brand = state.brand;
         const start = performance.now(),
           report = verify(opts);
-        row.timings.typescript.verify = (performance.now() - start) / 1000;
+        row.timings.typescript['verify'] = (performance.now() - start) / 1000;
         writeJson(resolve(ts, 'verify-report.json'), report);
         const delta = differences(normalize(read(resolve(py, 'verify-report.json'))), normalize(report));
         row.artifacts.verify = {
@@ -170,7 +201,7 @@ export async function evaluationParity(root: string) {
         ajv: validate('scorecard', card),
       };
       card.generatedAt = generatedAt;
-      card.sections.cost.clock!.scorerSeconds = 0;
+      card.sections.cost.clock.scorerSeconds = 0;
       const began = performance.now();
       writeFileSync(resolve(ts, 'report.html'), cutoverText(await render(card, run)));
       row.timings.typescript.report = (performance.now() - began) / 1000;
@@ -182,7 +213,7 @@ export async function evaluationParity(root: string) {
       const completionView = await compareCompletion(
         resolve(py, 'completion.md'),
         resolve(ts, 'completion.md'),
-        resolve(root, site!, 'completion-comparison'),
+        resolve(root, site, 'completion-comparison'),
       );
       row.artifacts.completion = {
         status:
@@ -192,7 +223,7 @@ export async function evaluationParity(root: string) {
       const report = await compareReports(
         resolve(py, 'report.html'),
         resolve(ts, 'report.html'),
-        resolve(root, site!, 'report-comparison'),
+        resolve(root, site, 'report-comparison'),
       );
       row.artifacts.report = {
         status:
@@ -212,7 +243,7 @@ export async function evaluationParity(root: string) {
     console.log(
       site,
       JSON.stringify({
-        artifacts: Object.fromEntries(Object.entries(row.artifacts).map(([k, v]: any) => [k, v.status])),
+        artifacts: Object.fromEntries(Object.entries(row.artifacts).map(([k, v]) => [k, v?.status])),
         error: row.error,
       }),
     );
@@ -220,9 +251,9 @@ export async function evaluationParity(root: string) {
   return { ignoredFields, results, coverage: portable.matrix, portable: portable.results };
 }
 if (process.argv[1] === new URL(import.meta.url).pathname) {
-  const result =
+  const result: { results: EvaluationRow[]; coverage?: Coverage } =
     process.argv[2] === '--check-summary'
-      ? read(process.argv[3]!)
+      ? read<{ results: EvaluationRow[]; coverage?: Coverage }>(process.argv[3]!)
       : await evaluationParity(process.argv[2] ?? '/tmp/design-lab-p4-equivalence');
   console.log('summary ' + resolve(process.argv[2] ?? '/tmp/design-lab-p4-equivalence', 'summary.json'));
   process.exitCode = evaluationExitCode(result);

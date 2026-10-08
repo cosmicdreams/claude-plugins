@@ -10,7 +10,7 @@ const markdown = (folder: string): string[] =>
     return statSync(path).isDirectory() ? markdown(path) : name.endsWith('.md') ? [path] : [];
   });
 
-test('shipped docs name only plugin files that exist', () => {
+void test('shipped docs name only plugin files that exist', () => {
   const files = [
     'README.md',
     'TYPESCRIPT.md',

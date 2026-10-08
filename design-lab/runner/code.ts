@@ -179,7 +179,7 @@ export async function template(ARGS: Record<string, never>) {
             ? `Exporting ${step.step}`
             : `Building ${step.done! + 1} of ${step.total}: ${step.step}`,
       );
-      const cacheId = (step.buildId || 'preflight') as string;
+      const cacheId = step.buildId || 'preflight';
       try {
         if (
           typeof globalThis !== 'undefined' &&

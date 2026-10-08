@@ -11,7 +11,7 @@ import { validate, writeJson } from '../../src/contracts.ts';
 import { sharedRequire } from '../../src/runtime.ts';
 import { spec, node } from './p2-fixtures.ts';
 const sharp = sharedRequire()('sharp') as typeof import('sharp').default;
-test('derived specs preserve nullable source references and fill absent machine names through the real writer', async (t) => {
+void test('derived specs preserve nullable source references and fill absent machine names through the real writer', async (t) => {
   const root = mkdtempSync('/tmp/design-lab-writer-capture-');
   t.after(() => rmSync(root, { recursive: true, force: true }));
   const records = resolve(root, 'records'),

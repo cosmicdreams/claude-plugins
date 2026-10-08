@@ -106,7 +106,7 @@ export async function template(ARGS: BuildResponsiveArgs) {
   for (const role of order) {
     const m = col.modes.find((x) => x.name === ARGS.modeNames[role]);
     if (!m) throw new Error(`Breakpoint collection has no mode ${ARGS.modeNames[role]}`);
-    modeId[role]! = m.modeId;
+    modeId[role] = m.modeId;
   }
   const existing = (await DL_API.variables()).filter((v) => v.variableCollectionId === col.id);
   const byName = Object.fromEntries(existing.map((v) => [v.name, v]));
@@ -131,7 +131,7 @@ export async function template(ARGS: BuildResponsiveArgs) {
       const hit = SCOPE.find(([re]) => re.test(name));
       v.scopes = hit ? hit[1] : [];
     }
-    vars[name]! = v;
+    vars[name] = v;
   }
   const isVar = (v: BindingValue): v is { var: string } => (v && typeof v === 'object' && v.var) as unknown as boolean;
   const num = (v: BindingValue): number => (isVar(v) ? ARGS.variables[v.var]!.values.Desktop : v) as number;
@@ -157,20 +157,20 @@ export async function template(ARGS: BuildResponsiveArgs) {
    what this Figma can draw with. A family Figma lacks is drawn in the plan's stand-in, never silently. */
   const FONTS = ARGS.fonts || null;
   const fams: Record<string, Set<string>> = {};
-  for (const f of await DL_API.fonts()) (fams[f.fontName.family]! ||= new Set()).add(f.fontName.style);
+  for (const f of await DL_API.fonts()) (fams[f.fontName.family] ||= new Set()).add(f.fontName.style);
   /* CSS names a font by its web-font id (`articulat-cf`); Figma by its family (`Articulat CF`). */
   const famKey = (name: unknown) =>
     String(name || '')
       .toLowerCase()
       .replace(/[^a-z0-9]/g, '');
   const famByKey: Record<string, string> = {};
-  for (const name of Object.keys(fams)) famByKey[famKey(name)]! ||= name;
+  for (const name of Object.keys(fams)) famByKey[famKey(name)] ||= name;
   /* A family as Figma has it: exactly, ignoring case and punctuation, or with a trial or web suffix. */
   function findFamily(name: string | null | undefined) {
     if (!name) return null;
     if (fams[name]!) return name;
     const key = famKey(name);
-    if (famByKey[key]!) return famByKey[key]!;
+    if (famByKey[key]!) return famByKey[key];
     for (const suffix of ['trial', 'web', 'pro', 'std', 'text']) {
       if (famByKey[key + suffix]!) return famByKey[key + suffix]!;
       if (key.endsWith(suffix) && famByKey[key.slice(0, -suffix.length)]!)
@@ -218,8 +218,8 @@ export async function template(ARGS: BuildResponsiveArgs) {
     const byStrict: Record<string, string> = {};
     const byCanon: Record<string, string> = {};
     for (const s of styles) {
-      byStrict[strict(s)]! ||= s;
-      byCanon[canon(s)]! ||= s;
+      byStrict[strict(s)] ||= s;
+      byCanon[canon(s)] ||= s;
     }
     if (wanted && (byStrict[wanted]! || byCanon[wanted]!))
       return { style: byStrict[wanted]! || byCanon[wanted]!, exact: true };
@@ -231,11 +231,11 @@ export async function template(ARGS: BuildResponsiveArgs) {
         const s = byCanon[styleFor(base, italic)]!;
         if (s) return { style: s, exact: !wanted && w === weight };
       }
-    return { style: styles[0]!!, exact: false };
+    return { style: styles[0]!, exact: false };
   }
   const covered = (ranges: number[][], text: string) =>
     [...String(text || '')].every(
-      (ch) => /\s/.test(ch) || ranges.some(([a, b]) => ch.codePointAt(0)!! >= a! && ch.codePointAt(0)!! <= b!),
+      (ch) => /\s/.test(ch) || ranges.some(([a, b]) => ch.codePointAt(0)! >= a! && ch.codePointAt(0)! <= b!),
     );
   async function resolveFont(t: TreeText): Promise<FontName> {
     /* The family the visitor saw: the plan names it for this stack (a never-served first family is
@@ -246,8 +246,8 @@ export async function template(ARGS: BuildResponsiveArgs) {
     if (entry && entry.icon) {
       /* An icon font is not text: drawn as it comes, and counted, never reported as a missing font. */
       report.iconText[entry.icon] = (report.iconText[entry.icon] || 0) + 1;
-      const fam = (findFamily(entry.icon) || findFamily('Inter') || Object.keys(fams)[0]!)!;
-      return { family: fam!, style: pickStyle(fam!, null, t.weight, t.italic).style };
+      const fam = findFamily(entry.icon) || findFamily('Inter') || Object.keys(fams)[0]!;
+      return { family: fam, style: pickStyle(fam, null, t.weight, t.italic).style };
     }
     const plan = FONTS && FONTS.families && FONTS.families[famKey(seen)];
     let fam = findFamily(plan ? plan.family : seen);
@@ -267,14 +267,14 @@ export async function template(ARGS: BuildResponsiveArgs) {
       : !onAxis && t.weight % 100 === 0
         ? styleFor(WEIGHT_NAMES[t.weight]! ? WEIGHT_NAMES[t.weight]![0]! : 'regular', t.italic)
         : null;
-    const picked = pickStyle(fam!, wanted, t.weight, t.italic);
+    const picked = pickStyle(fam, wanted, t.weight, t.italic);
     const font: { family: string; style: string; variationSettings?: Record<string, number> } = {
-      family: fam!,
-      style: picked.style!,
+      family: fam,
+      style: picked.style,
     };
     if (!picked.exact && typeof figma.getFontFamilyVariationAxes === 'function') {
       try {
-        const axes = await figma.getFontFamilyVariationAxes(fam!);
+        const axes = await figma.getFontFamilyVariationAxes(fam);
         if (axes && axes.some((a) => ((a as unknown as { tag?: string }).tag || a) === 'wght'))
           font.variationSettings = { wght: t.weight };
       } catch (e) {
@@ -552,7 +552,7 @@ export async function template(ARGS: BuildResponsiveArgs) {
     } else if (spec.kind === 'image') {
       node = figma.createRectangle();
       node.resize(w0, h0);
-      style(node as StyledNode, spec);
+      style(node, spec);
       node.fills = [{ type: 'SOLID', color: { r: 0.87, g: 0.87, b: 0.87 } }];
       node.setSharedPluginData('designlab', 'image', '1'); // so an instance can find its pictures
       report.images.push({ id: node.id, src: spec.src, fit: spec.fit });
@@ -560,7 +560,7 @@ export async function template(ARGS: BuildResponsiveArgs) {
       node = figma.createFrame();
       node.resize(w0, h0);
       node.clipsContent = Boolean(spec.clip);
-      style(node as StyledNode, spec);
+      style(node, spec);
       /* A CSS background image: the images step fills this frame from the site's own file. */
       if (spec.backgroundImage)
         report.images.push({

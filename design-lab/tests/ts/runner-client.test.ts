@@ -98,7 +98,7 @@ async function runClient(builds: string[], mode: GlobalMode = 'persistent', retu
   return { calls, records };
 }
 
-test(
+void test(
   'actual runner client refreshes inventories and retains loaded fonts within a build',
   { timeout: 5000 },
   async () => {
@@ -111,7 +111,7 @@ test(
   },
 );
 
-test('actual runner client resets every cache when the build identity changes', { timeout: 5000 }, async () => {
+void test('actual runner client resets every cache when the build identity changes', { timeout: 5000 }, async () => {
   const r = await runClient(['A', 'A', 'B', 'B']);
   assert.deepEqual(r.calls, { fonts: 4, loads: 2, variables: 4, collections: 4 });
   assert.deepEqual(
@@ -121,13 +121,13 @@ test('actual runner client resets every cache when the build identity changes', 
 });
 
 for (const mode of ['nonpersistent', 'absent', 'protected'] as const) {
-  test(`actual runner client gracefully uses local caches with ${mode} globals`, { timeout: 5000 }, async () => {
+  void test(`actual runner client gracefully uses local caches with ${mode} globals`, { timeout: 5000 }, async () => {
     const r = await runClient(['A', 'A'], mode);
     assert.deepEqual(r.calls, { fonts: 2, loads: 2, variables: 2, collections: 2 });
   });
 }
 
-test(
+void test(
   'actual runner client sends an empty result and finite per-step duration for an undefined return',
   { timeout: 5000 },
   async () => {
@@ -136,7 +136,7 @@ test(
   },
 );
 
-test('actual stripped client heartbeats a long active step with its issued token and stops after record', async () => {
+void test('actual stripped client heartbeats a long active step with its issued token and stops after record', async () => {
   let finish!: () => void, close!: () => void;
   const pending = new Promise<void>((r) => {
       finish = r;

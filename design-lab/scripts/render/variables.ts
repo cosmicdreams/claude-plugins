@@ -36,7 +36,7 @@ export async function template(ARGS: VariablesArgs) {
     const rgb = /^rgba?\(\s*([\d.]+%?)[\s,]+([\d.]+%?)[\s,]+([\d.]+%?)(?:[\s,/]+([\d.]+%?))?\s*\)$/i.exec(h.trim());
     if (rgb) {
       const unit = (c: string) => Math.min(1, c.endsWith('%') ? parseFloat(c) / 100 : parseFloat(c) / 255);
-      const alpha = rgb[4]! === undefined ? 1 : rgb[4]!.endsWith('%') ? parseFloat(rgb[4]!) / 100 : parseFloat(rgb[4]!);
+      const alpha = rgb[4]! === undefined ? 1 : rgb[4].endsWith('%') ? parseFloat(rgb[4]) / 100 : parseFloat(rgb[4]);
       return { r: unit(rgb[1]!), g: unit(rgb[2]!), b: unit(rgb[3]!), a: alpha };
     }
     const s = h.replace('#', '');
@@ -97,7 +97,7 @@ export async function template(ARGS: VariablesArgs) {
       if (v.codeName) variable.setVariableCodeSyntax('WEB', `var(${v.codeName})`);
       const entry = { variable, spec: v, modeId };
       entries.push(entry);
-      if (!byName[v.name]!) byName[v.name]! = entry;
+      if (!byName[v.name]!) byName[v.name] = entry;
     }
     const planned = new Set(spec.variables.map((v) => v.name));
     for (const x of inCol) if (!planned.has(x.name)) report.unplanned.push(`${cname}/${x.name}`);

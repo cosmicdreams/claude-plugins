@@ -19,7 +19,7 @@ import { pluginRoot } from '../../src/runtime.ts';
 const wrap = (command: string, mode = '--command'): string =>
   `__gr=$(/usr/bin/mktemp -t golden-rule); /usr/bin/python3 -I '/fixture/golden-rule/hooks/sandbox/run.py' ${mode} '${Buffer.from(command).toString('base64')}' --state "$__gr"; __s=$?; [ -s "$__gr" ] && cd "$(/bin/cat "$__gr")" 2>/dev/null; /bin/rm -f "$__gr"; (exit $__s)`;
 
-test('registered hook command enforces documented and rewritten PreToolUse input in a plain copy', () => {
+void test('registered hook command enforces documented and rewritten PreToolUse input in a plain copy', () => {
   const root = mkdtempSync('/tmp/design-lab-hook-command-'),
     copy = resolve(root, 'design-lab');
   try {

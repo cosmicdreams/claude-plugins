@@ -12,7 +12,7 @@ const run = (...args: string[]) =>
     { encoding: 'utf8', cwd: '/tmp' },
   );
 
-test('each read-only dump prints as plain JavaScript that compiles as a use_figma body', () => {
+void test('each read-only dump prints as plain JavaScript that compiles as a use_figma body', () => {
   for (const [name, placeholder] of [
     ['figma_dump_root', ''],
     ['figma_dump_page', 'PAGE_ID'],
@@ -33,7 +33,7 @@ test('each read-only dump prints as plain JavaScript that compiles as a use_figm
   }
 });
 
-test('the snippet command rejects unknown names and a page id for the root dump with exit 1', () => {
+void test('the snippet command rejects unknown names and a page id for the root dump with exit 1', () => {
   for (const args of [[], ['no_such_dump'], ['figma_dump_root', '--page-id', '1']])
     assert.equal(run(...args).status, 1, args.join(' '));
   assert.equal(run('figma_dump_page', '--no-such-flag').status, 2);

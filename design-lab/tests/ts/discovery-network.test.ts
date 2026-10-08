@@ -27,7 +27,7 @@ const events = (html: string): unknown[] => {
 };
 
 // ---- the HTML tokenizer, against the event streams baseline 3.14's HTMLParser produced ----
-test('HTML tokenizer reproduces baseline html.parser events', () => {
+void test('HTML tokenizer reproduces baseline html.parser events', () => {
   assert.deepEqual(events('<p class="a&amp;b" hidden data-x="1"/>x &lt; y<br>'), [
     [
       'se',
@@ -67,7 +67,7 @@ test('HTML tokenizer reproduces baseline html.parser events', () => {
   ]);
   assert.deepEqual(events('<a href="x&amp;y&copy=1&copy;">'), [['s', 'a', [['href', 'x&y&copy=1©']]]]);
 });
-test('html.unescape follows the HTML5 rules', () => {
+void test('html.unescape follows the HTML5 rules', () => {
   assert.equal(
     unescape('&amp; &AMP &notit; &#65;&#x42; &#128; &#0; &#xD800; &nosuch; &lt'),
     '& & ¬it; AB € � � &nosuch; <',
@@ -75,7 +75,7 @@ test('html.unescape follows the HTML5 rules', () => {
 });
 
 // ---- rendered components ----
-test('rendered markers, public paths and example fallback', () => {
+void test('rendered markers, public paths and example fallback', () => {
   const html =
     "<div data-component-id='demo:site-header'></div><section data-component-id='demo:photo-slide'><img data-component-id='demo:photo-slide'></section>";
   assert.deepEqual(rendered.parseComponents(html), {
@@ -132,7 +132,7 @@ test('rendered markers, public paths and example fallback', () => {
   assert.equal(document?.['source']?.renderedVerification?.baseUrl, 'https://example.test');
 });
 
-test('a scan asks ddev for Canvas and node aliases, fetches at most the limit, and lists failures', async () => {
+void test('a scan asks ddev for Canvas and node aliases, fetches at most the limit, and lists failures', async () => {
   const calls: string[][] = [];
   const run: usage.Runner = (_command, args) => {
     calls.push(args);
@@ -165,7 +165,7 @@ test('a scan asks ddev for Canvas and node aliases, fetches at most the limit, a
 });
 
 // ---- compositions ----
-test('nested components are excluded and void elements keep the outer order', () => {
+void test('nested components are excluded and void elements keep the outer order', () => {
   const html =
     '<html><head><title>  One &amp; Two </title><meta name="x"></head><body><div data-component-id="outer"><img><div data-component-id="inner"></div></div><div data-component-id="next"></div><div data-component-id="outer"></div></body></html>';
   assert.deepEqual(compositions.parsePage(html), {
@@ -173,7 +173,7 @@ test('nested components are excluded and void elements keep the outer order', ()
     components: ['outer', 'next', 'outer'],
   });
 });
-test('composition page and component order is stable', () => {
+void test('composition page and component order is stable', () => {
   const pages: Page[] = [
     ['/z', 200, '<title>Z</title><div data-component-id="b"></div>'],
     ['/a', 200, '<title>A</title><div data-component-id="b"></div><div data-component-id="a"></div>'],
@@ -202,7 +202,7 @@ const THIRD =
   '<html><head><title>Contact North Star</title><meta name="description" content="Contact us"></head><body><main><p>North-Star members can apply today.</p><a>Apply Now</a></main></body></html>';
 const AT = '2026-09-23T12:00:00+00:00';
 
-test('the voice parser uses main and preserves authored labels', () => {
+void test('the voice parser uses main and preserves authored labels', () => {
   const page = voice.parsePage(HOME);
   assert.deepEqual(page.headings['1'], ['Find Your Path']);
   assert.deepEqual(page.labels, ['Join Now', 'LEARN MORE']);
@@ -210,7 +210,7 @@ test('the voice parser uses main and preserves authored labels', () => {
   assert.ok(!page.text.includes('Hidden Site Heading'));
   assert.equal(page.description, 'Join North Star');
 });
-test('the voice reducer reports the core sections and is stable', () => {
+void test('the voice reducer reports the core sections and is stable', () => {
   const pages: Page[] = [
     ['/third', 200, THIRD],
     ['/', 200, HOME],
@@ -239,7 +239,7 @@ test('the voice reducer reports the core sections and is stable', () => {
   );
   assert.equal(first['corpus'].fetchDate, '2026-09-23');
 });
-test('positioning skips statistics and uses long paragraphs, then falls back to long prose sentences', () => {
+void test('positioning skips statistics and uses long paragraphs, then falls back to long prose sentences', () => {
   const html = `<body><main><h1>Welcome to the community</h1><div class="stats"><p>20+</p><p>20</p></div>
     <p>Our students work together to build robots for the community.</p>
     <figure><p>This caption has enough words to appear but is not body prose.</p></figure>
@@ -255,7 +255,7 @@ test('positioning skips statistics and uses long paragraphs, then falls back to 
     'New members can practice skills with experienced teammates.',
   ]);
 });
-test('templated data does not enter the vocabulary', () => {
+void test('templated data does not enter the vocabulary', () => {
   const robot =
     '<body class="page-node-type-robot"><main><h1>Robot archive</h1><table><tr><th>Quick Facts Name</th><td>Size X X</td><td>Weight LBS</td></tr></table><p>Students build creative machines together every season.</p></main></body>';
   const article =
@@ -267,13 +267,13 @@ test('templated data does not enter the vocabulary', () => {
   assert.ok(![...phrases].some((phrase) => /size|weight|quick facts/.test(String(phrase))));
   assert.deepEqual(voice.buildVoice(pages.slice(0, -1), 'Team', AT)['vocabulary'].phrases, []); // one template alone is not a house style
 });
-test('the body is the fallback when there is no main, and navigation is excluded', () => {
+void test('the body is the fallback when there is no main, and navigation is excluded', () => {
   assert.equal(
     voice.parsePage('<body><nav>Navigation</nav><p>Useful copy.</p><footer>End</footer></body>').text,
     'Useful copy.',
   );
 });
-test('voice numbers use baseline formatting and rounding', () => {
+void test('voice numbers use baseline formatting and rounding', () => {
   assert.deepEqual([0, 14, 12.5, 0.00001, 123456.7, 1234567, -3.4, 100].map(voice.formatG), [
     '0',
     '14',
@@ -291,7 +291,7 @@ test('voice numbers use baseline formatting and rounding', () => {
 });
 
 // ---- published pages ----
-test('project config and bounded homepage addresses', () => {
+void test('project config and bounded homepage addresses', () => {
   const root = temp(),
     repo = join(root, 'repo');
   mkdirSync(join(repo, 'config', 'sync'), { recursive: true });
@@ -311,7 +311,7 @@ test('project config and bounded homepage addresses', () => {
   );
   assert.throws(() => published.addresses(repo, '/', 0, () => aliases), /positive/);
 });
-test('two addresses serving the same page count once, under the shortest address', async () => {
+void test('two addresses serving the same page count once, under the shortest address', async () => {
   const main = (token: string): string =>
     `<html><body><nav class="x">m</nav><main><div class="a ${token}" id="${token}">Same page</div></main></body></html>`;
   const pages = await published.fetchPages(
@@ -343,7 +343,7 @@ async function withServer(
     await new Promise((done) => server.close(done));
   }
 }
-test('fetchPage follows redirects, reports other statuses with an empty body, and never throws', async () => {
+void test('fetchPage follows redirects, reports other statuses with an empty body, and never throws', async () => {
   const seen: Array<string | undefined> = [];
   await withServer(
     (req, res) => {
@@ -373,7 +373,7 @@ test('fetchPage follows redirects, reports other statuses with an empty body, an
   assert.ok(seen.every((agent) => agent === 'design-lab/0.14'));
   assert.deepEqual(await rendered.fetchPage('http://127.0.0.1:1', '/x'), ['/x', 0, '']); // nothing listens: status 0, not an exception
 });
-test('an idle connection times out', async () => {
+void test('an idle connection times out', async () => {
   await withServer(
     () => {
       /* never answers */
@@ -383,7 +383,7 @@ test('an idle connection times out', async () => {
     },
   );
 });
-test('certificates are verified except on local development hosts', () => {
+void test('certificates are verified except on local development hosts', () => {
   for (const url of [
     'https://localhost/',
     'https://127.0.0.1/',
@@ -396,7 +396,7 @@ test('certificates are verified except on local development hosts', () => {
   for (const url of ['https://public.test/', 'https://not-ddev.site/', 'https://ddev.site.attacker.test/'])
     assert.equal(usage.verifyTls(url), true, url);
 });
-test('mapLimit bounds concurrency and keeps order', async () => {
+void test('mapLimit bounds concurrency and keeps order', async () => {
   let active = 0,
     peak = 0;
   const out = await usage.mapLimit([1, 2, 3, 4, 5, 6, 7, 8, 9, 10], 3, async (n) => {
@@ -411,7 +411,7 @@ test('mapLimit bounds concurrency and keeps order', async () => {
 });
 
 // ---- find-examples ----
-test('Site Studio placements are counted by instance uuid, not by element hash', () => {
+void test('Site Studio placements are counted by instance uuid, not by element hash', () => {
   const body =
     '<div class="coh-ce-cpt_card-aaaaaa11 coh-component-instance-11111111-aaaa"><p class="coh-ce-cpt_card-bbbbbb22">x</p></div>' +
     '<div class="coh-ce-cpt_card-aaaaaa11 coh-component-instance-22222222-bbbb"></div><div class="coh-ce-cpt_text-cccccc33"></div>';
@@ -424,7 +424,7 @@ test('Site Studio placements are counted by instance uuid, not by element hash',
   assert.deepEqual([...names].sort(), ['card', 'full_width_row']);
   assert.deepEqual(perName, { full_width_row: 2, card: 1 });
 });
-test('sitemap walking follows one index level and falls back to the base address', async () => {
+void test('sitemap walking follows one index level and falls back to the base address', async () => {
   const bodies: Record<string, string> = {
     'https://x.test/sitemap.xml': '<sitemapindex><loc>https://x.test/a.xml</loc></sitemapindex>',
     'https://x.test/a.xml':
@@ -448,7 +448,7 @@ test('sitemap walking follows one index level and falls back to the base address
   );
   assert.match(logged[0]!, /no sitemap found at https:\/\/y.test\/sitemap.xml/);
 });
-test('crawl rehosts addresses, records failures, and the report tiers components', async () => {
+void test('crawl rehosts addresses, records failures, and the report tiers components', async () => {
   const [url, changed] = examples.canonical('https://origin.acquia-sites.com/a?b=1', 'www.x.org');
   assert.deepEqual([url, changed], ['https://www.x.org/a?b=1', 1]);
   assert.deepEqual(examples.canonical('https://www.x.org/a', 'www.x.org'), ['https://www.x.org/a', 0]);
@@ -494,7 +494,7 @@ test('crawl rehosts addresses, records failures, and the report tiers components
   );
   assert.equal(examples.tier(0, 1), 'structural only');
 });
-test('find-examples verifies certificates even on local hosts', async () => {
+void test('find-examples verifies certificates even on local hosts', async () => {
   // Unlike the Drupal extractors, this crawler never relaxes TLS; a refused connection is [0, message].
   const [status, message] = await examples.fetchUrl('https://127.0.0.1:1/');
   assert.equal(status, 0);

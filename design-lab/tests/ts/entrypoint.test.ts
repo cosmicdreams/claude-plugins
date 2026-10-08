@@ -17,7 +17,7 @@ for (const [entry, args, expected] of [
   ['src/render-payload.ts', ['hash'], /^[a-f0-9]+/],
   ['src/responsive.ts', [], /usage: responsive.ts SPEC.json/],
 ] as const)
-  test(`phase 5 entrypoint executes through symlink: ${entry}`, () => {
+  void test(`phase 5 entrypoint executes through symlink: ${entry}`, () => {
     const root = mkdtempSync('/tmp/design-lab-p5-entry-');
     try {
       const link = resolve(root, 'plugin');

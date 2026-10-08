@@ -8,7 +8,7 @@ import { pluginRoot } from '../../src/runtime.ts';
 import { validate, validateRunnerRecord } from '../../src/contracts.ts';
 import type { RunnerStep } from '../../src/generated/runner-step.ts';
 
-test(
+void test(
   'the actual runner sends conforming queries, results and errors for every wire operation',
   { timeout: 5000 },
   async () => {

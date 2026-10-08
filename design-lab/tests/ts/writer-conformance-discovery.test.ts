@@ -57,7 +57,7 @@ const read = (folder: string, name: string): unknown => JSON.parse(readFileSync(
 const valid = (kind: Parameters<typeof validate>[0], folder: string, name = kind + '.json') =>
   assert.deepEqual(validate(kind, read(folder, name)), []);
 
-test('detection writes for a Site Studio site with a declared export, custom components and every other source', () => {
+void test('detection writes for a Site Studio site with a declared export, custom components and every other source', () => {
   const root = drupal(temp(), "$settings['site_studio_sync'] = '../config/packages';\n");
   put(
     root,
@@ -106,7 +106,7 @@ test('detection writes for a Site Studio site with a declared export, custom com
   valid('detection', folder);
 });
 
-test('detection writes for a Site Studio site whose export cannot be read, and for a site with no configuration', () => {
+void test('detection writes for a Site Studio site whose export cannot be read, and for a site with no configuration', () => {
   const dynamic = drupal(temp(), "$settings['site_studio_sync'] = getenv('X') . '/c';\n");
   put(dynamic, 'docroot/modules/custom/m/custom_components/dup/dup.custom_component.yml', 'name: Dup\ncategory: c\n');
   const first = run(dynamic, {});
@@ -119,7 +119,7 @@ test('detection writes for a Site Studio site whose export cannot be read, and f
   valid('detection', second);
 });
 
-test('tokens: CSS custom properties with media modes, shadowed duplicates and an unreadable stylesheet all write', async () => {
+void test('tokens: CSS custom properties with media modes, shadowed duplicates and an unreadable stylesheet all write', async () => {
   const root = drupal(temp());
   put(
     root,
@@ -144,7 +144,7 @@ test('tokens: CSS custom properties with media modes, shadowed duplicates and an
   }
 });
 
-test('tokens: Sass source with maps, base and component duplicates and an alias chain all write', async () => {
+void test('tokens: Sass source with maps, base and component duplicates and an alias chain all write', async () => {
   const root = drupal(temp());
   put(
     root,
@@ -161,7 +161,7 @@ test('tokens: Sass source with maps, base and component duplicates and an alias 
   valid('tokens', folder);
 });
 
-test('tokens: source maps with duplicate variables across sources, a broken map and a map without sources all write', async () => {
+void test('tokens: source maps with duplicate variables across sources, a broken map and a map without sources all write', async () => {
   const root = drupal(temp());
   put(
     root,
@@ -186,7 +186,7 @@ test('tokens: source maps with duplicate variables across sources, a broken map 
   valid('tokens', folder);
 });
 
-test('tokens: Site Studio settings without names, tags without values and non-string values all write', async () => {
+void test('tokens: Site Studio settings without names, tags without values and non-string values all write', async () => {
   const root = drupal(temp());
   const cfg = 'config/sync/';
   put(
@@ -228,7 +228,7 @@ test('tokens: Site Studio settings without names, tags without values and non-st
   valid('variable-plan', folder);
 });
 
-test('render evidence, plan and variable plan write for bundles with and without templates', async () => {
+void test('render evidence, plan and variable plan write for bundles with and without templates', async () => {
   const root = drupal(temp());
   put(root, 'config/default/paragraphs.paragraphs_type.hero.yml', 'id: hero\nlabel: Hero\n');
   put(root, 'config/default/paragraphs.paragraphs_type.bare.yml', 'id: bare\n');
@@ -276,7 +276,7 @@ test('render evidence, plan and variable plan write for bundles with and without
   valid('variable-plan', folder);
 });
 
-test('variable plan writes for tokens that lack code names, hex values and names', async () => {
+void test('variable plan writes for tokens that lack code names, hex values and names', async () => {
   const root = drupal(temp());
   put(
     root,
@@ -313,7 +313,7 @@ test('variable plan writes for tokens that lack code names, hex values and names
   valid('variable-plan', second);
 });
 
-test('a usage entry placed by a Site Studio template merges and writes into the component', () => {
+void test('a usage entry placed by a Site Studio template merges and writes into the component', () => {
   const components: Components = {
     standardVersion: '3.0.0',
     toolVersion: 't',
@@ -335,7 +335,7 @@ test('a usage entry placed by a Site Studio template merges and writes into the 
   valid('components', folder);
 });
 
-test('valid sparse token artifacts preserve null semantic hex values and font stacks in variable-plan writes', () => {
+void test('valid sparse token artifacts preserve null semantic hex values and font stacks in variable-plan writes', () => {
   const root = drupal(temp()),
     css = run(root, {}),
     studio = run(root, {});

@@ -19,7 +19,7 @@ export async function pool<T, R>(
         const i = next++;
         if (i >= items.length) return;
         results[i] = await work(items[i]!, i);
-        await completed(results[i]!, i);
+        await completed(results[i], i);
       }
     }),
   );

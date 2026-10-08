@@ -11,7 +11,7 @@ const project = (detail: NonNullable<Project['phases'][string]['detail']>): Proj
   phases: { verify: { status: 'complete', detail } },
   artifacts: {},
 });
-test('project contract accepts the verification details evaluate writes', () => {
+void test('project contract accepts the verification details evaluate writes', () => {
   assert.deepEqual(
     validate(
       'project',
@@ -36,7 +36,7 @@ test('project contract accepts the verification details evaluate writes', () => 
     [],
   );
 });
-test('connection omissions remain null and browser executable paths remain strings', () => {
+void test('connection omissions remain null and browser executable paths remain strings', () => {
   assert.deepEqual(
     validate(
       'project',

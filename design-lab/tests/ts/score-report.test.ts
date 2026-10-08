@@ -8,7 +8,7 @@ import { coverageStrip, field, thumbnails, absent, costSection, renderReport } f
 import type { Scorecard } from '../../src/generated/scorecard.ts';
 import { esc, num, pct, duration, splitDuration, day } from '../../src/report-format.ts';
 const sharp = sharedRequire()('sharp') as typeof import('sharp').default;
-test('report escapes source labels and keeps baseline numeric/time formatting', () => {
+void test('report escapes source labels and keeps baseline numeric/time formatting', () => {
   assert.equal(esc('<a "x">&\''), '&lt;a &quot;x&quot;&gt;&amp;&#x27;');
   assert.equal(esc(null), '');
   assert.equal(num(1234.25), '1,234.2');
@@ -19,7 +19,7 @@ test('report escapes source labels and keeps baseline numeric/time formatting', 
   assert.equal(day('2026-10-05T00:30:00+14:00'), '5 October 2026');
   assert.equal(day(null), 'date not recorded');
 });
-test('coverage keeps cover category colors, gaps, exclusions and outside-inventory disclosure', () => {
+void test('coverage keeps cover category colors, gaps, exclusions and outside-inventory disclosure', () => {
   const html = coverageStrip({
     status: 'measured',
     built: 2,
@@ -42,7 +42,7 @@ test('coverage keeps cover category colors, gaps, exclusions and outside-invento
   assert.match(html, /2 retirement candidates/);
   assert.match(html, /outside the inventory \(2 placements, 1 nested use\)/);
 });
-test('accuracy field orders passing widths first and preserves accessible verdicts', () => {
+void test('accuracy field orders passing widths first and preserves accessible verdicts', () => {
   const pair = (id: string, pass: boolean, ratio: number) => ({
     component: id,
     label: id,
@@ -64,7 +64,7 @@ test('accuracy field orders passing widths first and preserves accessible verdic
   assert.match(html, /f-check/);
   assert.match(absent('Absent', { reason: 'No <evidence>', howToMeasure: 'capture again' }), /No &lt;evidence&gt;/);
 });
-test('thumbnail crop pads out-of-bounds black and flattens transparency onto white', async () => {
+void test('thumbnail crop pads out-of-bounds black and flattens transparency onto white', async () => {
   const run = mkdtempSync(resolve(tmpdir(), 'design-lab-report-test-'));
   mkdirSync(resolve(run, 'figma'));
   await sharp(Buffer.from([0, 0, 0, 0, 255, 0, 0, 255]), { raw: { width: 2, height: 1, channels: 4 } })
@@ -102,7 +102,7 @@ test('thumbnail crop pads out-of-bounds black and flattens transparency onto whi
   rmSync(run, { recursive: true, force: true });
 });
 
-test('cost report discloses ambiguous sessions, approval limits and genuine interruptions', () => {
+void test('cost report discloses ambiguous sessions, approval limits and genuine interruptions', () => {
   const card = JSON.parse(readFileSync(new URL('./fixtures/scorecard.json', import.meta.url), 'utf8')),
     cost = card.sections.cost;
   cost.working.fullAccess = false;
@@ -126,7 +126,7 @@ test('cost report discloses ambiguous sessions, approval limits and genuine inte
   assert.match(html, /A turn that ended and waited for a prompt/);
 });
 
-test('cost report renders model totals without exposing transcript tool input', () => {
+void test('cost report renders model totals without exposing transcript tool input', () => {
   const card = JSON.parse(readFileSync(new URL('./fixtures/scorecard.json', import.meta.url), 'utf8')),
     cost = card.sections.cost;
   cost.toolInput = { secret: 'DO_NOT_RENDER_TOOL_INPUT' };
@@ -138,7 +138,7 @@ test('cost report renders model totals without exposing transcript tool input', 
 
 const fixtureCard = (): Scorecard =>
   JSON.parse(readFileSync(new URL('./fixtures/scorecard.json', import.meta.url), 'utf8'));
-test('schema-valid cards with optional evidence left out still render', () => {
+void test('schema-valid cards with optional evidence left out still render', () => {
   // Each of these made the Python-emulating renderer throw a TypeError.
   const cases: [string, (card: Scorecard) => void][] = [
     [
@@ -166,7 +166,7 @@ test('schema-valid cards with optional evidence left out still render', () => {
     assert.match(renderReport(card, new Map()), /<\/html>\n$/, name);
   }
 });
-test('repeatability rows, artifact differences and the level note render from a measured comparison', () => {
+void test('repeatability rows, artifact differences and the level note render from a measured comparison', () => {
   const card = fixtureCard();
   card.sections.repeatability = {
     status: 'measured',

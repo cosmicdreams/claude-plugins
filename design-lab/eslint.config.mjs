@@ -22,7 +22,7 @@ export default tseslint.config({
     '@typescript-eslint/no-unnecessary-type-assertion': 'error',
     '@typescript-eslint/no-non-null-assertion': 'warn',
     '@typescript-eslint/switch-exhaustiveness-check': 'error',
-    '@typescript-eslint/consistent-type-imports': 'error',
+    '@typescript-eslint/consistent-type-imports': ['error', { disallowTypeAnnotations: false }],
     '@typescript-eslint/prefer-readonly': 'warn',
     '@typescript-eslint/no-floating-promises': 'error',
   },

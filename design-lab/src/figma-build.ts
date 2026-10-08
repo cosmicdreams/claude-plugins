@@ -75,7 +75,7 @@ export function buildTrees(project: string, trees: string, only?: string): { id:
     if (c.sourceRef && source && source !== c.sourceRef) continue;
     let tree: Tree;
     try {
-      tree = responsive(spec, c.label || c.id, c.id.split('.').at(-1)!);
+      tree = responsive(spec, c.label || c.id, c.id.split('.').at(-1));
     } catch (error) {
       if (
         error instanceof Error &&

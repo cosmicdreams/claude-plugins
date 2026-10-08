@@ -100,7 +100,7 @@ export function hashLayout(path: string): string {
     if (!Number.isSafeInteger(value)) return taggedNumber(BigInt(context.source), false);
     return value;
   };
-  const parsed = JSON.parse(raw, reviver as (this: any, key: string, value: any) => any);
+  const parsed = JSON.parse(raw, reviver);
   return canonicalHash(parsed);
 }
 export function checkHash(

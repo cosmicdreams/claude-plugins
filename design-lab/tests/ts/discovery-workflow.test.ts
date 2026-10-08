@@ -37,7 +37,7 @@ function project(root: string) {
   });
   return run;
 }
-test('a person can choose another Site Studio export and extraction honors that choice', async () => {
+void test('a person can choose another Site Studio export and extraction honors that choice', async () => {
   const root = temp();
   put(join(root, 'docroot/sites/default/settings.php'), "<?php\n$settings['site_studio_sync'] = '../config/original';");
   put(
@@ -60,7 +60,7 @@ test('a person can choose another Site Studio export and extraction honors that 
     ['b'],
   );
 });
-test('naming an undetected export makes Site Studio selectable in the same command', async () => {
+void test('naming an undetected export makes Site Studio selectable in the same command', async () => {
   const root = temp();
   mkdirSync(join(root, 'docroot/themes'), { recursive: true });
   put(
@@ -77,7 +77,7 @@ test('naming an undetected export makes Site Studio selectable in the same comma
   await extractProject(run, 'components');
   assert.equal(JSON.parse(readFileSync(join(run, 'components.json'), 'utf8')).components[0].id, 'hero');
 });
-test('Canvas fixture drives the project pipeline and usage requires a recorded waiver', async () => {
+void test('Canvas fixture drives the project pipeline and usage requires a recorded waiver', async () => {
   const root = temp();
   cpSync(join(pluginRoot, 'tests/fixtures/canvas-site'), root, {
     recursive: true,
@@ -102,7 +102,7 @@ test('Canvas fixture drives the project pipeline and usage requires a recorded w
   assert.equal(components.components[0].usage.placements, null);
   assert.equal(components.components[0].usage.tier, 'Untiered');
 });
-test('Site Studio custom fixture retains the authored form in the inventory', async () => {
+void test('Site Studio custom fixture retains the authored form in the inventory', async () => {
   const root = temp(),
     extension = join(root, 'web/modules/custom/fixture');
   put(join(extension, 'fixture.info.yml'), 'name: Fixture\ntype: module\n');
@@ -118,7 +118,7 @@ test('Site Studio custom fixture retains the authored form in the inventory', as
   assert.equal(inventory.components[0].isCustomComponent, true);
   assert.ok(inventory.components[0].fields.length > 0);
 });
-test('large naive variant products are written as exact baseline integers', () => {
+void test('large naive variant products are written as exact baseline integers', () => {
   const component = {
     id: 'large',
     label: 'Large',
@@ -137,13 +137,13 @@ test('large naive variant products are written as exact baseline integers', () =
   assert.equal(count, 3n ** 40n);
   assert.match(readFileSync(file, 'utf8'), new RegExp('"naiveVariants": ' + count.toString()));
 });
-test('raw Unicode aliases retain urllib unavailable-page behavior', async () => {
+void test('raw Unicode aliases retain urllib unavailable-page behavior', async () => {
   const url = urljoin('https://local.ddev.site/', '/news/PNCB’sCEO');
   assert.match(url, /PNCB’s/);
   assert.deepEqual(await fetchPage(url), [0, '']);
   assert.equal(urljoin('https://example.test/', '/encoded/%E2%80%99'), 'https://example.test/encoded/%E2%80%99');
 });
-test('SDC empty enums and authored enum labels retain baseline behavior', () => {
+void test('SDC empty enums and authored enum labels retain baseline behavior', () => {
   const root = temp(),
     file = join(root, 'label.component.yml');
   put(
@@ -157,5 +157,5 @@ test('SDC empty enums and authored enum labels retain baseline behavior', () => 
     ['Hero Banner', 'Two Words', 'None', 'True'],
   );
 });
-test("Sass color lightness uses baseline's even half-tie rounding", () =>
+void test("Sass color lightness uses baseline's even half-tie rounding", () =>
   assert.equal(resolveToken('lighten(#000000, 30%)', new Map()), '#4c4c4c'));

@@ -115,7 +115,7 @@ async function run(browserPage: Page, html: string, script: string): Promise<{ r
   return { result, dom: await browserPage.evaluate(() => document.body.innerHTML) };
 }
 
-test('typed browser scripts match the baseline text on the same pages', async () => {
+void test('typed browser scripts match the baseline text on the same pages', async () => {
   const browser = await launchBrowser();
   try {
     const context = await browser.newContext({ viewport: { width: 800, height: 600 } }),

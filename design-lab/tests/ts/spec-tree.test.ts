@@ -10,14 +10,14 @@ const merge = (nodes: ReturnType<typeof node>[]) => build(spec({ desktop: nodes,
 const arrow = '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M4 11h12z"/></svg>';
 const recolour = (source: string, width = 24, height = 24, color = 'rgb(28, 110, 107)') =>
   st.maskedIconSvg(node('/a', 0, 0, width, height, { backgroundColor: color }, { maskSvg: source }));
-test('baseline half-even geometry and decimal rounding', () => {
+void test('baseline half-even geometry and decimal rounding', () => {
   assert.deepEqual([0.5, 1.5, -0.5, -1.5, 2.5].map(roundEven), [0, 2, 0, -2, 2]);
   assert.deepEqual(
     [1.005, 2.675, 0.125, 0.375].map((n) => roundDecimal(n, 2)),
     [1, 2.67, 0.12, 0.38],
   );
 });
-test('colors and CSS variables retain source binding', () => {
+void test('colors and CSS variables retain source binding', () => {
   assert.deepEqual(st.parseColor('rgb(12, 34, 255)'), { hex: '#0c22ff', opacity: 1 });
   assert.deepEqual(st.parseColor('rgba(255, 0, 16, 0.25)'), { hex: '#ff0010', opacity: 0.25 });
   assert.equal(st.parseColor('rgba(0, 0, 0, 0)'), null);
@@ -39,14 +39,14 @@ test('colors and CSS variables retain source binding', () => {
     '--brand-surface',
   );
 });
-test('flex gap and center alignment', () => {
+void test('flex gap and center alignment', () => {
   const l = st.inferLayout(
     node('/div[0]', 0, 0, 100, 30, { display: 'flex', justifyContent: 'center' }),
     [10, 40, 70].map((x, i) => node('/div[0]/span[' + i + ']', x, 0, 20, 10)),
   );
   assert.deepEqual([l.mode, l.gap, l.primaryAlign], ['HORIZONTAL', 10, 'CENTER']);
 });
-test('grid rows preserve column and row gaps', () => {
+void test('grid rows preserve column and row gaps', () => {
   const l = st.inferLayout(
     node('/div[0]', 0, 0, 50, 28, { display: 'grid' }),
     [
@@ -58,7 +58,7 @@ test('grid rows preserve column and row gaps', () => {
   );
   assert.deepEqual([l.mode, l.wrap, l.gap, l.counterGap], ['HORIZONTAL', true, 10, 8]);
 });
-test('block margins become padding and unequal spacers', () => {
+void test('block margins become padding and unequal spacers', () => {
   const root = node('/div[0]', 0, 0, 100, 100),
     kids = [7, 22, 43].map((y, i) => node('/div[0]/p[' + i + ']', 0, y, 100, 10, {}, { tag: 'p' }));
   const l = st.inferLayout(root, kids);
@@ -72,11 +72,11 @@ test('block margins become padding and unequal spacers', () => {
     [5, 11],
   );
 });
-test('two-pixel gap tolerance retains operation grouping', () => {
+void test('two-pixel gap tolerance retains operation grouping', () => {
   const l = st.primaryAlign([0, 31.22, 61.22], [21.22, 18, 20], 0, 81.22);
   assert.deepEqual(l, ['MIN', 10]);
 });
-test('misaligned children fall back to free placement', () => {
+void test('misaligned children fall back to free placement', () => {
   assert.equal(
     st.inferLayout(node('/div[0]', 0, 0, 100, 40, { display: 'flex' }), [
       node('/a', 0, 0, 20, 10),
@@ -85,7 +85,7 @@ test('misaligned children fall back to free placement', () => {
     true,
   );
 });
-test('BEM names and wrapper collapse retain text', () => {
+void test('BEM names and wrapper collapse retain text', () => {
   const root = node('/div[0]', 0, 0, 100, 20, {}, { classes: ['c-stat'] }),
     wrapper = node('/div[0]/div[0]', 0, 0, 100, 20),
     value = node(
@@ -103,14 +103,14 @@ test('BEM names and wrapper collapse retain text', () => {
     [['Value', 'text']],
   );
 });
-test('semantic layer names never repeat Figma defaults', () => {
+void test('semantic layer names never repeat Figma defaults', () => {
   for (const cls of ['c-card__text', 'c-frame', 'c-card__group'])
     assert.ok(
       !['Text', 'Frame', 'Group'].includes(st.nodeName(node('/a', 0, 0, 10, 10, {}, { classes: [cls] }), null)!),
     );
   assert.equal(st.nodeName(node('/a', 0, 0, 10, 10, {}, { tag: 'p' }), null), 'Paragraph');
 });
-test('hidden mobile child binds Boolean visibility', () => {
+void test('hidden mobile child binds Boolean visibility', () => {
   const root = node('/div[0]', 0, 0, 100, 40),
     child = node('/div[0]/p[1]', 0, 0, 100, 20, {}, { text: 'hello', tag: 'p' });
   const result = build(
@@ -122,13 +122,13 @@ test('hidden mobile child binds Boolean visibility', () => {
   assert.equal(result.variables[ref.var]!.type, 'BOOLEAN');
   assert.deepEqual(result.variables[ref.var]!.values, { Desktop: true, Tablet: true, Mobile: false });
 });
-test('zero-size and contents wrappers pass through; hidden ones stay hidden', () => {
+void test('zero-size and contents wrappers pass through; hidden ones stay hidden', () => {
   assert.equal(st.passthrough(node('/p', 0, 0, 0, 0, { display: 'inline' })), true);
   assert.equal(st.passthrough(node('/p', 0, 0, 100, 50, { display: 'contents' })), true);
   assert.equal(st.passthrough(node('/p', 0, 0, 0, 0, { display: 'none' })), false);
   assert.equal(st.passthrough(node()), false);
 });
-test('clip path geometry stays bounded', () => {
+void test('clip path geometry stays bounded', () => {
   const circle = st.clipShape('circle(50% at 50% 50%)', 100, 100)!;
   assert.deepEqual(circle, { kind: 'ellipse', cx: 50, cy: 50, rx: 50, ry: 50 });
   assert.deepEqual(st.clipShape('polygon(0% 0%, 100% 0%, 50px 100%)', 200, 80), {
@@ -143,7 +143,7 @@ test('clip path geometry stays bounded', () => {
   assert.ok(st.shapeSvg(circle, 100, 100, { hex: '#9ED4D6', opacity: 1 }).includes('clip-path="url(#box)"'));
 });
 const chevron = `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='24' height='24'%3E%3Cpath d='M1 1L2 2'/%3E%3C/svg%3E")`;
-test('pseudo images become visible SVG/background layers', () => {
+void test('pseudo images become visible SVG/background layers', () => {
   const link = node(
     '/a',
     0,
@@ -168,7 +168,7 @@ test('pseudo images become visible SVG/background layers', () => {
   assert.equal(st.pseudoImage(link, 'after')!.src, '/icons/x.png');
   assert.equal(st.pseudoImage({ ...link, after: { content: '"→"' } }, 'after'), null);
 });
-test('a child reordered by width occupies visibility-controlled placements', () => {
+void test('a child reordered by width occupies visibility-controlled placements', () => {
   const stack = (width: number, first: boolean) => [
     node('/div[0]', 0, 0, width, 200),
     ...[30, 40, 100].map((h, i) =>
@@ -188,14 +188,14 @@ test('a child reordered by width occupies visibility-controlled placements', () 
   assert.equal(slots[1]!.visible, undefined);
   assert.equal(slots[3]!.layout!.padding!.top, 20);
 });
-test('empty inline wrappers pass through without distorting image boxes', () => {
+void test('empty inline wrappers pass through without distorting image boxes', () => {
   const picture = node('/p', 0, 78, 335, 28, { display: 'inline' }, { tag: 'picture' });
   assert.equal(st.passthrough(picture), true);
   assert.equal(st.passthrough(picture, false), false);
   assert.equal(st.passthrough({ ...picture, text: 'Hi' }), false);
   assert.equal(st.passthrough(node('/a', 0, 0, 50, 20, { display: 'inline', backgroundColor: 'rgb(1, 2, 3)' })), false);
 });
-test('pseudo icon rotation occurs within the SVG', () => {
+void test('pseudo icon rotation occurs within the SVG', () => {
   assert.equal(st.rotation('matrix(-1, 0, 0, -1, 0, 0)'), 180);
   assert.equal(st.rotation('none'), 0);
   const result = st.pseudoImage(
@@ -212,7 +212,7 @@ test('pseudo icon rotation occurs within the SVG', () => {
   );
   assert.ok(result?.svg?.includes('<g transform="rotate(180.0 12.0 12.0)">'));
 });
-test('positioned children and pseudo boxes retain absolute stacking order', () => {
+void test('positioned children and pseudo boxes retain absolute stacking order', () => {
   const root = node(
     '/div[0]',
     0,
@@ -247,7 +247,7 @@ test('positioned children and pseudo boxes retain absolute stacking order', () =
   assert.equal(result.children!.at(-1)!.source, '/div[0]/div[1]');
   assert.deepEqual([result.children![0]!.x, result.children![0]!.y], [0, 40]);
 });
-test('reversed rows use drawn order at all widths', () => {
+void test('reversed rows use drawn order at all widths', () => {
   const row = (width: number) => [
     node('/div[0]', 0, 0, width, 100),
     node('/div[0]/div[1]', 160, 0, width - 160, 100, { backgroundColor: 'rgb(1, 1, 1)' }),
@@ -260,12 +260,12 @@ test('reversed rows use drawn order at all widths', () => {
     ['div[2]', 'div[1]'],
   );
 });
-test('translation requires free placement; pure rotations do not', () => {
+void test('translation requires free placement; pure rotations do not', () => {
   assert.equal(st.translated(node('/x', 0, 0, 10, 10, { transform: 'matrix(1, 0, 0, 1, -2820, 0)' })), true);
   for (const transform of ['matrix(-1, 0, 0, -1, 0, 0)', 'none'])
     assert.equal(st.translated(node('/x', 0, 0, 10, 10, { transform })), false);
 });
-test('translated decoration is cropped to the component behind content', () => {
+void test('translated decoration is cropped to the component behind content', () => {
   const root = node(
     '/div[0]',
     0,
@@ -297,7 +297,7 @@ test('translated decoration is cropped to the component behind content', () => {
   );
   assert.equal(result.children![1]!.source, '/div[0]/div[1]');
 });
-test('overflow windows clip wide carousel tracks', () => {
+void test('overflow windows clip wide carousel tracks', () => {
   const result = merge([
     node('/div[0]', 0, 0, 375, 340),
     node('/div[0]/div[1]', 0, 0, 375, 300, { overflow: 'hidden', backgroundColor: 'rgb(9, 9, 9)' }),
@@ -381,8 +381,8 @@ for (const [name, run] of [
     },
   ],
 ] as const)
-  test('CSS masks: ' + name, run);
-test('mask URLs handle quoted whitespace, data parentheses and escapes', () => {
+  void test('CSS masks: ' + name, run);
+void test('mask URLs handle quoted whitespace, data parentheses and escapes', () => {
   assert.equal(
     maskUrl(`url("data:image/svg+xml;utf8,<svg><g transform='rotate(45)'/></svg>")`),
     "data:image/svg+xml;utf8,<svg><g transform='rotate(45)'/></svg>",
@@ -392,11 +392,11 @@ test('mask URLs handle quoted whitespace, data parentheses and escapes', () => {
   assert.equal(maskUrl('url("a\\"b.svg")'), 'a"b.svg');
   assert.equal(maskUrl('none'), null);
 });
-test('FNV checksum matches UTF16 vectors', () => {
+void test('FNV checksum matches UTF16 vectors', () => {
   assert.equal(fnv1a('hello'), '4f9f2cab');
   assert.equal(fnv1a('😀'), 'cb31c4b8');
 });
-test('transit checksum rejects altered args before rendering', async () => {
+void test('transit checksum rejects altered args before rendering', async () => {
   const code = callPayload('pages', { pages: ['one'] }).split('const wanted =')[0]!;
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (
     code: string,
@@ -404,11 +404,11 @@ test('transit checksum rejects altered args before rendering', async () => {
   await new AsyncFunction(code)();
   await assert.rejects(new AsyncFunction(code.replace('"one"', '"two"'))(), /altered in transit/);
 });
-test('type stripping accepts async function bodies with top-level returns', () => {
+void test('type stripping accepts async function bodies with top-level returns', () => {
   const result = stripTemplate('const n: number = 4;\nreturn n;');
   assert.ok(!result.includes(': number'));
 });
-test('one-track grid at every width remains a vertical stack', () => {
+void test('one-track grid at every width remains a vertical stack', () => {
   const nodes = (width: number) => [
     node('/div[0]', 0, 0, width, 50, { display: 'grid', gridTemplateColumns: `${width}px` }),
     ...[0, 1, 2].map((i) => node(`/div[0]/div[${i}]`, 0, i * 20, width, 10)),
@@ -417,7 +417,7 @@ test('one-track grid at every width remains a vertical stack', () => {
   assert.equal(result.tree.layout!.mode, 'VERTICAL');
   assert.equal(result.tree.layout!.wrap, undefined);
 });
-test('multiple tracks at any width retain a wrapping row', () => {
+void test('multiple tracks at any width retain a wrapping row', () => {
   const nodes = (width: number, columns: number, cw: number) => [
     node('/div[0]', 0, 0, width, 50, {
       display: 'grid',
@@ -434,12 +434,12 @@ test('multiple tracks at any width retain a wrapping row', () => {
   assert.equal(result.tree.layout!.mode, 'HORIZONTAL');
   assert.equal(result.tree.layout!.wrap, true);
 });
-test('unrecorded grid tracks never imply a single column', () => {
+void test('unrecorded grid tracks never imply a single column', () => {
   assert.equal(st.gridTracks(node('/a', 0, 0, 20, 10, { display: 'grid' })), null);
   assert.equal(st.gridTracks(node()), 0);
   assert.equal(st.gridTracks(node('/a', 0, 0, 20, 10, { display: 'grid', gridTemplateColumns: '1px 2px' })), 2);
 });
-test('SVG root attributes retain replacement metacharacters literally', () => {
+void test('SVG root attributes retain replacement metacharacters literally', () => {
   for (const marker of ["$'", '$&', '$$', '$`']) {
     const source = `<svg data-label="${marker}" viewBox="0 0 24 24"><path d="M4 11h12z"/></svg>`,
       out = recolour(source)!;

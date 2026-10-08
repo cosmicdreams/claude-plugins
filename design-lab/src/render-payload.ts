@@ -70,7 +70,7 @@ function stripTypes(source: string): string {
     const message = typeof warning === 'string' ? warning : warning.message;
     if (rest[0] === 'ExperimentalWarning' && TYPE_STRIPPING_NOTICE.test(message)) return;
     return (emit as (...args: unknown[]) => void).call(this, warning, ...rest);
-  } as typeof process.emitWarning;
+  };
   try {
     return stripTypeScriptTypes(source, { mode: 'strip' });
   } finally {

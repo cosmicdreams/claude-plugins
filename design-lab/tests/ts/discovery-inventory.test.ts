@@ -27,7 +27,7 @@ function site(root: string, settings?: string) {
   return root;
 }
 
-test('Site Studio folder selection reads literal PHP values and refuses ambiguous or dynamic settings', () => {
+void test('Site Studio folder selection reads literal PHP values and refuses ambiguous or dynamic settings', () => {
   const root = site(temp(), "$settings['site_studio_sync'] = $app_root . '/../config/packages';");
   mkdirSync(join(root, 'config/packages'), { recursive: true });
   const found = configDir(root);
@@ -39,7 +39,7 @@ test('Site Studio folder selection reads literal PHP values and refuses ambiguou
   assert.match(result.problem!, /cannot be read without running PHP/);
 });
 
-test('Site Studio resolves each supported static expression, ignores comments, and excludes generated settings', () => {
+void test('Site Studio resolves each supported static expression, ignores comments, and excludes generated settings', () => {
   const cases: [string, string][] = [
     ["$settings['site_studio_sync'] = $app_root . '/../config/sitestudio';", 'config/sitestudio'],
     ["$settings['site_studio_sync'] ='../config/packages';", 'config/packages'],
@@ -68,7 +68,7 @@ test('Site Studio resolves each supported static expression, ignores comments, a
   assert.equal(configDir(generated).path, null);
 });
 
-test('Site Studio requires an explicit export choice for missing, unreadable, or disagreeing settings', () => {
+void test('Site Studio requires an explicit export choice for missing, unreadable, or disagreeing settings', () => {
   const unreadable = site(
     temp(),
     "$settings['site_studio_sync'] = '../config/packages';\n$settings['site_studio_sync'] = getenv('SS');",
@@ -96,7 +96,7 @@ test('Site Studio requires an explicit export choice for missing, unreadable, or
   assert.match(configDir(noGuess).problem!, /--sitestudio-config/);
 });
 
-test('literal settings preserve quotes, slashes, semicolons, and other comment-like characters', () => {
+void test('literal settings preserve quotes, slashes, semicolons, and other comment-like characters', () => {
   const cases: [string, string][] = [
     ["$settings['site_studio_sync'] = '../config/a/*x*/b';", 'config/a/*x*/b'],
     ["$settings['site_studio_sync'] = '../config/a #b';", 'config/a #b'],
@@ -113,7 +113,7 @@ test('literal settings preserve quotes, slashes, semicolons, and other comment-l
   }
 });
 
-test('Drupal config setting can select a Site Studio export when no dedicated setting exists', () => {
+void test('Drupal config setting can select a Site Studio export when no dedicated setting exists', () => {
   const root = site(temp(), "$settings['config_sync_directory'] = '../config/sync';");
   mkdirSync(join(root, 'config/sync'), { recursive: true });
   put(root, 'config/sync/cohesion_elements.cohesion_component.hero.yml', 'id: hero\n');
@@ -122,26 +122,26 @@ test('Drupal config setting can select a Site Studio export when no dedicated se
   assert.match(chosen.from!, /config_sync_directory/);
 });
 
-test('custom Site Studio components obey extension precedence, filename identity, and no-form behavior', () => {
+void test('custom Site Studio components obey extension precedence, filename identity, and no-form behavior', () => {
   const root = site(temp());
   put(root, 'docroot/modules/custom/kit/kit.info.yml', 'name: Kit\ntype: module\n');
   const component = 'name: Tiny Custom\ncategory: custom_category\n';
   put(root, 'docroot/modules/custom/kit/custom_components/tiny/tiny.custom_component.yml', component);
   const result = extractSiteStudio(root);
   assert.deepEqual(
-    result.components.map((c: any) => [c.id, c.fields]),
+    result.components.map((c) => [c.id, c.fields]),
     [['tiny', []]],
   );
   assert.deepEqual(result.problems, []);
   const found = customComponents(root)[0];
   assert.equal(found.length, 1);
   assert.deepEqual(
-    detect(root).componentSources.map((x: any) => x.strategy),
+    detect(root).componentSources.map((x) => x.strategy),
     ['sitestudio'],
   );
 });
 
-test('custom Site Studio components are found below nested groups and use the definition filename as ID', () => {
+void test('custom Site Studio components are found below nested groups and use the definition filename as ID', () => {
   const root = site(temp());
   put(root, 'docroot/modules/custom/kit/kit.info.yml', 'name: Kit\ntype: module\n');
   put(
@@ -150,12 +150,12 @@ test('custom Site Studio components are found below nested groups and use the de
     'name: Banner\ncategory: demo\n',
   );
   assert.deepEqual(
-    extractSiteStudio(root).components.map((c: any) => c.id),
+    extractSiteStudio(root).components.map((c) => c.id),
     ['banner'],
   );
 });
 
-test('a malformed custom form becomes a scoped problem while other components remain available', () => {
+void test('a malformed custom form becomes a scoped problem while other components remain available', () => {
   const root = site(temp());
   put(root, 'docroot/themes/custom/good/good.info.yml', 'name: Good\ntype: theme\n');
   put(
@@ -172,13 +172,13 @@ test('a malformed custom form becomes a scoped problem while other components re
   put(root, 'docroot/themes/custom/broken/custom_components/bad/form.json', '{bad');
   const result = extractSiteStudio(root);
   assert.deepEqual(
-    result.components.map((c: any) => c.id),
+    result.components.map((c) => c.id),
     ['tiny'],
   );
   assert.equal(result.problems![0]!.kind, 'unparseable-custom-component');
 });
 
-test('custom Site Studio search follows symlinked extensions and reports duplicate names by precedence', () => {
+void test('custom Site Studio search follows symlinked extensions and reports duplicate names by precedence', () => {
   const root = site(temp()),
     outside = temp();
   put(outside, 'shared/shared.info.yml', 'name: Shared\ntype: module\n');
@@ -197,7 +197,7 @@ test('custom Site Studio search follows symlinked extensions and reports duplica
   assert.equal(problems[0]!.kind, 'duplicate-custom-component');
 });
 
-test('custom Site Studio discovery follows linked component folders and skips contrib, core, blocked, and nested search roots', () => {
+void test('custom Site Studio discovery follows linked component folders and skips contrib, core, blocked, and nested search roots', () => {
   const root = temp(),
     outside = temp();
   mkdirSync(join(root, 'web/sites/default'), { recursive: true });
@@ -236,7 +236,7 @@ test('custom Site Studio discovery follows linked component folders and skips co
   );
 });
 
-test('Site Studio config components retain field and option semantics', () => {
+void test('Site Studio config components retain field and option semantics', () => {
   const root = site(temp(), "$settings['site_studio_sync'] = '../config/packages';");
   mkdirSync(join(root, 'config/packages'), { recursive: true });
   put(
@@ -251,7 +251,7 @@ test('Site Studio config components retain field and option semantics', () => {
   assert.deepEqual(c.fields[1]!.options, [{ value: 'left', label: 'Left' }]);
 });
 
-test('Site Studio renders multiple drop-zone markers as one universal slot', () => {
+void test('Site Studio renders multiple drop-zone markers as one universal slot', () => {
   const root = site(temp(), "$settings['site_studio_sync'] = '../config/packages';");
   mkdirSync(join(root, 'config/packages'), { recursive: true });
   put(
@@ -263,7 +263,7 @@ test('Site Studio renders multiple drop-zone markers as one universal slot', () 
   assert.deepEqual(c.slots, [{ name: 'content', label: 'Component drop zone', accepts: ['*'] }]);
 });
 
-test('detection chooses authoring bundles over a larger incidental SDC inventory', () => {
+void test('detection chooses authoring bundles over a larger incidental SDC inventory', () => {
   const root = site(temp());
   put(root, 'config/default/block_content.type.basic.yml', 'id: basic\n');
   put(root, 'config/default/paragraphs.paragraphs_type.text.yml', 'id: text\n');
@@ -276,7 +276,7 @@ test('detection chooses authoring bundles over a larger incidental SDC inventory
   assert.equal(docroot(root), join(root, 'docroot'));
 });
 
-test('Site Studio source outranks a few incidental Drupal authoring bundles', () => {
+void test('Site Studio source outranks a few incidental Drupal authoring bundles', () => {
   const root = site(temp(), "$settings['site_studio_sync'] = '../config/packages';");
   mkdirSync(join(root, 'config/packages'), { recursive: true });
   put(root, 'config/default/block_content.type.basic.yml', 'id: basic\n');
@@ -286,7 +286,7 @@ test('Site Studio source outranks a few incidental Drupal authoring bundles', ()
   assert.equal(detect(root).recommended.component, 'sitestudio');
 });
 
-test('recording no Site Studio export suppresses config reads, and known inactive extensions are skipped', () => {
+void test('recording no Site Studio export suppresses config reads, and known inactive extensions are skipped', () => {
   const root = site(temp(), "$settings['site_studio_sync'] = '../config/packages';");
   mkdirSync(join(root, 'config/packages'), { recursive: true });
   put(
@@ -314,23 +314,23 @@ test('recording no Site Studio export suppresses config reads, and known inactiv
   );
 });
 
-test('token detection uses loaded stylesheet paths and excludes the active workspace from prior art', () => {
+void test('token detection uses loaded stylesheet paths and excludes the active workspace from prior art', () => {
   const root = site(temp());
   put(root, 'docroot/themes/custom/test/test.libraries.yml', 'global:\n  css:\n    theme:\n      dist/index.css: {}\n');
   put(root, 'docroot/themes/custom/test/source/card/index.css', ':root { --fake-1: #111; --fake-2: #222; }\n');
   put(root, 'docroot/themes/custom/test/source/00-config/scss/settings/_colors.scss', '$brand: #123456;\n');
   mkdirSync(join(root, '.design-lab/figma-batches'), { recursive: true });
   const out = detect(root),
-    css = out.tokenSources.find((x: any) => x.strategy === 'css-custom-properties');
+    css = out.tokenSources.find((x) => x.strategy === 'css-custom-properties');
   assert.equal(css!.variablesLoadedByTheme, 0);
   assert.equal(out.recommended.token, 'sass-source');
   assert.equal(
-    out.priorArt.some((x: any) => x.path.startsWith('.design-lab')),
+    out.priorArt.some((x) => x.path.startsWith('.design-lab')),
     false,
   );
 });
 
-test('SDC and Canvas inventory include registered custom-theme components only', () => {
+void test('SDC and Canvas inventory include registered custom-theme components only', () => {
   const root = site(temp());
   mkdirSync(join(root, 'config/default'), { recursive: true });
   put(
@@ -352,17 +352,17 @@ test('SDC and Canvas inventory include registered custom-theme components only',
   assert.equal(canvas.components[0]!.componentVersion, 2);
 });
 
-test('Canvas detection sees custom theme directories without info files and only direct config globs', () => {
+void test('Canvas detection sees custom theme directories without info files and only direct config globs', () => {
   const root = site(temp());
   mkdirSync(join(root, 'docroot/themes/custom/no_info'), { recursive: true });
   put(root, 'config/default/canvas.component.sdc.no_info.card.yml', 'id: card\n');
   put(root, 'config/default/nested/canvas.component.sdc.no_info.ignored.yml', 'id: ignored\n');
   const out = detect(root),
-    canvas = out.componentSources.find((x: any) => x.strategy === 'canvas');
+    canvas = out.componentSources.find((x) => x.strategy === 'canvas');
   assert.equal(canvas!.count, 1);
 });
 
-test('Site Studio family detection uses direct export entries, not nested lookalikes', () => {
+void test('Site Studio family detection uses direct export entries, not nested lookalikes', () => {
   const root = site(temp(), "$settings['site_studio_sync'] = '../config/packages';");
   mkdirSync(join(root, 'config/packages/nested'), { recursive: true });
   put(
@@ -377,7 +377,7 @@ test('Site Studio family detection uses direct export entries, not nested lookal
   assert.equal(extractSiteStudio(root).components.length, 1);
 });
 
-test('prior-art scan observes its documented depth, includes symlink directory names, and does not follow links', () => {
+void test('prior-art scan observes its documented depth, includes symlink directory names, and does not follow links', () => {
   const root = site(temp()),
     outside = temp();
   put(root, 'reports/component-library.md', 'existing\n');
@@ -385,14 +385,14 @@ test('prior-art scan observes its documented depth, includes symlink directory n
   put(outside, 'design-system/deep/figma/hidden.txt', 'outside\n');
   mkdirSync(join(root, 'reports/linked'), { recursive: true });
   symlinkSync(join(outside, 'design-system'), join(root, 'reports/linked/figma-directory'));
-  const hits = detect(root).priorArt.map((h: any) => [h.path, h.kind]);
-  assert.ok(hits.some((h: any) => h[0] === 'reports/component-library.md' && h[1] === 'file'));
-  assert.ok(!hits.some((h: any) => h[0] === 'reports/a/b/c/design-system.md'));
-  assert.ok(hits.some((h: any) => h[0] === 'reports/linked/figma-directory' && h[1] === 'directory'));
-  assert.ok(!hits.some((h: any) => h[0].includes('figma-directory/deep')));
+  const hits = detect(root).priorArt.map((h) => [h.path, h.kind] as const);
+  assert.ok(hits.some(([path, kind]) => path === 'reports/component-library.md' && kind === 'file'));
+  assert.ok(!hits.some(([path]) => path === 'reports/a/b/c/design-system.md'));
+  assert.ok(hits.some(([path, kind]) => path === 'reports/linked/figma-directory' && kind === 'directory'));
+  assert.ok(!hits.some(([path]) => path.includes('figma-directory/deep')));
 });
 
-test('Drupal authoring resolves paragraph slots and predefined field kinds; Twig evidence stays source-bounded', () => {
+void test('Drupal authoring resolves paragraph slots and predefined field kinds; Twig evidence stays source-bounded', () => {
   const root = site(temp());
   put(root, 'config/default/paragraphs.paragraphs_type.layout.yml', 'id: layout\nlabel: Layout\n');
   put(root, 'config/default/paragraphs.paragraphs_type.text.yml', 'id: text\nlabel: Text\n');
@@ -407,7 +407,7 @@ test('Drupal authoring resolves paragraph slots and predefined field kinds; Twig
     'field_name: field_items\nfield_type: entity_reference_revisions\nlabel: Items\nsettings:\n  handler_settings:\n    target_bundles:\n      text: text\n',
   );
   const authored = extractAuthoring(root);
-  const layout = authored.components.find((c: any) => c.id === 'paragraph:layout');
+  const layout = authored.components.find((c) => c.id === 'paragraph:layout');
   assert.equal(layout!.slots[0]!.accepts![0], 'paragraph:text');
   const sass = put(
     root,
@@ -434,7 +434,7 @@ test('Drupal authoring resolves paragraph slots and predefined field kinds; Twig
   assert.equal(item.referencedFields[0], 'field_items');
 });
 
-test('Drupal authoring replaces list placeholders with predefined options and maps contrib field types', () => {
+void test('Drupal authoring replaces list placeholders with predefined options and maps contrib field types', () => {
   const root = site(temp());
   put(root, 'config/default/block_content.type.basic.yml', 'id: basic\nlabel: Basic\n');
   put(
@@ -465,7 +465,7 @@ test('Drupal authoring replaces list placeholders with predefined options and ma
     "<?php\n/** @ListOptions(\n * id = 'example_styles'\n * )\n */\npublic function getListOptions() { return ['plain' => $this->t('Plain'), 'feature' => $this->t('Feature')]; }\n",
   );
   const c = extractAuthoring(root).components[0]!,
-    fields = Object.fromEntries(c.fields.map((f: any) => [f.name, f]));
+    fields = Object.fromEntries(c.fields.map((f) => [f.name, f]));
   assert.deepEqual(fields['field_style'].options, [
     { value: 'plain', label: 'Plain' },
     { value: 'feature', label: 'Feature' },

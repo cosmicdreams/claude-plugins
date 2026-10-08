@@ -3,18 +3,18 @@ import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import { validate } from '../../src/contracts.ts';
 const fixture = (kind: string) => JSON.parse(readFileSync(new URL(`./fixtures/${kind}.json`, import.meta.url), 'utf8'));
-test('duplicate component identities fail even when the serialized rows differ', () => {
+void test('duplicate component identities fail even when the serialized rows differ', () => {
   const doc = fixture('components');
   doc.components = [doc.components[0], { ...doc.components[0], label: 'different label' }];
   assert.ok(validate('components', doc).some((e) => e.includes('duplicate id')));
 });
-test('published capture documentation never links to a local DDEV hostname', () => {
+void test('published capture documentation never links to a local DDEV hostname', () => {
   const doc = fixture('capture-evidence'),
-    item = Object.values(doc.captures)[0] as any;
+    item = Object.values(doc.captures)[0] as { linkUrl?: string };
   item.linkUrl = 'https://fixture.ddev.site/example';
   assert.ok(validate('capture-evidence', doc).some((e) => e.includes('DDEV')));
 });
-test('accepted build receipts require comparison evidence, native components and all breakpoints', () => {
+void test('accepted build receipts require comparison evidence, native components and all breakpoints', () => {
   const doc = fixture('build-record');
   const a = structuredClone(doc);
   delete a.visualEvidence;

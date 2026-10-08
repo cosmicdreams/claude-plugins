@@ -80,7 +80,7 @@ for (const concurrency of [1, 4]) {
     );
     for (let i = 0; i < actualRows.length; i++) {
       const a: { data: Buffer; info: import('sharp').OutputInfo } = await sharp(
-        resolve(project, 'capture/shots', actualRows[i]!.file!),
+        resolve(project, 'capture/shots', actualRows[i]!.file),
       )
         .ensureAlpha()
         .raw()

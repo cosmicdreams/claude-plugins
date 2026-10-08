@@ -51,14 +51,16 @@ export async function compareReports(python: string, ts: string, out: string) {
     };
     const [a, b] = await Promise.all([inspect(python, 'python'), inspect(ts, 'typescript')]);
     const differences: string[] = [];
-    function diff(a: any, b: any, p = '') {
+    function diff(a: unknown, b: unknown, p = '') {
       if (differences.length >= 60) return;
       if (Object.is(a, b)) return;
       if (!a || !b || typeof a !== 'object' || typeof b !== 'object' || Array.isArray(a) !== Array.isArray(b)) {
         differences.push(p + ': ' + JSON.stringify(a) + ' != ' + JSON.stringify(b));
         return;
       }
-      for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) diff(a[k], b[k], p + '/' + k);
+      const left = a as Record<string, unknown>,
+        right = b as Record<string, unknown>;
+      for (const k of new Set([...Object.keys(left), ...Object.keys(right)])) diff(left[k], right[k], p + '/' + k);
     }
     diff(a.tree, b.tree);
     writeFileSync(resolve(out, 'dom-differences.json'), JSON.stringify(differences, null, 2));
@@ -76,7 +78,7 @@ export async function compareReports(python: string, ts: string, out: string) {
         images.push({ index: i, match: false, error: String(error) });
       }
     }
-    let screenshot: any;
+    let screenshot: { match: boolean; error?: string };
     try {
       screenshot = { ...(await assertPixels(b.screenshot, a.screenshot, 'report screenshot', EDGE)), match: true };
     } catch (error) {

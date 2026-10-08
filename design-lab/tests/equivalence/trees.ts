@@ -90,7 +90,7 @@ for (const item of manifest) {
     ['responsive', () => responsive(spec, item.label, item.key)],
   ] as const) {
     if (expected[kind]?.error) {
-      row.oracleErrors.push(item.original + ': ' + kind + ': ' + expected[kind]!.error);
+      row.oracleErrors.push(item.original + ': ' + kind + ': ' + expected[kind].error);
       try {
         assert.throws(build, item.original + ': TS must reject invalid oracle input');
         row.rejected++;

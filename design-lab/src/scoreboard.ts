@@ -12,7 +12,7 @@ export interface ScoreboardOptions {
   now?: () => string;
 }
 export function rows(config = loadConfig()): unknown[] {
-  return existsSync(config.scoreboard!.ledger) ? scoreboardRender.loadRows(config.scoreboard!.ledger) : [];
+  return existsSync(config.scoreboard.ledger) ? scoreboardRender.loadRows(config.scoreboard.ledger) : [];
 }
 export async function record(runPath: string, tier: number, site?: string, options: ScoreboardOptions = {}) {
   if (tier !== 2 && tier !== 3) throw new Error('scoreboard tier must be 2 or 3');
@@ -39,7 +39,7 @@ export async function record(runPath: string, tier: number, site?: string, optio
       tier,
       ...metrics,
     };
-  const ledger = config.scoreboard!.ledger;
+  const ledger = config.scoreboard.ledger;
   mkdirSync(dirname(ledger), { recursive: true });
   const fd = openSync(ledger, 'a', 0o600);
   try {
@@ -52,7 +52,7 @@ export async function record(runPath: string, tier: number, site?: string, optio
   return row;
 }
 export function render(config = loadConfig()): string {
-  const dashboard = config.scoreboard!.dashboard;
+  const dashboard = config.scoreboard.dashboard;
   mkdirSync(dirname(dashboard), { recursive: true });
   const page = scoreboardRender.render(rows(config));
   // Keep dashboard writes in the explicitly configured personal workspace.

@@ -8,6 +8,7 @@ import { classify as classifyCss, extract as extractCss } from '../../src/extrac
 import { extract as extractSass } from '../../src/extract-tokens-sass.ts';
 import { extract as extractSourceMap } from '../../src/extract-tokens-sourcemap.ts';
 import { extract as extractSiteStudio } from '../../src/extract-tokens-sitestudio.ts';
+import type { Tokens } from '../../src/generated/tokens.ts';
 
 function fixture(run: (root: string) => void): void {
   const root = mkdtempSync(join(tmpdir(), 'design-lab-tokens-'));
@@ -24,13 +25,13 @@ function put(root: string, path: string, text: string): string {
   return target;
 }
 
-test('CSS token families prefer semantic names while recognizing hex text colors', () => {
+void test('CSS token families prefer semantic names while recognizing hex text colors', () => {
   assert.equal(classifyCss('--text-body', '#222222'), 'color');
   assert.equal(classifyCss('--text-lg', '1.25rem'), 'font-size');
   assert.equal(classifyCss('--border-width', '1px'), 'spacing');
 });
 
-test('CSS extraction keeps source media order and resolved aliases', () =>
+void test('CSS extraction keeps source media order and resolved aliases', () =>
   fixture((root) => {
     put(
       root,
@@ -44,38 +45,38 @@ test('CSS extraction keeps source media order and resolved aliases', () =>
     );
     put(root, 'themes/custom/demo/css/nested/tokens.css', ':root { --font-size-h1: 24px; --text: #333; }');
     put(root, 'themes/custom/demo/css/unloaded.css', ':root { --fake: #abc; }');
-    const result = extractCss(root) as any;
+    const result = extractCss(root) as Required<Pick<Tokens, 'tokens' | 'source' | 'shadowed'>> & { modes: string[] };
     assert.deepEqual(result.modes, ['Value', '@media (min-width: 768px)', '@media (min-width: 1200px)']);
     assert.deepEqual(result.source.ignoredNotLoaded, ['themes/custom/demo/css/unloaded.css']);
-    const h1 = result.tokens.find((token: any) => token.name === 'font-size-h1');
-    assert.deepEqual(h1.valuesByMode, {
+    const h1 = result.tokens.find((token) => token.name === 'font-size-h1');
+    assert.deepEqual(h1!.valuesByMode, {
       Value: '32px',
       '@media (min-width: 768px)': '40px',
       '@media (min-width: 1200px)': '48px',
     });
-    assert.equal(result.tokens.find((token: any) => token.name === 'text').value, '#111');
+    assert.equal(result.tokens.find((token) => token.name === 'text')?.value, '#111');
     assert.equal(
-      result.shadowed.find((token: any) => token.name === 'font-size-h1' && token.value === '24px').value,
+      result.shadowed.find((token) => token.name === 'font-size-h1' && token.value === '24px')?.value,
       '24px',
     );
   }));
 
-test('Sass source extraction types aliases and token-map entries', () =>
+void test('Sass source extraction types aliases and token-map entries', () =>
   fixture((root) => {
     put(
       root,
       'themes/custom/demo/source/00-config/_tokens.scss',
       '$brand: #123456;\n$surface-brand: $brand;\n$font-size-body: 1rem;\n$spacers: (\n  1: 4px,\n  2: 8px,\n);\n',
     );
-    const result = extractSass(root) as any;
+    const result = extractSass(root) as Required<Pick<Tokens, 'tokens' | 'source'>>;
     assert.equal(result.source.strategy, 'sass-source');
-    assert.equal(result.tokens.find((token: any) => token.name === 'surface-brand').value, '#123456');
-    assert.equal(result.tokens.find((token: any) => token.name === 'surface-brand').family, 'color');
-    assert.equal(result.tokens.find((token: any) => token.name === 'spacers-1').codePath, '$spacers[1]');
-    assert.equal(result.tokens.filter((token: any) => token.family === 'spacing').length, 2);
+    assert.equal(result.tokens.find((token) => token.name === 'surface-brand')?.value, '#123456');
+    assert.equal(result.tokens.find((token) => token.name === 'surface-brand')?.family, 'color');
+    assert.equal(result.tokens.find((token) => token.name === 'spacers-1')?.codePath, '$spacers[1]');
+    assert.equal(result.tokens.filter((token) => token.family === 'spacing').length, 2);
   }));
 
-test('source maps resolve aliases, em values and Sass lightness functions', () =>
+void test('source maps resolve aliases, em values and Sass lightness functions', () =>
   fixture((root) => {
     put(
       root,
@@ -90,7 +91,7 @@ test('source maps resolve aliases, em values and Sass lightness functions', () =
       }),
     );
     put(root, 'css/broken.css.map', '{bad json');
-    const result = extractSourceMap(root);
+    const result = extractSourceMap(root) as Required<Pick<Tokens, 'tokens' | 'source'>>;
     assertValid('tokens', result);
     assert.ok(result.tokens);
     assert.ok(result.source);
@@ -103,7 +104,7 @@ test('source maps resolve aliases, em values and Sass lightness functions', () =
     assert.equal(byName['brand']!.layer, 'base');
   }));
 
-test('Site Studio tokens keep website settings separate from responsive custom styles', () =>
+void test('Site Studio tokens keep website settings separate from responsive custom styles', () =>
   fixture((root) => {
     const cfg = join(root, 'config/sync');
     put(
@@ -135,17 +136,25 @@ test('Site Studio tokens keep website settings separate from responsive custom s
       'config/sync/cohesion_custom_styles.cohesion_custom_style.heading.yml',
       `label: Heading\nclass_name: coh-style-heading\njson_values: |\n  ${JSON.stringify(styles)}\n`,
     );
-    const result = extractSiteStudio(root, cfg) as any;
+    const result = extractSiteStudio(root, cfg) as Required<
+      Pick<Tokens, 'source' | 'colors' | 'fontStacks' | 'scssVariables' | 'modes' | 'customStyles' | 'typeScaling'>
+    > & {
+      colors: NonNullable<Tokens['colors']>;
+      fontStacks: NonNullable<Tokens['fontStacks']>;
+      scssVariables: NonNullable<Tokens['scssVariables']>;
+      customStyles: NonNullable<Tokens['customStyles']>;
+      typeScaling: NonNullable<Tokens['typeScaling']>;
+    };
     assert.equal(result.source.strategy, 'sitestudio-website-settings');
-    assert.equal(result.colors[0].hex, '#AABBCC');
-    assert.equal(result.fontStacks[0].primaryFamily, 'Inter');
-    assert.equal(result.scssVariables[0].codeName, '$space');
+    assert.equal(result.colors[0]!.hex, '#AABBCC');
+    assert.equal(result.fontStacks[0]!.primaryFamily, 'Inter');
+    assert.equal(result.scssVariables[0]!.codeName, '$space');
     assert.deepEqual(result.modes, ['xl', 'md']);
-    assert.deepEqual(result.customStyles[0].valuesByBreakpoint, {
+    assert.deepEqual(result.customStyles[0]!.valuesByBreakpoint, {
       xl: '32px',
       md: '24px',
     });
-    const boolStyle = result.customStyles.find((style: any) => style.property === 'styles-xl-clearfix');
-    assert.deepEqual(boolStyle.valuesByBreakpoint, { xl: null, md: null });
+    const boolStyle = result.customStyles.find((style) => style.property === 'styles-xl-clearfix');
+    assert.deepEqual(boolStyle!.valuesByBreakpoint, { xl: null, md: null });
     assert.equal(result.typeScaling.scaling, 1);
   }));

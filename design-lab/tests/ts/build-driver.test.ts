@@ -86,7 +86,7 @@ const pages = (project: string) => ({
 });
 const payloadArgs = (path: string) =>
   JSON.parse(readFileSync(path, 'utf8').split('\n')[0]!.slice(13, -1)) as Record<string, unknown>;
-test('init orders pages, foundations, tiers, native build and receipts by the plan', (t) => {
+void test('init orders pages, foundations, tiers, native build and receipts by the plan', (t) => {
   const { project, driver } = fixture(t),
     state = driver.state();
   assert.deepEqual(state.planned, ['card']);
@@ -110,7 +110,7 @@ test('init orders pages, foundations, tiers, native build and receipts by the pl
   assert.equal(state.siteUrl, 'https://local.test');
   assert.ok(c.pageList(project).includes('Components — High Use'));
 });
-test('next and status leave unchanged state and payload files untouched', async (t) => {
+void test('next and status leave unchanged state and payload files untouched', async (t) => {
   const { project, driver } = fixture(t),
     file = resolve(project, 'figma/state.json'),
     stamp = statSync(file, { bigint: true }).mtimeNs;
@@ -129,7 +129,7 @@ test('next and status leave unchanged state and payload files untouched', async 
   assert.equal(timings.length, 2);
   assert.ok(timings.every((r) => r.step === 'pages' && r.phase === 'next' && r.ms >= 0));
 });
-test('record rejects missing ids, out-of-order steps and wrong result kinds without advancing', async (t) => {
+void test('record rejects missing ids, out-of-order steps and wrong result kinds without advancing', async (t) => {
   const { project, driver } = fixture(t);
   await assert.rejects(driver.record('pages', {}), /no pages/);
   await assert.rejects(driver.record('variables', { rootId: 'wrong' }), /expected to record pages/);
@@ -140,7 +140,7 @@ test('record rejects missing ids, out-of-order steps and wrong result kinds with
   assert.equal(driver.status().next, 'variables');
   assert.equal(new BuildDriver(project).status().done, 1);
 });
-test('preflight cover identity is retained and a second cover is refused', async (t) => {
+void test('preflight cover identity is retained and a second cover is refused', async (t) => {
   const { project, driver, options } = fixture(t);
   writeOnChange(resolve(project, 'project.json'), {
     repository: project,
@@ -153,7 +153,7 @@ test('preflight cover identity is retained and a second cover is refused', async
   await driver.record('pages', pages(project));
   assert.equal(driver.state().preflightCover, '0:1');
 });
-test('an in-process driver sees a new init from another instance and finishes despite runtime edits', async (t) => {
+void test('an in-process driver sees a new init from another instance and finishes despite runtime edits', async (t) => {
   const { project, driver, options } = fixture(t);
   await driver.record('pages', pages(project));
   new BuildDriver(project).init(options);
@@ -164,7 +164,7 @@ test('an in-process driver sees a new init from another instance and finishes de
   writeOnChange(resolve(project, 'figma/state.json'), state);
   assert.deepEqual(await driver.next(), { kind: 'done' });
 });
-test('rebuild clears this run outputs, wipes first and keeps iterating; another file is refused', (t) => {
+void test('rebuild clears this run outputs, wipes first and keeps iterating; another file is refused', (t) => {
   const { project, driver, options } = fixture(t);
   driver.init({ ...options, iterate: true });
   writeOnChange(resolve(project, 'figma/results/stale.json'), {});
@@ -177,7 +177,7 @@ test('rebuild clears this run outputs, wipes first and keeps iterating; another 
   assert.equal(existsSync(resolve(project, 'figma/results/stale.json')), false);
   assert.equal(existsSync(resolve(project, 'builds/stale.json')), false);
 });
-test('subset expands to parents, preserves unrelated progress and keeps saved master identities', (t) => {
+void test('subset expands to parents, preserves unrelated progress and keeps saved master identities', (t) => {
   const child: Component = { id: 'child', label: 'Child', sourceRef: 'child.yml', fields: [], slots: [], defects: [] },
     parent: Component = { ...child, id: 'parent', slots: [{ name: 'content', accepts: ['child'] }] },
     other = { ...child, id: 'other' };
@@ -203,7 +203,7 @@ test('subset expands to parents, preserves unrelated progress and keeps saved ma
   assert.throws(() => driver.init({ ...options, only: 'missing' }), /already in/);
   assert.throws(() => driver.init({ ...options, only: 'child', rebuild: true }), /cannot be combined/);
 });
-test('image steps isolate missing assets and cannot record an empty result for an upload', async (t) => {
+void test('image steps isolate missing assets and cannot record an empty result for an upload', async (t) => {
   const { project, driver } = fixture(t);
   const state = driver.state();
   state.done = state.steps.filter((s) => s.id !== 'images:card').map((s) => s.id);
@@ -222,7 +222,7 @@ test('image steps isolate missing assets and cannot record an empty result for a
   await assert.rejects(driver.record('evidence:card', {}), /invalid upload/);
   assert.equal(driver.status().next, 'evidence:card');
 });
-test('evidence upload order follows the actual drawn columns, excluding unmeasured widths', async (t) => {
+void test('evidence upload order follows the actual drawn columns, excluding unmeasured widths', async (t) => {
   const { project, driver } = fixture(t),
     tree = c.treeFor(project, 'card');
   tree.measured = ['mobile', 'desktop'];
@@ -241,7 +241,7 @@ test('evidence upload order follows the actual drawn columns, excluding unmeasur
     );
   }
 });
-test('Sharp crops icon captures using Pillow bounds and pads beyond the image', async (t) => {
+void test('Sharp crops icon captures using Pillow bounds and pads beyond the image', async (t) => {
   const { project } = fixture(t),
     image = resolve(project, 'image.png');
   await sharp({ create: { width: 3, height: 3, channels: 4, background: '#ff0000' } })
@@ -254,7 +254,7 @@ test('Sharp crops icon captures using Pillow bounds and pads beyond the image', 
   assert.deepEqual([...raw.data.subarray(20, 24)], [255, 0, 0, 255]);
   assert.equal(await cropCapture('capture:mobile:0,0,1,1', { desktop: image }, project), null);
 });
-test('cover and getting-started use recorded master+block counts rather than planned counts', (t) => {
+void test('cover and getting-started use recorded master+block counts rather than planned counts', (t) => {
   const { project, driver } = fixture(t),
     state = driver.state();
   writeOnChange(resolve(project, 'figma/results/pages.json'), pages(project));
@@ -278,7 +278,7 @@ test('cover and getting-started use recorded master+block counts rather than pla
   assert.equal(lc.TIER_COLORS['High Use'], '#FAD200');
   assert.equal(lc.tierTable(counts)[0]!.built, 1);
 });
-test('index preserves the merged usage tier, treats partial data as untiered and separates links', (t) => {
+void test('index preserves the merged usage tier, treats partial data as untiered and separates links', (t) => {
   const { inventory } = fixture(t),
     co = inventory[0]!;
   assert.equal(tierOf({ ...co, usage: { ...co.usage, placements: 0 } }), 'Components — High Use');
@@ -289,7 +289,7 @@ test('index preserves the merged usage tier, treats partial data as untiered and
   assert.equal(row.componentLinkTarget, 'master');
   assert.equal(row.documentationLinkTarget, 'doc');
 });
-test('native receipts fail closed on missing measurements and screenshot surrogates', () => {
+void test('native receipts fail closed on missing measurements and screenshot surrogates', () => {
   const fields = [{ field: 'title' }],
     slots = [{ name: 'items', accepts: ['child'] }],
     relationships = [{ field: 'items' }];
@@ -318,20 +318,21 @@ test('native receipts fail closed on missing measurements and screenshot surroga
   assert.deepEqual(missingNested(slots, [{ field: 'items', rendered: false }], []), []);
   assert.deepEqual(missingNested([{ name: 'any', accepts: 'any' }], [], []), ['any: any component']);
 });
-test('Twig evidence exempts only proven unrendered slots and names accepted types actually rendered', () => {
+void test('Twig evidence exempts only proven unrendered slots and names accepted types actually rendered', () => {
   const slot = { name: 'items', accepts: ['one', 'two'] };
   assert.deepEqual(slotRendering(undefined, slot), { rendered: true });
   assert.equal(slotRendering({ parentRenders: 1, children: { one: 0, two: 0 }, page: '/page' }, slot).rendered, false);
   assert.deepEqual(slotRendering({ parentRenders: 1, children: { one: 1, two: 0 } }, slot).renderedAccepts, ['one']);
 });
-test('receipt registration keeps valid outputs, rejects corrupt ones and completes only observed coverage', async (t) => {
+void test('receipt registration keeps valid outputs, rejects corrupt ones and completes only observed coverage', async (t) => {
   const { project } = fixture(t),
     { registerOutputs, componentCoverage } = await import('../../src/figma-receipts.ts');
   const record = JSON.parse(readFileSync(new URL('./fixtures/build-record.json', import.meta.url), 'utf8'));
   const id = record.id;
   for (const rel of record.documentation.anatomy.relationships)
     if (typeof rel.accepts === 'string') rel.accepts = [rel.accepts];
-  for (const assertion of Object.values(record.assertions) as { verdict: string }[]) assertion.verdict = 'pass';
+  for (const assertion of Object.values(record.assertions))
+    if (assertion && typeof assertion === 'object' && 'verdict' in assertion) assertion.verdict = 'pass';
   writeOnChange(resolve(project, 'builds/good.json'), record);
   writeOnChange(resolve(project, 'bad.json'), {});
   writeOnChange(resolve(project, 'plan.json'), { plans: [{ id, verdict: 'build' }] });
@@ -355,7 +356,7 @@ test('receipt registration keeps valid outputs, rejects corrupt ones and complet
   writeOnChange(resolve(project, 'builds/good.json'), record);
   assert.deepEqual(componentCoverage(project, saved).invalid, ['build:' + id]);
 });
-test('receipt policy rejects missing triad evidence, surrogate native nodes and duplicate index ids', async () => {
+void test('receipt policy rejects missing triad evidence, surrogate native nodes and duplicate index ids', async () => {
   const { receiptErrors } = await import('../../src/figma-receipts.ts');
   const record = JSON.parse(readFileSync(new URL('./fixtures/build-record.json', import.meta.url), 'utf8'));
   record.nativeComponent.rootHasImageFill = true;
@@ -367,7 +368,7 @@ test('receipt policy rejects missing triad evidence, surrogate native nodes and 
   foundation.collections = {};
   assert.ok(receiptErrors('foundation', foundation).length);
 });
-test('unknown usage gets an Untiered page and observed font/visual losses remain named in Known gaps', (t) => {
+void test('unknown usage gets an Untiered page and observed font/visual losses remain named in Known gaps', (t) => {
   const { project, driver, options, inventory } = fixture(t);
   for (const co of inventory) delete co.usage;
   writeOnChange(resolve(project, 'components.json'), { components: inventory });
@@ -389,7 +390,7 @@ test('unknown usage gets an Untiered page and observed font/visual losses remain
   for (const name of ['master-matches-capture', 'fonts-stand-in', 'fonts-style-fallback', 'fonts-available'])
     assert.ok(gaps.includes(name));
 });
-test('Examples uses source identities and native references, with home first and duplicate sets omitted', (t) => {
+void test('Examples uses source identities and native references, with home first and duplicate sets omitted', (t) => {
   const { project, driver, inventory } = fixture(t);
   inventory[0]!.sourceSdcId = 'theme:card';
   writeOnChange(resolve(project, 'components.json'), { components: inventory });
@@ -412,7 +413,7 @@ test('Examples uses source identities and native references, with home first and
   assert.equal(examples.pages[0]!.items[0]!.componentId, 'master');
   assert.equal(examples.pages[0]!.items[1]!.missing, 'sdc.theme.missing');
 });
-test('missing or partial capture evidence generates failed receipt assertions without crashing', async (t) => {
+void test('missing or partial capture evidence generates failed receipt assertions without crashing', async (t) => {
   const { project, driver } = fixture(t),
     { generate } = await import('../../src/figma-receipts.ts');
   const state = driver.state();
@@ -443,7 +444,7 @@ test('missing or partial capture evidence generates failed receipt assertions wi
     assert.ok(Object.values(record.nativeComponent.validation).every((v) => !v));
   }
 });
-test('measured typography preserves baseline float labels and historical integer defaults', (t) => {
+void test('measured typography preserves baseline float labels and historical integer defaults', (t) => {
   const { project } = fixture(t),
     text = {
       kind: 'text',
@@ -463,7 +464,7 @@ test('measured typography preserves baseline float labels and historical integer
   writeOnChange(resolve(project, 'capture/measurements/card.spec.json'), measured);
   assert.ok(c.measuredType(project)[0]!.spec.includes('16px / 20.0'));
 });
-test('concurrent duplicate records are serialized and a rejected record does not poison the next request', async (t) => {
+void test('concurrent duplicate records are serialized and a rejected record does not poison the next request', async (t) => {
   const { project, driver } = fixture(t),
     outcomes = await Promise.allSettled([
       driver.record('pages', pages(project)),
@@ -476,7 +477,7 @@ test('concurrent duplicate records are serialized and a rejected record does not
   assert.equal(driver.status().done, 2);
 });
 
-test('identical results after repeated init invalidate dumps despite unchanged result mtime', async (t) => {
+void test('identical results after repeated init invalidate dumps despite unchanged result mtime', async (t) => {
   const { project, driver, options } = fixture(t);
   await driver.record('pages', pages(project));
   const build = new Build(project, { echo: false });
@@ -489,7 +490,7 @@ test('identical results after repeated init invalidate dumps despite unchanged r
         ? { pages: [], collections: [] }
         : step.step === 'verify:getting-started'
           ? { text: [] }
-          : step.step!.startsWith('verify:page:')
+          : step.step.startsWith('verify:page:')
             ? { id: '0:1', name: 'old', children: [] }
             : { id: '0:1', name: 'old', type: 'PAGE', children: [] };
     // This regression tests freshness, independently of dump record schemas.
@@ -504,7 +505,7 @@ test('identical results after repeated init invalidate dumps despite unchanged r
   assert.ok(build.dumpStep(), 'host content can change while pages result identities stay identical');
 });
 
-test('subset rebuild with identical master result refreshes changed host dump content', async (t) => {
+void test('subset rebuild with identical master result refreshes changed host dump content', async (t) => {
   const { project, driver, options } = fixture(t),
     data = { componentId: 'master', images: [] };
   writeOnChange(resolve(project, 'figma/results/pages.json'), pages(project));
@@ -532,10 +533,10 @@ test('subset rebuild with identical master result refreshes changed host dump co
   const dump = build.dumpStep()!;
   assert.ok(dump);
   build.current = dump;
-  await build.record(dump.step!, { page: 'changed host content', pageIndex: 0, nodes: [], _ids: {} });
+  await build.record(dump.step, { page: 'changed host content', pageIndex: 0, nodes: [], _ids: {} });
   assert.equal(load<{ page: string }>(String(dump['out']), '').page, 'changed host content');
 });
-test('foundation rejects a STRING font-family variable with a numeric value at the payload seam', (t) => {
+void test('foundation rejects a STRING font-family variable with a numeric value at the payload seam', (t) => {
   const { project } = fixture(t);
   writeOnChange(resolve(project, 'figma/results/pages.json'), pages(project));
   writeOnChange(resolve(project, 'variable-plan.json'), {

@@ -4,10 +4,29 @@ import { configSync } from './detect.ts';
 import { validate } from './contracts.ts';
 import { toolVersion } from './figma-receipts.ts';
 import type { Components } from './generated/components.ts';
+import type { JsonValue } from './generated/components.ts';
 type Entry = Components['components'][number];
 type Field = Entry['fields'][number];
 type Slot = Entry['slots'][number];
 type Defect = Entry['defects'][number];
+type DrupalYaml = {
+  [key: string]: unknown;
+  id?: string;
+  field_name?: string;
+  field_type?: string;
+  label?: string;
+  description?: string;
+  required?: boolean;
+  cardinality?: number | null;
+  default_value?: Array<Record<string, unknown>>;
+  settings?: {
+    allowed_values?: unknown;
+    handler_settings?: { target_bundles?: unknown };
+    target_type?: string;
+  };
+  third_party_settings?: { list_predefined_options?: { plugin_id?: string } };
+};
+type Definition = { entity: string; kind: string; p: string; d: DrupalYaml; bundle: string; id: string };
 const KIND: Record<string, string> = {
   string: 'text',
   string_long: 'text',
@@ -39,7 +58,7 @@ const tokenFamily = (name: string, label: string) =>
       : /(layout|column|alignment|align|position|width)/i.test(name + ' ' + label)
         ? 'layout'
         : null;
-const defaultValue = (d: any) => {
+const defaultValue = (d: DrupalYaml) => {
   const x = d?.default_value;
   if (!Array.isArray(x) || !x.length || !x[0] || typeof x[0] !== 'object') return null;
   const keys = Object.keys(x[0]);
@@ -47,19 +66,20 @@ const defaultValue = (d: any) => {
   const v = x[0][keys[0]!];
   return ['string', 'number', 'boolean'].includes(typeof v) ? v : null;
 };
-const opts = (d: any) => {
+const opts = (d: DrupalYaml) => {
   const a = d?.settings?.allowed_values || [],
-    out: any[] = [];
+    out: Array<{ value: JsonValue; label: string }> = [];
   if (Array.isArray(a))
     for (const e of a)
-      if (e && typeof e === 'object' && 'value' in e) out.push({ value: e.value, label: String(e.label ?? e.value) });
+      if (e && typeof e === 'object' && 'value' in e)
+        out.push({ value: e.value as JsonValue, label: String(e.label ?? e.value) });
       else {
       }
   else if (a && typeof a === 'object') for (const [k, v] of Object.entries(a)) out.push({ value: k, label: String(v) });
   return out;
 };
-function predefined(root: string): Map<string, any[]> {
-  const out = new Map<string, any[]>(),
+function predefined(root: string): Map<string, Array<{ value: string; label: string }>> {
+  const out = new Map<string, Array<{ value: string; label: string }>>(),
     files = walk(join(root, 'docroot/modules')).filter(
       (p) => p.includes(`${sep}src${sep}Plugin${sep}ListOptions${sep}`) && p.endsWith('.php'),
     );
@@ -77,13 +97,13 @@ function predefined(root: string): Map<string, any[]> {
       if (text[i] === '}') depth--;
     }
     const body = text.slice(method.index + method[0].length, i - 1),
-      values: any[] = [];
+      values: Array<{ value: string; label: string }> = [];
     for (const re of [
       /['"]([^'"]+)['"]\s*=>\s*\$this->t\(\s*['"]([^'"]+)['"]/g,
       /\$options\s*\[\s*['"]([^'"]+)['"]\s*\]\s*=\s*\$this->t\(\s*['"]([^'"]+)['"]/g,
     ])
       for (const m of body.matchAll(re))
-        if (!values.some((x) => x.value === m[1])) values.push({ value: m[1], label: m[2] });
+        if (!values.some((x) => x.value === m[1])) values.push({ value: m[1] ?? '', label: m[2] ?? '' });
     if (values.length) out.set(id, values);
   }
   return out;
@@ -93,7 +113,7 @@ export function extract(root: string, cfg?: string | null): Components {
     configuration = cfg || configSync(abs);
   if (!configuration) throw new Error(`no Drupal configuration directory found under ${abs}`);
   const files = walk(configuration),
-    definitions: any[] = [],
+    definitions: Definition[] = [],
     known = new Set<string>(),
     specs: Array<[string, string, string]> = [
       ['block_content', 'block', 'block_content.type.'],
@@ -101,10 +121,10 @@ export function extract(root: string, cfg?: string | null): Components {
     ];
   for (const [entity, kind, prefix] of specs) {
     for (const p of files.filter((x) => basename(x).startsWith(prefix) && x.endsWith('.yml'))) {
-      const d = loadYaml(p) || {},
+      const d = (loadYaml(p) || {}) as DrupalYaml,
         bundle = d.id || basename(p).slice(prefix.length, -4),
         id = `${kind}:${bundle}`;
-      definitions.push({ entity, kind, p, d, bundle, id, prefix });
+      definitions.push({ entity, kind, p, d, bundle, id });
       known.add(id);
     }
   }
@@ -116,9 +136,9 @@ export function extract(root: string, cfg?: string | null): Components {
         files
           .filter((x) => basename(x).startsWith(storagePrefix) && x.endsWith('.yml'))
           .map((p) => {
-            const d = loadYaml(p) || {},
+            const d = (loadYaml(p) || {}) as DrupalYaml,
               n = d.field_name || basename(p).slice(storagePrefix.length, -4);
-            return [n, d] as [string, any];
+            return [n, d] as [string, DrupalYaml];
           }),
       ),
       fields: Field[] = [],
@@ -127,8 +147,8 @@ export function extract(root: string, cfg?: string | null): Components {
     for (const p of files.filter(
       (x) => basename(x).startsWith(`field.field.${def.entity}.${def.bundle}.`) && x.endsWith('.yml'),
     )) {
-      const instance = loadYaml(p) || {},
-        name = instance.field_name,
+      const instance = (loadYaml(p) || {}) as DrupalYaml,
+        name = instance.field_name as string,
         type = instance.field_type,
         st = storage.get(name) || {};
       if (!Object.keys(st).length)
@@ -161,7 +181,7 @@ export function extract(root: string, cfg?: string | null): Components {
         });
         continue;
       }
-      let kind = KIND[type];
+      let kind = KIND[type ?? ''];
       if (!kind) {
         kind = 'text';
         defects.push({
@@ -170,7 +190,7 @@ export function extract(root: string, cfg?: string | null): Components {
           evidence: rel(abs, p).split(sep).join('/'),
         });
       }
-      if (type === 'entity_reference' && ['media', 'file'].includes(targetType)) kind = 'media';
+      if (type === 'entity_reference' && ['media', 'file'].includes(targetType ?? '')) kind = 'media';
       const pid = st.third_party_settings?.list_predefined_options?.plugin_id,
         options = kind === 'enum' ? (pid ? plugins.get(pid) || null : opts(st)) : null;
       if (kind === 'enum' && !options?.length)
@@ -187,14 +207,14 @@ export function extract(root: string, cfg?: string | null): Components {
         label: instance.label || name,
         kind,
         required: !!instance.required,
-        default: dv,
+        default: dv as JsonValue,
         defaultSource: dv !== null ? 'declared' : 'unset',
         optionsSource: pid && options?.length ? `list_predefined_options:${pid}` : 'config',
         options,
         showWhen: null,
         tokenFamily: tokenFamily(name || '', instance.label || ''),
         appliesToken: null,
-        sourceType: type,
+        ...(type ? { sourceType: type } : {}),
         cardinality: card,
         targetType: targetType ?? null,
         targetBundles: targets.length ? targets : null,
@@ -215,7 +235,7 @@ export function extract(root: string, cfg?: string | null): Components {
       slots,
       usage: null,
       defects,
-      status: 'status' in def.d ? def.d.status : true,
+      status: 'status' in def.d ? (def.d['status'] as string | boolean | null) : true,
     });
   }
   const contained = new Map(components.map((c) => [c.id, [] as string[]]));

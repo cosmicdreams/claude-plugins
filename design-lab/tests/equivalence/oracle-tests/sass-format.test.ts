@@ -38,7 +38,7 @@ const NUMBERS = [
 ];
 const PY_G = `print(json.dumps([format(float(s), 'g') for s in _input['numbers']]))`;
 
-test("format 'g' helper matches Python format(x, 'g') for exponent and tie cases", () => {
+void test("format 'g' helper matches Python format(x, 'g') for exponent and tie cases", () => {
   const expected = pyJson<string[]>(PY_G, { numbers: NUMBERS });
   assert.deepEqual(
     NUMBERS.map((s) => sass.pyFormatG(Number(s))),
@@ -46,7 +46,7 @@ test("format 'g' helper matches Python format(x, 'g') for exponent and tie cases
   );
 });
 
-test('Sass multiplication emits Python :g text, so 0.1rem * 3 is 0.3rem and 1rem * 1.333333 is 1.33333rem', () => {
+void test('Sass multiplication emits Python :g text, so 0.1rem * 3 is 0.3rem and 1rem * 1.333333 is 1.33333rem', () => {
   const dir = mkdtempSync(join(tmpdir(), 'design-lab-sass-format-'));
   try {
     const source = [

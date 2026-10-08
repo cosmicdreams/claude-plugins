@@ -55,27 +55,27 @@ function assertSameHash(name: string): void {
   assert.equal(tsHash(name, CASES[name]!).hash, expected.hash, `${name}: canonical hash differs from Python`);
 }
 
-test('integer -0 hashes like integer 0 in the Python reference and in TypeScript', () => {
+void test('integer -0 hashes like integer 0 in the Python reference and in TypeScript', () => {
   assert.equal(REFERENCE['integerNegativeZero']!.hash, REFERENCE['integerZero']!.hash);
   assertSameHash('integerNegativeZero');
 });
 
-test('float -0.0 keeps its sign, and its hash differs from integer 0', () => {
+void test('float -0.0 keeps its sign, and its hash differs from integer 0', () => {
   assertSameHash('floatNegativeZero');
   assert.notEqual(tsHash('f', CASES['floatNegativeZero']!).hash, tsHash('i', CASES['integerZero']!).hash);
 });
 
-test('object keys sort by code point, so U+FFFD precedes an emoji and "" sorts first', () => {
+void test('object keys sort by code point, so U+FFFD precedes an emoji and "" sorts first', () => {
   assertSameHash('keysEmojiAndReplacement');
   assertSameHash('keysRawEmoji');
 });
 
-test('floats, exponents and big integers keep their Python canonical form', () => {
+void test('floats, exponents and big integers keep their Python canonical form', () => {
   assertSameHash('floatsAndExponents');
   assertSameHash('bigInteger');
 });
 
-test('out-of-range floats are rejected with the Python error message, including nested values', () => {
+void test('out-of-range floats are rejected with the Python error message, including nested values', () => {
   for (const name of ['overflowPositive', 'overflowNegative', 'overflowNested']) {
     const expected = REFERENCE[name]!;
     assert.match(expected.message ?? '', /Out of range float values are not JSON compliant/, name);
@@ -85,12 +85,12 @@ test('out-of-range floats are rejected with the Python error message, including 
   }
 });
 
-test('an out-of-range float under an ignored key is accepted, as Python drops that key first', () => {
+void test('an out-of-range float under an ignored key is accepted, as Python drops that key first', () => {
   assert.equal(REFERENCE['overflowInIgnoredKey']!.hash !== undefined, true);
   assertSameHash('overflowInIgnoredKey');
 });
 
-test('NaN literals are rejected by both implementations', () => {
+void test('NaN literals are rejected by both implementations', () => {
   assert.notEqual(REFERENCE['nanLiteral']!.error, undefined);
   assert.notEqual(tsHash('nan', CASES['nanLiteral']!).error, undefined);
 });

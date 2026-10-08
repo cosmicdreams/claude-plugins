@@ -30,8 +30,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
     if (!values.length) throw new Error('missing value for ' + arg);
     options[name] = values;
   }
-  const flag = (name: string, fallback?: string) =>
-    Array.isArray(options[name]) ? (options[name] as string[])[0] : fallback;
+  const flag = (name: string, fallback?: string) => (Array.isArray(options[name]) ? options[name][0] : fallback);
   const run = () => {
     const value = flag('run') ?? flag('project') ?? positionals[0];
     if (!value) throw new Error('pass a run directory');
@@ -39,6 +38,8 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
   };
   let result: unknown;
   switch (command) {
+    case undefined:
+      throw new Error('pass a command');
     case 'score-run':
     case 'score_run': {
       const { writeScore } = await import('../src/score-run.ts');
@@ -77,8 +78,8 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
         ['captureEvidence', 'capture-evidence'],
         ['renderEvidence', 'render-evidence'],
       ] as const) {
-        const file = flag(flagName!);
-        if (file) opts[key!] = JSON.parse(readFileSync(file, 'utf8'));
+        const file = flag(flagName);
+        if (file) opts[key] = JSON.parse(readFileSync(file, 'utf8'));
       }
       for (const [key, flagName] of [
         ['builds', 'builds'],
@@ -87,8 +88,8 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
         ['brand', 'brand'],
         ['out', 'out'],
       ] as const) {
-        const value = flag(flagName!);
-        if (value) opts[key!] = value;
+        const value = flag(flagName);
+        if (value) opts[key] = value;
       }
       result = state
         ? verify({ ...opts, state: JSON.parse(readFileSync(state, 'utf8')) })
@@ -203,7 +204,7 @@ export async function main(argv = process.argv.slice(2)): Promise<number> {
       );
   }
   const output = flag('out');
-  if (output && !['score-run', 'score_run'].includes(command!)) writeJson(resolve(output), result);
+  if (output && !['score-run', 'score_run'].includes(command)) writeJson(resolve(output), result);
   else console.log(JSON.stringify(result, null, 2));
   return 0;
 }

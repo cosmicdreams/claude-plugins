@@ -3,11 +3,25 @@ import { loadYaml, walk } from './discovery-io.ts';
 import { configSync } from './detect.ts';
 import { toolVersion } from './figma-receipts.ts';
 import type { Components } from './generated/components.ts';
+import type { JsonValue } from './generated/components.ts';
 type Entry = Components['components'][number];
 type Field = Entry['fields'][number];
 type Slot = Entry['slots'][number];
 type Defect = Entry['defects'][number];
 type Problem = NonNullable<Components['problems']>[number];
+type DrupalYaml = {
+  [key: string]: unknown;
+  id?: string;
+  field_name?: string;
+  field_type?: string;
+  label?: string;
+  description?: string;
+  status?: string | null;
+  required?: boolean;
+  cardinality?: number | null;
+  default_value?: Array<Record<string, unknown>>;
+  settings?: { allowed_values?: unknown; handler_settings?: { target_bundles?: unknown }; target_type?: string };
+};
 const KIND: Record<string, string> = {
   string: 'text',
   string_long: 'text',
@@ -31,20 +45,21 @@ const KIND: Record<string, string> = {
   viewsreference: 'reference',
   block_field: 'reference',
 };
-function defaultValue(d: any): any {
+function defaultValue(d: DrupalYaml): JsonValue | null {
   const a = d?.default_value;
   if (!Array.isArray(a) || !a.length || !a[0] || typeof a[0] !== 'object') return null;
   const keys = Object.keys(a[0]);
   if (keys.length !== 1) return null;
   const x = a[0][keys[0]!];
-  return ['string', 'number', 'boolean'].includes(typeof x) ? x : null;
+  return ['string', 'number', 'boolean'].includes(typeof x) ? (x as JsonValue) : null;
 }
-function options(d: any): any[] {
+function options(d: DrupalYaml): Array<{ value: JsonValue; label: string }> {
   const a = d?.settings?.allowed_values || [],
-    out: any[] = [];
+    out: Array<{ value: JsonValue; label: string }> = [];
   if (Array.isArray(a)) {
     for (const x of a)
-      if (x && typeof x === 'object' && 'value' in x) out.push({ value: x.value, label: String(x.label ?? x.value) });
+      if (x && typeof x === 'object' && 'value' in x)
+        out.push({ value: x.value as JsonValue, label: String(x.label ?? x.value) });
   } else if (a && typeof a === 'object')
     for (const [k, v] of Object.entries(a)) out.push({ value: k, label: String(v) });
   return out;
@@ -69,16 +84,16 @@ export function extract(root: string, cfg?: string | null): Components {
       files
         .filter((p) => basename(p).startsWith('field.storage.paragraph.') && p.endsWith('.yml'))
         .map((p) => {
-          const d = loadYaml(p) || {};
-          return [d.field_name || basename(p).slice('field.storage.paragraph.'.length, -4), d] as [string, any];
+          const d = (loadYaml(p) || {}) as DrupalYaml;
+          return [d.field_name || basename(p).slice('field.storage.paragraph.'.length, -4), d] as [string, DrupalYaml];
         }),
     ),
     components: Entry[] = [],
     problems: Problem[] = [];
   for (const tpath of types) {
-    let t: any;
+    let t: DrupalYaml;
     try {
-      t = loadYaml(tpath) || {};
+      t = (loadYaml(tpath) || {}) as DrupalYaml;
     } catch (e) {
       problems.push({
         kind: 'unparseable',
@@ -95,9 +110,9 @@ export function extract(root: string, cfg?: string | null): Components {
       .filter((p) => basename(p).startsWith(`field.field.paragraph.${bundle}.`) && p.endsWith('.yml'))
       .sort();
     for (const p of fieldFiles) {
-      let d: any;
+      let d: DrupalYaml;
       try {
-        d = loadYaml(p) || {};
+        d = (loadYaml(p) || {}) as DrupalYaml;
       } catch (e) {
         defects.push({
           kind: 'unparseable-field',
@@ -106,7 +121,7 @@ export function extract(root: string, cfg?: string | null): Components {
         });
         continue;
       }
-      const name = d.field_name,
+      const name = d.field_name as string,
         type = d.field_type,
         st = storage.get(name);
       if (!st)
@@ -139,7 +154,7 @@ export function extract(root: string, cfg?: string | null): Components {
         });
         continue;
       }
-      let kind = KIND[type];
+      let kind = KIND[type ?? ''];
       if (!kind) {
         defects.push({
           kind: 'unmapped-field-type',
@@ -149,7 +164,7 @@ export function extract(root: string, cfg?: string | null): Components {
         kind = 'text';
       }
       let opts = kind === 'enum' ? options(sd) : null;
-      if (type === 'entity_reference' && ['media', 'file'].includes(targetType)) kind = 'media';
+      if (type === 'entity_reference' && ['media', 'file'].includes(targetType ?? '')) kind = 'media';
       if (kind === 'enum' && !opts?.length)
         defects.push({
           kind: 'enum-without-options',
@@ -160,7 +175,7 @@ export function extract(root: string, cfg?: string | null): Components {
         name,
         label: d.label || name,
         kind,
-        sourceWidget: type,
+        sourceWidget: type ?? null,
         required: !!d.required,
         default: defaultValue(d),
         options: opts,
@@ -199,14 +214,14 @@ export function extract(root: string, cfg?: string | null): Components {
   for (const p of files.filter((x) => basename(x).startsWith('field.field.') && x.endsWith('.yml')).sort()) {
     const parts = basename(p).slice('field.field.'.length, -4).split('.');
     if (parts.length !== 3 || parts[0] === 'paragraph') continue;
-    let d: any;
+    let d: DrupalYaml;
     try {
-      d = loadYaml(p) || {};
+      d = (loadYaml(p) || {}) as DrupalYaml;
     } catch {
       continue;
     }
     if (d.field_type !== 'entity_reference_revisions') continue;
-    const name = d.field_name,
+    const name = d.field_name as string,
       st = storage.get(name) || {},
       targetType = st.settings?.target_type;
     if (targetType !== 'paragraph') continue;

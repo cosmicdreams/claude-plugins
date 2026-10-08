@@ -12,12 +12,20 @@ const scratch = '/tmp/design-lab-merge-tests/harness';
 mkdirSync(scratch, { recursive: true });
 const temp = () => mkdtempSync(scratch + '/case-');
 after(() => rmSync(scratch, { recursive: true, force: true }));
-const good = () =>
-  ({
-    site: 'fixture',
-    artifacts: { scorecard: { status: 'match' }, report: { status: 'match' }, completion: { status: 'match' } },
-  }) as any;
-const exit = (row: any) => {
+type HarnessRow = {
+  site: string;
+  error?: string;
+  artifacts: Record<string, { status: string; ajv?: string[] }> & {
+    scorecard: { status: string; ajv?: string[] };
+    report: { status: string; ajv?: string[] };
+    completion: { status: string; ajv?: string[] };
+  };
+};
+const good = (): HarnessRow => ({
+  site: 'fixture',
+  artifacts: { scorecard: { status: 'match' }, report: { status: 'match' }, completion: { status: 'match' } },
+});
+const exit = (row: HarnessRow) => {
   const root = temp(),
     path = join(root, 'summary.json');
   writeFileSync(path, JSON.stringify({ results: [row] }));
@@ -28,35 +36,35 @@ const exit = (row: any) => {
   );
 };
 for (const error of ['rendering exception', 'browser launch failure', 'embedded image count assertion'])
-  test('harness exits nonzero after ' + error, () => {
+  void test('harness exits nonzero after ' + error, () => {
     const row = good();
     row.error = error;
     assert.equal(exit(row).status, 1);
   });
-test('harness exits nonzero for actual Ajv errors after a JSON match', () => {
+void test('harness exits nonzero for actual Ajv errors after a JSON match', () => {
   const row = good();
-  row.artifacts.scorecard.ajv = validate('scorecard', {});
-  assert.ok(row.artifacts.scorecard.ajv.length);
+  row.artifacts['scorecard'].ajv = validate('scorecard', {});
+  assert.ok(row.artifacts['scorecard'].ajv.length);
   assert.equal(exit(row).status, 1);
 });
 for (const name of ['report', 'completion', 'scorecard'])
-  test('harness exits nonzero for absent ' + name, () => {
+  void test('harness exits nonzero for absent ' + name, () => {
     const row = good();
     delete row.artifacts[name];
     assert.equal(exit(row).status, 1);
   });
-test('harness exits nonzero for wrong empty container type', () => {
+void test('harness exits nonzero for wrong empty container type', () => {
   const row = good();
-  row.artifacts.scorecard = { status: differences([], {}).length ? 'mismatch' : 'match' };
+  row.artifacts['scorecard'] = { status: differences([], {}).length ? 'mismatch' : 'match' };
   assert.equal(exit(row).status, 1);
 });
-test('harness accepts complete matches and rejects empty result sets', () => {
+void test('harness accepts complete matches and rejects empty result sets', () => {
   const result = exit(good());
   assert.equal(result.status, 0, result.stderr);
   assert.equal(evaluationExitCode({ results: [] }), 1);
 });
 for (const missing of ['both', 'python', 'ts'])
-  test('discovery exits nonzero if required artifacts are missing from ' + missing, () => {
+  void test('discovery exits nonzero if required artifacts are missing from ' + missing, () => {
     const root = temp(),
       manifest = join(root, 'manifest.json');
     writeFileSync(manifest, JSON.stringify({ core: { fixture: ['components'] } }));
@@ -70,7 +78,7 @@ for (const missing of ['both', 'python', 'ts'])
     assert.equal(p.status, 1, p.stderr);
     assert.match(readFileSync(join(root, 'strict-summary.json'), 'utf8'), /missing required artifact/);
   });
-test('portable matrix and oracle acceptance runs without a DDEV site', async () => {
+void test('portable matrix and oracle acceptance runs without a DDEV site', async () => {
   assert.equal(portableManifest().pending.length, 2);
   const result = await portableParity(temp());
   assert.equal(result.results.length, 3);

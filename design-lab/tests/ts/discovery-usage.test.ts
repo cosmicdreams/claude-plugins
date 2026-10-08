@@ -8,6 +8,7 @@ import * as usage from '../../src/extract-drupal-usage.ts';
 import * as canvas from '../../src/extract-canvas-usage.ts';
 import * as twig from '../../src/capture/twig.ts';
 import { validate } from '../../src/contracts.ts';
+import type { UsageEntry } from '../../src/usage-types.ts';
 
 type ExternalObject = Record<string, unknown>;
 const fixtures = resolve(fileURLToPath(new URL('.', import.meta.url)), '../fixtures');
@@ -59,7 +60,7 @@ function fakeDdev(
 }
 
 // ---- Canvas ----
-test('sqlq rows keep the first row and empty columns, and refuse a ragged row', () => {
+void test('sqlq rows keep the first row and empty columns, and refuse a ragged row', () => {
   const sample =
     'page\t0\t1\t3\ten\t0\t\t\tuuid-1\tsdc.mytheme.site-header\tv1\t{}\t\npage\t0\t2\t3\ten\t1\tparent-uuid\tcontent\tuuid-2\tsdc.mytheme.photo-slide\tv1\t{}\tSlide\n';
   const rows = canvas.parseSqlqRows(sample, 13);
@@ -75,7 +76,7 @@ test('sqlq rows keep the first row and empty columns, and refuse a ragged row', 
   assert.throws(() => canvas.parseSqlqRows('bad\trow\n', 13), /expected 13 columns, got 2/);
 });
 
-test('twig references and the Canvas merge preserve the structural count', () => {
+void test('twig references and the Canvas merge preserve the structural count', () => {
   const root = temp(),
     theme = join(root, 'web/themes/custom/demo');
   mkdirSync(join(theme, 'templates/layout'), { recursive: true });
@@ -112,12 +113,12 @@ test('twig references and the Canvas merge preserve the structural count', () =>
   assert.deepEqual(photo?.usage.exampleCandidates, ['/resources']);
 });
 
-test('twig scanning orders files by path segment, not by joined string', () => {
+void test('twig scanning orders files by path segment, not by joined string', () => {
   assert.ok(canvas.comparePaths('a/x.twig', 'a-b/x.twig') < 0); // baseline: ['a','x.twig'] < ['a-b','x.twig']
   assert.ok('a-b/x.twig' < 'a/x.twig'); // the joined-string order it must not use
 });
 
-test('content-template nodes skip disabled templates', () => {
+void test('content-template nodes skip disabled templates', () => {
   const site = temp();
   cpSync(join(fixtures, 'canvas-site'), site, { recursive: true });
   const rows = canvas.templateRows(site);
@@ -126,7 +127,7 @@ test('content-template nodes skip disabled templates', () => {
   assert.ok(rows.every((row) => row[3]!.startsWith('config/') && row[3]!.includes('canvas.content_template.')));
 });
 
-test('published current-page rows, templates and non-SDC entries count correctly', () => {
+void test('published current-page rows, templates and non-SDC entries count correctly', () => {
   for (const needle of ['p.revision_id=c.revision_id', 'p.status=1', 'c.deleted=0'])
     assert.ok(canvas.PLACEMENTS_SQL.includes(needle));
   const counts: Record<string, number> = {
@@ -197,7 +198,7 @@ test('published current-page rows, templates and non-SDC entries count correctly
   assert.throws(() => canvas.buildUsage(components, { placements: [['short']] }, {}), /fewer than 13 columns/);
 });
 
-test('Canvas collection runs the same ddev drush arguments and reports a stopped project', () => {
+void test('Canvas collection runs the same ddev drush arguments and reports a stopped project', () => {
   const ddev = fakeDdev({
     sqlq: {
       'canvas_page_field_data WHERE status=1': '2\t3\n',
@@ -272,7 +273,7 @@ const inventory = (): import('../../src/usage-types.ts').UsageInventory => ({
 });
 const build = (rows: usage.Rows, inv = inventory()) => usage.buildUsage(inv, rows, {});
 
-test('Site Studio counts direct, nested and reusable placements and published pages separately', () => {
+void test('Site Studio counts direct, nested and reusable placements and published pages separately', () => {
   const reference = {
     type: 'component-content',
     componentContentId: 'cc_uuid-7',
@@ -313,7 +314,7 @@ test('Site Studio counts direct, nested and reusable placements and published pa
   assert.equal(merged?.['components']?.[4]?.category, usage.TIERS.retirement);
 });
 
-test('unpublished-only placements invent no example pages', () => {
+void test('unpublished-only placements invent no example pages', () => {
   const value = build({
     nodes: [['2', '0', 'page']],
     sitestudio_layouts: [layout(1, 'node', 2, [component('hero_highlight')])],
@@ -321,7 +322,7 @@ test('unpublished-only placements invent no example pages', () => {
   assert.deepEqual([value?.placements, value?.pages, value?.exampleCandidates], [1, 0, []]);
 });
 
-test('invalid layout JSON names the layout', () => {
+void test('invalid layout JSON names the layout', () => {
   assert.throws(() => build({ sitestudio_layouts: [['99', 'node', '1', 'broken']] }), /Site Studio layout 99/);
   assert.throws(
     () => build({ sitestudio_layouts: [['98', 'node', '1', '{"canvas": 3}']] }),
@@ -329,7 +330,7 @@ test('invalid layout JSON names the layout', () => {
   );
 });
 
-test('authoring bundles keep their usage alongside Site Studio components', () => {
+void test('authoring bundles keep their usage alongside Site Studio components', () => {
   const inv = inventory();
   inv['components'].push({ id: 'paragraph:card' });
   const document = usage.buildUsage(
@@ -344,7 +345,7 @@ test('authoring bundles keep their usage alongside Site Studio components', () =
   assert.equal(document?.['usage']?.['hero_highlight']?.placements, 1);
 });
 
-test('a Site Studio extraction keeps database candidates and applies no paragraph markers', async () => {
+void test('a Site Studio extraction keeps database candidates and applies no paragraph markers', async () => {
   const rows: usage.Rows = {
     nodes: [['14631', '1', 'page']],
     sitestudio_layouts: [layout(1, 'node', 14631, [component('hero_highlight')])],
@@ -375,7 +376,7 @@ test('a Site Studio extraction keeps database candidates and applies no paragrap
   assert.deepEqual(master?.['usage']?.['promo']?.examples, []);
 });
 
-test('PHP unserialize reads byte lengths and nesting and rejects what it does not know', () => {
+void test('PHP unserialize reads byte lengths and nesting and rejects what it does not know', () => {
   const text = 'Café "quoted"; {braces}',
     value = { a: { 0: 1, 1: null }, b: true, s: text };
   assert.deepEqual(JSON.parse(JSON.stringify(usage.phpUnserialize(Buffer.from(php(value))))), value);
@@ -386,7 +387,7 @@ test('PHP unserialize reads byte lengths and nesting and rejects what it does no
   assert.deepEqual(Object.keys(Object(usage.phpUnserialize(Buffer.from('a:1:{s:9:"__proto__";i:1;}')))), ['__proto__']);
 });
 
-test('master templates are structural and site-wide; a non-default master follows its content template', () => {
+void test('master templates are structural and site-wide; a non-default master follows its content template', () => {
   const rows = {
     nodes: [
       ['10', '1', 'page'],
@@ -446,7 +447,7 @@ test('master templates are structural and site-wide; a non-default master follow
   assert.equal(tiers['site_footer'], usage.TIERS.structural);
 });
 
-test('content, menu and view templates find examples and structural use', () => {
+void test('content, menu and view templates find examples and structural use', () => {
   const view = {
     display: {
       default: {
@@ -521,7 +522,7 @@ test('content, menu and view templates find examples and structural use', () => 
   assert.equal(values?.['cpt_callouts']?.structuralRefs, 1);
 });
 
-test('an unreadable or damaged template row is reported, never fatal', () => {
+void test('an unreadable or damaged template row is reported, never fatal', () => {
   let document = build({
     sitestudio_templates: [
       ['cohesion_templates.cohesion_master_templates.broken', 'a:9:{s:2:"id"'],
@@ -545,7 +546,7 @@ test('an unreadable or damaged template row is reported, never fatal', () => {
   assert.equal(document['problems'].filter((p) => p.check === 'sitestudio-template-unreadable').length, 2);
 });
 
-test('a global full template renders only bundles without their own; an unmodified default renders nothing', () => {
+void test('a global full template renders only bundles without their own; an unmodified default renders nothing', () => {
   const rows = {
     nodes: [
       ['30', '1', 'event'],
@@ -590,7 +591,7 @@ test('a global full template renders only bundles without their own; an unmodifi
 });
 
 // ---- database collection ----
-test('optional tables that do not exist are never queried', () => {
+void test('optional tables that do not exist are never queried', () => {
   const ddev = fakeDdev({
     tables: ['paragraphs_item_field_data', 'node_field_data'],
   });
@@ -614,7 +615,7 @@ test('optional tables that do not exist are never queried', () => {
   assert.deepEqual(rows['__ddev'], [['site', 'https://site.ddev.site']]);
 });
 
-test('mysql rows end only at a newline and keep other separators inside values', () => {
+void test('mysql rows end only at a newline and keep other separators inside values', () => {
   const run: usage.Runner = () => ({
     status: 0,
     stdout: 'a\tb c\nd\t\n\n',
@@ -661,19 +662,14 @@ const enrich = (page: string, ids: string[], rendering: { items?: Record<string,
   usage.enrichExamples(
     {
       source: {},
-      usage: Object.fromEntries(
-        ids.map((id) => [
-          id,
-          { exampleCandidates: ['/node/1'] } as Partial<import('../../src/usage-types.ts').UsageEntry>,
-        ]),
-      ),
+      usage: Object.fromEntries(ids.map((id) => [id, { exampleCandidates: ['/node/1'] }])),
     },
     'https://site.ddev.site',
     rendering,
     async () => [200, page],
   );
 
-test('Twig debug suggestions use Drupal hyphens, count the bundle hook only, and nest', () => {
+void test('Twig debug suggestions use Drupal hyphens, count the bundle hook only, and nest', () => {
   assert.deepEqual(twig.suggestion('paragraph:link_default'), ['paragraph', 'paragraph--link-default.html.twig']);
   assert.equal(twig.rootSelector('block:cards'), '[data-design-lab-root="block:cards"]');
   assert.ok(twig.enabled(PAGE));
@@ -699,7 +695,7 @@ test('Twig debug suggestions use Drupal hyphens, count the bundle hook only, and
   });
 });
 
-test('with Twig debug the template marker beats a shared component id', async () => {
+void test('with Twig debug the template marker beats a shared component id', async () => {
   const result = await enrich(PAGE, ['paragraph:cards', 'block:cards'], {
     items: { 'paragraph:cards': { rootSdc: 'kinetic:cards' } },
   });
@@ -710,7 +706,7 @@ test('with Twig debug the template marker beats a shared component id', async ()
   assert.ok(!('exampleCandidates' in (result?.['usage']?.['paragraph:cards'] ?? {})));
 });
 
-test('without Twig debug the component id is used', async () => {
+void test('without Twig debug the component id is used', async () => {
   const result = await enrich('<div data-component-id="kinetic:cards">a</div>', ['paragraph:cards'], {
     items: { 'paragraph:cards': { rootSdc: 'kinetic:cards' } },
   });
@@ -722,7 +718,7 @@ test('without Twig debug the component id is used', async () => {
   assert.equal(result?.['source']?.exampleVerification?.twigDebug, false);
 });
 
-test('a template file name in a debug comment is not a class', async () => {
+void test('a template file name in a debug comment is not a class', async () => {
   const html =
     "<!-- THEME DEBUG -->\n<!-- THEME HOOK: 'block' -->\n<!-- BEGIN OUTPUT from 'themes/x/templates/block/block--icon-block.html.twig' -->\n" +
     '<div class="block--block-content--type--icon-block">Icons</div>\n<!-- END OUTPUT from \'themes/x/templates/block/block--icon-block.html.twig\' -->';
@@ -737,23 +733,23 @@ test('a template file name in a debug comment is not a class', async () => {
   assert.equal(real?.['usage']?.['block:icon_block']?.examples?.[0]?.instancesOnPage, 1);
 });
 
-test('a page that cannot be fetched yields no example and says why', async () => {
+void test('a page that cannot be fetched yields no example and says why', async () => {
   const result = await usage.enrichExamples(
     {
       source: {},
       usage: { 'paragraph:x': { exampleCandidates: ['/node/1', '/node/2'] } },
-    } as import('../../src/usage-types.ts').ExampleDocument,
+    },
     'https://site.test/',
     null,
     async (url) => (url.endsWith('/1') ? [500, ''] : [0, '']),
   );
-  const value = result['usage']['paragraph:x'];
+  const value = (result['usage'] as Record<string, Partial<UsageEntry>>)['paragraph:x'];
   assert.deepEqual(value?.examples, []);
   assert.match(value?.noExampleReason ?? '', /no component-specific rendered marker/);
   assert.equal(result?.['source']?.exampleVerification?.pagesFetched, 2);
 });
 
-test('usage tiers use absolute thresholds', () => {
+void test('usage tiers use absolute thresholds', () => {
   assert.deepEqual(
     [
       [50, 0],

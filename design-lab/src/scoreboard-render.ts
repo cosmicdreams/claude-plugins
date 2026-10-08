@@ -23,33 +23,36 @@ export const METRICS = [
     paths: [['openFindings.blocker', 'openFindings.major']],
   },
 ] as const;
-function dig(row: any, path: string): any {
+function dig(row: unknown, path: string): unknown {
   let value = row;
   for (const part of path.split('.')) {
     if (!value || typeof value !== 'object' || !(part in value)) return null;
-    value = value[part];
+    value = (value as Record<string, unknown>)[part];
   }
   return value;
 }
-export function metricValue(row: any, metric: (typeof METRICS)[number]): number | null {
+export function metricValue(row: unknown, metric: (typeof METRICS)[number]): number | null {
   for (const paths of metric.paths) {
     const parts = paths.map((path) => dig(row, path));
     if (parts.some((v) => v === null || v === undefined)) continue;
+    const numbers = parts as number[],
+      firstValue = numbers[0] as number,
+      secondValue = numbers[1] as number;
     if (metric.unit === 'percent' && parts.length === 2)
-      return parts[1] ? Math.round((1000 * parts[0]) / parts[1]) / 10 : null;
-    if (metric.unit === 'percent') return Math.round((parts[0] <= 1 ? parts[0] * 100 : parts[0]) * 10) / 10;
-    return parts.reduce((sum, value) => sum + value, 0);
+      return secondValue ? Math.round((1000 * firstValue) / secondValue) / 10 : null;
+    if (metric.unit === 'percent') return Math.round((firstValue <= 1 ? firstValue * 100 : firstValue) * 10) / 10;
+    return numbers.reduce((sum, value) => sum + value, 0);
   }
   return null;
 }
-function first(row: any, ...names: string[]): any {
+function first(row: unknown, ...names: string[]): unknown {
   for (const name of names) {
     const value = dig(row, name);
     if (value !== null && value !== '') return value;
   }
   return null;
 }
-export function normalise(rows: any[]) {
+export function normalise(rows: unknown[]) {
   return rows
     .map((row) => ({
       site: first(row, 'site', 'siteLabel', 'site_label') || 'unlabelled',
@@ -63,7 +66,7 @@ export function normalise(rows: any[]) {
     .sort((a, b) => a.time.localeCompare(b.time));
 }
 export const normalize = normalise;
-export function loadRows(path: string): any[] {
+export function loadRows(path: string): unknown[] {
   return readFileSync(path, 'utf8')
     .split(/\r?\n/)
     .map((line) => line.trim())
@@ -84,7 +87,7 @@ function canonicalString(value: string): string {
     return `\\u${code}`;
   });
 }
-function canonicalDump(value: any, key = ''): string {
+function canonicalDump(value: unknown, key = ''): string {
   if (value === null) return 'null';
   if (typeof value === 'string') return canonicalString(value);
   if (typeof value === 'boolean') return value ? 'true' : 'false';
@@ -100,7 +103,7 @@ function canonicalDump(value: any, key = ''): string {
       .join(', ')}}`;
   throw new TypeError('value is not JSON serializable');
 }
-export function render(rows: any[], title = 'design-lab scoreboard'): string {
+export function render(rows: unknown[], title = 'design-lab scoreboard'): string {
   const data = normalise(rows);
   const payload = canonicalDump({
     rows: data,

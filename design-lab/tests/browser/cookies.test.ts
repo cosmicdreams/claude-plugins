@@ -76,7 +76,7 @@ window.showConsent=()=>{const banner=document.createElement('aside');banner.clas
     await new Promise<void>((r) => server.close(() => r()));
   }
 }
-test('shadow and late panels close through their controls', async () => capture({ late: true }));
-test('unclosable panels fail without screenshot', async () => capture({ blocked: true }));
-test('cookie component opts out of dismissal', async () => capture({ optOut: true }));
-test('saved cookie choice carries into the next breakpoint', async () => capture({}));
+void test('shadow and late panels close through their controls', async () => capture({ late: true }));
+void test('unclosable panels fail without screenshot', async () => capture({ blocked: true }));
+void test('cookie component opts out of dismissal', async () => capture({ optOut: true }));
+void test('saved cookie choice carries into the next breakpoint', async () => capture({}));

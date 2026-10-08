@@ -106,7 +106,11 @@ export function setValue(key: string, values: string[]): unknown {
   } else throw new Error(`unknown setting ${key}`);
   return { written: config.writeConfig(value), [key]: key === 'evaluation' ? values : value[key] };
 }
-export function allowFolders(projects: string[], dirs = claudeConfigDirs(), plugins = pluginFolders(dirs)): unknown {
+export function allowFolders(
+  projects: string[],
+  dirs = claudeConfigDirs(),
+  plugins = pluginFolders(dirs),
+): { changed: { settings: string; added: string[] }[]; restart: boolean } {
   const value = config.readConfig();
   if (projects.length) {
     value.runs ??= {};
@@ -129,7 +133,7 @@ export function allowFolders(projects: string[], dirs = claudeConfigDirs(), plug
   }
   return { changed, restart: !!changed.length };
 }
-export function allowReads(dirs = claudeConfigDirs()): unknown {
+export function allowReads(dirs = claudeConfigDirs()): { changed: string[]; restart: boolean } {
   const changed = blockingSettings(dirs);
   for (const path of changed) {
     const value = JSON.parse(readFileSync(path, 'utf8'));

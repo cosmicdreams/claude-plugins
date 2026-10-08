@@ -79,7 +79,7 @@ const plan = {
     'Assistant, sans-serif': { family: 'Assistant' },
   },
 };
-test('KEEP missing family draws its planned stand-in and served face', async () => {
+void test('KEEP missing family draws its planned stand-in and served face', async () => {
   const r = await fonts(plan, available, [
     text('"Suisse Int\'l", sans-serif', 500),
     text('"Suisse Int\'l", sans-serif', 700),
@@ -95,7 +95,7 @@ test('KEEP missing family draws its planned stand-in and served face', async () 
   );
   assert.deepEqual(r.report.standIns, { "Suisse Int'l": 'Inter', 'Freight Text Pro': 'Source Serif 4' });
 });
-test('KEEP installed real family uses the served face rather than nearest weight', async () => {
+void test('KEEP installed real family uses the served face rather than nearest weight', async () => {
   const p = structuredClone(plan);
   p.families.suisseintl.family = 'Suisse Intl Trial';
   p.families.suisseintl.standIn = false;
@@ -105,7 +105,7 @@ test('KEEP installed real family uses the served face rather than nearest weight
   assert.deepEqual(r.out[0], { family: 'Suisse Intl Trial', style: 'Semibold' });
   assert.deepEqual(r.report.missingFonts, []);
 });
-test('KEEP unserved first family is skipped and variable weight 450 remains exact', async () => {
+void test('KEEP unserved first family is skipped and variable weight 450 remains exact', async () => {
   const r = await fonts(
     plan,
     available,
@@ -115,12 +115,12 @@ test('KEEP unserved first family is skipped and variable weight 450 remains exac
   assert.equal(r.out[0]!.family, 'Arial');
   assert.deepEqual(r.out[1]!.variationSettings, { wght: 450 });
 });
-test('KEEP names match without a plan and style loss is reported', async () => {
+void test('KEEP names match without a plan and style loss is reported', async () => {
   const r = await fonts(null, { 'Articulat CF': ['Regular', 'Bold'], Inter: ['Regular'] }, [text('articulat-cf', 600)]);
   assert.equal(r.out[0]!.family, 'Articulat CF');
   assert.ok('articulat-cf 600' in r.report.styleFallbacks);
 });
-test('KEEP Heavy and Black remain distinct drawable faces', async () => {
+void test('KEEP Heavy and Black remain distinct drawable faces', async () => {
   const r = await fonts(
     { families: { brand: { family: 'Brand', faces: { '900|0': 'Black' } } }, stacks: { Brand: { family: 'Brand' } } },
     { Brand: ['Heavy', 'Black'] },
@@ -128,14 +128,14 @@ test('KEEP Heavy and Black remain distinct drawable faces', async () => {
   );
   assert.equal(r.out[0]!.style, 'Black');
 });
-test('KEEP icon text is counted without an ordinary missing-font warning', async () => {
+void test('KEEP icon text is counted without an ordinary missing-font warning', async () => {
   const r = await fonts({ families: {}, stacks: { icomoon: { icon: 'icomoon' } } }, available, [
     text('icomoon', 400, false, '\ue900'),
   ]);
   assert.deepEqual(r.report.missingFonts, []);
   assert.deepEqual(r.report.iconText, { icomoon: 1 });
 });
-test('KEEP characters outside a face range use the next family', async () => {
+void test('KEEP characters outside a face range use the next family', async () => {
   const r = await fonts(
     { families: {}, stacks: { 'Latin, Arial': { family: 'Latin', ranges: [[0, 255]], otherwise: 'Arial' } } },
     { Latin: ['Regular'], Arial: ['Regular'] },
@@ -146,7 +146,7 @@ test('KEEP characters outside a face range use the next family', async () => {
     ['Arial', 'Latin'],
   );
 });
-test('KEEP cover shares total the bar width and preserve zero categories', async () => {
+void test('KEEP cover shares total the bar width and preserve zero categories', async () => {
   const source = new Renderer().units.get('cover')!,
     helpers = source.slice(source.indexOf('/* BEGIN bar helpers'), source.indexOf('/* END bar helpers */'));
   for (const [values, width] of [
@@ -172,7 +172,7 @@ test('KEEP cover shares total the bar width and preserve zero categories', async
   }
 });
 for (const set of [false, true])
-  test(`KEEP native rebuild preserves ${set ? 'variant set' : 'master'} and consumer identities`, async () => {
+  void test(`KEEP native rebuild preserves ${set ? 'variant set' : 'master'} and consumer identities`, async () => {
     const source = new Renderer().units.get('build_responsive')!,
       body = source.slice(source.indexOf('/* ---- The master:'));
     const harness = `

@@ -6,11 +6,12 @@ import { resolve } from 'node:path';
 import { verify } from '../../src/verify.ts';
 import { buildMeasurements } from '../../src/verify-inputs.ts';
 import { mergeVerifyState } from '../../src/verify-state.ts';
+import type { VerifyState } from '../../src/verify-inputs.ts';
 
-const run = (state: any, more: any = {}) =>
+const run = (state: VerifyState, more: Record<string, unknown> = {}) =>
   verify({ state, generatedAt: '2026-01-01T00:00:00Z', out: '/tmp/verify-report.json', ...more });
 
-test('verify returns the baseline report envelope and distinguishes empty subjects', () => {
+void test('verify returns the baseline report envelope and distinguishes empty subjects', () => {
   const report = run({});
   assert.deepEqual(Object.keys(report), [
     'standardVersion',
@@ -30,7 +31,7 @@ test('verify returns the baseline report envelope and distinguishes empty subjec
   assert.ok(report.passed.includes('components-built'));
 });
 
-test('visual fidelity requires registered capture files and a passing live comparison', () => {
+void test('visual fidelity requires registered capture files and a passing live comparison', () => {
   const root = mkdtempSync(resolve(tmpdir(), 'design-lab-verify-'));
   try {
     const builds = resolve(root, 'builds');
@@ -54,7 +55,7 @@ test('visual fidelity requires registered capture files and a passing live compa
   }
 });
 
-test('source token binding regressions catch both one-sided mismatches', () => {
+void test('source token binding regressions catch both one-sided mismatches', () => {
   const state = {
     components: [
       { name: 'hero — Hero', tokenBoundCount: 0 },
@@ -77,7 +78,7 @@ test('source token binding regressions catch both one-sided mismatches', () => {
   ]);
 });
 
-test('breakpoint state is checked for actual responsive variable bindings', () => {
+void test('breakpoint state is checked for actual responsive variable bindings', () => {
   const report = run(
     {
       components: [
@@ -97,7 +98,7 @@ test('breakpoint state is checked for actual responsive variable bindings', () =
   );
 });
 
-test('Boolean variables remain exempt while other ALL_SCOPES variables fail', () => {
+void test('Boolean variables remain exempt while other ALL_SCOPES variables fail', () => {
   const report = run({
     collections: [
       {
@@ -115,7 +116,7 @@ test('Boolean variables remain exempt while other ALL_SCOPES variables fail', ()
   );
 });
 
-test('an explained blank Web code name passes and an unrelated description does not', () => {
+void test('an explained blank Web code name passes and an unrelated description does not', () => {
   const report = run({
     collections: [
       {
@@ -135,7 +136,7 @@ test('an explained blank Web code name passes and an unrelated description does 
   assert.deepEqual(blank?.evidence, ['surface/primary']);
 });
 
-test('Sass map references resolve by their variable name', () => {
+void test('Sass map references resolve by their variable name', () => {
   const root = mkdtempSync(resolve(tmpdir(), 'design-lab-theme-'));
   try {
     writeFileSync(resolve(root, 'theme.scss'), '$spacers: (1: 4px);');
@@ -160,7 +161,7 @@ test('Sass map references resolve by their variable name', () => {
   }
 });
 
-test('collection strategy accepts a recorded independent boundary', () => {
+void test('collection strategy accepts a recorded independent boundary', () => {
   const state = {
     collections: [
       { name: 'Example Core', modes: ['Light', 'Dark'] },
@@ -175,7 +176,7 @@ test('collection strategy accepts a recorded independent boundary', () => {
   );
 });
 
-test('documentation adjacency and required block sections remain enforced', () => {
+void test('documentation adjacency and required block sections remain enforced', () => {
   const report = run({
     components: [{ name: 'hero — Hero', page: 'Components — High Use', pageId: 'component-page' }],
     cards: [{ component: 'hero', name: 'Documentation · hero', pageId: 'other-page', sections: ['Head', 'Usage'] }],
@@ -184,7 +185,7 @@ test('documentation adjacency and required block sections remain enforced', () =
   assert.ok(report.open.some((f) => f.check === 'documentation-signal'));
 });
 
-test('breakpoint component sets require the expected collection mode identities and captures', () => {
+void test('breakpoint component sets require the expected collection mode identities and captures', () => {
   const component = { id: 'master', name: 'hero — Hero', type: 'COMPONENT', breakpointBoundCount: 2 };
   const collection = {
     id: 'bp',
@@ -223,12 +224,12 @@ test('breakpoint component sets require the expected collection mode identities 
     pass.open.some((f) => f.check === 'breakpoint-triad'),
     false,
   );
-  (card.breakpointNodes[0] as any).explicitModes.bp = 'Tablet 800px';
+  (card.breakpointNodes[0] as { explicitModes: Record<string, string> }).explicitModes['bp'] = 'Tablet 800px';
   const fail = run({ components: [component], cards: [card], breakpointCollection: collection });
   assert.ok(fail.open.some((f) => f.check === 'breakpoint-triad'));
 });
 
-test('breakpoint triad rejects missing instance mode, wrong mode order, and unnamed layers', () => {
+void test('breakpoint triad rejects missing instance mode, wrong mode order, and unnamed layers', () => {
   const component = { id: 'master', name: 'hero — Hero', type: 'COMPONENT', pageId: 'wrong', breakpointBoundCount: 2 };
   const card = {
     component: 'hero',
@@ -268,7 +269,7 @@ test('breakpoint triad rejects missing instance mode, wrong mode order, and unna
   assert.ok(report.open.some((f) => f.check === 'breakpoint-triad'));
 });
 
-test('component sets need a planned or observed non-breakpoint axis', () => {
+void test('component sets need a planned or observed non-breakpoint axis', () => {
   const base = { id: 'hero', name: 'hero — Hero', type: 'COMPONENT_SET', cards: [], pages: [] };
   const rejected = run({ components: [base] }, { plan: { plans: [{ id: 'hero' }] } });
   assert.ok(rejected.open.some((f) => f.check === 'variants-are-sets'));
@@ -282,7 +283,7 @@ test('component sets need a planned or observed non-breakpoint axis', () => {
   );
 });
 
-test('duplicate definitions and non-instance Examples content fail', () => {
+void test('duplicate definitions and non-instance Examples content fail', () => {
   const report = run({
     components: [
       { name: 'hero — Hero', description: 'Source id: paragraph:hero' },
@@ -298,7 +299,7 @@ test('duplicate definitions and non-instance Examples content fail', () => {
   ]);
 });
 
-test('measurement assembly uses qualified paths and rejects stale source references', () => {
+void test('measurement assembly uses qualified paths and rejects stale source references', () => {
   const root = mkdtempSync(resolve(tmpdir(), 'design-lab-measurements-'));
   try {
     const folder = resolve(root, 'capture/measurements');
@@ -318,8 +319,8 @@ test('measurement assembly uses qualified paths and rejects stale source referen
       }),
     );
     const values = buildMeasurements(root, [
-      { id: 'paragraph:hero', sourceRef: 'paragraph.yml' } as any,
-      { id: 'block:hero', sourceRef: 'new-block.yml' } as any,
+      { id: 'paragraph:hero', sourceRef: 'paragraph.yml' },
+      { id: 'block:hero', sourceRef: 'new-block.yml' },
     ]);
     assert.deepEqual(values, { 'paragraph:hero': { nodes: [{ id: 'current' }] } });
   } finally {
@@ -327,7 +328,7 @@ test('measurement assembly uses qualified paths and rejects stale source referen
   }
 });
 
-test('verification dump merging carries strategy, brand, page children, and Getting Started data', () => {
+void test('verification dump merging carries strategy, brand, page children, and Getting Started data', () => {
   const root = mkdtempSync(resolve(tmpdir(), 'design-lab-state-'));
   try {
     const runDir = resolve(root, 'run'),
@@ -367,7 +368,7 @@ test('verification dump merging carries strategy, brand, page children, and Gett
   }
 });
 
-test('planned documentation approval matches either the inventory id or machineName', () => {
+void test('planned documentation approval matches either the inventory id or machineName', () => {
   const state = { components: [], cards: [], collections: [] };
   const inventory = { components: [{ id: 'block:hero', machineName: 'hero', label: 'Hero' }] };
   const report = run(state, {
@@ -387,7 +388,7 @@ test('planned documentation approval matches either the inventory id or machineN
   );
 });
 
-test('empty measurements are baseline-falsy and leave source binding comparison unperformed', () => {
+void test('empty measurements are baseline-falsy and leave source binding comparison unperformed', () => {
   const report = run({ components: [{ name: 'hero — Hero', tokenBoundCount: 0 }] }, { measurements: {} });
   assert.deepEqual(
     report.open.filter((f) => f.check === 'bindings-match-source').map((f) => [f.severity, f.detail]),
@@ -400,7 +401,7 @@ test('empty measurements are baseline-falsy and leave source binding comparison 
   );
 });
 
-test('Find-oriented documentation names count as documentation and refused inventory is exempt', () => {
+void test('Find-oriented documentation names count as documentation and refused inventory is exempt', () => {
   const state = {
     components: [{ name: 'link_default — Link (Paragraph)', pageId: 'p' }],
     cards: [{ name: 'Link · link_default (Paragraph)', pageId: 'p' }],
@@ -426,14 +427,14 @@ test('Find-oriented documentation names count as documentation and refused inven
   );
 });
 
-test('plans key enforces completeness, even without an inventory components key', () => {
+void test('plans key enforces completeness, even without an inventory components key', () => {
   const report = run({ components: [] }, { plan: { plans: [{ id: 'block:hero', verdict: 'build' }] } });
   const finding = report.open.find((f) => f.check === 'components-built');
   assert.equal(finding?.severity, 'blocker');
   assert.equal(finding?.detail, '1 of 1 planned components are not in the file');
 });
 
-test('namespace-colliding inventory is counted only for its qualified source id', () => {
+void test('namespace-colliding inventory is counted only for its qualified source id', () => {
   const report = run(
     {
       components: [
@@ -459,7 +460,7 @@ test('namespace-colliding inventory is counted only for its qualified source id'
   });
 });
 
-test('render token evidence cannot bind a same-named component from another Drupal namespace', () => {
+void test('render token evidence cannot bind a same-named component from another Drupal namespace', () => {
   const report = run(
     {
       components: [
@@ -488,7 +489,7 @@ test('render token evidence cannot bind a same-named component from another Drup
   );
 });
 
-test('an observed set of alternate layouts is a valid component set without a planned axis', () => {
+void test('an observed set of alternate layouts is a valid component set without a planned axis', () => {
   const report = run(
     {
       components: [
@@ -508,7 +509,7 @@ test('an observed set of alternate layouts is a valid component set without a pl
   );
 });
 
-test('mode names and split width-mode collections are rejected', () => {
+void test('mode names and split width-mode collections are rejected', () => {
   const report = run(
     {
       collections: [
@@ -523,7 +524,7 @@ test('mode names and split width-mode collections are rejected', () => {
   assert.ok(report.open.some((f) => f.check === 'collection-strategy'));
 });
 
-test('receipt contract requires source anatomy, breakpoint triad, and nested instances', () => {
+void test('receipt contract requires source anatomy, breakpoint triad, and nested instances', () => {
   const root = mkdtempSync(resolve(tmpdir(), 'design-lab-receipt-contract-'));
   try {
     const builds = resolve(root, 'builds');
@@ -577,7 +578,7 @@ test('receipt contract requires source anatomy, breakpoint triad, and nested ins
   }
 });
 
-test('not-run build assertions cannot pass whole-file verification', () => {
+void test('not-run build assertions cannot pass whole-file verification', () => {
   const root = mkdtempSync(resolve(tmpdir(), 'design-lab-build-assertions-'));
   try {
     const builds = resolve(root, 'builds');
@@ -592,7 +593,7 @@ test('not-run build assertions cannot pass whole-file verification', () => {
   }
 });
 
-test('font receipts report planned stand-ins, actual drawn family, and ignore unrendered planned fonts', () => {
+void test('font receipts report planned stand-ins, actual drawn family, and ignore unrendered planned fonts', () => {
   const root = mkdtempSync(resolve(tmpdir(), 'design-lab-font-receipts-'));
   try {
     const builds = resolve(root, 'builds');

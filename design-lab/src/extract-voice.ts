@@ -67,7 +67,7 @@ function parseTree(html: string): PageNode {
   const root = new PageNode(),
     stack = [root];
   const open = (tag: string, attrs: Array<[string, string | null]>): void => {
-    const node = new PageNode(tag, attrs, stack.at(-1)!);
+    const node = new PageNode(tag, attrs, stack.at(-1));
     stack.at(-1)!.children.push(node);
     if (!VOID.has(tag)) stack.push(node);
   };

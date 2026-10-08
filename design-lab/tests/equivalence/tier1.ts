@@ -5,15 +5,17 @@ import { spawnSync } from 'node:child_process';
 import { replay } from '../../src/tier1.ts';
 import { pluginRoot } from '../../src/runtime.ts';
 const root = process.argv[2] ?? '/tmp/design-lab-p4-equivalence',
-  results: any[] = [];
+  results: unknown[] = [];
 if (!root.startsWith('/tmp/')) throw new Error('scratch root must be under /tmp');
-function diff(a: any, b: any, p = '', out: any[] = []): any[] {
+function diff(a: unknown, b: unknown, p = '', out: unknown[] = []): unknown[] {
   if (out.length >= 30 || Object.is(a, b)) return out;
   if (!a || !b || typeof a !== 'object' || typeof b !== 'object') {
     out.push([p, a, b]);
     return out;
   }
-  for (const k of new Set([...Object.keys(a), ...Object.keys(b)])) diff(a[k], b[k], p + '/' + k, out);
+  const left = a as Record<string, unknown>,
+    right = b as Record<string, unknown>;
+  for (const k of new Set([...Object.keys(left), ...Object.keys(right)])) diff(left[k], right[k], p + '/' + k, out);
   return out;
 }
 for (const site of ['massport', 'kingtec', 'americas-credit-unions']) {
@@ -39,4 +41,9 @@ for (const site of ['massport', 'kingtec', 'americas-credit-unions']) {
   writeFileSync(resolve(root, 'tier1-summary.json'), JSON.stringify(results, null, 2));
   console.log(site, results.at(-1));
 }
-process.exitCode = results.some((r) => r.diffs.length) ? 1 : 0;
+process.exitCode = results.some((row) => {
+  if (!row || typeof row !== 'object') return false;
+  return Boolean((row as { diffs?: unknown[] }).diffs?.length);
+})
+  ? 1
+  : 0;

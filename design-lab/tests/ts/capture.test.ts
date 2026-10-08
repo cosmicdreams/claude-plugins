@@ -27,7 +27,7 @@ const config = (id = 'sdc.demo.alpha'): CaptureConfig => ({
   states: [{ name: 'default' }],
 });
 for (const outcome of ['success', 'miss', 'exception', 'timeout'])
-  test(`phase 5 check-only preserves existing records byte-for-byte (${outcome})`, async () => {
+  void test(`phase 5 check-only preserves existing records byte-for-byte (${outcome})`, async () => {
     const f = fixture();
     await runCapture(f.options, f.adapters);
     const paths = f.configs.map((c) => resolve(f.root, 'capture/records', c.componentId + '.json'));
@@ -56,7 +56,7 @@ for (const outcome of ['success', 'miss', 'exception', 'timeout'])
       before,
     );
   });
-test('phase 5 check-only does not create capture records', async () => {
+void test('phase 5 check-only does not create capture records', async () => {
   const f = fixture();
   await runCapture({ ...f.options, check: true }, f.adapters);
   for (const c of f.configs)
@@ -119,7 +119,7 @@ function fixture() {
   const options: CaptureOptions = { project: root, canonicalBaseUrl: 'https://public.test', configs, concurrency: 1 };
   return { root, configs, calls, options, adapters };
 }
-test('scaffold uses first populated source and namespace selectors', () => {
+void test('scaffold uses first populated source and namespace selectors', () => {
   const out = scaffold(
     {
       source: { strategy: 'canvas' },
@@ -142,7 +142,7 @@ test('scaffold uses first populated source and namespace selectors', () => {
     path: '/candidate',
   });
 });
-test('fallback pages are bounded and deduplicated including candidates', () => {
+void test('fallback pages are bounded and deduplicated including candidates', () => {
   const c = {
     id: 'x',
     usage: { examples: [{ path: '/verified' }], exampleCandidates: ['/login', '/', { path: '/verified' }] },
@@ -150,7 +150,7 @@ test('fallback pages are bounded and deduplicated including candidates', () => {
   assert.deepEqual(candidatePages({ path: '/login' }, c, 5), ['/login', '/verified', '/']);
   assert.deepEqual(candidatePages({ path: '/login' }, c, 2), ['/login', '/verified']);
 });
-test('capture resumes complete records and retains evidence without browser launch', async () => {
+void test('capture resumes complete records and retains evidence without browser launch', async () => {
   const f = fixture();
   const a = await runCapture(f.options, f.adapters);
   const count = f.calls.length;
@@ -175,7 +175,7 @@ test('capture resumes complete records and retains evidence without browser laun
   assert.equal(project.artifacts['oldPlan'], undefined);
   assert.match((project.artifacts['captureEvidence'] as unknown as { sha256: string }).sha256, /^sha256:[a-f0-9]{64}$/);
 });
-test('changed config invalidates reuse', async () => {
+void test('changed config invalidates reuse', async () => {
   const f = fixture();
   await runCapture(f.options, f.adapters);
   f.calls.length = 0;
@@ -183,7 +183,7 @@ test('changed config invalidates reuse', async () => {
   await runCapture(f.options, f.adapters);
   assert.equal(f.calls.filter((c) => c.startsWith('measure:')).length, 1);
 });
-test('only recaptures named component and unknown IDs are rejected', async () => {
+void test('only recaptures named component and unknown IDs are rejected', async () => {
   const f = fixture();
   await runCapture(f.options, f.adapters);
   f.calls.length = 0;
@@ -192,7 +192,7 @@ test('only recaptures named component and unknown IDs are rejected', async () =>
   assert.ok(f.calls.every((c) => !c.includes('zeta')));
   await assert.rejects(runCapture({ ...f.options, only: ['unknown'] }, f.adapters), /unknown component/);
 });
-test('selector misses never produce measurements or shots; check mode publishes no captures', async () => {
+void test('selector misses never produce measurements or shots; check mode publishes no captures', async () => {
   const f = fixture(),
     adapters = {
       ...f.adapters,
@@ -212,7 +212,7 @@ test('selector misses never produce measurements or shots; check mode publishes 
   assert.equal(result.problems.length, 2);
   assert.equal(f.calls.length, 0);
 });
-test('without selector checks fallback stops at max pages', async () => {
+void test('without selector checks fallback stops at max pages', async () => {
   const f = fixture();
   const adapters = {
     ...f.adapters,
@@ -235,7 +235,7 @@ test('without selector checks fallback stops at max pages', async () => {
   );
   assert.ok(result.problems.length);
 });
-test('setup script text changes retain the same semantic config digest', () => {
+void test('setup script text changes retain the same semantic config digest', () => {
   const cfg = config();
   cfg.states = [{ name: 'default', setup: '(a)', setupKey: { own: 'reveal' } }];
   assert.equal(configHash(cfg, 1), configHash({ ...cfg, states: [{ ...cfg.states[0]!, setup: '(() => a)()' }] }, 1));
@@ -243,7 +243,7 @@ test('setup script text changes retain the same semantic config digest', () => {
   assert.equal(configHash(cfg, 1), '0ec3310eaae82ff180986930bf15cfb6d1076cef0cc7715a0e2acdb2afb9c03d');
   assert.equal(legacyHash(cfg, 1), '5243d51f24e97ffaa6a2fda4dda69e060d242d99015bd9de148df2d2ff5e70d0');
 });
-test('legacy script-text records upgrade without recapturing, including unselected components', async () => {
+void test('legacy script-text records upgrade without recapturing, including unselected components', async () => {
   const f = fixture();
   await runCapture(f.options, f.adapters);
   const path = resolve(f.root, 'capture/records/sdc.demo.zeta.json');
@@ -265,13 +265,13 @@ test('legacy script-text records upgrade without recapturing, including unselect
     configHash(f.configs[1]!, 1),
   );
 });
-test('a child prefers its own page over its parent page and retains its only example', () => {
+void test('a child prefers its own page over its parent page and retains its only example', () => {
   assert.deepEqual(firstExample({ examples: [{ path: '/parent' }, { path: '/own' }] }, new Set(['/parent'])), {
     path: '/own',
   });
   assert.deepEqual(firstExample({ examples: [{ path: '/only' }] }, new Set(['/only'])), { path: '/only' });
 });
-test('page pool is bounded, returns ordered results and checkpoints in completion order', async () => {
+void test('page pool is bounded, returns ordered results and checkpoints in completion order', async () => {
   let active = 0,
     peak = 0;
   const completed: number[] = [];
@@ -295,7 +295,7 @@ test('page pool is bounded, returns ordered results and checkpoints in completio
   assert.throws(() => concurrency(0));
   assert.throws(() => concurrency(1.5));
 });
-test('item timeout closes contexts, preserves other work and rejects late context creation', async () => {
+void test('item timeout closes contexts, preserves other work and rejects late context creation', async () => {
   let closed = 0;
   const browser = {
     newContext: async () => {
@@ -325,7 +325,7 @@ test('item timeout closes contexts, preserves other work and rejects late contex
   );
   assert.equal(closed, 2);
 });
-test('qualified IDs isolate equal machine names', async () => {
+void test('qualified IDs isolate equal machine names', async () => {
   const f = fixture();
   f.configs[0] = { ...config('block:card'), machineName: 'card' };
   f.configs[1] = { ...config('paragraph:card'), machineName: 'card' };
@@ -334,7 +334,7 @@ test('qualified IDs isolate equal machine names', async () => {
   assert.ok(existsSync(resolve(f.root, 'capture/shots/block__card__desktop.png')));
   assert.ok(existsSync(resolve(f.root, 'capture/shots/paragraph__card__desktop.png')));
 });
-test('tagged child subtree is rebased and crops keep backdrop overhang', async () => {
+void test('tagged child subtree is rebased and crops keep backdrop overhang', async () => {
   const root = temporary(),
     image = resolve(root, 'parent.png'),
     out = resolve(root, 'child.png');
@@ -361,7 +361,7 @@ test('tagged child subtree is rebased and crops keep backdrop overhang', async (
   assert.deepEqual([...result.data.subarray(0, 3)], [255, 255, 0]);
   assert.deepEqual([...result.data.subarray(6, 9)], [255, 255, 255]);
 });
-test('nested signatures count site images, not capture surrogates', () => {
+void test('nested signatures count site images, not capture surrogates', () => {
   const tree = mergeTree();
   assert.deepEqual(signature(tree), [1, 1]);
   function mergeTree() {
@@ -386,11 +386,11 @@ test('nested signatures count site images, not capture surrogates', () => {
 });
 const render = (hook: string, name: string, body: string) =>
   `<!-- THEME DEBUG -->\n<!-- THEME HOOK: '${hook}' -->\n<!-- FILE NAME SUGGESTIONS:\n * ${name}\n-->\n<!-- BEGIN OUTPUT from '${name}' -->\n${body}\n<!-- END OUTPUT from '${name}' -->`;
-test('Twig suggestions use Drupal hyphens and preserve namespaces', () => {
+void test('Twig suggestions use Drupal hyphens and preserve namespaces', () => {
   assert.deepEqual(twig.suggestion('paragraph:link_default'), ['paragraph', 'paragraph--link-default.html.twig']);
   assert.equal(twig.rootSelector('block:cards'), '[data-design-lab-root="block:cards"]');
 });
-test('Twig counts match bundle hook only', () => {
+void test('Twig counts match bundle hook only', () => {
   const html =
     render('paragraph', 'paragraph--cards.html.twig', 'a') +
     render('paragraph', 'paragraph--cards.html.twig', 'b') +
@@ -401,7 +401,7 @@ test('Twig counts match bundle hook only', () => {
   assert.equal(twig.count(html, 'block:cards'), 1);
   assert.equal(twig.count(html, 'paragraph:text'), 0);
 });
-test('child renders count only within their own parent', () => {
+void test('child renders count only within their own parent', () => {
   const child = render('paragraph', 'paragraph--child.html.twig', 'c');
   const html = child + render('block', 'block--parent.html.twig', child + child);
   assert.deepEqual(twig.rendersWithin(html, 'block:parent', ['paragraph:child']), {
@@ -409,7 +409,7 @@ test('child renders count only within their own parent', () => {
     children: { 'paragraph:child': 2 },
   });
 });
-test('scaffold maps each marker to selector and reveal setup', () => {
+void test('scaffold maps each marker to selector and reveal setup', () => {
   for (const [markerKind, marker, expected] of [
     ['class', 'card', '.card'],
     ['id', 'id', '#id'],
@@ -424,7 +424,7 @@ test('scaffold maps each marker to selector and reveal setup', () => {
     assert.ok(c['states']);
   }
 });
-test('selector extraction uses actual root, ignores SDC macros and custom comments', () => {
+void test('selector extraction uses actual root, ignores SDC macros and custom comments', () => {
   const root = temporary();
   mkdirSync(resolve(root, 'templates'), { recursive: true });
   mkdirSync(resolve(root, 'components/card'), { recursive: true });
@@ -439,7 +439,7 @@ test('selector extraction uses actual root, ignores SDC macros and custom commen
   writeFileSync(resolve(root, 'custom.twig'), '{# <b class="wrong"> #}<div class="custom">');
   assert.equal(customSelector(root, 'custom.yml')[0], '.custom');
 });
-test('nested children are built before parents, cycles remain bounded', async () => {
+void test('nested children are built before parents, cycles remain bounded', async () => {
   const { childrenFirst } = await import('../../src/nesting.ts');
   const built = [{ id: 'parent' }, { id: 'child' }, { id: 'free' }];
   assert.deepEqual(
@@ -450,7 +450,7 @@ test('nested children are built before parents, cycles remain bounded', async ()
     ['child', 'parent', 'free'],
   );
 });
-test('variant classes resolve options and synonyms', async () => {
+void test('variant classes resolve options and synonyms', async () => {
   const { variantValues } = await import('../../src/nesting.ts'),
     options = (...values: string[]) =>
       values.map((value) => ({ value, label: value[0]!.toUpperCase() + value.slice(1) }));
@@ -473,7 +473,7 @@ test('variant classes resolve options and synonyms', async () => {
     Style: 'Secondary',
   });
 });
-test('ambiguous and unrelated generic variant words remain unknown', async () => {
+void test('ambiguous and unrelated generic variant words remain unknown', async () => {
   const { variantValues } = await import('../../src/nesting.ts');
   const out = variantValues(
     [
@@ -504,7 +504,7 @@ test('ambiguous and unrelated generic variant words remain unknown', async () =>
 });
 
 for (const checkOnly of [true, false])
-  test(`selector timeout checkpoints failure and drains healthy siblings (check=${checkOnly})`, async () => {
+  void test(`selector timeout checkpoints failure and drains healthy siblings (check=${checkOnly})`, async () => {
     const f = fixture();
     let closed = false,
       healthyFinished = false;
@@ -531,7 +531,12 @@ for (const checkOnly of [true, false])
     if (checkOnly) {
       assert.equal(existsSync(resolve(f.root, 'capture/records/sdc.demo.alpha.json')), false);
       const checks = JSON.parse(readFileSync(resolve(f.root, 'capture/selector-check.json'), 'utf8'));
-      assert.match(checks.find((c: any) => c.componentId === 'sdc.demo.alpha').pages[0].error, /stopped after/);
+      assert.match(
+        (checks as { find(predicate: (row: { componentId: string }) => boolean): { pages: { error: string }[] } }).find(
+          (c) => c.componentId === 'sdc.demo.alpha',
+        ).pages[0]!.error,
+        /stopped after/,
+      );
     } else {
       const failed = JSON.parse(readFileSync(resolve(f.root, 'capture/records/sdc.demo.alpha.json'), 'utf8'));
       assert.equal(failed.status, 'failed');
@@ -539,7 +544,7 @@ for (const checkOnly of [true, false])
     }
     if (!checkOnly) assert.ok('sdc.demo.zeta' in output.captures);
   });
-test('pool drains siblings before propagating an unexpected item exception', async () => {
+void test('pool drains siblings before propagating an unexpected item exception', async () => {
   let finished = false;
   await assert.rejects(
     pool([0, 1], 2, async (i) => {
@@ -553,7 +558,7 @@ test('pool drains siblings before propagating an unexpected item exception', asy
   assert.equal(finished, true);
 });
 
-test('phase 5 completion callback checkpoints in finish order and estimates remaining work', async () => {
+void test('phase 5 completion callback checkpoints in finish order and estimates remaining work', async () => {
   const f = fixture();
   const progress: CaptureProgress[] = [];
   const options = {
@@ -592,7 +597,7 @@ test('phase 5 completion callback checkpoints in finish order and estimates rema
   await runCapture(options, f.adapters);
   assert.equal(progress.length, 2, 'resumed records emit no new completions');
 });
-test('phase 5 fresh capture ETA retains previous timings for unfinished components', async () => {
+void test('phase 5 fresh capture ETA retains previous timings for unfinished components', async () => {
   const f = fixture();
   await runCapture(f.options, f.adapters);
   const path = resolve(f.root, 'capture/records/sdc.demo.zeta.json');

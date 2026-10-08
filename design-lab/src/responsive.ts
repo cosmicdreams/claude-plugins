@@ -55,7 +55,7 @@ export class Merge {
   widths: Record<string, number> = {};
   variables: Tree['variables'] = {};
   slotted: Record<string, Record<string, Slot>> = {};
-  private stacking = new WeakMap<TreeNode, Stacking>();
+  private readonly stacking = new WeakMap<TreeNode, Stacking>();
   fallbacks: string[] = [];
   notes: string[] = [];
   rootPath: string;
@@ -70,7 +70,7 @@ export class Merge {
     for (const bp of this.bps) {
       const m = pick(spec.measurements, `${bp}:default`, `measurement for breakpoint "${bp}"`);
       if (!('nodes' in m) || !Array.isArray(m.nodes)) throw new Error('measurement has no nodes');
-      const nodes = m.nodes as MeasuredNode[];
+      const nodes = m.nodes;
       this.nodes[bp] = Object.fromEntries(nodes.map((n) => [n.path, n]));
       this.index[bp] = st.buildIndex(nodes);
       this.widths[bp] =

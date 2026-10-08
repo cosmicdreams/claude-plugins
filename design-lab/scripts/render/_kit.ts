@@ -96,7 +96,7 @@ export async function template(ARGS: KitArgs) {
 
   /** A text node in a fixed role. width: fixed width with wrapping; omit to hug. */
   function text(characters: unknown, role: RoleName, { name, width, link, align }: TextOptions = {}) {
-    const [family, style, size, lh, colour, tracking, textCase] = ROLES[role]!;
+    const [family, style, size, lh, colour, tracking, textCase] = ROLES[role];
     const t = figma.createText();
     t.fontName = { family, style };
     t.characters = String(characters);

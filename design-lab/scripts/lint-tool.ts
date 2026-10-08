@@ -45,6 +45,17 @@ if (mode === 'lint') {
       const config = {
         extends: resolve(pluginRoot, name),
         compilerOptions: { paths, typeRoots: [typeRoots, modules] },
+        ...(name === 'tsconfig.src.json'
+          ? {
+              files: [
+                resolve(pluginRoot, 'hooks/mod/locate.ts'),
+                resolve(pluginRoot, 'hooks/mod/model.ts'),
+                resolve(pluginRoot, 'tests/mod/model.test.ts'),
+                resolve(pluginRoot, 'tests/mod/register.test.ts'),
+                resolve(pluginRoot, 'types/index.d.ts'),
+              ],
+            }
+          : {}),
       };
       const path = resolve(overlay, `tsconfig-${index}.json`);
       writeFileSync(path, JSON.stringify(config, null, 2));

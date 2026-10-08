@@ -9,7 +9,7 @@ import { GeometryError, Merge, build } from '../../src/responsive.ts';
 const spec = (): Spec =>
   JSON.parse(readFileSync(resolve(import.meta.dirname, '../fixtures/sponsor-logo.spec.json'), 'utf8')) as Spec;
 
-test('checked lookups name what was missing', () => {
+void test('checked lookups name what was missing', () => {
   assert.equal(at(['a', 'b'], 1, 'letters'), 'b');
   assert.throws(
     () => at(['a'], 3, 'letters'),
@@ -22,7 +22,7 @@ test('checked lookups name what was missing', () => {
   assert.equal(required(0, 'zero'), 0);
 });
 
-test('a missing measured node reports its breakpoint and path', () => {
+void test('a missing measured node reports its breakpoint and path', () => {
   const merge = new Merge(spec(), 'Logo', 'logo');
   const bp = merge.bps[0]!;
   assert.throws(
@@ -39,7 +39,7 @@ test('a missing measured node reports its breakpoint and path', () => {
   assert.throws(() => merge.refBp('html[0]/nowhere[9]'), /visible in none of the measured breakpoints/);
 });
 
-test('a spec without a machine name is rejected with the component named', () => {
+void test('a spec without a machine name is rejected with the component named', () => {
   const broken = spec();
   broken.machineName = null;
   assert.throws(

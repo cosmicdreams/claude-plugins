@@ -8,7 +8,7 @@ const pixels = (width: number, height: number, fill = 100) => ({
   height,
   data: new Uint8Array(width * height * 3).fill(fill),
 });
-test('identical pixels pass both metrics, missing content and displacement fail', () => {
+void test('identical pixels pass both metrics, missing content and displacement fail', () => {
   const a = pixels(100, 100),
     b = pixels(100, 100, 255);
   assert.equal(comparePair(a, a).changed, 0);
@@ -18,7 +18,7 @@ test('identical pixels pass both metrics, missing content and displacement fail'
   for (let y = 0; y < 100; y++) shifted.data.fill(255, y * 300, y * 300 + 60);
   assert.ok(comparePair(a, shifted).ratio > 0.06);
 });
-test('unmatched height and area count in corrected acceptance', () => {
+void test('unmatched height and area count in corrected acceptance', () => {
   const a = pixels(100, 50),
     b = pixels(100, 80);
   assert.equal(comparePair(a, b).pass, true);
@@ -27,7 +27,7 @@ test('unmatched height and area count in corrected acceptance', () => {
   assert.equal(corrected.heightDelta, 30);
   assert.equal(corrected.pass, false);
 });
-test('tolerance applies per channel and equality at the threshold does not count', () => {
+void test('tolerance applies per channel and equality at the threshold does not count', () => {
   const a = pixels(10, 10),
     b = pixels(10, 10);
   for (let p = 0; p < 100; p++) b.data[p * 3] = 150;
@@ -36,20 +36,20 @@ test('tolerance applies per channel and equality at the threshold does not count
   for (let p = 0; p < 100; p++) b.data[p * 3] = 140;
   assert.equal(comparePair(a, b, true).changed, 0);
 });
-test('Pillow crop rounding and black padding are retained', () => {
+void test('Pillow crop rounding and black padding are retained', () => {
   const image = pixels(2, 2, 255);
   const out = region(image, { x: -0.5, y: 0, width: 3, height: 2 });
   assert.deepEqual([...out.data.subarray(0, 3)], [255, 255, 255]);
   assert.deepEqual([...out.data.subarray(6, 9)], [0, 0, 0]);
 });
-test('masking expands text boxes by a pixel and keeps other geometry', () => {
+void test('masking expands text boxes by a pixel and keeps other geometry', () => {
   const img = pixels(10, 10, 0),
     out = masked(img, [{ x: 3, y: 3, width: 1, height: 1 }]);
   assert.equal(out.data[(2 * 10 + 2) * 3], 255);
   assert.equal(out.data[(5 * 10 + 5) * 3], 0);
   assert.equal(img.data[(2 * 10 + 2) * 3], 0);
 });
-test('Sharp decoding uses white alpha background, corrected metrics and text masks', async () => {
+void test('Sharp decoding uses white alpha background, corrected metrics and text masks', async () => {
   const png = await sharp({
     create: { width: 20, height: 40, channels: 4, background: { r: 0, g: 0, b: 0, alpha: 0 } },
   })
@@ -67,7 +67,7 @@ test('Sharp decoding uses white alpha background, corrected metrics and text mas
   assert.equal((await compare(png, { variants: [], captures: [] }, true)).pass, false);
 });
 
-test('row-span crops retain exact legacy pixels at five boundaries and rounding cases', () => {
+void test('row-span crops retain exact legacy pixels at five boundaries and rounding cases', () => {
   const img = pixels(11, 9);
   img.data.forEach((_, i) => (img.data[i] = (i * 31) % 256));
   for (const box of [
@@ -91,7 +91,7 @@ test('row-span crops retain exact legacy pixels at five boundaries and rounding 
     assert.deepEqual(actual.data, data);
   }
 });
-test('shared decode/crops preserve both metrics and masks on every alpha byte', async () => {
+void test('shared decode/crops preserve both metrics and masks on every alpha byte', async () => {
   const { compareBoth } = await import('../../src/figma-compare.ts'),
     data = Buffer.alloc(16 * 16 * 4);
   for (let p = 0; p < 256; p++) {

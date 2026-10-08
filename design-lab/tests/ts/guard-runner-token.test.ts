@@ -22,7 +22,7 @@ for (const output of [
   'process["stdout"]["write"]',
   'process.stderr["write"]',
 ])
-  test(`phase 5 guard denies Node disclosure through ${output}`, () => {
+  void test(`phase 5 guard denies Node disclosure through ${output}`, () => {
     // The hook receives command text only; no token getter or output command is executed.
     const command = `node --input-type=module -e 'const personToken = () => "synthetic-only"; ${output}(personToken())'`;
     const result = spawnSync(process.execPath, [resolve(pluginRoot, 'hooks/guard_runner_token.ts')], {
@@ -32,7 +32,7 @@ for (const output of [
     assert.equal(result.status, 2, result.stderr);
     assert.match(result.stderr, /runner token/);
   });
-test('phase 5 token guard executes when invoked through a symlink', () => {
+void test('phase 5 token guard executes when invoked through a symlink', () => {
   const root = mkdtempSync('/tmp/design-lab-p5-guard-');
   try {
     const link = resolve(root, 'guard.ts');
@@ -47,7 +47,7 @@ test('phase 5 token guard executes when invoked through a symlink', () => {
     rmSync(root, { recursive: true, force: true });
   }
 });
-test('token guard blocks paths, globs, traversal, edits and function disclosure', () => {
+void test('token guard blocks paths, globs, traversal, edits and function disclosure', () => {
   for (const input of [
     { file_path: '/Users/someone/.design-lab/runner-token' },
     { command: 'pbcopy < ~/.design-lab/runner-token' },
@@ -71,7 +71,7 @@ test('token guard blocks paths, globs, traversal, edits and function disclosure'
   assert.equal(result.status, 2);
   assert.match(result.stderr, /pbcopy < ~\/.design-lab\/runner-token/);
 });
-test('token guard allows runner assets, ordinary script execution and malformed input', () => {
+void test('token guard allows runner assets, ordinary script execution and malformed input', () => {
   for (const input of [
     { file_path: '/Users/someone/.design-lab/runner/manifest.json' },
     { command: 'ls ~/.design-lab/runner' },

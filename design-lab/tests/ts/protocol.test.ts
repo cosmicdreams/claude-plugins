@@ -25,7 +25,7 @@ import { modContract } from '../../scripts/generate-mod-contract.ts';
 import { variableCollections, requiredValue } from '../../src/figma-args.ts';
 import { assertNever } from '../../src/assert-never.ts';
 const client = stripTemplate(readFileSync(resolve(pluginRoot, 'runner/code.ts'), 'utf8'));
-test('stripped runner carries the exact shared protocol literals with no runtime imports', () => {
+void test('stripped runner carries the exact shared protocol literals with no runtime imports', () => {
   assert.deepEqual([ServerPort, ServerWait, ServerHeartbeat], [PORT, WAIT_MS, HEARTBEAT_SECONDS]);
   assert.ok(client.includes(`const SERVER = 'http://localhost:${PORT}';`));
   assert.ok(client.includes(`const RETRY_MS = ${RETRY_MS};`));
@@ -47,12 +47,12 @@ test('stripped runner carries the exact shared protocol literals with no runtime
   const manifest = JSON.parse(readFileSync(resolve(pluginRoot, 'runner/manifest.json'), 'utf8'));
   assert.ok(JSON.stringify(manifest.networkAccess).includes(String(PORT)));
 });
-test('mod manifest contract is derived, self-contained and current', () => {
+void test('mod manifest contract is derived, self-contained and current', () => {
   const source = readFileSync(resolve(pluginRoot, 'types/index.d.ts'), 'utf8');
   assert.equal(source, modContract());
   assert.doesNotMatch(source, /\bimport\b|export[^\n]*\bfrom\b/);
 });
-test('literal reviewed seam substitutions fail on an unreviewed executable edit', () => {
+void test('literal reviewed seam substitutions fail on an unreviewed executable edit', () => {
   assert.doesNotThrow(() => restoreSeams(client, 'runner'));
   assert.throws(
     () =>
@@ -63,7 +63,7 @@ test('literal reviewed seam substitutions fail on an unreviewed executable edit'
     /present exactly/,
   );
 });
-test('exhaustive runner dispatch preserves every previously reachable work variant', async () => {
+void test('exhaustive runner dispatch preserves every previously reachable work variant', async () => {
   const edit = reviewedSeams.runner[0]!;
   const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor as new (
     ...args: string[]
@@ -103,7 +103,7 @@ test('exhaustive runner dispatch preserves every previously reachable work varia
     /unknown step kind skip/,
   );
 });
-test('exhaustive expand preserves all five node kinds, style reuse and bound padding', () => {
+void test('exhaustive expand preserves all five node kinds, style reuse and bound padding', () => {
   const current = reviewedSeams.responsive[0]!.current,
     previous = reviewedSeams.responsive[0]!.previous;
   const args = {
@@ -128,7 +128,7 @@ test('exhaustive expand preserves all five node kinds, style reuse and bound pad
   };
   assert.deepEqual(execute(current), execute(previous));
 });
-test('invalid variable scopes and absent producer identities fail before entering Figma', () => {
+void test('invalid variable scopes and absent producer identities fail before entering Figma', () => {
   assert.throws(
     () =>
       variableCollections({

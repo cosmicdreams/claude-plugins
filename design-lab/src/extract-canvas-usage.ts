@@ -256,7 +256,7 @@ export function buildUsage(components: UsageInventory, rows: CanvasRows, source:
     const sdc: string | undefined = component['sourceSdcId'];
     for (const reference of sdc !== undefined && Object.hasOwn(twigRefs, sdc) ? twigRefs[sdc]! : [])
       if (!value['templateRefs'].some((have: unknown) => isDeepStrictEqual(have, reference)))
-        value['templateRefs'].push(reference!);
+        value['templateRefs'].push(reference);
     value['globalTemplate'] = value['templateRefs'].some(
       (ref) => ref && typeof ref === 'object' && !Array.isArray(ref) && truthy(ref.global),
     );

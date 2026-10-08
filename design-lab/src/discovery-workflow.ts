@@ -163,7 +163,7 @@ export function selectProject(value: string, args: Selection): unknown {
     if (given.customStyles) candidates.token.add('sitestudio-styles');
   }
   for (const key of ['component', 'token', 'usage'] as const)
-    if (args[key] && args[key] !== 'none' && !candidates[key].has(args[key]!))
+    if (args[key] && args[key] !== 'none' && !candidates[key].has(args[key]))
       throw new Error(`${args[key]} is not a detected ${key} strategy: ${[...candidates[key]].sort().join(', ')}`);
   const waiver = args.degradedReason && args.by ? { reason: args.degradedReason, by: args.by } : null;
   if (args.usage === 'none' && !waiver)

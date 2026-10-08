@@ -6,7 +6,7 @@ import { tmpdir } from 'node:os';
 import { spawnSync } from 'node:child_process';
 import { pluginRoot, sharedRequire, dependencyFolder, completionMarker } from '../../src/runtime.ts';
 
-test('pinned runtime dependencies load from shared cache', async () => {
+void test('pinned runtime dependencies load from shared cache', async () => {
   const require = sharedRequire();
   const sharp = require('sharp') as (typeof import('sharp'))['default'];
   const { chromium } = require('playwright') as typeof import('playwright');
@@ -19,7 +19,7 @@ test('pinned runtime dependencies load from shared cache', async () => {
   assert.ok(require.resolve('sharp').startsWith(realpathSync(dependencyFolder())));
   assert.equal(existsSync(resolve(pluginRoot, 'node_modules')), false);
 });
-test('plain-copy direct TS and bare-import launcher work from unrelated cwd', () => {
+void test('plain-copy direct TS and bare-import launcher work from unrelated cwd', () => {
   const dir = mkdtempSync(resolve(tmpdir(), 'design-lab-copy-'));
   try {
     const copy = resolve(dir, 'plugin');
@@ -61,7 +61,7 @@ test('plain-copy direct TS and bare-import launcher work from unrelated cwd', ()
   }
 });
 
-test('bare ESM imports retain nested dependency versions and default exports', () => {
+void test('bare ESM imports retain nested dependency versions and default exports', () => {
   const dir = mkdtempSync(resolve(tmpdir(), 'design-lab-nested-esm-'));
   try {
     const copy = resolve(dir, 'plugin');
@@ -103,7 +103,7 @@ test('bare ESM imports retain nested dependency versions and default exports', (
     rmSync(dir, { recursive: true, force: true });
   }
 });
-test('relative cache overrides fail identically from unrelated working directories', () => {
+void test('relative cache overrides fail identically from unrelated working directories', () => {
   const dir = mkdtempSync(resolve(tmpdir(), 'design-lab-relative-cache-'));
   try {
     for (const cwd of [pluginRoot, dir]) {

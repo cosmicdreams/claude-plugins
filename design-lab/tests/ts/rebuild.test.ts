@@ -42,7 +42,7 @@ function fixture(t: { after(fn: () => void): void }) {
   });
   return { root, source };
 }
-test('rebuild rejects original target, unapproved plan, nested and occupied destinations before copy', (t) => {
+void test('rebuild rejects original target, unapproved plan, nested and occupied destinations before copy', (t) => {
   const { root, source } = fixture(t),
     workspace = resolve(root, 'new'),
     identity = { siteLabel: 'Fixture' };
@@ -60,7 +60,7 @@ test('rebuild rejects original target, unapproved plan, nested and occupied dest
   assert.throws(() => prepare(source, workspace, 'scratch', 'url', { identity }), /new or empty/);
   assert.equal(readFileSync(resolve(workspace, 'keep'), 'utf8'), 'owned');
 });
-test('rebuild publishes a fresh manifest after copied inputs, retaining approved and completed history', (t) => {
+void test('rebuild publishes a fresh manifest after copied inputs, retaining approved and completed history', (t) => {
   const { root, source } = fixture(t),
     workspace = resolve(root, 'new'),
     original = readFileSync(resolve(source, 'project.json'), 'utf8');
@@ -80,7 +80,7 @@ test('rebuild publishes a fresh manifest after copied inputs, retaining approved
   assert.equal(planApproved(source, { phases: { plan: { status: 'pending' } } }), true);
   assert.ok(existsSync(resolve(workspace, 'components.json')));
 });
-test('rebuild refuses a workspace that reaches the source through a symlinked parent or link', (t) => {
+void test('rebuild refuses a workspace that reaches the source through a symlinked parent or link', (t) => {
   const { root, source } = fixture(t),
     identity = { siteLabel: 'Fixture' },
     alias = resolve(root, 'alias'),
@@ -98,7 +98,7 @@ test('rebuild refuses a workspace that reaches the source through a symlinked pa
   );
   assert.equal(existsSync(resolve(source, 'copy')), false);
 });
-test('rebuild copies into a symlinked workspace that lies outside the source', (t) => {
+void test('rebuild copies into a symlinked workspace that lies outside the source', (t) => {
   const { root, source } = fixture(t),
     target = resolve(root, 'elsewhere'),
     link = resolve(root, 'linked');
@@ -108,20 +108,20 @@ test('rebuild copies into a symlinked workspace that lies outside the source', (
   assert.ok(existsSync(resolve(target, 'components.json')));
   assert.ok(existsSync(resolve(target, 'project.json')));
 });
-test('rebuild treats a sibling whose name extends the source name as outside it', (t) => {
+void test('rebuild treats a sibling whose name extends the source name as outside it', (t) => {
   const { root, source } = fixture(t),
     sibling = resolve(root, 'source-copy');
   prepare(source, sibling, 'scratch', 'url', { identity: { siteLabel: 'Fixture' } });
   assert.ok(existsSync(resolve(sibling, 'components.json')));
 });
-test('rebuild uses saved capture URLs and reports missing reconstruction context', (t) => {
+void test('rebuild uses saved capture URLs and reports missing reconstruction context', (t) => {
   const { source } = fixture(t);
   write(resolve(source, 'figma/state.json'), {});
   assert.deepEqual(siteUrls(source), ['https://public.test', 'https://public.test']);
   write(resolve(source, 'capture-evidence.json'), {});
   assert.throws(() => siteUrls(source), /missing saved/);
 });
-test('build wait detects current failures, ignores historical and old-server evidence and recovers after progress', async (t) => {
+void test('build wait detects current failures, ignores historical and old-server evidence and recovers after progress', async (t) => {
   const { root } = fixture(t),
     workspace = resolve(root, 'run'),
     log = resolve(workspace, 'figma/runner.log');

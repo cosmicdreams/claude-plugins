@@ -19,7 +19,7 @@ const cli = (args: string[], env: Record<string, string> = {}) =>
     env: { ...process.env, ...env },
   });
 
-test('run-mode verification honors explicit waivers and output paths', () => {
+void test('run-mode verification honors explicit waivers and output paths', () => {
   const root = mkdtempSync(resolve(tmpdir(), 'design-lab-verify-cli-'));
   try {
     write(resolve(root, 'figma/verify/state.json'), {});
@@ -37,7 +37,7 @@ test('run-mode verification honors explicit waivers and output paths', () => {
   }
 });
 
-test('determinism CLI accepts check and uses the original numeric JSON tokens', () => {
+void test('determinism CLI accepts check and uses the original numeric JSON tokens', () => {
   const root = mkdtempSync(resolve(tmpdir(), 'design-lab-determinism-cli-'));
   try {
     const layout = resolve(root, 'layout.json'),
@@ -56,7 +56,7 @@ test('determinism CLI accepts check and uses the original numeric JSON tokens', 
   }
 });
 
-test('rebuild waiting trusts a completed injected dump instead of reading live state', async () => {
+void test('rebuild waiting trusts a completed injected dump instead of reading live state', async () => {
   const root = mkdtempSync(resolve(tmpdir(), 'design-lab-wait-'));
   try {
     let dumpCalls = 0;
@@ -76,7 +76,7 @@ test('rebuild waiting trusts a completed injected dump instead of reading live s
   }
 });
 
-test('in-process evaluation records failed quality and still produces the benchmark', async () => {
+void test('in-process evaluation records failed quality and still produces the benchmark', async () => {
   const root = mkdtempSync(resolve(tmpdir(), 'design-lab-evaluate-'));
   try {
     write(resolve(root, 'project.json'), {
@@ -116,7 +116,7 @@ test('in-process evaluation records failed quality and still produces the benchm
   }
 });
 
-test('comparison CLI writes Markdown and scoreboard rows remain streamable JSONL', () => {
+void test('comparison CLI writes Markdown and scoreboard rows remain streamable JSONL', () => {
   const root = mkdtempSync(resolve(tmpdir(), 'design-lab-evaluation-cli-'));
   try {
     const a = resolve(root, 'a'),

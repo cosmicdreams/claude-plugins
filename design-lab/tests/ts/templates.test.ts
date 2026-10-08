@@ -86,7 +86,7 @@ function fixture(persistent = true, globalAvailable = true) {
   };
 }
 
-test('Figma runner cache refreshes available fonts and reuses family/style loads across payloads', async () => {
+void test('Figma runner cache refreshes available fonts and reuses family/style loads across payloads', async () => {
   const f = fixture();
   const one = await f.api(),
     two = await f.api();
@@ -102,7 +102,7 @@ test('Figma runner cache refreshes available fonts and reuses family/style loads
   assert.equal(f.calls.loads, 2);
 });
 
-test('Figma font cache evicts rejected loads and allows a later retry', async () => {
+void test('Figma font cache evicts rejected loads and allows a later retry', async () => {
   const f = fixture(),
     one = await f.api(),
     two = await f.api();
@@ -118,7 +118,7 @@ test('Figma font cache evicts rejected loads and allows a later retry', async ()
   assert.equal(f.calls.loads, 2);
 });
 
-test('Figma variable and collection snapshot includes creation without another inventory call', async () => {
+void test('Figma variable and collection snapshot includes creation without another inventory call', async () => {
   const f = fixture(),
     api = await f.api();
   assert.equal((await api.variables()).length, 0);
@@ -135,7 +135,7 @@ test('Figma variable and collection snapshot includes creation without another i
   assert.equal(f.calls.collections, 1);
 });
 
-test('wipe invalidates cached removed collections before the next payload', async () => {
+void test('wipe invalidates cached removed collections before the next payload', async () => {
   const f = fixture(),
     api = await f.api();
   api.createCollection('Core');
@@ -146,7 +146,7 @@ test('wipe invalidates cached removed collections before the next payload', asyn
   assert.equal(f.calls.collections, 3);
 });
 
-test('use_figma and absent globalThis each use isolated local caches', async () => {
+void test('use_figma and absent globalThis each use isolated local caches', async () => {
   for (const globalAvailable of [true, false]) {
     const f = fixture(false, globalAvailable),
       one = await f.api(),
@@ -160,7 +160,7 @@ test('use_figma and absent globalThis each use isolated local caches', async () 
   }
 });
 
-test('stripped payload refreshes externally deleted, replaced and added inventories between steps', async () => {
+void test('stripped payload refreshes externally deleted, replaced and added inventories between steps', async () => {
   const f = fixture();
   f.variables.push({ id: 'old' });
   f.figma.variables.createVariableCollection('old');
@@ -191,7 +191,7 @@ test('stripped payload refreshes externally deleted, replaced and added inventor
   assert.deepEqual(f.calls, { variables: 2, collections: 2, fonts: 2, loads: 0 });
 });
 
-test('actual stripped variables payload reconciles external deletion, replacement and addition without duplicates', async () => {
+void test('actual stripped variables payload reconciles external deletion, replacement and addition without duplicates', async () => {
   let serial = 0,
     reads = 0,
     collectionReads = 0;

@@ -5,7 +5,7 @@ import { fileURLToPath } from 'node:url';
 import { spawnSync } from 'node:child_process';
 import { render } from '../../src/scoreboard-render.ts';
 import { differences } from '../equivalence/evaluation.ts';
-test('finding 1: replacement metacharacters cannot duplicate markup or corrupt scoreboard JSON', () => {
+void test('finding 1: replacement metacharacters cannot duplicate markup or corrupt scoreboard JSON', () => {
   for (const label of ["$'<img src=x onerror=alert(1)>", '$&', '$$', '$`', '</script><img src=x onerror=alert(1)>']) {
     const html = render([{ site: label }], label);
     assert.equal((html.match(/<script>/g) ?? []).length, 1);
@@ -14,12 +14,12 @@ test('finding 1: replacement metacharacters cannot duplicate markup or corrupt s
     assert.equal(JSON.parse(payload).rows[0].site, label);
   }
 });
-test('finding 2: harness rejects differing container types', () => {
+void test('finding 2: harness rejects differing container types', () => {
   assert.ok(differences([], {}).length);
   assert.ok(differences({ a: [] }, { a: {} }).length);
 });
 
-test('finding 5: malformed redirects reject within Promise rather than crash Node', () => {
+void test('finding 5: malformed redirects reject within Promise rather than crash Node', () => {
   for (const helper of ['httpGet', 'fetchImage']) {
     const module = fileURLToPath(
       new URL(`../../src/${helper === 'httpGet' ? 'extract-drupal-usage' : 'fetch-images'}.ts`, import.meta.url),
@@ -38,11 +38,11 @@ test('finding 5: malformed redirects reject within Promise rather than crash Nod
   }
 });
 
-test('finding 7: required portable coverage manifest exists', () => {
+void test('finding 7: required portable coverage manifest exists', () => {
   assert.ok(existsSync(new URL('../fixtures/p34/coverage.json', import.meta.url)));
 });
 
-test('finding 8: cropping copies at most one contiguous span per intersecting row', async () => {
+void test('finding 8: cropping copies at most one contiguous span per intersecting row', async () => {
   const { region } = await import('../../src/figma-compare.ts');
   let spans = 0;
   const raw = new Uint8Array(40 * 30 * 3);

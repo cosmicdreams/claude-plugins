@@ -35,7 +35,7 @@ const write = (path: string, value: unknown) => {
   mkdirSync(resolve(path, '..'), { recursive: true });
   writeFileSync(path, JSON.stringify(value));
 };
-test('signed-in operator is account-specific, trimmed, and explicitly overridable', (t) => {
+void test('signed-in operator is account-specific, trimmed, and explicitly overridable', (t) => {
   const root = sandbox(t),
     account = process.env['CLAUDE_CONFIG_DIR']!;
   write(resolve(account, '.claude.json'), { oauthAccount: { fullName: ' Ada Lovelace ', displayName: 'Ada' } });
@@ -47,7 +47,7 @@ test('signed-in operator is account-specific, trimmed, and explicitly overridabl
   write(resolve(account, '.claude.json'), {});
   assert.equal(config.claudeAccountName(), null);
 });
-test('setup updates preserve unrelated personal settings and expand evaluation paths', (t) => {
+void test('setup updates preserve unrelated personal settings and expand evaluation paths', (t) => {
   sandbox(t);
   config.writeConfig({ corpus: '/c', scoreboard: { ledger: '/l', dashboard: '/d' }, runner: { imported: true } });
   setup.setValue('runs', ['home']);
@@ -61,7 +61,7 @@ test('setup updates preserve unrelated personal settings and expand evaluation p
   });
   assert.equal(config.loadConfig().corpus, '/c');
 });
-test('read-blocking settings change only on explicit request, preserving other keys', (t) => {
+void test('read-blocking settings change only on explicit request, preserving other keys', (t) => {
   const root = sandbox(t),
     dir = resolve(root, 'account'),
     path = resolve(dir, 'settings.json'),
@@ -72,7 +72,7 @@ test('read-blocking settings change only on explicit request, preserving other k
   assert.deepEqual(setup.allowReads([dir]), { changed: [path], restart: true });
   assert.deepEqual(JSON.parse(readFileSync(path, 'utf8')), { permissions: { defaultMode: 'auto' }, model: 'opus' });
 });
-test('allowing requested folders is idempotent and preserves symlink and read guard', (t) => {
+void test('allowing requested folders is idempotent and preserves symlink and read guard', (t) => {
   const root = sandbox(t),
     dir = resolve(root, 'account'),
     real = resolve(root, 'settings.json'),
@@ -83,14 +83,14 @@ test('allowing requested folders is idempotent and preserves symlink and read gu
   write(real, { permissions: { [setup.READ_BLOCK]: true } });
   symlinkSync(real, link);
   config.writeConfig({ runs: { convention: 'project' } });
-  assert.equal((setup.allowFolders([sites], [dir], [plugin]) as any).restart, true);
+  assert.equal(setup.allowFolders([sites], [dir], [plugin]).restart, true);
   const value = JSON.parse(readFileSync(real, 'utf8'));
   assert.equal(value.permissions[setup.READ_BLOCK], true);
   assert.deepEqual(value.permissions.additionalDirectories, [plugin, sites]);
   assert.equal(lstatSync(link).isSymbolicLink(), true);
-  assert.deepEqual((setup.allowFolders([], [dir], [plugin]) as any).changed, []);
+  assert.deepEqual(setup.allowFolders([], [dir], [plugin]).changed, []);
 });
-test('run folders and explicit init reject repositories including symlink destinations', (t) => {
+void test('run folders and explicit init reject repositories including symlink destinations', (t) => {
   const root = sandbox(t),
     repo = resolve(root, 'Sites/EXAMPLE/worktrees/main');
   mkdirSync(resolve(repo, 'design'), { recursive: true });
@@ -101,7 +101,7 @@ test('run folders and explicit init reject repositories including symlink destin
   assert.throws(() => workflow.init({ repo, workspace: resolve(repo, 'runs/one') }), /inside the working copy/);
   assert.throws(() => setup.createRunsFolder(repo), /inside the working copy/);
 });
-test('eight simultaneous allocators reserve distinct dated run folders', async (t) => {
+void test('eight simultaneous allocators reserve distinct dated run folders', async (t) => {
   const root = sandbox(t),
     repo = resolve(root, 'Sites/EXAMPLE/worktrees/main');
   mkdirSync(repo, { recursive: true });
@@ -123,7 +123,7 @@ test('eight simultaneous allocators reserve distinct dated run folders', async (
   );
   assert.equal(new Set(results).size, 8);
 });
-test('capture resolves pinned shared dependencies or gives the documented setup command', (t) => {
+void test('capture resolves pinned shared dependencies or gives the documented setup command', (t) => {
   const root = sandbox(t);
   const [ready, detail] = setup.playwrightReady();
   assert.equal(typeof ready, 'boolean');
@@ -144,7 +144,7 @@ test('capture resolves pinned shared dependencies or gives the documented setup 
   assert.notEqual(p.status, 0);
   assert.match(p.stderr, /setup-ts.ts|design-lab:init/);
 });
-test('all 24 baseline workflow subcommands expose their preserved help and reject invalid flags', () => {
+void test('all 24 baseline workflow subcommands expose their preserved help and reject invalid flags', () => {
   assert.equal(Object.keys(COMMANDS).length, 24);
   for (const name of Object.keys(COMMANDS)) {
     const p = spawnSync(process.execPath, [resolve(pluginRoot, 'scripts/workflow.ts'), name, '--help'], {
@@ -158,7 +158,7 @@ test('all 24 baseline workflow subcommands expose their preserved help and rejec
   });
   assert.equal(p.status, 2);
 });
-test('workflow init, identity, target and phase recording preserve validation and provenance', (t) => {
+void test('workflow init, identity, target and phase recording preserve validation and provenance', (t) => {
   const root = sandbox(t),
     repo = resolve(root, 'repo'),
     workspace = resolve(root, 'run');
@@ -183,7 +183,7 @@ test('workflow init, identity, target and phase recording preserve validation an
   );
   assert.match(workflow.renderWatch(workflow.watchSummary(workspace)), /design-lab · Fixture/);
 });
-test('project ordering and an empty project run folder never fall back to another pointer', (t) => {
+void test('project ordering and an empty project run folder never fall back to another pointer', (t) => {
   const root = sandbox(t),
     repo = resolve(root, 'P/worktrees/main'),
     folder = resolve(root, 'P/design');
@@ -200,7 +200,7 @@ test('project ordering and an empty project run folder never fall back to anothe
     ['2026-10-03', '2026-10-03-2'],
   );
 });
-test('reports summarize recorded outcomes and a completed benchmark rejects another start', (t) => {
+void test('reports summarize recorded outcomes and a completed benchmark rejects another start', (t) => {
   const root = sandbox(t),
     repo = resolve(root, 'repo'),
     workspace = resolve(root, 'run');
@@ -214,7 +214,7 @@ test('reports summarize recorded outcomes and a completed benchmark rejects anot
   assert.equal('ignored' in workflow.record(workspace, { phase: 'benchmark', status: 'running' }), true);
 });
 
-test('preflight readiness does not connect to Figma and failed prerequisites never record a go-ahead', async (t) => {
+void test('preflight readiness does not connect to Figma and failed prerequisites never record a go-ahead', async (t) => {
   const root = sandbox(t),
     repo = resolve(root, 'repo'),
     workspace = resolve(root, 'run');
@@ -261,7 +261,7 @@ test('preflight readiness does not connect to Figma and failed prerequisites nev
   assert.equal(sourceMissing.ready, false);
   assert.ok(sourceMissing.missing?.some((s: string) => s.includes('Site Studio')));
 });
-test('connection startup failures leave a stopped log and no false connection claim', async (t) => {
+void test('connection startup failures leave a stopped log and no false connection claim', async (t) => {
   const root = sandbox(t),
     repo = resolve(root, 'repo'),
     workspace = resolve(root, 'run');
@@ -277,7 +277,7 @@ test('connection startup failures leave a stopped log and no false connection cl
   assert.match(workflow.entries(workspace).at(-1)!.message ?? '', /port is occupied/);
   assert.equal(workflow.entries(workspace).at(-1)!.status, 'stopped');
 });
-test('failed build wait stops the server before logging; retry ensures a fresh server', async (t) => {
+void test('failed build wait stops the server before logging; retry ensures a fresh server', async (t) => {
   const root = sandbox(t),
     repo = resolve(root, 'repo'),
     workspace = resolve(root, 'run'),
@@ -287,7 +287,7 @@ test('failed build wait stops the server before logging; retry ensures a fresh s
   const deps = {
     ensureServer: async () => {
       order.push('ensure');
-      return {} as any;
+      return {} as Awaited<ReturnType<typeof import('../../src/figma-runner.ts').ensureServer>>;
     },
     stopServer: async () => {
       assert.notEqual(workflow.entries(workspace).at(-1)!.status, 'stopped');
@@ -309,7 +309,7 @@ test('failed build wait stops the server before logging; retry ensures a fresh s
   });
   assert.deepEqual(order, ['ensure', 'wait', 'stop', 'ensure', 'retry']);
 });
-test('failed rebuild cleans allocated or explicitly empty workspaces and preserves occupied work', (t) => {
+void test('failed rebuild cleans allocated or explicitly empty workspaces and preserves occupied work', (t) => {
   const root = sandbox(t),
     repo = resolve(root, 'P/worktrees/main'),
     source = resolve(root, 'source'),
@@ -327,14 +327,19 @@ test('failed rebuild cleans allocated or explicitly empty workspaces and preserv
   assert.throws(() => workflow.figmaBuild({ ...args, workspace: given }), /new or empty/);
   assert.equal(readFileSync(resolve(given, 'keep.txt'), 'utf8'), 'owned');
 });
-test('setup checks and configuration writes bootstrap with an entirely absent dependency cache', (t) => {
+void test('setup checks and configuration writes bootstrap with an entirely absent dependency cache', (t) => {
   const root = sandbox(t),
     env = { ...process.env, DESIGN_LAB_CACHE: resolve(root, 'empty-cache') };
   const script = resolve(pluginRoot, 'scripts/lab_setup.ts');
   const check = spawnSync(process.execPath, [script, 'check', '--json'], { env, encoding: 'utf8' });
   assert.equal(check.status, 1, check.stderr);
   const result = JSON.parse(check.stdout);
-  assert.equal(result.checks.find((c: any) => c.id === 'dependencies').status, 'missing');
+  assert.equal(
+    (result as { checks: { find(predicate: (check: { id: string }) => boolean): { status: string } } }).checks.find(
+      (c) => c.id === 'dependencies',
+    ).status,
+    'missing',
+  );
   const set = spawnSync(process.execPath, [script, 'set', 'runs', 'home'], { env, encoding: 'utf8' });
   assert.equal(set.status, 0, set.stderr);
   assert.equal(config.readConfig().runs?.convention, 'home');
@@ -345,7 +350,7 @@ test('setup checks and configuration writes bootstrap with an entirely absent de
   assert.equal(relative.status, 1);
   assert.match(relative.stderr, /absolute path/);
 });
-test('workflow executes through a symlink path instead of silently returning without work', (t) => {
+void test('workflow executes through a symlink path instead of silently returning without work', (t) => {
   const root = sandbox(t),
     link = resolve(root, 'plugin');
   symlinkSync(pluginRoot, link);
@@ -363,7 +368,7 @@ test('workflow executes through a symlink path instead of silently returning wit
   assert.equal(init.status, 0, init.stderr);
   assert.equal(JSON.parse(readFileSync(resolve(workspace, 'project.json'), 'utf8')).schemaVersion, 1);
 });
-test('component phase completes only after every accepted planned build receipt', (t) => {
+void test('component phase completes only after every accepted planned build receipt', (t) => {
   const root = sandbox(t),
     repo = resolve(root, 'repo'),
     workspace = resolve(root, 'run');
@@ -386,7 +391,8 @@ test('component phase completes only after every accepted planned build receipt'
     const record = fixture('build-record');
     record.id = id;
     for (const rel of record.documentation.anatomy.relationships ?? []) rel.accepts = ['any'];
-    for (const assertion of Object.values(record.assertions) as any[]) assertion.verdict = 'pass';
+    for (const assertion of Object.values(record.assertions))
+      if (assertion && typeof assertion === 'object' && 'verdict' in assertion) assertion.verdict = 'pass';
     record.assertions['visual-comparison'].breakpoints = { desktop: 'pass', tablet: 'pass', mobile: 'pass' };
     record.visualEvidence.comparison = {
       ...record.visualEvidence.comparison,
