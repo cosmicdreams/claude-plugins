@@ -413,6 +413,14 @@ describe('design-lab:watch', () => {
     expect(answer.text).toContain('has no recap yet')
   })
 
+  test('a failing watch or recap answers its command and never hangs', async ($, on) => {
+    on('session.start', ($, e) => ({ cwd: e.cwd }))
+    on('session.cwd', () => { throw new Error('boom') })
+    await $.session.start(SESSION)
+    expect((await $.command.run(WATCH)).text).toContain('could not answer design-lab:watch')
+    expect((await $.command.run({ ...WATCH, command: 'design-lab:recap' })).text).toContain('could not answer design-lab:recap')
+  })
+
   test('reads only the run folder and the pointer, never the runner token', async ($, on) => {
     const w = world(on, {
       [`${HOME}/.design-lab/active-run.json`]: JSON.stringify({ workspace: RUN }),
