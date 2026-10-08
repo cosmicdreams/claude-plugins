@@ -1506,8 +1506,12 @@
     {
       "original": "test_pncb_run_fixes.TokenAndColourTests.test_variables_template_reads_rgba",
       "behavior": "Preserve rgba alpha when drawing Figma variables; render/variables.ts.",
-      "tests": [],
-      "uncovered": "Color parsing and build-content tests cover rgba, but no test asserts the color value and alpha emitted by the actual variables payload."
+      "tests": [
+        {
+          "file": "tests/ts/templates.test.ts",
+          "name": "variables payload draws rgb and rgba colours with their own alpha"
+        }
+      ]
     },
     {
       "original": "test_pncb_run_fixes.CollectionTests.test_media_query_modes_fold_into_brand_breakpoint_modes",

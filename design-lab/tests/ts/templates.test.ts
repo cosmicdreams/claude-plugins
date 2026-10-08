@@ -277,3 +277,100 @@ void test('actual stripped variables payload reconciles external deletion, repla
   assert.equal(reads, 4);
   assert.equal(collectionReads, 4);
 });
+
+interface VariableWrite {
+  name: string;
+  collection: string;
+  value: unknown;
+}
+function variableHost() {
+  let serial = 0;
+  type Mode = { modeId: string; name: string };
+  type Col = {
+    id: string;
+    name: string;
+    modes: Mode[];
+    renameMode(id: string, name: string): void;
+    addMode(name: string): void;
+    setSharedPluginData(): void;
+  };
+  type Var = {
+    id: string;
+    name: string;
+    variableCollectionId: string;
+    setValueForMode(modeId: string, value: unknown): void;
+  };
+  const collections: Col[] = [],
+    variables: Var[] = [],
+    writes: VariableWrite[] = [];
+  const host = {
+    getLocalVariableCollectionsAsync: async () => [...collections],
+    getLocalVariablesAsync: async () => [...variables],
+    createVariableCollection: (name: string): Col => {
+      const col: Col = {
+        id: 'c' + serial++,
+        name,
+        modes: [{ modeId: 'm' + serial++, name: 'Value' }],
+        renameMode: (id, to) => {
+          const mode = col.modes.find((m) => m.modeId === id);
+          if (mode) mode.name = to;
+        },
+        addMode: (to) => {
+          col.modes.push({ modeId: 'm' + serial++, name: to });
+        },
+        setSharedPluginData: () => {},
+      };
+      collections.push(col);
+      return col;
+    },
+    createVariable: (name: string, col: Col): Var => {
+      const variable: Var = {
+        id: 'v' + serial++,
+        name,
+        variableCollectionId: col.id,
+        setValueForMode: (_modeId, value) => {
+          writes.push({ name, collection: col.name, value });
+        },
+      };
+      variables.push(variable);
+      return variable;
+    },
+    createVariableAlias: (target: Var) => ({ alias: target.name }),
+  };
+  return { host, writes };
+}
+async function runVariablesTemplate(args: unknown, host: unknown): Promise<{ created: number }> {
+  const context = createContext({ figma: { variables: host }, __designLabBuildCache: { loadedFonts: new Map() } });
+  const body = stripTemplate(readFileSync(resolve(pluginRoot, 'scripts/render/variables.ts'), 'utf8'));
+  const execute = new Script(`(async function(ARGS){${cache}\n${body}})`).runInContext(context) as (
+    args: unknown,
+  ) => Promise<{ created: number }>;
+  return execute(args);
+}
+
+void test('variables payload draws rgb and rgba colours with their own alpha', async () => {
+  const { host, writes } = variableHost();
+  await runVariablesTemplate(
+    {
+      collections: {
+        Colour: {
+          modes: ['Value'],
+          variables: [
+            { name: 'color/shade', type: 'COLOR', valuesByMode: { Value: 'rgba(26,26,24,0.15)' } },
+            { name: 'color/blue', type: 'COLOR', valuesByMode: { Value: 'rgb(0 0 255 / 50%)' } },
+            { name: 'color/red', type: 'COLOR', valuesByMode: { Value: '#ff0000' } },
+          ],
+        },
+      },
+    },
+    host,
+  );
+  const drawn = (name: string) => ({
+    ...(writes.find((w) => w.name === name)?.value as { r: number; g: number; b: number; a: number }),
+  });
+  assert.ok(Math.abs(drawn('color/shade').a - 0.15) < 1e-9);
+  assert.ok(Math.abs(drawn('color/shade').r - 26 / 255) < 1e-9);
+  assert.equal(drawn('color/blue').b, 1);
+  assert.equal(drawn('color/blue').a, 0.5);
+  assert.deepEqual(drawn('color/red'), { r: 1, g: 0, b: 0, a: 1 });
+});
