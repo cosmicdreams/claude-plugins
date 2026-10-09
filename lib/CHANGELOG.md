@@ -1,5 +1,10 @@
 # Changelog
 
+## 1.4.2 — 2026-10-09
+
+- Fix `testrail` authentication: select 1Password accounts by item ID, share QA-AI environment conventions, and use email-based Keychain lookup.
+- Add a bounded read helper with identity/project visibility checks and curl authentication on stdin, keeping secrets out of arguments and diagnostics.
+
 ## 1.4.1 — 2026-09-29
 
 - Point `pa11y`, `lighthouse`, and `hyperfine` at `test-lab:accessibility-scan` and `test-lab:perf-measure`.

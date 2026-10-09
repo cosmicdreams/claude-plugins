@@ -11,7 +11,7 @@ CLI wrappers and tool integrations. Each skill teaches Claude how to correctly u
 | `lib:slack` | `slack` CLI | Read channels, fetch messages, search conversations |
 | `lib:jira` | `twg` | Browse, comment on, transition, and log time on Jira issues |
 | `lib:github` | `gh` | Manage GitHub PRs, issues, and repos |
-| `lib:testrail` | `trcli` | Read projects, suites, test plans, and cases |
+| `lib:testrail` | Python + `curl` | Read projects, suites, test plans, and cases |
 | `lib:ddev` | `ddev` | Start/stop DDEV environments and run drush/composer/phpunit inside containers |
 | `lib:csv-analysis` | python (pandas) | Statistical analysis of CSV files |
 | `lib:log-analyzer` | python | Analyze Acquia/Cloudflare web server logs |

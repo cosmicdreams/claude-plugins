@@ -20,95 +20,31 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 > TestRail CLI wrapper — read projects, suites, test plans, sections, and test cases via the TestRail REST API. Thin data layer for converting TestRail cases into Playwright tests. Trigger phrases: "lib:testrail", "testrail plans", "read testrail", "list test cases", "get test plan".
 
-Thin wrapper around the TestRail REST API using `curl`. No test conversion logic here —
-returns raw JSON for the calling skill or user to process into Playwright tests.
+Thin wrapper around the TestRail REST API using `curl`. No test conversion logic here — returns raw JSON for the calling skill or user to process into Playwright tests.
 
-## Authentication
+## Authentication and helper
 
-### Step 1 — Load non-secret config
-
-Read `~/.claude/office-testrail.local.md` for `host`, `username`, and optionally `default_project_id`:
+Use `scripts/testrail.py` from this skill's directory for every request. It requires Python 3.9+ and curl; 1Password and Keychain are optional credential sources. Resolve `TR` to the script beside this SKILL.md, including when the plugin is installed in a versioned cache:
 
 ```bash
-CONFIG=~/.claude/office-testrail.local.md
-HOST=$(awk '/^host:/{print $2}' "$CONFIG" 2>/dev/null | tr -d "'\"")
-USERNAME=$(awk '/^username:/{print $2}' "$CONFIG" 2>/dev/null | tr -d "'\"")
+TR="<absolute-path-to-this-skill>/scripts/testrail.py"
+python3 "$TR" whoami
+python3 "$TR" whoami --account shared --project 93
 ```
 
-If the file does not exist or `host`/`username` are empty, output:
+Read `~/.claude/office-testrail.local.md` for non-secret settings; see `references/config-template.md`. The helper resolves credentials in this order:
 
-> `lib:testrail` is not configured.
-> Create `~/.claude/office-testrail.local.md` — see `references/config-template.md`.
+1. `op_item_default` (or `op_item`) for the default account; `op_item_shared` for `--account shared`. References must name a vault and item ID, never a title. Read both `/username` and `/password` from the same item. Each `op` call has a 15-second timeout (adjust with `--op-timeout`, maximum 60 seconds).
+2. A complete `TESTRAIL_URL`, `TESTRAIL_USERNAME`, `TESTRAIL_API_KEY` environment tuple, matching QA-AI's convention. This works without a config file.
+3. Config `host` and email `username`, with the key from macOS Keychain service `testrail`, looked up by that email.
 
-### Step 2 — Resolve API key (never stored in a file)
+A configured 1Password item that fails stops resolution with its own error. Partial environment credentials also stop with an error. Never silently switch accounts after a failure. Named accounts require their own `op_item_<account>`; they never fall back to the default account's credentials.
 
-Try each source in order, stopping at the first hit:
+Every call reports account name, credential source, authenticated email and total visible project count to stderr. `whoami` returns user details, project count and visible project IDs as JSON. Authentication uses `get_user_by_email&email=<login-email>` followed by all pages of `get_projects`. A 401 means credentials were rejected; do not describe that as authenticated. If authentication succeeds but a requested project is absent, report “authenticated as X, which can't see project Y.”
 
-**1. 1Password CLI** (recommended — `op` is installed):
-```bash
-API_KEY=$(op read "op://Private/TestRail/credential" 2>/dev/null)
-```
+Choose the account explicitly when projects are missing; do not assume TestRail is unavailable. For project-scoped endpoints the helper checks visibility automatically. For a plan, case or run whose project is known, pass `--project ID`. If no project was given and config has `default_project_id`, pass that ID for project-scoped operations.
 
-**2. macOS Keychain** (fallback — encrypted, Touch ID protected):
-```bash
-if [ -z "$API_KEY" ]; then
-  API_KEY=$(security find-generic-password -s "testrail" -a "$USERNAME" -w 2>/dev/null)
-fi
-```
-
-**3. Environment variable** (fallback):
-```bash
-if [ -z "$API_KEY" ]; then
-  API_KEY="${TESTRAIL_API_KEY:-}"
-fi
-```
-
-If `API_KEY` is still empty after all three, tell the user:
-
-> No TestRail API key found. Store it using one of these methods:
->
-> **1Password CLI (recommended — already installed):**
-> ```bash
-> op signin   # first-time account setup
-> op item create --category login --title "TestRail" \
->   --field "username=your@email.com" \
->   --field "credential=your-api-key"
-> # skill reads it as: op://Private/TestRail/credential
-> ```
-> **macOS Keychain:**
-> ```bash
-> security add-generic-password -s "testrail" -a "your@email.com" -w "your-api-key"
-> ```
-> **Environment variable** (add to `~/.zshrc`):
-> ```bash
-> export TESTRAIL_API_KEY="your-api-key"
-> ```
-
-### Step 3 — Verify auth
-
-```bash
-curl -sf --path-as-is -u "$USERNAME:$API_KEY" \
-  "https://$HOST/index.php?/api/v2/get_current_user" -o /dev/null
-```
-
-If non-zero or HTTP 401/403:
-
-> Authentication failed. Verify your username and API key are correct.
-> API keys are generated in TestRail under My Settings → API Keys.
-
-## Helper
-
-Set these variables once at the top of every session:
-
-```bash
-TR_BASE="https://$HOST/index.php?/api/v2"
-TR_AUTH="$USERNAME:$API_KEY"
-```
-
-All API calls use: `curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/<endpoint>"`
-
-A non-zero curl exit or an HTTP error response containing `"error"` key means the call
-failed — report the error message and stop.
+Secrets stay in memory. The helper supplies credentials through `curl -K -` on stdin, disables curl's user config and bounds network calls. Never run `op read` directly in a transcript, put credentials in shell variables or argv, enable tracing, or print curl's config. Config and helper errors never include raw credential-provider diagnostics or HTTP response bodies.
 
 ---
 
@@ -117,15 +53,15 @@ failed — report the error message and stop.
 ### List projects
 
 ```bash
-curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_projects"
+python3 "$TR" "get_projects"
 ```
 
-Returns array of projects. Present as a table: `ID | Name | Suite Mode`.
+Returns all visible projects as an array (the helper collects every page). Present as a table: `ID | Name | Suite Mode`.
 
 ### List suites for a project
 
 ```bash
-curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_suites/$PROJECT_ID"
+python3 "$TR" "get_suites/$PROJECT_ID"
 ```
 
 Returns array of suites. Each suite has `id`, `name`, `description`.
@@ -133,7 +69,7 @@ Returns array of suites. Each suite has `id`, `name`, `description`.
 ### List test plans for a project
 
 ```bash
-curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_plans/$PROJECT_ID"
+python3 "$TR" "get_plans/$PROJECT_ID"
 ```
 
 Supports optional filters appended as query params:
@@ -145,7 +81,7 @@ Returns array of plans with `id`, `name`, `description`, `milestone_id`, `is_com
 ### Get a test plan (with runs)
 
 ```bash
-curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_plan/$PLAN_ID"
+python3 "$TR" "get_plan/$PLAN_ID"
 ```
 
 Returns the plan object with an `entries` array. Each entry contains:
@@ -155,16 +91,15 @@ Returns the plan object with an `entries` array. Each entry contains:
 ### List sections (for describe-block hierarchy)
 
 ```bash
-curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_sections/$PROJECT_ID&suite_id=$SUITE_ID"
+python3 "$TR" "get_sections/$PROJECT_ID&suite_id=$SUITE_ID"
 ```
 
-Returns sections with `id`, `name`, `parent_id`, `depth`. Use this to reconstruct
-the `describe` block nesting when generating Playwright tests.
+Returns sections with `id`, `name`, `parent_id`, `depth`. Use this to reconstruct the `describe` block nesting when generating Playwright tests.
 
 ### List test cases
 
 ```bash
-curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_cases/$PROJECT_ID&suite_id=$SUITE_ID"
+python3 "$TR" "get_cases/$PROJECT_ID&suite_id=$SUITE_ID"
 ```
 
 Optional filters:
@@ -188,7 +123,7 @@ Key fields per case:
 ### Get a single test case (full detail)
 
 ```bash
-curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_case/$CASE_ID"
+python3 "$TR" "get_case/$CASE_ID"
 ```
 
 Use this when `get_cases` returns truncated step data.
@@ -196,35 +131,35 @@ Use this when `get_cases` returns truncated step data.
 ### List cases in a specific test run
 
 ```bash
-curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_tests/$RUN_ID"
+python3 "$TR" "get_tests/$RUN_ID"
 ```
 
-Returns the cases actually included in a run (respects any case filters on the run).
-Useful when a plan entry limits to a subset of suite cases.
+Returns the cases actually included in a run (respects any case filters on the run). Useful when a plan entry limits to a subset of suite cases.
 
 ---
 
 ## Pagination
 
+`get_projects` is collected automatically for identity checks and project listings. Other operations return one raw response at a time.
+
 TestRail paginates large result sets. Check for `_links.next` in the response:
 
 ```bash
-RESPONSE=$(curl -sf --path-as-is -u "$TR_AUTH" "$TR_BASE/get_cases/$PROJECT_ID&suite_id=$SUITE_ID&limit=250&offset=0")
+RESPONSE=$(python3 "$TR" "get_cases/$PROJECT_ID&suite_id=$SUITE_ID&limit=250&offset=0")
 # Check: echo "$RESPONSE" | python3 -c "import json,sys; d=json.load(sys.stdin); print(d.get('_links',{}).get('next',''))"
 ```
 
-If `next` is non-empty, fetch subsequent pages by incrementing `offset` until exhausted.
-For large suites, collect all pages before returning.
+If `next` is non-empty, fetch subsequent pages with the same `--account` by incrementing `offset` until exhausted. For large suites, collect all pages before returning.
 
 ---
 
 ## Output
 
-Return raw JSON to the caller. Do not summarize, filter, or convert — the caller
-(user prompt or a higher-level skill) owns all Playwright generation logic.
+Use `--account shared` (or another configured account suffix) on every call that needs that account. Stdout is JSON; stderr identifies the selected account and errors.
 
-When invoked interactively (user runs `lib:testrail` directly), present results
-as clean Markdown tables. Never dump raw JSON at the user unless they ask for it.
+Return raw JSON to the caller. Do not summarize, filter, or convert — the caller (user prompt or a higher-level skill) owns all Playwright generation logic.
+
+When invoked interactively (user runs `lib:testrail` directly), present results as clean Markdown tables. Never dump raw JSON at the user unless they ask for it.
 
 ---
 
@@ -232,10 +167,14 @@ as clean Markdown tables. Never dump raw JSON at the user unless they ask for it
 
 | Condition | Action |
 |---|---|
-| Config file missing or incomplete | Prompt to create with config-template |
-| API key not found in any source | Show three setup options (Keychain, env var, 1Password) |
-| HTTP 401 / 403 | Auth failure — check username and API key |
-| HTTP 429 | Rate limited — wait 60s and retry once |
-| HTTP 404 | Invalid ID — tell user which ID was not found |
-| `curl: command not found` | Should never happen on macOS — report and stop |
-| `"error"` key in JSON response | Extract and display the error message, stop |
+| Empty/missing config and no environment tuple | Show config-template or the three environment variable names |
+| Invalid 1Password item/field | Check vault and item ID, and username/password fields |
+| 1Password lookup timeout | Report “1Password locked or not signed in”; unlock/sign in outside the read call |
+| Missing named account | Set its `op_item_<account>`; do not use a different account silently |
+| Partial environment tuple | Supply all three QA-AI variables together |
+| Non-email username | Use the TestRail login email; never `Chris.Weber` |
+| HTTP 401 | Credentials rejected for the selected login; check that item's password/API key |
+| Missing project after successful authentication | Report the authenticated email and inaccessible project ID; select another configured account explicitly |
+| HTTP 403 / 404 | Permission denied / ID missing or inaccessible; include the selected login |
+| HTTP 429 | Helper waits 60 seconds and retries once |
+| Network error, timeout, invalid JSON or API error | Report the helper's safe error and stop |
