@@ -1,0 +1,24 @@
+name: Lib TestRail tests
+
+on:
+  pull_request:
+    paths:
+      - 'lib/skills/testrail/**'
+      - 'lib/tests/test_testrail.py'
+      - '.github/workflows/lib-testrail-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'lib/skills/testrail/**'
+      - 'lib/tests/test_testrail.py'
+      - '.github/workflows/lib-testrail-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+      - run: python3 -m unittest discover -s lib/tests -v

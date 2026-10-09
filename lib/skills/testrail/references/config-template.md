@@ -1,75 +1,55 @@
 # lib:testrail Configuration Template
 
-Create this file at `~/.claude/office-testrail.local.md`.
-User-level config — lives in `~/.claude/`, not in any project directory.
-
-**The API key is NOT stored here.** See "API Key Setup" below.
+Create `~/.claude/office-testrail.local.md`. This user-level file contains references and settings, never passwords or API keys.
 
 ```markdown
 ---
-host: yourinstance.testrail.io
-username: your@email.com
+host: yourinstance.testrail.com
+op_item: op://Employee/<26-character-item-id>
 default_project_id: 1
 ---
 ```
 
-## Field Reference
+## Two accounts
+
+Use item IDs because duplicate item titles are ambiguous. Both username and password come from the selected item:
+
+```markdown
+---
+host: yourinstance.testrail.com
+op_item_default: op://Employee/<own-login-item-id>
+op_item_shared: op://Employee/<shared-login-item-id>
+---
+```
+
+`op_item_default` takes precedence over the single-account alias `op_item`. `--account shared` selects `op_item_shared`; any other account suffix uses `op_item_<suffix>`. A named account never falls back to another account.
 
 | Field | Required | Description |
 |---|---|---|
-| `host` | yes | TestRail instance hostname (no `https://` prefix) |
-| `username` | yes | Your TestRail login email |
-| `default_project_id` | no | Used when no project is specified in a command |
+| `host` | for 1Password/Keychain | Instance hostname or HTTPS instance URL; `TESTRAIL_URL` can supply the 1Password host if omitted |
+| `op_item` / `op_item_default` | for default 1Password account | `op://<vault>/<item-id>` without a field suffix |
+| `op_item_shared` | for shared account | Separate vault/item ID reference |
+| `username` | for Keychain only | Login email, not a short username |
+| `default_project_id` | no | Default ID for the caller's project-scoped operations |
 
-## API Key Setup (choose one)
+## Credential sources
 
-### Option 1: 1Password CLI (recommended — already installed)
+1Password is first when an item reference is configured. Use an existing Login item with `username` (email) and `password` (password or API key) fields. Copy its item ID from 1Password; do not use its title. Unlock/sign in interactively before invoking the helper. Each read times out after 15 seconds; errors stop instead of switching accounts.
 
-Sign in and store the key:
+Without a configured item, the helper uses QA-AI's environment variables together: `TESTRAIL_URL`, `TESTRAIL_USERNAME` (email), and `TESTRAIL_API_KEY`. `TESTRAIL_URL` accepts the HTTPS instance URL or full `.../index.php?/api/v2/` base. Inject secrets through your existing secure environment setup; do not paste real values into a transcript or tracked file. A partial tuple is an error.
+
+Without either source, Keychain uses config `host` and email `username`, service `testrail`, account equal to the email. Manage that entry in Keychain Access without putting the key in a command line.
+
+## Verification
+
+Resolve `TR` to the helper beside the installed skill, then run:
+
 ```bash
-op signin   # first-time account setup — follow the prompts
-op item create --category login --title "TestRail" \
-  --field "username=your@email.com" \
-  --field "credential=your-api-key"
+python3 "$TR" whoami
+python3 "$TR" whoami --account shared --project 93
+python3 "$TR" get_projects --account shared
 ```
 
-The skill reads it as: `op://Private/TestRail/credential`
+Stdout contains JSON with identity and project IDs for `whoami`, or API data for reads. Stderr reports the selected account, source, email and project count. No secret is printed. A missing project after successful authentication identifies the login that cannot see it.
 
-To verify:
-```bash
-op read "op://Private/TestRail/credential"
-```
-
-To update:
-```bash
-op item edit "TestRail" --field "credential=new-api-key"
-```
-
-### Option 2: macOS Keychain
-
-Encrypted at rest, unlocked by Touch ID / login password:
-```bash
-security add-generic-password -s "testrail" -a "your@email.com" -w "your-api-key"
-```
-
-To verify: `security find-generic-password -s "testrail" -a "your@email.com" -w`
-
-### Option 3: Environment variable
-
-Add to `~/.zshrc`:
-```bash
-export TESTRAIL_API_KEY="your-api-key"
-```
-
-## Generating a TestRail API Key
-
-1. Log into TestRail
-2. Go to **My Settings** (top-right avatar menu)
-3. Select the **API Keys** tab
-4. Click **Add Key**, give it a name, copy the key
-5. Store it using one of the methods above — never paste it into a file
-
-## Finding IDs
-
-Once configured, run `lib:testrail` → "list projects" to find your `project_id`.
-Then "list plans" or "list suites" to find the IDs you need for test extraction.
+Generate API keys under TestRail **My Settings → API Keys** and store them in the selected 1Password item's password field, Keychain, or the secure environment source. Never store a key in this config.
