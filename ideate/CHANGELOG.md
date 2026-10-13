@@ -1,5 +1,10 @@
 # Changelog
 
+## 4.1.0 — 2026-10-13
+- `diagram` renders previews with the official Excalidraw CLI (`excalidraw render`, from `@excalidraw/cli`) instead of a Python HTML wrapper plus a `playwright-cli` screenshot.
+- Rendering is now local: it no longer loads React and Excalidraw from a content delivery network, and it fails with exit status 1 on malformed JSON, which replaces the separate Python JSON check.
+- **Removed** `skills/diagram/assets/excalidraw-render.py`. `diagram` no longer needs python3 or `playwright-cli`; it needs Node 22+ and a local browser.
+
 ## 4.0.1 — 2026-09-14
 - Shrink all 5 skill descriptions to a routing-sufficient summary; the full trigger-phrase detail moves into each SKILL.md body under `## When to use`, where it loads on invocation instead of sitting in context every session.
 - Saves roughly 1,666 characters (~416 est. tokens) of always-resident context.
@@ -27,18 +32,14 @@ Removed orchestration machinery compensating for prior harness limitations. Doma
 
 ## 3.0.0 — Domain boundary with research-lab (breaking)
 
-Clarified the ideate vs research-lab boundary: **ideate works on an idea you are forming;
-research-lab works on information that already exists.** Two skills left ideate as a result.
+Clarified the ideate vs research-lab boundary: **ideate works on an idea you are forming; research-lab works on information that already exists.** Two skills left ideate as a result.
 
 - **REMOVED** `understand` — moved to `research-lab:understand` (it digests existing material).
-- **RETIRED** `research` — replaced by `research-lab:gather`. A thin redirect shim remains: it
-  routes to `research-lab:gather` when research-lab is installed, otherwise gives an install hint.
+- **RETIRED** `research` — replaced by `research-lab:gather`. A thin redirect shim remains: it routes to `research-lab:gather` when research-lab is installed, otherwise gives an install hint.
 - ideate retains: `brainstorm`, `diagram`, `adr`, `reality-check`, `compare`.
-- `reality-check` stays — it attacks the *assumptions* of an *unformed* idea (pre-evidence);
-  contrast `research-lab:interrogate`, which attacks the *evidence* of a *formed* claim.
+- `reality-check` stays — it attacks the *assumptions* of an *unformed* idea (pre-evidence); contrast `research-lab:interrogate`, which attacks the *evidence* of a *formed* claim.
 
-**Migration:** `ideate:understand` → `research-lab:understand`; `ideate:research` →
-`research-lab:gather`. Both require the research-lab plugin installed.
+**Migration:** `ideate:understand` → `research-lab:understand`; `ideate:research` → `research-lab:gather`. Both require the research-lab plugin installed.
 
 ## 2.2.2
 - Fix stale obsidian-rules.md paths in 5 skills (adr, brainstorm, compare, research, understand): office → workflow

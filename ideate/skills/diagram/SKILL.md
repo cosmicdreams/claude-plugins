@@ -37,7 +37,7 @@ Generate `.excalidraw` JSON files. Layout communicates meaning — arrangement i
 ## Resources
 
 - `references/json-reference.md` — element types, JSON templates, color palette; read before generating any JSON
-- `assets/excalidraw-render.py` — renders `.excalidraw` to HTML for screenshotting
+- `excalidraw` CLI ([`@excalidraw/cli`](https://github.com/excalidraw/cli), Node 22+) — parses and renders `.excalidraw` files to PNG locally; no account or API key needed. Run it as `excalidraw` if installed globally, otherwise `npx -y @excalidraw/cli`.
 
 ---
 
@@ -93,25 +93,23 @@ SLUG=$(echo "TOPIC" | tr '[:upper:]' '[:lower:]' | tr ' ' '-' | tr -cd 'a-z0-9-'
 FILENAME="${DATE}-${SLUG}.excalidraw"
 ```
 
-Validate: `python3 -c "import json; json.load(open('$FILENAME')); print('Valid JSON')"`
+Phase 5's render is the validation step: the CLI rejects malformed JSON with a parse error and exit status 1.
 
 ---
 
 ## Phase 5 — Render and Validate
 
-Use `assets/excalidraw-render.py` to generate HTML, then screenshot:
-
 ```bash
-RENDER_HTML=$(mktemp /tmp/excalidraw-render-XXXXX.html)
-python3 "${CLAUDE_SKILL_DIR}/assets/excalidraw-render.py" "$FILENAME" "$RENDER_HTML"
+excalidraw_cli() { if command -v excalidraw >/dev/null; then excalidraw "$@"; else npx -y @excalidraw/cli "$@"; fi; }
 PREVIEW="${FILENAME%.excalidraw}-preview.png"
-playwright-cli screenshot "file://$RENDER_HTML" "$PREVIEW" --wait-for-timeout 4000
-rm -f "$RENDER_HTML"
+excalidraw_cli render "$FILENAME" --out "$PREVIEW" --scale 2
 ```
 
 Read the PNG. Check for: clipped text, unintentional overlaps, arrows missing targets, uneven spacing. Fix and re-render until clean (typically 2-3 iterations).
 
-If `playwright-cli` is not installed: open the `.excalidraw` file in PhpStorm or drag to excalidraw.com.
+For large diagrams, add `--max-width`/`--max-height` (default 2048, up to 16384), or put sections in frames and check each with `--frame-id <id>`.
+
+The CLI drives an installed Chrome, Edge, Chromium, or Firefox. If none is found, set `EXCALIDRAW_BROWSER_PATH`. If rendering still fails, open the `.excalidraw` file in PhpStorm or drag it onto excalidraw.com.
 
 ---
 
@@ -141,4 +139,4 @@ fi
 
 - Large diagrams (50+ elements): build section by section, then combine
 - Arrow routing is manual — calculate coordinates explicitly
-- Render step requires internet (loads Excalidraw from CDN)
+- Render step needs Node 22+ and a local browser; images must be embedded in the file, since the renderer does not load external image URLs
