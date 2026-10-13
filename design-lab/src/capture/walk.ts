@@ -239,9 +239,18 @@ export function walk(rootSelector: string, propList: string[], pick_: PickRoot):
 
   const nodes: MeasuredNode[] = [];
   let counter = 0;
-  const visit = (el: Element, parentPath: string): void => {
+  type Clip = { left: number; top: number; right: number; bottom: number } | null;
+  const visit = (el: Element, parentPath: string, clip: Clip): void => {
     const box = el.getBoundingClientRect();
     const style = getComputedStyle(el);
+    /* Wholly outside an ancestor that clips its overflow (a carousel's off-screen slides,
+       Slick's cloned slides) means no visitor can see it, whatever checkVisibility says. */
+    const clipped =
+      clip !== null &&
+      (box.right <= clip.left + 0.5 ||
+        box.left >= clip.right - 0.5 ||
+        box.bottom <= clip.top + 0.5 ||
+        box.top >= clip.bottom - 0.5);
     const path = `${parentPath}/${el.tagName.toLowerCase()}[${counter++}]`;
 
     /* Direct text content only — text owned by a child belongs to the child. */
@@ -285,8 +294,9 @@ export function walk(rootSelector: string, propList: string[], pick_: PickRoot):
       /* An inline SVG is imported whole as vectors, so its markup is the measurement. */
       /* The browser's own answer to "can a sighted visitor see this?": false inside a closed
          <details>, under content-visibility, display:none, visibility:hidden or opacity 0. */
-      rendered:
-        typeof el.checkVisibility === 'function'
+      rendered: clipped
+        ? false
+        : typeof el.checkVisibility === 'function'
           ? el.checkVisibility({ contentVisibilityAuto: true, opacityProperty: true, visibilityProperty: true })
           : null,
       svg: el.tagName.toLowerCase() === 'svg' ? el.outerHTML : null,
@@ -309,9 +319,26 @@ export function walk(rootSelector: string, propList: string[], pick_: PickRoot):
     });
 
     if (el.tagName.toLowerCase() === 'svg') return;
-    for (const child of el.children) visit(child, path);
+    let inner = clip;
+    if (style.overflowX !== 'visible' || style.overflowY !== 'visible') {
+      const own = {
+        left: style.overflowX !== 'visible' ? box.left : -Infinity,
+        right: style.overflowX !== 'visible' ? box.right : Infinity,
+        top: style.overflowY !== 'visible' ? box.top : -Infinity,
+        bottom: style.overflowY !== 'visible' ? box.bottom : Infinity,
+      };
+      inner = clip
+        ? {
+            left: Math.max(clip.left, own.left),
+            right: Math.min(clip.right, own.right),
+            top: Math.max(clip.top, own.top),
+            bottom: Math.min(clip.bottom, own.bottom),
+          }
+        : own;
+    }
+    for (const child of el.children) visit(child, path, inner);
   };
-  visit(root, '');
+  visit(root, '', null);
 
   return {
     rootBox: { width: +rootBox.width.toFixed(2), height: +rootBox.height.toFixed(2) },
