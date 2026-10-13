@@ -14,7 +14,7 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 | drover | [python3](#python3), [Acquia credentials](#acli-acquia-command-line-tool) | [node / npm](#node--npm) (web-page reports), [Chrome or Chromium](#chrome-or-chromium) (Portable Document Format reports), [TypeSafe](#typesafe-api-key) |
 | drupal-lab | [python3](#python3), [ddev](#ddev), [jq](#jq) | [twg](#twg) (`sprint-start`, `release-cut`, `branch-audit`), [Beads](#bd-beads) (development-environment slot tracking), [Obsidian](#obsidian), [headroom and rtk](#headroom-and-rtk) |
 | ideas-funnel | [python3](#python3), [Obsidian](#obsidian) | [Beads](#bd-beads), [TypeSafe](#typesafe-api-key), [headroom](#headroom-and-rtk) |
-| ideate | [node / npm](#node--npm) (`brainstorm`), [python3](#python3) (`diagram`) | [Obsidian](#obsidian) (archiving) |
+| ideate | [node / npm](#node--npm) (`brainstorm`; `diagram` needs Node 22+ for the [Excalidraw CLI](#excalidraw-cli)) | [Obsidian](#obsidian) (archiving) |
 | process-lab | [python3](#python3) | [headroom and rtk](#headroom-and-rtk) |
 | lib | Per skill: [gh](#gh-github-command-line-tool), [twg](#twg), [agent-slack](#agent-slack), [ddev](#ddev), [acli](#acli-acquia-command-line-tool), [python3](#python3), [ffmpeg](#ffmpeg), [lighthouse](#lighthouse), [pa11y](#pa11y), [hyperfine](#hyperfine), [jq](#jq), [Bun](#bun-and-image-tools), [TestRail credentials](#testrail-credentials), [Obsidian](#obsidian), [data analysis packages](#data-analysis-python-packages) | [op](#op-1password-command-line-tool), [Cloudflare credentials](#cloudflare-credentials), [image tools](#bun-and-image-tools), [logstream](#acli-acquia-command-line-tool) |
 | research-lab | [nlm](#nlm-notebooklm-command-line-tool), [python3](#python3) | [Obsidian](#obsidian), [headroom](#headroom-and-rtk) |
@@ -38,6 +38,7 @@ External tools, runtimes, and credentials the plugins use. Not every plugin need
 | [op (1Password)](#op-1password-command-line-tool) | see below |
 | [Obsidian](#obsidian) | see below |
 | [Figma](#figma) | `claude plugin install figma@claude-plugins-official` |
+| [Excalidraw CLI](#excalidraw-cli) | `npm i -g @excalidraw/cli` (or run through `npx`) |
 | [Playwright](#playwright) | `npm i -D playwright && npx playwright install chromium` (per project) |
 | [Chrome or Chromium](#chrome-or-chromium) | any desktop install |
 | [nlm (NotebookLM)](#nlm-notebooklm-command-line-tool) | `uv tool install notebooklm-mcp-cli` |
@@ -88,7 +89,7 @@ If missing or outdated:
 brew install python3
 ```
 
-**Used by:** admin (`bump-version`, `new-skill`), design-lab (all skills), golden-rule (the shell sandbox bootstrap), drover (all skills), drupal-lab (`browse-drupal-issues`, `module-dev-starter`), ideas-funnel (`ingest`), ideate (`diagram`), lib (`log-analyzer`, `csv-analysis`), process-lab (runtime), research-lab (notebook scripts), test-lab (`ingest`), workshop (`sync`, `scout`, `prioritize`)
+**Used by:** admin (`bump-version`, `new-skill`), design-lab (all skills), golden-rule (the shell sandbox bootstrap), drover (all skills), drupal-lab (`browse-drupal-issues`, `module-dev-starter`), ideas-funnel (`ingest`), lib (`log-analyzer`, `csv-analysis`), process-lab (runtime), research-lab (notebook scripts), test-lab (`ingest`), workshop (`sync`, `scout`, `prioritize`)
 
 ---
 
@@ -114,7 +115,7 @@ brew install node
 
 Or use [nvm](https://github.com/nvm-sh/nvm) to manage Node versions. Drover's web-page renderer needs Node 20 or later.
 
-**Used by:** design-lab (`capture`), drover (web-page and Portable Document Format reports), ideate (`brainstorm` canvas), test-lab (`accessibility-scan`, running generated suites); indirectly lib and workshop through the tools above
+**Used by:** design-lab (`capture`), drover (web-page and Portable Document Format reports), ideate (`brainstorm` canvas, `diagram` through the Excalidraw CLI), test-lab (`accessibility-scan`, running generated suites); indirectly lib and workshop through the tools above
 
 ---
 
@@ -251,6 +252,21 @@ claude plugin install figma@claude-plugins-official
 Sign in to Figma when the plugin first asks. Connecting Figma under claude.ai connector settings also provides the server, but not the skills.
 
 **Used by:** design-lab (`figma-foundation`, `figma-component`, `figma-index`, `verify`)
+
+---
+
+## Excalidraw CLI
+
+Official Excalidraw command-line tool. `excalidraw render` turns a local `.excalidraw` file into a PNG using an installed Chrome, Edge, Chromium, or Firefox; it needs no account. Needs Node 22 or later.
+
+```bash
+npm i -g @excalidraw/cli
+excalidraw render drawing.excalidraw --out drawing.png
+```
+
+Skills fall back to `npx -y @excalidraw/cli` when it is not installed globally. Set `EXCALIDRAW_BROWSER_PATH` if no browser is found.
+
+**Used by:** ideate (`diagram`)
 
 ---
 
