@@ -22,3 +22,6 @@ dist/
 
 # Octopus session handoff notes
 .octo-continue.md
+
+# Installed dependencies are never committed or shipped; each copy installs its own
+node_modules/

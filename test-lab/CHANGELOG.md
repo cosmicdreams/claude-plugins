@@ -1,5 +1,36 @@
 # Changelog
 
+## 2.0.0 — 2026-10-18 (unreleased; phase 0 of test-lab v2)
+
+Major: v2 replaces the v1 authoring-only plugin with a readiness verdict core. The existing skills
+(`automate`, `ingest`, `accessibility-scan`, `perf-measure`) are unchanged.
+
+Added:
+
+- A local command-line interface (CLI), `node src/cli.ts`: `stage-kit`, `preflight`, `run --tier fast`,
+  `verify` and read-only snapshot `source`. The coordinator computes four outcomes (ready, not ready,
+  inconclusive, not evaluable) from Playwright evidence it recomputes itself.
+- The kit a suite stages (`kit/`): the public `caseStep()` helper, the step-ledger reporter and the
+  pinned source parser it needs.
+- A verdict pane and tool (`hooks/mod/`), backed by a runner (`src/mod-entry.ts`) that the mod starts
+  through the host. A result is shown only when the operation, its status and its artifact carry the
+  same request identity, so a recent sibling run is never shown as this one's result. Slow
+  preparation has no launch deadline and is never reported as a dead runner; after the launch budget
+  the pane says completion and cleanup are unknown and keeps a best-effort Stop.
+
+Distribution:
+
+- The marketplace installs `releases/test-lab`, a build of this folder without tests
+  (`npm run build:release`). It ships no `node_modules`. Each installed copy installs its one runtime
+  dependency, TypeScript 6.0.3, once with `node scripts/install-runtime.ts` (`npm ci` in its `kit`
+  folder, lifecycle scripts off). Until then the runner and the pane refuse to start and print that
+  command with the copy's real path.
+- `npm run check:release` fails when the release drifts from the sources or holds any `node_modules`.
+  `npm run test:install` proves the install step on a fresh copy, offline from the npm cache.
+
+Not proven (see `tests/PHASE0-TRACEABILITY.md`): live terminal and Desktop use of the rebuilt mod, a
+real host-driven run with report opening and clipboard, and any pilot run.
+
 ## 0.4.0 — 2026-09-29
 
 - Add `accessibility-scan` and `perf-measure`, moved from the retired improve plugin. Score tuples feed `research-lab:experiment`.
