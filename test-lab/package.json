@@ -1,0 +1,27 @@
+{
+  "name": "test-lab",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "bin": { "test-lab": "src/cli.ts" },
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "cli": "node src/cli.ts",
+    "test": "node --test tests/ts/*.test.ts",
+    "test:playwright": "node --test --test-concurrency=1 tests/playwright/*.test.ts",
+    "test:install": "node --test tests/install/*.test.ts",
+    "test:mod": "node scripts/test-mod.ts",
+    "typecheck": "node scripts/typecheck.ts",
+    "build:release": "node scripts/build-release.ts",
+    "check:release": "node scripts/build-release.ts --check"
+  },
+  "dependencies": {
+    "typescript": "npm:@typescript/typescript6@6.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "24.19.1",
+    "@typescript/native": "npm:typescript@7.0.2"
+  }
+}
