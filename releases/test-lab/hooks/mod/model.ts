@@ -16,6 +16,8 @@ export type PaneContext = {
   corpusRevision: string;
   identityChecks: { name: string; status: string; detail: string }[];
   counts: { track: string; priority: string; cases: number; current: number; verified: number; waived: number; developerAttested: number }[];
+  /** Approvals and acceptances with role labels ("QA (stand-in)"), waivers, graduations, projects not run. */
+  handoff: { title: string; items: string[] }[];
 };
 
 export type PaneVerdict = {
@@ -77,6 +79,8 @@ function parseContext(v: unknown): PaneContext | null | { error: string } {
   if (!Array.isArray(checks) || !checks.every((c) => isObject(c) && typeof c['name'] === 'string' && typeof c['status'] === 'string' && typeof c['detail'] === 'string')) return bad;
   const numbers = ['cases', 'current', 'verified', 'waived', 'developerAttested'];
   if (!Array.isArray(counts) || !counts.every((c) => isObject(c) && typeof c['track'] === 'string' && typeof c['priority'] === 'string' && numbers.every((n) => typeof c[n] === 'number'))) return bad;
+  const handoff = v['handoff'] ?? [];
+  if (!Array.isArray(handoff) || !handoff.every((h) => isObject(h) && typeof h['title'] === 'string' && strings(h['items']))) return bad;
   return {
     appRoot: v['appRoot'],
     suiteRoot: v['suiteRoot'],
@@ -86,7 +90,21 @@ function parseContext(v: unknown): PaneContext | null | { error: string } {
     corpusRevision: v['corpusRevision'],
     identityChecks: checks as PaneContext['identityChecks'],
     counts: counts as PaneContext['counts'],
+    handoff: handoff as PaneContext['handoff'],
   };
+}
+
+/** Failure classes chosen on the saved run (triage.json beside verdict.json), by failure number. */
+function classesOf(text: string | undefined): Map<number, string> {
+  const out = new Map<number, string>();
+  if (text === undefined) return out;
+  try {
+    const raw: unknown = JSON.parse(text);
+    if (!isObject(raw) || raw['schema'] !== 1 || !Array.isArray(raw['entries'])) return out;
+    for (const e of raw['entries']) if (isObject(e) && typeof e['failure'] === 'number' && typeof e['class'] === 'string' && typeof e['by'] === 'string')
+      out.set(e['failure'], `class ${e['class']}, chosen by ${e['by']} (${e['role'] === 'qa' ? (e['standIn'] === true ? 'QA (stand-in)' : 'QA') : 'developer'})`);
+  } catch { /* an unreadable triage file adds nothing; the verdict itself is unchanged */ }
+  return out;
 }
 
 /** One failure as the core's page writes it (src/page.ts renderMarkdown). */
@@ -112,7 +130,7 @@ function scopeLine(e: unknown): string {
 }
 
 /** The pane's reading of a verdict file, or why it can't be read. */
-export function parseVerdict(text: string | undefined): PaneVerdict | { error: string } {
+export function parseVerdict(text: string | undefined, triageText?: string): PaneVerdict | { error: string } {
   if (text === undefined) return { error: 'no verdict.json in that run folder' };
   let raw: unknown;
   try {
@@ -145,7 +163,7 @@ export function parseVerdict(text: string | undefined): PaneVerdict | { error: s
     verdict: kind,
     rule: v['rule'],
     reasons: v['reasons'],
-    failures: v['failures'].map(failureLine),
+    failures: v['failures'].map((f, i) => { const c = classesOf(triageText).get(i + 1); return `${failureLine(f)} — ${c ?? 'class not chosen'}`; }),
     exceptions: v['exceptions'],
     required: v['required'].map(requiredLine),
     scopeChanges: v['scopeChanges'].map(scopeLine),
@@ -185,7 +203,7 @@ export function summaryText(p: PaneVerdict): string {
     standing(p),
     ...contextLines(p),
     ...p.reasons.map((r) => `- ${r}`),
-    ...(p.context === null ? [] : [...section('Scope counts', p.context.counts.map(countLine)), ...section('Build checks', p.context.identityChecks.map(checkLine))]),
+    ...(p.context === null ? [] : [...section('Scope counts', p.context.counts.map(countLine)), ...section('Build checks', p.context.identityChecks.map(checkLine)), ...p.context.handoff.flatMap((h) => section(h.title, h.items))]),
     ...section('Required cases', p.required),
     p.failures.length === 0 ? 'No failures seen.' : `Failures seen (${p.failures.length}):`,
     ...p.failures.map((f) => `- ${f}`),

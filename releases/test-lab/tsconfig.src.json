@@ -1,7 +1,9 @@
 {
   "compilerOptions": {
     "target": "ES2024",
-    "lib": ["ES2024"],
+    "lib": [
+      "ES2024"
+    ],
     "module": "NodeNext",
     "moduleResolution": "NodeNext",
     "strict": true,
@@ -10,7 +12,9 @@
     "verbatimModuleSyntax": true,
     "allowImportingTsExtensions": true,
     "noEmit": true,
-    "types": ["node"],
+    "types": [
+      "node"
+    ],
     "skipLibCheck": false,
     "noImplicitOverride": true,
     "noImplicitReturns": true,
@@ -21,5 +25,17 @@
     "noUnusedLocals": true,
     "noUnusedParameters": true
   },
-  "include": ["src/**/*.ts", "kit/records.ts", "scripts/**/*.ts", "tests/ts/**/*.ts", "tests/install/**/*.ts", "tests/playwright/*.ts", "tests/fixtures/**/*.ts"]
+  "include": [
+    "src/**/*.ts",
+    "kit/records.ts",
+    "scripts/**/*.ts",
+    "tests/ts/**/*.ts",
+    "tests/install/**/*.ts",
+    "tests/playwright/*.ts",
+    "tests/fixtures/**/*.ts",
+    "adapters/*.ts"
+  ],
+  "exclude": [
+    "tests/fixtures/check/**"
+  ]
 }

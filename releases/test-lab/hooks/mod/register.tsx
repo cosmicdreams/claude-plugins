@@ -124,7 +124,10 @@ async function readVerdict($: EngineInterface, runDir: string): Promise<PaneVerd
   const fileReal = await realPath($, file)
   if (fileReal === undefined) return { error: 'no verdict.json in that run folder' }
   if (fileReal !== file) return { error: `verdict.json there resolves outside the run folder (${fileReal}), so it is not shown` }
-  const parsed = parseVerdict(await readText($, file))
+  // Failure classes live beside the verdict; they never change it, and an absent file adds nothing.
+  const triage = `${real}/triage.json`
+  const triageText = await realPath($, triage) === triage ? await readText($, triage) : undefined
+  const parsed = parseVerdict(await readText($, file), triageText)
   if (!('error' in parsed) && parsed.runDir.replace(/\/+$/, '') !== real) return { error: `verdict.json names another run folder (${parsed.runDir})` }
   return parsed
 }
@@ -447,6 +450,7 @@ export const register: Register = on => {
         {v.context === null ? null : list('counts', v.context.counts.map(countLine))}
         {v.context === null ? null : <Text key="checks-heading" bold>Build checks</Text>}
         {v.context === null ? null : list('checks', v.context.identityChecks.map(checkLine), true)}
+        {v.context === null ? null : v.context.handoff.map((h, i) => <Box key={`handoff-${i}`} flexDirection="column"><Text key={`handoff-${i}-title`} bold>{h.title}</Text>{list(`handoff-${i}-items`, h.items.length === 0 ? ['none'] : h.items, true)}</Box>)}
         <Text key="required-heading" bold>{v.required.length === 0 ? 'No required cases' : `Required cases (${v.required.length})`}</Text>
         {list('required', v.required)}
         <Text key="failures-heading" bold>{v.failures.length === 0 ? 'No failures seen' : `Failures seen (${v.failures.length})`}</Text>
