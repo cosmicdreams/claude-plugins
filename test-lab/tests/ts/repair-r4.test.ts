@@ -48,7 +48,7 @@ for (const flow of acquisitionFlows) test(`R4-1 capability acquisition refuses b
   writeFileSync(join(dir, 'kit/kit.ts'), 'export const kit=1;'); writeFileSync(join(dir, 'package-lock.json'), '{}');
   writeFileSync(join(dir, 'spec.ts'), flow); writeFileSync(join(dir, 'helper.cjs'), "module.exports='strong';"); writeFileSync(join(dir, 'hidden.txt'), 'strong');
   const begin = { ...new S.Ledger().test('t', { file: 'spec.ts', titlePath: ['t'] }).begin(), rootDir: dir, configFile: null };
-  const ctx = { suite: 'e2e', suiteRoot: dir, begin, cases: new Map<string, CaseRecord>(), ledger: [], recipes: [], declaredInputs: [], declaredBaselines: [], kitDir: join(dir, 'kit') };
+  const ctx = { suite: 'e2e', suiteRoot: dir, begin, cases: new Map<string, CaseRecord>(), ledger: [], declaredInputs: [], declaredBaselines: [], kitDir: join(dir, 'kit') };
   assert.equal(computeDigests(ctx).behavior.values().next().value?.status, 'unresolved');
   writeFileSync(join(dir, 'hidden.txt'), 'weakened'); writeFileSync(join(dir, 'helper.cjs'), "module.exports='weakened';");
   assert.equal(computeDigests(ctx).behavior.values().next().value?.status, 'unresolved');

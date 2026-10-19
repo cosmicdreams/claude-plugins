@@ -37,7 +37,7 @@ for (const version of VERSIONS) test(`invocation R1 ${version} mixed suite certi
     };
     const report = (obs:ReturnType<typeof readInvocation>) => {
       assert.ok(obs.begin);
-      return computeDigests({suite:'example',suiteRoot:s.root,begin:obs.begin,cases:new Map(),ledger:[],recipes:[],declaredInputs:[],declaredEnvironmentInputs:declarations,declaredBaselines:[],kitDir:join(s.root,'support/test-lab')});
+      return computeDigests({suite:'example',suiteRoot:s.root,begin:obs.begin,cases:new Map(),ledger:[],declaredInputs:[],declaredEnvironmentInputs:declarations,declaredBaselines:[],kitDir:join(s.root,'support/test-lab')});
     };
     const restored = await run('restored','Georgia'); assert.equal(restored.done.status,0,restored.done.stdout+restored.done.stderr);
     const burn = await run('burn','serif',5); assert.equal(burn.done.status,0,burn.done.stdout+burn.done.stderr);

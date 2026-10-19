@@ -55,7 +55,7 @@ for(const [i,text] of readers.entries()) test(`R2-3 filesystem reader binding va
   const dir=S.tmp('r2-input-'); mkdirSync(join(dir,'support'),{recursive:true});
   writeFileSync(join(dir,'spec.ts'),text);writeFileSync(join(dir,'hidden.txt'),'one');writeFileSync(join(dir,'package-lock.json'),'{}');writeFileSync(join(dir,'support/kit.ts'),'export const kit=1');
   const begin={...new S.Ledger().test('t',{file:'spec.ts',titlePath:['t']}).begin(),rootDir:dir,configFile:null};
-  const ctx={suite:'e2e',suiteRoot:dir,begin,cases:new Map<string,CaseRecord>(),ledger:[],recipes:[],declaredInputs:[],declaredBaselines:[],kitDir:join(dir,'support')};
+  const ctx={suite:'e2e',suiteRoot:dir,begin,cases:new Map<string,CaseRecord>(),ledger:[],declaredInputs:[],declaredBaselines:[],kitDir:join(dir,'support')};
   assert.equal(computeDigests(ctx).behavior.values().next().value?.status,'unresolved','a hidden read cannot disappear');
   const scan=scanFile(join(dir,'spec.ts'),text,dir);
   assert.ok(scan.reads.length>0,'common aliases must identify the read');
@@ -86,7 +86,7 @@ for(const option of ["test.use({baseURL:process.env.SCOPED_URL});", "test.use({v
   const dir=S.tmp('r2-scope-');mkdirSync(join(dir,'node_modules/@playwright/test'),{recursive:true});writeFileSync(join(dir,'node_modules/@playwright/test/package.json'),'{}');mkdirSync(join(dir,'kit'));writeFileSync(join(dir,'kit/kit.ts'),'export const kit=1;');writeFileSync(join(dir,'package-lock.json'),'{}');
   writeFileSync(join(dir,'spec.ts'),`import {test} from '@playwright/test'; ${option} test('t',()=>{});`);
   const begin={...new S.Ledger().test('t',{file:'spec.ts',titlePath:['t']}).begin(),rootDir:dir,configFile:null};
-  const d=computeDigests({suite:'e2e',suiteRoot:dir,begin,cases:new Map(),ledger:[],recipes:[],declaredInputs:[],declaredBaselines:[],kitDir:join(dir,'kit')});
+  const d=computeDigests({suite:'e2e',suiteRoot:dir,begin,cases:new Map(),ledger:[],declaredInputs:[],declaredBaselines:[],kitDir:join(dir,'kit')});
   assert.equal(d.behavior.values().next().value?.status,'unresolved');
 });
 

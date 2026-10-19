@@ -1,5 +1,52 @@
 # Changelog
 
+## Unreleased — phase 1, round 2 repairs (2026-10-18)
+
+Fixed:
+
+- `redcheck` stored its recipe before checking the branch, the served root, the site's health and host
+  safety, so a refused attempt left a recipe behind. It now stores the recipe only after those checks,
+  and removes it again if no receipt is written.
+- A test's behavior digest no longer includes its mutation recipes. Each red check already binds its own
+  recipe by hash, and the verdict re-checks that hash on every read. Before this change, red-checking a
+  second obligation on the same test made the first red check stale, and `accept` refused until
+  `reverify` ran. `reverify` now also replays a red check whose recipe file was edited in place.
+- `regression add` wrote a QA transition and changed the profile on main or a detached checkout. It
+  now refuses there, like every other command that writes records.
+- `graduate decide` could record "graduated" and move the case, then fail on an Undefined priority or an
+  unpublished QA base, which left the case in neither set and the proposal closed. It now checks
+  everything first and rolls back every file if a later write fails. `case approve` uses the same
+  rollback.
+- The verdict page's handoff listed every acceptance and waiver, and said "counted as waived" even for
+  waivers the verdict refused. It now reports how the verdict judged each record: counted (and on which
+  configurations), or not counted and why.
+
+## Unreleased — phase 1, round 1 (2026-10-18)
+
+Added:
+
+- `check`: QA's automation standard as `rules.json` and an advisory checker, with one passing and one
+  failing fixture per rule and a drift warning when the standard changes.
+- `source snapshot | priorities | case` through a replaceable connector (TestRail via lib:testrail's
+  read-only helper, or recorded responses). Priority tags from the priority label, not the stored ID.
+- Markdown case files; `init`, `ingest`, `case approve`, `regression add`, `work`, `adopt`,
+  `redcheck`, `burnin`, `accept`, `waive`, `reverify`, `graduate propose | decide` and `triage`.
+- `adapters/ddev.ts`, a local adapter that reports DDEV's own application root and runs Drush only once
+  DDEV reports the project running.
+- The verdict page and pane show approvals and acceptances with role labels ("QA (stand-in)"),
+  waivers, graduation decisions, projects not run locally and failure classes chosen on the saved run.
+- `references/qa-standard-proposal.md`: the changes test-lab proposes to QA's standard, not assumed.
+
+Changed:
+
+- Every planned run passes `--retries=0` and refuses any other retry count.
+- A case whose source priority is Undefined can't be in a required set.
+- `.test-lab/local.json` may set `addendumRoot: application`, which keeps the addendum and work files in
+  the application worktree.
+
+Not proven: the pilot, live TestRail, browser-side mutations, live terminal and Desktop use (see the
+PHASE1 section of `tests/PHASE0-TRACEABILITY.md`).
+
 ## 2.0.0 — 2026-10-18 (unreleased; phase 0 of test-lab v2)
 
 Major: v2 replaces the v1 authoring-only plugin with a readiness verdict core. The existing skills

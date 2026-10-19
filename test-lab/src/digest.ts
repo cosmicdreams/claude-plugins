@@ -42,8 +42,6 @@ export type BehaviorDigest =
 
 export type ToolchainDigest = { status: 'resolved'; digest: string; inputs: InputEntry[] } | { status: 'unresolved'; reasons: string[] };
 
-export type RecipeRef = { hash: string; test: TestIdentity };
-
 export type DigestContext = {
   suite: string;
   /** The folder holding the config: paths in the manifest are relative to it. */
@@ -51,7 +49,6 @@ export type DigestContext = {
   begin: BeginRecord;
   cases: Map<string, CaseRecord>;
   ledger: Mapping[];
-  recipes: RecipeRef[];
   declaredInputs: DeclaredInput[];
   declaredEnvironmentInputs?: EnvironmentInputDeclaration[];
   declaredBaselines: string[];
@@ -292,14 +289,15 @@ export function computeDigests(ctx: DigestContext): DigestReport {
       for (const f of found) baselines.set(rel(root, f), sha256(readFileSync(f)));
     }
     for (const glob of ctx.declaredBaselines) for (const f of expandGlob(root, glob)) baselines.set(rel(root, f), sha256(readFileSync(f)));
-    // The cases it is bound to, by canonical hash, and their mutation recipes.
+    // The cases it is bound to, by canonical hash. Mutation recipes are not hashed here: each red check
+    // binds its own recipe by content hash (judgeRedCheck), so adding or editing one obligation's recipe
+    // stales that obligation's red check only, never the test's other red checks, burn-in or acceptance.
     const mapped = ctx.ledger.filter((m) => testKey(m.test) === testKey(test)).map((m) => m.obligation.case);
     const annotated = t.annotations.filter((a) => a.type === 'case' && a.description !== undefined).map((a) => a.description as string);
     const caseHashes = [...new Set([...mapped, ...annotated])].sort().map((id) => {
       const record = ctx.cases.get(id);
       return { id, hash: record === undefined ? 'absent' : canonicalCaseHash(record) };
     });
-    const recipes = ctx.recipes.filter((r) => testKey(r.test) === testKey(test)).map((r) => r.hash).sort();
     const files = new Map([...closure.files, ...configClosure, ...globals.files, ...baselines]);
     for (const [p, h] of files) all.set(p, h);
     const inputs = [...files].map(([path, hash]) => ({ path, hash })).sort((a, b) => a.path.localeCompare(b.path));
@@ -309,7 +307,7 @@ export function computeDigests(ctx: DigestContext): DigestReport {
     }
     const resolved = projects.map((p) => ({ name: p.name, use: behaviorUse(p) }));
     const environment = [...new Map([...closure.environment,...configEnvironment,...globals.environment])].sort(([a],[b])=>a < b ? -1 : a > b ? 1 : 0);
-    const digest = hashOf({ environment, analysis: ANALYSIS_VERSION, test: testKey(test), project: t.project, inputs, resolved, cases: caseHashes, recipes });
+    const digest = hashOf({ environment, analysis: ANALYSIS_VERSION, test: testKey(test), project: t.project, inputs, resolved, cases: caseHashes });
     const bindings = [...new Map(environment.map(([,binding]) => [binding.name,binding])).values()].sort((a,b)=>a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
     // Explicit empty projections prove independence within a declared suite. Absence retains the
     // old no-declaration path and cannot stand in for a newer invocation's protocol evidence.

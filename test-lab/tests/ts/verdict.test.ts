@@ -18,7 +18,7 @@ import { readRun, runStatus } from '../../src/run-observation.ts';
 import { decide, type Verdict } from '../../src/verdict.ts';
 import { effectiveClassification } from '../../src/dispositions.ts';
 import { verifyWork, type Journal, type ScopeEvent, type WorkFile } from '../../src/work.ts';
-import { ENVIRONMENT, CONFIGS, DEV, Ledger, QA, ROLES, TEST_A, acceptance, burnIn, caseRecord, caseSteps, digests, effective, redCheck, tmp, writeEvidenceLedgers } from './support.ts';
+import { ENVIRONMENT, CONFIGS, DEV, Ledger, QA, ROLES, TEST_A, acceptance, burnIn, caseRecord, caseSteps, digests, effective, project, redCheck, tmp, writeEvidenceLedgers } from './support.ts';
 
 const TEST_B: TestIdentity = { suite: 'e2e', file: 'tests/addendum.spec.ts', titlePath: ['addendum'] };
 const GOV: TestIdentity = { suite: 'e2e', file: 'tests/governed.spec.ts', titlePath: ['governed'] };
@@ -62,6 +62,8 @@ type Options = {
   probe?: HealthProbe | null;
   failureMessage?: string;
   regressionBase?: ApprovedSet;
+  /** The mapped regression test also ran under a mobile project, where its viewport guard skipped it. */
+  mobileSkip?: boolean;
 };
 
 function build(o: Options = {}): Verdict {
@@ -85,6 +87,11 @@ function build(o: Options = {}): Verdict {
   else if (regStatus === 'expected-failure') l.result('r', { status: 'failed', expectedStatus: 'failed', steps: caseSteps('REG-1', 'desktop@1440', { O1: 'failed', O2: 'passed' }), error: msg });
   else if (regStatus !== 'not-run')
     l.result('r', { status: regStatus, steps: caseSteps('REG-1', 'desktop@1440', regStatus === 'failed' ? { O1: 'failed', O2: 'passed' } : { O1: 'passed', O2: 'passed' }), ...(regStatus === 'failed' ? { error: msg } : {}) });
+  if (o.mobileSkip === true) {
+    l.projects.push(project('mobile', { use: { browserName: 'chromium', baseURL: 'http://127.0.0.1:4180', headless: true, viewport: { width: 390, height: 844 } } }));
+    l.test('rm', { file: TEST_A.file, titlePath: TEST_A.titlePath, cases: ['REG-1'], project: 'mobile' });
+    l.result('rm', { status: 'skipped', expectedStatus: 'skipped' });
+  }
   l.test('a', { file: TEST_B.file, titlePath: TEST_B.titlePath, cases: ['ADD-1'] });
   l.result('a', { status: o.add ?? 'passed', steps: caseSteps('ADD-1', 'desktop@1440', o.add === 'failed' ? { O1: 'failed', O2: 'passed' } : { O1: 'passed', O2: 'passed' }), ...(o.add === 'failed' ? { error: msg } : {}) });
   l.test('g', { file: GOV.file, titlePath: GOV.titlePath });
@@ -461,4 +468,42 @@ test('R1-3 approved empty configuration matrix never reaches Ready', () => {
   assert.equal(v.rule, 1);
   assert.match(v.reasons.join(' '), /configuration/);
   assert.ok(v.required.some((r) => r.case === 'REG-1'), 'the declared required case stays in the denominator');
+});
+
+// Phase 1: where QA's automation standard and the verdict disagree (scope item 2). Each is settled by a
+// checker rule (rules.json, TL-*) and by the verdict counterexamples below.
+describe('phase 1: QA standard settlements', () => {
+  test('TL-RETRIES-ZERO: a pass on retry is never a pass, whatever the suite config allows', () => {
+    const v = build({ reg: 'flaky' });
+    assert.equal(v.verdict, 'not-ready');
+    assert.equal(v.rule, 5);
+    assert.ok(v.required.some((c) => c.case === 'REG-1' && c.outcome === 'flaky'));
+  });
+
+  test('TL-MOBILE-GUARD: a viewport-guard skip on a configuration the case declares is not a pass', () => {
+    // REG-1 declares desktop@1440; a skip there (the guard firing on a declared configuration) is rule 5.
+    const v = build({ reg: 'skipped' });
+    assert.equal(v.rule, 5);
+    assert.ok(v.required.some((c) => c.case === 'REG-1' && c.outcome === 'skipped'));
+  });
+
+  test('TL-MOBILE-GUARD: the same guard skipping under a project the case does not declare stays outside the verdict', () => {
+    const v = build({ mobileSkip: true });
+    assert.equal(v.verdict, 'ready', v.reasons.join('\n'));
+    assert.ok(!v.required.some((c) => c.outcome === 'skipped'));
+  });
+
+  test('TL-KNOWN-FAILURE: a test.fail spec that fails as expected never counts toward ready', () => {
+    const v = build({ reg: 'expected-failure' });
+    assert.equal(v.verdict, 'not-ready');
+    assert.equal(v.rule, 5);
+    assert.ok(v.required.filter((c) => c.case === 'REG-1').every((c) => c.outcome !== 'passed'), JSON.stringify(v.required));
+  });
+
+  test('TL-UNDEFINED-PRIORITY: a case whose source priority was Undefined is tagged @p3 but can never be required', () => {
+    const v = build({ regressionCases: (r) => ({ ...r, priority: 'p3', priorityDefaulted: true }) });
+    assert.equal(v.verdict, 'not-evaluable');
+    assert.equal(v.rule, 1);
+    assert.match(v.reasons.join(' '), /Undefined source priority/);
+  });
 });

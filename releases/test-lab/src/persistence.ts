@@ -7,6 +7,7 @@ import type { Transition } from './regression.ts';
 import { declarationProblems } from '../kit/environment-inputs.ts';
 import { configurationProblems } from './cases.ts';
 import { hashOf, sha256 } from './canonical.ts';
+import { CASE_FILE, caseValue } from './case-file.ts';
 
 type Schema<T> = { read(value: unknown, path: string): T };
 type Value<S> = S extends Schema<infer T> ? T : never;
@@ -36,6 +37,7 @@ function object<S extends Record<string, Schema<unknown>>>(shape: S): Schema<{ [
 }
 const unique = <T>(s: Schema<T[]>): Schema<T[]> => ({read(v,p) { const xs=s.read(v,p); if(new Set(xs.map(x=>JSON.stringify(x))).size!==xs.length) fail(p,'duplicate entries'); return xs; }});
 const strings = unique(array(text));
+const trueFlag = scalar((v): v is true => v === true, 'expected true');
 const role = enumeration('qa','developer');
 const track = enumeration('regression','addendum');
 const layer = enumeration('served','synthetic');
@@ -79,12 +81,12 @@ export function parseProfile(value: unknown): Profile {
   return profile;
 }
 const caseSchema = object({id,aliases:strings,track,title:text,preconditions:string,
-  steps:array(object({id,text:text,obligations:array(object({id,text:text,layer}))})),priority:text,configurations:strings,refs:strings,fixture:nullable(id),configurationDependent:boolean,
+  steps:array(object({id,text:text,obligations:array(object({id,text:text,layer}))})),priority:text,priorityDefaulted:optional(trueFlag),configurations:strings,refs:strings,fixture:nullable(id),configurationDependent:boolean,
   sourcePolicy:optional(object({association:nullable(object({source:enumeration('testrail'),project:integer,suite:integer,case:integer})),reason:text})),
   provenance:object({draftedFrom:enumeration('ticket','coverage-map','test-plan','existing-test','testrail'),independentRefs:strings,selfDerivedAcceptedBy:nullable(approval)}),approval:nullable(approval)});
 export function parseCase(v:unknown):CaseRecord {
-  const decoded=caseSchema.read(v,'case');const {sourcePolicy,...rest}=decoded;
-  const c:CaseRecord={...rest,...(sourcePolicy===undefined?{}:{sourcePolicy})};
+  const decoded=caseSchema.read(v,'case');const {sourcePolicy,priorityDefaulted,...rest}=decoded;
+  const c:CaseRecord={...rest,...(sourcePolicy===undefined?{}:{sourcePolicy}),...(priorityDefaulted===undefined?{}:{priorityDefaulted})};
   if(sourcePolicy?.association&&[sourcePolicy.association.project,sourcePolicy.association.suite,sourcePolicy.association.case].some(id=>id<1))fail('case.sourcePolicy','source identities must be positive');
   if(c.provenance.draftedFrom!=='existing-test'&&c.provenance.independentRefs.length===0)fail('case.provenance','independent source needs an explicit reference');
   return c;
@@ -113,8 +115,16 @@ export function parseEvidence(v:unknown):EvidenceRecord {
     default:return fail('evidence','unsupported record');
   }
 }
-export type LocalContract = {schema:1;applicationBase:{remote:string;branch:string;maxAgeHours:number};healthPath:string;actorProbe:{path:string;roleField:string};database:{source:string|null;pulledAt:string|null}};
-export function parseLocal(v:unknown):LocalContract { return object({schema:enumeration(1),applicationBase:object({remote:text,branch:text,maxAgeHours:number}),healthPath:path,actorProbe:object({path,roleField:enumeration('role')}),database:object({source:nullable(text),pulledAt:nullable(date)})}).read(v,'local'); }
+/**
+ * `addendumRoot` says where the developer's addendum cases and work files live: in the suite checkout
+ * (the default), or in the application worktree, so a suite kept in QA's repository never receives a
+ * developer's cases. It is explicit, never inferred from which folders happen to exist.
+ */
+export type LocalContract = {schema:1;applicationBase:{remote:string;branch:string;maxAgeHours:number};healthPath:string;actorProbe:{path:string;roleField:string};database:{source:string|null;pulledAt:string|null};addendumRoot?:'suite'|'application'};
+export function parseLocal(v:unknown):LocalContract {
+  const {addendumRoot,...rest}=object({schema:enumeration(1),applicationBase:object({remote:text,branch:text,maxAgeHours:number}),healthPath:path,actorProbe:object({path,roleField:enumeration('role')}),database:object({source:nullable(text),pulledAt:nullable(date)}),addendumRoot:optional(enumeration('suite','application'))}).read(v,'local');
+  return {...rest,...(addendumRoot===undefined?{}:{addendumRoot})};
+}
 export type Recipe = {format:1;test:Value<typeof testIdentity>;obligation:Value<typeof obligation>;hypothesis:string;technique:string;[key:string]:unknown};
 export function parseRecipe(v:unknown):Recipe {
   if(v===null||typeof v!=='object'||Array.isArray(v))return fail('recipe','expected object');
@@ -139,17 +149,26 @@ export function inside(root:string,path:string):string {
   if(rel==='..'||rel.startsWith(`..${sep}`)||isAbsolute(rel))throw new Error(`${path} leaves selected root ${root}`);
   return canonical;
 }
-export type Persisted = {profile:Profile;local:LocalContract;cases:Map<string,CaseRecord>;ledger:Mapping[];dispositions:Disposition[];evidence:EvidenceRecord[];evidenceProblems:string[];recipes:{hash:string;test:Value<typeof testIdentity>}[];files:{path:string;hash:string}[]};
-export function loadPersisted(root:string):Persisted {
+export type Persisted = {profile:Profile;local:LocalContract;/** Where addendum cases and work files are read: the suite checkout or the application worktree. */addendumRoot:string;cases:Map<string,CaseRecord>;ledger:Mapping[];dispositions:Disposition[];evidence:EvidenceRecord[];evidenceProblems:string[];recipes:{hash:string;test:Value<typeof testIdentity>}[];files:{path:string;hash:string}[]};
+/** The application worktree's records are frozen under this prefix, so they never collide with the suite's. */
+export const APPLICATION_PREFIX='application:';
+export function loadPersisted(root:string,options:{applicationRoot?:string}={}):Persisted {
   const files:{path:string;hash:string}[]=[];
   const read=(path:string) => {const f=inside(root,path);files.push({path,hash:sha256(readFileSync(f))});return readJson(f);};
   const profile=parseProfile(read('.test-lab/profile.json'));const local=parseLocal(read('.test-lab/local.json'));
+  if(local.addendumRoot==='application'&&options.applicationRoot===undefined)throw new Error('this corpus keeps its addendum in the application worktree: name the application worktree (--app-root)');
+  const addendumRoot=local.addendumRoot==='application'?realpathSync(options.applicationRoot!):root;
+  const prefix=addendumRoot===root?'':APPLICATION_PREFIX;
+  if(prefix!==''&&realpathSync(addendumRoot)===realpathSync(root))throw new Error('the application worktree and the suite checkout are the same folder');
   const cases=new Map<string,CaseRecord>();
   for(const track of ['regression','addendum','drafts']) {
-    const dir=inside(root,`.test-lab/cases/${track}`);if(!existsSync(dir))throw new Error(`missing corpus folder ${dir}`);
-    for(const name of readdirSync(dir).filter(n=>n.endsWith('.json')).sort()) {
-      const c=parseCase(read(`.test-lab/cases/${track}/${name}`));
-      if(name!==`${c.id}.json`||(track!=='drafts'&&c.track!==track))throw new Error(`case path/identity mismatch ${name}`);
+    const base=track==='addendum'?addendumRoot:root;const tag=track==='addendum'?prefix:'';
+    const dir=inside(base,`.test-lab/cases/${track}`);if(!existsSync(dir))throw new Error(`missing corpus folder ${dir}`);
+    if(track==='addendum'&&prefix!==''&&existsSync(inside(root,'.test-lab/cases/addendum'))&&readdirSync(inside(root,'.test-lab/cases/addendum')).some(n=>CASE_FILE.test(n)))throw new Error('addendum cases are in the suite checkout, but this corpus keeps its addendum in the application worktree');
+    for(const name of readdirSync(dir).filter(n=>CASE_FILE.test(n)).sort()) {
+      const path=`.test-lab/cases/${track}/${name}`;const f=inside(base,path);const body=readFileSync(f);files.push({path:`${tag}${path}`,hash:sha256(body)});
+      const c=parseCase(caseValue(name,body.toString('utf8')));
+      if(CASE_FILE.exec(name)![1]!==c.id||(track!=='drafts'&&c.track!==track))throw new Error(`case path/identity mismatch ${name}`);
       if(track==='drafts'&&c.approval!==null)throw new Error(`approved case ${c.id} must leave the drafts folder`);
       if(cases.has(c.id))throw new Error(`duplicate corpus case ${c.id}`);cases.set(c.id,c);
     }
@@ -172,15 +191,17 @@ export function loadPersisted(root:string):Persisted {
   // but changes during an operation must not substitute a different approval/evidence denominator.
   const retained=new Set(files.map(f=>f.path));
   for(const folder of ['work','transitions','evidence','sources']) {
-    const dir=inside(root,`.test-lab/${folder}`);if(!existsSync(dir))continue;
+    const base=folder==='work'?addendumRoot:root;const tag=folder==='work'?prefix:'';
+    const dir=inside(base,`.test-lab/${folder}`);if(!existsSync(dir))continue;
     for(const name of readdirSync(dir,{recursive:true,encoding:'utf8'}).filter(n=>/\.(?:json|jsonl)$/.test(n)).sort()) {
-      const path=`.test-lab/${folder}/${name}`;if(!retained.has(path))files.push({path,hash:sha256(readFileSync(inside(root,path)))});
+      const path=`.test-lab/${folder}/${name}`;if(!retained.has(`${tag}${path}`))files.push({path:`${tag}${path}`,hash:sha256(readFileSync(inside(base,path)))});
     }
   }
+  if(prefix!==''&&existsSync(inside(root,'.test-lab/work'))&&readdirSync(inside(root,'.test-lab/work')).some(n=>n.endsWith('.json')))throw new Error('work files are in the suite checkout, but this corpus keeps its addendum and work in the application worktree');
   if(existsSync(inside(root,'.test-lab/source.json'))) {
     read('.test-lab/source.json');const index=parseSourceIndex(readJson(inside(root,'.test-lab/source.json')));
     const path=`.test-lab/${index.snapshot}`;if(!retained.has(path))files.push({path,hash:sha256(readFileSync(inside(root,path)))});
   }
   files.sort((a,b)=>a.path.localeCompare(b.path));
-  return {profile,local,cases,ledger,dispositions,evidence,evidenceProblems,recipes,files};
+  return {profile,local,addendumRoot,cases,ledger,dispositions,evidence,evidenceProblems,recipes,files};
 }

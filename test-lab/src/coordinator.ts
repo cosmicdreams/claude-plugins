@@ -19,7 +19,7 @@ import { operationInputs } from './operation-inputs.ts';
 import { trustedSourceAssociations, requiredSourceAssociations } from './source-policy.ts';
 import { testKey, type EnvironmentDef, type Profile } from './model.ts';
 import { normalize } from './normalize.ts';
-import { machineId, renderMarkdown, writeVerdict, type VerdictFile } from './page.ts';
+import { machineId, renderHtml, writeVerdict, type VerdictFile } from './page.ts';
 import { inside, loadPersisted, parseCase, parseProfile, parseSourceIndex, parseTransition, readJson, sourceBindingHash, type Persisted } from './persistence.ts';
 import { approvedSetOf, branchTransitions, readBase, readBaseRef, readTransitionBases } from './regression-git.ts';
 import { baseFreshness, checkRegression, type RegressionCheck } from './regression.ts';
@@ -75,8 +75,10 @@ async function scope(root:string,state:Persisted,request:CoordinatorRequest,now:
   const classification=effectiveClassification(profile.classification,trusted.roles,trusted.classification);
   const policyProblems=classification.refused.map(r=>`classification ${r.record.id} refused: ${r.reason}`);
   for(const old of trusted.classification)if(!profile.classification.some(c=>c.id===old.id))policyProblems.push(`classification history ${old.id} was removed`);
-  const workFiles=readdirSync(inside(root,'.test-lab/work')).filter(f=>f.endsWith('.json')).map(name=>{
-    const file=readWorkFile(inside(root,`.test-lab/work/${name}`));
+  // Work files sit beside the addendum: the suite checkout, or the application worktree when the corpus says so.
+  const workDir=inside(state.addendumRoot,'.test-lab/work');
+  const workFiles=(existsSync(workDir)?readdirSync(workDir):[]).filter(f=>f.endsWith('.json')).map(name=>{
+    const file=readWorkFile(inside(state.addendumRoot,`.test-lab/work/${name}`));
     if(file===null||name!==`${file.ticket}.json`)throw new Error(`work path/identity mismatch ${name}`);
     return file;
   });
@@ -108,10 +110,10 @@ async function scope(root:string,state:Persisted,request:CoordinatorRequest,now:
 
 function digest(state:Persisted,suite:string,config:string,begin:BeginRecord):DigestReport {
   const definition=state.profile.suites.find(s=>s.id===suite)!;
-  return computeDigests({suite,suiteRoot:dirname(config),begin,cases:state.cases,ledger:state.ledger,recipes:state.recipes,declaredInputs:state.profile.declaredInputs,declaredEnvironmentInputs:definition.declaredEnvironmentInputs??[],declaredBaselines:state.profile.declaredBaselines,kitDir:join(dirname(config),'support/test-lab')});
+  return computeDigests({suite,suiteRoot:dirname(config),begin,cases:state.cases,ledger:state.ledger,declaredInputs:state.profile.declaredInputs,declaredEnvironmentInputs:definition.declaredEnvironmentInputs??[],declaredBaselines:state.profile.declaredBaselines,kitDir:join(dirname(config),'support/test-lab')});
 }
 
-function walk(root:string):string[] {
+export function walk(root:string):string[] {
   const files:string[]=[];
   for(const e of readdirSync(root,{withFileTypes:true})) {
     if(e.name==='node_modules'||e.name==='.git'||e.name==='.test-lab'||e.name==='test-results'||e.name==='playwright-report')continue;
@@ -120,7 +122,7 @@ function walk(root:string):string[] {
   }
   return files;
 }
-function hostProblems(profile:Profile,environment:EnvironmentDef,suite:string,config:string,rules:ReturnType<typeof effectiveClassification>['rules'],entries:string[],projects:string[]):string[] {
+export function hostProblems(profile:Profile,environment:EnvironmentDef,suite:string,config:string,rules:ReturnType<typeof effectiveClassification>['rules'],entries:string[],projects:string[]):string[] {
   // A project execution label doesn't own shared configuration/support files. Path exclusions do.
   const pathRules=rules.filter(r=>r.target.project===undefined||r.target.glob!==undefined);
   const findings:ReturnType<typeof literalHosts>=[];
@@ -140,6 +142,39 @@ function actorProblems(state:Persisted,obs:InvocationObservation,selected:string
     for(const step of r.steps)if(step.ids?.obligation!==null&&step.ids!==null&&step.ids!==undefined&&state.ledger.some(m=>m.layer==='served'&&testKey(m.test)===testKey(t.identity)&&m.obligation.case===step.ids!.case&&m.obligation.step===step.ids!.step&&m.obligation.obligation===step.ids!.obligation)&&step.ids.navigationOrigin!==new URL(environment!.baseUrl).origin)problems.push(`served obligation navigation target was not confirmed for ${testKey(t.identity)}`);
   }
   return problems;
+}
+
+const label=(r:{role:string;standIn:boolean})=>r.role==='qa'?(r.standIn?'QA (stand-in)':'QA'):'developer';
+/** The handoff's people and decisions (plan §2): every approval, acceptance, waiver and graduation, labelled by role and by whether this verdict counted it. */
+function handoffSections(state:Persisted,required:string[],suites:SuiteObservation[],evidence:CaseEvidence[]):{title:string;items:string[]}[] {
+  const approvals=required.map(id=>{const c=state.cases.get(id);return c?.approval?`${id} (${c.track}, @${c.priority}${c.priorityDefaulted?' defaulted':''}): reading approved by ${c.approval.by} as ${label(c.approval)} on ${c.approval.on}`:`${id}: no approval on record`;});
+  // Acceptances and waivers are reported as the verdict judged them, never from the raw records alone: a
+  // record the verdict refused (wrong role on the trusted base, an earlier case hash or behavior digest)
+  // says so and why, and never reads as if it counted.
+  const judgments=new Map<string,{counted:string[];refused:{why:string;where:string}[]}>();
+  for(const e of evidence)for(const m of e.mappings)for(const j of m.judged??[]){
+    const k=`${j.kind}:${j.id}`;const entry=judgments.get(k)??{counted:[],refused:[]};judgments.set(k,entry);
+    if(j.counted)entry.counted.push(m.configuration);else entry.refused.push({why:j.why??'not counted',where:m.configuration});
+  }
+  const verdictOf=(kind:'acceptance'|'waiver',id:string,counts:string):string=>{
+    const j=judgments.get(`${kind}:${id}`);
+    if(j===undefined)return 'not judged by this verdict (the case was not evaluated, or no adopted test claims it); not counted';
+    const refused=[...new Set(j.refused.map(r=>`${r.why} (${r.where})`))];
+    if(j.counted.length===0)return `not counted: ${refused.join('; ')}`;
+    return `${counts} on ${[...new Set(j.counted)].join(', ')}${refused.length===0?'':`; not counted elsewhere: ${refused.join('; ')}`}`;
+  };
+  const acceptances=state.evidence.flatMap(e=>e.kind==='acceptance'&&required.includes(e.case)?[`${e.case}: ${e.test.file} › ${e.test.titlePath.join(' › ')} accepted by ${e.by} as ${label(e)} on ${e.at.slice(0,10)}; ${verdictOf('acceptance',e.id,'counted as current')}`]:[]);
+  const waivers=state.dispositions.flatMap(d=>d.kind==='sensitivity-waived'&&required.includes(d.case)?[`${d.case} ${d.step}/${d.obligation}: red check waived by ${d.by} as ${label(d)} (${d.reason}); ${verdictOf('waiver',d.id,'counted as waived, never as verified,')}`]:[]);
+  const graduations=state.dispositions.flatMap(d=>d.kind==='graduation'?[`${d.at.slice(0,10)} ${d.case}: ${d.decision} by ${d.by} as ${label(d)}: ${d.reason}`]:[]);
+  const notRun=suites.flatMap(s=>{const begin=s.run?.begin??s.discovery.begin;if(begin===null)return [];const ran=new Set(s.run===null?[]:state.ledger.filter(m=>m.test.suite===s.suite&&required.includes(m.obligation.case)).map(m=>state.profile.configurations.find(c=>c.id===m.configuration)?.project).filter((p):p is string=>p!==undefined));return begin.projects.filter(p=>!ran.has(p.name)&&!begin.projects.some(x=>ran.has(x.name)&&x.dependencies.includes(p.name))).map(p=>`${s.suite} project ${p.name}: declared in the suite config, not run locally`);});
+  return [
+    {title:'Case approvals',items:approvals},
+    {title:'Test acceptances',items:acceptances},
+    {title:'Waived red checks',items:waivers},
+    {title:'Graduation proposals and decisions',items:graduations},
+    {title:'Browsers and projects not run locally',items:notRun},
+    {title:'Not done by this verdict',items:['results are not published to TestRail, and no case\'s Automated type is set (publishing is deferred; a recorded departure from QA\'s standard)','QA\'s manual regression is untouched and still owns sign-off']},
+  ];
 }
 
 export async function coordinate(request:CoordinatorRequest):Promise<CoordinatorResult> {
@@ -185,7 +220,7 @@ export async function coordinate(request:CoordinatorRequest):Promise<Coordinator
     return observed;
   };
   try {
-    state=loadPersisted(suiteRoot);frozen=state;
+    state=loadPersisted(suiteRoot,{applicationRoot:appRoot});frozen=state;
     runProblems.push(...state.evidenceProblems.map(p=>`persisted evidence unavailable/invalid: ${p}`));
     manifest.context={appRoot,suiteRoot,via:'explicit arguments',environment:request.environment,corpusRevision:hashOf([...state.cases].map(([id,c])=>[id,c.approval?.hash??null]).sort()),files:state.files};
     if(realpathSync((await repoTop(suiteRoot))??suiteRoot)!==suiteRoot||await repoTop(suiteRoot)===null)throw new Error('suite/corpus root must be the selected Git checkout root');
@@ -289,6 +324,7 @@ export async function coordinate(request:CoordinatorRequest):Promise<Coordinator
             const planned=planSuite(base,discovery.begin,'run');if(!planned.ok){runProblems.push(...planned.refusals);continue;}
             manifest.observations.push({exclusions:planned.exclusions});
             observation.run=await executeObserved(planned.invocation);
+            if(observation.run.begin!==null&&observation.run.begin.projects.some(p=>p.retries!==0))runProblems.push('the run resolved a retry count other than 0; test-lab runs with --retries=0 and never counts a pass on retry');
             // Read finalized runtime environment observations, never the config-only begin.
             if(observation.run.begin!==null)observation.afterDigests=digest(state,definition.id,config,observation.run.begin);
             const changes=compareManifests(observation.before,await contentManifest(suiteRoot));if(changes.length)runProblems.push(`suite changed during invocation: ${changes.map(x=>x.path).join(', ')}`);
@@ -318,7 +354,7 @@ export async function coordinate(request:CoordinatorRequest):Promise<Coordinator
     if(request.signal?.aborted&&!runProblems.some(p=>p.startsWith('operation interrupted')))runProblems.push('operation interrupted: the request was aborted before finalization');
     if(before!==null)try {
       after=await contentManifest(appRoot,{assetDirs:state?.profile.generatedAssets??[]});const afterSuite=await contentManifest(suiteRoot);
-      const current=loadPersisted(suiteRoot);if(frozen!==null&&canonicalJson(frozen.files)!==canonicalJson(current.files))runProblems.push('persisted corpus/evidence/profile changed during operation');
+      const current=loadPersisted(suiteRoot,{applicationRoot:appRoot});if(frozen!==null&&canonicalJson(frozen.files)!==canonicalJson(current.files))runProblems.push('persisted corpus/evidence/profile changed during operation');
       if(beforeSuite!==null&&compareManifests(beforeSuite,afterSuite).length)runProblems.push('suite checkout inputs changed during operation');
       if(request.operation==='run'&&request.adapter!==undefined&&siteRoot!==null&&request.signal?.aborted!==true) {
         try{afterSiteRoot=realpathSync((await adapter!.call(context=>request.adapter!.identity(context))).appRoot);}catch(e){runProblems.push(`after-run served application observation unavailable: ${String(e)}`);}
@@ -362,10 +398,10 @@ export async function coordinate(request:CoordinatorRequest):Promise<Coordinator
     const current=ids.filter(id=>normalized.required.some(c=>c.case===id)&&normalized.required.filter(c=>c.case===id).every(c=>c.outcome==='passed')).length;
     return {track,priority,cases:ids.length,current,verified:ids.filter(id=>evidence.find(e=>e.case===id)?.status==='verified').length,waived:ids.filter(id=>evidence.find(e=>e.case===id)?.status==='waived').length,developerAttested:ids.filter(id=>evidence.find(e=>e.case===id)?.status==='developer-attested').length};
   });
-  const file=writeVerdict({runDir,...(requestIdentity===undefined?{}:{requestIdentity}),project:state?.profile.project??'unreadable profile',environment:environment?.id??request.environment,startedAt,finishedAt:new Date().toISOString(),...(environment===null||state===null?{}:{context:{appRoot,suiteRoot,environment:{id:environment.id,kind:environment.kind,baseUrl:environment.baseUrl},build:{commit:after?.commit??before?.commit??null,digest:after?.digest??before?.digest??null},suite:{commit:beforeSuite?.commit??null,digest:beforeSuite?.digest??null},corpusRevision:hashOf([...state.cases].map(([id,c])=>[id,c.approval?.hash??null]).sort()),identityChecks:identity.checks,counts}})},verdict,machineId());
+  const handoff=state===null?[]:handoffSections(state,[...requiredIds],suites,evidence);
+  const file=writeVerdict({runDir,...(requestIdentity===undefined?{}:{requestIdentity}),project:state?.profile.project??'unreadable profile',environment:environment?.id??request.environment,startedAt,finishedAt:new Date().toISOString(),...(environment===null||state===null?{}:{context:{appRoot,suiteRoot,environment:{id:environment.id,kind:environment.kind,baseUrl:environment.baseUrl},build:{commit:after?.commit??before?.commit??null,digest:after?.digest??before?.digest??null},suite:{commit:beforeSuite?.commit??null,digest:beforeSuite?.digest??null},corpusRevision:hashOf([...state.cases].map(([id,c])=>[id,c.approval?.hash??null]).sort()),identityChecks:identity.checks,counts,handoff}})},verdict,machineId());
   // The coordinator's report index is always local; individual Playwright reports stay in their own folders.
-  const html=renderMarkdown(file).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
-  writeFileSync(join(runDir,'verdict.html'),`<!doctype html><html lang="en"><meta charset="utf-8"><title>test-lab verdict</title><style>body{max-width:80rem;margin:2rem auto;padding:1rem;font:16px system-ui}pre{white-space:pre-wrap}</style><h1>test-lab local candidate</h1><pre>${html}</pre></html>`);
+  writeFileSync(join(runDir,'verdict.html'),renderHtml(file));
   mkdirSync(join(runDir,'html'));writeFileSync(join(runDir,'html/index.html'),`<!doctype html><meta charset="utf-8"><a href="../verdict.html">Local verdict</a><ul>${suites.filter(s=>s.run?.artifacts.html).map(s=>`<li><a href="../${relative(runDir,s.run!.plan.dir)}/html/index.html">${s.suite}</a></li>`).join('')}</ul>`);
   json(join(runDir,'manifest.json'),manifest);
   const validVerify=request.operation==='verify'&&profileProblems.length===0&&regression.ok&&work.resolution.status!=='unresolved'&&(work.check===null||work.check.ok)&&!runProblems.some(p=>!p.startsWith('verify:'));

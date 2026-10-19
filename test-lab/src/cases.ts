@@ -108,6 +108,7 @@ export function requiredSetProblems(required: { regression: string[]; addendum: 
       const record = cases.get(id);
       if (record === undefined) problems.push(`required ${track} case ${id} has no case record`);
       else if (record.track !== track) problems.push(`case ${id} is required as ${track} but its track is ${record.track}`);
+      else if (record.priorityDefaulted === true) problems.push(`required ${track} case ${id} has an Undefined source priority: it is tagged @p3 by default and can never be required until QA assigns a priority`);
       else {
         const why = approvalProblem(record, roles, configurations);
         if (why !== null) problems.push(`required ${track} case ${id} is not approved as it stands: ${why}`);

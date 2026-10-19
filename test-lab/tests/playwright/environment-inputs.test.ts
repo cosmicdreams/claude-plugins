@@ -26,7 +26,7 @@ for (const version of VERSIONS) test(`declared environment ${version} binds actu
     const done = await execute(plan.invocation, { inherit: { ...process.env, EXPECTED_FONT: 'parent-value' } });
     assert.equal(done.status, 0, done.stdout + done.stderr);
     const obs = readInvocation(plan.invocation); assert.ok(obs.begin);
-    const d = computeDigests({ suite: 'example', suiteRoot: s.root, begin: obs.begin, cases: new Map(), ledger: [], recipes: [], declaredInputs: [], declaredEnvironmentInputs: declarations, declaredBaselines: [], kitDir: join(s.root, 'support/test-lab') } as Parameters<typeof computeDigests>[0]).behavior.get(behaviorKey(identity, 'desktop'));
+    const d = computeDigests({ suite: 'example', suiteRoot: s.root, begin: obs.begin, cases: new Map(), ledger: [], declaredInputs: [], declaredEnvironmentInputs: declarations, declaredBaselines: [], kitDir: join(s.root, 'support/test-lab') } as Parameters<typeof computeDigests>[0]).behavior.get(behaviorKey(identity, 'desktop'));
     assert.equal(d?.status, 'resolved', JSON.stringify(d));
   } finally { s.cleanup(); }
 });
@@ -50,7 +50,7 @@ async function run(input:SuitePlanInput) {
   const done=await execute(planned.invocation,{inherit:{...process.env,EXPECTED_FONT:'parent-only-value'}});const obs=readInvocation(planned.invocation);assert.ok(obs.begin);return {done,obs,inv:planned.invocation};
 }
 function digests(root:string, obs:ReturnType<typeof readInvocation>, ds=declarations) {
-  assert.ok(obs.begin);return computeDigests({suite:'example',suiteRoot:root,begin:obs.begin,cases:new Map(),ledger:[],recipes:[],declaredInputs:[],declaredEnvironmentInputs:ds,declaredBaselines:[],kitDir:join(root,'support/test-lab')});
+  assert.ok(obs.begin);return computeDigests({suite:'example',suiteRoot:root,begin:obs.begin,cases:new Map(),ledger:[],declaredInputs:[],declaredEnvironmentInputs:ds,declaredBaselines:[],kitDir:join(root,'support/test-lab')});
 }
 for(const version of VERSIONS) {
   test(`declared environment ${version} changed/set/unset/empty values have fresh worker bindings and stale acceptance`,async()=>{

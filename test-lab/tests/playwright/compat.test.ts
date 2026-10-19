@@ -142,7 +142,11 @@ for (const version of VERSIONS) {
         // Duplicate test titles in two describe blocks stay two tests, each at its own viewport.
         assert.equal(outcome(ACC.id, 'desktop@1440'), 'passed', JSON.stringify([n.required.filter((r) => r.case === ACC.id), n.tests.map((t) => [t.test, t.lane, t.outcome, t.observed])]));
         assert.equal(outcome(ACC.id, 'desktop@900'), 'passed');
-        assert.equal(outcome('EX-HOME-001', 'desktop@1280'), 'flaky');
+        // The suite config asks for one retry; test-lab's planner always runs --retries=0 (phase 1), so the
+        // test that passes only on retry fails on its single attempt.
+        assert.ok(inv.argv.includes('--retries=0'));
+        assert.ok(obs.begin?.projects.every((p) => p.retries === 0), JSON.stringify(obs.begin?.projects.map((p) => p.retries)));
+        assert.equal(outcome('EX-HOME-001', 'desktop@1280'), 'failed');
         assert.equal(outcome('EX-HOME-002', 'desktop@1280'), 'expected-failure');
         assert.equal(outcome('EX-HOME-003', 'desktop@1280'), 'skipped');
         const nav = n.required.find((r) => r.case === 'EX-NAV-001');
@@ -158,6 +162,24 @@ for (const version of VERSIONS) {
         const acc = obs.tests.find((t) => t.identity.titlePath[0] === 'accordion at 900');
         assert.deepEqual(acc?.results[0]?.steps.find((x) => x.ids !== null)?.ids?.viewport, { width: 900, height: 900 });
         assert.ok(browsersOf(obs).get('desktop')?.version);
+      } finally {
+        s.cleanup();
+      }
+    });
+
+    test('a retry pass written by Playwright itself, outside the planner, still normalizes as flaky', async () => {
+      const s = stageSuite(version);
+      try {
+        const input = suiteInput(s.root, join(s.root, 'run'));
+        const { begin } = await probe(input, SHELL({ EXAMPLE_SCENARIOS: 'flaky' }));
+        const plan = planSuite(input, begin, 'run');
+        assert.ok(plan.ok);
+        // Deliberately not the planner's argv: this models a suite run with QA's CI retries.
+        const retried = { ...plan.invocation, argv: plan.invocation.argv.map((a) => (a === '--retries=0' ? '--retries=1' : a)) };
+        await execute(retried, { inherit: SHELL({ EXAMPLE_SCENARIOS: 'flaky' }), timeoutMs: 180_000 });
+        const obs = readInvocation({ id: retried.id, suite: input.suite, dir: retried.dir });
+        const n = normalize({ run: { invocations: [obs] }, configurations: CONFIGS, cases: new Map(CASES.map((c) => [c.id, c])), required: { regression: ['EX-HOME-001'], addendum: [] }, ledger: mappings, classification: [], liveQuarantines: [], quarantinesOnRequired: [], roleOverrideFiles: new Set() });
+        assert.equal(n.required.find((r) => r.case === 'EX-HOME-001')?.outcome, 'flaky');
       } finally {
         s.cleanup();
       }
@@ -315,7 +337,7 @@ for (const version of VERSIONS) {
         const burnRef = keep(burn.inv.dir, 'burn.jsonl');
         const begin = restored.obs.begin as NonNullable<typeof restored.obs.begin>;
         const test = ACC_TESTS[0] as (typeof ACC_TESTS)[number];
-        const digests = computeDigests({ suite: 'example', suiteRoot: s.root, begin, cases: new Map([[ACC.id, ACC]]), ledger: mappings, recipes: [], declaredInputs: [], declaredBaselines: [], kitDir: join(s.root, 'support/test-lab') });
+        const digests = computeDigests({ suite: 'example', suiteRoot: s.root, begin, cases: new Map([[ACC.id, ACC]]), ledger: mappings, declaredInputs: [], declaredBaselines: [], kitDir: join(s.root, 'support/test-lab') });
         const key = behaviorKey(test, 'desktop');
         const behavior = digests.behavior.get(key);
         assert.ok(behavior?.status === 'resolved', JSON.stringify(behavior));

@@ -48,7 +48,6 @@ function setup(options: { declared?: DeclaredInput[]; extra?: Record<string, str
     begin,
     cases,
     ledger: [],
-    recipes: [],
     declaredInputs: options.declared ?? [{ reader: 'pages/accordion.ts', paths: ['theme/**/*.css'], read: 0 }],
     declaredBaselines: [],
     kitDir: join(root, 'support/test-lab'),
@@ -118,11 +117,11 @@ describe('the behavior digest moves with what a test can assert through', () => 
     assert.equal(digestOf(before, HOME), digestOf(after, HOME));
   });
 
-  test('a mutation recipe change moves the digest of its test', () => {
+  test('a mutation recipe is not a behavior input: adding one leaves the digest (each red check binds its own recipe)', () => {
     const s = setup();
     const before = digestOf(s.digests(), ACC);
-    s.ctx.recipes = [{ hash: 'sha256:recipe-2', test: { suite: 'e2e', file: 'tests/accordion.spec.ts', titlePath: ['a'] } }];
-    assert.notEqual(before, digestOf(s.digests(), ACC));
+    write(s.root, { [`.test-lab/recipes/${'a'.repeat(64)}.json`]: '{"format":1,"test":{"suite":"e2e","file":"tests/accordion.spec.ts","titlePath":["a"]}}' });
+    assert.equal(before, digestOf(s.digests(), ACC));
   });
 });
 

@@ -110,6 +110,8 @@ export type CaseRecord = {
   preconditions: string;
   steps: CaseStepDef[];
   priority: string;
+  /** The source priority was Undefined: tagged p3 by the standard's default, never required. */
+  priorityDefaulted?: true;
   configurations: string[];
   refs: string[];
   fixture: string | null;

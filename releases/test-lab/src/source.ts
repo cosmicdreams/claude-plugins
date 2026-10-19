@@ -3,6 +3,7 @@
 import { readFile } from 'node:fs/promises';
 import { hashOf } from './canonical.ts';
 import type { CaseRecord } from './model.ts';
+import { priorityOf, type PriorityMapping } from './priority.ts';
 
 type ObjectValue = Record<string, unknown>;
 export type Priority = { id: number; name: string };
@@ -19,7 +20,9 @@ export type SourceSnapshot = {
 export type SourceDraft = {
   record: CaseRecord;
   source: { project: number; suite: number; case: number; fetchedAt: string; rawHash: string };
-  tier: 'short' | 'full' | 'unassigned';
+  tier: PriorityMapping['tier'];
+  /** From the instance's priority metadata: label number, never the stored id. */
+  priority: PriorityMapping;
   mark: 'needs-review' | 'needs-work';
   problems: string[];
 };
@@ -85,16 +88,6 @@ export function snapshotProblem(snapshot: SourceSnapshot, now: Date, maxAgeHours
   return age > maxAgeHours ? `TestRail snapshot is stale (${age.toFixed(1)} hours old; maximum ${maxAgeHours})` : null;
 }
 
-/** Priority ids come from instance metadata, never from a number printed in the display name. */
-function tierOf(id: unknown, priorities: Priority[]): SourceDraft['tier'] {
-  const p = priorities.find((p) => p.id === id);
-  if (!p) return 'unassigned';
-  const name = p.name.replace(/^\s*\d+\s*[-:]\s*/, '').trim().toLowerCase();
-  if (name === 'short regression') return 'short';
-  if (name === 'full regression') return 'full';
-  return 'unassigned';
-}
-
 /** Preserve source prose; an owner approves its interpretation later, not during import. */
 export function importSnapshot(snapshotValue: unknown): SourceDraft[] {
   const snapshot = validateSnapshot(snapshotValue);
@@ -121,19 +114,23 @@ export function importSnapshot(snapshotValue: unknown): SourceDraft[] {
       if (!step.expected) problems.push(`step ${index + 1}: missing expected result`);
     }
     const refs = text(raw['refs']).split(/[,\n]/).map((s) => s.trim()).filter(Boolean);
-    const tier = tierOf(raw['priority_id'], snapshot.priorities);
-    if (tier === 'unassigned') problems.push('priority is unassigned or not a known regression tier; QA decides');
+    const priority = priorityOf(raw['priority_id'], snapshot.priorities);
+    const tier = priority.tier;
+    // Missing or vague expected results make a case "needs work". An Undefined priority does not: the case
+    // can still be converted, but it is listed for QA and can never be required until QA assigns one.
+    const mark: SourceDraft['mark'] = problems.length ? 'needs-work' : 'needs-review';
+    if (priority.defaulted) problems.push(`priority is ${priority.label}: tagged @p3 by the standard's default, never required until QA assigns one`);
     return {
       record: {
         id: `C${caseId}`, aliases: [], track: 'regression', title, preconditions: text(raw['custom_preconds']),
         steps: sourceSteps.map((s, i) => ({ id: `S${i + 1}`, text: s.content, obligations: s.expected ? [{ id: `O${i + 1}`, text: s.expected, layer: 'served' }] : [] })),
-        priority: tier === 'short' ? 'p1' : tier === 'full' ? 'p2' : 'unassigned',
+        priority: priority.tag, ...(priority.defaulted ? { priorityDefaulted: true } : {}),
         configurations: [], refs, fixture: null, configurationDependent: false,
         provenance: { draftedFrom: 'testrail', independentRefs: [`testrail:project:${snapshot.project}:suite:${suite.id}:case:${caseId}`, ...refs], selfDerivedAcceptedBy: null },
         approval: null,
       },
       source: { project: snapshot.project, suite: suite.id, case: caseId, fetchedAt: snapshot.fetchedAt, rawHash: hashOf(raw) },
-      tier, mark: problems.length ? 'needs-work' : 'needs-review', problems,
+      tier, priority, mark, problems,
     };
   }));
 }

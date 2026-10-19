@@ -48,6 +48,51 @@ workflow. Passing fixture and mocked-host tests do not establish pilot or live
 UI acceptance. See
 [phase 0 traceability](tests/PHASE0-TRACEABILITY.md) for the evidence and gaps.
 
+### Phase 1 (in development)
+
+Phase 1 adds the commands that take a case from a test management tool to a red-checked, accepted
+test and a local verdict, and holds converted tests to QA's own automation standard. Run
+`node src/cli.ts --help` for every argument.
+
+- **`check`** ports QA's automation standard (`automation/CLAUDE.md`) into `rules.json`: each rule
+  records the section and text it comes from, the commit it was ported from, and how it is checked.
+  With `--standard` it warns when the standard has changed. It is advisory: a finding never enters the
+  verdict, and a rule that flags a clean example suite is a checker bug.
+- **`source snapshot | priorities | case`** read cases through a replaceable connector: TestRail
+  through lib:testrail's own read-only helper (credentials stay in lib), or recorded responses for
+  tests. A refresh is complete or it writes nothing. Priority tags come from the instance's priority
+  labels ("2 - Short Regression" is `@p2` whatever its stored ID); Undefined is `@p3` and never
+  required. Nothing is written to TestRail.
+- **`init`**, **`ingest`**, **`case approve`**, **`regression add`** set up the corpus: Markdown case
+  files with where each was drafted from, a written interpretation, and approvals bound to the case's
+  hash and, for a TestRail case, to its exact source text. A regression change is a QA transition.
+  Approvals by a stand-in read "QA (stand-in)" everywhere.
+- **`work`**, **`adopt`**, **`redcheck`**, **`burnin`**, **`accept`**, **`waive`**, **`reverify`**,
+  **`graduate propose | decide`** and **`triage`** cover the work's addendum, binding tests to cases,
+  evidence, acceptance, graduation into QA's suite and failure classes on a saved run.
+- The suite checkout and the application worktree are always named separately. `adapters/ddev.ts`
+  reports the root DDEV actually serves, so a site serving another checkout is caught. With
+  `addendumRoot: application` in `.test-lab/local.json`, the developer's addendum and work files stay
+  in the application worktree, out of QA's repository.
+- Red checks change the application, never the test: the local adapter applies and removes each
+  recipe's fault (for DDEV, from the application worktree's own `.test-lab/mutations.ts`). A recipe is
+  stored only once the red check's own checks pass, and removed again if no receipt is written. Each red
+  check binds its own recipe by hash, so red-checking a test's second obligation leaves the first one's
+  red check, the burn-in and the acceptance current; editing a recipe stales only its own red check.
+- Every command that writes records refuses on main, master or a detached checkout, `regression add`
+  included. `graduate decide` and `case approve` check everything before writing, and a refusal part-way
+  leaves every file they touch as it was.
+- The verdict page lists each acceptance and waiver as the verdict judged it: counted, or not counted and
+  why (for example a waiver recorded in the QA role by someone the trusted base does not list, or an
+  acceptance for an earlier behavior digest).
+- Where the standard and the verdict disagree, the settlement is recorded as a rule and a proposal to
+  QA (`references/qa-standard-proposal.md`), not assumed: runs use `--retries=0`; a viewport-guard skip
+  counts only where the case declares that configuration not applicable; `test.fail` never counts
+  toward ready.
+
+What is proven, and what is not (including the pilot, which has not run), is listed in the
+[PHASE1 sections of the traceability file](tests/PHASE0-TRACEABILITY.md#phase1--round-1-build-2026-10-18-uncommitted).
+
 Development requires Node 24 or later and the dependencies locked in this folder,
 in `kit`, and in both `tests/playwright/pw-<version>` folders (`npm ci` in each).
 Playwright compatibility tests also require Chromium for each pinned release.

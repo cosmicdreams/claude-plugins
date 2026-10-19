@@ -147,6 +147,20 @@ describe('a receipt is recomputed from its ledgers', () => {
     assert.match(reasons(e), /mutation recipe .* changed/);
   });
 
+  test('an edited recipe stales only its own obligation\'s red check; the other obligation, the burn-in and the acceptance stand', () => {
+    const w = world();
+    const red = w.ctx.records.find((r) => r.kind === 'red-check' && r.obligation.obligation === 'O1');
+    assert.ok(red !== undefined && red.kind === 'red-check');
+    writeFileSync(join(w.recipes, `${red.recipeHash.replace('sha256:', '')}.json`), '{"obligation":{"case":"C1","step":"S1","obligation":"O1"},"edited":true}');
+    const e = evaluateCase(w.record, 'regression', w.ctx);
+    const o1 = e.mappings.find((m) => m.ref.obligation === 'O1')!;
+    const o2 = e.mappings.find((m) => m.ref.obligation === 'O2')!;
+    assert.equal(o1.sensitivity, 'unverified');
+    assert.match(o1.reasons.join('; '), /mutation recipe .* changed/);
+    assert.equal(o2.sensitivity, 'verified');
+    assert.equal(o2.acceptance, 'current');
+  });
+
   test('a burn-in of four repeats is not a burn-in', () => {
     const w = world();
     const paths = writeEvidenceLedgers(w.dir, 'C1', TEST_A, 'desktop@1440', { repeats: 4, tag: 'short' });

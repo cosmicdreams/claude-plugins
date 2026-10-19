@@ -17,7 +17,7 @@ function digestWorld(source:string) {
   writeFileSync(join(dir,'kit/kit.ts'),'export const kit=1;');writeFileSync(join(dir,'package-lock.json'),'{}');
   writeFileSync(join(dir,'spec.ts'),source);writeFileSync(join(dir,'helper.cjs'),'module.exports="strong";');writeFileSync(join(dir,'hidden.txt'),'strong');
   const begin={...new S.Ledger().test('t',{file:'spec.ts',titlePath:['t']}).begin(),rootDir:dir,configFile:null};
-  return {dir,ctx:{suite:'e2e',suiteRoot:dir,begin,cases:new Map<string,CaseRecord>(),ledger:[],recipes:[],declaredInputs:[],declaredBaselines:[],kitDir:join(dir,'kit')}};
+  return {dir,ctx:{suite:'e2e',suiteRoot:dir,begin,cases:new Map<string,CaseRecord>(),ledger:[],declaredInputs:[],declaredBaselines:[],kitDir:join(dir,'kit')}};
 }
 for(const loader of ["const load=require;load('./helper.cjs');", "import {createRequire} from 'node:module';const load=createRequire(import.meta.url);load('./helper.cjs');", "import * as m from 'node:module';const load=m.createRequire(import.meta.url);load('./helper.cjs');", "let load;load=require;load('./helper.cjs');"]) test(`R3-1 supported loader closure: ${loader}`,()=>{
   const w=digestWorld(loader),a=computeDigests(w.ctx).behavior.values().next().value;

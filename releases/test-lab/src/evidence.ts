@@ -302,7 +302,14 @@ export type MappingEvidence = {
   sensitivity: 'verified' | 'waived' | 'unverified';
   acceptance: 'current' | 'stale' | 'missing';
   reasons: string[];
+  /**
+   * How this verdict judged each acceptance and waiver recorded for the mapping: counted, or not and why.
+   * The handoff page is built from these, never from the raw records.
+   */
+  judged?: RecordJudgment[];
 };
+
+export type RecordJudgment = { kind: 'acceptance' | 'waiver'; id: string; counted: boolean; why: string | null };
 
 export type CaseEvidence = {
   case: string;
@@ -397,11 +404,22 @@ export function evaluateCase(record: CaseRecord, track: Track, ctx: EvidenceCont
             verified = red !== undefined && burned;
           }
           let sensitivity: MappingEvidence['sensitivity'] = verified ? 'verified' : 'unverified';
+          const judged: RecordJudgment[] = [];
+          const w = waiverFor(ctx.dispositions, ctx.roles, track, ref, caseHash);
+          for (const r of w.refused) judged.push({ kind: 'waiver', id: r.record.id, counted: false, why: r.reason });
           if (!verified) {
-            const w = waiverFor(ctx.dispositions, ctx.roles, track, ref, caseHash);
             for (const r of w.refused) reasons.push(`waiver refused: ${r.reason}`);
             // A waiver stands in for a red check; it can't make a synthetic test prove a served obligation.
             if (w.waiver !== null && burned && current !== null && toolchain !== null && !(ob.layer === 'served' && m.layer !== 'served')) sensitivity = 'waived';
+          }
+          for (const v of w.valid) {
+            const why = verified ? 'not needed: the obligation has a current red check'
+              : v !== w.waiver ? 'an earlier waiver for the same obligation is the one counted'
+              : sensitivity === 'waived' ? null
+              : ob.layer === 'served' && m.layer !== 'served' ? 'a waiver can\'t make a synthetic test prove a served obligation'
+              : !burned ? 'no current burn-in for the test'
+              : 'the test\'s digests are unresolved';
+            judged.push({ kind: 'waiver', id: v.id, counted: why === null, why });
           }
 
           const accepts = ctx.records.filter((r): r is AcceptanceRecord => r.kind === 'acceptance' && r.case === record.id && sameTest(r.test, m.test));
@@ -412,8 +430,9 @@ export function evaluateCase(record: CaseRecord, track: Track, ctx: EvidenceCont
               (a.caseHash !== caseHash ? 'the case changed since it was accepted' : current === null || a.behaviorDigest !== current ? 'the test changed since it was accepted' : null);
             if (why === null) acceptance = 'current';
             else reasons.push(`acceptance ${a.id}: ${why}`);
+            judged.push({ kind: 'acceptance', id: a.id, counted: why === null, why });
           }
-          mappings.push({ ref, test: testKey(m.test), configuration: configId, sensitivity, acceptance, reasons: sensitivity === 'verified' && acceptance === 'current' ? [] : reasons });
+          mappings.push({ ref, test: testKey(m.test), configuration: configId, sensitivity, acceptance, reasons: sensitivity === 'verified' && acceptance === 'current' ? [] : reasons, judged });
         }
       }
     }

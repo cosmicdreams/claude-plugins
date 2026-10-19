@@ -18,7 +18,7 @@ function suite(source: string, helper?: string) {
   writeFileSync(join(root, S.TEST_A.file), source);
   if (helper !== undefined) writeFileSync(join(root, 'helper.ts'), helper);
   const begin = { ...new S.Ledger().test('t', { file: S.TEST_A.file, titlePath: S.TEST_A.titlePath }).begin(), rootDir: root, configFile: null };
-  const ctx: DigestContext = { suite: 'e2e', suiteRoot: root, begin, cases: new Map(), ledger: [], recipes: [], declaredInputs: [], declaredBaselines: [], kitDir: join(root, 'kit') };
+  const ctx: DigestContext = { suite: 'e2e', suiteRoot: root, begin, cases: new Map(), ledger: [], declaredInputs: [], declaredBaselines: [], kitDir: join(root, 'kit') };
   return { root, ctx, digest: () => computeDigests(ctx) };
 }
 

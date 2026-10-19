@@ -26,6 +26,21 @@ guessing produces a spec that asserts the status quo.
 For an imported case, read the steps **and** the expected results. The expected
 results carry the assertion; the steps are usually navigation.
 
+Read each expected result into obligations, and mark any obligation you read
+*into* the case rather than out of it (an ordering rule the case implies, an
+"only these options" the linked ticket implies) as an addition that waits for
+the case owner. Additions are often worth asserting; they are never silently
+the case's own words.
+
+**When the case and the live product disagree,** follow the suite owner's
+standard. A QA standard that says "stale documentation, not a bug" means:
+automate against live behaviour, comment the divergence inline where the
+assertion is, log it as stale documentation in the coverage-gaps file, and
+raise a follow-up for whoever owns the case text. Do not park the case for
+want of an answer; tag the follow-up blocking only if the answer would change
+the next test you write. Cite code references to the base branch revision,
+never a feature branch.
+
 Sort the intent into one of these, because it decides everything downstream:
 
 | Kind | Automate as |
@@ -39,7 +54,15 @@ Sort the intent into one of these, because it decides everything downstream:
 ## Step 2: find the page and the components
 
 Look at the real markup before choosing locators. Do not infer them from the case
-text.
+text. If no page can be served yet (empty database, broken layouts, missing
+files), stop: a reading without a served page is a reading pilot, not a test,
+and nothing about it can be red-checked.
+
+Before running anything that renders search results or API-backed listings on a
+local site, check where the application itself sends those requests. A local
+site can still query a remote search service server-side; browser-side origin
+blocking does not stop that. Point the service at a local instance and confirm
+the effective configuration before any index operation.
 
 Choose in this order, and stop at the first that works:
 
@@ -74,6 +97,12 @@ State the dependency out loud and tag it:
 - needs a local environment → `@local`
 - depends on specific authored content existing → `@fixture-page`, **and** note
   in `TAGS.md` what would retire the tag
+- renders from a search index or an API → the suite standard's infrastructure
+  tag for that service (for example `@solr`). Decide this for every listing,
+  including ones that share a page object with a tagged one: find out what the
+  listing actually calls. An endpoint inside the application that does not
+  touch the index does not get the index's tag; give it a suite-defined tag
+  and say in `TAGS.md` what it depends on.
 
 **Apply the tag in the same edit that defines it.** A tag documented in
 `TAGS.md` and applied to no spec is not a smaller version of the right thing; it
@@ -107,6 +136,25 @@ every other spec, and typically annotates a page as `any` on the way past. If th
 shared layer does not exist yet, write the shared layer — that is the work, not a
 detour around it.
 
+Make every assertion able to fail for the reason it names:
+
+- **Universal claims** ("every X precedes every Y", "empty values come last")
+  pass vacuously when a bucket is missing. Assert that each bucket is present,
+  and check the whole set, not the first page: walk the pagination or assert
+  the exact expected sequence of known fixture items at the boundaries. Do not
+  rebuild the application's own sort key or filter in the test; an oracle
+  copied from the code cannot catch a bug in that code. If a bucket has no
+  fixture, skip that obligation with an unlock signal instead of asserting it.
+- **Option lists**: when the case or its linked ticket is about options being
+  removed, assert the exact list (`toHaveText([...])` on the collection), not
+  the presence of the expected ones.
+- **"Goes to page X"**: assert that page X rendered (status, title, a heading
+  only it carries), not the final URL alone; a URL can be right on an error
+  page. A start page needs the same, or an installer or error redirect passes.
+- **Values that are not locators** (a response status, a decoded image) are
+  asserted with a message argument, so the red check's failure reads as the
+  obligation rather than `expected true, received false`.
+
 Name the test for what it guards. An imported case keeps its real identifier —
 `C447371` — in **both the filename and the test title**, so grepping the
 repository for a case number finds the spec and the identifier survives into the
@@ -128,8 +176,22 @@ Record the result. If a test passes against both the fixed and unfixed states, i
 is asserting the status quo rather than detecting a regression — say so in the
 spec rather than quietly leaving it in.
 
+Red-check **each obligation** with its own fault, applied to the application,
+never to the test. The check counts only if the test fails *at that
+obligation's step*; a fault that fails an earlier step proves nothing about the
+obligation it was meant for. When one fault breaks two steps, reorder the steps
+or split the test so the target fails first. Check that each fault really
+reached the served site (a cached page, a framework that normalises the URL, or
+a style rule that overrides `hidden` can leave it invisible) before reading a
+pass as "not caught". Restore, run again green, then burn in with repeats and
+no retries.
+
 ## Step 6: report
 
 State plainly: what the spec asserts, what it depends on, what the red check
 showed, and what you deliberately did not cover. A gap with a named unlock signal
 is a plan. A gap with no note is indistinguishable from an oversight.
+
+Put gaps and questions where the suite owner's standard keeps them (for a QA
+suite: the coverage-gaps file for skips and stale documentation, the progress
+tracker's follow-ups for questions), not in a separate notes file of your own.

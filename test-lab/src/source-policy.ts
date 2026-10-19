@@ -1,6 +1,7 @@
 // Source eligibility comes from immutable upstream associations or canonical owner policy.
 // A provenance label is a drafting aid; it cannot remove a source's freshness obligation.
 import { canonicalJson } from './canonical.ts';
+import { caseValue } from './case-file.ts';
 import { approvalProblem } from './cases.ts';
 import { ownerRoleHolds } from './dispositions.ts';
 import { git } from './git.ts';
@@ -11,8 +12,8 @@ export type TrustedAssociations = Map<string,SourceAssociation|null>;
 export async function trustedSourceAssociations(root:string,commit:string,regression:Map<string,CaseRecord>,roles:Roles):Promise<TrustedAssociations> {
   const records=new Map(regression);
   const files=await git(root,['ls-tree','-r','--name-only',commit,'--','.test-lab/cases/addendum']);
-  for(const path of files.stdout.trim().split('\n').filter(p=>p.endsWith('.json'))) {
-    const record=parseCase(JSON.parse((await git(root,['show',`${commit}:${path}`])).stdout));records.set(record.id,record);
+  for(const path of files.stdout.trim().split('\n').filter(p=>/\.(json|md)$/.test(p))) {
+    const record=parseCase(caseValue(path,(await git(root,['show',`${commit}:${path}`])).stdout));records.set(record.id,record);
   }
   const associations:TrustedAssociations=new Map();
   for(const c of records.values()) {
