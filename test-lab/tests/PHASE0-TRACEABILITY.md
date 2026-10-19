@@ -247,3 +247,75 @@ Still not proven, and not provable by an agent here:
 - A real host-driven `run`, report opening and clipboard: earlier attempts were blocked by the nested
   sandbox (`sandbox-exec: sandbox_apply: Operation not permitted`); the guard is not bypassed.
 - The phase 1 items listed under "Not proven by phase 0" above.
+
+## PHASE1 — round 1 build (2026-10-18, uncommitted)
+
+What each phase 1 build item in `plans/test-lab-v2-phase1-scope.md` is proven by in this round, and
+what is not. Same vocabulary as above. **Nothing in this section is pilot evidence**: no pilot-site run, no
+DDEV session, no TestRail read and no QA review happened in this round. Every approval made in the QA
+role in these tests is a fixture person marked stand-in.
+
+| Scope item | Proven by | Kind |
+|---|---|---|
+| 1. QA's standard ported to `rules.json` (section, quote, ported commit, drift warning, how checked; advisory only) | `tests/ts/check.test.ts` "rules.json", "drift", "a changed standard warns" | real files |
+| 1. Every rule has a passing and a failing fixture | `check.test.ts` "passing fixtures" (clean suite including the standard's own exceptions) and "failing fixtures, one per rule" (one edit each) | real files, real parser |
+| 1. Zero false positives on QA example suites | `check.test.ts` "QA example suites (optional)", run with `TEST_LAB_QA_EXAMPLES` and `TEST_LAB_QA_TRIAGE`: on 2026-10-18, five suites exported read-only from QA-AI `origin/main` f155941e; one has no findings, four have findings the implementing agent classed as true departures from the standard as written. The triage file is untracked working notes outside the plugin; the owner has not reviewed it | real QA files, agent triage |
+| 2. `--retries=0` on every run; a retry pass is never a pass | `run-plan.ts` refusal and planned argv; `verdict.test.ts` "phase 1: QA standard settlements"; `tests/playwright/phase1.test.ts` (every verdict run's argv holds `--retries=0`) | synthetic + real |
+| 2. Mobile guard counts only where the case declares the configuration not applicable | `verdict.test.ts` settlements (declared skip is rule 5; undeclared project is outside); `check.test.ts` TL-MOBILE-GUARD | synthetic |
+| 2. `test.fail` never counts toward ready | `verdict.test.ts` settlements; `check.test.ts` TL-KNOWN-FAILURE | synthetic |
+| 2. Undefined priority tagged @p3, never required | `verdict.test.ts` settlements (rule 1); `authoring.test.ts` (`regression add` refused); `connector.test.ts` | synthetic + real Git |
+| 2. `caseStep()` and the kit are a proposal, not assumed | `references/qa-standard-proposal.md`; `check.test.ts` TL-CASESTEP-PROPOSAL (a spec without them is never flagged) | real files |
+| 3. Source connector: complete snapshot, partial refresh refused, priority from metadata, label to tag, read-only endpoints | `tests/ts/connector.test.ts` (file connector; TestRail connector against a stand-in helper with lib's layout) | real process, synthetic responses |
+| 3. `source snapshot` through the CLI, snapshot then drafts | `authoring.test.ts` "source snapshot through the file connector" | real files |
+| 4. Suite checkout and application worktree named separately and pinned per operation | `authoring.test.ts` (init refuses one folder for both; verify reads both); `phase1.test.ts` (an adapter reporting the suite checkout as served: red check refused, verdict rule 2) | real Git, real Playwright |
+| 4. DDEV identity is DDEV's own root, never the suite checkout or the adapter's folder; DDEV running before any Drush | `tests/ts/two-repository.test.ts` against `adapters/ddev.ts` with a stand-in `ddev` on PATH | real process, stand-in DDEV |
+| 5. Markdown case files; `ingest` with provenance; needs-work returned to QA; written interpretation required; approval bound to the case hash and the exact source text; QA (stand-in) labels | `authoring.test.ts`; the core's own `verify` accepts what the commands wrote and refuses a hand edit to the regression list | real Git (bare remote) |
+| 5. Addendum and work files in the application worktree (`local.json` `addendumRoot: application`) | `phase1.test.ts` (case and work file in the application worktree, never the suite; a command without `--app-root` refused; graduation moves the case into QA's corpus) | real |
+| 6. init, work start/add/drop/close/import, adopt, redcheck (application-side recipe through the adapter), burnin, accept, waive, reverify, graduate propose/decide, triage | `authoring.test.ts`; `phase1.test.ts` (end to end through the CLI only) | real Git, real Playwright 1.60.0 |
+| 6. Joined with preflight, `run --tier fast` and verify, host safety and the content manifest | `phase1.test.ts`: green verdict; application regression (rule 5); file edited during the run (rule 2); missing fixture (rule 3); teardown error (rule 3); spec edit makes evidence stale (rule 7) until `reverify` and re-acceptance | real |
+| 7. Verdict page and pane from the saved run: failure classes, waivers, stand-in labels, scope changes | `phase1.test.ts` (verdict.md sections; triage never changes verdict.json); `tests/ts/pane-model.test.ts` (pane reads handoff and triage.json) | real files |
+| 8. Release tree without `node_modules`; each use runs its own `npm ci` | `npm run check:release`; `tests/ts/release.test.ts` (unchanged from phase 0) | real |
+
+### Not proven in this round
+
+- **The pilot.** None of the pilot procedure ran: the owner has not created the QA repository worktree,
+  DDEV was not started, no pilot-site case was converted, no red check ran against the real site, and the
+  accordion addendum was not written. Acceptance criteria 1, 2 (pilot specs and independent review), 3,
+  4 (on the real pilot), 6 (on the pilot) and 8 are open.
+- **Live TestRail.** No call to lib:testrail was made in this round. The TestRail connector was proven
+  against a stand-in helper with the same argument vector and layout, not the shared account.
+- **Browser-side mutations.** Red checks replay only application-side recipes through the local
+  adapter. The plan's `page.route` and `page.addStyleTag` techniques would put the fault in the test's
+  own inputs and are not supported; the pilot needs `.test-lab/mutations.ts` in the application
+  worktree for each fault (for example, changing only the footer logo's destination).
+- **The QA base for a stand-in.** A verdict compares the regression set with the base branch's
+  remote-tracking ref, so the profile must be published to a base QA controls. On the pilot that base
+  cannot be QA's `main`; it has to be a stand-in base the owner names, and that is a pilot decision.
+- **Burn-in across configurations.** `burnin` repeats five times on one configuration; "each declared
+  configuration once" is covered by the fast run, not by `burnin`.
+- **Material effective-configuration changes in `reverify`.** It replays on behavior and toolchain
+  digest changes; a browser-version change shows on the verdict but `reverify` does not select it yet.
+- **The band**, live terminal and Desktop use of the pane changes, and the write gate (deferred).
+- **gap-205 acceptance criterion 4** (a Sol review) waits for OpenAI access on 2026-10-22 or an
+  owner-named substitute.
+
+## PHASE1 — round 2 repairs (2026-10-18, uncommitted)
+
+Four review findings on the round 1 build, each repaired and proven by a test that fails on the round 1
+code (checked for findings 2 and 3 by running the new unit tests against the round 1 `authoring.ts`).
+Still no pilot evidence: no pilot-site run, DDEV session, TestRail read or QA review happened in this round.
+
+| Finding | Repair | Proven by | Kind |
+|---|---|---|---|
+| 1. A refused red check left its recipe, which moved the behavior digest and turned a ready verdict inconclusive; a second obligation's red check staled the first | `certify.ts`: the recipe is written only after `prepare()` passes and is removed if no receipt is written. `digest.ts`: recipes leave the behavior digest; each red check binds its own recipe by hash (`judgeRedCheck`). `reverify` also replays a red check whose recipe was edited in place | `tests/playwright/phase1-r2.test.ts` (a refused attempt writes no recipe; two obligations on one test, the title and the heading, each red-checked against its own fault, then burned in and accepted with no `reverify`; a refused attempt after a green verdict leaves it ready); `tests/ts/repair-p1r2.test.ts` (a red check refused on main writes no recipe and mutates nothing); `tests/ts/evidence.test.ts` (an edited recipe stales its own obligation only); `tests/ts/digest.test.ts` (adding a recipe leaves the digest) | real Playwright 1.60.0, real Git |
+| 2. `graduate decide` was not atomic | `authoring.ts`: preconditions (the case as QA would approve it, priority, QA base, branch transitions) are checked before any write; the writes run inside a rollback that restores every touched file. The decision is recorded last | `repair-p1r2.test.ts`: an Undefined priority and an unpublished QA base each refuse with `.test-lab/` byte-identical in both checkouts; after publishing the base, the same proposal is decided | real Git (bare remote) |
+| 3. `regression add` wrote on main | `addToRegression` and every QA transition call the dedicated-branch guard | `repair-p1r2.test.ts`: refused on main and on a detached HEAD with nothing written, then accepted on the feature branch | real Git |
+| 4. The handoff listed refused waivers and stale acceptances as if they counted | `evidence.ts` records how each acceptance and waiver was judged per mapping; `coordinator.ts` builds the handoff from those judgments only | `phase1-r2.test.ts`: on a ready page, a waiver recorded as QA by someone the trusted base does not list reads "not counted: … does not hold the QA role", and an acceptance for an earlier digest reads "not counted: the test changed since it was accepted"; the current acceptance reads "counted as current on desktop@1440" | real Playwright, real files |
+
+Changed against the plan: plan §4 lists a test's mutation recipes among its behavior digest's inputs.
+They are now bound per red check instead, by the recipe's content hash. Editing a recipe still stales
+the evidence that used it, but only that obligation's red check, not the test's other evidence. The plan
+was amended to match ("2026-10-18 decisions", "Recipes").
+
+Not changed: everything listed under "Not proven in this round" above still holds.
+

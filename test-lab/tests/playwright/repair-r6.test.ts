@@ -32,7 +32,7 @@ for (const version of VERSIONS) {
         assert.equal(runStatus({ invocations: [observation] }).complete, true);
         assert.equal(observation.tests[0]?.results[0]?.status, i === 0 ? 'passed' : 'failed');
         assert.equal(observation.begin.projects[0]?.use['baseURL'], S.ENVIRONMENT.baseUrl);
-        reports.push(computeDigests({ suite: 'example', suiteRoot: s.root, begin: observation.begin, cases: new Map(), ledger: [], recipes: [], declaredInputs: [], declaredBaselines: [], kitDir: join(s.root, 'support/test-lab') }));
+        reports.push(computeDigests({ suite: 'example', suiteRoot: s.root, begin: observation.begin, cases: new Map(), ledger: [], declaredInputs: [], declaredBaselines: [], kitDir: join(s.root, 'support/test-lab') }));
       }
       const first = reports[0]!, d = first.behavior.get(behaviorKey(identity, 'desktop'));
       const old = d?.status === 'resolved' ? d.digest : 'sha256:pre-r6-value-blind';
@@ -72,7 +72,7 @@ for (const version of VERSIONS) {
       const obs = readInvocation({ id: plan.invocation.id, suite: 'example', dir: plan.invocation.dir });
       assert.equal(runStatus({ invocations: [obs] }).complete, true);
       assert.ok(obs.begin);
-      const digest = computeDigests({ suite: 'example', suiteRoot: s.root, begin: obs.begin, cases: new Map(), ledger: [], recipes: [], declaredInputs: [], declaredBaselines: [], kitDir: join(s.root, 'support/test-lab') }).behavior.get(behaviorKey(identity, 'desktop'));
+      const digest = computeDigests({ suite: 'example', suiteRoot: s.root, begin: obs.begin, cases: new Map(), ledger: [], declaredInputs: [], declaredBaselines: [], kitDir: join(s.root, 'support/test-lab') }).behavior.get(behaviorKey(identity, 'desktop'));
       assert.equal(digest?.status, 'resolved');
       assert.equal(JSON.parse(readFileSync(join(s.root, 'support/test-lab/node_modules/typescript/package.json'), 'utf8')).version, '6.0.3');
       // A real value in a mixed declaration restores the dependency and its path exclusion.

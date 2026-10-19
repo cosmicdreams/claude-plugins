@@ -13,6 +13,9 @@ export type LocalAdapter = {
   identity:(context?:AdapterContext)=>Promise<SiteIdentity>;
   fixture:(fixture:FixtureDef,context?:AdapterContext)=>Promise<{observation:FixtureObservation;structureObservation:string|null}>;
   configuration?:(context?:AdapterContext)=>Promise<ConfigurationObservation>;
+  /** Red checks only: apply a recipe's fault in the application (never in the test), then restore it. */
+  mutate?:(recipe:Record<string,unknown>,context?:AdapterContext)=>Promise<void>;
+  restore?:(recipe:Record<string,unknown>,context?:AdapterContext)=>Promise<void>;
   /** Owned resource cleanup; command adapters reap their process groups before returning. */
   stop?:()=>Promise<void>;
 };
@@ -75,6 +78,8 @@ export function commandAdapter(path:string,appRoot:string):LocalAdapter {
     async stop(){await Promise.all([...children].map(stop));},
     async identity(context){const v=await invoke('identity',{},context);if(typeof v['appRoot']!=='string')throw new Error('adapter identity did not observe an application root');return {appRoot:realpathSync(v['appRoot'])};},
     async fixture(fixture,context){const v=await invoke('fixture',fixture,context);if(typeof v['exists']!=='boolean'||typeof v['published']!=='boolean'||(v['structureObservation']!==null&&typeof v['structureObservation']!=='string'))throw new Error('invalid local fixture observation');return {observation:{via:'local',exists:v['exists'],published:v['published']},structureObservation:v['structureObservation']};},
+    async mutate(recipe,context){const v=await invoke('mutate',recipe,context);if(v['applied']!==true)throw new Error('adapter did not confirm the mutation was applied');},
+    async restore(recipe,context){const v=await invoke('restore',recipe,context);if(v['restored']!==true)throw new Error('adapter did not confirm the mutation was removed');},
     async configuration(context){const v=await invoke('configuration',{},context);if(typeof v['status']!=='string'||(v['lastImportAt']!==null&&typeof v['lastImportAt']!=='string'))throw new Error('invalid configuration observation');return {status:v['status'],lastImportAt:v['lastImportAt']};},
   };
 }

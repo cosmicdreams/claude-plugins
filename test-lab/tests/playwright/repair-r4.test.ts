@@ -42,7 +42,7 @@ for (const version of VERSIONS) {
         writeFileSync(join(s.root, 'tests/hidden.txt'), value);
         const run = await runPlaywright(s.root, join(s.root, value), [], { EXPECTED_VALUE: value }); assert.equal(run.status, 0, run.stdout + run.stderr);
         const obs = readInvocation({ id: value, suite: 'example', dir: run.dir }); assert.ok(obs.begin); assert.equal(obs.tests[0]?.results[0]?.status, 'passed');
-        assert.equal(computeDigests({ suite: 'example', suiteRoot: s.root, begin: obs.begin, cases: new Map(), ledger: [], recipes: [], declaredInputs: [], declaredBaselines: [], kitDir: join(s.root, 'support/test-lab') }).behavior.values().next().value?.status, 'unresolved');
+        assert.equal(computeDigests({ suite: 'example', suiteRoot: s.root, begin: obs.begin, cases: new Map(), ledger: [], declaredInputs: [], declaredBaselines: [], kitDir: join(s.root, 'support/test-lab') }).behavior.values().next().value?.status, 'unresolved');
         assert.equal(readLedgerRef(run.dir, S.ledgerRef(run.dir, 'steps.jsonl')).ok, false);
       }
     } finally { s.cleanup(); }
@@ -67,7 +67,7 @@ for (const version of VERSIONS) {
       for (const obs of observations) {
         assert.equal(runStatus({ invocations: [obs] }).complete, false);
         assert.ok(obs.tests[0]?.declaration.optionSafety.problems.length);
-        assert.equal(computeDigests({ suite: 'example', suiteRoot: s.root, begin: obs.begin!, cases: new Map(), ledger: [], recipes: [], declaredInputs: [], declaredBaselines: [], kitDir: join(s.root, 'support/test-lab') }).behavior.values().next().value?.status, 'unresolved');
+        assert.equal(computeDigests({ suite: 'example', suiteRoot: s.root, begin: obs.begin!, cases: new Map(), ledger: [], declaredInputs: [], declaredBaselines: [], kitDir: join(s.root, 'support/test-lab') }).behavior.values().next().value?.status, 'unresolved');
       }
     } finally { s.cleanup(); await Promise.all(servers.map(server => new Promise<void>((done, reject) => server.close(error => error ? reject(error) : done())))); }
   });

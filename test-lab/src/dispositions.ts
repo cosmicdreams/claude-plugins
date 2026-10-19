@@ -172,18 +172,18 @@ export function waiverFor(
   track: Track,
   ref: ObligationRef,
   caseHash: string,
-): { waiver: SensitivityWaiver | null; refused: Refusal<SensitivityWaiver>[] } {
+): { waiver: SensitivityWaiver | null; valid: SensitivityWaiver[]; refused: Refusal<SensitivityWaiver>[] } {
   const refused: Refusal<SensitivityWaiver>[] = [];
-  let found: SensitivityWaiver | null = null;
+  const valid: SensitivityWaiver[] = [];
   for (const d of dispositions) {
     if (d.kind !== 'sensitivity-waived' || d.case !== ref.case || d.obligation !== ref.obligation) continue;
     if (typeof d.step !== 'string' || d.step.trim() === '') { refused.push({record:d, reason:'waiver has no full case/step/obligation identity'}); continue; }
     if (d.step !== ref.step) continue;
     const why = ownerRoleHolds(roles, track, d) ?? (d.caseHash !== caseHash ? 'the case changed after the waiver' : d.reason.trim() === '' ? 'no reason' : null);
     if (why !== null) refused.push({ record: d, reason: why });
-    else found ??= d;
+    else valid.push(d);
   }
-  return { waiver: found, refused };
+  return { waiver: valid[0] ?? null, valid, refused };
 }
 
 export { testKey };

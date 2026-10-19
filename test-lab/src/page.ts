@@ -8,6 +8,7 @@ import { randomUUID } from 'node:crypto';
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import type { TriageFile } from './triage.ts';
 import type { Verdict } from './verdict.ts';
 import { dataDir } from './work.ts';
 
@@ -34,6 +35,8 @@ export type VerdictContext = {
   corpusRevision: string;
   identityChecks: {name:string;status:string;detail:string}[];
   counts: {track:string;priority:string;cases:number;current:number;verified:number;waived:number;developerAttested:number}[];
+  /** Handoff sections (plan §2): approvals and acceptances with their role labels, waivers, graduation decisions, browsers not run locally. */
+  handoff?: {title:string;items:string[]}[];
 };
 export type RunMeta = { runDir: string; project: string; environment: string; startedAt: string; finishedAt: string; context?:VerdictContext; requestIdentity?:RequestIdentity };
 
@@ -49,8 +52,15 @@ export function reportOpener(runDir: string, platform: string = process.platform
 
 const LABEL: Record<Verdict['verdict'], string> = { 'not-evaluable': 'NOT EVALUABLE', inconclusive: 'INCONCLUSIVE', 'not-ready': 'NOT READY', ready: 'READY' };
 
-export function renderMarkdown(file: VerdictFile): string {
+const CLASS_HINT = 'product-bug | automation-bug | system-issue | no-defect | to-investigate';
+
+export function renderMarkdown(file: VerdictFile, triage: TriageFile | null = null): string {
   const v = file.verdict;
+  const classes = new Map((triage?.entries ?? []).map((e) => [e.failure, e]));
+  const classOf = (i: number) => {
+    const e = classes.get(i + 1);
+    return e === undefined ? ` — class: not chosen (${CLASS_HINT}; \`test-lab triage\`)` : ` — class: ${e.class}, chosen by ${e.by} (${e.role === 'qa' ? (e.standIn ? 'QA (stand-in)' : 'QA') : 'developer'})${e.note ? `: ${e.note}` : ''}`;
+  };
   const lines = [
     `# ${LABEL[v.verdict]} (rule ${v.rule})`,
     '',
@@ -68,6 +78,7 @@ export function renderMarkdown(file: VerdictFile): string {
       '',
       '## Build checks',
       ...file.context.identityChecks.map(c=>`- ${c.name}: ${c.status} (${c.detail})`),
+      ...(file.context.handoff??[]).flatMap(h=>['',`## ${h.title}`,...(h.items.length===0?['- none']:h.items.map(i=>`- ${i}`))]),
     ]),
     '',
     '## Why',
@@ -77,7 +88,8 @@ export function renderMarkdown(file: VerdictFile): string {
     ...(v.required.length === 0 ? ['- none'] : v.required.map((c) => `- ${c.track} ${c.case} on ${c.configuration}: ${c.outcome}`)),
     '',
     '## Failures seen',
-    ...(v.failures.length === 0 ? ['- none'] : v.failures.map((f) => `- [${f.lane}] ${f.test.file} › ${f.test.titlePath.join(' › ')} [${f.project}]: ${f.outcome}${f.obligation === null ? '' : ` in ${f.obligation}`}${f.classPrefill === null ? '' : ` (pre-filled: ${f.classPrefill})`}${f.acceptance === null ? '' : ` (risk acceptance ${f.acceptance})`}`)),
+    ...(v.failures.length === 0 ? ['- none'] : v.failures.map((f, i) => `- ${i + 1}. [${f.lane}] ${f.test.file} › ${f.test.titlePath.join(' › ')} [${f.project}]: ${f.outcome}${f.obligation === null ? '' : ` in ${f.obligation}`}${f.classPrefill === null ? '' : ` (pre-filled: ${f.classPrefill})`}${f.acceptance === null ? '' : ` (risk acceptance ${f.acceptance})`}${classOf(i)}`)),
+    ...(v.failures.length === 0 ? [] : ['', 'Triage records what happened; it never clears a failure. Only a QA risk acceptance clears a governed failure (rule 6), and nothing clears a required one (rule 5).']),
     '',
     '## Exceptions',
     ...(v.exceptions.length === 0 ? ['- none'] : v.exceptions.map((e) => `- ${e}`)),
@@ -90,6 +102,13 @@ export function renderMarkdown(file: VerdictFile): string {
     '',
   ];
   return lines.join('\n');
+}
+
+const escapeHtml = (s: string) => s.replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[c]!);
+
+/** The HTML rendering of the same page: the Markdown, escaped, so the two can never say different things. */
+export function renderHtml(file: VerdictFile, triage: TriageFile | null = null): string {
+  return `<!doctype html><html lang="en"><meta charset="utf-8"><title>test-lab verdict</title><style>body{max-width:80rem;margin:2rem auto;padding:1rem;font:16px system-ui}pre{white-space:pre-wrap}</style><h1>test-lab local candidate</h1><pre>${escapeHtml(renderMarkdown(file, triage))}</pre></html>`;
 }
 
 export function writeVerdict(meta: RunMeta, verdict: Verdict, machine = machineId()): VerdictFile {

@@ -15,7 +15,7 @@ const snapshot = () => ({
 });
 test('actual metadata ids decide tiers; source imports only unapproved drafts', () => {
   const drafts = importSnapshot(snapshot());
-  assert.deepEqual(drafts.map((d) => [d.record.id, d.tier, d.record.priority]), [['C21', 'short', 'p1'], ['C22', 'full', 'p2']]);
+  assert.deepEqual(drafts.map((d) => [d.record.id, d.tier, d.record.priority]), [['C21', 'short', 'p2'], ['C22', 'full', 'p3']]);
   for (const d of drafts) { assert.equal(d.record.approval, null); assert.deepEqual(d.record.configurations, []); assert.equal(d.mark, 'needs-review'); }
   assert.equal(drafts[0]?.record.steps[0]?.obligations[0]?.text, 'Home page opens.');
 });

@@ -24,7 +24,7 @@ export function fixtureProfile(baseUrl='http://127.0.0.1:4180'):Profile {
 export function writeJson(file:string,value:unknown):void {mkdirSync(dirname(file),{recursive:true});writeFileSync(file,JSON.stringify(value,null,2)+'\n');}
 export async function setupCoordinator(version:Version,options:{authenticated?:boolean;prepare?:(suite:string,profile:Profile,record:ReturnType<typeof caseRecord>)=>Promise<void>}={}) {
   const dir=realpathSync(mkdtempSync(join(tmpdir(),'test-lab-compose-')));const app=join(dir,'app');const suite=join(dir,'qa-suite');mkdirSync(app);mkdirSync(suite);
-  const state={mutant:false,actor:'anonymous',missing:false,structure:'visible heading',editDuringRun:false,slow:false,teardown:false,bodyRequests:0,loginRequests:0,actorBeforeLogin:false,httpRequests:0};
+  const state={mutant:false,mutantTitle:false,actor:'anonymous',missing:false,structure:'visible heading',editDuringRun:false,slow:false,teardown:false,bodyRequests:0,loginRequests:0,actorBeforeLogin:false,httpRequests:0,mutations:0};
   writeFileSync(join(app,'template.txt'),'Generic fixture');
   const server=createServer((req,res)=>{
     state.httpRequests++;
@@ -34,12 +34,16 @@ export async function setupCoordinator(version:Version,options:{authenticated?:b
     if(path==='/configuration'){res.setHeader('content-type','application/json');res.end(JSON.stringify({schema:1,status:'[]',lastImportAt:null}));return;}
     if(path==='/login'){state.loginRequests++;res.setHeader('set-cookie','fixtureRole=editor; Path=/');res.end('fixture login');return;}
     if(path==='/actor'){if(options.authenticated&&state.loginRequests===0)state.actorBeforeLogin=true;res.setHeader('content-type','application/json');res.end(JSON.stringify({role:state.actor==='anonymous'&&req.headers.cookie?.includes('fixtureRole=editor')?'editor':state.actor}));return;}
+    // Application-side mutation for red checks: the fault is in the served site, never in the test.
+    // A recipe can name its target: `title` breaks the page title only, anything else the heading.
+    if(path==='/mutate'){if(new URL(req.url??'/','http://fixture.invalid').searchParams.get('target')==='title')state.mutantTitle=true;else state.mutant=true;state.mutations++;res.setHeader('content-type','application/json');res.end(JSON.stringify({schema:1,applied:true}));return;}
+    if(path==='/restore'){state.mutant=false;state.mutantTitle=false;res.setHeader('content-type','application/json');res.end(JSON.stringify({schema:1,restored:true}));return;}
     if(path==='/health'){res.end('healthy');return;}
     if(path==='/teardown'){res.end(state.teardown?'fail':'pass');return;}
     state.bodyRequests++;
     if(state.editDuringRun){state.editDuringRun=false;writeFileSync(join(app,'template.txt'),'Edited during run');}
     if(state.missing){res.writeHead(404);res.end('missing');return;}
-    const body=`<html><title>Generic fixture</title><h1>${state.mutant?'Broken heading':readFileSync(join(app,'template.txt'),'utf8')}</h1></html>`;
+    const body=`<html><title>${state.mutantTitle?'Broken title':'Generic fixture'}</title><h1>${state.mutant?'Broken heading':readFileSync(join(app,'template.txt'),'utf8')}</h1></html>`;
     if(state.slow)setTimeout(()=>res.end(body),20000).unref();else res.end(body);
   });
   await new Promise<void>(done=>server.listen(0,'127.0.0.1',done));const url=`http://127.0.0.1:${(server.address() as AddressInfo).port}`;
@@ -68,7 +72,7 @@ export async function setupCoordinator(version:Version,options:{authenticated?:b
   mkdirSync(join(suite,'tests'));
   writeFileSync(join(suite,'tests/home.spec.ts'),`import {test,expect} from '@playwright/test';import {bindCase,caseStep} from '../support/test-lab/case-step';import {registerActorProbe} from '../support/test-lab/actor-probe';registerActorProbe({path:'actor',roleField:'role'});test('heading',bindCase('REG-1'),async({page})=>{await page.goto('/');await caseStep(page,{case:'REG-1',step:'S1',obligation:'O1'},'heading',async()=>{await expect(page.getByRole('heading')).toHaveText('Generic fixture');});});`);
   writeFileSync(join(suite,'teardown.ts'),`import {request} from '@playwright/test';export default async function(config){const client=await request.newContext();try{const r=await client.get(new URL('teardown',config.projects[0].use.baseURL).href);if(await r.text()==='fail')throw new Error('fixture teardown failure');}finally{await client.dispose();}}`);
-  writeFileSync(join(suite,'adapter.ts'),`const action=process.argv[2];const url=${JSON.stringify(url)};const r=await fetch(url+(action==='identity'?'/identity':action==='configuration'?'/configuration':'/fixture'));console.log(await r.text());`);
+  writeFileSync(join(suite,'adapter.ts'),`const action=process.argv[2];const url=${JSON.stringify(url)};const arg=JSON.parse(process.argv[3]??'{}');const target=action==='mutate'&&typeof arg?.mutation?.target==='string'?'?target='+encodeURIComponent(arg.mutation.target):'';const r=await fetch(url+({identity:'/identity',configuration:'/configuration',mutate:'/mutate',restore:'/restore'}[action]??'/fixture')+target);console.log(await r.text());`);
   // Controlled staging on a dedicated fixture branch, then ordinary fixture commits on that branch.
   await g(suite,['checkout','-b','fixture-candidate']);await stageKit(suite,'playwright.config.ts');
   await options.prepare?.(suite,profile,record);

@@ -1,0 +1,166 @@
+{
+  "schema": 1,
+  "standard": {
+    "owner": "QA (the head of quality assurance owns the standard; test-lab never edits it)",
+    "path": "automation/CLAUDE.md",
+    "portedFrom": "38b72b01a37f785b98867725b5ee012ade26de21",
+    "portedAt": "2026-10-18",
+    "sha256": "eb03734b5daaf35918901baeb6c848dbb5146495e064751b56eb9b9c085ba32f",
+    "drift": "The standard has changed since this port. Each rule whose quoted text no longer appears is listed; re-port it before relying on that rule's findings."
+  },
+  "rules": [
+    {
+      "id": "QA-BASE-IMPORT",
+      "kind": "standard",
+      "title": "Specs import test and expect from fixtures/base.ts",
+      "source": { "section": "Project Structure", "quote": "Extended test — import { test, expect } from here in every spec" },
+      "check": { "applies": "spec", "how": "Every *.spec.ts file imports `test` and `expect` from a module that resolves to fixtures/base, and neither from @playwright/test." },
+      "exceptions": [],
+      "blocking": false
+    },
+    {
+      "id": "QA-NO-NEW-PAGE",
+      "kind": "standard",
+      "title": "No page objects constructed inside a spec",
+      "source": { "section": "Page Object Model (POM)", "quote": "never `new MyPage(page)` inside a spec body" },
+      "check": { "applies": "spec", "how": "No `new X(...)` in a spec where X is imported from the suite's pages/ folder or its name ends in Page." },
+      "exceptions": [],
+      "blocking": false
+    },
+    {
+      "id": "QA-READONLY-LOCATORS",
+      "kind": "standard",
+      "title": "Locators are readonly properties assigned in the constructor, not getters",
+      "source": { "section": "Page Object Model (POM)", "quote": "Locators are **`readonly` properties assigned in the constructor** — never getter methods for parameterless locators." },
+      "check": { "applies": "page", "how": "In pages/ classes: a get accessor returning a locator, or a Locator-typed property without readonly, is a finding. Parameterized locator methods are allowed." },
+      "exceptions": ["Parameterized locators (methods that take an argument) stay as methods."],
+      "blocking": false
+    },
+    {
+      "id": "QA-NO-WAIT-TIMEOUT",
+      "kind": "standard",
+      "title": "No waitForTimeout",
+      "source": { "section": "Assertions", "quote": "**No `waitForTimeout()`** — ever." },
+      "check": { "applies": "spec,page,fixture", "how": "A call to waitForTimeout is a finding unless a comment directly above it, or on its line, explains why no event-driven wait is possible." },
+      "exceptions": ["If a timeout is unavoidable (e.g. debounce timer), add a comment explaining why no event-driven wait is possible."],
+      "blocking": false
+    },
+    {
+      "id": "QA-WAIT-FOR-FUNCTION-ARG",
+      "kind": "standard",
+      "title": "waitForFunction options are its third argument",
+      "source": { "section": "Assertions", "quote": "Always pass `null` explicitly as the arg when you only want to set options" },
+      "check": { "applies": "spec,page,fixture", "how": "waitForFunction(fn, { timeout | polling }) with exactly two arguments, the second an object literal of options, is a finding." },
+      "exceptions": [],
+      "blocking": false
+    },
+    {
+      "id": "QA-WEB-FIRST",
+      "kind": "standard",
+      "title": "Assertions retry on the locator, not on a value already read out",
+      "source": { "section": "Assertions", "quote": "**Always assert on `Locator`, never on resolved values** — web-first assertions auto-retry." },
+      "check": { "applies": "spec", "how": "expect(await x.textContent()|innerText()|inputValue()|getAttribute()|isVisible()|isHidden()|isChecked()|isEnabled()|isDisabled()|count()|allTextContents()|allInnerTexts()), or expect(v) where v was assigned from one of those reads in the same function, is a finding. expect.poll is allowed." },
+      "exceptions": ["Parsed JSON-LD from page.evaluate() is unavoidably value-based; it is not a locator read and is not flagged."],
+      "blocking": false
+    },
+    {
+      "id": "QA-NO-PARTIAL-CLASS",
+      "kind": "standard",
+      "title": "No partial class selectors",
+      "source": { "section": "Locator Preference Order", "quote": "Never use partial matches: `[class*=\"richText\"]`" },
+      "check": { "applies": "spec,page,fixture", "how": "A string or template literal containing [class*= is a finding." },
+      "exceptions": [],
+      "blocking": false
+    },
+    {
+      "id": "QA-TITLE-TAGS",
+      "kind": "standard",
+      "title": "Every test title carries its case ID, @regression and a priority tag from the priority label",
+      "source": { "section": "Tags & Coverage", "quote": "Every test must include the TestRail case ID, priority tag, and `@regression`" },
+      "check": { "applies": "spec", "how": "Each test() title starts with a case ID (C<digits>, or a namespaced local ID for a developer addendum), and its tag list holds @regression and exactly one of @p1-@p4. With a corpus, the tag must equal the one the case's priority label maps to: the label number, never the priority_id (\"2 - Short Regression\", priority_id 3, maps to @p2); Undefined maps to @p3." },
+      "exceptions": ["Undefined priority is tagged @p3 with a one-line comment noting the default."],
+      "blocking": false
+    },
+    {
+      "id": "QA-SKIP-GAP",
+      "kind": "standard",
+      "title": "Every skip or known failure has a COVERAGE-GAPS.md entry",
+      "source": { "section": "Per-Account Progress Tracking: AUTOMATION.md + COVERAGE-GAPS.md", "quote": "Every `test.skip()` in the suite must have a corresponding entry here — never a silent skip." },
+      "check": { "applies": "spec", "how": "Each test.skip / test.fixme / test.fail inside, or declaring, a test whose title has a case ID needs that case number in COVERAGE-GAPS.md; test.fail also needs a reason string." },
+      "exceptions": ["The mobile viewport guard (`if ((page.viewportSize()?.width ?? 0) < 768) { test.skip(); return; }`) with a comment naming the companion coverage is the standard's own pattern, not a gap."],
+      "blocking": false
+    },
+    {
+      "id": "QA-CONFIG-BASELINE",
+      "kind": "standard",
+      "title": "playwright.config.ts follows the config baseline",
+      "source": { "section": "Playwright Config Baseline", "quote": "retries: process.env.CI ? 2 : 0," },
+      "check": { "applies": "config", "how": "testDir './tests', fullyParallel false, forbidOnly !!process.env.CI, retries process.env.CI ? 2 : 0, workers 1, timeout 60_000, expect.timeout 10_000, trace 'on-first-retry', screenshot 'only-on-failure', video 'retain-on-failure', actionTimeout 15_000, navigationTimeout 30_000. A different value directly under an explanatory comment is a documented deviation, not a finding." },
+      "exceptions": ["A value that differs from the baseline with an explanatory comment directly above it."],
+      "blocking": false
+    },
+    {
+      "id": "QA-BROWSER-PROJECTS",
+      "kind": "standard",
+      "title": "The named browser projects are defined",
+      "source": { "section": "Browser Matrix", "quote": "`desktop-firefox` and `tablet-ipad` are defined in every suite config like any other project." },
+      "check": { "applies": "config", "how": "projects names include desktop-chrome, desktop-safari, desktop-edge, mobile-iphone, mobile-android, desktop-firefox and tablet-ipad. Setup projects may be added. test-lab runs local Chromium only and reports the others as not run locally." },
+      "exceptions": [],
+      "blocking": false
+    },
+    {
+      "id": "QA-SUITE-LAYOUT",
+      "kind": "standard",
+      "title": "The suite layout exists",
+      "source": { "section": "Project Structure", "quote": "Every suite under `automation/` must follow this layout:" },
+      "check": { "applies": "suite", "how": "fixtures/base.ts, pages/BasePage.ts, tests/, COVERAGE-GAPS.md and playwright.config.ts exist." },
+      "exceptions": [],
+      "blocking": false
+    },
+    {
+      "id": "TL-RETRIES-ZERO",
+      "kind": "settlement",
+      "title": "QA's CI keeps retries: 2; a test-lab run always passes --retries=0, and a pass on retry is never a pass",
+      "source": { "section": "Playwright Config Baseline", "quote": "retries: process.env.CI ? 2 : 0," },
+      "check": { "applies": "run", "how": "Enforced by the run plan (src/run-plan.ts adds --retries=0 to every run and burn-in invocation and refuses any other retry count) and by the verdict (a retry pass is flaky: rule 5 or 6). Proven in tests/ts/verdict.test.ts (\"phase 1: QA standard settlements\") and tests/playwright/phase1.test.ts." },
+      "exceptions": [],
+      "blocking": false
+    },
+    {
+      "id": "TL-MOBILE-GUARD",
+      "kind": "settlement",
+      "title": "A mobile viewport guard skip counts only when the case declares that configuration not applicable",
+      "source": { "section": "Mobile viewport guard", "quote": "must include an explicit viewport guard so they skip on mobile projects instead of failing" },
+      "check": { "applies": "spec+corpus", "how": "With a corpus, a guarded test mapped to a case that declares a configuration narrower than the guard's width is a finding. In the verdict, a skip on a declared configuration is not a pass (rule 5); a result on an undeclared configuration is outside the verdict." },
+      "exceptions": [],
+      "blocking": false
+    },
+    {
+      "id": "TL-KNOWN-FAILURE",
+      "kind": "settlement",
+      "title": "test.fail specs never count toward ready",
+      "source": { "section": "Known-Failure Specs (`test.fail()`)", "quote": "the suite reports green as long as the test keeps failing for the expected reason" },
+      "check": { "applies": "spec+corpus", "how": "With a corpus, test.fail in a test mapped to a case is a finding. In the verdict an expected failure is never passed (rule 5 for a required case)." },
+      "exceptions": [],
+      "blocking": false
+    },
+    {
+      "id": "TL-UNDEFINED-PRIORITY",
+      "kind": "settlement",
+      "title": "Undefined priority is tagged @p3 but is never required",
+      "source": { "section": "Tags & Coverage", "quote": "tag it `@p3` and move on" },
+      "check": { "applies": "corpus", "how": "A regression case whose source priority was Undefined cannot be in the required set: the profile is invalid (rule 1) until QA assigns a priority or removes it." },
+      "exceptions": [],
+      "blocking": false
+    },
+    {
+      "id": "TL-CASESTEP-PROPOSAL",
+      "kind": "proposal",
+      "title": "caseStep() and support/test-lab/ are a proposed change to QA's standard, not assumed",
+      "source": { "section": "Page Object Model (POM)", "quote": "POMs are exposed as **test fixtures** via `fixtures/base.ts`" },
+      "check": { "applies": "none", "how": "Not checked. references/qa-standard-proposal.md is the proposal to QA. The checker never flags a spec for lacking caseStep(); the verdict needs it for the specs it governs." },
+      "exceptions": [],
+      "blocking": false
+    }
+  ]
+}

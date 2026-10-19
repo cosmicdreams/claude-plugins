@@ -2,13 +2,13 @@
 // remote-tracking ref (never the local base branch, which may be stale), the branch's own declared set
 // from the working tree, and the QA transitions the branch added since its merge-base with that ref.
 //
-// Case records are JSON files under `.test-lab/cases/<track>/<id>.json` in phase 0; the Markdown corpus
-// with front matter (§3 "The local corpus") is phase 1 and will feed the same records.
+// Case records are `.test-lab/cases/<track>/<id>.md` (Markdown with front matter, phase 1) or `.json`.
 
 import { existsSync, readFileSync, statSync } from 'node:fs';
 import { join, resolve } from 'node:path';
 
 import { approvalProblem } from './cases.ts';
+import { caseValue } from './case-file.ts';
 import { git } from './git.ts';
 import type { CaseRecord, Profile } from './model.ts';
 import type { ApprovedSet, Transition } from './regression.ts';
@@ -19,6 +19,14 @@ const TRANSITIONS = '.test-lab/transitions';
 async function show(repo: string, ref: string, path: string): Promise<string | null> {
   const r = await git(repo, ['show', `${ref}:${path}`], { allowFail: true });
   return r.ok ? r.stdout : null;
+}
+/** A regression case file at a commit, in either corpus format, as its JSON value. */
+async function showCase(repo: string, ref: string, id: string): Promise<unknown | null> {
+  for (const ext of ['json', 'md']) {
+    const text = await show(repo, ref, `.test-lab/cases/regression/${id}.${ext}`);
+    if (text !== null) return caseValue(`${id}.${ext}`, text);
+  }
+  return null;
 }
 
 /** The approved set a profile and its case files define. A listed case that isn't approved is a problem, not a member. */
@@ -58,8 +66,8 @@ export async function readBase(repo: string, remote: string, branch: string, dec
   const text = await show(repo, commit, PROFILE);
   const profile = text === null ? null : decoders === undefined ? (JSON.parse(text) as Profile) : decoders.profile(JSON.parse(text) as unknown);
   for (const id of profile?.regression ?? []) {
-    const body = await show(repo, commit, `.test-lab/cases/regression/${id}.json`);
-    if (body !== null) cases.set(id, decoders === undefined ? JSON.parse(body) as CaseRecord : decoders.case(JSON.parse(body) as unknown));
+    const body = await showCase(repo, commit, id);
+    if (body !== null) cases.set(id, decoders === undefined ? body as CaseRecord : decoders.case(body));
   }
   return { ref, commit, fetchedAt: await fetchedAt(repo, ref, branch), profile, cases };
 }
@@ -117,8 +125,8 @@ export async function readTransitionBases(repo: string, baseRef: string, transit
       const profile = decoders === undefined ? JSON.parse(body) as Profile : decoders.profile(JSON.parse(body) as unknown);
       const cases = new Map<string, CaseRecord>();
       for (const id of profile.regression) {
-        const text = await show(repo, commit.stdout.trim(), `.test-lab/cases/regression/${id}.json`);
-        if (text !== null) cases.set(id, decoders === undefined ? JSON.parse(text) as CaseRecord : decoders.case(JSON.parse(text) as unknown));
+        const body = await showCase(repo, commit.stdout.trim(), id);
+        if (body !== null) cases.set(id, decoders === undefined ? body as CaseRecord : decoders.case(body));
       }
       const original = approvedSetOf(profile, cases);
       if (original.problems.length > 0) problems.push(...original.problems.map((p) => `${ref}: ${p}`));

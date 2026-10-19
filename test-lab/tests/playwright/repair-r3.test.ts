@@ -28,7 +28,7 @@ for(const version of VERSIONS) {
     const s=stageSuite(version,{'playwright.config.ts':config,'tests/entry.spec.ts':"import {test,expect} from '@playwright/test';import fs from 'node:fs';const read=true?fs.readFileSync:fs.readFileSync;test('entry',()=>{expect(read('hidden.txt','utf8')).toBeTruthy()});",'hidden.txt':'strong'});
     try{
       const run=await runPlaywright(s.root,join(s.root,'first'),[]);assert.equal(run.status,0,run.stderr+run.stdout);const obs=readInvocation({id:'first',suite:'example',dir:run.dir});assert.ok(obs.begin);
-      const ctx={suite:'example',suiteRoot:s.root,begin:obs.begin,cases:new Map(),ledger:[],recipes:[],declaredInputs:[],declaredBaselines:[],kitDir:join(s.root,'support/test-lab')};
+      const ctx={suite:'example',suiteRoot:s.root,begin:obs.begin,cases:new Map(),ledger:[],declaredInputs:[],declaredBaselines:[],kitDir:join(s.root,'support/test-lab')};
       const a=computeDigests(ctx).behavior.values().next().value;writeFileSync(join(s.root,'hidden.txt'),'weakened');const b=computeDigests(ctx).behavior.values().next().value;
       assert.equal(a?.status,'unresolved');assert.equal(b?.status,'unresolved');assert.equal(readLedgerRef(run.dir,S.ledgerRef(run.dir,'steps.jsonl')).ok,false);
     }finally{s.cleanup();}
@@ -50,7 +50,7 @@ for(const version of VERSIONS) {
       }
       assert.ok(readFileSync(join(s.root,'bypass-marker'),'utf8').includes('LOADED'));
       assert.equal(plan.ok,false,'typed preflight accepted hidden override');assert.equal(existsSync(marker),false);
-      for(const obs of observations){assert.equal(runStatus({invocations:[obs]}).complete,false);assert.ok(obs.tests[0]?.declaration.optionSafety.problems.length);assert.equal(computeDigests({suite:'example',suiteRoot:s.root,begin:obs.begin!,cases:new Map(),ledger:[],recipes:[],declaredInputs:[],declaredBaselines:[],kitDir:join(s.root,'support/test-lab')}).behavior.values().next().value?.status,'unresolved');}
+      for(const obs of observations){assert.equal(runStatus({invocations:[obs]}).complete,false);assert.ok(obs.tests[0]?.declaration.optionSafety.problems.length);assert.equal(computeDigests({suite:'example',suiteRoot:s.root,begin:obs.begin!,cases:new Map(),ledger:[],declaredInputs:[],declaredBaselines:[],kitDir:join(s.root,'support/test-lab')}).behavior.values().next().value?.status,'unresolved');}
     }finally{s.cleanup();await Promise.all(servers.map(server=>new Promise<void>((done,reject)=>server.close(e=>e?reject(e):done()))));}
   });
   test(`R3-4 ${version} actual independent skip survives deeper passing sibling and restoration`,async()=>{
@@ -83,7 +83,7 @@ for(const version of VERSIONS) {
       try{
         const run=await runPlaywright(s.root,join(s.root,'first'),[]);assert.equal(run.status,0,run.stderr+run.stdout);const obs=readInvocation({id:'first',suite:'example',dir:run.dir});assert.ok(obs.begin);assert.equal(runStatus({invocations:[obs]}).complete,true);
         assert.equal(JSON.parse(readFileSync(join(s.root,'support/test-lab/node_modules/typescript/package.json'),'utf8')).version,'6.0.3','suite uses the kit-pinned compiler');
-        const ctx={suite:'example',suiteRoot:s.root,begin:obs.begin,cases:new Map(),ledger:[],recipes:[],declaredInputs:[],declaredBaselines:[],kitDir:join(s.root,'support/test-lab')};
+        const ctx={suite:'example',suiteRoot:s.root,begin:obs.begin,cases:new Map(),ledger:[],declaredInputs:[],declaredBaselines:[],kitDir:join(s.root,'support/test-lab')};
         const a=computeDigests(ctx).behavior.values().next().value;assert.equal(a?.status,'resolved');if(a?.status!=='resolved')return;assert.ok(a.inputs.some(i=>i.path==='tests/helper.cjs'));
         writeFileSync(join(s.root,'tests/helper.cjs'),"module.exports='weakened';");const b=computeDigests(ctx).behavior.values().next().value;assert.equal(b?.status,'resolved');if(b?.status==='resolved')assert.notEqual(a.digest,b.digest);
       }finally{s.cleanup();}

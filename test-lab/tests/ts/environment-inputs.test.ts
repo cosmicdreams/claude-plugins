@@ -15,7 +15,7 @@ function fixture(value: string | undefined) {
   const declared = structuredClone(declarations);
   const environmentInputs = { version: 1, invocation: 'actual-child', phase: 'complete', declarations:declared, bindings, problems: [], processes: [{ pid: 123, bindings, changed: [], closed: true }], workers: 0 };
   const begin = { ...new S.Ledger().test('t', { file: S.TEST_A.file, titlePath: S.TEST_A.titlePath }).begin(), rootDir: root, configFile: null, environmentInputs };
-  const ctx = { suite: 'e2e', suiteRoot: root, begin, cases: new Map(), ledger: [], recipes: [], declaredInputs: [], declaredEnvironmentInputs: declared, declaredBaselines: [], kitDir: join(root, 'kit') } as DigestContext;
+  const ctx = { suite: 'e2e', suiteRoot: root, begin, cases: new Map(), ledger: [], declaredInputs: [], declaredEnvironmentInputs: declared, declaredBaselines: [], kitDir: join(root, 'kit') } as DigestContext;
   return { ctx, digest: () => computeDigests(ctx).behavior.get(behaviorKey(S.TEST_A, 'desktop')) };
 }
 test('declared nonsecret invocation values resolve and unset differs from empty', () => {

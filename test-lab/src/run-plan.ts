@@ -205,6 +205,12 @@ export function planSuite(input: SuitePlanInput, probe: BeginRecord, purpose: 'd
       return { ok:false, refusals:['environment inputs changed or are missing between probe/discovery and this invocation; probe again with current explicit values'], exclusions };
   }
   const refusals: string[] = extraArgumentProblems(input.extraArgs ?? []);
+  // QA's CI config keeps `retries: process.env.CI ? 2 : 0`; test-lab never inherits it. Every run is
+  // planned with --retries=0, and a caller can't ask for any other count (a pass on retry is never a pass).
+  for (const [i, arg] of (input.extraArgs ?? []).entries()) {
+    const value = arg === '--retries' ? input.extraArgs?.[i + 1] : arg.startsWith('--retries=') ? arg.slice('--retries='.length) : undefined;
+    if (value !== undefined && value !== '0') refusals.push(`--retries ${value} refused: test-lab runs with --retries=0`);
+  }
   if (input.projects.length === 0) refusals.push('select at least one explicit project; an empty selection would run every project');
   if (new Set(input.projects).size !== input.projects.length) refusals.push('duplicate selected project identities');
   if (new Set(probe.projects.map((p) => p.name)).size !== probe.projects.length) refusals.push('ambiguous project identities in resolved configuration');
@@ -304,7 +310,8 @@ export function planSuite(input: SuitePlanInput, probe: BeginRecord, purpose: 'd
         '--reporter',
         `${input.reporter},json,html`,
         ...input.projects.map((p) => `--project=${p}`),
-        ...(input.extraArgs ?? []),
+        ...(purpose === 'run' ? ['--retries=0'] : []),
+        ...(input.extraArgs ?? []).filter((a, i, all) => a !== '--retries' && !a.startsWith('--retries=') && all[i - 1] !== '--retries'),
         ...files,
       ],
       env: { [input.environment.baseUrlEnv]: input.environment.baseUrl, [ENVIRONMENT_ENV]: JSON.stringify({id: input.environment.id, kind: input.environment.kind, baseUrl: input.environment.baseUrl}), ...reportEnv(dir), [SECRET_OPTIONS_ENV]: input.secretOptions.join(','), ...inputs.env },
