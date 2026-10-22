@@ -197,6 +197,8 @@ gr $G 'echo x > vendor/.gitignore'; [ ! -e $G/vendor/.gitignore ] && ok "an igno
 # Round 2: a JSON \u escape once reached the sandbox as ASCII letters, opening u00e9/ for ignored é/.
 mkdir -p "$G/u00e9" "$G/vendor/é"; echo t > $G/u00e9/precious; git -C $G add -f u00e9/precious; git -C $G commit -q -m "test: precious"; GHEAD=$(git -C $G rev-parse HEAD)
 gr $G 'echo hacked > u00e9/precious; echo x > vendor/ok.php'; unchanged $G $GHEAD && ok "a non-ASCII ignored name opens no ASCII look-alike" || no "unicode escape widening"
+/bin/rm -rf "$G/vendor/é"
+gr $G 'echo x > vendor/reopened.php'; [ -f $G/vendor/reopened.php ] && ok "the ignored folder opens again once the non-ASCII name is gone" || no "vendor reopened" "$(tail -2 $root/out)"
 # Round 2: a hard link inside an open folder to a protected file elsewhere.
 echo keep > $root/elsewhere.txt; /bin/ln $root/elsewhere.txt $G/vendor/alias.php
 gr $G 'echo hacked > vendor/alias.php'; [ "$(cat $root/elsewhere.txt)" = keep ] && ok "a hard link inside an ignored folder does not open its target" || no "hard link in ignored folder"

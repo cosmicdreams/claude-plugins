@@ -37,7 +37,8 @@ IGNORE_FILE = ".gitignore"
 # A folder is allowed whole only when every entry in it was checked for hard links; a larger one (vendor/,
 # node_modules/, the files folder) stays denied to commands, which reach it through a container anyway.
 FOLDER_LIMIT = 2000
-TOTAL_LIMIT = 3000  # across all folders in one profile, shallowest first, so a command stays quick
+TOTAL_LIMIT = 3000  # entries examined per profile, every main worktree and rejected folder counted
+spent = 0
 
 
 class Unknown(Exception):
@@ -157,18 +158,27 @@ def plain(path: str) -> bool:
     return all(32 <= ord(char) < 127 for char in path) and '"' not in path and "\\" not in path
 
 
-def checked_folder(path: str, budget: int) -> int:
-    """How many entries a folder holds when it can be allowed whole (at most `budget` and FOLDER_LIMIT,
-    every name plain, no file with more than one hard link, which could be another name for any protected
-    file anywhere), or -1 when it cannot."""
+def raise_error(error: OSError) -> None:
+    raise error
+
+
+def checked_folder(path: str) -> bool:
+    """Whether a folder can be allowed whole: within the budget and FOLDER_LIMIT, every name plain, no
+    file with more than one hard link (another name for any protected file anywhere), every subfolder
+    readable. Every entry examined is charged to the profile's budget, a rejected folder's included."""
+    global spent
     seen = 0
-    for directory, dirs, names in os.walk(path):
-        for name in dirs + names:
-            seen += 1
-            entry = os.path.join(directory, name)
-            if seen > min(budget, FOLDER_LIMIT) or not plain(entry) or aliased(entry):
-                return -1
-    return seen
+    try:
+        for directory, dirs, names in os.walk(path, onerror=raise_error):
+            for name in dirs + names:
+                seen += 1
+                spent += 1
+                entry = os.path.join(directory, name)
+                if seen > FOLDER_LIMIT or spent > TOTAL_LIMIT or not plain(entry) or aliased(entry):
+                    return False
+    except OSError:
+        return False  # a folder that cannot be read whole cannot be judged whole
+    return True
 
 
 def allowance(root: str) -> tuple[list[str], list[str]]:
@@ -197,13 +207,12 @@ def allowance(root: str) -> tuple[list[str], list[str]]:
     # (.ddev holding only DDEV's generated files): a new file there might not be ignored. Only a folder
     # git ignores itself is allowed whole, since nothing under an ignored folder can be re-included.
     answers = verdicts(root, folders) if folders else {}
-    whole, budget = [], TOTAL_LIMIT
+    whole = []
     for rel in sorted(folders, key=lambda rel: (rel.count("/"), rel)):
-        if answers[rel][0] and not answers[rel][1].startswith("!"):
-            seen = checked_folder(os.path.join(root, rel), budget)
-            if seen >= 0:
-                whole.append(os.path.join(root, rel))
-                budget -= seen
+        if spent >= TOTAL_LIMIT:
+            break
+        if answers[rel][0] and not answers[rel][1].startswith("!") and checked_folder(os.path.join(root, rel)):
+            whole.append(os.path.join(root, rel))
     return sorted(whole), sorted(files)
 
 
@@ -228,17 +237,35 @@ def snapshot(root: str) -> dict:
     }
 
 
-def folder_state(root: str) -> dict[str, tuple]:
-    """Mode and owner of the worktree folder and every folder holding tracked files. Their times move
-    whenever an ignored file inside is added, so times are left out."""
-    out = {}
-    for rel in ["", *Index(root).folder_paths]:
-        path = os.path.join(root, rel) if rel else root
+def folder_state(root: str) -> dict[str, object]:
+    """Mode, owner, flags and extended attributes of the worktree folder and every folder holding tracked
+    files, and their access control lists. Their times move whenever an ignored file inside is added, so
+    times are left out."""
+    out: dict[str, object] = {}
+    paths = [root, *(os.path.join(root, rel) for rel in sorted(Index(root).folder_paths))]
+    for path in paths:
         try:
             info = os.lstat(path)
             out[path] = (info.st_mode, info.st_uid, info.st_gid, info.st_flags)
         except FileNotFoundError:
             out[path] = None
+    # ls -lde prints each folder's access control list, which no Python call reads.
+    listed = subprocess.run(["/bin/ls", "-lde", "--", *[p for p in paths if out[p] is not None]],
+                            capture_output=True, env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"}, timeout=60)
+    if listed.returncode != 0:
+        raise Unknown(f"could not read folder access lists in {root}")
+    # Extended attributes, names and values, which this Python cannot read itself.
+    present = [p for p in paths if out[p] is not None]
+    attributes = subprocess.run(["/usr/bin/xattr", "-l", "-s", *present], capture_output=True,
+                                env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"}, timeout=60)
+    if attributes.returncode != 0:
+        raise Unknown(f"could not read folder attributes in {root}")
+    out["(attributes)"] = hashlib.sha256(attributes.stdout).hexdigest()
+    # Kept: each folder's permission string and its access list lines (" 0: user:x deny delete"); left
+    # out: link count, size and times, which an ignored file added inside changes.
+    kept = [line.split(None, 1)[0] if not line[:1].isspace() else line
+            for line in listed.stdout.decode(errors="surrogateescape").splitlines()]
+    out["(access lists)"] = hashlib.sha256("\n".join(kept).encode(errors="surrogateescape")).hexdigest()
     return out
 
 

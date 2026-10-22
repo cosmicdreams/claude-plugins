@@ -299,9 +299,10 @@ def governed_pushes(text: str, cwd: str, every: set[str]) -> str | None:
 # ---- the sandbox profile --------------------------------------------------------------------------
 
 def sb(path: str) -> str:
-    """A path as a sandbox string. JSON's \\u escapes are not read by the profile reader (`é` would become
-    the letters `u00e9`), so non-ASCII stays UTF-8; only `"` and `\\` are escaped."""
-    return json.dumps(path, ensure_ascii=False)
+    """A path as a sandbox string: every character as written, only `"` and `\\` escaped. The profile
+    reader does not read JSON's other escapes (`\\u00e9` became the letters `u00e9`, `\\b` a `b`), so a
+    deny rule written with them would protect a different path."""
+    return '"' + path.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 def rx(path: str) -> str:

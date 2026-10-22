@@ -126,6 +126,16 @@ report(f"{root}/vendor" not in ignored.allowance(root)[0], "a folder holding a n
 shutil.rmtree(f"{root}/vendor/\u00e9")
 report(not ignored.plain("/a/\u00e9") and ignored.plain("/a/IRIS Documents"), "only printable ASCII names are quoted into the profile")
 
+write(f"{root}/vendor/locked/x.php")
+os.chmod(f"{root}/vendor/locked", 0)
+ignored.spent = 0
+report(f"{root}/vendor" not in ignored.allowance(root)[0], "a folder with an unreadable subfolder is not allowed whole")
+os.chmod(f"{root}/vendor/locked", 0o755)
+shutil.rmtree(f"{root}/vendor/locked")
+ignored.spent = ignored.TOTAL_LIMIT
+report(f"{root}/vendor" not in ignored.allowance(root)[0], "nothing more is opened once the profile's budget is spent")
+ignored.spent = 0
+
 # ---- unexplained: the tripwire ----
 before = ignored.snapshot(root)
 time.sleep(0.01)
@@ -161,8 +171,18 @@ before = ignored.snapshot(root)
 os.unlink(f"{root}/scratch.txt")
 report(ignored.unexplained(root, [], before) == f"{root}/scratch.txt", "a removed untracked, unignored file is not explained")
 before = ignored.snapshot(root)
+write(f"{root}/vendor/more/z.php")
+os.makedirs(f"{root}/logs/ignored-sub", exist_ok=True)
+report(ignored.unexplained(root, [], before) is None, "ignored files and folders added inside tracked folders are not a folder change")
+subprocess.run(["/bin/chmod", "+a", "everyone deny delete", root], check=True)
+report(ignored.unexplained(root, [], before) == "(access lists)", "an access list added to the worktree folder is not explained")
+subprocess.run(["/bin/chmod", "-N", root], check=True)
+subprocess.run(["/usr/bin/xattr", "-w", "user.gr", "x", root], check=True)
+report(ignored.unexplained(root, [], before) == "(attributes)", "an extended attribute on the worktree folder is not explained")
+subprocess.run(["/usr/bin/xattr", "-d", "user.gr", root], check=True)
+before = ignored.snapshot(root)
 os.chmod(f"{root}/logs", 0o777)
-report(ignored.unexplained(root, [], before) == f"{root}/logs", "a mode change on a folder of tracked files is not explained")
+report(ignored.unexplained(root, [], before) in (f"{root}/logs", "(access lists)"), "a mode change on a folder of tracked files is not explained")
 
 
 shutil.rmtree(base)
