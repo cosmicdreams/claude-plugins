@@ -78,6 +78,15 @@ async function refuse($: EngineInterface, tool: string, what: string, why: strin
   return { deny: `golden-rule: ${why}` }
 }
 
+/** Whether a real path in a main worktree is an untracked file git's own ignore rules name, which is not
+ * part of the reference (hooks/sandbox/ignored.py, the same answer the sandbox and tripwire use). Anything
+ * but a clear yes, a failure included, keeps the path protected. */
+async function isIgnored($: EngineInterface, root: string, real: string): Promise<boolean> {
+  const done = await $.process.run(['/usr/bin/python3', '-I', `${$.plugin.root}/hooks/sandbox/ignored.py`, 'check', root, real], { timeoutMs: 20_000 })
+    .catch(() => undefined)
+  return done?.exitCode === 0
+}
+
 const worktreeHint = (root: string): string =>
   `Make this change in a sibling worktree: git -C ${root} worktree add ../<topic> -b feature/<topic> --no-track origin/main`
 
@@ -90,7 +99,7 @@ async function judgeWrite($: EngineInterface, path: string, text?: string): Prom
   const real = await placed(path, cwd, home, io($))
   if (isIdentityPath(real)) return `${path} lands on a file-identity path (${real}), which the guard cannot place; use its real path.`
   const root = await mainWorktreeOf(real, io($))
-  if (root) return `${real} is in the main worktree ${root}, the reference, which is never written to. ${worktreeHint(root)}`
+  if (root && !(await isIgnored($, root, real))) return `${real} is in the main worktree ${root}, the reference, which is never written to. ${worktreeHint(root)}`
   const owner = governedGitPath(real, gitDirs)
   if (owner) return `${real} is git metadata of the main worktree ${owner.root}; only git itself writes there.`
   if (isGuardPath([spelled, real], guardRoots, rules)) return `${real} belongs to the golden rule's guard, which a session never changes.`

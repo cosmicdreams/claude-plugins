@@ -9,17 +9,31 @@ A **main worktree** is a git working tree whose folder is named `main`, in pract
 | Layer | What happens |
 | --- | --- |
 | Rule in context | The rule is added to every system prompt (personal account). On a Team seat, where Claude Code's built-in guard keeps mods out of the system prompt, a short form rides on each prompt and each subagent's prompt. |
-| Edit, Write, NotebookEdit, EnterWorktree | Refused when the destination (symlinks followed, any letter case) is inside a main worktree or the git metadata of a repository that has one, with the `git worktree add` command to use instead. |
-| Bash and Monitor | Every command runs through `hooks/sandbox/run.py` inside `/usr/bin/sandbox-exec`, which denies writes to main worktrees except the git metadata feature worktrees need (objects, non-main refs, other worktrees' folders, `FETCH_HEAD`). HEAD, index, config, hooks and the `main` ref stay denied, and the folders holding a main worktree cannot be moved. `cd` and exit status behave as usual. |
+| Edit, Write, NotebookEdit, EnterWorktree | Refused when the destination (symlinks followed, any letter case) is inside a main worktree or the git metadata of a repository that has one, with the `git worktree add` command to use instead. A gitignored, untracked file in a main worktree is the exception (see below). |
+| Bash and Monitor | Every command runs through `hooks/sandbox/run.py` inside `/usr/bin/sandbox-exec`, which denies writes to main worktrees except the git metadata feature worktrees need (objects, non-main refs, other worktrees' folders, `FETCH_HEAD`) and the gitignored, untracked files of a main worktree the command runs in or names. HEAD, index, config, hooks and the `main` ref stay denied, and the folders holding a main worktree cannot be moved. `cd` and exit status behave as usual. |
 | Pushes | From a governed repository, `git push` to `main` in any spelling, `gh pr merge --admin`, and API writes to `refs/heads/main` are refused (by the bootstrap, which knows the real working directory). Repositories without a main worktree are left alone. This is a backstop: real enforcement is branch protection on the host. |
 | MCP tools | A tool whose arguments name a main worktree is refused unless `mcpReadTools` in `hooks/policy.json` lists it as read-only. |
 | Other plugins | Their `$.fs.write` into a main worktree is refused, and their `$.process.run`/`spawn` run inside the same sandbox. |
 | Self-protection | The plugin's files, `~/.claude/hooks/golden-rule.sh`, the Codex write guard, `~/.gitconfig`, `~/.git-hooks`, new hooks modules in skills folders, and the folders holding any of them cannot be written or moved. Edits that would switch the plugin off are refused by the file they would leave; a command that switches it off or uninstalls it (in `~/.claude`, `~/.claude-work` or `CLAUDE_CONFIG_DIR`) has that put back; `/config` rows about hooks or plugins are refused. |
-| Tripwire | A command tied to a main worktree that names a program handing work outside the sandbox (`ddev`, `docker`, `osascript`, `tmux`, ...) is watched; a change in the main worktree, or a check that fails, quarantines it until `/golden-rule clear`, which only the person can run. An unreadable quarantine record refuses rather than clears. |
+| Tripwire | A command tied to a main worktree that names a program handing work outside the sandbox (`ddev`, `docker`, `osascript`, `tmux`, ...) is watched; a change in the main worktree, or a check that fails, quarantines it until `/golden-rule clear`, which only the person can run. A change to a gitignored, untracked file is not a change, when the rule that ignores it was there, unchanged, before the command. An unreadable quarantine record refuses rather than clears. |
 
 Every gate fails closed: a guard that throws or times out refuses the call.
 
 `/golden-rule` shows what is guarded, recent refusals and any quarantine.
+
+## Gitignored files in a main worktree
+
+A gitignored, untracked file is not part of the reference: a local DDEV setup (`.ddev/config.local.yaml`, DDEV's generated files), `vendor/`, the Drupal files folder. Writing one changes nothing a pull request would carry, so DDEV, Composer and a database import can run in a main worktree to compare it with a feature branch. `hooks/sandbox/ignored.py` is the one source for all three layers, and reads only the repository's own ignore files (`.gitignore` files git reads, and `info/exclude`), never the person's global excludes file.
+
+| Layer | How it decides |
+| --- | --- |
+| Edit, Write, MCP | git's own answer: `git check-ignore` for the path. Tracked files never match. |
+| Sandbox | The ignore patterns translated into sandbox regexes before the command runs, deliberately narrower than git: a pattern it cannot translate exactly stays denied, every `!` pattern is subtracted everywhere, matching is case-sensitive, and a pattern whose region holds any tracked file (compared without regard to case) is dropped whole. Only for main worktrees the command runs in or names; every other one stays denied whole. A directory-only pattern's folder that is not there yet cannot be created. |
+| Tripwire | Every changed file (folders aside) is passed to `git check-ignore`; it is explained only by an ignore file that was there, with the same content, before the command. Tracked deletions and untracked, unignored files added or removed are compared with git's listings from before. |
+
+Still protected: tracked files, ignored or not; untracked files git does not ignore; `!` re-included paths; tracked `.gitignore` files and `info/exclude`; the `.git` metadata.
+
+Limits: an ignore file that is itself ignored (DDEV's `.ddev/.gitignore` ignores itself) is writable, so a command can widen what later commands may write, though never to a tracked file. A sync daemon (DDEV's Mutagen) that writes after a command returns is outside the tripwire's window. Building the allowance costs about half a second for a command that touches a main worktree.
 
 ## Working with it
 
@@ -47,6 +61,7 @@ gh pr create --head feature/<topic>
 ```bash
 claude plugin test .          # hook decisions, mocked engine
 zsh tests/e2e/run.zsh         # the real sandbox against fixture repositories
+/usr/bin/python3 -I tests/sandbox/ignored_test.py   # the ignore translation and tripwire against a fixture
 zsh tests/live/run.zsh <out>  # the mod in a real headless session (uses the model)
 ```
 

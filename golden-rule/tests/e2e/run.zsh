@@ -182,5 +182,36 @@ gr $F "cd $root/free | cat; git push origin HEAD:main"; [ $? -eq 126 ] && ok "a 
 # ---- hard links ----
 gr $root "ln $M/README.md $root/hard"; [ ! -e $root/hard ] && ok "a hard link to a file in main refused" || no "hard link into main created"
 
+# ---- gitignored, untracked files in a main worktree ----
+mkdir -p $root/g/worktrees; G=$root/g/worktrees/main; git init -q -b main $G
+git -C $G config user.email e2e@example.com; git -C $G config user.name e2e
+printf '/vendor/\n*.log\n!keep.log\n/tracked.txt\nlogs\n' > $G/.gitignore
+echo ref > $G/README.md; mkdir -p $G/logs; echo t > $G/logs/kept.php; echo t > $G/tracked.txt
+git -C $G add .gitignore README.md; git -C $G add -f logs/kept.php tracked.txt; git -C $G commit -q -m "chore: initial"
+mkdir -p $G/vendor; GHEAD=$(git -C $G rev-parse HEAD)
+gr $G 'echo x > vendor/a.php && mkdir -p vendor/b && echo x > vendor/b/c.php && echo x > app.log'
+[ -f $G/vendor/b/c.php ] && [ -f $G/app.log ] && ok "gitignored files in main are writable" || no "ignored writes" "$(tail -2 $root/out)"
+gr $root "echo x > $G/vendor/named.php"; [ -f $G/vendor/named.php ] && ok "an ignored file in main named from outside it is writable" || no "ignored write by name" "$(tail -2 $root/out)"
+gr $G 'echo x >> README.md'; unchanged $G $GHEAD && ok "a tracked file beside ignored ones stays refused" || no "tracked write in main with ignores"
+gr $G 'echo x > new.txt'; [ ! -e $G/new.txt ] && ok "an untracked file git does not ignore stays refused" || no "unignored new file"
+gr $G 'echo x >> tracked.txt; echo x >> logs/kept.php; echo x > logs/new.php'; [ -z "$(git -C $G status --porcelain)" ] && [ ! -e $G/logs/new.php ] && ok "tracked-but-ignored files, and a pattern holding tracked files, stay refused" || no "tracked-but-ignored" "$(git -C $G status --porcelain | head -3)"
+gr $G 'echo x > keep.log'; [ ! -e $G/keep.log ] && ok "a ! re-included file stays refused" || no "negated pattern"
+gr $G 'ln -s ../README.md vendor/link; echo x >> vendor/link'; unchanged $G $GHEAD && ok "a link from an ignored folder to a tracked file does not write it" || no "link out of ignored folder"
+gr $G 'mv vendor vendor2'; [ -d $G/vendor ] && [ ! -e $G/vendor2 ] && ok "an ignored folder cannot be moved to a name git does not ignore" || no "ignored folder renamed"
+gr $G 'echo x > .gitignore'; unchanged $G $GHEAD && ok "the tracked .gitignore stays refused" || no ".gitignore write"
+gr $G 'echo x > .git/info/exclude'; [ "$(cat $G/.git/info/exclude 2>/dev/null)" != x ] && ok "info/exclude stays refused" || no "info/exclude write"
+# The tripwire: an outside writer touching only ignored files is not a change; anything else still is.
+( sleep 0.5; echo x > $G/vendor/outside.php; echo x > $G/outside.log ) &
+gr $G 'command -v docker >/dev/null; sleep 1.5'; s=$?; wait
+[ $s -eq 0 ] && ! grep -q "change was observed" $root/out && ok "tripwire lets an outside writer change ignored files" || no "tripwire on ignored files" "$(tail -2 $root/out)"
+( sleep 0.5; mkdir -p $G/hidden; printf '*\n' > $G/hidden/.gitignore; echo x > $G/hidden/evil.php ) &
+gr $G 'command -v docker >/dev/null; sleep 1.5'; s=$?; wait
+grep -q "change was observed" $root/out && [ $s -ne 0 ] && ok "tripwire is not fooled by an ignore file written during the command" || no "tripwire hidden by new .gitignore" "$(tail -2 $root/out)"
+forget; /bin/rm -rf $G/hidden
+( sleep 0.5; /bin/rm $G/tracked.txt ) &
+gr $G 'command -v docker >/dev/null; sleep 1.5'; s=$?; wait
+grep -q "change was observed" $root/out && [ $s -ne 0 ] && ok "tripwire sees a tracked file deleted outside the sandbox" || no "tripwire deletion" "$(tail -2 $root/out)"
+forget; git -C $G checkout -q -- tracked.txt
+
 print -- "\n$pass passed, $fail failed"
 [ $fail -eq 0 ]

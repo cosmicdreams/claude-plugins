@@ -1,5 +1,13 @@
 # Changelog
 
+## 0.2.0
+
+- **Gitignored, untracked files in a main worktree may be written.** They are not part of the reference, so DDEV, Composer and a database import can run in main to compare it with a feature branch. Tracked files (ignored or not), untracked files git does not ignore, `!` re-included paths, the ignore files that decide it and the git metadata stay protected.
+- One source, `hooks/sandbox/ignored.py`, reading only the repository's own ignore files, never the global excludes file. Edit, Write and MCP ask `git check-ignore`; the sandbox translates the patterns into regexes narrower than git (untranslatable patterns stay denied, `!` patterns are subtracted everywhere, a region holding a tracked file is dropped); the tripwire accepts a changed ignored file only by a rule that was there, unchanged, before the command, and compares tracked deletions and unignored files with git's listings.
+- The allowance applies to main worktrees a command runs in or names; others stay denied whole. It costs about half a second for such a command.
+- The rule the model reads says which files are the exception.
+- Tests: 3 more mocked hook tests, 15 more end-to-end sandbox tests, and a fixture test for the translation and the tripwire.
+
 ## 0.1.1
 
 - Other plugins' PreToolUse hooks run after the guard wraps a Bash or Monitor command, so they now read the command as written. The wrapper carries it verbatim as the body of a quoted heredoc that the outer shell never expands, instead of as base64. Before, every command-inspecting hook saw only an encoded blob, and a hook that checks words as paths refused long commands.

@@ -14,6 +14,28 @@ describe('Layer 2: structured tools', () => {
     expect(seen.calls.length).toBe(0)
   })
 
+  test('a Write to a gitignored, untracked file in the main worktree goes through', async ($, on) => {
+    const seen = world(on, { ignored: [`${MAIN}/.ddev/config.local.yaml`] })
+    const answer = await $.tool.call({ tool: 'Write', file_path: `${MAIN}/.ddev/config.local.yaml`, content: 'x' })
+    expect(answer.deny).toBeUndefined()
+    expect(seen.calls.length).toBe(1)
+    expect(seen.runs[0]?.slice(-3)).toEqual(['check', MAIN, `${MAIN}/.ddev/config.local.yaml`])
+  })
+
+  test('a file git does not ignore in the main worktree is still refused', async ($, on) => {
+    const seen = world(on, { ignored: [`${MAIN}/.ddev/config.local.yaml`] })
+    const answer = await $.tool.call({ tool: 'Write', file_path: `${MAIN}/README.md`, content: 'x' })
+    expect(answer.deny).toMatch(/main worktree .*the reference/)
+    expect(seen.calls.length).toBe(0)
+  })
+
+  test('when the ignore check cannot run, the main worktree stays protected', async ($, on) => {
+    const seen = world(on, { failProcess: true })
+    const answer = await $.tool.call({ tool: 'Write', file_path: `${MAIN}/.ddev/config.local.yaml`, content: 'x' })
+    expect(answer.deny).toMatch(/main worktree/)
+    expect(seen.calls.length).toBe(0)
+  })
+
   test('a Write in a feature worktree goes through untouched', async ($, on) => {
     const seen = world(on)
     const answer = await $.tool.call({ tool: 'Write', file_path: `${FEATURE}/new.txt`, content: 'x' })
