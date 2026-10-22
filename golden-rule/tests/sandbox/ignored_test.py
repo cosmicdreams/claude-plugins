@@ -143,6 +143,15 @@ write(f"{root}/README.md", "second\n")
 report(mid != before_tracked and ignored.tracked_changes(root) != mid, "a further change to an already modified tracked file is seen")
 git(root, "checkout", "-q", "--", "README.md")
 
+# Round 4: folder names ending in a newline or holding two in a row once broke the access-list parse.
+for name in ["nl\n", "a\n\nb"]:
+    write(os.path.join(root, name, "t.txt"))
+    git(root, "add", "--", os.path.join(name, "t.txt"))
+git(root, "commit", "-q", "-m", "test: newline folders")
+before = ignored.snapshot(root)
+write(f"{root}/vendor/after-newlines.php")
+report(ignored.unexplained(root, [f"{root}/vendor/after-newlines.php"], before) is None, "folders named with newlines snapshot and compare cleanly")
+
 # ---- unexplained: the tripwire ----
 before = ignored.snapshot(root)
 time.sleep(0.01)

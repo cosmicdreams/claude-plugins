@@ -256,8 +256,8 @@ def folder_state(root: str) -> dict[str, object]:
             out[path] = (info.st_mode, info.st_uid, info.st_gid, info.st_flags)
         except FileNotFoundError:
             out[path] = None
-    # ls -lde prints each folder's access control list, which no Python call reads.
-    listed = subprocess.run(["/bin/ls", "-lde", "--", *[p for p in paths if out[p] is not None]],
+    # ls -ldeb prints each folder's access control list, which no Python call reads.
+    listed = subprocess.run(["/bin/ls", "-ldeb", "--", *[p for p in paths if out[p] is not None]],
                             capture_output=True, env={"PATH": "/usr/bin:/bin", "LC_ALL": "C"}, timeout=60)
     if listed.returncode != 0:
         raise Unknown(f"could not read folder access lists in {root}")
@@ -269,7 +269,8 @@ def folder_state(root: str) -> dict[str, object]:
         raise Unknown(f"could not read folder attributes in {root}")
     out["(attributes)"] = hashlib.sha256(attributes.stdout).hexdigest()
     # Kept: each folder's permission string and its access list lines (" 0: user:x deny delete"); left
-    # out: link count, size and times, which an ignored file added inside changes.
+    # out: link count, size and times, which an ignored file added inside changes. -b escapes a newline in
+    # a name, so every folder is one line plus its access list lines.
     kept = [line.split(None, 1)[0] if not line[:1].isspace() else line
             for line in listed.stdout.decode(errors="surrogateescape").splitlines()]
     out["(access lists)"] = hashlib.sha256("\n".join(kept).encode(errors="surrogateescape")).hexdigest()

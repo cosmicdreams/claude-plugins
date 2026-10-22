@@ -27,6 +27,10 @@ argv() { (cd "$1" && /usr/bin/python3 -I "$runpy" --argv "$(printf %s "$2" | /us
 unchanged() { [ "$(git -C "$1" rev-parse HEAD)" = "$2" ] && [ "$(git -C "$1" branch --show-current)" = main ] && [ -z "$(git -C "$1" status --porcelain)" ] }
 forget() { /usr/bin/python3 -I -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); [d.pop(k) for k in list(d) if k.startswith("/private/tmp/gr-e2e")]; json.dump(d,open(p,"w"),indent=2)' "$qfile" 2>/dev/null }
 
+# outside <command>: an outside writer that starts once the sandboxed command has begun (it creates
+# $root/go), so the guard's before-state is always taken first. Use with a command that runs `touch $root/go`.
+outside() { ( for i in {1..100}; do [ -e $root/go ] && break; /bin/sleep 0.05; done; eval "$1"; /bin/rm -f $root/go ) & }
+
 # ---- fixtures ----
 /bin/rm -rf "$root"; mkdir -p "$root/p/worktrees" "$root/origin.git"
 git init -q --bare -b main "$root/origin.git"
@@ -131,8 +135,8 @@ gr $root 'mkdir -p ~/.claude/skills/gr-e2e-probe/hooks'; [ ! -e ~/.claude/skills
 gr $root 'mv ~/.claude/hooks ~/.claude/hooks-gr-e2e'; if [ -d ~/.claude/hooks-gr-e2e ]; then /bin/mv ~/.claude/hooks-gr-e2e ~/.claude/hooks; no "moving a guard folder"; else ok "moving a folder that holds the guard refused"; fi
 
 # ---- tripwire: a writer the sandbox cannot see ----
-( sleep 0.5; echo outside > $M/from-outside.txt ) &
-gr $M 'command -v docker >/dev/null; sleep 1.5; echo looked'; s=$?
+outside 'echo outside > $M/from-outside.txt'
+gr $M "command -v docker >/dev/null; touch $root/go; sleep 1.5; echo looked"; s=$?
 grep -q "a change was observed in the main worktree" $root/out && [ $s -ne 0 ] && ok "tripwire reports a write made outside the sandbox" || no "tripwire report" "$(tail -2 $root/out)"
 gr $M 'ls'; [ $? -eq 126 ] && grep -q quarantined $root/out && ok "a quarantined main worktree refuses further commands" || no "quarantine holds"
 gr $F 'ls'; [ $? -eq 0 ] && ok "other worktrees keep working during a quarantine" || no "feature during quarantine"
@@ -150,8 +154,8 @@ if [ -f $root/quarantine.backup ]; then /bin/cp -p $root/quarantine.backup $qfil
 [ $s -eq 126 ] && ok "an unreadable quarantine record refuses rather than clears" || no "corrupt quarantine" "exit $s"
 
 # ---- an outside writer editing a hook in place ----
-( sleep 0.5; echo "# changed outside" >> $M/.git/hooks/pre-commit.sample ) &
-gr $M 'command -v docker >/dev/null; sleep 1.5'; s=$?; wait
+outside 'echo "# changed outside" >> $M/.git/hooks/pre-commit.sample'
+gr $M "command -v docker >/dev/null; touch $root/go; sleep 1.5"; s=$?; wait
 grep -q "pre-commit.sample" $root/out && [ $s -ne 0 ] && ok "tripwire sees a hook edited in place" || no "hook edited in place" "$(tail -2 $root/out)"
 forget
 
@@ -204,8 +208,8 @@ echo keep > $root/elsewhere.txt; /bin/ln $root/elsewhere.txt $G/vendor/alias.php
 gr $G 'echo hacked > vendor/alias.php'; [ "$(cat $root/elsewhere.txt)" = keep ] && ok "a hard link inside an ignored folder does not open its target" || no "hard link in ignored folder"
 /bin/rm -f $G/vendor/alias.php
 # An outside writer changing a tracked file while an opened (not watched) command runs is caught afterwards.
-( sleep 0.5; echo outside >> $G/README.md ) &
-gr $G 'echo x > vendor/during.php; sleep 1.5'; s=$?; wait
+outside 'echo outside >> $G/README.md'
+gr $G "echo x > vendor/during.php; touch $root/go; sleep 1.5"; s=$?; wait
 grep -q "a tracked file in the main worktree" $root/out && [ $s -ne 0 ] && ok "a tracked change during an opened command quarantines main" || no "opened command tracked check" "$(tail -2 $root/out)"
 forget; git -C $G checkout -q -- README.md
 gr $root "echo x > $G/vendor/named.php"; [ -f $G/vendor/named.php ] && ok "an ignored file in main named from outside it is writable" || no "ignored write by name" "$(tail -2 $root/out)"
@@ -218,15 +222,15 @@ gr $G 'mv vendor vendor2'; [ -d $G/vendor ] && [ ! -e $G/vendor2 ] && ok "an ign
 gr $G 'echo x > .gitignore'; unchanged $G $GHEAD && ok "the tracked .gitignore stays refused" || no ".gitignore write"
 gr $G 'echo x > .git/info/exclude'; [ "$(cat $G/.git/info/exclude 2>/dev/null)" != x ] && ok "info/exclude stays refused" || no "info/exclude write"
 # The tripwire: an outside writer touching only ignored files is not a change; anything else still is.
-( sleep 0.5; echo x > $G/vendor/outside.php; echo x > $G/outside.log ) &
-gr $G 'command -v docker >/dev/null; sleep 1.5'; s=$?; wait
+outside 'echo x > $G/vendor/outside.php; echo x > $G/outside.log'
+gr $G "command -v docker >/dev/null; touch $root/go; sleep 1.5"; s=$?; wait
 [ $s -eq 0 ] && ! grep -q "change was observed" $root/out && ok "tripwire lets an outside writer change ignored files" || no "tripwire on ignored files" "$(tail -2 $root/out)"
-( sleep 0.5; mkdir -p $G/hidden; printf '*\n' > $G/hidden/.gitignore; echo x > $G/hidden/evil.php ) &
-gr $G 'command -v docker >/dev/null; sleep 1.5'; s=$?; wait
+outside "mkdir -p $G/hidden; printf '*\\n' > $G/hidden/.gitignore; echo x > $G/hidden/evil.php"
+gr $G "command -v docker >/dev/null; touch $root/go; sleep 1.5"; s=$?; wait
 grep -q "change was observed" $root/out && [ $s -ne 0 ] && ok "tripwire is not fooled by an ignore file written during the command" || no "tripwire hidden by new .gitignore" "$(tail -2 $root/out)"
 forget; /bin/rm -rf $G/hidden
-( sleep 0.5; /bin/rm $G/tracked.txt ) &
-gr $G 'command -v docker >/dev/null; sleep 1.5'; s=$?; wait
+outside '/bin/rm $G/tracked.txt'
+gr $G "command -v docker >/dev/null; touch $root/go; sleep 1.5"; s=$?; wait
 grep -q "change was observed" $root/out && [ $s -ne 0 ] && ok "tripwire sees a tracked file deleted outside the sandbox" || no "tripwire deletion" "$(tail -2 $root/out)"
 forget; git -C $G checkout -q -- tracked.txt
 
