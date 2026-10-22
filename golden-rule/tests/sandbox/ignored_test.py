@@ -136,6 +136,13 @@ ignored.spent = ignored.TOTAL_LIMIT
 report(f"{root}/vendor" not in ignored.allowance(root)[0], "nothing more is opened once the profile's budget is spent")
 ignored.spent = 0
 
+before_tracked = ignored.tracked_changes(root)
+write(f"{root}/README.md", "first\n")
+mid = ignored.tracked_changes(root)
+write(f"{root}/README.md", "second\n")
+report(mid != before_tracked and ignored.tracked_changes(root) != mid, "a further change to an already modified tracked file is seen")
+git(root, "checkout", "-q", "--", "README.md")
+
 # ---- unexplained: the tripwire ----
 before = ignored.snapshot(root)
 time.sleep(0.01)

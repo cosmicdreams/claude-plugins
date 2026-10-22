@@ -5,7 +5,7 @@
 - **Gitignored, untracked files in a main worktree may be written.** They are not part of the reference, so DDEV, Composer and a database import can run in main to compare it with a feature branch. Tracked files (ignored or not), untracked files git does not ignore, `!` re-included paths, the ignore files that decide it and the git metadata stay protected.
 - One source, `hooks/sandbox/ignored.py`; git decides and no ignore pattern is translated. Edit, Write and MCP ask `git check-ignore`; the sandbox allows the ignored files and folders that exist, as git lists them (a folder only when it is ignored itself); the tripwire accepts a changed ignored file only by a rule that was there, unchanged, before the command, and compares tracked modifications, deletions and unignored files with git's listings.
 - Refused whatever git says: case- and normalisation-variant spellings of tracked paths, submodule contents, ignore files, `.git`, hard-linked files. Git runs as `/usr/bin/git` from a clean environment. The settings hook gets the same checks (a patch the person applies).
-- The allowance applies to main worktrees a command runs in or names; others stay denied whole. It costs about half a second for such a command.
+- The allowance applies to main worktrees a command runs in or names; others stay denied whole. After such a command, git's list of modified and deleted tracked files is compared with the one from before, and a difference quarantines the worktree. It costs under a second for such a command.
 - The rule the model reads says which files are the exception.
 - Tests: 3 more mocked hook tests, 17 more end-to-end sandbox tests, and a fixture test of the three layers' decisions, including an expert review's bypasses.
 

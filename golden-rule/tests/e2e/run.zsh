@@ -203,6 +203,11 @@ gr $G 'echo x > vendor/reopened.php'; [ -f $G/vendor/reopened.php ] && ok "the i
 echo keep > $root/elsewhere.txt; /bin/ln $root/elsewhere.txt $G/vendor/alias.php
 gr $G 'echo hacked > vendor/alias.php'; [ "$(cat $root/elsewhere.txt)" = keep ] && ok "a hard link inside an ignored folder does not open its target" || no "hard link in ignored folder"
 /bin/rm -f $G/vendor/alias.php
+# An outside writer changing a tracked file while an opened (not watched) command runs is caught afterwards.
+( sleep 0.5; echo outside >> $G/README.md ) &
+gr $G 'echo x > vendor/during.php; sleep 1.5'; s=$?; wait
+grep -q "a tracked file in the main worktree" $root/out && [ $s -ne 0 ] && ok "a tracked change during an opened command quarantines main" || no "opened command tracked check" "$(tail -2 $root/out)"
+forget; git -C $G checkout -q -- README.md
 gr $root "echo x > $G/vendor/named.php"; [ -f $G/vendor/named.php ] && ok "an ignored file in main named from outside it is writable" || no "ignored write by name" "$(tail -2 $root/out)"
 gr $G 'echo x >> README.md'; unchanged $G $GHEAD && ok "a tracked file beside ignored ones stays refused" || no "tracked write in main with ignores"
 gr $G 'echo x > new.txt'; [ ! -e $G/new.txt ] && ok "an untracked file git does not ignore stays refused" || no "unignored new file"

@@ -347,13 +347,20 @@ def metadata_nodes(common: str) -> list[str]:
     return [path for path in (os.path.join(common, name) for name in names) if os.path.isdir(path)]
 
 
+# Main worktrees whose ignored files this command's profile opened.
+OPENED: set[str] = set()
+
+
 def writable(root: str) -> str:
     """The sandbox filter for a main worktree's gitignored, untracked part, or "" when git cannot say:
     then the whole tree stays denied and the command still runs."""
     try:
-        return ignored.clause(root)
+        free = ignored.clause(root)
     except Exception:
         return ""
+    if free:
+        OPENED.add(root)
+    return free
 
 
 def precise(root: str, named: bool = False) -> list[str]:
@@ -592,6 +599,15 @@ def main() -> int:
                           "Report it to Chris and leave it.")
     sandbox = [SANDBOX_EXEC, "-p", profile(policy, every, touched, named), *inner]
     watch = watch if hands_outside(text) else []
+    # An opened main worktree that is not watched still gets git's own check of its tracked files: an
+    # outside process could swap a hard link into an opened folder while the command runs (a path rule
+    # cannot see that), so a tracked file changed by the command quarantines it. If git cannot say
+    # beforehand, the command does not run.
+    cheap = sorted(OPENED - set(watch))
+    try:
+        tracked_before = {root: ignored.tracked_changes(root) for root in cheap}
+    except Exception as error:
+        raise Refused(f"the guard could not read the tracked files of {', '.join(cheap)} before the command ({error})")
     stamp = None
     before = {root: watch_state(root) for root in watch}
     if watch:
@@ -602,6 +618,17 @@ def main() -> int:
     status = run(sandbox, subprocess.DEVNULL if sys.argv[1] == "--stdin" else None)
     # From here the command has run: nothing below may report it as not run.
     try:
+        for root in cheap:
+            try:
+                path = ignored.tracked_changes(root) ^ tracked_before[root]
+            except Exception as error:
+                path = {f"(could not be checked: {error})"}
+            if path:
+                record_quarantine(policy, root, sorted(path)[0], text)
+                print(f"\n{PREFIX} a tracked file in the main worktree {root} changed while this command ran "
+                      f"({sorted(path)[0]}). Report it to Chris and leave it: remediation is his. Commands touching "
+                      "it are refused until he clears it with /golden-rule clear.", file=sys.stderr)
+                status = status or 1
         if observe(policy, watch, stamp, before, text):
             status = status or 1
     except Exception as error:

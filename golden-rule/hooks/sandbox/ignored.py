@@ -225,6 +225,13 @@ def clause(root: str) -> str:
 
 # ---- snapshot / unexplained: the tripwire ----------------------------------------------------------
 
+def tracked_changes(root: str) -> set[str]:
+    """Tracked files git sees as modified or deleted, each with its content digest, so a further change to a
+    file already modified before the command counts too: the check after an opened, unwatched command."""
+    root = os.path.realpath(root)
+    return {f"{rel} {digest(os.path.join(root, rel))}" for rel in nul(git(root, "ls-files", "-m", "-d", "-z"))}
+
+
 def snapshot(root: str) -> dict:
     """Before a watched command: the ignore files' contents, and git's listings of modified and deleted
     tracked files and of untracked files it does not ignore."""
