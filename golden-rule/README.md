@@ -27,13 +27,15 @@ A gitignored, untracked file is not part of the reference: a local DDEV setup (`
 
 | Layer | How it decides |
 | --- | --- |
-| Edit, Write, MCP | git's own answer: `git check-ignore` for the path. Tracked files never match. |
-| Sandbox | The ignore patterns translated into sandbox regexes before the command runs, deliberately narrower than git: a pattern it cannot translate exactly stays denied, every `!` pattern is subtracted everywhere, matching is case-sensitive, and a pattern whose region holds any tracked file (compared without regard to case) is dropped whole. Only for main worktrees the command runs in or names; every other one stays denied whole. A directory-only pattern's folder that is not there yet cannot be created. |
-| Tripwire | Every changed file (folders aside) is passed to `git check-ignore`; it is explained only by an ignore file that was there, with the same content, before the command. Tracked deletions and untracked, unignored files added or removed are compared with git's listings from before. |
+| Edit, Write, MCP | `git check-ignore` for the path. |
+| Sandbox | The ignored files and folders that exist when the command starts, exactly as git lists them, as literal and subpath rules; no ignore pattern is translated. A folder is allowed whole only when git ignores the folder itself. Only for main worktrees the command runs in or names; every other one stays denied whole. |
+| Tripwire | Every changed file (folders aside) is passed to `git check-ignore`; it is explained only by an ignore file that was there, with the same content, before the command. Modified and deleted tracked files and untracked, unignored files added or removed are compared with git's listings from before. |
 
-Still protected: tracked files, ignored or not; untracked files git does not ignore; `!` re-included paths; tracked `.gitignore` files and `info/exclude`; the `.git` metadata.
+Every layer refuses, whatever git says: a path whose case-folded, NFC-normalised spelling is a tracked file or a folder of one; anything inside a submodule; any file named `.gitignore`; `.git`; a file with more than one hard link (and in the sandbox, every allowance while any tracked file has one). Git runs as `/usr/bin/git` from a clean environment, without global or system configuration, the global excludes file or fsmonitor. The settings hook applies the same checks.
 
-Limits: an ignore file that is itself ignored (DDEV's `.ddev/.gitignore` ignores itself) is writable, so a command can widen what later commands may write, though never to a tracked file. A sync daemon (DDEV's Mutagen) that writes after a command returns is outside the tripwire's window. Building the allowance costs about half a second for a command that touches a main worktree.
+Still protected: tracked files, ignored or not; untracked files git does not ignore; `!` re-included paths; every ignore file and `info/exclude`; the `.git` metadata.
+
+Limits: in the sandbox, a new ignored file in a folder git does not ignore (`.ddev/new.local.yaml`) cannot be created; one in an ignored folder (`vendor/`) can. The tripwire no longer reads folder times, which move whenever an ignored file is added, so an outside process that creates and deletes an unignored file within one command, or makes an empty folder, is not seen. A sync daemon (DDEV's Mutagen) that writes after a command returns is outside the tripwire's window. Building the allowance costs about half a second for a command that touches a main worktree.
 
 ## Working with it
 

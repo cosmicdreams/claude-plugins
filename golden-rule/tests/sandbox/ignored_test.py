@@ -69,21 +69,19 @@ probes = [
 # ---- check: git's own answer ----
 expected_ignored = {"vendor/a/b.php", "vendor/new.php", "app.log", "sub/dir/app.log", "web/sites/default/files/x.jpg",
                     "web/sites/default/settings.local.php", "build/a/b/cache/x", "build/cache", "node_modules/x/y.js",
-                    "a/node_modules", "logs/new.php", "docs/a1.tmp", "xay", ".ddev/.gitignore", ".ddev/.generated.yaml",
+                    "a/node_modules", "logs/new.php", "docs/a1.tmp", "xay", ".ddev/.generated.yaml",
                     "web/core/index.php", "web/sites/default/files", "vendor", "web/core", "odd#name"}
 for probe in probes:
     got = ignored.check(root, os.path.join(root, probe))
     want = probe in expected_ignored or (probe.casefold() in {p.casefold() for p in expected_ignored} and git(root, "config", "core.ignorecase").strip() == "true")
     report(got == want, f"check {probe}: {'ignored' if got else 'protected'}")
 
-# ---- allowance: never wider than git ----
-allowed, minus, literal = ignored.allowance(root)
-allow = [re.compile(pattern) for pattern in allowed]
-deny = [re.compile(pattern) for pattern in minus]
+# ---- allowance: only what exists and git ignores, never wider ----
+folders, files = ignored.allowance(root)
 
 
 def sandbox_allows(path: str) -> bool:
-    return (any(p.search(path) for p in allow) and not any(p.search(path) for p in deny)) or path in literal
+    return path in files or any(path == folder or path.startswith(folder + "/") for folder in folders)
 
 
 tracked_files = set(git(root, "ls-files").split())
@@ -91,10 +89,28 @@ for probe in probes:
     full = os.path.join(root, probe)
     if sandbox_allows(full):
         report(ignored.check(root, full) and probe not in tracked_files, f"allowance {probe} is ignored and untracked")
-for probe in ["vendor/new.php", "app.log", "web/sites/default/files/x.jpg", ".ddev/.generated.yaml", "node_modules/x/y.js", "web/core/index.php"]:
+for probe in ["vendor/new.php", "vendor/a/b.php", "web/sites/default/files/x.jpg", ".ddev/.generated.yaml", "web/core/index.php"]:
     report(sandbox_allows(os.path.join(root, probe)), f"allowance covers {probe}")
-for probe in ["logs/new.php", "logs/kept.php", "tracked-ignored.txt", "keep.log", "README.md", "odd#name", "Vendor/a/b.php", "xqy", ".git/config"]:
+for probe in ["app.log", "logs/new.php", "logs/kept.php", "tracked-ignored.txt", "keep.log", "README.md", "Vendor/a/b.php",
+              ".git/config", ".ddev/.gitignore", ".gitignore"]:
     report(not sandbox_allows(os.path.join(root, probe)), f"allowance leaves {probe} protected")
+
+# ---- the reviewer's cases (2026-10-22) ----
+os.makedirs(f"{root}/x", exist_ok=True)
+write(f"{root}/vendor/alias.php")
+os.link(f"{root}/vendor/alias.php", f"{root}/vendor/alias2.php")
+report(not ignored.check(root, f"{root}/vendor/alias2.php"), "check refuses a file with two hard links")
+os.unlink(f"{root}/vendor/alias2.php")
+os.link(f"{root}/README.md", f"{root}/vendor/readme-alias")
+report(ignored.allowance(root) == ([], []), "a tracked file with a hard link turns the allowance off")
+report(not ignored.check(root, f"{root}/vendor/readme-alias"), "check refuses a hard link to a tracked file")
+os.unlink(f"{root}/vendor/readme-alias")
+report(not ignored.check(root, f"{root}/TRACKED-IGNORED.txt"), "check refuses a case variant of a tracked file")
+report(not ignored.check(root, f"{root}/LOGS/kept.php"), "check refuses a case variant inside a tracked folder")
+report(not ignored.check(root, f"{root}/.ddev/.gitignore"), "check refuses an ignore file")
+os.environ["GIT_INDEX_FILE"] = "/private/tmp/nonexistent-index"
+report(not ignored.check(root, f"{root}/tracked-ignored.txt"), "an inherited GIT_INDEX_FILE is not used")
+del os.environ["GIT_INDEX_FILE"]
 
 # ---- unexplained: the tripwire ----
 before = ignored.snapshot(root)
@@ -120,6 +136,12 @@ os.unlink(f"{root}/.ddev/sneaky.yaml")
 os.unlink(f"{root}/tracked-ignored.txt")
 report(ignored.unexplained(root, [], before) == f"{root}/tracked-ignored.txt", "a deleted tracked file is not explained")
 git(root, "checkout", "-q", "--", "tracked-ignored.txt")
+before = ignored.snapshot(root)
+os.rename(f"{root}/tracked-ignored.txt", f"{root}/TRACKED-IGNORED.txt")
+write(f"{root}/TRACKED-IGNORED.txt", "hacked\n")
+got = ignored.unexplained(root, [f"{root}/TRACKED-IGNORED.txt"], before)
+report(got is not None, f"a case-only rename of a tracked file is not explained ({got})")
+os.rename(f"{root}/TRACKED-IGNORED.txt", f"{root}/tracked-ignored.txt")
 write(f"{root}/scratch.txt")
 before = ignored.snapshot(root)
 os.unlink(f"{root}/scratch.txt")

@@ -188,9 +188,11 @@ git -C $G config user.email e2e@example.com; git -C $G config user.name e2e
 printf '/vendor/\n*.log\n!keep.log\n/tracked.txt\nlogs\n' > $G/.gitignore
 echo ref > $G/README.md; mkdir -p $G/logs; echo t > $G/logs/kept.php; echo t > $G/tracked.txt
 git -C $G add .gitignore README.md; git -C $G add -f logs/kept.php tracked.txt; git -C $G commit -q -m "chore: initial"
-mkdir -p $G/vendor; GHEAD=$(git -C $G rev-parse HEAD)
-gr $G 'echo x > vendor/a.php && mkdir -p vendor/b && echo x > vendor/b/c.php && echo x > app.log'
-[ -f $G/vendor/b/c.php ] && [ -f $G/app.log ] && ok "gitignored files in main are writable" || no "ignored writes" "$(tail -2 $root/out)"
+mkdir -p $G/vendor; echo x > $G/vendor/seed.php; echo x > $G/app.log; GHEAD=$(git -C $G rev-parse HEAD)
+gr $G 'echo y > vendor/a.php && mkdir -p vendor/b && echo x > vendor/b/c.php && echo y >> app.log'
+[ -f $G/vendor/b/c.php ] && [ "$(tail -1 $G/app.log)" = y ] && ok "existing gitignored files and folders in main are writable" || no "ignored writes" "$(tail -2 $root/out)"
+gr $G 'echo x > other.log'; [ ! -e $G/other.log ] && ok "a new ignored file in a folder git does not ignore stays refused (documented limit)" || no "new ignored file outside an ignored folder"
+gr $G 'echo x > TRACKED.txt'; unchanged $G $GHEAD && ok "a case variant of a tracked file stays refused" || no "case variant of tracked file"
 gr $root "echo x > $G/vendor/named.php"; [ -f $G/vendor/named.php ] && ok "an ignored file in main named from outside it is writable" || no "ignored write by name" "$(tail -2 $root/out)"
 gr $G 'echo x >> README.md'; unchanged $G $GHEAD && ok "a tracked file beside ignored ones stays refused" || no "tracked write in main with ignores"
 gr $G 'echo x > new.txt'; [ ! -e $G/new.txt ] && ok "an untracked file git does not ignore stays refused" || no "unignored new file"
