@@ -193,6 +193,14 @@ gr $G 'echo y > vendor/a.php && mkdir -p vendor/b && echo x > vendor/b/c.php && 
 [ -f $G/vendor/b/c.php ] && [ "$(tail -1 $G/app.log)" = y ] && ok "existing gitignored files and folders in main are writable" || no "ignored writes" "$(tail -2 $root/out)"
 gr $G 'echo x > other.log'; [ ! -e $G/other.log ] && ok "a new ignored file in a folder git does not ignore stays refused (documented limit)" || no "new ignored file outside an ignored folder"
 gr $G 'echo x > TRACKED.txt'; unchanged $G $GHEAD && ok "a case variant of a tracked file stays refused" || no "case variant of tracked file"
+gr $G 'echo x > vendor/.gitignore'; [ ! -e $G/vendor/.gitignore ] && ok "an ignore file inside an open ignored folder stays refused" || no "ignore file in ignored folder"
+# Round 2: a JSON \u escape once reached the sandbox as ASCII letters, opening u00e9/ for ignored é/.
+mkdir -p "$G/u00e9" "$G/vendor/é"; echo t > $G/u00e9/precious; git -C $G add -f u00e9/precious; git -C $G commit -q -m "test: precious"; GHEAD=$(git -C $G rev-parse HEAD)
+gr $G 'echo hacked > u00e9/precious; echo x > vendor/ok.php'; unchanged $G $GHEAD && ok "a non-ASCII ignored name opens no ASCII look-alike" || no "unicode escape widening"
+# Round 2: a hard link inside an open folder to a protected file elsewhere.
+echo keep > $root/elsewhere.txt; /bin/ln $root/elsewhere.txt $G/vendor/alias.php
+gr $G 'echo hacked > vendor/alias.php'; [ "$(cat $root/elsewhere.txt)" = keep ] && ok "a hard link inside an ignored folder does not open its target" || no "hard link in ignored folder"
+/bin/rm -f $G/vendor/alias.php
 gr $root "echo x > $G/vendor/named.php"; [ -f $G/vendor/named.php ] && ok "an ignored file in main named from outside it is writable" || no "ignored write by name" "$(tail -2 $root/out)"
 gr $G 'echo x >> README.md'; unchanged $G $GHEAD && ok "a tracked file beside ignored ones stays refused" || no "tracked write in main with ignores"
 gr $G 'echo x > new.txt'; [ ! -e $G/new.txt ] && ok "an untracked file git does not ignore stays refused" || no "unignored new file"

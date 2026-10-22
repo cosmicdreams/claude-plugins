@@ -187,12 +187,14 @@ def discover(policy: dict, cwd: str, text: str) -> tuple[set[str], set[str], set
         root = main_worktree_of(candidate, cwd)
         if root:
             touched.add(os.path.realpath(root))
+    # Only a main worktree the command runs in or names gets its ignored files opened, not the main
+    # worktree of the feature checkout it runs in.
+    named = set(touched)
     repo = repository_of(cwd)
     if repo:
         owner = governed_repository(repo[1], every)
         if owner:
             touched.add(owner)
-    named = set(touched)
     # A linked main worktree keeps its git metadata outside its folder: give it the exact rules always.
     touched |= {root for root in every if os.path.isfile(os.path.join(root, ".git"))}
     return every | touched, touched, named
@@ -297,7 +299,9 @@ def governed_pushes(text: str, cwd: str, every: set[str]) -> str | None:
 # ---- the sandbox profile --------------------------------------------------------------------------
 
 def sb(path: str) -> str:
-    return json.dumps(path)
+    """A path as a sandbox string. JSON's \\u escapes are not read by the profile reader (`é` would become
+    the letters `u00e9`), so non-ASCII stays UTF-8; only `"` and `\\` are escaped."""
+    return json.dumps(path, ensure_ascii=False)
 
 
 def rx(path: str) -> str:
@@ -362,6 +366,9 @@ def precise(root: str, named: bool = False) -> list[str]:
     free = writable(root) if named else ""
     deny.append(f"(require-all (subpath {sb(root)}) (require-not (subpath {sb(marker)}))"
                 + (f" (require-not {free})" if free else "") + ")")
+    if free:
+        # An ignore file is never written, even inside an ignored folder that is otherwise open.
+        deny.append(f'(require-all (subpath {sb(root)}) (regex #"/\\.[gG][iI][tT][iI][gG][nN][oO][rR][eE]$"))')
     if os.path.isfile(marker):
         deny.append(f"(literal {sb(marker)})")
     if gitdir == common:

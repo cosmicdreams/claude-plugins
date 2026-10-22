@@ -26,7 +26,6 @@ Usage (the mod): ignored.py check <main worktree> <real path>   exit 0 ignored, 
 from __future__ import annotations
 
 import hashlib
-import json
 import os
 import stat
 import subprocess
@@ -35,6 +34,10 @@ import unicodedata
 
 GIT = "/usr/bin/git"  # never looked up on PATH: a planted git would run outside the sandbox
 IGNORE_FILE = ".gitignore"
+# A folder is allowed whole only when every entry in it was checked for hard links; a larger one (vendor/,
+# node_modules/, the files folder) stays denied to commands, which reach it through a container anyway.
+FOLDER_LIMIT = 2000
+TOTAL_LIMIT = 3000  # across all folders in one profile, shallowest first, so a command stays quick
 
 
 class Unknown(Exception):
@@ -69,7 +72,7 @@ class Index:
     """What the index holds, by key: tracked paths, the folders above them, and submodules."""
 
     def __init__(self, root: str):
-        self.files, self.folders, self.submodules, self.paths = set(), set(), set(), []
+        self.files, self.folders, self.submodules, self.paths, self.folder_paths = set(), set(), set(), [], set()
         for entry in nul(git(root, "ls-files", "--stage", "-z")):
             meta, _, path = entry.partition("\t")
             self.paths.append(path)
@@ -79,6 +82,8 @@ class Index:
                 self.submodules.add(k)
             parts = k.split("/")
             self.folders.update("/".join(parts[:i]) for i in range(1, len(parts)))
+            spelled = path.split("/")
+            self.folder_paths.update("/".join(spelled[:i]) for i in range(1, len(spelled)))
 
     def protects(self, rel: str) -> bool:
         """Whether a path is tracked, holds tracked files, is inside a submodule, or is an ignore file."""
@@ -146,11 +151,31 @@ def check(root: str, real: str) -> bool:
 
 # ---- allowance: what exists and is ignored now ------------------------------------------------------
 
+def plain(path: str) -> bool:
+    """A name the sandbox profile can quote as written: printable ASCII without `"` or `\\`. A JSON
+    \\u escape would reach the sandbox as the ASCII letters `u00e9`, another file."""
+    return all(32 <= ord(char) < 127 for char in path) and '"' not in path and "\\" not in path
+
+
+def checked_folder(path: str, budget: int) -> int:
+    """How many entries a folder holds when it can be allowed whole (at most `budget` and FOLDER_LIMIT,
+    every name plain, no file with more than one hard link, which could be another name for any protected
+    file anywhere), or -1 when it cannot."""
+    seen = 0
+    for directory, dirs, names in os.walk(path):
+        for name in dirs + names:
+            seen += 1
+            entry = os.path.join(directory, name)
+            if seen > min(budget, FOLDER_LIMIT) or not plain(entry) or aliased(entry):
+                return -1
+    return seen
+
+
 def allowance(root: str) -> tuple[list[str], list[str]]:
     """The ignored folders and files that exist now, as git lists them: (folders, files), absolute.
     Left out: anything the index protects, a link or a path that does not resolve to itself, a file with
-    more than one hard link, a name the sandbox profile cannot quote plainly. When any tracked file has
-    more than one hard link, nothing is allowed: an alias of it could sit in an ignored folder."""
+    more than one hard link, a name the sandbox profile cannot quote plainly, a folder too large to check
+    whole. When any tracked file has more than one hard link, nothing is allowed."""
     root = os.path.realpath(root)
     index = Index(root)
     if any(aliased(os.path.join(root, path)) for path in index.paths):
@@ -159,7 +184,7 @@ def allowance(root: str) -> tuple[list[str], list[str]]:
     for entry in nul(git(root, "ls-files", "-o", "-i", "--exclude-standard", "--directory", "-z")):
         rel = entry.rstrip("/")
         path = os.path.join(root, rel)
-        if any(ord(char) < 32 or char in '"\\' for char in path) or index.protects(rel):
+        if not plain(path) or index.protects(rel):
             continue
         if os.path.islink(path) or os.path.realpath(path) != path:
             continue
@@ -172,14 +197,20 @@ def allowance(root: str) -> tuple[list[str], list[str]]:
     # (.ddev holding only DDEV's generated files): a new file there might not be ignored. Only a folder
     # git ignores itself is allowed whole, since nothing under an ignored folder can be re-included.
     answers = verdicts(root, folders) if folders else {}
-    whole = [os.path.join(root, rel) for rel in folders if answers[rel][0] and not answers[rel][1].startswith("!")]
+    whole, budget = [], TOTAL_LIMIT
+    for rel in sorted(folders, key=lambda rel: (rel.count("/"), rel)):
+        if answers[rel][0] and not answers[rel][1].startswith("!"):
+            seen = checked_folder(os.path.join(root, rel), budget)
+            if seen >= 0:
+                whole.append(os.path.join(root, rel))
+                budget -= seen
     return sorted(whole), sorted(files)
 
 
 def clause(root: str) -> str:
     """The sandbox filter for the writable, ignored part of a main worktree, or "" when there is none."""
     folders, files = allowance(root)
-    rules = [f"(subpath {json.dumps(path)})" for path in folders] + [f"(literal {json.dumps(path)})" for path in files]
+    rules = [f'(subpath "{path}")' for path in folders] + [f'(literal "{path}")' for path in files]
     return f"(require-any {' '.join(rules)})" if rules else ""
 
 
@@ -190,10 +221,25 @@ def snapshot(root: str) -> dict:
     tracked files and of untracked files it does not ignore."""
     root = os.path.realpath(root)
     return {
+        "folders": folder_state(root),
         "ignore": {os.path.join(root, rel): digest(os.path.join(root, rel)) for rel in ignore_files(root)},
         "modified": set(nul(git(root, "ls-files", "-m", "-d", "-z"))),
         "untracked": set(nul(git(root, "ls-files", "-o", "--exclude-standard", "-z"))),
     }
+
+
+def folder_state(root: str) -> dict[str, tuple]:
+    """Mode and owner of the worktree folder and every folder holding tracked files. Their times move
+    whenever an ignored file inside is added, so times are left out."""
+    out = {}
+    for rel in ["", *Index(root).folder_paths]:
+        path = os.path.join(root, rel) if rel else root
+        try:
+            info = os.lstat(path)
+            out[path] = (info.st_mode, info.st_uid, info.st_gid, info.st_flags)
+        except FileNotFoundError:
+            out[path] = None
+    return out
 
 
 def unexplained(root: str, changed: list[str], before: dict) -> str | None:
@@ -213,6 +259,10 @@ def unexplained(root: str, changed: list[str], before: dict) -> str | None:
             explained = bool(source) and not pattern.startswith("!") and (where in trusted or where == exclude)
             if not explained or index.protects(rel) or aliased(os.path.join(root, rel)):
                 return os.path.join(root, rel)
+    after = folder_state(root)
+    for path in sorted(set(before["folders"]) | set(after)):
+        if before["folders"].get(path) != after.get(path):
+            return path
     modified = set(nul(git(root, "ls-files", "-m", "-d", "-z"))) ^ before["modified"]
     untracked = set(nul(git(root, "ls-files", "-o", "--exclude-standard", "-z"))) ^ before["untracked"]
     for rel in sorted(modified | untracked):

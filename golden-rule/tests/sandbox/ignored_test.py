@@ -112,6 +112,20 @@ os.environ["GIT_INDEX_FILE"] = "/private/tmp/nonexistent-index"
 report(not ignored.check(root, f"{root}/tracked-ignored.txt"), "an inherited GIT_INDEX_FILE is not used")
 del os.environ["GIT_INDEX_FILE"]
 
+# ---- round 2 (2026-10-22) ----
+write(f"{root}/vendor/deep/x.php")
+os.link(f"{root}/README.md", f"{root}/../outside-alias")  # keep a tracked file at nlink 1 below
+os.unlink(f"{root}/../outside-alias")
+write(f"{base}/protected-elsewhere.txt")
+os.link(f"{base}/protected-elsewhere.txt", f"{root}/vendor/deep/alias.php")
+report(f"{root}/vendor" not in ignored.allowance(root)[0], "a folder holding a hard-linked file is not allowed whole")
+os.unlink(f"{root}/vendor/deep/alias.php")
+report(f"{root}/vendor" in ignored.allowance(root)[0], "the folder is allowed again once the hard link is gone")
+write(f"{root}/vendor/\u00e9/x.php")
+report(f"{root}/vendor" not in ignored.allowance(root)[0], "a folder holding a non-ASCII name is not allowed whole")
+shutil.rmtree(f"{root}/vendor/\u00e9")
+report(not ignored.plain("/a/\u00e9") and ignored.plain("/a/IRIS Documents"), "only printable ASCII names are quoted into the profile")
+
 # ---- unexplained: the tripwire ----
 before = ignored.snapshot(root)
 time.sleep(0.01)
@@ -146,6 +160,10 @@ write(f"{root}/scratch.txt")
 before = ignored.snapshot(root)
 os.unlink(f"{root}/scratch.txt")
 report(ignored.unexplained(root, [], before) == f"{root}/scratch.txt", "a removed untracked, unignored file is not explained")
+before = ignored.snapshot(root)
+os.chmod(f"{root}/logs", 0o777)
+report(ignored.unexplained(root, [], before) == f"{root}/logs", "a mode change on a folder of tracked files is not explained")
+
 
 shutil.rmtree(base)
 print(f"\n{'all passed' if not failures else f'{failures} failed'}")
