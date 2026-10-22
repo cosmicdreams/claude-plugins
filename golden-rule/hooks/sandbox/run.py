@@ -5,8 +5,9 @@ The golden-rule mod rewrites every Bash and Monitor command to call this script.
 sandbox, computes the profile from the shell's real working directory at execution time (so the model
 never sees or edits the policy), runs the command under /usr/bin/sandbox-exec, and passes the exit
 status through. Writes into a main worktree (a working-tree root named `main`, in practice
-<project>/worktrees/main) are denied, except the git metadata a feature worktree must write. Pushes to
-`main` from a governed repository are refused. Around a command tied to a main worktree that hands work
+<project>/worktrees/main) are denied, except the git metadata a feature worktree must write. Gitignored,
+untracked files in a main worktree the command touches stay writable (hooks/sandbox/ignored.py). Pushes
+to `main` from a governed repository are refused. Around a command tied to a main worktree that hands work
 to a process outside the sandbox (a container engine, a terminal, a scheduler) it watches for changes and
 quarantines the worktree when one appears.
 
@@ -35,6 +36,9 @@ import tempfile
 import time
 
 HERE = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, HERE)  # -I leaves the script's own folder off the path
+
+import ignored  # noqa: E402
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(HERE))
 HOME = pwd.getpwuid(os.getuid()).pw_dir  # not $HOME, which a command could change
 SANDBOX_EXEC = "/usr/bin/sandbox-exec"
@@ -170,8 +174,9 @@ def path_tokens(text: str) -> list[str]:
     return out
 
 
-def discover(policy: dict, cwd: str, text: str) -> tuple[set[str], set[str]]:
-    """Every main worktree in the person's project folders, and the ones this command touches."""
+def discover(policy: dict, cwd: str, text: str) -> tuple[set[str], set[str], set[str]]:
+    """Every main worktree in the person's project folders, the ones that get exact rules, and the ones
+    this command runs in or names (whose gitignored files it may write)."""
     every = set()
     for container in policy["containers"]:
         for candidate in glob.glob(os.path.join(expand(container), "*", "worktrees", "main")):
@@ -182,6 +187,9 @@ def discover(policy: dict, cwd: str, text: str) -> tuple[set[str], set[str]]:
         root = main_worktree_of(candidate, cwd)
         if root:
             touched.add(os.path.realpath(root))
+    # Only a main worktree the command runs in or names gets its ignored files opened, not the main
+    # worktree of the feature checkout it runs in.
+    named = set(touched)
     repo = repository_of(cwd)
     if repo:
         owner = governed_repository(repo[1], every)
@@ -189,7 +197,7 @@ def discover(policy: dict, cwd: str, text: str) -> tuple[set[str], set[str]]:
             touched.add(owner)
     # A linked main worktree keeps its git metadata outside its folder: give it the exact rules always.
     touched |= {root for root in every if os.path.isfile(os.path.join(root, ".git"))}
-    return every | touched, touched
+    return every | touched, touched, named
 
 
 # ---- pushes to main -------------------------------------------------------------------------------
@@ -291,7 +299,10 @@ def governed_pushes(text: str, cwd: str, every: set[str]) -> str | None:
 # ---- the sandbox profile --------------------------------------------------------------------------
 
 def sb(path: str) -> str:
-    return json.dumps(path)
+    """A path as a sandbox string: every character as written, only `"` and `\\` escaped. The profile
+    reader does not read JSON's other escapes (`\\u00e9` became the letters `u00e9`, `\\b` a `b`), so a
+    deny rule written with them would protect a different path."""
+    return '"' + path.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 def rx(path: str) -> str:
@@ -336,14 +347,36 @@ def metadata_nodes(common: str) -> list[str]:
     return [path for path in (os.path.join(common, name) for name in names) if os.path.isdir(path)]
 
 
-def precise(root: str) -> list[str]:
-    """Rules for a main worktree, exact to its git layout."""
+# Main worktrees whose ignored files this command's profile opened.
+OPENED: set[str] = set()
+
+
+def writable(root: str) -> str:
+    """The sandbox filter for a main worktree's gitignored, untracked part, or "" when git cannot say:
+    then the whole tree stays denied and the command still runs."""
+    try:
+        free = ignored.clause(root)
+    except Exception:
+        return ""
+    if free:
+        OPENED.add(root)
+    return free
+
+
+def precise(root: str, named: bool = False) -> list[str]:
+    """Rules for a main worktree, exact to its git layout. One the command touches keeps its gitignored,
+    untracked files writable; any other is denied whole."""
     deny = []
     gitdir, common = git_dirs(root)
     marker = os.path.join(root, ".git")
     # The tree itself, every file and folder but its .git; a .git file (linked worktree, separate git dir)
     # is itself protected, since rewriting it would redirect the main worktree to another repository.
-    deny.append(f"(require-all (subpath {sb(root)}) (require-not (subpath {sb(marker)})))")
+    free = writable(root) if named else ""
+    deny.append(f"(require-all (subpath {sb(root)}) (require-not (subpath {sb(marker)}))"
+                + (f" (require-not {free})" if free else "") + ")")
+    if free:
+        # An ignore file is never written, even inside an ignored folder that is otherwise open.
+        deny.append(f'(require-all (subpath {sb(root)}) (regex #"/\\.[gG][iI][tT][iI][gG][nN][oO][rR][eE]$"))')
     if os.path.isfile(marker):
         deny.append(f"(literal {sb(marker)})")
     if gitdir == common:
@@ -387,10 +420,10 @@ def protected_ancestors(path: str) -> list[str]:
     return [folder for folder in ancestors(os.path.dirname(path)) if folder != HOME and folder.startswith(HOME + "/")]
 
 
-def profile(policy: dict, every: set[str], touched: set[str]) -> str:
+def profile(policy: dict, every: set[str], touched: set[str], named: set[str] = frozenset()) -> str:
     deny = []
     for root in sorted(touched):
-        deny += precise(root)
+        deny += precise(root, named=root in named)
     rest = sorted(root for root in every - touched if fits_regex(root))
     for root in sorted(every - touched - set(rest)):  # a path too long for a regex gets exact rules
         deny += precise(root)
@@ -476,18 +509,40 @@ def metadata_state(root: str) -> dict:
     return state
 
 
+def watch_state(root: str) -> dict:
+    """Before a watched command: the protected git state, and what explains a change to an ignored file
+    (None when git could not say, so every change counts)."""
+    try:
+        files = ignored.snapshot(root)
+    except Exception:
+        files = None
+    return {"metadata": metadata_state(root), "ignored": files}
+
+
 def changed_since(root: str, stamp: str, before: dict) -> str | None:
-    """The first path under a main worktree, or in its protected git state, changed after the stamp."""
+    """The first path under a main worktree, or in its protected git state, changed after the stamp and
+    not a gitignored, untracked file."""
     after = metadata_state(root)
-    for path in sorted(set(before) | set(after)):
-        if before.get(path) != after.get(path):
+    for path in sorted(set(before["metadata"]) | set(after)):
+        if before["metadata"].get(path) != after.get(path):
             return path
+    if before["ignored"] is None:
+        found = subprocess.run(["/usr/bin/find", root, "-path", os.path.join(root, ".git"), "-prune", "-o",
+                                "(", "-newer", stamp, "-o", "-cnewer", stamp, ")", "-print", "-quit"],
+                               capture_output=True, text=True)
+        if found.returncode != 0:
+            raise RuntimeError(f"could not scan {root}: {found.stderr.strip()[:200]}")
+        return found.stdout.strip() or None
+    # Every changed file, folders left out: a folder's time moves whenever an ignored file inside it is
+    # added or removed. What a folder's time would have shown, a tracked file deleted or an unignored one
+    # added or removed, the git listings compare instead.
     found = subprocess.run(["/usr/bin/find", root, "-path", os.path.join(root, ".git"), "-prune", "-o",
-                            "(", "-newer", stamp, "-o", "-cnewer", stamp, ")", "-print", "-quit"],
-                           capture_output=True, text=True)
+                            "!", "-type", "d", "(", "-newer", stamp, "-o", "-cnewer", stamp, ")", "-print0"],
+                           capture_output=True)
     if found.returncode != 0:
-        raise RuntimeError(f"could not scan {root}: {found.stderr.strip()[:200]}")
-    return found.stdout.strip() or None
+        raise RuntimeError(f"could not scan {root}: {found.stderr.decode(errors='replace').strip()[:200]}")
+    changed = [path for path in found.stdout.decode(errors="surrogateescape").split("\0") if path]
+    return ignored.unexplained(root, changed, before["ignored"])
 
 
 # ---- running --------------------------------------------------------------------------------------
@@ -531,7 +586,7 @@ def main() -> int:
     with open(os.path.join(os.path.dirname(HERE), "policy.json")) as handle:
         policy = json.load(handle)
     cwd = os.path.realpath(os.getcwd())
-    every, touched = discover(policy, cwd, text)
+    every, touched, named = discover(policy, cwd, text)
     trunk = governed_pushes(text, cwd, every)
     if trunk:
         raise Refused(trunk)
@@ -542,10 +597,19 @@ def main() -> int:
             raise Refused(f"{root} is quarantined: a change was observed there on {held[root].get('at', '?')}. "
                           "Commands touching it are refused until Chris clears it with /golden-rule clear. "
                           "Report it to Chris and leave it.")
-    sandbox = [SANDBOX_EXEC, "-p", profile(policy, every, touched), *inner]
+    sandbox = [SANDBOX_EXEC, "-p", profile(policy, every, touched, named), *inner]
     watch = watch if hands_outside(text) else []
+    # An opened main worktree that is not watched still gets git's own check of its tracked files: an
+    # outside process could swap a hard link into an opened folder while the command runs (a path rule
+    # cannot see that), so a tracked file changed by the command quarantines it. If git cannot say
+    # beforehand, the command does not run.
+    cheap = sorted(OPENED - set(watch))
+    try:
+        tracked_before = {root: ignored.tracked_changes(root) for root in cheap}
+    except Exception as error:
+        raise Refused(f"the guard could not read the tracked files of {', '.join(cheap)} before the command ({error})")
     stamp = None
-    before = {root: metadata_state(root) for root in watch}
+    before = {root: watch_state(root) for root in watch}
     if watch:
         fd, stamp = tempfile.mkstemp(prefix="golden-rule-stamp")
         os.close(fd)
@@ -554,6 +618,17 @@ def main() -> int:
     status = run(sandbox, subprocess.DEVNULL if sys.argv[1] == "--stdin" else None)
     # From here the command has run: nothing below may report it as not run.
     try:
+        for root in cheap:
+            try:
+                path = ignored.tracked_changes(root) ^ tracked_before[root]
+            except Exception as error:
+                path = {f"(could not be checked: {error})"}
+            if path:
+                record_quarantine(policy, root, sorted(path)[0], text)
+                print(f"\n{PREFIX} a tracked file in the main worktree {root} changed while this command ran "
+                      f"({sorted(path)[0]}). Report it to Chris and leave it: remediation is his. Commands touching "
+                      "it are refused until he clears it with /golden-rule clear.", file=sys.stderr)
+                status = status or 1
         if observe(policy, watch, stamp, before, text):
             status = status or 1
     except Exception as error:

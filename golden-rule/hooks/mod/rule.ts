@@ -10,6 +10,9 @@ reaches \`main\` only through a pull request.
 - A main worktree is a git working tree whose folder is named \`main\`, in practice
   \`<project>/worktrees/main\`. It is the reference: read it freely, never write to it, its files or its
   git state (HEAD, index, config, hooks, the main branch). Commands that write nothing there are fine.
+- Gitignored, untracked files in a main worktree (a local DDEV setup, vendor/, the files folder) are not
+  part of the reference and may be written. Tracked files, untracked files git does not ignore, and the
+  git metadata stay protected.
 - Only \`main\` is covered. Projects without a main worktree are not governed. Everything outside a main
   worktree is yours to change.
 - Before the first edit, check where it lands. If it is a main worktree, create a sibling worktree
@@ -26,7 +29,7 @@ reaches \`main\` only through a pull request.
 - Interpreting the rule's letter to dodge its spirit is itself the violation. A plan that seems to need
   main is a wrong plan, not an exception request.`
 
-export const SHORT_RULE = `Golden rule (enforced): never write to a main worktree (<project>/worktrees/main), its files or git state.
+export const SHORT_RULE = `Golden rule (enforced): never write to a main worktree (<project>/worktrees/main), its files or git state; only its gitignored, untracked files may be written.
 Make changes in a sibling worktree: git -C <project>/worktrees/main worktree add ../<topic> -b feature/<topic> --no-track origin/main.
 Changes reach main only by pull request. When refused, move to a worktree; never route around or disable the guard.
 If a write reached main, report it to Chris and leave it.`

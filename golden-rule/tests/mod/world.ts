@@ -41,12 +41,12 @@ function withAncestors(paths: string[]): Set<string> {
   return out
 }
 
-export type Recorded = { calls: Array<Record<string, unknown>>; toasts: string[]; writes: Array<{ path: string; text: string }> }
+export type Recorded = { calls: Array<Record<string, unknown>>; toasts: string[]; writes: Array<{ path: string; text: string }>; runs: string[][] }
 
-export function world(on: On, options: { cwd?: string; files?: Record<string, string>; links?: Record<string, string | null>; failEnv?: boolean } = {}): Recorded {
+export function world(on: On, options: { cwd?: string; files?: Record<string, string>; links?: Record<string, string | null>; failEnv?: boolean; ignored?: string[]; failProcess?: boolean } = {}): Recorded {
   // As the real file system: a name over 255 bytes fails with ENAMETOOLONG, not ENOENT.
   const tooLong = (path: string): boolean => path.split('/').some(name => new TextEncoder().encode(name).length > 255)
-  const recorded: Recorded = { calls: [], toasts: [], writes: [] }
+  const recorded: Recorded = { calls: [], toasts: [], writes: [], runs: [] }
   const files: Record<string, string> = { ...CONTENTS, ...options.files }
   const links = options.links ?? {}
   const existing = withAncestors([...FILES, ...Object.keys(files), ...Object.keys(links), ...Object.values(links).filter((to): to is string => to !== null)])
@@ -78,6 +78,12 @@ export function world(on: On, options: { cwd?: string; files?: Record<string, st
   on('ui.toast', ($, e) => {
     recorded.toasts.push(String((e as { text?: unknown }).text ?? ''))
     return { value: undefined }
+  })
+  // ignored.py check <root> <path>: exit 0 for the paths the test calls gitignored.
+  on('process.run', ($, e) => {
+    recorded.runs.push([...e.argv])
+    if (options.failProcess) return { deny: 'cannot start' }
+    return { value: { exitCode: (options.ignored ?? []).includes(e.argv[e.argv.length - 1]) ? 0 : 1, stdout: '', stderr: '' } }
   })
   on('ui.status', () => ({ value: undefined }))
   on('command.register', () => ({ value: undefined }))
