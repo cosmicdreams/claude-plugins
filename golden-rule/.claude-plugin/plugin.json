@@ -1,6 +1,6 @@
 {
     "name": "golden-rule",
-    "version": "0.3.0",
+    "version": "0.3.1",
     "description": "A main worktree keeps no committable change: a mod that refuses or reverts changes git would commit in <project>/worktrees/main, leaves gitignored files free, and sends changes through feature worktrees and pull requests.",
     "author": {
         "name": "Chris Weber"

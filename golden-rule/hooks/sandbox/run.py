@@ -186,8 +186,22 @@ def tied(cwd: str, text: str) -> list[str]:
 
 # ---- git commands, wherever they run --------------------------------------------------------------
 
+REDIRECT = re.compile(r"^(\d*|&)(>>?|<<?<?|>&|<&|&>>?)(.*)$")
+
+
 def words(segment: str) -> list[str]:
-    return [a or b or c for a, b, c in re.findall(r'"([^"]*)"|\'([^\']*)\'|(\S+)', segment)]
+    """A stage's words, quotes removed, redirections (`2>&1`, `> log`, `<in`) and their targets left out."""
+    out, skip = [], False
+    for a, b, c in re.findall(r'"([^"]*)"|\'([^\']*)\'|(\S+)', segment):
+        if skip:
+            skip = False
+            continue
+        match = REDIRECT.match(c) if c else None
+        if match:
+            skip = match.group(3) == ""  # the target is the next word
+            continue
+        out.append(a or b or c)
+    return out
 
 
 SEQUENCE = re.compile(r"\s*(?:;|&&|\|\||\n)\s*")
