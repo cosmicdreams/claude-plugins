@@ -30,7 +30,7 @@ export function delimiterFor(command: string): string {
 export function wrapCommand(pluginRoot: string, command: string): string {
   const delimiter = delimiterFor(command)
   return [
-    `__gr=$(/usr/bin/mktemp -t golden-rule); /usr/bin/python3 -I ${quote(`${pluginRoot}/hooks/sandbox/run.py`)} --stdin --state "$__gr" <<'${delimiter}'`,
+    `__gr=$(/usr/bin/mktemp -t golden-rule); /usr/bin/python3 -I -B -X pycache_prefix=/var/empty/golden-rule ${quote(`${pluginRoot}/hooks/sandbox/run.py`)} --stdin --state "$__gr" <<'${delimiter}'`,
     command,
     delimiter,
     ['__s=$?', '[ -s "$__gr" ] && cd "$(/bin/cat "$__gr")" 2>/dev/null', '/bin/rm -f "$__gr"', '(exit $__s)'].join('; '),
@@ -39,5 +39,5 @@ export function wrapCommand(pluginRoot: string, command: string): string {
 
 /** Another plugin's `$.process.run`/`spawn` argument vector, run through the same bootstrap. */
 export function wrapArgv(pluginRoot: string, argv: readonly string[]): string[] {
-  return ['/usr/bin/python3', '-I', `${pluginRoot}/hooks/sandbox/run.py`, '--argv', b64(JSON.stringify(argv))]
+  return ['/usr/bin/python3', '-I', '-B', '-X', 'pycache_prefix=/var/empty/golden-rule', `${pluginRoot}/hooks/sandbox/run.py`, '--argv', b64(JSON.stringify(argv))]
 }

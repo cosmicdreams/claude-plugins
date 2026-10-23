@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -99,7 +100,8 @@ def snapshot(root: str) -> dict:
     sums = {path: digest(os.path.join(root, path)) for path in entries}
     head = git(root, "rev-parse", "--verify", "-q", "HEAD", ok=(0, 1)).decode().strip()
     branch = git(root, "symbolic-ref", "-q", "HEAD", ok=(0, 1)).decode().strip()
-    return {"entries": entries, "sums": sums, "head": head, "branch": branch}
+    origin = git(root, "config", "--get", "remote.origin.url", ok=(0, 1)).decode().strip()
+    return {"entries": entries, "sums": sums, "head": head, "branch": branch, "origin": origin}
 
 
 def digest(path: str) -> str | None:
@@ -113,6 +115,58 @@ def digest(path: str) -> str | None:
         return None
 
 
+def remote_tip(url: str, branch: str) -> str:
+    """Where the hosted remote's branch really is now, asked over the network at the origin URL taken before
+    the command, from a neutral folder so the repository's own config (url.insteadOf, core.sshCommand) is
+    never read. Only the exact ref counts: ls-remote matches patterns by suffix. SSH needs the agent socket,
+    so it alone is passed through."""
+    env = {"HOME": os.path.expanduser("~"), "PATH": "/usr/bin:/bin", "LC_ALL": "C",
+           **{key: os.environ[key] for key in ("SSH_AUTH_SOCK",) if key in os.environ}}
+    done = subprocess.run([GIT, "ls-remote", "--", url, branch], capture_output=True, env=env, timeout=30, cwd="/")
+    if done.returncode != 0:
+        raise Unknown(f"git ls-remote {url} {branch} failed: {done.stderr.decode(errors='replace').strip()[:200]}")
+    for line in done.stdout.decode(errors="replace").splitlines():
+        sha, _, ref = line.partition("\t")
+        if ref == branch:
+            return sha
+    raise Unknown(f"{url} has no {branch}")
+
+
+def published_fast_forward(root: str, before: dict, after: dict) -> bool:
+    """Whether main only moved forward, on the same branch, to a commit the hosted remote's main already
+    holds (pull --ff-only): keeping the reference current, not a change made on it. Checked against the
+    remote itself, with an origin URL the command did not change; a local ref, FETCH_HEAD, another remote
+    or a pushed feature branch does not count."""
+    if not (before["head"] and after["head"] and after["branch"]) or before["branch"] != after["branch"]:
+        return False
+    if not before["origin"] or after["origin"] != before["origin"]:
+        return False
+    try:
+        url = before["origin"]
+        if "://" not in url and not re.match(r"^[^/:]+:", url) and not os.path.isabs(url):
+            url = os.path.normpath(os.path.join(root, url))  # a relative local path, as git reads it here
+        tip = remote_tip(url, after["branch"])
+        # exit 1 (not an ancestor) raises Unknown
+        git(root, "merge-base", "--is-ancestor", before["head"], after["head"])
+        git(root, "merge-base", "--is-ancestor", after["head"], tip)
+        return True
+    except (Unknown, subprocess.SubprocessError):
+        return False
+
+
+def undo_move(root: str, before: dict, after: dict) -> str:
+    """Put main's branch and HEAD back where they were before the command; what happened, for the report."""
+    moved = f"{after['branch'] or 'detached'} {after['head'][:10]}"
+    try:
+        if before["branch"] and after["branch"] != before["branch"]:
+            git(root, "switch", "-q", before["branch"].removeprefix("refs/heads/"))
+        if before["head"] and git(root, "rev-parse", "HEAD").decode().strip() != before["head"]:
+            git(root, "reset", "-q", "--keep", before["head"])
+        return f"HEAD had moved to {moved}; put back to {before['branch'] or 'detached'} {before['head'][:10]}"
+    except Unknown as error:
+        return f"HEAD moved to {moved} and could not be put back ({error}); tell Chris"
+
+
 def revert(root: str, before: dict) -> dict:
     """Put back what a command changed: tracked files from HEAD, new unignored files deleted. Returns what
     was reverted, what was left (already changed before, or not safely undoable) and why."""
@@ -120,9 +174,9 @@ def revert(root: str, before: dict) -> dict:
     reverted: list[str] = []
     left: list[str] = []
     notes: list[str] = []
-    if (after["head"], after["branch"]) != (before["head"], before["branch"]):
-        notes.append(f"HEAD moved ({before['branch'] or 'detached'} {before['head'][:10]} -> "
-                     f"{after['branch'] or 'detached'} {after['head'][:10]}); not undone")
+    if (after["head"], after["branch"]) != (before["head"], before["branch"]) and not published_fast_forward(root, before, after):
+        notes.append(undo_move(root, before, after))
+        after = snapshot(root)
     restore: list[str] = []
     for path, code in sorted(after["entries"].items()):
         was = before["entries"].get(path)

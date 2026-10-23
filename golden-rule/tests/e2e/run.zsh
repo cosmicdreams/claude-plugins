@@ -17,12 +17,12 @@ no() { print -- "FAIL  $1${2:+ ($2)}"; fail=$((fail + 1)) }
 # gr <cwd> <command>: run a command through the bootstrap the way the mod's wrapper does.
 gr() {
   local state=$(/usr/bin/mktemp -t gr-e2e)
-  (cd "$1" && printf '%s\n' "$2" | /usr/bin/python3 -I "$runpy" --stdin --state "$state") >"$root/out" 2>&1
+  (cd "$1" && printf '%s\n' "$2" | /usr/bin/python3 -I -B -X pycache_prefix=/var/empty/golden-rule "$runpy" --stdin --state "$state") >"$root/out" 2>&1
   local s=$?
   GR_PWD=$(/bin/cat "$state" 2>/dev/null); /bin/rm -f "$state"
   return $s
 }
-argv() { (cd "$1" && /usr/bin/python3 -I "$runpy" --argv "$(printf %s "$2" | /usr/bin/base64)") >"$root/out" 2>&1 }
+argv() { (cd "$1" && /usr/bin/python3 -I -B -X pycache_prefix=/var/empty/golden-rule "$runpy" --argv "$(printf %s "$2" | /usr/bin/base64)") >"$root/out" 2>&1 }
 unchanged() { [ "$(git -C "$1" rev-parse HEAD)" = "$2" ] && [ "$(git -C "$1" branch --show-current)" = main ] && [ -z "$(git -C "$1" status --porcelain)" ] }
 
 # ---- fixtures ----
@@ -33,7 +33,7 @@ M=$root/p/worktrees/main
 git -C $M config user.email e2e@example.com; git -C $M config user.name e2e
 mkdir -p $M/src/main; echo ref > $M/README.md; echo k > $M/src/main/K.java
 git -C $M add -A; git -C $M commit -q -m "chore: initial"; git -C $M remote add origin "$root/origin.git"; git -C $M push -q origin main
-git -C $M fetch -q origin
+git -C $M fetch -q origin; git -C $M branch -q --set-upstream-to=origin/main
 HEAD0=$(git -C $M rev-parse HEAD)
 # A linked main worktree: the repository's first checkout is elsewhere, main is added beside it.
 git clone -q "$root/origin.git" "$root/l/base"; git -C "$root/l/base" checkout -q -b base
@@ -62,6 +62,20 @@ gr $root "git -C $M reset -q --hard HEAD~1"; [ $? -eq 126 ] && ok "reset to anot
 gr $M "git branch ${rename[*]}"; [ $? -eq 126 ] && unchanged $M $HEAD0 && ok "renaming the main branch refused" || no "renaming the main branch"
 gr $M 'git pull'; [ $? -eq 126 ] && ok "pull without --ff-only refused" || no "plain pull"
 gr $M 'git pull -q --ff-only origin main'; [ $? -eq 0 ] && ok "pull --ff-only in main allowed (keeping the reference current)" || no "ff-only pull" "$(tail -2 $root/out)"
+git clone -q $root/origin.git $root/pusher; git -C $root/pusher -c user.email=e@e -c user.name=e commit -q --allow-empty -m "chore: upstream"; git -C $root/pusher push -q origin main
+gr $M 'git pull -q --ff-only origin main'; [ $? -eq 0 ] && ! grep -q "HEAD moved" $root/out && ok "a fast-forward to published commits is not reported as HEAD moved" || no "ff reported" "$(tail -2 $root/out)"
+HEAD0=$(git -C $M rev-parse HEAD)
+git -C $root/pusher checkout -q -b feature/x; git -C $root/pusher -c user.email=e@e -c user.name=e commit -q --allow-empty -m "feat: unreviewed"; git -C $root/pusher push -q origin feature/x; git -C $M fetch -q origin
+gr $M 'git merge -q --ff-only origin/feature/x'; [ $? -eq 126 ] && unchanged $M $HEAD0 && ok "fast-forwarding main to a pushed feature branch is refused" || no "ff to feature branch"
+gr $M 'git pull -q --ff-only origin feature/x'; [ $? -eq 126 ] && unchanged $M $HEAD0 && ok "pulling a feature branch into main is refused" || no "pull feature into main"
+gr $M 'git update-ref refs/remotes/origin/main origin/feature/x'; [ $? -eq 126 ] && ok "forging main's upstream with update-ref is refused" || no "update-ref upstream"
+gr $M 'git fetch -q origin +feature/x:refs/remotes/origin/main'; [ $? -eq 126 ] && ok "forging main's upstream with a fetch refspec is refused" || no "fetch refspec upstream"
+gr $M 'git fetch -q origin feature/x && git merge -q --ff-only FETCH_HEAD'; unchanged $M $HEAD0 && grep -q "put back" $root/out && ok "a fast-forward to a feature branch through FETCH_HEAD is undone" || no "FETCH_HEAD ff" "$(tail -2 $root/out)"
+gr $M "git remote add evil $root/origin.git && git fetch -q evil && git -c advice.detachedHead=false merge -q --ff-only refs/remotes/evil/feature/x"; unchanged $M $HEAD0 && ok "a fast-forward through another remote is refused or undone" || no "other remote ff" "$(tail -2 $root/out)"
+git -C $M remote remove evil 2>/dev/null
+git -C $root/pusher checkout -q main; git -C $root/pusher -c user.email=e@e -c user.name=e commit -q --allow-empty -m "feat: unpublished"
+gr $M "git remote set-url origin $root/pusher/.git && git pull -q --ff-only origin main"; s=$?; git -C $M remote set-url origin $root/origin.git
+unchanged $M $HEAD0 && grep -q "put back" $root/out && ok "a pull after rewriting origin's URL is undone" || no "origin url rewrite" "$(tail -2 $root/out)"
 echo hacked >> $M/README.md
 gr $M 'git checkout -- README.md && git reset -q --hard'; [ $? -eq 0 ] && unchanged $M $HEAD0 && ok "restoring files and reset --hard to HEAD in main allowed" || no "cleanup in main" "$(tail -2 $root/out)"
 gr $M 'git status -s && git log -1 --oneline >/dev/null && git diff --stat'; [ $? -eq 0 ] && ok "read-only git in main allowed" || no "read-only git"
@@ -121,7 +135,7 @@ gr $root 'exit 7'; [ $? -eq 7 ] && ok "exit status passes through" || no "exit s
 gr $root/p "cd $F; exit 0"; [ "$GR_PWD" = "$F" ] && ok "cd is carried back even when the command exits" || no "cd before exit" "$GR_PWD"
 gr $root 'cat; echo done'; [ $? -eq 0 ] && [ "$(cat $root/out)" = done ] && ok "the command reads no input (not the wrapper's heredoc)" || no "stdin" "$(cat $root/out)"
 state=$(/usr/bin/mktemp -t gr-e2e)
-(cd $root && /usr/bin/python3 -I "$runpy" --command "$(printf %s 'echo legacy' | /usr/bin/base64)" --state "$state") >"$root/out" 2>&1
+(cd $root && /usr/bin/python3 -I -B -X pycache_prefix=/var/empty/golden-rule "$runpy" --command "$(printf %s 'echo legacy' | /usr/bin/base64)" --state "$state") >"$root/out" 2>&1
 [ $? -eq 0 ] && [ "$(cat $root/out)" = legacy ] && ok "the --command form from an older mod still runs" || no "--command form" "$(cat $root/out)"
 /bin/rm -f "$state"
 
@@ -142,6 +156,8 @@ gr $root/l/base 'git checkout -q -b other'; [ $? -eq 0 ] && ok "the linked repos
 gr $root "touch '$plugin/hooks/e2e-probe'"; [ ! -e "$plugin/hooks/e2e-probe" ] && ok "the plugin's own files refused" || { no "plugin files"; /bin/rm -f "$plugin/hooks/e2e-probe"; }
 gr $root 'mkdir -p ~/.claude/skills/gr-e2e-probe/hooks'; [ -e ~/.claude/skills/gr-e2e-probe/hooks ] && ok "skills folders are no longer guarded" || no "skills hooks"
 /bin/rm -rf ~/.claude/skills/gr-e2e-probe
+
+[ -z "$(find $plugin -name __pycache__)" ] && ok "the guard writes no bytecode beside itself (nothing to plant)" || no "pycache written" "$(find $plugin -name __pycache__)"
 
 print -- "\n$pass passed, $fail failed"
 [ $fail -eq 0 ]
