@@ -84,6 +84,11 @@ gr $F 'echo y > y.txt && echo j > src/main/J.java && git add -A && git -c user.e
 [ $? -eq 0 ] && [ -n "$(git -C $root/origin.git rev-parse --verify -q feature/t)" ] && ok "commit and push in the feature worktree allowed (src/main too)" || no "feature commit/push" "$(tail -2 $root/out)"
 gr $F 'git worktree add -q ../tmp2 -b feature/tmp2 --no-track origin/main && git worktree remove ../tmp2 && git branch -q -D feature/tmp2'
 [ $? -eq 0 ] && ok "creating and deleting a feature branch allowed" || no "branch delete" "$(tail -2 $root/out)"
+gr $M 'git worktree add -q ../tmp3 -b feature/tmp3 --no-track origin/main 2>&1 && git worktree remove ../tmp3 2>&1 | tail -1 && git branch -q -D feature/tmp3 > /dev/null'
+[ $? -eq 0 ] && [ ! -e $root/p/worktrees/tmp3 ] && ok "redirections are not read as paths (worktree remove 2>&1 from main allowed)" || no "redirection as path" "$(tail -2 $root/out)"
+gr $M 'git commit -q --allow-empty -m x > /dev/null 2>&1'; [ $? -eq 126 ] && ok "a redirected commit in main is still refused" || no "redirected commit"
+argv $M '["git","push","origin",">","HEAD:main"]'; [ $? -eq 126 ] && ok "another plugin's argument '>' is not read as a redirection (push to main refused)" || no "argv redirection differential"
+argv $M '["git","-c","x.y=a b","commit","-q","--allow-empty","-m","x"]'; [ $? -eq 126 ] && unchanged $M $HEAD0 && ok "another plugin's argument with a space stays one word (commit in main refused)" || no "argv space differential"
 unchanged $M $HEAD0 && ok "main untouched by the happy path" || no "main changed by the happy path"
 
 # ---- what stays allowed around a project ----

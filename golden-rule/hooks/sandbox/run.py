@@ -36,6 +36,7 @@ import json
 import os
 import pwd
 import re
+import shlex
 import signal
 import subprocess
 import sys
@@ -186,8 +187,22 @@ def tied(cwd: str, text: str) -> list[str]:
 
 # ---- git commands, wherever they run --------------------------------------------------------------
 
+REDIRECT = re.compile(r"^(\d*|&)(>>?|<<?<?|>&|<&|&>>?)(.*)$")
+
+
 def words(segment: str) -> list[str]:
-    return [a or b or c for a, b, c in re.findall(r'"([^"]*)"|\'([^\']*)\'|(\S+)', segment)]
+    """A stage's words, quotes removed, redirections (`2>&1`, `> log`, `<in`) and their targets left out."""
+    out, skip = [], False
+    for a, b, c in re.findall(r'"([^"]*)"|\'([^\']*)\'|(\S+)', segment):
+        if skip:
+            skip = False
+            continue
+        match = REDIRECT.match(c) if c else None
+        if match:
+            skip = match.group(3) == ""  # the target is the next word
+            continue
+        out.append(a or b or c)
+    return out
 
 
 SEQUENCE = re.compile(r"\s*(?:;|&&|\|\||\n)\s*")
@@ -441,7 +456,8 @@ def prepare(args: list[str]) -> tuple[list[str], str]:
         inner = json.loads(base64.b64decode(args[1]).decode())
         if not isinstance(inner, list) or not inner or not all(isinstance(item, str) for item in inner):
             raise Refused("the argument vector is not a list of strings")
-        return inner, " ".join(inner)
+        # Quoted, so the checks read each argument as one word: none is a redirection or splits on spaces.
+        return inner, " ".join(shlex.quote(item) for item in inner)
     raise Refused("unrecognised arguments")
 
 
