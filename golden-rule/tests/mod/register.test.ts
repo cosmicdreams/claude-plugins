@@ -9,7 +9,7 @@ describe('Layer 2: structured tools', () => {
   test('a Write into the main worktree is refused with the worktree command in the reason', async ($, on) => {
     const seen = world(on)
     const answer = await $.tool.call({ tool: 'Write', file_path: `${MAIN}/new.txt`, content: 'x' })
-    expect(answer.deny).toMatch(/main worktree .*worktrees\/main, the reference/)
+    expect(answer.deny).toMatch(/main worktree .*worktrees\/main could commit/)
     expect(answer.deny).toContain('--no-track origin/main')
     expect(seen.calls.length).toBe(0)
   })
@@ -19,13 +19,13 @@ describe('Layer 2: structured tools', () => {
     const answer = await $.tool.call({ tool: 'Write', file_path: `${MAIN}/.ddev/config.local.yaml`, content: 'x' })
     expect(answer.deny).toBeUndefined()
     expect(seen.calls.length).toBe(1)
-    expect(seen.runs[0]?.slice(-3)).toEqual(['check', MAIN, `${MAIN}/.ddev/config.local.yaml`])
+    expect(seen.runs[0]?.slice(-4)).toEqual([expect.stringContaining('committable.py'), 'check', MAIN, `${MAIN}/.ddev/config.local.yaml`])
   })
 
   test('a file git does not ignore in the main worktree is still refused', async ($, on) => {
     const seen = world(on, { ignored: [`${MAIN}/.ddev/config.local.yaml`] })
     const answer = await $.tool.call({ tool: 'Write', file_path: `${MAIN}/README.md`, content: 'x' })
-    expect(answer.deny).toMatch(/main worktree .*the reference/)
+    expect(answer.deny).toMatch(/main worktree .*could commit/)
     expect(seen.calls.length).toBe(0)
   })
 
@@ -34,6 +34,28 @@ describe('Layer 2: structured tools', () => {
     const answer = await $.tool.call({ tool: 'Write', file_path: `${MAIN}/.ddev/config.local.yaml`, content: 'x' })
     expect(answer.deny).toMatch(/main worktree/)
     expect(seen.calls.length).toBe(0)
+  })
+
+  test('EnterWorktree into the main worktree is allowed: working there is not writing', async ($, on) => {
+    const seen = world(on)
+    const answer = await $.tool.call({ tool: 'EnterWorktree', path: MAIN })
+    expect(answer.deny).toBeUndefined()
+    expect(seen.calls.length).toBe(1)
+  })
+
+  test('an MCP call from a session inside main goes through when it names nothing committable', async ($, on) => {
+    const seen = world(on, { cwd: MAIN })
+    await $.tool.call({ tool: 'mcp__chat__send_message', text: 'the build is green' } as never)
+    expect(seen.calls.length).toBe(1)
+  })
+
+  test('dot folders outside a main worktree are not guarded', async ($, on) => {
+    const seen = world(on)
+    for (const file_path of [`${HOME}/.gitconfig`, `${HOME}/.codex/config.toml`, `${HOME}/.claude/AGENTS.md`, `${HOME}/.claude/skills/x/hooks/m.ts`]) {
+      const answer = await $.tool.call({ tool: 'Write', file_path, content: 'x' })
+      expect(answer.deny).toBeUndefined()
+    }
+    expect(seen.calls.length).toBe(4)
   })
 
   test('a Write in a feature worktree goes through untouched', async ($, on) => {
@@ -68,11 +90,6 @@ describe('Layer 2: structured tools', () => {
     expect(answer.deny).toMatch(/switch the golden rule guard off/)
   })
 
-  test('EnterWorktree into the main worktree is refused', async ($, on) => {
-    world(on)
-    const answer = await $.tool.call({ tool: 'EnterWorktree', path: MAIN })
-    expect(answer.deny).toMatch(/never works inside it/)
-  })
 
   test('a MAIN spelling of the main worktree is the same folder on a case-insensitive volume', async ($, on) => {
     world(on, { files: { [`${HOME}/Sites/P/worktrees/MAIN/.git`]: '' } })
@@ -108,12 +125,6 @@ describe('Layer 2: structured tools', () => {
     expect(seen.calls.length).toBe(0)
   })
 
-  test('MCP calls are refused while the session works inside a main worktree', async ($, on) => {
-    const seen = world(on, { cwd: MAIN })
-    const answer = await $.tool.call({ tool: 'mcp__files__write_file', path: 'LICENSE', content: 'x' } as never)
-    expect(answer.deny).toMatch(/session's folder is inside the main worktree/)
-    expect(seen.calls.length).toBe(0)
-  })
 
   test('an MCP destination reached through a link into main is refused, whatever its name looks like', async ($, on) => {
     world(on, { cwd: FEATURE, links: { [`${FEATURE}/LICENSE`]: `${MAIN}/LICENSE`, [`${FEATURE}/docs`]: MAIN } })
@@ -199,10 +210,10 @@ describe('Layer 1 and subagents', () => {
 })
 
 describe('/golden-rule', () => {
-  test('only the person can clear a quarantine', async ($, on) => {
+  test('reports what is guarded and writes nothing', async ($, on) => {
     const seen = world(on)
-    const answer = await $.command.run({ command: 'golden-rule', args: 'clear', origin: { kind: 'plugin', name: 'other' } } as never)
-    expect(answer.text).toMatch(/only Chris/)
+    const answer = await $.command.run({ command: 'golden-rule', args: '', origin: { kind: 'composer' } } as never)
+    expect(answer.text).toMatch(/keeps no committable change/)
     expect(seen.writes.length).toBe(0)
   })
 })

@@ -1,6 +1,6 @@
 #!/bin/zsh
-# End-to-end: run the real sandbox bootstrap against fixture repositories and check the disk, not the
-# hook's answer. macOS only. Usage: zsh tests/e2e/run.zsh
+# End-to-end: run the real bootstrap against fixture repositories and check the disk, not the hook's
+# answer. macOS only. Usage: zsh tests/e2e/run.zsh
 set -u
 source_plugin=${0:A:h:h:h}
 root=/private/tmp/gr-e2e
@@ -10,7 +10,6 @@ plugin=/private/tmp/gr-e2e-plugin
 /bin/rm -rf $plugin; mkdir -p $plugin; /bin/cp -R $source_plugin/hooks $plugin/
 /usr/bin/python3 -I -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); d["containers"] += ["/private/tmp/gr-e2e", "/private/tmp/gr-e2e/*"]; json.dump(d,open(p,"w"),indent=2)' $plugin/hooks/policy.json
 runpy=$plugin/hooks/sandbox/run.py
-qfile=$HOME/.golden-rule/quarantine.json
 pass=0; fail=0
 ok() { print -- "pass  $1"; pass=$((pass + 1)) }
 no() { print -- "FAIL  $1${2:+ ($2)}"; fail=$((fail + 1)) }
@@ -25,11 +24,6 @@ gr() {
 }
 argv() { (cd "$1" && /usr/bin/python3 -I "$runpy" --argv "$(printf %s "$2" | /usr/bin/base64)") >"$root/out" 2>&1 }
 unchanged() { [ "$(git -C "$1" rev-parse HEAD)" = "$2" ] && [ "$(git -C "$1" branch --show-current)" = main ] && [ -z "$(git -C "$1" status --porcelain)" ] }
-forget() { /usr/bin/python3 -I -c 'import json,sys; p=sys.argv[1]; d=json.load(open(p)); [d.pop(k) for k in list(d) if k.startswith("/private/tmp/gr-e2e")]; json.dump(d,open(p,"w"),indent=2)' "$qfile" 2>/dev/null }
-
-# outside <command>: an outside writer that starts once the sandboxed command has begun (it creates
-# $root/go), so the guard's before-state is always taken first. Use with a command that runs `touch $root/go`.
-outside() { ( for i in {1..100}; do [ -e $root/go ] && break; /bin/sleep 0.05; done; eval "$1"; /bin/rm -f $root/go ) & }
 
 # ---- fixtures ----
 /bin/rm -rf "$root"; mkdir -p "$root/p/worktrees" "$root/origin.git"
@@ -39,33 +33,48 @@ M=$root/p/worktrees/main
 git -C $M config user.email e2e@example.com; git -C $M config user.name e2e
 mkdir -p $M/src/main; echo ref > $M/README.md; echo k > $M/src/main/K.java
 git -C $M add -A; git -C $M commit -q -m "chore: initial"; git -C $M remote add origin "$root/origin.git"; git -C $M push -q origin main
+git -C $M fetch -q origin
 HEAD0=$(git -C $M rev-parse HEAD)
 # A linked main worktree: the repository's first checkout is elsewhere, main is added beside it.
 git clone -q "$root/origin.git" "$root/l/base"; git -C "$root/l/base" checkout -q -b base
 mkdir -p "$root/l/worktrees"; git -C "$root/l/base" worktree add -q ../worktrees/main main
 L=$root/l/worktrees/main; LHEAD=$(git -C $L rev-parse HEAD)
+rename=(-m main renamed)
 
-# ---- the main worktree's files ----
-gr $M 'echo hacked >> README.md'; [ $? -ne 0 ] && unchanged $M $HEAD0 && ok "shell append into main refused" || no "shell append into main"
-gr $M "sed -i '' s/ref/x/ README.md"; unchanged $M $HEAD0 && ok "sed -i in main refused" || no "sed -i in main"
-gr $root "python3 -c \"open('$M/new.txt','w').write('x')\""; [ ! -e $M/new.txt ] && ok "python write into main refused" || no "python write into main"
+# ---- committable changes in main are put back ----
+gr $M 'echo hacked >> README.md'; s=$?; unchanged $M $HEAD0 && [ $s -ne 0 ] && grep -q "reverted committable changes" $root/out && ok "a shell append to a tracked file in main is reverted and reported" || no "append reverted" "$(tail -3 $root/out)"
+gr $M "sed -i '' s/ref/x/ README.md"; unchanged $M $HEAD0 && ok "sed -i in main is reverted" || no "sed -i reverted"
+gr $root "python3 -c \"open('$M/new.txt','w').write('x')\""; [ ! -e $M/new.txt ] && ok "a new unignored file written into main from outside it is deleted" || no "named new file"
 gr $root/p/worktrees "cat > main/heredoc.txt <<'X'
 x
-X"; [ ! -e $M/heredoc.txt ] && ok "heredoc into main refused" || no "heredoc into main"
+X"; [ ! -e $M/heredoc.txt ] && ok "a heredoc into main is deleted" || no "heredoc into main"
+gr $M 'rm README.md'; unchanged $M $HEAD0 && ok "a deleted tracked file is restored" || no "deletion restored"
+gr $M 'echo x > f && git add f'; unchanged $M $HEAD0 && ok "a staged new file is unstaged and removed" || no "git add reverted" "$(git -C $M status --porcelain)"
+argv $root '["/bin/sh","-c","echo x >> '$M'/README.md"]'; unchanged $M $HEAD0 && ok "another plugin's process change in main is reverted" || no "plugin process revert"
+echo mine >> $M/README.md
+gr $M 'echo more >> README.md'; [ "$(tail -1 $M/README.md)" = more ] && grep -q "left as they were" $root/out && ok "a file already changed before the command is left alone and reported" || no "pre-existing change" "$(tail -3 $root/out)"
+git -C $M checkout -q -- README.md
 
-# ---- the main worktree's git state ----
-gr $M 'git checkout -q -b sneaky'; unchanged $M $HEAD0 && ok "checkout -b in main refused" || no "checkout -b in main"
-gr $M 'git reset -q --hard HEAD~0 && echo x > f && git add f'; unchanged $M $HEAD0 && ok "reset and add in main refused" || no "reset/add in main"
-gr $M 'git merge -q --ff-only origin/main'; unchanged $M $HEAD0 && ok "local merge in main refused" || no "local merge in main"
-gr $M 'git config core.fsmonitor evil'; [ -z "$(git -C $M config core.fsmonitor)" ] && ok "config write in main refused" || no "config write in main"
-gr $M 'echo x > .git/hooks/post-checkout'; [ ! -e $M/.git/hooks/post-checkout ] && ok "planting a hook refused" || no "planting a hook"
-gr $M 'git branch -m main renamed'; unchanged $M $HEAD0 && ok "renaming the main branch refused" || no "renaming the main branch"
-gr $M 'mv .git/refs .git/objects/saved-refs'; [ -d $M/.git/refs/heads ] && ok "renaming main's refs folder refused" || no "renaming refs folder"
+# ---- main's HEAD and branch ----
+gr $M 'git checkout -q -b sneaky'; [ $? -eq 126 ] && unchanged $M $HEAD0 && ok "checkout -b in main refused" || no "checkout -b in main"
+gr $M 'git commit -q --allow-empty -m x'; [ $? -eq 126 ] && unchanged $M $HEAD0 && ok "commit in main refused" || no "commit in main"
+gr $root "git -C $M reset -q --hard HEAD~1"; [ $? -eq 126 ] && ok "reset to another commit via git -C refused" || no "reset via -C"
+gr $M "git branch ${rename[*]}"; [ $? -eq 126 ] && unchanged $M $HEAD0 && ok "renaming the main branch refused" || no "renaming the main branch"
+gr $M 'git pull'; [ $? -eq 126 ] && ok "pull without --ff-only refused" || no "plain pull"
+gr $M 'git pull -q --ff-only origin main'; [ $? -eq 0 ] && ok "pull --ff-only in main allowed (keeping the reference current)" || no "ff-only pull" "$(tail -2 $root/out)"
+echo hacked >> $M/README.md
+gr $M 'git checkout -- README.md && git reset -q --hard'; [ $? -eq 0 ] && unchanged $M $HEAD0 && ok "restoring files and reset --hard to HEAD in main allowed" || no "cleanup in main" "$(tail -2 $root/out)"
+gr $M 'git status -s && git log -1 --oneline >/dev/null && git diff --stat'; [ $? -eq 0 ] && ok "read-only git in main allowed" || no "read-only git"
 
-# ---- the reference cannot be moved ----
-gr $root/p 'mv worktrees/main worktrees/old'; [ -d $M/.git ] && ok "moving worktrees/main refused" || no "moving worktrees/main"
-gr $root/p 'mv worktrees wt'; [ -d $M/.git ] && ok "moving worktrees/ refused" || no "moving worktrees/"
-gr $root 'mv p p2'; [ -d $M/.git ] && ok "moving the project folder refused" || no "moving the project folder"
+# ---- main as a dev instance ----
+printf '/vendor/\n/node_modules/\n*.log\n/.ddev/config.local.yaml\n/web/sites/*/files/\n' > $M/.gitignore
+git -C $M add .gitignore; git -C $M commit -q -m "chore: ignores"; HEAD0=$(git -C $M rev-parse HEAD); git -C $M push -q origin main
+gr $M 'mkdir -p vendor/a/b node_modules/x .ddev web/sites/default/files/css && for i in {1..3000}; do echo $i > vendor/a/b/f$i.php; done && echo y > .ddev/config.local.yaml && echo z > debug.log && echo c > web/sites/default/files/css/x.css && echo n > node_modules/x/i.js'
+[ $? -eq 0 ] && [ -f $M/vendor/a/b/f3000.php ] && [ -f $M/web/sites/default/files/css/x.css ] && unchanged $M $HEAD0 && ok "gitignored files of any size and depth are written freely in main" || no "dev instance writes" "$(tail -3 $root/out)"
+gr $M 'echo y > debug.log; touch .'; [ $? -eq 0 ] && ok "touching main's own folder and ignored files is not refused" || no "touch main" "$(tail -2 $root/out)"
+mkdir -p $HOME/.gr-e2e-dot; gr $M "echo x > $HOME/.gr-e2e-dot/f"; [ -f $HOME/.gr-e2e-dot/f ] && ok "dot folders outside a main worktree are free" || no "dot folder write"; /bin/rm -rf $HOME/.gr-e2e-dot
+gr $root/p 'mv worktrees/main worktrees/old'; [ -d $M/.git ] && ok "moving a main worktree folder refused" || no "moving worktrees/main"
+gr $root/p 'mv worktrees wt && mv wt worktrees'; [ $? -eq 0 ] && ok "folders above a main worktree are not governed" || no "moving worktrees/" "$(tail -2 $root/out)"
 
 # ---- the happy path ----
 gr $M 'git fetch -q origin'; [ $? -eq 0 ] && ok "fetch from main allowed" || no "fetch from main" "$(tail -2 $root/out)"
@@ -74,7 +83,7 @@ F=$root/p/worktrees/feat
 gr $F 'echo y > y.txt && echo j > src/main/J.java && git add -A && git -c user.email=e@e -c user.name=e commit -q -m "feat: y" && git push -q origin HEAD:feature/t'
 [ $? -eq 0 ] && [ -n "$(git -C $root/origin.git rev-parse --verify -q feature/t)" ] && ok "commit and push in the feature worktree allowed (src/main too)" || no "feature commit/push" "$(tail -2 $root/out)"
 gr $F 'git worktree add -q ../tmp2 -b feature/tmp2 --no-track origin/main && git worktree remove ../tmp2 && git branch -q -D feature/tmp2'
-[ $? -eq 0 ] && ok "creating and deleting a feature branch allowed (packed-refs while main is loose)" || no "branch delete" "$(tail -2 $root/out)"
+[ $? -eq 0 ] && ok "creating and deleting a feature branch allowed" || no "branch delete" "$(tail -2 $root/out)"
 unchanged $M $HEAD0 && ok "main untouched by the happy path" || no "main changed by the happy path"
 
 # ---- what stays allowed around a project ----
@@ -83,23 +92,28 @@ gr $root 'mkdir -p new/worktrees && git init -q -b main new/worktrees/main'; [ -
 start=$(/usr/bin/python3 -c 'import time; print(time.time())')
 for i in 1 2 3 4 5; do gr $F 'true'; done
 per=$(/usr/bin/python3 -c "import time; print(round((time.time()-$start)/5, 3))")
-/usr/bin/python3 -c "import sys; sys.exit(0 if $per < 0.5 else 1)" && ok "a command costs ${per}s through the sandbox" || no "per-command cost ${per}s"
+/usr/bin/python3 -c "import sys; sys.exit(0 if $per < 0.5 else 1)" && ok "a command costs ${per}s through the bootstrap" || no "per-command cost ${per}s"
+start=$(/usr/bin/python3 -c 'import time; print(time.time())')
+for i in 1 2 3 4 5; do gr $M 'true'; done
+per=$(/usr/bin/python3 -c "import time; print(round((time.time()-$start)/5, 3))")
+/usr/bin/python3 -c "import sys; sys.exit(0 if $per < 0.8 else 1)" && ok "a command in main costs ${per}s with the status check" || no "per-command cost in main ${per}s"
 
 # ---- pushes to main ----
 gr $F 'git push origin HEAD:main'; s=$?; [ $s -eq 126 ] && [ "$(git -C $root/origin.git rev-parse main)" = "$HEAD0" ] && grep -q "pull request" $root/out && ok "push to main from a governed repository refused" || no "governed push to main" "$(tail -2 $root/out)"
 gr $root "git -C $F push origin +HEAD:refs/heads/main"; [ $? -eq 126 ] && ok "push to main via git -C and a full refspec refused" || no "git -C push to main"
 git init -q --bare -b main $root/free.git; git init -q -b main $root/free; git -C $root/free commit -q --allow-empty -m "chore: free"; git -C $root/free remote add origin $root/free.git
-gr $root/free 'git push -q origin main'; [ $? -eq 0 ] && ok "push to main in an ungoverned repository allowed (decision 5)" || no "ungoverned push" "$(tail -2 $root/out)"
+gr $root/free 'git push -q origin main'; [ $? -eq 0 ] && ok "push to main in an ungoverned repository allowed" || no "ungoverned push" "$(tail -2 $root/out)"
 gr $F 'gh pr merge 1 --admin --squash'; [ $? -eq 126 ] && ok "gh pr merge --admin refused in a governed repository" || no "gh --admin"
 gr $F "cd $root/free && git push -q origin main"; [ $? -eq 0 ] && ok "a push after cd into an ungoverned repository is judged there (allowed)" || no "cd then ungoverned push" "$(tail -2 $root/out)"
 gr $root/free "git status -s >/dev/null; git -C '$F' push origin HEAD:main"; [ $? -eq 126 ] && ok "a later governed push is judged in its own repository (refused)" || no "per-segment governed push"
+gr $root "git -C $root/free -C $F push origin HEAD:main"; [ $? -eq 126 ] && ok "every git -C applies in order (refused in the governed one)" || no "-C ordering"
+gr $root "git -C $F -C $root/free push -q origin main"; [ $? -eq 0 ] && ok "the last git -C decides (ungoverned push allowed)" || no "-C ordering reversed" "$(tail -2 $root/out)"
+gr $F "cd $root/free | cat; git push origin HEAD:main"; [ $? -eq 126 ] && ok "a cd inside a pipeline does not carry a push out of its repository" || no "pipeline cd"
 
 # ---- shell semantics ----
 gr $root/p 'cd worktrees/feat'; [ "$GR_PWD" = "$F" ] && ok "cd is carried back to the shell" || no "cd carried back" "$GR_PWD"
 gr $root 'exit 7'; [ $? -eq 7 ] && ok "exit status passes through" || no "exit status"
 gr $root/p "cd $F; exit 0"; [ "$GR_PWD" = "$F" ] && ok "cd is carried back even when the command exits" || no "cd before exit" "$GR_PWD"
-( gr $M "echo '~nobody-gr-e2e/x'" ) & pid=$!; ( sleep 10; kill $pid 2>/dev/null ) & killer=$!
-wait $pid; s=$?; kill $killer 2>/dev/null; [ $s -eq 0 ] && ok "a ~user token does not hang the bootstrap" || no "~user token" "exit $s"
 gr $root 'cat; echo done'; [ $? -eq 0 ] && [ "$(cat $root/out)" = done ] && ok "the command reads no input (not the wrapper's heredoc)" || no "stdin" "$(cat $root/out)"
 state=$(/usr/bin/mktemp -t gr-e2e)
 (cd $root && /usr/bin/python3 -I "$runpy" --command "$(printf %s 'echo legacy' | /usr/bin/base64)" --state "$state") >"$root/out" 2>&1
@@ -107,132 +121,22 @@ state=$(/usr/bin/mktemp -t gr-e2e)
 /bin/rm -f "$state"
 
 # ---- the mod's own wrapper, run by a shell as the Bash tool runs it ----
-# The command as written must come out byte for byte: quotes, expansions, its own heredoc, a line that is
-# the wrapper's delimiter, and no trailing newline.
 tricky=$'printf \'%s|\' "it\'s" \'$HOME\' "`echo tick`"\ncat <<\'EOF\'\n$HOME `x`\nEOF\necho GOLDEN_RULE_EOF\ncat <<\'X\'\nGOLDEN_RULE_EOF\nX'
 expected=$(cd $root && /bin/zsh -c "$tricky")
 wrapped=$(node --input-type=module -e "import { wrapCommand } from '$source_plugin/hooks/mod/shell.ts'; process.stdout.write(wrapCommand(process.argv[1], process.argv[2]))" "$plugin" "$tricky")
 got=$(cd $root && /bin/zsh -c "$wrapped" 2>&1)
 [ "$got" = "$expected" ] && ok "the mod's wrapper runs the command exactly as written" || no "wrapper fidelity" "$got"
 [[ "$wrapped" == *"$tricky"* ]] && ok "the wrapper carries the command verbatim for other hooks to read" || no "wrapper verbatim"
-(cd $root && /bin/zsh -c "$(node --input-type=module -e "import { wrapCommand } from '$source_plugin/hooks/mod/shell.ts'; process.stdout.write(wrapCommand(process.argv[1], 'cd $F; exit 3'))" "$plugin"); print -r -- \$PWD") >"$root/out" 2>&1
-[ "$(cat $root/out)" = "$F" ] && ok "the wrapper carries cd back to the shell" || no "wrapper cd" "$(cat $root/out)"
 
 # ---- linked main worktree ----
-gr $L 'echo x > f && git add f && git -c user.email=e@e -c user.name=e commit -q -m "chore: x"'
-[ "$(git -C $L rev-parse HEAD)" = "$LHEAD" ] && [ -z "$(git -C $L status --porcelain)" ] && ok "linked main worktree refused" || no "linked main worktree"
+gr $L 'echo x > f && echo y >> README.md'; [ -z "$(git -C $L status --porcelain)" ] && ok "a linked main worktree's committable changes are reverted" || no "linked revert" "$(git -C $L status --porcelain)"
+gr $L 'git -c user.email=e@e -c user.name=e commit -q --allow-empty -m x'; [ "$(git -C $L rev-parse HEAD)" = "$LHEAD" ] && ok "commit in a linked main worktree refused" || no "linked commit"
 gr $root/l/base 'git checkout -q -b other'; [ $? -eq 0 ] && ok "the linked repository's own first checkout is not main and stays writable" || no "linked base checkout" "$(tail -2 $root/out)"
-gr $root/l/base 'git config core.fsmonitor evil'; [ -z "$(git -C $root/l/base config core.fsmonitor)" ] && ok "a linked main worktree's shared config refused" || no "linked shared config"
-gr $root "echo x > $root/l/base/.git/worktrees/main/HEAD"; [ "$(git -C $L rev-parse HEAD)" = "$LHEAD" ] && ok "a linked main worktree's own HEAD refused from anywhere" || no "linked HEAD"
-
-# ---- another plugin's process ----
-argv $root '["/bin/sh","-c","echo x > '$M'/plugin.txt"]'; [ ! -e $M/plugin.txt ] && ok "another plugin's process cannot write into main" || no "plugin process write"
 
 # ---- the guard's own files ----
 gr $root "touch '$plugin/hooks/e2e-probe'"; [ ! -e "$plugin/hooks/e2e-probe" ] && ok "the plugin's own files refused" || { no "plugin files"; /bin/rm -f "$plugin/hooks/e2e-probe"; }
-gr $root 'mkdir -p ~/.claude/skills/gr-e2e-probe/hooks'; [ ! -e ~/.claude/skills/gr-e2e-probe/hooks ] && ok "a new hooks module in a skills folder refused" || { no "skills hooks"; /bin/rm -rf ~/.claude/skills/gr-e2e-probe; }
-/bin/rmdir ~/.claude/skills/gr-e2e-probe 2>/dev/null
-gr $root 'mv ~/.claude/hooks ~/.claude/hooks-gr-e2e'; if [ -d ~/.claude/hooks-gr-e2e ]; then /bin/mv ~/.claude/hooks-gr-e2e ~/.claude/hooks; no "moving a guard folder"; else ok "moving a folder that holds the guard refused"; fi
-
-# ---- tripwire: a writer the sandbox cannot see ----
-outside 'echo outside > $M/from-outside.txt'
-gr $M "command -v docker >/dev/null; touch $root/go; sleep 1.5; echo looked"; s=$?
-grep -q "a change was observed in the main worktree" $root/out && [ $s -ne 0 ] && ok "tripwire reports a write made outside the sandbox" || no "tripwire report" "$(tail -2 $root/out)"
-gr $M 'ls'; [ $? -eq 126 ] && grep -q quarantined $root/out && ok "a quarantined main worktree refuses further commands" || no "quarantine holds"
-gr $F 'ls'; [ $? -eq 0 ] && ok "other worktrees keep working during a quarantine" || no "feature during quarantine"
-forget; /bin/rm -f $M/from-outside.txt
-( sleep 0.3; echo outside2 > $M/unwatched.txt ) &
-gr $M 'sleep 1; ls >/dev/null'; s=$?; wait; /bin/rm -f $M/unwatched.txt
-[ $s -eq 0 ] && ! grep -q "change was observed" $root/out && ok "a plain read in main is not scanned (only out-of-sandbox commands are)" || no "plain read scanned"
-gr $M 'ls >/dev/null'; [ $? -eq 0 ] && ok "a read-only command in main is fine and trips nothing" || no "read-only in main" "$(tail -2 $root/out)"
-forget
-# A corrupt quarantine record refuses commands in main worktrees instead of clearing every quarantine.
-mkdir -p $HOME/.golden-rule; [ -f $qfile ] && /bin/cp -p $qfile $root/quarantine.backup
-echo '{not json' > $qfile
-gr $M 'ls >/dev/null'; s=$?
-if [ -f $root/quarantine.backup ]; then /bin/cp -p $root/quarantine.backup $qfile; else /bin/rm -f $qfile; fi
-[ $s -eq 126 ] && ok "an unreadable quarantine record refuses rather than clears" || no "corrupt quarantine" "exit $s"
-
-# ---- an outside writer editing a hook in place ----
-outside 'echo "# changed outside" >> $M/.git/hooks/pre-commit.sample'
-gr $M "command -v docker >/dev/null; touch $root/go; sleep 1.5"; s=$?; wait
-grep -q "pre-commit.sample" $root/out && [ $s -ne 0 ] && ok "tripwire sees a hook edited in place" || no "hook edited in place" "$(tail -2 $root/out)"
-forget
-
-# ---- a main worktree whose path is too long for a shared regex rule ----
-long=$root/$(printf 'c%.0s' {1..240})/$(printf 'p%.0s' {1..240})
-mkdir -p $long/worktrees; git init -q -b main $long/worktrees/main
-gr $root 'true'; [ $? -eq 0 ] && ok "a profile with a very long main worktree path compiles" || no "long path profile" "$(tail -2 $root/out)"
-gr $root "echo x > $long/worktrees/main/f"; [ ! -e $long/worktrees/main/f ] && ok "a very long main worktree path is still protected" || no "long path protection"
-
-# ---- a linked main worktree registered under another administrative id ----
-git clone -q "$root/origin.git" "$root/m/base"; git -C "$root/m/base" checkout -q -b base2
-git -C "$root/m/base" worktree add -q "$root/m/elsewhere/main" -b other-main origin/main
-git -C "$root/m/base" worktree add -q "$root/m/worktrees/main" main
-id=$(basename $(sed 's/^gitdir: //' "$root/m/worktrees/main/.git"))
-gr $root/m/base 'git config core.fsmonitor evil'; [ -z "$(git -C $root/m/base config core.fsmonitor)" ] && ok "shared config of a linked main worktree with id $id refused" || no "linked id $id config"
-
-# ---- a main worktree with a separate git directory ----
-mkdir -p $root/s/worktrees; git init -q -b main --separate-git-dir=$root/s/repo.git $root/s/worktrees/main
-SEP=$(cat $root/s/worktrees/main/.git)
-gr $root "echo 'gitdir: /tmp' > $root/s/worktrees/main/.git"; [ "$(cat $root/s/worktrees/main/.git)" = "$SEP" ] && ok "a separate-git-dir main worktree's .git pointer refused" || no "separate git dir pointer"
-gr $root "git -C $root/s/worktrees/main config core.fsmonitor evil"; [ -z "$(git -C $root/s/worktrees/main config core.fsmonitor)" ] && ok "a separate-git-dir main worktree's config refused" || no "separate git dir config"
-
-# ---- push directory tracking ----
-gr $root "git -C $root/free -C $F push origin HEAD:main"; [ $? -eq 126 ] && ok "every git -C applies in order (refused in the governed one)" || no "-C ordering"
-gr $root "git -C $F -C $root/free push -q origin main"; [ $? -eq 0 ] && ok "the last git -C decides (ungoverned push allowed)" || no "-C ordering reversed" "$(tail -2 $root/out)"
-gr $F "cd $root/free | cat; git push origin HEAD:main"; [ $? -eq 126 ] && ok "a cd inside a pipeline does not carry a push out of its repository" || no "pipeline cd"
-
-# ---- hard links ----
-gr $root "ln $M/README.md $root/hard"; [ ! -e $root/hard ] && ok "a hard link to a file in main refused" || no "hard link into main created"
-
-# ---- gitignored, untracked files in a main worktree ----
-mkdir -p $root/g/worktrees; G=$root/g/worktrees/main; git init -q -b main $G
-git -C $G config user.email e2e@example.com; git -C $G config user.name e2e
-printf '/vendor/\n*.log\n!keep.log\n/tracked.txt\nlogs\n' > $G/.gitignore
-echo ref > $G/README.md; mkdir -p $G/logs; echo t > $G/logs/kept.php; echo t > $G/tracked.txt
-git -C $G add .gitignore README.md; git -C $G add -f logs/kept.php tracked.txt; git -C $G commit -q -m "chore: initial"
-mkdir -p $G/vendor; echo x > $G/vendor/seed.php; echo x > $G/app.log; GHEAD=$(git -C $G rev-parse HEAD)
-gr $G 'echo y > vendor/a.php && mkdir -p vendor/b && echo x > vendor/b/c.php && echo y >> app.log'
-[ -f $G/vendor/b/c.php ] && [ "$(tail -1 $G/app.log)" = y ] && ok "existing gitignored files and folders in main are writable" || no "ignored writes" "$(tail -2 $root/out)"
-gr $G 'echo x > other.log'; [ ! -e $G/other.log ] && ok "a new ignored file in a folder git does not ignore stays refused (documented limit)" || no "new ignored file outside an ignored folder"
-gr $G 'echo x > TRACKED.txt'; unchanged $G $GHEAD && ok "a case variant of a tracked file stays refused" || no "case variant of tracked file"
-gr $G 'echo x > vendor/.gitignore'; [ ! -e $G/vendor/.gitignore ] && ok "an ignore file inside an open ignored folder stays refused" || no "ignore file in ignored folder"
-# Round 2: a JSON \u escape once reached the sandbox as ASCII letters, opening u00e9/ for ignored é/.
-mkdir -p "$G/u00e9" "$G/vendor/é"; echo t > $G/u00e9/precious; git -C $G add -f u00e9/precious; git -C $G commit -q -m "test: precious"; GHEAD=$(git -C $G rev-parse HEAD)
-gr $G 'echo hacked > u00e9/precious; echo x > vendor/ok.php'; unchanged $G $GHEAD && ok "a non-ASCII ignored name opens no ASCII look-alike" || no "unicode escape widening"
-/bin/rm -rf "$G/vendor/é"
-gr $G 'echo x > vendor/reopened.php'; [ -f $G/vendor/reopened.php ] && ok "the ignored folder opens again once the non-ASCII name is gone" || no "vendor reopened" "$(tail -2 $root/out)"
-# Round 2: a hard link inside an open folder to a protected file elsewhere.
-echo keep > $root/elsewhere.txt; /bin/ln $root/elsewhere.txt $G/vendor/alias.php
-gr $G 'echo hacked > vendor/alias.php'; [ "$(cat $root/elsewhere.txt)" = keep ] && ok "a hard link inside an ignored folder does not open its target" || no "hard link in ignored folder"
-/bin/rm -f $G/vendor/alias.php
-# An outside writer changing a tracked file while an opened (not watched) command runs is caught afterwards.
-outside 'echo outside >> $G/README.md'
-gr $G "echo x > vendor/during.php; touch $root/go; sleep 1.5"; s=$?; wait
-grep -q "a tracked file in the main worktree" $root/out && [ $s -ne 0 ] && ok "a tracked change during an opened command quarantines main" || no "opened command tracked check" "$(tail -2 $root/out)"
-forget; git -C $G checkout -q -- README.md
-gr $root "echo x > $G/vendor/named.php"; [ -f $G/vendor/named.php ] && ok "an ignored file in main named from outside it is writable" || no "ignored write by name" "$(tail -2 $root/out)"
-gr $G 'echo x >> README.md'; unchanged $G $GHEAD && ok "a tracked file beside ignored ones stays refused" || no "tracked write in main with ignores"
-gr $G 'echo x > new.txt'; [ ! -e $G/new.txt ] && ok "an untracked file git does not ignore stays refused" || no "unignored new file"
-gr $G 'echo x >> tracked.txt; echo x >> logs/kept.php; echo x > logs/new.php'; [ -z "$(git -C $G status --porcelain)" ] && [ ! -e $G/logs/new.php ] && ok "tracked-but-ignored files, and a pattern holding tracked files, stay refused" || no "tracked-but-ignored" "$(git -C $G status --porcelain | head -3)"
-gr $G 'echo x > keep.log'; [ ! -e $G/keep.log ] && ok "a ! re-included file stays refused" || no "negated pattern"
-gr $G 'ln -s ../README.md vendor/link; echo x >> vendor/link'; unchanged $G $GHEAD && ok "a link from an ignored folder to a tracked file does not write it" || no "link out of ignored folder"
-gr $G 'mv vendor vendor2'; [ -d $G/vendor ] && [ ! -e $G/vendor2 ] && ok "an ignored folder cannot be moved to a name git does not ignore" || no "ignored folder renamed"
-gr $G 'echo x > .gitignore'; unchanged $G $GHEAD && ok "the tracked .gitignore stays refused" || no ".gitignore write"
-gr $G 'echo x > .git/info/exclude'; [ "$(cat $G/.git/info/exclude 2>/dev/null)" != x ] && ok "info/exclude stays refused" || no "info/exclude write"
-# The tripwire: an outside writer touching only ignored files is not a change; anything else still is.
-outside 'echo x > $G/vendor/outside.php; echo x > $G/outside.log'
-gr $G "command -v docker >/dev/null; touch $root/go; sleep 1.5"; s=$?; wait
-[ $s -eq 0 ] && ! grep -q "change was observed" $root/out && ok "tripwire lets an outside writer change ignored files" || no "tripwire on ignored files" "$(tail -2 $root/out)"
-outside "mkdir -p $G/hidden; printf '*\\n' > $G/hidden/.gitignore; echo x > $G/hidden/evil.php"
-gr $G "command -v docker >/dev/null; touch $root/go; sleep 1.5"; s=$?; wait
-grep -q "change was observed" $root/out && [ $s -ne 0 ] && ok "tripwire is not fooled by an ignore file written during the command" || no "tripwire hidden by new .gitignore" "$(tail -2 $root/out)"
-forget; /bin/rm -rf $G/hidden
-outside '/bin/rm $G/tracked.txt'
-gr $G "command -v docker >/dev/null; touch $root/go; sleep 1.5"; s=$?; wait
-grep -q "change was observed" $root/out && [ $s -ne 0 ] && ok "tripwire sees a tracked file deleted outside the sandbox" || no "tripwire deletion" "$(tail -2 $root/out)"
-forget; git -C $G checkout -q -- tracked.txt
+gr $root 'mkdir -p ~/.claude/skills/gr-e2e-probe/hooks'; [ -e ~/.claude/skills/gr-e2e-probe/hooks ] && ok "skills folders are no longer guarded" || no "skills hooks"
+/bin/rm -rf ~/.claude/skills/gr-e2e-probe
 
 print -- "\n$pass passed, $fail failed"
 [ $fail -eq 0 ]

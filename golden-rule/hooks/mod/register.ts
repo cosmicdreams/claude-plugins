@@ -1,6 +1,7 @@
-// The golden rule mod: main is never the operating surface. Every gate fails closed (its .catch refuses);
-// the shell layer hands each command to hooks/sandbox/run.py, which runs it inside a write-denying
-// sandbox and refuses pushes to main from governed repositories.
+// The golden rule mod: a main worktree keeps no committable change, and work reaches main only through a
+// pull request. Every gate fails closed (its .catch refuses); the shell layer hands each command to
+// hooks/sandbox/run.py, which refuses pushes to main and git commands that move main's HEAD, and puts back
+// any committable change a command made in a main worktree.
 // Plan: ~/Tools/CLAUDE-PLUGINS/plans/2026-10-06-golden-rule-mod.md.
 
 import type { EngineInterface, Register } from 'claude-code'
@@ -78,11 +79,10 @@ async function refuse($: EngineInterface, tool: string, what: string, why: strin
   return { deny: `golden-rule: ${why}` }
 }
 
-/** Whether a real path in a main worktree is an untracked file git's own ignore rules name, which is not
- * part of the reference (hooks/sandbox/ignored.py, the same answer the sandbox and tripwire use). Anything
- * but a clear yes, a failure included, keeps the path protected. */
+/** Whether a real path in a main worktree is a gitignored, untracked file, which nothing could commit
+ * (hooks/sandbox/committable.py). Anything but a clear yes, a failure included, keeps the path protected. */
 async function isIgnored($: EngineInterface, root: string, real: string): Promise<boolean> {
-  const done = await $.process.run(['/usr/bin/python3', '-I', `${$.plugin.root}/hooks/sandbox/ignored.py`, 'check', root, real], { timeoutMs: 20_000 })
+  const done = await $.process.run(['/usr/bin/python3', '-I', `${$.plugin.root}/hooks/sandbox/committable.py`, 'check', root, real], { timeoutMs: 20_000 })
     .catch(() => undefined)
   return done?.exitCode === 0
 }
@@ -99,7 +99,7 @@ async function judgeWrite($: EngineInterface, path: string, text?: string): Prom
   const real = await placed(path, cwd, home, io($))
   if (isIdentityPath(real)) return `${path} lands on a file-identity path (${real}), which the guard cannot place; use its real path.`
   const root = await mainWorktreeOf(real, io($))
-  if (root && !(await isIgnored($, root, real))) return `${real} is in the main worktree ${root}, the reference, which is never written to. ${worktreeHint(root)}`
+  if (root && !(await isIgnored($, root, real))) return `${real} is a file the main worktree ${root} could commit; main keeps no committable change. ${worktreeHint(root)}`
   const owner = governedGitPath(real, gitDirs)
   if (owner) return `${real} is git metadata of the main worktree ${owner.root}; only git itself writes there.`
   if (isGuardPath([spelled, real], guardRoots, rules)) return `${real} belongs to the golden rule's guard, which a session never changes.`
@@ -242,38 +242,17 @@ async function guarded($: EngineInterface): Promise<string[]> {
   return roots
 }
 
-type Quarantine = Record<string, { at: string; path: string; command: string }>
-
-async function quarantine($: EngineInterface): Promise<Quarantine | 'unreadable'> {
-  const rules = await setup($)
-  const text = await $.fs.read(expandHome(rules.quarantineFile, home)).catch(() => undefined)
-  if (text === undefined) return {}
-  const json = parse(text)
-  return typeof json === 'object' && json !== null ? json as Quarantine : 'unreadable'
-}
-
 async function showStatus($: EngineInterface): Promise<void> {
-  const held = await quarantine($)
   const count = (await guarded($)).length
-  if (held === 'unreadable') $.ui.status('golden rule: quarantine record unreadable, commands in main worktrees refused; run /golden-rule')
-  else if (Object.keys(held).length > 0) $.ui.status(`golden rule: ${Object.keys(held).length} main worktree quarantined, run /golden-rule`)
-  else $.ui.status(`golden rule: ${count} main worktrees guarded${composed ? '' : ' (rule on each prompt)'}`)
+  $.ui.status(`golden rule: ${count} main worktrees guarded${composed ? '' : ' (rule on each prompt)'}`)
 }
 
 async function report($: EngineInterface): Promise<string> {
   const roots = await guarded($)
-  const held = await quarantine($)
   const refusals = (((await $.store.get('refusals').catch(() => undefined)) as Refusal[] | undefined) ?? []).slice(-10)
-  const heldLines = held === 'unreadable'
-    ? ['The quarantine record is unreadable: commands touching main worktrees are refused until /golden-rule clear.']
-    : Object.keys(held).length > 0
-      ? ['Quarantined (a change was observed; run /golden-rule clear once you have looked):',
-        ...Object.entries(held).map(([root, entry]) => `  ${root}: ${entry.path} at ${entry.at}, during: ${entry.command}`)]
-      : ['Nothing quarantined.']
   return [
-    `Golden rule: main is never the operating surface. ${roots.length} main worktrees guarded:`,
+    `Golden rule: a main worktree keeps no committable change. ${roots.length} main worktrees guarded:`,
     `  ${roots.map(root => root.split('/').slice(-3, -2)[0]).join(', ')}`,
-    ...heldLines,
     refusals.length > 0 ? 'Recent refusals:' : 'No refusals yet.',
     ...refusals.map(entry => `  ${entry.at} ${entry.tool}: ${entry.why.split('.')[0]}`),
     `Rule as the model reads it: ${composed ? 'system prompt' : 'a short form on each prompt (the system prompt is not open to mods on this account)'}.`,
@@ -284,18 +263,11 @@ export const register: Register = on => {
   on('session.start', async ($, e, next) => {
     await setup($)
     await showStatus($).catch(() => undefined)
-    await $.command.register({ name: 'golden-rule', description: 'Golden rule: what is guarded, recent refusals, quarantines', argumentHint: '[clear]' }).catch(() => undefined)
+    await $.command.register({ name: 'golden-rule', description: 'Golden rule: what is guarded and recent refusals' }).catch(() => undefined)
     return next(e)
   })
 
-  on('command.run', { command: 'golden-rule' }, async ($, e) => {
-    if (e.args.trim() !== 'clear') return { text: await report($) }
-    if (e.origin.kind !== 'composer') return { text: 'golden-rule: only Chris, typing /golden-rule clear himself, can lift a quarantine.' }
-    const rules = await setup($)
-    await $.fs.write(expandHome(rules.quarantineFile, home), '{}\n')
-    await showStatus($)
-    return { text: 'golden-rule: quarantine cleared.' }
-  })
+  on('command.run', { command: 'golden-rule' }, async $ => ({ text: await report($) }))
 
   // ---- Layer 1: the rule is always in context ----
   on('prompt.compose', async ($, e, next) => {
@@ -323,14 +295,6 @@ export const register: Register = on => {
     const why = await judgeWrite($, path, text)
     return why ? refuse($, e.tool, path, why) : next(e)
   }).catch(($, e, next) => (next.called ? next(e) : { deny: 'golden-rule: the edit guard failed, so this edit was not made.' }))
-
-  on('tool.call', { tool: 'EnterWorktree' }, async ($, e, next) => {
-    if (e.path) {
-      const root = await mainWorktreeOf(await placed(e.path, await $.session.cwd(), home, io($)), io($))
-      if (root) return refuse($, e.tool, e.path, `${root} is the main worktree, the reference; a session never works inside it. ${worktreeHint(root)}`)
-    }
-    return next(e)
-  }).catch(($, e, next) => (next.called ? next(e) : { deny: 'golden-rule: the worktree guard failed, so the session stayed where it is.' }))
 
   // A subagent's prompt carries the short rule where the system prompt cannot (a Team seat).
   on('tool.call', { tool: 'Agent' }, async ($, e, next) =>
@@ -378,15 +342,18 @@ export const register: Register = on => {
     const tool = String(e.tool)
     const rules = await setup($)
     if (rules.mcpReadTools.some(pattern => new RegExp(pattern).test(tool))) return next(e)
-    // A session working inside a main worktree: any relative destination an MCP server takes lands there.
-    const inside = await mainWorktreeOf(await placed('.', await $.session.cwd(), home, io($)), io($))
-    if (inside) return refuse($, tool, inside, `this session's folder is inside the main worktree ${inside}, so this MCP call could write there. ${worktreeHint(inside)}`)
     const texts = strings(Object.fromEntries(Object.entries(e).filter(([key]) => key !== 'tool' && key !== 'tool_use_id' && key !== 'agentId')))
     // Every string that could name a file is placed as a path, links followed, and judged by where it
     // lands: a destination reached through a link into main is caught, and ordinary text lands nowhere
     // protected. A string past the system's path limits (1,024 bytes, 255 per name) cannot be a
     // destination and is not placed, so long content never fails the call.
-    const whole = texts.filter(couldBePath)
+    // A bare relative word (no slash) is a path only when it names something that exists: otherwise every
+    // sentence sent from a session inside main would read as a new file there.
+    const cwd = await $.session.cwd()
+    const whole: string[] = []
+    for (const text of texts.filter(couldBePath)) {
+      if (/^[~/]/.test(text) || text.includes('/') || await io($).realPath(normalize(text, cwd)).catch(() => undefined) !== undefined) whole.push(text)
+    }
     for (const path of [...new Set([...whole, ...texts.flatMap(pathLiterals), ...texts.flatMap(relativeMainTokens)])].filter(couldBePath)) {
       const why = await judgeWrite($, path)
       if (why) return refuse($, tool, path, `${why} (MCP tools are refused for main worktrees unless listed as read-only in policy.json)`)

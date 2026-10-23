@@ -7,7 +7,6 @@ export type Policy = {
   guardPatterns: string[]
   mcpReadTools: string[]
   pluginId: string
-  quarantineFile: string
 }
 
 /** The file-system answers the decisions need. `realPath` is undefined only for a path that is not there. */

@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.3.0
+
+**The rule is narrowed to its purpose: a main worktree keeps no committable change.** 0.2.0 sandboxed every command and quarantined main worktrees, which blocked running main as a dev instance and broke tools that apply their own sandbox (Codex).
+
+- No sandbox, no tripwire, no quarantine. Around a command run in or naming a main worktree, `git status` is taken before and after; tracked files the command changed are restored from HEAD and new unignored files are deleted, with a report. Files already changed before are left alone and reported.
+- Gitignored files in main change freely, whatever their size or depth, judged as `git status` judges them (global excludes included). `vendor/`, `node_modules/` and the files folder are no longer denied to commands.
+- Git commands that would move main's HEAD or branch are refused before they run; `pull --ff-only`, `fetch`, `worktree add`, restoring files and `reset --hard` to HEAD are allowed.
+- Dot folders and everything else outside a main worktree are no longer guarded: `~/.gitconfig`, `~/.git-hooks`, `~/.codex`, `~/.claude/AGENTS.md` and skills `hooks/` folders are dropped from the policy. Self-protection covers only the plugin's files, the settings hook and settings that would switch it off.
+- `EnterWorktree` into main is allowed, and MCP calls are no longer refused just because the session works inside main.
+- `hooks/sandbox/ignored.py` is replaced by `hooks/sandbox/committable.py`.
+
 ## 0.2.0
 
 - **Gitignored, untracked files in a main worktree may be written.** They are not part of the reference, so DDEV, Composer and a database import can run in main to compare it with a feature branch. Tracked files (ignored or not), untracked files git does not ignore, `!` re-included paths, the ignore files that decide it and the git metadata stay protected.
