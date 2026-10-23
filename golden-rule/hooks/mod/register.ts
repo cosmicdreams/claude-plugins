@@ -82,7 +82,7 @@ async function refuse($: EngineInterface, tool: string, what: string, why: strin
 /** Whether a real path in a main worktree is a gitignored, untracked file, which nothing could commit
  * (hooks/sandbox/committable.py). Anything but a clear yes, a failure included, keeps the path protected. */
 async function isIgnored($: EngineInterface, root: string, real: string): Promise<boolean> {
-  const done = await $.process.run(['/usr/bin/python3', '-I', `${$.plugin.root}/hooks/sandbox/committable.py`, 'check', root, real], { timeoutMs: 20_000 })
+  const done = await $.process.run(['/usr/bin/python3', '-I', '-B', '-X', 'pycache_prefix=/var/empty/golden-rule', `${$.plugin.root}/hooks/sandbox/committable.py`, 'check', root, real], { timeoutMs: 20_000 })
     .catch(() => undefined)
   return done?.exitCode === 0
 }

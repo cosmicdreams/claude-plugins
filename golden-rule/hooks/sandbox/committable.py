@@ -114,13 +114,19 @@ def digest(path: str) -> str | None:
 
 
 def published_fast_forward(root: str, before: dict, after: dict) -> bool:
-    """Whether main only moved forward, on the same branch, to a commit a remote already has (pull --ff-only):
-    keeping the reference current, not a change made on it."""
-    if not (before["head"] and after["head"]) or before["branch"] != after["branch"]:
+    """Whether main only moved forward, on the same branch, to a commit its own upstream (origin/main) holds
+    (pull --ff-only): keeping the reference current, not a change made on it. Any other remote branch does
+    not count: a pushed feature branch has not been through a pull request."""
+    if not (before["head"] and after["head"]) or before["branch"] != after["branch"] or not after["branch"]:
         return False
     try:
-        git(root, "merge-base", "--is-ancestor", before["head"], after["head"])  # exit 1 (not an ancestor) raises
-        return bool(git(root, "branch", "-r", "--contains", after["head"]).strip())
+        upstream = git(root, "rev-parse", "--symbolic-full-name", f"{after['branch'].removeprefix('refs/heads/')}@{{upstream}}").decode().strip()
+        if not upstream.startswith("refs/remotes/"):
+            return False
+        # exit 1 (not an ancestor) raises Unknown
+        git(root, "merge-base", "--is-ancestor", before["head"], after["head"])
+        git(root, "merge-base", "--is-ancestor", after["head"], upstream)
+        return True
     except (Unknown, subprocess.SubprocessError):
         return False
 

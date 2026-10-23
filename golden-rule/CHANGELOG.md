@@ -2,8 +2,10 @@
 
 ## 0.3.2
 
-- A fast-forward of main to commits a remote already has (`git pull --ff-only`) is no longer reported as HEAD moved.
-- Guard files inside a main worktree (a plugin loaded from its folder, as on the work account) are no longer singled out: commands naming them are not refused, and a pull that updates them is not reported. The main-worktree revert already covers them.
+- A fast-forward of main to its own upstream (`git pull --ff-only`) is no longer reported as HEAD moved. Only main's upstream counts: `merge --ff-only` or `pull --ff-only` of any other branch into main is refused, and so is forging the upstream with `update-ref` or a fetch refspec.
+- On the work account the plugin is loaded from `worktrees/main/golden-rule`: commands may name that folder (read it, pull it), and a pull that updates its tracked files is not reported. Every guard path stays protected: tracked files by the main-worktree revert, and any untracked or ignored file appearing under the plugin is reported.
+- The guard's Python runs with `-B -X pycache_prefix=/var/empty/golden-rule`, so it never reads or writes bytecode beside itself: a planted `__pycache__` cannot run inside the guard.
+- Changes found by automated security reviews of this fix.
 
 ## 0.3.1
 

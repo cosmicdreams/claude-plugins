@@ -335,10 +335,17 @@ def moves_head(sub: list[str]) -> str | None:
     pos = positionals(args)
     if name in ("commit", "rebase", "cherry-pick", "revert", "am", "filter-branch", "filter-repo"):
         return f"git {name} moves main's HEAD"
-    if name == "merge" and "--ff-only" not in args and not ({"--abort", "--quit"} & set(args)):
-        return "git merge without --ff-only can make a commit on main"
-    if name == "pull" and "--ff-only" not in args:
-        return "git pull without --ff-only can make a commit on main; use git pull --ff-only"
+    upstream = re.compile(r"(@\{u(pstream)?\}|[^/\s]+/main|refs/remotes/[^/\s]+/main|FETCH_HEAD)")
+    if name == "merge" and not ({"--abort", "--quit"} & set(args)):
+        if "--ff-only" not in args:
+            return "git merge without --ff-only can make a commit on main"
+        if not pos or not all(upstream.fullmatch(p) for p in pos):
+            return "git merge --ff-only in main takes only main's upstream (origin/main): other branches reach main by pull request"
+    if name == "pull":
+        if "--ff-only" not in args:
+            return "git pull without --ff-only can make a commit on main; use git pull --ff-only"
+        if any(p.lstrip("+").split(":")[0] not in ("main", "refs/heads/main") for p in pos[1:]):
+            return "git pull --ff-only in main takes only main from the remote: other branches reach main by pull request"
     if name == "reset" and any(p not in ("HEAD", "@") for p in pos):
         return "git reset to another commit moves main"
     if name == "checkout" and "--" not in args and (set(args) & {"-b", "-B", "--orphan", "--detach"} or any(p != "main" for p in pos[:1])):
@@ -349,8 +356,10 @@ def moves_head(sub: list[str]) -> str | None:
         return "git branch would rename, delete or reset main"
     if name == "stash" and pos[:1] and pos[0] in ("pop", "apply", "branch"):
         return "git stash pop/apply brings changes into main (they would be reverted, and pop would drop the stash)"
-    if name == "update-ref" and any(re.fullmatch(r"(refs/heads/main|HEAD)", p) for p in pos):
-        return "git update-ref of main moves it"
+    if name == "update-ref" and any(re.fullmatch(r"(refs/heads/main|HEAD|refs/remotes/[^/]+/main)", p) for p in pos):
+        return "git update-ref of main or its upstream moves it"
+    if name == "fetch" and any(re.fullmatch(r"(refs/)?remotes/[^/]+/main", p.lstrip("+").split(":")[-1]) for p in pos[1:] if ":" in p):
+        return "a git fetch refspec that writes main's upstream from another branch"
     if name == "symbolic-ref" and len(pos) >= 2:
         return "git symbolic-ref would point main's HEAD elsewhere"
     if name == "worktree" and pos[:1] and pos[0] in ("move", "remove"):
@@ -385,11 +394,22 @@ def head_violation(text: str, cwd: str) -> str | None:
 # ---- the guard itself ----------------------------------------------------------------------------
 
 def guard_paths(policy: dict) -> list[str]:
-    """The guard's files outside any main worktree. One read from a main worktree (a plugin loaded from its
-    folder) is already covered: a command's committable change there is put back, and a pull updates it."""
-    paths = [PLUGIN_ROOT, *(os.path.realpath(expand(path)) if os.path.lexists(expand(path)) else expand(path)
-                            for path in policy["guardFiles"])]
-    return [path for path in paths if not main_worktree_of(path, "/")]
+    """The guard's own files: the plugin folder and the policy's guardFiles, wherever they are."""
+    return [PLUGIN_ROOT, *(os.path.realpath(expand(path)) if os.path.lexists(expand(path)) else expand(path)
+                           for path in policy["guardFiles"])]
+
+
+def tracked_in_main(path: str) -> bool:
+    """Whether a guard path is a file a main worktree tracks: a plugin loaded from its folder (the work
+    account). Changes to it reach main only by pull request, and the main-worktree revert puts back any
+    other; ignored or untracked files beside it stay the guard's alone."""
+    root = main_worktree_of(path, "/")
+    if not root:
+        return False
+    try:
+        return bool(committable.git(root, "ls-files", "--error-unmatch", "--", os.path.relpath(path, root)).strip())
+    except Exception:
+        return False
 
 
 def inside(path: str, root: str) -> bool:
@@ -398,7 +418,9 @@ def inside(path: str, root: str) -> bool:
 
 def guard_violation(text: str, cwd: str, policy: dict, every: set[str]) -> str | None:
     """Why the command reaches the guard's own files or would carry a main worktree away, or None."""
-    guarded = guard_paths(policy)
+    # A guard folder inside a main worktree may be named (read, or updated by a pull); everything else of
+    # the guard may not.
+    guarded = [path for path in guard_paths(policy) if not main_worktree_of(path, "/")]
     placed = [deepest_real(absolute(token, cwd)) for token in path_tokens(text)]
     for path in placed:
         if any(inside(path, root) for root in guarded):
@@ -506,8 +528,9 @@ def main() -> int:
             print(f"\n{PREFIX} the command ran, but the guard could not check the main worktree {root} ({error}). "
                   f"Run git -C {root} status and tell Chris what it shows.", file=sys.stderr)
             status = status or 1
-    changed = sorted(path for path, state in fingerprint(policy).items() if guard_before.get(path) != state)
-    changed += sorted(set(guard_before) - set(fingerprint(policy)))
+    guard_after = fingerprint(policy)
+    changed = sorted(path for path in set(guard_before) | set(guard_after)
+                     if guard_before.get(path) != guard_after.get(path) and not tracked_in_main(path))
     if changed:
         print(f"\n{PREFIX} this command changed the golden rule's own files ({', '.join(changed[:5])}). "
               "Tell Chris now; a session never changes the guard.", file=sys.stderr)
