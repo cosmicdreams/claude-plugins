@@ -1,18 +1,27 @@
 #!/usr/bin/env python3
-"""Run one shell command (or another plugin's argument vector) inside the golden rule's sandbox.
+"""Run one shell command (or another plugin's argument vector) under the golden rule.
 
-The golden-rule mod rewrites every Bash and Monitor command to call this script. It runs outside the
-sandbox, computes the profile from the shell's real working directory at execution time (so the model
-never sees or edits the policy), runs the command under /usr/bin/sandbox-exec, and passes the exit
-status through. Writes into a main worktree (a working-tree root named `main`, in practice
-<project>/worktrees/main) are denied, except the git metadata a feature worktree must write. Gitignored,
-untracked files in a main worktree the command touches stay writable (hooks/sandbox/ignored.py). Pushes
-to `main` from a governed repository are refused. Around a command tied to a main worktree that hands work
-to a process outside the sandbox (a container engine, a terminal, a scheduler) it watches for changes and
-quarantines the worktree when one appears.
+The golden-rule mod rewrites every Bash and Monitor command to call this script, which knows the shell's
+real working directory. The rule it enforces is narrow: a main worktree (a working-tree root named `main`,
+in practice <project>/worktrees/main) never keeps a change that could be committed, and work reaches main
+only through a pull request. Everything else, gitignored files in main included, is free.
 
-Anything that goes wrong before the command runs refuses it (exit 126): the guard fails closed. Anything
-that goes wrong after it ran quarantines the main worktrees it was tied to.
+Before the command:
+- a push to `main` from a governed repository, `gh pr merge --admin` and API writes to refs/heads/main
+  are refused;
+- a git command run in a main worktree that would move its HEAD or branch (commit, merge, rebase,
+  checkout or switch to another branch, reset to another commit, pull without --ff-only, renaming or
+  deleting main, stash pop) is refused.
+
+Around a command tied to a main worktree (run inside it, or naming it), `git status` is taken before and
+after. Every tracked file the command changed is restored from HEAD and every new file git does not ignore
+is deleted; a path that was already changed before is left alone and reported (committable.py).
+
+A command that names the guard's own files (the plugin folder, the settings hook), or removes or renames
+a main worktree's folder or its .git, is refused; after every command the guard's files are compared with
+before. There is no sandbox: one would break every tool that applies its own (Codex, some build tools).
+
+Anything that goes wrong before the command runs refuses it (exit 126).
 
 Usage:
   run.py --stdin --state <file>                      the Bash tool's command, on stdin; final directory to <file>
@@ -22,9 +31,7 @@ Usage:
 from __future__ import annotations
 
 import base64
-import fcntl
 import glob
-import hashlib
 import json
 import os
 import pwd
@@ -32,24 +39,14 @@ import re
 import signal
 import subprocess
 import sys
-import tempfile
-import time
 
 HERE = os.path.dirname(os.path.realpath(__file__))
 sys.path.insert(0, HERE)  # -I leaves the script's own folder off the path
 
-import ignored  # noqa: E402
+import committable  # noqa: E402
 PLUGIN_ROOT = os.path.dirname(os.path.dirname(HERE))
 HOME = pwd.getpwuid(os.getuid()).pw_dir  # not $HOME, which a command could change
-SANDBOX_EXEC = "/usr/bin/sandbox-exec"
 PREFIX = "golden-rule:"
-# The sandbox profile reader refuses a regex string over 1,023 bytes; leave room for prefixes and suffixes.
-REGEX_BUDGET = 900
-# Programs that hand work to a process outside the sandbox: a container engine writing through a bind
-# mount, or a terminal, scheduler or app acting for the command. Only these can write to a main worktree
-# while the command itself is sandboxed, so commands naming them are watched.
-OUTSIDE = {"ddev", "docker", "docker-compose", "podman", "colima", "lima", "nerdctl",
-           "osascript", "tmux", "screen", "open", "launchctl", "crontab", "at", "batch"}
 
 
 class Refused(Exception):
@@ -98,7 +95,7 @@ def main_worktree_of(path: str, cwd: str) -> str | None:
     """The nearest ancestor that is a working-tree root named main (any case), if any."""
     for directory in ancestors(deepest_real(absolute(path, cwd))):
         if is_main(directory):
-            return directory
+            return os.path.realpath(directory)
     return None
 
 
@@ -132,9 +129,7 @@ def repository_of(cwd: str) -> tuple[str, str] | None:
 
 
 def governed_repository(common: str, every: set[str] = frozenset()) -> str | None:
-    """The main worktree of the repository whose common git directory this is, if it has one: a known main
-    worktree sharing this directory (own .git, separate git dir, bare repository), or any worktree registered
-    here, under whatever administrative id, whose folder is a main worktree."""
+    """The main worktree of the repository whose common git directory this is, if it has one."""
     common = os.path.realpath(common)
     for root in sorted(every):
         try:
@@ -159,7 +154,6 @@ def governed_repository(common: str, every: set[str] = frozenset()) -> str | Non
 # ---- what a command names -------------------------------------------------------------------------
 
 TOKEN = re.compile(r"""[^\s"'`;|&()<>]+""")
-SEGMENT = re.compile(r"\s*(?:;|&&|\|\||\||\n)\s*")
 
 
 def path_tokens(text: str) -> list[str]:
@@ -174,44 +168,89 @@ def path_tokens(text: str) -> list[str]:
     return out
 
 
-def discover(policy: dict, cwd: str, text: str) -> tuple[set[str], set[str], set[str]]:
-    """Every main worktree in the person's project folders, the ones that get exact rules, and the ones
-    this command runs in or names (whose gitignored files it may write)."""
-    every = set()
+def every_main(policy: dict) -> set[str]:
+    """Every main worktree in the person's project folders."""
+    found = set()
     for container in policy["containers"]:
         for candidate in glob.glob(os.path.join(expand(container), "*", "worktrees", "main")):
             if is_main(candidate):
-                every.add(os.path.realpath(candidate))
-    touched = set()
-    for candidate in [cwd, *path_tokens(text)]:
-        root = main_worktree_of(candidate, cwd)
-        if root:
-            touched.add(os.path.realpath(root))
-    # Only a main worktree the command runs in or names gets its ignored files opened, not the main
-    # worktree of the feature checkout it runs in.
-    named = set(touched)
-    repo = repository_of(cwd)
-    if repo:
-        owner = governed_repository(repo[1], every)
-        if owner:
-            touched.add(owner)
-    # A linked main worktree keeps its git metadata outside its folder: give it the exact rules always.
-    touched |= {root for root in every if os.path.isfile(os.path.join(root, ".git"))}
-    return every | touched, touched, named
+                found.add(os.path.realpath(candidate))
+    return found
 
 
-# ---- pushes to main -------------------------------------------------------------------------------
+def tied(cwd: str, text: str) -> list[str]:
+    """Main worktrees this command is tied to: run inside one, or naming one."""
+    roots = {main_worktree_of(candidate, cwd) for candidate in [cwd, *path_tokens(text)]}
+    return sorted(root for root in roots if root)
+
+
+# ---- git commands, wherever they run --------------------------------------------------------------
 
 def words(segment: str) -> list[str]:
     return [a or b or c for a, b, c in re.findall(r'"([^"]*)"|\'([^\']*)\'|(\S+)', segment)]
 
 
+SEQUENCE = re.compile(r"\s*(?:;|&&|\|\||\n)\s*")
+PIPE = re.compile(r"(?<!\|)\|(?!\|)")
+# Constructs that change directories in ways a flat reading cannot follow.
+SCOPES = re.compile(r"\(|\)|\bpushd\b|\bpopd\b|\$\(|`|\bexec\b|\bsource\b|\beval\b|(^|\s)\.\s")
+# Global options of git that take a separate value.
+VALUED = {"-C", "-c", "--git-dir", "--work-tree", "--namespace", "--config-env", "--exec-path"}
+
+
+def git_call(w: list[str], here: str) -> tuple[str, list[str]] | None:
+    """For a stage that runs git: the directory it works in (every `-C` applied in order, `--work-tree`
+    last) and the subcommand with its arguments."""
+    at = next((i for i, word in enumerate(w) if os.path.basename(word) == "git"), None)
+    if at is None:
+        return None
+    where, args, i = here, w[at + 1:], 0
+    while i < len(args) and args[i].startswith("-"):
+        arg = args[i]
+        if arg in VALUED and i + 1 < len(args):
+            if arg == "-C":
+                where = absolute(args[i + 1], where)
+            elif arg == "--work-tree":
+                where = absolute(args[i + 1], where)
+            i += 2
+            continue
+        if arg.startswith("--work-tree="):
+            where = absolute(arg.split("=", 1)[1], where)
+        i += 1
+    return where, args[i:]
+
+
+def git_calls(text: str, cwd: str) -> tuple[list[tuple[str, list[str]]], set[str], bool]:
+    """Every git invocation in the command with the directory it runs in, every directory the command
+    could be in, and whether it changes directories in a way a flat reading cannot follow."""
+    candidates, here, calls = {cwd}, cwd, []
+    ambiguous = bool(SCOPES.search(text))
+    for sequence in SEQUENCE.split(text):
+        stages = PIPE.split(sequence)
+        for stage in stages:
+            w = words(stage)
+            if w[:1] == ["cd"]:
+                target = absolute(w[1], here) if len(w) > 1 and w[1] != "-" else HOME
+                candidates.add(target)
+                if len(stages) > 1:
+                    ambiguous = True  # whether a pipeline's cd persists depends on the shell and its place
+                else:
+                    here = target
+                continue
+            call = git_call(w, here)
+            if call:
+                candidates.add(call[0])
+                calls.append(call)
+    return calls, candidates, ambiguous
+
+
 def trunk_violation(text: str) -> str | None:
     """Why a command would put work on main without a pull request, or None."""
-    for segment in SEGMENT.split(text):
+    for segment in re.split(r"\s*(?:;|&&|\|\||\||\n)\s*", text):
         w = words(segment)
-        if "git" in w and "push" in w[w.index("git") + 1:]:
-            args = w[w.index("push", w.index("git")) + 1:]
+        call = git_call(w, "/")
+        if call and call[1][:1] == ["push"]:
+            args = call[1][1:]
             if any(arg in ("--mirror", "--all") for arg in args):
                 return "pushes every branch, main included"
             for spec in [arg for arg in args if not arg.startswith("-")][1:]:
@@ -229,26 +268,6 @@ def trunk_violation(text: str) -> str | None:
     return None
 
 
-SEQUENCE = re.compile(r"\s*(?:;|&&|\|\||\n)\s*")
-PIPE = re.compile(r"(?<!\|)\|(?!\|)")
-# Constructs that change directories in ways a flat reading cannot follow.
-SCOPES = re.compile(r"\(|\)|\bpushd\b|\bpopd\b|\$\(|`|\bexec\b|\bsource\b|(^|\s)\.\s")
-
-
-def git_directory(w: list[str], here: str) -> str:
-    """The directory a git command runs in: every `-C <dir>` applies in order, each relative to the last."""
-    where = here
-    if "git" not in w:
-        return where
-    args = w[w.index("git") + 1:]
-    for i, arg in enumerate(args):
-        if arg == "-C" and i + 1 < len(args):
-            where = absolute(args[i + 1], where)
-        elif not arg.startswith("-") and (i == 0 or args[i - 1] != "-C"):
-            break  # the subcommand: options after it are its own
-    return where
-
-
 def governed_owner(directory: str, every: set[str]) -> str | None:
     repo = repository_of(deepest_real(directory))
     return governed_repository(repo[1], every) if repo else None
@@ -256,33 +275,12 @@ def governed_owner(directory: str, every: set[str]) -> str | None:
 
 def governed_pushes(text: str, cwd: str, every: set[str]) -> str | None:
     """Why the command would put work on a governed main without a pull request, or None. Each push is
-    judged in the directory it runs in: `cd` in a plain sequence moves it, and every `git -C <dir>` applies.
-    Where the command changes directories in a way a reading cannot follow (a `cd` inside a pipeline or
-    subshell, pushd, eval and the like), every directory it could be in is judged, and any governed one
-    refuses. Repositories without a main worktree are left alone (decision 5)."""
+    judged in the directory it runs in; where the command changes directories in a way a reading cannot
+    follow, every directory it could be in is judged. Repositories without a main worktree are left alone."""
     if not trunk_violation(text):
         return None
-    candidates = {cwd}
-    here = cwd
-    ambiguous = bool(SCOPES.search(text)) or bool(re.search(r"\beval\b", text))
-    pushes = []
-    for sequence in SEQUENCE.split(text):
-        stages = PIPE.split(sequence)
-        for stage in stages:
-            w = words(stage)
-            if w[:1] == ["cd"]:
-                target = absolute(w[1], here) if len(w) > 1 and w[1] != "-" else HOME
-                candidates.add(target)
-                if len(stages) > 1:
-                    ambiguous = True  # whether a pipeline's cd persists depends on the shell and its place
-                else:
-                    here = target
-                continue
-            why = trunk_violation(stage)
-            if why:
-                where = git_directory(w, here)
-                candidates.add(where)
-                pushes.append((why, where))
+    calls, candidates, ambiguous = git_calls(text, cwd)
+    pushes = [(why, where) for where, sub in calls if (why := trunk_violation(" ".join(["git", *sub])))]
     for why, where in pushes:
         owner = governed_owner(where, every)
         if owner:
@@ -293,256 +291,124 @@ def governed_pushes(text: str, cwd: str, every: set[str]) -> str | None:
             if owner:
                 return (f"this {pushes[0][0]}, and the command changes directories in a way the guard cannot follow, "
                         f"so it may run in the repository of {owner}; changes reach main only through a pull request.")
+    # gh pr merge --admin and API writes carry no git directory: judge them where the command runs.
+    if not pushes:
+        for directory in sorted(candidates):
+            owner = governed_owner(directory, every)
+            if owner:
+                return f"this {trunk_violation(text)}; changes reach main only through a pull request (repository of {owner})."
     return None
 
 
-# ---- the sandbox profile --------------------------------------------------------------------------
-
-def sb(path: str) -> str:
-    """A path as a sandbox string: every character as written, only `"` and `\\` escaped. The profile
-    reader does not read JSON's other escapes (`\\u00e9` became the letters `u00e9`, `\\b` a `b`), so a
-    deny rule written with them would protect a different path."""
-    return '"' + path.replace("\\", "\\\\").replace('"', '\\"') + '"'
-
-
-def rx(path: str) -> str:
-    """A path as a literal inside a sandbox regex (#"..."): only regex metacharacters are escaped."""
-    return re.sub(r'([.^$*+?()\[\]{}|\\"])', r"\\\1", path)
-
-
-REGEX_LIMIT = 1023
-
-
-def chunks(paths: list[str]) -> list[str]:
-    """Alternations of paths for regex rules. A path too long to share a rule is left out: callers give it
-    literal rules (fits_regex)."""
-    out, current = [], []
-    for path in (path for path in paths if fits_regex(path)):
-        if current and len("|".join([*current, rx(path)]).encode()) > REGEX_BUDGET:
-            out.append("|".join(current))
-            current = []
-        current.append(rx(path))
-    if current:
-        out.append("|".join(current))
+def positionals(args: list[str]) -> list[str]:
+    """Arguments before `--` that are not options."""
+    out = []
+    for arg in args:
+        if arg == "--":
+            break
+        if not arg.startswith("-"):
+            out.append(arg)
     return out
 
 
-def fits_regex(path: str) -> bool:
-    return len(rx(path).encode()) <= REGEX_BUDGET // 2
+def moves_head(sub: list[str]) -> str | None:
+    """Why a git subcommand run in a main worktree would move its HEAD or branch, or None. Changes to
+    files and the index are not judged here: the after-check puts those back."""
+    if not sub:
+        return None
+    name, args = sub[0], sub[1:]
+    pos = positionals(args)
+    if name in ("commit", "rebase", "cherry-pick", "revert", "am", "filter-branch", "filter-repo"):
+        return f"git {name} moves main's HEAD"
+    if name == "merge" and "--ff-only" not in args and not ({"--abort", "--quit"} & set(args)):
+        return "git merge without --ff-only can make a commit on main"
+    if name == "pull" and "--ff-only" not in args:
+        return "git pull without --ff-only can make a commit on main; use git pull --ff-only"
+    if name == "reset" and any(p not in ("HEAD", "@") for p in pos):
+        return "git reset to another commit moves main"
+    if name == "checkout" and "--" not in args and (set(args) & {"-b", "-B", "--orphan", "--detach"} or any(p != "main" for p in pos[:1])):
+        return "git checkout of another branch or commit takes the main worktree off main (to restore files, use git checkout -- <path>)"
+    if name == "switch" and pos[:1] != ["main"]:
+        return "git switch takes the main worktree off main"
+    if name == "branch" and (set(args) & {"-m", "-M", "--move"} or (set(args) & {"-d", "-D", "--delete", "-f", "--force"} and "main" in pos)):
+        return "git branch would rename, delete or reset main"
+    if name == "stash" and pos[:1] and pos[0] in ("pop", "apply", "branch"):
+        return "git stash pop/apply brings changes into main (they would be reverted, and pop would drop the stash)"
+    if name == "update-ref" and any(re.fullmatch(r"(refs/heads/main|HEAD)", p) for p in pos):
+        return "git update-ref of main moves it"
+    if name == "symbolic-ref" and len(pos) >= 2:
+        return "git symbolic-ref would point main's HEAD elsewhere"
+    if name == "worktree" and pos[:1] and pos[0] in ("move", "remove"):
+        return "git worktree move/remove of a main worktree"
+    return None
 
 
-def checked(rules: list[str]) -> list[str]:
-    """Every regex string within the profile reader's limit, or the profile is not built."""
-    for rule in rules:
-        for pattern in re.findall(r'#"((?:[^"\\]|\\.)*)"', rule):
-            if len(pattern.encode()) > REGEX_LIMIT:
-                raise Refused(f"a sandbox rule is {len(pattern.encode())} bytes, over the reader's {REGEX_LIMIT}")
-    return rules
+def head_violation(text: str, cwd: str) -> str | None:
+    """Why the command would move a main worktree's HEAD or branch, or None."""
+    calls, candidates, ambiguous = git_calls(text, cwd)
+    for where, sub in calls:
+        why = moves_head(sub)
+        if not why:
+            continue
+        if sub[0] == "worktree":
+            targets = [main_worktree_of(p, where) for p in positionals(sub[2:])]
+            if any(targets):
+                return f"{why} ({next(t for t in targets if t)})."
+            continue
+        root = main_worktree_of(where, cwd)
+        if root:
+            return f"{why} ({root}). Make the change in a sibling worktree: git -C {root} worktree add ../<topic> -b feature/<topic> --no-track origin/main"
+        if ambiguous:
+            for directory in sorted(candidates):
+                root = main_worktree_of(directory, cwd)
+                if root:
+                    return (f"{why}, and the command changes directories in a way the guard cannot follow, so it may run "
+                            f"in the main worktree {root}.")
+    return None
 
 
-def metadata_nodes(common: str) -> list[str]:
-    """Folders holding the main ref or its log, whose renaming would carry them away. Only existing ones:
-    a rule on a folder not there yet would also stop git creating it (logs/, worktrees/ on first use)."""
-    names = ("refs", "refs/heads", "logs", "logs/refs", "logs/refs/heads")
-    return [path for path in (os.path.join(common, name) for name in names) if os.path.isdir(path)]
+# ---- the guard itself ----------------------------------------------------------------------------
+
+def guard_paths(policy: dict) -> list[str]:
+    return [PLUGIN_ROOT, *(os.path.realpath(expand(path)) if os.path.lexists(expand(path)) else expand(path)
+                           for path in policy["guardFiles"])]
 
 
-# Main worktrees whose ignored files this command's profile opened.
-OPENED: set[str] = set()
+def inside(path: str, root: str) -> bool:
+    return path.casefold() == root.casefold() or path.casefold().startswith(root.casefold() + "/")
 
 
-def writable(root: str) -> str:
-    """The sandbox filter for a main worktree's gitignored, untracked part, or "" when git cannot say:
-    then the whole tree stays denied and the command still runs."""
-    try:
-        free = ignored.clause(root)
-    except Exception:
-        return ""
-    if free:
-        OPENED.add(root)
-    return free
+def guard_violation(text: str, cwd: str, policy: dict, every: set[str]) -> str | None:
+    """Why the command reaches the guard's own files or would carry a main worktree away, or None."""
+    guarded = guard_paths(policy)
+    placed = [deepest_real(absolute(token, cwd)) for token in path_tokens(text)]
+    for path in placed:
+        if any(inside(path, root) for root in guarded):
+            return f"{path} belongs to the golden rule's guard, which a session never changes."
+    if re.search(r"(^|[\s;&|(])(rm|rmdir|mv|trash)\s", text):
+        for path in placed:
+            for root in every:
+                if path.casefold() in (root.casefold(), os.path.join(root, ".git").casefold()):
+                    return f"that would remove or move the main worktree {root}."
+    for pattern in policy.get("guardPatterns", []):
+        if re.search(pattern, text):
+            return "that names a path the golden rule's guard protects."
+    return None
 
 
-def precise(root: str, named: bool = False) -> list[str]:
-    """Rules for a main worktree, exact to its git layout. One the command touches keeps its gitignored,
-    untracked files writable; any other is denied whole."""
-    deny = []
-    gitdir, common = git_dirs(root)
-    marker = os.path.join(root, ".git")
-    # The tree itself, every file and folder but its .git; a .git file (linked worktree, separate git dir)
-    # is itself protected, since rewriting it would redirect the main worktree to another repository.
-    free = writable(root) if named else ""
-    deny.append(f"(require-all (subpath {sb(root)}) (require-not (subpath {sb(marker)}))"
-                + (f" (require-not {free})" if free else "") + ")")
-    if free:
-        # An ignore file is never written, even inside an ignored folder that is otherwise open.
-        deny.append(f'(require-all (subpath {sb(root)}) (regex #"/\\.[gG][iI][tT][iI][gG][nN][oO][rR][eE]$"))')
-    if os.path.isfile(marker):
-        deny.append(f"(literal {sb(marker)})")
-    if gitdir == common:
-        # Its own git directory: only what a feature worktree must write. HEAD, index, config, hooks,
-        # info and the main branch stay denied. packed-refs is writable only while main is a loose ref,
-        # which outranks any packed copy and whose file and folders cannot be removed or renamed.
-        allowed = [f"(subpath {sb(os.path.join(common, name))})" for name in ("objects", "refs", "logs/refs", "worktrees")]
-        allowed.append(f"(literal {sb(os.path.join(common, 'FETCH_HEAD'))})")
-        if os.path.isfile(os.path.join(common, "refs", "heads", "main")):
-            allowed += [f"(literal {sb(os.path.join(common, name))})" for name in ("packed-refs", "packed-refs.lock")]
-        deny.append(f"(require-all (subpath {sb(common)}) " + " ".join(f"(require-not {item})" for item in allowed) + ")")
-    else:
-        # A linked main worktree: its own HEAD and index live in <common>/worktrees/<id>; the shared
-        # directory's HEAD and index belong to the repository's first checkout and stay writable.
-        deny.append(f"(subpath {sb(gitdir)})")
-        for name in ("config", "hooks", "info"):
-            deny.append(f"(subpath {sb(os.path.join(common, name))})")
-        if not os.path.isfile(os.path.join(common, "refs", "heads", "main")):
-            deny += [f"(literal {sb(os.path.join(common, name))})" for name in ("packed-refs", "packed-refs.lock")]
-    for name in ("refs/heads/main", "refs/heads/main.lock", "logs/refs/heads/main"):
-        deny.append(f"(literal {sb(os.path.join(common, name))})")
-    deny += [f"(literal {sb(node)})" for node in [common, *metadata_nodes(common)]]
-    return deny
-
-
-def compact(roots: list[str]) -> list[str]:
-    """The same protection for main worktrees a command does not touch, in a few regex rules: one rule
-    per worktree made the sandbox take over a second to compile for fifty-odd."""
-    deny = []
-    for alternation in chunks(roots):
-        deny.append(f'(require-all (regex #"^({alternation})(/|$)") '
-                    f'(require-not (regex #"^({alternation})/\\.git/(objects|refs|logs/refs|worktrees)(/|$)")) '
-                    f'(require-not (regex #"^({alternation})/\\.git/FETCH_HEAD$")))')
-        deny.append(f'(regex #"^({alternation})/\\.git/(logs/)?refs/heads/main(\\.lock)?$")')
-        deny.append(f'(regex #"^({alternation})/\\.git(/(refs|refs/heads))?$")')
-    return deny
-
-
-def protected_ancestors(path: str) -> list[str]:
-    """The folders above a protected path, up to the home folder: none may be renamed or removed."""
-    return [folder for folder in ancestors(os.path.dirname(path)) if folder != HOME and folder.startswith(HOME + "/")]
-
-
-def profile(policy: dict, every: set[str], touched: set[str], named: set[str] = frozenset()) -> str:
-    deny = []
-    for root in sorted(touched):
-        deny += precise(root, named=root in named)
-    rest = sorted(root for root in every - touched if fits_regex(root))
-    for root in sorted(every - touched - set(rest)):  # a path too long for a regex gets exact rules
-        deny += precise(root)
-    deny += compact(rest)
-    # No static */worktrees/main pattern: it would also block creating a new project's main worktree.
-    guarded = [PLUGIN_ROOT, *(os.path.realpath(expand(path)) if os.path.lexists(expand(path)) else expand(path)
-                              for path in policy["guardFiles"])]
-    deny += [f"(subpath {sb(path)})" for path in guarded]
-    deny += [f'(regex #"{pattern}")' for pattern in policy["guardPatterns"]]
-    # Nothing protected can be carried away: not a main worktree, the folders above it, or the guard's.
-    # A main worktree's own folder, its worktrees/ folder and its project folder, wherever they are, plus
-    # every folder above them inside the home folder.
-    folders = sorted({folder for root in every
-                      for folder in [root, os.path.dirname(root), os.path.dirname(os.path.dirname(root)), *protected_ancestors(root)]} |
-                     {folder for path in guarded for folder in protected_ancestors(path)})
-    for alternation in chunks(folders):
-        deny.append(f'(regex #"^({alternation})$")')
-    deny += [f"(literal {sb(folder)})" for folder in folders if not fits_regex(folder)]
-    return "(version 1)\n(allow default)\n(deny file-write*\n  " + "\n  ".join(checked(deny)) + ")\n"
-
-
-# ---- quarantine -----------------------------------------------------------------------------------
-
-def quarantine_path(policy: dict) -> str:
-    return expand(policy["quarantineFile"])
-
-
-def load_quarantine(policy: dict) -> dict:
-    """The quarantine record. Missing means nothing is quarantined; unreadable refuses, never clears."""
-    path = quarantine_path(policy)
-    if not os.path.exists(path):
-        return {}
-    with open(path) as handle:
-        data = json.load(handle)
-    if not isinstance(data, dict) or not all(isinstance(value, dict) for value in data.values()):
-        raise Refused(f"the quarantine record {path} is not in the expected form")
-    return data
-
-
-def record_quarantine(policy: dict, root: str, path: str, what: str) -> None:
-    file = quarantine_path(policy)
-    os.makedirs(os.path.dirname(file), exist_ok=True)
-    with open(file + ".lock", "w") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        try:
-            entries = load_quarantine(policy)
-        except (ValueError, Refused):
-            entries = {}
-        entries[root] = {"at": time.strftime("%Y-%m-%dT%H:%M:%S"), "path": path, "command": what[:300]}
-        fd, temp = tempfile.mkstemp(dir=os.path.dirname(file), prefix=".quarantine")
-        with os.fdopen(fd, "w") as handle:
-            json.dump(entries, handle, indent=2)
-        os.replace(temp, file)
-
-
-# ---- the tripwire ---------------------------------------------------------------------------------
-
-def tied(roots: set[str], cwd: str, text: str) -> list[str]:
-    """Main worktrees this command is tied to: run inside one, or naming one."""
-    named = {main_worktree_of(token, cwd) for token in path_tokens(text)}
-    return [root for root in sorted(roots) if cwd == root or cwd.startswith(root + "/") or root in named or root in text]
-
-
-def hands_outside(text: str) -> bool:
-    return any(os.path.basename(token) in OUTSIDE for token in TOKEN.findall(text))
-
-
-def metadata_state(root: str) -> dict:
-    """What the protected git state holds: each file's presence and content digest, hooks included."""
-    gitdir, common = git_dirs(root)
-    paths = [os.path.join(gitdir, "HEAD"), os.path.join(gitdir, "index"), os.path.join(common, "config"),
-             os.path.join(common, "packed-refs"), os.path.join(common, "refs", "heads", "main")]
-    for folder in (os.path.join(common, "hooks"), os.path.join(common, "info")):
-        for directory, _, names in os.walk(folder):
-            paths += [os.path.join(directory, name) for name in names]
-    state = {}
-    for path in paths:
-        try:
-            with open(path, "rb") as handle:
-                state[path] = hashlib.sha256(handle.read()).hexdigest()
-        except FileNotFoundError:
-            state[path] = None
-    return state
-
-
-def watch_state(root: str) -> dict:
-    """Before a watched command: the protected git state, and what explains a change to an ignored file
-    (None when git could not say, so every change counts)."""
-    try:
-        files = ignored.snapshot(root)
-    except Exception:
-        files = None
-    return {"metadata": metadata_state(root), "ignored": files}
-
-
-def changed_since(root: str, stamp: str, before: dict) -> str | None:
-    """The first path under a main worktree, or in its protected git state, changed after the stamp and
-    not a gitignored, untracked file."""
-    after = metadata_state(root)
-    for path in sorted(set(before["metadata"]) | set(after)):
-        if before["metadata"].get(path) != after.get(path):
-            return path
-    if before["ignored"] is None:
-        found = subprocess.run(["/usr/bin/find", root, "-path", os.path.join(root, ".git"), "-prune", "-o",
-                                "(", "-newer", stamp, "-o", "-cnewer", stamp, ")", "-print", "-quit"],
-                               capture_output=True, text=True)
-        if found.returncode != 0:
-            raise RuntimeError(f"could not scan {root}: {found.stderr.strip()[:200]}")
-        return found.stdout.strip() or None
-    # Every changed file, folders left out: a folder's time moves whenever an ignored file inside it is
-    # added or removed. What a folder's time would have shown, a tracked file deleted or an unignored one
-    # added or removed, the git listings compare instead.
-    found = subprocess.run(["/usr/bin/find", root, "-path", os.path.join(root, ".git"), "-prune", "-o",
-                            "!", "-type", "d", "(", "-newer", stamp, "-o", "-cnewer", stamp, ")", "-print0"],
-                           capture_output=True)
-    if found.returncode != 0:
-        raise RuntimeError(f"could not scan {root}: {found.stderr.decode(errors='replace').strip()[:200]}")
-    changed = [path for path in found.stdout.decode(errors="surrogateescape").split("\0") if path]
-    return ignored.unexplained(root, changed, before["ignored"])
+def fingerprint(policy: dict) -> dict[str, tuple]:
+    """Every guard file's size, time and mode, to see whether a command changed one."""
+    out: dict[str, tuple] = {}
+    for root in guard_paths(policy):
+        for directory, _, names in os.walk(root) if os.path.isdir(root) else [(os.path.dirname(root), [], [os.path.basename(root)])]:
+            for name in names:
+                path = os.path.join(directory, name)
+                try:
+                    info = os.lstat(path)
+                    out[path] = (info.st_size, info.st_mtime_ns, info.st_mode)
+                except FileNotFoundError:
+                    out[path] = ()
+    return out
 
 
 # ---- running --------------------------------------------------------------------------------------
@@ -579,88 +445,55 @@ def prepare(args: list[str]) -> tuple[list[str], str]:
     raise Refused("unrecognised arguments")
 
 
+def report(root: str, outcome: dict) -> bool:
+    """Tell the model what was put back in a main worktree. Answers whether there was anything to say."""
+    lines = []
+    if outcome["reverted"]:
+        shown = ", ".join(outcome["reverted"][:10]) + (f" and {len(outcome['reverted']) - 10} more" if len(outcome["reverted"]) > 10 else "")
+        lines.append(f"reverted committable changes this command made in the main worktree {root}: {shown}.")
+    if outcome["left"]:
+        lines.append(f"left as they were (already changed before this command, or not safe to undo): {', '.join(outcome['left'][:10])}.")
+    lines += outcome["notes"]
+    if not lines:
+        return False
+    print(f"\n{PREFIX} " + f"\n{PREFIX} ".join(lines) + f"\n{PREFIX} main keeps no committable change; make it in a sibling worktree: "
+          f"git -C {root} worktree add ../<topic> -b feature/<topic> --no-track origin/main", file=sys.stderr)
+    return True
+
+
 def main() -> int:
     inner, text = prepare(sys.argv[1:])
-    if not os.access(SANDBOX_EXEC, os.X_OK):
-        raise Refused("macOS sandbox-exec is not available")
     with open(os.path.join(os.path.dirname(HERE), "policy.json")) as handle:
         policy = json.load(handle)
     cwd = os.path.realpath(os.getcwd())
-    every, touched, named = discover(policy, cwd, text)
-    trunk = governed_pushes(text, cwd, every)
-    if trunk:
-        raise Refused(trunk)
-    watch = tied(touched, cwd, text)
-    held = load_quarantine(policy)
-    for root in watch:
-        if root in held:
-            raise Refused(f"{root} is quarantined: a change was observed there on {held[root].get('at', '?')}. "
-                          "Commands touching it are refused until Chris clears it with /golden-rule clear. "
-                          "Report it to Chris and leave it.")
-    sandbox = [SANDBOX_EXEC, "-p", profile(policy, every, touched, named), *inner]
-    watch = watch if hands_outside(text) else []
-    # An opened main worktree that is not watched still gets git's own check of its tracked files: an
-    # outside process could swap a hard link into an opened folder while the command runs (a path rule
-    # cannot see that), so a tracked file changed by the command quarantines it. If git cannot say
-    # beforehand, the command does not run.
-    cheap = sorted(OPENED - set(watch))
+    every = every_main(policy)
+    for why in (governed_pushes(text, cwd, every), head_violation(text, cwd), guard_violation(text, cwd, policy, every)):
+        if why:
+            raise Refused(why)
+    watch = tied(cwd, text)
     try:
-        tracked_before = {root: ignored.tracked_changes(root) for root in cheap}
+        before = {root: committable.snapshot(root) for root in watch}
     except Exception as error:
-        raise Refused(f"the guard could not read the tracked files of {', '.join(cheap)} before the command ({error})")
-    stamp = None
-    before = {root: watch_state(root) for root in watch}
-    if watch:
-        fd, stamp = tempfile.mkstemp(prefix="golden-rule-stamp")
-        os.close(fd)
-        time.sleep(0.01)  # file times have a coarse grain: let the stamp be strictly older than any change
+        raise Refused(f"the guard could not read git status in {', '.join(watch)} before the command ({error})")
     # The heredoc was this process's input; the command gets none, as the Bash tool gives none.
-    status = run(sandbox, subprocess.DEVNULL if sys.argv[1] == "--stdin" else None)
+    guard_before = fingerprint(policy)
+    status = run(inner, subprocess.DEVNULL if sys.argv[1] == "--stdin" else None)
     # From here the command has run: nothing below may report it as not run.
-    try:
-        for root in cheap:
-            try:
-                path = ignored.tracked_changes(root) ^ tracked_before[root]
-            except Exception as error:
-                path = {f"(could not be checked: {error})"}
-            if path:
-                record_quarantine(policy, root, sorted(path)[0], text)
-                print(f"\n{PREFIX} a tracked file in the main worktree {root} changed while this command ran "
-                      f"({sorted(path)[0]}). Report it to Chris and leave it: remediation is his. Commands touching "
-                      "it are refused until he clears it with /golden-rule clear.", file=sys.stderr)
-                status = status or 1
-        if observe(policy, watch, stamp, before, text):
-            status = status or 1
-    except Exception as error:
-        print(f"\n{PREFIX} the command ran, but the guard could not check or record the main worktrees it "
-              f"touched ({', '.join(watch)}): {error}. Tell Chris before doing anything else there.", file=sys.stderr)
-        status = status or 1
-    finally:
-        if stamp and os.path.exists(stamp):
-            os.unlink(stamp)
-    return status
-
-
-def observe(policy: dict, watch: list[str], stamp: str | None, before: dict, text: str) -> bool:
-    """After a watched command: quarantine every main worktree that changed, or that could not be checked.
-    Answers whether any was quarantined."""
-    held = False
     for root in watch:
         try:
-            path = changed_since(root, stamp, before[root])
-        except Exception as error:  # an unobserved outcome quarantines rather than passes
-            record_quarantine(policy, root, f"(could not be checked: {error})", text)
-            held = True
-            print(f"\n{PREFIX} the command ran, but the check of {root} failed ({error}); quarantined until Chris "
-                  "has looked.", file=sys.stderr)
-            continue
-        if path:
-            record_quarantine(policy, root, path, text)
-            held = True
-            print(f"\n{PREFIX} a change was observed in the main worktree {root} ({path}) while this command ran. "
-                  "Report it to Chris and leave it: remediation is his. Commands touching it are refused until "
-                  "he clears it with /golden-rule clear.", file=sys.stderr)
-    return held
+            if report(root, committable.revert(root, before[root])):
+                status = status or 1
+        except Exception as error:
+            print(f"\n{PREFIX} the command ran, but the guard could not check the main worktree {root} ({error}). "
+                  f"Run git -C {root} status and tell Chris what it shows.", file=sys.stderr)
+            status = status or 1
+    changed = sorted(path for path, state in fingerprint(policy).items() if guard_before.get(path) != state)
+    changed += sorted(set(guard_before) - set(fingerprint(policy)))
+    if changed:
+        print(f"\n{PREFIX} this command changed the golden rule's own files ({', '.join(changed[:5])}). "
+              "Tell Chris now; a session never changes the guard.", file=sys.stderr)
+        status = status or 1
+    return status
 
 
 if __name__ == "__main__":
@@ -670,5 +503,5 @@ if __name__ == "__main__":
         print(f"{PREFIX} {refusal}", file=sys.stderr)
         sys.exit(126)
     except Exception as error:  # fail closed: nothing ran
-        print(f"{PREFIX} the sandbox bootstrap failed ({type(error).__name__}: {error}); the command was not run.", file=sys.stderr)
+        print(f"{PREFIX} the bootstrap failed ({type(error).__name__}: {error}); the command was not run.", file=sys.stderr)
         sys.exit(126)

@@ -15,12 +15,10 @@ export const LINKED = `${HOME}/Sites/L/worktrees/main`
 // The test's copy of hooks/policy.json (tests have no file system to read it from).
 export const POLICY = {
   containers: ['~/*'],
-  guardFiles: ['~/.claude/hooks/golden-rule.sh', '~/.claude/AGENTS.md', '~/.codex/write-guard', '~/.codex/hooks.json',
-    '~/.codex/config.toml', '~/.codex/AGENTS.md', '~/.gitconfig', '~/.git-hooks', '~/.golden-rule'],
-  guardPatterns: ['^/.+/\\.claude/skills/[^/]+/hooks(/|$)'],
+  guardFiles: ['~/.claude/hooks/golden-rule.sh'],
+  guardPatterns: [],
   mcpReadTools: ['^mcp__reader__'],
   pluginId: 'golden-rule@local',
-  quarantineFile: '~/.golden-rule/quarantine.json',
 }
 
 const FILES = [`${MAIN}/.git`, `${MAIN}/README.md`, `${FEATURE}/.git`, `${HOME}/Sites/R/.git`, `${NESTED}/.git`,
@@ -79,7 +77,7 @@ export function world(on: On, options: { cwd?: string; files?: Record<string, st
     recorded.toasts.push(String((e as { text?: unknown }).text ?? ''))
     return { value: undefined }
   })
-  // ignored.py check <root> <path>: exit 0 for the paths the test calls gitignored.
+  // committable.py check <root> <path>: exit 0 for the paths the test calls gitignored.
   on('process.run', ($, e) => {
     recorded.runs.push([...e.argv])
     if (options.failProcess) return { deny: 'cannot start' }
