@@ -3,6 +3,7 @@
 ## 0.3.1
 
 - Shell redirections (`2>&1`, `> log`) are no longer read as path arguments. `git worktree remove ../feature 2>&1` run from main was refused as a removal of main, because `2>&1` resolved to a path inside it.
+- Another plugin's argument vector is quoted before it is judged, so an argument such as `>` or one with a space is read as the single word it is, not as a redirection or two words (found by an automated security review of the fix above).
 
 ## 0.3.0
 

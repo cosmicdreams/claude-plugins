@@ -36,6 +36,7 @@ import json
 import os
 import pwd
 import re
+import shlex
 import signal
 import subprocess
 import sys
@@ -455,7 +456,8 @@ def prepare(args: list[str]) -> tuple[list[str], str]:
         inner = json.loads(base64.b64decode(args[1]).decode())
         if not isinstance(inner, list) or not inner or not all(isinstance(item, str) for item in inner):
             raise Refused("the argument vector is not a list of strings")
-        return inner, " ".join(inner)
+        # Quoted, so the checks read each argument as one word: none is a redirection or splits on spaces.
+        return inner, " ".join(shlex.quote(item) for item in inner)
     raise Refused("unrecognised arguments")
 
 
