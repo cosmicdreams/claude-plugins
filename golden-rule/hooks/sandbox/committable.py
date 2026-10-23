@@ -113,6 +113,18 @@ def digest(path: str) -> str | None:
         return None
 
 
+def published_fast_forward(root: str, before: dict, after: dict) -> bool:
+    """Whether main only moved forward, on the same branch, to a commit a remote already has (pull --ff-only):
+    keeping the reference current, not a change made on it."""
+    if not (before["head"] and after["head"]) or before["branch"] != after["branch"]:
+        return False
+    try:
+        git(root, "merge-base", "--is-ancestor", before["head"], after["head"])  # exit 1 (not an ancestor) raises
+        return bool(git(root, "branch", "-r", "--contains", after["head"]).strip())
+    except (Unknown, subprocess.SubprocessError):
+        return False
+
+
 def revert(root: str, before: dict) -> dict:
     """Put back what a command changed: tracked files from HEAD, new unignored files deleted. Returns what
     was reverted, what was left (already changed before, or not safely undoable) and why."""
@@ -120,7 +132,7 @@ def revert(root: str, before: dict) -> dict:
     reverted: list[str] = []
     left: list[str] = []
     notes: list[str] = []
-    if (after["head"], after["branch"]) != (before["head"], before["branch"]):
+    if (after["head"], after["branch"]) != (before["head"], before["branch"]) and not published_fast_forward(root, before, after):
         notes.append(f"HEAD moved ({before['branch'] or 'detached'} {before['head'][:10]} -> "
                      f"{after['branch'] or 'detached'} {after['head'][:10]}); not undone")
     restore: list[str] = []

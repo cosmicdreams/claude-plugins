@@ -385,8 +385,11 @@ def head_violation(text: str, cwd: str) -> str | None:
 # ---- the guard itself ----------------------------------------------------------------------------
 
 def guard_paths(policy: dict) -> list[str]:
-    return [PLUGIN_ROOT, *(os.path.realpath(expand(path)) if os.path.lexists(expand(path)) else expand(path)
-                           for path in policy["guardFiles"])]
+    """The guard's files outside any main worktree. One read from a main worktree (a plugin loaded from its
+    folder) is already covered: a command's committable change there is put back, and a pull updates it."""
+    paths = [PLUGIN_ROOT, *(os.path.realpath(expand(path)) if os.path.lexists(expand(path)) else expand(path)
+                            for path in policy["guardFiles"])]
+    return [path for path in paths if not main_worktree_of(path, "/")]
 
 
 def inside(path: str, root: str) -> bool:

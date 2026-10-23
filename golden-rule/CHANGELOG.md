@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.3.2
+
+- A fast-forward of main to commits a remote already has (`git pull --ff-only`) is no longer reported as HEAD moved.
+- Guard files inside a main worktree (a plugin loaded from its folder, as on the work account) are no longer singled out: commands naming them are not refused, and a pull that updates them is not reported. The main-worktree revert already covers them.
+
 ## 0.3.1
 
 - Shell redirections (`2>&1`, `> log`) are no longer read as path arguments. `git worktree remove ../feature 2>&1` run from main was refused as a removal of main, because `2>&1` resolved to a path inside it.

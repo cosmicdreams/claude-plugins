@@ -62,6 +62,9 @@ gr $root "git -C $M reset -q --hard HEAD~1"; [ $? -eq 126 ] && ok "reset to anot
 gr $M "git branch ${rename[*]}"; [ $? -eq 126 ] && unchanged $M $HEAD0 && ok "renaming the main branch refused" || no "renaming the main branch"
 gr $M 'git pull'; [ $? -eq 126 ] && ok "pull without --ff-only refused" || no "plain pull"
 gr $M 'git pull -q --ff-only origin main'; [ $? -eq 0 ] && ok "pull --ff-only in main allowed (keeping the reference current)" || no "ff-only pull" "$(tail -2 $root/out)"
+git clone -q $root/origin.git $root/pusher; git -C $root/pusher -c user.email=e@e -c user.name=e commit -q --allow-empty -m "chore: upstream"; git -C $root/pusher push -q origin main
+gr $M 'git pull -q --ff-only origin main'; [ $? -eq 0 ] && ! grep -q "HEAD moved" $root/out && ok "a fast-forward to published commits is not reported as HEAD moved" || no "ff reported" "$(tail -2 $root/out)"
+HEAD0=$(git -C $M rev-parse HEAD)
 echo hacked >> $M/README.md
 gr $M 'git checkout -- README.md && git reset -q --hard'; [ $? -eq 0 ] && unchanged $M $HEAD0 && ok "restoring files and reset --hard to HEAD in main allowed" || no "cleanup in main" "$(tail -2 $root/out)"
 gr $M 'git status -s && git log -1 --oneline >/dev/null && git diff --stat'; [ $? -eq 0 ] && ok "read-only git in main allowed" || no "read-only git"
