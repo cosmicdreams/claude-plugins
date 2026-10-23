@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import hashlib
 import os
+import re
 import stat
 import subprocess
 import sys
@@ -114,15 +115,21 @@ def digest(path: str) -> str | None:
         return None
 
 
-def remote_tip(root: str, branch: str) -> str:
-    """Where the hosted remote's branch really is now, asked over the network (not the local refs or
-    config a command could have rewritten). SSH needs the agent socket, so it alone is passed through."""
+def remote_tip(url: str, branch: str) -> str:
+    """Where the hosted remote's branch really is now, asked over the network at the origin URL taken before
+    the command, from a neutral folder so the repository's own config (url.insteadOf, core.sshCommand) is
+    never read. Only the exact ref counts: ls-remote matches patterns by suffix. SSH needs the agent socket,
+    so it alone is passed through."""
     env = {"HOME": os.path.expanduser("~"), "PATH": "/usr/bin:/bin", "LC_ALL": "C",
            **{key: os.environ[key] for key in ("SSH_AUTH_SOCK",) if key in os.environ}}
-    done = subprocess.run([GIT, "-C", root, "ls-remote", "--exit-code", "origin", branch], capture_output=True, env=env, timeout=30)
+    done = subprocess.run([GIT, "ls-remote", "--", url, branch], capture_output=True, env=env, timeout=30, cwd="/")
     if done.returncode != 0:
-        raise Unknown(f"git ls-remote origin {branch} failed: {done.stderr.decode(errors='replace').strip()[:200]}")
-    return done.stdout.decode().split()[0]
+        raise Unknown(f"git ls-remote {url} {branch} failed: {done.stderr.decode(errors='replace').strip()[:200]}")
+    for line in done.stdout.decode(errors="replace").splitlines():
+        sha, _, ref = line.partition("\t")
+        if ref == branch:
+            return sha
+    raise Unknown(f"{url} has no {branch}")
 
 
 def published_fast_forward(root: str, before: dict, after: dict) -> bool:
@@ -135,7 +142,10 @@ def published_fast_forward(root: str, before: dict, after: dict) -> bool:
     if not before["origin"] or after["origin"] != before["origin"]:
         return False
     try:
-        tip = remote_tip(root, after["branch"])
+        url = before["origin"]
+        if "://" not in url and not re.match(r"^[^/:]+:", url) and not os.path.isabs(url):
+            url = os.path.normpath(os.path.join(root, url))  # a relative local path, as git reads it here
+        tip = remote_tip(url, after["branch"])
         # exit 1 (not an ancestor) raises Unknown
         git(root, "merge-base", "--is-ancestor", before["head"], after["head"])
         git(root, "merge-base", "--is-ancestor", after["head"], tip)
