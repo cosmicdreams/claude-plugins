@@ -12,7 +12,7 @@ can span several days.
 
 ``ClassicRsyncSource`` mirrors only the rotated files a pull needs into the
 project's ``.drover/cache/classic/<env>/<server>/`` with rsync, then cuts
-each UTC calendar day out of them by every line's own timestamp. The result
+each calendar day out of them by every line's own timestamp. The result
 is the same canonical ``<date>.<env>.<type>.log.gz`` file the Cloud API path
 writes, so reports cannot tell the two sources apart.
 """
@@ -53,34 +53,36 @@ _MONTHS = {
     )
 }
 _MON = "(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec)"
-# dd/Mon or dd-Mon: access ([28/Oct/2026:...]) and php-errors ([28-Oct-2026 ...])
-_RE_DAY_MON = re.compile(r"\b(\d{1,2})[/-]" + _MON + r"\b")
-# Mon dd: error ([Wed Oct 28 ...]) and drupal-watchdog (Oct 28 06:35:46 ...)
-_RE_MON_DAY = re.compile(r"\b" + _MON + r"\s+(\d{1,2})\b")
-# Every format puts its timestamp at the start of the line.
-_TIMESTAMP_WINDOW = 100
+# Each log's own timestamp, anchored at the start of the line, as
+# (pattern, month group, day group). Anything else is a continuation line.
+_TIMESTAMPS = {
+    # 62.122.109.250 - - [27/Oct/2026:06:25:14 +0000] "GET ...
+    "access": (re.compile(r"^[^\[]*\[(\d{1,2})/" + _MON + r"/\d{4}:"), 2, 1),
+    # [Wed Oct 28 02:07:47 2026] [error] ...
+    "error": (re.compile(r"^\[\w{3} " + _MON + r"\s+(\d{1,2}) \d\d:"), 1, 2),
+    # Oct 27 06:31:55 srv-7135 site[28617]: ...
+    "drupal-watchdog": (re.compile(r"^" + _MON + r"\s+(\d{1,2}) \d\d:"), 1, 2),
+    # [27-Oct-2026 18:34:31 America/Chicago] Uncaught PHP Exception ...
+    "php-errors": (re.compile(r"^\[(\d{1,2})-" + _MON + r"-\d{4} "), 2, 1),
+    # [27/Oct/2026:06:26:05 +0000] host GET /path ...
+    "drupal-requests": (re.compile(r"^\[(\d{1,2})/" + _MON + r"/\d{4}:"), 2, 1),
+}
 
 
 class ClassicSourceError(Exception):
     """The environment's server logs could not be listed or copied."""
 
 
-def line_month_day(line: str) -> tuple[int, int] | None:
-    """(month, day) of a line's leading timestamp, or None for a line
-    without one (a stack-trace or other continuation line).
-
-    Takes the earliest match so a date quoted later in the message cannot
-    stand in for the line's own timestamp.
+def line_month_day(line: str, stem: str) -> tuple[int, int] | None:
+    """(month, day) of the timestamp that starts a `stem` log line, or None
+    for a line that does not start with one (a stack-trace frame or other
+    continuation line, which belongs to the entry above it).
     """
-    head = line[:_TIMESTAMP_WINDOW]
-    best: tuple[int, tuple[int, int]] | None = None
-    m = _RE_DAY_MON.search(head)
-    if m:
-        best = (m.start(), (_MONTHS[m.group(2)], int(m.group(1))))
-    m = _RE_MON_DAY.search(head)
-    if m and (best is None or m.start() < best[0]):
-        best = (m.start(), (_MONTHS[m.group(1)], int(m.group(2))))
-    return best[1] if best else None
+    pattern, month, day = _TIMESTAMPS[stem]
+    m = pattern.match(line)
+    if not m:
+        return None
+    return (_MONTHS[m.group(month)], int(m.group(day)))
 
 
 def parse_listing(names: list[str]) -> dict[str, dict]:
@@ -108,23 +110,35 @@ def parse_listing(names: list[str]) -> dict[str, dict]:
     return listing
 
 
-def files_for_day(listing: dict[str, dict], stem: str, day: date) -> list[str] | None:
-    """File names that can hold `stem`'s lines for `day`, oldest first.
+def history_gap(listing: dict[str, dict], day: date) -> str | None:
+    """Why `day` cannot be cut from these files, or None when it can.
 
-    None when the server has not yet rotated past `day`, so the day is still
-    being written. Any stem's rotation counts: rotation runs for every log at
-    once, and a log that was empty then simply gets no file.
+    Rotation runs for every log at once and a log that was empty then just
+    gets no file, so any stem's rotated files mark the span of history held.
+    A day is whole once a file is dated after it. It is only known to be
+    held if a file is dated on or before it: older files may have been
+    cleaned up or lost when Acquia relaunched the server.
+    """
+    dates = [d for e in listing.values() for d in e["rotated"]]
+    if not dates or max(dates) <= day:
+        return f"has not rotated past {day} yet"
+    if min(dates) > day:
+        return f"holds no rotated logs before {min(dates)}"
+    return None
+
+
+def files_for_day(listing: dict[str, dict], stem: str, day: date) -> list[str] | None:
+    """File names that can hold `stem`'s lines for `day`, oldest first, or
+    None when `history_gap` says the day cannot be cut from them.
 
     A file dated `d` holds lines from the stem's previous rotation up to
     rotation on `d`. So the day's lines sit in every file dated from `day`
     up to and including the first one dated after it. If the stem has not
     rotated since the day, its tail is still in the live log.
     """
-    after = day + timedelta(days=1)
-    if not any(
-        d >= after for e in listing.values() for d in e["rotated"]
-    ):
+    if history_gap(listing, day) is not None:
         return None
+    after = day + timedelta(days=1)
     entry = listing.get(stem, {"rotated": {}, "live": False})
     names: list[str] = []
     for d in sorted(entry["rotated"]):
@@ -138,8 +152,10 @@ def files_for_day(listing: dict[str, dict], stem: str, day: date) -> list[str] |
     return names
 
 
-def write_day(paths: list[Path], day: date, dest: Path) -> tuple[int, int]:
-    """Write the lines of `paths` dated `day` to `dest` as gzip, atomically.
+def write_day(paths: list[Path], stem: str, day: date, dest: Path) -> tuple[int, int]:
+    """Write the lines of `stem` log `paths` dated `day` to `dest` as gzip,
+    atomically. Each line is filed under the date its own timestamp shows
+    (UTC, except php-errors, which uses the PHP timezone).
 
     A line without a timestamp belongs to the dated line above it. Returns
     (lines written, bytes stored). A day with no lines still gets a file:
@@ -160,7 +176,7 @@ def write_day(paths: list[Path], day: date, dest: Path) -> tuple[int, int]:
                 current: tuple[int, int] | None = None
                 with opener(path, "rb") as fh:
                     for raw in fh:
-                        md = line_month_day(raw.decode("utf-8", "replace"))
+                        md = line_month_day(raw.decode("utf-8", "replace"), stem)
                         if md is not None:
                             current = md
                         if current != target:
@@ -230,15 +246,18 @@ class ClassicRsyncSource:
                 ["ssh", *SSH_OPTS, ssh_url, f"ls -1 {shlex.quote(remote)}"],
                 f"listing {server}",
             )
-            listing = parse_listing(out.splitlines())
+            # Cached copies stand in for files the server no longer has.
+            local = self.cache_dir / server
+            cached = [p.name for p in local.glob("*.log-*")] if local.is_dir() else []
+            remote_names = {n.strip() for n in out.splitlines()}
+            listing = parse_listing(sorted(remote_names) + cached)
             self.listings[server] = listing
             wanted = sorted({
                 name for stem in stems for day in days
                 for name in (files_for_day(listing, stem, day) or [])
-            })
+            } & remote_names)
             if not wanted:
                 continue
-            local = self.cache_dir / server
             local.mkdir(parents=True, exist_ok=True)
             self.log_fn(
                 f"  ⇣ {self.env_name} {server}: rsync {len(wanted)} file(s)"
@@ -259,15 +278,14 @@ class ClassicRsyncSource:
             raise ClassicSourceError("server logs were not listed")
         paths: list[Path] = []
         for server, listing in self.listings.items():
-            names = files_for_day(listing, stem, day)
-            if names is None:
-                raise ClassicSourceError(
-                    f"{server} has not rotated past {day} yet"
-                )
+            gap = history_gap(listing, day)
+            if gap is not None:
+                raise ClassicSourceError(f"{server} {gap}")
+            names = files_for_day(listing, stem, day) or []
             for name in names:
                 p = self.cache_dir / server / name
                 if not p.is_file():
                     raise ClassicSourceError(f"{server}/{name} missing from the cache")
                 paths.append(p)
-        lines, size = write_day(paths, day, dest)
+        lines, size = write_day(paths, stem, day, dest)
         return {"bytes": size, "lines": lines, "servers": sorted(self.listings)}

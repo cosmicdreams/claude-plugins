@@ -52,20 +52,19 @@ def read_gz(path: pathlib.Path) -> str:
 class LineMonthDayTests(unittest.TestCase):
     def test_each_server_log_format(self):
         cases = {
-            access(28, "06:26"): (OCT, 28),
-            "[Wed Oct 28 06:26:28.123 2026] [php:error] [pid 1] x\n": (OCT, 28),
-            "Oct  3 06:35:46 srv-7135 site[1]: http://default|1|php|...\n": (OCT, 3),
-            "[03-Oct-2026 06:26:28 UTC] PHP Warning: x\n": (OCT, 3),
+            ("access", access(28, "06:26")): (OCT, 28),
+            ("error", "[Wed Oct 28 06:26:28 2026] [error] [pid=1] x\n"): (OCT, 28),
+            ("drupal-watchdog", "Oct  3 06:35:46 srv-7135 site[1]: http://default|1|php|\n"): (OCT, 3),
+            ("php-errors", "[03-Oct-2026 06:26:28 America/Chicago] PHP Warning: x\n"): (OCT, 3),
+            ("drupal-requests", "[27/Oct/2026:06:26:05 +0000] host GET /x http_code=200\n"): (OCT, 27),
         }
-        for line, want in cases.items():
-            self.assertEqual(classic.line_month_day(line), want, line)
+        for (stem, line), want in cases.items():
+            self.assertEqual(classic.line_month_day(line, stem), want, line)
 
-    def test_earliest_timestamp_wins_over_a_quoted_date(self):
-        line = "[Wed Oct 28 06:26:28 2026] message quoting [03-Oct-2026 01:00:00]\n"
-        self.assertEqual(classic.line_month_day(line), (OCT, 28))
-
-    def test_continuation_line_has_no_date(self):
-        self.assertIsNone(classic.line_month_day("#0 /mnt/www/html/core/x.php(12)\n"))
+    def test_a_date_inside_a_continuation_line_is_not_a_timestamp(self):
+        frame = "#0 /mnt/www/html/x.php(12): DateTime->__construct('28-Oct-2026')\n"
+        self.assertIsNone(classic.line_month_day(frame, "php-errors"))
+        self.assertIsNone(classic.line_month_day("  [28-Oct-2026 01:00:00 UTC] x\n", "php-errors"))
 
 
 class FilesForDayTests(unittest.TestCase):
@@ -85,6 +84,13 @@ class FilesForDayTests(unittest.TestCase):
     def test_none_until_the_server_rotates_past_the_day(self):
         lst = self.listing("access.log-20261028.gz", "access.log")
         self.assertIsNone(classic.files_for_day(lst, "access", date(2026, 10, 28)))
+
+    def test_none_before_the_oldest_rotated_file_held(self):
+        # Retention cleanup or a relaunch left only 10-28 onward.
+        lst = self.listing("access.log-20261028.gz", "access.log-20261029.gz")
+        self.assertIsNone(classic.files_for_day(lst, "access", date(2026, 10, 1)))
+        self.assertIn("before 2026-10-28", classic.history_gap(lst, date(2026, 10, 1)))
+        self.assertIsNotNone(classic.files_for_day(lst, "access", date(2026, 10, 28)))
 
     def test_log_empty_at_rotation_spans_days(self):
         # error.log had nothing at the 10-24 rotation, so 10-25 holds 10-23..10-25.
@@ -121,7 +127,7 @@ class WriteDayTests(unittest.TestCase):
         write_gz(a, access(26, "07:00") + access(26, "23:59") + access(27, "00:00") + access(27, "06:20"))
         write_gz(b, access(27, "06:30") + access(27, "23:59") + access(28, "00:01"))
         dest = self.root / "out" / "day.log.gz"
-        lines, size = classic.write_day([a, b], date(2026, 10, 27), dest)
+        lines, size = classic.write_day([a, b], "access", date(2026, 10, 27), dest)
         self.assertEqual(lines, 4)
         self.assertEqual(
             read_gz(dest),
@@ -133,20 +139,23 @@ class WriteDayTests(unittest.TestCase):
         src = self.root / "php-errors.log"
         src.write_text(
             "[26-Oct-2026 23:59:00 UTC] PHP Fatal error: a\n#0 trace a\n"
-            "[27-Oct-2026 00:00:01 UTC] PHP Fatal error: b\n#0 trace b"
+            "[27-Oct-2026 00:00:01 UTC] PHP Fatal error: b\n"
+            "#0 /x.php(3): DateTime->__construct('28-Oct-2026')\n#1 trace b"
         )
         dest = self.root / "day.log.gz"
-        lines, _ = classic.write_day([src], date(2026, 10, 27), dest)
-        self.assertEqual(lines, 2)
+        lines, _ = classic.write_day([src], "php-errors", date(2026, 10, 27), dest)
+        self.assertEqual(lines, 3)
         self.assertEqual(
-            read_gz(dest), "[27-Oct-2026 00:00:01 UTC] PHP Fatal error: b\n#0 trace b\n",
+            read_gz(dest),
+            "[27-Oct-2026 00:00:01 UTC] PHP Fatal error: b\n"
+            "#0 /x.php(3): DateTime->__construct('28-Oct-2026')\n#1 trace b\n",
         )
 
     def test_empty_day_is_a_valid_empty_file(self):
         src = self.root / "error.log"
         src.write_text("")
         dest = self.root / "day.log.gz"
-        self.assertEqual(classic.write_day([src], date(2026, 10, 27), dest)[0], 0)
+        self.assertEqual(classic.write_day([src], "error", date(2026, 10, 27), dest)[0], 0)
         self.assertEqual(read_gz(dest), "")
         self.assertTrue(pull.file_present_and_complete(dest))
 
@@ -236,6 +245,26 @@ class ReconcileDispatchTests(unittest.TestCase):
         cov = pull.load_coverage(self.root)["2026-10-27"]["prod.apache-access"]
         self.assertEqual(cov["state"], "fetch-failed")
         self.assertIn("Permission denied", cov["reason"])
+
+    def test_truncated_history_fails_instead_of_writing_an_empty_day(self):
+        (self.server / "access.log-20261027.gz").unlink()
+        client, fake = classic_client(), FakeServer(self.server)
+        summary = self.run_reconcile(client, fake)
+        self.assertEqual((summary["fetched"], summary["failed"]), (1, 1))
+        cov = pull.load_coverage(self.root)["2026-10-27"]["prod.apache-access"]
+        self.assertEqual(cov["state"], "fetch-failed")
+        self.assertIn("holds no rotated logs before 2026-10-28", cov["reason"])
+        self.assertIsNone(pull.find_log_file(self.root, date(2026, 10, 27), "prod", "apache-access"))
+
+    def test_cached_files_cover_history_the_server_lost(self):
+        client = classic_client()
+        self.run_reconcile(client, FakeServer(self.server))
+        day27 = pull.canonical_path(self.root, date(2026, 10, 27), "prod", "apache-access")
+        day27.unlink()
+        (self.server / "access.log-20261027.gz").unlink()
+        summary = self.run_reconcile(client, FakeServer(self.server))
+        self.assertEqual((summary["fetched"], summary["failed"]), (1, 0))
+        self.assertEqual(read_gz(day27), access(27, "01:00") + access(27, "12:00"))
 
     def test_cloud_next_keeps_the_api_snapshot_path(self):
         client = mock.MagicMock()

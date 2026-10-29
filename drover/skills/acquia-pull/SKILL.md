@@ -127,7 +127,7 @@ Acquia keeps **30 days** of historical log data. Plan ahead: pull early and ofte
 
 ## Cloud Classic environments
 
-Dated snapshots exist only on Cloud Next. When an environment's `platform` is `cloud` (Classic), `pull.py` skips the API snapshot path and uses `ClassicRsyncSource`: it lists each web server's `/var/log/sites/<site>.<env>/logs/<server>/` over SSH, rsyncs the rotated files the requested days need into `.drover/cache/classic/<env>/<server>/`, and writes each UTC day from the lines' own timestamps. Files and ledger entries match the API path; ledger entries also record `source`, `lines`, and `servers`. Classic needs the user's SSH key on the Acquia account. A day the server has not rotated past yet is `fetch-failed` and is retried by the next `--backfill`; a day with no lines is stored as an empty file.
+Dated snapshots exist only on Cloud Next. When an environment's `platform` is `cloud` (Classic), `pull.py` skips the API snapshot path and uses `ClassicRsyncSource`: it lists each web server's `/var/log/sites/<site>.<env>/logs/<server>/` over SSH, rsyncs the rotated files the requested days need into `.drover/cache/classic/<env>/<server>/`, and writes each day from the lines' own timestamps (UTC; php-errors uses the PHP timezone). Files and ledger entries match the API path; ledger entries also record `source`, `lines`, and `servers`. Classic needs the user's SSH key on the Acquia account. A day the server has not rotated past yet, or one older than any rotated file the server or the local cache still holds, is `fetch-failed` and is retried by the next `--backfill`; a day with no lines is stored as an empty file.
 
 ## Failure modes
 
