@@ -1,0 +1,260 @@
+[
+  {
+    "id": "s0001",
+    "start_ms": 280,
+    "end_ms": 1710,
+    "text": "Welcome to Syntax. We've got a potluck"
+  },
+  {
+    "id": "s0002",
+    "start_ms": 1720,
+    "end_ms": 2990,
+    "text": "episode for you today. We're going to"
+  },
+  {
+    "id": "s0003",
+    "start_ms": 3000,
+    "end_ms": 5430,
+    "text": "answer how do you pass context from one"
+  },
+  {
+    "id": "s0004",
+    "start_ms": 5440,
+    "end_ms": 6550,
+    "text": "coding agent to another? You're"
+  },
+  {
+    "id": "s0005",
+    "start_ms": 6560,
+    "end_ms": 8190,
+    "text": "switching from Claude to Codex or"
+  },
+  {
+    "id": "s0006",
+    "start_ms": 8200,
+    "end_ms": 10110,
+    "text": "anything else and you have all this"
+  },
+  {
+    "id": "s0007",
+    "start_ms": 10120,
+    "end_ms": 11710,
+    "text": "valuable information inside of it. How"
+  },
+  {
+    "id": "s0008",
+    "start_ms": 11720,
+    "end_ms": 13430,
+    "text": "do you pass that from one? Are"
+  },
+  {
+    "id": "s0009",
+    "start_ms": 13440,
+    "end_ms": 16350,
+    "text": "AI-generated skills even good? What"
+  },
+  {
+    "id": "s0010",
+    "start_ms": 16360,
+    "end_ms": 18310,
+    "text": "technical skills should I focus on? A"
+  },
+  {
+    "id": "s0011",
+    "start_ms": 18320,
+    "end_ms": 20230,
+    "text": "couple like questions today are still"
+  },
+  {
+    "id": "s0012",
+    "start_ms": 20240,
+    "end_ms": 22270,
+    "text": "like, I don't know, sad about the future"
+  },
+  {
+    "id": "s0013",
+    "start_ms": 22280,
+    "end_ms": 24230,
+    "text": "or unsure about the future? Don't worry,"
+  },
+  {
+    "id": "s0014",
+    "start_ms": 24240,
+    "end_ms": 25830,
+    "text": "we're going to make you feel all better"
+  },
+  {
+    "id": "s0015",
+    "start_ms": 25840,
+    "end_ms": 28790,
+    "text": "focusing on high-fidelity websites and"
+  },
+  {
+    "id": "s0016",
+    "start_ms": 28800,
+    "end_ms": 30510,
+    "text": "UX. So, like"
+  },
+  {
+    "id": "s0017",
+    "start_ms": 30520,
+    "end_ms": 32190,
+    "text": "I This guy gets these really"
+  },
+  {
+    "id": "s0018",
+    "start_ms": 32200,
+    "end_ms": 34710,
+    "text": "high-quality websites done in Figma and"
+  },
+  {
+    "id": "s0019",
+    "start_ms": 34720,
+    "end_ms": 37750,
+    "text": "then he's got to implement them and like"
+  },
+  {
+    "id": "s0020",
+    "start_ms": 37760,
+    "end_ms": 39510,
+    "text": "what what is he even doing anymore,"
+  },
+  {
+    "id": "s0021",
+    "start_ms": 39520,
+    "end_ms": 41830,
+    "text": "right? And finally, we asked Scott about"
+  },
+  {
+    "id": "s0022",
+    "start_ms": 41840,
+    "end_ms": 44110,
+    "text": "his pie setup. If you're starting from"
+  },
+  {
+    "id": "s0023",
+    "start_ms": 44120,
+    "end_ms": 46790,
+    "text": "scratch with pie or pie durable,"
+  },
+  {
+    "id": "s0024",
+    "start_ms": 46800,
+    "end_ms": 48350,
+    "text": "what do you even do? If you have a"
+  },
+  {
+    "id": "s0025",
+    "start_ms": 48360,
+    "end_ms": 49630,
+    "text": "question, please submit it. Go to"
+  },
+  {
+    "id": "s0026",
+    "start_ms": 49640,
+    "end_ms": 51870,
+    "text": "syntax.fm, click on potluck in the"
+  },
+  {
+    "id": "s0027",
+    "start_ms": 51880,
+    "end_ms": 53790,
+    "text": "navbar, and submit your question. We"
+  },
+  {
+    "id": "s0028",
+    "start_ms": 53800,
+    "end_ms": 55990,
+    "text": "will answer it on a future episode. My"
+  },
+  {
+    "id": "s0029",
+    "start_ms": 56000,
+    "end_ms": 58270,
+    "text": "name is Wes. With me is Scott. Let's get"
+  },
+  {
+    "id": "s0030",
+    "start_ms": 58280,
+    "end_ms": 59595,
+    "text": "into it."
+  },
+  {
+    "id": "s0031",
+    "start_ms": 59605,
+    "end_ms": 65750,
+    "text": ">> [music]"
+  },
+  {
+    "id": "s0032",
+    "start_ms": 65760,
+    "end_ms": 67470,
+    "text": ">> First question we have here and this was"
+  },
+  {
+    "id": "s0033",
+    "start_ms": 67480,
+    "end_ms": 70030,
+    "text": "actually I think somebody like a spam"
+  },
+  {
+    "id": "s0034",
+    "start_ms": 70040,
+    "end_ms": 72190,
+    "text": "submission or somebody trying to pump"
+  },
+  {
+    "id": "s0035",
+    "start_ms": 72200,
+    "end_ms": 74030,
+    "text": "their own thing because the link that"
+  },
+  {
+    "id": "s0036",
+    "start_ms": 74040,
+    "end_ms": 77790,
+    "text": "they sent has UTM source syntax.fm in"
+  },
+  {
+    "id": "s0037",
+    "start_ms": 77800,
+    "end_ms": 79430,
+    "text": "the URL. So, we're not going to mention"
+  },
+  {
+    "id": "s0038",
+    "start_ms": 79440,
+    "end_ms": 80830,
+    "text": "what it is cuz they're obviously trying"
+  },
+  {
+    "id": "s0039",
+    "start_ms": 80840,
+    "end_ms": 83110,
+    "text": "to do something slimy here. But, I did"
+  },
+  {
+    "id": "s0040",
+    "start_ms": 83120,
+    "end_ms": 85030,
+    "text": "think it was a good question. When you"
+  },
+  {
+    "id": "s0041",
+    "start_ms": 85040,
+    "end_ms": 86790,
+    "text": "run Claude Code and Codex side by side"
+  },
+  {
+    "id": "s0042",
+    "start_ms": 86800,
+    "end_ms": 88390,
+    "text": "on different tasks, how do you keep"
+  },
+  {
+    "id": "s0043",
+    "start_ms": 88400,
+    "end_ms": 90550,
+    "text": "track of what each one is doing and"
+  }
+]

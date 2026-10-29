@@ -1,0 +1,14 @@
+{
+  "segments": [
+    {
+      "start": 1.2,
+      "end": 3,
+      "text": " Hello world."
+    },
+    {
+      "start": 2.8,
+      "end": 4,
+      "text": " More words."
+    }
+  ]
+}

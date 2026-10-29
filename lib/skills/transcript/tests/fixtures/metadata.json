@@ -1,0 +1,27 @@
+{
+  "id": "fixture",
+  "title": "Fixture title",
+  "channel": "Fixture channel",
+  "duration": 40,
+  "webpage_url": "https://www.youtube.com/watch?v=fixture&list=demo",
+  "subtitles": {
+    "en-GB": [
+      {
+        "ext": "json3"
+      },
+      {
+        "ext": "vtt"
+      }
+    ]
+  },
+  "automatic_captions": {
+    "en-orig": [
+      {
+        "ext": "json3"
+      },
+      {
+        "ext": "vtt"
+      }
+    ]
+  }
+}

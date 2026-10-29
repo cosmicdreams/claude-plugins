@@ -1,0 +1,14 @@
+[
+  {
+    "id": "s0001",
+    "start_ms": 10000,
+    "end_ms": 11000,
+    "text": "First"
+  },
+  {
+    "id": "s0002",
+    "start_ms": 21000,
+    "end_ms": 22000,
+    "text": "Second"
+  }
+]
