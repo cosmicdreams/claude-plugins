@@ -117,7 +117,9 @@ def history_gap(listing: dict[str, dict], day: date) -> str | None:
     gets no file, so any stem's rotated files mark the span of history held.
     A day is whole once a file is dated after it. It is only known to be
     held if a file is dated on or before it: older files may have been
-    cleaned up or lost when Acquia relaunched the server.
+    cleaned up or lost when Acquia relaunched the server. Only the server's
+    own listing counts; the local cache holds just the files earlier pulls
+    asked for, so it cannot show which days a log was empty.
     """
     dates = [d for e in listing.values() for d in e["rotated"]]
     if not dates or max(dates) <= day:
@@ -246,18 +248,15 @@ class ClassicRsyncSource:
                 ["ssh", *SSH_OPTS, ssh_url, f"ls -1 {shlex.quote(remote)}"],
                 f"listing {server}",
             )
-            # Cached copies stand in for files the server no longer has.
-            local = self.cache_dir / server
-            cached = [p.name for p in local.glob("*.log-*")] if local.is_dir() else []
-            remote_names = {n.strip() for n in out.splitlines()}
-            listing = parse_listing(sorted(remote_names) + cached)
+            listing = parse_listing(out.splitlines())
             self.listings[server] = listing
             wanted = sorted({
                 name for stem in stems for day in days
                 for name in (files_for_day(listing, stem, day) or [])
-            } & remote_names)
+            })
             if not wanted:
                 continue
+            local = self.cache_dir / server
             local.mkdir(parents=True, exist_ok=True)
             self.log_fn(
                 f"  ⇣ {self.env_name} {server}: rsync {len(wanted)} file(s)"

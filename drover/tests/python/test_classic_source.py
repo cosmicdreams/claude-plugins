@@ -256,15 +256,19 @@ class ReconcileDispatchTests(unittest.TestCase):
         self.assertIn("holds no rotated logs before 2026-10-28", cov["reason"])
         self.assertIsNone(pull.find_log_file(self.root, date(2026, 10, 27), "prod", "apache-access"))
 
-    def test_cached_files_cover_history_the_server_lost(self):
-        client = classic_client()
-        self.run_reconcile(client, FakeServer(self.server))
-        day27 = pull.canonical_path(self.root, date(2026, 10, 27), "prod", "apache-access")
-        day27.unlink()
+    def test_cache_from_another_log_does_not_vouch_for_lost_history(self):
+        # An earlier pull cached access for 10-27; the server has since lost
+        # everything before 10-28, including php-errors for 10-27.
+        cache = self.root / ".drover" / "cache" / "classic" / "prod" / "srv-1"
+        cache.mkdir(parents=True)
+        shutil.copy2(self.server / "access.log-20261027.gz", cache)
         (self.server / "access.log-20261027.gz").unlink()
-        summary = self.run_reconcile(client, FakeServer(self.server))
-        self.assertEqual((summary["fetched"], summary["failed"]), (1, 0))
-        self.assertEqual(read_gz(day27), access(27, "01:00") + access(27, "12:00"))
+        write_gz(self.server / "php-errors.log-20261028.gz", "[27-Oct-2026 15:00:00 UTC] PHP Warning: x\n")
+        self.envs[0]["types"] = ["php-error"]
+        summary = self.run_reconcile(classic_client(), FakeServer(self.server))
+        cov = pull.load_coverage(self.root)["2026-10-27"]["prod.php-error"]
+        self.assertEqual(cov["state"], "fetch-failed")
+        self.assertEqual(summary["failed"], 1)
 
     def test_cloud_next_keeps_the_api_snapshot_path(self):
         client = mock.MagicMock()
