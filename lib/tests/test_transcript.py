@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -41,7 +42,7 @@ elif name == 'yt-dlp':
         default = ('automatic' if '--write-auto-subs' in args else 'manual') + '.' + ext
         shutil.copyfile(f / os.environ.get('CAPTION', default), args[args.index('-o') + 1] + '.' + lang + '.' + ext)
     else:
-        assert args[:2] == ['-f','bestaudio']
+        assert args[:3] == ['--no-playlist','-f','bestaudio']
         Path(args[args.index('-o') + 1].replace('%(ext)s', 'm4a')).write_bytes(b'fake audio')
 elif name == 'ffprobe':
     if os.environ.get('BAD_LOCAL'):
@@ -129,8 +130,11 @@ class TranscriptTests(unittest.TestCase):
             self.assertEqual(s['text'], ' '.join(s['text'].split()))
         for a, b in zip(segs, segs[1:]):
             self.assertLessEqual(a['end_ms'], b['start_ms'])
+
+    def check_no_carryover(self, segs):
+        # Real automatic fixtures: no rolling display line may survive.
+        for a, b in zip(segs, segs[1:]):
             self.assertNotEqual(a['text'], b['text'])
-            self.assertFalse(a['text'].startswith(b['text'] + ' '))
             self.assertFalse(b['text'].startswith(a['text'] + ' '))
 
     def test_all_real_fixtures_and_expected_outputs(self):
@@ -139,9 +143,11 @@ class TranscriptTests(unittest.TestCase):
                 with self.subTest(name=name, ext=ext):
                     path = FIX / (name + '.' + ext)
                     rows = (transcript.parse_vtt if ext == 'vtt' else transcript.parse_json3)(path.read_text())
-                    segs = transcript.normalize(rows)
+                    segs = transcript.normalize(rows, rolling=(name == 'automatic' and ext == 'vtt'))
                     self.assertEqual(segs, json.loads((FIX / (path.name + '.expected.json')).read_text()))
                     self.check_segments(segs)
+                    if name == 'automatic':
+                        self.check_no_carryover(segs)
                     self.cli(AUTO='1' if name == 'automatic' else '', VTT='1' if ext == 'vtt' else '')
                     self.assertEqual(self.data['segments'], segs)
 
@@ -209,9 +215,10 @@ class TranscriptTests(unittest.TestCase):
         self.assertIsNone(self.data['track'])
         calls = self.calls()
         download = calls[1][1]
-        self.assertEqual(download[:3], ['-f','bestaudio','-o'])
-        self.assertTrue(download[3].endswith('/audio.%(ext)s'))
-        self.assertEqual(download[4:], ['https://www.youtube.com/watch?v=fixture&list=demo'])
+        self.assertEqual(download[:4], ['--no-playlist','-f','bestaudio','-o'])
+        self.assertTrue(download[4].endswith('/audio.%(ext)s'))
+        self.assertEqual(download[5:], ['https://www.youtube.com/watch?v=fixture&list=demo'])
+        self.assertTrue(all('--no-playlist' in args for name, args in calls if name == 'yt-dlp' and args not in (['--version'],)))
         self.assertEqual(calls[2][0], 'mlx_whisper')
         whisper = calls[2][1]
         self.assertTrue(whisper[0].endswith('/audio.m4a'))
@@ -275,11 +282,51 @@ class TranscriptTests(unittest.TestCase):
             transcript.parse_vtt('not vtt')
 
     def test_rolling_lines_overlap_and_stable_order(self):
-        segs = transcript.normalize([(20,50,'second\nthird'),(0,30,'first\nsecond'),(10,15,'sec'),(10,15,'second'),(25,60,'third fourth')])
-        self.assertEqual([s['text'] for s in segs], ['first second','third','fourth'])
+        # Automatic VTT shape: main cue, 10 ms transition cue, next main cue repeating the line.
+        segs = transcript.normalize([(1720,3000,'first\nsecond'),(0,1710,'first'),(1710,1720,'first'),(3000,3010,'second'),(3010,4000,'second\nthird')], rolling=True)
+        self.assertEqual([s['text'] for s in segs], ['first','second','third'])
         self.check_segments(segs)
-        self.assertEqual(segs[0]['end_ms'], 20)
-        self.assertEqual(segs[1]['end_ms'], 25)
+        self.assertEqual(segs[0]['end_ms'], 1710)
+        self.assertEqual(segs[1]['end_ms'], 3000)
+
+    def test_genuine_repetition_is_kept(self):
+        rows = [(0,1000,'Thank you.'),(2000,3000,'Thank you.')]
+        for rolling in (False, True):
+            self.assertEqual([s['text'] for s in transcript.normalize(rows, rolling)], ['Thank you.','Thank you.'])
+        # Prefix speech after a pause, in manual captions and in automatic VTT.
+        rows = [(0,1000,'No more questions.'),(10000,11000,'No')]
+        for rolling in (False, True):
+            self.assertEqual([s['text'] for s in transcript.normalize(rows, rolling)], ['No more questions.','No'])
+        # Automatic VTT where the new line repeats the carried-over line.
+        rows = [(0,1000,'Thank you.'),(1000,1010,'Thank you.'),(1010,2000,'Thank you.\nThank you.')]
+        self.assertEqual([s['text'] for s in transcript.normalize(rows, True)], ['Thank you.','Thank you.'])
+
+    def test_json3_repetition_is_kept(self):
+        data = json.dumps({'events': [
+            {'tStartMs': 0, 'dDurationMs': 1000, 'segs': [{'utf8': 'Hello'}]},
+            {'tStartMs': 990, 'dDurationMs': 10, 'aAppend': 1, 'segs': [{'utf8': '\n'}]},
+            {'tStartMs': 1000, 'dDurationMs': 1000, 'segs': [{'utf8': 'Hello'}]}]})
+        self.assertEqual([s['text'] for s in transcript.normalize(transcript.parse_json3(data))], ['Hello','Hello'])
+
+    def test_translated_automatic_track_rejected(self):
+        translated = {'en': [{'ext': 'json3', 'url': 'https://www.youtube.com/api/timedtext?lang=es&tlang=en'}]}
+        self.assertIsNone(transcript.choose_track({}, translated, 'en'))
+        original = {'en': [{'ext': 'json3', 'url': 'https://www.youtube.com/api/timedtext?lang=en'}]}
+        self.assertEqual(transcript.choose_track({}, original, 'en'), ('en', 'json3', True))
+
+    def test_playlist_metadata_rejected(self):
+        meta = json.loads((FIX / 'metadata.json').read_text())
+        meta.update(_type='playlist', entries=[])
+        (self.root / 'playlist.json').write_text(json.dumps(meta))
+        env = dict(self.env, FIXTURES=str(self.root))
+        for name in os.listdir(FIX):
+            if not (self.root / name).exists():
+                shutil.copyfile(FIX / name, self.root / name)
+        result = subprocess.run([sys.executable, '-I', str(SCRIPT), 'https://www.youtube.com/watch?v=x&list=demo', '--out', str(self.out)],
+                                env=dict(env, METADATA='playlist.json'), capture_output=True, text=True)
+        self.assertEqual(result.returncode, 1)
+        self.assertIn('Playlist', result.stderr)
+        self.assertIn('--no-playlist', self.calls()[0][1])
 
 
 if __name__ == '__main__':

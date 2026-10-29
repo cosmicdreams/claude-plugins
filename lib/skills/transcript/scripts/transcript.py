@@ -96,29 +96,43 @@ def parse_vtt(data):
     return out
 
 
-def normalize(rows):
+def normalize(rows, rolling=False):
+    """Collapse whitespace, assign ids, cap ends at the next start.
+
+    Only YouTube automatic VTT (``rolling=True``) gets carryover removal: each
+    cue repeats the previous cue's last line as its first line, and a ~10 ms
+    transition cue shows that line alone. A line counts as carryover only when it
+    equals the previous cue's last line and the cue starts within 50 ms of the
+    previous cue's end. Manual captions, JSON3 and speech recognition keep every
+    cue, so genuinely repeated speech survives.
+    """
     result = []
-    trailing = ''
+    trailing, last_end = None, None
     for start, end, raw in sorted(rows, key=lambda row: row[0]):
         start, end = milliseconds(start), milliseconds(end)
         if end < start:
             raise ValueError('Cue ends before it starts')
         lines = [' '.join(line.split()) for line in raw.splitlines() if line.strip()]
-        text = ' '.join(lines)
-        if not text:
+        if not lines:
             continue
-        if trailing and (text == trailing or trailing.startswith(text)):
-            continue
-        if trailing and text.startswith(trailing + ' '):
-            text = text[len(trailing):].strip()
-        if not text:
-            continue
+        if rolling:
+            contiguous = last_end is not None and abs(start - last_end) <= 50
+            last_end = end
+            if contiguous and lines[0] == trailing:
+                lines = lines[1:]
+                if not lines:
+                    continue
+            trailing = lines[-1]
         result.append({'id': f's{len(result) + 1:04d}', 'start_ms': start,
-                       'end_ms': end, 'text': text})
-        trailing = lines[-1]
+                       'end_ms': end, 'text': ' '.join(lines)})
     for current, following in zip(result, result[1:]):
         current['end_ms'] = min(current['end_ms'], following['start_ms'])
     return result
+
+
+def original_language(formats):
+    """Drop machine-translated automatic formats (yt-dlp marks them with tlang)."""
+    return [f for f in formats if 'tlang' not in dict(parse_qsl(urlparse(f.get('url') or '').query))]
 
 
 def choose_track(manual, automatic, lang):
@@ -128,8 +142,9 @@ def choose_track(manual, automatic, lang):
     candidates = [(manual, n, False) for n in names]
     candidates += [(automatic, n, True) for n in (lang + '-orig', lang) if n in automatic]
     for pool, name, auto in candidates:
+        formats = original_language(pool[name]) if auto else pool[name]
         for ext in ('json3', 'vtt'):
-            if any(f.get('ext') == ext for f in pool[name]):
+            if any(f.get('ext') == ext for f in formats):
                 return name, ext, auto
     return None
 
@@ -171,7 +186,9 @@ def acquire(args):
     url = args.input if urlparse(args.input).scheme in ('http', 'https') else None
     local = Path(args.input)
     if url:
-        meta = json.loads(run(['yt-dlp', '--dump-single-json', '--skip-download', url]).stdout)
+        meta = json.loads(run(['yt-dlp', '--no-playlist', '--dump-single-json', '--skip-download', url]).stdout)
+        if meta.get('_type') == 'playlist' or 'entries' in meta:
+            raise ValueError('Playlist links are not supported; pass a single video link')
         host = (urlparse(url).hostname or '').lower()
         kind = 'youtube' if host == 'youtu.be' or host == 'youtube.com' or host.endswith('.youtube.com') else 'url'
         source = {'kind': kind, 'url': meta.get('webpage_url') or url,
@@ -201,16 +218,17 @@ def acquire(args):
         temp = Path(td)
         if selected:
             lang, ext, auto = selected
-            run(['yt-dlp', '--skip-download', '--write-auto-subs' if auto else '--write-subs', '--sub-langs', lang, '--sub-format', ext, '-o', str(temp / 'cap'), source['url']])
+            run(['yt-dlp', '--no-playlist', '--skip-download', '--write-auto-subs' if auto else '--write-subs', '--sub-langs', lang, '--sub-format', ext, '-o', str(temp / 'cap'), source['url']])
             files = sorted(temp.glob('cap*.' + ext))
             if len(files) != 1:
                 raise ValueError('yt-dlp did not produce exactly one requested caption file')
             rows = (parse_json3 if ext == 'json3' else parse_vtt)(files[0].read_text(encoding='utf-8'))
+            rolling = auto and ext == 'vtt'
             method, track, model = ('auto-captions' if auto else 'manual-captions'), {'lang': lang, 'ext': ext}, None
         else:
             audio = local
             if url:
-                run(['yt-dlp', '-f', 'bestaudio', '-o', str(temp / 'audio.%(ext)s'), source['url']])
+                run(['yt-dlp', '--no-playlist', '-f', 'bestaudio', '-o', str(temp / 'audio.%(ext)s'), source['url']])
                 files = sorted(temp.glob('audio.*'))
                 if len(files) != 1:
                     raise ValueError('yt-dlp did not produce exactly one audio file')
@@ -225,10 +243,11 @@ def acquire(args):
             obj = json.loads(files[0].read_text(encoding='utf-8'))
             rows = [(milliseconds(float(s['start']) * 1000), milliseconds(float(s['end']) * 1000), s['text']) for s in obj.get('segments', [])]
             method, track, model = 'asr-mlx', None, MODEL
+            rolling = False
     # Warn on original cue bounds, including ends subsequently shortened by overlap repair.
     warnings = [f'cue {i}: timestamp beyond source duration' for i, (start, end, _) in enumerate(rows, 1)
                 if duration is not None and max(start, end) > duration]
-    segments = normalize(rows)
+    segments = normalize(rows, rolling)
     if not segments:
         raise ValueError('No nonempty transcript segments found; check the caption or speech recognition output')
     source.update(duration_ms=duration, language=selected[0] if selected else args.lang)
