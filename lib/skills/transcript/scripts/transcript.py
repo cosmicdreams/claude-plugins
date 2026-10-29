@@ -11,6 +11,7 @@ import json
 import math
 from pathlib import Path
 import re
+import shlex
 import shutil
 import subprocess
 import sys
@@ -31,8 +32,20 @@ def run(args, *, check=True):
 
 
 def version(exe):
-    if not shutil.which(exe):
+    path = shutil.which(exe)
+    if not path:
         return None
+    if exe == 'mlx_whisper':
+        # mlx_whisper has no --version; ask the interpreter it was installed with.
+        with open(path, 'rb') as handle:
+            first = handle.readline().decode('utf-8', 'replace')
+        if not first.startswith('#!'):
+            return None
+        try:
+            p = run(shlex.split(first[2:]) + ['-I', '-c', 'import importlib.metadata as m; print(m.version("mlx-whisper"))'], check=False)
+        except ValueError:
+            return None
+        return f'mlx-whisper {p.stdout.strip()}' if p.returncode == 0 and p.stdout.strip() else None
     p = run([exe, '-version' if exe == 'ffprobe' else '--version'], check=False)
     lines = (p.stdout or p.stderr).strip().splitlines()
     return lines[0] if p.returncode == 0 and lines else None
@@ -180,7 +193,9 @@ def acquire(args):
     if args.method == 'captions' and not selected:
         raise ValueError(f'No supported captions for {args.lang}; choose another --lang or approve ASR with --approve-asr')
     if not selected and not args.approve_asr:
-        print(json.dumps({'status': 'approval_required', 'message': 'Speech recognition (ASR) requires --approve-asr; YouTube terms restrict downloading. No media was downloaded.'}))
+        reason = ('YouTube terms restrict downloading. No media was downloaded.' if url
+                  else 'Local transcription can take several minutes.')
+        print(json.dumps({'status': 'approval_required', 'message': f'Speech recognition (ASR) requires --approve-asr; {reason}'}))
         return 3
     with tempfile.TemporaryDirectory() as td:
         temp = Path(td)

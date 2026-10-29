@@ -5,12 +5,16 @@ on:
     paths:
       - 'lib/skills/testrail/**'
       - 'lib/tests/test_testrail.py'
+      - 'lib/skills/transcript/**'
+      - 'lib/tests/test_transcript.py'
       - '.github/workflows/lib-testrail-tests.yml'
   push:
     branches: [main]
     paths:
       - 'lib/skills/testrail/**'
       - 'lib/tests/test_testrail.py'
+      - 'lib/skills/transcript/**'
+      - 'lib/tests/test_transcript.py'
       - '.github/workflows/lib-testrail-tests.yml'
 
 jobs:

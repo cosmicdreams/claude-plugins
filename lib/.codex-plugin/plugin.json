@@ -1,6 +1,6 @@
 {
   "name": "lib",
-  "version": "1.4.2",
+  "version": "1.5.0",
   "description": "CLI wrapper skills for office tooling.",
   "author": {
     "name": "Chris Weber"
