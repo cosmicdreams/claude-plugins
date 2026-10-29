@@ -210,8 +210,12 @@ def acquire(args):
     if args.method == 'captions' and not selected:
         raise ValueError(f'No supported captions for {args.lang}; choose another --lang or approve ASR with --approve-asr')
     if not selected and not args.approve_asr:
-        reason = ('YouTube terms restrict downloading. No media was downloaded.' if url
-                  else 'Local transcription can take several minutes.')
+        if not url:
+            reason = 'Local transcription can take several minutes.'
+        elif source['kind'] == 'youtube':
+            reason = 'YouTube terms restrict downloading. No media was downloaded.'
+        else:
+            reason = 'Downloading audio needs approval. No media was downloaded.'
         print(json.dumps({'status': 'approval_required', 'message': f'Speech recognition (ASR) requires --approve-asr; {reason}'}))
         return 3
     with tempfile.TemporaryDirectory() as td:

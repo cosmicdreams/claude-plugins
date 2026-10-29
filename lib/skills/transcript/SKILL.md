@@ -42,6 +42,8 @@ python3 -I "$SCRIPT" "<url-or-path>" --out "<dir>" --json
 | `--approve-asr` | Permission to run speech recognition. Without it the script exits `3` and downloads nothing. |
 | `--json` | One-line summary on stdout: paths, method, segment count, gap count, hash. |
 
+Pass `--lang` for non-English sources: speech recognition decodes in that language, so an untagged non-English recording is decoded as English. Use a fresh `--out` directory per source; a failed run (exit 1 or 3) leaves any earlier `transcript.json` in place.
+
 Captions are chosen in this order: manual track in the language, automatic `<lang>-orig`, automatic `<lang>`. `json3` is used when offered, else VTT. Rolling auto-caption repeats are removed (rules in `references/normalization.txt`).
 
 ## Approval gate
