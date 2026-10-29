@@ -1,0 +1,220 @@
+{
+  "type": "object",
+  "required": [
+    "schema_version",
+    "source",
+    "method",
+    "track",
+    "tools",
+    "model",
+    "segments",
+    "gaps",
+    "warnings",
+    "segments_sha256"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "source": {
+      "type": "object",
+      "required": [
+        "kind",
+        "id",
+        "title",
+        "channel",
+        "duration_ms",
+        "language"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "youtube",
+            "url",
+            "local"
+          ]
+        },
+        "url": {
+          "type": "string"
+        },
+        "path": {
+          "type": "string"
+        },
+        "id": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "title": {
+          "type": "string"
+        },
+        "channel": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "duration_ms": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "minimum": 0
+        },
+        "language": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false,
+      "oneOf": [
+        {
+          "required": [
+            "url"
+          ]
+        },
+        {
+          "required": [
+            "path"
+          ]
+        }
+      ]
+    },
+    "method": {
+      "enum": [
+        "manual-captions",
+        "auto-captions",
+        "asr-mlx"
+      ]
+    },
+    "track": {
+      "oneOf": [
+        {
+          "type": "null"
+        },
+        {
+          "type": "object",
+          "required": [
+            "lang",
+            "ext"
+          ],
+          "properties": {
+            "lang": {
+              "type": "string"
+            },
+            "ext": {
+              "enum": [
+                "json3",
+                "vtt"
+              ]
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "tools": {
+      "type": "object",
+      "required": [
+        "yt_dlp",
+        "mlx_whisper",
+        "ffprobe"
+      ],
+      "properties": {
+        "yt_dlp": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "mlx_whisper": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "ffprobe": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      },
+      "additionalProperties": false
+    },
+    "model": {
+      "type": [
+        "string",
+        "null"
+      ]
+    },
+    "segments": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "start_ms",
+          "end_ms",
+          "text"
+        ],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^s[0-9]{4,}$"
+          },
+          "start_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "start_ms",
+          "end_ms"
+        ],
+        "properties": {
+          "start_ms": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "end_ms": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "additionalProperties": false
+      }
+    },
+    "warnings": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "segments_sha256": {
+      "type": "string",
+      "pattern": "^[a-f0-9]{64}$"
+    }
+  },
+  "additionalProperties": false,
+  "$schema": "https://json-schema.org/draft/2020-12/schema"
+}

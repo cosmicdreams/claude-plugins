@@ -1,0 +1,32 @@
+Caption and speech normalization
+
+Cues are stably sorted by start. Empty cues are removed before assigning
+sequential ids; whitespace is collapsed in output.
+
+Only YouTube automatic VTT is deduplicated. Its rolling display repeats the
+previous cue's last line as the next cue's first line, and inserts ~10 ms
+transition cues that show that line alone. A line is treated as carryover and
+removed only when it equals the previous cue's last line AND the cue starts within
+50 ms of the previous cue's end. Manual captions, JSON3 (which YouTube emits as
+distinct events plus newline-only append events) and speech recognition output are
+never deduplicated, so genuinely repeated speech is kept.
+
+Each end is capped at the next emitted start. Starts are never clamped to duration
+or moved. Equal starts may therefore produce zero-length segments, preserving
+text. Invalid negative/nonfinite timestamps and backwards intervals fail clearly.
+Warnings refer to original cue numbers before sorting/deduplication, including
+ends later shortened by overlap repair. Gaps include leading/trailing silence
+when duration is known, with an inclusive 10000 ms threshold.
+
+Automatic caption choice is <lang>-orig then <lang>; other automatic languages
+are not substituted, and machine-translated formats (URL carries tlang) are
+rejected. Every yt-dlp call passes --no-playlist; playlist metadata is an error. Manual exact language precedes sorted regional variants.
+Unsupported formats are skipped. JSON3 is preferred to VTT within each track.
+No translation, media download, or speech recognition occurs at the approval gate.
+
+JSON is deterministic for identical metadata, captions, tool versions and options.
+Tool versions are provenance, so changing installed versions can change the full
+file; the segments hash depends only on canonical normalized segments. Temporary
+paths and acquisition timestamps are never persisted. Paragraphs target at most
+60 seconds, except a single longer segment. Markdown body text is verbatim
+normalized text after the timestamp prefix (no punctuation/word rewriting).

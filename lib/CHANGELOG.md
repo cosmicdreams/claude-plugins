@@ -1,5 +1,9 @@
 # Changelog
 
+## 1.5.0 — 2026-10-29
+
+- Add `lib:transcript`: a timed transcript from a YouTube link, another yt-dlp source, or a local audio or video file. Captions come first (manual, then automatic; `json3` when offered, else VTT, with rolling auto-caption repeats removed); `mlx_whisper` speech recognition runs only with `--approve-asr`. Writes `transcript.json` (stable segment IDs and times, method, gaps, provenance, segment hash) and a readable `transcript.md` with timestamp links. Never summarizes.
+
 ## 1.4.2 — 2026-10-09
 
 - Fix `testrail` authentication: select 1Password accounts by item ID, share QA-AI environment conventions, and use email-based Keychain lookup.

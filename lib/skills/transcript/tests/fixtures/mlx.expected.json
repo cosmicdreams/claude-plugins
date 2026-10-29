@@ -1,0 +1,14 @@
+[
+  {
+    "id": "s0001",
+    "start_ms": 1200,
+    "end_ms": 2800,
+    "text": "Hello world."
+  },
+  {
+    "id": "s0002",
+    "start_ms": 2800,
+    "end_ms": 4000,
+    "text": "More words."
+  }
+]

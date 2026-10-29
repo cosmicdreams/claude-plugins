@@ -1,0 +1,9 @@
+{
+  "id": "fixture",
+  "title": "Fixture title",
+  "channel": "Fixture channel",
+  "duration": 40,
+  "webpage_url": "https://www.youtube.com/watch?v=fixture&list=demo",
+  "subtitles": {},
+  "automatic_captions": {}
+}
