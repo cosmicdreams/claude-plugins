@@ -74,7 +74,9 @@ from pathlib import Path
 
 # Import AcquiaClient from sibling module without pip install.
 sys.path.insert(0, str(Path(__file__).parent / "monitors"))
+sys.path.insert(0, str(Path(__file__).parent))
 from acquia_api import AcquiaClient, AcquiaAPIError  # noqa: E402
+from classic_source import ClassicRsyncSource  # noqa: E402
 
 
 DEFAULT_TYPES = ["apache-error", "drupal-watchdog", "php-error"]
@@ -611,6 +613,29 @@ def resolve_dates(args: argparse.Namespace) -> list[date]:
     return date_range(from_d, to_d)
 
 
+# --- Log sources by platform ----------------------------------------------
+
+# Acquia platform (the environment's `platform` field) -> log source class.
+# Cloud Next ("cloud-next") and anything unrecognized use the Cloud API
+# snapshot path in reconcile(); Cloud Classic ("cloud") refuses dated
+# snapshots, so its logs come from the servers' rotated files instead.
+PLATFORM_SOURCES = {"cloud": ClassicRsyncSource}
+
+
+def detect_platform(client: AcquiaClient | None, env: dict) -> str | None:
+    """The env's Acquia platform: the manifest's value, else the API's.
+
+    None when neither can say, which keeps the Cloud API path.
+    """
+    platform = env.get("platform")
+    if not platform and client is not None and env.get("env_id"):
+        try:
+            platform = client.get_environment(env["env_id"]).get("platform")
+        except Exception:
+            platform = None
+    return platform if isinstance(platform, str) else None
+
+
 # --- Reconcile orchestrator -----------------------------------------------
 
 def reconcile(
@@ -959,6 +984,61 @@ def reconcile(
             save_coverage(project_root, coverage)
         return "fetch-failed", reason
 
+    # Pick each env's log source from its platform. Envs without an entry
+    # in PLATFORM_SOURCES use the Cloud API snapshot path (fetch_day).
+    sources: dict[str, object] = {}
+    source_errors: dict[str, str] = {}
+    for env in {e["name"]: e for e, _, _ in missing}.values():
+        platform = detect_platform(client, env)
+        source_cls = PLATFORM_SOURCES.get(platform)
+        if source_cls is None:
+            continue
+        env_missing = [(t, d) for e, t, d in missing if e["name"] == env["name"]]
+        source = source_cls(
+            client, env,
+            project_root / ".drover" / "cache" / "classic" / env["name"],
+            log_fn=safe_log,
+        )
+        log_fn(
+            f"\n[{env['name']}] platform={platform}: "
+            f"pulling server logs with {source_cls.__name__}"
+        )
+        try:
+            source.prepare(
+                sorted({t for t, _ in env_missing}),
+                sorted({d for _, d in env_missing}),
+            )
+        except Exception as e:
+            source_errors[env["name"]] = f"{type(e).__name__}: {e}"
+            log_fn(f"  ! {env['name']}: {source_errors[env['name']]}")
+        sources[env["name"]] = source
+
+    def fetch_day_from_source(source, env_name, log_type, day) -> tuple[str, str]:
+        """Write one day through a platform source and record it."""
+        reason = source_errors.get(env_name)
+        if reason is None:
+            local = canonical_path(project_root, day, env_name, log_type)
+            try:
+                info = source.fetch_day(log_type, day, local)
+            except Exception as e:
+                reason = f"{type(e).__name__}: {e}"
+            else:
+                with ledger_lock:
+                    mark_coverage(
+                        coverage, day, env_name, log_type,
+                        state="present", source=type(source).__name__,
+                        **info,
+                    )
+                    save_coverage(project_root, coverage)
+                return "present", str(info["bytes"])
+        with ledger_lock:
+            mark_coverage(
+                coverage, day, env_name, log_type,
+                state="fetch-failed", reason=reason,
+            )
+            save_coverage(project_root, coverage)
+        return "fetch-failed", reason
+
     def process_group(g: dict) -> None:
         """Fetch every day of one (env, type) group, strictly in order."""
         env = g["env"]
@@ -966,10 +1046,16 @@ def reconcile(
         env_id = env.get("env_id")
         log_type = g["log_type"]
         seen_md5: dict[str, str] = {}
+        source = sources.get(env_name)
         for day in g["days"]:
-            state, detail = fetch_day(
-                env_id, env_name, log_type, day, seen_md5,
-            )
+            if source is not None:
+                state, detail = fetch_day_from_source(
+                    source, env_name, log_type, day,
+                )
+            else:
+                state, detail = fetch_day(
+                    env_id, env_name, log_type, day, seen_md5,
+                )
             with print_lock:
                 if state == "present":
                     counters["fetched"] += 1

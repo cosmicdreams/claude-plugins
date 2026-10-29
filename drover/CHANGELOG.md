@@ -1,5 +1,12 @@
 # drover Changelog
 
+## 5.1.0 — 2026-10-29
+
+### Added
+
+- Cloud Classic support in `pull.py`. Classic environments refuse dated Cloud API snapshots (HTTP 409 "Date ranges for log file snapshots are not supported on this environment."), so every pull failed there. `pull.py` now picks a log source from each environment's `platform` (manifest value, otherwise `GET /environments/{id}`): Cloud Next keeps the API snapshot path; Classic (`cloud`) uses `ClassicRsyncSource` in `scripts/classic_source.py`, which rsyncs the web servers' rotated logs into `.drover/cache/classic/<env>/<server>/` and splits them into days by each line's own timestamp (UTC; php-errors uses the PHP timezone). A day older than the oldest rotated file the server holds is `fetch-failed`, never an empty `present`. Output files and ledger entries are the same as the API path's.
+- `AcquiaClient.get_environment()` and `AcquiaClient.list_servers()`.
+
 ## 5.0.0 — 2026-09-29
 
 ### Breaking

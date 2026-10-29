@@ -199,6 +199,14 @@ class AcquiaClient:
             )
         return match["id"]
 
+    def get_environment(self, env_id: str) -> dict:
+        """One environment's record, including `platform` and `ssh_url`."""
+        return self._get(f"/environments/{env_id}")
+
+    def list_servers(self, env_id: str) -> list[dict]:
+        """Servers behind an environment, each with its `roles` list."""
+        return self._get_collection(f"/environments/{env_id}/servers")
+
     # --- Logs ---
 
     def list_log_types(self, env_id: str) -> list[dict]:

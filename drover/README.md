@@ -104,6 +104,15 @@ GET    <presigned S3 URL>                   → gzipped log bytes
 
 The `from`/`to` parameters accept ISO timestamps and slice a 24-hour window from anywhere in the last 30 days. Acquia's docs reference this via `acli api:environments:log-create`; `acli` itself doesn't ship a date-range download command, so drover talks to the API directly via a stdlib-only Python client (`scripts/monitors/acquia_api.py`).
 
+That dated download exists only on **Cloud Next**. A **Cloud Classic** environment answers HTTP 409 *"Date ranges for log file snapshots are not supported on this environment."* Acquia documents SSH, rsync, and SCP as the way to reach older logs there. `pull.py` reads each environment's `platform` (from the manifest when set, otherwise from the API) and picks a log source:
+
+| Platform | Source | How |
+|---|---|---|
+| `cloud-next` (and anything unrecognized) | Cloud API snapshots | The four calls above |
+| `cloud` (Classic) | `ClassicRsyncSource` in `scripts/classic_source.py` | Lists each web server's `/var/log/sites/<site>.<env>/logs/<server>/`, rsyncs only the rotated files the requested days need into `.drover/cache/classic/<env>/<server>/`, and cuts each day out of them by line timestamp |
+
+Both sources write the same canonical files and ledger entries. Classic servers rotate early each morning and name each file for its rotation date, so a day lives in two files; a log that was empty at rotation gets no file. A day is written only once the server has rotated past it and only if the server still holds a rotated file from on or before it. Each line is filed under the date its own timestamp shows (UTC; php-errors uses the PHP timezone). A day with no lines is written as an empty file, because on Classic that means nothing was logged. Classic needs your SSH key on the Acquia account; the local cache keeps a copy of every server file it copied, since Acquia discards a server's logs when it relaunches the server.
+
 ## Coverage discipline
 
 Every fetched (date × env × type) is recorded in `.drover/coverage.json` with a state of `present` or `fetch-failed` — the two states the pull writes. The report layer additionally treats an expected tuple with no ledger entry at all as `pending` when it computes coverage. The report skill reads this ledger and surfaces gaps in the rendered markdown — a report can't claim 30 days of analysis if only 28 are present on disk. This is what makes the report defensible to clients.
@@ -127,7 +136,8 @@ Each pattern entry yields a one-line headline, 1–3 sentence explanation, sugge
 |---|---|---|
 | Acquia HTTP | `scripts/monitors/acquia_api.py` | Stdlib OAuth + Cloud Platform API client |
 | Discovery | `scripts/init.py` | Manifest from local breadcrumbs + API |
-| Pull | `scripts/pull.py` | 3-step historical download, atomic gunzip, ledger |
+| Pull | `scripts/pull.py` | Picks a log source per platform; 3-step historical download, atomic gunzip, ledger |
+| Classic pull | `scripts/classic_source.py` | Cloud Classic: rsync rotated server logs, split into days |
 | Parse | `scripts/parsers/` | apache-error / drupal-watchdog / php-error → events |
 | Aggregate | `scripts/aggregate.py` | Fingerprint + group + count + MoM delta |
 | Cause diagnosis | `scripts/causes.py` | Pattern library + collapse_by_cause |
