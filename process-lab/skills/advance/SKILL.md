@@ -59,3 +59,7 @@ Pushing again does not reopen anything; repeat pushes are normal. When a ticket 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/process_lab.py" reopen --gate <gate> --reason "<why it came back>" [--ticket KEY]
 ```
+
+## Attended PM OS handoff
+
+For an explicitly requested AHRI triage pilot, resolve the installed workshop plugin root from the host's plugin registry and read `<workshop-root>/references/pm-os/operations.md`; if unavailable, stop the handoff. Check the project's required ticket, task base, process gates and authority before any proposed write. A workshop checkpoint covers only its exact listed actions and diff; it cannot waive this skill's obligations or authorize merge/deploy. Jev review of AHRI diagnoses/diffs stays off pending the privacy decision.

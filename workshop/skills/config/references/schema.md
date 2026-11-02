@@ -7,7 +7,7 @@ Full schema for `~/.claude/workshop.json`.
   "integrations": {
     "slack": {
       "workspaces": [
-        { "name": "string", "default": true }
+        { "name": "string", "default": true, "channels": ["channel-name"] }
       ]
     },
     "jira": {
@@ -104,3 +104,7 @@ Legacy `~/.claude/office-pulse.json` fields map as follows:
 | `slack.workspaces[]` | `integrations.slack.workspaces[]` |
 | `jira.projects[]` | use project cwd_patterns |
 | `channels` | stored in `data_path/prioritize/channels.json` |
+
+## Shared machine-local context
+
+`profile.md`, `experience.md` and `t3-conventions.md` live beside `~/.claude/workshop.json`; both harnesses load them explicitly through the workshop skills. Templates and installation boundaries are in `templates/pm-os/` and `references/pm-os/operations.md`. Keep source/checked date with each profile fact and client contacts out of the repository.

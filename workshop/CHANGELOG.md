@@ -1,5 +1,11 @@
 # Changelog
 
+## 2.6.0
+
+- Explicit shared profile/experience/context loading for prioritize, recap and config in Codex and Claude, with machine-local templates.
+- Attended PM OS guards for disabled Briefing task reconciliation, overdue reporting, serialized AHRI intake/replay, exact-diff human checkpoints, deployment observation and reviewed read-only exploration.
+- Runtime exits remain blocked pending live provenance, workspace, scheduling, budget and observation evidence; no tasks or client-data checks are enabled.
+
 ## 2.5.1
 
 - `obsidian-rules` lists `Next-Adventures/` as the adventure queue (renamed from `Next-Experiments/`).
