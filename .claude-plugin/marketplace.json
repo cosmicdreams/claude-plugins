@@ -15,7 +15,7 @@
     },
     {
       "name": "admin",
-      "description": "Plugin, agent, and skill management tooling: bump-version, scaffold, new-agent, new-skill, optimize-agents, update-plugins, create-worktree",
+      "description": "Plugin, agent, and skill management tooling: bump-version, scaffold, new-agent, optimize-agents, update-plugins, create-worktree",
       "source": "./admin",
       "category": "development"
     },

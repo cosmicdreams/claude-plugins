@@ -1,5 +1,9 @@
 # Changelog
 
+## 5.0.0 — 2026-11-02
+
+**Breaking: `new-skill` removed.** It wrapped Anthropic's skill-creator to carry local authoring preferences, but it had not been invoked in 90 days, and a lift study found its only measurable gain was naming the right sibling skill in the description's "Not for" clause; it never got the verb-naming convention across. Use skill-creator directly. The two authoring preferences now live in the workspace instructions. Its trigger-eval scripts (`run-trigger-evals.sh`, `run_eval.py`, `run_loop.py`) go with it.
+
 ## 4.1.0 — 2026-11-02
 
 - Add `admin/model-routing/`: `frontier.py` turns the Slopalytics cost-versus-intelligence data into the tier table behind the global model-routing guidance. It parses the site's embedded dataset without running site code, computes Pareto frontiers within each provider's pool, picks a primary per tier, and saves dated snapshots so each weekly pull reports only what changed. `config.json` holds tier floors, locked tiers, account denials, effort ceilings, and the Argon medium substitution. Retrieval or missing-data failures exit 2 instead of producing a partial table.
