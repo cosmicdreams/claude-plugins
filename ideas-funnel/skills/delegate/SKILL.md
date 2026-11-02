@@ -1,54 +1,21 @@
 ---
 name: ideas-funnel:delegate
 description: >
-  Model-routing policy for ideas-funnel work. Classifies each task as Fable,
-  GPT-5.5/expensive worker, cheap/local worker, or deterministic shell work.
-  Trigger phrases: "route funnel work", "/ideas-funnel:delegate",
-  "choose worker model".
-triggers:
-  - /ideas-funnel:delegate
-  - route funnel work
-  - choose worker model
-allowed-tools:
-  - Read
+  Select a permitted current model and effort for bounded funnel work.
+  Not for health diagnosis; use ideas-funnel:supervise.
 ---
 
-**Used by:** `ideas-funnel:supervise`, pipeline Workflow prompts, and humans when changing model policy.
+# Route funnel work
 
-# ideas-funnel:delegate
+Before every model stage and between batches run `~/bin/allowance --json` (or `scripts/health.py`). All windows of the selected pool must be known, nonnegative, less than 360 minutes old, not stale and at least 20% remaining. Missing or stale data is unavailable. Stop launching at the floor; a preflight cannot guarantee future spend. Record before/after readings without inventing token-to-percentage conversion. Jev is optional external spend with its existing fallback, never called by pulls.
 
-Use the cheapest model that can do the job without compromising the memory graph.
+Read current global tier policy and `~/.claude/model-access.md`; inspect the target provider's active account/configuration, never infer it from the parent. Consult live `orchestrator_capabilities` before selection under host refresh rules. Use tiers 1–5 only, never Fable. Do not embed model defaults in domain configs. Select the current tier primary and explicit effort from live option IDs; fallback only as global policy permits. Unknown coverage is not proof of subscription coverage.
 
-## Routing Matrix
+- Inventory, URL dedup and collection: deterministic scripts.
+- Bounded ingest proposals: tier 3.
+- Refinery on three unrelated sources: tier 4.
+- Rule-detected failures, conflicts or stale backlog requiring judgment: tier 5.
 
-| Task | Route |
-|---|---|
-| Loop design, unknown discovery, conflict arbitration, final synthesis | Fable |
-| Large article extraction, multi-source clustering, long-context comparison, source-quality judgment | GPT-5.5 worker |
-| RSS/title filtering, obvious duplicate detection, manifest checks, backlink counts, file inventory | cheap/local worker or shell |
-| Shared `Concepts/`, `Entities/`, `Bridges/`, `Conflicts/` writes | Refinery only |
-| Human-facing promotion decisions | Fable recommendation, human final call |
+T3 uses `delegate_task`, shared isolation, with a self-contained packet: task, files, cap, acceptance criteria, no writes, no subdelegation, verification and return schema. Follow returned `next`; dispatch success is not completion. Never create a child's checkout or substitute a command-line agent when delegation fails. Report a manual work packet instead, with automatic ingest disabled.
 
-## Budget Rules
-
-- Default daily cap: `max_worker_tasks: 8`, `max_expensive_tasks: 2`.
-- Escalate to GPT-5.5 only when the task needs long context, nuanced synthesis,
-  or expensive comparison across many sources.
-- Do not use Fable for bulk extraction, feed polling, manifest repair, or
-  mechanical linting.
-- Record every routed task in `_meta/stats.md` or the Workflow output with:
-  `task`, `route`, `reason`, `model`, and estimated cost if available.
-
-## Output
-
-Return JSON:
-
-```json
-{
-  "task": "cluster recent Fable sources",
-  "route": "gpt-5.5-worker",
-  "reason": "Long-context comparison across multiple source notes",
-  "max_items": 12,
-  "requires_refinery": true
-}
-```
+Return actual provider/model/effort, route reason, allowance readings, items processed, failures and unknowns. Unknown model availability stops that stage.

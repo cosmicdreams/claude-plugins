@@ -3,6 +3,7 @@
 import argparse
 import datetime as dt
 import json
+import math
 import subprocess
 from pathlib import Path
 
@@ -20,9 +21,12 @@ def allowance(command, max_age):
             if not isinstance(name, str):
                 continue
             valid = bool(windows) and all(
-                isinstance(w.get('remaining_pct'), (int, float))
-                and isinstance(w.get('age_minutes'), (int, float))
-                and 0 <= w['age_minutes'] <= max_age
+                type(w.get('remaining_pct')) in (int, float)
+                and math.isfinite(w['remaining_pct'])
+                and 0 <= w['remaining_pct'] <= 100
+                and type(w.get('age_minutes')) in (int, float)
+                and math.isfinite(w['age_minutes'])
+                and 0 <= w['age_minutes'] < max_age
                 and not w.get('stale', False)
                 for w in windows
             ) and not pool.get('stale', False)
@@ -39,11 +43,26 @@ def snapshot(vault, command, max_age=360):
     domains = {}
     if inbox.is_dir():
         for domain in sorted(p for p in inbox.iterdir() if p.is_dir()):
-            files = [p for p in domain.glob('*.md') if p.name.lower() != 'readme.md']
+            files = [p for p in domain.glob('*.md') if p.name.lower() != 'readme.md'
+                     and '\nstatus: ingested\n' not in p.read_text()]
             stale = sum((now.timestamp() - p.stat().st_mtime) > 7 * 86400 for p in files)
             domains[domain.name] = {'waiting': len(files), 'stale_over_7_days': stale}
     pools, error = allowance(command, max_age)
-    return {'generated_at': now.isoformat(), 'domains': domains, 'allowance': pools,
+    def load(relative, default):
+        try:
+            return json.loads((vault / relative).read_text())
+        except FileNotFoundError:
+            return default
+        except (OSError, ValueError):
+            return {'error': 'unreadable ' + relative}
+    index = load('Raw/.url-index.json', {})
+    runs = load('_meta/ideas-funnel-pull.json', {})
+    records = index.get('urls', {})
+    states = {state: sum(r.get('state') == state for r in records.values())
+              for state in ('collected', 'processing', 'ingested', 'failed')}
+    summary = {'states': states, 'conflicts': index.get('conflicts', [])[:20],
+               'conflict_count': len(index.get('conflicts', [])), 'error': index.get('error')}
+    return {'url_index': summary, 'last_pull': runs, 'generated_at': now.isoformat(), 'domains': domains, 'allowance': pools,
             'allowance_error': error}
 
 

@@ -35,3 +35,18 @@ class HealthTests(unittest.TestCase):
 
 if __name__ == '__main__':
     unittest.main()
+
+class AllowanceMalformedTests(unittest.TestCase):
+    def test_unknown_stale_and_invalid_windows_fail_closed(self):
+        cases = [None, True, -1, 101, float('nan')]
+        for value in cases:
+            class Result:
+                stdout = json.dumps([{'pool':'codex','windows':[{'remaining_pct':value,'age_minutes':0}]}])
+            with patch.object(health.subprocess,'run',return_value=Result()):
+                result,error=health.allowance('/fake',360)
+            self.assertFalse(result.get('codex',{}).get('available',False))
+        class Old:
+            stdout=json.dumps([{'pool':'codex','windows':[{'remaining_pct':90,'age_minutes':360}]}])
+        with patch.object(health.subprocess,'run',return_value=Old()):
+            result,error=health.allowance('/fake',360)
+        self.assertFalse(result['codex']['available'])
