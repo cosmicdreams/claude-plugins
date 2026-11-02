@@ -14,7 +14,7 @@ TRACKING = {'fbclid', 'gclid', 'mc_cid', 'mc_eid', 'utm_source', 'utm_medium',
 def canonical(url):
     p = urlsplit(url.strip())
     if p.scheme.lower() not in ('http', 'https') or not p.hostname or p.username or p.password:
-        raise ValueError('expected a public http(s) URL without credentials')
+        raise ValueError('expected a http(s) URL without credentials')
     host = p.hostname.lower()
     if ':' in host:
         host = '[' + host + ']'
@@ -58,3 +58,8 @@ def locked(vault):
             yield
         finally:
             fcntl.flock(stream, fcntl.LOCK_UN)
+
+
+def require_idle(vault):
+    if read_json(Path(vault) / '_meta/ideas-funnel-owner.json', {}).get('owner'):
+        raise RuntimeError('a durable funnel run owns this vault')

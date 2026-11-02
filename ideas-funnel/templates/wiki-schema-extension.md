@@ -6,7 +6,7 @@ This block is appended to the vault's existing `wiki-schema.md` on `init`. Revie
 
 Domains are declared in `~/.config/ideas-funnel/domains/*.yaml`. Each has its own folder under `Domains/<Label>/` and its own raw inbox under `Raw/Inbox/<slug>/`.
 
-Current active domains (auto-synced by the scheduled Workflow on each run):
+Current active domains (auto-synced by the dispatcher on each run):
 
 - **AI-Workflows** → `Domains/AI-Workflows/_landing.md` — raw: `Raw/Inbox/ai-workflows/`
 
@@ -25,14 +25,14 @@ The `ideas-funnel` plugin provides these skills. Invoke via `/ideas-funnel:<name
 | Skill | Invoked by | Purpose |
 |---|---|---|
 | `init` | human (one-time) | Bootstrap: create config dir, copy templates, print next-steps |
-| `supervise` | Fable + nightly Workflow | Inspect health/backlog/recent notes; choose bounded work; discover unknowns |
-| `delegate` | Fable + worker prompts | Route tasks to Fable, GPT-5.5 worker, cheap/local worker, or shell |
+| `supervise` | coordinator + daily dispatcher | Inspect health/backlog/recent notes; choose bounded work; discover unknowns |
+| `delegate` | coordinator + worker prompts | Route tasks to coordinator, tier-routed worker, cheap/local worker, or shell |
 | `ingest` | worker agent | Process bounded `Raw/Inbox/<domain>/` + `Raw/<date>.md` into Sources/domain pages |
 | `lint` | nightly + human | Orphans, schema compliance, stale flags, timeline sidecar migration |
 | `query` | human | Scan index → synthesize with citations → draft domain page or Refinery request |
 | `decay` | nightly | Confidence decay and valid state-machine transitions |
-| `stats` | nightly | Write `_meta/stats.md` for next Fable supervision pass |
-| `funnel-export` | Fable recommendation + human | Export ready/review cards to `Raw/` for ingest |
+| `stats` | nightly | Write `_meta/stats.md` for next coordinator supervision pass |
+| `funnel-export` | coordinator recommendation + human | Export ready/review cards to `Raw/` for ingest |
 | `rescue` | nightly + human | Orphan rescue + unlinked-mention auto-link |
 | `emerge` | nightly + human | Surface unnamed patterns in last 30 days |
 | `challenge` | human | Red-team a specific page |
@@ -129,14 +129,12 @@ any ──(newer page replaces)──► archived + superseded_by: <link>
 
 Cross-domain pages inherit the **slowest** class of constituent domains.
 
-## Fable Supervisor / Worker Routing
+## Coordinator and worker routing
 
-- Fable owns supervision: unknown discovery, loop tuning, priority selection,
-  conflict arbitration, and final synthesis.
-- GPT-5.5-style workers handle expensive long-context extraction, clustering,
-  and source comparison when Fable explicitly routes work there.
-- Cheap/local workers or deterministic shell commands handle title filtering,
-  manifest checks, obvious duplicate detection, and backlink counts.
-- Every scheduled run must respect backpressure caps from domain config or the
-  supervisor plan. The goal is compounding quality, not clearing all backlog.
+- The coordinator owns supervision: unknown discovery, loop tuning, priority selection, conflict arbitration, and final synthesis.
+- Tier-routed workers handle expensive long-context extraction, clustering, and source comparison when the coordinator explicitly routes work there.
+- Cheap/local workers or deterministic shell commands handle title filtering, manifest checks, obvious duplicate detection, and backlink counts.
+- Every scheduled run must respect backpressure caps from domain config or the supervisor plan. The goal is compounding quality, not clearing all backlog.
 - Model/task routing should be reflected in `_meta/stats.md`.
+
+Scheduled and manual writes follow `ideas-funnel:dispatch` durable ownership; workers propose and only the coordinator applies changes. Runtime routing follows `ideas-funnel:delegate`, superseding legacy generated model instructions.

@@ -19,3 +19,5 @@ Read current global tier policy and `~/.claude/model-access.md`; inspect the tar
 T3 uses `delegate_task`, shared isolation, with a self-contained packet: task, files, cap, acceptance criteria, no writes, no subdelegation, verification and return schema. Follow returned `next`; dispatch success is not completion. Never create a child's checkout or substitute a command-line agent when delegation fails. Report a manual work packet instead, with automatic ingest disabled.
 
 Return actual provider/model/effort, route reason, allowance readings, items processed, failures and unknowns. Unknown model availability stops that stage.
+
+Check the selected Claude provider configuration directory explicitly. `allowance` reads `CLAUDE_CONFIG_DIR`; do not use a personal-account reading to authorize work-account dispatch. If the selected account has no fresh reading, skip that pool. Do not switch accounts to bypass policy.

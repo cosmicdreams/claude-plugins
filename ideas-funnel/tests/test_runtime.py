@@ -9,7 +9,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).parents[1] / 'scripts'))
 from runtime import atomic_json, canonical, locked, read_json
 from pull import collect, migrate, parse
-from pipeline import session, transition
+from pipeline import run
 
 
 class RuntimeTests(unittest.TestCase):
@@ -22,7 +22,7 @@ class RuntimeTests(unittest.TestCase):
         (self.config / 'test.yaml').write_text('slug: test\nfeeds:\n  rss: [https://example.com/feed]\n')
 
     def index(self, value=None):
-        value = value or {'version': 1, 'urls': {}, 'conflicts': []}
+        value = value or {'version': 1, 'urls': {}, 'items': {}, 'conflicts': []}
         atomic_json(self.vault / 'Raw/.url-index.json', value)
         return value
 
@@ -46,7 +46,7 @@ class RuntimeTests(unittest.TestCase):
         index = migrate(self.vault)
         self.assertTrue(keys.issubset(index['urls']))
         self.index(index)
-        feed = ('<rss><channel>' + ''.join('<item><title>Title</title><link>' + u + '</link></item>' for u in sorted(keys)) + '</channel></rss>').encode()
+        feed = ('<rss><channel>' + ''.join('<item><title>Title</title><link>' + u.replace('https://simonwillison.net', 'https://SIMONWILLISON.NET:443').replace('&', '&amp;') + ('&amp;utm_source=regression' if '?' in u else '?utm_source=regression') + '#atom-everything' + '</link></item>' for u in sorted(keys)) + '</channel></rss>').encode()
         for _ in range(2):
             result = collect(self.vault, self.config, lambda _: feed)
             self.assertEqual(result[0]['created'], 0)
@@ -76,21 +76,69 @@ class RuntimeTests(unittest.TestCase):
 
     def test_transition_recovery_and_preserved_manifest(self):
         raw = self.vault / 'Raw/Inbox/test/item.md';raw.parent.mkdir(parents=True);raw.write_text('url: https://example.com/a')
-        key = 'https://example.com/a'
-        index = self.index({'version':1,'urls':{key:{'state':'collected','paths':['Raw/Inbox/test/item.md']}},'conflicts':[]})
-        transition(self.vault,index,{'action':'claim','url':key})
-        session(self.vault,io.StringIO('{"action":"quit"}\n'),io.StringIO())
-        index = read_json(self.vault / 'Raw/.url-index.json')
-        self.assertEqual(index['urls'][key]['state'],'failed')
-        transition(self.vault,index,{'action':'claim','url':key})
-        with self.assertRaises(ValueError):transition(self.vault,index,{'action':'finish','url':key,'pages':['missing.md']})
+        item = str(raw.relative_to(self.vault))
+        self.index(migrate(self.vault))
+        owner = run(self.vault,'acquire')['owner']
+        run(self.vault,'claim',owner,item)
+        run(self.vault,'recover',owner)
+        owner = run(self.vault,'acquire')['owner']
+        self.assertEqual(run(self.vault,'status',owner)['index']['items'][item]['state'],'failed')
+        run(self.vault,'claim',owner,item)
+        with self.assertRaises(ValueError):run(self.vault,'finish',owner,item,['missing.md'])
         page = self.vault / 'Sources/a.md';page.parent.mkdir();page.write_text('source')
-        atomic_json(self.vault / 'Raw/.manifest.json',{'custom':1,'entries':{'Raw/Inbox/test/item.md':{'hash':'x'}}})
-        transition(self.vault,index,{'action':'finish','url':key,'pages':['Sources/a.md']})
+        atomic_json(self.vault / 'Raw/.manifest.json',{'custom':1,'entries':{item:{'hash':'x'}}})
+        run(self.vault,'finish',owner,item,['Sources/a.md'])
         manifest = read_json(self.vault / 'Raw/.manifest.json')
         self.assertEqual(manifest['custom'],1)
-        self.assertEqual(manifest['entries']['Raw/Inbox/test/item.md']['hash'],'x')
-        self.assertEqual(index['urls'][key]['state'],'ingested')
+        self.assertEqual(manifest['entries'][item]['hash'],'x')
+        run(self.vault,'close',owner)
+
+    def test_durable_owner_survives_process_and_blocks_overlap(self):
+        self.index()
+        script = str(Path(__file__).parents[1] / 'scripts/pipeline.py')
+        def command(*args):
+            return subprocess.run([sys.executable,script,'--vault',str(self.vault),*args],capture_output=True,text=True)
+        acquired = command('acquire')
+        self.assertEqual(acquired.returncode,0,acquired.stderr)
+        owner=json.loads(acquired.stdout)['owner']
+        self.assertNotEqual(command('acquire').returncode,0)
+        self.assertNotEqual(command('status','--owner','wrong').returncode,0)
+        self.assertEqual(command('status','--owner',owner).returncode,0)
+        from runtime import require_idle
+        with self.assertRaises(RuntimeError):require_idle(self.vault)
+        self.assertEqual(command('close','--owner',owner).returncode,0)
+        require_idle(self.vault)
+
+    def test_one_raw_item_for_zero_or_many_urls_and_release(self):
+        folder=self.vault/'Raw/Inbox/test';folder.mkdir(parents=True)
+        for name,text in [('no.md','plain note'),('many.md','url: https://example.com/a\nsource: https://example.com/b')]:
+            (folder/name).write_text(text)
+        self.index(migrate(self.vault))
+        owner=run(self.vault,'acquire')['owner']
+        index=run(self.vault,'status',owner)['index']
+        self.assertEqual(len(index['items']),2)
+        self.assertEqual(len(index['items']['Raw/Inbox/test/many.md']['urls']),2)
+        run(self.vault,'claim',owner,'Raw/Inbox/test/no.md')
+        run(self.vault,'release',owner,'Raw/Inbox/test/no.md')
+        self.assertEqual(run(self.vault,'status',owner)['index']['items']['Raw/Inbox/test/no.md']['state'],'collected')
+        run(self.vault,'close',owner)
+
+    def test_template_nulls_and_invalid_domains_do_not_abort(self):
+        self.index()
+        template=Path(__file__).parents[1]/'templates/domain.yaml'
+        (self.config/'template.yaml').write_text(template.read_text())
+        (self.config/'empty.yaml').write_text('')
+        (self.config/'null.yaml').write_text('slug: nulls\nfeeds: null\npull: null\n')
+        reports=collect(self.vault,self.config,lambda _:b'<rss/>')
+        self.assertEqual(len(reports),4)
+        self.assertEqual(len(next(r for r in reports if r['domain']=='empty')['errors']),1)
+
+    def test_bad_item_does_not_drop_remaining_feed(self):
+        self.index()
+        data=b'<rss><channel><item><link>javascript:bad</link></item><item><title>Valid</title><link>https://example.com/good</link></item></channel></rss>'
+        report=collect(self.vault,self.config,lambda _:data)[0]
+        self.assertEqual(report['created'],1)
+        self.assertEqual(len(report['errors']),1)
 
     def test_feed_failures_are_independent_and_unsupported_search_reported(self):
         self.index()

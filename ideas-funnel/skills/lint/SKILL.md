@@ -197,6 +197,6 @@ Write this summary into `_meta/stats.md` when `ideas-funnel:stats` is not being 
 - Do not scan `Scratches/`, `Archive/`, `.obsidian/`, `analysis-reports/`.
 - Do not apply wiki schema to `Next-Adventures/` or `Research/`. Validate adventures separately against the current `Next-Adventures/README.md`: type adventure, nonempty title/summary/date/source/tags, valid lifecycle status, payoff 1–5/cost S,M,L/tier 1–5 when present; shaped/ready require payoff, cost and first_step; parked requires revisit_when. Report legacy types/statuses as migration warnings, never silently promote. Canonical exact-source URL collisions are warnings requiring review, not permission to merge. Research has its own formats.
 
-All writes require the shared dispatch lock. Scheduled lint returns proposals; only the coordinator writes.
+All writes require the durable dispatch ownership. Scheduled lint returns proposals; only the coordinator writes.
 
-Run `python3 <plugin-root>/scripts/adventures.py --vault <vault>` for deterministic adventure field and exact-source checks, then compare required fields with the current README. Nonzero means reported warnings/collisions; do not rewrite items automatically.
+Run `<configured-venv-python> <plugin-root>/scripts/adventures.py --vault <vault>` for deterministic adventure field and exact-source checks, then compare required fields with the current README. Nonzero means reported warnings/collisions; do not rewrite items automatically.

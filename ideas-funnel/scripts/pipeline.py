@@ -1,72 +1,99 @@
 #!/usr/bin/env python3
-"""Hold the funnel lock across agent tool turns; accept line-delimited JSON commands."""
+"""Durable run ownership and one-shot transitions, independent of host stdin."""
 import argparse
 import datetime as dt
 import json
 from pathlib import Path
-import sys
+import time
+import uuid
 
 from runtime import atomic_json, locked, read_json
 
 
-def transition(vault, index, command):
-    action = command['action']
-    if action == 'status':
-        return index
-    record = index['urls'][command['url']]
-    if action == 'claim':
-        if record['state'] not in ('collected', 'failed'):
-            raise ValueError('item is not claimable')
-        if not any((vault / p).is_file() and p.startswith('Raw/Inbox/') for p in record['paths']):
-            raise ValueError('raw item is missing')
-        record.update(state='processing', started_at=dt.datetime.now(dt.timezone.utc).isoformat())
-    elif action == 'finish':
-        if record['state'] != 'processing':
-            raise ValueError('claim before finishing')
-        pages = command['pages']
-        if not pages or not all(isinstance(p, str) and not Path(p).is_absolute()
-                                and '..' not in Path(p).parts and (vault / p).is_file() for p in pages):
-            raise ValueError('finish requires existing vault-relative pages')
-        manifest_path = vault / 'Raw/.manifest.json'
-        manifest = read_json(manifest_path, {'entries': {}})
-        for path in record['paths']:
-            entry = manifest.setdefault('entries', {}).setdefault(path, {})
-            entry.update(ingested_at=dt.datetime.now(dt.timezone.utc).isoformat(), wiki_pages=pages)
-        # Manifest first: a crash leaves processing, never a falsely completed item.
-        atomic_json(manifest_path, manifest)
-        record.update(state='ingested', pages=pages)
-    elif action == 'fail':
-        if record['state'] != 'processing':
-            raise ValueError('claim before failing')
-        record.update(state='failed', error=str(command.get('error', 'interrupted'))[:1000])
-    else:
-        raise ValueError('unknown action')
-    atomic_json(vault / 'Raw/.url-index.json', index)
-    return record
-
-
-def session(vault, source=sys.stdin, output=sys.stdout):
+def run(vault, action, owner=None, item=None, pages=None, error=None):
+    lease_path = vault / '_meta/ideas-funnel-owner.json'
     with locked(vault):
-        index = read_json(vault / 'Raw/.url-index.json')
-        if not index or index.get('version') != 1:
-            raise ValueError('migration required')
-        for record in index['urls'].values():
-            if record['state'] == 'processing':
-                record.update(state='failed', error='interrupted; inspect existing pages before retry')
-        atomic_json(vault / 'Raw/.url-index.json', index)
-        print(json.dumps({'ready': True, 'conflicts': index.get('conflicts', [])}), file=output, flush=True)
-        for line in source:
-            try:
-                command = json.loads(line)
-                if command.get('action') == 'quit':
-                    break
-                result = transition(vault, index, command)
-                print(json.dumps({'ok': True, 'result': result}), file=output, flush=True)
-            except (ValueError, KeyError, TypeError) as exc:
-                print(json.dumps({'ok': False, 'error': str(exc)}), file=output, flush=True)
+        lease = read_json(lease_path, {})
+        if action == 'acquire':
+            current = read_json(vault / 'Raw/.url-index.json', {})
+            if current.get('version') != 1 or 'items' not in current:
+                raise ValueError('file-index migration required')
+            if lease.get('owner'):
+                raise ValueError('run already owned; verify prior writer stopped before explicit recovery')
+            owner = uuid.uuid4().hex
+            lease = {'owner': owner, 'started_at': time.time(), 'heartbeat': time.time()}
+            atomic_json(lease_path, lease)
+            return lease
+        if not owner or lease.get('owner') != owner:
+            raise ValueError('wrong or missing run owner')
+        if action == 'recover':
+            # No automatic expiry: a paused model can still resume. An explicit
+            # recovery requires the operator to have stopped its run/delegates.
+            index = read_json(vault / 'Raw/.url-index.json', {})
+            for record in index.get('items', {}).values():
+                if record['state'] == 'processing':
+                    record.update(state='failed', error='interrupted; inspect existing pages before retry')
+            atomic_json(vault / 'Raw/.url-index.json', index)
+            atomic_json(lease_path, {})
+            return {'recovered': True}
+        lease['heartbeat'] = time.time()
+        atomic_json(lease_path, lease)
+        index_path = vault / 'Raw/.url-index.json'
+        index = read_json(index_path)
+        if not index or index.get('version') != 1 or 'items' not in index:
+            raise ValueError('file-index migration required')
+        if action == 'status':
+            return {'lease': lease, 'index': index}
+        if action == 'close':
+            if any(r['state'] == 'processing' for r in index['items'].values()):
+                raise ValueError('release or finish claims before closing')
+            atomic_json(lease_path, {})
+            return {'closed': True}
+        record = index['items'][item]
+        if action == 'claim':
+            if record['state'] not in ('collected', 'failed'):
+                raise ValueError('item is not claimable')
+            if any(c['url'] in record['urls'] for c in index.get('conflicts', [])):
+                raise ValueError('resolve conflicting source identities before claiming')
+            path = vault / item
+            if not item.startswith('Raw/Inbox/') or '..' in Path(item).parts or not path.is_file():
+                raise ValueError('raw item is missing')
+            record.update(state='processing', prior_state=record['state'], started_at=dt.datetime.now(dt.timezone.utc).isoformat())
+        else:
+            if record['state'] != 'processing':
+                raise ValueError('claim before transition')
+            if action == 'finish':
+                if not pages or not all(isinstance(p, str) and not Path(p).is_absolute()
+                                        and '..' not in Path(p).parts and (vault / p).is_file() for p in pages):
+                    raise ValueError('finish requires existing vault-relative pages')
+                manifest_path = vault / 'Raw/.manifest.json'
+                manifest = read_json(manifest_path, {'entries': {}})
+                entry = manifest.setdefault('entries', {}).setdefault(item, {})
+                entry.update(ingested_at=dt.datetime.now(dt.timezone.utc).isoformat(), wiki_pages=pages)
+                atomic_json(manifest_path, manifest)
+                record.update(state='ingested', pages=pages)
+                for url in record['urls']:
+                    index['urls'][url]['state'] = 'ingested'
+            elif action == 'release':
+                record['state'] = record.pop('prior_state', 'collected')
+            elif action == 'fail':
+                record.update(state='failed', error=str(error or 'item failed')[:1000])
+            else:
+                raise ValueError('unknown action')
+        atomic_json(index_path, index)
+        return record
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--vault', type=Path, required=True)
-    session(parser.parse_args().vault)
+    parser.add_argument('action', choices=['acquire','status','claim','finish','fail','release','close','recover'])
+    parser.add_argument('--owner')
+    parser.add_argument('--item')
+    parser.add_argument('--pages', nargs='+')
+    parser.add_argument('--error')
+    args = parser.parse_args()
+    try:
+        print(json.dumps(run(args.vault, args.action, args.owner, args.item, args.pages, args.error), indent=2))
+    except (ValueError, KeyError, TypeError, OSError, RuntimeError) as exc:
+        parser.exit(1, str(exc) + '\n')

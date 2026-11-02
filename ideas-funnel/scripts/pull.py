@@ -12,7 +12,7 @@ import urllib.request
 from urllib.parse import urljoin, urlsplit
 import xml.etree.ElementTree as ET
 
-from runtime import atomic_json, canonical, locked, read_json
+from runtime import atomic_json, canonical, locked, read_json, require_idle
 
 LIMIT = 2 * 1024 * 1024
 URL = re.compile(r'https?://[^\s<>"\]\)]+')
@@ -32,10 +32,15 @@ def urls(path):
 
 
 def migrate(vault):
-    index = {'version': 1, 'urls': {}, 'conflicts': []}
+    index = {'version': 1, 'urls': {}, 'items': {}, 'conflicts': []}
     for folder in ('Raw/Inbox', 'Archive/Raw', 'Sources'):
         for path in sorted((vault / folder).rglob('*.md')):
-            for url in urls(path):
+            identities = urls(path)
+            relative = str(path.relative_to(vault))
+            if folder != 'Sources' and path.name.lower() != 'readme.md':
+                index['items'][relative] = {'urls': sorted(identities),
+                    'state': 'ingested' if folder == 'Archive/Raw' else 'collected'}
+            for url in identities:
                 entry = index['urls'].setdefault(url, {'state': 'collected', 'paths': []})
                 entry['paths'].append(str(path.relative_to(vault)))
                 if folder in ('Archive/Raw', 'Sources'):
@@ -52,6 +57,11 @@ def migrate(vault):
                         record['paths'].append(key)
                     if entry.get('ingested_at'):
                         record['state'] = 'ingested'
+    for path, record in index['items'].items():
+        if manifest.get('entries', {}).get(path, {}).get('ingested_at'):
+            record['state'] = 'ingested'
+        elif record['urls'] and all(index['urls'][u]['state'] == 'ingested' for u in record['urls']):
+            record['state'] = 'ingested'
     for url, entry in index['urls'].items():
         sources = [p for p in entry['paths'] if p.startswith('Sources/')]
         if len(sources) > 1:
@@ -113,41 +123,56 @@ def parse(data, feed):
 def collect(vault, config, getter=fetch):
     index_path = vault / 'Raw/.url-index.json'
     index = read_json(index_path)
-    if not index or index.get('version') != 1:
+    if not index or index.get('version') != 1 or 'items' not in index:
         raise ValueError('review and apply migration before pulling')
+    try:
+        import yaml
+    except ImportError:
+        raise ValueError('use the configured virtual-environment Python; install requirements.txt') from None
     reports = []
     for domain in sorted(config.glob('*.yaml')):
-        # YAML parsing is separate from the standard-library network collector.
-        import yaml
-        conf = yaml.safe_load(domain.read_text())
-        if conf.get('active') is False:
+        report = {'domain': domain.stem, 'created': 0, 'duplicates': 0, 'errors': []}
+        reports.append(report)
+        try:
+            conf = yaml.safe_load(domain.read_text()) or {}
+            if conf.get('active') is False:
+                continue
+            slug = conf['slug']
+            if not isinstance(slug, str) or not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', slug):
+                raise ValueError('unsafe domain slug')
+            report['domain'] = slug
+            feeds = conf.get('feeds') or {}
+            rss, api = feeds.get('rss') or [], feeds.get('api') or []
+            positive, negative = feeds.get('keywords') or [], feeds.get('exclude_keywords') or []
+            if not all(isinstance(v, list) and all(isinstance(x, str) for x in v) for v in (rss, api, positive, negative)):
+                raise ValueError('feed/keyword fields must be lists of strings')
+            cap = min(100, max(0, int((conf.get('pull') or {}).get('max_items', 15))))
+            if feeds.get('web_search'):
+                report['errors'].append('web_search unsupported: configure an explicit RSS search feed; no provider credentials inferred')
+            configured = rss + api
+            if len(configured) > 20:
+                report['errors'].append('feed cap: only first 20 endpoints attempted')
+        except (OSError, ValueError, KeyError, TypeError, AttributeError, yaml.YAMLError) as exc:
+            report['errors'].append('domain configuration: ' + str(exc))
             continue
-        slug = conf['slug']
-        if not re.fullmatch(r'[a-z0-9]+(?:-[a-z0-9]+)*', slug):
-            raise ValueError('unsafe domain slug')
-        feeds = conf.get('feeds', {})
-        report = {'domain': slug, 'created': 0, 'duplicates': 0, 'errors': []}
-        if feeds.get('web_search'):
-            report['errors'].append('web_search unsupported: configure an explicit RSS search feed; no provider credentials inferred')
-        configured = feeds.get('rss', []) + feeds.get('api', [])
-        if len(configured) > 20:
-            report['errors'].append('feed cap: only first 20 endpoints attempted')
         for feed in configured[:20]:
             try:
-                if feed in feeds.get('api', []) and urlsplit(feed).hostname != 'hn.algolia.com':
+                if feed in api and urlsplit(feed).hostname != 'hn.algolia.com':
                     raise ValueError('unsupported API provider')
                 for url, title in parse(getter(feed), feed):
-                    key = canonical(url)
+                    try:
+                        key = canonical(url)
+                    except (ValueError, TypeError) as exc:
+                        report['errors'].append('item URL: ' + str(exc))
+                        continue
                     if key in index['urls']:
                         report['duplicates'] += 1
                         continue
-                    positive = feeds.get('keywords', [])
-                    negative = feeds.get('exclude_keywords', [])
                     if any(str(w).lower() in title.lower() for w in negative):
                         continue
                     if positive and not any(str(w).lower() in title.lower() for w in positive):
                         continue
-                    if report['created'] >= min(100, max(0, int(conf.get('pull', {}).get('max_items', 15)))):
+                    if report['created'] >= cap:
                         break
                     path = vault / 'Raw/Inbox' / slug / (hashlib.sha256(key.encode()).hexdigest() + '.md')
                     path.parent.mkdir(parents=True, exist_ok=True)
@@ -156,12 +181,12 @@ def collect(vault, config, getter=fetch):
                         with path.open('x') as stream:
                             stream.write('---\nurl: ' + json.dumps(key) + '\nstatus: collected\n---\n\n'
                                          + '# Untrusted feed data\n\n' + json.dumps(title) + '\n')
+                    index.setdefault('items', {})[str(path.relative_to(vault))] = {'urls': [key], 'state': 'collected'}
                     index['urls'][key] = {'state': 'collected', 'paths': [str(path.relative_to(vault))]}
                     atomic_json(index_path, index)
                     report['created'] += 1
             except (OSError, ValueError, KeyError, TypeError, ET.ParseError) as exc:
                 report['errors'].append(str(exc))
-        reports.append(report)
     atomic_json(vault / '_meta/ideas-funnel-pull.json', {'domains': reports, 'at': dt.datetime.now(dt.timezone.utc).isoformat()})
     return reports
 
@@ -176,6 +201,7 @@ def main():
     if not a.vault.is_dir() or not a.config.is_dir():
         p.error('vault and config must exist')
     with locked(a.vault):
+        require_idle(a.vault)
         if a.migrate:
             result = migrate(a.vault)
             if a.apply:

@@ -55,7 +55,5 @@ ready_cap: 5                    # per-domain max in lane-ready (global cap is 8 
 # --- Bounded collection and supervision ---
 pull:
   max_items: 15
-supervision:
-  max_items_per_run: 12
 # Models come from current global tier policy and the live host catalog.
 # No model names, provider credentials or executable instructions belong here.

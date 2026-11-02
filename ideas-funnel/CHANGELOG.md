@@ -4,7 +4,7 @@
 
 - Replace session cron with approval-gated T3 registration and a five-line desk report. New tasks are disabled; shaping remains excluded.
 - Add bounded deterministic RSS/Atom/Hacker News collection, canonical URL migration and repeat-pull regression coverage from 118 real raw records. Legacy manifest fields survive state transitions.
-- Add allowance freshness checks, current tier routing, a persistent exclusive lock session and interrupted-run recovery. Ingest workers propose; one coordinator writes shared pages.
+- Add allowance freshness checks, current tier routing, a durable exclusive run ownership and interrupted-run recovery. Ingest workers propose; one coordinator writes shared pages.
 - Add adventure schema/exact-source checks and preserve optional Jev fallback.
 - Retain an explicitly manual Claude Workflow fallback; remove hard-coded supervisor/worker models. Claude and Codex manifests share version 3.0.0.
 - No production registration, migration, activation, plugin reinstall, service install, local skill archival or notification is performed by this release. Unattended and seven-day validation remain pending.

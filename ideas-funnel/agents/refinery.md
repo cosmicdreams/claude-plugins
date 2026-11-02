@@ -33,4 +33,4 @@ For each concept in the density-signals list the Workflow passes you:
 
 Return JSON conforming to the schema the Workflow provides.
 
-Under dispatch return a read-only proposal; the coordinator applies your verified shared-layer decisions under the run lock. Manual runs must use the same lock session.
+Under dispatch return a read-only proposal; the coordinator applies your verified shared-layer decisions under the run lock. Manual runs must use the same durable ownership.

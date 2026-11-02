@@ -33,8 +33,6 @@ class HealthTests(unittest.TestCase):
         self.assertTrue(result['allowance_error'])
 
 
-if __name__ == '__main__':
-    unittest.main()
 
 class AllowanceMalformedTests(unittest.TestCase):
     def test_unknown_stale_and_invalid_windows_fail_closed(self):
@@ -50,3 +48,18 @@ class AllowanceMalformedTests(unittest.TestCase):
         with patch.object(health.subprocess,'run',return_value=Old()):
             result,error=health.allowance('/fake',360)
         self.assertFalse(result['codex']['available'])
+
+
+class BacklogTests(unittest.TestCase):
+    def test_ingested_unarchived_and_unindexed_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            v=Path(temp); inbox=v/'Raw/Inbox/test';inbox.mkdir(parents=True)
+            (inbox/'done.md').write_text('note')
+            (inbox/'orphan.md').write_text('note')
+            (v/'Raw/.url-index.json').write_text(json.dumps({'items':{'Raw/Inbox/test/done.md':{'state':'ingested'}},'urls':{},'conflicts':[]}))
+            result=health.snapshot(v,v/'missing')
+            self.assertEqual(result['domains']['test']['waiting'],1)
+            self.assertEqual(result['domains']['test']['unindexed'],['Raw/Inbox/test/orphan.md'])
+
+if __name__ == '__main__':
+    unittest.main()

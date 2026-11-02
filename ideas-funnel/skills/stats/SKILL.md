@@ -16,7 +16,7 @@ allowed-tools:
   - Glob
 ---
 
-**Used by:** pipeline Workflow at the end of every run + Fable supervisor on the next run.
+**Used by:** pipeline Workflow at the end of every run + coordinator supervisor on the next run.
 
 # ideas-funnel:stats
 
@@ -30,13 +30,12 @@ Update `~/Vaults/Neurons/_meta/stats.md` so supervision has evidence.
 - Density signals, refinery promotions, conflicts, bridges.
 - Lint health: errors, warnings, stale raw items.
 - Decay state counts: fresh, stable, at_risk, archived, hardened.
-- Model-routing counts: Fable decisions, GPT-5.5 worker tasks, cheap/local tasks.
+- Model-routing counts: coordinator decisions, tier-routed worker tasks, cheap/local tasks.
 - Budget notes: capped items, skipped items, expensive-task count.
 
 ## Format
 
-Overwrite `_meta/stats.md` with a compact current snapshot plus append a dated
-entry under `## History`.
+Overwrite `_meta/stats.md` with a compact current snapshot plus append a dated entry under `## History`.
 
 Use this shape:
 
@@ -50,10 +49,12 @@ last_updated: YYYY-MM-DD
 - bd_lane_inbox: N
 - bd_lane_ready: N
 - confidence: fresh=N stable=N at_risk=N archived=N hardened=N
-- models: fable=N gpt-5.5=N cheap=N shell=N
+- models: <actual provider/model/effort and counts; unknown when unreported>
 - overall: HEALTHY | NEEDS_ATTENTION | UNHEALTHY
 
 ## History
 ### YYYY-MM-DD
 - ...
 ```
+
+Scheduled and manual writes follow `ideas-funnel:dispatch` durable ownership; workers propose and only the coordinator applies changes. Runtime routing follows `ideas-funnel:delegate`, superseding legacy generated model instructions.

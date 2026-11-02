@@ -15,6 +15,17 @@ def frontmatter(path):
     return yaml.safe_load(text.split('---', 2)[1]) or {}
 
 
+def identity(source):
+    return canonical(source) if source.startswith(('http://', 'https://')) else source
+
+
+def matches(vault, source):
+    key = identity(source)
+    return [p.name for p in sorted((vault / 'Next-Adventures').glob('*.md'))
+            if p.name != 'README.md' and isinstance(frontmatter(p).get('source'), str)
+            and identity(frontmatter(p)['source']) == key]
+
+
 def check(vault):
     issues, sources = [], {}
     for path in sorted((vault / 'Next-Adventures').glob('*.md')):
@@ -46,8 +57,8 @@ def check(vault):
             if data.get('tags') and not isinstance(data['tags'], list):
                 errors.append('tags must be a list')
             source = data.get('source')
-            if isinstance(source, str) and source.startswith(('http://','https://')):
-                sources.setdefault(canonical(source), []).append(path.name)
+            if isinstance(source, str):
+                sources.setdefault(identity(source), []).append(path.name)
             issues.extend({'file': path.name, 'warning': error} for error in errors)
         except (ValueError, AttributeError, TypeError, yaml.YAMLError) as exc:
             issues.append({'file':path.name, 'warning':str(exc)})
@@ -58,6 +69,11 @@ def check(vault):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--vault', type=Path, required=True)
-    result = check(parser.parse_args().vault)
+    parser.add_argument('--source', help='Find exact canonical URL or string-exact non-URL source matches')
+    args = parser.parse_args()
+    if args.source is not None:
+        print(json.dumps({'matches': matches(args.vault, args.source)}, indent=2))
+        raise SystemExit(0)
+    result = check(args.vault)
     print(json.dumps(result, indent=2))
     raise SystemExit(bool(result['issues'] or result['exact_source_collisions']))
