@@ -38,6 +38,7 @@ class ExtractionError(Exception):
 # Remote strings end up in a report an agent reads. The report only shows config CLI ids and
 # these strictly checked identifiers; free-text names are cleaned but never rendered.
 SAFE_ID = re.compile(r'[a-z0-9][a-z0-9._-]{0,63}')
+UNKNOWN_FAMILY = re.compile(r'[a-z]+(-[a-z0-9.]{1,8}){0,4}')
 SAFE_TEXT = re.compile(r'[A-Za-z0-9 ._()+/,\'-]{1,80}')
 SAFE_URL = re.compile(r'https://[A-Za-z0-9./_-]{1,200}')
 SAFE_HASH = re.compile(r'[0-9a-f]{1,128}')
@@ -252,8 +253,20 @@ def effort_rank(cfg, effort):
 
 
 def variant_label(cfg, family, effort):
-    """Report label built from the config CLI id and the checked effort, never remote names."""
+    """Report label built from the config CLI id and a config-known effort, never remote names."""
+    effort = effort if effort in cfg['effort_order'] else '[unknown effort]'
     return f"{cfg['families'][family]['cli']} {effort}"
+
+
+def family_ref(cfg, family, effort=None):
+    """Render a family the config may not know: config CLI id, or a short tightly checked id."""
+    if family in cfg['families']:
+        return variant_label(cfg, family, effort) if effort is not None else cfg['families'][family]['cli']
+    name = family if isinstance(family, str) and len(family) <= 32 and UNKNOWN_FAMILY.fullmatch(family) \
+        else '[unrecognized id]'
+    if effort is None:
+        return name
+    return f"{name} {effort if effort in cfg['effort_order'] else '[unknown effort]'}"
 
 
 def build_variants(cfg, models):
@@ -457,7 +470,9 @@ def compare(cfg, cur_data, prev):
             pb = variant_label(cfg, b['primary']['family'], b['primary']['route_effort']) if b['primary'] else None
             if pa != pb:
                 pick_changes.append(f'{pool} tier {b["tier"]}: {pa} → {pb}')
-    return {'baseline': False, 'source_unchanged': same, 'added': added, 'removed': removed,
+    return {'baseline': False, 'source_unchanged': same,
+            'added': [family_ref(cfg, a, b) for a, b in added],
+            'removed': [family_ref(cfg, a, b) for a, b in removed],
             'shifts': shifts, 'possible_rescale': rescale,
             'median_abs_intelligence_change': statistics.median(deltas) if deltas else None,
             'config_changed': prev.get('config_hash') != config_hash(cfg),
@@ -506,8 +521,8 @@ def report(cfg, res, cmp_):
                 out.append('- Routing config changed since the previous snapshot.')
             for label, items in (('Tier pick changes (data-driven)', cmp_['tier_pick_changes']),
                                  ('Variant shifts', cmp_['shifts']),
-                                 ('Added variants', [f'{a} {b}' for a, b in cmp_['added']]),
-                                 ('Removed variants', [f'{a} {b}' for a, b in cmp_['removed']])):
+                                 ('Added variants', cmp_['added']),
+                                 ('Removed variants', cmp_['removed'])):
                 if items:
                     out.append(f'- {label}:')
                     out += [f'  - {i}' for i in items]
@@ -548,7 +563,7 @@ def report(cfg, res, cmp_):
         out.append(f"- Unscored (no data): {', '.join(n['unscored'])}")
     if res['candidates']:
         out.append('- New Claude/GPT/Gemini families (access unknown; observe only): '
-                   + ', '.join(f for f, _ in res['candidates']))
+                   + ', '.join(family_ref(cfg, f) for f, _ in res['candidates']))
     out.append('')
     return '\n'.join(out)
 
@@ -579,7 +594,7 @@ def json_view(cfg, res):
         'ceilinged': n['ceilinged'],
         'unscored': n['unscored'],
         'substitutions': [{k: s[k] for k in ('family', 'route_effort', 'scored_effort')} for s in n['substituted']],
-        'candidates': [f for f, _ in res['candidates']],
+        'candidates': [family_ref(cfg, f) for f, _ in res['candidates']],
     }
 
 
