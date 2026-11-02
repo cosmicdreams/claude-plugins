@@ -1,8 +1,8 @@
 {
-    "name": "ideas-funnel",
-    "version": "2.3.0",
-    "description": "Passive knowledge capture pipeline \u2014 Karpathy-derived LLM Wiki with a Fable-supervised singleton Workflow, cost-aware worker delegation, backpressure, Refinery promotion, and nightly memory maintenance.",
-    "author": {
-        "name": "Chris Weber"
-    }
+  "name": "ideas-funnel",
+  "version": "3.0.0",
+  "description": "T3 knowledge funnel with deterministic collection, bounded tier routing and a locked single writer.",
+  "author": {
+    "name": "Chris Weber"
+  }
 }

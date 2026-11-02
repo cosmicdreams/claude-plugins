@@ -97,8 +97,7 @@ fi
 
 ## Step 6 — Offer T3 schedule setup
 
-Explain that `ideas-funnel:schedule` registers disabled T3 tasks when authorized.
-Do not invoke it automatically or create tasks during bootstrap.
+Explain that `ideas-funnel:schedule` registers disabled T3 tasks when authorized. Do not invoke it automatically or create tasks during bootstrap.
 
 ## Step 7 — Report + next-steps checklist
 

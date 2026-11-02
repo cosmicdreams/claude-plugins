@@ -1,91 +1,26 @@
 # ideas-funnel
 
-A passive knowledge capture pipeline. Feeds (RSS, APIs, manual drops) land in your Obsidian vault's `Raw/` directory. A singleton daily Workflow uses Fable as the supervisor and cheaper workers for bounded extraction, then compiles selected material into a cross-linked wiki. Memory evolves — knowledge is confirmed, contradicted, decayed, rescued, or resurfaced. You only see the high-signal items that earn your attention.
+Version 3.0.0 moves collection and dispatch to T3 Code. Deterministic scripts collect feeds and maintain a canonical URL index; bounded read-only workers propose knowledge changes and one locked coordinator writes them. Ingest, Refinery and decay knowledge rules stay intact. Claude-host Workflow remains an explicitly manual fallback.
 
-Derived from Andrej Karpathy's LLM Wiki pattern, extended with multi-domain attention, cost-aware model routing, Fable supervision, and a graph-aware consolidation layer.
+## Start safely
 
-## What it does
+Install Python 3.10+ and the configuration parser with `python3 -m pip install -r requirements.txt` in your chosen virtual environment. Network collection uses the standard library. Both Claude and Codex manifests expose the same skills; resolve scripts relative to the installed skill, with no Codex dependency on `CLAUDE_PLUGIN_ROOT`.
 
-- **Supervises** — Fable reads backlog, stats, conflicts, and recent notes; it chooses bounded work and unknowns to pursue.
-- **Delegates** — GPT-5.5-style workers do expensive extraction/clustering; cheap/local workers or shell do filtering and bookkeeping.
-- **Ingests** — workers process only selected high-value items from `Raw/Inbox/<domain>/` and daily notes.
-- **Compiles** — agents read raw items and produce durable Markdown pages in the vault: domain landing pages, Concept pages, Entity pages, Source pages.
-- **Consolidates** — when a concept appears in ≥3 unrelated sources, a synthesis page is generated. Cross-domain concepts produce Bridge pages.
-- **Remembers** — every claim carries provenance + bi-temporal timeline + confidence. Unused facts decay. Contradicted facts fork into Conflict pages.
-- **Measures** — `_meta/stats.md` records backlog, model routing, state counts, and health for the next Fable run.
-- **Surfaces** — high-signal items land in Beads lanes (Ready for new content, Review for resurfaced). You decide what graduates.
+Read [ONBOARDING](ONBOARDING.md) before migration or registration. `ideas-funnel:schedule` reconciles exact `[FUNNEL]` titles with T3, creating new tasks disabled only after authorization. Production creation, activation, manual production runs, service installation, plugin reinstallation, local skill retirement and notifications require separate explicit approval. No cron is registered by this release.
 
-## Quickstart
+## Runtime
 
-```bash
-# 1. Install the plugin
-# (use your standard plugin install flow)
+- `scripts/pull.py`: configured RSS/Atom and Hacker News Algolia endpoints, keyword filtering, bounded responses, two timed attempts, per-feed errors. RSS search feeds work; arbitrary web-search providers/authentication are unsupported and reported.
+- `scripts/runtime.py`: conservative URL normalization, atomic JSON replacement and one nonblocking operating-system lock.
+- `scripts/pipeline.py`: persistent lock session, collected → processing → ingested/failed transitions, preserved legacy manifest, interrupted-run recovery.
+- `scripts/health.py`: read-only backlog, stale items, URL conflicts/run failures and allowance freshness. Every model stage rechecks actual allowance; unknown/stale readings or any window below 20% skip work.
+- `ideas-funnel:dispatch`: two domains × at most 12 items, one read-only delegate at a time, sole coordinator writes, conditional Refinery, weekly lint/decay/rescue and a five-line desk report. Shaping remains gated on a separate design.
+- Optional Jev ranking remains an ingest aid with its existing fallback and external cost; pulls never call it.
 
-# 2. Initialize — copies templates to your vault, creates config dir
-# From Claude Code in the vault:
-/ideas-funnel:init
+Migration retains `Raw/.manifest.json` unchanged and indexes inbox, archived raw and Sources. Known tracking keys/fragments are removed; meaningful query parameters remain. No redirect aliases or semantic equivalence are guessed. Ambiguous Source matches are flagged. All scheduled and manual writers must hold the same lock; this is advisory, not protection against unrelated tools ignoring the contract. Partial page writes are reconciled by canonical origin before retry, not transactionally rolled back.
 
-# 3. Edit:
-#   ~/Vaults/<vault>/CRITICAL_FACTS.md           — operator identity
-#   ~/Vaults/<vault>/_meta/taxonomy.md           — starting tag vocabulary
-#   ~/.config/ideas-funnel/domains/ai-workflows.yaml  — feeds, keywords
+## Verification
 
-# 4. Drop a few bootstrap articles into Raw/Inbox/<domain>/
-#    (manual pre-seed — see domain.yaml bootstrap_seeds)
+Run `python3 -m unittest discover -s ideas-funnel/tests -v` from the repository root. Fixtures include 118 real Simon Willison raw-record identities from the vault regression case; tests do not fetch live feeds or modify the vault.
 
-# 5. The singleton Workflow is registered by /ideas-funnel:schedule.
-#    It runs Fable supervision, bounded ingest, Refinery, lint, decay, rescue, stats.
-```
-
-## Seven core concepts
-
-1. **Domain** — a pluggable attention slice (AI workflows, Drupal dev, Drupal news, OSS AI tools, ad-hoc). Declared in one YAML file. Each domain has its own feeds, keywords, landing page, decay class, and Beads scorer weights.
-2. **`Raw/`** — immutable drop zone. LLM reads, never writes. `Raw/Inbox/<domain>/` is the scheduled worker intake.
-3. **Wiki layers** — compiled output: `Domains/<Label>/` (domain-owned), `Concepts/` / `Entities/` / `Sources/` / `Bridges/` (vault-shared, Refinery-owned), `Conflicts/` (auto-generated).
-4. **Fable supervisor** — one strategic pass chooses priorities, caps, unknowns, and worker routing.
-5. **Refinery** — the single agent allowed to write shared layers. Prevents concurrent-write conflicts when multiple domain ingest-agents discover the same concept.
-6. **Backpressure** — scheduled runs process top-N valuable items instead of trying to clear all raw/card backlog.
-7. **Decay** — pages have `confidence` (0–1) + `decay_class` (fast/standard/slow/frozen). Unused facts lose confidence over time. Below 0.4 → `at_risk` → 30-day human review window → `archived`.
-
-See **ONBOARDING.md** for the role catalog (every agent, skill, script, signal, lane).
-
-## What lives where
-
-| Thing | Location |
-|---|---|
-| Agent definitions, skills, Workflow script, templates | This plugin |
-| `wiki-schema.md`, `AGENTS.md`, `CRITICAL_FACTS.md` | Vault root (copied from templates at init; user-owned) |
-| `_meta/taxonomy.md` | Vault (user-owned vocabulary) |
-| `_meta/conflicts.md`, `_meta/stats.md` | Vault (runtime state, agent-owned) |
-| `Raw/`, `Domains/`, `Concepts/`, `Entities/`, `Sources/`, `Bridges/`, `Conflicts/` | Vault (knowledge) |
-| Domain configs (`<slug>.yaml`) | `~/.config/ideas-funnel/domains/` |
-| Scheduler marker | `_meta/ideas-funnel-scheduler.json` |
-| Stats / conflicts | `_meta/stats.md`, `_meta/conflicts.md` |
-
-## Status
-
-**v2.1.0 — Fable-supervised singleton Workflow.**
-
-| Phase | What lands | Status |
-|---|---|---|
-| 1 | Scaffold + templates + docs | Shipped |
-| 2 | Singleton Workflow runtime | Shipped |
-| 3 | Fable supervision + worker delegation + backpressure | **Current** |
-| 4 | Beads scoring/export polish | Next |
-| 5 | FSRS, auto-archival, health.py, ops dashboard | Deferred |
-
-## Limitations (known, by design)
-
-- Confidence arithmetic (+0.05/−0.20 deltas) is tunable, not axiomatic. Authors of similar systems admit the math is "a functional hack." Instrumented from day one; tune after 30 days of real data.
-- Fully autonomous curation is explicitly not a goal. The Ready lane remains human-in-the-loop. LLM laziness is real; Ready lane friction is a feature.
-- GPT-5.5 worker routing is a policy contract. Actual provider/model availability depends on the host Claude Code environment and installed adapters.
-
-## Credits
-
-- Andrej Karpathy — LLM Wiki gist (canonical pattern)
-- obsidian-second-brain, obsidian-wiki, Cortex, forrestchang-andrej-karpathy-skills — fork ecosystem
-- Andy Matuschak — evergreen notes
-- Maggie Appleton — digital gardens, epistemic disclosure
-- Tiago Forte, Nick Milo — BASB, LYT
-- Steph Ango (Kepano) — file-over-app, compilation spaces
-- drover plugin (this same author) — Workflow pattern reference implementation
+The immediate T3 probe confirmed inherited Codex gpt-6-luna medium, search, delegation completion and idle launch. Mark-unread failed in one observed condition; notification tooling was absent. Use a clear decision marker in the desk and leave notifications off. Window-closed/app-quit operation and seven daily runs remain unverified release-validation work, not implementation claims. Do not ask the user to quit the app to complete implementation.
