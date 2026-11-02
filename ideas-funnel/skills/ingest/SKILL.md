@@ -84,7 +84,7 @@ Leave skipped files in place for later runs.
 When `TYPESAFE_API_KEY` is set (and `JEV_DISABLED` is not `1`), TypeSafe's Jev model scores criteria 2 to 4 and judges duplicate / augment / new against the closest existing pages before you read anything:
 
 ```bash
-python3 "${CLAUDE_PLUGIN_ROOT}/scripts/jev_ingest.py" \
+"<configured-venv-python>" "<plugin-root>/scripts/jev_ingest.py" \
   --index "$VAULT/index.md" "$VAULT"/Raw/Inbox/<domain>/*.md > jev.json
 ```
 
@@ -207,7 +207,7 @@ Write to `Domains/<Label>/Entities/<Name>.md`. Vault-shared `Entities/` is Refin
 
 If the item describes something Chris could try, create `Next-Adventures/<date>-<slug>.md`. This folder is his single queue of ideas to pursue when he has time or tokens. The vault's `Next-Adventures/README.md` defines the schema and lifecycle; read it before writing the first item in a run.
 
-- First compare the canonical source URL against every existing adventure `source` field (run `scripts/adventures.py --vault <vault> --source <source>`). An exact match updates/links the existing item, never creates another. Flag multiple matches for the coordinator. Then search `Next-Adventures/` for an existing item on the same idea. If there is one, add the new source to it instead of creating a duplicate.
+- First compare the canonical source URL against every existing adventure `source` field (run `<configured-venv-python> <plugin-root>/scripts/adventures.py --vault <vault> --source <source>`). An exact match updates/links the existing item, never creates another. Flag multiple matches for the coordinator. Then search `Next-Adventures/` for an existing item on the same idea. If there is one, add the new source to it instead of creating a duplicate.
 - Frontmatter: `type: adventure`, `title`, a one-line `summary` naming the productivity it could find, `date`, `status: idea`, `source`, and `tags`. Add `payoff` (1–5), `cost` (S/M/L), `tier` (1–5) and `first_step` when the source makes them clear. Leave them out rather than guess.
 - New items are always `status: idea`. Only Chris or a shaping pass promotes them to `shaped` or `ready`.
 
