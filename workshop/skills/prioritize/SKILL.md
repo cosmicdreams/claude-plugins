@@ -22,6 +22,10 @@ allowed-tools: Agent, Bash, Read, Write
 
 # workshop:prioritize — What Should I Work On Next?
 
+## Shared PM OS context (Codex and Claude)
+
+Before any source fetch or answer, run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/pm_os.py" context`. Explicitly read its four returned sources in either harness. Report missing context; owner answers require a profile source and checked date, otherwise unknown. Keep contacts machine-local. Load `references/pm-os/operations.md` only for Briefing setup or an attended PM OS pilot. This does not enable schedules, notifications or client-data Jev checks.
+
 ## When to use
 
 Full routing detail, kept out of the always-loaded skill listing:
@@ -43,7 +47,7 @@ Gather every signal that defines what's on your plate and rank it into **one cle
 
 ## Running on a loop (singleton cron discipline)
 
-To run prioritize passively: `/loop 1h /workshop:prioritize --loop`
+In T3, use the disabled Briefing task specifications and registration contract in `references/pm-os/operations.md`; never create session cron there. Outside T3, when explicitly asked to run prioritize passively: `/loop 1h /workshop:prioritize --loop`
 
 The `/loop` command creates a cron entry. Before creating a loop, always check for an existing one:
 
@@ -61,28 +65,18 @@ Sources come from `~/.claude/workshop.json`. Work email and work calendar (Micro
 
 ## Steps
 
-On-demand runs also write `${data_path}/workshop-prioritize.snapshot.json` (uncapped)
-and `workshop-prioritize.brief.html`, derived from the same canonical ranked result
-as the terminal. Ambient runs preserve both artifacts. See step 5 for the schema and
-offline renderer. Due-today/overdue obligations remain visible alongside protected
-RESPOND/UNBLOCK items regardless of scope or display quotas; score modifiers still apply.
+On-demand runs also write `${data_path}/workshop-prioritize.snapshot.json` (uncapped) and `workshop-prioritize.brief.html`, derived from the same canonical ranked result as the terminal. Ambient runs preserve both artifacts. See step 5 for the schema and offline renderer. Due-today/overdue obligations remain visible alongside protected RESPOND/UNBLOCK items regardless of scope or display quotas; score modifiers still apply.
 
 Work through these in order. Read each step file as you reach it.
 
-1. **Setup** — load config + state, resolve user IDs, detect mode, circuit-breaker preflight
-   → Read `steps/01-setup.md`
+1. **Setup** — load config + state, resolve user IDs, detect mode, circuit-breaker preflight → Read `steps/01-setup.md`
 
-2. **Fetch Slack** — per-channel subagents: overnight pass + unanswered/standing pass
-   → Read `steps/02-fetch-slack.md`
+2. **Fetch Slack** — per-channel subagents: overnight pass + unanswered/standing pass → Read `steps/02-fetch-slack.md`
 
-3. **Fetch Jira** — per-server subagents: delta pass + attention/obligation pass
-   → Read `steps/03-fetch-jira.md`
+3. **Fetch Jira** — per-server subagents: delta pass + attention/obligation pass → Read `steps/03-fetch-jira.md`
 
-4. **Fetch availability** — today's meetings / free blocks, to rank against real capacity
-   → Read `steps/04-fetch-availability.md`
+4. **Fetch availability** — today's meetings / free blocks, to rank against real capacity → Read `steps/04-fetch-availability.md`
 
-5. **Rank and output** — score across sources weighted by available time; emit `NEXT:` + table
-   → Read `steps/05-rank-output.md`
+5. **Rank and output** — score across sources weighted by available time; emit `NEXT:` + table → Read `steps/05-rank-output.md`
 
-6. **Focus update and state** — optionally narrow ambient monitoring; write state
-   → Read `steps/06-focus-update.md`
+6. **Focus update and state** — optionally narrow ambient monitoring; write state → Read `steps/06-focus-update.md`

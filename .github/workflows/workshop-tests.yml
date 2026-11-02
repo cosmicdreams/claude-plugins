@@ -1,0 +1,22 @@
+name: Workshop tests
+
+on:
+  pull_request:
+    paths:
+      - 'workshop/**'
+      - '.github/workflows/workshop-tests.yml'
+  push:
+    branches: [main]
+    paths:
+      - 'workshop/**'
+      - '.github/workflows/workshop-tests.yml'
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - run: python3 -m unittest discover -s workshop/tests -p 'test_*.py'

@@ -214,3 +214,7 @@ The palette is exposed in `scripts/branding.py` for markdown and in `assets/desi
 ## Future: AI-synthesized prose
 
 The `drover:report-writer` agent (slice 7) can layer narrative prose on top of the deterministic report. The deterministic report is the shippable surface for 2.0; AI prose is a follow-up enhancement.
+
+## Attended PM OS handoff
+
+For an explicitly requested AHRI triage pilot, resolve the installed workshop plugin root from the host's plugin registry and read `<workshop-root>/references/pm-os/operations.md`; if unavailable, stop the handoff. Hand off exact project/environment/fingerprint and non-overlapping coverage evidence to its registry; do not launch a new thread per report or treat counts as approval. This integration adds no automatic Jira writes, production fixes or deployment authority. Jev review of AHRI diagnoses/diffs stays off pending the privacy decision. Existing reporting and process obligations remain required.
