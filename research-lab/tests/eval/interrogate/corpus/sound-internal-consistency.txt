@@ -1,0 +1,2 @@
+design-lab/references/variant-policy.md:61-61@71ddd84ef4c771a53535b62d781d7861076ff779
+61: Screen width is never a variant axis. It is the Breakpoint variable collection.

@@ -1,0 +1,228 @@
+[
+  {
+    "id": "sound-evidence-quality",
+    "kind": "sound",
+    "source_claim": "SA-031",
+    "expected": "survived",
+    "submission": {
+      "claim": "Seen needs a source and quote or locator; inferred needs derivation or reasoning.",
+      "evidence": "skills/resurrect/scripts/ledger.py:348-384@fdfa28c0c974204d3960dbe8dd1dc5f43961aff7\n348: def problems(item: dict, known_ids: set[str], qids: set[str]) -> list[str]:\n349:     errs = []\n350:     tag, kind = item.get(\"tag\"), item.get(\"kind\")\n351:     if tag not in TAGS:\n352:         errs.append(f\"tag must be one of {TAGS}\")\n353:     if kind not in KINDS:\n354:         errs.append(f\"kind must be one of {KINDS}\")\n355:     if not str(item.get(\"claim\", \"\")).strip():\n356:         errs.append(\"claim is required\")\n357:     if item.get(\"confidence\") not in CONF:\n358:         errs.append(f\"confidence must be one of {CONF}\")\n359:     if tag == \"seen\" and not item.get(\"source\"):\n360:         errs.append(\"seen evidence needs a source (URL or file path)\")\n361:     if tag == \"seen\" and not (item.get(\"quote\") or item.get(\"locator\")):\n362:         errs.append(\"seen evidence needs a verbatim quote or a locator (where exactly it was seen)\")\n363:     if tag == \"inferred\" and not (item.get(\"derived_from\") or item.get(\"reasoning\")):\n364:         errs.append(\"inferred evidence needs derived_from IDs or reasoning\")\n365:     if kind == \"sentiment\" and tag in (\"seen\", \"inferred\") and not item.get(\"feature\"):\n366:         errs.append(\"sentiment evidence needs a feature tag (what is being missed)\")\n367:     if str(item.get(\"source\", \"\")).startswith(\"@\"):\n368:         errs.append(f\"source {item['source']!r} is a batch key that no line defines; give a URL or file path\")\n369:     if str(item.get(\"feature\", \"\")).strip().lower() in KINDS:\n370:         errs.append(f\"feature tag {item['feature']!r} is a kind name ({', '.join(KINDS)} are reserved for `kind`); \"\n371:                     \"name the feature itself (e.g. hold-to-fly, title-screen, game-name)\")\n372:     for ref in item.get(\"derived_from\", []):\n373:         if ref not in known_ids:\n374:             errs.append(f\"derived_from references unknown ID {ref}\")\n375:     for q in item.get(\"questions\", []):\n376:         if q not in qids:\n377:             errs.append(f\"unknown question {q}\")\n378:     if item.get(\"authority\") and item[\"authority\"] not in AUTHORITY:\n379:         errs.append(f\"authority must be one of {AUTHORITY}\")\n380:     if item.get(\"as_of\") and not AS_OF.fullmatch(str(item[\"as_of\"])):\n381:         errs.append(\"as_of must be YYYY, YYYY-MM, YYYY-MM-DD or a range YYYY[-MM]..YYYY[-MM]\")\n382:     if len(str(item.get(\"quote\", \"\"))) > 600:\n383:         errs.append(\"quote longer than 600 chars; excerpt the relevant part\")\n384:     return errs",
+      "goal": "Is this report assertion supported by the supplied evidence?",
+      "question": "Is this report assertion supported by the supplied evidence?",
+      "corpus": {
+        "paths": [
+          "corpus/sound-evidence-quality.txt"
+        ]
+      }
+    }
+  },
+  {
+    "id": "flawed-evidence-quality",
+    "kind": "flawed",
+    "source_claim": "SA-031",
+    "expected": [
+      "rejected",
+      "contested"
+    ],
+    "submission": {
+      "claim": "Seen needs a source and quote or locator; inferred needs derivation or reasoning.",
+      "evidence": "Evidence unavailable: the cited excerpt was dropped.",
+      "goal": "Is this report assertion supported by the supplied evidence?",
+      "question": "Is this report assertion supported by the supplied evidence?",
+      "corpus": {
+        "paths": [
+          "corpus/flawed-evidence-quality.txt"
+        ]
+      }
+    },
+    "defect": "evidence-quality"
+  },
+  {
+    "id": "sound-alternative-explanation",
+    "kind": "sound",
+    "source_claim": "SA-018",
+    "expected": "survived",
+    "submission": {
+      "claim": "A single allowed-tools declaration covers the skill.",
+      "evidence": "skills/resurrect/SKILL.md:5-5@fdfa28c0c974204d3960dbe8dd1dc5f43961aff7\n5: allowed-tools: WebSearch WebFetch Read Write Edit Glob Grep Bash(python3 *) Bash(python *) Bash(mkdir *) Bash(ls *) Bash(cp *) Bash(mv *) Bash(ffmpeg *) Bash(ffprobe *) Bash(unzip *)",
+      "goal": "Is this report assertion supported by the supplied evidence?",
+      "question": "Is this report assertion supported by the supplied evidence?",
+      "corpus": {
+        "paths": [
+          "corpus/sound-alternative-explanation.txt"
+        ]
+      }
+    }
+  },
+  {
+    "id": "flawed-alternative-explanation",
+    "kind": "flawed",
+    "source_claim": "SA-018",
+    "expected": [
+      "rejected",
+      "contested"
+    ],
+    "submission": {
+      "claim": "The single skill-wide allowed-tools list proves that each role is technically prevented from reading outside its permitted paths. A role-specific restriction or external sandbox cannot explain this result.",
+      "evidence": "skills/resurrect/SKILL.md:5-5@fdfa28c0c974204d3960dbe8dd1dc5f43961aff7\n5: allowed-tools: WebSearch WebFetch Read Write Edit Glob Grep Bash(python3 *) Bash(python *) Bash(mkdir *) Bash(ls *) Bash(cp *) Bash(mv *) Bash(ffmpeg *) Bash(ffprobe *) Bash(unzip *)",
+      "goal": "Is this report assertion supported by the supplied evidence?",
+      "question": "Is this report assertion supported by the supplied evidence?",
+      "corpus": {
+        "paths": [
+          "corpus/flawed-alternative-explanation.txt"
+        ]
+      }
+    },
+    "defect": "alternative-explanation"
+  },
+  {
+    "id": "sound-reproducibility",
+    "kind": "sound",
+    "source_claim": "SA-044",
+    "expected": "survived",
+    "submission": {
+      "claim": "Round budgets are quick 2, standard 6 and deep 10.",
+      "evidence": "skills/resurrect/scripts/ledger.py:49-52@fdfa28c0c974204d3960dbe8dd1dc5f43961aff7\n49: SOFTWARE = (\"website\", \"webapp\", \"app\", \"game\")\n50: TYPES = SOFTWARE + (\"recipe\", \"ruleset\", \"api\", \"place\", \"media\", \"other\")\n51: EXHIBIT_ONLY = (\"media\",)  # rebuilding would just copy the work, so exhibit it instead\n52: BUDGETS = {\"quick\": 2, \"standard\": 6, \"deep\": 10}  # quick = two rounds (SKILL.md)",
+      "goal": "Is this report assertion supported by the supplied evidence?",
+      "question": "Is this report assertion supported by the supplied evidence?",
+      "corpus": {
+        "paths": [
+          "corpus/sound-reproducibility.txt"
+        ]
+      }
+    }
+  },
+  {
+    "id": "flawed-reproducibility",
+    "kind": "flawed",
+    "source_claim": "SA-044",
+    "expected": [
+      "rejected",
+      "contested"
+    ],
+    "submission": {
+      "claim": "The quick, standard and deep budgets reduced research cost by exactly 37%; the reduction is reproducible.",
+      "evidence": "skills/resurrect/scripts/ledger.py:49-52@fdfa28c0c974204d3960dbe8dd1dc5f43961aff7\n49: SOFTWARE = (\"website\", \"webapp\", \"app\", \"game\")\n50: TYPES = SOFTWARE + (\"recipe\", \"ruleset\", \"api\", \"place\", \"media\", \"other\")\n51: EXHIBIT_ONLY = (\"media\",)  # rebuilding would just copy the work, so exhibit it instead\n52: BUDGETS = {\"quick\": 2, \"standard\": 6, \"deep\": 10}  # quick = two rounds (SKILL.md)",
+      "goal": "Is this report assertion supported by the supplied evidence?",
+      "question": "Is this report assertion supported by the supplied evidence?",
+      "corpus": {
+        "paths": [
+          "corpus/flawed-reproducibility.txt"
+        ]
+      }
+    },
+    "defect": "reproducibility"
+  },
+  {
+    "id": "sound-internal-consistency",
+    "kind": "sound",
+    "source_claim": "SB-002",
+    "expected": "survived",
+    "submission": {
+      "claim": "Screen width is never a variant axis.",
+      "evidence": "design-lab/references/variant-policy.md:61-61@71ddd84ef4c771a53535b62d781d7861076ff779\n61: Screen width is never a variant axis. It is the Breakpoint variable collection.",
+      "goal": "Is this report assertion supported by the supplied evidence?",
+      "question": "Is this report assertion supported by the supplied evidence?",
+      "corpus": {
+        "paths": [
+          "corpus/sound-internal-consistency.txt"
+        ]
+      }
+    }
+  },
+  {
+    "id": "flawed-internal-consistency",
+    "kind": "flawed",
+    "source_claim": "SB-002",
+    "expected": [
+      "rejected",
+      "contested"
+    ],
+    "submission": {
+      "claim": "Screen width is never a variant axis. Screen width is always represented as a variant axis.",
+      "evidence": "design-lab/references/variant-policy.md:61-61@71ddd84ef4c771a53535b62d781d7861076ff779\n61: Screen width is never a variant axis. It is the Breakpoint variable collection.",
+      "goal": "Is this report assertion supported by the supplied evidence?",
+      "question": "Is this report assertion supported by the supplied evidence?",
+      "corpus": {
+        "paths": [
+          "corpus/flawed-internal-consistency.txt"
+        ]
+      }
+    },
+    "defect": "internal-consistency"
+  },
+  {
+    "id": "relevance-changelog-sound",
+    "kind": "sound",
+    "expected": "survived",
+    "defect": null,
+    "submission": {
+      "claim": "Version 2.1 fixed the cache invalidation bug.",
+      "evidence": "Version 2.1 release notes: Fixed cache invalidation after content updates.",
+      "goal": "Determine whether version 2.1 fixed cache invalidation.",
+      "question": "Determine whether version 2.1 fixed cache invalidation.",
+      "corpus": {
+        "paths": [
+          "corpus/relevance-changelog-sound.txt"
+        ]
+      }
+    }
+  },
+  {
+    "id": "relevance-changelog-flawed",
+    "kind": "flawed",
+    "expected": [
+      "rejected",
+      "contested"
+    ],
+    "defect": "relevance",
+    "submission": {
+      "claim": "Version 2.1 fixed the cache invalidation bug.",
+      "evidence": "Version 2.1 release notes: Fixed cache invalidation after content updates.",
+      "goal": "Determine whether version 2.1 improved accessibility.",
+      "question": "Determine whether version 2.1 improved accessibility.",
+      "corpus": {
+        "paths": [
+          "corpus/relevance-changelog-flawed.txt"
+        ]
+      }
+    }
+  },
+  {
+    "id": "relevance-config-sound",
+    "kind": "sound",
+    "expected": "survived",
+    "defect": null,
+    "submission": {
+      "claim": "The service uses port 8080 by default.",
+      "evidence": "Configuration reference: The service listens on port 8080 by default.",
+      "goal": "Find the default service port.",
+      "question": "Find the default service port.",
+      "corpus": {
+        "paths": [
+          "corpus/relevance-config-sound.txt"
+        ]
+      }
+    }
+  },
+  {
+    "id": "relevance-config-flawed",
+    "kind": "flawed",
+    "expected": [
+      "rejected",
+      "contested"
+    ],
+    "defect": "relevance",
+    "submission": {
+      "claim": "The service uses port 8080 by default.",
+      "evidence": "Configuration reference: The service listens on port 8080 by default.",
+      "goal": "Determine the service retention period.",
+      "question": "Determine the service retention period.",
+      "corpus": {
+        "paths": [
+          "corpus/relevance-config-flawed.txt"
+        ]
+      }
+    }
+  }
+]

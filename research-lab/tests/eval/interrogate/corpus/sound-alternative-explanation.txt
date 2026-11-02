@@ -1,0 +1,2 @@
+skills/resurrect/SKILL.md:5-5@fdfa28c0c974204d3960dbe8dd1dc5f43961aff7
+5: allowed-tools: WebSearch WebFetch Read Write Edit Glob Grep Bash(python3 *) Bash(python *) Bash(mkdir *) Bash(ls *) Bash(cp *) Bash(mv *) Bash(ffmpeg *) Bash(ffprobe *) Bash(unzip *)

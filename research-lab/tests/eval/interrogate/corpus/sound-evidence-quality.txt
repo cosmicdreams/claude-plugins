@@ -1,0 +1,38 @@
+skills/resurrect/scripts/ledger.py:348-384@fdfa28c0c974204d3960dbe8dd1dc5f43961aff7
+348: def problems(item: dict, known_ids: set[str], qids: set[str]) -> list[str]:
+349:     errs = []
+350:     tag, kind = item.get("tag"), item.get("kind")
+351:     if tag not in TAGS:
+352:         errs.append(f"tag must be one of {TAGS}")
+353:     if kind not in KINDS:
+354:         errs.append(f"kind must be one of {KINDS}")
+355:     if not str(item.get("claim", "")).strip():
+356:         errs.append("claim is required")
+357:     if item.get("confidence") not in CONF:
+358:         errs.append(f"confidence must be one of {CONF}")
+359:     if tag == "seen" and not item.get("source"):
+360:         errs.append("seen evidence needs a source (URL or file path)")
+361:     if tag == "seen" and not (item.get("quote") or item.get("locator")):
+362:         errs.append("seen evidence needs a verbatim quote or a locator (where exactly it was seen)")
+363:     if tag == "inferred" and not (item.get("derived_from") or item.get("reasoning")):
+364:         errs.append("inferred evidence needs derived_from IDs or reasoning")
+365:     if kind == "sentiment" and tag in ("seen", "inferred") and not item.get("feature"):
+366:         errs.append("sentiment evidence needs a feature tag (what is being missed)")
+367:     if str(item.get("source", "")).startswith("@"):
+368:         errs.append(f"source {item['source']!r} is a batch key that no line defines; give a URL or file path")
+369:     if str(item.get("feature", "")).strip().lower() in KINDS:
+370:         errs.append(f"feature tag {item['feature']!r} is a kind name ({', '.join(KINDS)} are reserved for `kind`); "
+371:                     "name the feature itself (e.g. hold-to-fly, title-screen, game-name)")
+372:     for ref in item.get("derived_from", []):
+373:         if ref not in known_ids:
+374:             errs.append(f"derived_from references unknown ID {ref}")
+375:     for q in item.get("questions", []):
+376:         if q not in qids:
+377:             errs.append(f"unknown question {q}")
+378:     if item.get("authority") and item["authority"] not in AUTHORITY:
+379:         errs.append(f"authority must be one of {AUTHORITY}")
+380:     if item.get("as_of") and not AS_OF.fullmatch(str(item["as_of"])):
+381:         errs.append("as_of must be YYYY, YYYY-MM, YYYY-MM-DD or a range YYYY[-MM]..YYYY[-MM]")
+382:     if len(str(item.get("quote", ""))) > 600:
+383:         errs.append("quote longer than 600 chars; excerpt the relevant part")
+384:     return errs
