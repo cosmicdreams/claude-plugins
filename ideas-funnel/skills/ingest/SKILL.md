@@ -33,7 +33,7 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 Process unprocessed items in `Raw/` and `Raw/Inbox/<domain>/` into the wiki.
 
-This is a worker skill. Fable supervises priority and routing; ingest performs bounded extraction and page-breaking.
+This skill defines ingest knowledge rules. Under dispatch, workers return read-only proposals and the coordinator applies writes under the shared lock; manual ingest must acquire the same lock session. Read `ideas-funnel:dispatch` before any writes.
 
 ## Prerequisites
 
@@ -63,15 +63,15 @@ done)
 
 For each domain in scope, list `Raw/Inbox/<domain>/*.md`. Also list `Raw/*.md` (daily notes, domain-less).
 
-An item is unprocessed if:
-- It is not listed in `Raw/.manifest.json` as an ingested entry, OR
+The versioned canonical index is authoritative for scheduled work; only collected/failed states are eligible. Legacy manual items are unprocessed if:
+- It is not listed in `Raw/.manifest.json` as an ingested entry, AND
 - Its frontmatter lacks `status: ingested`.
 
 Skip empty files. Skip `README.md` placeholders.
 
 When the pipeline passes a `max_items_per_domain` cap, process no more than that many files. Rank by:
 
-1. explicit Fable priority terms,
+1. explicit coordinator priority terms,
 2. source quality,
 3. novelty against existing `index.md`,
 4. likely actionability for Chris,
@@ -90,7 +90,7 @@ python3 "${CLAUDE_PLUGIN_ROOT}/scripts/jev_ingest.py" \
 
 Per item the script asks three Scores (source quality, novelty, actionability) and one Choice per candidate page — candidates are found by token overlap with `index.md`, so Jev compares against a few plausible pages, not the whole wiki. Read `items[]`:
 
-- `"source": "jev"` with a `rank_score` — order these by `rank_score` (they come back sorted), after Fable priority terms and before recency.
+- `"source": "jev"` with a `rank_score` — order these by `rank_score` (they come back sorted), after coordinator priority terms and before recency.
 - `"source": "fallback"` with a `reason` — rank these yourself as above.
 - `dedup.verdict` of `duplicate` or `augment` with `"source": "jev"` names the `page` to link to or enrich in Step 4; `new` means create pages as usual; a fallback dedup (`no_candidates`, `low_confidence`) means decide as you do today.
 
@@ -127,9 +127,9 @@ If an article body exceeds 4000 words, compress it through headroom (reversible 
 
 Follow `ideas-funnel:delegate`:
 
-- Use GPT-5.5-style worker routing for long-context extraction, multi-source comparison, or nuanced clustering.
+- Use current tier 3 routing for long-context extraction, multi-source comparison, or nuanced clustering.
 - Use cheap/local or shell work for manifest checks, RSS/title filtering, obvious duplicates, and backlink counts.
-- Do not use Fable for bulk extraction.
+- Never use Fable or tiers 6–7.
 
 Record routed work in the final JSON under `routed_tasks`.
 
@@ -207,7 +207,7 @@ Write to `Domains/<Label>/Entities/<Name>.md`. Vault-shared `Entities/` is Refin
 
 If the item describes something Chris could try, create `Next-Adventures/<date>-<slug>.md`. This folder is his single queue of ideas to pursue when he has time or tokens. The vault's `Next-Adventures/README.md` defines the schema and lifecycle; read it before writing the first item in a run.
 
-- Before creating one, search `Next-Adventures/` for an existing item on the same idea. If there is one, add the new source to it instead of creating a duplicate.
+- First compare the canonical source URL against every existing adventure `source` field (use `scripts/runtime.py` canonical rules). An exact match updates/links the existing item, never creates another. Flag multiple matches for the coordinator. Then search `Next-Adventures/` for an existing item on the same idea. If there is one, add the new source to it instead of creating a duplicate.
 - Frontmatter: `type: adventure`, `title`, a one-line `summary` naming the productivity it could find, `date`, `status: idea`, `source`, and `tags`. Add `payoff` (1–5), `cost` (S/M/L), `tier` (1–5) and `first_step` when the source makes them clear. Leave them out rather than guess.
 - New items are always `status: idea`. Only Chris or a shaping pass promotes them to `shaped` or `ready`.
 
@@ -252,7 +252,7 @@ For each processed file:
 }
 ```
 
-Use `shasum -a 256 <file>` for the hash. Atomic update: write to `.manifest.json.tmp`, then `mv`.
+Use `shasum -a 256 <file>` for the hash. The coordinator sends `finish` to the lock session to update the legacy manifest and canonical state, preserving existing fields. Manual legacy updates also hold the lock and merge existing entries before atomic replacement; atomic rename alone is not concurrency control.
 
 ## Step 7 — Archive raw items
 
