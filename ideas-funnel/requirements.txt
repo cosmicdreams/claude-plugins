@@ -1,0 +1,2 @@
+# YAML configuration only; collection and runtime use the Python standard library.
+PyYAML>=6.0.2,<7
