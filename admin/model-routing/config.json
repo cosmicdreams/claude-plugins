@@ -1,0 +1,57 @@
+{
+  "schema": 1,
+  "site": "https://slopalytics.com/",
+  "comment": "Routing inputs for the weekly Slopalytics review. Edit through a reviewed change; the weekly review only proposes edits here.",
+  "effort_order": ["none", "minimal", "low", "medium", "default", "high", "xhigh", "max"],
+  "pools": {
+    "openai": "Codex pool",
+    "anthropic": "Claude pool",
+    "google": "Gemini / Antigravity pool"
+  },
+  "families": {
+    "gpt-6-luna": {"pool": "openai", "cli": "gpt-6-luna"},
+    "gpt-6-1-terra": {"pool": "openai", "cli": "gpt-6.1-terra"},
+    "gpt-6-1-sol": {"pool": "openai", "cli": "gpt-6.1-sol"},
+    "gpt-6-astra": {"pool": "openai", "cli": "gpt-6-astra"},
+    "claude-haiku-5-5": {"pool": "anthropic", "cli": "claude-haiku-5-5"},
+    "claude-sonnet-5": {"pool": "anthropic", "cli": "claude-sonnet-5"},
+    "claude-sonnet-5-5": {"pool": "anthropic", "cli": "claude-sonnet-5-5"},
+    "claude-opus-5-5": {"pool": "anthropic", "cli": "claude-opus-5-5"},
+    "claude-fable-5-1": {"pool": "anthropic", "cli": "claude-fable-5-1"},
+    "gemini-3-8-flash": {"pool": "google", "cli": "gemini-3.8-flash"},
+    "gemini-4-argon": {"pool": "google", "cli": "gemini-4-argon"}
+  },
+  "denied": {
+    "claude-fable-5-1": "Denied for the Velir Engineering Claude account by ~/.claude/model-access.md."
+  },
+  "ignored_families": {
+    "kimi-k3-1-pro": "Chris has no access to Kimi 3.1."
+  },
+  "effort_ceiling": {
+    "gemini-4-argon": "medium"
+  },
+  "substitutions": [
+    {
+      "family": "gemini-4-argon",
+      "route_effort": "medium",
+      "scored_effort": "high",
+      "reason": "Argon is capped at medium for allowance; Slopalytics only scores high. Route medium using high's scores until medium is scored or Gemini 4 Carbon replaces Argon."
+    }
+  ],
+  "tiers": [
+    {"tier": 1, "floor": 15, "label": "Mechanical formatting, triage, trivial lookups"},
+    {"tier": 2, "floor": 25, "label": "Bulk edits and simple scripts"},
+    {"tier": 3, "floor": 32, "label": "Routine coding to a clear spec"},
+    {"tier": 4, "floor": 40, "label": "Multi-file features and debugging"},
+    {"tier": 5, "floor": 48, "label": "Hard or unsupervised work, expert review, coordination"},
+    {"tier": 6, "floor": 53, "label": "Deep or complex work", "locked": true},
+    {"tier": 7, "floor": 56, "label": "Apex work", "locked": true}
+  ],
+  "upgrade_tolerance": 0.10,
+  "change_thresholds": {
+    "intelligence_points": 1.0,
+    "cost_ratio": 0.15,
+    "time_ratio": 0.25,
+    "rescale_median_points": 1.0
+  }
+}

@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.1.0 — 2026-11-02
+
+- Add `admin/model-routing/`: `frontier.py` turns the Slopalytics cost-versus-intelligence data into the tier table behind the global model-routing guidance. It parses the site's embedded dataset without running site code, computes Pareto frontiers within each provider's pool, picks a primary per tier, and saves dated snapshots so each weekly pull reports only what changed. `config.json` holds tier floors, locked tiers, account denials, effort ceilings, and the Argon medium substitution. Retrieval or missing-data failures exit 2 instead of producing a partial table.
+
 ## 4.0.0 — 2026-09-29
 
 **Breaking: sprint mode removed.** The sprint, retro, and improve plugins are retired in favor of process-lab.
