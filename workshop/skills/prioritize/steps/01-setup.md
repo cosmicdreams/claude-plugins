@@ -2,8 +2,7 @@
 
 ## Detect mode
 
-- If invoked with `--loop` (or via `/loop`), mode = **ambient**: delta-only, quiet output, and
-  **skip the standing-obligations passes and the availability fetch** (steps 02/03 Pass 2 and step 04).
+- If invoked with `--loop` (or via `/loop`), mode = **ambient**: delta-only, quiet output, and **skip the standing-obligations passes and the availability fetch** (steps 02/03 Pass 2 and step 04).
 - Otherwise mode = **on-demand** (default): full picture across all passes.
 
 ## Load config
@@ -18,13 +17,14 @@ Check for config in order:
 
 If neither exists, run `workshop:config` to set up, then stop.
 
-Parse `integrations.slack.workspaces` and `integrations.jira.servers`. **At least one** of the two
-must be configured. If BOTH are empty or missing, output:
+Parse `integrations.slack.workspaces` and `integrations.jira.servers`. **At least one** of the two must be configured. If BOTH are empty or missing, output:
 ```
 No Slack workspaces or Jira servers configured in ~/.claude/workshop.json.
 Run workshop:config to add at least one source.
 ```
 Then stop. (A Slack-only or Jira-only setup is valid — the missing source is simply skipped.)
+
+Use the selected config's `integrations.slack.workspaces[].channels` as the shared channel list; no private prioritize channel list. Missing channels are a coverage gap, not an all-clear.
 
 Parse `data_path` for state file location (default: `~/.claude`).
 
@@ -45,21 +45,18 @@ print(prev_10pm.isoformat())
 "
 ```
 
-`last_run` defines the **overnight/delta window** (what's new since you last checked). Standing
-obligations (step 02/03 Pass 2) are independent of this window — they surface regardless of recency.
+`last_run` defines the **overnight/delta window** (what's new since you last checked). Standing obligations (step 02/03 Pass 2) are independent of this window — they surface regardless of recency.
 
 ## Resolve user IDs
 
 For each Slack workspace:
 - If `user_id` is already set on the workspace object → use it directly
-- If missing → run `agent-slack auth whoami --workspace {workspace_url}`, extract `user_id`,
-  write it back to the config file under that workspace, then use it
+- If missing → run `agent-slack auth whoami --workspace {workspace_url}`, extract `user_id`, write it back to the config file under that workspace, then use it
 - If `whoami` fails → set `user_id` to null (mention counts will be 0)
 
 ## Load Jira config
 
-Each server in `integrations.jira.servers` has: `name`, `url`, `projects`, optional `config_file`.
-If `jira.servers` is empty or missing, Jira is skipped in step 3.
+Each server in `integrations.jira.servers` has: `name`, `url`, `projects`, optional `config_file`. If `jira.servers` is empty or missing, Jira is skipped in step 3.
 
 ## Compute timestamps
 
@@ -72,8 +69,7 @@ python3 -c "from datetime import datetime; print(datetime.fromisoformat('{last_r
 
 ## Integration preflight (circuit-breaker)
 
-Run the preflight for each configured integration. The script caches results for 5 minutes — repeat
-calls within the window are instant.
+Run the preflight for each configured integration. The script caches results for 5 minutes — repeat calls within the window are instant.
 
 ```bash
 SCRIPT="${CLAUDE_PLUGIN_ROOT}/scripts/check-integration.sh"
@@ -91,5 +87,4 @@ fi
 - If `jira_ok=false` — skip `steps/03-fetch-jira.md`; note "Jira unavailable" in the header.
 - If **both** unavailable — output "All integrations unavailable — prioritize cannot run." and stop.
 
-Proceed to `steps/02-fetch-slack.md` with: mode, workspaces list, oldest_ts, user_id per workspace,
-jira servers list, last_run_date (skipping any source marked unavailable).
+Proceed to `steps/02-fetch-slack.md` with: mode, workspaces list, oldest_ts, user_id per workspace, jira servers list, last_run_date (skipping any source marked unavailable).

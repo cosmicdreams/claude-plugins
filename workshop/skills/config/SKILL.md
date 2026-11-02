@@ -18,6 +18,10 @@ allowed-tools: Bash, Read, Write, AskUserQuestion
 
 # workshop:config — Integration Discovery & Configuration
 
+## Shared PM OS context (Codex and Claude)
+
+Before any source fetch or answer, run `python3 "${CLAUDE_PLUGIN_ROOT}/scripts/pm_os.py" context`. Explicitly read its four returned sources in either harness. Report missing context; owner answers require a profile source and checked date, otherwise unknown. Keep contacts machine-local. Load `references/pm-os/operations.md` only for Briefing setup or an attended PM OS pilot. This does not enable schedules, notifications or client-data Jev checks.
+
 ## When to use
 
 Full routing detail, kept out of the always-loaded skill listing:
@@ -54,13 +58,9 @@ For each tool found, gather the details. Skip tools not present.
 
 **Slack** (if `agent-slack` is available): Ask which workspaces the user uses; which is the default. Parse into `integrations.slack.workspaces[]`.
 
-**Jira** (if `twg` is available): twg signs in once with the user's Atlassian account (OAuth)
-and reaches every site in that account's Atlassian organization. A site owned by a different
-organization — a client's own Atlassian — is refused with "Site ... is not in the Atlassian
-organization associated with your OAuth token" and needs API-token auth instead.
+**Jira** (if `twg` is available): twg signs in once with the user's Atlassian account (OAuth) and reaches every site in that account's Atlassian organization. A site owned by a different organization — a client's own Atlassian — is refused with "Site ... is not in the Atlassian organization associated with your OAuth token" and needs API-token auth instead.
 
-Ask which Atlassian sites the user works in. Any existing jira-cli configs in
-`~/.config/.jira/*.yml` are a good hint: each `server:` line is one site.
+Ask which Atlassian sites the user works in. Any existing jira-cli configs in `~/.config/.jira/*.yml` are a good hint: each `server:` line is one site.
 
 For each site, record:
 - `name` — short label, e.g. `velir` or `acu`
@@ -79,9 +79,7 @@ twg --site <site> jira workitem query --jql "project = <KEY> AND assignee = curr
  mkdir -p "$TWG_CONFIG_DIR"
  twg jira workitem query --jql "project = <KEY> AND assignee = currentUser()" --fields key --limit 3 -o json --output-summary none)
 ```
-If an OAuth check fails with the organization error, switch that site to `"api-token"` and
-retry. A site that still fails should be written with a note — the user needs to see it exists
-and is broken rather than have it silently missing.
+If an OAuth check fails with the organization error, switch that site to `"api-token"` and retry. A site that still fails should be written with a note — the user needs to see it exists and is broken rather than have it silently missing.
 
 **GitHub** (if `gh` is authenticated): No further questions — `gh` uses the authenticated account automatically. Set `integrations.github.available: true`.
 
