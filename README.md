@@ -35,7 +35,7 @@ claude plugin install golden-rule@local  --scope user
 ### `admin`
 Meta-tooling for developing and maintaining Claude Code plugins.
 
-Skills: `agent-team`, `bump-version`, `changelog`, `create-worktree`, `install`, `new-agent`, `new-skill`, `optimize-agents`, `scaffold`, `update-plugins`
+Skills: `agent-team`, `bump-version`, `changelog`, `create-worktree`, `install`, `new-agent`, `optimize-agents`, `scaffold`, `update-plugins`
 
 ### `ideate`
 Pre-work ideation: brainstorm canvas, structured comparison, reality checks, diagrams, ADRs.
