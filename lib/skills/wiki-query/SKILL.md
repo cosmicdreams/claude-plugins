@@ -31,15 +31,13 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 > Ask a question against the Obsidian wiki and get a researched answer filed as a new wiki page. Reads index.md to find relevant Concepts, Entities, and Sources, synthesizes an answer from existing pages, optionally searches the web to fill gaps, then writes the result as a new Concept or Source page and updates the index. Closes the research loop — answers compound in the wiki instead of disappearing into chat history. Trigger phrases: "wiki-query", "ask the wiki", "research this in my vault", "what does my wiki say about", "query the vault", "look this up in my notes", "wiki answer", "what do I know about". Do NOT trigger for: simple vault search (use lib:vault-search), ingesting raw content (use ingest), or structural lint (use vault-lint).
 
-Research a question against the vault wiki. Synthesize an answer from existing
-pages, fill gaps with web research, and file the result as a new wiki page.
+Research a question against the vault wiki. Synthesize an answer from existing pages, fill gaps with web research, and file the result as a new wiki page.
 
 ## Step 1 — Understand the question
 
 Parse the user's question into:
 - **Topic**: the subject being asked about
-- **Question type**: factual ("what is X"), comparative ("how does X compare to Y"),
-  gap analysis ("what don't we know about X"), or synthesis ("how do X and Y relate")
+- **Question type**: factual ("what is X"), comparative ("how does X compare to Y"), gap analysis ("what don't we know about X"), or synthesis ("how do X and Y relate")
 
 ## Step 2 — Search the wiki
 
@@ -60,8 +58,7 @@ grep -rl "{topic}" "$VAULT_ROOT/Concepts" "$VAULT_ROOT/Entities" "$VAULT_ROOT/So
 
 Read each matching page. Build a picture of what the wiki already knows.
 
-Also check `Next-Experiments/` and `Research/` for related content outside the
-wiki layer.
+Also check `Next-Adventures/` and `Research/` for related content outside the wiki layer.
 
 ## Step 3 — Identify gaps
 
@@ -79,8 +76,7 @@ Missing: {what aspects the wiki doesn't cover}
 
 ## Step 4 — Fill gaps with web research (if needed)
 
-Use WebSearch to find 2-3 high-quality articles on the missing aspects.
-Use WebFetch to read each article and extract key points.
+Use WebSearch to find 2-3 high-quality articles on the missing aspects. Use WebFetch to read each article and extract key points.
 
 For each article, create a Source page:
 
@@ -113,12 +109,9 @@ status: active
 
 Combine wiki knowledge + any new sources into a comprehensive answer.
 
-**If the answer is about an existing Concept or Entity:**
-Update the existing page — add new information to the relevant sections,
-append new sources to `## Sources`.
+**If the answer is about an existing Concept or Entity:** Update the existing page — add new information to the relevant sections, append new sources to `## Sources`.
 
-**If the answer introduces a new concept:**
-Create a new Concept page:
+**If the answer introduces a new concept:** Create a new Concept page:
 
 **Path:** `Concepts/{Name}.md`
 
@@ -144,19 +137,15 @@ status: active
 - [[Sources/{slug}]] — {what this source contributes}
 ```
 
-**If the answer is a comparison or analysis:**
-Create a Source page (type: source) since it's a derived artifact, not a
-canonical concept.
+**If the answer is a comparison or analysis:** Create a Source page (type: source) since it's a derived artifact, not a canonical concept.
 
 ## Step 6 — Update index.md
 
-Add entries for every new page created. Maintain alphabetical order within
-each section.
+Add entries for every new page created. Maintain alphabetical order within each section.
 
 ## Step 7 — Present the answer
 
-Output the synthesized answer to the user in the conversation. Then report
-what was filed:
+Output the synthesized answer to the user in the conversation. Then report what was filed:
 
 ```
 Answer filed:
@@ -170,9 +159,6 @@ Answer filed:
 
 - **Prefer updating existing pages over creating new ones.** Check index.md first.
 - **Always cite sources.** Every claim in a Concept page should trace to a Source.
-- **Don't over-research.** 2-3 web sources is enough to fill a gap. The wiki will
-  naturally deepen as more content arrives through ingest.
-- **File the answer, not the conversation.** The wiki page should stand alone —
-  someone reading it shouldn't need the chat history to understand it.
-- **Cross-reference aggressively.** Link to related Concepts and Entities.
-  This is what makes the graph view useful.
+- **Don't over-research.** 2-3 web sources is enough to fill a gap. The wiki will naturally deepen as more content arrives through ingest.
+- **File the answer, not the conversation.** The wiki page should stand alone — someone reading it shouldn't need the chat history to understand it.
+- **Cross-reference aggressively.** Link to related Concepts and Entities. This is what makes the graph view useful.

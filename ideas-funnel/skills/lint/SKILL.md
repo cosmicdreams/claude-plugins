@@ -105,8 +105,7 @@ find ~/Vaults/Neurons/{Sources,Concepts,Entities,Bridges,Conflicts} \
   -name "*.md" -not -name "_landing.md" -not -name "README.md" 2>/dev/null
 ```
 
-**Missing from index:** files on disk with no entry in `index.md`.
-**Phantom entries:** lines in `index.md` pointing to files that don't exist.
+**Missing from index:** files on disk with no entry in `index.md`. **Phantom entries:** lines in `index.md` pointing to files that don't exist.
 
 **Severity:** warning.
 
@@ -187,17 +186,13 @@ Unknown tag → warning per page.
 - Overall: HEALTHY | NEEDS ATTENTION | UNHEALTHY
 ```
 
-**HEALTHY:** 0 errors + ≤3 warnings.
-**NEEDS ATTENTION:** 0 errors + >3 warnings OR any stale Raw/ items.
-**UNHEALTHY:** any errors.
+**HEALTHY:** 0 errors + ≤3 warnings. **NEEDS ATTENTION:** 0 errors + >3 warnings OR any stale Raw/ items. **UNHEALTHY:** any errors.
 
-Write this summary into `_meta/stats.md` when `ideas-funnel:stats` is not being
-run in the same Workflow. When `stats` is running, return the counts so that
-skill can write the consolidated snapshot.
+Write this summary into `_meta/stats.md` when `ideas-funnel:stats` is not being run in the same Workflow. When `stats` is running, return the counts so that skill can write the consolidated snapshot.
 
 ## What NOT to do
 
 - Do not modify page bodies (only frontmatter flags).
 - Do not delete anything.
 - Do not scan `Scratches/`, `Archive/`, `.obsidian/`, `analysis-reports/`.
-- Do not flag `Next-Experiments/` or `Research/` for schema compliance — those follow their own formats.
+- Do not flag `Next-Adventures/` or `Research/` for wiki schema compliance — `Next-Adventures/` follows its own schema in `Next-Adventures/README.md`, and `Research/` has its own formats.

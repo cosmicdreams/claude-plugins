@@ -4,9 +4,7 @@ Vault root: `~/Vaults/$OBSIDIAN_VAULT_NAME` (default: `Neurons`)
 
 ## Placing content
 
-Before creating any folder, scan what already exists and prefer an existing folder
-over creating a new one — even if the casing or singular/plural differs slightly.
-Only create a new folder when nothing in the vault is a reasonable match.
+Before creating any folder, scan what already exists and prefer an existing folder over creating a new one — even if the casing or singular/plural differs slightly. Only create a new folder when nothing in the vault is a reasonable match.
 
 When ingesting content or creating wiki pages, read `wiki-schema.md` at vault root first.
 
@@ -19,7 +17,7 @@ When ingesting content or creating wiki pages, read `wiki-schema.md` at vault ro
 | `Concepts/` | Living topic pages — patterns, techniques, trends. Updated as knowledge arrives. |
 | `Entities/` | People, tools, companies, products. Updated as knowledge arrives. |
 | `Projects/` | Work scoped to a specific client, internal project, or open source effort |
-| `Next-Experiments/` | Actionable experiments graduated from the funnel or ingest |
+| `Next-Adventures/` | The adventure queue: actionable ideas from the funnel, ingest or conversations, ranked by payoff, cost and tier (schema in `Next-Adventures/README.md`) |
 | `Architecture/` | System design, ADRs, component relationships, diagrams |
 | `Retrospectives/` | Sprint and team retrospectives |
 | `Scratches/` | Working scratch space, organized by project |
@@ -29,8 +27,7 @@ When ingesting content or creating wiki pages, read `wiki-schema.md` at vault ro
 
 ## Projects structure
 
-Each project gets its own folder. Within a project, use purpose subfolders
-that mirror the top-level taxonomy where relevant.
+Each project gets its own folder. Within a project, use purpose subfolders that mirror the top-level taxonomy where relevant.
 
 ```
 Projects/
@@ -60,8 +57,7 @@ See `wiki-schema.md` at vault root for full details on page types and ingest wor
 
 `<Purpose>/<Topic>/<descriptor.ext>`
 
-Add the `<Topic>` level when multiple files share the same subject. Keep it flat
-(`<Purpose>/<descriptor.ext>`) when there is only one file on that subject.
+Add the `<Topic>` level when multiple files share the same subject. Keep it flat (`<Purpose>/<descriptor.ext>`) when there is only one file on that subject.
 
 ## File naming
 
@@ -71,6 +67,4 @@ Add the `<Topic>` level when multiple files share the same subject. Keep it flat
 
 ## What does not belong here
 
-There is no `shared/` folder. Everything in the vault is shared by definition.
-If you see a `shared/` prefix on an existing path, it should be removed and the
-file moved to the top-level purpose folder.
+There is no `shared/` folder. Everything in the vault is shared by definition. If you see a `shared/` prefix on an existing path, it should be removed and the file moved to the top-level purpose folder.

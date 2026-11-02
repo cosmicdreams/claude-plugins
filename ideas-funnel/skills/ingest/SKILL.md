@@ -33,8 +33,7 @@ Full routing detail, kept out of the always-loaded skill listing:
 
 Process unprocessed items in `Raw/` and `Raw/Inbox/<domain>/` into the wiki.
 
-This is a worker skill. Fable supervises priority and routing; ingest performs
-bounded extraction and page-breaking.
+This is a worker skill. Fable supervises priority and routing; ingest performs bounded extraction and page-breaking.
 
 ## Prerequisites
 
@@ -70,8 +69,7 @@ An item is unprocessed if:
 
 Skip empty files. Skip `README.md` placeholders.
 
-When the pipeline passes a `max_items_per_domain` cap, process no more than that
-many files. Rank by:
+When the pipeline passes a `max_items_per_domain` cap, process no more than that many files. Rank by:
 
 1. explicit Fable priority terms,
 2. source quality,
@@ -83,31 +81,20 @@ Leave skipped files in place for later runs.
 
 ### Jev ranking and dedup (optional layer)
 
-When `TYPESAFE_API_KEY` is set (and `JEV_DISABLED` is not `1`), TypeSafe's Jev
-model scores criteria 2 to 4 and judges duplicate / augment / new against the
-closest existing pages before you read anything:
+When `TYPESAFE_API_KEY` is set (and `JEV_DISABLED` is not `1`), TypeSafe's Jev model scores criteria 2 to 4 and judges duplicate / augment / new against the closest existing pages before you read anything:
 
 ```bash
 python3 "${CLAUDE_PLUGIN_ROOT}/scripts/jev_ingest.py" \
   --index "$VAULT/index.md" "$VAULT"/Raw/Inbox/<domain>/*.md > jev.json
 ```
 
-Per item the script asks three Scores (source quality, novelty, actionability)
-and one Choice per candidate page — candidates are found by token overlap with
-`index.md`, so Jev compares against a few plausible pages, not the whole wiki.
-Read `items[]`:
+Per item the script asks three Scores (source quality, novelty, actionability) and one Choice per candidate page — candidates are found by token overlap with `index.md`, so Jev compares against a few plausible pages, not the whole wiki. Read `items[]`:
 
-- `"source": "jev"` with a `rank_score` — order these by `rank_score` (they come
-  back sorted), after Fable priority terms and before recency.
+- `"source": "jev"` with a `rank_score` — order these by `rank_score` (they come back sorted), after Fable priority terms and before recency.
 - `"source": "fallback"` with a `reason` — rank these yourself as above.
-- `dedup.verdict` of `duplicate` or `augment` with `"source": "jev"` names the
-  `page` to link to or enrich in Step 4; `new` means create pages as usual; a
-  fallback dedup (`no_candidates`, `low_confidence`) means decide as you do today.
+- `dedup.verdict` of `duplicate` or `augment` with `"source": "jev"` names the `page` to link to or enrich in Step 4; `new` means create pages as usual; a fallback dedup (`no_candidates`, `low_confidence`) means decide as you do today.
 
-Every record carries the model version, confidence, and the threshold it
-cleared (0.5 for scores, 0.8 for dedup; starting points, tune in the script).
-When Jev is unavailable every item is fallback and this step is unchanged.
-Report `counts` in the final JSON under `jev`.
+Every record carries the model version, confidence, and the threshold it cleared (0.5 for scores, 0.8 for dedup; starting points, tune in the script). When Jev is unavailable every item is fallback and this step is unchanged. Report `counts` in the final JSON under `jev`.
 
 ## Step 3 — For each unprocessed item, analyze
 
@@ -134,17 +121,14 @@ Unreachable URL → note `[unreachable]` in the Source page and continue.
 
 ### headroom compression
 
-If an article body exceeds 4000 words, compress it through headroom (reversible mode)
-before page-breaking, when `command -v headroom` succeeds. Degrade silently if absent.
+If an article body exceeds 4000 words, compress it through headroom (reversible mode) before page-breaking, when `command -v headroom` succeeds. Degrade silently if absent.
 
 ### model routing
 
 Follow `ideas-funnel:delegate`:
 
-- Use GPT-5.5-style worker routing for long-context extraction, multi-source
-  comparison, or nuanced clustering.
-- Use cheap/local or shell work for manifest checks, RSS/title filtering,
-  obvious duplicates, and backlink counts.
+- Use GPT-5.5-style worker routing for long-context extraction, multi-source comparison, or nuanced clustering.
+- Use cheap/local or shell work for manifest checks, RSS/title filtering, obvious duplicates, and backlink counts.
 - Do not use Fable for bulk extraction.
 
 Record routed work in the final JSON under `routed_tasks`.
@@ -211,9 +195,7 @@ For each concept identified:
 2. Otherwise check `Domains/<Label>/<Name>.md` — if it exists, update it.
 3. Otherwise create it in `Domains/<Label>/<Name>.md`.
 
-A confident Jev `dedup` verdict from Step 2 short-cuts the lookup: `duplicate`
-means link to the named page and add nothing; `augment` means update that page.
-An unconfident verdict changes nothing — follow the three checks above.
+A confident Jev `dedup` verdict from Step 2 short-cuts the lookup: `duplicate` means link to the named page and add nothing; `augment` means update that page. An unconfident verdict changes nothing — follow the three checks above.
 
 Frontmatter: use the full v2 schema. Set `type: concept`, `domain: [<slug>]`, `provenance.origin: extracted` or `ai-generated`.
 
@@ -221,9 +203,13 @@ Frontmatter: use the full v2 schema. Set `type: concept`, `domain: [<slug>]`, `p
 
 Write to `Domains/<Label>/Entities/<Name>.md`. Vault-shared `Entities/` is Refinery-write-only.
 
-### 4d. Next-Experiments (if actionable)
+### 4d. Next-Adventures (if actionable)
 
-If the item describes something Chris could test, create `Next-Experiments/<date>-<slug>.md`.
+If the item describes something Chris could try, create `Next-Adventures/<date>-<slug>.md`. This folder is his single queue of ideas to pursue when he has time or tokens. The vault's `Next-Adventures/README.md` defines the schema and lifecycle; read it before writing the first item in a run.
+
+- Before creating one, search `Next-Adventures/` for an existing item on the same idea. If there is one, add the new source to it instead of creating a duplicate.
+- Frontmatter: `type: adventure`, `title`, a one-line `summary` naming the productivity it could find, `date`, `status: idea`, `source`, and `tags`. Add `payoff` (1–5), `cost` (S/M/L), `tier` (1–5) and `first_step` when the source makes them clear. Leave them out rather than guess.
+- New items are always `status: idea`. Only Chris or a shaping pass promotes them to `shaped` or `ready`.
 
 ## Step 5 — Detect concept-density threshold
 
@@ -231,8 +217,7 @@ After writing all pages for the batch, count for each concept:
 - How many distinct Source pages (across all domains) link to it?
 - Are those sources from ≥3 unrelated source URLs?
 
-If ≥3 unrelated sources reference a concept, record it in the `density_signals` output.
-Do not write to `Concepts/` yourself.
+If ≥3 unrelated sources reference a concept, record it in the `density_signals` output. Do not write to `Concepts/` yourself.
 
 ## Step 6 — Update index.md, log.md, manifest
 
@@ -286,5 +271,4 @@ For daily notes with multiple items, archive only after ALL items are processed.
 - **Wikilinks everywhere.** Every page links to related pages.
 - **2–4 tags per page.** Use existing tags from `_meta/taxonomy.md` before inventing new ones.
 - **Never write to `Concepts/`, `Entities/`, `Bridges/`, or `Conflicts/`.** Those are Refinery-only.
-- **Respect backpressure.** It is better to process 8 high-value items well than
-  80 low-value items poorly.
+- **Respect backpressure.** It is better to process 8 high-value items well than 80 low-value items poorly.

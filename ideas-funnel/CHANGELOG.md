@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.3.0
+
+- `ingest` writes actionable items to `Next-Adventures/` (renamed from `Next-Experiments/`) as `type: adventure`, `status: idea`, checking for an existing item on the same idea first.
+- `lint` points at `Next-Adventures/` and its own schema.
+
 ## 2.2.1 — 2026-09-29
 
 - `refinery` agent reduced to its single-writer boundary and steps; thresholds, formulas, and the concept frontmatter moved to `references/refinery-rules.md`.
