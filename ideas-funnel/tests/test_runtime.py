@@ -154,3 +154,18 @@ class RuntimeTests(unittest.TestCase):
     def test_hacker_news_and_unsafe_xml(self):
         self.assertEqual(parse(b'{"hits":[{"objectID":"1","title":"A"}]}','https://hn.algolia.com/api/v1/search')[0][0],'https://news.ycombinator.com/item?id=1')
         with self.assertRaises(ValueError):parse(b'<!DOCTYPE rss><rss/>','https://example.com')
+
+    def test_index_new_export_after_migration_is_idempotent_and_owned(self):
+        self.index()
+        owner=run(self.vault,'acquire')['owner']
+        item='Raw/Inbox/test/2026-11-02-export.md'
+        path=self.vault/item;path.parent.mkdir(parents=True);path.write_text('source: https://example.com/new')
+        with self.assertRaises(ValueError):run(self.vault,'index','wrong',item)
+        run(self.vault,'index',owner,item)
+        run(self.vault,'claim',owner,item)
+        # Re-indexing must preserve processing and URL paths, not reset them.
+        self.assertEqual(run(self.vault,'index',owner,item)['state'],'processing')
+        index=run(self.vault,'status',owner)['index']
+        self.assertEqual(index['urls']['https://example.com/new']['paths'],[item])
+        run(self.vault,'release',owner,item)
+        run(self.vault,'close',owner)

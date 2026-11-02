@@ -49,6 +49,22 @@ def run(vault, action, owner=None, item=None, pages=None, error=None):
                 raise ValueError('release or finish claims before closing')
             atomic_json(lease_path, {})
             return {'closed': True}
+        if action == 'index':
+            if not isinstance(item, str) or not item.startswith('Raw/Inbox/') or '..' in Path(item).parts:
+                raise ValueError('index requires a vault-relative inbox file')
+            path = vault / item
+            if not path.is_file() or path.name.lower() == 'readme.md':
+                raise ValueError('raw item is missing or is a placeholder')
+            if item not in index['items']:
+                from pull import urls
+                identities = sorted(urls(path))
+                index['items'][item] = {'urls': identities, 'state': 'collected'}
+                for url in identities:
+                    entry = index['urls'].setdefault(url, {'state': 'collected', 'paths': []})
+                    if item not in entry['paths']:
+                        entry['paths'].append(item)
+                atomic_json(index_path, index)
+            return index['items'][item]
         record = index['items'][item]
         if action == 'claim':
             if record['state'] not in ('collected', 'failed'):
@@ -87,7 +103,7 @@ def run(vault, action, owner=None, item=None, pages=None, error=None):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--vault', type=Path, required=True)
-    parser.add_argument('action', choices=['acquire','status','claim','finish','fail','release','close','recover'])
+    parser.add_argument('action', choices=['acquire','status','index','claim','finish','fail','release','close','recover'])
     parser.add_argument('--owner')
     parser.add_argument('--item')
     parser.add_argument('--pages', nargs='+')

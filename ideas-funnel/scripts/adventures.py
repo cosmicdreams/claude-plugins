@@ -21,9 +21,17 @@ def identity(source):
 
 def matches(vault, source):
     key = identity(source)
-    return [p.name for p in sorted((vault / 'Next-Adventures').glob('*.md'))
-            if p.name != 'README.md' and isinstance(frontmatter(p).get('source'), str)
-            and identity(frontmatter(p)['source']) == key]
+    found, warnings = [], []
+    for path in sorted((vault / 'Next-Adventures').glob('*.md')):
+        if path.name == 'README.md':
+            continue
+        try:
+            existing = frontmatter(path).get('source')
+            if isinstance(existing, str) and identity(existing) == key:
+                found.append(path.name)
+        except (ValueError, AttributeError, TypeError, yaml.YAMLError) as exc:
+            warnings.append({'file': path.name, 'warning': str(exc)})
+    return {'matches': found, 'warnings': warnings}
 
 
 def check(vault):
@@ -72,7 +80,7 @@ if __name__ == '__main__':
     parser.add_argument('--source', help='Find exact canonical URL or string-exact non-URL source matches')
     args = parser.parse_args()
     if args.source is not None:
-        print(json.dumps({'matches': matches(args.vault, args.source)}, indent=2))
+        print(json.dumps(matches(args.vault, args.source), indent=2))
         raise SystemExit(0)
     result = check(args.vault)
     print(json.dumps(result, indent=2))
