@@ -8,7 +8,12 @@ from pathlib import Path
 
 RUBRIC = {
     'evidence-strength': ['No source supports it', 'Limited or weak support', 'Credible support with limitations', 'Several independent sources, quoted'],
-    'rival-explanations': ['A better rival is in the corpus', 'Rivals are neglected or weakly addressed', 'Plausible rivals considered with partial evidence', 'Rivals named and ruled out with evidence'],
+    'rival-explanations': [
+        'A stronger rival supported by the corpus defeats the claim',
+        'A plausible rival supported by the corpus remains unaddressed or unresolved',
+        'After checking the corpus, no supported rival materially weakens the claim; explicitly naming a rival is not required',
+        'Plausible rivals are explicitly ruled out with evidence from the corpus',
+    ],
     'reproducibility': ['Cannot be re-derived', 'Important steps or sources are missing', 'Mostly re-derivable with some uncertainty', 'Re-derived from the cited sources'],
     'internal-consistency': ['Contradicts itself or its evidence', 'Major tensions remain', 'Mostly consistent with minor tensions', 'Consistent throughout'],
     'relevance': ['Does not bear on the goal', 'Only tangentially bears on the goal', 'Substantially informs the goal', 'Decides part of the goal'],

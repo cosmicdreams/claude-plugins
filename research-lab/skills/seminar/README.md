@@ -1,6 +1,6 @@
 # seminar — prototype (not a skill yet)
 
-Deterministic helpers for the seminar pilot in `plans/research-lab/seminar-and-interrogate.md` §4–§6. There is deliberately no `SKILL.md`: completed human ratings leave a split pilot result with no defined tie-break, and the `interrogate` rebuild it calls failed its regression gate (see below). Nothing here is installed as a skill.
+Deterministic helpers for the seminar pilot in `plans/research-lab/seminar-and-interrogate.md` §4–§6. There is deliberately no `SKILL.md`: completed human ratings leave a split pilot result with no defined tie-break, and the original `interrogate` gate failure and its correction are documented below. Nothing here is installed as a skill.
 
 ## How a run works
 
@@ -24,3 +24,5 @@ init → (moderator writes map.md) → student-briefs → [students] → ingest
 ## interrogate rebuild
 
 `../interrogate/scripts/interrogate.py` implements plan §3 (five scored dimensions, script-stamped dimensions, citation check, rebuttal pass, fixed verdict rule) and `tests/eval/interrogate/` holds the regression eval (8 S03 fixtures + 4 relevance fixtures). It **failed** its gate on 2026-11-02 (balanced accuracy 0.50 vs 0.75): the rival-explanations rubric scores every claim that does not argue against rivals at 1, so no sound claim survives. `interrogate/SKILL.md` is unchanged and still describes the 5.0 panel.
+
+The corrected rival-explanations anchors passed the fresh gate on 2026-11-03 (balanced accuracy 0.9167, zero verdict flips, all nine targeted controls passed). See [the fresh results](../../tests/eval/interrogate/RUBRIC_V2_RESULTS.md). This does not rescore earlier seminar claims or settle the seminar design choice.

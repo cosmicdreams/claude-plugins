@@ -13,3 +13,7 @@ Dropping that dimension after seeing the results gives 0.94 balanced accuracy. T
 The experiment used 30 first-round and 27 rebuttal examiner children. Each examiner scored one dimension across six submissions; paired submissions never shared an examiner. This reduced calls but differs from production isolation. The evidence text served as the fixture corpus. Examiners used Codex `gpt-6.1-terra` at high effort. All 261 dimension results carried a quote found in the evidence; the script assigned the dimension rather than trusting the examiner to echo its role.
 
 Existing production skills remain unchanged. These results do not close the existing production bugs or establish readiness to ship the rebuild.
+
+## Follow-up
+
+The corrected anchors passed a fresh gate on 2026-11-03; see [RUBRIC_V2_RESULTS.md](RUBRIC_V2_RESULTS.md). The failed original results above remain unchanged.

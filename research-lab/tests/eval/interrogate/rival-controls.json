@@ -1,0 +1,32 @@
+[
+  {
+    "id": "direct-configuration",
+    "allowed_scores": [2, 3],
+    "submission": {
+      "claim": "The default request timeout is 30 seconds.",
+      "evidence": "Service configuration reference, revision 4: request_timeout_seconds defaults to 30. The configuration has no environment-dependent timeout override.",
+      "goal": "Find the default request timeout.",
+      "corpus": {"paths": []}
+    }
+  },
+  {
+    "id": "supported-rival-ignored",
+    "allowed_scores": [0, 1],
+    "submission": {
+      "claim": "The outage was caused only by the cache rollout; an authentication change cannot explain it.",
+      "evidence": "Incident record: the cache rollout and authentication policy change happened together. Reverting the cache rollout left the outage unchanged. Restoring the old authentication policy immediately restored requests while the cache stayed at its reverted version. Error logs during the outage recorded authentication denials.",
+      "goal": "Determine the supported cause of the outage.",
+      "corpus": {"paths": []}
+    }
+  },
+  {
+    "id": "rival-ruled-out",
+    "allowed_scores": [2, 3],
+    "submission": {
+      "claim": "In the controlled test, the routing change caused the failures; the unchanged cache did not explain them.",
+      "evidence": "Controlled test record: server image, load, credentials, and cache contents were held fixed. All 20 requests succeeded with routing configuration A. All 20 requests failed after changing only routing to B. Restoring only routing to A made all 20 requests succeed. Cache metrics and contents stayed identical across the three runs. The test compares these two routing configurations only; it does not establish causes of other outages.",
+      "goal": "Identify which tested change caused the observed request failures.",
+      "corpus": {"paths": []}
+    }
+  }
+]
