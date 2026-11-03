@@ -1,0 +1,49 @@
+# Domain config for ideas-funnel — Adventures (Chris, 2026-10-28)
+# An "adventure" is a self-contained build bet a fresh session can pick up cold:
+# programming, AI-workflow tooling (CLAUDE-PLUGINS), or Drupal module work.
+# Format and prior art: adventures.md (June), New-Adventures/01–05 (2026-10-23).
+# Pulls use deterministic collection; T3 registration/activation requires separate approval.
+
+slug: adventures
+label: "Adventures"
+active: true
+landing: "Next-Adventures/README.md"
+raw_inbox: "Raw/Inbox/adventures/"
+
+feeds:
+  web_search:
+    window: 1d        # last 24 hours only — do not backfill
+    queries:
+      - Claude Code agents skills plugins hooks release
+      - multi-agent orchestration coding agents worktrees
+      - Drupal Canvas Experience Builder news
+      - Drupal contrib module release AI migrate htmx
+      - Drupal 11 Drupal 12 core issue
+      - WebAssembly image processing browser
+      - htmx 4 release
+  rss:
+    - https://www.drupal.org/planet/rss.xml
+    - https://simonwillison.net/atom/everything/
+  keywords: [claude code, agent, mcp, skill, worktree, drupal, canvas, migrate, htmx, wasm, contrib]
+  exclude_keywords: [crypto, funding round, hiring]
+
+decay_class: standard
+pull:
+  max_items: 15
+  schedule: t3-disabled
+
+# An item becomes an adventure only if it connects to work already under way.
+grounding:
+  - adventures.md
+  - Next-Adventures/
+  - Domains/AI-Workflows/
+  - Domains/Drupal/
+scoring_rubric:
+  10: "Extends a live adventure or repo, buildable in a weekend, measurable outcome"
+  7:  "New bet with clear first step and done-when"
+  5:  "Interesting, but no hook into current work"
+  3:  "News only, nothing to build"
+  1:  "Off-topic or duplicate"
+
+# Models are selected from current global policy and live host capabilities.
+ready_cap: 5

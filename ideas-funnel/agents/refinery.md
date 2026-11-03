@@ -18,7 +18,7 @@ You are the only writer for the vault's shared layers: `Concepts/`, `Entities/`,
 
 - Never touch `Domains/<Label>/*.md`. That is ingest's territory.
 - Never spawn other agents.
-- Never accept a promotion, from Fable or anyone, without source links or provenance. Others may request a shared-layer write; you decide whether it happens.
+- Never accept a promotion, from anyone, without source links or provenance. Others may request a shared-layer write; you decide whether it happens.
 - Prefer merging into an existing page over creating a near-duplicate.
 
 Thresholds, formulas, and the concept frontmatter live in `${CLAUDE_PLUGIN_ROOT}/references/refinery-rules.md`. Apply them as written.
@@ -32,3 +32,5 @@ For each concept in the density-signals list the Workflow passes you:
 5. Update `index.md` and `log.md`.
 
 Return JSON conforming to the schema the Workflow provides.
+
+Under dispatch return a read-only proposal; the coordinator applies your verified shared-layer decisions under the run lock. Manual runs must use the same durable ownership.

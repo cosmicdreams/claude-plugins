@@ -31,14 +31,10 @@ Recover useful material without promoting noise.
 
 ## Actions
 
-1. For stale raw items: group by source/domain and recommend top-N for next
-   Fable-supervised ingest. Do not blindly process the whole backlog.
-2. For orphans: search for exact title mentions and add candidate links only
-   when confidence is high.
-3. For `at_risk` pages: add them to the review lane or write a compact
-   `log.md` rescue line if Beads is unavailable.
-4. For repeated stale themes: emit a recommendation for `ideas-funnel:supervise`
-   to add a priority term or suppress a noisy feed.
+1. For stale raw items: group by source/domain and recommend top-N for next coordinator-supervised ingest. Do not blindly process the whole backlog.
+2. For orphans: search for exact title mentions and add candidate links only when confidence is high.
+3. For `at_risk` pages: add them to the review lane or write a compact `log.md` rescue line if Beads is unavailable.
+4. For repeated stale themes: emit a recommendation for `ideas-funnel:supervise` to add a priority term or suppress a noisy feed.
 
 ## Output
 
@@ -52,3 +48,5 @@ Return JSON:
   "feed_adjustment_recommendations": []
 }
 ```
+
+Scheduled and manual writes follow `ideas-funnel:dispatch` durable ownership; workers propose and only the coordinator applies changes. Runtime routing follows `ideas-funnel:delegate`, superseding legacy generated model instructions.

@@ -3,7 +3,7 @@ name: ideas-funnel:init
 description: >
   One-time bootstrap for ideas-funnel: create the config directory, write a starter domain
   YAML, verify the vault scaffold (Raw/Inbox, Domains/, _meta/, CRITICAL_FACTS.md), append
-  the v2 schema to wiki-schema.md, register the daily Fable-supervised pipeline cron, and
+  the v2 schema to wiki-schema.md, offer T3 schedule setup, and
   print next steps.
 triggers:
   - init
@@ -24,7 +24,7 @@ allowed-tools:
 
 Full routing detail, kept out of the always-loaded skill listing:
 
-> One-time bootstrap for the ideas-funnel plugin. Creates the user config directory, writes a starter domain YAML if none exist, verifies the vault has the required scaffold (Raw/Inbox, Domains/, _meta/, CRITICAL_FACTS.md), appends the v2 schema extension to wiki-schema.md if not already present, registers the singleton daily pipeline cron via ideas-funnel:schedule, and prints a next-steps checklist. Trigger phrases: "init ideas-funnel", "bootstrap the funnel", "/ideas-funnel:init".
+> One-time bootstrap for the ideas-funnel plugin. Creates the user config directory, writes a starter domain YAML if none exist, verifies the vault has the required scaffold (Raw/Inbox, Domains/, _meta/, CRITICAL_FACTS.md), appends the v2 schema extension to wiki-schema.md if not already present, offers T3 schedule setup via ideas-funnel:schedule, and prints a next-steps checklist. Trigger phrases: "init ideas-funnel", "bootstrap the funnel", "/ideas-funnel:init".
 
 Idempotent bootstrap. Safe to run every session; only creates what's missing.
 
@@ -95,10 +95,9 @@ if [ ! -f "$VAULT/wiki-schema.md" ]; then
 fi
 ```
 
-## Step 6 — Register the singleton Fable-supervised pipeline cron
+## Step 6 — Offer T3 schedule setup
 
-Invoke `ideas-funnel:schedule`. It is idempotent — if a cron already exists it
-reports that and does nothing more.
+Explain that `ideas-funnel:schedule` registers disabled T3 tasks when authorized. Do not invoke it automatically or create tasks during bootstrap.
 
 ## Step 7 — Report + next-steps checklist
 
@@ -112,7 +111,7 @@ Active domains: $(ls $HOME/.config/ideas-funnel/domains/ 2>/dev/null)
 Next steps:
   [ ] Edit $VAULT/CRITICAL_FACTS.md with operator identity + timezone.
   [ ] Edit $HOME/.config/ideas-funnel/domains/ai-workflows.yaml — feeds, keywords, bootstrap seeds.
-  [ ] Review model routing defaults: Fable supervises, GPT-5.5 handles expensive worker tasks, cheap/local handles filtering.
+  [ ] Review the current model routing policy and allowance before running workers.
   [ ] Edit $VAULT/Domains/AI-Workflows/_landing.md — write the landscape paragraph.
   [ ] Review the v2 extension block at the bottom of $VAULT/wiki-schema.md.
   [ ] Drop 2–3 bootstrap articles into $VAULT/Raw/Inbox/ai-workflows/.

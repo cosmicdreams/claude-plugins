@@ -1,0 +1,710 @@
+[
+  {
+    "path": "Raw/Inbox/adventures/2026-10-28-the-october-inflection-point-for-vibe-game-development.md",
+    "urls": [
+      "https://simonwillison.net/2026/Oct/28/vibe-game-development/"
+    ]
+  },
+  {
+    "path": "Raw/Inbox/ai-workflows/2026-06-02-https---simonwillison-net-2026-Jun-2-sighting-367841339--ato.md",
+    "urls": [
+      "https://simonwillison.net/2026/Jun/2/sighting-367841339/"
+    ]
+  },
+  {
+    "path": "Raw/Inbox/ai-workflows/2026-06-09-http---simonwillison-net-atom-everything.md",
+    "urls": [
+      "http://simonwillison.net/atom/everything/"
+    ]
+  },
+  {
+    "path": "Raw/Inbox/ai-workflows/2026-06-09-http---simonwillison-net.md",
+    "urls": [
+      "http://simonwillison.net/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-27-https---simonwillison-net-2026-Apr-27-now-deceased-agi-claus.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/27/now-deceased-agi-clause/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-27-https---simonwillison-net-2026-Apr-27-speech-translation-in-.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/27/speech-translation-in-google-meet-is-now-rolling-out-to-mobile-d/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-27-https---simonwillison-net-2026-Apr-27-vibevoice--atom-everyt.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/27/vibevoice/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-28-https---simonwillison-net-2026-Apr-28-matthew-yglesias--atom.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/28/matthew-yglesias/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-28-https---simonwillison-net-2026-Apr-28-openai-codex--atom-eve.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/28/openai-codex/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-28-https---simonwillison-net-2026-Apr-28-pip-261--atom-everythi.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/28/pip-261/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-28-https---simonwillison-net-2026-Apr-28-talkie--atom-everythin.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/28/talkie/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-29-http---simonwillison-net-atom-everything.md",
+    "urls": [
+      "http://simonwillison.net/atom/everything/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-29-http---simonwillison-net.md",
+    "urls": [
+      "http://simonwillison.net/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-29-https---simonwillison-net-2026-Apr-20-llm-openrouter--atom-e.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/20/llm-openrouter/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-29-https---simonwillison-net-2026-Apr-21-andreas-pahlsson-notin.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/21/andreas-pahlsson-notini/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-29-https---simonwillison-net-2026-Apr-21-gpt-image-2--atom-ever.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/21/gpt-image-2/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-29-https---simonwillison-net-2026-Apr-21-scosman--atom-everythi.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/21/scosman/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-29-https---simonwillison-net-2026-Apr-24-llm--atom-everything.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/24/llm/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-29-https---simonwillison-net-2026-Apr-24-the-people-do-not-year.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/24/the-people-do-not-yearn-for-automation/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-29-https---simonwillison-net-2026-Apr-25-gpt-5-5-prompting-guid.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/25/gpt-5-5-prompting-guide/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-29-https---simonwillison-net-2026-Apr-25-romain-huet--atom-ever.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/25/romain-huet/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-29-https---simonwillison-net-2026-Apr-25-why-are-you-like-this-.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/25/why-are-you-like-this/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-30-https---simonwillison-net-2026-Apr-29-llm--atom-everything.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/29/llm/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-30-https---simonwillison-net-2026-Apr-29-llm-2--atom-everything.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/29/llm-2/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-30-https---simonwillison-net-2026-Apr-29-llm-3--atom-everything.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/29/llm-3/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-04-30-https---simonwillison-net-2026-Apr-30-zig-anti-ai--atom-ever.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/30/zig-anti-ai/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-01-https---simonwillison-net-2026-Apr-30-andrew-kelley--atom-ev.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/30/andrew-kelley/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-01-https---simonwillison-net-2026-Apr-30-codex-goals--atom-ever.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/30/codex-goals/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-01-https---simonwillison-net-2026-Apr-30-gpt-55-cyber-capabilit.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/30/gpt-55-cyber-capabilities/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-01-https---simonwillison-net-2026-Apr-30-rss-vibe-coded-apps--a.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/30/rss-vibe-coded-apps/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-04-https---simonwillison-net-2026-May-1-inat-sightings--atom-ev.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/1/inat-sightings/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-04-https---simonwillison-net-2026-May-2-sightings--atom-everyth.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/2/sightings/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-04-https---simonwillison-net-2026-May-3-anthropic--atom-everyth.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/3/anthropic/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-04-https---simonwillison-net-2026-May-4-andy-masley--atom-every.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/4/andy-masley/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-04-https---simonwillison-net-2026-May-4-april-newsletter--atom-.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/4/april-newsletter/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-04-https---simonwillison-net-2026-May-4-redis-array--atom-every.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/4/redis-array/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-04-https---simonwillison-net-2026-May-4-tre-python-binding--ato.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/4/tre-python-binding/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-05-https---simonwillison-net-2026-Apr-24-deepseek-v4--atom-ever.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/24/deepseek-v4/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-05-https---simonwillison-net-2026-Apr-27-now-deceased-agi-claus.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/27/now-deceased-agi-clause/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-05-https---simonwillison-net-2026-Apr-27-speech-translation-in-.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/27/speech-translation-in-google-meet-is-now-rolling-out-to-mobile-d/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-05-https---simonwillison-net-2026-Apr-27-vibevoice--atom-everyt.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/27/vibevoice/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-05-https---simonwillison-net-2026-Apr-28-matthew-yglesias--atom.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/28/matthew-yglesias/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-05-https---simonwillison-net-2026-Apr-28-openai-codex--atom-eve.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/28/openai-codex/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-05-https---simonwillison-net-2026-Apr-28-pip-261--atom-everythi.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/28/pip-261/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-05-https---simonwillison-net-2026-Apr-28-talkie--atom-everythin.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/28/talkie/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-05-https---simonwillison-net-2026-May-4-granite-41-3b-svg-pelic.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/4/granite-41-3b-svg-pelican-gallery/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-05-https---simonwillison-net-2026-May-5-datasette-llm--atom-eve.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/5/datasette-llm/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-05-https---simonwillison-net-2026-May-5-john-gruber--atom-every.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/5/john-gruber/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-05-https---simonwillison-net-2026-May-5-llm-echo--atom-everythi.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/5/llm-echo/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-05-https---simonwillison-net-2026-May-5-our-ai-started-a-cafe-i.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/5/our-ai-started-a-cafe-in-stockholm/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-06-https---simonwillison-net-2026-May-5-datasette-referrer-poli.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/5/datasette-referrer-policy/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-06-https---simonwillison-net-2026-May-6-code-w-claude-2026--ato.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/6/code-w-claude-2026/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-06-https---simonwillison-net-2026-May-6-vibe-coding-and-agentic.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/6/vibe-coding-and-agentic-engineering/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-http---simonwillison-net-atom-everything.md",
+    "urls": [
+      "http://simonwillison.net/atom/everything/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-http---simonwillison-net.md",
+    "urls": [
+      "http://simonwillison.net/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-Apr-29-llm--atom-everything.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/29/llm/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-Apr-29-llm-2--atom-everything.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/29/llm-2/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-Apr-29-llm-3--atom-everything.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/29/llm-3/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-Apr-30-andrew-kelley--atom-ev.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/30/andrew-kelley/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-Apr-30-codex-goals--atom-ever.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/30/codex-goals/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-Apr-30-gpt-55-cyber-capabilit.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/30/gpt-55-cyber-capabilities/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-Apr-30-rss-vibe-coded-apps--a.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/30/rss-vibe-coded-apps/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-Apr-30-zig-anti-ai--atom-ever.md",
+    "urls": [
+      "https://simonwillison.net/2026/Apr/30/zig-anti-ai/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-May-1-inat-sightings--atom-ev.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/1/inat-sightings/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-May-2-sightings--atom-everyth.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/2/sightings/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-May-3-anthropic--atom-everyth.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/3/anthropic/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-May-4-andy-masley--atom-every.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/4/andy-masley/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-May-4-april-newsletter--atom-.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/4/april-newsletter/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-May-4-granite-41-3b-svg-pelic.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/4/granite-41-3b-svg-pelican-gallery/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-May-4-redis-array--atom-every.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/4/redis-array/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-May-4-tre-python-binding--ato.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/4/tre-python-binding/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-May-5-john-gruber--atom-every.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/5/john-gruber/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-May-7-big-words--atom-everyth.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/7/big-words/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-May-7-firefox-claude-mythos--.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/7/firefox-claude-mythos/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-May-7-github-repo-stats--atom.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/7/github-repo-stats/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-May-7-llm-gemini--atom-everyt.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/7/llm-gemini/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-07-https---simonwillison-net-2026-May-7-xai-anthropic--atom-eve.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/7/xai-anthropic/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-11-https---simonwillison-net-2026-May-10-andrew-quinn--atom-eve.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/10/andrew-quinn/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-11-https---simonwillison-net-2026-May-10-new-york-times-editors.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/10/new-york-times-editors-note/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-11-https---simonwillison-net-2026-May-11-learning-on-the-shop-f.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/11/learning-on-the-shop-floor/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-11-https---simonwillison-net-2026-May-8-unreasonable-effectiven.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/8/unreasonable-effectiveness-of-html/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-11-https---simonwillison-net-2026-May-9-luke-curley--atom-every.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/9/luke-curley/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-12-https---simonwillison-net-2026-May-11-gitlab-act-2--atom-eve.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/11/gitlab-act-2/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-12-https---simonwillison-net-2026-May-11-james-shore--atom-ever.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/11/james-shore/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-12-https---simonwillison-net-2026-May-11-llm-shebang--atom-ever.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/11/llm-shebang/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-12-https---simonwillison-net-2026-May-11-zombie-internet--atom-.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/11/zombie-internet/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-13-https---simonwillison-net-2026-May-12-datasette--atom-everyt.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/12/datasette/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-13-https---simonwillison-net-2026-May-12-llm--atom-everything.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/12/llm/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-13-https---simonwillison-net-2026-May-12-mitchell-hashimoto--at.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/12/mitchell-hashimoto/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-13-https---simonwillison-net-2026-May-12-mo-bitar--atom-everyth.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/12/mo-bitar/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-13-https---simonwillison-net-2026-May-13-boris-mann--atom-every.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/13/boris-mann/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-13-https---simonwillison-net-2026-May-13-csp-allow--atom-everyt.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/13/csp-allow/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-http---simonwillison-net-atom-everything.md",
+    "urls": [
+      "http://simonwillison.net/atom/everything/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-http---simonwillison-net.md",
+    "urls": [
+      "http://simonwillison.net/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-https---simonwillison-net-2026-May-13-welcome-to-the-dataset.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/13/welcome-to-the-datasette-blog/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-https---simonwillison-net-2026-May-14-datasette-ip-rate-limi.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/14/datasette-ip-rate-limit/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-https---simonwillison-net-2026-May-4-andy-masley--atom-every.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/4/andy-masley/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-https---simonwillison-net-2026-May-4-granite-41-3b-svg-pelic.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/4/granite-41-3b-svg-pelican-gallery/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-https---simonwillison-net-2026-May-5-datasette-llm--atom-eve.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/5/datasette-llm/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-https---simonwillison-net-2026-May-5-datasette-referrer-poli.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/5/datasette-referrer-policy/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-https---simonwillison-net-2026-May-5-john-gruber--atom-every.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/5/john-gruber/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-https---simonwillison-net-2026-May-5-llm-echo--atom-everythi.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/5/llm-echo/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-https---simonwillison-net-2026-May-5-our-ai-started-a-cafe-i.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/5/our-ai-started-a-cafe-in-stockholm/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-https---simonwillison-net-2026-May-6-code-w-claude-2026--ato.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/6/code-w-claude-2026/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-https---simonwillison-net-2026-May-6-vibe-coding-and-agentic.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/6/vibe-coding-and-agentic-engineering/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-https---simonwillison-net-2026-May-7-firefox-claude-mythos--.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/7/firefox-claude-mythos/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-https---simonwillison-net-2026-May-7-github-repo-stats--atom.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/7/github-repo-stats/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-14-https---simonwillison-net-2026-May-7-xai-anthropic--atom-eve.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/7/xai-anthropic/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-15-https---simonwillison-net-2026-May-14-mitchell-hashimoto--at.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/14/mitchell-hashimoto/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-15-https---simonwillison-net-2026-May-14-not-so-locked-in--atom.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/14/not-so-locked-in/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-15-https---simonwillison-net-2026-May-15-qr-code-generator--ato.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/15/qr-code-generator/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-18-http---simonwillison-net-atom-everything.md",
+    "urls": [
+      "http://simonwillison.net/atom/everything/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-18-http---simonwillison-net.md",
+    "urls": [
+      "http://simonwillison.net/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-18-https---simonwillison-net-2026-May-10-andrew-quinn--atom-eve.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/10/andrew-quinn/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-18-https---simonwillison-net-2026-May-10-new-york-times-editors.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/10/new-york-times-editors-note/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-18-https---simonwillison-net-2026-May-11-gitlab-act-2--atom-eve.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/11/gitlab-act-2/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-18-https---simonwillison-net-2026-May-11-james-shore--atom-ever.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/11/james-shore/"
+    ]
+  },
+  {
+    "path": "Archive/Raw/Inbox/ai-workflows/2026-05-18-https---simonwillison-net-2026-May-11-learning-on-the-shop-f.md",
+    "urls": [
+      "https://simonwillison.net/2026/May/11/learning-on-the-shop-floor/"
+    ]
+  }
+]

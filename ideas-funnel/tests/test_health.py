@@ -1,0 +1,65 @@
+import importlib.util
+import json
+from pathlib import Path
+import tempfile
+import unittest
+from unittest.mock import patch
+
+spec = importlib.util.spec_from_file_location('health', Path(__file__).parents[1] / 'scripts' / 'health.py')
+health = importlib.util.module_from_spec(spec)
+spec.loader.exec_module(health)
+
+
+class HealthTests(unittest.TestCase):
+    def test_allowance_requires_fresh_data_and_twenty_percent(self):
+        class Result:
+            stdout = json.dumps([
+                {'pool': 'codex', 'windows': [{'remaining_pct': 20, 'age_minutes': 1}]},
+                {'pool': 'low', 'windows': [{'remaining_pct': 19, 'age_minutes': 1}]},
+                {'pool': 'stale', 'windows': [{'remaining_pct': 90, 'age_minutes': 361}]},
+                {'pool': 'unknown', 'windows': []},
+            ])
+        with patch.object(health.subprocess, 'run', return_value=Result()):
+            result, error = health.allowance('/fake', 360)
+        self.assertIsNone(error)
+        self.assertTrue(result['codex']['available'])
+        for name in ('low', 'stale', 'unknown'):
+            self.assertFalse(result[name]['available'])
+
+    def test_failure_never_authorizes_work(self):
+        with tempfile.TemporaryDirectory() as temp:
+            result = health.snapshot(Path(temp), Path(temp) / 'missing')
+        self.assertEqual(result['allowance'], {})
+        self.assertTrue(result['allowance_error'])
+
+
+
+class AllowanceMalformedTests(unittest.TestCase):
+    def test_unknown_stale_and_invalid_windows_fail_closed(self):
+        cases = [None, True, -1, 101, float('nan')]
+        for value in cases:
+            class Result:
+                stdout = json.dumps([{'pool':'codex','windows':[{'remaining_pct':value,'age_minutes':0}]}])
+            with patch.object(health.subprocess,'run',return_value=Result()):
+                result,error=health.allowance('/fake',360)
+            self.assertFalse(result.get('codex',{}).get('available',False))
+        class Old:
+            stdout=json.dumps([{'pool':'codex','windows':[{'remaining_pct':90,'age_minutes':360}]}])
+        with patch.object(health.subprocess,'run',return_value=Old()):
+            result,error=health.allowance('/fake',360)
+        self.assertFalse(result['codex']['available'])
+
+
+class BacklogTests(unittest.TestCase):
+    def test_ingested_unarchived_and_unindexed_files(self):
+        with tempfile.TemporaryDirectory() as temp:
+            v=Path(temp); inbox=v/'Raw/Inbox/test';inbox.mkdir(parents=True)
+            (inbox/'done.md').write_text('note')
+            (inbox/'orphan.md').write_text('note')
+            (v/'Raw/.url-index.json').write_text(json.dumps({'items':{'Raw/Inbox/test/done.md':{'state':'ingested'}},'urls':{},'conflicts':[]}))
+            result=health.snapshot(v,v/'missing')
+            self.assertEqual(result['domains']['test']['waiting'],1)
+            self.assertEqual(result['domains']['test']['unindexed'],['Raw/Inbox/test/orphan.md'])
+
+if __name__ == '__main__':
+    unittest.main()
