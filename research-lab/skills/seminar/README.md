@@ -1,6 +1,6 @@
 # seminar — prototype (not a skill yet)
 
-Deterministic helpers for the seminar pilot in `plans/research-lab/seminar-and-interrogate.md` §4–§6. There is deliberately no `SKILL.md`: the pilot's decision rules wait on human ratings, and the `interrogate` rebuild it calls failed its regression gate (see below). Nothing here is installed as a skill.
+Deterministic helpers for the seminar pilot in `plans/research-lab/seminar-and-interrogate.md` §4–§6. There is deliberately no `SKILL.md`: completed human ratings leave a split pilot result with no defined tie-break, and the `interrogate` rebuild it calls failed its regression gate (see below). Nothing here is installed as a skill.
 
 ## How a run works
 

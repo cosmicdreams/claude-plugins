@@ -13,6 +13,6 @@ The experiment does not establish a winning production design:
 - Lexical deduplication let near-paraphrases consume notebook queries.
 - The independent `interrogate` gate failed, so surviving false claims were not measured and settled claims cannot be labeled verified.
 
-Twenty shuffled questions await Chris's blind usefulness ratings. The final choice between beats, free students, and a generalist remains pending those ratings and must account for the validity problems above. B is only the provisional choice for the full-corpus follow-up because it found the most planted items. Further production build work remains stopped.
+All twenty blind ratings were completed on 2026-11-03. B scored 24/35 across seven questions (mean 3.43), F scored 25/35 across seven (3.57), and O scored 18/30 across six (3.00); all medians were 3. These are descriptive aggregates, not a preregistered rating metric. F rates slightly higher, while B found the only valid planted gap. The rules do not specify how to combine those conflicting measures, so no automatic winner is declared. Rating instructions were also challenged as ambiguous before completion; the scores do not separately measure clarity, novelty or decision impact. B was the provisional full-corpus choice before ratings. Further production build work remains stopped.
 
 The deterministic helpers and regression fixtures are provided for review. There is no `seminar/SKILL.md`, plugin registration, or production wiring.
