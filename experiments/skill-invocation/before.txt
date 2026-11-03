@@ -1,0 +1,36 @@
+test_all_required_tasks_must_be_accepted (test_completion.CompletionTests.test_all_required_tasks_must_be_accepted) ...
+  test_all_required_tasks_must_be_accepted (test_completion.CompletionTests.test_all_required_tasks_must_be_accepted) (statuses=['accepted', 'runnable']) ... FAIL
+  test_all_required_tasks_must_be_accepted (test_completion.CompletionTests.test_all_required_tasks_must_be_accepted) (statuses=['accepted', 'human-dependent']) ... FAIL
+  test_all_required_tasks_must_be_accepted (test_completion.CompletionTests.test_all_required_tasks_must_be_accepted) (statuses=['accepted', 'failed']) ... FAIL
+
+======================================================================
+FAIL: test_all_required_tasks_must_be_accepted (test_completion.CompletionTests.test_all_required_tasks_must_be_accepted) (statuses=['accepted', 'runnable'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/Chris.Weber/Tools/CLAUDE-PLUGINS/worktrees/skill-invocation-20261103/experiments/skill-invocation/test_completion.py", line 19, in test_all_required_tasks_must_be_accepted
+    self.assertEqual(complete(statuses), expected)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True != False
+
+======================================================================
+FAIL: test_all_required_tasks_must_be_accepted (test_completion.CompletionTests.test_all_required_tasks_must_be_accepted) (statuses=['accepted', 'human-dependent'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/Chris.Weber/Tools/CLAUDE-PLUGINS/worktrees/skill-invocation-20261103/experiments/skill-invocation/test_completion.py", line 19, in test_all_required_tasks_must_be_accepted
+    self.assertEqual(complete(statuses), expected)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True != False
+
+======================================================================
+FAIL: test_all_required_tasks_must_be_accepted (test_completion.CompletionTests.test_all_required_tasks_must_be_accepted) (statuses=['accepted', 'failed'])
+----------------------------------------------------------------------
+Traceback (most recent call last):
+  File "/Users/Chris.Weber/Tools/CLAUDE-PLUGINS/worktrees/skill-invocation-20261103/experiments/skill-invocation/test_completion.py", line 19, in test_all_required_tasks_must_be_accepted
+    self.assertEqual(complete(statuses), expected)
+    ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AssertionError: True != False
+
+----------------------------------------------------------------------
+Ran 1 test in 0.001s
+
+FAILED (failures=3)

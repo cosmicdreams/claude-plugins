@@ -1,0 +1,6 @@
+test_all_required_tasks_must_be_accepted (test_completion.CompletionTests.test_all_required_tasks_must_be_accepted) ... ok
+
+----------------------------------------------------------------------
+Ran 1 test in 0.000s
+
+OK
