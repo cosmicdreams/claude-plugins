@@ -11,97 +11,74 @@ triggers:
 allowed-tools: Bash, Read, Write, Edit, Workflow, mcp__t3-code__delegate_task
 ---
 
-# Experiment: Iterative Optimization Loop
+# Experiment
 
-Measure a metric, try a change, measure again, keep if better, revert if worse, repeat. The skill owns **loop mechanics**: ratchet, futility stopping, git discipline, JSON Lines logging. Domain knowledge lives in the methodology document.
+Pick a strategy, then let a script run the loop: it measures, keeps or reverts each trial in git, logs, decides when to escalate or stop, and writes the report. You propose and edit. Domain knowledge lives in the methodology.
 
 Read before starting:
 - `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/strategies.md` — router, strategy card, preload
-- `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/iteration-protocol.md` — JSONL schema, git protocol, ratchet rules
-- `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/methodology-spec.md` — methodology.md format
+- `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/strategies/<strategy>.md` — the chosen strategy's rules
+- `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/methodology-spec.md` — methodology fields
+- `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/iteration-protocol.md` — records and git protocol
 - `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/judged-metrics.md` — judged runs only
 
-`JUDGED` below means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/judged.py`; `CHECK` means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/experiment.py check`.
+`EXP` means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/experiment.py`, `CHECK` means `EXP check`, and `JUDGED` means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/judged.py`.
 
 ## Golden Rule: Worktree = Branch
 
-Work in an exclusively owned, linked experiment worktree — never the primary checkout or `main`/`master`. Apply **Trial Ownership** (iteration protocol) before changing files; never clear unrelated changes automatically to satisfy it.
+Work in an exclusively owned, linked experiment worktree (a standard `git worktree add` beside the project's `main` checkout) — never the primary checkout or `main`/`master`. Never clear unrelated changes to make it clean.
 
 ## Step −1 — Strategy
 
 Args may preload `strategy=<remediate|climb|compare|explore|auto>` and `scorer=<scripted|council|auto>`. Run `CHECK --strategy S --scorer C --methodology M` with whatever was given (per `strategies.md`):
 
-- `ready` → continue to Input contract; no pause. If `source.scorer` is `default` (strategy preloaded, scorer not), ask the router's scorer question; if the answer is `council`, re-run `CHECK` with `--scorer council` and obey it.
+- `ready` → continue; no pause. If `source.scorer` is `default` (strategy preloaded, scorer not), ask the router's scorer question; if the answer is `council`, re-run `CHECK` with `--scorer council` and obey it.
 - `route` → run the router in `strategies.md`. "Not an experiment" → say so in one line and stop. Otherwise write and show the strategy card, with a drafted `methodology.md` if none was given, and **pause** for accept, edit or switch. Re-run `CHECK` with the accepted choice.
 - `refused` → STOP; report `reason` and each `missing` item.
 
-Only `climb · scripted` runs today; other strategies and the council scorer stop after the card with `CHECK`'s reason. After acceptance (or a `ready` preload) the run is unattended.
+`climb` and `remediate` run with the scripted scorer; other strategies and the council scorer stop after the card with `CHECK`'s reason. After acceptance (or a `ready` preload) the run is unattended.
 
-## Input contract and Preflight
+## Input contract
 
-**Requires:** a methodology (carries hypothesis and metric), a results path, and a dedicated worktree. Optional: a measurement harness path.
+**Requires:** a methodology, an engagement directory `E`, and a dedicated worktree `W`. Take them from context, the card, or the args (`methodology=`, `workdir=`, `engagement=`; `results=` names `E` by its parent folder). Else **FAIL FAST**: "Need a measurable hypothesis and a target metric — point me at a methodology file." Stop.
 
-1. Use a methodology already in context or accepted with the card.
-2. Else take methodology, results path and worktree from the args.
-3. Else **FAIL FAST**: "Need a measurable hypothesis and a target metric — point me at a methodology file." Stop.
+## Step 0 — Start or resume
 
-## Step 0 — Resume
+**Scripted:** if `E/state.json` exists, the run resumes: go to Step 2. Otherwise `EXP init --engagement E --worktree W --methodology M --strategy S --scorer scripted`; a refusal is a STOP with its reason.
 
-**Scripted:** apply the **Measurement Validity** resume guard: check engagement notes, worktree and commit for unresolved failed measurements — a results log alone does not prove the current code was measured. Recover a pending trial's recorded ownership values; never guess its commit from HEAD. If `results.jsonl` exists, report the ratchet (best `metric_after` of `keep` records) and iteration count, then reconcile pending state before continuing.
+**Judged:** the whole loop is: run `JUDGED next`, perform its one action per `judged-metrics.md`, repeat. The first call is the resume. On `pause`, report the gate or rule and reason, and wait for Chris's `resolve`. On `stop`, go to Step 3. Judged is **refused for now** — the acceptance smoke test failed; see **Status** in `judged-metrics.md`. Once unblocked: confirm `mcp__t3-code__delegate_task` is available, then `JUDGED validate --host t3`; any error → STOP.
 
-**Judged:** the whole loop is: run `JUDGED next`, perform its one action per `judged-metrics.md`, repeat. The first call is the resume. On `pause`, report the gate or rule and reason, and wait for Chris's `resolve`. On `stop`, go to Step 3.
+## Step 2 — The loop (scripted)
 
-## Step 1 — Read Methodology
+Run `EXP next --engagement E` and do its one action, then repeat:
 
-Extract: `metric_type` (`scripted` when absent), objective, target metric (exactly ONE number), direction, ranked hypotheses, iteration budget, futility threshold, measurement protocol, correctness checks, scope constraints.
+| Action | Do |
+|---|---|
+| `baseline` | `EXP baseline --engagement E` |
+| `propose` | Pick ONE change at the returned escalation level (strategy reference). Skip anything in `tried` or that contradicts a keep. `EXP trial begin --engagement E --change "…" --tradeoff "…"`, edit files in `W`, `EXP trial commit --engagement E`, `EXP trial score --engagement E`. |
+| `edit` / `rework` | Finish or rework the open trial's edits, then `trial commit` and `trial score`. |
+| `resolve` | `EXP trial score --engagement E` |
+| `confirm` | `EXP confirm --engagement E` |
+| `pause` | Report the reason and end the session. Chris clears it with `EXP resume`. |
+| `stop` | Go to Step 3. |
 
-- Scripted: two metrics, mixed qualitative and quantitative criteria, or no clear direction → STOP and ask for the methodology to be fixed.
-- Judged: **refused for now** — the acceptance smoke test failed; STOP and point to **Status** in `judged-metrics.md`. Once unblocked: confirm `mcp__t3-code__delegate_task` is available (else refuse: judged runs need T3), then run `JUDGED validate --host t3`. Any error → STOP and report; warnings (unmonitored drift) go to Chris. No Step 1.5: calibration is the baseline, and Step 2 runs only as `next` directs (2a–2c on `propose`; 2d–2g are its capture, open, score, checks and log actions).
+Never run git yourself to commit, revert or reset a trial; never edit files in `E`. `tradeoff` is one sentence on what the change costs to keep (complexity, a dependency, changed behavior, maintenance). A climb that finds proof the target cannot be reached ends with `EXP conclude --kind bound|scope --evidence "…"`; remediate records an unfixable finding with `EXP exception add`.
 
-## Step 1.5 — Baseline Survey (scripted, mandatory)
+**Parallel proposals:** independent ideas may be drafted in parallel, but trials are scored one at a time.
 
-Measure across the FULL sample the methodology defines. Under **Measurement Validity**, a failed or incomplete baseline neither initializes the ratchet nor starts candidates; follow the methodology's recovery policy or pause. Log only a valid baseline, as iteration 0 (`change: "Baseline survey"`, `gate: "pass"`, `metric_before: null`, `metric_after` = `ratchet` = measured, `decision: "keep"`; schema in the iteration protocol).
+## Step 2 — Judged steps
 
-## Step 2 — The Loop
+`JUDGED next`'s `propose` action uses these:
 
-Until budget, target, or futility.
+- **2a. Propose** from the ranked hypotheses and `propose`'s `diagnostics`; a change drawn from a critique names its source eval in `change`, at most `max_batch` critiques per trial.
+- **2b. Cheap gate.** Redundant with a discard or contradicting a keep → log a `skip` with the returned iteration; no `trial begin`.
+- **2c. Implement.** `JUDGED trial begin --worktree W --change TEXT`, edit, commit, `JUDGED trial commit --worktree W`.
+- **2d–2g** are `next`'s capture, open, score, checks and log actions. Log only the `args` that `next` returns.
 
-**Parallel trials (scripted only):** independent changes may fan out with Workflow `parallel()` in pre-created sibling worktrees; the ratchet stays sequential. Judged runs are strictly sequential.
+## Step 3 — Report
 
-### 2a. Propose
-From the ranked hypotheses and results so far. Judged: also read `propose`'s `diagnostics` (incumbent critiques, critiques already tried, review notes); a change drawn from one names its source eval in `change`, at most `max_batch` critiques per trial.
+**Scripted:** `EXP report --engagement E` writes `E/report.md`. Fill its "worth maintaining?" column with your view, marked as yours, and show Chris the ending, the decisions to review and any validity or worth-keeping failure. Never call a run done unless its ending is `met` or `exceptions`.
 
-### 2b. Cheap Gate
-Redundant with a previous discard, or contradicts a proven keep → skip, log reason. Judged: log the skip with the iteration `propose` returned; no `trial begin`.
+**Judged:** on `stop target`, Chris reviews the artifacts; a rejection is `JUDGED resolve --decision reject --worktree W` and the climb continues. Report keeps vs discards, the latest calibrated or confirmed *M*, judge requests spent, and whether drift was monitored.
 
-### 2c. Implement
-Stage only this change's files; commit `perf(<engagement>): <description>`. **Trial Ownership**: record root, branch and base before the change; record the trial commit and verify its single parent is that base before measuring. Judged: `JUDGED trial begin --worktree W --change TEXT` before editing, `JUDGED trial commit --worktree W` after.
-
-### 2d. Measure
-Confirm the clean tip is still the recorded trial on the recorded branch and worktree, else pause. Run the harness; median of N runs for noisy metrics. **Measurement Validity**: a failed command or invalid sample supplies no metric — keep baseline and ratchet, report, and follow the recovery policy or pause. Never manufacture a keep/discard record.
-
-### 2e. Validate
-Run correctness checks. Improved metric with failed correctness = **Stale Success** → discard.
-
-### 2f. Decide
-- Strictly better than ratchet AND correctness passes → **KEEP** (update ratchet)
-- Equal, worse, or correctness fails → **DISCARD**
-
-Recheck trial ownership first. Discard only through `discard-trial.py` with the recorded root, branch, base and trial ID (**Revert on Discard**), never HEAD. Helper refusal or Git failure → trial unresolved: report and pause; log no discard.
-
-### 2g. Log
-```bash
-${CLAUDE_PLUGIN_ROOT}/scripts/log-iteration.sh "$RESULTS_PATH" \
-  ITERATION "DESCRIPTION" pass RATCHET_BEFORE MEASURED NEW_RATCHET "keep_or_discard" "WHY"
-```
-Judged runs log only the `args` that `next` returns.
-
-## Step 3 — Termination
-
-Stop on target, budget, or futility (consecutive discards). Judged: on `stop target`, Chris reviews the artifacts; a rejection is `JUDGED resolve --decision reject --worktree W` and the climb continues.
-
-Report: keeps vs discards, final ratchet vs baseline, failure pattern; scripted adds the improvement percentage, judged adds the latest calibrated or confirmed *M*, judge requests spent, and whether drift was monitored.
-
-## Standalone Mode
-
-Ask for: methodology file, working directory, measurement command. Run the loop. Offer a chart (`scripts/generate-chart.py`), a summary, or a vault archive.
+`EXP status --all --repo R` lists every engagement in a repository's worktrees. Offer a chart (`scripts/generate-chart.py`) or a vault archive.

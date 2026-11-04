@@ -36,6 +36,10 @@ Each line in `results.jsonl` is a JSON object:
 | `decision` | "keep" \| "discard" \| "skip" \| "calibrate" \| "confirm" \| "invalid" | The iteration outcome; the last three are judged only |
 | `reason` | string | Why this decision was made |
 
+### Scripted Records (`experiment.py`)
+
+Scripted `climb` and `remediate` runs write every record through `experiment.py`; never call `log-iteration.sh` for them. Decisions: `keep` (iteration 0 is the baseline), `discard`, `retry` (the candidate gained but failed a guardrail and gets one rework; `gate: fail`) and `confirm` (re-measure of the incumbent at the target). Extras: `strategy`, `runs`, `mad`, `trial`, `tradeoff`, `escalation`, `base`, `commit`, `incumbent`, `score` (remediate), and on the baseline `margin`. The script also owns the git steps below: it commits the trial, amends it on a rework, and reverts it through `discard-trial.py` on a discard.
+
 ### Judged Records
 
 Judged runs (`judged-metrics.md`) write records only from the `args` that `judged.py next` returns, which pass a 10th extras argument to `log-iteration.sh`:
