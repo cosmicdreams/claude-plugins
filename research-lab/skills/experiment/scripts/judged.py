@@ -112,7 +112,7 @@ def reference_manifest(p, base):
     return [{'path': name, 'sha256': digest((base / name).read_bytes())} for name in p['references']]
 
 
-def protocol_fingerprint(p, base, engagement, sections):
+def protocol_fingerprint(p, base, engagement, sections, cfp=None):
     manifest = read_json(engagement / 'references/manifest.json')
     if manifest is None: manifest = reference_manifest(p, base)
     guards = []
@@ -121,7 +121,8 @@ def protocol_fingerprint(p, base, engagement, sections):
         guards.append([cmd, path.read_bytes().hex() if path.is_file() else None])
     return digest(canonical(dict(categories=p['categories'], relative_to=p['relative_to'], references=manifest,
                                  margin_floor=p['margin_floor'], judges=p['judges'],
-                                 cfp=capture_fingerprint(p, base), guardrails=guards, correctness=sections.get(6, ''))))
+                                 cfp=cfp if cfp is not None else capture_fingerprint(p, base),
+                                 guardrails=guards, correctness=sections.get(6, ''))))
 
 
 def load_panel(path, p):
@@ -234,7 +235,7 @@ def open_eval(a, eng, path, p, sections, trial, results):
         candidate = captures(eng, candidate_tree, cfp)
         if not candidate: raise ValueError('candidate capture required')
     else: candidate_tree, candidate = None, []
-    fingerprint = protocol_fingerprint(p, path.parent, eng, sections)
+    fingerprint = protocol_fingerprint(p, path.parent, eng, sections, cfp)
     cal, stale = active_calibration(eng, panel, fingerprint)
     if a.purpose != 'calibrate' and (not cal or stale): raise ValueError('calibration missing or stale')
     manifest = read_json(eng / 'references/manifest.json')
