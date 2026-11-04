@@ -145,7 +145,7 @@ def pending_trial(engagement, results=None):
 
 
 def evals(engagement):
-    return [read_json(p) for p in sorted((engagement / 'evals').glob('e*/eval.json'))]
+    return [read_json(p) for p in sorted((engagement / 'evals').glob('e[0-9]*/eval.json'), key=lambda p: int(p.parent.name[1:]))]
 
 
 def captures(engagement, tree, cfp):
@@ -316,7 +316,7 @@ def score_eval(eng, dest, meta, p):
                         if abs(vals[ref][c] - cal['reference_baseline'][r][ref][c]) > 2 * cal['margin']: drift = True
         def value(vals, item, cat):
             return vals[item][cat] - (max(vals[ref][cat] for ref in refs) if p['relative_to'] == 'references' else 0)
-        if drift: result = dict(status='invalid', reason='reference drift', drift=True)
+        if drift: result = dict(status='invalid', reason='reference drift', drift=True, margin=cal['margin'])
         elif meta['purpose'] == 'measure':
             cells = {r: {c: {item: value(raw[(r,1)], item, c) for item in ('incumbent','candidate')} for c in cats} for r in roles}
             mi = min(cells[r][c]['incumbent'] for r in roles for c in cats); mc = min(cells[r][c]['candidate'] for r in roles for c in cats); margin = cal['margin']
@@ -338,10 +338,154 @@ def score_eval(eng, dest, meta, p):
     return result
 
 
+def head_state(work, trial):
+    head = git(work, 'rev-parse', 'HEAD')
+    if trial['commit'] is None: return 'base' if head == trial['base'] else None
+    if head == trial['commit']: return 'commit'
+    if git(work, 'rev-list', '--parents', '-n', '1', 'HEAD').split()[1:] == [trial['commit']] and git(work, 'rev-parse', 'HEAD^{tree}') == trial['base_tree']:
+        return 'reverted'
+    return None
+
+
+def diagnostics(eng, all_evals, results, resolutions, tree):
+    out, done = [], {r['eval'] for r in results if r.get('eval') and r.get('decision') != 'skip'}
+    def add(eid, items, kind):
+        for c in read_json(eng / 'evals' / eid / 'critiques.json', []):
+            if c['item'] in items: out.append(dict(eval=eid, kind=kind, text=f"{c['category']}: {c['critique']}"))
+    for ev in reversed(all_evals):
+        items = ({'incumbent', 'capture-1', 'capture-2'} if ev['incumbent_tree'] == tree else
+                 {'candidate'} if ev.get('candidate_tree') == tree else set())
+        if ev['id'] in done and items:
+            add(ev['id'], items, 'incumbent')
+            if out: break
+    tried = [r['eval'] for r in results if r.get('decision') == 'discard' and r.get('eval')]
+    if tried: add(tried[-1], {'candidate'}, 'tried')
+    out += [dict(eval=r.get('last_eval'), kind='review', text=r['note']) for r in resolutions
+            if r.get('decision') == 'reject' and r.get('tree') == tree]
+    return out
+
+
+def next_action(a, eng, path):
+    sections, _, _, p = methodology(path)
+    base = path.parent
+    work = Path(a.worktree).resolve()
+    panel = load_panel(Path(a.panel), p)
+    results, resolutions, all_evals = records(eng / 'results.jsonl'), records(eng / 'resolutions.jsonl'), evals(eng)
+    try:
+        trial = read_json(eng / 'trial.json')
+        if trial is not None and not (isinstance(trial, dict) and {'iteration', 'worktree', 'branch', 'base', 'base_tree', 'commit'} <= trial.keys()):
+            raise ValueError('trial.json is not a trial record')
+    except ValueError:
+        return dict(action='pause', gate='G1', reason='trial.json malformed')
+    trial = pending_trial(eng, results) if trial else None
+    dirty = bool(git(work, 'status', '--porcelain', '--untracked-files=all'))
+    current = git(work, 'rev-parse', 'HEAD^{tree}')
+    inc_tree = incumbent_tree(eng, current, results)
+    state = None
+    if trial:
+        try: branch = git(work, 'symbolic-ref', '--short', 'HEAD')
+        except subprocess.CalledProcessError: branch = None
+        state = head_state(work, trial)
+        if str(work) != trial['worktree'] or branch != trial['branch'] or dirty or state is None:
+            return dict(action='pause', gate='G2', reason='worktree, branch, cleanliness or HEAD does not match the trial')
+    elif dirty or current != inc_tree:
+        return dict(action='pause', gate='G3', reason='worktree is dirty or not the incumbent tree')
+
+    fingerprint = protocol_fingerprint(p, base, eng, sections)
+    cfp = capture_fingerprint(p, base)
+    cal, stale = active_calibration(eng, panel, fingerprint)
+    retained = retained_metric(results)
+    maxit = max([r.get('iteration', 0) for r in results], default=0)
+    since, failures = since_resolution(eng)
+    spent = sum(e['requests'] for e in all_evals)
+    finalized = {r['eval'] for r in results if r.get('eval')}
+
+    def open_or_stop(purpose):
+        if spent + len(panel) * (1 if purpose == 'measure' else 2) > p['budget_calls']: return dict(action='stop', reason='budget')
+        return dict(action='open', purpose=purpose)
+
+    def measure_eval(iteration):
+        return next((e['id'] for e in reversed(all_evals) if e['purpose'] == 'measure' and e['iteration'] == iteration), None)
+
+    def log(decision, ev=None, iteration=maxit, change=None, reason=None, after=None, ratchet=None, **extras):
+        extras = {k: v for k, v in dict(metric_type='judged', eval=ev, **extras).items() if v is not None or k == 'metric_type'}
+        argv = [str(eng / 'results.jsonl'), iteration, change, 'skip' if decision == 'skip' else 'pass', retained, after, ratchet, decision, reason]
+        args = [json.dumps(x) if x is None or isinstance(x, (int, float)) else str(x) for x in argv] + [json.dumps(extras)]
+        return dict(action='log', decision=decision, **({'eval': ev} if ev else {}), args=args)
+
+    def trial_change(iteration):
+        return trial['change'] if trial and trial['iteration'] == iteration else 'Measurement'
+
+    if all_evals:
+        ev = all_evals[-1]
+        eid, dest = ev['id'], eng / 'evals' / ev['id']
+        result = read_json(dest / 'result.json')
+        if result is None:
+            return dict(action='abandon' if any(not (d.parent / 'return.json').exists() for d in dest.glob('*/mapping.json')) else 'score', eval=eid)
+        status, measure, done = result['status'], ev['purpose'] == 'measure', eid in finalized
+        if not done and status in ('valid', 'keep', 'discard') and (ev['panel'] != panel or ev['fingerprint'] != fingerprint or (measure and stale)):
+            return dict(action='invalidate', eval=eid, reason='stale')
+        if not done and status == 'invalid':
+            change = trial_change(ev['iteration']) if measure else 'Calibration' if ev['purpose'] == 'calibrate' else 'Confirmation'
+            return log('invalid', eid, ev['iteration'] if measure else maxit, change, result['reason'], ratchet=retained, drift=result.get('drift'))
+        if not done and not measure:
+            checks = read_json(dest / 'checks.json')
+            if not checks or checks['tree'] != ev['incumbent_tree'] or checks['fingerprint'] != fingerprint:
+                return dict(action='run_checks', eval=eid, target='incumbent', tree=ev['incumbent_tree'])
+            if not checks['passed']:
+                return log('invalid', eid, maxit, 'Calibration' if ev['purpose'] == 'calibrate' else 'Confirmation', 'checks failed', ratchet=retained)
+            name = ev['purpose']
+            return log(name, eid, maxit, 'Calibration' if name == 'calibrate' else 'Confirmation',
+                       'calibrated' if name == 'calibrate' else 'confirmed', ratchet=result['metric'], tree=ev['incumbent_tree'], cells=result['cells'])
+        if not done and measure and status in ('keep', 'discard'):
+            failed = False
+            if status == 'keep':
+                checks = read_json(dest / 'checks.json')
+                if not checks or checks['tree'] != ev['candidate_tree'] or checks['fingerprint'] != fingerprint:
+                    return dict(action='run_checks', eval=eid, target='candidate', tree=ev['candidate_tree'])
+                if checks['passed']:
+                    return log('keep', eid, ev['iteration'], trial_change(ev['iteration']), result['reason'], result['metric_candidate'], result['metric_candidate'],
+                               tree=ev['candidate_tree'], drift=result.get('drift'), cells=result['cells'], references=result['references'])
+                failed = True
+            if not trial: return dict(action='pause', rule=7, reason='measured evaluation without a pending trial')
+            if state == 'commit': return dict(action='discard_trial', worktree=trial['worktree'], branch=trial['branch'], base=trial['base'], trial=trial['commit'])
+            return log('discard', eid, ev['iteration'], trial['change'], 'checks failed' if failed else result['reason'], result['metric_candidate'], result['metric_incumbent'],
+                       drift=result.get('drift'), cells=result['cells'], references=result['references'])
+
+    if trial and trial['commit'] and stale:
+        if state == 'commit': return dict(action='discard_trial', worktree=trial['worktree'], branch=trial['branch'], base=trial['base'], trial=trial['commit'])
+        by_chris = any(r.get('decision') == 'withdraw' and r.get('trial_iteration') == trial['iteration'] for r in resolutions)
+        return log('skip', measure_eval(trial['iteration']), trial['iteration'], trial['change'], 'withdrawn: ' + ('by Chris' if by_chris else 'calibration changed'), ratchet=retained)
+    if any(r.get('decision') == 'invalid' and r.get('reason') != 'stale' for r in since):
+        return dict(action='pause', rule=9, reason='an invalid evaluation since the last resolution')
+    if trial and trial['commit']:
+        if failures['candidate']: return dict(action='pause', rule=10, reason='candidate capture failed since the last resolution')
+        tree = git(trial['worktree'], 'rev-parse', trial['commit'] + '^{tree}')
+        return open_or_stop('measure') if captures(eng, tree, cfp) else dict(action='capture', role='candidate')
+    if trial:
+        if any(r.get('decision') == 'withdraw' and r.get('trial_iteration') == trial['iteration'] for r in resolutions):
+            return log('skip', measure_eval(trial['iteration']), trial['iteration'], trial['change'], 'withdrawn: by Chris', ratchet=retained)
+        return dict(action='pause', rule=11, reason='trial has no commit')
+    if failures['incumbent']: return dict(action='pause', rule=12, reason='incumbent capture failed since the last resolution')
+    if len(captures(eng, inc_tree, cfp)) < 2: return dict(action='capture', role='incumbent')
+    if not cal or stale: return open_or_stop('calibrate')
+    if retained is not None and retained >= p['target'] and not any(r.get('decision') == 'reject' and r.get('tree') == inc_tree for r in resolutions):
+        index = max(i for i, r in enumerate(results) if r.get('decision') == 'calibrate')
+        confirms = [r for r in results[index + 1:] if r.get('decision') == 'confirm' and r.get('tree') == inc_tree]
+        if not confirms: return open_or_stop('confirm')
+        if confirms[-1]['ratchet'] >= p['target']: return dict(action='stop', reason='target')
+    used, streak = iteration_counters(results)
+    if used >= p['iterations']: return dict(action='stop', reason='iterations')
+    if streak >= p['futility']: return dict(action='stop', reason='futility')
+    previous = read_json(eng / 'trial.json', {})
+    iteration = 1 + max([previous.get('iteration', 0)] + [r.get('iteration', 0) for r in results if r.get('decision') in ('keep', 'discard', 'skip')])
+    return dict(action='propose', iteration=iteration, diagnostics=diagnostics(eng, all_evals, results, resolutions, inc_tree))
+
+
 def run(a):
     eng, path = Path(a.engagement).resolve(), Path(a.protocol).resolve()
     if a.command == 'validate': return validate(path, a.host)
-    if a.command == 'next': raise ValueError('not implemented')
+    if a.command == 'next': return next_action(a, eng, path)
     results = records(eng / 'results.jsonl')
     trial = pending_trial(eng, results)
     if a.command in ('open', 'score', 'abandon', 'invalidate', 'checks'):
