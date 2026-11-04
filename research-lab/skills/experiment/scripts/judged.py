@@ -264,6 +264,9 @@ def open_eval(a, eng, path, p, sections, trial, results):
             d = dest / f'{role}-{k}'; write_json(d / 'mapping.json', mapping)
             request = 'Judge only the text given. Do not read files or run commands. Return JSON with items, score and critique for each category. Scores must be 0 to 10.\n\n'
             request += '\n'.join(f'{c}: {rubric}' for c, rubric in p['categories'].items()) + '\n\n'
+            cell = {'score': '<number 0-10>', 'critique': '<one sentence>'}
+            shape = {'items': {label: dict.fromkeys(p['categories'], cell) for label in mapping}}
+            request += 'Reply with only this JSON, filled in:\n' + json.dumps(shape, indent=1) + '\n\n'
             request += '\n\n'.join(f'## {label}\n{texts[meaning]}' for label, meaning in mapping.items())
             (d / 'request.md').write_text(request, encoding='utf-8')
             requests.append(dict(role=role, k=k, dir=str(d), request_md=str(d / 'request.md')))
@@ -535,6 +538,7 @@ def run(a):
     cfp = capture_fingerprint(p, path.parent)
     with tempfile.TemporaryDirectory(prefix='judged-capture-') as tmp:
         out = Path(tmp) / 'output'
+        out.mkdir()
         try:
             result = subprocess.run(command_parts(p['artifact_command'], path.parent) + [str(work), str(out)], capture_output=True)
             if result.returncode: raise ValueError('capture command failed')
