@@ -98,6 +98,7 @@ def ascii_chart(records, width=60, height=20):
 
 
 def print_summary(records, direction="down"):
+    judged = any(r.get("metric_type") == "judged" for r in records)
     total = len(records)
     keeps = sum(1 for r in records if r.get("decision") == "keep")
     discards = sum(1 for r in records if r.get("decision") == "discard")
@@ -107,6 +108,11 @@ def print_summary(records, direction="down"):
 
     print(f"\n  Summary")
     print(f"  -------")
+    if judged:
+        print("  Metric type: judged")
+        latest = next((r for r in reversed(records) if r.get("decision") in ("calibrate", "confirm")), None)
+        if latest is not None:
+            print(f"  Latest calibrated/confirmed M: {latest.get('ratchet')}")
     print(f"  Total iterations: {total}")
     print(f"  Keeps: {keeps}  Discards: {discards}  Skips: {skips}")
 
@@ -116,7 +122,7 @@ def print_summary(records, direction="down"):
         print(f"  Baseline: {first_val}")
         print(f"  Final ratchet: {last_ratchet}")
 
-        if isinstance(first_val, (int, float)) and isinstance(last_ratchet, (int, float)) and first_val != 0:
+        if not judged and isinstance(first_val, (int, float)) and isinstance(last_ratchet, (int, float)) and first_val != 0:
             if direction == "down":
                 improvement = ((first_val - last_ratchet) / first_val) * 100
             else:
@@ -128,6 +134,9 @@ def print_summary(records, direction="down"):
     max_streak = 0
     current_streak = 0
     for r in records:
+        if judged and (r.get("decision") in ("invalid", "calibrate", "confirm", "review_reject")
+                       or (r.get("decision") == "skip" and (r.get("reason") or "").startswith("withdrawn:"))):
+            continue
         if r.get("decision") in ("discard", "skip"):
             current_streak += 1
             max_streak = max(max_streak, current_streak)
