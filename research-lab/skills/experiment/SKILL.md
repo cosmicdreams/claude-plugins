@@ -40,15 +40,15 @@ Args may preload `strategy=<remediate|climb|compare|explore|auto>` and `scorer=<
 
 ## Input contract
 
-**Requires:** a methodology, an engagement directory `E`, and a dedicated worktree `W`. Take them from context, the card, or the args (`methodology=`, `workdir=`, `engagement=`; `results=` names `E` by its parent folder). Else **FAIL FAST**: "Need a measurable hypothesis and a target metric — point me at a methodology file." Stop.
+**Requires:** a methodology, an engagement directory `E`, and a dedicated worktree `W`. Take them from context, the card, or the args `methodology=`, `workdir=` and `engagement=`. A caller that passes `results=<dir>/results.jsonl` instead of `engagement=` means `E` is `<dir>`. Else **FAIL FAST**: "Need a measurable hypothesis and a target metric — point me at a methodology file." Stop.
 
 ## Step 0 — Start or resume
 
-**Scripted:** if `E/state.json` exists, the run resumes: go to Step 2. Otherwise `EXP init --engagement E --worktree W --methodology M --strategy S --scorer scripted`; a refusal is a STOP with its reason.
+**Scripted:** if `E/state.json` exists, the run resumes: go to Step 1. Otherwise `EXP init --engagement E --worktree W --methodology M --strategy S --scorer scripted`; a refusal is a STOP with its reason.
 
 **Judged:** the whole loop is: run `JUDGED next`, perform its one action per `judged-metrics.md`, repeat. The first call is the resume. On `pause`, report the gate or rule and reason, and wait for Chris's `resolve`. On `stop`, go to Step 3. Judged is **refused for now** — the acceptance smoke test failed; see **Status** in `judged-metrics.md`. Once unblocked: confirm `mcp__t3-code__delegate_task` is available, then `JUDGED validate --host t3`; any error → STOP.
 
-## Step 2 — The loop (scripted)
+## Step 1 — The loop (scripted)
 
 Run `EXP next --engagement E` and do its one action, then repeat:
 
@@ -62,13 +62,18 @@ Run `EXP next --engagement E` and do its one action, then repeat:
 | `pause` | Report the reason and end the session. Chris clears it with `EXP resume`. |
 | `stop` | Go to Step 3. |
 
-Never run git yourself to commit, revert or reset a trial; never edit files in `E`. `tradeoff` is one sentence on what the change costs to keep (complexity, a dependency, changed behavior, maintenance). A climb that finds proof the target cannot be reached ends with `EXP conclude --kind bound|scope --evidence "…"`; remediate records an unfixable finding with `EXP exception add`.
+Rules:
+- Never run git yourself to commit, revert or reset a trial: `trial commit` stages every change in `W` outside `E`. The measurement commands must leave `W` clean; if `baseline` refuses because they did, fix the methodology (for example ignore generated files) rather than cleaning by hand.
+- In `E`, never edit `state.json`, `results.jsonl` or `progress.log`. You write `strategy.md` (the card and any `router_disagrees`) and, after the last `report`, the "worth maintaining?" column of `report.md`; running `report` again overwrites that column.
+- `propose` returns `tried` (changes discarded against the current incumbent), `kept` (changes kept so far) and, for remediate, `findings` (open finding IDs when the measure script prints `FINDING <id>` lines). Do not repeat a `tried` change.
+- `tradeoff` is one sentence on what the change costs to keep (complexity, a dependency, changed behavior, maintenance).
+- A climb with proof the target cannot be reached ends with `EXP conclude --kind bound|scope --evidence "…"` at any escalation level; remediate records an unfixable finding with `EXP exception add`.
 
 **Parallel proposals:** independent ideas may be drafted in parallel, but trials are scored one at a time.
 
 ## Step 2 — Judged steps
 
-`JUDGED next`'s `propose` action uses these:
+Judged runs only. `JUDGED next`'s `propose` action uses these:
 
 - **2a. Propose** from the ranked hypotheses and `propose`'s `diagnostics`; a change drawn from a critique names its source eval in `change`, at most `max_batch` critiques per trial.
 - **2b. Cheap gate.** Redundant with a discard or contradicting a keep → log a `skip` with the returned iteration; no `trial begin`.
@@ -81,4 +86,4 @@ Never run git yourself to commit, revert or reset a trial; never edit files in `
 
 **Judged:** on `stop target`, Chris reviews the artifacts; a rejection is `JUDGED resolve --decision reject --worktree W` and the climb continues. Report keeps vs discards, the latest calibrated or confirmed *M*, judge requests spent, and whether drift was monitored.
 
-`EXP status --all --repo R` lists every engagement in a repository's worktrees. Offer a chart (`scripts/generate-chart.py`) or a vault archive.
+`EXP status --all --repo R` lists every engagement in a repository's worktrees. Offer a chart (`python3 ${CLAUDE_PLUGIN_ROOT}/scripts/generate-chart.py E/results.jsonl`) or a vault archive.

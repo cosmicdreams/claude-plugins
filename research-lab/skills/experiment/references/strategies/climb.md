@@ -7,7 +7,7 @@ Get one artifact to a numeric target by small, attributable changes. The incumbe
 The methodology states `Target:`, `Direction:` and `Budget:`; `Measure:` prints the metric and `Checks:` exits 0 when guardrails pass. A climb ends in exactly one of three ways:
 
 1. **Met.** The incumbent reaches the target on a confirming re-measurement (`next` returns `confirm` first). The only success.
-2. **Unreachable, with evidence.** You found a *bound* (a measured floor or ceiling the target lies beyond) or a *scope block* (profiling puts the cost in something off-limits). Run `conclude --kind bound|scope --evidence "<what you measured and how>"`. Chris decides whether to widen scope or change the target.
+2. **Unreachable, with evidence.** You found a *bound* (a floor or ceiling the target lies beyond: a measurement, or a known theoretical limit backed by a measurement that approaches it) or a *scope block* (profiling puts the cost in something off-limits). Run `conclude --kind bound|scope --evidence "<what you measured and how>"` as soon as you have it, at any escalation level. Chris decides whether to widen scope or change the target.
 3. **Paused, goal still open.** The budget is spent, or the escalation ladder is exhausted. Reported as unfinished, never as done.
 
 A target beyond a methodology `Bound:` is refused before the climb starts.
@@ -15,6 +15,7 @@ A target beyond a methodology `Bound:` is refused before the climb starts.
 ## Keep rule
 
 - Keep when the gain over the incumbent exceeds the margin (`Margin:`, or twice the median absolute deviation of the baseline runs) and `Checks` pass. Equal or worse is a discard.
+- With `Runs: 1` and no `Margin:` the margin is 0, so any gain keeps. That is right for a deterministic metric; for a noisy one use `Runs:` of 3 or more, or set `Margin:`.
 - **Tie-break**, only when the methodology declares `Tiebreak:` (a simplicity measure, lower is simpler) and `Readability:`: a candidate within the margin is kept when it is strictly simpler and readable.
 - **Guard retry:** a candidate that gains but fails `Checks` gets one rework (`next` returns `rework`); the rework amends the same trial commit. A second failure discards it.
 

@@ -1,12 +1,12 @@
 # Methodology Spec
 
-Format definition for `05-methodology.md` files. The experimentalist reads this to know what to expect.
+Format of an experiment methodology file (any path; drupal-lab names it `05-methodology.md`).
 
 ---
 
 ## Required Sections
 
-A valid methodology.md MUST contain all of these:
+A `climb` or judged methodology MUST contain all of these sections; a `remediate` methodology needs only Objective, Scope Constraints and Working Directory. Fields are `name: value` or `**Name:** value` lines.
 
 Judged methodologies use headings of the form `## <n>. <Title>`; `judged.py` parses them.
 
