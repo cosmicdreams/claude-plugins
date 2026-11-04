@@ -18,11 +18,13 @@ skill owns **loop mechanics**: ratchet, futility stopping, git discipline, JSON 
 Domain knowledge lives in the methodology document.
 
 Read before starting:
+- `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/strategies.md` — router, strategy card, preload
 - `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/iteration-protocol.md` — JSONL schema, git protocol, ratchet rules
 - `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/methodology-spec.md` — methodology.md format
 - `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/judged-metrics.md` — judged runs only
 
-`JUDGED` below means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/judged.py`.
+`JUDGED` below means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/judged.py`;
+`CHECK` means `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/experiment.py check`.
 
 ## Golden Rule: Worktree = Branch
 
@@ -30,12 +32,27 @@ Work in an exclusively owned, linked experiment worktree — never the primary c
 `main`/`master`. Apply **Trial Ownership** (iteration protocol) before changing files; never
 clear unrelated changes automatically to satisfy it.
 
+## Step −1 — Strategy
+
+Args may preload `strategy=<remediate|climb|compare|explore|auto>` and
+`scorer=<scripted|council|auto>`. Run `CHECK --strategy S --scorer C --methodology M` with
+whatever was given (per `strategies.md`):
+
+- `ready` → continue to Input contract; no pause.
+- `route` → run the router in `strategies.md`. "Not an experiment" → say so in one line and
+  stop. Otherwise write and show the strategy card, with a drafted `methodology.md` if none was
+  given, and **pause** for accept, edit or switch. Re-run `CHECK` with the accepted choice.
+- `refused` → STOP; report `reason` and each `missing` item.
+
+Only `climb · scripted` runs today; other strategies and the council scorer stop after the
+card with `CHECK`'s reason. After acceptance (or a `ready` preload) the run is unattended.
+
 ## Input contract and Preflight
 
 **Requires:** a methodology (carries hypothesis and metric), a results path, and a dedicated
 worktree. Optional: a measurement harness path.
 
-1. Use a methodology already in context.
+1. Use a methodology already in context or accepted with the card.
 2. Else take methodology, results path and worktree from the args.
 3. Else **FAIL FAST**: "Need a measurable hypothesis and a target metric — point me at a
    methodology file." Stop.

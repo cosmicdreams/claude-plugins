@@ -52,3 +52,6 @@ These are correctness regressions, **not** an Astra/Fable benchmark. They do not
 establish real-service compatibility, prove skill effectiveness, guarantee that a
 model obeys the learner's evidence boundary or a judge's blinding instruction, make arbitrary concurrent Git
 operations safe, or address all setup/dedup failures.
+
+Strategy routing: `test_experiment_check.py` — `experiment.py check` precedence,
+refusals, legacy `metric_type`, and the `drupal-lab:optimize` template shape.
