@@ -32,11 +32,25 @@ class SeminarTest(unittest.TestCase):
         self.populate(); items=self.ledger()['items']; self.assertEqual(len(items),6); self.assertEqual(len(items[0]['merged_ids']),2)
         self.cmd('count-call',self.root,'--role','student'); result=self.cmd('count-call',self.root,'--role','skeptic',check=False); self.assertEqual(result.returncode,4); self.assertIn('budget',result.stdout)
     def test_debate_report_and_blind_rating(self):
-        self.populate(); q=self.ledger()['items'][0]['id']; reply=self.dir/'skeptic.json'
+        replies=self.dir/'replies'
+        for name in ['patterns','paradoxes','free']:
+            save(replies/f'student-{name}.json',{'items':[{'text':'What do the sources establish?', 'kind':'question','rank':1,'on_beat':True,'goal':'G1','why':'Useful'}]})
+        self.cmd('ingest',self.root,'--replies',replies)
+        q=self.ledger()['items'][0]['id']; reply=self.dir/'skeptic.json'
+        cite={'source':str(self.dir/'corpus/source.txt'),'quote':'This is a verifiable corpus quotation.'}
+        save(self.dir/'answer.json',{'text':'The source supports this quotation.','answerable':True});save(self.dir/'cites.json',[cite])
+        self.cmd('record-answer',self.root,q,'--answer',self.dir/'answer.json','--citations',self.dir/'cites.json')
         save(reply,{'items':[{'id':q,'stance':'challenge','objection':'unsupported','citations':[{'source':'x','quote':'not found anywhere'}],'settled_claim':''}]})
-        self.cmd('ingest-skeptic',self.root,'--round',1,'--reply',reply); self.assertEqual(self.ledger()['discarded_objections'],1)
-        self.cmd('ingest-replies',self.root,'--round',1,'--replies',self.dir/'empty'); self.assertEqual(self.ledger()['items'][0]['status'],'unsettled')
-        self.cmd('report',self.root,'--out',self.dir/'report'); report=json.loads((self.dir/'report/seminar.json').read_text()); self.assertTrue({'fit','claims','gaps','new_questions','cost'} <= report.keys())
+        self.assertNotEqual(self.cmd('ingest-skeptic',self.root,'--round',1,'--reply',reply,check=False).returncode,0)
+        self.assertEqual(self.ledger()['discarded_objections'],1)
+        save(reply,{'items':[{'id':q,'stance':'challenge','objection':'Narrow the statement.','citations':[cite],'settled_claim':''}]})
+        self.cmd('ingest-skeptic',self.root,'--round',1,'--reply',reply)
+        author=self.ledger()['items'][0]['author'];save(replies/f'student-{author}.json',{'items':[{'id':q,'concede':True,'response':'I narrow it.','revised_claim':'A source contains this quotation.','citations':[cite]}]})
+        self.cmd('ingest-replies',self.root,'--round',1,'--replies',replies)
+        self.assertEqual(self.ledger()['items'][0]['status'],'open')
+        self.cmd('close-round',self.root,'--round',1)
+        self.assertEqual(self.ledger()['items'][0]['status'],'unsettled')
+        self.cmd('report',self.root,'--out',self.dir/'report'); report=json.loads((self.dir/'report/seminar.json').read_text()); self.assertTrue({'fit','claims','gaps','new_questions','cost'} <= report.keys());self.assertEqual(report['claims']['held'],[])
         self.cmd('rating-sheet',self.root,self.root,self.root,'--n',3,'--seed',5,'--out',self.dir/'rating'); sheet=(self.dir/'rating/rating-sheet.md').read_text(); self.assertNotIn('patterns',sheet); self.assertNotIn('arm',sheet.lower())
 
 class EvalMathTest(unittest.TestCase):
@@ -47,7 +61,7 @@ class EvalMathTest(unittest.TestCase):
             root=Path(tmp)
             for f, scores in [(sound,[2,0,None]),(flawed,[0,1])]:
                 for n,score in enumerate(scores,1):
-                    folder=root/f['id']/f'run{n}'; folder.mkdir(parents=True); save(folder/'submission.json',{'evidence':'A sufficiently long evidence quotation.', 'corpus':{'paths':[]}})
+                    folder=root/f['id']/f'run{n}'; folder.mkdir(parents=True); save(folder/'submission.json',{'claim':'Claim','goal':'Goal','evidence':'A sufficiently long evidence quotation.', 'corpus':{'paths':[]}})
                     if score is None: continue
                     for dim in dims:
                         val=score if dim=='evidence-strength' else 2

@@ -1,28 +1,39 @@
-# seminar — prototype (not a skill yet)
+# seminar
 
-Deterministic helpers for the seminar pilot in `plans/research-lab/seminar-and-interrogate.md` §4–§6. There is deliberately no `SKILL.md`: completed human ratings leave a split pilot result with no defined tie-break, and the original `interrogate` gate failure and its correction are documented below. Nothing here is installed as a skill.
+`research-lab:seminar` runs a multi-agent study of one corpus against a study brief. The instructions agents follow are in [SKILL.md](SKILL.md); this file is for maintainers.
 
-## How a run works
+## Files
 
-The thread that runs the seminar is the moderator. It runs `scripts/seminar.py`, hands each brief the script writes to a separate child agent (T3 `delegate_task`), saves the child's JSON reply, and runs the script again to ingest it. No model calls happen inside the script.
+| Path | Role |
+| --- | --- |
+| `SKILL.md` | The moderator's procedure, input contract and report rules. |
+| `scripts/seminar.py` | Deterministic ledger, brief writer, reply validator and report writer. Makes no model calls. |
+| `references/examination-techniques.md` | The four beats and the rules for writing a good question. Also used by `synthesize`. |
+| `../interrogate/scripts/interrogate.py` | Scores each settled claim; seminar checks its scores and `submission_sha256`. |
 
+## How it is found
+
+Claude Code discovers the skill from `skills/seminar/SKILL.md` once the research-lab plugin is installed; there is no manifest entry to add. Its name and description load into every session; the body loads only when the skill runs. The description ends with a "Not for" clause pointing to `research-lab:synthesize`, and `synthesize` no longer claims the `research-lab:seminar` trigger.
+
+## Outputs
+
+`report RUN --out DIR` writes:
+
+- `seminar.json` — the machine contract: fit per goal, claims by bucket (held, failed, contested, unsettled, incomplete or unscored), source gaps, execution failures, new questions, plan changes, vocabulary, cost, child links and `next_action`.
+- `seminar.md` — readable findings, limits and next questions.
+- `gather-input.json` — new questions in `gather`'s input shape.
+
+## Local validation
+
+From the repository root:
+
+```sh
+PYTHONDONTWRITEBYTECODE=1 python3 -m unittest discover -s research-lab/tests -p 'test_*.py' -v
 ```
-init → (moderator writes map.md) → student-briefs → [students] → ingest
-     → answer each item from the notebook (record-answer)
-     → debate-briefs --round k → [skeptic] → ingest-skeptic → [students] → ingest-replies   (k ≤ 3)
-     → claims → [interrogate] → record-interrogate → report
-```
 
-`count-call` enforces the per-arm child budget; `planted-judge-brief` / `score-planted` and `rating-sheet` support the pilot's measures.
+These tests drive the scripts with fixture replies. They prove the ledger rules (budget, citation checks, round cap, merge, rerun limits, fingerprint check, report buckets). They do **not** prove that a live run works: real notebook queries, real child agents, cross-provider routing and report readability are only shown by an actual end-to-end run, which is a separate check.
 
-## Known limits found by the pilot (2026-11-02)
+## Operating defaults
 
-- Dedupe is lexical (token Jaccard ≥ 0.8); paraphrased duplicates pass through.
-- A student concession settles an item without the skeptic re-checking the narrowed claim.
-- The report's "held" bucket depends on `interrogate`; without it, settled claims are listed as `settled_unscored`.
-
-## interrogate rebuild
-
-`../interrogate/scripts/interrogate.py` implements plan §3 (five scored dimensions, script-stamped dimensions, citation check, rebuttal pass, fixed verdict rule) and `tests/eval/interrogate/` holds the regression eval (8 S03 fixtures + 4 relevance fixtures). It **failed** its gate on 2026-11-02 (balanced accuracy 0.50 vs 0.75): the rival-explanations rubric scores every claim that does not argue against rivals at 1, so no sound claim survives. `interrogate/SKILL.md` is unchanged and still describes the 5.0 panel.
-
-The corrected rival-explanations anchors passed the fresh gate on 2026-11-03 (balanced accuracy 0.9167, zero verdict flips, all nine targeted controls passed). See [the fresh results](../../tests/eval/interrogate/RUBRIC_V2_RESULTS.md). This does not rescore earlier seminar claims or settle the seminar design choice.
+- Arm B (four themed students plus one free student) is the maintainers' default after a mixed pilot. Arm F (five free students) and arm O (one questioner) remain available. The choice is not a claim of experimental superiority.
+- The 120-call budget and the three-round cap are operating limits, not tuned values.

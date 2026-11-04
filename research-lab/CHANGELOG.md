@@ -1,5 +1,12 @@
 # research-lab Changelog
 
+## 6.0.0
+
+- Add the seminar skill: independent readers question a corpus, cited debate narrows answers, and interrogate scores settled claims. Reports preserve unsupported, unscored and incomplete work separately.
+- Replace the Workflow interrogation panel with independent five-dimension examiners and deterministic verdicts. Submissions require a research goal; results bind to the exact submission. This replaces the prior panel result contract.
+- Enforce citation provenance, debate order, call budgets and one gather rerun. Synthesize consumes only held seminar claims as findings.
+- Keep reusable regression fixtures and tests in the plugin; keep pilot reports, full research corpora and raw model replies in engagement storage.
+
 ## 5.0.0 — 2026-09-29
 
 **Breaking: `principal-investigator` agent removed.** Its job was choosing among the verbs, which the main session does, and its main tool (Workflow) is not available to subagents.

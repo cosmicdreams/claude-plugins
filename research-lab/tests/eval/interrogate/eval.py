@@ -56,6 +56,6 @@ def main():
             # Rejected versus contested on a flawed case counts as a flip.
             flips+=int(len(set(valid))>1)
     rates=[n/d if d else 0 for n,d in totals.values()]; accuracy=sum(rates)/2; flip=flips/eligible if eligible else 0
-    summary={'cases':{fid:{'verdicts':vs,'correctness':[None if v=='incomplete' else (v=='survived' if lookup[fid]['kind']=='sound' else v in ('rejected','contested')) for v in vs]} for fid,vs in cases.items()},'execution_errors':errors,'balanced_accuracy':accuracy,'flip_rate':flip,'gate_pass':all(d for _,d in totals.values()) and accuracy>=.75 and flip<=1/3,'relevance_dimensions':relevance}
+    summary={'cases':{fid:{'verdicts':vs,'correctness':[None if v=='incomplete' else (v=='survived' if lookup[fid]['kind']=='sound' else v in ('rejected','contested')) for v in vs]} for fid,vs in cases.items()},'execution_errors':errors,'balanced_accuracy':accuracy,'flip_rate':flip,'gate_pass':errors==0 and all(d for _,d in totals.values()) and accuracy>=.75 and flip<=1/3,'relevance_dimensions':relevance}
     (root/'summary.json').write_text(json.dumps(summary,indent=2)+'\n')
 if __name__=='__main__': main()

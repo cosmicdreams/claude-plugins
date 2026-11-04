@@ -66,9 +66,9 @@ Drupal and Acquia log reporting. Fetches Acquia logs by date, groups errors into
 Skills: `acquia-pull`, `init`, `report`
 
 ### `research-lab`
-Composable research pipeline built around seven knowledge-work verbs: frame, gather, understand, synthesize, interrogate, experiment, teach.
+Composable research pipeline built around eight knowledge-work verbs: frame, gather, understand, seminar, synthesize, interrogate, experiment, teach.
 
-Skills: `experiment`, `frame`, `gather`, `interrogate`, `synthesize`, `teach`, `understand`
+Skills: `experiment`, `frame`, `gather`, `interrogate`, `seminar`, `synthesize`, `teach`, `understand`
 
 ### `process-lab`
 Keeps agent-assisted work aligned with each project's workflow: reads its Confluence process, records required steps and waivers, and runs retrospectives against it.

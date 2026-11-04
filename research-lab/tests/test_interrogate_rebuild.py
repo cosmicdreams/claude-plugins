@@ -31,10 +31,52 @@ class InterrogateTest(unittest.TestCase):
         self.assertEqual(self.call('check', self.sub).stdout.strip(), 'ok')
         self.sub.write_text('{"claim":"", "evidence":"x"}')
         self.assertEqual(self.call('check', self.sub).returncode, 2)
+        self.assertEqual(self.call('briefs', self.sub, '--out', self.root / 'briefs').returncode, 2)
+        self.sub.write_text(json.dumps({'claim':'Claim','evidence':'Supported evidence text','goal':'Goal','corpus':{'paths':[]}}))
         self.call('briefs', self.sub, '--out', self.root / 'briefs')
         text = (self.root / 'briefs/brief-relevance.md').read_text()
         self.assertIn('Check the corpus before scoring', text)
         self.assertNotIn('"dimension":', text)
+    def test_goal_is_required_before_starting_examiners(self):
+        sub=json.loads(self.sub.read_text());sub.pop('goal');self.sub.write_text(json.dumps(sub))
+        self.assertEqual(self.call('check',self.sub).returncode,2)
+        self.assertEqual(self.call('briefs',self.sub,'--out',self.root/'briefs').returncode,2)
+        self.assertFalse((self.root/'briefs').exists())
+
+    def test_mixed_invalid_quotes_and_moderator_prose_cannot_validate_scores(self):
+        source=self.root/'source.txt';quote='The retry policy permits three attempts.';source.write_text(quote)
+        evidence={'answer':{'text':'An invented automatic cache purge guarantee.'},'citations':[{'source':str(source),'quote':quote}]}
+        self.sub.write_text(json.dumps({'claim':'The retry policy permits three attempts.','goal':'Establish retry behavior.','evidence':json.dumps(evidence),'corpus':{'paths':[str(source)]}}))
+        result=self.result();result['citations']=[{'source':str(source),'quote':quote}]
+        for dim in DIMS:(self.results/f'{dim}.r1.json').write_text(json.dumps(result))
+        self.assertEqual(self.verdict()['verdict'],'survived')
+        bad=dict(result,citations=result['citations']+[{'source':str(source),'quote':'An invented automatic cache purge guarantee.'}])
+        (self.results/'relevance.r1.json').write_text(json.dumps(bad));self.assertEqual(self.verdict()['verdict'],'incomplete')
+        bad=dict(result,citations=[{'source':'evidence','quote':'An invented automatic cache purge guarantee.'}])
+        (self.results/'relevance.r1.json').write_text(json.dumps(bad));self.assertEqual(self.verdict()['verdict'],'incomplete')
+        good=dict(result,citations=[{'source':'evidence','quote':quote}])
+        (self.results/'relevance.r1.json').write_text(json.dumps(good));self.assertEqual(self.verdict()['verdict'],'survived')
+
+    def test_structured_evidence_quotes_cannot_span_source_boundaries(self):
+        first=self.root/'first.txt';first.write_text('Alpha says restarts')
+        second=self.root/'second.txt';second.write_text('exhausted after three.')
+        evidence={'answer':{'text':'An unsupported combined conclusion.'},'citations':[{'source':str(first),'quote':first.read_text()},{'source':str(second),'quote':second.read_text()}]}
+        self.sub.write_text(json.dumps({'claim':'Claim','goal':'Goal','evidence':json.dumps(evidence),'corpus':{'paths':[str(first),str(second)]}}))
+        good=self.result();good['citations']=[{'source':'evidence','quote':first.read_text()}]
+        for dim in DIMS:(self.results/f'{dim}.r1.json').write_text(json.dumps(good))
+        self.assertEqual(self.verdict()['verdict'],'survived')
+        bad=dict(good,citations=[{'source':'evidence','quote':first.read_text()+' '+second.read_text()}])
+        (self.results/'relevance.r1.json').write_text(json.dumps(bad))
+        self.assertEqual(self.verdict()['verdict'],'incomplete')
+
+    def test_malformed_structured_evidence_fails_without_traceback(self):
+        self.sub.write_text(json.dumps({'claim':'Claim','goal':'Goal','evidence':json.dumps({'answer':{},'citations':[{}]}),'corpus':{'paths':[]}}))
+        self.fill()
+        for command in ['verdict','rebuttal']:
+            result=self.call(command,self.sub,'--results',self.results,'--out',self.root/'out')
+            self.assertEqual(result.returncode,2);self.assertNotIn('Traceback',result.stderr)
+            self.assertIn('citation schema violation',result.stderr)
+
     def test_extract(self):
         f = self.root / 'reply'; f.write_text('```json\n{"score": 1}\n```\n```json\n{"score": 3}\n```')
         self.assertEqual(json.loads(self.call('extract', f).stdout)['score'], 3)

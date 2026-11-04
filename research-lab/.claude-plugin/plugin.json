@@ -1,7 +1,7 @@
 {
     "name": "research-lab",
-    "version": "5.0.0",
-    "description": "Self-contained knowledge-work verbs as standalone compositional primitives: frame, gather, understand, synthesize, interrogate, experiment, teach. Each digests existing information or tests and ships a claim; preflight-first input contracts; verbs suggest next steps but never force a pipeline; no over-all orchestrator and no hard dependency on other plugins.",
+    "version": "6.0.0",
+    "description": "Self-contained knowledge-work verbs as standalone compositional primitives: frame, gather, understand, seminar, synthesize, interrogate, experiment, teach. Each digests existing information or tests and ships a claim; preflight-first input contracts; verbs suggest next steps but never force a pipeline. seminar is the one multi-agent study: students question a corpus, a skeptic debates the answers, and interrogate scores what settles. No hard dependency on other plugins.",
     "author": {
         "name": "Chris Weber"
     },
@@ -11,6 +11,7 @@
         "agents",
         "notebooklm",
         "experiment",
-        "optimization"
+        "optimization",
+        "seminar"
     ]
 }

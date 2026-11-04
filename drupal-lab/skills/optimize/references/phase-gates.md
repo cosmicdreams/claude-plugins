@@ -37,8 +37,7 @@ Go/no-go criteria for each phase transition. The Principal Investigator reads th
 
 ## Phase 4 Gate: Synthesize → Methodology
 
-`synthesize` absorbed the old workshop (facet coverage) and seminar (decision-forming) work, so
-there is now a single gate where there used to be two.
+`synthesize` forms the decision from digested evidence. `research-lab:seminar` can precede it to question the corpus and score settled claims; this gate checks the resulting position.
 
 **Go conditions:**
 - `04-synthesize.md` exists with:
@@ -47,16 +46,14 @@ there is now a single gate where there used to be two.
   - A decision table with ranked options
   - Ranked hypotheses (at least 3)
 - Principal Investigator has reviewed and can articulate the research position
-- *(High-stakes engagements)* the position survived `research-lab:interrogate`, or the Principal Investigator
-  consciously accepted the verdict
+- *(High-stakes engagements)* the position survived `research-lab:interrogate`, or the Principal Investigator consciously accepted the verdict
 
 **No-go triggers:**
 - Synthesis produced only surface-level summaries (no formed position, no named concepts)
 - No clear hypotheses emerged
 - Contradictions unresolved
 
-**Action on no-go:** Re-run synthesize with a sharper question, add more sources via gather, or
-resolve the contradictions an interrogate pass surfaced.
+**Action on no-go:** Re-run synthesize with a sharper question, add more sources via gather, or resolve the contradictions an interrogate pass surfaced.
 
 ---
 

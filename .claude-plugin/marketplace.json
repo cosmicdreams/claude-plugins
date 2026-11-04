@@ -45,7 +45,7 @@
     },
     {
       "name": "research-lab",
-      "description": "Knowledge-work verbs as standalone compositional primitives: frame, gather, understand, synthesize, interrogate, experiment, teach. NotebookLM + Workflow fan-out; preflight-first input contracts; no orchestrator",
+      "description": "Knowledge-work verbs: frame, gather, understand, seminar, synthesize, interrogate, experiment, teach. Independent corpus readers, cited debate, and five-dimension claim review; local sources or NotebookLM.",
       "source": "./research-lab",
       "category": "development"
     },
