@@ -64,8 +64,31 @@ def git(w, *args):
     return r.stdout.strip()
 
 
+def dirty_paths(w):
+    r = subprocess.run(['git', '-C', str(w), 'status', '--porcelain', '-z',
+                        '--untracked-files=all', '--ignore-submodules=none'],
+                       capture_output=True, text=True)
+    require(r.returncode == 0, r.stderr.strip() or 'git status failed')
+    entries = r.stdout.split('\0')
+    paths = []
+    i = 0
+    while i < len(entries) and entries[i]:
+        entry = entries[i]
+        paths.append(entry[3:])
+        i += 2 if 'R' in entry[:2] or 'C' in entry[:2] else 1
+    return paths
+
+
 def clean(w):
-    return not git(w, 'status', '--porcelain', '--untracked-files=all', '--ignore-submodules=none')
+    return not dirty_paths(w)
+
+
+def require_clean(w, measurement=False):
+    paths = dirty_paths(w)
+    reason = 'worktree is dirty: ' + ', '.join(paths[:10])
+    if measurement:
+        reason += '; measurement must leave the tree clean (e.g. ignore generated files)'
+    require(not paths, reason)
 
 
 def digest(p):
@@ -96,7 +119,11 @@ def shell(w, command):
 def number(w, command, metric=None):
     r = shell(w, command)
     require(r.returncode == 0, 'measurement command failed: ' + command)
-    lines = [x.strip() for x in r.stdout.splitlines() if x.strip()]
+    return output_number(r.stdout, metric)
+
+
+def output_number(output, metric=None, required=False):
+    lines = [x.strip() for x in output.splitlines() if x.strip()]
     metrics = [x for x in lines if x.startswith('METRIC ')]
     if metrics:
         parsed = [re.fullmatch(r'METRIC\s+([^=\s]+)=(' + NUMBER + ')', x) for x in metrics]
@@ -105,6 +132,7 @@ def number(w, command, metric=None):
         require(len(selected) == 1, 'ambiguous or missing primary METRIC')
         value = selected[0]
     else:
+        require(not required, 'missing Score METRIC: ' + str(metric))
         require(lines and re.fullmatch(NUMBER, lines[-1]), 'invalid measurement: expected one number')
         value = lines[-1]
     n = float(value)
@@ -112,15 +140,34 @@ def number(w, command, metric=None):
     return n
 
 
-def measure(s, c, score=False):
+def measure(s, c, score=False, outputs=None):
     command = c['Score'] if score else c['Measure']
-    runs = [number(s['worktree'], command, None if score else c['Metric name'])
-            for _ in range(int(c['Runs']))]
+    if score and command.startswith('METRIC '):
+        if outputs is None:
+            outputs = []
+            measure(s, c, outputs=outputs)
+        runs = [output_number(output, command[len('METRIC '):].strip(), required=True) for output in outputs]
+    else:
+        runs = []
+        for _ in range(int(c['Runs'])):
+            r = shell(s['worktree'], command)
+            require(r.returncode == 0, 'measurement command failed: ' + command)
+            if outputs is not None:
+                outputs.append(r.stdout)
+            runs.append(output_number(r.stdout, None if score else c['Metric name']))
     if s['strategy'] == 'remediate' and not score:
         require(all(x >= 0 and x == int(x) for x in runs), 'findings count must be a nonnegative integer')
     median = statistics.median(runs)
     return dict(median=median, runs=runs,
                 mad=statistics.median(abs(x - median) for x in runs))
+
+
+def update_findings(s, outputs):
+    if s['strategy'] == 'remediate':
+        findings = re.findall(r'^FINDING[ \t]+(\S+)[ \t]*$', outputs[-1], re.M)
+        s.pop('findings', None)
+        if findings:
+            s['findings'] = findings
 
 
 def goal(s, c, value=None):
@@ -158,7 +205,10 @@ def next_action(e, s, c):
     tried = [r['change'] for r in records(e) if r['decision'] == 'discard'
              and r.get('incumbent') == s['incumbent']]
     return dict(action='propose', escalation=s['escalation'], level_name=LEVELS[s['escalation']],
-                tried=tried, trials_left=int(c['Budget']) - s['trials_used'], gap=gap(s, c))
+                tried=tried, kept=[r['change'] for r in records(e)
+                                   if r['decision'] == 'keep' and r.get('trial')],
+                trials_left=int(c['Budget']) - s['trials_used'], gap=gap(s, c),
+                **({'findings': s['findings']} if 'findings' in s else {}))
 
 
 def log(e, s, c, m, decision, reason, before=None, change=None, extras=None, gate='pass'):
@@ -188,7 +238,8 @@ def ownership(s, expected, dirty=False):
     w = s['worktree']
     require(git(w, 'symbolic-ref', '--short', 'HEAD') == s['branch'], 'recorded branch changed')
     require(git(w, 'rev-parse', 'HEAD') == expected, 'HEAD differs from recorded commit')
-    require(dirty or clean(w), 'worktree is dirty')
+    if not dirty:
+        require_clean(w)
 
 
 def init(a, e, check):
@@ -211,7 +262,7 @@ def init(a, e, check):
         exclude.parent.mkdir(parents=True, exist_ok=True)
         with exclude.open('a') as f:
             f.write('\n' + pattern + '\n')
-    require(clean(w), 'worktree is dirty')
+    require_clean(w)
     method = Path(a.methodology).resolve()
     c = config(method.read_text(), a.strategy)
     hashes = {}
@@ -240,7 +291,9 @@ def evaluate(e, s, c, command):
     if command == 'baseline':
         require(s['baseline'] is None and t is None, 'baseline already exists or trial open')
         ownership(s, s['incumbent'])
-        require(shell(w, c['Checks']).returncode == 0, 'baseline checks failed')
+        checks = shell(w, c['Checks']).returncode == 0
+        require_clean(w, measurement=True)
+        require(checks, 'baseline checks failed')
     elif command == 'score':
         require(t and t['commit'] and not t.get('rework'), 'commit the trial before scoring')
         ownership(s, t['commit'])
@@ -251,17 +304,26 @@ def evaluate(e, s, c, command):
         ownership(s, git(w, 'rev-parse', 'HEAD'))
         require(git(w, 'rev-parse', 'HEAD^{tree}') == git(w, 'rev-parse', s['incumbent'] + '^{tree}'),
                 'incumbent tree changed')
-    m = measure(s, c)
-    score = measure(s, c, True) if s['strategy'] == 'remediate' and c['Score'] else None
+    outputs = []
+    m = measure(s, c, outputs=outputs)
+    score = measure(s, c, True, outputs) if s['strategy'] == 'remediate' and c['Score'] else None
     before = s['ratchet']
     if command == 'baseline':
         tie = number(w, c['Tiebreak']) if c['Tiebreak'] else None
+        require_clean(w, measurement=True)
+        update_findings(s, outputs)
         s.update(baseline=m, margin=c['Margin'] if c['Margin'] is not None else 2 * m['mad'],
                  ratchet=m['median'], tiebreak=tie, score_baseline=score,
                  score_margin=2 * score['mad'] if score else None)
         log(e, s, c, m, 'keep', 'baseline established', change='Baseline survey',
             extras={'margin': s['margin'], 'score': score})
     elif command == 'confirm':
+        checks = shell(w, c['Checks']).returncode == 0
+        guard = score is None or score['median'] >= s['score_baseline']['median'] - s['score_margin']
+        require_clean(w, measurement=True)
+        update_findings(s, outputs)
+        failed = [name for name, passed in [('Checks', checks), ('Score guardrail', guard)] if not passed]
+        require(not failed, 'incumbent failed ' + ' and '.join(failed) + '; flaky guardrail')
         s['ratchet'] = m['median']
         if goal(s, c):
             ending(s, 'exceptions' if s['exceptions'] else 'met', 'confirmed target')
@@ -286,6 +348,7 @@ def evaluate(e, s, c, command):
                 better, reason = True, 'simplicity tie-break'
         if not checks or not guard:
             reason = 'checks failed' if not checks else 'Score guardrail regression'
+        require_clean(w, measurement=True)
         if metric_better and (not checks or not guard) and not t['retried']:
             t.update(retried=True, rework=True)
             log(e, s, c, m, 'retry', reason, before, extras={'score': score})
@@ -306,6 +369,8 @@ def evaluate(e, s, c, command):
         else:
             if c['Tiebreak']:
                 tie = number(w, c['Tiebreak']) if tie is None else tie
+            require_clean(w, measurement=True)
+            update_findings(s, outputs)
             s.update(incumbent=t['commit'], ratchet=m['median'], consecutive_discards=0, tiebreak=tie)
             if score:
                 s['score_baseline'] = score
@@ -365,10 +430,15 @@ def dispatch(a, check):
             return evaluate(e, s, c, a.trial_command if cmd == 'trial' else cmd)
         except (ValueError, OSError) as error:
             # No trial decision/log is written on invalid measurement or refused discard.
+            if 'worktree is dirty' not in str(error):
+                try:
+                    require_clean(s['worktree'], measurement=True)
+                except ValueError as dirty_error:
+                    error = ValueError(str(error) + '; ' + str(dirty_error))
             ending(s, 'paused', str(error))
             s['unresolved'] = True
             save(e, s)
-            raise
+            raise error
     if cmd == 'trial':
         if a.trial_command == 'begin':
             require(s['baseline'] is not None, 'baseline required')
@@ -376,7 +446,7 @@ def dispatch(a, check):
             require(not goal(s, c), 'confirm the target before another trial')
             require(s['trials_used'] < c['Budget'], 'budget spent')
             require(a.change.strip() and a.tradeoff.strip(), 'change and tradeoff required')
-            require(clean(s['worktree']), 'worktree is dirty')
+            require_clean(s['worktree'])
             require(git(s['worktree'], 'symbolic-ref', '--short', 'HEAD') == s['branch'], 'branch changed')
             require(git(s['worktree'], 'rev-parse', 'HEAD^{tree}') ==
                     git(s['worktree'], 'rev-parse', s['incumbent'] + '^{tree}'), 'incumbent tree changed')

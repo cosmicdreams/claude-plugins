@@ -90,6 +90,120 @@ class LoopTests(unittest.TestCase):
         self.commit()
         return self.command('trial', 'score')
 
+    def test_measurement_must_leave_tree_clean(self):
+        for name, command in [('Measure', './measure.sh; echo generated > artifact; cat metric'),
+                              ('Measure', 'echo generated > artifact; exit 1'),
+                              ('Checks', 'echo generated > artifact'),
+                              ('Score', 'echo generated > artifact; cat score'),
+                              ('Tiebreak', 'echo generated > artifact; cat simplicity')]:
+            with self.subTest(command=name):
+                extra = 'Readability: true\n' if name == 'Tiebreak' else ''
+                # Replace the default command rather than adding a duplicate field.
+                self.init(extra, strategy='remediate' if name == 'Score' else 'climb')
+                text = self.method.read_text()
+                if name in ('Measure', 'Checks'):
+                    lines = text.splitlines()
+                    lines = [name + ': ' + command if line.startswith(name + ':') else line
+                             for line in lines]
+                    text = '\n'.join(lines) + '\n'
+                else:
+                    text += name + ': ' + command + '\n'
+                (self.e / 'state.json').unlink()
+                self.method.write_text(text)
+                self.command('init', '--worktree', str(self.w), '--methodology', str(self.method),
+                             '--strategy', 'remediate' if name == 'Score' else 'climb',
+                             '--scorer', 'scripted')
+                reason = self.baseline(ok=False)['reason']
+                self.assertIn('artifact', reason)
+                self.assertIn('measurement must leave the tree clean', reason)
+                self.assertIsNone(self.state()['baseline'])
+                self.assertFalse((self.e / 'results.jsonl').exists())
+                (self.w / 'artifact').unlink()
+                (self.e / 'state.json').unlink()
+        for i in range(12):
+            self.files(**{f'dirty-{i:02}': 1})
+        reason = self.init(ok=False)['reason']
+        for i in range(10):
+            self.assertIn(f'dirty-{i:02}', reason)
+        self.assertNotIn('dirty-10', reason)
+
+    def test_confirmation_rechecks_incumbent_guardrails(self):
+        external = {}
+        for name in ('guard', 'score'):
+            external[name] = self.root / ('external-' + name)
+            external[name].write_text((self.w / name).read_text())
+            (self.w / name).unlink()
+            (self.w / name).symlink_to(external[name])
+        self.git('add', 'guard', 'score')
+        self.git('commit', '-m', 'test: external guardrails')
+        self.init('Score: cat score\n', strategy='remediate', target=0)
+        self.baseline()
+        self.trial(0)
+        for filename, value, reason in [('guard', 1, 'Checks'), ('score', 90, 'Score guardrail')]:
+            with self.subTest(guardrail=filename):
+                state_before = self.state()
+                original = external[filename].read_text()
+                external[filename].write_text(str(value) + '\n')
+                out = self.command('confirm', ok=False)
+                self.assertIn(reason, out['reason'])
+                self.assertIn('incumbent', out['reason'])
+                self.assertEqual(self.state()['ending']['kind'], 'paused')
+                external[filename].write_text(original)
+                (self.e / 'state.json').write_text(json.dumps(state_before))
+
+    def test_findings_follow_incumbent_measurements(self):
+        self.init(strategy='remediate', target=0)
+        self.override.write_text('FINDING F1\nFINDING F2\n10\n')
+        self.baseline()
+        self.assertEqual(self.state()['findings'], ['F1', 'F2'])
+        self.assertEqual(self.command('next')['findings'], ['F1', 'F2'])
+        self.override.write_text('FINDING F2\n8\n')
+        self.trial(8)
+        self.assertEqual(self.command('next')['findings'], ['F2'])
+        self.override.write_text('FINDING rejected\n9\n')
+        self.trial(9)
+        self.assertEqual(self.state()['findings'], ['F2'])
+        self.override.write_text('7\n')
+        self.trial(7)
+        self.assertNotIn('findings', self.state())
+        self.assertNotIn('findings', self.command('next'))
+
+    def test_score_metric_uses_same_measure_runs(self):
+        counter = self.root / 'measure-count'
+        counter.write_text('0')
+        (self.w / 'measure.sh').write_text(
+            f'#!/bin/sh\nn=$(cat "{counter}"); echo $((n+1)) > "{counter}"\n'
+            'echo "METRIC count=$(cat metric)"\necho "METRIC quality=$(cat score)"\n')
+        self.git('add', 'measure.sh')
+        self.git('commit', '-m', 'test: multi-metric harness')
+        self.init('Metric name: count\nScore: METRIC quality\nScore target: 110\n',
+                  strategy='remediate', target=0, runs=3)
+        self.baseline()
+        self.assertEqual(counter.read_text().strip(), '3')
+        self.assertEqual(self.state()['score_baseline']['runs'], [100, 100, 100])
+        self.assertEqual(self.trial(8, score=90)['decision'], 'retry')
+        self.files(score=100)
+        self.commit()
+        self.command('trial', 'score')
+        self.trial(0)
+        self.command('confirm')
+        self.assertEqual(counter.read_text().strip(), '15')
+        self.command('report')
+        self.assertIn('Final score: 100;', (self.e / 'report.md').read_text())
+
+    def test_propose_lists_kept_changes_since_baseline(self):
+        self.init()
+        self.baseline()
+        self.assertEqual(self.command('next')['kept'], [])
+        self.begin(change='first improvement')
+        self.files(metric=8)
+        self.commit()
+        self.command('trial', 'score')
+        self.trial(9)
+        self.assertEqual(self.command('next')['kept'], ['first improvement'])
+        self.trial(7)
+        self.assertEqual(self.command('next')['kept'], ['first improvement', 'candidate'])
+
     def test_reachable_confirmation_and_run_level_invariants(self):
         self.init(runs=3)
         self.baseline()

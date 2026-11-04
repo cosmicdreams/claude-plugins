@@ -99,8 +99,10 @@ def report(e, s, c):
     progress_ok = progress.exists() and len(progress.read_text().splitlines()) == len(log)
     lines = ['## Ending and goal', '',
              f"Ending: {end['kind'] + ': ' + end['detail'] if end else 'running'}",
-             '', f"Goal: {c['Target']:g}; confirmed final number: "
-             + (str(confirmation['median']) if confirmed else 'absent'), '',
+             '', f"Goal: {c['Target']:g}; best measured value: "
+             + (f"{s['ratchet']:g}" if s['ratchet'] is not None else 'absent')
+             + '; confirmed final number: '
+             + (f"{confirmation['median']:g}" if confirmed else 'absent'), '',
              '## Decisions to review', '',
              "| Trial | Change | Gain | Tradeoff | worth maintaining? (agent's view) |",
              '| --- | --- | --- | --- | --- |']
@@ -125,7 +127,10 @@ def report(e, s, c):
                       ('Incumbent tree matches worktree', incumbent_tree),
                       ('Every keep has tradeoff', all(r.get('tradeoff', '').strip() for r in keeps))]:
         lines.append(f"- {label}: {'PASS' if ok else 'FAIL'}")
-    lines += ['', '## Worth keeping', '', f"- Confirmation present: {'PASS' if confirmed else 'FAIL'}"]
+    confirmation_status = ('n/a (ending ' + end['kind'] + ')'
+                           if end and end['kind'] in ('unreachable', 'paused')
+                           else 'PASS' if confirmed else 'FAIL')
+    lines += ['', '## Worth keeping', '', '- Confirmation present: ' + confirmation_status]
     for label in ('Held-out', 'Checks'):
         result = 'ABSENT'
         if c[label]:

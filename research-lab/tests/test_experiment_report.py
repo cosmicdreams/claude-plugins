@@ -45,8 +45,24 @@ class PacketTests(ReportTests):
         self.assertIn('Checks: PASS', report)
         self.assertIn('Router evidence.', report)
         self.assertIn('one extra branch | _ |', report)
-        self.assertIn('confirmed final number: 5.0', report)
+        self.assertIn('confirmed final number: 5', report)
         self.assertIn('Confirmation present: PASS', report)
+
+    def test_unconfirmed_endings_show_ratchet_and_confirmation_not_applicable(self):
+        self.init()
+        self.baseline()
+        self.trial(8)
+        self.command('conclude', '--kind', 'bound', '--evidence', 'measured limit')
+        for kind in ('unreachable', 'paused'):
+            with self.subTest(ending=kind):
+                state = self.state()
+                state.update(status='paused' if kind == 'paused' else 'stopped',
+                             ending=dict(kind=kind, detail='bound: measured limit'))
+                (self.e / 'state.json').write_text(json.dumps(state))
+                report = self.report()
+                self.assertIn('Goal: 5; best measured value: 8;', report)
+                self.assertIn('Confirmation present: n/a (ending ' + kind + ')', report)
+                self.assertNotIn('8.0', report)
 
     def test_checks_run_again_on_report(self):
         guard = self.root / 'external-guard'
