@@ -1,4 +1,4 @@
-"""Stop and session hooks operate only on running, bounded-depth engagements."""
+"""Stop and session hooks operate only on running engagements registered by `init`."""
 import json
 from pathlib import Path
 import subprocess
@@ -48,14 +48,14 @@ class HookTests(ReportTests):
         self.assertEqual(self.state()['stop_blocks'], 1)
         self.assertEqual(self.state()['status'], 'running')
 
-    def test_depth_limit_and_cwd_subdirectory(self):
+    def test_registry_only_and_cwd_subdirectory(self):
         self.init()
         sub = self.w / 'nested'
         sub.mkdir()
         self.assertEqual(json.loads(self.hook(cwd=sub).stdout)['decision'], 'block')
-        deep = self.w / 'a/b/c/d'
-        deep.mkdir(parents=True)
-        (deep / 'state.json').write_text((self.e / 'state.json').read_text())
+        stray = self.w / 'stray'
+        stray.mkdir()
+        (stray / 'state.json').write_text((self.e / 'state.json').read_text())
         (self.e / 'state.json').unlink()
         self.assertEqual(self.hook().stdout, '')
 

@@ -1,27 +1,28 @@
 """File-derived reporting and bounded engagement discovery. Stdlib only."""
 import json
 import os
+import subprocess
 from pathlib import Path
 
 from experiment_loop import digest, git, goal, measure, ownership, records, require, shell
 
 
 def engagements(root):
-    """Read version-one states at most three directory levels below root."""
-    root = Path(root)
-    for directory, dirs, files in os.walk(root):
-        dirs[:] = sorted(d for d in dirs if d not in ('.git', 'node_modules')
-                         and not (Path(directory) / d).is_symlink())
-        if len(Path(directory).relative_to(root).parts) >= 3:
-            dirs[:] = []
-        if 'state.json' in files:
-            e = Path(directory)
-            try:
-                s = json.loads((e / 'state.json').read_text())
-                if isinstance(s, dict) and s.get('version') == 1:
-                    yield e, s
-            except (OSError, ValueError):
-                continue
+    """Version-one states registered by `init` in this worktree's git directory."""
+    from experiment_loop import REGISTRY
+    r = subprocess.run(['git', '-C', str(root), 'rev-parse', '--path-format=absolute',
+                        '--git-path', REGISTRY], capture_output=True, text=True, timeout=2)
+    registry = Path(r.stdout.strip()) if r.returncode == 0 else None
+    if registry is None or not registry.is_file():
+        return
+    for line in dict.fromkeys(registry.read_text().splitlines()):
+        e = Path(line)
+        try:
+            s = json.loads((e / 'state.json').read_text())
+        except (OSError, ValueError):
+            continue
+        if isinstance(s, dict) and s.get('version') == 1:
+            yield e, s
 
 
 def status(repo):

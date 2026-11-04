@@ -13,6 +13,7 @@ import sys
 import tempfile
 
 SCRIPTS = Path(__file__).resolve().parent
+REGISTRY = 'research-lab-engagements'
 NUMBER = r'[-+]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][-+]?\d+)?'
 LEVELS = ['small changes', 'larger structural changes',
           'fresh hypotheses from another model family given the full log',
@@ -226,6 +227,10 @@ def init(a, e, check):
              ratchet=None, incumbent=git(w, 'rev-parse', 'HEAD'), trials_used=0,
              consecutive_discards=0, escalation=0, trial=None, exceptions=[], stop_blocks=0)
     save(e, s)
+    # Registry in this worktree's git dir: hooks and status read it instead of walking the tree.
+    registry = Path(git(w, 'rev-parse', '--path-format=absolute', '--git-path', REGISTRY))
+    with registry.open('a') as f:
+        f.write(str(e) + '\n')
     return dict(action='baseline')
 
 

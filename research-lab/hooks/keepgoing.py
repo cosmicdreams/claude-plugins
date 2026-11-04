@@ -7,7 +7,8 @@ import shlex
 import subprocess
 import sys
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'skills/experiment/scripts'))
+SCRIPTS = Path(__file__).resolve().parents[1] / 'skills/experiment/scripts'
+sys.path.insert(0, str(SCRIPTS))
 from experiment_loop import ending, save
 from experiment_report import engagements
 
@@ -23,7 +24,7 @@ def main():
         for e, s in engagements(r.stdout.strip()):
             if s.get('status') != 'running':
                 continue
-            command = 'experiment.py next --engagement ' + shlex.quote(str(e))
+            command = f"python3 {shlex.quote(str(SCRIPTS / 'experiment.py'))} next --engagement {shlex.quote(str(e))}"
             if sys.argv[1] == 'start':
                 print(f"Experiment {e}: {s['strategy']}, trials used {s['trials_used']}, "
                       f"ratchet {s['ratchet']}. Run {command} and do its action.")
