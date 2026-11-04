@@ -9,12 +9,13 @@ import sys
 
 SCRIPTS = Path(__file__).resolve().parents[1] / 'skills/experiment/scripts'
 sys.path.insert(0, str(SCRIPTS))
-from experiment_loop import ending, save
-from experiment_report import engagements
 
 
 def main():
     try:
+        from experiment_loop import ending, live_lock, save
+        from experiment_report import engagements
+
         data = json.load(sys.stdin) if not sys.stdin.isatty() else {}
         cwd = data.get('cwd') or os.getcwd()
         r = subprocess.run(['git', '-C', cwd, 'rev-parse', '--show-toplevel'],
@@ -22,6 +23,8 @@ def main():
         if r.returncode:
             return
         for e, s in engagements(r.stdout.strip()):
+            if live_lock(e):
+                return
             if s.get('status') != 'running':
                 continue
             command = f"python3 {shlex.quote(str(SCRIPTS / 'experiment.py'))} next --engagement {shlex.quote(str(e))}"
@@ -42,7 +45,7 @@ def main():
             save(e, s)
             print(json.dumps(dict(decision='block', reason=f"Experiment {e} is running: run {command} and do its action.")))
             return
-    except (OSError, ValueError, KeyError, subprocess.TimeoutExpired):
+    except (ImportError, OSError, ValueError, KeyError, subprocess.TimeoutExpired):
         return
 
 

@@ -32,10 +32,14 @@ def status(repo):
             continue
         w = line[len('worktree '):]
         for e, s in engagements(w):
-            c = config(Path(s['methodology']).read_text(), s['strategy'])
+            try:
+                budget = config(Path(s['methodology']).read_text(), s['strategy'])['Budget']
+            except (OSError, ValueError):
+                budget = '?'
+
             rows.append(dict(worktree=w, engagement=str(e), strategy=s['strategy'],
                              status=s['status'], trials_used=s['trials_used'],
-                             budget=s.get('budget_override', c['Budget']),
+                             budget=s.get('budget_override', budget),
                              ratchet=s['ratchet'], ending=s['ending']))
     return rows
 

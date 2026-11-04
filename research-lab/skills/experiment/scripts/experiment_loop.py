@@ -1,5 +1,7 @@
 """Persistent scripted experiment loop. No external Python dependencies."""
+from contextlib import contextmanager
 from datetime import datetime, timezone
+import fcntl
 import hashlib
 import json
 import math
@@ -106,6 +108,53 @@ def save(e, s):
     finally:
         if os.path.exists(path):
             os.unlink(path)
+
+
+def live_lock(e):
+    try:
+        pid = int((e / '.lock').read_text())
+        if pid <= 0:
+            return None
+    except (OSError, ValueError):
+        return None
+    try:
+        os.kill(pid, 0)
+        return pid
+    except PermissionError:
+        return pid
+    except ProcessLookupError:
+        return None
+
+
+@contextmanager
+def command_lock(e):
+    path = e / '.lock'
+    while True:
+        try:
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            break
+        except FileExistsError:
+            try:
+                # Serialize stale-lock takeover; another contender may have
+                # replaced the file we opened before we acquired this lock.
+                with path.open() as stale:
+                    fcntl.flock(stale, fcntl.LOCK_EX)
+                    if os.fstat(stale.fileno()).st_ino != path.stat().st_ino:
+                        continue
+                    raw = stale.read().strip()
+                    require(raw.isdecimal() and int(raw) > 0,
+                            'another experiment command is initializing its lock')
+                    pid = live_lock(e)
+                    require(pid is None, f'another experiment command is running (pid {pid})')
+                    path.unlink()
+            except FileNotFoundError:
+                pass
+    try:
+        with os.fdopen(fd, 'w') as f:
+            f.write(str(os.getpid()))
+        yield
+    finally:
+        path.unlink()
 
 
 def shell(w, command):
@@ -222,14 +271,19 @@ def log(e, s, c, m, decision, reason, before=None, change=None, extras=None, gat
             change or (t['change'] if t else 'Confirmation'),
             'fail' if decision == 'retry' else gate,
             json.dumps(before), str(m['median']), str(s['ratchet']), decision, reason, json.dumps(extra)]
-    r = subprocess.run(['bash', str(SCRIPTS.parents[2] / 'scripts/log-iteration.sh'), *args],
-                       capture_output=True, text=True)
-    require(r.returncode == 0, 'logging failed: ' + r.stderr)
+    logged = t and t.get('pending') and any(
+        r.get('commit') == t['commit'] and r['decision'] == decision for r in records(e))
+    if not logged:
+        r = subprocess.run(['bash', str(SCRIPTS.parents[2] / 'scripts/log-iteration.sh'), *args],
+                           capture_output=True, text=True)
+        require(r.returncode == 0, 'logging failed: ' + r.stderr)
     line = (f"[trial {t['id'] if t else s['trials_used']}/{int(c['Budget'])}] {s['strategy']} · {m['median']:g} "
             f"(best {s['ratchet']:g}) target {c['Target']:g} gap {gap(s, c):g} · "
             f"{decision}: {reason} · noise ±{m['mad']:g} · escalation {s['escalation']}")
-    with (e / 'progress.log').open('a') as f:
-        f.write(line + '\n')
+    progress = e / 'progress.log'
+    if not (logged and progress.exists() and line in progress.read_text().splitlines()):
+        with progress.open('a') as f:
+            f.write(line + '\n')
     print(line, file=sys.stderr)
     s['stop_blocks'] = 0
 
@@ -285,18 +339,17 @@ def init(a, e, check):
     return dict(action='baseline')
 
 
-def evaluate(e, s, c, command):
-    """Measurements and resolution; failures preserve the pending trial and ratchet."""
+def evaluate_preconditions(s, command):
+    """Refuse invalid commands before entering the operational pause handler."""
     t, w = s['trial'], s['worktree']
     if command == 'baseline':
         require(s['baseline'] is None and t is None, 'baseline already exists or trial open')
         ownership(s, s['incumbent'])
-        checks = shell(w, c['Checks']).returncode == 0
-        require_clean(w, measurement=True)
-        require(checks, 'baseline checks failed')
     elif command == 'score':
         require(t and t['commit'] and not t.get('rework'), 'commit the trial before scoring')
-        ownership(s, t['commit'])
+        head = git(w, 'rev-parse', 'HEAD')
+        reverted = t.get('pending', {}).get('decision') == 'discard' and is_revert(w, head, t)
+        ownership(s, head if reverted else t['commit'])
         require(git(w, 'rev-list', '--parents', '-n', '1', t['commit']).split() ==
                 [t['commit'], t['base']], 'trial must have exactly the recorded base as parent')
     else:
@@ -304,6 +357,23 @@ def evaluate(e, s, c, command):
         ownership(s, git(w, 'rev-parse', 'HEAD'))
         require(git(w, 'rev-parse', 'HEAD^{tree}') == git(w, 'rev-parse', s['incumbent'] + '^{tree}'),
                 'incumbent tree changed')
+
+
+def is_revert(w, head, t):
+    return (git(w, 'rev-list', '--parents', '-n', '1', head).split() == [head, t['commit']]
+            and 'This reverts commit ' + t['commit'] in git(w, 'log', '-1', '--format=%B')
+            and git(w, 'rev-parse', head + '^{tree}') == git(w, 'rev-parse', t['base'] + '^{tree}'))
+
+
+def evaluate(e, s, c, command):
+    """Preconditions have passed; only operational failures pause the engagement."""
+    t, w = s['trial'], s['worktree']
+    if command == 'score' and t.get('pending'):
+        return finish_trial(e, s, c)
+    if command == 'baseline':
+        checks = shell(w, c['Checks']).returncode == 0
+        require_clean(w, measurement=True)
+        require(checks, 'baseline checks failed')
     outputs = []
     m = measure(s, c, outputs=outputs)
     score = measure(s, c, True, outputs) if s['strategy'] == 'remediate' and c['Score'] else None
@@ -355,39 +425,61 @@ def evaluate(e, s, c, command):
             save(e, s)
             return dict(action='rework', decision='retry', reason=reason)
         decision = 'keep' if better and checks and guard else 'discard'
-        if decision == 'discard':
-            r = subprocess.run([sys.executable, str(SCRIPTS / 'discard-trial.py'),
-                                '--worktree', w, '--branch', s['branch'], '--base', t['base'],
-                                '--trial', t['commit']], capture_output=True, text=True)
-            require(r.returncode == 0, 'discard refused: ' + r.stderr.strip())
-            s['consecutive_discards'] += 1
-            if s['consecutive_discards'] >= c['Futility']:
-                s['escalation'] += 1
-                s['consecutive_discards'] = 0
-                if s['escalation'] > 3:
-                    ending(s, 'paused', 'escalation ladder exhausted without a bound or scope block')
-        else:
-            if c['Tiebreak']:
-                tie = number(w, c['Tiebreak']) if tie is None else tie
+        if decision == 'keep' and c['Tiebreak'] and tie is None:
+            tie = number(w, c['Tiebreak'])
             require_clean(w, measurement=True)
-            update_findings(s, outputs)
-            s.update(incumbent=t['commit'], ratchet=m['median'], consecutive_discards=0, tiebreak=tie)
-            if score:
-                s['score_baseline'] = score
-        s['trials_used'] += 1
-        if s['trials_used'] >= c['Budget'] and not goal(s, c) and s['status'] == 'running':
-            ending(s, 'paused', 'budget spent')
-        log(e, s, c, m, decision, reason, before, extras={'score': score, 'tiebreak_before': tie_before,
-                                   'tiebreak_after': tie, 'readable': readable},
-            gate='pass' if checks and guard else 'fail')
-        s['trial'] = None
+        t['pending'] = dict(decision=decision, reason=reason, m=m, score=score, tie=tie,
+                            gate='pass' if checks and guard else 'fail',
+                            outputs=outputs, tie_before=tie_before, readable=readable)
         save(e, s)
-        return dict(decision=decision, reason=reason, **next_action(e, s, c))
+        return finish_trial(e, s, c)
     save(e, s)
     return next_action(e, s, c)
 
 
+def finish_trial(e, s, c):
+    t, w = s['trial'], s['worktree']
+    p = t['pending']
+    decision, reason, m, score, tie = (p[k] for k in ('decision', 'reason', 'm', 'score', 'tie'))
+    before = s['ratchet']
+    if decision == 'discard':
+        if git(w, 'rev-parse', 'HEAD') == t['commit']:
+            r = subprocess.run([sys.executable, str(SCRIPTS / 'discard-trial.py'),
+                                '--worktree', w, '--branch', s['branch'], '--base', t['base'],
+                                '--trial', t['commit']], capture_output=True, text=True)
+            require(r.returncode == 0, 'discard refused: ' + r.stderr.strip())
+        s['consecutive_discards'] += 1
+        if s['consecutive_discards'] >= c['Futility']:
+            s['escalation'] += 1
+            s['consecutive_discards'] = 0
+            if s['escalation'] > 3:
+                ending(s, 'paused', 'escalation ladder exhausted without a bound or scope block')
+    else:
+        update_findings(s, p['outputs'])
+        s.update(incumbent=t['commit'], ratchet=m['median'], consecutive_discards=0, tiebreak=tie)
+        if score:
+            s['score_baseline'] = score
+    s['trials_used'] += 1
+    if s['trials_used'] >= c['Budget'] and not goal(s, c) and s['status'] == 'running':
+        ending(s, 'paused', 'budget spent')
+    log(e, s, c, m, decision, reason, before,
+        extras={'score': score, 'tiebreak_before': p['tie_before'],
+                'tiebreak_after': tie, 'readable': p['readable']}, gate=p['gate'])
+    s['trial'] = None
+    save(e, s)
+    return dict(decision=decision, reason=reason, **next_action(e, s, c))
+
+
 def dispatch(a, check):
+    locked = a.command in ('baseline', 'confirm') or (
+        a.command == 'trial' and a.trial_command in ('score', 'commit'))
+    if locked:
+        with command_lock(Path(a.engagement).resolve()):
+            return dispatch_unlocked(a, check)
+    return dispatch_unlocked(a, check)
+
+
+def dispatch_unlocked(a, check):
     if a.command == 'status':
         from experiment_report import status
         return status(a.repo)
@@ -426,10 +518,12 @@ def dispatch(a, check):
     require(digest(s['methodology']) == s['methodology_sha256'], 'methodology changed since init')
     cmd = a.command
     if cmd in ('baseline', 'confirm') or (cmd == 'trial' and a.trial_command == 'score'):
+        evaluate_preconditions(s, a.trial_command if cmd == 'trial' else cmd)
         try:
             return evaluate(e, s, c, a.trial_command if cmd == 'trial' else cmd)
         except (ValueError, OSError) as error:
-            # No trial decision/log is written on invalid measurement or refused discard.
+            # Discard in-memory updates; only the durable pending decision may survive.
+            s = json.loads((e / 'state.json').read_text())
             if 'worktree is dirty' not in str(error):
                 try:
                     require_clean(s['worktree'], measurement=True)

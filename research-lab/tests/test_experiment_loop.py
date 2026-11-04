@@ -1,6 +1,7 @@
 """Agent-facing loop acceptance tests using real commits and linked worktrees."""
 import hashlib
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -89,6 +90,79 @@ class LoopTests(unittest.TestCase):
         self.files(metric=value, **values)
         self.commit()
         return self.command('trial', 'score')
+
+    def test_log_failure_replays_pending_keep_and_discard_once(self):
+        self.init('Score: cat score\n', strategy='remediate', target=0)
+        self.baseline()
+        for value, decision, filename in [(8, 'keep', 'results.jsonl'),
+                                          (9, 'discard', 'results.jsonl'),
+                                          (7, 'keep', 'progress.log'),
+                                          (9, 'discard', 'progress.log')]:
+            with self.subTest(decision=decision, failed_log=filename):
+                self.begin()
+                self.files(metric=value, score=101)
+                self.commit()
+                before = self.state()
+                trial = before['trial']['commit']
+                blocked = self.e / filename
+                backup = blocked.read_text()
+                blocked.unlink()
+                blocked.mkdir()
+                self.command('trial', 'score', ok=False)
+                after = self.state()
+                for key in ('trials_used', 'consecutive_discards', 'incumbent', 'ratchet', 'score_baseline'):
+                    self.assertEqual(after[key], before[key])
+                self.assertEqual(after['trial']['pending']['decision'], decision)
+                head = self.git('rev-parse', 'HEAD')
+                if decision == 'discard':
+                    self.assertNotEqual(head, trial)
+                blocked.rmdir()
+                blocked.write_text(backup)
+                self.override.write_text('invalid')  # Replay must not measure again.
+                self.command('resume', '--note', 'logging repaired')
+                self.assertEqual(self.command('trial', 'score')['decision'], decision)
+                final = self.state()
+                self.assertIsNone(final['trial'])
+                self.assertEqual(final['trials_used'], before['trials_used'] + 1)
+                self.assertEqual(final['incumbent'], trial if decision == 'keep' else before['incumbent'])
+                self.assertEqual(final['ratchet'], value if decision == 'keep' else before['ratchet'])
+                self.assertEqual(final['score_baseline']['median'], 101)
+                self.assertEqual(self.git('rev-parse', 'HEAD'), head)
+                self.assertEqual(len([r for r in self.records() if r.get('commit') == trial]), 1)
+                self.assertEqual(len((self.e / 'progress.log').read_text().splitlines()), len(self.records()))
+                self.command('trial', 'score', ok=False)
+                self.assertEqual(self.state(), final)
+                self.override.write_text('')
+
+    def test_precondition_refusals_leave_state_running(self):
+        self.init()
+        self.baseline()
+        self.begin()
+        before = (self.e / 'state.json').read_bytes()
+        self.assertIn('commit the trial', self.command('trial', 'score', ok=False)['reason'])
+        self.command('baseline', ok=False)
+        self.command('confirm', ok=False)
+        self.assertEqual((self.e / 'state.json').read_bytes(), before)
+        self.assertEqual(self.command('next')['action'], 'edit')
+        self.assertEqual(self.state()['status'], 'running')
+
+    def test_commands_refuse_live_lock_and_reclaim_dead_lock(self):
+        self.init()
+        lock = self.e / '.lock'
+        before = (self.e / 'state.json').read_bytes()
+        lock.write_text(str(os.getpid()))
+        for args in [('baseline',), ('confirm',), ('trial', 'score'), ('trial', 'commit')]:
+            out = self.command(*args, ok=False)
+            self.assertIn(f'another experiment command is running (pid {os.getpid()})', out['reason'])
+            self.assertEqual((self.e / 'state.json').read_bytes(), before)
+            self.assertTrue(lock.exists())
+        dead = subprocess.Popen([sys.executable, '-c', 'pass'])
+        dead.wait()
+        lock.write_text(str(dead.pid))
+        self.baseline()
+        self.assertFalse(lock.exists())
+        self.command('baseline', ok=False)
+        self.assertFalse(lock.exists())
 
     def test_measurement_must_leave_tree_clean(self):
         for name, command in [('Measure', './measure.sh; echo generated > artifact; cat metric'),
@@ -318,7 +392,9 @@ class LoopTests(unittest.TestCase):
         before = self.state()
         out = self.command('trial', 'score', ok=False)
         self.assertIn('discard refused', out['reason'])
-        self.assertEqual(self.state()['trial'], before['trial'])
+        trial = self.state()['trial']
+        self.assertEqual(trial.pop('pending')['decision'], 'discard')
+        self.assertEqual(trial, before['trial'])
         self.assertEqual(self.state()['trials_used'], 0)
         self.assertEqual(self.command('next')['action'], 'pause')
         self.assertEqual(len(self.records()), 1)

@@ -1,5 +1,6 @@
 """Stop and session hooks operate only on running engagements registered by `init`."""
 import json
+import os
 from pathlib import Path
 import subprocess
 import sys
@@ -16,6 +17,28 @@ class HookTests(ReportTests):
         return subprocess.run([sys.executable, str(HOOK), command], cwd=self.w,
                               input=json.dumps(dict(cwd=str(cwd or self.w), stop_hook_active=active)),
                               capture_output=True, text=True, timeout=3)
+
+    def test_live_lock_keeps_hook_silent_and_state_unchanged(self):
+        self.init()
+        before = (self.e / 'state.json').read_bytes()
+        (self.e / '.lock').write_text(str(os.getpid()))
+        for command in ('stop', 'start'):
+            r = self.hook(command)
+            self.assertEqual((r.returncode, r.stdout, r.stderr), (0, '', ''))
+            self.assertEqual((self.e / 'state.json').read_bytes(), before)
+
+    def test_import_failure_is_silent(self):
+        for module in ('experiment_loop', 'experiment_report'):
+            code = ("import builtins, runpy\n"
+                    "original = builtins.__import__\n"
+                    "def broken(name, *args, **kwargs):\n"
+                    f"    if name == {module!r}: raise ImportError('broken import')\n"
+                    "    return original(name, *args, **kwargs)\n"
+                    "builtins.__import__ = broken\n"
+                    f"runpy.run_path({str(HOOK)!r}, run_name='__main__')\n")
+            r = subprocess.run([sys.executable, '-c', code], input='{}',
+                               capture_output=True, text=True)
+            self.assertEqual((r.returncode, r.stdout, r.stderr), (0, '', ''))
 
     def test_silent_without_engagement_and_outside_git(self):
         start = time.monotonic()

@@ -172,6 +172,29 @@ class PacketTests(ReportTests):
         (self.e / 'state.json').write_text(json.dumps(state))
         self.assertEqual(self.command('resume', '--note', 'continue')['action'], 'edit')
 
+    def test_status_tolerates_missing_or_unreadable_methodology(self):
+        self.init()
+        other = self.e.parent / 'other'
+        other.mkdir()
+        method = self.root / 'other-method.md'
+        method.write_text(self.method.read_text())
+        state = self.state()
+        state['methodology'] = str(method)
+        (other / 'state.json').write_text(json.dumps(state))
+        registry = self.git('rev-parse', '--path-format=absolute', '--git-path', 'research-lab-engagements')
+        with open(registry, 'a') as f:
+            f.write(str(other) + '\n')
+        self.method.unlink()
+        for unreadable in (False, True):
+            if unreadable:
+                self.method.mkdir()
+            r = subprocess.run([sys.executable, str(SCRIPT), 'status', '--all', '--repo', str(self.repo)],
+                               capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            rows = {row['engagement']: row for row in map(json.loads, r.stdout.splitlines())}
+            self.assertEqual(rows[str(self.e)]['budget'], '?')
+            self.assertEqual(rows[str(other)]['budget'], 20)
+
     def test_status_lists_running_engagement(self):
         self.init()
         r = subprocess.run([sys.executable, str(SCRIPT), 'status', '--all', '--repo', str(self.repo)],
