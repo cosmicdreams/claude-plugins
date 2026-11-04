@@ -165,6 +165,8 @@ unknown change to the tree). Report it; Chris (or the agent on his instruction) 
 JUDGED resolve --decision withdraw|retry|continue|reject --note "…" [--worktree W]
 ```
 
+`continue` and `reject` require `--worktree W` (they record its tree).
+
 | decision | Effect |
 |---|---|
 | `withdraw` | Requires a pending trial. `next` reverts a committed one through the guarded helper, logs `skip` (`withdrawn: by Chris`), and makes the calibration stale. The change may be proposed again. |
@@ -177,7 +179,7 @@ Withdrawn trials do not consume iterations or move the futility streak.
 ## Human review
 
 At `stop target`, Chris reviews the incumbent's artifacts. Approval needs no record; the run is
-finished. A rejection is `JUDGED resolve --decision reject --note "<why>"`: target no longer
+finished. A rejection is `JUDGED resolve --decision reject --note "<why>" --worktree W`: target no longer
 stops for that tree, the climb continues, and the note appears in the next diagnostics.
 
 ## Diagnostics

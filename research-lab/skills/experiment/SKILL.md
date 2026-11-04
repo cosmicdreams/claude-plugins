@@ -124,7 +124,7 @@ Judged runs log only the `args` that `next` returns.
 ## Step 3 — Termination
 
 Stop on target, budget, or futility (consecutive discards). Judged: on `stop target`, Chris
-reviews the artifacts; a rejection is `JUDGED resolve --decision reject` and the climb continues.
+reviews the artifacts; a rejection is `JUDGED resolve --decision reject --worktree W` and the climb continues.
 
 Report: keeps vs discards, final ratchet vs baseline, failure pattern; scripted adds the
 improvement percentage, judged adds the latest calibrated or confirmed *M*, judge requests spent,

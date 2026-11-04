@@ -354,8 +354,11 @@ def diagnostics(eng, all_evals, results, resolutions, tree):
         if ev['id'] in done and items:
             add(ev['id'], items, 'incumbent')
             if out: break
-    tried = [r['eval'] for r in results if r.get('decision') == 'discard' and r.get('eval')]
-    if tried: add(tried[-1], {'candidate'}, 'tried')
+    # Tried: candidates discarded against the current incumbent (plan §6).
+    by_id = {ev['id']: ev for ev in all_evals}
+    for r in results:
+        if r.get('decision') == 'discard' and by_id.get(r.get('eval'), {}).get('incumbent_tree') == tree:
+            add(r['eval'], {'candidate'}, 'tried')
     out += [dict(eval=r.get('last_eval'), kind='review', text=r['note']) for r in resolutions
             if r.get('decision') == 'reject' and r.get('tree') == tree]
     return out
