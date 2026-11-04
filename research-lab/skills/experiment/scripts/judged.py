@@ -13,31 +13,26 @@ for name in ('validate', 'capture', 'trial', 'open', 'score', 'abandon',
         p.add_argument('operation', choices=('begin', 'commit'))
     p.add_argument('--engagement', required=True)
     p.add_argument('--protocol', required=True)
-    if name == 'validate':
-        p.add_argument('--host')
-    if name in ('capture', 'trial', 'checks', 'resolve', 'next'):
-        p.add_argument('--worktree', required=name in ('capture', 'trial', 'checks', 'next'))
-    if name == 'capture':
-        p.add_argument('--role', required=True, choices=('incumbent', 'candidate'))
-    if name == 'trial':
-        p.add_argument('--change')
-    if name in ('open', 'next'):
-        p.add_argument('--panel', required=True)
-    if name == 'open':
-        p.add_argument('--purpose', required=True, choices=('calibrate', 'confirm', 'measure'))
-        p.add_argument('--seed', required=True, type=int)
-    if name in ('score', 'abandon', 'invalidate', 'checks'):
-        p.add_argument('--eval', required=True)
-    if name == 'invalidate':
-        p.add_argument('--reason', required=True)
+    for commands, flag, options in (
+        ('validate', 'host', dict(required=False)),
+        ('capture trial checks resolve next', 'worktree', dict(required=name != 'resolve')),
+        ('capture', 'role', dict(choices=('incumbent', 'candidate'))),
+        ('trial', 'change', dict(required=False)),
+        ('open next', 'panel', {}),
+        ('open', 'purpose', dict(choices=('calibrate', 'confirm', 'measure'))),
+        ('open', 'seed', dict(type=int)),
+        ('score abandon invalidate checks', 'eval', {}),
+        ('invalidate', 'reason', {}),
+        ('checks', 'details', dict(required=False)),
+        ('resolve', 'decision', dict(choices=('withdraw', 'retry', 'continue', 'reject'))),
+        ('resolve', 'note', {}),
+    ):
+        if name in commands.split():
+            p.add_argument('--' + flag, **({'required': True} | options))
     if name == 'checks':
         g = p.add_mutually_exclusive_group(required=True)
-        g.add_argument('--passed', action='store_true')
-        g.add_argument('--failed', action='store_true')
-        p.add_argument('--details')
-    if name == 'resolve':
-        p.add_argument('--decision', required=True, choices=('withdraw', 'retry', 'continue', 'reject'))
-        p.add_argument('--note', required=True)
+        for flag in ('passed', 'failed'):
+            g.add_argument('--' + flag, action='store_true')
 
 import hashlib
 import os
@@ -72,6 +67,7 @@ def write_json(path, value):
         os.replace(name, path)
     finally:
         if os.path.exists(name): os.unlink(name)
+    return value
 
 
 def canonical(value):
@@ -308,12 +304,9 @@ def score_eval(eng, dest, meta, p):
         roles = list(meta['panel']); cats = list(p['categories'])
         baseline = {r: {ref: {c: sum(raw[(r,k)][ref][c] for k in (1,2)) / 2 for c in cats} for ref in refs} for r in roles} if meta['purpose'] != 'measure' else None
         cal = read_json(eng / 'evals' / (meta.get('calibration') or '') / 'result.json', {})
-        drift = False
-        if meta['purpose'] != 'calibrate':
-            for (r,k), vals in raw.items():
-                for ref in refs:
-                    for c in cats:
-                        if abs(vals[ref][c] - cal['reference_baseline'][r][ref][c]) > 2 * cal['margin']: drift = True
+        drift = meta['purpose'] != 'calibrate' and max((
+            abs(vals[ref][c] - cal['reference_baseline'][r][ref][c]) > 2 * cal['margin']
+            for (r, k), vals in raw.items() for ref in refs for c in cats), default=False)
         def value(vals, item, cat):
             return vals[item][cat] - (max(vals[ref][cat] for ref in refs) if p['relative_to'] == 'references' else 0)
         if drift: result = dict(status='invalid', reason='reference drift', drift=True, margin=cal['margin'])
@@ -334,8 +327,7 @@ def score_eval(eng, dest, meta, p):
         write_json(dest / 'critiques.json', critiques)
     except (ValueError, KeyError, TypeError, OSError) as e:
         result = dict(status='invalid', reason=str(e) or 'invalid return')
-    write_json(dest / 'result.json', result)
-    return result
+    return write_json(dest / 'result.json', result)
 
 
 def head_state(work, trial):
@@ -497,17 +489,19 @@ def run(a):
         if not meta or any(r.get('eval') == a.eval for r in results): raise ValueError('missing or finalized eval')
         result = read_json(dest / 'result.json')
         if a.command == 'abandon':
-            if result and result != dict(status='invalid', reason='abandoned'): raise ValueError('already scored')
+            invalid = dict(status='invalid', reason='abandoned')
+            if result and result != invalid: raise ValueError('already scored')
             if result: return result
-            result = dict(status='invalid', reason='abandoned'); write_json(dest / 'result.json', result); return result
+            return write_json(dest / 'result.json', invalid)
         if a.command == 'invalidate':
-            if not result or result.get('status') == 'invalid': raise ValueError('not scored or already invalid')
+            if not result or result.get('status') == 'invalid':
+                raise ValueError('not scored or already invalid')
             os.replace(dest / 'result.json', dest / 'result.scored.json')
-            result = dict(status='invalid', reason=a.reason); write_json(dest / 'result.json', result); return result
+            return write_json(dest / 'result.json', dict(status='invalid', reason=a.reason))
         if a.command == 'checks':
             if not result or result.get('status') not in ('valid', 'keep'): raise ValueError('not eligible for checks')
             check = dict(tree=git(a.worktree, 'rev-parse', 'HEAD^{tree}'), fingerprint=protocol_fingerprint(p, path.parent, eng, sections), passed=a.passed, details=a.details)
-            write_json(dest / 'checks.json', check); return check
+            return write_json(dest / 'checks.json', check)
         if result: raise ValueError('already scored')
         return score_eval(eng, dest, meta, p)
     if a.command == 'resolve':
@@ -534,8 +528,7 @@ def run(a):
         else:
             if not trial or trial.get('commit') or trial['worktree'] != str(work) or trial['branch'] != branch or head == trial['base'] or git(work, 'rev-list', '--parents', '-n', '1', 'HEAD').split()[1:] != [trial['base']]: raise ValueError('invalid trial commit')
             trial['commit'] = head
-        write_json(eng / 'trial.json', trial)
-        return trial
+        return write_json(eng / 'trial.json', trial)
     if a.role == 'incumbent' and trial and trial.get('commit'): raise ValueError('committed trial pending')
     if a.role == 'candidate' and (not trial or not trial.get('commit') or trial['commit'] != head): raise ValueError('candidate requires trial commit')
     _, _, _, p = methodology(path)
