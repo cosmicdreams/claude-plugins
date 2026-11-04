@@ -264,8 +264,9 @@ def open_eval(a, eng, path, p, sections, trial, results):
             d = dest / f'{role}-{k}'; write_json(d / 'mapping.json', mapping)
             request = 'Judge only the text given. Do not read files or run commands. Return JSON with items, score and critique for each category. Scores must be 0 to 10.\n\n'
             request += '\n'.join(f'{c}: {rubric}' for c, rubric in p['categories'].items()) + '\n\n'
-            cell = {'score': '<number 0-10>', 'critique': '<one sentence>'}
+            cell = {'score': 0, 'critique': '<one sentence>'}
             shape = {'items': {label: dict.fromkeys(p['categories'], cell) for label in mapping}}
+            request += 'Each score is a JSON number from 0 to 10, not a string. '
             request += 'Reply with only this JSON, filled in:\n' + json.dumps(shape, indent=1) + '\n\n'
             request += '\n\n'.join(f'## {label}\n{texts[meaning]}' for label, meaning in mapping.items())
             (d / 'request.md').write_text(request, encoding='utf-8')

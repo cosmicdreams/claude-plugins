@@ -60,7 +60,8 @@ correctness checks, scope constraints.
 
 - Scripted: two metrics, mixed qualitative and quantitative criteria, or no clear direction →
   STOP and ask for the methodology to be fixed.
-- Judged: confirm `mcp__t3-code__delegate_task` is available (else refuse: judged runs need
+- Judged: **refused for now** — the acceptance smoke test failed; STOP and point to **Status** in
+  `judged-metrics.md`. Once unblocked: confirm `mcp__t3-code__delegate_task` is available (else refuse: judged runs need
   T3), then run `JUDGED validate --host t3`. Any error → STOP and report; warnings (unmonitored
   drift) go to Chris. No Step 1.5: calibration is the baseline, and Step 2 runs only as `next`
   directs (2a–2c on `propose`; 2d–2g are its capture, open, score, checks and log actions).

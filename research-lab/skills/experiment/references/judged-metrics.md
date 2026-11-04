@@ -10,6 +10,15 @@ around it by hand.
 
 Judged runs execute in the orchestrating T3 session. The `experimentalist` agent refuses them.
 
+## Status: blocked
+
+The plan's acceptance smoke test failed on 2026-11-04, so judged runs are refused until a rerun
+passes. Its first calibration was invalid for two integration reasons, both since addressed:
+the panel omitted an option the host reports (`fastMode: false` for Claude judges; see Panel),
+and a judge copied a string placeholder as its score (requests now show a numeric one). The
+failure record is in the engagement `analysis-reports/research/experiment-hill-climb/smoke-result.md`.
+Lift this block only by rerunning the smoke test and recording a pass here.
+
 ---
 
 ## Judging Protocol
@@ -66,7 +75,9 @@ Before each `open`, build `panel.json` = `{"<role>": {"provider", "model", "opti
 with exactly the protocol's roles. Resolve each role's tier through the global routing table and
 `~/.claude/model-access.md` (the denylist); honor `distinct_family`. Run `~/bin/allowance`: a
 pool under 10% remaining **pauses** the run (report it and stop). Never substitute another model
-for that reason. The panel changes only when routing or the denylist changes; a changed panel
+for that reason. `options` must list every option the host reports for that model, including
+defaults it adds (for example Claude judges report `fastMode: false`); `score` compares them
+exactly. The panel changes only when routing or the denylist changes; a changed panel
 makes the active calibration stale. Pass the same file to `next` and `open`.
 
 ## Metric and keep rule

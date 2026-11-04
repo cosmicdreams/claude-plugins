@@ -2,6 +2,8 @@
 
 ## 5.1.0 — 2026-11-03
 
+**Judged path ships blocked.** The acceptance smoke test failed on its first calibration (provider-reported option missing from the panel; a string score). Both causes are fixed; `metric_type: judged` stays refused until a rerun passes. Everything else below is active.
+
 **Judged metrics (v1, text only).** `research-lab:experiment` can hill-climb a metric that a panel of model judges produces.
 
 - Methodology section 1 takes `metric_type: scripted | judged` (absent = `scripted`; existing methodologies are unchanged). Judged methodologies add section 9, Judging Protocol. Spec: `skills/experiment/references/judged-metrics.md`.
