@@ -25,7 +25,7 @@ CHECK [--strategy S] [--scorer C] [--methodology M]
 
 It prints JSON `{status, strategy, scorer, source, missing, reason}`:
 
-- `ready` (exit 0): proceed, no pause.
+- `ready` (exit 0): proceed, no pause. When `source.scorer` is `default` (a strategy was preloaded without a scorer), ask the router's scorer question; if it says `council`, re-run with `--scorer council`.
 - `route` (exit 2): no strategy was given. Run the router below, show the card, pause.
 - `refused` (exit 1): STOP and report `reason` and every `missing` item. Never fill a missing input by guessing.
 

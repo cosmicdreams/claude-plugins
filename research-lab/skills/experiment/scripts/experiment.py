@@ -23,10 +23,12 @@ NUMBER = r'[-+]?\d+(?:\.\d+)?'
 
 
 def field(text, name):
-    """`name: value` or `**Name:** value` at line start; first match, lowercased value."""
-    m = re.search(rf'^\s*(?:[-*]\s*)?(?:\*\*)?{name}(?:\*\*)?\s*:\s*(?:\*\*)?\s*(.+?)\s*$',
+    """`name: value` or `**Name:** value` on one line; first match, or None when absent or empty."""
+    h = r'[ \t]*'  # never \s: an empty field must not swallow the next line
+    m = re.search(rf'^{h}(?:[-*]{h})?(?:\*\*)?{name}(?:\*\*)?{h}:{h}(?:\*\*)?{h}(.*?){h}$',
                   text, re.M | re.I)
-    return m.group(1).strip().strip('`*').strip() if m else None
+    value = m.group(1).strip().strip('`*').strip() if m else ''
+    return value or None
 
 
 def sections(text):

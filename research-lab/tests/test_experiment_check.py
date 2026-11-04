@@ -1,5 +1,6 @@
 """Contract tests for `experiment.py check`: strategy/scorer precedence and refusals."""
 import json
+import re
 from pathlib import Path
 import subprocess
 import sys
@@ -7,8 +8,8 @@ import tempfile
 import unittest
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'skills' / 'experiment' / 'scripts' / 'experiment.py'
-TEMPLATE = (Path(__file__).resolve().parents[2] / 'drupal-lab' / 'skills' / 'optimize'
-            / 'references' / 'methodology-template.md')
+OPTIMIZE = Path(__file__).resolve().parents[2] / 'drupal-lab' / 'skills' / 'optimize'
+TEMPLATE = OPTIMIZE / 'references' / 'methodology-template.md'
 
 CLIMB = """# Methodology: demo
 
@@ -85,6 +86,13 @@ class CheckTests(unittest.TestCase):
         self.assertEqual(code, 1)
         self.assertIn('target: a numeric target value', out['missing'])
 
+    def test_empty_fields_do_not_read_the_next_line(self):
+        text = CLIMB.replace('**Target:** 200', '**Target:**').replace('- Budget: 20', '- Budget:')
+        code, out = self.run_check('--strategy', 'climb', '--methodology', self.method(text))
+        self.assertEqual(code, 1)
+        self.assertIn('target: a numeric target value', out['missing'])
+        self.assertIn('budget: maximum iterations', out['missing'])
+
     def test_missing_sections_listed(self):
         text = CLIMB.split('## 5.')[0]
         code, out = self.run_check('--strategy', 'climb', '--methodology', self.method(text))
@@ -139,14 +147,19 @@ class CheckTests(unittest.TestCase):
         code, out = self.run_check('--scorer', 'council')
         self.assertEqual((code, out['scorer'], out['source']), (2, 'council', {'scorer': 'argument'}))
 
-    def test_drupal_lab_template_shape_is_accepted(self):
-        """The caller's methodology template, filled in, passes as a climb."""
+    def test_drupal_lab_optimize_handoff_is_ready_without_pause(self):
+        """drupal-lab:optimize's actual invocation args plus its filled template are `ready`."""
+        call = re.search(r'Skill\("research-lab:experiment", args="([^"]+)"\)',
+                         (OPTIMIZE / 'SKILL.md').read_text())
+        args = dict(kv.split('=', 1) for kv in call.group(1).split())
         body = TEMPLATE.read_text().split('```markdown', 1)[1].rsplit('```', 1)[0]
         filled = (body.replace('<Numeric target value>', '0.95')
                       .replace('<"higher is better" or "lower is better">', 'higher is better')
                       .replace('<max iterations, e.g., 20>', '20'))
-        code, out = self.run_check('--strategy', 'climb', '--methodology', self.method(filled))
+        flags = [x for k in ('strategy', 'scorer') if k in args for x in (f'--{k}', args[k])]
+        code, out = self.run_check(*flags, '--methodology', self.method(filled))
         self.assertEqual(code, 0, out)
+        self.assertEqual(out['source'], {'strategy': 'argument', 'scorer': 'argument'})
 
 
 if __name__ == '__main__':

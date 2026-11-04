@@ -31,7 +31,7 @@ Work in an exclusively owned, linked experiment worktree — never the primary c
 
 Args may preload `strategy=<remediate|climb|compare|explore|auto>` and `scorer=<scripted|council|auto>`. Run `CHECK --strategy S --scorer C --methodology M` with whatever was given (per `strategies.md`):
 
-- `ready` → continue to Input contract; no pause.
+- `ready` → continue to Input contract; no pause. If `source.scorer` is `default` (strategy preloaded, scorer not), ask the router's scorer question; if the answer is `council`, re-run `CHECK` with `--scorer council` and obey it.
 - `route` → run the router in `strategies.md`. "Not an experiment" → say so in one line and stop. Otherwise write and show the strategy card, with a drafted `methodology.md` if none was given, and **pause** for accept, edit or switch. Re-run `CHECK` with the accepted choice.
 - `refused` → STOP; report `reason` and each `missing` item.
 

@@ -1,5 +1,9 @@
 # Changelog
 
+## 4.0.1 — 2026-11-04
+
+- `optimize` preloads `strategy=climb scorer=scripted` when it hands off to `research-lab:experiment`, so the experiment runs unattended instead of stopping at research-lab 5.1.0's new strategy router.
+
 ## 4.0.0 — 2026-09-29
 
 **Breaking: `issue-worker` agent removed.** The main session with drupal-lab skills does this work; nothing dispatched it.
