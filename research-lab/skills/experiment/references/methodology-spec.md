@@ -8,10 +8,13 @@ Format definition for `05-methodology.md` files. The experimentalist reads this 
 
 A valid methodology.md MUST contain all of these:
 
+Judged methodologies use headings of the form `## <n>. <Title>`; `judged.py` parses them.
+
 ### 1. Objective
+- `metric_type: scripted` or `metric_type: judged` on its own line (absent = `scripted`)
 - What metric is being optimized
-- Target value (numeric, measurable)
-- Direction: is lower better or higher better?
+- Target value (numeric, measurable); for judged, the Judging Protocol's `target`
+- Direction: is lower better or higher better? Judged is always `direction: higher`
 
 ### 2. Baseline
 - Current measured value of the metric
@@ -46,6 +49,11 @@ A valid methodology.md MUST contain all of these:
 - Path where changes are made
 - Git branch/worktree context
 
+### 9. Judging Protocol (judged only)
+- Required when section 1 says `metric_type: judged`; forbidden otherwise
+- Heading `## 9. Judging Protocol`, holding one fenced `judging-protocol` JSON block
+- Fields and rules: `judged-metrics.md`
+
 ---
 
 ## Optional Sections
@@ -64,9 +72,10 @@ A valid methodology.md MUST contain all of these:
 ## Validation
 
 Before starting the experiment loop, the experimentalist should verify:
-1. All 8 required sections are present
+1. All 8 required sections are present (9 for judged)
 2. The measurement harness runs successfully and produces a number
 3. The working directory is accessible and has a clean git state
 4. The correctness checks can be executed
+5. Judged: `judged.py validate --host t3` passes (it replaces 2)
 
 If any validation fails, report to the PI before proceeding.

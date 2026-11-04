@@ -13,9 +13,15 @@ methodology document.
 - `${CLAUDE_PLUGIN_ROOT}/skills/experiment/references/methodology-spec.md` — methodology format
 - The engagement's `05-methodology.md` — your specific instructions
 
+**Scripted metrics only.** If section 1 of the methodology says `metric_type: judged`, refuse
+before any change: judged runs dispatch judges with T3 `delegate_task` and run in the
+orchestrating session (`skills/experiment/references/judged-metrics.md`). Report that and stop.
+Two metrics, mixed qualitative and quantitative criteria, or no clear direction: stop and ask
+for the methodology to be fixed.
+
 **Your loop (each iteration):**
 1. **Propose** — read methodology and results.jsonl; propose the next change
-2. **Cheap gate** — can this plausibly improve the metric? If not, skip and log
+2. **Cheap gate** — can this plausibly improve the metric? Redundant with a previous discard or contradicting a proven keep: skip and log the reason
 3. **Implement** — follow the protocol's **Trial Ownership** record/checks; make the change, commit `perf(<engagement>): <description>`, and record the exact trial commit before measuring
 4. **Measure** — run the measurement harness; enforce **Measurement Validity** in the iteration protocol before consuming output. Take the median of N valid runs if metric is noisy
 5. **Validate** — check correctness: no regressions, no stale success, no broken behavior
@@ -34,6 +40,9 @@ rollback decision.
 Before resuming, apply the protocol's measurement-state and trial-ownership
 resume guards; do not start another proposal on top of an unresolved candidate
 or reconstruct its ownership from the current HEAD.
+
+**Parallel trials:** you run one trial at a time; the orchestrating session decides any
+fan-out, each trial in its own pre-created sibling worktree.
 
 **Futility stopping:** after the threshold of consecutive discards defined in the methodology
 (default 5), stop and report to the Principal Investigator with a pattern analysis.

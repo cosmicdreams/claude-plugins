@@ -1,5 +1,17 @@
 # research-lab Changelog
 
+## 5.1.0 — 2026-11-03
+
+**Judged metrics (v1, text only).** `research-lab:experiment` can hill-climb a metric that a panel of model judges produces.
+
+- Methodology section 1 takes `metric_type: scripted | judged` (absent = `scripted`; existing methodologies are unchanged). Judged methodologies add section 9, Judging Protocol. Spec: `skills/experiment/references/judged-metrics.md`.
+- New `skills/experiment/scripts/judged.py` holds every judged state rule; `next` decides each step. Paired keep rule (incumbent and candidate in one measurement, calibrated margin), reference drift invalidation, confirmation before stopping at target, `trial.json` ownership, judge budget counted at open across restarts, judge critiques fed into Propose. Unexpected events pause the run until `resolve`; there is no automatic recovery.
+- Judges run through T3 `delegate_task` in the orchestrating session; the `experimentalist` agent refuses judged runs. Artifacts are UTF-8 text sent inline; blinding is by instruction only. Screenshot judging is deferred.
+- `log-iteration.sh` takes an optional 10th argument: a JSON object of extra fields, refused if it uses a reserved key. Nine-argument calls are unchanged. New decisions `calibrate`, `confirm`, `invalid`.
+- `generate-chart.py` prints a judged summary (latest calibrated or confirmed M, no cross-measurement improvement percentage). Scripted output is unchanged.
+
+**Description and triggers.** The skill now triggers on "hill climb", "climb this" and "run an experiment". Retired phrases: "iterate on this", "optimize with methodology", "autoresearch loop". Explicit invocation (`research-lab:experiment`, including from `drupal-lab:optimize`) is unaffected.
+
 ## 5.0.0 — 2026-09-29
 
 **Breaking: `principal-investigator` agent removed.** Its job was choosing among the verbs, which the main session does, and its main tool (Workflow) is not available to subagents.

@@ -9,6 +9,24 @@ copy. They guard against false-success states found during the plugin audit:
 4. Failed measurement pages disappearing from the sample and improving its mean.
 5. A teaching learner receiving the reference answers instead of answering blind.
 6. Discard targeting a different commit or worktree after experiment state drifts.
+7. A judged keep from a stale, drifted or invalid evaluation, or one that reads an
+   earlier measurement's metric.
+8. A judged keep without passing checks for that tree and protocol fingerprint.
+9. A second revert of a trial that was already reverted.
+10. A lost discard: a reverted trial never logged, or logged without its revert.
+11. Judge budget lost across restarts (requests count when an evaluation opens).
+
+Judged-metric tests (`judged.py`, v1 contract in
+`analysis-reports/research/experiment-hill-climb/scope.md`):
+
+- `test_judged.py` — validate, capture, trial, open, score, abandon, invalidate,
+  checks, resolve.
+- `test_judged_next.py` — every `next` gate and rule; `next` writes nothing.
+- `test_judged_lifecycle.py` — whole runs driven through subprocesses, with
+  restarts and interruptions.
+- `judged_fixtures.py` — shared fixtures (text artifacts, fake judge returns).
+- `test_log_iteration.py`, `test_generate_chart.py` — log extras argument and the
+  judged chart summary.
 
 Run from the repository root:
 
@@ -32,5 +50,5 @@ merely refusing every operation is not a correct fix.
 
 These are correctness regressions, **not** an Astra/Fable benchmark. They do not
 establish real-service compatibility, prove skill effectiveness, guarantee that a
-model obeys the learner's evidence boundary, make arbitrary concurrent Git
+model obeys the learner's evidence boundary or a judge's blinding instruction, make arbitrary concurrent Git
 operations safe, or address all setup/dedup failures.

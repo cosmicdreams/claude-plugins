@@ -30,11 +30,32 @@ Each line in `results.jsonl` is a JSON object:
 | `timestamp` | ISO 8601 | When the iteration completed |
 | `change` | string | Human-readable description of what was changed |
 | `gate` | "pass" \| "skip" | Whether the cheap gate passed or the iteration was skipped |
-| `metric_before` | float | Ratchet value before this iteration |
+| `metric_before` | float \| null | Ratchet value before this iteration (null for a judged run's first calibration) |
 | `metric_after` | float \| null | Measured value (null if skipped) |
-| `ratchet` | float | Ratchet value after this iteration (updated on keep, unchanged on discard) |
-| `decision` | "keep" \| "discard" \| "skip" | The iteration outcome |
+| `ratchet` | float \| null | Ratchet value after this iteration (updated on keep, unchanged on discard) |
+| `decision` | "keep" \| "discard" \| "skip" \| "calibrate" \| "confirm" \| "invalid" | The iteration outcome; the last three are judged only |
 | `reason` | string | Why this decision was made |
+
+### Judged Records
+
+Judged runs (`judged-metrics.md`) write records only from the `args` that `judged.py next`
+returns, which pass a 10th extras argument to `log-iteration.sh`:
+
+| Decision | Meaning | `metric_after` | `ratchet` |
+|---|---|---|---|
+| `calibrate` | Incumbent scored against itself (start, or after staleness) | null | calibrated *M* |
+| `confirm` | Re-score of the incumbent before stopping at target | null | confirmed *M* |
+| `invalid` | Evaluation supplied no measurement (error, drift, stale, failed incumbent checks) | null | unchanged |
+| `keep` / `discard` | Decided in one measurement | *M(C)* | *M(C)* on keep, *M(I)* on discard |
+
+Extras fields: `metric_type` (`"judged"`), `eval`, `tree`, `drift`, `cells`, `references`
+(present when known). A human rejection at target is not a record: it is a `reject` entry in
+`resolutions.jsonl`.
+
+`log-iteration.sh` takes an optional 10th argument, a JSON object merged into the record. It
+fails without writing when that is not an object or contains a reserved key (`iteration`,
+`timestamp`, `change`, `gate`, `metric_before`, `metric_after`, `ratchet`, `decision`,
+`reason`). Nine-argument calls behave as before.
 
 ### Skip Records
 
@@ -104,6 +125,11 @@ pause for reconciliation instead of stacking another candidate or applying a
 decision to different code. A later unrelated commit is not permission to
 automatically revert an older trial underneath it.
 
+**Judged runs** record the same values in `trial.json` in the engagement directory, written
+only by `judged.py trial begin` and `trial commit`: `iteration`, `worktree` (realpath),
+`branch`, `base`, `base_tree`, `commit` (null until committed), `change`. Engagement notes are
+not used for them. Scripted runs keep the notes above.
+
 ### Staging Discipline
 **Only stage files related to the current iteration's change.** Use `git add <specific-files>` rather than `git add -A` or `git add .`. If earlier phases modified files (e.g., module uninstalls during diagnostic investigation), those changes must NOT be included in iteration commits.
 
@@ -143,6 +169,23 @@ Git generates: `Revert "perf(<engagement>): <description>"`
 
 ---
 
+## Engagement Layout (judged runs)
+
+All state lives in the engagement directory, outside the candidate worktree:
+
+```
+results.jsonl            log-iteration.sh records
+trial.json               trial ownership (judged.py trial only)
+resolutions.jsonl        pause resolutions (judged.py resolve only)
+references/              frozen reference copies + manifest.json
+captures/<tree>-<cfp12>-<n>/   valid captures (manifest.json + files)
+captures/<role>-failures.jsonl failed captures
+evals/e0001/eval.json, <role>-<k>/{request.md, mapping.json, invocation.json, return.json},
+            result.json, result.scored.json?, critiques.json, checks.json
+```
+
+---
+
 ## Measurement Validity
 
 Check the harness exit status before consuming its output. A measurement is usable
@@ -176,6 +219,9 @@ the previous ratchet, or an average of surviving pages.
 - **Repeated measurements:** compute the across-run median only after all N
   required runs are valid under that recovery policy. Do not quietly drop a
   failed run to obtain a better median.
+- **Drift (judged):** a measurement whose reference scores moved more than twice the margin
+  from the calibration baseline is invalid, not a measurement. It is logged `invalid` and the
+  run pauses (`judged-metrics.md`). Recovery is a `judged.py resolve` decision.
 
 The bundled harness produces one across-page mean per complete run. The noise
 protocol below still takes the median across N such runs; these are distinct
@@ -194,6 +240,12 @@ aggregation layers.
    - For cache hit rate: higher is better
 6. **Ties** — metric equal to ratchet = discard (must be strictly better)
 
+**Judged runs** keep only on a paired comparison: incumbent and candidate scored in the same
+measurement, *M(C) − M(I)* above the calibrated margin, no cell worse by more than the margin,
+and checks passed for that tree and fingerprint (`judged-metrics.md`). The decision never reads
+the stored ratchet. Each ratchet value comes from a different measurement, so the ratchet can
+move down between measurements.
+
 ---
 
 ## Futility Stopping
@@ -209,6 +261,9 @@ Track consecutive discards (including skips).
 
 ### Futility Reset
 A keep resets the consecutive discard counter to 0.
+
+Judged `invalid`, `calibrate` and `confirm` records and `withdrawn:` skips neither extend nor
+reset the count, and do not consume iterations.
 
 ---
 
