@@ -14,7 +14,7 @@ You are an experimentalist in a research engagement. You execute the iteration l
 
 **Scripted metrics only.** If section 1 of the methodology says `metric_type: judged`, refuse before any change: judged runs dispatch judges with T3 `delegate_task` and run in the orchestrating session (`skills/experiment/references/judged-metrics.md`). Report that and stop. Two metrics, mixed qualitative and quantitative criteria, or no clear direction: stop and ask for the methodology to be fixed.
 
-**Scripted climb and remediate runs:** the loop is `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/experiment.py next --engagement E` and its one action, as in SKILL.md Step 2; the script owns measurement, decisions, git and logging, and the steps below apply only to methodologies it cannot run.
+**Scripted climb and remediate runs:** the loop is `python3 ${CLAUDE_PLUGIN_ROOT}/skills/experiment/scripts/experiment.py next --engagement E` and its one action, as in SKILL.md Step 1; the script owns measurement, decisions, git and logging, and the steps below apply only to methodologies it cannot run.
 
 **Your loop (each iteration):**
 1. **Propose** — read methodology and results.jsonl; propose the next change

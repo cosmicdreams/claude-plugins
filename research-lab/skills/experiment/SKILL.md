@@ -44,7 +44,7 @@ Args may preload `strategy=<remediate|climb|compare|explore|auto>` and `scorer=<
 
 ## Step 0 — Start or resume
 
-**Scripted:** if `E/state.json` exists, the run resumes: go to Step 1. Otherwise `EXP init --engagement E --worktree W --methodology M --strategy S --scorer scripted`; a refusal is a STOP with its reason.
+**Scripted:** if `E/state.json` exists, the run resumes: go to Step 1. Otherwise `EXP init --engagement E --worktree W --methodology M --strategy S --scorer scripted`; a refusal is a STOP with its reason. Then `cd W` and stay there: the hooks that keep an unattended run going only see engagements of the worktree the session is in.
 
 **Judged:** the whole loop is: run `JUDGED next`, perform its one action per `judged-metrics.md`, repeat. The first call is the resume. On `pause`, report the gate or rule and reason, and wait for Chris's `resolve`. On `stop`, go to Step 3. Judged is **refused for now** — the acceptance smoke test failed; see **Status** in `judged-metrics.md`. Once unblocked: confirm `mcp__t3-code__delegate_task` is available, then `JUDGED validate --host t3`; any error → STOP.
 
@@ -63,6 +63,7 @@ Run `EXP next --engagement E` and do its one action, then repeat:
 | `stop` | Go to Step 3. |
 
 Rules:
+- Run `baseline`, `trial score` and `confirm` in the foreground with the longest timeout your shell allows; they measure `Runs` times and hold a lock while they work. Never start a second one; if one refuses because another is running, wait for it.
 - Never run git yourself to commit, revert or reset a trial: `trial commit` stages every change in `W` outside `E`. The measurement commands must leave `W` clean; if `baseline` refuses because they did, fix the methodology (for example ignore generated files) rather than cleaning by hand.
 - In `E`, never edit `state.json`, `results.jsonl` or `progress.log`. You write `strategy.md` (the card and any `router_disagrees`) and, after the last `report`, the "worth maintaining?" column of `report.md`; running `report` again overwrites that column.
 - `propose` returns `tried` (changes discarded against the current incumbent), `kept` (changes kept so far) and, for remediate, `findings` (open finding IDs when the measure script prints `FINDING <id>` lines). Do not repeat a `tried` change.
