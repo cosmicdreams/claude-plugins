@@ -1,5 +1,26 @@
 # research-lab Changelog
 
+## 5.1.0 — 2026-11-03
+
+**Judged path ships blocked.** The acceptance smoke test failed on its first calibration (provider-reported option missing from the panel; a string score). Both causes are fixed; `metric_type: judged` stays refused until a rerun passes. Everything else below is active.
+
+**Judged metrics (v1, text only).** `research-lab:experiment` can hill-climb a metric that a panel of model judges produces.
+
+- Methodology section 1 takes `metric_type: scripted | judged` (absent = `scripted`; existing methodologies are unchanged). Judged methodologies add section 9, Judging Protocol. Spec: `skills/experiment/references/judged-metrics.md`.
+- New `skills/experiment/scripts/judged.py` holds every judged state rule; `next` decides each step. Paired keep rule (incumbent and candidate in one measurement, calibrated margin), reference drift invalidation, confirmation before stopping at target, `trial.json` ownership, judge budget counted at open across restarts, judge critiques fed into Propose. Unexpected events pause the run until `resolve`; there is no automatic recovery.
+- Judges run through T3 `delegate_task` in the orchestrating session; the `experimentalist` agent refuses judged runs. Artifacts are UTF-8 text sent inline; blinding is by instruction only. Screenshot judging is deferred.
+- `log-iteration.sh` takes an optional 10th argument: a JSON object of extra fields, refused if it uses a reserved key. Nine-argument calls are unchanged. New decisions `calibrate`, `confirm`, `invalid`.
+- `generate-chart.py` prints a judged summary (latest calibrated or confirmed M, no cross-measurement improvement percentage). Scripted output is unchanged.
+
+**Strategy router (phase 1 of `plans/research-lab/experiment-designs.md`).** A run now has a strategy and a scorer, chosen before any work.
+
+- New Step −1 in `research-lab:experiment`: with no strategy given, the router asks five ordered questions (already known → not an experiment; a tool's findings → `remediate`; alternatives → `compare`; one artifact toward a target → `climb`; no imaginable goal → `explore`), then picks `scripted` or `council` scoring, writes a strategy card to `strategy.md`, and pauses once for acceptance. After that the run is unattended.
+- Args `strategy=` and `scorer=` (or `strategy:` / `scorer:` in the methodology) preload the choice and skip the pause. Precedence: argument > methodology > router. A differing router reading is recorded as `router_disagrees`, not a block.
+- New `skills/experiment/scripts/experiment.py check` (stdlib only) resolves and validates the choice: `ready`, `route` or `refused` with the missing inputs. `climb` now requires `Target:`, `Direction:` and `Budget:`; the `drupal-lab:optimize` template already supplies them.
+- Only `climb · scripted` runs. `remediate`, `compare` and `explore` route but refuse as not built yet; `council` (the judged path) stays blocked. Reference: `skills/experiment/references/strategies.md`.
+
+**Description and triggers.** The skill now triggers on "hill climb", "climb this" and "run an experiment". Retired phrases: "iterate on this", "optimize with methodology", "autoresearch loop". Explicit invocation (`research-lab:experiment`, including from `drupal-lab:optimize`) is unaffected.
+
 ## 5.0.0 — 2026-09-29
 
 **Breaking: `principal-investigator` agent removed.** Its job was choosing among the verbs, which the main session does, and its main tool (Workflow) is not available to subagents.

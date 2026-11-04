@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 # Append an iteration record to results.jsonl.
 #
-# Usage: log-iteration.sh <results-path> <iteration> <change> <gate> <metric_before> <metric_after> <ratchet> <decision> <reason>
+# Usage: log-iteration.sh <results-path> <iteration> <change> <gate> <metric_before> <metric_after> <ratchet> <decision> <reason> [extras-json]
 #
+# The optional extras JSON must be an object with no reserved keys.
 # All 9 arguments are required. Use "null" for metric_before (baseline) or
 # metric_after (skips) when there is no numeric value.
 
@@ -18,7 +19,7 @@ python3 - "$@" <<'PY'
 import json, datetime, sys
 
 (_, results_path, iteration, change, gate,
- metric_before, metric_after, ratchet, decision, reason) = sys.argv
+ metric_before, metric_after, ratchet, decision, reason) = sys.argv[:10]
 
 
 def num_or_none(v):
@@ -36,6 +37,12 @@ record = {
     "decision": decision,
     "reason": reason,
 }
+
+if len(sys.argv) > 10:
+    extras = json.loads(sys.argv[10])
+    if not isinstance(extras, dict) or record.keys() & extras.keys():
+        raise ValueError("extras must be an object without reserved keys")
+    record.update(extras)
 
 with open(results_path, "a") as f:
     f.write(json.dumps(record) + "\n")
