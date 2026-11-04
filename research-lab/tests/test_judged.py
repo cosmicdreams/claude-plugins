@@ -618,7 +618,8 @@ class JudgedTests(unittest.TestCase):
         self.refuse('checks', '--eval', e.name, '--worktree', self.f.work, '--passed')
 
     def test_trial_previous_finalized_iteration_counts(self):
-        # scope trial: previous trial.json contributes even when logs have smaller numbers.
+        # scope trial: iteration = 1 + the highest finalized iteration (council r2 N4: a
+        # previous trial.json can only exceed the logs while pending, when begin is refused).
         self.history(dict(iteration=10, decision='skip'))
         self.assertEqual(self.begin()['iteration'], 11)
         self.history(dict(iteration=11, decision='skip'))
@@ -928,12 +929,15 @@ for _case in ('below', 'equal', 'above', 'regression_equal', 'regression_beyond'
 
 def panel_roles(case):
     def test(self):
-        self.capture(); self.capture(); self.opened()  # valid panel positive control
+        # Refuse the bad panel first, so no unfinished eval can be the cause (council r2 N1).
+        self.capture(); self.capture()
         p = panel()
         if case == 'missing': del p['second']
         else: p['extra'] = p['second']
         write_panel(self.f.panel_path, p)
         self.refuse('open', '--purpose', 'calibrate', '--panel', self.f.panel_path, '--seed', 0)
+        write_panel(self.f.panel_path, panel())
+        self.opened()  # valid panel positive control
     return test
 
 for _case in ('missing', 'extra'):
