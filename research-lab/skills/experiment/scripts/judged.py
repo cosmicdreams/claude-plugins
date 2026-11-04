@@ -218,12 +218,154 @@ def validate(path, host):
     return {'ok': not errors, **({'errors': errors} if errors else {'warnings': warnings})}
 
 
+def open_eval(a, eng, path, p, sections, trial, results):
+    panel = load_panel(Path(a.panel), p)
+    cost = len(panel) * (1 if a.purpose == 'measure' else 2)
+    if sum(e['requests'] for e in evals(eng)) + cost > p['budget_calls']: raise ValueError('budget exceeded')
+    cfp = capture_fingerprint(p, path.parent)
+    allcaps = list((eng / 'captures').glob(f'*-{cfp[:12]}-*'))
+    fallback = trial['base_tree'] if trial else (allcaps[-1].name.split('-')[0] if allcaps else '')
+    tree = incumbent_tree(eng, fallback, results)
+    inc = captures(eng, tree, cfp)
+    if a.purpose != 'measure' and (trial or len(inc) < 2): raise ValueError('two incumbent captures required, without trial')
+    if a.purpose == 'measure':
+        if not trial or not trial.get('commit') or not inc: raise ValueError('committed trial and captures required')
+        candidate_tree = git(trial['worktree'], 'rev-parse', trial['commit'] + '^{tree}')
+        candidate = captures(eng, candidate_tree, cfp)
+        if not candidate: raise ValueError('candidate capture required')
+    else: candidate_tree, candidate = None, []
+    fingerprint = protocol_fingerprint(p, path.parent, eng, sections)
+    cal, stale = active_calibration(eng, panel, fingerprint)
+    if a.purpose != 'calibrate' and (not cal or stale): raise ValueError('calibration missing or stale')
+    manifest = read_json(eng / 'references/manifest.json')
+    if manifest is None: manifest = reference_manifest(p, path.parent)
+    reftexts = {e['path']: ((eng / 'references' / e['path']) if (eng / 'references/manifest.json').exists() else (path.parent / e['path'])).read_text(encoding='utf-8') for e in manifest}
+    def capture_text(cap):
+        m = read_json(cap / 'manifest.json')
+        return '\n\n'.join((cap / entry['path']).read_text(encoding='utf-8') for entry in m['files'])
+    texts = ({'incumbent': capture_text(inc[0]), 'candidate': capture_text(candidate[0])} if candidate else
+             {'capture-1': capture_text(inc[0]), 'capture-2': capture_text(inc[1])})
+    texts.update({'ref:' + k: v for k, v in reftexts.items()})
+    ids = [int(x.name[1:]) for x in (eng / 'evals').glob('e[0-9]*') if x.name[1:].isdigit()]
+    eid = f'e{max(ids, default=0)+1:04d}'
+    dest = eng / 'evals' / eid
+    meta = dict(id=eid, purpose=a.purpose, iteration=trial['iteration'] if trial else max([r.get('iteration', 0) for r in results], default=0), incumbent_tree=tree, candidate_tree=candidate_tree, captures=[str(x) for x in (inc[:1] + candidate[:1] if candidate else inc[:2])], panel=panel, fingerprint=fingerprint, requests=cost, calibration=cal.get('eval') if cal else None)
+    if not (eng / 'references/manifest.json').exists():
+        for entry in manifest:
+            destref = eng / 'references' / entry['path']; destref.parent.mkdir(parents=True, exist_ok=True)
+            destref.write_text(reftexts[entry['path']], encoding='utf-8')
+        write_json(eng / 'references/manifest.json', manifest)
+    write_json(dest / 'eval.json', meta)
+    requests = []
+    import random
+    rng = random.Random(a.seed)
+    for role in panel:
+        for k in range(1, (2 if candidate else 3)):
+            pair = list(texts)[:2]
+            if rng.randrange(2): pair.reverse()
+            mapping = dict(zip(('A', 'B'), pair))
+            mapping.update({f'Ref-{i}': 'ref:' + name for i, name in enumerate(reftexts, 1)})
+            d = dest / f'{role}-{k}'; write_json(d / 'mapping.json', mapping)
+            request = 'Judge only the text given. Do not read files or run commands. Return JSON with items, score and critique for each category. Scores must be 0 to 10.\n\n'
+            request += '\n'.join(f'{c}: {rubric}' for c, rubric in p['categories'].items()) + '\n\n'
+            request += '\n\n'.join(f'## {label}\n{texts[meaning]}' for label, meaning in mapping.items())
+            (d / 'request.md').write_text(request, encoding='utf-8')
+            requests.append(dict(role=role, k=k, dir=str(d), request_md=str(d / 'request.md')))
+    return dict(eval=eid, requests=requests)
+
+
+def score_eval(eng, dest, meta, p):
+    import math
+    dirs = sorted(dest.glob('*/mapping.json'))
+    if any(not (d.parent / 'return.json').exists() for d in dirs): raise ValueError('missing return')
+    def unique(pairs):
+        result = {}
+        for k, v in pairs:
+            if k in result: raise ValueError('duplicate key')
+            result[k] = v
+        return result
+    try:
+        for entry in read_json(eng / 'references/manifest.json', []):
+            if digest((eng / 'references' / entry['path']).read_bytes()) != entry['sha256']: raise ValueError('reference hash mismatch')
+        raw, critiques = {}, []
+        for mp in dirs:
+            role, k = mp.parent.name.rsplit('-', 1); mapping = read_json(mp)
+            if read_json(mp.parent / 'invocation.json') != meta['panel'][role]: raise ValueError('invocation mismatch')
+            data = json.loads((mp.parent / 'return.json').read_text(), object_pairs_hook=unique)
+            items = data['items']
+            if set(items) != set(mapping): raise ValueError('invalid labels')
+            values = {}
+            for label, meaning in mapping.items():
+                if set(items[label]) != set(p['categories']): raise ValueError('invalid categories')
+                values[meaning] = {}
+                for cat, cell in items[label].items():
+                    score = cell['score']
+                    if isinstance(score, bool) or not isinstance(score, (int, float)) or not math.isfinite(score) or not 0 <= score <= 10 or not isinstance(cell['critique'], str): raise ValueError('invalid score or critique')
+                    values[meaning][cat] = score
+                    critiques.append(dict(item=meaning.removeprefix('ref:'), role=role, category=cat, critique=cell['critique']))
+            raw[(role, int(k))] = values
+        refs = [x for x in next(iter(raw.values())) if x.startswith('ref:')]
+        roles = list(meta['panel']); cats = list(p['categories'])
+        baseline = {r: {ref: {c: sum(raw[(r,k)][ref][c] for k in (1,2)) / 2 for c in cats} for ref in refs} for r in roles} if meta['purpose'] != 'measure' else None
+        cal = read_json(eng / 'evals' / (meta.get('calibration') or '') / 'result.json', {})
+        drift = False
+        if meta['purpose'] != 'calibrate':
+            for (r,k), vals in raw.items():
+                for ref in refs:
+                    for c in cats:
+                        if abs(vals[ref][c] - cal['reference_baseline'][r][ref][c]) > 2 * cal['margin']: drift = True
+        def value(vals, item, cat):
+            return vals[item][cat] - (max(vals[ref][cat] for ref in refs) if p['relative_to'] == 'references' else 0)
+        if drift: result = dict(status='invalid', reason='reference drift', drift=True)
+        elif meta['purpose'] == 'measure':
+            cells = {r: {c: {item: value(raw[(r,1)], item, c) for item in ('incumbent','candidate')} for c in cats} for r in roles}
+            mi = min(cells[r][c]['incumbent'] for r in roles for c in cats); mc = min(cells[r][c]['candidate'] for r in roles for c in cats); margin = cal['margin']
+            keep = mc - mi > margin and all(cells[r][c]['candidate'] - cells[r][c]['incumbent'] >= -margin for r in roles for c in cats)
+            result = dict(status='keep' if keep else 'discard', reason='paired comparison', metric_candidate=mc, metric_incumbent=mi, margin=margin, drift=False, cells=cells, references={r: {ref: raw[(r,1)][ref] for ref in refs} for r in roles})
+        else:
+            cells = {}; noise = 0
+            for r in roles:
+                cells[r] = {}
+                for c in cats:
+                    v = {(i,k): value(raw[(r,k)], 'capture-' + str(i), c) for i in (1,2) for k in (1,2)}
+                    cells[r][c] = sum(v.values()) / 4
+                    noise = max(noise, *(abs(v[(1,k)]-v[(2,k)]) for k in (1,2)), *(abs(v[(i,1)]-v[(i,2)]) for i in (1,2)))
+            result = dict(status='valid', reason='', metric=min(cells[r][c] for r in roles for c in cats), margin=max(p['margin_floor'], noise), noise=noise, reference_baseline=baseline, cells=cells, panel=meta['panel'])
+        write_json(dest / 'critiques.json', critiques)
+    except (ValueError, KeyError, TypeError, OSError) as e:
+        result = dict(status='invalid', reason=str(e) or 'invalid return')
+    write_json(dest / 'result.json', result)
+    return result
+
+
 def run(a):
     eng, path = Path(a.engagement).resolve(), Path(a.protocol).resolve()
     if a.command == 'validate': return validate(path, a.host)
-    if a.command in ('open', 'score', 'abandon', 'invalidate', 'checks', 'next'): raise ValueError('not implemented')
+    if a.command == 'next': raise ValueError('not implemented')
     results = records(eng / 'results.jsonl')
     trial = pending_trial(eng, results)
+    if a.command in ('open', 'score', 'abandon', 'invalidate', 'checks'):
+        sections, _, _, p = methodology(path)
+        if a.command == 'open': return open_eval(a, eng, path, p, sections, trial, results)
+        if not re.fullmatch(r'e[0-9]+', a.eval): raise ValueError('invalid eval')
+        dest = eng / 'evals' / a.eval
+        meta = read_json(dest / 'eval.json')
+        if not meta or any(r.get('eval') == a.eval for r in results): raise ValueError('missing or finalized eval')
+        result = read_json(dest / 'result.json')
+        if a.command == 'abandon':
+            if result and result != dict(status='invalid', reason='abandoned'): raise ValueError('already scored')
+            if result: return result
+            result = dict(status='invalid', reason='abandoned'); write_json(dest / 'result.json', result); return result
+        if a.command == 'invalidate':
+            if not result or result.get('status') == 'invalid': raise ValueError('not scored or already invalid')
+            os.replace(dest / 'result.json', dest / 'result.scored.json')
+            result = dict(status='invalid', reason=a.reason); write_json(dest / 'result.json', result); return result
+        if a.command == 'checks':
+            if not result or result.get('status') not in ('valid', 'keep'): raise ValueError('not eligible for checks')
+            check = dict(tree=git(a.worktree, 'rev-parse', 'HEAD^{tree}'), fingerprint=protocol_fingerprint(p, path.parent, eng, sections), passed=a.passed, details=a.details)
+            write_json(dest / 'checks.json', check); return check
+        if result: raise ValueError('already scored')
+        return score_eval(eng, dest, meta, p)
     if a.command == 'resolve':
         if a.decision == 'withdraw' and not trial: raise ValueError('no pending trial')
         ids = sorted(p.name for p in (eng / 'evals').glob('e[0-9]*') if p.is_dir())
