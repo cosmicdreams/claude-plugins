@@ -3,6 +3,7 @@
 ## 4.0.2 — 2026-11-04
 
 - Add executable Measure and Checks placeholders to the optimize methodology handoff.
+- `optimize` resumes from the experiment's `state.json` status instead of `results.jsonl` keeps (the baseline is logged as a keep), and names research-lab 5.2.0's endings: met, unreachable, paused.
 
 ## 4.0.1 — 2026-11-04
 
