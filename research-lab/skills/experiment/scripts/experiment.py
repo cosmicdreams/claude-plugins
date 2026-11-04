@@ -14,7 +14,7 @@ from pathlib import Path
 
 STRATEGIES = ('remediate', 'climb', 'compare', 'explore')
 SCORERS = ('scripted', 'council')
-NOT_BUILT = {'remediate': 2, 'compare': 3, 'explore': 5}
+NOT_BUILT = {'compare': 3, 'explore': 5}
 COUNCIL_BLOCKED = ('council scoring is blocked: the acceptance smoke test failed; see Status in '
                    'skills/experiment/references/judged-metrics.md')
 CLIMB_SECTIONS = ('Objective', 'Baseline', 'Hypotheses', 'Iteration Rules', 'Measurement Protocol',
@@ -121,11 +121,23 @@ def check(strategy_arg, scorer_arg, methodology_path):
         out['reason'] = COUNCIL_BLOCKED
         return out
     if not methodology_path:
-        out.update(missing=['methodology'], reason='climb needs a methodology file')
+        out.update(missing=['methodology'], reason=f'{strategy} needs a methodology file')
         return out
-    out['missing'] = climb_missing(text)
+    from experiment_loop import config, validate
+    out['missing'] = (climb_missing(text) if strategy == 'climb' else [
+        f'section: {name}' for name in ('Objective', 'Scope Constraints', 'Working Directory')
+        if not any(t.startswith(name.lower()) for t in sections(text))])
+    out['missing'] += [name.lower() + ': command' for name in ('Measure', 'Checks')
+                       if not field(text, name)]
+    if strategy == 'remediate' and not field(text, 'Budget'):
+        out['missing'].append('budget: maximum iterations')
+    try:
+        validate(config(text, strategy))
+    except ValueError as error:
+        out['reason'] = str(error)
+        return out
     if out['missing']:
-        out['reason'] = 'methodology is missing required inputs for climb'
+        out['reason'] = f'methodology is missing required inputs for {strategy}'
         return out
     out.update(status='ready', reason=None)
     return out
@@ -138,7 +150,17 @@ def main(argv=None):
     c.add_argument('--strategy')
     c.add_argument('--scorer')
     c.add_argument('--methodology')
+    from experiment_loop import add_commands, dispatch
+    add_commands(sub)
     a = parser.parse_args(argv)
+    if a.command != 'check':
+        try:
+            result = dispatch(a, check)
+            code = 0
+        except (ValueError, OSError) as error:
+            result, code = {'status': 'refused', 'reason': str(error)}, 1
+        print(json.dumps(result, sort_keys=True))
+        return code
     result = check(a.strategy, a.scorer, a.methodology)
     print(json.dumps(result, sort_keys=True))
     return {'ready': 0, 'route': 2}.get(result['status'], 1)

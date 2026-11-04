@@ -19,6 +19,8 @@ CLIMB = """# Methodology: demo
 **Target:** 200
 
 ## 2. Baseline
+Measure: echo 240
+Checks: true
 240
 
 ## 3. Hypotheses
@@ -105,7 +107,7 @@ class CheckTests(unittest.TestCase):
         self.assertEqual((code, out['missing']), (1, ['methodology']))
 
     def test_unbuilt_strategies_refused(self):
-        for s in ('remediate', 'compare', 'explore'):
+        for s in ('compare', 'explore'):
             code, out = self.run_check('--strategy', s, '--methodology', self.method(CLIMB))
             self.assertEqual(code, 1, s)
             self.assertIn('not built yet', out['reason'])
@@ -156,6 +158,7 @@ class CheckTests(unittest.TestCase):
         filled = (body.replace('<Numeric target value>', '0.95')
                       .replace('<"higher is better" or "lower is better">', 'higher is better')
                       .replace('<max iterations, e.g., 20>', '20'))
+        filled += '\nMeasure: echo 0.9\nChecks: true\n'
         flags = [x for k in ('strategy', 'scorer') if k in args for x in (f'--{k}', args[k])]
         code, out = self.run_check(*flags, '--methodology', self.method(filled))
         self.assertEqual(code, 0, out)
