@@ -118,6 +118,8 @@ mode = modefile.read_text().strip() if modefile.exists() else ''
 if mode == 'nonzero': sys.exit(9)
 out.mkdir(parents=True, exist_ok=True)
 data = (work / 'doc.md').read_bytes()
+tagfile = pathlib.Path(__file__).parent / 'capture-tag'
+if tagfile.exists(): data += tagfile.read_bytes()
 if mode == 'nonutf8': data = b'\\xff'
 (out / 'doc.md').write_bytes(data)
 if mode == 'no-manifest': sys.exit(0)
@@ -146,7 +148,7 @@ if mode == 'missing-file': (out / 'doc.md').unlink()
     def git(self, *args, cwd=None, check=True):
         """Run real Git with the isolated environment, returning CompletedProcess."""
         return subprocess.run(['git', '-C', str(cwd or self.work), *map(str, args)],
-                              env=self.env, text=True, capture_output=True, check=check)
+                              env=self.env, text=True, capture_output=True, check=check, timeout=60)
 
     def write_methodology(self, protocol, metric_type='judged', direction='higher', correctness='Run guard.sh.'):
         """Write all nine numbered sections; protocol=None omits section nine."""
@@ -167,7 +169,7 @@ if mode == 'missing-file': (out / 'doc.md').unlink()
         """Run judged.py with common paths; return (exit code, JSON or None, stderr)."""
         result = subprocess.run(['python3', str(SCRIPT), subcommand, '--engagement',
                                  str(self.engagement), '--protocol', str(self.methodology),
-                                 *map(str, args)], env=self.env, text=True, capture_output=True)
+                                 *map(str, args)], env=self.env, text=True, capture_output=True, timeout=60)
         try:
             value = json.loads(result.stdout)
         except (ValueError, TypeError):
@@ -211,14 +213,14 @@ if mode == 'missing-file': (out / 'doc.md').unlink()
 
     def log(self, args):
         """Run the REAL log-iteration.sh with an action's complete argv."""
-        return subprocess.run([str(LOG), *map(str, args)], env=self.env, text=True, capture_output=True)
+        return subprocess.run([str(LOG), *map(str, args)], env=self.env, text=True, capture_output=True, timeout=60)
 
     def discard(self, action):
         """Run the REAL guarded discard helper using only the action's ownership fields."""
         return subprocess.run(['python3', str(DISCARD),
                                *[v for key in ('worktree', 'branch', 'base', 'trial')
                                  for v in ('--' + key, str(action[key]))]],
-                              env=self.env, text=True, capture_output=True)
+                              env=self.env, text=True, capture_output=True, timeout=60)
 
     def seed_results(self, *records):
         """Append explicit persisted results records without invoking next or logging."""

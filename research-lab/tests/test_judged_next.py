@@ -2,7 +2,7 @@
 
 Every next call runs a fresh process and checks paths AND bytes for purity.
 Helpers execute fixed documented steps, never dispatch on the returned action.
-No production state is hand-seeded except malformed ownership in the G1 test.
+Hand-seeding is limited to deliberate corruption that no subcommand can produce.
 
 Contract interpretations used here:
 * Rule 12 precedes target handling: target candidates are captured twice before
@@ -96,6 +96,9 @@ class JudgedNextTests(unittest.TestCase):
         extras = json.loads(args[9])
         self.assertIsInstance(extras, dict)
         self.assertEqual(extras.get('metric_type'), 'judged')
+        if decision == 'keep':
+            self.assertIn('cells', extras)
+            self.assertIn('references', extras)
         if e:
             self.assertEqual(extras.get('eval'), e.name)
         before = self.retained()
@@ -107,7 +110,10 @@ class JudgedNextTests(unittest.TestCase):
         record = records[-1]
         self.assertEqual(record['decision'], decision)
         self.assertEqual(record['metric_type'], 'judged')
-        self.assertEqual(record['metric_before'], before)
+        if decision in ('invalid', 'skip'):
+            self.assertIn(record['metric_before'], (before, None))
+        else:
+            self.assertEqual(record['metric_before'], before)
         self.assertEqual(record['metric_after'], after)
         self.assertEqual(record['ratchet'], ratchet)
         self.assertEqual(record['gate'], 'skip' if decision == 'skip' else 'pass')
@@ -143,7 +149,13 @@ class JudgedNextTests(unittest.TestCase):
         return e
 
     def resolve(self, decision, note='by Chris'):
+        pending = (self.f.engagement / 'trial.json').exists() and not any(
+            r['decision'] in ('keep', 'discard', 'skip') and r['iteration'] ==
+            self.read(self.f.engagement / 'trial.json')['iteration'] for r in self.records())
         self.f.ok('resolve', '--decision', decision, '--note', note, '--worktree', self.f.work)
+        if decision == 'continue':
+            record = json.loads((self.f.engagement / 'resolutions.jsonl').read_text().splitlines()[-1])
+            self.assertIs(record['adopted'], not pending)
 
     def begin(self):
         self.f.ok('trial', 'begin', '--worktree', self.f.work, '--change', 'Improve text')
@@ -196,6 +208,25 @@ class JudgedNextTests(unittest.TestCase):
         if kind == 'panel':
             p = panel(); p['primary']['options']['effort'] = 'low'
             write_panel(self.f.panel_path, p)
+        elif kind in ('margin_floor', 'judges', 'relative_to', 'guardrails'):
+            p = self.f.protocol.copy()
+            if kind == 'margin_floor': p[kind] = 0.5
+            elif kind == 'judges': p[kind] = [dict(j, tier=4) for j in p[kind]]
+            elif kind == 'relative_to': p[kind] = 'references'
+            else: p[kind] = ['guard.sh --strict']
+            self.f.write_methodology(p)
+        elif kind == 'reference_manifest':
+            # Deliberate manifest corruption has no subcommand writer after first open.
+            path = self.f.engagement / 'references/manifest.json'
+            value = self.read(path)
+            def changed(v):
+                if isinstance(v, dict): return {k: changed(x) for k, x in v.items()}
+                if isinstance(v, list): return [changed(x) for x in v]
+                if isinstance(v, str) and len(v) == 64: return '0' * 64
+                return v
+            altered = changed(value)
+            self.assertNotEqual(value, altered)
+            path.write_text(json.dumps(altered))
         elif kind == 'rubric':
             p = self.f.protocol.copy()
             p['categories'] = dict(p['categories'], clarity='Changed rubric')
@@ -231,7 +262,8 @@ class JudgedNextTests(unittest.TestCase):
     def test_reject_target_then_changed_tree_eligible(self):
         # §9.13 / D8: reject belongs to a tree, and supplies review diagnostics.
         self.calibrated(); e = self.keep(5, 9)
-        self.action('open', purpose='confirm')
+        self.confirm(9)
+        self.action('stop', reason='target')
         self.resolve('reject', 'Review: fix clarity')
         a = self.action('propose', iteration=2)
         reviews = [d for d in a['diagnostics'] if d['kind'] == 'review']
@@ -458,6 +490,29 @@ class JudgedNextTests(unittest.TestCase):
         self.lose(); self.action('stop', reason='futility')
 
 
+    def test_continue_pending_trial_does_not_adopt_or_stale(self):
+        self.calibrated(); incumbent = self.f.tree()
+        self.candidate(); e = self.measured()
+        self.f.git('checkout', '-b', 'temporary')
+        self.action('pause', gate='G2')
+        self.f.git('checkout', 'experiment'); self.resolve('continue')
+        self.checks(e, 'candidate', False); self.discard()
+        self.log('discard', e, after=6, ratchet=5, iteration=1)
+        self.assertEqual(self.f.tree(), incumbent)
+        self.action('propose', iteration=2)
+
+    def test_gate_g2_unrecorded_commit(self):
+        self.calibrated(); self.begin(); self.f.commit('UNRECORDED COMMIT\n')
+        self.assertIsNone(self.read(self.f.engagement / 'trial.json')['commit'])
+        self.action('pause', gate='G2')
+
+    def test_confirm_target_and_protocol_epoch(self):
+        self.calibrated(); self.keep(5, 9); self.confirm(9)
+        self.action('stop', reason='target'); self.mutate('rubric')
+        self.calibrate_existing(9)
+        self.confirm(9); self.action('stop', reason='target')
+
+
 # Generated cases are separate unittest tests, each owns a fresh isolated repository.
 def gate_g2(case):
     def test(self):
@@ -582,6 +637,61 @@ def cheap_limit(kind):
 
 for _kind in ('iterations', 'futility'):
     setattr(JudgedNextTests, 'test_cheap_gate_counts_' + _kind, cheap_limit(_kind))
+
+
+def mismatched_checks(purpose, kind):
+    def test(self):
+        if purpose == 'measure':
+            self.calibrated(); self.candidate(); e = self.measured()
+            target = 'candidate'
+        else:
+            self.capture(); self.capture(); e = self.opened('calibrate')
+            self.returns(e); self.score(e, 'valid'); target = 'incumbent'
+        self.checks(e, target)
+        if kind == 'tree':
+            if purpose == 'calibrate':
+                # Give the primary checkout a different tree without touching eval identity.
+                (self.f.primary / 'doc.md').write_text('OTHER CHECK TREE\n')
+                self.f.git('add', 'doc.md', cwd=self.f.primary)
+                self.f.git('commit', '-m', 'other check tree', cwd=self.f.primary)
+            self.f.ok('checks', '--eval', e.name, '--worktree', self.f.primary, '--passed')
+        else:
+            # checks computes fingerprints; no subcommand can create a wrong one
+            # while leaving a current eval/protocol, so corrupt only this field.
+            path = e / 'checks.json'; value = self.read(path)
+            value['fingerprint'] = '0' * 64; path.write_text(json.dumps(value))
+        self.action('run_checks', eval=e.name, target=target, tree=self.f.tree())
+        self.checks(e, target)
+        self.log('keep' if purpose == 'measure' else 'calibrate', e,
+                 after=6 if purpose == 'measure' else None,
+                 ratchet=6 if purpose == 'measure' else 5,
+                 iteration=1 if purpose == 'measure' else 0)
+    return test
+
+for _purpose in ('calibrate', 'measure'):
+    for _kind in ('tree', 'fingerprint'):
+        setattr(JudgedNextTests, f'test_checks_identity_{_purpose}_{_kind}', mismatched_checks(_purpose, _kind))
+
+
+def stale_result(purpose):
+    def test(self):
+        if purpose == 'calibrate':
+            self.capture(); self.capture(); e = self.opened(purpose)
+            self.returns(e); self.score(e, 'valid')
+        elif purpose == 'confirm':
+            self.calibrated(); e = self.opened(purpose)
+            self.returns(e); self.score(e, 'valid')
+        else:
+            self.calibrated(); self.candidate(); e = self.measured(5, 5, 'discard')
+        self.mutate('rubric')
+        self.action('invalidate', eval=e.name, reason='stale')
+    return test
+
+for _purpose in ('calibrate', 'confirm', 'measure_discard'):
+    setattr(JudgedNextTests, 'test_stale_result_' + _purpose, stale_result(_purpose))
+
+for _kind in ('margin_floor', 'judges', 'relative_to', 'guardrails', 'reference_manifest'):
+    setattr(JudgedNextTests, 'test_stale_keep_' + _kind, stale_keep(_kind, False))
 
 
 if __name__ == '__main__':

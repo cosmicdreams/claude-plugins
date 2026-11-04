@@ -1,4 +1,5 @@
 import json
+import re
 from pathlib import Path
 import subprocess
 import tempfile
@@ -11,9 +12,9 @@ class ChartTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as tmp:
             path = Path(tmp) / "results.jsonl"
             path.write_text("".join(json.dumps(r) + "\n" for r in records))
-            return subprocess.check_output(["python3", str(SCRIPT), str(path), "--width", "9", "--height", "3"], text=True)
+            return subprocess.check_output(["python3", str(SCRIPT), str(path), "--width", "9", "--height", "3"], text=True, timeout=60)
 
-    def test_scripted_output_is_unchanged(self):
+    def test_fixture_scripted_output_is_unchanged(self):
         records = [dict(iteration=1, metric_before=10, metric_after=8, ratchet=8, decision="keep")]
         self.assertEqual(self.chart(records), EXPECTED)
 
@@ -30,11 +31,12 @@ class ChartTests(unittest.TestCase):
             dict(iteration=4, metric_after=None, ratchet=5.5, decision="skip", reason="withdrawn: by Chris", metric_type="judged"),
             dict(iteration=5, metric_before=5.5, metric_after=5, ratchet=5.5, decision="discard", metric_type="judged"),
         ]
+        records.append(dict(iteration=6, metric_before=5.5, metric_after=7, ratchet=7, decision="keep", metric_type="judged"))
         output = self.chart(records)
         self.assertIn("judged", output.lower())
         self.assertNotIn("Improvement:", output)
-        self.assertIn("5.5", output)
-        self.assertIn("Latest calibrated/confirmed M", output)
+        lines = [line for line in output.splitlines() if re.search(r"calibrated|confirmed", line, re.I)]
+        self.assertTrue(any(re.search(r"(?<![\d.])5\.5(?:0*)(?![\d.])", line) for line in lines), output)
         self.assertIn("Longest discard streak: 4", output)
 
     def test_judged_ignored_records_do_not_extend_streak(self):
@@ -48,5 +50,15 @@ class ChartTests(unittest.TestCase):
         self.assertIn("judged", output.lower())
         self.assertNotIn("Improvement:", output)
         self.assertIn("Longest discard streak: 1", output)
+
+    def test_mixed_log_detects_any_judged_record(self):
+        records = [dict(iteration=1, metric_before=5, metric_after=6, ratchet=6, decision="keep"),
+                   dict(iteration=1, metric_after=None, ratchet=5.5, decision="confirm", metric_type="judged"),
+                   dict(iteration=2, metric_before=6, metric_after=7, ratchet=7, decision="keep")]
+        output = self.chart(records)
+        self.assertIn("judged", output.lower())
+        self.assertNotIn("Improvement:", output)
+        lines = [line for line in output.splitlines() if re.search(r"calibrated|confirmed", line, re.I)]
+        self.assertTrue(any(re.search(r"(?<![\d.])5\.5(?:0*)(?![\d.])", line) for line in lines), output)
 
 EXPECTED = '\n  Metric Progression (1 iterations)\n  =========\n  8.000 |         |\n  7.500 |         |\n  7.000 |    K    |\n  =========\n         1   1   1\n\n  Legend: K = keep, x = discard, - = ratchet line\n\n  Summary\n  -------\n  Total iterations: 1\n  Keeps: 1  Discards: 0  Skips: 0\n  Baseline: 10\n  Final ratchet: 8\n  Improvement: 20.0%\n  Direction: lower is better\n  Longest discard streak: 0\n'

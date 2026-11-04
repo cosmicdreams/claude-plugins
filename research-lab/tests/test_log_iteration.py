@@ -18,9 +18,9 @@ class LogIterationTests(unittest.TestCase):
     def run_log(self, *extra):
         return subprocess.run([str(SCRIPT), str(self.path), '1', 'change', 'pass',
                                '4', '5', '5', 'keep', 'reason', *extra],
-                              text=True, capture_output=True)
+                              text=True, capture_output=True, timeout=60)
 
-    def test_nine_arguments_preserve_record(self):
+    def test_fixture_nine_arguments_preserve_record(self):
         r = self.run_log()
         self.assertEqual(r.returncode, 0, r.stderr)
         record = json.loads(self.path.read_text())
@@ -35,6 +35,8 @@ class LogIterationTests(unittest.TestCase):
         self.assertEqual(json.loads(self.path.read_text())['eval'], 'e0001')
 
     def test_invalid_extras_leave_existing_and_missing_files_unchanged(self):
+        valid = self.run_log('{}')  # Rejecting every tenth argument is unsafe too.
+        self.assertEqual(valid.returncode, 0, valid.stderr)
         for present in (False, True):
             for extra in ['[]', 'null', '42', '"text"', '{broken'] + [json.dumps({k: 1}) for k in RESERVED]:
                 with self.subTest(present=present, extra=extra):

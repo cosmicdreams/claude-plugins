@@ -9,7 +9,7 @@ add a second capture of a kept tree before confirm. A withdrawal skip following
 an invalid eval finalizes the trial, and may cite that eval as provenance; it is
 not a second evaluation decision (consistent with packet 2).
 D8 continue without a pending trial stales calibration; it may reuse captures.
-The fixture's reference mapping name is ref:ref-1.md (same as packets 1 and 2).
+Reference scores are resolved from each request mapping at dispatch.
 """
 from collections import Counter, deque
 import json
@@ -25,11 +25,11 @@ def read(path):
 
 
 def calibration(value=5):
-    return {'capture-1': value, 'capture-2': value, 'ref:ref-1.md': 4}
+    return {'capture-1': value, 'capture-2': value, 'reference': 4}
 
 
 def measurement(incumbent=5, candidate=6, reference=4):
-    return {'incumbent': incumbent, 'candidate': candidate, 'ref:ref-1.md': reference}
+    return {'incumbent': incumbent, 'candidate': candidate, 'reference': reference}
 
 
 class Scenario:
@@ -72,7 +72,10 @@ class Driver:
                 if index >= recorded.get('partial', len(opened['requests'])):
                     break
                 role, k = request['role'], request['k']
-                f.write_return(e, role, k, recorded['scores'])
+                mapping = read(e / f'{role}-{k}' / 'mapping.json')
+                scores = {meaning: recorded['scores']['reference' if meaning.startswith('ref:') else meaning]
+                          for meaning in mapping.values()}
+                f.write_return(e, role, k, scores)
                 if index in recorded.get('errors', {}):
                     (e / f'{role}-{k}' / 'return.json').write_text(json.dumps(
                         {'error': recorded['errors'][index]}), encoding='utf-8')
@@ -191,6 +194,8 @@ class LifecycleTests(unittest.TestCase):
                 self.assertIn(r['decision'], ('invalid', 'skip'))
             if r['decision'] == 'keep':
                 self.assertEqual(result['status'], 'keep')
+                self.assertIn('cells', r)
+                self.assertIn('references', r)
                 checks = read(self.eval_path(r['eval']) / 'checks.json')
                 self.assertIs(checks['passed'], True)
                 self.assertEqual(checks['tree'], r['tree'])
@@ -238,12 +243,13 @@ class LifecycleTests(unittest.TestCase):
 
     def test_drift_withdraw_recalibrate_repropose(self):
         # §9.29 / D3: explicit withdraw restores base and forces calibration.
-        self.drift_pause()
+        invalid = self.drift_pause()
         trial = read(self.f.engagement / 'trial.json')
         candidate_tree = self.f.tree()
         self.resolve('withdraw')
         self.logged(Scenario(), 'skip')
         self.assertEqual(self.records()[-1]['reason'], 'withdrawn: by Chris')
+        self.assertEqual(self.records()[-1]['eval'], invalid)
         self.assertEqual(self.f.tree(), trial['base_tree'])
         s = Scenario([opened(calibration()), opened(measurement())], [True, True],
                      [('same improvement', 'IMPROVED\n')])
@@ -342,6 +348,16 @@ class LifecycleTests(unittest.TestCase):
             self.expect_next('capture', role='incumbent')
             self.assertEqual(self.step(Scenario())['action'], 'capture')
         self.expect_next('propose', iteration=2)
+        self.invariants()
+
+    def test_restart_rechecks_wrong_tree_before_keep(self):
+        self.calibrated()
+        s = Scenario([opened(measurement())], [True], [('improvement', 'IMPROVED\n')])
+        a = self.walk(s, lambda a: a['action'] == 'score')
+        self.assertEqual(read(self.eval_path(a['eval']) / 'result.json')['status'], 'keep')
+        self.f.ok('checks', '--eval', a['eval'], '--worktree', self.f.primary, '--passed')
+        self.expect_next('run_checks', eval=a['eval'], target='candidate', tree=self.f.tree())
+        self.logged(s, 'keep')
         self.invariants()
 
     def test_budget_across_restarts_between_opens(self):

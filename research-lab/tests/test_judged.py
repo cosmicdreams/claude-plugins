@@ -23,8 +23,8 @@ class JudgedTests(unittest.TestCase):
         return json.loads(Path(path).read_text(encoding='utf-8'))
 
     def snapshot(self):
-        return {str(p.relative_to(self.f.engagement)): p.read_bytes()
-                for p in self.f.engagement.rglob('*') if p.is_file()}
+        return {str(p.relative_to(self.f.engagement)): p.read_bytes() if p.is_file() else None
+                for p in self.f.engagement.rglob('*')}
 
     def refuse(self, command, *args):
         before, head = self.snapshot(), self.f.head()
@@ -53,7 +53,7 @@ class JudgedTests(unittest.TestCase):
         self.assertRegex(result.get('eval', ''), r'^e\d{4,}$')
         path = self.f.engagement / 'evals' / result['eval']
         self.assertTrue((path / 'eval.json').is_file())
-        self.assertEqual(len(result['requests']), 2 if purpose == 'measure' else 4)
+        self.assertEqual(len(result['requests']), len(self.f.protocol['judges']) * (1 if purpose == 'measure' else 2))
         return path
 
     def returns(self, evaluation, values=None):
@@ -77,9 +77,7 @@ class JudgedTests(unittest.TestCase):
         result = self.score(evaluation)
         self.assertEqual(result.get('status'), 'valid')
         self.f.ok('checks', '--eval', evaluation.name, '--worktree', self.f.work, '--passed')
-        self.f.seed_results(dict(iteration=0, decision='calibrate', eval=evaluation.name,
-                                 tree=self.f.tree(), ratchet=result['metric'], metric_after=None,
-                                 metric_type='judged'))
+        self.finalize(evaluation, 'calibrate')
         return evaluation
 
     def begin(self):
@@ -88,7 +86,10 @@ class JudgedTests(unittest.TestCase):
 
     def candidate(self, iteration=None):
         if iteration is not None:
-            self.f.seed_results(dict(iteration=iteration - 1, decision='skip', reason='cheap gate'))
+            run = self.f.log([str(self.f.engagement / 'results.jsonl'), str(iteration - 1),
+                              'Cheap gate', 'skip', '5', 'null', '5', 'skip', 'cheap gate',
+                              json.dumps({'metric_type': 'judged'})])
+            self.assertEqual(run.returncode, 0, run.stderr)
         self.begin()
         self.f.commit('REVISED TEXT café\n')
         self.f.ok('trial', 'commit', '--worktree', self.f.work)
@@ -101,6 +102,93 @@ class JudgedTests(unittest.TestCase):
         self.returns(evaluation, values)
         return evaluation
 
+    def history(self, *records):
+        # The logger is the public writer for persisted historical/orchestrator
+        # records; use it instead of manufacturing results.jsonl bytes.
+        reserved = {'iteration', 'change', 'gate', 'metric_before', 'metric_after',
+                    'ratchet', 'decision', 'reason'}
+        for r in records:
+            args = [str(self.f.engagement / 'results.jsonl'), str(r['iteration']),
+                    r.get('change', 'Historical fixture'), r.get('gate', 'pass'),
+                    json.dumps(r.get('metric_before')), json.dumps(r.get('metric_after')),
+                    json.dumps(r.get('ratchet')), r['decision'], r.get('reason', 'fixture'),
+                    json.dumps({k: v for k, v in r.items() if k not in reserved})]
+            run = self.f.log(args)
+            self.assertEqual(run.returncode, 0, run.stderr)
+
+    def finalize(self, e, decision):
+        code, action, err = self.f.next()
+        self.assertEqual(code, 0, (action, err))
+        self.assertEqual((action.get('action'), action.get('decision')), ('log', decision))
+        self.assertEqual(action['eval'], e.name)
+        run = self.f.log(action['args'])
+        self.assertEqual(run.returncode, 0, run.stderr)
+
+    def assert_request(self, e, texts):
+        for path in e.glob('*/mapping.json'):
+            mapping = self.read(path)
+            request = (path.parent / 'request.md').read_text(encoding='utf-8')
+            for category, rubric in self.f.protocol['categories'].items():
+                self.assertIn(category, request)
+                self.assertIn(rubric, request)
+            for key in ('items', 'score', 'critique', 'file', 'command'):
+                self.assertIn(key, request.lower())
+            for name in self.f.protocol['references']:
+                self.assertNotIn(Path(name).name, request)
+            sections = re.split(r'(?m)^#{1,6}\s+', request)
+            for label, meaning in mapping.items():
+                section = next((part for part in sections if part.splitlines() and part.splitlines()[0].strip() == label), None)
+                self.assertIsNotNone(section, (label, request))
+                key = meaning if meaning in texts else 'reference' if meaning.startswith('ref:') else meaning
+                self.assertIn(texts[key], section)
+                for other, text in texts.items():
+                    if other != key: self.assertNotIn(text, section)
+
+    def test_requests_capture_selection_and_frozen_reference_bytes(self):
+        p = default_protocol(); p['references'].append('refs/ref-2.md')
+        (self.f.methodology_dir / 'refs/ref-2.md').write_text('SECOND ANCHOR TEXT\n')
+        self.f.write_methodology(p)
+        tag = self.f.methodology_dir / 'capture-tag'
+        tag.write_text('CAPTURE ONE\n'); self.capture()
+        tag.write_text('CAPTURE TWO\n'); self.capture()
+        tag.write_text('CAPTURE THREE\n'); self.capture()
+        texts = {'capture-1': 'CAPTURE ONE', 'capture-2': 'CAPTURE TWO',
+                 'ref:refs/ref-1.md': 'REFERENCE TEXT', 'ref:refs/ref-2.md': 'SECOND ANCHOR TEXT'}
+        e = self.opened(); self.assert_request(e, texts)
+        self.returns(e); self.assertEqual(self.score(e)['status'], 'valid')
+        self.f.ok('checks', '--eval', e.name, '--worktree', self.f.work, '--passed')
+        self.finalize(e, 'calibrate')
+        (self.f.methodology_dir / 'refs/ref-1.md').write_text('CHANGED SOURCE REFERENCE')
+        e = self.opened('confirm'); self.assert_request(e, texts)
+        self.returns(e); self.assertEqual(self.score(e)['status'], 'valid')
+        self.f.ok('checks', '--eval', e.name, '--worktree', self.f.work, '--passed')
+        self.finalize(e, 'confirm')
+        tag.write_text('CANDIDATE CAPTURE\n'); self.candidate()
+        e = self.opened('measure')
+        self.assert_request(e, dict(incumbent='CAPTURE ONE', candidate='CANDIDATE CAPTURE',
+                                    **{'ref:refs/ref-1.md': 'REFERENCE TEXT', 'ref:refs/ref-2.md': 'SECOND ANCHOR TEXT'}))
+        for path in e.glob('*/request.md'):
+            request = path.read_text(encoding='utf-8')
+            self.assertNotIn('CAPTURE TWO', request)
+            self.assertNotIn('CAPTURE THREE', request)
+            self.assertNotIn('CHANGED SOURCE REFERENCE', request)
+        self.returns(e, {'incumbent': 5, 'candidate': 6})
+        self.assertEqual(self.score(e)['status'], 'keep')
+
+    def test_score_renamed_single_role_four_categories(self):
+        p = default_protocol()
+        p['judges'] = [dict(role='editor', tier=5)]
+        p['categories'] = dict(precision='Precise?', depth='Deep?', tone='Appropriate?', flow='Coherent?')
+        self.f.write_methodology(p)
+        write_panel(self.f.panel_path, {'editor': panel()['second']})
+        self.calibration(); self.candidate(); e = self.opened('measure')
+        self.returns(e, {'incumbent': 5, 'candidate': dict(precision=6, depth=7, tone=8, flow=9)})
+        r = self.score(e)
+        self.assertEqual(r['status'], 'keep')
+        self.assertEqual(r['metric_candidate'], 6)
+        self.assertEqual({c['role'] for c in self.read(e / 'critiques.json')}, {'editor'})
+        self.assertEqual({c['category'] for c in self.read(e / 'critiques.json')}, set(p['categories']))
+
     def test_fixture_capture_and_isolation(self):
         # scope: capture manifest contract; independent fixture positive control.
         f = self.f
@@ -111,7 +199,7 @@ class JudgedTests(unittest.TestCase):
         self.assertFalse(f.methodology_dir.is_relative_to(f.work))
         out = f.root / 'direct-capture'
         result = subprocess.run([str(f.methodology_dir / 'capture.sh'), str(f.work), str(out)],
-                                env=f.env, capture_output=True)
+                                env=f.env, capture_output=True, timeout=60)
         self.assertEqual(result.returncode, 0, result.stderr)
         manifest = self.read(out / 'manifest.json')
         self.assertEqual(manifest['tree'], f.tree())
@@ -122,7 +210,7 @@ class JudgedTests(unittest.TestCase):
             (f.methodology_dir / 'capture-mode').write_text(mode)
             dest = f.root / mode
             run = subprocess.run([str(f.methodology_dir / 'capture.sh'), str(f.work), str(dest)],
-                                 env=f.env, capture_output=True)
+                                 env=f.env, capture_output=True, timeout=60)
             if mode == 'nonzero':
                 self.assertNotEqual(run.returncode, 0)
             else:
@@ -189,7 +277,7 @@ class JudgedTests(unittest.TestCase):
 
     def test_trial_success_fields_and_numbering(self):
         # scope: trial ownership and numbering includes skips and previous trial.json.
-        self.f.seed_results(dict(iteration=4, decision='skip'),
+        self.history(dict(iteration=4, decision='skip'),
                             dict(iteration=100, decision='invalid'),
                             dict(iteration=200, decision='confirm'))
         t = self.begin()
@@ -198,7 +286,7 @@ class JudgedTests(unittest.TestCase):
         sha = self.f.commit('NEW TEXT\n')
         self.f.ok('trial', 'commit', '--worktree', self.f.work)
         self.assertEqual(self.read(self.f.engagement / 'trial.json')['commit'], sha)
-        self.f.seed_results(dict(iteration=5, decision='keep', tree=self.f.tree()))
+        self.history(dict(iteration=5, decision='keep', tree=self.f.tree()))
         self.assertEqual(self.begin()['iteration'], 6)
 
     def test_open_reference_copies_and_monotonic_ids(self):
@@ -240,7 +328,7 @@ class JudgedTests(unittest.TestCase):
         self.capture()
         self.refuse('open', '--purpose', 'calibrate', '--panel', self.f.panel_path, '--seed', 0)
         self.capture()
-        self.opened()
+        self.calibration()
         self.begin()
         for purpose in ('calibrate', 'confirm', 'measure'):
             self.refuse('open', '--purpose', purpose, '--panel', self.f.panel_path, '--seed', 0)
@@ -248,12 +336,12 @@ class JudgedTests(unittest.TestCase):
     def test_open_blinding_seed_and_mapping_content(self):
         # scope: request text hides state, seed ordering is deterministic and covers both orders.
         self.calibration()
-        self.candidate(iteration=7)
+        self.candidate(iteration=37)
         seen, repeat = set(), {}
         for seed in list(range(12)) + [0]:
             e = self.opened('measure', seed)
             data = self.read(e / 'eval.json')
-            self.assertEqual(data['iteration'], 7)
+            self.assertEqual(data['iteration'], 37)
             self.assertEqual(data['panel'], panel())
             self.assertEqual(data['purpose'], 'measure')
             self.assertTrue(data['fingerprint'])
@@ -263,8 +351,8 @@ class JudgedTests(unittest.TestCase):
                 mapping = self.read(mapping_path)
                 mappings.append(mapping)
                 seen.add(mapping['A'])
-                request = (mapping_path.parent / 'request.md').read_text()
-                for forbidden in ('8.73', '7', 'incumbent', 'candidate', 'iteration',
+                request = (mapping_path.parent / 'request.md').read_text(encoding='utf-8')
+                for forbidden in ('8.73', '37', 'ref-1.md', 'incumbent', 'candidate', 'iteration',
                                   str(self.f.engagement), str(self.f.methodology_dir)):
                     self.assertNotIn(forbidden.lower(), request.lower())
                 for rubric in default_protocol()['categories'].values():
@@ -306,7 +394,7 @@ class JudgedTests(unittest.TestCase):
     def test_score_paired_ignores_earlier_ratchet(self):
         # §9.3: a historic ratchet must never participate in the paired rule.
         e = self.measure({'incumbent': 5, 'candidate': 6})
-        self.f.seed_results(dict(iteration=0, decision='confirm', ratchet=9.5, tree=self.read(e / 'eval.json')['incumbent_tree'], metric_type='judged'))
+        self.history(dict(iteration=0, decision='confirm', ratchet=9.5, tree=self.read(e / 'eval.json')['incumbent_tree'], metric_type='judged'))
         self.assertEqual(self.score(e)['status'], 'keep')
 
     def test_score_swapped_mapping_same_decision(self):
@@ -332,8 +420,8 @@ class JudgedTests(unittest.TestCase):
         for role in panel():
             for k, one, two in ((1, 4, 4.5), (2, 5.5, 5)):
                 values = self.cal_values(e, role, k, one, two)
-                values = {meaning: (dict(clarity=value, accuracy=8, usefulness=8)
-                                    if not meaning.startswith('ref:') else (4 if k == 1 else 4.2))
+                values = {meaning: (dict(clarity=value, accuracy=9.5-value, usefulness=8)
+                                    if not meaning.startswith('ref:') else (4 if k == 1 else 4.5))
                           for meaning, value in values.items()}
                 self.f.write_return(e, role, k, values)
         result = self.score(e)
@@ -354,7 +442,7 @@ class JudgedTests(unittest.TestCase):
         baseline_scores = numbers(baseline)
         self.assertTrue(baseline_scores)
         for value in baseline_scores:
-            self.assertAlmostEqual(value, 4.1)
+            self.assertAlmostEqual(value, 4.25)
 
     def cal_values(self, e, role, k, one, two):
         return {v: (one if v == 'capture-1' else two if v == 'capture-2' else 4)
@@ -377,16 +465,17 @@ class JudgedTests(unittest.TestCase):
         self.capture(); self.capture(); cal = self.opened()
         for mapping in cal.glob('*/mapping.json'):
             role, k = mapping.parent.name.rsplit('-', 1)
-            scores = {v: (3 if label == 'Ref-1' else 4 if v.startswith('ref:') else 5)
+            scores = {v: (3 if v == 'ref:' + p['references'][0] else 4 if v.startswith('ref:') else 5)
                       for label, v in self.read(mapping).items()}
             self.f.write_return(cal, role, int(k), scores)
         r = self.score(cal)
         self.assertEqual(r['metric'], 1)
-        self.f.seed_results(dict(iteration=0, decision='calibrate', eval=cal.name, tree=self.f.tree(), ratchet=1))
+        self.f.ok('checks', '--eval', cal.name, '--worktree', self.f.work, '--passed')
+        self.finalize(cal, 'calibrate')
         self.candidate(); e = self.opened('measure')
         for mapping in e.glob('*/mapping.json'):
             role, k = mapping.parent.name.rsplit('-', 1)
-            scores = {v: (3 if label == 'Ref-1' else 4 if v.startswith('ref:') else
+            scores = {v: (3 if v == 'ref:' + p['references'][0] else 4 if v.startswith('ref:') else
                           6 if v == 'candidate' else 5) for label, v in self.read(mapping).items()}
             self.f.write_return(e, role, int(k), scores)
         r = self.score(e)
@@ -438,7 +527,7 @@ class JudgedTests(unittest.TestCase):
         # scope D8: snapshot line counts, last eval, current tree and trial iteration.
         self.refuse('resolve', '--decision', 'withdraw', '--note', 'no pending trial', '--worktree', self.f.work)
         self.capture(); self.capture(); e = self.opened()
-        self.f.seed_results(dict(iteration=0, decision='invalid', eval=e.name),
+        self.history(dict(iteration=0, decision='invalid', eval=e.name),
                             dict(iteration=3, decision='skip'))
         for role, count in [('incumbent', 2), ('candidate', 1)]:
             path = self.f.engagement / 'captures' / f'{role}-failures.jsonl'
@@ -450,6 +539,7 @@ class JudgedTests(unittest.TestCase):
                                    failures=dict(incumbent=2, candidate=1), last_eval=e.name).items():
                 self.assertEqual(record[key], value)
             if decision in ('continue', 'reject'): self.assertEqual(record['tree'], self.f.tree())
+            if decision == 'continue': self.assertIs(record['adopted'], True)
         self.begin()
         self.f.ok('resolve', '--decision', 'withdraw', '--note', 'withdraw', '--worktree', self.f.work)
         record = json.loads((self.f.engagement / 'resolutions.jsonl').read_text().splitlines()[-1])
@@ -529,8 +619,9 @@ class JudgedTests(unittest.TestCase):
 
     def test_trial_previous_finalized_iteration_counts(self):
         # scope trial: previous trial.json contributes even when logs have smaller numbers.
-        self.f.seed_trial(iteration=11)
-        self.f.seed_results(dict(iteration=11, decision='skip'))
+        self.history(dict(iteration=10, decision='skip'))
+        self.assertEqual(self.begin()['iteration'], 11)
+        self.history(dict(iteration=11, decision='skip'))
         self.assertEqual(self.begin()['iteration'], 12)
 
     def test_trial_commit_wrong_worktree_refused(self):
@@ -629,7 +720,7 @@ def trial_refusal(case):
             if case == 'untracked': (self.f.work / 'extra').write_text('untracked')
             if case == 'detached': self.f.git('checkout', '--detach')
             if case == 'not_incumbent':
-                self.f.seed_results(dict(iteration=0, decision='calibrate', tree=self.f.tree(), ratchet=5))
+                self.history(dict(iteration=0, decision='calibrate', tree=self.f.tree(), ratchet=5))
                 self.f.commit('UNKNOWN TREE\n')
             if case == 'pending': self.begin()
             self.refuse('trial', 'begin', '--worktree', self.f.work, '--change', 'test')
@@ -668,12 +759,25 @@ def stale_case(case):
         elif case == 'capture_script':
             script = self.f.methodology_dir / 'capture.sh'; script.write_text(script.read_text() + '# changed\n')
             self.capture('candidate')
+        elif case in ('margin_floor', 'judges', 'relative_to', 'guardrails', 'reference_manifest'):
+            if case == 'margin_floor': p[case] = 0.5
+            elif case == 'judges': p[case] = [dict(j, tier=4) for j in p[case]]
+            elif case == 'relative_to': p[case] = 'references'
+            elif case == 'guardrails': p[case] = ['guard.sh --strict']
+            else:
+                # The frozen manifest cannot be changed by a production subcommand.
+                path = self.f.engagement / 'references/manifest.json'
+                raw = path.read_text()
+                changed = re.sub(r'[0-9a-f]{64}', '0' * 64, raw)
+                self.assertNotEqual(raw, changed)
+                path.write_text(changed)
+            if case != 'reference_manifest': self.f.write_methodology(p)
         elif case == 'target':
             p['target'] = 9.25; self.f.write_methodology(p)
         if case == 'target': self.opened('measure')
         else: self.refuse('open', '--purpose', 'measure', '--panel', self.f.panel_path, '--seed', 0)
     return test
-for case in ('panel', 'rubric', 'guardrail', 'correctness', 'capture_script', 'target'):
+for case in ('panel', 'rubric', 'guardrail', 'correctness', 'capture_script', 'target', 'margin_floor', 'judges', 'relative_to', 'guardrails', 'reference_manifest'):
     setattr(JudgedTests, 'test_open_epoch_' + case, stale_case(case))
 
 
@@ -708,8 +812,9 @@ def invalid_score(case):
         if case == 'error': payload = {'error': 'offline error'}
         elif case == 'missing_cell': del payload['items'][label]['clarity']
         elif case == 'unknown_label': payload['items']['UNKNOWN'] = payload['items']['A']
-        elif case in ('nan', 'high', 'negative'):
-            payload['items'][label]['clarity']['score'] = {'nan': float('nan'), 'high': 10.5, 'negative': -0.1}[case]
+        elif case == 'missing_item': del payload['items'][label]
+        elif case in ('nan', 'high', 'negative', 'pos_inf', 'neg_inf'):
+            payload['items'][label]['clarity']['score'] = {'nan': float('nan'), 'high': 10.5, 'negative': -0.1, 'pos_inf': float('inf'), 'neg_inf': -float('inf')}[case]
         elif case == 'missing_invocation': (e / 'primary-1/invocation.json').unlink()
         elif case == 'different_invocation':
             (e / 'primary-1/invocation.json').write_text(json.dumps(dict(provider='wrong', model='wrong', options={})))
@@ -737,7 +842,7 @@ def invalid_score(case):
             self.assertTrue(result['reason'])
             if case == 'drift': self.assertIs(result['drift'], True)
     return test
-for case in ('error', 'missing_cell', 'duplicate_cell', 'unknown_label', 'nan', 'high', 'negative',
+for case in ('error', 'missing_item', 'pos_inf', 'neg_inf', 'missing_cell', 'duplicate_cell', 'unknown_label', 'nan', 'high', 'negative',
              'reference_hash', 'missing_invocation', 'different_invocation', 'drift', 'drift_boundary'):
     setattr(JudgedTests, 'test_score_invalid_' + case, invalid_score(case))
 
@@ -748,7 +853,7 @@ def finalized_case(command):
         self.capture(); self.capture(); e = self.opened()
         if command != 'abandon': self.returns(e)
         if command in ('invalidate', 'checks'): self.score(e)
-        self.f.seed_results(dict(iteration=0, decision='calibrate', eval=e.name, tree=self.f.tree(), ratchet=5))
+        self.history(dict(iteration=0, decision='calibrate', eval=e.name, tree=self.f.tree(), ratchet=5))
         args = ['--eval', e.name]
         if command == 'invalidate': args += ['--reason', 'stale']
         if command == 'checks': args += ['--worktree', self.f.work, '--passed']
@@ -756,6 +861,83 @@ def finalized_case(command):
     return test
 for command in ('score', 'abandon', 'invalidate', 'checks'):
     setattr(JudgedTests, 'test_finalized_refuses_' + command, finalized_case(command))
+
+
+def asymmetric(case):
+    def test(self):
+        e = self.measure({'incumbent': 5, 'candidate': 7})
+        mapping = self.read(e / 'second-1/mapping.json')
+        values = {v: 4 if v.startswith('ref:') else 5 if v == 'incumbent' else 6 for v in mapping.values()}
+        if case == 'regression':
+            values['incumbent'] = dict(clarity=5, accuracy=8, usefulness=8)
+            values['candidate'] = dict(clarity=7, accuracy=7.5, usefulness=8)
+        self.f.write_return(e, 'second', 1, values)
+        if case == 'provenance':
+            (e / 'second-1/invocation.json').write_text(json.dumps(panel()['primary']))
+        if case == 'reference':
+            values[next(v for v in mapping.values() if v.startswith('ref:'))] = 4.75
+            self.f.write_return(e, 'second', 1, values)
+        r = self.score(e)
+        self.assertEqual(r['status'], 'invalid' if case in ('provenance', 'reference') else
+                         'discard' if case == 'regression' else 'keep')
+        if case == 'minimum': self.assertEqual(r['metric_candidate'], 6)
+        if case == 'reference': self.assertIs(r['drift'], True)
+    return test
+
+for _case in ('minimum', 'regression', 'provenance', 'reference'):
+    setattr(JudgedTests, 'test_second_judge_' + _case, asymmetric(_case))
+
+
+def calibrated_margin(case):
+    def test(self):
+        self.capture(); self.capture(); e = self.opened()
+        for role in panel():
+            for k in (1, 2):
+                # Only the second role contributes the maximum noise.
+                self.f.write_return(e, role, k, self.cal_values(e, role, k, 5,
+                                    6.5 if role == 'second' else 5))
+        r = self.score(e)
+        self.assertEqual((r['status'], r['noise'], r['margin']), ('valid', 1.5, 1.5))
+        self.f.ok('checks', '--eval', e.name, '--worktree', self.f.work, '--passed')
+        self.finalize(e, 'calibrate')
+        self.candidate(); e = self.opened('measure')
+        incumbent, candidate = 5, 7
+        if case == 'below': candidate = 6.25
+        if case == 'equal': candidate = 6.5
+        if case.startswith('regression'):
+            incumbent = dict(clarity=4, accuracy=9, usefulness=9)
+            candidate = dict(clarity=6, accuracy=7.5 if case == 'regression_equal' else 7.25, usefulness=9)
+        self.returns(e, {'incumbent': incumbent, 'candidate': candidate})
+        if case.startswith('drift'):
+            path = e / 'second-1/return.json'; payload = self.read(path)
+            mapping = self.read(path.parent / 'mapping.json')
+            label = next(label for label, value in mapping.items() if value.startswith('ref:'))
+            payload['items'][label]['clarity']['score'] = 7 if case == 'drift_equal' else 7.25
+            path.write_text(json.dumps(payload))
+        r = self.score(e)
+        expected = 'invalid' if case == 'drift_beyond' else 'discard' if case in (
+            'below', 'equal', 'regression_beyond') else 'keep'
+        self.assertEqual(r['status'], expected)
+        self.assertEqual(r['margin'], 1.5)
+        if case.startswith('drift'): self.assertIs(r['drift'], case == 'drift_beyond')
+    return test
+
+for _case in ('below', 'equal', 'above', 'regression_equal', 'regression_beyond', 'drift_equal', 'drift_beyond'):
+    setattr(JudgedTests, 'test_calibrated_margin_' + _case, calibrated_margin(_case))
+
+
+def panel_roles(case):
+    def test(self):
+        self.capture(); self.capture(); self.opened()  # valid panel positive control
+        p = panel()
+        if case == 'missing': del p['second']
+        else: p['extra'] = p['second']
+        write_panel(self.f.panel_path, p)
+        self.refuse('open', '--purpose', 'calibrate', '--panel', self.f.panel_path, '--seed', 0)
+    return test
+
+for _case in ('missing', 'extra'):
+    setattr(JudgedTests, 'test_open_panel_' + _case, panel_roles(_case))
 
 
 if __name__ == '__main__':
