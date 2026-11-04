@@ -1,6 +1,5 @@
 """File-derived reporting and bounded engagement discovery. Stdlib only."""
 import json
-import os
 import subprocess
 from pathlib import Path
 
