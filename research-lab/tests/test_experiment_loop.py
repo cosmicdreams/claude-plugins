@@ -146,23 +146,23 @@ class LoopTests(unittest.TestCase):
         self.assertEqual(self.command('next')['action'], 'edit')
         self.assertEqual(self.state()['status'], 'running')
 
-    def test_commands_refuse_live_lock_and_reclaim_dead_lock(self):
+    def test_commands_refuse_held_lock_and_ignore_stale_pid(self):
+        import fcntl
         self.init()
         lock = self.e / '.lock'
         before = (self.e / 'state.json').read_bytes()
+        with lock.open('w') as held:
+            held.write(str(os.getpid()))
+            held.flush()
+            fcntl.flock(held, fcntl.LOCK_EX)
+            for args in [('baseline',), ('confirm',), ('trial', 'score'), ('trial', 'commit')]:
+                out = self.command(*args, ok=False)
+                self.assertIn(f'another experiment command is running (pid {os.getpid()})', out['reason'])
+                self.assertEqual((self.e / 'state.json').read_bytes(), before)
+        # A pid left behind by a killed command (even one now reused by a live
+        # process, such as this test) holds no flock, so it never blocks.
         lock.write_text(str(os.getpid()))
-        for args in [('baseline',), ('confirm',), ('trial', 'score'), ('trial', 'commit')]:
-            out = self.command(*args, ok=False)
-            self.assertIn(f'another experiment command is running (pid {os.getpid()})', out['reason'])
-            self.assertEqual((self.e / 'state.json').read_bytes(), before)
-            self.assertTrue(lock.exists())
-        dead = subprocess.Popen([sys.executable, '-c', 'pass'])
-        dead.wait()
-        lock.write_text(str(dead.pid))
         self.baseline()
-        self.assertFalse(lock.exists())
-        self.command('baseline', ok=False)
-        self.assertFalse(lock.exists())
 
     def test_measurement_must_leave_tree_clean(self):
         for name, command in [('Measure', './measure.sh; echo generated > artifact; cat metric'),

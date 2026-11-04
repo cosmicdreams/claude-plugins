@@ -63,7 +63,7 @@ Run `EXP next --engagement E` and do its one action, then repeat:
 | `stop` | Go to Step 3. |
 
 Rules:
-- Run `baseline`, `trial score` and `confirm` in the foreground with the longest timeout your shell allows; they measure `Runs` times and hold a lock while they work. Never start a second one; if one refuses because another is running, wait for it.
+- Run `baseline`, `trial score` and `confirm` in the foreground with the longest timeout your shell allows; they measure `Runs` times and hold a lock while they work. Never start a second one; if one refuses because another is running, wait for it. The lock is released by the operating system when its command exits or is killed, so a leftover `E/.lock` file never needs removing.
 - Never run git yourself to commit, revert or reset a trial: `trial commit` stages every change in `W` outside `E`. The measurement commands must leave `W` clean; if `baseline` refuses because they did, fix the methodology (for example ignore generated files) rather than cleaning by hand.
 - In `E`, never edit `state.json`, `results.jsonl` or `progress.log`. You write `strategy.md` (the card and any `router_disagrees`) and, after the last `report`, the "worth maintaining?" column of `report.md`; running `report` again overwrites that column.
 - `propose` returns `tried` (changes discarded against the current incumbent), `kept` (changes kept so far) and, for remediate, `findings` (open finding IDs when the measure script prints `FINDING <id>` lines). Do not repeat a `tried` change.

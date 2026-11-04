@@ -111,50 +111,37 @@ def save(e, s):
 
 
 def live_lock(e):
+    """PID of the command holding E/.lock, or None. The kernel drops a flock when its holder dies."""
     try:
-        pid = int((e / '.lock').read_text())
-        if pid <= 0:
-            return None
-    except (OSError, ValueError):
+        fd = os.open(e / '.lock', os.O_RDONLY)
+    except OSError:
         return None
     try:
-        os.kill(pid, 0)
-        return pid
-    except PermissionError:
-        return pid
-    except ProcessLookupError:
+        fcntl.flock(fd, fcntl.LOCK_SH | fcntl.LOCK_NB)
+        fcntl.flock(fd, fcntl.LOCK_UN)
         return None
+    except BlockingIOError:
+        raw = os.read(fd, 32).decode(errors='replace').strip()
+        return int(raw) if raw.isdecimal() else -1
+    finally:
+        os.close(fd)
 
 
 @contextmanager
 def command_lock(e):
-    path = e / '.lock'
-    while True:
-        try:
-            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
-            break
-        except FileExistsError:
-            try:
-                # Serialize stale-lock takeover; another contender may have
-                # replaced the file we opened before we acquired this lock.
-                with path.open() as stale:
-                    fcntl.flock(stale, fcntl.LOCK_EX)
-                    if os.fstat(stale.fileno()).st_ino != path.stat().st_ino:
-                        continue
-                    raw = stale.read().strip()
-                    require(raw.isdecimal() and int(raw) > 0,
-                            'another experiment command is initializing its lock')
-                    pid = live_lock(e)
-                    require(pid is None, f'another experiment command is running (pid {pid})')
-                    path.unlink()
-            except FileNotFoundError:
-                pass
+    """Hold an exclusive flock on E/.lock for the whole command; the file itself is never removed."""
+    fd = os.open(e / '.lock', os.O_RDWR | os.O_CREAT, 0o600)
     try:
-        with os.fdopen(fd, 'w') as f:
-            f.write(str(os.getpid()))
+        try:
+            fcntl.flock(fd, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError:
+            raw = os.read(fd, 32).decode(errors='replace').strip()
+            raise ValueError(f'another experiment command is running (pid {raw or "?"})') from None
+        os.ftruncate(fd, 0)
+        os.write(fd, str(os.getpid()).encode())
         yield
     finally:
-        path.unlink()
+        os.close(fd)
 
 
 def shell(w, command):

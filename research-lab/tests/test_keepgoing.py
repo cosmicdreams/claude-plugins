@@ -20,12 +20,17 @@ class HookTests(ReportTests):
 
     def test_live_lock_keeps_hook_silent_and_state_unchanged(self):
         self.init()
+        import fcntl
         before = (self.e / 'state.json').read_bytes()
-        (self.e / '.lock').write_text(str(os.getpid()))
-        for command in ('stop', 'start'):
-            r = self.hook(command)
-            self.assertEqual((r.returncode, r.stdout, r.stderr), (0, '', ''))
-            self.assertEqual((self.e / 'state.json').read_bytes(), before)
+        with (self.e / '.lock').open('w') as held:
+            held.write(str(os.getpid()))
+            held.flush()
+            fcntl.flock(held, fcntl.LOCK_EX)
+            for command in ('stop', 'start'):
+                r = self.hook(command)
+                self.assertEqual((r.returncode, r.stdout, r.stderr), (0, '', ''))
+                self.assertEqual((self.e / 'state.json').read_bytes(), before)
+        self.assertEqual(json.loads(self.hook().stdout)['decision'], 'block')
 
     def test_import_failure_is_silent(self):
         for module in ('experiment_loop', 'experiment_report'):
